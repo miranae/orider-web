@@ -375,7 +375,21 @@
       "manageData": "Manage data",
       "dataLabel": "Manage your data",
       "dataHint": "Use data settings to export data and review activity deletion options.",
-      "cardManagement": "Account management"
+      "cardManagement": "Account management",
+      "cardSocial": "Sign-in connections",
+      "social": {
+        "naver": "Naver",
+        "kakao": "Kakao"
+      },
+      "socialLinked": "Linked — you can also sign in to this account with it.",
+      "socialNotLinked": "Link it to sign in to this account with this service.",
+      "socialLinkBtn": "Link",
+      "socialUnlinkBtn": "Unlink",
+      "socialUnlinkConfirm": "Unlink {{provider}}? You won't be able to sign in to this account with {{provider}}.",
+      "socialUnlinkLast": "You can't unlink your only sign-in method.",
+      "socialUnlinkFailed": "Couldn't unlink. Please try again.",
+      "socialLinkFailed": "Couldn't start linking. Please try again.",
+      "socialLoadFailed": "Couldn't load connection status."
     },
     "app": {
       "cardLocaleUnits": "Language & Units",

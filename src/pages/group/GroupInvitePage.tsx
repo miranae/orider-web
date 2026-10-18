@@ -29,7 +29,7 @@ function InviteSpinner({ label }: { label: string }) {
 export default function GroupInvitePage() {
   const { code } = useParams<{ code: string }>();
   const { t } = useTranslation("group");
-  const { user, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
@@ -105,7 +105,7 @@ export default function GroupInvitePage() {
             {t("inviteLink.loginPrompt")}
           </p>
           <Button variant="secondary"
-            onClick={signInWithGoogle}
+            onClick={signIn}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[var(--r-lg)] shadow-sm transition-colors border"
             style={{ background: "var(--bg-0)", borderColor: "var(--line-soft)" }}
           >

@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { onSnapshot } from "firebase/firestore";
 import * as runtimeConfig from "../services/runtimeConfig";
 import { AuthProvider, useAuth } from "./AuthContext";
+import { isSignInCancelled } from "../utils/signInCancelled";
 import {
   simulateLogin,
   simulateLogout,
@@ -16,14 +17,14 @@ import {
 import { createMockProfile } from "../__tests__/fixtures/mockData";
 
 function TestConsumer() {
-  const { user, profile, profileLoading, loading, signInWithGoogle, logout } = useAuth();
+  const { user, profile, profileLoading, loading, signIn, logout } = useAuth();
   return (
     <div>
       <div data-testid="loading">{String(loading)}</div>
       <div data-testid="user">{user ? user.uid : "null"}</div>
       <div data-testid="profile">{profile ? profile.nickname : "null"}</div>
       <div data-testid="profile-loading">{String(profileLoading)}</div>
-      <button onClick={signInWithGoogle}>로그인</button>
+      <button onClick={signIn}>로그인</button>
       <button onClick={logout}>로그아웃</button>
     </div>
   );
@@ -142,7 +143,7 @@ describe("AuthContext", () => {
     });
   });
 
-  it("calls signInWithPopup when signInWithGoogle is invoked", async () => {
+  it("signIn opens the provider chooser and Google calls signInWithPopup", async () => {
     const user = userEvent.setup();
     renderAuth();
 
@@ -151,7 +152,26 @@ describe("AuthContext", () => {
     });
 
     await user.click(screen.getByText("로그인"));
+    expect(mockSignInWithPopup).not.toHaveBeenCalled();
+    expect(screen.getByTestId("A1-1-2")).toBeInTheDocument();
+    expect(screen.getByTestId("A1-1-3")).toBeInTheDocument();
+    await user.click(screen.getByTestId("A1-1-1"));
     expect(mockSignInWithPopup).toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByTestId("A1-1")).not.toBeInTheDocument());
+  });
+
+  it("closing the chooser rejects signIn with the cancelled code", async () => {
+    let captured: unknown = null;
+    function Opener() {
+      const { signIn } = useAuth();
+      return <button onClick={() => { signIn().catch((err: unknown) => { captured = err; }); }}>열기</button>;
+    }
+    const user = userEvent.setup();
+    render(<MemoryRouter><AuthProvider><Opener /></AuthProvider></MemoryRouter>);
+    await user.click(screen.getByText("열기"));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(isSignInCancelled(captured)).toBe(true));
+    expect(screen.queryByTestId("A1-1")).not.toBeInTheDocument();
   });
 
   it("calls signOut on logout", async () => {

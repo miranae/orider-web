@@ -16,7 +16,7 @@ import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import { useRunRecords } from "../hooks/useRunRecords";
 
 const state = vi.hoisted(() => ({ canonicalEnabled: false, mobile: true, sportFilter: "run", feedScope: "self", user: { uid: "owner", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, runs: [] as Activity[], available: true, update: vi.fn(), weeklyLoad: undefined as Array<number | null> | undefined }));
-vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: state.user, profile: { createdAt: 1, thresholdPace: null }, loading: false, signInWithGoogle: vi.fn() }) }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: state.user, profile: { createdAt: 1, thresholdPace: null }, loading: false, signIn: vi.fn() }) }));
 vi.mock("../hooks/useCanonicalFitnessSummary", () => ({ useCanonicalFitnessSummary: () => ({ enabled: state.canonicalEnabled, values: null, display: null }) }));
 vi.mock("../hooks/useFitnessTimeseries", () => ({ useFitnessTimeseries: vi.fn(() => { throw new Error("중복 시계열 구독 금지"); }) }));
 vi.mock("../hooks/useMobile", () => ({ useMobile: () => state.mobile }));

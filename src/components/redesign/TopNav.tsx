@@ -5,6 +5,7 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { Search, Bell, Settings, LogIn, LogOut, User, Users, Bike, Activity, Trophy, Menu, X } from "lucide-react";
 import iconSvg from "../../assets/icon.svg";
 import { useAuth } from "../../contexts/AuthContext";
+import { isSignInCancelled } from "../../utils/signInCancelled";
 import { useToast } from "../../contexts/ToastContext";
 import { useGlobalSearch } from "../../hooks/useGlobalSearch";
 import { LanguageToggle } from "../i18n/LanguageToggle";
@@ -31,7 +32,7 @@ interface TopNavProps {
 
 export default function TopNav({ active, notifications = [], unreadCount = 0, friendRequestCount = 0, onMarkAllRead, onNotificationClick, onMobileNotifClick }: TopNavProps) {
   const { t } = useTranslation('common');
-  const { user, profile, signInWithGoogle, logout } = useAuth();
+  const { user, profile, signIn, logout } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const NAV_ITEMS = useMemo(
@@ -73,13 +74,13 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
     if (signInPending) return;
     setSignInPending(true);
     try {
-      await signInWithGoogle();
-    } catch {
-      showToast(t("auth.loginFailed"), "error");
+      await signIn();
+    } catch (err) {
+      if (!isSignInCancelled(err)) showToast(t("auth.loginFailed"), "error");
     } finally {
       setSignInPending(false);
     }
-  }, [showToast, signInPending, signInWithGoogle, t]);
+  }, [showToast, signInPending, signIn, t]);
 
   // 검색 드롭다운 외부 클릭 시 닫기
   useEffect(() => {

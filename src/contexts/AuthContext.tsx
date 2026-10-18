@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -29,6 +30,8 @@ import { track } from "../services/analytics";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { logClientError } from "../services/errorLogger";
 import type { UserProfile } from "@shared/types";
+import { SignInDialog } from "../components/auth/SignInDialog";
+import { signInCancelledError } from "../utils/signInCancelled";
 
 /**
  * Firebase 표준 `sign_up` vs `login` 분기 발사.
@@ -49,7 +52,8 @@ export interface AuthContextValue {
   profile: UserProfile | null;
   profileLoading: boolean;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  /** 로그인 방식 선택 창(Google·네이버·카카오)을 연다. Google 로 로그인되면 resolve, 창을 닫으면 reject. */
+  signIn: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -58,7 +62,7 @@ const AuthContext = createContext<AuthContextValue>({
   profile: null,
   profileLoading: true,
   loading: true,
-  signInWithGoogle: async () => {},
+  signIn: async () => {},
   logout: async () => {},
 });
 
@@ -78,6 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [signInOpen, setSignInOpen] = useState(false);
+  const pendingSignInRef = useRef<{ resolve: () => void; reject: (err: unknown) => void } | null>(null);
 
   // Listen to auth state
   useEffect(() => {
@@ -163,6 +169,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const signIn = useCallback(() => new Promise<void>((resolve, reject) => {
+    pendingSignInRef.current?.reject(signInCancelledError());
+    pendingSignInRef.current = { resolve, reject };
+    setSignInOpen(true);
+  }), []);
+
+  const handleDialogGoogle = useCallback(async () => {
+    await signInWithGoogle();
+    setSignInOpen(false);
+    pendingSignInRef.current?.resolve();
+    pendingSignInRef.current = null;
+  }, [signInWithGoogle]);
+
+  const handleDialogClose = useCallback(() => {
+    setSignInOpen(false);
+    pendingSignInRef.current?.reject(signInCancelledError());
+    pendingSignInRef.current = null;
+  }, []);
+
   // redirect 로그인 후 첫 로드에서 결과 회수 → sign_up vs login funnel 닫기.
   useEffect(() => {
     getRedirectResult(auth)
@@ -179,13 +204,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, profile, profileLoading, loading, signInWithGoogle, logout }),
-    [user, profile, profileLoading, loading, signInWithGoogle, logout],
+    () => ({ user, profile, profileLoading, loading, signIn, logout }),
+    [user, profile, profileLoading, loading, signIn, logout],
   );
 
   return (
     <AuthContext.Provider value={value}>
       {children}
+      <SignInDialog open={signInOpen} onClose={handleDialogClose} onGoogle={handleDialogGoogle} />
     </AuthContext.Provider>
   );
 }

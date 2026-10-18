@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   consentCallbacks: [] as Array<{ onCancel: () => void; onConsented: (saved: CoachConsentPolicy) => void }>,
 }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({
-  user: mocks.user, profile: { primaryDiscipline: "run" }, signInWithGoogle: mocks.signIn,
+  user: mocks.user, profile: { primaryDiscipline: "run" }, signIn: mocks.signIn,
 }) }));
 vi.mock("../contexts/DialogContext", () => ({ useDialog: () => ({ confirm: mocks.confirm }) }));
 vi.mock("../hooks/useLocalizedNavigate", () => ({ useLocalizedNavigate: () => mocks.navigate, useLocalizedPath: (path: string) => `/ko${path}` }));

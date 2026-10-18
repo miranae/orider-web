@@ -29,7 +29,7 @@ function signedIn({ children }: { children: React.ReactNode }) {
     profile: null,
     profileLoading: false,
     loading: false,
-    signInWithGoogle: async () => {},
+    signIn: async () => {},
     logout: async () => {},
   } satisfies AuthContextValue;
   return <AuthContextProvider value={value}>{children}</AuthContextProvider>;
@@ -41,7 +41,7 @@ function signedOut({ children }: { children: React.ReactNode }) {
     profile: null,
     profileLoading: false,
     loading: false,
-    signInWithGoogle: async () => {},
+    signIn: async () => {},
     logout: async () => {},
   } satisfies AuthContextValue;
   return <AuthContextProvider value={value}>{children}</AuthContextProvider>;
@@ -392,7 +392,7 @@ describe("useActivityMetrics 구독 범위의 첫 커밋", () => {
     function Wrapper({ children }: { children: React.ReactNode }) {
       const value = {
         user: uid ? { uid } as AuthContextValue["user"] : null, profile: null, profileLoading: false,
-        loading: false, signInWithGoogle: async () => {}, logout: async () => {},
+        loading: false, signIn: async () => {}, logout: async () => {},
       } satisfies AuthContextValue;
       return <AuthContextProvider value={value}>{children}</AuthContextProvider>;
     }

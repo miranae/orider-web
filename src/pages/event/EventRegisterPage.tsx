@@ -171,7 +171,7 @@ export default function EventRegisterPage() {
   const { t: tCommon } = useTranslation("common");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { user, profile, signInWithGoogle } = useAuth();
+  const { user, profile, signIn } = useAuth();
   const { showToast } = useToast();
 
   const [event, setEvent] = useState<EventSummary | null>(null);
@@ -464,7 +464,7 @@ export default function EventRegisterPage() {
           title={t("register.loginRequired")}
           description={t("register.loginDesc")}
           actionLabel={tCommon("button.loginGoogle")}
-          onAction={() => { void signInWithGoogle(); }}
+          onAction={() => { void signIn(); }}
         />
       </div>
     );

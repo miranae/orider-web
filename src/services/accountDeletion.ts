@@ -2,6 +2,7 @@ import { reauthenticateWithPopup } from "firebase/auth";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import { auth, ensureAppCheckReady, functions, getAppCheckToken, googleProvider } from "./firebase";
 import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
+import { startSocialAuth } from "./socialAuth";
 
 const deletionFunctions = getRuntimeConfig().appEnvironment === "stage"
   ? functions : getFunctions(functions.app, "asia-northeast3");
@@ -92,6 +93,16 @@ export async function getAccountDeletionStatus(receipt?: string): Promise<Accoun
 export async function reauthenticateAccountDeletion(): Promise<void> {
   const user = auth.currentUser;
   if (!user) throw new Error("SIGN_IN_REQUIRED");
+  // 네이버·카카오로만 로그인하는 계정은 Google 팝업으로 재인증할 수 없다 — 같은 서비스로
+  // 다시 로그인하면 같은 uid 의 새 세션(auth_time 갱신)으로 이 페이지에 돌아온다.
+  if (!user.providerData.some((p) => p.providerId === "google.com")) {
+    const { claims } = await user.getIdTokenResult();
+    const social = claims.socialProvider;
+    if (social === "naver" || social === "kakao") {
+      await startSocialAuth(social, "login", "/account-deletion");
+      return;
+    }
+  }
   await reauthenticateWithPopup(user, googleProvider);
   await user.getIdToken(true);
 }

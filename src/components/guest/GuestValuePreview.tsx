@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { useAuth } from "../../contexts/AuthContext";
+import { isSignInCancelled } from "../../utils/signInCancelled";
 import { useToast } from "../../contexts/ToastContext";
 import { Button, Card, Text, buttonClass } from "../../theme/components";
 
@@ -72,7 +73,7 @@ export default function GuestValuePreview({ kind, lang }: GuestValuePreviewProps
   const c = copy(kind, lang);
   const isFitness = kind === "fitness";
   const isPlan = kind === "plan";
-  const { signInWithGoogle } = useAuth();
+  const { signIn } = useAuth();
   const { showToast } = useToast();
   const [signInPending, setSignInPending] = useState(false);
 
@@ -81,9 +82,9 @@ export default function GuestValuePreview({ kind, lang }: GuestValuePreviewProps
     setSignInPending(true);
     try {
       // 팝업 로그인은 현재 페이지를 유지하고, 차단 시 Firebase redirect도 같은 URL로 돌아온다.
-      await signInWithGoogle();
-    } catch {
-      showToast((lang ?? "ko").startsWith("ko") ? "로그인에 실패했습니다. 다시 시도해 주세요." : "Sign-in failed. Please try again.", "error");
+      await signIn();
+    } catch (err) {
+      if (!isSignInCancelled(err)) showToast((lang ?? "ko").startsWith("ko") ? "로그인에 실패했습니다. 다시 시도해 주세요." : "Sign-in failed. Please try again.", "error");
     } finally {
       setSignInPending(false);
     }
