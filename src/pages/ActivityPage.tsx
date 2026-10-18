@@ -2,7 +2,7 @@ import { ArrowLeftRight, BarChart3, ChevronDown, Globe, Layers, Lock, Route, Tro
 import SportIcon from "../components/common/SportIcon";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useParams, useSearchParams, useLocation, useNavigationType } from "react-router-dom";
+import { useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
@@ -171,9 +171,7 @@ export default function ActivityPage() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
-  const sectionHeadingRef = useRef<HTMLDivElement>(null);
   const activityNavigationRef = useRef<HTMLDivElement>(null);
-  const initialTabPositioned = useRef(false);
   const [wideStats, setWideStats] = useState(false);
   const [secondaryStatsOpen, setSecondaryStatsOpen] = useState(false);
   useEffect(() => {
@@ -183,14 +181,9 @@ export default function ActivityPage() {
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
-  const scrollToActivitySection = useCallback(() => {
-    requestAnimationFrame(() => sectionHeadingRef.current?.scrollIntoView?.({ block: "start", behavior: "auto" }));
-  }, []);
   // 탭 네비게이션
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
-  const navigationType = useNavigationType();
-  const previousLocationKey = useRef(location.key);
   const [showExport, setShowExport] = useState(searchParams.get("tab") === "export");
   const requestedTab = searchParams.get("tab") ?? "overview";
   const activeTab = requestedTab === "splits" || requestedTab === "laps" ? "segments"
@@ -201,17 +194,6 @@ export default function ActivityPage() {
   useEffect(() => {
     if (requestedTab === "export") setShowExport(true);
   }, [requestedTab]);
-  useEffect(() => { initialTabPositioned.current = false; }, [activityId]);
-  useEffect(() => {
-    const changed = previousLocationKey.current !== location.key;
-    previousLocationKey.current = location.key;
-    if (changed && navigationType === "POP") scrollToActivitySection();
-  }, [location.key, navigationType, scrollToActivitySection]);
-  useEffect(() => {
-    if (loadingActivity || !sectionHeadingRef.current || initialTabPositioned.current) return;
-    initialTabPositioned.current = true;
-    if (activeTab !== "overview") scrollToActivitySection();
-  }, [activeTab, activityId, loadingActivity, scrollToActivitySection]);
   useEffect(() => {
     if (["segments", "splits", "laps", "export"].includes(requestedTab) && activity && !streams && !streamsSignInRequired) requestStreams();
   }, [requestedTab, activity, streams, streamsSignInRequired, requestStreams]);
@@ -1132,7 +1114,7 @@ export default function ActivityPage() {
           if (index < 0 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
           event.preventDefault();
           const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
-          tabs[next]?.focus();
+          tabs[next]?.focus({ preventScroll: true });
           tabs[next]?.click();
         }}>
           {[
@@ -1142,7 +1124,7 @@ export default function ActivityPage() {
             ...(isActivityOwner ? [{ id: "compare", icon: ArrowLeftRight }] : []),
           ].map(({ id, icon: Icon }) => <button key={id} id={`activity-tab-${id}`} data-testid="D1-T" type="button" role="tab"
             aria-selected={activeTab === id} aria-controls="activity-tab-panel" tabIndex={activeTab === id ? 0 : -1}
-            onClick={() => { pendingPeakLocation.current = null; pendingLap.current = null; setActiveTab(id); scrollToActivitySection(); }}>
+            onClick={() => { pendingPeakLocation.current = null; pendingLap.current = null; setActiveTab(id); }}>
             <Icon size={18} aria-hidden="true" /><span>{t(`tab.${id}`)}</span>
             {id === "segments" && segmentEfforts.length > 0 && <span className="activity-detail-tab-count">{segmentEfforts.length}</span>}
           </button>)}
@@ -1184,7 +1166,7 @@ export default function ActivityPage() {
 
       </div>
       <div id="activity-tab-panel" role="tabpanel" aria-labelledby={`activity-tab-${activeTab}`} tabIndex={0} className="activity-detail-panel">
-      <div ref={sectionHeadingRef} className="activity-detail-section-heading">
+      <div className="activity-detail-section-heading">
         <div><Text as="h2" variant="title">{t(`detail.${activeTab}.title`)}</Text>
           <Text as="p" variant="bodyMedium" tone="secondary">{t(`detail.${activeTab}.description`)}</Text></div>
       </div>

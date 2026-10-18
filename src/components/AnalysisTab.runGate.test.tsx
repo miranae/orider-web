@@ -328,7 +328,8 @@ describe("분석 용어 설명의 공용 동선", () => {
     const terms = language === "ko" ? koTerms : enTerms;
     for (const id of ["np", "if", "tss"] as const) {
       const trigger = document.querySelector(`[data-glossary-key="${id}"] button`)!;
-      expect(trigger).toHaveStyle({ textDecoration: "underline dotted" });
+      expect(trigger).toHaveStyle({ color: "var(--color-primary-dark)" });
+      expect((trigger as HTMLElement).style.textDecoration).toBe("");
       expect(trigger.querySelector("svg")).toBeNull();
       fireEvent.focus(trigger);
       fireEvent.click(trigger);
@@ -353,7 +354,8 @@ it.each(["ko", "en"] as const)("대사와 FATMAX도 같은 텍스트 설명 동�
   const terms = language === "ko" ? koTerms : enTerms;
   for (const label of [activity.metabolism.section, activity.metabolism.fatMaxZone]) {
     const trigger = screen.getByRole("button", { name: terms.openLabel.replace("{{term}}", label) });
-    expect(trigger).toHaveStyle({ textDecoration: "underline dotted" });
+    expect(trigger).toHaveStyle({ color: "var(--color-primary-dark)" });
+    expect((trigger as HTMLElement).style.textDecoration).toBe("");
     expect(trigger.querySelector("svg")).toBeNull();
     fireEvent.click(trigger);
     expect(screen.getByRole("tooltip")).toHaveClass("ds-tooltip-content");

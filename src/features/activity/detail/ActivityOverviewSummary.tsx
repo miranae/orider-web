@@ -199,7 +199,7 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       </div>
       {p.routeLoad!.elevationSuspect && note(copy("elevationSuspect"))}
     </SummarySection> : null;
-  return <GlossaryProvider scopeKey="activity-overview-summary" triggerTone="inherit"><Stack gap="var(--dim-section-gap)" className="activity-overview-root">
+  return <GlossaryProvider scopeKey="activity-overview-summary"><Stack gap="var(--dim-section-gap)" className="activity-overview-root">
     <Stack gap="var(--dim-item-gap)">
       {/* 성격이 곧 라벨이다 — 별도 은유 층을 두지 않는다. 서버가 확정한 값만 그린다(화면에서 재분류하지 않는다). */}
       <Stack direction="row" wrap><Chip variant={p.session.character ? "accent" : "default"}>

@@ -94,7 +94,7 @@ function MetricCard({ label, value, unit, description, color = "ink", tone, tool
         <Text variant="bodySmall" weight={600} style={{ fontSize: "var(--fs-xs)", letterSpacing: "normal" }}>
           {tooltip ? <InfoTip title={termId ? t(`terms.${termId}.label`) : label}
             content={termId ? t(`terms.${termId}.description`) : tooltip}
-            label={t("openLabel", { term: label })} termId={termId} tone="inherit">{label}</InfoTip> : label}
+            label={t("openLabel", { term: label })} termId={termId}>{label}</InfoTip> : label}
         </Text>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1 }}>
@@ -114,7 +114,7 @@ function MetricCard({ label, value, unit, description, color = "ink", tone, tool
 function MetricTerm({ termId, label }: { termId: GlossaryTermId; label: string }) {
   const { t } = useTranslation("termGlossary");
   return <InfoTip title={t(`terms.${termId}.label`)} content={t(`terms.${termId}.description`)}
-    label={t("openLabel", { term: label })} termId={termId} tone="inherit">{label}</InfoTip>;
+    label={t("openLabel", { term: label })} termId={termId}>{label}</InfoTip>;
 }
 
 function formatDuration(sec: number): string {
@@ -747,7 +747,7 @@ export default function AnalysisTab({
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: b.color, flexShrink: 0 }} />
                   <Text variant="bodySmall" weight={600} style={{ fontSize: "var(--fs-xs)" }}>
                     {BAND_GLOSSARY_KEY[b.label] ? <MetricTerm termId={BAND_GLOSSARY_KEY[b.label]!} label={b.label} />
-                      : b.label === "Threshold" ? <InfoTip title={b.label} content={t("analysis.glossary.threshold")} label={t("termGlossary:openLabel", { term: b.label })} tone="inherit">{b.label}</InfoTip>
+                      : b.label === "Threshold" ? <InfoTip title={b.label} content={t("analysis.glossary.threshold")} label={t("termGlossary:openLabel", { term: b.label })}>{b.label}</InfoTip>
                       : b.label}
                   </Text>
                 </div>

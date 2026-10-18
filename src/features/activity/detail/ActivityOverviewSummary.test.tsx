@@ -451,13 +451,17 @@ describe("overview duration wording", () => {
 });
 
 describe("overview v7 wording and tone", () => {
-  it("names the scope of the sport-only CTL footnote and keeps glossary terms in the surrounding ink", () => {
+  it("names the sport-only CTL scope and uses the same color-only glossary triggers as Home", () => {
     const { container } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, fitnessScope: "integrated",
       sportFitnessStatus: { discipline: "bike", ctl: 48.1, atl: 38.3, tsb: 9.8, evidence: "limited" } }} />);
     expect(screen.getByText(renderedText(/^라이딩 기록만 · CTL 48.1/))).toBeInTheDocument();
-    const trigger = container.querySelector('[data-glossary-term="np"] button') as HTMLButtonElement;
-    expect(trigger.style.color).toBe("inherit");
-    expect(trigger.style.minWidth).toBe("0");
+    const triggers = container.querySelectorAll<HTMLButtonElement>('[data-glossary-term] button');
+    expect(triggers.length).toBeGreaterThan(0);
+    for (const trigger of triggers) {
+      expect(trigger.style.color).toBe("var(--color-primary-dark)");
+      expect(trigger.style.textDecoration).toBe("");
+      expect(trigger.style.minWidth).toBe("var(--space-6)");
+    }
   });
 
   it("keeps the W′ meter inside the details grid and labels the curve point with its duration", () => {
