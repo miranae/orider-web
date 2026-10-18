@@ -8,7 +8,7 @@ import { useToast } from "../contexts/ToastContext";
 import { auth } from "../services/firebase";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
-import { completeSocialAuth } from "../services/socialAuth";
+import { completeSocialAuth, consumeSocialAuthState } from "../services/socialAuth";
 import { Button } from "../theme/components";
 
 type Step = "working" | "error";
@@ -42,6 +42,11 @@ export default function SocialAuthCallbackPage() {
 
     const code = searchParams.get("code");
     const state = searchParams.get("state");
+    if (!consumeSocialAuthState(state)) {
+      setErrorKey("socialCallback.error.denied");
+      setStep("error");
+      return;
+    }
     if (searchParams.get("error") || !code || !state) {
       setErrorKey(searchParams.get("error") ? "socialCallback.error.cancelled" : "socialCallback.error.generic");
       setStep("error");
