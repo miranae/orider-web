@@ -7,6 +7,7 @@ import type { Goal } from "@shared/types/goal";
 import { firestore, functions, ensureAppCheckReady } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTodayTrainingDecision } from "../../hooks/useTodayTrainingDecision";
+import { useTodayWorkoutChoice } from "../../hooks/useTodayWorkoutChoice";
 import { primaryEffectiveSession } from "../../features/trainingDecision/decisionPresentation";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { LocalizedLink } from "../LocalizedLink";
@@ -20,12 +21,25 @@ function HomeTodaySummary({ discipline }: { discipline: "bike" | "run" | "swim" 
   const { user } = useAuth();
   const { t } = useTranslation("dashboard");
   const { t: tTraining } = useTranslation("training");
+  const { t: tFitness } = useTranslation("fitness");
   const state = useTodayTrainingDecision(user?.uid, discipline);
-  if (!getRuntimeConfig().trainingDecisionEnabled) return null;
+  const choiceState = useTodayWorkoutChoice(user?.uid, discipline === "run" ? "run" : "bike");
+  // 사용자가 코치 오늘 화면에서 직접 정한 운동이 결정 엔진의 세션보다 먼저 보인다.
+  const choice = discipline === "swim" ? null : choiceState.choice;
+  const decisionEnabled = getRuntimeConfig().trainingDecisionEnabled;
+  if (!decisionEnabled && !choice) return null;
   const session = state.decision && state.decision.scheduledProjectionValidUntil > Date.now() ? primaryEffectiveSession(state.decision) : null;
-  return <Card data-testid="H2-2-1" data-home-slot="today" data-surface="home" className="flex flex-col gap-3" header={<Text as="h2" variant="subtitle">{t("todayStrip.today")}</Text>}>
-    <Text as="p" variant="bodySmall" tone="secondary"><GlossaryText>{state.loading ? t("todayStrip.loading") : state.unavailable ? t("todayStrip.unavailable") : session ? `${tTraining(`decision.workout.${session.current.workout}`, { defaultValue: session.current.workout })} · ${tTraining("decision.duration", { value: session.current.durationMin })}` : t("todayStrip.noToday")}</GlossaryText></Text>
-    <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/today?sport=${discipline}`}>{t("todayStrip.choose")}</LocalizedLink>
+  const choiceText = choice ? `${tFitness(`coach.choice.${choice.workoutType}.${choice.discipline}`)} · ${choice.workoutType === "rest" ? tFitness("coach.choice.noLoad") : `${choice.targetTss} TSS`}` : null;
+  const decisionText = state.loading ? t("todayStrip.loading") : state.unavailable ? t("todayStrip.unavailable") : session ? `${tTraining(`decision.workout.${session.current.workout}`, { defaultValue: session.current.workout })} · ${tTraining("decision.duration", { value: session.current.durationMin })}` : t("todayStrip.noToday");
+  return <Card data-testid="H2-2-1" data-home-slot="today" data-surface="home" data-today-source={choice ? "user-choice" : "decision"} className="flex flex-col gap-3" header={<Text as="h2" variant="subtitle">{t("todayStrip.today")}</Text>}>
+    {choice ? <div className="flex flex-col gap-1">
+      <Text as="p" variant="bodyMedium" weight={700}>{choiceText}</Text>
+      <div className="flex flex-wrap items-center gap-2">
+        <Chip>{t("todayStrip.userChoice")}</Chip>
+        {session && <Text as="span" variant="caption" tone="tertiary">{t("todayStrip.userChoiceOverPlan")}</Text>}
+      </div>
+    </div> : <Text as="p" variant="bodySmall" tone="secondary"><GlossaryText>{decisionText}</GlossaryText></Text>}
+    <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/today?sport=${discipline}`}>{t(choice ? "todayStrip.change" : "todayStrip.choose")}</LocalizedLink>
   </Card>;
 }
 /** 목표가 있을 때만 미래 예측을 읽는다. 현재 CTL 계산의 폴백으로 사용하지 않는다. */

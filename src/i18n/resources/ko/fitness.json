@@ -1112,9 +1112,22 @@
     "decisionUnavailable": "계획 결정·실행 기능은 준비 중입니다. 운동 선택과 예측은 계속 볼 수 있습니다.",
     "planAlternative": "계획 대신 가볍게",
     "runReadOnly": "오늘 단계 정보입니다. 시작 가능 여부는 앱에서 건강 상태와 일정을 확인한 뒤 정해집니다.",
-    "simpleDeliveryTitle": "간단 운동을 기기로 — 계획 세션과 별개",
+    "simpleDeliveryTitle": "정한 운동을 G1으로 보내기",
     "sendSimpleWorkout": "{{workout}} {{tss}} TSS 보내기",
-    "noDeviceLink": "기기가 없어요 → 설정 > 기기"
+    "noDeviceLink": "기기가 없어요 → 설정 > 기기",
+    "choice": {
+      "loading": "오늘 정한 운동을 확인하고 있어요.",
+      "loadFailed": "오늘 정한 운동을 불러오지 못했어요. 새로 정할 수는 있어요.",
+      "decide": "오늘 운동으로 정하기",
+      "change": "이 운동으로 바꾸기",
+      "hint": "정한 운동은 홈의 오늘 운동에 표시됩니다. 계획은 바뀌지 않습니다.",
+      "current": "지금 정한 운동: {{workout}} · {{load}}",
+      "decided": "오늘 운동으로 정했어요",
+      "decidedHint": "홈의 오늘 운동에 표시됩니다.",
+      "restDecided": "오늘은 쉬기로 정했어요. 기기로 보낼 운동은 없습니다.",
+      "cancel": "선택 취소",
+      "saveFailed": "저장하지 못했어요. 잠시 후 다시 시도해 주세요."
+    }
   },
   "analysis": {
     "header": {

@@ -2,7 +2,8 @@ import { GlossaryProvider } from "../common/GlossaryProvider";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ user: { uid: "owner", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, enabled: true, eventsFailed: false, goalsFailed: false, decisionFailed: false, callable: vi.fn(), goal: null as null | { id: string; title: string; eventDate: number }, snapshot: vi.fn(), projection: null as null | {goalId: string; goalDay: {ctl: number}} }));
+const mocks = vi.hoisted(() => ({ user: { uid: "owner", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, enabled: true, eventsFailed: false, goalsFailed: false, decisionFailed: false, callable: vi.fn(), goal: null as null | { id: string; title: string; eventDate: number }, snapshot: vi.fn(), projection: null as null | {goalId: string; goalDay: {ctl: number}}, choice: null as null | { discipline: "bike" | "run"; localDate: string; workoutType: "rest" | "recovery" | "endurance"; targetTss: 0 | 20 | 45; chosenAt: number } }));
+vi.mock("../../hooks/useTodayWorkoutChoice", () => ({ useTodayWorkoutChoice: () => ({ choice: mocks.choice, loading: false, loadFailed: false, saving: false, saveFailed: false, save: vi.fn() }) }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock("../../hooks/useTodayTrainingDecision", () => ({ useTodayTrainingDecision: () => ({ loading: false, unavailable: mocks.decisionFailed, decision: mocks.decisionFailed ? null : { scheduledProjectionValidUntil: Date.now() + 60000, representativeSessionId: "session", effectiveSessions: [{ sessionId: "session", current: { workout: "easy", durationMin: 30 } }] } }) }));
 vi.mock("../../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ trainingDecisionEnabled: mocks.enabled }) }));
@@ -13,7 +14,23 @@ vi.mock("firebase/firestore", () => ({ doc: (_db: unknown, ...parts: string[]) =
 import HomeTodayStrip from "./HomeTodayStrip";
 const props = { discipline: "bike" as const, fitness: { ctl: 20, atl: 30, tsb: -10 }, weeklyDetails: null, weeklySummary: "Week data", monthlyKm: 100, weeklyAverageKm: 50, guidance: "Guide" };
 describe("home today strip", () => {
-  beforeEach(() => { mocks.user = { uid: "owner", isAnonymous: false }; mocks.enabled = true; mocks.eventsFailed = false; mocks.goalsFailed = false; mocks.decisionFailed = false; mocks.goal = null; mocks.projection = null; vi.clearAllMocks(); });
+  beforeEach(() => { mocks.user = { uid: "owner", isAnonymous: false }; mocks.enabled = true; mocks.eventsFailed = false; mocks.goalsFailed = false; mocks.decisionFailed = false; mocks.goal = null; mocks.projection = null; mocks.choice = null; vi.clearAllMocks(); });
+  it("shows the workout the user chose today ahead of the plan session and offers to change it", () => {
+    mocks.choice = { discipline: "bike", localDate: "2026-10-18", workoutType: "recovery", targetTss: 20, chosenAt: 1 };
+    render(<MemoryRouter><HomeTodayStrip {...props} /></MemoryRouter>);
+    const card = screen.getByTestId("H2-2-1");
+    expect(card).toHaveAttribute("data-today-source", "user-choice");
+    expect(card).toHaveTextContent("회복 라이딩 · 20 TSS");
+    expect(card).toHaveTextContent("직접 정함");
+    expect(card).toHaveTextContent("계획 대신 정한 운동");
+    expect(screen.getByRole("link", { name: "바꾸기 →" })).toHaveAttribute("href", "/ko/coach/today?sport=bike");
+  });
+  it("shows a chosen rest day even when the decision rollout is disabled", () => {
+    mocks.enabled = false;
+    mocks.choice = { discipline: "run", localDate: "2026-10-18", workoutType: "rest", targetTss: 0, chosenAt: 1 };
+    render(<MemoryRouter><HomeTodayStrip {...props} discipline="run" /></MemoryRouter>);
+    expect(screen.getByTestId("H2-2-1")).toHaveTextContent("완전 휴식 · 추가 부하 없음");
+  });
   it("keeps goal recovery scoped to running when the goal snapshot fails", () => {
     mocks.goalsFailed = true;
     render(<MemoryRouter><HomeTodayStrip {...props} discipline="run" /></MemoryRouter>);

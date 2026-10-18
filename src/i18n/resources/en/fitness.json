@@ -1112,9 +1112,22 @@
     "decisionUnavailable": "Plan decisions and execution are coming soon. You can still compare workouts and forecasts.",
     "planAlternative": "A lighter alternative to the plan",
     "runReadOnly": "This is today’s program information. The app checks health and schedule before a session can start.",
-    "simpleDeliveryTitle": "Send a simple workout — separate from plan sessions",
+    "simpleDeliveryTitle": "Send this workout to your G1",
     "sendSimpleWorkout": "Send {{workout}} {{tss}} TSS",
-    "noDeviceLink": "No device? → Device settings"
+    "noDeviceLink": "No device? → Device settings",
+    "choice": {
+      "loading": "Checking today's chosen workout.",
+      "loadFailed": "Couldn't load today's chosen workout. You can still choose one.",
+      "decide": "Set as today's workout",
+      "change": "Switch to this workout",
+      "hint": "Your choice appears as today's workout on Home. Your plan stays unchanged.",
+      "current": "Today's workout: {{workout}} · {{load}}",
+      "decided": "Set as today's workout",
+      "decidedHint": "Shown as today's workout on Home.",
+      "restDecided": "You chose to rest today. Nothing will be sent to a device.",
+      "cancel": "Clear choice",
+      "saveFailed": "Couldn't save. Please try again shortly."
+    }
   },
   "analysis": {
     "header": {

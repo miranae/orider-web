@@ -717,7 +717,10 @@
     "importHistory": "Import existing activities",
     "goalCtl": "Projected goal-day CTL {{value}}",
     "monthFlowAllTitle": "This month · All sports",
-    "monthFlowAllValue": "{{distance}} km · {{percent}}% of usual monthly distance"
+    "monthFlowAllValue": "{{distance}} km · {{percent}}% of usual monthly distance",
+    "userChoice": "Chosen by you",
+    "userChoiceOverPlan": "Chosen instead of the plan",
+    "change": "Change →"
   },
   "homeMetrics": {
     "distance": "Distance traveled",

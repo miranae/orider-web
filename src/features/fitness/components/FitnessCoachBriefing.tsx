@@ -10,6 +10,7 @@ import { deriveActivityStimulus } from "../activityStimulus";
 import DetailsSection from "../../../components/redesign/DetailsSection";
 import { Button, Card, Chip, Text } from "../../../theme/components";
 import RiderWorkoutDeliveryPanel from "./RiderWorkoutDeliveryPanel";
+import type { TodayWorkoutChoiceState } from "../../../hooks/useTodayWorkoutChoice";
 import "./FitnessCoachBriefing.css";
 
 type ImpactMode = "marginal" | "actual";
@@ -35,6 +36,8 @@ interface FitnessCoachBriefingProps {
   mobilePriority?: boolean;
   deliveryEnabled?: boolean;
   choiceTitle?: string;
+  /** 넘기면 "오늘 고르기" 선택을 오늘 운동으로 저장하는 흐름을 켠다(코치 오늘 화면). */
+  todayChoice?: TodayWorkoutChoiceState;
   weekChangeSlot?: ReactNode;
   /** 현재 지표(CTL/ATL/TSB) 바로 아래 한 줄 — 부하 이력 해석의 충분도(낮은 근거일 때만 그려진다). */
   metricsNoteSlot?: ReactNode;
@@ -98,10 +101,65 @@ function initialTrainingChoice(tsb: number): TrainingChoice {
   return "endurance";
 }
 
-export default function FitnessCoachBriefing({ part = "all", impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false, deliveryEnabled = true, choiceTitle, weekChangeSlot, metricsNoteSlot, currentBasis, currentDate }: FitnessCoachBriefingProps) {
+/**
+ * "오늘 고르기"의 선택을 오늘 운동으로 저장하고, 정한 운동만 G1으로 보낸다.
+ * 정한 운동은 홈 오늘 운동 카드에 표시된다. 계획 세션은 바꾸지 않는다.
+ */
+function TodayChoiceActions({ state, selected, discipline, awaitingAggregate, deliveryEnabled, userId, onDeliveryBusyChange }: {
+  state: TodayWorkoutChoiceState;
+  selected: TrainingChoice;
+  discipline: "bike" | "run";
+  awaitingAggregate: boolean;
+  deliveryEnabled: boolean;
+  userId: string | null;
+  onDeliveryBusyChange: (busy: boolean) => void;
+}) {
+  const { t } = useTranslation("fitness");
+  const workoutLabel = (choice: TrainingChoice) => t(`coach.choice.${choice}.${discipline}`);
+  const loadLabel = (choice: TrainingChoice) => choice === "rest" ? t("coach.choice.noLoad") : t("coach.choice.load", { load: CHOICE_LOAD[choice] });
+  const saved = state.choice?.workoutType ?? null;
+  const decided = saved === selected;
+
+  return <div data-testid="K2-4" className="fitness-coach__handoff" data-today-choice={decided ? "decided" : saved ? "changed" : "undecided"}>
+    {state.loading && <Text as="p" variant="caption" tone="tertiary" style={{ margin: 0 }}>{t("today.choice.loading")}</Text>}
+    {state.loadFailed && <Text as="p" variant="caption" tone="warning" style={{ margin: 0 }}>{t("today.choice.loadFailed")}</Text>}
+    {!state.loading && !decided && <>
+      <Button data-testid="K2-4-1" variant="primary" block loading={state.saving} disabled={state.saving || awaitingAggregate}
+        onClick={() => void state.save(selected)}>
+        {t(saved ? "today.choice.change" : "today.choice.decide", { workout: workoutLabel(selected) })}
+      </Button>
+      <Text as="p" variant="caption" tone="tertiary" style={{ margin: 0 }}>
+        {saved ? t("today.choice.current", { workout: workoutLabel(saved), load: loadLabel(saved) }) : t("today.choice.hint")}
+      </Text>
+    </>}
+    {decided && <>
+      <div data-testid="K2-4-2" role="status" aria-live="polite" className="fitness-coach__delivery-status">
+        <Chip variant="success" dot>{t("today.choice.decided")}</Chip>
+        <Text as="p" variant="bodyMedium" style={{ margin: "var(--space-1) 0 0" }}>{workoutLabel(selected)} · {loadLabel(selected)}</Text>
+        <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{t("today.choice.decidedHint")}</Text>
+      </div>
+      {selected === "rest"
+        ? <Text as="p" variant="caption" tone="tertiary" style={{ margin: 0 }}>{t("today.choice.restDecided")}</Text>
+        : discipline === "bike" && (deliveryEnabled
+          ? <div data-testid="K2-3">
+            <Text as="h3" variant="subtitle">{t("today.simpleDeliveryTitle")}</Text>
+            <RiderWorkoutDeliveryPanel uid={userId} workoutType={selected} targetTss={CHOICE_LOAD[selected] as 20 | 45} onBusyChange={onDeliveryBusyChange} explicitWorkoutLabel />
+          </div>
+          // 전송 조건이 안 맞아도 이유를 말한다 — 예전에는 이 자리가 비어 있었다.
+          : <Text data-testid="K2-3-0" as="p" variant="caption" tone="tertiary" style={{ margin: 0 }}>{t("today.deliveryUnavailable")}</Text>)}
+      <Button data-testid="K2-4-3" variant="outline" size="sm" disabled={state.saving} onClick={() => void state.save(null)}>{t("today.choice.cancel")}</Button>
+    </>}
+    {state.saveFailed && <Text as="p" variant="caption" tone="warning" role="alert" style={{ margin: 0 }}>{t("today.choice.saveFailed")}</Text>}
+  </div>;
+}
+
+export default function FitnessCoachBriefing({ part = "all", impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false, deliveryEnabled = true, choiceTitle, todayChoice, weekChangeSlot, metricsNoteSlot, currentBasis, currentDate }: FitnessCoachBriefingProps) {
   const { t } = useTranslation("fitness");
   const [mode, setMode] = useState<ImpactMode>("marginal");
-  const [trainingChoice, setTrainingChoice] = useState<TrainingChoice>(() => part === "today" && !canonicalAvailable ? "rest" : initialTrainingChoice(current.tsb));
+  // 오늘 이미 정한 운동이 있으면 그 선택에서 시작한다 — 화면을 다시 열어도 정한 운동이 보여야 한다.
+  const savedChoice = todayChoice?.choice?.workoutType ?? null;
+  const defaultChoice = (): TrainingChoice => savedChoice ?? (part === "today" && !canonicalAvailable ? "rest" : initialTrainingChoice(current.tsb));
+  const [trainingChoice, setTrainingChoice] = useState<TrainingChoice>(defaultChoice);
   const [showRestNotice, setShowRestNotice] = useState(false);
   const [deliveryBusy, setDeliveryBusy] = useState(false);
   const selectedPending = pendingActivity?.id === selectedActivityId ? pendingActivity : null;
@@ -115,9 +173,9 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
   const delta = selected ? mode === "marginal" ? selected.marginalImpact : selected.actualDayChange : null;
   const stimulus = selectedActivity ? deriveActivityStimulus(selectedActivity, metricsMap?.get(selectedActivity.id)) : null;
   useEffect(() => {
-    setTrainingChoice(part === "today" && !canonicalAvailable ? "rest" : initialTrainingChoice(current.tsb));
+    setTrainingChoice(defaultChoice());
     setShowRestNotice(false);
-  }, [current.atl, current.ctl, current.tsb, discipline, pendingActivity?.id, part, canonicalAvailable]);
+  }, [current.atl, current.ctl, current.tsb, discipline, pendingActivity?.id, part, canonicalAvailable, savedChoice]);
   const choiceForecast = useMemo(() => {
     if (awaitingAggregate || !canonicalAvailable) return null;
     const firstRestPoint = forecast?.rest[0];
@@ -235,7 +293,10 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
               ))}
             </div>
           )}
-          {!awaitingAggregate && discipline === "bike" && (deliveryEnabled || trainingChoice === "rest") ? trainingChoice === "rest" ? (
+          {todayChoice && discipline !== "swim" ? (
+            <TodayChoiceActions state={todayChoice} selected={trainingChoice} discipline={discipline} awaitingAggregate={awaitingAggregate}
+              deliveryEnabled={deliveryEnabled} userId={userId} onDeliveryBusyChange={setDeliveryBusy} />
+          ) : !awaitingAggregate && discipline === "bike" && (deliveryEnabled || trainingChoice === "rest") ? trainingChoice === "rest" ? (
             <div className="fitness-coach__handoff">
               <Button data-testid={part === "today" ? "K2-1-3" : undefined} variant="primary" block onClick={() => setShowRestNotice(true)}>{t("coach.choice.restConfirm")}</Button>
               <Text as="p" variant="caption" tone="tertiary" role="status" style={{ margin: 0 }}>

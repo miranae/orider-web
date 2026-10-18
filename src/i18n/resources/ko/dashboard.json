@@ -717,7 +717,10 @@
     "importHistory": "기존 기록 가져오기",
     "goalCtl": "목표일 예상 CTL {{value}}",
     "monthFlowAllTitle": "이번 달 활동 · 전체 종목",
-    "monthFlowAllValue": "{{distance}} km · 평소 월간 거리 대비 {{percent}}%"
+    "monthFlowAllValue": "{{distance}} km · 평소 월간 거리 대비 {{percent}}%",
+    "userChoice": "직접 정함",
+    "userChoiceOverPlan": "계획 대신 정한 운동",
+    "change": "바꾸기 →"
   },
   "homeMetrics": {
     "distance": "이동거리",

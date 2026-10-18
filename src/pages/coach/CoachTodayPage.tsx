@@ -17,6 +17,7 @@ import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/app
 import Run30WorkoutOutline from "../../features/training/run30/Run30WorkoutOutline";
 import { Button, Card, Chip, Text, buttonClass } from "../../theme/components";
 import { useCoachFitnessModel } from "./CoachFitnessLayout";
+import { useTodayWorkoutChoice } from "../../hooks/useTodayWorkoutChoice";
 
 const WEB_START_MODE: Run30StartMode = { kind: "web" };
 export function RunningToday({ state, allowStart = false, startMode = WEB_START_MODE }: {
@@ -62,6 +63,7 @@ export default function CoachTodayPage() {
   const { t, user, discipline, currentPoint, i18n } = model;
   const sport = discipline === "tri" ? "bike" : discipline;
   const running = useRun30Program(sport === "run");
+  const todayChoice = useTodayWorkoutChoice(user?.uid, sport === "run" ? "run" : "bike");
   const header = <header className="coach-page-header" data-testid="K2-0"><Text as="h1" data-testid="K2-0-1" variant="pageTitle">{t("today.header.title")}</Text><div data-testid="K2-0-2"><DisciplineTabs value={sport} disabledKeys={["swim"]} /></div>{currentPoint && <div className="coach-current-state"><GlossaryText>{t("coach.metric.tsb")}</GlossaryText><Link data-testid="K2-0-3" aria-label={`${t("coach.metric.tsb")} ${currentPoint.tsb.toFixed(1)}`} to={`/coach/condition?sport=${sport}`}><strong>{currentPoint.tsb.toFixed(1)}</strong></Link></div>}</header>;
   if (!user) return <div className="site-shell">{header}<EmptyState title={t("today.guest")}  /><CoachSignInButton /></div>;
   const impacts = model.hasCanonicalTimeseries ? deriveActivityImpacts(model.fitnessData, model.disciplineActivities, { limit: 6, dateKeyBasis: model.fitnessDateKeyBasis }) : [];
@@ -83,7 +85,8 @@ export default function CoachTodayPage() {
           current={currentPoint ?? { ctl: 0, atl: 0, tsb: 0 }} decisionSlot={null} locale={i18n.language}
           canonicalAvailable={Boolean(currentPoint && model.hasCanonicalTimeseries)} pendingActivity={pending} pendingDayLoad={dayLoad}
           discipline={sport} userId={user.uid} deliveryEnabled={deliveryEnabled}
-          choiceTitle={t(hasScheduled ? "today.planAlternative" : "today.simpleWorkout")} />
+          choiceTitle={t(hasScheduled ? "today.planAlternative" : "today.simpleWorkout")}
+          todayChoice={sport === "swim" ? undefined : todayChoice} />
       </> : null;
       const decision = <TodayTrainingDecisionCard user={user} discipline={sport} surface="today" decisionState={state}
         suppressExecution={sport === "run" && (running.status !== "ready" || Boolean(running.program?.next))} />;
