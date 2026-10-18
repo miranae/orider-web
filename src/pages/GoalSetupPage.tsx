@@ -187,10 +187,12 @@ function Stepper({ current, steps }: StepperProps) {
 
 interface CourseSelectStepProps {
   selectedId: string | null;
+  /** 앱 임베드에서는 코스 만들기 화면으로 이동할 수 없어 링크를 숨긴다. */
+  hideCreateCourse?: boolean;
   onSelect: (id: string, course: { name: string; dist: number; elev: number; climbs?: Array<{ gain: number; dist: number; cat: number }> }) => void;
 }
 
-function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
+function CourseSelectStep({ selectedId, onSelect, hideCreateCourse = false }: CourseSelectStepProps) {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const difficultyLabels = {
@@ -348,7 +350,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
       </div>
 
       {/* 새 코스 만들기 */}
-      <Link
+      {!hideCreateCourse && <Link
         to="/course/create"
         style={{
           padding: "var(--space-3)",
@@ -371,7 +373,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
           <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
         {t('goals.courseCreateLink')}
-      </Link>
+      </Link>}
     </Card>
   );
 }
@@ -435,7 +437,15 @@ export default function GoalSetupPage() {
   return /\/coach\/goals$/.test(location.pathname) ? <GoalHub wizard={<GoalWizard embedded />} /> : <GoalWizard />;
 }
 
-function GoalWizard({ embedded = false }: { embedded?: boolean }) {
+/**
+ * 목표 설정 마법사. 앱 임베드 계획 화면(`inAppHost`)은 주소 이동이 막혀 있으므로
+ * 생성 뒤 이동 대신 `onCreated` 를 부르고, 앱에서 열 수 없는 "새 코스 만들기" 링크를 숨긴다.
+ */
+export function GoalWizard({ embedded = false, inAppHost = false, onCreated }: {
+  embedded?: boolean;
+  inAppHost?: boolean;
+  onCreated?: (goalId: string) => void;
+}) {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const { user, loading: authLoading, signIn } = useAuth();
@@ -543,6 +553,11 @@ function GoalWizard({ embedded = false }: { embedded?: boolean }) {
         discipline: discipline,
       });
       const data = result.data as { goalId: string };
+      if (onCreated) {
+        setSubmitting(false);
+        onCreated(data.goalId);
+        return;
+      }
       navigate(goalCreatedPath(searchParams, "bike", data.goalId));
     } catch (err) {
       logClientError('GoalSetupPage.handleStart', err, {
@@ -589,6 +604,7 @@ function GoalWizard({ embedded = false }: { embedded?: boolean }) {
           {step === 1 && (
             <div data-testid="K3-3-2"><CourseSelectStep
               selectedId={selectedCourseId}
+              hideCreateCourse={inAppHost}
               onSelect={(id, course) => { setSelectedCourseId(id); setSelectedCourse(course); }}
             /></div>
           )}

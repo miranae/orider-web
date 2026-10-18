@@ -84,6 +84,7 @@
     "goalDay": "Goal day",
     "planEmptyBody": "Training plan is still being generated. Please refresh later.",
     "planEmptyEmbeddedDesc": "Set a {{sportLabel}} goal on the website to create your plan, then reload this screen.",
+    "planEmptyInAppDesc": "Set a {{sportLabel}} goal below and your plan is created right away.",
     "embeddedTitle": "Training plan"
   },
   "workoutStatus": {

@@ -5,7 +5,7 @@ import InfoTip from "../../../components/InfoTip";
 import { GoalSourceNotice } from "../../../components/training/GoalInputNotice";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { planDayKey as kstDayKey, planDayStartMs, planCalendarDate } from "@shared/training/planDate";
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Goal, PlanWeek, PlanDay } from "@shared/types/goal";
 import { evaluateRecoveryDownshift } from "@shared/training/recoveryDownshift";
@@ -19,6 +19,9 @@ import { EmptyState, ErrorState } from "../../../components/redesign";
 import { Button, Card, Text } from "../../../theme/components";
 import { PlanAdjustmentNarrative } from "../../trainingHub/TrainingHubOpportunityPanel";
 import MobilePlanContent, { type MobilePlanContentProps } from "./MobilePlanContent";
+
+// 앱 임베드 계획 화면은 다른 주소로 이동할 수 없어, 목표가 없으면 마법사를 화면 안에 띄운다.
+const EmbeddedGoalWizard = lazy(() => import("../../../pages/GoalSetupPage").then((module) => ({ default: module.GoalWizard })));
 import {
   buildDayNames,
   buildWorkoutMeta,
@@ -660,15 +663,20 @@ export default function PlanPresentation({
         )}
         {embedded && <h1 className="orider-embedded-page-title">{t("page.embeddedTitle")}</h1>}
         <div style={{ padding: "var(--space-6) 0" }}>
-          <EmptyState
-            compact={embedded}
+          {embedded ? <div data-testid="embedded-plan-goal-wizard">
+            <EmptyState compact icon={sportIcon} title={t('page.planEmpty', { sportLabel })}
+              description={t('page.planEmptyInAppDesc', { sportLabel })} />
+            <Suspense fallback={<Text as="p" variant="caption" tone="tertiary">{tCommon("button.loading")}</Text>}>
+              <EmbeddedGoalWizard embedded inAppHost onCreated={() => retryLoad()} />
+            </Suspense>
+          </div> : <EmptyState
             icon={sportIcon}
             title={t('page.planEmpty', { sportLabel })}
-            description={t(embedded ? 'page.planEmptyEmbeddedDesc' : 'page.planEmptyDesc', { sportLabel })}
-            actions={embedded ? [{ label: tCommon("button.retry"), variant: "primary", onClick: () => retryLoad() }] : [
+            description={t('page.planEmptyDesc', { sportLabel })}
+            actions={[
               { label: t('page.planEmptyAction', { sportLabel }), variant: "primary", href: `/goal-setup?sport=${discipline}` },
             ]}
-          />
+          />}
         </div>
       </div>
     );
@@ -686,15 +694,20 @@ export default function PlanPresentation({
         )}
         {embedded && <h1 className="orider-embedded-page-title">{t("page.embeddedTitle")}</h1>}
         <div style={{ padding: "var(--space-6) 0" }}>
-          <EmptyState
-            compact={embedded}
+          {embedded ? <div data-testid="embedded-plan-goal-wizard">
+            <EmptyState compact icon={sportIcon} title={t('page.planEmpty', { sportLabel })}
+              description={t('page.planEmptyInAppDesc', { sportLabel })} />
+            <Suspense fallback={<Text as="p" variant="caption" tone="tertiary">{tCommon("button.loading")}</Text>}>
+              <EmbeddedGoalWizard embedded inAppHost onCreated={() => retryLoad()} />
+            </Suspense>
+          </div> : <EmptyState
             icon={sportIcon}
             title={t('page.planEmpty', { sportLabel })}
-            description={t(embedded ? 'page.planEmptyEmbeddedDesc' : 'page.planEmptyDesc', { sportLabel })}
-            actions={embedded ? [{ label: tCommon("button.retry"), variant: "primary", onClick: () => retryLoad() }] : [
+            description={t('page.planEmptyDesc', { sportLabel })}
+            actions={[
               { label: t('page.planEmptyAction', { sportLabel }), variant: "primary", href: `/goal-setup?sport=${discipline}` },
             ]}
-          />
+          />}
         </div>
       </div>
     );
