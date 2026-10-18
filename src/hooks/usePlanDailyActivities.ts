@@ -8,6 +8,9 @@
  * 활동이 추가·삭제되면 서버가 문서를 갱신하므로 재조회·캐시 로직은 두지 않는다.
  * 문서가 없거나 미완성(complete!==true)·스키마 불일치일 때만 `ensureDailyActivities` 를 부르고,
  * 같은 세션에서 같은 달은 한 번만 부른다(성공한 요청은 기억, 실패하면 다음 마운트에서 다시 시도).
+ * 트리거는 문서가 없는 달을 만들지 않으므로 문서가 없는 달은 반드시 ensure 로 만든다.
+ * 응답이 basis_changed(생성 중 FTP·시간대 변경)인 달은 한 번 더 부른다(같은 달 최대 2회).
+ * 서버가 받는 달은 사용자 시간대 기준 [이번 달-12, 이번 달] 뿐이라 그 밖의 달은 요청에서 뺀다.
  *
  * 날짜 매칭: 문서의 날짜 키는 사용자 시간대(timezone 필드) 기준 로컬 날짜다. 계획 칸 날짜는
  * PlanDay.date(KST 00:00 ms)를 planDayKey 로 바꾼 달력 날짜 문자열(YYYY-MM-DD)이다. 둘을 같은
@@ -17,11 +20,12 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
+import { connectFunctionsEmulator, getFunctions, httpsCallable, type Functions } from "firebase/functions";
 import type { PlanWeek } from "@shared/types/goal";
 import { planDayKey } from "@shared/training/planDate";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { debugLog, logClientError } from "../services/errorLogger";
+import { getRuntimeConfig, isEmulatorRuntime } from "../services/runtimeConfig";
 import type { PlanDiscipline } from "./usePlanModel";
 
 /** @sync-with orider-g1-web functions daily_activities schemaVersion */
@@ -182,6 +186,58 @@ export function localDateKey(epochMs: number, timeZone: string | null): string |
   }
 }
 
+/** ensureDailyActivities 가 받는 달 범위: 사용자 시간대 기준 [이번 달-12, 이번 달]. */
+export const ENSURE_MONTH_WINDOW = 12;
+/** basis_changed 재요청 포함 같은 달 최대 호출 수. */
+export const MAX_ENSURE_ATTEMPTS = 2;
+
+function shiftMonth(month: string, delta: number): string {
+  const index = Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1 + delta;
+  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
+}
+
+/** 서버가 받는 달만 남긴다(사용자 시간대 오늘 기준). */
+export function ensurableMonths(months: readonly string[], userTodayKey: string): string[] {
+  const current = userTodayKey.slice(0, 7);
+  const oldest = shiftMonth(current, -ENSURE_MONTH_WINDOW);
+  return months.filter(month => month >= oldest && month <= current);
+}
+
+/** 응답에서 basis_changed 인 달. */
+export function basisChangedMonths(data: unknown): string[] {
+  const months = data && typeof data === "object" ? (data as { months?: unknown }).months : null;
+  if (!Array.isArray(months)) return [];
+  return months.flatMap(item => item && typeof item === "object"
+    && (item as { status?: unknown }).status === "basis_changed"
+    && typeof (item as { month?: unknown }).month === "string" ? [(item as { month: string }).month] : []);
+}
+
+function browserTimeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+}
+
+/** ensureDailyActivities 배포 리전. */
+export const DAILY_ACTIVITIES_REGION = "asia-northeast3";
+const emulatorConnected = new WeakSet<Functions>();
+
+/**
+ * ensureDailyActivities 는 asia-northeast3 에 있다. 주입된(임베드 포함) functions 의 앱에서 그 리전
+ * 인스턴스를 얻는다. stage 는 기본 인스턴스가 이미 그 리전이고, 에뮬레이터는 accountDeletion 관례를 따른다.
+ */
+export function dailyActivitiesFunctions(base: Functions): Functions {
+  if (getRuntimeConfig().appEnvironment === "stage") return base;
+  const regional = getFunctions(base.app, DAILY_ACTIVITIES_REGION);
+  if (isEmulatorRuntime() && regional !== base && !emulatorConnected.has(regional)) {
+    connectFunctionsEmulator(regional, "localhost", 5001);
+    emulatorConnected.add(regional);
+  }
+  return regional;
+}
+
 // 세션 동안 같은 (uid, 종목, 달) 생성 요청을 한 번만 보낸다. 값은 성공 여부.
 const ensureRequests = new Map<string, Promise<boolean>>();
 
@@ -233,6 +289,8 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
     const awaiting = new Set<string>();
     const pending: string[] = [];
     let timer: ReturnType<typeof setTimeout> | null = null;
+    // 허용 달 범위 계산용 사용자 시간대. 문서에서 알게 되기 전에는 브라우저 시간대로 근사한다.
+    let knownTimezone: string | null = null;
 
     const update = (month: string, patch: Partial<MonthState>) => {
       if (cancelled) return;
@@ -248,16 +306,30 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
     };
     const flush = () => {
       timer = null;
-      const batch = pending.splice(0);
+      const pendingBatch = pending.splice(0);
+      if (pendingBatch.length === 0) return;
+      const userToday = localDateKey(Date.now(), knownTimezone ?? browserTimeZone()) ?? planDayKey(Date.now());
+      const batch = ensurableMonths(pendingBatch, userToday);
+      // 서버가 받지 않는 달(invalid-argument)은 요청하지 않고 있는 문서 그대로 둔다.
+      const outOfRange = pendingBatch.filter(month => !batch.includes(month));
+      if (outOfRange.length > 0) debugLog("PlanPage.ensureDailyActivities.skip", { discipline, months: outOfRange, userToday });
+      for (const month of outOfRange) update(month, { ensured: true });
       if (batch.length === 0) return;
-      const call = httpsCallable<{ discipline: PlanDiscipline; months: string[] }, unknown>(functions, "ensureDailyActivities")({ discipline, months: batch })
-        .then((result) => {
-          debugLog("PlanPage.ensureDailyActivities", { discipline, months: batch, result: result.data });
-          return true;
-        }, (error: unknown) => {
-          logClientError("PlanPage.ensureDailyActivities", error, { discipline, months: batch });
-          return false;
-        });
+      const ensure = httpsCallable<{ discipline: PlanDiscipline; months: string[] }, unknown>(dailyActivitiesFunctions(functions), "ensureDailyActivities");
+      const call = (async () => {
+        let targets = batch;
+        for (let attempt = 1; attempt <= MAX_ENSURE_ATTEMPTS && targets.length > 0; attempt++) {
+          const result = await ensure({ discipline, months: targets });
+          debugLog("PlanPage.ensureDailyActivities", { discipline, months: targets, attempt, result: result.data });
+          const requested = targets;
+          targets = basisChangedMonths(result.data).filter(month => requested.includes(month));
+        }
+        // 두 번째도 basis_changed 면 더 부르지 않는다. 문서 갱신은 구독이 받는다.
+        return true;
+      })().catch((error: unknown) => {
+        logClientError("PlanPage.ensureDailyActivities", error, { discipline, months: batch });
+        return false;
+      });
       for (const month of batch) {
         const requestKey = `${uid}|${discipline}|${month}`;
         const request = call.then(ok => {
@@ -274,6 +346,7 @@ export function usePlanDailyActivities({ uid, discipline, weeks, enabled }: Opti
       snapshot => {
         const data = snapshot.exists() ? snapshot.data() as Record<string, unknown> : null;
         const needsEnsure = !data || data.complete !== true || data.schemaVersion !== DAILY_ACTIVITIES_SCHEMA_VERSION;
+        if (typeof data?.timezone === "string" && data.timezone !== "") knownTimezone = data.timezone;
         update(month, {
           received: true,
           needsEnsure,

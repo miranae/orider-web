@@ -1,12 +1,16 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { onSnapshot } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import * as runtimeConfig from "../services/runtimeConfig";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PlanWeek } from "@shared/types/goal";
 import { mockCallableInvocations, setCallableImplementation, setDocData } from "../__tests__/mocks/firebase";
 import * as errorLogger from "../services/errorLogger";
 import {
   __resetDailyActivitiesEnsureForTests,
+  basisChangedMonths,
   dailyActivitiesUnavailable,
+  ensurableMonths,
   parseDailyActivityDays,
   planActivityMonths,
   sumDailyTss,
@@ -64,6 +68,18 @@ describe("daily activity document helpers", () => {
     expect(sumDailyTss(days, ["2026-10-03"])).toEqual({ value: null, estimated: false });
     expect(sumDailyTss(days, ["2026-10-04"])).toEqual({ value: 0, estimated: false });
     expect(sumDailyTssInRange(days, "2026-10-02", "2026-10-31")).toEqual({ value: 20, estimated: true });
+  });
+});
+
+describe("ensure request helpers", () => {
+  it("keeps only months the server accepts: [this month-12, this month] in the user's time zone", () => {
+    expect(ensurableMonths(["2025-09", "2025-10", "2026-10", "2026-11"], "2026-10-31")).toEqual(["2025-10", "2026-10"]);
+    expect(ensurableMonths(["2025-12", "2026-01"], "2026-01-01")).toEqual(["2025-12", "2026-01"]);
+  });
+
+  it("reads basis_changed months from the response", () => {
+    expect(basisChangedMonths({ months: [{ month: "2026-09", status: "built" }, { month: "2026-10", status: "basis_changed" }, { status: "basis_changed" }] })).toEqual(["2026-10"]);
+    expect(basisChangedMonths(null)).toEqual([]);
   });
 });
 
@@ -168,5 +184,48 @@ describe("usePlanDailyActivities", () => {
     act(() => view.unmount());
     for (const unsubscribe of unsubscribes) expect(unsubscribe).toHaveBeenCalledOnce();
     vi.mocked(onSnapshot).mockImplementation(original);
+  });
+
+  it("calls the asia-northeast3 callable (the default instance on stage)", async () => {
+    setDocData(path("2026-10"), monthDoc("2026-10", {}));
+    vi.mocked(httpsCallable).mockClear();
+    const first = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks, enabled: true }));
+    await waitFor(() => expect(first.result.current?.loading).toBe(false));
+    expect(vi.mocked(httpsCallable).mock.calls.find(([, name]) => name === "ensureDailyActivities")?.[0]).toMatchObject({ region: "asia-northeast3" });
+    first.unmount();
+
+    __resetDailyActivitiesEnsureForTests();
+    vi.mocked(httpsCallable).mockClear();
+    const config = runtimeConfig.getRuntimeConfig();
+    vi.spyOn(runtimeConfig, "getRuntimeConfig").mockReturnValue({ ...config, appEnvironment: "stage" });
+    const second = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks, enabled: true }));
+    await waitFor(() => expect(second.result.current?.loading).toBe(false));
+    expect(vi.mocked(httpsCallable).mock.calls.find(([, name]) => name === "ensureDailyActivities")?.[0]).not.toHaveProperty("region");
+  });
+
+  it("asks again for basis_changed months, at most twice per month", async () => {
+    setCallableImplementation("ensureDailyActivities", async (data) => {
+      const months = (data as { months: string[] }).months;
+      return { data: { timezone: "Asia/Seoul", months: months.map(month => ({ month, status: month === "2026-10" ? "basis_changed" : "built" })) } };
+    });
+    const { result } = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks, enabled: true }));
+    await waitFor(() => expect(result.current?.loading).toBe(false));
+    expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities").map(call => call.data)).toEqual([
+      { discipline: "bike", months: ["2026-09", "2026-10"] },
+      { discipline: "bike", months: ["2026-10"] },
+    ]);
+  });
+
+  it("does not request months after the user's current month, even when KST is already there", async () => {
+    // 2026-11-01 03:00 KST = 2026-10-31 (America/Los_Angeles)
+    vi.mocked(Date.now).mockReturnValue(Date.parse("2026-11-01T03:00:00+09:00"));
+    const crossing = [{ ...weeks[1], days: [planDay("2026-10-26"), planDay("2026-11-01")] }] as unknown as PlanWeek[];
+    setDocData(path("2026-10"), monthDoc("2026-10", {}, { complete: false, timezone: "America/Los_Angeles" }));
+    const { result } = renderHook(() => usePlanDailyActivities({ uid: "me", discipline: "bike", weeks: crossing, enabled: true }));
+    await waitFor(() => expect(result.current?.loading).toBe(false));
+    expect(mockCallableInvocations.filter(call => call.name === "ensureDailyActivities").map(call => call.data)).toEqual([
+      { discipline: "bike", months: ["2026-10"] },
+    ]);
+    expect(result.current?.failedMonths.size).toBe(0);
   });
 });
