@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PlanDay, PlanWeek } from "@shared/types/goal";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import MobilePlanContent from "./MobilePlanContent";
+import type { DailyActivityDay, PlanDailyActivities } from "../../../hooks/usePlanDailyActivities";
 
 const today = (() => {
   const kstDate = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
@@ -27,6 +28,16 @@ const week: PlanWeek = {
   plannedTSS: 60,
   days: [workout],
 };
+
+const dateKey = (ms: number) => new Date(ms + 9 * 3_600_000).toISOString().slice(0, 10);
+const activityDay = (id: string, tss: number | null, estimated = false): DailyActivityDay => ({
+  tss, tssEstimated: estimated,
+  activities: [{ id, startTime: today + 7 * 3_600_000, distance: 25000, movingSec: 3600, tss, estimated, source: "orider" }],
+});
+function actualOf(days: Record<string, DailyActivityDay>, overrides: Partial<PlanDailyActivities> = {}): PlanDailyActivities {
+  return { discipline: "bike", timezone: "Asia/Seoul", todayKey: dateKey(today), days: new Map(Object.entries(days)),
+    loading: false, failedMonths: new Set(), total: { value: 0, estimated: false }, ...overrides };
+}
 
 describe("MobilePlanContent product hierarchy", () => {
   it("keeps a date-linked past workout visible and highlights its date without changing today", () => {
@@ -66,7 +77,6 @@ describe("MobilePlanContent product hierarchy", () => {
         goalTitle="2026_비앙키그란폰도춘천_그란폰도_122.91km"
         daysLeft={25}
         progressPct={7}
-        completedTSS={169}
         totalTSS={2595}
         projectedCTL={6}
         onEditWorkout={edit}
@@ -109,9 +119,16 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.queryByText("0 TSS")).not.toBeInTheDocument();
   });
 
-  it("does not present a completed workout as the next action", () => {
-    renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [{ ...workout, completed: true }] }} weekLabel="이번 주" goalTitle="목표" />);
+  it("treats a day with an actual activity as done, regardless of plan completion links", () => {
+    const view = renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [workout] }} weekLabel="이번 주" goalTitle="목표"
+      actual={actualOf({ [dateKey(today)]: activityDay("today-ride", 55) })} />);
     expect(screen.queryByText("오늘의 다음 운동")).not.toBeInTheDocument();
+    expect(screen.getByText("운동한 날")).toBeInTheDocument();
+    // 연결 판정이 완료여도 활동이 없으면 "한 날"이 아니고, 오늘 운동은 그대로 다음 운동이다.
+    view.rerender(<MobilePlanContent currentWeek={{ ...week, days: [{ ...workout, completed: true }] }} weekLabel="이번 주" goalTitle="목표" actual={actualOf({})} />);
+    expect(screen.getByText("오늘의 다음 운동")).toBeInTheDocument();
+    expect(screen.queryByText("운동한 날")).not.toBeInTheDocument();
+    expect(screen.queryByText("완료")).not.toBeInTheDocument();
   });
 
   it("shows the next scheduled workout when today is a rest day", () => {
@@ -200,4 +217,43 @@ it("uses canonical KST dates for weekdays while preserving the stored edit index
   expect(edit).toHaveBeenCalledWith(friday, week.id, 0);
   expect(screen.getByText('토')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /^월 16 / })).not.toBeInTheDocument();
+});
+
+describe("MobilePlanContent actual activities", () => {
+  it("lists a rest day's activities, the week's actual load and the summary actual load", () => {
+    const rest = { ...workout, workout: "rest" as const, plannedTSS: 0 };
+    const actual = actualOf({ [dateKey(today)]: activityDay("ride-9", 55) }, { total: { value: 55, estimated: false } });
+    renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [rest] }} weekLabel="W1" goalTitle="Goal" totalTSS={200} actual={actual} />);
+    expect(screen.getByTestId("K4-5-8")).toHaveAttribute("href", "/ko/activity/ride-9");
+    expect(screen.getByTestId("K4-5-8")).toHaveTextContent("07:00 · 25.0km · 55 TSS");
+    expect(screen.getByTestId("K4-5-9")).toHaveTextContent("실제 55 TSS");
+    expect(screen.getByTestId("K4-7-2")).toHaveTextContent("55");
+    expect(screen.getByTestId("K4-2-5")).toHaveTextContent("55/200");
+    expect(screen.getByRole("img", { name: "운동한 날" })).toBeInTheDocument();
+  });
+
+  it("shows only the plan for a past day without activity, dimmed and without a missed label", () => {
+    const past = { ...workout, date: today - 86_400_000 };
+    const view = renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [past, workout] }} weekLabel="W1" selectedDate={dateKey(past.date)} actual={actualOf({})} />);
+    const row = view.container.querySelector(`[data-plan-date="${dateKey(past.date)}"]`) as HTMLElement;
+    expect(row).toHaveStyle({ opacity: "0.6" });
+    expect(screen.queryByText("미완료")).not.toBeInTheDocument();
+    expect(screen.getByTestId("K4-7-2")).toHaveTextContent("0");
+  });
+
+  it("keeps the plan with a small notice for days whose month could not be loaded", () => {
+    const actual = actualOf({}, { failedMonths: new Set([dateKey(today).slice(0, 7)]), total: null });
+    renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="W1" goalTitle="Goal" actual={actual} />);
+    expect(screen.getByTestId("K4-5-10")).toHaveTextContent("활동 확인 불가");
+    expect(screen.queryByTestId("K4-7-2")).not.toBeInTheDocument();
+    expect(screen.getByTestId("K4-2-5")).toHaveTextContent("—");
+    expect(screen.getByText("75 분 · 60 TSS")).toBeInTheDocument();
+  });
+
+  it("marks estimated activity load", () => {
+    const actual = actualOf({ [dateKey(today)]: activityDay("est-ride", 30, true) }, { total: { value: 30, estimated: true } });
+    renderWithProviders(<MobilePlanContent currentWeek={week} weekLabel="W1" goalTitle="Goal" actual={actual} />);
+    expect(screen.getByTestId("K4-5-8")).toHaveTextContent("30 TSS 추정");
+    expect(screen.getByTestId("K4-2-5")).toHaveTextContent("30 추정");
+  });
 });

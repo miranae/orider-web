@@ -151,7 +151,7 @@ export default function PlanPage() {
           goalDate={props.goalDate}
           daysLeft={props.daysLeft}
           progressPct={props.progressPct}
-          completedTSS={props.completedTSS}
+          actual={props.actual}
           totalTSS={props.totalTSS}
           weeksLeft={props.weeksLeft}
           projectedCTL={props.projectedCTL}

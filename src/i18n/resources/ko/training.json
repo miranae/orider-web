@@ -79,12 +79,16 @@
     "weekHeader": "주차",
     "tssHeader": "훈련부하 · TSS",
     "skipped": "건너뜀",
-    "missed": "미완료",
     "today": "TODAY",
     "goalDay": "목표일",
     "planEmptyBody": "운동 계획이 아직 생성 중입니다. 잠시 후 새로고침하세요.",
     "planEmptyEmbeddedDesc": "웹에서 {{sportLabel}} 목표를 설정하면 계획이 생성됩니다. 설정 후 다시 불러와 주세요.",
-    "embeddedTitle": "운동 계획"
+    "embeddedTitle": "운동 계획",
+    "actualDayTSS": "실제 {{value}} TSS",
+    "actualWeekTSS": "실제 {{value}}",
+    "actualActivities": "{{date}} 실제 활동",
+    "activitiesUnavailable": "활동 확인 불가",
+    "activeDay": "운동한 날"
   },
   "workoutStatus": {
     "skipped": "건너뜀",
@@ -160,9 +164,8 @@
   },
   "metrics": {
     "progress": "진행률",
-    "progressBasis": "현재 유효 처방 대비 계획 진행률입니다. 실제 부하가 없으면 완료한 처방값을 반영하며, 실측 부하 합계를 뜻하지 않습니다.",
-    "sessionsLeft": "전체 계획 미완료",
-    "completedTSS": "완료 TSS",
+    "progressBasis": "계획 첫날부터 오늘까지 실제로 기록한 부하(TSS)를 저장된 전체 계획 TSS 와 비교한 비율입니다.",
+    "sessionsLeft": "남은 계획 운동",
     "weeksLeft": "남은 저장 계획 주수",
     "weeksUnit": "주",
     "projectedCTL": "CTL 변화 가이드",
@@ -173,7 +176,9 @@
     "targetDuration": "목표시간",
     "plannedGeneration": "운동 계획이 아직 생성 중입니다. 잠시 후 새로고침하세요.",
     "distanceLabel": "이동거리",
-    "elevationLabel": "획득고도"
+    "elevationLabel": "획득고도",
+    "actualTSS": "실제 부하",
+    "actualTSSBasis": "계획 첫날부터 오늘까지 이 종목으로 실제 기록한 활동의 TSS 합계입니다. 같은 운동이 여러 번 기록되면 한 번만 셉니다."
   },
   "plan.rerollSuccess": "운동 계획을 재생성했습니다.",
   "goalHub": {
@@ -488,9 +493,7 @@
     "hidePastDays": "지난 일정 접기",
     "edit": "편집",
     "restDay": "휴식일",
-    "stateDone": "완료",
     "stateToday": "오늘",
-    "statePast": "미완료",
     "statePlanned": "예정",
     "start": "시작",
     "todayNext": "오늘의 다음 운동",
@@ -501,7 +504,9 @@
     "managePlan": "계획 관리",
     "sportLoad": "종목별 부하",
     "intensityLegend": "운동 강도 범례",
-    "sessionsUnit": "회"
+    "sessionsUnit": "회",
+    "stateActive": "운동한 날",
+    "weeklyActualTSS": "실제 부하 · TSS"
   },
   "add": {
     "title": "운동 추가",
@@ -1210,6 +1215,6 @@
     "weeks": "약 {{weeks}}주",
     "minutes": "{{count}}분"
   },
-  "scope.summary": "목표일까지 예정 {{untilGoal}}회 · 목표일 이후 저장된 운동 {{afterGoal}}회 · 지난 미완료 {{overdue}}회. 아래 달력과 진행률은 저장된 전체 계획입니다.",
+  "scope.summary": "목표일까지 예정 {{untilGoal}}회 · 목표일 이후 저장된 운동 {{afterGoal}}회 · 활동 없이 지난 운동 {{overdue}}회. 아래 달력과 진행률은 저장된 전체 계획입니다.",
   "scope.nextAfterGoal": "목표일 이후 저장된 운동"
 }

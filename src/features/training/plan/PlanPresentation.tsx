@@ -3,7 +3,6 @@ import { Eye, RefreshCw, Target } from "lucide-react";
 import GlossaryText from "../../../components/common/GlossaryText";
 import InfoTip from "../../../components/InfoTip";
 import { GoalSourceNotice } from "../../../components/training/GoalInputNotice";
-import { LocalizedLink } from "../../../components/LocalizedLink";
 import { planDayKey as kstDayKey, planDayStartMs, planCalendarDate } from "@shared/training/planDate";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -19,6 +18,13 @@ import { EmptyState, ErrorState } from "../../../components/redesign";
 import { Button, Card, Text } from "../../../theme/components";
 import { PlanAdjustmentNarrative } from "../../trainingHub/TrainingHubOpportunityPanel";
 import MobilePlanContent, { type MobilePlanContentProps } from "./MobilePlanContent";
+import PlanDayActivities from "./PlanDayActivities";
+import {
+  dailyActivitiesUnavailable,
+  sumDailyTss,
+  usePlanDailyActivities,
+  type PlanDailyActivities,
+} from "../../../hooks/usePlanDailyActivities";
 import {
   buildDayNames,
   buildWorkoutMeta,
@@ -62,10 +68,12 @@ interface DayCellProps {
   weekAdjustmentFactor?: number;
   currentTsb?: number | null;
   goalDate?: Date | null;
+  /** 그날 그 종목 실제 활동(서버 일별 문서). 계획 연결 판정과 무관하게 표시한다. */
+  actual?: PlanDailyActivities | null;
   onClick?: () => void;
 }
 
-function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goalDate, onClick }: DayCellProps) {
+function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goalDate, actual, onClick }: DayCellProps) {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const weekdayName = buildDayNames(tCommon)[(planCalendarDate(day.date).getUTCDay() + 6) % 7] ?? '';
@@ -78,17 +86,15 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
   const workoutLabel = isGoal ? t(isGoalDate ? 'page.goalDay' : 'page.goalWorkout') : meta.label;
   const isSkipped = day.skipped === true;
   const isPast = day.date < Date.now() && !isToday;
-  // 결근: 과거 일자 + 미완료 + 미스킵 + 비휴식/비목표일
-  const isMissed = isPast && !day.completed && !day.skipped && !isRest && !isGoal;
-  const dimmed = isPast && !day.completed && !isRest;
+  const dayKey = kstDayKey(day.date);
+  // "한 날" = 그날 그 종목 실제 활동이 있다. 없으면 지난 날은 계획만 흐리게 둔다(미완료 판정은 보이지 않는다).
+  const hasActivities = (actual?.days.get(dayKey)?.activities.length ?? 0) > 0;
+  const actualList = actual ? <PlanDayActivities actual={actual} dateKey={dayKey} /> : null;
+  const dimmed = isPast && !hasActivities && !isRest;
   // 자동 적응 — adjustedTSS/adjustedDurationMin이 있으면 그 값을 표시
   const isAdjusted = day.adjustedTSS != null && !isRest && !isGoal;
   const effectiveTSS = day.adjustedTSS ?? day.plannedTSS;
   const effectiveDur = day.adjustedDurationMin ?? day.plannedDurationMin;
-  // 완료 달성률은 조정된 처방 대비다. 기존 actualTSS=0은 미수집과 명시적0을 구분할 근거가 없어 미표시한다.
-  const completionRatio = day.completed && day.actualTSS != null && day.actualTSS > 0 && effectiveTSS > 0
-    ? day.actualTSS / effectiveTSS
-    : null;
   const daysUntil = Math.max(0, Math.floor((day.date - planDayStartMs(Date.now())) / DAY_MS));
   const downshift = !isPast && !isSkipped && !isRest && !isGoal && !day.completed && currentTsb != null
     ? evaluateRecoveryDownshift({ workoutKind: day.workout, tsb: currentTsb, daysUntil })
@@ -117,7 +123,7 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
           cursor: 'pointer',
           background: 'var(--bg-2)',
           border: '1px solid var(--line-soft)',
-          opacity: 0.65,
+          opacity: hasActivities ? 1 : 0.65,
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
@@ -130,6 +136,7 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
         <div style={{ fontSize: "var(--ft-body-size)", color: 'var(--ink-4)', paddingLeft: 6, fontFamily: 'inherit' }}>
           {t('page.skipped')}
         </div>
+        {actualList}
         {dateControl(dateLabel, {
           position: 'absolute', top: 2, right: 4,
           fontFamily: 'inherit', fontSize: "var(--ft-body-size)", color: 'var(--ink-2)',
@@ -159,6 +166,7 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
         </svg>}
         <div style={{ fontSize: "var(--fs-xs)", fontWeight: 700, marginTop: 'var(--space-1)', letterSpacing: '0.04em' }}>{workoutLabel}</div>
+        {actualList}
         {dateControl(dateLabel, {
           position: 'absolute', top: 2, right: 4,
           fontFamily: 'inherit', fontSize: "var(--ft-body-size)", color: isGoalDate ? 'var(--primary-fg)' : 'var(--ink-1)',
@@ -181,14 +189,13 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
           ? 'color-mix(in oklch, var(--lime) 10%, var(--bg-2))'
           : 'var(--bg-2)',
         border: `1px solid ${isToday || selected ? 'var(--lime)' : 'var(--line-soft)'}`,
-        opacity: isRest ? 0.65 : dimmed ? 0.85 : 1,
+        opacity: isRest && !hasActivities ? 0.65 : dimmed ? 0.85 : 1,
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         gap: 'var(--space-1)',
       }}
     >
-      {day.actualActivityId && <LocalizedLink data-testid="K4-5-5" to={`/activity/${encodeURIComponent(day.actualActivityId)}`} onClick={event => event.stopPropagation()}>{t("today.viewActivity")}</LocalizedLink>}
       {/* TODAY badge */}
       {isToday && (
         <div
@@ -204,12 +211,12 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
           TODAY
         </div>
       )}
-      {/* Color bar — 결근이면 rose로 강조 */}
+      {/* Color bar */}
       <div
         style={{
           width: 3,
           height: 18,
-          background: isMissed ? 'var(--rose)' : meta.color,
+          background: meta.color,
           borderRadius: "var(--r-xs)",
           position: 'absolute',
           top: 6,
@@ -244,48 +251,31 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
           {effectiveTSS > 0 && <span onClick={event => event.stopPropagation()} style={{ whiteSpace: 'nowrap' }}><GlossaryText>{`${effectiveTSS} TSS`}</GlossaryText></span>}
         </div>
       )}
+      {actualList}
       {/* 자동 조정 칩 — week 단위 canonical factor 사용 (day별 ratio 누적 오차 회피) */}
       {isAdjusted && weekAdjustmentFactor != null && (
-        <div style={{ position: 'absolute', bottom: 4, left: 6 }}>
+        <div style={hasActivities ? { paddingLeft: 'var(--space-1-5)' } : { position: 'absolute', bottom: 4, left: 6 }}>
           <AdjustedChip factor={weekAdjustmentFactor} />
         </div>
       )}
       {!isAdjusted && downshift?.shouldDownshift && downshift.suggestedSwap && (
-        <div style={{ position: 'absolute', bottom: 4, left: 6 }}>
+        <div style={hasActivities ? { paddingLeft: 'var(--space-1-5)' } : { position: 'absolute', bottom: 4, left: 6 }}>
           <RecoveryDownshiftMarker suggestedSwap={downshift.suggestedSwap} tsb={downshift.reasonTsb} />
         </div>
       )}
       {dateControl(<>
         <span>{dateLabel}</span>
-        {/* 완료 — 달성률 + ✓ (이상값 방지를 위해 999% 캡) */}
-        {day.completed && (
-          <>
-            {completionRatio != null && (
-              <span style={{
-                fontSize: "var(--fs-xs)",
-                color: 'var(--ink-1)',
-              }}>
-                {Math.min(999, Math.round(completionRatio * 100))}%
-              </span>
-            )}
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ color: 'var(--lime)' }}>
-              <path
-                d="M1.5 5l2.5 2.5 5-5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </>
-        )}
-        {/* 결근 — em-dash 마크 (접근성: aria-label로 의미 전달) */}
-        {isMissed && (
-          <span
-            role="img"
-            aria-label={t('page.missed')}
-            style={{ color: 'var(--rose)', fontSize: "var(--fs-xs)", lineHeight: 1 }}
-          >—</span>
+        {/* 한 날 — 그날 그 종목 실제 활동이 있으면 ✓ */}
+        {hasActivities && (
+          <svg data-testid="K4-5-14" role="img" aria-label={t('page.activeDay')} width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ color: 'var(--lime)' }}>
+            <path
+              d="M1.5 5l2.5 2.5 5-5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         )}
       </>, {
           position: 'absolute',
@@ -299,7 +289,7 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
           fontFamily: 'inherit',
           fontSize: "var(--ft-body-size)",
           color: 'var(--ink-1)',
-          fontWeight: isToday || isMissed ? 700 : 500,
+          fontWeight: isToday ? 700 : 500,
         })}
 
     </div>
@@ -582,12 +572,22 @@ export default function PlanPresentation({
     goalDate,
     daysLeft,
     totalTSS,
-    completedTSS,
-    progress,
     weeksLeft,
     isTodayCell,
     retryLoad,
   } = model;
+  // 날짜 칸·주간·상단의 실제 활동·부하는 서버 일별 활동 문서만 읽는다(계획 연결 판정과 무관).
+  // 목표가 없거나 종목이 맞지 않으면 계획 칸이 없으니 구독하지 않는다.
+  const actual = usePlanDailyActivities({
+    uid: model.user?.uid,
+    discipline,
+    weeks,
+    enabled: goal !== null && goalMatchesDiscipline,
+  });
+  const hasActivityOn = (dateKey: string) => (actual?.days.get(dateKey)?.activities.length ?? 0) > 0;
+  const actualTotal = actual?.total ?? null;
+  // 진행률 = 실제 부하(계획 첫날~오늘) / 계획 TSS. 실제 부하를 아직 모르면 비운다.
+  const progress = totalTSS > 0 && actualTotal?.value != null ? Math.round((actualTotal.value / totalTSS) * 100) : null;
   const firstCalendarWeek = weeks.find(week => week.days.length > 0);
   const firstCalendarWeekday = firstCalendarWeek?.days[0]
     ? (planCalendarDate(firstCalendarWeek.days[0].date).getUTCDay() + 6) % 7 : 0;
@@ -610,14 +610,16 @@ export default function PlanPresentation({
   }, [selectedDate, weeks, currentWeekIndex]);
   const hasCurrentWeek = weeks[currentWeekIndex]?.days.some(isTodayCell) ?? false;
   const visibleWeeks = showPreviousWeeks || currentWeekIndex === 0 ? weeks : weeks.slice(currentWeekIndex);
-  const remainingSessions = weeks.reduce((total, week) => total + week.days.filter((day) =>
-    !day.completed && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal',
-  ).length, 0);
   const todayKey = kstDayKey(Date.now());
-  const planScope = summarizeStoredPlan(weeks, goalDate, Date.now());
+  // 남은 계획 운동: 오늘 이후 예정(건너뜀·휴식·목표일 제외)에서 이미 활동이 있는 날을 뺀다.
+  const remainingSessions = weeks.reduce((total, week) => total + week.days.filter((day) => {
+    const key = kstDayKey(day.date);
+    return key >= todayKey && !hasActivityOn(key) && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal';
+  }).length, 0);
+  const planScope = summarizeStoredPlan(weeks, goalDate, Date.now(), hasActivityOn);
   const scopeNotice = goalDate && planScope.afterGoal > 0 ? <Text data-testid="plan-scope-notice" as="p" variant="bodySmall" tone="secondary" style={{ padding: "var(--space-3) var(--space-4)" }}>{t("scope.summary", planScope)}</Text> : null;
   const nextAction = weeks.slice(currentWeekIndex).flatMap((week) => week.days.map((day, dayIndex) => ({ day, weekId: week.id, dayIndex })))
-    .find(({ day }) => kstDayKey(day.date) >= todayKey && !day.completed && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal');
+    .find(({ day }) => kstDayKey(day.date) >= todayKey && !hasActivityOn(kstDayKey(day.date)) && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal');
   const nextActionLabel = nextAction ? buildWorkoutMeta(t)[nextAction.day.workout]?.label ?? nextAction.day.workout : null;
   const goalTitle = goal?.title ?? goal?.courseName ?? '—';
   const formattedGoal = formatPlanGoalTitle(goalTitle);
@@ -712,8 +714,8 @@ export default function PlanPresentation({
       goalDiscipline: goal?.discipline,
       goalDate,
       daysLeft,
-      progressPct: progress,
-      completedTSS,
+      progressPct: progress ?? undefined,
+      actual,
       totalTSS,
       weeksLeft,
       remainingSessions,
@@ -849,10 +851,10 @@ export default function PlanPresentation({
             <div style={{ marginTop: 'var(--space-4)', maxWidth: 480 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 'var(--space-1)', color: 'var(--ink-2)', fontSize: 'var(--fs-sm)' }}>
                 <InfoTip title={t('metrics.progress')} content={t('metrics.progressBasis')}>{t('metrics.progress')}</InfoTip>
-                <strong style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-md)' }}>{progress}%</strong>
+                <strong style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-md)' }}>{progress != null ? `${progress}%` : '—'}</strong>
               </div>
-              <div role="progressbar" aria-label={t('metrics.progress')} aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} style={{ height: 6, borderRadius: 'var(--r-xs)', background: 'var(--bg-3)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, progress))}%`, background: 'var(--lime)' }} />
+              <div role="progressbar" aria-label={t('metrics.progress')} aria-valuenow={progress ?? undefined} aria-valuemin={0} aria-valuemax={100} style={{ height: 6, borderRadius: 'var(--r-xs)', background: 'var(--bg-3)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, progress ?? 0))}%`, background: 'var(--lime)' }} />
               </div>
             </div>
           </div>
@@ -867,11 +869,16 @@ export default function PlanPresentation({
           >
             {[
               { label: t('metrics.sessionsLeft'), value: String(remainingSessions), unit: t('mobile.sessionsUnit'), color: 'var(--ink-0)' },
-              ...(totalTSS > 0 ? [{ label: t('metrics.completedTSS'), value: completedTSS.toLocaleString(), unit: `/ ${totalTSS.toLocaleString()}`, color: 'var(--ink-0)' }] : []),
+              // 실제 부하: 서버 일별 문서 기준 계획 첫날~오늘 합계(계획 TSS 와 나란히)
+              ...(actual ? [{ testId: 'K4-2-5', hint: t('metrics.actualTSSBasis'), label: t('metrics.actualTSS'),
+                value: actualTotal?.value != null ? actualTotal.value.toLocaleString() : '—',
+                unit: `${totalTSS > 0 ? `/ ${totalTSS.toLocaleString()}` : 'TSS'}${actualTotal?.estimated ? ` ${t('page.tssEstimated')}` : ''}`, color: 'var(--ink-0)' }] : []),
               { label: t('metrics.weeksLeft'), value: String(weeksLeft),    unit: t('metrics.weeksUnit'),  color: 'var(--ink-0)' },
-            ].map(({ label, value, unit, color }) => (
+            ].map(({ testId, hint, label, value, unit, color }: { testId?: string; hint?: string; label: string; value: string; unit: string; color: string }) => (
               <div
                 key={label}
+                data-testid={testId}
+                title={hint}
                 style={{
                   padding: 'var(--space-2) var(--space-4)',
                   background: 'var(--bg-2)',
@@ -990,6 +997,11 @@ export default function PlanPresentation({
             ) : (
               visibleWeeks.map((wk, wi) => {
                 const weekTSS = sumEffectivePlanTSS(wk.days);
+                // 주간 실제 TSS: 이미 시작한 주만, 그 주 날짜를 모두 확인할 수 있을 때만 보인다.
+                const weekKeys = wk.days.map(day => kstDayKey(day.date));
+                const weekActual = actual && !actual.loading && weekKeys.some(key => key !== '' && key <= actual.todayKey)
+                  && !weekKeys.some(key => dailyActivitiesUnavailable(actual, key))
+                  ? sumDailyTss(actual.days, weekKeys) : null;
                 const isCurrentWeek = wk.days.some(isTodayCell);
                 const pc = phaseColor(wk.phase);
 
@@ -1052,6 +1064,7 @@ export default function PlanPresentation({
                           goalDate={goalDate}
                           weekAdjustmentFactor={wk.adjustmentFactor}
                           currentTsb={currentTsb}
+                          actual={actual}
                           onClick={embedded || !onEditWorkout
                             ? undefined
                             : () => onEditWorkout(day, wk.id, di)}
@@ -1078,6 +1091,11 @@ export default function PlanPresentation({
                       >
                         <GlossaryText>TSS</GlossaryText>
                       </div>
+                      {weekActual && (
+                        <div data-testid="K4-5-12" style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-1)', fontFamily: 'var(--font-mono)', textAlign: 'right' }}>
+                          {t('page.actualWeekTSS', { value: weekActual.value ?? '—' })}{weekActual.estimated && ` ${t('page.tssEstimated')}`}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

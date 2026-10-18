@@ -79,12 +79,16 @@
     "weekHeader": "Week",
     "tssHeader": "Training load · TSS",
     "skipped": "Skipped",
-    "missed": "Missed",
     "today": "TODAY",
     "goalDay": "Goal day",
     "planEmptyBody": "Training plan is still being generated. Please refresh later.",
     "planEmptyEmbeddedDesc": "Set a {{sportLabel}} goal on the website to create your plan, then reload this screen.",
-    "embeddedTitle": "Training plan"
+    "embeddedTitle": "Training plan",
+    "actualDayTSS": "Actual {{value}} TSS",
+    "actualWeekTSS": "Actual {{value}}",
+    "actualActivities": "Activities on {{date}}",
+    "activitiesUnavailable": "Activities unavailable",
+    "activeDay": "Active day"
   },
   "workoutStatus": {
     "skipped": "Skipped",
@@ -160,9 +164,8 @@
   },
   "metrics": {
     "progress": "Progress",
-    "progressBasis": "Progress against the current prescription. Completed prescription load is used when actual load is absent; this is not a measured load total.",
-    "sessionsLeft": "Incomplete · full plan",
-    "completedTSS": "Completed TSS",
+    "progressBasis": "Actual recorded load (TSS) from the first plan day through today, compared with the total TSS of the stored plan.",
+    "sessionsLeft": "Planned sessions left",
     "weeksLeft": "Stored plan weeks left",
     "weeksUnit": "wk",
     "projectedCTL": "CTL change guide",
@@ -173,7 +176,9 @@
     "targetDuration": "Target Duration",
     "plannedGeneration": "Training plan is still being generated. Please refresh later.",
     "distanceLabel": "Distance traveled",
-    "elevationLabel": "Elevation gain"
+    "elevationLabel": "Elevation gain",
+    "actualTSS": "Actual load",
+    "actualTSSBasis": "Total TSS of activities you actually recorded in this sport from the first plan day through today. The same workout recorded more than once counts once."
   },
   "plan.rerollSuccess": "Workout plan regenerated.",
   "goalHub": {
@@ -488,9 +493,7 @@
     "hidePastDays": "Hide past days",
     "edit": "Edit",
     "restDay": "Rest day",
-    "stateDone": "Done",
     "stateToday": "Today",
-    "statePast": "Missed",
     "statePlanned": "Planned",
     "start": "Start",
     "todayNext": "Up next today",
@@ -501,7 +504,9 @@
     "managePlan": "Manage plan",
     "sportLoad": "Load by sport",
     "intensityLegend": "Intensity legend",
-    "sessionsUnit": "sessions"
+    "sessionsUnit": "sessions",
+    "stateActive": "Active day",
+    "weeklyActualTSS": "Actual load · TSS"
   },
   "add": {
     "title": "Add Workout",
@@ -1210,6 +1215,6 @@
     "weeks": "About {{weeks}} weeks",
     "minutes": "{{count}} minutes"
   },
-  "scope.summary": "Scheduled through the goal: {{untilGoal}} · Stored after the goal: {{afterGoal}} · Overdue: {{overdue}}. The calendar and progress cover the full stored plan.",
+  "scope.summary": "Scheduled through the goal: {{untilGoal}} · Stored after the goal: {{afterGoal}} · Past without activity: {{overdue}}. The calendar and progress cover the full stored plan.",
   "scope.nextAfterGoal": "Stored workout after the goal"
 }

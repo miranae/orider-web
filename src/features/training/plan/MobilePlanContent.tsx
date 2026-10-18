@@ -13,6 +13,12 @@ import { effectivePlanTSS, sumEffectivePlanTSS } from "../../../utils/planTss";
 import AdjustedChip from "../../../components/training/AdjustedChip";
 import { Button, Card, Text } from "../../../theme/components";
 import { formatPlanGoalTitle } from "./planDisplay";
+import PlanDayActivities from "./PlanDayActivities";
+import {
+  dailyActivitiesUnavailable,
+  sumDailyTss,
+  type PlanDailyActivities,
+} from "../../../hooks/usePlanDailyActivities";
 import "./MobilePlanContent.css";
 
 /** rest → bike 폴백으로 Discipline 타입 보장 (색상/아이콘 표시용) */
@@ -80,7 +86,8 @@ export interface MobilePlanContentProps {
   goalDate?: Date | null;
   daysLeft?: number;
   progressPct?: number;
-  completedTSS?: number;
+  /** 서버 일별 활동 문서 기반 실제 활동·부하. 계획 연결 판정과 무관하게 표시한다. */
+  actual?: PlanDailyActivities | null;
   totalTSS?: number;
   weeksLeft?: number;
   projectedCTL?: number | null;
@@ -106,7 +113,7 @@ export default function MobilePlanContent({
   goalDate,
   daysLeft,
   progressPct,
-  completedTSS,
+  actual,
   totalTSS,
   weeksLeft,
   remainingSessions,
@@ -136,10 +143,13 @@ export default function MobilePlanContent({
   const [goalExpanded, setGoalExpanded] = useState(false);
   const formattedGoal = goalTitle ? formatPlanGoalTitle(goalTitle) : null;
   const todayWorkout = todayIdx >= 0 ? days[todayIdx] : null;
-  const todayActionable = todayWorkout && !todayWorkout.completed && !todayWorkout.skipped && todayWorkout.workout !== "rest";
-  const nextWorkoutIdx = todayActionable ? todayIdx : days.findIndex(day =>
-    kstDateString(day.date) >= todayStr && !day.completed && !day.skipped && day.workout !== "rest",
-  );
+  // "한 날" = 그날 그 종목 실제 활동이 있다. 계획 연결 판정(completed)은 화면 표시에 쓰지 않는다.
+  const hasActivityOn = (dateKey: string) => (actual?.days.get(dateKey)?.activities.length ?? 0) > 0;
+  const todayActionable = todayWorkout && !hasActivityOn(todayStr) && !todayWorkout.skipped && todayWorkout.workout !== "rest";
+  const nextWorkoutIdx = todayActionable ? todayIdx : days.findIndex(day => {
+    const key = kstDateString(day.date);
+    return key >= todayStr && !hasActivityOn(key) && !day.skipped && day.workout !== "rest";
+  });
   const nextWorkout = nextWorkoutIdx >= 0 ? days[nextWorkoutIdx] : null;
   const workoutLabel = (day: PlanDay) => day.workout === "goal"
     ? t(goalDate && kstDateString(day.date) === kstDateString(goalDate.getTime()) ? "page.goalDay" : "page.goalWorkout")
@@ -184,7 +194,7 @@ export default function MobilePlanContent({
           <div className="mobile-plan-goal-stats">
             <span><small>{t("mobile.goalCountdown")}</small><strong>{daysLeft != null ? `${t("page.daysLeftPrefix")}${daysLeft}` : "—"}</strong></span>
             <span><small><InfoTip title={t("metrics.progress")} content={t("metrics.progressBasis")}>{t("metrics.progress")}</InfoTip></small><strong>{progressPct != null ? `${progressPct}%` : "—"}</strong></span>
-            {totalTSS != null && totalTSS > 0 && <span><small><GlossaryText>{t("metrics.completedTSS")}</GlossaryText></small><strong>{completedTSS ?? 0}/{totalTSS}</strong></span>}
+            {actual && <span data-testid="K4-2-5" title={t("metrics.actualTSSBasis")}><small><GlossaryText>{t("metrics.actualTSS")}</GlossaryText></small><strong>{actual.total?.value ?? "—"}{totalTSS != null && totalTSS > 0 && `/${totalTSS}`}{actual.total?.estimated && ` ${t("page.tssEstimated")}`}</strong></span>}
             {remainingSessions != null && <span><small>{t("metrics.sessionsLeft")}</small><strong>{remainingSessions} {t("mobile.sessionsUnit")}</strong></span>}
             {weeksLeft != null && <span><small>{t("metrics.weeksLeft")}</small><strong>{weeksLeft} {t("metrics.weeksUnit")}</strong></span>}
           </div>
@@ -234,6 +244,11 @@ export default function MobilePlanContent({
         const runTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout, goalDiscipline) === "run").reduce((s, d) => s + effectivePlanTSS(d), 0);
         const swimTSS = scheduledDays.filter(d => getWorkoutDisciplineForDisplay(d.workout, goalDiscipline) === "swim").reduce((s, d) => s + effectivePlanTSS(d), 0);
         const stackTotal = bikeTSS + runTSS + swimTSS || 1;
+        // 주간 실제 TSS: 이미 시작한 주만, 그 주 날짜를 모두 확인할 수 있을 때만 보인다.
+        const weekKeys = days.map(d => kstDateString(d.date));
+        const weekActual = actual && !actual.loading && weekKeys.some(key => key !== "" && key <= actual.todayKey)
+          && !weekKeys.some(key => dailyActivitiesUnavailable(actual, key))
+          ? sumDailyTss(actual.days, weekKeys) : null;
 
         return (
           <section data-testid="K4-7-1" className="mobile-plan-week-summary" aria-label={t('mobile.weeklySummary')}>
@@ -242,6 +257,7 @@ export default function MobilePlanContent({
               {totalTSS > 0 && <span><small><GlossaryText>{t('mobile.weeklyTSS')}</GlossaryText></small><strong>{Math.round(totalTSS)}</strong></span>}
               <span><small>{t('mobile.timeLabel')}</small><strong>{h}h {m}m</strong></span>
               <span><small>{t('mobile.sessions')}</small><strong>{sessions}</strong></span>
+              {weekActual && <span data-testid="K4-7-2"><small><GlossaryText>{t('mobile.weeklyActualTSS')}</GlossaryText></small><strong>{weekActual.value ?? "—"}{weekActual.estimated && ` ${t('page.tssEstimated')}`}</strong></span>}
             </div>
             {[bikeTSS, runTSS, swimTSS].filter(load => load > 0).length > 1 && <div className="mobile-plan-sport-load">
               <Text as="div" variant="eyebrow" className="mobile-plan-section-label">{t('mobile.sportLoad')}</Text>
@@ -281,11 +297,13 @@ export default function MobilePlanContent({
         const weekdayName = DAY_NAMES[weekdayIndex] ?? "";
         const isToday = dayStr === todayStr;
         const isRest = day.workout === "rest";
-        const isDone = day.completed;
+        const hasActivities = hasActivityOn(dayStr);
         const isPast = dayStr !== "" && dayStr < todayStr;
         const label = workoutLabel(day);
-        const state = isDone ? "done" : isToday ? "today" : isRest ? "off" : isPast ? "past" : "planned";
-        const stateLabel = state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned');
+        // 지난 날에 활동이 없으면 판정 문구 없이 계획만 흐리게 둔다.
+        const state = hasActivities ? "active" : isToday ? "today" : isRest ? "off" : isPast ? "past" : "planned";
+        const stateLabel = state === "active" ? t('mobile.stateActive') : state === "today" ? t('mobile.stateToday') : state === "planned" ? t('mobile.statePlanned') : "";
+        const actualList = actual ? <PlanDayActivities actual={actual} dateKey={dayStr} /> : null;
 
         const intensityColor = isRest ? "var(--ink-4)"
           : (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? "var(--amber)"
@@ -306,10 +324,12 @@ export default function MobilePlanContent({
                   <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>{weekdayName}</div>
                   <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, fontFamily: "var(--font-mono)", color: isToday ? "var(--lime)" : "var(--ink-0)" }}>{dayOfMonth ?? ""}</div>
                 </div>
-                <div style={{ flex: 1, padding: "var(--space-3) var(--space-2)", border: "1px dashed var(--line)", borderRadius: "var(--r-md)", display: "flex", alignItems: "center", gap: 'var(--space-2)',
+                <div style={{ flex: 1, padding: "var(--space-3) var(--space-2)", border: "1px dashed var(--line)", borderRadius: "var(--r-md)", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 'var(--space-2)',
                   background: isToday || dayStr === selectedDate ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent" }}>
                   <Moon size={16} aria-hidden="true" />
                   <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-4)" }}>{t('mobile.restDay')}</span>
+                  {hasActivities && <span aria-label={t('mobile.stateActive')} role="img" style={{ color: "var(--lime)", fontSize: "var(--fs-base)" }}>✓</span>}
+                  {actualList && <div style={{ flexBasis: "100%", minWidth: 0 }}>{actualList}</div>}
                 </div>
               </div>
             </div>
@@ -323,7 +343,7 @@ export default function MobilePlanContent({
             data-testid={dayStr === selectedDate ? "K4-5-6" : undefined}
             role={onEditWorkout ? "button" : undefined}
             tabIndex={onEditWorkout ? 0 : undefined}
-            aria-label={onEditWorkout ? `${weekdayName} ${dayOfMonth ?? ""} ${label} · ${stateLabel}` : undefined}
+            aria-label={onEditWorkout ? `${weekdayName} ${dayOfMonth ?? ""} ${label}${stateLabel ? ` · ${stateLabel}` : ""}` : undefined}
             onClick={() => openEditFor(i)}
             onKeyDown={onEditWorkout ? (event) => {
               if (event.key === "Enter" || event.key === " ") {
@@ -335,6 +355,7 @@ export default function MobilePlanContent({
               padding: "13px 16px", borderBottom: "1px solid var(--line-soft)",
               background: isToday || dayStr === selectedDate ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent",
               cursor: onEditWorkout ? "pointer" : "default",
+              opacity: state === "past" ? 0.6 : 1,
             }}>
             <div style={{ width: 32, textAlign: "center" }}>
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", fontFamily: "var(--font-mono)" }}>{weekdayName}</div>
@@ -367,11 +388,14 @@ export default function MobilePlanContent({
                 )}
               </div>
               <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{label}</div>
-              <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>
-                {stateLabel}
-              </div>
+              {stateLabel && (
+                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>
+                  {stateLabel}
+                </div>
+              )}
+              {actualList}
             </div>
-            {state === "done" && <span style={{ color: "var(--lime)", fontSize: "var(--fs-base)" }}>✓</span>}
+            {state === "active" && <span aria-hidden="true" style={{ color: "var(--lime)", fontSize: "var(--fs-base)" }}>✓</span>}
           </div>
         );
       })}

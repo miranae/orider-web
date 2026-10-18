@@ -10,6 +10,7 @@ import { AddPlanSheet } from "../training";
 import AdaptationBanner from "../training/AdaptationBanner";
 import { Button } from "../../theme/components";
 import type { Discipline } from "../../utils/disciplineFilter";
+import type { PlanDailyActivities } from "../../hooks/usePlanDailyActivities";
 
 export interface MobilePlanPageProps {
   selectedDate?: string;
@@ -21,7 +22,7 @@ export interface MobilePlanPageProps {
   goalDate?: Date | null;
   daysLeft?: number;
   progressPct?: number;
-  completedTSS?: number;
+  actual?: PlanDailyActivities | null;
   totalTSS?: number;
   weeksLeft?: number;
   projectedCTL?: number | null;
@@ -51,7 +52,7 @@ export default function MobilePlanPage({
   goalDate,
   daysLeft,
   progressPct,
-  completedTSS,
+  actual,
   totalTSS,
   weeksLeft,
   projectedCTL,
@@ -86,7 +87,7 @@ export default function MobilePlanPage({
       goalDate={goalDate}
       daysLeft={daysLeft}
       progressPct={progressPct}
-      completedTSS={completedTSS}
+      actual={actual}
       totalTSS={totalTSS}
       weeksLeft={weeksLeft}
       projectedCTL={projectedCTL}
