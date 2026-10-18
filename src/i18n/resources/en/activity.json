@@ -794,6 +794,11 @@
     "pace": "Pace"
   },
   "segments": {
+    "viewOnMap": "View on map",
+    "viewOnMapNamed": "View {{name}} on map",
+    "selectedOnMap": "Segment on map: {{name}}",
+    "returnToSegment": "Back to segment",
+    "mapRegion": "Activity route map",
     "title": "Segments",
     "matched": "{{count}} segments matched on this ride",
     "matched_one": "{{count}} segment matched on this ride",
@@ -960,7 +965,7 @@
       "ef": "Efficiency Factor — NP ÷ average HR. Higher means better aerobic efficiency.",
       "decoupling": "Decoupling — drop in power:HR efficiency in the later half. Lower means better endurance.",
       "sweetSpot": "Sweet Spot — 83–94% FTP. Efficient fitness-building zone for the fatigue cost.",
-      "threshold": "Threshold — 95–105% FTP. Around the 1-hour sustainable limit.",
+      "threshold": "Threshold — time spent at 95–106% FTP on this screen. This is a power band, not a lactate threshold measured by a blood test.",
       "vo2max": "VO2max — 106–120% FTP. High intensity that stresses cardiovascular capacity.",
       "anaerobic": "Anaerobic — above 120% FTP. Short, all-out efforts.",
       "fatmax": "FATMAX — the intensity at which fat oxidation rate peaks.",

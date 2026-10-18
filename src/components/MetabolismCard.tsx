@@ -45,6 +45,7 @@ export default function MetabolismCard({
   isVirtualPower = false,
 }: MetabolismCardProps) {
   const { t } = useTranslation("activity");
+  const { t: term } = useTranslation("termGlossary");
 
   if (!substrate || substrate.totalKcal <= 0) return null;
 
@@ -65,9 +66,9 @@ export default function MetabolismCard({
           className="text-[length:var(--fs-sm)] font-semibold"
           style={{ color: "var(--ink-1)" }}
         >
-          {t("metabolism.section")}
+          <InfoTip title={t("metabolism.section")} content={t("analysis.glossary.metabolism")}
+            label={term("openLabel", { term: t("metabolism.section") })} tone="inherit">{t("metabolism.section")}</InfoTip>
         </h3>
-        <InfoTip content={t("analysis.glossary.metabolism")} label={t("metabolism.section")} />
       </div>
 
       {isVirtualPower && (
@@ -99,8 +100,8 @@ export default function MetabolismCard({
         <div style={metricStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
             <Dot color="var(--lime)" />
-            <Text variant="eyebrow" size="xs">{t("metabolism.fatMaxZone")}</Text>
-            <InfoTip content={t("analysis.glossary.fatmax")} label={t("metabolism.fatMaxZone")} />
+            <Text variant="bodySmall" weight={600} size="xs"><InfoTip title={term("terms.fatmax.label")} content={term("terms.fatmax.description")}
+              label={term("openLabel", { term: t("metabolism.fatMaxZone") })} termId="fatmax" tone="inherit">{t("metabolism.fatMaxZone")}</InfoTip></Text>
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1 }}>
             <Text variant="dataLarge" style={{ color: "var(--lime)" }}>{fatMax.fatMaxWatts}</Text>

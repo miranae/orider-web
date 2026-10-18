@@ -1,3 +1,5 @@
+import GlossaryProvider from "../../../components/common/GlossaryProvider";
+import GlossaryText from "../../../components/common/GlossaryText";
 import { disciplineOfType } from "@shared/sport/discipline";
 import { getRuntimeConfig } from "../../../services/runtimeConfig";
 import { LocalizedLink } from "../../../components/LocalizedLink";
@@ -86,7 +88,7 @@ function Comparison({ activity, metrics, currentMetricsStatus, comparisonOnly }:
       : { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(new Date(time)) : "—";
   const powerLabel = (source: MetricsLike | null) => !source || !settledMetrics(source) || ![source.avgPower, source.np, ...Object.values(source.mmp ?? {})].some((value) => typeof value === "number" && Number.isFinite(value) && value > 0) ? t("growth.visual.powerMissing") : source?.isVirtualPower === true ? t("growth.virtualPower")
     : source?.isVirtualPower === false ? t("growth.measuredPower") : t("growth.powerUnknown");
-  return <div className="space-y-4">
+  return <GlossaryProvider scopeKey={`activity-comparison:${activity.id}:${selectedId}`} triggerTone="inherit"><div className="space-y-4">
     <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.conditions")}</Text>
     {stageRoutes && <Stack direction="row" wrap gap="var(--space-2)">
       <Button size="sm" variant={!routeOnly ? "secondary" : "ghost"} aria-pressed={!routeOnly} onClick={() => setRouteOnly(false)}>{t("growth.route.all")}</Button>
@@ -126,7 +128,7 @@ function Comparison({ activity, metrics, currentMetricsStatus, comparisonOnly }:
         <table className="activity-growth-table">
           <thead><tr><th scope="col"><Text variant="bodyMedium" weight={600} tone="secondary">{t("growth.metric")}</Text></th><th scope="col"><Text variant="bodyMedium" weight={600} tone="secondary">{t("growth.current")}</Text></th><th scope="col" className="activity-comparison-date" title={date(selected.startTime)} aria-label={date(selected.startTime)}><Text variant="bodyMedium" weight={600} tone="secondary">{date(selected.startTime, true)}</Text></th></tr></thead>
           <tbody>{comparisonRows(metrics, baseline.metrics, running).map((row) => <tr key={row.key}>
-            <th scope="row"><Text variant="bodyMedium" tone="secondary">{t(`growth.metrics.${row.key === "avgSpeedKph" && running ? "pace" : row.key}`)}{unit(row.key) ? ` · ${unit(row.key)}` : ""}</Text></th>
+            <th scope="row"><Text variant="bodyMedium" tone="secondary"><GlossaryText>{t(`growth.metrics.${row.key === "avgSpeedKph" && running ? "pace" : row.key}`)}</GlossaryText>{unit(row.key) ? ` · ${unit(row.key)}` : ""}</Text></th>
             <td><Text variant="bodyMedium" mono tone="primary" title={row.key === "movingTimeSec" && row.value != null ? `${row.value} s` : undefined}>{format(row.value, row.key)}</Text>{row.delta != null && <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.change")} <span className="whitespace-nowrap" title={row.key === "movingTimeSec" && row.delta != null ? `${row.delta} s` : undefined}>{row.key === "movingTimeSec" ? comparisonDuration(row.delta, true) : <>{signedNumber(convert(row.delta, row.key), 1)} {row.key === "avgSpeedKph" && running ? units === "imperial" ? "s/mi" : "s/km" : unit(row.key)}</>}</span></Text>}</td>
             <td><Text variant="bodyMedium" mono tone="secondary" title={row.key === "movingTimeSec" && row.baseline != null ? `${row.baseline} s` : undefined}>{format(row.baseline, row.key)}</Text></td>
           </tr>)}</tbody>
@@ -141,7 +143,7 @@ function Comparison({ activity, metrics, currentMetricsStatus, comparisonOnly }:
         <ActivityComparisonVisuals key={selected.id} current={metrics} previous={baseline.metrics} running={running} units={units} />
       </>}
     </>}
-  </div>;
+  </div></GlossaryProvider>;
 }
 function Statistics({ activity }: { activity: Activity }) {
   const { units } = useLocale();

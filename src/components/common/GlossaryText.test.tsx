@@ -12,6 +12,13 @@ import en from "../../i18n/resources/en/termGlossary.json";
 const foundTerms = (text: string) => splitGlossaryText(text).flatMap(part => part.termId ? [part.termId] : []);
 
 describe("training term glossary", () => {
+  it("keeps generic training load independent from TSS and explains its calculation basis", () => {
+    expect(ko.terms.trainingLoad.description).not.toContain("TSS");
+    expect(en.terms.trainingLoad.description).not.toContain("TSS");
+    expect(ko.terms.trainingLoad.description).toContain("파워·심박·시간");
+    expect(en.terms.trainingLoad.description).toContain("power, heart-rate or time");
+  });
+
   it("keeps original text and uses longest aliases without acronym substring matches", () => {
     const text = "rTSS / hrTSS / TSS — W/kg, 임계 페이스, 파워 커브. if INPUT CP20 CSVfile SHIFT are ordinary text.";
     const parts = splitGlossaryText(text);

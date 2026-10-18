@@ -133,3 +133,12 @@
 @media (max-width: 40rem) {
   .activity-stats-primary:lang(en) .ds-text--eyebrow { min-height: 4.5em; }
 }
+
+.activity-detail-segment-map-action { margin-top: var(--space-1); min-height: calc(var(--space-7) + var(--space-3)); white-space: normal; text-align: left; }
+.activity-detail-segment-table tr[data-map-selected] { background: var(--bg-2); }
+.activity-detail-achievement-row { padding-bottom: var(--space-2); }
+.activity-detail-achievement-row > .activity-detail-segment-map-action { margin-left: var(--space-2); }
+.activity-detail-segment-map-selection { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
+.activity-detail-segment-map-selection p { flex: 1; min-width: 0; overflow-wrap: anywhere; color: var(--ink-1); font-size: var(--fs-sm); }
+.activity-detail-segment-map-selection .ds-btn { min-height: calc(var(--space-7) + var(--space-3)); }
+.activity-detail-map:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }

@@ -115,6 +115,8 @@ export default function ActivityPage() {
   const [editingText, setEditingText] = useState("");
   const [showAllResults, setShowAllResults] = useState(false);
   const [hoveredSegment, setHoveredSegment] = useState<SegmentEffortData | null>(null);
+  const [segmentMapSelection, setSegmentMapSelection] = useState<{ scope: string; effort: SegmentEffortData } | null>(null);
+  const segmentMapTrigger = useRef<HTMLButtonElement | null>(null);
   const [showAllSegments, setShowAllSegments] = useState(false);
   const [activeOverlays, setActiveOverlays] = useState<Set<string>>(new Set());
   const [focusedOverlayKey, setFocusedOverlayKey] = useState<string | null>(null);
@@ -223,6 +225,26 @@ export default function ActivityPage() {
       .some(peak => peak.durationSec === peakSelection.peak?.durationSec && peak.startOffsetSec === peakSelection.peak?.startOffsetSec && peak.avgPowerW === peakSelection.peak?.avgPowerW)
     ? peakSelection.peak : null;
   const runLocationAnchor = useRef<HTMLDivElement>(null);
+  const segmentMapScope = `${activityId}:${user?.uid}`;
+  const selectedMapSegment = activeTab === "segments" && segmentMapSelection?.scope === segmentMapScope ? segmentMapSelection.effort : null;
+  useEffect(() => {
+    setHoveredSegment(null);
+    setSegmentMapSelection(null);
+    segmentMapTrigger.current = null;
+  }, [activityId, user?.uid, activeTab]);
+  const viewSegmentOnMap = useCallback((effort: SegmentEffortData, trigger: HTMLButtonElement) => {
+    segmentMapTrigger.current = trigger;
+    setHoveredSegment(null);
+    setSegmentMapSelection({ scope: segmentMapScope, effort });
+    requestAnimationFrame(() => {
+      runLocationAnchor.current?.focus({ preventScroll: true });
+      runLocationAnchor.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
+    });
+  }, [segmentMapScope]);
+  const returnToSegment = useCallback(() => {
+    segmentMapTrigger.current?.focus({ preventScroll: true });
+    segmentMapTrigger.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
+  }, []);
   const viewRunSplitLocation = useCallback(() => {
     setActiveTab("overview");
     runLocationAnchor.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
@@ -625,13 +647,20 @@ export default function ActivityPage() {
     else setUnlinkedLapIdentity(rangeSelection.identity);
   }, [rangeSelection, streams, loadingStreams, streamsError, activity?.source, activity?.startTime, viewRunSplitLocation]);
   const markerPosition = useMemo(() => {
+    if (selectedMapSegment) return streams?.latlng?.[selectedMapSegment.endIndex] ?? null;
     if (hoverIndex == null || !sampledData[hoverIndex]) {
       if (rangeSelection.selection) return rangeSelection.routeRange ? streams?.latlng?.[rangeSelection.routeRange.endIndex] ?? null : null;
       return runSplitLocation?.markerPosition ?? peakLocation?.markerPosition ?? null;
     }
     return sampledData[hoverIndex].latlng;
-  }, [hoverIndex, sampledData, runSplitLocation, peakLocation, rangeSelection.selection, rangeSelection.routeRange, streams]);
+  }, [hoverIndex, sampledData, runSplitLocation, peakLocation, rangeSelection.selection, rangeSelection.routeRange, streams, selectedMapSegment]);
   const segmentEfforts = useMemo(() => getSegmentEfforts(streams), [streams]);
+  const canViewSegmentOnMap = (effort: SegmentEffortData) => {
+    const points = streams?.latlng;
+    return !!points && Number.isInteger(effort.startIndex) && Number.isInteger(effort.endIndex)
+      && effort.startIndex >= 0 && effort.endIndex > effort.startIndex && effort.endIndex < points.length
+      && points.slice(effort.startIndex, effort.endIndex + 1).every(point => point?.length === 2 && point.every(Number.isFinite) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180);
+  };
   const chartHighlightRange = useMemo(
     () => rangeSelection.selection ? rangeSelection.chartRange
       : getChartHighlightRange(hoveredSegment, streams) ?? runSplitLocation?.chartRange ?? peakLocation?.chartRange,
@@ -1122,7 +1151,11 @@ export default function ActivityPage() {
       </details>}
         </div>
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
-      <div className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} style={{ scrollMarginTop: "var(--space-8)" }}>
+      <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined} style={{ scrollMarginTop: "var(--space-8)" }}>
+      {selectedMapSegment && <div className="activity-detail-segment-map-selection">
+        <p role="status">{t("segments.selectedOnMap", { name: selectedMapSegment.name })}</p>
+        <Button variant="outline" size="sm" onClick={returnToSegment}>{t("segments.returnToSegment")}</Button>
+      </div>}
       <ActivityMediaPanel
         activity={activity}
         streams={streams}
@@ -1130,7 +1163,8 @@ export default function ActivityPage() {
         hasTrack={hasTrack}
         summary={s}
         markerPosition={markerPosition}
-        hoveredSegment={hoveredSegment}
+        hoveredSegment={selectedMapSegment ?? hoveredSegment}
+        selectedSegmentRange={selectedMapSegment}
         selectedRunRange={rangeSelection.selection ? rangeSelection.routeRange : runSplitLocation?.routeRange ?? peakLocation?.routeRange}
         photos={photos}
         uploadedPhotos={uploadedPhotos}
@@ -1640,12 +1674,17 @@ export default function ActivityPage() {
               }
 
               return (
-                <Link
+                <div
                   key={effort.id}
+                  className="activity-detail-achievement-row"
+                  onMouseEnter={() => setHoveredSegment(canViewSegmentOnMap(effort) ? effort : null)}
+                  onMouseLeave={() => setHoveredSegment(null)}
+                  onFocus={() => setHoveredSegment(canViewSegmentOnMap(effort) ? effort : null)}
+                  onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setHoveredSegment(null); }}
+                >
+                <Link
                   to={segmentHistoryPath(effort.segment.id, effort.id, activityId)}
                   className="flex items-center gap-3 p-2 rounded-[var(--r-xl)] transition-colors hover:bg-[var(--bg-2)]"
-                  onMouseEnter={() => setHoveredSegment(effort)}
-                  onMouseLeave={() => setHoveredSegment(null)}
                 >
                   <div className={`w-8 h-8 rounded-[var(--r-lg)] ${iconBg} flex items-center justify-center flex-shrink-0`}>
                     {iconContent}
@@ -1666,6 +1705,14 @@ export default function ActivityPage() {
                     <div className="font-mono font-bold text-[length:var(--fs-xs)] tabular-nums mt-0.5" style={{ color: 'var(--ink-0)' }}>{formatTime(effort.elapsedTime)}</div>
                   </div>
                 </Link>
+                {canViewSegmentOnMap(effort) && <Button
+                  variant="ghost" size="sm" className="activity-detail-segment-map-action"
+                  aria-label={t("segments.viewOnMapNamed", { name: effort.name })}
+                      aria-controls="activity-route-map"
+                  aria-pressed={selectedMapSegment?.id === effort.id}
+                  onClick={(event) => viewSegmentOnMap(effort, event.currentTarget)}
+                >{t("segments.viewOnMap")}</Button>}
+                </div>
               );
             })}
           </div>
@@ -1679,7 +1726,10 @@ export default function ActivityPage() {
           efforts={segmentEfforts}
           showAll={showAllSegments}
           setShowAll={setShowAllSegments}
-          onHover={setHoveredSegment}
+          onHover={(effort) => setHoveredSegment(effort && canViewSegmentOnMap(effort) ? effort : null)}
+          onViewOnMap={viewSegmentOnMap}
+          canViewOnMap={canViewSegmentOnMap}
+          selectedEffortId={selectedMapSegment?.id}
           formatTime={formatTime}
         />
       )}

@@ -13,6 +13,7 @@ import PowerCurveChart from "./PowerCurveChart";
 import SpeedCurveChart from "./SpeedCurveChart";
 import MetabolismCard from "./MetabolismCard";
 import InfoTip from "./InfoTip";
+import type { GlossaryTermId } from "../utils/termGlossary";
 import { VirtualPowerBadge } from "./activity/VirtualPowerBadge";
 import { Button, Chip, Text } from "../theme/components";
 import { useActivityMetrics, type ActivityMetricsDoc, type UseActivityMetricsState } from "../hooks/useActivityMetrics";
@@ -55,9 +56,8 @@ const ACCENT: Record<AccentColor, string> = {
 };
 
 /** 임계영역 영문 라벨 → glossary 키 (calculateCriticalBands 의 고정 라벨) */
-const BAND_GLOSSARY_KEY: Record<string, string> = {
+const BAND_GLOSSARY_KEY: Record<string, GlossaryTermId> = {
   "Sweet Spot": "sweetSpot",
-  "Threshold": "threshold",
   "VO2max": "vo2max",
   "Anaerobic": "anaerobic",
 };
@@ -69,11 +69,13 @@ interface MetricCardProps {
   description?: string;
   color?: AccentColor;
   tone?: "default" | "good" | "warn" | "bad";
-  /** 영문 약어 옆 ⓘ 툴팁 본문 (한글 용어 + 설명) */
+  /** 제목을 직접 눌러 여는 간단한 용어 설명. 개인화 해설 시트와 구분한다. */
   tooltip?: string;
+  termId?: GlossaryTermId;
 }
 
-function MetricCard({ label, value, unit, description, color = "ink", tone, tooltip }: MetricCardProps) {
+function MetricCard({ label, value, unit, description, color = "ink", tone, tooltip, termId }: MetricCardProps) {
+  const { t } = useTranslation("termGlossary");
   const baseColor = ACCENT[color];
   const accent = tone === "good" ? "var(--lime)"
     : tone === "warn" ? "var(--amber)"
@@ -88,8 +90,11 @@ function MetricCard({ label, value, unit, description, color = "ink", tone, tool
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)" }}>
         <span style={{ width: 5, height: 5, borderRadius: "50%", background: accent, flexShrink: 0 }} />
-        <Text variant="bodySmall" weight={600} style={{ fontSize: "var(--fs-xs)", letterSpacing: "normal" }}>{label}</Text>
-        {tooltip && <InfoTip content={tooltip} label={label} />}
+        <Text variant="bodySmall" weight={600} style={{ fontSize: "var(--fs-xs)", letterSpacing: "normal" }}>
+          {tooltip ? <InfoTip title={termId ? t(`terms.${termId}.label`) : label}
+            content={termId ? t(`terms.${termId}.description`) : tooltip}
+            label={t("openLabel", { term: label })} termId={termId} tone="inherit">{label}</InfoTip> : label}
+        </Text>
       </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1 }}>
         <Text variant="dataHero" style={{ fontSize: "var(--fs-xl)", color: value != null ? accent : "var(--ink-3)" }}>
@@ -102,6 +107,13 @@ function MetricCard({ label, value, unit, description, color = "ink", tone, tool
       )}
     </div>
   );
+}
+
+/** 번역된 제목도 명시한 공유 ID를 통해 같은 정의로 연결한다. */
+function MetricTerm({ termId, label }: { termId: GlossaryTermId; label: string }) {
+  const { t } = useTranslation("termGlossary");
+  return <InfoTip title={t(`terms.${termId}.label`)} content={t(`terms.${termId}.description`)}
+    label={t("openLabel", { term: label })} termId={termId} tone="inherit">{label}</InfoTip>;
 }
 
 function formatDuration(sec: number): string {
@@ -582,11 +594,11 @@ export default function AnalysisTab({
         <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.load")}</h3>
         {sm && <Text as="p" variant="bodySmall" tone="secondary" style={{ marginBottom: "var(--space-4)" }}>{t("detail.analysisMetricSource")}</Text>}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <MetricCard color="violet" label={t("detail.analysisLoadLabel")} value={tss?.toFixed(0)} description={t("detail.analysisLoadDescription")} tooltip={t("analysis.glossary.tss")} />
-          <MetricCard color="violet" label="IF" value={ifactor?.toFixed(2)} description={hasFtp ? t("analysis.metric.ifDesc", { ftp }) : t("overviewEvidence.ftpMissing")} tooltip={t("analysis.glossary.if")} />
+          <MetricCard color="violet" label={t("detail.analysisLoadLabel")} value={tss?.toFixed(0)} description={t("detail.analysisLoadDescription")} termId="tss" tooltip={t("analysis.glossary.tss")} />
+          <MetricCard color="violet" label="IF" value={ifactor?.toFixed(2)} description={hasFtp ? t("analysis.metric.ifDesc", { ftp }) : t("overviewEvidence.ftpMissing")} termId="if" tooltip={t("analysis.glossary.if")} />
           <MetricCard color="lime" label={t("analysis.metric.work")} value={workKj != null ? Math.round(workKj).toString() : null} unit="kJ" description={t("analysis.metric.workDesc")} tooltip={t("analysis.glossary.work")} />
           <MetricCard color="lime" label={t("analysis.metric.kjPerHour")} value={kjPerHr != null ? Math.round(kjPerHr).toString() : null} unit="kJ/h" description={t("analysis.metric.kjPerHourDesc")} tooltip={t("analysis.glossary.kjPerHour")} />
-          <MetricCard color="rose" label="TRIMP" value={trimp != null ? Math.round(trimp).toString() : null} description={t("analysis.metric.trimpDesc")} tooltip={t("analysis.glossary.trimp")} />
+          <MetricCard color="rose" label="TRIMP" value={trimp != null ? Math.round(trimp).toString() : null} description={t("analysis.metric.trimpDesc")} termId="trimp" tooltip={t("analysis.glossary.trimp")} />
           {sm?.sufferScore != null && (
             <MetricCard color="rose" label={t("analysis.metric.sufferScore")} value={Math.round(sm.sufferScore).toString()} description={t("analysis.metric.sufferScoreDesc")} tooltip={t("analysis.glossary.sufferScore")} />
           )}
@@ -605,9 +617,9 @@ export default function AnalysisTab({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <MetricCard color="lime" label={t("analysis.metric.avgPower")} value={powerStats.avg != null ? Math.round(powerStats.avg).toString() : null} unit="W" tooltip={t("analysis.glossary.avgPower")} />
             <MetricCard color="lime" label={t("analysis.metric.maxPower")} value={powerStats.max != null ? Math.round(powerStats.max).toString() : null} unit="W" description={t("analysis.metric.maxPowerDesc")} tooltip={t("analysis.glossary.maxPower")} />
-            <MetricCard color="violet" label="NP" value={np != null ? Math.round(np).toString() : null} unit="W" description={t("analysis.metric.npDesc")} tooltip={t("analysis.glossary.np")} />
-            <MetricCard color="violet" label="xPower" value={xPower != null ? Math.round(xPower).toString() : null} unit="W" description={t("analysis.metric.xPowerDesc")} tooltip={t("analysis.glossary.xpower")} />
-            <MetricCard color="amber" label="VI" value={vi?.toFixed(2)} description={t("analysis.metric.viDesc")} tooltip={t("analysis.glossary.vi")} />
+            <MetricCard color="violet" label="NP" value={np != null ? Math.round(np).toString() : null} unit="W" description={t("analysis.metric.npDesc")} termId="np" tooltip={t("analysis.glossary.np")} />
+            <MetricCard color="violet" label="xPower" value={xPower != null ? Math.round(xPower).toString() : null} unit="W" description={t("analysis.metric.xPowerDesc")} termId="xpower" tooltip={t("analysis.glossary.xpower")} />
+            <MetricCard color="amber" label="VI" value={vi?.toFixed(2)} description={t("analysis.metric.viDesc")} termId="vi" tooltip={t("analysis.glossary.vi")} />
             {weightKg && (
               <>
                 <MetricCard color="lime" label={t("analysis.metric.wkgAvg")} value={powerStats.avg != null ? (powerStats.avg / weightKg).toFixed(2) : null} unit="W/kg" tooltip={t("analysis.glossary.wkgAvg")} />
@@ -625,8 +637,8 @@ export default function AnalysisTab({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {cp && (
               <>
-                <MetricCard color="violet" label={t("analysis.metric.cp")} value={Math.round(cp.cp).toString()} unit="W" description={cp.rSquared != null ? t("analysis.metric.cpDesc", { value: cp.rSquared.toFixed(2) }) : undefined} tooltip={t("analysis.glossary.cp")} />
-                <MetricCard color="amber" label={t("analysis.metric.wPrime")} value={Math.round(cp.wPrime / 1000).toString()} unit="kJ" description={t("analysis.metric.wPrimeDesc")} tooltip={t("analysis.glossary.wprime")} />
+                <MetricCard color="violet" label={t("analysis.metric.cp")} value={Math.round(cp.cp).toString()} unit="W" description={cp.rSquared != null ? t("analysis.metric.cpDesc", { value: cp.rSquared.toFixed(2) }) : undefined} termId="cp" tooltip={t("analysis.glossary.cp")} />
+                <MetricCard color="amber" label={t("analysis.metric.wPrime")} value={Math.round(cp.wPrime / 1000).toString()} unit="kJ" description={t("analysis.metric.wPrimeDesc")} termId="wprime" tooltip={t("analysis.glossary.wprime")} />
               </>
             )}
             {matches && matches.count > 0 && (
@@ -642,8 +654,7 @@ export default function AnalysisTab({
             <div className="mt-4">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[length:var(--fs-xs)] font-medium" style={{ color: 'var(--ink-2)' }}>{t("analysis.metric.wPrimeBal")}</span>
-                  <InfoTip content={t("analysis.glossary.wPrimeBal")} label={t("analysis.metric.wPrimeBal")} />
+                  <span className="text-[length:var(--fs-xs)] font-medium" style={{ color: 'var(--ink-2)' }}><MetricTerm termId="wprimeBal" label={t("analysis.metric.wPrimeBal")} /></span>
                 </div>
                 <span className="text-[length:var(--fs-xs)] tabular-nums" style={{ color: 'var(--rose)' }}>
                   {t("analysis.metric.wPrimeBalMin", { pct: Math.round((wbal.minJ / cp.wPrime) * 100) })}
@@ -692,17 +703,17 @@ export default function AnalysisTab({
               value={hrDrift != null ? `${hrDrift >= 0 ? "+" : ""}${hrDrift.toFixed(1)}%` : null}
               description={t("analysis.metric.hrDriftDesc")}
               tone={hrDrift == null ? "default" : Math.abs(hrDrift) < 3 ? "good" : Math.abs(hrDrift) < 6 ? "warn" : "bad"}
-              tooltip={t("analysis.glossary.hrDrift")}
+              termId="hrDrift" tooltip={t("analysis.glossary.hrDrift")}
             />
             {hasPower && (
               <>
-                <MetricCard color="aqua" label={t("analysis.metric.ef")} value={ef != null ? ef.toFixed(2) : null} description={t("analysis.metric.efDesc")} tooltip={t("analysis.glossary.ef")} />
+                <MetricCard color="aqua" label={t("analysis.metric.ef")} value={ef != null ? ef.toFixed(2) : null} description={t("analysis.metric.efDesc")} termId="ef" tooltip={t("analysis.glossary.ef")} />
                 <MetricCard
                   label={t("analysis.metric.decoupling")}
                   value={decoupling != null ? `${decoupling >= 0 ? "+" : ""}${decoupling.toFixed(1)}%` : null}
                   description={t("analysis.metric.decouplingDesc")}
                   tone={decoupTone}
-                  tooltip={t("analysis.glossary.decoupling")}
+                  termId="decoupling" tooltip={t("analysis.glossary.decoupling")}
                 />
               </>
             )}
@@ -733,10 +744,11 @@ export default function AnalysisTab({
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)" }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: b.color, flexShrink: 0 }} />
-                  <Text variant="eyebrow" style={{ fontSize: "var(--fs-xs)" }}>{b.label}</Text>
-                  {BAND_GLOSSARY_KEY[b.label] && (
-                    <InfoTip content={t(`analysis.glossary.${BAND_GLOSSARY_KEY[b.label]}`)} label={b.label} />
-                  )}
+                  <Text variant="bodySmall" weight={600} style={{ fontSize: "var(--fs-xs)" }}>
+                    {BAND_GLOSSARY_KEY[b.label] ? <MetricTerm termId={BAND_GLOSSARY_KEY[b.label]!} label={b.label} />
+                      : b.label === "Threshold" ? <InfoTip title={b.label} content={t("analysis.glossary.threshold")} label={t("termGlossary:openLabel", { term: b.label })} tone="inherit">{b.label}</InfoTip>
+                      : b.label}
+                  </Text>
                 </div>
                 <Text as="div" variant="dataHero" style={{ fontSize: "var(--fs-xl)", color: b.seconds > 0 ? b.color : "var(--ink-3)", lineHeight: 1 }}>
                   {b.seconds > 0 ? formatDuration(b.seconds) : "—"}
@@ -754,11 +766,11 @@ export default function AnalysisTab({
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.exerciseData")}</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <MetricCard color="aqua" label={t("analysis.metric.distance")} value={distanceKm != null ? distVal(distanceKm) : null} unit={distUnit} tooltip={t("analysis.glossary.distance")} />
-            <MetricCard color="aqua" label={t("analysis.metric.elevGain")} value={elevGain != null && elevGain > 0 ? elevValRound(elevGain).toString() : null} unit={elevUnit} tooltip={t("analysis.glossary.elevGain")} />
+            <MetricCard color="aqua" label={t("analysis.metric.elevGain")} value={elevGain != null && elevGain > 0 ? elevValRound(elevGain).toString() : null} unit={elevUnit} termId="elevationGain" tooltip={t("analysis.glossary.elevGain")} />
             <MetricCard color="lime" label={t("analysis.metric.avgSpeed")} value={speed.avgKph != null ? speedVal(speed.avgKph) : null} unit={speedUnit} tooltip={t("analysis.glossary.avgSpeed")} />
             <MetricCard color="lime" label={t("analysis.metric.maxSpeed")} value={speed.maxKph != null ? speedVal(speed.maxKph) : null} unit={speedUnit} tooltip={t("analysis.glossary.maxSpeed")} />
-            <MetricCard color="violet" label={t("analysis.metric.avgRpm")} value={cadenceStats.avg != null ? Math.round(cadenceStats.avg).toString() : null} unit="rpm" tooltip={t("analysis.glossary.avgRpm")} />
-            <MetricCard color="violet" label={t("analysis.metric.maxRpm")} value={cadenceStats.max != null ? Math.round(cadenceStats.max).toString() : null} unit="rpm" tooltip={t("analysis.glossary.maxRpm")} />
+            <MetricCard color="violet" label={t("analysis.metric.avgRpm")} value={cadenceStats.avg != null ? Math.round(cadenceStats.avg).toString() : null} unit="rpm" termId="cadence" tooltip={t("analysis.glossary.avgRpm")} />
+            <MetricCard color="violet" label={t("analysis.metric.maxRpm")} value={cadenceStats.max != null ? Math.round(cadenceStats.max).toString() : null} unit="rpm" termId="cadence" tooltip={t("analysis.glossary.maxRpm")} />
             {sport === "run" && sm?.runMetrics?.minPaceSecPerKm != null && (
               <MetricCard color="lime" label={t("analysis.metric.fastestKm")} value={formatPace(sm.runMetrics.minPaceSecPerKm)} unit="/km" tooltip={t("analysis.glossary.fastestKm")} />
             )}
@@ -787,8 +799,7 @@ export default function AnalysisTab({
         <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-1.5">
-              <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.zones")}</h3>
-              <InfoTip content={t("analysis.glossary.zones")} label={t("analysis.section.zones")} />
+              <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}><MetricTerm termId="zones" label={t("analysis.section.zones")} /></h3>
             </div>
             {/* Coggan ↔ Seiler 토글 (자전거+파워 있을 때만) */}
             {seilerZones && (

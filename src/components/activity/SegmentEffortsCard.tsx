@@ -43,6 +43,9 @@ interface SegmentEffortsCardProps<E extends SegmentEffortData> {
   setShowAll: (v: boolean) => void;
   onHover: (effort: E | null) => void;
   formatTime: (ms: number) => string;
+  onViewOnMap?: (effort: E, trigger: HTMLButtonElement) => void;
+  canViewOnMap?: (effort: E) => boolean;
+  selectedEffortId?: string | number;
 }
 
 export default function SegmentEffortsCard<E extends SegmentEffortData>({
@@ -52,6 +55,9 @@ export default function SegmentEffortsCard<E extends SegmentEffortData>({
   setShowAll,
   onHover,
   formatTime,
+  onViewOnMap,
+  canViewOnMap,
+  selectedEffortId,
 }: SegmentEffortsCardProps<E>) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
@@ -117,9 +123,12 @@ export default function SegmentEffortsCard<E extends SegmentEffortData>({
                 <tr
                   key={effort.id}
                   className="transition-colors hover:bg-[var(--bg-2)]"
+                  data-map-selected={selectedEffortId === effort.id || undefined}
                   style={{ borderTop: "1px solid var(--line-soft)" }}
                   onMouseEnter={() => onHover(effort)}
                   onMouseLeave={() => onHover(null)}
+                  onFocus={() => onHover(effort)}
+                  onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) onHover(null); }}
 
                 >
                   <td style={{ padding: "12px 18px" }}>
@@ -158,6 +167,13 @@ export default function SegmentEffortsCard<E extends SegmentEffortData>({
                         </span>
                       )}
                     </div>
+                    {onViewOnMap && canViewOnMap?.(effort) && <Button
+                      size="sm" variant="ghost" className="activity-detail-segment-map-action"
+                      aria-label={t("segments.viewOnMapNamed", { name: effort.name })}
+                      aria-controls="activity-route-map"
+                      aria-pressed={selectedEffortId === effort.id}
+                      onClick={(event) => onViewOnMap(effort, event.currentTarget)}
+                    >{t("segments.viewOnMap")}</Button>}
                   </td>
                   <td style={{ textAlign: "right", padding: "12px 10px", color: "var(--ink-0)", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
                     {formatTime(effort.elapsedTime)}

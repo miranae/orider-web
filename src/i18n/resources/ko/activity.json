@@ -794,6 +794,11 @@
     "pace": "페이스"
   },
   "segments": {
+    "viewOnMap": "지도에서 보기",
+    "viewOnMapNamed": "{{name}} 지도에서 보기",
+    "selectedOnMap": "지도에서 보는 구간: {{name}}",
+    "returnToSegment": "구간으로 돌아가기",
+    "mapRegion": "활동 경로 지도",
     "title": "세그먼트",
     "matched": "이 라이딩에서 매칭된 {{count}}개 구간",
     "viewAll": "전체 보기",
@@ -960,7 +965,7 @@
       "ef": "효율 계수 (Efficiency Factor) — NP ÷ 평균 심박. 높을수록 유산소 효율↑.",
       "decoupling": "디커플링 (Decoupling) — 후반 파워:심박 효율 저하율. 낮을수록 내구성↑.",
       "sweetSpot": "스위트 스팟 (Sweet Spot) — FTP 83~94%. 피로 대비 효율이 좋은 체력 향상 구간.",
-      "threshold": "역치 (Threshold) — FTP 95~105%. 약 1시간 지속 한계 부근 강도.",
+      "threshold": "역치 (Threshold) — 이 화면에서는 FTP 95~106% 강도에서 보낸 시간입니다. 혈중 젖산 검사로 측정한 역치 값은 아닙니다.",
       "vo2max": "최대산소섭취 (VO2max) — FTP 106~120%. 심폐 능력을 자극하는 고강도.",
       "anaerobic": "무산소 (Anaerobic) — FTP 120% 초과. 단시간 전력 구간.",
       "fatmax": "FATMAX — 지방 산화 속도가 최대가 되는 강도.",
