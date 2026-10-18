@@ -12,6 +12,7 @@ import { useStrava } from "../../hooks/useStrava";
 import { useExport } from "../../hooks/useExport";
 import { SUPPORTED_LANGS, type Lang } from "../../i18n/detector";
 
+import { TimezoneSetting } from "./TimezoneSetting";
 import { SettingsCard, Field, FieldGrid, InlineRow } from "./_primitives";
 import { Button, Text, buttonClass } from "../../theme/components";
 import { useTheme, type ThemePreference } from "../../contexts/ThemeContext";
@@ -138,6 +139,10 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
             </div>
           </Field>
         </FieldGrid>
+      </SettingsCard>
+
+      <SettingsCard title={t("pane.app.cardTimezone")} dense>
+        <TimezoneSetting />
       </SettingsCard>
 
       <SettingsCard title={t("pane.account.cardAppearance")} dense>
