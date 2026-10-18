@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from 'vitest';
-import { readCourseTrack, projectCourseTrack } from './courseTrackPreview';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readCourseTrack, readCourseTrackData, projectCourseTrack } from './courseTrackPreview';
 import { createSeed, loadLocal, saveMeeting, STORAGE_KEY } from './domain';
 
 afterEach(() => localStorage.clear());
@@ -44,5 +44,30 @@ describe('모집 코스 안내', () => {
     state.meetings[0]!.courseInfoVersion = 1;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     expect(loadLocal().state.meetings[0]!.distanceKm).toBeUndefined();
+  });
+});
+
+
+describe('GPX XML 텍스트 보안', () => {
+  it('entity·CDATA는 텍스트로 유지하고 구간·경유지를 한 번 파싱한 DOM에서 읽는다', () => {
+    const parse = vi.spyOn(DOMParser.prototype, 'parseFromString');
+    const serialize = vi.spyOn(XMLSerializer.prototype, 'serializeToString').mockImplementation(() => { throw new Error('XML 재파싱 금지'); });
+    try {
+      const encoded = '&lt;img src=x onerror=alert(1)&gt; &amp; 단풍';
+      const cdata = '<svg onload="alert(2)"><trkpt lat="0" lon="0"/></svg>';
+      const result = readCourseTrackData(`<gpx><metadata><name>${encoded}</name></metadata>
+        <wpt lat="37" lon="127"><name><![CDATA[${cdata}]]></name><type>AID</type></wpt>
+        <wpt lat="91" lon="127"><name>잘못된 좌표</name></wpt>
+        <trk>${segment(37, 100)}${segment(38, 200)}</trk></gpx>`, '보안.gpx');
+      expect(parse).not.toHaveBeenCalled();
+      expect(serialize).not.toHaveBeenCalled();
+      expect(result.name).toBe('<img src=x onerror=alert(1)> & 단풍');
+      expect(result.waypoints).toEqual([{lat:37,lon:127,ele:0,name:cdata,type:'AID'}]);
+      expect(result.parts.map(part => part.points.length)).toEqual([2,2]);
+      expect(result.track.segmentStarts).toEqual([0,2]);
+      expect(result.track.points).toHaveLength(4);
+      expect(result.track.distanceKm).toBeLessThan(1);
+      expect(document.querySelector('img,svg[onload]')).toBeNull();
+    } finally { parse.mockRestore(); serialize.mockRestore(); }
   });
 });

@@ -1,12 +1,12 @@
-import { parseGpx, parseGpxName, type ParsedGpx, type GpxWaypoint } from '../courseEngine/gpx';
+import { parseGpxRoot, parseGpxXmlRoot, gpxNameFromDocument, type ParsedGpx, type GpxWaypoint } from '../courseEngine/gpx';
 import type { CoursePoint, CourseTrack } from './domain';
 
 /** 기존 코스 엔진으로 읽되, 분리된 트랙 사이를 가상의 주행 구간으로 잇지 않는다. */
 export function readCourseTrack(xml: string, fileName: string): CourseTrack { return readCourseTrackData(xml, fileName).track; }
 export function readCourseTrackData(xml: string, fileName: string): {track: CourseTrack; parts: ParsedGpx[]; waypoints: GpxWaypoint[]; name: string} {
   if (xml.length > 2_000_000) throw new Error('GPX 파일은 2MB 이하로 올려주세요.');
-  const doc = new DOMParser().parseFromString(xml, 'text/xml');
-  if (doc.querySelector('parsererror') || doc.documentElement.localName !== 'gpx') {
+  const doc = parseGpxXmlRoot(xml);
+  if (!doc) {
     throw new Error('올바른 GPX 파일을 선택해주세요.');
   }
   const segments = Array.from(doc.getElementsByTagName('trkseg'))
@@ -22,8 +22,7 @@ export function readCourseTrackData(xml: string, fileName: string): {track: Cour
   })) throw new Error('GPX에 유효하지 않은 좌표가 있습니다.');
   if (segments.length === 0) throw new Error('트랙 구간이 있는 GPX를 선택해주세요.');
 
-  const serializer = new XMLSerializer();
-  const parsed = segments.map(segment => parseGpx(`<gpx><trk>${serializer.serializeToString(segment)}</trk></gpx>`));
+  const parsed = segments.map(segment => parseGpxRoot(segment));
   if (parsed.some(part => part.points.length < 2)) throw new Error('각 트랙 구간에는 두 개 이상의 지점이 필요합니다.');
   const distanceKm = parsed.reduce((sum, part) => sum + part.stats.distanceM, 0) / 1000;
   if (distanceKm <= 0) throw new Error('서로 다른 위치가 있는 GPX를 선택해주세요.');
@@ -45,8 +44,8 @@ export function readCourseTrackData(xml: string, fileName: string): {track: Cour
     const lat = Number(node.getAttribute('lat')), lon = Number(node.getAttribute('lon'));
     if (!node.getAttribute('lat')?.trim() || !node.getAttribute('lon')?.trim() || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) node.remove();
   }
-  const waypoints = parseGpx(serializer.serializeToString(doc)).waypoints;
-  return { track: { fileName, points, segmentStarts, distanceKm, elevationGainM }, parts: parsed, waypoints, name: (parseGpxName(xml) ?? fileName.replace(/\.gpx$/i, '')).slice(0, 200) || 'GPX 코스' };
+  const waypoints = parseGpxRoot(doc).waypoints;
+  return { track: { fileName, points, segmentStarts, distanceKm, elevationGainM }, parts: parsed, waypoints, name: (gpxNameFromDocument(doc) ?? fileName.replace(/\.gpx$/i, '')).slice(0, 200) || 'GPX 코스' };
 }
 
 /** 배경지도 없는 좌표 미리보기. 위도에 따른 경도 비율을 보정한다. */

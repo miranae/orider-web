@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseGpxXmlRoot } from "./gpx";
 
 import {
   activeLanes,
@@ -641,4 +642,58 @@ describe("코스 레인 라벨 번역 키", () => {
       expect(Object.keys(en.default)).toContain(key);
     }
   });
+});
+
+
+describe('GPX 이름과 경유지의 XML 텍스트 경계', () => {
+  it('entity는 한 번만 해석하고 CDATA 마크업을 트랙 지점으로 재해석하지 않는다', () => {
+    const markup = '<img src=x onerror="alert(1)"><trkpt lat="0" lon="0"/></img>';
+    const xml = `<gpx><metadata><name>메타 이름</name></metadata><trk><name>&amp;lt;img&amp;gt; &amp; 가을</name><trkseg>
+      <trkpt lat="37" lon="127"><ele>10</ele></trkpt><trkpt lat="37.001" lon="127.001"><ele>20</ele></trkpt>
+      <desc><![CDATA[${markup}]]></desc></trkseg></trk>
+      <wpt lat="37" lon="127"><name><![CDATA[${markup}]]></name><type>FOOD</type></wpt>
+      <rte><rtept lat="37.002" lon="127.002"><name>&lt;b&gt;제어점&lt;/b&gt;</name></rtept></rte></gpx>`;
+    const parsed = parseGpx(xml);
+    expect(parseGpxName(xml)).toBe('&lt;img&gt; & 가을');
+    expect(parsed.points).toHaveLength(2);
+    expect(parsed.waypoints[0]!.name).toBe(markup);
+    expect(parsed.routePoints[0]!.name).toBe('<b>제어점</b>');
+    expect(document.querySelector('img[onerror]')).toBeNull();
+  });
+});
+
+
+describe('GPX 파일 XML 허용 경계', () => {
+  it('표준 GPX namespace·XML 선언·prefix가 다른 Garmin 센서 확장을 보존하고 실행성 태그·속성은 제거한다', () => {
+    const root = parseGpxXmlRoot(`<?xml version="1.0" encoding="UTF-8"?>
+      <gpx xmlns="http://www.topografix.com/GPX/1/1" xmlns:sensor="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" version="1.1" creator="테스트" onload="alert(1)" xmlns:xlink="http://www.w3.org/1999/xlink">
+      <metadata><name>실제 코스 &amp; 보급</name></metadata><trk><trkseg>
+      <trkpt lat="37" lon="127" onclick="alert(2)" href="javascript:alert(3)" xlink:href="javascript:alert(4)"><ele>10</ele><extensions><sensor:TrackPointExtension><sensor:hr>145</sensor:hr><sensor:cad>88</sensor:cad></sensor:TrackPointExtension><power>230</power></extensions></trkpt>
+      <trkpt lat="37.001" lon="127.001"><ele>20</ele></trkpt>
+      </trkseg></trk><wpt lat="37" lon="127"><name>보급</name><type>AID</type></wpt>
+      <script>alert(3)</script><svg xmlns="http://www.w3.org/2000/svg" onload="alert(4)"><foreignObject>위험</foreignObject></svg></gpx>`)!;
+    expect(root.namespaceURI).toBe('http://www.topografix.com/GPX/1/1');
+    expect(root.getAttribute('version')).toBe('1.1');
+    expect(root.querySelector('metadata > name')!.textContent).toBe('실제 코스 & 보급');
+    expect(root.getElementsByTagNameNS('http://www.garmin.com/xmlschemas/TrackPointExtension/v1','hr')[0]!.textContent).toBe('145');
+    expect(root.getElementsByTagNameNS('http://www.garmin.com/xmlschemas/TrackPointExtension/v1','cad')[0]!.textContent).toBe('88');
+    expect(root.querySelector('power')!.textContent).toBe('230');
+    expect(root.querySelector('[onload],[onclick],[href],script,svg,img')).toBeNull();
+    expect(root.getElementsByTagName('trkpt')[0]!.getAttributeNS('http://www.w3.org/1999/xlink','href')).toBeNull();
+    expect(root.getElementsByTagName('trkpt')).toHaveLength(2);
+    expect(root.getElementsByTagName('wpt')).toHaveLength(1);
+  });
+  it('DTD·손상된 CDATA·다중 루트는 거부하고 entity와 CDATA 텍스트를 HTML로 승격하지 않는다', () => {
+    expect(parseGpxXmlRoot('<!DOCTYPE gpx [<!ENTITY unsafe "bad">]><gpx/>')).toBeNull();
+    expect(parseGpxXmlRoot('<gpx><name><![CDATA[unclosed</name></gpx>')).toBeNull();
+    expect(parseGpxXmlRoot('<gpx/><gpx/>')).toBeNull();
+    expect(parseGpxXmlRoot('<html><img src="x" onerror="alert(1)"/></html>')).toBeNull();
+  });
+});
+
+
+it.each(['http://www.topografix.com/GPX/1/0','http://www.topografix.com/GPX/1/1'])('BOM·XML 선언과 GPX namespace %s를 보존한다', namespace => {
+ const root=parseGpxXmlRoot(`\uFEFF<?xml version="1.0"?><gpx xmlns="${namespace}"><metadata><name>가을</name></metadata></gpx>`)!;
+ expect(root.namespaceURI).toBe(namespace);
+ expect(root.querySelector('metadata > name')!.textContent).toBe('가을');
 });
