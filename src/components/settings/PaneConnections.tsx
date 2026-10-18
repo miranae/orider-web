@@ -141,8 +141,9 @@ export function PaneConnections() {
     try {
       await disconnectStrava(operationId);
       showToast(t("strava.disconnected"));
-    } catch {
-      /* hook 내부에서 토스트 처리 */
+    } catch (error) {
+      const reason = (error as { details?: { reason?: string } }).details?.reason;
+      showToast(t(reason === "last-login-method" ? "strava.disconnectLastLogin" : "strava.disconnectFailed"), "error");
     }
   }
 
