@@ -83,17 +83,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileLoading, setProfileLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [signInOpen, setSignInOpen] = useState(false);
+  const profileOwnerRef = useRef<string | null>(null);
   const pendingSignInRef = useRef<{ resolve: () => void; reject: (err: unknown) => void } | null>(null);
 
   // Listen to auth state
   useEffect(() => {
     let cancelled = false;
+    let authGeneration = 0;
 
-    async function callWithRetry(fn: () => Promise<unknown>, retries = 3): Promise<unknown> {
-      for (let i = 0; i < retries; i++) {
+    async function callWithRetry<T>(fn: () => Promise<T>, generation: number, retries = 3): Promise<T> {
+      for (let i = 0; ; i++) {
+        if (cancelled || generation !== authGeneration) throw new Error("auth/session-changed");
         try { return await fn(); }
         catch (err) {
-          if (i === retries - 1) throw err;
+          if (cancelled || generation !== authGeneration || i >= retries - 1) throw err;
           await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
         }
       }
@@ -101,19 +104,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (cancelled) return;
+      const generation = ++authGeneration;
+      const isCurrent = () => !cancelled && generation === authGeneration;
+      const nextUid = firebaseUser?.uid ?? null;
+      if (profileOwnerRef.current !== nextUid) setProfile(null);
+      profileOwnerRef.current = nextUid;
       setUser(firebaseUser);
       setProfileLoading(Boolean(firebaseUser));
       if (firebaseUser && getRuntimeConfig().appEnvironment !== "stage") {
         // 프로필 생성 — 3회 지수 백오프 retry
         try {
-          await callWithRetry(async () => {
+          const { data: ensuredProfile } = await callWithRetry(async () => {
             await ensureAppCheckReady();
-            const ensureProfile = httpsCallable(functions, "ensureUserProfile");
+            const ensureProfile = httpsCallable<void, UserProfile>(functions, "ensureUserProfile");
             return ensureProfile();
-          });
+          }, generation);
+          // 서버가 이미 확인한 정본을 첫 live snapshot 전에 표시한다. 늦게 도착한
+          // 이전 계정 응답은 버리고, 현재 계정의 최신 snapshot 을 덮어쓰지 않는다.
+          if (isCurrent() && typeof ensuredProfile?.nickname === "string") {
+            setProfile((current) => isCurrent() ? current ?? ensuredProfile : current);
+            setProfileLoading(false);
+          }
         } catch (err) {
-          logClientError("AuthContext.ensureUserProfile", err, { uid: firebaseUser.uid });
-          if (!cancelled) setProfile(null);
+          if (isCurrent()) {
+            logClientError("AuthContext.ensureUserProfile", err, { uid: firebaseUser.uid });
+          }
         }
       } else if (!firebaseUser) {
         if (!cancelled) {
@@ -121,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfileLoading(false);
         }
       }
-      if (!cancelled) setLoading(false);
+      if (isCurrent()) setLoading(false);
     });
     return () => {
       cancelled = true;
@@ -137,22 +152,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setProfileLoading(true);
 
-    return onSnapshot(
+    let active = true;
+    const unsubscribe = onSnapshot(
       doc(firestore, "users", user.uid),
       (snap) => {
+        if (!active || profileOwnerRef.current !== user.uid) return;
         if (snap.exists()) {
           setProfile(snap.data() as UserProfile);
-        } else {
+        } else if (!snap.metadata.fromCache) {
           setProfile(null);
         }
         setProfileLoading(false);
       },
       (err) => {
+        if (!active || profileOwnerRef.current !== user.uid) return;
         logClientError("AuthContext.profileSnapshot", err, { uid: user.uid });
         setProfile(null);
         setProfileLoading(false);
       },
     );
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [user]);
 
   const signInWithGoogle = useCallback(async () => {
