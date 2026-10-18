@@ -50,6 +50,7 @@ import { useRunRecords } from "./useRunRecords";
 import { useUserFitness } from "./useUserFitness";
 import { filterByDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { toLocalDate } from "../utils/dateUtils";
+import { addFitnessDateKeyDays, fitnessDateKeyFor, fitnessDateKeyTimezoneAt, fitnessTodayKey, type FitnessDateKeyBasis } from "@shared/training/dateKey";
 import {
   aggregateDailyLoad,
   ATL_DAYS,
@@ -84,6 +85,8 @@ export interface TriDisciplineFitness {
   fitness: FitnessPoint[];
   weeklyTSS: number | null;
   canonical: boolean;
+  /** canonical 일 때 그 종목 정본의 loadSnapshot.dateKeyBasis (없으면 UTC). */
+  dateKeyBasis?: FitnessDateKeyBasis;
   dailyData?: DailyLoad[];
   unknownCount?: number;
   weeklyUnknownCount?: number;
@@ -638,12 +641,19 @@ export function useFitnessModel(
       ? isCanonicalTimeseries(selectedApiTimeseries, discipline)
       : isCanonicalTimeseries(timeseries, discipline)
   ));
+  // 정본 날짜 키 구간(loadSnapshot.dateKeyBasis). 서버는 세 종목에 같은 구간을 쓰므로 선택 종목 문서가
+  // 없으면 다른 종목 문서의 구간을 쓴다. 모두 없으면 undefined = UTC(기존 동작).
+  const fitnessDateKeyBasis = (canonicalActive
+    ? [selectedApiTimeseries, apiTimeseries?.bike, apiTimeseries?.run, apiTimeseries?.swim]
+    : [timeseries, triRunTimeseries, triSwimTimeseries]
+  ).find(doc => doc?.loadSnapshot?.dateKeyBasis != null)?.loadSnapshot?.dateKeyBasis;
   const canonicalWeeklySummaries = useMemo(() => Object.fromEntries((["bike", "run", "swim"] as const).map(sport => {
     const summary = canonicalFitness.values?.weeklySummaries?.[sport];
+    const basis = canonicalFitness.values?.timeseries?.[sport]?.loadSnapshot?.dateKeyBasis ?? fitnessDateKeyBasis;
     const current = summary
-      && new Date(summary.computedAt).toISOString().slice(0, 10) === new Date(fitnessClock).toISOString().slice(0, 10);
+      && fitnessDateKeyFor(summary.computedAt, basis) === fitnessTodayKey(fitnessClock, basis);
     return [sport, current ? summary.totalTss : null];
-  })) as Record<TimeseriesDiscipline, number | null>, [canonicalFitness.values, fitnessClock]);
+  })) as Record<TimeseriesDiscipline, number | null>, [canonicalFitness.values, fitnessClock, fitnessDateKeyBasis]);
   const resolvedTriFitness = useMemo<TriFitnessBreakdown>(() => {
     const resolve = (
       triDiscipline: TimeseriesDiscipline,
@@ -657,11 +667,11 @@ export function useFitnessModel(
         ? apiCanonical!.points
         : fallback?.fitnessData ?? [];
       const dailyData: DailyLoad[] = fallback?.dailyData ?? fitness.map(point => ({date:point.date,totalLoad:point.dailyLoad,activities:[]}));
-      const today = hasCanonical ? new Date(fitnessClock).toISOString().slice(0, 10) : toLocalDate(fitnessClock);
+      const basis = apiCanonical?.loadSnapshot?.dateKeyBasis ?? fitnessDateKeyBasis;
+      const today = hasCanonical ? fitnessTodayKey(fitnessClock, basis) : toLocalDate(fitnessClock);
       const weekStartDate = new Date(fitnessClock);
-      if (hasCanonical) weekStartDate.setUTCDate(weekStartDate.getUTCDate() - 6);
-      else weekStartDate.setDate(weekStartDate.getDate() - 6);
-      const weekStart = hasCanonical ? weekStartDate.toISOString().slice(0, 10) : toLocalDate(weekStartDate.getTime());
+      if (!hasCanonical) weekStartDate.setDate(weekStartDate.getDate() - 6);
+      const weekStart = hasCanonical ? addFitnessDateKeyDays(today, -6) : toLocalDate(weekStartDate.getTime());
       const recentDays = dailyData.filter(day => day.date >= weekStart && day.date <= today);
       return {
         fitness,
@@ -674,6 +684,7 @@ export function useFitnessModel(
           ? canonicalWeeklySummaries[triDiscipline]
           : recentDays.reduce((sum, day) => sum + day.totalLoad, 0),
         canonical: hasCanonical,
+        dateKeyBasis: hasCanonical ? basis : undefined,
       };
     };
     return {
@@ -681,14 +692,14 @@ export function useFitnessModel(
       run: resolve("run", triRunTimeseries),
       swim: resolve("swim", triSwimTimeseries),
     };
-  }, [activities, apiTimeseries, canonicalActive, canonicalFitness.values, canonicalPending, canonicalFtpW, canonicalWeeklySummaries, fitnessClock, timeseries, triRunTimeseries, triSwimTimeseries]);
+  }, [activities, apiTimeseries, canonicalActive, canonicalFitness.values, canonicalPending, canonicalFtpW, canonicalWeeklySummaries, fitnessClock, fitnessDateKeyBasis, timeseries, triRunTimeseries, triSwimTimeseries]);
   const triFitnessTimeline = useMemo(
     // API는 현재 통합값만 제공하고 통합 과거 시계열은 제공하지 않는다. canonical ON에서
     // 브라우저가 종목별 CTL을 합산해 새 정본을 만들지 않는다.
     () => canonicalActive || Object.values(resolvedTriFitness).some(entry => entry.unknownCount) ? [] : buildTriFitnessTimeline(resolvedTriFitness),
     [canonicalActive, resolvedTriFitness],
   );
-  // 주간 부하는 각 종목의 원본 날짜 기준(정본 UTC, 클라이언트 local)으로 확정한다.
+  // 주간 부하는 각 종목의 원본 날짜 기준(정본 dateKeyBasis — 없으면 UTC, 클라이언트 local)으로 확정한다.
   const triFitnessBreakdown = resolvedTriFitness;
   const { fitnessData, dailyData } = useMemo<{ fitnessData: FitnessPoint[]; dailyData: DailyLoad[] }>(() => {
     if (discipline === "tri" && Object.values(resolvedTriFitness).some(entry => entry.unknownCount)) {
@@ -777,9 +788,10 @@ export function useFitnessModel(
   }, [fitnessClock, selectedWindowEntries, t]);
 
   const weeklyStats = useMemo(() => {
-    // 기록점 개수가 아닌 현재 날짜까지의 실제 달력 창을 사용한다. 서버 날짜는 UTC,
+    // 기록점 개수가 아닌 현재 날짜까지의 실제 달력 창을 사용한다. 서버 날짜는 dateKeyBasis(없으면 UTC),
     // 클라이언트 계산 날짜는 로컬이며 통합 화면도 각 종목의 날짜 근거를 유지한다.
     const readClock = Date.now();
+    const basisOf = (doc: FitnessTimeseriesDoc | null | undefined) => doc?.loadSnapshot?.dateKeyBasis ?? fitnessDateKeyBasis;
     const validClock = (value: number) => Number.isSafeInteger(value) && value > 0 && Number.isFinite(new Date(value).getTime());
     const sourceConfirmed = (source: FitnessTimeseriesDoc | null | undefined) => !source || validClock(source.computedAt) && (!hasModernFitnessContract(source)
       || hasFitnessLoadLifecycle(source) && !isFitnessInputInvalidated(source)
@@ -793,7 +805,7 @@ export function useFitnessModel(
     const recent = new Map<number, { load: number; unknown: number; known: boolean }>();
     for (const source of sources) {
       const sourceReady = sourceConfirmed(source.doc);
-      const today = source.canonical ? new Date(readClock).toISOString().slice(0, 10) : toLocalDate(readClock);
+      const today = source.canonical ? fitnessTodayKey(readClock, basisOf(source.doc)) : toLocalDate(readClock);
       const snapshots = new Map((Array.isArray(source.doc?.loadSnapshot?.points) ? source.doc.loadSnapshot.points : []).map(point => [point.date, point]));
       const rows = calendarLoadDays(source.days.map(day => ({ ...day, known: sourceReady
         && (source.canonical || day.activities.length > 0 || day.totalLoad > 0 || fitnessData.length > 0)
@@ -828,11 +840,11 @@ export function useFitnessModel(
     const recentLoad = allDays.reduce((sum, day) => sum + day.load, 0);
     const sourceCurrent = sources.every(source => !source.doc || validClock(source.doc.computedAt)
       && source.doc.computedAt <= readClock
-      && new Date(source.doc.computedAt).toISOString().slice(0, 10) === new Date(readClock).toISOString().slice(0, 10));
+      && fitnessDateKeyFor(source.doc.computedAt, basisOf(source.doc)) === fitnessTodayKey(readClock, basisOf(source.doc)));
     const lifecycleReady = sources.every(source => sourceConfirmed(source.doc));
     const datedPoint = sources.length === 1 && Array.isArray(sources[0]?.doc?.points) ? sources[0].doc.points[sources[0].doc.points.length - 1] : null;
     const pointCurrent = !!currentPoint && !!datedPoint
-      && datedPoint.date === new Date(readClock).toISOString().slice(0, 10)
+      && datedPoint.date === fitnessTodayKey(readClock, basisOf(sources[0]?.doc))
       && (canonicalCurrentPoint
         ? canonicalFitness.values?.asOf === sources[0]?.doc?.computedAt
         : currentPoint.date === datedPoint.date)
@@ -841,13 +853,16 @@ export function useFitnessModel(
       if (!source.doc || !hasModernFitnessContract(source.doc)) return true;
       if (!sourceConfirmed(source.doc)) return false;
       const snapshot = new Map(source.doc.loadSnapshot!.points.map(point => [point.date, point]));
-      const start = new Date(readClock - 13 * 86_400_000).toISOString().slice(0, 10);
-      const end = new Date(readClock).toISOString().slice(0, 10);
+      const end = fitnessTodayKey(readClock, basisOf(source.doc));
+      const start = addFitnessDateKeyDays(end, -13);
       return source.days.filter(day => day.date >= start && day.date <= end).every(day => snapshot.get(day.date)?.dailyLoad === day.totalLoad && snapshot.get(day.date)?.status === "final");
     });
+    // 정본 날짜는 서버 구간의 현재 시간대로 표기한다. UTC 가 아니면 "zone"(사용자 시간대) 라벨.
+    const canonicalTimeZones = new Set(sources.map(source => fitnessDateKeyTimezoneAt(readClock, basisOf(source.doc))));
+    const canonicalBasis = canonicalTimeZones.size > 1 ? "mixed" as const : canonicalTimeZones.has("UTC") ? "utc" as const : "zone" as const;
     return {
-      dateBasis: sources.every(source => source.canonical || source.weekly !== undefined) ? "utc" as const : sources.every(source => !source.canonical) ? "local" as const : "mixed" as const,
-      asOf: sources.every(source => source.canonical || source.weekly !== undefined) ? new Date(readClock).toISOString().slice(0, 10) : toLocalDate(readClock),
+      dateBasis: sources.every(source => source.canonical || source.weekly !== undefined) ? canonicalBasis : sources.every(source => !source.canonical) ? "local" as const : "mixed" as const,
+      asOf: sources.every(source => source.canonical || source.weekly !== undefined) ? fitnessTodayKey(readClock, basisOf(sources[0]?.doc)) : toLocalDate(readClock),
       storedSummary: summarySources.length > 0,
       insightReady: sourceCurrent && lifecycleReady && pointCurrent && dailyProof && !canonicalPending && (canonicalActive ? canonicalFitness.status === "canonical" : timeseriesFreshLoaded && !timeseriesError),
       thisWeekTSS: unknownSummaryOnly || !hasKnownThisWeek || !Number.isFinite(observedLoad) ? null : observedLoad,
@@ -866,7 +881,7 @@ export function useFitnessModel(
           return rows.every(day => day.known) && Number.isFinite(load) ? Math.round(load) : null;
         }),
     };
-  }, [canonicalActive, canonicalPending, canonicalFitness.status, canonicalWeeklySummaries, dailyData, discipline, fitnessClock, fitnessData.length, hasCanonicalTimeseries, resolvedTriFitness, timeseriesFreshLoaded, timeseriesError, timeseries, triRunTimeseries, triSwimTimeseries, selectedApiTimeseries, apiTimeseries, currentPoint, canonicalCurrentPoint, canonicalFitness.values]);
+  }, [canonicalActive, canonicalPending, canonicalFitness.status, canonicalWeeklySummaries, dailyData, discipline, fitnessClock, fitnessData.length, fitnessDateKeyBasis, hasCanonicalTimeseries, resolvedTriFitness, timeseriesFreshLoaded, timeseriesError, timeseries, triRunTimeseries, triSwimTimeseries, selectedApiTimeseries, apiTimeseries, currentPoint, canonicalCurrentPoint, canonicalFitness.values]);
   const zoneDistribution = useMemo(() => {
     const { counts, total } = aggregateRecentZoneSeconds(
       zoneActivities,
@@ -1012,7 +1027,7 @@ export function useFitnessModel(
       tsb: currentPoint?.tsb ?? 0,
       pmcHistory,
       pmcProjection: discipline === "tri" ? null : projection?.series ?? null,
-      today: hasCanonicalTimeseries ? new Date(fitnessClock).toISOString().slice(0, 10) : toLocalDate(fitnessClock),
+      today: hasCanonicalTimeseries ? fitnessTodayKey(fitnessClock, fitnessDateKeyBasis) : toLocalDate(fitnessClock),
       weeklyTSS,
       thisWeekTSS: weeklyStats.thisWeekTSS,
       avgWeekTSS: weeklyStats.avgWeekTSS,
@@ -1065,7 +1080,7 @@ export function useFitnessModel(
     };
   }, [
     canonicalFtpW, canonicalRiderView, combinedLoad, currentPoint, cyclingAbility, hasCanonicalTimeseries,
-    discipline, zoneActivities, fitnessClock, ftpHistory, integratedLoadFocus, mayUsePersistedPdcFallback,
+    discipline, zoneActivities, fitnessClock, fitnessDateKeyBasis, ftpHistory, integratedLoadFocus, mayUsePersistedPdcFallback,
     metricsMap, mobileZoneDistribution, ownerRiderBlock, pdc, powerCurveProgressions, profile, projection,
     runEvidence, swimEvidence, t, thresholdDecision, weeklyStats,
   ]);
@@ -1121,6 +1136,7 @@ export function useFitnessModel(
     retryLoad,
     hasCanonicalTimeseries,
     hasCanonicalHistory,
+    fitnessDateKeyBasis,
     pmcHistoryPoints,
     fitnessData,
     dailyData,
@@ -1145,6 +1161,7 @@ export function useFitnessModel(
       data: mobilePageData,
       pmcHistoryPoints,
       pmcHistoryCanonical: hasCanonicalHistory,
+      fitnessDateKeyBasis,
       consistencyStreak,
       ftpDecision: bikeFtpDecision,
       ftpReceipt: bikeFtpReceipt,

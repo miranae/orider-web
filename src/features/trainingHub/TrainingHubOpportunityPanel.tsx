@@ -28,7 +28,7 @@ export function FitnessWeeklyInsight({
   tsb: number;
   dailyData: DailyLoadPoint[];
   asOf: string;
-  dateBasis: "utc" | "local" | "mixed";
+  dateBasis: "utc" | "zone" | "local" | "mixed";
   ready?: boolean;
   t: T;
 }) {

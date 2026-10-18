@@ -1,3 +1,5 @@
+import { fitnessTodayKey } from "./dateKey";
+
 const validTimestamp = (value: unknown): value is { seconds: number; nanoseconds: number } => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const timestamp = value as Record<string, unknown>;
@@ -24,7 +26,8 @@ export function validFitnessLoadSnapshotProof(value: unknown): boolean {
       || !validTimestamp(readTime) || Math.floor(readTime.seconds * 1000 + readTime.nanoseconds / 1_000_000) !== asOf) return false;
   const start = dateMillis(load.coverageStartDate);
   const end = dateMillis(load.coverageEndDate);
-  if (start == null || end == null || end < start || load.coverageEndDate !== new Date(asOf).toISOString().slice(0, 10)
+  // 마지막 날짜는 발행 시각의 오늘 키 — 날짜키 기준(dateKeyBasis, 없으면 UTC)으로 본다(#3252).
+  if (start == null || end == null || end < start || load.coverageEndDate !== fitnessTodayKey(asOf, load.dateKeyBasis)
       || points.length === 0 || points.length !== (end - start) / 86_400_000 + 1) return false;
   for (let index = 0; index < points.length; index++) {
     const point = points[index] as Record<string, unknown>;

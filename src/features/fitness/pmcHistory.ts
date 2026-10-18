@@ -1,4 +1,5 @@
 import { validFitnessLoadSnapshotProof } from '@shared/training/fitnessLoadLifecycle'
+import { fitnessDateKeyFor } from '@shared/training/dateKey'
 import type { FitnessPoint } from '../../utils/fitnessMetrics'
 import type { FitnessTimeseriesDoc } from '../../../shared/types/fitness-timeseries'
 
@@ -65,7 +66,7 @@ export function describePmcHistory(
     load: hasFitnessLoadLifecycle(source) ? new Map(source!.loadSnapshot!.points.map(point => [point.date, point])) : null,
     computedDate: source && Number.isFinite(source.computedAt)
       && Number.isFinite(new Date(source.computedAt).getTime())
-      ? new Date(source.computedAt).toISOString().slice(0, 10) : null,
+      ? fitnessDateKeyFor(source.computedAt, source.loadSnapshot?.dateKeyBasis) : null,
   }})
   const hasLifecycle = evidence.some(entry => entry.load)
   const byDate = new Map<string, PmcHistoryPoint>(points

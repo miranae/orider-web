@@ -24,7 +24,7 @@ import { useSearchParams } from "react-router-dom";
 import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
 import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerCurvePeriodsPanel";
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
-import { toUtcDate } from "../../utils/dateUtils";
+import { fitnessTodayKey, type FitnessDateKeyBasis } from "@shared/training/dateKey";
 import FtpDecisionSection from "../../features/fitness/components/FtpDecisionSection";
 import { needsRunAnalysisReadiness } from "../../features/fitness/runAnalysisReadiness";
 import RunRecordsSummary from "../../features/fitness/components/RunRecordsSummary";
@@ -93,7 +93,7 @@ export interface MobileFitnessData {
   weeklyLoadPartial?: boolean;
   weeklyLoadStoredSummary?: boolean;
   weeklyLoadAsOf?: string;
-  weeklyLoadDateBasis?: "utc" | "local" | "mixed";
+  weeklyLoadDateBasis?: "utc" | "zone" | "local" | "mixed";
   loadUnknownCount?: number;
   thisWeekUnknownCount?: number;
   hasKnownWeeklyLoad?: boolean;
@@ -632,6 +632,7 @@ export default function MobileFitnessPage({
   powerCurvePeriodsEnabled = false,
   pmcHistoryPoints,
   pmcHistoryCanonical = false,
+  fitnessDateKeyBasis,
   coachSlot = null,
   thresholdsSlot = null,
   periodSlot = null,
@@ -655,6 +656,8 @@ export default function MobileFitnessPage({
   /** 표시 범위를 확장해도 활동 상세 조회는 늘리지 않는 전체 일별 이력. */
   pmcHistoryPoints?: readonly PmcHistoryPoint[];
   pmcHistoryCanonical?: boolean;
+  /** 정본 loadSnapshot.dateKeyBasis — PMC 이력의 오늘 키. 없으면 UTC. */
+  fitnessDateKeyBasis?: FitnessDateKeyBasis;
   /** 단일 종목에서 활동 영향과 오늘 선택을 먼저 보여주는 공용 코치 브리핑. */
   coachSlot?: ReactNode;
   thresholdsSlot?: ReactNode;
@@ -787,7 +790,7 @@ export default function MobileFitnessPage({
               <>
                 {pmcHistoryPoints && (
                   <div className="mobile-fitness-pmc">
-                    <PmcHistoryPanel key={data.discipline} points={pmcHistoryPoints} today={toUtcDate(Date.now())} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" rangeChoices={data.discipline === "tri" ? [42, 90, 180, 365, "3y", "all"] : [30, 90, 180, 365, "3y", "all"]} />
+                    <PmcHistoryPanel key={data.discipline} points={pmcHistoryPoints} today={fitnessTodayKey(Date.now(), fitnessDateKeyBasis)} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" rangeChoices={data.discipline === "tri" ? [42, 90, 180, 365, "3y", "all"] : [30, 90, 180, 365, "3y", "all"]} />
                   </div>
                 )}
                 <div className="mobile-fitness-daily-details">

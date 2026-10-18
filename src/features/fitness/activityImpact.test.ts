@@ -296,6 +296,23 @@ describe("deriveActivityImpacts", () => {
     expect(impacts[1].remainingContribution.ctl).toBeCloseTo((40 / 42) * (41 / 42));
   });
 
+  it("groups by the canonical dateKeyBasis day when the server records a user time zone", () => {
+    const dateKeyBasis = { segments: [{ fromMs: null, tz: "UTC" }, { fromMs: Date.parse("2026-08-01T15:00:00.000Z"), tz: "Asia/Seoul" }] };
+    // KST 2026-08-30 01:00 = UTC 2026-08-29 16:00 → canonical day 2026-08-30
+    const early = activity("kst-early", Date.parse("2026-08-29T16:00:00.000Z"), 60);
+    const impacts = deriveActivityImpacts(
+      [point("2026-08-29", 10, 12, 0), point("2026-08-30", 11, 15, 60)],
+      [early],
+      { dateKeyBasis },
+    );
+    expect(impacts.map(({ activity: item, date, attributedLoad }) => [item.id, date, attributedLoad])).toEqual([
+      ["kst-early", "2026-08-30", 60],
+    ]);
+    expect(activityDayLoad(early, [point("2026-08-29", 10, 12, 5), point("2026-08-30", 11, 15, 60)], dateKeyBasis)).toEqual({ dailyLoad: 60 });
+    // basis 없음은 기존 UTC 날짜
+    expect(activityDayLoad(early, [point("2026-08-29", 10, 12, 5), point("2026-08-30", 11, 15, 60)])).toEqual({ dailyLoad: 5 });
+  });
+
   it.each([null, Number.NaN, Infinity, -1, 0, 601])("omits unsafe TSS %s without suppressing a known activity", (unsafeTss) => {
     const impacts = deriveActivityImpacts(
       [point("2026-08-29", 10, 12, 100)],

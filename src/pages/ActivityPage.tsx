@@ -86,6 +86,7 @@ import { SummarySensorFallbackCard, type SummarySensorMetric } from "../features
 import { EquipmentSignalCard } from "../features/activity/detail/EquipmentSignalCard";
 import { useActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
 import { ActivityFtpDecisionCard } from "../features/activity/detail/ActivityFtpDecisionCard";
+import { fitnessDateKeyFor } from "@shared/training/dateKey";
 
 export default function ActivityPage() {
   const { t, i18n } = useTranslation("activity");
@@ -743,7 +744,7 @@ export default function ActivityPage() {
   const s = activity.summary;
   const displayedSummary = selectedSummary ?? s;
   const activityDate = Number.isFinite(activity.startTime) && Number.isFinite(new Date(activity.startTime).getTime())
-    ? new Date(activity.startTime).toISOString().slice(0, 10)
+    ? fitnessDateKeyFor(activity.startTime, fitnessTimeseries?.loadSnapshot?.dateKeyBasis)
     : null;
   const fitnessAtActivity = fitnessTimeseries?.points
     .slice()

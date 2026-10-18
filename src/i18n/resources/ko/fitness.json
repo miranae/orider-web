@@ -890,6 +890,7 @@
   "hub.weekly.loadDown": "최근 7일 훈련부하가 이전 7일보다 {{pct}}% 낮습니다({{tss}} TSS 등가).",
   "hub.weekly.partial": "최근 7일 관측 부하 {{tss}} TSS 등가. 최근 14일 중 {{count}}일이 불완전해 변화율과 훈련 권고를 표시하지 않습니다.",
   "hub.weekly.basis.utc": "{{date}}까지 · UTC 날짜 기준",
+  "hub.weekly.basis.zone": "{{date}}까지 · 내 시간대 날짜 기준",
   "hub.weekly.basis.local": "{{date}}까지 · 기기 현지 날짜 기준",
   "hub.weekly.basis.mixed": "종목별 UTC·현지 날짜가 달라 기간 비교를 표시하지 않습니다.",
   "weekly.window": "{{start}}–{{end}}일 전",
