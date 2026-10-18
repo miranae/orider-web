@@ -328,7 +328,7 @@
   },
   "privacy": {
     "title": "Orider Privacy Policy",
-    "lastUpdated": "Last updated: October 17, 2026",
+    "lastUpdated": "Last updated: October 18, 2026",
     "intro": "Orider (\"Company\") complies with the Personal Information Protection Act and other applicable laws and establishes and discloses this Privacy Policy as follows to protect Users' personal information.",
     "stravaPrivacyLink": "Strava Privacy Policy",
     "sections": [
@@ -342,7 +342,9 @@
             "heading": "1. Sign-up and sign-in",
             "list": [
               "Google account information: name, email address, profile image",
-              "Google unique identifier"
+              "Google unique identifier",
+              "When Naver or Kakao sign-in is selected: the provider-specific user ID, nickname and profile image if consented to and provided",
+              "Naver/Kakao connection maintenance and revocation: OAuth access/refresh tokens and expiry information (server only)"
             ]
           },
           {
@@ -509,6 +511,36 @@
             "list": [
               "Health data is used for service features and not for advertising. User-requested integrations and processing by the service providers described in Article 5 may apply.",
               "Data in transit and at rest is protected by HTTPS and access controls."
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Article 4-4 (Naver/Kakao sign-in and account connections)",
+        "paragraphs": [
+          "When you choose Naver or Kakao sign-in, we use the provider-specific user ID to create an account or let you explicitly connect it to your existing signed-in account. Matching email addresses do not automatically merge accounts. We do not require a separate service password."
+        ],
+        "groups": [
+          {
+            "heading": "1. Purposes and optional profile information",
+            "list": [
+              "Provider-specific user IDs support sign-in, account identification and connection management.",
+              "If consented to and provided, nicknames and profile images are used in your service profile. You can sign in without them and edit your profile in Settings > Account."
+            ]
+          },
+          {
+            "heading": "2. Credential retention and disconnection",
+            "list": [
+              "OAuth access/refresh tokens and expiry information are retained in access-restricted server-only storage to maintain and revoke provider connections. They are not sent to the browser.",
+              "Request disconnection in Settings > Account > Sign-in connections. The connection mapping and credentials are removed after provider revocation succeeds. Failed revocation is not shown as complete and can be retried.",
+              "The last remaining sign-in connection cannot be removed. Connect another sign-in method first or request account deletion.",
+              "Disconnecting a sign-in provider does not delete your O-Rider account. You can rename your nickname and change or remove your profile image in settings. To delete the full account and profile, request account deletion."
+            ]
+          },
+          {
+            "heading": "3. Account deletion",
+            "list": [
+              "Request full account deletion on the account deletion page. The server processes deletion, including Naver/Kakao provider revocation, in sequence and retries failures. Check processing and completion status on that page."
             ]
           }
         ]

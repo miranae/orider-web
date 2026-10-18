@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Modal from "../Modal";
+import { LocalizedLink } from "../LocalizedLink";
 import { startSocialAuth, type SocialProvider } from "../../services/socialAuth";
 
 type Provider = "google" | SocialProvider;
@@ -95,6 +96,12 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
         </button>
         {error && <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)", margin: 0 }}>{error}</p>}
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>{t("signIn.separateAccountHint")}</p>
+        <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>
+          {t("signIn.policyIntro")} {" "}
+          <LocalizedLink to="/terms" onClick={onClose} className="underline">{t("signIn.terms")}</LocalizedLink>
+          {" · "}
+          <LocalizedLink to="/privacy" onClick={onClose} className="underline">{t("signIn.privacy")}</LocalizedLink>
+        </p>
       </div>
     </Modal>
   );

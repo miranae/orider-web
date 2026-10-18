@@ -41,3 +41,16 @@ describe("Google provider and Strava credential disclosure", () => {
     expect(copy).toContain(language === "ko" ? "중단되는 것은 아닙니다" : "does not stop app SDK");
   });
 });
+
+describe("Naver/Kakao account privacy disclosure", () => {
+  it.each(["ko", "en"])("explains optional profile, credentials and disconnection separately from deletion in %s", async language => {
+    i18n.addResourceBundle("en", "legal", enLegal);
+    await i18n.changeLanguage(language);
+    render(<MemoryRouter><PrivacyPage /></MemoryRouter>);
+    expect(screen.getByRole("heading", { name: language === "ko" ? "제4조의4 (네이버·카카오 로그인 및 계정 연결)" : "Article 4-4 (Naver/Kakao sign-in and account connections)" })).toBeInTheDocument();
+    expect(screen.getByText(language === "ko" ? /이메일 주소가 같다는 이유로 계정을 자동 통합하지 않습니다/ : /Matching email addresses do not automatically merge accounts/)).toBeInTheDocument();
+    expect(screen.getByText(language === "ko" ? /제공하지 않아도 로그인할 수 있으며/ : /You can sign in without them/)).toBeInTheDocument();
+    expect(screen.getByText(language === "ko" ? /브라우저에 제공하지 않습니다/ : /They are not sent to the browser/)).toBeInTheDocument();
+    expect(screen.getByText(language === "ko" ? /로그인 연결 해제는 O-Rider 계정 삭제와 다릅니다/ : /Disconnecting a sign-in provider does not delete your O-Rider account/)).toBeInTheDocument();
+  });
+});
