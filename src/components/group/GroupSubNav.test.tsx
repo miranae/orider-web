@@ -31,6 +31,20 @@ describe("GroupSubNav", () => {
     expect(screen.getByRole("link",{name:"운영"})).toHaveAttribute("href","/ko/club/group-1/settings?sport=bike");
     expect(screen.getByRole("link",{name:"소식"})).toHaveAttribute("href","/ko/club/group-1?sport=bike");
   });
+  it.each(["new", "meeting-1", "meeting-1/edit"])("keeps the meetings tab selected on %s without changing its list destination", (page) => {
+    renderWithProviders(<Routes><Route path="/:lang/club/:groupId/*" element={<GroupSubNav group={group} isCreator />} /></Routes>, {route:`/ko/club/group-1/meetings/${page}?copyFrom=source-1&section=leadership&sport=bike&bike=road`});
+    expect(screen.getByRole("link", {name:"이벤트"})).toHaveAttribute("aria-current","page");
+    expect(screen.getByRole("link", {name:"이벤트"})).toHaveAttribute("href","/ko/club/group-1/events?sport=bike&bike=road");
+    expect(screen.getByRole("link", {name:"소식"})).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link", {name:"운영"})).toHaveAttribute("href","/ko/club/group-1/settings?sport=bike&bike=road");
+  });
+  it("preserves normal event and member tab matching", () => {
+    const view=renderWithProviders(<Routes><Route path="/:lang/club/:groupId/*" element={<GroupSubNav group={group} isCreator={false}/>} /></Routes>,{route:"/ko/club/group-1/events"});
+    expect(screen.getByRole("link",{name:"이벤트"})).toHaveAttribute("aria-current","page");view.unmount();
+    renderWithProviders(<Routes><Route path="/:lang/club/:groupId/*" element={<GroupSubNav group={group} isCreator={false}/>} /></Routes>,{route:"/ko/club/group-1/members"});
+    expect(screen.getByRole("link",{name:"이벤트"})).not.toHaveAttribute("aria-current");
+    expect(screen.getByRole("link",{name:"멤버"})).toHaveAttribute("aria-current","page");
+  });
   it("keeps a single club heading and can defer its description to the dashboard", () => {
     renderWithProviders(<Routes><Route path="/:lang/club/:groupId" element={<GroupSubNav group={group} isCreator={false} showDescription={false} />} /></Routes>, { route: "/ko/club/group-1" });
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);

@@ -29,6 +29,8 @@ export interface WaypointMarker {
 interface RouteMapProps {
   polyline?: string;
   latlng?: [number, number][];
+  /** 서로 떨어진 경로는 연결하지 않고 각각 그린다. latlng/polyline보다 우선한다. */
+  routeParts?: [number, number][][];
   height?: string;
   interactive?: boolean;
   rounded?: boolean;
@@ -118,6 +120,7 @@ function supportsWebGL(): boolean {
 
 function RouteMapFallback({
   positions,
+  segmentStarts,
   imageUrl,
   imageAlt,
   height,
@@ -126,6 +129,7 @@ function RouteMapFallback({
   description,
 }: {
   positions: [number, number][];
+  segmentStarts?: number[];
   imageUrl?: string | null;
   imageAlt: string;
   height: string;
@@ -148,7 +152,7 @@ function RouteMapFallback({
     );
   }
 
-  const path = buildStaticRoutePath(positions);
+  const path = buildStaticRoutePath(positions, segmentStarts);
   return (
     <div
       className={`${containerClass} relative`}
@@ -247,6 +251,7 @@ function FlyToPositionControl({ position, fullBounds }: {
 export default function RouteMap({
   polyline,
   latlng,
+  routeParts,
   height = "h-48",
   interactive = false,
   rounded = true,
@@ -275,27 +280,41 @@ export default function RouteMap({
   const [webglSupported] = useState(() => supportsWebGL());
 
   const positions: [number, number][] = useMemo(() => {
+    if (routeParts) return routeParts.flat();
     if (latlng && latlng.length > 0) return latlng;
     if (polyline && polyline.length > 0) return decodeTrack(polyline) as [number, number][];
     return [];
-  }, [polyline, latlng]);
+  }, [polyline, latlng, routeParts]);
 
   useEffect(() => {
     setMapFailed(false);
-  }, [polyline, latlng, fallbackImageUrl]);
+  }, [polyline, latlng, routeParts, fallbackImageUrl]);
 
-  useEffect(() => { setMapReady(false); }, [polyline, latlng]);
+  useEffect(() => { setMapReady(false); }, [polyline, latlng, routeParts]);
 
   // hook 호출은 early return 이전에 모두 마쳐야 한다 (Rules of Hooks).
   // positions 가 비어있을 때도 같은 순서로 hook 이 호출되도록 빈 GeoJSON 으로 폴백.
-  const fullRouteGeoJSON = useMemo(() => toGeoJSON(positions), [positions]);
+  const fullRouteGeoJSON = useMemo<GeoJSON.Feature<GeoJSON.LineString | GeoJSON.MultiLineString>>(() => routeParts ? ({
+    type: "Feature", properties: {}, geometry: {type: "MultiLineString", coordinates: routeParts.filter(part => part.length >= 2).map(part => part.map(([lat, lon]) => [lon, lat]))},
+  }) : toGeoJSON(positions), [positions, routeParts]);
+  const segmentStarts = useMemo(() => {
+    let offset = 0;
+    return routeParts?.map(part => { const start = offset; offset += part.length; return start; });
+  }, [routeParts]);
 
   const highlightGeoJSON = useMemo(() => {
     if (!highlightRange || positions.length === 0) return null;
     const lo = Math.min(highlightRange.startIndex, highlightRange.endIndex);
     const hi = Math.max(highlightRange.startIndex, highlightRange.endIndex);
-    return toGeoJSON(positions.slice(lo, hi + 1));
-  }, [positions, highlightRange]);
+    if (!routeParts) return toGeoJSON(positions.slice(lo, hi + 1));
+    let offset = 0;
+    const parts = routeParts.map(part => {
+      const sliced = part.slice(Math.max(0, lo - offset), Math.max(0, Math.min(part.length, hi - offset + 1)));
+      offset += part.length;
+      return sliced;
+    }).filter(part => part.length >= 2);
+    return {type: "Feature" as const, properties: {}, geometry: {type: "MultiLineString" as const, coordinates: parts.map(part => part.map(([lat, lon]) => [lon, lat]))}};
+  }, [positions, highlightRange, routeParts]);
 
   const markerGeoJSON = useMemo(() => {
     if (!markerPosition) return null;
@@ -341,6 +360,7 @@ export default function RouteMap({
   const fallback = (
     <RouteMapFallback
       positions={positions}
+      segmentStarts={segmentStarts}
       imageUrl={fallbackImageUrl}
       imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
       height={fallbackHeight ?? height}

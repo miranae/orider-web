@@ -66,6 +66,16 @@ describe("RouteMap", () => {
     mapProps.sources.length = 0;
   });
 
+  it("keeps multipart routes and crossing highlights separate in the map and fallback", () => {
+    renderWithProviders(<RouteMap routeParts={[[[37,127],[37.01,127]],[[38,128],[38.01,128]]]} highlightRange={{startIndex:0,endIndex:3}}/>);
+    const sources=mapProps.sources as {geometry?:{type:string;coordinates:unknown}}[];
+    expect(sources.filter(source=>source.geometry?.type==="MultiLineString")).toHaveLength(2);
+    expect(sources.find(source=>source.geometry?.type==="MultiLineString")?.geometry?.coordinates).toEqual([[[127,37],[127,37.01]],[[128,38],[128,38.01]]]);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    const path=document.querySelector("svg path")?.getAttribute("d")??"";
+    expect(path.match(/M/g)).toHaveLength(2);expect(path.match(/L/g)).toHaveLength(2);
+  });
+
   it("keeps its loading placeholder until basemap idle and exposes the error fallback", () => {
     const { queryByTestId } = renderWithProviders(
       <RouteMap polyline="_p~iF~ps|U_ulLnnqC_mqNvxq`@" loadingPlaceholder={<div data-testid="map-loading" />} />,

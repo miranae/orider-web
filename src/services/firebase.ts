@@ -83,10 +83,10 @@ export async function initFirebase() {
   // 초기화한다. init 전 발생한 이벤트는 analytics.ts 의 큐가 보관 → init 시 flush(드롭 0).
 
   if (isEmulatorRuntime()) {
-    connectAuthEmulator(_auth, 'http://localhost:9099', { disableWarnings: true });
-    connectFirestoreEmulator(_firestore, 'localhost', 8080);
-    connectStorageEmulator(_storage, 'localhost', 9199);
-    connectFunctionsEmulator(_functions, 'localhost', 5001);
+    connectAuthEmulator(_auth, `http://localhost:${import.meta.env.VITE_AUTH_EMULATOR_PORT || '9099'}`, { disableWarnings: true });
+    connectFirestoreEmulator(_firestore, 'localhost', Number(import.meta.env.VITE_FIRESTORE_EMULATOR_PORT || 8080));
+    connectStorageEmulator(_storage, 'localhost', Number(import.meta.env.VITE_STORAGE_EMULATOR_PORT || 9199));
+    connectFunctionsEmulator(_functions, 'localhost', Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001));
     // Expose login helper for E2E tests
     (window as any).__e2eSignIn = (email: string, pw: string) =>
       signInWithEmailAndPassword(_auth, email, pw);

@@ -1,5 +1,5 @@
 /** Scale a latitude/longitude track to the lightweight route-preview viewport. */
-export function buildStaticRoutePath(positions: [number, number][]): string | null {
+export function buildStaticRoutePath(positions: [number, number][], segmentStarts: readonly number[] = []): string | null {
   if (positions.length < 2) return null;
   const lats = positions.map(([lat]) => lat);
   const lngs = positions.map(([, lng]) => lng);
@@ -17,7 +17,7 @@ export function buildStaticRoutePath(positions: [number, number][]): string | nu
     .map(([lat, lng], index) => {
       const x = pad + ((lng - minLng) / lngSpan) * (width - pad * 2);
       const y = pad + (1 - (lat - minLat) / latSpan) * (height - pad * 2);
-      return `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+      return `${index === 0 || segmentStarts.includes(index) ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
     })
     .join(" ");
 }
