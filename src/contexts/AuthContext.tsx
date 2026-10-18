@@ -169,11 +169,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const signIn = useCallback(() => new Promise<void>((resolve, reject) => {
-    pendingSignInRef.current?.reject(signInCancelledError());
-    pendingSignInRef.current = { resolve, reject };
-    setSignInOpen(true);
-  }), []);
+  const signIn = useCallback(() => {
+    const pending = new Promise<void>((resolve, reject) => {
+      pendingSignInRef.current?.reject(signInCancelledError());
+      pendingSignInRef.current = { resolve, reject };
+      setSignInOpen(true);
+    });
+    // 버튼의 fire-and-forget 호출도 정상 취소를 미처리 rejection 으로 보고하지 않는다.
+    // 원래 promise 는 유지하므로 await 호출부는 취소를 감지하고 후속 작업을 중단한다.
+    void pending.catch(() => {});
+    return pending;
+  }, []);
 
   const handleDialogGoogle = useCallback(async () => {
     await signInWithGoogle();

@@ -401,6 +401,10 @@ describe("impersonation token consumer", () => {
 });
 
 describe("scrubUrlCredentials", () => {
+  it("redacts OAuth callback code and state before telemetry", () => {
+    expect(scrubUrlCredentials("https://orider.co.kr/auth/social/callback?code=provider-code&state=opaque-state"))
+      .toBe("https://orider.co.kr/auth/social/callback?code=[redacted]&state=[redacted]");
+  });
   it("redacts impersonation and handoff credentials from urls", () => {
     expect(scrubUrlCredentials("https://orider.co.kr/ko/?impersonateToken=abc.def&sport=run"))
       .toBe("https://orider.co.kr/ko/?impersonateToken=[redacted]&sport=run");

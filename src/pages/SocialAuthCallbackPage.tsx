@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { signInWithCustomToken } from "firebase/auth";
@@ -28,6 +28,11 @@ export function socialAuthErrorKey(code: string | undefined): string {
 export default function SocialAuthCallbackPage() {
   const { t } = useTranslation("auth");
   const [searchParams] = useSearchParams();
+  const [callbackParams] = useState(() => new URLSearchParams(searchParams));
+  useLayoutEffect(() => {
+    // code/state 는 교환·실패 후에도 주소나 오류 텔레메트리에 남지 않게 캡처 직후 제거한다.
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+  }, []);
   const navigate = useNavigate();
   const { loading: authLoading } = useAuth();
   const { showToast } = useToast();
@@ -40,15 +45,15 @@ export default function SocialAuthCallbackPage() {
     if (authLoading || startedRef.current) return;
     startedRef.current = true;
 
-    const code = searchParams.get("code");
-    const state = searchParams.get("state");
+    const code = callbackParams.get("code");
+    const state = callbackParams.get("state");
     if (!consumeSocialAuthState(state)) {
       setErrorKey("socialCallback.error.denied");
       setStep("error");
       return;
     }
-    if (searchParams.get("error") || !code || !state) {
-      setErrorKey(searchParams.get("error") ? "socialCallback.error.cancelled" : "socialCallback.error.generic");
+    if (callbackParams.get("error") || !code || !state) {
+      setErrorKey(callbackParams.get("error") ? "socialCallback.error.cancelled" : "socialCallback.error.generic");
       setStep("error");
       return;
     }
@@ -70,7 +75,7 @@ export default function SocialAuthCallbackPage() {
         setStep("error");
       }
     })();
-  }, [authLoading, navigate, searchParams, showToast, t]);
+  }, [authLoading, navigate, callbackParams, showToast, t]);
 
   return (
     <div data-testid="A2-C" className="flex items-center justify-center min-h-[60vh]">

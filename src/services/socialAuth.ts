@@ -10,7 +10,7 @@ import { logClientError } from "./errorLogger";
  * 돌아올 경로(returnTo)는 서버 state 에 실어 보낸다.
  */
 export type SocialProvider = "naver" | "kakao";
-export type SocialMode = "login" | "link";
+export type SocialMode = "login" | "link" | "reauth";
 
 export const SOCIAL_PROVIDERS: readonly SocialProvider[] = ["naver", "kakao"];
 /** 언어 접두 없는 경로 — LocaleRedirect 가 쿼리를 보존해 /:lang/auth/social/callback 으로 보낸다. */

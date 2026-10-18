@@ -174,6 +174,18 @@ describe("AuthContext", () => {
     expect(screen.queryByTestId("A1-1")).not.toBeInTheDocument();
   });
 
+  it("allows a fire-and-forget chooser to close without an unhandled rejection", async () => {
+    function Opener() {
+      const { signIn } = useAuth();
+      return <button onClick={() => { void signIn(); }}>열기</button>;
+    }
+    const user = userEvent.setup();
+    render(<MemoryRouter><AuthProvider><Opener /></AuthProvider></MemoryRouter>);
+    await user.click(screen.getByText("열기"));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByTestId("A1-1")).not.toBeInTheDocument());
+  });
+
   it("calls signOut on logout", async () => {
     const user = userEvent.setup();
     renderAuth();

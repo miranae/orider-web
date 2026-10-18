@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -20,24 +20,33 @@ export function SocialLinksCard() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const dialog = useDialog();
-  const [linked, setLinked] = useState<Set<SocialProvider> | null>(null);
+  const ownerUid = user && !user.isAnonymous ? user.uid : null;
+  const ownerRef = useRef(ownerUid);
+  ownerRef.current = ownerUid;
+  const [linked, setLinked] = useState<{ uid: string; providers: Set<SocialProvider> } | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [pending, setPending] = useState<SocialProvider | null>(null);
 
   const load = useCallback(async () => {
+    if (!ownerUid) return;
     try {
       const links = await listSocialLinks();
-      setLinked(new Set(links.map((l) => l.provider)));
+      if (ownerRef.current !== ownerUid) return;
+      setLinked({ uid: ownerUid, providers: new Set(links.map((l) => l.provider)) });
       setLoadFailed(false);
     } catch (err) {
+      if (ownerRef.current !== ownerUid) return;
       logClientError("SocialLinksCard.list", err);
       setLoadFailed(true);
     }
-  }, []);
+  }, [ownerUid]);
 
   useEffect(() => {
-    if (user && !user.isAnonymous) void load();
-  }, [user, load]);
+    setLinked(null);
+    setLoadFailed(false);
+    setPending(null);
+    if (ownerUid) void load();
+  }, [ownerUid, load]);
 
   if (!user || user.isAnonymous) return null;
 
@@ -53,16 +62,19 @@ export function SocialLinksCard() {
 
   const handleUnlink = async (provider: SocialProvider) => {
     if (!(await dialog.confirm(t("pane.account.socialUnlinkConfirm", { provider: t(`pane.account.social.${provider}`) }), { destructive: true }))) return;
+    if (ownerRef.current !== ownerUid) return;
     setPending(provider);
     try {
       await unlinkSocial(provider);
+      if (ownerRef.current !== ownerUid) return;
       await load();
     } catch (err) {
+      if (ownerRef.current !== ownerUid) return;
       logClientError("SocialLinksCard.unlink", err, { provider });
       const code = (err as { code?: string })?.code;
       showToast(t(code === "functions/failed-precondition" ? "pane.account.socialUnlinkLast" : "pane.account.socialUnlinkFailed"), "error");
     } finally {
-      setPending(null);
+      if (ownerRef.current === ownerUid) setPending(null);
     }
   };
 
@@ -71,7 +83,7 @@ export function SocialLinksCard() {
       {loadFailed && <p role="alert" style={{ color: "var(--rose)", margin: 0 }}>{t("pane.account.socialLoadFailed")}</p>}
       {SOCIAL_PROVIDERS.map((provider) => {
         const Logo = LOGO[provider];
-        const isLinked = linked?.has(provider) ?? false;
+        const isLinked = linked?.uid === ownerUid && linked.providers.has(provider);
         return (
           <InlineRow key={provider} data-testid={`S1-4-1-${provider}`}
             label={<span className="inline-flex items-center gap-2"><Logo />{t(`pane.account.social.${provider}`)}</span>}
@@ -81,7 +93,7 @@ export function SocialLinksCard() {
                 {t("pane.account.socialUnlinkBtn")}
               </Button>
             ) : (
-              <Button variant="secondary" loading={pending === provider} disabled={pending !== null || linked === null} onClick={() => { void handleLink(provider); }}>
+              <Button variant="secondary" loading={pending === provider} disabled={pending !== null || linked?.uid !== ownerUid} onClick={() => { void handleLink(provider); }}>
                 {t("pane.account.socialLinkBtn")}
               </Button>
             )}

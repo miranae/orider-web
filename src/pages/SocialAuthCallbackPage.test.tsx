@@ -40,6 +40,14 @@ describe("SocialAuthCallbackPage", () => {
     mocks.track.mockReset();
   });
 
+  it("removes callback credentials immediately while auth is still restoring", () => {
+    mocks.loading = true;
+    window.history.replaceState(null, "", "/auth/social/callback?code=provider-code&state=opaque-state");
+    render(<SocialAuthCallbackPage />);
+    expect(window.location.search).toBe("");
+    expect(mocks.complete).not.toHaveBeenCalled();
+  });
+
   it("waits for the restored session and exchanges only once in StrictMode", async () => {
     mocks.loading = true;
     mocks.complete.mockResolvedValue({ mode: "login", provider: "naver", token: "custom-token", isNewUser: true, returnTo: "/activity/a?tab=analysis#laps" });

@@ -41,6 +41,19 @@ describe("SocialLinksCard", () => {
     await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error"));
   });
 
+  it("discards old-account results after the signed-in owner changes", async () => {
+    let finishOld!: (links: Array<{ provider: string; linkedAt: number }>) => void;
+    mocks.list.mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve; }));
+    const { rerender } = render(<SocialLinksCard />);
+    mocks.user = { uid: "u2", isAnonymous: false };
+    mocks.list.mockResolvedValue([]);
+    rerender(<SocialLinksCard />);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "pane.account.socialLinkBtn" })[0]).not.toBeDisabled());
+    finishOld([{ provider: "naver", linkedAt: 1 }]);
+    await waitFor(() => expect(screen.queryByText("pane.account.socialLinked")).not.toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "pane.account.socialUnlinkBtn" })).not.toBeInTheDocument();
+  });
+
   it("renders nothing for anonymous users and does not call the server", () => {
     mocks.user = { uid: "anon", isAnonymous: true };
     const { container } = render(<SocialLinksCard />);
