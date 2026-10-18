@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
@@ -17,6 +17,7 @@ export interface UseCoursesOptions {
 export function useCourses(options: UseCoursesOptions = {}) {
   const enabled = options.enabled ?? true;
   const { user } = useAuth();
+  const { firestore } = useFirebaseServices();
   const uid = user?.uid ?? null;
   const hasUsableCache = cachedCourses !== null && cacheUid === uid;
   const [courses, setCourses] = useState<Course[]>(() => (hasUsableCache ? cachedCourses ?? [] : []));
@@ -104,7 +105,7 @@ export function useCourses(options: UseCoursesOptions = {}) {
     };
     load();
     return () => { cancelled = true; };
-  }, [enabled, user, uid, reloadKey]);
+  }, [enabled, user, uid, reloadKey, firestore]);
 
   /** 이름+지역 텍스트 검색 */
   function search(q: string): Course[] {

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { useEffect, useState } from "react";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useAuth } from "../contexts/AuthContext";
 import { logClientError } from "../services/errorLogger";
 
@@ -19,6 +19,8 @@ const experienceInputs: GoalFitnessInputs = { ftp: 200, weightKg: 70, thresholdP
 /** 3종목 미리보기가 서버 목표 생성과 동일한 출처·대체 체인을 사용한다. */
 export function useGoalFitnessInputs() {
   const { user, profile } = useAuth();
+  // 앱 임베드는 주입된 인스턴스를 쓴다 — 웹 싱글턴은 임베드에서 초기화되지 않는다.
+  const { functions } = useFirebaseServices();
   const [result, setResult] = useState<{ uid: string; inputs: GoalFitnessInputs } | null>(null);
   useEffect(() => {
     let active = true;
@@ -28,6 +30,6 @@ export function useGoalFitnessInputs() {
       if (active) setResult({ uid: user.uid, inputs });
     }).catch(error => logClientError("useGoalFitnessInputs", error, {}));
     return () => { active = false; };
-  }, [user?.uid, profile]);
+  }, [user?.uid, profile, functions]);
   return result && result.uid === user?.uid ? result.inputs : experienceInputs;
 }

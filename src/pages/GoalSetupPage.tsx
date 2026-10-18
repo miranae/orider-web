@@ -10,7 +10,7 @@ import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNaviga
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { httpsCallable } from "firebase/functions";
 import { doc, getDoc } from "firebase/firestore";
-import { firestore, functions } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { useCourses } from "../hooks/useCourses";
@@ -449,6 +449,8 @@ export function GoalWizard({ embedded = false, inAppHost = false, onCreated }: {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const { user, loading: authLoading, signIn } = useAuth();
+  // 앱 임베드 계획 화면에서도 쓰이므로 주입된 Firebase 인스턴스를 쓴다.
+  const { firestore, functions } = useFirebaseServices();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const discipline = normalizePlanSport(searchParams.get("sport"));
@@ -503,7 +505,7 @@ export function GoalWizard({ embedded = false, inAppHost = false, onCreated }: {
       }
     })();
     return () => { cancelled = true; };
-  }, [user, discipline]);
+  }, [user, discipline, firestore]);
 
   // Step 3: 실시간 feasibility 계산 (goalDetails 변경 시 재계산)
   const feasibility: FeasibilityResult | null = selectedCourse

@@ -19,6 +19,7 @@ import { EmptyState, ErrorState } from "../../../components/redesign";
 import { Button, Card, Text } from "../../../theme/components";
 import { PlanAdjustmentNarrative } from "../../trainingHub/TrainingHubOpportunityPanel";
 import MobilePlanContent, { type MobilePlanContentProps } from "./MobilePlanContent";
+import { ErrorBoundary } from "../../../components/ErrorBoundary";
 
 // 앱 임베드 계획 화면은 다른 주소로 이동할 수 없어, 목표가 없으면 마법사를 화면 안에 띄운다.
 const EmbeddedGoalWizard = lazy(() => import("../../../pages/GoalSetupPage").then((module) => ({ default: module.GoalWizard })));
@@ -666,9 +667,16 @@ export default function PlanPresentation({
           {embedded ? <div data-testid="embedded-plan-goal-wizard">
             <EmptyState compact icon={sportIcon} title={t('page.planEmpty', { sportLabel })}
               description={t('page.planEmptyInAppDesc', { sportLabel })} />
-            <Suspense fallback={<Text as="p" variant="caption" tone="tertiary">{tCommon("button.loading")}</Text>}>
-              <EmbeddedGoalWizard embedded inAppHost onCreated={() => retryLoad()} />
-            </Suspense>
+            {/* 마법사를 불러오거나 그리지 못해도 계획 화면 전체를 비우지 않는다 — 예전 안내로 돌아간다. */}
+            <ErrorBoundary fallback={() => <>
+              <EmptyState compact title={t('page.planEmpty', { sportLabel })}
+                description={t('page.planEmptyEmbeddedDesc', { sportLabel })}
+                actions={[{ label: tCommon("button.retry"), variant: "primary", onClick: () => retryLoad() }]} />
+            </>}>
+              <Suspense fallback={<Text as="p" variant="caption" tone="tertiary">{tCommon("button.loading")}</Text>}>
+                <EmbeddedGoalWizard embedded inAppHost onCreated={() => retryLoad()} />
+              </Suspense>
+            </ErrorBoundary>
           </div> : <EmptyState
             icon={sportIcon}
             title={t('page.planEmpty', { sportLabel })}
@@ -697,9 +705,16 @@ export default function PlanPresentation({
           {embedded ? <div data-testid="embedded-plan-goal-wizard">
             <EmptyState compact icon={sportIcon} title={t('page.planEmpty', { sportLabel })}
               description={t('page.planEmptyInAppDesc', { sportLabel })} />
-            <Suspense fallback={<Text as="p" variant="caption" tone="tertiary">{tCommon("button.loading")}</Text>}>
-              <EmbeddedGoalWizard embedded inAppHost onCreated={() => retryLoad()} />
-            </Suspense>
+            {/* 마법사를 불러오거나 그리지 못해도 계획 화면 전체를 비우지 않는다 — 예전 안내로 돌아간다. */}
+            <ErrorBoundary fallback={() => <>
+              <EmptyState compact title={t('page.planEmpty', { sportLabel })}
+                description={t('page.planEmptyEmbeddedDesc', { sportLabel })}
+                actions={[{ label: tCommon("button.retry"), variant: "primary", onClick: () => retryLoad() }]} />
+            </>}>
+              <Suspense fallback={<Text as="p" variant="caption" tone="tertiary">{tCommon("button.loading")}</Text>}>
+                <EmbeddedGoalWizard embedded inAppHost onCreated={() => retryLoad()} />
+              </Suspense>
+            </ErrorBoundary>
           </div> : <EmptyState
             icon={sportIcon}
             title={t('page.planEmpty', { sportLabel })}
