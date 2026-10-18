@@ -23,8 +23,7 @@ import { STALE_THRESHOLD_MS } from "@shared/training/staleness";
 import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import type { FitnessProjection } from "@shared/types/goal";
 import { hasFitnessLoadLifecycle, isFitnessInputInvalidated } from "../features/fitness/pmcHistory";
-import { fitnessTodayKey } from "@shared/training/dateKey";
-import { toUtcDate } from "../utils/dateUtils";
+import { fitnessDateKeyFor, fitnessTodayKey } from "@shared/training/dateKey";
 import {
   executeFirestoreSessionRecovery,
   firestoreRecoveryLogContext,
@@ -294,7 +293,8 @@ export function useFreshTraining(discipline?: string, projectionOnly = false, ac
           const triComplete = (data?.processingState === "processed" || data?.processingState == null && data?.state === "final")
             && typeof data?.inputRevision === "string"
             && typeof triSourceAsOf === "number" && Number.isFinite(new Date(triSourceAsOf).getTime())
-            && toUtcDate(triSourceAsOf) === toUtcDate(Date.now())
+            // 서버가 통합 문서에 함께 싣는 dateKeyBasis 로 같은 날을 판정한다(없으면 UTC).
+            && fitnessDateKeyFor(triSourceAsOf, data?.dateKeyBasis) === fitnessTodayKey(Date.now(), data?.dateKeyBasis)
             && ["bike", "run", "swim"].every(sport => new RegExp(`(?:^|\\|)${sport}:[1-9]\\d*(?:\\||$)`).test(data.inputRevision as string));
           const projectionInvalidated = projectionOnly && data && (data.inputInvalidatedAt != null
             || "loadSnapshot" in data || "pmc" in data
