@@ -67,7 +67,7 @@ export default function MetabolismCard({
           style={{ color: "var(--ink-1)" }}
         >
           <InfoTip title={t("metabolism.section")} content={t("analysis.glossary.metabolism")}
-            label={term("openLabel", { term: t("metabolism.section") })} tone="inherit">{t("metabolism.section")}</InfoTip>
+            label={term("openLabel", { term: t("metabolism.section") })}>{t("metabolism.section")}</InfoTip>
         </h3>
       </div>
 
@@ -101,7 +101,7 @@ export default function MetabolismCard({
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
             <Dot color="var(--lime)" />
             <Text variant="bodySmall" weight={600} size="xs"><InfoTip title={term("terms.fatmax.label")} content={term("terms.fatmax.description")}
-              label={term("openLabel", { term: t("metabolism.fatMaxZone") })} termId="fatmax" tone="inherit">{t("metabolism.fatMaxZone")}</InfoTip></Text>
+              label={term("openLabel", { term: t("metabolism.fatMaxZone") })} termId="fatmax">{t("metabolism.fatMaxZone")}</InfoTip></Text>
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)", lineHeight: 1 }}>
             <Text variant="dataLarge" style={{ color: "var(--lime)" }}>{fatMax.fatMaxWatts}</Text>

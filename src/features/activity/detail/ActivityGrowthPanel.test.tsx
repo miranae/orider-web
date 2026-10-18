@@ -67,7 +67,8 @@ describe("ActivityGrowthPanel", () => {
     render(<ActivityGrowthPanel activity={bike} metrics={null} isOwner comparisonOnly />);
     chooseComparison("previous");
     const trigger = screen.getByRole("button", { name: language === "ko" ? "NP 설명" : "About NP" });
-    expect(trigger).toHaveStyle({ textDecoration: "underline dotted" });
+    expect(trigger).toHaveStyle({ color: "var(--color-primary-dark)" });
+    expect((trigger as HTMLElement).style.textDecoration).toBe("");
     fireEvent.focus(trigger);
     const tooltip = screen.getByRole("tooltip");
     expect(tooltip).toHaveClass("ds-tooltip-content");

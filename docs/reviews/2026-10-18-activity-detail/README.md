@@ -4,7 +4,7 @@
 
 Review the complete activity detail journey: identity and actions, route map, primary and secondary statistics, navigation, overview, analysis, segments/laps, and owner-only comparison. Preserve the October 17 token system, Korean/English support, server values, ownership checks, sensor suppression, and release flags.
 
-The header has compact actions, followed by sticky accessible tabs. Desktop uses a larger route with a compact statistics column; mobile presents three primary metrics, the map, and an optional disclosure for available secondary metrics. Route emphasis and endpoints apply only to activity detail. Tab selection scrolls the selected content into view and follows URL/history navigation.
+The header has compact actions, followed by sticky accessible tabs. Desktop uses a larger route with a compact statistics column; mobile presents three primary metrics, the map, and an optional disclosure for available secondary metrics. Route emphasis and endpoints apply only to activity detail. Ordinary tab selection preserves the viewport while updating URL/history and keyboard focus. Direct tab links and back navigation select the requested tab without scrolling to its heading. Explicit map, peak and lap location actions retain their targeted scrolling.
 
 ## Actual local runtime evidence
 
@@ -52,6 +52,12 @@ Verified follow-up behavior:
 ## Verification
 
 Regression coverage includes App Check/loopback configuration guards, tab keyboard/history behavior, metric preservation and grouping, stale/fractional load provenance, segment PR ranks, sparse secondary statistics, and compact share accessibility. The original pass completed `npm run build`, `lint:budget`, `quality:budget`, and `test:contracts`. The follow-up passed build, lint and quality budgets; final merge/promotion gates supply cumulative release verification. The full Vitest run passed 767 files / 8,293 tests using three workers and a 15-second test timeout. After the final sparse-stat correction, the affected page/statistics suites passed 107 tests; after moving the presentation cases to their own file, all 12 extracted cases passed separately. The full run began before that extraction, so the new file is covered by the separate run rather than counted as an additional full-suite file. Independent code review approved the final source and this document.
+
+## Interaction and tooltip follow-up
+
+Removed forced scrolling from ordinary tab clicks, keyboard selection, direct tab links, and history navigation. Keyboard focus uses `preventScroll`; explicit map/peak/lap location actions retain their intentional scrolling. Native pointer tests on the mobile application preserved a valid 90px scroll position across all four tabs; native keyboard navigation also preserved position, selection, URL, and focus. A shorter panel can naturally clamp the browser scroll position when the old position no longer exists.
+
+Overview, analysis, metabolism, and comparison tooltip terms now use the same default `InfoTip` / `GlossaryProvider` accent-color trigger as Home. Activity-specific dotted-underline overrides were removed without changing the shared tooltip component or popup interaction. Runtime inspection confirmed no text decoration, and the TSS popup was opened and visually reviewed. Final focused suites passed 105 tab/page tests and 174 tooltip tests. Independent code review approved the correction; design review reapproved the observed page and four tabs at 9.7.
 
 ## 한국어
 

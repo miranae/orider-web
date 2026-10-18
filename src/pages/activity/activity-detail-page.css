@@ -81,7 +81,6 @@
 .activity-detail-utilities { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
 .activity-detail-utilities > details[open] { flex-basis: 100%; }
 .activity-detail-navigation { position: sticky; top: 0; z-index: 20; box-shadow: 0 var(--space-1) var(--space-4) color-mix(in srgb, var(--bg-0) 85%, transparent); }
-.activity-detail-section-heading { scroll-margin-top: calc(var(--space-8) + var(--space-6)); }
 .activity-detail-hero { display: grid; gap: var(--space-3); min-width: 0; }
 .activity-detail-primary-stats { overflow: hidden; }
 .activity-detail .activity-stats-primary { grid-template-columns: repeat(3, minmax(0, 1fr)); }

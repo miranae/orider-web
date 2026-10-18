@@ -1,6 +1,6 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { Route, Routes, useNavigate } from "react-router-dom";
+import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ActivityPage from "./ActivityPage";
 import { renderWithProviders as renderProviders } from "../__tests__/utils/renderWithProviders";
@@ -78,26 +78,54 @@ describe("ActivityPage presentation", () => {
   });
 
 
-  it.each(["overview", "analysis"])("scrolls a direct %s tab and browser back in the content scroller while retaining tab focus", async (initial) => {
+  it.each(["overview", "analysis"])("preserves the viewport for direct %s, tab clicks, keyboard selection and browser back", async (initial) => {
     const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
     const scroll = vi.fn();
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, writable: true, value: scroll });
-    function Back() { const navigate = useNavigate(); return <button onClick={() => navigate(-1)}>browser back</button>; }
+    function HistoryNavigation() {
+      const navigate = useNavigate(), location = useLocation();
+      return <><button onClick={() => navigate(-1)}>browser back</button><span data-testid="tab-location">{location.search}</span></>;
+    }
     try {
       setDocData("activities/test-activity", createMockActivity({ id: "test-activity", userId: "test-uid" }) as unknown as Record<string, unknown>);
-      renderWithProviders(<><ActivityPage /><Back /></>, { authenticated: true, route: `/ko/activity/test-activity?tab=${initial}` });
+      renderWithProviders(<main data-testid="tab-scroller"><ActivityPage /><HistoryNavigation /></main>, { authenticated: true, route: `/ko/activity/test-activity?tab=${initial}` });
       const current = await screen.findByRole("tab", { name: initial === "overview" ? "개요" : "분석" });
-      if (initial === "analysis") await waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "auto" }));
-      else expect(scroll).not.toHaveBeenCalled();
-      scroll.mockClear();
-      current.focus();
-      fireEvent.keyDown(current, { key: "ArrowRight" });
-      expect(screen.getByRole("tab", { name: initial === "overview" ? "분석" : "구간" })).toHaveFocus();
-      await waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "auto" }));
-      scroll.mockClear();
+      const scroller = screen.getByTestId("tab-scroller");
+      scroller.scrollTop = 240;
+      async function expectViewportPreserved() {
+        await act(async () => { await new Promise<void>(resolve => requestAnimationFrame(() => resolve())); });
+        expect(scroll).not.toHaveBeenCalled();
+        expect(scroller.scrollTop).toBe(240);
+      }
+      expect(current).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByTestId("tab-location")).toHaveTextContent(`tab=${initial}`);
+      await expectViewportPreserved();
+
+      const compare = screen.getByRole("tab", { name: "비교" });
+      fireEvent.click(compare);
+      expect(compare).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByTestId("tab-location")).toHaveTextContent("tab=compare");
+      await expectViewportPreserved();
+
+      compare.focus({ preventScroll: true });
+      const overview = screen.getByRole("tab", { name: "개요" });
+      const focus = vi.spyOn(overview, "focus");
+      fireEvent.keyDown(compare, { key: "Home" });
+      expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+      focus.mockRestore();
+      expect(overview).toHaveFocus();
+      expect(overview).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByTestId("tab-location")).toHaveTextContent("tab=overview");
+      await expectViewportPreserved();
+
+      fireEvent.click(screen.getByRole("button", { name: "browser back" }));
+      await waitFor(() => expect(compare).toHaveAttribute("aria-selected", "true"));
+      expect(screen.getByTestId("tab-location")).toHaveTextContent("tab=compare");
+      await expectViewportPreserved();
       fireEvent.click(screen.getByRole("button", { name: "browser back" }));
       await waitFor(() => expect(current).toHaveAttribute("aria-selected", "true"));
-      await waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "auto" }));
+      expect(screen.getByTestId("tab-location")).toHaveTextContent(`tab=${initial}`);
+      await expectViewportPreserved();
     } finally {
       if (descriptor) Object.defineProperty(HTMLElement.prototype, "scrollIntoView", descriptor);
       else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
