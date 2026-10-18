@@ -4,6 +4,7 @@ import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import type { Activity } from "@shared/types";
 import { useAuth } from "../../../contexts/AuthContext";
+import { isSignInCancelled } from "../../../utils/signInCancelled";
 import { useToast } from "../../../contexts/ToastContext";
 import { track } from "../../../services/analytics";
 import { logClientError } from "../../../services/errorLogger";
@@ -59,7 +60,7 @@ export function RideActivityRouteButton({
   sport: "ride" | "run" | "swim" | "other";
 }) {
   const { t } = useTranslation("activity");
-  const { user, signInWithGoogle } = useAuth();
+  const { user, signIn } = useAuth();
   const { showToast } = useToast();
   const [courseId, setCourseId] = useState<string | null>(null);
   const [status, setStatus] = useState<RideRouteStatus>("idle");
@@ -86,10 +87,10 @@ export function RideActivityRouteButton({
     const isCurrent = () => generationRef.current === generation;
     if (!user) {
       try {
-        await signInWithGoogle();
+        await signIn();
         if (!isCurrent()) return;
       } catch (err) {
-        if (!isCurrent()) return;
+        if (!isCurrent() || isSignInCancelled(err)) return;
         logClientError("ActivityPage.rideThisRoute.signIn", err, { activityId });
         showToast(t("page.rideThisRoute.signInFailed"), "error");
       }

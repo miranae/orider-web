@@ -19,7 +19,8 @@ describe("CreateSegmentPage", () => {
     expect(await screen.findByText("로그인 후 세그먼트를 만들 수 있습니다")).toBeInTheDocument();
     expect(screen.getByText("내 활동에서 구간을 선택해야 하므로 먼저 로그인해 주세요.")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Google 로그인" }));
+    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+    fireEvent.click(await screen.findByTestId("A1-1-1"));
 
     expect(mockSignInWithPopup).toHaveBeenCalledTimes(1);
   });

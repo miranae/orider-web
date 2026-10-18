@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { LogIn } from "lucide-react";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { useAuth } from "../contexts/AuthContext";
+import { isSignInCancelled } from "../utils/signInCancelled";
 import { useStrava } from "../hooks/useStrava";
 import { useToast } from "../contexts/ToastContext";
 import { Card } from "../theme/components";
@@ -83,7 +84,7 @@ function StepIndicator({ current, steps }: { current: number; steps: string[] })
 export default function MigrationPage() {
   const { t } = useTranslation("migration");
   const navigate = useNavigate();
-  const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, profile, loading: authLoading, signIn } = useAuth();
   const { showToast } = useToast();
   const { connectStrava, startMigration, cancelMigration, verifyMigration, fixMigration, loading, error } = useStrava();
   const [signInPending, setSignInPending] = useState(false);
@@ -100,9 +101,9 @@ export default function MigrationPage() {
     if (signInPending) return;
     setSignInPending(true);
     try {
-      await signInWithGoogle();
-    } catch {
-      showToast(t("userMigration.loginFailed"), "error");
+      await signIn();
+    } catch (err) {
+      if (!isSignInCancelled(err)) showToast(t("userMigration.loginFailed"), "error");
     } finally {
       setSignInPending(false);
     }

@@ -95,6 +95,19 @@ test("writes isolated stage without enabling unavailable production providers", 
   assert.equal(config.firebaseProjectId, "miranae-orider-g1");
   assert.equal(config.firebaseFunctionsBase, "https://asia-northeast3-orider-dev.cloudfunctions.net");
   assert.equal(config.aiApiBase, undefined);
+  assert.equal(config.socialAuthFunctionsBase, undefined);
+});
+test("Stage canonical Auth opt-in is explicit, exact and absent in normal production", () => {
+  const endpoint = "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net";
+  const config = render({ ...isolatedStage, VITE_SOCIAL_AUTH_FUNCTIONS_BASE: endpoint });
+  assert.equal(config.socialAuthFunctionsBase, endpoint);
+  assert.equal(config.firebaseFunctionsBase, isolatedStage.VITE_FIREBASE_FUNCTIONS_BASE);
+  assert.throws(() => render({ VITE_SOCIAL_AUTH_FUNCTIONS_BASE: endpoint }));
+  for (const value of [endpoint + ".evil.example", endpoint + "/other", "https://asia-northeast3-orider-dev.cloudfunctions.net"]) {
+    assert.throws(() => render({ ...isolatedStage, VITE_SOCIAL_AUTH_FUNCTIONS_BASE: value }));
+  }
+  const workflow = readFileSync(".github/workflows/deploy-stage.yml", "utf8");
+  assert.match(workflow, /VITE_SOCIAL_AUTH_FUNCTIONS_BASE: \$\{\{ vars\.STAGE_VITE_SOCIAL_AUTH_FUNCTIONS_BASE \}\}/);
 });
 test("rejects fixture data Firebase or production callable services in stage output", () => {
   for (const extra of [{ VITE_FIREBASE_PROJECT_ID: "orider-dev" }, { VITE_FIREBASE_STORAGE_BUCKET: "orider-dev.firebasestorage.app" }, { VITE_ORIDER_AI_API_BASE: "https://orider-ai-api-h5zqzw3n4a-du.a.run.app" }]) {

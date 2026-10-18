@@ -5,7 +5,7 @@ import ClimbGoalSetupPage from "./ClimbGoalSetupPage";
 
 const mocks = vi.hoisted(() => ({ auth: { user: null as null | { isAnonymous: boolean }, loading: true }, signIn: vi.fn(), callable: vi.fn() }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ ...mocks.auth, signInWithGoogle: mocks.signIn }) }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ ...mocks.auth, signIn: mocks.signIn }) }));
 vi.mock("../hooks/useLocalizedNavigate", () => ({ useLocalizedNavigate: () => vi.fn() }));
 vi.mock("../services/firebase", () => ({ functions: {} }));
 vi.mock("firebase/functions", () => ({ httpsCallable: mocks.callable }));

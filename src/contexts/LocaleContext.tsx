@@ -19,6 +19,10 @@ interface LocaleContextValue {
   units: Units;
   setLocale: (lang: Lang) => Promise<void>;
   setUnits: (units: Units) => Promise<void>;
+  /** 서버 하루 경계용 IANA 시간대. null = 미설정(서버가 Asia/Seoul 폴백). */
+  timezone: string | null;
+  /** 저장 성공 여부를 돌려준다. 실패하면 화면 값을 이전으로 되돌린다. */
+  setTimezone: (timezone: string | null) => Promise<boolean>;
 }
 
 const LocaleContext = createContext<LocaleContextValue | null>(null);
@@ -59,7 +63,7 @@ export function LocaleProvider({
   children,
 }: {
   userId: string | null;
-  profile?: Partial<{ locale: Lang; units: Units }> | null;
+  profile?: Partial<{ locale: Lang; units: Units; timezone: string | null }> | null;
   children: ReactNode;
 }) {
   // 싱글턴이 아니라 컨텍스트에서 받는다 — 임베드는 별도 named app 을 쓰므로 싱글턴이
@@ -67,6 +71,13 @@ export function LocaleProvider({
   const { firestore } = useFirebaseServices();
   const [locale, setLocaleState] = useState<Lang>(initialLocale);
   const [units, setUnitsState] = useState<Units>('metric');
+  const [timezone, setTimezoneState] = useState<string | null>(null);
+  const profileTimezone = profile?.timezone ?? null;
+
+  // 프로필 값이 바뀔 때만 동기화 — 저장 직후 낙관적 값이 옛 스냅샷으로 되돌아가지 않게.
+  useEffect(() => {
+    setTimezoneState(profileTimezone);
+  }, [profileTimezone]);
 
   useEffect(() => {
     const fsLocale = profile?.locale;
@@ -89,12 +100,16 @@ export function LocaleProvider({
   }, [locale, profile?.locale, profile?.units, units]);
 
   const persist = useCallback(
-    async (patch: Partial<{ locale: Lang; units: Units }>) => {
-      if (!userId) return;
+    async (
+      patch: Partial<{ locale: Lang; units: Units; timezone: string | null }>
+    ): Promise<boolean> => {
+      if (!userId) return false;
       try {
         await setDoc(doc(firestore, 'users', userId), patch, { merge: true });
+        return true;
       } catch (err) {
         logClientError('LocaleContext.persist', err, { patch: Object.keys(patch) });
+        return false;
       }
     },
     [firestore, userId]
@@ -117,9 +132,20 @@ export function LocaleProvider({
     [persist]
   );
 
+  const setTimezone = useCallback(
+    async (next: string | null) => {
+      const prev = timezone;
+      setTimezoneState(next);
+      const ok = await persist({ timezone: next });
+      if (!ok) setTimezoneState(prev);
+      return ok;
+    },
+    [persist, timezone]
+  );
+
   const value = useMemo(
-    () => ({ locale, units, setLocale, setUnits }),
-    [locale, units, setLocale, setUnits]
+    () => ({ locale, units, setLocale, setUnits, timezone, setTimezone }),
+    [locale, units, setLocale, setUnits, timezone, setTimezone]
   );
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;

@@ -328,7 +328,7 @@
   },
   "privacy": {
     "title": "Orider Privacy Policy",
-    "lastUpdated": "Last updated: October 17, 2026",
+    "lastUpdated": "Last updated: October 18, 2026",
     "intro": "Orider (\"Company\") complies with the Personal Information Protection Act and other applicable laws and establishes and discloses this Privacy Policy as follows to protect Users' personal information.",
     "stravaPrivacyLink": "Strava Privacy Policy",
     "sections": [
@@ -342,7 +342,10 @@
             "heading": "1. Sign-up and sign-in",
             "list": [
               "Google account information: name, email address, profile image",
-              "Google unique identifier"
+              "Google unique identifier",
+              "When Naver or Kakao sign-in is selected: the provider-specific user ID, nickname and profile image if consented to and provided",
+              "Naver/Kakao connection maintenance and revocation: OAuth access/refresh tokens and expiry information (server only)",
+              "When Strava sign-in is selected: athlete ID and public profile name/image"
             ]
           },
           {
@@ -417,7 +420,8 @@
       {
         "title": "Article 4-2 (Data Processing for Strava Integration)",
         "paragraphs": [
-          "When a User integrates a Strava account, data is processed as follows:"
+          "When a User integrates a Strava account, data is processed as follows:",
+          "Strava sign-in requests public profile read access (read) only. Signing in does not import activities or start sync. An existing activity connection does not automatically enable Strava sign-in; sign in to your existing account first and explicitly add Strava sign-in. Sign-in and activity sync share the same Strava app authorization, so activity sync may require reauthorization after permission changes."
         ],
         "groups": [
           {
@@ -435,7 +439,8 @@
             "list": [
               "Unified management and analysis of the User's ride records",
               "Visualization features such as elevation profiles and performance charts",
-              "Segment leaderboards and personal record comparison"
+              "Segment leaderboards and personal record comparison",
+              "Account identification, sign-in and explicit connection management when you choose Strava sign-in"
             ]
           },
           {
@@ -452,7 +457,8 @@
               "Users may disconnect Strava integration at any time from the Settings page.",
               "Strava authentication tokens are discarded immediately upon disconnection.",
               "Users may request deletion of all activity data imported from Strava from the Settings page.",
-              "Strava data cleanup is separate from O-Rider account deletion. To delete your account, workouts and photos, use the account deletion page and check the server-confirmed completion status."
+              "Strava data cleanup is separate from O-Rider account deletion. To delete your account, workouts and photos, use the account deletion page and check the server-confirmed completion status.",
+              "Revoking the same Strava app authorization affects both sign-in and activity sync. Ensure another sign-in method is available before disconnecting; removing the last sign-in method is blocked."
             ]
           },
           {
@@ -509,6 +515,36 @@
             "list": [
               "Health data is used for service features and not for advertising. User-requested integrations and processing by the service providers described in Article 5 may apply.",
               "Data in transit and at rest is protected by HTTPS and access controls."
+            ]
+          }
+        ]
+      },
+      {
+        "title": "Article 4-4 (Naver/Kakao sign-in and account connections)",
+        "paragraphs": [
+          "When you choose Naver or Kakao sign-in, we use the provider-specific user ID to create an account or let you explicitly connect it to your existing signed-in account. Matching email addresses do not automatically merge accounts. We do not require a separate service password."
+        ],
+        "groups": [
+          {
+            "heading": "1. Purposes and optional profile information",
+            "list": [
+              "Provider-specific user IDs support sign-in, account identification and connection management.",
+              "If consented to and provided, nicknames and profile images are used in your service profile. You can sign in without them and edit your profile in Settings > Account."
+            ]
+          },
+          {
+            "heading": "2. Credential retention and disconnection",
+            "list": [
+              "OAuth access/refresh tokens and expiry information are retained in access-restricted server-only storage to maintain and revoke provider connections. They are not sent to the browser.",
+              "Request disconnection in Settings > Account > Sign-in connections. The connection mapping and credentials are removed after provider revocation succeeds. Failed revocation is not shown as complete and can be retried.",
+              "The last remaining sign-in connection cannot be removed. Connect another sign-in method first or request account deletion.",
+              "Disconnecting a sign-in provider does not delete your O-Rider account. You can rename your nickname and change or remove your profile image in settings. To delete the full account and profile, request account deletion."
+            ]
+          },
+          {
+            "heading": "3. Account deletion",
+            "list": [
+              "Request full account deletion on the account deletion page. The server processes deletion, including Naver/Kakao provider revocation, in sequence and retries failures. Check processing and completion status on that page."
             ]
           }
         ]
@@ -617,8 +653,8 @@
     "steps": "1. Sign in to the O-Rider account you want to delete. 2. Read the scope and type DELETE. 3. Select the deletion request button. If recent sign-in is required, verify your identity and submit again.",
     "requestTitle": "Request account deletion",
     "checking": "Checking deletion status…",
-    "signInHelp": "If you originally registered with Google, use that same Google account. For Apple sign-in, guest accounts or sign-in problems, request deletion by email using the contact above. Do not create or link a different Google account. If sign-in is blocked in the in-app browser, open this address in Chrome or Safari.",
-    "signIn": "Sign in with Google",
+    "signInHelp": "If you registered with Google, Naver or Kakao, sign in the same way you registered. For Apple sign-in, guest accounts or sign-in problems, request deletion by email using the contact above. Do not create or link a different Google account. If sign-in is blocked in the in-app browser, open this address in Chrome or Safari.",
+    "signIn": "Sign in",
     "account": "Account to delete: {{account}}",
     "confirm": "Type DELETE to request permanent deletion.",
     "submit": "Request permanent account and data deletion",

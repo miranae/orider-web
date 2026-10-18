@@ -86,6 +86,7 @@ import { SummarySensorFallbackCard, type SummarySensorMetric } from "../features
 import { EquipmentSignalCard } from "../features/activity/detail/EquipmentSignalCard";
 import { useActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
 import { ActivityFtpDecisionCard } from "../features/activity/detail/ActivityFtpDecisionCard";
+import { fitnessDateKeyFor } from "@shared/training/dateKey";
 
 export default function ActivityPage() {
   const { t, i18n } = useTranslation("activity");
@@ -93,7 +94,7 @@ export default function ActivityPage() {
   const timeAgo = useTimeAgo();
   const formatFullDate = useFormatFullDate();
   const { activityId } = useParams<{ activityId: string }>();
-  const { user, profile, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, profile, loading: authLoading, signIn } = useAuth();
   const { units } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
@@ -743,7 +744,7 @@ export default function ActivityPage() {
   const s = activity.summary;
   const displayedSummary = selectedSummary ?? s;
   const activityDate = Number.isFinite(activity.startTime) && Number.isFinite(new Date(activity.startTime).getTime())
-    ? new Date(activity.startTime).toISOString().slice(0, 10)
+    ? fitnessDateKeyFor(activity.startTime, fitnessTimeseries?.loadSnapshot?.dateKeyBasis)
     : null;
   const fitnessAtActivity = fitnessTimeseries?.points
     .slice()
@@ -1207,7 +1208,7 @@ export default function ActivityPage() {
             description={t(streamsSignInRequired ? "page.summarySensorSignInDesc" : "page.summarySensorDesc")}
             metrics={summarySensorMetrics}
           />
-          {loadingStreams || showStreamSpinner ? <Card className="activity-detail-loading" role="status" aria-live="polite"><span className="activity-detail-spinner" aria-hidden="true" />{t("detail.loadingData")}</Card> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
+          {loadingStreams || showStreamSpinner ? <Card className="activity-detail-loading" role="status" aria-live="polite"><span className="activity-detail-spinner" aria-hidden="true" />{t("detail.loadingData")}</Card> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} /> : <StreamUnavailableCard title={t("page.streamsMissingTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
         </div>
       )}
       {activeTab === "analysis" && activity?.id && <ActivityPersonalBenchmark activityId={activity.id}
@@ -1225,7 +1226,7 @@ export default function ActivityPage() {
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
               훅이 소유권과 활성 자전거를 함께 검증해 비소유자의 프로필로 활동 스트림을
               다시 추정하지 않도록 한다. */}
-          <AnalysisTab {...analysisTabProps} canonicalPresentationAvailable={overview.response?.status === "available"} onSignIn={() => { void signInWithGoogle(); }} />
+          <AnalysisTab {...analysisTabProps} canonicalPresentationAvailable={overview.response?.status === "available"} onSignIn={() => { void signIn(); }} />
         </Card>
       )}
       {activeTab === "analysis" && sport === "run" && <AnalysisTab
@@ -1235,7 +1236,7 @@ export default function ActivityPage() {
         isOwner={isActivityOwner}
         sport="run"
         streamsSignInRequired={streamsSignInRequired}
-        onSignIn={() => { void signInWithGoogle(); }}
+        onSignIn={() => { void signIn(); }}
         streams={streams ?? { userId: activity.userId, time: [], distance: [] }}
         summary={displayedSummary}
         canonicalPresentationAvailable={overview.response?.status === "available"}
@@ -1272,7 +1273,7 @@ export default function ActivityPage() {
 
       <Modal open={showExport} onClose={() => setShowExport(false)} title={t("tab.export")} maxWidth="max-w-3xl">
         <div>
-        {streams ? <ExportTab activity={activity} streams={streams} /> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
+        {streams ? <ExportTab activity={activity} streams={streams} /> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} /> : <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
         </div>
       </Modal>
       <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
@@ -1291,7 +1292,7 @@ export default function ActivityPage() {
 
       {/* 고도 & 성능 — 개요 카드 바로 아래. 스트림은 활동 하나에 함수 호출 1회와 0.1~0.8MB 를 쓰므로
       (2026-10-18 실측) 소유자 화면은 버튼을 누를 때만 받는다. 서버 요약만으로 개요가 완결된다. */}
-      {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} />}
+      {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} />}
       {!streamsSignInRequired && !streams && !loadingStreams && (
         !streamsError && <Card className="activity-detail-load-card">
           <div className="activity-detail-load-icon"><BarChart3 size={24} aria-hidden="true" /></div>
@@ -1556,7 +1557,7 @@ export default function ActivityPage() {
         onSubmitComment={handleSubmitComment}
         onDeleteComment={handleDeleteComment}
         onSaveEditComment={handleSaveEditComment}
-        onSignIn={() => { void signInWithGoogle(); }}
+        onSignIn={() => { void signIn(); }}
         activityOwnerId={activity.userId}
         hiddenComments={hiddenComments}
         moderationBusy={moderationBusy}
@@ -1590,7 +1591,7 @@ export default function ActivityPage() {
 
       {/* ── 세그먼트 탭 — 주요성과 + 세그먼트/코스 등록 ── */}
       {activeTab === "segments" && !streams && (
-        loadingStreams || showStreamSpinner ? <Card className="activity-detail-loading" role="status" aria-live="polite"><span className="activity-detail-spinner" aria-hidden="true" />{t("detail.loadingData")}</Card> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signInWithGoogle(); }} /> : <StreamUnavailableCard title={t("page.segmentsUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
+        loadingStreams || showStreamSpinner ? <Card className="activity-detail-loading" role="status" aria-live="polite"><span className="activity-detail-spinner" aria-hidden="true" />{t("detail.loadingData")}</Card> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} /> : <StreamUnavailableCard title={t("page.segmentsUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
       )}
       {activeTab === "segments" && streams && (
       <div data-testid="D1-4" className="space-y-6">

@@ -138,7 +138,7 @@ describe("Layout", () => {
     });
   });
 
-  it("calls signInWithGoogle when login button is clicked", async () => {
+  it("calls signIn when login button is clicked", async () => {
     const user = userEvent.setup();
     renderWithProviders(<Layout />, { authenticated: false });
 
@@ -147,6 +147,8 @@ describe("Layout", () => {
     });
 
     await user.click(screen.getByText("기록을 저장하려면 로그인"));
+    // 로그인 방식 선택 창 → Google
+    await user.click(await screen.findByTestId("A1-1-1"));
     expect(mockSignInWithPopup).toHaveBeenCalled();
   });
 

@@ -16,7 +16,7 @@ import { buildClimbGoalRequest, climbGoalDateBounds } from '../features/training
 
 export default function ClimbGoalSetupPage({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation('training');
-  const { user, loading: authLoading, signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [name, setName] = useState('');
@@ -30,7 +30,7 @@ export default function ClimbGoalSetupPage({ embedded = false }: { embedded?: bo
   const fieldId = useId();
 
   if (authLoading && !user) return <Text as="div" variant="body" style={{ padding: embedded ? 'var(--space-4) 0' : 'var(--space-6)', color: 'var(--ink-3)' }}>{t('climbGoal.loading')}</Text>;
-  if (!user || user.isAnonymous) return <PermissionGate title={t('climbGoal.loginTitle')} description={t('climbGoal.loginDescription')} actionLabel={t('climbGoal.loginAction')} onAction={() => { void signInWithGoogle(); }} />;
+  if (!user || user.isAnonymous) return <PermissionGate title={t('climbGoal.loginTitle')} description={t('climbGoal.loginDescription')} actionLabel={t('climbGoal.loginAction')} onAction={() => { void signIn(); }} />;
 
   const submit = async () => {
     try {

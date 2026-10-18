@@ -321,7 +321,7 @@
     "error": "Check your inputs and try again.",
     "loginTitle": "Sign in required",
     "loginDescription": "Sign in to save your climb goal and plan.",
-    "loginAction": "Sign in with Google",
+    "loginAction": "Sign in",
     "loading": "Checking your sign-in status…"
   },
   "intensityChip": {

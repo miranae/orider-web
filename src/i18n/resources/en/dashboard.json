@@ -9,7 +9,7 @@
     "defaultName": "Rider",
     "anonTitle": "Keep your riding history longer and go deeper",
     "anonSubtitle": "Bring scattered activity records together safely, then turn them into training load, courses, segments, and AI coaching.",
-    "anonCta": "Start with Google",
+    "anonCta": "Get started",
     "signingIn": "Signing in…",
     "signInFailed": "Sign-in failed. Please try again."
   },
@@ -244,7 +244,7 @@
     "sidebarAnon": {
       "welcome": "Welcome to Orider",
       "welcomeDesc": "Sign in and connect Strava to manage your rides.",
-      "signInGoogle": "Sign in with Google"
+      "signInGoogle": "Sign in"
     }
   },
   "mobileFeed": {
