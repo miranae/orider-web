@@ -47,8 +47,15 @@ describe("mobile web analysis evidence", () => {
     const chart = within(curve).getByRole("img");
     fireEvent.focus(chart);
     fireEvent.keyDown(chart, { key: "Home" });
-    expect(within(curve).getByRole("tooltip")).toHaveTextContent("최근 28일: 2:56 /km");
-    expect(within(curve).getByRole("tooltip")).toHaveTextContent("이전 28일: 3:00 /km");
+    const readout = within(curve).getByRole("status");
+    expect(readout).toHaveTextContent("최근 28일");
+    expect(readout).toHaveTextContent("2:56 /km");
+    expect(readout).toHaveTextContent("이전 28일");
+    expect(readout).toHaveTextContent("3:00 /km");
+    fireEvent.pointerLeave(chart);
+    fireEvent.blur(chart);
+    expect(readout).toBeVisible();
+    expect(readout).toHaveTextContent("2:56 /km");
   });
   it("distinguishes missing running curve evidence from the threshold setting", () => {
     renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run", threshold: null }} part="condition" runPaceCurve={{ recent28: [], prev28: [] }} />);
@@ -88,8 +95,13 @@ describe("mobile web analysis evidence", () => {
     expect(trend).toHaveAccessibleDescription(/2026-08.*2026-09/);
     fireEvent.focus(trend);
     fireEvent.keyDown(trend, { key: "Home" });
-    expect(screen.getByRole("tooltip")).toHaveTextContent("2026-08");
-    expect(screen.getByRole("tooltip")).toHaveTextContent("50 ml/kg/min");
+    const readout = within(screen.getByTestId("K5-1-3")).getByRole("status");
+    expect(readout).toHaveTextContent("2026-08");
+    expect(readout).toHaveTextContent("50 ml/kg/min");
+    fireEvent.mouseLeave(trend);
+    fireEvent.blur(trend);
+    expect(readout).toBeVisible();
+    expect(readout).toHaveTextContent("50 ml/kg/min");
   });
   it("keeps VO2max, strengths, power curve and zones visible on condition without switching tabs", () => {
     const zones = [{ name: "Endurance", pct: 75, color: "var(--zone-2)", rangeLabel: "140–180 W", percentLabel: "56–75%" }];
@@ -102,8 +114,13 @@ describe("mobile web analysis evidence", () => {
     const curve = screen.getByRole("group", { name: "파워 커브" });
     fireEvent.focus(curve);
     fireEvent.keyDown(curve, { key: "Home" });
-    expect(screen.getByRole("tooltip")).toHaveTextContent("500 W");
-    expect(screen.getByRole("tooltip")).toHaveTextContent("1분");
+    const readout = within(screen.getByTestId("K5-2-1")).getByRole("status");
+    expect(readout).toHaveTextContent("500 W");
+    expect(readout).toHaveTextContent("1분");
+    fireEvent.mouseLeave(curve);
+    fireEvent.blur(curve);
+    expect(readout).toBeVisible();
+    expect(readout).toHaveTextContent("500 W");
     expect(screen.getAllByText("페달링 실측 근거")).toHaveLength(1);
     expect(container.querySelector(".mobile-fitness-riding-metrics details")).toBeNull();
     expect(screen.queryByRole("button", { name: "분석" })).not.toBeInTheDocument();

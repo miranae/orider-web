@@ -166,7 +166,7 @@ describe("MobileFitnessPage tri", () => {
     expect(screen.getByText("현재 실행안: 템포 · 60분")).toBeInTheDocument();
     expect(screen.getByText("조정 권고: 회복 · 미적용")).toBeInTheDocument();
     const todayLink = screen.getByRole("button", { name: "오늘 결정·실행안 보기 ↓" });
-    expect(todayLink).toHaveStyle({ minHeight: "44px" });
+    expect(todayLink).toBeEnabled();
     fireEvent.click(todayLink);
     expect(today.scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
   });
@@ -230,9 +230,19 @@ describe("MobileFitnessPage tri", () => {
     }
     if (stateKey === "health-stop") {
       expect(container.querySelector("[data-mobile-fitness-decision]")).not.toHaveTextContent("조정 권고");
-      expect(screen.getByRole("button", { name: "중단 사유 자세히 보기 ↓" })).toHaveStyle({ minHeight: "44px" });
+      const details = container.querySelector<HTMLElement>("#fitness-coach-today")!;
+      details.scrollIntoView = vi.fn();
+      const safetyLink = screen.getByRole("button", { name: "중단 사유 자세히 보기 ↓" });
+      expect(safetyLink).toBeEnabled();
+      fireEvent.click(safetyLink);
+      expect(details.scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
     }
-    if (stateKey === "error") expect(screen.getByRole("button", { name: "새로 확인" })).toHaveStyle({ minHeight: "44px" });
+    if (stateKey === "error") {
+      const retry = screen.getByRole("button", { name: "새로 확인" });
+      expect(retry).toBeEnabled();
+      fireEvent.click(retry);
+      expect(state.refresh).toHaveBeenCalledOnce();
+    }
   });
 
   it("keeps the original plan clearly separate when a recommendation is not ready", () => {

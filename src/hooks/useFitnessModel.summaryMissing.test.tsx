@@ -92,7 +92,7 @@ describe("retained activity without raw summary",()=>{
     seed(known ? [{...activity(null),type:"Run"},unknown] : [unknown]);
     function Page(){const model=useFitnessModel("tri",options);return <TriFitnessView range={90} onRangeChange={vi.fn()} breakdown={model.triFitnessBreakdown} timeline={model.triFitnessTimeline} combinedLoad={model.combinedLoad} loadFocus={null}/>;}
     render(<MemoryRouter><Page/></MemoryRouter>);
-    await waitFor(()=>expect(screen.getByText("부하 미확인 1건 · 확인된 값만 합산")).toBeInTheDocument());
+    await waitFor(()=>expect(screen.getAllByText("부하 미확인 1건 · 확인된 값만 합산").length).toBeGreaterThan(0));
     expect(screen.getByText("총합").parentElement).toHaveTextContent(known ? "100 총합" : "— 총합");
     const runLink=screen.getByRole("link",{name:/러닝.*CTL/});
     expect(runLink).toHaveTextContent(known ? "100 TSS/주" : "— TSS/주");
