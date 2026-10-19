@@ -150,8 +150,8 @@ describe("실제 조편성 편집", () => {
   });
 });
 
-describe("17명 조편성 조정", () => {
-  it("6/6/5에서 만석 조 맞교환·되돌리기·여유조 이동·초과 거절·조장 지정을 저장 전 끝낸다", async () => {
+describe("5명 조편성 조정", () => {
+  it("2/2/1에서 만석 조 맞교환·되돌리기·여유조 이동·초과 거절·조장 지정을 저장 전 끝낸다", async () => {
     // 같은 실제 버튼을 찾되 모든 조의 접근성 이름을 매번 계산하지 않는다.
     const button = (name: string) => {
       const target = screen.getByText(name, { exact: true }).closest<HTMLButtonElement>("button")!;
@@ -161,14 +161,14 @@ describe("17명 조편성 조정", () => {
       expect(target).toBeEnabled();
       return target;
     };
-    const people = Array.from({ length: 17 }, (_, i) => ({
+    const people = Array.from({ length: 5 }, (_, i) => ({
       id: `r${i + 1}`,
       name: `라이더${String(i + 1).padStart(2, "0")}`,
     }));
     const registrations = people.map((member, i) => person(member.id, i + 1));
-    const teams = createInitialTeamDraft(registrations, 6).map((team) => ({
+    const teams = createInitialTeamDraft(registrations, 2).map((team) => ({
       ...team,
-      capacity: 6,
+      capacity: 2,
       leaderId: team.memberIds[0],
     }));
     const save = vi.fn().mockResolvedValue(undefined);
@@ -196,10 +196,10 @@ describe("17명 조편성 조정", () => {
         screen.getByLabelText(`라이더${String(n).padStart(2, "0")} 선택`),
       );
     choose(1);
-    choose(7);
+    choose(3);
     fireEvent.click(button("두 명 맞교환"));
     expect(
-      within(screen.getByRole("region", { name: "1조" })).getByText("라이더07"),
+      within(screen.getByRole("region", { name: "1조" })).getByText("라이더03"),
     ).toBeInTheDocument();
     fireEvent.click(button("방금 조정 되돌리기"));
     expect(
@@ -208,49 +208,48 @@ describe("17명 조편성 조정", () => {
       ),
     ).toBeInTheDocument();
     choose(1);
-    choose(7);
+    choose(3);
     fireEvent.click(button("두 명 맞교환"));
-    fireEvent.click(within(screen.getByRole("region", { name: "1조", exact: true })).getByRole("button", { name: "라이더07 조장 지정" }));
+    fireEvent.click(within(screen.getByRole("region", { name: "1조", exact: true })).getByRole("button", { name: "라이더03 조장 지정" }));
     choose(2);
     fireEvent.click(button("3조로 이동"));
     expect(screen.getByLabelText("라이더02 선택")).not.toBeChecked();
-    choose(8);
-    choose(9);
+    choose(1);
+    choose(4);
     fireEvent.click(button("1조로 이동"));
     expect(
       screen.getByText(
         "이 조에 설정한 정원을 넘어요. 조 설정에서 정원을 바꾸거나 다른 조로 옮겨주세요.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("라이더08 선택")).toBeChecked();
+    expect(screen.getByLabelText("라이더01 선택")).toBeChecked();
     expect(
-      within(screen.getByRole("region", { name: "2조" })).getByText("라이더08"),
+      within(screen.getByRole("region", { name: "2조" })).getByText("라이더01 · 나"),
     ).toBeInTheDocument();
     expect(save).not.toHaveBeenCalled();
     fireEvent.click(button("변경 저장"));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     const saved = save.mock.calls[0]![0] as NonNullable<Meeting["teams"]>;
-    expect(saved.map((team) => team.memberIds.length)).toEqual([5, 6, 6]);
-    expect(saved[0]!.leaderId).toBe("r7");
+    expect(saved.map((team) => team.memberIds.length)).toEqual([1, 2, 2]);
+    expect(saved[0]!.leaderId).toBe("r3");
     expect(saved[1]!.leaderId).toBeUndefined();
-    expect(new Set(saved.flatMap((team) => team.memberIds)).size).toBe(17);
+    expect(new Set(saved.flatMap((team) => team.memberIds)).size).toBe(5);
   });
 });
 
 describe("조가 많거나 명단이 바뀌는 편집", () => {
-  it("40조의 목적지는 공통 선택 하나로 제공하고 선택한 회원만 이동한다", async () => {
-    // The boundary is 40 destinations; only selected, unselected and destination members
-    // are needed here. Dense member reordering is covered by the 17-member case.
+  it("5조의 목적지는 공통 선택 하나로 제공하고 선택한 회원만 이동한다", async () => {
+    // The destination selector starts at five groups; pure tests cover the 40-group limit.
     const people = [
       { id: "many-0", name: "회원1" },
       { id: "stay", name: "출발조 미선택 회원" },
-      { id: "many-39", name: "회원40" },
+      { id: "destination-member", name: "회원5" },
     ];
     const registrations = people.map((member, i) => person(member.id, i + 1));
-    const teams = Array.from({ length: 40 }, (_, i) => ({
+    const teams = Array.from({ length: 5 }, (_, i) => ({
       id: `team-${i + 1}`,
       name: `${i + 1}조`,
-      memberIds: i === 0 ? ["many-0", "stay"] : i === 39 ? ["many-39"] : [],
+      memberIds: i === 0 ? ["many-0", "stay"] : i === 4 ? ["destination-member"] : [],
       capacity: 2,
     }));
     const save = vi.fn().mockResolvedValue(undefined);
@@ -279,15 +278,15 @@ describe("조가 많거나 명단이 바뀌는 편집", () => {
     );
     expect(actions.getAllByRole("combobox")).toHaveLength(1);
     expect(
-      actions.queryByRole("button", { name: "40조로 이동" }),
+      actions.queryByRole("button", { name: "5조로 이동" }),
     ).not.toBeInTheDocument();
     const destination = actions.getByLabelText("목적 조 선택");
     expect(within(destination).getAllByRole("option")
-      .filter(option => (option as HTMLOptionElement).value !== "")).toHaveLength(40);
+      .filter(option => (option as HTMLOptionElement).value !== "")).toHaveLength(5);
     fireEvent.change(destination, {
-      target: { value: "team-40" },
+      target: { value: "team-5" },
     });
-    // 40조 전체 버튼의 접근성 이름을 반복 계산하지 않고 실제 조작 영역에서 찾는다.
+    // 5조 전체 버튼의 접근성 이름을 반복 계산하지 않고 실제 조작 영역에서 찾는다.
     const moveButton = actions.getByText("선택한 조로 이동", { exact: true }).closest<HTMLButtonElement>("button")!;
     expect(moveButton).toHaveRole("button");
     expect(moveButton).toHaveAccessibleName("선택한 조로 이동");
@@ -302,11 +301,11 @@ describe("조가 많거나 명단이 바뀌는 편집", () => {
     fireEvent.click(saveButton);
     await waitFor(() => expect(save).toHaveBeenCalled());
     const saved = save.mock.calls[0]![0];
-    expect(saved).toHaveLength(40);
+    expect(saved).toHaveLength(5);
     expect(saved[0].memberIds).toEqual(["stay"]);
-    expect(saved[39].memberIds).toEqual(["many-39", "many-0"]);
-    expect(saved.slice(1, 39)).toEqual(teams.slice(1, 39));
-  }, 15_000);
+    expect(saved[4].memberIds).toEqual(["destination-member", "many-0"]);
+    expect(saved.slice(1, 4)).toEqual(teams.slice(1, 4));
+  });
   it("맞교환 후 취소자가 생기면 되돌리기를 잠그고 최신명단 반영 시 취소자와 이력을 제거한다", () => {
     const teams = createInitialTeamDraft(initial.registrations, 1);
     const view = renderWithProviders(wrap({ ...initial, teams }, 1, vi.fn()));
@@ -357,14 +356,14 @@ class TeamPointerEvent extends MouseEvent {
   }
 }
 describe("자유 인원 드래그 조정과 취소 번복", () => {
-  it("17명 6/6/5를 드래그로 7/5/5, 4/6/7로 조정하고 저장 전 되돌린다", async () => {
+  it("3명 1/1/1를 드래그로 2/0/1, 0/1/2로 조정하고 저장 전 되돌린다", async () => {
     vi.stubGlobal("PointerEvent", TeamPointerEvent);
-    const people = Array.from({ length: 17 }, (_, i) => ({
+    const people = Array.from({ length: 3 }, (_, i) => ({
       id: `free${i + 1}`,
       name: `자유${i + 1}`,
     }));
     const registrations = people.map((p, i) => person(p.id, i));
-    const teams = createInitialTeamDraft(registrations, 6);
+    const teams = createInitialTeamDraft(registrations, 1);
     const save = vi.fn().mockResolvedValue(undefined);
     renderWithProviders(
       <MeetingTeams
@@ -403,20 +402,19 @@ describe("자유 인원 드래그 조정과 취소 번복", () => {
     const counts = () =>
       ["1조", "2조", "3조"].map(
         (group) =>
-          within(screen.getByRole("region", { name: group })).getAllByRole(
+          within(screen.getByRole("region", { name: group })).queryAllByRole(
             "checkbox",
           ).length,
       );
-    drag(7, "1조");
-    expect(counts()).toEqual([7, 5, 5]);
+    drag(2, "1조");
+    expect(counts()).toEqual([2, 0, 1]);
     expect(save).not.toHaveBeenCalled();
     drag(1, "2조");
     drag(2, "3조");
-    drag(3, "3조");
-    expect(counts()).toEqual([4, 6, 7]);
+    expect(counts()).toEqual([0, 1, 2]);
     fireEvent.click(screen.getByRole("button", { name: "방금 조정 되돌리기" }));
-    expect(counts()).toEqual([5, 6, 6]);
-    drag(3, "3조");
+    expect(counts()).toEqual([1, 1, 1]);
+    drag(2, "3조");
     fireEvent.click(screen.getByRole("button", { name: "변경 저장" }));
     await waitFor(() => expect(save).toHaveBeenCalledOnce());
     expect(
@@ -427,9 +425,9 @@ describe("자유 인원 드래그 조정과 취소 번복", () => {
         ],
       ),
     ).toEqual([
-      [undefined, 4],
-      [undefined, 6],
-      [undefined, 7],
+      [undefined, 0],
+      [undefined, 1],
+      [undefined, 2],
     ]);
     vi.unstubAllGlobals();
   });
@@ -562,7 +560,7 @@ it("drag ghost follows the held row through a body portal and never intercepts d
   vi.unstubAllGlobals();
 });
 
-it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 조장·선택을 유지하고 순서대로 저장한다", async () => {
+it("4명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 조장·선택을 유지하고 순서대로 저장한다", async () => {
   vi.stubGlobal("PointerEvent", TeamPointerEvent);
   const control = (name: string) => {
     const target = screen.queryByLabelText(name, { selector: "button" })
@@ -572,12 +570,12 @@ it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 �
     expect(target).toBeVisible();
     return target;
   };
-  const people = Array.from({ length: 17 }, (_, i) => ({
+  const people = Array.from({ length: 4 }, (_, i) => ({
     id: `sort${i + 1}`,
     name: `정렬${i + 1}`,
   }));
   const registrations = people.map((p, i) => person(p.id, i));
-  const teams = createInitialTeamDraft(registrations, 6).map((t) => ({
+  const teams = createInitialTeamDraft(registrations, 4).map((t) => ({
     ...t,
     leaderId: t.memberIds[0],
   }));
@@ -626,8 +624,6 @@ it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 �
     "sort3",
     "sort4",
     "sort1",
-    "sort5",
-    "sort6",
   ]);
   expect(
     control("정렬1 조장 해제"),
@@ -643,8 +639,6 @@ it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 �
     "sort3",
     "sort1",
     "sort4",
-    "sort5",
-    "sort6",
   ]);
   expect(screen.getByLabelText("정렬1 선택")).toBeChecked();
   fireEvent.click(control("정렬1 위로"));
@@ -653,10 +647,10 @@ it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 �
   await waitFor(() => expect(save).toHaveBeenCalledOnce());
   expect(save.mock.calls[0]![0][0]).toEqual({
     ...teams[0],
-    memberIds: ["sort2", "sort1", "sort3", "sort4", "sort5", "sort6"],
+    memberIds: ["sort2", "sort1", "sort3", "sort4"],
   });
   expect(
     save.mock.calls[0]![0].flatMap((t: { memberIds: string[] }) => t.memberIds),
-  ).toHaveLength(17);
+  ).toHaveLength(4);
   vi.unstubAllGlobals();
 });

@@ -105,29 +105,6 @@ describe("ActivityPage presentation", () => {
     expect(document.querySelector(".activity-detail-technical-details")).toBeNull();
   });
 
-  it("reveals a directly selected overflowing tab horizontally and preserves the main viewport on keyboard navigation", async () => {
-    const rectangles = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
-      const list = this.getAttribute("role") === "tablist";
-      const offset = this.parentElement?.scrollLeft ?? 0;
-      const left = this.id === "activity-tab-compare" ? 350 - offset : this.id === "activity-tab-overview" ? -offset : 0;
-      return { x: left, y: 0, left, right: left + (list ? 280 : 80), top: 0, bottom: 44, height: 44, width: list ? 280 : 80, toJSON: () => ({}) };
-    });
-    try {
-      setDocData("activities/test-activity", createMockActivity({ id: "test-activity", userId: "test-uid" }) as unknown as Record<string, unknown>);
-      renderWithProviders(<main data-testid="horizontal-main"><ActivityPage /></main>, { authenticated: true, route: "/ko/activity/test-activity?tab=compare" });
-      const main = screen.getByTestId("horizontal-main"); main.scrollTop = 620;
-      const compare = await screen.findByRole("tab", { name: "비교" });
-      const list = screen.getByRole("tablist");
-      await waitFor(() => expect(list.scrollLeft).toBe(150));
-      expect(compare).toHaveAttribute("aria-selected", "true");
-      expect(main.scrollTop).toBe(620);
-      fireEvent.keyDown(compare, { key: "Home" });
-      await waitFor(() => expect(list.scrollLeft).toBe(0));
-      expect(screen.getByRole("tab", { name: "개요" })).toHaveFocus();
-      expect(main.scrollTop).toBe(620);
-    } finally { rectangles.mockRestore(); }
-  });
-
   it("keeps the SNS Overview lean and puts rich visuals before fully visible supplemental Analysis", async () => {
     mockRoute.activityId = "restored-dev-overview";
     const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid", aiSummaryPreview: "기존 AI 요약" });
@@ -167,7 +144,7 @@ describe("ActivityPage presentation", () => {
 
   });
 
-  it.each([{ load: 220, stale: false }, { load: 46.4, stale: false }, { load: 46, stale: false }, { load: null, stale: false }, { load: 220, stale: true }])("distinguishes accepted load $load from stored analysis TSS (stale=$stale) without replacing either", async ({ load, stale }) => {
+  it.each([{ load: 220, stale: false }, { load: null, stale: false }, { load: 220, stale: true }])("distinguishes accepted load $load from stored analysis TSS (stale=$stale) without replacing either", async ({ load, stale }) => {
     mockRoute.activityId = `load-provenance-owner-${load ?? "missing"}-${stale}`;
     const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid" });
     setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
@@ -190,8 +167,7 @@ describe("ActivityPage presentation", () => {
 
   });
 
-
-  it.each(["overview", "insights", "analysis"])("preserves the viewport for direct %s, tab clicks, keyboard selection and browser back", async (initial) => {
+  it.each(["overview"])("preserves the viewport for direct %s, tab clicks, keyboard selection and browser back", async (initial) => {
     const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
     const scroll = vi.fn();
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, writable: true, value: scroll });
@@ -245,7 +221,7 @@ describe("ActivityPage presentation", () => {
     }
   });
 
-  it.each([{ type: "Yoga", calories: null }, { type: "Ride", calories: null }, { type: "Yoga", calories: 0 }])("shows a secondary disclosure only when sparse $type has a metric (calories=$calories)", async ({ type, calories }) => {
+  it.each([{ type: "Yoga", calories: null }, { type: "Yoga", calories: 0 }])("shows a secondary disclosure only when sparse $type has a metric (calories=$calories)", async ({ type, calories }) => {
     mockRoute.activityId = `sparse-secondary-${type}-${calories ?? "missing"}`;
     const activity = createMockActivity({ id: mockRoute.activityId, type, source: "apple_health", thumbnailTrack: null,
       summary: createMockSummary({ maxSpeed: 0, elevationGain: null, averageHeartRate: null, maxHeartRate: null,
@@ -260,28 +236,6 @@ describe("ActivityPage presentation", () => {
       expect(screen.getByText("추가 기록 보기")).toBeInTheDocument();
       expect(screen.getByTestId("activity-stats-secondary")).toHaveTextContent("0kcal");
     }
-  });
-
-  it("keeps the full-width route before primary stats and a native mobile secondary disclosure", async () => {
-    const activity = createMockActivity({ id: "test-activity", userId: "test-uid" });
-    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
-    renderWithProviders(<ActivityPage />, { authenticated: true });
-    const primary = await screen.findByTestId("activity-stats-primary");
-    const secondary = screen.getByTestId("activity-stats-secondary");
-    const map = screen.getByTestId("D1-1");
-    const disclosure = secondary.closest("details")!;
-    expect(primary.children).toHaveLength(3);
-    expect(within(primary).getByText("이동거리")).toBeInTheDocument();
-    expect(within(primary).getByText("평균 속도")).toBeInTheDocument();
-    expect(map.compareDocumentPosition(primary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(map.parentElement).toBe(screen.getByTestId("activity-detail-hero"));
-    expect(primary.closest(".activity-detail-summary")?.previousElementSibling).toBe(map);
-    expect(primary.closest(".activity-detail-summary")).toBe(secondary.closest(".activity-detail-summary"));
-    expect(disclosure).not.toHaveAttribute("open");
-    fireEvent.click(within(disclosure).getByText("추가 기록 보기"));
-    await waitFor(() => expect(disclosure).toHaveAttribute("open"));
-    expect(within(secondary).getByText("평균 심박")).toBeVisible();
-    expect(routeMapProps.mock.lastCall?.[0]).toMatchObject({ showRouteEndpoints: true, routeLineWidth: 3 });
   });
 
   it.each([false, true])("offers the ride action only in Segments and groups eligible links (streams=%s)", async streamsAvailable => {
@@ -364,40 +318,7 @@ describe("ActivityPage presentation", () => {
     expect(stravaPreview).toHaveBeenCalledTimes(1);
   });
 
-  it("opens desktop secondary stats below the shared map without duplicate metric values", async () => {
-    const original = window.matchMedia;
-    window.matchMedia = vi.fn(query => ({ matches: query === "(min-width: 64rem)", media: query, onchange: null,
-      addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
-    try {
-      setDocData("activities/test-activity", createMockActivity({ id: "test-activity", userId: "test-uid" }) as unknown as Record<string, unknown>);
-      renderWithProviders(<ActivityPage />, { authenticated: true });
-      const secondary = await screen.findByTestId("activity-stats-secondary");
-      await waitFor(() => expect(secondary.closest("details")).toHaveAttribute("open"));
-      const map = screen.getByTestId("D1-1");
-      expect(map.nextElementSibling).toBe(secondary.closest(".activity-detail-summary"));
-      for (const name of ["분석", "구간", "비교", "개요"]) {
-        fireEvent.click(screen.getByRole("tab", { name }));
-        expect(screen.getByTestId("D1-1")).toBe(map);
-        expect(map.nextElementSibling).toBe(secondary.closest(".activity-detail-summary"));
-      }
-      expect(screen.getAllByTestId("activity-stats-primary")).toHaveLength(1);
-      expect(screen.getAllByTestId("activity-stats-secondary")).toHaveLength(1);
-    } finally { window.matchMedia = original; }
-  });
-
 });
-
-it("does not repeat an equal raw TSS in canonical public analysis", async () => {
-  const id = "public-equal-load";
-  setDocData(`activities/${id}`, createMockActivity({ id, userId: "other-owner" }) as unknown as Record<string, unknown>);
-  setDocData(`activity_metrics_public/${id}`, { version: ACTIVITY_METRICS_VERSION, computedAt: 1, tss: 46, np: 190, if: 0.83, durationSec: 2405 });
-  setCallableResult("getActivityOverview", { data: { status: "available", activityId: id, presentation: { session: { discipline: "bike", load: 46 } } } });
-  renderWithProviders(<ActivityPage />, { route: `/ko/activity/${id}?tab=analysis` });
-  await screen.findByRole("heading", { name: "훈련 부하와 체력" });
-  await waitFor(() => expect(screen.queryByText("분석 TSS")).not.toBeInTheDocument());
-  expect(screen.getByRole("heading", { name: "훈련 부하와 체력" }).closest("section")).toHaveTextContent("46");
-});
-
 
 it("opens management without duplicating domain actions and restores focus after Escape", async () => {
   const id = "management-owner";

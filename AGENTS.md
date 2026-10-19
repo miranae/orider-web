@@ -33,6 +33,8 @@ Keep reusable test data in `src/__tests__/fixtures/`; importing a `*.test` or `*
 
 Test observable behavior, boundaries and unique regressions. Avoid tests that freeze JSX/import/class/handler spelling, exact cosmetic CSS or copy when lint, types and representative behavior already cover the concern; do not create a separate test file for each styling or wording patch. Remove such implementation snapshots instead of replacing each with another test.
 
+Use the smallest DOM fixture that reaches the behavior's actual branch. Check collection limits with pure validation tests rather than repeatedly rendering a limit-sized populated screen. Keep representative UI journeys; avoid full renders for equivalent text, formatting or data permutations already covered by pure tests. Use direct change events for setup data, retaining real typing and keyboard events when that interaction is the behavior under test.
+
 ## Commit & Pull Request Guidelines
 
 Use focused branches and Conventional Commit-style subjects where possible, such as `fix: close public release security gates` or `docs: clarify creator hub recipe usage`. Sign commits with `git commit -s` for DCO compliance.

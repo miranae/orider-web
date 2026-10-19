@@ -58,6 +58,15 @@ describe("모임 조편성", () => {
     expect(teams.every((team) => team.leaderId === undefined)).toBe(true);
     expect(() => createInitialTeamDraft(many, 0)).toThrow("capacity");
   });
+  it("40조까지 생성·검증하고 41번째 조는 거절한다", () => {
+    const registrations = Array.from({ length: 41 }, (_, i) => person(`limit-${i}`, i));
+    const teams = createInitialTeamDraft(registrations.slice(0, 40), 1);
+    expect(teams).toHaveLength(40);
+    expect(validateMeetingTeams(teams, registrations)).toBeNull();
+    expect(() => createInitialTeamDraft(registrations, 1)).toThrow("team-limit");
+    expect(validateMeetingTeams([...teams, { id: "extra", name: "초과 조", memberIds: [] }], registrations))
+      .toBe("team-limit");
+  });
   it("기존 배정과 조장을 보존하고 미배정자를 신청 순으로 빈자리에 순환 배분한다", () => {
     const teams: MeetingTeam[] = [
       { id: "one", name: "1조", capacity: 2, leaderId: "a", memberIds: ["a"] },

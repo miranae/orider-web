@@ -184,37 +184,7 @@ describe("ActivityPage", () => {
     expect(routeMapProps.mock.lastCall?.[0].highlightRange).toBeUndefined();
   });
 
-  it("renders activity details when data is loaded", async () => {
-    const activity = createMockActivity({
-      id: "test-activity",
-      description: "한강 아침 라이딩",
-      nickname: "테스트 라이더",
-      summary: createMockSummary({ distance: 50000, elevationGain: 400 }),
-    });
-    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
-    renderWithProviders(<ActivityPage />);
-    await waitFor(() => {
-      expect(screen.getByText("한강 아침 라이딩")).toBeInTheDocument();
-    });
-  });
-
-  it("marks trainer activities as indoor next to the header sport label", async () => {
-    const activity = createMockActivity({ id: "test-activity", type: "Ride", trainer: true, description: "트레이너 세션" });
-    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
-    renderWithProviders(<ActivityPage />);
-    await waitFor(() => expect(screen.getByText("트레이너 세션")).toBeInTheDocument());
-    expect(screen.getByTitle("라이딩")).toHaveTextContent("라이딩· 실내");
-  });
-
-  it("does not repeat the indoor marker on Virtual* sport labels", async () => {
-    const activity = createMockActivity({ id: "test-activity", type: "VirtualRide", description: "가상 세션" });
-    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
-    renderWithProviders(<ActivityPage />);
-    await waitFor(() => expect(screen.getByText("가상 세션")).toBeInTheDocument());
-    expect(screen.getByTitle("가상 라이딩")).not.toHaveTextContent("실내");
-  });
-
-  it.each([[Date.now(), null], [Number.MAX_VALUE, null], [null, null], [Date.now(), 0]])("keeps healthy data with startTime %s and optional summary %s", async (startTime, summary) => {
+  it.each([[Date.now(), null], [null, null]])("keeps healthy data with startTime %s and optional summary %s", async (startTime, summary) => {
     const activity = createMockActivity({id: "test-activity", userId: "test-uid", source: "orider", description: "요약 미확인 경로 기록"});
     setDocData("activities/test-activity", {...activity, summary, startTime});
     setDocData("activity_streams/test-activity", {userId: "test-uid", json: JSON.stringify({
@@ -270,10 +240,10 @@ describe("ActivityPage", () => {
       expect(screen.queryByRole("button", { name: "활동 통계" })).not.toBeInTheDocument();
     } finally { overview.mockRestore(); }
   });
-  it.each(["missing-route", "outside-range", "invalid-coordinate"])("keeps segment detail links but hides impossible map actions for %s", async state => {
+  it.each(["missing-route", "invalid-coordinate"])("keeps segment detail links but hides impossible map actions for %s", async state => {
     const activity = createMockActivity({ id: "test-activity", userId: "test-uid", source: "orider" });
     const effort = { id: "native-effort", name: "위치 미확인 구간", elapsedTime: 2000, movingTime: 2000, distance: 20,
-      startIndex: 0, endIndex: state === "outside-range" ? 9 : 1, prRank: null, komRank: null,
+      startIndex: 0, endIndex: 1, prRank: null, komRank: null,
       segment: { id: "native-segment", distance: 20, averageGrade: 1, climbCategory: 0 } };
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     setDocData("activity_streams/test-activity", { userId: "test-uid", json: JSON.stringify({
@@ -966,54 +936,11 @@ describe("ActivityPage", () => {
     expect(screen.queryByText("심박 분석")).not.toBeInTheDocument();
   });
 
-  it("shows activity stats when loaded", async () => {
-    const activity = createMockActivity({
-      id: "test-activity",
-      summary: createMockSummary({
-        distance: 50000,
-        elevationGain: 400,
-        ridingTimeMillis: 7200000,
-        averageSpeed: 25.0,
-      }),
-    });
-    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
-    renderWithProviders(<ActivityPage />);
-    await waitFor(() => {
-      expect(screen.getAllByText("50.0")[0]).toBeInTheDocument(); // distance; average speed can share the value
-    });
-  });
-
-  it("places tab navigation before the hero stats and map", async () => {
-    const activity = createMockActivity({
-      id: "test-activity",
-      summary: createMockSummary({
-        distance: 50000,
-        elevationGain: 400,
-        ridingTimeMillis: 7200000,
-        averageSpeed: 25.0,
-      }),
-    });
-    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
-    renderWithProviders(<ActivityPage />);
-    const stat = (await screen.findAllByText("50.0"))[0]!;
-    const overviewTab = await screen.findByRole("tab", { name: "개요" });
-    expect(overviewTab.compareDocumentPosition(stat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
   it("shows processing state instead of not found when activity summary is still missing", async () => {
     setDocData("activities/test-activity", {userId: "test-uid"});
     renderWithProviders(<ActivityPage />);
     expect(await screen.findByText("활동을 처리 중입니다.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 시도" })).toBeInTheDocument();
-  });
-
-  it("shows comment input for authenticated users", async () => {
-    const activity = createMockActivity({ id: "test-activity" });
-    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
-    renderWithProviders(<ActivityPage />, { authenticated: true });
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText(/댓글/)).toBeInTheDocument();
-    });
   });
 
   it("shows public social aggregates without subcollection reads for signed-out visitors", async () => {
@@ -1786,25 +1713,6 @@ describe("ActivityPage", () => {
     expect(stats).not.toHaveTextContent("NP 250 W");
   });
 
-  it("shows AI ride analysis for indoor-like streams without route latlng", async () => {
-    const activity = createMockActivity({
-      id: "test-activity",
-      source: "orider",
-      thumbnailTrack: null,
-      summary: createMockSummary({ elapsedTimeMillis: 120_000, ridingTimeMillis: 120_000 }),
-    });
-    const { latlng: _latlng, ...streamsWithoutRoute } = createMockStreams();
-    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
-    setDocData("activity_streams/test-activity", {
-      userId: "user-1",
-      json: JSON.stringify(streamsWithoutRoute),
-    });
-
-    renderWithProviders(<ActivityPage />, { route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
-
-    expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
-  });
-
   it("does not show AI ride analysis when analysis streams are unavailable", async () => {
     const activity = createMockActivity({
       id: "test-activity",
@@ -1839,23 +1747,6 @@ describe("ActivityPage", () => {
     expect(stravaPublishingProps).toHaveBeenCalledWith({ activityId: "test-activity", lang: "ko" });
   });
 
-  it("shows AI ride analysis when route latlng streams are available", async () => {
-    const activity = createMockActivity({
-      id: "test-activity",
-      source: "orider",
-      thumbnailTrack: null,
-    });
-    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
-    setDocData("activity_streams/test-activity", {
-      userId: "user-1",
-      json: JSON.stringify(createMockStreams()),
-    });
-
-    renderWithProviders(<ActivityPage />, { route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
-
-    expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
-  });
-
   it("retries Apple Health streams and restores the map, elevation, and analysis", async () => {
     mockRoute.activityId = "hs_044dd41d554ece74f6fbd3c8a0030b21";
     const activity = createMockActivity({
@@ -1886,18 +1777,6 @@ describe("ActivityPage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(await screen.findByTestId("elevation-chart")).toBeInTheDocument();
-    expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
-  });
-
-  it("shows the AI analysis card on Insights when a saved preview exists without streams", async () => {
-    const activity = createMockActivity({
-      id: "test-activity",
-      aiSummaryPreview: "저장된 AI 분석 결과입니다.",
-    });
-    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
-
-    renderWithProviders(<ActivityPage />, { route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
-
     expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
   });
 

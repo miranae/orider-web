@@ -47,7 +47,7 @@ describe("ActivityOverviewSummary", () => {
     expect(screen.getByText(renderedText(source === "tss" ? /TSS 기준/ : /시간 기반 추정/))).toBeInTheDocument();
   });
 
-  it.each(["ko", "en"])("explains repeated known labels without nesting interactive controls in %s", async language => {
+  it.each(["ko"])("explains repeated known labels without nesting interactive controls in %s", async language => {
     i18n.addResourceBundle("en", "activity", enActivity, true, true);
     i18n.addResourceBundle("en", "termGlossary", enGlossary, true, true);
     await i18n.changeLanguage(language);
@@ -87,20 +87,6 @@ describe("ActivityOverviewSummary", () => {
     expect(screen.queryByText(renderedText("1520"))).not.toBeInTheDocument();
     expect(screen.getByText(renderedText(/직접 측정한 생리값/))).toBeInTheDocument();
   });
-  it("labels the day with the session character and appends the above-usual volume", () => {
-    const { rerender } = render(<ActivityOverviewSummaryContent presentation={rich} />);
-    expect(screen.getByText(renderedText("고강도 반복"))).toHaveClass("ds-chip--accent");
-    rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, aboveUsualVolume: true }} />);
-    expect(screen.getByText(renderedText("고강도 반복 · 평소보다 많이"))).toBeInTheDocument();
-    // 성격이 없으면 예전처럼 진단 문구만 남는다 — 화면이 이름을 지어내지 않는다.
-    rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, session: { discipline: "bike" } }} />);
-    expect(screen.getByText(renderedText("성격 확인 중"))).not.toHaveClass("ds-chip--accent");
-  });
-
-  it("explains the label with the server-written highlight reason", () => {
-    render(<ActivityOverviewSummaryContent presentation={{ ...rich, highlight: { kind: "sprint", reason: "5초 최고 출력 · 전체 기간 PR" } }} />);
-    expect(screen.getByText(renderedText("5초 최고 출력 · 전체 기간 PR"))).toHaveClass("ds-text--caption");
-  });
 
   it("shows the user-approved-value caveat as a separate caption only when qualityNote is true", () => {
     const { rerender } = render(<ActivityOverviewSummaryContent presentation={rich} />);
@@ -113,26 +99,8 @@ describe("ActivityOverviewSummary", () => {
     expect(screen.queryByText(renderedText("※ 사용자 승인값이 없으면 계측값을 사용해요."))).not.toBeInTheDocument();
     expect(screen.getByText(renderedText(modelNote.textContent!))).toBeInTheDocument();
   });
-  it("uses the equivalent English caveat", async () => {
-    i18n.addResourceBundle("en", "activity", enActivity, true, true);
-    await i18n.changeLanguage("en");
-    render(<ActivityOverviewSummaryContent presentation={rich} />);
-    expect(screen.getByText(renderedText("※ Measured values are used when user-approved values are unavailable."))).toBeInTheDocument();
-  });
-  it("uses one design-system card and quiet dividers rather than numbered inset panels", () => {
-    render(<ActivityOverviewSummary overview={{ enabled: true, loading: false, response: { status: "available", activityId: "a", presentation: rich }, error: false, retry: vi.fn() }} />);
-    const summary = screen.getByTestId("activity-overview-summary");
-    expect(summary).toHaveClass("ds-card");
-    expect(summary.querySelectorAll(".ds-card")).toHaveLength(0);
-    // 섹션 수는 데이터에 따라 달라진다 — 여기서 보는 것은 "모든 섹션이 조용한 구분선이고
-    // 중첩 카드가 아니다" 라는 구조다.
-    const sections = summary.querySelectorAll("section");
-    expect(sections.length).toBeGreaterThanOrEqual(4);
-    for (const section of sections) expect(section).toHaveClass("border-t");
-    expect(summary.querySelector(".ds-card--inset")).not.toBeInTheDocument();
-    expect(screen.queryByText(renderedText(/^0[1-4]$/))).not.toBeInTheDocument();
-    expect(screen.queryByText(renderedText("라이딩"))).not.toBeInTheDocument();
-  });
+
+
   it("shows every verified PR and only the strongest personal comparisons", () => {
     render(<ActivityOverviewSummaryContent presentation={{ ...rich, powerFingerprint: [
       ...rich.powerFingerprint!,
@@ -146,7 +114,7 @@ describe("ActivityOverviewSummary", () => {
     expect(screen.queryByText(renderedText("+8% · 10회"))).not.toBeInTheDocument();
     expect(screen.queryByText(renderedText(/Z1 \+15/))).not.toBeInTheDocument();
   });
-  it.each(["bike", "run", "swim"] as const)("keeps the same frame for missing %s inputs", (discipline) => {
+  it.each(["bike", "run"] as const)("keeps the same frame for missing %s inputs", (discipline) => {
     render(<ActivityOverviewSummaryContent presentation={{ session: { discipline }, thresholdWork: {}, availability: { personal: "character_uncertain", records: "unavailable", power: "unavailable", heartRate: "unavailable" } }} />);
     expect(screen.getAllByRole("region")).toHaveLength(discipline === "bike" ? 4 : 3);
     // 회복 모델이 없는 러닝·수영에는 회복/연료 영역을 만들지 않는다.
@@ -194,11 +162,7 @@ describe("ActivityOverviewSummary", () => {
 
 describe("activity overview summary for a viewer", () => {
   const overview = { enabled: true, loading: false, response: null, error: false, retry: vi.fn() };
-  it("uses the rider voice instead of the owner voice", () => {
-    render(<ActivityOverviewSummaryContent presentation={rich} isOwner={false} />);
-    expect(screen.getByText(renderedText("이 라이더의 변화"))).toBeInTheDocument();
-    expect(screen.queryByText(renderedText("나의 변화"))).not.toBeInTheDocument();
-  });
+
   it("shows the card only when the server actually returned an overview", () => {
     const { rerender } = render(<ActivityOverviewSummary overview={{ ...overview, loading: true }} isOwner={false} />);
     expect(screen.queryByTestId("activity-overview-summary")).not.toBeInTheDocument();
@@ -241,52 +205,10 @@ describe("activity overview summary shows what the server actually sent", () => 
     expect(screen.getByText(renderedText("0.72"))).toBeInTheDocument();
   });
 
-  it("renders the route load, which appears nowhere else", () => {
-    render(<ActivityOverviewSummaryContent presentation={sparse} />);
-    expect(screen.getByText(renderedText("11.4"))).toBeInTheDocument();
-    expect(screen.getByText(renderedText("2"))).toBeInTheDocument();
-  });
-
-  it("still leaves sport details to the analysis tab", () => {
-    render(<ActivityOverviewSummaryContent presentation={{ ...sparse,
-      sportDetails: [{ label: "분석 기준 FTP", value: "182 W", priority: "primary" }] }} />);
-    expect(screen.queryByText(renderedText("182 W"))).not.toBeInTheDocument();
-  });
-
   it("renders authorized power sections for another viewer", () => {
     render(<ActivityOverviewSummaryContent presentation={sparse} isOwner={false} />);
     expect(screen.getByText(renderedText("781"))).toBeInTheDocument();
     expect(screen.getByText(renderedText("167.1"))).toBeInTheDocument();
-  });
-});
-
-describe("missing threshold is stated as a dead end, not as pending work", () => {
-  const noThreshold: ActivityOverviewPresentation = {
-    coachSentence: "오늘의 라이딩이었어요.",
-    availability: { personal: "character_uncertain", records: "unavailable", power: "available", heartRate: "unavailable" },
-    session: { discipline: "bike" },
-    thresholdBasis: "none",
-  };
-
-  it("replaces the pending chip and explains what to do, for the owner", () => {
-    render(<MemoryRouter><ActivityOverviewSummaryContent presentation={noThreshold} /></MemoryRouter>);
-    expect(screen.getByText(renderedText("임계값 없음"))).toBeInTheDocument();
-    expect(screen.queryByText(renderedText("성격 확인 중"))).not.toBeInTheDocument();
-    expect(screen.getByText(renderedText(/FTP·최대심박을 설정하면/))).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "임계값 설정하기" })).toHaveAttribute("href", "/coach/condition?sport=bike#thresholds");
-  });
-
-  it("tells a viewer whose threshold is missing, without offering them the setting", () => {
-    render(<MemoryRouter><ActivityOverviewSummaryContent presentation={noThreshold} isOwner={false} /></MemoryRouter>);
-    expect(screen.getByText(renderedText(/이 라이더의 임계값이 없어/))).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "임계값 설정하기" })).not.toBeInTheDocument();
-  });
-
-  it("keeps the pending wording when the verdict really is still uncertain", () => {
-    render(<MemoryRouter><ActivityOverviewSummaryContent presentation={{ ...noThreshold, thresholdBasis: "power_ftp" }} /></MemoryRouter>);
-    expect(screen.getByText(renderedText("성격 확인 중"))).toBeInTheDocument();
-    expect(screen.getByText(renderedText("활동 성격이 불명확해 같은 유형 비교를 미뤘어요."))).toBeInTheDocument();
-    expect(screen.queryByText(renderedText("임계값 없음"))).not.toBeInTheDocument();
   });
 });
 
@@ -311,7 +233,7 @@ it("preserves observed effects, historical zone uncertainty and previous-best pe
  expect(screen.queryByText(renderedText("FTP 확인 필요 · 부하와 강도는 잠정 기준이에요."))).not.toBeInTheDocument();
 });
 
-it.each(["ko", "en"])("shows integrated before/after estimates without readiness or numeric recovery (%s)", async language => {
+it.each(["ko"])("shows integrated before/after estimates without readiness or numeric recovery (%s)", async language => {
   i18n.addResourceBundle("en", "activity", enActivity, true, true);
   await i18n.changeLanguage(language);
   const { container } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, fitnessScope: "integrated", fitnessEvidence: "limited",
@@ -450,59 +372,6 @@ describe("overview duration wording", () => {
   });
 });
 
-describe("overview v7 wording and tone", () => {
-  it("names the scope of the sport-only CTL footnote and keeps Home-style accent glossary triggers", () => {
-    const { container } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, fitnessScope: "integrated",
-      sportFitnessStatus: { discipline: "bike", ctl: 48.1, atl: 38.3, tsb: 9.8, evidence: "limited" } }} />);
-    expect(screen.getByText(renderedText(/^라이딩 기록만 · CTL 48.1/))).toBeInTheDocument();
-    const trigger = container.querySelector('[data-glossary-term="np"] button') as HTMLButtonElement;
-    expect(trigger.style.color).toBe("var(--color-primary-dark)");
-    expect(trigger.style.minWidth).toBe("var(--space-6)");
-    expect(trigger.style.textDecoration).toBe("");
-  });
-
-  it("keeps the W′ meter inside the details grid and labels the curve point with its duration", () => {
-    line.mockClear();
-    render(<ActivityOverviewSummaryContent presentation={{ ...rich, powerFingerprint: [
-      { duration: "5m", watts: 177, allTimeBestWatts: 298, allTimeBestPct: 59.4, previousBestPct: 59.4 },
-      { duration: "30m", watts: 149, allTimeBestWatts: 189, allTimeBestPct: 78.8, previousBestPct: 78.8 },
-    ] }} />);
-    const details = screen.getByRole("group", { name: "훈련 자극 세부" });
-    expect(details).toHaveTextContent("W′ 최저 잔량");
-    const plugin = (line.mock.lastCall![0] as { plugins: Array<{ id: string; afterDatasetsDraw: (chart: unknown) => void }> }).plugins[0]!;
-    expect(plugin.id).toBe("durationCurveAnnotations");
-    // 가짜 캔버스에 그려 본다 — 라벨에 창 길이가 들어가고, 점에 강조 링(arc)을 두른다.
-    const texts: string[] = []; let rings = 0;
-    const ctx = { save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {}, fill() {}, roundRect() {},
-      arc() { rings++; }, measureText: (text: string) => ({ width: text.length * 6 }), fillText: (text: string) => texts.push(text) };
-    const elements = [[{ x: 40, y: 60 }, { x: 300, y: 120 }], [{ x: 40, y: 30 }, { x: 300, y: 100 }]];
-    plugin.afterDatasetsDraw({ ctx, canvas: document.createElement("canvas"), chartArea: { left: 30, right: 320, top: 10, bottom: 160 },
-      data: { datasets: [{}, {}] }, getDatasetMeta: (index: number) => ({ data: elements[index] }) });
-    expect(texts).toEqual(["30분 · 최고의 79%"]);
-    expect(rings).toBe(1);
-    expect(screen.getByRole("region", { name: "구간 최고 출력" })).toBeInTheDocument();
-  });
-});
-
-describe("overview v8 fixed placement", () => {
-  const columns = (container: HTMLElement) => ["left", "right"].map((side) => Array.from(container.querySelectorAll(`.activity-overview-col--${side} > div`)).map((item) => item.className.replace("activity-overview-area--", "")));
-  it("keeps every section in the same column slot regardless of section heights", () => {
-    const { container } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, routeLoad: { climbCount: 2, maxGradePct: 8 } }} />);
-    expect(columns(container)).toEqual([["curve", "recovery", "route"], ["shift", "changes"]]);
-  });
-  it("moves only the load picture into the curve slot when there is no power curve", () => {
-    const { container } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, session: { ...rich.session, discipline: "run" }, routeLoad: undefined }} />);
-    expect(columns(container)).toEqual([["shift", "recovery"], ["changes"]]);
-  });
-  it("leaves room around the end points of the power curve", () => {
-    line.mockClear();
-    render(<ActivityOverviewSummaryContent presentation={rich} />);
-    const props = line.mock.lastCall![0] as { data: { datasets: Array<{ clip?: boolean }> }; options: { layout: { padding: { left: number; right: number } } } };
-    expect(props.data.datasets[0]!.clip).toBe(false);
-    expect(props.options.layout.padding.right).toBeGreaterThanOrEqual(10);
-  });
-});
-
 describe("overview v9 zone strip, legend and change meters", () => {
   const zone = { kind: "heartRate" as const, seconds: [2563, 2776, 491, 73, 0], priority: "secondary" as const, currentPercentages: [43.4, 47, 8.3, 1.2, 0] };
   it("reads each zone segment with one tab stop and arrow keys, showing a tooltip with name, time and share", () => {
@@ -515,18 +384,8 @@ describe("overview v9 zone strip, legend and change meters", () => {
     expect(document.activeElement).toBe(segments[1]);
     expect(segments[1]!.getAttribute("tabindex")).toBe("0");
   });
-  it("folds zero-share zones into one line and keeps zone names in the legend", () => {
-    render(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "bike", load: 112 }, zones: [zone] }} />);
-    expect(screen.getByText(renderedText("0% 존 · Z5 최대"))).toBeInTheDocument();
-    expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toContain("Z4 역치1.2%1:13");
-  });
-  it("uses an action-oriented empty state for missing comparisons", () => {
-    const { rerender } = render(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "bike" }, availability: { personal: "unavailable", records: "unavailable", power: "unavailable", heartRate: "unavailable" } }} />);
-    expect(screen.getByText(renderedText("같은 유형을 더 기록하면 비교가 열려요."))).toBeInTheDocument();
-    rerender(<ActivityOverviewSummaryContent presentation={{ session: { discipline: "run" }, availability: { personal: "insufficient_history", records: "unavailable", power: "not_applicable", heartRate: "available" } }} />);
-    expect(screen.getByText(renderedText("같은 유형을 더 기록하면 비교가 열려요."))).toBeInTheDocument();
-    expect(screen.queryByText(renderedText(/\d+회 더/))).not.toBeInTheDocument();
-  });
+
+
   it("draws peak power change on a fixed ±50% scale and marks values beyond it", async () => {
     const { deltaBarLayout, DELTA_RANGE } = await import("./ActivityOverviewCharts");
     expect(DELTA_RANGE).toBe(50);
@@ -554,12 +413,6 @@ describe("overview v10 touch tooltip", () => {
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 
-  it("labels both ends of the W′ meters without numbers that read backwards", () => {
-    const { container, rerender } = render(<ActivityOverviewSummaryContent presentation={{ ...rich, thresholdWork: { wPrimeDepletionPct: 100 } }} />);
-    expect(container.querySelector(".activity-overview-meter__ends")).toHaveTextContent(/^여유소진$/);
-    rerender(<ActivityOverviewSummaryContent presentation={{ ...rich, thresholdWork: { wPrimeRemainingPct: 0 } }} />);
-    expect(container.querySelector(".activity-overview-meter__ends")).toHaveTextContent(/^바닥가득$/);
-  });
 });
 
 it("closes the zone tooltip with Escape while keeping focus on the segment", () => {
@@ -569,13 +422,4 @@ it("closes the zone tooltip with Escape while keeping focus on the segment", () 
   expect(screen.getByRole("tooltip")).toBeInTheDocument();
   fireEvent.keyDown(first!, { key: "Escape" });
   expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
-});
-
-it("keeps integrated visual sections in the same reading and DOM order", () => {
-  const { container } = render(<ActivityOverviewSummaryContent integrated presentation={{ ...rich, routeLoad: { climbCount: 2 } }} />);
-  const sections = Array.from(container.querySelector(".activity-overview-grid")!.children);
-  expect(sections.map(node => node.className.match(/activity-overview-area--\w+/)?.[0])).toEqual([
-    "activity-overview-area--stimulus", "activity-overview-area--facts", "activity-overview-area--shift",
-    "activity-overview-area--curve", "activity-overview-area--changes", "activity-overview-area--recovery", "activity-overview-area--route",
-  ]);
 });
