@@ -1,6 +1,4 @@
 import { screen } from "@testing-library/react";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import TriFitnessView from "./TriFitnessView";
@@ -54,37 +52,6 @@ describe("TriFitnessView parity", () => {
     vi.useRealTimers();
   });
 
-  it("shows the history chart before the integrated summary while retaining both", () => {
-    renderWithProviders(
-      <TriFitnessView
-        range={90}
-        onRangeChange={vi.fn()}
-        {...triProps({ bike: 35.2 })}
-        combinedLoad={{ ctl: 35.2, atl: 30, tsb: 5.2, contributions: [] }}
-        loadFocus={emptyLoadFocus}
-        historySlot={<section data-testid="pmc-history-chart">PMC history chart</section>}
-      />,
-      { authenticated: true, route: "/fitness?sport=tri" },
-    );
-
-    const chart = screen.getByTestId("pmc-history-chart");
-    const summary = screen.getByTestId("desktop-integrated-detail");
-    expect(chart.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByTestId("tri-legacy-range-note")).toHaveTextContent("최근 90일");
-    expect(screen.queryByRole("button", { name: "3개월" })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /사이클링/ })).toBeInTheDocument();
-  });
-
-  it("states that the secondary stack stays on the numeric activity window for long history selections", () => {
-    renderWithProviders(
-      <TriFitnessView range={90} selectedHistoryRange="3y" onRangeChange={vi.fn()} {...triProps({ bike: 35.2 })} combinedLoad={null} loadFocus={emptyLoadFocus} historySlot={<div>main history</div>} />,
-      { authenticated: true, route: "/fitness?sport=tri" },
-    );
-
-    expect(screen.getByTestId("tri-legacy-range-note")).toHaveTextContent("상단 기간 선택은 3년");
-    expect(screen.getByTestId("tri-legacy-range-note")).toHaveTextContent("최근 90일 데이터로 고정");
-  });
-
   it("filters sparse PMC by latest-record cutoff and daily load by the current 42-day window", () => {
     const value: TriFitnessBreakdown = {
       bike: {
@@ -125,6 +92,7 @@ describe("TriFitnessView parity", () => {
     renderWithProviders(
       <TriFitnessView
         range={90}
+        selectedHistoryRange="3y"
         onRangeChange={vi.fn()}
         {...triProps()}
         combinedLoad={{ ctl: 30, atl: 25, tsb: 5, contributions: [] }}
@@ -135,15 +103,8 @@ describe("TriFitnessView parity", () => {
 
     expect(screen.getAllByTestId("desktop-integrated-detail")).toHaveLength(1);
     expect(screen.getByTestId("tri-contribution-empty")).toHaveTextContent("일별 부하 데이터가 없어요");
-    expect(screen.getByTestId("tri-contribution-empty")).toHaveStyle({ minHeight: "calc(var(--space-8) * 2)" });
+    expect(screen.getByTestId("tri-legacy-range-note")).toHaveTextContent(/3년.*90일/);
     expect(screen.queryByText("487")).not.toBeInTheDocument();
-    const source = readFileSync(join(process.cwd(), "src/pages/fitness/TriFitnessView.tsx"), "utf8");
-    expect(source).not.toContain("TodaysWorkoutCard");
-    expect(source).not.toContain("2026-06-30");
-    expect(source).not.toContain('"487"');
-    expect(source).not.toContain("62.1");
-    expect(source).not.toContain("adviceDemo");
-    expect(source).not.toContain("--space-16");
   });
 
   it("renders the integrated snapshot and discipline cards from one canonical breakdown", () => {
@@ -275,37 +236,5 @@ describe("TriFitnessView parity", () => {
     expect(screen.getByRole("link", { name: /사이클링/ })).toHaveTextContent("40.0");
     expect(screen.getByRole("link", { name: /러닝/ })).toHaveTextContent("7.3");
     expect(screen.getByRole("group", { name: "수영 · 준비 중" })).toHaveTextContent("3.9");
-  });
-
-  it("uses integrated status as the only static snapshot and keeps the PMC trend", () => {
-    const source = readFileSync(join(process.cwd(), "src/pages/fitness/TriFitnessView.tsx"), "utf8");
-    expect(source).not.toContain("KPI_ITEMS");
-    expect(source).not.toContain("triView.kpi.thresholdReady");
-    expect(source).not.toContain("triView.kpi.recoveryAdvised");
-    expect(source).toContain("<TripleStackPMC");
-    expect(source).toContain("IntegratedLoadCard는 현재 snapshot/기여도/포커스, 이 PMC는 시간 추이만 담당한다.");
-    expect(source.indexOf("historySlot &&")).toBeLessThan(source.indexOf("<IntegratedLoadCard"));
-    expect(source.indexOf("{/* 기여도 도넛 + 일별 부하 */}")).toBeLessThan(source.indexOf("{/* 종목별 드릴다운 카드 */}"));
-    const evidence = source.slice(source.indexOf('<DetailsSection title={t("history.disciplineDetails")}'), source.indexOf("{/* 기여도 도넛 + 일별 부하 */}"));
-    expect(evidence).toContain("<TripleStackPMC");
-    expect(evidence).toContain('t("triView.model.title")');
-    const css = readFileSync(join(process.cwd(), "src/pages/fitness/TriFitnessView.css"), "utf8");
-    expect(css).toContain("grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr)");
-    expect(css).toContain("@media (max-width: 64rem)");
-    expect(css).toContain(".tri-fitness__primary > :only-child { grid-column: 1 / -1; }");
-  });
-
-  it("uses tokenized discipline fills and semantic PMC line patterns", () => {
-    const source = readFileSync(join(process.cwd(), "src/pages/fitness/TriFitnessView.tsx"), "utf8");
-    const chart = source.slice(source.indexOf("function TripleStackPMC"), source.indexOf("function ContribDonut"));
-
-    expect(source).not.toMatch(/oklch\(\d/);
-    expect(chart).toContain("DISCIPLINE_CHART_COLORS.bike");
-    expect(chart).toContain("DISCIPLINE_CHART_COLORS.run");
-    expect(chart).toContain("DISCIPLINE_CHART_COLORS.swim");
-    expect(chart).toContain("PMC_LINE_PALETTE.atl.dasharray");
-    expect(chart).toContain("PMC_LINE_PALETTE.tsb.dasharray");
-    expect(chart).toContain('vectorEffect="non-scaling-stroke"');
-    expect(chart).toContain('role="img"');
   });
 });

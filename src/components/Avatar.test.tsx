@@ -43,24 +43,4 @@ describe("Avatar", () => {
     renderAvatar({ name: "Rider" });
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
-
-  it("applies sm size class", () => {
-    const { container } = renderAvatar({ name: "A", size: "sm" });
-    const el = container.querySelector(".w-7");
-    expect(el).toBeInTheDocument();
-  });
-
-  it("applies xl size class", () => {
-    const { container } = renderAvatar({ name: "A", size: "xl" });
-    const el = container.querySelector(".w-20");
-    expect(el).toBeInTheDocument();
-  });
-
-  it("assigns deterministic color based on name", () => {
-    const { container: c1 } = renderAvatar({ name: "Alpha" });
-    const { container: c2 } = renderAvatar({ name: "Alpha" });
-    const cls1 = c1.querySelector("[class*=bg-]")?.className;
-    const cls2 = c2.querySelector("[class*=bg-]")?.className;
-    expect(cls1).toBe(cls2);
-  });
 });

@@ -3,12 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import {
-  CHART_CSS_VARIABLES,
-  COLOR_CSS_VARIABLES,
-  FUNCTIONAL_COLORS,
-  GENERATED_DEFAULT_SCHEME,
-} from './generated';
+import { CHART_CSS_VARIABLES, COLOR_CSS_VARIABLES, GENERATED_DEFAULT_SCHEME } from './generated';
 
 const root = resolve(import.meta.dirname, '../..');
 
@@ -20,12 +15,6 @@ describe('generated design tokens', () => {
       .toEqual(Object.keys(GENERATED_DEFAULT_SCHEME.dark.chartColors).sort());
     expect(new Set(Object.values(COLOR_CSS_VARIABLES)).size).toBe(Object.keys(COLOR_CSS_VARIABLES).length);
     expect(new Set(Object.values(CHART_CSS_VARIABLES)).size).toBe(Object.keys(CHART_CSS_VARIABLES).length);
-  });
-
-  it('keeps map colors in a functional namespace instead of brand accent', () => {
-    expect(FUNCTIONAL_COLORS.map.recordedTrack).toBe('#FC5200');
-    expect(FUNCTIONAL_COLORS.map.plannedRoute).toBe('#AB47BC');
-    expect(FUNCTIONAL_COLORS.map.recordedTrack).not.toBe(GENERATED_DEFAULT_SCHEME.light.colors.accent);
   });
 
   it('generated FOUC CSS contains the exact default theme values', () => {

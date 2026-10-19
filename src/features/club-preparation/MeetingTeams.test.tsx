@@ -5,12 +5,7 @@ import MeetingTeams from "./MeetingTeams";
 import { newClubMeeting } from "./meetingCopy";
 import type { Meeting, Registration } from "./domain";
 import { createInitialTeamDraft } from "./teamAssignment";
-import { readFileSync } from "node:fs";
 import { Profiler } from "react";
-const teamStyles = readFileSync(
-  "src/features/club-preparation/meetingTeams.css",
-  "utf8",
-);
 const person = (memberId: string, order: number): Registration => ({
   memberId,
   attendanceGeneration: `${memberId}:1`,
@@ -244,13 +239,18 @@ describe("17명 조편성 조정", () => {
 
 describe("조가 많거나 명단이 바뀌는 편집", () => {
   it("40조의 목적지는 공통 선택 하나로 제공하고 선택한 회원만 이동한다", async () => {
-    const people = Array.from({ length: 40 }, (_, i) => ({
-      id: `many-${i}`,
-      name: `회원${i + 1}`,
-    }));
+    // The boundary is 40 destinations; only selected, unselected and destination members
+    // are needed here. Dense member reordering is covered by the 17-member case.
+    const people = [
+      { id: "many-0", name: "회원1" },
+      { id: "stay", name: "출발조 미선택 회원" },
+      { id: "many-39", name: "회원40" },
+    ];
     const registrations = people.map((member, i) => person(member.id, i + 1));
-    const teams = createInitialTeamDraft(registrations, 1).map((team) => ({
-      ...team,
+    const teams = Array.from({ length: 40 }, (_, i) => ({
+      id: `team-${i + 1}`,
+      name: `${i + 1}조`,
+      memberIds: i === 0 ? ["many-0", "stay"] : i === 39 ? ["many-39"] : [],
       capacity: 2,
     }));
     const save = vi.fn().mockResolvedValue(undefined);
@@ -265,17 +265,26 @@ describe("조가 많거나 명단이 바뀌는 편집", () => {
         onReload={vi.fn().mockResolvedValue(undefined)}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "조편성 편집" }));
-    const firstTeam = within(screen.getByRole("region", { name: "1조", exact: true }));
+    const edit = screen.getByText("조편성 편집").closest<HTMLButtonElement>("button")!;
+    expect(edit).toHaveRole("button");
+    expect(edit).toHaveAccessibleName("조편성 편집");
+    expect(edit).toBeVisible();
+    fireEvent.click(edit);
+    const firstTeamRegion = screen.getByLabelText("1조", { selector: "section" });
+    expect(firstTeamRegion).toHaveRole("region");
+    const firstTeam = within(firstTeamRegion);
     fireEvent.click(firstTeam.getByLabelText("회원1 선택"));
     const actions = within(
-      screen.getByRole("region", { name: "선택한 회원 조정" }),
+      screen.getByLabelText("선택한 회원 조정", { selector: "section" }),
     );
     expect(actions.getAllByRole("combobox")).toHaveLength(1);
     expect(
       actions.queryByRole("button", { name: "40조로 이동" }),
     ).not.toBeInTheDocument();
-    fireEvent.change(actions.getByLabelText("목적 조 선택"), {
+    const destination = actions.getByLabelText("목적 조 선택");
+    expect(within(destination).getAllByRole("option")
+      .filter(option => (option as HTMLOptionElement).value !== "")).toHaveLength(40);
+    fireEvent.change(destination, {
       target: { value: "team-40" },
     });
     // 40조 전체 버튼의 접근성 이름을 반복 계산하지 않고 실제 조작 영역에서 찾는다.
@@ -292,7 +301,11 @@ describe("조가 많거나 명단이 바뀌는 편집", () => {
     expect(saveButton).toBeEnabled();
     fireEvent.click(saveButton);
     await waitFor(() => expect(save).toHaveBeenCalled());
-    expect(save.mock.calls[0]![0][39].memberIds).toEqual(["many-39", "many-0"]);
+    const saved = save.mock.calls[0]![0];
+    expect(saved).toHaveLength(40);
+    expect(saved[0].memberIds).toEqual(["stay"]);
+    expect(saved[39].memberIds).toEqual(["many-39", "many-0"]);
+    expect(saved.slice(1, 39)).toEqual(teams.slice(1, 39));
   });
   it("맞교환 후 취소자가 생기면 되돌리기를 잠그고 최신명단 반영 시 취소자와 이력을 제거한다", () => {
     const teams = createInitialTeamDraft(initial.registrations, 1);
@@ -538,12 +551,6 @@ it("drag ghost follows the held row through a body portal and never intercepts d
   expect(ghost.style.getPropertyValue("--team-drag-width")).toBe("300px");
   expect(row).toHaveAttribute("data-dragging", "true");
   expect(row).toBeInTheDocument();
-  expect(teamStyles).toMatch(
-    /\.cp-team-drag-ghost\s*\{[^}]*pointer-events:\s*none/s,
-  );
-  expect(teamStyles).toMatch(
-    /transform:\s*translate3d\(var\(--team-drag-x\), var\(--team-drag-y\), 0\)/,
-  );
   const renderCount = boardRender.mock.calls.length;
   fireEvent.pointerMove(window, { pointerId: 1, clientX: 230, clientY: 350 });
   expect(boardRender).toHaveBeenCalledTimes(renderCount);
@@ -557,6 +564,14 @@ it("drag ghost follows the held row through a body portal and never intercepts d
 
 it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 조장·선택을 유지하고 순서대로 저장한다", async () => {
   vi.stubGlobal("PointerEvent", TeamPointerEvent);
+  const control = (name: string) => {
+    const target = screen.queryByLabelText(name, { selector: "button" })
+      ?? screen.getByText(name, { exact: true }).closest<HTMLButtonElement>("button")!;
+    expect(target).toHaveRole("button");
+    expect(target).toHaveAccessibleName(name);
+    expect(target).toBeVisible();
+    return target;
+  };
   const people = Array.from({ length: 17 }, (_, i) => ({
     id: `sort${i + 1}`,
     name: `정렬${i + 1}`,
@@ -578,13 +593,14 @@ it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 �
       onReload={vi.fn()}
     />,
   );
-  fireEvent.click(screen.getByRole("button", { name: "조편성 편집" }));
-  const order = (group = "1조") =>
-    [
-      ...screen
-        .getByRole("region", { name: group })
-        .querySelectorAll("[data-team-member]"),
-    ].map((row) => row.getAttribute("data-team-member"));
+  fireEvent.click(control("조편성 편집"));
+  const order = (group = "1조") => {
+    const region = screen.getByLabelText(group, { selector: "section" });
+    expect(region).toHaveRole("region");
+    expect(region).toBeVisible();
+    return [...region.querySelectorAll("[data-team-member]")]
+      .map((row) => row.getAttribute("data-team-member"));
+  };
   const target = screen
     .getByLabelText("정렬4 선택")
     .closest<HTMLElement>("[data-team-member]")!;
@@ -598,7 +614,7 @@ it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 �
   });
   const start = (id: string) =>
     fireEvent.pointerDown(
-      screen.getByRole("button", { name: `${id} 드래그로 이동` }),
+      control(`${id} 드래그로 이동`),
       { pointerId: 1, button: 0, clientX: 10, clientY: 100 },
     );
   start("정렬1");
@@ -614,14 +630,14 @@ it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 �
     "sort6",
   ]);
   expect(
-    screen.getByRole("button", { name: "정렬1 조장 해제" }),
+    control("정렬1 조장 해제"),
   ).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "방금 조정 되돌리기" }));
+  fireEvent.click(control("방금 조정 되돌리기"));
   expect(order()).toEqual(teams[0]!.memberIds);
   fireEvent.click(screen.getByLabelText("정렬1 선택"));
-  expect(screen.getByRole("button", { name: "정렬1 위로" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: "정렬1 아래로" }));
-  fireEvent.click(screen.getByRole("button", { name: "정렬1 아래로" }));
+  expect(control("정렬1 위로")).toBeDisabled();
+  fireEvent.click(control("정렬1 아래로"));
+  fireEvent.click(control("정렬1 아래로"));
   expect(order()).toEqual([
     "sort2",
     "sort3",
@@ -631,9 +647,9 @@ it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 �
     "sort6",
   ]);
   expect(screen.getByLabelText("정렬1 선택")).toBeChecked();
-  fireEvent.click(screen.getByRole("button", { name: "정렬1 위로" }));
+  fireEvent.click(control("정렬1 위로"));
   expect(order()[1]).toBe("sort1");
-  fireEvent.click(screen.getByRole("button", { name: "변경 저장" }));
+  fireEvent.click(control("변경 저장"));
   await waitFor(() => expect(save).toHaveBeenCalledOnce());
   expect(save.mock.calls[0]![0][0]).toEqual({
     ...teams[0],

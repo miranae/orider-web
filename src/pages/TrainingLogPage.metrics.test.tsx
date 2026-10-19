@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, useNavigate } from "react-router-dom";
 import { getDocs, onSnapshot, where } from "firebase/firestore";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -54,10 +54,10 @@ describe("운동 기록의 부분 요약", () => {
     vi.mocked(getDocs).mockResolvedValue({ docs: [], empty: true } as never).mockResolvedValueOnce({ docs, empty: false } as never);
     render(<MemoryRouter initialEntries={["/?sport=run"]}><QueryNavigation /><TrainingLogPage /></MemoryRouter>);
     await waitFor(() => expectMetric("이동거리", "5.0"));
-    expect(screen.getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "Change sport query" }));
+    expect(within(screen.getByTestId("P1-1")).getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByText("Change sport query", { selector: "button" }));
     await waitFor(() => expectMetric("이동거리", "20.0"));
-    expect(screen.getByRole("button", { name: /사이클/ })).toHaveAttribute("aria-pressed", "true");
+    expect(within(screen.getByTestId("P1-1")).getByRole("button", { name: /사이클/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("데스크톱 합계와 캘린더에서 누락·비유한 측정값만 제외하고 활동 수와 TSS는 보존한다", async () => {
@@ -67,11 +67,11 @@ describe("운동 기록의 부분 요약", () => {
     expectMetric("운동시간", "1h 30m");
     expectMetric("상승고도", "150");
     expectMetric("훈련부하 TSS", "140");
-    const more = screen.getByRole("button", { name: "외 4건 보기" });
+    const more = screen.getByText("외 4건 보기", { selector: "button" });
     expect(more).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(more);
-    expect(screen.getByRole("button", { name: /Ride 5/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "접기" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText(/Ride 5/, { selector: "button" })).toBeInTheDocument();
+    expect(screen.getByText("접기", { selector: "button" })).toHaveAttribute("aria-expanded", "true");
     expect(container.textContent).not.toMatch(/NaN|Infinity/);
     expect(container.innerHTML).not.toMatch(/NaN|Infinity/);
   });
@@ -182,8 +182,9 @@ it.each([false, true])("월 경계 대표 후보를 첫 조회에 확보하고 �
   expect(where).toHaveBeenCalledWith("startTime", "<=", bounds.end + 86400000);
   // 초기 선택 월 + 직전 월 두 활동 쿼리와 계획 조회 한 번. 재렌더링은 재조회하지 않는다.
   await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(3));
-  const previous = () => fireEvent.click(screen.getByRole("button", {name: /이전 달/}));
-  const next = () => fireEvent.click(screen.getByRole("button", {name: /다음 달/}));
+  const monthNavigation = () => mobile ? screen.getByLabelText(/이전 달/, { selector: "button" }).parentElement! : screen.getByTestId("P1-0");
+  const previous = () => fireEvent.click(within(monthNavigation()).getByRole("button", {name: /이전 달/}));
+  const next = () => fireEvent.click(within(monthNavigation()).getByRole("button", {name: /다음 달/}));
   previous();
   await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(4));
   next();

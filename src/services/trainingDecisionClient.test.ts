@@ -8,7 +8,7 @@ vi.mock("./firebase", () => ({ auth: { get currentUser() { return mocks.currentU
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ aiApiBase: "https://coach.example.run.app" }) }));
 
 import { getTodayTrainingDecision } from "./trainingDecisionClient";
-import { trainingDecisionEnvelope } from "./trainingDecisionContract.test";
+import { trainingDecisionEnvelope } from "../__tests__/fixtures/trainingDecision";
 
 describe("trainingDecisionClient", () => {
   beforeEach(() => {

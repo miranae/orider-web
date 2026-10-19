@@ -22,10 +22,12 @@ describe("SimilarRouteHistoryPanel", () => {
     expect(screen.getByText(/현재 활동 · 차트와 분리 표시/)).toBeInTheDocument();
     expect(screen.getByText(ko.similarRouteHistory.recordOrder)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /previous/ })).toHaveAttribute("href", "/ko/activity/previous");
-    fireEvent.click(screen.getByRole("button", { name: "이 활동과 비교" }));
+    const source = screen.getByRole("link", { name: /previous/ }).closest("li")!;
+    fireEvent.click(within(source).getByRole("button", { name: "이 활동과 비교" }));
     expect(onCompare).toHaveBeenCalledExactlyOnceWith("previous");
-    fireEvent.click(screen.getByRole("button", { name: "거리 · km" }));
-    fireEvent.click(screen.getByRole("button", { name: "정지시간" }));
+    const metrics = screen.getByText("거리 · km", { selector: "button *" }).closest<HTMLButtonElement>("button")!.parentElement!;
+    fireEvent.click(within(metrics).getByRole("button", { name: "거리 · km" }));
+    fireEvent.click(within(metrics).getByRole("button", { name: "정지시간" }));
     expect(getDocs).toHaveBeenCalledTimes(reads); expect(onSnapshot).toHaveBeenCalledTimes(subscriptions);
   });
   it("does not connect the chart through a missing moving-time value or substitute elapsed time", () => {

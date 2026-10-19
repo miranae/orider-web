@@ -35,14 +35,18 @@ describe("menu IA v2", () => {
   it("shows account destinations and the request badge on the avatar", async () => {
     const user = userEvent.setup();
     renderWithProviders(<TopNav active="settings" friendRequestCount={3} />, { authenticated: true });
-    const avatar = await screen.findByRole("button", { name: "프로필" });
+    const avatar = await screen.findByLabelText("프로필", { selector: "button" });
+    expect(avatar).toHaveRole("button");
+    expect(avatar).toHaveAccessibleName("프로필");
+    expect(avatar).toBeVisible();
     expect(avatar).toHaveAttribute("aria-current", "page");
     expect(within(avatar).getByLabelText("받은 친구 요청 3건")).toBeInTheDocument();
     await user.click(avatar);
+    const account = within(avatar.parentElement!);
     for (const [name, href] of accountLinks) {
-      expect(screen.getAllByRole("link", { name }).every(link => link.getAttribute("href") === href)).toBe(true);
+      expect(account.getAllByRole("link", { name }).every(link => link.getAttribute("href") === href)).toBe(true);
     }
-    expect(screen.getByRole("button", { name: "로그아웃" })).toBeInTheDocument();
+    expect(account.getByRole("button", { name: "로그아웃" })).toBeInTheDocument();
   });
 
   it("includes account and footer destinations in the mobile slide menu", async () => {

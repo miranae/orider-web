@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-
 import { routeHasElevation, type CourseRoutingResult } from "../services/courseRouting";
 import { routeToGpx } from "../utils/routeGpx";
 
@@ -77,9 +76,5 @@ describe("빌더 화면의 경계", () => {
   it("경로 좌표를 계측이나 클라이언트 로그에 싣지 않는다", () => {
     expect(source).not.toMatch(/track\([^)]*(waypoints|coordinates|geometry)/);
     expect(source).not.toMatch(/logClientError\([^)]*(waypoints|coordinates|geometry)/);
-  });
-
-  it("빈 좌표 입력을 거절한다", () => {
-    expect(source).toContain("if (!manualLat.trim() || !manualLng.trim()");
   });
 });

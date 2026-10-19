@@ -30,13 +30,14 @@ describe("MobileLogPage", () => {
     const run = { ...activity("run", 3), type: "Run", description: "Run only" };
     const swim = { ...activity("swim", 4), type: "Swim", description: "Swim only" };
     render(<MemoryRouter initialEntries={["/?sport=run&keep=1"]}><QueryNavigation /><MobileLogPage activities={[activity("bike", 2), run, swim]} year={2026} month={8} onChangeMonth={vi.fn()} /></MemoryRouter>);
-    expect(screen.getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
+    const sports = within(screen.getByRole("group"));
+    expect(sports.getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("region", { name: "최근 활동" })).toHaveTextContent("Run only");
     expect(screen.getByRole("region", { name: "최근 활동" })).not.toHaveTextContent("Ride bike");
-    fireEvent.click(screen.getByRole("button", { name: /사이클/ }));
+    fireEvent.click(sports.getByRole("button", { name: /사이클/ }));
     expect(screen.getByTestId("query")).toHaveTextContent("sport=bike&keep=1");
     fireEvent.click(screen.getByRole("button", { name: "Change query" }));
-    expect(screen.getByRole("button", { name: /수영/ })).toHaveAttribute("aria-pressed", "true");
+    expect(sports.getByRole("button", { name: /수영/ })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("region", { name: "최근 활동" })).toHaveTextContent("Swim only");
   });
 

@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
-import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
+import { trainingDecisionEnvelope } from "../../__tests__/fixtures/trainingDecision";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import { decisionForNow } from "../../services/todayTrainingDecisionGuard";
 import TodayTrainingDecisionCard, { TodayTrainingDecisionSource } from "./TodayTrainingDecisionCard";

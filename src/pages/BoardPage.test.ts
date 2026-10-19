@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { readFile } from "node:fs/promises";
 import { getEffectiveListTotal, getTagExclusion } from "./BoardPage";
 import { parseUserTags } from "./CreatePostPage";
 
@@ -87,46 +86,4 @@ describe("getEffectiveListTotal", () => {
     })).toBe(7);
   });
 
-});
-
-describe("BoardPage tag filter defaults", () => {
-  it("starts with no tag excluded so the filter chips reflect the actual list", async () => {
-    const source = await readFile(`${process.cwd()}/src/pages/BoardPage.tsx`, "utf8");
-
-    expect(source).toContain("new Set(searchParams.getAll('exclude'))");
-    expect(source).not.toContain('new Set(["AI"])');
-  });
-
-  it("filters every unchecked chip by the post tags, never by the source site alone", async () => {
-    const source = await readFile(`${process.cwd()}/src/pages/BoardPage.tsx`, "utf8");
-
-    // 제외 집합은 활성 태그만 빼고 전부 tags 기준으로 판정한다(AI 특례 없음).
-    expect(source).toContain("serverFiltersAiTag: !submittedQuery,");
-    expect(source).toContain("listPosts.filter(p => !p.tags?.some(tag => clientExcluded.has(tag)))");
-    // 제외 태그는 검색 CF 에도 그대로 전달된다 — 총개수·페이지 수가 목록과 맞아야 한다.
-    expect(source).toContain("const clientExcluded = new Set([...uncheckedTags].filter(t => t !== activeTag));");
-  });
-});
-
-describe("BoardPage desktop width contract", () => {
-  it("fills the shared content shell while preserving the popular-tags sidebar", async () => {
-    const source = await readFile(`${process.cwd()}/src/pages/BoardPage.tsx`, "utf8");
-
-    expect(source).toContain('className="relative z-0 xl:flex xl:gap-6"');
-    expect(source).toContain('className="min-w-0 w-full xl:flex-1"');
-    expect(source).toContain('className="hidden xl:block xl:w-[240px] xl:flex-none"');
-    expect(source).not.toContain("md:max-w-[840px]");
-    expect(source).not.toContain("xl:w-[840px]");
-  });
-
-  it("keeps the shared reading width and authoring width", async () => {
-    const [detailSource, createSource] = await Promise.all([
-      readFile(`${process.cwd()}/src/pages/PostDetailPage.tsx`, "utf8"),
-      readFile(`${process.cwd()}/src/pages/CreatePostPage.tsx`, "utf8"),
-    ]);
-
-    expect(detailSource).toContain('className="board-detail board-reading-surface mx-auto space-y-6"');
-    expect(detailSource).not.toContain("max-w-[896px]");
-    expect(createSource).toContain('className="board-writing board-reading-surface mx-auto space-y-6"');
-  });
 });

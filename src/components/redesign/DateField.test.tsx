@@ -3,6 +3,20 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import DateField from './DateField';
 
+// ISO labels identify the day directly; retain role/visibility/focus checks without
+// recomputing accessible names for all 42 calendar cells after every key.
+function calendarDay(date: string) {
+  const cell = screen.getByLabelText(date);
+  expect(cell).toHaveAttribute('role', 'gridcell');
+  expect(cell).toBeVisible();
+  return cell;
+}
+function pressDay(date: string, key: string) {
+  const cell = calendarDay(date);
+  expect(cell).toHaveFocus();
+  fireEvent.keyDown(cell, { key });
+}
+
 describe('DateField keyboard and viewport behavior', () => {
   it('uses a supplied SVG without changing the selected date', () => {
     const onChange = vi.fn();
@@ -16,14 +30,15 @@ describe('DateField keyboard and viewport behavior', () => {
     const onChange = vi.fn();
     render(<DateField value="2026-01-31" onChange={onChange} presets={false} />);
     const trigger = screen.getByRole('button');
-    await userEvent.click(trigger);
-    expect(screen.getByRole('gridcell', { name: '2026-01-31' })).toHaveFocus();
-    await userEvent.keyboard('{ArrowRight}');
-    expect(screen.getByRole('gridcell', { name: '2026-02-01' })).toHaveFocus();
-    await userEvent.keyboard('{ArrowDown}');
-    expect(screen.getByRole('gridcell', { name: '2026-02-08' })).toHaveFocus();
-    await userEvent.keyboard('{ArrowUp}{ArrowLeft}');
-    expect(screen.getByRole('gridcell', { name: '2026-01-31' })).toHaveFocus();
+    fireEvent.click(trigger);
+    expect(calendarDay('2026-01-31')).toHaveFocus();
+    pressDay('2026-01-31', 'ArrowRight');
+    expect(calendarDay('2026-02-01')).toHaveFocus();
+    pressDay('2026-02-01', 'ArrowDown');
+    expect(calendarDay('2026-02-08')).toHaveFocus();
+    pressDay('2026-02-08', 'ArrowUp');
+    pressDay('2026-02-01', 'ArrowLeft');
+    expect(calendarDay('2026-01-31')).toHaveFocus();
     expect(onChange).not.toHaveBeenCalled();
     await userEvent.keyboard('{Enter}');
     expect(onChange).toHaveBeenCalledExactlyOnceWith('2026-01-31');
@@ -36,35 +51,36 @@ describe('DateField keyboard and viewport behavior', () => {
     render(<DateField value="2026-01-31" onChange={onChange} presets={false} />);
     const trigger = screen.getByRole('button'); trigger.focus();
     await userEvent.keyboard('{Enter}');
-    expect(screen.getByRole('gridcell', { name: '2026-01-31' })).toHaveFocus();
-    await userEvent.keyboard('{Escape}'); expect(trigger).toHaveFocus();
-    await userEvent.keyboard(' ');
-    expect(screen.getByRole('gridcell', { name: '2026-01-31' })).toHaveFocus();
-    await userEvent.keyboard('{Escape}'); expect(onChange).not.toHaveBeenCalled();
+    expect(calendarDay('2026-01-31')).toHaveFocus();
+    fireEvent.keyDown(calendarDay('2026-01-31'), { key: 'Escape' }); expect(trigger).toHaveFocus();
+    fireEvent.keyDown(trigger, { key: ' ' });
+    expect(calendarDay('2026-01-31')).toHaveFocus();
+    fireEvent.keyDown(calendarDay('2026-01-31'), { key: 'Escape' }); expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('clamps PageDown to the actual last day and honors min/max without changing the value on Escape', async () => {
+  it('clamps PageDown to the actual last day and honors min/max without changing the value on Escape', () => {
     const onChange = vi.fn();
     render(<DateField value="2026-01-31" min="2026-01-30" max="2026-02-28" onChange={onChange} presets={false} />);
     const trigger = screen.getByRole('button');
-    await userEvent.click(trigger);
-    await userEvent.keyboard('{PageDown}');
-    expect(screen.getByRole('gridcell', { name: '2026-02-28' })).toHaveFocus();
-    await userEvent.keyboard('{ArrowRight}');
-    expect(screen.getByRole('gridcell', { name: '2026-02-28' })).toHaveFocus();
-    await userEvent.keyboard('{PageUp}');
-    expect(screen.getByRole('gridcell', { name: '2026-01-30' })).toHaveFocus();
-    await userEvent.keyboard('{ArrowLeft}{Home}');
-    expect(screen.getByRole('gridcell', { name: '2026-01-30' })).toHaveFocus();
-    await userEvent.keyboard('{End}');
-    expect(screen.getByRole('gridcell', { name: '2026-01-31' })).toHaveFocus();
-    await userEvent.keyboard('{Escape}');
+    fireEvent.click(trigger);
+    pressDay('2026-01-31', 'PageDown');
+    expect(calendarDay('2026-02-28')).toHaveFocus();
+    pressDay('2026-02-28', 'ArrowRight');
+    expect(calendarDay('2026-02-28')).toHaveFocus();
+    pressDay('2026-02-28', 'PageUp');
+    expect(calendarDay('2026-01-30')).toHaveFocus();
+    pressDay('2026-01-30', 'ArrowLeft');
+    pressDay('2026-01-30', 'Home');
+    expect(calendarDay('2026-01-30')).toHaveFocus();
+    pressDay('2026-01-30', 'End');
+    expect(calendarDay('2026-01-31')).toHaveFocus();
+    fireEvent.keyDown(calendarDay('2026-01-31'), { key: 'Escape' });
     expect(onChange).not.toHaveBeenCalled(); expect(trigger).toHaveFocus();
   });
 
   it('exposes one calendar date to Tab and closes when focus moves outside', async () => {
     render(<><DateField value="2026-01-31" onChange={vi.fn()} presets={false} /><button>outside</button></>);
-    await userEvent.click(screen.getAllByRole('button')[0]!);
+    fireEvent.click(screen.getAllByRole('button')[0]!);
     const grid = screen.getByRole('grid');
     expect(within(grid).getAllByRole('gridcell').filter(cell => cell.tabIndex === 0)).toHaveLength(1);
     expect(within(grid).getAllByRole('row')).toHaveLength(7);
@@ -72,7 +88,7 @@ describe('DateField keyboard and viewport behavior', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
-  it('clamps a right-edge popup within a 320px viewport and repositions after resize', async () => {
+  it('clamps a right-edge popup within a 320px viewport and repositions after resize', () => {
     const oldWidth = window.innerWidth;
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 320 });
     const box = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
@@ -80,7 +96,7 @@ describe('DateField keyboard and viewport behavior', () => {
     });
     try {
       render(<DateField value="2026-01-31" onChange={vi.fn()} presets={false} />);
-      await userEvent.click(screen.getByRole('button'));
+      fireEvent.click(screen.getByRole('button'));
       expect(screen.getByRole('dialog')).toHaveStyle({ left: '-222px', boxSizing: 'border-box' });
       Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
       fireEvent(window, new Event('resize'));
