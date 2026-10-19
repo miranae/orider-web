@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Modal from "../Modal";
 import { LocalizedLink } from "../LocalizedLink";
-import { startSocialAuth, type SocialProvider } from "../../services/socialAuth";
+import type { SocialProvider } from "../../services/socialAuth";
 
 type Provider = "google" | SocialProvider;
 
@@ -40,12 +40,9 @@ export function KakaoLogo() {
   );
 }
 
-// 로그인 진입 화면은 기존 운영 제공자만 노출한다. 설정의 계정 연결은 유지한다.
-const SHOW_ADDITIONAL_SIGN_IN_BUTTONS = false;
-
 const BUTTON_CLASS = "w-full h-12 flex items-center justify-center gap-2 px-4 py-3 rounded-[var(--r-lg)] font-medium transition-opacity disabled:opacity-60";
 
-/** 로그인 방식 선택 — Google 은 팝업, 다른 제공자는 동의 화면으로 이동한다. */
+/** 기존 운영 로그인 — Google 팝업을 사용한다. */
 export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
   const { t } = useTranslation("auth");
   const [pending, setPending] = useState<Provider | null>(null);
@@ -66,21 +63,6 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
     }
   };
 
-  const handleSocial = async (provider: SocialProvider) => {
-    setPending(provider);
-    setError(null);
-    try {
-      await startSocialAuth(provider, "login");
-      // 페이지 이동 중 — pending 유지
-    } catch (err) {
-      const error = err as { code?: string; details?: { reason?: string } } | null;
-      const isolatedStrava = provider === "strava" && error?.code === "functions/failed-precondition"
-        && error.details?.reason === "strava-isolated-acceptance-required";
-      setError(t(isolatedStrava ? "signIn.stravaTestRestricted" : "signIn.failed"));
-      setPending(null);
-    }
-  };
-
   return (
     <Modal open={open} onClose={onClose} title={t("signIn.title")} maxWidth="max-w-sm" busy={pending !== null && pending !== "google"}>
       <div data-testid="A1-1" className="flex flex-col gap-3">
@@ -89,18 +71,6 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
           onClick={() => { void handleGoogle(); }}>
           <GoogleLogo />{t("signIn.google")}
         </button>
-        {SHOW_ADDITIONAL_SIGN_IN_BUTTONS && <>
-        <button data-testid="A1-1-2" type="button" className={BUTTON_CLASS} disabled={pending !== null}
-          style={{ background: "var(--naver)", color: "var(--naver-ink)" }}
-          onClick={() => { void handleSocial("naver"); }}>
-          <NaverLogo />{t("signIn.naver")}
-        </button>
-        <button data-testid="A1-1-3" type="button" className={BUTTON_CLASS} disabled={pending !== null}
-          style={{ background: "var(--kakao)", color: "var(--kakao-ink)" }}
-          onClick={() => { void handleSocial("kakao"); }}>
-          <KakaoLogo />{t("signIn.kakao")}
-        </button>
-        </>}
         {error && <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)", margin: 0 }}>{error}</p>}
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>{t("signIn.separateAccountHint")}</p>
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>
