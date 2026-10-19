@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
-import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
+import { trainingDecisionEnvelope } from "../../__tests__/fixtures/trainingDecision";
 import TodayTrainingDecisionCard, { type TrainingDecisionSurface } from "./TodayTrainingDecisionCard";
 
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), proposal: vi.fn() }));

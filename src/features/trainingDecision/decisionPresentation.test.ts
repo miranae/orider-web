@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
-import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
+import { trainingDecisionEnvelope } from "../../__tests__/fixtures/trainingDecision";
 import { primaryRecommendedAdjustment, primaryRecommendedSession, presentedRecommendedAdjustments } from "./decisionPresentation";
 
 describe("decisionPresentation", () => {

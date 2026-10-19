@@ -32,23 +32,18 @@ describe("SettingsPage", () => {
     expect(screen.getByText("로그인이 필요합니다.")).toBeInTheDocument();
   });
 
-  it("renders settings heading when authenticated", async () => {
-    renderWithProviders(<SettingsPage tab="account" />, { authenticated: true });
-    await waitFor(() => {
-      expect(screen.getByText("설정")).toBeInTheDocument();
-    });
-  });
-
-  it("shows profile section with user info", async () => {
+  it("shows the authenticated profile, visibility choices and account actions", async () => {
     renderWithProviders(<SettingsPage tab="account" />, {
       authenticated: true,
       user: { displayName: "라이더", email: "rider@test.com" },
-      profile: { nickname: "라이더" },
+      profile: { nickname: "라이더", friendCode: "XYZ789" },
     });
-    await waitFor(() => {
-      expect(screen.getByText("프로필")).toBeInTheDocument();
-      expect(screen.getByText("라이더")).toBeInTheDocument();
-    });
+    await screen.findByText("라이더");
+    for (const label of ["설정", "프로필", "계정 관리", "공개 범위", "모두에게 공개", "비공개", "XYZ789"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByRole("link", { name: "데이터 관리" })).toHaveAttribute("href", "/ko/settings/data");
+    expect(screen.queryByRole("button", { name: "모든 활동 데이터 삭제" })).not.toBeInTheDocument();
   });
 
   it("shows Strava 연결하기 button when not connected", async () => {
@@ -106,14 +101,6 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("provides account management and a dedicated data settings link", async () => {
-    renderWithProviders(<SettingsPage tab="account" />, { authenticated: true });
-    await waitFor(() => {
-      expect(screen.getByText("계정 관리")).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "데이터 관리" })).toHaveAttribute("href", "/ko/settings/data");
-      expect(screen.queryByRole("button", { name: "모든 활동 데이터 삭제" })).not.toBeInTheDocument();
-    });
-  });
 
   it("opens the account deletion request page from account management", async () => {
     const user = userEvent.setup();
@@ -129,25 +116,7 @@ describe("SettingsPage", () => {
     expect(await screen.findByRole("heading", { name: "계정 삭제 요청 페이지" })).toBeInTheDocument();
   });
 
-  it("shows visibility options", async () => {
-    renderWithProviders(<SettingsPage tab="account" />, { authenticated: true });
-    // 공개 범위 카드(pane.account.cardVisibility)는 기본(계정) 탭에 있다.
-    await waitFor(() => {
-      expect(screen.getByText("공개 범위")).toBeInTheDocument();
-      expect(screen.getByText("모두에게 공개")).toBeInTheDocument();
-      expect(screen.getByText("비공개")).toBeInTheDocument();
-    });
-  });
 
-  it("shows friend code when available", async () => {
-    renderWithProviders(<SettingsPage tab="account" />, {
-      authenticated: true,
-      profile: { nickname: "테스트", friendCode: "XYZ789" },
-    });
-    await waitFor(() => {
-      expect(screen.getByText("XYZ789")).toBeInTheDocument();
-    });
-  });
 
   it("redirects the legacy section query to the tab path", async () => {
     renderWithProviders(

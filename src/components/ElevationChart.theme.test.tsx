@@ -51,15 +51,31 @@ describe("ElevationChart theme colors", () => {
   });
   it("accepts touch drag within the DS 48px handle strip and retains keyboard alternatives", () => {
     const change = vi.fn();
+    const hover = vi.fn();
     const chart = { canvas: { getBoundingClientRect: () => ({ left: 0 }) }, scales: { x: { getPixelForValue: (value: number) => value * 100, getValueForPixel: (pixel: number) => pixel / 100 } } };
     line.mockImplementation(props => { if (props.ref) props.ref.current = chart; });
     vi.stubGlobal("PointerEvent", MouseEvent);
     try {
-      renderWithProviders(<ElevationChart data={[{ distance: 0, elevation: 1 }, { distance: 1000, elevation: 2 }, { distance: 2000, elevation: 3 }]} rangeMode range={[0, 2]} onRangeChange={change} />);
+      const data = [{ distance: 0, elevation: 1 }, { distance: 1000, elevation: 2 }, { distance: 2000, elevation: 3 }];
+      const view = renderWithProviders(<ElevationChart data={data} onHoverIndex={hover} />);
+      const wrapper = screen.getByTestId("elevation-line").parentElement!.parentElement!;
+      expect(wrapper.style.touchAction).toBe("pan-y");
+      fireEvent.pointerMove(wrapper, { clientX: 100, pointerType: "touch" });
+      expect(hover).toHaveBeenLastCalledWith(1);
+      fireEvent.pointerLeave(wrapper);
+      expect(hover).toHaveBeenLastCalledWith(null);
+      view.rerender(<ElevationChart data={data} rangeMode range={[0, 2]} onRangeChange={change} />);
       const target = screen.getByLabelText(/arrow|화살표/i);
-      fireEvent.pointerDown(target, { clientX: 22, pointerId: 1 });
-      fireEvent.pointerMove(target, { clientX: 100, pointerId: 1 });
-      expect(change).toHaveBeenLastCalledWith([1, 2]);
+      expect(target.style.touchAction).toBe("none");
+      for (const end of ["pointerUp", "pointerCancel"] as const) {
+        fireEvent.pointerDown(target, { clientX: 22, pointerId: 1 });
+        fireEvent.pointerMove(target, { clientX: 100, pointerId: 1 });
+        expect(change).toHaveBeenLastCalledWith([1, 2]);
+        fireEvent[end](window);
+        change.mockClear();
+        fireEvent.pointerMove(target, { clientX: 150, pointerId: 1 });
+        expect(change).not.toHaveBeenCalled();
+      }
       fireEvent.keyDown(target, { key: "ArrowLeft" });
       expect(change).toHaveBeenLastCalledWith([0, 1]);
     } finally { vi.unstubAllGlobals(); line.mockImplementation(() => undefined); }
