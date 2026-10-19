@@ -48,8 +48,8 @@ describe("ActivityMediaPanel no-map state", () => {
     const map = screen.getByTestId("route-map");
     const buttons = screen.getAllByRole("button", { name: labels[0] });
     expect(buttons).toHaveLength(2);
-    expect(buttons[0]).toHaveClass("activity-detail-map-resize--top-left");
-    expect(buttons[1]).toHaveClass("activity-detail-map-resize--bottom-right");
+    expect(buttons[0]).toHaveClass("ds-map-resize--top-left");
+    expect(buttons[1]).toHaveClass("ds-map-resize--bottom-right");
     buttons.forEach(button => {
       expect(button).toHaveAttribute("aria-expanded", "false");
       expect(button).toHaveAttribute("title", labels[0]);

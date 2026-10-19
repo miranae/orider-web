@@ -11,7 +11,7 @@
   "properties": {
     "$schema": { "type": "string", "minLength": 1 },
     "version": { "type": "integer", "minimum": 1 },
-    "functionalColors": { "type": "object", "required": ["map"], "additionalProperties": false, "properties": { "map": { "type": "object", "required": ["recordedTrack", "plannedRoute"], "additionalProperties": false, "properties": { "recordedTrack": { "type": "string", "pattern": "^#[0-9A-F]{6}$" }, "plannedRoute": { "type": "string", "pattern": "^#[0-9A-F]{6}$" } } } } },
+    "functionalColors": { "type": "object", "required": ["map"], "additionalProperties": false, "properties": { "map": { "type": "object", "required": ["recordedTrack", "plannedRoute", "routeCasing"], "additionalProperties": false, "properties": { "recordedTrack": { "type": "string", "pattern": "^#[0-9A-F]{6}$" }, "plannedRoute": { "type": "string", "pattern": "^#[0-9A-F]{6}$" }, "routeCasing": { "type": "string", "pattern": "^#[0-9A-F]{6}$" } } } } },
     "dimensions": { "type": "object", "minProperties": 1, "propertyNames": { "pattern": "^[A-Za-z][A-Za-z0-9]*$" }, "additionalProperties": { "type": "number", "minimum": 0 } },
     "cssVariables": { "type": "object", "required": ["colors", "charts", "dimensions"], "additionalProperties": false, "properties": { "colors": { "$ref": "#/$defs/cssNameMap" }, "charts": { "$ref": "#/$defs/cssNameMap" }, "dimensions": { "$ref": "#/$defs/cssNameMap" } } },
     "staticCssVariables": { "type": "object", "propertyNames": { "pattern": "^--[a-z0-9-]+$" }, "additionalProperties": { "type": "string", "minLength": 1 } },

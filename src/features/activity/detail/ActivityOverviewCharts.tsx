@@ -2,10 +2,11 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEv
 import { useTranslation } from "react-i18next";
 import GlossaryText from "../../../components/common/GlossaryText";
 import DurationCurveChart from "../../../components/DurationCurveChart";
-import { Text } from "../../../theme/components";
+import { BeforeAfterPlot, ReferenceGauge, Text } from "../../../theme/components";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
 import { HR_ZONE_LABELS, POWER_ZONE_LABELS } from "./metricsPresentation";
 import "./activity-overview-charts.css";
+import { zoneSurfaceStyle } from "../../../theme/charts/zoneSurface";
 
 /*
  * 개요 카드의 그림들. **값은 전부 서버 정본(presentation)** 이다 — 여기서는 위치·폭·문구만
@@ -87,28 +88,14 @@ export const ifBandLayout = () => IF_EDGES.slice(0, -1).map((from, index) => {
 
 export function IntensityGauge({ value }: { value: number }) {
   const { t } = useTranslation("activity");
-  const [ref, width] = useElementWidth<HTMLDivElement>();
   const bands = ifBandLayout();
   const current = bands.findIndex((band, index) => value < band.to || index === bands.length - 1);
-  const ticks = width > 0 && width < 336 ? IF_TICKS_NARROW : IF_TICKS;
-  // 자 밖의 값은 끝에 붙이되 그 사실을 마커 위에 쓴다.
-  const outside = value > IF_MAX ? `≥${IF_MAX.toFixed(2)}` : value < IF_MIN ? `≤${IF_MIN.toFixed(2)}` : null;
-  return <div ref={ref} className="activity-overview-gauge" role="img" aria-label={t("overviewSummary.ifGaugeLabel", { value: value.toFixed(2) })}>
-    <span className="activity-overview-gauge__ftp-label" aria-hidden="true" style={cssVar({ "--at": `${ifPos(1)}%` })}>FTP</span>
-    {outside && <span className="activity-overview-gauge__outside" aria-hidden="true" style={cssVar({ "--at": `${ifPos(value)}%` })}>{outside}</span>}
-    <div className="activity-overview-gauge__track" aria-hidden="true">
-      {/* 지금 IF 가 놓인 띠만 존 색으로 칠한다 — 나머지는 바탕과 눈금선이 자를 그린다. */}
-      {bands.map((band, index) => <span key={band.from} data-band={index + 1}
-        className={`activity-overview-gauge__band ${index === current ? `activity-overview-zone--${index + 1}` : ""}`}
-        style={cssVar({ "--left": `${band.left}%`, "--width": `${band.width}%` })} />)}
-      {IF_TICKS.map((tick) => <span key={tick} className="activity-overview-gauge__tick" data-tick={tick} style={cssVar({ "--at": `${ifPos(tick)}%` })} />)}
-      <span className="activity-overview-gauge__ftp" style={cssVar({ "--at": `${ifPos(1)}%` })} />
-      <span className="activity-overview-gauge__marker" style={cssVar({ "--at": `${ifPos(value)}%` })} />
-    </div>
-    <div className="activity-overview-gauge__scale" aria-hidden="true">
-      {ticks.map((tick) => <span key={tick} style={cssVar({ "--at": `${ifPos(tick)}%` })}>{tick.toFixed(2)}</span>)}
-    </div>
-  </div>;
+  const outside = value > IF_MAX ? `≥${IF_MAX.toFixed(2)}` : value < IF_MIN ? `≤${IF_MIN.toFixed(2)}` : undefined;
+  return <ReferenceGauge value={value} domain={[IF_MIN, IF_MAX]}
+    bands={bands.map((band, index) => ({ from: band.from, to: band.to, active: index === current, color: `var(--zone-${index + 1})` }))}
+    ticks={IF_TICKS.map(tick => ({ value: tick, label: tick.toFixed(2), compact: (IF_TICKS_NARROW as readonly number[]).includes(tick) }))}
+    reference={{ value: 1, label: "FTP" }} outsideLabel={outside}
+    aria-label={t("overviewSummary.ifGaugeLabel", { value: value.toFixed(2) })} />;
 }
 
 /* ───────────── 존 시간 누적 막대 ───────────── */
@@ -123,7 +110,7 @@ type StripItem = { label: string; detail: string };
  * 존 누적 막대. `items` 가 있으면 조각마다 포인터·키보드로 값을 읽는다 — 막대 하나가 탭 한 번
  * (roving tabindex): 막대에 들어오면 ←/→ 로 조각을 옮기고, 툴팁에 존 이름·시간·% 가 뜬다.
  */
-function ZoneStrip({ weights, className, label, labelled = false, items }: { weights: number[]; className?: string; label: string; labelled?: boolean; items?: StripItem[] }) {
+function ZoneStrip({ weights, className, label, labelled = false, items, sheen = false }: { sheen?: boolean; weights: number[]; className?: string; label: string; labelled?: boolean; items?: StripItem[] }) {
   const [ref, width] = useElementWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
   const [focusIndex, setFocusIndex] = useState<number | null>(null);
@@ -165,7 +152,7 @@ function ZoneStrip({ weights, className, label, labelled = false, items }: { wei
         // 괄호가 22px 보다 좁으면 "∩" 처럼 보인다 — 숨기고 Z4+ 비율은 머리글 글자로만 둔다.
         const narrowBracket = groupIndex > 0 && total > 0 && width * grow / total < BRACKET_MIN_PX;
         return <span key={groupIndex} className={`activity-overview-zones__group ${groupIndex ? "activity-overview-zones__group--high" : ""} ${narrowBracket ? "is-narrow" : ""}`} style={{ flexGrow: grow }} aria-hidden={interactive ? undefined : true}>
-          {visible.map(([w, i]) => <span key={i} ref={(node) => { segmentRefs.current[i] = node; }} className={`activity-overview-zone--${i + 1}`} style={{ flexGrow: w }}
+          {visible.map(([w, i]) => <span key={i} ref={(node) => { segmentRefs.current[i] = node; }} className={`activity-overview-zone--${i + 1}`} style={{ flexGrow: w, ...(sheen ? zoneSurfaceStyle : {}) }}
             {...(interactive ? {
               role: "img", "aria-label": `${items![i]!.label} · ${items![i]!.detail}`, tabIndex: i === rovingIndex ? 0 : -1,
               onFocus: () => { setFocusIndex(i); setActive(i); openedBy.current = "focus"; },
@@ -215,9 +202,9 @@ export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }:
         <Text variant="dataSmall" tone="primary">{one(highPercent)}%</Text>
       </span>}
     </div>
-    <ZoneStrip weights={weights} labelled items={items} label={`${t("overviewSummary.zoneBarLabel")}: ${describe(pcts)}`} />
+    <ZoneStrip sheen={zone.kind === "power"} weights={weights} labelled items={items} label={`${t("overviewSummary.zoneBarLabel")}: ${describe(pcts)}`} />
     {baseline && <div className="activity-overview-zones__baseline">
-      <ZoneStrip weights={baseline} className="activity-overview-zones__strip--baseline" label={`${t("overviewSummary.zoneBaselineAria")}: ${describe(baseline)}`} />
+      <ZoneStrip sheen={zone.kind === "power"} weights={baseline} className="activity-overview-zones__strip--baseline" label={`${t("overviewSummary.zoneBaselineAria")}: ${describe(baseline)}`} />
       <Text variant="caption" tone="tertiary">{t(zone.baselineScope === "discipline" ? "overviewSummary.zoneBaselineDiscipline" : "overviewSummary.zoneBaseline", { count: zone.priorSampleCount })}
         {baselineHighPercent != null && <> · <GlossaryText>{t("overviewSummary.usualHigh", { pct: one(baselineHighPercent) })}</GlossaryText></>}</Text>
     </div>}
@@ -374,8 +361,6 @@ export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, f
 
 /* ───────────── 훈련 부하 전→후 ───────────── */
 
-const DOT_MIN_PX = 8;
-
 export function FitnessShift({ prior, post, rowLabel, metricName, priorCaption, postCaption }: {
   prior: FitnessStatus; post: FitnessStatus;
   rowLabel: (key: "ctl" | "atl" | "tsb") => ReactNode;
@@ -384,49 +369,18 @@ export function FitnessShift({ prior, post, rowLabel, metricName, priorCaption, 
   priorCaption: ReactNode; postCaption: ReactNode;
 }) {
   const { t } = useTranslation("activity");
-  const [ref, width] = useElementWidth<HTMLDivElement>();
   const keys = ["ctl", "atl", "tsb"] as const;
   const values = keys.flatMap((key) => [prior[key], post[key]]);
-  // 세 줄이 한 축을 공유한다 — 같은 단위(일 부하)라 길이를 서로 비교할 수 있어야 한다.
   const lo = Math.min(0, ...values), hi = Math.max(0, ...values);
   const pad = (hi - lo || 1) * 0.08;
-  const at = (value: number) => (value - (lo - pad)) / (hi - lo + pad * 2) * 100;
-  const zero = at(0);
-  return <div className="activity-overview-shift">
-    <ul className="activity-overview-shift__legend">
-      <li><span aria-hidden="true" className="activity-overview-shift__key activity-overview-shift__key--before" />{priorCaption}</li>
-      <li><span aria-hidden="true" className="activity-overview-shift__key activity-overview-shift__key--after" />{postCaption}</li>
-    </ul>
-    <div className="activity-overview-shift__rows" style={cssVar({ "--zero": `${zero}%` })}>
-      {keys.map((key, index) => {
-        const from = prior[key], to = post[key];
-        const a = at(from), b = at(to);
-        // 두 점이 8px 안으로 겹치면 운동 전은 채운 점 바깥 링으로 남긴다. 변화량은 세 줄 모두 값 옆에 쓴다.
-        const collapsed = width > 0 && Math.abs(a - b) / 100 * width < DOT_MIN_PX;
-        // 서버가 변화량을 따로 주지 않는다. 서버 값 두 개(운동 전·후)의 표시용 차이일 뿐 정본 계산이 아니다.
-        const delta = Math.round((to - from) * 10) / 10;
-        return <div key={key} className="activity-overview-shift__row">
-          <Text variant="bodySmall" tone="secondary" className="activity-overview-shift__label">{rowLabel(key)}</Text>
-          <div ref={index === 0 ? ref : undefined} className="activity-overview-shift__track" role="img"
-            aria-label={t("overviewSummary.shiftAria", { metric: metricName(key), from: fixed1(from), to: fixed1(to) })}>
-            {/* 폼(TSB) 0 아래는 피로가 체력을 넘어선 구간 — 옅게 깐다. */}
-            {key === "tsb" && <span className="activity-overview-shift__negative" aria-hidden="true" />}
-            <span className="activity-overview-shift__zero" aria-hidden="true" />
-            {!collapsed && <span className={`activity-overview-shift__span ${b < a ? "is-down" : ""}`} aria-hidden="true" style={cssVar({ "--from": `${Math.min(a, b)}%`, "--to": `${Math.max(a, b)}%` })} />}
-            <span className={`activity-overview-shift__dot activity-overview-shift__dot--before ${collapsed ? "is-halo" : ""}`} aria-hidden="true" style={cssVar({ "--at": `${collapsed ? b : a}%` })} />
-            <span className="activity-overview-shift__dot activity-overview-shift__dot--after" aria-hidden="true" style={cssVar({ "--at": `${b}%` })} />
-          </div>
-          <Text variant="bodyMedium" mono tone="primary" className="activity-overview-shift__values">
-            <span className="activity-overview-shift__from">{fixed1(from)}<span className="activity-overview-shift__arrow"> → </span></span>{fixed1(to)}
-            <span className="activity-overview-shift__delta"> ({delta > 0 ? "+" : ""}{delta.toFixed(1)})</span>
-          </Text>
-        </div>;
-      })}
-      <div className="activity-overview-shift__row activity-overview-shift__row--axis" aria-hidden="true">
-        <span />
-        <div className="activity-overview-shift__axis"><span>0</span></div>
-        <span />
-      </div>
-    </div>
-  </div>;
+  return <BeforeAfterPlot domain={[lo - pad, hi + pad]} reference={{ value: 0, label: "0" }}
+    beforeLabel={priorCaption} afterLabel={postCaption}
+    rows={keys.map(key => {
+      const from = prior[key], to = post[key];
+      // 서버 값 두 개의 표시용 차이이며, 훈련 부하 정본을 재계산하지 않는다.
+      const delta = Math.round((to - from) * 10) / 10;
+      return { id: key, label: rowLabel(key), from, to, shadeBelowReference: key === "tsb",
+        ariaLabel: t("overviewSummary.shiftAria", { metric: metricName(key), from: fixed1(from), to: fixed1(to) }),
+        values: <Text variant="bodyMedium" mono><Text tone="secondary">{fixed1(from)} → </Text>{fixed1(to)}<Text tone="secondary"> ({delta > 0 ? "+" : ""}{delta.toFixed(1)})</Text></Text> };
+    })} />;
 }

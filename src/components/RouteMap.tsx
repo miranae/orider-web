@@ -3,7 +3,7 @@ import { useMemo, useEffect, useRef, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
 import { LocateFixed, Minus, Plus } from "lucide-react";
-import { Button } from "../theme/components";
+import { MapNavigation, MapControlButton } from "../theme/components";
 import type { LngLatBoundsLike } from "mapbox-gl";
 // 컨트롤/팝업 스타일. 메인 entry 가 아닌 RouteMap chunk 와 함께 로드 (홈 진입 시 1.6MB 절약).
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -201,11 +201,11 @@ function RouteNavigation({ labels, bounds, padding }: {
     return () => observer.disconnect();
   }, [map]);
   const motion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 250;
-  return <div className="activity-detail-map-navigation" role="group" aria-label={labels.fitRoute}>
-    <Button size="sm" iconOnly aria-label={labels.zoomIn} title={labels.zoomIn} onClick={() => map?.zoomIn({ duration: motion() })}><Plus size={18} aria-hidden="true" /></Button>
-    <Button size="sm" iconOnly aria-label={labels.zoomOut} title={labels.zoomOut} onClick={() => map?.zoomOut({ duration: motion() })}><Minus size={18} aria-hidden="true" /></Button>
-    <Button size="sm" iconOnly aria-label={labels.fitRoute} title={labels.fitRoute} onClick={() => map?.fitBounds(bounds, { padding, duration: motion() })}><LocateFixed size={18} aria-hidden="true" /></Button>
-  </div>;
+  return <MapNavigation aria-label={labels.fitRoute}>
+    <MapControlButton iconOnly aria-label={labels.zoomIn} title={labels.zoomIn} onClick={() => map?.zoomIn({ duration: motion() })}><Plus size={18} aria-hidden="true" /></MapControlButton>
+    <MapControlButton iconOnly aria-label={labels.zoomOut} title={labels.zoomOut} onClick={() => map?.zoomOut({ duration: motion() })}><Minus size={18} aria-hidden="true" /></MapControlButton>
+    <MapControlButton iconOnly aria-label={labels.fitRoute} title={labels.fitRoute} onClick={() => map?.fitBounds(bounds, { padding, duration: motion() })}><LocateFixed size={18} aria-hidden="true" /></MapControlButton>
+  </MapNavigation>;
 }
 
 function FitBoundsOnLoad({ bounds }: { bounds: LngLatBoundsLike }) {

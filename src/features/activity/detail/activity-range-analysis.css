@@ -9,8 +9,5 @@
 .activity-range-details > div { padding-top: var(--space-3); }
 @media (min-width: 48rem) { .activity-range-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
-.activity-range-controls .ds-btn--sm, .activity-range-reading .ds-btn--sm { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
 
-.activity-range-time-inputs .ds-input { min-height: calc(var(--space-4) * 2 + var(--space-3)); font-size: var(--fs-md); }
-.activity-range-controls .ds-btn--outline, .activity-range-reading .ds-btn--outline { color: var(--ink-0); }
 .activity-range-power-windows { border-top: 1px solid var(--line-soft); padding-top: var(--dim-section-gap); }

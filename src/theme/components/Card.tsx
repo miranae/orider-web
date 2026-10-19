@@ -67,7 +67,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
             <>
               {title && <h3 className="ds-card__title">{title}</h3>}
               {(sub || actions) && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: "var(--space-2)" }}>
+                <div className="ds-card__actions">
                   {sub && <span className="ds-card__sub">{sub}</span>}
                   {actions}
                 </div>

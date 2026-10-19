@@ -617,7 +617,7 @@ export default function AnalysisTab({
 
   const assembledZones = <>
     {hasHr && !presentedHrZone && <ZoneDistributionChart title={t("analysis.zones.hr")} zones={hrZones ?? []} />}
-    {hasPower && !integratedPower?.zones?.some(zone => zone.kind === "power") && <ZoneDistributionChart title={t("analysis.zones.power")} zones={powerZones ?? []} />}
+    {hasPower && !integratedPower?.zones?.some(zone => zone.kind === "power") && <ZoneDistributionChart surface="sheen" title={t("analysis.zones.power")} zones={powerZones ?? []} />}
     {seilerZones && polarization && <section className="space-y-3">
       <Text as="h3" variant="bodyMedium" weight={600}>{t("analysis.seiler.title")}</Text>
       {seilerZones.map(zone => <div key={zone.zone}><div className="flex justify-between gap-3"><Text variant="bodySmall">Z{zone.zone} {t(`analysis.seiler.z${zone.zone}`)}</Text><Text variant="bodySmall" mono>{zone.pct.toFixed(1)}%</Text></div><div className="activity-analysis-zone-track" aria-hidden="true"><span style={{ width: `${zone.pct}%`, background: zone.color }} /></div></div>)}
@@ -883,7 +883,7 @@ export default function AnalysisTab({
             {powerZoneView === "coggan" && powerZones && (
               <div>
                 {!integratedPower?.zones?.some(zone => zone.kind === "power" && zone.seconds.length > 0) && <ZoneDistributionChart
-                  title={t("analysis.zones.power")}
+                  title={t("analysis.zones.power")} surface="sheen"
                   zones={powerZones}
                   emptyTitle={t("analysis.empty.powerZonesTitle")}
                   emptyDescription={t("analysis.empty.powerZonesDesc")}

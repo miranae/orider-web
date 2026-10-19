@@ -16,7 +16,7 @@ const exactObject = (keys, valueSchema) => z.object(Object.fromEntries(keys.map(
 const variant = z.object({ colors: exactObject(COLOR_KEYS, z.string().min(1)), charts: exactObject(CHART_KEYS, z.string().min(1)) }).strict();
 const manifestSchema = z.object({
   $schema: z.string(), version: z.number().int().positive(),
-  functionalColors: z.object({ map: z.object({ recordedTrack: z.string().regex(/^#[0-9A-F]{6}$/), plannedRoute: z.string().regex(/^#[0-9A-F]{6}$/) }).strict() }).strict(),
+  functionalColors: z.object({ map: z.object({ recordedTrack: z.string().regex(/^#[0-9A-F]{6}$/), plannedRoute: z.string().regex(/^#[0-9A-F]{6}$/), routeCasing: z.string().regex(/^#[0-9A-F]{6}$/) }).strict() }).strict(),
   dimensions: exactObject(DIMENSION_KEYS, z.number().finite().nonnegative()),
   cssVariables: z.object({ colors: exactObject(COLOR_KEYS, cssName), charts: exactObject(CHART_KEYS, cssName), dimensions: exactObject(DIMENSION_KEYS, cssName) }).strict(),
   staticCssVariables: z.record(cssName, z.string().min(1)),
