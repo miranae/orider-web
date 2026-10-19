@@ -1,0 +1,632 @@
+[
+  {
+    "path": "src/components/activity/StravaSummaryPublishing.css",
+    "selector": ".activity-strava-publishing-actions > .ds-btn, .activity-strava-publishing-manual > .ds-btn",
+    "fingerprint": "69c84588c1e7a2f60783b520873bbf6806bbd09f0327aedcbb199fc4dc933674"
+  },
+  {
+    "path": "src/components/creator/RecipeShareCard.css",
+    "selector": ".recipe-share-actions .ds-btn",
+    "fingerprint": "20ed8e2e47654405f9e71468747aa8014089fc938ff12c9642c3a718f7f1e511"
+  },
+  {
+    "path": "src/components/creator/RecipeShareCard.css",
+    "selector": "@media (max-width: 480px) > .recipe-share-actions .ds-btn",
+    "fingerprint": "e1476d785890adf4fdeaadb3b4a472538f19fcf3575df6c9e0a3144fa7b377ea"
+  },
+  {
+    "path": "src/components/creator/RideStoryPhotoPicker.css",
+    "selector": ".ride-story-picker-footer .ds-btn",
+    "fingerprint": "5fa1e50e48c7678b5421371ccaa7458ee852a9ba0c4428db02fef05ddf41b300"
+  },
+  {
+    "path": "src/components/creator/RideStoryPhotoPicker.css",
+    "selector": "@media (max-width: 480px) > .ride-story-picker-footer .ds-btn",
+    "fingerprint": "df033ac5059271495ec478d8bb15907b79b7eef7ad4bdc9f1b77b4b626ef20d3"
+  },
+  {
+    "path": "src/components/mobile/MobileFitnessPage.css",
+    "selector": ".mobile-fitness-page--embedded .mobile-fitness-pmc .pmc-history__ranges .ds-btn",
+    "fingerprint": "a3da0da07b3eebd626cb605345dc178c0dd959c53c321d7e8251ebd6b27a9bc5"
+  },
+  {
+    "path": "src/components/mobile/MobileFitnessPage.css",
+    "selector": "@media (max-width: 36rem) > .mobile-fitness-pmc .ds-chart__header",
+    "fingerprint": "80735b2af217bb44bb7a7fa9a33468979aed08acb24931d8be38a9e5ec486bc0"
+  },
+  {
+    "path": "src/components/mobile/MobileFitnessPage.css",
+    "selector": "@media (max-width: 36rem) > .mobile-fitness-pmc .ds-chart__heading",
+    "fingerprint": "420b0f8f5feed10e7edaea3f002994485924a5b0204890ef5c99cea4df9d19ab"
+  },
+  {
+    "path": "src/components/mobile/MobileFitnessPage.css",
+    "selector": "@media (max-width: 36rem) > .mobile-fitness-pmc .ds-chart__title",
+    "fingerprint": "e72889d49f43857bcae53275a82cbb384d3ea7605a51510ea2115deb2b5ca354"
+  },
+  {
+    "path": "src/components/mobile/MobileFitnessPage.css",
+    "selector": "@media (max-width: 36rem) > .mobile-fitness-pmc .ds-chart__actions",
+    "fingerprint": "4a0cd3b9a118797e6e46b9acbe7284584820a66a07fb6c0549f175dab34294a7"
+  },
+  {
+    "path": "src/components/mobile/MobileFitnessPage.css",
+    "selector": "@media (max-width: 36rem) > .mobile-fitness-pmc .ds-chart__description, .mobile-fitness-pmc .pmc-history__chart-heading",
+    "fingerprint": "64d55f2613efb44937ba8cc9f4a15c73c5d06d0be9a282e73cd9194588a2e10e"
+  },
+  {
+    "path": "src/components/mobile/MobileFitnessPage.css",
+    "selector": "@media (max-width: 36rem) > .mobile-fitness-pmc .pmc-history .ds-chart__plot",
+    "fingerprint": "672396677a8cd6336e83fd8dde8e23b7c53807ba997ee20736d0b38e5f613a64"
+  },
+  {
+    "path": "src/components/mobile/MobileFitnessPage.css",
+    "selector": ".mobile-fitness-page--embedded .mobile-fitness-performance > .ds-btn",
+    "fingerprint": "d48e2a7a6a0dae87cce1d6adfbc7f645339a64819914e5f5b1a29765636cad45"
+  },
+  {
+    "path": "src/components/mobile/MobileFitnessPage.css",
+    "selector": ".mobile-fitness-pmc .ds-chart__header",
+    "fingerprint": "b8426d7a1cae5adfe661ce55027d421b8329da48b4a4d0ac9c72bc9bc1248a9a"
+  },
+  {
+    "path": "src/components/mobile/MobileFitnessPage.css",
+    "selector": ".mobile-fitness-pmc .ds-chart__actions",
+    "fingerprint": "5ed0ff45b8429ba3949efc6e6065d5f37b0ea30c4a8c43aca2ae53f7074a0de9"
+  },
+  {
+    "path": "src/components/settings/settings.css",
+    "selector": ".settings-ai-history.ds-btn",
+    "fingerprint": "ad885326ffebc5123db16e532056b714addf1b7e31a3f5af28c34a8f00710da2"
+  },
+  {
+    "path": "src/embedded/embedded.css",
+    "selector": ".orider-embedded-surface .ds-card[role=\"status\"] .ds-btn",
+    "fingerprint": "5ca697db7b2523bf86a3f78e99312df5e0fc11021345e62b84f09bcbae1d3d1a"
+  },
+  {
+    "path": "src/features/activity/detail/activity-bike-distance-evidence.css",
+    "selector": ".manual-bike-evidence .ds-btn, .manual-bike-evidence select",
+    "fingerprint": "81bc99870ef764c42f198022b0d77e6d2007d02c3391e8fc75959c1499515598"
+  },
+  {
+    "path": "src/features/activity/detail/activity-bike-distance-evidence.css",
+    "selector": ".manual-bike-evidence .ds-btn--outline",
+    "fingerprint": "e2713612556215615c0229b812402c51639370b598d158ce6a082690e153f539"
+  },
+  {
+    "path": "src/features/activity/detail/activity-growth-panel.css",
+    "selector": ".activity-growth-section .ds-btn--sm",
+    "fingerprint": "40f5cc45e40e2af15e9a3362b8d5c238d1dca53f11b673245f8f1a3d1925fd96"
+  },
+  {
+    "path": "src/features/activity/detail/activity-growth-panel.css",
+    "selector": ".activity-growth-disclosure[aria-expanded=\"true\"] .ds-btn__icon",
+    "fingerprint": "233e13213bd1fe4fbdca971bfcbca03f6e3ad84f9cbc08fc11b05eeded3b6da7"
+  },
+  {
+    "path": "src/features/activity/detail/activity-growth-panel.css",
+    "selector": ".cycling-distance-history .ds-btn--outline",
+    "fingerprint": "7a51a4abfb093a88c369d8c699bd52a3a4fd831eb84df5a85eb19109be0c4953"
+  },
+  {
+    "path": "src/features/activity/detail/activity-matched-route-group.css",
+    "selector": ".matched-route-group select, .matched-route-group .ds-btn",
+    "fingerprint": "b029428b07ccaeb514fd883f568bb1939ff860776d3427fe95ccbc7fedf41205"
+  },
+  {
+    "path": "src/features/activity/detail/activity-matched-route-group.css",
+    "selector": ".matched-route-group .ds-btn--outline",
+    "fingerprint": "2d543db03acd44f6da7324468b3357d41c39d1c66aa0c1c1349850fe25843e9e"
+  },
+  {
+    "path": "src/features/activity/detail/activity-range-analysis.css",
+    "selector": ".activity-range-controls .ds-btn--sm, .activity-range-reading .ds-btn--sm",
+    "fingerprint": "4a1a172efae6ef778e593113a437ee6d46baff59096bdc7f49e652b49b1948f4"
+  },
+  {
+    "path": "src/features/activity/detail/activity-range-analysis.css",
+    "selector": ".activity-range-controls .ds-btn--outline, .activity-range-reading .ds-btn--outline",
+    "fingerprint": "542a12a8d2145a5fc7d1c6aec4aeaf58b93da39fb9d03ccbb36d17b75da6e87c"
+  },
+  {
+    "path": "src/features/activity/detail/activity-route-index-history.css",
+    "selector": ".route-index-history select, .route-index-history .ds-btn",
+    "fingerprint": "af9f3e5057fa1b8545f8559dacc0bf57012c2670024cd17036acc47b2a8b98ed"
+  },
+  {
+    "path": "src/features/activity/detail/activity-route-index-history.css",
+    "selector": ".route-index-history .ds-btn--outline",
+    "fingerprint": "48ca882ac036479c5f08982c4c831496a05637d28295b2f76cfc43fe781e241e"
+  },
+  {
+    "path": "src/features/activity/detail/activity-run-distance-evidence.css",
+    "selector": ".manual-run-evidence .ds-btn, .manual-run-evidence select",
+    "fingerprint": "d3d8a234002a16c2c3007ae5b655b17952b88a43f59f67418b0b983bd1a8993b"
+  },
+  {
+    "path": "src/features/activity/detail/activity-run-distance-evidence.css",
+    "selector": ".manual-run-evidence .ds-btn--outline",
+    "fingerprint": "db385178a3027c8e4a6acda02831bbe7b368bc5a678cd5e5d6d389f5a2d0d381"
+  },
+  {
+    "path": "src/features/activity/detail/cycling-distance-period-analysis.css",
+    "selector": ".cycling-distance-periods select, .cycling-distance-periods .ds-btn",
+    "fingerprint": "f23bc531d51eae02eee86d7ac2259716a95a442719e441ef101791898e2b7ca1"
+  },
+  {
+    "path": "src/features/activity/detail/cycling-distance-period-analysis.css",
+    "selector": ".cycling-distance-periods .ds-btn--outline",
+    "fingerprint": "fff3fa19acdf5fdb21ac8f0b1009fff7b533ee6ea22f135ea51dc1df42a93203"
+  },
+  {
+    "path": "src/features/activity/detail/similar-route-history.css",
+    "selector": ".similar-route-history .ds-btn--sm",
+    "fingerprint": "a86f4b1c68e485eade2c3f5fb3d0fdad043ec737b6d85a24f3379de3ee681d74"
+  },
+  {
+    "path": "src/features/club-preparation/clubPreparation.css",
+    "selector": "@media(max-width:36rem) > .cp-page-heading>.cp-actions>.ds-btn",
+    "fingerprint": "af185eb15362577708be1737b1ab59ff147d93c4ad1cc2a9735c5bb400152e2b"
+  },
+  {
+    "path": "src/features/club-preparation/clubPreparation.css",
+    "selector": "@media(max-width:36rem) > .cp-form-actions .ds-btn",
+    "fingerprint": "908de5f85dc1a837422cfc199cae4ee5b5ffd558675fd4ee1dadcb475f7e3df4"
+  },
+  {
+    "path": "src/features/club-preparation/clubPreparation.css",
+    "selector": ".cp-attendance-panel>.cp-actions .ds-btn--primary",
+    "fingerprint": "3bce05d70426b8dc643d116de487526ed3924a20753c4e0e4f8f41223a6c266e"
+  },
+  {
+    "path": "src/features/club-preparation/coursePreparation.css",
+    "selector": ".cp-saved-courses li>.ds-btn",
+    "fingerprint": "229c009b089f73213c714c3b313f63c9dec8369f91b9310af2e365dd97cdccf4"
+  },
+  {
+    "path": "src/features/club-preparation/meetingSegments.css",
+    "selector": ".cp-segment-results li>.ds-btn",
+    "fingerprint": "5ed39648aa88022eb982e62cd31d263c2311bce8804eb051b53a322e50a0033f"
+  },
+  {
+    "path": "src/features/club-preparation/meetingTeams.css",
+    "selector": "@media (max-width: 36rem) > .cp-team-save > .ds-btn",
+    "fingerprint": "0556f5ddbbe4fcb66dc1deb65a1972fbe12c37d2137b9456026b4568b2af3dd1"
+  },
+  {
+    "path": "src/features/club-preparation/meetingTeams.css",
+    "selector": ".cp-team-person > .ds-btn",
+    "fingerprint": "fa14ef2232bbd4b42d77377d2426ae4ceb473bf07e27718e42571f51ff25af8e"
+  },
+  {
+    "path": "src/features/club-preparation/meetingTeams.css",
+    "selector": "@media (max-width: 36rem) > .cp-team-targets > .ds-btn",
+    "fingerprint": "b787efac2c5e1d590a06a58b2a3692c223b8704202ffcf74961d1611f40a77d5"
+  },
+  {
+    "path": "src/features/coach/coach-consent.css",
+    "selector": "@media (max-width: 47.999rem) > .coach-consent-sheet__actions .ds-btn",
+    "fingerprint": "ebb5334cb0f514f084418db45575ed79557bf0831ef3478823c33a4e7378ff79"
+  },
+  {
+    "path": "src/features/coach/coach-history.css",
+    "selector": ".coach-thread-composer__retry .ds-btn",
+    "fingerprint": "7248ff964031df8668e7526150a63252e03d443cb94b8aab1958915e549fc733"
+  },
+  {
+    "path": "src/features/coach/coach-pmc-insight.css",
+    "selector": ".coach-pmc-card__questions .ds-btn",
+    "fingerprint": "e5f685361075c2f756ae9bd9cdfeaed7b1cc559d2d79586be64d24253bcfc4fb"
+  },
+  {
+    "path": "src/features/coach/coach-question.css",
+    "selector": ".coach-sheet__quick-prompts .coach-sheet__suggestions .ds-btn",
+    "fingerprint": "ff39b14a5fef1f8bd522ca9b8ad5fac54ec89d5a59206db29cddebaaba4f8736"
+  },
+  {
+    "path": "src/features/coach/coach-question.css",
+    "selector": ".coach-sheet__quick-prompts .coach-sheet__suggestions .ds-btn:hover:not(:disabled)",
+    "fingerprint": "ea95ea372d1cb8546bed0980dd81a4e7a64ca514df47dd9ef2c371a7a95d164e"
+  },
+  {
+    "path": "src/features/coach/coach-question.css",
+    "selector": ".coach-sheet__loading > .ds-btn__spinner, .coach-sheet__status > .ds-btn__spinner",
+    "fingerprint": "7972fdf0954aab72a3f0f1729220649e994fae48f2a990ad1712946244a0b604"
+  },
+  {
+    "path": "src/features/coach/coach-question.css",
+    "selector": ".coach-sheet__alert .ds-btn",
+    "fingerprint": "115137bf84620fae61f25f9b9d700cdd8527fd88083395c656f8c5d91ac5efda"
+  },
+  {
+    "path": "src/features/coach/coach-question.css",
+    "selector": ".coach-progress-review__questions .ds-btn",
+    "fingerprint": "ad37291a13a3e98bb5310a20ae8ac8f93d659ef26dc1f5871aa3500db42f8b52"
+  },
+  {
+    "path": "src/features/coach/coach-question.css",
+    "selector": "@media (max-width: 360px) > .coach-progress-review__actions .ds-btn",
+    "fingerprint": "614300d5ad206891c73c639a772a1615afa2667f8ff1c984faff1662dcb9f8ae"
+  },
+  {
+    "path": "src/features/coach/coach-question.css",
+    "selector": "@media (max-width: 47.999rem) > .coach-sheet__header-actions .ds-btn",
+    "fingerprint": "8b4a4f91ed6d44e4110d93b72abbd5dfa4a2778fdb98e083d166f2fa440d517a"
+  },
+  {
+    "path": "src/features/coach/coach-question.css",
+    "selector": "@media (max-width: 47.999rem) > .coach-sheet__actions .ds-btn",
+    "fingerprint": "7546b99d5b6e8a482a321f559e8ee953cd59da68390a198bfb4ab4bb7d875e80"
+  },
+  {
+    "path": "src/features/coach/coach-question.css",
+    "selector": "@media (max-width: 47.999rem) > .coach-sheet__actions .ds-btn:only-child",
+    "fingerprint": "d079b97d5eb6d6dee95eb892a7482b6f54f5626c6cbf9fced5fcad5cc9a9403b"
+  },
+  {
+    "path": "src/features/coach/coach-rider-insight.css",
+    "selector": ".coach-rider-card__questions .ds-btn",
+    "fingerprint": "a6ed658d6e89a362fcf6310a4b302f2958dbf576c62db5f00c50e1b2f3b0c261"
+  },
+  {
+    "path": "src/features/courses/course-controls.css",
+    "selector": ":is(.course-catalog, .course-detail-surface, .course-create-surface, .course-edit-surface) .ds-btn",
+    "fingerprint": "71ef89778ea41d0fde0cec00454706d2630adbf41aa2901587e6cd5445c5a5fa"
+  },
+  {
+    "path": "src/features/courses/course-controls.css",
+    "selector": ".course-catalog-filters .ds-btn",
+    "fingerprint": "94297cc5ac6c03280f073e4a745b9daadfabadcfff9b7dc8ae4695b9dd73fb07"
+  },
+  {
+    "path": "src/features/courses/course-controls.css",
+    "selector": ".course-catalog-search .ds-btn",
+    "fingerprint": "25db5962a98c5a80f851394231238678b65047f1fa94b5f108e768c2fe4cc1e0"
+  },
+  {
+    "path": "src/features/courses/course-controls.css",
+    "selector": ".course-builder-coordinates > .ds-btn",
+    "fingerprint": "a62899e041cf61c1c4dd95511a15caf9d8d05fe18862b1f22b4f112730298825"
+  },
+  {
+    "path": "src/features/courses/course-controls.css",
+    "selector": ".course-create-surface .grid .ds-btn",
+    "fingerprint": "56109397a49df29bf409a56f062c4ccc516cfec08ba8ecf5b9e1e535d349c30a"
+  },
+  {
+    "path": "src/features/courses/course-controls.css",
+    "selector": ".course-create-surface .ds-btn[role=\"radio\"]",
+    "fingerprint": "c990008d4b0de9dedf66b627e81566ba8bce081832c0e90f563afaeb9d0cb216"
+  },
+  {
+    "path": "src/features/courses/course-controls.css",
+    "selector": ".course-detail-surface .course-wp-btn.ds-btn",
+    "fingerprint": "5496cb2f2ee1446fe032033569c0dbb9c17dbfedf5992f06e757c0de4e0d65a0"
+  },
+  {
+    "path": "src/features/courses/course-controls.css",
+    "selector": "@media (max-width: 36rem) > .course-create-surface .course-create-modes > .ds-btn",
+    "fingerprint": "8910c2f9cdaadb94bc0c9465c73227c4380412a362ba82938e8d98e74bf8b1b0"
+  },
+  {
+    "path": "src/features/courses/course-review.css",
+    "selector": ".course-detail-surface .ds-btn",
+    "fingerprint": "e9252f7f5acad908c557c76c93c74a78b9adcb01f4b859218bdc647ad4e76b2e"
+  },
+  {
+    "path": "src/features/courses/course-ride-plan.css",
+    "selector": ".course-ride-plan__questions .ds-btn",
+    "fingerprint": "51b999ee6b8d0f5e23bd61ec5c0867db51eba12b64445c637645f4045823f37f"
+  },
+  {
+    "path": "src/features/event/detail/event-linked-pages.css",
+    "selector": ".event-results-surface .ds-btn__label",
+    "fingerprint": "a225fbe4ede83198c224cd59d4c0e969a455eb19ccd32aa738f61600546ee97c"
+  },
+  {
+    "path": "src/features/event/detail/event-profile.css",
+    "selector": "@media (max-width: 36rem) > .event-detail-actions > .ds-btn",
+    "fingerprint": "00941655e44e82ace972fc2ef0d671144a9d21af6cd33b6b2e55e3a1833c37f1"
+  },
+  {
+    "path": "src/features/event/detail/event-profile.css",
+    "selector": ".event-detail-surface .ds-btn__label",
+    "fingerprint": "3821eec17b18e524c10f9f792ffc4ce303f3ffcf2413c574837a87cd95d43e4b"
+  },
+  {
+    "path": "src/features/fitness/components/fitness-analysis-controls.css",
+    "selector": ".fitness-analysis-controls .ds-dropdown-select__trigger, .fitness-analysis-controls .ds-input, .fitness-analysis-controls button[aria-haspopup=\"dialog\"], .fitness-analysis-controls .ds-btn",
+    "fingerprint": "e6b307a29bf1371b58d6c4aa3e45a1e16b6fc04ab6a285092062d234629ba27d"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": ".pmc-history .ds-chart__plot",
+    "fingerprint": "3d4f130ce69bef6ef84c06f900779b598237d6674e7d90065d1ad5a9aa0d6d82"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": ".pmc-history__chart-head .ds-chart__legend",
+    "fingerprint": "bd7bb5e312ecf386bf1a2d5f0d2d73c1edfb342284d90e444e96bf40f1c30627"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": ".pmc-history__plot-wrap .ds-chart__tooltip",
+    "fingerprint": "c17ebfaa55a18f7e3f6a7ba7040609d72407cc001ceb9c4e55cc664f5b1ae4b3"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": ".pmc-history__buttons .ds-btn",
+    "fingerprint": "a2a463866f37e503ae3c376b296fee34dc4c947e6f00cf526cca5a1801666155"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": ".pmc-history__buttons .ds-btn[aria-pressed=\"false\"]",
+    "fingerprint": "29ef6112104bf8bc7ff4e77e9e2d455d8da0794eb86f690087d5acc9c016a4b7"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": ".pmc-history__buttons .ds-btn[aria-pressed=\"true\"]",
+    "fingerprint": "43196cfc1c88d05a25dbab5422e6bdb58c6af8c474ecbfa973816fff1dca18f4"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": ".pmc-history__navigation .ds-btn",
+    "fingerprint": "a2dfc0f29dc4d2bb55e991e1c1d408fb2fefe1039c590540764bab422c7cd201"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": "@media (max-width: 36rem) > .ds-chart--card.pmc-history",
+    "fingerprint": "4c3a683f1ae1c4816847e130376ed99a9eac6c3da41c961331477f678613f23e"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": "@media (max-width: 36rem) > .pmc-history__chart-head .ds-chart__legend",
+    "fingerprint": "9589b35ca02f766f004b23e1bd995151ad47176ab9ca8343866509907aab718d"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": "@media (max-width: 36rem) > .pmc-history__chart-head .ds-chart__legend",
+    "fingerprint": "70c2b33a19cf6904297bafe777c40f24d319a427cead5a26ec48cacd4373ebb2"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": "@media (max-width: 36rem) > .pmc-history__chart-head .ds-chart__legend li",
+    "fingerprint": "9c8322e9b53999b86701e630da42367499de7bfcc8813fb926ff835a46f50433"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": "@media (max-width: 36rem) > .pmc-history__buttons .ds-btn",
+    "fingerprint": "c6267602a0f179a128fb5a5239b7e9963634b1958d76ddfb94c273a0f0511add"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": "@media (max-width: 36rem) > .pmc-history__ranges .ds-btn",
+    "fingerprint": "28aacd8cd57b503dddfe918701910e1dcdd99a441b5168743180a61d9d9e8d75"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": "@media (max-width: 36rem) > .pmc-history__ranges .ds-btn::after",
+    "fingerprint": "8a7b2bd3a9e68e2410c18667fcfe9e7528ae17a0ccd8c30b3043541fbb24bff4"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": "@media (max-width: 36rem) > .pmc-history__navigation > .ds-btn:last-child",
+    "fingerprint": "bce2bd3a3efc8ea084f03de00be79616ce170b7b8cc665fceccf17f00f6e1a36"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": ".pmc-history .ds-chart__header",
+    "fingerprint": "6a5282778cc8808947369333cdc0dedd1b7359790486e64c9d86a3b47cc2813a"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": ".pmc-history .ds-chart__plot",
+    "fingerprint": "fcd8609188298216157648e27d63e8ea16f4e6caa6726b0b3339e2f7ee27f821"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": ".pmc-history__chart-head .ds-chart__legend",
+    "fingerprint": "a65a66ca1fdca5d23b96dddaf3dedc1c7a33334d7e6adf653f20ea7d51f3a5f6"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": ".pmc-history__buttons .ds-btn",
+    "fingerprint": "4cb20132f88369b05dcf46e1ba98b042b8006829e6ef48bc287eef494164658c"
+  },
+  {
+    "path": "src/features/fitness/components/PmcHistoryPanel.css",
+    "selector": "@media (max-width: 36rem) > .pmc-history__ranges .ds-btn",
+    "fingerprint": "5dc2a05f48ac7e7ab2260a265bfb498b653b63e6783edf6646b35b532af087cc"
+  },
+  {
+    "path": "src/features/segments/segmentSurface.css",
+    "selector": ".segment-surface .ds-btn",
+    "fingerprint": "1cca690c6dc2a583836058acc57a6edfb2941d064bf326cbcc9320e826d50155"
+  },
+  {
+    "path": "src/features/segments/segmentSurface.css",
+    "selector": ".segment-surface .segment-create-categories .ds-btn",
+    "fingerprint": "fbb0d47fa3379a69e6469529938dd3031a036e71079992df02952e70dd07aaf2"
+  },
+  {
+    "path": "src/features/segments/segmentSurface.css",
+    "selector": ".segment-surface .segment-create-categories .ds-btn[aria-pressed=\"true\"]",
+    "fingerprint": "90f99bfe8394b8913d1458d4c00aa21e4e3557475c1e67d3ed39e2650f7b6939"
+  },
+  {
+    "path": "src/features/trainingDecision/training-decision.css",
+    "selector": ".training-decision-card .ds-btn",
+    "fingerprint": "53c6849d5af89fbccd9a24c32041d343c8cfed9e5d62c5da0571cdb9fcc05c37"
+  },
+  {
+    "path": "src/features/trainingDecision/training-decision.css",
+    "selector": ".training-decision-card .ds-btn--sm",
+    "fingerprint": "9ffec8132bbdf03478005bd7e5f4900fc0cd62ab71262f69c9409c7c62fa21b7"
+  },
+  {
+    "path": "src/features/trainingDecision/training-decision.css",
+    "selector": ".training-decision-card__actions > *, .training-decision-proposal__actions > *, .training-execution-actions .ds-btn",
+    "fingerprint": "c8dbb4db2a8a976b12525fa1fc12d6e9289dc63b98bbf0270deed6a1030af114"
+  },
+  {
+    "path": "src/features/trainingDecision/training-decision.css",
+    "selector": ".training-decision-card .ds-btn",
+    "fingerprint": "768390de690bfda9d9abda1368667493793abcfd830b99e1aa06fcc75eafbcf3"
+  },
+  {
+    "path": "src/pages/activity/activity-detail-page.css",
+    "selector": "@media (max-width: 40rem) > .activity-detail-load-card > .ds-btn",
+    "fingerprint": "88a85ccfdb9047325261cd21f486cf9387e4c45d1c58147f837fe88be35904db"
+  },
+  {
+    "path": "src/pages/activity/activity-detail-page.css",
+    "selector": ".activity-detail-segment-actions > .ds-btn",
+    "fingerprint": "878cd29b506661f20ed4960acf383419bd026ec20db27da43fbd1d2b0cddde3d"
+  },
+  {
+    "path": "src/pages/activity/activity-detail-page.css",
+    "selector": "@media (max-width: 40rem) > .activity-detail-segment-actions > .ds-btn",
+    "fingerprint": "f03679ded6bffe59dd36d0d9f59becc684d8bcef8c130ddead09a5376ecce077"
+  },
+  {
+    "path": "src/pages/activity/activity-detail-page.css",
+    "selector": ".activity-detail-analysis > section > .ds-btn[aria-expanded]",
+    "fingerprint": "ade86ffd90ce4530dfb5ee1c1cced637103217ac5f703d2d42d31009a9e95c4a"
+  },
+  {
+    "path": "src/pages/activity/activity-detail-page.css",
+    "selector": ".activity-detail-analysis > section > .ds-btn[aria-expanded] > .ds-text",
+    "fingerprint": "d816bc622af75b849e6a4e9b4b8b015e06371691515ed46f6324b965da62f53a"
+  },
+  {
+    "path": "src/pages/activity/activity-detail-page.css",
+    "selector": ".activity-detail-analysis > section > .ds-btn[aria-expanded] > svg",
+    "fingerprint": "8ac2b0b2f219f3342012b42cc0e65dfa70505c9f6fd707c486041a7e99447af3"
+  },
+  {
+    "path": "src/pages/activity/activity-detail-page.css",
+    "selector": ".activity-detail-utilities .ds-btn",
+    "fingerprint": "db7b8dd4bb5fd9d266990fef6320ab239c82873be3cf51178763f99dd92150d7"
+  },
+  {
+    "path": "src/pages/activity/activity-detail-page.css",
+    "selector": ".activity-detail-segment-map-selection .ds-btn",
+    "fingerprint": "4495e34840bf18fc6b96efa14d47e3955023fba9b075986e17b1408081c2a90e"
+  },
+  {
+    "path": "src/pages/activity/activity-detail-page.css",
+    "selector": ".activity-analysis-tool-heading > button > .ds-btn__label",
+    "fingerprint": "31dd28e739d5a30ae763d8fa8e8f9ac78e7387b3251007f110de9eba257d167b"
+  },
+  {
+    "path": "src/pages/activity/activity-detail-page.css",
+    "selector": ".activity-analysis-tool-heading .ds-btn__label > .ds-text",
+    "fingerprint": "599fe5b70b4c4e5ae264865f5a7eb1477e2a1e59832ff2a2c18182b0b4a8a03c"
+  },
+  {
+    "path": "src/pages/activity/activity-detail-page.css",
+    "selector": ".activity-analysis-tool-heading .ds-btn__label > svg",
+    "fingerprint": "079a4c25186955759c1c2ab357f71b93f57fb70365c6bbc3060bb5d9333793dd"
+  },
+  {
+    "path": "src/pages/activity/activity-detail-page.css",
+    "selector": ".activity-management-row .ds-btn__label",
+    "fingerprint": "bb38c944f8df6b05e1d910b502455aa880176d6afb7ad1aa9c17886d265b8ad0"
+  },
+  {
+    "path": "src/pages/BoardDetail.css",
+    "selector": ".board-writing .ds-btn--primary, .board-writing .ds-btn--primary:hover:not(:disabled)",
+    "fingerprint": "a4a6d5f37d67d50117125e980041722be84b6cb1e4f94c5cbe11932630fe9825"
+  },
+  {
+    "path": "src/pages/BoardDetail.css",
+    "selector": "@media (max-width: 36rem) > .board-writing-header > .ds-btn",
+    "fingerprint": "bf901c873036c5bae94edf633f9c7603812b13328848ae7ed16ef5ab04ea9881"
+  },
+  {
+    "path": "src/pages/BoardList.css",
+    "selector": ".board-list-header .ds-btn--primary",
+    "fingerprint": "4ddf87cbb039bc0e14fb59fd27ed52372d354381425eee2264cf8842bb9e810e"
+  },
+  {
+    "path": "src/pages/BoardList.css",
+    "selector": ".board-list-search .ds-btn, .board-list-tabs .ds-btn, .board-list-search .board-search-input",
+    "fingerprint": "787f29a3738a24e8a366f7bffde22f3fb5ae5b8b1fdfe4a41882fcc9cf01f460"
+  },
+  {
+    "path": "src/pages/coach/CoachSurface.css",
+    "selector": ".coach-surface .ds-btn--primary, .coach-surface .ds-btn--primary:hover:not(:disabled)",
+    "fingerprint": "242249f96efebd26041d828dcfa66680a6c2c86faaca5b3b77770ec7cab0a87f"
+  },
+  {
+    "path": "src/pages/coach/CoachSurface.css",
+    "selector": ".coach-sheet .ds-btn--primary, .coach-sheet .ds-btn--primary:hover:not(:disabled), .coach-consent-dialog .ds-btn--primary, .coach-consent-dialog .ds-btn--primary:hover:not(:disabled), .coach-training-dialog .ds-btn--primary, .coach-training-dialog .ds-btn--primary:hover:not(:disabled)",
+    "fingerprint": "7779fedc6d11f531c15fdb0cb47eddd9aca4b6a399137d790f2a1ed90ee762a8"
+  },
+  {
+    "path": "src/pages/coach/CoachSurface.css",
+    "selector": "@media (max-width: 36rem) > .coach-training-dialog .ds-btn",
+    "fingerprint": "1783533e211a98300423bd9976f0241184332a192e1bcbc3444ad004f65b565b"
+  },
+  {
+    "path": "src/pages/coach/CoachSurface.css",
+    "selector": ".coach-training-dialog .ds-btn__label",
+    "fingerprint": "384b8f42e8310f03bc14ab7247fac0486b82c850a6f25c5c003f7d80231d3e58"
+  },
+  {
+    "path": "src/pages/DashboardPage.css",
+    "selector": ".dashboard-home .ds-btn--primary, .dashboard-home .ds-btn--primary:hover:not(:disabled)",
+    "fingerprint": "adf0588c98fb6600613070da1cd2cfb2566b66401c4fb46fe50beb8dbb51a88b"
+  },
+  {
+    "path": "src/pages/EventControls.css",
+    "selector": ".event-controls-surface .ds-btn:not(:where([role=\"dialog\"] *))",
+    "fingerprint": "17ce229c2725547a5768481488e4292df794313a0887327d67ff3890c06d241c"
+  },
+  {
+    "path": "src/pages/EventControls.css",
+    "selector": ".event-controls-surface .ds-btn__label",
+    "fingerprint": "ea859b4feef1a6c7ef852bc8a86c688cc59111e650a81478f4dcd0525e9b5a4a"
+  },
+  {
+    "path": "src/pages/EventControls.css",
+    "selector": ".event-controls-surface .ds-btn[role=\"radio\"] .ds-btn__label",
+    "fingerprint": "a7a0cc7b02c0bc8a7136664f182aec363359fd89510eb5592fcf4ca71ef483f5"
+  },
+  {
+    "path": "src/pages/ExploreReview.css",
+    "selector": ":is(.explore-events-surface, .explore-challenges-surface, .explore-records-surface, .explore-editor-surface) .ds-btn__label",
+    "fingerprint": "7bf5a7e07074ce94de9903012a5c9cb7c2d3678d0e95bf5ad16b5a00ffd33230"
+  },
+  {
+    "path": "src/pages/ExploreReview.css",
+    "selector": "@media (max-width: 36rem) > .challenge-create-fields > .ds-btn",
+    "fingerprint": "eeb0b30f1a750b2f499fbbf962111c3f79324a116c0a1587ab25f59f781a858b"
+  },
+  {
+    "path": "src/pages/group/ClubSurface.css",
+    "selector": ".club-surface .ds-btn--primary, .club-surface .ds-btn--primary:hover:not(:disabled)",
+    "fingerprint": "1e7bfa0fb9de684a1c9eb069142a1fc3127872225500d6a867764f12e21a47a8"
+  },
+  {
+    "path": "src/pages/group/ClubSurface.css",
+    "selector": "@media (max-width: 36rem) > .club-settings-save-bar > .ds-btn",
+    "fingerprint": "f0c77f8430dce1d65bf3656cbf932129db5586d15cc9ad4ce746b51a3f7d474e"
+  },
+  {
+    "path": "src/pages/group/ClubSurface.css",
+    "selector": ".club-surface .ds-btn",
+    "fingerprint": "46b1656da5dc4f8996d40b7a1b111312948b4a90c643ba3abe514572a7b42798"
+  },
+  {
+    "path": "src/pages/group/ClubSurface.css",
+    "selector": ".club-surface .ds-btn__label",
+    "fingerprint": "8e5317c247b79a833db5588c02d7e57b21f03d828c84e8674942671b97b6d769"
+  },
+  {
+    "path": "src/pages/group/ClubSurface.css",
+    "selector": "@media (max-width: 36rem) > .club-dialog .ds-btn",
+    "fingerprint": "08d1409e951c9bb7728495afbd2740a2de38f40f6a94101321b60d7d6f6d5973"
+  }
+]
