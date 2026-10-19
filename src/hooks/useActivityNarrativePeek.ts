@@ -69,7 +69,7 @@ export function useActivityNarrativePeek(activityId: string | null, enabled: boo
       })
       .catch((error) => {
         if (cancelled) return;
-        logClientError("useActivityNarrativePeek", error, { activityId, lang });
+        logClientError("useActivityNarrativePeek", error, { lang });
         // peek 실패는 생성 트리거로 이어지지 않게 miss 처리한다.
         setState({ data: null, loading: false, cacheMiss: true });
       });
