@@ -24,13 +24,15 @@ interface InfoTipProps {
    */
   /** `accent`: theme-aware semantic accent text, without an underline. */
   tone?: "default" | "inherit" | "accent";
+  /** Explicit activation avoids opening explanations while using nearby controls. */
+  activation?: "hover-focus" | "click";
 }
 
 const TIP_WIDTH = 232;
 const VIEWPORT_MARGIN = 8;
 
 /** Hover, focus, or tap for a description. The portal escapes clipped card/chart containers. */
-export default function InfoTip({ content, title, label, termId, children, className, style, tone = "default" }: InfoTipProps) {
+export default function InfoTip({ content, title, label, termId, children, className, style, tone = "default", activation = "hover-focus" }: InfoTipProps) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ left: VIEWPORT_MARGIN, top: VIEWPORT_MARGIN });
   const id = useId();
@@ -153,9 +155,9 @@ export default function InfoTip({ content, title, label, termId, children, class
         type="button"
         aria-label={label ?? content}
         aria-describedby={open ? id : undefined}
-        onMouseEnter={() => { cancelClose(); setOpen(true); }}
+        onMouseEnter={() => { if (activation === "hover-focus") { cancelClose(); setOpen(true); } }}
         onMouseLeave={leave}
-        onFocus={() => { cancelClose(); setOpen(true); }}
+        onFocus={() => { if (activation === "hover-focus") { cancelClose(); setOpen(true); } }}
         onBlur={close}
         onClick={(event) => {
           event.stopPropagation();
