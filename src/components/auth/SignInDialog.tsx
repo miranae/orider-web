@@ -96,12 +96,6 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
           onClick={() => { void handleSocial("kakao"); }}>
           <KakaoLogo />{t("signIn.kakao")}
         </button>
-        <button data-testid="A1-1-4" type="button" aria-label={t("signIn.strava")}
-          className="w-full h-12 flex items-center justify-center rounded-[var(--r-lg)] overflow-hidden disabled:opacity-60"
-          style={{ background: "var(--strava-login)" }} disabled={pending !== null}
-          onClick={() => { void handleSocial("strava"); }}>
-          <img src="/btn_strava_connect_orange.svg" alt="" className="h-12 w-auto" />
-        </button>
         {error && <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)", margin: 0 }}>{error}</p>}
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>{t("signIn.separateAccountHint")}</p>
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>
