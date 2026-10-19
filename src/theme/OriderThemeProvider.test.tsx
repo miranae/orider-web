@@ -8,12 +8,12 @@ describe('OriderTheme CSS 변수 주입', () => {
     document.documentElement.removeAttribute('data-design-theme');
   });
 
-  it('기본 테마 다크 variant 적용 시 --bg-0/--ink-0/--lime 가 OKLCH 값으로 설정', () => {
+  it('기본 테마 다크 variant의 배경·본문·강조색 토큰을 그대로 주입', () => {
     _testApplyTheme(DEFAULT_THEME, 'dark');
     const style = document.documentElement.style;
-    expect(style.getPropertyValue('--bg-0')).toContain('oklch');
-    expect(style.getPropertyValue('--ink-0')).toContain('oklch');
-    expect(style.getPropertyValue('--lime')).toContain('oklch');
+    expect(style.getPropertyValue('--bg-0')).toBe(DEFAULT_THEME.scheme.dark.colors.background);
+    expect(style.getPropertyValue('--ink-0')).toBe(DEFAULT_THEME.scheme.dark.colors.textPrimary);
+    expect(style.getPropertyValue('--lime')).toBe(DEFAULT_THEME.scheme.dark.colors.accent);
     expect(document.documentElement.getAttribute('data-design-theme')).toBe('default');
   });
 
