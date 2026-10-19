@@ -21,6 +21,10 @@ Orider Web is a React 19, Vite, and TypeScript frontend. Application code lives 
 
 Use TypeScript and functional React components. Keep component files in PascalCase, hooks named `useThing.ts`, and utility modules in camelCase. Follow the existing two-space indentation style. Prefer design-system components and tokens from `src/theme/`; ESLint flags Tailwind token bypasses, inline pixel spacing, hard-coded hex colors, and deprecated `rd*` classes. Use aliases such as `@shared` for shared modules.
 
+### Shared control and chart appearance
+
+Before changing cards, sections, tables, buttons, map controls or charts, consult `src/theme/components/README.md` and the live React catalogue at `/design-system-controls.html`. The visual baseline is Apple Human Interface Guidelines with ORider brand accent, as defined in `src/theme/README.md`; apply the shared system typography, control anatomy and states rather than inventing per-screen styles. Shared appearance belongs in `src/theme/components/`; feature code owns data, callbacks, camera operations and domain calculations. Use the documented component props instead of overriding `.ds-*` selectors or adding page-specific button variants. Existing legacy overrides are recorded by the design-system ownership check; do not expand that baseline to bypass a failed check. Add or revise the shared component and catalogue when a new presentation is needed.
+
 ## Testing Guidelines
 
 Use Vitest with Testing Library for unit and component tests. Name tests after the module under test, for example `ActivityPage.test.tsx` or `exportGpx.test.ts`. Put broad integration flows in `e2e/tests/`; Playwright runs desktop and mobile projects and starts Vite on port `5174`. Add tests for behavior changes, pure utility logic, and user-visible flows.

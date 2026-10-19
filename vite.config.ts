@@ -32,6 +32,7 @@ export default defineConfig(({ mode }) => {
       // future dependency growth exceeds the current public-app bundle profile.
       chunkSizeWarningLimit: 1800,
       rollupOptions: {
+        input: { index: path.resolve(__dirname, "index.html"), controls: path.resolve(__dirname, "design-system-controls.html") },
         output: {
           manualChunks(id) {
             if (id.includes("node_modules")) {

@@ -105,9 +105,6 @@
 .activity-detail-map-resize--bottom-right { top: auto; left: auto; bottom: 0; right: 0; background: linear-gradient(135deg, transparent, var(--bg-1)); }
 .activity-detail-map-resize:hover, .activity-detail-map-resize:focus-visible { color: var(--accent); background: var(--bg-1); }
 .activity-detail-map-resize:focus-visible { outline: 2px solid var(--accent); outline-offset: calc(var(--space-1) * -1); }
-.activity-detail-map-navigation > .ds-btn { min-width: calc(var(--space-7) + var(--space-3)); min-height: calc(var(--space-7) + var(--space-3)); height: auto; }
-.activity-detail-map-navigation { position: absolute; top: var(--space-3); right: var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); }
-.activity-detail-map-navigation > .ds-btn { box-shadow: var(--shadow-sm); }
 .activity-detail-header { display: grid; gap: var(--space-2); padding: var(--space-4); }
 .activity-detail-utilities { margin-top: 0; }
 .activity-detail-utilities .ds-btn { min-height: calc(var(--space-7) + var(--space-3)); height: auto; font-size: var(--fs-sm); }
