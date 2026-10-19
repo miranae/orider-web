@@ -12,6 +12,7 @@ import {
 import type { ZoneDistribution } from "../features/activity/detail/metricsPresentation";
 import { resolveCssColor } from "../utils/cssColor";
 import { useOriderTheme } from "../theme";
+import { createZoneSurfacePlugin } from "../theme/charts/zoneSurface";
 import ChartEmptyState from "./charts/ChartEmptyState";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
@@ -29,14 +30,16 @@ function formatSeconds(s: number): string {
 
 interface ZoneDistributionChartProps {
   title: string;
+  surface?: "plain" | "sheen";
   zones: ZoneDistribution[];
   emptyTitle?: string;
   emptyDescription?: string;
 }
 
-export default function ZoneDistributionChart({ title, zones, emptyTitle, emptyDescription }: ZoneDistributionChartProps) {
+export default function ZoneDistributionChart({ title, zones, emptyTitle, emptyDescription, surface = "plain" }: ZoneDistributionChartProps) {
   const { t } = useTranslation("dashboard");
   const { variant } = useOriderTheme();
+  const surfacePlugins = useMemo(() => surface === "sheen" ? [createZoneSurfacePlugin()] : [], [surface]);
   const hasZoneData = zones.some((z) => z.seconds > 0 || z.percentage > 0);
   const data = useMemo(() => ({
     labels: zones.map((z) => `Z${z.zone} ${t(z.nameKey)}`),
@@ -112,7 +115,7 @@ export default function ZoneDistributionChart({ title, zones, emptyTitle, emptyD
         </span>
       </div>
       <div style={{ height: zones.length * 36 + 40 }}>
-        <Bar data={data} options={options} />
+        <Bar data={data} options={options} plugins={surfacePlugins} />
       </div>
       {/* 존별 상세 */}
       <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-1 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>

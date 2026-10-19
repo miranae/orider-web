@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 import type { TFunction } from "i18next";
 import type { Activity, ActivityStreams } from "@shared/types";
 import RouteMap from "../../../components/RouteMap";
-import { Button, Card } from "../../../theme/components";
+import { Card, MapResizeControls } from "../../../theme/components";
 import { formatDuration, type SegmentEffortData, type SportCategory } from "./activityDetailUtils";
 import type { UploadedPhoto } from "./activityDisplay";
 import { isIndoorActivity } from "../../../utils/indoorActivity";
@@ -77,17 +77,9 @@ export function ActivityMediaPanel({
             flyToPosition={selectedSegmentRange ? undefined : flyToPosition}
             fallbackImageUrl={activity.mapImageUrl}
           />
-          {(["top-left", "bottom-right"] as const).map(corner => (
-          <Button key={corner} variant="ghost" iconOnly className={`activity-detail-map-resize activity-detail-map-resize--${corner}`}
-            aria-label={t(mapExpanded ? "page.mapView.collapse" : "page.mapView.expand")}
-            title={t(mapExpanded ? "page.mapView.collapse" : "page.mapView.expand")}
-            aria-controls={mapId} aria-expanded={mapExpanded}
-            onClick={() => setMapExpanded(expanded => !expanded)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-              <path d="M7 19 19 7M13 19l6-6" />
-            </svg>
-          </Button>
-          ))}
+          <MapResizeControls expanded={mapExpanded} controlsId={mapId}
+            expandLabel={t("page.mapView.expand")} collapseLabel={t("page.mapView.collapse")}
+            onToggle={() => setMapExpanded(expanded => !expanded)} />
         </div>
       </div>
     );

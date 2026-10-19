@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useLocale } from "../../../contexts/LocaleContext";
 import ElevationChart, { type OverlayDataset } from "../../../components/ElevationChart";
 import { ActivityZoneTimeline } from "../../../components/activity/ActivityZoneTimeline";
-import { Card, Text } from "../../../theme/components";
+import { Card, ChartLegend, Section, Text, ToggleButton, ToggleControls } from "../../../theme/components";
 import { formatDistance } from "../../../utils/units";
 import { runningCadenceSpm } from "../../../utils/runningCadence";
 import type { OverlayConfig, SampledPoint } from "./activityDetailUtils";
@@ -49,43 +49,22 @@ export default function ActivityPerformanceCharts({
   const overlayLabel = (cfg: OverlayConfig) => cfg.key === "power" && powerSource
     ? t(powerSource === "watts_calc" || powerSource === "virtualPowerOverride" ? "page.chartVirtualPower" : "page.chartMeasuredPower")
     : t(`overlay.${cfg.label}`);
-  return (
-        <Card>
-          <Text as={embedded ? "h3" : "h2"} variant={embedded ? "bodyMedium" : "subtitle"} weight={600} className="mb-3">
-            {!hasElevation ? t("page.detailedCharts") : availableOverlays.length > 0 ? t("page.elevTitleWithPerf") : t("page.elevProfile")}
-          </Text>
+  const title = !hasElevation ? t("page.detailedCharts") : availableOverlays.length > 0 ? t("page.elevTitleWithPerf") : t("page.elevProfile");
+  const content = <>
 
           {/* Overlay toggle buttons */}
           {hasStreams && availableOverlays.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 mb-2">
-              {hasElevation && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-full cursor-default" style={{ background: 'color-mix(in srgb, var(--lime) 12%, transparent)', color: 'var(--lime)', border: '1px solid color-mix(in srgb, var(--lime) 30%, transparent)' }}>
-                <span className="w-2 h-2 rounded-full bg-[var(--color-success)]" />
-                {t("page.elevation")}
-              </span>}
-              {availableOverlays.map((cfg) => (
-                <button
+            <div className="flex flex-wrap items-center gap-3 mb-2">
+              {hasElevation && <ChartLegend marker="dot" items={[{ color: "var(--chart-altitude)", label: t("page.elevation") }]} />}
+              <ToggleControls variant="metric" aria-label={t("page.detailedCharts")}>
+                {availableOverlays.map((cfg) => <ToggleButton
                   key={cfg.key}
+                  selected={activeOverlays.has(cfg.key)}
+                  showCheck
                   onClick={() => toggleOverlay(cfg.key)}
-                  aria-pressed={activeOverlays.has(cfg.key)}
                   aria-label={`${overlayLabel(cfg)}${cfg.key === focusedOverlayKey ? `, ${t("page.chartCurrentScale", { metric: overlayLabel(cfg) })}` : ""}`}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-full border transition-colors"
-                  style={activeOverlays.has(cfg.key) ? {
-                    color: cfg.dotColor,
-                    borderColor: cfg.dotColor,
-                    backgroundColor: `${cfg.dotColor}15`,
-                  } : {
-                    background: 'var(--bg-2)',
-                    color: 'var(--ink-3)',
-                    borderColor: 'var(--line-soft)',
-                  }}
-                >
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: activeOverlays.has(cfg.key) ? cfg.dotColor : "var(--ink-4)" }}
-                  />
-                  {overlayLabel(cfg)}{cfg.formatValue && <span className="ml-1">{cfg.unit}</span>}
-                </button>
-              ))}
+                >{overlayLabel(cfg)}{cfg.formatValue && ` ${cfg.unit}`}</ToggleButton>)}
+              </ToggleControls>
             </div>
           )}
           {focusedOverlay && <p className="sr-only" aria-live="polite">{t("page.chartCurrentScale", { metric: overlayLabel(focusedOverlay) })}</p>}
@@ -96,7 +75,7 @@ export default function ActivityPerformanceCharts({
                 <>
                   <span className="font-medium" style={{ color: 'var(--ink-0)' }}>{formatDistance(hoverPoint.distance, units)}</span>
                   <span style={{ color: 'var(--line)' }}>|</span>
-                  {hasElevation && <span style={{ color: "var(--color-success)" }}>{t("page.elevationLabel", { value: Math.round(hoverPoint.altitude) })}</span>}
+                  {hasElevation && <span style={{ color: "var(--chart-altitude)" }}>{t("page.elevationLabel", { value: Math.round(hoverPoint.altitude) })}</span>}
                   {availableOverlays.flatMap((cfg) => {
                     if (!activeOverlays.has(cfg.key)) return [];
                     const val = cfg.getValue(hoverPoint);
@@ -111,7 +90,7 @@ export default function ActivityPerformanceCharts({
                 </>
               ) : summaryStats ? (
                 <>
-                  {hasElevation && <span style={{ color: "var(--color-success)" }}>{t("page.elevationRange", { min: Math.round(summaryStats.minElev), max: Math.round(summaryStats.maxElev) })}</span>}
+                  {hasElevation && <span style={{ color: "var(--chart-altitude)" }}>{t("page.elevationRange", { min: Math.round(summaryStats.minElev), max: Math.round(summaryStats.maxElev) })}</span>}
                   {availableOverlays.flatMap((cfg) => {
                     const rawStat = summaryStats.overlays[cfg.key];
                     const stat = rawStat && sport === "run" && cfg.key === "speed" ? { ...rawStat, avg: rawStat.avg > 0 ? 60 / rawStat.avg * (units === "imperial" ? 1.609344 : 1) : 0 }
@@ -144,6 +123,7 @@ export default function ActivityPerformanceCharts({
           />
           {rangeAnalysis}
           <ActivityZoneTimeline metrics={metrics} />
-        </Card>
-  );
+  </>;
+  return embedded ? <Section title={title} headingLevel={3}>{content}</Section>
+    : <Card><Text as="h2" variant="subtitle" weight={600} className="mb-3">{title}</Text>{content}</Card>;
 }

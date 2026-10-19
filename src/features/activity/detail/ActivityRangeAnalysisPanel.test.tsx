@@ -132,6 +132,19 @@ describe("canonical elapsed range reading", () => {
     expect(screen.getByText(/러닝 케이던스 단위/)).toBeTruthy();
     expect(screen.getByText(/차트의 파워 미리보기와 별개로/)).toBeTruthy();
   });
+  it("keeps axis selection separate from range mode and withholds unavailable elapsed data", () => {
+    const setXAxis = vi.fn(), toggle = vi.fn();
+    const { rerender } = renderWithProviders(<ActivityRangeControls selection={{ ...selection, enabled: false, setXAxis, toggle }} />);
+    const distance = screen.getByRole("button", { name: "거리 축" });
+    const elapsed = screen.getByRole("button", { name: "경과시간 축" });
+    expect(distance).toHaveAttribute("aria-pressed", "true");
+    expect(elapsed).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(elapsed);
+    expect(setXAxis).toHaveBeenLastCalledWith("elapsed");
+    expect(toggle).not.toHaveBeenCalled();
+    rerender(<ActivityRangeControls selection={{ ...selection, enabled: false, sampledAxis: null, setXAxis, toggle }} />);
+    expect(screen.getByRole("button", { name: "경과시간 축" })).toBeDisabled();
+  });
   it("requires ordered elapsed input before applying, and hides controls for a non-owner", () => {
     const { rerender } = renderWithProviders(<ActivityRangeControls selection={selection} />);
     expect(screen.getByText("시작 20:00 / 끝 25:00")).toBeTruthy();
