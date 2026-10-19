@@ -157,6 +157,15 @@ describe("실제 조편성 편집", () => {
 
 describe("17명 조편성 조정", () => {
   it("6/6/5에서 만석 조 맞교환·되돌리기·여유조 이동·초과 거절·조장 지정을 저장 전 끝낸다", async () => {
+    // 같은 실제 버튼을 찾되 모든 조의 접근성 이름을 매번 계산하지 않는다.
+    const button = (name: string) => {
+      const target = screen.getByText(name, { exact: true }).closest<HTMLButtonElement>("button")!;
+      expect(target).toHaveRole("button");
+      expect(target).toHaveAccessibleName(name);
+      expect(target).toBeVisible();
+      expect(target).toBeEnabled();
+      return target;
+    };
     const people = Array.from({ length: 17 }, (_, i) => ({
       id: `r${i + 1}`,
       name: `라이더${String(i + 1).padStart(2, "0")}`,
@@ -180,7 +189,7 @@ describe("17명 조편성 조정", () => {
         onReload={vi.fn().mockResolvedValue(undefined)}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "조편성 편집" }));
+    fireEvent.click(button("조편성 편집"));
     expect(
       screen
         .getAllByText("조 설정")
@@ -193,11 +202,11 @@ describe("17명 조편성 조정", () => {
       );
     choose(1);
     choose(7);
-    fireEvent.click(screen.getByRole("button", { name: "두 명 맞교환" }));
+    fireEvent.click(button("두 명 맞교환"));
     expect(
       within(screen.getByRole("region", { name: "1조" })).getByText("라이더07"),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "방금 조정 되돌리기" }));
+    fireEvent.click(button("방금 조정 되돌리기"));
     expect(
       within(screen.getByRole("region", { name: "1조" })).getByText(
         "라이더01 · 나",
@@ -205,14 +214,14 @@ describe("17명 조편성 조정", () => {
     ).toBeInTheDocument();
     choose(1);
     choose(7);
-    fireEvent.click(screen.getByRole("button", { name: "두 명 맞교환" }));
-    fireEvent.click(screen.getByRole("button", { name: "라이더07 조장 지정" }));
+    fireEvent.click(button("두 명 맞교환"));
+    fireEvent.click(within(screen.getByRole("region", { name: "1조", exact: true })).getByRole("button", { name: "라이더07 조장 지정" }));
     choose(2);
-    fireEvent.click(screen.getByRole("button", { name: "3조로 이동" }));
+    fireEvent.click(button("3조로 이동"));
     expect(screen.getByLabelText("라이더02 선택")).not.toBeChecked();
     choose(8);
     choose(9);
-    fireEvent.click(screen.getByRole("button", { name: "1조로 이동" }));
+    fireEvent.click(button("1조로 이동"));
     expect(
       screen.getByText(
         "이 조에 설정한 정원을 넘어요. 조 설정에서 정원을 바꾸거나 다른 조로 옮겨주세요.",
@@ -223,7 +232,7 @@ describe("17명 조편성 조정", () => {
       within(screen.getByRole("region", { name: "2조" })).getByText("라이더08"),
     ).toBeInTheDocument();
     expect(save).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "변경 저장" }));
+    fireEvent.click(button("변경 저장"));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     const saved = save.mock.calls[0]![0] as NonNullable<Meeting["teams"]>;
     expect(saved.map((team) => team.memberIds.length)).toEqual([5, 6, 6]);
