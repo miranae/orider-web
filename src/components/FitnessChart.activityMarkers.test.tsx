@@ -126,6 +126,10 @@ describe("FitnessChart activity markers", () => {
     const width = Number(tooltip?.getAttribute("width"));
     expect(x).toBeGreaterThanOrEqual(0);
     expect(x + width).toBeLessThanOrEqual(320);
+    const samples = [...container.querySelectorAll("[data-pmc-tooltip-metric] line")];
+    expect(samples).toHaveLength(3);
+    expect(samples.map(sample => sample.getAttribute("stroke-dasharray"))).toEqual([null, "7 4", "1 4"]);
+    expect(samples.map(sample => sample.getAttribute("stroke-linecap"))).toEqual(["round", "butt", "round"]);
   });
 
   it("commits taps to the nearest historical point without committing hover or projection indexes", () => {

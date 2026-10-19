@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
-import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
+import { trainingDecisionEnvelope } from "../../__tests__/fixtures/trainingDecision";
 import { useTrainingProposalController } from "./useTrainingProposalController";
 
 const mocks = vi.hoisted(() => ({ capabilities: vi.fn(), recovery: vi.fn(), create: vi.fn(), confirm: vi.fn(), log: vi.fn() }));

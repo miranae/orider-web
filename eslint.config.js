@@ -366,6 +366,13 @@ export default tseslint.config(
     },
     settings: { react: { version: '19.0' } },
     rules: {
+      // 테스트 모듈 import는 소비자마다 describe/it를 다시 등록한다. 공용 fixture로 분리한다.
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['**/*.test', '**/*.test.*', '**/*.spec', '**/*.spec.*'],
+          message: '실행할 테스트 모듈을 import하지 말고 src/__tests__/fixtures/의 공용 fixture를 사용하세요.',
+        }],
+      }],
       // --- 디자인 시스템 강제 ---
       'design-system/no-token-bypass-classname': 'warn', // 4주 후 error
       'design-system/no-hex-color-in-jsx-style': 'warn',

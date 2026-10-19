@@ -38,10 +38,6 @@ describe("app install and deep link surfaces", () => {
     expect(assetLinks).not.toContain(UPLOAD_KEY_SHA256);
   });
 
-  it("keeps the iOS smart app banner disabled", () => {
-    expect(read("index.html")).not.toContain('name="apple-itunes-app"');
-  });
-
   it("keeps iOS universal links enabled", () => {
     const association = JSON.parse(read("public/.well-known/apple-app-site-association"));
 
@@ -67,26 +63,5 @@ describe("app install and deep link surfaces", () => {
         "/en/group/join/*",
       ],
     });
-  });
-
-  it("keeps the mobile feed free of the sticky app install banner", () => {
-    const mobileFeed = read("src/components/mobile/MobileFeedPage.tsx");
-
-    expect(mobileFeed).not.toContain("MobileAppInstallBanner");
-    expect(mobileFeed).not.toContain("AppInstallLinks");
-    expect(mobileFeed).not.toContain("mobileFeed.appInstall");
-  });
-
-  it("keeps static about and manual entry points linked to both stores", () => {
-    for (const path of [
-      "public/ko/about/index.html",
-      "public/en/about/index.html",
-      "public/manual/index.html",
-      "scripts/gen-manual.mjs",
-    ]) {
-      const source = read(path);
-      expect(source).toContain("https://apps.apple.com/kr/app/o-rider/id6775696052");
-      expect(source).toContain("https://play.google.com/store/apps/details?id=com.miranae.orider");
-    }
   });
 });

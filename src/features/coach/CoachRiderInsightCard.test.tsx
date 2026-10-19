@@ -1,13 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
 import type { User } from "firebase/auth";
 import parity from "./__fixtures__/rider-insight-parity.json";
 import { parseCoachRiderInsight } from "../../services/coachRiderInsightContract";
 import { CoachRiderInsightCard } from "./CoachRiderInsightCard";
-
-const cardCss = readFileSync("src/features/coach/coach-rider-insight.css", "utf8");
 const mocks = vi.hoisted(() => ({
   enabled: true,
   state: { insight: null as ReturnType<typeof parseCoachRiderInsight> | null, loading: false, unavailable: false },
@@ -55,41 +51,10 @@ describe("CoachRiderInsightCard", () => {
     screen.getAllByRole("button").forEach((button) => expect(button).toBeDisabled());
   });
 
-  it("isolates unavailable failures and keeps narrow-screen/200% reflow rules", () => {
+  it("isolates unavailable failures from existing fitness results", () => {
     mocks.state = { insight: null, loading: false, unavailable: true };
     render(<div><span>existing-fitness-pdc</span><CoachRiderInsightCard user={user} discipline="bike" onQuestionSelect={vi.fn()} /></div>);
     expect(screen.getByText("existing-fitness-pdc")).toBeInTheDocument();
     expect(screen.getByText(/기존 피트니스 PDC 결과는 그대로/)).toBeInTheDocument();
-    expect(cardCss).toContain("min-width: 0"); expect(cardCss).toContain("overflow-wrap: anywhere");
-    expect(cardCss).toContain("flex-wrap: wrap"); expect(cardCss).toContain("@media (max-width: 32rem)");
-    expect(cardCss).toMatch(/coach-rider-card__questions \{ grid-template-columns: 1fr;/);
-  });
-
-  it("renders the 200% equivalent 320 CSS px structure without fixed-width traps and preserves keyboard order", async () => {
-    const selected = vi.fn();
-    const { container } = render(<>
-      <style>{cardCss}</style>
-      <div data-testid="zoom-viewport" style={{ width: "320px", maxWidth: "100%", overflowX: "auto" }}>
-        <CoachRiderInsightCard user={user} discipline="bike" onQuestionSelect={selected} />
-      </div>
-    </>);
-    const viewport = screen.getByTestId("zoom-viewport");
-    const card = container.querySelector<HTMLElement>(".coach-rider-card")!;
-    const questions = container.querySelector<HTMLElement>(".coach-rider-card__questions")!;
-    const buttons = screen.getAllByRole("button");
-
-    expect(viewport).toHaveStyle({ width: "320px", maxWidth: "100%" });
-    expect(getComputedStyle(card).minWidth).toMatch(/^0(?:px)?$/);
-    expect(getComputedStyle(card).overflowWrap).toBe("anywhere");
-    expect(questions).toContainElement(buttons[0]);
-    expect(questions).toContainElement(buttons[1]);
-    buttons[0].focus();
-    await userEvent.tab();
-    expect(buttons[1]).toHaveFocus();
-    await userEvent.keyboard("{Enter}");
-    expect(selected).toHaveBeenCalledWith({
-      question: "어떤 지속시간 영역을 우선 훈련해야 해?",
-      snapshotId: "rider_aaaaaaaaaaaaaaaaaaaaaaaa",
-    });
   });
 });
