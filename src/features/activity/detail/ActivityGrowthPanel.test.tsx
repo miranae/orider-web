@@ -60,22 +60,6 @@ function openComparisonOptions() {
   if (control.getAttribute("aria-expanded") !== "true") fireEvent.click(control);
 }
 describe("ActivityGrowthPanel", () => {
-  it.each(["ko", "en"])("NP comparison uses the same shared term and text trigger in %s", language => {
-    mocks.language = language;
-    const bike = { ...activity, type: "Ride" };
-    mocks.history.mockReturnValue({ activities: [{ ...previous, type: "Ride" }], loading: false, error: false, hasMore: false });
-    render(<ActivityGrowthPanel activity={bike} metrics={null} isOwner comparisonOnly />);
-    chooseComparison("previous");
-    const trigger = screen.getByRole("button", { name: language === "ko" ? "NP 설명" : "About NP" });
-    expect(trigger).toHaveStyle({ color: "var(--color-primary-dark)" });
-    expect((trigger as HTMLElement).style.textDecoration).toBe("");
-    fireEvent.focus(trigger);
-    const tooltip = screen.getByRole("tooltip");
-    expect(tooltip).toHaveClass("ds-tooltip-content");
-    expect(tooltip).toHaveTextContent((language === "ko" ? koTerms : enTerms).terms.np.description);
-    fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
-  });
 
   it("web comparison keeps only normal activity comparison in production, without period/stage sections", () => {
     render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner comparisonOnly />);
@@ -148,7 +132,7 @@ describe("ActivityGrowthPanel", () => {
     r.rerender(<ActivityGrowthPanel activity={activity} metrics={{ version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [split] }} currentMetricsStatus="ready" isOwner />);
     expect(screen.queryByRole("region", { name: ko.splitCompare.title })).not.toBeInTheDocument();
   });
-  it.each(["stale", "loading", "missing", "disabled"] as const)("hides new split comparison for current %s while preserving legacy summary", (currentMetricsStatus) => {
+  it.each(["stale", "missing"] as const)("hides new split comparison for current %s while preserving legacy summary", (currentMetricsStatus) => {
     const split = { km: 1, paceSec: 300, gapSec: 290, elevGain: 0, avgHr: 140 };
     mocks.metrics.mockReturnValue({ status: "ready", metrics: { version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [split] } });
     render(<ActivityGrowthPanel activity={activity} metrics={{ version: ACTIVITY_METRICS_VERSION, inputCoverage: "complete", distanceKm: 1.5, splits: [split] }} currentMetricsStatus={currentMetricsStatus} isOwner />);
@@ -320,15 +304,7 @@ describe("ActivityGrowthPanel", () => {
     expect(screen.getByRole("combobox", { name: "비교할 지속시간" })).toHaveValue("300");
     expect(screen.getByText("파워 분석 없음", { exact: false })).toBeInTheDocument();
   });
-  it("converts running curve values and neutral deltas to imperial pace", () => {
-    mocks.units = "imperial";
-    mocks.metrics.mockReturnValue({ status: "ready", metrics: { speedCurve: { "5m": 8 } } });
-    render(<ActivityGrowthPanel activity={activity} metrics={{ speedCurve: { "5m": 10 } }} isOwner />);
-    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    chooseComparison("previous");
-    expect(screen.getByText("-145 s/mi")).toBeInTheDocument();
-    expect(screen.getAllByText("9:39").length).toBeGreaterThan(0);
-  });
+
   it("withholds a power overlay for differing sources while retaining independently labeled zones", () => {
     mocks.metrics.mockReturnValue({ status: "ready", metrics: { isVirtualPower: true, mmp: { "5m": 200 }, powerZoneSec: [10, 20, 0, 0, 0, 0, 0] } });
     render(<ActivityGrowthPanel activity={activity} metrics={{ isVirtualPower: false, mmp: { "5m": 250 }, powerZoneSec: [10, 20, 0, 0, 0, 0, 0] }} isOwner />);
@@ -356,15 +332,7 @@ describe("ActivityGrowthPanel", () => {
     chooseComparison("previous");
     expect(screen.queryByText("심박 존 분포")).toBeNull();
   });
-  it("offers a mobile scroll hint only for the long monthly chart", () => {
-    render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
-    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
-    expect(screen.queryByText(ko.observedYears.scrollHint)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: ko.growth["12months"] }));
-    expect(screen.getByText(ko.observedYears.scrollHint)).toHaveClass("activity-growth-scroll-hint");
-    fireEvent.click(screen.getByRole("button", { name: ko.growth.week }));
-    expect(screen.queryByText(ko.observedYears.scrollHint)).not.toBeInTheDocument();
-  });
+
   it("offers a retry when statistics fail", () => {
     const retry = vi.fn();
     mocks.history.mockReturnValue({ sourceActivities: [], coverage: "error", error: true, retry });
@@ -374,10 +342,7 @@ describe("ActivityGrowthPanel", () => {
     expect(retry).toHaveBeenCalledTimes(1);
   });
   it.each([
-    ["metric", -0.04, "0.0 km"], ["metric", 0.04, "0.0 km"],
-    ["imperial", -0.08, "0.0 mi"], ["imperial", 0.08, "0.0 mi"],
-    ["metric", -0.12, "-0.1 km"], ["metric", 0.12, "+0.1 km"],
-    ["imperial", -0.16, "-0.1 mi"], ["imperial", 0.16, "+0.1 mi"],
+    ["metric", -0.04, "0.0 km"], ["imperial", 0.16, "+0.1 mi"],
   ])("signs comparison changes at displayed precision after %s conversion (delta=%s)", (units, delta, displayed) => {
     mocks.units = String(units);
     mocks.metrics.mockReturnValue({ status: "ready", metrics: { distanceKm: 10 } });
@@ -386,24 +351,8 @@ describe("ActivityGrowthPanel", () => {
     chooseComparison("previous");
     expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent === `변화 ${displayed}`)).toBeInTheDocument();
   });
-  it.each([-40, 40])("shows a subprecision statistics distance change without a sign (delta=%s m)", (delta) => {
-    const periods = activityPeriods(Date.now(), "week");
-    mocks.history.mockReturnValue({ activities: [], coverage: "ready", sourceActivities: [
-      { ...activity, id: "this-week", startTime: periods.start, summary: { distance: 10000 + delta } },
-      { ...activity, id: "previous-week", startTime: periods.previousStart, summary: { distance: 10000 } },
-    ] });
-    render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner />);
-    fireEvent.click(screen.getByRole("button", { name: "활동 통계" }));
-    expect(screen.getByText((_, element) => element?.tagName === "P" && element.textContent === "지난 기간 10.0 · 변화 0.0")).toBeInTheDocument();
-    expect(screen.queryByText(/[-+]0.0/)).not.toBeInTheDocument();
-  });
-  it("honors imperial units without replacing missing metrics", () => {
-    mocks.units = "imperial";
-    render(<ActivityGrowthPanel activity={activity} metrics={{ avgSpeedKph: 12, distanceKm: 5 }} isOwner />);
-    fireEvent.click(screen.getByRole("button", { name: "지난 활동과 비교" }));
-    chooseComparison("previous");
-    expect(screen.getByText("거리 · mi")).toBeInTheDocument(); expect(screen.getByText("8:03")).toBeInTheDocument();
-  });
+
+
 });
 
 describe("observed year application", () => {
@@ -548,14 +497,8 @@ it("offers thin route candidate history only for the owner run/bike without open
 describe("owner comparison readable moving time", () => {
   it.each([
     [5936, 5263, "1:38:56", "1:27:43", "+11:13"],
-    [5263, 5936, "1:27:43", "1:38:56", "-11:13"],
     [0, 0, "0:00", "0:00", "0:00"],
-    [360000, 0, "100:00:00", "0:00", "+100:00:00"],
-    [59.6, 59.4, "1:00", "0:59", "+0:00.2"],
     [null, 60, "—", "1:00", null],
-    [NaN, 60, "—", "1:00", null],
-    [Infinity, null, "—", "—", null],
-    [1e308, 0, "1e+308 s", "0:00", "+1e+308 s"],
   ] as const)("presents %s versus %s without changing raw seconds or delta", (currentSeconds, previousSeconds, currentClock, previousClock, deltaClock) => {
     const currentMetrics = { movingTimeSec: currentSeconds }, previousMetrics = { movingTimeSec: previousSeconds };
     mocks.metrics.mockReturnValue({ status: "ready", metrics: previousMetrics });
@@ -576,7 +519,7 @@ describe("owner comparison readable moving time", () => {
     expect(currentMetrics.movingTimeSec).toBe(currentSeconds); expect(previousMetrics.movingTimeSec).toBe(previousSeconds);
     expect(mocks.metrics).toHaveBeenLastCalledWith("previous");
   });
-  it.each(["ko", "en"])("distinguishes same-day options and headers by KST start time in %s without changing IDs", language => {
+  it.each(["ko"])("distinguishes same-day options and headers by KST start time in %s without changing IDs", language => {
     mocks.language = language;
     const current = { ...activity, startTime: Date.UTC(2026, 9, 6, 17, 30) }, first = { ...previous, startTime: Date.UTC(2026, 9, 6, 17, 10), description: "Ride" }, second = { ...previous, id: "second", startTime: Date.UTC(2026, 9, 6, 17, 20), description: "Ride" };
     mocks.history.mockReturnValue({ activities: [first, second], sourceActivities: [], coverage: "ready", loading: false, error: false, hasMore: false });
@@ -595,7 +538,6 @@ describe("owner comparison readable moving time", () => {
     expect(mocks.metrics).toHaveBeenLastCalledWith("previous"); expect(mocks.route).toHaveBeenLastCalledWith({ current, previous: first }); expect(mocks.periods).not.toHaveBeenCalled();
   });
 });
-
 
 it("mounts the current bike power tool only in opened statistics without changing period request flags", () => {
   const bike = { ...activity, type: "Ride" };

@@ -148,8 +148,26 @@ describe("GlossaryText", () => {
 });
 
 describe("InfoTip interactions", () => {
+  it("opens click-only explanations by native keyboard activation, not hover or focus", async () => {
+    const user = userEvent.setup();
+    render(<><InfoTip activation="click" content="Explicit explanation" label="Explain chart">Chart</InfoTip><button>Outside</button></>);
+    const trigger = screen.getByRole("button", { name: "Explain chart" });
+    fireEvent.mouseEnter(trigger);
+    await user.tab();
+    expect(trigger).toHaveFocus();
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    await user.keyboard("{Enter}");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Explicit explanation");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    await user.keyboard(" ");
+    expect(screen.getByRole("tooltip")).toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Outside" }));
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
   it("uses separate design-system title and body text for structured explanations", () => {
-    render(<InfoTip title="훈련 부하 점수" content="시간과 상대 강도로 계산합니다." label="TSS 설명">TSS</InfoTip>);
+    render(<InfoTip tone="accent" title="훈련 부하 점수" content="시간과 상대 강도로 계산합니다." label="TSS 설명">TSS</InfoTip>);
     const button = screen.getByRole("button", { name: "TSS 설명" });
     fireEvent.focus(button);
     const tooltip = screen.getByRole("tooltip");

@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
 import { getAppCheckToken } from "../../services/firebase";
@@ -24,7 +24,10 @@ async function readyForm() {
   fireEvent.change(await screen.findByPlaceholderText("홍길동"), { target: { value: "QA Rider" } });
   fireEvent.click(screen.getByRole("button", { name: "생년월일 선택" }));
   // 생일은 UTC 기반 max와 로컬 오늘 날짜 모두보다 이전이어야 한다.
-  fireEvent.click(screen.getByRole("gridcell", { name: "2026-10-01" }));
+  const birthday = within(screen.getByRole("dialog")).getByLabelText("2026-10-01");
+  expect(birthday).toHaveAttribute("role", "gridcell");
+  expect(birthday).toBeVisible();
+  fireEvent.click(birthday);
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "남성" }));
   fireEvent.change(screen.getByPlaceholderText("010-0000-0000"), { target: { value: "010-1234-5678" } });

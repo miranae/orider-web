@@ -7,7 +7,7 @@
  */
 
 import { useTranslation } from "react-i18next";
-import { Card, Chip, Text } from "../../theme/components";
+import { Card, Chip, Stack, Text } from "../../theme/components";
 import type { UseActivityMetricsState } from "../../hooks/useActivityMetrics";
 
 interface ServerMetricsBannerProps {
@@ -60,7 +60,7 @@ export default function ServerMetricsBanner({
   // 읽히므로 중단 상태를 한 줄로 밝힌다 (#2442).
   if (state.status === "disabled") {
     return (
-      <Card style={{ padding: "var(--space-3)", marginBottom: "var(--space-4)" }}>
+      <Card variant="inset" padding="compact" className="mb-4">
         <Text size="xs" tone="tertiary">{t("serverMetrics.paused")}</Text>
       </Card>
     );
@@ -68,7 +68,7 @@ export default function ServerMetricsBanner({
   // missing: Phase A 트리거 발화 안 된 활동 — 1줄 hint 로 명시.
   if (state.status === "missing") {
     return (
-      <Card style={{ padding: "var(--space-3)", marginBottom: "var(--space-4)" }}>
+      <Card variant="inset" padding="compact" className="mb-4">
         <Text size="xs" tone="tertiary">{t("serverMetrics.missing")}</Text>
       </Card>
     );
@@ -108,22 +108,22 @@ export default function ServerMetricsBanner({
   if (items.length === 0 && (!showStatusWithoutMetrics || (!isStale && !m.inputPending && m.inputCoverage !== "partial_terminal"))) return null;
 
   return (
-    <Card style={{ padding: "var(--space-3)", marginBottom: "var(--space-4)" }}>
-      <div className="flex items-center" style={{ gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
+    <Card variant="inset" padding="compact" className="mb-4">
+      <Stack direction="row" wrap gap="var(--space-2)" className="mb-3">
         <Chip>{t("serverMetrics.chip")}</Chip>
         {/* 서버 완전성 표식 — 업로드 중 잠정값 / 종료된 부분 입력. 저장 층만으로 잘림을 추론하지 않는다. */}
         {/* 스키마 버전이 클라 기대보다 낮은 문서 — 값은 보여주되 최신 계산이 아님을 명시 (#885). */}
-        {isStale && <Chip>{t("serverMetrics.staleChip")}</Chip>}
-        {m.inputPending && <Chip>{t("serverMetrics.provisionalChip")}</Chip>}
-        {m.inputCoverage === "partial_terminal" && <Chip>{t("serverMetrics.truncatedInputChip")}</Chip>}
+        {isStale && <Chip variant="warning">{t("serverMetrics.staleChip")}</Chip>}
+        {m.inputPending && <Chip variant="warning">{t("serverMetrics.provisionalChip")}</Chip>}
+        {m.inputCoverage === "partial_terminal" && <Chip variant="warning">{t("serverMetrics.truncatedInputChip")}</Chip>}
         <Text size="xs" tone="tertiary">
           {new Date(m.computedAt).toLocaleString("ko-KR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" })} · v{m.version}
         </Text>
-      </div>
+      </Stack>
       {/* 셀별 라벨/값/힌트를 항상 세로 stack — <Text> 가 기본 span 이라 wrapper 없이 두면
        *  인라인으로 붙어("TSS30") 끔찍하게 렌더되던 회귀 수정. ActivityCard #181 StatBlock 패턴
-       *  참고. 모바일은 grid-cols-3, 데스크톱은 flex-wrap 으로 자연 정렬. */}
-      <div className="grid grid-cols-3 gap-x-3 gap-y-3 md:flex md:flex-wrap md:gap-4">
+       *  참고. 모바일은 grid-cols-2, 데스크톱은 flex-wrap 으로 자연 정렬. */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-3 md:flex md:flex-wrap md:gap-4">
         {items.map((it) => (
           <div key={it.label} className="flex flex-col items-start" style={{ minWidth: 80 }}>
             <Text size="xs" tone="tertiary" as="span">{it.label}</Text>

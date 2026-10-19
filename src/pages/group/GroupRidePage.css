@@ -1,0 +1,20 @@
+.club-ride-context { margin-bottom: var(--space-2); color: var(--ink-2); font-size: var(--ft-body-medium-size); font-weight: var(--ft-body-medium-weight); line-height: var(--ft-body-medium-line-height); }
+.club-ride-selection { margin-block: var(--space-5) var(--space-4); }
+.club-ride-section-note { margin-block: var(--space-2) var(--space-3); color: var(--ink-2); font-size: var(--ft-body-small-size); line-height: var(--ft-body-small-line-height); }
+.club-ride-detail .club-record-scope { font-size: var(--ft-body-small-size); line-height: var(--ft-body-small-line-height); }
+.club-ride-map { --club-ride-map-default-height: clamp(20rem, 42vw, 30rem); position: relative; height: var(--club-ride-map-default-height); overflow: hidden; border-radius: var(--r-lg); margin-bottom: var(--space-5); }
+.club-ride-map[data-map-expanded="true"] { height: max(calc(var(--club-ride-map-default-height) + 8rem), min(75vh, 54rem)); }
+.club-ride-empty { padding: var(--space-5); margin-block: var(--space-4); background: var(--bg-2); border-radius: var(--r-md); color: var(--ink-2); }
+.club-ride-record-link { display: inline-flex; align-items: baseline; gap: var(--space-2); color: var(--ink-1); text-decoration: none; }
+
+.club-ride-legend-state { color: var(--ink-2); }
+
+
+.club-ride-inspection-coordinate { display: block; min-height: 1.5em; }
+
+.club-ride-secondary-elevation { color: var(--ink-2); }
+
+.club-ride-chart-comparison { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--line); }
+
+.club-ride-record-choice { display: flex; align-items: center; gap: var(--space-1); min-width: 0; }
+.club-ride-record-choice > div { min-width: 0; }

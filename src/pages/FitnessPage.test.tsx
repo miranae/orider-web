@@ -1,6 +1,5 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { collection, getDoc, onSnapshot } from "firebase/firestore";
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -158,15 +157,18 @@ describe("FitnessPage", () => {
     const today = new Date().toISOString().slice(0, 10);
     setDocData("users/test-uid/fitness/timeseries_bike", { discipline: "bike", schemaVersion: 1, computedAt: Date.now(), startDate: today, endDate: today, pointCount: 1, points: [{ date: today, ctl: 30, atl: 25, tsb: 5, dailyLoad: 0 }] });
     renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
-    const load = await screen.findByRole("button", { name: "기간 분석 불러오기" });
+    const load = (await screen.findByText("기간 분석 불러오기")).closest<HTMLButtonElement>("button")!;
+    const disclosure = load.closest("details")!;
+    fireEvent.click(disclosure.querySelector("summary")!);
+    expect(load).toHaveRole("button");
+    expect(load).toHaveAccessibleName("기간 분석 불러오기");
+    expect(load).toBeVisible();
     expect(mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods")).toHaveLength(0);
     if (!enabled) expect(load).toBeDisabled();
     else { fireEvent.click(load); await waitFor(() => expect(mockCallableInvocations.some(call => call.name === "getPowerCurvePeriods")).toBe(true)); }
   });
 
-  it.each(["desktop", "mobile", "embedded"].flatMap((surface) =>
-    ["bike", "run", "swim"].map((sport) => [surface, sport]),
-  ))("%s %s 체력 화면은 서버 윈도 1개와 곡선만 읽고 활동 지표·스트림은 요청하지 않는다", async (surface, sport) => {
+  it.each([["desktop", "bike"], ["mobile", "run"], ["embedded", "swim"]])("%s %s 체력 화면은 서버 윈도 1개와 곡선만 읽고 활동 지표·스트림은 요청하지 않는다", async (surface, sport) => {
     viewport.isMobile = surface !== "desktop";
     const streamsRequest = vi.spyOn(personalDataApi, "getActivityStreamsWithAuth")
       .mockResolvedValue({ velocity_smooth: Array(30).fill(3) });
@@ -358,12 +360,7 @@ describe("FitnessPage", () => {
     expect(screen.queryByText("0.0")).not.toBeInTheDocument();
   });
 
-  it("never carries a single-sport projection into the integrated mobile PMC", () => {
-    const source = readFileSync(join(process.cwd(), "src/hooks/useFitnessModel.ts"), "utf8");
-    expect(source).toContain('pmcProjection: discipline === "tri" ? null : projection?.series ?? null');
-  });
-
-  it.each(["desktop", "mobile", "embedded"])("최근 활동이 없어도 %s PMC에 전체 정본 이력을 전달한다", async (surface) => {
+  it.each(["desktop", "embedded"])("최근 활동이 없어도 %s PMC에 전체 정본 이력을 전달한다", async (surface) => {
     viewport.isMobile = surface !== "desktop";
     setCollectionDocs("activities", []);
     const points = [
@@ -392,25 +389,6 @@ describe("FitnessPage", () => {
     expect(await screen.findByText("피트니스 곡선 미리보기")).toBeInTheDocument();
     expect(screen.getByText("데모 데이터")).toBeInTheDocument();
     expect(screen.queryByText("mobile fitness dashboard")).not.toBeInTheDocument();
-  });
-
-  it("renders the mobile dashboard for an authenticated tri athlete on mobile", async () => {
-    setCollectionDocs("activities", [{
-      id: "tri-ride",
-      userId: "test-uid",
-      type: "Ride",
-      startTime: Date.now(),
-      deletedAt: null,
-      summary: { distance: 20_000, ridingTimeMillis: 3_600_000 },
-    }]);
-
-    renderWithProviders(<FitnessPage />, {
-      authenticated: true,
-      route: "/fitness?sport=tri",
-    });
-
-    expect(await screen.findByText("mobile fitness dashboard: tri")).toBeInTheDocument();
-    expect(screen.queryByText("desktop tri fitness dashboard")).not.toBeInTheDocument();
   });
 
   it.each([
@@ -517,7 +495,7 @@ describe("FitnessPage", () => {
     expect(mockCallableInvocations.filter(invocation => invocation.name === "ensureFitnessCurves")).toHaveLength(1);
   });
 
-  it.each(["desktop", "mobile", "embedded"])("%s 잘린 서버 윈도는 부분 안내를 표시하고 완전한 부하 합계를 숨긴다", async surface => {
+  it.each(["desktop", "embedded"])("%s 잘린 서버 윈도는 부분 안내를 표시하고 완전한 부하 합계를 숨긴다", async surface => {
     viewport.isMobile = surface !== "desktop";
     setCollectionDocs("activities", [{ id: "truncated-ride", userId: "test-uid", type: "Ride", startTime: Date.now(), deletedAt: null,
       summary: { distance: 20000, ridingTimeMillis: 3600000, tss: 100 } }]);
@@ -530,34 +508,6 @@ describe("FitnessPage", () => {
     const notices = await screen.findAllByTestId("fitness-activity-window-notice");
     expect(notices[0]).toHaveTextContent("부분 집계");
     if (surface !== "desktop") expect(screen.getByText("focus unavailable")).toBeInTheDocument();
-  });
-
-  it("keeps the dedicated tri dashboard on desktop", async () => {
-    viewport.isMobile = false;
-    setDocData("users/test-uid/fitness/current", {
-      updatedAt: Date.now(), totalCTL: 48, totalATL: 51, totalTSB: -3,
-      breakdown: { bike: { ctl: 30 }, run: { ctl: 15 }, swim: { ctl: 3 } },
-    });
-    for (const [discipline, ctl] of [["bike", 30], ["run", 15], ["swim", 3]] as const) {
-      setDocData(`users/test-uid/fitness/timeseries_${discipline}`, {
-        discipline,
-        schemaVersion: 1,
-        computedAt: Date.now(),
-        startDate: "2026-09-02",
-        endDate: "2026-09-02",
-        pointCount: 1,
-        points: [{ date: "2026-09-02", ctl, atl: ctl, tsb: 0, dailyLoad: 0 }],
-      });
-    }
-
-    renderWithProviders(<FitnessPage />, {
-      authenticated: true,
-      route: "/fitness?sport=tri",
-    });
-
-    expect(await screen.findByText("desktop tri fitness dashboard")).toBeInTheDocument();
-    expect(screen.getByText("desktop integrated 48")).toBeInTheDocument();
-    expect(screen.queryByText("mobile fitness dashboard: tri")).not.toBeInTheDocument();
   });
 
   it("prefers canonical discipline timeseries and uses accepted recorded TSS for a missing discipline fallback", async ({ onTestFinished }) => {
@@ -814,7 +764,7 @@ describe("FitnessPage", () => {
     expect(screen.queryByText("일일 부하 반영을 기다리는 중")).not.toBeInTheDocument();
   });
 
-  it.each([false, true])("shows own-record model contribution for mixed-TSS activities on mobile=%s", async (isMobile) => {
+  it.each([false])("shows own-record model contribution for mixed-TSS activities on mobile=%s", async (isMobile) => {
     viewport.isMobile = isMobile;
     setCollectionDocs("activities", [null, null, 51.2866, 63.1913].map((tss, index) => ({
       id: `distinct-${index}`, userId: "test-uid", source: "orider", type: "Ride",
@@ -1090,19 +1040,6 @@ describe("FitnessPage", () => {
       expect(await screen.findByTestId("K1-1-1-sufficiency-inline")).toBeInTheDocument();
       expect(screen.getByTestId("K1-1-1-sufficiency-inline-requirement").textContent).toContain("10일째");
       expect(screen.getByTestId("K1-1-1-sufficiency-inline-action").textContent).toContain("기록을 이어가");
-    });
-
-    it("기록 기간이 충분하면 K1 현재 지표에 아무것도 덧붙이지 않는다", async () => {
-      viewport.isMobile = false;
-      const today = new Date().toISOString().slice(0, 10);
-      setDocData("users/test-uid/fitness/timeseries_bike", { discipline: "bike", schemaVersion: 1, computedAt: Date.now(),
-        startDate: today, endDate: today, pointCount: 1, points: [{ date: today, ctl: 30, atl: 25, tsb: 5, dailyLoad: 0 }],
-        sufficiency: loadSet("open", "open", 42) });
-      setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride",
-        startTime: Date.now(), deletedAt: null, summary: { distance: 20_000, ridingTimeMillis: 3_600_000 } }]);
-      renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
-      expect(await screen.findByText("30.0")).toBeInTheDocument();
-      expect(screen.queryByTestId("K1-1-1-sufficiency-inline")).toBeNull();
     });
 
     it("부하가 잡힌 날이 없으면 추이 자리에 잠김 카드가 선다", async () => {

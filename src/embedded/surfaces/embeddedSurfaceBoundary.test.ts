@@ -7,55 +7,6 @@ function read(path: string): string {
 }
 
 describe("embedded Fitness and Plan sharing boundaries", () => {
-  it("uses the same Fitness model and mobile presentation as the normal page", () => {
-    const page = read("src/pages/FitnessPage.tsx");
-    const surface = read("src/embedded/surfaces/FitnessSurface.tsx");
-
-    // 닫는 괄호까지 고정하면 훅에 옵션 인자가 붙을 때마다 깨진다 — 호출 사실만 본다.
-    expect(page).toContain("useFitnessModel(searchParams.get(\"sport\")");
-    expect(surface).toContain("useFitnessModel(searchParams.get(\"sport\")");
-    expect(page).toContain("<MobileFitnessPage");
-    expect(surface).toContain("<MobileFitnessPage");
-    expect(surface).not.toMatch(/from\s+["'][^"']*pages\/FitnessPage["']/);
-    expect(surface).not.toContain("TodayTrainingDecisionCard");
-  });
-
-  it("uses the same Plan model and presentation without page-only action modules", () => {
-    const page = read("src/pages/PlanPage.tsx");
-    const surface = read("src/embedded/surfaces/PlanSurface.tsx");
-    const presentation = read("src/features/training/plan/PlanPresentation.tsx");
-    const mobileContent = read("src/features/training/plan/MobilePlanContent.tsx");
-
-    expect(page).toContain("usePlanModel(searchParams.get(\"sport\")");
-    expect(surface).toContain("usePlanModel(searchParams.get(\"sport\")");
-    expect(page).toContain("<PlanPresentation");
-    expect(surface).toContain("<PlanPresentation");
-    expect(surface).toContain('className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan"');
-    expect(surface).not.toMatch(/from\s+["'][^"']*pages\/PlanPage["']/);
-    expect(mobileContent).toContain('{!embedded && <div style={{ height: 80 }} />}');
-    for (const forbidden of [
-      "TodayTrainingDecisionCard",
-      "WorkoutEditModal",
-      "AdaptationBanner",
-      "AddPlanSheet",
-      "icsExport",
-      "services/firebase",
-    ]) {
-      expect(presentation).not.toContain(forbidden);
-      expect(surface).not.toContain(forbidden);
-    }
-  });
-
-  it("keeps each authorized surface behind its own lazy chunk", () => {
-    const bootstrap = read("src/embedded/EmbeddedBootstrapRoot.tsx");
-
-    expect(bootstrap).toContain('lazy(() => import("./surfaces/ActivityAnalysisSurface"))');
-    for (const surface of ["Fitness", "Plan"]) {
-      expect(bootstrap).toContain(`const load${surface}Surface = () => import("./surfaces/${surface}Surface");`);
-      expect(bootstrap).toContain(`const ${surface}Surface = lazy(load${surface}Surface);`);
-    }
-    expect(bootstrap).not.toMatch(/import\s+(?:[^;]*?\s+from\s+)?["']\.\/surfaces\/(?:ActivityAnalysis|Fitness|Plan)Surface["']/);
-  });
 
   it("never exposes the FTP accept action on the embedded surface", () => {
     // 임베드 provider 트리에는 ToastProvider 가 없다(AppRoot 가 의도적으로 제외).

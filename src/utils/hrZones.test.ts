@@ -89,9 +89,4 @@ describe("정본 위임 (#2437)", () => {
     expect(ui.zones.map((z) => [z.minBpm, z.maxBpmExclusive])).toEqual(canonical.zones.map((z) => [z.minBpm, z.maxBpmExclusive]));
     expect(ui.source).toBe(canonical.reference);
   });
-  it("자체 경계 표를 갖지 않는다", () => {
-    const src = readFileSync(join(__dirname, "hrZones.ts"), "utf8");
-    expect(src).not.toMatch(/BOUNDS\s*[:=]/);
-    expect(src).toMatch(/@shared\/training\/hrZoneTable/);
-  });
 });

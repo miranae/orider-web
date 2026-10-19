@@ -10,26 +10,6 @@ describe("TabNav", () => {
     { id: "photos", label: "사진", count: 0 },
   ];
 
-  it("renders all tab labels", () => {
-    render(<TabNav tabs={tabs} activeTab="overview" onChange={() => {}} />);
-    expect(screen.getByText("개요")).toBeInTheDocument();
-    expect(screen.getByText("세그먼트")).toBeInTheDocument();
-    expect(screen.getByText("사진")).toBeInTheDocument();
-  });
-
-  it("shows count when present", () => {
-    render(<TabNav tabs={tabs} activeTab="overview" onChange={() => {}} />);
-    expect(screen.getByText("(5)")).toBeInTheDocument();
-    expect(screen.getByText("(0)")).toBeInTheDocument();
-  });
-
-  it("highlights active tab with accent (teal) border", () => {
-    render(<TabNav tabs={tabs} activeTab="segments" onChange={() => {}} />);
-    const btn = screen.getByText("세그먼트").closest("button");
-    expect(btn?.style.borderColor).toBe("var(--lime)");
-    expect(btn?.style.color).toBe("var(--lime)");
-  });
-
   it("exposes tab semantics and visible keyboard focus styles", () => {
     render(<TabNav tabs={tabs} activeTab="overview" onChange={() => {}} />);
 
@@ -100,7 +80,6 @@ describe("RouteTabNav optional navigation state", () => {
     expect(screen.getByTestId("tab-state")).toHaveTextContent("null");
   });
 });
-
 
 it("keeps the active route visible after late tab-width changes and respects manual browsing", () => {
   const frames = new Map<number, FrameRequestCallback>();

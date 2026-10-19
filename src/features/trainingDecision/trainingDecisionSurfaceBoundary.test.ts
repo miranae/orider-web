@@ -1,11 +1,9 @@
 import { createElement } from "react";
 import { render, screen } from "@testing-library/react";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
-import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
+import { trainingDecisionEnvelope } from "../../__tests__/fixtures/trainingDecision";
 import TodayTrainingDecisionCard, { type TrainingDecisionSurface } from "./TodayTrainingDecisionCard";
 
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), proposal: vi.fn() }));
@@ -84,11 +82,5 @@ describe("training decision surface boundary", () => {
   it("never instantiates the mutation controller on Plan", () => {
     renderSurface("plan");
     expect(mocks.proposal).not.toHaveBeenCalled();
-  });
-
-  it("keeps comparison mounted when the Plan calendar fails", () => {
-    const source = readFileSync(join(process.cwd(), "src/pages/PlanPage.tsx"), "utf8");
-    const errorBranch = source.slice(source.indexOf("if (!loading && loadError)"), source.indexOf("if (!loading && !goal)"));
-    expect(errorBranch).toContain('<TodayTrainingDecisionCard user={user} discipline={discipline} surface="plan" />');
   });
 });

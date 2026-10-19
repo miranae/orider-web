@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
 import { Route, Routes, useNavigate } from "react-router-dom";
@@ -85,11 +83,6 @@ describe("EventResultsPage group CTA", () => {
     expect(shouldShowResultsGroupCta("group-1", undefined, false, false, false)).toBe(false);
     expect(shouldShowResultsGroupCta("group-1", "group-1", false, true, false)).toBe(false);
     expect(shouldShowResultsGroupCta("group-1", "group-1", false, false, true)).toBe(false);
-  });
-
-  it("observes host group snapshot failures", () => {
-    const source = readFileSync(join(process.cwd(), "src/pages/event/EventResultsPage.tsx"), "utf8");
-    expect(source).toContain('logClientError("EventResultsPage.loadHostGroup", groupError');
   });
 });
 

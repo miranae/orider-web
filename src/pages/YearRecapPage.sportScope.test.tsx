@@ -1,7 +1,7 @@
 import i18n from "i18next";
 import enRecap from "../i18n/resources/en/recap.json";
 import enCommon from "../i18n/resources/en/common.json";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
@@ -24,7 +24,7 @@ function show(query = "") {
   return render(<MemoryRouter initialEntries={[`/ko/athlete/me/records?year=2025${query}`]}><YearRecapPage /></MemoryRouter>);
 }
 async function sharedRecap() {
-  fireEvent.click(screen.getByRole("button", { name: /정사각/ }));
+  fireEvent.click(within(screen.getByTestId("P2-4-2")).getByRole("button", { name: /정사각/ }));
   await waitFor(() => expect(mocks.draw).toHaveBeenCalled());
   return mocks.draw.mock.calls[0]![0] as unknown as { totalDistanceMeters: number; totalCount: number; breakdown: Array<{ discipline: string }> };
 }
@@ -32,7 +32,7 @@ describe("annual recap sport scope", () => {
   it.each(["", "&sport=tri"])("includes running and swimming in default/all totals and sharing %s", async query => {
     show(query);
     expect(screen.getByText("2025년 나의 활동")).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: /통합/ })).toHaveAttribute("aria-selected", "true");
+    expect(within(screen.getByTestId("P2-0-1")).getByRole("tab", { name: /통합/ })).toHaveAttribute("aria-selected", "true");
     const recap = await sharedRecap();
     expect(recap.totalDistanceMeters).toBe(16000);
     expect(recap.totalCount).toBe(3);
@@ -40,7 +40,7 @@ describe("annual recap sport scope", () => {
   it("filters to running and returns to all through the visible tab", async () => {
     show("&sport=run");
     expect((await sharedRecap()).totalDistanceMeters).toBe(5000);
-    fireEvent.click(screen.getByRole("tab", { name: /통합/ }));
+    fireEvent.click(within(screen.getByTestId("P2-0-1")).getByRole("tab", { name: /통합/ }));
     mocks.draw.mockClear();
     expect((await sharedRecap()).totalDistanceMeters).toBe(16000);
   });

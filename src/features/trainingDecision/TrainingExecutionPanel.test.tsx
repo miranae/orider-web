@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import enTraining from "../../i18n/resources/en/training.json";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
-import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
+import { trainingDecisionEnvelope } from "../../__tests__/fixtures/trainingDecision";
 import { TrainingExecutionPanel, keepPartialRetry } from "./TrainingExecutionPanel";
 
 const render = (ui: ReactElement) => renderBase(ui, { wrapper: MemoryRouter });

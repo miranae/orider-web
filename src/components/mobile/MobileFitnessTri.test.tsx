@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import MobileFitnessPage, { type MobileFitnessData } from "./MobileFitnessPage";
 import { parseTodayTrainingDecisionProjection } from "../../services/trainingDecisionContract";
-import { trainingDecisionEnvelope } from "../../services/trainingDecisionContract.test";
+import { trainingDecisionEnvelope } from "../../__tests__/fixtures/trainingDecision";
 import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
 
 const baseDecision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());

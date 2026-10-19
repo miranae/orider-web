@@ -7,7 +7,8 @@ import GlossaryProvider from "../../../components/common/GlossaryProvider";
 import GlossaryText from "../../../components/common/GlossaryText";
 import { Link } from "react-router-dom";
 import FuelSplitBar from "../../../components/FuelSplitBar";
-import { Button, Chip, Stack, Stat, Text } from "../../../theme/components";
+import { Button, Chip, Section, Stack, Stat, Text } from "../../../theme/components";
+import { zoneSurfaceStyle } from "../../../theme/charts/zoneSurface";
 import { FitnessShift, IntensityGauge, OverviewPowerCurve, PercentMeter, formatSpan, powerDurationSeconds } from "./ActivityOverviewCharts";
 
 interface Props {
@@ -38,10 +39,9 @@ function readable(node: ReactNode): boolean {
 /** A section belongs to a reader's question; existing card boundaries do not determine its contents. */
 function Topic({ id, title, children, visible = true }: { id: string; title: string; children: ReactNode; visible?: boolean }) {
   if (!visible || !readable(children)) return null;
-  return <section className="activity-analysis-topic" aria-labelledby={`analysis-topic-${id}`} data-analysis-topic={id}>
-    <Text as="h2" variant="subtitle" weight={600} id={`analysis-topic-${id}`}>{title}</Text>
+  return <Section className="activity-analysis-topic" title={title} headingId={`analysis-topic-${id}`} data-analysis-topic={id}>
     <div className="activity-analysis-topic__body">{children}</div>
-  </section>;
+  </Section>;
 }
 
 export default function ActivityAnalysisBody(props: Props) {
@@ -165,8 +165,8 @@ export default function ActivityAnalysisBody(props: Props) {
           <div className="activity-analysis-table" role="region" tabIndex={0} aria-label={label(zone.kind)}><table>
             <thead><tr>{[label("zone"), differentTimes ? t("detail.analysisTopics.summaryZoneTime") : label("duration"), ...(differentTimes ? [t("detail.analysisTopics.metricZoneTime")] : []), ...(showCurrent ? ["%"] : []), ...(showBaseline ? [label("baseline")] : []), ...(showDelta ? [label("change")] : []), ...(zone.kind === "power" && context?.zoneKj ? ["kJ"] : [])].map(name => <th scope="col" key={name}>{name}</th>)}</tr></thead>
             <tbody>{zone.seconds.map((seconds, index) => <tr key={index}>
-              <th scope="row">Z{index + 1}</th><td title={num(seconds, " s")}>{span(seconds)}{!showCurrent && <span className="activity-analysis-zone-track" aria-hidden="true"><span style={{ width: `${totalZoneSeconds > 0 ? seconds / totalZoneSeconds * 100 : 0}%`, background: `var(--zone-${index + 1})` }} /></span>}</td>{differentTimes && <td title={num(rawZones?.[index]?.seconds, " s")}>{rawZones?.[index]?.seconds != null ? span(rawZones[index]!.seconds) : "—"}</td>}
-              {showCurrent && <td><div className="activity-analysis-zone-value"><span>{num(zone.currentPercentages?.[index], "%")}</span><span className="activity-analysis-zone-track" aria-hidden="true"><span style={{ width: `${Math.max(0, Math.min(100, zone.currentPercentages?.[index] ?? 0))}%`, background: `var(--zone-${index + 1})` }} /></span></div></td>}
+              <th scope="row">Z{index + 1}</th><td title={num(seconds, " s")}>{span(seconds)}{!showCurrent && <span className="activity-analysis-zone-track" aria-hidden="true"><span style={{ width: `${totalZoneSeconds > 0 ? seconds / totalZoneSeconds * 100 : 0}%`, background: `var(--zone-${index + 1})`, ...(zone.kind === "power" ? zoneSurfaceStyle : {}) }} /></span>}</td>{differentTimes && <td title={num(rawZones?.[index]?.seconds, " s")}>{rawZones?.[index]?.seconds != null ? span(rawZones[index]!.seconds) : "—"}</td>}
+              {showCurrent && <td><div className="activity-analysis-zone-value"><span>{num(zone.currentPercentages?.[index], "%")}</span><span className="activity-analysis-zone-track" aria-hidden="true"><span style={{ width: `${Math.max(0, Math.min(100, zone.currentPercentages?.[index] ?? 0))}%`, background: `var(--zone-${index + 1})`, ...(zone.kind === "power" ? zoneSurfaceStyle : {}) }} /></span></div></td>}
               {showBaseline && <td>{num(zone.baselinePercentages?.[index], "%")}</td>}{showDelta && <td>{signed(zone.deltaPercentagePoints?.[index], "%p")}</td>}
               {zone.kind === "power" && context?.zoneKj && <td>{num(context.zoneKj[`z${index + 1}` as keyof typeof context.zoneKj])}</td>}
             </tr>)}</tbody>
