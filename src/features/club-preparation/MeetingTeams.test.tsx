@@ -257,7 +257,8 @@ describe("조가 많거나 명단이 바뀌는 편집", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "조편성 편집" }));
-    fireEvent.click(screen.getByLabelText("회원1 선택"));
+    const firstTeam = within(screen.getByRole("region", { name: "1조", exact: true }));
+    fireEvent.click(firstTeam.getByLabelText("회원1 선택"));
     const actions = within(
       screen.getByRole("region", { name: "선택한 회원 조정" }),
     );
@@ -268,8 +269,19 @@ describe("조가 많거나 명단이 바뀌는 편집", () => {
     fireEvent.change(actions.getByLabelText("목적 조 선택"), {
       target: { value: "team-40" },
     });
-    fireEvent.click(actions.getByRole("button", { name: "선택한 조로 이동" }));
-    fireEvent.click(screen.getByRole("button", { name: "변경 저장" }));
+    // 40조 전체 버튼의 접근성 이름을 반복 계산하지 않고 실제 조작 영역에서 찾는다.
+    const moveButton = actions.getByText("선택한 조로 이동", { exact: true }).closest<HTMLButtonElement>("button")!;
+    expect(moveButton).toHaveRole("button");
+    expect(moveButton).toHaveAccessibleName("선택한 조로 이동");
+    expect(moveButton).toBeVisible();
+    expect(moveButton).toBeEnabled();
+    fireEvent.click(moveButton);
+    const saveButton = actions.getByText("변경 저장", { exact: true }).closest<HTMLButtonElement>("button")!;
+    expect(saveButton).toHaveRole("button");
+    expect(saveButton).toHaveAccessibleName("변경 저장");
+    expect(saveButton).toBeVisible();
+    expect(saveButton).toBeEnabled();
+    fireEvent.click(saveButton);
     await waitFor(() => expect(save).toHaveBeenCalled());
     expect(save.mock.calls[0]![0][39].memberIds).toEqual(["many-39", "many-0"]);
   });
