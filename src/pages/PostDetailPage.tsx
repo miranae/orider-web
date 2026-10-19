@@ -68,7 +68,7 @@ const PostDetailPage: React.FC = () => {
   const visibleComments = comments.filter(comment => !blockedUsers.some(item => item.targetUid === comment.userId));
   const safeSourceUrl = normalizeUserContentUrl(post?.sourceUrl);
 
-  useBoardPostView(postId, user?.uid, post);
+  useBoardPostView(postId, location.key, post);
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

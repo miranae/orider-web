@@ -1,4 +1,6 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { readFile } from "node:fs/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BoardPost } from "@shared/types";
@@ -28,67 +30,108 @@ describe("useBoardPostView", () => {
     mocks.callable.mockResolvedValue({ data: { counted: true } });
   });
 
-  it("waits for authentication, then records through the callable", async () => {
-    const { rerender } = renderHook(
-      ({ uid }) => useBoardPostView("post-a", uid, post("post-a")),
-      { initialProps: { uid: undefined as string | undefined } },
-    );
+  it("records anonymous visits and counts a fresh visit to the same post", async () => {
+    const first = renderHook(() => useBoardPostView("post-a", "default", post("post-a")));
+    await waitFor(() => expect(mocks.callable).toHaveBeenCalledTimes(1));
+    first.unmount();
 
-    expect(mocks.callable).not.toHaveBeenCalled();
-    rerender({ uid: "user-a" });
-
-    await waitFor(() => expect(mocks.callable).toHaveBeenCalledWith({ postId: "post-a" }));
+    renderHook(() => useBoardPostView("post-a", "default", post("post-a")));
+    await waitFor(() => expect(mocks.callable).toHaveBeenCalledTimes(2));
+    const [firstRequest, secondRequest] = mocks.callable.mock.calls.map(([request]) => request);
+    expect(firstRequest).toEqual({ postId: "post-a", viewId: expect.any(String) });
+    expect(secondRequest.viewId).not.toBe(firstRequest.viewId);
     expect(mocks.httpsCallable).toHaveBeenCalledWith({}, "recordBoardPostView");
   });
 
-  it("records each uid and route once while skipping stale or deleted data", async () => {
+  it("records each SPA visit, including back navigation to the same history entry", async () => {
+    const { result } = renderHook(() => {
+      const location = useLocation();
+      const navigate = useNavigate();
+      const postId = location.pathname.slice(1);
+      useBoardPostView(postId, location.key, post(postId));
+      return navigate;
+    }, { wrapper: ({ children }) => <MemoryRouter initialEntries={["/post-a"]}>{children}</MemoryRouter> });
+
+    await waitFor(() => expect(mocks.callable).toHaveBeenCalledTimes(1));
+    await act(async () => result.current("/post-b"));
+    await waitFor(() => expect(mocks.callable).toHaveBeenCalledTimes(2));
+    await act(async () => result.current(-1));
+    await waitFor(() => expect(mocks.callable).toHaveBeenCalledTimes(3));
+    await act(async () => result.current("/post-a"));
+    await waitFor(() => expect(mocks.callable).toHaveBeenCalledTimes(4));
+    expect(mocks.callable.mock.calls.map(([request]) => request.postId))
+      .toEqual(["post-a", "post-b", "post-a", "post-a"]);
+    expect(new Set(mocks.callable.mock.calls.map(([request]) => request.viewId)).size).toBe(4);
+  });
+
+  it("does not recount StrictMode, snapshots, rerenders or authentication transitions", async () => {
     const { rerender } = renderHook(
-      ({ postId, uid, loadedPost }) => useBoardPostView(postId, uid, loadedPost),
+      ({ loadedPost }) => useBoardPostView("post-a", "entry-a", loadedPost),
       {
-        initialProps: {
-          postId: "post-a",
-          uid: "user-a",
-          loadedPost: post("post-a"),
-        },
+        initialProps: { loadedPost: post("post-a"), uid: undefined as string | undefined },
+        wrapper: StrictMode,
       },
     );
     await waitFor(() => expect(mocks.callable).toHaveBeenCalledTimes(1));
-
-    rerender({ postId: "post-a", uid: "user-a", loadedPost: post("post-a") });
+    rerender({ loadedPost: post("post-a"), uid: "user-a" });
+    rerender({ loadedPost: post("post-a"), uid: "user-b" });
+    rerender({ loadedPost: post("post-a"), uid: undefined });
     expect(mocks.callable).toHaveBeenCalledTimes(1);
-
-    rerender({ postId: "post-b", uid: "user-a", loadedPost: post("post-a") });
-    expect(mocks.callable).toHaveBeenCalledTimes(1);
-    rerender({ postId: "post-b", uid: "user-a", loadedPost: post("post-b") });
-    await waitFor(() => expect(mocks.callable).toHaveBeenCalledTimes(2));
-
-    rerender({ postId: "post-b", uid: "user-b", loadedPost: post("post-b") });
-    await waitFor(() => expect(mocks.callable).toHaveBeenCalledTimes(3));
-    rerender({ postId: "post-c", uid: "user-b", loadedPost: post("post-c", Date.now()) });
-    expect(mocks.callable).toHaveBeenCalledTimes(3);
   });
 
-  it("logs a transient rejection and retries successfully", async () => {
+  it("waits for the matching loaded post and skips deleted posts", async () => {
+    const { rerender } = renderHook(
+      ({ postId, loadedPost }) => useBoardPostView(postId, "entry", loadedPost),
+      { initialProps: { postId: "post-b", loadedPost: null as Pick<BoardPost, "id" | "deletedAt"> | null } },
+    );
+    expect(mocks.callable).not.toHaveBeenCalled();
+    rerender({ postId: "post-b", loadedPost: post("post-a") });
+    expect(mocks.callable).not.toHaveBeenCalled();
+    rerender({ postId: "post-b", loadedPost: post("post-b", Date.now()) });
+    expect(mocks.callable).not.toHaveBeenCalled();
+    rerender({ postId: "post-c", loadedPost: post("post-b") });
+    expect(mocks.callable).not.toHaveBeenCalled();
+    rerender({ postId: "post-c", loadedPost: post("post-c") });
+    await waitFor(() => expect(mocks.callable).toHaveBeenCalledTimes(1));
+    expect(mocks.callable).toHaveBeenCalledWith({ postId: "post-c", viewId: expect.any(String) });
+  });
+
+  it("retries a transient rejection with the same view ID", async () => {
     const error = new Error("temporary failure");
     mocks.callable.mockRejectedValueOnce(error).mockResolvedValueOnce({ data: { counted: true } });
 
-    renderHook(() => useBoardPostView("post-a", "user-a", post("post-a")));
+    renderHook(() => useBoardPostView("post-a", "entry-a", post("post-a")));
 
     await waitFor(() => expect(mocks.callable).toHaveBeenCalledTimes(2));
+    expect(mocks.callable.mock.calls[1]).toEqual(mocks.callable.mock.calls[0]);
     expect(mocks.logClientError).toHaveBeenCalledWith(
-      "PostDetailPage.viewCount",
-      error,
-      { postId: "post-a" },
+      "PostDetailPage.viewCount", error, { postId: "post-a" },
     );
+  });
+
+  it("keeps a pending old visit separate from a return visit and ignores its late failure", async () => {
+    let rejectFirst!: (error: Error) => void;
+    mocks.callable.mockImplementationOnce(() => new Promise((_, reject) => { rejectFirst = reject; }));
+    const { rerender } = renderHook(
+      ({ postId }) => useBoardPostView(postId, postId, post(postId)),
+      { initialProps: { postId: "post-a" } },
+    );
+    rerender({ postId: "post-b" });
+    rerender({ postId: "post-a" });
+    await waitFor(() => expect(mocks.callable).toHaveBeenCalledTimes(3));
+    await act(async () => rejectFirst(new Error("late failure")));
+    expect(mocks.callable).toHaveBeenCalledTimes(3);
+    expect(mocks.callable.mock.calls[2]![0].viewId).not.toBe(mocks.callable.mock.calls[0]![0].viewId);
   });
 
   it("bounds repeated failures to two total attempts", async () => {
     mocks.callable.mockRejectedValue(new Error("persistent failure"));
 
-    renderHook(() => useBoardPostView("post-a", "user-a", post("post-a")));
+    renderHook(() => useBoardPostView("post-a", "entry-a", post("post-a")));
 
     await waitFor(() => expect(mocks.logClientError).toHaveBeenCalledTimes(2));
     expect(mocks.callable).toHaveBeenCalledTimes(2);
+    expect(mocks.callable.mock.calls[1]).toEqual(mocks.callable.mock.calls[0]);
   });
 
   it("contains no direct Firestore view counter update", async () => {
