@@ -312,6 +312,10 @@ export default function EventDetailPage() {
         if (docSnap.exists()) {
           const d = docSnap.data();
           const info = d.info || {};
+          if (info.kind === "CLUB_MEETING" && typeof info.groupId === "string") {
+            navigate(`/club/${encodeURIComponent(info.groupId)}/meetings/${encodeURIComponent(eventId)}`, { replace: true });
+            return;
+          }
           const creatorId = info.creatorId || "";
           const hostIds = Array.isArray(info.hostIds) ? info.hostIds : [];
           setIsHost(isEventHost(user?.uid, { creatorId, hostIds }));

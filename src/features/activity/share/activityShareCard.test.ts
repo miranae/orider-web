@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { drawActivityShareCard, downloadShareCard } from "./activityShareCard";
+import { canvasToPng, drawActivityShareCard, downloadShareCard } from "./activityShareCard";
 import { saveAs } from "file-saver";
 
 vi.mock("file-saver", () => ({ saveAs: vi.fn() }));
@@ -257,3 +257,39 @@ function cardInput() {
     footer: "O-Rider", includeRouteImage: false,
   };
 }
+
+
+describe("canvasToPng", () => {
+  it("finishes a missing encoding callback and ignores its late result", async () => {
+    vi.useFakeTimers();
+    const canvas = document.createElement("canvas");
+    let finish!: BlobCallback;
+    vi.spyOn(canvas, "toBlob").mockImplementation(callback => { finish = callback; });
+    const result = canvasToPng(canvas);
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(await result).toBeNull();
+    finish(new Blob(["late"], { type: "image/png" }));
+    expect(await result).toBeNull();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("cancels encoding promptly on unmount and clears its timer", async () => {
+    vi.useFakeTimers();
+    const canvas = document.createElement("canvas");
+    vi.spyOn(canvas, "toBlob").mockImplementation(() => {});
+    const controller = new AbortController();
+    const result = canvasToPng(canvas, controller.signal);
+    controller.abort();
+    expect(await result).toBeNull();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("preserves a successful PNG and clears its timer", async () => {
+    vi.useFakeTimers();
+    const blob = new Blob(["png"], { type: "image/png" });
+    const canvas = document.createElement("canvas");
+    vi.spyOn(canvas, "toBlob").mockImplementation(callback => { callback(blob); });
+    expect(await canvasToPng(canvas)).toBe(blob);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});

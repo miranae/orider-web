@@ -21,12 +21,13 @@ export default function GroupSubNav({ group, isCreator, showDescription = true }
   const { search } = useLocation();
   const sharedParams = new URLSearchParams(search);
   sharedParams.delete("section");
+  sharedParams.delete("copyFrom");
   const sharedSearch = sharedParams.size ? `?${sharedParams.toString()}` : "";
   const base = `/club/${groupId}`;
 
   const tabs = [
     { to: base, label: t("subNav.news"), end: true },
-    { to: `${base}/events`, label: t("subNav.events") },
+    { to: `${base}/events`, label: t("subNav.events"), activePaths: [`${base}/meetings`] },
     ...((group.sports ?? [group.discipline ?? "bike"]).includes("bike") ? [{ to: `${base}/rides`, label: t("subNav.rides") }] : []),
     { to: `${base}/week`, label: t("subNav.week") },
     { to: `${base}/members`, label: t("members") },

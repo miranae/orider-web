@@ -11,6 +11,7 @@ import { logClientError } from "../services/errorLogger";
 import { completeSocialAuth, consumeSocialAuthState } from "../services/socialAuth";
 import { Button } from "../theme/components";
 import { stravaSignupGuidancePath } from "../utils/stravaSignup";
+import { socialAuthReturnTo } from "../utils/socialAuthReturnTo";
 
 type Step = "working" | "error";
 
@@ -74,9 +75,10 @@ export default function SocialAuthCallbackPage() {
           showToast(t("socialCallback.linked"), "success");
         }
         if (result.stravaSyncReauthRequired) showToast(t("socialCallback.stravaSyncReauth"), "info");
+        const returnTo = socialAuthReturnTo(result.returnTo);
         const target = result.mode === "login" && result.provider === "strava" && result.isNewUser
-          ? `/onboarding?${new URLSearchParams({ stravaSignup: "1", returnTo: stravaSignupGuidancePath(result.returnTo) })}`
-          : result.returnTo;
+          ? `/onboarding?${new URLSearchParams({ stravaSignup: "1", returnTo: stravaSignupGuidancePath(returnTo) })}`
+          : returnTo;
         navigate(target, { replace: true });
       } catch (err) {
         logClientError("SocialAuthCallbackPage.complete", err);

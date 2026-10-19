@@ -5,6 +5,7 @@ import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
 
 const mapProps = vi.hoisted(() => ({
+  api: null as null | { fitBounds: ReturnType<typeof vi.fn>; resize: ReturnType<typeof vi.fn>; zoomIn: ReturnType<typeof vi.fn>; zoomOut: ReturnType<typeof vi.fn>; getContainer: () => HTMLElement },
   latest: null as null | {
     cooperativeGestures?: boolean;
     dragPan?: boolean;
@@ -42,9 +43,9 @@ vi.mock("react-map-gl/mapbox", () => ({
   }) => {
     mapProps.latest = { cooperativeGestures, dragPan, scrollZoom, onLoad, onIdle };
     return (
-      <button type="button" data-testid="mock-map" onClick={() => onError?.()}>
+      <div data-testid="mock-map" onClick={event => { if (event.target === event.currentTarget) onError?.(); }}>
         {children}
-      </button>
+      </div>
     );
   },
   Source: ({ children, data }: { children: ReactNode; data: unknown }) => {
@@ -57,13 +58,59 @@ vi.mock("react-map-gl/mapbox", () => ({
   },
   Marker: ({ children }: { children: ReactNode }) => <>{children}</>,
   Popup: ({ children }: { children: ReactNode }) => <>{children}</>,
-  useMap: () => ({ current: null }),
+  useMap: () => ({ current: mapProps.api }),
 }));
 
 describe("RouteMap", () => {
   beforeEach(() => {
+    mapProps.api = null;
     mapProps.layers.clear();
     mapProps.sources.length = 0;
+  });
+
+  it("keeps multipart routes and crossing highlights separate in the map and fallback", () => {
+    renderWithProviders(<RouteMap routeParts={[[[37,127],[37.01,127]],[[38,128],[38.01,128]]]} highlightRange={{startIndex:0,endIndex:3}}/>);
+    const sources=mapProps.sources as {geometry?:{type:string;coordinates:unknown}}[];
+    expect(sources.filter(source=>source.geometry?.type==="MultiLineString")).toHaveLength(2);
+    expect(sources.find(source=>source.geometry?.type==="MultiLineString")?.geometry?.coordinates).toEqual([[[127,37],[127,37.01]],[[128,38],[128,38.01]]]);
+    fireEvent.click(screen.getByTestId("mock-map"));
+    const path=document.querySelector("svg path")?.getAttribute("d")??"";
+    expect(path.match(/M/g)).toHaveLength(2);expect(path.match(/L/g)).toHaveLength(2);
+  });
+
+  it("opts into zoom/fit controls and resizes without refitting an active interval or remounting", () => {
+    const container = document.createElement("div");
+    const api = { fitBounds: vi.fn(), resize: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn(), getContainer: () => container };
+    mapProps.api = api;
+    let resize: ResizeObserverCallback = () => {};
+    const observe = vi.fn(), disconnect = vi.fn();
+    vi.stubGlobal("ResizeObserver", class { constructor(callback: ResizeObserverCallback) { resize = callback; } observe = observe; disconnect = disconnect; });
+    try {
+      const props = { polyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@", interactive: true, flyToRange: { startIndex: 0, endIndex: 1 },
+        navigationLabels: { zoomIn: "Zoom in", zoomOut: "Zoom out", fitRoute: "Show entire route" } };
+      const { rerender, unmount } = renderWithProviders(<RouteMap {...props} height="normal" />);
+      const map = screen.getByTestId("mock-map");
+      expect(observe).toHaveBeenCalledWith(container);
+      const initialFits = api.fitBounds.mock.calls.length;
+      rerender(<RouteMap {...props} height="large" />);
+      act(() => resize([], {} as ResizeObserver));
+      expect(api.resize).toHaveBeenCalledTimes(1);
+      expect(api.fitBounds).toHaveBeenCalledTimes(initialFits);
+      expect(screen.getByTestId("mock-map")).toBe(map);
+      fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+      fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
+      expect(api.zoomIn).toHaveBeenCalledTimes(1);
+      expect(api.zoomOut).toHaveBeenCalledTimes(1);
+      fireEvent.click(screen.getByRole("button", { name: "Show entire route" }));
+      expect(api.fitBounds).toHaveBeenCalledTimes(initialFits + 1);
+      unmount();
+      expect(disconnect).toHaveBeenCalledTimes(1);
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it("keeps navigation controls absent for other map consumers", () => {
+    renderWithProviders(<RouteMap polyline="_p~iF~ps|U_ulLnnqC_mqNvxq`@" interactive />);
+    expect(screen.queryByRole("group")).not.toBeInTheDocument();
   });
 
   it("keeps its loading placeholder until basemap idle and exposes the error fallback", () => {
