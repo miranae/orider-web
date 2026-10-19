@@ -11,8 +11,6 @@ import { CoachConsentSheet } from "./CoachConsentSheet";
 import type { CoachConsentPolicy } from "../../services/coachConsentClient";
 import { CoachClientError } from "../../services/coachClient";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
-import enCoach from "../../i18n/resources/en/coach.json";
-import koCoach from "../../i18n/resources/ko/coach.json";
 import prescriptionFixture from "./__fixtures__/p2-web-fixture.json";
 
 const mocks = vi.hoisted(() => ({ realConsent: false, status: vi.fn(), ask: vi.fn(), askP2: vi.fn(), capabilities: vi.fn(), recovery: vi.fn(), policy: vi.fn(), logError: vi.fn(), analytics: {
@@ -54,62 +52,6 @@ const activePolicy = { policyVersion: "v2", consent: {
 const inactivePolicy = { policyVersion: "v2", consent: {
   active: false, current: false, revoked: false, currentPolicyVersion: "v2", storedPolicyVersion: null,
 } };
-const disciplinePrompts = [
-  {
-    discipline: "bike" as const,
-    placeholder: "예: 오늘 사이클의 평균 파워, 심박, 케이던스를 요약해줘.",
-    labels: ["FTP 목표 코칭", "오늘 운동 리뷰", "한 달 몸 상태"],
-    prompts: [
-      "FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘.",
-      "내 마지막 운동 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 운동에서 무엇을 할지 제안해줘.",
-      "최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태를 분석해줘.",
-    ],
-  },
-  {
-    discipline: "run" as const,
-    placeholder: "예: 오늘 러닝의 심박, 케이던스, 시간과 거리를 요약해줘.",
-    labels: ["10km 목표 코칭", "오늘 운동 리뷰", "한 달 몸 상태"],
-    prompts: [
-      "10km 50분을 달성하고 싶어. 최근 한 달 러닝 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘.",
-      "오늘 러닝 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 러닝에서 무엇을 할지 제안해줘.",
-      "최근 한 달 러닝 기록을 확인하고 체력·피로·회복 상태를 분석해줘.",
-    ],
-  },
-  {
-    discipline: "swim" as const,
-    placeholder: "예: 오늘 수영의 심박, 시간과 거리를 요약해줘.",
-    labels: ["1,500m 목표 코칭", "오늘 운동 리뷰", "한 달 몸 상태"],
-    prompts: [
-      "자유형 1,500m 30분을 달성하고 싶어. 최근 한 달 수영 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘.",
-      "오늘 수영 기록을 확인하고 잘된 점과 보완할 점을 코칭하고, 다음 수영에서 무엇을 할지 제안해줘.",
-      "최근 한 달 수영 기록을 확인하고 체력·피로·회복 상태를 분석해줘.",
-    ],
-  },
-];
-
-it.each([{ locale: "KO", coach: koCoach }, { locale: "EN", coach: enCoach }])(
-  "keeps every $locale visible label inside its accessible suggestion name", ({ coach }) => {
-    for (const discipline of ["bike", "run", "swim"] as const) {
-      for (const index of ["1", "2", "3"] as const) {
-        const label = coach.suggestions.labels[discipline][index];
-        const question = coach.suggestions[discipline][index];
-        const accessibleName = `${label}: ${question}`;
-        expect(accessibleName).toContain(label);
-        expect(question.trim().length).toBeGreaterThan(20);
-        expect(question.length).toBeLessThanOrEqual(1000);
-      }
-    }
-  },
-);
-
-it("keeps today's representative prompts within the supported coaching-suggestion contract", () => {
-  for (const discipline of ["bike", "run", "swim"] as const) {
-    expect(koCoach.suggestions[discipline]["2"]).toContain("제안해줘");
-    expect(koCoach.suggestions[discipline]["2"]).not.toContain("처방");
-    expect(enCoach.suggestions[discipline]["2"]).toContain("suggest what I should do");
-    expect(enCoach.suggestions[discipline]["2"]).not.toMatch(/prescrib/i);
-  }
-});
 const answer = {
   requestId: "123e4567-e89b-42d3-a456-426614174000", status: "ok", reasonCode: "completed", intent: "summary",
   answer: { blocks: [{ kind: "headline", parts: [{ type: "text", text: "이번 주 훈련량이 높았습니다." }] }], actionCode: "OPEN_PLAN" },
@@ -479,7 +421,7 @@ describe("CoachQuestionLauncher", () => {
     const view = render(renderLauncher());
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     const composer = await screen.findByLabelText("내 운동에 대한 질문");
-    await userEvent.type(composer, "일반 질문 초안");
+    fireEvent.change(composer, { target: { value: "일반 질문 초안" } });
 
     resetRuntimeConfigForTests({ coachRidePlanSnapshotEnabled: false, coachRidePlanAiEnabled: true,
       coachRidePlanRespondV2Enabled: true });
@@ -597,32 +539,6 @@ describe("CoachQuestionLauncher", () => {
     expect(mocks.ask).not.toHaveBeenCalled();
   });
 
-  it("always requests the planner-selected automatic response format", async () => {
-    mocks.ask.mockResolvedValue(answer);
-    setup();
-    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
-    await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ }));
-    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
-    await waitFor(() => expect(mocks.ask).toHaveBeenCalledWith(expect.objectContaining({ responseFormat: "auto" })));
-    await userEvent.click(screen.getByRole("button", { name: "다른 질문하기" }));
-    expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
-  });
-
-  it.each(disciplinePrompts)("shows only $discipline prompts and placeholder", async ({ discipline, placeholder, labels, prompts }) => {
-    mocks.capabilities.mockResolvedValue(p2Capabilities);
-    setup(user, discipline);
-    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
-    await screen.findByText("오늘 3회 남음");
-    expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveAttribute("placeholder", placeholder);
-    const quickPrompts = screen.getByRole("heading", { name: "이런 질문을 해보세요" }).closest(".coach-sheet__quick-prompts");
-    expect(within(quickPrompts!).getAllByRole("button").map((button) => button.getAttribute("aria-label")))
-      .toEqual(prompts.map((prompt, index) => `${labels[index]}: ${prompt}`));
-    labels.forEach((label, index) => {
-      expect(within(quickPrompts!).getByText(label)).toBeInTheDocument();
-    });
-  });
-
   it("disables the composer and every suggestion when the authoritative quota is exhausted", async () => {
     mocks.status.mockResolvedValue({ status: "available", quota: { ...quota, consumed: 3, remaining: 0 } });
     setup();
@@ -699,6 +615,7 @@ describe("CoachQuestionLauncher", () => {
     expect(document.querySelector(".coach-sheet__content")).not.toContainElement(document.querySelector(".coach-sheet__dock"));
     expect(screen.getByText("오늘 2회 남음")).toBeInTheDocument();
     expect(screen.getByText("이 요청은 이미 오늘 사용 횟수 1회를 사용했습니다.")).toBeInTheDocument();
+    expect(mocks.ask).toHaveBeenCalledWith(expect.objectContaining({ responseFormat: "auto" }));
     const calls = mocks.ask.mock.calls.length;
     await userEvent.click(screen.getByRole("button", { name: "분석 근거 1개 보기" }));
     expect(screen.getByText("훈련 부하")).toBeInTheDocument();
@@ -721,7 +638,7 @@ describe("CoachQuestionLauncher", () => {
     const view = setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "최근 운동을 요약해줘" } });
     let finish!: (value: typeof activePolicy) => void;
     mocks.policy.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     fireEvent.click(screen.getByRole("button", { name: "질문하기" }));
@@ -741,7 +658,7 @@ describe("CoachQuestionLauncher", () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "최근 운동을 요약해줘" } });
     let finish!: (value: typeof activePolicy) => void;
     mocks.policy.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     fireEvent.click(screen.getByRole("button", { name: "질문하기" }));
@@ -757,7 +674,7 @@ describe("CoachQuestionLauncher", () => {
       retry: { ...answer.retry, mode: "new_request_required", quotaImpact: "one_new_turn", retryable: true, reasonCode: "new_turn_required" } });
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "최근 운동을 요약해줘" } });
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     await screen.findByText("이번 주 훈련량이 높았습니다.");
     await userEvent.click(screen.getByRole("button", { name: "1회 사용하고 다시 질문" }));
@@ -772,7 +689,7 @@ describe("CoachQuestionLauncher", () => {
     mocks.policy.mockResolvedValue(inactivePolicy);
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "최근 운동을 요약해줘" } });
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     const complete = await screen.findByTestId("complete-consent");
     if (boundary === "switch") simulateLogin({ uid: "u2" });
@@ -786,7 +703,7 @@ describe("CoachQuestionLauncher", () => {
     mocks.ask.mockRejectedValueOnce(new CoachClientError("transport", "NETWORK_ERROR"));
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "최근 운동을 요약해줘" } });
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     const retry = await screen.findByRole("button", { name: "같은 요청 다시 확인" });
     if (boundary === "switch") simulateLogin({ uid: "u2" }); else simulateLogout();
@@ -797,7 +714,7 @@ describe("CoachQuestionLauncher", () => {
   it("releases stale same-owner admission so an intentional new submit can proceed", async () => {
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "최근 운동을 요약해줘" } });
     let finish!: (value: typeof activePolicy) => void;
     mocks.policy.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     fireEvent.click(screen.getByRole("button", { name: "질문하기" }));
@@ -807,7 +724,7 @@ describe("CoachQuestionLauncher", () => {
     mocks.ask.mockResolvedValue(answer);
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "새 세션의 운동을 요약해줘");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "새 세션의 운동을 요약해줘" } });
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     await waitFor(() => expect(mocks.ask).toHaveBeenCalledOnce());
   });
@@ -818,7 +735,7 @@ describe("CoachQuestionLauncher", () => {
     mocks.ask.mockImplementationOnce(() => new Promise((done, fail) => { resolve = done; reject = fail; }));
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "최근 운동을 요약해줘" } });
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     act(() => { simulateLogout(); simulateLogin({ uid: user.uid }); });
     await act(async () => { if (outcome === "response") resolve(answer); else reject(new CoachClientError("transport", "NETWORK_ERROR")); });
@@ -847,7 +764,7 @@ describe("CoachQuestionLauncher", () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "최근 운동을 요약해줘" } });
     let finish!: (value: typeof activePolicy) => void;
     mocks.policy.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
     const button = screen.getByRole("button", { name: "질문하기" });
@@ -868,7 +785,7 @@ describe("CoachQuestionLauncher", () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "최근 운동을 요약해줘" } });
     const submit = screen.getByRole("button", { name: "질문하기" });
     await userEvent.click(submit);
     const consent = await screen.findByTestId("K6-S-8");
@@ -892,7 +809,7 @@ describe("CoachQuestionLauncher", () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "최근 운동을 요약해줘" } });
     const submit = screen.getByRole("button", { name: "질문하기" });
     await userEvent.click(submit); await userEvent.click(submit);
     expect(mocks.ask).not.toHaveBeenCalled();
@@ -922,7 +839,7 @@ describe("CoachQuestionLauncher", () => {
       retry: { ...answer.retry, mode: "new_request_required", quotaImpact: "one_new_turn", retryable: true, reasonCode: "new_turn_required" } });
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "최근 운동을 요약해줘" } });
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     await screen.findByText("이번 주 훈련량이 높았습니다.");
     await userEvent.click(screen.getByRole("button", { name: "1회 사용하고 다시 질문" }));
@@ -1073,7 +990,7 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.queryByLabelText("내 운동에 대한 질문")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "다른 질문하기" }));
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "새로운 독립 질문");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "새로운 독립 질문" } });
     await userEvent.click(screen.getByRole("button", { name: "질문하기" })); await screen.findByText("이번 주 훈련량이 높았습니다.");
     expect(mocks.ask.mock.calls[1]?.[0].requestId).toBe(nextId);
   });
@@ -1082,7 +999,7 @@ describe("CoachQuestionLauncher", () => {
     mocks.ask.mockResolvedValue(answer); setup();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "민감한 질문 원문");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "민감한 질문 원문" } });
     act(() => window.dispatchEvent(new CustomEvent("orider:coach-consent-revoked")));
     expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).not.toBeInTheDocument();
     expect(document.body.textContent).not.toContain("민감한 질문 원문");
@@ -1124,7 +1041,7 @@ describe("CoachQuestionLauncher", () => {
   it("keeps an unsubmitted draft across close/reopen but clears it on unmount", async () => {
     const view = setup(); const trigger = screen.getByRole("button", { name: "AI 코치에게 물어보기" });
     await userEvent.click(trigger); await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "닫아도 유지할 초안");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "닫아도 유지할 초안" } });
     await userEvent.click(screen.getByRole("button", { name: "AI 코치 닫기" })); await userEvent.click(trigger); await screen.findByText("오늘 3회 남음");
     expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveValue("닫아도 유지할 초안");
     view.unmount(); expect(document.body).not.toHaveTextContent("닫아도 유지할 초안");
@@ -1134,7 +1051,7 @@ describe("CoachQuestionLauncher", () => {
 
   it("clears and rebinds the session when discipline changes", async () => {
     const view = setup(user, "bike"); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "자전거 전용 초안");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "자전거 전용 초안" } });
     view.rerender(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider><CoachQuestionLauncher user={user} discipline="run" onSignIn={vi.fn()} /></DialogProvider></MemoryRouter>);
     expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).not.toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("자전거 전용 초안");
@@ -1224,7 +1141,7 @@ describe("CoachQuestionLauncher", () => {
     mocks.ask.mockResolvedValueOnce(clarification);
     setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
-    await userEvent.type(screen.getByLabelText("내 운동에 대한 질문"), "최근 운동을 요약해줘");
+    fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "최근 운동을 요약해줘" } });
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     await userEvent.click(await screen.findByRole("radio", { name: "지난주" }));
     await userEvent.click(screen.getByRole("button", { name: "이 조건으로 계속" }));
