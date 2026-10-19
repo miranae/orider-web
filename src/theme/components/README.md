@@ -297,7 +297,7 @@ fixture 좌표를 준비하며 별도 가짜 SVG 차트를 그리지 않는다.
 - `colors`는 `ChartColorTokens`의 `grid`, `gridAxis`, `gridLabel`이다. 앱은 theme context에서,
   카탈로그는 같은 테마의 미리보기 variant에서 전달하며 렌더러 자체는 provider를 요구하지 않는다.
 - `formatTick?`, `rangeLabel(start,end)`, `labels`로 지역화한다. labels 키는
-  `controls`, `zoomIn`, `zoomOut`, `selectRange`, `selectRangeShort`, `reset`, `rangeHint`, `empty`다.
+  `controls`, `selectRange`, `selectRangeShort`, `panRange`, `panHint`, `panUnavailable`, `reset`, `rangeHint`, `empty`다.
   `description?`은 표본 평균 설명 같은 공통 도움말 슬롯이다.
 - `selectedCoordinate`, `onHoverCoordinate`, `onViewportChange(range,fullRange)`는 실제 공통 x좌표를 쓴다.
   null viewport는 전체 범위이며 키보드 원본 표본 선택·고정 비교 표·지도 연결은 소비자가 계속 소유한다.
@@ -431,3 +431,30 @@ Checkbox의 선택적 `color`는 준비된 기록 색을 native `accent-color`�
 기존 공통 accent가 유지된다. 같이한 활동은 표 checkbox와 범례 dot으로 기록을 구분하고
 상단 선택과 활동 링크의 이름은 일반 잉크로 유지한다. `ChartLegend align="end"`는
 범례를 오른쪽 정렬하는 opt-in이며 기본 정렬은 바꾸지 않는다.
+
+ComparisonChart 도구는 `구간 선택 / 구간 이동 / 초기화` 세 가지다. 기본은 표본 inspection이며
+구간 선택 후에도 inspection으로 돌아온다. 이동은 확대된 범위에서 명시적으로 켜며, 시작
+domain·plot 폭·pointer 위치를 고정해 누적 이동량을 계산한다. 경계에서는 폭을 유지한다.
+이동 버튼에 초점을 두면 좌우키로 범위 폭의 25%, Home/End로 양끝에 이동한다. Escape는
+진행 중 동작을 취소하고 inspection으로 돌아가되 확대 범위는 유지한다. 초기화는 전체 범위와
+기본 모드를 복원한다. 터치는 선택/이동 모드에서만 가로 드래그를 캡처하고 기본 세로 스크롤을 유지한다.
+
+`ChartRangeControls`는 세 도구의 공통 presentation이다. `mode`(inspect/select/pan),
+`canPan`, `canReset`, 지역화 `labels`, `onModeChange`, `onReset`, 선택적 `onPanKeyDown`을
+받는다. 버튼 크기·선택·disabled·키보드 전달은 공통화하고 gesture/domain/취소 계산은
+소비자에 남긴다. ComparisonChart와 카탈로그의 준비된 구간 예시가 같은 툴바를 사용한다.
+
+pan은 시작 시 실제 Y축을 현재 표시 기록의 전체 원본 finite값까지 포괄하는 nice범위로
+한 번 확장해 고정한다. 이동 중 새 peak가 들어와도 잘리지 않는다. 입력series·축·plot폭이
+바뀌면 고정을 폐기한다. 표시 집계는 global origin과 고정 bin폭의 전체 bin을 사용하고 양끝
+한 bin을 더 읽는다. 겹치는 절대 bin의 표본 평균은 이동·release에 따라 바뀌지 않는다.
+같은 span에서는 모드 해제 뒤에도 grid를 유지한다. 기본 sampler 호출은 기존 동작을 유지한다.
+grid의 평균 bin 예산은 기존 상한에서 교차 경계·overscan을 예약하며, 실제 gap/run 양끝과
+희소 연속선의 화면 밖 edge는 추가된다. 전체 출력점의 hard240 상한을 뜻하지 않는다.
+pointer 이동은 rAF당 최신 좌표만 처리하고 up은 마지막 좌표를 flush, 취소·초기화·축 변경은
+예약을 해제한다. 원본 표본·0·결측·표의 관측 시간 가중 평균은 바꾸지 않는다.
+
+차트 도구 주변 설명에는 `InfoTip activation="click"`을 사용해 hover나 단순 focus가
+도구를 가리지 않게 한다. 클릭·Enter·Space로 열고 재클릭·외부 클릭·Escape로 닫는다.
+기본 InfoTip의 hover/focus 동작은 유지한다. 구간 선택 중에는 모든 lane의 plot 안에
+semantic accent 16% 음영과 2px 양끝선을 그리며 취소·선택 완료 후 제거한다.

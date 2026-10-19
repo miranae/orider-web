@@ -73,3 +73,5 @@ export { SegmentTimeline, ReferenceGauge, BeforeAfterPlot, type TimelineSegment,
 export { SeriesLabel, type SeriesLabelProps } from './Chart';
 
 export { Checkbox, type CheckboxProps } from './Checkbox';
+
+export { ChartRangeControls, type ChartRangeControlsProps, type ChartRangeControlsLabels, type ChartRangeMode } from './ChartRangeControls';
