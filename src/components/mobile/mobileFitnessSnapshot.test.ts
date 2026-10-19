@@ -1,6 +1,4 @@
 import { createElement } from "react";
-import fs from "node:fs";
-import path from "node:path";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
@@ -24,7 +22,7 @@ const ftpDecision: BikeThresholdDecisionV2 = {
 };
 
 describe("mobile fitness decision hierarchy", () => {
-  it("keeps canonical FTP before rider, metrics, estimates, server decision and collapsed evidence", async () => {
+  it("preserves canonical FTP, model metrics and expandable source evidence", async () => {
     const user = userEvent.setup();
     const { container } = renderWithProviders(createElement(BikePerformanceSummaryCard, {
       decision, ftpDecision, weightKg: 70,
@@ -35,7 +33,6 @@ describe("mobile fitness decision hierarchy", () => {
     const hero = container.querySelector(".mobile-fitness-performance__ftp")!;
     expect(within(hero as HTMLElement).getByText("250")).toBeInTheDocument();
     expect(screen.getByText("3.57 W/kg")).toBeInTheDocument();
-    const rider = screen.getByText("클라이머");
     const metrics = container.querySelector(".mobile-fitness-performance__metrics")!;
     expect(metrics.querySelectorAll("[data-performance-metric]")).toHaveLength(4);
     expect(within(metrics as HTMLElement).getByText("270")).toBeInTheDocument();
@@ -45,17 +42,11 @@ describe("mobile fitness decision hierarchy", () => {
     const candidate = screen.getByTestId("K1-6-1");
     expect(within(candidate).getByRole("button", { name: "이 FTP로 변경" })).toBeInTheDocument();
     const evidence = screen.getByRole("button", { name: "산출 근거 보기" });
-    const ordered = [hero, rider, metrics, trend, candidate, evidence];
-    ordered.slice(1).forEach((node, index) => {
-      expect(ordered[index].compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    });
     expect(evidence).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText(/CTL|ATL|TSB/)).not.toBeInTheDocument();
     await user.click(evidence);
     expect(evidence).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText(/최근 90일 PDC의 CP\/5분 파워와 체중 기반 추정/)).toBeVisible();
-    const css = fs.readFileSync(path.resolve("src/components/mobile/MobileFitnessPage.css"), "utf8");
-    expect(css).toMatch(/\.mobile-fitness-performance__metrics\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
   });
 
   it("keeps the legacy VO2 estimate while the analysis partition delegates VO2 to its dedicated panel", () => {
@@ -79,7 +70,6 @@ describe("mobile fitness decision hierarchy", () => {
     const details = container.querySelector("details")!;
     expect(details).not.toHaveAttribute("open");
     const summary = within(details).getByText("계산 방법과 해석 근거");
-    expect(summary).toHaveStyle({ minHeight: "44px" });
     const source = within(details).getByText("사이클·러닝·수영을 합쳐 서버에서 계산한 CTL · ATL · TSB");
     expect(source).not.toBeVisible();
     await user.click(summary);

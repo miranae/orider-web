@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import type { CourseData } from "../features/courses/courseSnapshot";
@@ -101,11 +101,12 @@ describe("CoursesPage mobile layout", () => {
   it("preserves active conditions when folded and resets them without clearing My Courses or search", async () => {
     renderWithProviders(<CoursesPage />, { route: "/explore/courses", authenticated: true });
     const filterPanel = screen.getByTestId("E1-3");
+    const filters = within(filterPanel);
     expect(filterPanel).toHaveAttribute("data-collapsed", "true");
     await userEvent.click(screen.getByRole("button", { name: "코스 조건 · 0개 적용" }));
     expect(filterPanel).toHaveAttribute("data-collapsed", "false");
-    await userEvent.click(screen.getByRole("button", { name: "비포장" }));
-    fireEvent.change(screen.getByRole("slider", { name: "최소 이동거리" }), { target: { value: "20" } });
+    await userEvent.click(filters.getByRole("button", { name: "비포장" }));
+    fireEvent.change(filters.getByRole("slider", { name: "최소 이동거리" }), { target: { value: "20" } });
     await userEvent.click(screen.getByRole("button", { name: "내 코스" }));
     await userEvent.type(screen.getByTestId("E1-1-1"), "draft");
     const conditions = screen.getByRole("button", { name: "코스 조건 · 2개 적용" });
@@ -114,7 +115,7 @@ describe("CoursesPage mobile layout", () => {
     expect(conditions).toHaveAttribute("aria-expanded", "false");
     await userEvent.click(screen.getByTestId("course-mobile-reset"));
     expect(screen.getByRole("button", { name: "코스 조건 · 0개 적용" })).toBeInTheDocument();
-    expect(screen.getByRole("slider", { name: "최소 이동거리" })).toHaveValue("0");
+    expect(filters.getByRole("slider", { name: "최소 이동거리" })).toHaveValue("0");
     expect(screen.getByRole("button", { name: "내 코스" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("E1-1-1")).toHaveValue("draft");
   });
@@ -135,7 +136,7 @@ describe("CoursesPage mobile layout", () => {
   it("logs a fatal map failure and lets the user retry without leaving the page", async () => {
     renderWithProviders(<CoursesPage />, { route: "/explore/courses" });
 
-    await userEvent.click(screen.getByRole("button", { name: "지도 실패" }));
+    await userEvent.click(within(screen.getByTestId("courses-map")).getByRole("button", { name: "지도 실패" }));
 
     expect(mockLogClientError).toHaveBeenCalledWith(
       "CoursesPage.map",

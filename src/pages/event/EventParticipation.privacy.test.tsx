@@ -41,6 +41,7 @@ function show(component: React.ReactNode) {
 async function expectFocusedTooltip(trigger: HTMLElement, description: string) {
   await act(async () => { trigger.focus(); });
   expect(trigger).toHaveFocus();
+  await waitFor(() => expect(trigger).toHaveAttribute("aria-describedby"));
   const tooltipId = trigger.getAttribute("aria-describedby");
   expect(tooltipId).toBeTruthy();
   const tooltip = document.getElementById(tooltipId!);
@@ -271,7 +272,7 @@ describe("event participant privacy boundaries", () => {
   it("uses fixed result icons, one finisher column, and explanatory localized metric labels", async () => {
     const event = mockDocData.get("events/ev")!;
     mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), status: "FINISHED" } });
-    show(<EventResultsPage />);
+    await act(async () => { show(<EventResultsPage />); });
     await screen.findAllByText("Public rider");
     const page = screen.getByTestId("D4-3");
     expect(page.textContent).not.toMatch(/[🏁🏆⬇🔗🖼⏳]/u);

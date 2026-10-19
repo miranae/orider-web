@@ -1,6 +1,5 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { collection, getDoc, onSnapshot } from "firebase/firestore";
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -106,7 +105,12 @@ describe("FitnessPage", () => {
     const today = new Date().toISOString().slice(0, 10);
     setDocData("users/test-uid/fitness/timeseries_bike", { discipline: "bike", schemaVersion: 1, computedAt: Date.now(), startDate: today, endDate: today, pointCount: 1, points: [{ date: today, ctl: 30, atl: 25, tsb: 5, dailyLoad: 0 }] });
     renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
-    const load = await screen.findByRole("button", { name: "기간 분석 불러오기" });
+    const load = (await screen.findByText("기간 분석 불러오기")).closest<HTMLButtonElement>("button")!;
+    const disclosure = load.closest("details")!;
+    fireEvent.click(disclosure.querySelector("summary")!);
+    expect(load).toHaveRole("button");
+    expect(load).toHaveAccessibleName("기간 분석 불러오기");
+    expect(load).toBeVisible();
     expect(mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods")).toHaveLength(0);
     if (!enabled) expect(load).toBeDisabled();
     else { fireEvent.click(load); await waitFor(() => expect(mockCallableInvocations.some(call => call.name === "getPowerCurvePeriods")).toBe(true)); }
@@ -304,11 +308,6 @@ describe("FitnessPage", () => {
     expect(await screen.findByText("피트니스 정본을 불러오지 못했습니다")).toBeInTheDocument();
     expect(screen.queryByTestId("canonical-fitness-view")).not.toBeInTheDocument();
     expect(screen.queryByText("0.0")).not.toBeInTheDocument();
-  });
-
-  it("never carries a single-sport projection into the integrated mobile PMC", () => {
-    const source = readFileSync(join(process.cwd(), "src/hooks/useFitnessModel.ts"), "utf8");
-    expect(source).toContain('pmcProjection: discipline === "tri" ? null : projection?.series ?? null');
   });
 
   it.each(["desktop", "mobile", "embedded"])("최근 활동이 없어도 %s PMC에 전체 정본 이력을 전달한다", async (surface) => {

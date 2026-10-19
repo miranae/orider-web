@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -50,10 +50,14 @@ describe("LayoutEditorCard 접근성", () => {
 
   it("names the field picker's icon-only close action", async () => {
     render(<LayoutEditorCard config={config} onSave={vi.fn()} />);
-    await userEvent.click(screen.getAllByRole("gridcell")[0]!);
-    const close = screen.getByRole("button", { name: "닫기" });
+    const grid = screen.getByLabelText("1번 페이지 배치");
+    await userEvent.click(within(grid).getAllByRole("gridcell")[0]!);
+    const close = screen.getByLabelText("닫기", { selector: "button" });
+    expect(close).toHaveRole("button");
+    expect(close).toHaveAccessibleName("닫기");
+    expect(close).toBeVisible();
     await userEvent.click(close);
-    expect(screen.queryByRole("button", { name: "닫기" })).toBeNull();
+    expect(screen.queryByLabelText("닫기", { selector: "button" })).toBeNull();
   });
 
   it("read-only permits page viewing while blocking page and field mutations", async () => {

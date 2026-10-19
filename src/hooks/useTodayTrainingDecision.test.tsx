@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { parseTodayTrainingDecisionProjection, todayTrainingDecisionProjectionSchema } from "../services/trainingDecisionContract";
-import { trainingDecisionEnvelope } from "../services/trainingDecisionContract.test";
+import { trainingDecisionEnvelope } from "../__tests__/fixtures/trainingDecision";
 import { resetTodayTrainingDecisionGuardForTests } from "../services/todayTrainingDecisionGuard";
 import { CoachClientError } from "../services/coachClient";
 import { useTodayTrainingDecision } from "./useTodayTrainingDecision";

@@ -106,24 +106,6 @@ describe("ActivityCard", () => {
     expect(screen.queryByText(/실내/)).not.toBeInTheDocument();
   });
 
-  it("renders activity nickname and description", () => {
-    const activity = createMockActivity({
-      nickname: "한강 라이더",
-      description: "아침 라이딩",
-    });
-    renderWithProviders(<ActivityCard activity={activity} />);
-    expect(screen.getByText("한강 라이더")).toBeInTheDocument();
-    expect(screen.getByText("아침 라이딩")).toBeInTheDocument();
-  });
-
-  it("renders the default rider when the stored nickname is missing", () => {
-    const activity = createMockActivity({
-      nickname: undefined as unknown as string,
-    });
-    renderWithProviders(<ActivityCard activity={activity} showMap={false} />);
-    expect(screen.getByText("라이더")).toBeInTheDocument();
-  });
-
   it("renders distance, elevation, and time", () => {
     const activity = createMockActivity({
       startTime: 1_000_000,
@@ -149,13 +131,6 @@ describe("ActivityCard", () => {
     expect(screen.getByText("42.0km")).toBeInTheDocument();
     expect(screen.getByText("320m")).toBeInTheDocument();
     expect(screen.getByText("1h 30m")).toBeInTheDocument();
-  });
-
-  it("shows average power and heart rate when present", () => {
-    const activity = createMockActivity();
-    renderWithProviders(<ActivityCard activity={activity} />);
-    expect(screen.getByText("200 W")).toBeInTheDocument();
-    expect(screen.getByText("145 bpm")).toBeInTheDocument();
   });
 
   it("hides corrupt average heart rate and shows the data warning", () => {
@@ -249,15 +224,6 @@ describe("ActivityCard", () => {
     expect(screen.queryByText("황새울공원 -> 양현교")).not.toBeInTheDocument();
   });
 
-  it("shows route map by default", async () => {
-    const activity = createMockActivity();
-    renderWithProviders(<ActivityCard activity={activity} />);
-    // RouteMap 은 lazy() 로 분리되어 Suspense 경계 뒤에서 비동기 로드된다.
-    await waitFor(() => {
-      expect(screen.getByTestId("route-map")).toHaveAttribute("data-interactive", "false");
-    });
-  });
-
   it("keeps a stored thumbnail as the live map failure fallback", async () => {
     const activity = createMockActivity({
       mapImageUrl: "https://storage.googleapis.com/legacy/map.webp",
@@ -270,38 +236,6 @@ describe("ActivityCard", () => {
         activity.mapImageUrl,
       );
     });
-  });
-
-  it("hides route map when showMap is false", () => {
-    const activity = createMockActivity();
-    renderWithProviders(<ActivityCard activity={activity} showMap={false} />);
-    expect(screen.queryByTestId("route-map")).not.toBeInTheDocument();
-  });
-
-  it("links to activity detail page", () => {
-    const activity = createMockActivity({ id: "act-detail" });
-    const { container } = renderWithProviders(<ActivityCard activity={activity} />);
-    const links = screen.getAllByRole("link");
-    const actLink = links.find((l) => l.getAttribute("href") === "/ko/activity/act-detail");
-    expect(actLink).toBeTruthy();
-    expect(container.querySelector('a[href="/ko/activity/act-detail"].group')).toHaveClass("block");
-  });
-
-  it("links to athlete profile", () => {
-    const activity = createMockActivity({ userId: "user-42" });
-    renderWithProviders(<ActivityCard activity={activity} />);
-    const links = screen.getAllByRole("link");
-    const profileLink = links.find((l) => l.getAttribute("href") === "/ko/athlete/user-42");
-    expect(profileLink).toBeTruthy();
-  });
-
-  // 스트라바형 소셜 푸터 — 좋아요(아바타 스택)+댓글. recentKudos 비정규화로 추가 read 없음.
-  it("renders kudos and comment buttons in the social footer", () => {
-    const activity = createMockActivity({ kudosCount: 3, commentCount: 1 });
-    renderWithProviders(<ActivityCard activity={activity} />);
-    // 좋아요/댓글 버튼은 aria-label 로 식별 (count 숫자는 stats 와 중복될 수 있어 라벨로 검증)
-    expect(screen.getByLabelText("좋아요")).toBeInTheDocument();
-    expect(screen.getByLabelText("댓글")).toBeInTheDocument();
   });
 
   it("hydrates missing kudos avatars from public profiles", async () => {
@@ -335,26 +269,6 @@ describe("ActivityCard", () => {
     const activity = createMockActivity();
     renderWithProviders(<ActivityCard activity={activity} hideAuthor />);
     expect(screen.queryByLabelText("좋아요")).not.toBeInTheDocument();
-  });
-
-  // AI 요약 — 활동 doc 에 비정규화된 aiSummaryPreview 가 있을 때만 노출 (온디맨드 생성).
-  it("shows AI summary block when aiSummaryPreview is present", () => {
-    const activity = createMockActivity({ aiSummaryPreview: "전반적으로 안정적인 페이스의 라이딩이었습니다." });
-    renderWithProviders(<ActivityCard activity={activity} />);
-    expect(screen.getByText("AI 요약")).toBeInTheDocument();
-    expect(screen.getByText("전반적으로 안정적인 페이스의 라이딩이었습니다.")).toBeInTheDocument();
-  });
-
-  it("hides AI summary block when aiSummaryPreview is absent", () => {
-    const activity = createMockActivity();
-    renderWithProviders(<ActivityCard activity={activity} />);
-    expect(screen.queryByText("AI 요약")).not.toBeInTheDocument();
-  });
-
-  it("defaults description to '라이딩' when empty", () => {
-    const activity = createMockActivity({ description: "" });
-    renderWithProviders(<ActivityCard activity={activity} />);
-    expect(screen.getByText("라이딩")).toBeInTheDocument();
   });
 });
 

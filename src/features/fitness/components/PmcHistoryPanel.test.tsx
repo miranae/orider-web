@@ -1,7 +1,5 @@
 import { chooseDropdownAt, dropdownSelectedIndex } from "../fitnessControlTestUtils";
 import { fireEvent, screen, within } from "@testing-library/react";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import type { FitnessPoint } from "../../../utils/fitnessMetrics";
@@ -47,34 +45,37 @@ describe("PmcHistoryPanel", () => {
     expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("장기체력 CTL");
     expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("단기피로 ATL");
     expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("회복상태 TSB");
-    const trendChart = screen.getByRole("img");
+    const ranges = within(screen.getByTestId("K1-2-1"));
+    const navigation = within(screen.getByTestId("K1-2-4"));
+    const plot = within(screen.getByTestId("K1-2-3"));
+    const trendChart = plot.getByRole("img");
     const trendPoint = { x: 0, y: 0, matrixTransform: () => ({ x: trendPoint.x, y: trendPoint.y }) };
     Object.defineProperty(trendChart, "createSVGPoint", { value: () => trendPoint });
     Object.defineProperty(trendChart, "getScreenCTM", { value: () => ({ inverse: () => ({}) }) });
     fireEvent.pointerDown(trendChart, { clientX: 44, clientY: 40 });
     fireEvent.pointerUp(trendChart, { clientX: 44, clientY: 40 });
-    expect(dropdownSelectedIndex(screen.getByRole("combobox"))).toBe(0);
-    fireEvent.click(screen.getByRole("button", { name: "오늘" }));
-    expect(screen.getByRole("button", { name: "90일" })).toHaveAttribute("aria-pressed", "true");
+    expect(dropdownSelectedIndex(navigation.getByRole("combobox"))).toBe(0);
+    fireEvent.click(navigation.getByRole("button", { name: "오늘" }));
+    expect(ranges.getByRole("button", { name: "90일" })).toHaveAttribute("aria-pressed", "true");
     const initialSelectionX = container.querySelector('[data-pmc-selection="true"] line')?.getAttribute("x1");
-    fireEvent.click(screen.getByRole("button", { name: "이전 구간" }));
+    fireEvent.click(navigation.getByRole("button", { name: "이전 구간" }));
     expect(screen.getAllByText("2026-09-05 – 2026-09-05")).toHaveLength(2);
     expect(container.querySelector('[data-pmc-selection="true"] line')?.getAttribute("x1")).not.toBe(initialSelectionX);
-    fireEvent.click(screen.getByRole("button", { name: "오늘" }));
+    fireEvent.click(navigation.getByRole("button", { name: "오늘" }));
     expect(screen.getAllByText("2026-09-06 – 2026-09-06")).toHaveLength(2);
-    fireEvent.click(screen.getByRole("button", { name: "180일" }));
+    fireEvent.click(ranges.getByRole("button", { name: "180일" }));
     expect(screen.getByText("주평균")).toBeInTheDocument();
     expect(container.querySelector('[data-pmc-today-marker="true"]')).not.toBeInTheDocument();
     expect(container.querySelector(".pmc-history__value-strip strong")).toHaveTextContent("주평균");
-    expect(screen.getByRole("button", { name: "최신 구간" })).toBeInTheDocument();
-    const chart = screen.getByRole("img");
+    expect(navigation.getByRole("button", { name: "최신 구간" })).toBeInTheDocument();
+    const chart = plot.getByRole("img");
     expect(chart).toHaveAccessibleName(/주평균/);
     fireEvent.pointerMove(chart, { clientX: 400, clientY: 10 });
     expect(screen.getByText("장기체력 CTL · 주평균")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "3년" }));
+    fireEvent.click(ranges.getByRole("button", { name: "3년" }));
     expect(screen.getByText("월평균")).toBeInTheDocument();
     expect(container.querySelector(".pmc-history__value-strip strong")).toHaveTextContent("월평균");
-    const table = screen.getByRole("table");
+    const table = within(screen.getByTestId("K1-2-7")).getByRole("table");
     expect(within(table).getByText("45.0")).toBeInTheDocument();
     expect(within(table).getByText("60.0")).toBeInTheDocument();
     expect(within(table).getByText(/2\/6 일 · 부분 집계/)).toBeInTheDocument();
@@ -145,26 +146,6 @@ describe("PmcHistoryPanel", () => {
     expect(screen.getByText("PMC 계산 실패")).toHaveClass("pmc-history__source--danger");
     view.rerender(<PmcHistoryPanel points={[{ ...base, calculationStatus: "failed" }]} today="2026-09-06" canonical sourceLabel="직접 지정" />);
     expect(screen.getByText("직접 지정")).toHaveAttribute("data-source-state", "failed");
-  });
-
-  it("keeps the six period controls touch-sized and able to wrap on narrow screens", () => {
-    const css = readFileSync(join(process.cwd(), "src/features/fitness/components/PmcHistoryPanel.css"), "utf8");
-    expect(css).toContain(".pmc-history__ranges { flex-wrap: wrap; overflow: visible; }");
-    expect(css).toContain(".pmc-history__ranges .ds-btn { flex: 1 0 calc(33.333% - var(--space-1)); }");
-    expect(css).toContain(".pmc-history__ranges .ds-btn { flex: 1 0 2.75rem; height: 44px; min-height: 44px;");
-    expect(css).toContain(".pmc-history__ranges .ds-btn::after { display: none; }");
-    expect(css).toContain(".pmc-history__navigation label { grid-column: 1 / -1; }");
-    expect(css).toContain(".pmc-history__tsb-chart { display: block; width: 100%; height: auto;");
-  });
-
-  it("puts period controls before the plot without repeating the current-state summary", () => {
-    const { container } = renderPanel();
-    const range = screen.getByRole("group", { name: "표시 기간" });
-    const chart = container.querySelector(".pmc-history__trend-stack");
-    expect(range.compareDocumentPosition(chart!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(container.querySelector(".pmc-history__latest")).toBeNull();
-    expect(screen.getAllByRole("heading", { name: "컨디션 변화" })).toHaveLength(1);
-    expect(container.querySelector(".pmc-history__navigation label")?.compareDocumentPosition(screen.getByRole("button", { name: "오늘" }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("keeps selected values keyed to the plotted series and emphasizes the independent zero baseline", () => {

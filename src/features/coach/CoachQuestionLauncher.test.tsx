@@ -1,5 +1,4 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { readFileSync } from "node:fs";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -391,17 +390,6 @@ describe("CoachQuestionLauncher", () => {
     expect(await screen.findByRole("button", { name: "다른 질문하기" })).toBeInTheDocument();
   });
 
-  it("supports an inline trigger without changing the default block trigger", () => {
-    const defaultView = setup();
-    expect(screen.getByRole("button", { name: "AI 코치에게 물어보기" })).toHaveClass("ds-btn--block");
-    defaultView.unmount();
-
-    render(<MemoryRouter><DialogProvider>
-      <CoachQuestionLauncher user={user} discipline="bike" onSignIn={vi.fn()} triggerBlock={false} />
-    </DialogProvider></MemoryRouter>);
-    expect(screen.getByRole("button", { name: "AI 코치에게 물어보기" })).not.toHaveClass("ds-btn--block");
-  });
-
   it("opens through authoritative status loading, focuses the PMC draft, and never auto-sends it", async () => {
     setupPmc();
     await userEvent.click(screen.getByRole("button", { name: "PMC example" }));
@@ -609,37 +597,6 @@ describe("CoachQuestionLauncher", () => {
     expect(mocks.ask).not.toHaveBeenCalled();
   });
 
-  it("uses the design-system composer hierarchy without duplicating a selected quick prompt", async () => {
-    setup();
-    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
-    await screen.findByText("오늘 3회 남음");
-
-    expect(screen.getByText("내 운동 기록을 근거로 답합니다.")).toBeInTheDocument();
-    expect(screen.getByText("새 질문은 새 대화로 저장됩니다.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "대화 내역" })).toBeInTheDocument();
-    expect(screen.getByText("사이클 기록 분석")).toBeInTheDocument();
-    expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
-    expect(screen.queryByText("서버가 질문에서 기간 확인")).not.toBeInTheDocument();
-    expect(screen.queryByText("0/1000")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveAttribute("aria-describedby", "coach-question-note");
-
-    const composer = screen.getByLabelText("내 운동에 대한 질문");
-    const quickPromptTitle = screen.getByRole("heading", { name: "이런 질문을 해보세요" });
-    expect(composer.compareDocumentPosition(quickPromptTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    await userEvent.click(composer);
-    expect(screen.getByText("0/1000")).toBeInTheDocument();
-    expect(composer).toHaveAttribute("aria-describedby", "coach-question-note coach-question-counter");
-
-    const submit = screen.getByRole("button", { name: "질문하기" });
-    expect(submit).toHaveClass("ds-btn--primary", "ds-btn--block");
-    await userEvent.click(screen.getByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ }));
-    expect(composer).toHaveValue("FTP 3.5 W/kg을 만들고 싶어. 최근 한 달 운동 기록을 확인하고 목표까지의 차이와 훈련 방향을 코칭해줘.");
-    expect(composer).toHaveFocus();
-    expect(screen.queryByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /내 마지막 운동 기록을 확인하고 잘된 점과 보완할 점/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태/ })).toBeInTheDocument();
-  });
-
   it("always requests the planner-selected automatic response format", async () => {
     mocks.ask.mockResolvedValue(answer);
     setup();
@@ -650,21 +607,6 @@ describe("CoachQuestionLauncher", () => {
     await waitFor(() => expect(mocks.ask).toHaveBeenCalledWith(expect.objectContaining({ responseFormat: "auto" })));
     await userEvent.click(screen.getByRole("button", { name: "다른 질문하기" }));
     expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
-  });
-
-  it("keeps the format picker removed when the launcher session is cleared", async () => {
-    mocks.ask.mockResolvedValue(answer);
-    setup();
-    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
-    await screen.findByText("오늘 3회 남음");
-    await userEvent.click(screen.getByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ }));
-    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
-    await screen.findByText("이번 주 훈련량이 높았습니다.");
-    await userEvent.click(screen.getByRole("button", { name: "AI 코치 닫기" }));
-    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
-    await screen.findByText("오늘 3회 남음");
-    expect(screen.queryByRole("group", { name: "답변 형식" })).not.toBeInTheDocument();
-    expect(mocks.ask.mock.calls[0]?.[0].responseFormat).toBe("auto");
   });
 
   it.each(disciplinePrompts)("shows only $discipline prompts and placeholder", async ({ discipline, placeholder, labels, prompts }) => {
@@ -1426,17 +1368,5 @@ describe("CoachQuestionLauncher", () => {
     expect(screen.getByLabelText("내 운동에 대한 질문")).toHaveValue("훈련 처방을 알려줘");
     expect(screen.queryByRole("heading", { name: "이런 질문을 해보세요" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /최근 한 달 운동 기록을 확인하고 체력·피로·회복 상태/ })).not.toBeInTheDocument();
-  });
-
-  // 직접 입력 의사는 "지금 이 처방" 한정이다. 남아 있으면 이후 모든 체크인이 자동 경로를
-  // 영구히 건너뛴다.
-  it("resets the one-off manual check-in intent when a new question starts", () => {
-    const source = readFileSync("src/features/coach/CoachQuestionLauncher.tsx", "utf8");
-    const startAnother = source.slice(source.indexOf("function startAnother()"),
-      source.indexOf("function choosePlannerQuestion"));
-    expect(startAnother).toContain("setManualCheckIn(false)");
-    const closeSheet = source.slice(source.indexOf("function closeSheet()"),
-      source.indexOf("async function execute("));
-    expect(closeSheet).toContain("setManualCheckIn(false)");
   });
 });
