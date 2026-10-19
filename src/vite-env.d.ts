@@ -32,7 +32,13 @@ interface ImportMetaEnv {
   readonly VITE_SOCIAL_AUTH_FUNCTIONS_BASE?: string;
   readonly VITE_SENTRY_DSN?: string;
   readonly VITE_USE_EMULATORS?: string;
+  readonly VITE_AUTH_EMULATOR_PORT?: string;
+  readonly VITE_FIRESTORE_EMULATOR_PORT?: string;
+  readonly VITE_STORAGE_EMULATOR_PORT?: string;
+  readonly VITE_FUNCTIONS_EMULATOR_PORT?: string;
   readonly VITE_FIRESTORE_FORCE_LONG_POLLING?: string;
+  /** DEV·localhost에서 Strava 요약 미리보기 읽기 요청에만 적용한다. */
+  readonly VITE_STRAVA_SUMMARY_PREVIEW_URL?: string;
   readonly VITE_USE_BUILD_ENV_FALLBACK?: string;
 }
 

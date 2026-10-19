@@ -1,0 +1,33 @@
+.cp-course-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--space-3); border-top:1px solid var(--line-soft); padding-top:var(--space-4); }
+.cp-course-summary>div { display:grid; gap:var(--space-1); }
+.cp-course-summary span { display:flex; align-items:center; gap:var(--space-2); font-size:var(--fs-sm); color:var(--ink-2); }
+.cp-course-summary strong { font-size:var(--fs-2xl); color:var(--ink-0); font-weight:750; }
+.cp-course-summary small { font-size:var(--fs-base); font-weight:500; color:var(--ink-2); }
+.cp-course-summary>p { grid-column:1/-1; font-size:var(--fs-sm); color:var(--ink-2); }
+.cp-course-preview { display:grid; gap:var(--space-4); }
+.cp-course-preview>p { font-size:var(--fs-sm); }
+/* 기존 RouteMap과 고도 차트가 같은 카드에서 이어진다. */
+.cp-course-visual { min-width:0; display:grid; gap:var(--space-3); }
+.cp-real-map { overflow:hidden; border-radius:var(--r-md); border:1px solid var(--line-soft); }
+.cp-map-height { height:clamp(20rem,50vw,30rem); }
+.cp-elevation-profile { min-width:0; padding:var(--space-3); border:1px solid var(--line-soft); border-radius:var(--r-md); background:var(--bg-1); }
+.cp-elevation-profile .cp-section-heading { align-items:baseline; flex-wrap:wrap; }
+.cp-elevation-profile .cp-section-heading>span { overflow-wrap:anywhere; }
+.cp-elevation-profile>p { margin-top:var(--space-2); }
+.cp-profile-tabs,.cp-map-waypoints { display:flex; flex-wrap:wrap; gap:var(--space-2); }
+.cp-profile-tabs button,.cp-map-waypoints button { padding:var(--space-2) var(--space-3); background:var(--bg-1); border:1px solid var(--line-soft); border-radius:var(--r-sm); font-size:var(--fs-sm); color:var(--ink-1); text-align:left; overflow-wrap:anywhere; }
+.cp-profile-tabs button[aria-pressed=true],.cp-map-waypoints button[aria-pressed=true] { border-color:var(--color-primary-dark); color:var(--color-primary-dark); background:var(--bg-2); }
+.cp-map-waypoints button { display:flex; align-items:center; gap:var(--space-2); }
+.cp-map-waypoints button:disabled { opacity:.6; }
+.cp-map-pin,.cp-map-waypoints button>span:first-child { display:grid; place-items:center; min-width:var(--space-6); height:var(--space-6); border-radius:50%; color:var(--primary-fg); background:var(--color-primary-dark); font-size:var(--fs-xs); font-weight:700; border:1px solid var(--bg-0); }
+.cp-course-map-empty { padding:var(--space-5); border:1px dashed var(--line-soft); border-radius:var(--r-md); background:var(--bg-2); color:var(--ink-2); }
+.cp-course-stops { display:flex; flex-wrap:wrap; gap:var(--space-2) var(--space-3); margin:0; padding:0; list-style:none; }
+.cp-course-stops li { display:flex; align-items:center; gap:var(--space-2); font-size:var(--fs-sm); color:var(--ink-1); }
+.cp-course-stops li>span { display:grid; place-items:center; background:var(--bg-2); color:var(--color-primary-dark); border-radius:50%; width:var(--space-6); height:var(--space-6); flex-shrink:0; font-size:var(--fs-xs); }
+
+.cp-waypoint-name { display:grid; gap:var(--space-1); }
+.cp-waypoint-name small { color:var(--ink-2); font-size:var(--fs-xs); }
+
+/* 같은 종류의 경유지도 각자의 레인에 두어 실제 거리 위치에서 겹치지 않는다. */
+.cp-profile-lanes .event-pip { max-width:none; }
+.cp-profile-lanes .event-lane-row { min-height:var(--space-8); }

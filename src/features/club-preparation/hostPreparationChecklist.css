@@ -1,0 +1,6 @@
+.cp-followups { overflow-wrap: anywhere; }
+.cp-followup-links { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-block: var(--space-4); }
+.cp-followup-links a { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); color: var(--ink-1); text-decoration: none; }
+.cp-followup-links a:hover { background: var(--bg-2); }
+.cp-followup-links strong { font-size: var(--fs-xl); }
+.cp-followups textarea { width: 100%; min-height: calc(var(--space-8) * 3); margin-top: var(--space-3); }

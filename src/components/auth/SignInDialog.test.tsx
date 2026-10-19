@@ -5,52 +5,56 @@ const mocks = vi.hoisted(() => ({ start: vi.fn() }));
 vi.mock("../../services/socialAuth", () => ({ startSocialAuth: mocks.start }));
 import { SignInDialog } from "./SignInDialog";
 
-describe("Strava sign-in choice", () => {
-  beforeEach(() => { mocks.start.mockReset().mockResolvedValue(undefined); });
+const showDialog = (onGoogle = vi.fn().mockResolvedValue(undefined)) => {
+  render(<MemoryRouter><SignInDialog open onClose={vi.fn()} onGoogle={onGoogle} /></MemoryRouter>);
+  return screen.getByRole("button", { name: "Google로 계속하기" });
+};
 
-  it("uses the official button asset and starts the login flow, separate from activity sync", () => {
-    render(<MemoryRouter><SignInDialog open onClose={vi.fn()} onGoogle={vi.fn()} /></MemoryRouter>);
-    const button = screen.getByRole("button", { name: "Strava로 계속하기" });
-    expect(button.querySelector("img")).toHaveAttribute("src", "/btn_strava_connect_orange.svg");
-    expect(screen.getByText("기존 계정이 있다면 로그인 후 설정에서 다른 로그인 방법을 연결하세요.")).toBeInTheDocument();
-    expect(screen.queryByText(/공개 프로필 읽기 권한/)).not.toBeInTheDocument();
+describe("production sign-in choices", () => {
+  beforeEach(() => { mocks.start.mockReset(); });
+
+  it("keeps Google as the only sign-in choice and starts its existing flow", () => {
+    const google = vi.fn().mockResolvedValue(undefined);
+    const button = showDialog(google);
+    for (const name of ["네이버로 계속하기", "카카오로 계속하기", "Strava로 계속하기"]) {
+      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
+    for (const id of ["A1-1-2", "A1-1-3", "A1-1-4"]) expect(screen.queryByTestId(id)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "이용약관" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "개인정보처리방침" })).toBeInTheDocument();
     fireEvent.click(button);
-    expect(mocks.start).toHaveBeenCalledWith("strava", "login");
+    expect(google).toHaveBeenCalledOnce();
+    expect(mocks.start).not.toHaveBeenCalled();
   });
 
-  it("recovers a failed Strava start so another login method can be chosen", async () => {
-    mocks.start.mockRejectedValue(new Error("unavailable"));
-    render(<MemoryRouter><SignInDialog open onClose={vi.fn()} onGoogle={vi.fn()} /></MemoryRouter>);
-    const button = screen.getByRole("button", { name: "Strava로 계속하기" });
+  it("restores Google sign-in after a failure and permits retry", async () => {
+    const google = vi.fn().mockRejectedValueOnce(new Error("unavailable")).mockResolvedValueOnce(undefined);
+    const button = showDialog(google);
     fireEvent.click(button);
     expect(await screen.findByRole("alert")).toHaveTextContent("로그인에 실패했습니다");
     await waitFor(() => expect(button).not.toBeDisabled());
-    expect(screen.getByRole("button", { name: "Google로 계속하기" })).not.toBeDisabled();
+    fireEvent.click(button);
+    await waitFor(() => expect(google).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mocks.start).not.toHaveBeenCalled();
   });
 
-  it("explains the isolated test guard and restores provider buttons for retry", async () => {
-    mocks.start.mockRejectedValueOnce({ code: "functions/failed-precondition", details: { reason: "strava-isolated-acceptance-required" } });
-    render(<MemoryRouter><SignInDialog open onClose={vi.fn()} onGoogle={vi.fn()} /></MemoryRouter>);
-    const button = screen.getByRole("button", { name: "Strava로 계속하기" });
+  it.each(["auth/popup-closed-by-user", "auth/cancelled-popup-request"])("keeps a cancelled Google popup quiet: %s", async code => {
+    const button = showDialog(vi.fn().mockRejectedValue({ code }));
     fireEvent.click(button);
-    expect(await screen.findByRole("alert")).toHaveTextContent("테스트 환경에서는 Strava 로그인이 제한되어 있습니다. 테스트 계정을 확인한 뒤 진행할 수 있습니다.");
-    expect(button).not.toBeDisabled();
-    expect(screen.getByRole("button", { name: "Google로 계속하기" })).not.toBeDisabled();
-    fireEvent.click(button);
-    await waitFor(() => expect(mocks.start).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(button).not.toBeDisabled());
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it.each([
-    ["네이버로 계속하기", "functions/failed-precondition", "strava-isolated-acceptance-required"],
-    ["Strava로 계속하기", "functions/unavailable", "strava-isolated-acceptance-required"],
-    ["Strava로 계속하기", "functions/failed-precondition", "unrelated-reason"],
-  ])("keeps unrelated errors generic: %s / %s / %s", async (providerLabel, code, reason) => {
-    mocks.start.mockRejectedValueOnce({ code, details: { reason } });
-    render(<MemoryRouter><SignInDialog open onClose={vi.fn()} onGoogle={vi.fn()} /></MemoryRouter>);
-    fireEvent.click(screen.getByRole("button", { name: providerLabel }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("로그인에 실패했습니다. 다시 시도해 주세요.");
+  it("prevents duplicate Google requests while the popup is pending", async () => {
+    let finish!: () => void;
+    const google = vi.fn().mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+    const button = showDialog(google);
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(google).toHaveBeenCalledOnce();
+    finish();
+    await waitFor(() => expect(button).not.toBeDisabled());
   });
 });

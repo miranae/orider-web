@@ -44,7 +44,7 @@ vi.mock("./errorLogger", () => ({
   logClientError: mocks.logClientError,
 }));
 
-import {
+let {
   ACTIVITY_NARRATIVE_APP_CHECK_THROTTLE_RECOVERY_KEY,
   ActivityNarrativeRestError,
   appCheckThrottleRetryAfterMs,
@@ -52,7 +52,7 @@ import {
   generateActivityNarrative,
   peekActivityNarrative,
   retryActivitySocialSummary,
-} from "./activityNarrativeApi";
+} = await import("./activityNarrativeApi");
 
 const narrative = {
   narrativeVersion: "rsn-v1",
@@ -90,9 +90,20 @@ describe("activityNarrativeApi", () => {
   });
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    vi.resetModules();
+    ({
+      ACTIVITY_NARRATIVE_APP_CHECK_THROTTLE_RECOVERY_KEY,
+      ActivityNarrativeRestError,
+      appCheckThrottleRetryAfterMs,
+      claimActivityNarrativeAppCheckThrottleRecovery,
+      generateActivityNarrative,
+      peekActivityNarrative,
+      retryActivitySocialSummary,
+    } = await import("./activityNarrativeApi"));
     vi.restoreAllMocks();
     mocks.auth.currentUser = { getIdToken: vi.fn().mockResolvedValue("id-token") };
     mocks.getAppCheckToken.mockReset().mockResolvedValue("app-check-token");
@@ -271,11 +282,7 @@ describe("activityNarrativeApi", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(mocks.callable).not.toHaveBeenCalled();
-    expect(mocks.logClientError).toHaveBeenCalledWith(
-      "activityNarrativeApi.restNetworkRecovery",
-      expect.objectContaining({ code: "rest-network" }),
-      { operation: "peek", lang: "ko", forceRefresh: false },
-    );
+    expect(mocks.logClientError).not.toHaveBeenCalled();
   });
 
   it("generate 회선 순단은 cacheOnly로 첫 요청 산출물만 확인하고 재전송하지 않는다", async () => {
@@ -453,7 +460,7 @@ describe("activityNarrativeApi", () => {
       cacheOnly: true,
     })).resolves.toEqual({ hit: false });
 
-    expect(mocks.onAuthStateChanged).toHaveBeenCalledOnce();
+    expect(mocks.onAuthStateChanged).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       headers: expect.objectContaining({
         Authorization: "Bearer restored-id-token",
@@ -516,7 +523,7 @@ describe("activityNarrativeApi", () => {
     expect(mocks.callable).toHaveBeenCalledTimes(1);
   });
 
-  it("App Check 준비가 실패하면 사유를 기록하고도 익명 peek callable 은 시도한다", async () => {
+  it("App Check 준비가 실패하면 원인을 전파하고 callable을 보내지 않는다", async () => {
     mocks.auth.currentUser = null;
     const appCheckError = new Error("app-check/token-timeout");
     mocks.ensureAppCheckReady.mockRejectedValue(appCheckError);
@@ -526,8 +533,8 @@ describe("activityNarrativeApi", () => {
       activityId: "public-activity",
       lang: "ko",
       cacheOnly: true,
-    })).resolves.toEqual({ hit: false });
-    expect(mocks.callable).toHaveBeenCalledTimes(1);
+    })).rejects.toBe(appCheckError);
+    expect(mocks.callable).not.toHaveBeenCalled();
     // callable 의 "Unauthenticated" 는 2차 증상 — 준비 실패 사유가 남아야 원인 추적이 된다.
     expect(mocks.logClientError).toHaveBeenCalledWith(
       "activityNarrativeApi.appCheckReady",
@@ -535,4 +542,109 @@ describe("activityNarrativeApi", () => {
       { operation: "peek", lang: "ko", fallbackReason: "anonymous_peek", signedIn: false },
     );
   });
+  it("REST 실패 후 1분은 callable을 사용하고 만료되면 REST를 다시 탐색한다", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", fetchMock);
+    mocks.callable.mockResolvedValue({ data: { hit: false } });
+    const request = { activityId: "cooldown", lang: "ko", cacheOnly: true } as const;
+    const first = peekActivityNarrative(request);
+    await vi.advanceTimersByTimeAsync(400);
+    await expect(first).resolves.toEqual({ hit: false });
+    await expect(peekActivityNarrative(request)).resolves.toEqual({ hit: false });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(mocks.track).toHaveBeenCalledWith("activity_narrative_transport", expect.objectContaining({ fallbackReason: "rest_network_cooldown" }));
+    expect(mocks.logClientError).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(60_000);
+    fetchMock.mockResolvedValueOnce(jsonResponse({ hit: false }));
+    await expect(peekActivityNarrative(request)).resolves.toEqual({ hit: false });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(mocks.callable).toHaveBeenCalledTimes(2);
+  });
+
+  it("REST cooldown은 다른 API base나 강제 생성으로 전파되지 않는다", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", fetchMock);
+    mocks.callable.mockResolvedValue({ data: { hit: false } });
+    const request = { activityId: "base", lang: "ko", cacheOnly: true } as const;
+    const first = peekActivityNarrative(request);
+    await vi.advanceTimersByTimeAsync(400);
+    await first;
+    await expect(generateActivityNarrative({ activityId: "base", lang: "ko", forceRefresh: true })).rejects.toMatchObject({ code: "rest-network" });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    mocks.runtime.aiApiBase = "https://other.example.run.app";
+    fetchMock.mockResolvedValueOnce(jsonResponse({ hit: false }));
+    await peekActivityNarrative(request);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls[3][0]).toBe("https://other.example.run.app/v1/activity-narrative");
+    expect(mocks.callable).toHaveBeenCalledTimes(1);
+  });
+
+  it("동시 peek은 공유하되 활동·언어·요약·인증별 요청은 분리한다", async () => {
+    const fetchMock = vi.fn().mockImplementation(() => new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    const request = { activityId: "same", lang: "ko", cacheOnly: true } as const;
+    // 토큰 발급을 대기시켜 모든 요청을 진행 중 상태로 유지한다.
+    let releaseToken: ((token: string) => void) | undefined;
+    mocks.auth.currentUser!.getIdToken.mockReturnValue(new Promise<string>((resolve) => { releaseToken = resolve; }));
+    const first = peekActivityNarrative(request);
+    const duplicate = peekActivityNarrative(request);
+    const english = peekActivityNarrative({ ...request, lang: "en" });
+    const other = peekActivityNarrative({ ...request, activityId: "other" });
+    const social = retryActivitySocialSummary("same", "ko");
+    await vi.waitFor(() => expect(mocks.auth.currentUser!.getIdToken).toHaveBeenCalledTimes(4));
+    mocks.auth.currentUser = { getIdToken: vi.fn().mockResolvedValue("other-user-token") };
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ hit: false })));
+    const secondUser = peekActivityNarrative(request);
+    releaseToken!("first-user-token");
+    await Promise.all([first, duplicate, english, other, social, secondUser]);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock.mock.calls.filter(([, init]) => init.headers.Authorization === "Bearer other-user-token")).toHaveLength(1);
+    // 완료된 요청은 다음 열람에 공유하지 않는다.
+    await peekActivityNarrative(request);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+  });
+
+  it.each([401, 403, 429, 500])("peek HTTP %s는 재시도나 callable로 우회하지 않는다", async (status) => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ error: { code: "denied", message: "denied" } }, status));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(peekActivityNarrative({ activityId: "denied", lang: "ko", cacheOnly: true })).rejects.toMatchObject({ status });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(mocks.callable).not.toHaveBeenCalled();
+  });
+
+  it("peek 재시도는 최신 인증 및 App Check 토큰을 다시 가져온다", async () => {
+    mocks.auth.currentUser!.getIdToken.mockResolvedValueOnce("old-token").mockResolvedValueOnce("fresh-token");
+    mocks.getAppCheckToken.mockResolvedValueOnce("old-app-check").mockResolvedValueOnce("fresh-app-check");
+    const fetchMock = vi.fn().mockRejectedValueOnce(new TypeError("Failed to fetch")).mockResolvedValueOnce(jsonResponse({ hit: false }));
+    vi.stubGlobal("fetch", fetchMock);
+    await peekActivityNarrative({ activityId: "retry", lang: "ko", cacheOnly: true });
+    expect(fetchMock.mock.calls[1][1].headers).toMatchObject({ Authorization: "Bearer fresh-token", "X-Firebase-AppCheck": "fresh-app-check" });
+  });
+
+  it("동일 인증 객체로 재로그인해도 이전 세션의 진행 중 요청을 공유하지 않는다", async () => {
+    let authChanged: ((user: typeof mocks.auth.currentUser) => void) | undefined;
+    mocks.onAuthStateChanged.mockImplementation((_auth, next) => {
+      authChanged = next;
+      next(mocks.auth.currentUser);
+      return vi.fn();
+    });
+    const firstUser = mocks.auth.currentUser;
+    let release: (() => void) | undefined;
+    const fetchMock = vi.fn().mockImplementationOnce(() => new Promise<Response>((resolve) => {
+      release = () => resolve(jsonResponse({ hit: false }));
+    })).mockImplementation(() => Promise.resolve(jsonResponse({ hit: false })));
+    vi.stubGlobal("fetch", fetchMock);
+    const request = { activityId: "same-session", lang: "ko", cacheOnly: true } as const;
+    const first = peekActivityNarrative(request);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    authChanged!(null);
+    authChanged!(firstUser);
+    await peekActivityNarrative(request);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    release!();
+    await first;
+  });
+
 });

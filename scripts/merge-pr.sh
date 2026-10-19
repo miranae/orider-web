@@ -13,6 +13,7 @@
 #   scripts/merge-pr.sh [PR_NUMBER] [options]
 #
 # Options:
+#   --test-file <path>        Repeatable; scoped tests for JSX-child deletion only (feature→dev).
 #   --no-merge                Run gates only.
 #   --no-review               Skip local AI code review.
 #   --blockers-only           Review only merge-blocking defects (default).
@@ -47,9 +48,14 @@ RUN_E2E=0
 WAIT_CHECKS=1
 KEEP_WORKTREE=0
 PR_NUM=""
+TEST_FILES=()
+TEST_SCOPE_EVIDENCE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --test-file)
+      [[ -n "${2:-}" && "${2:-}" != -* ]] || { echo "--test-file 경로가 필요합니다." >&2; exit 2; }
+      TEST_FILES+=("$2"); shift ;;
     --no-merge) DO_MERGE=0 ;;
     --no-review) RUN_REVIEW=0 ;;
     --blockers-only) REVIEW_BLOCKERS_ONLY=1 ;;
@@ -404,6 +410,15 @@ else
   GATE_TIER="full"
 fi
 
+# 명시적 선택은 좁은 JSX 삭제에만 허용한다. 승격/full은 전체 검증을 유지한다.
+if [[ ${#TEST_FILES[@]} -gt 0 ]]; then
+  SCOPE_ARGS=()
+  for test_file in "${TEST_FILES[@]}"; do SCOPE_ARGS+=(--test-file "$test_file"); done
+  TEST_SCOPE_EVIDENCE="$(node scripts/feature-test-scope.mjs --base "origin/$BASE" --head "$HEAD_OID" --tier "$GATE_TIER" "${SCOPE_ARGS[@]}")" \
+    || die "명시적 테스트 범위 검증 실패 — 기본 --changed 게이트를 사용하세요."
+  echo "  test_scope=$TEST_SCOPE_EVIDENCE"
+fi
+
 # 같은 커밋에 대해 GitHub CI 가 이미 통과했다면 로컬 풀 게이트는 같은 일을 한 번 더 하는 것이다.
 # ci.yml 의 check 잡은 lint:budget / quality:budget / check:i18n / check:deploy-config /
 # npm test / build 를 모두 돌고, 로컬 풀 게이트는 그중 lint·quality·test·build 를 반복한다.
@@ -454,6 +469,8 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
   REVIEW_LOG="$(realpath "$REVIEW_LOG")"
   REVIEW_PROMPT="당신은 머지 직전 엄격한 코드 리뷰어다. 아래 입력은 PR head의 metadata와 origin/$BASE...HEAD의 정확한 diff다. 제공된 입력만 사용하고 작업 디렉터리, 환경 변수, 사용자 또는 프로젝트 설정을 읽지 말라. 이 diff가 새로 들여온 정확성 버그, 로직 오류, 깨진 엣지케이스, 레이스, 보안 결함, 사용자 영향 회귀를 찾아라. 기존 결함은 제외한다.
 
+검증 범위: ${TEST_SCOPE_EVIDENCE:-Vitest --changed origin/$BASE (기본)}
+
 로깅/관측성도 점검하라:
 - 신규 무음 에러 스왈로우(catch {}, .catch(() => {}), 실패 숨김)가 있는지.
 - 운영 가시성이 필요한 프론트 에러가 logClientError/Sentry 경로 없이 raw console 또는 무시로 끝나는지.
@@ -502,12 +519,18 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
   start_codex_review
 fi
 
+
 if [[ "$GATE_TIER" == "feature" ]]; then
   [[ -d node_modules ]] || die "node_modules 없음 — 'npm ci' 후 재실행하세요."
 
   log "Feature→dev 경량 게이트: 변경 영향 Vitest"
-  run_step "targeted Vitest" "Test Files|Tests |FAIL|passed|failed|No test files" \
-    npm run test:vitest -- --changed "origin/$BASE" --passWithNoTests
+  if [[ -n "${TEST_FILES[0]:-}" ]]; then
+    run_step "targeted Vitest" "Test Files|Tests |FAIL|passed|failed|No test files" \
+      npm run test:vitest -- "${TEST_FILES[@]}"
+  else
+    run_step "targeted Vitest" "Test Files|Tests |FAIL|passed|failed|No test files" \
+      npm run test:vitest -- --changed "origin/$BASE" --passWithNoTests
+  fi
 
   log "Feature→dev 경량 게이트: 스크립트·배포 계약 검증"
   run_step "test:contracts" "tests |pass |fail |PASS|FAIL|canonical-contract" npm run test:contracts

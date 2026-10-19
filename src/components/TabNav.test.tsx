@@ -153,3 +153,27 @@ it("keeps the active route visible after late tab-width changes and respects man
     view.unmount();
   } finally { vi.unstubAllGlobals(); }
 });
+
+function AliasRouteTabs() {
+  const location=useLocation();
+  return <><RouteTabNav tabs={[{to:"/club/group-1",label:"News",end:true},{to:"/club/group-1/events?sport=bike",label:"Meetings",activePaths:["/club/group-1/meetings"]}]} state={location.state}/><output data-testid="alias-location">{location.pathname}{location.search}</output><output data-testid="alias-state">{JSON.stringify(location.state)}</output></>;
+}
+describe("RouteTabNav active route aliases",()=>{
+  it("matches localized child routes while preserving the real href and navigation state",()=>{
+    render(<MemoryRouter initialEntries={[{pathname:"/en/club/group-1/meetings/meeting-1/edit",state:{fromHub:"club"}}]}><Routes><Route path="/:lang/*" element={<AliasRouteTabs/>}/></Routes></MemoryRouter>);
+    const meeting=screen.getByRole("link",{name:"Meetings"});expect(meeting).toHaveAttribute("aria-current","page");expect(meeting).toHaveAttribute("href","/en/club/group-1/events?sport=bike");expect(screen.getByRole("link",{name:"News"})).not.toHaveAttribute("aria-current");
+    fireEvent.click(meeting);expect(screen.getByTestId("alias-location")).toHaveTextContent("/en/club/group-1/events?sport=bike");expect(screen.getByTestId("alias-state")).toHaveTextContent('{"fromHub":"club"}');expect(screen.getByRole("link",{name:"Meetings"})).toHaveAttribute("aria-current","page");
+  });
+  it("does not match a similarly named unrelated route",()=>{
+    render(<MemoryRouter initialEntries={["/ko/club/group-1/meetings-archive"]}><Routes><Route path="/:lang/*" element={<AliasRouteTabs/>}/></Routes></MemoryRouter>);expect(screen.getByRole("link",{name:"Meetings"})).not.toHaveAttribute("aria-current");
+  });
+  it("reveals an active alias in a narrow tab scroller",()=>{
+    const frames=new Map<number,FrameRequestCallback>();let next=0;
+    vi.stubGlobal("requestAnimationFrame",(callback:FrameRequestCallback)=>{frames.set(++next,callback);return next;});vi.stubGlobal("cancelAnimationFrame",(id:number)=>frames.delete(id));
+    try{
+      const view=render(<MemoryRouter initialEntries={["/ko/club/group-1/meetings/new"]}><Routes><Route path="/:lang/*" element={<AliasRouteTabs/>}/></Routes></MemoryRouter>);const scroller=view.container.querySelector<HTMLElement>(".route-tab-nav__scroller")!;const active=screen.getByRole("link",{name:"Meetings"});
+      Object.defineProperties(scroller,{scrollWidth:{configurable:true,value:600},clientWidth:{configurable:true,value:160}});scroller.getBoundingClientRect=()=>({left:0,right:160,width:160}) as DOMRect;active.getBoundingClientRect=()=>({left:400-scroller.scrollLeft,right:500-scroller.scrollLeft,width:100}) as DOMRect;
+      fireEvent(window,new Event("resize"));const flush=()=>act(()=>{const scheduled=[...frames.values()];frames.clear();scheduled.forEach(callback=>callback(0));});flush();flush();expect(active).toHaveAttribute("aria-current","page");expect(active.getBoundingClientRect().left).toBeGreaterThanOrEqual(0);expect(active.getBoundingClientRect().right).toBeLessThanOrEqual(160);view.unmount();
+    }finally{vi.unstubAllGlobals();}
+  });
+});

@@ -13,6 +13,8 @@
  *   목록에 섞으면 턴바이턴 내비게이션이 뱉은 수백 개의 제어점이 경유지 목록을 뒤덮는다.
  */
 
+import DOMPurify from "dompurify";
+
 import { computeTrackStats, type TrackPoint, type TrackStats } from "./stats";
 
 /**
@@ -124,17 +126,77 @@ function parseWaypointElements(elements: HTMLCollectionOf<Element>): GpxWaypoint
   return parsed;
 }
 
+const GPX_NAMESPACE = "http://www.topografix.com/GPX/1/1";
+const GPX_XML_TAGS = new Set([
+  "gpx", "metadata", "name", "desc", "trk", "trkseg", "trkpt", "ele", "time",
+  "wpt", "type", "sym", "rte", "rtept", "extensions", "hr", "cad", "power",
+  "TrackPointExtension", "PowerExtension", "PowerInWatts", "atemp", "wtemp", "depth", "speed", "course",
+]);
+
+/** 파일 XML은 GPX 구조·좌표와 알려진 센서 확장만 허용하는 분리된 DOM으로 읽는다. */
+export function parseGpxXmlRoot(xml: string): Element | null {
+  // CDATA의 리터럴 의미를 XML text로 보존한다. HTML로 해석하거나 SAFE_FOR_XML을 끄지 않는다.
+  const pieces: string[] = [];
+  let cursor = 0;
+  for (;;) {
+    const start = xml.indexOf("<![CDATA[", cursor);
+    if (start < 0) { pieces.push(xml.slice(cursor)); break; }
+    const end = xml.indexOf("]]>", start + 9);
+    if (end < 0) return null;
+    pieces.push(xml.slice(cursor, start), xml.slice(start + 9, end).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+    cursor = end + 3;
+  }
+  const textXml = pieces.join("").replace(/^\uFEFF?\s*<\?xml\s[^?]*\?>/i, "");
+  // GPX에 DTD가 필요하지 않으며 외부/사용자 정의 entity를 입력 경계에서 거부한다.
+  if (/<!DOCTYPE/i.test(textXml)) return null;
+  const safe = DOMPurify.sanitize(textXml, {
+    NAMESPACE: GPX_NAMESPACE,
+    PARSER_MEDIA_TYPE: "application/xhtml+xml",
+    RETURN_DOM: true,
+    SAFE_FOR_XML: true,
+    ALLOWED_TAGS: ["#text"],
+    ADD_TAGS: tag => GPX_XML_TAGS.has(tag.split(":").pop() ?? ""),
+    ALLOWED_ATTR: ["lat", "lon", "version", "creator"],
+    ADD_ATTR: attribute => attribute === "xmlns" || attribute.startsWith("xmlns:"),
+    ALLOWED_NAMESPACES: [
+      GPX_NAMESPACE, "http://www.topografix.com/GPX/1/0", "null",
+      "http://www.garmin.com/xmlschemas/TrackPointExtension/v1",
+      "http://www.garmin.com/xmlschemas/TrackPointExtension/v2",
+      "http://www.garmin.com/xmlschemas/PowerExtension/v1",
+    ],
+    ALLOW_DATA_ATTR: false,
+    ALLOW_ARIA_ATTR: false,
+    KEEP_CONTENT: false,
+  });
+  if (!(safe instanceof Element)) return null;
+  const root = safe.firstElementChild;
+  if (root?.localName !== "gpx" || safe.children.length !== 1) return null;
+  if ([...safe.childNodes].some(node => node !== root && node.textContent?.trim())) return null;
+  return root;
+}
+
 /** GPX 문서의 트랙명(`<trk><name>` 우선, 없으면 `<metadata><name>`). 없으면 null. */
 export function parseGpxName(gpxXml: string): string | null {
-  const document = new DOMParser().parseFromString(gpxXml, "text/xml");
+  const root = parseGpxXmlRoot(gpxXml);
+  return root ? gpxNameFromDocument(root) : null;
+}
+
+/** 이미 파싱한 XML의 이름은 문자열로만 읽고 마크업으로 재해석하지 않는다. */
+export function gpxNameFromDocument(document: Document | Element): string | null {
   const name = document.querySelector("trk > name") ?? document.querySelector("metadata > name");
   const text = name?.textContent?.trim();
   return text ? text : null;
 }
 
 export function parseGpx(gpxXml: string): ParsedGpx {
-  const document = new DOMParser().parseFromString(gpxXml, "text/xml");
+  const root = parseGpxXmlRoot(gpxXml);
+  return root ? parseGpxRoot(root) : {
+    points: [], latlng: [], waypoints: [], routePoints: [], hasElevation: false, stats: computeTrackStats([]),
+  };
+}
 
+/** XML DOM을 직접 읽는다. 구간을 직렬화해 다시 파싱하지 않아 entity·CDATA를 보존한다. */
+export function parseGpxRoot(document: Document | Element): ParsedGpx {
   const coordinates: Array<{ lat: number; lon: number }> = [];
   const rawElevations: (number | null)[] = [];
   const trackPoints = document.getElementsByTagName("trkpt");

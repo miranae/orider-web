@@ -195,7 +195,7 @@ function toMillis(v: unknown): number {
 }
 
 export function isPublicEventInfo(info: Record<string, unknown>): boolean {
-  if (info.deletedAt) return false;
+  if (info.kind === "CLUB_MEETING" || info.deletedAt) return false;
   const status = info.status;
   const visibility = info.visibility;
   return (

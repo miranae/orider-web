@@ -40,6 +40,11 @@ export function KakaoLogo() {
   );
 }
 
+// 로그인 진입 화면은 기존 운영 제공자만 노출한다. 설정의 계정 연결은 유지한다.
+const SHOW_ADDITIONAL_SIGN_IN_BUTTONS = false;
+// Strava는 별도 재개 판단 전까지 숨김을 유지한다.
+const SHOW_STRAVA_SIGN_IN_BUTTON = false;
+
 const BUTTON_CLASS = "w-full h-12 flex items-center justify-center gap-2 px-4 py-3 rounded-[var(--r-lg)] font-medium transition-opacity disabled:opacity-60";
 
 /** 로그인 방식 선택 — Google 은 팝업, 다른 제공자는 동의 화면으로 이동한다. */
@@ -86,6 +91,7 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
           onClick={() => { void handleGoogle(); }}>
           <GoogleLogo />{t("signIn.google")}
         </button>
+        {SHOW_ADDITIONAL_SIGN_IN_BUTTONS && <>
         <button data-testid="A1-1-2" type="button" className={BUTTON_CLASS} disabled={pending !== null}
           style={{ background: "var(--naver)", color: "var(--naver-ink)" }}
           onClick={() => { void handleSocial("naver"); }}>
@@ -96,12 +102,13 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
           onClick={() => { void handleSocial("kakao"); }}>
           <KakaoLogo />{t("signIn.kakao")}
         </button>
-        <button data-testid="A1-1-4" type="button" aria-label={t("signIn.strava")}
+        </>}
+        {SHOW_STRAVA_SIGN_IN_BUTTON && <button data-testid="A1-1-4" type="button" aria-label={t("signIn.strava")}
           className="w-full h-12 flex items-center justify-center rounded-[var(--r-lg)] overflow-hidden disabled:opacity-60"
           style={{ background: "var(--strava-login)" }} disabled={pending !== null}
           onClick={() => { void handleSocial("strava"); }}>
           <img src="/btn_strava_connect_orange.svg" alt="" className="h-12 w-auto" />
-        </button>
+        </button>}
         {error && <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)", margin: 0 }}>{error}</p>}
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>{t("signIn.separateAccountHint")}</p>
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>

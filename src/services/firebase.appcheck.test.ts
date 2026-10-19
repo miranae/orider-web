@@ -151,6 +151,20 @@ describe("ensureAppCheckReady", () => {
     expect(connectStorageEmulator).toHaveBeenLastCalledWith(expect.anything(), "localhost", 9199);
   });
 
+  it("isolates simultaneous local projects using configured emulator ports", async () => {
+    mocks.emulatorRuntime = true;
+    vi.stubEnv("VITE_AUTH_EMULATOR_PORT", "9198");
+    vi.stubEnv("VITE_FIRESTORE_EMULATOR_PORT", "8189");
+    vi.stubEnv("VITE_FUNCTIONS_EMULATOR_PORT", "5109");
+    await loadFirebase();
+    const { connectAuthEmulator } = await import("firebase/auth");
+    const { connectFirestoreEmulator } = await import("firebase/firestore");
+    const { connectFunctionsEmulator } = await import("firebase/functions");
+    expect(connectAuthEmulator).toHaveBeenLastCalledWith(expect.anything(), "http://localhost:9198", { disableWarnings: true });
+    expect(connectFirestoreEmulator).toHaveBeenLastCalledWith(expect.anything(), "localhost", 8189);
+    expect(connectFunctionsEmulator).toHaveBeenLastCalledWith(expect.anything(), "localhost", 5109);
+  });
+
   it("keeps production Auth/data app while routing callable transport to stage", async () => {
     mocks.runtimeConfig = {
       firebaseApiKey: "public-api-key", appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1",

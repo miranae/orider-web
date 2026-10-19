@@ -1,13 +1,15 @@
 import i18n from "i18next";
 import type { TFunction } from "i18next";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import enActivity from "../../../i18n/resources/en/activity.json";
 import { createMockActivity } from "../../../__tests__/fixtures/mockData";
 import type { Activity } from "@shared/types";
 import { ActivityMediaPanel } from "./ActivityMediaPanel";
 import { getSportCategory } from "./activityDetailUtils";
 
-vi.mock("../../../components/RouteMap", () => ({ default: () => <div data-testid="route-map" /> }));
+const mapProps = vi.hoisted(() => vi.fn());
+vi.mock("../../../components/RouteMap", () => ({ default: (props: unknown) => { mapProps(props); return <div data-testid="route-map" />; } }));
 
 function renderNoMap(overrides: Partial<Activity>, lng: "ko" | "en" = "ko") {
   const activity = createMockActivity(overrides);
@@ -32,6 +34,50 @@ function renderNoMap(overrides: Partial<Activity>, lng: "ko" | "en" = "ko") {
 describe("ActivityMediaPanel no-map state", () => {
   beforeAll(() => {
     i18n.addResourceBundle("en", "activity", enActivity, true, true);
+  });
+
+  it.each(["ko", "en"] as const)("toggles map size in %s without remounting or dropping location props", async lng => {
+    const user = userEvent.setup();
+    const activity = createMockActivity();
+    const selected = { startIndex: 1, endIndex: 2 };
+    const marker: [number, number] = [37, 127];
+    const labels = lng === "ko" ? ["지도 크게 보기", "지도 기본 크기로 보기"] : ["Expand map", "Restore default map size"];
+    render(<ActivityMediaPanel activity={activity} streams={null} sport="ride" hasTrack summary={activity.summary}
+      markerPosition={marker} hoveredSegment={null} selectedSegmentRange={selected} photos={[]} uploadedPhotos={[]}
+      flyToPosition={marker} t={i18n.getFixedT(lng, "activity") as TFunction<"activity">} />);
+    const map = screen.getByTestId("route-map");
+    const buttons = screen.getAllByRole("button", { name: labels[0] });
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0]).toHaveClass("activity-detail-map-resize--top-left");
+    expect(buttons[1]).toHaveClass("activity-detail-map-resize--bottom-right");
+    buttons.forEach(button => {
+      expect(button).toHaveAttribute("aria-expanded", "false");
+      expect(button).toHaveAttribute("title", labels[0]);
+      expect(document.getElementById(button.getAttribute("aria-controls")!)).toContainElement(map);
+    });
+    buttons[0]!.focus();
+    await user.keyboard("{Enter}");
+    expect(screen.getAllByRole("button", { name: labels[1] })).toEqual(buttons);
+    buttons.forEach(button => {
+      expect(button).toHaveAttribute("aria-expanded", "true");
+      expect(button).toHaveAttribute("title", labels[1]);
+    });
+    expect(buttons[0]).toHaveFocus();
+    expect(screen.getByTestId("route-map")).toBe(map);
+    expect(mapProps.mock.lastCall?.[0]).toMatchObject({ markerPosition: marker, flyToRange: selected, showRouteEndpoints: true, routeLineWidth: 3 });
+    buttons[1]!.focus();
+    await user.keyboard("[Space]");
+    expect(buttons[1]).toHaveFocus();
+    buttons.forEach(button => {
+      expect(button).toHaveAttribute("aria-expanded", "false");
+      expect(button).toHaveAccessibleName(labels[0]);
+    });
+    expect(screen.getByTestId("route-map")).toBe(map);
+  });
+
+  it("does not offer a map size control when there is no GPS track", () => {
+    renderNoMap({ type: "Run" });
+    expect(screen.queryByRole("button", { name: "지도 크게 보기" })).not.toBeInTheDocument();
   });
 
   it("labels a treadmill run as an indoor run, never a virtual ride", () => {

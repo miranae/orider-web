@@ -286,3 +286,21 @@
   .activity-overview-shift__row--axis > span { display: none; }
   .activity-overview-meter--quiet .activity-overview-meter__head { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
 }
+
+/* 통합 분석의 각 차트는 전체 너비를 사용하고 숫자 묶음은 촘촘하게 유지한다. */
+.activity-detail-analysis-content .activity-overview-grid {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: none;
+  gap: var(--space-4);
+  align-items: start;
+}
+.activity-detail-analysis-content .activity-overview-col { display: contents; }
+.activity-detail-analysis-content .activity-overview-grid > *,
+.activity-detail-analysis-content .activity-overview-col > * { grid-area: auto; min-width: 0; }
+.activity-detail-analysis-content .activity-overview-split { grid-template-columns: minmax(0, 1fr); }
+.activity-detail-analysis-content .activity-overview-grid section { padding-top: var(--space-3); }
+
+/* 통합 분석은 읽는 순서와 DOM 순서를 같게 둔다. */
+.activity-detail-analysis-content .activity-overview-grid > * { order: 0; }
+.activity-detail-analysis-content .activity-overview-hero { grid-template-columns: repeat(2, minmax(0, 12rem)); justify-content: start; }
+.activity-detail-analysis-content .activity-overview-area--facts { margin-top: 0; padding-top: 0; border-top: 0; }

@@ -1,26 +1,28 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { Route, Routes, useNavigate } from "react-router-dom";
+import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ActivityPage from "./ActivityPage";
 import { renderWithProviders as renderProviders } from "../__tests__/utils/renderWithProviders";
-import { createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
-import { setCallableResult, setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
+import { createMockActivity, createMockStreams, createMockSummary } from "../__tests__/fixtures/mockData";
+import { mockCallableInvocations, setCallableResult, setCollectionDocs, setDocData, simulateLogin } from "../__tests__/mocks/firebase";
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { clearRideRouteIntentMemoryForTests } from "../features/activity/detail/RideActivityRouteButton";
 
 const routeMapProps = vi.hoisted(() => vi.fn());
+const stravaPreview = vi.hoisted(() => vi.fn());
 const mockRoute = { activityId: "test-activity" };
 
 // 지도·캔버스 구현 대신 전달되는 실제 기록/선택 props를 확인한다.
 vi.mock("../components/RouteMap", () => ({
   default: (props: unknown) => { routeMapProps(props); return <div data-testid="route-map">Map</div>; },
 }));
+vi.mock("react-chartjs-2", () => ({ Line: () => <div data-testid="restored-summary-curve" />, Bar: () => <div /> }));
 vi.mock("../components/ElevationChart", () => ({ default: () => <div data-testid="elevation-chart" /> }));
 vi.mock("../features/activity/share/ActivityShareButton", () => ({ ActivityShareButton: () => <button>share-card</button> }));
 vi.mock("../components/activity/AiRideAnalysisCard", () => ({ default: () => <div data-testid="ai-ride-analysis-card" /> }));
-vi.mock("../components/activity/StravaSummaryPublishing", () => ({ default: () => <div data-testid="strava-summary-publishing" /> }));
+vi.mock("../services/stravaSummaryPreview", () => ({ requestStravaSummaryPreview: stravaPreview, isLocalStravaSummaryPreview: () => false }));
 vi.mock("../hooks/useFitnessTimeseries", () => ({ useFitnessTimeseries: () => ({ timeseries: null, loaded: true }) }));
 vi.mock("../hooks/usePdc", () => ({ usePdc: () => ({ status: "missing", pdc: null }) }));
 vi.mock("chart.js", () => ({
@@ -49,12 +51,120 @@ beforeEach(() => {
   resetRuntimeConfigForTests({ activityAnalysisExpansionEnabled: false });
   mockRoute.activityId = "test-activity";
   routeMapProps.mockClear();
+  stravaPreview.mockReset();
+  stravaPreview.mockResolvedValue({ data: { status: "unavailable", reason: "summary-not-ready" } });
   setCollectionDocs("courses", []);
   window.sessionStorage.clear();
   clearRideRouteIntentMemoryForTests();
 });
 
 describe("ActivityPage presentation", () => {
+  // 실제 페이지·게시 컨트롤러 통합 렌더의 동시 실행 비용을 main page suite와 맞춘다.
+  vi.setConfig({ testTimeout: 15_000 });
+  it("keeps legacy public Insights links available in unified Analysis without owner-only comparison or publishing", async () => {
+    mockRoute.activityId = "public-insights-tab";
+    setDocData(`activities/${mockRoute.activityId}`, createMockActivity({ id: mockRoute.activityId, userId: "another-owner" }) as unknown as Record<string, unknown>);
+    setCallableResult("getActivityOverview", { data: { status: "available", activityId: mockRoute.activityId, presentation: { coachSentence: "공개 인사이트 유지", session: { discipline: "bike", load: 42 } } } });
+    renderWithProviders(<ActivityPage />, { route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
+    expect(await within(await screen.findByTestId("activity-analysis-domains")).findByText("공개 인사이트 유지")).toBeInTheDocument();
+    expect(screen.getAllByRole("tab").map(tab => tab.id)).toEqual(["activity-tab-overview", "activity-tab-analysis", "activity-tab-segments"]);
+    expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("heading", { name: "요약 공유" })).not.toBeInTheDocument();
+    expect(stravaPreview).not.toHaveBeenCalled();
+  });
+
+  it("canonicalizes legacy Insights without losing query parameters, navigation state or history", async () => {
+    function LegacyNavigation() {
+      const navigate = useNavigate(), location = useLocation();
+      return <><button onClick={() => navigate("?tab=insights&origin=feed", { state: { fromFeed: true } })}>legacy link</button>
+        <button onClick={() => navigate(-1)}>back from legacy</button>
+        <output data-testid="legacy-location">{location.search}:{String(location.state?.fromFeed)}</output></>;
+    }
+    setDocData("activities/test-activity", createMockActivity({ id: "test-activity", userId: "test-uid" }) as unknown as Record<string, unknown>);
+    renderWithProviders(<main data-testid="legacy-main"><ActivityPage /><LegacyNavigation /></main>, { authenticated: true });
+    await screen.findByTestId("activity-stats-primary");
+    const main = screen.getByTestId("legacy-main"); main.scrollTop = 360;
+    fireEvent.click(screen.getByRole("button", { name: "legacy link" }));
+    await waitFor(() => expect(screen.getByTestId("legacy-location")).toHaveTextContent("?tab=analysis&origin=feed:true"));
+    expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getAllByRole("tab")).toHaveLength(4);
+    expect(main.scrollTop).toBe(360);
+    fireEvent.click(screen.getByRole("button", { name: "back from legacy" }));
+    await waitFor(() => expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true"));
+    expect(main.scrollTop).toBe(360);
+  });
+
+  it("shows one stream sign-in prompt for a public run without metrics and keeps fallback analysis visible", async () => {
+    resetRuntimeConfigForTests({ appEnvironment: "stage", activityAnalysisExpansionEnabled: false });
+    setDocData("activities/test-activity", createMockActivity({ id: "test-activity", type: "Run", userId: "another-owner", thumbnailTrack: null,
+      summary: createMockSummary({ averagePower: null, normalizedPower: null, averageHeartRate: null, calories: null }) }) as unknown as Record<string, unknown>);
+    renderWithProviders(<ActivityPage />, { route: "/ko/activity/test-activity?tab=analysis" });
+    await screen.findByRole("heading", { name: "로그인하고 상세 분석을 확인하세요" });
+    await waitFor(() => expect(screen.getAllByRole("heading", { name: "로그인하고 상세 분석을 확인하세요" })).toHaveLength(1));
+    expect(document.querySelector(".activity-detail-analysis-details")).toBeVisible();
+    expect(document.querySelector(".activity-detail-technical-details")).toBeNull();
+  });
+
+  it("reveals a directly selected overflowing tab horizontally and preserves the main viewport on keyboard navigation", async () => {
+    const rectangles = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
+      const list = this.getAttribute("role") === "tablist";
+      const offset = this.parentElement?.scrollLeft ?? 0;
+      const left = this.id === "activity-tab-compare" ? 350 - offset : this.id === "activity-tab-overview" ? -offset : 0;
+      return { x: left, y: 0, left, right: left + (list ? 280 : 80), top: 0, bottom: 44, height: 44, width: list ? 280 : 80, toJSON: () => ({}) };
+    });
+    try {
+      setDocData("activities/test-activity", createMockActivity({ id: "test-activity", userId: "test-uid" }) as unknown as Record<string, unknown>);
+      renderWithProviders(<main data-testid="horizontal-main"><ActivityPage /></main>, { authenticated: true, route: "/ko/activity/test-activity?tab=compare" });
+      const main = screen.getByTestId("horizontal-main"); main.scrollTop = 620;
+      const compare = await screen.findByRole("tab", { name: "비교" });
+      const list = screen.getByRole("tablist");
+      await waitFor(() => expect(list.scrollLeft).toBe(150));
+      expect(compare).toHaveAttribute("aria-selected", "true");
+      expect(main.scrollTop).toBe(620);
+      fireEvent.keyDown(compare, { key: "Home" });
+      await waitFor(() => expect(list.scrollLeft).toBe(0));
+      expect(screen.getByRole("tab", { name: "개요" })).toHaveFocus();
+      expect(main.scrollTop).toBe(620);
+    } finally { rectangles.mockRestore(); }
+  });
+
+  it("keeps the SNS Overview lean and puts rich visuals before fully visible supplemental Analysis", async () => {
+    mockRoute.activityId = "restored-dev-overview";
+    const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid", aiSummaryPreview: "기존 AI 요약" });
+    setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
+    setCallableResult("getActivityOverview", { data: {
+      status: "available", activityId: activity.id, version: "activity-overview-v1", inputDigest: "fixture",
+      presentation: { coachSentence: "dev 정본 활동 개요", session: { discipline: "bike", load: 220, normalizedPowerW: 190, intensityFactor: 0.83 },
+        zones: [{ kind: "power", seconds: [120, 60, 30, 10], priority: "primary" }],
+        powerFingerprint: [{ duration: "5m", watts: 219 }],
+        priorFitnessStatus: { asOf: "before", ctl: 10, atl: 12, tsb: -2, formBand: "productive" },
+        postFitnessStatus: { asOf: "after", ctl: 11, atl: 15, tsb: -4, formBand: "productive" } },
+    } });
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    await screen.findByTestId("D1-2");
+    expect(screen.queryByTestId("activity-analysis-domains")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "이번 활동 한눈에" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "이 요약을 Strava에 게시" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    const summary = await screen.findByTestId("activity-analysis-domains");
+    await within(summary).findByText("dev 정본 활동 개요");
+    expect(summary.querySelector(".activity-overview-gauge")).toBeInTheDocument();
+    expect(summary.querySelector(".activity-analysis-zone-track")).toBeInTheDocument();
+    expect(summary.querySelector(".activity-overview-shift")).toBeInTheDocument();
+    expect(within(summary).getByTestId("restored-summary-curve")).toBeInTheDocument();
+    const aiAnalysis = screen.getByTestId("ai-ride-analysis-card");
+    expect(screen.getAllByTestId("ai-ride-analysis-card")).toHaveLength(1);
+    expect(aiAnalysis.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "상세 기록 보기" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("activity-summary-text")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(screen.queryByTestId("activity-overview-evidence")).not.toBeInTheDocument();
+    expect(screen.getByTestId("ai-ride-analysis-card")).toBeInTheDocument();
+    expect(screen.getByTestId("activity-analysis-domains")).toBe(summary);
+
+  });
+
   it.each([{ load: 220, stale: false }, { load: 46.4, stale: false }, { load: 46, stale: false }, { load: null, stale: false }, { load: 220, stale: true }])("distinguishes accepted load $load from stored analysis TSS (stale=$stale) without replacing either", async ({ load, stale }) => {
     mockRoute.activityId = `load-provenance-owner-${load ?? "missing"}-${stale}`;
     const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid" });
@@ -65,39 +175,68 @@ describe("ActivityPage presentation", () => {
       presentation: { coachSentence: "부하 출처 테스트", session: { discipline: "bike", ...(load == null ? {} : { load, loadKind: "tss" }) } },
     } });
     renderWithProviders(<ActivityPage />, { authenticated: true });
-    await screen.findByText("부하 출처 테스트");
-    if (load === 220 || load === 46.4) {
-      expect(screen.getByTestId("activity-load-provenance")).toHaveTextContent(`반영 훈련 부하 ${load} · 분석 TSS 46`);
-      expect(screen.getByTestId("activity-overview-summary")).toHaveTextContent(String(load));
-      if (stale) expect(screen.getByTestId("activity-load-provenance")).toHaveTextContent("이전 버전의 분석값");
-    } else expect(screen.queryByTestId("activity-load-provenance")).not.toBeInTheDocument();
+    await screen.findByTestId("activity-stats-primary");
+    expect(screen.queryByTestId("activity-load-provenance")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
-    if (load === 220 || load === 46.4) expect(screen.getByTestId("activity-load-provenance")).toHaveTextContent(`반영 훈련 부하 ${load} · 분석 TSS 46`);
-    else expect(screen.queryByTestId("activity-load-provenance")).not.toBeInTheDocument();
-    if (stale) expect(screen.getByTestId("activity-load-provenance")).toHaveTextContent("이전 버전의 분석값");
+    await within(await screen.findByTestId("activity-analysis-domains")).findByText("부하 출처 테스트");
+    const training = screen.getByRole("heading", { name: "훈련 부하와 체력" }).closest("section")!;
+    expect(within(training).getByText("분석 TSS")).toBeInTheDocument();
+    expect(within(training).getAllByText("46").length).toBeGreaterThan(0);
+    if (load != null) expect(within(training).getAllByText(String(load)).length).toBeGreaterThan(0);
+    if (load === 220 || load === 46.4) expect(training).toHaveTextContent("반영 훈련 부하");
+    if (stale) expect(training).toHaveTextContent("이전 버전의 분석값");
+
   });
 
 
-  it.each(["overview", "analysis"])("scrolls a direct %s tab and browser back in the content scroller while retaining tab focus", async (initial) => {
+  it.each(["overview", "insights", "analysis"])("preserves the viewport for direct %s, tab clicks, keyboard selection and browser back", async (initial) => {
     const descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
     const scroll = vi.fn();
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, writable: true, value: scroll });
-    function Back() { const navigate = useNavigate(); return <button onClick={() => navigate(-1)}>browser back</button>; }
+    function HistoryNavigation() {
+      const navigate = useNavigate(), location = useLocation();
+      return <><button onClick={() => navigate(-1)}>browser back</button><span data-testid="tab-location">{location.search}</span></>;
+    }
     try {
       setDocData("activities/test-activity", createMockActivity({ id: "test-activity", userId: "test-uid" }) as unknown as Record<string, unknown>);
-      renderWithProviders(<><ActivityPage /><Back /></>, { authenticated: true, route: `/ko/activity/test-activity?tab=${initial}` });
+      renderWithProviders(<main data-testid="tab-scroller"><ActivityPage /><HistoryNavigation /></main>, { authenticated: true, route: `/ko/activity/test-activity?tab=${initial}` });
       const current = await screen.findByRole("tab", { name: initial === "overview" ? "개요" : "분석" });
-      if (initial === "analysis") await waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "auto" }));
-      else expect(scroll).not.toHaveBeenCalled();
-      scroll.mockClear();
-      current.focus();
-      fireEvent.keyDown(current, { key: "ArrowRight" });
-      expect(screen.getByRole("tab", { name: initial === "overview" ? "분석" : "구간" })).toHaveFocus();
-      await waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "auto" }));
-      scroll.mockClear();
+      const scroller = screen.getByTestId("tab-scroller");
+      scroller.scrollTop = 240;
+      async function expectViewportPreserved() {
+        await act(async () => { await new Promise<void>(resolve => requestAnimationFrame(() => resolve())); });
+        expect(scroll).not.toHaveBeenCalled();
+        expect(scroller.scrollTop).toBe(240);
+      }
+      expect(current).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByTestId("tab-location")).toHaveTextContent(`tab=${initial === "insights" ? "analysis" : initial}`);
+      await expectViewportPreserved();
+
+      const compare = screen.getByRole("tab", { name: "비교" });
+      fireEvent.click(compare);
+      expect(compare).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByTestId("tab-location")).toHaveTextContent("tab=compare");
+      await expectViewportPreserved();
+
+      compare.focus({ preventScroll: true });
+      const overview = screen.getByRole("tab", { name: "개요" });
+      const focus = vi.spyOn(overview, "focus");
+      fireEvent.keyDown(compare, { key: "Home" });
+      expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+      focus.mockRestore();
+      expect(overview).toHaveFocus();
+      expect(overview).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByTestId("tab-location")).toHaveTextContent("tab=overview");
+      await expectViewportPreserved();
+
+      fireEvent.click(screen.getByRole("button", { name: "browser back" }));
+      await waitFor(() => expect(compare).toHaveAttribute("aria-selected", "true"));
+      expect(screen.getByTestId("tab-location")).toHaveTextContent("tab=compare");
+      await expectViewportPreserved();
       fireEvent.click(screen.getByRole("button", { name: "browser back" }));
       await waitFor(() => expect(current).toHaveAttribute("aria-selected", "true"));
-      await waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "auto" }));
+      expect(screen.getByTestId("tab-location")).toHaveTextContent(`tab=${initial === "insights" ? "analysis" : initial}`);
+      await expectViewportPreserved();
     } finally {
       if (descriptor) Object.defineProperty(HTMLElement.prototype, "scrollIntoView", descriptor);
       else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
@@ -121,7 +260,7 @@ describe("ActivityPage presentation", () => {
     }
   });
 
-  it("keeps the primary stats before the route and secondary stats in a native mobile disclosure", async () => {
+  it("keeps the full-width route before primary stats and a native mobile secondary disclosure", async () => {
     const activity = createMockActivity({ id: "test-activity", userId: "test-uid" });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     renderWithProviders(<ActivityPage />, { authenticated: true });
@@ -132,7 +271,9 @@ describe("ActivityPage presentation", () => {
     expect(primary.children).toHaveLength(3);
     expect(within(primary).getByText("이동거리")).toBeInTheDocument();
     expect(within(primary).getByText("평균 속도")).toBeInTheDocument();
-    expect(primary.compareDocumentPosition(map) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(map.compareDocumentPosition(primary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(map.parentElement).toBe(screen.getByTestId("activity-detail-hero"));
+    expect(primary.closest(".activity-detail-summary")?.previousElementSibling).toBe(map);
     expect(primary.closest(".activity-detail-summary")).toBe(secondary.closest(".activity-detail-summary"));
     expect(disclosure).not.toHaveAttribute("open");
     fireEvent.click(within(disclosure).getByText("추가 기록 보기"));
@@ -141,18 +282,154 @@ describe("ActivityPage presentation", () => {
     expect(routeMapProps.mock.lastCall?.[0]).toMatchObject({ showRouteEndpoints: true, routeLineWidth: 3 });
   });
 
-  it("opens the secondary stats for the desktop hero without duplicate metric values", async () => {
+  it.each([false, true])("offers the ride action only in Segments and groups eligible links (streams=%s)", async streamsAvailable => {
+    setDocData("activities/test-activity", createMockActivity({ id: "test-activity", userId: "test-uid", source: "orider" }) as unknown as Record<string, unknown>);
+    if (streamsAvailable) setDocData("activity_streams/test-activity", { userId: "test-uid", json: JSON.stringify(createMockStreams({ userId: "test-uid" })) });
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    await screen.findByTestId("activity-stats-primary");
+    for (const name of ["개요", "분석", "비교"]) {
+      fireEvent.click(screen.getByRole("tab", { name }));
+      expect(screen.queryByRole("button", { name: "이 경로로 라이드" })).not.toBeInTheDocument();
+    }
+    fireEvent.click(screen.getByRole("tab", { name: "구간" }));
+    const action = await screen.findByRole("button", { name: "이 경로로 라이드" });
+    expect(action).toHaveAttribute("title", "이 경로로 라이드");
+    expect(action.closest(".activity-detail-segment-actions")).toBeInTheDocument();
+    expect(action.closest(".activity-detail-resizable-map")).not.toBeInTheDocument();
+    if (streamsAvailable) {
+      const group = within(action.parentElement!);
+      const create = await group.findByRole("link", { name: "세그먼트 만들기" });
+      const register = group.getByRole("link", { name: "코스 등록" });
+      expect(create.parentElement).toBe(action.parentElement);
+      expect(register.parentElement).toBe(action.parentElement);
+    } else expect(within(action.parentElement!).queryByRole("link", { name: "세그먼트 만들기" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "이 경로로 라이드" })).toBeEnabled();
+  });
+
+  it("keeps an in-flight route creation mounted when leaving Segments and completes the send", async () => {
+    let resolveCreate!: (value: unknown) => void;
+    setDocData("activities/test-activity", createMockActivity({ id: "test-activity", userId: "test-uid" }) as unknown as Record<string, unknown>);
+    setCallableResult("createCourseFromActivity", new Promise(resolve => { resolveCreate = resolve; }));
+    setCallableResult("sendCourseToApp", { data: {} });
+    renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" });
+    const action = await screen.findByRole("button", { name: "이 경로로 라이드" });
+    fireEvent.click(action);
+    await waitFor(() => expect(mockCallableInvocations.some(call => call.name === "createCourseFromActivity")).toBe(true));
+    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    expect(action).toBeInTheDocument();
+    expect(action.closest(".activity-detail-segment-actions")).toHaveAttribute("hidden");
+    expect(action).not.toBeVisible();
+    await act(async () => { resolveCreate({ data: { courseId: "pending-course" } }); });
+    await waitFor(() => expect(mockCallableInvocations).toContainEqual({ name: "sendCourseToApp", data: { courseId: "pending-course" } }));
+    fireEvent.click(screen.getByRole("tab", { name: "구간" }));
+    expect(await screen.findByRole("button", { name: "앱으로 전송됨" })).toBe(action);
+    expect(action).toBeDisabled();
+  });
+
+  it("keeps the real Strava publisher and its pending/uncertain guard across ordinary tab changes", async () => {
+    resetRuntimeConfigForTests({ stravaSummaryPreviewEnabled: true });
+    let rejectPublish!: (error: Error) => void;
+    const pending = new Promise((_resolve, reject) => { rejectPublish = reject; });
+    void pending.catch(() => undefined);
+    setDocData("activities/test-activity", createMockActivity({ id: "test-activity", userId: "test-uid", source: "orider" }) as unknown as Record<string, unknown>);
+    stravaPreview.mockResolvedValue({ data: { status: "ready", activityId: "test-activity", stravaActivityId: "12345", lang: "ko", shareText: "서버 요약", summaryBlock: "[O-Rider Summary]\n서버 요약", previewDigest: "review-v1", version: 1, generatedAt: 1, targetVerified: true, publishStatus: { status: "unavailable" } } });
+    setCallableResult("stravaPublishActivitySummary", pending);
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    fireEvent.click(await screen.findByRole("tab", { name: "분석" }));
+    const publish = await screen.findByRole("button", { name: "이 요약을 Strava에 게시" });
+    const panel = publish.closest(".activity-detail-analysis-content")!;
+    fireEvent.click(publish);
+    await waitFor(() => expect(mockCallableInvocations.filter(call => call.name === "stravaPublishActivitySummary")).toHaveLength(1));
+    fireEvent.click(screen.getByRole("tab", { name: "구간" }));
+    expect(panel).toHaveAttribute("hidden");
+    expect(publish).toBeInTheDocument();
+    expect(publish).not.toBeVisible();
+    expect(screen.queryByTestId("D1-6")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    expect(publish).toBeInTheDocument(); expect(publish).not.toBeVisible();
+    expect(screen.getByTestId("D1-6")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(publish).toBeDisabled();
+    expect(publish).toHaveAttribute("aria-busy", "true");
+    expect(stravaPreview).toHaveBeenCalledTimes(1);
+    await act(async () => { rejectPublish(new Error("response not confirmed")); });
+    fireEvent.click(screen.getByRole("tab", { name: "구간" }));
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(screen.getByRole("button", { name: "이 요약을 Strava에 게시" })).toBe(publish);
+    expect(publish).toBeDisabled();
+    expect(screen.getByLabelText("이 요약을 게시할 내 Strava 활동 링크")).toBeDisabled();
+    expect(mockCallableInvocations.filter(call => call.name === "stravaPublishActivitySummary")).toHaveLength(1);
+    expect(stravaPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens desktop secondary stats below the shared map without duplicate metric values", async () => {
     const original = window.matchMedia;
     window.matchMedia = vi.fn(query => ({ matches: query === "(min-width: 64rem)", media: query, onchange: null,
       addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
     try {
-      setDocData("activities/test-activity", createMockActivity({ id: "test-activity" }) as unknown as Record<string, unknown>);
-      renderWithProviders(<ActivityPage />);
+      setDocData("activities/test-activity", createMockActivity({ id: "test-activity", userId: "test-uid" }) as unknown as Record<string, unknown>);
+      renderWithProviders(<ActivityPage />, { authenticated: true });
       const secondary = await screen.findByTestId("activity-stats-secondary");
       await waitFor(() => expect(secondary.closest("details")).toHaveAttribute("open"));
+      const map = screen.getByTestId("D1-1");
+      expect(map.nextElementSibling).toBe(secondary.closest(".activity-detail-summary"));
+      for (const name of ["분석", "구간", "비교", "개요"]) {
+        fireEvent.click(screen.getByRole("tab", { name }));
+        expect(screen.getByTestId("D1-1")).toBe(map);
+        expect(map.nextElementSibling).toBe(secondary.closest(".activity-detail-summary"));
+      }
       expect(screen.getAllByTestId("activity-stats-primary")).toHaveLength(1);
       expect(screen.getAllByTestId("activity-stats-secondary")).toHaveLength(1);
     } finally { window.matchMedia = original; }
   });
 
+});
+
+it("does not repeat an equal raw TSS in canonical public analysis", async () => {
+  const id = "public-equal-load";
+  setDocData(`activities/${id}`, createMockActivity({ id, userId: "other-owner" }) as unknown as Record<string, unknown>);
+  setDocData(`activity_metrics_public/${id}`, { version: ACTIVITY_METRICS_VERSION, computedAt: 1, tss: 46, np: 190, if: 0.83, durationSec: 2405 });
+  setCallableResult("getActivityOverview", { data: { status: "available", activityId: id, presentation: { session: { discipline: "bike", load: 46 } } } });
+  renderWithProviders(<ActivityPage />, { route: `/ko/activity/${id}?tab=analysis` });
+  await screen.findByRole("heading", { name: "훈련 부하와 체력" });
+  await waitFor(() => expect(screen.queryByText("분석 TSS")).not.toBeInTheDocument());
+  expect(screen.getByRole("heading", { name: "훈련 부하와 체력" }).closest("section")).toHaveTextContent("46");
+});
+
+
+it("opens management without duplicating domain actions and restores focus after Escape", async () => {
+  const id = "management-owner";
+  setDocData(`activities/${id}`, createMockActivity({ id, userId: "test-uid" }) as unknown as Record<string, unknown>);
+  renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${id}` });
+  const trigger = await screen.findByRole("button", { name: "활동 관리" });
+  trigger.focus(); fireEvent.click(trigger);
+  const dialog = screen.getByRole("dialog", { name: "활동 관리" });
+  expect(within(dialog).getByRole("link", { name: "활동 정보 편집" })).toHaveAttribute("href", `/ko/activity/${id}/edit`);
+  expect(within(dialog).queryByText("사진 추가")).not.toBeInTheDocument();
+  expect(within(dialog).queryByText("코스로 만들기")).not.toBeInTheDocument();
+  fireEvent.keyDown(dialog, { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "활동 관리" })).not.toBeInTheDocument());
+  await waitFor(() => expect(trigger).toHaveFocus());
+});
+
+it("closes management immediately when the authenticated owner changes", async () => {
+  const id = "management-account-scope";
+  setDocData(`activities/${id}`, createMockActivity({ id, userId: "test-uid" }) as unknown as Record<string, unknown>);
+  renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${id}` });
+  fireEvent.click(await screen.findByRole("button", { name: "활동 관리" }));
+  act(() => simulateLogin({ uid: "different-user", displayName: "Other" }));
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "활동 관리" })).not.toBeInTheDocument());
+  expect(screen.queryByRole("button", { name: "활동 관리" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "내보내기" })).toBeInTheDocument();
+});
+
+it("does not let an open management dialog change its target activity", async () => {
+  let navigate!: ReturnType<typeof useNavigate>;
+  function Navigation() { navigate = useNavigate(); return null; }
+  for (const id of ["management-a", "management-b"]) setDocData(`activities/${id}`, createMockActivity({ id, userId: "test-uid", description: id }) as unknown as Record<string, unknown>);
+  renderWithProviders(<><ActivityPage /><Navigation /></>, { authenticated: true, route: "/ko/activity/management-a" });
+  fireEvent.click(await screen.findByRole("button", { name: "활동 관리" }));
+  act(() => navigate("/ko/activity/management-b"));
+  await screen.findByRole("heading", { name: "management-b", level: 1 });
+  expect(screen.queryByRole("dialog", { name: "활동 관리" })).not.toBeInTheDocument();
 });

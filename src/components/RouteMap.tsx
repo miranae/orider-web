@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { useMemo, useEffect, useRef, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
+import { LocateFixed, Minus, Plus } from "lucide-react";
+import { Button } from "../theme/components";
 import type { LngLatBoundsLike } from "mapbox-gl";
 // 컨트롤/팝업 스타일. 메인 entry 가 아닌 RouteMap chunk 와 함께 로드 (홈 진입 시 1.6MB 절약).
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -29,6 +31,8 @@ export interface WaypointMarker {
 interface RouteMapProps {
   polyline?: string;
   latlng?: [number, number][];
+  /** 서로 떨어진 경로는 연결하지 않고 각각 그린다. latlng/polyline보다 우선한다. */
+  routeParts?: [number, number][][];
   height?: string;
   interactive?: boolean;
   rounded?: boolean;
@@ -51,6 +55,8 @@ interface RouteMapProps {
   showRouteEndpoints?: boolean;
   /** 상세 경로의 선명도를 조절한다. 다른 지도는 기본 두께를 유지한다. */
   routeLineWidth?: number;
+  /** 활동 상세에서만 명시적 확대·축소·전체 경로 및 컨테이너 크기 동기화를 활성화한다. */
+  navigationLabels?: { zoomIn: string; zoomOut: string; fitRoute: string };
   /** Mapbox 렌더링이 실패했을 때 보여줄 저장된 정적 지도 이미지 */
   fallbackImageUrl?: string | null;
   fallbackImageAlt?: string;
@@ -118,6 +124,7 @@ function supportsWebGL(): boolean {
 
 function RouteMapFallback({
   positions,
+  segmentStarts,
   imageUrl,
   imageAlt,
   height,
@@ -126,6 +133,7 @@ function RouteMapFallback({
   description,
 }: {
   positions: [number, number][];
+  segmentStarts?: number[];
   imageUrl?: string | null;
   imageAlt: string;
   height: string;
@@ -148,7 +156,7 @@ function RouteMapFallback({
     );
   }
 
-  const path = buildStaticRoutePath(positions);
+  const path = buildStaticRoutePath(positions, segmentStarts);
   return (
     <div
       className={`${containerClass} relative`}
@@ -177,6 +185,27 @@ function RouteMapFallback({
       </div>
     </div>
   );
+}
+
+function RouteNavigation({ labels, bounds, padding }: {
+  labels: NonNullable<RouteMapProps["navigationLabels"]>;
+  bounds: LngLatBoundsLike;
+  padding: number;
+}) {
+  const { current: map } = useMap();
+  useEffect(() => {
+    if (!map || typeof ResizeObserver === "undefined") return;
+    // 컨테이너 높이만 바뀌어도 canvas를 갱신한다. 카메라와 선택 구간은 그대로 둔다.
+    const observer = new ResizeObserver(() => map.resize());
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  const motion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 250;
+  return <div className="activity-detail-map-navigation" role="group" aria-label={labels.fitRoute}>
+    <Button size="sm" iconOnly aria-label={labels.zoomIn} title={labels.zoomIn} onClick={() => map?.zoomIn({ duration: motion() })}><Plus size={18} aria-hidden="true" /></Button>
+    <Button size="sm" iconOnly aria-label={labels.zoomOut} title={labels.zoomOut} onClick={() => map?.zoomOut({ duration: motion() })}><Minus size={18} aria-hidden="true" /></Button>
+    <Button size="sm" iconOnly aria-label={labels.fitRoute} title={labels.fitRoute} onClick={() => map?.fitBounds(bounds, { padding, duration: motion() })}><LocateFixed size={18} aria-hidden="true" /></Button>
+  </div>;
 }
 
 function FitBoundsOnLoad({ bounds }: { bounds: LngLatBoundsLike }) {
@@ -247,6 +276,7 @@ function FlyToPositionControl({ position, fullBounds }: {
 export default function RouteMap({
   polyline,
   latlng,
+  routeParts,
   height = "h-48",
   interactive = false,
   rounded = true,
@@ -264,6 +294,7 @@ export default function RouteMap({
   fitPadding = 20,
   showRouteEndpoints = false,
   routeLineWidth = 2,
+  navigationLabels,
   fallbackImageUrl,
   fallbackImageAlt,
   fallbackHeight,
@@ -275,27 +306,42 @@ export default function RouteMap({
   const [webglSupported] = useState(() => supportsWebGL());
 
   const positions: [number, number][] = useMemo(() => {
+    if (routeParts) return routeParts.flat();
     if (latlng && latlng.length > 0) return latlng;
     if (polyline && polyline.length > 0) return decodeTrack(polyline) as [number, number][];
     return [];
-  }, [polyline, latlng]);
+  }, [polyline, latlng, routeParts]);
 
   useEffect(() => {
     setMapFailed(false);
-  }, [polyline, latlng, fallbackImageUrl]);
+  }, [polyline, latlng, routeParts, fallbackImageUrl]);
 
-  useEffect(() => { setMapReady(false); }, [polyline, latlng]);
+  useEffect(() => { setMapReady(false); }, [polyline, latlng, routeParts]);
 
   // hook 호출은 early return 이전에 모두 마쳐야 한다 (Rules of Hooks).
   // positions 가 비어있을 때도 같은 순서로 hook 이 호출되도록 빈 GeoJSON 으로 폴백.
-  const fullRouteGeoJSON = useMemo(() => toGeoJSON(positions), [positions]);
+  const bounds = useMemo(() => getBounds(positions), [positions]);
+  const fullRouteGeoJSON = useMemo<GeoJSON.Feature<GeoJSON.LineString | GeoJSON.MultiLineString>>(() => routeParts ? ({
+    type: "Feature", properties: {}, geometry: {type: "MultiLineString", coordinates: routeParts.filter(part => part.length >= 2).map(part => part.map(([lat, lon]) => [lon, lat]))},
+  }) : toGeoJSON(positions), [positions, routeParts]);
+  const segmentStarts = useMemo(() => {
+    let offset = 0;
+    return routeParts?.map(part => { const start = offset; offset += part.length; return start; });
+  }, [routeParts]);
 
   const highlightGeoJSON = useMemo(() => {
     if (!highlightRange || positions.length === 0) return null;
     const lo = Math.min(highlightRange.startIndex, highlightRange.endIndex);
     const hi = Math.max(highlightRange.startIndex, highlightRange.endIndex);
-    return toGeoJSON(positions.slice(lo, hi + 1));
-  }, [positions, highlightRange]);
+    if (!routeParts) return toGeoJSON(positions.slice(lo, hi + 1));
+    let offset = 0;
+    const parts = routeParts.map(part => {
+      const sliced = part.slice(Math.max(0, lo - offset), Math.max(0, Math.min(part.length, hi - offset + 1)));
+      offset += part.length;
+      return sliced;
+    }).filter(part => part.length >= 2);
+    return {type: "Feature" as const, properties: {}, geometry: {type: "MultiLineString" as const, coordinates: parts.map(part => part.map(([lat, lon]) => [lon, lat]))}};
+  }, [positions, highlightRange, routeParts]);
 
   const markerGeoJSON = useMemo(() => {
     if (!markerPosition) return null;
@@ -335,12 +381,12 @@ export default function RouteMap({
     );
   }
 
-  const bounds = getBounds(positions);
   const containerClass = `${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} overflow-hidden`;
   const mapboxToken = getMapboxToken();
   const fallback = (
     <RouteMapFallback
       positions={positions}
+      segmentStarts={segmentStarts}
       imageUrl={fallbackImageUrl}
       imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
       height={fallbackHeight ?? height}
@@ -580,6 +626,7 @@ export default function RouteMap({
           </Source>
         )}
 
+        {navigationLabels && <RouteNavigation labels={navigationLabels} bounds={bounds} padding={fitPadding} />}
         <FitBoundsOnLoad bounds={bounds} />
         {flyToRange !== undefined && (
           <FlyToSegmentRange positions={positions} range={flyToRange} fullBounds={bounds} />

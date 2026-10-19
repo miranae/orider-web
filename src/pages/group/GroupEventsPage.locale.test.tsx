@@ -1,3 +1,4 @@
+vi.mock("../../services/clubMeetings",()=>({listClubMeetings:vi.fn(async()=>({meetings:[],nextCursor:null}))}));
 import { Suspense } from "react";
 import { createInstance, type BackendModule } from "i18next";
 import { I18nextProvider } from "react-i18next";
