@@ -8,45 +8,56 @@ const MAX_ATTEMPTS_PER_VIEW = 2;
 
 export function useBoardPostView(
   postId: string | undefined,
-  uid: string | undefined,
+  locationKey: string,
   post: Pick<BoardPost, "id" | "deletedAt"> | null,
 ): void {
-  const completedKeys = useRef(new Set<string>());
-  const inFlightKeys = useRef(new Set<string>());
-  const attemptsByKey = useRef(new Map<string, number>());
+  const visitRef = useRef<{
+    postId: string;
+    locationKey: string;
+    viewId: string;
+    attempts: number;
+    inFlight: boolean;
+    completed: boolean;
+  } | null>(null);
   const [retryVersion, setRetryVersion] = useState(0);
+  const loadedPostId = post?.id;
+  const deletedAt = post?.deletedAt;
 
   useEffect(() => {
-    if (!postId || !uid || !post || post.id !== postId || post.deletedAt != null) return;
+    if (!postId) {
+      visitRef.current = null;
+      return;
+    }
+    // 방문이 바뀔 때만 새 키를 발급한다. StrictMode 재실행과 재시도는 같은 키를 쓴다.
+    if (visitRef.current?.postId !== postId || visitRef.current.locationKey !== locationKey) {
+      visitRef.current = {
+        postId, locationKey, viewId: crypto.randomUUID(),
+        attempts: 0, inFlight: false, completed: false,
+      };
+    }
+    const visit = visitRef.current;
+    if (loadedPostId !== postId || deletedAt != null
+      || visit.completed || visit.inFlight || visit.attempts >= MAX_ATTEMPTS_PER_VIEW) return;
 
-    const viewKey = `${uid}:${postId}`;
-    const attempts = attemptsByKey.current.get(viewKey) ?? 0;
-    if (
-      completedKeys.current.has(viewKey)
-      || inFlightKeys.current.has(viewKey)
-      || attempts >= MAX_ATTEMPTS_PER_VIEW
-    ) return;
+    visit.inFlight = true;
+    visit.attempts += 1;
 
-    inFlightKeys.current.add(viewKey);
-    attemptsByKey.current.set(viewKey, attempts + 1);
-
+    const onError = (error: unknown) => {
+      visit.inFlight = false;
+      logClientError("PostDetailPage.viewCount", error, { postId });
+      if (visitRef.current === visit) setRetryVersion((version) => version + 1);
+    };
     try {
       const recordView = httpsCallable(functions, "recordBoardPostView");
-      Promise.resolve(recordView({ postId })).then(
+      Promise.resolve(recordView({ postId, viewId: visit.viewId })).then(
         () => {
-          inFlightKeys.current.delete(viewKey);
-          completedKeys.current.add(viewKey);
+          visit.inFlight = false;
+          visit.completed = true;
         },
-        (error) => {
-          inFlightKeys.current.delete(viewKey);
-          logClientError("PostDetailPage.viewCount", error, { postId });
-          setRetryVersion((version) => version + 1);
-        },
+        onError,
       );
     } catch (error) {
-      inFlightKeys.current.delete(viewKey);
-      logClientError("PostDetailPage.viewCount", error, { postId });
-      setRetryVersion((version) => version + 1);
+      onError(error);
     }
-  }, [postId, uid, post, retryVersion]);
+  }, [postId, locationKey, loadedPostId, deletedAt, retryVersion]);
 }
