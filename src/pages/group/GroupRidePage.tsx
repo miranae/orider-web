@@ -1,11 +1,11 @@
-import { X } from "lucide-react";
+import { X, LocateFixed } from "lucide-react";
+import { groupRideMapRange } from "./groupRideMapRange";
 import SportIcon from "../../components/common/SportIcon";
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, useId } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../../utils/localeDate";
 import { getDiscipline } from "../../utils/disciplineFilter";
-import GlossaryText from "../../components/common/GlossaryText";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import {
   collection, query, where, getDocs, doc, getDoc,
@@ -19,6 +19,7 @@ import { httpsCallable } from "firebase/functions";
 import { useAuth } from "../../contexts/AuthContext";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { useGroup } from "../../hooks/useGroup";
+import { formatElapsedBoundary } from "../../features/activity/detail/activityRangeSelection";
 import { getStreamPhotos } from "../../features/activity/detail/activityDetailDerived";
 
 import Map, { Source, Layer, Marker } from "react-map-gl/mapbox";
@@ -27,18 +28,21 @@ import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../../utils/m
 import { decodeTrack } from "../../utils/polyline";
 import { getBounds } from "../../components/RouteMap";
 
-import ElevationChart from "../../components/ElevationChart";
-import type { OverlayDataset } from "../../components/ElevationChart";
-import ComparisonChart from "../../components/ComparisonChart";
+import GroupRidePerformanceChart, { type GroupRideOverlay } from "./GroupRidePerformanceChart";
+import InfoTip from "../../components/InfoTip";
+import type { MapRef } from "react-map-gl/mapbox";
+import "./ClubSurface.css";
+import "./GroupRidePage.css";
 import { EmptyState, ErrorState } from "../../components/redesign";
-import { Button, Card } from "../../theme/components";
+import { Button, Card, Checkbox, DataTable, IconButton, Section, type DataTableColumn, ChartHeader, ChartLegend, ChartValue, MapControlButton, MapNavigation, MapResizeControls, Text, ToggleButton, ToggleControls } from "../../theme/components";
 import { useOriderTheme } from "../../theme";
+import { FUNCTIONAL_COLORS } from "../../theme/generated";
+import { getComparisonSeriesColors } from "../../theme/charts/comparisonSeriesColors";
+import { observedRideRange } from "./groupRideRangeMetrics";
+import { groupRideClock, nearestClockSample, clockSampleTolerance } from "./groupRideClock";
 import { GroupRideOverlayControls } from "./GroupRideOverlayControls";
 
-const RIDER_COLORS = [
-  "#f97316", "#3b82f6", "#22c55e", "#ef4444", "#a855f7",
-  "#06b6d4", "#f59e0b", "#ec4899",
-];
+
 
 export default function GroupRidePage() {
   const mapboxToken = getMapboxToken();
@@ -46,8 +50,12 @@ export default function GroupRidePage() {
   const { groupId, rideId } = useParams();
   const { user } = useAuth();
   const { group } = useGroup(groupId);
-  const { variant } = useOriderTheme();
+  const { variant, theme } = useOriderTheme();
+  const darkMapCasing = variant === theme.scheme.dark;
+  const riderColors = getComparisonSeriesColors(darkMapCasing ? "dark" : "light");
+  const [loading, setLoading] = useState(true);
   const [loadedActivities, setActivities] = useState<Activity[]>([]);
+  const [loadedActivityContext, setLoadedActivityContext] = useState<{ rideId: string; userId: string | undefined } | null>(null);
   const [riderNames, setRiderNames] = useState<globalThis.Map<string, string>>(new globalThis.Map());
   const activities = useMemo(() => loadedActivities.map((activity, index) => ({
     ...activity,
@@ -62,18 +70,39 @@ export default function GroupRidePage() {
     });
     return counts;
   }, [activities]);
-  const riderLabel = (activity: Activity) => (riderActivityCounts.get(activity.userId) ?? 0) > 1
-    ? t("ridePage.riderActivity", { name: activity.nickname, distance: (activity.summary.distance / 1000).toFixed(1) })
-    : activity.nickname;
+  const riderLabels = useMemo(() => new globalThis.Map(activities.map(activity => {
+    const sameRider = activities.filter(other => other.userId === activity.userId);
+    const label = sameRider.length > 1
+      ? t("ridePage.riderActivity", { name: activity.nickname, distance: (activity.summary.distance / 1000).toFixed(1) })
+      : activity.nickname;
+    const collisions = sameRider.filter(other => (other.summary.distance / 1000).toFixed(1) === (activity.summary.distance / 1000).toFixed(1));
+    return [activity.id, collisions.length > 1 ? `${label} · ${t("ridePage.recordNumber", { number: [...collisions].sort((a, b) => a.id.localeCompare(b.id)).findIndex(other => other.id === activity.id) + 1 })}` : label];
+  })), [activities, t]);
+  const riderLabel = (activity: Activity) => riderLabels.get(activity.id) ?? activity.nickname;
+  const activityColors = useMemo(() => new globalThis.Map([...activities].sort((a, b) => a.id.localeCompare(b.id)).map((activity, index) => [activity.id, riderColors[index % riderColors.length]!])), [activities, riderColors]);
+  const colorOf = (activity: Activity) => activityColors.get(activity.id)!;
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const mapRef = useRef<MapRef>(null);
+  const mapFrameRef = useRef<HTMLDivElement>(null);
+  const mapId = useId();
   const [streams, setStreams] = useState<Record<string, ActivityStreams>>({});
   const [streamErrors, setStreamErrors] = useState<Set<string>>(new Set());
   const [pendingStreams, setPendingStreams] = useState<Set<string>>(new Set());
   const [streamRetry, setStreamRetry] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [visibleRiders, setVisibleRiders] = useState<Set<string>>(new Set());
-  const [activeOverlays, setActiveOverlays] = useState<Set<string>>(new Set());
+  const [chartAxis, setChartAxis] = useState<"distance" | "time">("distance");
+  const [selectedViewport, setSelectedViewport] = useState<{ axis: "distance" | "time"; start: number; end: number } | null>(null);
+  const [fullViewport, setFullViewport] = useState<{ axis: "distance" | "time"; start: number; end: number } | null>(null);
+  const handleViewportChange = useCallback((range: [number, number] | null, fullRange?: [number, number]) => {
+    if (fullRange) setFullViewport(previous => previous?.axis === chartAxis && previous.start === fullRange[0] && previous.end === fullRange[1] ? previous : { axis: chartAxis, start: fullRange[0], end: fullRange[1] });
+    setSelectedViewport(previous => !range ? null : previous?.axis === chartAxis && previous.start === range[0] && previous.end === range[1] ? previous : { axis: chartAxis, start: range[0], end: range[1] });
+  }, [chartAxis]);
+  const dismissedInspectionIndex = useRef<number | null>(null);
+  const [activeOverlays, setActiveOverlays] = useState<Set<string>>(new Set(["hr", "power", "speed"]));
+  const [hoverCoordinate, setHoverCoordinate] = useState<number | null>(null);
+  const dismissedCoordinate = useRef<number | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [inspectionIndex, setInspectionIndex] = useState<number | null>(null);
   const inspectionChartRef = useRef<HTMLDivElement>(null);
@@ -92,6 +121,9 @@ export default function GroupRidePage() {
     setStreamErrors(new Set());
     setPendingStreams(new Set());
     setActivities([]);
+    setSelectedViewport(null);
+    setFullViewport(null);
+    setLoadedActivityContext(null);
     setVisibleRiders(new Set());
     setLoading(true);
     setLoadError(false);
@@ -128,6 +160,7 @@ export default function GroupRidePage() {
         }
 
         setActivities(acts);
+        setLoadedActivityContext({ rideId, userId: user?.uid });
         setVisibleRiders(new Set(acts.map((a) => a.id)));
       } catch (err) {
         if (!cancelled) {
@@ -156,8 +189,9 @@ export default function GroupRidePage() {
     return () => { cancelled = true; };
   }, [loadedActivities]);
 
-  // 스트림은 활동 원본에만 의존한다. 공개 이름 보강은 진행 중 요청을 취소하지 않는다.
+  // 스트림은 같은 조회 컨텍스트의 활동만 사용한다. 로그인 전 기록을 새 계정으로 요청하지 않는다.
   useEffect(() => {
+    if (loadedActivityContext?.rideId !== rideId || loadedActivityContext?.userId !== user?.uid) return;
     let cancelled = false;
     const isCurrent = () => !cancelled && auth.currentUser?.uid === user?.uid;
     loadedActivities.forEach(async (a) => {
@@ -175,8 +209,8 @@ export default function GroupRidePage() {
             setStreams((prev) => ({ ...prev, [a.id]: result.data as unknown as ActivityStreams }));
           }
         } else if (a.source === "orider") {
-          // Orider 활동은 activity_streams/{activityId}에서 직접 읽는다. 함께 탄 다른 라이더가
-          // 심박·파워를 숨겨 직접 읽기가 막히면, 숨긴 채널을 빼 주는 스트림 API 로 받는다.
+          // Orider 활동은 activity_streams/{activityId}에서 직접 읽는다. 직접 읽기가
+          // 거부되면 활동 공개 범위와 접근 권한을 검증하는 인증 스트림 API로 받는다.
           let streamSnap;
           try {
             streamSnap = await getDoc(doc(firestore, "activity_streams", a.id));
@@ -188,13 +222,17 @@ export default function GroupRidePage() {
             return;
           }
           if (!isCurrent()) return;
-          if (streamSnap.exists()) {
-            const data = streamSnap.data();
-            if (typeof data.json === "string") {
-              setStreams((prev) => ({ ...prev, [a.id]: JSON.parse(data.json) as ActivityStreams }));
-            } else if (data.latlng || data.altitude || data.velocity_smooth) {
-              setStreams((prev) => ({ ...prev, [a.id]: data as ActivityStreams }));
-            }
+          if (!streamSnap.exists()) throw new Error("STREAMS_MISSING");
+          const data = streamSnap.data();
+          if (data.storage === "gcs" && typeof data.gcsPath === "string") {
+            const viaApi = await getActivityStreams(a.id);
+            if (isCurrent()) setStreams((prev) => ({ ...prev, [a.id]: viaApi }));
+          } else if (typeof data.json === "string") {
+            setStreams((prev) => ({ ...prev, [a.id]: JSON.parse(data.json) as ActivityStreams }));
+          } else if (["latlng", "altitude", "velocity_smooth", "heartrate", "watts", "cadence"].some(key => Array.isArray(data[key]))) {
+            setStreams((prev) => ({ ...prev, [a.id]: data as ActivityStreams }));
+          } else {
+            throw new Error("STREAMS_MISSING");
           }
         }
       } catch (err) {
@@ -209,7 +247,7 @@ export default function GroupRidePage() {
       }
     });
     return () => { cancelled = true; };
-  }, [loadedActivities, rideId, streamRetry, user?.uid]);
+  }, [loadedActivities, loadedActivityContext, rideId, streamRetry, user?.uid]);
 
   const toggleRider = (activityId: string) => {
     setVisibleRiders((prev) => {
@@ -240,14 +278,18 @@ export default function GroupRidePage() {
     return activities.flatMap((activity) =>
       getStreamPhotos(streams[activity.id] ?? null)
         .filter((photo) => !!photo.url)
-        .map((photo) => ({ ...photo, activityId: activity.id, riderName: activity.nickname })),
+        .map((photo) => ({ ...photo, activityId: activity.id, riderName: riderLabel(activity) })),
     );
   }, [activities, group?.toggles?.ridePhotos, streams]);
 
+  const clockAxes = useMemo(() => new globalThis.Map(activities.map(activity => [activity.id, groupRideClock(activity, streams[activity.id])])), [activities, streams]);
+  const clockTolerances = useMemo(() => new globalThis.Map([...clockAxes].map(([id, axis]) => [id, clockSampleTolerance(axis)])), [clockAxes]);
+  const clockOrigin = useMemo(() => Math.min(...[...clockAxes.values()].flatMap(axis => axis?.length ? [axis[0]!] : [])), [clockAxes]);
+
   // ── Multi-route map data (ALL activities for stable bounds) ──
   const allRouteGeoJSONs = useMemo(() => {
-    return activities.map((a, idx) => {
-      const color = RIDER_COLORS[idx % RIDER_COLORS.length]!;
+    return activities.map((a) => {
+      const color = colorOf(a);
       let positions: [number, number][] = [];
 
       const s = streams[a.id];
@@ -259,85 +301,110 @@ export default function GroupRidePage() {
 
       if (positions.length === 0) return null;
 
-      const geojson: GeoJSON.Feature<GeoJSON.LineString> = {
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "LineString",
-          coordinates: positions.map(([lat, lng]) => [lng, lat]),
-        },
-      };
+      const geojson = groupRideMapRange({ latlng: positions }, clockAxes.get(a.id));
 
       return { id: a.id, geojson, color, positions };
-    }).filter(Boolean) as { id: string; geojson: GeoJSON.Feature<GeoJSON.LineString>; color: string; positions: [number, number][] }[];
-  }, [activities, streams]);
+    }).filter(Boolean) as { id: string; geojson: GeoJSON.Feature<GeoJSON.MultiLineString>; color: string; positions: [number, number][] }[];
+  }, [activities, streams, clockAxes, activityColors]);
 
   // Bounds from ALL routes (stable — does not change on rider toggle)
   const mapBounds = useMemo((): LngLatBoundsLike | null => {
-    const allPositions = allRouteGeoJSONs.flatMap((r) => r.positions);
+    const allPositions = allRouteGeoJSONs.flatMap((r) => r.positions).filter(([lat, lng]) => Number.isFinite(lat) && Math.abs(lat) <= 90 && Number.isFinite(lng) && Math.abs(lng) <= 180 && (lat !== 0 || lng !== 0));
     if (allPositions.length === 0) return null;
     return getBounds(allPositions);
   }, [allRouteGeoJSONs]);
+
+  useEffect(() => {
+    const frame = mapFrameRef.current;
+    if (!frame || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => mapRef.current?.resize());
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [loading, mapBounds]);
 
   // Visible routes (for display — changes on rider toggle)
   const visibleRouteGeoJSONs = useMemo(() => {
     return allRouteGeoJSONs.filter((r) => visibleRiders.has(r.id));
   }, [allRouteGeoJSONs, visibleRiders]);
 
-  // ── Hover marker: position from first visible rider's stream ──
-  const handleElevHover = useCallback((index: number | null) => {
-    // The chart canvas leaves before the pointer reaches the scrollable inspector.
-    // Dismiss at the containing region boundary instead.
-    if (index === null) return;
-    setHoverIndex(index);
-    setInspectionIndex(null);
-  }, []);
+  const highlightedRange = selectedViewport?.axis === chartAxis ? selectedViewport : null;
+  const highlightedRouteGeoJSONs = useMemo(() => highlightedRange ? visibleRouteGeoJSONs.map(route => ({
+    ...route,
+    geojson: groupRideMapRange(streams[route.id], clockAxes.get(route.id), {
+      axis: chartAxis,
+      start: chartAxis === "time" ? clockOrigin + highlightedRange.start * 60_000 : highlightedRange.start * 1000,
+      end: chartAxis === "time" ? clockOrigin + highlightedRange.end * 60_000 : highlightedRange.end * 1000,
+    }),
+  })) : [], [highlightedRange, visibleRouteGeoJSONs, streams, clockAxes, clockOrigin, chartAxis]);
 
-  const hoverMarkerPosition = useMemo((): [number, number] | null => {
-    if (hoverIndex == null) return null;
-    const firstVisible = visibleActivities.find((a) => streams[a.id]?.altitude && streams[a.id]?.distance);
-    if (!firstVisible) return null;
-    const latlng = streams[firstVisible.id]?.latlng;
-    if (!latlng) return null;
-    // hoverIndex is based on the elevation chart's sampled data (baseData),
-    // which uses distance array indices from the first visible rider's stream.
-    if (hoverIndex >= latlng.length) return null;
-    return latlng[hoverIndex] ?? null;
-  }, [hoverIndex, visibleActivities, streams]);
+  const clockZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const displayLocale = localeTag();
+  const formatClock = useCallback((epoch: number, withDate = false) => new Date(epoch).toLocaleString(displayLocale, {
+    ...(withDate ? { month: "short", day: "numeric" } as const : {}), hour: "2-digit", minute: "2-digit", ...(withDate ? { second: "2-digit" } as const : {}), hour12: false,
+  }), [displayLocale]);
+  const formatChartTick = useCallback((value: number) => formatClock(clockOrigin + value * 60_000), [formatClock, clockOrigin]);
+  const formatChartRange = useCallback((value: number) => formatClock(clockOrigin + value * 60_000, true), [formatClock, clockOrigin]);
 
   // ── ElevationChart: first visible rider as base, others as overlays ──
   const elevationChartData = useMemo(() => {
-    const withStreams = visibleActivities.filter((a) => streams[a.id]?.altitude && streams[a.id]?.distance);
+    const withStreams = visibleActivities.filter(activity => {
+      const stream = streams[activity.id];
+      const axis = chartAxis === "time" ? clockAxes.get(activity.id) : stream?.distance;
+      return axis?.some((coordinate, index) => Number.isFinite(coordinate) && [stream?.altitude?.[index], stream?.watts?.[index], stream?.velocity_smooth?.[index], stream?.cadence?.[index], (stream?.heartrate?.[index] ?? 0) > 0 ? stream?.heartrate?.[index] : undefined].some(Number.isFinite));
+    });
     if (withStreams.length === 0) return null;
 
     const baseActivity = withStreams[0]!;
     const baseStream = streams[baseActivity.id]!;
-    const baseData = (baseStream.distance ?? []).map((d, i) => ({
-      distance: d,
-      elevation: baseStream.altitude?.[i] ?? 0,
-    }));
+    const baseAxis = chartAxis === "time" ? clockAxes.get(baseActivity.id) ?? [] : baseStream.distance ?? [];
+    const basePoints = baseAxis.flatMap((coordinate, index) => {
+      const elevation = baseStream.altitude?.[index];
+      const hasSample = [elevation, baseStream.watts?.[index], baseStream.velocity_smooth?.[index], baseStream.cadence?.[index], (baseStream.heartrate?.[index] ?? 0) > 0 ? baseStream.heartrate?.[index] : undefined].some(Number.isFinite);
+      return Number.isFinite(coordinate) && hasSample
+        ? [{ distance: baseStream.distance?.[index] ?? NaN, elevation: Number.isFinite(elevation) ? elevation! : NaN, streamIndex: index }]
+        : [];
+    });
+    const baseData = basePoints.map(({ distance, elevation }) => ({ distance, elevation }));
 
     // Other riders as elevation overlays
-    const overlays: OverlayDataset[] = [];
+    const overlays: GroupRideOverlay[] = [];
     for (let ri = 1; ri < withStreams.length; ri++) {
       const a = withStreams[ri]!;
       const s = streams[a.id]!;
-      const actIdx = activities.indexOf(a);
-      const color = RIDER_COLORS[actIdx % RIDER_COLORS.length]!;
+      const color = colorOf(a);
       if (s.altitude) {
         overlays.push({
-          label: t("ridePage.elevationOf", { name: a.nickname }),
+          key: `elevation:${a.id}`,
+          label: t("ridePage.elevationOf", { name: riderLabel(a) }),
           data: s.altitude,
           distance: s.distance,
+          elapsedAxisSec: clockAxes.get(a.id)?.map(epoch => (epoch - clockOrigin) / 1000),
           color,
-          yAxisID: `yElev_${ri}`,
+          yAxisID: "yElev",
+          borderDash: [],
           unit: "m",
         });
       }
     }
 
-    return { baseData, overlays, baseName: baseActivity.nickname };
-  }, [visibleActivities, streams, activities]);
+    return { baseData, overlays, records: withStreams, baseEpochMs: basePoints.map(point => clockAxes.get(baseActivity.id)?.[point.streamIndex]), baseElapsedAxisSec: basePoints.map(point => ((clockAxes.get(baseActivity.id)?.[point.streamIndex] ?? NaN) - clockOrigin) / 1000), baseActivityId: baseActivity.id, baseIndices: basePoints.map(point => point.streamIndex), baseName: riderLabel(baseActivity), baseColor: colorOf(baseActivity) };
+  }, [visibleActivities, streams, activities, chartAxis, clockAxes, clockOrigin, activityColors]);
+
+  const handleElevHover = useCallback((index: number | null) => {
+    // 잘못된 다른 dataset index나 pointerleave로 마지막 유효한 선택을 지우지 않는다.
+    if (index == null || !Number.isInteger(index) || index < 0 || index >= (elevationChartData?.baseData.length ?? 0)
+      || index === dismissedInspectionIndex.current) return;
+    dismissedInspectionIndex.current = null;
+    setHoverCoordinate(null);
+    setHoverIndex(index);
+    setInspectionIndex(null);
+  }, [elevationChartData]);
+
+  const handleHoverCoordinate = useCallback((coordinate: number | null) => {
+    if (coordinate == null || !Number.isFinite(coordinate) || coordinate < 0 || coordinate === dismissedCoordinate.current) return;
+    dismissedCoordinate.current = null;
+    setHoverCoordinate(coordinate); setHoverIndex(null); setInspectionIndex(null);
+  }, []);
 
   // ── Performance overlay configs (speed, HR, power, cadence) ──
   interface OverlayConfig {
@@ -347,64 +414,69 @@ export default function GroupRidePage() {
     color: string;
     dotColor: string;
     yAxisID: string;
-    getData: (s: ActivityStreams) => number[] | undefined;
+    getData: (s: ActivityStreams) => Array<number | null> | undefined;
   }
 
   const PERF_OVERLAY_CONFIGS: OverlayConfig[] = useMemo(() => [
-    { key: "speed", label: t("rides.streamLabels.speed"), unit: "km/h", color: `color-mix(in srgb, ${variant.chartColors.speed} 70%, transparent)`, dotColor: variant.chartColors.speed, yAxisID: "ySpeed", getData: (s) => s.velocity_smooth?.map((v) => v * 3.6) },
-    { key: "hr", label: t("rides.streamLabels.hr"), unit: "bpm", color: `color-mix(in srgb, ${variant.chartColors.heartRate} 70%, transparent)`, dotColor: variant.chartColors.heartRate, yAxisID: "yHR", getData: (s) => s.heartrate },
+    { key: "hr", label: t("rides.streamLabels.hr"), unit: "bpm", color: `color-mix(in srgb, ${variant.chartColors.heartRate} 70%, transparent)`, dotColor: variant.chartColors.heartRate, yAxisID: "yHR", getData: (s) => s.heartrate?.map(value => Number.isFinite(value) && value > 0 ? value : null) },
     { key: "power", label: t(runningPowerOnly ? "rides.streamLabels.runningPower" : mixedPowerSports ? "rides.streamLabels.output" : "rides.streamLabels.power"), unit: "W", color: `color-mix(in srgb, ${variant.chartColors.power} 70%, transparent)`, dotColor: variant.chartColors.power, yAxisID: "yPower", getData: (s) => s.watts },
+    { key: "speed", label: t("rides.streamLabels.speed"), unit: "km/h", color: `color-mix(in srgb, ${variant.chartColors.speed} 70%, transparent)`, dotColor: variant.chartColors.speed, yAxisID: "ySpeed", getData: (s) => s.velocity_smooth?.map((value) => Number.isFinite(value) ? value * 3.6 : null) },
     { key: "cadence", label: t("ridePage.overlay.cadence"), unit: "rpm", color: `color-mix(in srgb, ${variant.chartColors.cadence} 70%, transparent)`, dotColor: variant.chartColors.cadence, yAxisID: "yCadence", getData: (s) => s.cadence },
   ], [t, variant, runningPowerOnly, mixedPowerSports]);
 
   // Which performance overlays are available (at least one rider has data)
   const availablePerfOverlays = useMemo(() => {
-    const withStreams = visibleActivities.filter((a) => streams[a.id]?.distance?.some(Number.isFinite));
+    const withStreams = visibleActivities.filter((a) => (chartAxis === "time" ? clockAxes.get(a.id) : streams[a.id]?.distance)?.some(Number.isFinite));
     return PERF_OVERLAY_CONFIGS.filter((cfg) =>
       withStreams.some((a) => {
         const data = cfg.getData(streams[a.id]!);
-        return data && data.some((v) => v > 0);
+        return data && data.some(Number.isFinite);
       }),
     );
-  }, [visibleActivities, streams, PERF_OVERLAY_CONFIGS]);
+  }, [visibleActivities, streams, PERF_OVERLAY_CONFIGS, chartAxis, clockAxes]);
 
   // Build full overlay list for ElevationChart (rider elevations + active performance overlays)
-  const fullOverlays = useMemo((): OverlayDataset[] => {
+  const fullOverlays = useMemo((): GroupRideOverlay[] => {
     const result = [...(elevationChartData?.overlays ?? [])];
 
-    // Add performance overlays from the first visible rider with that data
-    const withStreams = visibleActivities.filter((a) => streams[a.id]?.distance?.some(Number.isFinite));
+    // 선택된 각 활동의 센서값을 해당 활동의 거리축으로 표시한다.
+    const withStreams = visibleActivities.filter((a) => (chartAxis === "time" ? clockAxes.get(a.id) : streams[a.id]?.distance)?.some(Number.isFinite));
     for (const cfg of PERF_OVERLAY_CONFIGS) {
       if (!activeOverlays.has(cfg.key)) continue;
-      // Use the first rider that has this data
-      const rider = withStreams.find((a) => {
-        const data = cfg.getData(streams[a.id]!);
-        return data && data.some((v) => v > 0);
-      });
-      if (!rider) continue;
-      const data = cfg.getData(streams[rider.id]!)!;
-      result.push({
-        label: `${cfg.key === "power" ? t(getDiscipline(rider.type) === "run" ? "rides.streamLabels.runningPower" : "rides.streamLabels.power") : cfg.label} (${cfg.unit})`,
-        data,
-        distance: streams[rider.id]?.distance,
-        color: cfg.color,
-        yAxisID: cfg.yAxisID,
-        unit: cfg.unit,
-      });
+      for (const rider of withStreams) {
+        const data = cfg.getData(streams[rider.id]!);
+        if (!data?.some(Number.isFinite)) continue;
+        result.push({
+          key: `${cfg.key}:${rider.id}`,
+          label: `${riderLabel(rider)} · ${cfg.key === "power" ? t(getDiscipline(rider.type) === "run" ? "rides.streamLabels.runningPower" : "rides.streamLabels.power") : cfg.label} (${cfg.unit})`,
+          data,
+          distance: streams[rider.id]?.distance,
+          elapsedAxisSec: clockAxes.get(rider.id)?.map(epoch => (epoch - clockOrigin) / 1000),
+          color: colorOf(rider),
+          yAxisID: cfg.yAxisID,
+          borderDash: cfg.key === "speed" ? [8, 3] : cfg.key === "hr" ? [2, 3] : cfg.key === "power" ? [10, 3, 2, 3] : [4, 4],
+          unit: cfg.unit,
+        });
+      }
     }
 
     return result;
-  }, [elevationChartData, visibleActivities, streams, PERF_OVERLAY_CONFIGS, activeOverlays, t]);
+  }, [elevationChartData, visibleActivities, streams, PERF_OVERLAY_CONFIGS, activeOverlays, t, chartAxis, clockAxes, clockOrigin, activityColors]);
 
   const inspectedIndex = hoverIndex ?? inspectionIndex;
-  const inspectedDistance = inspectedIndex === null ? undefined : elevationChartData?.baseData[inspectedIndex]?.distance;
+  const inspectedDistance = chartAxis === "distance" && hoverCoordinate != null ? hoverCoordinate * 1000 : inspectedIndex === null ? undefined : elevationChartData?.baseData[inspectedIndex]?.distance;
+  const inspectedTime = chartAxis === "time" && hoverCoordinate != null ? clockOrigin + hoverCoordinate * 60_000 : inspectedIndex === null ? undefined : elevationChartData?.baseEpochMs[inspectedIndex];
+  const hasInspection = Number.isFinite(chartAxis === "time" ? inspectedTime : inspectedDistance);
   const inspectedRiders = useMemo(() => {
-    if (!Number.isFinite(inspectedDistance)) return [];
     return visibleActivities.map(activity => {
       const stream = streams[activity.id];
       const distances = stream?.distance;
       let index = -1;
-      if (distances?.length && inspectedDistance! >= distances[0]! && inspectedDistance! <= distances[distances.length - 1]!) {
+      if (hoverCoordinate == null && inspectedIndex != null && activity.id === elevationChartData?.baseActivityId) {
+        index = elevationChartData.baseIndices[inspectedIndex] ?? -1;
+      } else if (chartAxis === "time" && Number.isFinite(inspectedTime)) {
+        index = nearestClockSample(clockAxes.get(activity.id), inspectedTime!, clockTolerances.get(activity.id));
+      } else if (chartAxis === "distance" && Number.isFinite(inspectedDistance) && distances?.length && inspectedDistance! >= distances[0]! && inspectedDistance! <= distances[distances.length - 1]!) {
         let low = 0; let high = distances.length - 1;
         while (low < high) {
           const middle = Math.floor((low + high) / 2);
@@ -413,90 +485,42 @@ export default function GroupRidePage() {
         }
         index = low > 0 && Math.abs(distances[low - 1]! - inspectedDistance!) <= Math.abs(distances[low]! - inspectedDistance!) ? low - 1 : low;
       }
-      const value = (values?: number[], scale = 1) => index >= 0 && Number.isFinite(values?.[index]) ? values![index]! * scale : null;
-      return { activity, values: [
+      const value = (values?: readonly (number | null)[], scale = 1) => index >= 0 && Number.isFinite(values?.[index]) ? values![index]! * scale : null;
+      return { activity, selectedIndex: index, sampleTime: index >= 0 ? clockAxes.get(activity.id)?.[index] : undefined, values: [
         { key: "elevation", label: t("rides.streamLabels.elevation"), unit: "m", value: value(stream?.altitude) },
-        ...PERF_OVERLAY_CONFIGS.filter(config => activeOverlays.has(config.key)).map(config => ({
+        ...PERF_OVERLAY_CONFIGS.filter(config => config.key !== "cadence" || activeOverlays.has(config.key)).map(config => ({
           key: config.key,
           label: config.key === "power" ? t(getDiscipline(activity.type) === "run" ? "rides.streamLabels.runningPower" : "rides.streamLabels.power") : config.label,
           unit: config.unit,
           value: value(config.key === "speed" ? stream?.velocity_smooth : stream ? config.getData(stream) : undefined, config.key === "speed" ? 3.6 : 1),
         })),
-      ] };
+      ].sort((a, b) => ["hr", "power", "speed", "cadence", "elevation"].indexOf(a.key) - ["hr", "power", "speed", "cadence", "elevation"].indexOf(b.key)) };
     });
-  }, [inspectedDistance, visibleActivities, streams, PERF_OVERLAY_CONFIGS, activeOverlays, t]);
+  }, [inspectedDistance, inspectedTime, visibleActivities, streams, PERF_OVERLAY_CONFIGS, activeOverlays, t, chartAxis, clockAxes, clockTolerances, hoverCoordinate, inspectedIndex, elevationChartData]);
 
-  // ── ComparisonChart data ──
-  const comparisonCharts = useMemo(() => {
-    if (activities.length < 2) return [];
 
-    const riders = activities.map((a, i) => ({
-      label: a.nickname,
-      color: RIDER_COLORS[i % RIDER_COLORS.length]!,
-      // 가상파워 fallback: summary.averagePower/normalizedPower가 비었으면 활동 top-level 사용
-      summary: {
-        ...a.summary,
-        averagePower: a.summary.averagePower ?? a.avgPower ?? null,
-        normalizedPower: a.summary.normalizedPower ?? a.weightedAvgPower ?? null,
-      },
-    }));
+  const hoverMarkerPosition = useMemo((): [number, number] | null => {
+    const base = inspectedRiders.find(row => row.activity.id === elevationChartData?.baseActivityId);
+    return base && base.selectedIndex >= 0 ? streams[base.activity.id]?.latlng?.[base.selectedIndex] ?? null : null;
+  }, [inspectedRiders, elevationChartData, streams]);
 
-    const charts: { title: string; labels: string[]; datasets: { label: string; data: (number | null)[]; color: string }[]; unit: string }[] = [];
-
-    // Distance
-    charts.push({
-      title: t("rides.comparisonLabels.distance"),
-      labels: [t("rides.comparisonLabels.distance")],
-      datasets: riders.map((r) => ({
-        label: r.label,
-        data: [parseFloat((r.summary.distance / 1000).toFixed(1))],
-        color: r.color,
-      })),
-      unit: " km",
+  const averageViewport = selectedViewport?.axis === chartAxis ? selectedViewport : fullViewport?.axis === chartAxis ? fullViewport : null;
+  const intervalReports = useMemo(() => new globalThis.Map(visibleActivities.map(activity => [activity.id, averageViewport ? observedRideRange(streams[activity.id], clockAxes.get(activity.id), {
+    axis: chartAxis,
+    start: chartAxis === "time" ? clockOrigin + averageViewport.start * 60_000 : averageViewport.start * 1000,
+    end: chartAxis === "time" ? clockOrigin + averageViewport.end * 60_000 : averageViewport.end * 1000,
+  }) : null])), [visibleActivities, averageViewport, chartAxis, streams, clockAxes, clockOrigin]);
+  const coverageDetails = visibleActivities.flatMap(activity => {
+    const report = intervalReports.get(activity.id);
+    if (!report || report.state === "unavailable") return [`${riderLabel(activity)}: ${t(report?.reason === "distance" ? "ridePage.range.missingDistance" : "ridePage.range.missingClock")}`];
+    return (["hr", "power", "speed"] as const).map(key => {
+      const metric = report.metrics[key];
+      const coverage = metric.fraction == null ? t("ridePage.range.coverageUnknown", { duration: formatElapsedBoundary(Math.round(metric.measuredSec * 10) / 10) }) : t("ridePage.range.coverage", { duration: formatElapsedBoundary(Math.round(metric.measuredSec * 10) / 10), percent: Math.round(metric.fraction * 100) });
+      return `${riderLabel(activity)} · ${PERF_OVERLAY_CONFIGS.find(config => config.key === key)?.label}: ${coverage}${report.partialRange ? ` · ${t("ridePage.range.partial")}` : ""}`;
     });
+  }).join(". ");
 
-    // Avg speed
-    charts.push({
-      title: t("rides.comparisonLabels.speed"),
-      labels: [t("rides.comparisonLabels.speed")],
-      datasets: riders.map((r) => ({
-        label: r.label,
-        data: [parseFloat(r.summary.averageSpeed.toFixed(1))],
-        color: r.color,
-      })),
-      unit: " km/h",
-    });
-
-    // Avg HR (only if at least one rider has it)
-    if (riders.some((r) => r.summary.averageHeartRate)) {
-      charts.push({
-        title: t("rides.comparisonLabels.hr"),
-        labels: [t("rides.comparisonLabels.hr")],
-        datasets: riders.map((r) => ({
-          label: r.label,
-          data: [r.summary.averageHeartRate ?? null],
-          color: r.color,
-        })),
-        unit: " bpm",
-      });
-    }
-
-    // Avg power (only if at least one rider has it)
-    if (riders.some((r) => r.summary.averagePower)) {
-      charts.push({
-        title: t(runningPowerOnly ? "rides.comparisonLabels.runningPower" : mixedPowerSports ? "rides.comparisonLabels.output" : "rides.comparisonLabels.power"),
-        labels: [t(runningPowerOnly ? "rides.comparisonLabels.runningPower" : mixedPowerSports ? "rides.comparisonLabels.output" : "rides.comparisonLabels.power")],
-        datasets: riders.map((r) => ({
-          label: r.label,
-          data: [r.summary.averagePower ?? null],
-          color: r.color,
-        })),
-        unit: " W",
-      });
-    }
-
-    return charts;
-  }, [activities, t, runningPowerOnly, mixedPowerSports]);
+  const hasVisibleStreamErrors = visibleActivities.some(activity => streamErrors.has(activity.id));
 
   if (loading) {
     return (
@@ -529,12 +553,40 @@ export default function GroupRidePage() {
 
   const date = new Date(Math.min(...activities.map((a) => a.startTime)));
   const dateStr = date.toLocaleDateString(localeTag(), { year: "numeric", month: "long", day: "numeric", weekday: "short" });
+  type InspectionRow = (typeof inspectedRiders)[number];
+  const comparisonRows: InspectionRow[] = activities.map(activity => inspectedRiders.find(row => row.activity.id === activity.id) ?? { activity, values: [], selectedIndex: -1, sampleTime: undefined });
+  const recordLegend = <ChartLegend marker="dot" align="end" aria-label={t("ridePage.selectionTitle")} items={[
+    ...visibleActivities.slice(0, 4).map(activity => {
+      const hasFlow = elevationChartData?.records.some(record => record.id === activity.id) || fullOverlays.some(overlay => overlay.key?.endsWith(`:${activity.id}`));
+      return { seriesId: activity.id, color: hasFlow ? colorOf(activity) : `color-mix(in srgb, ${colorOf(activity)} 30%, transparent)`, label: <span>{riderLabel(activity)}{!hasFlow && <span className="club-ride-legend-state"> · {t(streamErrors.has(activity.id) ? "ridePage.chart.recordFailed" : pendingStreams.has(activity.id) ? "ridePage.chart.recordLoading" : chartAxis === "time" && !clockAxes.get(activity.id) ? "ridePage.chart.recordNoClock" : "ridePage.chart.recordNoFlow")}</span>}</span> };
+    }),
+    ...(visibleActivities.length > 4 ? [{ seriesId: "additional-records", color: "transparent", label: <span aria-label={t("ridePage.chart.additionalRecords", { count: visibleActivities.length - 4 })} title={t("ridePage.chart.additionalRecords", { count: visibleActivities.length - 4 })}>…</span> }] : []),
+  ]} />;
+  const inspectionColumns: DataTableColumn<InspectionRow>[] = [
+    { id: "record", header: t("ridePage.comparisonTable.name"), rowHeader: true,
+      cell: ({ activity }) => <div className="club-ride-record-choice"><Checkbox color={colorOf(activity)} checked={visibleRiders.has(activity.id)} onChange={() => toggleRider(activity.id)} aria-label={t("ridePage.recordCheckbox", { name: riderLabel(activity) })} />
+        <div><Link to={`/activity/${activity.id}`} className="club-ride-record-link">{riderLabel(activity)}</Link>{!visibleRiders.has(activity.id) && <Text as="span" variant="caption" tone="tertiary"> · {t("ridePage.recordHidden")}</Text>}</div></div> },
+    ...["hr", "power", "speed", ...(activeOverlays.has("cadence") ? ["cadence"] : []), "elevation"].map(key => {
+      const config = PERF_OVERLAY_CONFIGS.find(metric => metric.key === key);
+      return { id: key, header: `${config?.label ?? t("rides.streamLabels.elevation")} (${config?.unit ?? "m"})`, align: "end" as const,
+        cell: ({ activity, values }: InspectionRow) => {
+          const value = values.find(item => item.key === key)?.value;
+          const metric = key === "hr" || key === "power" || key === "speed" ? intervalReports.get(activity.id)?.metrics[key] : undefined;
+          return <span className={key === "elevation" ? "club-ride-secondary-elevation" : undefined}><ChartValue primary={value == null ? "—" : value.toFixed(key === "speed" ? 1 : 0)} secondary={["hr", "power", "speed"].includes(key) ? t("ridePage.range.inlineAverage", { value: metric?.average == null ? "—" : metric.average.toFixed(1) }) : undefined} /></span>;
+        } };
+    }),
+    ...(chartAxis === "time" ? [{ id: "sampleTime", header: t("ridePage.chart.sampleTime"), align: "end" as const,
+      cell: ({ sampleTime }: InspectionRow) => sampleTime == null ? "—" : formatClock(sampleTime, true) }] : []),
+  ];
+
+
 
   return (
     <div className="club-surface club-ride-detail">
       <Link to={`/club/${groupId}/rides`} className="text-[length:var(--ft-body-medium-size)] mb-4 inline-block" style={{ color: "var(--lime)" }}>{t("ridePage.back")}</Link>
-      <h1 data-testid="C2R-0" className="text-[length:var(--fs-xl)] font-bold mb-1" style={{ color: "var(--ink-0)" }}>{dateStr} {t("rides.groupRides")}</h1>
-      <p className="text-[length:var(--ft-body-medium-size)] mb-6" style={{ color: "var(--ink-2)" }}>{t("ridePage.activityParticipants", { activities: activities.length, participants: riderActivityCounts.size })}</p>
+      {group?.name && <p className="club-ride-context">{group.name}</p>}
+      <Text as="h1" variant="pageTitle" data-testid="C2R-0" className="mb-1">{dateStr} {t("rides.groupRides")}</Text>
+      <p className="text-[length:var(--ft-body-medium-size)] mb-2" style={{ color: "var(--ink-2)" }}>{t("ridePage.activityParticipants", { activities: activities.length, participants: riderActivityCounts.size })}</p>
       <p className="club-record-scope" data-testid="club-ride-detail-scope">{t("ridePage.detailScope")}</p>
 
       {pendingStreams.size > 0 && <p role="status">{t("rides.streamLoading")}</p>}
@@ -546,13 +598,24 @@ export default function GroupRidePage() {
           setStreamRetry(value => value + 1);
         }}>{t("invite.retry")}</Button>
       </Card>}
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Main content */}
-        <div className="flex-1 min-w-0">
+      <div className="club-ride-content">
+          <section className="club-ride-selection" aria-labelledby="ride-selection-heading">
+            <Text as="h2" variant="subtitle" id="ride-selection-heading" className="mb-3">{t("ridePage.selectionTitle")}</Text>
+            <p className="club-ride-section-note">{t("ridePage.selectionScope", { count: visibleRiders.size, total: activities.length })}</p>
+            <ToggleControls aria-label={t("ridePage.selectionTitle")}>
+              {activities.map(a => <ToggleButton data-testid="C2R-0-1" key={a.id}
+                selected={visibleRiders.has(a.id)} onClick={() => toggleRider(a.id)}
+                aria-label={t(visibleRiders.has(a.id) ? "ridePage.hideRider" : "ridePage.showRider", { name: riderLabel(a) })}>
+                {riderLabel(a)}
+              </ToggleButton>)}
+            </ToggleControls>
+          </section>
+        <div className="min-w-0">
           {/* 루트 맵 - 전체 참가자 경로 표시 (항상 렌더링, 바운드만 필요) */}
           {mapBounds && (
-            <div data-testid="C2R-1" className="mb-8 rounded-[var(--r-lg)] overflow-hidden h-80 sm:h-96">
+            <div ref={mapFrameRef} id={mapId} data-testid="C2R-1" className="club-ride-map" data-map-expanded={mapExpanded}>
               <Map
+                ref={mapRef}
                 mapboxAccessToken={mapboxToken}
                 mapStyle={MAP_STYLE}
                 initialViewState={{ bounds: mapBounds, fitBoundsOptions: { padding: 30 } }}
@@ -566,28 +629,40 @@ export default function GroupRidePage() {
                 attributionControl={false}
                 style={{ width: "100%", height: "100%" }}
               >
-                {visibleRouteGeoJSONs.map((route, idx) => (
+                {visibleRouteGeoJSONs.map((route) => (
                   <Source key={route.id} type="geojson" data={route.geojson}>
                     <Layer
-                      id={`route-glow-${idx}`}
+                      id={`route-glow-${route.id}`}
                       type="line"
                       paint={{
                         "line-color": route.color,
                         "line-width": 8,
-                        "line-opacity": 0.3,
+                        "line-opacity": highlightedRange ? 0.04 : 0.3,
                       }}
                       layout={{ "line-cap": "round", "line-join": "round" }}
                     />
+                    <Layer id={`route-casing-${route.id}`} type="line"
+                      paint={{ "line-color": FUNCTIONAL_COLORS.map.routeCasing, "line-width": 5, "line-opacity": darkMapCasing ? highlightedRange ? 0.2 : 0.85 : 0 }}
+                      layout={{ "line-cap": "round", "line-join": "round" }} />
                     <Layer
-                      id={`route-main-${idx}`}
+                      id={`route-main-${route.id}`}
                       type="line"
                       paint={{
                         "line-color": route.color,
                         "line-width": 3,
-                        "line-opacity": 0.9,
+                        "line-opacity": highlightedRange ? 0.2 : 0.9,
                       }}
                       layout={{ "line-cap": "round", "line-join": "round" }}
                     />
+                  </Source>
+                ))}
+                {highlightedRouteGeoJSONs.map(route => (
+                  <Source key={`range-${route.id}`} id={`range-source-${route.id}`} type="geojson" data={route.geojson}>
+                    <Layer id={`range-glow-${route.id}`} type="line" paint={{ "line-color": route.color, "line-width": 10, "line-opacity": 0.2 }} layout={{ "line-cap": "round", "line-join": "round" }} />
+                    <Layer id={`range-casing-${route.id}`} type="line"
+                      paint={{ "line-color": FUNCTIONAL_COLORS.map.routeCasing, "line-width": 7, "line-opacity": darkMapCasing ? 0.9 : 0 }}
+                      layout={{ "line-cap": "round", "line-join": "round" }} />
+                    <Layer id={`range-main-${route.id}`} type="line" paint={{ "line-color": route.color, "line-width": 5, "line-opacity": 0.95 }} layout={{ "line-cap": "round", "line-join": "round" }} />
                   </Source>
                 ))}
                 {hoverMarkerPosition && (
@@ -609,100 +684,95 @@ export default function GroupRidePage() {
                   </Marker>
                 )}
               </Map>
+              <MapResizeControls expanded={mapExpanded} controlsId={mapId} expandLabel={t("ridePage.map.expand")} collapseLabel={t("ridePage.map.collapse")} onToggle={() => setMapExpanded(value => !value)} />
+              <MapNavigation orientation="horizontal"><MapControlButton aria-label={t("ridePage.map.fit")} onClick={() => mapRef.current?.fitBounds(mapBounds, { padding: 30 })}><LocateFixed size={16} />{t("ridePage.map.fit")}</MapControlButton></MapNavigation>
             </div>
           )}
 
+          {highlightedRange && <p className="club-ride-section-note" role="status">{t("ridePage.map.selectedRange")}</p>}
+          {visibleRiders.size === 0 && <p role="status" className="club-ride-empty">{t("ridePage.noneSelected")}</p>}
+          {visibleRiders.size > 0 && visibleRouteGeoJSONs.every(route => route.geojson.geometry.coordinates.length === 0) && pendingStreams.size === 0 && !hasVisibleStreamErrors && <p className="club-ride-empty">{t("ridePage.noRoute")}</p>}
+          {visibleRiders.size > 0 && !elevationChartData && pendingStreams.size === 0 && !hasVisibleStreamErrors && <p className="club-ride-section-note">{t(chartAxis === "time" ? "ridePage.chart.noClock" : "ridePage.noElevation")}</p>}
+          <ToggleControls variant="axis" aria-label={t("ridePage.chart.axisChoice")}>
+            {(["distance", "time"] as const).map(axis => <ToggleButton key={axis} selected={chartAxis === axis} onClick={() => { setChartAxis(axis); setSelectedViewport(null); setFullViewport(null); setHoverCoordinate(null); dismissedCoordinate.current = null; dismissedInspectionIndex.current = null; setHoverIndex(null); setInspectionIndex(null); }}>{t(axis === "time" ? "ridePage.chart.timeMode" : "ridePage.chart.distanceMode")}</ToggleButton>)}
+          </ToggleControls>
           {/* 고도 & 성능 차트 */}
-          {elevationChartData && (
-            <Card data-testid="C2R-2" padding="none" className="p-5 mb-8" style={{ borderRadius: "var(--r-md)" }}>
-              <h3 className="text-[length:var(--ft-title-size)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>
-                {availablePerfOverlays.length > 0 ? t("ridePage.elevationAndPerf") : t("ridePage.elevationProfile")}
-              </h3>
+            <Card data-testid={elevationChartData ? "C2R-2" : undefined} className="mb-8">
+              <ChartHeader size="compact" className="mb-3" title={<Text as="h2" variant="subtitle">{t("ridePage.elevationAndPerf")}</Text>} />
 
+              <p className="club-ride-section-note">{t(chartAxis === "time" ? "ridePage.chart.timeCoverage" : "ridePage.chart.coverage", { selected: visibleActivities.length, count: elevationChartData?.records.length ?? 0 })}</p>
+              <p className="club-ride-section-note"><InfoTip tone="accent" content={t(chartAxis === "time" ? "ridePage.chart.timeHelp" : "ridePage.chart.distanceHelp")}>{t(chartAxis === "time" ? "ridePage.chart.timeBasis" : "ridePage.chart.distanceBasis", { timezone: clockZone })}</InfoTip>{elevationChartData && <> · {t("ridePage.chart.baseRecord", { name: elevationChartData.baseName })}</>}</p>
               <GroupRideOverlayControls
                 overlays={availablePerfOverlays}
                 activeOverlays={activeOverlays}
                 onToggle={toggleOverlay}
-                elevationLabel={t("rides.streamLabels.elevation")}
+                elevationLabel={t("ridePage.chart.elevationBackground")}
               />
 
-              <p id="ride-chart-inspection-hint" className="text-[length:var(--ft-body-size)] mb-2" style={{ color: "var(--ink-2)" }}>{t("ridePage.chart.inspectHint")}</p>
-              <div ref={inspectionChartRef} tabIndex={0} role="group" aria-label={t("ridePage.elevationAndPerf")} aria-describedby="ride-chart-inspection-hint"
+              {visibleActivities.length > 0 && <p id="ride-chart-inspection-hint" className="text-[length:var(--ft-body-small-size)] mb-2" style={{ color: "var(--ink-2)" }}>{t("ridePage.chart.inspectHint")}</p>}
+              <div ref={inspectionChartRef} tabIndex={visibleActivities.length > 0 ? 0 : undefined} role="group" aria-label={t("ridePage.elevationAndPerf")} aria-describedby={visibleActivities.length > 0 ? "ride-chart-inspection-hint" : undefined}
                 className="relative rounded-[var(--r-md)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]"
                 onPointerDown={event => { if (event.pointerType === "touch") event.currentTarget.focus({ preventScroll: true }); }}
-                onPointerLeave={event => { if (event.pointerType !== "touch") { setInspectionIndex(null); setHoverIndex(null); } }}
-                onFocus={event => { if (event.target === event.currentTarget) { setInspectionIndex(hoverIndex ?? 0); setHoverIndex(hoverIndex ?? 0); } }}
-                onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) { setInspectionIndex(null); setHoverIndex(null); } }}
+                onFocus={event => { if (elevationChartData && event.target === event.currentTarget) { setInspectionIndex(hoverIndex ?? 0); setHoverIndex(hoverIndex ?? 0); } }}
                 onKeyDown={event => {
                   if (event.key === "Escape") {
                     event.preventDefault(); event.stopPropagation();
                     event.currentTarget.focus({ preventScroll: true });
+                    dismissedInspectionIndex.current = inspectedIndex;
+                    dismissedCoordinate.current = hoverCoordinate; setHoverCoordinate(null);
                     setInspectionIndex(null); setHoverIndex(null);
                     return;
                   }
-                  if (event.target !== event.currentTarget || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+                  if (!elevationChartData || event.target !== event.currentTarget || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
                   event.preventDefault();
                   const last = elevationChartData.baseData.length - 1;
                   const current = inspectedIndex ?? 0;
                   const next = event.key === "Home" ? 0 : event.key === "End" ? last : Math.max(0, Math.min(last, current + (event.key === "ArrowLeft" ? -1 : 1)));
+                  dismissedInspectionIndex.current = null;
+                  setHoverCoordinate(null); dismissedCoordinate.current = null;
                   setHoverIndex(next); setInspectionIndex(next);
                 }}>
-              <ElevationChart
+              {elevationChartData && <GroupRidePerformanceChart
                 data={elevationChartData.baseData}
-                xAxisLabel={t("rides.streamLabels.distanceAxis")}
-                height={fullOverlays.length > 0 ? 320 : 200}
+                baseLabel={t("ridePage.elevationOf", { name: elevationChartData.baseName })}
+                baseColor={elevationChartData.baseColor}
+                xAxis={chartAxis === "time" ? "elapsed" : "distance"}
+                elapsedAxisSec={chartAxis === "time" ? elevationChartData.baseElapsedAxisSec : undefined}
+                formatXAxisTick={chartAxis === "time" ? formatChartTick : undefined}
+                formatRangeValue={chartAxis === "time" ? formatChartRange : undefined}
+                xAxisLabel={t(chartAxis === "time" ? "ridePage.chart.timeMode" : "rides.streamLabels.distanceAxis")}
+                activeMetrics={activeOverlays}
+                beforePlot={recordLegend}
+                powerLabel={PERF_OVERLAY_CONFIGS.find(config => config.key === "power")?.label}
+                selectedCoordinate={hasInspection ? chartAxis === "time" ? (inspectedTime! - clockOrigin) / 60_000 : inspectedDistance! / 1000 : null}
+                onHoverCoordinate={handleHoverCoordinate}
+                onViewportChange={handleViewportChange}
                 onHoverIndex={handleElevHover}
                 overlays={fullOverlays.length > 0 ? fullOverlays : undefined}
-              />
-              {Number.isFinite(inspectedDistance) && <div data-testid="ride-chart-inspection" role="group" aria-label={t("ridePage.elevationAndPerf")} tabIndex={0}
-                onPointerDown={event => { event.stopPropagation(); if (event.pointerType === "touch") event.currentTarget.focus({ preventScroll: true }); }}
-                className="absolute right-0 top-0 z-10 p-3 rounded-[var(--r-lg)] border text-[length:var(--ft-body-size)]"
-                style={{ width: "min(320px, 100%, calc(100vw - 32px))", maxHeight: "min(20rem, 50vh)", overflowY: "auto", background: "var(--bg-1)", borderColor: "var(--line)", boxShadow: "var(--shadow-md)", color: "var(--ink-1)" }}>
-                <div className="sticky top-0 z-10 flex items-center justify-between gap-2 mb-2" style={{background:"var(--bg-1)"}}>
-                  <p className="font-semibold m-0">{t("rides.streamLabels.distanceAxis")} · {(inspectedDistance! / 1000).toFixed(2)}</p>
-                  <Button type="button" variant="ghost" size="sm" aria-label={t("common:button.close")} onClick={event => {
-                    event.stopPropagation();
-                    inspectionChartRef.current?.focus({ preventScroll: true });
-                    setInspectionIndex(null); setHoverIndex(null);
-                  }}><X size={18} aria-hidden="true" /></Button>
-                </div>
-                <p className="mb-3" style={{color:"var(--ink-2)"}}>{t("ridePage.chart.sampleBasis")}</p>
-                {inspectedRiders.map(({activity, values}) => <div key={activity.id} className="border-t pt-2 mt-2" style={{borderColor:"var(--line)"}}>
-                  <p className="font-semibold mb-2" style={{overflowWrap:"anywhere"}}>{riderLabel(activity)}</p>
-                  <dl className="grid grid-cols-2 gap-x-3 gap-y-2">
-                    {values.map(value => <div key={value.key}><dt style={{color:"var(--ink-2)"}}>{value.label}</dt><dd className="font-medium m-0">{value.value === null ? "—" : `${value.value.toFixed(value.key === "speed" ? 1 : 0)} ${value.unit}`}</dd></div>)}
-                  </dl>
-                </div>)}
-              </div>}
+              />}
+              <Section data-testid="ride-chart-inspection" role="group" headingId="ride-chart-comparison-heading" headingLevel={3}
+                title={t("ridePage.chart.comparisonTitle")}
+                description={visibleActivities.length > 0 ? <span className="club-ride-inspection-coordinate">{hasInspection ? chartAxis === "time" ? `${formatClock(inspectedTime!, true)} · ${clockZone}` : `${t("rides.streamLabels.distanceAxis")} · ${(inspectedDistance! / 1000).toFixed(2)}` : t("ridePage.chart.selectSample")}</span> : undefined}
+                onPointerDown={event => event.stopPropagation()}
+                className="club-ride-chart-comparison"
+                actions={<IconButton variant="ghost" size="sm" icon={<X aria-hidden="true" />} disabled={!hasInspection} aria-label={t("common:button.close")} onClick={event => {
+                  event.stopPropagation(); inspectionChartRef.current?.focus({ preventScroll: true });
+                  dismissedInspectionIndex.current = inspectedIndex; dismissedCoordinate.current = hoverCoordinate; setHoverCoordinate(null); setInspectionIndex(null); setHoverIndex(null);
+                }} />}>
+                {visibleActivities.length > 0 && <p className="club-ride-section-note" data-testid="ride-range-context">{t(selectedViewport ? "ridePage.range.visibleScope" : "ridePage.range.fullScope")}{averageViewport && <> · {chartAxis === "time" ? t("ridePage.range.clockContext", { start: formatChartRange(averageViewport.start), end: formatChartRange(averageViewport.end), duration: formatElapsedBoundary(Math.round((averageViewport.end - averageViewport.start) * 600) / 10), timezone: clockZone }) : t("ridePage.range.distanceContext", { start: averageViewport.start.toFixed(2), end: averageViewport.end.toFixed(2), width: (averageViewport.end - averageViewport.start).toFixed(2) })}</>}</p>}
+                <DataTable caption={t("ridePage.chart.pointTitle")} captionVisibility="screen-reader" rowHeaderWidth="selectable" columns={inspectionColumns}
+                  rows={comparisonRows} rowKey={row => row.activity.id} emptyLabel={t(visibleRiders.size === 0 ? "ridePage.noneSelected" : "ridePage.chart.selectSample")} />
+                {visibleActivities.length > 0 && <p className="club-ride-section-note"><InfoTip tone="accent" label={t("ridePage.range.methodTitle")} title={t("ridePage.range.methodTitle")} content={`${t("ridePage.range.definition")} ${t(chartAxis === "time" ? "ridePage.range.timeBasis" : "ridePage.range.distanceBasis")} ${t(chartAxis === "time" ? "ridePage.chart.timeSampleBasis" : "ridePage.chart.sampleBasis")} ${t("ridePage.missingMetric")} ${coverageDetails}`}>{t("ridePage.range.methodTrigger")}</InfoTip> · {t("ridePage.range.shortDefinition")}</p>}
+              </Section>
               </div>
             </Card>
-          )}
 
-          {/* 비교 바 차트 */}
-          {comparisonCharts.length > 0 && (
-            <div className="space-y-4 mb-8">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {comparisonCharts.map((chart) => (
-                  <Card key={chart.title} padding="none" className="p-4" style={{ borderRadius: "var(--r-md)" }}>
-                    <h3 className="text-[length:var(--ft-title-size)] font-medium mb-2" style={{ color: "var(--ink-2)" }}><GlossaryText>{`${chart.title} (${chart.unit.trim()})`}</GlossaryText></h3>
-                    <ComparisonChart
-                      labels={chart.labels}
-                      datasets={chart.datasets}
-                      height={160}
-                      unit={chart.unit}
-                    />
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
+        </div>
 
+      </div>
           {ridePhotos.length > 0 && (
-            <Card padding="none" className="p-5 mb-8" style={{ borderRadius: "var(--r-md)" }}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-[length:var(--ft-title-size)] font-semibold" style={{ color: "var(--ink-1)" }}>{t("ridePage.photos.title")}</h3>
-                <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("ridePage.photos.count", { count: ridePhotos.length })}</span>
-              </div>
+            <Card className="mb-8">
+              <Section title={t("ridePage.photos.title")} actions={<Text variant="bodySmall" tone="tertiary">{t("ridePage.photos.count", { count: ridePhotos.length })}</Text>}>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {ridePhotos.map((photo, index) => (
                   <figure key={`${photo.activityId}-${photo.id}-${index}`} style={{ margin: 0 }}>
@@ -715,107 +785,9 @@ export default function GroupRidePage() {
                   </figure>
                 ))}
               </div>
+              </Section>
             </Card>
           )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="lg:w-80 flex-shrink-0 lg:sticky lg:top-6 lg:self-start space-y-6">
-          {/* 참가자 토글 */}
-          <Card padding="none" className="p-4" style={{ borderRadius: "var(--r-md)" }}>
-            <h3 className="text-[length:var(--ft-title-size)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("ridePage.riders")}</h3>
-            <div className="flex flex-wrap gap-2">
-              {activities.map((a, i) => (
-                <Button variant="secondary" data-testid="C2R-0-1"
-                  key={a.id}
-                  onClick={() => toggleRider(a.id)}
-                  aria-pressed={visibleRiders.has(a.id)}
-                  aria-label={t(visibleRiders.has(a.id) ? "ridePage.hideRider" : "ridePage.showRider", { name: riderLabel(a) })}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[length:var(--fs-xs)] font-medium transition-colors border"
-                  style={visibleRiders.has(a.id) ? {
-                    color: RIDER_COLORS[i % RIDER_COLORS.length],
-                    borderColor: RIDER_COLORS[i % RIDER_COLORS.length],
-                  } : {
-                    borderColor: "var(--line)",
-                    color: "var(--ink-3)",
-                  }}
-                >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full"
-                    style={{ backgroundColor: RIDER_COLORS[i % RIDER_COLORS.length], opacity: visibleRiders.has(a.id) ? 1 : 0.3 }}
-                  />
-                  {riderLabel(a)}
-                </Button>
-              ))}
-            </div>
-          </Card>
-
-
-        </div>
-      </div>
-          {/* 비교 테이블 */}
-          <Card data-testid="C2R-3" padding="none" className="p-4 mt-6" style={{ borderRadius: "var(--r-md)" }}>
-            <h3 className="text-[length:var(--ft-title-size)] font-semibold mb-3" style={{ color: "var(--ink-1)" }}>{t("ridePage.comparison")}</h3>
-            <p className="sm:hidden text-[length:var(--ft-body-size)] mb-3" style={{ color: "var(--ink-2)" }}>{t("rides.comparisonScrollHint")}</p>
-            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label={t("ridePage.comparison")}>
-              <table className="w-full text-[length:var(--ft-body-medium-size)] whitespace-nowrap">
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--line)" }}>
-                    <th className="text-left py-2 pr-2 font-medium" style={{ color: "var(--ink-2)" }}>{t("ridePage.comparisonTable.name")}</th>
-                    <th className="text-right py-2 px-1 font-medium" style={{ color: "var(--ink-2)" }}><GlossaryText>{`${t("rides.comparisonLabels.distance")} (km)`}</GlossaryText></th>
-                    <th className="text-right py-2 px-1 font-medium" style={{ color: "var(--ink-2)" }}><GlossaryText>{`${t("rides.comparisonLabels.time")} (h:mm)`}</GlossaryText></th>
-                    <th className="text-right py-2 pl-1 font-medium" style={{ color: "var(--ink-2)" }}><GlossaryText>{`${t("rides.comparisonLabels.speed")} (km/h)`}</GlossaryText></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activities.map((a, i) => {
-                    const s = a.summary;
-                    const hours = Math.floor(s.ridingTimeMillis / 3600000);
-                    const mins = Math.floor((s.ridingTimeMillis % 3600000) / 60000);
-                    return (
-                      <tr key={a.id} style={{ borderBottom: "1px solid var(--line-soft)" }}>
-                        <td className="py-2 pr-2 font-medium truncate max-w-[80px]" style={{ color: RIDER_COLORS[i % RIDER_COLORS.length] }}>
-                          {a.nickname}
-                        </td>
-                        <td className="text-right py-2 px-1 whitespace-nowrap font-mono" style={{ color: "var(--ink-0)" }}>{(s.distance / 1000).toFixed(1)}km</td>
-                        <td className="text-right py-2 px-1 whitespace-nowrap font-mono" style={{ color: "var(--ink-0)" }}>{hours}:{String(mins).padStart(2, "0")}</td>
-                        <td className="text-right py-2 pl-1 whitespace-nowrap font-mono" style={{ color: "var(--ink-0)" }}>{s.averageSpeed.toFixed(1)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {activities.some((a) => a.summary.averageHeartRate || a.summary.averagePower || a.avgPower || a.summary.averageCadence) && (
-              <div className="mt-3 pt-3 overflow-x-auto" tabIndex={0} role="region" aria-label={t("ridePage.comparison")} style={{ borderTop: "1px solid var(--line-soft)" }}>
-                <table data-testid="C2R-3-1" className="w-full text-[length:var(--ft-body-medium-size)] whitespace-nowrap">
-                  <thead>
-                    <tr style={{ borderBottom: "1px solid var(--line)" }}>
-                      <th className="text-left py-2 pr-2 font-medium" style={{ color: "var(--ink-2)" }}>{t("ridePage.comparisonTable.name")}</th>
-                      <th className="text-right py-2 px-1 font-medium" style={{ color: "var(--ink-2)" }}><GlossaryText>{`${t("rides.comparisonLabels.hr")} (bpm)`}</GlossaryText></th>
-                      <th className="text-right py-2 px-1 font-medium" style={{ color: "var(--ink-2)" }}><GlossaryText>{`${t(runningPowerOnly ? "rides.comparisonLabels.runningPower" : mixedPowerSports ? "rides.comparisonLabels.output" : "rides.comparisonLabels.power")} (W)`}</GlossaryText></th>
-                      <th className="text-right py-2 pl-1 font-medium" style={{ color: "var(--ink-2)" }}><GlossaryText>{`${t("rides.comparisonLabels.cadence")} (rpm)`}</GlossaryText></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activities.map((a, i) => {
-                      const s = a.summary;
-                      return (
-                        <tr key={a.id} style={{ borderBottom: "1px solid var(--line-soft)" }}>
-                          <td className="py-2 pr-2 font-medium truncate max-w-[80px]" style={{ color: RIDER_COLORS[i % RIDER_COLORS.length] }}>
-                            {a.nickname}
-                          </td>
-                          <td className="text-right py-2 px-1 font-mono" style={{ color: "var(--ink-0)" }}>{s.averageHeartRate ?? "—"}</td>
-                          <td className="text-right py-2 px-1 font-mono" style={{ color: "var(--ink-0)" }}>{mixedPowerSports && (s.averagePower ?? a.avgPower) != null && <><GlossaryText>{t(getDiscipline(a.type) === "run" ? "rides.comparisonLabels.runningPower" : "rides.comparisonLabels.power")}</GlossaryText> · </>}{(s.averagePower ?? a.avgPower) != null ? Math.round((s.averagePower ?? a.avgPower)!) : "—"}</td>
-                          <td className="text-right py-2 pl-1 font-mono" style={{ color: "var(--ink-0)" }}>{s.averageCadence ?? "—"}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
     </div>
   );
 }
