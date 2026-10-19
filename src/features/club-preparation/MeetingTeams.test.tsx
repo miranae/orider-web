@@ -260,11 +260,17 @@ describe("조가 많거나 명단이 바뀌는 편집", () => {
         onReload={vi.fn().mockResolvedValue(undefined)}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "조편성 편집" }));
-    const firstTeam = within(screen.getByRole("region", { name: "1조", exact: true }));
+    const edit = screen.getByText("조편성 편집").closest<HTMLButtonElement>("button")!;
+    expect(edit).toHaveRole("button");
+    expect(edit).toHaveAccessibleName("조편성 편집");
+    expect(edit).toBeVisible();
+    fireEvent.click(edit);
+    const firstTeamRegion = screen.getByLabelText("1조", { selector: "section" });
+    expect(firstTeamRegion).toHaveRole("region");
+    const firstTeam = within(firstTeamRegion);
     fireEvent.click(firstTeam.getByLabelText("회원1 선택"));
     const actions = within(
-      screen.getByRole("region", { name: "선택한 회원 조정" }),
+      screen.getByLabelText("선택한 회원 조정", { selector: "section" }),
     );
     expect(actions.getAllByRole("combobox")).toHaveLength(1);
     expect(
@@ -546,6 +552,14 @@ it("drag ghost follows the held row through a body portal and never intercepts d
 
 it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 조장·선택을 유지하고 순서대로 저장한다", async () => {
   vi.stubGlobal("PointerEvent", TeamPointerEvent);
+  const control = (name: string) => {
+    const target = screen.queryByLabelText(name, { selector: "button" })
+      ?? screen.getByText(name, { exact: true }).closest<HTMLButtonElement>("button")!;
+    expect(target).toHaveRole("button");
+    expect(target).toHaveAccessibleName(name);
+    expect(target).toBeVisible();
+    return target;
+  };
   const people = Array.from({ length: 17 }, (_, i) => ({
     id: `sort${i + 1}`,
     name: `정렬${i + 1}`,
@@ -567,13 +581,14 @@ it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 �
       onReload={vi.fn()}
     />,
   );
-  fireEvent.click(screen.getByRole("button", { name: "조편성 편집" }));
-  const order = (group = "1조") =>
-    [
-      ...screen
-        .getByRole("region", { name: group })
-        .querySelectorAll("[data-team-member]"),
-    ].map((row) => row.getAttribute("data-team-member"));
+  fireEvent.click(control("조편성 편집"));
+  const order = (group = "1조") => {
+    const region = screen.getByLabelText(group, { selector: "section" });
+    expect(region).toHaveRole("region");
+    expect(region).toBeVisible();
+    return [...region.querySelectorAll("[data-team-member]")]
+      .map((row) => row.getAttribute("data-team-member"));
+  };
   const target = screen
     .getByLabelText("정렬4 선택")
     .closest<HTMLElement>("[data-team-member]")!;
@@ -587,7 +602,7 @@ it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 �
   });
   const start = (id: string) =>
     fireEvent.pointerDown(
-      screen.getByRole("button", { name: `${id} 드래그로 이동` }),
+      control(`${id} 드래그로 이동`),
       { pointerId: 1, button: 0, clientX: 10, clientY: 100 },
     );
   start("정렬1");
@@ -603,14 +618,14 @@ it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 �
     "sort6",
   ]);
   expect(
-    screen.getByRole("button", { name: "정렬1 조장 해제" }),
+    control("정렬1 조장 해제"),
   ).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "방금 조정 되돌리기" }));
+  fireEvent.click(control("방금 조정 되돌리기"));
   expect(order()).toEqual(teams[0]!.memberIds);
   fireEvent.click(screen.getByLabelText("정렬1 선택"));
-  expect(screen.getByRole("button", { name: "정렬1 위로" })).toBeDisabled();
-  fireEvent.click(screen.getByRole("button", { name: "정렬1 아래로" }));
-  fireEvent.click(screen.getByRole("button", { name: "정렬1 아래로" }));
+  expect(control("정렬1 위로")).toBeDisabled();
+  fireEvent.click(control("정렬1 아래로"));
+  fireEvent.click(control("정렬1 아래로"));
   expect(order()).toEqual([
     "sort2",
     "sort3",
@@ -620,9 +635,9 @@ it("17명 조 내 드래그 재정렬과 키보드 연속 위아래 이동은 �
     "sort6",
   ]);
   expect(screen.getByLabelText("정렬1 선택")).toBeChecked();
-  fireEvent.click(screen.getByRole("button", { name: "정렬1 위로" }));
+  fireEvent.click(control("정렬1 위로"));
   expect(order()[1]).toBe("sort1");
-  fireEvent.click(screen.getByRole("button", { name: "변경 저장" }));
+  fireEvent.click(control("변경 저장"));
   await waitFor(() => expect(save).toHaveBeenCalledOnce());
   expect(save.mock.calls[0]![0][0]).toEqual({
     ...teams[0],

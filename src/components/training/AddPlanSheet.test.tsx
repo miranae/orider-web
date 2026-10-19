@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlanDay } from '@shared/types/goal';
 import { GlossaryProvider } from "../common/GlossaryProvider";
@@ -21,14 +21,18 @@ afterEach(cleanup);
 describe('운동 추가 선택과 적용', () => {
   it('종목·템플릿·휴식 선택만으로 저장하지 않고 명시적 적용만 쓴다', async () => {
     show();
-    expect(screen.getByRole('dialog', { name: 'add.title' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'add.swimUnavailable' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'discipline.rest' }));
+    const dialog = screen.getByTestId('K4-7');
+    expect(dialog).toHaveRole('dialog');
+    expect(dialog).toHaveAccessibleName('add.title');
+    expect(dialog).toBeVisible();
+    const controls = within(dialog);
+    expect(controls.getByRole('button', { name: 'add.swimUnavailable' })).toBeDisabled();
+    fireEvent.click(controls.getByRole('button', { name: 'discipline.rest' }));
     expect(mocks.transaction).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'discipline.bike' }));
-    fireEvent.click(screen.getByRole('button', { name: /workouts.rec/ }));
+    fireEvent.click(controls.getByRole('button', { name: 'discipline.bike' }));
+    fireEvent.click(controls.getByRole('button', { name: /workouts.rec/ }));
     expect(mocks.transaction).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'add.applySelection' }));
+    fireEvent.click(controls.getByRole('button', { name: 'add.applySelection' }));
     await waitFor(() => expect(mocks.update).toHaveBeenCalledOnce());
     expect(mocks.update.mock.calls[0]?.[1].days[0]).toMatchObject({ workout: 'rec', plannedTSS: 25 });
   });

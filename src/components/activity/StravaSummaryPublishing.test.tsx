@@ -37,9 +37,16 @@ describe("Strava summary publishing", () => {
     expect(mocks.prepare).not.toHaveBeenCalled();
     expect(mocks.status).not.toHaveBeenCalled();
     expect(mocks.publish).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "stravaSummary.legacy.publish" }));
+    const publish = screen.getByText("stravaSummary.legacy.publish").closest<HTMLButtonElement>("button")!;
+    expect(publish).toHaveRole("button");
+    expect(publish).toHaveAccessibleName("stravaSummary.legacy.publish");
+    expect(publish).toBeVisible();
+    await act(async () => { fireEvent.click(publish); });
     await waitFor(() => expect(mocks.publish).toHaveBeenCalledWith({ activityId: "own-ride", lang: "en" }));
-    expect(await screen.findByRole("link", { name: "stravaSummary.view" })).toHaveAttribute("href", "https://www.strava.com/activities/12345");
+    expect(screen.getByText("stravaSummary.view", { selector: "a" })).toHaveAttribute("href", "https://www.strava.com/activities/12345");
+    expect(screen.getByText("stravaSummary.view", { selector: "a" })).toHaveRole("link");
+    expect(screen.getByText("stravaSummary.view", { selector: "a" })).toHaveAccessibleName("stravaSummary.view");
+    expect(screen.getByText("stravaSummary.view", { selector: "a" })).toBeVisible();
     expect(mocks.preview).not.toHaveBeenCalled();
     expect(mocks.prepare).not.toHaveBeenCalled();
   });

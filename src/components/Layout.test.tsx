@@ -27,7 +27,9 @@ describe("Layout", () => {
   });
   it("provides utility footer links and app installation destinations", async () => {
     renderWithProviders(<Layout />);
-    const footer = await screen.findByRole("contentinfo");
+    const footer = await screen.findByTestId("H-F");
+    expect(footer).toHaveRole("contentinfo");
+    expect(footer).toBeVisible();
     expect(footer).toHaveAttribute("data-testid", "H-F");
     const user = userEvent.setup();
     const navigation = within(footer).getByRole("navigation", { name: "사이트 안내" });
@@ -35,7 +37,7 @@ describe("Layout", () => {
     expect(within(navigation).queryByRole("link", { name: "오라이더 소개" })).not.toBeInTheDocument();
     const together = within(navigation).getByRole("button", { name: "함께하기" });
     await user.click(together);
-    const partnership = screen.getByRole("region", { name: "함께하기" });
+    const partnership = screen.getByLabelText("함께하기", { selector: '[role="region"]' });
     const partnershipLinks = within(partnership).getAllByRole("link");
     expect(partnershipLinks.map(link => link.getAttribute("href"))).toEqual([
       "/ko/about", "/ko/partnership/build", "/ko/partnership/collaborate", "/ko/partnership/investment",
@@ -44,38 +46,38 @@ describe("Layout", () => {
     expect(partnershipLinks[0]).toHaveFocus();
     expect(partnershipLinks[0]).toHaveAttribute("data-testid", "X2-1");
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("region", { name: "함께하기" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("함께하기", { selector: '[role="region"]' })).not.toBeInTheDocument();
     expect(together).toHaveFocus();
     await user.click(together);
     expect(screen.queryByText("orider.app@gmail.com")).not.toBeInTheDocument();
     await user.click(within(navigation).getByRole("button", { name: "도움말" }));
-    expect(screen.queryByRole("region", { name: "함께하기" })).not.toBeInTheDocument();
-    const help = screen.getByRole("region", { name: "도움말" });
+    expect(screen.queryByLabelText("함께하기", { selector: '[role="region"]' })).not.toBeInTheDocument();
+    const help = screen.getByLabelText("도움말", { selector: '[role="region"]' });
     expect(within(help).getByRole("link", { name: "앱 설명서" })).toHaveAttribute("href", "/manual/");
     expect(within(help).getByRole("link", { name: "웹 설명서" })).toHaveAttribute("href", "/web-manual/");
     expect(within(help).getByRole("link", { name: "공개 계산기" })).toHaveAttribute("href", "/ko/tools/virtual-power");
     await user.click(within(navigation).getByRole("button", { name: "앱 설치" }));
-    expect(screen.queryByRole("region", { name: "도움말" })).not.toBeInTheDocument();
-    const install = screen.getByRole("region", { name: "앱 설치" });
+    expect(screen.queryByLabelText("도움말", { selector: '[role="region"]' })).not.toBeInTheDocument();
+    const install = screen.getByLabelText("앱 설치", { selector: '[role="region"]' });
     expect(within(install).getByRole("link", { name: "App Store" })).toHaveAttribute("target", "_blank");
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("region", { name: "앱 설치" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("앱 설치", { selector: '[role="region"]' })).not.toBeInTheDocument();
     expect(within(navigation).getByRole("button", { name: "앱 설치" })).toHaveFocus();
     await user.click(within(navigation).getByRole("button", { name: "도움말" }));
     await user.pointer({ target: document.body, keys: "[MouseLeft]" });
-    expect(screen.queryByRole("region", { name: "도움말" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("도움말", { selector: '[role="region"]' })).not.toBeInTheDocument();
     await user.click(within(navigation).getByRole("button", { name: "도움말" }));
-    const reopenedHelp = screen.getByRole("region", { name: "도움말" });
+    const reopenedHelp = screen.getByLabelText("도움말", { selector: '[role="region"]' });
     expect(within(reopenedHelp).getByRole("link", { name: "앱 설명서" })).toHaveFocus();
     await user.tab();
     expect(within(reopenedHelp).getByRole("link", { name: "웹 설명서" })).toHaveFocus();
     // 설명서는 정적 페이지로 전체 이동하므로 SPA 이동으로 닫히는지는 SPA 링크로 확인한다.
     await user.click(within(reopenedHelp).getByRole("link", { name: "공개 계산기" }));
-    expect(screen.queryByRole("region", { name: "도움말" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("도움말", { selector: '[role="region"]' })).not.toBeInTheDocument();
     const helpTrigger = within(navigation).getByRole("button", { name: "도움말" });
     const bounds = vi.spyOn(helpTrigger, "getBoundingClientRect").mockReturnValue(new DOMRect(0, -10, 80, 44));
     await user.click(helpTrigger);
-    expect(screen.queryByRole("region", { name: "도움말" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("도움말", { selector: '[role="region"]' })).not.toBeInTheDocument();
     bounds.mockRestore();
   });
 

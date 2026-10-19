@@ -51,11 +51,22 @@ describe("group post editing", () => {
     render(<Page />);
     expect(screen.getByText("522 km")).toBeInTheDocument();
     expect(screen.getByText("306.6 km")).toBeInTheDocument();
-    fireEvent.focus(screen.getByRole("button", { name: "누적 합산거리" }));
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("활성 클럽 회원의 공개 활동 이동거리를 모두 더한 값입니다.");
-    fireEvent.blur(screen.getByRole("button", { name: "누적 합산거리" }));
-    fireEvent.focus(screen.getByRole("button", { name: "1회 최대 합산거리" }));
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("공동 기록 1회에 포함된 공개 활동의 이동거리 합산값 중 최대입니다.");
+    for (const [name, description] of [
+      ["누적 합산거리", "활성 클럽 회원의 공개 활동 이동거리를 모두 더한 값입니다."],
+      ["1회 최대 합산거리", "공동 기록 1회에 포함된 공개 활동의 이동거리 합산값 중 최대입니다."],
+    ]) {
+      const trigger = screen.getByLabelText(name, { selector: "button" });
+      expect(trigger).toHaveRole("button");
+      await act(async () => { trigger.focus(); });
+      expect(trigger).toHaveFocus();
+      await waitFor(() => expect(trigger).toHaveAttribute("aria-describedby"));
+      const tooltip = document.getElementById(trigger.getAttribute("aria-describedby")!);
+      expect(tooltip).toHaveRole("tooltip");
+      expect(tooltip).toBeVisible();
+      expect(tooltip).toHaveTextContent(description);
+      expect(trigger).toHaveAccessibleDescription(tooltip!.textContent!);
+      await act(async () => { trigger.blur(); });
+    }
   });
   it("clears a composer on account change and ignores old account completion",async()=>{
     let finish!:()=>void;vi.mocked(createGroupPost).mockImplementationOnce(()=>new Promise<void>(resolve=>{finish=resolve;}));

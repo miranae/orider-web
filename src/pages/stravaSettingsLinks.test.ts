@@ -14,7 +14,10 @@ describe("Strava empty-state settings links", () => {
     const { container } = renderWithProviders(createElement(DashboardPage), {
       route: "/ko/", authenticated: true, profile: { stravaConnected: false, onboardingStep: "done" },
     });
-    const importLink = await screen.findByRole("link", { name: "기존 기록 가져오기" });
+    const importLink = await screen.findByText("기존 기록 가져오기", { selector: "a" });
+    expect(importLink).toHaveRole("link");
+    expect(importLink).toHaveAccessibleName("기존 기록 가져오기");
+    expect(importLink).toBeVisible();
     expect(importLink).toHaveAttribute("href", "/ko/athlete/me/activities?import=1");
     const guidance = container.querySelector('[data-home-slot="guidance"]');
     expect(guidance).not.toBeNull();

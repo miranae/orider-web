@@ -105,7 +105,12 @@ describe("FitnessPage", () => {
     const today = new Date().toISOString().slice(0, 10);
     setDocData("users/test-uid/fitness/timeseries_bike", { discipline: "bike", schemaVersion: 1, computedAt: Date.now(), startDate: today, endDate: today, pointCount: 1, points: [{ date: today, ctl: 30, atl: 25, tsb: 5, dailyLoad: 0 }] });
     renderWithProviders(<FitnessPage />, { authenticated: true, route: "/fitness?sport=bike" });
-    const load = await screen.findByRole("button", { name: "기간 분석 불러오기" });
+    const load = (await screen.findByText("기간 분석 불러오기")).closest<HTMLButtonElement>("button")!;
+    const disclosure = load.closest("details")!;
+    fireEvent.click(disclosure.querySelector("summary")!);
+    expect(load).toHaveRole("button");
+    expect(load).toHaveAccessibleName("기간 분석 불러오기");
+    expect(load).toBeVisible();
     expect(mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods")).toHaveLength(0);
     if (!enabled) expect(load).toBeDisabled();
     else { fireEvent.click(load); await waitFor(() => expect(mockCallableInvocations.some(call => call.name === "getPowerCurvePeriods")).toBe(true)); }
