@@ -23,9 +23,13 @@ describe("post detail action presentation", () => {
   beforeEach(() => { mutations.commentOwner = "commenter"; mutations.deleteComment.mockClear(); });
   it("renders report, block and like as standard DS buttons without invoking mutations", () => {
     renderWithProviders(<Routes><Route path="/ko/community/board/:postId" element={<PostDetailPage />} /></Routes>, { authenticated: true, route: "/ko/community/board/post" });
-    const reports = screen.getAllByRole("button", { name: "신고" });
+    const post = screen.getByTestId("M2-P-1");
+    const postActions = within(post.querySelector(".board-post-actions")!);
+    const reactions = within(post.querySelector(".board-post-reactions")!);
+    const commentActions = within(screen.getByTestId("M2-C").querySelector(".board-comment-meta")!);
+    const reports = [...postActions.getAllByRole("button", { name: "신고" }), ...commentActions.getAllByRole("button", { name: "신고" })];
     expect(reports).toHaveLength(2);
-    for (const button of [...reports, screen.getByRole("button", { name: "차단" }), screen.getByRole("button", { name: /좋아요 3/ })]) {
+    for (const button of [...reports, postActions.getByRole("button", { name: "차단" }), reactions.getByRole("button", { name: /좋아요 3/ })]) {
       expect(button).toHaveClass("ds-btn", "ds-btn--md");
       expect(button.querySelector(":scope > .ds-btn__icon svg")).not.toBeNull();
       expect(within(button).queryByRole("img")).toBeNull();
@@ -40,7 +44,8 @@ describe("post detail action presentation", () => {
 it("renders own-comment deletion as a standard icon action without deleting anything", () => {
   mutations.commentOwner = "test-uid";
   renderWithProviders(<Routes><Route path="/ko/community/board/:postId" element={<PostDetailPage />} /></Routes>, { authenticated: true, route: "/ko/community/board/post" });
-  const remove = screen.getByRole("button", { name: "삭제" });
+  const commentActions = within(screen.getByTestId("M2-C").querySelector(".board-comment-meta")!);
+  const remove = commentActions.getByRole("button", { name: "삭제" });
   expect(remove).toHaveClass("ds-btn", "ds-btn--md");
   expect(remove.querySelector(":scope > .ds-btn__icon svg")).not.toBeNull();
   expect(mutations.deleteComment).not.toHaveBeenCalled();
