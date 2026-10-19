@@ -1,12 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "firebase/auth";
-import { readFileSync } from "node:fs";
 import parity from "./__fixtures__/pmc-fitness-parity.json";
 import { parseCoachPmcInsight } from "../../services/coachPmcInsightContract";
 import { CoachPmcInsightCard } from "./CoachPmcInsightCard";
-
-const cardCss = readFileSync("src/features/coach/coach-pmc-insight.css", "utf8");
 
 const mocks = vi.hoisted(() => ({
   enabled: true,
@@ -68,15 +65,6 @@ describe("CoachPmcInsightCard", () => {
     const regions = screen.getAllByRole("region", { name: "훈련 부하와 폼" });
     expect(regions).toHaveLength(2);
     expect(regions[0]?.getAttribute("aria-labelledby")).not.toBe(regions[1]?.getAttribute("aria-labelledby"));
-  });
-
-  it("keeps the card reflow-safe for narrow screens and 200% zoom", () => {
-    expect(cardCss).toContain("min-width: 0");
-    expect(cardCss).toContain("overflow-wrap: anywhere");
-    expect(cardCss).toContain("flex-wrap: wrap");
-    expect(cardCss).toContain("@media (max-width: 32rem)");
-    expect(cardCss).toMatch(/\.coach-pmc-card__metrics,\s*\.coach-pmc-card__questions\s*{\s*grid-template-columns: 1fr;/);
-    expect(cardCss).toContain("margin-block-end: var(--space-3)");
   });
 
   it("allows snapshot-bound questions for partial data without showing a definitive interpretation", () => {

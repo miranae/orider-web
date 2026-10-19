@@ -27,6 +27,8 @@ Use Vitest with Testing Library for unit and component tests. Name tests after t
 
 Keep reusable test data in `src/__tests__/fixtures/`; importing a `*.test` or `*.spec` module registers its cases again in every consumer and is blocked by ESLint. `vitest.node-tests.json` is the reviewed allowlist for pure calculations and file contracts that run without DOM or global mocks. Add a suite only after checking its dependencies and running it in the `node` project; other suites retain the `dom` project and its Firebase/i18n/React setup.
 
+Test observable behavior, boundaries and unique regressions. Avoid tests that freeze JSX/import/class/handler spelling, exact cosmetic CSS or copy when lint, types and representative behavior already cover the concern; do not create a separate test file for each styling or wording patch. Remove such implementation snapshots instead of replacing each with another test.
+
 ## Commit & Pull Request Guidelines
 
 Use focused branches and Conventional Commit-style subjects where possible, such as `fix: close public release security gates` or `docs: clarify creator hub recipe usage`. Sign commits with `git commit -s` for DCO compliance.

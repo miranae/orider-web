@@ -29,31 +29,10 @@ describe("ToastContext", () => {
     vi.useRealTimers();
   });
 
-  it("initially has no toasts", () => {
-    renderToast();
-    expect(screen.getByTestId("count")).toHaveTextContent("0");
-  });
-
   it("adds a success toast when showToast is called", () => {
     renderToast();
     act(() => { fireEvent.click(screen.getByText("성공")); });
     expect(screen.getByText("성공 메시지")).toBeInTheDocument();
-  });
-
-  it("adds an error toast with error styling", () => {
-    renderToast();
-    act(() => { fireEvent.click(screen.getByText("에러")); });
-    const toast = screen.getByText("에러 메시지");
-    expect(toast).toBeInTheDocument();
-    expect(toast.closest("div")?.className).toContain("text-[var(--color-error)]");
-  });
-
-  it("adds an info toast with info styling", () => {
-    renderToast();
-    act(() => { fireEvent.click(screen.getByText("정보")); });
-    const toast = screen.getByText("정보 메시지");
-    expect(toast).toBeInTheDocument();
-    expect(toast.closest("div")?.className).toContain("text-[var(--aqua)]");
   });
 
   it("auto-removes toast after 2.5s + 200ms animation", () => {

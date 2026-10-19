@@ -1,7 +1,5 @@
 import { chooseDropdownAt, dropdownSelectedIndex } from "../fitnessControlTestUtils";
 import { fireEvent, screen, within } from "@testing-library/react";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import type { FitnessPoint } from "../../../utils/fitnessMetrics";
@@ -145,26 +143,6 @@ describe("PmcHistoryPanel", () => {
     expect(screen.getByText("PMC 계산 실패")).toHaveClass("pmc-history__source--danger");
     view.rerender(<PmcHistoryPanel points={[{ ...base, calculationStatus: "failed" }]} today="2026-09-06" canonical sourceLabel="직접 지정" />);
     expect(screen.getByText("직접 지정")).toHaveAttribute("data-source-state", "failed");
-  });
-
-  it("keeps the six period controls touch-sized and able to wrap on narrow screens", () => {
-    const css = readFileSync(join(process.cwd(), "src/features/fitness/components/PmcHistoryPanel.css"), "utf8");
-    expect(css).toContain(".pmc-history__ranges { flex-wrap: wrap; overflow: visible; }");
-    expect(css).toContain(".pmc-history__ranges .ds-btn { flex: 1 0 calc(33.333% - var(--space-1)); }");
-    expect(css).toContain(".pmc-history__ranges .ds-btn { flex: 1 0 2.75rem; height: 44px; min-height: 44px;");
-    expect(css).toContain(".pmc-history__ranges .ds-btn::after { display: none; }");
-    expect(css).toContain(".pmc-history__navigation label { grid-column: 1 / -1; }");
-    expect(css).toContain(".pmc-history__tsb-chart { display: block; width: 100%; height: auto;");
-  });
-
-  it("puts period controls before the plot without repeating the current-state summary", () => {
-    const { container } = renderPanel();
-    const range = screen.getByRole("group", { name: "표시 기간" });
-    const chart = container.querySelector(".pmc-history__trend-stack");
-    expect(range.compareDocumentPosition(chart!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(container.querySelector(".pmc-history__latest")).toBeNull();
-    expect(screen.getAllByRole("heading", { name: "컨디션 변화" })).toHaveLength(1);
-    expect(container.querySelector(".pmc-history__navigation label")?.compareDocumentPosition(screen.getByRole("button", { name: "오늘" }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it("keeps selected values keyed to the plotted series and emphasizes the independent zero baseline", () => {

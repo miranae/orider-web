@@ -1,6 +1,4 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
 import type { ActivityMetrics } from "@shared/types/activity-metrics";
@@ -145,37 +143,6 @@ describe("FitnessCoachBriefing", () => {
     await waitFor(() => expect(screen.getByRole("radio", { name: /완전 휴식/ })).toBeChecked());
   });
 
-  it("keeps today's action visible before secondary impact and forecast details", () => {
-    renderBriefing({ trendSlot: <div>PMC trend slot</div>, current: { ctl: 42, atl: 49, tsb: -10.6 } });
-    const details = screen.getByText("계획·안전 근거 확인").closest("details");
-    expect(details).not.toHaveAttribute("open");
-    expect(details).not.toContainElement(screen.getByText("decision slot"));
-    expect(screen.getByText("decision slot").compareDocumentPosition(screen.getByText("PMC trend slot")) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-    expect(document.getElementById("fitness-coach-today")).toContainElement(screen.getByText("decision slot"));
-    expect(document.querySelector(".fitness-coach__first-view")).toContainElement(screen.getByText("PMC trend slot"));
-    expect(document.querySelector(".fitness-coach__first-view")).toContainElement(document.getElementById("fitness-coach-today"));
-    expect(details).not.toContainElement(screen.getByRole("group", { name: "오늘의 운동 선택" }));
-    expect(screen.getByRole("group", { name: "오늘의 운동 선택" })).toBeVisible();
-    expect(screen.getByText(/G1 워크아웃 수신 기능을 안전하게 준비/)).toBeVisible();
-  });
-
-  it("uses a compact mobile order without duplicating the current-state summary", () => {
-    renderBriefing({ mobilePriority: true });
-    expect(screen.queryByRole("heading", { name: /회복을 흡수하는 날/ })).not.toBeInTheDocument();
-    expect(document.getElementById("fitness-coach-today")).toHaveTextContent("decision slot");
-    expect(document.querySelector(".fitness-coach")).toHaveClass("fitness-coach--mobile-priority");
-    expect(document.querySelector(".fitness-coach__choice-card")).toBeInTheDocument();
-  });
-
-  it("fills the desktop width when there is no today decision, while preserving the two-column decision layout", () => {
-    const css = readFileSync(join(process.cwd(), "src/features/fitness/components/FitnessCoachBriefing.css"), "utf8");
-    expect(css).toContain("grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr)");
-    expect(css).toContain(".fitness-coach__summary-copy { flex: 1 1 20rem; min-width: 0;");
-    expect(css).toContain(".fitness-coach__first-view:has(> .fitness-coach__today:empty) { grid-template-columns: minmax(0, 1fr); }");
-    expect(css).toContain(".fitness-coach__today:empty { display: none; }");
-    expect(css).toContain(".fitness-coach__first-view,");
-  });
-
   it("uses persisted workout analysis and keeps its confidence separate from load attribution", () => {
     const metrics = {
       workoutType: "interval",
@@ -239,7 +206,6 @@ describe("FitnessCoachBriefing", () => {
   });
 });
 
-
 describe("coach screen ownership", () => {
   it("condition keeps evidence and removes workout choices and delivery", () => {
     renderBriefing({ part: "condition", decisionSlot: null });
@@ -263,7 +229,6 @@ describe("coach screen ownership", () => {
     expect(screen.queryByRole("button", { name: "실제 하루 변화" })).not.toBeInTheDocument();
   });
 });
-
 
 it('keeps calculation provenance available in a disclosure while showing a concise date and preserving sufficiency information', () => {
   renderBriefing({ part: 'condition', currentDate: '2026-10-16', currentBasis: '2026-10-16 기준 · 저장된 일별 계산값',

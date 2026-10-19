@@ -5,12 +5,7 @@ import MeetingTeams from "./MeetingTeams";
 import { newClubMeeting } from "./meetingCopy";
 import type { Meeting, Registration } from "./domain";
 import { createInitialTeamDraft } from "./teamAssignment";
-import { readFileSync } from "node:fs";
 import { Profiler } from "react";
-const teamStyles = readFileSync(
-  "src/features/club-preparation/meetingTeams.css",
-  "utf8",
-);
 const person = (memberId: string, order: number): Registration => ({
   memberId,
   attendanceGeneration: `${memberId}:1`,
@@ -538,12 +533,6 @@ it("drag ghost follows the held row through a body portal and never intercepts d
   expect(ghost.style.getPropertyValue("--team-drag-width")).toBe("300px");
   expect(row).toHaveAttribute("data-dragging", "true");
   expect(row).toBeInTheDocument();
-  expect(teamStyles).toMatch(
-    /\.cp-team-drag-ghost\s*\{[^}]*pointer-events:\s*none/s,
-  );
-  expect(teamStyles).toMatch(
-    /transform:\s*translate3d\(var\(--team-drag-x\), var\(--team-drag-y\), 0\)/,
-  );
   const renderCount = boardRender.mock.calls.length;
   fireEvent.pointerMove(window, { pointerId: 1, clientX: 230, clientY: 350 });
   expect(boardRender).toHaveBeenCalledTimes(renderCount);

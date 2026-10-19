@@ -1,6 +1,5 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { collection, getDoc, onSnapshot } from "firebase/firestore";
-import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -304,11 +303,6 @@ describe("FitnessPage", () => {
     expect(await screen.findByText("피트니스 정본을 불러오지 못했습니다")).toBeInTheDocument();
     expect(screen.queryByTestId("canonical-fitness-view")).not.toBeInTheDocument();
     expect(screen.queryByText("0.0")).not.toBeInTheDocument();
-  });
-
-  it("never carries a single-sport projection into the integrated mobile PMC", () => {
-    const source = readFileSync(join(process.cwd(), "src/hooks/useFitnessModel.ts"), "utf8");
-    expect(source).toContain('pmcProjection: discipline === "tri" ? null : projection?.series ?? null');
   });
 
   it.each(["desktop", "mobile", "embedded"])("최근 활동이 없어도 %s PMC에 전체 정본 이력을 전달한다", async (surface) => {
