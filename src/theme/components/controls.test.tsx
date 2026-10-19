@@ -35,6 +35,21 @@ describe('공통 컨트롤', () => {
     expect(changed).toHaveBeenCalledOnce();
   });
 
+  it('tab 역할은 selected로 상태를 알리고 일반 토글의 pressed 상태와 구분한다', () => {
+    const changed = vi.fn();
+    const view = render(<ToggleControls role="tablist" aria-label="종목"><ToggleButton role="tab" selected={false} onClick={changed}>러닝</ToggleButton></ToggleControls>);
+    const tab = screen.getByRole('tab', { name: '러닝', selected: false });
+    expect(tab).not.toHaveAttribute('aria-pressed');
+    fireEvent.click(tab);
+    expect(changed).toHaveBeenCalledOnce();
+    view.rerender(<ToggleControls role="tablist" aria-label="종목"><ToggleButton role="tab" selected>러닝</ToggleButton></ToggleControls>);
+    expect(screen.getByRole('tab', { name: '러닝', selected: true })).toBe(tab);
+    expect(tab).not.toHaveAttribute('aria-pressed');
+    view.rerender(<ToggleControls aria-label="지표"><ToggleButton selected>파워</ToggleButton></ToggleControls>);
+    const toggle = screen.getByRole('button', { name: '파워', pressed: true });
+    expect(toggle).not.toHaveAttribute('aria-selected');
+  });
+
   it('지도 크기와 카메라 조작 콜백을 분리하고 두 모서리에 같은 크기 상태를 제공한다', () => {
     const resize = vi.fn(), zoom = vi.fn();
     const props = { expanded: false, controlsId: 'route-map', expandLabel: '지도 크게', collapseLabel: '지도 기본 크기', onToggle: resize };

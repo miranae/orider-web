@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import TopNav from "./TopNav";
@@ -7,6 +7,17 @@ import MobileTabBar from "../mobile/MobileTabBar";
 vi.mock("../../hooks/useGlobalSearch", () => ({
   useGlobalSearch: () => ({ results: { activities: [], courses: [] } }),
 }));
+
+let originalMatchMedia: typeof window.matchMedia;
+function headerViewport(desktop: boolean) {
+  const implementation = vi.mocked(window.matchMedia).getMockImplementation()!;
+  window.matchMedia = vi.fn(query => {
+    const media = implementation(query);
+    return query === "(min-width: 1024px)" ? { ...media, matches: desktop } : media;
+  });
+}
+beforeEach(() => { originalMatchMedia = window.matchMedia; headerViewport(true); });
+afterEach(() => { window.matchMedia = originalMatchMedia; });
 
 const accountLinks = [
   ["내 프로필", "/ko/athlete/me"],
@@ -49,16 +60,77 @@ describe("menu IA v2", () => {
     expect(account.getByRole("button", { name: "로그아웃" })).toBeInTheDocument();
   });
 
-  it("includes account and footer destinations in the mobile slide menu", async () => {
+  it("opens the sole mobile account menu from the avatar while retaining language and legal destinations", async () => {
+    headerViewport(false);
     const user = userEvent.setup();
     renderWithProviders(<TopNav active="home" />, { authenticated: true });
-    await user.click(await screen.findByRole("button", { name: "더보기" }));
+    expect(screen.queryByRole("button", { name: "더보기" })).not.toBeInTheDocument();
+    const avatar = await screen.findByRole("button", { name: "프로필" });
+    await user.click(avatar);
+    expect(avatar).toHaveAttribute("aria-expanded", "true");
     for (const [name, href] of accountLinks) {
       expect(screen.getAllByRole("link", { name }).every(link => link.getAttribute("href") === href)).toBe(true);
     }
     expect(screen.getByRole("link", { name: "오라이더 소개" })).toHaveAttribute("href", "/ko/about");
     expect(screen.getByRole("link", { name: "개발자 문서" })).toHaveAttribute("href", "/ko/explore/recipes");
     expect(screen.getByRole("link", { name: "이용약관" })).toHaveAttribute("href", "/ko/terms");
+    expect(screen.getByRole("radio", { name: "한국어" })).toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: "이용약관" }));
+    expect(avatar).toHaveAttribute("aria-expanded", "false");
+    expect(window.history.state?.oriderMobileMenu).toBeUndefined();
+  });
+  it("retains the guest menu trigger and its language, login and legal access", async () => {
+    headerViewport(false);
+    renderWithProviders(<TopNav active="home" />);
+    expect(screen.queryByRole("button", { name: "프로필" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(screen.getByRole("radio", { name: "한국어" })).toBeInTheDocument();
+    const terms = screen.getByRole("link", { name: "이용약관" });
+    const panel = terms.closest('[data-testid="X1-5"]') as HTMLElement;
+    expect(within(panel).getByRole("button", { name: "기록을 저장하려면 로그인" })).toBeInTheDocument();
+    await userEvent.click(terms);
+    expect(screen.queryByRole("radio", { name: "한국어" })).not.toBeInTheDocument();
+  });
+  it("pops the drawer history entry when resizing from mobile to desktop", async () => {
+    let changed: (() => void) | undefined;
+    const desktop = { matches: false, media: "(min-width: 1024px)", onchange: null,
+      addEventListener: vi.fn((_event: string, callback: () => void) => { changed = callback; }),
+      removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn(), dispatchEvent: vi.fn(),
+    };
+    const previousMatchMedia = window.matchMedia;
+    const implementation = vi.mocked(previousMatchMedia).getMockImplementation()!;
+    window.matchMedia = vi.fn(query => query === desktop.media ? desktop as unknown as MediaQueryList : implementation(query));
+    const back = vi.spyOn(window.history, "back");
+    try {
+      renderWithProviders(<TopNav active="home" />, { authenticated: true });
+      const avatar = await screen.findByRole("button", { name: "프로필" });
+      await userEvent.click(avatar);
+      expect(window.history.state?.oriderMobileMenu).toBe(true);
+      act(() => { desktop.matches = true; changed?.(); });
+      expect(back).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(screen.queryByRole("radio", { name: "한국어" })).not.toBeInTheDocument());
+      expect(window.history.state?.oriderMobileMenu).toBeUndefined();
+      expect(avatar).toHaveAttribute("aria-expanded", "false");
+    } finally { back.mockRestore(); window.matchMedia = previousMatchMedia; }
+  });
+  it("closes a desktop creation menu when switching to the mobile header", async () => {
+    let changed: (() => void) | undefined;
+    const desktop = { matches: true, media: "(min-width: 1024px)", onchange: null,
+      addEventListener: vi.fn((_event: string, callback: () => void) => { changed = callback; }),
+      removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn(), dispatchEvent: vi.fn(),
+    };
+    const originalMatchMedia = window.matchMedia;
+    const originalImplementation = vi.mocked(originalMatchMedia).getMockImplementation()!;
+    window.matchMedia = vi.fn(query => query === desktop.media ? desktop as unknown as MediaQueryList : originalImplementation(query));
+    try {
+      renderWithProviders(<TopNav active="home" />, { authenticated: true });
+      await userEvent.click(screen.getByRole("button", { name: "+ 만들기" }));
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+      act(() => { desktop.matches = false; changed?.(); });
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      act(() => { desktop.matches = true; changed?.(); });
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    } finally { window.matchMedia = originalMatchMedia; }
   });
   it("provides seven localized creation routes with their required query entries", async () => {
     renderWithProviders(<TopNav active="home" />, { authenticated: true });

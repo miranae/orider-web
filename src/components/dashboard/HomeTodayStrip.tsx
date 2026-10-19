@@ -1,10 +1,9 @@
 import GlossaryText from "../common/GlossaryText";
 import { useEffect, useState, type ReactNode } from "react";
 import { collection, doc, limit, onSnapshot, query, where } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
 import { useTranslation } from "react-i18next";
 import type { Goal } from "@shared/types/goal";
-import { firestore, functions, ensureAppCheckReady } from "../../services/firebase";
+import { firestore } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTodayTrainingDecision } from "../../hooks/useTodayTrainingDecision";
 import { primaryEffectiveSession } from "../../features/trainingDecision/decisionPresentation";
@@ -13,9 +12,9 @@ import { LocalizedLink } from "../LocalizedLink";
 import { Card, Chip, Text, buttonClass } from "../../theme/components";
 import { logClientError } from "../../services/errorLogger";
 import InfoTip from "../InfoTip";
+import HomeUpcomingEvents from "./HomeUpcomingEvents";
 import { getDisciplineLabelKey } from "../../utils/disciplineFilter";
 
-interface RegisteredEvent { eventId: string; name: string; startTime: number }
 function HomeTodaySummary({ discipline }: { discipline: "bike" | "run" | "swim" }) {
   const { user } = useAuth();
   const { t } = useTranslation("dashboard");
@@ -83,30 +82,13 @@ function HomeGoalSummary({ discipline, monthlyKm, monthlyFlowPercent, weeklyAver
     </div>
   </Card>;
 }
-function HomeUpcomingEvents() {
-  const { user } = useAuth();
-  const { t, i18n } = useTranslation("dashboard");
-  const [state, setState] = useState<{ uid: string; events: RegisteredEvent[]; failed?: boolean } | null>(null);
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    void ensureAppCheckReady().then(() => httpsCallable<void, { events: RegisteredEvent[] }>(functions, "listMyRegisteredEvents")()).then((result) => {
-      if (!cancelled) setState({ uid: user.uid, events: result.data.events.filter((event) => event.startTime >= Date.now()).sort((a, b) => a.startTime - b.startTime).slice(0, 3) });
-    }).catch((error) => { logClientError("HomeTodayStrip.events", error); if (!cancelled) setState({ uid: user.uid, events: [], failed: true }); });
-    return () => { cancelled = true; };
-  }, [user]);
-  const current = state?.uid === user?.uid ? state : null;
-  return <Card data-testid="H2-4-1" data-home-slot="events" className="flex flex-col gap-3" header={<div className="flex items-center justify-between gap-2" style={{ width: "100%" }}><Text as="h2" variant="subtitle">{t("todayStrip.events")}</Text>{current?.failed && <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to="/explore/events">{t("todayStrip.findEvents")}</LocalizedLink>}</div>}>
-    {!current ? <Text variant="bodySmall">{t("todayStrip.loading")}</Text> : current.failed ? <Text variant="bodySmall">{t("todayStrip.unavailable")}</Text> : current.events.length ? current.events.map((event) => <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} key={event.eventId} to={`/event/${event.eventId}`}><Text variant="bodySmall">{event.name} · {new Date(event.startTime).toLocaleDateString(i18n.language)}</Text></LocalizedLink>) : <Text variant="bodySmall" tone="tertiary">{t("todayStrip.noEvents")}</Text>}
-  </Card>;
-}
-export default function HomeTodayStrip({ discipline, conditionDiscipline = discipline, weeklyDiscipline = conditionDiscipline, fitness, conditionSummary, thresholdSummary, weeklyDetails, weeklySummary, monthlyKm, monthlyFlowPercent, runningRecap, weeklyAverageKm, mobile, guidance, secondaryDetails }: {
-  discipline: "bike" | "run" | "swim"; conditionDiscipline?: "bike" | "run" | "swim" | "tri"; weeklyDiscipline?: "bike" | "run" | "swim" | "tri"; fitness: { ctl: number; atl: number; tsb: number } | null;
-  conditionSummary?: ReactNode; thresholdSummary?: ReactNode; weeklyDetails: ReactNode; weeklySummary: ReactNode; runningRecap?: ReactNode; monthlyFlowPercent?: number | null; monthlyKm: number; weeklyAverageKm: number; mobile?: boolean; guidance?: ReactNode; secondaryDetails?: ReactNode;
+export default function HomeTodayStrip({ discipline, conditionDiscipline = discipline, fitness, conditionSummary, thresholdSummary, weeklyDetails, monthlyKm, monthlyFlowPercent, runningRecap, weeklyAverageKm, mobile, guidance, secondaryDetails }: {
+  discipline: "bike" | "run" | "swim"; conditionDiscipline?: "bike" | "run" | "swim" | "tri"; fitness: { ctl: number; atl: number; tsb: number } | null;
+  conditionSummary?: ReactNode; thresholdSummary?: ReactNode; weeklyDetails: ReactNode; runningRecap?: ReactNode; monthlyFlowPercent?: number | null; monthlyKm: number; weeklyAverageKm: number; mobile?: boolean; guidance?: ReactNode; secondaryDetails?: ReactNode;
 }) {
   const { user } = useAuth();
   const { t } = useTranslation("dashboard");
-  if (!user || user.isAnonymous) return null;
+  if (!user || user.isAnonymous || mobile) return null;
   const conditionSlot = (
     <Card data-testid="H2-1-1" data-home-slot="condition" padding="compact" header={<div className="flex items-center justify-between gap-2" style={{ width: "100%" }}>
       <Text as="h2" variant="subtitle">{t(getDisciplineLabelKey(conditionDiscipline))} · {t("todayStrip.condition")}</Text>
@@ -119,14 +101,10 @@ export default function HomeTodayStrip({ discipline, conditionDiscipline = disci
       </div>
     </Card>
   );
-  const weekSlot = mobile && <Card data-testid="H2-3-1" data-home-slot="week" padding="compact" header={<div className="flex flex-wrap items-center justify-between gap-2" style={{ width: "100%" }}>
-      <Text as="h2" variant="subtitle" style={{ flex: "1 0 auto", maxWidth: "100%", wordBreak: "keep-all" }}>{t("todayStrip.weekTitle", { sport: t(getDisciplineLabelKey(weeklyDiscipline)) })}</Text>
-      <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/athlete/me/activities?sport=${weeklyDiscipline === "tri" ? "all" : weeklyDiscipline}`}>{t("todayStrip.week")}</LocalizedLink>
-    </div>}><div className="flex flex-col gap-2">{weeklySummary}</div></Card>;
   const goalSlot = <HomeGoalSummary discipline={discipline} monthlyFlowPercent={monthlyFlowPercent} monthlyKm={monthlyKm} weeklyAverageKm={weeklyAverageKm} />;
   const recapSlot = runningRecap && <div data-testid="H2-3-4">{runningRecap}</div>;
   const weeklyDetailSlot = weeklyDetails && <div className="space-y-3" data-testid="H2-3-2">{weeklyDetails}</div>;
-  const primarySlots = mobile ? <>{weekSlot}<HomeTodaySummary discipline={discipline} />{goalSlot}{conditionSlot}{recapSlot}</> : discipline === "run" ? <>
+  const primarySlots = discipline === "run" ? <>
     {conditionSlot}<HomeTodaySummary discipline={discipline} />{goalSlot}{recapSlot}{weeklyDetailSlot}
   </> : <>
     {conditionSlot}<HomeTodaySummary discipline={discipline} />{weeklyDetailSlot}{recapSlot}{goalSlot}
@@ -136,5 +114,5 @@ export default function HomeTodayStrip({ discipline, conditionDiscipline = disci
     <HomeUpcomingEvents />
     {guidance && <Card data-testid="H2-5-1" data-home-slot="guidance">{guidance}</Card>}
   </>;
-  return <div className={mobile ? "space-y-2" : "space-y-3"} data-testid="home-today-strip">{primarySlots}{mobile ? <details><summary>{t("todayStrip.more")}</summary><div className="space-y-3">{secondarySlots}</div></details> : secondarySlots}</div>;
+  return <div className="space-y-3" data-testid="home-today-strip">{primarySlots}{secondarySlots}</div>;
 }

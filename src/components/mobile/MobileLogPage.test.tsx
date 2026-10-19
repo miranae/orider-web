@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import * as activityAcceptance from "../../utils/estimateTSS";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import i18n from "i18next";
@@ -26,6 +27,20 @@ function QueryNavigation() {
 }
 
 describe("MobileLogPage", () => {
+  it("mounts the rolling summary only in the activity tab and keeps it mounted across month changes", () => {
+    const read = vi.fn();
+    function Summary() { useEffect(() => { read(); }, []); return <section>Recent rolling summary</section>; }
+    const view = render(<MemoryRouter><MobileLogPage activities={[activity("bike", 2)]} year={2026} month={8} onChangeMonth={vi.fn()} recentSummarySlot={<Summary />} /></MemoryRouter>);
+    expect(read).not.toHaveBeenCalled();
+    const tabs = screen.getAllByRole("tab");
+    fireEvent.click(tabs[1]!);
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Recent rolling summary")).toBeInTheDocument();
+    view.rerender(<MemoryRouter><MobileLogPage activities={[activity("bike", 2)]} year={2026} month={7} onChangeMonth={vi.fn()} recentSummarySlot={<Summary />} /></MemoryRouter>);
+    expect(read).toHaveBeenCalledTimes(1);
+    fireEvent.click(tabs[0]!);
+    expect(screen.queryByText("Recent rolling summary")).not.toBeInTheDocument();
+  });
   it("honors incoming sport and later navigation without losing unrelated query parameters", () => {
     const run = { ...activity("run", 3), type: "Run", description: "Run only" };
     const swim = { ...activity("swim", 4), type: "Swim", description: "Swim only" };

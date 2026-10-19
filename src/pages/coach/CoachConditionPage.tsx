@@ -2,6 +2,7 @@ import { Section, buttonClass } from "../../theme/components";
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import CrossDisciplineLoadCard from "../../components/dashboard/CrossDisciplineLoadCard";
 import { FitnessView } from "../FitnessPage";
 import { useCoachFitnessModel } from "./CoachFitnessLayout";
 import { useAuth } from "../../contexts/AuthContext";
@@ -27,5 +28,5 @@ export default function CoachConditionPage() {
     <LocalizedLink className={buttonClass({ variant: "ghost" })} data-testid="K1-5-8" to="/settings/device">{t("training.deviceStatus")}</LocalizedLink>
     </Section>
   </section> : null;
-  return <><FitnessView model={model} part="condition" hasThresholdSettings={Boolean(thresholdsSlot)} />{thresholdsSlot}</>;
+  return <><FitnessView model={model} part="condition" hasThresholdSettings={Boolean(thresholdsSlot)} conditionSupplementSlot={model.isMobile && user && !user.isAnonymous && model.discipline === "run" ? <CrossDisciplineLoadCard fitness={model.userFitness} discipline="run" /> : null} />{thresholdsSlot}</>;
 }

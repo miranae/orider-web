@@ -12,19 +12,22 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   invalid?: boolean;
   /** 수치 입력 — JetBrains Mono. */
   mono?: boolean;
+  /** Trailing action inside the input surface; provide an accessible button label. */
+  endAction?: ReactNode;
 }
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { invalid, mono, className, 'aria-invalid': ariaInvalid, ...rest },
+  { invalid, mono, endAction, className, 'aria-invalid': ariaInvalid, ...rest },
   ref,
 ) {
-  return (
+  const input = (
     <input
       ref={ref}
       aria-invalid={ariaInvalid ?? (invalid ? true : undefined)}
-      className={cn('ds-input', invalid && 'ds-input--invalid', mono && 'ds-input--mono', className)}
+      className={cn('ds-input', invalid && 'ds-input--invalid', mono && 'ds-input--mono', endAction != null && 'ds-input--with-action', className)}
       {...rest}
     />
   );
+  return endAction == null ? input : <span className="ds-input-action">{input}<span className="ds-input-action__end">{endAction}</span></span>;
 });
 
 /* ===== Textarea ===== */
@@ -43,13 +46,15 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
 /* ===== Select ===== */
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   invalid?: boolean;
+  /** Native picker with a compact, neutral filter surface. */
+  variant?: 'default' | 'filter';
 }
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
-  { invalid, className, children, 'aria-invalid': ariaInvalid, ...rest },
+  { invalid, variant = 'default', className, children, 'aria-invalid': ariaInvalid, ...rest },
   ref,
 ) {
   return (
-    <select ref={ref} aria-invalid={ariaInvalid ?? (invalid ? true : undefined)} className={cn('ds-input', invalid && 'ds-input--invalid', className)} {...rest}>
+    <select ref={ref} aria-invalid={ariaInvalid ?? (invalid ? true : undefined)} className={cn('ds-input', variant === 'filter' && 'ds-select--filter', invalid && 'ds-input--invalid', className)} {...rest}>
       {children}
     </select>
   );

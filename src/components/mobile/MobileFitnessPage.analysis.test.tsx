@@ -23,6 +23,18 @@ const data: MobileFitnessData = {
     { durationSeconds: 1200, peak: 220, expected: 250, gapPct: -12, label: "weakness" }],
 };
 describe("mobile web analysis evidence", () => {
+  it("places the optional activity summary before detailed analysis without leaking it to embedded views", () => {
+    const view = renderWithProviders(<MobileFitnessPage data={data} part="analysis" analysisSummarySlot={<div>monthly summary</div>} />);
+    expect(screen.getByText("monthly summary").compareDocumentPosition(screen.getByTestId("K5-1-3")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    view.rerender(<MobileFitnessPage data={data} part="analysis" embedded analysisSummarySlot={<div>monthly summary</div>} />);
+    expect(screen.queryByText("monthly summary")).not.toBeInTheDocument();
+  });
+  it("only exposes the condition supplement on the standalone condition surface", () => {
+    const view = renderWithProviders(<MobileFitnessPage data={data} part="condition" conditionSupplementSlot={<div>cross-sport contribution</div>} />);
+    expect(screen.getByText("cross-sport contribution")).toBeInTheDocument();
+    view.rerender(<MobileFitnessPage data={data} part="analysis" conditionSupplementSlot={<div>cross-sport contribution</div>} />);
+    expect(screen.queryByText("cross-sport contribution")).not.toBeInTheDocument();
+  });
   it("mounts one condition story with its simulator before the mobile chart and activity evidence", () => {
     const { container } = renderWithProviders(<MobileFitnessPage data={data} part="condition" currentStatusSlot={<h2>outer status must not repeat</h2>} coachSlot={<FitnessCoachBriefing part="condition" mobilePriority impacts={[]} selectedActivityId={null} onSelectActivity={() => undefined} forecast={null} current={{ ctl: 40, atl: 45, tsb: -5 }} decisionSlot={null} locale="ko-KR" canonicalAvailable discipline="bike" statusSlot={<h2>canonical story status</h2>} />} />);
     expect(screen.getByRole("heading", { name: "canonical story status" })).toBeVisible();

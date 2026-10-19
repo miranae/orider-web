@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus, Search } from 'lucide-react';
 import {
-  Button, IconButton, Checkbox, Card, Section, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
+  Button, IconButton, Checkbox, Card, Section, Select, Field, Input, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
   Chip, ChartRangeControls, type ChartRangeMode, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
   type DataTableColumn,
   MapResizeControls, MapNavigation, MapControlButton, ChartLegend, ChartValue, ChartTooltip,
@@ -10,6 +10,7 @@ import {
 } from '../theme';
 import { panChartRange } from '../theme/charts/chartViewport';
 import InfoTip from '../components/InfoTip';
+import SportIcon from '../components/common/SportIcon';
 import { COLOR_CSS_VARIABLES, CHART_CSS_VARIABLES, DIMENSION_CSS_VARIABLES } from '../theme/generated';
 import { getComparisonSeriesColors } from '../theme/charts/comparisonSeriesColors';
 import {
@@ -38,7 +39,7 @@ function previewTokens(mode: 'light' | 'dark'): CSSProperties {
   return values as CSSProperties;
 }
 
-const SECTIONS = [['adoption', '사용 원칙'], ['cards', '카드와 섹션'], ['buttons', '버튼'], ['selection', '선택 컨트롤'], ['tables', '표'], ['combo', '복합 차트'], ['analysis-controls', '분석 컨트롤'], ['composition', '기록 비교'], ['states', '상태와 접근성']] as const;
+const SECTIONS = [['adoption', '사용 원칙'], ['cards', '카드와 섹션'], ['buttons', '버튼'], ['selection', '선택 컨트롤'], ['sport-icons', '종목 아이콘'], ['tables', '표'], ['combo', '복합 차트'], ['analysis-controls', '분석 컨트롤'], ['composition', '기록 비교'], ['states', '상태와 접근성']] as const;
 const VARIANTS = [
   { id: 'primary', name: '주요 동작', label: '변경 사항 저장', usage: '한 영역에서 가장 중요한 실행 동작' },
   { id: 'secondary', name: '보조 동작', label: '미리보기', usage: '관련된 다른 실행 동작' },
@@ -104,6 +105,7 @@ function ControlsCatalog() {
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState('저장 대기 · 예시');
   const [exampleMetrics, setExampleMetrics] = useState<FixtureMetric[]>(['hr', 'power']);
+  const [filterSport, setFilterSport] = useState('all');
   const [exampleAxis, setExampleAxis] = useState<'distance' | 'time'>('distance');
   useEffect(() => { document.documentElement.dataset.theme = mode; }, [mode]);
   useEffect(() => {
@@ -259,9 +261,29 @@ function ControlsCatalog() {
           <div className="catalog-example-row"><div className="catalog-example-note"><Text as="h3" variant="subtitle">하나의 기준 선택</Text><Text as="p" variant="bodySmall">단독 상태 예시입니다. 하나를 선택하면 다른 선택이 해제됩니다. 누적거리는 각 기록의 출발점부터 비교하므로 같은 위치·시각을 보장하지 않습니다.</Text><code>ToggleControls · axis</code></div>
             <ToggleControls variant="axis" aria-label="단독 기준 선택 예시"><ToggleButton selected={exampleAxis === 'distance'} onClick={() => setExampleAxis('distance')}>거리</ToggleButton><ToggleButton selected={exampleAxis === 'time'} onClick={() => setExampleAxis('time')}>실제 시각</ToggleButton></ToggleControls>
           </div>
+          <div className="catalog-example-row"><div className="catalog-example-note"><Text as="h3" variant="subtitle">입력 내 실행</Text><Text as="p" variant="bodySmall">입력 오른쪽의 버튼이나 Enter로 같은 검색을 실행합니다.</Text><code>Input · endAction</code></div>
+            <form onSubmit={event => { event.preventDefault(); setMessage('입력 검색 예시를 실행했습니다. 실제 데이터는 조회하지 않습니다.'); }}><Input aria-label="예시 검색어" name="query" placeholder="검색어" enterKeyHint="search" endAction={<IconButton type="submit" aria-label="예시 검색 실행" icon={<Search />} />} /></form>
+          </div>
+          <div className="catalog-example-row"><div className="catalog-example-note"><Text as="h3" variant="subtitle">필터 선택</Text><Text as="p" variant="bodySmall">중립 표면과 작은 좌우 여백을 사용하고, 기기의 기본 선택 목록을 엽니다. 모바일 터치 높이와 입력 글자 크기는 유지합니다.</Text><code>Select · filter</code></div>
+            <Field htmlFor="catalog-filter-sport" label="종목"><Select id="catalog-filter-sport" variant="filter" value={filterSport} onChange={event => setFilterSport(event.target.value)}><option value="all">전체</option><option value="bike">사이클</option><option value="run">러닝</option><option value="swim">수영</option></Select></Field>
+          </div>
           <div className="catalog-example-row"><div className="catalog-example-note"><Text as="h3" variant="subtitle">기록 표시 체크박스</Text><Text as="p" variant="bodySmall">native checkbox와 44px 클릭 영역입니다. Space 키로도 선택을 바꿀 수 있습니다.</Text><code>Checkbox</code></div>
             <div><Checkbox aria-label="예시 기록 표시" checked={recordChecked} onChange={event => setRecordChecked(event.target.checked)} /><Text as="span" variant="bodySmall">예시 기록 · {recordChecked ? '표시' : '숨김'}</Text></div>
           </div>
+        </section>
+
+        <section id="sport-icons" className="catalog-section">
+          <div className="catalog-section-heading"><Text as="h2" variant="title">종목 아이콘</Text><Text as="p" variant="body" tone="tertiary">기본 측면과 활동 피드의 뒤쪽 사선 시점을 실제 표시 크기로 비교합니다. 모두 현재 글자색을 따르며 종목을 구분하는 보조 표시입니다.</Text></div>
+          {(['bike', 'run', 'swim'] as const).map(sport => <div key={sport} className="catalog-example-row">
+            <div className="catalog-example-note"><Text as="h3" variant="subtitle">{sport === 'bike' ? '사이클' : sport === 'run' ? '러닝' : '수영'}</Text><code>SportIcon · perspective</code></div>
+            <div className="catalog-sport-icon-samples">{(['side', 'rear'] as const).map(perspective => <div key={perspective} className="catalog-sport-icon-view">
+              <Text as="p" variant="caption" tone="tertiary">{perspective === 'side' ? '기본 측면' : '뒤쪽 사선 · 피드'}</Text>
+              <div className="catalog-sport-icon-sizes">{([18, 24, 32] as const).map(size => <figure key={size} className="catalog-sport-icon-sample">
+                <SportIcon sport={sport} perspective={perspective} size={size} />
+                <Text as="figcaption" variant="caption" tone="tertiary">{size}px</Text>
+              </figure>)}</div>
+            </div>)}</div>
+          </div>)}
         </section>
 
         <section id="tables" className="catalog-section">

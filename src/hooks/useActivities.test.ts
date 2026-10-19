@@ -674,6 +674,27 @@ describe("useActivities", () => {
 });
 
 describe("useWeeklyStats", () => {
+  it("disabled weekly statistics do not read and reenable for the current owner", async () => {
+    simulateLogin({ uid: "user-1" });
+    const now = new Date(2026, 9, 7, 15, 45);
+    setCollectionDocs("activities", [createMockActivity({ id: "old-owner", userId: "user-1", startTime: now.getTime() - 1000, summary: createMockSummary({ distance: 12000 }) })]);
+    const get = vi.mocked(getDocs);
+    get.mockClear();
+    const { result, rerender } = renderHook(({ enabled }) => useWeeklyStats({ now, enabled }), { wrapper, initialProps: { enabled: false } });
+    expect(get).not.toHaveBeenCalled();
+    expect(result.current.recent7DayCoverage).toBe("unavailable");
+    rerender({ enabled: true });
+    await waitFor(() => expect(result.current.recent7DayCoverage).toBe("ready"));
+    expect(result.current.thisWeek.distance).toBe(12000);
+    rerender({ enabled: false });
+    expect(result.current.thisWeek.distance).toBe(0);
+    act(() => simulateLogin({ uid: "user-2" }));
+    setCollectionDocs("activities", []);
+    rerender({ enabled: true });
+    expect(result.current.thisWeek.distance).toBe(0);
+    await waitFor(() => expect(result.current.recent7DayCoverage).toBe("ready"));
+    expect(result.current.thisWeek.distance).toBe(0);
+  });
   it("주간 근거는 전체 원본의 중복과 비훈련 종목을 구분하고 선택된 대표 부하만 계산한다", async () => {
     simulateLogin({ uid: "user-1" });
     const now = new Date(2026, 9, 7, 15, 45);

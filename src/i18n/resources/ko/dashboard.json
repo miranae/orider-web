@@ -252,6 +252,39 @@
     }
   },
   "mobileFeed": {
+    "inlineFilters": {
+      "scopeAll": "공개전체",
+      "scopeFriends": "공개친구",
+      "scopeSelf": "공개나",
+      "dateAll": "조회전체",
+      "date7d": "조회7일",
+      "date30d": "조회30일",
+      "date90d": "조회90일",
+      "sport": {
+        "all": "종목전체",
+        "bike": "종목사이클",
+        "run": "종목러닝",
+        "swim": "종목수영"
+      }
+    },
+    "searchLabel": "검색어",
+    "sportLabel": "종목",
+    "scopeSelf": "나",
+    "date7d": "7일",
+    "date30d": "30일",
+    "date90d": "90일",
+    "searchContext": "검색: {{query}}",
+
+    "occurred": {
+      "today": "오늘 {{time}}",
+      "yesterday": "어제 {{time}}",
+      "unknown": "활동 시각 미확인"
+    },
+    "homeTitle": "홈",
+    "feedTitle": "활동 피드",
+    "publicTitle": "공개 활동",
+    "publicDescription": "라이더들의 활동을 둘러보고, 로그인해 내 기록도 함께 확인하세요.",
+
     "runSummary": {
       "count": "활동횟수",
       "distance": "이동거리",
@@ -692,6 +725,10 @@
     "distanceFormattedTitle": "{{week}}주 · {{distance}}{{partial}}",
     "distanceUnknownTitle": "{{week}}주 · 거리 미확인",
     "distancePartialTitle": "{{week}}주 · {{value}}+ km"
+  },
+  "recentActivitySummary": {
+    "partial": "일부 활동 이력을 확인하지 못해 최근 7일 합계를 표시할 수 없어요.",
+    "allSports": "최근 7일 · 전체 종목"
   },
   "todayStrip": {
     "goalCountdownTitle": "목표일까지 남은 날",

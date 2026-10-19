@@ -4,7 +4,7 @@ import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 import SportIcon from "../common/SportIcon";
 import GlossaryText from "../common/GlossaryText";
 import { Activity as ActivityIcon, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -29,6 +29,7 @@ function formatDuration(ms: number): string {
 }
 
 interface MobileLogPageProps {
+  recentSummarySlot?: ReactNode;
   activities: Activity[];
   representativeCandidates?: Activity[];
   ftp?: number;
@@ -66,7 +67,7 @@ function MobileLogSkeleton() {
   );
 }
 
-export default function MobileLogPage({ activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, aggregateUnavailable = false, ftp, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
+export default function MobileLogPage({ recentSummarySlot, activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, aggregateUnavailable = false, ftp, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
   const { t, i18n } = useTranslation("activity");
   const DAY_NAMES = (t("mobileLog.dayNames", { returnObjects: true }) as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const [tab, setTab] = useState<"month" | "activity">("month");
@@ -236,6 +237,8 @@ export default function MobileLogPage({ activities, representativeCandidates = a
           );
         })}
       </div>
+
+      {tab === "activity" && recentSummarySlot}
 
       {!loading && tab === "month" && (
         <div className="mobile-log__month-glance" aria-label={t("mobileLog.monthAtGlance")}>

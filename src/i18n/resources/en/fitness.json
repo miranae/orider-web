@@ -1,4 +1,11 @@
 {
+  "activitySummary.monthRun": "Running this month",
+  "activitySummary.monthAll": "This month · all activities",
+  "activitySummary.monthComparison": "{{percent}}% of your usual monthly equivalent",
+  "activitySummary.runBasis": "Running distance for this month in Seoul time. The monthly equivalent is the recent weekly average × 4.3, not a goal completion rate.",
+  "activitySummary.allBasis": "All activity distance for the current calendar month. The monthly equivalent is the recent weekly average × 4.3, not a goal completion rate.",
+  "activitySummary.loading": "Checking this month’s activities.",
+  "activitySummary.unavailable": "This month’s flow is unavailable because the activity history could not be fully verified.",
   "condition.combinedSource": "Combined model aggregating discipline loads",
   "vo2maxCard.formulaLabel": "FTP and weight formula VO₂max estimate",
   "vo2maxCard.formulaBasis": "Active FTP ÷ profile weight × 15.7 + 3.5 · separate from measured/PDC estimates",

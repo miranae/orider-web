@@ -82,6 +82,8 @@ export interface FitnessViewProps {
   part?: "all" | "condition" | "analysis";
   model: FitnessModel;
   thresholdsSlot?: ReactNode;
+  analysisSummarySlot?: ReactNode;
+  conditionSupplementSlot?: ReactNode;
   hasThresholdSettings?: boolean;
 }
 
@@ -99,7 +101,7 @@ export function FitnessView({ thresholdsSlot, ...props }: FitnessViewProps) {
   </GlossaryProvider>;
 }
 
-function FitnessViewContent({ embedded = false, part = "all", model, thresholdsSlot, hasThresholdSettings = Boolean(thresholdsSlot) }: FitnessViewProps) {
+function FitnessViewContent({ embedded = false, part = "all", model, thresholdsSlot, analysisSummarySlot, conditionSupplementSlot, hasThresholdSettings = Boolean(thresholdsSlot) }: FitnessViewProps) {
   const [chartView, setChartView] = useState<"trend" | "years" | "activities">("trend");
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   // Form 구간 정본(#886). 전환이 꺼져 있으면 envelope 은 null 이고 카드는 기존 로컬 표시로 남는다.
@@ -474,6 +476,8 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             runPaceCurve={runPaceCurve}
             runningRecordsSlot={part === "condition" && discipline === "run" ? <><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} footer={qualifiedRunRecords(model.runEvidence).length === 0 && !needsRunAnalysisReadiness(model.runEvidence, !!model.mobilePageProps.data.threshold, model.mobilePageProps.data.zones.length > 0) ? <RunRecordsSummary evidence={model.runEvidence} sourceBoard /> : undefined} /><MilestonesGrid achieved={milestones} /></> : null}
             periodSlot={periodControls}
+            analysisSummarySlot={analysisSummarySlot}
+            conditionSupplementSlot={conditionSupplementSlot}
             currentBasis={currentBasis}
             currentStatusSlot={currentStatusSlot}
             periodEvidenceSlot={<>{weekChangeSlot}{part === "condition" && currentPoint && <FitnessWeeklyInsight includeLoadSummary={false}

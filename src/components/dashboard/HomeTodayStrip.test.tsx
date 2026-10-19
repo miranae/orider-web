@@ -1,19 +1,20 @@
 import { GlossaryProvider } from "../common/GlossaryProvider";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ user: { uid: "owner", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, enabled: true, eventsFailed: false, goalsFailed: false, decisionFailed: false, callable: vi.fn(), goal: null as null | { id: string; title: string; eventDate: number }, snapshot: vi.fn(), projection: null as null | {goalId: string; goalDay: {ctl: number}} }));
+const mocks = vi.hoisted(() => ({ user: { uid: "owner", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, enabled: true, appCheck: null as Promise<void> | null, eventsFailed: false, eventsEmpty: false, goalsFailed: false, decisionFailed: false, callable: vi.fn(), goal: null as null | { id: string; title: string; eventDate: number }, snapshot: vi.fn(), projection: null as null | {goalId: string; goalDay: {ctl: number}} }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock("../../hooks/useTodayTrainingDecision", () => ({ useTodayTrainingDecision: () => ({ loading: false, unavailable: mocks.decisionFailed, decision: mocks.decisionFailed ? null : { scheduledProjectionValidUntil: Date.now() + 60000, representativeSessionId: "session", effectiveSessions: [{ sessionId: "session", current: { workout: "easy", durationMin: 30 } }] } }) }));
 vi.mock("../../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ trainingDecisionEnabled: mocks.enabled }) }));
-vi.mock("../../services/firebase", () => ({ firestore: {}, functions: {}, ensureAppCheckReady: () => Promise.resolve() }));
+vi.mock("../../services/firebase", () => ({ firestore: {}, functions: {}, ensureAppCheckReady: () => mocks.appCheck ?? Promise.resolve() }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
-vi.mock("firebase/functions", () => ({ httpsCallable: (_functions: unknown, name: string) => { mocks.callable(name); return async () => { if (mocks.eventsFailed) throw new Error("events unavailable"); return ({ data: { events: [5, 1, 4, 2, 3].map((day) => ({ eventId: `e${day}`, name: `Event ${day}`, startTime: Date.now() + day * 86400000 })) } }); }; } }));
+vi.mock("firebase/functions", () => ({ httpsCallable: (_functions: unknown, name: string) => { mocks.callable(name); return async () => { if (mocks.eventsFailed) throw new Error("events unavailable"); return ({ data: { events: (mocks.eventsEmpty ? [] : [5, 1, 4, 2, 3]).map((day) => ({ eventId: `e${day}`, name: `Event ${day}`, startTime: Date.now() + day * 86400000 })) } }); }; } }));
 vi.mock("firebase/firestore", () => ({ doc: (_db: unknown, ...parts: string[]) => ({path: parts.join("/")}), collection: vi.fn(), query: vi.fn(), where: vi.fn(), limit: vi.fn(), onSnapshot: (ref: {path?: string} | undefined, callback: (value: unknown) => void, onError: (error: Error) => void) => { mocks.snapshot(ref?.path); if (ref?.path) { callback({data: () => mocks.projection}); return vi.fn(); } if (mocks.goalsFailed) { onError(new Error("goals unavailable")); return vi.fn(); } callback({ docs: mocks.goal ? [{ id: mocks.goal.id, data: () => mocks.goal }] : [] }); return vi.fn(); } }));
 import HomeTodayStrip from "./HomeTodayStrip";
-const props = { discipline: "bike" as const, fitness: { ctl: 20, atl: 30, tsb: -10 }, weeklyDetails: null, weeklySummary: "Week data", monthlyKm: 100, weeklyAverageKm: 50, guidance: "Guide" };
+import HomeUpcomingEvents from "./HomeUpcomingEvents";
+const props = { discipline: "bike" as const, fitness: { ctl: 20, atl: 30, tsb: -10 }, weeklyDetails: null, monthlyKm: 100, weeklyAverageKm: 50, guidance: "Guide" };
 describe("home today strip", () => {
-  beforeEach(() => { mocks.user = { uid: "owner", isAnonymous: false }; mocks.enabled = true; mocks.eventsFailed = false; mocks.goalsFailed = false; mocks.decisionFailed = false; mocks.goal = null; mocks.projection = null; vi.clearAllMocks(); });
+  beforeEach(() => { mocks.user = { uid: "owner", isAnonymous: false }; mocks.enabled = true; mocks.appCheck = null; mocks.eventsFailed = false; mocks.eventsEmpty = false; mocks.goalsFailed = false; mocks.decisionFailed = false; mocks.goal = null; mocks.projection = null; vi.clearAllMocks(); });
   it("keeps goal recovery scoped to running when the goal snapshot fails", () => {
     mocks.goalsFailed = true;
     render(<MemoryRouter><HomeTodayStrip {...props} discipline="run" /></MemoryRouter>);
@@ -53,19 +54,13 @@ describe("home today strip", () => {
     expect(screen.getByTestId("H2-3-3").closest("[data-home-slot]")).toBe(container.querySelector('[data-home-slot="goal"]'));
 
   });
-  it("preserves the sole mobile activity summary outside folded extra slots", () => {
-    render(<MemoryRouter><GlossaryProvider><HomeTodayStrip {...props} mobile thresholdSummary="FTP 200 W" /></GlossaryProvider></MemoryRouter>);
-    expect(screen.queryByText("FTP 200 W")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "내 최근 7일 · 사이클" })).toBeInTheDocument();
-    expect(screen.getByText("Week data").closest("details")).toBeNull();
-    expect(screen.getByTestId("H2-3-1")).toHaveTextContent("Week data");
-  });
-  it("hides today's decision when rollout is disabled and folds extra mobile slots", () => {
-    mocks.enabled = false;
-    const { container } = render(<MemoryRouter><GlossaryProvider><HomeTodayStrip {...props} mobile /></GlossaryProvider></MemoryRouter>);
-    expect(container.querySelector('[data-home-slot="today"]')).toBeNull();
-    expect(container.querySelector('details [data-home-slot="events"]')).toBeTruthy();
-    expect(container.querySelector('details [data-home-slot="guidance"]')).toBeTruthy();
+
+  it("does not mount personal summaries or training reads for mobile home", () => {
+    const { container } = render(<MemoryRouter><HomeTodayStrip {...props} mobile runningRecap={<p>Run recap</p>} secondaryDetails={<p>Cross-sport load</p>} /></MemoryRouter>);
+    expect(container.querySelector("[data-home-slot]")).toBeNull();
+    expect(screen.queryByText("Run recap")).not.toBeInTheDocument();
+    expect(mocks.snapshot).not.toHaveBeenCalled();
+    expect(mocks.callable).not.toHaveBeenCalled();
   });
   it("offers event discovery after registered schedules fail to load", async () => {
     mocks.eventsFailed = true;
@@ -102,7 +97,7 @@ describe("home today strip", () => {
   });
   it("keeps a run goal visible when the recap is absent", () => {
     mocks.goal = { id: "run-goal", title: "Half marathon", eventDate: Date.now() + 86400000 };
-    render(<MemoryRouter><HomeTodayStrip {...props} mobile discipline="run" runningRecap={null} /></MemoryRouter>);
+    render(<MemoryRouter><HomeTodayStrip {...props} discipline="run" runningRecap={null} /></MemoryRouter>);
     expect(screen.getByText("Half marathon")).toBeInTheDocument();
     expect(screen.queryByTestId("H2-3-4")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "목표 보기 →" })).toHaveAttribute("href", "/ko/coach/goals?sport=run");
@@ -125,14 +120,9 @@ describe("home today strip", () => {
       expect(before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     }
   });
-  it("keeps supporting running detail in the mobile secondary disclosure after primary goals and condition", () => {
-    render(<MemoryRouter><HomeTodayStrip {...props} mobile discipline="run" secondaryDetails={<section>Cross-sport load</section>} /></MemoryRouter>);
-    expect(screen.getByText("Cross-sport load").closest("details")).not.toBeNull();
-    expect(screen.getByTestId("H2-3-3").closest("details")).toBeNull();
-    expect(screen.getByTestId("H2-1-1").closest("details")).toBeNull();
-  });
+
   it("keeps combined condition values linked to the all-sport condition reader without changing today's sport", () => {
-    render(<MemoryRouter><GlossaryProvider><HomeTodayStrip {...props} mobile conditionDiscipline="tri" fitness={{ ctl: 90, atl: 100, tsb: -10 }} /></GlossaryProvider></MemoryRouter>);
+    render(<MemoryRouter><GlossaryProvider><HomeTodayStrip {...props} conditionDiscipline="tri" fitness={{ ctl: 90, atl: 100, tsb: -10 }} /></GlossaryProvider></MemoryRouter>);
     const condition = screen.getByTestId("H2-1-1");
     expect(screen.getByRole("heading", { name: "통합 · 컨디션" })).toBeInTheDocument();
     expect(condition).toHaveTextContent("CTL 90.0 · ATL 100.0 · TSB -10.0");
@@ -140,14 +130,38 @@ describe("home today strip", () => {
     expect(path).toBe("/ko/coach/condition?sport=tri");
     expect(screen.getByRole("link", { name: "정하기 →" })).toHaveAttribute("href", "/ko/coach/today?sport=bike");
   });
-  it.each(["bike", "run", "swim"] as const)("keeps canonical all-sport weekly summary linked to all sports from %s home", (discipline) => {
-    render(<MemoryRouter><HomeTodayStrip {...props} mobile discipline={discipline} weeklyDiscipline="tri" /></MemoryRouter>);
-    expect(screen.getByRole("heading", { name: "내 최근 7일 · 통합" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "월간 운동일지 →" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=all");
+
+
+  it("does not call the schedule endpoint if unmounted while App Check is pending", async () => {
+    let finishAppCheck!: () => void;
+    mocks.appCheck = new Promise<void>(resolve => { finishAppCheck = resolve; });
+    const view = render(<MemoryRouter><HomeUpcomingEvents compact /></MemoryRouter>);
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    view.unmount();
+    await act(async () => finishAppCheck());
+    expect(mocks.callable).not.toHaveBeenCalled();
   });
-  it("links a sport-specific weekly summary to the same sport even when today's decision differs", () => {
-    render(<MemoryRouter><HomeTodayStrip {...props} mobile discipline="bike" weeklyDiscipline="run" /></MemoryRouter>);
-    expect(screen.getByRole("link", { name: "월간 운동일지 →" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run");
+  it("hides an empty mobile schedule notice after a distinct loading state", async () => {
+    mocks.eventsEmpty = true;
+    render(<MemoryRouter><HomeUpcomingEvents compact /></MemoryRouter>);
+    expect(screen.getByRole("status")).toHaveTextContent("불러오는 중");
+    await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+    expect(screen.queryByTestId("H2-4-1")).not.toBeInTheDocument();
+    expect(screen.queryByText("다가오는 참가 일정이 없어요")).not.toBeInTheDocument();
+  });
+  it("keeps a failed mobile schedule distinct from an empty schedule with recovery navigation", async () => {
+    mocks.eventsFailed = true;
+    render(<MemoryRouter><HomeUpcomingEvents compact /></MemoryRouter>);
+    expect(await screen.findByRole("alert")).toHaveTextContent("잠시 불러올 수 없어요");
+    expect(screen.getByRole("link", { name: "일정 찾기 →" })).toHaveAttribute("href", "/ko/explore/events");
+    expect(screen.queryByText("다가오는 참가 일정이 없어요")).not.toBeInTheDocument();
+  });
+  it("does not present an anonymous session as an owner or query training data", () => {
+    mocks.user = { uid: "anonymous", isAnonymous: true };
+    render(<MemoryRouter><HomeTodayStrip {...props} mobile /></MemoryRouter>);
+    expect(screen.queryByTestId("home-today-strip")).not.toBeInTheDocument();
+    expect(mocks.snapshot).not.toHaveBeenCalled();
+    expect(mocks.callable).not.toHaveBeenCalled();
   });
   it("does not query personal data for guests", () => {
     mocks.user = null;

@@ -656,6 +656,8 @@ export default function MobileFitnessPage({
   hasThresholdSettings = Boolean(thresholdsSlot),
   goalSummarySlot = null,
   periodSlot = null,
+  analysisSummarySlot = null,
+  conditionSupplementSlot = null,
   currentBasis,
   currentStatusSlot = null,
   periodEvidenceSlot = null,
@@ -692,6 +694,8 @@ export default function MobileFitnessPage({
   hasThresholdSettings?: boolean;
   goalSummarySlot?: ReactNode;
   periodSlot?: ReactNode;
+  analysisSummarySlot?: ReactNode;
+  conditionSupplementSlot?: ReactNode;
   currentBasis?: string;
   currentStatusSlot?: ReactNode;
   periodEvidenceSlot?: ReactNode;
@@ -831,6 +835,7 @@ export default function MobileFitnessPage({
 <div id={part === "condition" ? "condition-metrics" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "mobile-fitness-riding-metrics condition-section-target" : undefined} style={{ paddingTop: 14 }}>
           {part === "condition" && <Text as="h2" variant="title" className="mobile-fitness-riding-metrics__title">{t(data.discipline === "bike" ? "fitness:condition.metrics.bikeTitle" : "fitness:condition.metrics.runTitle")}</Text>}
           {part === "condition" && <Text as="p" variant="bodySmall" tone="secondary">{t("fitness:condition.metrics.description")}</Text>}
+          {!embedded && part === "analysis" && analysisSummarySlot}
           {part === "condition" && ridingEvidenceSlot}
           {sectionState.derived === "loading" && (
             <div role="status" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>
@@ -1049,6 +1054,7 @@ export default function MobileFitnessPage({
           {part === "condition" && <Text as="h2" variant="title">{t("fitness:condition.load.title")}</Text>}
           {part === "condition" && <Text as="p" variant="bodySmall" tone="secondary" style={{ paddingInline: "var(--space-4)" }}>{t("fitness:condition.load.description")}</Text>}
           {part === "condition" && periodEvidenceSlot && <SectionCard>{periodEvidenceSlot}</SectionCard>}
+          {!embedded && part === "condition" && conditionSupplementSlot}
           {(part === "condition" || data.discipline === "bike") && consistencyStreak && (
             <div style={{ padding: "0 14px 14px" }}>
               <ConsistencyStreakCard summary={consistencyStreak} compact allSports={part === "condition"} />

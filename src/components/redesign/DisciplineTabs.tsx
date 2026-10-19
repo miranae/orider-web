@@ -108,7 +108,6 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
             aria-disabled={disabled || undefined}
             aria-label={disabled ? `${label} · ${t("discipline.comingSoon")}` : label}
             title={disabled ? t("discipline.comingSoon") : undefined}
-            aria-selected={isActive}
             tabIndex={isActive ? 0 : -1}
           >
             <span aria-hidden="true" style={{ display: "inline-flex", color }}>{icon}</span>

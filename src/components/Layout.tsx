@@ -272,7 +272,7 @@ export default function Layout() {
 
       {/* Common desktop footer; mobile legal links remain in the utility menu. */}
       <footer data-testid={path === "/" ? "H-F" : undefined}
-        className="hidden md:block flex-shrink-0 border-t"
+        className="hidden lg:block flex-shrink-0 border-t"
         style={{ borderColor: 'var(--line)', background: 'var(--bg-1)' }}
       >
         <div className="site-shell px-4 md:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>

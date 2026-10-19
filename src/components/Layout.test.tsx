@@ -251,16 +251,12 @@ describe("Layout", () => {
     expect(screen.getByText("로그아웃")).toBeInTheDocument();
   });
 
-  it("keeps the main-screen footer available at tablet and large desktop widths", async () => {
-    // 홈도 다른 데스크톱 화면처럼 공통 법적 링크를 제공한다.
-    // 모바일 링크는 햄버거 메뉴에서 제공하므로 md 이상 표시하고 lg에서도 숨기지 않는다.
+  it("keeps legal policy destinations in the main-screen footer", async () => {
     renderWithProviders(<Layout />, { route: "/" });
     await waitFor(() => {
       expect(screen.getByAltText("Orider")).toBeInTheDocument();
     });
     const footer = screen.getByRole("contentinfo");
-    expect(footer.className).toContain("md:block");
-    expect(footer.className).not.toContain("lg:hidden");
     await userEvent.setup().click(within(footer).getByRole("button", { name: "약관·정책" }));
     const policies = screen.getByRole("region", { name: "약관·정책" });
     expect(policies).toHaveTextContent("이용약관");
@@ -277,7 +273,7 @@ describe("Layout", () => {
     const settingsTabBar = await screen.findByRole("navigation", { name: "메인 내비게이션" });
     expect(within(settingsTabBar).getAllByRole("link").every((link) => !link.hasAttribute("aria-current"))).toBe(true);
     expect(screen.getByRole("link", { name: "계정" })).toHaveAttribute("aria-current", "page");
-    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    await userEvent.click(screen.getByRole("button", { name: "프로필" }));
     expect(screen.getAllByRole("link", { name: "설정" }).every(link => link.getAttribute("href") === "/ko/settings/account")).toBe(true);
     expect(screen.getByRole("button", { name: "프로필" })).toHaveAttribute("aria-current", "page");
   });

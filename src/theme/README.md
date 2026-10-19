@@ -105,3 +105,13 @@ Canvas 선 표현과 표시 밀도 상수는 React에 의존하지 않는
 - `ComboChart`는 같은 시간축에서 다른 종류의 표시를 조합한다. 막대와 선, 각 단위 축과 범례를 명시하고 축은 최대 두 개로 제한한다. 서로 다른 단위의 높이를 직접 비교하거나 인과관계를 뜻하는 설명을 붙이지 않는다. 정확한 선택값은 고정된 읽기 영역에 남긴다. 여러 사람의 동일 지표를 비교할 때는 `ComparisonChart`를 사용한다.
 
 참고: Apple HIG [Boxes](https://developer.apple.com/design/human-interface-guidelines/boxes), [Lists and tables](https://developer.apple.com/design/human-interface-guidelines/lists-and-tables), [Charts](https://developer.apple.com/design/human-interface-guidelines/charts).
+
+### Native filter selection
+
+`Select variant="filter"` provides a compact neutral filter surface (`bg-2`, `ink-1`, `r-lg`) while retaining the native picker, keyboard behavior and accessible label. Use `Field` captions to distinguish adjacent filters. Its left/right padding uses `space-2`/`space-5`; hover uses `bg-3`, keyboard focus has an accent outline, and invalid state retains its error border. Default `Select` styling remains unchanged. The shared 48px mobile/coarse-pointer minimum height and mobile 16px input guard also apply to this variant.
+
+`Input endAction={<IconButton type="submit" aria-label="Search" … />}` places an optional action inside the trailing edge of the input. The input retains its native attributes, form name and forwarded ref; reserved padding keeps text clear of the action. The slot maintains a 48px input surface around the standard 44px IconButton target. Callers own disabled/empty state and submission; Enter and button submission should perform the same action.
+
+### Sport pictograms
+
+`SportIcon` keeps its existing side view by default. The mobile activity feed opts into `perspective="rear"` for a lively lower-left to upper-right, rear three-quarter view; other screens retain their existing icons. Both perspectives use `currentColor` and the existing `sport`/`size` API. The pictogram is decorative inside a labelled sport container; retain the sport name and separate indoor/data-warning information for accessibility. The live catalogue shows cycling, running and swimming at 18/24/32px in both perspectives for legibility review.
