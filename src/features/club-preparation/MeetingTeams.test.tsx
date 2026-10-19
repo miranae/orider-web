@@ -239,13 +239,18 @@ describe("17명 조편성 조정", () => {
 
 describe("조가 많거나 명단이 바뀌는 편집", () => {
   it("40조의 목적지는 공통 선택 하나로 제공하고 선택한 회원만 이동한다", async () => {
-    const people = Array.from({ length: 40 }, (_, i) => ({
-      id: `many-${i}`,
-      name: `회원${i + 1}`,
-    }));
+    // The boundary is 40 destinations; only selected, unselected and destination members
+    // are needed here. Dense member reordering is covered by the 17-member case.
+    const people = [
+      { id: "many-0", name: "회원1" },
+      { id: "stay", name: "출발조 미선택 회원" },
+      { id: "many-39", name: "회원40" },
+    ];
     const registrations = people.map((member, i) => person(member.id, i + 1));
-    const teams = createInitialTeamDraft(registrations, 1).map((team) => ({
-      ...team,
+    const teams = Array.from({ length: 40 }, (_, i) => ({
+      id: `team-${i + 1}`,
+      name: `${i + 1}조`,
+      memberIds: i === 0 ? ["many-0", "stay"] : i === 39 ? ["many-39"] : [],
       capacity: 2,
     }));
     const save = vi.fn().mockResolvedValue(undefined);
@@ -276,7 +281,10 @@ describe("조가 많거나 명단이 바뀌는 편집", () => {
     expect(
       actions.queryByRole("button", { name: "40조로 이동" }),
     ).not.toBeInTheDocument();
-    fireEvent.change(actions.getByLabelText("목적 조 선택"), {
+    const destination = actions.getByLabelText("목적 조 선택");
+    expect(within(destination).getAllByRole("option")
+      .filter(option => (option as HTMLOptionElement).value !== "")).toHaveLength(40);
+    fireEvent.change(destination, {
       target: { value: "team-40" },
     });
     // 40조 전체 버튼의 접근성 이름을 반복 계산하지 않고 실제 조작 영역에서 찾는다.
@@ -293,7 +301,11 @@ describe("조가 많거나 명단이 바뀌는 편집", () => {
     expect(saveButton).toBeEnabled();
     fireEvent.click(saveButton);
     await waitFor(() => expect(save).toHaveBeenCalled());
-    expect(save.mock.calls[0]![0][39].memberIds).toEqual(["many-39", "many-0"]);
+    const saved = save.mock.calls[0]![0];
+    expect(saved).toHaveLength(40);
+    expect(saved[0].memberIds).toEqual(["stay"]);
+    expect(saved[39].memberIds).toEqual(["many-39", "many-0"]);
+    expect(saved.slice(1, 39)).toEqual(teams.slice(1, 39));
   });
   it("맞교환 후 취소자가 생기면 되돌리기를 잠그고 최신명단 반영 시 취소자와 이력을 제거한다", () => {
     const teams = createInitialTeamDraft(initial.registrations, 1);
