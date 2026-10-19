@@ -443,6 +443,10 @@ select.ds-input {
 .ds-chart__legend li { display: inline-flex; align-items: center; gap: var(--space-1); }
 .ds-chart__legend svg { width: 1.5rem; height: .5rem; overflow: visible; }
 .ds-chart__tooltip { position: absolute; z-index: 1; display: grid; gap: var(--space-1); min-width: 7rem; padding: var(--space-2) var(--space-3); color: var(--ink-1); background: color-mix(in oklch, var(--bg-2) 94%, transparent); border: 1px solid var(--line-soft); border-radius: var(--r-sm); box-shadow: var(--shadow-sm); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; pointer-events: none; }
+.ds-chart__tooltip { max-width: min(22rem, calc(100vw - var(--space-6))); white-space: normal; overflow-wrap: anywhere; }
+.ds-chart__tooltip[data-placement="start"] { transform: none; }
+.ds-chart__tooltip[data-placement="center"] { transform: translateX(-50%); }
+.ds-chart__tooltip[data-placement="end"] { transform: translateX(-100%); }
 .ds-chart__tooltip strong { color: var(--ink-0); font-weight: 600; }
 .ds-chart__grid { stroke: var(--grid-soft); }
 .ds-chart__axis { stroke: var(--grid-axis); }
@@ -686,3 +690,12 @@ select.ds-input {
 @media (max-width: 40rem) { .ds-data-table[data-row-header-width="selectable"] tr > :first-child { width: calc(var(--space-7) * 4 + var(--space-4)); } }
 
 .ds-chart__legend--end { justify-content: flex-end; }
+
+.ds-segment-timeline[data-presentation="distribution"] .ds-segment-timeline__row { grid-template-columns: minmax(0, 1fr); }
+.ds-segment-timeline[data-presentation="distribution"] .ds-segment-timeline__bucket { cursor: default; }
+
+@media (max-width: 48rem) {
+  .ds-section__header[data-actions-layout="responsive"] { flex-direction: column; align-items: stretch; }
+  .ds-section__header[data-actions-layout="responsive"] .ds-section__heading { flex: 1 1 auto; }
+  .ds-section__header[data-actions-layout="responsive"] .ds-section__actions { justify-content: flex-start; }
+}

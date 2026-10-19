@@ -11,27 +11,26 @@ vi.mock("../../components/settings/PaneThresholds", () => ({ PaneThresholds: () 
 function SamePageLink() { const navigate = useNavigate(); return <button onClick={() => navigate("/coach/condition#thresholds")}>open anchor</button>; }
 afterEach(cleanup);
 describe("condition threshold lazy anchor", () => {
-  it("stays unmounted while collapsed then opens on same-page hash changes", async () => {
+  it("renders the editable threshold form immediately and preserves same-page hash navigation", async () => {
     render(<MemoryRouter initialEntries={["/coach/condition"]}><SamePageLink /><CoachConditionPage /></MemoryRouter>);
-    expect(screen.queryByText("threshold form")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("threshold form")).toBeVisible());
     fireEvent.click(screen.getByText("open anchor"));
     await waitFor(() => expect(screen.getByText("threshold form")).toBeInTheDocument());
-    const details = document.getElementById("thresholds") as HTMLDetailsElement;
-    expect(details.open).toBe(true);
-    details.open = false;
+    const details = document.getElementById("thresholds")!;
+    expect(details.tagName).toBe("SECTION");
     fireEvent.click(screen.getByText("open anchor"));
-    await waitFor(() => expect(details.open).toBe(true));
+    await waitFor(() => expect(details).toBeVisible());
   });
   it("opens the threshold form for a loaded first-user empty state", async () => {
     state.empty = true;
     render(<MemoryRouter initialEntries={["/coach/condition"]}><CoachConditionPage /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText("threshold form")).toBeInTheDocument());
-    expect((document.getElementById("thresholds") as HTMLDetailsElement).open).toBe(true);
+    expect(document.getElementById("thresholds")).toHaveProperty("tagName", "SECTION");
     state.empty = false;
   });
   it("opens directly through the anchor while the fitness model is loading", async () => {
     render(<MemoryRouter initialEntries={["/coach/condition#thresholds"]}><CoachConditionPage /></MemoryRouter>);
     await waitFor(() => expect(screen.getByText("threshold form")).toBeInTheDocument());
-    expect((document.getElementById("thresholds") as HTMLDetailsElement).open).toBe(true);
+    expect(document.getElementById("thresholds")).toHaveProperty("tagName", "SECTION");
   });
 });

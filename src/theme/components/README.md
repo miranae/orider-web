@@ -253,7 +253,7 @@ React 없는 표시 알고리즘은 순수 정본을 직접 import한다.
 ### 툴팁과 고정 비교 영역
 
 용어 설명은 홈 화면과 같은 `InfoTip`을 사용한다. 트리거는 accent 색만 쓰며 밑줄·점선으로
-장식하지 않는다. `ChartTooltip`은 기존 `pointer-events: none`인 임시 비대화형 설명 용도다.
+장식하지 않는다. `ChartTooltip placement="start|center|end"`는 호출자가 전달한 좌표에 대한 가로 정렬을 선택한다. 생략하면 기존 정렬을 유지한다. 공통 툴팁은 화면 너비 안에서 줄바꿈하며, 경계 판단과 좌표는 기능 계층이 소유한다. `ChartTooltip`은 기존 `pointer-events: none`인 임시 비대화형 설명 용도다.
 스크롤·클릭하거나 계속 읽어야 하는 수치 비교에는 사용하지 않는다. 선택 수치는 고정 표 안의
 `ChartValue`로 유지하고, pointerleave만으로 비교 영역을 unmount하지 않는다.
 
@@ -458,3 +458,7 @@ pointer 이동은 rAF당 최신 좌표만 처리하고 up은 마지막 좌표를
 도구를 가리지 않게 한다. 클릭·Enter·Space로 열고 재클릭·외부 클릭·Escape로 닫는다.
 기본 InfoTip의 hover/focus 동작은 유지한다. 구간 선택 중에는 모든 lane의 plot 안에
 semantic accent 16% 음영과 2px 양끝선을 그리며 취소·선택 완료 후 제거한다.
+
+`SegmentTimeline presentation="distribution"`은 바깥 제목과 고정 값 영역이 이미 있는 비대화형 분포에 사용한다. 동일한 준비된 구간 비율을 전체 폭으로 그리고 행 이름은 스크린리더용으로 유지한다. 전체 그림의 `aria-label`은 호출자가 정확한 구성과 미관측 상태를 제공한다. 키보드 선택·구간 클릭·기본 선택값 설명은 추가하지 않는다. 생략 시 기존 타임라인의 선택·고정 설명은 유지된다.
+
+`Section actionsLayout="responsive"`는 긴 제목과 상태 배지가 함께 있는 경우 좁은 화면(48rem 이하)에서 제목 다음 줄에 동작/상태를 배치한다. 기본 `inline` 정렬은 유지된다. 제목 글자 크기를 줄이거나 feature CSS로 헤더를 재정의하지 않는다.

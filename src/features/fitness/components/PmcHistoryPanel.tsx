@@ -1,11 +1,12 @@
 import "./fitness-analysis-controls.css";
 import { createPortal } from "react-dom";
+import InfoTip from "../../../components/InfoTip";
 import GlossaryText from "../../../components/common/GlossaryText";
 import { TooltipContent } from "../../../theme/components/TooltipContent";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import FitnessChart, { type FitnessChartPoint } from "../../../components/FitnessChart";
-import { Button, ChartAxisLine, ChartFrame, ChartGridLine, ChartHeader, ChartLegend, ChartTooltip, DropdownSelect } from "../../../theme/components";
+import { ControlToolbar, ToolbarButton, ToggleControls, ToggleButton, ChartValue, ChartAxisLine, ChartFrame, ChartGridLine, ChartHeader, ChartLegend, ChartTooltip, DropdownSelect } from "../../../theme/components";
 import { PMC_LINE_PALETTE } from "../chartPalette";
 import { buildPmcHistory, buildPmcYearComparison, type PmcBucket, type PmcRange, type PmcHistoryPoint } from "../pmcHistory";
 import "./PmcHistoryPanel.css";
@@ -20,6 +21,11 @@ interface PmcHistoryPanelProps {
   ctlColor?: string;
   sourceLabel?: string;
   variant?: "card" | "embedded";
+  controlledMode?: "trend" | "years";
+  onControlledModeChange?: (mode: "trend" | "years") => void;
+  hideModeControls?: boolean;
+  /** 긴 공통 계산 설명을 하단의 열린 근거 구간에서 제공하는 화면. */
+  suppressMethodNotes?: boolean;
 }
 
 type YearSeries = { label: string; buckets: PmcBucket[]; dash?: string };
@@ -100,7 +106,7 @@ function TsbHistoryChart({ buckets, selectedIndex, hoverIndex, onHover, onSelect
       {path && <path data-pmc-series="tsb" d={path} fill="none" stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth={PMC_LINE_PALETTE.tsb.strokeWidth} strokeDasharray={PMC_LINE_PALETTE.tsb.dasharray} strokeLinecap={PMC_LINE_PALETTE.tsb.linecap} vectorEffect="non-scaling-stroke" />}
       {buckets.length > 0 && <ChartAxisLine data-tsb-cursor="true" x1={x(displayIndex)} x2={x(displayIndex)} y1={TSB_TOP} y2={bottom} strokeDasharray="2 3" />}
       {displayValue != null && <circle data-tsb-selected-point="true" cx={x(displayIndex)} cy={y(displayValue)} r="4" fill="var(--bg-0)" stroke={PMC_LINE_PALETTE.tsb.color} strokeWidth="2.5" />}
-      {labelIndices.map((index) => <text key={index} x={x(index)} y={height - 6} textAnchor={index === 0 ? "start" : index === buckets.length - 1 ? "end" : "middle"}>{buckets[index]?.endDate}</text>)}
+      {labelIndices.map((index) => <text key={index} x={x(index)} y={height - 6} textAnchor={index === 0 ? "start" : index === buckets.length - 1 ? "end" : "middle"}>{width <= 576 ? buckets[index]?.endDate.slice(5) : buckets[index]?.endDate}</text>)}
     </svg>
   </div>;
 }
@@ -114,6 +120,7 @@ function YearComparisonChart({ series, selectedIndex, onSelect, labels, title, c
   ctlColor: string;
   selectionLabel: string;
 }) {
+  const { t } = useTranslation("fitness");
   const chartRef = useRef<SVGSVGElement>(null);
   const [width, setWidth] = useState(WIDTH);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -159,7 +166,7 @@ function YearComparisonChart({ series, selectedIndex, onSelect, labels, title, c
     <svg ref={chartRef} className="pmc-history__chart" viewBox={`0 0 ${width} ${HEIGHT}`} role="slider" tabIndex={0}
       aria-label={title} aria-valuemin={1} aria-valuemax={Math.max(1, labels.length)} aria-valuenow={selectedIndex + 1}
       aria-valuetext={selectionLabel} onKeyDown={selectKey}
-      onPointerMove={(event) => setHoverIndex(indexFromPointer(event))} onPointerLeave={() => setHoverIndex(null)}
+      onPointerMove={(event) => { if (event.pointerType !== "touch") setHoverIndex(indexFromPointer(event)); }} onPointerLeave={() => setHoverIndex(null)}
       onPointerDown={(event) => { const index = indexFromPointer(event); if (index == null) return; event.currentTarget.focus(); onSelect(index); }}>
       <title>{title}</title>
       {[0, 0.5, 1].map((fraction) => {
@@ -183,18 +190,35 @@ function YearComparisonChart({ series, selectedIndex, onSelect, labels, title, c
       {labels.length > 0 && <line x1={x(displayIndex)} x2={x(displayIndex)} y1={TOP} y2={BOTTOM} className="pmc-history__cursor" />}
       {tickIndices.map((index) => <text key={index} x={x(index)} y={230} textAnchor={index === 0 ? "start" : index === labels.length - 1 ? "end" : "middle"}>{labels[index]}</text>)}
     </svg>
-    {hoverIndex != null && <ChartTooltip label={labels[hoverIndex] ?? selectionLabel} className={x(hoverIndex) / width < 0.2 ? "pmc-history__tooltip--start" : x(hoverIndex) / width > 0.8 ? "pmc-history__tooltip--end" : undefined} style={{ left: `${x(hoverIndex) / width * 100}%`, top: "var(--space-2)" }}>
-      {series.map((line) => line.buckets[hoverIndex]?.ctl == null ? null : <span key={line.label}>{line.label} · CTL {formatValue(line.buckets[hoverIndex]!.ctl)}</span>)}
+    {hoverIndex != null && <ChartTooltip label={labels[hoverIndex] ?? selectionLabel} placement={x(hoverIndex) / width < 0.2 ? "start" : x(hoverIndex) / width > 0.8 ? "end" : "center"} style={{ left: `${x(hoverIndex) / width * 100}%`, top: "var(--space-2)" }}>
+      {series.map((line) => {
+        const bucket = line.buckets[hoverIndex];
+        if (!bucket) return null;
+        return <span key={line.label} className="pmc-history__year-tooltip-entry"><strong>{line.label} · CTL {formatValue(bucket.ctl)} · {t("history.mean")}</strong><span>{bucket.startDate} – {bucket.endDate}</span><span>ATL {formatValue(bucket.atl)} · TSB {formatValue(bucket.tsb)}</span><span>{t("chartDetail.load")}: {bucket.loadStatus === "unconfirmed" ? "—" : formatValue(bucket.totalLoad)}</span><span>{t(`history.load.${bucket.loadStatus}`)} · {bucket.loadSnapshotDays}/{bucket.expectedDays} {t("history.days")}</span><span>{t(`history.pmc.${bucket.calculationStatus}`)} · {bucket.observedDays}/{bucket.expectedDays} {t("history.days")}{bucket.partial ? ` · ${t("history.partial")}` : ""}</span></span>;
+      })}
     </ChartTooltip>}
   </div>;
 }
 
-export default function PmcHistoryPanel({ points, today, canonical, controlledRange, onControlledRangeChange, rangeChoices = RANGES, ctlColor = PMC_LINE_PALETTE.ctl.color, sourceLabel, variant = "card" }: PmcHistoryPanelProps) {
+export function PmcHistoryMethodNotes({ canonical }: { canonical: boolean }) {
+  const { t } = useTranslation("fitness");
+  return (
+      <dl className="pmc-history__method-notes">
+        <div><dt>{t("history.noteLabels.load")}</dt><dd className="pmc-history__note">{t("history.statusNote")}</dd></div>
+        <div><dt>{t("history.noteLabels.coverage")}</dt><dd className="pmc-history__note">{t("history.coverageNote")}</dd></div>
+        <div><dt>{t("history.noteLabels.history")}</dt><dd className="pmc-history__note">{t("history.calculation")} {t(canonical ? "history.canonicalNote" : "history.fallbackNote")}</dd></div>
+      </dl>
+  );
+}
+
+export default function PmcHistoryPanel({ points, today, canonical, controlledRange, onControlledRangeChange, rangeChoices = RANGES, ctlColor = PMC_LINE_PALETTE.ctl.color, sourceLabel, variant = "card", controlledMode, onControlledModeChange, hideModeControls = false, suppressMethodNotes = false }: PmcHistoryPanelProps) {
   const { t, i18n } = useTranslation("fitness");
   const headingId = useId();
   const [localRange, setLocalRange] = useState<PmcRange>(90);
   const range = controlledRange ?? localRange;
-  const [mode, setMode] = useState<"trend" | "years">("trend");
+  const [localMode, setLocalMode] = useState<"trend" | "years">("trend");
+  const mode = controlledMode ?? localMode;
+  const setMode = (next: "trend" | "years") => controlledMode == null ? setLocalMode(next) : onControlledModeChange?.(next);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [yearChoice, setYearChoice] = useState<number[] | null>(null);
@@ -239,34 +263,53 @@ export default function PmcHistoryPanel({ points, today, canonical, controlledRa
     : history.buckets.some((bucket) => bucket.observedDays > 0);
   const trendData: FitnessChartPoint[] = history.buckets.map((bucket) => ({ date: bucket.endDate, ctl: bucket.ctl, atl: bucket.atl, tsb: bucket.tsb, dailyLoad: bucket.totalLoad }));
   const hoverBucket = mode === "trend" && trendHoverIndex !== null ? history.buckets[trendHoverIndex] : null;
+  const tooltipRef = useRef<HTMLSpanElement>(null);
   const [tooltipPosition, setTooltipPosition] = useState({ left: 8, top: 8, width: 320 });
   useLayoutEffect(() => {
     if (!hoverBucket || !trendPlotRef.current) return;
     const rect = trendPlotRef.current.getBoundingClientRect();
     const width = Math.min(320, window.innerWidth - 24);
-    setTooltipPosition({ width, left: Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 12)), top: Math.max(12, Math.min(rect.top + 24, window.innerHeight - 240)) });
+    const height = tooltipRef.current?.getBoundingClientRect().height ?? 320;
+    setTooltipPosition({ width, left: Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 12)), top: Math.max(12, Math.min(rect.top + 24, window.innerHeight - height - 12)) });
   }, [hoverBucket]);
   const legendItems = yearSeries.map((line) => ({ label: line.label, color: ctlColor, dasharray: line.dash, seriesId: `${line.label}-ctl`, strokeWidth: PMC_LINE_PALETTE.ctl.strokeWidth, strokeLinecap: PMC_LINE_PALETTE.ctl.linecap }));
 
   return <ChartFrame data-testid="K1-2" as="section" variant={variant} className="fitness-analysis-controls pmc-history" aria-labelledby={headingId} header={<ChartHeader title={<h2 id={headingId}>{t(mode === "years" ? "history.mode.years" : "history.chart.title")}</h2>} actions={<span role={sourceState ? "status" : undefined} aria-live={sourceState ? "polite" : undefined} className={`pmc-history__source${sourceTone ? ` pmc-history__source--${sourceTone}` : ""}`} data-testid="K1-2-8" data-source-state={sourceState ?? "default"}>{sourceLabel ?? t(sourceKey)}</span>} />}>
+    {(!hideModeControls || mode === "years") && <div className="pmc-history__controls">{!hideModeControls && <ToggleControls variant="axis" data-testid="K1-2-2" aria-label={t("history.mode")}>{(["trend", "years"] as const).map((value) => <ToggleButton key={value} selected={mode === value} onClick={() => setMode(value)}>{t(`history.mode.${value}`)}</ToggleButton>)}</ToggleControls>}{mode === "years" && <ToggleControls variant="metric" aria-label={t("history.years")}>{history.availableYears.map((year) => <ToggleButton showCheck key={year} selected={years.includes(year)} onClick={() => setYearChoice(years.includes(year) ? years.filter((value) => value !== year) : [...years, year].sort((a, b) => b - a))}>{year}</ToggleButton>)}</ToggleControls>}</div>}
     <div className="pmc-history__chart-head"><ChartLegend items={mode === "years" ? legendItems : [{ label: <GlossaryText>{t("ctl")}</GlossaryText>, color: ctlColor, seriesId: "ctl", strokeWidth: PMC_LINE_PALETTE.ctl.strokeWidth, strokeLinecap: PMC_LINE_PALETTE.ctl.linecap }, { label: <GlossaryText>{t("atl")}</GlossaryText>, color: PMC_LINE_PALETTE.atl.color, seriesId: "atl", dasharray: PMC_LINE_PALETTE.atl.dasharray, strokeWidth: PMC_LINE_PALETTE.atl.strokeWidth, strokeLinecap: PMC_LINE_PALETTE.atl.linecap }, { label: <GlossaryText>{t("tsb")}</GlossaryText>, color: PMC_LINE_PALETTE.tsb.color, seriesId: "tsb", dasharray: PMC_LINE_PALETTE.tsb.dasharray, strokeWidth: PMC_LINE_PALETTE.tsb.strokeWidth, strokeLinecap: PMC_LINE_PALETTE.tsb.linecap }]} />
-      {mode === "trend" && <div role="group" aria-label={t("history.range")} data-testid="K1-2-1" className="pmc-history__buttons pmc-history__ranges"><span className="pmc-history__unit">{t(`history.unit.${unit}`)}</span>{rangeChoices.map((value) => <Button size="sm" variant={range === value ? "outline" : "ghost"} key={value} aria-pressed={range === value} onClick={() => controlledRange == null ? setLocalRange(value) : onControlledRangeChange?.(value)}>{t(`history.range.${value}`)}</Button>)}</div>}
+      {mode === "trend" && <ToggleControls variant="axis" aria-label={t("history.range")} data-testid="K1-2-1"><span className="pmc-history__unit">{t(`history.unit.${unit}`)}</span>{rangeChoices.map((value) => <ToggleButton key={value} selected={range === value} onClick={() => controlledRange == null ? setLocalRange(value) : onControlledRangeChange?.(value)}>{t(`history.range.${value}`)}</ToggleButton>)}</ToggleControls>}
 
     </div>
     {!hasChart ? <p role="status" className="pmc-history__empty">{t(years.length === 0 && mode === "years" ? "history.selectYear" : "history.empty")}</p>
       : mode === "trend" ? <div ref={trendPlotRef} data-testid="K1-2-3" className="pmc-history__trend-stack" role="group" aria-label={t("history.chart.trendGroup")}><FitnessChart data={trendData} today={today} ctlColor={ctlColor} selectedIndex={trendSelectedIndex} onSelectedIndexChange={selectIndex} showTodayMarker={unit === "day"} accessibleTitle={t("history.chart.title")} metricQualifier={unit === "day" ? undefined : t(`history.unit.${unit}`)} visibleMetrics={["ctl", "atl"]} tooltipMetrics={["ctl", "atl", "tsb"]} hoveredIndex={trendHoverIndex} onHoveredIndexChange={setTrendHoverIndex} chartWidth={trendWidth} chartHeight={trendWidth <= 576 ? 208 : 232} hideTooltip hideLegend hideXLabels showEndLabels onSelectionFocusRequest={() => trendControllerRef.current?.focus()} /><TsbHistoryChart buckets={history.buckets} selectedIndex={trendSelectedIndex} hoverIndex={trendHoverIndex} onHover={setTrendHoverIndex} onSelect={selectIndex} title={t("history.chart.tsbIndependent")} width={trendWidth} controllerRef={trendControllerRef} selectionLabel={trendAriaValue} /></div>
         : <YearComparisonChart series={yearSeries} labels={yearLabels} selectedIndex={selectedIndex} onSelect={selectIndex} title={t("history.chart.fitness")} ctlColor={ctlColor} selectionLabel={selectionLabel} />}
-    {firstSelected && <div className="pmc-history__value-strip" aria-live="polite"><strong>{valueStripLabel}</strong><div className="pmc-history__values">{mode === "years" ? selected.map(({ label, bucket }) => <span key={label} data-pmc-metric="ctl" style={{ borderInlineStartColor: ctlColor }}>{label} · {t("ctl")} <b>{formatValue(bucket.ctl)}</b></span>) : (["ctl", "atl", "tsb"] as const).map((metric) => <span key={metric} data-pmc-metric={metric} style={{ borderInlineStartColor: metric === "ctl" ? ctlColor : PMC_LINE_PALETTE[metric].color }}><GlossaryText>{t(metric)}</GlossaryText> <b>{formatValue(firstSelected.bucket[metric])}</b></span>)}</div></div>}
+    {firstSelected && <div className="pmc-history__value-strip" aria-live="polite"><strong><span className="pmc-history__selection-context">{t("condition.history.selection")}</span> {valueStripLabel}{unit !== "day" ? ` · ${t("history.mean")}` : ""}</strong>{mode === "trend" && <div className="pmc-history__values">{(["ctl", "atl", "tsb"] as const).map((metric) => <span key={metric} data-pmc-metric={metric} style={{ borderInlineStartColor: metric === "ctl" ? ctlColor : PMC_LINE_PALETTE[metric].color }}><ChartValue primary={formatValue(firstSelected.bucket[metric])} secondary={<GlossaryText>{t(metric)}</GlossaryText>} /></span>)}</div>}</div>}
+    <section data-testid="K1-2-7" className="pmc-history__details" aria-label={t("history.details")}>
+      <div className="pmc-history__evidence">{selected.map(({ label, bucket }) => <div key={label} className="pmc-history__evidence-period">
+        {mode === "years" && <strong>{label} · {bucket.startDate} – {bucket.endDate}</strong>}
+        {mode === "years" && <div role="group" aria-label={`${label} · ${selectionLabel} · ${t("history.mean")}`} className="pmc-history__values pmc-history__year-metrics">{(["ctl", "atl", "tsb"] as const).map(metric => <span key={metric} data-pmc-metric={metric} style={{ borderInlineStartColor: metric === "ctl" ? ctlColor : PMC_LINE_PALETTE[metric].color }}><ChartValue primary={formatValue(bucket[metric])} secondary={<GlossaryText>{t(metric)}</GlossaryText>} /></span>)}</div>}
+        <dl className="pmc-history__evidence-grid">
+          <div><dt>{t("chartDetail.load")}</dt><dd>{bucket.loadStatus === "unconfirmed" ? "—" : formatValue(bucket.totalLoad)}</dd></div>
+          <div><dt><InfoTip title={t("history.loadStatus")} content={t("history.statusNote")}>{t("history.loadStatus")}</InfoTip></dt><dd>{t(`history.load.${bucket.loadStatus}`)} · {bucket.loadSnapshotDays}/{bucket.expectedDays} {t("history.days")}</dd></div>
+          <div><dt>{t("history.pmcStatus")}</dt><dd>{t(`history.pmc.${bucket.calculationStatus}`)}</dd></div>
+          <div><dt><InfoTip title={t("history.coverage")} content={t("history.coverageNote")}>{t("history.coverage")}</InfoTip></dt><dd>{bucket.observedDays === 0 ? t("history.missing") : `${bucket.observedDays}/${bucket.expectedDays} ${t("history.days")}${bucket.partial ? ` · ${t("history.partial")}` : ""}`}</dd></div>
+        </dl>
+      </div>)}</div>
+      {!suppressMethodNotes && <PmcHistoryMethodNotes canonical={canonical} />}
+    </section>
     {hasChart && firstSelected && firstSelected.bucket.observedDays === 0 && <p className="pmc-history__note" role="status">{t(["pending", "stale", "failed"].includes(firstSelected.bucket.calculationStatus) ? `history.pmc.${firstSelected.bucket.calculationStatus}` : "history.selectedEmpty")}</p>}
-    {hoverBucket && createPortal(<TooltipContent role="tooltip" title={hoverBucket.startDate === hoverBucket.endDate ? hoverBucket.endDate : `${hoverBucket.startDate} – ${hoverBucket.endDate}`} data-pmc-tooltip="true" style={{ position: "fixed", ...tooltipPosition, zIndex: 100, pointerEvents: "none", maxHeight: "calc(100dvh - 24px)", overflowY: "auto" }}>
+    {hoverBucket && createPortal(<TooltipContent ref={tooltipRef} role="tooltip" title={hoverBucket.startDate === hoverBucket.endDate ? hoverBucket.endDate : `${hoverBucket.startDate} – ${hoverBucket.endDate}`} data-pmc-tooltip="true" style={{ position: "fixed", ...tooltipPosition, zIndex: 100, pointerEvents: "none", maxHeight: "calc(100dvh - 24px)", overflowY: "auto" }}>
       <span className="flex flex-col gap-2">
         {(["ctl", "atl", "tsb"] as const).map(metric => <span key={metric} data-pmc-tooltip-metric={metric.toUpperCase()} className="flex items-baseline justify-between gap-3"><span>{t(metric)}{unit !== "day" ? ` · ${t(`history.unit.${unit}`)}` : ""}</span><b style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)" }}>{formatValue(hoverBucket[metric])}</b></span>)}
         <span style={{ borderTop: "1px solid var(--line-soft)", paddingTop: "var(--space-2)" }}>{t(unit === "day" ? "history.tooltip.day" : "history.tooltip.mean", { count: hoverBucket.observedDays, load: hoverBucket.loadStatus === "unconfirmed" ? "—" : formatValue(hoverBucket.totalLoad) })}</span>
-        <span>{t(`history.pmc.${hoverBucket.calculationStatus}`)}</span>
+        <span>{t("history.loadStatus")}: {t(`history.load.${hoverBucket.loadStatus}`)} · {hoverBucket.loadSnapshotDays}/{hoverBucket.expectedDays} {t("history.days")}</span>
+        <span>{t("history.pmcStatus")}: {t(`history.pmc.${hoverBucket.calculationStatus}`)}</span>
+        <span>{t("history.coverage")}: {hoverBucket.observedDays}/{hoverBucket.expectedDays} {t("history.days")}{hoverBucket.partial ? ` · ${t("history.partial")}` : ""}</span>
+        <span>{t("history.calculation")}</span>
       </span>
     </TooltipContent>, document.body)}
-    <div className="pmc-history__controls"><div role="group" data-testid="K1-2-2" aria-label={t("history.mode")} className="pmc-history__buttons">{(["trend", "years"] as const).map((value) => <Button size="sm" variant={mode === value ? "outline" : "ghost"} key={value} aria-pressed={mode === value} onClick={() => setMode(value)}>{t(`history.mode.${value}`)}</Button>)}</div>{mode === "years" && <div role="group" aria-label={t("history.years")} className="pmc-history__buttons">{history.availableYears.map((year) => <Button size="sm" variant={years.includes(year) ? "outline" : "ghost"} key={year} aria-pressed={years.includes(year)} onClick={() => setYearChoice(years.includes(year) ? years.filter((value) => value !== year) : [...years, year].sort((a, b) => b - a))}>{year}</Button>)}</div>}</div>
-    {selectionOptions.length > 0 && <div data-testid="K1-2-4" className="pmc-history__navigation"><label>{t("history.selection")}<DropdownSelect  label={t("history.selection")} value={String(selectedIndex)} onChange={next => selectIndex(Number(next))} options={selectionOptions.map((label, index) => ({ value: String(index), label: label }))} /></label><Button size="sm" variant="ghost" aria-label={t("history.previous")} disabled={selectedIndex === 0} onClick={() => selectIndex(selectedIndex - 1)}>←</Button><Button size="sm" variant="ghost" aria-label={t("history.next")} disabled={selectedIndex === selectionOptions.length - 1} onClick={() => selectIndex(selectedIndex + 1)}>→</Button><Button size="sm" variant="ghost" onClick={() => { setSelectedKey(null); setSelectedMonth(null); }}>{t(unit === "day" ? "history.today" : "history.latest")}</Button></div>}
-    <details data-testid="K1-2-7" className="pmc-history__details"><summary>{t("history.details")}</summary><div className="pmc-history__selection"><div className="pmc-history__table-scroll"><table><caption>{t("history.summary")}</caption><thead><tr><th scope="col">{t("history.period")}</th>{(["ctl", "atl", "tsb"] as const).map((metric) => <th scope="col" key={metric}>{metric.toUpperCase()}{unit !== "day" && ` · ${t("history.mean")}`}</th>)}<th scope="col">{t("history.totalLoad")}</th><th scope="col">{t("history.loadStatus")}</th><th scope="col">{t("history.pmcStatus")}</th><th scope="col">{t("history.coverage")}</th></tr></thead><tbody>{selected.map(({ label, bucket }) => <tr key={label}><th scope="row">{label}</th><td>{formatValue(bucket.ctl)}</td><td>{formatValue(bucket.atl)}</td><td>{formatValue(bucket.tsb)}</td><td>{formatValue(bucket.totalLoad)}</td><td>{t(`history.load.${bucket.loadStatus}`)} · {bucket.loadSnapshotDays}/{bucket.expectedDays} {t("history.days")}</td><td>{t(`history.pmc.${bucket.calculationStatus}`)}</td><td>{bucket.observedDays === 0 ? t("history.missing") : `${bucket.observedDays}/${bucket.expectedDays} ${t("history.days")}${bucket.partial ? ` · ${t("history.partial")}` : ""}`}</td></tr>)}</tbody></table></div><p className="pmc-history__note">{t("history.calculation")} {t(canonical ? "history.canonicalNote" : "history.fallbackNote")} {t("history.statusNote")} {t("history.coverageNote")}</p></div></details>
+
+    {selectionOptions.length > 0 && <div data-testid="K1-2-4" className="pmc-history__navigation"><label>{t("history.selection")}<DropdownSelect  label={t("history.selection")} value={String(selectedIndex)} onChange={next => selectIndex(Number(next))} options={selectionOptions.map((label, index) => ({ value: String(index), label: label }))} /></label><ControlToolbar aria-label={t("history.selection")}><ToolbarButton aria-label={t("history.previous")} disabled={selectedIndex === 0} onClick={() => selectIndex(selectedIndex - 1)}>←</ToolbarButton><ToolbarButton aria-label={t("history.next")} disabled={selectedIndex === selectionOptions.length - 1} onClick={() => selectIndex(selectedIndex + 1)}>→</ToolbarButton><ToolbarButton onClick={() => { setSelectedKey(null); setSelectedMonth(null); }}>{t(unit === "day" ? "history.today" : "history.latest")}</ToolbarButton></ControlToolbar></div>}
+
   </ChartFrame>;
 }

@@ -86,3 +86,7 @@ scripts/merge-pr.sh <PR번호> --require-github-review
 `main`에 머지하는 것과 production 배포는 동일하지 않을 수 있습니다. release tag가 배포를 트리거하는 경우 tag 생성, release note, environment approval을 별도로 관리합니다.
 
 production 태그는 `scripts/release-tag.sh`로 만듭니다. 이 스크립트는 마지막 태그 이후 `origin/main`에 쌓인 커밋 전체(release diff)를 보여주고 확인을 받은 뒤에만 태그를 push합니다 — 다른 목적의 배포에 검토되지 않은 변경이 편승하는 것을 막기 위한 절차입니다. 배포 성공 후에는 `prod-smoke.yml`이 모바일 뷰포트 스모크(고정 요소 과점유·렌더 실패 감지)를 자동 실행합니다.
+
+### CodeQL 머지 정책
+
+CodeQL 스캔은 유지하지만 `scripts/merge-pr.sh`의 필수 머지 검사에서는 제외합니다. GitHub 공식 앱과 같은 head·check suite의 CodeQL workflow로 확인된 검사만 비차단으로 취급합니다. 다른 검사의 실패·미확인 상태, 충돌, 보호 규칙 및 head 변경은 계속 머지를 막습니다. 기본 실행은 일반 검사를 기다리고, `--no-wait`도 대기 중인 일반 검사를 통과시키지 않습니다.

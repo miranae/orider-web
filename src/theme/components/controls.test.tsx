@@ -2,7 +2,7 @@ import { createRef, useState } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { Checkbox, ControlToolbar, ToolbarGroup, ToolbarButton, ToggleControls, ToggleButton, MapResizeControls, MapNavigation, MapControlButton, ChartLane, ChartPlot, ChartRangeCaption, ChartValue, ChartLegend } from './index';
+import { Checkbox, ControlToolbar, ToolbarGroup, ToolbarButton, ToggleControls, ToggleButton, MapResizeControls, MapNavigation, MapControlButton, ChartLane, ChartPlot, ChartRangeCaption, ChartValue, ChartLegend, ChartTooltip } from './index';
 
 describe('공통 컨트롤', () => {
   it('툴바의 native 키보드 실행·disabled·선택 상태를 전달하고 폼을 제출하지 않는다', async () => {
@@ -96,4 +96,16 @@ it('uses native checkbox keyboard selection with an accessible name', async () =
   expect(checkbox).toBeChecked();
   await user.click(checkbox);
   expect(checkbox).not.toBeChecked();
+});
+
+
+it('keeps the tooltip label and values while switching edge alignment', () => {
+  const view = render(<ChartTooltip label="10월" placement="start">CTL 42</ChartTooltip>);
+  const tooltip = screen.getByRole('tooltip');
+  expect(tooltip).toHaveTextContent('10월CTL 42');
+  expect(tooltip).toHaveAttribute('data-placement', 'start');
+  view.rerender(<ChartTooltip label="10월" placement="end">CTL 42</ChartTooltip>);
+  expect(tooltip).toHaveAttribute('data-placement', 'end');
+  view.rerender(<ChartTooltip label="10월">CTL 42</ChartTooltip>);
+  expect(tooltip).not.toHaveAttribute('data-placement');
 });

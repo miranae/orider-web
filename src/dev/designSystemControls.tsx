@@ -5,7 +5,7 @@ import {
   Button, IconButton, Checkbox, Card, Section, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
   Chip, ChartRangeControls, type ChartRangeMode, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
   type DataTableColumn,
-  MapResizeControls, MapNavigation, MapControlButton, ChartLegend, ChartValue,
+  MapResizeControls, MapNavigation, MapControlButton, ChartLegend, ChartValue, ChartTooltip,
   ComparisonChart, CHART_PRESENTATION, DEFAULT_THEME,
 } from '../theme';
 import { panChartRange } from '../theme/charts/chartViewport';
@@ -232,7 +232,7 @@ function ControlsCatalog() {
             <div className="catalog-card-example"><div className="catalog-example-label"><Text variant="label">bare · 자식이 여백을 관리</Text><code>Card variant="bare"</code></div><Card variant="bare"><svg className="catalog-card-route" viewBox="0 0 600 264" role="img" aria-label="생성한 예시 경로 미리보기"><path d={fixtureRoutePath()} fill="none" stroke={recordColors[0]} strokeWidth="4" /></svg><div className="catalog-card-payload"><Text as="h3" variant="subtitle">경로 미리보기</Text><Text as="p" variant="bodySmall" tone="tertiary">카드의 표면과 테두리는 유지합니다. 내부 여백만 제거해 미디어는 가장자리까지, 설명은 자식의 여백으로 배치합니다.</Text><Text variant="caption" tone="tertiary">생성한 경로 예시 · 서버 요청 없음</Text></div></Card></div>
           </div>
           <div className="catalog-section-demo">
-            <Section title="훈련 요약" headingLevel={3} description={`${FIXTURE_SUMMARY_ROWS[sectionRecord]!.label} · 생성한 예시`} actions={<Button variant="ghost" size="sm" onClick={() => setSectionRecord(sectionRecord === 0 ? 1 : 0)}>다른 기록 보기</Button>}>
+            <Section actionsLayout="responsive" title="훈련 요약" headingLevel={3} description={`${FIXTURE_SUMMARY_ROWS[sectionRecord]!.label} · 생성한 예시`} actions={<Button variant="ghost" size="sm" onClick={() => setSectionRecord(sectionRecord === 0 ? 1 : 0)}>다른 기록 보기</Button>}>
               <div className="catalog-section-metrics"><div><Text as="p" variant="caption" tone="tertiary">평균 파워</Text><Text variant="dataMedium">{FIXTURE_SUMMARY_ROWS[sectionRecord]!.power!.toFixed(0)} <Text variant="unit">W</Text></Text></div><div><Text as="p" variant="caption" tone="tertiary">평균 심박수</Text><Text variant="dataMedium">{FIXTURE_SUMMARY_ROWS[sectionRecord]!.hr!.toFixed(0)} <Text variant="unit">bpm</Text></Text></div><div><Text as="p" variant="caption" tone="tertiary">활동 시간</Text><Text variant="dataMedium">90 <Text variant="unit">분</Text></Text></div></div>
             </Section>
           </div>
@@ -288,7 +288,10 @@ function ControlsCatalog() {
         <section id="analysis-controls" className="catalog-section">
           <div className="catalog-section-heading"><Text as="h2" variant="title">분석 컨트롤</Text><Text as="p" variant="body" tone="tertiary">표시 지표와 범위, 계산 상태, 훈련 변화의 순서로 읽습니다. 아래 존과 계산값은 표현 검증을 위해 준비한 생성 예시입니다.</Text></div>
           <Section title="활동 분석" headingLevel={3} description="고도는 고정 범례로, 선택할 지표는 체크 토글로 구분합니다.">
-            <div className="catalog-analysis-controls">
+            <Section title="차트 경계의 임시 설명" headingLevel={3} description="좌표는 기능이 정하고 공통 툴팁이 시작·중앙·끝 정렬을 담당합니다. 계속 읽을 값은 고정 비교 표에 둡니다.">
+            <div className="catalog-tooltip-examples">{(['start', 'center', 'end'] as const).map(placement => <div key={placement}><ChartTooltip label={placement} placement={placement} style={{ left: placement === 'start' ? '0%' : placement === 'end' ? '100%' : '50%', top: 0 }}>CTL 42 · ATL 38</ChartTooltip></div>)}</div>
+          </Section>
+          <div className="catalog-analysis-controls">
               <ToggleControls aria-label="분석 예시 표시 지표">{FIXTURE_METRICS.map(metric => <ToggleButton key={metric.id} showCheck selected={analysisMetrics.includes(metric.id)} onClick={() => setAnalysisMetrics(analysisMetrics.includes(metric.id) ? analysisMetrics.filter(value => value !== metric.id) : [...analysisMetrics, metric.id])}>{metric.label}</ToggleButton>)}</ToggleControls>
               <ChartLegend marker="dot" aria-label="분석 차트 고정 범례" items={[{ label: '고도 · 고정 범례', color: theme.chartColors.altitude }]} />
             </div>
@@ -305,6 +308,7 @@ function ControlsCatalog() {
             <div className="catalog-analysis-timeline">
               <div className="catalog-table-heading"><Text as="h4" variant="bodyMedium"><InfoTip title="존 타임라인" label="존 타임라인 설명" content="준비된 파워·심박 존을 경과 시간에 비례해 표시한 생성 예시입니다. 존 계산과 기준값 판단은 페이지가 담당하고, 공통 컴포넌트는 구간의 비율과 라벨을 표시합니다.">존 타임라인</InfoTip></Text><Text variant="caption" tone="tertiary">구간 폭은 시간 비율 · 파워 존 내부만 은은한 명암</Text></div>
               <SegmentTimeline rows={analysisTimelineRows} aria-label={`생성한 파워·심박 존 타임라인 · ${analysisRangeCaption}`} accessibleHint="구간을 탭하거나 키보드로 선택하면 범위와 존 구성을 아래에서 확인할 수 있습니다. 스크린리더와 마우스 도움말도 지원합니다. 준비한 예시 값이며 실제 존 계산을 수행하지 않습니다." />
+              <SegmentTimeline presentation="distribution" rows={analysisTimelineRows} aria-label="같은 준비된 존 구성의 읽기 전용 분포 · 정확한 값은 위의 고정 설명에서 확인" />
               <ChartLegend marker="dot" items={analysisZoneColors.slice(0, 5).map((color, index) => ({ label: `Z${index + 1}`, color }))} />
             </div>
             <DataTable caption={`원본 값 · ${analysisAxis === 'time' ? `${analysisSample.time.toFixed(1)}분` : `${analysisSample.distance.toFixed(1)} km`}`} columns={[{ id: 'point', header: '선택 지점', rowHeader: true, cell: () => analysisRangeSelected ? '표시 구간 중앙' : '전체 중 지점' }, ...FIXTURE_METRICS.filter(metric => analysisMetrics.includes(metric.id)).map(metric => ({ id: metric.id, header: `${metric.label} (${metric.unit})`, align: 'end' as const, cell: () => <ChartValue primary={analysisSample[metric.id] == null ? '—' : analysisSample[metric.id]!.toFixed(metric.id === 'speed' ? 1 : 0)} secondary={`평균 ${fixtureObservedMean(FIXTURE_RECORDS[0]!, metric.id, analysisAxis, analysisDisplayRange)?.toFixed(1) ?? '—'}`} /> }))]} rows={analysisMetrics.length ? [{ id: 'analysis-point' }] : []} rowKey={row => row.id} emptyLabel="위에서 표시할 지표를 선택하세요. 고도 범례는 고정입니다." />

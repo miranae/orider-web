@@ -24,6 +24,13 @@ describe("K5 Stage period evidence boundary", () => {
     fireEvent.click(screen.getByRole("button", { name: "기간 분석 불러오기" }));
     expect(mocks.hook).toHaveBeenLastCalledWith("test-uid", expect.objectContaining({ request: expect.objectContaining({ discipline: "run", includeExpandedRunDistances: true, includeRunningPaceZones: true, includeStageRunEffortPreferences: true, periods: expect.any(Array) }) }), true);
   });
+  it("opens the inline condition controls without starting a period request", () => {
+    mocks.environment = "stage";
+    renderWithProviders(<FitnessPeriodEvidence discipline="bike" inline />, { authenticated: true });
+    expect(screen.getByTestId("K5-5-2").tagName).toBe("SECTION");
+    expect(screen.getByRole("button", { name: "기간 분석 불러오기" })).toBeVisible();
+    expect(mocks.hook).toHaveBeenLastCalledWith("test-uid", null, true);
+  });
   it("keeps the Stage callable guard disabled when capability or origin is unavailable", () => {
     mocks.environment = "stage"; mocks.available = false;
     renderWithProviders(<FitnessPeriodEvidence discipline="swim" />, { authenticated: true });

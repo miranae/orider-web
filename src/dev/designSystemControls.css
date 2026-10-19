@@ -88,3 +88,7 @@ body { font-family: var(--font-sans); }
 .catalog-analysis-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .catalog-analysis-timeline, .catalog-analysis-metadata { display: flex; flex-direction: column; gap: var(--space-3); padding-block: var(--space-2); }
 .catalog-analysis-if-value { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-3); padding-block: var(--space-2); }
+
+.catalog-tooltip-examples { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+.catalog-tooltip-examples > div { position: relative; min-height: calc(var(--space-8) * 2); }
+@media (max-width: 40rem) { .catalog-tooltip-examples { grid-template-columns: minmax(0, 1fr); } }

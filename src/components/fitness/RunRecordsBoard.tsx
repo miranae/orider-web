@@ -7,6 +7,7 @@
  * 이중 레이어: 표(쉬운 레이어) 아래에 임계 페이스 곡선(디테일 레이어)을 접이식으로 둔다.
  * 곡선 컴포넌트는 호출부가 스트림과 함께 children 으로 주입한다(이 컴포넌트는 records 만 안다).
  */
+import "./RunRecordsBoard.css";
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -15,9 +16,12 @@ import { distanceRecords } from "../../utils/runRecords";
 import type { RunPrTable } from "@shared/types/personal-records";
 
 export interface RunRecordsBoardProps {
+  title?: string;
   run: RunPrTable | undefined;
   /** 접이식 디테일 레이어 — 보통 CriticalPaceCurve. 없으면 접이 UI 를 숨긴다. */
   detailLayer?: ReactNode;
+  footer?: ReactNode;
+  additionalUnverified?: boolean;
 }
 
 /** 날짜 필드는 시간대로 옮기지 않고 저장된 달력 날짜 그대로 표시한다. */
@@ -30,7 +34,7 @@ function formatDate(date: string, locale: string): string {
   }).format(parsed);
 }
 
-export default function RunRecordsBoard({ run, detailLayer }: RunRecordsBoardProps) {
+export default function RunRecordsBoard({ run, detailLayer, title, footer, additionalUnverified = false }: RunRecordsBoardProps) {
   const { t, i18n } = useTranslation("fitness");
   const [expanded, setExpanded] = useState(false);
   const rows = distanceRecords(run);
@@ -38,16 +42,16 @@ export default function RunRecordsBoard({ run, detailLayer }: RunRecordsBoardPro
   return (
     <Card>
       <Text as="h2" variant="subtitle" style={{ marginBottom: "var(--space-3)" }}>
-        {t("runRecords.title")}
+        {title ?? t("runRecords.title")}
       </Text>
 
       <Text as="p" variant="body" tone="secondary" style={{ marginBottom: "var(--space-3)" }}>
         {t("runRecords.scope")}
       </Text>
-      {rows.some(row => row.top.length > 0) && <Text as="p" variant="body" tone="secondary" style={{ marginBottom: "var(--space-3)" }}>
+      {(additionalUnverified || rows.some(row => row.top.length > 0)) && <Text as="p" variant="body" tone="secondary" style={{ marginBottom: "var(--space-3)" }}>
         {t("runRecords.unverified")}
       </Text>}
-      <div>
+      <div className="run-records-board__grid">
         {rows.map(row => (
           <section key={row.distance} style={{ padding: "var(--space-3) 0", borderBottom: "1px solid var(--line-soft)", minWidth: 0 }}>
             <Text as="h3" variant="body" tone="primary" weight={600}>
@@ -72,6 +76,7 @@ export default function RunRecordsBoard({ run, detailLayer }: RunRecordsBoardPro
         ))}
       </div>
 
+      {footer}
       {detailLayer && (
         <>
           <Button variant="ghost" onClick={() => setExpanded(v => !v)} aria-expanded={expanded}

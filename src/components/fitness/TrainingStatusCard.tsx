@@ -12,8 +12,9 @@
  *
  * `decision` 이 아예 없으면(전환 플래그 꺼짐) 기존 로컬 표시가 남는다 — 서버 배포 전 회귀 방지.
  */
+import "./TrainingStatusCard.css";
 import { useTranslation } from "react-i18next";
-import { Card, Chip, Text, type ChipVariant } from "../../theme/components";
+import { Card, Chip, Text, ReferenceGauge, type ChipVariant } from "../../theme/components";
 import { MetricExplainerTrigger } from "../common/MetricExplainer";
 import { canonicalDisplayShowsValue, type CanonicalDisplay } from "@shared/types/canonicalDisplay";
 import { FORM_BAND_KEYS, knownFormBandKey, type FormBandKey } from "@shared/training/formBand";
@@ -24,6 +25,8 @@ import {
 } from "../../utils/trainingStatusLabel";
 
 export interface TrainingStatusCardProps {
+  embedded?: boolean;
+  presentation?: "compact" | "story";
   tsb: number;
   ctl?: number | null;
   atl?: number | null;
@@ -90,17 +93,20 @@ export default function TrainingStatusCard({
   decision,
   decisionDisplay,
   decisionPaused = false,
+  embedded = false,
+  presentation = "compact",
 }: TrainingStatusCardProps) {
   const { t } = useTranslation("fitness");
+  const Surface = embedded ? "div" : Card;
 
   // kill switch 가 먼저다. 값이 손에 있어도 그리지 않는다.
   if (decisionPaused) {
     return (
-      <Card data-testid="K1-4-4">
+      <Surface data-testid="K1-4-4" className={`fitness-current-status${presentation === "story" ? " fitness-current-status--story" : ""}`}>
         <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: 0 }}>
           {t("trainingStatus.state.paused")}
         </Text>
-      </Card>
+      </Surface>
     );
   }
 
@@ -113,11 +119,11 @@ export default function TrainingStatusCard({
       ? STATE_MESSAGE_KEY[display]
       : "trainingStatus.state.error";
     return (
-      <Card data-testid="K1-4-4">
+      <Surface data-testid="K1-4-4" className={`fitness-current-status${presentation === "story" ? " fitness-current-status--story" : ""}`}>
         <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: 0 }}>
           {t(messageKey)}
         </Text>
-      </Card>
+      </Surface>
     );
   }
 
@@ -137,46 +143,31 @@ export default function TrainingStatusCard({
     : `trainingStatus.${band.key}.advice`;
 
   return (
-    <Card data-testid="K1-4-4">
+    <Surface data-testid="K1-4-4" className={`fitness-current-status${presentation === "story" ? " fitness-current-status--story" : ""}`}>
       <MetricExplainerTrigger
         metric="tsb"
         scope="global"
         sport={sport}
         context={{ tsb, ctl, atl, ctlRampPerWeek, formBandKey: serverBandKey }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-          <Chip variant={TONE_CHIP[band.tone]} dot style={{ flexShrink: 0, fontWeight: 600 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-3)" }}>
+          {presentation === "story" ? <Text as="h2" variant="title" className="fitness-current-status__headline">{t(`trainingStatus.${band.key}.label`)}</Text> : <Chip variant={TONE_CHIP[band.tone]} dot style={{ flexShrink: 0, fontWeight: 600 }}>
             {t(`trainingStatus.${band.key}.label`)}
-          </Chip>
+          </Chip>}
           {stale && <Chip variant="default" style={{ flexShrink: 0 }}>{t("trainingStatus.staleChip")}</Chip>}
-          <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: 0 }}>
+          <Text as="p" variant={presentation === "story" ? "body" : "bodySmall"} className="fitness-current-status__advice" tone="secondary" style={{ margin: 0 }}>
             {t(adviceKey)}
           </Text>
         </div>
       </MetricExplainerTrigger>
 
-      {/* 스펙트럼 바 — 현재 위치만 채운다 */}
-      <div
-        style={{ display: "flex", gap: "var(--space-1)", marginTop: "var(--space-3)" }}
-        role="img"
-        aria-label={`${t(`trainingStatus.${band.key}.label`)} (${band.index + 1}/${FORM_BAND_KEYS.length})`}
-      >
-        {FORM_BAND_KEYS.map((key, i) => (
-          <div
-            key={key}
-            style={{
-              flex: 1,
-              height: 4,
-              borderRadius: "var(--r-sm)",
-              background: i === band.index ? toneColor : "var(--bg-3)",
-            }}
-          />
-        ))}
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: "var(--space-1)" }}>
+      <ReferenceGauge value={band.index + 0.5} domain={[0, FORM_BAND_KEYS.length]} bands={FORM_BAND_KEYS.map((_, index) => ({ from: index, to: index + 1, active: index === band.index, color: toneColor }))} ticks={[]} aria-label={`${t(`trainingStatus.${band.key}.label`)} (${band.index + 1}/${FORM_BAND_KEYS.length})`} />
+      <div className="fitness-state-labels">
         {FORM_BAND_KEYS.map((key, i) => (
           <Text
             key={key}
+            className="fitness-state-labels__item"
+            data-current={i === band.index || undefined}
             as="span"
             variant="caption"
             style={{
@@ -184,11 +175,11 @@ export default function TrainingStatusCard({
               fontWeight: i === band.index ? 700 : 400,
             }}
           >
-            {t(`trainingStatus.${key}.label`)}
+            <span aria-hidden="true" className="fitness-state-labels__index">{i + 1}.</span>{t(`trainingStatus.${key}.label`)}
           </Text>
         ))}
       </div>
-    </Card>
+    </Surface>
   );
 }
 

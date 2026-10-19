@@ -14,12 +14,12 @@ import { formatElapsedBoundary } from "../../activity/detail/activityRangeSelect
 import { Button, Input, Text } from "../../../theme/components";
 
 type Sport = "bike" | "run" | "swim";
-export default function FitnessPeriodEvidence({ discipline }: { discipline: Sport }) {
+export default function FitnessPeriodEvidence({ discipline, inline = false }: { discipline: Sport; inline?: boolean }) {
   const { user } = useAuth();
   if (getRuntimeConfig().appEnvironment !== "stage" || !user || user.isAnonymous) return null;
-  return <PeriodEvidence key={`${user.uid}:${discipline}`} ownerUid={user.uid} discipline={discipline} />;
+  return <PeriodEvidence key={`${user.uid}:${discipline}`} ownerUid={user.uid} discipline={discipline} inline={inline} />;
 }
-function PeriodEvidence({ ownerUid, discipline }: { ownerUid: string; discipline: Sport }) {
+function PeriodEvidence({ ownerUid, discipline, inline }: { ownerUid: string; discipline: Sport; inline: boolean }) {
   const { t } = useTranslation("fitness");
   const { t: activityT } = useTranslation("activity");
   const { units } = useLocale();
@@ -42,8 +42,9 @@ function PeriodEvidence({ ownerUid, discipline }: { ownerUid: string; discipline
       ...(discipline === "run" ? { includeExpandedRunDistances: true, includeRunningPaceZones: true, includeStageRunEffortPreferences: true } : {}),
     } }));
   };
-  return <details data-testid="K5-5-2" className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3">
-    <summary className="cursor-pointer py-3">{activityT("trainingPeriods.title")}</summary>
+  const Container = inline ? "section" : "details";
+  return <Container data-testid="K5-5-2" className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3">
+    {inline ? <Text as="h3" variant="subtitle">{activityT("trainingPeriods.title")}</Text> : <summary className="cursor-pointer py-3">{activityT("trainingPeriods.title")}</summary>}
     <Text as="p" variant="caption">{t("periodCurve.timezone")}</Text>
     <div className="grid gap-3 sm:grid-cols-2">{ranges.map((range, index) => <fieldset key={index} disabled={result.state === "loading"}>
       <legend>{t("periodCurve.period", { n: index + 1 })}</legend>
@@ -65,5 +66,5 @@ function PeriodEvidence({ ownerUid, discipline }: { ownerUid: string; discipline
       <TrainingPeriodZonesPanel response={result.response} ownerUid={ownerUid} />
       {discipline === "run" && <RunEffortStageManagementPanel ownerUid={ownerUid} appliedResponse={result.response} />}
     </>}
-  </details>;
+  </Container>;
 }

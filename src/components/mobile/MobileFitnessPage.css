@@ -1,7 +1,5 @@
 .mobile-fitness-toolbar { display: flex; align-items: center; gap: var(--space-1); min-width: 0; border-bottom: 1px solid var(--line-soft); background: var(--bg-1); }
 .mobile-fitness-toolbar__sports { position: relative; flex: 1; min-width: 0; }
-.mobile-fitness-toolbar__sports > [role="group"] { overflow-x: auto; scrollbar-width: thin; }
-.mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.75rem; white-space: nowrap; }
 .mobile-fitness-mode-toggle { flex: 0 0 auto; min-width: 3.75rem; min-height: 44px; margin-inline-end: var(--space-4); padding: var(--space-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--bg-2); color: var(--ink-2); font-size: var(--fs-xs); font-weight: 700; cursor: pointer; }
 .mobile-fitness-mode-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .mobile-fitness-status { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-width: 0; }
@@ -11,14 +9,8 @@
 .mobile-fitness-deferred-decision { margin: 0 var(--space-4) var(--space-3); color: var(--ink-3); font-size: var(--fs-xs); }
 .mobile-fitness-page--embedded .mobile-fitness-daily-details details { margin-top: var(--space-2) !important; }
 .mobile-fitness-page--embedded .mobile-fitness-daily-details summary { padding: var(--space-2) var(--space-3) !important; }
-.mobile-fitness-page--embedded .mobile-fitness-daily-details summary .ds-text { color: var(--ink-2) !important; font-size: var(--fs-xs); font-weight: 500; }
-
-/* Native title and bottom bar already frame this page. Keep the chart in the first viewport. */
-.mobile-fitness-page--embedded .mobile-fitness-toolbar__sports > [role="group"] { gap: var(--space-1); padding-block: var(--space-2) !important; }
-.mobile-fitness-page--embedded .mobile-fitness-toolbar__sports > [role="group"] > button { min-height: 44px; padding-block: var(--space-1); }
 .mobile-fitness-page--embedded .mobile-fitness-pmc .pmc-history__chart-head { gap: var(--space-1); padding-bottom: var(--space-1); }
 .mobile-fitness-page--embedded .mobile-fitness-pmc .pmc-history__ranges { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
-.mobile-fitness-page--embedded .mobile-fitness-pmc .pmc-history__ranges .ds-btn { flex: 1 0 2.75rem; }
 
 .mobile-fitness-performance__ftp { display: flex; align-items: baseline; gap: var(--space-2); margin-top: var(--space-1); }
 .mobile-fitness-performance__profile { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: var(--space-1) var(--space-3); margin-top: var(--space-1); }
@@ -30,49 +22,13 @@
 
 @media (max-width: 24rem) {
   .mobile-fitness-performance__metric { padding: var(--space-2); }
-  .mobile-fitness-performance__metric-value .ds-text--unit { font-size: var(--fs-xs); }
 }
 
 @media (max-width: 36rem) {
-  .mobile-fitness-toolbar__sports > [role="group"] { padding-inline: 0 !important; }
-  .mobile-fitness-toolbar__sports > [role="group"] > button { min-width: 3.25rem; font-size: var(--fs-base) !important; }
-  .mobile-fitness-toolbar__sports > [role="group"] > button[aria-pressed="false"] { color: var(--ink-2) !important; }
   .mobile-fitness-mode-toggle { font-size: var(--fs-base); }
-  .mobile-fitness-pmc .ds-chart__header {
-    align-items: center;
-    flex-wrap: nowrap;
-    gap: var(--space-2);
-  }
-
-  .mobile-fitness-pmc .ds-chart__heading {
-    flex: 1;
-  }
-
-  .mobile-fitness-pmc .ds-chart__title {
-    font-size: var(--fs-md);
-  }
-
-  .mobile-fitness-pmc .ds-chart__actions {
-    flex: none;
-  }
 
   .mobile-fitness-pmc .pmc-history__source {
     white-space: nowrap;
-  }
-
-  /* 보조 설명과 반복 차트명은 읽기 순서를 유지하면서 화면 공간만 줄인다. */
-  .mobile-fitness-pmc .ds-chart__description,
-  .mobile-fitness-pmc .pmc-history__chart-heading {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .mobile-fitness-pmc .pmc-history .ds-chart__plot {
-    margin-top: var(--space-2);
   }
 
   .mobile-fitness-pmc .pmc-history__chart { height: 12rem; }
@@ -84,31 +40,55 @@
 /* At compact app widths the sport tabs retain their labels rather than clipping. */
 .mobile-fitness-page--embedded .mobile-fitness-toolbar { flex-wrap: wrap; }
 .mobile-fitness-page--embedded .mobile-fitness-toolbar__sports { flex-basis: 100%; overflow-x: auto; }
-.mobile-fitness-page--embedded .mobile-fitness-toolbar__sports > [role="group"] > button { flex-shrink: 0; white-space: nowrap; }
 .mobile-fitness-page--embedded .mobile-fitness-mode-toggle { margin-inline-start: auto; }
-
-.mobile-fitness-page--embedded .mobile-fitness-toolbar__sports button[aria-pressed="true"] {
-  color: var(--accent) !important;
-  border-color: var(--accent) !important;
-  background: color-mix(in oklch, var(--accent) 12%, var(--bg-1)) !important;
-}
-
-.mobile-fitness-page--embedded { --fs-xs: var(--fs-md); --fs-sm: var(--fs-md); --fs-base: var(--fs-md); }
 .mobile-fitness-page--embedded .mobile-fitness-section { margin-inline: 0 !important; border: 1px solid var(--line-soft); border-radius: var(--r-lg); padding: var(--space-4) !important; }
 .mobile-fitness-page--embedded section { border-radius: var(--r-lg); }
 .mobile-fitness-page--embedded .mobile-fitness-toolbar { padding: var(--space-2); border: 1px solid var(--line-soft); border-radius: var(--r-lg); }
-.mobile-fitness-page--embedded .mobile-fitness-toolbar__sports button { border-radius: var(--r-md); }
 .mobile-fitness-provenance { margin-block: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-lg); background: var(--bg-1); overflow: hidden; }
 .mobile-fitness-provenance > summary { padding: var(--space-4); color: var(--ink-2); font-size: var(--fs-md); font-weight: 600; cursor: pointer; }
 .mobile-fitness-page--embedded .mobile-fitness-performance { border: 1px solid var(--line-soft) !important; padding: var(--space-4) !important; }
-.mobile-fitness-page--embedded .mobile-fitness-performance > .ds-btn {
-  min-height: var(--space-8);
-  padding: var(--space-3) var(--space-4);
-  font-size: var(--fs-md);
-}
 .mobile-fitness-provenance > summary { min-height: var(--space-8); box-sizing: border-box; }
 
-.mobile-fitness-toolbar__sports > [role="tablist"] { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; }
-.mobile-fitness-toolbar__sports > [role="tablist"] > button { min-width: 0; flex-direction: column; text-align: center; padding: var(--space-2) var(--space-1) !important; }
-.mobile-fitness-pmc .ds-chart__header { flex-wrap: wrap; }
-.mobile-fitness-pmc .ds-chart__actions { max-width: 100%; }
+.mobile-fitness-page__title {
+  margin: 0;
+  padding: var(--space-4) var(--space-4) var(--space-2);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--ink-0);
+}
+.mobile-fitness-current-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+.mobile-fitness-integrated-current { margin-bottom: var(--space-3); }
+
+.mobile-fitness-page .condition-ftp-section { margin-inline: var(--space-3); }
+.mobile-fitness-page .condition-ftp-section .mobile-fitness-performance { padding-inline: 0; border: 0; background: transparent; }
+
+.mobile-fitness-riding-metrics__title { padding: 0 var(--space-4); margin-bottom: var(--space-4); }
+
+.mobile-fitness-load-section { margin-block: var(--space-5); padding-block: var(--space-4); border-top: 1px solid var(--line-soft); }
+.mobile-fitness-load-section > h2 { padding-inline: var(--space-4); margin-bottom: var(--space-4); }
+.mobile-fitness-page > .condition-section-nav { margin-inline: var(--space-4); }
+
+.mobile-fitness-page .fitness-coach--story { padding-inline: var(--space-4); }
+.mobile-fitness-page .fitness-coach--story .mobile-fitness-section { margin-inline: calc(-1 * var(--space-4)) !important; }
+.mobile-fitness-load-section { margin-top: var(--space-8); padding-top: var(--space-6); }
+.mobile-fitness-load-section > h2,
+.mobile-fitness-riding-metrics__title { font-size: var(--fs-2xl); line-height: var(--lh-tight); }
+.mobile-fitness-page .condition-method-section { margin-inline: var(--space-4); }
+
+/* 서로 다른 기간의 커브·비교 도구·분포가 하나의 카드처럼 붙지 않게 한다. */
+.mobile-fitness-riding-metrics > .bike-power-curve-evidence,
+.mobile-fitness-riding-metrics > [data-testid="K5-5-1"],
+.mobile-fitness-riding-metrics > .fitness-zone-evidence { margin-block: var(--space-4); }
+
+.mobile-weekly-load { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.mobile-weekly-load > li { display: grid; gap: var(--space-1); min-width: 0; text-align: center; overflow-wrap: anywhere; }
+.mobile-weekly-load__plot { display: flex; align-items: flex-end; height: calc(var(--space-7) * 2); }
+.mobile-weekly-load__bar { width: 100%; border-radius: var(--r-xs); }
+.mobile-weekly-load__notes { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
+.mobile-weekly-load__notes > p { margin: 0; }

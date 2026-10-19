@@ -24,6 +24,7 @@ const contracts = [
   'scripts/quality-alert-count.test.mjs',
   'scripts/check-canonical-contract.mjs',
   'scripts/test-script-forwarding.test.mjs',
+  'scripts/merge-check-policy.test.mjs',
 ];
 
 function runGate({ feature = false, fail = '' } = {}) {

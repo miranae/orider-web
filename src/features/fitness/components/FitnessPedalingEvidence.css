@@ -1,0 +1,6 @@
+.fitness-pedaling { display: grid; gap: var(--space-3); min-width: 0; }
+.fitness-pedaling__chooser { display: grid; gap: var(--space-2); min-width: 0; }
+.fitness-pedaling__metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); margin: 0; }
+@media (max-width: 36rem) { .fitness-pedaling__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.fitness-pedaling__detail { margin: var(--space-2) 0 0; overflow-wrap: anywhere; }

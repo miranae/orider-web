@@ -1,4 +1,5 @@
 import "./DisciplineTabs.css";
+import { ToggleControls, ToggleButton } from "../../theme/components";
 import { useMemo, useRef, type KeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -85,17 +86,16 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
   };
 
   return (
-    <div
+    <ToggleControls variant="axis"
       role="tablist"
       aria-label={t("discipline.selectAria")}
-      className="discipline-tabs flex items-center gap-1"
-      style={{ background: "var(--bg-2)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}
+      className="discipline-tabs"
     >
       {tabs.map(({ key, label, icon, color }, idx) => {
         const disabled = disabledKeys.includes(key);
         const isActive = !disabled && active === key;
         return (
-          <button
+          <ToggleButton selected={isActive}
             key={key}
             ref={(el) => {
               tabRefs.current[idx] = el;
@@ -110,14 +110,6 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
             title={disabled ? t("discipline.comingSoon") : undefined}
             aria-selected={isActive}
             tabIndex={isActive ? 0 : -1}
-            style={{
-              display: "flex", alignItems: "center", gap: 'var(--space-1)',
-              padding: "4px 10px", borderRadius: "var(--r-sm)", border: "none", cursor: disabled ? "not-allowed" : "pointer",
-              opacity: disabled ? 0.45 : 1,
-              fontSize: "var(--fs-xs)", fontWeight: isActive ? 600 : 400,
-              background: isActive ? "var(--bg-3)" : "transparent",
-              color: disabled ? "var(--ink-3)" : "var(--ink-1)",
-            }}
           >
             <span aria-hidden="true" style={{ display: "inline-flex", color }}>{icon}</span>
             <span data-discipline-label>
@@ -127,9 +119,9 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
                 {disabled && <><span data-discipline-full>{t("discipline.comingSoon")}</span><span data-discipline-compact>{t("discipline.compact.soon")}</span></>}
               </span>
             </span>
-          </button>
+          </ToggleButton>
         );
       })}
-    </div>
+    </ToggleControls>
   );
 }

@@ -5,7 +5,7 @@ import { PowerEffortPreferencePanel } from "./PowerEffortPreferencePanel";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PowerCurvePeriod, PowerCurvePeriodsResponse, PeriodPowerPoint, WeightNormalizedPowerPoint } from "@shared/types/power-curve-periods";
-import { Button, ChartFrame, DropdownSelect, Stat, Text } from "../../../theme";
+import { Button, ToggleControls, ToggleButton, ChartFrame, DropdownSelect, Stat, Text } from "../../../theme";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { useAuth } from "../../../contexts/AuthContext";
 import { usePowerCurvePeriods, type PowerCurvePeriodsSelection } from "../../../hooks/usePowerCurvePeriods";
@@ -92,15 +92,18 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
     if (periods.some(period => !period || period.fromInclusive >= period.toExclusive)) { setInvalid(true); setSelection(null); return; }
     setInvalid(false); setSelection(current => ({ request: { unit: "W", periods: periods as PowerCurvePeriod[], ...(unit === "W/kg" ? { includeWeightNormalized: true } : {}) }, requestId: (current?.requestId ?? 0) + 1 }));
   };
-  return <section className="fitness-analysis-controls space-y-4" aria-label={t("periodCurve.title")}>
+  return <section className="fitness-analysis-controls period-curve-tool space-y-4" aria-label={t("periodCurve.title")}>
     {!embedded && <Text as="h3" variant="title">{t("periodCurve.title")}</Text>}
     <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.timezone")}</Text>
-    <label className="period-curve-unit space-y-2 block" htmlFor={`${id}-unit`}><Text as="span" variant="bodyMedium">{t("periodCurve.unit")}</Text><DropdownSelect id={`${id}-unit`} label={t("periodCurve.unit")} value={String(unit)} onChange={next => { setUnit(next === "W/kg" ? "W/kg" : "W"); setSelection(null); setInvalid(false); }} options={[{ value: String("W"), label: "W" }, { value: String("W/kg"), label: "W/kg" }]} /></label>
+
     {unit === "W/kg" && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
-    <div className="flex flex-wrap gap-3"><Button variant={!skillsMode ? "primary" : "ghost"} size="lg" aria-pressed={!skillsMode} onClick={() => { setSkillsMode(false); setSelection(null); setInvalid(false); }}>{t("powerSkills.freePeriods")}</Button><Button variant={skillsMode ? "primary" : "ghost"} size="lg" aria-pressed={skillsMode} onClick={() => { setSkillsMode(true); setSelection(null); setInvalid(false); }}>{t("powerSkills.preset")}</Button></div>
+    <ToggleControls variant="axis" aria-label={t("periodCurve.title")}><ToggleButton selected={!skillsMode} onClick={() => { setSkillsMode(false); setSelection(null); setInvalid(false); }}>{t("powerSkills.freePeriods")}</ToggleButton><ToggleButton selected={skillsMode} onClick={() => { setSkillsMode(true); setSelection(null); setInvalid(false); }}>{t("powerSkills.preset")}</ToggleButton></ToggleControls>
     {skillsMode && <Text as="p" variant="bodyMedium" tone="secondary">{t("powerSkills.requestNote")}</Text>}
+    <div className="period-curve-controls">
+    <label className="period-curve-unit space-y-2 block" htmlFor={`${id}-unit`}><Text as="span" variant="bodyMedium">{t("periodCurve.unit")}</Text><DropdownSelect id={`${id}-unit`} label={t("periodCurve.unit")} value={String(unit)} onChange={next => { setUnit(next === "W/kg" ? "W/kg" : "W"); setSelection(null); setInvalid(false); }} options={[{ value: String("W"), label: "W" }, { value: String("W/kg"), label: "W/kg" }]} /></label>
     {!skillsMode && <div className="period-curve-form">{drafts.map((draft, index) => <div key={index} className="space-y-3"><label className="space-y-2 block" htmlFor={`${id}-${index}`}><Text as="span" variant="bodyMedium">{t("periodCurve.period", { n: index + 1 })}</Text><DropdownSelect id={`${id}-${index}`} label={t("periodCurve.period", { n: index + 1 })} value={String(draft.preset)} onChange={next => update(index, { preset: next as Draft["preset"] })} options={[{ value: String("year"), label: t("periodCurve.year") }, { value: String("all"), label: t("periodCurve.all") }, { value: String("custom"), label: t("periodCurve.custom") }]} /></label>{draft.preset === "custom" && <div className="period-curve-dates">{(["from", "through"] as const).map(field => <div key={field} className="fitness-date-control"><label htmlFor={`${id}-${index}-${field}`}><Text as="span" variant="bodyMedium">{t(`periodCurve.${field}`)}</Text></label><DateField id={`${id}-${index}-${field}`} portal icon={<CalendarDays size={16} aria-hidden="true" />} max={today} value={draft[field]} onChange={next => update(index, { [field]: next })} /></div>)}</div>}</div>)}</div>}
-    <div className="flex flex-wrap gap-3">{!skillsMode && <Button variant="ghost" size="sm" onClick={() => { setDrafts(values => values.length === 1 ? [...values, makeDraft()] : values.slice(0, 1)); setSelection(null); }}>{t(drafts.length === 1 ? "periodCurve.add" : "periodCurve.remove")}</Button>}<Button size="lg" disabled={!callableEnabled || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button></div>
+    <div className="period-curve-actions">{!skillsMode && <Button variant="ghost" size="sm" onClick={() => { setDrafts(values => values.length === 1 ? [...values, makeDraft()] : values.slice(0, 1)); setSelection(null); }}>{t(drafts.length === 1 ? "periodCurve.add" : "periodCurve.remove")}</Button>}<Button size="lg" loading={result.state === "loading"} disabled={!callableEnabled || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button></div>
+    </div>
     {!callableEnabled && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.preparing")}</Text>}
     {invalid && <Text as="p" variant="bodyMedium" role="alert">{t("periodCurve.invalid")}</Text>}
     {result.state === "loading" && <Text as="p" variant="bodyMedium">{t("periodCurve.loading")}</Text>}

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Text } from "../../theme/components";
+import { ReferenceGauge, Text } from "../../theme/components";
 
 type AbilityScoreScaleProps = {
   score: number;
@@ -34,28 +34,7 @@ export default function AbilityScoreScale({ score, ariaLabel, accentColor = "var
         <Text as="span" variant="label">{t("mobileFitness.abilityScore.raw", { score: normalized })}</Text>
         <Text as="span" variant="caption" style={{ color: accentColor, fontWeight: 600 }}>{stageLabel}</Text>
       </div>
-      <div aria-hidden style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: "var(--space-1)", marginTop: "var(--space-2)" }}>
-        {STAGES.map((stage, index) => (
-          <span
-            key={stage}
-            data-ability-stage={stage}
-            data-active={index === activeStage || undefined}
-            style={{
-              minWidth: 0,
-              height: "var(--space-2)",
-              borderRadius: "var(--r-pill)",
-              background: index === activeStage ? accentColor : "var(--bg-3)",
-            }}
-          />
-        ))}
-      </div>
-      <div aria-hidden style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: "var(--space-1)", marginTop: "var(--space-1)" }}>
-        {STAGES.map((stage) => (
-          <Text key={stage} as="span" variant="caption" tone="tertiary" style={{ minWidth: 0, textAlign: "center", overflowWrap: "anywhere" }}>
-            {t(`mobileFitness.abilityScore.stage.${stage}`)}
-          </Text>
-        ))}
-      </div>
+      <ReferenceGauge value={normalized} domain={[0,100]} bands={STAGES.map((_, index) => ({ from: index * 20, to: (index + 1) * 20, active: index === activeStage, color: accentColor }))} ticks={STAGES.map((stage,index) => ({ value: index * 20 + 10, label: t(`mobileFitness.abilityScore.stage.${stage}`), compact: index === 0 || index === 2 || index === 4 }))} aria-label={ariaLabel} />
       <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>
         {t("mobileFitness.abilityScore.guide")}
       </Text>

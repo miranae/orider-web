@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import TriFitnessView from "./TriFitnessView";
@@ -52,6 +52,59 @@ describe("TriFitnessView parity", () => {
     vi.useRealTimers();
   });
 
+  it("shows current integrated interpretation before history while retaining both", () => {
+    renderWithProviders(
+      <TriFitnessView
+        range={90}
+        onRangeChange={vi.fn()}
+        {...triProps({ bike: 35.2 })}
+        combinedLoad={{ ctl: 35.2, atl: 30, tsb: 5.2, contributions: [] }}
+        loadFocus={emptyLoadFocus}
+        historySlot={<section data-testid="pmc-history-chart">PMC history chart</section>}
+      />,
+      { authenticated: true, route: "/fitness?sport=tri" },
+    );
+
+    const chart = screen.getByTestId("pmc-history-chart");
+    const summary = screen.getByTestId("desktop-integrated-detail");
+    expect(summary.compareDocumentPosition(chart) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("tri-legacy-range-note")).toHaveTextContent("최근 90일");
+    expect(screen.queryByRole("button", { name: "3개월" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /사이클링/ })).toBeInTheDocument();
+  });
+
+  it("exposes the same sport evidence on mobile without duplicating current status or headings", () => {
+    renderWithProviders(<TriFitnessView evidenceOnly condition range={90} onRangeChange={vi.fn()}
+      {...triProps({ bike: 30, run: 10 })}
+      combinedLoad={{ ctl: 40, atl: 35, tsb: 5, contributions: [] }} loadFocus={emptyLoadFocus}
+      historySlot={<section data-testid="already-present-history" />}
+      thresholdsSlot={<section data-testid="already-present-thresholds" />} />);
+    const evidence = screen.getByTestId("condition-tri-mobile-evidence");
+    expect(within(evidence).getByRole("link", { name: /사이클링/ })).toBeVisible();
+    expect(within(evidence).getByRole("link", { name: /러닝/ })).toBeVisible();
+    expect(within(evidence).getAllByText(/최근 7일/).length).toBeGreaterThan(0);
+    expect(screen.queryByTestId("desktop-integrated-detail")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("already-present-history")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("already-present-thresholds")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+  });
+
+  it("keeps training thresholds after integrated evidence", () => {
+    renderWithProviders(<TriFitnessView range={90} onRangeChange={vi.fn()} {...triProps({ bike: 30 })} combinedLoad={null} loadFocus={emptyLoadFocus} thresholdsSlot={<section data-testid="thresholds">훈련 기준값</section>} />);
+    const thresholds = screen.getByTestId("thresholds");
+    expect(screen.getByRole("link", { name: /사이클링/ }).compareDocumentPosition(thresholds) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("states that the secondary stack stays on the numeric activity window for long history selections", () => {
+    renderWithProviders(
+      <TriFitnessView range={90} selectedHistoryRange="3y" onRangeChange={vi.fn()} {...triProps({ bike: 35.2 })} combinedLoad={null} loadFocus={emptyLoadFocus} historySlot={<div>main history</div>} />,
+      { authenticated: true, route: "/fitness?sport=tri" },
+    );
+
+    expect(screen.getByTestId("tri-legacy-range-note")).toHaveTextContent("상단 기간 선택은 3년");
+    expect(screen.getByTestId("tri-legacy-range-note")).toHaveTextContent("최근 90일 데이터로 고정");
+  });
+
   it("filters sparse PMC by latest-record cutoff and daily load by the current 42-day window", () => {
     const value: TriFitnessBreakdown = {
       bike: {
@@ -102,8 +155,7 @@ describe("TriFitnessView parity", () => {
     );
 
     expect(screen.getAllByTestId("desktop-integrated-detail")).toHaveLength(1);
-    expect(screen.getByTestId("tri-contribution-empty")).toHaveTextContent("일별 부하 데이터가 없어요");
-    expect(screen.getByTestId("tri-legacy-range-note")).toHaveTextContent(/3년.*90일/);
+    expect(screen.queryByTestId("tri-contribution-empty")).not.toBeInTheDocument();
     expect(screen.queryByText("487")).not.toBeInTheDocument();
   });
 
@@ -237,4 +289,39 @@ describe("TriFitnessView parity", () => {
     expect(screen.getByRole("link", { name: /러닝/ })).toHaveTextContent("7.3");
     expect(screen.getByRole("group", { name: "수영 · 준비 중" })).toHaveTextContent("3.9");
   });
+
+  it("opens condition evidence and supports keyboard daily load with unknown distinct from zero", () => {
+    const value = breakdown({ bike: 20 });
+    value.run.fitness = [];
+    value.swim.fitness = [];
+    renderWithProviders(<TriFitnessView condition range={90} onRangeChange={vi.fn()} breakdown={value} timeline={buildTriFitnessTimeline(value)} combinedLoad={null} loadFocus={null} historySlot={<div>history</div>} />);
+    expect(screen.getByRole("region", { name: "종목별 체력 추이" }).closest("details")).toBeNull();
+    const chart = screen.getByRole("group", { name: "일별 운동 부하" });
+    fireEvent.focus(chart);
+    expect(within(chart).getByRole("status")).toHaveTextContent("2026-09-02");
+    expect(within(chart).getByRole("status")).toHaveTextContent("bTSS");
+    expect(within(chart).getByRole("status")).toHaveTextContent("미관측");
+    fireEvent.keyDown(chart, { key: "Escape" });
+    expect(within(chart).getByRole("status")).toBeVisible();
+  });
+
+  it("supports keyboard PMC selection and does not turn absent sport CTL into zero", () => {
+    const value = breakdown({ bike: 20 });
+    value.run.fitness = [];
+    value.swim.fitness = [];
+    renderWithProviders(<TriFitnessView condition range={90} onRangeChange={vi.fn()} breakdown={value} timeline={buildTriFitnessTimeline(value)} combinedLoad={null} loadFocus={null} />);
+    const chart = screen.getByRole("group", { name: "퍼포먼스 관리 차트 · 3종목 스택" });
+    expect(chart.querySelector("svg text")).toBeNull();
+    expect(chart.querySelector(".tri-fitness__date-axis")).toHaveTextContent("9");
+    fireEvent.keyDown(chart, { key: "Home" });
+    expect(within(chart).getByRole("status")).toHaveTextContent("2026-09-02");
+    expect(within(chart).getByRole("status")).toHaveTextContent("20.0");
+    fireEvent.pointerLeave(chart, { pointerType: "mouse" });
+    fireEvent.blur(chart);
+    expect(within(chart).getByRole("status")).toHaveTextContent("20.0");
+    expect(within(chart).getByRole("status")).toHaveTextContent("미관측");
+    fireEvent.keyDown(chart, { key: "Escape" });
+    expect(within(chart).getByRole("status")).toBeVisible();
+  });
+
 });

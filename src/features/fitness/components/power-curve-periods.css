@@ -18,3 +18,13 @@
 
 .period-curve-analysis select, .period-curve-unit select, .period-curve-form select, .period-curve-form input { min-height: calc(var(--dim-button-height) + var(--space-1)); font-size: var(--fs-md); }
 @container (min-width: 24rem) { .period-curve-chart { font-size: var(--fs-xs); } }
+
+/* A period request is a full-width tool, separate from the rolling curve. */
+.period-curve-controls { display: grid; grid-template-columns: minmax(6rem, 0.5fr) minmax(0, 2fr) auto; gap: var(--space-4); align-items: end; }
+.period-curve-unit { margin: 0; }
+.period-curve-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.period-curve-tool > p { max-width: 64rem; }
+@media (max-width: 48rem) {
+  .period-curve-controls { grid-template-columns: minmax(0, 1fr); }
+  .period-curve-actions { justify-content: flex-start; }
+}
