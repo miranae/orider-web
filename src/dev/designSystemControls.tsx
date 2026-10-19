@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus, RotateCcw, SquareDashedMousePointer } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus } from 'lucide-react';
 import {
   Button, IconButton, Checkbox, Card, Section, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
-  Chip, ControlToolbar, ToolbarButton, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
+  Chip, ChartRangeControls, type ChartRangeMode, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
   type DataTableColumn,
   MapResizeControls, MapNavigation, MapControlButton, ChartLegend, ChartValue,
   ComparisonChart, CHART_PRESENTATION, DEFAULT_THEME,
 } from '../theme';
+import { panChartRange } from '../theme/charts/chartViewport';
 import InfoTip from '../components/InfoTip';
 import { COLOR_CSS_VARIABLES, CHART_CSS_VARIABLES, DIMENSION_CSS_VARIABLES } from '../theme/generated';
 import { getComparisonSeriesColors } from '../theme/charts/comparisonSeriesColors';
@@ -69,15 +70,17 @@ const clockExact = (minutes: number) => {
   return `${String(9 + Math.floor(seconds / 3600)).padStart(2, '0')}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 };
 const chartLabels = {
-  controls: '예시 차트 조작', zoomIn: '차트 확대', zoomOut: '차트 축소',
-  selectRange: '드래그로 구간 확대', selectRangeShort: '구간 선택', reset: '전체 구간',
+  controls: '예시 차트 조작', panRange: '구간 이동', panHint: '확대한 구간을 좌우로 드래그하거나 이동 버튼에서 방향키를 누르세요.', panUnavailable: '구간을 선택하면 이동할 수 있어요.',
+  selectRange: '구간 선택', selectRangeShort: '구간 선택', reset: '초기화',
   rangeHint: '차트를 좌우로 드래그해 확대할 구간을 선택하세요.', empty: '표시할 지표가 없습니다. 위에서 지표를 선택하세요.',
 };
 
 function ControlsCatalog() {
   const [analysisAxis, setAnalysisAxis] = useState<'distance' | 'time'>('time');
   const [analysisMetrics, setAnalysisMetrics] = useState<FixtureMetric[]>(['hr', 'power', 'speed']);
-  const [analysisRangeSelected, setAnalysisRangeSelected] = useState(false);
+  const [analysisRange, setAnalysisRange] = useState<[number, number] | null>(null);
+  const [analysisRangeMode, setAnalysisRangeMode] = useState<ChartRangeMode>('inspect');
+  const analysisRangeSelected = analysisRange !== null;
   const [analysisState, setAnalysisState] = useState<'ready' | 'pending' | 'stale' | 'outside'>('ready');
   const [mode, setMode] = useState<'light' | 'dark'>('light');
   const [sectionRecord, setSectionRecord] = useState(0);
@@ -139,17 +142,21 @@ function ControlsCatalog() {
   const analysisZoneColors = [theme.colors.zone1, theme.colors.zone2, theme.colors.zone3, theme.colors.zone4, theme.colors.zone5, theme.colors.zone6];
   const analysisIf = analysisState === 'pending' ? null : analysisState === 'outside' ? 1.44 : .78;
   const analysisBandBoundaries = [.4, .55, .75, .9, 1.05, 1.2, 1.3];
+  const analysisMinutes = analysisRange ?? [0, 90];
+  const analysisDisplayRange: [number, number] = analysisAxis === 'time' ? [analysisMinutes[0], analysisMinutes[1]] : [analysisMinutes[0] * .36, analysisMinutes[1] * .36];
   const analysisTimelineRows = [{ id: 'power', label: '파워 존', zones: [0, 1, 2, 3, 1, 0] }, { id: 'hr', label: '심박 존', zones: [0, 1, 1, 2, 2, 1] }].map(row => ({
     id: row.id, label: row.label, surface: row.id === 'power' ? 'sheen' as const : 'plain' as const,
-    buckets: row.zones.map((zone, index) => {
-      const start = analysisAxis === 'time' ? index * 15 : index * 5.4;
-      const end = analysisAxis === 'time' ? (index + 1) * 15 : (index + 1) * 5.4;
-      return { id: `${row.id}-${index}`, label: `${start.toFixed(analysisAxis === 'time' ? 0 : 1)}–${end.toFixed(analysisAxis === 'time' ? 0 : 1)} ${analysisAxis === 'time' ? '분' : 'km'} · Z${zone + 1} 12분 · Z${Math.min(5, zone + 1) + 1} 3분`, weight: 15,
-        segments: [{ weight: 12, color: analysisZoneColors[zone] }, { weight: 3, color: analysisZoneColors[Math.min(5, zone + 1)] }] };
-    }).filter((_, index) => !analysisRangeSelected || index === 2 || index === 3),
+    buckets: row.zones.flatMap((zone, index) => {
+      const from = Math.max(index * 15, analysisMinutes[0]), to = Math.min((index + 1) * 15, analysisMinutes[1]);
+      if (to <= from) return [];
+      const first = Math.max(0, Math.min(to, index * 15 + 12) - from), second = to - from - first;
+      const convert = (value: number) => (analysisAxis === 'time' ? value : value * .36).toFixed(1);
+      return [{ id: `${row.id}-${index}`, label: `${convert(from)}–${convert(to)} ${analysisAxis === 'time' ? '분' : 'km'} · Z${zone + 1} ${first.toFixed(1)}분 · Z${Math.min(5, zone + 1) + 1} ${second.toFixed(1)}분`, weight: to - from,
+        segments: [{ weight: first, color: analysisZoneColors[zone] }, { weight: second, color: analysisZoneColors[Math.min(5, zone + 1)] }] }];
+    }),
   }));
-  const analysisRangeCaption = analysisRangeSelected ? analysisAxis === 'time' ? '30–60분' : '10.8–21.6 km' : analysisAxis === 'time' ? '0–90분' : '0.0–32.4 km';
-  const analysisSample = FIXTURE_RECORDS[0]!.samples[analysisRangeSelected ? 90 : 120]!;
+  const analysisRangeCaption = `${analysisDisplayRange[0].toFixed(1)}–${analysisDisplayRange[1].toFixed(1)} ${analysisAxis === 'time' ? '분' : 'km'}`;
+  const analysisSample = fixtureNearest(FIXTURE_RECORDS[0]!, (analysisDisplayRange[0] + analysisDisplayRange[1]) / 2, analysisAxis)!;
   const analysisFitnessRows = ANALYSIS_FITNESS.map(row => ({
     ...row, ariaLabel: `${row.label} · 활동 전 ${row.from.toFixed(1)}, 활동 후 ${row.to.toFixed(1)}, 변화 ${(row.to - row.from >= 0 ? '+' : '')}${(row.to - row.from).toFixed(1)}`, shadeBelowReference: row.id === 'tsb',
     values: <ChartValue primary={`${row.from.toFixed(1)} → ${row.to.toFixed(1)}`} secondary={`변화 ${row.to - row.from >= 0 ? '+' : ''}${(row.to - row.from).toFixed(1)}`} />,
@@ -285,14 +292,22 @@ function ControlsCatalog() {
               <ToggleControls aria-label="분석 예시 표시 지표">{FIXTURE_METRICS.map(metric => <ToggleButton key={metric.id} showCheck selected={analysisMetrics.includes(metric.id)} onClick={() => setAnalysisMetrics(analysisMetrics.includes(metric.id) ? analysisMetrics.filter(value => value !== metric.id) : [...analysisMetrics, metric.id])}>{metric.label}</ToggleButton>)}</ToggleControls>
               <ChartLegend marker="dot" aria-label="분석 차트 고정 범례" items={[{ label: '고도 · 고정 범례', color: theme.chartColors.altitude }]} />
             </div>
-            <div className="catalog-analysis-controls"><ToggleControls variant="axis" aria-label="분석 예시 비교 기준"><ToggleButton selected={analysisAxis === 'distance'} onClick={() => setAnalysisAxis('distance')}>거리</ToggleButton><ToggleButton selected={analysisAxis === 'time'} onClick={() => setAnalysisAxis('time')}>경과 시간</ToggleButton></ToggleControls><ControlToolbar aria-label="분석 예시 구간 조작"><ToolbarButton aria-label="준비한 30–60분 구간 선택" aria-pressed={analysisRangeSelected} onClick={() => setAnalysisRangeSelected(!analysisRangeSelected)}><SquareDashedMousePointer aria-hidden="true" />구간 선택</ToolbarButton><ToolbarButton iconOnly aria-label="분석 예시 전체 구간" disabled={!analysisRangeSelected} onClick={() => setAnalysisRangeSelected(false)}><RotateCcw aria-hidden="true" /></ToolbarButton></ControlToolbar></div>
-            <Text as="p" variant="bodySmall" tone="tertiary" role="status">예시 표시 구간: {analysisRangeCaption}. 구간 선택은 준비한 중간 범위를 선택합니다. 실제 활동 화면에서는 차트를 드래그해 범위를 정합니다. 지표 선택은 아래 원본 값 표에 반영됩니다.</Text>
+            <div className="catalog-analysis-controls"><ToggleControls variant="axis" aria-label="분석 예시 비교 기준"><ToggleButton selected={analysisAxis === 'distance'} onClick={() => setAnalysisAxis('distance')}>거리</ToggleButton><ToggleButton selected={analysisAxis === 'time'} onClick={() => setAnalysisAxis('time')}>경과 시간</ToggleButton></ToggleControls><ChartRangeControls mode={analysisRangeMode} canPan={analysisRangeSelected} canReset={analysisRangeSelected || analysisRangeMode !== 'inspect'} labels={{ controls: '분석 예시 구간 조작', selectRange: '구간 선택', panRange: '구간 이동', reset: '초기화' }}
+              onModeChange={next => { if (next === 'select') { setAnalysisRange([30, 60]); setAnalysisRangeMode('inspect'); } else setAnalysisRangeMode(next); }} onReset={() => { setAnalysisRange(null); setAnalysisRangeMode('inspect'); }}
+              onPanKeyDown={event => {
+                if (analysisRangeMode !== 'pan' || !analysisRange || !['ArrowLeft', 'ArrowRight', 'Home', 'End', 'Escape'].includes(event.key)) return;
+                event.preventDefault(); event.stopPropagation();
+                if (event.key === 'Escape') { setAnalysisRangeMode('inspect'); return; }
+                const span = analysisRange[1] - analysisRange[0];
+                setAnalysisRange(event.key === 'Home' ? [0, span] : event.key === 'End' ? [90 - span, 90] : panChartRange(analysisRange, event.key === 'ArrowLeft' ? 25 : -25, 100, [0, 90]));
+              }} /></div>
+            <Text as="p" variant="bodySmall" tone="tertiary" role="status">예시 표시 구간: {analysisRangeCaption}. 생성 예시에서 선택은 준비한 30–60분 구간을 선택합니다. 이동을 켠 뒤 방향키·Home/End로 범위를 옮길 수 있습니다. 실제 기록 비교 차트는 포인터 드래그도 지원합니다. 아래 회색 평균은 현재 표시 범위의 예시 관측 평균입니다.</Text>
             <div className="catalog-analysis-timeline">
               <div className="catalog-table-heading"><Text as="h4" variant="bodyMedium"><InfoTip title="존 타임라인" label="존 타임라인 설명" content="준비된 파워·심박 존을 경과 시간에 비례해 표시한 생성 예시입니다. 존 계산과 기준값 판단은 페이지가 담당하고, 공통 컴포넌트는 구간의 비율과 라벨을 표시합니다.">존 타임라인</InfoTip></Text><Text variant="caption" tone="tertiary">구간 폭은 시간 비율 · 파워 존 내부만 은은한 명암</Text></div>
               <SegmentTimeline rows={analysisTimelineRows} aria-label={`생성한 파워·심박 존 타임라인 · ${analysisRangeCaption}`} accessibleHint="구간을 탭하거나 키보드로 선택하면 범위와 존 구성을 아래에서 확인할 수 있습니다. 스크린리더와 마우스 도움말도 지원합니다. 준비한 예시 값이며 실제 존 계산을 수행하지 않습니다." />
               <ChartLegend marker="dot" items={analysisZoneColors.slice(0, 5).map((color, index) => ({ label: `Z${index + 1}`, color }))} />
             </div>
-            <DataTable caption={`원본 값 · ${analysisAxis === 'time' ? `${analysisSample.time.toFixed(1)}분` : `${analysisSample.distance.toFixed(1)} km`}`} columns={[{ id: 'point', header: '선택 지점', rowHeader: true, cell: () => analysisRangeSelected ? '중간 구간' : '전체 중 지점' }, ...FIXTURE_METRICS.filter(metric => analysisMetrics.includes(metric.id)).map(metric => ({ id: metric.id, header: `${metric.label} (${metric.unit})`, align: 'end' as const, cell: () => analysisSample[metric.id] == null ? '—' : analysisSample[metric.id]!.toFixed(metric.id === 'speed' ? 1 : 0) }))]} rows={analysisMetrics.length ? [{ id: 'analysis-point' }] : []} rowKey={row => row.id} emptyLabel="위에서 표시할 지표를 선택하세요. 고도 범례는 고정입니다." />
+            <DataTable caption={`원본 값 · ${analysisAxis === 'time' ? `${analysisSample.time.toFixed(1)}분` : `${analysisSample.distance.toFixed(1)} km`}`} columns={[{ id: 'point', header: '선택 지점', rowHeader: true, cell: () => analysisRangeSelected ? '표시 구간 중앙' : '전체 중 지점' }, ...FIXTURE_METRICS.filter(metric => analysisMetrics.includes(metric.id)).map(metric => ({ id: metric.id, header: `${metric.label} (${metric.unit})`, align: 'end' as const, cell: () => <ChartValue primary={analysisSample[metric.id] == null ? '—' : analysisSample[metric.id]!.toFixed(metric.id === 'speed' ? 1 : 0)} secondary={`평균 ${fixtureObservedMean(FIXTURE_RECORDS[0]!, metric.id, analysisAxis, analysisDisplayRange)?.toFixed(1) ?? '—'}`} /> }))]} rows={analysisMetrics.length ? [{ id: 'analysis-point' }] : []} rowKey={row => row.id} emptyLabel="위에서 표시할 지표를 선택하세요. 고도 범례는 고정입니다." />
           </Section>
 
           <div className="catalog-analysis-metadata">

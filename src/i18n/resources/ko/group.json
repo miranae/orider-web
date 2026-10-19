@@ -551,7 +551,7 @@
   "ridePage.chart.zoomIn": "차트 확대",
   "ridePage.chart.zoomOut": "차트 축소",
   "ridePage.chart.zoomRange": "구간 선택",
-  "ridePage.chart.resetZoom": "전체 구간",
+  "ridePage.chart.resetZoom": "초기화",
   "ridePage.chart.rangeHint": "확대할 구간의 시작부터 끝까지 차트 위에서 끌어주세요.",
   "ridePage.chart.metricMissing": "표시할 센서 기록이 없습니다.",
   "ridePage.chart.inspectionTitle": "선택 지점 수치 비교",
@@ -584,5 +584,8 @@
   "ridePage.chart.rangeControl": "구간 선택",
   "ridePage.recordCheckbox": "{{name}} 표시",
   "ridePage.recordHidden": "숨김",
-  "ridePage.chart.additionalRecords": "+{{count}}개 선택 기록"
+  "ridePage.chart.additionalRecords": "+{{count}}개 선택 기록",
+  "ridePage.chart.panRange": "구간 이동",
+  "ridePage.chart.panHint": "드래그로 이동 · 이동 버튼에서 ←·→ · 세로축은 전체 기록 기준",
+  "ridePage.chart.panUnavailable": "구간을 선택하면 이동할 수 있어요."
 }

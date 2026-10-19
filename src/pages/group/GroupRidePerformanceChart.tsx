@@ -76,7 +76,7 @@ export default function GroupRidePerformanceChart({ data, baseLabel, baseColor, 
   return <ComparisonChart lanes={lanes} domain={[globalMin, globalMax]} minSpan={xAxis === "elapsed" ? 1 / 60 : 0.1} axisKey={xAxis}
     colors={variant.chartColors} formatTick={formatXAxisTick} rangeLabel={rangeLabel}
     selectedCoordinate={selectedCoordinate} onHoverCoordinate={onHoverCoordinate} onViewportChange={onViewportChange}
-    labels={{ controls: t("ridePage.chart.zoomControls"), zoomIn: t("ridePage.chart.zoomIn"), zoomOut: t("ridePage.chart.zoomOut"), selectRange: t("ridePage.chart.zoomRange"), selectRangeShort: t("ridePage.chart.rangeControl"), reset: t("ridePage.chart.resetZoom"), rangeHint: t("ridePage.chart.rangeHint"), empty: t("ridePage.chart.metricMissing") }}
+    labels={{ controls: t("ridePage.chart.zoomControls"), selectRange: t("ridePage.chart.zoomRange"), selectRangeShort: t("ridePage.chart.rangeControl"), panRange: t("ridePage.chart.panRange"), panHint: t("ridePage.chart.panHint"), panUnavailable: t("ridePage.chart.panUnavailable"), reset: t("ridePage.chart.resetZoom"), rangeHint: t("ridePage.chart.rangeHint"), empty: t("ridePage.chart.metricMissing") }}
     beforePlot={beforePlot}
-    description={<p className="club-ride-section-note"><InfoTip tone="accent" content={t("ridePage.chart.samplingHelp")}>{t("ridePage.chart.samplingNote")}</InfoTip></p>} />;
+    description={<p className="club-ride-section-note"><InfoTip activation="click" tone="accent" content={t("ridePage.chart.samplingHelp")}>{t("ridePage.chart.samplingNote")}</InfoTip></p>} />;
 }

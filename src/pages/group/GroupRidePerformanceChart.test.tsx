@@ -1,5 +1,5 @@
 import { act, fireEvent, screen } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import GroupRidePerformanceChart, { type GroupRideOverlay } from "./GroupRidePerformanceChart";
 const { line, draw } = vi.hoisted(() => ({ line: vi.fn(), draw: vi.fn() }));
@@ -18,7 +18,15 @@ const overlays: GroupRideOverlay[] = [
 ];
 const base = { data, elapsedAxisSec: [0, 10, 20], xAxis: "elapsed" as const, overlays, activeMetrics: metrics, selectedCoordinate: null, onHoverCoordinate: vi.fn() };
 const charts = () => line.mock.calls.slice(-4).map(call => call[0]);
-beforeEach(() => { line.mockClear(); draw.mockClear(); base.onHoverCoordinate.mockClear(); });
+beforeEach(() => { line.mockClear(); draw.mockClear(); base.onHoverCoordinate.mockClear(); vi.stubGlobal("PointerEvent", MouseEvent); });
+afterEach(() => vi.unstubAllGlobals());
+function selectRange(from = 25, to = 75) {
+  const plot = screen.getByRole("region", { name: "심박수 (bpm)" }).querySelector(".ds-chart-lane__plot")!;
+  fireEvent.click(screen.getByRole("button", { name: "구간 선택" }));
+  fireEvent.pointerDown(plot, { clientX: from, pointerId: 1 });
+  fireEvent.pointerMove(plot, { clientX: to, pointerId: 1 });
+  fireEvent.pointerUp(plot, { clientX: to, pointerId: 1 });
+}
 it("separates units into three common-axis panels and a faint elevation strip, without stacking power", () => {
   renderWithProviders(<GroupRidePerformanceChart {...base} />);
   const [hr, power, speed, elevation] = charts();
@@ -44,6 +52,7 @@ it("reports actual coordinates beyond the base through one frame-batched pointer
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { frames.push(callback); return 1; });
   try {
     renderWithProviders(<GroupRidePerformanceChart {...base} />);
+    act(() => frames.splice(0).forEach(callback => callback(0)));
     const plot = screen.getByRole("region", { name: "심박수 (bpm)" }).querySelector(".ds-chart-lane__plot")!;
     fireEvent.pointerMove(plot, { clientX: 70 });
     fireEvent.pointerMove(plot, { clientX: 75 });
@@ -69,11 +78,11 @@ it("redraws only the shared cursor without changing Line data or options on sele
 
 it("zooms all panels together, resets the range and clamps after records are hidden", () => {
   const view = renderWithProviders(<GroupRidePerformanceChart {...base} />);
-  fireEvent.click(screen.getByRole("button", { name: "차트 확대" }));
+  selectRange();
   expect(charts().map(chart => [chart.options.scales.x.min, chart.options.scales.x.max])).toEqual(Array(4).fill([0.25, 0.75]));
-  fireEvent.click(screen.getByRole("button", { name: "전체 구간" }));
+  fireEvent.click(screen.getByRole("button", { name: "초기화" }));
   expect(charts()[0].options.scales.x.max).toBe(1);
-  fireEvent.click(screen.getByRole("button", { name: "차트 확대" }));
+  selectRange();
   view.rerender(<GroupRidePerformanceChart {...base} overlays={[overlays[0]!]} />);
   const range = charts()[0].options.scales.x;
   expect(range.min).toBeLessThan(range.max);
@@ -111,6 +120,7 @@ it("selects a stationary tap without requiring pointer movement", () => {
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { frames.push(callback); return 1; });
   try {
     renderWithProviders(<GroupRidePerformanceChart {...base} />);
+    act(() => frames.splice(0).forEach(callback => callback(0)));
     const plot = screen.getByRole("region", { name: "심박수 (bpm)" }).querySelector(".ds-chart-lane__plot")!;
     fireEvent.pointerDown(plot, { clientX: 75, pointerType: "touch", pointerId: 1 });
     fireEvent.pointerUp(plot, { clientX: 75, pointerType: "touch", pointerId: 1 });
@@ -125,12 +135,12 @@ it("reports only a narrowed viewport and does not recompute the interval on poin
   const changed = vi.fn();
   const view = renderWithProviders(<GroupRidePerformanceChart {...base} onViewportChange={changed} />);
   expect(changed).toHaveBeenLastCalledWith(null, [0, 1]);
-  fireEvent.click(screen.getByRole("button", { name: "차트 확대" }));
+  selectRange();
   expect(changed).toHaveBeenLastCalledWith([0.25, 0.75], [0, 1]);
   changed.mockClear();
   view.rerender(<GroupRidePerformanceChart {...base} onViewportChange={changed} selectedCoordinate={0.5} />);
   expect(changed).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "전체 구간" }));
+  fireEvent.click(screen.getByRole("button", { name: "초기화" }));
   expect(changed).toHaveBeenLastCalledWith(null, [0, 1]);
 });
 
@@ -154,7 +164,7 @@ it("adapts power/speed point budgets to width and viewport without reprocessing 
     width = 334;
     act(() => resized());
     expect(charts()[1].data.datasets[0].data).toHaveLength(29);
-    for (let index = 0; index < 10; index++) fireEvent.click(screen.getByRole("button", { name: "차트 확대" }));
+    for (let index = 0; index < 10; index++) selectRange();
     expect(charts()[1].data.datasets[0].data.length).toBeLessThanOrEqual(40);
     expect(charts()[1].data.datasets[0].data.every((point: { y: number }) => point.y === 100)).toBe(true);
     expect(charts()[1].data.datasets[0].fill).toBe(false);
@@ -177,7 +187,7 @@ it("keeps long power and speed traces visible on mobile despite brief real gaps,
       expect(panel.data.datasets[0].spanGaps).toBe(false);
       expect(panel.data.datasets[0].pointRadius).toBe(0);
     }
-    for (let index = 0; index < 4; index++) fireEvent.click(screen.getByRole("button", { name: "차트 확대" }));
+    for (let index = 0; index < 4; index++) selectRange();
     for (const panel of charts().slice(1, 3)) {
       expect(panel.data.datasets[0].data.some((point: { y: number | null }) => point.y === 0)).toBe(true);
       expect(panel.options.scales.x.max - panel.options.scales.x.min).toBeCloseTo(314 / 16);

@@ -553,7 +553,7 @@
   "ridePage.chart.zoomIn": "Zoom in on charts",
   "ridePage.chart.zoomOut": "Zoom out on charts",
   "ridePage.chart.zoomRange": "Select range",
-  "ridePage.chart.resetZoom": "Full range",
+  "ridePage.chart.resetZoom": "Reset",
   "ridePage.chart.rangeHint": "Drag across a chart from the start to the end of the range to zoom.",
   "ridePage.chart.metricMissing": "No recorded sensor data is available.",
   "ridePage.chart.inspectionTitle": "Selected sample comparison",
@@ -586,5 +586,8 @@
   "ridePage.chart.rangeControl": "Range",
   "ridePage.recordCheckbox": "Show {{name}}",
   "ridePage.recordHidden": "Hidden",
-  "ridePage.chart.additionalRecords": "+{{count}} selected records"
+  "ridePage.chart.additionalRecords": "+{{count}} selected records",
+  "ridePage.chart.panRange": "Pan",
+  "ridePage.chart.panHint": "Drag to pan, or use arrow keys on Pan. Y axes stay fixed to all records.",
+  "ridePage.chart.panUnavailable": "Select a range to enable panning."
 }
