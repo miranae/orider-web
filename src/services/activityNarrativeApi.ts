@@ -43,10 +43,17 @@ type CompatibilityFallbackReason =
   | "rest_not_configured"
   | "rest_route_unavailable"
   | "rest_network_unreachable"
+  | "rest_network_cooldown"
   | "anonymous_peek";
 
 /** 회선 순단 복구 전 대기. 짧은 순단이면 이 사이에 회복된다. */
 const REST_NETWORK_RETRY_DELAY_MS = 400;
+// 도달 불가한 REST 호스트를 매 화면에서 두 번씩 재시도하지 않는다. 만료 후 다시 탐색한다.
+const REST_PEEK_NETWORK_COOLDOWN_MS = 60_000;
+const peekNetworkCooldowns = new Map<string, number>();
+let peekViewer: typeof auth.currentUser | undefined;
+let peekAuthSubscribed = false;
+const pendingPeeks = new Map<string, Promise<ActivityNarrativeResponse>>();
 const APP_CHECK_THROTTLE_FALLBACK_MS = 5 * 60_000;
 export const ACTIVITY_NARRATIVE_APP_CHECK_THROTTLE_RECOVERY_KEY = "activity-narrative-app-check-throttle-recovery";
 let authReadyPromise: Promise<void> | null = null;
@@ -216,7 +223,7 @@ export async function fetchActivityNarrativeRest<T extends ActivityNarrativeResp
   return response.json() as Promise<T>;
 }
 
-/** fetch 가 응답 자체를 못 받은 실패 — HTTP 상태가 없으므로 서버엔 아무 흔적도 남지 않는다. */
+/** fetch가 읽을 수 있는 HTTP 응답을 받지 못한 실패(회선·CORS 등). */
 function isRestNetworkError(error: unknown): boolean {
   return error instanceof ActivityNarrativeRestError && error.code === "rest-network";
 }
@@ -246,9 +253,7 @@ async function callActivityNarrativeCallable<T extends ActivityNarrativeResponse
   // 아예 붙이지 않아 핸들러 진입 전 플랫폼이 영문 "Unauthenticated" 로 거부한다. main.tsx 의
   // warmup 은 LCP 보호를 위해 2.5s 지연되므로, 다른 callable 호출부와 동일하게 호출 직전에
   // 준비를 await 한다. (2026-08-05 익명 peek 오류: uid=null 방문자에게서만 재현)
-  // 준비 실패해도 호출 자체는 시도한다(다음 호출에서 warmup 재시도) — 대신 원인은 삼키지 않고
-  // 표준 로거로 남긴다. callable 이 뒤이어 던지는 "Unauthenticated" 는 2차 증상일 뿐이라
-  // App Check 실패 사유(site-key 누락·token-timeout 등)가 없으면 원인 추적이 불가능하다.
+  // 준비 실패는 원인 그대로 전파하고, 토큰 없는 네트워크 요청은 보내지 않는다.
   await ensureAppCheckReady().catch((error) => {
     logClientError("activityNarrativeApi.appCheckReady", error, {
       operation: operation(request),
@@ -256,6 +261,8 @@ async function callActivityNarrativeCallable<T extends ActivityNarrativeResponse
       fallbackReason,
       signedIn: !!auth?.currentUser,
     });
+    observeTransport(request, "callable", "error", fallbackReason);
+    throw error;
   });
   const fn = httpsCallable<ActivityNarrativeRequest, T>(functions, "getActivityNarrative");
   try {
@@ -320,8 +327,8 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
   request: ActivityNarrativeRequest,
   error: unknown,
 ): Promise<T> {
-  // 서버엔 요청 흔적이 남지 않는 실패라 이 클라 로그가 유일한 추적 수단이다.
-  logClientError("activityNarrativeApi.restNetworkRecovery", error, {
+  // 생성 오류는 추적한다. 읽기 복구 성공은 transport 관측만 남기고 최종 실패는 호출부로 전파한다.
+  if (request.cacheOnly !== true) logClientError("activityNarrativeApi.restNetworkRecovery", error, {
     operation: operation(request),
     lang: request.lang,
     forceRefresh: request.cacheOnly === true ? false : !!request.forceRefresh,
@@ -349,6 +356,7 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
     throw error;
   }
 
+  const failedBase = configuredBaseUrl();
   await sleep(REST_NETWORK_RETRY_DELAY_MS);
   try {
     const retried = await fetchActivityNarrativeRest<T>(request);
@@ -364,7 +372,18 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
       return callActivityNarrativeCallable<T>(request, fallbackReason);
     }
   }
-  // REST 호스트가 계속 안 닿는다 — 호스트가 다른 callable 로 우회한다.
+  // base 별로만 격리하며 토큰·활동·사용자 식별자는 보관하거나 진단에 보내지 않는다.
+  const base = failedBase;
+  if (base) {
+    for (const [key, until] of peekNetworkCooldowns) {
+      if (until <= Date.now()) peekNetworkCooldowns.delete(key);
+    }
+    // 런타임 설정이 반복 변경되어도 메모리 사용량을 제한한다.
+    if (!peekNetworkCooldowns.has(base) && peekNetworkCooldowns.size >= 8) {
+      peekNetworkCooldowns.delete(peekNetworkCooldowns.keys().next().value!);
+    }
+    peekNetworkCooldowns.set(base, Date.now() + REST_PEEK_NETWORK_COOLDOWN_MS);
+  }
   return callActivityNarrativeCallable<T>(request, "rest_network_unreachable");
 }
 
@@ -378,6 +397,11 @@ async function requestActivityNarrative<T extends ActivityNarrativeResponse>(
   // 익명 읽기 계약만 한 릴리스 호환 callable로 유지하고, 생성 요청은 우회하지 않는다.
   if (!auth?.currentUser && request.cacheOnly === true) {
     return callActivityNarrativeCallable<T>(request, "anonymous_peek");
+  }
+
+  const base = configuredBaseUrl();
+  if (request.cacheOnly === true && base && (peekNetworkCooldowns.get(base) ?? 0) > Date.now()) {
+    return callActivityNarrativeCallable<T>(request, "rest_network_cooldown");
   }
 
   try {
@@ -404,10 +428,40 @@ export function generateActivityNarrative(
 export function peekActivityNarrative(
   request: ActivityNarrativePeekRequest,
 ): Promise<ActivityNarrativePeekResponse> {
-  return requestActivityNarrative<ActivityNarrativePeekResponse>(request);
+  return requestActivityNarrativePeek<ActivityNarrativePeekResponse>(request);
+}
+
+/** 진행 중인 읽기만 공유한다. 인증 객체가 바뀌면 이전 사용자의 요청과 즉시 분리한다. */
+async function requestActivityNarrativePeek<T extends ActivityNarrativeResponse>(request: ActivityNarrativePeekRequest): Promise<T> {
+  if (activityNarrativeApiEnabled()) await waitForNarrativeAuthReady();
+  const viewer = auth?.currentUser;
+  if (peekViewer !== viewer) {
+    peekViewer = viewer;
+    pendingPeeks.clear();
+  }
+  if (!peekAuthSubscribed) {
+    peekAuthSubscribed = true;
+    onAuthStateChanged(auth, (user) => {
+      // 요청 사이에 로그아웃 후 같은 계정으로 돌아와도 이전 세션 요청은 공유하지 않는다.
+      if (peekViewer !== user) {
+        peekViewer = user;
+        pendingPeeks.clear();
+      }
+    });
+  }
+  const key = JSON.stringify([configuredBaseUrl(), request.activityId, request.lang, !!request.socialSummaryOnly]);
+  const existing = pendingPeeks.get(key);
+  if (existing) return existing as Promise<T>;
+  const pending = requestActivityNarrative<T>(request);
+  pendingPeeks.set(key, pending);
+  try {
+    return await pending;
+  } finally {
+    if (pendingPeeks.get(key) === pending) pendingPeeks.delete(key);
+  }
 }
 
 /** AI를 재생성하지 않고 공유요약만 재조회한다. */
 export function retryActivitySocialSummary(activityId: string, lang: NarrativeLang): Promise<ActivitySocialSummaryResponse> {
-  return requestActivityNarrative<ActivitySocialSummaryResponse>({ activityId, lang, cacheOnly: true, socialSummaryOnly: true });
+  return requestActivityNarrativePeek<ActivitySocialSummaryResponse>({ activityId, lang, cacheOnly: true, socialSummaryOnly: true });
 }
