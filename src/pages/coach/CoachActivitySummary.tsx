@@ -1,3 +1,5 @@
+import { useLocale } from "../../contexts/LocaleContext";
+import { formatDistance } from "../../utils/units";
 import { useTranslation } from "react-i18next";
 import { useWeeklyStats } from "../../hooks/useActivities";
 import { useRunHistory } from "../../hooks/useRunHistory";
@@ -9,6 +11,7 @@ import { Card, Stack, Text } from "../../theme/components";
 /** 홈에서 옮겨 온 월간 흐름. 코치의 선택 기간과 별개인 달력 월 집계다. */
 export default function CoachActivitySummary({ discipline }: { discipline: "bike" | "run" | "swim" }) {
   const { t } = useTranslation("fitness");
+  const { units } = useLocale();
   const running = discipline === "run";
   const stats = useWeeklyStats({ includeMonthlyDistance: true, discipline: running ? "run" : undefined });
   const history = useRunHistory(8, running);
@@ -20,7 +23,7 @@ export default function CoachActivitySummary({ discipline }: { discipline: "bike
     <Card>
       <Text as="h2" variant="subtitle">{t(running ? "activitySummary.monthRun" : "activitySummary.monthAll")}</Text>
       {ready ? <>
-        <Text as="p" variant="dataMedium" mono>{(stats.monthlyActivityDistance / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} <Text as="span" variant="unit">km</Text></Text>
+        <Text as="p" variant="dataMedium" mono>{formatDistance(stats.monthlyActivityDistance, units)}</Text>
         {stats.monthlyFlowPercent != null && <Text as="p" variant="bodySmall" tone="secondary">{t("activitySummary.monthComparison", { percent: stats.monthlyFlowPercent })}</Text>}
         <Text as="p" variant="caption" tone="secondary">{t(running ? "activitySummary.runBasis" : "activitySummary.allBasis")}</Text>
       </> : <Text as="p" variant="bodySmall" tone="secondary" role={stats.coverage === "loading" ? "status" : undefined}>{t(stats.coverage === "loading" ? "activitySummary.loading" : "activitySummary.unavailable")}</Text>}
