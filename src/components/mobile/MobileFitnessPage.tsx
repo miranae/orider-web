@@ -1,9 +1,15 @@
+import CriticalPaceCurve from "../charts/CriticalPaceCurve";
+import type { CurvePeriods, RunPacePoint } from "../../features/fitness/fitnessCurveDocuments";
+import ConditionSectionNav from "../../features/fitness/components/ConditionSectionNav";
+import { FitnessZoneDistributions, type FitnessZoneEvidence } from "../../features/fitness/components/FitnessZoneDistributions";
+import type { NativePowerLoadedActivity } from "../../features/fitness/components/NativePowerTwelvePersonalView";
+import { FitnessEvidenceTrend } from "../../features/fitness/components/FitnessEvidenceTrend";
 import GlossaryText from "../common/GlossaryText";
 import DisciplineTabs from "../redesign/DisciplineTabs";
 import FitnessPeriodEvidence from "../../features/fitness/components/FitnessPeriodEvidence";
 import { LocalizedLink } from "../LocalizedLink";
 import type { MonthlyCyclingVo2maxPoint } from "../../features/fitness/deriveMonthlyCyclingVo2maxTrend";
-import type { GapEntry } from "@shared/training/expectedPower";
+import { computeOutdoorPacingGuide, type GapEntry } from "@shared/training/expectedPower";
 import { makeDurationLabel } from "../../features/fitness/fitnessPageUtils";
 import RunningRaceEstimatesPanel from "../../features/fitness/RunningRaceEstimatesPanel";
 /**
@@ -17,22 +23,22 @@ import RunningRaceEstimatesPanel from "../../features/fitness/RunningRaceEstimat
  *
  * 모든 데이터는 FitnessPage 가 미리 계산해 props 로 전달.
  */
-import { useEffect, useState, useRef, type ReactNode } from "react";
+import { useEffect, useState, useRef, cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
 import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerCurvePeriodsPanel";
-import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
+import PmcHistoryPanel, { PmcHistoryMethodNotes } from "../../features/fitness/components/PmcHistoryPanel";
 import { fitnessTodayKey, type FitnessDateKeyBasis } from "@shared/training/dateKey";
 import FtpDecisionSection from "../../features/fitness/components/FtpDecisionSection";
-import { needsRunAnalysisReadiness } from "../../features/fitness/runAnalysisReadiness";
+import { qualifiedRunRecords, needsRunAnalysisReadiness } from "../../features/fitness/runAnalysisReadiness";
 import RunRecordsSummary from "../../features/fitness/components/RunRecordsSummary";
 import DetailsSection from "../redesign/DetailsSection";
 import SportFilterTabs from "./SportFilterTabs";
 import { getDisciplineColor } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
-import { Chip, Text } from "../../theme/components";
+import { Button, Chip, Text, ToggleControls, ToggleButton } from "../../theme/components";
 import type { SufficiencySet } from "@shared/types/sufficiency";
 import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../../features/sufficiency/SufficiencyBlock";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
@@ -114,6 +120,7 @@ export interface MobileFitnessData {
   swimEvidence: SwimEvidence;
   // 존 분포
   zones: MobileFitnessZone[];
+  zoneEvidence?: FitnessZoneEvidence;
   zoneSource: ZoneSource;
   // 파워 커브 (bike, 있을 때만)
   powerCurve?: MobilePowerCurvePoint[];
@@ -258,14 +265,26 @@ function PmcMiniChart({ history, projection, today, ctlColor, ctlLabel, ariaLabe
     <div
       data-pmc-chart
       role="img"
+      tabIndex={0}
       aria-label={ariaLabel}
+      aria-description={t("fitness:chartDetail.navigate")}
+      onFocus={() => setTapIdx(pastCount - 1)}
+      onBlur={() => setTapIdx(null)}
+      onPointerLeave={event => { if (event.pointerType === "mouse") setTapIdx(null); }}
+      onKeyDown={event => {
+        if (event.key === "Escape") setTapIdx(null);
+        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+          event.preventDefault();
+          setTapIdx(index => Math.max(0, Math.min(total - 1, (index ?? pastCount - 1) + (event.key === "ArrowRight" ? 1 : -1))));
+        }
+      }}
       style={{ position: "relative", width: "100%", aspectRatio: `${W} / ${H}` }}
     >
       <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`}
         aria-hidden="true"
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block", touchAction: "manipulation" }}
         preserveAspectRatio="xMidYMid meet"
-        onPointerDown={handleTap} onPointerMove={(e) => { if (e.buttons & 1) handleTap(e); }} onPointerLeave={() => setTapIdx(null)}>
+        onPointerDown={handleTap} onPointerMove={(e) => { if (e.pointerType === "mouse" || e.buttons & 1) handleTap(e); }}>
         <defs>
           <linearGradient id="mobPmcCtlFill" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0" stopColor={ctlColor} stopOpacity="0.22" />
@@ -330,29 +349,31 @@ function PmcMiniChart({ history, projection, today, ctlColor, ctlLabel, ariaLabe
       </div>
 
       {tip && (
-        <div data-pmc-tooltip style={{
-          position: "absolute", left: `${(tip.x / W) * 100}%`, top: `${((PAD_T + 2) / H) * 100}%`,
-          transform: tip.x > W / 2 ? "translateX(calc(-100% - var(--space-1-5)))" : "translateX(var(--space-1-5))",
-          width: "max-content", minWidth: "calc(var(--space-8) * 2 + var(--space-4))", maxWidth: "calc(100vw - var(--space-8))",
-          padding: "var(--space-1)", borderRadius: "var(--r-sm)", pointerEvents: "none",
+        <div data-pmc-tooltip role="status" style={{
+          position: "absolute", insetInline: 0, top: "100%", zIndex: 5,
+          width: "100%", maxHeight: "min(50vh, 24rem)", overflowY: "auto",
+          padding: "var(--space-3)", borderRadius: "var(--r-sm)",
           background: "var(--bg-2)", border: "1px solid var(--line-soft)", boxSizing: "border-box",
-          fontSize: "var(--fs-xs)", fontWeight: 500, lineHeight: 1.1,
+          fontSize: "var(--fs-xs)", fontWeight: 500, lineHeight: 1.5,
         }}>
           <div style={{ color: "var(--ink-3)", whiteSpace: "nowrap" }}>
-            {formatMd(tip.date)}{tip.isFuture ? t("mobileFitness.pmcLabelForecast") : ""}
+            {tip.date} · {t(tip.isFuture ? "fitness:chartDetail.forecast" : "fitness:chartDetail.recorded")}
           </div>
-          <div data-pmc-tooltip-metric="CTL" style={{ color: ctlColor, fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+          <div data-pmc-tooltip-metric="CTL" style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
             <PmcLegendSample color={ctlColor} linecap={PMC_LINE_PALETTE.ctl.linecap} />
-            <span>{ctlLabel} {tip.ctl.toFixed(0)}</span>
+            <span>{ctlLabel} {tip.ctl.toFixed(1)}</span>
           </div>
-          <div data-pmc-tooltip-metric="ATL" style={{ color: PMC_LINE_PALETTE.atl.color, fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+          <div data-pmc-tooltip-metric="ATL" style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
             <PmcLegendSample color={PMC_LINE_PALETTE.atl.color} dasharray={PMC_LINE_PALETTE.atl.dasharray} linecap={PMC_LINE_PALETTE.atl.linecap} />
-            <span>ATL {tip.atl.toFixed(0)}</span>
+            <span>ATL {tip.atl.toFixed(1)}</span>
           </div>
-          <div data-pmc-tooltip-metric="TSB" style={{ color: PMC_LINE_PALETTE.tsb.color, fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+          <div data-pmc-tooltip-metric="TSB" style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
             <PmcLegendSample color={PMC_LINE_PALETTE.tsb.color} dasharray={PMC_LINE_PALETTE.tsb.dasharray} linecap={PMC_LINE_PALETTE.tsb.linecap} />
-            <span>TSB {tip.tsb >= 0 ? "+" : ""}{tip.tsb.toFixed(0)}</span>
+            <span>TSB {tip.tsb >= 0 ? "+" : ""}{tip.tsb.toFixed(1)}</span>
           </div>
+          <div style={{ color: "var(--ink-2)" }}>{t("fitness:chartDetail.pmcUnit")}</div>
+          <div style={{ color: "var(--ink-2)" }}>{t("fitness:chartDetail.range")}: {allDates[0]} – {allDates[total - 1]}</div>
+          <div style={{ color: "var(--ink-2)" }}>{t(tip.isFuture ? "fitness:chartDetail.forecastNote" : "fitness:chartDetail.metricNote")}</div>
         </div>
       )}
     </div>
@@ -377,35 +398,27 @@ function WeeklyTssBars({
   color: string;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
-  const max = Math.max(1, ...values.filter((value): value is number => value !== null));
+  const knownValues = values.filter((value): value is number => value !== null);
+  const max = Math.max(1, ...knownValues);
   const labels = values.map((_, i, arr) => t("fitness:weekly.window", { start: (arr.length - 1 - i) * 7, end: (arr.length - i) * 7 - 1 }));
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(values.length, 1)}, 1fr)`, gap: "var(--space-2)", alignItems: "end" }}>
-      {values.map((v, i) => {
-        const h = v === null ? 0 : Math.round((v / max) * 70);
-        const isCurrentWeek = i === values.length - 1;
-        return (
-          <div
-            key={i}
-            style={{
-              display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)",
-            }}
-          >
-            <div className="ds-text ds-text--body-medium" style={{ fontFamily: "var(--font-mono)", color: isCurrentWeek ? "var(--ink-0)" : "var(--ink-2)", fontWeight: isCurrentWeek ? 600 : 400 }}>{v === null ? "–" : Math.round(v)}</div>
-            <div style={{ width: "100%", height: 70, display: "flex", alignItems: "end" }}>
-              {/* borderRadius 3px: --r-sm(4px) 보다 작은 미니 막대 전용 — 토큰 없음, 시각 동일 위해 리터럴 유지 */}
-              <div style={{ width: "100%", height: `${h}px`, minHeight: v !== null && v > 0 ? 4 : 0, background: isCurrentWeek ? color : "var(--bg-3)", borderRadius: "var(--r-xs)" }} />
-            </div>
-            <div className="ds-text ds-text--body-medium" style={{ color: isCurrentWeek ? "var(--ink-2)" : "var(--ink-2)", fontWeight: isCurrentWeek ? 600 : 400 }}>{labels[i] ?? ""}</div>
-          </div>
-        );
-      })}
-    </div>
-  );
+  if (!values.length) return null;
+  return <ol className="mobile-weekly-load" aria-label={t("fitness:weekly.title")}>
+    {values.map((value, index) => <li key={index}>
+      <Text as="div" variant="bodyMedium" mono>{value === null ? "–" : Math.round(value)}</Text>
+      {knownValues.length > 0 && <div className="mobile-weekly-load__plot" aria-hidden="true">
+        <div className="mobile-weekly-load__bar" style={{ height: `${value === null ? 0 : Math.round(value / max * 100)}%`, minHeight: value !== null && value > 0 ? "var(--space-1)" : 0, background: index === values.length - 1 ? color : "var(--bg-3)" }} />
+      </div>}
+      <Text as="div" variant="bodySmall" tone="secondary">{labels[index]}</Text>
+    </li>)}
+  </ol>;
 }
 
 // ── 파워 커브 미니 ─────────────────────────────────────────────
-function PowerCurveMini({ points, color, ariaLabel }: { points: MobilePowerCurvePoint[]; color: string; ariaLabel: string }) {
+function PowerCurveMini({ points, color, ariaLabel, detailed = false }: { points: MobilePowerCurvePoint[]; color: string; ariaLabel: string; detailed?: boolean }) {
+  const { t } = useTranslation("fitness");
+  if (detailed) return <FitnessEvidenceTrend title={t("powerCurve.title")} description={ariaLabel} color={color} logarithmic
+    ticks={[{ x: 5, label: "5s" }, { x: 60, label: "1m" }, { x: 300, label: "5m" }, { x: 1200, label: "20m" }, { x: 3600, label: "1h" }]}
+    points={points.map(point => ({ key: String(point.durationSeconds), label: makeDurationLabel(t)(point.durationSeconds), x: point.durationSeconds, value: point.maxPower, unit: "W", detail: t("period.recent") }))} />;
   if (!points || points.length < 2) return null;
   // 기존 340×150 밀도를 유지하고, plot 높이 안에서 HTML 축 라벨 공간을 확보한다.
   const W = 340, H = 150;
@@ -525,7 +538,6 @@ function TodayDecisionPreview({ state, signedIn, hasDetails }: {
                     : t("decision.status.scheduledOnly");
   const session = stateKey === "scheduled" || stateKey === "applied" || stateKey === "recommendation-pending" ? effective : null;
   const canOpenDetails = hasDetails && Boolean(decision);
-  const buttonStyle = { display: "inline-flex", alignItems: "center", minHeight: 44, padding: "var(--space-2) var(--space-3)", marginTop: "var(--space-2)", background: "none", border: "1px solid var(--accent)", borderRadius: "var(--r-sm)", color: "var(--accent)", fontSize: "var(--fs-sm)", fontWeight: 600, cursor: "pointer" } as const;
 
   return <div data-mobile-fitness-decision={stateKey} aria-live="polite" style={{ marginTop: "var(--space-1)" }}>
     <Text as="div" variant="subtitle">{title}</Text>
@@ -542,36 +554,36 @@ function TodayDecisionPreview({ state, signedIn, hasDetails }: {
     {stateKey === "scheduled" && decision?.prescription.status !== "ready" && !decision?.fallback.active && <Text as="div" variant="caption" tone="secondary" style={{ marginTop: "var(--space-1)" }}>
       {t("decision.fallback.reason.prescription_not_ready")}
     </Text>}
-    {stateKey === "error" && state && <button type="button" style={buttonStyle} onClick={state.refresh}>{t("decision.refresh")}</button>}
-    {canOpenDetails && <button type="button" data-mobile-fitness-today-link style={buttonStyle}
+    {stateKey === "error" && state && <Button variant="secondary" onClick={state.refresh}>{t("decision.refresh")}</Button>}
+    {canOpenDetails && <Button variant="secondary" data-mobile-fitness-today-link
       onClick={() => document.getElementById("fitness-coach-today")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
       {t(stateKey === "health-stop" ? "dashboard:mobileFitness.decision.viewSafetyDetails" : "dashboard:mobileFitness.decision.viewDetails")} ↓
-    </button>}
+    </Button>}
   </div>;
 }
 
 /** 기간 읽기 인증과 열기 상태는 실제 사이클 상세 도구에서만 구독한다. */
-function MobilePowerCurvePeriods({ ownerUid, enabled }: { ownerUid: string; enabled: boolean }) {
+function MobilePowerCurvePeriods({ ownerUid, enabled, inline = false, nativeActivities = [] }: { ownerUid: string; enabled: boolean; inline?: boolean; nativeActivities?: readonly NativePowerLoadedActivity[] }) {
   const { t } = useTranslation("fitness");
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   if (!user || user.isAnonymous || user.uid !== ownerUid) return null;
+  if (inline) return <section data-testid="K5-5-1" className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3">
+    <PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} nativeActivities={nativeActivities} />
+  </section>;
   return <details data-testid="K5-5-1" className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3" onToggle={event => { if (event.currentTarget.open) setMounted(true); }}>
     <summary className="cursor-pointer py-3"><Text variant="label">{t("periodCurve.title")}</Text></summary>
-    {mounted && <div className="pt-3"><PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} embedded /></div>}
+    {mounted && <div className="pt-3"><PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} nativeActivities={nativeActivities} embedded /></div>}
   </details>;
 }
 
 /** 웹 분석에서만 추가되는 실측 월별 VO₂max·CP 기대값 비교. */
-function MobileCyclingEvidence({ data }: { data: MobileFitnessData }) {
+function MobileCyclingEvidence({ data, condition = false }: { data: MobileFitnessData; condition?: boolean }) {
   const { t } = useTranslation("fitness");
   const trend = data.monthlyVo2maxTrend ?? [];
   const gaps = data.powerGaps ?? [];
   const durationLabel = makeDurationLabel(t);
-  const values = trend.map(point => point.v);
   const first = trend[0], last = trend[trend.length - 1];
-  const low = values.length ? Math.min(...values) : 0, high = values.length ? Math.max(...values) : 0;
-  const path = values.map((value, index) => `${index ? "L" : "M"}${(index / Math.max(1, values.length - 1) * 132).toFixed(1)} ${(40 - (value - low) / (high - low || 1) * 40).toFixed(1)}`).join(" ");
   const delta = first && last ? last.v - first.v : 0;
   const deltaLabel = `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`;
   const trendLabel = first && last ? t("vo2maxCard.trendAriaValues", { startPeriod: first.period, start: first.v, endPeriod: last.period, end: last.v, delta: deltaLabel }) : "";
@@ -581,10 +593,12 @@ function MobileCyclingEvidence({ data }: { data: MobileFitnessData }) {
   const ftpBlock = findSufficiencyBlock(sufficiency, "ftp_estimate");
   const monthlyBlock = findSufficiencyBlock(sufficiency, "vo2max", "monthly");
   const riderBlock = findSufficiencyBlock(sufficiency, "rider_profile");
-  const analysisSets = [sufficiency, data.activityWindowSufficiency && { ...data.activityWindowSufficiency,
+  const analysisSets = [sufficiency && { ...sufficiency, blocks: sufficiency.blocks.filter(block => block.discipline === data.discipline) }, data.activityWindowSufficiency && { ...data.activityWindowSufficiency,
     blocks: data.activityWindowSufficiency.blocks.filter(block => block.discipline === data.discipline && (block.featureId !== "power_curve" || block.viewId === "mobile")) }]
     .filter((set): set is NonNullable<typeof set> => set != null);
   const hasPowerModel = gaps.length > 0;
+  const cp = data.thresholdDecision?.cpW;
+  const pacing = cp != null ? computeOutdoorPacingGuide(cp, data.weightKg) : null;
   return <>
     {sufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(sufficiency, riderBlock) && <SufficiencyCard set={sufficiency} block={riderBlock} testId="K5-1-1-sufficiency" />}
     {data.pdcSummary?.vo2maxEst != null && <SectionCard title={t("vo2maxCard.pdcLabel")}>
@@ -593,9 +607,8 @@ function MobileCyclingEvidence({ data }: { data: MobileFitnessData }) {
         <Text as="p" variant="caption" tone="tertiary"><GlossaryText>{t("vo2maxCard.pdcSub")}</GlossaryText></Text>
         {vo2maxBlock && sufficiency && <SufficiencyInline set={sufficiency} block={vo2maxBlock} testId="K5-1-3-sufficiency-inline" />}
         {(monthlyBlock ? !needsSufficiencyCard(sufficiency!, monthlyBlock) : trend.length >= 2) && trend.length > 0 && <>
-          <svg viewBox="0 0 132 40" role="img" aria-label={trendLabel} className="w-full" preserveAspectRatio="none">
-            <desc>{trendLabel}</desc><path d={path} stroke="var(--aqua)" strokeWidth="1.5" fill="none" />
-          </svg>
+          <FitnessEvidenceTrend title={t("vo2maxCard.pdcLabel")} description={trendLabel} color="var(--aqua)"
+            points={trend.map(point => ({ key: point.period, label: point.period, value: point.v, unit: "ml/kg/min", detail: t("vo2maxCard.pdcSub") }))} />
           <Text as="p" variant="mono">{deltaLabel} · {t("vo2maxCard.trendSpan", { n: trend.length })}</Text>
         </>}
       </div>
@@ -606,6 +619,10 @@ function MobileCyclingEvidence({ data }: { data: MobileFitnessData }) {
       && <SufficiencyCard set={sufficiency} block={vo2maxBlock} testId="K5-1-3-sufficiency" />}
     {!hasPowerModel && sufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(sufficiency, powerModelBlock)
       && <SufficiencyCard set={sufficiency} block={powerModelBlock} testId="K5-1-4-sufficiency" />}
+    {condition && pacing && <SectionCard specId="K1-6-6" title={t("pacing.title")}>
+      <Text as="div" variant="dataMedium">{pacing.lowerW}–{pacing.upperW} W{pacing.lowerWkg != null && pacing.upperWkg != null ? ` · ${pacing.lowerWkg.toFixed(2)}–${pacing.upperWkg.toFixed(2)} W/kg` : ""}</Text>
+      <Text as="p" variant="caption" tone="secondary">{t("pacing.note", { cp })}</Text>
+    </SectionCard>}
     {gaps.some(gap => gap.label === "strength" || gap.label === "weakness") && <SectionCard title={t("gapCard.title")}>
       <div data-testid="K5-1-4">
         {(["strength", "weakness"] as const).map(label => {
@@ -628,6 +645,7 @@ export default function MobileFitnessPage({
   data,
   part = "all",
   runningRaceEstimatesOwnerUid,
+  runPaceCurve,
   powerCurvePeriodsOwnerUid,
   powerCurvePeriodsEnabled = false,
   pmcHistoryPoints,
@@ -635,8 +653,17 @@ export default function MobileFitnessPage({
   fitnessDateKeyBasis,
   coachSlot = null,
   thresholdsSlot = null,
+  hasThresholdSettings = Boolean(thresholdsSlot),
+  goalSummarySlot = null,
   periodSlot = null,
   currentBasis,
+  currentStatusSlot = null,
+  periodEvidenceSlot = null,
+  ridingEvidenceSlot = null,
+  powerCurveEvidenceSlot = null,
+  runningRecordsSlot = null,
+  triEvidenceSlot = null,
+  nativePowerActivities = [],
   todayDecisionState,
   todayDecisionSignedIn = true,
   consistencyStreak = null,
@@ -651,6 +678,7 @@ export default function MobileFitnessPage({
   data: MobileFitnessData;
   part?: "all" | "condition" | "analysis";
   runningRaceEstimatesOwnerUid?: string;
+  runPaceCurve?: CurvePeriods<RunPacePoint>;
   powerCurvePeriodsOwnerUid?: string;
   powerCurvePeriodsEnabled?: boolean;
   /** 표시 범위를 확장해도 활동 상세 조회는 늘리지 않는 전체 일별 이력. */
@@ -661,8 +689,17 @@ export default function MobileFitnessPage({
   /** 단일 종목에서 활동 영향과 오늘 선택을 먼저 보여주는 공용 코치 브리핑. */
   coachSlot?: ReactNode;
   thresholdsSlot?: ReactNode;
+  hasThresholdSettings?: boolean;
+  goalSummarySlot?: ReactNode;
   periodSlot?: ReactNode;
   currentBasis?: string;
+  currentStatusSlot?: ReactNode;
+  periodEvidenceSlot?: ReactNode;
+  ridingEvidenceSlot?: ReactNode;
+  powerCurveEvidenceSlot?: ReactNode;
+  runningRecordsSlot?: ReactNode;
+  triEvidenceSlot?: ReactNode;
+  nativePowerActivities?: readonly NativePowerLoadedActivity[];
   /** 오늘 결정 상세와 공유하는 단일 서버 판정 상태. 모바일 소스가 한 번만 조회한다. */
   todayDecisionState?: TodayTrainingDecisionState;
   todayDecisionSignedIn?: boolean;
@@ -679,6 +716,8 @@ export default function MobileFitnessPage({
 }) {
   const { t } = useTranslation("dashboard");
   const { t: trainingT } = useTranslation("training");
+  const [chartViews, setChartViews] = useState<Partial<Record<MobileFitnessData["discipline"], "trend" | "years" | "activities">>>({});
+  const chartView = chartViews[data.discipline] ?? "trend";
   const [tab, setTab] = useState<"overview" | "analysis">("overview");
   useEffect(() => {
     setTab("overview");
@@ -730,10 +769,10 @@ export default function MobileFitnessPage({
   const loadForm = findSufficiencyBlock(loadSet, "load_history", "form");
   const riderSet = data.pdcSufficiency;
   const riderBlock = findSufficiencyBlock(riderSet, "rider_profile");
-  const mobileAnalysisSets = [data.pdcSufficiency, data.activityWindowSufficiency && { ...data.activityWindowSufficiency,
+  const mobileAnalysisSets = [data.pdcSufficiency && { ...data.pdcSufficiency, blocks: data.pdcSufficiency.blocks.filter(block => block.discipline === data.discipline) }, data.activityWindowSufficiency && { ...data.activityWindowSufficiency,
     blocks: data.activityWindowSufficiency.blocks.filter(block => block.discipline === data.discipline && (block.featureId !== "power_curve" || block.viewId === "mobile")) }];
   const showZones = data.zones.length > 0;
-  const runReadiness = part === "analysis" && !embedded && data.discipline === "run"
+  const runReadiness = (part === "analysis" || part === "condition") && !embedded && data.discipline === "run"
     && sectionState.derived === "ready" && needsRunAnalysisReadiness(data.runEvidence, !!data.threshold, showZones);
   const mobileCurveBlock = data.activityWindowSufficiency?.blocks.find(block => block.featureId === "power_curve" && block.viewId === "mobile" && block.discipline === data.discipline);
   const powerCurveMaxW = data.powerCurve?.length
@@ -742,59 +781,7 @@ export default function MobileFitnessPage({
   const powerCurveTitle = t("mobileFitness.powerCurveTitle");
   const powerCurveSub = t("mobileFitness.powerCurveSub", { maxW: powerCurveMaxW });
 
-  return (
-    <div className={embedded ? "mobile-fitness-page mobile-fitness-page--embedded" : "mobile-fitness-page"}>
-      <h1 data-testid={part === "analysis" ? "K5-0-1" : part === "condition" ? "K1-0-1" : undefined} className={embedded ? "orider-embedded-page-title" : "sr-only"}>{part === "analysis" ? t("fitness:analysis.header.title") : t("mobileFitness.title")}</h1>
-
-      <div className="mobile-fitness-toolbar">
-        <div data-testid={part === "analysis" ? "K5-0-2" : part === "condition" ? "K1-0-2" : undefined} className="mobile-fitness-toolbar__sports">
-          {part === "condition" || part === "analysis" ? <DisciplineTabs includeTri disabledKeys={["swim"]} value={data.discipline} onChange={value => setSportSegment(value === "tri" ? "all" : value)} /> : <SportFilterTabs value={sportSegment} onChange={setSportSegment} allLabelKey="discipline.tri" />}
-        </div>
-        {part === "all" && data.discipline !== "tri" && <button type="button" className="mobile-fitness-mode-toggle"
-          onClick={() => setTab(activeTab === "overview" ? "analysis" : "overview")}>
-          {activeTab === "overview" ? analysisTabLabel : t("mobileFitness.tabOverview")}
-        </button>}
-      </div>
-
-      {periodSlot}
-      {activeTab === "overview" && (
-        <div style={{ paddingTop: "var(--space-2)" }}>
-          <SectionCard specId={part === "condition" ? "K1-1" : undefined} ariaLabel={data.discipline === "tri" ? t("mobileFitness.integrated.title") : t("mobileFitness.currentStatusTitle")} compact>
-            <div data-mobile-fitness-status className="mobile-fitness-status">
-              <Text as="div" variant="eyebrow" className="mobile-fitness-status__label"><GlossaryText>{t("mobileFitness.kpiTsbLabel")}</GlossaryText><span className="mobile-fitness-status__meaning">{tsbInterpretation}</span></Text>
-              <span className="mobile-fitness-status__value">
-                {tsbValue == null ? "—" : tsbValue.toFixed(1)}
-              </span>
-            </div>
-            {currentBasis && <Text as="p" variant="caption" tone="secondary" style={{ marginTop: "var(--space-2)" }}>{currentBasis}</Text>}
-            {loadSet && loadForm && <SufficiencyInline set={loadSet} block={loadForm} testId="K1-1-1-sufficiency-inline" />}
-            {part === "condition" && data.discipline !== "tri" && <LocalizedLink data-testid="K1-1-3" to={`/coach/today?sport=${data.discipline}`}>{t("fitness:today.header.title")} →</LocalizedLink>}
-            {data.discipline !== "tri" && todayDecisionState && !deferDisabledDecision && <TodayDecisionPreview state={todayDecisionState} signedIn={todayDecisionSignedIn} hasDetails={Boolean(coachSlot)} />}
-          </SectionCard>
-
-          {loadSet && needsSufficiencyCard(loadSet, loadTrend) && <SufficiencyCard set={loadSet} block={loadTrend} testId="K1-2-sufficiency" />}
-          {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다. */}
-          <SectionCard title={pmcHistoryPoints ? undefined : trendSectionTitle} sub={pmcHistoryPoints ? undefined : pmcSub} accentColor={pmcCtlColor}>
-            {sectionState.trend === "loading" ? (
-              <p role="status">{t("mobileFitness.trendLoading")}</p>
-            ) : sectionState.trend === "error" ? (
-              <>
-                <p role="alert">{t("mobileFitness.trendError")}</p>
-                {sectionState.onRetryTrend && (
-                  <button type="button" onClick={sectionState.onRetryTrend}>
-                    {sectionState.retryLabel ?? t("common:button.retry")}
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                {pmcHistoryPoints && (
-                  <div className="mobile-fitness-pmc">
-                    <PmcHistoryPanel key={data.discipline} points={pmcHistoryPoints} today={fitnessTodayKey(Date.now(), fitnessDateKeyBasis)} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" rangeChoices={data.discipline === "tri" ? [42, 90, 180, 365, "3y", "all"] : [30, 90, 180, 365, "3y", "all"]} />
-                  </div>
-                )}
-                <div className="mobile-fitness-daily-details">
-                  <DetailsSection title={t("fitness:history.dailyDetails")} defaultOpen={!pmcHistoryPoints}>
+  const dailyChartContent = (<>
                     {/* 전폭 카드 안에서 카드 좌우 padding(16)을 상쇄해 차트를 화면 끝까지 채운다.
                         제목/범례는 카드 padding 인셋 유지. */}
                     <div style={{ margin: "0 -16px" }}>
@@ -811,83 +798,40 @@ export default function MobileFitnessPage({
                         <PmcLegendSample color={PMC_LINE_PALETTE.tsb.color} dasharray={PMC_LINE_PALETTE.tsb.dasharray} linecap={PMC_LINE_PALETTE.tsb.linecap} /><GlossaryText>TSB</GlossaryText>
                       </span>
                     </div>
-                  </DetailsSection>
-                </div>
-              </>
-            )}
-          </SectionCard>
+  </>);
 
-          {deferDisabledDecision && <div className="mobile-fitness-deferred-decision"><TodayDecisionPreview state={todayDecisionState} signedIn={todayDecisionSignedIn} hasDetails={Boolean(coachSlot)} /></div>}
-
-          {coachSlot && data.discipline !== "tri" && (
-            <div data-mobile-fitness-coach style={{ padding: "0 var(--space-4) var(--space-3)" }}>
-              {coachSlot}
-            </div>
-          )}
-
-          {!embedded && thresholdsSlot}
-          {data.discipline === "bike" && (
-            <FtpDecisionSection title={t("fitness:conclusion.performanceDetailToggle")} anchorEnabled={part === "condition" && !embedded} preserveExpanded>
-            <BikePerformanceSummaryCard
-              part={part}
-              decision={data.thresholdDecision}
-              pdc={data.pdcSummary}
-              weightKg={data.weightKg}
-              progression={data.ftpProgression}
-              ftpHistory={data.ftpHistory}
-              // 임베드 표면은 FTP 결정을 쓰기(수락)하지 않는다 — 결정을 넘기지 않으면
-              // 패널이 렌더되지 않아 액션 자체가 노출되지 않는다.
-              ftpDecision={embedded ? null : ftpDecision}
-              ftpReceipt={ftpReceipt}
-              ftpDeviceReceipts={ftpDeviceReceipts}
-              decisionBusy={decisionBusy}
-              onAcceptDecision={onAcceptDecision}
-            />
-            </FtpDecisionSection>
-          )}
-
-
-          {part === "all" && !embedded && data.discipline !== "tri" && (
-            <div style={{ marginBottom: "var(--space-3)" }}>
-              <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={data.runEvidence} swim={data.swimEvidence} />
-            </div>
-          )}
-
-          {data.discipline === "bike" && consistencyStreak && (
-            <div style={{ padding: "0 14px 14px" }}>
-              <ConsistencyStreakCard summary={consistencyStreak} compact />
-            </div>
-          )}
-
-          {data.discipline === "tri" && data.combinedLoad && (
-            <div style={{ marginBottom: "var(--space-3)" }}>
-              <IntegratedLoadCard combined={data.combinedLoad} focus={data.loadFocus} />
-            </div>
-          )}
-
-          {/* 주간 TSS */}
-          {sectionState.trend === "ready" && (data.weeklyTSS.length > 0 || data.weeklyLoadPartial) && (
-            <SectionCard specId="K1-7-2" readableSub title={t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummaryTitle" : "fitness:weekly.title")} sub={t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummary" : "fitness:weekly.sub", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS ?? "–", avg: data.loadUnknownCount && !data.hasKnownWeeklyLoad ? "–" : data.avgWeekTSS ?? "–", restDays: data.restDays ?? "–" })}>
-              {(!data.loadUnknownCount || data.hasKnownWeeklyLoad) && <WeeklyTssBars values={data.weeklyLoadStoredSummary ? [] : data.weeklyTSS} color={weeklyLoadColor} t={t} />}
-              {data.weeklyLoadPartial && <Text variant="bodyMedium">{t("fitness:weekly.partial")}</Text>}
-              <Text variant="bodyMedium">{t(`fitness:hub.weekly.basis.${data.weeklyLoadDateBasis ?? "local"}`, { date: data.weeklyLoadAsOf ?? "–" })}</Text>
-              {!!data.loadUnknownCount && <Text variant="caption">{trainingT("log.loadPartial", { count: data.loadUnknownCount })}</Text>}
+  const bikePowerCurveContent = (<>
+          {/* 파워 커브 (bike) */}
+          {sectionState.derived === "ready" && isBike && part === "condition" && powerCurveEvidenceSlot}
+          {sectionState.derived === "ready" && isBike && !(part === "condition" && powerCurveEvidenceSlot) && data.powerCurve && (mobileCurveBlock ? !needsSufficiencyCard(data.activityWindowSufficiency!, mobileCurveBlock) && data.powerCurve.length > 0 : data.powerCurve.length >= 2) && (
+            <SectionCard specId="K5-2-1">
+              <div data-power-curve-copy style={{ marginBottom: "var(--space-2)" }}>
+                <Text variant="eyebrow">{powerCurveTitle}</Text>
+                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{powerCurveSub}</div>
+              </div>
+              <div
+                data-power-curve-visual
+                style={{ margin: "0 -16px", overflow: "hidden" }}
+              >
+                <PowerCurveMini detailed={part === "condition"} points={data.powerCurve} color={ringColor} ariaLabel={`${powerCurveTitle}. ${powerCurveSub}`} />
+              </div>
             </SectionCard>
           )}
 
-          {embedded && data.discipline !== "tri" && (
-            <details className="mobile-fitness-provenance">
-              <summary>{t(`mobileFitness.sport.${data.discipline}.title`)}</summary>
-              <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={data.runEvidence} swim={data.swimEvidence} />
-            </details>
-          )}
+  </>);
+  const bikePeriodZoneContent = (<>
+          {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods nativeActivities={nativePowerActivities} inline={part === "condition"} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
 
-        </div>
-      )}
+          {/* 두 종목 부하 근거를 파워 우선 선택으로 숨기지 않는다. */}
+          {sectionState.derived === "ready" && part === "condition" && data.zoneEvidence && <FitnessZoneDistributions evidence={data.zoneEvidence} />}
 
-      {activeTab === "analysis" && (
+  </>);
 
-        <div style={{ paddingTop: 14 }}>
+  const analysisContent = (
+<div id={part === "condition" ? "condition-metrics" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "mobile-fitness-riding-metrics condition-section-target" : undefined} style={{ paddingTop: 14 }}>
+          {part === "condition" && <Text as="h2" variant="title" className="mobile-fitness-riding-metrics__title">{t(data.discipline === "bike" ? "fitness:condition.metrics.bikeTitle" : "fitness:condition.metrics.runTitle")}</Text>}
+          {part === "condition" && <Text as="p" variant="bodySmall" tone="secondary">{t("fitness:condition.metrics.description")}</Text>}
+          {part === "condition" && ridingEvidenceSlot}
           {sectionState.derived === "loading" && (
             <div role="status" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>
               {t("mobileFitness.derivedLoading")}
@@ -898,12 +842,14 @@ export default function MobileFitnessPage({
               {t("mobileFitness.derivedError")}
             </div>
           )}
-          {part === "analysis" && <SufficiencyGroup sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="K5-sufficiency-group" />}
+          {part === "condition" && isBike && <>{bikePowerCurveContent}{bikePeriodZoneContent}</>}
+          {(part === "analysis" || part === "condition") && <SufficiencyGroup inline={part === "condition"} sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="K5-sufficiency-group" />}
           {part === "analysis" && isBike && <BikePerformanceSummaryCard part="analysis" decision={data.thresholdDecision} pdc={data.pdcSummary} weightKg={data.weightKg} />}
-          {part === "analysis" && !runReadiness && <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
-          {part === "analysis" && isBike && data.cyclingAbility && riderSet && riderBlock && <SufficiencyInline set={riderSet} block={riderBlock} testId="K5-1-1-sufficiency-inline" />}
-          {part === "analysis" && !embedded && data.discipline === "run" && <RunRecordsSummary evidence={data.runEvidence} readiness={runReadiness} />}
-          {part === "analysis" && !embedded && isBike && sectionState.derived === "ready" && <MobileCyclingEvidence data={data} />}
+          {(part === "analysis" || part === "condition") && !runReadiness && !(part === "condition" && data.discipline === "run" && !embedded && runningRecordsSlot && data.runEvidence.thresholdPaceSec == null) && <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
+          {(part === "analysis" || part === "condition") && isBike && data.cyclingAbility && riderSet && riderBlock && <SufficiencyInline set={riderSet} block={riderBlock} testId="K5-1-1-sufficiency-inline" />}
+          {(part === "analysis" || part === "condition") && !embedded && data.discipline === "run" && !(part === "condition" && runningRecordsSlot && !runReadiness && qualifiedRunRecords(data.runEvidence).length === 0) && <RunRecordsSummary evidence={data.runEvidence} readiness={runReadiness} sourceBoard={part === "condition" && Boolean(runningRecordsSlot)} />}
+          {part === "condition" && runningRecordsSlot}
+          {(part === "analysis" || part === "condition") && !embedded && isBike && sectionState.derived === "ready" && <MobileCyclingEvidence condition={part === "condition"} data={data} />}
           {/* 임계값 카드 */}
           {sectionState.derived === "ready" && data.threshold && !isBike && (
             <SectionCard>
@@ -923,8 +869,8 @@ export default function MobileFitnessPage({
           )}
 
           {sectionState.derived === "ready" && !isSufficiencyGrouped(...mobileAnalysisSets) && data.activityWindowSufficiency?.blocks.filter(block => block.discipline === data.discipline && (block.featureId === "power_curve" && block.viewId === "mobile" || block.featureId === "training_zones") && needsSufficiencyCard(data.activityWindowSufficiency!, block)).map(block => <SufficiencyCard key={`${block.featureId}-${block.viewId}`} set={data.activityWindowSufficiency!} block={block} testId={block.featureId === "power_curve" ? "K5-2-1-sufficiency" : "K5-3-2-sufficiency"} />)}
-          {/* 존 분포 */}
-          {sectionState.derived === "ready" && showZones && (
+          {/* 원래 단일 분포는 레거시와 서버 근거가 없는 호환 입력에만 유지한다. */}
+          {sectionState.derived === "ready" && showZones && (part !== "condition" || !data.zoneEvidence) && (
             <SectionCard specId="K5-3-2"
               title={isBike ? t("mobileFitness.zonePowerTitle") : t("mobileFitness.zoneHrTitle")}
               sub={
@@ -945,27 +891,19 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
-          {/* 파워 커브 (bike) */}
-          {sectionState.derived === "ready" && isBike && data.powerCurve && (mobileCurveBlock ? !needsSufficiencyCard(data.activityWindowSufficiency!, mobileCurveBlock) && data.powerCurve.length > 0 : data.powerCurve.length >= 2) && (
-            <SectionCard specId="K5-2-1">
-              <div data-power-curve-copy style={{ marginBottom: "var(--space-2)" }}>
-                <Text variant="eyebrow">{powerCurveTitle}</Text>
-                <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>{powerCurveSub}</div>
-              </div>
-              <div
-                data-power-curve-visual
-                style={{ margin: "0 -16px", overflow: "hidden" }}
-              >
-                <PowerCurveMini points={data.powerCurve} color={ringColor} ariaLabel={`${powerCurveTitle}. ${powerCurveSub}`} />
-              </div>
-            </SectionCard>
-          )}
+          {part === "condition" && data.discipline === "run" && sectionState.derived === "ready" && <SectionCard specId="K5-2-3" title={t("fitness:criticalPace.title")}>
+            {runPaceCurve && (runPaceCurve.recent28.length > 0 || runPaceCurve.prev28.length > 0)
+              ? <CriticalPaceCurve recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} />
+              : <Text as="p" variant="bodySmall" tone="secondary">{t("fitness:criticalPace.unavailable")}</Text>}
+          </SectionCard>}
+
+          {!(part === "condition" && isBike) && bikePowerCurveContent}
 
           {data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
 
           {!embedded && part === "analysis" && data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} />}
 
-          {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
+          {!(part === "condition" && isBike) && bikePeriodZoneContent}
 
           {/* 존 정의 */}
           {sectionState.derived === "ready" && showZones && (
@@ -993,7 +931,189 @@ export default function MobileFitnessPage({
             </div>
           )}
         </div>
+  );
+
+  const conditionStory = part === "condition" && data.discipline !== "tri" && isValidElement(coachSlot);
+  const conditionNavigation = (<ConditionSectionNav sections={[
+        { id: "condition-current", label: t("fitness:condition.current.title") },
+        { id: "condition-trend", label: t("fitness:condition.chart.region") },
+        ...(coachSlot && data.discipline !== "tri" ? [{ id: "condition-activities", label: t("fitness:coach.recent.title") }] : []),
+        { id: "condition-load", label: t("fitness:condition.load.title") },
+        ...(data.discipline !== "tri" || triEvidenceSlot ? [{ id: "condition-metrics", label: t(data.discipline === "tri" ? "fitness:condition.metrics.triTitle" : data.discipline === "bike" ? "fitness:condition.metrics.bikeTitle" : "fitness:condition.metrics.runTitle") }] : []),
+        ...(isBike ? [{ id: "condition-ftp", label: t("fitness:condition.basis.title") }] : []),
+        ...(!embedded && hasThresholdSettings ? [{ id: "thresholds", label: t("fitness:condition.settings.title") }] : []),
+      ]} />);
+  const conditionTrend = (          <section id={part === "condition" ? "condition-trend" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "condition-section-target" : undefined}>
+          <SectionCard title={pmcHistoryPoints ? undefined : trendSectionTitle} sub={pmcHistoryPoints ? undefined : pmcSub} accentColor={pmcCtlColor}>
+            {sectionState.trend === "loading" ? (
+              <p role="status">{t("mobileFitness.trendLoading")}</p>
+            ) : sectionState.trend === "error" ? (
+              <>
+                <p role="alert">{t("mobileFitness.trendError")}</p>
+                {sectionState.onRetryTrend && (
+                  <Button variant="secondary" onClick={sectionState.onRetryTrend}>
+                    {sectionState.retryLabel ?? t("common:button.retry")}
+                  </Button>
+                )}
+              </>
+            ) : (
+              <>
+                {part === "condition" && pmcHistoryPoints && <ToggleControls variant="axis" aria-label={t("fitness:condition.chart.view")}>
+                  {(["trend", "years", "activities"] as const).map(view => <ToggleButton key={view} selected={chartView === view} onClick={() => setChartViews(previous => ({ ...previous, [data.discipline]: view }))}>{t(view === "activities" ? "fitness:condition.chart.activities" : `fitness:history.mode.${view}`)}</ToggleButton>)}
+                </ToggleControls>}
+                {pmcHistoryPoints && (
+                  <div className="mobile-fitness-pmc" hidden={part === "condition" && chartView === "activities"}>
+                    <PmcHistoryPanel suppressMethodNotes={part === "condition" && data.discipline !== "tri"} controlledMode={part === "condition" ? chartView === "years" ? "years" : "trend" : undefined} hideModeControls={part === "condition"} key={data.discipline} points={pmcHistoryPoints} today={fitnessTodayKey(Date.now(), fitnessDateKeyBasis)} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" rangeChoices={data.discipline === "tri" ? [42, 90, 180, 365, "3y", "all"] : [30, 90, 180, 365, "3y", "all"]} />
+                  </div>
+                )}
+                <div className="mobile-fitness-daily-details" hidden={part === "condition" && Boolean(pmcHistoryPoints) && chartView !== "activities"}>
+                  {part === "condition" && <Text as="h2" variant="title">{t("fitness:condition.chart.activities")}</Text>}
+                    {part === "condition" ? dailyChartContent : <DetailsSection title={t("fitness:history.dailyDetails")} defaultOpen={!pmcHistoryPoints}>{dailyChartContent}</DetailsSection>}
+                </div>
+              </>
+            )}
+          </SectionCard>
+
+          </section>);
+  const conditionStoryContent = conditionStory ? cloneElement(coachSlot as ReactElement<{ trendSlot?: ReactNode; evidenceNavSlot?: ReactNode }>, { trendSlot: conditionTrend, evidenceNavSlot: conditionNavigation }) : null;
+
+  return (
+    <div className={embedded ? "mobile-fitness-page mobile-fitness-page--embedded" : "mobile-fitness-page"}>
+      <h1 data-testid={part === "analysis" ? "K5-0-1" : part === "condition" ? "K1-0-1" : undefined} className={embedded ? "orider-embedded-page-title" : part === "condition" ? "mobile-fitness-page__title" : "sr-only"}>{part === "analysis" ? t("fitness:analysis.header.title") : part === "condition" ? t("fitness:condition.header.title") : t("mobileFitness.title")}</h1>
+
+      <div className="mobile-fitness-toolbar">
+        <div data-testid={part === "analysis" ? "K5-0-2" : part === "condition" ? "K1-0-2" : undefined} className="mobile-fitness-toolbar__sports">
+          {part === "condition" || part === "analysis" ? <DisciplineTabs includeTri disabledKeys={["swim"]} value={data.discipline} onChange={value => setSportSegment(value === "tri" ? "all" : value)} /> : <SportFilterTabs value={sportSegment} onChange={setSportSegment} allLabelKey="discipline.tri" />}
+        </div>
+        {part === "all" && data.discipline !== "tri" && <button type="button" className="mobile-fitness-mode-toggle"
+          onClick={() => setTab(activeTab === "overview" ? "analysis" : "overview")}>
+          {activeTab === "overview" ? analysisTabLabel : t("mobileFitness.tabOverview")}
+        </button>}
+      </div>
+
+
+      {periodSlot}
+      {activeTab === "overview" && (
+        <div style={{ paddingTop: "var(--space-2)" }}>
+          {conditionStoryContent}
+          {!conditionStory && <section id={part === "condition" ? "condition-current" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "condition-section-target" : undefined}>
+          {part === "condition" && data.discipline === "tri" && data.combinedLoad ? (
+            <div className="mobile-fitness-integrated-current"><IntegratedLoadCard condition={part === "condition"} combined={data.combinedLoad} focus={data.loadFocus} />
+              {currentBasis && <Text as="p" variant="caption" tone="secondary">{currentBasis}</Text>}
+              {loadSet && loadForm && <SufficiencyInline set={loadSet} block={loadForm} testId="K1-1-1-sufficiency-inline" />}
+            </div>
+          ) : <SectionCard specId={part === "condition" ? "K1-1" : undefined} ariaLabel={data.discipline === "tri" ? t("mobileFitness.integrated.title") : t("mobileFitness.currentStatusTitle")} compact>
+            {part === "condition" ? <>
+              {currentStatusSlot && <><Text as="h2" variant="title" style={{ margin: "0 0 var(--space-3)" }}>{t("fitness:condition.current.title")}</Text>{currentStatusSlot}</>}
+              <div data-mobile-fitness-status className="mobile-fitness-current-metrics">
+                {(["ctl", "atl", "tsb"] as const).map(metric => <div key={metric}>
+                  <Text as="div" variant="caption"><GlossaryText>{t(`fitness:${metric}`)}</GlossaryText></Text>
+                  <Text as="div" variant="dataMedium">{data.hasLoadData && Number.isFinite(data[metric]) ? `${metric === "tsb" && data[metric] > 0 ? "+" : ""}${data[metric].toFixed(1)}` : "—"}</Text>
+                </div>)}
+              </div>
+              {!currentStatusSlot && <Text as="p" variant="bodySmall" tone="secondary">{sectionState.trend === "loading" ? t("mobileFitness.trendLoading") : sectionState.trend === "error" ? t("mobileFitness.trendError") : tsbInterpretation}</Text>}
+            </> : <div data-mobile-fitness-status className="mobile-fitness-status">
+              <Text as="div" variant="eyebrow" className="mobile-fitness-status__label"><GlossaryText>{t("mobileFitness.kpiTsbLabel")}</GlossaryText><span className="mobile-fitness-status__meaning">{tsbInterpretation}</span></Text>
+              <span className="mobile-fitness-status__value">{tsbValue == null ? "—" : tsbValue.toFixed(1)}</span>
+            </div>}
+            {currentBasis && <Text as="p" variant="caption" tone="secondary" style={{ marginTop: "var(--space-2)" }}>{currentBasis}</Text>}
+            {loadSet && loadForm && <SufficiencyInline set={loadSet} block={loadForm} testId="K1-1-1-sufficiency-inline" />}
+            {part === "condition" && data.discipline !== "tri" && <LocalizedLink data-testid="K1-1-3" to={`/coach/today?sport=${data.discipline}`}>{t("fitness:today.header.title")} →</LocalizedLink>}
+            {data.discipline !== "tri" && todayDecisionState && !deferDisabledDecision && <TodayDecisionPreview state={todayDecisionState} signedIn={todayDecisionSignedIn} hasDetails={Boolean(coachSlot)} />}
+          </SectionCard>}
+          </section>}
+          {part === "condition" && !conditionStory && conditionNavigation}
+
+          {loadSet && needsSufficiencyCard(loadSet, loadTrend) && <SufficiencyCard set={loadSet} block={loadTrend} testId="K1-2-sufficiency" />}
+          {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, PMC는 시간 추이만 담당한다. */}
+          {!conditionStory && conditionTrend}
+
+
+          {deferDisabledDecision && <div className="mobile-fitness-deferred-decision"><TodayDecisionPreview state={todayDecisionState} signedIn={todayDecisionSignedIn} hasDetails={Boolean(coachSlot)} /></div>}
+
+          {!conditionStory && coachSlot && data.discipline !== "tri" && (
+            <div data-mobile-fitness-coach style={{ padding: "0 var(--space-4) var(--space-3)" }}>
+              {coachSlot}
+            </div>
+          )}
+
+          {part === "all" && !embedded && data.discipline !== "tri" && (
+            <div style={{ marginBottom: "var(--space-3)" }}>
+              <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={data.runEvidence} swim={data.swimEvidence} />
+            </div>
+          )}
+
+          {part === "condition" && goalSummarySlot}
+
+          <section id={part === "condition" ? "condition-load" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "mobile-fitness-load-section condition-section-target" : undefined}>
+          {part === "condition" && <Text as="h2" variant="title">{t("fitness:condition.load.title")}</Text>}
+          {part === "condition" && <Text as="p" variant="bodySmall" tone="secondary" style={{ paddingInline: "var(--space-4)" }}>{t("fitness:condition.load.description")}</Text>}
+          {part === "condition" && periodEvidenceSlot && <SectionCard>{periodEvidenceSlot}</SectionCard>}
+          {(part === "condition" || data.discipline === "bike") && consistencyStreak && (
+            <div style={{ padding: "0 14px 14px" }}>
+              <ConsistencyStreakCard summary={consistencyStreak} compact allSports={part === "condition"} />
+            </div>
+          )}
+
+          {part !== "condition" && data.discipline === "tri" && data.combinedLoad && (
+            <div style={{ marginBottom: "var(--space-3)" }}><IntegratedLoadCard combined={data.combinedLoad} focus={data.loadFocus} /></div>
+          )}
+
+
+          {/* 주간 TSS */}
+          {sectionState.trend === "ready" && (data.weeklyTSS.length > 0 || data.weeklyLoadPartial) && (
+            <SectionCard specId="K1-7-2" readableSub title={t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummaryTitle" : "fitness:weekly.title")} sub={t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummary" : "fitness:weekly.sub", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS ?? "–", avg: data.loadUnknownCount && !data.hasKnownWeeklyLoad ? "–" : data.avgWeekTSS ?? "–", restDays: data.restDays ?? "–" })}>
+              {!data.weeklyLoadStoredSummary && <WeeklyTssBars values={data.weeklyTSS} color={weeklyLoadColor} t={t} />}
+              <div className="mobile-weekly-load__notes">
+                {data.weeklyLoadPartial && <Text as="p" variant="bodyMedium">{t("fitness:weekly.partial")}</Text>}
+                <Text as="p" variant="bodyMedium">{t(`fitness:hub.weekly.basis.${data.weeklyLoadDateBasis ?? "local"}`, { date: data.weeklyLoadAsOf ?? "–" })}</Text>
+                {!!data.loadUnknownCount && <Text as="p" variant="caption">{trainingT("log.loadPartial", { count: data.loadUnknownCount })}</Text>}
+              </div>
+            </SectionCard>
+          )}
+
+          {!embedded && part === "condition" && data.discipline !== "tri" && <FitnessPeriodEvidence inline discipline={data.discipline} />}
+          </section>
+
+          {part === "condition" && data.discipline === "tri" && triEvidenceSlot && <section id="condition-metrics" tabIndex={-1} className="condition-section-target">{triEvidenceSlot}</section>}
+
+          {part === "condition" && data.discipline !== "tri" && analysisContent}
+
+          {data.discipline === "bike" && (
+            <FtpDecisionSection title={t(part === "condition" ? "fitness:condition.basis.title" : "fitness:conclusion.performanceDetailToggle")} anchorEnabled={part === "condition" && !embedded} preserveExpanded>
+            <BikePerformanceSummaryCard
+              part={part}
+              decision={data.thresholdDecision}
+              pdc={data.pdcSummary}
+              weightKg={data.weightKg}
+              progression={data.ftpProgression}
+              ftpHistory={data.ftpHistory}
+              // 임베드 표면은 FTP 결정을 쓰기(수락)하지 않는다 — 결정을 넘기지 않으면
+              // 패널이 렌더되지 않아 액션 자체가 노출되지 않는다.
+              ftpDecision={embedded ? null : ftpDecision}
+              ftpReceipt={ftpReceipt}
+              ftpDeviceReceipts={ftpDeviceReceipts}
+              decisionBusy={decisionBusy}
+              onAcceptDecision={onAcceptDecision}
+            />
+            </FtpDecisionSection>
+          )}
+
+
+          {part === "condition" && data.discipline !== "tri" && <section className="condition-method-section"><Text as="h2" variant="title">{t("fitness:condition.story.methodsTitle")}</Text><PmcHistoryMethodNotes canonical={pmcHistoryCanonical} /></section>}
+          {!embedded && thresholdsSlot}
+
+          {embedded && data.discipline !== "tri" && (
+            <details className="mobile-fitness-provenance">
+              <summary>{t(`mobileFitness.sport.${data.discipline}.title`)}</summary>
+              <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={data.runEvidence} swim={data.swimEvidence} />
+            </details>
+          )}
+
+        </div>
       )}
+
+      {activeTab === "analysis" && analysisContent}
 
       {!embedded && <div style={{ height: 80 }} />}
 

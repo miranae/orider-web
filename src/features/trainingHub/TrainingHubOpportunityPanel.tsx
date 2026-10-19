@@ -39,12 +39,13 @@ export function FitnessWeeklyInsight({
       ? t("hub.weekly.loadUnknown", { tss: insight.thisWeek })
       : t(insight.loadChangePct >= 0 ? "hub.weekly.loadUp" : "hub.weekly.loadDown", { pct: Math.abs(insight.loadChangePct), tss: insight.thisWeek });
 
+  const recommendationText = insight.recommendation ? t(`hub.weekly.recommend.${insight.recommendation}`) : null;
   if (loadSummaryOnly) return <Text data-testid="K1-3-5" as="p" variant="bodyMedium">{loadText}</Text>;
   return (
     <Card data-testid="K1-4-3" padding="none" style={{ padding: "var(--space-4)", marginBottom: "var(--space-4)" }}>
       <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("hub.weekly.title")}</Text>
       <Text as="p" variant="bodyMedium" style={{ margin: 0 }}>
-        {includeLoadSummary ? loadText : null} {insight.recommendation && t(`hub.weekly.recommend.${insight.recommendation}`)}
+        {includeLoadSummary ? loadText : !recommendationText ? <>— · {loadText}</> : null} {recommendationText}
       </Text>
       <Text as="p" variant="bodyMedium" tone="secondary" style={{ margin: 0, overflowWrap: "anywhere" }}>{t(`hub.weekly.basis.${dateBasis}`, { date: asOf })}</Text>
     </Card>

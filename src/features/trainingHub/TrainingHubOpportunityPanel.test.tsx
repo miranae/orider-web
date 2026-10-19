@@ -50,6 +50,11 @@ describe("weekly insight disclosure", () => {
     expect(screen.queryByText(/recommend/)).not.toBeInTheDocument();
     expect(screen.getByText("hub.weekly.basis.utc")).toBeInTheDocument();
   });
+  it("keeps the unavailable state inside the recommendation card when its repeated load summary is omitted", () => {
+    render(<FitnessWeeklyInsight {...props} includeLoadSummary={false} ready={false} dailyData={[]}/>);
+    expect(screen.getByTestId("K1-4-3")).toHaveTextContent("— · hub.weekly.pending");
+    expect(screen.queryByText(/recommend/)).not.toBeInTheDocument();
+  });
   it("discloses pending refresh without a training recommendation", () => {
     render(<FitnessWeeklyInsight {...props} ready={false} dailyData={[]}/>);
     expect(screen.getByText("hub.weekly.pending")).toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
@@ -41,6 +41,19 @@ describe("IntegratedLoadCard", () => {
     expect(screen.getByText("주요 부하 · 기초 유산소")).toBeInTheDocument();
     expect(screen.getByText("분류 커버리지 90% · 신뢰도 높음")).toBeInTheDocument();
     expect(screen.getByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).not.toBeVisible();
+  });
+
+  it("keeps condition methodology open and supports selected contribution and focus readouts", () => {
+    renderWithProviders(<IntegratedLoadCard condition combined={{ ctl: 40, atl: 35, tsb: 5, contributions: [{ discipline: "bike", ctl: 40 }] }} focus={focus} />);
+    expect(screen.getByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).toBeVisible();
+    const bike = screen.getByRole("button", { name: /사이클 CTL 40.0/ });
+    fireEvent.focus(bike);
+    expect(screen.getByRole("status")).toHaveTextContent("40.0");
+    fireEvent.keyDown(bike, { key: "Escape" });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /기초 유산소 40.0/ }));
+    expect(screen.getByRole("status")).toHaveTextContent("28일");
+    expect(screen.getByRole("status")).toHaveTextContent("40%");
   });
 
   it("keeps methodology closed until the accessible details control is opened", async () => {
@@ -92,9 +105,17 @@ describe("IntegratedLoadCard", () => {
     expect(screen.getByRole("img", { name: /종목별 체력 기여 데이터 없음/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /최근 28일 부하 포커스: 분류된 부하 없음/ })).toBeInTheDocument();
     expect(screen.getByText("분류 0% · 없음")).toBeInTheDocument();
-    expect(screen.getAllByText("CTL 0.0 · 0%")).toHaveLength(3);
+    expect(screen.queryByText("CTL 0.0 · 0%")).not.toBeInTheDocument();
+    expect(screen.getAllByText("—")).toHaveLength(3);
     expect(screen.getAllByText("0.0 · 0%")).toHaveLength(4);
     expect(document.body.textContent).not.toMatch(/NaN|Infinity|-5\.0|-4\.0/);
+  });
+
+  it("distinguishes known zero contribution from absent sport evidence", () => {
+    renderWithProviders(<IntegratedLoadCard combined={{ ctl: 0, atl: 0, tsb: 0, contributions: [{ discipline: "bike", ctl: 0 }] }} focus={null} />);
+    expect(screen.getByRole("button", { name: /사이클 CTL 0.0/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /러닝 —/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /수영 —/ })).toBeInTheDocument();
   });
 
   it("does not render non-finite authoritative totals", () => {

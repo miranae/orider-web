@@ -8,7 +8,7 @@ import type { FitnessPoint } from "../../../utils/fitnessMetrics";
 import { forecastFitnessChoice48Hours, type ActivityDayLoad, type ActivityImpactEntry, type Fitness48HourForecast } from "../activityImpact";
 import { deriveActivityStimulus } from "../activityStimulus";
 import DetailsSection from "../../../components/redesign/DetailsSection";
-import { Button, Card, Chip, Text } from "../../../theme/components";
+import { Button, Card, Chip, Stat, Text, ToggleControls, ToggleButton, buttonClass } from "../../../theme/components";
 import RiderWorkoutDeliveryPanel from "./RiderWorkoutDeliveryPanel";
 import "./FitnessCoachBriefing.css";
 
@@ -33,11 +33,14 @@ interface FitnessCoachBriefingProps {
   /** Primary trend surface shown after the current-state summary on desktop. */
   trendSlot?: ReactNode;
   mobilePriority?: boolean;
+  evidenceNavSlot?: ReactNode;
   deliveryEnabled?: boolean;
   choiceTitle?: string;
   weekChangeSlot?: ReactNode;
   /** 현재 지표(CTL/ATL/TSB) 바로 아래 한 줄 — 부하 이력 해석의 충분도(낮은 근거일 때만 그려진다). */
   metricsNoteSlot?: ReactNode;
+  /** Canonical-aware condition interpretation supplied by the page. */
+  statusSlot?: ReactNode;
   currentBasis?: string;
   currentDate?: string;
 }
@@ -83,7 +86,7 @@ function formatDuration(seconds: number, locale: string): string {
 }
 
 function MetricDelta({ label, value, color }: { label: string; value: number | null; color: string }) {
-  return <div><Text as="div" variant="caption" style={{ marginBottom: "var(--space-1)", borderInlineStart: `2px solid ${color}`, paddingInlineStart: "var(--space-2)" }}><GlossaryText>{label}</GlossaryText></Text><Text variant="dataLarge" style={{ color: "var(--ink-1)" }}>{value == null ? "—" : signed(value)}</Text></div>;
+  return <Stat compact label={<GlossaryText>{label}</GlossaryText>} value={value == null ? "—" : signed(value)} style={{ borderInlineStart: `2px solid ${color}`, paddingInlineStart: "var(--space-2)" }} />;
 }
 
 function coachConclusion(tsb: number): { key: "recover" | "easy" | "ready"; tone: "warning" | "accent" | "success" } {
@@ -98,7 +101,7 @@ function initialTrainingChoice(tsb: number): TrainingChoice {
   return "endurance";
 }
 
-export default function FitnessCoachBriefing({ part = "all", impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false, deliveryEnabled = true, choiceTitle, weekChangeSlot, metricsNoteSlot, currentBasis, currentDate }: FitnessCoachBriefingProps) {
+export default function FitnessCoachBriefing({ part = "all", impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false, evidenceNavSlot, deliveryEnabled = true, choiceTitle, weekChangeSlot, metricsNoteSlot, statusSlot, currentBasis, currentDate }: FitnessCoachBriefingProps) {
   const { t } = useTranslation("fitness");
   const [mode, setMode] = useState<ImpactMode>("marginal");
   const [trainingChoice, setTrainingChoice] = useState<TrainingChoice>(() => part === "today" && !canonicalAvailable ? "rest" : initialTrainingChoice(current.tsb));
@@ -126,89 +129,90 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
     return forecastFitnessChoice48Hours(currentPoint, CHOICE_LOAD[trainingChoice]);
   }, [current.atl, current.ctl, current.tsb, forecast, awaitingAggregate, canonicalAvailable, trainingChoice]);
 
-  return (
-    <section aria-labelledby={mobilePriority ? undefined : "fitness-coach-title"} className={mobilePriority ? "fitness-coach fitness-coach--mobile-priority" : "fitness-coach"}>
-      {part !== "today" && !mobilePriority && <Card data-testid={part === "condition" ? "K1-1" : undefined} padding="none" style={{ padding: "var(--space-5)", marginBottom: "var(--space-4)" }}>
-        <div className="fitness-coach__summary">
-          <div className="fitness-coach__summary-copy">
-            <Chip variant={conclusion.tone} dot>{t("coach.eyebrow")}</Chip>
-            <Text as="h2" variant="title" data-testid={part === "condition" ? "K1-1-2" : undefined} id="fitness-coach-title" style={{ margin: "var(--space-3) 0 var(--space-2)" }}>{t(`coach.conclusion.${conclusion.key}.title`)}</Text>
-            <Text as="p" variant="body" tone="secondary" style={{ margin: 0 }}>{t(`coach.conclusion.${conclusion.key}.body`)}</Text>
+  const SummarySurface = part === "condition" ? "div" : Card;
+  const ChoiceSurface = part === "condition" ? "div" : Card;
+  const recentActivities = (pendingActivity || impacts.length > 0) ? (
+    <div className="fitness-coach__activity-selector">
+      <Text as="h3" variant="subtitle" style={{ marginBottom: "var(--space-3)" }}>{t("coach.recent.title")}</Text>
+      <div data-testid={part === "condition" ? "K1-3-1" : undefined} className="fitness-coach__recent-grid">
+        {pendingActivity && (
+          <Card variant={pendingActivity?.id === selectedActivityId ? "inset" : "flat"} padding="compact" onClick={() => onSelectActivity(pendingActivity.id)} aria-pressed={pendingActivity.id === selectedActivityId} className="fitness-coach__recent" data-pending={awaitingAggregate || undefined} data-day-load-available={pendingDayLoad != null || undefined} data-selected={pendingActivity.id === selectedActivityId || undefined}>
+            <Text as="div" variant="bodyMedium">{pendingActivityLabel(pendingActivity, locale, t)}</Text>
+            <Text data-testid={part === "condition" ? "K1-3-4" : undefined} as="div" variant="caption" tone={awaitingAggregate ? "warning" : "tertiary"} style={{ marginTop: "var(--space-2)" }}>{pendingDescription}</Text>
+          </Card>
+        )}
+        {impacts.map((entry) => {
+          const selectedEntry = entry.activity.id === selected?.activity.id;
+          return (
+            <Card key={entry.activity.id} variant={selectedEntry ? "inset" : "flat"} padding="compact" onClick={() => onSelectActivity(entry.activity.id)} aria-pressed={selectedEntry} className="fitness-coach__recent" data-selected={selectedEntry || undefined}>
+              <Text as="div" variant="bodyMedium">{activityLabel(entry, locale, t)}</Text>
+              <div className="fitness-coach__recent-impact">
+                <Text as="div" variant="mono">CTL {signed(entry.marginalImpact.ctl)}</Text>
+                <Text as="div" variant="mono">ATL {signed(entry.marginalImpact.atl)}</Text>
+              </div>
+              <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>{entry.confidence === "canonical-single" ? t("coach.recent.canonical") : entry.confidence === "activity-tss" ? t("coach.recent.activityTss") : t("coach.recent.estimated")}</Text>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
+  const activityImpact = (
+    <div id={part === "condition" ? "condition-activities" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "fitness-coach__activity-section condition-section-target" : "fitness-coach__primary-grid"}>
+      <Card data-testid={part === "condition" ? "K1-3" : undefined} className="fitness-coach__impact-card" padding="none" style={{ padding: "var(--space-5)" }}>
+        {part === "all" && weekChangeSlot}
+        {part === "condition" && <>
+          <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}>{t("condition.story.activityBasis")}</Text>
+          {recentActivities}
+        </>}
+        <div className="fitness-coach__impact-heading">
+          <div>
+            <Text as="div" variant="caption">{t("coach.impact.eyebrow")}</Text>
+            <Text as="h3" variant="subtitle" style={{ margin: "var(--space-2) 0 var(--space-1)" }}>
+              {selected ? activityLabel(selected, locale, t) : selectedPending ? pendingActivityLabel(selectedPending, locale, t) : canonicalAvailable ? t("coach.impact.empty") : t("coach.impact.unavailable")}
+            </Text>
+            {selected && <Text variant="caption" tone="tertiary">{t(selected.confidence === "activity-tss" ? "coach.impact.activityTssLoad" : "coach.impact.load", { load: selected.attributedLoad.toFixed(0) })}</Text>}
           </div>
-          <div data-testid={part === "condition" ? "K1-1-1" : undefined} className="fitness-coach__current-metrics">
-            <div><Text as="div" variant="caption"><GlossaryText>{t("coach.metric.ctl")}</GlossaryText></Text><Text variant="dataMedium" style={{ color: "var(--ink-1)" }}>{current.ctl.toFixed(1)}</Text></div>
-            <div><Text as="div" variant="caption"><GlossaryText>{t("coach.metric.atl")}</GlossaryText></Text><Text variant="dataMedium" style={{ color: "var(--ink-1)" }}>{current.atl.toFixed(1)}</Text></div>
-            <div><Text as="div" variant="caption"><GlossaryText>{t("coach.metric.tsb")}</GlossaryText></Text><Text variant="dataMedium" style={{ color: "var(--ink-1)" }}>{signed(current.tsb)}</Text></div>
-          </div>
+          <ToggleControls variant="axis" aria-label={t("coach.impact.modeLabel")} data-testid={part === "condition" ? "K1-3-2" : undefined}>
+            <ToggleButton onClick={() => setMode("marginal")} selected={mode === "marginal"}>{t(selected?.confidence === "activity-tss" ? "coach.impact.modeActivityTss" : "coach.impact.modeMarginal")}</ToggleButton>
+            <ToggleButton onClick={() => setMode("actual")} selected={mode === "actual"}>{t("coach.impact.modeActual")}</ToggleButton>
+          </ToggleControls>
         </div>
-        {currentBasis && <div className="fitness-coach__summary-meta">
-          {currentDate ? <Text variant="caption" tone="secondary">{t("coach.currentAsOf", { date: new Date(`${currentDate}T00:00:00.000Z`).toLocaleDateString(locale, { month: "short", day: "numeric", timeZone: "UTC" }) })}</Text>
-            : <Text variant="caption" tone="secondary">{currentBasis}</Text>}
-          {currentDate && <details className="fitness-coach__summary-source"><summary>{t("coach.currentBasisDetails")}</summary>
-            <Text as="p" variant="caption" tone="tertiary">{currentBasis}</Text>
-          </details>}
-        </div>}
-        {metricsNoteSlot && <div className="fitness-coach__summary-evidence">{metricsNoteSlot}</div>}
-        {part === "condition" && <div className="fitness-coach__summary-action"><LocalizedLink data-testid="K1-1-3" to={`/coach/today?sport=${discipline}`}>{t("today.header.title")} →</LocalizedLink></div>}
-      </Card>}
-
-      <div className="fitness-coach__first-view">
-        {trendSlot && <div className="fitness-coach__trend">{trendSlot}</div>}
-        <div className="fitness-coach__today" id="fitness-coach-today">{decisionSlot}</div>
-      </div>
-
-      {part !== "today" && <DetailsSection title={t("coach.range.detailsTitle")}>
-        <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}>{t("coach.range.body")}</Text>
-      <div className="fitness-coach__primary-grid">
-        <Card data-testid={part === "condition" ? "K1-3" : undefined} className="fitness-coach__impact-card" padding="none" style={{ padding: "var(--space-5)" }}>
-          {weekChangeSlot}
-          <div className="fitness-coach__impact-heading">
+        <div className="fitness-coach__delta-grid">
+          <MetricDelta label={t("coach.metric.ctl")} value={delta?.ctl ?? null} color="var(--lime)" />
+          <MetricDelta label={t("coach.metric.atl")} value={delta?.atl ?? null} color="var(--rose)" />
+          <MetricDelta label={t("coach.metric.tsb")} value={delta?.tsb ?? null} color="var(--amber)" />
+        </div>
+        <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-3) 0 0" }}>
+          {selectedPending ? pendingDescription : mode === "marginal" ? t(selected?.confidence === "activity-tss" ? "coach.impact.activityTssHelp" : "coach.impact.marginalHelp") : t("coach.impact.actualHelp")}
+        </Text>
+        {stimulus && (
+          <div data-testid={part === "condition" ? "K1-3-3" : undefined} className="fitness-coach__stimulus">
             <div>
-              <Text as="div" variant="caption">{t("coach.impact.eyebrow")}</Text>
-              <Text as="h3" variant="subtitle" style={{ margin: "var(--space-2) 0 var(--space-1)" }}>
-                {selected ? activityLabel(selected, locale, t) : selectedPending ? pendingActivityLabel(selectedPending, locale, t) : canonicalAvailable ? t("coach.impact.empty") : t("coach.impact.unavailable")}
-              </Text>
-              {selected && <Text variant="caption" tone="tertiary">{t(selected.confidence === "activity-tss" ? "coach.impact.activityTssLoad" : "coach.impact.load", { load: selected.attributedLoad.toFixed(0) })}</Text>}
+              <Text as="div" variant="caption">{t("coach.stimulus.eyebrow")}</Text>
+              <Text as="div" variant="bodyMedium" style={{ marginTop: "var(--space-2)" }}>{t(`coach.stimulus.type.${stimulus.workoutType}`)}</Text>
             </div>
-            <div role="group" aria-label={t("coach.impact.modeLabel")} data-testid={part === "condition" ? "K1-3-2" : undefined} className="fitness-coach__mode">
-              <button type="button" onClick={() => setMode("marginal")} aria-pressed={mode === "marginal"}>{t(selected?.confidence === "activity-tss" ? "coach.impact.modeActivityTss" : "coach.impact.modeMarginal")}</button>
-              <button type="button" onClick={() => setMode("actual")} aria-pressed={mode === "actual"}>{t("coach.impact.modeActual")}</button>
+            <div className="fitness-coach__evidence">
+              <Chip>{t(`coach.stimulus.source.${stimulus.source}`)}</Chip>
+              <Chip>{stimulus.confidence == null ? t("coach.stimulus.confidenceUnavailable") : t("coach.stimulus.confidence", { pct: Math.round(stimulus.confidence * 100) })}</Chip>
+              {stimulus.intensityFactor != null && <Chip>IF {stimulus.intensityFactor.toFixed(2)}</Chip>}
+              {stimulus.durationSec != null && <Chip>{formatDuration(stimulus.durationSec, locale)}</Chip>}
+              <Chip>{t(stimulus.heartRateRecorded ? "coach.stimulus.hrRecorded" : "coach.stimulus.hrMissing")}</Chip>
+              {stimulus.ftp != null && <Chip>FTP {stimulus.ftp.toFixed(0)} W</Chip>}
+              {stimulus.decouplingPct != null && <Chip>{t("coach.stimulus.decoupling", { value: stimulus.decouplingPct.toFixed(1) })}</Chip>}
             </div>
+            <Text as="p" variant="caption" tone="tertiary" style={{ margin: 0 }}>{t("coach.stimulus.disclaimer")}</Text>
           </div>
-          <div className="fitness-coach__delta-grid">
-            <MetricDelta label={t("coach.metric.ctl")} value={delta?.ctl ?? null} color="var(--lime)" />
-            <MetricDelta label={t("coach.metric.atl")} value={delta?.atl ?? null} color="var(--rose)" />
-            <MetricDelta label={t("coach.metric.tsb")} value={delta?.tsb ?? null} color="var(--amber)" />
-          </div>
-          <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-3) 0 0" }}>
-            {selectedPending ? pendingDescription : mode === "marginal" ? t(selected?.confidence === "activity-tss" ? "coach.impact.activityTssHelp" : "coach.impact.marginalHelp") : t("coach.impact.actualHelp")}
-          </Text>
-          {stimulus && (
-            <div data-testid={part === "condition" ? "K1-3-3" : undefined} className="fitness-coach__stimulus">
-              <div>
-                <Text as="div" variant="caption">{t("coach.stimulus.eyebrow")}</Text>
-                <Text as="div" variant="bodyMedium" style={{ marginTop: "var(--space-2)" }}>{t(`coach.stimulus.type.${stimulus.workoutType}`)}</Text>
-              </div>
-              <div className="fitness-coach__evidence">
-                <Chip>{t(`coach.stimulus.source.${stimulus.source}`)}</Chip>
-                <Chip>{stimulus.confidence == null ? t("coach.stimulus.confidenceUnavailable") : t("coach.stimulus.confidence", { pct: Math.round(stimulus.confidence * 100) })}</Chip>
-                {stimulus.intensityFactor != null && <Chip>IF {stimulus.intensityFactor.toFixed(2)}</Chip>}
-                {stimulus.durationSec != null && <Chip>{formatDuration(stimulus.durationSec, locale)}</Chip>}
-                <Chip>{t(stimulus.heartRateRecorded ? "coach.stimulus.hrRecorded" : "coach.stimulus.hrMissing")}</Chip>
-                {stimulus.ftp != null && <Chip>FTP {stimulus.ftp.toFixed(0)} W</Chip>}
-                {stimulus.decouplingPct != null && <Chip>{t("coach.stimulus.decoupling", { value: stimulus.decouplingPct.toFixed(1) })}</Chip>}
-              </div>
-              <Text as="p" variant="caption" tone="tertiary" style={{ margin: 0 }}>{t("coach.stimulus.disclaimer")}</Text>
-            </div>
-          )}
-        </Card>
-      </div>
-      </DetailsSection>}
+        )}
+      </Card>
+    </div>
+  );
 
-      {part !== "condition" && <div className="fitness-coach__primary-grid fitness-coach__primary-grid--choice">
-        <Card data-testid={part === "today" ? "K2-1" : undefined} className="fitness-coach__choice-card" padding="none" style={{ padding: "var(--space-5)" }}>
+  const trainingChoiceCard = (
+<div className="fitness-coach__primary-grid fitness-coach__primary-grid--choice">
+        <ChoiceSurface data-testid={part === "today" ? "K2-1" : undefined} className="fitness-coach__choice-card">
           <Text as="div" variant="caption">{t("coach.choice.eyebrow")}</Text>
-          <Text data-testid={part === "today" && choiceTitle ? "K2-1-5" : undefined} as={part === "today" ? "h2" : "h3"} variant={part === "today" ? "title" : "subtitle"} style={{ margin: "var(--space-2) 0" }}>{choiceTitle ?? t("coach.choice.title")}</Text>
+          <Text data-testid={part === "today" && choiceTitle ? "K2-1-5" : undefined} as={part === "today" ? "h2" : "h3"} variant={part === "today" ? "title" : "subtitle"} style={{ margin: "var(--space-2) 0" }}>{choiceTitle ?? t(part === "condition" ? "condition.story.decisionTitle" : "coach.choice.title")}</Text>
           {canonicalAvailable && <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}><GlossaryText>{t(part === "today" ? "today.genericWorkoutBasis" : "coach.choice.body")}</GlossaryText></Text>}
           {!canonicalAvailable && <Text as="p" variant="caption" tone="secondary">{t("today.forecastUnavailable")}</Text>}
           <fieldset className="fitness-coach__choices" disabled={awaitingAggregate || deliveryBusy}>
@@ -235,7 +239,7 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
               ))}
             </div>
           )}
-          {!awaitingAggregate && discipline === "bike" && (deliveryEnabled || trainingChoice === "rest") ? trainingChoice === "rest" ? (
+          {part === "condition" ? <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-3) 0 0" }}>{t("coach.choice.localOnly")}</Text> : !awaitingAggregate && discipline === "bike" && (deliveryEnabled || trainingChoice === "rest") ? trainingChoice === "rest" ? (
             <div className="fitness-coach__handoff">
               <Button data-testid={part === "today" ? "K2-1-3" : undefined} variant="primary" block onClick={() => setShowRestNotice(true)}>{t("coach.choice.restConfirm")}</Button>
               <Text as="p" variant="caption" tone="tertiary" role="status" style={{ margin: 0 }}>
@@ -248,31 +252,63 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
               <RiderWorkoutDeliveryPanel uid={userId} workoutType={trainingChoice} targetTss={CHOICE_LOAD[trainingChoice] as 20 | 45} onBusyChange={setDeliveryBusy} explicitWorkoutLabel={part === "today"} />
             </div>
           ) : !awaitingAggregate && part !== "today" ? <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-4) 0 0" }}>{t(discipline === "bike" && !deliveryEnabled ? "today.deliveryUnavailable" : "coach.choice.localOnly")}</Text> : null}
-        </Card>
-      </div>}
+        </ChoiceSurface>
+      </div>
+  );
 
-      {part !== "today" && (pendingActivity || impacts.length > 0) && (
-        <Card padding="none" style={{ padding: "var(--space-5)", marginTop: "var(--space-4)" }}>
-          <Text as="h3" variant="subtitle" style={{ marginBottom: "var(--space-3)" }}>{t("coach.recent.title")}</Text>
-          <div data-testid={part === "condition" ? "K1-3-1" : undefined} className="fitness-coach__recent-grid">
-            {pendingActivity && (
-              <button type="button" onClick={() => onSelectActivity(pendingActivity.id)} aria-pressed={pendingActivity.id === selectedActivityId} className="fitness-coach__recent" data-pending={awaitingAggregate || undefined} data-day-load-available={pendingDayLoad != null || undefined} data-selected={pendingActivity.id === selectedActivityId || undefined}>
-                <Text as="div" variant="bodyMedium">{pendingActivityLabel(pendingActivity, locale, t)}</Text>
-                <Text data-testid={part === "condition" ? "K1-3-4" : undefined} as="div" variant="caption" tone={awaitingAggregate ? "warning" : "tertiary"} style={{ marginTop: "var(--space-2)" }}>{pendingDescription}</Text>
-              </button>
-            )}
-            {impacts.map((entry) => {
-              const selectedEntry = entry.activity.id === selected?.activity.id;
-              return (
-                <button key={entry.activity.id} type="button" onClick={() => onSelectActivity(entry.activity.id)} aria-pressed={selectedEntry} className="fitness-coach__recent" data-selected={selectedEntry || undefined}>
-                  <Text as="div" variant="bodyMedium">{activityLabel(entry, locale, t)}</Text>
-                  <Text as="div" variant="mono" style={{ marginTop: "var(--space-2)", color: "var(--ink-2)" }}>CTL {signed(entry.marginalImpact.ctl)} · ATL {signed(entry.marginalImpact.atl)}</Text>
-                  <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>{entry.confidence === "canonical-single" ? t("coach.recent.canonical") : entry.confidence === "activity-tss" ? t("coach.recent.activityTss") : t("coach.recent.estimated")}</Text>
-                </button>
-              );
-            })}
+  const currentSummary = (
+      <SummarySurface id={part === "condition" ? "condition-current" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "condition-section-target" : undefined} data-testid={part === "condition" ? "K1-1" : undefined} >
+        <div className="fitness-coach__summary">
+          <div className="fitness-coach__summary-copy">
+            {part === "condition" && statusSlot ? statusSlot : <>
+              <Chip variant={conclusion.tone} dot>{t("coach.eyebrow")}</Chip>
+              <Text as="h2" variant="title" data-testid={part === "condition" ? "K1-1-2" : undefined} id="fitness-coach-title" style={{ margin: "var(--space-3) 0 var(--space-2)" }}>{t(`coach.conclusion.${conclusion.key}.title`)}</Text>
+              <Text as="p" variant="body" tone="secondary" style={{ margin: 0 }}>{t(`coach.conclusion.${conclusion.key}.body`)}</Text>
+            </>}
           </div>
-        </Card>
+          <div data-testid={part === "condition" ? "K1-1-1" : undefined} className="fitness-coach__current-metrics">
+            <Stat compact label={<GlossaryText>{t("coach.metric.ctl")}</GlossaryText>} value={current.ctl.toFixed(1)} />
+            <Stat compact label={<GlossaryText>{t("coach.metric.atl")}</GlossaryText>} value={current.atl.toFixed(1)} />
+            <Stat compact label={<GlossaryText>{t("coach.metric.tsb")}</GlossaryText>} value={signed(current.tsb)} />
+          </div>
+        </div>
+        {part === "condition" && <div className="fitness-coach__story-primary-action"><LocalizedLink className={buttonClass({ variant: "primary", block: true })} data-testid="K1-1-3" to={`/coach/today?sport=${discipline}`}>{t("today.header.title")} →</LocalizedLink></div>}
+        {currentBasis && <div className="fitness-coach__summary-meta">
+          {part !== "condition" && (currentDate ? <Text variant="caption" tone="secondary">{t("coach.currentAsOf", { date: new Date(`${currentDate}T00:00:00.000Z`).toLocaleDateString(locale, { month: "short", day: "numeric", timeZone: "UTC" }) })}</Text>
+            : <Text variant="caption" tone="secondary">{currentBasis}</Text>)}
+          {(currentDate || part === "condition") && (part === "condition" ? <Text as="p" variant="caption" tone="tertiary" style={{ margin: 0 }}>{currentBasis}</Text> : <details className="fitness-coach__summary-source"><summary>{t("coach.currentBasisDetails")}</summary><Text as="p" variant="caption" tone="tertiary">{currentBasis}</Text></details>)}
+        </div>}
+        {metricsNoteSlot && <div className="fitness-coach__summary-evidence">{metricsNoteSlot}</div>}
+
+      </SummarySurface>
+  );
+
+  return (
+    <section aria-labelledby={mobilePriority || (part === "condition" && statusSlot) ? undefined : "fitness-coach-title"} className={`fitness-coach${mobilePriority ? " fitness-coach--mobile-priority" : ""}${part === "condition" ? " fitness-coach--story" : ""}`}>
+      {part === "condition" ? <Card className="fitness-coach__story-hero">
+        {currentSummary}
+        <div className="fitness-coach__story-choice">
+          {trainingChoiceCard}
+        </div>
+      </Card> : part !== "today" && !mobilePriority ? currentSummary : null}
+      {part === "condition" && evidenceNavSlot}
+      {part === "condition" && <div className="fitness-coach__evidence-heading"><Text as="h2" variant="title">{t("condition.story.evidenceTitle")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("condition.story.evidenceBody")}</Text></div>}
+
+      <div className="fitness-coach__first-view">
+        {trendSlot && <div className="fitness-coach__trend">{trendSlot}</div>}
+        <div className="fitness-coach__today" id="fitness-coach-today">{decisionSlot}</div>
+      </div>
+
+      {part === "condition" && weekChangeSlot && <div className="fitness-coach__period-evidence">{weekChangeSlot}</div>}
+      {part === "condition" ? activityImpact : part === "all" ? <DetailsSection title={t("coach.range.detailsTitle")}>
+        <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}>{t("coach.range.body")}</Text>
+        {activityImpact}
+      </DetailsSection> : null}
+
+      {part !== "condition" && trainingChoiceCard}
+
+      {part === "all" && recentActivities && (
+        <Card padding="none" style={{ padding: "var(--space-5)", marginTop: "var(--space-4)" }}>{recentActivities}</Card>
       )}
     </section>
   );

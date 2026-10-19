@@ -17,6 +17,9 @@ describe("Fitness PowerCurveChart", () => {
     expect(screen.getByText("900")).toBeInTheDocument(); expect(screen.getByText("—")).toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute("href", "/activity/sprint");
     expect(screen.getByText("powerCurve.windowNote")).toBeInTheDocument();
+    const explanation = screen.getByRole("button", { name: "duration.sec 1 · powerCurve.tooltip.current" });
+    expect(explanation).toHaveTextContent("powerCurve.valuesInfo");
+    expect(explanation.closest("label")).toBeNull();
   });
   it("selects canonical duration by pointer and never assigns source links to a model", () => {
     const r = render(<PowerCurveChart current={current} previous={previous} expected={[{ durationSeconds: 300, maxPower: 400 }]} />);

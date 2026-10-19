@@ -43,6 +43,16 @@ describe("BikeThresholdDecisionCard", () => {
     expect(screen.queryByText("최근 자동 추정값")).not.toBeInTheDocument();
   });
 
+  it("keeps each evidence definition visible even when every estimate is missing", () => {
+    renderWithProviders(<BikeThresholdDecisionCard inlineEvidence
+      decision={{ activeFtpW: null, automaticCandidateW: null, cpW: null, recentTwentyMinuteW: null, latestMonthlyEstimate: null, tteMin: null, activityCount: 0 }}
+      hasZoneData={false} ftpDecision={null} onAcceptDecision={vi.fn()} t={t} />);
+    for (const key of ["cpSub", "twentySub", "tteSub"]) expect(screen.getByText(`thresholdDecision.evidence.${key}`)).toBeVisible();
+    expect(screen.getByText("임계 파워 (CP)")).toBeVisible();
+    expect(screen.getByText("20분 최고 평균 파워")).toBeVisible();
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(4);
+  });
+
   it("can render the consolidated evidence open by default", () => {
     renderWithProviders(
       <BikeThresholdDecisionCard

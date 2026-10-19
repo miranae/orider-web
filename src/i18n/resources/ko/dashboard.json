@@ -103,6 +103,10 @@
     "cta": "연말결산 보기"
   },
   "streak": {
+    "allEyebrow": "전체 종목 운동 루틴",
+    "allTitle": "{{count}}주 연속 운동",
+    "allMaintained": "이번 주 {{count}}일 운동 · 루틴 유지 중",
+    "allNeedOne": "이번 주 하루 운동하면 루틴이 이어집니다",
     "eyebrow": "라이딩 루틴",
     "title": "{{count}}주 연속 라이딩",
     "maintained": "이번 주 {{count}}회 완료 · 루틴 유지 중",
@@ -465,9 +469,11 @@
       "atlHint": "단기 훈련 부하",
       "tsbLabel": "TSB · 상태",
       "tsbHint": "체력 − 피로",
+      "conditionSource": "종목별 부하를 합산한 통합 모델",
       "authoritativeSource": "사이클·러닝·수영을 합쳐 서버에서 계산한 CTL · ATL · TSB",
       "detailsToggle": "계산 방법과 해석 근거",
       "contributionTitle": "현재 체력 기여도",
+      "contributionBasis": "현재 종목별 CTL 기여비율은 지금까지 쌓인 훈련 부하의 구성입니다. 앞으로 따라야 할 훈련 권장 비율은 아닙니다.",
       "discipline": {
         "bike": "사이클",
         "run": "러닝",

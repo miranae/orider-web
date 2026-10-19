@@ -1,4 +1,5 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -59,6 +60,73 @@ function renderBriefing(overrides: Partial<React.ComponentProps<typeof FitnessCo
 }
 
 describe("FitnessCoachBriefing", () => {
+  it("reads condition in DOM order: status and one simulator, then navigation, trend and activity evidence", () => {
+    renderBriefing({ part: "condition", mobilePriority: true, decisionSlot: null, statusSlot: <h2>canonical status</h2>, evidenceNavSlot: <nav aria-label="evidence reading map" />, trendSlot: <div>trend evidence</div> });
+    const hero = document.querySelector(".fitness-coach__story-hero")!;
+    expect(hero).toContainElement(screen.getByRole("heading", { name: "canonical status" }));
+    expect(within(hero as HTMLElement).getAllByRole("radio")).toHaveLength(3);
+    expect(hero).toContainElement(screen.getByTestId("K1-1-3"));
+    const nav = screen.getByRole("navigation", { name: "evidence reading map" });
+    const trend = screen.getByText("trend evidence");
+    expect(hero.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(nav.compareDocumentPosition(trend) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(trend.compareDocumentPosition(screen.getByTestId("K1-3")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByRole("radio")).toHaveLength(3);
+    expect(screen.getAllByTestId("K1-1-1")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("radio", { name: /회복/ }));
+    expect(screen.getByRole("radio", { name: /회복/ })).toBeChecked();
+  });
+
+  it("keeps the condition selector and the changing impact together and visible", () => {
+    function ConditionSelection() {
+      const [selectedActivityId, onSelectActivity] = useState("ride-1");
+      return <FitnessCoachBriefing part="condition" impacts={[impact("ride-1", 29, 196), impact("ride-2", 28, 84)]} selectedActivityId={selectedActivityId} onSelectActivity={onSelectActivity} forecast={forecast} current={{ ctl: 42, atl: 66, tsb: -24 }} decisionSlot={null} locale="ko-KR" canonicalAvailable discipline="bike" weekChangeSlot={<div>period change evidence</div>} />;
+    }
+    renderWithProviders(<ConditionSelection />);
+    const result = screen.getByTestId("K1-3");
+    const selector = screen.getByTestId("K1-3-1");
+    expect(result).toContainElement(selector);
+    expect(result.closest("details")).toBeNull();
+    expect(within(result).getByText(/통증이나 질병 신호가 있으면 쉬세요/)).toBeVisible();
+    expect(within(selector).getByRole("button", { name: /8월 29일/ })).toHaveTextContent("CTL +4.7");
+    expect(within(selector).getByRole("button", { name: /8월 28일/ })).toHaveTextContent("CTL +2.0");
+    expect(within(result).getByText("+4.7")).toBeVisible();
+    fireEvent.click(within(selector).getByRole("button", { name: /8월 28일/ }));
+    expect(within(result).getByText("+2.0")).toBeVisible();
+    expect(within(result).queryByText("+4.7")).not.toBeInTheDocument();
+    expect(within(selector).getByRole("button", { name: /8월 28일/ })).toHaveAttribute("aria-pressed", "true");
+    expect(selector.compareDocumentPosition(within(result).getByRole("heading", { name: /42.0 km/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(result).not.toContainElement(screen.getByText("period change evidence"));
+    expect(screen.getAllByTestId("K1-3-1")).toHaveLength(1);
+    expect(screen.queryByText("계획·안전 근거 확인")).not.toBeInTheDocument();
+  });
+
+  it("uses supplied condition status without repeating the fallback advice or dropping its basis", () => {
+    renderBriefing({ part: "condition", statusSlot: <h2>canonical status interpretation</h2>, metricsNoteSlot: <p>history sufficiency</p>, currentBasis: "canonical snapshot source", currentDate: "2026-08-29" });
+    expect(screen.getByRole("heading", { name: "canonical status interpretation" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: /회복을 흡수하는 날/ })).not.toBeInTheDocument();
+    expect(screen.getByText("42.0")).toBeVisible();
+    expect(screen.getByText("history sufficiency")).toBeVisible();
+    const action = screen.getByTestId("K1-1-3");
+    expect(screen.getByTestId("K1-1-1").compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(action.compareDocumentPosition(screen.getByText("canonical snapshot source")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(action.compareDocumentPosition(screen.getByText("history sufficiency")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByTestId("K1-1-3")).toHaveLength(1);
+    expect(screen.getByText("canonical snapshot source")).toBeInTheDocument();
+    expect(screen.getByTestId("K1-1-3")).toHaveAttribute("href", "/ko/coach/today?sport=bike");
+  });
+
+  it("leaves the all-page summary and today actions unchanged when a condition status is supplied", () => {
+    const view = renderBriefing({ statusSlot: <h2>condition-only status</h2> });
+    expect(screen.getByRole("heading", { name: /회복을 흡수하는 날/ })).toBeInTheDocument();
+    expect(screen.queryByText("condition-only status")).not.toBeInTheDocument();
+    view.unmount();
+    renderBriefing({ part: "today", statusSlot: <h2>condition-only status</h2> });
+    expect(screen.queryByText("condition-only status")).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "오늘의 운동 선택" })).toBeVisible();
+    expect(screen.queryByTestId("K1-3")).not.toBeInTheDocument();
+  });
+
   it("names the snapshot date and source independently from the chart's pending history", () => {
     renderBriefing({ part: "condition", currentBasis: "2026-10-15 기준 · 현재 컨디션 요약", current: { ctl: 49.4, atl: 38.1, tsb: 11.3 }, trendSlot: <p>2026-10-16 · PMC 반영 대기</p> });
     expect(screen.getByText("2026-10-15 기준 · 현재 컨디션 요약")).toBeInTheDocument();
@@ -241,10 +309,15 @@ describe("FitnessCoachBriefing", () => {
 
 
 describe("coach screen ownership", () => {
-  it("condition keeps evidence and removes workout choices and delivery", () => {
+  it("condition keeps the recovery simulator interactive without activating delivery", () => {
     renderBriefing({ part: "condition", decisionSlot: null });
-    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2 })).toBeInTheDocument();
+    expect(screen.getAllByRole("radio")).toHaveLength(3);
+    expect(screen.getByText(/24시간 뒤 예상/)).toBeInTheDocument();
+    expect(screen.getByText(/48시간 뒤 예상/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: /회복/ }));
+    expect(screen.getByRole("radio", { name: /회복/ })).toBeChecked();
+    expect(screen.queryByRole("button", { name: /전송|휴식으로 정하기/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "이 상태가 만들어진 흐름" })).toBeInTheDocument();
     expect(screen.queryByText("decision slot")).not.toBeInTheDocument();
   });
   it("a read-only today forecast stays interactive while delivery is unavailable", () => {
@@ -265,15 +338,14 @@ describe("coach screen ownership", () => {
 });
 
 
-it('keeps calculation provenance available in a disclosure while showing a concise date and preserving sufficiency information', () => {
+it('keeps calculation provenance visible with its date and sufficiency information', () => {
   renderBriefing({ part: 'condition', currentDate: '2026-10-16', currentBasis: '2026-10-16 기준 · 저장된 일별 계산값',
     metricsNoteSlot: <div><span>낮은 근거</span><span>일부 부하는 운동 시간으로 추정했어요.</span><span data-testid="briefing-test-remaining">남은 요건 1개</span><a data-testid="briefing-test-action" href="/settings/connections">운동 기록 가져오기</a></div> });
-  expect(screen.getByText('10월 16일 기준')).toBeVisible();
+  expect(screen.queryByText('10월 16일 기준')).not.toBeInTheDocument();
   const source = screen.getByText('2026-10-16 기준 · 저장된 일별 계산값');
-  expect(source).not.toBeVisible();
+  expect(source).toBeVisible();
   expect(screen.getByText('남은 요건 1개')).toBeVisible();
   expect(screen.getByRole('link', { name: '운동 기록 가져오기' })).toHaveAttribute('href', '/settings/connections');
-  fireEvent.click(screen.getByText('계산 근거'));
   expect(source).toBeVisible();
   expect(screen.getByTestId('K1-1-3')).toHaveAttribute('href', '/ko/coach/today?sport=bike');
 });

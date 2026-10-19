@@ -1,6 +1,6 @@
 .tri-fitness__primary {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
   align-items: start;
   margin-bottom: var(--space-5);
@@ -13,3 +13,33 @@
 @media (max-width: 64rem) {
   .tri-fitness__primary { grid-template-columns: minmax(0, 1fr); }
 }
+
+.tri-fitness__interactive-chart { min-width: 0; outline-offset: var(--space-1); }
+.tri-fitness__interactive-chart:focus-visible { outline: 2px solid var(--accent); }
+.tri-fitness__chart-readout {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+  color: var(--ink-1);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-relaxed);
+  overflow-wrap: anywhere;
+}
+.tri-fitness__chart-readout p { margin: var(--space-1) 0 var(--space-2); color: var(--ink-3); }
+.tri-fitness__chart-hint { margin: var(--space-2) 0 0; color: var(--ink-3); font-size: var(--fs-xs); line-height: var(--lh-relaxed); }
+.tri-fitness__sport-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
+@media (max-width: 36rem) {
+  .tri-fitness__weekly { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .tri-fitness__sport-cards { grid-template-columns: minmax(0, 1fr); }
+}
+
+.tri-fitness__date-axis { display: flex; justify-content: space-between; gap: var(--space-1); font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--ink-3); margin-top: var(--space-2); }
+.tri-fitness__date-axis span { min-width: 0; text-align: center; }
+.tri-fitness__date-axis span:first-child { text-align: start; }
+.tri-fitness__date-axis span:last-child { text-align: end; }
+.tri-fitness__today-label { text-align: end; font-size: var(--fs-xs); color: var(--ink-2); margin-top: var(--space-1); }
+
+.tri-fitness__fixed-values { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: var(--space-3); }
+@media(max-width:36rem) { .tri-fitness__fixed-values { grid-template-columns: repeat(2,minmax(0,1fr)); } }

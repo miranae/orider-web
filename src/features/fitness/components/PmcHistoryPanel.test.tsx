@@ -13,6 +13,56 @@ const points = [point("2023-09-06"), point("2025-09-06", 30), point("2026-09-05"
 const renderPanel = (data = points) => renderWithProviders(<PmcHistoryPanel points={data} today="2026-09-06" canonical />);
 
 describe("PmcHistoryPanel", () => {
+  it("never represents an unconfirmed load as known zero while preserving confirmed zero", () => {
+    const data: PmcHistoryPoint = { ...point("2026-09-06", 40, 0), loadStatus: "unconfirmed", calculationStatus: "estimated" };
+    const view = renderPanel([data]);
+    const selected = screen.getByTestId("K1-2-7");
+    expect(selected.querySelector("dd")).toHaveTextContent("—");
+    expect(selected).toHaveTextContent("미확인 · 0/1 일");
+    expect(selected).toHaveTextContent("1/1 일");
+    view.rerender(<PmcHistoryPanel points={[{ ...data, loadStatus: "final" }]} today={data.date} canonical />);
+    expect(selected.querySelector("dd")).toHaveTextContent("0.0");
+    expect(selected).toHaveTextContent("확정 · 1/1 일");
+  });
+
+  it("shortens narrow TSB axis labels while preserving full selected dates", () => {
+    class NarrowResizeObserver {
+      constructor(private readonly callback: ResizeObserverCallback) {}
+      observe(target: Element) { this.callback([{ target, contentRect: { width: 320 } } as ResizeObserverEntry], this as unknown as ResizeObserver); }
+      disconnect() {}
+      unobserve() {}
+    }
+    vi.stubGlobal("ResizeObserver", NarrowResizeObserver);
+    try {
+      const { container } = renderPanel();
+      const tsb = screen.getByRole("slider", { name: "회복 상태 · 독립 축" });
+      expect(tsb).toHaveTextContent("09-06");
+      expect(tsb).not.toHaveTextContent("2026-09-06");
+      expect(tsb.getAttribute("aria-valuetext")).toContain("2026-09-06");
+      expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("2026-09-06");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps load and PMC coverage visible without opening a disclosure", () => {
+    const { container } = renderPanel([{ ...point("2026-09-06", 40, 70), loadStatus: "unconfirmed", calculationStatus: "pending" }]);
+    expect(container.querySelector("details")).not.toBeInTheDocument();
+    const evidence = screen.getByTestId("K1-2-7");
+    expect(evidence).toHaveTextContent("미확인 · 0/1 일");
+    expect(evidence).toHaveTextContent("반영 대기");
+    expect(evidence).toHaveTextContent("1/1 일");
+    expect(evidence.querySelectorAll(".pmc-history__note")).toHaveLength(3);
+    expect(evidence.querySelector(".pmc-history__note")).toBeVisible();
+  });
+
+  it("puts chart modes before the plot and labels selected aggregate values", () => {
+    const { container } = renderPanel();
+    expect(screen.getByTestId("K1-2-2").compareDocumentPosition(screen.getByTestId("K1-2-3")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "180일" }));
+    expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("선택 구간");
+    expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("평균");
+  });
   it("keeps a pending latest day unknown rather than copying an earlier confirmed snapshot", () => {
     const { container } = renderPanel([
       { ...point("2026-09-05", 49.4), calculationStatus: "server" },
@@ -27,7 +77,7 @@ describe("PmcHistoryPanel", () => {
   it("shows load snapshot coverage separately from estimated PMC and updates same-day totals", () => {
     const morning: PmcHistoryPoint = { ...point("2026-09-06", 40, 40), loadStatus: "snapshot", calculationStatus: "estimated" };
     const view = renderPanel([morning]);
-    const table = screen.getByRole("table");
+    const table = screen.getByTestId("K1-2-7");
     expect(within(table).getByText("집계됨 · 1/1 일")).toBeInTheDocument();
     expect(within(table).getByText("추정 계산")).toBeInTheDocument();
     expect(screen.queryByText("저장된 훈련 이력")).not.toBeInTheDocument();
@@ -74,9 +124,9 @@ describe("PmcHistoryPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "3년" }));
     expect(screen.getByText("월평균")).toBeInTheDocument();
     expect(container.querySelector(".pmc-history__value-strip strong")).toHaveTextContent("월평균");
-    const table = screen.getByRole("table");
-    expect(within(table).getByText("45.0")).toBeInTheDocument();
-    expect(within(table).getByText("60.0")).toBeInTheDocument();
+    const table = screen.getByTestId("K1-2-7");
+    expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("45.0");
+    expect(within(table).getByText("—")).toBeInTheDocument();
     expect(within(table).getByText(/2\/6 일 · 부분 집계/)).toBeInTheDocument();
   });
 
@@ -113,22 +163,29 @@ describe("PmcHistoryPanel", () => {
     expect(screen.getByRole("button", { name: "2026" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "2025" })).toHaveAttribute("aria-pressed", "true");
     expect(container.querySelector('[data-series="2025-ctl"] path')).toHaveAttribute("stroke-dasharray", "8 4");
-    expect(screen.getByText((_, element) => element?.tagName === "SPAN" && element.textContent === "2026 · 장기체력 CTL 45.0")).toBeInTheDocument();
-    expect(screen.getByText((_, element) => element?.tagName === "SPAN" && element.textContent === "2025 · 장기체력 CTL 30.0")).toBeInTheDocument();
+    for (const [year, ctl, atl] of [["2026", "45.0", "50.0"], ["2025", "30.0", "35.0"]]) {
+      const metrics = screen.getByRole("group", { name: new RegExp(`^${year} · .*평균$`) });
+      expect(metrics.querySelector('[data-pmc-metric="ctl"]')).toHaveTextContent(`${ctl}장기체력 CTL`);
+      expect(metrics.querySelector('[data-pmc-metric="atl"]')).toHaveTextContent(`${atl}단기피로 ATL`);
+      expect(metrics.querySelector('[data-pmc-metric="tsb"]')).toHaveTextContent("-5.0회복상태 TSB");
+      expect(within(metrics).getByText(ctl!)).toBeVisible();
+    }
+    expect(container.querySelector(".pmc-history__value-strip [data-pmc-metric]")).not.toBeInTheDocument();
     chooseDropdownAt(screen.getByRole("combobox"), 9);
     expect(screen.getAllByText("기록 없음")).toHaveLength(2);
-    expect(screen.getAllByRole("cell").filter((cell) => cell.textContent === "—")).toHaveLength(8);
+    expect(screen.getByTestId("K1-2-7")).toHaveTextContent("—");
+    expect(screen.getByTestId("K1-2-7").querySelectorAll(".pmc-history__evidence-grid dd")).toHaveLength(8);
     fireEvent.click(screen.getByRole("button", { name: "2026" }));
     fireEvent.click(screen.getByRole("button", { name: "2025" }));
     expect(screen.getByRole("status")).toHaveTextContent("비교할 연도를 선택하세요");
   });
 
-  it("shows actual zero, fallback provenance and empty updates without stale metrics", () => {
+  it("keeps fallback load unknown and clears stale metrics on empty updates", () => {
     const view = renderPanel();
-    expect(within(screen.getByRole("table")).getByText("0.0")).toBeInTheDocument();
+    expect(within(screen.getByTestId("K1-2-7")).getByText("—")).toBeInTheDocument();
     view.rerender(<PmcHistoryPanel points={[point("2026-09-06", 75)]} today="2026-09-06" canonical={false} />);
     expect(screen.getByText("제한된 활동 기반 이력")).toBeInTheDocument();
-    expect(within(screen.getByRole("table")).getByText("75.0")).toBeInTheDocument();
+    expect(view.container.querySelector(".pmc-history__value-strip")).toHaveTextContent("75.0");
     view.rerender(<PmcHistoryPanel points={[]} today="2026-09-06" canonical={false} />);
     expect(screen.getByRole("status")).toHaveTextContent("이 구간에 표시할 PMC 계산값이 없습니다");
     expect(screen.queryByText("75.0")).not.toBeInTheDocument();
@@ -147,14 +204,11 @@ describe("PmcHistoryPanel", () => {
     expect(screen.getByText("직접 지정")).toHaveAttribute("data-source-state", "failed");
   });
 
-  it("keeps the six period controls touch-sized and able to wrap on narrow screens", () => {
-    const css = readFileSync(join(process.cwd(), "src/features/fitness/components/PmcHistoryPanel.css"), "utf8");
-    expect(css).toContain(".pmc-history__ranges { flex-wrap: wrap; overflow: visible; }");
-    expect(css).toContain(".pmc-history__ranges .ds-btn { flex: 1 0 calc(33.333% - var(--space-1)); }");
-    expect(css).toContain(".pmc-history__ranges .ds-btn { flex: 1 0 2.75rem; height: 44px; min-height: 44px;");
-    expect(css).toContain(".pmc-history__ranges .ds-btn::after { display: none; }");
-    expect(css).toContain(".pmc-history__navigation label { grid-column: 1 / -1; }");
-    expect(css).toContain(".pmc-history__tsb-chart { display: block; width: 100%; height: auto;");
+  it("keeps all six period choices available through shared controls", () => {
+    renderPanel();
+    const controls = screen.getByRole("group", { name: "표시 기간" });
+    expect(within(controls).getAllByRole("button")).toHaveLength(6);
+    for (const button of within(controls).getAllByRole("button")) expect(button).toBeEnabled();
   });
 
   it("puts period controls before the plot without repeating the current-state summary", () => {

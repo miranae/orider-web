@@ -1,11 +1,12 @@
 import "./fitness-analysis-controls.css";
+import "./PowerCurveChart.css";
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { createPortal } from "react-dom";
 import { TooltipContent } from "../../../theme/components/TooltipContent";
 import InfoTip from "../../../components/InfoTip";
-import { DropdownSelect, Stat, Text } from "../../../theme";
+import { ChartGridLine, DropdownSelect, Stat, Text } from "../../../theme";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { makeDurationLabel, type PowerCurvePoint } from "../fitnessPageUtils";
 
@@ -63,9 +64,11 @@ export default function PowerCurveChart({
   }
 
   return (
-    <div className="fitness-analysis-controls space-y-3"><svg viewBox={`0 0 ${w} ${h + 20}`} style={{ width: "100%", height: 220 }}>
+    <div className="fitness-analysis-controls power-curve-evidence">
+    <div className="power-curve-evidence__plot">
+    <svg viewBox={`0 0 ${w} ${h + 10}`} preserveAspectRatio="none" className="power-curve-evidence__chart">
       {[0.25, 0.5, 0.75].map((p) => (
-        <line key={p} x1="0" x2={w} y1={h * p} y2={h * p} stroke="var(--grid-soft)" />
+        <ChartGridLine key={p} x1="0" x2={w} y1={h * p} y2={h * p} />
       ))}
       {previous.length > 0 && (
         <path d={line(previous)} stroke="var(--ink-4)" strokeWidth="1.5" fill="none" strokeDasharray="4 4" />
@@ -99,26 +102,26 @@ export default function PowerCurveChart({
           ))}
         </>
       )}
-      {xTicks.map((tick) => (
-        <text key={tick} x={sx(tick)} y={h + 16} style={{ fontSize: "var(--fs-xs)" }} fontFamily="var(--font-mono)" fill="var(--ink-4)" textAnchor="middle">
-          {tick < 60 ? `${tick}s` : tick < 3600 ? `${tick / 60}m` : `${tick / 3600}h`}
-        </text>
-      ))}
     </svg>
+    <div className="power-curve-evidence__axis" aria-hidden="true">{xTicks.map(tick => <span key={tick} style={{ left: `${sx(tick) / w * 100}%` }}>{tick < 60 ? `${tick}s` : tick < 3600 ? `${tick / 60}m` : `${tick / 3600}h`}</span>)}</div>
+    </div>
     {hover && createPortal(<TooltipContent title={durationLabel(hover.durationSeconds)} role="tooltip"
       style={{ position: "fixed", ...anchor, width: "min(320px, calc(100vw - 16px))", zIndex: 100, pointerEvents: "none" }}>
       <span className="flex flex-col gap-2">{rows.map(([label, value]) => <span key={label} className="flex justify-between gap-3"><span>{label}</span><strong style={{ color: "var(--ink-1)", whiteSpace: "nowrap" }}>{value} W</strong></span>)}</span>
     </TooltipContent>, document.body)}
-    {selected && <>
-      <label className="flex flex-wrap items-center gap-3" htmlFor={id}><Text variant="bodySmall" tone="secondary">{t("powerCurve.durationSelect")}</Text><DropdownSelect id={id} label={t("powerCurve.durationSelect")} value={String(selected.durationSeconds)} onChange={next => setSelectedDuration(Number(next))} options={current.map((point) => ({ value: String(point.durationSeconds), label: durationLabel(point.durationSeconds) }))} /></label>
+    {selected && <div className="power-curve-evidence__selection">
+      <div className="power-curve-evidence__duration">
+      <div className="power-curve-evidence__duration-heading"><label htmlFor={id}><Text variant="bodySmall" tone="secondary">{t("powerCurve.durationSelect")}</Text></label>
       <InfoTip title={durationLabel(selected.durationSeconds)} label={`${durationLabel(selected.durationSeconds)} · ${t("powerCurve.tooltip.current")}`} content={[
         `${t("powerCurve.tooltip.current")}: ${Math.round(selected.maxPower)} W`,
         ...(previousSelected ? [`${t("powerCurve.tooltip.previous")}: ${Math.round(previousSelected.maxPower)} W`] : []),
         ...(powerAt(expected ?? [], selected.durationSeconds) != null ? [`${t("powerCurve.tooltip.expected")}: ${Math.round(powerAt(expected ?? [], selected.durationSeconds)!)} W`] : []),
-      ].join(" · ")} >{durationLabel(selected.durationSeconds)}</InfoTip>
-      <div className="grid grid-cols-2 gap-4">{[selected, previousSelected].map((point, index) => <div key={index} className="space-y-2"><Stat compact label={t(index ? "period.previous" : "period.recent")} value={point ? point.maxPower.toFixed(0) : "—"} unit={point ? "W" : undefined} />{point?.sourceActivityId && point.startTime != null && <LocalizedLink className="underline" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}><Text variant="bodySmall">{t("powerCurve.source", { date: new Date(point.startTime).toLocaleDateString() })}</Text></LocalizedLink>}</div>)}</div>
-    </>}
-    <Text as="p" variant="caption" tone="tertiary">{t("powerCurve.windowNote")}</Text>
+      ].join(" · ")} className="power-curve-evidence__values-info">{t("powerCurve.valuesInfo")}</InfoTip></div>
+      <DropdownSelect id={id} label={t("powerCurve.durationSelect")} value={String(selected.durationSeconds)} onChange={next => setSelectedDuration(Number(next))} options={current.map((point) => ({ value: String(point.durationSeconds), label: durationLabel(point.durationSeconds) }))} />
+      </div>
+      <div className="power-curve-evidence__values">{[selected, previousSelected].map((point, index) => <div key={index} className="space-y-2"><Stat compact label={t(index ? "period.previous" : "period.recent")} value={point ? point.maxPower.toFixed(0) : "—"} unit={point ? "W" : undefined} />{point?.sourceActivityId && point.startTime != null && <LocalizedLink className="underline" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}><Text variant="bodySmall">{t("powerCurve.source", { date: new Date(point.startTime).toLocaleDateString() })}</Text></LocalizedLink>}</div>)}</div>
+    </div>}
+    <Text as="p" className="power-curve-evidence__note" variant="caption" tone="tertiary">{t("powerCurve.windowNote")}</Text>
     </div>
   );
 }

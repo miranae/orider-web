@@ -105,7 +105,8 @@ describe("FitnessChart activity markers", () => {
       unobserve() {}
     }
     vi.stubGlobal("ResizeObserver", NarrowResizeObserver);
-    const { container } = renderWithProviders(
+    vi.stubGlobal("innerWidth", 320);
+    renderWithProviders(
       <FitnessChart
         data={[
           { date: "2026-09-01", ctl: 38, atl: 42, tsb: -4, dailyLoad: 50 },
@@ -121,11 +122,30 @@ describe("FitnessChart activity markers", () => {
     Object.defineProperty(chart, "createSVGPoint", { value: () => svgPoint });
     Object.defineProperty(chart, "getScreenCTM", { value: () => ({ inverse: () => ({}) }) });
     fireEvent.pointerMove(chart, { clientX: 160, clientY: 10 });
-    const tooltip = container.querySelector('[data-pmc-tooltip="true"]');
-    const x = Number(tooltip?.getAttribute("x"));
-    const width = Number(tooltip?.getAttribute("width"));
-    expect(x).toBeGreaterThanOrEqual(0);
-    expect(x + width).toBeLessThanOrEqual(320);
+    const tooltip = screen.getByRole("tooltip");
+    const left = Number.parseFloat(tooltip.style.left);
+    const width = Number.parseFloat(tooltip.style.width);
+    expect(left).toBeGreaterThanOrEqual(12);
+    expect(left + width).toBeLessThanOrEqual(308);
+    expect(tooltip).toHaveTextContent("주평균");
+    expect(tooltip).toHaveTextContent("ATL");
+  });
+
+  it("makes historical and forecast details available by keyboard without inventing forecast load", () => {
+    renderWithProviders(<FitnessChart
+      data={[{ date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 60 }]}
+      projection={[{ date: new Date("2026-09-07T00:00:00").getTime(), ctl: 41, atl: 44, tsb: -3 }]}
+    />);
+    const chart = screen.getByRole("img");
+    expect(chart).toHaveAttribute("tabindex", "0");
+    fireEvent.focus(chart);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("2026-09-06");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("60.0");
+    fireEvent.keyDown(chart, { key: "ArrowRight" });
+    expect(screen.getByRole("tooltip")).toHaveTextContent("2026-09-07");
+    expect(screen.getByRole("tooltip")).not.toHaveTextContent("60.0");
+    fireEvent.keyDown(chart, { key: "Escape" });
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 
   it("commits taps to the nearest historical point without committing hover or projection indexes", () => {

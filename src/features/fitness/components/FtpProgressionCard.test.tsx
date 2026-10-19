@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import FtpProgressionCard from "./FtpProgressionCard";
@@ -106,4 +106,54 @@ describe("FtpProgressionCard", () => {
     expect(screen.getAllByText(/FTP 테스트/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("260 W").length).toBeGreaterThan(0);
   });
+});
+
+it("exposes estimates and real changes with keyboard details, and keeps condition history open", () => {
+  const { container } = renderWithProviders(<FtpProgressionCard
+    points={[{ period: "2026-05", ftpW: 245, source: "20m" }, { period: "2026-06", ftpW: 252, source: "20m" }]}
+    history={[{ id: "manual", value: 248, source: "manual", changedAt: Date.UTC(2026, 4, 15) }]}
+    currentFtpW={248} breakthrough={null} embedded compact showHistory
+  />);
+  const chart = screen.getByRole("img", { name: /FTP.*차트/ });
+  fireEvent.focus(chart);
+  expect(screen.getByRole("status")).toHaveTextContent("2026-06 · 252 W");
+  expect(screen.getByRole("status")).toHaveTextContent("추정값");
+  fireEvent.keyDown(chart, { key: "ArrowLeft" });
+  expect(screen.getByRole("status")).toHaveTextContent("248 W");
+  expect(screen.getByRole("status")).toHaveTextContent("실제 FTP 적용 이력");
+  fireEvent.keyDown(chart, { key: "Escape" });
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  expect(container.querySelector("details")).toBeNull();
+});
+
+it("shows both estimated and applied FTP when they share a chart date", () => {
+  renderWithProviders(<FtpProgressionCard
+    points={[{ period: "2026-05", ftpW: 245, source: "20m" }, { period: "2026-06", ftpW: 252, source: "20m" }]}
+    history={[{ id: "same-day", value: 248, source: "manual", changedAt: Date.UTC(2026, 5, 1) }]}
+    currentFtpW={248} breakthrough={null}
+  />);
+  fireEvent.focus(screen.getByRole("img", { name: /FTP.*차트/ }));
+  const detail = screen.getByRole("status");
+  expect(detail).toHaveTextContent("252 W");
+  expect(detail).toHaveTextContent("248 W");
+  expect(detail).toHaveTextContent("월별 20분 최고 평균 파워 × 95%");
+  expect(detail).toHaveTextContent("직접 설정");
+});
+
+it("shows watt values and distinct calendar dates without shrinking SVG text on compact charts", () => {
+  const { container } = renderWithProviders(<FtpProgressionCard
+    points={[]}
+    history={[{ id: "first", value: 248, source: "manual", changedAt: Date.UTC(2026, 4, 2) }, { id: "last", value: 255, source: "test", changedAt: Date.UTC(2026, 4, 20) }]}
+    currentFtpW={255} breakthrough={null} embedded compact showHistory
+  />);
+  const yAxis = container.querySelector(".ftp-progression__y-axis");
+  expect(yAxis).toHaveTextContent("W");
+  expect(yAxis).toHaveTextContent("260");
+  expect(yAxis).toHaveTextContent("240");
+  const xAxis = container.querySelector(".ftp-progression__x-axis");
+  expect(xAxis).toHaveTextContent("5. 2.");
+  expect(xAxis).toHaveTextContent("5. 20.");
+  expect(screen.getByRole("img").querySelectorAll("text")).toHaveLength(0);
+  fireEvent.focus(screen.getByRole("img"));
+  expect(screen.getByRole("status")).toHaveTextContent("255 W");
 });

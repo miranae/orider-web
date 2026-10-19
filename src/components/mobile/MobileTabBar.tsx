@@ -54,13 +54,13 @@ export default function MobileTabBar({
               key={key}
               to={localized(to)}
               aria-current={isActive ? "page" : undefined}
-              className={`flex flex-col items-center justify-start flex-1 gap-0.5 rounded-[var(--r-md)] pt-1 ${mobileTabFocusClass}`}
+              className={`flex min-w-0 flex-col items-center justify-start flex-1 gap-0.5 rounded-[var(--r-md)] pt-1 ${mobileTabFocusClass}`}
               style={{ color: isActive ? "var(--lime)" : "var(--ink-4)", minHeight: 44 }}
             >
               <span className="relative">
                 <Icon size={20} strokeWidth={isActive ? 2.2 : 1.7} />
               </span>
-              <span className="text-[length:var(--fs-xs)] font-medium" style={{ letterSpacing: "-0.01em" }}>
+              <span className="whitespace-nowrap text-[length:var(--fs-xs)] font-medium" style={{ letterSpacing: "-0.01em" }}>
                 {label}
               </span>
             </Link>

@@ -42,6 +42,78 @@ describe("MobileFitnessPage tri", () => {
     integratedLoadSpy.mockClear();
   });
 
+  it("shows a visible condition title and all three current metrics with basis and action", () => {
+    const { container } = renderWithProviders(<MobileFitnessPage data={previewData} part="condition" currentBasis="2026-07-14 · 현재 요약" currentStatusSlot={<p>서버 판정 처리 중</p>} />);
+    expect(screen.getByRole("heading", { level: 1, name: "컨디션" })).not.toHaveClass("sr-only");
+    const metrics = container.querySelector("[data-mobile-fitness-status]")!;
+    expect(metrics).toHaveTextContent("CTL"); expect(metrics).toHaveTextContent("ATL"); expect(metrics).toHaveTextContent("TSB");
+    expect(metrics).toHaveTextContent("12.0"); expect(metrics).toHaveTextContent("10.0"); expect(metrics).toHaveTextContent("+2.0");
+    expect(screen.getByText("서버 판정 처리 중")).toBeInTheDocument();
+    expect(screen.queryByText("체력이 피로보다 높아요")).not.toBeInTheDocument();
+    expect(screen.getByText("2026-07-14 · 현재 요약")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /오늘/ })).toHaveAttribute("href", "/ko/coach/today?sport=run");
+  });
+
+  it("retains the history instance and chosen range across exercise view changes", () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const { container } = renderWithProviders(<MobileFitnessPage data={previewData} part="condition" pmcHistoryPoints={[{ date: today, ctl: 12, atl: 10, tsb: 2, dailyLoad: 30 }]} />);
+    const history = container.querySelector(".pmc-history")!;
+    fireEvent.click(within(history as HTMLElement).getByRole("button", { name: "180일" }));
+    fireEvent.click(screen.getByRole("button", { name: "운동·계획" }));
+    expect(history.closest("[hidden]")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "장기 추이" }));
+    expect(container.querySelector(".pmc-history")).toBe(history);
+    expect(within(history as HTMLElement).getByRole("button", { name: "180일" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(screen.getByRole("group", { name: "차트 보기" })).getAllByRole("button")).toHaveLength(3);
+    fireEvent.click(screen.getByRole("button", { name: "연도별 비교" }));
+    const year = String(new Date().getUTCFullYear());
+    fireEvent.click(within(history as HTMLElement).getByRole("button", { name: year }));
+    fireEvent.click(screen.getByRole("button", { name: "운동·계획" }));
+    fireEvent.click(screen.getByRole("button", { name: "연도별 비교" }));
+    expect(within(history as HTMLElement).getByRole("button", { name: year })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("always shows integrated history when switching from the workouts view to tri", () => {
+    const points = [{ date: new Date().toISOString().slice(0, 10), ctl: 12, atl: 10, tsb: 2, dailyLoad: 30 }];
+    const view = renderWithProviders(<MobileFitnessPage data={previewData} part="condition" pmcHistoryPoints={points} />);
+    fireEvent.click(screen.getByRole("button", { name: "운동·계획" }));
+    view.rerender(<MobileFitnessPage data={{ ...previewData, discipline: "tri", combinedLoad: { ctl: 12, atl: 10, tsb: 2, contributions: [] } }} part="condition" pmcHistoryPoints={points} />);
+    expect(view.container.querySelector(".pmc-history")?.closest("[hidden]")).toBeNull();
+    expect(screen.getByRole("button", { name: "장기 추이" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "연도별 비교" })).toBeInTheDocument();
+  });
+
+  it("puts the single integrated interpretation before condition history and keeps thresholds", () => {
+    const { container } = renderWithProviders(<MobileFitnessPage data={{ ...previewData, discipline: "tri", combinedLoad: { ctl: 12, atl: 10, tsb: 2, contributions: [] } }} part="condition" thresholdsSlot={<div data-testid="thresholds">훈련 기준</div>} pmcHistoryPoints={[]} />);
+    expect(screen.getAllByTestId("integrated-load-card")).toHaveLength(1);
+    expect(screen.getByTestId("integrated-load-card").compareDocumentPosition(container.querySelector(".pmc-history")!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("thresholds")).toBeInTheDocument();
+    expect(screen.queryByText("체력이 피로보다 높아요")).not.toBeInTheDocument();
+  });
+
+  it("keeps integrated source context and the planned projection accessible after moving its snapshot", () => {
+    const data = { ...previewData, discipline: "tri" as const, combinedLoad: { ctl: 12, atl: 10, tsb: 2, contributions: [] },
+      pmcProjection: [{ date: Date.parse("2026-07-15T00:00:00Z"), ctl: 13, atl: 11, tsb: 2 }] };
+    const { container } = renderWithProviders(<MobileFitnessPage data={data} part="condition" currentBasis="통합 현재값 기준일 · 2026-07-14" pmcHistoryPoints={[]} />);
+    expect(screen.getByText("통합 현재값 기준일 · 2026-07-14")).toBeVisible();
+    const detail = container.querySelector(".mobile-fitness-daily-details")!;
+    expect(detail).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "운동·계획" }));
+    expect(detail).toBeVisible();
+    const chart = within(detail as HTMLElement).getByRole("img");
+    fireEvent.focus(chart);
+    fireEvent.keyDown(chart, { key: "ArrowRight" });
+    expect(within(detail as HTMLElement).getByRole("status")).toHaveTextContent("2026-07-15");
+    expect(within(detail as HTMLElement).getByRole("status")).toHaveTextContent("예측");
+    fireEvent.click(screen.getByRole("button", { name: "장기 추이" }));
+    expect(detail).not.toBeVisible();
+  });
+
+  it("keeps discipline evidence on integrated condition before the weekly summary", () => {
+    renderWithProviders(<MobileFitnessPage data={{ ...previewData, discipline: "tri" }} part="condition" triEvidenceSlot={<p>종목별 일별 부하와 CTL 추이</p>} />);
+    expect(screen.getByText("종목별 일별 부하와 CTL 추이")).toBeVisible();
+  });
+
   it("keeps all four sports available at narrow widths while the analysis control stays separate", () => {
     const { container } = renderWithProviders(<MobileFitnessPage data={previewData} />);
     expect(container.querySelector(".mobile-fitness-toolbar__sports [role='group']")).toHaveAccessibleName("종목 선택");
@@ -202,7 +274,14 @@ describe("MobileFitnessPage tri", () => {
     const chartSvg = container.querySelector<SVGSVGElement>("[data-pmc-chart] svg");
     expect(chartSvg).not.toBeNull();
     fireEvent.pointerDown(chartSvg!, { clientX: 0 });
-    expect(screen.getByText(`${ctlLabel} 10`)).toBeInTheDocument();
+    expect(screen.getByText(`${ctlLabel} 10.0`)).toBeInTheDocument();
+    const chart = screen.getByRole("img", { name: `${title}. ${sub}` });
+    fireEvent.focus(chart);
+    expect(screen.getByText(`${ctlLabel} 12.0`)).toBeInTheDocument();
+    fireEvent.keyDown(chart, { key: "ArrowLeft" });
+    expect(screen.getByText(`${ctlLabel} 10.0`)).toBeInTheDocument();
+    fireEvent.keyDown(chart, { key: "Escape" });
+    expect(container.querySelector("[data-pmc-tooltip]")).toBeNull();
   });
 
   it("does not invoke or wrap the sport-specific card on the integrated tab", () => {

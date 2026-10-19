@@ -1,3 +1,5 @@
+import { useState } from "react";
+import "./FtpProgressionCard.css";
 import { useTranslation } from "react-i18next";
 import type { EstimatedFtpPoint, FtpBreakthrough } from "@shared/training/ftpProgression";
 import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
@@ -11,6 +13,7 @@ export default function FtpProgressionCard({
   breakthrough,
   embedded = false,
   compact = false,
+  showHistory = false,
 }: {
   points: EstimatedFtpPoint[];
   history?: FtpHistoryEntry[];
@@ -18,8 +21,10 @@ export default function FtpProgressionCard({
   breakthrough: FtpBreakthrough | null;
   embedded?: boolean;
   compact?: boolean;
+  showHistory?: boolean;
 }) {
   const { t, i18n } = useTranslation("fitness");
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const hasEstimatedTrend = points.length >= 2;
   const sortedHistory = [...history].sort((a, b) => a.changedAt - b.changedAt);
   const hasHistory = sortedHistory.length > 0;
@@ -34,8 +39,8 @@ export default function FtpProgressionCard({
   const min = referenceValues.length > 0 ? Math.min(...referenceValues) : 100;
   const max = referenceValues.length > 0 ? Math.max(...referenceValues) : 100;
   const padding = Math.max(5, (max - min) * 0.15);
-  const lo = min - padding;
-  const hi = max + padding;
+  const lo = Math.floor((min - padding) / 10) * 10;
+  const hi = Math.ceil((max + padding) / 10) * 10;
   const estimatedDates = points.map((point) => Date.parse(`${point.period}-01T00:00:00Z`));
   const timeValues = [...estimatedDates, ...sortedHistory.map((entry) => entry.changedAt)];
   const minTime = timeValues.length > 0 ? Math.min(...timeValues) : 0;
@@ -48,18 +53,32 @@ export default function FtpProgressionCard({
   const historyPath = sortedHistory.map((entry, index) => `${index ? "L" : "M"}${sx(entry.changedAt).toFixed(1)} ${sy(entry.value).toFixed(1)}`).join(" ");
   const formatPeriod = (period: string) => new Intl.DateTimeFormat(i18n.language, { year: "2-digit", month: "short" })
     .format(new Date(`${period}-01T00:00:00`));
-  const axisPeriods = [...new Set([
-    ...points.map((point) => point.period),
-    ...sortedHistory.map((entry) => new Date(entry.changedAt).toISOString().slice(0, 7)),
-  ])].sort();
-  const labelStep = Math.max(1, Math.ceil((axisPeriods.length - 1) / 5));
-  const shouldLabel = (index: number) => index === 0 || index === axisPeriods.length - 1 || index % labelStep === 0;
+  const axisTimes = minTime === maxTime ? [minTime] : [minTime, (minTime + maxTime) / 2, maxTime];
+  const spansMonths = maxTime - minTime >= 90 * 86400000;
+  const formatAxisTime = (timestamp: number) => new Intl.DateTimeFormat(i18n.language, spansMonths
+    ? { year: "2-digit", month: "short", timeZone: "UTC" }
+    : { month: "numeric", day: "numeric", timeZone: "UTC" }).format(new Date(timestamp));
   const estimatedDescription = points.map((point) => `${formatPeriod(point.period)} ${point.ftpW}W`).join(", ");
   const historyDescription = sortedHistory.map((entry) => `${new Date(entry.changedAt).toLocaleDateString(i18n.language)} ${entry.value}W ${t(`ftpProgression.source.${entry.source}`)}`).join(", ");
   const trendDescription = `${t("ftpProgression.chartLabel")}: ${[
     estimatedDescription && `${t("ftpProgression.autoSeriesLabel")} ${estimatedDescription}`,
     historyDescription && `${t("ftpProgression.historySeriesLabel")} ${historyDescription}`,
   ].filter(Boolean).join("; ")}`;
+
+  const chartPoints = [
+    ...points.map((point) => ({ date: `${point.period}-01`, timestamp: Date.parse(`${point.period}-01T00:00:00Z`), value: point.ftpW, label: `${t("ftpProgression.autoSeriesLabel")} · ${t(point.source === "20m" ? "chartDetail.ftpSource20m" : "chartDetail.ftpSource1h")}`, note: t("chartDetail.ftpEstimateNote"), period: point.period })),
+    ...sortedHistory.map((entry) => ({ date: new Date(entry.changedAt).toLocaleDateString(i18n.language), timestamp: entry.changedAt, value: entry.value, label: t(`ftpProgression.source.${entry.source}`), note: t("chartDetail.ftpAppliedNote"), period: null })),
+  ].sort((a, b) => a.timestamp - b.timestamp);
+  const selectedPoint = selectedIndex == null ? null : chartPoints[Math.min(selectedIndex, chartPoints.length - 1)];
+  const selectedDayPoints = selectedPoint ? chartPoints.filter(point => new Date(point.timestamp).toISOString().slice(0, 10) === new Date(selectedPoint.timestamp).toISOString().slice(0, 10)) : [];
+  const selectPointer = (event: React.PointerEvent<SVGSVGElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (!bounds.width || !chartPoints.length) return;
+    const x = (event.clientX - bounds.left) / bounds.width * w;
+    let closest = 0;
+    chartPoints.forEach((point, index) => { if (Math.abs(sx(point.timestamp) - x) < Math.abs(sx(chartPoints[closest]!.timestamp) - x)) closest = index; });
+    setSelectedIndex(closest);
+  };
 
   const content = (
     <>
@@ -85,8 +104,17 @@ export default function FtpProgressionCard({
               <Text as="span" variant="caption" tone="secondary">┄ {t("ftpProgression.activeReferenceLabel", { value: currentFtpW })}</Text>
             )}
           </div>
-          <svg viewBox={`0 0 ${w} ${h + 24}`} role="img" aria-label={trendDescription} style={{ width: "100%", height: 168 }}>
+          <div className="ftp-progression__chart">
+          <div className="ftp-progression__y-axis" aria-hidden="true"><span>W</span>{[hi, (lo + hi) / 2, lo].map(value => <span key={value}>{value}</span>)}</div>
+          <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img" tabIndex={0} aria-label={`${trendDescription}. ${t("chartDetail.navigate")}`} className="ftp-progression__plot"
+            onPointerMove={selectPointer} onPointerDown={selectPointer} onPointerLeave={event => { if (event.pointerType === "mouse") setSelectedIndex(null); }}
+            onFocus={() => setSelectedIndex(chartPoints.length - 1)} onBlur={() => setSelectedIndex(null)}
+            onKeyDown={event => {
+              if (event.key === "Escape") setSelectedIndex(null);
+              if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); setSelectedIndex(index => Math.max(0, Math.min(chartPoints.length - 1, (index ?? chartPoints.length - 1) + (event.key === "ArrowRight" ? 1 : -1)))); }
+            }}>
             <desc>{trendDescription}</desc>
+            {[hi, (lo + hi) / 2, lo].map(value => <line key={value} x1="0" x2={w} y1={sy(value)} y2={sy(value)} stroke="var(--line-soft)" />)}
             {currentFtpW != null && currentFtpW > 0 && (
               <line x1="0" x2={w} y1={sy(currentFtpW)} y2={sy(currentFtpW)} stroke="var(--ink-4)" strokeDasharray="4 4" />
             )}
@@ -100,14 +128,18 @@ export default function FtpProgressionCard({
             {sortedHistory.map((entry) => (
               <circle key={entry.id} cx={sx(entry.changedAt)} cy={sy(entry.value)} r="4" fill="var(--violet)" />
             ))}
-            {axisPeriods.map((period, index) => shouldLabel(index) && (
-              <text key={period} x={sx(Date.parse(`${period}-01T00:00:00Z`))} y={h + 18} textAnchor={index === 0 ? "start" : index === axisPeriods.length - 1 ? "end" : "middle"} fill="var(--ink-4)" style={{ fontSize: "var(--fs-xs)" }}>
-                {formatPeriod(period)}
-              </text>
-            ))}
           </svg>
+          <div className="ftp-progression__x-axis" aria-hidden="true" data-ticks={axisTimes.length}>{axisTimes.map(timestamp => <span key={timestamp}>{formatAxisTime(timestamp)}</span>)}</div>
+          </div>
+          {selectedPoint && <div role="status" data-ftp-tooltip style={{ padding: "var(--space-3)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-sm)", background: "var(--bg-2)", color: "var(--ink-1)", fontSize: "var(--fs-sm)", overflowWrap: "anywhere" }}>
+            {selectedDayPoints.map((point, index) => <div key={index} style={{ paddingBlock: "var(--space-1)" }}>
+              <strong>{point.period ?? point.date} · {point.value} W</strong>
+              <div>{point.label}</div><div>{point.note}</div>
+            </div>)}
+            {currentFtpW != null && <div>{t("ftpProgression.activeReferenceLabel", { value: currentFtpW })}</div>}
+          </div>}
           {!compact && points.length > 0 && <Text as="p" variant="caption" tone="tertiary">{t("ftpProgression.method")}</Text>}
-          {hasHistory && (embedded ? <details data-ftp-history style={{ marginTop: "var(--space-2)" }}>
+          {hasHistory && (embedded && !showHistory ? <details data-ftp-history style={{ marginTop: "var(--space-2)" }}>
             <summary style={{ color: "var(--ink-2)", fontSize: "var(--fs-sm)", cursor: "pointer", minHeight: 44, paddingBlock: "var(--space-3)", boxSizing: "border-box" }}>{t("ftpProgression.historyDetails")}</summary>
             <div style={{ display: "grid", gap: "var(--space-1)", paddingBottom: "var(--space-2)" }}>
               {sortedHistory.slice(-4).reverse().map((entry) => (

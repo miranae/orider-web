@@ -1,0 +1,34 @@
+.power-curve-evidence { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5) var(--space-6); align-items: start; }
+.power-curve-evidence__plot { min-width: 0; padding-inline: var(--space-2); }
+.power-curve-evidence__chart { display: block; width: 100%; height: calc(var(--space-8) * 7); overflow: visible; }
+.power-curve-evidence__chart path { vector-effect: non-scaling-stroke; }
+.power-curve-evidence__axis { position: relative; height: var(--space-6); margin-top: var(--space-2); font-size: var(--fs-xs); color: var(--ink-2); font-family: var(--font-mono); }
+.power-curve-evidence__axis span { position: absolute; transform: translateX(-50%); }
+.power-curve-evidence__axis span:first-child { transform: none; }
+.power-curve-evidence__axis span:last-child { transform: translateX(-100%); }
+.power-curve-evidence__selection { display: grid; gap: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--line-soft); min-width: 0; }
+.power-curve-evidence__duration { display: grid; gap: var(--space-2); }
+.power-curve-evidence__duration-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
+.power-curve-evidence__values-info { font-size: var(--fs-xs); }
+.power-curve-evidence__values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.power-curve-evidence__values > div { min-width: 0; }
+.power-curve-evidence__note { grid-column: 1 / -1; margin: 0; padding-top: var(--space-3); border-top: 1px solid var(--line-soft); }
+@media (min-width: 64rem) {
+  .condition-riding-metrics__evidence .power-curve-evidence { grid-template-columns: minmax(0, 2fr) minmax(14rem, 1fr); }
+  .condition-riding-metrics__evidence .power-curve-evidence__selection { padding-top: 0; padding-left: var(--space-5); border-top: 0; border-left: 1px solid var(--line-soft); }
+}
+
+.bike-power-curve-evidence { min-width: 0; }
+.bike-power-curve-evidence__header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--space-3); margin-bottom: var(--space-4); }
+.bike-power-curve-evidence__header h3, .bike-power-curve-evidence__header p { margin: 0; }
+.bike-power-curve-evidence__header p { margin-top: var(--space-1); }
+.bike-power-curve-evidence__legend { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.bike-power-curve-evidence__previous, .bike-power-curve-evidence__expected { display: inline-block; width: var(--space-3); border-top: 1px dashed var(--ink-3); margin-right: var(--space-2); vertical-align: middle; }
+.bike-power-curve-evidence__expected { border-color: var(--aqua); }
+.bike-power-curve-evidence__keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--line-soft); }
+.bike-power-curve-evidence__empty { padding-block: var(--space-6); }
+.mobile-fitness-riding-metrics .fitness-zone-evidence { margin-top: var(--space-4); }
+@media (max-width: 48rem) { .bike-power-curve-evidence__keys { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 48rem) {
+  .power-curve-evidence__chart { height: calc(var(--space-8) * 4.5); }
+}
