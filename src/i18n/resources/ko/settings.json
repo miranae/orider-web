@@ -32,6 +32,7 @@
     "changed": "테마가 '{{label}}'(으)로 변경되었습니다"
   },
   "profile": {
+    "bodyInfo": "신체 정보",
     "photo": "프로필 사진",
     "photoDesc": "피드·리더보드·댓글 등 모든 프로필 표시 영역에 반영됩니다.",
     "uploadImage": "이미지 업로드",
@@ -143,6 +144,8 @@
     "phoneRequired": "비상연락처를 사용하려면 이름과 전화번호가 모두 필요합니다"
   },
   "training": {
+    "otherSports": "다른 종목 기준",
+    "settingsSport": {"bike": "사이클", "run": "러닝", "swim": "수영", "tri": "통합 · 공통 심박"},
     "loadFailed": "기준값을 불러오지 못했습니다.",
     "deviceStatus": "기기 반영 상태 보기 →",
     "sport": {
@@ -183,6 +186,9 @@
     "statVo2max": "VO₂max 추정",
     "statUnit": "ml/kg/min",
     "cardPhysique": "체격",
+    "bodyReference": "키 {{height}} {{heightUnit}} · 체중 {{weight}} {{weightUnit}}",
+    "bodyWeightBasis": "체중은 W/kg 기준",
+    "editBody": "수정",
     "fieldWeight": "체중",
     "fieldWeightHint": "kg · W/kg 계산에 사용",
     "fieldWeightLb": "체중",
@@ -231,8 +237,8 @@
       "max_hr": "최대 심박 {{bpm}} bpm 기준"
     },
     "hrZonesNote": {
-      "lthr": "실측 LTHR의 Friel 달리기 존 경계를 적용했습니다. 활동 분석 페이지에서 존별 시간 분포를 확인할 수 있습니다.",
-      "max_hr": "유효한 LTHR가 없어 최대 심박 비율을 적용했습니다. LTHR를 입력하면 달리기 존이 자동 조정됩니다."
+      "lthr": "실측 LTHR와 표시된 종목의 Friel 존 경계를 적용했습니다. 활동 분석 페이지에서 존별 시간 분포를 확인할 수 있습니다.",
+      "max_hr": "유효한 LTHR가 없어 최대 심박 비율을 적용했습니다. LTHR를 입력하면 표시된 종목의 존이 자동 조정됩니다."
     },
     "cardMedical": "의료 정보",
     "cardMedicalAction": "응급 시 구조대에 공유될 수 있음",

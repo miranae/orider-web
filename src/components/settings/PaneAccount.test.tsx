@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 // 연결 카드는 자체 테스트(SocialLinksCard.test.tsx) — 여기선 계정 화면의 읽기·쓰기 계약만 본다.
+vi.mock("./ProfileBodyEditor", () => ({ ProfileBodyEditor: () => <section id="body-info">Body measurements</section> }));
 vi.mock("./SocialLinksCard", () => ({ SocialLinksCard: () => null }));
 vi.mock("./PaneAiCoach", () => ({ PaneAiCoach: () => <section data-testid="coach-consent">Consent</section> }));
 

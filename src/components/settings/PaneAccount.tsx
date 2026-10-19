@@ -24,6 +24,7 @@ import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNav
 import { logClientError } from "../../services/errorLogger";
 
 import { SettingsCard, FieldGrid, Field, InlineRow, Toggle, fieldInputStyle } from "./_primitives";
+import { ProfileBodyEditor } from "./ProfileBodyEditor";
 import { PaneMedical } from "./PaneMedical";
 import { ProfileHero } from "./ProfileHero";
 import { LocalizedLink } from "../LocalizedLink";
@@ -315,6 +316,8 @@ export function PaneAccount() {
           </Field>
         </FieldGrid>
       </SettingsCard>
+
+      <ProfileBodyEditor />
 
       <SettingsCard data-testid="S1-2-1" title={t("pane.account.cardVisibility")} dense>
         <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", margin: "0 0 var(--space-3)" }}>{t("privacy.newActivityDefault")}</p>
