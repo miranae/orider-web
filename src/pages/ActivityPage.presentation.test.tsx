@@ -149,9 +149,11 @@ describe("ActivityPage presentation", () => {
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     const summary = await screen.findByTestId("activity-analysis-domains");
     await within(summary).findByText("dev 정본 활동 개요");
-    expect(summary.querySelector(".activity-overview-gauge")).toBeInTheDocument();
+    expect(within(summary).getByRole("img", { name: "강도 게이지 · IF 0.83 (FTP 1.00 기준)" })).toBeInTheDocument();
     expect(summary.querySelector(".activity-analysis-zone-track")).toBeInTheDocument();
-    expect(summary.querySelector(".activity-overview-shift")).toBeInTheDocument();
+    expect(within(summary).getByRole("img", { name: "체력 · CTL 10.0 → 11.0" })).toBeInTheDocument();
+    expect(within(summary).getByRole("img", { name: "피로 · ATL 12.0 → 15.0" })).toBeInTheDocument();
+    expect(within(summary).getByRole("img", { name: "폼 · TSB -2.0 → -4.0" })).toBeInTheDocument();
     expect(within(summary).getByTestId("restored-summary-curve")).toBeInTheDocument();
     const aiAnalysis = screen.getByTestId("ai-ride-analysis-card");
     expect(screen.getAllByTestId("ai-ride-analysis-card")).toHaveLength(1);
