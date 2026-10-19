@@ -524,7 +524,7 @@ if [[ "$GATE_TIER" == "feature" ]]; then
   [[ -d node_modules ]] || die "node_modules 없음 — 'npm ci' 후 재실행하세요."
 
   log "Feature→dev 경량 게이트: 변경 영향 Vitest"
-  if [[ ${#TEST_FILES[@]} -gt 0 ]]; then
+  if [[ -n "${TEST_FILES[0]:-}" ]]; then
     run_step "targeted Vitest" "Test Files|Tests |FAIL|passed|failed|No test files" \
       npm run test:vitest -- "${TEST_FILES[@]}"
   else

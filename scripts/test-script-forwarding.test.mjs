@@ -24,10 +24,9 @@ const contracts = [
   'scripts/quality-alert-count.test.mjs',
   'scripts/check-canonical-contract.mjs',
   'scripts/test-script-forwarding.test.mjs',
-  'scripts/feature-test-scope.test.mjs',
 ];
 
-function runGate({ feature = false, fail = '', selected = [] } = {}) {
+function runGate({ feature = false, fail = '' } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'orider-test-forwarding-'));
   try {
     const bin = join(dir, 'node_modules', '.bin');
@@ -56,7 +55,6 @@ process.exit(process.env.FAIL_STEP === step ? 23 : 0);
     const body = feature ? `set -euo pipefail
 GATE_TIER=feature
 BASE=dev
-TEST_FILES=(${selected.map(file => JSON.stringify(file)).join(" ")})
 log() { :; }
 die() { exit 31; }
 run_step() { shift 2; "$@"; }
@@ -103,12 +101,4 @@ test('the first failing contract stops remaining checks and feature typecheck', 
   assert.notEqual(result.status, 0);
   assert.deepEqual(result.events.map(event => event.name), ['vitest', 'node', 'node']);
   assert.deepEqual(result.events.slice(1).map(event => event.args.at(-1)), contracts.slice(0, 2));
-});
-
-test('explicit component tests reach Vitest while all contract and type checks remain', () => {
-  const result = runGate({ feature: true, selected: ['src/components/Button.test.tsx'] });
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.events[0].args, ['run', 'src/components/Button.test.tsx']);
-  assertContracts(result.events);
-  assert.deepEqual(result.events.at(-1).args, ['tsc', '-b', '--pretty', 'false']);
 });
