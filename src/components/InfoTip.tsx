@@ -22,7 +22,8 @@ interface InfoTipProps {
    * `inherit` (text triggers only): surrounding ink + dotted underline, no 24px minimum width so a short term
    * stays attached to the symbol after it ("Z4+"). The default keeps the accent trigger used elsewhere.
    */
-  tone?: "default" | "inherit";
+  /** `accent`: theme-aware semantic accent text, without an underline. */
+  tone?: "default" | "inherit" | "accent";
 }
 
 const TIP_WIDTH = 232;
@@ -173,7 +174,7 @@ export default function InfoTip({ content, title, label, termId, children, class
           border: "none",
           borderRadius: "var(--r-sm)",
           background: "transparent",
-          color: textTrigger ? tone === "inherit" ? "inherit" : "var(--color-primary-dark)" : "var(--ink-3)",
+          color: textTrigger ? tone === "inherit" ? "inherit" : tone === "accent" ? "var(--accent-text)" : "var(--color-primary-dark)" : "var(--ink-3)",
           ...(textTrigger && tone === "inherit" ? { textDecoration: "underline dotted", textUnderlineOffset: "0.2em" } : {}),
           cursor: "help",
           font: "inherit",

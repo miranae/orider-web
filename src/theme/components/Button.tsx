@@ -77,6 +77,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type}
       disabled={disabled || loading}
       data-loading={loading || undefined}
+      aria-busy={loading || undefined}
       className={cn(
         'ds-btn',
         `ds-btn--${variant}`,
@@ -91,7 +92,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     >
       {loading && <span className="ds-btn__spinner" aria-hidden />}
       {!loading && leadingIcon && <span className="ds-btn__icon" aria-hidden>{leadingIcon}</span>}
-      {children && <span className="ds-btn__label">{children}</span>}
+      {children && (!loading || !iconOnly) && <span className="ds-btn__label">{children}</span>}
       {!loading && trailingIcon && <span className="ds-btn__icon" aria-hidden>{trailingIcon}</span>}
     </button>
   );

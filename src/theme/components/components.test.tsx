@@ -212,7 +212,7 @@ describe('Text', () => {
   it('기본 한글 조판 보호 규칙을 가진다', () => {
     const css = readFileSync(join(process.cwd(), 'src/theme/components/components.css'), 'utf8');
     expect(css).toContain('.ds-text { color: inherit; overflow-wrap: anywhere; word-break: keep-all; }');
-    expect(css).toContain('.ds-card__title { margin: 0; font-size: var(--fs-lg);');
+    expect(css).toMatch(/\.ds-card__title \{[^}]*overflow-wrap: anywhere; word-break: keep-all;/);
   });
 });
 

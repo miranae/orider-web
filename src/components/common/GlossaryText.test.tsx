@@ -149,7 +149,7 @@ describe("GlossaryText", () => {
 
 describe("InfoTip interactions", () => {
   it("uses separate design-system title and body text for structured explanations", () => {
-    render(<InfoTip title="훈련 부하 점수" content="시간과 상대 강도로 계산합니다." label="TSS 설명">TSS</InfoTip>);
+    render(<InfoTip tone="accent" title="훈련 부하 점수" content="시간과 상대 강도로 계산합니다." label="TSS 설명">TSS</InfoTip>);
     const button = screen.getByRole("button", { name: "TSS 설명" });
     fireEvent.focus(button);
     const tooltip = screen.getByRole("tooltip");
