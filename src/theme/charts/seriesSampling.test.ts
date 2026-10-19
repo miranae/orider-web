@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { sampleChartSeries as sampleRideChart } from "./seriesSampling";
+import { chartSamplingGrid, sampleChartSeries as sampleRideChart } from "./seriesSampling";
 
 const raw = Array.from({ length: 12000 }, (_, x) => ({ x, y: x }));
 it("reduces 12000 samples to 153 interval sample means at 1400px, with a hard limit", () => {
@@ -101,4 +101,45 @@ it("preserves invalid and reversed-coordinate run boundaries when opting in", ()
   expect(gapIndex).toBeGreaterThan(0);
   expect(gapIndex).toBeLessThan(sampled.length - 1);
   expect(sampled.every(point => Number.isFinite(point.x))).toBe(true);
+});
+
+
+it('anchors complete mean bins to one global grid so overlapping pan windows have identical points and new edges', () => {
+  const source = Array.from({ length: 12000 }, (_, x) => ({ x, y: Math.sin(x / 31) * 100 + x }));
+  const grid = chartSamplingGrid([1000, 3000], 280, 0);
+  const first = sampleRideChart(source, [1000, 3000], 280, 'preserve-runs', grid);
+  const next = sampleRideChart(source, [1500, 3500], 280, 'preserve-runs', grid);
+  expect(first.filter(point => point.x >= 1500 && point.x <= 3000)).toEqual(next.filter(point => point.x >= 1500 && point.x <= 3000));
+  expect(next.some(point => point.x > 3000 && point.y != null)).toBe(true);
+  expect(next.length).toBeLessThanOrEqual(34);
+  expect(source[0]).toEqual({ x: 0, y: 0 });
+});
+it('does not switch a grid window between raw and averaged data and includes full boundary bins', () => {
+  const source = [{ x: 0, y: 0 }, { x: 40, y: 100 }, { x: 90, y: 200 }, { x: 100, y: 0 }];
+  const grid = { origin: 0, binWidth: 100 };
+  const first = sampleRideChart(source, [20, 80], 1400, 'preserve-runs', grid);
+  const second = sampleRideChart(source, [30, 90], 1400, 'preserve-runs', grid);
+  expect(first).toEqual(second);
+  expect(first).toContainEqual({ x: 50, y: 100 });
+  expect(sampleRideChart([{ x: 0, y: 100 }, { x: 10, y: 200 }], [4, 6], 1400, 'preserve-runs', { origin: 0, binWidth: .01 })).toEqual([{ x: 0, y: 100 }, { x: 10, y: 200 }]);
+});
+it('keeps grid short-run endpoints and zero separated from null, reversed and invalid-coordinate runs', () => {
+  const source = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: null }, { x: 3, y: 200 }, { x: 4, y: 200 }, { x: NaN, y: 100 }, { x: 5, y: 10 }, { x: 4, y: 20 }];
+  const result = sampleRideChart(source, [0, 10], 70, 'preserve-runs', { origin: 0, binWidth: 100 });
+  expect(result.slice(0, 3)).toEqual([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: null }]);
+  expect(result).toContainEqual({ x: 3, y: 200 });
+  expect(result).toContainEqual({ x: 4, y: 200 });
+  expect(result.filter(point => point.y === null)).toHaveLength(3);
+  expect(source[2]!.y).toBeNull();
+});
+it('blocks conservative grid bins at invalid and reversed-coordinate boundaries', () => {
+  const grid = { origin: 0, binWidth: 1 };
+  const invalid = sampleRideChart([{ x: 0, y: 10 }, { x: NaN, y: 10 }, { x: 1, y: 20 }], [0, 2], 70, 'conservative', grid);
+  expect(invalid.find(point => point.x === 0)!.y).toBeNull();
+  expect(invalid.find(point => point.x === 1)!.y).toBe(20);
+  const reverse = sampleRideChart([{ x: 0, y: 0 }, { x: 2, y: 20 }, { x: 1, y: 10 }, { x: 3, y: 30 }], [0, 3], 70, 'conservative', grid);
+  expect(reverse.find(point => point.x === 0)!.y).toBe(0);
+  expect(reverse.find(point => point.x === 1)!.y).toBeNull();
+  expect(reverse.find(point => point.x === 2)!.y).toBeNull();
+  expect(reverse.find(point => point.x === 3)!.y).toBe(30);
 });
