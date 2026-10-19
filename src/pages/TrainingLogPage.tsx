@@ -13,6 +13,7 @@ import type { Activity } from "@shared/types";
 import type { PlanDay, PlanWeek } from "@shared/types/goal";
 import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
+import RecentActivitySummary from "../components/activity/RecentActivitySummary";
 import ImportActivityModal from "../components/mobile/ImportActivityModal";
 import SportFilterTabs from "../components/mobile/SportFilterTabs";
 import { getDiscipline } from "../utils/disciplineFilter";
@@ -691,6 +692,7 @@ export default function TrainingLogPage() {
       <>
       {representativeState.error && <ErrorState title={tCommon("error.title")} onRetry={representativeState.retry} compact />}
       <MobileLogPage
+        recentSummarySlot={isMobile && !user.isAnonymous ? <RecentActivitySummary key={user.uid} sport={sportFilter} /> : undefined}
         plannedDates={[...visiblePlans.keys()]}
         plannedSports={Object.fromEntries([...visiblePlans].map(([date, plans]) => [date, plans[0]?.discipline ?? "bike"]))}
         ftp={ftp}

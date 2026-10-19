@@ -34,7 +34,7 @@ import { isSignInCancelled } from "../utils/signInCancelled";
 import { useToast } from "../contexts/ToastContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { formatTrainingLoad } from "../utils/trainingLoadDisplay";
-import { formatDistance, formatElev } from "../utils/units";
+import { formatDistance } from "../utils/units";
 import { useActivities, useWeeklyStats, useActivitySearch } from "../hooks/useActivities";
 import type { ActivityFeedScope, DatePreset } from "../hooks/useActivities";
 import { useFriends } from "../hooks/useFriends";
@@ -46,6 +46,7 @@ import { canonicalKpiPresentation, canonicalKpiSource, canonicalWeekTotals } fro
 import { useDashboardPreferences } from "../hooks/useDashboardPreferences";
 import { selectStoredDashboardFitness } from "../features/home/storedDashboardFitness";
 import HomeTodayStrip from "../components/dashboard/HomeTodayStrip";
+import HomeUpcomingEvents from "../components/dashboard/HomeUpcomingEvents";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import { useMobile } from "../hooks/useMobile";
 import { Button, Card, Chip, Input, Text, buttonClass } from "../theme/components";
@@ -158,12 +159,7 @@ export function filterFeedActivities(
 // ── 유틸리티 함수 ──
 
 /** 밀리초 → "H:MM" 형식 */
-function formatDuration(ms: number): string {
-  const totalMinutes = Math.floor(ms / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${hours}:${minutes.toString().padStart(2, "0")}`;
-}
+
 
 /** 숫자 콤마 포맷 */
 function formatNum(n: number, locale: string): string {
@@ -231,23 +227,24 @@ function DashboardContent() {
   const { activities, loading, loadMore, hasMore, loadingMore, totalCount, error: feedError, retry: retryFeed } = useActivities(feedScope, [...friendIds]);
   // 정본(서버 집계) 홈 요약 — `homeSummary` 서버 전환 판정 AND 빌드 플래그 뒤에 있다.
   // 꺼져 있으면(오늘의 기본값) 아래 KPI 는 useWeeklyStats 의 클라 집계를 그대로 그린다.
-  const canonicalHome = useCanonicalHomeSummary();
-  const canonicalFitness = useCanonicalFitnessSummary();
+  const canonicalHome = useCanonicalHomeSummary(!isMobile);
+  const canonicalFitness = useCanonicalFitnessSummary("homeSummary", !isMobile);
   const activitySearch = useActivitySearch(friendIds);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const sportParam = searchParams.get("sport");
   const parsedDiscipline = normalizeDashboardDiscipline(sportParam);
   const requestedDiscipline = parsedDiscipline === "swim" ? "bike" : parsedDiscipline;
-  const mobileSportFilter = requestedDiscipline === "tri" ? "all" : requestedDiscipline ?? (dashboardPreferences.sportFilter === "swim" ? "bike" : dashboardPreferences.sportFilter);
+  const mobileSportFilter = parsedDiscipline === "tri" ? "all" : parsedDiscipline ?? dashboardPreferences.sportFilter;
   const discipline: Discipline = isMobile ? (mobileSportFilter === "all" ? "tri" : mobileSportFilter) : requestedDiscipline ?? "bike";
   const selectedDiscipline = isMobile ? mobileSportFilter : discipline;
   const runStats = useWeeklyStats({
-    includeMonthlyDistance: true,
+    enabled: !isMobile,
+    includeMonthlyDistance: !isMobile,
     discipline: selectedDiscipline === "run" ? "run" : undefined,
     recent7DayDiscipline: selectedDiscipline === "all" ? undefined : selectedDiscipline,
   });
-  const { weeklyStats, thisWeek, recent7DayDistances, recent7DayCount, monthlyActivityDistance } = runStats;
+  const { weeklyStats, thisWeek, monthlyActivityDistance } = runStats;
   // ── 러닝 탭 전용 데이터 (§3.0 / §3.4c / §3.7) ────────────────────────────
   // 8주 창 하나로 리캡(3주)과 러너 레벨(8주)을 함께 커버한다 — 쿼리 1회.
   const isRunTab = discipline === "run";
@@ -256,7 +253,7 @@ function DashboardContent() {
   const showOwnerRunningJourney = showOwnerRunningSummary;
   const RUN_HISTORY_WEEKS = 8;
   const runHistory = useRunHistory(RUN_HISTORY_WEEKS, showOwnerRunningSummary);
-  const { fitness: userFitness } = useUserFitness(showOwnerRunningJourney || (!!user && !user.isAnonymous && !canonicalFitness.enabled));
+  const { fitness: userFitness } = useUserFitness(!isMobile && (showOwnerRunningJourney || (!!user && !user.isAnonymous && !canonicalFitness.enabled)));
   // 창 길이·계정 생성일을 함께 넘긴다 — 창이 계정 수명을 못 덮으면 "첫 러닝" 축하를 하지 않는다.
   const firstSync = useFirstSyncCelebration(
     runHistory.runs,
@@ -342,7 +339,7 @@ function DashboardContent() {
   const heroTitle = isAnon
     ? t("header.anonTitle")
     : `${t("header.greetingPrefix")}${userName}${t("header.greetingSuffix")}`;
-  const showYearRecapBanner = !!user && selectedDiscipline !== "run" && isYearRecapSeason();
+  const showYearRecapBanner = !!user && !user.isAnonymous && selectedDiscipline !== "run" && isYearRecapSeason();
 
   /**
    * 모바일 피드의 7일 스파크라인은 **일자별 거리 배열**이다. 정본 봉투의 `calendar` 는
@@ -350,7 +347,6 @@ function DashboardContent() {
    * 대신 두 값 모두 클라 집계로 남긴다 (#2237). 같은 출처끼리 묶어 둬야 막대와 개수가
    * 서로 어긋나지 않는다.
    */
-  const mobileWeeklySummary = { activityCount: recent7DayCount, distances: recent7DayDistances, available: runStats.recent7DayCoverage === "ready" };
 
   const weekSource = canonicalKpiSource(canonicalHome.enabled, canonicalHome.display, canonicalHome.totals);
   /**
@@ -486,23 +482,13 @@ function DashboardContent() {
 
   </div> : null;
 
-  const todayStrip = user && !user.isAnonymous ? <HomeTodayStrip discipline={discipline === "tri" ? "bike" : discipline} conditionDiscipline={discipline} weeklyDiscipline={canonicalHome.enabled ? "tri" : discipline}
+  const todayStrip = !isMobile && user && !user.isAnonymous ? <HomeTodayStrip discipline={discipline === "tri" ? "bike" : discipline} conditionDiscipline={discipline}
     fitness={showFitnessNumbers ? kpiFitness : null} conditionSummary={conditionSummary} thresholdSummary={<Text as="p" variant="caption" tone="tertiary"><GlossaryText>{`${thresholdKpi.label} · ${thresholdKpi.value}${thresholdKpi.unit ? ` ${thresholdKpi.unit}` : ""}`}</GlossaryText></Text>} mobile={isMobile}
     monthlyFlowPercent={runStats.monthlyFlowPercent}
     secondaryDetails={showOwnerRunningJourney && !hasNoRuns ? <CrossDisciplineLoadCard fitness={userFitness} discipline="run" /> : null}
     runningRecap={showRecap && runRecap && !hasNoRuns ? <WeeklyRecapCard recap={runRecap} /> : null}
     monthlyKm={monthlyActivityDistance / 1000}
     weeklyAverageKm={weeklyStats.length ? weeklyStats.reduce((sum, week) => sum + week.distance, 0) / weeklyStats.length : 0}
-    weeklySummary={<>
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-2">{[
-        [t("kpi.weekDistance"), formatDistance(weekTotals.distance, units)],
-        [t("kpi.activities"), t("feed.countSuffix", { value: weekTotals.rides })],
-        [t("kpi.movingTime"), t("weeklySummary.durationHourMin", { h: Math.floor(weekTotals.time / 3600000), m: Math.floor(weekTotals.time / 60000) % 60 })],
-        [t("kpi.elevation"), formatElev(weekTotals.elevation, units)],
-      ].map(([label, value]) => <div key={label}><Text as="dt" variant="caption" tone="tertiary"><GlossaryText>{label}</GlossaryText></Text><Text as="dd" variant="dataSmall" mono>{showWeekNumbers ? value : "—"}</Text></div>)}</dl>
-      {!showWeekNumbers && <Text as="p" variant="caption" tone="tertiary">{weekSub}</Text>}
-      {weekChip && <Chip>{weekChip}</Chip>}
-    </>}
     weeklyDetails={isMobile ? null : <>            {user && isRunTab && (() => {
               const weeks = weeklyStats.slice(-8);
               const ready = runStats.coverage === "ready";
@@ -586,7 +572,7 @@ function DashboardContent() {
   if (isMobile) {
     return (
       <MobileFeedPage
-        todayStrip={todayStrip}
+        notices={user && !user.isAnonymous ? <HomeUpcomingEvents compact /> : null}
         activitySearch={activitySearch}
         runningJourney={runningJourney}
         activities={activities}
@@ -597,19 +583,12 @@ function DashboardContent() {
         loadingMore={loadingMore}
         onLoadMore={loadMore}
         showYearRecapBanner={showYearRecapBanner}
-        weeklySummary={mobileWeeklySummary}
-        runSummary={mobileSportFilter === "run" && user && !user.isAnonymous ? {
-          count: String(thisWeek.rides), distance: formatDistance(thisWeek.distance, units),
-          time: formatDuration(thisWeek.time), elevation: formatElev(thisWeek.elevation, units),
-          available: runStats.recent7DayCoverage === "ready",
-        } : undefined}
         currentUserId={user?.uid ?? null}
         friendIds={[...friendIds]}
         feedScope={feedScope}
         onFeedScopeChange={(scope) => updateDashboardPreferences({ feedScope: scope })}
         sportFilter={mobileSportFilter}
         onSportFilterChange={(sportFilter) => {
-          if (sportFilter === "swim") return;
           updateDashboardPreferences({ sportFilter });
           if (requestedDiscipline) {
             const next = new URLSearchParams(searchParams);

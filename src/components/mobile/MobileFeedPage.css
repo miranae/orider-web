@@ -6,3 +6,39 @@
 .mobile-feed-card [data-map-thumbnail-frame] img {
   object-fit: contain;
 }
+
+.mobile-feed-heading {
+  padding: var(--space-4);
+}
+
+.mobile-feed-guest-context {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.mobile-feed-guest-context p { flex: 1; min-width: 0; }
+.mobile-feed-feed-heading { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); padding: var(--space-3) var(--space-4) var(--space-2); border-bottom: 1px solid var(--line-soft); }
+.mobile-feed-active-filters { margin-top: var(--space-2); }
+.mobile-feed-activity-title { margin: 0; align-self: center; overflow-wrap: anywhere; }
+.mobile-feed-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-4); margin-top: var(--space-3); }
+.mobile-feed-stats--run { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.mobile-feed-stat { min-width: 0; display: flex; flex-direction: column; gap: var(--space-1); overflow-wrap: anywhere; }
+
+
+.mobile-feed-notices { display: flex; flex-direction: column; gap: var(--space-2); padding-inline: var(--space-4); }
+.mobile-feed-notices:not(:empty) { padding-block: var(--space-3); }
+
+
+.mobile-feed-activity-metadata { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-1); overflow-wrap: anywhere; margin-top: var(--space-1); }
+
+.mobile-feed-card-header { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: var(--space-3); row-gap: var(--space-2); padding-bottom: 5px; }
+.mobile-feed-card-avatar { position: relative; z-index: 2; align-self: start; }
+.mobile-feed-card-identity { min-width: 0; align-self: center; }
+.mobile-feed-card-sport { display: flex; align-items: center; justify-content: center; align-self: center; color: var(--ink-1); }
+.mobile-feed-card-warning { grid-column: 2; justify-self: start; }
+.mobile-feed-filter-row { display: grid; grid-template-columns: minmax(0, 3fr) repeat(3, minmax(0, 1fr)); gap: var(--space-1); margin-top: var(--space-2); }
+.mobile-feed-filter-row--public { grid-template-columns: minmax(0, 3fr) repeat(2, minmax(0, 1fr)); }
+.mobile-feed-filter-row--no-search { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mobile-feed-filter-row--public.mobile-feed-filter-row--no-search { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mobile-feed-filter-row > * { min-width: 0; }

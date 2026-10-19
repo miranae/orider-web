@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import FitnessChart from "./FitnessChart";
+import { PMC_LINE_PALETTE } from "../features/fitness/chartPalette";
 
 describe("FitnessChart activity markers", () => {
   afterEach(() => vi.unstubAllGlobals());
@@ -105,7 +106,8 @@ describe("FitnessChart activity markers", () => {
       unobserve() {}
     }
     vi.stubGlobal("ResizeObserver", NarrowResizeObserver);
-    const { container } = renderWithProviders(
+    vi.stubGlobal("innerWidth", 320);
+    renderWithProviders(
       <FitnessChart
         data={[
           { date: "2026-09-01", ctl: 38, atl: 42, tsb: -4, dailyLoad: 50 },
@@ -121,15 +123,30 @@ describe("FitnessChart activity markers", () => {
     Object.defineProperty(chart, "createSVGPoint", { value: () => svgPoint });
     Object.defineProperty(chart, "getScreenCTM", { value: () => ({ inverse: () => ({}) }) });
     fireEvent.pointerMove(chart, { clientX: 160, clientY: 10 });
-    const tooltip = container.querySelector('[data-pmc-tooltip="true"]');
-    const x = Number(tooltip?.getAttribute("x"));
-    const width = Number(tooltip?.getAttribute("width"));
-    expect(x).toBeGreaterThanOrEqual(0);
-    expect(x + width).toBeLessThanOrEqual(320);
-    const samples = [...container.querySelectorAll("[data-pmc-tooltip-metric] line")];
-    expect(samples).toHaveLength(3);
-    expect(samples.map(sample => sample.getAttribute("stroke-dasharray"))).toEqual([null, "7 4", "1 4"]);
-    expect(samples.map(sample => sample.getAttribute("stroke-linecap"))).toEqual(["round", "butt", "round"]);
+    const tooltip = screen.getByRole("tooltip");
+    const left = Number.parseFloat(tooltip.style.left);
+    const width = Number.parseFloat(tooltip.style.width);
+    expect(left).toBeGreaterThanOrEqual(12);
+    expect(left + width).toBeLessThanOrEqual(308);
+    expect(tooltip).toHaveTextContent("주평균");
+    expect(tooltip).toHaveTextContent("ATL");
+  });
+
+  it("makes historical and forecast details available by keyboard without inventing forecast load", () => {
+    renderWithProviders(<FitnessChart
+      data={[{ date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 60 }]}
+      projection={[{ date: new Date("2026-09-07T00:00:00").getTime(), ctl: 41, atl: 44, tsb: -3 }]}
+    />);
+    const chart = screen.getByRole("img");
+    expect(chart).toHaveAttribute("tabindex", "0");
+    fireEvent.focus(chart);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("2026-09-06");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("60.0");
+    fireEvent.keyDown(chart, { key: "ArrowRight" });
+    expect(screen.getByRole("tooltip")).toHaveTextContent("2026-09-07");
+    expect(screen.getByRole("tooltip")).not.toHaveTextContent("60.0");
+    fireEvent.keyDown(chart, { key: "Escape" });
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 
   it("commits taps to the nearest historical point without committing hover or projection indexes", () => {
@@ -158,5 +175,17 @@ describe("FitnessChart activity markers", () => {
     expect(onSelectedIndexChange).not.toHaveBeenCalled();
     fireEvent.pointerLeave(chart);
     expect(container.querySelector('[data-pmc-tooltip-metric="CTL"]')).not.toBeInTheDocument();
+  });
+  it("repeats solid, dashed, and dotted patterns beside readable tooltip metrics", () => {
+    renderWithProviders(<FitnessChart data={[{ date: "2026-09-06", ctl: 40, atl: 45, tsb: -5, dailyLoad: 60 }]} />);
+    fireEvent.focus(screen.getByRole("img"));
+    const tooltip = screen.getByRole("tooltip");
+    for (const metric of ["ctl", "atl", "tsb"] as const) {
+      const sample = tooltip.querySelector(`[data-pmc-tooltip-sample="${metric}"]`);
+      expect(sample).toBeInTheDocument();
+      if (PMC_LINE_PALETTE[metric].dasharray) expect(sample).toHaveAttribute("stroke-dasharray", PMC_LINE_PALETTE[metric].dasharray);
+      else expect(sample).not.toHaveAttribute("stroke-dasharray");
+      expect(tooltip.querySelector(`[data-pmc-tooltip-metric="${metric.toUpperCase()}"]`)).toHaveTextContent(metric.toUpperCase());
+    }
   });
 });

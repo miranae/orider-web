@@ -1,11 +1,26 @@
 # 디자인 시스템 (Web)
 
+실물 React 카탈로그: [디자인 시스템 컨트롤](/design-system-controls.html) · [소스](../dev/designSystemControls.tsx) · [컴포넌트 사용 가이드](components/README.md).
+
 앱(KMP `shared/theme`) 의 토큰·테마 인터페이스·런타임 교체 구조를 웹에 포팅한 모듈.
 
 이 manifest는 #372 Phase 1의 **웹 canonical/export contract**다. 현재 생성 대상은
 웹 TypeScript/CSS뿐이며, KMP `Orider*Tokens.kt`는 아직 앱 저장소가 소유한다.
 따라서 이 단계만으로 앱↔웹 단일 진실원이 완성된 것은 아니다. Kotlin 생성 경로와
 cross-repo 배포/버전 계약은 후속 작업으로 남겨 둔다.
+
+## 시각 기준 — Apple HIG + ORider 브랜드
+
+웹 공통 컴포넌트는 [Apple Human Interface Guidelines](https://developer.apple.com/kr/design/human-interface-guidelines/)를 기본으로 삼고, 강조색에는 ORider 브랜드 컬러를 적용한다. 원칙만 인용하는 수준을 넘어 서체, 버튼 형태, 선택 면, 중립 표면과 간격을 같은 기준으로 맞춘다. 네이티브 플랫폼 구현이나 Apple 인증을 뜻하지 않는다.
+
+- 서체는 Apple 시스템 서체를 우선하는 시스템 스택을 사용한다. 다른 운영체제에서는 해당 시스템 서체로 대체하며 Apple 폰트 파일을 배포하지 않는다.
+- 주요 행동은 채운 버튼, 보조 행동은 절제된 색 면, 낮은 위계 도구는 plain 표현으로 구별한다. 인접한 대안의 크기를 달리해 위계를 만들지 않는다.
+- 단일 선택은 일관된 선택 면의 segmented control, 다중 지표 선택은 체크가 있는 토글, 즉시 실행 명령은 툴바로 구분한다.
+- 지도 카메라는 한 조작 면에 묶고, 지도 영역 확대는 좌상단·우하단 `//`로 제공한다. 차트의 데이터와 읽기 영역보다 조작부가 강하게 보이지 않도록 한다.
+- 색만으로 상태를 표현하지 않고, 누름·포커스·비활성·처리 중 상태를 공통 구현한다. 작은 화면에서도 조작 영역과 긴 레이블을 확보한다.
+- 차트는 데이터 선을 우선하고 축·단위·범위·고정 값 표가 해석을 돕게 한다. 서로 다른 단위는 정렬된 레인으로 나눈다.
+
+구체적인 선택·조합과 상태는 [실물 카탈로그](/design-system-controls.html), 컴포넌트 API는 [사용 가이드](components/README.md)가 정본이다. 새 화면에서 개별적인 버튼·지도·차트 표현을 다시 만들지 않는다.
 
 ## 레이어
 
@@ -71,3 +86,32 @@ CSS 에서는 기존 `var(--bg-0)`, `var(--lime)` 등을 그대로 사용 — pr
 - `npm run check:design-tokens`은 산출물이 manifest와 다르면 실패한다.
 - 지도 트랙/계획 경로 색은 브랜드 accent와 별개인 `functionalColors.map`에서 관리한다.
 - Chart.js 등 비-React 코드: `readVariantFromDom()` 또는 `getComputedStyle(document.documentElement)` 로 조회.
+
+## 지도·차트 표현 소유권
+
+지도 크기/위치 컨트롤, 차트 툴바·토글·레인·범위 캡션·두 줄 값은
+`src/theme/components`의 공통 프리미티브를 사용한다. 컴포넌트 API와 마이그레이션 예는
+[components/README.md](components/README.md#지도차트-컨트롤)에 있다.
+
+Canvas 선 표현과 표시 밀도 상수는 React에 의존하지 않는
+`src/theme/charts/chartPresentation.ts`가 소유한다. 기능 페이지는 원본 데이터·권한·시계·축 domain·
+관측 평균·지도 카메라를 계속 소유하고, 화면 CSS에서 DS 내부 선택자를 덮어쓰지 않는다.
+
+## 카드·섹션·표·복합 차트의 역할
+
+- `Section`은 하나의 주제와 제목·설명·동작을 연결한다. 섹션 전체를 다시 카드로 감싸지 않고, 정렬과 주제 간격으로 큰 흐름을 드러낸다.
+- `Card`는 관련 내용에 별도 표면이 필요한 경우 사용한다. 내부의 하위 관계는 여백과 정렬로 표현하고 카드를 중첩하지 않는다. `default`·`flat`·`inset`·`bare`의 선택과 실제 조합은 카탈로그를 따른다.
+- `DataTable`은 정확한 수치 비교를 맡는다. 열 이름·단위, 숫자 정렬, 0과 미수신의 구분, 정렬 상태, 로딩과 빈 상태를 보존한다. 좁은 화면에서는 정보를 생략하지 않고 표 영역 안에서 가로로 탐색한다.
+- `ComboChart`는 같은 시간축에서 다른 종류의 표시를 조합한다. 막대와 선, 각 단위 축과 범례를 명시하고 축은 최대 두 개로 제한한다. 서로 다른 단위의 높이를 직접 비교하거나 인과관계를 뜻하는 설명을 붙이지 않는다. 정확한 선택값은 고정된 읽기 영역에 남긴다. 여러 사람의 동일 지표를 비교할 때는 `ComparisonChart`를 사용한다.
+
+참고: Apple HIG [Boxes](https://developer.apple.com/design/human-interface-guidelines/boxes), [Lists and tables](https://developer.apple.com/design/human-interface-guidelines/lists-and-tables), [Charts](https://developer.apple.com/design/human-interface-guidelines/charts).
+
+### Native filter selection
+
+`Select variant="filter"` provides a compact neutral filter surface (`bg-2`, `ink-1`, `r-lg`) while retaining the native picker, keyboard behavior and accessible label. Use `Field` captions to distinguish adjacent filters. Its left/right padding uses `space-2`/`space-5`; hover uses `bg-3`, keyboard focus has an accent outline, and invalid state retains its error border. Default `Select` styling remains unchanged. The shared 48px mobile/coarse-pointer minimum height and mobile 16px input guard also apply to this variant.
+
+`Input endAction={<IconButton type="submit" aria-label="Search" … />}` places an optional action inside the trailing edge of the input. The input retains its native attributes, form name and forwarded ref; reserved padding keeps text clear of the action. The slot maintains a 48px input surface around the standard 44px IconButton target. Callers own disabled/empty state and submission; Enter and button submission should perform the same action.
+
+### Sport pictograms
+
+`SportIcon` keeps its existing side view by default. The mobile activity feed opts into `perspective="rear"` for a lively lower-left to upper-right, rear three-quarter view; other screens retain their existing icons. Both perspectives use `currentColor` and the existing `sport`/`size` API. The pictogram is decorative inside a labelled sport container; retain the sport name and separate indoor/data-warning information for accessibility. The live catalogue shows cycling, running and swimming at 18/24/32px in both perspectives for legibility review.

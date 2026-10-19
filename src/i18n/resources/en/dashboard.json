@@ -103,6 +103,10 @@
     "cta": "View recap"
   },
   "streak": {
+    "allEyebrow": "All-sport activity routine",
+    "allTitle": "{{count}}-week activity streak",
+    "allMaintained": "{{count}} activity day(s) this week · streak maintained",
+    "allNeedOne": "1 active day to keep this week · one weekend activity keeps it alive",
     "eyebrow": "Riding routine",
     "title": "{{count}}-week streak",
     "maintained": "{{count}} ride(s) this week · streak maintained",
@@ -248,6 +252,39 @@
     }
   },
   "mobileFeed": {
+    "inlineFilters": {
+      "scopeAll": "Public: All",
+      "scopeFriends": "Public: Friends",
+      "scopeSelf": "Public: Me",
+      "dateAll": "Period: All",
+      "date7d": "Period: 7d",
+      "date30d": "Period: 30d",
+      "date90d": "Period: 90d",
+      "sport": {
+        "all": "Sport: All",
+        "bike": "Sport: Cycling",
+        "run": "Sport: Running",
+        "swim": "Sport: Swimming"
+      }
+    },
+    "searchLabel": "Search",
+    "sportLabel": "Sport",
+    "scopeSelf": "Me",
+    "date7d": "7d",
+    "date30d": "30d",
+    "date90d": "90d",
+    "searchContext": "Search: {{query}}",
+
+    "occurred": {
+      "today": "Today at {{time}}",
+      "yesterday": "Yesterday at {{time}}",
+      "unknown": "Activity time unavailable"
+    },
+    "homeTitle": "Home",
+    "feedTitle": "Activity feed",
+    "publicTitle": "Public activities",
+    "publicDescription": "Explore riders’ activities. Sign in to see your own records too.",
+
     "runSummary": {
       "count": "Activity count",
       "distance": "Distance traveled",
@@ -465,9 +502,11 @@
       "atlHint": "Short-term training load",
       "tsbLabel": "TSB · Form",
       "tsbHint": "Fitness minus fatigue",
+      "conditionSource": "Combined model aggregating discipline loads",
       "authoritativeSource": "Server-computed combined CTL · ATL · TSB across cycling, running, and swimming",
       "detailsToggle": "Calculation and interpretation notes",
       "contributionTitle": "Current fitness contribution",
+      "contributionBasis": "Current CTL contributions describe the accumulated training load by sport. They are not recommended proportions for future training.",
       "discipline": {
         "bike": "Cycling",
         "run": "Running",
@@ -686,6 +725,10 @@
     "distanceFormattedTitle": "Week of {{week}} · {{distance}}{{partial}}",
     "distanceUnknownTitle": "Week of {{week}} · Distance unavailable",
     "distancePartialTitle": "Week {{week}} · {{value}}+ km"
+  },
+  "recentActivitySummary": {
+    "partial": "The last 7 days total is unavailable because some activity history could not be verified.",
+    "allSports": "Last 7 days · all sports"
   },
   "todayStrip": {
     "goalCountdownTitle": "Days to your goal",

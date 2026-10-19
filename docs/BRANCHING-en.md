@@ -116,3 +116,7 @@ If a rollback is needed, prefer a revert PR against `main` so the public history
 ## Security Branches
 
 Use `security/` only for coordinated fixes that should not expose vulnerability details in public PR text. Do not include secrets, exploit steps, private user data, or sensitive backend paths in public discussion. Report vulnerabilities through [SECURITY.md](../SECURITY-en.md).
+
+### CodeQL merge policy
+
+CodeQL scanning stays enabled but is non-blocking in `scripts/merge-pr.sh`. Only checks identified through GitHub’s official app and a matching head/check-suite CodeQL workflow are excluded. Other failed or unknown checks, conflicts, protection rules, and head changes still block merging. The default waits for ordinary checks; `--no-wait` still rejects pending ordinary checks.

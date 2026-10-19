@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, useNavigate } from "react-router-dom";
 import { getDocs, onSnapshot, where } from "firebase/firestore";
@@ -5,10 +6,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TrainingLogPage from "./TrainingLogPage";
 import { planCalendarDate, planMonthBounds } from "@shared/training/planDate";
 
-const state = vi.hoisted(() => ({ mobile: false, user: { uid: "rider" } }));
+const state = vi.hoisted(() => ({ mobile: false, user: { uid: "rider" } as { uid: string; isAnonymous?: boolean } | null, recentRead: vi.fn() }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: state.user }) }));
 vi.mock("../hooks/useMobile", () => ({ useMobile: () => state.mobile }));
 vi.mock("../components/mobile/ImportActivityModal", () => ({ default: () => null }));
+vi.mock("../components/activity/RecentActivitySummary", () => ({ default: function Summary({ sport }: { sport: string }) { useEffect(() => { state.recentRead(); }, []); return <section data-testid="rolling-summary">Rolling summary · {sport}</section>; } }));
 
 // 훈련 달력의 날짜 경계는 실행 머신의 시간대와 무관하게 KST 계약을 따른다.
 const now = planCalendarDate(Date.now());
@@ -24,6 +26,8 @@ const summaries = [
 
 beforeEach(() => {
   state.mobile = false;
+  state.user = { uid: "rider" };
+  state.recentRead.mockClear();
   const docs = [...summaries, null].map((summary, index) => ({
     id: `ride-${index}`,
     data: () => ({ userId: "rider", startTime: startTime + index * 2 * 3600000, type: "Ride", description: `Ride ${index}`, summary }),
@@ -45,6 +49,28 @@ function QueryNavigation() {
 }
 
 describe("운동 기록의 부분 요약", () => {
+  it("mounts the recent summary only for a mobile owner's activity tab and keeps it across sport changes", async () => {
+    state.mobile = true;
+    render(<MemoryRouter initialEntries={["/?sport=run"]}><QueryNavigation /><TrainingLogPage /></MemoryRouter>);
+    await screen.findByRole("tab", { name: "활동" });
+    expect(state.recentRead).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("tab", { name: "활동" }));
+    expect(await screen.findByTestId("rolling-summary")).toHaveTextContent("run");
+    expect(state.recentRead).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Change sport query" }));
+    expect(screen.getByTestId("rolling-summary")).toHaveTextContent("bike");
+    expect(state.recentRead).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("tab", { name: "월간" }));
+    expect(screen.queryByTestId("rolling-summary")).not.toBeInTheDocument();
+  });
+  it("does not mount the personal recent summary for an anonymous log session", async () => {
+    state.mobile = true;
+    state.user = { uid: "anonymous", isAnonymous: true };
+    render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("tab", { name: "활동" }));
+    expect(state.recentRead).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("rolling-summary")).not.toBeInTheDocument();
+  });
   it("desktop calendar honors sport queries and subsequent navigation", async () => {
     const docs = [
       { id: "bike", data: () => ({ userId: "rider", startTime, type: "Ride", summary: { distance: 20000, tss: 30 } }) },
@@ -54,6 +80,7 @@ describe("운동 기록의 부분 요약", () => {
     vi.mocked(getDocs).mockResolvedValue({ docs: [], empty: true } as never).mockResolvedValueOnce({ docs, empty: false } as never);
     render(<MemoryRouter initialEntries={["/?sport=run"]}><QueryNavigation /><TrainingLogPage /></MemoryRouter>);
     await waitFor(() => expectMetric("이동거리", "5.0"));
+    expect(state.recentRead).not.toHaveBeenCalled();
     expect(within(screen.getByTestId("P1-1")).getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByText("Change sport query", { selector: "button" }));
     await waitFor(() => expectMetric("이동거리", "20.0"));

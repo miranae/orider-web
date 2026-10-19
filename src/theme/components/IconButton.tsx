@@ -28,6 +28,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       type={type}
       disabled={disabled || loading}
       data-loading={loading || undefined}
+      aria-busy={loading || undefined}
       className={cn('ds-btn', `ds-btn--${variant}`, `ds-btn--${size}`, 'ds-btn--icon-only', loading && 'ds-btn--loading', className)}
       {...rest}
     >

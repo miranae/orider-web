@@ -19,7 +19,7 @@ describe("ActivityZoneTimeline", () => {
     expect(screen.getByRole("region", { name: "존 타임라인" })).toBeInTheDocument();
     const z7 = screen.getAllByRole("img", { name: /Z7 100%$/ });
     expect(z7).not.toHaveLength(0);
-    z7.forEach((interval) => expect(interval.firstElementChild).toHaveStyle({ background: "var(--violet)" }));
+    z7.forEach((interval) => expect(interval.firstElementChild).toHaveStyle({ backgroundColor: "var(--violet)" }));
   });
 
   it("심박은 서버 존 경계로 판정한다", () => {

@@ -1,3 +1,5 @@
+import { createRef } from 'react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Alert, Button, Card, Chip, Field, IconButton, Input, Progress, Select, Textarea } from './index';
@@ -63,6 +65,35 @@ describe('Input + Field', () => {
     const input = container.querySelector('input')!;
     expect(input.className).toMatch(/\bds-input--invalid\b/);
     expect(input).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('endAction preserves the native input ref, form value and click/Enter submission', async () => {
+    const user = userEvent.setup();
+    const ref = createRef<HTMLInputElement>();
+    const onSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      expect(new FormData(event.currentTarget).get('query')).toBe('ride');
+    });
+    render(<form onSubmit={onSubmit}><Input ref={ref} name="query" aria-label="Search" defaultValue="ride" endAction={<IconButton type="submit" aria-label="Run search" icon={<svg />} />} /></form>);
+    expect(ref.current).toBe(screen.getByRole('textbox', { name: 'Search' }));
+    expect(ref.current).not.toHaveAttribute('endAction');
+    await user.click(screen.getByRole('button', { name: 'Run search' }));
+    await user.click(ref.current!);
+    await user.keyboard('{Enter}');
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+  });
+
+  it('filter Select keeps native selection, label, disabled and invalid semantics', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<Field label="종목" htmlFor="filter-sport"><Select id="filter-sport" variant="filter" defaultValue="all" onChange={onChange}><option value="all">전체</option><option value="run">러닝</option></Select></Field>);
+    const select = screen.getByRole('combobox', { name: '종목' });
+    fireEvent.change(select, { target: { value: 'run' } });
+    expect(select).toHaveValue('run');
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(select).not.toHaveAttribute('variant');
+    rerender(<Select variant="filter" aria-label="종목" invalid disabled><option value="run">러닝</option></Select>);
+    expect(screen.getByRole('combobox', { name: '종목' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: '종목' })).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('Textarea/Select invalid 도 aria-invalid 를 연결', () => {

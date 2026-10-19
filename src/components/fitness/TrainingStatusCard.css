@@ -1,0 +1,14 @@
+.fitness-state-labels { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-1); margin-top: var(--space-1); }
+.fitness-state-labels__item { min-width: 0; text-align: center; }
+.fitness-state-labels__index { display: none; }
+@media (max-width: 24rem) {
+  .fitness-state-labels { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2) var(--space-3); margin-top: var(--space-2); }
+  .fitness-state-labels__item { display: flex; gap: var(--space-1); text-align: start; overflow-wrap: normal; word-break: normal; line-height: var(--lh-relaxed); }
+  .fitness-state-labels__index { display: inline; flex-shrink: 0; }
+  .fitness-state-labels__item[data-current] { color: var(--ink-1) !important; }
+}
+
+.fitness-current-status--story .fitness-current-status__headline { display: block; width: 100%; margin: 0; font-size: var(--fs-3xl); line-height: var(--lh-tight); letter-spacing: var(--ls-tight); font-weight: 700; }
+.fitness-current-status--story .fitness-current-status__advice { font-size: var(--fs-lg); line-height: var(--lh-relaxed); }
+.fitness-current-status--story .fitness-state-labels { margin-top: var(--space-2); }
+@media (max-width: 36rem) { .fitness-current-status--story .fitness-current-status__headline { font-size: var(--fs-2xl); } }

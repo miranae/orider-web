@@ -4,15 +4,16 @@
   "functionalColors": {
     "map": {
       "recordedTrack": "#FC5200",
-      "plannedRoute": "#AB47BC"
+      "plannedRoute": "#AB47BC",
+      "routeCasing": "#1C1C1E"
     }
   },
   "dimensions": {
     "paddingXs": 4, "paddingS": 8, "paddingM": 16, "paddingL": 24, "paddingXl": 32,
     "itemGap": 8, "itemInner": 12, "sectionGap": 16,
-    "cornerRadiusS": 4, "cornerRadiusM": 8, "cornerRadiusL": 12, "cornerRadiusXl": 16,
+    "cornerRadiusS": 4, "cornerRadiusM": 10, "cornerRadiusL": 14, "cornerRadiusXl": 16,
     "listItemHeight": 56, "listItemSpacing": 8, "cardPadding": 16, "cardSpacing": 12,
-    "buttonHeight": 40, "buttonPaddingHorizontal": 14, "dividerThickness": 1,
+    "buttonHeight": 44, "buttonPaddingHorizontal": 16, "dividerThickness": 1,
     "iconS": 16, "iconM": 24, "iconL": 32
   },
   "cssVariables": {
@@ -35,19 +36,19 @@
     "--layer-modal": "90", "--layer-app-dialog": "11000",
     "--space-0": "0", "--space-0-5": "2px", "--space-1-5": "6px", "--space-5": "20px", "--space-8": "48px",
     "--fs-2xs": "12px", "--fs-xs": "12px", "--fs-sm": "12px", "--fs-base": "13px", "--fs-md": "14px", "--fs-lg": "16px", "--fs-xl": "22px", "--fs-2xl": "28px", "--fs-3xl": "32px", "--fs-4xl": "36px", "--fs-5xl": "48px",
-    "--font-mono": "'JetBrains Mono', ui-monospace, monospace", "--font-sans": "\"Pretendard Variable\", Pretendard, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif", "--feed-thumb-aspect": "14 / 5", "--strava": "#FC4C02", "--strava-login": "#FC5200", "--naver": "#03A94D", "--naver-ink": "#FFFFFF", "--kakao": "#FEE500", "--kakao-ink": "rgb(0 0 0 / 0.85)"
+    "--font-mono": "\"SFMono-Regular\", ui-monospace, Menlo, Consolas, monospace", "--font-sans": "-apple-system, BlinkMacSystemFont, \"Apple SD Gothic Neo\", system-ui, \"Segoe UI\", sans-serif", "--feed-thumb-aspect": "14 / 5", "--strava": "#FC4C02", "--strava-login": "#FC5200", "--naver": "#03A94D", "--naver-ink": "#FFFFFF", "--kakao": "#FEE500", "--kakao-ink": "rgb(0 0 0 / 0.85)"
   },
   "themeCssVariables": {
-    "light": { "--aqua-dim": "oklch(0.72 0.10 210)", "--violet": "oklch(0.55 0.16 285)", "--chart-fat": "oklch(0.58 0.13 255)", "--on-zone": "oklch(0.16 0.010 250)", "--on-zone-strong": "oklch(0.99 0 0)", "--accent-text": "oklch(0.48 0.10 192)", "--track-edge": "oklch(0.65 0.008 240)", "--meter-depleted": "oklch(0.58 0.13 22)", "--shadow-sm": "0 1px 2px rgba(20,40,40,.05)", "--shadow-md": "0 3px 12px rgba(20,40,40,.08)", "--shadow-lg": "0 10px 28px rgba(20,40,40,.12)" },
-    "dark": { "--aqua-dim": "oklch(0.55 0.10 210)", "--violet": "oklch(0.70 0.14 285)", "--chart-fat": "oklch(0.68 0.12 255)", "--on-zone": "oklch(0.16 0.010 250)", "--on-zone-strong": "oklch(0.16 0.010 250)", "--accent-text": "oklch(0.80 0.115 192)", "--track-edge": "oklch(0.50 0.009 90)", "--meter-depleted": "oklch(0.58 0.12 22)", "--shadow-sm": "0 1px 2px rgba(0,0,0,.3)", "--shadow-md": "0 4px 14px rgba(0,0,0,.4)", "--shadow-lg": "0 12px 32px rgba(0,0,0,.5)" }
+    "light": { "--control-danger-fg": "var(--primary-fg)", "--control-primary-fill": "color-mix(in srgb, var(--accent) 84%, black)", "--control-accent-text": "color-mix(in srgb, var(--accent) 60%, black)", "--control-danger-fill": "color-mix(in srgb, var(--color-error) 90%, black)", "--control-sheen-top": "rgba(255,255,255,.08)", "--control-sheen-bottom": "rgba(0,0,0,.035)", "--control-edge-highlight": "rgba(255,255,255,.35)", "--control-depth-shadow": "rgba(0,0,0,.08)", "--aqua-dim": "oklch(0.72 0.10 210)", "--violet": "oklch(0.55 0.16 285)", "--chart-fat": "oklch(0.58 0.13 255)", "--on-zone": "oklch(0.16 0.010 250)", "--on-zone-strong": "oklch(0.99 0 0)", "--accent-text": "oklch(0.48 0.10 192)", "--track-edge": "oklch(0.65 0.008 240)", "--meter-depleted": "oklch(0.58 0.13 22)", "--shadow-sm": "0 1px 2px rgba(20,40,40,.05)", "--shadow-md": "0 3px 12px rgba(20,40,40,.08)", "--shadow-lg": "0 10px 28px rgba(20,40,40,.12)", "--chart-series-1": "#A63A00", "--chart-series-2": "#005DBA", "--chart-series-3": "#08783C", "--chart-series-4": "#BA2430", "--chart-series-5": "#7438B5", "--chart-series-6": "#006F80", "--chart-series-7": "#866100", "--chart-series-8": "#A42D74" },
+    "dark": { "--control-danger-fg": "color-mix(in srgb, var(--primary-fg) 25%, black)", "--control-primary-fill": "var(--accent)", "--control-accent-text": "color-mix(in srgb, var(--accent) 55%, white)", "--control-danger-fill": "var(--color-error)", "--control-sheen-top": "rgba(255,255,255,.07)", "--control-sheen-bottom": "rgba(0,0,0,.09)", "--control-edge-highlight": "rgba(255,255,255,.13)", "--control-depth-shadow": "rgba(0,0,0,.24)", "--aqua-dim": "oklch(0.55 0.10 210)", "--violet": "oklch(0.70 0.14 285)", "--chart-fat": "oklch(0.68 0.12 255)", "--on-zone": "oklch(0.16 0.010 250)", "--on-zone-strong": "oklch(0.16 0.010 250)", "--accent-text": "oklch(0.80 0.115 192)", "--track-edge": "oklch(0.50 0.009 90)", "--meter-depleted": "oklch(0.58 0.12 22)", "--shadow-sm": "0 1px 2px rgba(0,0,0,.3)", "--shadow-md": "0 4px 14px rgba(0,0,0,.4)", "--shadow-lg": "0 12px 32px rgba(0,0,0,.5)", "--chart-series-1": "#FF9F50", "--chart-series-2": "#64B5FF", "--chart-series-3": "#61D998", "--chart-series-4": "#FF7F87", "--chart-series-5": "#C6A0FF", "--chart-series-6": "#5DD7E5", "--chart-series-7": "#E9C75A", "--chart-series-8": "#F3A0D0" }
   },
   "themes": {
     "default": {
       "light": {
         "colors": {
-          "background": "oklch(0.98 0.004 85)", "surface": "oklch(0.995 0.002 85)", "surfaceVariant": "oklch(0.96 0.005 85)", "surfaceElevated": "oklch(0.93 0.006 85)", "surfaceHigh": "oklch(0.89 0.007 85)", "divider": "oklch(0.91 0.006 85)", "border": "oklch(0.855 0.007 85)",
-          "textPrimary": "oklch(0.18 0.010 240)", "textSecondary": "oklch(0.28 0.010 240)", "textTertiary": "oklch(0.45 0.010 240)", "textQuaternary": "oklch(0.55 0.009 240)", "textDisabled": "oklch(0.65 0.008 240)",
-          "accent": "oklch(0.56 0.115 192)", "accentDark": "oklch(0.48 0.10 192)", "accentLight": "oklch(0.70 0.10 192)", "accentSoftBg": "color-mix(in oklch, oklch(0.56 0.115 192) 8%, oklch(0.965 0.004 90))", "accentSoftBorder": "color-mix(in oklch, oklch(0.56 0.115 192) 25%, oklch(0.915 0.005 90))",
+          "background": "#F5F5F7", "surface": "#FFFFFF", "surfaceVariant": "#EFEFF0", "surfaceElevated": "#E5E5EA", "surfaceHigh": "#D1D1D6", "divider": "#E5E5EA", "border": "#D1D1D6",
+          "textPrimary": "#1D1D1F", "textSecondary": "#323234", "textTertiary": "#626266", "textQuaternary": "#75757A", "textDisabled": "#98989D",
+          "accent": "oklch(0.56 0.115 192)", "accentDark": "oklch(0.48 0.10 192)", "accentLight": "oklch(0.70 0.10 192)", "accentSoftBg": "color-mix(in srgb, oklch(0.56 0.115 192) 10%, #EFEFF0)", "accentSoftBorder": "color-mix(in srgb, oklch(0.56 0.115 192) 24%, #EFEFF0)",
           "primary": "oklch(0.56 0.115 192)", "primaryDark": "oklch(0.48 0.10 192)", "primaryFg": "oklch(0.99 0.005 90)", "success": "oklch(0.58 0.15 144)", "warning": "oklch(0.66 0.15 75)", "error": "oklch(0.58 0.17 20)", "info": "oklch(0.55 0.13 210)",
           "radarSafe": "oklch(0.62 0.17 130)", "radarCaution": "oklch(0.66 0.15 75)", "radarDanger": "oklch(0.58 0.17 20)", "brandBike": "oklch(0.55 0.13 210)", "brandRun": "oklch(0.66 0.15 75)", "brandSwim": "oklch(0.62 0.17 130)",
           "zone1": "oklch(0.62 0.07 230)", "zone2": "oklch(0.62 0.12 170)", "zone3": "oklch(0.65 0.16 130)", "zone4": "oklch(0.66 0.15 75)", "zone5": "oklch(0.58 0.17 20)", "zone6": "oklch(0.50 0.20 340)", "zone7": "oklch(0.42 0.20 285)"
@@ -56,9 +57,9 @@
       },
       "dark": {
         "colors": {
-          "background": "oklch(0.13 0.007 250)", "surface": "oklch(0.165 0.008 250)", "surfaceVariant": "oklch(0.195 0.009 250)", "surfaceElevated": "oklch(0.235 0.010 250)", "surfaceHigh": "oklch(0.28 0.011 250)", "divider": "oklch(0.24 0.010 250)", "border": "oklch(0.30 0.011 250)",
-          "textPrimary": "oklch(0.97 0.005 90)", "textSecondary": "oklch(0.88 0.006 90)", "textTertiary": "oklch(0.70 0.008 90)", "textQuaternary": "oklch(0.55 0.009 90)", "textDisabled": "oklch(0.42 0.009 90)",
-          "accent": "oklch(0.80 0.115 192)", "accentDark": "oklch(0.60 0.10 192)", "accentLight": "oklch(0.80 0.115 192)", "accentSoftBg": "color-mix(in oklch, oklch(0.80 0.115 192) 8%, oklch(0.215 0.008 240))", "accentSoftBorder": "color-mix(in oklch, oklch(0.80 0.115 192) 25%, oklch(0.26 0.009 240))",
+          "background": "#000000", "surface": "#1C1C1E", "surfaceVariant": "#2C2C2E", "surfaceElevated": "#3A3A3C", "surfaceHigh": "#48484A", "divider": "#38383A", "border": "#48484A",
+          "textPrimary": "#F5F5F7", "textSecondary": "#E5E5EA", "textTertiary": "#AEAEB2", "textQuaternary": "#98989D", "textDisabled": "#636366",
+          "accent": "oklch(0.80 0.115 192)", "accentDark": "oklch(0.60 0.10 192)", "accentLight": "oklch(0.80 0.115 192)", "accentSoftBg": "color-mix(in srgb, oklch(0.80 0.115 192) 10%, #2C2C2E)", "accentSoftBorder": "color-mix(in srgb, oklch(0.80 0.115 192) 24%, #2C2C2E)",
           "primary": "oklch(0.80 0.115 192)", "primaryDark": "oklch(0.60 0.10 192)", "primaryFg": "oklch(0.18 0.03 192)", "success": "oklch(0.70 0.16 144)", "warning": "oklch(0.80 0.14 75)", "error": "oklch(0.72 0.16 20)", "info": "oklch(0.78 0.13 210)",
           "radarSafe": "oklch(0.86 0.18 130)", "radarCaution": "oklch(0.80 0.14 75)", "radarDanger": "oklch(0.72 0.16 20)", "brandBike": "oklch(0.78 0.13 210)", "brandRun": "oklch(0.80 0.14 75)", "brandSwim": "oklch(0.86 0.18 130)",
           "zone1": "oklch(0.72 0.05 230)", "zone2": "oklch(0.74 0.10 170)", "zone3": "oklch(0.80 0.14 130)", "zone4": "oklch(0.80 0.14 75)", "zone5": "oklch(0.72 0.16 20)", "zone6": "oklch(0.62 0.18 330)", "zone7": "oklch(0.82 0.12 285)"

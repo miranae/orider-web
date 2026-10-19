@@ -1,0 +1,10 @@
+.fitness-evidence-trend { min-width: 0; }
+.fitness-evidence-trend svg { display: block; width: 100%; height: auto; touch-action: pan-y; border-radius: var(--r-sm); }
+.fitness-evidence-trend svg:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
+.fitness-evidence-trend svg text { fill: var(--ink-2); font-size: var(--fs-xs); }
+.fitness-evidence-trend__description { color: var(--ink-2); font-size: var(--fs-sm); margin: 0 0 var(--space-2); overflow-wrap: anywhere; }
+.fitness-evidence-trend__range { display: flex; justify-content: space-between; gap: var(--space-2); color: var(--ink-2); font-size: var(--fs-xs); }
+.fitness-evidence-trend__range span { min-width: 0; overflow-wrap: anywhere; }
+.fitness-evidence-trend__range span:last-child { text-align: end; }
+.fitness-evidence-trend__ticks { position: relative; min-height: var(--space-5); font-size: var(--fs-xs); color: var(--ink-2); font-family: var(--font-mono); }
+.fitness-evidence-trend__ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }

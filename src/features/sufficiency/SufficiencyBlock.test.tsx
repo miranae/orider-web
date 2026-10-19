@@ -20,7 +20,7 @@ describe("SufficiencyCard", () => {
     const block = sufficiencyBlock();
     renderUi(<SufficiencyCard set={sufficiencySet([block])} block={block} testId="K5-1-3-sufficiency" />);
     expect(screen.getByTestId("K5-1-3-sufficiency-state").textContent).toBe("체중 입력하면 바로 열려요");
-    expect(screen.getByTestId("K5-1-3-sufficiency-action").getAttribute("href")).toContain("/coach/condition#thresholds");
+    expect(screen.getByTestId("K5-1-3-sufficiency-action").getAttribute("href")).toContain("/settings/account#body-info");
   });
 
   it("최소조건이 남으면 「바로」라고 하지 않고 남은 개수와 제외 사유를 말한다", () => {
@@ -90,6 +90,14 @@ describe("충분도 표시의 대기·묶음 규칙", () => {
   expect(screen.queryByTestId("I-action")).toBeNull();
   expect(screen.queryByTestId("I-requirement")).toBeNull();
  });
+ it("열린 컨디션에서는 지연된 계산 근거를 잠김으로 바꾸거나 상세에 숨기지 않는다",()=>{
+  const blocks=["power_model","vo2max","ftp_estimate","rider_profile"].map(featureId=>sufficiencyBlock({featureId,state:"delayed",remainingRequirementCount:0,nextAction:null}));
+  renderUi(<SufficiencyGroup inline set={sufficiencySet(blocks)} testId="G"/>);
+  expect(screen.getByTestId("G")).toHaveTextContent("계산 근거 확인 · 4개 지표");
+  expect(screen.getByTestId("G").querySelector("details")).toBeNull();
+  expect(screen.getAllByText("지금은 확인할 수 없어요")).toHaveLength(4);
+  expect(screen.getByTestId("G")).not.toHaveTextContent("잠긴 기능");
+ });
  it("기능 4개의 남은 수를 더하지 않고 대표 행동은 하나만 표시한다",()=>{
   const blocks=["power_model","vo2max","ftp_estimate","rider_profile"].map(featureId=>sufficiencyBlock({featureId,remainingRequirementCount:2}));
   renderUi(<SufficiencyGroup set={sufficiencySet(blocks)} testId="G"/>);
@@ -97,4 +105,15 @@ describe("충분도 표시의 대기·묶음 규칙", () => {
   expect(screen.getAllByTestId("G-action")).toHaveLength(1);
   expect(screen.getByTestId("G")).not.toHaveTextContent("남은 요건 8개");
  });
+});
+
+
+it("compact open evidence preserves each requirement/action and deduplicates identical timing only", () => {
+  const blocks = ["power_model", "vo2max", "ftp_estimate", "rider_profile"].map(featureId => sufficiencyBlock({ featureId }));
+  renderUi(<SufficiencyGroup inline set={sufficiencySet(blocks)} testId="compact" />);
+  const group = screen.getByTestId("compact");
+  expect(group.querySelectorAll("article")).toHaveLength(4);
+  expect(group.querySelectorAll("details")).toHaveLength(0);
+  expect(group.querySelectorAll('a[href="/ko/settings/account#body-info"]')).toHaveLength(4);
+  expect(screen.getAllByTestId("sufficiency-req-weight")).toHaveLength(4);
 });

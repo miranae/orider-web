@@ -1,7 +1,9 @@
-import { useId } from "react";
+import { useId, useState, type KeyboardEvent, type PointerEvent, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { RunPacePoint } from "../../features/fitness/fitnessCurveDocuments";
 import ChartEmptyState from "./ChartEmptyState";
+import { Card, ChartFrame, ChartLegend, ChartGridLine, ChartAxisLine, ChartValue, DataTable, Text } from "../../theme/components";
+import "./CriticalPaceCurve.css";
 
 interface CriticalPaceCurveProps {
   color?: string;
@@ -10,7 +12,7 @@ interface CriticalPaceCurveProps {
 }
 
 const xTicks = [0.5, 1, 5, 10, 30, 60, 120];
-// 5K ~22min, 10K ~45min, 하프 ~100min — "5K"/"10K" are proper nouns kept as-is
+// 5K ~22min, 10K ~46min, 하프 ~100min — "5K"/"10K" are proper nouns kept as-is
 const REF_MARKER_BASE = [
   { dur: 22, label: "5K" },
   { dur: 46, label: "10K" },
@@ -20,6 +22,7 @@ export default function CriticalPaceCurve({ color = "var(--amber)", recentPoints
   const { t } = useTranslation("dashboard");
   const { t: fitnessT } = useTranslation("fitness");
   const chartId = useId();
+  const [selectedDuration, setSelectedDuration] = useState<number | null>(null);
   const refMarkers = [
     ...REF_MARKER_BASE,
     { dur: 100, label: t("charts.criticalPace.half") },
@@ -44,7 +47,7 @@ export default function CriticalPaceCurve({ color = "var(--amber)", recentPoints
   const sx = (dur: number) =>
     padL + ((Math.log(dur) - Math.log(xMin)) / (Math.log(xMax) - Math.log(xMin))) * chartW;
 
-  // Y: pace — 낮을수록 빠름 → y축 반전 (paceMin → bottom, paceMax → top)
+  // Y: 더 빠른 페이스(작은 초/km)는 위쪽에 표시한다.
   const sy = (pace: number) =>
     padT + ((pace - paceMin) / (paceMax - paceMin)) * chartH;
 
@@ -58,71 +61,62 @@ export default function CriticalPaceCurve({ color = "var(--amber)", recentPoints
     return `${m}:${String(sec).padStart(2, "0")}`;
   };
 
+  const durations = [...new Set([...recentPoints, ...prevPoints].map(point => point.durationSec))].sort((a, b) => a - b);
+  const selected = selectedDuration != null && durations.includes(selectedDuration) ? selectedDuration : null;
+  const durationLabel = (seconds: number) => seconds < 60 ? `${seconds}s` : seconds % 3600 !== 0 ? `${seconds / 60}m` : `${seconds / 3600}h`;
+  const choosePointer = (event: PointerEvent<SVGSVGElement> | MouseEvent<SVGSVGElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (!bounds.width || !Number.isFinite(event.clientX)) return;
+    const x = padL + (event.clientX - bounds.left) / bounds.width * chartW;
+    setSelectedDuration(durations.reduce((best, duration) => Math.abs(sx(duration / 60) - x) < Math.abs(sx(best / 60) - x) ? duration : best));
+  };
+  const navigate = (event: KeyboardEvent<SVGSVGElement>) => {
+    if (event.key === "Escape") { event.preventDefault(); setSelectedDuration(null); return; }
+    let index = selected == null ? -1 : durations.indexOf(selected);
+    if (event.key === "Home") index = 0;
+    else if (event.key === "End") index = durations.length - 1;
+    else if (event.key === "ArrowLeft") index = Math.max(0, (index < 0 ? durations.length : index) - 1);
+    else if (event.key === "ArrowRight") index = Math.min(durations.length - 1, index + 1);
+    else return;
+    event.preventDefault();
+    setSelectedDuration(durations[index]!);
+  };
+
   return (
-    <div className="space-y-3"><svg role="img" aria-labelledby={`${chartId}-title ${chartId}-description`} viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: 200 }}>
-      <title id={`${chartId}-title`}>{fitnessT("criticalPace.title")}</title>
-      <desc id={`${chartId}-description`}>{fitnessT("criticalPace.description")}</desc>
-      {/* 수평 그리드 */}
-      {[0.25, 0.5, 0.75, 1].map((p) => (
-        <line
-          key={p}
-          x1={padL} x2={w - padR}
-          y1={padT + chartH * p} y2={padT + chartH * p}
-          stroke="var(--grid-soft)"
-        />
-      ))}
-
-      {/* 참조 마커 (5K, 10K) */}
-      {refMarkers.map(({ dur, label }) => {
-        if (dur > xMax) return null;
-        const x = sx(dur);
-        return (
-          <g key={label}>
-            <line x1={x} x2={x} y1={padT} y2={padT + chartH} stroke="var(--grid-axis)" strokeDasharray="3 3" />
-            <text x={x + 3} y={padT + 10} fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-3)">{label}</text>
-          </g>
-        );
-      })}
-
-      {/* 이전 시즌 (dashed, ink-3) */}
-      {previous.length > 0 && <path d={toPath(previous)} stroke="var(--ink-3)" strokeWidth="1.5" fill="none" strokeDasharray="5 4" />}
-      {previous.map(({ dur, pace }, i) => (
-        <circle key={i} cx={sx(dur)} cy={sy(pace)} r="3" fill="var(--ink-3)" />
-      ))}
-
-      {/* 현재 시즌 (amber) */}
-      {current.length > 0 && <path d={toPath(current)} stroke={color} strokeWidth="2" fill="none" />}
-      {current.map(({ dur, pace }, i) => (
-        <circle key={i} cx={sx(dur)} cy={sy(pace)} r="3" fill={color} />
-      ))}
-
-      {/* X축 틱 */}
-      {xTicks.map((t) => (
-        <text key={t} x={sx(t)} y={h - 4} fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-4)" textAnchor="middle">
-          {t < 1 ? `${t * 60}s` : t < 60 ? `${t}m` : `${t / 60}h`}
-        </text>
-      ))}
-
-      {/* Y축 (페이스) */}
-      {(current.length > 0 ? current : previous).filter((_, i) => i % 2 === 0).map(({ dur, pace }) => (
-        <text key={dur} x={padL - 4} y={sy(pace) + 4} fontSize="8" fontFamily="var(--font-mono)" fill="var(--ink-4)" textAnchor="end">
-          {secToMmss(pace)}
-        </text>
-      ))}
-    </svg>
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", fontSize: "var(--fs-sm)", color: "var(--ink-1)", borderCollapse: "collapse" }}>
-        <caption className="sr-only">{fitnessT("criticalPace.title")}</caption>
-        <thead><tr>{["duration", "recent", "previous"].map(key => <th key={key} scope="col" style={{ textAlign: "left", padding: "var(--space-2)" }}>{fitnessT(`criticalPace.${key}`)}</th>)}</tr></thead>
-        <tbody>{[...new Set([...recentPoints, ...prevPoints].map(point => point.durationSec))].sort((a, b) => a - b).map(duration => {
-          const recent = recentPoints.find(point => point.durationSec === duration);
-          const previous = prevPoints.find(point => point.durationSec === duration);
-          return <tr key={duration} style={{ borderTop: "1px solid var(--line-soft)" }}>
-            <th scope="row" style={{ textAlign: "left", padding: "var(--space-2)", fontWeight: 400 }}>{duration < 60 ? `${duration}s` : `${duration / 60}m`}</th>
-            {[recent, previous].map((point, index) => <td key={index} style={{ padding: "var(--space-2)", fontFamily: "var(--font-mono)" }}>{point ? `${secToMmss(point.paceSecPerKm)} /km` : "—"}</td>)}
-          </tr>;
-        })}</tbody>
-      </table>
-    </div></div>
+    <div className="critical-pace-curve space-y-3">
+    <ChartLegend items={[{ label: fitnessT("period.recent"), color }, { label: fitnessT("period.previous"), color: "var(--ink-3)", dasharray: "5 4" }]} />
+    <ChartFrame variant="embedded">
+    <p id={`${chartId}-periods`} className="critical-pace-curve__note">{fitnessT("criticalPace.periodNote")}</p>
+    <div className="critical-pace-curve__references" aria-label={fitnessT("criticalPace.referenceNote")}>
+      {refMarkers.map(({ dur, label }) => <span key={label}>{label} · {dur}m</span>)}
+    </div>
+    <div className="critical-pace-curve__chart">
+      <div className="critical-pace-curve__y-axis" aria-hidden="true"><span>/km</span>{[paceMin, (paceMin + paceMax) / 2, paceMax].map(pace => <span key={pace} style={{ top: `${(sy(pace) - padT) / chartH * 100}%` }}>{secToMmss(pace)}</span>)}</div>
+      <svg role="img" tabIndex={0} aria-labelledby={`${chartId}-title`} aria-describedby={`${chartId}-description ${chartId}-periods ${chartId}-reference-note${selected != null ? ` ${chartId}-tooltip` : ""}`} viewBox={`${padL} ${padT} ${chartW} ${chartH}`} preserveAspectRatio="none" className="critical-pace-curve__plot"
+        onFocus={() => setSelectedDuration(durations[durations.length - 1]!)} onKeyDown={navigate}
+        onPointerMove={choosePointer} onPointerDown={choosePointer} onClick={choosePointer}>
+        <title id={`${chartId}-title`}>{fitnessT("criticalPace.title")}</title>
+        <desc id={`${chartId}-description`}>{fitnessT("criticalPace.description")} {fitnessT("chartDetail.navigate")}</desc>
+        {[paceMin, (paceMin + paceMax) / 2, paceMax].map(pace => <ChartGridLine key={pace} x1={padL} x2={w - padR} y1={sy(pace)} y2={sy(pace)} />)}
+        {refMarkers.map(({ dur, label }) => <ChartAxisLine key={label} x1={sx(dur)} x2={sx(dur)} y1={padT} y2={padT + chartH} strokeDasharray="3 3" />)}
+        {previous.length > 0 && <path d={toPath(previous)} stroke="var(--ink-3)" strokeWidth="1.5" fill="none" strokeDasharray="5 4" />}
+        {previous.map(({ dur, pace }, i) => <circle key={i} cx={sx(dur)} cy={sy(pace)} r="3" fill="var(--ink-3)" />)}
+        {current.length > 0 && <path d={toPath(current)} stroke={color} strokeWidth="2" fill="none" />}
+        {current.map(({ dur, pace }, i) => <circle key={i} cx={sx(dur)} cy={sy(pace)} r="3" fill={color} />)}
+        {selected != null && <line x1={sx(selected / 60)} x2={sx(selected / 60)} y1={padT} y2={padT + chartH} stroke="var(--ink-2)" strokeDasharray="3 3" />}
+      </svg>
+      <div className="critical-pace-curve__x-axis" aria-hidden="true">{xTicks.map((duration, index) => <span key={duration} data-edge={index === 0 ? "start" : index === xTicks.length - 1 ? "end" : undefined} style={{ left: `${(sx(duration) - padL) / chartW * 100}%` }}>{durationLabel(duration * 60)}</span>)}</div>
+    </div>
+    <p id={`${chartId}-reference-note`} className="critical-pace-curve__note">{fitnessT("criticalPace.referenceNote")}</p>
+    {selected != null && <Card variant="inset" padding="compact" id={`${chartId}-tooltip`} role="status" aria-live="polite">
+      <Text as="p" variant="bodySmall">{fitnessT("criticalPace.duration")} · {durationLabel(selected)}</Text>
+      <div className="critical-pace-curve__values">{[{ label: fitnessT("period.recent"), point: recentPoints.find(point => point.durationSec === selected) }, { label: fitnessT("period.previous"), point: prevPoints.find(point => point.durationSec === selected) }].map(({ label, point }) => <ChartValue key={label} primary={point ? `${secToMmss(point.paceSecPerKm)} /km` : "—"} secondary={label} />)}</div>
+      <Text as="p" variant="bodySmall" tone="secondary">{fitnessT("criticalPace.periodNote")}</Text>
+    </Card>}
+    </ChartFrame>
+    <DataTable caption={fitnessT("criticalPace.title")} captionVisibility="screen-reader" rows={durations} rowKey={duration => String(duration)} emptyLabel={t("charts.fitness.noData")} columns={[
+      { id: "duration", header: fitnessT("criticalPace.duration"), rowHeader: true, cell: duration => duration < 60 ? `${duration}s` : `${duration / 60}m` },
+      ...([{ id: "recent", points: recentPoints }, { id: "previous", points: prevPoints }]).map(({ id, points }) => ({ id, header: fitnessT(`criticalPace.${id}`), align: "end" as const, cell: (duration: number) => { const point = points.find(point => point.durationSec === duration); return <ChartValue primary={point ? `${secToMmss(point.paceSecPerKm)} /km` : "—"} />; } })),
+    ]} /></div>
   );
 }

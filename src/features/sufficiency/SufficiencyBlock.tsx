@@ -10,15 +10,16 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { SufficiencyBlock, SufficiencyRequirement, SufficiencySet, SufficiencyState } from "@shared/types/sufficiency";
-import { Card, Chip, Text } from "../../theme/components";
+import { Card, Chip, Text, buttonClass } from "../../theme/components";
 import { LocalizedLink } from "../../components/LocalizedLink";
 import { displayedSufficiencyState } from "../../services/sufficiencyContract";
+import "./SufficiencyBlock.css";
 import { trackSufficiencyView } from "./sufficiencyAnalytics";
 
 /** 행동 코드 → 이동할 화면. 서버는 코드만 주고, 경로는 웹이 정적으로 가진다(자유 URL 없음). */
 const ACTION_TARGETS: Partial<Record<string, string>> = {
-  input_weight: "/coach/condition#thresholds",
-  confirm_weight: "/coach/condition#thresholds",
+  input_weight: "/settings/account#body-info",
+  confirm_weight: "/settings/account#body-info",
   connect_power_meter: "/settings/device",
   record_power_ride: "/settings/connections",
   record_activity: "/settings/connections",
@@ -54,7 +55,7 @@ function ActionLine({ block, testId }: { block: SufficiencyBlock; testId: string
   if (!code) return null;
   const target = ACTION_TARGETS[code];
   return target
-    ? <LocalizedLink data-testid={`${testId}-action`} to={target} className="text-[var(--aqua)] font-semibold">
+    ? <LocalizedLink data-testid={`${testId}-action`} to={target} className={buttonClass({ variant: "ghost", size: "sm" })}>
         {t(`sufficiency.action.${code}`)} →
       </LocalizedLink>
     : <Text data-testid={`${testId}-action`} as="p" variant="bodySmall" tone="secondary">{t(`sufficiency.action.${code}`)}</Text>;
@@ -71,12 +72,13 @@ function headline(t: (key: string, options?: Record<string, unknown>) => string,
 }
 
 /** 잠긴 기능 자리에 서는 카드. 열린 기능에는 쓰지 않는다(값이 그 자리에 있다). */
-export function SufficiencyCard({ set, block, testId }: { set: SufficiencySet; block: SufficiencyBlock; testId: string }) {
+export function SufficiencyCard({ set, block, testId, compact = false, hideTiming = false }: { set: SufficiencySet; block: SufficiencyBlock; testId: string; compact?: boolean; hideTiming?: boolean }) {
   const { t } = useTranslation("fitness");
   const state = displayedSufficiencyState(set, block, Date.now());
   useEffect(() => { trackSufficiencyView(set, block, state, "card"); }, [set, block, state]);
   const showDetails = state !== "delayed" && state !== "processing";
-  return <Card data-testid={testId} padding="card" aria-label={t(featureLabelKey(block))}>
+  const Container = compact ? "article" : Card;
+  return <Container data-testid={testId} className={compact ? "sufficiency-evidence-row" : undefined} aria-label={t(featureLabelKey(block))}>
     <Text as="p" variant="eyebrow">{t(featureLabelKey(block))}</Text>
     <Text data-testid={`${testId}-state`} as="p" variant="bodyMedium" style={{ marginTop: "var(--space-1)" }}>
       {headline(t, block, state)}
@@ -84,16 +86,16 @@ export function SufficiencyCard({ set, block, testId }: { set: SufficiencySet; b
     <Text data-testid={`${testId}-remaining`} as="p" variant="caption" tone="tertiary">
       {t("sufficiency.remaining", { n: block.remainingRequirementCount })}
     </Text>
-    <Text as="p" variant="caption" tone="tertiary">{t("sufficiency.asOf", { date: new Date(set.asOf).toLocaleDateString() })}
+    {!hideTiming && <Text as="p" variant="caption" tone="tertiary">{t("sufficiency.asOf", { date: new Date(set.asOf).toLocaleDateString() })}
       {set.nextUpdateAt != null && ` · ${t("sufficiency.nextUpdate", { date: new Date(set.nextUpdateAt).toLocaleDateString() })}`}
-    </Text>
+    </Text>}
     {showDetails && <>
       <ul data-testid={`${testId}-requirements`} className="mt-2 space-y-1">
         {block.requirements.map(row => <RequirementLine key={row.requirementId} row={row} />)}
       </ul>
       <div className="mt-3"><ActionLine block={block} testId={testId} /></div>
     </>}
-  </Card>;
+  </Container>;
 }
 
 /**
@@ -154,7 +156,7 @@ export function SufficiencyInputMap() {
 }
 
 /** 서로 다른 owner의 요건을 합산하지 않고 기능별로 펼친다. */
-export function SufficiencyGroup({ set, sets, testId }: { set?: SufficiencySet; sets?: SufficiencySet[]; testId: string }) {
+export function SufficiencyGroup({ set, sets, testId, inline = false }: { set?: SufficiencySet; sets?: SufficiencySet[]; testId: string; inline?: boolean }) {
   const { t } = useTranslation("fitness");
   const rows = (sets ?? (set ? [set] : [])).flatMap(owner => owner.blocks
     .filter(block => needsSufficiencyCard(owner, block)).map(block => ({ owner, block })));
@@ -170,15 +172,17 @@ export function SufficiencyGroup({ set, sets, testId }: { set?: SufficiencySet; 
   };
   const representative = rows.filter(({ block }) => block.nextAction != null).sort((a, b) =>
     (actionFeatures[b.block.nextAction!.code]?.length ?? 0) - (actionFeatures[a.block.nextAction!.code]?.length ?? 0))[0];
+  const commonTiming = rows.every(({ owner }) => owner.asOf === rows[0]!.owner.asOf && owner.nextUpdateAt === rows[0]!.owner.nextUpdateAt);
   return <Card data-testid={testId} padding="card">
-    <Text as="p" variant="bodyMedium">{t("sufficiency.group", { n: blocks.length })}</Text>
-    <ul>{blocks.map(block => <li key={`${block.discipline}-${block.featureId}-${block.viewId}`}>
+    <Text as="p" variant="bodyMedium">{t(inline ? "sufficiency.groupEvidence" : "sufficiency.group", { n: blocks.length })}</Text>
+    {!inline && <ul>{blocks.map(block => <li key={`${block.discipline}-${block.featureId}-${block.viewId}`}>
       {t(featureLabelKey(block))} · {t("sufficiency.remaining", { n: block.remainingRequirementCount })}
-    </li>)}</ul>
-    {representative && displayedSufficiencyState(representative.owner, representative.block, Date.now()) === "locked" && <ActionLine block={representative.block} testId={testId} />}
-    <details data-testid={`${testId}-expand`}><summary>{t("sufficiency.expand")}</summary>
+    </li>)}</ul>}
+    {!inline && representative && displayedSufficiencyState(representative.owner, representative.block, Date.now()) === "locked" && <ActionLine block={representative.block} testId={testId} />}
+    {inline ? <div data-testid={`${testId}-inline`} className="condition-sufficiency-evidence">{rows.map(({ owner, block }) => <SufficiencyCard compact hideTiming={commonTiming} key={`${block.discipline}-${block.featureId}-${block.viewId}`} set={owner} block={block} testId={`${testId}-${block.featureId}-${block.viewId}`} />)}</div> : <details data-testid={`${testId}-expand`}><summary>{t("sufficiency.expand")}</summary>
       {rows.map(({ owner, block }) => <SufficiencyCard key={`${block.discipline}-${block.featureId}-${block.viewId}`} set={owner} block={{ ...block, nextAction: null }} testId={`${testId}-${block.featureId}-${block.viewId}`} />)}
-    </details>
+    </details>}
+    {inline && commonTiming && <Text as="p" variant="caption" tone="tertiary">{t("sufficiency.asOf", { date: new Date(rows[0]!.owner.asOf).toLocaleDateString() })}{rows[0]!.owner.nextUpdateAt != null && ` · ${t("sufficiency.nextUpdate", { date: new Date(rows[0]!.owner.nextUpdateAt!).toLocaleDateString() })}`}</Text>}
   </Card>;
 }
 

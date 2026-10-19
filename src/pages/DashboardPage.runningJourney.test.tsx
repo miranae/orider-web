@@ -15,7 +15,7 @@ import { useUserFitness } from "../hooks/useUserFitness";
 import { useFitnessTimeseries } from "../hooks/useFitnessTimeseries";
 import { useRunRecords } from "../hooks/useRunRecords";
 
-const state = vi.hoisted(() => ({ canonicalEnabled: false, mobile: true, sportFilter: "run", feedScope: "self", user: { uid: "owner", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, runs: [] as Activity[], available: true, update: vi.fn(), weeklyLoad: undefined as Array<number | null> | undefined }));
+const state = vi.hoisted(() => ({ canonicalEnabled: false, recapSeason: false, mobile: true, sportFilter: "run", feedScope: "self", user: { uid: "owner", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, runs: [] as Activity[], available: true, update: vi.fn(), weeklyRequest: vi.fn(), weeklyLoad: undefined as Array<number | null> | undefined }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: state.user, profile: { createdAt: 1, thresholdPace: null }, loading: false, signIn: vi.fn() }) }));
 vi.mock("../hooks/useCanonicalFitnessSummary", () => ({ useCanonicalFitnessSummary: () => ({ enabled: state.canonicalEnabled, values: null, display: null }) }));
 vi.mock("../hooks/useFitnessTimeseries", () => ({ useFitnessTimeseries: vi.fn(() => { throw new Error("중복 시계열 구독 금지"); }) }));
@@ -25,10 +25,11 @@ vi.mock("../hooks/useRunHistory", () => ({ useRunHistory: vi.fn(() => ({ runs: s
 vi.mock("../hooks/useUserFitness", () => ({ useUserFitness: vi.fn(() => ({ fitness: null })) }));
 vi.mock("../hooks/useRunRecords", () => ({ useRunRecords: vi.fn(() => ({ run: {}, loading: false })) }));
 vi.mock("../hooks/useFirstSyncCelebration", () => ({ useFirstSyncCelebration: () => ({ show: false, activityId: null, dismiss: vi.fn() }) }));
+vi.mock("../utils/yearRecapSeason", () => ({ isYearRecapSeason: () => state.recapSeason }));
 vi.mock("../utils/runnerLevel", () => ({ estimateRunnerLevel: () => ({ level: "regular" }) }));
 vi.mock("../utils/shoeStatus", () => ({ latestShoeStatus: () => ({ replacementDue: true }) }));
 vi.mock("../utils/runWeeklyRecap", () => ({ computeRunWeeklyRecap: () => ({ lastWeek: { count: 1 } }), isRecapVisible: () => true }));
-vi.mock("../components/mobile/MobileFeedPage", () => ({ default: ({ todayStrip, runningJourney, sportFilter, runSummary }: { todayStrip?: ReactNode; runningJourney?: ReactNode; sportFilter?: string; runSummary?: { available: boolean } }) => <div data-testid="mobile-journey-slot" data-sport-filter={sportFilter} data-run-summary={String(!!runSummary)}>{todayStrip}{runningJourney}</div> }));
+vi.mock("../components/mobile/MobileFeedPage", () => ({ default: ({ todayStrip, runningJourney, sportFilter, showYearRecapBanner }: { todayStrip?: ReactNode; runningJourney?: ReactNode; sportFilter?: string; showYearRecapBanner?: boolean }) => <div data-testid="mobile-journey-slot" data-sport-filter={sportFilter} data-year-recap={String(!!showYearRecapBanner)}>{todayStrip}{runningJourney}</div> }));
 vi.mock("../components/dashboard/RunEmptyState", () => ({ default: () => <div>run-empty-journey</div> }));
 vi.mock("../components/dashboard/WeeklyRecapCard", () => ({ default: () => <div>run-weekly-recap</div> }));
 vi.mock("../components/dashboard/ThresholdPaceNudge", () => ({ default: () => <div>run-threshold-nudge</div> }));
@@ -38,6 +39,7 @@ vi.mock("../components/dashboard/CrossDisciplineLoadCard", () => ({ default: () 
 vi.mock("../hooks/useActivities", async importOriginal => {
   const actual = await importOriginal<typeof import("../hooks/useActivities")>();
   return { ...actual, useWeeklyStats: (...args: Parameters<typeof actual.useWeeklyStats>) => {
+    state.weeklyRequest(args[0]);
     const result = actual.useWeeklyStats(...args);
     return state.weeklyLoad === undefined ? result : { ...result, coverage: "ready" as const, weeklyStats: result.weeklyStats.slice(-state.weeklyLoad.length).map((week, index) => ({ ...week, distance: [20, 40, 0][index] ?? 0, tss: state.weeklyLoad![index] ?? null, tssEstimated: index === 1, tssUnknownCount: index === 1 ? 1 : 0 })) };
   } };
@@ -47,7 +49,7 @@ function show(route = "/ko") {
   return render(<MemoryRouter initialEntries={[route]}><ThemeProvider><OriderThemeProvider><LocaleProvider><ToastProvider><DashboardPage /></ToastProvider></LocaleProvider></OriderThemeProvider></ThemeProvider></MemoryRouter>);
 }
 
-beforeEach(async () => { await i18n.changeLanguage("ko"); vi.clearAllMocks(); state.canonicalEnabled = false; state.mobile = true; state.sportFilter = "run"; state.feedScope = "self"; state.user = { uid: "owner", isAnonymous: false }; state.runs = []; state.available = true; state.weeklyLoad = undefined; });
+beforeEach(async () => { await i18n.changeLanguage("ko"); vi.clearAllMocks(); state.canonicalEnabled = false; state.recapSeason = false; state.mobile = true; state.sportFilter = "run"; state.feedScope = "self"; state.user = { uid: "owner", isAnonymous: false }; state.runs = []; state.available = true; state.weeklyLoad = undefined; });
 afterEach(cleanup);
 
 describe("owner running dashboard journey parity", () => {
@@ -90,26 +92,25 @@ describe("owner running dashboard journey parity", () => {
     state.mobile = mobile;
     show("/ko?sport=swim");
     expect(screen.queryByTestId("dashboard-running-journey")).not.toBeInTheDocument();
-    if (mobile) expect(screen.getByTestId("mobile-journey-slot")).toHaveAttribute("data-sport-filter", "bike");
+    if (mobile) expect(screen.getByTestId("mobile-journey-slot")).toHaveAttribute("data-sport-filter", "swim");
     else {
       expect(screen.getByRole("tab", { name: "사이클" })).toHaveAttribute("aria-selected", "true");
       expect(screen.getByRole("tab", { name: /수영/ })).toBeDisabled();
     }
     expect(state.update).not.toHaveBeenCalled();
   });
-  it("uses bike for a saved home swim preference without silently persisting it", () => {
+  it("uses the saved mobile swim filter without silently persisting it", () => {
     state.sportFilter = "swim";
     show();
-    expect(screen.getByTestId("mobile-journey-slot")).toHaveAttribute("data-sport-filter", "bike");
+    expect(screen.getByTestId("mobile-journey-slot")).toHaveAttribute("data-sport-filter", "swim");
     expect(state.update).not.toHaveBeenCalled();
   });
   it("uses the mobile saved run filter without requiring a URL sport parameter", () => {
     show();
     expect(screen.getByTestId("mobile-journey-slot")).toHaveTextContent("run-empty-journey");
-    expect(screen.getByTestId("H2-3-1")).toHaveTextContent("활동시간");
-    expect(screen.getByTestId("H2-3-1")).not.toHaveTextContent("0시간 0분");
+    expect(screen.queryByTestId("H2-3-1")).not.toBeInTheDocument();
     expect(useRunHistory).toHaveBeenCalledWith(8, true);
-    expect(useUserFitness).toHaveBeenCalledWith(true);
+    expect(useUserFitness).toHaveBeenCalledWith(false);
     expect(useRunRecords).toHaveBeenCalledWith(true);
   });
   it("does not claim a first-run empty state when running history is unavailable", () => {
@@ -117,12 +118,13 @@ describe("owner running dashboard journey parity", () => {
     show();
     expect(screen.queryByText("run-empty-journey")).not.toBeInTheDocument();
   });
-  it("reuses loaded owner run data for recap, threshold, shoes and cross-sport load on mobile", () => {
+  it("keeps situational running setup notices on mobile while leaving training recap and load to Coach", () => {
     state.runs = [{} as Activity];
     show();
     const slot = screen.getByTestId("mobile-journey-slot");
-    for (const text of ["run-weekly-recap", "run-threshold-nudge", "run-shoe-status", "run-cross-load"]) expect(slot).toHaveTextContent(text);
-    expect(screen.getByText("run-cross-load").closest("details")).not.toBeNull();
+    for (const text of ["run-threshold-nudge", "run-shoe-status"]) expect(slot).toHaveTextContent(text);
+    expect(slot).not.toHaveTextContent("run-cross-load");
+    expect(slot).not.toHaveTextContent("run-weekly-recap");
     expect(screen.getByTestId("dashboard-running-journey")).not.toHaveTextContent("run-cross-load");
     expect(screen.getAllByText("run-threshold-nudge")).toHaveLength(1);
     expect(screen.getByTestId("dashboard-running-journey")).toHaveTextContent("run-threshold-nudge");
@@ -133,19 +135,21 @@ describe("owner running dashboard journey parity", () => {
     show("/ko?sport=run");
     expect(screen.getByTestId("dashboard-running-journey")).toBeInTheDocument();
     expect(screen.getByTestId("mobile-journey-slot")).toHaveAttribute("data-sport-filter", "run");
-    expect(screen.getByTestId("mobile-journey-slot")).toHaveAttribute("data-run-summary", "true");
     expect(useRunHistory).toHaveBeenCalledWith(8, true);
   });
-  it.each(["all", "friends"])("keeps personal guidance and recap independent of feed scope on the mobile %s feed", scope => {
+  it.each(["all", "friends"])("keeps situational personal guidance independent of feed scope on the mobile %s feed", scope => {
     state.feedScope = scope; state.runs = [{} as Activity];
     show();
     expect(screen.getByTestId("dashboard-running-journey")).toBeInTheDocument();
-    expect(screen.getByTestId("H2-3-4")).toHaveTextContent("run-weekly-recap");
+    expect(screen.queryByTestId("H2-3-4")).not.toBeInTheDocument();
     expect(useRunHistory).toHaveBeenCalledWith(8, true);
   });
   it.each([null, { uid: "guest", isAnonymous: true }])("does not show an owner journey for a guest account", user => {
     state.user = user;
+    state.sportFilter = "bike";
+    state.recapSeason = true;
     show();
+    expect(screen.getByTestId("mobile-journey-slot")).toHaveAttribute("data-year-recap", "false");
     expect(screen.queryByTestId("dashboard-running-journey")).not.toBeInTheDocument();
     expect(useRunHistory).toHaveBeenCalledWith(8, false);
     expect(useUserFitness).toHaveBeenCalledWith(false);
@@ -187,6 +191,7 @@ describe("owner running dashboard journey parity", () => {
     expect(screen.getByTestId("H2-1-1")).toHaveTextContent("역치 페이스");
     expect(screen.getByTestId("run-weekly-activity")).toBeInTheDocument();
     expect(screen.getByTestId("run-monthly-distance")).toBeInTheDocument();
+    expect(state.weeklyRequest).toHaveBeenCalledWith(expect.objectContaining({ includeMonthlyDistance: true }));
     expect(screen.queryByText("한국 자전거 커뮤니티")).not.toBeInTheDocument();
     expect(useRunHistory).toHaveBeenCalledWith(8, true);
   });

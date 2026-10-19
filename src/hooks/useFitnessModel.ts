@@ -19,6 +19,7 @@ import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useToast } from "../contexts/ToastContext";
+import type { FitnessZoneEvidence } from "../features/fitness/components/FitnessZoneDistributions";
 import { aggregateRecentZoneSeconds } from "../features/fitness/mobileFitnessMetrics";
 import {
   authoritativeCombinedLoad,
@@ -882,6 +883,27 @@ export function useFitnessModel(
         }),
     };
   }, [canonicalActive, canonicalPending, canonicalFitness.status, canonicalWeeklySummaries, dailyData, discipline, fitnessClock, fitnessData.length, fitnessDateKeyBasis, hasCanonicalTimeseries, resolvedTriFitness, timeseriesFreshLoaded, timeseriesError, timeseries, triRunTimeseries, triSwimTimeseries, selectedApiTimeseries, apiTimeseries, currentPoint, canonicalCurrentPoint, canonicalFitness.values]);
+  const zoneEvidence = useMemo<FitnessZoneEvidence>(() => {
+    const windowDays = 30;
+    const startTime = fitnessClock - windowDays * 24 * 60 * 60 * 1000;
+    const records = zoneActivities.filter(activity => activity.startTime >= startTime && activity.startTime <= fitnessClock);
+    const series = (key: "hrZoneSec" | "powerZoneSec", length: number) => {
+      const complete = records.filter(activity => {
+        const values = metricsMap.get(activity.id)?.[key];
+        return Array.isArray(values) && values.length === length && values.every(value => Number.isFinite(value) && value >= 0);
+      });
+      const aggregate = aggregateRecentZoneSeconds(zoneActivities, metricsMap, key, fitnessClock, windowDays);
+      return { counts: complete.length > 0 ? aggregate.counts : null, total: aggregate.total,
+        recordCount: complete.length, missingCount: records.length - complete.length, complete };
+    };
+    const hr = series("hrZoneSec", 5);
+    const power = series("powerZoneSec", 7);
+    const firstBoundaries = hr.complete.length ? metricsMap.get(hr.complete[0]!.id)?.hrZoneBoundaries ?? null : null;
+    const boundaries = firstBoundaries && hr.complete.every(activity => JSON.stringify(metricsMap.get(activity.id)?.hrZoneBoundaries ?? null) === JSON.stringify(firstBoundaries)) ? firstBoundaries : null;
+    return { windowDays, startTime, endTime: fitnessClock,
+      hr: { counts: hr.counts, total: hr.total, recordCount: hr.recordCount, missingCount: hr.missingCount, boundaries },
+      power: { counts: power.counts, total: power.total, recordCount: power.recordCount, missingCount: power.missingCount } };
+  }, [zoneActivities, metricsMap, fitnessClock]);
   const zoneDistribution = useMemo(() => {
     const { counts, total } = aggregateRecentZoneSeconds(
       zoneActivities,
@@ -1071,6 +1093,7 @@ export function useFitnessModel(
         measuredPower: pdc?.provenance?.power === "measured" && pdc?.provenance?.excludesVirtualPower === true,
       } : null : null,
       zones,
+      zoneEvidence,
       zoneSource,
       powerCurve,
       ftpProgression: deriveEstimatedFtpProgression(pdc?.history),
@@ -1081,7 +1104,7 @@ export function useFitnessModel(
   }, [
     canonicalFtpW, canonicalRiderView, combinedLoad, currentPoint, cyclingAbility, hasCanonicalTimeseries,
     discipline, zoneActivities, fitnessClock, fitnessDateKeyBasis, ftpHistory, integratedLoadFocus, mayUsePersistedPdcFallback,
-    metricsMap, mobileZoneDistribution, ownerRiderBlock, pdc, powerCurveProgressions, profile, projection,
+    metricsMap, mobileZoneDistribution, zoneEvidence, ownerRiderBlock, pdc, powerCurveProgressions, profile, projection,
     runEvidence, swimEvidence, t, thresholdDecision, weeklyStats,
   ]);
 
@@ -1091,6 +1114,7 @@ export function useFitnessModel(
     durationLabel,
     user,
     profile,
+    userFitness,
     ftpHistory,
     canonicalFtpW,
     canonicalFitness,
@@ -1146,6 +1170,7 @@ export function useFitnessModel(
     powerCurveProgressions,
     weeklyStats,
     zoneDistribution,
+    zoneEvidence,
     combinedLoad,
     triFitnessBreakdown,
     triFitnessTimeline,

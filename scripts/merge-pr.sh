@@ -648,16 +648,13 @@ else
   [[ "$RUN_REVIEW" == 0 ]] && log "로컬 AI 코드리뷰 생략 (--no-review)" || log "문서 전용 변경 — 로컬 AI 코드리뷰 생략"
 fi
 
-if [[ "$WAIT_CHECKS" == 1 && "$BASE" == "main" ]]; then
-  log "GitHub PR checks 대기"
-  gh pr checks "$PR_NUM" --watch --interval 10
-elif [[ "$WAIT_CHECKS" == 1 ]]; then
-  log "feature→$BASE PR — 무거운 GitHub CI는 dev→main 승격에서 실행하므로 체크 대기 생략"
-else
-  log "GitHub PR checks 대기 생략 (--no-wait)"
-fi
+log "GitHub PR checks 검증 (CodeQL 스캔은 유지, 머지 차단에서만 제외)"
+CHECK_WAIT_MODE=no-wait
+[[ "$WAIT_CHECKS" == 1 ]] && CHECK_WAIT_MODE=wait
+node scripts/merge-check-policy.mjs "$PR_NUM" "$HEAD_OID" "$CHECK_WAIT_MODE" \
+  || die "GitHub 검사 정책 미통과 — 머지 중단"
 
-META="$(gh pr view "$PR_NUM" --json state,isDraft,headRefOid,reviewDecision,mergeStateStatus)"
+META="$(gh pr view "$PR_NUM" --json state,isDraft,headRefOid,reviewDecision,mergeStateStatus,mergeable)"
 STATE="$(json_field "$META" state)"
 IS_DRAFT="$(json_field "$META" isDraft)"
 HEAD_OID="$(json_field "$META" headRefOid)"
@@ -673,8 +670,11 @@ fi
 if [[ "$REQUIRE_GITHUB_REVIEW" == 1 && "$REVIEW_DECISION" != "APPROVED" ]]; then
   die "--require-github-review 지정됨: reviewDecision=$REVIEW_DECISION, APPROVED 필요"
 fi
-if [[ "$MERGE_STATE" != "CLEAN" ]]; then
-  die "GitHub mergeStateStatus=$MERGE_STATE — CLEAN 상태가 아니므로 머지 중단"
+# UNSTABLE만 포괄 허용하지 않는다. 위 정책에서 같은 head의 일반 검사를 모두
+# 통과한 뒤에만 CodeQL에 의한 UNSTABLE을 허용하고 충돌·보호 규칙은 유지한다.
+[[ "$(json_field "$META" mergeable)" == "MERGEABLE" ]] || die "PR 충돌 또는 mergeable 불명 — 머지 중단"
+if [[ "$MERGE_STATE" != "CLEAN" && "$MERGE_STATE" != "UNSTABLE" ]]; then
+  die "GitHub mergeStateStatus=$MERGE_STATE — 머지 중단"
 fi
 
 if [[ "$DO_MERGE" == 0 ]]; then

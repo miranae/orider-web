@@ -1,8 +1,9 @@
+import { zoneSurfaceStyle } from "../../../theme/charts/zoneSurface";
 import type { ActivityRangeAnalysisResponse } from "@shared/types/activity-range-analysis";
 import type { HrZoneBoundaries } from "@shared/training/hrZoneTable";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Input, Stat, Text } from "../../../theme";
+import { Button, Input, Stack, Stat, Text, ToggleButton, ToggleControls } from "../../../theme";
 import { useLocale } from "../../../contexts/LocaleContext";
 import { useActivityRangeAnalysis } from "../../../hooks/useActivityRangeAnalysis";
 import type { ActivityRangeSelectionModel } from "../../../hooks/useActivityRangeSelection";
@@ -16,11 +17,11 @@ export function ActivityRangeControls({ selection }: { selection: ActivityRangeS
   const { t } = useTranslation("activity");
   if (!selection.ownerUid) return null;
   return <section className="activity-range-controls space-y-3" aria-label={t("rangeAnalysis.controls")}>
-    <div className="flex flex-wrap gap-2">
-      <Button size="sm" variant="outline" aria-pressed={selection.xAxis === "distance"} onClick={() => selection.setXAxis("distance")}>{t("rangeAnalysis.distanceAxis")}</Button>
-      <Button size="sm" variant="outline" disabled={!selection.sampledAxis} aria-pressed={selection.xAxis === "elapsed"} onClick={() => selection.setXAxis("elapsed")}>{t("rangeAnalysis.elapsedAxis")}</Button>
-      <Button size="sm" variant="outline" aria-pressed={selection.enabled} onClick={selection.toggle}>{t(selection.enabled ? "rangeAnalysis.endSelection" : "rangeAnalysis.select")}</Button>
-    </div>
+    <Stack direction="row" wrap align="center" gap="var(--space-2)">
+      <ToggleControls variant="axis" aria-label={t("rangeAnalysis.controls")}><ToggleButton selected={selection.xAxis === "distance"} onClick={() => selection.setXAxis("distance")}>{t("rangeAnalysis.distanceAxis")}</ToggleButton>
+      <ToggleButton disabled={!selection.sampledAxis} selected={selection.xAxis === "elapsed"} onClick={() => selection.setXAxis("elapsed")}>{t("rangeAnalysis.elapsedAxis")}</ToggleButton></ToggleControls>
+      <Button size="sm" variant="secondary" aria-pressed={selection.enabled} onClick={selection.toggle}>{t(selection.enabled ? "rangeAnalysis.endSelection" : "rangeAnalysis.select")}</Button>
+    </Stack>
     {selection.enabled && (Number.isFinite(selection.durationSec) && selection.durationSec > 0 ? <RangeTimeControls key={`${selection.identity}:${selection.selection?.requestId ?? "none"}`} selection={selection} />
       : <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.unknownAxis")}</Text>)}
     {selection.enabled && selection.selection && <Text as="p" variant="bodyMedium" mono>{t("rangeAnalysis.boundaryLegend", { start: formatElapsedBoundary(selection.selection.startOffsetSec), end: formatElapsedBoundary(selection.selection.endOffsetSec) })}</Text>}
@@ -40,7 +41,7 @@ function RangeTimeControls({ selection }: { selection: ActivityRangeSelectionMod
       <label htmlFor={`${id}-start`}><Text variant="bodyMedium">{t("rangeAnalysis.start")}</Text><Input id={`${id}-start`} mono type="text" inputMode="text" placeholder="mm:ss" aria-invalid={!valid} aria-describedby={!valid ? `${id}-error` : undefined} value={start} onChange={event => setStart(event.target.value)} /></label>
       <label htmlFor={`${id}-end`}><Text variant="bodyMedium">{t("rangeAnalysis.end")}</Text><Input id={`${id}-end`} mono type="text" inputMode="text" placeholder="mm:ss" aria-invalid={!valid} aria-describedby={!valid ? `${id}-error` : undefined} value={end} onChange={event => setEnd(event.target.value)} /></label>
     </div>
-    <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={!valid} onClick={() => { if (valid && range) selection.select(range); }}>{t("rangeAnalysis.apply")}</Button>
+    <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={!valid} onClick={() => { if (valid && range) selection.select(range); }}>{t("rangeAnalysis.apply")}</Button>
       <Button size="sm" variant="ghost" disabled={!selection.selection} onClick={selection.clear}>{t("rangeAnalysis.clear")}</Button></div>
     {!valid && <Text id={`${id}-error`} as="p" variant="bodyMedium" tone="secondary" role="alert">{t("rangeAnalysis.invalidTime")}</Text>}
     {!selection.axis && <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.noRouteAxis")}</Text>}
@@ -49,7 +50,7 @@ function RangeTimeControls({ selection }: { selection: ActivityRangeSelectionMod
   </div>;
 }
 
-function RangeZones({ values, count, title, boundaries }: { values: number[] | null; count: number; title: string; boundaries?: HrZoneBoundaries | null }) {
+function RangeZones({ values, count, title, boundaries, sheen = false }: { sheen?: boolean; values: number[] | null; count: number; title: string; boundaries?: HrZoneBoundaries | null }) {
   const { t } = useTranslation("activity");
   if (!values || values.length !== count || Array.from(values).some(value => !Number.isFinite(value) || value < 0)) return null;
   const total = values.reduce((sum, value) => sum + value, 0);
@@ -58,7 +59,7 @@ function RangeZones({ values, count, title, boundaries }: { values: number[] | n
     <Text as="h4" variant="bodyMedium" weight={600}>{title}</Text>
     {values.map((seconds, index) => <div key={index} className="flex items-center gap-3">
       <div><Text variant="bodyMedium">Z{index + 1}</Text>{boundaries?.zones[index] && <Text as="div" variant="bodyMedium" tone="tertiary">{boundaries.zones[index]!.minBpm}{boundaries.zones[index]!.maxBpmExclusive != null ? `–<${boundaries.zones[index]!.maxBpmExclusive}` : ` ${t("rangeAnalysis.orAbove")}`} bpm</Text>}</div>
-      <div className="flex-1 rounded-[var(--r-sm)] overflow-hidden bg-[var(--bg-2)]" aria-hidden="true"><div className="py-1" style={{ width: `${seconds / total * 100}%`, background: `var(--zone-${Math.min(index + 1, 5)})` }} /></div>
+      <div className="flex-1 rounded-[var(--r-sm)] overflow-hidden bg-[var(--bg-2)]" aria-hidden="true"><div className="py-1" style={{ width: `${seconds / total * 100}%`, background: `var(--zone-${Math.min(index + 1, 5)})`, ...(sheen ? zoneSurfaceStyle : {}) }} /></div>
       <Text variant="bodyMedium" mono>{formatElapsedBoundary(seconds)} · {(seconds / total * 100).toFixed(1)}%</Text>
     </div>)}
     {boundaries && <Text as="p" variant="bodyMedium" tone="tertiary">{t("rangeAnalysis.recordedHrReference", { reference: boundaries.reference === "lthr" ? "LTHR" : t("analysis.metric.maxHr"), bpm: boundaries.referenceBpm })}</Text>}
@@ -138,8 +139,8 @@ export function ActivityRangeAnalysisReading({ selection, sport, analysis, previ
     <Text as="p" variant="bodyMedium" mono>{t("rangeAnalysis.window", { start: duration(selection.selection.startOffsetSec), end: duration(selection.selection.endOffsetSec) })}</Text>
     {(selection.locationUnavailable || selection.clippedBoundary) && <Text as="p" variant="bodyMedium" tone="secondary">{t(selection.locationUnavailable ? "rangeAnalysis.locationUnavailable" : "rangeAnalysis.clippedLocation")}</Text>}
     {!metrics ? <div role="status" className="space-y-3"><Text as="p" variant="bodyMedium" tone="secondary">{t(analysis.reason === "api_unavailable" ? "rangeAnalysis.apiUnavailable" : `rangeAnalysis.${analysis.state}`)}</Text>
-      {analysis.reason === "source_reload_required" && onReloadSource && <Button variant="outline" size="sm" onClick={onReloadSource}>{t("rangeAnalysis.reloadSource")}</Button>}
-      {analysis.reason === "request_failed" && <Button variant="outline" size="sm" onClick={analysis.retry}>{t("page.retry")}</Button>}</div>
+      {analysis.reason === "source_reload_required" && onReloadSource && <Button variant="secondary" size="sm" onClick={onReloadSource}>{t("rangeAnalysis.reloadSource")}</Button>}
+      {analysis.reason === "request_failed" && <Button variant="secondary" size="sm" onClick={analysis.retry}>{t("page.retry")}</Button>}</div>
       : <>
         <div className="activity-range-stats">
           <Stat compact label={t("rangeAnalysis.elapsed")} value={duration(metrics.elapsedSec)} />
@@ -155,7 +156,7 @@ export function ActivityRangeAnalysisReading({ selection, sport, analysis, previ
         <Text as="p" variant="bodyMedium" tone="secondary">{t(metrics.powerSource === "virtual" ? "rangeAnalysis.virtualPower" : "rangeAnalysis.measuredMeans")}</Text>
         {metrics.context.mode === "recorded" && (metrics.hrZoneSec || metrics.powerZoneSec) && <div className="space-y-4">
           <RangeZones values={metrics.hrZoneSec} boundaries={metrics.context.hrZoneBoundaries} count={5} title={t("rangeAnalysis.hrZones")} />
-          <RangeZones values={metrics.powerZoneSec} count={7} title={t("rangeAnalysis.powerZones")} />
+          <RangeZones sheen values={metrics.powerZoneSec} count={7} title={t("rangeAnalysis.powerZones")} />
           {metrics.powerZoneSec && metrics.context.ftp != null && <Text as="p" variant="bodyMedium" tone="tertiary">{t("rangeAnalysis.recordedFtp", { ftp: metrics.context.ftp })}</Text>}
         </div>}
         {(sport === "bike" || sport === "ride") && analysis.response?.powerWindowInput && <div className="activity-range-power-windows"><PowerDurationWindowsPanel input={analysis.response.powerWindowInput} identity={`${selection.identity}:${selection.ownerUid}:${selection.selection.requestId}`} /></div>}

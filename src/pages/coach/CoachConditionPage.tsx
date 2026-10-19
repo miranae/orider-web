@@ -1,6 +1,8 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { Section, buttonClass } from "../../theme/components";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import CrossDisciplineLoadCard from "../../components/dashboard/CrossDisciplineLoadCard";
 import { FitnessView } from "../FitnessPage";
 import { useCoachFitnessModel } from "./CoachFitnessLayout";
 import { useAuth } from "../../contexts/AuthContext";
@@ -13,21 +15,18 @@ export default function CoachConditionPage() {
   const { user } = useAuth();
   const { t } = useTranslation("settings");
   const { hash, key } = useLocation();
-  const empty = !model.loading && model.activities.length === 0 && model.fitnessData.length === 0 && !model.currentPoint;
-  const [mounted, setMounted] = useState(hash === "#thresholds");
-  const details = useRef<HTMLDetailsElement>(null);
+  const details = useRef<HTMLElement>(null);
   useEffect(() => {
-    if ((hash !== "#thresholds" && !empty) || !details.current) return;
-    details.current.open = true;
-    setMounted(true);
+    if (hash !== "#thresholds" || !details.current) return;
     details.current.scrollIntoView?.({ behavior: "smooth", block: "start" });
-  }, [hash, key, user?.uid, empty]);
-  const thresholdsSlot = user && !user.isAnonymous ? <details id="thresholds" ref={details}
-    className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3"
-    onToggle={event => { if (event.currentTarget.open) setMounted(true); }}>
-    <summary className="cursor-pointer py-3">{t("training.coachThresholds")}</summary>
-    {mounted && <Suspense fallback={<div role="status">{t("common:button.loading")}</div>}><PaneThresholds /></Suspense>}
-    <LocalizedLink data-testid="K1-5-8" to="/settings/device">{t("training.deviceStatus")}</LocalizedLink>
-  </details> : null;
-  return <FitnessView model={model} part="condition" thresholdsSlot={thresholdsSlot} />;
+  }, [hash, key, user?.uid]);
+  const thresholdsSlot = user && !user.isAnonymous ? <section id="thresholds" ref={details}
+    className="site-shell condition-thresholds-section"
+    aria-label={t("training.coachThresholds")}>
+    <Section title={t("training.coachThresholds")}>
+    <Suspense fallback={<div role="status">{t("common:button.loading")}</div>}><PaneThresholds discipline={model.discipline} /></Suspense>
+    <LocalizedLink className={buttonClass({ variant: "ghost" })} data-testid="K1-5-8" to="/settings/device">{t("training.deviceStatus")}</LocalizedLink>
+    </Section>
+  </section> : null;
+  return <><FitnessView model={model} part="condition" hasThresholdSettings={Boolean(thresholdsSlot)} conditionSupplementSlot={model.isMobile && user && !user.isAnonymous && model.discipline === "run" ? <CrossDisciplineLoadCard fitness={model.userFitness} discipline="run" /> : null} />{thresholdsSlot}</>;
 }

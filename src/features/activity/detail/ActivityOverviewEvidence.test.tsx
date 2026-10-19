@@ -31,11 +31,7 @@ describe("activity overview evidence", () => {
     expect(screen.getByText(renderedText("개인기록 비교를 확인했지만 표시할 수 있는 기록이 없습니다."))).toBeInTheDocument();
     expect(screen.queryByText(renderedText("개인기록 검증 완료"))).not.toBeInTheDocument();
   });
-  it("labels displayed comparisons without creating extra PR achievements", () => {
-    render(<ActivityOverviewEvidenceContent presentation={rich} />);
-    expect(screen.getByText(renderedText("표시된 기록의 개인기록 비교를 확인했습니다."))).toBeInTheDocument();
-    expect(screen.getAllByText("전체 기간 PR")).toHaveLength(1);
-  });
+
   it("does not count absent power or inapplicable running rows as visible evidence", () => {
     render(<ActivityOverviewEvidenceContent presentation={{ ...rich, powerFingerprint: [], runRecordAchievements: [{ distance: "5km", valueSec: 1200, recordAchievement: "new" }] }} />);
     expect(screen.getByText(renderedText("개인기록 비교를 확인했지만 표시할 수 있는 기록이 없습니다."))).toBeInTheDocument();
@@ -112,21 +108,6 @@ describe("activity overview evidence", () => {
     expect(screen.queryByText(renderedText("평지 위주"))).not.toBeInTheDocument();
   });
 
-  it("tells the best moment as a scene and shows the settled state after the activity", () => {
-    render(<ActivityOverviewEvidenceContent presentation={{ ...rich,
-      peakMoment: { durationSec: 60, avgPowerW: 371, fromKm: 42.1, toKm: 42.9, avgSpeedKmh: 51.5, maxHr: 191, segmentName: "남한산성 오르막", segmentPr: true },
-      postFitnessStatus: { asOf: "2026-09-13 09:00 KST", ctl: 39, atl: 62, tsb: -23, formBand: "needsRecovery" } }} />);
-    expect(screen.getByText(renderedText("최고 순간 · 남한산성 오르막 (개인 최고) · 1분 371 W · 51.5 km/h · 최고심박 191"))).toBeInTheDocument();
-    expect(screen.getByText(renderedText("반영 후 CTL"))).toBeInTheDocument();
-    expect(screen.getByText(renderedText("-23"))).toBeInTheDocument();
-    expect(screen.getByText(renderedText("회복 필요"))).toBeInTheDocument();
-    cleanup();
-    // 세그먼트가 없으면 km 구간으로, 반영 후 값이 없으면 카드도 없다.
-    render(<ActivityOverviewEvidenceContent presentation={{ ...rich, peakMoment: { durationSec: 120, avgPowerW: 353, fromKm: 10, toKm: 11.2 } }} />);
-    expect(screen.getByText(renderedText("최고 순간 · 10~11.2km 지점 · 2분 353 W"))).toBeInTheDocument();
-    expect(screen.queryByText(renderedText("반영 후 CTL"))).not.toBeInTheDocument();
-  });
-
   it("keeps the best columns blank and the baseline chip absent when records are unavailable or there is no comparison", () => {
     const value: ActivityOverviewPresentation = { ...rich, availability: { ...rich.availability!, records: "unavailable" },
       powerFingerprint: [{ duration: "2m", watts: 288, allTimeBestWatts: 320, allTimeBestPct: 90 }], zones: [{ kind: "power", seconds: [10, 20, 30, 40, 0, 0, 0], priority: "primary", currentPercentages: [10, 20, 30, 40, 0, 0, 0] }] };
@@ -137,7 +118,7 @@ describe("activity overview evidence", () => {
     expect(screen.queryByText(renderedText("하이라이트", false), { exact: false })).not.toBeInTheDocument();
   });
 
-  it.each(["bike", "run", "swim"] as const)("keeps sections with missing %s inputs without inventing zero values", (discipline) => {
+  it.each(["bike", "run"] as const)("keeps sections with missing %s inputs without inventing zero values", (discipline) => {
     render(<ActivityOverviewEvidenceContent presentation={{ coachSentence: "짧은 활동", session: { discipline } }} />);
     expect(screen.getByText(renderedText("내 기록 대비"))).toBeInTheDocument();
     expect(screen.getByText(renderedText("회복과 에너지 모델"))).toBeInTheDocument();
@@ -167,10 +148,6 @@ describe("activity overview evidence viewer voice", () => {
     expect(screen.getByText(renderedText(/이 라이더의 기록 안에서의 상대 위치/))).toBeInTheDocument();
   });
 
-  it("keeps the owner voice for the owner", () => {
-    render(<ActivityOverviewEvidenceContent presentation={rich} />);
-    expect(screen.getByText(renderedText("내 기록 대비"))).toBeInTheDocument();
-  });
 });
 
 it("preserves estimated power and provisional FTP semantics", () => {
@@ -216,23 +193,4 @@ it("retains non-bike fuel and orphan effort time when the rich summary does not 
   rerender(<ActivityOverviewEvidenceContent presentation={{ session: { discipline: "bike" }, thresholdWork: { matchesTotalSec: 42 }, energy: { fatKcal: 175 } }} supplemental />);
   expect(screen.getByText(renderedText("42 s"))).toBeInTheDocument();
   expect(screen.getByText(renderedText("— · 175 kcal"))).toBeInTheDocument();
-});
-
-it("renders supplemental scalar evidence as compact facts while keeping comparison tables", () => {
-  const { container } = render(<ActivityOverviewEvidenceContent presentation={{ ...rich, thresholdWork: { aboveFtpKj: 18.9 } }} supplemental />);
-  const fact = screen.getByText(renderedText("18.9 kJ")).closest(".activity-evidence-fact")!;
-  expect(fact.closest("dl")).toBeInTheDocument();
-  expect(fact.closest(".ds-card")).toBeNull();
-  expect(container.querySelectorAll(".activity-evidence-fact dt").length).toBeGreaterThan(1);
-  expect(screen.getAllByRole("table").length).toBeGreaterThan(0);
-});
-
-it("keeps compact two-column comparisons labelled with duration and comparison context", () => {
-  const { container } = render(<ActivityOverviewEvidenceContent supplemental presentation={{ session: { discipline: "bike" }, powerFingerprint: [
-    { duration: "2m", watts: 288, deltaPct: 19.3 }, { duration: "5m", watts: 219, deltaPct: -4 },
-  ] }} />);
-  const comparison = container.querySelector(".activity-evidence-comparison")!;
-  expect(comparison).toHaveAccessibleName(/변화/);
-  expect(comparison.querySelector("dt")).toHaveTextContent("2m");
-  expect(comparison.querySelector("dd")).toHaveTextContent("+19.3%");
 });

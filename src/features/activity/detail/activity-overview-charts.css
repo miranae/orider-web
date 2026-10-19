@@ -81,42 +81,6 @@
 .activity-overview-if { display: grid; gap: var(--space-2); }
 .activity-overview-if__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
 
-/* ── IF 게이지 ── 띠·눈금·마커가 한 좌표계(트랙 100%)를 쓴다. */
-.activity-overview-gauge { position: relative; padding-top: var(--space-5); }
-/* 트랙은 1px --track-edge 테두리(바탕 대비 3:1 이상)로 바탕과 구분한다(비텍스트 대비, 보고서의 실측값 참고). */
-.activity-overview-gauge__track { position: relative; height: var(--space-2); border-radius: var(--r-sm); background: var(--bg-4); box-shadow: inset 0 0 0 1px var(--track-edge); }
-.activity-overview-gauge__band { position: absolute; top: 0; bottom: 0; left: var(--left); width: var(--width); }
-.activity-overview-gauge__band:first-child { border-radius: var(--r-sm) 0 0 var(--r-sm); }
-.activity-overview-gauge__band[data-band="6"] { border-radius: 0 var(--r-sm) var(--r-sm) 0; }
-.activity-overview-gauge__outside {
-  position: absolute; left: var(--at); top: 0; transform: translateX(-100%);
-  color: var(--ink-0); font-family: var(--font-mono); font-size: var(--fs-2xs); line-height: 1;
-}
-.activity-overview-gauge__tick {
-  position: absolute; left: var(--at); top: 0; bottom: 0; width: var(--space-0-5);
-  transform: translateX(-50%); background: var(--bg-1);
-}
-.activity-overview-gauge__ftp {
-  position: absolute; left: var(--at); top: calc(var(--space-1) * -1); bottom: calc(var(--space-1) * -1);
-  width: 1px; background: var(--ink-1);
-}
-.activity-overview-gauge__marker {
-  position: absolute; left: var(--at); top: 50%;
-  width: var(--space-4); height: var(--space-4);
-  transform: translate(-50%, -50%);
-  border-radius: 999px; background: var(--ink-0);
-  box-shadow: 0 0 0 var(--space-0-5) var(--bg-1), 0 0 0 calc(var(--space-0-5) + 1px) var(--ink-2);
-}
-.activity-overview-gauge__scale { position: relative; height: var(--space-5); margin-top: var(--space-1-5); }
-.activity-overview-gauge__scale > span {
-  position: absolute; left: var(--at); transform: translateX(-50%);
-  color: var(--ink-2); font-family: var(--font-mono); font-size: var(--fs-2xs); white-space: nowrap;
-}
-.activity-overview-gauge__ftp-label {
-  position: absolute; left: var(--at); top: 0; transform: translateX(-50%);
-  color: var(--ink-1); font-family: var(--font-mono); font-size: var(--fs-2xs); line-height: 1;
-}
-
 /* ── 존 막대 ── */
 .activity-overview-zones { display: grid; gap: var(--space-2); min-width: 0; }
 .activity-overview-zones__head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-2); }
@@ -214,50 +178,8 @@
 /* ── 파워 커브 ── */
 .activity-overview-curve { min-width: 0; }
 
-/* ── 훈련 부하 전→후 ──
- * 세 줄의 막대가 같은 폭이어야 축을 공유한다 — 줄을 display:contents 로 풀어 한 격자에 올린다. */
-.activity-overview-shift { display: grid; gap: var(--space-3); }
-.activity-overview-shift__legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin: 0; padding: 0; list-style: none; color: var(--ink-2); font-size: var(--fs-sm); }
-.activity-overview-shift__legend li { display: inline-flex; align-items: center; gap: var(--space-1-5); }
-.activity-overview-shift__key { width: var(--space-3); height: var(--space-3); border-radius: 999px; flex-shrink: 0; }
-.activity-overview-shift__key--before { border: var(--space-0-5) solid var(--ink-2); background: var(--bg-1); }
-.activity-overview-shift__key--after { background: var(--accent); }
-.activity-overview-shift__rows {
-  display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content;
-  align-items: center; gap: var(--space-3) var(--space-3);
-}
-.activity-overview-shift__row { display: contents; }
-.activity-overview-shift__label { white-space: nowrap; }
-.activity-overview-shift__track { position: relative; height: var(--space-5); }
-.activity-overview-shift__track::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--grid-soft); }
-.activity-overview-shift__negative {
-  position: absolute; left: 0; width: var(--zero); top: 0; bottom: 0;
-  background: color-mix(in oklch, var(--color-error) 9%, transparent); border-radius: var(--r-sm) 0 0 var(--r-sm);
-}
-.activity-overview-shift__zero { position: absolute; left: var(--zero); top: 0; bottom: 0; width: 1px; background: var(--ink-2); }
-.activity-overview-shift__span {
-  position: absolute; left: var(--from); width: calc(var(--to) - var(--from)); top: 50%; height: var(--space-1);
-  transform: translateY(-50%); border-radius: 999px;
-  background: color-mix(in oklch, var(--accent) 45%, transparent);
-}
-.activity-overview-shift__span.is-down { background: color-mix(in oklch, var(--ink-2) 50%, transparent); }
-.activity-overview-shift__dot { position: absolute; left: var(--at); top: 50%; width: var(--space-3); height: var(--space-3); transform: translate(-50%, -50%); border-radius: 999px; }
-.activity-overview-shift__dot--before { border: var(--space-0-5) solid var(--ink-2); background: var(--bg-1); }
-.activity-overview-shift__dot--after { background: var(--accent); box-shadow: 0 0 0 var(--space-0-5) var(--bg-1); }
-/* 겹칠 만큼 가까우면 운동 전은 채운 점을 감싸는 바깥 링으로 — 사라지지 않는다. */
-.activity-overview-shift__dot--before.is-halo { width: calc(var(--space-3) + var(--space-2)); height: calc(var(--space-3) + var(--space-2)); background: transparent; }
-.activity-overview-shift__values { white-space: nowrap; text-align: right; }
-.activity-overview-shift__from, .activity-overview-shift__arrow, .activity-overview-shift__delta { color: var(--ink-2); }
-.activity-overview-shift__row--axis > * { align-self: start; }
-.activity-overview-shift__axis { position: relative; height: var(--space-3); margin-top: calc(var(--space-2) * -1); }
-.activity-overview-shift__axis > span {
-  position: absolute; left: var(--zero); transform: translateX(-50%);
-  color: var(--ink-2); font-family: var(--font-mono); font-size: var(--fs-2xs); line-height: 1;
-}
-
-
 @media (prefers-reduced-motion: no-preference) {
-  .activity-overview-zones__strip, .activity-overview-gauge__marker, .activity-overview-shift__dot--after, .activity-overview-meter__fill {
+  .activity-overview-zones__strip, .activity-overview-meter__fill {
     animation: activity-overview-in .5s cubic-bezier(.2, .7, .2, 1) both;
   }
   /* 끝 상태도 상자 밖(Z4+ 괄호·점 테두리)을 자르지 않도록 위아래·오른쪽을 넉넉히 연다. */
@@ -274,16 +196,7 @@
   /* 평소 비중은 기준 막대 아래 "평소 Z4+ x%" 문구가 맡는다 — 줄마다 반복하지 않는다. */
   .activity-overview-zones__time { display: none; }
   .activity-overview-grid section { padding-top: var(--space-3); }
-  .activity-overview-shift__from { font-size: var(--fs-2xs); }
   /* 긴 번역도 값과 겹치지 않도록 이름 → 값 → 전폭 막대를 각각 한 줄로 둔다. */
-  .activity-overview-shift__rows { display: flex; flex-direction: column; gap: var(--space-3); }
-  .activity-overview-shift__row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-1); min-width: 0; }
-  .activity-overview-shift__label { order: 0; white-space: normal; min-width: 0; }
-  .activity-overview-shift__values { order: 1; white-space: normal; text-align: left; }
-  .activity-overview-shift__track { order: 2; }
-  .activity-overview-shift__track, .activity-overview-shift__axis { grid-column: 1 / -1; }
-  .activity-overview-shift__axis { margin-top: 0; }
-  .activity-overview-shift__row--axis > span { display: none; }
   .activity-overview-meter--quiet .activity-overview-meter__head { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
 }
 

@@ -631,6 +631,7 @@ export function useActivities(
 }
 
 type WeeklyStatsOptions = {
+  enabled?: boolean;
   includeMonthlyDistance?: boolean;
   now?: Date;
   discipline?: Discipline;
@@ -641,6 +642,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   const { user } = useAuth();
   const options = nowOrOptions instanceof Date ? null : nowOrOptions;
   const now = nowOrOptions instanceof Date ? nowOrOptions : (nowOrOptions.now ?? new Date());
+  const enabled = options?.enabled ?? true;
   const includeMonthlyDistance = options?.includeMonthlyDistance ?? false;
   const discipline = options?.discipline;
   const recent7DayDiscipline = options?.recent7DayDiscipline ?? discipline;
@@ -654,7 +656,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   const [coverage, setCoverage] = useState<{ key: string; status: "ready" | "partial" | "error"; recent7DayStatus: "ready" | "partial" | "error" } | null>(null);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !enabled) {
       setActivities([]);
       setMonthlyDistanceState(null);
       setCoverage(null);
@@ -763,7 +765,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
 
     load();
     return () => { cancelled = true; };
-  }, [user, year, month, includeMonthlyDistance, discipline]);
+  }, [user, year, month, includeMonthlyDistance, discipline, enabled]);
 
   const emptyWeeks: WeeklyStat[] = [];
   const emptyThisWeek = { rides: 0, distance: 0, time: 0, elevation: 0 };
@@ -777,7 +779,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
     activity => activity.userId === user?.uid,
   )), [activities, user?.uid]);
 
-  if (!user) {
+  if (!user || !enabled) {
     return {
       weeklyStats: emptyWeeks,
       thisWeek: emptyThisWeek,

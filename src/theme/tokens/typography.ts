@@ -5,8 +5,8 @@
  * 사이즈는 px (앱 sp/pt 1:1 매핑은 아니지만 비례 유지).
  *
  * 패밀리:
- * - 본문: Pretendard Variable (CJK 우선)
- * - 수치: JetBrains Mono (tnum, zero)
+ * - 본문: Apple 시스템 글꼴 우선 (운영체제 기본 대체 글꼴)
+ * - 수치: SFMono-Regular / 시스템 monospace (tnum)
  */
 export type FontWeight = 400 | 500 | 600 | 700;
 
@@ -15,7 +15,7 @@ export interface TypeToken {
   weight: FontWeight;
   lineHeight?: number; // unitless
   letterSpacing?: string; // 'em' 단위, e.g. '-0.02em'
-  mono?: boolean;      // JetBrains Mono 사용 여부
+  mono?: boolean;      // 시스템 monospace 사용 여부
 }
 
 export interface TypographyTokens {
@@ -47,14 +47,14 @@ export const DEFAULT_TYPOGRAPHY: TypographyTokens = {
 
   pageTitle:  { size: 32, weight: 700, lineHeight: 1.15 },
   title:      { size: 20, weight: 700, lineHeight: 1.3 },
-  subtitle:   { size: 16, weight: 600, lineHeight: 1.4, letterSpacing: '0.015em' },
-  bodyLarge:  { size: 16, weight: 500, lineHeight: 1.5 },
-  body:       { size: 14, weight: 400, lineHeight: 1.5 },
-  bodyMedium: { size: 14, weight: 500, lineHeight: 1.5 },
+  subtitle:   { size: 17, weight: 600, lineHeight: 1.4, letterSpacing: '-0.01em' },
+  bodyLarge:  { size: 17, weight: 400, lineHeight: 1.5 },
+  body:       { size: 15, weight: 400, lineHeight: 1.5 },
+  bodyMedium: { size: 15, weight: 500, lineHeight: 1.5 },
   bodySmall:  { size: 13, weight: 400, lineHeight: 1.5 },
   caption:    { size: 12, weight: 400, lineHeight: 1.4 },
-  label:      { size: 13, weight: 500, lineHeight: 1.3, letterSpacing: '0.05em' },
-  status:     { size: 13, weight: 500, lineHeight: 1.3, letterSpacing: '0.05em' },
+  label:      { size: 13, weight: 500, lineHeight: 1.3, letterSpacing: '0' },
+  status:     { size: 13, weight: 500, lineHeight: 1.3, letterSpacing: '0' },
   eyebrow:    { size: 12, weight: 500, mono: true, letterSpacing: '0.14em' }, // 최소 12px (#401)
 };
 

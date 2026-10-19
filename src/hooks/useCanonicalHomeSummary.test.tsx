@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   log: vi.fn(),
   user: { uid: "u1" } as { uid: string } | null,
   rolloutAllows: vi.fn(() => true),
+  rolloutLoading: false,
+  rolloutActive: vi.fn(),
 }));
 
 // 파서는 진짜를 쓴다 — 여기서 흉내 내면 서버 계약과 어긋난 채로 통과한다 (#2237 리뷰).
@@ -25,7 +27,7 @@ vi.mock("../services/canonicalApi", async (importOriginal) => ({
 vi.mock("../services/errorLogger", () => ({ logClientError: mocks.log }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock("./useCanonicalRollout", () => ({
-  useCanonicalRollout: () => ({ gateEnabled: true, loading: false, verdictOk: true, surfaces: {} }),
+  useCanonicalRollout: (active: boolean) => { mocks.rolloutActive(active); return { gateEnabled: true, loading: mocks.rolloutLoading, verdictOk: true, surfaces: {} }; },
   canonicalRolloutAllows: () => mocks.rolloutAllows(),
 }));
 
@@ -57,8 +59,38 @@ describe("useCanonicalHomeSummary", () => {
     mocks.enabled.mockReturnValue(true);
     mocks.rolloutAllows.mockReturnValue(true);
     mocks.user = { uid: "u1" };
+    mocks.rolloutLoading = false;
   });
 
+  it("active=false prevents reads, reenables safely and drops previous owner values", async () => {
+    mocks.fetch.mockResolvedValueOnce(withTotals());
+    const { result, rerender } = renderHook(({ active }) => useCanonicalHomeSummary(active), { initialProps: { active: false } });
+    expect(result.current.enabled).toBe(false);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(mocks.rolloutActive).toHaveBeenLastCalledWith(false);
+    rerender({ active: true });
+    await waitFor(() => expect(result.current.totals).toEqual(totals));
+    rerender({ active: false });
+    expect(result.current.totals).toBeNull();
+    mocks.user = { uid: "u2" };
+    mocks.fetch.mockReturnValue(new Promise(() => {}));
+    rerender({ active: true });
+    expect(result.current).toMatchObject({ enabled: true, totals: null, display: null });
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+  });
+  it("returns pending on the first enabled render so consumers do not start a legacy read", () => {
+    mocks.fetch.mockReturnValue(new Promise(() => {}));
+    const legacy = vi.fn();
+    renderHook(() => { const state = useCanonicalHomeSummary(); if (!state.enabled) legacy(); return state; });
+    expect(legacy).not.toHaveBeenCalled();
+  });
+  it("waits for the rollout verdict before exposing the client fallback", () => {
+    mocks.rolloutLoading = true;
+    mocks.rolloutAllows.mockReturnValue(false);
+    const { result } = renderHook(() => useCanonicalHomeSummary());
+    expect(result.current).toMatchObject({ enabled: true, totals: null, display: null });
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
   it("빌드 플래그가 꺼져 있으면 서버를 부르지 않는다 — 화면은 오늘과 똑같다", async () => {
     mocks.enabled.mockReturnValue(false);
     const { result } = renderHook(() => useCanonicalHomeSummary());

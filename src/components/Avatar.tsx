@@ -20,7 +20,7 @@ function colorFor(name: string) {
 interface AvatarProps {
   name?: string | null;
   imageUrl?: string | null;
-  size?: "sm" | "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl" | 40;
   userId?: string;
   className?: string;
   /** 44px 터치 타깃 확장 — 아바타가 겹쳐 쌓이는 스택에서는 false 로 꺼서 이웃 타깃 가림 방지 */
@@ -28,6 +28,7 @@ interface AvatarProps {
 }
 
 const SIZES = {
+  40: "w-10 h-10 text-[length:var(--fs-sm)]",
   sm: "w-7 h-7 text-[length:var(--fs-xs)]",
   md: "w-9 h-9 text-[length:var(--fs-sm)]",
   lg: "w-12 h-12 text-[length:var(--fs-base)]",

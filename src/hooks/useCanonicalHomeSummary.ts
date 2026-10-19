@@ -43,12 +43,15 @@ const DISABLED: CanonicalHomeSummaryState = {
   enabled: false, totals: null, display: null, computedAt: null,
 };
 
-export function useCanonicalHomeSummary(): CanonicalHomeSummaryState {
+export function useCanonicalHomeSummary(active = true): CanonicalHomeSummaryState {
   const { user } = useAuth();
-  const rollout = useCanonicalRollout();
+  const rollout = useCanonicalRollout(active);
   // 빌드 플래그 AND 서버 판정. 판정을 기다리는 동안 canonicalRolloutAllows 는 꺼짐으로 답한다.
-  const enabled = canonicalConsumersEnabled() && canonicalRolloutAllows(rollout, "homeSummary");
+  const consumerEnabled = active && !!user && !user.isAnonymous && canonicalConsumersEnabled();
+  const pending = consumerEnabled && rollout.gateEnabled && rollout.loading;
+  const enabled = consumerEnabled && canonicalRolloutAllows(rollout, "homeSummary");
   const [state, setState] = useState<CanonicalHomeSummaryState>(DISABLED);
+  const stateOwner = useRef<string | null>(null);
   const lastGood = useRef<CanonicalHomeTotals | null>(null);
   // 늦게 도착한 응답이 최신을 덮지 않게 한다. uid 비교만으로는 같은 계정의 중복
   // 요청과 A→B→A 전환을 걸러내지 못한다.
@@ -74,6 +77,7 @@ export function useCanonicalHomeSummary(): CanonicalHomeSummaryState {
       );
     }
     if (fresh !== null && decision.display === "value") lastGood.current = fresh;
+    stateOwner.current = uid;
     setState({
       enabled: true,
       totals: fresh ?? (decision.display === "value_with_stale_hint" ? lastGood.current : null),
@@ -87,6 +91,7 @@ export function useCanonicalHomeSummary(): CanonicalHomeSummaryState {
     const myGeneration = generation.current;
     // 계정이 바뀌면 이전 계정의 값을 즉시 버린다 — 남겨 두면 남의 기록이 보인다.
     lastGood.current = null;
+    stateOwner.current = user?.uid ?? null;
     if (!enabled || !user) {
       setState(DISABLED);
       return;
@@ -97,5 +102,9 @@ export function useCanonicalHomeSummary(): CanonicalHomeSummaryState {
     void load(user.uid, myGeneration);
   }, [user, load, enabled]);
 
-  return state;
+  if (!consumerEnabled) return DISABLED;
+  if (pending || enabled && (!state.enabled || stateOwner.current !== user?.uid)) {
+    return { enabled: true, totals: null, display: null, computedAt: null };
+  }
+  return enabled ? state : DISABLED;
 }

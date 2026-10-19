@@ -1,15 +1,4 @@
-/* Fitness 설명만 보강하고 수치·eyebrow·다른 제품 화면의 위계는 유지한다. */
-.fitness-reading .ds-text--body-small,
-.fitness-reading .ds-text--label,
-.fitness-reading .ds-text--caption:not(.ds-text--mono) {
-  font-size: var(--fs-md);
-  line-height: 1.5;
-}
 
-.fitness-reading .ds-text--body-small.ds-text--tone-2,
-.fitness-reading .ds-text--caption.ds-text--tone-2:not(.ds-text--mono) {
-  color: var(--ink-2);
-}
 
 /* 출처 링크의 인라인 강조색도 읽기 대비 기준을 따른다. */
 .fitness-reading a[href^="/web-manual/"] {
@@ -22,3 +11,53 @@
   color: var(--ink-2) !important;
   overflow-wrap: anywhere;
 }
+
+.condition-chart-views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.condition-trend-region { min-width: 0; }
+.condition-trend-region [hidden],
+.mobile-fitness-page [hidden] { display: none; }
+.fitness-current-status { min-width: 0; }
+
+.condition-load-section { margin-block: var(--space-5); padding-block: var(--space-4); border-top: 1px solid var(--line-soft); }
+.condition-load-section > h2 { margin-bottom: var(--space-4); }
+.condition-load-section .condition-load-evidence { display: grid; gap: var(--space-3); }
+
+.condition-ftp-section { padding-block: var(--space-4); border-top: 1px solid var(--line-soft); scroll-margin-top: var(--space-8); }
+.condition-ftp-section > h2 { margin-bottom: var(--space-3); }
+
+.condition-thresholds-section { padding: var(--space-5); margin-block: var(--space-5); border-top: 1px solid var(--line-soft); scroll-margin-top: var(--space-8); }
+
+.condition-riding-metrics { margin-top: var(--space-6); display: grid; gap: var(--space-4); }
+.condition-riding-metrics__evidence { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+.condition-riding-metrics__evidence > * { min-width: 0; }
+
+.condition-goal-summary { margin-top: var(--space-4); padding: var(--space-4); background: color-mix(in oklch, var(--lime) 5%, var(--bg-2)); border-radius: var(--r-md); display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)) auto; gap: var(--space-3) var(--space-5); align-items: center; }
+.condition-goal-summary__provenance { grid-column: 1 / -1; margin: 0; padding-top: var(--space-3); border-top: 1px solid var(--line-soft); }
+@media (max-width: 52rem) { .condition-goal-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } .condition-goal-summary > :first-child { grid-column: 1 / -1; } }
+
+/* The evidence chapters are stronger than the cards nested inside them. */
+.condition-load-section,
+.condition-riding-metrics { margin-top: var(--space-8); padding-top: var(--space-6); border-top: 1px solid var(--line-soft); }
+.condition-load-section > h2,
+.condition-riding-metrics > h2 { margin: 0 0 var(--space-2); font-size: var(--fs-2xl); line-height: var(--lh-tight); }
+.condition-load-section > p,
+.condition-riding-metrics > p { margin: 0 0 var(--space-5); max-width: 48rem; }
+.condition-load-section .condition-load-evidence { grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--space-5); align-items: start; }
+.condition-load-section .condition-load-evidence > .condition-period-change { grid-column: 1 / -1; }
+.condition-load-section .condition-load-evidence > div { margin-bottom: 0 !important; }
+
+.condition-page-header { padding-block: var(--space-3) !important; }
+.condition-page-header > div:first-child { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-1) var(--space-3); align-items: baseline; }
+.condition-page-header > div:first-child > :first-child { grid-row: 1; grid-column: 2; margin: 0 !important; }
+.condition-page-header h1 { grid-row: 1; grid-column: 1; margin: 0 !important; font-size: var(--fs-2xl); line-height: var(--lh-tight); }
+.condition-page-header > div:first-child > :last-child { grid-column: 1 / -1; }
+
+.condition-performance-evidence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
+.condition-performance-evidence-grid > * { min-width: 0; margin-top: 0 !important; }
+.condition-formula-vo2 { margin-bottom: var(--space-4); padding-bottom: var(--space-3); border-bottom: 1px solid var(--line-soft); }
+@media (max-width: 48rem) { .condition-performance-evidence-grid { grid-template-columns: minmax(0, 1fr); } }

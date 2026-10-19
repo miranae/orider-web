@@ -48,6 +48,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
     { to: "/athlete/me/gear", labelKey: "nav.equipment", icon: Bike },
     { to: "/settings/account", labelKey: "nav.settings", icon: Settings },
   ];
+  const [desktopHeader, setDesktopHeader] = useState(() => typeof window === "undefined" || window.matchMedia("(min-width: 1024px)").matches);
   const [createOpen, setCreateOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -56,6 +57,15 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   const [searchOpen, setSearchOpen] = useState(false);
   const [signInPending, setSignInPending] = useState(false);
   const createRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const closeOnMobile = () => {
+      setDesktopHeader(desktop.matches);
+      if (!desktop.matches) { setCreateOpen(false); setMenuOpen(false); }
+    };
+    desktop.addEventListener("change", closeOnMobile);
+    return () => desktop.removeEventListener("change", closeOnMobile);
+  }, []);
   useEffect(() => {
     if (!createOpen) return;
     const closeOutside = (event: MouseEvent) => { if (!createRef.current?.contains(event.target as Node)) setCreateOpen(false); };
@@ -145,6 +155,10 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
     stripMobileMenuHistoryState();
     setMobileOpen(false);
   }, [stripMobileMenuHistoryState]);
+
+  useEffect(() => {
+    if (desktopHeader && mobileOpen) closeMobileMenu();
+  }, [desktopHeader, mobileOpen, closeMobileMenu]);
 
   // 모바일 메뉴 열릴 때 스크롤 잠금 + 브라우저 뒤로가기 연동
   useEffect(() => {
@@ -250,6 +264,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
         {/* 우측: 검색 + 아이콘 + 인증 */}
         <div className="flex items-center" style={{ gap: 'var(--space-2)', flexShrink: 0 }}>
+          <div className="hidden lg:flex items-center gap-2">
           <Link to="/settings/account" data-testid="X1-6" className={navIconButtonClass} aria-label={t("nav.settings")}><Settings size={19} /></Link>
           <div data-testid="X1-3" ref={createRef} className="relative">
             <Button size="sm" variant="secondary" aria-expanded={createOpen} aria-haspopup="menu" onClick={() => setCreateOpen(value => !value)}>{t("nav.create")}</Button>
@@ -258,6 +273,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 ["course", "/course/create"], ["segment", "/segment/create"], ["event", "/event/create"], ["club", "/clubs?new=1"], ["post", "/community/board/write"], ["import", "/athlete/me/activities?import=1"], ["goal", "/coach/goals?new=1"],
               ] as [string, string][]).map(([key, to]) => <Link key={key} role="menuitem" data-testid={({ course: "M1-1-1", segment: "M1-1-2", event: "M1-1-3", club: "M1-1-4", post: "M1-1-5", import: "M1-1-6", goal: "M1-1-7" } as Record<string, string>)[key]} to={to} onClick={() => setCreateOpen(false)} className="block rounded-[var(--r-md)] px-3 py-2">{t(`nav.create.${key}`)}</Link>) : <Button disabled={signInPending} onClick={() => { setCreateOpen(false); void handleSignInWithGoogle(); }}>{t("auth.loginValue")}</Button>}
             </div>}
+          </div>
           </div>
           {/* 검색 박스 (데스크톱만) */}
           <div
@@ -511,10 +527,14 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
               {/* 아바타 + 드롭다운 */}
               <div data-testid="X1-5" ref={menuRef} style={{ position: 'relative' }}>
                 <button
-                  onClick={() => { setMenuOpen(!menuOpen); setNotifOpen(false); }}
+                  onClick={() => {
+                    setNotifOpen(false);
+                    if (desktopHeader) setMenuOpen(!menuOpen);
+                    else { setMenuOpen(false); openMobileMenu(); }
+                  }}
                   className={navFocusClass}
                   aria-label={t('label.profile')}
-                  aria-expanded={menuOpen}
+                  aria-expanded={desktopHeader ? menuOpen : mobileOpen}
                   aria-current={settingsActive ? 'page' : undefined}
                   style={{
                     width: 44, height: 44, borderRadius: '50%',
@@ -593,20 +613,6 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 )}
               </div>
 
-              {/* 모바일 햄버거 버튼 */}
-              <button
-                className={`lg:hidden ${navIconButtonClass}`}
-                aria-label={t('button.more')}
-                onClick={openMobileMenu}
-                style={{
-                  width: 44, height: 44,
-                  alignItems: 'center', justifyContent: 'center',
-                  borderRadius: "var(--r-md)", border: 'none', background: 'transparent',
-                  cursor: 'pointer', color: 'var(--ink-3)',
-                }}
-              >
-                <Menu size={18} />
-              </button>
             </>
           ) : (
             <>

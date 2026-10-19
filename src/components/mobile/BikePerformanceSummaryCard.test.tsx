@@ -42,8 +42,8 @@ describe("BikePerformanceSummaryCard", () => {
     expect(screen.getByText("역량 점수 82/100")).toBeInTheDocument();
     expect(within(container.querySelector('[data-performance-metric="tte"]')!).getByText("45")).toBeInTheDocument();
     const vo2Tile = container.querySelector('[data-performance-metric="vo2max"]')!;
-    expect(within(vo2Tile).getByText("58")).toHaveStyle({ whiteSpace: "nowrap" });
-    expect(within(vo2Tile).getByText("ml/kg/min")).toHaveStyle({ whiteSpace: "nowrap" });
+    expect(within(vo2Tile).getByText("58")).toBeVisible();
+    expect(within(vo2Tile).getByText("ml/kg/min")).toBeVisible();
     expect(within(vo2Tile).queryByRole("meter")).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/상위 \d+%|O-Rider 전체|밀도|표본/);
 
@@ -51,8 +51,26 @@ describe("BikePerformanceSummaryCard", () => {
     await user.click(screen.getByRole("button", { name: "산출 근거 보기" }));
     expect(screen.getByText("최근 20분 최고 평균")).toBeVisible();
     expect(screen.getByText("279 W")).toBeVisible();
-    expect(screen.getByText("라이더 유형 신뢰도")).toBeVisible();
+    expect(screen.getByText(/라이더 유형 신뢰도/)).toBeVisible();
     expect(screen.getByRole("link", { name: "PDC와 3축 산출 근거 보기" })).toHaveAttribute("href", "/web-manual/ch06-advanced.html#s6-3");
+  });
+
+  it("preserves distinct condition estimates and the full rider summary with their evidence open", () => {
+    const { container } = renderWithProviders(<BikePerformanceSummaryCard part="condition" decision={completeDecision}
+      pdc={{ riderType: { type: "Climber", confidence: 0.9 }, abilityScore: 82, vo2maxEst: 58.4, activityCount: 14, weightKgSnapshot: 70, version: 6, provenanceVersion: 2, measuredPower: true }} weightKg={70} />);
+    expect(screen.getByText("클라이머")).toBeVisible();
+    expect(screen.getByRole("meter", { name: "종합 사이클링 역량 점수" })).toHaveAttribute("aria-valuenow", "82");
+    for (const [key, value] of [["eftp", "265"], ["cp", "270"], ["tte", "45"]]) expect(within(container.querySelector(`[data-performance-metric="${key}"]`)!).getByText(value)).toBeVisible();
+    expect(screen.getByText("279 W")).toBeVisible();
+    expect(screen.getByText(/라이더 유형 신뢰도/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "산출 근거 보기" })).not.toBeInTheDocument();
+    expect(container.querySelector('[data-performance-metric="vo2max"]')).toBeNull();
+  });
+
+  it("keeps the FTP-and-weight VO2 estimate when no PDC VO2 value can represent it", () => {
+    const { container } = renderWithProviders(<BikePerformanceSummaryCard part="condition" decision={completeDecision} weightKg={70} />);
+    expect(within(container.querySelector('[data-performance-metric="vo2max"]')!).getByText("60")).toBeVisible();
+    expect(screen.getByText(/프로필 FTP와 체중 기반 단순 근사/)).toBeVisible();
   });
 
   it("shows a stable empty state without inventing scores", () => {
