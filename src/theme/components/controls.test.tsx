@@ -2,7 +2,7 @@ import { createRef, useState } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { Checkbox, ControlToolbar, ToolbarGroup, ToolbarButton, ToggleControls, ToggleButton, MapResizeControls, MapNavigation, MapControlButton, ChartLane, ChartPlot, ChartRangeCaption, ChartValue, ChartLegend } from './index';
+import { Checkbox, ControlToolbar, ToolbarGroup, ToolbarButton, ToggleControls, ToggleButton, MapResizeControls, MapNavigation, MapControlButton, ChartLane, ChartPlot, ChartRangeCaption, ChartValue, ChartLegend, ChartTooltip } from './index';
 
 describe('공통 컨트롤', () => {
   it('툴바의 native 키보드 실행·disabled·선택 상태를 전달하고 폼을 제출하지 않는다', async () => {
@@ -33,6 +33,21 @@ describe('공통 컨트롤', () => {
     expect(button).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(button);
     expect(changed).toHaveBeenCalledOnce();
+  });
+
+  it('tab 역할은 selected로 상태를 알리고 일반 토글의 pressed 상태와 구분한다', () => {
+    const changed = vi.fn();
+    const view = render(<ToggleControls role="tablist" aria-label="종목"><ToggleButton role="tab" selected={false} onClick={changed}>러닝</ToggleButton></ToggleControls>);
+    const tab = screen.getByRole('tab', { name: '러닝', selected: false });
+    expect(tab).not.toHaveAttribute('aria-pressed');
+    fireEvent.click(tab);
+    expect(changed).toHaveBeenCalledOnce();
+    view.rerender(<ToggleControls role="tablist" aria-label="종목"><ToggleButton role="tab" selected>러닝</ToggleButton></ToggleControls>);
+    expect(screen.getByRole('tab', { name: '러닝', selected: true })).toBe(tab);
+    expect(tab).not.toHaveAttribute('aria-pressed');
+    view.rerender(<ToggleControls aria-label="지표"><ToggleButton selected>파워</ToggleButton></ToggleControls>);
+    const toggle = screen.getByRole('button', { name: '파워', pressed: true });
+    expect(toggle).not.toHaveAttribute('aria-selected');
   });
 
   it('지도 크기와 카메라 조작 콜백을 분리하고 두 모서리에 같은 크기 상태를 제공한다', () => {
@@ -96,4 +111,16 @@ it('uses native checkbox keyboard selection with an accessible name', async () =
   expect(checkbox).toBeChecked();
   await user.click(checkbox);
   expect(checkbox).not.toBeChecked();
+});
+
+
+it('keeps the tooltip label and values while switching edge alignment', () => {
+  const view = render(<ChartTooltip label="10월" placement="start">CTL 42</ChartTooltip>);
+  const tooltip = screen.getByRole('tooltip');
+  expect(tooltip).toHaveTextContent('10월CTL 42');
+  expect(tooltip).toHaveAttribute('data-placement', 'start');
+  view.rerender(<ChartTooltip label="10월" placement="end">CTL 42</ChartTooltip>);
+  expect(tooltip).toHaveAttribute('data-placement', 'end');
+  view.rerender(<ChartTooltip label="10월">CTL 42</ChartTooltip>);
+  expect(tooltip).not.toHaveAttribute('data-placement');
 });

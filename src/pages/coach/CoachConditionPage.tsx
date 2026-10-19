@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import CrossDisciplineLoadCard from "../../components/dashboard/CrossDisciplineLoadCard";
 import { FitnessView } from "../FitnessPage";
 import { useCoachFitnessModel } from "./CoachFitnessLayout";
 import { useAuth } from "../../contexts/AuthContext";
@@ -29,5 +30,5 @@ export default function CoachConditionPage() {
     {mounted && <Suspense fallback={<div role="status">{t("common:button.loading")}</div>}><PaneThresholds /></Suspense>}
     <LocalizedLink data-testid="K1-5-8" to="/settings/device">{t("training.deviceStatus")}</LocalizedLink>
   </details> : null;
-  return <FitnessView model={model} part="condition" thresholdsSlot={thresholdsSlot} />;
+  return <FitnessView model={model} part="condition" thresholdsSlot={thresholdsSlot} conditionSupplementSlot={model.isMobile && user && !user.isAnonymous && model.discipline === "run" ? <CrossDisciplineLoadCard fitness={model.userFitness} discipline="run" /> : null} />;
 }

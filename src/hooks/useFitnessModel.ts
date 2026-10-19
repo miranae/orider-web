@@ -1091,6 +1091,7 @@ export function useFitnessModel(
     durationLabel,
     user,
     profile,
+    userFitness,
     ftpHistory,
     canonicalFtpW,
     canonicalFitness,

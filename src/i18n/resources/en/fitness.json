@@ -1,4 +1,11 @@
 {
+  "activitySummary.monthRun": "Running this month",
+  "activitySummary.monthAll": "This month · all activities",
+  "activitySummary.monthComparison": "{{percent}}% of your usual monthly equivalent",
+  "activitySummary.runBasis": "Running distance for this month in Seoul time. The monthly equivalent is the recent weekly average × 4.3, not a goal completion rate.",
+  "activitySummary.allBasis": "All activity distance for the current calendar month. The monthly equivalent is the recent weekly average × 4.3, not a goal completion rate.",
+  "activitySummary.loading": "Checking this month’s activities.",
+  "activitySummary.unavailable": "This month’s flow is unavailable because the activity history could not be fully verified.",
   "periodEvidence.loading": "Loading confirmed analysis for the selected periods.",
   "empty.importHistory": "Import activities",
   "history.title": "Condition trends",

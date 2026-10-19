@@ -180,6 +180,10 @@
   transition: border-color .12s;
   width: 100%;
 }
+/* Reserve trailing space without changing the native input/ref contract. */
+.ds-input-action { display: block; position: relative; min-width: 0; width: 100%; }
+.ds-input--with-action { min-height: calc(var(--space-7) + var(--space-4)); padding-right: calc(var(--space-7) + var(--space-5)); }
+.ds-input-action__end { position: absolute; right: var(--space-0-5); top: 50%; transform: translateY(-50%); display: flex; }
 .ds-input:focus { border-color: var(--accent); }
 .ds-input:disabled { opacity: .6; cursor: not-allowed; }
 .ds-input--invalid { border-color: var(--color-error); }
@@ -197,6 +201,28 @@ select.ds-input {
   background-repeat: no-repeat;
   padding-right: 28px;
   cursor: pointer;
+}
+
+/* Native filter picker: keep the default form Select unchanged. */
+select.ds-select--filter {
+  min-width: 0;
+  padding-left: var(--space-2);
+  padding-right: var(--space-5);
+  border-color: transparent;
+  border-radius: var(--r-lg);
+  background-color: var(--bg-2);
+  color: var(--ink-1);
+  background-position: calc(100% - var(--space-3)) 50%, calc(100% - var(--space-2)) 50%;
+}
+@media (hover: hover) {
+  select.ds-select--filter:hover:not(:disabled) { background-color: var(--bg-3); }
+}
+select.ds-select--filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+select.ds-select--filter.ds-input--invalid,
+select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error); }
+
+@media (hover: none) and (pointer: coarse), (max-width: 1023px) {
+  .ds-input { min-height: calc(var(--space-7) + var(--space-4)); }
 }
 
 @media (hover: none) and (pointer: coarse), (max-width: 767px) {
@@ -443,6 +469,10 @@ select.ds-input {
 .ds-chart__legend li { display: inline-flex; align-items: center; gap: var(--space-1); }
 .ds-chart__legend svg { width: 1.5rem; height: .5rem; overflow: visible; }
 .ds-chart__tooltip { position: absolute; z-index: 1; display: grid; gap: var(--space-1); min-width: 7rem; padding: var(--space-2) var(--space-3); color: var(--ink-1); background: color-mix(in oklch, var(--bg-2) 94%, transparent); border: 1px solid var(--line-soft); border-radius: var(--r-sm); box-shadow: var(--shadow-sm); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; pointer-events: none; }
+.ds-chart__tooltip { max-width: min(22rem, calc(100vw - var(--space-6))); white-space: normal; overflow-wrap: anywhere; }
+.ds-chart__tooltip[data-placement="start"] { transform: none; }
+.ds-chart__tooltip[data-placement="center"] { transform: translateX(-50%); }
+.ds-chart__tooltip[data-placement="end"] { transform: translateX(-100%); }
 .ds-chart__tooltip strong { color: var(--ink-0); font-weight: 600; }
 .ds-chart__grid { stroke: var(--grid-soft); }
 .ds-chart__axis { stroke: var(--grid-axis); }
@@ -519,14 +549,15 @@ select.ds-input {
 /* ===== Controlled metric/axis selections ===== */
 .ds-toggle-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); margin-bottom: var(--space-3); }
 .ds-btn.ds-toggle-button { min-height: calc(var(--space-7) + var(--space-3)); padding: var(--space-2) var(--space-3); border: var(--dim-divider-thickness) solid transparent; border-radius: var(--r-md); color: var(--ink-2); background: transparent; font-size: var(--ft-body-small-size); font-weight: var(--ft-body-small-weight); line-height: var(--ft-body-small-line-height); gap: var(--space-1); }
-.ds-btn.ds-toggle-button[aria-pressed="true"] { color: var(--ink-0); background: var(--bg-2); border-color: transparent; font-weight: var(--ft-body-medium-weight); }
+.ds-btn.ds-toggle-button:is([aria-pressed="true"], [aria-selected="true"]) { color: var(--ink-0); background: var(--bg-2); border-color: transparent; font-weight: var(--ft-body-medium-weight); }
 .ds-btn.ds-toggle-button:hover:not(:disabled) { color: var(--ink-1); background: var(--bg-2); }
 .ds-btn.ds-toggle-button:focus-visible { outline: var(--space-0-5) solid var(--accent); outline-offset: var(--space-0-5); }
 .ds-toggle-button__check { color: var(--accent-text); width: calc(var(--dim-icon-s) - var(--space-0-5)); height: calc(var(--dim-icon-s) - var(--space-0-5)); flex-shrink: 0; }
 .ds-toggle-note { color: var(--ink-2); font-size: var(--ft-body-small-size); margin-inline-start: var(--space-2); }
 .ds-toggle-controls--axis { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); max-width: 100%; gap: var(--space-0-5); padding: var(--space-0-5); margin-block: var(--space-4); background: var(--bg-2); border-radius: var(--r-lg); }
+.ds-toggle-controls--axis .ds-btn__label { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .ds-toggle-controls--axis .ds-toggle-button { height: auto; min-height: calc(var(--space-7) + var(--space-3)); min-width: 0; padding: var(--space-2) var(--space-3); font-size: var(--ft-body-small-size); color: var(--ink-2); background: transparent; border-color: transparent; white-space: normal; }
-.ds-toggle-controls--axis .ds-toggle-button[aria-pressed="true"] { background: var(--bg-1); color: var(--ink-0); box-shadow: var(--shadow-sm); font-weight: var(--ft-subtitle-weight); }
+.ds-toggle-controls--axis .ds-toggle-button:is([aria-pressed="true"], [aria-selected="true"]) { background: var(--bg-1); color: var(--ink-0); box-shadow: var(--shadow-sm); font-weight: var(--ft-subtitle-weight); }
 
 /* ===== Map controls: area size is separate from camera zoom ===== */
 .ds-btn.ds-map-resize { position: absolute; top: 0; left: 0; z-index: 1; width: calc(var(--space-7) + var(--space-3)); min-width: calc(var(--space-7) + var(--space-3)); height: calc(var(--space-7) + var(--space-3)); min-height: calc(var(--space-7) + var(--space-3)); border: 0; box-shadow: none; padding: 0; color: var(--ink-2); border-radius: var(--r-lg) 0 var(--r-lg) 0; background: linear-gradient(315deg, transparent, var(--bg-1)); }
@@ -653,7 +684,7 @@ select.ds-input {
 
 /* Restrained web material: a vertical sheen stays inside each control/zone. */
 .ds-btn:is(.ds-btn--primary, .ds-btn--secondary, .ds-btn--outline, .ds-btn--danger):not(:disabled),
-.ds-btn:is(.ds-toggle-button, .ds-toolbar-button)[aria-pressed="true"]:not(:disabled),
+.ds-btn:is(.ds-toggle-button, .ds-toolbar-button):is([aria-pressed="true"], [aria-selected="true"]):not(:disabled),
 .ds-btn:is(.ds-btn--icon-only, .ds-toggle-button, .ds-toolbar-button, .ds-map-control-button):hover:not(:disabled) {
   background-image: linear-gradient(to bottom, var(--control-sheen-top), transparent 48%, var(--control-sheen-bottom));
   box-shadow: inset 0 var(--dim-divider-thickness) 0 var(--control-edge-highlight), 0 var(--dim-divider-thickness) var(--space-0-5) var(--control-depth-shadow);
@@ -686,3 +717,12 @@ select.ds-input {
 @media (max-width: 40rem) { .ds-data-table[data-row-header-width="selectable"] tr > :first-child { width: calc(var(--space-7) * 4 + var(--space-4)); } }
 
 .ds-chart__legend--end { justify-content: flex-end; }
+
+.ds-segment-timeline[data-presentation="distribution"] .ds-segment-timeline__row { grid-template-columns: minmax(0, 1fr); }
+.ds-segment-timeline[data-presentation="distribution"] .ds-segment-timeline__bucket { cursor: default; }
+
+@media (max-width: 48rem) {
+  .ds-section__header[data-actions-layout="responsive"] { flex-direction: column; align-items: stretch; }
+  .ds-section__header[data-actions-layout="responsive"] .ds-section__heading { flex: 1 1 auto; }
+  .ds-section__header[data-actions-layout="responsive"] .ds-section__actions { justify-content: flex-start; }
+}

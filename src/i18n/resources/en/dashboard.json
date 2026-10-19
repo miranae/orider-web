@@ -248,6 +248,39 @@
     }
   },
   "mobileFeed": {
+    "inlineFilters": {
+      "scopeAll": "Public: All",
+      "scopeFriends": "Public: Friends",
+      "scopeSelf": "Public: Me",
+      "dateAll": "Period: All",
+      "date7d": "Period: 7d",
+      "date30d": "Period: 30d",
+      "date90d": "Period: 90d",
+      "sport": {
+        "all": "Sport: All",
+        "bike": "Sport: Cycling",
+        "run": "Sport: Running",
+        "swim": "Sport: Swimming"
+      }
+    },
+    "searchLabel": "Search",
+    "sportLabel": "Sport",
+    "scopeSelf": "Me",
+    "date7d": "7d",
+    "date30d": "30d",
+    "date90d": "90d",
+    "searchContext": "Search: {{query}}",
+
+    "occurred": {
+      "today": "Today at {{time}}",
+      "yesterday": "Yesterday at {{time}}",
+      "unknown": "Activity time unavailable"
+    },
+    "homeTitle": "Home",
+    "feedTitle": "Activity feed",
+    "publicTitle": "Public activities",
+    "publicDescription": "Explore riders’ activities. Sign in to see your own records too.",
+
     "runSummary": {
       "count": "Activity count",
       "distance": "Distance traveled",
@@ -686,6 +719,10 @@
     "distanceFormattedTitle": "Week of {{week}} · {{distance}}{{partial}}",
     "distanceUnknownTitle": "Week of {{week}} · Distance unavailable",
     "distancePartialTitle": "Week {{week}} · {{value}}+ km"
+  },
+  "recentActivitySummary": {
+    "partial": "The last 7 days total is unavailable because some activity history could not be verified.",
+    "allSports": "Last 7 days · all sports"
   },
   "todayStrip": {
     "goalCountdownTitle": "Days to your goal",

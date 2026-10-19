@@ -4,31 +4,32 @@ import { DEFAULT_DIMENS } from '../tokens/dimens';
 export interface TimelineSegment { weight: number; color?: string | null }
 export interface TimelineBucket { id: string; label: string; weight: number; segments: readonly TimelineSegment[] }
 export interface SegmentTimelineRow { id: string; label: string; surface?: 'plain' | 'sheen'; buckets: readonly TimelineBucket[] }
-export interface SegmentTimelineProps { rows: readonly SegmentTimelineRow[]; 'aria-label': string; accessibleHint?: string }
+export interface SegmentTimelineProps { rows: readonly SegmentTimelineRow[]; 'aria-label': string; accessibleHint?: string; presentation?: 'timeline' | 'distribution' }
 const weight = (value: number) => Number.isFinite(value) ? Math.max(0, value) : 0;
 
 /** 정렬·시간·존 판정은 호출자가 준비한다. 가중치의 비율만 그린다. */
-export function SegmentTimeline({ rows, 'aria-label': label, accessibleHint }: SegmentTimelineProps) {
+export function SegmentTimeline({ rows, 'aria-label': label, accessibleHint, presentation = 'timeline' }: SegmentTimelineProps) {
+  const interactive = presentation === "timeline";
   const readoutId = useId();
   const [selected, setSelected] = useState<string | null>(null);
   const buckets = rows.flatMap(row => row.buckets.map(bucket => ({ row, bucket, key: JSON.stringify([row.id, bucket.id]) })));
   const index = Math.max(0, buckets.findIndex(entry => entry.key === selected));
   const current = buckets[index];
-  return <div className="ds-segment-timeline" role="group" aria-label={label} tabIndex={buckets.length ? 0 : undefined} aria-describedby={current ? readoutId : undefined} onKeyDown={event => {
-    if (!buckets.length) return;
+  return <div className="ds-segment-timeline" data-presentation={presentation} role={interactive ? "group" : "img"} aria-label={label} tabIndex={interactive && buckets.length ? 0 : undefined} aria-describedby={interactive && current ? readoutId : undefined} onKeyDown={event => {
+    if (!interactive || !buckets.length) return;
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? buckets.length - 1 : event.key === 'ArrowLeft' ? Math.max(0, index - 1) : event.key === 'ArrowRight' ? Math.min(buckets.length - 1, index + 1) : null;
     if (next == null) return;
     event.preventDefault(); setSelected(buckets[next]!.key);
   }}>
     {rows.map(row => <div key={row.id} className="ds-segment-timeline__row" data-surface={row.surface}>
-      <span className="ds-segment-timeline__label">{row.label}</span>
-      <div className="ds-segment-timeline__track" role="group" aria-label={row.label}>
-        {row.buckets.map(bucket => <span key={bucket.id} className="ds-segment-timeline__bucket" style={{ flex: weight(bucket.weight) }} role="img" aria-label={bucket.label} title={bucket.label} data-selected={current?.key === JSON.stringify([row.id, bucket.id]) || undefined} onClick={() => setSelected(JSON.stringify([row.id, bucket.id]))}>
+      <span className={interactive ? "ds-segment-timeline__label" : "ds-segment-timeline__hint"}>{row.label}</span>
+      <div className="ds-segment-timeline__track" role={interactive ? "group" : undefined} aria-label={interactive ? row.label : undefined}>
+        {row.buckets.map(bucket => <span key={bucket.id} className="ds-segment-timeline__bucket" style={{ flex: weight(bucket.weight) }} role="img" aria-label={bucket.label} title={bucket.label} data-selected={interactive && current?.key === JSON.stringify([row.id, bucket.id]) || undefined} onClick={interactive ? () => setSelected(JSON.stringify([row.id, bucket.id])) : undefined}>
           {bucket.segments.map((segment, index) => <span key={index} className="ds-segment-timeline__segment" data-missing={segment.color == null || undefined} style={{ flex: weight(segment.weight), backgroundColor: segment.color ?? undefined }} aria-hidden="true" />)}
         </span>)}
       </div>
     </div>)}
-    {current && <p id={readoutId} className="ds-segment-timeline__readout" role="status">{current.row.label}: {current.bucket.label}</p>}
+    {interactive && current && <p id={readoutId} className="ds-segment-timeline__readout" role="status">{current.row.label}: {current.bucket.label}</p>}
     {accessibleHint && <p className="ds-segment-timeline__hint">{accessibleHint}</p>}
   </div>;
 }

@@ -636,6 +636,8 @@ export default function MobileFitnessPage({
   coachSlot = null,
   thresholdsSlot = null,
   periodSlot = null,
+  analysisSummarySlot = null,
+  conditionSupplementSlot = null,
   currentBasis,
   todayDecisionState,
   todayDecisionSignedIn = true,
@@ -662,6 +664,8 @@ export default function MobileFitnessPage({
   coachSlot?: ReactNode;
   thresholdsSlot?: ReactNode;
   periodSlot?: ReactNode;
+  analysisSummarySlot?: ReactNode;
+  conditionSupplementSlot?: ReactNode;
   currentBasis?: string;
   /** 오늘 결정 상세와 공유하는 단일 서버 판정 상태. 모바일 소스가 한 번만 조회한다. */
   todayDecisionState?: TodayTrainingDecisionState;
@@ -825,6 +829,7 @@ export default function MobileFitnessPage({
             </div>
           )}
 
+          {!embedded && part === "condition" && conditionSupplementSlot}
           {!embedded && thresholdsSlot}
           {data.discipline === "bike" && (
             <FtpDecisionSection title={t("fitness:conclusion.performanceDetailToggle")} anchorEnabled={part === "condition" && !embedded} preserveExpanded>
@@ -888,6 +893,7 @@ export default function MobileFitnessPage({
       {activeTab === "analysis" && (
 
         <div style={{ paddingTop: 14 }}>
+          {!embedded && part === "analysis" && analysisSummarySlot}
           {sectionState.derived === "loading" && (
             <div role="status" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>
               {t("mobileFitness.derivedLoading")}

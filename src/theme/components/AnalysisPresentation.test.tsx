@@ -105,3 +105,13 @@ it('offers one timeline focus target with keyboard navigation and a persistent c
   expect(screen.getByRole('status')).toBe(readout);
   expect(readout).toHaveTextContent('심박수: 90–120초, Z3');
 });
+
+it('exposes a prepared static distribution without adding duplicate selection or readout', () => {
+  const { container } = render(<SegmentTimeline presentation="distribution" aria-label="사이클 30 CTL · 러닝 미관측" rows={[{ id: 'ctl', label: '현재 체력 기여도', buckets: [{ id: 'bike', label: '사이클 30 CTL', weight: 30, segments: [{weight: 30,color:'var(--accent)'}] }] }]} />);
+  const chart = screen.getByRole('img', { name: '사이클 30 CTL · 러닝 미관측' });
+  expect(chart).not.toHaveAttribute('tabindex');
+  fireEvent.keyDown(chart, { key: 'ArrowRight' });
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  expect(container.querySelector('[data-selected="true"]')).toBeNull();
+  expect(container.querySelector('.ds-segment-timeline__segment')).toHaveStyle('flex: 30');
+});

@@ -74,6 +74,8 @@ export interface FitnessViewProps {
   part?: "all" | "condition" | "analysis";
   model: FitnessModel;
   thresholdsSlot?: ReactNode;
+  analysisSummarySlot?: ReactNode;
+  conditionSupplementSlot?: ReactNode;
 }
 
 export function fitnessGoalDisplayName(goal: { title?: string | null; courseName?: string | null } | null): string | null {
@@ -91,7 +93,7 @@ export function FitnessView({ thresholdsSlot, ...props }: FitnessViewProps) {
   </GlossaryProvider>;
 }
 
-function FitnessViewContent({ embedded = false, part = "all", model, thresholdsSlot }: FitnessViewProps) {
+function FitnessViewContent({ embedded = false, part = "all", model, thresholdsSlot, analysisSummarySlot, conditionSupplementSlot }: FitnessViewProps) {
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   // Form 구간 정본(#886). 전환이 꺼져 있으면 envelope 은 null 이고 카드는 기존 로컬 표시로 남는다.
   const trainingDecision = useTrainingDecision(
@@ -340,6 +342,8 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           <MobileFitnessPage
             {...model.mobilePageProps}
             periodSlot={periodControls}
+            analysisSummarySlot={analysisSummarySlot}
+            conditionSupplementSlot={conditionSupplementSlot}
             currentBasis={currentBasis}
             thresholdsSlot={thresholdsSlot}
             data={{ ...model.mobilePageProps.data, monthlyVo2maxTrend: vo2maxTrend, powerGaps, pdcSufficiency, loadSufficiency, activityWindowSufficiency }}

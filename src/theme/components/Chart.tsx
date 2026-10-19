@@ -41,10 +41,10 @@ export function SeriesLabel({ color, children }: SeriesLabelProps) {
   return <span className="ds-chart-series-label" style={{ '--ds-series-color': color } as CSSProperties}>{children}</span>;
 }
 
-export interface ChartTooltipProps extends HTMLAttributes<HTMLDivElement> { label: ReactNode }
+export interface ChartTooltipProps extends HTMLAttributes<HTMLDivElement> { label: ReactNode; placement?: 'start' | 'center' | 'end' }
 
-export function ChartTooltip({ label, className, children, role = 'tooltip', ...rest }: ChartTooltipProps) {
-  return <div className={cn('ds-chart__tooltip', className)} role={role} {...rest}><strong>{label}</strong>{children}</div>;
+export function ChartTooltip({ label, placement, className, children, role = 'tooltip', ...rest }: ChartTooltipProps) {
+  return <div className={cn('ds-chart__tooltip', className)} data-placement={placement} role={role} {...rest}><strong>{label}</strong>{children}</div>;
 }
 
 export function ChartGridLine({ className, ...props }: SVGProps<SVGLineElement>) {

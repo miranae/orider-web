@@ -1,4 +1,11 @@
 {
+  "activitySummary.monthRun": "이번 달 러닝 흐름",
+  "activitySummary.monthAll": "이번 달 활동 · 전체 종목",
+  "activitySummary.monthComparison": "평소 월간 환산 거리 대비 {{percent}}%",
+  "activitySummary.runBasis": "서울 기준 이번 달 러닝 거리입니다. 평소 월간 환산 거리는 최근 주간 평균 × 4.3이며 목표 달성률이 아닙니다.",
+  "activitySummary.allBasis": "현재 달력 월의 전체 활동 거리입니다. 평소 월간 환산 거리는 최근 주간 평균 × 4.3이며 목표 달성률이 아닙니다.",
+  "activitySummary.loading": "이번 달 활동을 확인하고 있어요.",
+  "activitySummary.unavailable": "활동 이력을 모두 확인하지 못해 이번 달 흐름을 표시할 수 없어요.",
   "periodEvidence.loading": "선택한 기간의 확정 분석을 불러오는 중입니다.",
   "empty.importHistory": "기록 가져오기",
   "history.title": "컨디션 변화",
