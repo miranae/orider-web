@@ -38,6 +38,17 @@ function RouteControl() { navigateRoute = useNavigate(); return null; }
 function show(component: React.ReactNode) {
   return render(<MemoryRouter initialEntries={["/ko/event/ev"]}><RouteControl /><Routes><Route path="/:lang/event/:eventId" element={component} /></Routes></MemoryRouter>);
 }
+async function expectFocusedTooltip(trigger: HTMLElement, description: string) {
+  await act(async () => { trigger.focus(); });
+  expect(trigger).toHaveFocus();
+  const tooltipId = trigger.getAttribute("aria-describedby");
+  expect(tooltipId).toBeTruthy();
+  const tooltip = document.getElementById(tooltipId!);
+  expect(tooltip).toHaveAttribute("role", "tooltip");
+  expect(tooltip).toBeVisible();
+  expect(tooltip).toHaveTextContent(description);
+  expect(trigger).toHaveAccessibleDescription(tooltip!.textContent!);
+}
 function collectionPath(q: unknown): string | undefined {
   const ref = q as { _collectionPath?: string; path?: string };
   return ref._collectionPath ?? ref.path;
@@ -80,13 +91,10 @@ describe("event participant privacy boundaries", () => {
     expect(summary.getByText("1743")).toBeInTheDocument();
     expect(summary.getByText("830")).toBeInTheDocument();
     expect(screen.queryByText("Cat HC")).toBeNull();
-    const granfondo = screen.getByRole("button", { name: termStrings.openLabel.replace("{{term}}", "그란폰도") });
-    fireEvent.focus(granfondo);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent(termStrings.terms.granfondo.description);
-    fireEvent.blur(granfondo);
+    const granfondo = within(screen.getByTestId("D4-0")).getByRole("button", { name: termStrings.openLabel.replace("{{term}}", "그란폰도") });
+    await expectFocusedTooltip(granfondo, termStrings.terms.granfondo.description);
     expect(screen.getByTestId("D4-0").querySelector(".h-64")).toBeNull();
-    fireEvent.focus(summary.getByRole("button", { name: eventStrings["detail.metric.distance"] }));
-    expect(await screen.findByRole("tooltip")).toHaveTextContent(eventStrings["detail.metric.distanceLinked"]);
+    await expectFocusedTooltip(summary.getByRole("button", { name: eventStrings["detail.metric.distance"] }), eventStrings["detail.metric.distanceLinked"]);
   });
 
   it("provides the actual English Gran Fondo explanation", async () => {
@@ -94,13 +102,15 @@ describe("event participant privacy boundaries", () => {
     i18n.addResourceBundle("en", "termGlossary", enTermStrings, true, true);
     const event = mockDocData.get("events/ev")!;
     mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), type: "GRANFONDO" } });
+    let view: ReturnType<typeof show> | undefined;
     try {
       await act(async () => { await i18n.changeLanguage("en"); });
-      show(<EventDetailPage />);
-      const term = await screen.findByRole("button", { name: enTermStrings.openLabel.replace("{{term}}", enEventStrings["type.granfondo"]) });
-      fireEvent.focus(term);
-      expect(await screen.findByRole("tooltip")).toHaveTextContent(enTermStrings.terms.granfondo.description);
+      view = show(<EventDetailPage />);
+      const hero = await screen.findByTestId("D4-0");
+      const term = within(hero).getByRole("button", { name: enTermStrings.openLabel.replace("{{term}}", enEventStrings["type.granfondo"]) });
+      await expectFocusedTooltip(term, enTermStrings.terms.granfondo.description);
     } finally {
+      view?.unmount();
       await act(async () => { await i18n.changeLanguage("ko"); });
     }
   });
@@ -282,12 +292,9 @@ describe("event participant privacy boundaries", () => {
     expect(screen.getAllByRole("columnheader").some(header => header.textContent === eventStrings["resultsView.col.avgSpeed"])).toBe(true);
     expect(screen.getAllByRole("columnheader").some(header => header.textContent === eventStrings["resultsView.col.avgPower"])).toBe(true);
     expect(screen.getByText(eventStrings["resultsView.col.finishTime"])).toBeInTheDocument();
-    const segment = screen.getByRole("button", { name: eventStrings["resultsView.segmentKomQom"] });
-    fireEvent.focus(segment);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent(eventStrings["resultsView.segmentRecordsHelp"]);
-    fireEvent.blur(segment);
-    fireEvent.focus(screen.getByRole("button", { name: termStrings.openLabel.replace("{{term}}", "훈련 부하 점수") }));
-    expect(await screen.findByRole("tooltip")).toHaveTextContent(termStrings.terms.tss.description);
+    const segment = within(page).getByRole("button", { name: eventStrings["resultsView.segmentKomQom"] });
+    await expectFocusedTooltip(segment, eventStrings["resultsView.segmentRecordsHelp"]);
+    await expectFocusedTooltip(within(page).getByRole("button", { name: termStrings.openLabel.replace("{{term}}", "훈련 부하 점수") }), termStrings.terms.tss.description);
     expect(screen.queryByText("9999")).toBeNull();
   });
 
