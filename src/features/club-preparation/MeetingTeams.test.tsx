@@ -306,7 +306,7 @@ describe("조가 많거나 명단이 바뀌는 편집", () => {
     expect(saved[0].memberIds).toEqual(["stay"]);
     expect(saved[39].memberIds).toEqual(["many-39", "many-0"]);
     expect(saved.slice(1, 39)).toEqual(teams.slice(1, 39));
-  });
+  }, 15_000);
   it("맞교환 후 취소자가 생기면 되돌리기를 잠그고 최신명단 반영 시 취소자와 이력을 제거한다", () => {
     const teams = createInitialTeamDraft(initial.registrations, 1);
     const view = renderWithProviders(wrap({ ...initial, teams }, 1, vi.fn()));

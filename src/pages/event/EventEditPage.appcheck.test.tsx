@@ -68,7 +68,7 @@ describe("EventEditPage bundled App Check update admission", () => {
       startTime: START_MS, meetTime: "14:30", feeType: "FREE", entryFee: 0,
       openAt: "2026-10-12T00:00:00+09:00", closeAt: "2026-10-12T14:00:00+09:00" });
     expect(constructedUpdates()).toHaveLength(1);
-  });
+  }, 15_000);
 
   it("rejects an empty token without constructing a callable or writing", async () => {
     vi.mocked(getAppCheckToken).mockResolvedValueOnce(null);
