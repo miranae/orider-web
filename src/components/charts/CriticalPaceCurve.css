@@ -1,0 +1,18 @@
+.critical-pace-curve__legend { display: flex; flex-wrap: wrap; gap: var(--space-3); color: var(--ink-2); font-size: var(--fs-xs); }
+.critical-pace-curve__legend > span { display: inline-flex; align-items: center; gap: var(--space-2); }
+.critical-pace-curve__legend i { width: var(--space-5); border-top: 2px solid; }
+.critical-pace-curve__legend .critical-pace-curve__previous { border-color: var(--ink-3); border-top-style: dashed; }
+.critical-pace-curve__note { color: var(--ink-3); font-size: var(--fs-sm); line-height: 1.5; margin-block: var(--space-2); overflow-wrap: anywhere; }
+.critical-pace-curve__references { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); padding-inline-start: var(--space-10); font-size: var(--fs-xs); color: var(--ink-3); }
+.critical-pace-curve__chart { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2); padding-top: var(--space-5); position: relative; }
+.critical-pace-curve__y-axis { position: relative; min-width: var(--space-8); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--ink-3); }
+.critical-pace-curve__y-axis > span { position: absolute; right: 0; transform: translateY(-50%); white-space: nowrap; }
+.critical-pace-curve__y-axis > :first-child { top: calc(-1 * var(--space-3)); }
+.critical-pace-curve__plot { width: 100%; height: 11.25rem; overflow: visible; }
+.critical-pace-curve__x-axis { grid-column: 2; height: var(--space-5); position: relative; font-size: var(--fs-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.critical-pace-curve__x-axis > span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.critical-pace-curve__x-axis > [data-edge="end"] { transform: translateX(-100%); }
+.critical-pace-curve__plot:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
+
+
+.critical-pace-curve__values { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-3); }

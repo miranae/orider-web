@@ -103,6 +103,10 @@
     "cta": "View recap"
   },
   "streak": {
+    "allEyebrow": "All-sport activity routine",
+    "allTitle": "{{count}}-week activity streak",
+    "allMaintained": "{{count}} activity day(s) this week · streak maintained",
+    "allNeedOne": "1 active day to keep this week · one weekend activity keeps it alive",
     "eyebrow": "Riding routine",
     "title": "{{count}}-week streak",
     "maintained": "{{count}} ride(s) this week · streak maintained",
@@ -498,9 +502,11 @@
       "atlHint": "Short-term training load",
       "tsbLabel": "TSB · Form",
       "tsbHint": "Fitness minus fatigue",
+      "conditionSource": "Combined model aggregating discipline loads",
       "authoritativeSource": "Server-computed combined CTL · ATL · TSB across cycling, running, and swimming",
       "detailsToggle": "Calculation and interpretation notes",
       "contributionTitle": "Current fitness contribution",
+      "contributionBasis": "Current CTL contributions describe the accumulated training load by sport. They are not recommended proportions for future training.",
       "discipline": {
         "bike": "Cycling",
         "run": "Running",

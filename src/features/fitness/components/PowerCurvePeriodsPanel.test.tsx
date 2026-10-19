@@ -126,4 +126,12 @@ describe("PowerCurvePeriodsPanel", () => {
       expect(screen.getByRole("combobox", { name: "periodCurve.period 1" })).toBeInTheDocument();
     } finally { clock.mockRestore(); }
   });
+  it("exposes selected manual preset without triggering an automatic request", () => {
+    render(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled />);
+    const preset = screen.getByRole("button", { name: "powerSkills.preset" });
+    expect(preset).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(preset);
+    expect(preset).toHaveAttribute("aria-pressed", "true");
+    expect(mocks.hook.mock.lastCall?.[1]).toBeNull();
+  });
 });

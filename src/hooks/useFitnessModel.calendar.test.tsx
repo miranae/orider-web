@@ -379,7 +379,8 @@ describe("충분도는 수치와 동일한 canonical 통로와 실제 모바일 
   seed([]);const h=renderHook(()=>useFitnessModel("bike",options));
   await waitFor(()=>expect(h.result.current.loadSufficiency?.digest).toBe(sufficiency.digest));
   render(<MemoryRouter><FitnessView model={h.result.current} part="condition" embedded /></MemoryRouter>);
-  expect(screen.getAllByTestId("K1-1-1-sufficiency-inline").length).toBeGreaterThan(0);
+  expect(screen.getByTestId("K1-1-1-briefing-sufficiency-inline")).toHaveTextContent("낮은 근거");
+  expect(screen.getByTestId("K1-1-1-briefing-sufficiency-inline-action")).toHaveTextContent("지금처럼 기록을 이어가 주세요");
   expect(screen.getByTestId("K1-2-sufficiency")).toBeInTheDocument();
  });
  it("실제 모바일 라이더 능력 수치 옆에 가정값과 확인 행동을 함께 둔다", async()=>{

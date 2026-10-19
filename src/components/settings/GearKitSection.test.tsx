@@ -31,11 +31,11 @@ describe("Gear form keyboard and save contract", () => {
     render(<GearKitSection uid="test-owner" />);
     await user.click(screen.getByRole("button"));
     const toggle = screen.getByRole("switch", { name: "기본 장비로 설정" });
-    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(toggle).not.toBeChecked();
     await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(toggle).toBeChecked();
     await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(toggle).not.toBeChecked();
   });
 
   it("keeps the existing gear payload when saving a trimmed name", async () => {

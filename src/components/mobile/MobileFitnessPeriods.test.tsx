@@ -6,6 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { getCurrentUser } from "../../__tests__/mocks/firebase";
 import MobileFitnessPage, { type MobileFitnessData } from "./MobileFitnessPage";
+import { BikePowerCurveEvidence } from "../../features/fitness/components/BikePowerCurveEvidence";
+import { chooseDropdown } from "../../features/fitness/fitnessControlTestUtils";
 
 const mocks = vi.hoisted(() => ({ periods: vi.fn((_ownerUid: string, _selection: unknown, _enabled: boolean) => ({ state: "idle", response: null })) }));
 vi.mock("../../hooks/usePowerCurvePeriods", () => ({ usePowerCurvePeriods: mocks.periods }));
@@ -17,6 +19,51 @@ const data = { ctl: 0, atl: 0, tsb: 0, pmcHistory: [], weeklyTSS: [], thisWeekTS
   zones: [], zoneSource: "none", discipline: "bike" } satisfies MobileFitnessData;
 
 describe("mobile period power analysis", () => {
+  it("uses the same source-preserving condition curve instead of the recent-only mini chart", () => {
+    const current = [
+      { durationSeconds: 1, maxPower: 938, sourceActivityId: "peak-1s", startTime: 1000 },
+      { durationSeconds: 5, maxPower: 854 }, { durationSeconds: 60, maxPower: 436 },
+      { durationSeconds: 300, maxPower: 264, sourceActivityId: "recent-5m", startTime: 2000 },
+      { durationSeconds: 1200, maxPower: 196 },
+    ];
+    const previous = [{ durationSeconds: 300, maxPower: 246, sourceActivityId: "previous-5m", startTime: 1000 }];
+    const { container } = renderWithProviders(<MobileFitnessPage part="condition" data={{ ...data, powerCurve: current }}
+      powerCurveEvidenceSlot={<BikePowerCurveEvidence current={current} previous={previous} />} />);
+    expect(container.querySelectorAll('[data-testid="K5-2-1"]')).toHaveLength(1);
+    expect(container.querySelector("[data-power-curve-visual]")).toBeNull();
+    expect(screen.getByTestId("K5-2-2")).toHaveTextContent("854");
+    expect(screen.getByTestId("K5-2-2")).toHaveTextContent("436");
+    expect(screen.getByTestId("K5-2-2")).toHaveTextContent("264");
+    expect(screen.getByTestId("K5-2-2")).toHaveTextContent("196");
+    expect(screen.getByText("246")).toBeInTheDocument();
+    expect(container.querySelector('a[href$="/activity/recent-5m"]')).toBeInTheDocument();
+    expect(container.querySelector('a[href$="/activity/previous-5m"]')).toBeInTheDocument();
+    chooseDropdown(screen.getByRole("combobox", { name: /지속시간/ }), "1초");
+    expect(screen.getByText("938")).toBeInTheDocument();
+    expect(container.querySelector('a[href$="/activity/peak-1s"]')).toBeInTheDocument();
+  });
+  it.each(["loading", "error"] as const)("keeps the shared power evidence behind the derived %s gate", derived => {
+    renderWithProviders(<MobileFitnessPage part="condition" data={data} sectionState={{ trend: "ready", derived }}
+      powerCurveEvidenceSlot={<div data-testid="shared-condition-power" />} />);
+    expect(screen.queryByTestId("shared-condition-power")).not.toBeInTheDocument();
+  });
+  it("keeps the condition curve, single period request and both zone distributions in reading order", () => {
+    mocks.periods.mockClear();
+    renderWithProviders(<MobileFitnessPage part="condition" data={{ ...data,
+      powerCurve: [{ durationSeconds: 5, maxPower: 850 }, { durationSeconds: 300, maxPower: 264 }],
+      zoneEvidence: { windowDays: 30, startTime: Date.UTC(2026, 8, 19), endTime: Date.UTC(2026, 9, 19),
+        hr: { counts: [10, 0, 0, 0, 0], total: 10, recordCount: 1, missingCount: 0, boundaries: null },
+        power: { counts: [10, 0, 0, 0, 0, 0, 0], total: 10, recordCount: 1, missingCount: 0 } },
+    }} powerCurvePeriodsOwnerUid="test-uid" />, { authenticated: true });
+    const curve = screen.getByTestId("K5-2-1");
+    const periods = screen.getByRole("heading", { name: "기간별 실측 파워 비교" });
+    const zones = screen.getByRole("heading", { name: "심박 존 분포" });
+    expect(curve.compareDocumentPosition(periods) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(periods.compareDocumentPosition(zones) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getAllByTestId("K5-5")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "기간 분석 불러오기" })).toBeDisabled();
+    expect(mocks.periods.mock.calls.every(call => call[1] === null && call[2] === false)).toBe(true);
+  });
   it("mounts on expansion and requests only when the owner explicitly loads a period", async () => {
     mocks.periods.mockClear();
     const user = userEvent.setup();

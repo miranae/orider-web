@@ -32,6 +32,7 @@
     "changed": "Theme changed to '{{label}}'"
   },
   "profile": {
+    "bodyInfo": "Body measurements",
     "photo": "Profile photo",
     "photoDesc": "Shown on feed, leaderboards, comments and everywhere your profile appears.",
     "uploadImage": "Upload image",
@@ -143,6 +144,8 @@
     "phoneRequired": "Both name and phone are required to use an emergency contact"
   },
   "training": {
+    "otherSports": "Other sport thresholds",
+    "settingsSport": {"bike": "Cycling", "run": "Running", "swim": "Swimming", "tri": "Combined · shared heart rate"},
     "loadFailed": "Could not load your thresholds.",
     "deviceStatus": "View device synchronization →",
     "sport": {
@@ -183,6 +186,9 @@
     "statVo2max": "Est. VO₂max",
     "statUnit": "ml/kg/min",
     "cardPhysique": "Body",
+    "bodyReference": "Height {{height}} {{heightUnit}} · Weight {{weight}} {{weightUnit}}",
+    "bodyWeightBasis": "Weight used for W/kg",
+    "editBody": "Edit",
     "fieldWeight": "Weight",
     "fieldWeightHint": "kg · used for W/kg",
     "fieldWeightLb": "Weight",
@@ -231,8 +237,8 @@
       "max_hr": "Based on max HR {{bpm}} bpm"
     },
     "hrZonesNote": {
-      "lthr": "Friel running-zone boundaries are applied to your measured LTHR. Check time in zone on the activity analysis page.",
-      "max_hr": "Max-HR percentages are used because no valid LTHR is set. Add LTHR to adjust your running zones."
+      "lthr": "Friel zone boundaries for the displayed sport are applied to your measured LTHR. Check time in zone on the activity analysis page.",
+      "max_hr": "Max-HR percentages are used because no valid LTHR is set. Add LTHR to adjust the zones for the displayed sport."
     },
     "cardMedical": "Medical Info",
     "cardMedicalAction": "May be shared with first responders in an emergency",

@@ -1,3 +1,5 @@
+import { createPortal } from "react-dom";
+import { TooltipContent } from "../theme/components/TooltipContent";
 import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PMC_FUTURE_OPACITY, PMC_LINE_PALETTE } from "../features/fitness/chartPalette";
@@ -166,7 +168,17 @@ export default function FitnessChart({
     return t("weeklySummary.dateMonthDay", { month, day });
   };
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const displayHoverIndex = hoveredIndex === undefined ? hoverIdx : hoveredIndex;
+  const [inspectionIndex, setInspectionIndex] = useState<number | null>(null);
+  const displayHoverIndex = hoveredIndex === undefined ? hoverIdx ?? inspectionIndex : hoveredIndex;
+  const tooltipRef = useRef<HTMLSpanElement>(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ left: 12, top: 12, width: 320 });
+  useLayoutEffect(() => {
+    if (displayHoverIndex == null || hideTooltip || !svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const width = Math.min(360, window.innerWidth - 24);
+    const height = tooltipRef.current?.getBoundingClientRect().height ?? 360;
+    setTooltipPosition({ width, left: Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 12)), top: Math.max(12, Math.min(rect.top + 24, window.innerHeight - height - 12)) });
+  }, [displayHoverIndex, hideTooltip]);
   const showCtl = visibleMetrics.includes("ctl");
   const showAtl = visibleMetrics.includes("atl");
   const showTsb = visibleMetrics.includes("tsb");
@@ -419,27 +431,18 @@ export default function FitnessChart({
   }
 
   function handleSelect(e: React.PointerEvent<SVGSVGElement>) {
-    if (!onSelectedIndexChange) return;
     const start = pointerDownRef.current;
     pointerDownRef.current = null;
     if (!start || Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) return;
-    const index = nearestIndexFromPointer(e, historicalPointCount);
-    if (index != null) { onSelectedIndexChange(index); onSelectionFocusRequest?.(); }
+    const index = nearestIndexFromPointer(e, onSelectedIndexChange ? historicalPointCount : series.length);
+    if (index != null) {
+      if (!hideTooltip) { setInspectionIndex(index); e.currentTarget.focus(); }
+      onSelectedIndexChange?.(index);
+      onSelectionFocusRequest?.();
+    }
   }
 
   const hover = displayHoverIndex != null ? series[displayHoverIndex] : null;
-  const tooltipW = metricQualifier ? 210 : 156;
-  const tooltipH = 42 + tooltipMetrics.length * 16;
-  const tooltipPad = 10;
-  const preferredTooltipX = hover
-      ? hover.x + tooltipPad + tooltipW > renderWidth - PAD_RIGHT
-      ? hover.x - tooltipPad - tooltipW
-      : hover.x + tooltipPad
-    : 0;
-  const tooltipX = hover
-    ? Math.max(PAD_LEFT, Math.min(preferredTooltipX, renderWidth - PAD_RIGHT - tooltipW))
-    : 0;
-  const tooltipY = PAD_TOP + 4;
   const selectedMarker = activityMarkers.find((marker) => marker.selected);
   const markerAccessibilitySummary = activityMarkers.length > 0
     ? ` ${t("charts.fitness.activityMarkers", { count: activityMarkers.length })}${selectedMarker ? ` ${t("charts.fitness.selectedActivityMarker", { label: selectedMarker.label })}` : ""}`
@@ -462,7 +465,7 @@ export default function FitnessChart({
   })();
 
   return (
-    <svg
+    <><svg
       ref={svgRef}
       viewBox={`0 0 ${renderWidth} ${VIEW_H}`}
       style={{ width: "100%", height: "auto", maxHeight: 360, display: "block" }}
@@ -473,6 +476,22 @@ export default function FitnessChart({
       onPointerLeave={() => { pointerDownRef.current = null; setHoverIdx(null); onHoveredIndexChange?.(null); }}
       onPointerCancel={() => { pointerDownRef.current = null; setHoverIdx(null); onHoveredIndexChange?.(null); }}
       role="img"
+      tabIndex={hideTooltip ? undefined : 0}
+      onFocus={() => { if (!hideTooltip) setInspectionIndex(index => index ?? Math.max(0, historicalPointCount - 1)); }}
+      onBlur={() => setInspectionIndex(null)}
+      onKeyDown={(event) => {
+        if (hideTooltip) return;
+        if (event.key === "Escape") { setInspectionIndex(null); setHoverIdx(null); return; }
+        const current = inspectionIndex ?? Math.max(0, historicalPointCount - 1);
+        const next = event.key === "ArrowLeft" ? current - 1 : event.key === "ArrowRight" ? current + 1 : event.key === "Home" ? 0 : event.key === "End" ? series.length - 1 : null;
+        if (next == null) return;
+        event.preventDefault();
+        const index = Math.max(0, Math.min(series.length - 1, next));
+        setHoverIdx(null);
+        setInspectionIndex(index);
+        if (index < historicalPointCount) onSelectedIndexChange?.(index);
+      }}
+      aria-describedby={!hideTooltip && hover ? `${chartId}-details` : undefined}
       aria-label={accessibleDescription}
     >
       <desc>{accessibleDescription}</desc>
@@ -642,28 +661,6 @@ export default function FitnessChart({
           {showAtl && hover.atl != null && <circle cx={hover.x} cy={syFn(hover.atl)} r="3.5" fill={PMC_LINE_PALETTE.atl.color} stroke="var(--bg-0)" strokeWidth="1.5" />}
           {showTsb && hover.tsb != null && <circle cx={hover.x} cy={syFn(hover.tsb)} r="3.5" fill={PMC_LINE_PALETTE.tsb.color} stroke="var(--bg-0)" strokeWidth="1.5" />}
 
-          {!hideTooltip && <>
-          <rect data-pmc-tooltip="true" x={tooltipX} y={tooltipY} width={tooltipW} height={tooltipH} rx="6"
-                fill="var(--bg-1)" stroke="var(--line)" strokeWidth="1" opacity="0.98" />
-          <text x={tooltipX + 10} y={tooltipY + 16} fontSize="12" fontFamily="var(--font-mono)"
-                fill="var(--ink-0)" fontWeight="700">
-            {formatDateLabel(hover.dateStr)}{hover.isFuture ? ` · ${t("charts.fitness.forecast")}` : ""}
-          </text>
-          {([
-            { label: "CTL", value: hover.ctl, color: ctlColor, style: PMC_LINE_PALETTE.ctl },
-            { label: "ATL", value: hover.atl, color: PMC_LINE_PALETTE.atl.color, style: PMC_LINE_PALETTE.atl },
-            { label: "TSB", value: hover.tsb, color: PMC_LINE_PALETTE.tsb.color, style: PMC_LINE_PALETTE.tsb },
-          ] as const).filter((item) => tooltipMetrics.includes(item.label.toLowerCase() as "ctl" | "atl" | "tsb")).map((item, i) => (
-            <g key={item.label} data-pmc-tooltip-metric={item.label} transform={`translate(${tooltipX + 10}, ${tooltipY + 34 + i * 16})`}>
-              <line x1="0" y1="-3" x2="10" y2="-3" stroke={item.color} strokeWidth="2" strokeDasharray={item.style.dasharray} strokeLinecap={item.style.linecap} vectorEffect="non-scaling-stroke" />
-              <text x="14" y="0" fontSize="12" fontFamily="var(--font-mono)" fill="var(--ink-2)">{item.label}{metricQualifier ? ` · ${metricQualifier}` : ""}</text>
-              <text x={tooltipW - 20} y="0" fontSize="12" fontFamily="var(--font-mono)" fill={item.color}
-                    fontWeight="700" textAnchor="end">
-                {item.value != null ? `${item.value >= 0 && item.label === "TSB" ? "+" : ""}${item.value.toFixed(1)}` : "—"}
-              </text>
-            </g>
-          ))}
-          </>}
         </g>
       )}
 
@@ -683,5 +680,16 @@ export default function FitnessChart({
         </text>
       ))}
     </svg>
+    {!hideTooltip && hover && createPortal(<TooltipContent ref={tooltipRef} id={`${chartId}-details`} role="tooltip" aria-live="polite" data-pmc-tooltip="true" title={hover.dateStr} style={{ position: "fixed", ...tooltipPosition, maxHeight: "calc(100dvh - 24px)", overflowY: "auto", zIndex: 100 }}>
+      <span className="flex flex-col gap-2">
+        <strong>{t(hover.isFuture ? "chartDetail.forecast" : "chartDetail.recorded", { ns: "fitness" })}{metricQualifier ? ` · ${metricQualifier}` : ""}</strong>
+        {tooltipMetrics.map(metric => <span key={metric} data-pmc-tooltip-metric={metric.toUpperCase()} className="flex items-baseline justify-between gap-3"><span className="flex items-center gap-2"><svg aria-hidden="true" width="20" height="8" style={{ flexShrink: 0 }}><line data-pmc-tooltip-sample={metric} x1="0" x2="20" y1="4" y2="4" stroke={metric === "ctl" ? ctlColor : PMC_LINE_PALETTE[metric].color} strokeWidth="2" strokeDasharray={PMC_LINE_PALETTE[metric].dasharray} strokeLinecap={PMC_LINE_PALETTE[metric].linecap} /></svg>{t(metric, { ns: "fitness" })}</span><b>{hover[metric] == null ? "—" : `${metric === "tsb" && hover[metric] > 0 ? "+" : ""}${hover[metric].toFixed(1)}`}</b></span>)}
+        {!hover.isFuture && <span>{t("chartDetail.load", { ns: "fitness" })}: {data.find(point => point.date === hover.dateStr)?.dailyLoad?.toFixed(1) ?? "—"}</span>}
+        <span>{t("chartDetail.metricNote", { ns: "fitness" })}</span>
+        {hover.isFuture && <span>{t("chartDetail.forecastNote", { ns: "fitness" })}</span>}
+        <span>{t("chartDetail.navigate", { ns: "fitness" })}</span>
+      </span>
+    </TooltipContent>, document.body)}
+    </>
   );
 }

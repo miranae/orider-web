@@ -12,9 +12,6 @@
 .fitness-coach__primary-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(18rem, 0.75fr); gap: var(--space-4); align-items: start; }
 .fitness-coach__primary-grid--choice { grid-template-columns: minmax(0, 1fr); }
 .fitness-coach--mobile-priority .fitness-coach__choice-card { order: -1; }
-.fitness-coach__mode { display: flex; gap: var(--space-1); padding: var(--space-1); background: var(--bg-2); border-radius: var(--r-md); }
-.fitness-coach__mode button { border: 0; border-radius: var(--r-sm); padding: var(--space-2) var(--space-3); background: transparent; color: var(--ink-3); cursor: pointer; }
-.fitness-coach__mode button[aria-pressed="true"] { background: var(--bg-3); color: var(--ink-0); }
 .fitness-coach__delta-grid { margin-top: var(--space-5); padding: var(--space-4); background: var(--bg-2); border-radius: var(--r-lg); }
 .fitness-coach__stimulus { display: grid; gap: var(--space-3); margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--line-soft); }
 .fitness-coach__evidence { display: flex; gap: var(--space-2); flex-wrap: wrap; }
@@ -42,9 +39,6 @@
 .fitness-coach__delivery-status p,
 .fitness-coach__delivery-error p { margin: 0; }
 .fitness-coach__recent-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--space-2); }
-.fitness-coach__recent { text-align: left; padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--bg-1); color: var(--ink-0); cursor: pointer; }
-.fitness-coach__recent[data-selected] { border-color: var(--lime); background: color-mix(in oklch, var(--lime) 7%, var(--bg-1)); }
-.fitness-coach__recent[data-pending][data-selected] { border-color: var(--amber); }
 .fitness-coach__sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 @media (max-width: 52rem) {
@@ -59,13 +53,9 @@
   .fitness-coach__delta-grid { grid-template-columns: minmax(0, 1fr); }
   .fitness-coach__delta-grid > div > :last-child { white-space: nowrap; }
   .fitness-coach__forecast { grid-template-columns: minmax(0, 1fr); }
-  .fitness-coach__mode { width: 100%; flex-direction: column; }
-  .fitness-coach__mode button { flex: 1; }
 }
 
-.fitness-coach__current-metrics > div { display: flex; flex-direction: column; min-width: 0; gap: var(--space-1); }
-.fitness-coach__current-metrics > div > :first-child { flex: 1; text-transform: none; letter-spacing: normal; }
-.fitness-coach__current-metrics > div > :last-child { color: var(--ink-1); }
+.fitness-coach__current-metrics > div { min-width: 0; }
 @media (min-width: 52rem) {
   .fitness-coach__choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
@@ -79,8 +69,6 @@
 .fitness-coach__summary-evidence { margin-top: var(--space-3); padding: var(--space-3); border-radius: var(--r-md); background: var(--bg-2); }
 .fitness-coach__summary-evidence:empty { display: none; }
 .fitness-coach__summary-evidence > div { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; align-items: start; gap: var(--space-2) var(--space-3); margin: 0; }
-.fitness-coach__summary-evidence > div > .ds-chip { grid-column: 1; grid-row: 1; }
-.fitness-coach__summary-evidence > div > span:not(.ds-chip) { grid-column: 2; }
 .fitness-coach__summary-evidence [data-testid$="-remaining"] { grid-column: 2; grid-row: 2; }
 .fitness-coach__summary-evidence [data-testid$="-action"] { grid-column: 3; grid-row: 2; align-self: center; }
 .fitness-coach__summary-action { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--line-soft); }
@@ -88,4 +76,56 @@
 @media (max-width: 36rem) {
   .fitness-coach__summary-evidence > div { grid-template-columns: max-content minmax(0, 1fr); }
   .fitness-coach__summary-evidence [data-testid$="-action"] { grid-column: 2; grid-row: 3; }
+}
+
+.fitness-coach__period-evidence { margin-bottom: var(--space-4); }
+.fitness-coach__activity-section { min-width: 0; }
+.fitness-coach__activity-section .fitness-coach__activity-selector { margin-bottom: var(--space-5); padding-bottom: var(--space-4); border-bottom: 1px solid var(--line-soft); }
+.fitness-coach__activity-section .fitness-coach__recent-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); }
+.fitness-coach__activity-section .fitness-coach__delta-grid { padding: 0; background: transparent; }
+
+@media (max-width: 36rem) {
+  .fitness-coach__activity-section .fitness-coach__activity-selector { margin-bottom: var(--space-4); padding-bottom: var(--space-3); }
+  .fitness-coach__activity-section .fitness-coach__recent-grid { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: min(78%, 18rem); overflow-x: auto; padding: var(--space-1); scroll-padding-inline: var(--space-1); }
+  .fitness-coach__activity-section .fitness-coach__delta-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fitness-coach__activity-section .fitness-coach__delta-grid > div { min-width: 0; }
+  .fitness-coach__activity-section .fitness-coach__delta-grid > div > :first-child { overflow-wrap: anywhere; }
+}
+
+.fitness-coach__recent-impact { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-2); color: var(--ink-2); }
+.fitness-coach__recent-impact > div { min-width: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 24rem) {
+  .fitness-coach__recent-impact { grid-template-columns: minmax(0, 1fr); }
+}
+
+
+/* Condition reads as a decision, followed by its evidence. Other coach surfaces keep their layout. */
+.fitness-coach__story-hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--space-6); margin-bottom: var(--space-7); }
+.fitness-coach--story .fitness-coach__summary { display: grid; gap: var(--space-5); }
+.fitness-coach--story .fitness-coach__current-metrics { padding-top: var(--space-4); border-top: 1px solid var(--line-soft); }
+.fitness-coach__story-choice { min-width: 0; padding-inline-start: var(--space-6); border-inline-start: 1px solid var(--line-soft); }
+.fitness-coach--story .fitness-coach__summary-evidence { padding: 0; background: transparent; }
+.fitness-coach--story .fitness-coach__summary-evidence > div { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.fitness-coach__evidence-heading { margin: 0 0 var(--space-4); }
+.fitness-coach__evidence-heading h2 { margin: 0 0 var(--space-2); font-size: var(--fs-xl); }
+.fitness-coach__evidence-heading p { margin: 0; }
+@media (max-width: 52rem) {
+  .fitness-coach__story-hero { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+  .fitness-coach__story-choice { padding-inline-start: 0; padding-top: var(--space-5); border-inline-start: 0; border-top: 1px solid var(--line-soft); }
+}
+
+@media (min-width: 52rem) {
+  .fitness-coach__story-hero { gap: var(--space-5); margin-bottom: var(--space-3); }
+  .fitness-coach--story .fitness-coach__summary { gap: var(--space-3); }
+  .fitness-coach--story .fitness-coach__current-metrics { padding-top: var(--space-3); }
+  .fitness-coach__story-choice { padding-inline-start: var(--space-5); }
+  .fitness-coach--story .fitness-coach__forecast { margin-top: var(--space-3); }
+  .fitness-coach--story .fitness-coach__forecast > div { padding: var(--space-2); }
+}
+.fitness-coach--story .condition-section-nav { padding-block: 0; margin-bottom: var(--space-4); gap: 0; }
+.fitness-coach--story .condition-section-nav a { font-weight: 400; }
+
+.fitness-coach__story-primary-action { margin-top: var(--space-4); }
+
+@media (max-width: 24rem) {
 }

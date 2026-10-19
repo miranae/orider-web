@@ -22,6 +22,7 @@ export default function BikeThresholdDecisionCard({
   progressionPoints = [],
   ftpHistory = [],
   defaultEvidenceOpen = false,
+  inlineEvidence = false,
   t,
 }: {
   decision: BikeThresholdDecision;
@@ -34,6 +35,7 @@ export default function BikeThresholdDecisionCard({
   progressionPoints?: EstimatedFtpPoint[];
   ftpHistory?: FtpHistoryEntry[];
   defaultEvidenceOpen?: boolean;
+  inlineEvidence?: boolean;
   t: T;
 }) {
   const [evidenceOpen, setEvidenceOpen] = useState(defaultEvidenceOpen);
@@ -46,7 +48,7 @@ export default function BikeThresholdDecisionCard({
   ];
 
   return (
-    <Card padding="none" style={{ marginTop: "var(--space-4)", padding: "var(--space-5)" }}>
+    <Card variant={inlineEvidence ? "bare" : undefined} padding="none" style={{ marginTop: "var(--space-4)", padding: inlineEvidence ? 0 : "var(--space-5)" }}>
       <Text as="div" variant="caption" style={{ color: "var(--aqua)" }}>{t("thresholdDecision.eyebrow")}</Text>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "var(--space-4)", marginTop: "var(--space-3)" }}>
         <div>
@@ -83,7 +85,7 @@ export default function BikeThresholdDecisionCard({
         onAccept={onAcceptDecision}
       />
 
-      <button data-testid="K1-6-3"
+      {!inlineEvidence && <button data-testid="K1-6-3"
         type="button"
         aria-expanded={evidenceOpen}
         aria-controls="bike-threshold-evidence"
@@ -92,8 +94,9 @@ export default function BikeThresholdDecisionCard({
       >
         <Text as="span" variant="label">{t("thresholdDecision.evidenceToggle")}</Text>
         {evidenceOpen ? <ChevronUp size={18} aria-hidden /> : <ChevronDown size={18} aria-hidden />}
-      </button>
-      <div id="bike-threshold-evidence" hidden={!evidenceOpen} style={{ marginTop: "var(--space-2)" }}>
+      </button>}
+      {inlineEvidence && <Text as="h3" variant="subtitle" style={{ marginTop: "var(--space-4)" }}>{t("thresholdDecision.evidenceToggle")}</Text>}
+      <div id="bike-threshold-evidence" hidden={!inlineEvidence && !evidenceOpen} style={{ marginTop: "var(--space-2)" }}>
         {evidence.map((item) => (
           <div key={item.id} style={{ minHeight: 44, display: "grid", gridTemplateColumns: "minmax(120px, 1fr) auto", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-2) var(--space-3)", borderBottom: "1px solid var(--line-soft)" }}>
             <div>
@@ -109,6 +112,7 @@ export default function BikeThresholdDecisionCard({
           currentFtpW={decision.activeFtpW}
           breakthrough={null}
           embedded
+          showHistory={inlineEvidence}
         />
       </div>
 

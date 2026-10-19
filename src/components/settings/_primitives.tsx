@@ -4,7 +4,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import GlossaryText from "../common/GlossaryText";
-import { Card, Text } from "../../theme/components";
+import { Card, Stat, Switch } from "../../theme/components";
 
 const inputBox: CSSProperties = {
   background: "var(--bg-2)",
@@ -40,44 +40,7 @@ interface SettingsCardProps {
  */
 export function SettingsCard({ title, action, children, dense, danger, "data-testid": testId }: SettingsCardProps) {
   return (
-    <Card padding="none" className="settings-card" data-testid={testId}
-      style={{
-        padding: dense ? "16px 20px" : "20px",
-        marginBottom: 'var(--space-5)',
-        borderColor: danger
-          ? "color-mix(in oklch, var(--rose) 30%, var(--line-soft))"
-          : undefined,
-      }}
-    >
-      {(title || action) && (
-        <header
-          className="settings-card-header"
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "space-between",
-            borderBottom: "1px solid var(--line-soft)",
-            paddingBottom: 'var(--space-3)',
-            marginBottom: 'var(--space-4)',
-            gap: 'var(--space-3)',
-          }}
-        >
-          {title && (
-            <h3
-              style={{
-                margin: 0,
-                fontSize: "var(--fs-base)",
-                fontWeight: 600,
-                color: "var(--ink-0)",
-                letterSpacing: "-0.005em",
-              }}
-            >
-              {title}
-            </h3>
-          )}
-          {action && <div>{action}</div>}
-        </header>
-      )}
+    <Card padding={dense ? "compact" : "card"} className="settings-card" data-testid={testId} title={title} actions={action} data-danger={danger || undefined} style={{ marginBottom: "var(--space-5)" }}>
       {children}
     </Card>
   );
@@ -180,55 +143,7 @@ export function Toggle({
   disabled?: boolean;
   ariaLabel: string;
 }) {
-  return (
-    <button
-      type="button"
-      className="settings-toggle"
-      role="switch"
-      aria-checked={on}
-      aria-label={ariaLabel}
-      disabled={disabled}
-      onClick={() => onChange(!on)}
-      style={{
-        width: 44,
-        height: 44,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "transparent",
-        border: 0,
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.5 : 1,
-        padding: 0,
-      }}
-    >
-      <span
-        aria-hidden="true"
-        style={{
-          width: 40,
-          height: 22,
-          borderRadius: "var(--r-lg)",
-          background: on ? "var(--lime)" : "var(--bg-3)",
-          position: "relative",
-          border: `1px solid ${on ? "var(--lime)" : "var(--line)"}`,
-          transition: "background .15s",
-        }}
-      >
-        <span
-          style={{
-            position: "absolute",
-            top: 2,
-            left: on ? 20 : 2,
-            width: 16,
-            height: 16,
-            borderRadius: "50%",
-            background: on ? "var(--primary-fg)" : "var(--ink-2)",
-            transition: "left .15s",
-          }}
-        />
-      </span>
-    </button>
-  );
+  return <Switch checked={on} onChange={event => onChange(event.target.checked)} disabled={disabled} aria-label={ariaLabel} role="switch" />;
 }
 
 interface StatItem {
@@ -250,31 +165,7 @@ export function StatGrid({ items }: { items: StatItem[] }) {
         gridTemplateColumns: `repeat(${items.length}, 1fr)`,
       }}
     >
-      {items.map((s, i) => (
-        <div
-          key={i}
-          style={{
-            padding: 'var(--space-5)',
-            borderRight: i < items.length - 1 ? "1px solid var(--line-soft)" : "none",
-            background: s.highlight
-              ? "color-mix(in oklch, var(--lime) 8%, var(--bg-1))"
-              : "var(--bg-1)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 'var(--space-2)',
-          }}
-        >
-          <Text variant="eyebrow">{s.label}</Text>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 'var(--space-1)' }}>
-            <Text variant="dataLarge"
-              style={{ color: s.muted ? "var(--ink-3)" : "var(--ink-0)" }}
-            >
-              {s.value}
-            </Text>
-            {s.unit && <Text variant="unit">{s.unit}</Text>}
-          </div>
-        </div>
-      ))}
+      {items.map((s, i) => <Stat key={i} compact label={s.label} value={s.value} unit={s.unit} aria-disabled={s.muted || undefined} />)}
     </Card>
   );
 }

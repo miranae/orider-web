@@ -1,0 +1,10 @@
+.condition-section-nav { display: grid; gap: var(--space-2); padding-block: var(--space-3); margin-bottom: var(--space-4); border-block-end: 1px solid var(--line-soft); }
+.condition-section-nav__label { color: var(--ink-3); font-size: var(--fs-xs); }
+.condition-section-nav ol { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); padding: 0; margin: 0; list-style: none; }
+.condition-section-target, .condition-thresholds-section { scroll-margin-top: calc(var(--space-8) * 3); }
+
+.condition-sufficiency-evidence { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
+
+.condition-method-section { margin-top: var(--space-7); padding-top: var(--space-5); border-top: 1px solid var(--line-soft); }
+.condition-method-section > h2 { margin: 0 0 var(--space-3); }
+.fitness-coach--story .condition-section-nav { margin-bottom: var(--space-5); }

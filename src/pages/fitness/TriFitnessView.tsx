@@ -1,13 +1,14 @@
-import { useState, useMemo, type ReactNode } from "react";
+import { useState, useMemo, useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import DisciplineTabs from "../../components/redesign/DisciplineTabs";
-import { Card, Text } from "../../theme/components";
+import { Card, ChartFrame, ChartHeader, ChartLegend, ChartValue, ChartGridLine, ChartAxisLine, Section, Text } from "../../theme/components";
 import IntegratedLoadCard, { type CombinedLoadStatus } from "../../components/mobile/IntegratedLoadCard";
 import type { LoadFocusResult } from "../../features/fitness/multisportPerformance";
 import { DISCIPLINE_CHART_COLORS, PMC_LINE_PALETTE } from "../../features/fitness/chartPalette";
 import type { TriFitnessBreakdown, TriFitnessTimelinePoint } from "../../hooks/useFitnessModel";
 import { addFitnessDateKeyDays, fitnessTodayKey } from "@shared/training/dateKey";
+import ConditionSectionNav from "../../features/fitness/components/ConditionSectionNav";
 import DetailsSection from "../../components/redesign/DetailsSection";
 import "./TriFitnessView.css";
 
@@ -17,6 +18,11 @@ import "./TriFitnessView.css";
 type TriRange = 42 | 90 | 180 | 365;
 
 interface TriFitnessViewProps {
+  condition?: boolean;
+  /** Reuse sport-specific evidence on narrow screens without duplicating the header/current summary. */
+  evidenceOnly?: boolean;
+  hasThresholdSettings?: boolean;
+  loading?: boolean;
   range: number;
   selectedHistoryRange?: number | "3y" | "all";
   onRangeChange: (range: TriRange) => void;
@@ -25,6 +31,7 @@ interface TriFitnessViewProps {
   combinedLoad: CombinedLoadStatus | null;
   loadFocus: LoadFocusResult | null;
   historySlot?: ReactNode;
+  thresholdsSlot?: ReactNode;
 }
 
 
@@ -32,9 +39,9 @@ interface TriFitnessViewProps {
 // TripleStackPMC SVG 차트 — 실데이터 기반
 // ─────────────────────────────────────────────────────────────────────────────
 interface PMCSeriesProps {
-  bikeCtl: number[];
-  runCtl: number[];
-  swimCtl: number[];
+  bikeCtl: Array<number | null>;
+  runCtl: Array<number | null>;
+  swimCtl: Array<number | null>;
   totCtl: number[];
   atl: number[];
   tsb: number[];
@@ -45,6 +52,7 @@ interface PMCSeriesProps {
 function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], atl = [], tsb = [], dates = [] }: Partial<PMCSeriesProps>) {
   const { t } = useTranslation("fitness");
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const tooltipId = useId();
   const n = totCtl.length;
   if (n === 0) {
     return (
@@ -75,32 +83,32 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
   const sy = (v: number) => h - ((v - min) / (max - min)) * h;
 
   const linePath = (arr: number[]) =>
-    arr.map((v, i) => `${i ? "L" : "M"}${sx(i)} ${sy(v)}`).join(" ");
+    arr.map((v, i) => `${i ? "L" : "M"}${sx(i)} ${sy(v ?? 0)}`).join(" ");
 
   // 스택 영역: bike(하단) → bike+run → bike+run+swim
   const bikeArea =
     `M${sx(0)} ${sy(0)} ` +
-    bikeCtl.map((v, i) => `L${sx(i)} ${sy(v)}`).join(" ") +
+    bikeCtl.map((v, i) => `L${sx(i)} ${sy(v ?? 0)}`).join(" ") +
     ` L${sx(n - 1)} ${sy(0)} Z`;
 
   const runArea =
-    bikeCtl.map((v, i) => `${i ? "L" : "M"}${sx(i)} ${sy(v)}`).join(" ") +
+    bikeCtl.map((v, i) => `${i ? "L" : "M"}${sx(i)} ${sy(v ?? 0)}`).join(" ") +
     " " +
     bikeCtl
       .map((_, i) => {
         const idx = n - 1 - i;
-        return `L${sx(idx)} ${sy(bikeCtl[idx]! + runCtl[idx]!)}`;
+        return `L${sx(idx)} ${sy((bikeCtl[idx] ?? 0) + (runCtl[idx] ?? 0))}`;
       })
       .join(" ") +
     " Z";
 
   const swimArea =
-    bikeCtl.map((v, i) => `${i ? "L" : "M"}${sx(i)} ${sy(v + runCtl[i]!)}`).join(" ") +
+    bikeCtl.map((v, i) => `${i ? "L" : "M"}${sx(i)} ${sy((v ?? 0) + (runCtl[i] ?? 0))}`).join(" ") +
     " " +
     bikeCtl
       .map((_, i) => {
         const idx = n - 1 - i;
-        return `L${sx(idx)} ${sy(bikeCtl[idx]! + runCtl[idx]! + swimCtl[idx]!)}`;
+        return `L${sx(idx)} ${sy((bikeCtl[idx] ?? 0) + (runCtl[idx] ?? 0) + (swimCtl[idx] ?? 0))}`;
       })
       .join(" ") +
     " Z";
@@ -113,21 +121,33 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
     return t("triView.dateLabel", { month: parseInt(m!), day: parseInt(d!) });
   };
 
-  const hi = hoverIdx != null && hoverIdx < n ? hoverIdx : null;
-  // 툴팁 앵커(%) — 양 끝 클램프. svg 는 preserveAspectRatio=none 이라 x 가 폭에 선형 매핑됨.
-  const anchorPct = hi != null ? Math.min(Math.max((hi / (n - 1 || 1)) * 100, 12), 88) : 0;
-  const fmtDate = (s?: string) => (s ? formatLabel(s) : "");
+  const hi = hoverIdx != null && hoverIdx < n ? hoverIdx : n - 1;
 
   return (
     <div
-      style={{ position: "relative" }}
+      className="tri-fitness__interactive-chart"
+      role="group"
+      tabIndex={0}
+      aria-label={t("triView.pmc.title")}
+      aria-describedby={hi == null ? undefined : tooltipId}
+      onFocus={() => setHoverIdx(current => current ?? n - 1)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") { setHoverIdx(null); return; }
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+        e.preventDefault();
+        setHoverIdx(current => e.key === "Home" ? 0 : e.key === "End" ? n - 1 : Math.max(0, Math.min(n - 1, (current ?? n - 1) + (e.key === "ArrowLeft" ? -1 : 1))));
+      }}
+      onPointerDown={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        if (rect.width > 0) setHoverIdx(Math.max(0, Math.min(n - 1, Math.round(((e.clientX - rect.left) / rect.width) * (n - 1)))));
+      }}
       onPointerMove={(e) => {
+        if (e.pointerType === "touch") return;
         const rect = e.currentTarget.getBoundingClientRect();
         if (rect.width === 0) return;
         const idx = Math.round(((e.clientX - rect.left) / rect.width) * (n - 1));
         setHoverIdx(Math.max(0, Math.min(n - 1, idx)));
       }}
-      onPointerLeave={() => setHoverIdx(null)}
     >
     <svg
       viewBox={`0 0 ${w} ${h}`}
@@ -139,21 +159,19 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
     >
       {/* 가이드 라인 */}
       {[0, 0.25, 0.5, 0.75, 1].map((p) => (
-        <line
+        <ChartGridLine
           key={p}
           x1="0"
           x2={w}
           y1={h * p}
           y2={h * p}
-          stroke="var(--grid-soft)"
         />
       ))}
-      <line
+      <ChartAxisLine
         x1="0"
         x2={w}
         y1={sy(0)}
         y2={sy(0)}
-        stroke="var(--grid-axis)"
         strokeDasharray="3 3"
       />
 
@@ -181,9 +199,6 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
         strokeDasharray="2 2"
         opacity="0.5"
       />
-      <text x={sx(n - 1) - 40} y="14" fontSize="12" fontFamily="JetBrains Mono" fill="var(--ink-2)">
-        {t("triView.today")}
-      </text>
       <circle
         cx={sx(n - 1)}
         cy={sy(totCtl[n - 1]!)}
@@ -193,74 +208,24 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
         strokeWidth="2"
       />
 
-      {/* 날짜 레이블 (SVG 내부 하단) */}
-      {labelIndices.map((idx) => {
-        const label = dates[idx] ? formatLabel(dates[idx]!) : "";
-        return (
-          <text
-            key={idx}
-            x={sx(idx)}
-            y={h - 4}
-            fontSize="12"
-            fontFamily="JetBrains Mono"
-            fill="var(--ink-4)"
-            textAnchor="middle"
-          >
-            {label}
-          </text>
-        );
-      })}
-
-      {/* 호버 십자선 */}
-      {hi != null && (
-        <line x1={sx(hi)} x2={sx(hi)} y1="0" y2={h} stroke="var(--ink-2)" strokeWidth="1" opacity="0.55" strokeDasharray="2 2" />
-      )}
+      <line x1={sx(hi)} x2={sx(hi)} y1="0" y2={h} stroke="var(--ink-2)" strokeWidth="1" opacity="0.55" strokeDasharray="2 2" />
     </svg>
-
-    {hi != null && (
-      <div
-        style={{
-          position: "absolute",
-          top: 4,
-          left: `${anchorPct}%`,
-          transform: "translateX(-50%)",
-          background: "var(--bg-1)",
-          border: "1px solid var(--line)",
-          borderRadius: "var(--r-md)",
-          boxShadow: "var(--shadow-md)",
-          padding: "var(--space-2) var(--space-3)",
-          pointerEvents: "none",
-          whiteSpace: "nowrap",
-          zIndex: 5,
-          fontFamily: "var(--font-mono)",
-          fontSize: "var(--fs-xs)",
-        }}
-      >
-        <div style={{ color: "var(--ink-2)", marginBottom: "var(--space-1)" }}>{fmtDate(dates[hi])}</div>
-        {([
-          { type: "line", label: t("triView.totalCtl"), value: totCtl[hi], ...PMC_LINE_PALETTE.ctl },
-          { type: "rect", label: t("discipline.bike"), value: bikeCtl[hi], color: DISCIPLINE_CHART_COLORS.bike },
-          { type: "rect", label: t("discipline.run"), value: runCtl[hi], color: DISCIPLINE_CHART_COLORS.run },
-          { type: "rect", label: t("discipline.swim"), value: swimCtl[hi], color: DISCIPLINE_CHART_COLORS.swim },
-          { type: "line", label: "ATL", value: atl[hi], ...PMC_LINE_PALETTE.atl },
-          { type: "line", label: "TSB", value: tsb[hi], ...PMC_LINE_PALETTE.tsb },
-        ] as const).map((item) => (
-          <div key={item.label} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-            {item.type === "line" ? (
-              <svg width="12" height="8" viewBox="0 0 12 8" aria-hidden="true" style={{ display: "block", flex: "0 0 auto" }}>
-                <line x1="0" y1="4" x2="12" y2="4" stroke={item.color} strokeWidth="2" strokeDasharray={item.dasharray} strokeLinecap={item.linecap} vectorEffect="non-scaling-stroke" />
-              </svg>
-            ) : (
-              <span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: item.color, flexShrink: 0 }} />
-            )}
-            <span style={{ color: "var(--ink-2)", minWidth: 56 }}>{item.label}</span>
-            <span style={{ color: item.color, fontWeight: 700, marginLeft: "auto" }}>
-              {item.value != null && item.label === "TSB" && item.value >= 0 ? "+" : ""}{(item.value ?? 0).toFixed(1)}
-            </span>
-          </div>
-        ))}
-      </div>
-    )}
+    <div className="tri-fitness__date-axis" aria-label={t("triView.chart.dateAxis")}>
+      {labelIndices.map(index => <span key={index}>{dates[index] ? formatLabel(dates[index]!) : "—"}</span>)}
+    </div>
+    <div className="tri-fitness__today-label">{t("triView.today")} · {dates[n - 1]}</div>
+      <Card variant="inset" padding="compact" id={tooltipId} role="status">
+      <Text as="p" variant="bodySmall">{dates[hi]}</Text>
+      <Text as="p" variant="bodySmall" tone="secondary">{t("triView.chart.pmcBasis")} {t("chartDetail.pmcUnit")}</Text>
+      <div className="tri-fitness__fixed-values">{([
+        { label: t("triView.totalCtl"), value: totCtl[hi] },
+        { label: `${t("discipline.bike")} CTL`, value: bikeCtl[hi] },
+        { label: `${t("discipline.run")} CTL`, value: runCtl[hi] },
+        { label: `${t("discipline.swim")} CTL`, value: swimCtl[hi] },
+        { label: "ATL", value: atl[hi] }, { label: "TSB", value: tsb[hi] },
+      ]).map(item => <ChartValue key={item.label} primary={item.value == null ? t("triView.chart.unknown") : `${item.label === "TSB" && item.value >= 0 ? "+" : ""}${item.value.toFixed(1)}`} secondary={item.label} />)}</div>
+    </Card>
+    <p className="tri-fitness__chart-hint">{t("triView.chart.interactionHint")}</p>
     </div>
   );
 }
@@ -268,74 +233,11 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
 // ─────────────────────────────────────────────────────────────────────────────
 // 종목별 기여도 도넛
 // ─────────────────────────────────────────────────────────────────────────────
-interface ContribSlice {
-  label: string;
-  pct: number;
-  ctl: number;
-  color: string;
-}
-
-function ContribDonut({ slices, totalCtl }: { slices: ContribSlice[]; totalCtl: number }) {
-  const { t } = useTranslation("fitness");
-  const total = slices.reduce((a, s) => a + s.pct, 0) || 1;
-  const R = 62, r = 44, cx = 90, cy = 90;
-  let acc = 0;
-  const arcs = slices.map((s) => {
-    const a0 = (acc / total) * Math.PI * 2 - Math.PI / 2;
-    acc += s.pct;
-    const a1 = (acc / total) * Math.PI * 2 - Math.PI / 2;
-    const large = a1 - a0 > Math.PI ? 1 : 0;
-    const x0 = cx + R * Math.cos(a0), y0 = cy + R * Math.sin(a0);
-    const x1 = cx + R * Math.cos(a1), y1 = cy + R * Math.sin(a1);
-    const xi0 = cx + r * Math.cos(a0), yi0 = cy + r * Math.sin(a0);
-    const xi1 = cx + r * Math.cos(a1), yi1 = cy + r * Math.sin(a1);
-    return {
-      ...s,
-      d: `M${x0} ${y0} A${R} ${R} 0 ${large} 1 ${x1} ${y1} L${xi1} ${yi1} A${r} ${r} 0 ${large} 0 ${xi0} ${yi0} Z`,
-    };
-  });
-
-  return (
-    <div style={{ display: "flex", gap: "var(--space-4)", alignItems: "center" }}>
-      <svg width="180" height="180" viewBox="0 0 180 180" style={{ flexShrink: 0 }}>
-        {arcs.map((a, i) => (
-          <path key={i} d={a.d} fill={a.color}>
-            <title>{`${a.label} · ${a.pct}% · CTL ${a.ctl.toFixed(1)}`}</title>
-          </path>
-        ))}
-        <text x={cx} y={cy - 4} fontSize="12" fontFamily="JetBrains Mono" fill="var(--ink-3)" textAnchor="middle">
-          {t("triView.totalCtl")}
-        </text>
-        <text x={cx} y={cy + 14} fontSize="20" fontFamily="JetBrains Mono" fill="var(--ink-0)" textAnchor="middle" fontWeight="600">
-          {totalCtl.toFixed(1)}
-        </text>
-      </svg>
-      <div style={{ display: "flex", flexDirection: "column", gap: 'var(--space-2)', flex: 1 }}>
-        {slices.map((s) => (
-          <div key={s.label} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-            <span style={{ width: 10, height: 10, background: s.color, borderRadius: "var(--r-xs)", flexShrink: 0 }} />
-            <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-1)", minWidth: 60 }}>{s.label}</span>
-            <Text variant="mono" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", minWidth: 36 }}>{s.pct}%</Text>
-            <div style={{ flex: 1, height: 4, background: "var(--bg-3)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
-              <div style={{ width: `${s.pct}%`, height: "100%", background: s.color }} />
-            </div>
-            <Text variant="mono" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", minWidth: 32, textAlign: "right" }}>
-              {s.ctl.toFixed(1)}
-            </Text>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 종목별 드릴다운 카드
-// ─────────────────────────────────────────────────────────────────────────────
 interface PerDisciplineCardProps {
   label: string;
   color: string;
   ctl: number[];
+  dates: string[];
   delta: number | null;
   tss: string;
   dist: string;
@@ -345,14 +247,15 @@ interface PerDisciplineCardProps {
   disabled?: boolean;
 }
 
-function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess, href, disabled = false }: PerDisciplineCardProps) {
+function PerDisciplineCard({ label, color, ctl, dates, delta, tss, dist, unit, lastSess, href, disabled = false }: PerDisciplineCardProps) {
   const { t } = useTranslation("fitness");
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const w = 180, h = 48;
   const max = Math.max(...ctl);
   const min = Math.min(...ctl);
   const sx = (i: number) => ctl.length <= 1 ? w / 2 : (i / (ctl.length - 1)) * w;
   const sy = (v: number) => h - ((v - min) / (max - min || 1)) * h;
-  const path = ctl.map((v, i) => `${i ? "L" : "M"}${sx(i)} ${sy(v)}`).join(" ");
+  const path = ctl.map((v, i) => `${i ? "L" : "M"}${sx(i)} ${sy(v ?? 0)}`).join(" ");
   const area = `M0 ${h} ${path.replace(/^M/, "L")} L${w} ${h} Z`;
 
   const content = (
@@ -373,13 +276,26 @@ function PerDisciplineCard({ label, color, ctl, delta, tss, dist, unit, lastSess
           {delta == null ? "—" : `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}`}
         </Text>
       </div>
+      <Text variant="caption" tone="tertiary">{t("triView.previousCtl")}</Text>
       {ctl.length > 0 && (
-        <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: 48 }} preserveAspectRatio="none">
+        <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height: 48 }} preserveAspectRatio="none"
+          tabIndex={0} role="img" aria-label={`${label} CTL`}
+          onFocus={() => setSelectedIndex(ctl.length - 1)} onBlur={() => setSelectedIndex(null)}
+          onPointerMove={(event) => { if (event.pointerType === "touch") return; const rect = event.currentTarget.getBoundingClientRect(); if (rect.width) setSelectedIndex(Math.max(0, Math.min(ctl.length - 1, Math.round((event.clientX - rect.left) / rect.width * (ctl.length - 1))))); }}
+          onPointerLeave={(event) => { if (event.pointerType !== "touch") setSelectedIndex(null); }}
+          onClick={(event) => { event.preventDefault(); const rect = event.currentTarget.getBoundingClientRect(); if (rect.width) setSelectedIndex(Math.max(0, Math.min(ctl.length - 1, Math.round((event.clientX - rect.left) / rect.width * (ctl.length - 1))))); }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") { setSelectedIndex(null); return; }
+            if (!["ArrowLeft", "ArrowRight", "Home", "End", "Enter", " "].includes(event.key)) return;
+            event.preventDefault(); event.stopPropagation();
+            setSelectedIndex(current => event.key === "Home" ? 0 : event.key === "End" ? ctl.length - 1 : Math.max(0, Math.min(ctl.length - 1, (current ?? ctl.length - 1) + (event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0))));
+          }}>
           <title>{`${label} · CTL ${ctl[ctl.length - 1]!.toFixed(1)} · ${t("triView.perDisciplineCard.recentDays", { n: ctl.length })}`}</title>
           <path d={area} fill={color} opacity="0.18" />
           <path d={path} stroke={color} strokeWidth="1.5" fill="none" />
         </svg>
       )}
+      {selectedIndex != null && <div role="status" className="tri-fitness__chart-readout">{dates[selectedIndex]} · {label} CTL {ctl[selectedIndex]?.toFixed(1)}<p>{t("chartDetail.pmcUnit")}</p></div>}
       <div
         style={{
           display: "flex",
@@ -417,17 +333,15 @@ function recentCalendarDays<T extends { date: string }>(points: readonly T[], da
 function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
   const { t } = useTranslation("fitness");
   const { t: trainingT } = useTranslation("training");
-  const max = 300;
+  const max = Math.max(300, ...data.map(entry => (entry.bike ?? 0) + (entry.run ?? 0) + (entry.swim ?? 0)));
   const entries = data.length > 0 ? data : ([] as DailyBarEntry[]);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const hover = hoverIdx != null ? entries[hoverIdx] : null;
-  // 양 끝 막대 툴팁이 카드 밖으로 잘리지 않도록 앵커 중심을 [12%, 88%] 로 클램프
-  const anchorPct =
-    hoverIdx != null ? Math.min(Math.max(((hoverIdx + 0.5) / entries.length) * 100, 12), 88) : 0;
+  const hover = entries[hoverIdx ?? entries.length - 1] ?? null;
+  const tooltipId = useId();
 
   if (entries.length === 0) {
     return (
-      <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-1)", height: 110 }}>
+      <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-0-5)", height: 110 }}>
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-4)", fontSize: "var(--fs-xs)" }}>
           {t("daily.empty")}
         </div>
@@ -436,11 +350,20 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
   }
 
   return (
-    <div style={{ position: "relative" }} data-daily-point-count={entries.length}>
+    <div className="tri-fitness__interactive-chart" data-daily-point-count={entries.length}
+      role="group" tabIndex={0} aria-label={t("daily.title")}
+      aria-describedby={hover ? tooltipId : undefined}
+      onFocus={() => setHoverIdx(current => current ?? entries.length - 1)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") { setHoverIdx(null); return; }
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
+        e.preventDefault();
+        setHoverIdx(current => e.key === "Home" ? 0 : e.key === "End" ? entries.length - 1 : Math.max(0, Math.min(entries.length - 1, (current ?? entries.length - 1) + (e.key === "ArrowLeft" ? -1 : 1))));
+      }}>
+
       <div
-        style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-1)", height: 110 }}
-        onPointerLeave={() => setHoverIdx(null)}
-      >
+        style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-0-5)", height: 110 }}
+        >
         {entries.map((entry, i) => {
           const bike = entry.bike ?? 0;
           const run = entry.run ?? 0;
@@ -450,7 +373,8 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
           return (
             <div
               key={i}
-              onPointerEnter={() => setHoverIdx(i)}
+              onPointerEnter={(e) => { if (e.pointerType !== "touch") setHoverIdx(i); }}
+              onPointerDown={() => setHoverIdx(i)}
               style={{
                 flex: 1,
                 display: "flex",
@@ -458,7 +382,7 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
                 justifyContent: "flex-end",
                 gap: 1,
                 height: "100%",
-                minWidth: 3,
+                minWidth: 0,
                 opacity: dim,
                 transition: "opacity 0.12s",
                 cursor: "default",
@@ -480,41 +404,28 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
         })}
       </div>
       {hover && (
-        <div
-          style={{
-            position: "absolute",
-            top: -6,
-            left: `${anchorPct}%`,
-            transform: "translate(-50%, -100%)",
-            background: "var(--bg-1)",
-            border: "1px solid var(--line)",
-            borderRadius: "var(--r-md)",
-            boxShadow: "var(--shadow-md)",
-            padding: "var(--space-2) var(--space-3)",
-            pointerEvents: "none",
-            whiteSpace: "nowrap",
-            zIndex: 5,
-          }}
-        >
+        <div id={tooltipId} role="status" className="tri-fitness__chart-readout">
+          <p>{t("triView.chart.dailyBasis")}</p>
           <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-2)", marginBottom: "var(--space-0-5)" }}>{hover.date}</div>
           {([
-            [t("discipline.bike"), hover.bike, BIKE_COLOR],
-            [t("discipline.run"), hover.run, DISCIPLINE_CHART_COLORS.run],
-            [t("discipline.swim"), hover.swim, DISCIPLINE_CHART_COLORS.swim],
+            [`${t("discipline.bike")} · bTSS`, hover.bike, BIKE_COLOR],
+            [`${t("discipline.run")} · rTSS`, hover.run, DISCIPLINE_CHART_COLORS.run],
+            [`${t("discipline.swim")} · sTSS`, hover.swim, DISCIPLINE_CHART_COLORS.swim],
           ] as const).map(([label, v, color]) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
               <span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: color, flexShrink: 0 }} />
               <span style={{ color: "var(--ink-2)", minWidth: 44 }}>{label}</span>
-              <span style={{ color: "var(--ink-0)", fontWeight: 700, marginLeft: "auto" }}>{v == null ? "—" : Math.round(v)}</span>
+              <span style={{ color: "var(--ink-0)", fontWeight: 700, marginLeft: "auto" }}>{v == null ? t("triView.chart.unknown") : Math.round(v)}</span>
             </div>
           ))}
           {hover.unknownCount > 0 && <Text as="p" variant="caption" tone="secondary">{trainingT("log.loadPartial", { count: hover.unknownCount })}</Text>}
           <div style={{ marginTop: "var(--space-1)", paddingTop: 3, borderTop: "1px solid var(--line-soft)", display: "flex", gap: "var(--space-1-5)", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
-            <span style={{ color: "var(--ink-3)" }}>{t("triView.total")}</span>
+            <span style={{ color: "var(--ink-3)" }}>{t(hover.bike == null || hover.run == null || hover.swim == null || hover.unknownCount > 0 ? "triView.chart.partialTotal" : "triView.total")}</span>
             <span style={{ color: "var(--ink-0)", fontWeight: 700, marginLeft: "auto" }}>{hover.bike == null && hover.run == null && hover.swim == null ? "—" : Math.round((hover.bike ?? 0) + (hover.run ?? 0) + (hover.swim ?? 0))} TSS</span>
           </div>
         </div>
       )}
+      <p className="tri-fitness__chart-hint">{t("triView.chart.interactionHint")}</p>
     </div>
   );
 }
@@ -534,17 +445,9 @@ const LEGEND_ITEM_KEYS = [
 // ─────────────────────────────────────────────────────────────────────────────
 // TriFitnessView
 // ─────────────────────────────────────────────────────────────────────────────
-export default function TriFitnessView({ range, selectedHistoryRange = range, breakdown: triBreakdown, timeline, combinedLoad, loadFocus, historySlot }: TriFitnessViewProps) {
+export default function TriFitnessView({ condition = false, evidenceOnly = false, range, selectedHistoryRange = range, breakdown: triBreakdown, timeline, combinedLoad, loadFocus, historySlot, thresholdsSlot, hasThresholdSettings = Boolean(thresholdsSlot), loading = false }: TriFitnessViewProps) {
   const { t } = useTranslation("fitness");
   const { t: trainingT } = useTranslation("training");
-
-  // ── 실데이터 기반 KPI 변수 ─────────────────────────────────────────────────
-  const currentTimelinePoint = timeline[timeline.length - 1];
-
-  const bikeCTL = currentTimelinePoint?.bike?.ctl ?? 0;
-  const runCTL = currentTimelinePoint?.run?.ctl ?? 0;
-  const swimCTL = currentTimelinePoint?.swim?.ctl ?? 0;
-  const totalCTL = bikeCTL + runCTL + swimCTL;
 
   const weeklyEvidence = Object.fromEntries((["bike", "run", "swim"] as const).map(discipline => {
     const entry = triBreakdown[discipline];
@@ -561,18 +464,6 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
     ? Math.round((triBreakdown.bike.weeklyTSS ?? 0) + (triBreakdown.run.weeklyTSS ?? 0) + (triBreakdown.swim.weeklyTSS ?? 0)).toString()
     : "—";
 
-  const totalForPct = totalCTL || 1;
-  const bikePct = Math.round((bikeCTL / totalForPct) * 100);
-  const runPct = Math.round((runCTL / totalForPct) * 100);
-  // 두 독립 반올림 합이 100 초과 시 swimPct 가 음수 → 도넛 호·막대 width 깨짐(#539). 0 클램프.
-  const swimPct = Math.max(0, 100 - bikePct - runPct);
-
-  const contribSlices: ContribSlice[] = [
-    { label: t("triView.cycling"), pct: bikePct, ctl: bikeCTL, color: DISCIPLINE_CHART_COLORS.bike },
-    { label: t("discipline.run"),  pct: runPct,  ctl: runCTL,  color: DISCIPLINE_CHART_COLORS.run },
-    { label: t("discipline.swim"), pct: swimPct, ctl: swimCTL, color: DISCIPLINE_CHART_COLORS.swim },
-  ];
-
   // ── CTL 스파크라인 (최근 28일 FitnessPoint에서 추출) ───────────────────────
   const bikeSpark = timeline.length > 0
     ? timeline.slice(-28).flatMap(point => point.bike ? [point.bike.ctl] : [])
@@ -583,6 +474,10 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
   const swimSpark = timeline.length > 0
     ? timeline.slice(-28).flatMap(point => point.swim ? [point.swim.ctl] : [])
     : triBreakdown.swim.fitness.slice(-28).map(point => point.ctl);
+
+  const sparkDates = Object.fromEntries((["bike", "run", "swim"] as const).map(discipline => [discipline,
+    timeline.length > 0 ? timeline.slice(-28).filter(point => point[discipline]).map(point => point.date) : triBreakdown[discipline].fitness.slice(-28).map(point => point.date),
+  ])) as Record<"bike" | "run" | "swim", string[]>;
 
   // 종목별 CTL 근거가 없으면 숫자와 차트를 미확인 상태로 표시한다.
 
@@ -614,9 +509,9 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
     // N일로 오인하지 않도록 모든 series/date가 같은 cutoff 결과를 공유한다.
     const sliced = recentCalendarDays(timeline, range);
     return {
-      bikeCtl: sliced.map((point) => point.bike?.ctl ?? 0),
-      runCtl: sliced.map((point) => point.run?.ctl ?? 0),
-      swimCtl: sliced.map((point) => point.swim?.ctl ?? 0),
+      bikeCtl: sliced.map((point) => point.bike?.ctl ?? null),
+      runCtl: sliced.map((point) => point.run?.ctl ?? null),
+      swimCtl: sliced.map((point) => point.swim?.ctl ?? null),
       totCtl: sliced.map((point) => point.integrated.ctl),
       atl: sliced.map((point) => point.integrated.atl),
       tsb: sliced.map((point) => point.integrated.tsb),
@@ -631,90 +526,10 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
     { color: "var(--bg-3)",            label: t("load.rest") },
   ];
 
-  return (
-    <div data-testid="K1-8">
-      {/* 헤더 — PageHeader 패턴 */}
-      <div className="site-shell" style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
-        <div style={{ flex: 1 }}>
-          <Text as="div" variant="caption" style={{ marginBottom: 'var(--space-2)' }}>{t("triView.header.eyebrow")}</Text>
-          <Text as="h1" variant="pageTitle" data-testid="K1-0-1" style={{ marginBottom: "var(--space-1-5)" }}>
-            {t("triView.header.title")}
-          </Text>
-          <div style={{ color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
-            {t("triView.header.subtitle")}
-          </div>
-        </div>
-        <DisciplineTabs includeTri disabledKeys={["swim"]} />
-      </div>
-
-      <div className="site-shell" style={{ padding: "var(--space-5) var(--space-6) var(--space-8)" }}>
-
-      {(historySlot || combinedLoad) && <div data-testid="K1-8-1" className="tri-fitness__primary">
-        {historySlot && <div className="tri-fitness__primary-trend">{historySlot}</div>}
-        {combinedLoad && <div className="tri-fitness__primary-summary"><IntegratedLoadCard combined={combinedLoad} focus={loadFocus} /></div>}
-      </div>}
-
-      <div data-testid="K1-8-2"><DetailsSection title={t("history.disciplineDetails")} defaultOpen={!historySlot}>
+  const disciplineEvidence = <>
       {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, 이 PMC는 시간 추이만 담당한다. */}
-      <Card padding="none" style={{ marginTop: 'var(--space-5)', padding: 'var(--space-5)' }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            marginBottom: "var(--space-3)",
-          }}
-        >
-          <div>
-            <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
-              {t("triView.pmc.title")}
-            </h3>
-            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-              {t("triView.pmc.sub")}
-              <span style={{ display: "block", marginTop: "var(--space-1)" }} data-testid="tri-legacy-range-note">
-                {t(selectedHistoryRange === "3y" || selectedHistoryRange === "all" ? "triView.pmc.legacyRangeLong" : "triView.pmc.legacyRange", {
-                  days: range,
-                  selected: t(`history.range.${selectedHistoryRange}`),
-                })}
-              </span>
-            </div>
-          </div>
-          <div style={{ flex: 1 }} />
-          {/* 범례 */}
-          <div
-            style={{
-              display: "flex",
-              gap: "var(--space-3)",
-              fontSize: "var(--fs-xs)",
-              color: "var(--ink-3)",
-              flexWrap: "wrap",
-            }}
-          >
-            {LEGEND_ITEM_KEYS.map((item) => (
-              <span
-                key={item.key}
-                style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}
-              >
-                {item.type === "rect" ? (
-                  <span
-                    style={{
-                      width: 14,
-                      height: 8,
-                      background: item.color,
-                      opacity: item.opacity,
-                      borderRadius: "var(--r-xs)",
-                    }}
-                  />
-                ) : (
-                  <svg width="14" height="6" viewBox="0 0 14 6" aria-hidden="true" style={{ display: "block", flex: "0 0 auto", opacity: item.opacity }}>
-                    <line x1="0" y1="3" x2="14" y2="3" stroke={item.color} strokeWidth="2" strokeDasharray={item.dasharray} strokeLinecap={item.linecap} vectorEffect="non-scaling-stroke" />
-                  </svg>
-                )}
-                {t(item.key)}
-              </span>
-            ))}
-          </div>
-        </div>
-
+      <ChartFrame variant="card" header={<ChartHeader size="compact" title={<h3>{t("triView.pmc.title")}</h3>} description={<>{t("triView.pmc.sub")}<Text as="p" variant="bodySmall" data-testid="tri-legacy-range-note">{t(selectedHistoryRange === "3y" || selectedHistoryRange === "all" ? "triView.pmc.legacyRangeLong" : "triView.pmc.legacyRange", { days: range, selected: t(`history.range.${selectedHistoryRange}`) })}</Text></>} />}>
+        <ChartLegend items={LEGEND_ITEM_KEYS.map(item => ({ label: t(item.key), color: item.color, dasharray: item.type === "line" ? item.dasharray : undefined }))} />
         <TripleStackPMC
           bikeCtl={pmcSeries.bikeCtl}
           runCtl={pmcSeries.runCtl}
@@ -725,43 +540,47 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
           dates={pmcSeries.dates}
         />
 
-      </Card>
+      </ChartFrame>
 
-      <Card padding="none" style={{ padding: 'var(--space-5)', marginTop: 'var(--space-4)' }}>
-        <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("triView.model.title")}</div>
-        <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", lineHeight: 1.7 }}>{t("triView.model.desc")}</div>
-      </Card>
+      <Section headingLevel={3} title={t("triView.model.title")} description={t("triView.model.desc")} />
 
-      </DetailsSection></div>
+  </>;
 
-      {/* 기여도 도넛 + 일별 부하 */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr", gap: 'var(--space-5)', marginTop: 'var(--space-5)' }}>
-        {/* 종목별 기여도 */}
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <div style={{ marginBottom: "var(--space-3)" }}>
-            <h3 style={{ margin: 0, marginBottom: "var(--space-1)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
-              {t("triView.contrib.title")}
-            </h3>
-            <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{currentTimelinePoint && totalCTL > 0 ? t("triView.contrib.sub", { ctl: totalCTL.toFixed(1) }) : t("daily.empty")}</div>
+  return (
+    <div data-testid={evidenceOnly ? "condition-tri-mobile-evidence" : "K1-8"}>
+      {/* 헤더 — PageHeader 패턴 */}
+      {!evidenceOnly && <div className="site-shell" style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
+        <div style={{ flex: 1 }}>
+          <Text as="div" variant="caption" style={{ marginBottom: 'var(--space-2)' }}>{t("triView.header.eyebrow")}</Text>
+          <Text as="h1" variant="pageTitle" data-testid="K1-0-1" style={{ marginBottom: "var(--space-1-5)" }}>
+            {t(condition ? "condition.header.title" : "triView.header.title")}
+          </Text>
+          <div style={{ color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
+            {t("triView.header.subtitle")}
           </div>
-          {currentTimelinePoint && totalCTL > 0 ? <ContribDonut
-            slices={contribSlices}
-            totalCtl={totalCTL}
-          /> : <div data-testid="tri-contribution-empty" style={{ minHeight: "calc(var(--space-8) * 2)", display: "grid", placeItems: "center", color: "var(--ink-3)", fontSize: "var(--fs-sm)" }}>{t("daily.empty")}</div>}
-          <div
-            style={{
-              marginTop: 'var(--space-4)',
-              paddingTop: 14,
-              borderTop: "1px solid var(--line-soft)",
-              fontSize: "var(--fs-xs)",
-              color: "var(--ink-3)",
-              lineHeight: 1.6,
-            }}
-          >
-            {currentTimelinePoint ? t("triView.contrib.advice", { pct: bikePct }) : t("daily.empty")}
-          </div>
-        </Card>
+        </div>
+        <DisciplineTabs includeTri disabledKeys={["swim"]} />
+      </div>}
 
+      <div className={evidenceOnly ? "tri-fitness__mobile-evidence" : "site-shell"} style={{ padding: evidenceOnly ? "var(--space-4)" : "var(--space-5) var(--space-6) var(--space-8)" }}>
+
+      {!evidenceOnly && loading && !combinedLoad && <Text as="p" role="status">{t("condition.current.loading")}</Text>}
+      {!evidenceOnly && (historySlot || combinedLoad) && <div data-testid="K1-8-1" className="tri-fitness__primary">
+        {combinedLoad && <div id={condition ? "condition-current" : undefined} tabIndex={condition ? -1 : undefined} className="tri-fitness__primary-summary condition-section-target"><IntegratedLoadCard combined={combinedLoad} focus={loadFocus} condition={condition} /></div>}
+      {condition && !evidenceOnly && <ConditionSectionNav sections={[
+        ...(combinedLoad ? [{ id: "condition-current", label: t("condition.current.title") }] : []),
+        ...(historySlot ? [{ id: "condition-trend", label: t("history.title") }] : []),
+        { id: "condition-load", label: t("condition.load.title") },
+        { id: "condition-metrics", label: t("condition.metrics.triTitle") },
+        ...(hasThresholdSettings ? [{ id: "thresholds", label: t("condition.settings.title") }] : []),
+      ]} />}
+        {historySlot && <div id={condition ? "condition-trend" : undefined} tabIndex={condition ? -1 : undefined} className="tri-fitness__primary-trend condition-section-target">{historySlot}</div>}
+      </div>}
+
+      {!condition && <div data-testid="K1-8-2"><DetailsSection title={t("history.disciplineDetails")} defaultOpen={!historySlot}>{disciplineEvidence}</DetailsSection></div>}
+
+      {/* 일별 운동 부하 — 현재 기여도는 상단 IntegratedLoadCard 한 곳에만 표시한다. */}
+      <div id={condition && !evidenceOnly ? "condition-load" : undefined} className="condition-section-target" tabIndex={condition && !evidenceOnly ? -1 : undefined} style={{ marginTop: 'var(--space-5)' }}>
         {/* 일별 운동 부하 */}
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <div style={{ marginBottom: "var(--space-3)" }}>
@@ -782,6 +601,7 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
           </div>
           {/* 주간 요약 */}
           <div
+            className="tri-fitness__weekly"
             style={{
               marginTop: 'var(--space-4)',
               paddingTop: 14,
@@ -815,18 +635,20 @@ export default function TriFitnessView({ range, selectedHistoryRange = range, br
       {weeklyUnknownCount > 0 && <Text as="p" variant="caption" tone="secondary">{trainingT("log.loadPartial", { count: weeklyUnknownCount })}</Text>}
 
       {/* 종목별 드릴다운 카드 */}
-      <div style={{ marginTop: 'var(--space-5)' }}>
+      <div id={condition && !evidenceOnly ? "condition-metrics" : undefined} className="condition-section-target" tabIndex={condition && !evidenceOnly ? -1 : undefined} style={{ marginTop: 'var(--space-5)' }}>
+        {condition && <div data-testid="K1-8-2"><section aria-label={t("history.disciplineDetails")}>{disciplineEvidence}</section></div>}
         <div style={{ display: "flex", alignItems: "baseline", marginBottom: 'var(--space-3)' }}>
           <h3 style={{ margin: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("discipline.summary.title")}</h3>
           <span style={{ flex: 1 }} />
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>{t("triView.disciplineCards.hint")}</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 'var(--space-4)', alignItems: "start" }}>
-          <PerDisciplineCard label={t("triView.cycling")} color={DISCIPLINE_CHART_COLORS.bike} ctl={bikeSpark} delta={bikeSpark.length >= 2 ? bikeSpark[bikeSpark.length - 1]! - bikeSpark[bikeSpark.length - 2]! : null} tss={weeklyEvidence.bike.display} dist="—" unit="km" lastSess={bikeSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=bike" />
-          <PerDisciplineCard label={t("discipline.run")} color={DISCIPLINE_CHART_COLORS.run} ctl={runSpark} delta={runSpark.length >= 2 ? runSpark[runSpark.length - 1]! - runSpark[runSpark.length - 2]! : null} tss={weeklyEvidence.run.display} dist="—" unit="km" lastSess={runSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=run" />
-          <PerDisciplineCard disabled label={t("discipline.swim")} color={DISCIPLINE_CHART_COLORS.swim} ctl={swimSpark} delta={swimSpark.length >= 2 ? swimSpark[swimSpark.length - 1]! - swimSpark[swimSpark.length - 2]! : null} tss={weeklyEvidence.swim.display} dist="—" unit="km" lastSess={swimSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=swim" />
+        <div className="tri-fitness__sport-cards">
+          <PerDisciplineCard label={t("triView.cycling")} color={DISCIPLINE_CHART_COLORS.bike} ctl={bikeSpark} dates={sparkDates.bike} delta={bikeSpark.length >= 2 ? bikeSpark[bikeSpark.length - 1]! - bikeSpark[bikeSpark.length - 2]! : null} tss={weeklyEvidence.bike.display} dist="—" unit="km" lastSess={bikeSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=bike" />
+          <PerDisciplineCard label={t("discipline.run")} color={DISCIPLINE_CHART_COLORS.run} ctl={runSpark} dates={sparkDates.run} delta={runSpark.length >= 2 ? runSpark[runSpark.length - 1]! - runSpark[runSpark.length - 2]! : null} tss={weeklyEvidence.run.display} dist="—" unit="km" lastSess={runSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=run" />
+          <PerDisciplineCard disabled label={t("discipline.swim")} color={DISCIPLINE_CHART_COLORS.swim} ctl={swimSpark} dates={sparkDates.swim} delta={swimSpark.length >= 2 ? swimSpark[swimSpark.length - 1]! - swimSpark[swimSpark.length - 2]! : null} tss={weeklyEvidence.swim.display} dist="—" unit="km" lastSess={swimSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=swim" />
         </div>
       </div>
+      {!evidenceOnly && thresholdsSlot}
       </div>
     </div>
   );

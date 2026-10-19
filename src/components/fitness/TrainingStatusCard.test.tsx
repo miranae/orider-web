@@ -33,6 +33,15 @@ function emptyEnvelope(status: TrainingDecisionEnvelope["status"]): TrainingDeci
     error: status === "failed" ? { code: "call_failed", retryable: true } : null };
 }
 
+describe("condition story presentation", () => {
+  it("uses the supplied server band as a headline and preserves all five spectrum labels", () => {
+    render(<TrainingStatusCard embedded presentation="story" tsb={-40} decision={decision("fresh", "canonical")} decisionDisplay="value" />);
+    expect(screen.getByRole("heading", { level: 2, name: ko["trainingStatus.fresh.label"] })).toBeVisible();
+    expect(screen.getByRole("heading")).toHaveClass("fitness-current-status__headline");
+    FORM_BAND_KEYS.forEach(key => expect(document.querySelectorAll(".fitness-state-labels__item")[FORM_BAND_KEYS.indexOf(key)]).toHaveTextContent(ko[`trainingStatus.${key}.label` as keyof typeof ko]));
+  });
+});
+
 describe("TrainingStatusCard", () => {
   it("i18n 라벨이 서버 구간 5개를 모두 덮는다", () => {
     for (const key of FORM_BAND_KEYS) {
@@ -60,7 +69,7 @@ describe("TrainingStatusCard", () => {
     ["failed", "error" as CanonicalDisplay, "훈련 상태를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요."],
     ["unavailable", "empty" as CanonicalDisplay, "훈련 상태를 계산할 활동이 아직 없습니다."],
   ])("%s 는 구간 대신 상태를 밝힌다", (status, display, message) => {
-    render(<TrainingStatusCard tsb={-45} decision={emptyEnvelope(status as TrainingDecisionEnvelope["status"])} decisionDisplay={display} />);
+    render(<TrainingStatusCard embedded tsb={-45} decision={emptyEnvelope(status as TrainingDecisionEnvelope["status"])} decisionDisplay={display} />);
     expect(screen.getByText(message)).toBeInTheDocument();
     // TSB -45 는 로컬 판정이면 '과부하 주의' 다. 값 없는 상태에서 로컬 구간이 새면 안 된다.
     expect(screen.queryByText("과부하 주의")).not.toBeInTheDocument();
@@ -77,7 +86,7 @@ describe("TrainingStatusCard", () => {
   });
 
   it("서버가 화면을 껐으면 중단을 밝히고 로컬 구간을 그리지 않는다", () => {
-    render(<TrainingStatusCard tsb={-45} decision={decision("productive", "canonical")} decisionDisplay="value" decisionPaused />);
+    render(<TrainingStatusCard embedded tsb={-45} decision={decision("productive", "canonical")} decisionDisplay="value" decisionPaused />);
     expect(screen.getByText(ko["trainingStatus.state.paused"])).toBeInTheDocument();
     expect(screen.queryByText("과부하 주의")).not.toBeInTheDocument();
   });

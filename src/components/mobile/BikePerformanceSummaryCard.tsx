@@ -1,3 +1,5 @@
+import { estimateVo2max } from "../../features/fitness/estimateVo2max";
+import FitnessPdcProfile from "../../features/fitness/components/FitnessPdcProfile";
 import GlossaryText from "../common/GlossaryText";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -5,7 +7,7 @@ import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecisi
 import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
 import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
 import type { BikeThresholdDecisionV2, FtpDeviceReceipt, FtpMutationReceipt } from "@shared/types/threshold";
-import { Button, Chip, Text } from "../../theme/components";
+import { Button, Chip, Section, Stat, Text } from "../../theme/components";
 import FtpProgressionCard from "../../features/fitness/components/FtpProgressionCard";
 import BikeFtpDecisionActionPanel from "../../features/fitness/components/BikeFtpDecisionActionPanel";
 import AbilityScoreScale from "../fitness/AbilityScoreScale";
@@ -41,10 +43,6 @@ const RIDER_TYPE_KEYS = new Set([
   "RoadSprinter", "TrackSprinter", "AllRounder", "Puncher", "Climber", "TimeTrialist", "Unclassified",
 ]);
 
-function estimateVo2max(ftp: number | null, weightKg: number | undefined): number | null {
-  if (!ftp || ftp <= 0 || !weightKg || weightKg <= 0) return null;
-  return Math.round((ftp / weightKg) * 15.7 + 3.5);
-}
 
 export default function BikePerformanceSummaryCard({ part = "all", decision, pdc, weightKg, progression = [], ftpHistory = [], ftpDecision = null, ftpReceipt = null, ftpDeviceReceipts = [], decisionBusy = false, onAcceptDecision = () => undefined }: BikePerformanceSummaryCardProps) {
   const { t } = useTranslation("dashboard");
@@ -74,7 +72,7 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
     latestEstimate ? { label: t("mobileFitness.performance.evidence.latestPeriod"), value: latestEstimate.period } : null,
     decision && decision.activityCount > 0 ? { label: t("mobileFitness.performance.evidence.activityCount"), value: t("mobileFitness.performance.evidence.activityCountValue", { count: decision.activityCount }) } : null,
     activeToEstimateDelta != null ? { label: t("mobileFitness.performance.evidence.activeDelta"), value: `${activeToEstimateDelta >= 0 ? "+" : ""}${activeToEstimateDelta} W` } : null,
-    pdc?.riderType ? { label: t("mobileFitness.performance.evidence.riderConfidence"), value: `${Math.round(pdc.riderType.confidence * 100)}%` } : null,
+    part !== "condition" && pdc?.riderType ? { label: t("mobileFitness.performance.evidence.riderConfidence"), value: `${Math.round(pdc.riderType.confidence * 100)}%` } : null,
   ].filter((row): row is { label: string; value: string } => row != null);
   const metrics = [
     { key: "eftp", label: t("mobileFitness.performance.metrics.eftp"), value: decision?.latestMonthlyEstimate?.ftpW ?? null, unit: "W", status: decision?.latestMonthlyEstimate ? t("mobileFitness.performance.estimated") : t("mobileFitness.performance.insufficient") },
@@ -83,8 +81,7 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
     { key: "vo2max", label: "VO₂max", value: vo2max, unit: "ml/kg/min", status: vo2max != null ? t("mobileFitness.performance.estimated") : t("mobileFitness.performance.insufficient") },
   ];
   return (
-    <section className="mobile-fitness-performance" aria-label={t("mobileFitness.performance.ariaLabel")} style={{ marginBottom: "var(--space-3)", padding: "var(--space-4)", background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)" }}>
-      <Text as="h2" variant="title" style={{ margin: 0 }}><GlossaryText>{t("mobileFitness.performance.title")}</GlossaryText></Text>
+    <Section className="mobile-fitness-performance" title={<GlossaryText>{t("mobileFitness.performance.title")}</GlossaryText>} aria-label={t("mobileFitness.performance.ariaLabel")}>
       {part !== "analysis" && <>
       <Text as="div" variant="eyebrow" tone="secondary" style={{ marginTop: "var(--space-3)" }}><GlossaryText>{t("fitness:thresholdDecision.activeLabel")}</GlossaryText></Text>
       <div className="mobile-fitness-performance__ftp">
@@ -97,7 +94,7 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
       </div>
 
       </>}
-      {part !== "condition" && <>
+      {part === "condition" ? <FitnessPdcProfile pdc={pdc} /> : <>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
         {riderType ? <Chip variant="accent" dot>{riderType}</Chip> : <Text variant="bodySmall"><GlossaryText>{t("mobileFitness.performance.riderUnknown")}</GlossaryText></Text>}
       </div>
@@ -111,22 +108,24 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
             />
           : <Text as="div" variant="body"><GlossaryText>{t("mobileFitness.performance.abilityUnknown")}</GlossaryText></Text>}
       </div>
+      </>}
       <div className="mobile-fitness-performance__metrics">
-        {metrics.filter(metric => part !== "analysis" || metric.key !== "vo2max").map((metric) => (
+        {metrics.filter(metric => metric.key !== "vo2max" || part !== "analysis" && (part !== "condition" || pdc?.vo2maxEst == null)).map((metric) => (
           <div key={metric.key} data-performance-metric={metric.key} className="mobile-fitness-performance__metric">
-            <Text as="div" variant="caption" tone="secondary"><GlossaryText>{metric.label}</GlossaryText></Text>
-            <div className="mobile-fitness-performance__metric-value">
-              <Text as="span" variant="dataLarge" style={{ whiteSpace: "nowrap" }}>{metric.value ?? "—"}</Text>
-              {metric.value != null && <Text as="span" variant="unit" style={{ whiteSpace: "nowrap" }}>{metric.unit}</Text>}
-            </div>
+            <Stat compact label={<GlossaryText>{metric.label}</GlossaryText>} value={metric.value ?? "—"} unit={metric.value == null ? undefined : metric.unit} />
             <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}><GlossaryText>{metric.status}</GlossaryText></Text>
           </div>
         ))}
       </div>
 
-      </>}
+      {part === "condition" && <div className="mobile-fitness-performance__candidate" style={{ marginTop: "var(--space-3)" }}>
+        <Text as="h3" variant="subtitle">{t("fitness:thresholdDecision.candidateLabel")}</Text>
+        <Text as="div" variant="dataMedium">{decision?.automaticCandidateW ?? "—"}{decision?.automaticCandidateW != null ? " W" : ""}</Text>
+        <Text as="p" variant="caption" tone="secondary">{decision?.automaticCandidateW != null ? t("fitness:thresholdDecision.candidateSub", { count: decision.activityCount }) : t("fitness:thresholdDecision.noCandidate")}</Text>
+        <Text as="p" variant="caption" tone="secondary">{t("fitness:thresholdDecision.modelOnly")}</Text>
+      </div>}
       {part !== "analysis" && <>
-      <div className="mobile-fitness-performance__trend"><FtpProgressionCard points={progression} history={ftpHistory} currentFtpW={activeFtp} breakthrough={null} embedded compact /></div>
+      <div className="mobile-fitness-performance__trend"><FtpProgressionCard points={progression} history={ftpHistory} currentFtpW={activeFtp} breakthrough={null} embedded compact showHistory={part === "condition"} /></div>
 
       <BikeFtpDecisionActionPanel
         decision={ftpDecision}
@@ -137,26 +136,24 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
       />
 
       </>}
-      <Button variant="secondary" size="sm" aria-expanded={evidenceOpen} aria-controls={evidenceId} onClick={() => setEvidenceOpen((open) => !open)} style={{ width: "100%", marginTop: "var(--space-4)" }}>
+      {part !== "condition" && <Button variant="secondary" size="sm" aria-expanded={evidenceOpen} aria-controls={evidenceId} onClick={() => setEvidenceOpen((open) => !open)} style={{ width: "100%", marginTop: "var(--space-4)" }}>
         {t(evidenceOpen ? "mobileFitness.performance.evidenceClose" : "mobileFitness.performance.evidenceOpen")}
-      </Button>
-      <div id={evidenceId} hidden={!evidenceOpen} style={{ marginTop: "var(--space-3)", display: evidenceOpen ? "grid" : undefined, gap: "var(--space-2)" }}>
+      </Button>}
+      <div id={evidenceId} hidden={part !== "condition" && !evidenceOpen} style={{ marginTop: "var(--space-3)", display: evidenceOpen || part === "condition" ? "grid" : undefined, gap: "var(--space-2)" }}>
         {evidenceRows.length > 0
           ? evidenceRows.map((row) => <EvidenceRow key={row.label} label={row.label} value={row.value} />)
           : <Text as="p" variant="caption" tone="secondary"><GlossaryText>{t("mobileFitness.performance.insufficient")}</GlossaryText></Text>}
         <Text as="p" variant="caption" tone="secondary"><GlossaryText>{ftpEvidence}</GlossaryText></Text>
-        {part !== "condition" && <>
-        <Text as="p" variant="caption" tone="secondary"><GlossaryText>{t("mobileFitness.snapshot.riderSource")}</GlossaryText></Text>
+        {part !== "condition" && <Text as="p" variant="caption" tone="secondary"><GlossaryText>{t("mobileFitness.snapshot.riderSource")}</GlossaryText></Text>}
         <Text as="p" variant="caption" tone="secondary">
           <GlossaryText>{vo2Source === "pdc" ? t("mobileFitness.snapshot.vo2PdcSource", { count: pdc?.activityCount ?? 0 }) : vo2Source === "formula" ? t("mobileFitness.snapshot.vo2FormulaSource") : t("mobileFitness.snapshot.insufficient")}</GlossaryText>
         </Text>
-        </>}
         <Text as="p" variant="caption" tone="secondary"><GlossaryText>{t("mobileFitness.performance.modelEvidence")}</GlossaryText></Text>
         <a href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--aqua)", fontWeight: 600 }}>
           {t("mobileFitness.sport.bike.manualLink")}
         </a>
       </div>
-    </section>
+    </Section>
   );
 }
 

@@ -4,3 +4,6 @@
 .daily-load-chart__target > button:focus-visible { outline: 2px solid var(--color-primary-dark); outline-offset: 2px; }
 .daily-load-chart__bar { display: block; width: 100%; border-radius: var(--r-xs); }
 .daily-load-chart__bar--unknown { opacity: .45; background-image: repeating-linear-gradient(135deg, transparent 0, transparent 3px, var(--bg-1) 3px, var(--bg-1) 6px); }
+
+.daily-load-chart__dates { display: flex; justify-content: space-between; gap: var(--space-2); margin-top: var(--space-2); color: var(--ink-2); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.daily-load-chart__dates > span { min-width: 0; overflow-wrap: anywhere; }
