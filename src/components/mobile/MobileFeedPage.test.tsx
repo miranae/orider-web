@@ -94,8 +94,16 @@ describe("MobileFeedPage", () => {
       expect(time?.parentElement).not.toHaveTextContent(/시간 전|분 전/);
     } finally { clock.mockRestore(); }
   });
+  it("shows the stored region beside the device, including when the track is unavailable", () => {
+    const view = renderWithProviders(<CompactActivityCard activity={createMockActivity({ thumbnailTrack: "", regionName: " Yeongdeungpo-gu, Seoul ", sourceMeta: { deviceModel: "Garmin Edge 840" } })} />);
+    expect(view.container.querySelector("time")?.parentElement).toHaveTextContent(/Garmin Edge 840·\s+Yeongdeungpo-gu, Seoul/);
+  });
+  it("shows a stored region without a device and hides blank regions", () => {
+    const view = renderWithProviders(<CompactActivityCard activity={createMockActivity({ regionName: "Jeju-si, Jeju-do", sourceMeta: { deviceModel: "" } })} />);
+    expect(view.container.querySelector("time")?.parentElement).toHaveTextContent(/·\s+Jeju-si, Jeju-do/);
+  });
   it("omits unavailable device and location metadata without leaving separators", () => {
-    const view = renderWithProviders(<CompactActivityCard activity={createMockActivity({ startTime: NaN, sourceMeta: { deviceModel: " " } })} />);
+    const view = renderWithProviders(<CompactActivityCard activity={createMockActivity({ startTime: NaN, regionName: " ", sourceMeta: { deviceModel: " " } })} />);
     const time = view.container.querySelector("time");
     expect(time).not.toHaveAttribute("datetime");
     expect(time?.parentElement).toHaveTextContent("활동 시각 미확인");
