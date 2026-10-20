@@ -3,8 +3,7 @@ import HomeActivitySportIcon from "../common/HomeActivitySportIcon";
 import { getHomeActivitySport } from "../../utils/homeActivitySport";
 import GlossaryText from "../common/GlossaryText";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/appStoreLinks";
-import { useEffect, useId, useRef, useState, useMemo, type ReactNode } from "react";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { useEffect, useState, useMemo, type ReactNode } from "react";
 import { useActivityAuthor } from "../../hooks/useActivityAuthor";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
@@ -14,7 +13,7 @@ import ActivityAiSummary from "../activity/ActivityAiSummary";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
 import { activityTimestampParts, toLocalDate } from "../../utils/dateUtils";
 import { getDiscipline, getDisciplineIcon, getDisciplineLabelKey } from "../../utils/disciplineFilter";
-import { Button, Card, IconButton, Input, Select, Text, buttonClass } from "../../theme/components";
+import { Button, Card, Text, buttonClass } from "../../theme/components";
 import { useAuth } from "../../contexts/AuthContext";
 import { isTrivialActivity } from "../../utils/activityFilter";
 import { resolveDuration, resolveAvgSpeedKph, durationLabelBasis } from "../../utils/activityTime";
@@ -25,18 +24,11 @@ import type { DashboardDatePreset, DashboardSportFilter } from "../../hooks/useD
 import { useLocale } from "../../contexts/LocaleContext";
 import { formatDistance, formatElev, formatPace, formatSpeed } from "../../utils/units";
 import { isImplausibleActivityHeartRate } from "../../utils/activitySanity";
-import { isSignInCancelled } from "../../utils/signInCancelled";
-import { useToast } from "../../contexts/ToastContext";
 import "./MobileFeedPage.css";
 
 const MOBILE_FEED_RENDER_STEP = 20;
 const MOBILE_FEED_RENDER_INITIAL = 20;
 type SportFilter = DashboardSportFilter;
-
-interface SportBreakdownItem {
-  key: SportFilter;
-  label: string;
-}
 
 interface MobileFeedPageProps {
   activities: Activity[];
@@ -51,13 +43,9 @@ interface MobileFeedPageProps {
   currentUserId?: string | null;
   friendIds?: string[];
   feedScope: ActivityFeedScope;
-  onFeedScopeChange: (scope: ActivityFeedScope) => void;
   sportFilter?: SportFilter;
-  onSportFilterChange?: (sportFilter: SportFilter) => void;
   datePreset?: DashboardDatePreset;
-  onDatePresetChange?: (datePreset: DashboardDatePreset) => void;
   runningJourney?: ReactNode;
-  notices?: ReactNode;
 }
 
 function formatDur(ms: number): string {
@@ -99,7 +87,7 @@ function MobileRouteThumbnail({ activity, priority = false }: { activity: Activi
   if (!activity.thumbnailTrack) return null;
 
   return (
-    <div style={{ paddingTop: "var(--space-3)" }}>
+    <div className="mobile-feed-route">
       <ActivityRouteThumbnail
         activityId={activity.id}
         userId={activity.userId}
@@ -159,24 +147,24 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
   });
 
   return (
-    <div data-testid="H1-2-1" className="mobile-feed-card" style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-4)", position: "relative" }}>
+    <article data-testid="H1-2-1" className="mobile-feed-card">
       <Link
         to={`/activity/${activity.id}`}
         aria-label={activity.description || t("mobileFeed.defaultActivity")}
         className="absolute inset-0 rounded-[var(--r-md)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--lime)]"
         style={{ zIndex: 1 }}
       />
-      {/* 작성자와 활동 제목은 같은 시작선, 종목은 아바타 아래에 표시한다. */}
+      {/* 작성자 아래에 종목과 제목을 배치해 활동의 맥락부터 읽는다. */}
       <div className="mobile-feed-card-header">
-        <span className="mobile-feed-card-avatar"><Avatar userId={activity.userId} name={nickname} imageUrl={activity.profileImage} size={40} /></span>
+        <span className="mobile-feed-card-avatar"><Avatar userId={activity.userId} name={nickname} imageUrl={activity.profileImage} size={40} className="mobile-feed-author-avatar" /></span>
         <div className="mobile-feed-card-identity">
-          <Text as="div" variant="bodySmall" weight={600} tone="primary" style={{ overflowWrap: "anywhere" }}>{nickname}</Text>
+          <Text as="div" variant="bodySmall" size="md" weight={600} tone="primary" style={{ overflowWrap: "anywhere" }}>{nickname}</Text>
           <Text as="div" variant="caption" tone="tertiary" className="mobile-feed-activity-metadata"><time dateTime={timestamp?.iso}>{occurredAt}</time>{device && <span>{`·\u00a0${device}`}</span>}{region && <span>{`·\u00a0${region}`}</span>}</Text>
         </div>
         <span className="mobile-feed-card-sport" role="img" aria-label={activitySportLabel}>
           {activitySport ? <HomeActivitySportIcon sport={activitySport} size={28} /> : getDisciplineIcon(null)}
         </span>
-        <Text as="h3" variant="subtitle" weight={600} tone="primary" className="mobile-feed-activity-title">
+        <Text as="h3" variant="title" size="xl" weight={600} tone="primary" className="mobile-feed-activity-title">
           {activity.description || t("mobileFeed.defaultActivity")}
         </Text>
         {showDataWarning && (
@@ -194,11 +182,12 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
         )}
       </div>
 
-      {/* AI 요약 — 생성된 활동에만 (비정규화 aiSummaryPreview ko/en). 카드 자체 패딩(16) 안이라 inset=false */}
-      {(activity.aiSummaryPreview || activity.aiSummaryPreview_en) &&
-        <ActivityAiSummary summary={activity.aiSummaryPreview} summaryEn={activity.aiSummaryPreview_en} inset={false} />}
+      {/* 저장된 AI 요약이 있는 활동에만 표시한다. */}
+      {(activity.aiSummaryPreview || activity.aiSummaryPreview_en) && <div className="mobile-feed-summary">
+        <ActivityAiSummary summary={activity.aiSummaryPreview} summaryEn={activity.aiSummaryPreview_en} inset={false} />
+      </div>}
 
-      {/* 지표의 의미는 유지하고 좁은 화면에서 두 열로 읽는다. */}
+      {/* 핵심 세 지표는 가로로, 추가 측정값은 보조 행에 표시한다. */}
       <div className={`mobile-feed-stats${discipline === "run" ? " mobile-feed-stats--run" : ""}`} data-testid={discipline === "run" ? "run-card-primary" : undefined}>
         {(discipline === "run" ? [
           { v: distance, u: "", l: t("mobileFeed.statDistance") },
@@ -206,92 +195,66 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
           { v: dur, u: "", l: t(`homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, sd.usingMoving)}`) },
         ] : [
           { v: distance, u: "", l: t("mobileFeed.statDistance") },
-          { v: dur, u: "", l: t(`homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, sd.usingMoving)}`) },
           { v: elev, u: "", l: t("mobileFeed.statElev") },
-          { v: spd, u: "", l: t("mobileFeed.statSpeed") },
-        ]).map((stat) => (
-          <div key={stat.l} className="mobile-feed-stat">
-            <Text as="div" variant="caption" tone="tertiary" style={{ position: "relative", zIndex: 2 }}><GlossaryText>{stat.l}</GlossaryText></Text>
-            <Text as="div" variant="dataSmall" mono tone="primary">{stat.v}{stat.u && ` ${stat.u}`}</Text>
-          </div>
-        ))}
+          { v: dur, u: "", l: t(`homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, sd.usingMoving)}`) },
+        ]).map(stat => {
+          const measurement = /^(.*?)(\/km|\/mi|km\/h|mph|km|mi|ft|m)$/.exec(stat.v);
+          return <div key={stat.l} className="mobile-feed-stat">
+            <div className="mobile-feed-stat-label"><GlossaryText>{stat.l}</GlossaryText></div>
+            <div className="mobile-feed-stat-value">{measurement
+              ? <><span>{measurement[1]}</span><span className="mobile-feed-stat-unit">{measurement[2]}</span></>
+              : stat.v}</div>
+          </div>;
+        })}
       </div>
 
-      {discipline === "run" && (
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }} data-testid="run-card-secondary">
-          {hasHr && <span style={{ position: "relative", zIndex: 2 }}>{t("homeMetrics.avgHeartRate")} · {Math.round(heartRate)} <GlossaryText>{"bpm"}</GlossaryText></span>}
-          <span style={{ position: "relative", zIndex: 2 }}><GlossaryText>{t("mobileFeed.statElev")}</GlossaryText> · {elev}</span>
-          {(s.averagePower ?? activity.avgPower ?? 0) > 0 && <span style={{ position: "relative", zIndex: 2 }}><GlossaryText>{tActivity("stat.runningPower")}</GlossaryText> · {Math.round(s.averagePower ?? activity.avgPower ?? 0)} <GlossaryText>{"W"}</GlossaryText></span>}
-        </div>
-      )}
+      <div className="mobile-feed-secondary-stats" data-testid={discipline === "run" ? "run-card-secondary" : undefined}>
+        {[
+          ...(discipline !== "run" ? [{ label: t("mobileFeed.statSpeed"), value: spd }] : []),
+          ...(hasHr ? [{ label: t("homeMetrics.avgHeartRate"), value: `${Math.round(heartRate)}bpm` }] : []),
+          ...(discipline === "run" ? [{ label: t("mobileFeed.statElev"), value: elev }] : []),
+          ...(discipline === "run" && (s.averagePower ?? activity.avgPower ?? 0) > 0
+            ? [{ label: tActivity("stat.runningPower"), value: `${Math.round(s.averagePower ?? activity.avgPower ?? 0)}W` }] : []),
+        ].map(stat => {
+          const measurement = /^(.*?)(km\/h|mph|bpm|ft|m|W)$/.exec(stat.value);
+          return <span key={stat.label} className="mobile-feed-secondary-stat">
+            <span className="mobile-feed-secondary-label"><GlossaryText>{stat.label}</GlossaryText></span>
+            <span aria-hidden="true">·</span>
+            <span className="mobile-feed-secondary-value">{measurement ? measurement[1] : stat.value}</span>
+            {measurement && <> <span className="mobile-feed-secondary-unit"><GlossaryText>{measurement[2]}</GlossaryText></span></>}
+          </span>;
+        })}
+      </div>
 
-      {/* Map thumbnail — 카드 콘텐츠 padding(16) 음수마진으로 상쇄해 화면 전폭.
-          비율은 데스크톱(ActivityCard)과 동일하게 토큰 --feed-thumb-aspect(index.css 단일
-          진실원, 현재 2.8:1) 사용 — 옛 고정높이(156px)는 기기 폭에 따라 비율이 들쭉날쭉
-          (2.3~3:1)했다. aspectRatio 로 모든 기기에서 데스크톱과 동일 프레임 보장. */}
+      {/* 원본 경로 전체를 유지한 가로형 지도. */}
       <MobileRouteThumbnail activity={activity} priority={priority} />
 
-      {/* 스트라바형 소셜 푸터 — 좋아요(아바타 스택)+댓글. 카드 패딩(16) 음수마진으로 상쇄해
-          전폭 상단 구분선, 내부는 footer 자체 px-4 로 콘텐츠와 정렬 (지도 썸네일과 동일 기법). */}
-      <div style={{ margin: "10px -16px 0", position: "relative", zIndex: 2 }}>
-        <ActivitySocialFooter activity={activity} />
+      {/* 좋아요의 실제 합계와 상호작용을 같은 행에 둔다. */}
+      <div className="mobile-feed-social">
+        <ActivitySocialFooter activity={activity} presentation="feed" />
       </div>
-    </div>
+    </article>
   );
 }
 
 export default function MobileFeedPage({
   activities, loading, error = false, onRetry, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, currentUserId = null, friendIds = [],
   activitySearch,
-  feedScope, onFeedScopeChange,
+  feedScope,
   sportFilter: controlledSportFilter,
-  onSportFilterChange,
   datePreset: controlledDatePreset,
-  onDatePresetChange,
   runningJourney,
-  notices,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
-  const { user, signIn } = useAuth();
-  const { showToast } = useToast();
-  const [signInPending, setSignInPending] = useState(false);
-  const [localSportFilter, setLocalSportFilter] = useState<SportFilter>("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const { user } = useAuth();
   const searchActive = activitySearch?.active ?? false;
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const searchInput = useRef<HTMLInputElement>(null);
-  const filterTrigger = useRef<HTMLButtonElement>(null);
-  const searchId = useId();
-  useEffect(() => { if (filtersOpen) searchInput.current?.focus(); }, [filtersOpen]);
-  const closeFilters = () => {
-    setFiltersOpen(false);
-    filterTrigger.current?.focus();
-  };
-  const [localDatePreset, setLocalDatePreset] = useState<DashboardDatePreset>("all");
-  const sportFilter = controlledSportFilter ?? localSportFilter;
-  const datePreset = controlledDatePreset ?? localDatePreset;
-  const setSportFilter = onSportFilterChange ?? setLocalSportFilter;
-  const setDatePreset = onDatePresetChange ?? setLocalDatePreset;
+  const sportFilter = controlledSportFilter ?? "all";
+  const datePreset = controlledDatePreset ?? "all";
   const [renderLimit, setRenderLimit] = useState(MOBILE_FEED_RENDER_INITIAL);
+  useEffect(() => { setRenderLimit(MOBILE_FEED_RENDER_INITIAL); }, [activitySearch?.searchedKeyword, sportFilter, datePreset, feedScope]);
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
   const signedIn = !!user && !user.isAnonymous;
   const effectiveFeedScope = signedIn ? feedScope : "all";
-  const activeFilterCount = Number(effectiveFeedScope !== "all") + Number(datePreset !== "all") + Number(sportFilter !== "all") + Number(searchActive);
-  const hasActiveSearchFilters = effectiveFeedScope !== "all" || datePreset !== "all";
-  const activeFilterDescription = [
-    searchActive ? t("mobileFeed.searchContext", { query: activitySearch!.searchedKeyword }) : null,
-    sportFilter !== "all" ? t(getDisciplineLabelKey(sportFilter)) : null,
-    effectiveFeedScope !== "all" ? t(`feed.filter.${effectiveFeedScope}`) : null,
-    datePreset !== "all" ? t(`feed.datePreset.${datePreset}`) : null,
-  ].filter(Boolean).join(" · ");
-
-  const feedSportOptions: SportBreakdownItem[] = [
-    { key: "all", label: t("common:label.all") },
-    { key: "bike", label: t(getDisciplineLabelKey("bike")) },
-    { key: "run", label: t(getDisciplineLabelKey("run")) },
-    { key: "swim", label: t(getDisciplineLabelKey("swim")) },
-  ];
-
   // 측정 오류 trivial 활동(거리<100m 또는 시간<60s) 항상 숨김.
   const sourceActivities = searchActive ? (() => {
     const keyword = activitySearch!.searchedKeyword.toLowerCase();
@@ -319,7 +282,6 @@ export default function MobileFeedPage({
   const hasHiddenLocalItems = filteredActivities.length > renderedActivities.length;
   const supportingCards = (
     <>
-      {notices && <div className="mobile-feed-notices">{notices}</div>}
       {showYearRecapBanner && (
         <div style={{ padding: "var(--space-3) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
           <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "var(--lime)" }}>
@@ -336,90 +298,7 @@ export default function MobileFeedPage({
   return (
     <div className="dashboard-home" data-testid="H1-2" style={{ overscrollBehavior: "contain" }}>
       <Text as="h1" className="sr-only">{t("mobileFeed.homeTitle")}</Text>
-      {!signedIn && <header className="mobile-feed-heading">
-        <div className="mobile-feed-guest-context">
-          <Text as="p" variant="bodySmall" tone="tertiary">{t("mobileFeed.publicDescription")}</Text>
-          <Button variant="secondary" loading={signInPending} onClick={async () => {
-            if (signInPending) return;
-            setSignInPending(true);
-            try { await signIn(); }
-            catch (error) { if (!isSignInCancelled(error)) showToast(t("common:auth.loginFailed"), "error"); }
-            finally { setSignInPending(false); }
-          }}>{t("common:button.login")}</Button>
-        </div>
-      </header>}
-      <div className="mobile-feed-feed-heading">
-        <Text as="h2" variant="subtitle" tone="primary">{t(signedIn ? "mobileFeed.feedTitle" : "mobileFeed.publicTitle")}</Text>
-          <IconButton ref={filterTrigger}
-            variant="ghost"
-            size="compact"
-            indicator={activeFilterCount > 0}
-            aria-expanded={filtersOpen}
-            aria-controls={filtersOpen ? searchId : undefined}
-            aria-label={`${t("mobileFeed.filterToggle")}${activeFilterDescription ? `: ${activeFilterDescription}` : ""}`}
-            onClick={() => { if (filtersOpen) closeFilters(); else setFiltersOpen(true); }}
-            icon={<SlidersHorizontal size={18} />}
-          />
-      </div>
-
-      {(filtersOpen || activeFilterDescription) && <div style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-2) var(--space-4)" }}>
-        {filtersOpen && <div id={searchId} onKeyDown={event => { if (event.key === "Escape") { event.preventDefault(); closeFilters(); } }}>
-          <form className={`mobile-feed-filter-row${!signedIn ? " mobile-feed-filter-row--public" : ""}${!activitySearch ? " mobile-feed-filter-row--no-search" : ""}`} onSubmit={event => {
-            event.preventDefault();
-            const keyword = String(new FormData(event.currentTarget).get("query") ?? searchQuery).trim();
-            if (!keyword || !activitySearch) return;
-            setDatePreset("all");
-            activitySearch.search(keyword);
-            setRenderLimit(MOBILE_FEED_RENDER_INITIAL);
-          }}>
-            {activitySearch && <Input id={`${searchId}-query`} ref={searchInput} name="query" enterKeyHint="search" value={searchQuery}
-                onChange={event => setSearchQuery(event.target.value)}
-                onCompositionEnd={event => setSearchQuery(event.currentTarget.value)}
-                placeholder={t("feed.search.placeholder")} aria-label={t("feed.search.placeholder")}
-                endAction={<IconButton type="submit" variant="ghost" aria-label={t("feed.search.submit")} disabled={!searchQuery.trim()} icon={<Search size={18} />} />} />}
-          {signedIn && <Select variant="filter" id="mobile-feed-scope"
-              data-testid="H1-1-1" value={feedScope}
-              onChange={(event) => {
-                setRenderLimit(MOBILE_FEED_RENDER_INITIAL);
-                onFeedScopeChange(event.target.value as ActivityFeedScope);
-              }}
-              aria-label={t("feed.filter.label")}
-            >
-              <option value="all">{t("mobileFeed.inlineFilters.scopeAll")}</option>
-              <option value="friends">{t("mobileFeed.inlineFilters.scopeFriends")}</option>
-              <option value="self">{t("mobileFeed.inlineFilters.scopeSelf")}</option>
-            </Select>}
-
-            <Select variant="filter" id="mobile-feed-date"
-              value={datePreset}
-              onChange={(event) => {
-                const nextPreset = event.target.value as DashboardDatePreset;
-                setRenderLimit(MOBILE_FEED_RENDER_INITIAL);
-                setDatePreset(nextPreset);
-                if (searchActive) activitySearch?.setDatePreset(nextPreset);
-              }}
-              aria-label={t("feed.datePreset.label")}
-            >
-              <option value="all">{t("mobileFeed.inlineFilters.dateAll")}</option>
-              <option value="7d">{t("mobileFeed.inlineFilters.date7d")}</option>
-              <option value="30d">{t("mobileFeed.inlineFilters.date30d")}</option>
-              <option value="90d">{t("mobileFeed.inlineFilters.date90d")}</option>
-            </Select>
-            <Select variant="filter" id={`${searchId}-sport`} value={sportFilter} onChange={event => {
-              setRenderLimit(MOBILE_FEED_RENDER_INITIAL);
-              setSportFilter(event.target.value as SportFilter);
-            }} aria-label={t("mobileFeed.sportFilterLabel")}>
-                {feedSportOptions.map(option => <option key={option.key} value={option.key}>{t(`mobileFeed.inlineFilters.sport.${option.key}`)}</option>)}
-            </Select>
-          </form>
-          {searchActive && <Button variant="ghost" size="sm" onClick={() => {
-            setSearchQuery("");
-            activitySearch!.reset();
-            setRenderLimit(MOBILE_FEED_RENDER_INITIAL);
-          }}>{t("feed.search.reset")}</Button>}
-        </div>}
-        {activeFilterDescription && <Text as="p" variant="caption" tone="tertiary" className="mobile-feed-active-filters">{activeFilterDescription}</Text>}
-      </div>}
+      <Text as="h2" className="sr-only">{t(signedIn ? "mobileFeed.feedTitle" : "mobileFeed.publicTitle")}</Text>
 
       {signedIn && sportFilter === "run" && runningJourney && (
         <div data-testid="mobile-owner-running-journey" className="space-y-3">{runningJourney}</div>
@@ -451,12 +330,7 @@ export default function MobileFeedPage({
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{searchActive && activitySearch!.hasMoreServerResults ? t("feed.search.morePossibleTitle") : searchActive ? t("feed.search.emptyTitle") : activities.length > 0 ? t("feed.noMatches.title") : t("mobileFeed.emptyTitle")}</div>
           <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)" }}>{searchActive && activitySearch!.hasMoreServerResults ? t("feed.search.morePossibleDescription") : searchActive ? t("feed.search.emptyDescription") : activities.length > 0 ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
           {signedIn && !searchActive && activities.length === 0 && <div className="flex gap-3 mt-3"><a href={ORIDER_PLAY_STORE_URL}>Google Play</a><a href={ORIDER_APP_STORE_URL}>App Store</a><Link to="/athlete/me/activities?import=1">{t("todayStrip.importHistory")}</Link></div>}
-          {!searchActive && activities.length > 0 && <Button variant="secondary" onClick={() => setFiltersOpen(true)} style={{ marginTop: "var(--space-3)" }}>{t("mobileFeed.filterToggle")}</Button>}
-          {searchActive && hasActiveSearchFilters && <Button variant="secondary" onClick={() => {
-            onFeedScopeChange("all");
-            setDatePreset("all");
-            activitySearch!.setDatePreset("all");
-          }} style={{ marginTop: "var(--space-3)" }}>{t("feed.search.resetScopeDates")}</Button>}
+
         </div>
       )}
       <div>

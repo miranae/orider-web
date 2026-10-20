@@ -60,6 +60,8 @@ export default function CoursesPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryParam = searchParams.get("q")?.trim() ?? "";
+  const surfaceParam = searchParams.get("surface") ?? "";
+  const difficultyParam = searchParams.get("difficulty") ?? "";
   const isVisible = stripLangPrefix(location.pathname) === "/explore/courses";
   const [hasRendered, setHasRendered] = useState(isVisible);
 
@@ -110,6 +112,18 @@ export default function CoursesPage() {
     setSelectedId(null);
     setHoveredId(null);
   }, [queryParam]);
+  useEffect(() => {
+    setSurfaceFilter(["paved", "gravel", "mixed"].includes(surfaceParam) ? surfaceParam as SurfaceFilter : "");
+  }, [surfaceParam]);
+  useEffect(() => {
+    setDifficultyFilter(/^[1-5]$/.test(difficultyParam) ? Number(difficultyParam) : null);
+  }, [difficultyParam]);
+
+  const updateRouteFilter = (key: string, value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(key, value); else next.delete(key);
+    setSearchParams(next, { replace: true });
+  };
 
   const serverSearch = usePagedSearch(
     searchQuery.trim() ? JSON.stringify([searchQuery.trim(), mineOnly, user?.uid]) : null,
@@ -149,6 +163,9 @@ export default function CoursesPage() {
   ].filter(Boolean).length;
   const resetFilters = () => {
     setSurfaceFilter(""); setDifficultyFilter(null);
+    const next = new URLSearchParams(searchParams);
+    next.delete("surface"); next.delete("difficulty");
+    setSearchParams(next, { replace: true });
     setDistanceMinKm(0); setDistanceMaxKm(DISTANCE_FILTER_MAX_KM);
     setElevationMinM(0); setElevationMaxM(ELEVATION_FILTER_MAX_M);
     setRegionFilter(""); setRadiusKm(null);
@@ -327,7 +344,7 @@ export default function CoursesPage() {
             ]).map((o) => {
               const active = surfaceFilter === o.v;
               return (
-                <button data-testid="E1-3-1" key={o.v || "all"} type="button" aria-pressed={active} onClick={() => setSurfaceFilter(o.v)}
+                <button data-testid="E1-3-1" key={o.v || "all"} type="button" aria-pressed={active} onClick={() => updateRouteFilter("surface", o.v)}
                   className={buttonClass({ variant: "ghost", className: "text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors" })}
                   style={active ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
                   {o.label}
@@ -462,7 +479,7 @@ export default function CoursesPage() {
           </div>
           <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("difficulty")}</span>
-            <button type="button" onClick={() => setDifficultyFilter(null)}
+            <button type="button" onClick={() => updateRouteFilter("difficulty", "")}
               className={buttonClass({ variant: "ghost", className: "text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors" })}
               style={difficultyFilter == null ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
               {t("filter.all")}
@@ -470,7 +487,7 @@ export default function CoursesPage() {
             {[1, 2, 3, 4, 5].map((n) => {
               const active = difficultyFilter === n;
               return (
-                <button key={n} type="button" onClick={() => setDifficultyFilter(active ? null : n)}
+                <button key={n} type="button" onClick={() => updateRouteFilter("difficulty", active ? "" : String(n))}
                   className={buttonClass({ variant: "ghost", className: "w-7 h-7 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border font-semibold transition-colors" })}
                   style={active ? { background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
                   {n}

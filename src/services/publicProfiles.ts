@@ -64,13 +64,15 @@ export async function getPublicUserProfiles(userIds: readonly string[]): Promise
   }));
 }
 
-export async function searchPublicUserProfilesPage(searchText: string, cursor: QueryDocumentSnapshot<DocumentData> | null = null, maxResults = SEARCH_PAGE_SIZE) {
+export async function searchPublicUserProfilesPage(searchText: string, cursor: QueryDocumentSnapshot<DocumentData> | null = null, maxResults = SEARCH_PAGE_SIZE, match: "prefix" | "exact" = "prefix") {
   const text = searchText.trim();
   if (!text) return { items: [], cursor: null, hasMore: false };
   const snap = await getDocs(query(
     collection(firestore, "users_public"),
-    where("nickname", ">=", text),
-    where("nickname", "<=", `${text}\uf8ff`),
+    ...(match === "exact" ? [where("nickname", "==", text)] : [
+      where("nickname", ">=", text),
+      where("nickname", "<=", `${text}\uf8ff`),
+    ]),
     orderBy("nickname"),
     ...(cursor ? [startAfter(cursor)] : []),
     limit(Math.min(maxResults, SEARCH_PAGE_SIZE)),

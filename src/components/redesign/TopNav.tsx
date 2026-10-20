@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -12,6 +13,8 @@ import { LanguageToggle } from "../i18n/LanguageToggle";
 import type { Notification } from "@shared/types";
 import { Button, Text } from "../../theme/components";
 import { PRIMARY_HUBS, type HubKey } from "../../config/navHubs";
+import MobileMenuSearch from "./MobileMenuSearch";
+import "./TopNav.css";
 import { timeAgo } from "../../utils/timeAgo";
 
 const navFocusClass = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]";
@@ -35,6 +38,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   const { user, profile, signIn, logout } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const NAV_ITEMS = useMemo(
     () => PRIMARY_HUBS.map(({ key, labelKey, to }) => ({ key, label: t(labelKey), to })),
     [t]
@@ -77,6 +81,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   const notifRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const mobileHistoryPushedRef = useRef(false);
+  const mobileTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobilePanelRef = useRef<HTMLDivElement>(null);
 
   const { results } = useGlobalSearch(searchQuery);
 
@@ -112,6 +118,22 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    const closeProfile = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setMenuOpen(false);
+      menuRef.current?.querySelector("button")?.focus();
+    };
+    const closeOnBack = () => { setMenuOpen(false); menuRef.current?.querySelector("button")?.focus(); };
+    document.addEventListener("keydown", closeProfile);
+    window.addEventListener("popstate", closeOnBack);
+    return () => {
+      document.removeEventListener("keydown", closeProfile);
+      window.removeEventListener("popstate", closeOnBack);
+    };
+  }, [menuOpen]);
+
   // 알림 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
     if (!notifOpen) return;
@@ -131,6 +153,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
   const openMobileMenu = useCallback(() => {
     if (mobileOpen) return;
+    setMenuOpen(false);
     const state = window.history.state;
     window.history.pushState(
       { ...(state && typeof state === "object" ? state : {}), oriderMobileMenu: true },
@@ -157,6 +180,11 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   }, [stripMobileMenuHistoryState]);
 
   useEffect(() => {
+    closeMobileMenuForNavigation();
+    setMenuOpen(false);
+  }, [location.pathname, location.search, closeMobileMenuForNavigation]);
+
+  useEffect(() => {
     if (desktopHeader && mobileOpen) closeMobileMenu();
   }, [desktopHeader, mobileOpen, closeMobileMenu]);
 
@@ -166,13 +194,30 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
       mobileHistoryPushedRef.current = false;
       setMobileOpen(false);
     };
-    if (mobileOpen) window.addEventListener("popstate", handlePopState);
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); closeMobileMenu(); }
+      if (event.key === "Tab") {
+        const targets = mobilePanelRef.current?.querySelectorAll<HTMLElement>('a[href],button:not(:disabled),input,select,[tabindex="0"]');
+        const first = targets?.[0];
+        const last = targets?.[targets.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); mobileTriggerRef.current?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); mobileTriggerRef.current?.focus(); }
+        else if (document.activeElement === mobileTriggerRef.current && event.shiftKey) { event.preventDefault(); last?.focus(); }
+      }
+    };
+    if (mobileOpen) {
+      window.addEventListener("popstate", handlePopState);
+      document.addEventListener("keydown", handleKey);
+      mobilePanelRef.current?.querySelector<HTMLInputElement>('input')?.focus();
+    }
     document.body.style.overflow = mobileOpen ? 'hidden' : '';
     return () => {
       window.removeEventListener("popstate", handlePopState);
+      document.removeEventListener("keydown", handleKey);
+      if (mobileOpen) mobileTriggerRef.current?.focus();
       document.body.style.overflow = '';
     };
-  }, [mobileOpen]);
+  }, [mobileOpen, closeMobileMenu]);
 
   const nickname = profile?.nickname || user?.displayName || "";
   const avatarInitials = nickname ? nickname.slice(0, 2) : "";
@@ -205,7 +250,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
           style={{ textDecoration: 'none', flexShrink: 0 }}
         >
           <img src={iconSvg} alt="Orider" style={{ width: 24, height: 24, borderRadius: "var(--r-sm)", flexShrink: 0 }} />
-          <span className="hidden sm:inline"
+          <span
             style={{
               fontWeight: 700,
               fontSize: "var(--fs-sm)",
@@ -529,12 +574,12 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 <button
                   onClick={() => {
                     setNotifOpen(false);
-                    if (desktopHeader) setMenuOpen(!menuOpen);
-                    else { setMenuOpen(false); openMobileMenu(); }
+                    closeMobileMenuForNavigation();
+                    setMenuOpen(!menuOpen);
                   }}
                   className={navFocusClass}
                   aria-label={t('label.profile')}
-                  aria-expanded={desktopHeader ? menuOpen : mobileOpen}
+                  aria-expanded={menuOpen}
                   aria-current={settingsActive ? 'page' : undefined}
                   style={{
                     width: 44, height: 44, borderRadius: '50%',
@@ -632,153 +677,36 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 </Button>
               </div>
 
-              {/* 비로그인: 모바일 햄버거 */}
-              <button
-                className={`lg:hidden ${navIconButtonClass}`}
-                aria-label={t('button.more')}
-                onClick={openMobileMenu}
-                style={{
-                  width: 44, height: 44,
-                  alignItems: 'center', justifyContent: 'center',
-                  borderRadius: "var(--r-md)", border: 'none', background: 'transparent',
-                  cursor: 'pointer', color: 'var(--ink-3)',
-                }}
-              >
-                <Menu size={18} />
-              </button>
             </>
           )}
         </div>
+        <button ref={mobileTriggerRef} className={`mobile-menu-trigger lg:hidden ${navIconButtonClass}`}
+          aria-label={mobileOpen ? t('button.close') : t('button.more')} aria-expanded={mobileOpen} aria-controls="mobile-navigation"
+          onClick={mobileOpen ? closeMobileMenu : openMobileMenu}>
+          {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
       </nav>
 
-      {/* 모바일 슬라이드 메뉴 오버레이 */}
+      {/* 모바일 메뉴: 헤더 바로 아래에 전체 폭으로 펼친다. */}
       {mobileOpen && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 200,
-            display: 'flex',
-          }}
-          onClick={closeMobileMenu}
-        >
-          {/* backdrop */}
-          <div style={{ flex: 1, backgroundColor: 'color-mix(in oklch, var(--ink-1) 50%, transparent)' }} />
-
-          {/* 슬라이드 패널 */}
-          <div data-testid="X1-5"
-            style={{
-              width: 280,
-              height: '100%',
-              backgroundColor: 'var(--bg-1)',
-              borderLeft: '1px solid var(--line-soft)',
-              display: 'flex',
-              flexDirection: 'column',
-              overflowY: 'auto',
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* 패널 헤더 */}
-            <div
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '14px 16px', borderBottom: '1px solid var(--line-soft)',
-              }}
-            >
-              <span style={{ fontWeight: 700, fontSize: "var(--fs-sm)", color: 'var(--ink-0)', letterSpacing: '0.04em' }}>
-                O<span style={{ color: 'var(--ink-3)' }}>·</span>RIDER
-              </span>
-              <button
-                className={navIconButtonClass}
-                aria-label={t('button.close')}
-                onClick={closeMobileMenu}
-                style={{
-                  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  borderRadius: "var(--r-md)", border: 'none', background: 'transparent', cursor: 'pointer',
-                  color: 'var(--ink-3)',
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* 유저 정보 (로그인 시) */}
-            {user && (
-              <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', gap: "var(--space-2)" }}>
-                <div
-                  style={{
-                    width: 36, height: 36, borderRadius: '50%',
-                    border: '1px solid var(--line)',
-                    background: 'var(--bg-3)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    overflow: 'hidden', fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)', flexShrink: 0,
-                  }}
-                >
-                  {photoURL ? (
-                    <img src={photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    avatarInitials || <User size={16} />
-                  )}
-                </div>
-                <div>
-                  <p style={{ margin: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: 'var(--ink-0)' }}>{nickname || t('label.rider')}</p>
-                  <p style={{ margin: 0, fontSize: "var(--fs-xs)", color: 'var(--ink-4)' }}>{user.email}</p>
-                </div>
-              </div>
-            )}
-
-            {/* 하단: 계정 */}
-            <div style={{ marginTop: 'auto', padding: 'var(--space-2)', borderTop: '1px solid var(--line-soft)' }}>
-              {user ? (
-                <>
-                  {accountItems.map(({ to, labelKey, icon: Icon }) => (
-                    <Link
-                      key={to}
-                      to={to}
-                      onClick={closeMobileMenuForNavigation}
-                      className={mobileMenuItemClass}
-                      style={dropdownItemStyle}
-                    >
-                      <Icon size={15} /> {t(labelKey)}
-                    </Link>
-                  ))}
-                  <button
-                    className={mobileMenuItemClass}
-                    onClick={() => { logout(); closeMobileMenuForNavigation(); }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 'var(--space-2)', width: '100%',
-                      padding: '10px 12px', fontSize: "var(--fs-sm)", color: 'var(--rose)',
-                      borderRadius: 'var(--r-md)', background: 'none', border: 'none', cursor: 'pointer',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
-                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  >
-                    <LogOut size={15} /> {t('button.logout')}
-                  </button>
-                </>
-              ) : (
-                <button
-                  className={mobileMenuItemClass}
-                  onClick={() => { void handleSignInWithGoogle(); closeMobileMenuForNavigation(); }}
-                  disabled={signInPending}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)',
-                    width: '100%', padding: '10px 12px', fontSize: "var(--fs-sm)",
-                    backgroundColor: 'var(--lime)', color: 'var(--primary-fg)',
-                    borderRadius: 'var(--r-md)', border: 'none', cursor: signInPending ? 'wait' : 'pointer', fontWeight: 600,
-                  }}
-                >
-                  <LogIn size={15} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
-                </button>
-              )}
-            </div>
-
+        <div id="mobile-navigation" ref={mobilePanelRef} role="navigation" aria-label={t('topnav.mobileNavigation')}
+          className="mobile-navigation lg:hidden" data-testid="X1-5">
+          <MobileMenuSearch key={user?.uid ?? "guest"} onNavigate={closeMobileMenuForNavigation} />
+          <div className="mobile-navigation-section">
+            {NAV_ITEMS.map(({ key, label, to }) => <Link key={key} to={to} aria-current={active === key ? 'page' : undefined}
+              className={`mobile-navigation-link ${navFocusClass}`} onClick={closeMobileMenuForNavigation}>{label}</Link>)}
+          </div>
+          {!user && <div className="mobile-navigation-section"><Button onClick={() => { void handleSignInWithGoogle(); closeMobileMenuForNavigation(); }} disabled={signInPending}>
+            <LogIn size={15} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
+          </Button></div>}
             {/* 언어 선택 */}
-            <div style={{ padding: 'var(--space-3) var(--space-4)', borderTop: '1px solid var(--line-soft)' }}>
-              <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', marginBottom: 'var(--space-2)', fontWeight: 500 }}>{t('topnav.language')}</div>
+            <div className="mobile-navigation-language">
+              <p>{t('topnav.language')}</p>
               <LanguageToggle variant="menu" />
             </div>
 
             {/* 법적 링크 (모바일 — 데스크톱 푸터 대체. 약관/개인정보 접근성 보장) */}
-            <div style={{ padding: 'var(--space-3) var(--space-4)', borderTop: '1px solid var(--line-soft)', display: 'flex', flexWrap: 'wrap', gap: '8px 14px' }}>
+            <div className="mobile-navigation-legal">
               <Link to="/about" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('nav.aboutOrider')}</Link>
               <Link to="/explore/recipes" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('nav.developerDocs')}</Link>
               <Link to="/terms" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.terms')}</Link>
@@ -788,7 +716,6 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
               <Link to="/community/board?type=inquiry" onClick={closeMobileMenuForNavigation} style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)', textDecoration: 'none' }}>{t('footer.contact')}</Link>
               <span style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-4)', width: '100%', marginTop: 'var(--space-1)' }}>&copy; 2026 Orider</span>
             </div>
-          </div>
         </div>
       )}
     </>

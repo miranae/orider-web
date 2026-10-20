@@ -1,4 +1,5 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { useLocation, useNavigate } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 
@@ -9,6 +10,7 @@ import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 // 또한 overview 결과가 module-level 캐시(moduleCache)에 남아 테스트 간 오염되므로,
 // 매 테스트마다 vi.resetModules() 후 ExplorePage 를 새로 import 해 캐시를 초기화한다.
 interface OverviewSeg {
+  discipline?: string;
   id: string;
   name: string;
   distance: number;
@@ -77,6 +79,58 @@ describe("ExplorePage", () => {
   beforeEach(() => {
     // 세그먼트 없음(empty) 기본값. 개별 테스트에서 필요 시 재설정.
     mockOverviewFetch([]);
+  });
+
+  it("applies menu sport and terrain to actual results and preserves them through serialization and history", async () => {
+    mockOverviewFetch([SEG_CLIMB, SEG_FLAT, { ...SEG_FLAT, id: "run", name: "러닝 평지", discipline: "run" }]);
+    const ExplorePage = await loadExplorePage();
+    function RouteControls() {
+      const navigate = useNavigate();
+      const location = useLocation();
+      return <>
+        <output data-testid="route">{location.search}</output>
+        <button onClick={() => navigate("/explore/segments?sport=bike&cat=climb")}>Menu segment filters</button>
+        <button onClick={() => navigate("/explore/segments")}>Clear menu segment filters</button>
+        <button onClick={() => navigate(-1)}>Back</button>
+      </>;
+    }
+    renderWithProviders(<><RouteControls /><ExplorePage /></>, { route: "/explore/segments?sport=run&cat=flat" });
+    expect(await screen.findByText("러닝 평지")).toBeInTheDocument();
+    expect(screen.queryByText("탄천 평지")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("route").textContent).toContain("z="));
+    expect(new URLSearchParams(screen.getByTestId("route").textContent ?? "").get("sport")).toBe("run");
+    fireEvent.click(screen.getByRole("button", { name: "Menu segment filters" }));
+    expect(await screen.findByText("남산 업힐")).toBeInTheDocument();
+    expect(screen.queryByText("탄천 평지")).not.toBeInTheDocument();
+    expect(screen.queryByText("러닝 평지")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear menu segment filters" }));
+    expect(await screen.findByText("탄천 평지")).toBeInTheDocument();
+    expect(screen.getByText("남산 업힐")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(screen.queryByText("탄천 평지")).not.toBeInTheDocument());
+    expect(screen.getByText("남산 업힐")).toBeInTheDocument();
+  });
+
+  it("keeps newer search draft while serializing the preceding result filters", async () => {
+    mockOverviewFetch([SEG_CLIMB]);
+    const ExplorePage = await loadExplorePage();
+    renderWithProviders(<ExplorePage />, { route: "/explore/segments?sport=bike" });
+    await screen.findByText("남산 업힐");
+    const input = screen.getByRole("textbox", { name: "세그먼트 이름 또는 지역" });
+    vi.useFakeTimers();
+    try {
+      fireEvent.change(input, { target: { value: "남" } });
+      await act(async () => { vi.advanceTimersByTime(250); });
+      await act(async () => { vi.advanceTimersByTime(300); });
+      fireEvent.change(input, { target: { value: "남산" } });
+      await act(async () => { vi.advanceTimersByTime(100); });
+      expect(input).toHaveValue("남산");
+      await act(async () => { vi.advanceTimersByTime(550); });
+      expect(input).toHaveValue("남산");
+      expect(screen.getByText("남산 업힐")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   // ExplorePage는 라우트가 정확히 /explore/segments (또는 /{lang}/explore/segments) 일 때만 렌더한다

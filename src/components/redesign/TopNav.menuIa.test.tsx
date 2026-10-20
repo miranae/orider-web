@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
+import { simulateLogin } from "../../__tests__/mocks/firebase";
 import TopNav from "./TopNav";
 import MobileTabBar from "../mobile/MobileTabBar";
 
@@ -60,17 +61,15 @@ describe("menu IA v2", () => {
     expect(account.getByRole("button", { name: "로그아웃" })).toBeInTheDocument();
   });
 
-  it("opens the sole mobile account menu from the avatar while retaining language and legal destinations", async () => {
+  it("opens the full-width mobile menu from the hamburger while retaining language and legal destinations", async () => {
     headerViewport(false);
     const user = userEvent.setup();
     renderWithProviders(<TopNav active="home" />, { authenticated: true });
-    expect(screen.queryByRole("button", { name: "더보기" })).not.toBeInTheDocument();
-    const avatar = await screen.findByRole("button", { name: "프로필" });
+    const avatar = await screen.findByRole("button", { name: "더보기" });
     await user.click(avatar);
     expect(avatar).toHaveAttribute("aria-expanded", "true");
-    for (const [name, href] of accountLinks) {
-      expect(screen.getAllByRole("link", { name }).every(link => link.getAttribute("href") === href)).toBe(true);
-    }
+    expect(screen.queryByRole("link", { name: "내 프로필" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "프로필" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "오라이더 소개" })).toHaveAttribute("href", "/ko/about");
     expect(screen.getByRole("link", { name: "개발자 문서" })).toHaveAttribute("href", "/ko/explore/recipes");
     expect(screen.getByRole("link", { name: "이용약관" })).toHaveAttribute("href", "/ko/terms");
@@ -79,10 +78,53 @@ describe("menu IA v2", () => {
     expect(avatar).toHaveAttribute("aria-expanded", "false");
     expect(window.history.state?.oriderMobileMenu).toBeUndefined();
   });
+  it("does not accumulate history entries when opening and closing the profile dropdown", async () => {
+    headerViewport(false);
+    const push = vi.spyOn(window.history, "pushState");
+    try {
+      renderWithProviders(<TopNav active="home" />, { authenticated: true });
+      const profile = await screen.findByRole("button", { name: "프로필" });
+      for (let index = 0; index < 3; index += 1) {
+        await userEvent.click(profile);
+        expect(profile).toHaveAttribute("aria-expanded", "true");
+        await userEvent.click(profile);
+        expect(profile).toHaveAttribute("aria-expanded", "false");
+      }
+      expect(push).not.toHaveBeenCalled();
+    } finally { push.mockRestore(); }
+  });
+  it("resets the open search form when the authenticated account changes", async () => {
+    headerViewport(false);
+    renderWithProviders(<TopNav active="home" />, { authenticated: true });
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    await userEvent.type(screen.getByRole("searchbox", { name: "검색어" }), "private-account-draft");
+    act(() => simulateLogin({ uid: "other-user", displayName: "Other" }));
+    await waitFor(() => expect(screen.getByRole("searchbox", { name: "검색어" })).toHaveValue(""));
+    expect(sessionStorage.getItem("orider.menuSearch.v1.other-user")).not.toContain("private-account-draft");
+  });
+  it("retains separate mobile notification and profile actions outside the hamburger", async () => {
+    headerViewport(false);
+    const onNotification = vi.fn();
+    renderWithProviders(<TopNav active="home" onMobileNotifClick={onNotification} />, { authenticated: true });
+    const profile = await screen.findByRole("button", { name: "프로필" });
+    await userEvent.click(screen.getAllByRole("button", { name: "알림" })[0]!);
+    expect(onNotification).toHaveBeenCalledOnce();
+    await userEvent.click(profile);
+    expect(profile).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "내 프로필" })).toBeInTheDocument();
+    expect(screen.queryByRole("search")).not.toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(profile).toHaveAttribute("aria-expanded", "false"));
+    expect(profile).toHaveFocus();
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(screen.getByRole("search")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "내 프로필" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "한국어" })).toBeInTheDocument();
+  });
   it("retains the guest menu trigger and its language, login and legal access", async () => {
     headerViewport(false);
     renderWithProviders(<TopNav active="home" />);
-    expect(screen.queryByRole("button", { name: "프로필" })).not.toBeInTheDocument();
+
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
     expect(screen.getByRole("radio", { name: "한국어" })).toBeInTheDocument();
     const terms = screen.getByRole("link", { name: "이용약관" });
@@ -103,7 +145,7 @@ describe("menu IA v2", () => {
     const back = vi.spyOn(window.history, "back");
     try {
       renderWithProviders(<TopNav active="home" />, { authenticated: true });
-      const avatar = await screen.findByRole("button", { name: "프로필" });
+      const avatar = await screen.findByRole("button", { name: "더보기" });
       await userEvent.click(avatar);
       expect(window.history.state?.oriderMobileMenu).toBe(true);
       act(() => { desktop.matches = true; changed?.(); });
@@ -112,6 +154,26 @@ describe("menu IA v2", () => {
       expect(window.history.state?.oriderMobileMenu).toBeUndefined();
       expect(avatar).toHaveAttribute("aria-expanded", "false");
     } finally { back.mockRestore(); window.matchMedia = previousMatchMedia; }
+  });
+  it("closes the menu when navigating from a persistent bottom tab", async () => {
+    headerViewport(false);
+    renderWithProviders(<><TopNav active="home" /><MobileTabBar active="home" /></>);
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(screen.getByRole("search")).toBeInTheDocument();
+    await userEvent.click(within(screen.getByRole("navigation", { name: "메인 내비게이션" })).getByRole("link", { name: "클럽" }));
+    await waitFor(() => expect(screen.queryByRole("search")).not.toBeInTheDocument());
+    expect(window.history.state?.oriderMobileMenu).toBeUndefined();
+  });
+  it("closes the mobile menu with Escape and restores the hamburger focus", async () => {
+    headerViewport(false);
+    renderWithProviders(<TopNav active="home" />);
+    const trigger = screen.getByRole("button", { name: "더보기" });
+    await userEvent.click(trigger);
+    expect(screen.getByRole("search")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("search")).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
+    expect(window.history.state?.oriderMobileMenu).toBeUndefined();
   });
   it("closes a desktop creation menu when switching to the mobile header", async () => {
     let changed: (() => void) | undefined;
