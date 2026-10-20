@@ -279,3 +279,8 @@ it.each([false, true])("distinguishes confirmed elapsed time from an untyped pro
   expect(screen.getByText(confirmed ? "전체시간" : "활동시간")).toBeInTheDocument();
   expect(screen.queryByText(confirmed ? "활동시간" : "전체시간")).not.toBeInTheDocument();
 });
+
+ it("shows the stored English region beside the device", () => {
+  renderWithProviders(<ActivityCard activity={createMockActivity({ regionName: "Yeongdeungpo-gu, Seoul", sourceMeta: { deviceModel: "Garmin Edge 840" } })} homeLabels showMap={false} />);
+  expect(screen.getByText("· Yeongdeungpo-gu, Seoul").parentElement).toHaveTextContent("Garmin Edge 840 · Yeongdeungpo-gu, Seoul");
+});
