@@ -1,6 +1,6 @@
 import i18n from "i18next";
 import enDashboard from "../i18n/resources/en/dashboard.json";
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { useOriderTheme } from "../theme";
 import WeeklyChart, { type WeeklyStat } from "./WeeklyChart";
@@ -23,10 +23,10 @@ it("makes all year-month labels visible in a horizontally scrollable chart", () 
   expect(props.data.labels).toEqual(data.map((row) => row.week));
   expect(props.options.scales.x.ticks.autoSkip).toBe(false);
   expect(props.options.plugins.legend.display).toBe(false);
-  const tooltipLines = props.options.plugins.tooltip.callbacks.label({ dataIndex: 0 });
-  expect(tooltipLines).toHaveLength(5);
-  expect(tooltipLines).toContain("저장 기록 1건");
-  expect(tooltipLines.filter((line: string) => line.includes("거리"))).toHaveLength(1);
+  expect(props.options.plugins.tooltip.enabled).toBe(false);
+  const details = within(screen.getByRole("region", { name: "월별 활동 기록" }));
+  expect(details.getByRole("heading", { name: "2025년 12월" })).toBeInTheDocument();
+  expect(details.getByText(/저장 기록 1건/)).toBeInTheDocument();
   expect(screen.getByTestId("bar").parentElement?.parentElement).toHaveStyle({ overflowX: "auto" });
   expect(screen.getByText("2024.01 – 2025.12")).toBeInTheDocument();
 });
@@ -62,11 +62,11 @@ it.each([
   [42, true, 0, "TSS 42", "추정 포함", true],
 ])("부하 %s 추정=%s 미확인=%s를 정상 거리와 별도로 설명한다", (tss, tssEstimated, tssUnknownCount, valueLabel, qualifier, estimated) => {
   renderWithProviders(<WeeklyChart rich data={[{ ...data[0]!, tss, tssEstimated, tssUnknownCount }]} />);
-  const lines: string[] = bar.mock.lastCall![0].options.plugins.tooltip.callbacks.label({ dataIndex: 0 });
-  expect(lines.at(-1)).toContain(valueLabel);
-  expect(lines.at(-1)).toContain(qualifier);
-  expect(lines.at(-1)?.includes("추정 포함")).toBe(estimated);
-  expect(lines.some((line) => line.includes("거리"))).toBe(true);
+  const details = screen.getByRole("region", { name: "월별 활동 기록" });
+  expect(details).toHaveTextContent(valueLabel);
+  expect(details).toHaveTextContent(qualifier);
+  expect(details.textContent?.includes("추정 포함")).toBe(estimated);
+  expect(within(details).getByText("이동거리", { selector: "dt" })).toBeInTheDocument();
 });
 
 it("localizes monthly title and tooltip periods and switches metrics without changing the rows", async () => {
@@ -75,7 +75,8 @@ it("localizes monthly title and tooltip periods and switches metrics without cha
   try {
     renderWithProviders(<WeeklyChart data={data} rich showAllPeriods />);
     expect(screen.getByRole("heading", {name: "Monthly activity"})).toBeInTheDocument();
-    expect(bar.mock.lastCall![0].options.plugins.tooltip.callbacks.title([{dataIndex: 0}])).toBe("January 2024");
+    act(() => { bar.mock.lastCall![0].options.onClick({}, [{ index: 0 }]); });
+    expect(screen.getByRole("heading", { name: "January 2024" })).toBeInTheDocument();
     const timeButton = screen.getByRole("button", {name: "Time"});
     fireEvent.click(timeButton);
     expect(timeButton).toHaveAttribute("aria-pressed", "true");
@@ -84,4 +85,22 @@ it("localizes monthly title and tooltip periods and switches metrics without cha
   } finally {
     await i18n.changeLanguage("ko");
   }
+});
+
+it("pins month details below the chart and supports click, previous/next and keyboard selection", () => {
+  renderWithProviders(<WeeklyChart data={data.slice(0, 3)} rich showAllPeriods />);
+  expect(bar.mock.lastCall![0].options.events).toEqual(["click"]);
+  expect(bar.mock.lastCall![0].options.animation).toBe(false);
+  act(() => { bar.mock.lastCall![0].options.onClick({}, [{ index: 0 }]); });
+  expect(screen.getByRole("heading", { name: "2024년 1월" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "이전 달" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "다음 달" }));
+  expect(screen.getByRole("heading", { name: "2024년 2월" })).toBeInTheDocument();
+  const chart = screen.getByTestId("bar").parentElement!.parentElement!;
+  fireEvent.keyDown(chart, { key: "End" });
+  expect(screen.getByRole("heading", { name: "2024년 3월" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "다음 달" })).toBeDisabled();
+  fireEvent.keyDown(chart, { key: "Home" });
+  expect(screen.getByRole("heading", { name: "2024년 1월" })).toBeInTheDocument();
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 });

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocalizedNavigate } from "../../../hooks/useLocalizedNavigate";
 import { httpsCallable } from "firebase/functions";
 import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
@@ -53,15 +54,18 @@ export function RideActivityRouteButton({
   activity,
   hasRoute,
   sport,
+  action = "ride",
 }: {
   activityId?: string;
   activity: Activity;
   hasRoute: boolean;
   sport: "ride" | "run" | "swim" | "other";
+  action?: "ride" | "register";
 }) {
   const { t } = useTranslation("activity");
   const { user, signIn } = useAuth();
   const { showToast } = useToast();
+  const navigate = useLocalizedNavigate();
   const [courseId, setCourseId] = useState<string | null>(null);
   const [status, setStatus] = useState<RideRouteStatus>("idle");
   const [flowAlert, setFlowAlert] = useState<string | null>(null);
@@ -77,9 +81,9 @@ export function RideActivityRouteButton({
     return () => {
       if (generationRef.current === generation) generationRef.current += 1;
     };
-  }, [activityId, user?.uid]);
+  }, [activityId, user?.uid, action]);
 
-  if (sport !== "ride" || !hasRoute) return null;
+  if ((user?.uid !== activity.userId && activity.visibility !== "everyone") || !hasRoute || (action === "ride" && sport !== "ride") || (action === "register" && sport === "swim")) return null;
 
   const handleClick = async () => {
     if (busyRef.current || status === "sent") return;
@@ -234,6 +238,11 @@ export function RideActivityRouteButton({
       }
 
       if (!isCurrent()) return;
+      if (action === "register") {
+        setStatus("idle");
+        navigate(`/course/${targetCourseId}`);
+        return;
+      }
       setStatus("sending");
       const sendCourse = httpsCallable<{ courseId: string }, unknown>(functions, "sendCourseToApp");
       await sendCourse({ courseId: targetCourseId });
@@ -272,9 +281,11 @@ export function RideActivityRouteButton({
       ? t("page.rideThisRoute.sending")
       : status === "sent"
         ? t("page.rideThisRoute.sentButton")
-        : user
-          ? t("page.rideThisRoute.button")
-          : t("page.rideThisRoute.signInButton");
+        : action === "register"
+          ? t("page.registerRoute")
+          : user
+            ? t("page.rideThisRoute.button")
+            : t("page.rideThisRoute.signInButton");
 
   return (
     <>
@@ -282,15 +293,15 @@ export function RideActivityRouteButton({
         onClick={handleClick}
         variant="outline"
         disabled={status !== "idle"}
-        aria-busy={status === "creating" || status === "sending"}
+        loading={status === "creating" || status === "sending"}
         aria-label={label}
-        title={label}
-        className="justify-center"
+        leadingIcon={
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 17.5V6.8a1 1 0 011.45-.9L10 8.2l4-2 4.55 2.3a1 1 0 01.55.9v8.8a1 1 0 01-1.45.9L14 17.2l-4 2-5.45-2.7A1 1 0 014 17.5zM10 8.2v11M14 6.2v11" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 3l3 3-3 3M20 6h-5" />
+          </svg>
+        }
       >
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 17.5V6.8a1 1 0 011.45-.9L10 8.2l4-2 4.55 2.3a1 1 0 01.55.9v8.8a1 1 0 01-1.45.9L14 17.2l-4 2-5.45-2.7A1 1 0 014 17.5zM10 8.2v11M14 6.2v11" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M17 3l3 3-3 3M20 6h-5" />
-        </svg>
         {label}
       </Button>
       {flowAlert && <p role="alert" className="mt-2 text-[length:var(--fs-sm)] text-[var(--color-error)]">{flowAlert}</p>}

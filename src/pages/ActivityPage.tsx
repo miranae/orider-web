@@ -794,9 +794,13 @@ export default function ActivityPage() {
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const stravaActivityId = getStravaActivityId(activity);
   const stravaActivityUrl = stravaActivityId ? `https://www.strava.com/activities/${stravaActivityId}` : null;
+  const activityNickname = activity.nickname?.trim() || (isActivityOwner ? profile?.nickname?.trim() || user?.displayName?.trim() : null) || tCommon("label.rider");
   const activityProfileImage = activity.profileImage || (user?.uid === activity.userId ? profile?.photoURL ?? user?.photoURL ?? null : null);
   const hasAnalysisRoute = !!streams?.latlng?.length;
   const hasTrack = !!(activity.thumbnailTrack || hasAnalysisRoute);
+  const canCreateFromOwnRoute = isActivityOwner && hasAnalysisRoute && sport !== "swim";
+  const canRegisterPublicRoute = !!user && !isActivityOwner && activity.visibility === "everyone" && hasTrack && sport !== "swim";
+  const canRideActivityRoute = (isActivityOwner || activity.visibility === "everyone") && sport === "ride" && hasTrack;
   const hasAiSummaryPreview = !!(activity.aiSummaryPreview || activity.aiSummaryPreview_en);
   const canShowAiAnalysis = (sport === "ride" || sport === "run") && (hasAnalysisStreams || hasAiSummaryPreview);
   const showElevation = sport === "ride" || sport === "run";
@@ -955,21 +959,21 @@ export default function ActivityPage() {
     <div className="site-shell activity-detail">
       {/* 1. Header (제목) */}
       <Card padding="none" className="activity-detail-header">
-        <div className="flex items-start gap-4">
+        <div className="activity-detail-identity">
           <Avatar
-            name={activity.nickname}
+            name={activityNickname}
             imageUrl={activityProfileImage}
-            size="lg"
+            size={40}
             userId={activity.userId}
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center flex-wrap gap-2 mb-1">
               <Link
                 to={`/athlete/${activity.userId}`}
-                className="font-semibold text-[length:var(--fs-sm)] hover:underline whitespace-nowrap"
+                className="font-semibold text-[length:var(--fs-sm)] hover:underline min-w-0 break-words"
                 style={{ color: 'var(--ink-1)' }}
               >
-                {activity.nickname}
+                {activityNickname}
               </Link>
               {isStrava ? (
                 <svg className="w-4 h-4 text-[#FC4C02]" viewBox="0 0 24 24" fill="currentColor">
@@ -1041,7 +1045,7 @@ export default function ActivityPage() {
               menuItem
               card={{
                 title: activity.description || tCommon(getSportLabelKey(activity.type)),
-                athlete: activity.nickname,
+                athlete: activityNickname,
                 sport: tCommon(getSportLabelKey(activity.type)),
                 date: formatFullDate(activity.startTime),
                 distance: Number.isFinite(s.distance) ? `${distVal(s.distance)} ${distUnit}` : "—",
@@ -1634,11 +1638,11 @@ export default function ActivityPage() {
 
       </>}
 
-      {/* 스트림 상태와 무관한 경로 전송은 유지하고, 기존 생성 링크의 조건은 그대로 둔다.
+      {/* 공개 경로 등록·전송과 본인 스트림 기반 구간 편집의 권한을 구분한다.
           다른 탭에서는 그룹만 숨겨 진행 중인 생성·전송을 중단하지 않는다. */}
-      {((user && streams && sport !== "swim") || (sport === "ride" && hasTrack)) && (
+      {(canCreateFromOwnRoute || canRegisterPublicRoute || canRideActivityRoute) && (
         <div className="activity-detail-segment-actions flex gap-2" hidden={activeTab !== "segments"}>
-          {user && streams && <>
+          {canCreateFromOwnRoute && <>
           <Link
             to={`/segment/create?activityId=${activityId}`}
             className={buttonClass({ className: "flex-1 gap-2" })}
@@ -1660,6 +1664,7 @@ export default function ActivityPage() {
             {t("page.registerRoute")}
           </Link>
           </>}
+          {canRegisterPublicRoute && <RideActivityRouteButton activityId={activityId} activity={activity} hasRoute={hasTrack} sport={sport} action="register" />}
           <RideActivityRouteButton activityId={activityId} activity={activity} hasRoute={hasTrack} sport={sport} />
         </div>
       )}
