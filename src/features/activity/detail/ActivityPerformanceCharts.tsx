@@ -112,7 +112,7 @@ export default function ActivityPerformanceCharts({
           <ElevationChart
             elapsedAxisSec={elapsedAxisSec} xAxis={xAxis}
             data={elevData}
-            height={!hasElevation ? 56 : chartOverlays.length > 0 ? 150 : 200}
+            height={chartOverlays.length > 0 ? 96 : !hasElevation ? 56 : 200}
             showElevation={hasElevation}
             rangeMode={!!onRangeChange} range={range} onRangeChange={onRangeChange}
             onHoverIndex={hasStreams ? onHoverIndex : undefined}
