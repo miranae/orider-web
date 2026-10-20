@@ -1,6 +1,7 @@
+import { SEARCH_PAGE_SIZE, usePagedSearch } from "./usePagedSearch";
 import { useRef, useState, useEffect, useCallback } from "react";
 import {
-  doc, collection, query, onSnapshot, getDoc, getDocs, where, orderBy, limit as firestoreLimit,
+  doc, collection, query, onSnapshot, getDoc, getDocs, where, orderBy, startAfter, limit as firestoreLimit, type QueryDocumentSnapshot, type DocumentData,
 } from "firebase/firestore";
 import { auth, firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
@@ -277,56 +278,19 @@ export function useMyGroups(userId: string | undefined) {
 
 // 공개 그룹 검색
 export function usePublicGroups(options: { searchText?: string; discipline?: "ALL" | "bike" | "run" | "swim" | "tri"; city?: string; maxCount?: number; enabled?: boolean } = {}) {
-  const { searchText = "", discipline = "ALL", city = "", maxCount = 30, enabled = true } = options;
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<unknown>(null);
-  const [reloadKey, setReloadKey] = useState(0);
-  const queryKey = JSON.stringify([city, discipline, enabled, maxCount, searchText]);
-  const queryKeyRef = useRef(queryKey);
-
-  useEffect(() => {
-    if (queryKeyRef.current !== queryKey) { setGroups([]); queryKeyRef.current = queryKey; }
-    if (!enabled) {
-      setGroups([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
+  const { searchText = "", discipline = "ALL", city = "", maxCount = SEARCH_PAGE_SIZE, enabled = true } = options;
+  const count = Math.min(maxCount, SEARCH_PAGE_SIZE);
+  const page = usePagedSearch(enabled ? JSON.stringify([searchText, discipline, city, count]) : null, async (cursor: QueryDocumentSnapshot<DocumentData> | null) => {
     const trimmed = searchText.trim();
-    const constraints = [
-      where("visibility", "==", "public"),
-      where("isActive", "==", true),
-      where("toggles.showInDirectory", "==", true),
+    const snap = await getDocs(query(collection(firestore, "groups"),
+      where("visibility", "==", "public"), where("isActive", "==", true), where("toggles.showInDirectory", "==", true),
       ...(discipline !== "ALL" ? [where("discipline", "==", discipline)] : []),
       ...(city.trim() ? [where("city", "==", city.trim())] : []),
       ...(trimmed ? [where("name", ">=", trimmed), where("name", "<=", `${trimmed}\uf8ff`), orderBy("name")] : []),
-      firestoreLimit(maxCount),
-    ];
-    const q = query(collection(firestore, "groups"), ...constraints);
-    getDocs(q).then((snap) => {
-      if (cancelled) return;
-      const fromCache = snap.metadata?.fromCache === true;
-      const cacheError = fromCache ? new Error("Public clubs could not be confirmed with the server") : null;
-      if (cacheError && snap.docs.length === 0) throw cacheError;
-      setError(cacheError);
-      const nextGroups = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Group);
-      setGroups(previous => fromCache
-        ? [...new Map([...previous, ...nextGroups].map(group => [group.id, group])).values()]
-        : nextGroups);
-      setLoading(false);
-    }).catch((err) => {
-      if (cancelled) return;
-      logClientError("usePublicGroups.load", err, {});
-      setError(err);
-      setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [city, discipline, enabled, maxCount, reloadKey, searchText, queryKey]);
-
-  return { groups, loading, error, retry: () => setReloadKey((key) => key + 1) };
+      ...(cursor ? [startAfter(cursor)] : []), firestoreLimit(count),
+    ));
+    return { items: snap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Group), cursor: snap.docs[snap.docs.length - 1] ?? null, hasMore: snap.docs.length === count,
+      error: snap.metadata?.fromCache === true ? new Error("Public clubs could not be confirmed with the server") : null };
+  });
+  return { ...page, groups: page.items };
 }

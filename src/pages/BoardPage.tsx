@@ -102,7 +102,7 @@ const BoardPage: React.FC = () => {
   const isMyPosts = searchParams.get("view") === "mine";
   const pageParam = Number(searchParams.get('page'));
   const urlPage = Number.isSafeInteger(pageParam) && pageParam > 0 ? pageParam : 1;
-  const { posts, loading, error, total, page, totalPages, goToPage: rawGoToPage, refresh } = useBoardPosts(selectedBoard, 20, activeTag, submittedQuery, excludeTags, urlPage, isMyPosts);
+  const { posts, loading, error, total, page, totalPages, goToPage: rawGoToPage, refresh, pagedSearch, searchHasMore, searchLoadingMore, loadMoreSearch } = useBoardPosts(selectedBoard, 20, activeTag, submittedQuery, excludeTags, urlPage, isMyPosts);
   const isMyInquiryView = selectedBoard === 'inquiry' && searchParams.get('view') === 'my';
   const submittedPostId = searchParams.get('submitted');
   const submittedStatus = searchParams.get('status') || 'new';
@@ -439,8 +439,8 @@ const BoardPage: React.FC = () => {
         ) : listPosts.length === 0 || filteredOutAllPosts ? (
           <EmptyState
             icon="📝"
-            title={isMyInquiryView ? t("inquiry.emptyMine") : hasActiveFilters || filteredOutAllPosts ? t("label.noResults") : selectedBoard === "archive" ? t("label.noResultsArchive") : t("empty.noPosts")}
-            description={isMyInquiryView ? t("inquiry.emptyMineDesc") : hasActiveFilters || filteredOutAllPosts ? t("label.filterEmptyHint") : t("label.firstAuthor")}
+            title={pagedSearch && searchHasMore ? t("label.moreSearchPossible") : isMyInquiryView ? t("inquiry.emptyMine") : hasActiveFilters || filteredOutAllPosts ? t("label.noResults") : selectedBoard === "archive" ? t("label.noResultsArchive") : t("empty.noPosts")}
+            description={pagedSearch && searchHasMore ? undefined : isMyInquiryView ? t("inquiry.emptyMineDesc") : hasActiveFilters || filteredOutAllPosts ? t("label.filterEmptyHint") : t("label.firstAuthor")}
             actions={hasActiveFilters || filteredOutAllPosts ? [{ label: t("label.filterReset"), variant: "secondary", onClick: () => { setSearchQuery(''); updateFilters({ q: undefined, tag: undefined }, new Set()); } }] : selectedBoard === "archive" || selectedBoard === "devlog" ? undefined : [{ label: selectedBoard === "inquiry" ? t("label.writingForm") : t("label.writingPost"), variant: "primary", onClick: () => navigate(selectedBoard === "inquiry" ? "/community/board/write?type=inquiry" : "/community/board/write") }]}
           />
         ) : (
@@ -448,7 +448,7 @@ const BoardPage: React.FC = () => {
           <div data-testid="M2-2" className={isMobile ? "" : "space-y-3"}>
                 {submittedQuery && (
               <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)] mb-2">
-                {t(clientOnlyExcludedCount > 0 ? "label.pageLocalResults" : "label.searchResultsCount", { count: effectiveListTotal })}
+                {t(clientOnlyExcludedCount > 0 || pagedSearch ? "label.pageLocalResults" : "label.searchResultsCount", { count: effectiveListTotal })}
               </p>
             )}
             {displayedPosts.map((post) => (
@@ -594,6 +594,8 @@ const BoardPage: React.FC = () => {
             ))}
           </div>
         )}
+
+        {pagedSearch && searchHasMore && <Button variant="secondary" disabled={searchLoadingMore} onClick={loadMoreSearch}>{t("button.more")}</Button>}
 
         {/* Pagination */}
         {!isMyInquiryView && totalPages > 1 && (

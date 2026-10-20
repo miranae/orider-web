@@ -480,7 +480,7 @@ describe("group list hooks", () => {
     expect(where).toHaveBeenCalledWith("name", ">=", "Han");
     expect(where).toHaveBeenCalledWith("name", "<=", "Han\uf8ff");
     expect(orderBy).toHaveBeenCalledWith("name");
-    expect(limit).toHaveBeenCalledWith(30);
+    expect(limit).toHaveBeenCalledWith(20);
     const directoryFilterOrder = vi.mocked(where).mock.invocationCallOrder.find((_, index) =>
       vi.mocked(where).mock.calls[index]?.[0] === "toggles.showInDirectory");
     const cityFilterOrder = vi.mocked(where).mock.invocationCallOrder.find((_, index) =>

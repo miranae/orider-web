@@ -16,28 +16,26 @@ beforeEach(() => {
   vi.mocked(getDocs).mockClear();
   vi.mocked(startAfter).mockClear();
   setCallableImplementation('searchBoardPosts', (value) => {
-    const params = value as { boardType: string; page?: number; limitCount: number };
-    const start = params.boardType === 'archive' ? ((params.page ?? 1) - 1) * params.limitCount : 0;
-    return { data: { posts: searchPosts.slice(start, start + params.limitCount), total: searchPosts.length } };
+    const params = value as { pageCursor?: { id: string } };
+    const start = params.pageCursor ? searchPosts.findIndex(post => post.id === params.pageCursor?.id) + 1 : 0;
+    const posts = searchPosts.slice(start, start + 2);
+    return { data: { posts, hasMore: start + 2 < searchPosts.length, nextCursor: posts.length ? { createdAt: 100, id: posts[posts.length - 1].id } : null } };
   });
 });
 
 describe('board URL pagination', () => {
-  it('preserves pinned and same-timestamp search results across pages with the existing server contract', async () => {
-    const { result, rerender } = renderHook(({ page }) => useBoardPosts('all', 2, undefined, 'bike', [], page), { initialProps: { page: 1 } });
+  it('loads one bounded search page per click and retains same-timestamp results without duplicates', async () => {
+    const { result } = renderHook(() => useBoardPosts('all', 20, undefined, 'bike'));
     await waitFor(() => expect(result.current.posts.map(post => post.id)).toEqual(['post-0', 'post-1']));
-    rerender({ page: 2 });
-    await waitFor(() => expect(result.current.posts.map(post => post.id)).toEqual(['post-2', 'post-3']));
-    expect(mockCallableInvocations.at(-1)?.data).toMatchObject({ keyword: 'bike', limitCount: 4, publicOnly: true });
-    expect(mockCallableInvocations.at(-1)?.data).not.toHaveProperty('cursor');
-    rerender({ page: 1 });
-    await waitFor(() => expect(result.current.posts.map(post => post.id)).toEqual(['post-0', 'post-1']));
+    act(() => { result.current.loadMoreSearch?.(); result.current.loadMoreSearch?.(); });
+    await waitFor(() => expect(result.current.posts.map(post => post.id)).toEqual(['post-0', 'post-1', 'post-2', 'post-3']));
+    expect(mockCallableInvocations.at(-1)?.data).toMatchObject({ keyword: 'bike', limitCount: 20, pageOnly: true, publicOnly: true, pageCursor: { createdAt: 100, id: 'post-1' } });
   });
 
-  it('uses archive page numbers rather than slicing the already paginated response', async () => {
-    const { result } = renderHook(() => useBoardPosts('archive', 2, undefined, undefined, [], 3));
-    await waitFor(() => expect(result.current.posts.map(post => post.id)).toEqual(['post-4', 'post-5']));
-    expect(mockCallableInvocations.at(-1)?.data).toEqual({ boardType: 'archive', tag: undefined, publicOnly: true, page: 3, limitCount: 2 });
+  it('uses the bounded cursor search for archives too', async () => {
+    const { result } = renderHook(() => useBoardPosts('archive'));
+    await waitFor(() => expect(result.current.posts.map(post => post.id)).toEqual(['post-0', 'post-1']));
+    expect(mockCallableInvocations.at(-1)?.data).toMatchObject({ boardType: 'archive', pageOnly: true, pageCursor: null, limitCount: 20 });
   });
 
   it('does not reuse a previous category cursor after changing filters', async () => {

@@ -179,7 +179,7 @@ export default function EventCreatePage() {
 
 
   // 코스
-  const { courses: availableCourses, loading: loadingCourses } = useCourses();
+  const { courses: availableCourses, loading: loadingCourses, hasMore: hasMoreCourses, loadingMore: loadingMoreCourses, loadMore: loadMoreCourses } = useCourses();
   const [courseSearch, setCourseSearch] = useState("");
   const [showCoursePicker, setShowCoursePicker] = useState(true);
 
@@ -749,6 +749,7 @@ export default function EventCreatePage() {
                             padding: "var(--space-0-5)",
                           }}
                         >
+                          {hasMoreCourses && <Button variant="secondary" disabled={loadingMoreCourses} onClick={loadMoreCourses}>{t("common:button.more")}</Button>}
                           {availableCourses
                             .filter((c) => !data.courseIds.includes(c.id))
                             .filter((c) => {
@@ -757,7 +758,6 @@ export default function EventCreatePage() {
                               const text = `${c.name} ${c.regions?.join(" ") ?? ""}`.toLowerCase();
                               return text.includes(q);
                             })
-                            .slice(0, 50)
                             .map((c) => (
                               <Button
                                 key={c.id}

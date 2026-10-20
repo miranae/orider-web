@@ -1,3 +1,4 @@
+import { SEARCH_PAGE_SIZE } from "../../constants/pagination";
 import { readStoredElevationProfile } from './segmentCatalog';
 import { decodePolyline } from '../../utils/polyline';
 import { cumulativeDistances } from '../courseEngine/geo';
@@ -58,17 +59,20 @@ export function parseSavedCourse(id: string, data: Record<string, unknown>): Sav
 
 let readiness: Promise<void> | undefined;
 /** 기존 코스 목록과 같은 SDK 공개 읽기. 서버 rules를 그대로 적용하며 데이터를 쓰지 않는다. */
-export async function loadCourseCatalog(): Promise<SavedCourseChoice[]> {
+export async function loadCourseCatalogPage(cursor: import("firebase/firestore").QueryDocumentSnapshot | null = null) {
   const services = await import('../../services/firebase');
   readiness ??= (async () => { if (!services.getFirebaseApp()) await services.initFirebase(); })().catch(error => { readiness = undefined; throw error; });
   await readiness;
-  const { collection, getDocsFromServer, limit, query, where } = await import('firebase/firestore');
-  const snapshot = await getDocsFromServer(query(collection(services.firestore, 'courses'), where('visibility', '==', 'public'), where('deletedAt', '==', null), limit(100)));
-  return snapshot.docs.flatMap(document => {
+  const { collection, getDocsFromServer, limit, query, where, startAfter } = await import('firebase/firestore');
+  const snapshot = await getDocsFromServer(query(collection(services.firestore, 'courses'), where('visibility', '==', 'public'), where('deletedAt', '==', null), ...(cursor ? [startAfter(cursor)] : []), limit(SEARCH_PAGE_SIZE)));
+  const items = snapshot.docs.flatMap(document => {
     const course = parseSavedCourse(document.id, document.data());
     return course ? [course] : [];
   });
+  return { items, cursor: snapshot.docs[snapshot.docs.length - 1] ?? null, hasMore: snapshot.docs.length === SEARCH_PAGE_SIZE };
 }
+
+export async function loadCourseCatalog(): Promise<SavedCourseChoice[]> { return (await loadCourseCatalogPage()).items; }
 
 export function toCoursePlan(course: SavedCourseChoice): CoursePlan {
   return { source: { kind: 'saved-course', id: course.id, name: course.name, importedAt: Date.now() }, distanceKm: course.distanceKm, elevationGainM: course.elevationGainM, checkpoints: structuredClone(course.checkpoints), track: course.track ? structuredClone(course.track) : undefined, segments: [] };

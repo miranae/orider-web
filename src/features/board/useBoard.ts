@@ -1,3 +1,4 @@
+import { SEARCH_PAGE_SIZE, usePagedSearch } from "../../hooks/usePagedSearch";
 import { useState, useEffect, useRef } from "react";
 import {
   collection,
@@ -24,11 +25,6 @@ import type { BoardPost, BoardType } from "@shared/types";
 import { logClientError } from "../../services/errorLogger";
 import type { BoardReportPayload } from "./reportPayload";
 
-interface SearchResult {
-  posts: BoardPost[];
-  total: number;
-  hasMore: boolean;
-}
 
 /**
  * 전체 태그 목록 훅 (board_meta/tags 문서)
@@ -67,6 +63,16 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
   const [totalPages, setTotalPages] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const pagedSearch = !ownerOnly && (!!keyword?.trim() || boardType === "archive");
+  type SearchCursor = { createdAt: number; id: string };
+  const searchPages = usePagedSearch(pagedSearch ? JSON.stringify([boardType, keyword, tag, excludeKey, refreshKey, uid]) : null,
+    async (cursor: SearchCursor | null) => {
+      const search = httpsCallable<Record<string, unknown>, { posts: BoardPost[]; hasMore: boolean; nextCursor: SearchCursor | null }>(functions, "searchBoardPosts");
+      const { data } = await search({ keyword: keyword?.trim(), boardType, tag, publicOnly: true, excludeTags, pageOnly: true, limitCount: SEARCH_PAGE_SIZE, pageCursor: cursor });
+      if (data.hasMore && !data.nextCursor) throw new Error("Search pagination is not available on this server");
+      return { items: data.posts, hasMore: data.hasMore, cursor: data.nextCursor };
+    });
+
   // 페이지별 마지막 문서 스냅샷 캐시
   const pageLastDocs = useRef<{ key: string; docs: Map<number, DocumentSnapshot> }>({ key: "", docs: new Map() });
 
@@ -88,49 +94,10 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
   useEffect(() => {
     let cancelled = false;
     if (ownerOnly && !uid) { setPosts([]); setTotal(0); setTotalPages(1); setLoading(false); setLoadedFilterKey(filterKey); return; }
-    const trimmed = ownerOnly ? "" : keyword?.trim() ?? "";
 
-    if (!ownerOnly && (trimmed.length > 0 || boardType === 'archive')) {
-      // Cloud Function 호출: 키워드 검색 또는 archive 조회
-      setLoading(true);
-      setPosts([]);
-      setError(null);
-      const search = httpsCallable<
-        { keyword?: string; boardType: string; tag?: string; cursor?: number; page?: number; limitCount: number; publicOnly?: boolean; excludeTags?: string[] },
-        SearchResult
-      >(functions, "searchBoardPosts");
+    if (pagedSearch) {
+      return;
 
-      const params: { keyword?: string; boardType: string; tag?: string; page?: number; limitCount: number; publicOnly?: boolean; excludeTags?: string[] } = {
-        boardType,
-        tag,
-        publicOnly: true,
-        // 일반 검색 서버는 page를 받지 않는다. 정렬된 앞부분을 요청해 페이지를 자른다.
-        // timestamp cursor는 고정글과 동일 시각 게시글 경계를 보존하지 못한다.
-        limitCount: boardType === 'archive' ? pageSize : page * pageSize,
-      };
-      // 검색은 Firestore 쿼리가 아니라 CF 를 타므로 제외 태그를 그대로 넘긴다(orider-g1-web#2086).
-      // 그 배포 전까지는 서버가 이 필드를 무시하므로, BoardPage 가 총개수를 화면 기준으로 보정한다.
-      if (excludeTags.length > 0) params.excludeTags = [...excludeTags];
-      if (trimmed.length > 0) params.keyword = trimmed;
-      if (boardType === 'archive') params.page = page;
-
-      search(params)
-        .then((result) => {
-          if (cancelled) return;
-          setPosts(boardType === 'archive' ? result.data.posts : result.data.posts.slice((page - 1) * pageSize, page * pageSize));
-          setTotal(result.data.total);
-          setTotalPages(Math.max(1, Math.ceil(result.data.total / pageSize)));
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          logClientError("board:search", err, { boardType, tag, keyword, excludeTags: excludeKey });
-          setError(err as Error);
-        })
-        .finally(() => {
-          if (!cancelled) { setLoading(false); setLoadedFilterKey(filterKey); }
-        });
-
-      return () => { cancelled = true; };
     } else {
       // Firestore 페이지 쿼리
       const baseConstraints: QueryConstraint[] = [];
@@ -235,13 +202,15 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
       fetchPage();
       return () => { cancelled = true; };
     }
-  }, [boardType, pageSize, tag, keyword, excludeKey, refreshKey, page, uid, ownerOnly]);
+  }, [boardType, pageSize, tag, keyword, excludeKey, refreshKey, page, uid, ownerOnly, pagedSearch]);
 
   const goToPage = (p: number) => {
     if (p >= 1 && p <= totalPages) setPage(p);
   };
 
   const currentScope = loadedFilterKey === filterKey;
+  if (pagedSearch) return { posts: searchPages.items, loading: searchPages.loading, error: searchPages.error as Error | null, total: searchPages.items.length, page: 1, totalPages: 1, goToPage, refresh,
+    pagedSearch: true, searchHasMore: searchPages.hasMore, searchLoadingMore: searchPages.loadingMore, loadMoreSearch: searchPages.loadMore };
   return { posts: currentScope ? posts : [], loading: loading || !currentScope, error: currentScope ? error : null, total: currentScope ? total : 0, page, totalPages: currentScope ? totalPages : 1, goToPage, refresh };
 }
 

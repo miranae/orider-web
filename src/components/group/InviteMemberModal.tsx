@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
 import { auth, ensureAppCheckReady, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
-import { searchPublicUserProfilesByNickname, type PublicUserProfile } from "../../services/publicProfiles";
+import { searchPublicUserProfilesPage, type PublicUserProfile } from "../../services/publicProfiles";
 import Avatar from "../Avatar";
 import Modal from "../Modal";
 import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
@@ -38,6 +38,9 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode, 
 
   const [feedback, setFeedback] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const cursor = useRef<Awaited<ReturnType<typeof searchPublicUserProfilesPage>>["cursor"]>(null);
+  const searchPending = useRef(false);
   const context = useRef(0);
   const searchRequest = useRef(0);
 
@@ -52,28 +55,35 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode, 
     setInvitedIds(new Set());
     setFeedback(null);
     setSearched(false);
+    setHasMore(false);
+    cursor.current = null;
+    searchPending.current = false;
     return () => { context.current += 1; };
   }, [groupId, open, uid]);
 
-  const handleSearch = async () => {
-    if (!uid || auth.currentUser?.uid !== uid || !searchQuery.trim()) return;
+  const handleSearch = async (append = false) => {
+    if (!uid || auth.currentUser?.uid !== uid || !searchQuery.trim() || searchPending.current) return;
+    searchPending.current = true;
     const currentContext = context.current;
     const request = ++searchRequest.current;
     setFeedback(null);
     setSearching(true);
     setSearched(false);
     try {
-      const profiles = await searchPublicUserProfilesByNickname(searchQuery, 10);
+      const page = await searchPublicUserProfilesPage(searchQuery, append ? cursor.current : null);
       if (currentContext !== context.current || request !== searchRequest.current || auth.currentUser?.uid !== uid) return;
       setSearched(true);
-      setResults(profiles.map((profile) => ({ id: profile.id, profile })));
+      cursor.current = page.cursor;
+      setHasMore(page.hasMore);
+      const next = page.items.map(profile => ({ id: profile.id, profile }));
+      setResults(previous => append ? [...new Map([...previous, ...next].map(item => [item.id, item])).values()] : next);
     } catch (err) {
       if (currentContext !== context.current || request !== searchRequest.current || auth.currentUser?.uid !== uid) return;
       logClientError("InviteMemberModal.handleSearch", err, { groupId });
       setResults([]);
       setFeedback("invite.searchFailed");
     } finally {
-      if (currentContext === context.current && request === searchRequest.current) setSearching(false);
+      if (currentContext === context.current && request === searchRequest.current) { searchPending.current = false; setSearching(false); }
     }
   };
 
@@ -129,14 +139,18 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode, 
           <Input id={searchId}
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              searchRequest.current += 1; searchPending.current = false;
+              setSearching(false); setResults([]); setSearched(false); setHasMore(false); cursor.current = null;
+              setSearchQuery(e.target.value);
+            }}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             placeholder={t("invite.searchPlaceholder")}
             className="min-w-0 flex-1 px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-medium-size)] focus:ring-2 focus:ring-[var(--lime)] focus:border-[var(--lime)] border"
             style={{ borderColor: "var(--line-soft)", background: "var(--bg-0)", color: "var(--ink-0)" }}
           />
           <Button variant="primary"
-            onClick={handleSearch}
+            onClick={() => handleSearch()}
             disabled={searching || !searchQuery.trim()}
             className="px-3 py-2 text-[length:var(--ft-body-medium-size)] font-medium rounded-[var(--r-md)] bg-[var(--lime)] text-[var(--bg-0)] hover:opacity-90 disabled:opacity-50 transition-colors"
           >
@@ -169,6 +183,8 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode, 
           </div>
         )}
       </div>
+
+      {hasMore && <Button variant="secondary" disabled={searching} onClick={() => handleSearch(true)}>{t("common:button.more")}</Button>}
 
       <div className="flex justify-end mt-6">
         <Button variant="secondary" onClick={onClose} className="px-4 py-2 text-[length:var(--ft-body-medium-size)]" style={{ color: "var(--ink-2)" }}>

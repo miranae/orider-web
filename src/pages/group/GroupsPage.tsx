@@ -51,12 +51,12 @@ export default function GroupsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [mySearch, setMySearch] = useState("");
   const findSearchRef = useRef<HTMLInputElement>(null);
-  const { groups: publicGroups, loading: publicLoading, error: publicGroupsError, retry: retryPublicGroups } = usePublicGroups({
+  const { groups: publicGroups, loading: publicLoading, error: publicGroupsError, retry: retryPublicGroups, hasMore: publicHasMore, loadingMore: publicLoadingMore, loadMore: loadMorePublicGroups } = usePublicGroups({
     enabled: !!user,
     searchText: searchQuery,
     discipline: disciplineFilter,
     city: cityFilter,
-    maxCount: 30,
+    maxCount: 20,
   });
   const navigate = useNavigate();
 
@@ -280,6 +280,8 @@ export default function GroupsPage() {
           ))}
         </div>
       )}
+
+      {publicHasMore && !publicLoading && <Button variant="secondary" disabled={publicLoadingMore} onClick={loadMorePublicGroups}>{t("common:button.more")}</Button>}
 
       <Card data-testid="C0-3" className="club-invite-card" padding="card">
         <Text as="h2" variant="title">{t("find.inviteTitle")}</Text>

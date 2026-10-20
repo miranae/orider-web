@@ -1,3 +1,4 @@
+import { SEARCH_PAGE_SIZE } from "../constants/pagination";
 import InfoTip from "../components/InfoTip";
 import { segmentMetric } from "../features/segments/segmentMetric";
 import { Map as MapIcon, Mountain, MoveRight } from "lucide-react";
@@ -125,7 +126,7 @@ function getVisibleGeohashes(bounds: LngLatBounds, precision: number = 3): strin
   return Array.from(hashes);
 }
 
-const LIST_PAGE_SIZE = 50;
+const LIST_PAGE_SIZE = SEARCH_PAGE_SIZE;
 
 // CATEGORIES will be populated from translation in component
 

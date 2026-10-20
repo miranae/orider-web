@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ getDocs: vi.fn(), query: vi.fn((...args: unknown[]) => args), where: vi.fn((...args: unknown[]) => ({ where: args })) }));
 vi.mock("firebase/firestore", () => ({
@@ -9,7 +9,7 @@ vi.mock("firebase/firestore", () => ({
 }));
 vi.mock("../../services/firebase", () => ({ firestore: {} }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
-import { searchVisibleCoursesByName, useCourseCatalog } from "./useCourseCatalog";
+import { searchVisibleCoursesByName, searchVisibleCoursesPage, useCourseCatalog } from "./useCourseCatalog";
 const doc = (id: string, data: Record<string, unknown>) => ({ id, data: () => data });
 describe("owner course queries", () => {
   beforeEach(() => { vi.clearAllMocks(); mocks.getDocs.mockResolvedValue({ docs: [] }); });
@@ -24,6 +24,31 @@ describe("owner course queries", () => {
     await searchVisibleCoursesByName("Ride", 80, new Map(), new Map(), "uid-b");
     expect(mocks.where).toHaveBeenCalledWith("creatorId", "==", "uid-b");
     expect(mocks.where).toHaveBeenCalledWith("name", ">=", "Ride");
+  });
+  it("caps an oversized search request at 20 and continues after the last raw document", async () => {
+    const docs = Array.from({ length: 20 }, (_, index) => doc(String(index), { name: "Ride", ...(index === 19 ? { hidden: true } : {}) }));
+    mocks.getDocs.mockResolvedValueOnce({ docs });
+    const first = await searchVisibleCoursesPage("Ride", 1000);
+    expect(first.items).toHaveLength(19);
+    expect(first.hasMore).toBe(true);
+    expect(first.cursor).toBe(docs[19]);
+    expect(mocks.query.mock.calls[0]).toContainEqual({ limit: 20 });
+    mocks.getDocs.mockResolvedValueOnce({ docs: [doc("last", { name: "Ride" })] });
+    const next = await searchVisibleCoursesPage("Ride", 20, new Map(), new Map(), undefined, first.cursor);
+    expect(mocks.query.mock.calls[1]).toContainEqual({ cursor: docs[19] });
+    expect(next.items.map(item => item.id)).toEqual(["last"]);
+    expect(next.hasMore).toBe(false);
+  });
+  it("loads only 20 catalog documents per click", async () => {
+    const docs = Array.from({ length: 20 }, (_, index) => doc(String(index), { name: "Ride" }));
+    mocks.getDocs.mockResolvedValueOnce({ docs }).mockResolvedValueOnce({ docs: [] });
+    const { result } = renderHook(() => useCourseCatalog());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(mocks.getDocs).toHaveBeenCalledTimes(1);
+    expect(mocks.query.mock.calls[0]).toContainEqual({ limit: 20 });
+    await act(async () => result.current.loadMore());
+    expect(mocks.getDocs).toHaveBeenCalledTimes(2);
+    expect(result.current.hasMore).toBe(false);
   });
   it("does not constrain guest/public search to an owner", async () => {
     await searchVisibleCoursesByName("Ride");

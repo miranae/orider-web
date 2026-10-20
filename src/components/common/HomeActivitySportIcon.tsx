@@ -19,7 +19,7 @@ const CELL_X: Record<Exclude<HomeActivitySport, 'swim'>, number> = {
 };
 
 /** 사용자가 제공한 픽셀 원본에서 테두리·설명을 제외한 종목 셀만 표시한다. */
-export default function HomeActivitySportIcon({ sport, size = 40, className, ...props }: HomeActivitySportIconProps) {
+export default function HomeActivitySportIcon({ sport, size = 32, className, ...props }: HomeActivitySportIconProps) {
   const filterId = useId();
   const clipId = `${filterId}-clip`;
   if (sport === 'swim') return <SportIcon sport={sport} size={size} perspective="rear" className={className} {...props} />;
