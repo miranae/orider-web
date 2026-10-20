@@ -49,7 +49,7 @@ describe("ElevationChart theme colors", () => {
     rerender(<ElevationChart data={data} />);
     expect(line.mock.lastCall?.[0].options.scales.x.title.text).toBe("km");
   });
-  it("accepts touch drag within the DS 48px handle strip and retains keyboard alternatives", () => {
+  it.each([false, true])("accepts touch drag and keyboard controls with elevation=%s", (showElevation) => {
     const change = vi.fn();
     const hover = vi.fn();
     const chart = { canvas: { getBoundingClientRect: () => ({ left: 0 }) }, scales: { x: { getPixelForValue: (value: number) => value * 100, getValueForPixel: (pixel: number) => pixel / 100 } } };
@@ -57,14 +57,16 @@ describe("ElevationChart theme colors", () => {
     vi.stubGlobal("PointerEvent", MouseEvent);
     try {
       const data = [{ distance: 0, elevation: 1 }, { distance: 1000, elevation: 2 }, { distance: 2000, elevation: 3 }];
-      const view = renderWithProviders(<ElevationChart data={data} onHoverIndex={hover} />);
-      const wrapper = screen.getByTestId("elevation-line").parentElement!.parentElement!;
+      const lanes = showElevation ? {} : { showElevation: false, separateOverlayLanes: true,
+        overlays: [{ key: "hr", label: "HR", data: [130, 140, 150], color: "red", yAxisID: "yHr", unit: "bpm" }] };
+      const view = renderWithProviders(<ElevationChart data={data} onHoverIndex={hover} {...lanes} />);
+      const wrapper = screen.getAllByTestId("elevation-line")[0].parentElement!.parentElement!;
       expect(wrapper.style.touchAction).toBe("pan-y");
       fireEvent.pointerMove(wrapper, { clientX: 100, pointerType: "touch" });
       expect(hover).toHaveBeenLastCalledWith(1);
       fireEvent.pointerLeave(wrapper);
       expect(hover).toHaveBeenLastCalledWith(null);
-      view.rerender(<ElevationChart data={data} rangeMode range={[0, 2]} onRangeChange={change} />);
+      view.rerender(<ElevationChart data={data} rangeMode range={[0, 2]} onRangeChange={change} {...lanes} />);
       const target = screen.getByLabelText(/arrow|화살표/i);
       expect(target.style.touchAction).toBe("none");
       for (const end of ["pointerUp", "pointerCancel"] as const) {
@@ -91,14 +93,17 @@ describe("ElevationChart theme colors", () => {
     expect(chart.plugins.map((plugin: { id: string }) => plugin.id)).toEqual(initial.plugins.map((plugin: { id: string }) => plugin.id));
     expect(chart.options.plugins.rangeHighlight).toMatchObject({ start: 8.4, end: 10.5 });
   });
-  it("shares elapsed coordinates and selected range across every sensor lane and moves handles by keyboard", () => {
+  it.each([false, true])("shares elapsed coordinates and selection with elevation=%s", (showElevation) => {
     const change = vi.fn();
     renderWithProviders(<ElevationChart data={[{ distance: 0, elevation: 1 }, { distance: 100, elevation: 2 }, { distance: 100, elevation: 3 }, { distance: 200, elevation: 4 }]}
       elapsedAxisSec={[0, 60, 120, 180]} xAxis="elapsed" rangeMode range={[1, 3]} onRangeChange={change}
-      separateOverlayLanes overlays={[{ key: "hr", label: "HR", data: [130, 140, 150, 140], color: "red", yAxisID: "yHr", unit: "bpm" }]} />);
+      showElevation={showElevation} separateOverlayLanes overlays={[{ key: "hr", label: "HR", data: [130, 140, 150, 140], color: "red", yAxisID: "yHr", unit: "bpm" }]} />);
     const charts = line.mock.calls.map(call => call[0]);
-    expect(charts).toHaveLength(2);
-    for (const chart of charts) {
+    const plots = charts.filter(chart => chart.data.datasets.length > 0);
+    expect(plots).toHaveLength(showElevation ? 2 : 1);
+    expect(charts.filter(chart => chart.options.scales.x.display !== false)).toHaveLength(1);
+    expect(charts.at(-1).options.scales.x).toMatchObject({ max: 3, title: { text: "min" } });
+    for (const chart of plots) {
       expect(chart.data.datasets[0].data.map((point: { x: number }) => point.x)).toEqual([0, 1, 2, 3]);
       expect(chart.plugins.some((plugin: { id: string }) => plugin.id === "rangeHighlight")).toBe(true);
       expect(chart.options.plugins.rangeHighlight).toMatchObject({ start: 1, end: 3 });
@@ -147,8 +152,8 @@ describe("ElevationChart theme colors", () => {
         { key: "heartRate", label: "심박", data: [140, 150], color: "red", yAxisID: "yHeartRate", unit: "bpm" },
       ]} />);
     const charts = line.mock.calls.map(call => call[0]);
-    expect(charts[0].options.scales.yElev.display).toBe(false);
-    expect(charts[0].data.datasets[0].data).toEqual([]);
+    expect(charts.filter(chart => chart.data.datasets.length > 0)).toHaveLength(2);
+    expect(charts.every(chart => chart.data.datasets.every((dataset: { yAxisID: string }) => dataset.yAxisID !== "yElev"))).toBe(true);
     const widths = charts.map(chart => {
       const scale = { width: 0 };
       (chart.options.scales.yElevSpacer ?? chart.options.scales.yMetric).afterFit(scale);
@@ -161,8 +166,8 @@ describe("ElevationChart theme colors", () => {
       (chart.options.scales.yMetric ?? chart.options.scales.yElevSpacer).afterFit(rightScale);
       expect(rightScale.width).toBeGreaterThanOrEqual(62);
     }
-    expect(charts[1].options.scales.yMetric.ticks.callback(10)).toBe("10:00");
-    expect(charts[1].options.scales.yMetric.reverse).toBe(true);
+    expect(charts[0].options.scales.yMetric.ticks.callback(10)).toBe("10:00");
+    expect(charts[0].options.scales.yMetric.reverse).toBe(true);
   });
 
   it("keeps reverse-range start/end handles and direction arrow semantically distinct", () => {

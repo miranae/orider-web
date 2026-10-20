@@ -613,6 +613,20 @@ export default function ElevationChart({
   const showLanes = separateOverlayLanes && (overlays?.length ?? 0) > 0;
   const sensorAxisWidth = ELEVATION_PLOT_AXIS_WIDTH + theme.dimens.paddingS;
 
+  const sharedXScale = {
+    type: "linear" as const,
+    min: 0,
+    max: maxDistance || undefined,
+    grid: { display: false },
+    ticks: {
+      font: { size: 12 },
+      color: tickColor,
+      maxTicksLimit: 10,
+      callback: (value: string | number) => `${Number(value).toFixed(1)}`,
+    },
+    title: { display: true, text: xAxisLabel ?? (elapsedAxis ? "min" : "km"), font: { size: 12 }, color: tickColor },
+  };
+
   return (
     <div
       ref={wrapperRef}
@@ -632,7 +646,7 @@ export default function ElevationChart({
       onPointerLeave={handleLeave}
       onPointerCancel={handleLeave}
     >
-      <div style={{ height }}>
+      {(!showLanes || showElevation) && <div style={{ height }}>
         <Line
           ref={chartRef}
           data={chartData}
@@ -675,24 +689,12 @@ export default function ElevationChart({
             ...(segmentHighlightOpts ? { segmentHighlight: segmentHighlightOpts } : {}),
           } as Record<string, unknown>,
           scales: {
-            x: {
-              type: "linear",
-              min: 0,
-              max: maxDistance || undefined,
-              grid: { display: false },
-              ticks: {
-                font: { size: 12 },
-                color: tickColor,
-                maxTicksLimit: 10,
-                callback: (v) => `${Number(v).toFixed(1)}`,
-              },
-              title: { display: true, text: xAxisLabel ?? (elapsedAxis ? "min" : "km"), font: { size: 12 }, color: tickColor },
-            },
+            x: { ...sharedXScale, display: !showLanes },
             yElev: {
               type: "linear",
               display: showElevation,
               position: "left",
-              afterFit: (scale: { width: number }) => { scale.width = 54; },
+              afterFit: (scale: { width: number }) => { scale.width = ELEVATION_PLOT_AXIS_WIDTH; },
               grid: { color: gridColor },
               ticks: {
                 font: { size: 12 },
@@ -717,12 +719,13 @@ export default function ElevationChart({
           },
           }}
         />
-      </div>
-      {showLanes && overlays?.map((overlay) => {
+      </div>}
+      {showLanes && overlays?.map((overlay, index) => {
         const focused = overlay.key === focusedOverlayKey;
         return (
-          <div key={overlay.key ?? overlay.label} style={{ height: 84, marginTop: "var(--space-2)" }}>
+          <div key={overlay.key ?? overlay.label} style={{ height, marginTop: showElevation || index > 0 ? "var(--space-2)" : 0 }}>
             <Line
+              ref={!showElevation && index === 0 ? chartRef : undefined}
               data={{
                 labels: distancesKm,
                 datasets: [{
@@ -755,7 +758,7 @@ export default function ElevationChart({
                 scales: {
                   x: { type: "linear", min: 0, max: maxDistance || undefined, display: false },
                   yMetricSpacer: {
-                    type: "linear", position: "left", afterFit: (scale: { width: number }) => { scale.width = 54; },
+                    type: "linear", position: "left", afterFit: (scale: { width: number }) => { scale.width = ELEVATION_PLOT_AXIS_WIDTH; },
                     grid: { display: false }, border: { display: false }, ticks: { color: "transparent", callback: () => "" },
                   },
                   yMetric: {
@@ -769,6 +772,24 @@ export default function ElevationChart({
           </div>
         );
       })}
+      {/* Each data lane has the same plot height; the shared axis gets its own space. */}
+      {showLanes && <div style={{ height: 56 }} aria-hidden="true">
+        <Line data={{ datasets: [] }} options={{
+          responsive: true, maintainAspectRatio: false, animation: false, events: [],
+          layout: { padding: { right: theme.dimens.paddingS } },
+          plugins: { tooltip: { enabled: false }, legend: { display: false } },
+          scales: {
+            x: sharedXScale,
+            yElev: { type: "linear", position: "left", min: 0, max: 1,
+              afterFit: (scale: { width: number }) => { scale.width = ELEVATION_PLOT_AXIS_WIDTH; },
+              grid: { display: false }, border: { display: false }, ticks: { display: false } },
+            yElevSpacer: { type: "linear", position: "right", min: 0, max: 1,
+              afterFit: (scale: { width: number }) => { scale.width = sensorAxisWidth; },
+              grid: { display: false }, border: { display: false }, ticks: { display: false } },
+          },
+        }} />
+      </div>}
+
     </div>
   );
 }
