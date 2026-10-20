@@ -4,7 +4,7 @@ import { Button, Chip } from "../../theme/components";
 import { Field, Input, Textarea } from "../../theme/components/Input";
 import type { CourseCheckpoint, Meeting } from "./domain";
 import {
-  loadCourseCatalog,
+  loadCourseCatalogPage,
   toCoursePlan,
   type SavedCourseChoice,
 } from "./courseCatalog";
@@ -44,6 +44,9 @@ export default function CoursePreparation({
   );
   const [courses, setCourses] = useState<SavedCourseChoice[] | null>(null);
   const [query, setQuery] = useState("");
+  const courseCursor = useRef<Awaited<ReturnType<typeof loadCourseCatalogPage>>["cursor"]>(null);
+  const [hasMoreCourses, setHasMoreCourses] = useState(false);
+  const coursePending = useRef(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState<ImportPlan | null>(null);
@@ -153,14 +156,20 @@ export default function CoursePreparation({
       commit(plan, true);
     }
   };
-  const load = async () => {
+  const load = async (append = false) => {
+    if (coursePending.current) return;
+    coursePending.current = true;
     setLoading(true);
     setError("");
     try {
-      setCourses(await loadCourseCatalog());
+      const page = await loadCourseCatalogPage(append ? courseCursor.current : null);
+      courseCursor.current = page.cursor;
+      setHasMoreCourses(page.hasMore);
+      setCourses(previous => append ? [...new Map([...(previous ?? []), ...page.items].map(item => [item.id, item])).values()] : page.items);
     } catch {
       setError(mt("기존 코스를 불러오지 못했어요. 다시 시도해주세요."));
     } finally {
+      coursePending.current = false;
       setLoading(false);
     }
   };
@@ -322,6 +331,7 @@ export default function CoursePreparation({
                   </li>
                 ))}
               </ul>
+              {hasMoreCourses && <Button variant="outline" loading={loading} onClick={() => void load(true)}>{mt("더보기")}</Button>}
             </>
           )}
         </div>

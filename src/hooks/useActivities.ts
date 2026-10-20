@@ -1,3 +1,4 @@
+import { SEARCH_PAGE_SIZE } from "../constants/pagination";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   collection,
@@ -904,7 +905,7 @@ function getDateFrom(preset: DatePreset): number | null {
 
 export type OwnerPreset = "all" | "friends" | "me";
 
-const SEARCH_LIMIT = 20;
+const SEARCH_LIMIT = SEARCH_PAGE_SIZE;
 type SearchCursor = { last: QueryDocumentSnapshot<DocumentData> | null; hasMore: boolean; buffer: Activity[] };
 type SearchPage = { results: Activity[]; cursors: SearchCursor[]; hasMore: boolean };
 

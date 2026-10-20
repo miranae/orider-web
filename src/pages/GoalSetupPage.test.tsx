@@ -44,7 +44,7 @@ describe("GoalSetupPage", () => {
 
   it("shows a course read failure with its exact retry callback instead of the empty state", async () => {
     const retry = vi.fn();
-    const value = { courses: [], loading: false, error: true, retry, search: () => [] };
+    const value = { courses: [], items: [], loading: false, loadingMore: false, hasMore: false, loadMore: vi.fn(), error: true, retry, search: () => [] };
     const spy = vi.spyOn(courseHook, "useCourses").mockReturnValue(value);
     try {
       const view = renderWithProviders(<GoalSetupPage />, { authenticated: true, route: "/ko/goal-setup?sport=bike" });
@@ -60,7 +60,7 @@ describe("GoalSetupPage", () => {
   });
 
   it("keeps a successful empty course list distinct from a read error", async () => {
-    const spy = vi.spyOn(courseHook, "useCourses").mockReturnValue({ courses: [], loading: false, error: false, retry: vi.fn(), search: () => [] });
+    const spy = vi.spyOn(courseHook, "useCourses").mockReturnValue({ courses: [], items: [], loading: false, loadingMore: false, hasMore: false, loadMore: vi.fn(), error: false, retry: vi.fn(), search: () => [] });
     try {
       renderWithProviders(<GoalSetupPage />, { authenticated: true, route: "/ko/goal-setup?sport=bike" });
       expect(await screen.findByText("등록된 코스가 없습니다")).toBeInTheDocument();

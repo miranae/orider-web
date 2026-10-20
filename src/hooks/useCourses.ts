@@ -1,125 +1,40 @@
-import { useState, useEffect, useCallback } from "react";
-import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, orderBy, limit, startAfter, type QueryDocumentSnapshot, type DocumentData } from "firebase/firestore";
 import { firestore } from "../services/firebase";
-import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
+import { SEARCH_PAGE_SIZE, usePagedSearch } from "./usePagedSearch";
 import type { Course } from "@shared/types";
 
-// 모듈 레벨 캐시 — 한 번 로드하면 페이지 간 공유
-let cachedCourses: Course[] | null = null;
-let cacheUid: string | null = null;
-
-export interface UseCoursesOptions {
-  enabled?: boolean;
-}
+let cacheVersion = 0;
+export interface UseCoursesOptions { enabled?: boolean }
+type Cursor = Array<{ last: QueryDocumentSnapshot<DocumentData> | null; exhausted: boolean }>;
 
 export function useCourses(options: UseCoursesOptions = {}) {
-  const enabled = options.enabled ?? true;
   const { user } = useAuth();
   const uid = user?.uid ?? null;
-  const hasUsableCache = cachedCourses !== null && cacheUid === uid;
-  const [courses, setCourses] = useState<Course[]>(() => (hasUsableCache ? cachedCourses ?? [] : []));
-  const [loading, setLoading] = useState(enabled && !hasUsableCache);
-  const [error, setError] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
-  const retry = useCallback(() => {
-    invalidateCoursesCache();
-    setReloadKey((value) => value + 1);
-  }, []);
-
-  useEffect(() => {
-    if (!enabled) {
-      setCourses([]);
-      setLoading(false);
-      setError(false);
-      return;
-    }
-
-    if (cacheUid !== uid) {
-      cachedCourses = null;
-      cacheUid = null;
-      setCourses([]);
-    }
-
-    // 같은 유저의 캐시가 있으면 스킵
-    if (cachedCourses && cacheUid === uid) {
-      setCourses(cachedCourses);
-      setLoading(false);
-      setError(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    const load = async () => {
-      setLoading(true);
-      setError(false);
-      try {
-        const map = new Map<string, Course>();
-
-        // 내 코스
-        if (user) {
-          const mySnap = await getDocs(
-            query(
-              collection(firestore, "courses"),
-              where("creatorId", "==", user.uid),
-              orderBy("createdAt", "desc"),
-              limit(50),
-            ),
-          );
-          mySnap.docs.forEach((d) => {
-            const data = d.data();
-            if (isVisibleCourseDocData(data)) map.set(d.id, { id: d.id, ...data } as Course);
-          });
-        }
-
-        // 공개 코스 (인기순)
-        // NOTE: 기존 코스에 visibility 필드가 채워지지 않아 필터링 시 빈 결과 발생.
-        // visibility 필드 백필 완료 전까지 deletedAt만으로 필터링.
-        // deletedAt 필드가 없는 legacy 코스도 live 로 취급해야 하므로 쿼리 조건이 아니라 클라 필터로 처리.
-        const publicSnap = await getDocs(
-          query(
-            collection(firestore, "courses"),
-            orderBy("likeCount", "desc"),
-            limit(100),
-          ),
-        );
-        publicSnap.docs.forEach((d) => {
-          const data = d.data();
-          if (isVisibleCourseDocData(data) && !map.has(d.id)) map.set(d.id, { id: d.id, ...data } as Course);
-        });
-
-        const result = Array.from(map.values());
-        if (cancelled) return;
-        cachedCourses = result;
-        cacheUid = uid;
-        setCourses(result);
-      } catch (err) {
-        logClientError("useCourses.load", err);
-        if (!cancelled) setError(true);
-      } finally {
-        if (!cancelled) setLoading(false);
+  const page = usePagedSearch(options.enabled === false ? null : JSON.stringify([uid, cacheVersion]), async (cursor: Cursor | null) => {
+    const sources = uid ? ["mine", "public"] : ["public"];
+    const items = new Map<string, Course>();
+    const cursors: Cursor = [];
+    for (const [index, source] of sources.entries()) {
+      const previous = cursor?.[index];
+      if (previous?.exhausted) { cursors.push(previous); continue; }
+      const snap = await getDocs(query(collection(firestore, "courses"),
+        ...(source === "mine" ? [where("creatorId", "==", uid), orderBy("createdAt", "desc")] : [orderBy("likeCount", "desc")]),
+        ...(previous?.last ? [startAfter(previous.last)] : []), limit(SEARCH_PAGE_SIZE),
+      ));
+      for (const doc of snap.docs) {
+        if (isVisibleCourseDocData(doc.data())) items.set(doc.id, { id: doc.id, ...doc.data() } as Course);
       }
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [enabled, user, uid, reloadKey]);
-
-  /** 이름+지역 텍스트 검색 */
-  function search(q: string): Course[] {
-    if (!q.trim()) return courses;
-    const tokens = q.toLowerCase().split(/[^\p{L}\p{N}]+/gu).filter(Boolean);
-    return courses.filter((c) => {
-      const text = `${c.name} ${c.regions?.join(" ") ?? ""}`.toLowerCase();
-      return tokens.every((t) => text.includes(t));
-    });
-  }
-
-  return { courses, loading, error, retry, search };
+      cursors.push({ last: snap.docs[snap.docs.length - 1] ?? previous?.last ?? null, exhausted: snap.docs.length < SEARCH_PAGE_SIZE });
+    }
+    return { items: [...items.values()], cursor: cursors, hasMore: cursors.some(source => !source.exhausted) };
+  });
+  const search = (text: string) => {
+    const tokens = text.toLowerCase().split(/[^\p{L}\p{N}]+/gu).filter(Boolean);
+    return page.items.filter(course => tokens.every(token => `${course.name} ${course.regions?.join(" ") ?? ""}`.toLowerCase().includes(token)));
+  };
+  return { ...page, error: !!page.error, courses: page.items, search };
 }
 
-export function invalidateCoursesCache() {
-  cachedCourses = null;
-  cacheUid = null;
-}
+export function invalidateCoursesCache() { cacheVersion += 1; }

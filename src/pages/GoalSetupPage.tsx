@@ -199,7 +199,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
     hard: tCommon('difficulty.hard'),
     hc: tCommon('difficulty.hc'),
   };
-  const { courses, loading, error, retry, search } = useCourses();
+  const { courses, loading, error, retry, search, hasMore, loadingMore, loadMore } = useCourses();
   const [searchQuery, setSearchQuery] = useState("");
   const searchId = useId();
 
@@ -267,6 +267,8 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
           </label>
         </div>
       </div>
+
+      {hasMore && <Button variant="secondary" disabled={loadingMore} onClick={loadMore}>{t("common:button.more")}</Button>}
 
       {/* Course grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-2)", maxHeight: 400, overflowY: "auto", paddingRight: 'var(--space-1)' }}>

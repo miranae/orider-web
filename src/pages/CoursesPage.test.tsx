@@ -70,7 +70,7 @@ vi.mock("../services/errorLogger", () => ({
 }));
 
 vi.mock("../features/courses/useCourseCatalog", () => ({
-  searchVisibleCoursesByName: vi.fn().mockResolvedValue([]),
+  searchVisibleCoursesPage: vi.fn().mockResolvedValue({ items: [], cursor: null, hasMore: false }),
   useCourseCatalog: () => ({
     courses: mockCourses,
     loading: false,

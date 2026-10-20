@@ -7,7 +7,7 @@ import InviteMemberModal from "./InviteMemberModal";
 vi.mock("../../contexts/AuthContext", () => ({useAuth:()=>({user:getCurrentUser()})}));
 
 const { search } = vi.hoisted(() => ({ search: vi.fn() }));
-vi.mock("../../services/publicProfiles", () => ({ searchPublicUserProfilesByNickname: search }));
+vi.mock("../../services/publicProfiles", () => ({ searchPublicUserProfilesPage: (...args: unknown[]) => search(...args).then((items: unknown[]) => ({ items, cursor: null, hasMore: false })) }));
 
 const props = { open: true, onClose: vi.fn(), groupId: "club-a", inviteCode: "CODE", inviteStatus: "ready", onRetry: vi.fn() };
 const person = { id: "rider", nickname: "Test Rider", photoURL: null };
