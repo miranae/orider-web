@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import ActivityManagementModal from "./ActivityManagementModal";
 
-const input = () => ({ open: true, activityId: "ride", visibility: "everyone" as const, onClose: vi.fn(), onExport: vi.fn(), onDelete: vi.fn(), onVisibilityChange: vi.fn(async () => {}) });
+const input = () => ({ open: true, canManage: true, activityId: "ride", visibility: "everyone" as const, onClose: vi.fn(), onExport: vi.fn(), onDelete: vi.fn(), onVisibilityChange: vi.fn(async () => {}) });
 
 describe("activity management dialog", () => {
   it("offers only unique management actions with one selected visibility", () => {
@@ -15,6 +15,16 @@ describe("activity management dialog", () => {
     expect(screen.queryByText("사진 추가")).not.toBeInTheDocument();
     expect(screen.queryByText("코스로 만들기")).not.toBeInTheDocument();
     expect(screen.queryByText("세그먼트 만들기")).not.toBeInTheDocument();
+  });
+
+  it("keeps shared tools available to a viewer without owner controls", () => {
+    renderWithProviders(<ActivityManagementModal {...input()} canManage={false} shareAction={<button>성과 카드 저장</button>} stravaActivityUrl="https://www.strava.com/activities/12345" />);
+    expect(screen.getByRole("button", { name: "성과 카드 저장" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Strava에서 확인" })).toHaveAttribute("href", "https://www.strava.com/activities/12345");
+    expect(screen.getByRole("button", { name: "내보내기" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "활동 정보 편집" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "삭제" })).not.toBeInTheDocument();
   });
 
   it("leaves the existing export and destructive-confirm flows to the page", () => {
@@ -30,10 +40,12 @@ describe("activity management dialog", () => {
     let finish!: () => void;
     const pending = new Promise<void>(resolve => { finish = resolve; });
     const props = { ...input(), onVisibilityChange: vi.fn(() => pending) };
-    renderWithProviders(<ActivityManagementModal {...props} />);
+    renderWithProviders(<ActivityManagementModal {...props} shareAction={<button>성과 카드 저장</button>} stravaActivityUrl="https://www.strava.com/activities/12345" />);
     fireEvent.click(screen.getByRole("radio", { name: "비공개" }));
     expect(props.onVisibilityChange).toHaveBeenCalledWith("private");
     const edit = screen.getByRole("link", { name: "활동 정보 편집" });
+    expect(screen.getByRole("button", { name: "성과 카드 저장" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Strava에서 확인" })).toHaveAttribute("aria-disabled", "true");
     expect(edit).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(edit);
     expect(props.onClose).not.toHaveBeenCalled();
