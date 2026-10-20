@@ -76,6 +76,7 @@ describe("RouteMap", () => {
     fireEvent.click(screen.getByTestId("mock-map"));
     const path=document.querySelector("svg path")?.getAttribute("d")??"";
     expect(path.match(/M/g)).toHaveLength(2);expect(path.match(/L/g)).toHaveLength(2);
+    expect(document.querySelector("svg")).toHaveAttribute("preserveAspectRatio", "xMidYMid meet");
   });
 
   it("opts into zoom/fit controls and resizes without refitting an active interval or remounting", () => {
