@@ -1,4 +1,5 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { useLocation, useNavigate } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import type { CourseData } from "../features/courses/courseSnapshot";
@@ -96,6 +97,36 @@ vi.mock("../features/courses/CoursesMap", () => ({
 describe("CoursesPage mobile layout", () => {
   beforeEach(() => {
     mockLogClientError.mockClear();
+  });
+
+  it("applies menu surface and difficulty filters, external updates, reset, and history on the mounted page", async () => {
+    function RouteControls() {
+      const navigate = useNavigate();
+      const location = useLocation();
+      return <>
+        <output data-testid="route">{location.search}</output>
+        <button onClick={() => navigate("/explore/courses?surface=paved&difficulty=1&mine=1")}>Menu course filters</button>
+        <button onClick={() => navigate("/explore/courses")}>Clear menu course filters</button>
+        <button onClick={() => navigate(-1)}>Back</button>
+      </>;
+    }
+    renderWithProviders(<><RouteControls /><CoursesPage /></>, {
+      route: "/explore/courses?surface=gravel&difficulty=2", authenticated: true,
+    });
+    expect(screen.queryByRole("heading", { name: "남한강 자전거길" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "코스 조건 · 2개 적용" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Menu course filters" }));
+    expect(await screen.findByRole("heading", { name: "북한강 코스" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "남한강 자전거길" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "내 코스" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Clear menu course filters" }));
+    expect(await screen.findByRole("heading", { name: "남한강 자전거길" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "코스 조건 · 0개 적용" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "남한강 자전거길" })).not.toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("course-mobile-reset"));
+    expect(await screen.findByRole("heading", { name: "남한강 자전거길" })).toBeInTheDocument();
+    expect(screen.getByTestId("route")).toHaveTextContent("?mine=1");
   });
 
   it("preserves active conditions when folded and resets them without clearing My Courses or search", async () => {

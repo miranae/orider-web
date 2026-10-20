@@ -1,6 +1,7 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
+import { useNavigate } from "react-router-dom";
 import ExplorePage from "./ExplorePage";
 const { mapProps, fitBounds } = vi.hoisted(() => ({ mapProps:vi.fn(), fitBounds:vi.fn() }));
 vi.mock("../utils/mapbox", () => ({getMapboxToken:()=>"test-token",MAP_STYLE:"test-style",DEFAULT_VIEW:{latitude:36.5,longitude:127.5,zoom:7},applyKoreaCyclingStyle:vi.fn()}));
@@ -42,4 +43,32 @@ it("explains the existing private-grid totals with a bounded recorded-period bas
  fireEvent.mouseEnter(screen.getByRole("button",{name:"맥스 스퀘어 4×4"}));
  expect(await screen.findByRole("tooltip")).toHaveTextContent("빈칸 없이");
  expect(screen.getByRole("tooltip")).toHaveTextContent("가로 4칸·세로 4칸");
+});
+
+it("applies another menu query while the segment page stays mounted",async()=>{
+ function ExternalSearch(){const navigate=useNavigate();return <button onClick={()=>navigate("/explore/segments?q=Global")}>External search</button>;}
+ renderWithProviders(<><ExternalSearch/><ExplorePage/></>,{route:"/explore/segments?q=missing"});
+ await waitFor(()=>expect(screen.getByRole("textbox",{name:"세그먼트 이름 또는 지역"})).toHaveValue("missing"));
+ fireEvent.click(screen.getByRole("button",{name:"External search"}));
+ await waitFor(()=>expect(screen.getByRole("textbox",{name:"세그먼트 이름 또는 지역"})).toHaveValue("Global"));
+ expect(await screen.findByText("Global climb")).toBeInTheDocument();
+ await new Promise(resolve=>setTimeout(resolve,500));
+ expect(screen.getByRole("textbox",{name:"세그먼트 이름 또는 지역"})).toHaveValue("Global");
+});
+
+it("retains a newer search draft when an older query is saved to the URL",async()=>{
+ renderWithProviders(<ExplorePage/>,{route:"/explore/segments"});
+ await screen.findByText("Global climb");
+ vi.useFakeTimers();
+ try {
+  const input=screen.getByRole("textbox",{name:"세그먼트 이름 또는 지역"});
+  fireEvent.change(input,{target:{value:"G"}});
+  await act(async()=>{await vi.advanceTimersByTimeAsync(250);});
+  await act(async()=>{await vi.advanceTimersByTimeAsync(250);});
+  fireEvent.change(input,{target:{value:"Global"}});
+  await act(async()=>{await vi.advanceTimersByTimeAsync(150);});
+  expect(input).toHaveValue("Global");
+  await act(async()=>{await vi.advanceTimersByTimeAsync(500);});
+  expect(input).toHaveValue("Global");
+ } finally {vi.useRealTimers();}
 });

@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockCallableInvocations, setCallableImplementation, setCallableResult, setCollectionDocs, simulateLogin } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
@@ -126,6 +126,67 @@ describe("GroupsPage join results", () => {
     expect(screen.getAllByRole("button", { name: "클럽 만들기" })).toHaveLength(1);
     expect(screen.queryByTestId("C0-0-1")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "거리 리그 살펴보기" })).toHaveAttribute("href", "/ko/explore/challenges");
+  });
+
+  it("applies incoming global search to memberships and public clubs while preserving independent manual inputs", async () => {
+    myGroups.push(
+      { id: "ride", name: "라이딩 그룹", discipline: "bike", memberCount: 1, visibility: "public" },
+      { id: "run", name: "러닝 그룹", discipline: "run", memberCount: 1, visibility: "public" },
+    );
+    function ExternalSearch() {
+      const navigate = useNavigate();
+      return <button onClick={() => navigate("/ko/clubs?q=러")}>External club search</button>;
+    }
+    renderWithProviders(<><ExternalSearch /><GroupsPage /></>, { route: "/ko/clubs?q=라", authenticated: true });
+    const ownInput = screen.getByRole("searchbox", { name: "내 클럽 검색" });
+    const publicInput = screen.getByRole("searchbox", { name: "클럽 이름 검색" });
+    expect(ownInput).toHaveValue("라");
+    expect(publicInput).toHaveValue("라");
+    expect(screen.getByText("라이딩 그룹")).toBeInTheDocument();
+    expect(screen.queryByText("러닝 그룹")).not.toBeInTheDocument();
+    expect(screen.getByText("조건에 맞는 클럽이 없어요")).toBeInTheDocument();
+    expect(screen.queryByText("공개 클럽이 없습니다")).not.toBeInTheDocument();
+    fireEvent.change(ownInput, { target: { value: "러" } });
+    expect(publicInput).toHaveValue("라");
+    expect(screen.getByText("러닝 그룹")).toBeInTheDocument();
+    fireEvent.change(publicInput, { target: { value: "Other" } });
+    expect(ownInput).toHaveValue("러");
+    fireEvent.click(screen.getByRole("button", { name: "External club search" }));
+    await waitFor(() => expect(publicInput).toHaveValue("러"));
+    expect(ownInput).toHaveValue("러");
+    expect(usePublicGroupsMock).toHaveBeenLastCalledWith(expect.objectContaining({ searchText: "러" }));
+  });
+
+  it("applies menu sport to memberships and discovery, scopes city to discovery, and restores URL history", async () => {
+    myGroups.push(
+      { id: "bike", name: "사이클 모임", discipline: "bike", memberCount: 1, visibility: "public" },
+      { id: "run", name: "러닝 모임", discipline: "run", memberCount: 1, visibility: "public" },
+    );
+    function RouteControls() {
+      const navigate = useNavigate();
+      return <>
+        <button onClick={() => navigate("/ko/clubs?sport=bike&city=부산")}>Menu club filters</button>
+        <button onClick={() => navigate("/ko/clubs")}>Clear menu club filters</button>
+        <button onClick={() => navigate(-1)}>Back</button>
+      </>;
+    }
+    renderWithProviders(<><RouteControls /><GroupsPage /></>, {
+      route: "/ko/clubs?sport=run&city=서울", authenticated: true,
+    });
+    expect(screen.getByText("러닝 모임")).toBeInTheDocument();
+    expect(screen.queryByText("사이클 모임")).not.toBeInTheDocument();
+    expect(usePublicGroupsMock).toHaveBeenLastCalledWith(expect.objectContaining({ discipline: "run", city: "서울" }));
+    fireEvent.click(screen.getByRole("button", { name: "Menu club filters" }));
+    expect(await screen.findByText("사이클 모임")).toBeInTheDocument();
+    expect(screen.queryByText("러닝 모임")).not.toBeInTheDocument();
+    expect(usePublicGroupsMock).toHaveBeenLastCalledWith(expect.objectContaining({ discipline: "bike", city: "부산" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear menu club filters" }));
+    expect(await screen.findByText("러닝 모임")).toBeInTheDocument();
+    expect(screen.getByText("사이클 모임")).toBeInTheDocument();
+    expect(usePublicGroupsMock).toHaveBeenLastCalledWith(expect.objectContaining({ discipline: "ALL", city: "" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    await waitFor(() => expect(screen.queryByText("러닝 모임")).not.toBeInTheDocument());
+    expect(usePublicGroupsMock).toHaveBeenLastCalledWith(expect.objectContaining({ discipline: "bike", city: "부산" }));
   });
 
   it("disables the public group query before authentication", () => {

@@ -48,8 +48,22 @@ export default function GroupsPage() {
   const [disciplineFilter, setDisciplineFilter] = useState<"ALL" | "bike" | "run" | "swim" | "tri">("ALL");
   const [myDisciplineFilter, setMyDisciplineFilter] = useState<"ALL" | "bike" | "run" | "swim" | "tri">("ALL");
   const [cityFilter, setCityFilter] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [mySearch, setMySearch] = useState("");
+  const queryParam = searchParams.get("q") ?? "";
+  const sportParam = searchParams.get("sport") ?? "ALL";
+  const cityParam = searchParams.get("city") ?? "";
+  const [searchQuery, setSearchQuery] = useState(queryParam);
+  const [mySearch, setMySearch] = useState(queryParam);
+  useEffect(() => {
+    setSearchQuery(queryParam);
+    setMySearch(queryParam);
+  }, [queryParam]);
+  useEffect(() => {
+    const sport = ["bike", "run", "swim", "tri"].includes(sportParam)
+      ? sportParam as "bike" | "run" | "swim" | "tri" : "ALL";
+    setDisciplineFilter(sport);
+    setMyDisciplineFilter(sport);
+  }, [sportParam]);
+  useEffect(() => { setCityFilter(cityParam); }, [cityParam]);
   const findSearchRef = useRef<HTMLInputElement>(null);
   const { groups: publicGroups, loading: publicLoading, error: publicGroupsError, retry: retryPublicGroups, hasMore: publicHasMore, loadingMore: publicLoadingMore, loadMore: loadMorePublicGroups } = usePublicGroups({
     enabled: !!user,
@@ -74,6 +88,7 @@ export default function GroupsPage() {
   };
 
   const filteredMyGroups = useMemo(() => filterGroups(myGroups), [myGroups, myDisciplineFilter, mySearch]);
+  const hasPublicFilters = Boolean(searchQuery.trim() || cityFilter.trim() || disciplineFilter !== "ALL");
   const filteredPublicGroups = useMemo(
     () => publicGroups.filter((g) => !myGroupIds.has(g.id)),
     [publicGroups, myGroupIds]
@@ -263,8 +278,8 @@ export default function GroupsPage() {
       ) : filteredPublicGroups.length === 0 ? (
         <div data-testid="C0-2-4"><EmptyState
           icon={<Users size={24} style={{ marginInline: "auto" }} />}
-          title={publicGroups.filter((g) => !myGroupIds.has(g.id)).length === 0 ? t("empty.noPublicGroups") : t("list.noGroupsFiltered")}
-          description={publicGroups.filter((g) => !myGroupIds.has(g.id)).length > 0 ? t("list.noPublicGroupsFilteredDesc") : undefined}
+          title={hasPublicFilters ? t("list.noGroupsFiltered") : t("empty.noPublicGroups")}
+          description={hasPublicFilters ? t("list.noPublicGroupsFilteredDesc") : undefined}
           compact
         /></div>
       ) : (

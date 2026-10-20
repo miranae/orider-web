@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Heart, MessageCircle } from "lucide-react";
+import "./ActivitySocialFooter.css";
 import type { Activity } from "@shared/types";
 import LikersAvatarStack from "../social/LikersAvatarStack";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -20,7 +21,7 @@ import { activitySocialErrorMessageKey, activitySocialMutations } from "../../se
  * "내가 눌렀는지" 상태는 recentKudos 에 내 uid 가 있는지로 무비용 추정 — 상위 N 밖이면
  * 하트가 빈 채로 보일 수 있으나 토글은 정상 동작(낙관적 업데이트). 정확한 상태는 상세에서.
  */
-export default function ActivitySocialFooter({ activity }: { activity: Activity }) {
+export default function ActivitySocialFooter({ activity, presentation = "default" }: { activity: Activity; presentation?: "default" | "feed" }) {
   const { t } = useTranslation("activity");
   const navigate = useNavigate();
   const { user, profile } = useAuth();
@@ -124,9 +125,14 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
     }
   };
 
+  const feed = presentation === "feed";
   return (
-    <div className="border-t" style={{ borderColor: "var(--line-soft)" }} onClick={(e) => e.stopPropagation()}>
-      <div className="flex items-center gap-4 px-4 py-2.5">
+    <div className={feed ? "activity-social-feed" : "border-t"} style={{ borderColor: "var(--line-soft)" }} onClick={(e) => e.stopPropagation()}>
+      <div className={feed ? "activity-social-feed-row" : "flex items-center gap-4 px-4 py-2.5"}>
+        {feed && <div className="activity-social-feed-totals">
+          <LikersAvatarStack likers={hydratedRecent} totalCount={localKudos} />
+          <span>{t("card.kudosShort")} {localKudos}</span>
+        </div>}
         {/* 좋아요 토글 + 카운트 */}
         <button
           type="button"
@@ -135,25 +141,26 @@ export default function ActivitySocialFooter({ activity }: { activity: Activity 
           className="flex items-center justify-center gap-1.5 transition-opacity disabled:opacity-50"
           style={{ color: liked ? "var(--lime)" : "var(--ink-3)", background: "none", border: "none", cursor: user ? "pointer" : "default", minHeight: 44, minWidth: 44, padding: "0 var(--space-2)", margin: "-6px calc(var(--space-2) * -1)" }}
           aria-label={t("card.kudosShort")}
+          aria-pressed={liked}
         >
           <Heart size={18} fill={liked ? "currentColor" : "none"} />
-          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{localKudos}</span>
+          {!feed && <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{localKudos}</span>}
         </button>
 
         {/* 누른 사람 아바타 스택 — hover/focus/tap 시 누른 사람 이름 툴팁 */}
-        <LikersAvatarStack likers={hydratedRecent} totalCount={localKudos} />
+        {!feed && <LikersAvatarStack likers={hydratedRecent} totalCount={localKudos} />}
 
         {/* 댓글 — 카드 안 입력칸 토글 */}
         <button
           type="button"
           onClick={handleToggleComment}
-          className="flex items-center justify-center gap-1.5 ml-auto transition-opacity"
+          className={feed ? "flex items-center justify-center gap-1.5 transition-opacity" : "flex items-center justify-center gap-1.5 ml-auto transition-opacity"}
           style={{ color: showComment ? "var(--lime)" : "var(--ink-3)", background: "none", border: "none", cursor: "pointer", minHeight: 44, minWidth: 44, padding: "0 var(--space-2)", margin: "-6px calc(var(--space-2) * -1)" }}
           aria-label={t("card.comment")}
           aria-expanded={showComment}
         >
           <MessageCircle size={18} />
-          <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{localComments}</span>
+          {(!feed || localComments > 0) && <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{localComments}</span>}
         </button>
       </div>
 
