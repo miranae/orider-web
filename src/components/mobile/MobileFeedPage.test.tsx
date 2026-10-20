@@ -242,28 +242,52 @@ describe("MobileFeedPage", () => {
     await user.click(screen.getByRole("button", { name: "검색 초기화" }));
     expect(screen.queryByText("설레임 첫 라이딩")).not.toBeInTheDocument();
   });
-  it("applies the sport filter across server results beyond the hook's first page", async () => {
+  it("pages already loaded all-period activities in groups of 20", async () => {
     const user = userEvent.setup();
-    setCollectionDocs("activities", [
-      ...Array.from({ length: 20 }, (_, index) => ({
-        id: `bike-${index}`,
-        ...createMockActivity({ id: `bike-${index}`, type: "ride", description: `설레임 사이클 ${index}`, startTime: 1_000_000 - index }),
-      })),
-      { id: "run-match", ...createMockActivity({ id: "run-match", type: "run", description: "설레임 러닝", startTime: 1 }) },
-    ]);
+    const onLoadMore = vi.fn();
+    const activities = Array.from({ length: 45 }, (_, index) => createMockActivity({ id: `loaded-${index}`, description: `기존 활동 ${index}` }));
+    renderWithProviders(<MobileFeedPage activities={activities} loading={false} hasMore={false} loadingMore={false}
+      onLoadMore={onLoadMore} feedScope="all" onFeedScopeChange={vi.fn()} />);
+    expect(screen.getByText("기존 활동 19")).toBeInTheDocument();
+    expect(screen.queryByText("기존 활동 20")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "더 보기" }));
+    expect(screen.getByText("기존 활동 39")).toBeInTheDocument();
+    expect(screen.queryByText("기존 활동 40")).not.toBeInTheDocument();
+    expect(onLoadMore).not.toHaveBeenCalled();
+    await openFilters(user);
+    await user.selectOptions(screen.getByRole("combobox", { name: "조회 기간" }), "7d");
+    await user.selectOptions(screen.getByRole("combobox", { name: "조회 기간" }), "all");
+    expect(screen.getByText("기존 활동 19")).toBeInTheDocument();
+    expect(screen.queryByText("기존 활동 20")).not.toBeInTheDocument();
+  });
+
+  it("shows only 20 matching activities until more is clicked", async () => {
+    const user = userEvent.setup();
+    const matches = Array.from({ length: 41 }, (_, index) => {
+      const activity = createMockActivity({ id: `ride-${index}`, description: `설레임 활동 ${index}`, startTime: 1_000_000 - index });
+      return { id: activity.id, data: () => activity };
+    });
+    const reads = vi.mocked(getDocs).mockClear();
+    reads.mockResolvedValueOnce({ docs: matches.slice(0, 20) } as Awaited<ReturnType<typeof getDocs>>)
+      .mockResolvedValueOnce({ docs: matches.slice(20, 40) } as Awaited<ReturnType<typeof getDocs>>);
 
     function SearchFeed() {
       const activitySearch = useActivitySearch(new Set());
       return <MobileFeedPage activities={[]} activitySearch={activitySearch} loading={false} hasMore={false}
-        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} sportFilter="run" />;
+        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} />;
     }
     renderWithProviders(<SearchFeed />);
 
     await user.type(await openSearch(user), "설레임");
     await submitSearch(user);
 
-    expect(await screen.findByText("설레임 러닝")).toBeInTheDocument();
-    expect(screen.queryByText("설레임 사이클 0")).not.toBeInTheDocument();
+    expect(await screen.findByText("설레임 활동 19")).toBeInTheDocument();
+    expect(screen.queryByText("설레임 활동 20")).not.toBeInTheDocument();
+    expect(reads).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "더 보기" }));
+    expect(await screen.findByText("설레임 활동 39")).toBeInTheDocument();
+    expect(screen.queryByText("설레임 활동 40")).not.toBeInTheDocument();
+    expect(reads).toHaveBeenCalledTimes(2);
   });
   it("keeps a loaded friend's nonpublic matching activity in search results", async () => {
     const user = userEvent.setup();
@@ -306,9 +330,9 @@ describe("MobileFeedPage", () => {
     expect(screen.getByText("설레임 로드된 라이딩")).toBeInTheDocument();
   });
 
-  it("loads the next server page when the selected sport hides the first 50 hits", async () => {
+  it("loads the next server page when the selected sport hides the first 20 hits", async () => {
     const user = userEvent.setup();
-    const firstPage = Array.from({ length: 50 }, (_, index) => {
+    const firstPage = Array.from({ length: 20 }, (_, index) => {
       const activity = createMockActivity({ id: `bike-${index}`, type: "ride", description: `설레임 사이클 ${index}`, startTime: 1_000_000 - index });
       return { id: activity.id, data: () => activity };
     });

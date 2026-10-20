@@ -904,8 +904,8 @@ function getDateFrom(preset: DatePreset): number | null {
 
 export type OwnerPreset = "all" | "friends" | "me";
 
-const SEARCH_LIMIT = 50;
-type SearchCursor = { last: QueryDocumentSnapshot<DocumentData> | null; hasMore: boolean };
+const SEARCH_LIMIT = 20;
+type SearchCursor = { last: QueryDocumentSnapshot<DocumentData> | null; hasMore: boolean; buffer: Activity[] };
 type SearchPage = { results: Activity[]; cursors: SearchCursor[]; hasMore: boolean };
 
 /** Server-side keyword search for activities using array-contains */
@@ -934,7 +934,6 @@ async function fetchActivitySearchResults(
       where("deletedAt", "==", null),
       where("keywords", "array-contains", token),
       orderBy("startTime", "desc"),
-      limit(SEARCH_LIMIT),
     ];
     if (dateFrom !== null) {
       myConstraints.splice(3, 0, where("startTime", ">=", dateFrom));
@@ -947,7 +946,6 @@ async function fetchActivitySearchResults(
       where("visibility", "==", "everyone"),
       where("keywords", "array-contains", token),
       orderBy("startTime", "desc"),
-      limit(SEARCH_LIMIT),
     ];
     if (dateFrom !== null) {
       pubConstraints.splice(3, 0, where("startTime", ">=", dateFrom));
@@ -960,7 +958,6 @@ async function fetchActivitySearchResults(
       where("visibility", "==", "everyone"),
       where("keywords", "array-contains", token),
       orderBy("startTime", "desc"),
-      limit(SEARCH_LIMIT),
     ];
     if (dateFrom !== null) {
       pubConstraints.splice(3, 0, where("startTime", ">=", dateFrom));
@@ -968,50 +965,41 @@ async function fetchActivitySearchResults(
     constraints.push(pubConstraints);
   }
 
-  const snaps = await Promise.all(constraints.map((source, index) => {
-    const cursor = previousCursors?.[index];
-    if (cursor && !cursor.hasMore) return null;
-    return getDocs(query(col, ...source, ...(cursor?.last ? [startAfter(cursor.last)] : [])));
+  // Keep unconsumed source results so the merged page is capped at 20 without
+  // skipping activities or fetching them again on the next click.
+  const cursors = await Promise.all(constraints.map(async (source, index): Promise<SearchCursor> => {
+    const previous = previousCursors?.[index];
+    const buffer = [...(previous?.buffer ?? [])];
+    if (previous && (!previous.hasMore || buffer.length >= SEARCH_LIMIT)) return { ...previous, buffer };
+    const readLimit = SEARCH_LIMIT - buffer.length;
+    const snap = await getDocs(query(col, ...source, limit(readLimit), ...(previous?.last ? [startAfter(previous.last)] : [])));
+    return {
+      last: snap.docs[snap.docs.length - 1] ?? previous?.last ?? null,
+      hasMore: snap.docs.length === readLimit,
+      buffer: [...buffer, ...snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Activity)],
+    };
   }));
-  const cursors = snaps.map((snap, index): SearchCursor => snap ? {
-    last: snap.docs[snap.docs.length - 1] ?? previousCursors?.[index]?.last ?? null,
-    hasMore: snap.docs.length === SEARCH_LIMIT,
-  } : previousCursors![index]!);
 
-  // Merge and deduplicate, preserving sort order by startTime desc
-  const seen = new Set<string>();
   const merged: Activity[] = [];
-
-  // Interleave results by startTime descending
-  const iterators = snaps.map((s) => s?.docs.map((d) => ({ id: d.id, ...d.data() }) as Activity) ?? []);
-  const indices = iterators.map(() => 0);
-
-  while (true) {
-    let bestIdx = -1;
-    let bestTime = -1;
-
-    for (let i = 0; i < iterators.length; i++) {
-      if (indices[i]! < iterators[i]!.length) {
-        const item = iterators[i]![indices[i]!]!;
-        if (item.startTime > bestTime) {
-          bestTime = item.startTime;
-          bestIdx = i;
-        }
-      }
+  while (merged.length < SEARCH_LIMIT) {
+    let next: Activity | undefined;
+    for (const cursor of cursors) {
+      const candidate = cursor.buffer[0];
+      if (candidate && (!next || candidate.startTime > next.startTime)) next = candidate;
     }
-
-    if (bestIdx === -1) break;
-
-    const item = iterators[bestIdx]![indices[bestIdx]!]!;
-    indices[bestIdx]!++;
-
-    if (!seen.has(item.id)) {
-      seen.add(item.id);
-      merged.push(item);
+    if (!next) break;
+    merged.push(next);
+    // My public activities appear in both sources. Consume both copies together.
+    for (const cursor of cursors) {
+      cursor.buffer = cursor.buffer.filter((activity) => activity.id !== next.id);
     }
   }
 
-  return { results: await hydrateActivityProfileImages(merged), cursors, hasMore: cursors.some((cursor) => cursor.hasMore) };
+  return {
+    results: await hydrateActivityProfileImages(merged),
+    cursors,
+    hasMore: cursors.some((cursor) => cursor.hasMore || cursor.buffer.length > 0),
+  };
 }
 
 export function useActivitySearch(friendIds: ReadonlySet<string>) {
@@ -1020,6 +1008,8 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
   const searchOwnerKey = user?.uid ?? "anonymous";
   const [searchResultState, setSearchResultState] = useState<{ ownerKey: string; keyword: string; datePreset: DatePreset; results: Activity[]; cursors: SearchCursor[]; hasMore: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadingMoreEpoch = useRef<number | null>(null);
   const [error, setError] = useState(false);
   const [active, setActive] = useState(false);
   const [searchedKeyword, setSearchedKeyword] = useState("");
@@ -1055,6 +1045,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
     let cancelled = false;
     const requestEpoch = ++searchEpoch.current;
     setLoading(true);
+    setLoadingMore(false);
     setError(false);
 
     const dateFrom = getDateFrom(datePreset);
@@ -1099,9 +1090,10 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
   }, [active, currentSearchResultState, ownerPreset, user, friendIds]);
 
   const loadMoreServer = useCallback(() => {
-    if (!active || loading || error || !currentSearchResultState?.hasMore) return;
+    if (!active || loading || error || !currentSearchResultState?.hasMore || loadingMoreEpoch.current === searchEpoch.current) return;
     const requestEpoch = searchEpoch.current;
-    setLoading(true);
+    loadingMoreEpoch.current = requestEpoch;
+    setLoadingMore(true);
     fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, getDateFrom(datePreset), currentSearchResultState.cursors)
       .then((page) => {
         if (searchEpoch.current !== requestEpoch) return;
@@ -1118,7 +1110,10 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
         logClientError("useActivitySearch.loadMore", err, { datePreset });
         setError(true);
       })
-      .finally(() => { if (searchEpoch.current === requestEpoch) setLoading(false); });
+      .finally(() => {
+        if (loadingMoreEpoch.current === requestEpoch) loadingMoreEpoch.current = null;
+        if (searchEpoch.current === requestEpoch) setLoadingMore(false);
+      });
   }, [active, currentSearchResultState, datePreset, error, loading, searchedKeyword, user]);
   const loadMore = useCallback(() => {
     if (displayCount < results.length) setDisplayCount((prev) => prev + 20);
@@ -1146,6 +1141,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
     allResults: results,
     searchedKeyword,
     hasMoreServerResults: !!currentSearchResultState?.hasMore,
+    loadingMore,
     totalResults: results.length,
     loading,
     error,
