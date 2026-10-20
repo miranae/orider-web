@@ -99,17 +99,19 @@ function MobileRouteThumbnail({ activity, priority = false }: { activity: Activi
   if (!activity.thumbnailTrack) return null;
 
   return (
-    <ActivityRouteThumbnail
-      activityId={activity.id}
-      userId={activity.userId}
-      polyline={activity.thumbnailTrack}
-      mapImageUrl={activity.mapImageUrl}
-      visibility={activity.visibility}
-      contentRevision={activity.contentRevision}
-      contentSelectedRevision={activity.contentSelectedRevision}
-      priority={priority}
-      layout="mobile"
-    />
+    <div style={{ paddingTop: "var(--space-3)" }}>
+      <ActivityRouteThumbnail
+        activityId={activity.id}
+        userId={activity.userId}
+        polyline={activity.thumbnailTrack}
+        mapImageUrl={activity.mapImageUrl}
+        visibility={activity.visibility}
+        contentRevision={activity.contentRevision}
+        contentSelectedRevision={activity.contentSelectedRevision}
+        priority={priority}
+        layout="mobile"
+      />
+    </div>
   );
 }
 
@@ -120,6 +122,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
   const timestamp = useMemo(() => activityTimestampParts(activity.startTime, i18n.language, new Date(`${localDay}T12:00:00`).getTime()), [activity.startTime, i18n.language, localDay]);
   const occurredAt = timestamp ? timestamp.day === "date" ? `${timestamp.date} ${timestamp.time}` : t(`mobileFeed.occurred.${timestamp.day}`, { time: timestamp.time }) : t("mobileFeed.occurred.unknown");
   const device = activity.sourceMeta?.deviceModel?.trim();
+  const region = activity.regionName?.trim();
   const s = activity.summary;
   const { units } = useLocale();
   const { t: tActivity } = useTranslation("activity");
@@ -168,7 +171,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
         <span className="mobile-feed-card-avatar"><Avatar userId={activity.userId} name={nickname} imageUrl={activity.profileImage} size={40} /></span>
         <div className="mobile-feed-card-identity">
           <Text as="div" variant="bodySmall" weight={600} tone="primary" style={{ overflowWrap: "anywhere" }}>{nickname}</Text>
-          <Text as="div" variant="caption" tone="tertiary" className="mobile-feed-activity-metadata"><time dateTime={timestamp?.iso}>{occurredAt}</time>{device && <span>{`·\u00a0${device}`}</span>}</Text>
+          <Text as="div" variant="caption" tone="tertiary" className="mobile-feed-activity-metadata"><time dateTime={timestamp?.iso}>{occurredAt}</time>{device && <span>{`·\u00a0${device}`}</span>}{region && <span>{`·\u00a0${region}`}</span>}</Text>
         </div>
         <span className="mobile-feed-card-sport" role="img" aria-label={activitySportLabel}>
           {activitySport ? <HomeActivitySportIcon sport={activitySport} size={32} /> : getDisciplineIcon(null)}
@@ -194,12 +197,6 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
       {/* AI 요약 — 생성된 활동에만 (비정규화 aiSummaryPreview ko/en). 카드 자체 패딩(16) 안이라 inset=false */}
       {(activity.aiSummaryPreview || activity.aiSummaryPreview_en) &&
         <ActivityAiSummary summary={activity.aiSummaryPreview} summaryEn={activity.aiSummaryPreview_en} inset={false} />}
-
-      {/* Map thumbnail — 카드 콘텐츠 padding(16) 음수마진으로 상쇄해 화면 전폭.
-          비율은 데스크톱(ActivityCard)과 동일하게 토큰 --feed-thumb-aspect(index.css 단일
-          진실원, 현재 2.8:1) 사용 — 옛 고정높이(156px)는 기기 폭에 따라 비율이 들쭉날쭉
-          (2.3~3:1)했다. aspectRatio 로 모든 기기에서 데스크톱과 동일 프레임 보장. */}
-      <MobileRouteThumbnail activity={activity} priority={priority} />
 
       {/* 지표의 의미는 유지하고 좁은 화면에서 두 열로 읽는다. */}
       <div className={`mobile-feed-stats${discipline === "run" ? " mobile-feed-stats--run" : ""}`} data-testid={discipline === "run" ? "run-card-primary" : undefined}>
@@ -227,6 +224,12 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
           {(s.averagePower ?? activity.avgPower ?? 0) > 0 && <span style={{ position: "relative", zIndex: 2 }}><GlossaryText>{tActivity("stat.runningPower")}</GlossaryText> · {Math.round(s.averagePower ?? activity.avgPower ?? 0)} <GlossaryText>{"W"}</GlossaryText></span>}
         </div>
       )}
+
+      {/* Map thumbnail — 카드 콘텐츠 padding(16) 음수마진으로 상쇄해 화면 전폭.
+          비율은 데스크톱(ActivityCard)과 동일하게 토큰 --feed-thumb-aspect(index.css 단일
+          진실원, 현재 2.8:1) 사용 — 옛 고정높이(156px)는 기기 폭에 따라 비율이 들쭉날쭉
+          (2.3~3:1)했다. aspectRatio 로 모든 기기에서 데스크톱과 동일 프레임 보장. */}
+      <MobileRouteThumbnail activity={activity} priority={priority} />
 
       {/* 스트라바형 소셜 푸터 — 좋아요(아바타 스택)+댓글. 카드 패딩(16) 음수마진으로 상쇄해
           전폭 상단 구분선, 내부는 footer 자체 px-4 로 콘텐츠와 정렬 (지도 썸네일과 동일 기법). */}

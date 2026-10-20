@@ -321,7 +321,7 @@ export default function ActivityCard({
                   {getDiscipline(activity.type) && <DisciplineBadge discipline={getDiscipline(activity.type)!} indoor={isIndoorActivity(activity)} />}
                   <span className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-2)' }}>{timeAgo(activity.startTime)}</span>
                 </div>
-                <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: 'var(--ink-2)' }}>{formatDate(activity.startTime, localeTag())}</div>
+                <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: 'var(--ink-2)' }}>{formatDate(activity.startTime, localeTag())}{activity.sourceMeta?.deviceModel?.trim() && <span>{` · ${activity.sourceMeta.deviceModel.trim()}`}</span>}{activity.regionName?.trim() && <span>{` · ${activity.regionName.trim()}`}</span>}</div>
               </div>
             </div>
           )}
