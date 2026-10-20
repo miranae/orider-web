@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { ImageDown } from "lucide-react";
 import { Button } from "../../../theme/components";
 import { logClientError } from "../../../services/errorLogger";
 import { track } from "../../../services/analytics";
@@ -8,6 +9,7 @@ import { ActivityShareMapCapture, type ActivityShareMapCaptureHandle } from "./A
 
 type Props = {
   compact?: boolean;
+  menuItem?: boolean;
   card: ActivityShareCardInput;
   filename: string;
   url: string;
@@ -17,7 +19,7 @@ type Props = {
   onFeedback: (message: string) => void;
 };
 
-export function ActivityShareButton({ compact = false, card, filename, url, activityId, visibility, routeTrack, onFeedback }: Props) {
+export function ActivityShareButton({ compact = false, menuItem = false, card, filename, url, activityId, visibility, routeTrack, onFeedback }: Props) {
   const { t } = useTranslation("activity");
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
@@ -95,14 +97,16 @@ export function ActivityShareButton({ compact = false, card, filename, url, acti
       <ActivityShareMapCapture ref={mapCapture} enabled={card.includeRouteImage} track={routeTrack} />
       <Button
         type="button"
-        variant="secondary"
+        variant={menuItem ? "ghost" : "secondary"}
+        className={menuItem ? "activity-management-row" : undefined}
+        leadingIcon={menuItem ? <ImageDown size={18} aria-hidden="true" /> : undefined}
         size="sm"
         disabled={busy}
         aria-busy={busy}
         aria-label={busy ? t("page.share.generating") : t("page.share.button")}
         onClick={() => void handleShare()}
       >
-        {busy ? t("page.share.generating") : compact ? t("detail.shareShort") : t("page.share.button")}
+        {busy ? t("page.share.generating") : compact || menuItem ? t("detail.shareShort") : t("page.share.button")}
       </Button>
     </>
   );

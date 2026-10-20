@@ -214,10 +214,12 @@ describe("ActivityPage", () => {
     expect(screen.getByTestId("departure-state")).toHaveTextContent("tab=analysis");
   });
   it("uses four main tabs and keeps owner actions inside the management dialog", async () => {
-    const activity = createMockActivity({ id: "test-activity", userId: "test-uid" });
+    const activity = createMockActivity({ id: "test-activity", userId: "test-uid", source: "strava", stravaActivityId: 12345 });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     renderWithProviders(<ActivityPage />, { authenticated: true });
     await screen.findByRole("tab", { name: "비교" });
+    expect(screen.queryByText("share-card")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Strava에서 확인" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("tab").map(tab => tab.textContent)).toEqual(["개요", "분석", "구간", "비교"]);
     expect(screen.queryByRole("tab", { name: "내보내기" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "활동 관리" }));
@@ -225,6 +227,8 @@ describe("ActivityPage", () => {
     expect(menu.getByRole("link", { name: "활동 정보 편집" })).toHaveAttribute("href", "/ko/activity/test-activity/edit");
     expect(menu.getByRole("button", { name: "내보내기" })).toBeInTheDocument();
     expect(menu.getByRole("button", { name: "삭제" })).toBeInTheDocument();
+    expect(menu.getByText("share-card")).toBeInTheDocument();
+    expect(menu.getByRole("link", { name: "Strava에서 확인" })).toHaveAttribute("href", "https://www.strava.com/activities/12345");
   });
   it.each([false, true])("moves owner comparison out of overview when overview enabled=%s", async (enabled) => {
     mockRoute.activityId = `growth-placement-${enabled}`;
@@ -535,6 +539,7 @@ describe("ActivityPage", () => {
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     shareButtonProps.mockClear();
     renderWithProviders(<ActivityPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "활동 관리" }));
     await screen.findByText("share-card");
     expect(shareButtonProps).toHaveBeenCalledWith(expect.objectContaining({
       activityId: "test-activity",
@@ -564,6 +569,7 @@ describe("ActivityPage", () => {
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     shareButtonProps.mockClear();
     renderWithProviders(<ActivityPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "활동 관리" }));
     await screen.findByText("share-card");
     expect(shareButtonProps).toHaveBeenLastCalledWith(expect.objectContaining({
       card: expect.objectContaining({
@@ -619,6 +625,7 @@ describe("ActivityPage", () => {
       authenticated: true,
       user: { uid: "user-1" },
     });
+    fireEvent.click(await screen.findByRole("button", { name: "활동 관리" }));
     await waitFor(() => {
       const latest = shareButtonProps.mock.calls.at(-1)?.[0] as {
         card?: { performanceMetrics?: Array<{ label: string; value: string; unit?: string }> };
@@ -670,6 +677,7 @@ describe("ActivityPage", () => {
       authenticated: true,
       user: { uid: "user-1" },
     });
+    fireEvent.click(await screen.findByRole("button", { name: "활동 관리" }));
     await waitFor(() => {
       const latest = shareButtonProps.mock.calls.at(-1)?.[0] as {
         card?: { performanceMetrics?: Array<{ label: string; value: string; unit?: string }> };
@@ -758,9 +766,11 @@ describe("ActivityPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     await waitFor(() => expect(stats).toHaveTextContent("평균 파워250W"));
     const latestShareMetrics = () => {
+      fireEvent.click(screen.getByRole("button", { name: "활동 관리" }));
       const latest = shareButtonProps.mock.calls.at(-1)?.[0] as {
         card?: { performanceMetrics?: Array<{ label: string; value: string; unit?: string }> };
       } | undefined;
+      fireEvent.keyDown(screen.getByRole("dialog", { name: "활동 관리" }), { key: "Escape" });
       return latest?.card?.performanceMetrics ?? [];
     };
     expect(latestShareMetrics()).toEqual(expect.arrayContaining([
@@ -861,9 +871,11 @@ describe("ActivityPage", () => {
     });
     mockVirtualPowerStream.mockReturnValue(Array(60).fill(250));
     const latestShareMetrics = () => {
+      fireEvent.click(screen.getByRole("button", { name: "활동 관리" }));
       const latest = shareButtonProps.mock.calls.at(-1)?.[0] as {
         card?: { performanceMetrics?: Array<{ label: string; value: string }> };
       } | undefined;
+      fireEvent.keyDown(screen.getByRole("dialog", { name: "활동 관리" }), { key: "Escape" });
       return latest?.card?.performanceMetrics ?? [];
     };
     const view = renderWithProviders(<ActivityPage />, { authenticated: true });

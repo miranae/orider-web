@@ -1,4 +1,4 @@
-import { ArrowLeftRight, BarChart3, ChevronDown, Layers, Route, Settings2, Trophy } from "lucide-react";
+import { ArrowLeftRight, BarChart3, ChevronDown, Layers, Route, Menu, Trophy } from "lucide-react";
 import SportIcon from "../components/common/SportIcon";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from "react";
@@ -59,7 +59,7 @@ import StravaSummaryPublishing from "../components/activity/StravaSummaryPublish
 import SegmentEffortsCard from "../components/activity/SegmentEffortsCard";
 import { segmentHistoryPath } from "../features/segments/segmentHistoryNavigation";
 import { logClientError } from "../services/errorLogger";
-import { Button, Card, Text, buttonClass } from "../theme/components";
+import { Button, Card, IconButton, Text, buttonClass } from "../theme/components";
 import { ErrorState } from "../components/redesign";
 import { formatDuration, formatTime, type SegmentEffortData } from "../features/activity/detail/activityDetailUtils";
 import { ActivityStatsGrid, hasSecondaryActivityStats } from "../features/activity/detail/ActivityStatsGrid";
@@ -1017,71 +1017,67 @@ export default function ActivityPage() {
             ) : <Text data-testid="D1-0" as="h1" variant="pageTitle">{activity.description || tCommon(getSportLabelKey(activity.type))}</Text>}
             <div className="flex flex-col items-start gap-2 mt-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
               <span className="text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)', wordBreak: "keep-all", lineHeight: 1.5 }}>{formatFullDate(activity.startTime)}</span>
-              {isStrava && stravaActivityUrl && (
-                <a
-                  href={stravaActivityUrl}
-                  referrerPolicy="no-referrer"
-                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[length:var(--fs-sm)] font-bold text-[#FC4C02] hover:underline"
-                >
-                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
-                  </svg>
-                  View on Strava
-                </a>
-              )}
             </div>
 
           </div>
         </div>
-            <div className="activity-detail-utilities">
-            <div data-testid="D1-7">
-              <ActivityShareButton
-                compact
-                card={{
-                  title: activity.description || tCommon(getSportLabelKey(activity.type)),
-                  athlete: activity.nickname,
-                  sport: tCommon(getSportLabelKey(activity.type)),
-                  date: formatFullDate(activity.startTime),
-                  distance: Number.isFinite(s.distance) ? `${distVal(s.distance)} ${distUnit}` : "—",
-                  duration: Number.isFinite(s.ridingTimeMillis) ? formatDuration(s.ridingTimeMillis) : "—",
-                  elevation: Number.isFinite(s.elevationGain) ? `${elevVal(s.elevationGain)} ${elevUnit}` : "—",
-                  distanceLabel: t("stat.distance"),
-                  durationLabel: t("stat.time"),
-                  elevationLabel: t("stat.elev"),
-                  elevationProfileLabel: t("page.share.elevationProfile"),
-                  performanceLabel: t("page.share.performanceLabel"),
-                  footer: t("page.share.footer"),
-                  backgroundImageUrl: activity.mapImageUrl,
-                  includeRouteImage: activity.visibility === "everyone",
-                  performanceMetrics: sharePerformanceMetrics,
-                  elevationProfile: streams?.altitude?.length && streams.altitude.length >= 2 ? elevData : [],
-                  weather: activity.weather,
-                }}
-                filename={`orider-activity-${activity.id}.png`}
-                url={window.location.href}
-                activityId={activity.id}
-                visibility={activity.visibility}
-                routeTrack={activity.visibility === "everyone" ? activity.thumbnailTrack : null}
-                onFeedback={showToast}
-              />
-              {activity.visibility !== "everyone" && (
-                <span className="ml-2 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
-                  {t("page.share.routeHidden")}
-                </span>
-              )}
-            </div>
-            {user?.uid === activity.userId ? <Button variant="ghost" size="sm" onClick={() => setOpenManagementScope(managementScope)} leadingIcon={<Settings2 size={16} aria-hidden="true" />}>{t("page.management.title")}</Button>
-              : <Button data-testid="D1-0-M5" variant="ghost" size="sm" onClick={() => { setShowExport(true); if (!streamsSignInRequired) requestStreams(); }}>{t("tab.export")}</Button>}
-            </div>
+        <IconButton
+          aria-label={t("page.management.title")}
+          title={t("page.management.title")}
+          aria-haspopup="dialog"
+          aria-expanded={openManagementScope === managementScope}
+          onClick={() => setOpenManagementScope(managementScope)}
+          icon={<Menu size={20} aria-hidden="true" />}
+        />
       </Card>
 
-      {user?.uid === activity.userId && <ActivityManagementModal key={managementScope}
+      <ActivityManagementModal key={managementScope}
         open={openManagementScope === managementScope} activityId={activity.id} visibility={activity.visibility}
+        canManage={isActivityOwner}
+        stravaActivityUrl={isStrava ? stravaActivityUrl : null}
+        shareAction={
+          <div data-testid="D1-7">
+            <ActivityShareButton
+              menuItem
+              card={{
+                title: activity.description || tCommon(getSportLabelKey(activity.type)),
+                athlete: activity.nickname,
+                sport: tCommon(getSportLabelKey(activity.type)),
+                date: formatFullDate(activity.startTime),
+                distance: Number.isFinite(s.distance) ? `${distVal(s.distance)} ${distUnit}` : "—",
+                duration: Number.isFinite(s.ridingTimeMillis) ? formatDuration(s.ridingTimeMillis) : "—",
+                elevation: Number.isFinite(s.elevationGain) ? `${elevVal(s.elevationGain)} ${elevUnit}` : "—",
+                distanceLabel: t("stat.distance"),
+                durationLabel: t("stat.time"),
+                elevationLabel: t("stat.elev"),
+                elevationProfileLabel: t("page.share.elevationProfile"),
+                performanceLabel: t("page.share.performanceLabel"),
+                footer: t("page.share.footer"),
+                backgroundImageUrl: activity.mapImageUrl,
+                includeRouteImage: activity.visibility === "everyone",
+                performanceMetrics: sharePerformanceMetrics,
+                elevationProfile: streams?.altitude?.length && streams.altitude.length >= 2 ? elevData : [],
+                weather: activity.weather,
+              }}
+              filename={`orider-activity-${activity.id}.png`}
+              url={window.location.href}
+              activityId={activity.id}
+              visibility={activity.visibility}
+              routeTrack={activity.visibility === "everyone" ? activity.thumbnailTrack : null}
+              onFeedback={showToast}
+            />
+            {activity.visibility !== "everyone" && (
+              <span className="ml-2 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
+                {t("page.share.routeHidden")}
+              </span>
+            )}
+          </div>
+        }
         onClose={() => setOpenManagementScope(null)}
         onExport={() => { setOpenManagementScope(null); setShowExport(true); if (!streamsSignInRequired) requestStreams(); }}
         onDelete={() => { setOpenManagementScope(null); void handleDeleteActivity(); }}
         onVisibilityChange={handleVisibilityChange}
-      />}
+      />
 
       {/* ── 탭 네비게이션 ── */}
       <div className="activity-detail-navigation" ref={activityNavigationRef}>
