@@ -68,7 +68,7 @@ describe("ActivityShareButton", () => {
     Object.defineProperty(navigator, "share", { value: share, configurable: true });
     Object.defineProperty(navigator, "canShare", { value: canShare, configurable: true });
 
-    render(<ActivityShareButton {...props} />);
+    render(<ActivityShareButton {...props} menuItem />);
     fireEvent.click(screen.getByRole("button"));
 
     await waitFor(() => expect(cardModule.downloadShareCard).toHaveBeenCalledWith(blob, "ride.png"));

@@ -342,8 +342,12 @@ it("closes management immediately when the authenticated owner changes", async (
   fireEvent.click(await screen.findByRole("button", { name: "활동 관리" }));
   act(() => simulateLogin({ uid: "different-user", displayName: "Other" }));
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "활동 관리" })).not.toBeInTheDocument());
-  expect(screen.queryByRole("button", { name: "활동 관리" })).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "내보내기" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "활동 관리" }));
+  const menu = within(screen.getByRole("dialog", { name: "활동 관리" }));
+  expect(menu.getByRole("button", { name: "내보내기" })).toBeInTheDocument();
+  expect(menu.queryByRole("link", { name: "활동 정보 편집" })).not.toBeInTheDocument();
+  expect(menu.queryByRole("radio")).not.toBeInTheDocument();
+  expect(menu.queryByRole("button", { name: "삭제" })).not.toBeInTheDocument();
 });
 
 it("does not let an open management dialog change its target activity", async () => {
