@@ -171,7 +171,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
           <Text as="div" variant="caption" tone="tertiary" className="mobile-feed-activity-metadata"><time dateTime={timestamp?.iso}>{occurredAt}</time>{device && <span>{`·\u00a0${device}`}</span>}</Text>
         </div>
         <span className="mobile-feed-card-sport" role="img" aria-label={activitySportLabel}>
-          {activitySport ? <HomeActivitySportIcon sport={activitySport} size={40} /> : getDisciplineIcon(null)}
+          {activitySport ? <HomeActivitySportIcon sport={activitySport} size={32} /> : getDisciplineIcon(null)}
         </span>
         <Text as="h3" variant="subtitle" weight={600} tone="primary" className="mobile-feed-activity-title">
           {activity.description || t("mobileFeed.defaultActivity")}
