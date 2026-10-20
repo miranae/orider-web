@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus, Search } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import {
   Button, IconButton, Checkbox, Card, Section, Select, Field, Input, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
   Chip, ChartRangeControls, type ChartRangeMode, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
@@ -250,6 +250,7 @@ function ControlsCatalog() {
             </div>)}
           </div>
           <div className="catalog-size-row"><Text variant="label">크기</Text><Button size="sm" onClick={() => setMessage('작은 크기 · 콘텐츠 옆 도구입니다.')}>작게</Button><Button size="md" onClick={() => setMessage('기본 크기 · 일반 동작입니다.')}>기본</Button><Button size="lg" onClick={() => setMessage('큰 크기 · 넉넉한 조작 영역을 제공합니다.')}>크게</Button><Text variant="bodySmall" tone="tertiary">인접한 대안은 같은 크기 · 위계는 variant로 구분</Text></div>
+          <div className="catalog-size-row"><Text variant="label">보조 필터 도구</Text><IconButton size="compact" icon={<SlidersHorizontal />} aria-label="필터 예시" onClick={() => setMessage('필터 예시를 열었습니다.')} /><IconButton size="compact" indicator icon={<SlidersHorizontal />} aria-label="필터 예시: 러닝 적용됨" onClick={() => setMessage('러닝 필터가 적용된 예시입니다.')} /><Text variant="bodySmall" tone="tertiary">36px 표면 · 18px 아이콘 · 44px 터치 영역 · 적용 상태 점</Text></div>
           <p className="catalog-feedback" role="status">{message}</p>
         </section>
 
@@ -273,16 +274,16 @@ function ControlsCatalog() {
         </section>
 
         <section id="sport-icons" className="catalog-section">
-          <div className="catalog-section-heading"><Text as="h2" variant="title">종목 아이콘</Text><Text as="p" variant="body" tone="tertiary">기본 측면과 활동 피드의 뒤쪽 사선 시점을 실제 표시 크기로 비교합니다. 모두 현재 글자색을 따르며 종목을 구분하는 보조 표시입니다.</Text></div>
+          <div className="catalog-section-heading"><Text as="h2" variant="title">종목 아이콘</Text><Text as="p" variant="body" tone="tertiary">홈을 포함한 모든 화면의 기본 Material 종목 아이콘을 실제 표시 크기로 비교합니다. 모두 현재 글자색을 따르며 종목을 구분하는 보조 표시입니다.</Text></div>
           {(['bike', 'run', 'swim'] as const).map(sport => <div key={sport} className="catalog-example-row">
-            <div className="catalog-example-note"><Text as="h3" variant="subtitle">{sport === 'bike' ? '사이클' : sport === 'run' ? '러닝' : '수영'}</Text><code>SportIcon · perspective</code></div>
-            <div className="catalog-sport-icon-samples">{(['side', 'rear'] as const).map(perspective => <div key={perspective} className="catalog-sport-icon-view">
-              <Text as="p" variant="caption" tone="tertiary">{perspective === 'side' ? '기본 측면' : '뒤쪽 사선 · 피드'}</Text>
+            <div className="catalog-example-note"><Text as="h3" variant="subtitle">{sport === 'bike' ? '사이클' : sport === 'run' ? '러닝' : '수영'}</Text><code>SportIcon · Material Symbols Rounded</code></div>
+            <div className="catalog-sport-icon-samples"><div className="catalog-sport-icon-view">
+              <Text as="p" variant="caption" tone="tertiary">기본 측면</Text>
               <div className="catalog-sport-icon-sizes">{([18, 24, 32] as const).map(size => <figure key={size} className="catalog-sport-icon-sample">
-                <SportIcon sport={sport} perspective={perspective} size={size} />
+                <SportIcon sport={sport} size={size} />
                 <Text as="figcaption" variant="caption" tone="tertiary">{size}px</Text>
               </figure>)}</div>
-            </div>)}</div>
+            </div></div>
           </div>)}
         </section>
 
