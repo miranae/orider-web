@@ -42,6 +42,20 @@ const activity = {
 describe("ActivitySocialFooter callable mutations", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it("keeps feed totals and pressed state consistent when a kudos write fails", async () => {
+    mocks.setKudos.mockRejectedValueOnce(new Error("blocked"));
+    renderWithProviders(<ActivitySocialFooter activity={activity} presentation="feed" />);
+    const button = screen.getByRole("button", { name: "좋아요" });
+    expect(screen.getByText("좋아요 3")).toBeVisible();
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(button);
+    expect(screen.getByText("좋아요 4")).toBeVisible();
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(screen.getByText("좋아요 3")).toBeVisible());
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(mocks.setKudos).toHaveBeenCalledWith("a1", true);
+  });
+
   it("rolls back optimistic kudos when the callable rejects", async () => {
     mocks.setKudos.mockRejectedValueOnce(new Error("blocked"));
     renderWithProviders(<ActivitySocialFooter activity={activity} />);

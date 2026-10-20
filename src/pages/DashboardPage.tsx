@@ -5,7 +5,7 @@ import GlossaryText from "../components/common/GlossaryText";
 import InfoTip from "../components/InfoTip";
 import { GlossaryProvider } from "../components/common/GlossaryProvider";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { Search, X } from "lucide-react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useSearchParams } from "react-router-dom";
@@ -46,7 +46,6 @@ import { canonicalKpiPresentation, canonicalKpiSource, canonicalWeekTotals } fro
 import { useDashboardPreferences } from "../hooks/useDashboardPreferences";
 import { selectStoredDashboardFitness } from "../features/home/storedDashboardFitness";
 import HomeTodayStrip from "../components/dashboard/HomeTodayStrip";
-import HomeUpcomingEvents from "../components/dashboard/HomeUpcomingEvents";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import { useMobile } from "../hooks/useMobile";
 import { Button, Card, Chip, Input, Text, buttonClass } from "../theme/components";
@@ -218,11 +217,15 @@ function DashboardContent() {
     user?.uid ?? null,
     authLoading,
   );
+  const [searchParams, setSearchParams] = useSearchParams();
+  const scopeParam = searchParams.get("scope");
+  const dateParam = searchParams.get("date");
+  const mobileDatePreset = dateParam === "all" || dateParam === "7d" || dateParam === "30d" || dateParam === "90d" ? dateParam : dashboardPreferences.datePreset;
   const { units } = useLocale();
   const isMobile = useMobile(1024);
   const { friends } = useFriends();
   const friendIds = useMemo(() => new Set(friends.map((friend) => friend.userId)), [friends]);
-  const feedScope: ActivityFeedScope = user ? dashboardPreferences.feedScope : "all";
+  const feedScope: ActivityFeedScope = user ? (scopeParam === "all" || scopeParam === "friends" || scopeParam === "self" ? scopeParam : dashboardPreferences.feedScope) : "all";
   const feedFilter = ({ all: 0, friends: 1, self: 2 } as const)[feedScope];
   const { activities, loading, loadMore, hasMore, loadingMore, totalCount, error: feedError, retry: retryFeed } = useActivities(feedScope, [...friendIds]);
   // 정본(서버 집계) 홈 요약 — `homeSummary` 서버 전환 판정 AND 빌드 플래그 뒤에 있다.
@@ -231,11 +234,17 @@ function DashboardContent() {
   const canonicalFitness = useCanonicalFitnessSummary("homeSummary", !isMobile);
   const activitySearch = useActivitySearch(friendIds);
 
-  const [searchParams, setSearchParams] = useSearchParams();
+  const queryParam = searchParams.get("q")?.trim() ?? "";
+  const { search: searchActivities, reset: resetActivitySearch } = activitySearch;
+  useEffect(() => {
+    setSearchInput(queryParam);
+    if (queryParam) searchActivities(queryParam, mobileDatePreset);
+    else resetActivitySearch();
+  }, [queryParam, mobileDatePreset, searchActivities, resetActivitySearch]);
   const sportParam = searchParams.get("sport");
   const parsedDiscipline = normalizeDashboardDiscipline(sportParam);
   const requestedDiscipline = parsedDiscipline === "swim" ? "bike" : parsedDiscipline;
-  const mobileSportFilter = parsedDiscipline === "tri" ? "all" : parsedDiscipline ?? dashboardPreferences.sportFilter;
+  const mobileSportFilter = sportParam === "all" || parsedDiscipline === "tri" ? "all" : parsedDiscipline ?? dashboardPreferences.sportFilter;
   const discipline: Discipline = isMobile ? (mobileSportFilter === "all" ? "tri" : mobileSportFilter) : requestedDiscipline ?? "bike";
   const selectedDiscipline = isMobile ? mobileSportFilter : discipline;
   const runStats = useWeeklyStats({
@@ -328,6 +337,9 @@ function DashboardContent() {
   const handleSearchReset = () => {
     setSearchInput("");
     activitySearch.reset();
+    const next = new URLSearchParams(searchParams);
+    next.delete("q");
+    setSearchParams(next);
   };
 
   const userName = profile?.nickname || user?.displayName || t("header.defaultName");
@@ -572,7 +584,6 @@ function DashboardContent() {
   if (isMobile) {
     return (
       <MobileFeedPage
-        notices={user && !user.isAnonymous ? <HomeUpcomingEvents compact /> : null}
         activitySearch={activitySearch}
         runningJourney={runningJourney}
         activities={activities}
@@ -586,19 +597,8 @@ function DashboardContent() {
         currentUserId={user?.uid ?? null}
         friendIds={[...friendIds]}
         feedScope={feedScope}
-        onFeedScopeChange={(scope) => updateDashboardPreferences({ feedScope: scope })}
         sportFilter={mobileSportFilter}
-        onSportFilterChange={(sportFilter) => {
-          updateDashboardPreferences({ sportFilter });
-          if (requestedDiscipline) {
-            const next = new URLSearchParams(searchParams);
-            if (sportFilter === "all") next.delete("sport");
-            else next.set("sport", sportFilter);
-            setSearchParams(next);
-          }
-        }}
-        datePreset={dashboardPreferences.datePreset}
-        onDatePresetChange={(datePreset) => updateDashboardPreferences({ datePreset })}
+        datePreset={mobileDatePreset}
       />
     );
   }

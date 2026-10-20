@@ -7,8 +7,7 @@ import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { createMockActivity, createMockSummary } from "../../__tests__/fixtures/mockData";
 import { getCanonicalMapThumbnailFileName, isCanonicalMapThumbnailUrl } from "../activity/ActivityRouteThumbnail";
 import { useActivitySearch } from "../../hooks/useActivities";
-import HomeUpcomingEvents from "../dashboard/HomeUpcomingEvents";
-import { setCallableImplementation, setCollectionDocs } from "../../__tests__/mocks/firebase";
+import { setCollectionDocs } from "../../__tests__/mocks/firebase";
 import { getDocs, startAfter, where } from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { AuthContextProvider } from "../../contexts/AuthContext";
@@ -30,55 +29,28 @@ vi.mock("../activity/ActivitySocialFooter", () => ({
   default: () => null,
 }));
 
-async function openFilters(user: ReturnType<typeof userEvent.setup>) {
-  if (!screen.queryByRole("combobox", { name: "활동 종목 필터" })) await user.click(screen.getByRole("button", { name: /^필터/, expanded: false }));
-  return screen.getByRole("combobox", { name: "활동 종목 필터" });
-}
+let externalSearch: ReturnType<typeof useActivitySearch>;
 
-async function openSearch(user: ReturnType<typeof userEvent.setup>) {
-  await openFilters(user);
-  return screen.getByRole("textbox", { name: "활동 검색..." });
-}
-
-async function submitSearch(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("textbox", { name: "활동 검색..." }));
-  await user.keyboard("{Enter}");
+async function searchFromMenu(keyword: string) {
+  await act(async () => { externalSearch.search(keyword); });
 }
 
 describe("MobileFeedPage", () => {
-  it("opens one filter panel, keeps applied search context when closed and restores its input on reopen", async () => {
-    const user = userEvent.setup();
-    setCollectionDocs("activities", []);
+  it("consumes external search without duplicating query controls and follows its external reset", async () => {
+    setCollectionDocs("activities", [{ id: "match", ...createMockActivity({ id: "match", description: "설레임 검색 결과" }) }]);
     function Feed() {
       const search = useActivitySearch(new Set());
-      return <MobileFeedPage activities={[]} activitySearch={search} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} />;
+      externalSearch = search;
+      return <MobileFeedPage activities={[]} activitySearch={search} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="all" />;
     }
     renderWithProviders(<Feed />);
-    const trigger = screen.getByRole("button", { name: "필터" });
-    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await searchFromMenu("설레임");
+    expect(await screen.findByText("설레임 검색 결과")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
-    const input = await openSearch(user);
-    expect(input).toHaveFocus();
-    expect(screen.getByRole("button", { name: "검색" })).toBeDisabled();
-    expect(document.getElementById(trigger.getAttribute("aria-controls")!)).toContainElement(input);
-    expect(screen.getByRole("combobox", { name: "활동 종목 필터" })).toHaveValue("all");
-    await user.keyboard("{Escape}");
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(trigger).toHaveFocus();
-    fireEvent.change(await openSearch(user), { target: { value: "설레임" } });
-    await user.click(screen.getByRole("button", { name: "검색" }));
-    await screen.findByText("검색 결과가 없어요");
-    await user.click(trigger);
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(trigger).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByText("검색: 설레임", { selector: "p" })).toBeInTheDocument();
-    expect(await openSearch(user)).toHaveValue("설레임");
-    await user.click(screen.getByRole("button", { name: "검색 초기화" }));
-    expect(screen.getByRole("textbox", { name: "활동 검색..." })).toHaveValue("");
-    await user.click(trigger);
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(trigger).toHaveFocus();
+    expect(screen.queryByRole("button", { name: /필터|검색 초기화/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("검색: 설레임")).not.toBeInTheDocument();
+    await act(async () => { externalSearch.reset(); });
+    expect(screen.queryByText("설레임 검색 결과")).not.toBeInTheDocument();
   });
 
   it("shows the activity occurrence timestamp and its persisted device without a relative-age label", () => {
@@ -109,76 +81,16 @@ describe("MobileFeedPage", () => {
     expect(time?.parentElement).toHaveTextContent("활동 시각 미확인");
     expect(time?.parentElement).not.toHaveTextContent("·");
   });
-  it("keeps one schedule query across first-record, filter, loading and search transitions", async () => {
-    const user = userEvent.setup();
-    const scheduleRead = vi.fn(() => ({ data: { events: [{ eventId: "registered", name: "참가 예정 라이딩", startTime: Date.now() + 86400000 }] } }));
-    setCallableImplementation("listMyRegisteredEvents", scheduleRead);
-    setCollectionDocs("activities", []);
-    const first = createMockActivity({ id: "first", description: "첫 활동" });
-    const second = createMockActivity({ id: "second", description: "다음 활동" });
-    function Feed({ activities, loading = false, sport = "all" }: { activities: typeof first[]; loading?: boolean; sport?: "all" | "run" }) {
-      const search = useActivitySearch(new Set());
-      return <MobileFeedPage activities={activities} activitySearch={search} loading={loading} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} sportFilter={sport} notices={<HomeUpcomingEvents compact />} />;
-    }
-    const view = renderWithProviders(<Feed activities={[first, second]} />, { authenticated: true });
-    const schedule = await screen.findByRole("link", { name: /참가 예정 라이딩/ });
-    expect(schedule).toHaveAttribute("href", "/ko/event/registered");
-    expect(screen.getByText("첫 활동").compareDocumentPosition(schedule) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(schedule.compareDocumentPosition(screen.getByText("다음 활동")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    view.rerender(<Feed activities={[second]} />);
-    view.rerender(<Feed activities={[second]} sport="run" />);
-    expect(screen.getByRole("link", { name: /참가 예정 라이딩/ })).toBeVisible();
-    view.rerender(<Feed activities={[second]} loading />);
-    expect(screen.queryByRole("link", { name: /참가 예정 라이딩/ })).not.toBeInTheDocument();
-    view.rerender(<Feed activities={[second]} />);
-    fireEvent.change(await openSearch(user), { target: { value: "없는검색" } });
-    await submitSearch(user);
-    expect(await screen.findByText("검색 결과가 없어요")).toBeInTheDocument();
-    expect(scheduleRead).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("link", { name: /참가 예정 라이딩/ })).toBe(schedule);
-  });
-  it("prevents duplicate guest sign-in while pending and recovers silently after cancellation", async () => {
-    const user = userEvent.setup();
-    let cancelSignIn!: (reason: Error) => void;
-    const signIn = vi.fn(() => new Promise<void>((_resolve, reject) => { cancelSignIn = reject; }));
-    renderWithProviders(<AuthContextProvider value={{ user: null, profile: null, loading: false, profileLoading: false, signIn, logout: vi.fn() }}>
-      <MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} />
-    </AuthContextProvider>);
-    const login = screen.getByRole("button", { name: "로그인" });
-    await user.click(login);
-    expect(login).toBeDisabled();
-    expect(login).toHaveAttribute("aria-busy", "true");
-    await user.click(login);
-    expect(signIn).toHaveBeenCalledTimes(1);
-    await act(async () => cancelSignIn(signInCancelledError()));
-    expect(login).toBeEnabled();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-  it("reports a genuine guest sign-in failure and allows another attempt", async () => {
-    const user = userEvent.setup();
-    const signIn = vi.fn().mockRejectedValueOnce(new Error("network unavailable")).mockResolvedValueOnce(undefined);
-    renderWithProviders(<AuthContextProvider value={{ user: null, profile: null, loading: false, profileLoading: false, signIn, logout: vi.fn() }}>
-      <MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} />
-    </AuthContextProvider>);
-    const login = screen.getByRole("button", { name: "로그인" });
-    await user.click(login);
-    expect(await screen.findByRole("alert")).toHaveTextContent("로그인에 실패했습니다. 다시 시도해 주세요.");
-    expect(login).toBeEnabled();
-    await user.click(login);
-    expect(signIn).toHaveBeenCalledTimes(2);
-    expect(login).toBeEnabled();
-  });
+
   it("shows public feed controls for an anonymous session rather than owner-only content", async () => {
     const user = userEvent.setup();
     renderWithProviders(<AuthContextProvider value={{ user: { uid: "anonymous", isAnonymous: true } as User, profile: null, loading: false, profileLoading: false, signIn: vi.fn(), logout: vi.fn() }}>
-      <MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="self" onFeedScopeChange={vi.fn()} sportFilter="run" runningJourney={<p>Owner running program</p>} />
+      <MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="self" sportFilter="run" runningJourney={<p>Owner running program</p>} />
     </AuthContextProvider>);
     expect(screen.getByRole("heading", { name: "공개 활동" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "로그인" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "로그인" })).not.toBeInTheDocument();
     expect(screen.queryByText("Owner running program")).not.toBeInTheDocument();
-    await openFilters(user);
-    expect(screen.queryByRole("combobox", { name: "공개 범위" })).not.toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "조회 기간" })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
   it("opens metric help without following the activity overlay or parsing an author's title", async () => {
     const user = userEvent.setup();
@@ -195,38 +107,29 @@ describe("MobileFeedPage", () => {
     expect(screen.getByText("획득고도")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /설명/ })).not.toBeInTheDocument();
   });
-  it("keeps home focused on feed filters without personal weekly totals", async () => {
+  it("keeps home focused on feed results without duplicate controls or weekly totals", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} sportFilter="run" />, { authenticated: true });
+    renderWithProviders(<MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="all" sportFilter="run" />, { authenticated: true });
     expect(screen.getByRole("heading", { name: "활동 피드" })).toBeInTheDocument();
     expect(screen.queryByText(/내 최근 7일/)).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: "활동 종목 필터" })).not.toBeInTheDocument();
-    const filters = await openFilters(user);
-    expect(filters).toHaveValue("run");
-    expect(filters).not.toHaveTextContent(/km|건|—/);
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
-  it("resets search scope and dates while retaining running and the keyword", async () => {
-    const user = userEvent.setup();
-    const changeSport = vi.fn();
-    setCollectionDocs("activities", []);
-    function SearchFeed() {
-      const activitySearch = useActivitySearch(new Set());
-      const [scope, setScope] = useState<"all" | "self" | "friends">("self");
-      return <MobileFeedPage activities={[]} activitySearch={activitySearch} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope={scope} onFeedScopeChange={setScope} sportFilter="run" onSportFilterChange={changeSport} />;
-    }
-    renderWithProviders(<SearchFeed />, { authenticated: true });
-    await user.type(await openSearch(user), "없는러닝");
-    await submitSearch(user);
-    await user.click(await screen.findByRole("button", { name: "범위·기간 초기화" }));
-    expect(screen.getByRole("textbox", { name: "활동 검색..." })).toHaveValue("없는러닝");
-    await openFilters(user);
-    expect(screen.getByRole("combobox", { name: "활동 종목 필터" })).toHaveValue("run");
-    expect(changeSport).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "범위·기간 초기화" })).not.toBeInTheDocument();
-    await openFilters(user);
-    expect(screen.getByRole("combobox", { name: "공개 범위" })).toHaveValue("all");
-    expect(screen.getByRole("combobox", { name: "조회 기간" })).toHaveValue("all");
+  it("applies externally controlled date and sport conditions without adding duplicate controls", () => {
+    const recent = createMockActivity({ id: "run-recent", type: "run", description: "최근 러닝", startTime: Date.now() - 86400000 });
+    const old = createMockActivity({ id: "run-old", type: "run", description: "이전 러닝", startTime: Date.now() - 30 * 86400000 });
+    const bike = createMockActivity({ id: "bike", description: "최근 사이클" });
+    const props = { activities: [recent, old, bike], loading: false, hasMore: false, loadingMore: false, onLoadMore: vi.fn(), feedScope: "all" as const, onFeedScopeChange: vi.fn() };
+    const view = renderWithProviders(<MobileFeedPage {...props} sportFilter="run" datePreset="7d" />);
+    expect(screen.getByText("최근 러닝")).toBeInTheDocument();
+    expect(screen.queryByText("이전 러닝")).not.toBeInTheDocument();
+    expect(screen.queryByText("최근 사이클")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    view.rerender(<MobileFeedPage {...props} sportFilter="all" datePreset="all" />);
+    expect(screen.getByText("이전 러닝")).toBeInTheDocument();
+    expect(screen.getByText("최근 사이클")).toBeInTheDocument();
   });
+
   it("searches the server for 설레임 even when the activity is outside the loaded feed", async () => {
     const user = userEvent.setup();
     setCollectionDocs("activities", [
@@ -237,17 +140,17 @@ describe("MobileFeedPage", () => {
 
     function SearchFeed() {
       const activitySearch = useActivitySearch(new Set());
+      externalSearch = activitySearch;
       return <MobileFeedPage activities={[]} activitySearch={activitySearch} loading={false} hasMore={false}
-        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} />;
+        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" />;
     }
     renderWithProviders(<SearchFeed />);
 
-    await user.type(await openSearch(user), "설레임");
-    await submitSearch(user);
+    await searchFromMenu("설레임");
 
     expect(await screen.findByText("설레임 첫 라이딩")).toBeInTheDocument();
     expect(searchWhere).toHaveBeenCalledWith("keywords", "array-contains", "설레임");
-    await user.click(screen.getByRole("button", { name: "검색 초기화" }));
+    await act(async () => { externalSearch.reset(); });
     expect(screen.queryByText("설레임 첫 라이딩")).not.toBeInTheDocument();
   });
   it("pages already loaded all-period activities in groups of 20", async () => {
@@ -255,18 +158,14 @@ describe("MobileFeedPage", () => {
     const onLoadMore = vi.fn();
     const activities = Array.from({ length: 45 }, (_, index) => createMockActivity({ id: `loaded-${index}`, description: `기존 활동 ${index}` }));
     renderWithProviders(<MobileFeedPage activities={activities} loading={false} hasMore={false} loadingMore={false}
-      onLoadMore={onLoadMore} feedScope="all" onFeedScopeChange={vi.fn()} />);
+      onLoadMore={onLoadMore} feedScope="all" />);
     expect(screen.getByText("기존 활동 19")).toBeInTheDocument();
     expect(screen.queryByText("기존 활동 20")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "더 보기" }));
     expect(screen.getByText("기존 활동 39")).toBeInTheDocument();
     expect(screen.queryByText("기존 활동 40")).not.toBeInTheDocument();
     expect(onLoadMore).not.toHaveBeenCalled();
-    await openFilters(user);
-    await user.selectOptions(screen.getByRole("combobox", { name: "조회 기간" }), "7d");
-    await user.selectOptions(screen.getByRole("combobox", { name: "조회 기간" }), "all");
-    expect(screen.getByText("기존 활동 19")).toBeInTheDocument();
-    expect(screen.queryByText("기존 활동 20")).not.toBeInTheDocument();
+
   });
 
   it("shows only 20 matching activities until more is clicked", async () => {
@@ -281,13 +180,13 @@ describe("MobileFeedPage", () => {
 
     function SearchFeed() {
       const activitySearch = useActivitySearch(new Set());
+      externalSearch = activitySearch;
       return <MobileFeedPage activities={[]} activitySearch={activitySearch} loading={false} hasMore={false}
-        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} />;
+        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" />;
     }
     renderWithProviders(<SearchFeed />);
 
-    await user.type(await openSearch(user), "설레임");
-    await submitSearch(user);
+    await searchFromMenu("설레임");
 
     expect(await screen.findByText("설레임 활동 19")).toBeInTheDocument();
     expect(screen.queryByText("설레임 활동 20")).not.toBeInTheDocument();
@@ -304,13 +203,13 @@ describe("MobileFeedPage", () => {
 
     function SearchFeed() {
       const activitySearch = useActivitySearch(new Set(["friend-1"]));
+      externalSearch = activitySearch;
       return <MobileFeedPage activities={[friendActivity]} activitySearch={activitySearch} loading={false} hasMore={false}
-        loadingMore={false} onLoadMore={vi.fn()} feedScope="friends" friendIds={["friend-1"]} onFeedScopeChange={vi.fn()} />;
+        loadingMore={false} onLoadMore={vi.fn()} feedScope="friends" friendIds={["friend-1"]} />;
     }
     renderWithProviders(<SearchFeed />, { authenticated: true });
 
-    await user.type(await openSearch(user), "설레임");
-    await submitSearch(user);
+    await searchFromMenu("설레임");
 
     expect(await screen.findByText("설레임 비공개 라이딩")).toBeInTheDocument();
   });
@@ -323,17 +222,17 @@ describe("MobileFeedPage", () => {
 
     function SearchFeed() {
       const activitySearch = useActivitySearch(new Set());
+      externalSearch = activitySearch;
       return <MobileFeedPage activities={[loaded]} activitySearch={activitySearch} loading={false} hasMore={false}
-        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} />;
+        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" />;
     }
     renderWithProviders(<SearchFeed />);
 
-    fireEvent.change(await openSearch(user), { target: { value: "설레임" } });
-    await submitSearch(user);
+    await searchFromMenu("설레임");
     expect(await screen.findByRole("alert")).toHaveTextContent("추가 활동을 불러오지 못했어요");
     expect(screen.getByText("설레임 로드된 라이딩")).toBeInTheDocument();
 
-    await submitSearch(user);
+    await act(async () => { externalSearch.retry(); });
     await waitFor(() => expect(searchRead).toHaveBeenCalledTimes(2));
     expect(screen.getByText("설레임 로드된 라이딩")).toBeInTheDocument();
   });
@@ -351,13 +250,13 @@ describe("MobileFeedPage", () => {
 
     function SearchFeed() {
       const activitySearch = useActivitySearch(new Set());
+      externalSearch = activitySearch;
       return <MobileFeedPage activities={[]} activitySearch={activitySearch} loading={false} hasMore={false}
-        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} sportFilter="run" />;
+        loadingMore={false} onLoadMore={vi.fn()} feedScope="all" sportFilter="run" />;
     }
     renderWithProviders(<SearchFeed />);
 
-    await user.type(await openSearch(user), "설레임");
-    await submitSearch(user);
+    await searchFromMenu("설레임");
     expect(await screen.findByText("더 많은 검색 결과가 있을 수 있어요")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "더 보기" }));
 
@@ -371,7 +270,7 @@ describe("MobileFeedPage", () => {
     renderWithProviders(<MobileFeedPage
       activities={[createMockActivity({ id: "first-ride", description: "첫 활동" })]}
       loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()}
-      feedScope="all" onFeedScopeChange={vi.fn()}
+      feedScope="all"
     />, { authenticated: true });
 
     expect(screen.getByText("첫 활동")).toBeInTheDocument();
@@ -379,27 +278,22 @@ describe("MobileFeedPage", () => {
     expect(screen.queryByText("라이딩 루틴")).not.toBeInTheDocument();
   });
 
-  it("opens recovery filters without dropping the selected running scope", async () => {
-    const user = userEvent.setup();
-    const changeSport = vi.fn();
-    renderWithProviders(<MobileFeedPage activities={[createMockActivity({ type: "ride" })]} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} sportFilter="run" onSportFilterChange={changeSport} />, { authenticated: true });
-    const recovery = within(screen.getByText("조건에 맞는 활동이 없어요").parentElement!).getByRole("button", { name: "필터" });
-    await user.click(recovery);
-    expect(screen.getByRole("combobox", { name: "조회 기간" })).toBeVisible();
-    await openFilters(user);
-    expect(screen.getByRole("combobox", { name: "활동 종목 필터" })).toHaveValue("run");
-    expect(changeSport).not.toHaveBeenCalled();
+  it("keeps a filtered empty state honest until the external sport changes", () => {
+    const activity = createMockActivity({ type: "ride", description: "사이클 활동" });
+    const props = { activities: [activity], loading: false, hasMore: false, loadingMore: false, onLoadMore: vi.fn(), feedScope: "all" as const, onFeedScopeChange: vi.fn() };
+    const view = renderWithProviders(<MobileFeedPage {...props} sportFilter="run" />, { authenticated: true });
     const empty = screen.getByText("조건에 맞는 활동이 없어요").parentElement!;
     expect(empty.querySelector('svg[data-icon="run"]')).toHaveAttribute("aria-hidden", "true");
-    expect(within(empty).queryByText("🚴")).not.toBeInTheDocument();
-
+    expect(within(empty).queryByRole("button", { name: "필터" })).not.toBeInTheDocument();
+    view.rerender(<MobileFeedPage {...props} sportFilter="bike" />);
+    expect(screen.getByText("사이클 활동")).toBeInTheDocument();
   });
 
   it("does not add routine content when a filter has no matching activities", () => {
     renderWithProviders(<MobileFeedPage
       activities={[createMockActivity({ id: "bike-ride", type: "ride" })]}
       loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()}
-      feedScope="all" onFeedScopeChange={vi.fn()} sportFilter="run"
+      feedScope="all" sportFilter="run"
     />, { authenticated: true });
 
     expect(screen.getByText("조건에 맞는 활동이 없어요")).toBeInTheDocument();
@@ -413,15 +307,12 @@ describe("MobileFeedPage", () => {
       createMockActivity({ id: "public-one", description: "공개 라이딩" }),
       createMockActivity({ id: "public-two", description: "공개 러닝", type: "run" }),
     ];
-    renderWithProviders(<MobileFeedPage activities={activities} loading={false} hasMore={false}
-      loadingMore={false} onLoadMore={vi.fn()} feedScope="friends" onFeedScopeChange={vi.fn()} />);
+    const view = renderWithProviders(<MobileFeedPage activities={activities} loading={false} hasMore={false}
+      loadingMore={false} onLoadMore={vi.fn()} feedScope="friends" />);
 
     expect(screen.queryByRole("combobox", { name: "공개 범위" })).not.toBeInTheDocument();
-    await openFilters(user);
-    const dateSelect = screen.getByRole("combobox", { name: "조회 기간" });
     expect(screen.getByText("공개 라이딩")).toBeInTheDocument();
-    await openFilters(user);
-    await user.selectOptions(screen.getByRole("combobox", { name: "활동 종목 필터" }), "run");
+    view.rerender(<MobileFeedPage activities={activities} loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="friends" sportFilter="run" />);
     expect(screen.getByText("공개 러닝")).toBeInTheDocument();
     expect(screen.queryByText("공개 라이딩")).not.toBeInTheDocument();
   });
@@ -430,7 +321,7 @@ describe("MobileFeedPage", () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
     renderWithProviders(<MobileFeedPage activities={[]} loading={false} error onRetry={onRetry} hasMore={false}
-      loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} />);
+      loadingMore={false} onLoadMore={vi.fn()} feedScope="all" />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("활동을 불러오지 못했어요");
     expect(screen.queryByText("아직 활동이 없어요")).not.toBeInTheDocument();
@@ -444,7 +335,7 @@ describe("MobileFeedPage", () => {
     renderWithProviders(<MobileFeedPage
       activities={[createMockActivity({ id: "loaded-ride", description: "먼저 불러온 활동" })]}
       loading={false} error onRetry={onRetry} hasMore={false}
-      loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()}
+      loadingMore={false} onLoadMore={vi.fn()} feedScope="all"
     />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("추가 활동을 불러오지 못했어요");
@@ -457,7 +348,7 @@ describe("MobileFeedPage", () => {
     renderWithProviders(<MobileFeedPage
       activities={[createMockActivity({ id: "loaded-bike", type: "ride", description: "로드된 사이클" })]}
       loading={false} error hasMore={false}
-      loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()}
+      loadingMore={false} onLoadMore={vi.fn()} feedScope="all"
       sportFilter="run"
     />);
 
@@ -468,7 +359,7 @@ describe("MobileFeedPage", () => {
   it("exposes the activity as a keyboard-focusable link without nesting author and social actions", () => {
     const activity = createMockActivity({ id: "keyboard-ride", description: "키보드 라이딩" });
     renderWithProviders(<MobileFeedPage activities={[activity]} loading={false} hasMore={false}
-      loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} />);
+      loadingMore={false} onLoadMore={vi.fn()} feedScope="all" />);
 
     const activityLink = screen.getByRole("link", { name: "키보드 라이딩" });
     expect(activityLink).toHaveAttribute("href", "/ko/activity/keyboard-ride");
@@ -477,7 +368,7 @@ describe("MobileFeedPage", () => {
 
   it("keeps the signed-in mobile Home focused on activity and summary content", () => {
     renderWithProviders(<MobileFeedPage activities={[]} loading={false} hasMore={false}
-      loadingMore={false} onLoadMore={vi.fn()} feedScope="all" onFeedScopeChange={vi.fn()} />, {
+      loadingMore={false} onLoadMore={vi.fn()} feedScope="all" />, {
       authenticated: true, route: "/ko/",
     });
 
@@ -497,7 +388,6 @@ describe("MobileFeedPage", () => {
         loadingMore={false}
         onLoadMore={onLoadMore}
         feedScope="all"
-        onFeedScopeChange={vi.fn()}
       />,
     );
 
@@ -523,7 +413,7 @@ describe("MobileFeedPage", () => {
       summary: createMockSummary({ distance: 10000 }),
     });
 
-    renderWithProviders(
+    const view = renderWithProviders(
       <MobileFeedPage
         activities={[bike, run]}
         loading={false}
@@ -531,23 +421,18 @@ describe("MobileFeedPage", () => {
         loadingMore={false}
         onLoadMore={vi.fn()}
         feedScope="all"
-        onFeedScopeChange={vi.fn()}
       />,
       { authenticated: true },
     );
 
     expect(screen.queryByText("이번 주 요약")).not.toBeInTheDocument();
     expect(screen.queryByText("주간 거리")).not.toBeInTheDocument();
-    const sportFilters = await openFilters(user);
-    expect(within(sportFilters).getAllByRole("option")).toHaveLength(4);
-    expect(sportFilters).toHaveValue("all");
-    await user.selectOptions(sportFilters, "run");
-    expect(sportFilters).toHaveValue("run");
+    view.rerender(<MobileFeedPage activities={[bike, run]} sportFilter="run" loading={false} hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="all" />);
     expect(screen.getByText("공원 러닝")).toBeInTheDocument();
     expect(screen.queryByText("한강 사이클")).not.toBeInTheDocument();
   });
 
-  it.each(["all", "swim"] as const)("keeps the selected %s sport and all four filters inside search", async (sport) => {
+  it.each(["all", "swim"] as const)("keeps the externally selected %s sport in public results", async (sport) => {
     const bike = createMockActivity({
       id: "guest-bike",
       type: "ride",
@@ -568,16 +453,10 @@ describe("MobileFeedPage", () => {
         loadingMore={false}
         onLoadMore={vi.fn()}
         feedScope="all"
-        onFeedScopeChange={vi.fn()}
       />,
     );
 
-    const user = userEvent.setup();
-    const sportFilters = await openFilters(user);
-    expect(within(sportFilters).getAllByRole("option")).toHaveLength(4);
-    expect(sportFilters).toHaveValue(sport);
-
-    expect(within(sportFilters).getByRole("option", { name: "종목수영" })).toBeEnabled();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
 
     expect(screen.getByText("게스트 수영")).toBeInTheDocument();
     if (sport === "all") expect(screen.getByText("게스트 사이클")).toBeInTheDocument();
@@ -602,7 +481,6 @@ describe("MobileFeedPage", () => {
         loadingMore={false}
         onLoadMore={vi.fn()}
         feedScope="all"
-        onFeedScopeChange={vi.fn()}
       />,
       { authenticated },
     );
@@ -629,7 +507,6 @@ describe("MobileFeedPage", () => {
         loadingMore={false}
         onLoadMore={vi.fn()}
         feedScope="all"
-        onFeedScopeChange={vi.fn()}
       />,
     );
 
@@ -651,7 +528,6 @@ describe("MobileFeedPage", () => {
         loadingMore={false}
         onLoadMore={vi.fn()}
         feedScope="all"
-        onFeedScopeChange={vi.fn()}
       />,
       { authenticated: true, user: { uid: activity.userId } },
     );
@@ -675,7 +551,6 @@ describe("MobileFeedPage", () => {
         loadingMore={false}
         onLoadMore={vi.fn()}
         feedScope="all"
-        onFeedScopeChange={vi.fn()}
       />,
       { authenticated: true },
     );
@@ -687,9 +562,8 @@ describe("MobileFeedPage", () => {
     expect(screen.queryByTestId("route-map")).not.toBeInTheDocument();
   });
 
-  it("filters the feed scope from the select beside the date range", async () => {
+  it("applies menu-controlled feed scope without a duplicate home control", async () => {
     const user = userEvent.setup();
-    const onFeedScopeChange = vi.fn();
     const ownActivity = createMockActivity({ id: "own-private", userId: "test-uid", visibility: "private", description: "내 비공개 활동" });
     const friendActivity = createMockActivity({
       id: "friend-activity",
@@ -712,25 +586,11 @@ describe("MobileFeedPage", () => {
         currentUserId="test-uid"
         friendIds={["friend-1"]}
         feedScope="all"
-        onFeedScopeChange={onFeedScopeChange}
       />,
       { authenticated: true },
     );
 
-    const filterToggle = screen.getByRole("button", { name: "필터" });
-    expect(filterToggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("combobox", { name: "공개 범위" })).not.toBeInTheDocument();
-    await user.click(filterToggle);
-    expect(filterToggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("combobox", { name: "공개 범위" })).toBeVisible();
-    expect(screen.getByRole("combobox", { name: "조회 기간" })).toBeVisible();
-    const scopeSelect = screen.getByRole("combobox", { name: "공개 범위" });
-    const dateSelect = screen.getByRole("combobox", { name: "조회 기간" });
-    expect(scopeSelect.compareDocumentPosition(dateSelect) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-
-    await user.selectOptions(scopeSelect, "friends");
-
-    expect(onFeedScopeChange).toHaveBeenCalledWith("friends");
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
 
     rerender(
       <MobileFeedPage
@@ -742,18 +602,14 @@ describe("MobileFeedPage", () => {
         currentUserId="test-uid"
         friendIds={["friend-1"]}
         feedScope="friends"
-        onFeedScopeChange={onFeedScopeChange}
       />,
     );
 
     expect(screen.getByText("내 비공개 활동")).toBeInTheDocument();
     expect(screen.getByText("친구 활동")).toBeInTheDocument();
     expect(screen.queryByText("전체 활동")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "필터: 친구" })).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "필터: 친구" }));
-    expect(screen.queryByRole("combobox", { name: "공개 범위" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "필터: 친구" })).toHaveAccessibleName("필터: 친구");
-    expect(screen.getByText("친구", { selector: "p" })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^필터/ })).not.toBeInTheDocument();
   });
 });
 

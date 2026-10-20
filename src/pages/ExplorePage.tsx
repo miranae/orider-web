@@ -571,28 +571,42 @@ function ExploreSegmentsContent() {
     return () => clearTimeout(id);
   }, [inputValue]);
 
-  // URL 상태 복원(#488) — 마운트 1회: q/cat 을 입력·필터에 반영(맵 c/z 는 initialView 가 처리).
+  // 메뉴 검색과 브라우저 이동으로 바뀐 URL 조건도 반영한다.
+  const serializedFiltersRef = useRef<string | null>(null);
+  const urlQuery = sp.get("q") ?? "";
+  const urlCategory = sp.get("cat") ?? "all";
+  const urlSport = sp.get("sport") === "run" ? "run" : "bike";
   useEffect(() => {
-    const q = sp.get("q");
-    if (q) { setInputValue(q); setSearchQuery(q); }
-    const cat = sp.get("cat");
-    if (cat === "all" || cat === "climb" || cat === "flat") setCategory(cat);
+    const filtersKey = JSON.stringify([urlQuery, urlCategory, urlSport]);
+    if (serializedFiltersRef.current === filtersKey) {
+      serializedFiltersRef.current = null;
+      return;
+    }
+    serializedFiltersRef.current = null;
+    setInputValue(urlQuery);
+    setSearchQuery(urlQuery);
+    setCategory(urlCategory === "climb" || urlCategory === "flat" ? urlCategory : "all");
+    setDiscipline(urlSport);
     urlReadyRef.current = true;
-  }, []);
+  }, [urlQuery, urlCategory, urlSport]);
 
   // URL 상태 직렬화(#488) — 변경 시 디바운스로 q/cat/c/z 기록(replace, 히스토리 오염 방지).
   useEffect(() => {
     if (!urlReadyRef.current) return;
     const id = setTimeout(() => {
-      const next: Record<string, string> = {};
-      if (searchQuery) next.q = searchQuery;
-      if (category !== "all") next.cat = category;
-      if (mapCenter) next.c = `${mapCenter.lng.toFixed(4)},${mapCenter.lat.toFixed(4)}`;
-      if (mapZoom) next.z = mapZoom.toFixed(1);
-      setSp(next, { replace: true });
+      serializedFiltersRef.current = JSON.stringify([searchQuery, category, discipline]);
+      setSp(previous => {
+        const next = new URLSearchParams(previous);
+        if (searchQuery) next.set("q", searchQuery); else next.delete("q");
+        if (category !== "all") next.set("cat", category); else next.delete("cat");
+        next.set("sport", discipline);
+        if (mapCenter) next.set("c", `${mapCenter.lng.toFixed(4)},${mapCenter.lat.toFixed(4)}`);
+        if (mapZoom) next.set("z", mapZoom.toFixed(1));
+        return next;
+      }, { replace: true });
     }, 400);
     return () => clearTimeout(id);
-  }, [searchQuery, category, mapCenter, mapZoom, setSp]);
+  }, [searchQuery, category, discipline, mapCenter, mapZoom, setSp, urlQuery, urlCategory, urlSport]);
 
   const scrollToCard = useCallback((id: string) => {
     const idx = displaySegments.findIndex((s) => s.id === id);
