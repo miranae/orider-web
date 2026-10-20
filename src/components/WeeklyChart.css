@@ -1,0 +1,8 @@
+.weekly-chart-inspection { margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--line-soft); min-width: 0; }
+.weekly-chart-inspection__header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.weekly-chart-inspection__navigation { display: flex; flex: none; gap: var(--space-1); }
+.weekly-chart-inspection__values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-block: var(--space-2); }
+.weekly-chart-inspection__values > div { min-width: 0; }
+.weekly-chart-inspection__values dt { font-size: var(--fs-xs); color: var(--ink-2); }
+.weekly-chart-inspection__values dd { margin: 0; color: var(--ink-0); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.weekly-chart-inspection__values dd span { color: var(--ink-2); font-size: var(--fs-xs); }

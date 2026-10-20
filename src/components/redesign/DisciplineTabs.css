@@ -1,11 +1,10 @@
+.discipline-tabs { width: 100%; margin-block: 0; }
 .discipline-tabs [data-discipline-compact] { display: none; }
-.discipline-tabs [data-discipline-availability] { display: block; }
-
+.discipline-tab-content { display: grid; justify-items: center; gap: var(--space-1); min-width: 0; width: 100%; }
+.discipline-tab-heading { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); min-width: 0; }
+.discipline-tabs [data-discipline-availability] { display: block; min-height: 1.2em; font-size: var(--fs-2xs); line-height: 1.2; }
 @media (max-width: 36rem) {
   .discipline-tabs [data-discipline-full] { display: none; }
   .discipline-tabs [data-discipline-compact] { display: block; }
-  .discipline-tabs [data-discipline-availability] {
-    display: block;
-    min-height: var(--space-3);
-  }
+  .discipline-tab-heading { flex-wrap: wrap; }
 }
