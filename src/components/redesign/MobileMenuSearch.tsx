@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate } from "../../hooks/useLocalizedNavigate";
 import { LocalizedLink } from "../LocalizedLink";
 import { Button, Input, Select } from "../../theme/components";
+import koBoard from "../../i18n/resources/ko/board.json";
+import enBoard from "../../i18n/resources/en/board.json";
 import { useAuth } from "../../contexts/AuthContext";
 import { readDashboardPreferences } from "../../hooks/useDashboardPreferences";
 import { searchPublicUserProfilesPage, type PublicUserProfile } from "../../services/publicProfiles";
@@ -14,6 +16,13 @@ const destinations = {
   segments: "/explore/segments", posts: "/community/board",
 } as const;
 type SearchCategory = keyof typeof destinations;
+
+// 메뉴는 첫 클릭에 바로 열려야 하므로 게시판의 HTTP 네임스페이스 로딩을 기다리지 않는다.
+// 명칭은 게시판 정본 리소스에서 동기적으로 공유한다.
+const boardTabs = {
+  ko: { all: koBoard["tab.all"], inquiry: koBoard["tab.inquiry"], devlog: koBoard["tab.devlog"], archive: koBoard["tab.archive"] },
+  en: { all: enBoard["tab.all"], inquiry: enBoard["tab.inquiry"], devlog: enBoard["tab.devlog"], archive: enBoard["tab.archive"] },
+};
 
 const defaults: Record<SearchCategory, Record<string, string>> = {
   activities: { q: "", scope: "all", date: "all", sport: "all" },
@@ -54,7 +63,8 @@ function routeCategory(path: string): SearchCategory | null {
 }
 
 export default function MobileMenuSearch({ onNavigate }: { onNavigate: () => void }) {
-  const { t } = useTranslation(["common", "board"]);
+  const { t, i18n } = useTranslation("common");
+  const boardTabLabels = (i18n.resolvedLanguage ?? i18n.language).startsWith("ko") ? boardTabs.ko : boardTabs.en;
   const { user } = useAuth();
   const navigate = useLocalizedNavigate();
   const location = useLocation();
@@ -165,7 +175,7 @@ export default function MobileMenuSearch({ onNavigate }: { onNavigate: () => voi
         {fields[category].map(field => <label key={field.key}>
           <span>{t(`topnav.menuSearch.${field.label}`)}</span>
           {field.options ? <Select className="mobile-menu-control" aria-label={t(`topnav.menuSearch.${field.label}`)} value={draft[field.key]} onChange={event => updateDraft(field.key, event.target.value)}>
-            {field.options.map(([value, label]) => <option key={value} value={value} disabled={!user && ((field.key === "scope" && value !== "all") || (field.key === "mine" && value === "1"))}>{category === "posts" && field.key === "type" ? t(`board:tab.${value}`) : t(`topnav.menuSearch.${label}`)}</option>)}
+            {field.options.map(([value, label]) => <option key={value} value={value} disabled={!user && ((field.key === "scope" && value !== "all") || (field.key === "mine" && value === "1"))}>{category === "posts" && field.key === "type" ? boardTabLabels[value as keyof typeof boardTabLabels] : t(`topnav.menuSearch.${label}`)}</option>)}
           </Select> : <Input className="mobile-menu-control" aria-label={t(`topnav.menuSearch.${field.label}`)} value={draft[field.key]} onChange={event => updateDraft(field.key, event.target.value)} />}
         </label>)}
       </div>

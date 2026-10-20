@@ -1,9 +1,16 @@
+import { Suspense } from "react";
+import { createInstance } from "i18next";
+import { I18nextProvider } from "react-i18next";
+import koCommon from "../../i18n/resources/ko/common.json";
+import enCommon from "../../i18n/resources/en/common.json";
+import TopNav from "./TopNav";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useLocation } from "react-router-dom";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { searchPublicUserProfilesPage } from "../../services/publicProfiles";
 import MobileMenuSearch from "./MobileMenuSearch";
+vi.mock("../../hooks/useGlobalSearch", () => ({ useGlobalSearch: () => ({ results: { activities: [], courses: [] } }) }));
 vi.mock("../../services/publicProfiles", () => ({ searchPublicUserProfilesPage: vi.fn() }));
 beforeEach(() => { sessionStorage.clear(); vi.mocked(searchPublicUserProfilesPage).mockReset(); });
 function Location() { const location = useLocation(); return <output>{location.pathname}{location.search}</output>; }
@@ -105,4 +112,32 @@ it("uses the board's existing names for post search destinations", async () => {
   expect(screen.getByRole("option", { name: "문의/신고" })).toHaveValue("inquiry");
   expect(screen.getByRole("option", { name: "작업일지" })).toHaveValue("devlog");
   expect(screen.getByRole("option", { name: "이맘쯤 우리는" })).toHaveValue("archive");
+});
+
+it.each(["ko", "en"] as const)("keeps the first mobile menu open with a cold board namespace (%s)", async language => {
+  const cold = createInstance();
+  const read = vi.fn();
+  cold.use({ type: "backend", read });
+  await cold.init({
+    lng: language, fallbackLng: false, ns: ["common"], defaultNS: "common",
+    resources: { ko: { common: koCommon }, en: { common: enCommon } },
+    partialBundledLanguages: true, react: { useSuspense: true },
+  });
+  const original = window.matchMedia;
+  window.matchMedia = vi.fn(query => ({ ...original(query), matches: false }));
+  try {
+    renderWithProviders(<I18nextProvider i18n={cold}><Suspense fallback={<p>namespace loading</p>}>
+      <TopNav active="home" />
+    </Suspense></I18nextProvider>, { route: `/${language}` });
+    const trigger = screen.getByRole("button", { name: cold.t("button.more") });
+    await userEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("search", { name: cold.t("topnav.menuSearch.label") })).toBeVisible();
+    expect(screen.queryByText("namespace loading")).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText(cold.t("topnav.menuSearch.category")), "posts");
+    const names = language === "ko" ? ["문의/신고", "작업일지", "이맘쯤 우리는"] : ["Inquiry/Report", "Devlog", "Archive"];
+    for (const name of names) expect(screen.getByRole("option", { name })).toBeInTheDocument();
+    expect(cold.hasResourceBundle(language, "board")).toBe(false);
+    expect(read).not.toHaveBeenCalled();
+  } finally { window.matchMedia = original; }
 });
