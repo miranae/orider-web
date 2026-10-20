@@ -114,4 +114,4 @@ Canvas 선 표현과 표시 밀도 상수는 React에 의존하지 않는
 
 ### Sport pictograms
 
-`SportIcon` keeps its existing side view by default. The mobile activity feed opts into `perspective="rear"` for a lively lower-left to upper-right, rear three-quarter view; other screens retain their existing icons. Both perspectives use `currentColor` and the existing `sport`/`size` API. The pictogram is decorative inside a labelled sport container; retain the sport name and separate indoor/data-warning information for accessibility. The live catalogue shows cycling, running and swimming at 18/24/32px in both perspectives for legibility review.
+`SportIcon` uses the original Google Material Symbols Rounded cycling, running and swimming pictograms on every screen, including Home. Home maps MTB/indoor cycling to cycling and trekking to running while retaining subtype names and accessibility labels. Pictograms are decorative inside labelled sport containers. The retired custom artwork, source images and crop mapping are preserved under `docs/archive/2026-10-21-home-sport-icons/`. The live catalogue shows the default icons at 18/24/32px.
