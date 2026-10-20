@@ -18,12 +18,35 @@ export function isCodeQL(check, workflows, head, repository) {
       (run.name === 'CodeQL' && /^\.github\/workflows\/codeql\.ya?ml$/.test(run.path))));
 }
 
+// GitHub's filter=latest is scoped to a check suite. Edited PR events create
+// another suite for the same SHA, so retain the latest authenticated workflow run.
+function latestWorkflowChecks(checks, workflows, head, repository) {
+  const selected = new Map();
+  const ungrouped = [];
+  for (const check of checks) {
+    const url = check.details_url?.match(/^https:\/\/github\.com\/([^/]+\/[^/]+)\/actions\/runs\/(\d+)(?:\/job\/\d+)?$/);
+    const run = url && workflows[url[2]];
+    if (check.head_sha !== head || check.app?.id !== 15368 || check.app?.slug !== 'github-actions'
+      || !url || url[1] !== repository || !run || run.id !== Number(url[2])
+      || run.head_sha !== head || run.check_suite_id !== check.check_suite?.id
+      || !run.path || !check.name) {
+      ungrouped.push(check);
+      continue;
+    }
+    const key = JSON.stringify([check.app.id, run.path, check.name]);
+    const previous = selected.get(key);
+    if (!previous || run.id > previous.run.id) selected.set(key, { run, checks: [check] });
+    else if (run.id === previous.run.id) previous.checks.push(check);
+  }
+  return [...ungrouped, ...[...selected.values()].flatMap(item => item.checks)];
+}
+
 export function evaluateChecks({ checks, statuses, workflows, head, repository }) {
   if (!head || !repository || !Array.isArray(checks) || !Array.isArray(statuses) || !workflows) {
     return { state: 'blocked', reasons: ['검사 메타데이터 누락'], ignored: [] };
   }
   const ignored = [], failures = [], waiting = [];
-  for (const check of checks) {
+  for (const check of latestWorkflowChecks(checks, workflows, head, repository)) {
     if (check.head_sha !== head || !check.name || !check.app?.id || !check.app?.slug) {
       failures.push('검사 head 또는 app 메타데이터 불명');
     } else if (isCodeQL(check, workflows, head, repository)) {

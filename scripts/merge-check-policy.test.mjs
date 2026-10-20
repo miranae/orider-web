@@ -100,3 +100,14 @@ test('CLI rejects PR head drift even when only CodeQL checks exist', async () =>
   };
   await assert.rejects(runGate('1237', head, false, { query }), /head 변경/);
 });
+
+test('latest authenticated workflow run supersedes old suites for the same check', () => {
+  const old = { ...check, name: 'PR metadata', status: 'completed', conclusion: 'failure' };
+  const newer = { ...old, conclusion: 'success', check_suite: { id: 11 }, details_url: `https://github.com/${repository}/actions/runs/21/job/31` };
+  const workflows = { 20: { ...run, path: '.github/workflows/pr-gate.yml' }, 21: { ...run, id: 21, check_suite_id: 11, path: '.github/workflows/pr-gate.yml' } };
+  for (const checks of [[old, newer], [newer, old]]) assert.equal(evaluate(checks, { workflows }).state, 'pass');
+  assert.equal(evaluate([old, { ...newer, status: 'queued', conclusion: null }], { workflows }).state, 'pending');
+  assert.equal(evaluate([{ ...old, conclusion: 'success' }, { ...newer, conclusion: 'failure' }], { workflows }).state, 'blocked');
+  assert.equal(evaluate([old, newer], { workflows: { ...workflows, 21: { ...workflows[21], path: '.github/workflows/other.yml' } } }).state, 'blocked');
+  assert.equal(evaluate([old, newer], { workflows: { ...workflows, 21: { ...workflows[21], check_suite_id: 999 } } }).state, 'blocked');
+});
