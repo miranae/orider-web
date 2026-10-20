@@ -72,6 +72,22 @@
 
 .ds-btn__icon { display: inline-flex; align-items: center; }
 .ds-btn__icon svg { width: 1em; height: 1em; }
+/* 보조 도구: 36px 표면 + 기존 ::after의 44px 히트 영역. */
+.ds-btn--icon-only.ds-btn--compact {
+  width: calc(var(--space-6) + var(--space-3));
+  height: calc(var(--space-6) + var(--space-3));
+  min-width: calc(var(--space-6) + var(--space-3));
+  min-height: calc(var(--space-6) + var(--space-3));
+}
+.ds-btn--compact.ds-btn--ghost { background: var(--bg-2); }
+.ds-btn--compact.ds-btn--ghost:hover:not(:disabled) { background: var(--bg-3); }
+.ds-btn--compact .ds-btn__icon { font-size: calc(var(--space-4) + var(--space-0-5)); }
+.ds-btn__indicator {
+  position: absolute; top: var(--space-1); right: var(--space-1);
+  width: var(--space-1-5); height: var(--space-1-5);
+  border-radius: var(--r-sm); background: var(--accent);
+  pointer-events: none;
+}
 .ds-btn__label { display: inline-flex; }
 .ds-btn__spinner {
   width: var(--space-3); height: var(--space-3);

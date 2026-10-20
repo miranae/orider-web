@@ -12,14 +12,16 @@ export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
   /** 접근성 — 스크린리더용 라벨. 필수. */
   'aria-label': string;
   variant?: ButtonVariant;
-  size?: ButtonSize;
+  size?: ButtonSize | 'compact';
+  /** 적용 상태를 작은 점으로 표시한다. 상태 설명은 aria-label에 포함한다. */
+  indicator?: boolean;
   icon: ReactNode;
   loading?: boolean;
   type?: 'button' | 'submit' | 'reset';
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { variant = 'ghost', size = 'md', icon, loading, disabled, type = 'button', className, ...rest },
+  { variant = 'ghost', size = 'md', icon, indicator, loading, disabled, type = 'button', className, ...rest },
   ref,
 ) {
   return (
@@ -33,6 +35,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       {...rest}
     >
       {loading ? <span className="ds-btn__spinner" aria-hidden /> : <span className="ds-btn__icon" aria-hidden>{icon}</span>}
+      {indicator && !loading && <span className="ds-btn__indicator" aria-hidden />}
     </button>
   );
 });

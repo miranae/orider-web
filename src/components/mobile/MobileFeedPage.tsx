@@ -276,7 +276,7 @@ export default function MobileFeedPage({
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
   const signedIn = !!user && !user.isAnonymous;
   const effectiveFeedScope = signedIn ? feedScope : "all";
-  const activeFilterCount = Number(effectiveFeedScope !== "all") + Number(datePreset !== "all");
+  const activeFilterCount = Number(effectiveFeedScope !== "all") + Number(datePreset !== "all") + Number(sportFilter !== "all") + Number(searchActive);
   const hasActiveSearchFilters = effectiveFeedScope !== "all" || datePreset !== "all";
   const activeFilterDescription = [
     searchActive ? t("mobileFeed.searchContext", { query: activitySearch!.searchedKeyword }) : null,
@@ -351,8 +351,9 @@ export default function MobileFeedPage({
       <div className="mobile-feed-feed-heading">
         <Text as="h2" variant="subtitle" tone="primary">{t(signedIn ? "mobileFeed.feedTitle" : "mobileFeed.publicTitle")}</Text>
           <IconButton ref={filterTrigger}
-            variant={activeFilterCount > 0 ? "primary" : "secondary"}
-            size="lg"
+            variant="ghost"
+            size="compact"
+            indicator={activeFilterCount > 0}
             aria-expanded={filtersOpen}
             aria-controls={filtersOpen ? searchId : undefined}
             aria-label={`${t("mobileFeed.filterToggle")}${activeFilterDescription ? `: ${activeFilterDescription}` : ""}`}
