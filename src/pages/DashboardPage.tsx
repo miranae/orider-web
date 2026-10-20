@@ -794,8 +794,8 @@ function DashboardContent() {
                       <div key={activity.id} data-testid="H1-2-1"><ActivityCard activity={activity} priority={i === 0} homeLabels /></div>
                     ))}
                     {activitySearch.hasMore && (
-                      <Button variant="secondary" onClick={activitySearch.loadMore} style={{ width: "100%" }}>
-                        {t("feed.loadMore")}
+                      <Button variant="secondary" onClick={activitySearch.loadMore} disabled={activitySearch.loadingMore} style={{ width: "100%" }}>
+                        {activitySearch.loadingMore ? t("mobileFeed.loadingMore") : t("feed.loadMore")}
                       </Button>
                     )}
                   </div>

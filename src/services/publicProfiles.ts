@@ -1,4 +1,5 @@
-import { collection, doc, getDoc, getDocs, limit, query, where, type DocumentData } from "firebase/firestore";
+import { SEARCH_PAGE_SIZE } from "../constants/pagination";
+import { collection, doc, getDoc, getDocs, limit, query, where, orderBy, startAfter, type QueryDocumentSnapshot, type DocumentData } from "firebase/firestore";
 import type { UserStats } from "@shared/types";
 import { firestore } from "./firebase";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
@@ -63,14 +64,20 @@ export async function getPublicUserProfiles(userIds: readonly string[]): Promise
   }));
 }
 
-export async function searchPublicUserProfilesByNickname(searchText: string, maxResults = 10): Promise<PublicUserProfile[]> {
+export async function searchPublicUserProfilesPage(searchText: string, cursor: QueryDocumentSnapshot<DocumentData> | null = null, maxResults = SEARCH_PAGE_SIZE) {
   const text = searchText.trim();
-  if (!text) return [];
+  if (!text) return { items: [], cursor: null, hasMore: false };
   const snap = await getDocs(query(
     collection(firestore, "users_public"),
     where("nickname", ">=", text),
     where("nickname", "<=", `${text}\uf8ff`),
-    limit(maxResults),
+    orderBy("nickname"),
+    ...(cursor ? [startAfter(cursor)] : []),
+    limit(Math.min(maxResults, SEARCH_PAGE_SIZE)),
   ));
-  return snap.docs.map((item) => toPublicUserProfile(item.id, item.data()));
+  return { items: snap.docs.map((item) => toPublicUserProfile(item.id, item.data())), cursor: snap.docs[snap.docs.length - 1] ?? null, hasMore: snap.docs.length === Math.min(maxResults, SEARCH_PAGE_SIZE) };
+}
+
+export async function searchPublicUserProfilesByNickname(searchText: string, maxResults = SEARCH_PAGE_SIZE): Promise<PublicUserProfile[]> {
+  return (await searchPublicUserProfilesPage(searchText, null, maxResults)).items;
 }

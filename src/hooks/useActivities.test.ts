@@ -9,7 +9,7 @@ import { ToastProvider } from "../contexts/ToastContext";
 import React from "react";
 import * as publicProfiles from "../services/publicProfiles";
 import * as errorLogger from "../services/errorLogger";
-import { getDocs, getCountFromServer, query, onSnapshot, orderBy, where } from "firebase/firestore";
+import { getDocs, getCountFromServer, query, onSnapshot, orderBy, where, limit, startAfter } from "firebase/firestore";
 import {
   __resetFirestoreSessionRecoveryForTests,
   FIRESTORE_B815_RECOVERY_SESSION_KEY,
@@ -1248,6 +1248,58 @@ describe("useWeeklyStats", () => {
 });
 
 describe("useActivitySearch", () => {
+  it("reads at most 20 per source and preserves the merged order across pages", async () => {
+    simulateLogin({ uid: "user-1" });
+    const own = Array.from({ length: 20 }, (_, index) => {
+      const activity = createMockActivity({ id: `own-${index}`, userId: "user-1", startTime: 100 - index * 2 });
+      return { id: activity.id, data: () => activity };
+    });
+    const publicDocs = Array.from({ length: 20 }, (_, index) => {
+      const activity = createMockActivity({ id: `public-${index}`, userId: "other", startTime: 99 - index * 2 });
+      return { id: activity.id, data: () => activity };
+    });
+    const reads = vi.mocked(getDocs).mockClear();
+    vi.mocked(limit).mockClear();
+    vi.mocked(startAfter).mockClear();
+    reads.mockResolvedValueOnce({ docs: own } as Awaited<ReturnType<typeof getDocs>>)
+      .mockResolvedValueOnce({ docs: publicDocs } as Awaited<ReturnType<typeof getDocs>>);
+    const { result } = renderHook(() => useActivitySearch(new Set()), { wrapper });
+    act(() => result.current.search("ride"));
+    await waitFor(() => expect(result.current.results).toHaveLength(20));
+    expect(result.current.results.map((activity) => activity.startTime)).toEqual(Array.from({ length: 20 }, (_, index) => 100 - index));
+    expect(reads).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(limit).mock.calls.every(([count]) => count <= 20)).toBe(true);
+
+    reads.mockResolvedValueOnce({ docs: [] } as unknown as Awaited<ReturnType<typeof getDocs>>)
+      .mockResolvedValueOnce({ docs: [] } as unknown as Awaited<ReturnType<typeof getDocs>>);
+    act(() => { result.current.loadMore(); result.current.loadMore(); });
+    await waitFor(() => expect(result.current.results).toHaveLength(40));
+    expect(result.current.results.map((activity) => activity.startTime)).toEqual(Array.from({ length: 40 }, (_, index) => 100 - index));
+    expect(reads).toHaveBeenCalledTimes(4);
+    expect(startAfter).toHaveBeenCalledWith(own[19]);
+    expect(startAfter).toHaveBeenCalledWith(publicDocs[19]);
+    expect(result.current.hasMore).toBe(false);
+  });
+
+  it("deduplicates own public matches without skipping the next page", async () => {
+    simulateLogin({ uid: "user-1" });
+    const docs = Array.from({ length: 21 }, (_, index) => {
+      const activity = createMockActivity({ id: `own-${index}`, userId: "user-1", startTime: 100 - index });
+      return { id: activity.id, data: () => activity };
+    });
+    const reads = vi.mocked(getDocs).mockClear();
+    for (const page of [docs.slice(0, 20), docs.slice(0, 20), docs.slice(20), docs.slice(20)]) {
+      reads.mockResolvedValueOnce({ docs: page } as Awaited<ReturnType<typeof getDocs>>);
+    }
+    const { result } = renderHook(() => useActivitySearch(new Set()), { wrapper });
+    act(() => result.current.search("ride"));
+    await waitFor(() => expect(result.current.results).toHaveLength(20));
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.results).toHaveLength(21));
+    expect(new Set(result.current.results.map((activity) => activity.id)).size).toBe(21);
+    expect(result.current.hasMore).toBe(false);
+  });
+
   it("does not open duplicate friend listeners before search", () => {
     simulateLogin({ uid: "user-1" });
     vi.mocked(onSnapshot).mockClear();

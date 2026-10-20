@@ -1,3 +1,4 @@
+import { SEARCH_PAGE_SIZE, usePagedSearch } from "../hooks/usePagedSearch";
 import "../features/courses/course-review.css";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
@@ -17,7 +18,7 @@ import { filterAndSortCourses, type SortMode, type SurfaceFilter } from "../feat
 import type { CourseData, LatLngTuple } from "../features/courses/courseSnapshot";
 import ChallengeFeed from "../components/discover/ChallengeFeed";
 import CourseSegmentSearch from "../components/discover/CourseSegmentSearch";
-import { searchVisibleCoursesByName, useCourseCatalog } from "../features/courses/useCourseCatalog";
+import { searchVisibleCoursesPage, useCourseCatalog } from "../features/courses/useCourseCatalog";
 
 const COURSES_CONTROL_STACK_STYLE: React.CSSProperties = {
   display: "flex",
@@ -78,7 +79,7 @@ export default function CoursesPage() {
     loadMore,
     retry,
     polylineCache,
-  } = useCourseCatalog(sortMode, mineOnly ? user?.uid : undefined);
+  } = useCourseCatalog(sortMode, mineOnly ? user?.uid : undefined, SEARCH_PAGE_SIZE, !queryParam);
   const [surfaceFilter, setSurfaceFilter] = useState<SurfaceFilter>("");
   const [difficultyFilter, setDifficultyFilter] = useState<number | null>(null);
   const [distanceMinKm, setDistanceMinKm] = useState(0);
@@ -92,10 +93,6 @@ export default function CoursesPage() {
   const [locating, setLocating] = useState(false);
   const [searchQuery, setSearchQuery] = useState(queryParam);
   const [inputValue, setInputValue] = useState(queryParam);
-  const [serverSearchCourses, setServerSearchCourses] = useState<CourseData[]>([]);
-  const [serverSearchLoading, setServerSearchLoading] = useState(false);
-  const [serverSearchError, setServerSearchError] = useState<unknown>(null);
-  const [serverSearchReloadKey, setServerSearchReloadKey] = useState(0);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null);
@@ -114,35 +111,12 @@ export default function CoursesPage() {
     setHoveredId(null);
   }, [queryParam]);
 
-  useEffect(() => {
-    const q = searchQuery.trim();
-    if (!q) {
-      setServerSearchCourses([]);
-      setServerSearchError(null);
-      setServerSearchLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setServerSearchLoading(true);
-    setServerSearchError(null);
-    searchVisibleCoursesByName(q, 80, searchPolylineCache.current, searchPolylineValueCache.current, mineOnly ? user?.uid : undefined)
-      .then((results) => {
-        if (cancelled) return;
-        setServerSearchCourses(results);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        logClientError("CoursesPage.courseSearch", err, { q });
-        setServerSearchCourses([]);
-        setServerSearchError(err);
-      })
-      .finally(() => {
-        if (!cancelled) setServerSearchLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [searchQuery, serverSearchReloadKey, mineOnly, user?.uid]);
+  const serverSearch = usePagedSearch(
+    searchQuery.trim() ? JSON.stringify([searchQuery.trim(), mineOnly, user?.uid]) : null,
+    (cursor: import("firebase/firestore").QueryDocumentSnapshot<import("firebase/firestore").DocumentData> | null) =>
+      searchVisibleCoursesPage(searchQuery, SEARCH_PAGE_SIZE, searchPolylineCache.current, searchPolylineValueCache.current, mineOnly ? user?.uid : undefined, cursor),
+  );
+  const { items: serverSearchCourses, loading: serverSearchLoading, error: serverSearchError } = serverSearch;
 
   const activeCourses = searchQuery ? serverSearchCourses : allCourses;
   const activePolylineCache = searchQuery ? searchPolylineCache : polylineCache;
@@ -529,7 +503,7 @@ export default function CoursesPage() {
       {/* 메인: 지도 + 목록 */}
       {activeLoadError ? (
         <div className="flex-1 flex items-center justify-center" style={{ background: "var(--bg-0)", padding: "var(--space-6)" }}>
-          <ErrorState title={t("error.loadFailed")} onRetry={searchQuery ? () => setServerSearchReloadKey((key) => key + 1) : retry} />
+          <ErrorState title={t("error.loadFailed")} onRetry={searchQuery ? serverSearch.retry : retry} />
         </div>
       ) : activeLoading ? (
         <div className="flex-1 flex items-center justify-center" style={{ background: "var(--bg-0)" }}>
@@ -574,16 +548,16 @@ export default function CoursesPage() {
               onSelectCourse={handleSelectCourse}
               onOpenCourse={handleOpenCourse}
             />
-            {!searchQuery && hasMore && (
+            {(searchQuery ? serverSearch.hasMore : hasMore) && (
               <div style={{ padding: "0 var(--space-4) var(--space-4)" }}>
                 <Button data-testid="E1-4-3"
                   type="button"
                   variant="secondary"
                   className="w-full justify-center"
-                  disabled={loadingMore}
-                  onClick={loadMore}
+                  disabled={searchQuery ? serverSearch.loadingMore : loadingMore}
+                  onClick={searchQuery ? serverSearch.loadMore : loadMore}
                 >
-                  {loadingMore ? t("button.loadingMore") : t("button.loadMore")}
+                  {(searchQuery ? serverSearch.loadingMore : loadingMore) ? t("button.loadingMore") : t("button.loadMore")}
                 </Button>
               </div>
             )}

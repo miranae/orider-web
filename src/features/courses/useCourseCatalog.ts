@@ -21,8 +21,10 @@ import {
 } from "./courseSnapshot";
 import { isVisibleCourseDocData } from "./courseVisibility";
 
-const PAGE_SIZE = 80;
-const SEARCH_LIMIT = 80;
+import { SEARCH_PAGE_SIZE } from "../../hooks/usePagedSearch";
+
+const PAGE_SIZE = SEARCH_PAGE_SIZE;
+const SEARCH_LIMIT = SEARCH_PAGE_SIZE;
 
 function orderFieldForSort(sortMode: SortMode) {
   return sortMode === "popular" ? "likeCount" : "createdAt";
@@ -61,7 +63,7 @@ export function useCourseCatalog(sortMode: SortMode = "latest", creatorId?: stri
     try {
       const constraints: QueryConstraint[] = [
         orderBy(orderFieldForSort(sortMode), "desc"),
-        limit(pageSize),
+        limit(Math.min(pageSize, SEARCH_PAGE_SIZE)),
       ];
       if (creatorId) constraints.unshift(where("creatorId", "==", creatorId));
       if (!reset && cursorRef.current) {
@@ -74,7 +76,7 @@ export function useCourseCatalog(sortMode: SortMode = "latest", creatorId?: stri
         .filter((item) => isVisibleCourseDocData(item.data));
       const nextCourses = replaceCourseSnapshotDocs(docs, polylineCache.current, polylineValueCache.current);
       cursorRef.current = snapshot.docs[snapshot.docs.length - 1] ?? cursorRef.current;
-      const nextHasMore = snapshot.docs.length === pageSize;
+      const nextHasMore = snapshot.docs.length === Math.min(pageSize, SEARCH_PAGE_SIZE);
       hasMoreRef.current = nextHasMore;
       setHasMore(nextHasMore);
       setCourses((prev) => reset ? nextCourses : [...prev, ...nextCourses]);
@@ -110,15 +112,16 @@ export function useCourseCatalog(sortMode: SortMode = "latest", creatorId?: stri
   };
 }
 
-export async function searchVisibleCoursesByName(
+export async function searchVisibleCoursesPage(
   searchText: string,
   maxCount = SEARCH_LIMIT,
   polylineCache: Map<string, LatLngTuple[]> = new Map(),
   polylineValueCache: Map<string, string> = new Map(),
   creatorId?: string,
-): Promise<CourseData[]> {
+  cursor: QueryDocumentSnapshot<DocumentData> | null = null,
+): Promise<{ items: CourseData[]; cursor: QueryDocumentSnapshot<DocumentData> | null; hasMore: boolean }> {
   const text = searchText.trim();
-  if (!text) return [];
+  if (!text) return { items: [], cursor: null, hasMore: false };
 
   const snapshot = await getDocs(query(
     collection(firestore, "courses"),
@@ -126,7 +129,8 @@ export async function searchVisibleCoursesByName(
     where("name", ">=", text),
     where("name", "<=", `${text}\uf8ff`),
     orderBy("name"),
-    limit(maxCount),
+    ...(cursor ? [startAfter(cursor)] : []),
+    limit(Math.min(maxCount, SEARCH_PAGE_SIZE)),
   ));
 
   const normalized = text.toLowerCase();
@@ -135,5 +139,9 @@ export async function searchVisibleCoursesByName(
     .filter((item) => isVisibleCourseDocData(item.data))
     .filter((item) => String(item.data.name ?? "").toLowerCase().includes(normalized));
 
-  return replaceCourseSnapshotDocs(docs, polylineCache, polylineValueCache);
+  return { items: replaceCourseSnapshotDocs(docs, polylineCache, polylineValueCache), cursor: snapshot.docs[snapshot.docs.length - 1] ?? null, hasMore: snapshot.docs.length === Math.min(maxCount, SEARCH_PAGE_SIZE) };
+}
+
+export async function searchVisibleCoursesByName(...args: Parameters<typeof searchVisibleCoursesPage>): Promise<CourseData[]> {
+  return (await searchVisibleCoursesPage(...args)).items;
 }

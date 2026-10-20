@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { SEARCH_PAGE_SIZE, usePagedSearch } from "../hooks/usePagedSearch";
+import { useMemo, useState, useRef } from "react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { collection, getDocs, limit, orderBy, query } from "firebase/firestore";
+import { collection, getDocs, limit, orderBy, query, startAfter, where, type QueryDocumentSnapshot, type DocumentData } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { EmptyState, LoadingSkeleton } from "../components/redesign";
-import { Card, Chip, Text } from "../theme/components";
+import { Button, Card, Chip, Text } from "../theme/components";
 import { formatElapsedMillis } from "../features/leaderboard/leaderboardFormat";
 import { localizeRegionName } from "../utils/regionName";
 
@@ -32,74 +33,39 @@ interface UserPrInfo {
 export default function LeaderboardPage({ search = "", discipline = "bike", category = "all" }: { search?: string; discipline?: string; category?: "all" | "climb" | "flat" }) {
   const { user } = useAuth();
   const { t, i18n } = useTranslation("segment");
-  const [segments, setSegments] = useState<SegmentInfo[]>([]);
   const [myBest, setMyBest] = useState<Map<string, number>>(new Map());
   const [myRanks, setMyRanks] = useState<Map<string, number>>(new Map());
-  const [loading, setLoading] = useState(true);
   const searchQuery = search;
   const disciplineFilter = discipline;
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    (async () => {
+  const currentOwner = useRef(user?.uid);
+  currentOwner.current = user?.uid;
+  const segmentPages = usePagedSearch(JSON.stringify([user?.uid, discipline, category, search]), async (cursor: QueryDocumentSnapshot<DocumentData> | null) => {
+    const uid = user?.uid;
+    if (!cursor) { setMyBest(new Map()); setMyRanks(new Map()); }
+    const segSnap = await getDocs(query(collection(firestore, "segments"), orderBy("totalEfforts", "desc"), ...(cursor ? [startAfter(cursor)] : []), limit(SEARCH_PAGE_SIZE)));
+    const items: SegmentInfo[] = segSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), name: doc.data().name ?? t("leaderboardPage.unnamed"), distance: doc.data().distance ?? 0, discipline: doc.data().discipline ?? doc.data().sport ?? "bike" }));
+    if (uid && items.length) {
       try {
-        setMyBest(new Map());
-        setMyRanks(new Map());
-        // 인기 세그먼트 (totalEfforts 기준 정렬)
-        const segSnap = await getDocs(
-          query(
-            collection(firestore, "segments"),
-            orderBy("totalEfforts", "desc"),
-            limit(100),
-          )
-        );
-        const segs: SegmentInfo[] = segSnap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            name: data.name ?? t("leaderboardPage.unnamed"),
-            distance: data.distance ?? 0,
-            elevationGain: data.elevationGain,
-            discipline: data.discipline ?? data.sport ?? "bike",
-            region: data.region,
-            totalEfforts: data.totalEfforts,
-            climbCategory: data.climbCategory ?? 0,
-          };
+        const prSnap = await getDocs(query(collection(firestore, "user_prs", uid, "segments"), where("__name__", "in", items.map(item => item.id)), limit(SEARCH_PAGE_SIZE)));
+        const best = new Map<string, number>();
+        const ranks = new Map<string, number>();
+        prSnap.forEach(doc => {
+          const data = doc.data() as UserPrInfo;
+          const time = data.bestTime ?? data.elapsedTime;
+          if (typeof time === "number" && time > 0) best.set(doc.id, time);
+          const rank = data.rank ?? data.prRank;
+          if (typeof rank === "number" && rank > 0) ranks.set(doc.id, rank);
         });
-        if (cancelled) return;
-        setSegments(segs);
-
-        // 내 최고 기록은 본인 소유 PR 컬렉션에서 읽는다.
-        // collectionGroup("efforts")는 다른 efforts 하위 컬렉션 rules와 충돌할 수 있다.
-        if (user) {
-          try {
-            const prSnap = await getDocs(collection(firestore, "user_prs", user.uid, "segments"));
-            const best = new Map<string, number>();
-            const ranks = new Map<string, number>();
-            prSnap.forEach((prDoc) => {
-              const data = prDoc.data() as UserPrInfo;
-              const time = typeof data.bestTime === "number" ? data.bestTime : data.elapsedTime;
-              if (typeof time !== "number" || time <= 0) return;
-              best.set(prDoc.id, time);
-              const rank = typeof data.rank === "number" ? data.rank : data.prRank;
-              if (typeof rank === "number" && rank > 0) ranks.set(prDoc.id, rank);
-            });
-            if (cancelled) return;
-            setMyBest(best);
-            setMyRanks(ranks);
-          } catch (err) {
-            logClientError("LeaderboardPage.loadMyBest", err);
-          }
+        if (currentOwner.current === uid) {
+          setMyBest(previous => new Map([...previous, ...best]));
+          setMyRanks(previous => new Map([...previous, ...ranks]));
         }
-      } catch (err) {
-        logClientError("LeaderboardPage.loadSegments", err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user, t]);
+      } catch (err) { logClientError("LeaderboardPage.loadMyBest", err); }
+    }
+    return { items, cursor: segSnap.docs[segSnap.docs.length - 1] ?? null, hasMore: segSnap.docs.length === SEARCH_PAGE_SIZE };
+  });
+  const { items: segments, loading } = segmentPages;
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -118,6 +84,8 @@ export default function LeaderboardPage({ search = "", discipline = "bike", cate
   return (
     /* 순위 목록은 한 행의 시선 이동 거리를 제한해 기존 정보 밀도를 보존한다. */
     <div className="mx-auto max-w-[1120px] space-y-4">
+      {segmentPages.hasMore && !loading && <Button variant="secondary" disabled={segmentPages.loadingMore} onClick={segmentPages.loadMore}>{t("common:button.more")}</Button>}
+      {!!segmentPages.error && <Button variant="secondary" onClick={segmentPages.retry}>{t("common:button.retry")}</Button>}
       {loading && <LoadingSkeleton kind="list" count={8} />}
       {!loading && (<>
       {/* List */}

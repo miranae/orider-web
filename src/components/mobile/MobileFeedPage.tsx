@@ -29,8 +29,8 @@ import { isSignInCancelled } from "../../utils/signInCancelled";
 import { useToast } from "../../contexts/ToastContext";
 import "./MobileFeedPage.css";
 
-const MOBILE_FEED_RENDER_STEP = 40;
-const MOBILE_FEED_RENDER_INITIAL = 60;
+const MOBILE_FEED_RENDER_STEP = 20;
+const MOBILE_FEED_RENDER_INITIAL = 20;
 type SportFilter = DashboardSportFilter;
 
 interface SportBreakdownItem {
@@ -171,7 +171,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
           <Text as="div" variant="caption" tone="tertiary" className="mobile-feed-activity-metadata"><time dateTime={timestamp?.iso}>{occurredAt}</time>{device && <span>{`·\u00a0${device}`}</span>}</Text>
         </div>
         <span className="mobile-feed-card-sport" role="img" aria-label={activitySportLabel}>
-          {activitySport ? <HomeActivitySportIcon sport={activitySport} size={40} /> : getDisciplineIcon(null)}
+          {activitySport ? <HomeActivitySportIcon sport={activitySport} size={32} /> : getDisciplineIcon(null)}
         </span>
         <Text as="h3" variant="subtitle" weight={600} tone="primary" className="mobile-feed-activity-title">
           {activity.description || t("mobileFeed.defaultActivity")}
@@ -375,7 +375,10 @@ export default function MobileFeedPage({
                 endAction={<IconButton type="submit" variant="ghost" aria-label={t("feed.search.submit")} disabled={!searchQuery.trim()} icon={<Search size={18} />} />} />}
           {signedIn && <Select variant="filter" id="mobile-feed-scope"
               data-testid="H1-1-1" value={feedScope}
-              onChange={(event) => onFeedScopeChange(event.target.value as ActivityFeedScope)}
+              onChange={(event) => {
+                setRenderLimit(MOBILE_FEED_RENDER_INITIAL);
+                onFeedScopeChange(event.target.value as ActivityFeedScope);
+              }}
               aria-label={t("feed.filter.label")}
             >
               <option value="all">{t("mobileFeed.inlineFilters.scopeAll")}</option>
@@ -387,6 +390,7 @@ export default function MobileFeedPage({
               value={datePreset}
               onChange={(event) => {
                 const nextPreset = event.target.value as DashboardDatePreset;
+                setRenderLimit(MOBILE_FEED_RENDER_INITIAL);
                 setDatePreset(nextPreset);
                 if (searchActive) activitySearch?.setDatePreset(nextPreset);
               }}
@@ -397,7 +401,10 @@ export default function MobileFeedPage({
               <option value="30d">{t("mobileFeed.inlineFilters.date30d")}</option>
               <option value="90d">{t("mobileFeed.inlineFilters.date90d")}</option>
             </Select>
-            <Select variant="filter" id={`${searchId}-sport`} value={sportFilter} onChange={event => setSportFilter(event.target.value as SportFilter)} aria-label={t("mobileFeed.sportFilterLabel")}>
+            <Select variant="filter" id={`${searchId}-sport`} value={sportFilter} onChange={event => {
+              setRenderLimit(MOBILE_FEED_RENDER_INITIAL);
+              setSportFilter(event.target.value as SportFilter);
+            }} aria-label={t("mobileFeed.sportFilterLabel")}>
                 {feedSportOptions.map(option => <option key={option.key} value={option.key}>{t(`mobileFeed.inlineFilters.sport.${option.key}`)}</option>)}
             </Select>
           </form>
@@ -461,15 +468,16 @@ export default function MobileFeedPage({
               if (hasHiddenLocalItems) {
                 setRenderLimit((value) => value + MOBILE_FEED_RENDER_STEP);
               } else if (searchActive) {
+                setRenderLimit((value) => value + MOBILE_FEED_RENDER_STEP);
                 activitySearch!.loadMoreServer();
               } else {
                 onLoadMore();
               }
             }}
-            disabled={!searchActive && loadingMore}
+            disabled={searchActive ? activitySearch!.loadingMore : loadingMore}
             style={{ width: "100%" }}
           >
-            {!searchActive && loadingMore ? t("mobileFeed.loadingMore") : t("mobileFeed.loadMore")}
+            {(searchActive ? activitySearch!.loadingMore : loadingMore) ? t("mobileFeed.loadingMore") : t("mobileFeed.loadMore")}
           </Button>
         </div>
       )}
