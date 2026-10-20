@@ -249,7 +249,7 @@ describe("ActivityPage presentation", () => {
     }
     fireEvent.click(screen.getByRole("tab", { name: "구간" }));
     const action = await screen.findByRole("button", { name: "이 경로로 라이드" });
-    expect(action).toHaveAttribute("title", "이 경로로 라이드");
+    expect(action).toHaveAttribute("aria-label", "이 경로로 라이드");
     expect(action.closest(".activity-detail-segment-actions")).toBeInTheDocument();
     expect(action.closest(".activity-detail-resizable-map")).not.toBeInTheDocument();
     if (streamsAvailable) {
@@ -359,4 +359,33 @@ it("does not let an open management dialog change its target activity", async ()
   act(() => navigate("/ko/activity/management-b"));
   await screen.findByRole("heading", { name: "management-b", level: 1 });
   expect(screen.queryByRole("dialog", { name: "활동 관리" })).not.toBeInTheDocument();
+});
+
+it("registers another rider's public route without entering the owner-only stream wizard", async () => {
+  const id = "public-route-register";
+  setDocData(`activities/${id}`, createMockActivity({ id, userId: "another-owner", source: "orider", visibility: "everyone", nickname: "", description: "공개 라이딩" }) as unknown as Record<string, unknown>);
+  setCallableResult("createCourseFromActivity", { data: { courseId: "registered-public-course" } });
+  renderProviders(<Routes>
+    <Route path="/ko/activity/:activityId" element={<ActivityPage />} />
+    <Route path="/ko/course/:courseId" element={<p>등록된 공개 코스</p>} />
+  </Routes>, { authenticated: true, route: `/ko/activity/${id}?tab=segments` });
+  const register = await screen.findByRole("button", { name: "코스 등록" });
+  expect(screen.getByRole("link", { name: "라이더" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "세그먼트 만들기" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "코스 등록" })).not.toBeInTheDocument();
+  fireEvent.click(register);
+  expect(await screen.findByText("등록된 공개 코스")).toBeInTheDocument();
+  expect(mockCallableInvocations.filter(call => call.name === "createCourseFromActivity")).toHaveLength(1);
+  expect(mockCallableInvocations.some(call => call.name === "getActivityStreamsForSegment" || call.name === "sendCourseToApp")).toBe(false);
+});
+
+it("does not offer route creation or app transfer for another rider's nonpublic activity", async () => {
+  const id = "nonpublic-route-actions";
+  setDocData(`activities/${id}`, createMockActivity({ id, userId: "another-owner", source: "orider", visibility: "friends" }) as unknown as Record<string, unknown>);
+  renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${id}?tab=segments` });
+  await screen.findByRole("tab", { name: "구간" });
+  expect(screen.queryByRole("link", { name: "세그먼트 만들기" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "코스 등록" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "코스 등록" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "이 경로로 라이드" })).not.toBeInTheDocument();
 });

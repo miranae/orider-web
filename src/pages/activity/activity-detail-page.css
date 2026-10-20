@@ -223,3 +223,5 @@
 
 .activity-management-dialog .activity-management-row--danger { color: var(--rose); }
 .activity-management-dialog .activity-management-row--danger:hover { background: color-mix(in srgb, var(--rose) 8%, transparent); }
+
+.activity-detail-identity { display: grid; grid-template-columns: calc(var(--space-5) * 2) minmax(0, 1fr); align-items: start; gap: var(--space-3); min-width: 0; }

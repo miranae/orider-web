@@ -19,28 +19,13 @@
 .coach-surface [data-testid="K3-2"] > h2 { flex-basis: 100%; margin-bottom: 0; }
 @media (max-width: 36rem) {
  .coach-page-header > div:has(> [role="tablist"]) { flex-basis: 100%; }
- .coach-page-header [role="tablist"] { width: fit-content; max-width: 100%; }
 }
 
 .coach-current-state { display: inline-flex; align-items: baseline; gap: var(--space-2); }
 .coach-current-state a { color: var(--ink-1); }
 
 @media (max-width: 36rem) {
- .coach-surface [role="tablist"] { display: flex; max-width: 100%; }
- .coach-surface [role="tablist"] > [role="tab"] { min-width: 0; flex: 1 1 0; padding-inline: var(--space-1) !important; gap: var(--space-1) !important; }
- .coach-surface [role="tablist"] > [role="tab"] > span:last-child { min-width: 0; overflow-wrap: anywhere; }
- .coach-surface [role="tablist"] > [role="tab"] > span:last-child > span { white-space: normal !important; }
-}
-
-@media (max-width: 36rem) {
- .coach-surface [role="tablist"] > [role="tab"] { flex-direction: column; justify-content: center; }
- .coach-surface [role="tablist"] > [role="tab"] > span:last-child { white-space: nowrap; overflow-wrap: normal; }
-}
-
-@media (max-width: 36rem) {
  .coach-surface .coach-page-header > div:has(> [role="tablist"]) { width: 100%; }
- .coach-surface [role="tablist"] { width: 100% !important; }
- .coach-surface [role="tablist"] > [role="tab"] > span:last-child > span { white-space: nowrap !important; word-break: keep-all; }
  .coach-surface .coach-question-launcher { position: static; display: flex; justify-content: flex-end; margin-top: var(--space-5); margin-bottom: var(--space-4); }
 }
 

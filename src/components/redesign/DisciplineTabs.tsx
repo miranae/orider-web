@@ -110,13 +110,14 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
             title={disabled ? t("discipline.comingSoon") : undefined}
             tabIndex={isActive ? 0 : -1}
           >
-            <span aria-hidden="true" style={{ display: "inline-flex", color }}>{icon}</span>
-            <span data-discipline-label>
-              <span data-discipline-full>{label}</span>
-              <span data-discipline-compact>{t(`discipline.compact.${key}`)}</span>
-              <span data-discipline-availability style={{ fontSize: "var(--fs-2xs)", lineHeight: 1.2 }} aria-hidden="true">
-                {disabled && <><span data-discipline-full>{t("discipline.comingSoon")}</span><span data-discipline-compact>{t("discipline.compact.soon")}</span></>}
+            <span className="discipline-tab-content">
+              <span className="discipline-tab-heading">
+                <span aria-hidden="true" style={{ display: "inline-flex", color }}>{icon}</span>
+                <span data-discipline-label><span data-discipline-full>{label}</span><span data-discipline-compact>{t(`discipline.compact.${key}`)}</span></span>
               </span>
+              {disabledKeys.length > 0 && <span data-discipline-availability aria-hidden="true">
+                {disabled && <><span data-discipline-full>{t("discipline.comingSoon")}</span><span data-discipline-compact>{t("discipline.compact.soon")}</span></>}
+              </span>}
             </span>
           </ToggleButton>
         );

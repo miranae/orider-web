@@ -1,4 +1,6 @@
-import { Button } from "../theme/components";
+import "./WeeklyChart.css";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button, IconButton, Text } from "../theme/components";
 import type { WeeklyLoadEvidence } from "../utils/weeklyLoadEvidence";
 export type { WeeklyLoadEvidence } from "../utils/weeklyLoadEvidence";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -70,6 +72,7 @@ export default function WeeklyChart({
 }: WeeklyChartProps) {
   const { t, i18n } = useTranslation("dashboard");
   const { variant } = useOriderTheme();
+  const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
   const [metric, setMetric] = useState<MetricKey>(dataKey);
   const scrollRef = useRef<HTMLDivElement>(null);
   const latestPeriod = data[data.length - 1]?.week;
@@ -129,8 +132,21 @@ export default function WeeklyChart({
     ],
   };
 
+  const selectedRow = selectedWeek ? data.find(row => row.week === selectedWeek) ?? data[data.length - 1] : data[data.length - 1];
+  const inspectedIndex = selectedRow ? data.indexOf(selectedRow) : 0;
+  const inspect = (index: number) => {
+    const row = data[Math.max(0, Math.min(data.length - 1, index))];
+    if (row) setSelectedWeek(row.week);
+  };
+
   const chartElement = (
-    <div ref={scrollRef} style={{ overflowX: showAllPeriods ? "auto" : undefined }} tabIndex={showAllPeriods ? 0 : undefined}>
+    <div ref={scrollRef} style={{ overflowX: showAllPeriods ? "auto" : undefined }} tabIndex={rich || showAllPeriods ? 0 : undefined}
+      aria-label={rich ? t("charts.weeklyChart.title") : undefined}
+      onKeyDown={event => {
+        if (!rich || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        inspect(event.key === "Home" ? 0 : event.key === "End" ? data.length - 1 : inspectedIndex + (event.key === "ArrowLeft" ? -1 : 1));
+      }}>
     <div style={{ height, minWidth: showAllPeriods ? `${data.length * 4.5}rem` : undefined }}>
       <Bar
         data={chartData}
@@ -139,14 +155,15 @@ export default function WeeklyChart({
           // 긴 월간 이력이 모바일 고해상도 캔버스 크기 한도를 넘지 않도록 제한.
           devicePixelRatio: showAllPeriods ? 1 : undefined,
           maintainAspectRatio: false,
-          // 모바일 탭 시 tooltip 발화 + 가장 가까운 막대로 활성. 'nearest' + axis 'x'
-          // 로 손가락이 막대 정확히 위 아닐 때도 같은 열의 막대가 active.
-          // events 는 chart.js v4 기본값과 동일 — 향후 default 변경 대비 명시.
+          animation: rich ? false : undefined,
+          onClick: rich ? (_event, elements) => { if (elements[0]) inspect(elements[0].index); } : undefined,
+          // Rich history uses pinned details: swipes scroll without hover popups or redraw animation.
           interaction: { mode: "nearest" as const, axis: "x" as const, intersect: false },
-          events: ["mousemove", "mouseout", "click", "touchstart", "touchmove"] as const,
+          events: rich ? ["click"] : ["mousemove", "mouseout", "click", "touchstart", "touchmove"],
           plugins: {
             legend: { display: false },
             tooltip: {
+              enabled: !rich,
               backgroundColor: tooltipBg,
               borderColor: tooltipBorder,
               borderWidth: 1,
@@ -160,17 +177,6 @@ export default function WeeklyChart({
                   return formatPeriodLabel(data[i]?.week ?? "", i18n.language);
                 },
                 label: (ctx: TooltipItem<"bar">) => {
-                  if (rich) {
-                    const row = data[ctx.dataIndex];
-                    if (!row) return "";
-                    return [
-                      `${METRIC_META.distance.label}  ${formatNum(row.distance, METRIC_META.distance.digits)} ${METRIC_META.distance.unit}`,
-                      `${METRIC_META.time.label}  ${formatNum(row.time, METRIC_META.time.digits)} ${METRIC_META.time.unit}`,
-                      `${METRIC_META.elevation.label}  ${formatNum(row.elevation, METRIC_META.elevation.digits)} ${METRIC_META.elevation.unit}`,
-                      t("charts.weeklyChart.recordsCount", {count: row.rides}),
-                      formatTrainingLoad({ ...row, tssUnknownCount: row.tssUnknownCount ?? 0 }, t),
-                    ];
-                  }
                   return `${active.label}  ${formatNum(ctx.parsed.y, active.digits)} ${active.unit}`.trim();
                 },
               },
@@ -214,6 +220,23 @@ export default function WeeklyChart({
       </div>
       {showAllPeriods && data.length > 0 && <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)] mb-2">{data[0]?.week} – {latestPeriod}</p>}
       {chartElement}
+      {selectedRow && <section className="weekly-chart-inspection" aria-label={t("charts.weeklyChart.title")}>
+        <div className="weekly-chart-inspection__header">
+          <Text as="h4" variant="bodyMedium" weight={600}>{formatPeriodLabel(selectedRow.week, i18n.language)}</Text>
+          <div className="weekly-chart-inspection__navigation">
+            <IconButton aria-label={t("common:field.prevMonth")} disabled={inspectedIndex <= 0} onClick={() => inspect(inspectedIndex - 1)} icon={<ChevronLeft size={18} />} />
+            <IconButton aria-label={t("common:field.nextMonth")} disabled={inspectedIndex >= data.length - 1} onClick={() => inspect(inspectedIndex + 1)} icon={<ChevronRight size={18} />} />
+          </div>
+        </div>
+        <div aria-live="polite" aria-atomic="true">
+          <span className="sr-only">{formatPeriodLabel(selectedRow.week, i18n.language)}</span>
+          <dl className="weekly-chart-inspection__values">{(Object.keys(METRIC_META) as MetricKey[]).map(key => <div key={key}>
+            <dt>{METRIC_META[key].label}</dt>
+            <dd>{formatNum(selectedRow[key], METRIC_META[key].digits)} <span>{METRIC_META[key].unit}</span></dd>
+          </div>)}</dl>
+          <Text as="p" variant="caption" tone="tertiary">{t("charts.weeklyChart.recordsCount", { count: selectedRow.rides })} · {formatTrainingLoad({ ...selectedRow, tssUnknownCount: selectedRow.tssUnknownCount ?? 0 }, t)}</Text>
+        </div>
+      </section>}
     </div>
   );
 }
