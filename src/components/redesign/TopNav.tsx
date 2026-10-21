@@ -14,6 +14,7 @@ import { PRIMARY_HUBS, type HubKey } from "../../config/navHubs";
 import MobileMenuSearch from "./MobileMenuSearch";
 import "./TopNav.css";
 import { timeAgo } from "../../utils/timeAgo";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const navFocusClass = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]";
 const navIconButtonClass = `flex items-center justify-center ${navFocusClass}`;
@@ -291,7 +292,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                   onClick={() => { closeMobileMenuForNavigation(); setMenuOpen(false); onMobileNotifClick(); }}
                   style={{ width: 44, height: 44, borderRadius: "var(--r-md)", border: "none", background: "transparent", cursor: "pointer", color: "var(--ink-3)", position: "relative" }}
                 >
-                  <Bell size={16} />
+                  <Bell size={ICON_SIZE.lg} />
                   {unreadCount > 0 && (
                     <div style={{ position: "absolute", top: 10, right: 10, width: 7, height: 7, background: "var(--color-error)", borderRadius: "50%", border: "1.5px solid var(--bg-1)" }} />
                   )}
@@ -311,7 +312,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                     cursor: 'pointer', color: 'var(--ink-3)', position: 'relative',
                   }}
                 >
-                  <Bell size={16} />
+                  <Bell size={ICON_SIZE.lg} />
                   {unreadCount > 0 && (
                     <span
                       style={{
@@ -406,7 +407,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                               {n.fromProfileImage ? (
                                 <img src={n.fromProfileImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               ) : (
-                                <User size={14} style={{ color: 'var(--ink-3)' }} />
+                                <User size={ICON_SIZE.sm} style={{ color: 'var(--ink-3)' }} />
                               )}
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -458,7 +459,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                     {photoURL ? (
                       <img src={photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      avatarInitials || <User size={14} />
+                      avatarInitials || <User size={ICON_SIZE.sm} />
                     )}
                   </span>
                   {friendRequestCount > 0 && (
@@ -493,7 +494,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-2)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                       >
-                        <Icon size={14} /> {t(labelKey)}
+                        <Icon size={ICON_SIZE.sm} /> {t(labelKey)}
                       </Link>
                     ))}
                     <button
@@ -507,7 +508,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-2)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                     >
-                      <LogOut size={14} /> {t('button.logout')}
+                      <LogOut size={ICON_SIZE.sm} /> {t('button.logout')}
                     </button>
                   </div>
                 )}
@@ -523,7 +524,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                   disabled={signInPending}
                   style={{ gap: "var(--space-1-5)" }}
                 >
-                  <LogIn size={14} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
+                  <LogIn size={ICON_SIZE.sm} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
                 </Button>
               </div>
 
@@ -533,7 +534,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
         <button ref={mobileTriggerRef} className={`mobile-menu-trigger ${navIconButtonClass}`}
           aria-label={mobileOpen ? t('button.close') : t('button.more')} aria-expanded={mobileOpen} aria-controls="mobile-navigation"
           onClick={mobileOpen ? closeMobileMenu : openMobileMenu}>
-          {mobileOpen ? <X size={24} /> : <Menu size={24} />}
+          {mobileOpen ? <X size={ICON_SIZE.lg} /> : <Menu size={ICON_SIZE.lg} />}
         </button>
       </nav>
 
@@ -548,7 +549,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
           </div>
           <div className="mobile-navigation-section hidden lg:block">
             <Link to="/settings/account" className={`mobile-navigation-link ${navFocusClass}`} onClick={closeMobileMenuForNavigation}>
-              <Settings size={18} /> {t("nav.settings")}
+              <Settings size={ICON_SIZE.md} /> {t("nav.settings")}
             </Link>
             {user && <details className="navigation-create">
               <summary className={`mobile-navigation-link ${navFocusClass}`}>{t("nav.create")}</summary>
@@ -561,7 +562,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
             </details>}
           </div>
           {!user && <div className="mobile-navigation-section"><Button onClick={() => { void handleSignInWithGoogle(); closeMobileMenuForNavigation(); }} disabled={signInPending}>
-            <LogIn size={15} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
+            <LogIn size={ICON_SIZE.sm} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}
           </Button></div>}
             {/* 언어 선택 */}
             <div className="mobile-navigation-language">

@@ -20,6 +20,26 @@ cross-repo 배포/버전 계약은 후속 작업으로 남겨 둔다.
 - 색만으로 상태를 표현하지 않고, 누름·포커스·비활성·처리 중 상태를 공통 구현한다. 작은 화면에서도 조작 영역과 긴 레이블을 확보한다.
 - 차트는 데이터 선을 우선하고 축·단위·범위·고정 값 표가 해석을 돕게 한다. 서로 다른 단위는 정렬된 레인으로 나눈다.
 
+### 글자·아이콘 크기 — HIG 텍스트 스타일
+
+크기는 `tokens/typography.ts` 의 `HIG_TEXT_SIZE`(iOS 기본 글자 크기 Large, px = pt)에서만 가져온다. 화면 폭과 관계없이 같은 단계를 쓴다.
+
+| 단계 | `--fs-*` | HIG 스타일 | `<Text variant>` |
+|---|---|---|---|
+| 12 | `2xs` | Caption 1 | `caption`, `eyebrow` |
+| 13 | `xs` | Footnote | `label`, `status` |
+| 15 | `sm` | Subheadline | `bodySmall` |
+| 16 | `base` | Callout | — |
+| 17 | `md` | Body / Headline | `body`, `bodyMedium`, `bodyLarge`, `subtitle`(600) |
+| 20 | `lg` | Title 3 | — |
+| 22 | `xl` | Title 2 | `title` |
+| 28 | `2xl` | Title 1 | — |
+| 34 | `3xl` | Large Title | `pageTitle` |
+
+- `--fs-*` 와 `--ft-*` 는 Provider 가 `FONT_SIZE_RAMP`·`DEFAULT_TYPOGRAPHY` 로 주입하고, `orider.tokens.json` 의 정적 `--fs-*`(하이드레이션 전 기본값)는 같은 값이어야 한다 (`designTokens.test.ts` 가 검사). CSS 에 `font-size: 13px` 같은 숫자를 쓰지 않는다.
+- 아이콘은 `tokens/icon.ts` 의 `ICON_SIZE`(xs 13 · sm 15 · md 17 · lg 22 · xl 28)를 쓴다 — 곁의 글자 단계와 같은 값, 상단 막대·툴바·하단 탭은 `lg`. 숫자 `size` 는 ESLint `design-system/no-numeric-icon-size` 가 막는다. `<Button leadingIcon>` 안 아이콘은 버튼 글자 크기(`1em`)를 따른다.
+- 데이터 수치(`data*`)는 HIG 스타일이 없어 앱 비례를 유지한다. 최소 12px(#401)이라 Caption 2(11)는 쓰지 않는다.
+
 구체적인 선택·조합과 상태는 [실물 카탈로그](/design-system-controls.html), 컴포넌트 API는 [사용 가이드](components/README.md)가 정본이다. 새 화면에서 개별적인 버튼·지도·차트 표현을 다시 만들지 않는다.
 
 ## 레이어

@@ -21,6 +21,7 @@ import {
 import { createMockActivity, createMockStreams, createMockSummary } from "../__tests__/fixtures/mockData";
 
 const shareButtonProps = vi.hoisted(() => vi.fn());
+const performanceChartProps = vi.hoisted(() => vi.fn());
 const elevationChartProps = vi.hoisted(() => vi.fn());
 const routeMapProps = vi.hoisted(() => vi.fn());
 // 활동 재계산은 **그 활동의 자전거**로만 한다(#1950) — 지금 선택된 자전거가 아니다.
@@ -40,6 +41,11 @@ vi.mock("../features/activity/share/ActivityShareButton", () => ({
   },
 }));
 
+vi.mock("../features/activity/detail/ActivityPerformanceCharts", async importOriginal => {
+  const actual = await importOriginal<typeof import("../features/activity/detail/ActivityPerformanceCharts")>();
+  return { default: (props: Parameters<typeof actual.default>[0]) => { performanceChartProps(props); return <actual.default {...props} />; } };
+});
+
 // Mock heavy components
 vi.mock("../components/RouteMap", () => ({
   default: (props: unknown) => { routeMapProps(props); return <div data-testid="route-map">Map</div>; },
@@ -47,7 +53,7 @@ vi.mock("../components/RouteMap", () => ({
 vi.mock("../components/ElevationChart", () => ({
   default: (props: unknown) => {
     elevationChartProps(props);
-    return <div data-testid="elevation-chart">Chart</div>;
+    return <div data-testid="elevation-chart">Chart{(props as { analysisPresentation?: { axisControls?: React.ReactNode; controls?: React.ReactNode } }).analysisPresentation?.axisControls}{(props as { analysisPresentation?: { controls?: React.ReactNode } }).analysisPresentation?.controls}</div>;
   },
 }));
 vi.mock("../components/activity/AiRideAnalysisCard", () => ({
@@ -371,6 +377,44 @@ describe("ActivityPage", () => {
       else expect(sourceCalls()).toBe(1);
     } finally { vi.mocked(getDoc).mockImplementation(original); }
   });
+  it("keeps public visual zoom independent from owner analysis, maps source indices, preserves selection across axes, and resets on account changes", async () => {
+    const epoch = 1791375809874;
+    const activity = createMockActivity({ id: "test-activity", userId: "other-owner", source: "orider", startTime: epoch,
+      summary: createMockSummary({ ridingTimeMillis: 600000, elapsedTimeMillis: 600000 }) });
+    const count = 601;
+    const latlng = Array.from({ length: count }, (_, index) => [37 + index / 100000, 127]);
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    setDocData("activity_streams/test-activity", { userId: activity.userId, json: JSON.stringify({
+      time: Array.from({ length: count }, (_, index) => epoch + index * 1000),
+      distance: Array.from({ length: count }, (_, index) => index < 300 ? 100 : index * 10),
+      altitude: Array(count).fill(10), latlng,
+      heartrate: Array(count).fill(120), cadence: Array(count).fill(80), watts: Array(count).fill(180),
+      segment_efforts: [{ id: 1, name: "Actual climb", startIndex: 100, endIndex: 200 }],
+    }) });
+    renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=analysis" });
+    await screen.findByTestId("elevation-chart");
+    expect(screen.getAllByTestId("route-map")).toHaveLength(1);
+    expect(screen.getAllByTestId("elevation-chart")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "구간 분석" })).not.toBeInTheDocument();
+    const chart = performanceChartProps.mock.lastCall![0];
+    expect(chart.activeOverlays.size).toBe(chart.availableOverlays.length);
+    expect(chart.segments).toEqual([expect.objectContaining({ id: "1", name: "Actual climb", startIndex: 50, endIndex: 100 })]);
+    act(() => chart.onVisualRangeChange([20, 40]));
+    expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 40, endIndex: 80 });
+    expect(performanceChartProps.mock.lastCall?.[0].visualRange).toEqual([20, 40]);
+    expect(performanceChartProps.mock.lastCall?.[0].hoverIndex).toBe(40);
+    expect(mockCallableInvocations.filter(call => call.name === "getActivityRangeAnalysis")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "경과시간 축" }));
+    expect(performanceChartProps.mock.lastCall?.[0]).toMatchObject({ visualRange: [20, 40], xAxis: "elapsed" });
+    expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 40, endIndex: 80 });
+    act(() => performanceChartProps.mock.lastCall![0].onVisualRangeChange(null));
+    expect(routeMapProps.mock.lastCall?.[0].highlightRange).toBeUndefined();
+    act(() => performanceChartProps.mock.lastCall![0].onVisualRangeChange([20, 40]));
+    act(() => simulateLogin({ uid: "another-viewer", displayName: "Another" }));
+    await waitFor(() => expect(performanceChartProps.mock.lastCall?.[0].visualRange).toBeNull());
+    expect(routeMapProps.mock.lastCall?.[0].highlightRange).toBeUndefined();
+  });
+
   it.each([false, true])("shares an elapsed range and plumbs expansion enabled=%s", async enabled => {
     resetRuntimeConfigForTests({ activityAnalysisExpansionEnabled: enabled });
     const epoch = 1791375809874;
@@ -384,7 +428,12 @@ describe("ActivityPage", () => {
       altitude: Array(count).fill(10), latlng: Array.from({ length: count }, () => [37, 127]),
     }) });
     renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
-    fireEvent.click(await screen.findByRole("button", { name: "구간 분석" }));
+    const selectRange = await screen.findByRole("button", { name: "구간 분석" });
+    act(() => performanceChartProps.mock.lastCall![0].onVisualRangeChange([10, 20]));
+    expect(performanceChartProps.mock.lastCall?.[0].visualRange).toEqual([10, 20]);
+    fireEvent.click(selectRange);
+    expect(performanceChartProps.mock.lastCall?.[0].visualRange).toBeNull();
+    expect(performanceChartProps.mock.lastCall?.[0].hoverIndex).toBeNull();
     const inputs = [screen.getByLabelText("시작 시간"), screen.getByLabelText("끝 시간")];
     fireEvent.change(inputs[0]!, { target: { value: "0:20" } });
     fireEvent.change(inputs[1]!, { target: { value: "0:40" } });
@@ -778,7 +827,7 @@ describe("ActivityPage", () => {
     ]));
     expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([expect.objectContaining({ value: "333" })]));
     expect(latestShareMetrics()).not.toEqual(expect.arrayContaining([expect.objectContaining({ value: "444" })]));
-    fireEvent.click(screen.getByRole("button", { name: "가상 파워" }));
+    // 모든 가용 센서 레인은 처음부터 표시한다.
     await waitFor(() => {
       const latestChart = elevationChartProps.mock.calls.at(-1)?.[0] as {
         overlays?: Array<{ label: string; data: number[] }>;

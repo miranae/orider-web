@@ -9,6 +9,7 @@ import { track } from "../../services/analytics";
 import { Triangle } from "lucide-react";
 import SportIcon from "../common/SportIcon";
 import type { ReactNode } from "react";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export type Discipline = "tri" | "bike" | "run" | "swim";
 
@@ -32,12 +33,12 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
 
   const tabs = useMemo<{ key: Discipline; label: string; icon: ReactNode; color: string }[]>(() => {
     const base = [
-      { key: "bike" as Discipline, label: t(getDisciplineLabelKey("bike")), icon: <SportIcon sport="bike" size={16} />, color: getDisciplineColor("bike") },
-      { key: "run"  as Discipline, label: t(getDisciplineLabelKey("run")),  icon: <SportIcon sport="run" size={16} />, color: getDisciplineColor("run") },
-      { key: "swim" as Discipline, label: t(getDisciplineLabelKey("swim")), icon: <SportIcon sport="swim" size={16} />, color: getDisciplineColor("swim") },
+      { key: "bike" as Discipline, label: t(getDisciplineLabelKey("bike")), icon: <SportIcon sport="bike" size={ICON_SIZE.md} />, color: getDisciplineColor("bike") },
+      { key: "run"  as Discipline, label: t(getDisciplineLabelKey("run")),  icon: <SportIcon sport="run" size={ICON_SIZE.md} />, color: getDisciplineColor("run") },
+      { key: "swim" as Discipline, label: t(getDisciplineLabelKey("swim")), icon: <SportIcon sport="swim" size={ICON_SIZE.md} />, color: getDisciplineColor("swim") },
     ];
     if (includeTri) {
-      base.unshift({ key: "tri" as Discipline, label: t(getDisciplineLabelKey("tri")), icon: <Triangle size={13} />, color: getDisciplineColor("tri") });
+      base.unshift({ key: "tri" as Discipline, label: t(getDisciplineLabelKey("tri")), icon: <Triangle size={ICON_SIZE.xs} />, color: getDisciplineColor("tri") });
     }
     return base.filter(tab => isSportUiEnabled(tab.key));
   }, [includeTri, t]);

@@ -6,6 +6,7 @@ import "./activity-personal-benchmark.css";
 import { Button, Text } from "../../../theme/components";
 import { useLocale } from "../../../contexts/LocaleContext";
 import { visiblePeakEfforts } from "./activityPeakEfforts";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 
 interface Props {
   activityId: string;
@@ -52,7 +53,7 @@ function PeakEffortContent({ defaultExpanded = false, metrics, peaks, onLocate, 
     <h3 className="activity-analysis-tool-heading"><Button variant="ghost" size="sm" aria-expanded={opened} aria-controls={id} onClick={() => {
       setOpened(value => !value);
       if (opened) onLocate?.(null);
-    }}><Text variant="bodyMedium" weight={600}>{t("peakInspector.title")}</Text>{opened ? <ChevronUp aria-hidden="true" size={16} /> : <ChevronDown aria-hidden="true" size={16} />}</Button></h3>
+    }}><Text variant="bodyMedium" weight={600}>{t("peakInspector.title")}</Text>{opened ? <ChevronUp aria-hidden="true" size={ICON_SIZE.md} /> : <ChevronDown aria-hidden="true" size={ICON_SIZE.md} />}</Button></h3>
     {opened && <div id={id} className="activity-peak-reading space-y-4">
       <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{t("peakInspector.description")}</p>
       <div className="flex flex-wrap gap-2" role="group" aria-label={t("peakInspector.duration")}>

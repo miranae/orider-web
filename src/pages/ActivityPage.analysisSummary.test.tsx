@@ -6,6 +6,7 @@ import type { ActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import ActivityPage from "./ActivityPage";
+import { withStoredSummary } from "../__tests__/fixtures/activityDefaultSummary";
 import { signInWithPopup } from "firebase/auth";
 
 const mocks = vi.hoisted(() => ({
@@ -60,6 +61,19 @@ beforeEach(() => {
 });
 
 describe("ActivityPage server summary presentation", () => {
+  it.each(["orider", "strava"] as const)("shows the %s deterministic memo on another rider's default overview tab", source => {
+    mocks.model!.activity!.source = source;
+    mocks.model!.activity!.userId = "another-rider";
+    mocks.model!.isActivityOwner = false;
+    mocks.model!.activity = withStoredSummary(mocks.model!.activity!, "▰ 피크 파워 (W)\n 1s 10s\n938 767");
+    mocks.model!.overview.response = null;
+    renderWithProviders(<ActivityPage />, { authenticated: false });
+    expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("activity-detail-memo").textContent).toBe("▰ 피크 파워 (W)\n 1s 10s\n938 767");
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(screen.queryByTestId("activity-detail-memo")).not.toBeInTheDocument();
+  });
+
   it.each([12, null])("러닝 GAP 카드 평균도 요약 스트립의 정본 값 %s를 전달한다", avgSpeedKph => {
     mocks.model!.sport = "run";
     mocks.model!.activity!.summary.averageSpeed = 10;

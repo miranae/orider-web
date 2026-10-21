@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import Modal from "../Modal";
 import { buttonClass, IconButton } from "../../theme/components";
 import { LocalizedLink as Link } from "../LocalizedLink";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export interface AthletePhoto { id: string; url: string; caption: string | null; activityId: string }
 export default function AthletePhotoGallery({ photos, cover = false }: { photos: AthletePhoto[]; cover?: boolean }) {
@@ -33,9 +34,9 @@ export default function AthletePhotoGallery({ photos, cover = false }: { photos:
         <img src={photo.url} alt={photo.caption ?? ""} />
         {photo.caption && <p>{photo.caption}</p>}
         <div className="athlete-photo-viewer-controls">
-          <IconButton variant="neutral" aria-label={t("profile.previousPhoto")} disabled={index === 0} icon={<ChevronLeft size={18} />} onClick={() => move(index - 1)} />
+          <IconButton variant="neutral" aria-label={t("profile.previousPhoto")} disabled={index === 0} icon={<ChevronLeft size={ICON_SIZE.md} />} onClick={() => move(index - 1)} />
           <span aria-live="polite">{index + 1} / {photos.length}</span>
-          <IconButton variant="neutral" aria-label={t("profile.nextPhoto")} disabled={index === photos.length - 1} icon={<ChevronRight size={18} />} onClick={() => move(index + 1)} />
+          <IconButton variant="neutral" aria-label={t("profile.nextPhoto")} disabled={index === photos.length - 1} icon={<ChevronRight size={ICON_SIZE.md} />} onClick={() => move(index + 1)} />
           <Link className={buttonClass({ variant: "ghost" })} to={`/activity/${photo.activityId}?tab=overview`}>{t("profile.openActivity")}</Link>
         </div>
       </div>}

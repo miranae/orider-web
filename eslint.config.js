@@ -205,6 +205,38 @@ const designSystem = {
     },
 
     /**
+     * 아이콘 `size={16}` 같은 숫자 크기 차단 — `ICON_SIZE` 토큰(HIG 글자 단계 연동) 사용.
+     * 숫자 `size` 가 아이콘이 아닌 컴포넌트(아바타 지름 등)는 옵션 `allow` 로 면제.
+     */
+    'no-numeric-icon-size': {
+      meta: {
+        type: 'problem',
+        docs: { description: '아이콘 size 숫자 → ICON_SIZE 토큰 사용' },
+        schema: [{ type: 'object', properties: { allow: { type: 'array', items: { type: 'string' } } }, additionalProperties: false }],
+        messages: {
+          numeric: '`<{{tag}} size={{{val}}}>` — `size={ICON_SIZE.xs|sm|md|lg|xl}` 토큰 사용 (src/theme/tokens/icon.ts)',
+        },
+      },
+      create(context) {
+        const allow = new Set(context.options[0]?.allow ?? []);
+        return {
+          JSXAttribute(node) {
+            if (node.name?.name !== 'size') return;
+            const v = node.value;
+            if (!v || v.type !== 'JSXExpressionContainer') return;
+            const expr = v.expression;
+            if (expr.type !== 'Literal' || typeof expr.value !== 'number') return;
+            const nameNode = node.parent.name;
+            const tag = nameNode.type === 'JSXIdentifier' ? nameNode.name
+              : nameNode.type === 'JSXMemberExpression' ? context.sourceCode.getText(nameNode) : '';
+            if (allow.has(tag)) return;
+            context.report({ node, messageId: 'numeric', data: { tag, val: expr.value } });
+          },
+        };
+      },
+    },
+
+    /**
      * JSX `style={{ fontSize: 13 }}` 같은 인라인 폰트 크기 px 차단.
      * `<Text variant="...">` 또는 font-size 토큰 유틸 사용.
      */
@@ -381,6 +413,8 @@ export default tseslint.config(
       'design-system/no-inline-fontsize-in-style': 'warn',
       'design-system/no-inline-borderradius-in-style': 'warn',
       'design-system/no-color-space-in-jsx-style': 'warn',
+      // (HIG 전환) 아이콘 크기는 ICON_SIZE 토큰만 — 기존 숫자 0건이라 처음부터 error.
+      'design-system/no-numeric-icon-size': ['error', { allow: ['Avatar'] }],
 
       // --- 로깅 위생 (2026-06-06 추가) ---
       // 프로덕션 코드의 raw console.* 차단. 프론트 표준 로거는 `errorLogger.logClientError`
@@ -434,6 +468,7 @@ export default tseslint.config(
       'design-system/no-inline-fontsize-in-style': 'off',
       'design-system/no-inline-borderradius-in-style': 'off',
       'design-system/no-color-space-in-jsx-style': 'off',
+      'design-system/no-numeric-icon-size': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
       'no-console': 'off',
     },

@@ -25,12 +25,13 @@ export default function ActivityDetailedCharts({ model, highlightedPeak = null, 
   const opened = !!activityId && (openedActivityId === activityId || highlightedPeak != null);
   const sampled = useMemo(() => buildSampledData(model.effectiveStreams, model.sensorSelectionContext),
     [model.effectiveStreams, model.sensorSelectionContext]);
+  const sourceIndices = useMemo(() => sampled.map(point => point.sourceIndex ?? -1), [sampled]);
   const rangeSelection = useActivityRangeSelection(model, sampled);
   const cadenceUnit = model.serverMetrics?.metrics?.cadenceUnit
     ?? (model.activity?.source === "strava" ? "strides_per_minute" : model.activity?.source === "orider" ? "spm" : null);
   const available = useMemo(() => getPerformanceOverlays(sampled, model.sport, units, cadenceUnit, t("analysis.run.cadenceUnit")),
     [sampled, model.sport, units, cadenceUnit, t]);
-  const selected = activeOverlays ?? new Set(available.slice(0, 2).map(cfg => cfg.key));
+  const selected = activeOverlays ?? new Set(available.map(cfg => cfg.key));
   const hasElevation = !!model.effectiveStreams?.altitude?.some(value => value != null && Number.isFinite(value));
   const overlays = buildChartOverlays(available, selected, sampled, label => label === "power" && model.streamSensorSummary?.powerSource
     ? t(model.streamSensorSummary?.powerSource === "watts_calc" || model.streamSensorSummary?.powerSource === "virtualPowerOverride"
@@ -57,6 +58,8 @@ export default function ActivityDetailedCharts({ model, highlightedPeak = null, 
           retryLabel={t("page.retry")} onRetry={() => { void model.retryStreams(); }} />
       )}
       {opened && !model.streamsSignInRequired && sampled.length > 0 && <ActivityPerformanceCharts
+        rawStreams={model.effectiveStreams} sensorSelectionContext={model.sensorSelectionContext}
+        rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
         elevData={sampled.map(point => ({ distance: point.distance, elevation: point.altitude }))}
         availableOverlays={available} activeOverlays={selected} focusedOverlayKey={focusedOverlayKey}
         toggleOverlay={key => {

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import Avatar from "../components/Avatar";
 import { Text } from "../theme/components";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 export default function MyPage() {
   const { user, profile, logout } = useAuth();
@@ -95,7 +96,7 @@ export default function MyPage() {
         >
           <span style={{ fontSize: "var(--fs-lg)", width: 28, textAlign: "center" }}>{item.icon}</span>
           <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-1)", fontWeight: 500, flex: 1 }}>{item.label}</span>
-          <ChevronRight size={16} style={{ color: "var(--ink-4)" }} />
+          <ChevronRight size={ICON_SIZE.md} style={{ color: "var(--ink-4)" }} />
         </Link>
       ))}
       {/* Logout — inside 계정 section, no chevron */}

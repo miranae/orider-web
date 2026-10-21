@@ -2724,5 +2724,16 @@
       "title": "Detailed metrics and evidence",
       "description": "Explore sensor metrics, personal benchmarks, peak efforts and calculation evidence."
     }
+  },
+  "analysisChart": {
+    "keyboardHelp": "Use arrow keys to move the cursor and Shift+arrow keys to select a range. Escape restores the full range.",
+    "selectedStats": "Observed average and maximum within the selected range, separate from saved whole-activity metrics.",
+    "segments": "Segments",
+    "restore": "Restore full range",
+    "observedStats": "Average and maximum from observed raw samples. Values may differ from the saved activity summary.",
+    "selection": "Selected range",
+    "selectedStatsLabel": "Selected range statistics",
+    "distanceShort": "Distance",
+    "elapsedShort": "Time"
   }
 }

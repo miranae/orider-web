@@ -57,6 +57,7 @@ import { isEmulatorRuntime } from "../../services/runtimeConfig";
 import { buildEventFollowPayload, followerExists } from "../../features/event/detail/eventFollow";
 import { useGroup } from "../../hooks/useGroup";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 /** 이보다 트랙에서 멀리 떨어진 웨이포인트는 프로필·지도에 찍지 않는다(m). */
 const OFF_TRACK_LIMIT_M = 2_000;
@@ -690,7 +691,7 @@ export default function EventDetailPage() {
             {/* 칩 행 */}
             <div className="flex flex-wrap" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-2)" }}>
               <Chip style={{ fontSize: "var(--fs-xs)", color: "var(--amber)", display: "inline-flex", alignItems: "center", gap: 'var(--space-1)' }}>
-                <SportIcon sport="bike" size={16} /> <GlossaryText>{typeLabelKey ? t(typeLabelKey) : event.type}</GlossaryText>
+                <SportIcon sport="bike" size={ICON_SIZE.md} /> <GlossaryText>{typeLabelKey ? t(typeLabelKey) : event.type}</GlossaryText>
               </Chip>
               <Chip
                 style={{
@@ -710,12 +711,12 @@ export default function EventDetailPage() {
                 <Text as="h1" variant="pageTitle" className="event-detail-title" style={{ marginBottom: "var(--space-2)" }}>{event.name}</Text>
                 <div className="flex flex-wrap items-center" style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", gap: 'var(--space-4)' }}>
                   <span className="inline-flex items-center" style={{ gap: "var(--space-1)" }}>
-                    <CalendarDays size={14} aria-hidden="true" />
+                    <CalendarDays size={ICON_SIZE.sm} aria-hidden="true" />
                     <span style={{ fontFamily: "var(--font-mono)" }}>{formatDateTime(event.startTime)}</span>
                   </span>
                   {event.creatorName && (
                     <span className="inline-flex items-center" style={{ gap: "var(--space-1)" }}>
-                      <Users size={14} aria-hidden="true" /> {t("detail.hostedBy", { name: event.creatorName })}
+                      <Users size={ICON_SIZE.sm} aria-hidden="true" /> {t("detail.hostedBy", { name: event.creatorName })}
                     </span>
                   )}
                 </div>
@@ -734,10 +735,10 @@ export default function EventDetailPage() {
                     }
                   }}
                 >
-                  <Link2 size={14} aria-hidden="true" /> {t("button.share")}
+                  <Link2 size={ICON_SIZE.sm} aria-hidden="true" /> {t("button.share")}
                 </Button>
                 <Button type="button" variant="secondary" size="sm" onClick={handleAddToCalendar}>
-                  <CalendarDays size={14} aria-hidden="true" /> {t("detail.button.addToCalendar")}
+                  <CalendarDays size={ICON_SIZE.sm} aria-hidden="true" /> {t("detail.button.addToCalendar")}
                 </Button>
                 {user && isParticipant == null && <Text variant="unit">{t("detail.registrationStateUnknown")}</Text>}
                 {event.status === "OPEN" && isParticipant === false && isRegistrationTimeOpen(event.startTime, event.closeAt) && (
@@ -756,7 +757,7 @@ export default function EventDetailPage() {
                       showToast(t(next ? "follow.enabled" : "follow.disabled"));
                     } catch (err) { logClientError("EventDetailPage.setEventFollow", err, { eventId }); showToast(t("follow.failed")); }
                     finally { setFollowPending(false); }
-                  }}><Bell size={14} aria-hidden="true" /> {t(followingEvent ? "follow.unfollow" : "follow.action")}</Button><Button
+                  }}><Bell size={ICON_SIZE.sm} aria-hidden="true" /> {t(followingEvent ? "follow.unfollow" : "follow.action")}</Button><Button
                     type="button"
                     onClick={() => navigate(`/event/${eventId}/register`)} variant="primary" size="sm"
                   >
@@ -773,7 +774,7 @@ export default function EventDetailPage() {
                       logClientError("EventDetailPage.shareRegistrationCard", err, { eventId });
                       showToast(t("detail.toast.shareFailed"));
                     }
-                  }}><Image size={14} aria-hidden="true" /> {t("shareCard.registration")}</Button><Button
+                  }}><Image size={ICON_SIZE.sm} aria-hidden="true" /> {t("shareCard.registration")}</Button><Button
                     type="button" variant="secondary" size="sm"
                     disabled={withdrawing || !canCancelRegistration}
                     onClick={() => { void handleCancelRegistration(); }}
@@ -787,7 +788,7 @@ export default function EventDetailPage() {
                     type="button"
                     onClick={() => setShowStartConfirm(true)} variant="primary" size="sm"
                   >
-                    <Play size={14} aria-hidden="true" /> {t("button.start")}
+                    <Play size={ICON_SIZE.sm} aria-hidden="true" /> {t("button.start")}
                   </Button>
                 )}
                 {canOperate && (
@@ -795,7 +796,7 @@ export default function EventDetailPage() {
                     type="button"
                     onClick={() => navigate(`/event/${eventId}/host`)} variant="primary" size="sm"
                   >
-                    <ChartNoAxesCombined size={14} aria-hidden="true" /> {t("host.operation")}
+                    <ChartNoAxesCombined size={ICON_SIZE.sm} aria-hidden="true" /> {t("host.operation")}
                   </Button>
                 )}
                 {event.status === "FINISHED" && (
@@ -803,7 +804,7 @@ export default function EventDetailPage() {
                     type="button"
                     onClick={() => navigate(`/event/${eventId}/results`)} variant="primary" size="sm"
                   >
-                    <Trophy size={14} aria-hidden="true" /> {t("resultsTitle")}
+                    <Trophy size={ICON_SIZE.sm} aria-hidden="true" /> {t("resultsTitle")}
                   </Button>
                 )}
               </div>
@@ -858,7 +859,7 @@ export default function EventDetailPage() {
                       cursor: "pointer",
                     }}
                   >
-                    <Route size={14} aria-hidden="true" />
+                    <Route size={ICON_SIZE.sm} aria-hidden="true" />
                     <span>{c.name}</span>
                     {cd && (
                       <span style={{ fontFamily: "var(--font-mono)", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>
@@ -1102,7 +1103,7 @@ export default function EventDetailPage() {
                   </Link>
                 )}
                 {groupCalendarUrl(group) && <a href={groupCalendarUrl(group)!}>
-                  <Button type="button" variant="secondary" size="sm"><CalendarDays size={14} aria-hidden="true" /> {t("group.subscribeCalendar")}</Button>
+                  <Button type="button" variant="secondary" size="sm"><CalendarDays size={ICON_SIZE.sm} aria-hidden="true" /> {t("group.subscribeCalendar")}</Button>
                 </a>}
               </div>
             </Card>
@@ -1216,7 +1217,7 @@ export default function EventDetailPage() {
               style={{ padding: "var(--space-4)", borderColor: "color-mix(in oklch, var(--amber) 30%, var(--line-soft))" }}
             >
               <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-2)" }}>
-                <Settings size={14} aria-hidden="true" />
+                <Settings size={ICON_SIZE.sm} aria-hidden="true" />
                 <Text variant="eyebrow" style={{ color: "var(--amber)" }}>{t("label.hostMenu")}</Text>
               </div>
               <div className="flex flex-col" style={{ gap: "var(--space-1-5)" }}>
@@ -1226,7 +1227,7 @@ export default function EventDetailPage() {
                     onClick={() => navigate(`/event/${eventId}/host/edit`)} variant="secondary" size="sm"
                     style={{ justifyContent: "flex-start", width: "100%" }}
                   >
-                    <Pencil size={14} aria-hidden="true" /> {t("action.editEvent")}
+                    <Pencil size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.editEvent")}
                   </Button>
                 )}
                 <Button
@@ -1235,14 +1236,14 @@ export default function EventDetailPage() {
                   disabled={sending || linkedCourses.length === 0} variant="secondary" size="sm" className="disabled:opacity-50"
                   style={{ justifyContent: "flex-start", width: "100%" }}
                 >
-                  <Send size={14} aria-hidden="true" /> {t("action.sendCourse")}
+                  <Send size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.sendCourse")}
                 </Button>
                 <Button
                   type="button"
                   onClick={() => navigate(`/event/${eventId}/host/participants`)} variant="secondary" size="sm"
                   style={{ justifyContent: "flex-start", width: "100%" }}
                 >
-                  <Users size={14} aria-hidden="true" /> {t("action.manageParticipants")}
+                  <Users size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.manageParticipants")}
                 </Button>
                 {event.status === "OPEN" && (
                   <Button
@@ -1251,7 +1252,7 @@ export default function EventDetailPage() {
                     disabled={starting} variant="primary" size="sm" className="disabled:opacity-50"
                     style={{ justifyContent: "flex-start", width: "100%" }}
                   >
-                    <Play size={14} aria-hidden="true" /> {starting ? t("detail.button.starting") : t("button.start")}
+                    <Play size={ICON_SIZE.sm} aria-hidden="true" /> {starting ? t("detail.button.starting") : t("button.start")}
                   </Button>
                 )}
               </div>
@@ -1286,7 +1287,7 @@ export default function EventDetailPage() {
                   color: "var(--lime)",
                 }}
               >
-                <Play size={20} aria-hidden="true" />
+                <Play size={ICON_SIZE.lg} aria-hidden="true" />
               </div>
               <div>
                 <div className="text-[length:var(--fs-base)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: "var(--space-1-5)" }}>
@@ -1306,7 +1307,7 @@ export default function EventDetailPage() {
                 onClick={handleStartEvent}
                 disabled={starting} variant="primary" size="sm" className="disabled:opacity-50"
               >
-                <Play size={14} aria-hidden="true" /> {starting ? t("detail.button.starting") : t("button.start")}
+                <Play size={ICON_SIZE.sm} aria-hidden="true" /> {starting ? t("detail.button.starting") : t("button.start")}
               </Button>
             </div>
           </Card>

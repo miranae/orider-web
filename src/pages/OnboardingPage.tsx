@@ -11,15 +11,16 @@ import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
 import { Bike, Footprints, Triangle, Waves } from "lucide-react";
 import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 type Step = "discipline" | "strava" | "goal";
 const STEPS: Step[] = ["discipline", "strava", "goal"];
 
 const DISCIPLINES = [
-  { key: "tri"  as const, icon: <Triangle size={28} /> },
-  { key: "bike" as const, icon: <Bike size={28} /> },
-  { key: "run"  as const, icon: <Footprints size={28} /> },
-  { key: "swim" as const, icon: <Waves size={28} /> },
+  { key: "tri"  as const, icon: <Triangle size={ICON_SIZE.xl} /> },
+  { key: "bike" as const, icon: <Bike size={ICON_SIZE.xl} /> },
+  { key: "run"  as const, icon: <Footprints size={ICON_SIZE.xl} /> },
+  { key: "swim" as const, icon: <Waves size={ICON_SIZE.xl} /> },
 ];
 
 export default function OnboardingPage() {

@@ -21,6 +21,7 @@ import { useCourses } from "../hooks/useCourses";
 import { Button, Card, Text, Input, Textarea, DropdownSelect } from "../theme/components";
 import { Field, SegmentedPicker, StepBar, Toggle, fieldStyle } from "../features/event/form/eventFormControls";
 import { createEventSeriesId, joinDtLocal, newCategory, shiftDtLocalByWeeks, splitDtLocal, type CategoryRow } from "../features/event/form/eventFormUtils";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 const REPEAT_WEEK_OPTIONS = [2, 4, 8] as const;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -666,7 +667,7 @@ export default function EventCreatePage() {
                           }}
                           aria-hidden="true"
                         >
-                          <Map size={20} aria-hidden="true" />
+                          <Map size={ICON_SIZE.lg} aria-hidden="true" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-[length:var(--ft-body-size)] font-semibold truncate" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
@@ -725,7 +726,7 @@ export default function EventCreatePage() {
                       </div>
                     ) : availableCourses.length === 0 ? (
                       <EmptyState
-                        icon={<Map size={28} style={{ marginInline: "auto" }} />}
+                        icon={<Map size={ICON_SIZE.xl} style={{ marginInline: "auto" }} />}
                         title={t("message.noCourses")}
                         description={t("create.noCourseDesc")}
                         actions={[{ label: `+ ${t("create.createCourse")}`, variant: "primary", href: "/course/create" }]}
@@ -807,10 +808,10 @@ export default function EventCreatePage() {
 
               <div className="event-create-fields-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
                 <Field label={t("field.date")} required>
-                  <DateField portal icon={<CalendarDays size={14} aria-hidden="true" />} value={data.date} onChange={(v) => patch({ date: v })} min={new Date().toISOString().split("T")[0]} placeholder={t("field.date")} />
+                  <DateField portal icon={<CalendarDays size={ICON_SIZE.sm} aria-hidden="true" />} value={data.date} onChange={(v) => patch({ date: v })} min={new Date().toISOString().split("T")[0]} placeholder={t("field.date")} />
                 </Field>
                 <Field label={t("field.startTime")} required>
-                  <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />} value={data.startTime} onChange={(v) => patch({ startTime: v })} placeholder={t("field.startTime")} />
+                  <TimeField portal icon={<Clock3 size={ICON_SIZE.sm} aria-hidden="true" />} value={data.startTime} onChange={(v) => patch({ startTime: v })} placeholder={t("field.startTime")} />
                 </Field>
               </div>
 
@@ -826,10 +827,10 @@ export default function EventCreatePage() {
 
               <div className="event-create-fields-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
                 <Field label={t("field.meetTime")} sub={t("create.meetTimeHint")}>
-                  <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />} value={data.meetTime} onChange={(v) => patch({ meetTime: v })} placeholder={t("field.meetTime")} />
+                  <TimeField portal icon={<Clock3 size={ICON_SIZE.sm} aria-hidden="true" />} value={data.meetTime} onChange={(v) => patch({ meetTime: v })} placeholder={t("field.meetTime")} />
                 </Field>
                 <Field label={t("field.expectedDuration")} hint={t("hint.expectedDuration")}>
-                  <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />} duration presets={false} value={data.expectedDuration} onChange={(v) => patch({ expectedDuration: v })} placeholder="HH:MM" />
+                  <TimeField portal icon={<Clock3 size={ICON_SIZE.sm} aria-hidden="true" />} duration presets={false} value={data.expectedDuration} onChange={(v) => patch({ expectedDuration: v })} placeholder="HH:MM" />
                 </Field>
               </div>
 
@@ -1053,12 +1054,12 @@ export default function EventCreatePage() {
                   <div className="flex flex-col" style={{ gap: "var(--space-3)" }}>
                     <Field label={t("field.openAt")} required>
                       <div className="event-create-fields-grid" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 'var(--space-2)' }}>
-                        <DateField portal icon={<CalendarDays size={14} aria-hidden="true" />}
+                        <DateField portal icon={<CalendarDays size={ICON_SIZE.sm} aria-hidden="true" />}
                           value={open.date}
                           onChange={(v) => patch({ openAt: joinDtLocal(v, open.time) })}
                           placeholder={t("create.openDate")}
                         />
-                        <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
+                        <TimeField portal icon={<Clock3 size={ICON_SIZE.sm} aria-hidden="true" />}
                           value={open.time}
                           onChange={(v) => patch({ openAt: joinDtLocal(open.date, v) })}
                           placeholder={t("create.timePh")}
@@ -1067,13 +1068,13 @@ export default function EventCreatePage() {
                     </Field>
                     <Field label={t("field.closeAt")} required>
                       <div className="event-create-fields-grid" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 'var(--space-2)' }}>
-                        <DateField portal icon={<CalendarDays size={14} aria-hidden="true" />}
+                        <DateField portal icon={<CalendarDays size={ICON_SIZE.sm} aria-hidden="true" />}
                           value={close.date}
                           onChange={(v) => patch({ closeAt: joinDtLocal(v, close.time) })}
                           min={open.date || undefined}
                           placeholder={t("create.closeDate")}
                         />
-                        <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
+                        <TimeField portal icon={<Clock3 size={ICON_SIZE.sm} aria-hidden="true" />}
                           value={close.time}
                           onChange={(v) => patch({ closeAt: joinDtLocal(close.date, v) })}
                           placeholder={t("create.timePh")}

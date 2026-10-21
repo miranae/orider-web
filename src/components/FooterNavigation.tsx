@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button, Card } from "../theme/components";
 import { LocalizedLink as Link } from "./LocalizedLink";
 import AppInstallLinks from "./AppInstallLinks";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 type Group = "partnershipInquiry" | "help" | "policies" | "install";
 const partnershipLinks = [
@@ -68,7 +69,7 @@ export default function FooterNavigation() {
   return <nav ref={root} aria-label={t("footer.navigation")} className="flex flex-wrap items-center gap-4">
     {(["partnershipInquiry", "help", "policies", "install"] as const).map(group => <Button key={group} ref={node => { triggers.current[group] = node; }} variant="ghost" size="sm"
       aria-expanded={open === group} aria-controls={`${id}-${group}`} onClick={() => setOpen(value => value === group ? null : group)}
-      style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t(`footer.${group}`)}<ChevronUp aria-hidden="true" size={12} style={{ transform: open === group ? "rotate(180deg)" : undefined }} /></Button>)}
+      style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t(`footer.${group}`)}<ChevronUp aria-hidden="true" size={ICON_SIZE.xs} style={{ transform: open === group ? "rotate(180deg)" : undefined }} /></Button>)}
     {open && createPortal(<div ref={panel} tabIndex={-1} id={`${id}-${open}`} role="region" aria-label={t(`footer.${open}`)}
       style={{ position: "fixed", ...position, zIndex: 100, maxHeight: `calc(100dvh - ${position.bottom}px - 16px)`, overflowY: "auto" }}>
       <Card padding="compact" style={{ boxShadow: "var(--shadow-lg)" }}>

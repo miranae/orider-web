@@ -21,6 +21,7 @@ import { Alert, Card, buttonClass, Input, Textarea } from "../theme/components";
 import { deriveSegmentCategory, type SegmentCategory } from "../features/segmentCreation/category";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 import { readClimbPromotionRange, resolveClimbPromotionIndices } from "../features/segmentCreation/climbPromotion";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -715,7 +716,7 @@ function CreateSegmentContent() {
                           : "border-[var(--line)] bg-[var(--bg-2)] hover:border-[var(--line-soft)]"
                       }` })}
                     >
-                      <info.icon size={20} aria-hidden="true" className="shrink-0" />
+                      <info.icon size={ICON_SIZE.lg} aria-hidden="true" className="shrink-0" />
                       <div>
                         <div className={`text-[length:var(--ft-body-size)] font-medium ${isSelected ? "text-[var(--lime)]" : "text-[var(--ink-1)]"}`}>
                           {info.label}

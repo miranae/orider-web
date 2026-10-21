@@ -225,3 +225,10 @@
 .activity-management-dialog .activity-management-row--danger:hover { background: color-mix(in srgb, var(--rose) 8%, transparent); }
 
 .activity-detail-identity { display: grid; grid-template-columns: calc(var(--space-5) * 2) minmax(0, 1fr); align-items: start; gap: var(--space-3); min-width: 0; }
+
+/* 분석 화면은 같은 지도 인스턴스 아래에 전체 고도와 센서 레인을 연결한다. */
+.activity-detail-hero[data-analysis="true"] { gap: var(--space-5); }
+.activity-detail-hero[data-analysis="true"] .activity-detail-resizable-map { height: 15.625rem; }
+.activity-detail-hero[data-analysis="true"] .activity-detail-route-frame[data-map-expanded="true"] .activity-detail-resizable-map { height: max(16rem, min(70dvh, 46rem)); }
+.activity-detail-summary[hidden] { display: none; }
+.activity-detail-chart-workspace { min-width: 0; }

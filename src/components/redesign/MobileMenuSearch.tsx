@@ -26,6 +26,7 @@ const boardTabs = {
 };
 
 import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../../config/activitySubscriptions";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const defaults: Record<SearchCategory, Record<string, string>> = {
   activities: { q: "", scope: "all", date: "all", sport: "all" },
@@ -170,7 +171,7 @@ export default function MobileMenuSearch({ onNavigate }: { onNavigate: () => voi
       </Select>
       <Input className="mobile-menu-control" type="search" aria-label={t("topnav.menuSearch.keyword")} placeholder={t("topnav.menuSearch.placeholder")}
         value={query} onChange={event => updateDraft("q", event.target.value)} required={category === "athletes"} />
-      <Button type="submit" size="lg" iconOnly variant="ghost" aria-label={t("topnav.menuSearch.submit")} disabled={(category === "athletes" && !query.trim()) || loading}><Search size={20} /></Button>
+      <Button type="submit" size="lg" iconOnly variant="ghost" aria-label={t("topnav.menuSearch.submit")} disabled={(category === "athletes" && !query.trim()) || loading}><Search size={ICON_SIZE.lg} /></Button>
     </form>
     <fieldset className="mobile-menu-filter-section" aria-label={t("topnav.menuSearch.filters", { count: activeCount })}>
       <legend><span className="mobile-menu-filter-header">

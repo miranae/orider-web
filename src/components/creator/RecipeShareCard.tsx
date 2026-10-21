@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Clipboard, Download, MessageSquareText } from "lucide-react";
 import { LocalizedLink } from "../LocalizedLink";
 import { Button, Input, Textarea, buttonClass } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export interface RecipePublicCard {
   title: string;
@@ -142,9 +143,9 @@ export function RecipeShareCard({ card, language, ready, onError }: {
     </div>}
     {!contentFits && <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)" }}>{ko ? "카드에 읽기 좋게 담기도록 제목은 2줄, 본문은 7줄 이내로 줄여 주세요." : "Keep the title within 2 lines and the caption within 7 lines for a readable card."}</p>}
     <div className="recipe-share-actions flex flex-wrap gap-2">
-      <Button size="md" variant="secondary" disabled={!valid} leadingIcon={<Clipboard size={16} />} onClick={() => void copy()}>{copied ? (ko ? "복사 완료" : "Copied") : (ko ? "공유 문구 복사" : "Copy caption")}</Button>
-      <Button size="md" variant="secondary" disabled={!valid} loading={saving} leadingIcon={<Download size={16} />} onClick={() => void download()}>{ko ? "PNG 저장" : "Save PNG"}</Button>
-      {valid && <LocalizedLink data-testid="E6-2-1" to="/community/board/write" state={{ postTemplate: { title, body: text } }} className={buttonClass({ variant: "primary", size: "md" })}><MessageSquareText size={15} />{ko ? "게시글로 공유" : "Share as post"}</LocalizedLink>}
+      <Button size="md" variant="secondary" disabled={!valid} leadingIcon={<Clipboard size={ICON_SIZE.md} />} onClick={() => void copy()}>{copied ? (ko ? "복사 완료" : "Copied") : (ko ? "공유 문구 복사" : "Copy caption")}</Button>
+      <Button size="md" variant="secondary" disabled={!valid} loading={saving} leadingIcon={<Download size={ICON_SIZE.md} />} onClick={() => void download()}>{ko ? "PNG 저장" : "Save PNG"}</Button>
+      {valid && <LocalizedLink data-testid="E6-2-1" to="/community/board/write" state={{ postTemplate: { title, body: text } }} className={buttonClass({ variant: "primary", size: "md" })}><MessageSquareText size={ICON_SIZE.sm} />{ko ? "게시글로 공유" : "Share as post"}</LocalizedLink>}
     </div>
   </div>;
 }

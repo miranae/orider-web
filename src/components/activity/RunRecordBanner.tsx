@@ -10,6 +10,7 @@ import { storedBestRecordsForActivity } from "../../utils/runRecords";
 import { formatRecordDuration } from "../../utils/recordShare";
 import { LocalizedLink } from "../LocalizedLink";
 import { RUN_DISTANCE_M, type RunPrTable } from "@shared/types/personal-records";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export interface RunRecordBannerProps {
   run: RunPrTable | undefined;
@@ -51,7 +52,7 @@ export default function RunRecordBanner({ run, activityId }: RunRecordBannerProp
         background: "var(--accent-soft-bg)",
       }}
     >
-      <Trophy size={22} aria-hidden="true" style={{ color: "var(--accent)", flexShrink: 0 }} />
+      <Trophy size={ICON_SIZE.lg} aria-hidden="true" style={{ color: "var(--accent)", flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <Text as="div" variant="bodySmall" tone="primary" weight={700}>
           {t(top.tied ? "runRecord.storedTieTitle" : "runRecord.storedTitle", { dist: t(`runRecord.dist.${top.distance}`), time: formatRecordDuration(top.timeSec) })}
@@ -82,7 +83,7 @@ export default function RunRecordBanner({ run, activityId }: RunRecordBannerProp
           cursor: "pointer",
         }}
       >
-        <Share2 size={14} aria-hidden="true" />
+        <Share2 size={ICON_SIZE.sm} aria-hidden="true" />
         {t("runRecord.share.button")}
       </button>
     </Card>

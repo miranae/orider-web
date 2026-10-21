@@ -4,6 +4,7 @@ import { Card, Text } from "../../theme/components";
 import type { Goal, PlanWeek } from "@shared/types/goal";
 import { buildFitnessWeeklyInsight, buildPlanAdjustmentInsight, type DailyLoadPoint } from "./trainingHubInsights";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 type T = (key: string, values?: Record<string, unknown>) => string;
 
@@ -102,7 +103,7 @@ export function BikeActionAccordion({
                 <Text as="span" variant="label">{t(`hub.actions.${row.id}.title`)}</Text>
                 {row.needed && <Text as="span" variant="caption" tone="warning" style={{ marginLeft: "var(--space-2)" }}>{t("hub.actions.needed")}</Text>}
               </span>
-              <span aria-hidden>{open === row.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}</span>
+              <span aria-hidden>{open === row.id ? <ChevronUp size={ICON_SIZE.md} /> : <ChevronDown size={ICON_SIZE.md} />}</span>
             </button>
             <div
               id={`bike-action-${row.id}`}
@@ -124,7 +125,7 @@ export function BikeActionAccordion({
           onClick={() => setShowAll((value) => !value)}
           style={{ minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "var(--space-1)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", background: "var(--bg-1)", color: "var(--ink-2)", fontSize: "var(--fs-sm)", cursor: "pointer" }}
         >
-          {showAll ? <ChevronUp size={18} aria-hidden="true" /> : <ChevronDown size={18} aria-hidden="true" />}
+          {showAll ? <ChevronUp size={ICON_SIZE.md} aria-hidden="true" /> : <ChevronDown size={ICON_SIZE.md} aria-hidden="true" />}
           {t(showAll ? "hub.actions.showLess" : "hub.actions.showMore", { count: rows.length - 1 })}
         </button>
       </div>

@@ -16,6 +16,7 @@ import { useBoardBlocks } from "../features/board/useBoardBlocks";
 import { BoardImage } from "../features/board/BoardImage";
 import { LocalizedLink } from "../components/LocalizedLink";
 import "./BoardList.css";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 /**
  * 체크 해제된 태그로부터 실제 제외 집합과 "총개수 보정이 필요한 태그 수"를 계산한다.
@@ -476,7 +477,7 @@ const BoardPage: React.FC = () => {
                     const label = t(`label.feedbackTypes.${post.feedbackType}`);
                     return label ? (
                       <span className="inline-flex items-center gap-1 text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--amber)]/10 text-[var(--amber)] font-medium">
-                        <BoardFeedbackIcon type={post.feedbackType} size={14} /> {label}
+                        <BoardFeedbackIcon type={post.feedbackType} size={ICON_SIZE.sm} /> {label}
                       </span>
                     ) : null;
                   })()}

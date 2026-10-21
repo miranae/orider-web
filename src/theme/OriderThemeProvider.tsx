@@ -2,7 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -11,6 +11,7 @@ import { useTheme, type ResolvedTheme } from '../contexts/ThemeContext';
 import type { OriderTheme, OriderThemeVariant } from './OriderTheme';
 import { DEFAULT_THEME, THEMES, type ThemeId } from './themes';
 import { CHART_CSS_VARIABLES, COLOR_CSS_VARIABLES, DIMENSION_CSS_VARIABLES } from './generated';
+import { FONT_SIZE_RAMP, LEGACY_FONT_SIZE_RAMP, LEGACY_UI_TYPOGRAPHY } from './tokens/typography';
 
 /**
  * 디자인 시스템 Provider — 앱(Compose `LocalOriderTheme`) 패턴의 웹 포팅.
@@ -61,7 +62,13 @@ function toKebab(key: string): string {
  * - dimens      → `--space-*`, `--r-*` (기존 호환) + `--dim-*` (확장)
  * - typography  → `--fs-data-hero`, `--fw-*` 등 `--ft-{kebab}-{prop}`
  */
-function applyToRoot(theme: OriderTheme, variant: OriderThemeVariant) {
+/**
+ * 글자 크기 단계. `hig` 가 웹 기본, `legacy` 는 HIG 전환 전 크기로 앱 WebView 임베드만 쓴다.
+ * `<html data-type-scale>` 로도 노출해 포털(모달·툴팁)까지 같은 단계를 받는다.
+ */
+export type TypeScale = 'hig' | 'legacy';
+
+function applyToRoot(theme: OriderTheme, variant: OriderThemeVariant, typeScale: TypeScale = 'hig') {
   if (typeof document === 'undefined') return;
   const style = document.documentElement.style;
 
@@ -95,28 +102,15 @@ function applyToRoot(theme: OriderTheme, variant: OriderThemeVariant) {
   style.setProperty('--space-8', `48px`);
 
   // --- Typography — 데이터 위계만 CSS 변수로 (UI 텍스트는 컴포넌트에서 직접 사용) ---
-  const t = theme.typography;
+  const t = typeScale === 'legacy' ? { ...theme.typography, ...LEGACY_UI_TYPOGRAPHY } : theme.typography;
   style.setProperty('--fs-data-hero', `${t.dataHero.size}px`);
   style.setProperty('--fs-data-large', `${t.dataLarge.size}px`);
   style.setProperty('--fs-data-medium', `${t.dataMedium.size}px`);
   style.setProperty('--fs-data-small', `${t.dataSmall.size}px`);
-  // 일반 ramp (index.css `--fs-*` 와 호환)
-  // 최소 12px — 모바일 접근성 하한 (#401). 2xs/xs 는 역할(위계)만 다르고 크기 하한은 공유.
-  style.setProperty('--fs-2xs', `12px`);
-  style.setProperty('--fs-xs', `12px`);
-  style.setProperty('--fs-sm', `12px`);
-  style.setProperty('--fs-base', `${t.body.size}px`);
-  style.setProperty('--fs-md', `${t.bodyMedium.size}px`);
-  style.setProperty('--fs-lg', `${t.bodyLarge.size}px`);
-  // xl~3xl: 앱 v3 표준(title 22sp / display) 정합 + 단조 증가 고정.
-  // 과거엔 압축형 데이터 토큰(dataSmall/Medium)에서 파생해 DEFAULT 테마에서
-  // 2xl(18)·3xl(18) < xl(20) 역전이 발생 → UI 헤딩 램프를 데이터 위계와 분리.
-  // 실제 데이터 수치는 --fs-data-* / <Text> 데이터 variant 사용.
-  style.setProperty('--fs-xl', `22px`);
-  style.setProperty('--fs-2xl', `28px`);
-  style.setProperty('--fs-3xl', `32px`);
-  style.setProperty('--fs-4xl', `36px`);
-  style.setProperty('--fs-5xl', `48px`);
+  // 일반 ramp — HIG 텍스트 스타일 단계 (`FONT_SIZE_RAMP`). 최소 12px — 모바일 접근성 하한 (#401).
+  for (const [step, size] of Object.entries(typeScale === 'legacy' ? LEGACY_FONT_SIZE_RAMP : FONT_SIZE_RAMP)) {
+    style.setProperty(`--fs-${step}`, `${size}px`);
+  }
 
   // 모든 typography 키 — `--ft-{kebab}-{size|weight}` 로도 노출
   (Object.keys(t) as Array<keyof typeof t>).forEach((key) => {
@@ -130,9 +124,10 @@ function applyToRoot(theme: OriderTheme, variant: OriderThemeVariant) {
 
   // 테마 식별자 — CSS 에서 attr 셀렉터 활용 가능
   document.documentElement.setAttribute('data-design-theme', theme.id);
+  document.documentElement.setAttribute('data-type-scale', typeScale);
 }
 
-export function OriderThemeProvider({ children }: { children: ReactNode }) {
+export function OriderThemeProvider({ children, typeScale = 'hig' }: { children: ReactNode; typeScale?: TypeScale }) {
   const { resolvedTheme } = useTheme();
   const [themeId, setThemeIdState] = useState<ThemeId>(() => readStoredId());
 
@@ -140,9 +135,10 @@ export function OriderThemeProvider({ children }: { children: ReactNode }) {
   const variant: OriderThemeVariant =
     resolvedTheme === 'dark' ? theme.scheme.dark : theme.scheme.light;
 
-  useEffect(() => {
-    applyToRoot(theme, variant);
-  }, [theme, variant]);
+  // 첫 페인트 전에 주입 — 임베드가 HIG 정적 기본값으로 한 번 그려졌다 줄어드는 깜빡임 방지
+  useLayoutEffect(() => {
+    applyToRoot(theme, variant, typeScale);
+  }, [theme, variant, typeScale]);
 
   const setThemeId = useCallback((next: ThemeId) => {
     if (!THEMES[next]) return;
@@ -189,6 +185,6 @@ export function readVariantFromDom(): {
 }
 
 /** 테스트/스토리북에서 특정 테마+variant 강제 적용 시 사용. */
-export function _testApplyTheme(theme: OriderTheme, resolved: ResolvedTheme) {
-  applyToRoot(theme, resolved === 'dark' ? theme.scheme.dark : theme.scheme.light);
+export function _testApplyTheme(theme: OriderTheme, resolved: ResolvedTheme, typeScale: TypeScale = 'hig') {
+  applyToRoot(theme, resolved === 'dark' ? theme.scheme.dark : theme.scheme.light, typeScale);
 }

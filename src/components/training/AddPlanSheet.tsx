@@ -13,6 +13,7 @@ import SportIcon from "../common/SportIcon";
 import { Button, Text } from "../../theme/components";
 import type { PlanDay, PlanWeek, WorkoutKind } from "@shared/types/goal";
 import { Moon } from "lucide-react";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 // ── 종목별 워크아웃 템플릿 ───────────────────────────────────────────────────
 
@@ -299,10 +300,10 @@ export default function AddPlanSheet({
               </Text>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {([
-                  { key: "bike" as Discipline, label: t('discipline.bike'), icon: <SportIcon sport="bike" size={18} />, color: "var(--aqua)" },
-                  { key: "run" as Discipline, label: t('discipline.run'), icon: <SportIcon sport="run" size={18} />, color: "var(--amber)" },
-                  { key: "swim" as Discipline, label: t('add.swimUnavailable'), icon: <SportIcon sport="swim" size={18} />, color: "var(--lime)" },
-                  { key: "rest" as Discipline, label: t('discipline.rest'), icon: <Moon size={18} />, color: "var(--ink-4)" },
+                  { key: "bike" as Discipline, label: t('discipline.bike'), icon: <SportIcon sport="bike" size={ICON_SIZE.md} />, color: "var(--aqua)" },
+                  { key: "run" as Discipline, label: t('discipline.run'), icon: <SportIcon sport="run" size={ICON_SIZE.md} />, color: "var(--amber)" },
+                  { key: "swim" as Discipline, label: t('add.swimUnavailable'), icon: <SportIcon sport="swim" size={ICON_SIZE.md} />, color: "var(--lime)" },
+                  { key: "rest" as Discipline, label: t('discipline.rest'), icon: <Moon size={ICON_SIZE.md} />, color: "var(--ink-4)" },
                 ]).filter(option => isSportUiEnabled(option.key)).map(({ key, label, icon, color }) => (
                   <button
                     key={key}
