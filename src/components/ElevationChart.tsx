@@ -1,3 +1,4 @@
+import ElevationChartAnalysis, { type AnalysisChartPresentation } from "./ElevationChartAnalysis";
 import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Line } from "react-chartjs-2";
@@ -265,7 +266,8 @@ export interface ElevationChartMarker {
   active?: boolean;
 }
 
-interface ElevationChartProps {
+export interface ElevationChartProps {
+  analysisPresentation?: AnalysisChartPresentation;
   data: { distance: number; elevation: number }[];
   /** 확인된 원시 route elapsed 좌표만 전달한다. */
   elapsedAxisSec?: readonly number[];
@@ -306,7 +308,11 @@ interface ElevationChartProps {
   highlightRange?: [number, number];
 }
 
-export default function ElevationChart({
+export default function ElevationChart(props: ElevationChartProps) {
+  return props.analysisPresentation ? <ElevationChartAnalysis {...props} analysisPresentation={props.analysisPresentation} /> : <LegacyElevationChart {...props} />;
+}
+
+function LegacyElevationChart({
   data,
   elapsedAxisSec,
   xAxis = "distance",

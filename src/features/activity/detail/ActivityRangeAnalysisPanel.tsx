@@ -13,13 +13,20 @@ import PowerDurationWindowsPanel from "./PowerDurationWindowsPanel";
 
 interface Props { activityId: string; selection: ActivityRangeSelectionModel; sport: string; callableEnabled?: boolean; previewActive?: boolean }
 
-export function ActivityRangeControls({ selection }: { selection: ActivityRangeSelectionModel }) {
+export function ActivityChartAxisControls({ axis, elapsedAvailable, onChange, compact = false }: { axis: "distance" | "elapsed"; elapsedAvailable: boolean; onChange: (axis: "distance" | "elapsed") => void; compact?: boolean }) {
+  const { t } = useTranslation("activity");
+  return <ToggleControls variant="axis" density={compact ? "compact" : "default"} aria-label={t("rangeAnalysis.controls")}>
+    <ToggleButton aria-label={t("rangeAnalysis.distanceAxis")} selected={axis === "distance"} onClick={() => onChange("distance")}>{t(compact ? "analysisChart.distanceShort" : "rangeAnalysis.distanceAxis")}</ToggleButton>
+    <ToggleButton aria-label={t("rangeAnalysis.elapsedAxis")} disabled={!elapsedAvailable} selected={axis === "elapsed"} onClick={() => onChange("elapsed")}>{t(compact ? "analysisChart.elapsedShort" : "rangeAnalysis.elapsedAxis")}</ToggleButton>
+  </ToggleControls>;
+}
+
+export function ActivityRangeControls({ selection, showAxis = true }: { selection: ActivityRangeSelectionModel; showAxis?: boolean }) {
   const { t } = useTranslation("activity");
   if (!selection.ownerUid) return null;
   return <section className="activity-range-controls space-y-3" aria-label={t("rangeAnalysis.controls")}>
     <Stack direction="row" wrap align="center" gap="var(--space-2)">
-      <ToggleControls variant="axis" aria-label={t("rangeAnalysis.controls")}><ToggleButton selected={selection.xAxis === "distance"} onClick={() => selection.setXAxis("distance")}>{t("rangeAnalysis.distanceAxis")}</ToggleButton>
-      <ToggleButton disabled={!selection.sampledAxis} selected={selection.xAxis === "elapsed"} onClick={() => selection.setXAxis("elapsed")}>{t("rangeAnalysis.elapsedAxis")}</ToggleButton></ToggleControls>
+      {showAxis && <ActivityChartAxisControls axis={selection.xAxis} elapsedAvailable={!!selection.sampledAxis} onChange={selection.setXAxis} />}
       <Button size="sm" variant="secondary" aria-pressed={selection.enabled} onClick={selection.toggle}>{t(selection.enabled ? "rangeAnalysis.endSelection" : "rangeAnalysis.select")}</Button>
     </Stack>
     {selection.enabled && (Number.isFinite(selection.durationSec) && selection.durationSec > 0 ? <RangeTimeControls key={`${selection.identity}:${selection.selection?.requestId ?? "none"}`} selection={selection} />

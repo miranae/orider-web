@@ -1405,16 +1405,10 @@ export function buildActivityAnalysisProjection(
   };
 }
 
-export function buildSampledData(
-  streams: ActivityStreams | null,
-  contextOrDuration?: ActivitySensorSelectionContext | number,
-  activityStartTime?: number,
-): SampledPoint[] {
-  if (!streams?.distance) return [];
+/** The exact trusted full-resolution channels used by the activity chart sampler. */
+export function buildAlignedActivityChartChannels(streams: ActivityStreams, contextOrDuration?: ActivitySensorSelectionContext | number, activityStartTime?: number) {
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
-  const dist = streams.distance;
-  const len = dist.length;
-  const interval = Math.max(1, Math.floor(len / 300));
+  const len = streams.distance?.length ?? 0;
   const selectedPower = selectActivityPowerStream(streams, context);
   const selectedHeartRate = selectActivityHeartRateStream(streams, context);
   const cadenceValues = runtimeArray<number>(streams.cadence);
@@ -1443,6 +1437,19 @@ export function buildSampledData(
     len,
   );
   const alignedCadence = alignSensorChannelForChart(chartCadence, "legacy", streams, context, len);
+  return { chartHeartRate, chartPower, alignedCadence };
+}
+
+export function buildSampledData(
+  streams: ActivityStreams | null,
+  contextOrDuration?: ActivitySensorSelectionContext | number,
+  activityStartTime?: number,
+): SampledPoint[] {
+  if (!streams?.distance) return [];
+  const dist = streams.distance;
+  const len = dist.length;
+  const interval = Math.max(1, Math.floor(len / 300));
+  const { chartHeartRate, chartPower, alignedCadence } = buildAlignedActivityChartChannels(streams, contextOrDuration, activityStartTime);
   const selectedIndexes = new Set<number>();
   for (let i = 0; i < len; i += interval) selectedIndexes.add(i);
   if (len > 0) selectedIndexes.add(len - 1);

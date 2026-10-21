@@ -1,17 +1,34 @@
-import type { ReactNode } from "react";
+import type { ActivityStreams } from "@shared/types";
+import { buildAlignedActivityChartChannels, type ActivitySensorSelectionContext } from "./activityDetailDerived";
+import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "../../../contexts/LocaleContext";
 import ElevationChart, { type OverlayDataset } from "../../../components/ElevationChart";
 import { ActivityZoneTimeline } from "../../../components/activity/ActivityZoneTimeline";
-import { Card, ChartLegend, Section, Text, ToggleButton, ToggleControls } from "../../../theme/components";
+import { Button, Card, ChartLegend, Section, Text, ToggleButton, ToggleControls } from "../../../theme/components";
 import { formatDistance } from "../../../utils/units";
+import InfoTip from "../../../components/InfoTip";
+import { elapsedRangeFromChartSelection, formatElapsedBoundary } from "./activityRangeSelection";
+import { activityVisualRangeStats } from "./activityVisualRangeStats";
 import { runningCadenceSpm } from "../../../utils/runningCadence";
 import type { OverlayConfig, SampledPoint } from "./activityDetailUtils";
 import type { buildSummaryStats } from "./activityDetailDerived";
 import type { ActivityAnalysisModel } from "../../../hooks/useActivityAnalysisModel";
 
 interface ActivityPerformanceChartsProps {
+  analysisStyle?: boolean;
+  chartIdentity?: string;
+  hoverIndex?: number | null;
+  visualRange?: [number, number] | null;
+  onVisualRangeChange?: (range: [number, number] | null) => void;
+  visualSummaryStats?: ReturnType<typeof buildSummaryStats>;
+  rawElapsedAxis?: readonly number[] | null;
+  sourceIndices?: readonly number[];
+  rawStreams?: ActivityStreams | null;
+  sensorSelectionContext?: ActivitySensorSelectionContext;
+  segments?: readonly { id: string | number; name: string; startIndex: number; endIndex: number; summary?: string; href?: string }[];
   embedded?: boolean;
+  axisControls?: ReactNode;
   rangeControls?: ReactNode;
   rangeAnalysis?: ReactNode;
   elapsedAxisSec?: readonly number[];
@@ -40,7 +57,8 @@ export default function ActivityPerformanceCharts({
   elevData, availableOverlays, activeOverlays, focusedOverlayKey, toggleOverlay,
   chartOverlays, hoverPoint, summaryStats, sport, recordedRunCadenceUnit,
   onHoverIndex, chartHighlightRange, metrics, powerSource, hasElevation = true, range, onRangeChange,
-  rangeControls, rangeAnalysis, elapsedAxisSec, xAxis, embedded = false,
+  axisControls, rangeControls, rangeAnalysis, elapsedAxisSec, xAxis, embedded = false,
+  analysisStyle = false, chartIdentity, hoverIndex, visualRange, onVisualRangeChange, visualSummaryStats, segments, rawElapsedAxis, sourceIndices, rawStreams, sensorSelectionContext,
 }: ActivityPerformanceChartsProps) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
@@ -50,6 +68,46 @@ export default function ActivityPerformanceCharts({
     ? t(powerSource === "watts_calc" || powerSource === "virtualPowerOverride" ? "page.chartVirtualPower" : "page.chartMeasuredPower")
     : t(`overlay.${cfg.label}`);
   const title = !hasElevation ? t("page.detailedCharts") : availableOverlays.length > 0 ? t("page.elevTitleWithPerf") : t("page.elevProfile");
+  const sourceChannels = useMemo(() => analysisStyle && rawStreams ? buildAlignedActivityChartChannels(rawStreams, sensorSelectionContext) : null, [analysisStyle, rawStreams, sensorSelectionContext]);
+  const analysisData = useMemo(() => rawStreams && sourceIndices?.length === elevData.length && rawStreams.altitude?.length === rawStreams.distance?.length
+    ? elevData.map((point, index) => ({ ...point, elevation: rawStreams.altitude![sourceIndices[index]!] ?? NaN })) : elevData, [rawStreams, sourceIndices, elevData]);
+  const analysisOverlays = useMemo(() => analysisStyle && rawStreams && sourceIndices ? chartOverlays.map(overlay => ({ ...overlay,
+    data: overlay.data.map((value, index) => {
+      const rawIndex = sourceIndices[index];
+      if (rawIndex === undefined || rawIndex < 0) return null;
+      const source = overlay.key === "speed" ? rawStreams.velocity_smooth : overlay.key === "cadence" ? sourceChannels?.alignedCadence : undefined;
+      return source && (source[rawIndex] == null || !Number.isFinite(source[rawIndex])) ? null : value;
+    }),
+  })) : chartOverlays, [analysisStyle, rawStreams, sourceIndices, chartOverlays, sourceChannels]);
+  const observedStats = useMemo(() => analysisStyle ? activityVisualRangeStats(rawStreams, sensorSelectionContext, rawElapsedAxis, sourceIndices, visualRange) : null, [analysisStyle, rawStreams, sensorSelectionContext, rawElapsedAxis, sourceIndices, visualRange]);
+  if (analysisStyle) {
+    const stats = visualRange ? visualSummaryStats ?? observedStats : summaryStats;
+    const formatMetric = (cfg: OverlayConfig, value: number | null | undefined, summary = false) => {
+      if (value == null || !Number.isFinite(value)) return "—";
+      if (summary && sport === "run" && cfg.key === "speed") value = value > 0 ? 60 / value * (units === "imperial" ? 1.609344 : 1) : null;
+      else if (summary && sport === "run" && cfg.key === "cadence" && recordedRunCadenceUnit != null) value = runningCadenceSpm(value, recordedRunCadenceUnit);
+      else if (sport !== "run" && cfg.key === "speed" && units === "imperial") value /= 1.609344;
+      return value == null || !Number.isFinite(value) ? "—" : cfg.formatValue?.(value) ?? (cfg.key === "speed" ? value.toFixed(1) : String(Math.round(value)));
+    };
+    const elevationValue = (value: number | undefined) => value == null || !Number.isFinite(value) ? "—" : String(Math.round(units === "imperial" ? value / 0.3048 : value));
+    const distanceDelta = visualRange && elevData[visualRange[0]] && elevData[visualRange[1]]
+      ? elevData[visualRange[1]]!.distance - elevData[visualRange[0]]!.distance : null;
+    const timeWindow = visualRange && rawElapsedAxis && sourceIndices ? elapsedRangeFromChartSelection(rawElapsedAxis, sourceIndices, visualRange) : null;
+    const summaryParts = [distanceDelta !== null && Number.isFinite(distanceDelta) && distanceDelta >= 0 ? formatDistance(distanceDelta, units) : null,
+      timeWindow ? formatElapsedBoundary(timeWindow.endOffsetSec - timeWindow.startOffsetSec) : null].filter(Boolean);
+    return <div className="activity-analysis-charts">
+      <ElevationChart data={analysisData} overlays={analysisOverlays} elapsedAxisSec={elapsedAxisSec} xAxis={xAxis} showElevation={hasElevation}
+        onHoverIndex={onHoverIndex} highlightRange={chartHighlightRange} rangeMode={!!onRangeChange} range={range} onRangeChange={onRangeChange} analysisPresentation={{ axisControls, identity: chartIdentity, visualRange, onVisualRangeChange, hoverIndex, segments,
+          segmentsLabel: t("tab.segments"), segmentDetailsLabel: t("tab.segments"), canonicalRange: chartHighlightRange, selectionCaption: visualRange ? <div className="activity-analysis-selection"><Text variant="bodySmall">{t("analysisChart.selection")} · {summaryParts.join(" · ")}</Text><Button variant="ghost" size="sm" onClick={() => onVisualRangeChange?.(null)}>{t("analysisChart.restore")}</Button></div> : null,
+          controls: <div className="activity-analysis-controls">{rangeControls}</div>, maximumLabel: t("peakInspector.maximum"), averageLabel: visualRange ? t("peakInspector.average") : <InfoTip title={t("peakInspector.average")} content={t("analysisChart.observedStats")} label={t("peakInspector.average")}>{t("peakInspector.average")}</InfoTip>, keyboardLabel: t("analysisChart.keyboardHelp"),
+          elevation: { label: t("page.elevation"), maximum: elevationValue(stats?.maxElev), current: elevationValue(hoverIndex == null ? hoverPoint?.altitude : analysisData[hoverIndex]?.elevation), unit: units === "imperial" ? "ft" : "m", formatScale: elevationValue },
+          lanes: Object.fromEntries(availableOverlays.map(cfg => [cfg.key, { label: overlayLabel(cfg),
+            maximum: formatMetric(cfg, stats?.overlays[cfg.key]?.max, true), average: formatMetric(cfg, stats?.overlays[cfg.key]?.avg, true),
+            current: formatMetric(cfg, hoverIndex != null ? analysisOverlays.find(overlay => overlay.key === cfg.key)?.data[hoverIndex] : hoverPoint ? cfg.getValue(hoverPoint) : null), formatScale: value => formatMetric(cfg, value), unit: sport !== "run" && cfg.key === "speed" && units === "imperial" ? "mph" : cfg.unit }])) }} />
+      {rangeAnalysis}
+      <ActivityZoneTimeline metrics={metrics} />
+    </div>;
+  }
   const content = <>
 
           {/* Overlay toggle buttons */}
