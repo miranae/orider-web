@@ -96,6 +96,23 @@ describe('Input + Field', () => {
     expect(screen.getByRole('combobox', { name: '종목' })).toHaveAttribute('aria-invalid', 'true');
   });
 
+  it('compact Textarea starts with one row while preserving explicit rows and native resizing', () => {
+    const { rerender } = render(<Textarea compact aria-label="짧은 댓글" />);
+    const input = screen.getByRole('textbox', { name: '짧은 댓글' });
+    expect(input).toHaveAttribute('rows', '1');
+    expect(input).not.toHaveAttribute('compact');
+    fireEvent.change(input, { target: { value: '첫 줄\n두 번째 줄' } });
+    expect(input).toHaveValue('첫 줄\n두 번째 줄');
+    input.style.height = '120px';
+    fireEvent.input(input);
+    expect(input.style.height).toBe('120px');
+    rerender(<Textarea compact rows={4} aria-label="짧은 댓글" />);
+    expect(input).toHaveAttribute('rows', '4');
+    rerender(<Textarea aria-label="짧은 댓글" />);
+    expect(input).not.toHaveAttribute('rows');
+    expect(input).not.toHaveClass('ds-textarea--compact');
+  });
+
   it('Textarea/Select invalid 도 aria-invalid 를 연결', () => {
     render(
       <>

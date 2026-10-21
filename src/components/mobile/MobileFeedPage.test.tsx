@@ -2,7 +2,7 @@ import { useState } from "react";
 import { GlossaryProvider } from "../common/GlossaryProvider";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import MobileFeedPage, { CompactActivityCard } from "./MobileFeedPage";
+import MobileFeedPage, { CompactActivityCard, MobileRouteThumbnail } from "./MobileFeedPage";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { createMockActivity, createMockSummary } from "../../__tests__/fixtures/mockData";
 import { getCanonicalMapThumbnailFileName, isCanonicalMapThumbnailUrl } from "../activity/ActivityRouteThumbnail";
@@ -11,6 +11,7 @@ import { setCollectionDocs } from "../../__tests__/mocks/firebase";
 import { getDocs, startAfter, where } from "firebase/firestore";
 import type { User } from "firebase/auth";
 import { AuthContextProvider } from "../../contexts/AuthContext";
+import { activityFeedSourceRevision } from "../../services/activityFeedContent";
 import { signInCancelledError } from "../../utils/signInCancelled";
 
 vi.mock("../RouteMap", () => ({
@@ -356,6 +357,29 @@ describe("MobileFeedPage", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("활동 목록의 일부만 불러왔습니다");
   });
 
+  it("offers the existing photo overview only when a real photo count exists, without needing a route", () => {
+    const activity = createMockActivity({ id: "photos", thumbnailTrack: "", photoCount: 10 });
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(screen.getByRole("link", { name: "사진 10" })).toHaveAttribute("href", "/ko/activity/photos?tab=overview");
+    view.rerender(<CompactActivityCard activity={{ ...activity, photoCount: 0 }} />);
+    expect(screen.queryByRole("link", { name: /^사진/ })).not.toBeInTheDocument();
+  });
+
+  it("shows only stored achievement highlights with honest counts and a real segment destination", () => {
+    const activity = createMockActivity({ id: "highlighted", description: "성과 라이딩", topAchievements: [
+      { type: "PR", segmentId: "s1", segmentName: "첫 구간", time: "1:11" },
+      { type: "KOM", segmentId: "s2", segmentName: "둘째 구간", time: "2:22" },
+      { type: "2nd", segmentId: "s3", segmentName: "셋째 구간", time: "3:33" },
+      { type: "3rd", segmentId: "s4", segmentName: "넷째 구간", time: "4:44" },
+    ] });
+    renderWithProviders(<CompactActivityCard activity={activity} />);
+    const highlights = screen.getByRole("link", { name: "주요 성과 3개" });
+    expect(highlights).toHaveAttribute("href", "/ko/activity/highlighted?tab=segments");
+    expect(screen.getByRole("link", { name: /둘째 구간 KOM \(2:22\)/ })).toHaveAttribute("href", "/ko/activity/highlighted?tab=segments");
+    expect(screen.queryByText("넷째 구간")).not.toBeInTheDocument();
+    expect(screen.queryByText("주요 성과 4개")).not.toBeInTheDocument();
+  });
+
   it("exposes the activity as a keyboard-focusable link without nesting author and social actions", () => {
     const activity = createMockActivity({ id: "keyboard-ride", description: "키보드 라이딩" });
     renderWithProviders(<MobileFeedPage activities={[activity]} loading={false} hasMore={false}
@@ -649,4 +673,77 @@ it.each([false, true])("distinguishes confirmed elapsed time from an untyped pro
   renderWithProviders(<CompactActivityCard activity={activity} />);
   expect(screen.getByText(confirmed ? "전체시간" : "활동시간")).toBeInTheDocument();
   expect(screen.queryByText(confirmed ? "활동시간" : "전체시간")).not.toBeInTheDocument();
+});
+
+describe("published mobile feed body and photos", () => {
+  it.each([1, 2, 3, 4, 5, 6])("renders the available %s-photo fixture without empty tiles and preserves gallery navigation", count => {
+    const activity = createMockActivity({ photoCount: count });
+    activity.feedContentV1 = { version: 1, sourceRevision: activityFeedSourceRevision(activity), revision: "photos", memo: null, memoTruncated: false, totalPhotoCount: count,
+      photos: Array.from({ length: count }, (_, id) => ({ id: String(id), url: `https://example.com/${id}.jpg`, caption: `사진${id}` })) };
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    const gallery = view.container.querySelector(".mobile-feed-photos, .mobile-feed-media") as HTMLElement;
+    const links = within(gallery).getAllByRole("link");
+    expect(links).toHaveLength(Math.min(count, 5));
+    expect(gallery.querySelectorAll("img")).toHaveLength(Math.min(count, 5));
+    expect(links.every(link => link.getAttribute("href") === `/ko/activity/${activity.id}?tab=overview`)).toBe(true);
+    if (count > 5) expect(within(gallery).getByText("+1")).toBeVisible();
+    else expect(within(gallery).queryByText(/^\+/)).not.toBeInTheDocument();
+  });
+  it("uses the actual ready previews when fewer photos than the total are available", () => {
+    const activity = createMockActivity({ photoCount: 11 });
+    activity.feedContentV1 = { version: 1, sourceRevision: activityFeedSourceRevision(activity), revision: "partial", memo: null, memoTruncated: false, totalPhotoCount: 11,
+      photos: [0, 1].map(id => ({ id: String(id), url: `https://example.com/${id}.jpg`, caption: null })) };
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    const gallery = view.container.querySelector(".mobile-feed-photos, .mobile-feed-media") as HTMLElement;
+    expect(within(gallery).getAllByRole("link")).toHaveLength(2);
+    expect(within(gallery).getByText("+9")).toBeVisible();
+  });
+
+  it("shows actual memo and three photos under the map with the remaining count", () => {
+    const activity = createMockActivity({ photoCount: 10 });
+    activity.feedContentV1 = { version: 1, sourceRevision: activityFeedSourceRevision(activity), revision: "r1", memo: "함께 달린 기록\n다음에도 함께해요", memoTruncated: false, totalPhotoCount: 10,
+      photos: [0, 1, 2].map(id => ({ id: String(id), url: `https://example.com/${id}.jpg`, caption: `사진${id}` })) };
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(screen.getByText(/함께 달린 기록/)).toBeVisible();
+    const gallery = view.container.querySelector(".mobile-feed-photos")!;
+    expect(gallery.querySelectorAll("img")).toHaveLength(3);
+    expect(screen.getByText("+7")).toBeVisible();
+    expect(within(gallery as HTMLElement).getAllByRole("link")[0]).toHaveAttribute("href", `/ko/activity/${activity.id}?tab=overview`);
+    expect(view.container.querySelector(".mobile-feed-route")?.lastElementChild).toBe(gallery);
+  });
+  it("omits stale memo and photos after the activity publication revision changes", () => {
+    const activity = createMockActivity({ contentRevision: 2, photoCount: 0 });
+    activity.feedContentV1 = { version: 1, sourceRevision: activityFeedSourceRevision({ ...activity, contentRevision: 1 }), revision: "old", memo: "이전 비공개 본문", memoTruncated: false, totalPhotoCount: 1,
+      photos: [{ id: "old", url: "https://example.com/old.jpg", caption: null }] };
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(screen.queryByText("이전 비공개 본문")).not.toBeInTheDocument();
+    expect(view.container.querySelector(".mobile-feed-photos")).not.toBeInTheDocument();
+  });
+});
+
+describe("attachment-confirmed feed media cases", () => {
+  it.each([
+    { map: false, count: 6, visible: 4, remaining: 2, shared: false },
+    { map: true, count: 1, visible: 1, remaining: 0, shared: true },
+    { map: true, count: 2, visible: 2, remaining: 0, shared: false },
+    { map: true, count: 3, visible: 3, remaining: 0, shared: false },
+    { map: true, count: 4, visible: 4, remaining: 0, shared: true },
+    { map: true, count: 10, visible: 5, remaining: 5, shared: false },
+  ])("keeps map=$map/photos=$count media bounded and in the confirmed row groups", ({ map, count, visible, remaining, shared }) => {
+    const activity = createMockActivity({ thumbnailTrack: map ? "mock-polyline" : "", photoCount: count });
+    const content = { version: 1 as const, sourceRevision: activityFeedSourceRevision(activity), revision: "cases", memo: null, memoTruncated: false, totalPhotoCount: count,
+      photos: Array.from({ length: Math.min(count, 5) }, (_, id) => ({ id: String(id), url: `https://example.com/${id}.jpg`, caption: null })) };
+    const view = renderWithProviders(<MobileRouteThumbnail activity={activity} content={content} />);
+    const photoLinks = screen.getAllByRole("link", { name: /사진 \d/ });
+    expect(photoLinks).toHaveLength(visible);
+    if (remaining) expect(screen.getByText(`+${remaining}`)).toBeVisible();
+    else expect(screen.queryByText(/^\+/)).not.toBeInTheDocument();
+    const mapFrame = view.container.querySelector("[data-map-thumbnail-frame]");
+    expect(!!mapFrame).toBe(map);
+    if (mapFrame) {
+      const mapGroup = mapFrame.parentElement!;
+      expect(mapGroup.parentElement === photoLinks[0].parentElement).toBe(shared);
+      expect(mapFrame).toHaveClass(shared ? "aspect-square" : "aspect-[var(--feed-thumb-aspect)]");
+    }
+  });
 });

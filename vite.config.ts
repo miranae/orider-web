@@ -17,6 +17,12 @@ export default defineConfig(({ mode }) => {
   return {
     cacheDir: process.env.ORIDER_VITE_CACHE_DIR || "node_modules/.vite",
     server: {
+      proxy: env.VITE_ACTIVITY_FEED_CONTENT_PREVIEW_URL === "/api/local/activity-feed-content" ? {
+        "/api/local/activity-feed-content": {
+          target: "http://127.0.0.1:8788",
+          rewrite: () => "/activityFeedContent",
+        },
+      } : undefined,
       fs: {
         allow: [path.resolve(__dirname), realpathSync(path.resolve(__dirname, "node_modules"))],
       },

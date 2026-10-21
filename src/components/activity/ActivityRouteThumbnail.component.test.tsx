@@ -72,6 +72,17 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
     routeMapControl.delayedOnLoad = null;
   });
 
+  it("fits a live square route without publishing a square image under the wide canonical key", async () => {
+    installSuccessfulCoordinator();
+    const { queryByTestId } = renderWithProviders(
+      <ActivityRouteThumbnail {...baseProps} layout="mobile" shape="square" contentRevision={1} contentSelectedRevision={1} />,
+      { authenticated: true, user: { uid: baseProps.userId } },
+    );
+    await waitFor(() => expect(queryByTestId("route-map")).toBeInTheDocument());
+    expect(queryByTestId("capture-map")).not.toBeInTheDocument();
+    expect(thumbnailInvocations()).toEqual([]);
+  });
+
   it("shows a neutral skeleton for the priority card while the map is deferred", () => {
     const { container } = renderWithProviders(
       <ActivityRouteThumbnail {...baseProps} priority layout="mobile" />,

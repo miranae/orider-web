@@ -13,7 +13,7 @@ src/theme/
 ├── OriderTheme.ts             테마 인터페이스
 ├── OriderThemeProvider.tsx    <html> CSS 변수 주입
 └── components/                ← 여기. 모든 UI 프리미티브
-    ├── Button.tsx             5 variant × 3 size × loading / icon / block
+    ├── Button.tsx             6 variant × 3 size × loading / icon / block
     ├── Card.tsx               default/flat/inset/bare
     ├── Chip.tsx               default/accent/success/warning/danger
     ├── Input.tsx              Input / Textarea / Select / Field
@@ -54,6 +54,7 @@ import { Button, Card, Stat, Stack, Chip, Text } from '@/theme';
 |---|---|
 | `primary` | 화면의 주요 확정·제출 행동 |
 | `secondary` | 주요 행동을 보조하는 일반 행동 |
+| `neutral` | 브랜드 강조 없이 중립 표면으로 구분하는 보조 행동. 16px 그림과 native `aria-pressed`/`aria-expanded`의 accent 상태를 지원 |
 | `ghost` | 낮은 위계의 도구·탐색 행동 |
 | `outline` | 외곽선으로 구분·강조할 행동 |
 | `danger` | 삭제처럼 파괴적인 행동 |
@@ -185,7 +186,7 @@ npm run lint:report   # 카운트 확인용
 
 표현의 정본은 `ControlToolbar.tsx`, `ToggleControls.tsx`, `MapControls.tsx`,
 `Chart.tsx`와 `components.css`다. 페이지에서 `.ds-btn`/`.ds-chart*`를 덮어쓰거나
-버튼에 색·높이·폰트를 직접 주지 않는다. 기존 `Button`의 5개 variant·3개 size는 그대로다.
+버튼에 색·높이·폰트를 직접 주지 않는다. `Button`은 6개 variant·3개 size를 제공하며, 기본 variant는 그대로다.
 
 ```tsx
 import {
@@ -459,7 +460,7 @@ pointer 이동은 rAF당 최신 좌표만 처리하고 up은 마지막 좌표를
 기본 InfoTip의 hover/focus 동작은 유지한다. 구간 선택 중에는 모든 lane의 plot 안에
 semantic accent 16% 음영과 2px 양끝선을 그리며 취소·선택 완료 후 제거한다.
 
-1024px 미만 화면과 coarse pointer의 `Input`·`Select`는 최소48px 조작 높이를 사용한다. 768px 미만 화면과 coarse pointer의 본문 입력 글자는 최소16px로 iOS의 자동 확대를 피하며, Textarea의 기본 최소80px 높이는 유지한다. 사용처에서 높이·글자를 다시 덮어쓰지 않는다.
+1024px 미만 화면과 coarse pointer의 `Input`·`Select`는 최소48px 조작 높이를 사용한다. 768px 미만 화면과 coarse pointer의 본문 입력 글자는 최소16px로 iOS의 자동 확대를 피하며, Textarea의 기본 최소80px 높이는 유지한다. 짧은 댓글 작성기는 `compact`를 선택해 한 줄·표준 버튼과 동일한 최소 높이로 시작할 수 있으며, 기본 세로 드래그 크기 조절을 유지한다. 사용처에서 높이·글자를 다시 덮어쓰지 않는다.
 
 `SegmentTimeline presentation="distribution"`은 바깥 제목과 고정 값 영역이 이미 있는 비대화형 분포에 사용한다. 동일한 준비된 구간 비율을 전체 폭으로 그리고 행 이름은 스크린리더용으로 유지한다. 전체 그림의 `aria-label`은 호출자가 정확한 구성과 미관측 상태를 제공한다. 키보드 선택·구간 클릭·기본 선택값 설명은 추가하지 않는다. 생략 시 기존 타임라인의 선택·고정 설명은 유지된다.
 
