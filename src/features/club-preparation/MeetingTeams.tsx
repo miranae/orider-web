@@ -29,6 +29,7 @@ import {
 import { meetingErrorMessage } from "./meetingMessages";
 import "./meetingTeams.css";
 import { useTeamPointerDrag } from "./useTeamPointerDrag";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export default function MeetingTeams({
   meeting,
@@ -332,7 +333,7 @@ export default function MeetingTeams({
             }
             onPointerDown={(event) => drag.start(event, memberId)}
           >
-            <GripVertical size={18} aria-hidden="true" />
+            <GripVertical size={ICON_SIZE.md} aria-hidden="true" />
           </button>
         )}
         {editing ? (
@@ -408,9 +409,9 @@ export default function MeetingTeams({
                   }}
                 >
                   {side === "before" ? (
-                    <ArrowUp size={16} aria-hidden="true" />
+                    <ArrowUp size={ICON_SIZE.md} aria-hidden="true" />
                   ) : (
-                    <ArrowDown size={16} aria-hidden="true" />
+                    <ArrowDown size={ICON_SIZE.md} aria-hidden="true" />
                   )}
                 </Button>
               );
@@ -470,7 +471,7 @@ export default function MeetingTeams({
               } as CSSProperties
             }
           >
-            <GripVertical size={18} aria-hidden="true" />
+            <GripVertical size={ICON_SIZE.md} aria-hidden="true" />
             <div className="cp-team-drag-identity">
               <strong>{name(drag.draggedId)}</strong>
               <span>
@@ -488,7 +489,7 @@ export default function MeetingTeams({
         <div className="cp-section-heading">
           <div>
             <h2>
-              <Users size={19} aria-hidden="true" />{" "}
+              <Users size={ICON_SIZE.md} aria-hidden="true" />{" "}
               {text("함께 달릴 조", "Riding groups")}
             </h2>
             <p className="cp-muted">
@@ -502,7 +503,7 @@ export default function MeetingTeams({
             {isHost && (
               <Button
                 size="sm"
-                leadingIcon={<Copy size={16} />}
+                leadingIcon={<Copy size={ICON_SIZE.md} />}
                 disabled={saving}
                 onClick={async () => {
                   setError("");
@@ -740,7 +741,7 @@ export default function MeetingTeams({
           <div className="cp-actions">
             <Button
               size="sm"
-              leadingIcon={<Plus size={16} />}
+              leadingIcon={<Plus size={ICON_SIZE.md} />}
               disabled={saving || disabled || !canEdit || draft.length >= 40}
               onClick={() =>
                 change([

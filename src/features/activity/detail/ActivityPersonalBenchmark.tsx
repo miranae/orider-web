@@ -9,6 +9,7 @@ import { usePdc, type UsePdcState } from "../../../hooks/usePdc";
 import { personalBenchmark } from "./personalBenchmarkPresentation";
 import type { MetricsLike } from "./metricsPresentation";
 import "./activity-personal-benchmark.css";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 
 export interface ActivityPersonalBenchmarkProps {
   activityId: string;
@@ -76,7 +77,7 @@ function BenchmarkSection({ ownerUid, metrics, suppliedPdcState, defaultExpanded
   const [mounted, setMounted] = useState(defaultExpanded);
   const id = useId();
   return <section className="activity-personal-benchmark space-y-3">
-    <h3 className="activity-analysis-tool-heading"><Button variant="ghost" size="sm" aria-expanded={opened} aria-controls={id} onClick={() => { setOpened(value => !value); setMounted(true); }}><Text variant="bodyMedium" weight={600}>{t("benchmark.title")}</Text>{opened ? <ChevronUp aria-hidden="true" size={16} /> : <ChevronDown aria-hidden="true" size={16} />}</Button></h3>
+    <h3 className="activity-analysis-tool-heading"><Button variant="ghost" size="sm" aria-expanded={opened} aria-controls={id} onClick={() => { setOpened(value => !value); setMounted(true); }}><Text variant="bodyMedium" weight={600}>{t("benchmark.title")}</Text>{opened ? <ChevronUp aria-hidden="true" size={ICON_SIZE.md} /> : <ChevronDown aria-hidden="true" size={ICON_SIZE.md} />}</Button></h3>
     {mounted && <div id={id} hidden={!opened}>{suppliedPdcState ? <BenchmarkReading metrics={metrics} state={suppliedPdcState} defaultExpanded={defaultExpanded} /> : <LazyBenchmark metrics={metrics} ownerUid={ownerUid} defaultExpanded={defaultExpanded} />}</div>}
   </section>;
 }

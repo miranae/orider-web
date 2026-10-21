@@ -42,6 +42,7 @@ import { usePdc } from "../hooks/usePdc";
 import { Button, Card, Chip, Text, Input, Select, buttonClass } from "../theme/components";
 import SafeImage from "../components/SafeImage";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 function mostUrgentGear(activities: Activity[]): Activity["gear"] | null {
   const byName = new Map<string, NonNullable<Activity["gear"]>>();
@@ -673,8 +674,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           {isOwnProfile && currentProfile?.stravaConnected && <Chip>Strava</Chip>}
           {profileForPage?.team && <Text as="p" variant="caption" tone="secondary">{profileForPage.team}</Text>}
           {isOwnProfile && <div className="flex flex-wrap gap-2 mt-3">
-            <Link data-testid="P0-0-2" className={buttonClass({variant: "secondary"})} to="/settings/account"><Pencil size={16} aria-hidden="true" />{t("self.edit")}</Link>
-            <Button data-testid="P0-0-3" leadingIcon={<Share2 size={16} aria-hidden="true" />} variant="secondary" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}${location.pathname.replace(/athlete\/me$/, `athlete/${userId}`)}`).then(() => showToast(t("self.shared"))).catch(() => showToast(t("self.shareFailed"), "error")); }}>{t("self.share")}</Button>
+            <Link data-testid="P0-0-2" className={buttonClass({variant: "secondary"})} to="/settings/account"><Pencil size={ICON_SIZE.md} aria-hidden="true" />{t("self.edit")}</Link>
+            <Button data-testid="P0-0-3" leadingIcon={<Share2 size={ICON_SIZE.md} aria-hidden="true" />} variant="secondary" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}${location.pathname.replace(/athlete\/me$/, `athlete/${userId}`)}`).then(() => showToast(t("self.shared"))).catch(() => showToast(t("self.shareFailed"), "error")); }}>{t("self.share")}</Button>
           </div>}
           {isOwnProfile && (
             <div data-testid="P0-6"><AthleteIdentityChips pdc={pdc} activities={chartActivities} /></div>
@@ -726,7 +727,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             { label: t("stats.distance"), value: statsReady ? <span>{Math.round(stats.distance / 1000).toLocaleString(i18n.language)} <small>km</small></span> : "—", Icon: Route },
             { label: t("stats.time"), value: statsReady ? <><span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "hour", unitDisplay: "narrow"}).format(Math.floor(stats.time / 3600000))}</span>{" "}<span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "minute", unitDisplay: "narrow"}).format(Math.floor((stats.time % 3600000) / 60000))}</span></> : "—", Icon: Clock3 },
             { label: t("stats.elevation"), value: statsReady ? <span>{Math.round(stats.elevation).toLocaleString(i18n.language)} <small>m</small></span> : "—", Icon: Mountain },
-          ].map(({label, value, Icon}) => <div key={label} className="athlete-stat"><span className="athlete-stat__label"><Icon size={16} aria-hidden="true" />{label}</span><strong className="athlete-stat__value">{value}</strong></div>)}
+          ].map(({label, value, Icon}) => <div key={label} className="athlete-stat"><span className="athlete-stat__label"><Icon size={ICON_SIZE.md} aria-hidden="true" />{label}</span><strong className="athlete-stat__value">{value}</strong></div>)}
         </div>
         <Text as="p" variant="caption" tone="secondary" className="mt-2">{t(isOwnProfile ? "stats.scopeOwn" : "stats.scopePublic")}</Text>
       </section>
@@ -806,7 +807,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                       {seg.status === "active" ? t("segments.status.active") : seg.status === "pending" ? t("segments.status.pending") : seg.status === "rejected" ? t("segments.status.rejected") : seg.status}
                     </span>
                     {isMe && (
-                      <Button variant="ghost" iconOnly onClick={() => handleDeleteSegment(seg.id, seg.name)} aria-label={t("segments.deleteTitle")}><Trash2 size={16} aria-hidden="true" /></Button>
+                      <Button variant="ghost" iconOnly onClick={() => handleDeleteSegment(seg.id, seg.name)} aria-label={t("segments.deleteTitle")}><Trash2 size={ICON_SIZE.md} aria-hidden="true" /></Button>
                     )}
                   </div>
                 ))}
@@ -840,7 +841,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   <span className="ml-2 text-[length:var(--fs-sm)] font-normal text-[var(--lime)]">{t("activities.searchResultCount", { count: filteredActivities.length })}</span>
                 )}
               </h2>
-              {isOwnProfile ? <Link className={buttonClass({variant: "ghost"})} to="/athlete/me/activities">{t("activities.viewAll")}<ArrowUpRight size={16} aria-hidden="true" /></Link> : <div className="flex flex-wrap gap-1">
+              {isOwnProfile ? <Link className={buttonClass({variant: "ghost"})} to="/athlete/me/activities">{t("activities.viewAll")}<ArrowUpRight size={ICON_SIZE.md} aria-hidden="true" /></Link> : <div className="flex flex-wrap gap-1">
                 <Button variant={filterType === "all" ? "secondary" : "ghost"} aria-pressed={filterType === "all"} onClick={() => setFilterType("all")}>{t("activities.filter.all")}</Button>
                 <Button variant={filterType === "ride" ? "secondary" : "ghost"} aria-pressed={filterType === "ride"} onClick={() => setFilterType("ride")}>{t("activities.filter.ride")}</Button>
                 <Button variant={filterType === "strava" ? "secondary" : "ghost"} aria-pressed={filterType === "strava"} onClick={() => setFilterType("strava")}>{t("activities.filter.strava")}</Button>

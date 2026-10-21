@@ -16,6 +16,7 @@ import { logClientError } from "../../services/errorLogger";
 import { getDiscipline } from "../../utils/disciplineFilter";
 import { useHydratedSocialProfiles } from "./useHydratedSocialProfiles";
 import { activitySocialErrorMessageKey, activitySocialMutations } from "../../services/activitySocialMutations";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 /**
  * 스트라바형 활동 카드 소셜 푸터 — 좋아요(토글 + 누른 사람 아바타 스택) + 댓글 수.
@@ -141,7 +142,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
         </div>}
         {/* 좋아요 토글 + 카운트 */}
         {feed ? <Button variant="neutral" size="sm" onClick={handleToggleKudos} disabled={!user}
-          aria-label={t("card.kudosShort")} aria-pressed={liked} leadingIcon={<Heart size={16} fill={liked ? "currentColor" : "none"} />} /> :         <button
+          aria-label={t("card.kudosShort")} aria-pressed={liked} leadingIcon={<Heart size={ICON_SIZE.lg} fill={liked ? "currentColor" : "none"} />} /> :         <button
           type="button"
           onClick={handleToggleKudos}
           disabled={!user}
@@ -150,7 +151,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
           aria-label={t("card.kudosShort")}
           aria-pressed={liked}
         >
-          <Heart size={18} fill={liked ? "currentColor" : "none"} />
+          <Heart size={ICON_SIZE.lg} fill={liked ? "currentColor" : "none"} />
           {!feed && <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{localKudos}</span>}
         </button>}
 
@@ -159,7 +160,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
 
         {/* 댓글 — 카드 안 입력칸 토글 */}
         {feed ? <Button variant="neutral" size="sm" onClick={handleToggleComment}
-          aria-label={t("card.comment")} aria-expanded={showComment} leadingIcon={<MessageCircle size={16} />}>
+          aria-label={t("card.comment")} aria-expanded={showComment} leadingIcon={<MessageCircle size={ICON_SIZE.lg} />}>
           {localComments > 0 ? localComments : null}
         </Button> :         <button
           type="button"
@@ -169,7 +170,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
           aria-label={t("card.comment")}
           aria-expanded={showComment}
         >
-          <MessageCircle size={18} />
+          <MessageCircle size={ICON_SIZE.lg} />
           {(!feed || localComments > 0) && <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{localComments}</span>}
         </button>}
       </div>

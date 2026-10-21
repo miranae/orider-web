@@ -15,6 +15,7 @@ import AdjustedChip from "../../../components/training/AdjustedChip";
 import { Button, Card, Text } from "../../../theme/components";
 import { formatPlanGoalTitle } from "./planDisplay";
 import "./MobilePlanContent.css";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 
 /** rest → bike 폴백으로 Discipline 타입 보장 (색상/아이콘 표시용) */
 function getWorkoutDisciplineForDisplay(workout: string, goalDiscipline?: Discipline): Discipline {
@@ -214,10 +215,10 @@ export default function MobilePlanContent({
       {/* Week navigation */}
       <div data-testid="K4-5m-1" className="mobile-plan-week-navigation flex items-center justify-center" role="group" aria-label={t('mobile.weekHeading')} style={{ padding: "0 var(--space-4)", gap: 'var(--space-4)' }}>
         <button type="button" onClick={onWeekPrev} disabled={!onWeekPrev || !canPrevWeek} aria-label={t('mobile.previousWeek')}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><ChevronLeft size={20} aria-hidden="true" /></button>
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><ChevronLeft size={ICON_SIZE.lg} aria-hidden="true" /></button>
         <div style={{ textAlign: "center", minWidth: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{weekLabel}</div>
         <button type="button" onClick={onWeekNext} disabled={!onWeekNext || !canNextWeek} aria-label={t('mobile.nextWeek')}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><ChevronRight size={20} aria-hidden="true" /></button>
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><ChevronRight size={ICON_SIZE.lg} aria-hidden="true" /></button>
       </div>
 
       {/* Weekly summary */}
@@ -309,7 +310,7 @@ export default function MobilePlanContent({
                 </div>
                 <div style={{ flex: 1, padding: "var(--space-3) var(--space-2)", border: "1px dashed var(--line)", borderRadius: "var(--r-md)", display: "flex", alignItems: "center", gap: 'var(--space-2)',
                   background: isToday || dayStr === selectedDate ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent" }}>
-                  <Moon size={16} aria-hidden="true" />
+                  <Moon size={ICON_SIZE.md} aria-hidden="true" />
                   <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-4)" }}>{t('mobile.restDay')}</span>
                 </div>
               </div>
@@ -355,7 +356,7 @@ export default function MobilePlanContent({
                       background: `color-mix(in oklch, ${c} 14%, var(--bg-2))`,
                       color: c, border: `1px solid color-mix(in oklch, ${c} 30%, transparent)`,
                       display: "flex", alignItems: "center", gap: "var(--space-0-5)",
-                    }}>{d !== "tri" && <SportIcon sport={d} size={16} />} {t(`discipline.${d}`)}</span>
+                    }}>{d !== "tri" && <SportIcon sport={d} size={ICON_SIZE.md} />} {t(`discipline.${d}`)}</span>
                   );
                 })()}
                 <span style={{

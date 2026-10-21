@@ -34,6 +34,7 @@ import {
   fieldInputStyle,
   monoInputStyle,
 } from "./_primitives";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 // ── 아이콘 매핑 ──────────────────────────────────────────────────────
 const TYPE_ICON: Record<Gear["type"], typeof BikeIcon> = {
@@ -185,7 +186,7 @@ function GearFormModal({ initial, title, onSave, onClose }: GearFormModalProps) 
                   color: "var(--ink-2)",
                 }}
               >
-                {showPhysics ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {showPhysics ? <ChevronUp size={ICON_SIZE.sm} /> : <ChevronDown size={ICON_SIZE.sm} />}
                 {t("gear.physicsSection")}
               </Button>
               {showPhysics && (
@@ -326,7 +327,7 @@ function GearRow({ gear, onEdit, onDelete, onSetDefault }: GearRowProps) {
           flexShrink: 0,
         }}
       >
-        <Icon size={18} />
+        <Icon size={ICON_SIZE.md} />
       </div>
 
       {/* 이름 + 부가 정보 */}
@@ -382,7 +383,7 @@ function GearRow({ gear, onEdit, onDelete, onSetDefault }: GearRowProps) {
             aria-label={t("gear.setDefault")}
             title={t("gear.setDefault")}
           >
-            <Star size={12} />
+            <Star size={ICON_SIZE.xs} />
           </Button>
         )}
         <Button
@@ -392,7 +393,7 @@ function GearRow({ gear, onEdit, onDelete, onSetDefault }: GearRowProps) {
           disabled={busy}
           aria-label={t("gear.edit")}
         >
-          <Pencil size={12} />
+          <Pencil size={ICON_SIZE.xs} />
         </Button>
         <Button
           variant="ghost"
@@ -402,7 +403,7 @@ function GearRow({ gear, onEdit, onDelete, onSetDefault }: GearRowProps) {
           aria-label={t("gear.delete")}
           style={{ color: "var(--rose)" }}
         >
-          <Trash2 size={12} />
+          <Trash2 size={ICON_SIZE.xs} />
         </Button>
       </div>
     </div>
@@ -446,7 +447,7 @@ export function GearKitSection({ uid }: GearKitSectionProps) {
         data-testid="P4-2" title={t("gear.title")}
         action={
           <Button data-testid="P4-2-1" variant="secondary" size="md" onClick={() => setModalState({ mode: "add" })}>
-            <Plus size={13} />
+            <Plus size={ICON_SIZE.xs} />
             {t("gear.addBtn")}
           </Button>
         }

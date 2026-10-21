@@ -13,6 +13,7 @@ import "./device-gear.css";
 import { SettingsCard } from "./_primitives";
 import { DATA_FIELD_GROUPS, DATA_FIELD_LABEL_KEYS } from "./dataFieldLabels";
 import { Button } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const COLS = 4;
 const DEFAULT_ROWS = 8;
@@ -274,7 +275,7 @@ export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
             onClick={addPage}
             aria-label={t("layout.addPageAriaLabel")}
           >
-            <Plus size={12} /> {t("layout.addPage")}
+            <Plus size={ICON_SIZE.xs} /> {t("layout.addPage")}
           </Button>
         )}
         {draft.length > 1 && (
@@ -284,7 +285,7 @@ export function LayoutEditorCard({ config, onSave, readOnly = false }: Props) {
             aria-label={t("layout.deletePageAriaLabel")}
             style={{ color: "var(--rose)", marginLeft: "auto" }}
           >
-            <Trash2 size={12} /> {t("layout.deletePage")}
+            <Trash2 size={ICON_SIZE.xs} /> {t("layout.deletePage")}
           </Button>
         )}
       </div>
@@ -479,7 +480,7 @@ function PickerPanel({
             : t("layout.pickerEditTitle", { label: editing ? t(DATA_FIELD_LABEL_KEYS[editing.type]) : "" })}
         </div>
         <Button variant="ghost" size="md" onClick={onClose} aria-label={t("common:button.close")}>
-          <X size={14} />
+          <X size={ICON_SIZE.sm} />
         </Button>
       </div>
 
@@ -552,7 +553,7 @@ function PickerPanel({
             aria-label={t("layout.removeCellAriaLabel")}
             style={{ color: "var(--rose)", marginLeft: "auto" }}
           >
-            <Trash2 size={12} /> {t("layout.removeCell")}
+            <Trash2 size={ICON_SIZE.xs} /> {t("layout.removeCell")}
           </Button>
         </div>
       )}

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Zap } from "lucide-react";
 import { Card, Text } from "../../theme/components";
 import { calculateVirtualPowerTool } from "../../utils/virtualPowerTool";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 function numberValue(value: string, fallback: number): number {
   const parsed = Number(value);
@@ -62,7 +63,7 @@ export default function VirtualPowerToolPage() {
     <div className="site-shell" style={{ padding: "32px 20px 64px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-5)" }}>
         <span style={{ width: 44, height: 44, borderRadius: "var(--r-md)", background: "color-mix(in oklch, var(--lime) 16%, var(--bg-2))", display: "grid", placeItems: "center", color: "var(--lime)" }}>
-          <Zap size={22} />
+          <Zap size={ICON_SIZE.lg} />
         </span>
         <div>
           <Text as="div" variant="eyebrow" style={{ color: "var(--lime)" }}>{labels.eyebrow}</Text>

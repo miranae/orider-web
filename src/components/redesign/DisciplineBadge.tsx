@@ -3,6 +3,7 @@ import SportIcon from "../common/SportIcon";
 import { useTranslation } from "react-i18next";
 import { getDisciplineColor, getDisciplineLabelKey } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface DisciplineBadgeProps {
   discipline: Discipline;
@@ -24,7 +25,7 @@ export default function DisciplineBadge({ discipline, indoor = false }: Discipli
       background: `color-mix(in oklch, ${color} 10%, var(--bg-2))`,
       color, border: `1px solid color-mix(in oklch, ${color} 25%, transparent)`,
     }}>
-      {discipline === "tri" ? <Waves size={14} /> : <SportIcon sport={discipline} size={14} />} {label}
+      {discipline === "tri" ? <Waves size={ICON_SIZE.sm} /> : <SportIcon sport={discipline} size={ICON_SIZE.sm} />} {label}
     </span>
   );
 }

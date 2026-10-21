@@ -16,6 +16,7 @@ import { LocalizedLink as Link } from "../LocalizedLink";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import { fetchStaticJson } from "../../utils/staticJson";
 import { segmentTileUrl } from "../../utils/segmentTiles";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface OverviewSeg {
   id: string;
@@ -152,7 +153,7 @@ export default function ChallengeFeed({ part = "all" }: { part?: "all" | "monthl
 function SectionHeader({ icon: Icon, title }: { icon: typeof Mountain; title: string }) {
   return (
     <div className="flex items-center gap-1.5 mb-2">
-      <Icon size={15} style={{ color: "var(--lime)" }} />
+      <Icon size={ICON_SIZE.sm} style={{ color: "var(--lime)" }} />
       <Text as="h2" variant="title">{title}</Text>
     </div>
   );

@@ -28,6 +28,7 @@ import {
   prepareFirestoreSessionRecovery,
   shouldAbortForFirestoreRecovery,
 } from "../../utils/firestoreSessionRecovery";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export interface SnapshotLocation {
   uid: string;
@@ -695,7 +696,7 @@ export default function EventLivePage() {
     return (
       <div className="event-controls-surface explore-editor-surface max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<Flag size={28} style={{ marginInline: "auto" }} />}
+          icon={<Flag size={ICON_SIZE.xl} style={{ marginInline: "auto" }} />}
           title={eventName || t(eventStatus === "FINISHED" ? "status.finished" : "status.cancelled")}
           description={t("dashboard.trackingEnded")}
           actions={[
@@ -711,7 +712,7 @@ export default function EventLivePage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<TrafficCone size={28} style={{ marginInline: "auto" }} />}
+          icon={<TrafficCone size={ICON_SIZE.xl} style={{ marginInline: "auto" }} />}
           title={eventName ? `${eventName}` : t("label.spectatorView")}
           description={t("liveView.notStartedDesc")}
         />
@@ -794,7 +795,7 @@ export default function EventLivePage() {
           </div>
         </div>
         <div className="flex items-center" style={{ gap: 'var(--space-3)', marginLeft: "auto" }}>
-          <div aria-live="polite" style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}><Eye size={14} aria-hidden="true" /> {t("viewer.count", { count: viewerCount })}</div>
+          <div aria-live="polite" style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}><Eye size={ICON_SIZE.sm} aria-hidden="true" /> {t("viewer.count", { count: viewerCount })}</div>
           {elapsedLabel && (
             <div style={{ textAlign: "right", fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>
               <div style={{ letterSpacing: "0.05em", textTransform: "uppercase" }}>{t("label.elapsed")}</div>
@@ -811,7 +812,7 @@ export default function EventLivePage() {
             </div>
           )}
           <Button type="button" onClick={handleShare} variant="secondary" size="sm">
-            <Link2 size={14} aria-hidden="true" /> {t("button.share")}
+            <Link2 size={ICON_SIZE.sm} aria-hidden="true" /> {t("button.share")}
           </Button>
           <Button
             type="button"

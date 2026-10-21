@@ -31,6 +31,7 @@ import { LocalizedLink } from "../LocalizedLink";
 import { PaneAiCoach } from "./PaneAiCoach";
 import { SocialLinksCard } from "./SocialLinksCard";
 import { Button, Textarea, buttonClass } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 type VisOpt = { value: Visibility; labelKey: string; icon: typeof User };
 
@@ -354,7 +355,7 @@ export function PaneAccount() {
                   color: active ? "var(--ink-0)" : "var(--ink-1)",
                 }}
               >
-                <Ic size={16} />
+                <Ic size={ICON_SIZE.md} />
                 <div style={{ fontSize: "var(--fs-xs)", fontWeight: 500 }}>{t(o.labelKey)}</div>
               </button>
             );

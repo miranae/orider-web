@@ -11,6 +11,7 @@ import Avatar from "../components/Avatar";
 import { ErrorState } from "../components/redesign";
 import { Text } from "../theme/components";
 import { useMobile } from "../hooks/useMobile";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 export default function SocialPage() {
   const { t } = useTranslation("common");
@@ -111,7 +112,7 @@ function FriendsTab() {
             minWidth: 180,
           }}
         >
-          <Search size={14} style={{ color: "var(--ink-4)", flexShrink: 0 }} />
+          <Search size={ICON_SIZE.sm} style={{ color: "var(--ink-4)", flexShrink: 0 }} />
           <input
             type="text"
             placeholder={t("social.searchFriendsPlaceholder")}
@@ -132,7 +133,7 @@ function FriendsTab() {
             display: "flex", alignItems: "center", gap: "var(--space-1)", textDecoration: "none",
           }}
         >
-          <UserPlus size={14} />
+          <UserPlus size={ICON_SIZE.sm} />
           {t("social.addFriends")}
         </Link>
         <button
@@ -149,7 +150,7 @@ function FriendsTab() {
             display: "flex", alignItems: "center", gap: 'var(--space-1)',
           }}
         >
-          <Copy size={14} />
+          <Copy size={ICON_SIZE.sm} />
           {t("social.shareMyCode")}
         </button>
       </div>
@@ -176,7 +177,7 @@ function FriendsTab() {
             <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{f.nickname || t("label.rider")}</div>
             <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>{t("social.following")}</div>
           </div>
-          <ChevronRight size={16} style={{ color: "var(--ink-4)" }} />
+          <ChevronRight size={ICON_SIZE.md} style={{ color: "var(--ink-4)" }} />
         </Link>
       ))}
 
@@ -196,7 +197,7 @@ function FriendsTab() {
                   fontWeight: 700, textDecoration: "none",
                 }}
               >
-                <UserPlus size={14} />
+                <UserPlus size={ICON_SIZE.sm} />
                 {t("social.addFriends")}
               </Link>
             </>
@@ -275,7 +276,7 @@ function GroupsTab({ onNavigate }: { onNavigate: (id: string) => void }) {
               {t("social.memberCount", { count: g.memberCount || 0 })}
             </div>
           </div>
-          <ChevronRight size={16} style={{ color: "var(--ink-4)" }} />
+          <ChevronRight size={ICON_SIZE.md} style={{ color: "var(--ink-4)" }} />
         </div>
       ))}
 

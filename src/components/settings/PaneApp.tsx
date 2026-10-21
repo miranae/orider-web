@@ -17,6 +17,7 @@ import { SettingsCard, Field, FieldGrid, InlineRow } from "./_primitives";
 import { Button, Text, buttonClass } from "../../theme/components";
 import { useTheme, type ThemePreference } from "../../contexts/ThemeContext";
 import { useOriderTheme } from "../../theme";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const LANG_LABELS: Record<Lang, string> = {
   ko: "한국어",
@@ -212,7 +213,7 @@ export function PaneApp({ part }: { part: "display" | "data" }) {
       <SettingsCard data-testid="S3-1-1" title={t("pane.app.cardExport")}>
         <InlineRow label={t("pane.app.exportAllLabel")} hint={t("pane.app.exportAllHint")}>
           <Button variant="secondary" onClick={exportData} disabled={exportLoading}>
-            <Download size={12} />
+            <Download size={ICON_SIZE.xs} />
             {exportLoading ? t("data.preparing") : t("data.downloadAll")}
           </Button>
         </InlineRow>

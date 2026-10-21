@@ -26,6 +26,7 @@ import RideCard from "../../components/group/RideCard";
 import Avatar from "../../components/Avatar";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { DropdownSelect, Button, Card, Chip, Text, buttonClass, Textarea } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface UpcomingEvent {
   id: string;
@@ -160,7 +161,7 @@ export default function GroupDashboardPage() {
       return (
         <div className="max-w-xl mx-auto py-16">
           <EmptyState
-            icon={<LockKeyhole size={24} style={{ marginInline: "auto" }} />}
+            icon={<LockKeyhole size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />}
             title={t("empty.groupAccessDenied")}
             description={t("empty.groupAccessDeniedDesc")}
             actions={[{ label: t("empty.goToList"), variant: "primary", href: "/clubs" }]}
@@ -179,7 +180,7 @@ export default function GroupDashboardPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<Users size={24} style={{ marginInline: "auto" }} />}
+          icon={<Users size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />}
           title={groupInactive ? t("empty.groupInactive") : t("empty.groupNotFound")}
           description={groupInactive ? t("empty.groupInactiveDesc") : undefined}
           actions={[{ label: t("empty.goToList"), variant: "primary", href: "/clubs" }]}

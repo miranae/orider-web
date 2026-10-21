@@ -7,6 +7,7 @@ import { isSignInCancelled } from "../utils/signInCancelled";
 import { useStrava } from "../hooks/useStrava";
 import { useToast } from "../contexts/ToastContext";
 import { Card } from "../theme/components";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 type Step = "landing" | "progress" | "report";
 type MigrationProgressLike = {
@@ -264,7 +265,7 @@ export default function MigrationPage() {
                   disabled={signInPending}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[var(--bg-2)] border border-[var(--line)] rounded-[var(--r-xl)] hover:bg-[var(--bg-3)] transition-colors font-medium text-[var(--ink-0)]"
                 >
-                  <LogIn size={18} />
+                  <LogIn size={ICON_SIZE.md} />
                   {signInPending ? t("userMigration.loginLoading") : t("userMigration.loginGoogle")}
                 </button>
               ) : !profile?.stravaConnected ? (

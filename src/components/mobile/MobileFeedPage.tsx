@@ -32,6 +32,7 @@ import { useLocale } from "../../contexts/LocaleContext";
 import { formatDistance, formatElev, formatPace, formatSpeed } from "../../utils/units";
 import { isImplausibleActivityHeartRate } from "../../utils/activitySanity";
 import "./MobileFeedPage.css";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const MOBILE_FEED_RENDER_STEP = 20;
 const MOBILE_FEED_RENDER_INITIAL = 20;
@@ -121,7 +122,7 @@ export function MobileRouteThumbnail({ activity, priority = false, content }: { 
     <div ref={setExpandedOutlet} className="mobile-feed-inline-video-slot" />
     {photoCount > 0 && photos.length === 0 && <div className="mobile-feed-photo-entry">
       <Link to={`/activity/${activity.id}?tab=overview`} className={buttonClass({ variant: "neutral", size: "sm" })}>
-        <Camera size={16} aria-hidden="true" /> {t("page.photos")} {photoCount}
+        <Camera size={ICON_SIZE.md} aria-hidden="true" /> {t("page.photos")} {photoCount}
       </Link>
     </div>}
   </div>;
@@ -283,7 +284,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
           <Text as="div" variant="caption" tone="tertiary" className="mobile-feed-activity-metadata"><time dateTime={timestamp?.iso}>{occurredAt}</time>{device && <span>{`·\u00a0${device}`}</span>}{region && <span>{`·\u00a0${region}`}</span>}</Text>
         </div>
         <span className="mobile-feed-card-sport" role="img" aria-label={activitySportLabel}>
-          {activitySport ? <HomeActivitySportIcon sport={activitySport} size={28} /> : getDisciplineIcon(null)}
+          {activitySport ? <HomeActivitySportIcon sport={activitySport} size={ICON_SIZE.xl} /> : getDisciplineIcon(null)}
         </span>
         <Text as="h3" variant="title" size="xl" weight={600} tone="primary" className="mobile-feed-activity-title">
           {activity.description || t("mobileFeed.defaultActivity")}
@@ -324,7 +325,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
         })}
         {achievements.length > 0 && <Link to={`/activity/${activity.id}?tab=segments`} className="mobile-feed-achievement-count" aria-label={tActivity("card.achievementHighlights", { count: achievements.length })}>
           <span className="mobile-feed-achievement-label">{tActivity("card.achievementHighlightsLabel")}</span>
-          <span className="mobile-feed-achievement-number"><Medal size={18} aria-hidden="true" /><span>{achievements.length}</span></span>
+          <span className="mobile-feed-achievement-number"><Medal size={ICON_SIZE.md} aria-hidden="true" /><span>{achievements.length}</span></span>
         </Link>}
       </div>
 
@@ -463,7 +464,7 @@ export default function MobileFeedPage({
 
       {!(searchActive ? activitySearch!.loading || activitySearch!.error : loading || error) && filteredActivities.length === 0 && (
         <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
-          <div aria-hidden="true" style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>{sportFilter === "all" ? getDisciplineIcon(null) : <SportIcon sport={sportFilter} size={32} style={{ margin: "0 auto" }} />}</div>
+          <div aria-hidden="true" style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>{sportFilter === "all" ? getDisciplineIcon(null) : <SportIcon sport={sportFilter} size={ICON_SIZE.xl} style={{ margin: "0 auto" }} />}</div>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{(searchActive && activitySearch!.hasMoreServerResults || moreCandidates) ? t("feed.search.morePossibleTitle") : searchActive ? t("feed.search.emptyTitle") : activities.length > 0 ? t("feed.noMatches.title") : t("mobileFeed.emptyTitle")}</div>
           <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)" }}>{(searchActive && activitySearch!.hasMoreServerResults || moreCandidates) ? t("feed.search.morePossibleDescription") : searchActive ? t("feed.search.emptyDescription") : activities.length > 0 ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
           {signedIn && !searchActive && !hasMore && activities.length === 0 && <div className="flex gap-3 mt-3"><a href={ORIDER_PLAY_STORE_URL}>Google Play</a><a href={ORIDER_APP_STORE_URL}>App Store</a><Link to="/athlete/me/activities?import=1">{t("todayStrip.importHistory")}</Link></div>}

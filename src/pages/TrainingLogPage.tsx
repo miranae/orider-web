@@ -23,6 +23,7 @@ import { planDayKey, planCalendarDate, planMonthBounds } from "@shared/training/
 import { Button, Card, Text, ToggleControls, ToggleButton } from "../theme/components";
 import { ErrorState } from "../components/redesign";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 const LOG_WEEK_GRID_COLUMNS = "repeat(7, minmax(72px, 1fr)) 60px";
 const LOG_CALENDAR_CARD_STYLE: CSSProperties = {
@@ -781,7 +782,7 @@ export default function TrainingLogPage() {
           >
             {t("page.nextMonth")}
           </Button>
-          <Button variant="outline" size="sm" leadingIcon={<Upload size={16} aria-hidden="true" />} onClick={() => setImportOpen(true)}>{t("page.import")}</Button>
+          <Button variant="outline" size="sm" leadingIcon={<Upload size={ICON_SIZE.md} aria-hidden="true" />} onClick={() => setImportOpen(true)}>{t("page.import")}</Button>
           {!isThisMonth && (
             <Button variant="ghost" size="sm"
               onClick={() =>

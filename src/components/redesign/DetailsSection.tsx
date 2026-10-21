@@ -8,6 +8,7 @@
 import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 import { Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export default function DetailsSection({
   title,
@@ -39,7 +40,7 @@ export default function DetailsSection({
           gap: "var(--space-2)",
         }}
       >
-        <ChevronDown aria-hidden="true" className="ds-details-section__chevron" size={16} />
+        <ChevronDown aria-hidden="true" className="ds-details-section__chevron" size={ICON_SIZE.md} />
         <Text as="span" variant="bodyMedium" style={{ color: "var(--ink-1)" }}>
           {title}
         </Text>

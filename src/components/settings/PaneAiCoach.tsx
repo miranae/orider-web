@@ -15,6 +15,7 @@ import {
 import { CoachConsentSheet } from "../../features/coach/CoachConsentSheet";
 import { notifyCoachConsentSessionReset } from "../../features/coach/consentSessionBoundary";
 import { trackCoachConsent } from "../../features/coach/coachAnalytics";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export function PaneAiCoach() {
   const { t } = useTranslation("settings");
@@ -86,7 +87,7 @@ export function PaneAiCoach() {
         </InlineRow>
         {policy && <InlineRow label={t("coach.policyVersion")}><code>{policy.policyVersion}</code></InlineRow>}
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
-          <LocalizedLink to="/coach/chat" className={`${buttonClass({ variant: "secondary" })} settings-ai-history`}><History size={16} aria-hidden /><span>{t("coach.manageHistory")}</span></LocalizedLink>
+          <LocalizedLink to="/coach/chat" className={`${buttonClass({ variant: "secondary" })} settings-ai-history`}><History size={ICON_SIZE.md} aria-hidden /><span>{t("coach.manageHistory")}</span></LocalizedLink>
           {!valid && policy && error !== "load_failed" && <Button disabled={loading || saving} onClick={() => setSheetOpen(true)}>{t("coach.reviewConsent")}</Button>}
           {valid && <Button variant="danger" disabled={loading || saving || error === "load_failed"} onClick={() => void revoke()}>{t("coach.revoke")}</Button>}
         </div>

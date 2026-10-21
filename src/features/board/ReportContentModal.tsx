@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 import { Button, Card, Textarea } from "../../theme/components";
 import type { BoardReportPreview, BoardReportReason, BoardReportTargetType } from "./reportPayload";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const reasons: BoardReportReason[] = ["spam", "abuse", "privacy", "illegal", "other"];
 
@@ -134,7 +135,7 @@ export function ReportContentModal({
             </p>
           </div>
           <Button ref={closeRef} iconOnly variant="ghost" onClick={requestClose} disabled={busy} aria-label={t("report.close")} className="shrink-0">
-            <X aria-hidden="true" size={20} />
+            <X aria-hidden="true" size={ICON_SIZE.lg} />
           </Button>
         </div>
 

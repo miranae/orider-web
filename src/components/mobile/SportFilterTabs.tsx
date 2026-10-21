@@ -3,6 +3,7 @@ import "./SportFilterTabs.css";
 import SportIcon from "../common/SportIcon";
 import { Button } from "../../theme/components";
 import { useTranslation } from "react-i18next";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface SportFilterTabsProps {
   value: string;
@@ -26,7 +27,7 @@ export default function SportFilterTabs({ value, onChange, allLabelKey = "label.
         const active = (isSportUiEnabled(value) ? value : "all") === f.key;
         const color = "color" in f ? f.color : undefined;
         return (
-          <Button key={f.key} variant={active ? "secondary" : "outline"} leadingIcon={f.key === "all" ? undefined : <SportIcon sport={f.key} size={16} />} aria-pressed={active} onClick={() => onChange(f.key)}
+          <Button key={f.key} variant={active ? "secondary" : "outline"} leadingIcon={f.key === "all" ? undefined : <SportIcon sport={f.key} size={ICON_SIZE.md} />} aria-pressed={active} onClick={() => onChange(f.key)}
             style={{
               flex: 1, minWidth: 0, paddingInline: "var(--space-2)", fontSize: "var(--fs-xs)", fontWeight: active ? 600 : 400,
               borderRadius: "var(--r-xl)", cursor: "pointer",

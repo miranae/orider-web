@@ -12,6 +12,7 @@ import { decodeTrack } from "../utils/polyline";
 import { buildStaticRoutePath } from "../utils/staticRoutePath";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../utils/mapbox";
 import { RECORDED_TRACK_COLOR } from "../theme/mapColors";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 export interface PhotoMarker {
   id: string;
@@ -202,9 +203,9 @@ function RouteNavigation({ labels, bounds, padding }: {
   }, [map]);
   const motion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 250;
   return <MapNavigation aria-label={labels.fitRoute}>
-    <MapControlButton iconOnly aria-label={labels.zoomIn} title={labels.zoomIn} onClick={() => map?.zoomIn({ duration: motion() })}><Plus size={18} aria-hidden="true" /></MapControlButton>
-    <MapControlButton iconOnly aria-label={labels.zoomOut} title={labels.zoomOut} onClick={() => map?.zoomOut({ duration: motion() })}><Minus size={18} aria-hidden="true" /></MapControlButton>
-    <MapControlButton iconOnly aria-label={labels.fitRoute} title={labels.fitRoute} onClick={() => map?.fitBounds(bounds, { padding, duration: motion() })}><LocateFixed size={18} aria-hidden="true" /></MapControlButton>
+    <MapControlButton iconOnly aria-label={labels.zoomIn} title={labels.zoomIn} onClick={() => map?.zoomIn({ duration: motion() })}><Plus size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
+    <MapControlButton iconOnly aria-label={labels.zoomOut} title={labels.zoomOut} onClick={() => map?.zoomOut({ duration: motion() })}><Minus size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
+    <MapControlButton iconOnly aria-label={labels.fitRoute} title={labels.fitRoute} onClick={() => map?.fitBounds(bounds, { padding, duration: motion() })}><LocateFixed size={ICON_SIZE.md} aria-hidden="true" /></MapControlButton>
   </MapNavigation>;
 }
 

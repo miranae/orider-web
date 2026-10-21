@@ -35,7 +35,7 @@
   "staticCssVariables": {
     "--layer-modal": "90", "--layer-app-dialog": "11000",
     "--space-0": "0", "--space-0-5": "2px", "--space-1-5": "6px", "--space-5": "20px", "--space-8": "48px",
-    "--fs-2xs": "12px", "--fs-xs": "12px", "--fs-sm": "12px", "--fs-base": "13px", "--fs-md": "14px", "--fs-lg": "16px", "--fs-xl": "22px", "--fs-2xl": "28px", "--fs-3xl": "32px", "--fs-4xl": "36px", "--fs-5xl": "48px",
+    "--fs-2xs": "12px", "--fs-xs": "13px", "--fs-sm": "15px", "--fs-base": "16px", "--fs-md": "17px", "--fs-lg": "20px", "--fs-xl": "22px", "--fs-2xl": "28px", "--fs-3xl": "34px", "--fs-4xl": "40px", "--fs-5xl": "48px",
     "--font-mono": "\"SFMono-Regular\", ui-monospace, Menlo, Consolas, monospace", "--font-sans": "-apple-system, BlinkMacSystemFont, \"Apple SD Gothic Neo\", system-ui, \"Segoe UI\", sans-serif", "--feed-thumb-aspect": "14 / 5", "--strava": "#FC4C02", "--strava-login": "#FC5200", "--naver": "#03A94D", "--naver-ink": "#FFFFFF", "--kakao": "#FEE500", "--kakao-ink": "rgb(0 0 0 / 0.85)"
   },
   "themeCssVariables": {

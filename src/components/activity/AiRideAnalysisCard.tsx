@@ -22,6 +22,7 @@ import {
   appCheckThrottleRetryAfterMs,
   claimActivityNarrativeAppCheckThrottleRecovery,
 } from "../../services/activityNarrativeApi";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const TERRAIN_ICON: Record<string, string> = { climb: "🔼", descent: "🔽", flat: "➡️" };
 type AnalysisSport = "ride" | "run";
@@ -239,7 +240,7 @@ interface Props {
 export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride", summaryPreview, summaryPreviewEn, isActivityOwner = false }: Props) {
   const { t, i18n } = useTranslation("activity");
   const lang = narrativeLangFrom(i18n.language);
-  const header = <><Bot size={16} aria-hidden="true" style={{ display: "inline", marginInlineEnd: "var(--space-2)", verticalAlign: "text-bottom" }} />{t(sportHeaderKey(sport)).replace(/^🤖\s*/u, "")}</>;
+  const header = <><Bot size={ICON_SIZE.md} aria-hidden="true" style={{ display: "inline", marginInlineEnd: "var(--space-2)", verticalAlign: "text-bottom" }} />{t(sportHeaderKey(sport)).replace(/^🤖\s*/u, "")}</>;
   const previewSummary = lang === "en" ? (summaryPreviewEn || summaryPreview) : (summaryPreview || summaryPreviewEn);
   const { user, signIn } = useAuth();
   // 1단계: 캐시 peek (LLM 호출 없이 빠른 확인).

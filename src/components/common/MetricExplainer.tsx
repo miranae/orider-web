@@ -16,6 +16,7 @@ import { Info, X } from "lucide-react";
 import { Text } from "../../theme/components";
 import { track } from "../../services/analytics";
 import { interpretMetric, type InterpretationContext, type MetricKey } from "../../utils/metricInterpretation";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const GLOSSARY_NS = "metricGlossary";
 
@@ -141,7 +142,7 @@ export function MetricExplainerSheet({ metric, context, scope = "activity", onCl
               lineHeight: 0,
             }}
           >
-            <X size={18} />
+            <X size={ICON_SIZE.md} />
           </button>
         </div>
 
@@ -252,7 +253,7 @@ export function MetricExplainerTrigger({
       >
         {children}
         <Info
-          size={12}
+          size={ICON_SIZE.xs}
           aria-hidden="true"
           style={{ position: "absolute", top: 0, right: 0, color: "var(--ink-3)" }}
         />

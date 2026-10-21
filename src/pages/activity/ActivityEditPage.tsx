@@ -17,6 +17,7 @@ import { normalizeActivityVisibility } from "../../utils/activityVisibility";
 import { CalendarDays, Clock3, Trash2 } from "lucide-react";
 import "./activity-edit-page.css";
 import type { Visibility } from "@shared/types";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 type WorkoutType = "endurance" | "tempo" | "interval" | "recovery" | "race" | "commute" | "";
 
@@ -319,11 +320,11 @@ export default function ActivityEditPage() {
         <div className="activity-edit-datetime">
           <div>
             <label htmlFor="activity-edit-date">{t("edit.fieldDate")}</label>
-            <DateField id="activity-edit-date" icon={<CalendarDays size={16} aria-hidden="true" />} portal value={startDate} onChange={setStartDate} placeholder={t("edit.datePlaceholder")} />
+            <DateField id="activity-edit-date" icon={<CalendarDays size={ICON_SIZE.md} aria-hidden="true" />} portal value={startDate} onChange={setStartDate} placeholder={t("edit.datePlaceholder")} />
           </div>
           <div>
             <label htmlFor="activity-edit-time">{t("edit.fieldTime")}</label>
-            <TimeField id="activity-edit-time" icon={<Clock3 size={16} aria-hidden="true" />} portal value={startTimeOfDay} onChange={setStartTimeOfDay} placeholder={t("edit.timePlaceholder")} />
+            <TimeField id="activity-edit-time" icon={<Clock3 size={ICON_SIZE.md} aria-hidden="true" />} portal value={startTimeOfDay} onChange={setStartTimeOfDay} placeholder={t("edit.timePlaceholder")} />
           </div>
         </div>
       </Card>
@@ -434,7 +435,7 @@ export default function ActivityEditPage() {
           disabled={saving} variant="secondary"
           style={{ color: "var(--rose)", borderColor: "color-mix(in oklch, var(--rose) 40%, transparent)" }}
         >
-          <Trash2 size={16} aria-hidden="true" /> {t("edit.deleteBtn")}
+          <Trash2 size={ICON_SIZE.md} aria-hidden="true" /> {t("edit.deleteBtn")}
         </Button>
         <div className="flex items-center" style={{ gap: 'var(--space-2)' }}>
           <Button
