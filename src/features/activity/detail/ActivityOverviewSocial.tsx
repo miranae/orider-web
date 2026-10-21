@@ -1,3 +1,4 @@
+import { ICON_SIZE } from '../../../theme/tokens/icon';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MapPin, Trash2 } from "lucide-react";
@@ -84,8 +85,8 @@ export default function ActivityOverviewSocial(props: Props) {
       onNext={index < safePhotos.length - 1 ? () => setSelected(safePhotos[index + 1]!.id) : safePhotos.length > 1 && safePhotos.length >= total && props.photosKnown !== false ? () => setSelected(safePhotos[0]!.id) : undefined}
       footer={<>
         <div className="activity-overview-viewer-controls">
-          {photo?.location && <IconButton variant="ghost" icon={<MapPin size={18} />} aria-label={t("page.photoMapFocus")} onClick={() => { props.onLocate(photo.location!); setSelected(null); }} />}
-          {photo?.uploadId && photo.ownerId === props.viewerId && <IconButton variant="danger" icon={<Trash2 size={18} />} aria-label={t("page.delete")} onClick={() => props.onDelete(photo.uploadId!)} />}
+          {photo?.location && <IconButton variant="ghost" icon={<MapPin size={ICON_SIZE.md} />} aria-label={t("page.photoMapFocus")} onClick={() => { props.onLocate(photo.location!); setSelected(null); }} />}
+          {photo?.uploadId && photo.ownerId === props.viewerId && <IconButton variant="danger" icon={<Trash2 size={ICON_SIZE.md} />} aria-label={t("page.delete")} onClick={() => props.onDelete(photo.uploadId!)} />}
           {total > safePhotos.length && props.canLoadPhotos && <Button variant="ghost" size="sm" disabled={props.loadingPhotos} onClick={load}>{t(props.photoError ? "page.retry" : props.loadingPhotos ? "detail.loadingData" : "overviewSocial.loadPhotos")}</Button>}
         </div>
         {props.loadingPhotos && <Text as="p" variant="bodySmall" role="status">{t("detail.loadingData")}</Text>}

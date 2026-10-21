@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, ZoomOut, ZoomIn, X } from 'lucide-react';
 import { useTrainingDialog } from '../../components/training/useTrainingDialog';
 import { DEFAULT_THEME } from '../themes';
 import { IconButton } from './IconButton';
+import { ICON_SIZE } from '../tokens/icon';
 
 export interface MediaViewerProps {
   open: boolean;
@@ -90,9 +91,9 @@ function MediaViewerPanel({ item, label, position, labels, onClose, onPrevious, 
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); (event.key === 'ArrowLeft' ? onPrevious : onNext)?.(); }
     }}>
     <div className="ds-media-viewer__toolbar">
-      <IconButton variant="ghost" icon={<ZoomIn size={20} />} aria-label={labels.zoomIn} disabled={current.zoom >= 4} onClick={() => zoomTo(current.zoom + 1)} />
-      <IconButton variant="ghost" icon={<ZoomOut size={20} />} aria-label={labels.zoomOut} disabled={current.zoom <= 1} onClick={() => zoomTo(current.zoom - 1)} />
-      <IconButton variant="ghost" data-dialog-initial-focus icon={<X size={24} />} aria-label={labels.close} onClick={onClose} />
+      <IconButton variant="ghost" icon={<ZoomIn size={ICON_SIZE.lg} />} aria-label={labels.zoomIn} disabled={current.zoom >= 4} onClick={() => zoomTo(current.zoom + 1)} />
+      <IconButton variant="ghost" icon={<ZoomOut size={ICON_SIZE.lg} />} aria-label={labels.zoomOut} disabled={current.zoom <= 1} onClick={() => zoomTo(current.zoom - 1)} />
+      <IconButton variant="ghost" data-dialog-initial-focus icon={<X size={ICON_SIZE.lg} />} aria-label={labels.close} onClick={onClose} />
     </div>
     <div className="ds-media-viewer__viewport" ref={viewport} data-zoomed={current.zoom > 1}
       onPointerDown={event => {
@@ -115,8 +116,8 @@ function MediaViewerPanel({ item, label, position, labels, onClose, onPrevious, 
       <img key={item.id} ref={image} onLoad={event => { naturalSize.current = { id: item.id, width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight }; }} src={item.url} alt={item.alt} draggable={false}
         style={{ transform: `translate(${current.x}px, ${current.y}px) scale(${current.zoom})` }} />
     </div>
-    <IconButton variant="ghost" className="ds-media-viewer__previous" icon={<ChevronLeft size={28} />} aria-label={labels.previous} disabled={!onPrevious} onClick={onPrevious} />
-    <IconButton variant="ghost" className="ds-media-viewer__next" icon={<ChevronRight size={28} />} aria-label={labels.next} disabled={!onNext} onClick={onNext} />
+    <IconButton variant="ghost" className="ds-media-viewer__previous" icon={<ChevronLeft size={ICON_SIZE.xl} />} aria-label={labels.previous} disabled={!onPrevious} onClick={onPrevious} />
+    <IconButton variant="ghost" className="ds-media-viewer__next" icon={<ChevronRight size={ICON_SIZE.xl} />} aria-label={labels.next} disabled={!onNext} onClick={onNext} />
     <div className="ds-media-viewer__footer"><span aria-live="polite">{position}</span>{item.caption && <p>{item.caption}</p>}{footer}</div>
   </div>;
 }
