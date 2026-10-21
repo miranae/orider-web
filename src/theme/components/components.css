@@ -576,6 +576,9 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 .ds-toggle-button__check { color: var(--accent-text); width: calc(var(--dim-icon-s) - var(--space-0-5)); height: calc(var(--dim-icon-s) - var(--space-0-5)); flex-shrink: 0; }
 .ds-toggle-note { color: var(--ink-2); font-size: var(--ft-body-small-size); margin-inline-start: var(--space-2); }
 .ds-toggle-controls--axis { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); max-width: 100%; gap: var(--space-0-5); padding: var(--space-0-5); margin-block: var(--space-4); background: var(--bg-2); border-radius: var(--r-lg); }
+.activity-analysis-controls > .ds-toggle-controls { margin-block: 0; }
+.ds-toggle-controls--axis.ds-toggle-controls--compact { margin: 0; }
+.ds-toggle-controls--axis.ds-toggle-controls--compact .ds-toggle-button { min-height: calc(var(--space-7) + var(--space-3)); padding: var(--space-1); white-space: nowrap; }
 .ds-toggle-controls--axis .ds-btn__label { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .ds-toggle-controls--axis .ds-toggle-button { height: auto; min-height: calc(var(--space-7) + var(--space-3)); min-width: 0; padding: var(--space-2) var(--space-3); font-size: var(--ft-body-small-size); color: var(--ink-2); background: transparent; border-color: transparent; white-space: normal; }
 .ds-toggle-controls--axis .ds-toggle-button:is([aria-pressed="true"], [aria-selected="true"]) { background: var(--bg-1); color: var(--ink-0); box-shadow: var(--shadow-sm); font-weight: var(--ft-subtitle-weight); }

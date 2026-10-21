@@ -3,9 +3,9 @@ import { Check } from 'lucide-react';
 import { Button, type ButtonProps } from './Button';
 import { cn } from './cn';
 
-export interface ToggleControlsProps extends HTMLAttributes<HTMLDivElement> { variant?: 'metric' | 'axis' }
-export function ToggleControls({ variant = 'metric', className, role = 'group', ...props }: ToggleControlsProps) {
-  return <div role={role} className={cn('ds-toggle-controls', `ds-toggle-controls--${variant}`, className)} {...props} />;
+export interface ToggleControlsProps extends HTMLAttributes<HTMLDivElement> { variant?: 'metric' | 'axis'; density?: 'default' | 'compact' }
+export function ToggleControls({ variant = 'metric', density = 'default', className, role = 'group', ...props }: ToggleControlsProps) {
+  return <div role={role} className={cn('ds-toggle-controls', `ds-toggle-controls--${variant}`, density === 'compact' && 'ds-toggle-controls--compact', className)} {...props} />;
 }
 
 export interface ToggleButtonProps extends Omit<ButtonProps, 'variant' | 'size' | 'dense' | 'className' | 'style' | 'aria-pressed' | 'aria-selected'> {

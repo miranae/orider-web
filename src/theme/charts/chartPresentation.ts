@@ -7,3 +7,6 @@ export const CHART_PRESENTATION_DENSITY = Object.freeze({
   pixelsPerPoint: 9, maxPoints: 240, minPoints: 4, edgePoints: 2,
   plotAxisWidth: CHART_PRESENTATION.axisWidth, resizeStep: 7,
 });
+
+/** Opt-in activity analysis overview and compact metric lanes. */
+export const ACTIVITY_ANALYSIS_PRESENTATION = Object.freeze({ overviewHeight: 100, metricHeight: 72, axisHeight: 32 });

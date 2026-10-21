@@ -11,7 +11,7 @@ import { ActivityPersonalBenchmark } from "../features/activity/detail/ActivityP
 import ActivityPeakEffortInspector from "../features/activity/detail/ActivityPeakEffortInspector";
 import { resolvePeakEffortLocation, visiblePeakEfforts } from "../features/activity/detail/activityPeakEfforts";
 import type { RidePeakEffort } from "@shared/types/activity-metrics";
-import ActivityRangeAnalysisPanel, { ActivityRangeControls } from "../features/activity/detail/ActivityRangeAnalysisPanel";
+import ActivityRangeAnalysisPanel, { ActivityRangeControls, ActivityChartAxisControls } from "../features/activity/detail/ActivityRangeAnalysisPanel";
 import { useActivityRangeSelection } from "../hooks/useActivityRangeSelection";
 import ActivityPerformanceCharts from "../features/activity/detail/ActivityPerformanceCharts";
 import { recordedLapElapsedRange, resolveRecordedLapRange, type RecordedLap } from "../features/activity/detail/recordedLapRange";
@@ -97,7 +97,7 @@ export default function ActivityPage() {
   const formatFullDate = useFormatFullDate();
   const { activityId } = useParams<{ activityId: string }>();
   const { user, profile, loading: authLoading, signIn } = useAuth();
-  const { units } = useLocale();
+  const { units, locale } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
   const dialog = useDialog();
@@ -121,7 +121,7 @@ export default function ActivityPage() {
   const [segmentMapSelection, setSegmentMapSelection] = useState<{ scope: string; effort: SegmentEffortData } | null>(null);
   const segmentMapTrigger = useRef<HTMLButtonElement | null>(null);
   const [showAllSegments, setShowAllSegments] = useState(false);
-  const [activeOverlays, setActiveOverlays] = useState<Set<string>>(new Set());
+  const [activeOverlays, setActiveOverlays] = useState<Set<string> | null>(null);
   const [focusedOverlayKey, setFocusedOverlayKey] = useState<string | null>(null);
   const analysisModel = useActivityAnalysisModel(activityId);
   const {
@@ -594,19 +594,47 @@ export default function ActivityPage() {
     showToast(t("page.photoToast.deleted"));
   };
   const handleElevHover = useCallback((index: number | null) => setHoverIndex(index), []);
-  const toggleOverlay = useCallback((key: string) => {
+  const toggleOverlay = (key: string) => {
     setActiveOverlays((prev) => {
-      const next = selectChartOverlay(prev, key);
+      const next = selectChartOverlay(prev ?? new Set(availableOverlays.map(item => item.key)), key);
       setFocusedOverlayKey(next.focusedOverlayKey);
       return next.activeOverlays;
     });
-  }, []);
+  };
   // 지도·세그먼트·개요 차트용 파생값은 분석 모델 경계 밖에서 계산한다.
   const sampledData = useMemo(
     () => buildSampledData(effectiveStreams, sensorSelectionContext),
     [effectiveStreams, sensorSelectionContext],
   );
+  const sourceIndices = useMemo(() => sampledData.map(point => point.sourceIndex ?? -1), [sampledData]);
   const rangeSelection = useActivityRangeSelection(analysisModel, sampledData);
+  // 시각적 탐색은 소유자 전용 서버 구간 분석과 독립적이다.
+  const [visualState, setVisualState] = useState<{ identity: string; axis: "distance" | "elapsed"; range: [number, number] | null }>({ identity: "", axis: "distance", range: null });
+  const visualSource = useRef({ streams, generation: 0 });
+  if (visualSource.current.streams !== streams) visualSource.current = { streams, generation: visualSource.current.generation + 1 };
+  const visualIdentity = `${rangeSelection.identity}:${visualSource.current.generation}`;
+  const visualAxis = visualState.identity === visualIdentity && rangeSelection.sampledAxis ? visualState.axis : "distance";
+  const visualRange = visualState.identity === visualIdentity ? visualState.range : null;
+  useLayoutEffect(() => { setHoverIndex(null); }, [visualIdentity, visualAxis]);
+  // 명시적인 서버 구간 분석을 시작하면 별도의 임시 확대를 먼저 종료한다.
+  useLayoutEffect(() => {
+    if (!rangeSelection.enabled) return;
+    setVisualState(previous => ({ ...previous, range: null }));
+    setHoverIndex(null);
+  }, [rangeSelection.enabled, visualIdentity]);
+  const setVisualRange = (range: [number, number] | null) => {
+    if (range && (!Number.isInteger(range[0]) || !Number.isInteger(range[1]) || range[0] < 0 || range[1] <= range[0] || range[1] >= sampledData.length)) return;
+    setVisualState({ identity: visualIdentity, axis: visualAxis, range });
+    setHoverIndex(range?.[1] ?? null);
+  };
+  const visualRouteRange = useMemo(() => {
+    if (!visualRange || !streams?.latlng) return null;
+    const startIndex = sampledData[visualRange[0]]?.sourceIndex;
+    const endIndex = sampledData[visualRange[1]]?.sourceIndex;
+    if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex) || startIndex! < 0 || endIndex! <= startIndex! || endIndex! >= streams.latlng.length) return null;
+    if (!streams.latlng.slice(startIndex, endIndex! + 1).every(point => point?.length === 2 && point.every(Number.isFinite) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180)) return null;
+    return { startIndex: startIndex!, endIndex: endIndex! };
+  }, [visualRange, sampledData, streams]);
   const recordedRunCadenceUnit = serverMetrics.metrics?.cadenceUnit ?? (activity?.source === "strava" ? "strides_per_minute" : activity?.source === "orider" ? "spm" : null);
   const availableOverlays = useMemo(() => getPerformanceOverlays(
     sampledData, sport, units, recordedRunCadenceUnit, t("analysis.run.cadenceUnit"),
@@ -683,6 +711,17 @@ export default function ActivityPage() {
     return sampledData[hoverIndex].latlng;
   }, [hoverIndex, sampledData, runSplitLocation, peakLocation, rangeSelection.selection, rangeSelection.routeRange, streams, selectedMapSegment]);
   const segmentEfforts = useMemo(() => getSegmentEfforts(streams), [streams]);
+  const chartSegments = useMemo(() => segmentEfforts.flatMap(effort => {
+    if (!Number.isInteger(effort.startIndex) || !Number.isInteger(effort.endIndex) || effort.startIndex < 0 || effort.endIndex <= effort.startIndex || effort.endIndex >= (streams?.distance?.length ?? 0)) return [];
+    const startIndex = sampledData.findIndex(point => (point.sourceIndex ?? -1) >= effort.startIndex);
+    let endIndex = sampledData.length - 1;
+    while (endIndex >= 0 && (sampledData[endIndex]?.sourceIndex ?? Infinity) > effort.endIndex) endIndex--;
+    return startIndex >= 0 && endIndex > startIndex ? [{ id: String(effort.id), name: effort.name, startIndex, endIndex,
+      summary: [Number.isFinite(effort.distance) && effort.distance > 0 ? formatDistance(effort.distance, units) : null,
+        Number.isFinite(effort.elapsedTime) && effort.elapsedTime > 0 ? formatTime(effort.elapsedTime) : null].filter(Boolean).join(" · "),
+      href: effort.segment?.id ? `/${locale}${segmentHistoryPath(effort.segment.id, effort.id, activity?.id)}` : undefined,
+    }] : [];
+  }), [segmentEfforts, sampledData, units, locale, activity?.id, streams]);
   const canViewSegmentOnMap = (effort: SegmentEffortData) => {
     const points = streams?.latlng;
     return !!points && Number.isInteger(effort.startIndex) && Number.isInteger(effort.endIndex)
@@ -845,7 +884,7 @@ export default function ActivityPage() {
     : [];
 
   // Build chart overlays from active toggles
-  const chartOverlays = buildChartOverlays(availableOverlays, activeOverlays, sampledData, (label) => t(`overlay.${label}`));
+  const chartOverlays = buildChartOverlays(availableOverlays, activeOverlays ?? new Set(availableOverlays.map(item => item.key)), sampledData, (label) => t(`overlay.${label}`));
 
   const hoverPoint = hoverIndex != null ? sampledData[hoverIndex] ?? null : null;
 
@@ -1107,7 +1146,7 @@ export default function ActivityPage() {
           </button>)}
         </div>
       </div>
-      <div className="activity-detail-hero" data-testid="activity-detail-hero">
+      <div className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
       <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined}>
       {selectedMapSegment && <div className="activity-detail-segment-map-selection">
@@ -1121,9 +1160,9 @@ export default function ActivityPage() {
         hasTrack={hasTrack}
         summary={s}
         markerPosition={markerPosition}
-        hoveredSegment={selectedMapSegment ?? hoveredSegment}
+        hoveredSegment={activeTab === "analysis" && visualRange ? null : selectedMapSegment ?? hoveredSegment}
         selectedSegmentRange={selectedMapSegment}
-        selectedRunRange={rangeSelection.selection ? rangeSelection.routeRange : runSplitLocation?.routeRange ?? peakLocation?.routeRange}
+        selectedRunRange={activeTab === "analysis" && visualRange ? visualRouteRange ?? undefined : rangeSelection.selection ? rangeSelection.routeRange : runSplitLocation?.routeRange ?? peakLocation?.routeRange}
         photos={photos}
         uploadedPhotos={uploadedPhotos}
         flyToPosition={flyToPosition}
@@ -1131,7 +1170,69 @@ export default function ActivityPage() {
       />
       </div>
 
-        <div className="activity-detail-summary">
+      {activeTab === "analysis" && <div className="activity-detail-chart-workspace" aria-label={t("detail.chartsTitle")}>
+      {/* 상세 스트림은 분석 탭 진입 시 자동으로 불러온다. */}
+      {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} />}
+      {streams && !streamsSignInRequired && !streamsError && !loadingStreams && !showStreamSpinner && (!showElevation || elevData.length === 0) && (
+        <Card><Text as="p" variant="bodyMedium" tone="secondary">{t("page.chartsUnavailable")}</Text></Card>
+      )}
+
+      {/* 분석 (고도 & 성능 차트) — 수영/기타는 고도 차트 숨김 */}
+      {(showStreamSpinner || loadingStreams) && (
+        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("detail.chartsTitle")}</h3>
+          <div className="activity-detail-loading" role="status" aria-live="polite">
+            <div className="flex items-center gap-2 text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-3)' }}>
+              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              {t("detail.loadingData")}
+            </div>
+          </div>
+        </Card>
+      )}
+      {showElevation && elevData.length > 0 && (
+        <ActivityPerformanceCharts embedded analysisStyle
+          chartIdentity={visualIdentity} rawStreams={effectiveStreams} sensorSelectionContext={sensorSelectionContext}
+          rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
+          visualRange={visualRange} onVisualRangeChange={setVisualRange} hoverIndex={hoverIndex} segments={chartSegments}
+          hasElevation={!!effectiveStreams?.altitude?.some(value => value != null && Number.isFinite(value))}
+          elevData={elevData} availableOverlays={availableOverlays} activeOverlays={activeOverlays ?? new Set(availableOverlays.map(item => item.key))}
+          focusedOverlayKey={focusedOverlayKey} toggleOverlay={toggleOverlay} chartOverlays={chartOverlays}
+          hoverPoint={hoverPoint} summaryStats={summaryStats} sport={sport} recordedRunCadenceUnit={recordedRunCadenceUnit}
+          elapsedAxisSec={rangeSelection.sampledAxis ?? undefined} xAxis={visualAxis}
+          axisControls={<ActivityChartAxisControls compact axis={visualAxis} elapsedAvailable={!!rangeSelection.sampledAxis} onChange={axis => {
+            setVisualState({ identity: visualIdentity, axis, range: visualRange }); setHoverIndex(null);
+          }} />}
+          rangeControls={<ActivityRangeControls selection={rangeSelection} showAxis={false} />}
+          rangeAnalysis={activity?.id ? <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /> : null}
+          range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampledData.length - 1]}
+          onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis ? rangeSelection.selectChart : undefined}
+          onHoverIndex={handleElevHover} chartHighlightRange={chartHighlightRange}
+          metrics={serverMetrics.metrics} powerSource={streamSensorSummary?.powerSource}
+        />
+      )}
+
+      {/* Streams error */}
+      {!streamsSignInRequired && !hasStreams && !loadingStreams && !showStreamSpinner && streamsError && (
+        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
+          <div className="text-center text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>
+            <p>{streamsError}</p>
+            <button
+              onClick={() => { void retryStreams(); }}
+              className="mt-2 font-medium hover:underline" style={{ color: 'var(--lime)' }}
+            >
+              {t("page.retry")}
+            </button>
+          </div>
+        </Card>
+      )}
+
+
+      </div>}
+
+        <div className="activity-detail-summary" hidden={activeTab === "analysis"}>
           <Card padding="none" className="activity-detail-primary-stats">{keyStatsStrip("primary")}</Card>
           {secondaryStatsAvailable && <details className="activity-detail-secondary-stats" open={wideStats || secondaryStatsOpen} onToggle={(event) => {
             if (!wideStats) setSecondaryStatsOpen(event.currentTarget.open);
@@ -1338,59 +1439,7 @@ export default function ActivityPage() {
         storedLoad={(isActivityOwner || overview.response?.status !== "available" || differentLoadValues) && !activePowerOverride && !analysisTabProps?.suppressServerPowerMetrics && (serverMetrics.status === "ready" || serverMetrics.status === "stale") ? serverMetrics.metrics?.tss ?? null : null}
         sharedStats={{ averagePower: stripStats.avgPower.value, averageCadence: stripStats.avgCadence.value, averageHeartRate: stripStats.avgHr.value, maxHeartRate: stripStats.maxHr.value }}
         analysisProps={hasAnalysisStreams && analysisTabProps ? { ...analysisTabProps, onSignIn: () => { void signIn(); } } : null}
-        timeline={<>
-      {/* 상세 스트림은 분석 탭 진입 시 자동으로 불러온다. */}
-      {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} />}
-      {streams && !streamsSignInRequired && !streamsError && !loadingStreams && !showStreamSpinner && (!showElevation || elevData.length === 0) && (
-        <Card><Text as="p" variant="bodyMedium" tone="secondary">{t("page.chartsUnavailable")}</Text></Card>
-      )}
-
-      {/* 분석 (고도 & 성능 차트) — 수영/기타는 고도 차트 숨김 */}
-      {(showStreamSpinner || loadingStreams) && (
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("detail.chartsTitle")}</h3>
-          <div className="activity-detail-loading" role="status" aria-live="polite">
-            <div className="flex items-center gap-2 text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-3)' }}>
-              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              {t("detail.loadingData")}
-            </div>
-          </div>
-        </Card>
-      )}
-      {showElevation && elevData.length > 0 && (
-        <ActivityPerformanceCharts embedded
-          elevData={elevData} availableOverlays={availableOverlays} activeOverlays={activeOverlays}
-          focusedOverlayKey={focusedOverlayKey} toggleOverlay={toggleOverlay} chartOverlays={chartOverlays}
-          hoverPoint={hoverPoint} summaryStats={summaryStats} sport={sport} recordedRunCadenceUnit={recordedRunCadenceUnit}
-          elapsedAxisSec={rangeSelection.sampledAxis ?? undefined} xAxis={rangeSelection.xAxis}
-          rangeControls={<ActivityRangeControls selection={rangeSelection} />}
-          rangeAnalysis={activity?.id ? <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /> : null}
-          range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampledData.length - 1]}
-          onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis ? rangeSelection.selectChart : undefined}
-          onHoverIndex={handleElevHover} chartHighlightRange={chartHighlightRange}
-          metrics={serverMetrics.metrics} powerSource={streamSensorSummary?.powerSource}
-        />
-      )}
-
-      {/* Streams error */}
-      {!streamsSignInRequired && !hasStreams && !loadingStreams && !showStreamSpinner && streamsError && (
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <div className="text-center text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>
-            <p>{streamsError}</p>
-            <button
-              onClick={() => { void retryStreams(); }}
-              className="mt-2 font-medium hover:underline" style={{ color: 'var(--lime)' }}
-            >
-              {t("page.retry")}
-            </button>
-          </div>
-        </Card>
-      )}
-
-        </>}
+        timeline={null}
         provenance={differentLoadValues ? <Text as="p" variant="caption" tone="secondary">{t("detail.loadValuesDescription")}{serverMetrics.status === "stale" ? ` · ${t("detail.previousAnalysisValue")}` : ""}</Text> : null}
         benchmark={isActivityOwner && shareDiscipline === "bike" ? <>
       {activeTab === "analysis" && activity?.id && <ActivityPersonalBenchmark activityId={activity.id}
@@ -1432,57 +1481,6 @@ export default function ActivityPage() {
         <Text as="p" variant="bodySmall" tone="secondary" style={{ marginTop: "var(--space-2)" }}>{t("detail.loadValuesDescription")}</Text>
         {serverMetrics.status === "stale" && <Text as="p" variant="bodySmall" tone="warning" style={{ marginTop: "var(--space-2)" }}>{t("detail.previousAnalysisValue")}</Text>}
       </Card>}
-
-      {/* 상세 스트림은 분석 탭 진입 시 자동으로 불러온다. */}
-      {streamsSignInRequired && !streams && <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} />}
-      {streams && !streamsSignInRequired && !streamsError && !loadingStreams && !showStreamSpinner && (!showElevation || elevData.length === 0) && (
-        <Card><Text as="p" variant="bodyMedium" tone="secondary">{t("page.chartsUnavailable")}</Text></Card>
-      )}
-
-      {/* 분석 (고도 & 성능 차트) — 수영/기타는 고도 차트 숨김 */}
-      {(showStreamSpinner || loadingStreams) && (
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("detail.chartsTitle")}</h3>
-          <div className="activity-detail-loading" role="status" aria-live="polite">
-            <div className="flex items-center gap-2 text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-3)' }}>
-              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              {t("detail.loadingData")}
-            </div>
-          </div>
-        </Card>
-      )}
-      {showElevation && elevData.length > 0 && (
-        <ActivityPerformanceCharts
-          elevData={elevData} availableOverlays={availableOverlays} activeOverlays={activeOverlays}
-          focusedOverlayKey={focusedOverlayKey} toggleOverlay={toggleOverlay} chartOverlays={chartOverlays}
-          hoverPoint={hoverPoint} summaryStats={summaryStats} sport={sport} recordedRunCadenceUnit={recordedRunCadenceUnit}
-          elapsedAxisSec={rangeSelection.sampledAxis ?? undefined} xAxis={rangeSelection.xAxis}
-          rangeControls={<ActivityRangeControls selection={rangeSelection} />}
-          rangeAnalysis={activity?.id ? <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /> : null}
-          range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampledData.length - 1]}
-          onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis ? rangeSelection.selectChart : undefined}
-          onHoverIndex={handleElevHover} chartHighlightRange={chartHighlightRange}
-          metrics={serverMetrics.metrics} powerSource={streamSensorSummary?.powerSource}
-        />
-      )}
-
-      {/* Streams error */}
-      {!streamsSignInRequired && !hasStreams && !loadingStreams && !showStreamSpinner && streamsError && (
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <div className="text-center text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>
-            <p>{streamsError}</p>
-            <button
-              onClick={() => { void retryStreams(); }}
-              className="mt-2 font-medium hover:underline" style={{ color: 'var(--lime)' }}
-            >
-              {t("page.retry")}
-            </button>
-          </div>
-        </Card>
-      )}
 
       {/* 러닝/수영 전용 상세 — 기존 공개·센서 조건 유지 */}
       {sport === "run" && streams && <RunLeftCards cadenceUnit={runCadenceUnit} streams={streams} thresholdPaceSecPerKm={isActivityOwner ? profile?.thresholdPace ?? null : null} hrZoneSec={serverMetrics.metrics?.hrZoneSec} />}
@@ -1557,7 +1555,7 @@ export default function ActivityPage() {
         onViewRunSplitLocation={viewRunSplitLocation}
         canViewRunSplitLocation={!!runSplitLocation?.routeRange && !!runSplitLocation.chartRange}
       />}
-      {activeTab === "analysis" && sport === "run" && isActivityOwner && activity?.id && <div className="space-y-4">
+      {activeTab === "analysis" && sport === "run" && isActivityOwner && activity?.id && !(showElevation && elevData.length > 0) && <div className="space-y-4">
         <ActivityRangeControls selection={rangeSelection} />
         <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} />
       </div>}
