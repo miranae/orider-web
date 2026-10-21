@@ -80,3 +80,23 @@ describe("ActivitySocialFooter callable mutations", () => {
     expect(screen.getByRole("button", { name: "댓글" })).toHaveTextContent("1");
   });
 });
+
+it("shows only actual visible feed comments and keeps the composer closed until requested", () => {
+  vi.clearAllMocks();
+  const comment = { id: "c1", userId: "reader", nickname: "라이더", profileImage: null, text: "함께 달려 즐거웠어요", createdAt: Date.now() - 60000 };
+  renderWithProviders(<ActivitySocialFooter activity={activity} presentation="feed" commentsPreview={[comment, { ...comment, id: "hidden", text: "숨긴 댓글", hiddenByOwner: true }, { ...comment, id: "deleted", text: "삭제 댓글", deletedAt: Date.now() }]} />);
+  expect(screen.getByText("함께 달려 즐거웠어요")).toBeVisible();
+  expect(screen.queryByText("숨긴 댓글")).not.toBeInTheDocument();
+  expect(screen.queryByText("삭제 댓글")).not.toBeInTheDocument();
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "댓글" }));
+  expect(screen.getByRole("textbox")).toBeVisible();
+  expect(screen.getByRole("button", { name: "등록" })).toHaveClass("ds-btn--md");
+  const input = screen.getByRole("textbox");
+  expect(input.tagName).toBe("TEXTAREA");
+  expect(input).toHaveAttribute("rows", "1");
+  fireEvent.change(input, { target: { value: "첫 줄\n두 번째 줄" } });
+  expect(input).toHaveValue("첫 줄\n두 번째 줄");
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect(mocks.postComment).not.toHaveBeenCalled();
+});

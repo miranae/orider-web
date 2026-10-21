@@ -3,11 +3,16 @@ import HomeActivitySportIcon from "../common/HomeActivitySportIcon";
 import { getHomeActivitySport } from "../../utils/homeActivitySport";
 import GlossaryText from "../common/GlossaryText";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/appStoreLinks";
-import { useEffect, useState, useMemo, type ReactNode } from "react";
+import { useEffect, useState, useMemo, useRef, type ReactNode } from "react";
+import { Camera, Medal } from "lucide-react";
 import { useActivityAuthor } from "../../hooks/useActivityAuthor";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import type { Activity } from "@shared/types";
+import type { ActivityFeedContent, ActivityFeedContentProjection } from "@shared/types/activity-feed-content";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { activityFeedContentPreviewUrl, activityFeedSourceRevision, boundedFeedContent, loadLocalActivityFeedContent, loadActivityFeedComments } from "../../services/activityFeedContent";
+import { logClientError } from "../../services/errorLogger";
 import Avatar from "../Avatar";
 import ActivityAiSummary from "../activity/ActivityAiSummary";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
@@ -51,7 +56,7 @@ interface MobileFeedPageProps {
 function formatDur(ms: number): string {
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
-  return `${h}:${String(m).padStart(2, "0")}`;
+  return h > 0 ? `${h}h\u00a0${m}m` : `${m}m`;
 }
 
 function MobileFeedSkeleton() {
@@ -83,29 +88,107 @@ function MobileFeedSkeleton() {
   );
 }
 
-function MobileRouteThumbnail({ activity, priority = false }: { activity: Activity; priority?: boolean }) {
-  if (!activity.thumbnailTrack) return null;
+export function MobileRouteThumbnail({ activity, priority = false, content }: { activity: Activity; priority?: boolean; content: ActivityFeedContentProjection | null }) {
+  const { t } = useTranslation("activity");
+  const hasMap = !!activity.thumbnailTrack;
+  const photos = (content?.photos ?? []).slice(0, hasMap ? 5 : 4);
+  const photoCount = Math.max(photos.length, content?.totalPhotoCount ?? activity.photoCount);
+  const squareMap = hasMap && (photos.length === 1 || photos.length === 4);
+  if (!hasMap && photoCount === 0) return null;
+  const map = hasMap && <div className="mobile-feed-map">
+    <ActivityRouteThumbnail activityId={activity.id} userId={activity.userId} polyline={activity.thumbnailTrack}
+      mapImageUrl={activity.mapImageUrl} visibility={activity.visibility} contentRevision={activity.contentRevision}
+      contentSelectedRevision={activity.contentSelectedRevision} priority={priority} layout="mobile" mobileFullBleed={false}
+      shape={squareMap ? "square" : "wide"} />
+  </div>;
+  const photoTiles = photos.map((photo, index) => <Link key={photo.id} to={`/activity/${activity.id}?tab=overview`} className="mobile-feed-photo" aria-label={t("card.openPhoto", { index: index + 1, count: photoCount })}>
+    <img src={photo.url} alt={photo.caption ?? ""} loading="lazy" />
+    {index === photos.length - 1 && photoCount > photos.length && <span className="mobile-feed-photo-remaining">+{photoCount - photos.length}</span>}
+  </Link>);
+  return <div className={`mobile-feed-route${!hasMap ? " mobile-feed-route--photos-only" : ""}`}>
+    {squareMap ? <div className={`mobile-feed-media mobile-feed-media--${photos.length}`}>{map}{photoTiles}</div> : <>
+      {map}
+      {photos.length > 0 && <div className={`mobile-feed-photos mobile-feed-photos--${photos.length}${!hasMap ? " mobile-feed-photos--no-map" : ""}`}>{photoTiles}</div>}
+    </>}
+    {photoCount > 0 && photos.length === 0 && <div className="mobile-feed-photo-entry">
+      <Link to={`/activity/${activity.id}?tab=overview`} className={buttonClass({ variant: "neutral", size: "sm" })}>
+        <Camera size={16} aria-hidden="true" /> {t("page.photos")} {photoCount}
+      </Link>
+    </div>}
+  </div>;
+}
 
-  return (
-    <div className="mobile-feed-route">
-      <ActivityRouteThumbnail
-        activityId={activity.id}
-        userId={activity.userId}
-        polyline={activity.thumbnailTrack}
-        mapImageUrl={activity.mapImageUrl}
-        visibility={activity.visibility}
-        contentRevision={activity.contentRevision}
-        contentSelectedRevision={activity.contentSelectedRevision}
-        priority={priority}
-        layout="mobile"
-      />
-    </div>
-  );
+function ActivityMemo({ content, activityId }: { content: ActivityFeedContentProjection; activityId: string }) {
+  const { t } = useTranslation("activity");
+  const [expanded, setExpanded] = useState(false);
+  const paragraphRef = useRef<HTMLParagraphElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
+  useEffect(() => {
+    if (expanded) return;
+    const paragraph = paragraphRef.current;
+    if (!paragraph) return;
+    const measure = () => setOverflowing(paragraph.scrollHeight > paragraph.clientHeight);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(paragraph);
+    return () => observer.disconnect();
+  }, [expanded, content.memo]);
+  if (!content.memo?.trim()) return null;
+  return <div className="mobile-feed-memo">
+    <p ref={paragraphRef} className={!expanded ? "mobile-feed-memo-collapsed" : undefined}>{content.memo}</p>
+    {overflowing && <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? "card.memoLess" : "card.memoMore")}</Button>}
+    {content.memoTruncated && <Link to={`/activity/${activityId}`}>{t("card.memoMore")}</Link>}
+  </div>;
 }
 
 /** 시안과 일치하는 컴팩트 모바일 활동 카드 */
 export function CompactActivityCard({ activity, priority = false }: { activity: Activity; priority?: boolean }) {
   const { t, i18n } = useTranslation("dashboard");
+  const services = useFirebaseServices();
+  const { user } = useAuth();
+  const cardRef = useRef<HTMLElement>(null);
+  const [localContent, setLocalContent] = useState<(ActivityFeedContent & { viewerId: string | null }) | null>(null);
+  const [localFailure, setLocalFailure] = useState<{ viewerId: string | null; sourceRevision: string; kind: "content" | "comments" } | null>(null);
+  const [contentRetry, setContentRetry] = useState(0);
+  const [commentPreview, setCommentPreview] = useState<{ comments: ActivityFeedContent["comments"]; viewerId: string; sourceRevision: string } | null>(null);
+  const sourceRevision = activityFeedSourceRevision(activity);
+  const embedded = activity.feedContentV1?.sourceRevision === sourceRevision ? boundedFeedContent(activity.feedContentV1) : null;
+  const localContentVisible = localContent?.viewerId === (user?.uid ?? null) && localContent?.sourceRevision === sourceRevision ? localContent : null;
+  const content = localContentVisible ?? embedded;
+  useEffect(() => {
+    setLocalContent(null);
+    setLocalFailure(null);
+    setCommentPreview(null);
+    const localPreview = !!activityFeedContentPreviewUrl();
+    const readComments = !localPreview && !!user && !user.isAnonymous && activity.commentCount > 0;
+    if (!localPreview && !readComments) return;
+    const controller = new AbortController();
+    const load = () => {
+      const request = localPreview
+        ? loadLocalActivityFeedContent(services, activity.id, controller.signal).then(data => {
+          if (!controller.signal.aborted) setLocalContent(data ? { ...data, viewerId: user?.uid ?? null } : null);
+        })
+        : loadActivityFeedComments(services, user!.uid, activity.id, controller.signal).then(comments => {
+          if (!controller.signal.aborted) setCommentPreview({ comments, viewerId: user!.uid, sourceRevision });
+        });
+      void request.catch(error => {
+        if (!controller.signal.aborted && !(error instanceof Error && error.message === "account_changed")) {
+          setLocalFailure({ viewerId: user?.uid ?? null, sourceRevision, kind: localPreview ? "content" : "comments" });
+          logClientError("MobileFeedPage.feedContent", error, { activityId: activity.id });
+        }
+      });
+    };
+    if (typeof IntersectionObserver === "undefined") load();
+    else {
+      const observer = new IntersectionObserver(entries => {
+        if (entries.some(entry => entry.isIntersecting)) { observer.disconnect(); load(); }
+      });
+      if (cardRef.current) observer.observe(cardRef.current);
+      return () => { observer.disconnect(); controller.abort(); };
+    }
+    return () => controller.abort();
+  }, [activity.id, activity.commentCount, services, user, sourceRevision, contentRetry]);
   const localDay = toLocalDate(Date.now());
   const timestamp = useMemo(() => activityTimestampParts(activity.startTime, i18n.language, new Date(`${localDay}T12:00:00`).getTime()), [activity.startTime, i18n.language, localDay]);
   const occurredAt = timestamp ? timestamp.day === "date" ? `${timestamp.date} ${timestamp.time}` : t(`mobileFeed.occurred.${timestamp.day}`, { time: timestamp.time }) : t("mobileFeed.occurred.unknown");
@@ -114,6 +197,11 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
   const s = activity.summary;
   const { units } = useLocale();
   const { t: tActivity } = useTranslation("activity");
+  const previewError = localFailure?.viewerId === (user?.uid ?? null) && localFailure.sourceRevision === sourceRevision
+    ? <div className="mobile-feed-content-error" role="alert">
+      <span>{tActivity(localFailure.kind === "content" ? "card.contentLoadError" : "card.commentsLoadError")}</span>
+      <Button variant="ghost" size="sm" onClick={() => setContentRetry(value => value + 1)}>{tActivity("card.contentRetry")}</Button>
+    </div> : null;
 
   const distance = formatDistance(s.distance, units);
   // #236: 정지 큰 활동은 이동시간 우선 (상세·데스크톱 카드와 동일 정책 — resolveDuration 공유).
@@ -128,6 +216,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
   const nickname = useActivityAuthor(activity).nickname ?? t("mobileFeed.defaultRider");
   const discipline = getDiscipline(activity.type);
   const activitySport = getHomeActivitySport(activity);
+  const achievements = activity.topAchievements?.slice(0, 3) ?? [];
   const activitySportLabel = activitySport === "mtb" ? t("common:sport.mtb")
     : activitySport === "trekking" ? t("common:sport.hike")
     : activitySport === "indoor-bike" ? `${t("common:sport.indoor")} ${t(getDisciplineLabelKey("bike"))}`
@@ -147,7 +236,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
   });
 
   return (
-    <article data-testid="H1-2-1" className="mobile-feed-card">
+    <article ref={cardRef} data-testid="H1-2-1" className="mobile-feed-card">
       <Link
         to={`/activity/${activity.id}`}
         aria-label={activity.description || t("mobileFeed.defaultActivity")}
@@ -158,7 +247,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
       <div className="mobile-feed-card-header">
         <span className="mobile-feed-card-avatar"><Avatar userId={activity.userId} name={nickname} imageUrl={activity.profileImage} size={40} className="mobile-feed-author-avatar" /></span>
         <div className="mobile-feed-card-identity">
-          <Text as="div" variant="bodySmall" size="md" weight={600} tone="primary" style={{ overflowWrap: "anywhere" }}>{nickname}</Text>
+          <Text as="div" variant="bodySmall" size="md" weight={600} tone="primary" className="mobile-feed-author-name">{nickname}</Text>
           <Text as="div" variant="caption" tone="tertiary" className="mobile-feed-activity-metadata"><time dateTime={timestamp?.iso}>{occurredAt}</time>{device && <span>{`·\u00a0${device}`}</span>}{region && <span>{`·\u00a0${region}`}</span>}</Text>
         </div>
         <span className="mobile-feed-card-sport" role="img" aria-label={activitySportLabel}>
@@ -182,6 +271,9 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
         )}
       </div>
 
+      {localFailure?.kind === "content" && previewError}
+      {content && <ActivityMemo content={content} activityId={activity.id} />}
+
       {/* 저장된 AI 요약이 있는 활동에만 표시한다. */}
       {(activity.aiSummaryPreview || activity.aiSummaryPreview_en) && <div className="mobile-feed-summary">
         <ActivityAiSummary summary={activity.aiSummaryPreview} summaryEn={activity.aiSummaryPreview_en} inset={false} />
@@ -192,21 +284,25 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
         {(discipline === "run" ? [
           { v: distance, u: "", l: t("mobileFeed.statDistance") },
           { v: pace, u: "", l: tActivity("stat.avgPace") },
-          { v: dur, u: "", l: t(`homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, sd.usingMoving)}`) },
+          { v: dur, u: "", time: true, l: t(`homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, sd.usingMoving)}`) },
         ] : [
           { v: distance, u: "", l: t("mobileFeed.statDistance") },
           { v: elev, u: "", l: t("mobileFeed.statElev") },
-          { v: dur, u: "", l: t(`homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, sd.usingMoving)}`) },
+          { v: dur, u: "", time: true, l: t(`homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, sd.usingMoving)}`) },
         ]).map(stat => {
-          const measurement = /^(.*?)(\/km|\/mi|km\/h|mph|km|mi|ft|m)$/.exec(stat.v);
+          const measurement = !stat.time && /^(.*?)(\/km|\/mi|km\/h|mph|km|mi|ft|m)$/.exec(stat.v);
           return <div key={stat.l} className="mobile-feed-stat">
             <div className="mobile-feed-stat-label"><GlossaryText>{stat.l}</GlossaryText></div>
-            <div className="mobile-feed-stat-value">{measurement
-              ? <><span>{measurement[1]}</span><span className="mobile-feed-stat-unit">{measurement[2]}</span></>
-              : stat.v}</div>
+            <div className="mobile-feed-stat-value">{measurement ? <>{measurement[1]}{"\u00a0"}<span className="mobile-feed-stat-unit">{measurement[2]}</span></> : stat.v}</div>
           </div>;
         })}
+        {achievements.length > 0 && <Link to={`/activity/${activity.id}?tab=segments`} className="mobile-feed-achievement-count" aria-label={tActivity("card.achievementHighlights", { count: achievements.length })}>
+          <span className="mobile-feed-achievement-label">{tActivity("card.achievementHighlightsLabel")}</span>
+          <span className="mobile-feed-achievement-number"><Medal size={18} aria-hidden="true" /><span>{achievements.length}</span></span>
+        </Link>}
       </div>
+
+
 
       <div className="mobile-feed-secondary-stats" data-testid={discipline === "run" ? "run-card-secondary" : undefined}>
         {[
@@ -226,12 +322,21 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
         })}
       </div>
 
+      {achievements.length > 0 && <div className="mobile-feed-achievements">
+        {achievements.map((achievement, index) => <Link key={`${achievement.segmentId}-${index}`} to={`/activity/${activity.id}?tab=segments`} className="mobile-feed-achievement">
+          <span className="mobile-feed-achievement-name">{achievement.segmentName}</span>{" "}
+          <strong className="mobile-feed-achievement-type">{achievement.type}</strong>{" "}
+          <span className="mobile-feed-achievement-time">({achievement.time})</span>
+        </Link>)}
+      </div>}
+
       {/* 원본 경로 전체를 유지한 가로형 지도. */}
-      <MobileRouteThumbnail activity={activity} priority={priority} />
+      <MobileRouteThumbnail activity={activity} priority={priority} content={content} />
 
       {/* 좋아요의 실제 합계와 상호작용을 같은 행에 둔다. */}
       <div className="mobile-feed-social">
-        <ActivitySocialFooter activity={activity} presentation="feed" />
+        <ActivitySocialFooter activity={activity} presentation="feed" commentsPreview={localContentVisible?.comments ?? (commentPreview?.viewerId === user?.uid && commentPreview?.sourceRevision === sourceRevision ? commentPreview.comments : undefined)} />
+        {localFailure?.kind === "comments" && previewError}
       </div>
     </article>
   );

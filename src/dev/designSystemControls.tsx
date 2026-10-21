@@ -43,6 +43,7 @@ const SECTIONS = [['adoption', '사용 원칙'], ['cards', '카드와 섹션'], 
 const VARIANTS = [
   { id: 'primary', name: '주요 동작', label: '변경 사항 저장', usage: '한 영역에서 가장 중요한 실행 동작' },
   { id: 'secondary', name: '보조 동작', label: '미리보기', usage: '관련된 다른 실행 동작' },
+  { id: 'neutral', name: '중립 보조 동작', label: '반응하기', usage: '브랜드 강조 없이 표면으로 구분하는 보조 도구' },
   { id: 'ghost', name: '가벼운 동작', label: '수정하기', usage: '콘텐츠 옆의 보조 도구' },
   { id: 'outline', name: '경계가 필요한 동작', label: '파일 선택', usage: '주변 표면과 구분해야 하는 도구' },
   { id: 'danger', name: '삭제 동작', label: '기록 삭제', usage: '결과를 되돌리기 어려운 실행 동작' },

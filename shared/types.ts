@@ -42,6 +42,8 @@ export interface Activity {
    * 계산돼 숫자가 조용히 달라진다.
    */
   bikeProfileId?: string | null;
+  /** Published memo and up to five photo previews; never full activity streams. */
+  feedContentV1?: import("./types/activity-feed-content").ActivityFeedContentProjection;
   photoCount: number;
   kudosCount: number;
   commentCount: number;

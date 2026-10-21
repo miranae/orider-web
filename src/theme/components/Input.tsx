@@ -33,13 +33,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 /* ===== Textarea ===== */
 export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   invalid?: boolean;
+  /** Start with one text row at the standard button height; retain native vertical resizing. */
+  compact?: boolean;
 }
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
-  { invalid, className, 'aria-invalid': ariaInvalid, ...rest },
+  { invalid, compact = false, rows, className, 'aria-invalid': ariaInvalid, ...rest },
   ref,
 ) {
   return (
-    <textarea ref={ref} aria-invalid={ariaInvalid ?? (invalid ? true : undefined)} className={cn('ds-input', invalid && 'ds-input--invalid', className)} {...rest} />
+    <textarea ref={ref} rows={rows ?? (compact ? 1 : undefined)} aria-invalid={ariaInvalid ?? (invalid ? true : undefined)} className={cn('ds-input', compact && 'ds-textarea--compact', invalid && 'ds-input--invalid', className)} {...rest} />
   );
 });
 

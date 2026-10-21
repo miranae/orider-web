@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Heart, MessageCircle } from "lucide-react";
+import { Button, Textarea } from "../../theme/components";
+import Avatar from "../Avatar";
+import { timeAgo } from "../../utils/timeAgo";
+import type { CommentItem } from "./KudosCommentsCard";
 import "./ActivitySocialFooter.css";
 import type { Activity } from "@shared/types";
 import LikersAvatarStack from "../social/LikersAvatarStack";
@@ -21,7 +25,7 @@ import { activitySocialErrorMessageKey, activitySocialMutations } from "../../se
  * "내가 눌렀는지" 상태는 recentKudos 에 내 uid 가 있는지로 무비용 추정 — 상위 N 밖이면
  * 하트가 빈 채로 보일 수 있으나 토글은 정상 동작(낙관적 업데이트). 정확한 상태는 상세에서.
  */
-export default function ActivitySocialFooter({ activity, presentation = "default" }: { activity: Activity; presentation?: "default" | "feed" }) {
+export default function ActivitySocialFooter({ activity, presentation = "default", commentsPreview = [] }: { activity: Activity; presentation?: "default" | "feed"; commentsPreview?: readonly CommentItem[] }) {
   const { t } = useTranslation("activity");
   const navigate = useNavigate();
   const { user, profile } = useAuth();
@@ -34,7 +38,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
   const hydratedRecent = useHydratedSocialProfiles(recent, "ActivitySocialFooter.recentKudos");
   const currentProfileImage = profile?.photoURL ?? user?.photoURL ?? null;
   // 댓글 인라인 작성 — 💬 클릭 시 카드 안에서 바로 입력(상세 이동 없이). 기존 댓글 "목록"은
-  // 불러오지 않아 카드당 추가 read 0; 전체 보기는 카드/제목 클릭으로 상세 진입.
+  // 직접 구독하지 않고 상위에서 전달한 제한된 미리보기만 표시한다. 전체 목록은 상세에서 읽는다.
   const [showComment, setShowComment] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [commentSubmitting, setCommentSubmitting] = useState(false);
@@ -98,7 +102,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
   };
 
   // 댓글 등록 — canonical callable write (commentCount 는 서버 트리거가 갱신).
-  // 낙관적으로 카운트만 +1, 실패 시 롤백 + 표준 로깅. 기존 댓글 목록은 카드에서 안 띄움(read 0).
+  // 낙관적으로 카운트만 +1, 실패 시 롤백 + 표준 로깅. 댓글 목록의 별도 구독은 만들지 않는다.
   const handleSubmitComment = async () => {
     const text = commentText.trim();
     if (!user || !profile || !text || commentSubmitting) return;
@@ -126,15 +130,18 @@ export default function ActivitySocialFooter({ activity, presentation = "default
   };
 
   const feed = presentation === "feed";
+  const CommentInput = feed ? Textarea : "input";
+  const visibleComments = commentsPreview.filter(comment => !comment.hiddenByOwner && comment.deletedAt == null && Number.isFinite(new Date(comment.createdAt).getTime())).slice(0, 3);
   return (
     <div className={feed ? "activity-social-feed" : "border-t"} style={{ borderColor: "var(--line-soft)" }} onClick={(e) => e.stopPropagation()}>
       <div className={feed ? "activity-social-feed-row" : "flex items-center gap-4 px-4 py-2.5"}>
         {feed && <div className="activity-social-feed-totals">
-          <LikersAvatarStack likers={hydratedRecent} totalCount={localKudos} />
+          <LikersAvatarStack likers={hydratedRecent} totalCount={localKudos} compact />
           <span>{t("card.kudosShort")} {localKudos}</span>
         </div>}
         {/* 좋아요 토글 + 카운트 */}
-        <button
+        {feed ? <Button variant="neutral" size="sm" onClick={handleToggleKudos} disabled={!user}
+          aria-label={t("card.kudosShort")} aria-pressed={liked} leadingIcon={<Heart size={16} fill={liked ? "currentColor" : "none"} />} /> :         <button
           type="button"
           onClick={handleToggleKudos}
           disabled={!user}
@@ -145,13 +152,16 @@ export default function ActivitySocialFooter({ activity, presentation = "default
         >
           <Heart size={18} fill={liked ? "currentColor" : "none"} />
           {!feed && <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{localKudos}</span>}
-        </button>
+        </button>}
 
         {/* 누른 사람 아바타 스택 — hover/focus/tap 시 누른 사람 이름 툴팁 */}
         {!feed && <LikersAvatarStack likers={hydratedRecent} totalCount={localKudos} />}
 
         {/* 댓글 — 카드 안 입력칸 토글 */}
-        <button
+        {feed ? <Button variant="neutral" size="sm" onClick={handleToggleComment}
+          aria-label={t("card.comment")} aria-expanded={showComment} leadingIcon={<MessageCircle size={16} />}>
+          {localComments > 0 ? localComments : null}
+        </Button> :         <button
           type="button"
           onClick={handleToggleComment}
           className={feed ? "flex items-center justify-center gap-1.5 transition-opacity" : "flex items-center justify-center gap-1.5 ml-auto transition-opacity"}
@@ -161,8 +171,21 @@ export default function ActivitySocialFooter({ activity, presentation = "default
         >
           <MessageCircle size={18} />
           {(!feed || localComments > 0) && <span className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>{localComments}</span>}
-        </button>
+        </button>}
       </div>
+
+      {feed && visibleComments.length > 0 && <div className="activity-social-feed-comments">
+        {visibleComments.map(comment => <div key={comment.id} className="activity-social-feed-comment">
+          <Avatar userId={comment.userId} name={comment.nickname} imageUrl={comment.profileImage} size="sm" className="activity-social-comment-avatar" />
+          <div className="activity-social-feed-comment-content">
+            <div className="activity-social-feed-comment-meta">
+              <strong>{comment.nickname}</strong>
+              <time dateTime={new Date(comment.createdAt).toISOString()}>{timeAgo(comment.createdAt, t)}</time>
+            </div>
+            <p>{comment.text}</p>
+          </div>
+        </div>)}
+      </div>}
 
       {/* 인라인 댓글 입력칸 — 💬 토글 시 표시 */}
       {showComment && (
@@ -177,19 +200,24 @@ export default function ActivitySocialFooter({ activity, presentation = "default
               {t("card.viewAllComments", { count: localComments })}
             </button>
           )}
-          <div className="flex gap-2">
-            <input
-              type="text"
+          <div className={feed ? "activity-social-feed-composer" : "flex gap-2"}>
+            {feed && user && <Avatar userId={user.uid} name={profile?.nickname} imageUrl={currentProfileImage} size="sm" className="activity-social-comment-avatar" />}
+            <CommentInput
+              type={feed ? undefined : "text"}
+              rows={feed ? 1 : undefined}
+              compact={feed || undefined}
               autoFocus
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); handleSubmitComment(); } }}
+              onKeyDown={(e) => { if (e.key === "Enter" && (!feed || e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); handleSubmitComment(); } }}
               disabled={!user || commentSubmitting}
               placeholder={user ? t("card.commentPlaceholder") : t("card.commentLoginRequired")}
-              className="flex-1 px-3 py-1.5 rounded-[var(--r-md)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)]"
-              style={{ background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
+              className={feed ? "activity-social-comment-input" : "flex-1 px-3 py-1.5 rounded-[var(--r-md)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)]"}
+              style={feed ? undefined : { background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
             />
-            <button
+            {feed ? <Button variant="primary" size="md" onClick={handleSubmitComment} disabled={!user || commentSubmitting || !commentText.trim()}>
+              {t("card.commentSubmit")}
+            </Button> : <button
               type="button"
               onClick={handleSubmitComment}
               disabled={!user || commentSubmitting || !commentText.trim()}
@@ -197,7 +225,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
               style={{ background: "var(--color-primary-dark)", color: "var(--primary-fg)", border: "none", cursor: "pointer" }}
             >
               {t("card.commentSubmit")}
-            </button>
+            </button>}
           </div>
         </div>
       )}
