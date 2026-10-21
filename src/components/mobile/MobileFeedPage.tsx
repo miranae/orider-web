@@ -16,6 +16,7 @@ import { activityFeedContentPreviewUrl, activityFeedSourceRevision, boundedFeedC
 import { logClientError } from "../../services/errorLogger";
 import Avatar from "../Avatar";
 import ActivityAiSummary from "../activity/ActivityAiSummary";
+import ActivityFeedVideo from "../activity/ActivityFeedVideo";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
 import { activityTimestampParts, toLocalDate } from "../../utils/dateUtils";
 import { getDiscipline, getDisciplineIcon, getDisciplineLabelKey } from "../../utils/disciplineFilter";
@@ -91,6 +92,8 @@ function MobileFeedSkeleton() {
 
 export function MobileRouteThumbnail({ activity, priority = false, content }: { activity: Activity; priority?: boolean; content: ActivityFeedContentProjection | null }) {
   const { t } = useTranslation("activity");
+  const [expandedOutlet, setExpandedOutlet] = useState<HTMLDivElement | null>(null);
+  const [expandedVideoId, setExpandedVideoId] = useState<string | null>(null);
   const hasMap = !!activity.thumbnailTrack;
   const photos = (content?.photos ?? []).slice(0, hasMap ? 5 : 4);
   const photoCount = Math.max(photos.length, content?.totalPhotoCount ?? activity.photoCount);
@@ -102,7 +105,9 @@ export function MobileRouteThumbnail({ activity, priority = false, content }: { 
       contentSelectedRevision={activity.contentSelectedRevision} priority={priority} layout="mobile" mobileFullBleed={false}
       shape={squareMap ? "square" : "wide"} />
   </div>;
-  const photoTiles = photos.map((photo, index) => <Link key={photo.id} to={`/activity/${activity.id}?tab=overview`} className="mobile-feed-photo" aria-label={t("card.openPhoto", { index: index + 1, count: photoCount })}>
+  const photoTiles = photos.map((photo, index) => photo.kind === "video" && photo.videoUrl
+    ? <ActivityFeedVideo key={photo.id} media={photo} expanded={expandedVideoId === photo.id} expandedOutlet={expandedOutlet} onExpansionChange={setExpandedVideoId} remainingCount={index === photos.length - 1 ? photoCount - photos.length : 0} />
+    : <Link key={photo.id} to={`/activity/${activity.id}?tab=overview`} className="mobile-feed-photo" aria-label={t("card.openPhoto", { index: index + 1, count: photoCount })}>
     <img src={photo.url} alt={photo.caption ?? ""} loading="lazy" />
     {index === photos.length - 1 && photoCount > photos.length && <span className="mobile-feed-photo-remaining">+{photoCount - photos.length}</span>}
   </Link>);
@@ -111,6 +116,7 @@ export function MobileRouteThumbnail({ activity, priority = false, content }: { 
       {map}
       {photos.length > 0 && <div className={`mobile-feed-photos mobile-feed-photos--${photos.length}${!hasMap ? " mobile-feed-photos--no-map" : ""}`}>{photoTiles}</div>}
     </>}
+    <div ref={setExpandedOutlet} className="mobile-feed-inline-video-slot" />
     {photoCount > 0 && photos.length === 0 && <div className="mobile-feed-photo-entry">
       <Link to={`/activity/${activity.id}?tab=overview`} className={buttonClass({ variant: "neutral", size: "sm" })}>
         <Camera size={16} aria-hidden="true" /> {t("page.photos")} {photoCount}

@@ -709,7 +709,7 @@ describe("published mobile feed body and photos", () => {
     expect(gallery.querySelectorAll("img")).toHaveLength(3);
     expect(screen.getByText("+7")).toBeVisible();
     expect(within(gallery as HTMLElement).getAllByRole("link")[0]).toHaveAttribute("href", `/ko/activity/${activity.id}?tab=overview`);
-    expect(view.container.querySelector(".mobile-feed-route")?.lastElementChild).toBe(gallery);
+    expect(gallery.previousElementSibling?.querySelector("[data-map-thumbnail-frame]")).toBeInTheDocument();
   });
   it("omits stale memo and photos after the activity publication revision changes", () => {
     const activity = createMockActivity({ contentRevision: 2, photoCount: 0 });
@@ -746,4 +746,20 @@ describe("attachment-confirmed feed media cases", () => {
       expect(mapFrame).toHaveClass(shared ? "aspect-square" : "aspect-[var(--feed-thumb-aspect)]");
     }
   });
+});
+
+it("keeps an inline video poster before the next photo without navigating or downloading video on mount", () => {
+  const activity = createMockActivity({ thumbnailTrack: "", photoCount: 2 });
+  activity.feedContentV1 = { version: 1, sourceRevision: activityFeedSourceRevision(activity), revision: "video", memo: null, memoTruncated: false, totalPhotoCount: 2, photos: [
+    { id: "video", kind: "video", url: "https://example.test/poster.jpg", videoUrl: "https://example.test/master.m3u8", caption: null },
+    { id: "photo", url: "https://example.test/photo.jpg", caption: "다음 사진" },
+  ] };
+  const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+  const gallery = view.container.querySelector(".mobile-feed-photos")!;
+  expect(gallery.children).toHaveLength(2);
+  const video = gallery.children[0].querySelector("video")!;
+  expect(video).toHaveAttribute("poster", "https://example.test/poster.jpg");
+  expect(video).not.toHaveAttribute("src");
+  expect(gallery.children[1]).toHaveAttribute("href", `/ko/activity/${activity.id}?tab=overview`);
+  expect(gallery.children[1].querySelector("img")).toHaveAttribute("src", "https://example.test/photo.jpg");
 });

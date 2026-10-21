@@ -5,7 +5,7 @@ export interface ActivityFeedContentProjection {
   revision: string;
   memo: string | null;
   memoTruncated: boolean;
-  photos: Array<{ id: string; url: string; caption: string | null }>;
+  photos: Array<{ id: string; url: string; caption: string | null; kind?: "video"; videoUrl?: string; durationSeconds?: number }>;
   totalPhotoCount: number;
 }
 export interface ActivityFeedComment {

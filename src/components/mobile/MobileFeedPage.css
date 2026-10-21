@@ -164,7 +164,7 @@
 .mobile-feed-map { min-width: 0; }
 .mobile-feed-media--4 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .mobile-feed-media--4 > .mobile-feed-map,
-.mobile-feed-media--4 > .mobile-feed-photo:first-of-type { grid-column: span 3; }
+.mobile-feed-media--4 > .mobile-feed-photo:nth-child(2) { grid-column: span 3; }
 .mobile-feed-media--4 > .mobile-feed-photo { grid-column: span 2; }
 .mobile-feed-photo { display: block; position: relative; aspect-ratio: 1; overflow: hidden; background: var(--bg-2); }
 .mobile-feed-photo img { width: 100%; height: 100%; object-fit: cover; }
