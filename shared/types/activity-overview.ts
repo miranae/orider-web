@@ -117,5 +117,5 @@ export const ACTIVITY_OVERVIEW_VERSION = "activity-overview-v1" as const;
 export type ActivityOverviewPartialReason = "record_receipt" | "fitness" | "history";
 export type ActivityOverviewResponse =
   | { status: "available"; activityId: string; version: typeof ACTIVITY_OVERVIEW_VERSION;
-      inputDigest: string; presentation: ActivityOverviewPresentation; partialReasons?: ActivityOverviewPartialReason[] }
+      inputDigest: string; presentation: ActivityOverviewPresentation; defaultMemo?: string; partialReasons?: ActivityOverviewPartialReason[] }
   | { status: "unavailable"; activityId: string; reason: "rollout_disabled" | "metrics_unavailable" | "input_changed" };
