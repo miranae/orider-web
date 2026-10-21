@@ -73,7 +73,7 @@ function KVList({ rows }: { rows: RowKV[] }) {
           <span
             style={{
               color: "var(--ink-1)",
-              fontFamily: "var(--font-mono)",
+              fontFamily: "var(--font-code)",
               overflowWrap: "anywhere",
               fontSize: "var(--fs-xs)",
             }}

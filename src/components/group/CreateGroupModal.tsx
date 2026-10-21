@@ -253,7 +253,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
                 onChange={(e) => setBadge(e.target.value.toUpperCase())}
                 placeholder={defaultBadge(name) || "HRC"}
                 maxLength={3}
-                style={{ ...inputStyle, fontFamily: "var(--font-mono)", textAlign: "center", fontWeight: 700, letterSpacing: 2 }}
+                style={{ ...inputStyle, fontFamily: "var(--font-code)", textAlign: "center", fontWeight: 700, letterSpacing: 2 }}
               />
             </label>
           </div>

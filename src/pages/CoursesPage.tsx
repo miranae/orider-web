@@ -448,6 +448,7 @@ export default function CoursesPage() {
               return (
                 <Chip data-testid="E1-3-4" key={km} aria-disabled={locating}
                   onClick={() => {
+                    if (locating) return; // 위치 확인 중 — 권한 창 응답 전 중복 요청 방지
                     if (active) { setRadiusKm(null); return; }
                     if (myLoc) { setRadiusKm(km); return; }
                     setLocating(true);

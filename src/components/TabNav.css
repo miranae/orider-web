@@ -31,7 +31,3 @@
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
-
-/* 2단계 세그먼트 탭 — 항목이 폭을 넘으면 말줄임 대신 가로 스크롤 */
-.tab-nav--segmented { grid-auto-columns: max-content; overflow-x: auto; scrollbar-width: none; }
-.tab-nav--segmented::-webkit-scrollbar { display: none; }

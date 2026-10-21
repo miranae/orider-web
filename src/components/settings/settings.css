@@ -203,7 +203,7 @@
     select,
     textarea,
     summary
-  ):not([class*="ds-"]) {
+  ):not(.ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed]) {
     min-height: 44px;
   }
 }
@@ -216,8 +216,8 @@
 .settings-inline-copy { flex: 1 1 12rem; }
 .settings-inline-control { max-width: 100%; }
 .settings-inline-control > * { max-width: 100%; }
-.settings-main :is(button, input:not([type="checkbox"]):not([type="file"]), select):not([class*="ds-"]),
-.mobile-settings-detail :is(button, input:not([type="checkbox"]):not([type="file"]), select):not([class*="ds-"]) { min-height: var(--dim-button-height); }
+.settings-main :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed]),
+.mobile-settings-detail :is(button, input:not([type="checkbox"]):not([type="file"]), select):not(.ds-input, .ds-dropdown-select__trigger, [role="tab"], [aria-pressed]) { min-height: var(--dim-button-height); }
 .settings-main :is(button, input, select, textarea, summary):focus-visible,
 .mobile-settings-detail :is(button, input, select, textarea, summary):focus-visible,
 .settings-toggle:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }

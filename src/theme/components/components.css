@@ -183,6 +183,7 @@
   transition: background .12s, border-color .12s, color .12s;
 }
 .ds-chip--selectable:hover { background: var(--bg-2); }
+.ds-chip:is(.ds-chip--selectable, .ds-chip--clickable)[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
 /* 누를 수 있는 태그(예: 글 카드 태그로 거르기) — 모양은 태그 그대로. */
 .ds-chip--clickable { cursor: pointer; }
 .ds-chip--clickable:hover { filter: brightness(.96); }
@@ -593,11 +594,12 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 .ds-btn.ds-toggle-button:focus-visible { outline: var(--space-0-5) solid var(--accent); outline-offset: var(--space-0-5); }
 .ds-toggle-button__check { color: var(--accent-text); width: calc(var(--dim-icon-s) - var(--space-0-5)); height: calc(var(--dim-icon-s) - var(--space-0-5)); flex-shrink: 0; }
 .ds-toggle-note { color: var(--ink-2); font-size: var(--ft-body-small-size); margin-inline-start: var(--space-2); }
-.ds-toggle-controls--axis { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); max-width: 100%; gap: var(--space-0-5); padding: var(--space-0-5); margin-block: var(--space-4); background: var(--control-fill); border-radius: 9px; }
+.ds-toggle-controls--axis { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(max-content, 1fr); max-width: 100%; overflow-x: auto; scrollbar-width: none; gap: var(--space-0-5); padding: var(--space-0-5); margin-block: var(--space-4); background: var(--control-fill); border-radius: 9px; }
 .activity-analysis-controls > .ds-toggle-controls { margin-block: 0; }
 .ds-toggle-controls--axis.ds-toggle-controls--compact { margin: 0; }
 .ds-toggle-controls--axis.ds-toggle-controls--compact .ds-toggle-button { padding-inline: var(--space-1); }
-.ds-toggle-controls--axis .ds-btn__label { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.ds-toggle-controls--axis::-webkit-scrollbar { display: none; }
+.ds-toggle-controls--axis .ds-btn__label { min-width: 0; }
 /* HIG 세그먼트 컨트롤: 32 높이(안쪽 28), 13, 항목 모서리 7, 한 줄. 터치 영역은 .ds-btn::after 가 44 로 확장. */
 .ds-toggle-controls--axis .ds-toggle-button { height: 28px; min-height: 28px; min-width: 0; padding: 0 var(--space-3); border-radius: 7px; font-size: var(--fs-xs); font-weight: var(--ft-body-weight); line-height: 1.2; color: var(--ink-0); background: transparent; border-color: transparent; white-space: nowrap; }
 .ds-toggle-controls--axis .ds-toggle-button:disabled { color: var(--ink-4); opacity: 1; }
