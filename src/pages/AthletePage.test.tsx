@@ -11,7 +11,7 @@ vi.mock("../components/RouteMap", () => ({
   default: () => <div data-testid="route-map">Map</div>,
 }));
 vi.mock("../components/WeeklyChart", () => ({
-  default: () => <div data-testid="weekly-chart">Chart</div>,
+  default: ({ onPeriodSelect }: { onPeriodSelect?: (period: string) => void }) => <div data-testid="weekly-chart"><button onClick={() => onPeriodSelect?.("2026.09")}>Select September</button></div>,
 }));
 
 // Mock useParams
@@ -38,16 +38,56 @@ describe("AthletePage", () => {
     acceptance.mockRestore();
   });
 
-  it("bounds the own-profile overview to three summaries while preserving full-history totals and a log destination", async () => {
+  it("shows shared activity feed cards on the own profile while preserving full-history totals and a log destination", async () => {
     setCollectionDocs("activities", Array.from({length: 5}, (_, index) => ({id: `preview-${index}`, ...createMockActivity({
       id: `preview-${index}`, userId: "athlete-1", description: `Overview activity ${index}`, startTime: Date.UTC(2026, 8, index + 1), endTime: Date.UTC(2026, 8, index + 1, 1),
     })})));
     renderWithProviders(<AthletePage />, {authenticated: true, user: {uid: "athlete-1"}});
-    await waitFor(() => expect(screen.getAllByTestId("athlete-recent-preview")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId("H1-2-1")).toHaveLength(5));
     expect(screen.getByText("5회")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("활동 검색... (Enter)")).not.toBeInTheDocument();
     expect(within(screen.getByTestId("P0-2-1")).getByRole("link", {name: "전체보기"})).toHaveAttribute("href", "/ko/athlete/me/activities");
-    expect(screen.getAllByTestId("athlete-recent-preview")[0]).toHaveAttribute("href", "/ko/activity/preview-0");
+    expect(within(screen.getAllByTestId("H1-2-1")[0]!).getByRole("link", {name: "Overview activity 0"})).toHaveAttribute("href", "/ko/activity/preview-0");
+  });
+
+  it("filters the feed by the selected chart period and restores recent activities", async () => {
+    setCollectionDocs("activities", [
+      { id: "sep", ...createMockActivity({ id: "sep", userId: "athlete-1", description: "September ride", startTime: new Date(2026, 8, 15).getTime(), endTime: new Date(2026, 8, 15, 2).getTime() }) },
+      { id: "oct", ...createMockActivity({ id: "oct", userId: "athlete-1", description: "October ride", startTime: new Date(2026, 9, 15).getTime(), endTime: new Date(2026, 9, 15, 2).getTime() }) },
+    ]);
+    renderWithProviders(<AthletePage />);
+    await screen.findByRole("button", { name: "Select September" });
+    fireEvent.click(screen.getByRole("button", { name: "Select September" }));
+    await waitFor(() => expect(screen.getAllByTestId("H1-2-1")).toHaveLength(1));
+    expect(screen.getByRole("link", { name: "September ride" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "October ride" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "전체 최근 활동으로 돌아가기" }));
+    await waitFor(() => expect(screen.getAllByTestId("H1-2-1")).toHaveLength(2));
+  });
+
+  it("finds older sport and source matches beyond the first activity page", async () => {
+    const rows = Array.from({ length: 20 }, (_, index) => ({ id: `bike-${index}`, ...createMockActivity({ id: `bike-${index}`, userId: "athlete-1", type: "Ride", source: "orider", startTime: new Date(2026, 8, index + 1).getTime(), endTime: new Date(2026, 8, index + 1, 2).getTime() }) }));
+    rows.push({ id: "older-run", ...createMockActivity({ id: "older-run", userId: "athlete-1", type: "Run", source: "strava", description: "Older run", startTime: new Date(2026, 7, 1).getTime(), endTime: new Date(2026, 7, 1, 2).getTime() }) });
+    setCollectionDocs("activities", rows);
+    renderWithProviders(<AthletePage />);
+    await screen.findByLabelText("종목");
+    fireEvent.change(screen.getByLabelText("종목"), { target: { value: "run" } });
+    expect(await screen.findByRole("link", { name: "Older run" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("종목"), { target: { value: "all" } });
+    fireEvent.click(within(screen.getByTestId("P0-2-1")).getByRole("button", { name: "Strava" }));
+    await waitFor(() => expect(screen.getAllByTestId("H1-2-1")).toHaveLength(1));
+    expect(screen.getByRole("link", { name: "Older run" })).toBeInTheDocument();
+  });
+
+  it("clears source and search draft when moving from another athlete to the own profile", async () => {
+    setDocData("users_public/current-user", createMockProfile({ nickname: "Current rider" }));
+    setCollectionDocs("activities", [{ id: "mine", ...createMockActivity({ id: "mine", userId: "current-user", source: "orider", description: "My recorded ride" }) }]);
+    const view = renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "current-user" } });
+    fireEvent.change(await screen.findByLabelText("검색"), { target: { value: "old draft" } });
+    fireEvent.click(within(screen.getByTestId("P0-2-1")).getByRole("button", { name: "Strava" }));
+    view.rerender(<AthletePage meUserId="current-user" />);
+    expect(await screen.findByRole("link", { name: "My recorded ride" })).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("old draft")).not.toBeInTheDocument();
   });
 
   beforeEach(() => {

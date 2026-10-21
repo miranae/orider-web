@@ -71,5 +71,47 @@
   "activities.untitled": "운동 기록",
   "recent.distance": "이동거리",
   "recent.time": "운동시간",
-  "dateLocale": "ko-KR"
+  "dateLocale": "ko-KR",
+  "profile": {
+    "recentPhotos": "활동 사진",
+    "openPhoto": "활동 사진 보기",
+    "last28Days": "최근 28일",
+    "activities": "활동",
+    "activityCalendar": "날짜별 활동",
+    "weeklyHours": "주간 운동시간 (h)",
+    "sports": {
+      "bike": "라이딩",
+      "run": "달리기",
+      "swim": "수영",
+      "other": "기타",
+      "all": "전체"
+    },
+    "noPhotos": "공개된 사진 미리보기가 없습니다.",
+    "previousPhoto": "이전 사진",
+    "nextPhoto": "다음 사진",
+    "openActivity": "활동 보기",
+    "history": "활동 기록",
+    "year": "연도",
+    "week": "주간",
+    "month": "월간",
+    "noPeriodActivities": "이 기간에 활동이 없습니다.",
+    "allRecent": "전체 최근 활동으로 돌아가기",
+    "sections": "프로필 살펴보기",
+    "tabs": {
+      "overview": "개요",
+      "activities": "활동",
+      "photos": "활동 사진",
+      "achievements": "주요 성과",
+      "segments": "만든 구간"
+    },
+    "highlights": "주요 성과",
+    "highlightsScope": "최근 활동의 주요 기록을 보여줍니다.",
+    "noHighlights": "발행된 주요 성과가 없습니다.",
+    "noSegments": "만든 구간이 없습니다.",
+    "sport": "종목",
+    "clubs": "내 클럽",
+    "clubsError": "클럽을 불러오지 못했습니다.",
+    "findClubs": "클럽 찾아보기",
+    "searchScope": "검색은 첫 번째 검색어 기준 최대 50개 결과입니다. 선택한 종목·기록 출처·기간 조건을 함께 적용합니다."
+  }
 }

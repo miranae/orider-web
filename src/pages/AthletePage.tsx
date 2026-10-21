@@ -1,4 +1,4 @@
-import { acceptedStatsActivities } from "../utils/estimateTSS";
+import { acceptedStatsActivities, acceptedTrainingActivities } from "../utils/estimateTSS";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useLocation, useParams, useSearchParams } from "react-router-dom";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
@@ -16,32 +16,30 @@ import { useDialog } from "../contexts/DialogContext";
 import { firestore, functions } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useDocument } from "../hooks/useFirestore";
+import { useMyGroups } from "../hooks/useGroup";
 import { cancelFriendRequest } from "../hooks/useFriends";
 import { useAuth } from "../contexts/AuthContext";
 import { Activity as ActivityIcon, Route, Clock3, Mountain, Pencil, Share2, ArrowUpRight, Trash2 } from "lucide-react";
-import { RouteTabNav } from "../components/TabNav";
+import TabNav, { RouteTabNav } from "../components/TabNav";
 import "./AthletePage.css";
-import ActivityCard from "../components/ActivityCard";
+import { CompactActivityCard } from "../components/mobile/MobileFeedPage";
+import AthletePhotoGallery from "../components/athlete/AthletePhotoGallery";
+import AthleteRecentSummary from "../components/athlete/AthleteRecentSummary";
+import { activityFeedSourceRevision, boundedFeedContent } from "../services/activityFeedContent";
 import { isTrivialActivity } from "../utils/activityFilter";
 import { resolveDuration } from "../utils/activityTime";
-import { aggregateMonthlyActivities, loadAthleteChartActivities } from "../services/athleteMonthlyActivities";
+import { loadAthleteChartActivities } from "../services/athleteMonthlyActivities";
 import Avatar from "../components/Avatar";
-import WeeklyChart from "../components/WeeklyChart";
+import AthleteActivityChart from "../components/athlete/AthleteActivityChart";
+import type { AthletePeriod } from "../components/athlete/athleteProfilePeriods";
+import { getDiscipline } from "../utils/disciplineFilter";
 import type { Activity } from "@shared/types";
 import type { PublicUserProfile } from "../services/publicProfiles";
 import type { PdcDoc } from "@shared/types/pdc";
 import { usePdc } from "../hooks/usePdc";
-import { Button, Card, Chip, Text, Input, buttonClass } from "../theme/components";
+import { Button, Card, Chip, Text, Input, Select, buttonClass } from "../theme/components";
 import SafeImage from "../components/SafeImage";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
-
-function formatHours(ms: number): string {
-  if (!Number.isFinite(ms)) return "—";
-  const hours = Math.floor(ms / 3600000);
-  const minutes = Math.floor((ms % 3600000) / 60000);
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-}
 
 function mostUrgentGear(activities: Activity[]): Activity["gear"] | null {
   const byName = new Map<string, NonNullable<Activity["gear"]>>();
@@ -129,6 +127,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const { t, i18n } = useTranslation("athlete");
   const [searchParams] = useSearchParams();
   const isOwnProfile = currentUser?.uid === userId;
+  const { groups: ownGroups, loading: groupsLoading, error: groupsError, retry: retryGroups } = useMyGroups(isOwnProfile ? userId : undefined);
 
   const { data: firestoreProfile, loading: profileLoading } = useDocument<PublicUserProfile>("users_public", userId);
   const { pdc } = usePdc(isOwnProfile ? userId : null);
@@ -179,6 +178,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const [searchResults, setSearchResults] = useState<Activity[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const isSearchActive = searchQuery.length > 0;
+  const [profileTab, setProfileTab] = useState<"overview" | "activities" | "photos" | "achievements" | "segments">("overview");
+  const [sport, setSport] = useState("all");
+  const [selectedPeriod, setSelectedPeriod] = useState<AthletePeriod | null>(null);
+  const [periodLimit, setPeriodLimit] = useState(20);
+  useEffect(() => { setProfileTab("overview"); setSelectedPeriod(null); setSport("all"); setSearchInput(""); setSearchQuery(""); setSearchResults([]); setFilterType("all"); }, [userId]);
+  useEffect(() => setPeriodLimit(20), [selectedPeriod, sport]);
 
   // summary 필드가 없는 비정상 문서는 다운스트림 통계 계산에서 크래시를 유발하므로 제외.
   const docsToActivities = (
@@ -558,23 +563,38 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   );
   const isMe = isOwnProfile;
 
-  const acceptedChartActivities = useMemo(() => acceptedStatsActivities(chartActivities), [chartActivities]);
+  const acceptedChartActivities = useMemo(() => acceptedStatsActivities(chartActivities.filter(activity => activity.userId === userId)), [chartActivities, userId]);
+  const acceptedLoadActivities = useMemo(() => acceptedTrainingActivities(chartActivities.filter(activity => activity.userId === userId)), [chartActivities, userId]);
   const stats = useMemo(() => aggregateActivityStats(acceptedChartActivities), [acceptedChartActivities]);
   const statsReady = !chartLoading && !chartError;
-  const monthlyStats = useMemo(() => aggregateMonthlyActivities(chartActivities), [chartActivities]);
+  const recentPhotos = useMemo(() => {
+    const seen = new Set<string>();
+    return chartActivities.filter(activity => activity.userId === userId).sort((a, b) => b.startTime - a.startTime).flatMap(activity => {
+      if (activity.feedContentV1?.sourceRevision !== activityFeedSourceRevision(activity)) return [];
+      return (boundedFeedContent(activity.feedContentV1)?.photos ?? []).flatMap(photo => {
+        if (seen.has(photo.url)) return [];
+        seen.add(photo.url);
+        return [{ ...photo, activityId: activity.id }];
+      });
+    }).slice(0, 6);
+  }, [chartActivities, userId]);
+  const highlights = useMemo(() => [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime).flatMap(activity => (activity.topAchievements ?? []).slice(0, 3).map(achievement => ({ ...achievement, activityId: activity.id }))).slice(0, 12), [acceptedChartActivities]);
 
   // 검색 활성 시: 서버 검색 결과 사용
   // 비활성 시: 페이지네이션된 displayActivities 사용
   const baseActivities = useMemo(() => {
-    if (!isSearchActive) return activities;
+    if (!isSearchActive) return selectedPeriod || sport !== "all" || filterType !== "all" ? [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime) : activities;
     return searchResults.map((a) =>
       !a.profileImage && photoURL ? { ...a, profileImage: photoURL } : a,
     );
-  }, [isSearchActive, activities, searchResults, photoURL]);
+  }, [isSearchActive, activities, searchResults, photoURL, selectedPeriod, acceptedChartActivities, sport, filterType]);
 
+  const hasLocalFilter = !!selectedPeriod || sport !== "all" || filterType !== "all";
   const filteredActivities = baseActivities.filter((a) => {
     // 측정 오류로 보이는 trivial 활동(거리<100m 또는 시간<60s) 항상 숨김.
     if (isTrivialActivity(a)) return false;
+    if (selectedPeriod && (a.startTime < selectedPeriod.start || a.startTime >= selectedPeriod.end)) return false;
+    if (sport !== "all" && getDiscipline(a.type) !== sport) return false;
     if (filterType === "all") return true;
     const isStrava = (a as Activity & { source?: string }).source === "strava";
     return filterType === "strava" ? isStrava : !isStrava;
@@ -636,10 +656,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   }
 
   return (
-    <div className="space-y-6" data-testid={isOwnProfile ? "P0.self" : "P0.other"}>
-      <Card className="athlete-identity" data-testid="P0-0">
+    <div className={`athlete-profile${recentPhotos.length ? "" : " athlete-profile--no-cover"}`} data-testid={isOwnProfile ? "P0.self" : "P0.other"}>
+      <AthletePhotoGallery photos={recentPhotos} cover />
+      <div className="athlete-profile-heading">
+      <section className="athlete-identity" data-testid="P0-0">
         <div className="athlete-identity__avatar">
-          {photoURL ? <SafeImage src={photoURL} alt={nickname} fallbackLabel={nickname} className="athlete-identity__photo" referrerPolicy="no-referrer" /> : <Avatar name={nickname} size="lg" className="athlete-identity__photo" />}
+          {photoURL ? <SafeImage src={photoURL} alt={nickname} fallbackLabel={nickname} className="athlete-identity__photo" referrerPolicy="no-referrer" /> : <Avatar name={nickname} size="lg" className="athlete-identity__photo athlete-identity__fallback" />}
         </div>
         <div>
           <h1 data-testid="P0-0-1" className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">
@@ -687,28 +709,25 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             )}
           </div>
         )}
-      </Card>
+      </section>
 
+      <AthleteRecentSummary activities={acceptedChartActivities} loading={chartLoading} error={chartError} />
+      </div>
+      <div className="athlete-profile-layout">
+      <aside className="athlete-profile-sidebar">
       <section aria-label={t("stats.title")}>
+        <h2 className="athlete-sidebar-title">{t("stats.title")}</h2>
         <div data-testid="P0-1" className="athlete-stats">
           {[
             { label: t(isOwnProfile ? "stats.activities" : "stats.publicActivities"), value: statsReady ? t("stats.activitiesValue", { count: stats.count }) : "—", Icon: ActivityIcon },
             { label: t("stats.distance"), value: statsReady ? <span>{Math.round(stats.distance / 1000).toLocaleString(i18n.language)} <small>km</small></span> : "—", Icon: Route },
             { label: t("stats.time"), value: statsReady ? <><span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "hour", unitDisplay: "narrow"}).format(Math.floor(stats.time / 3600000))}</span>{" "}<span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "minute", unitDisplay: "narrow"}).format(Math.floor((stats.time % 3600000) / 60000))}</span></> : "—", Icon: Clock3 },
             { label: t("stats.elevation"), value: statsReady ? <span>{Math.round(stats.elevation).toLocaleString(i18n.language)} <small>m</small></span> : "—", Icon: Mountain },
-          ].map(({label, value, Icon}) => <Card key={label} className="athlete-stat"><span className="athlete-stat__label"><Icon size={16} aria-hidden="true" />{label}</span><strong className="athlete-stat__value">{value}</strong></Card>)}
+          ].map(({label, value, Icon}) => <div key={label} className="athlete-stat"><span className="athlete-stat__label"><Icon size={16} aria-hidden="true" />{label}</span><strong className="athlete-stat__value">{value}</strong></div>)}
         </div>
         <Text as="p" variant="caption" tone="secondary" className="mt-2">{t(isOwnProfile ? "stats.scopeOwn" : "stats.scopePublic")}</Text>
       </section>
-      {isOwnProfile && <div data-testid="P0-3"><RouteTabNav revealActive tabs={[
-        { to: "/athlete/me", label: t("self.overview"), end: true },
-        ...(["activities", "records", "friends", "gear"] as const).map((target) => ({to: `/athlete/me/${target}`, label: t(`self.${target}`), specId: "P0-3-1"})),
-      ]} /></div>}
-
-      {/* Friend list */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Left Column: Friends & Chart */}
-        <div className="min-w-0 space-y-6 self-start">
+          {isOwnProfile && <section><h2 className="athlete-sidebar-title">{t("profile.clubs")}</h2>{groupsLoading ? <p role="status">{t("activities.loading")}</p> : groupsError ? <div role="alert"><p>{t("profile.clubsError")}</p><Button variant="ghost" onClick={retryGroups}>{t("monthly.retry")}</Button></div> : <div className="athlete-clubs">{ownGroups.map(group => <Link key={group.id} to={`/club/${group.id}`}><span className="athlete-club-badge">{group.badge || group.name.slice(0, 3)}</span><span>{group.name}</span></Link>)}{!ownGroups.length && <Link to="/clubs">{t("profile.findClubs")}</Link>}</div>}</section>}
           {/* Friends List */}
           {canViewFriends && <Card data-testid="P0-4" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--line-soft)] flex items-center justify-between">
@@ -792,20 +811,24 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             </Card>
           )}
 
-          {chartLoading ? (
-            <p data-testid="P0.loading" role="status">{t("monthly.loading")}</p>
-          ) : chartError ? (
-            <div role="alert">
-              <p data-testid="P0.error">{t("monthly.error")}</p>
-              <Button onClick={() => setChartAttempt((attempt) => attempt + 1)}>{t("monthly.retry")}</Button>
-            </div>
-          ) : (
-            <div data-testid="P0-1-1"><WeeklyChart data={monthlyStats} dataKey="distance" height={180} rich showAllPeriods /></div>
-          )}
-        </div>
+        </aside>
+        <div data-testid="P0-2" className="athlete-profile-main">
+          <nav aria-label={t("profile.sections")}>
+            <TabNav tabs={(["overview", "activities", "photos", "achievements", "segments"] as const).map(id => ({ id, label: t(`profile.tabs.${id}`) }))} activeTab={profileTab} onChange={id => setProfileTab(id as typeof profileTab)} />
+          </nav>
+          {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2><AthletePhotoGallery photos={recentPhotos} /></section>}
+          {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2><p className="athlete-section-note">{t("profile.highlightsScope")}</p>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t("profile.noHighlights")}</p>}</section>}
+          {profileTab === "segments" && <section className="athlete-profile-section"><h2>{t("segments.othersTitle")}</h2>{mySegments.length ? <ul className="athlete-highlights">{mySegments.map(segment => <li key={segment.id}><Link to={`/segment/${segment.id}`}>{segment.name} · {(segment.distance / 1000).toFixed(2)} km</Link></li>)}</ul> : <p>{t("profile.noSegments")}</p>}</section>}
+          {(profileTab === "overview" || profileTab === "activities") && <>
+          <div className="athlete-section-heading"><label htmlFor="athlete-sport">{t("profile.sport")}</label><Select id="athlete-sport" value={sport} onChange={event => setSport(event.target.value)}>{["all", "bike", "run", "swim"].map(value => <option key={value} value={value}>{t(`profile.sports.${value}`)}</option>)}</Select></div>
+          {chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p>{t("monthly.error")}</p><Button onClick={() => setChartAttempt(attempt => attempt + 1)}>{t("monthly.retry")}</Button></div> : <AthleteActivityChart loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
 
-        {/* Right Column: Activities */}
-        <div data-testid="P0-2" className="md:col-span-2 space-y-4">
+      {isOwnProfile && <div data-testid="P0-3"><RouteTabNav revealActive tabs={[
+        { to: "/athlete/me", label: t("self.overview"), end: true },
+        ...(["activities", "records", "friends", "gear"] as const).map((target) => ({to: `/athlete/me/${target}`, label: t(`self.${target}`), specId: "P0-3-1"})),
+      ]} /></div>}
+
+
           <div data-testid="P0-2-1" className="pb-4 border-b border-[var(--line-soft)] space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
@@ -821,6 +844,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </div>}
             </div>
 
+            {isSearchActive && <p className="athlete-section-note">{t("profile.searchScope")}</p>}
             {/* Search bar */}
             {!isOwnProfile && <div className="flex items-center gap-2">
               <div className="relative flex-1">
@@ -880,31 +904,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </Card>
             ) : (
               <>
-                {(isOwnProfile ? filteredActivities.slice(0, 3) : filteredActivities).map((activity) => isOwnProfile ? (
-                  <Link key={activity.id} to={`/activity/${activity.id}`} className="athlete-recent" data-testid="athlete-recent-preview">
-                    <div className="athlete-recent__heading"><strong>{activity.description || t("activities.untitled")}</strong><ArrowUpRight size={16} aria-hidden="true" /></div>
-                    <time dateTime={Number.isFinite(activity.startTime) ? new Date(activity.startTime).toISOString() : undefined}>{Number.isFinite(activity.startTime) ? new Date(activity.startTime).toLocaleDateString(t("dateLocale")) : "—"}</time>
-                    <dl className="athlete-recent__metrics"><div><dt>{t("recent.distance")}</dt><dd>{Number.isFinite(activity.summary.distance) ? (activity.summary.distance / 1000).toFixed(1) : "—"} km</dd></div><div><dt>{t("recent.time")}</dt><dd>{formatHours(resolveDuration(activity.summary).displayMs)}</dd></div></dl>
-                  </Link>
-                ) : (
-                  <div key={activity.id} className="relative group">
-                    {/* athlete 페이지는 컨텍스트 자체가 작성자라 카드 내 작성자 헤더 중복 — 숨김. */}
-                    <ActivityCard
-                      activity={activity}
-                      hideAuthor
-                      identityPdc={isOwnProfile ? pdc : null}
-                    />
-                    {isMe && (
-                      <Link
-                        to={`/segment/create?activityId=${activity.id}`}
-                        className="absolute top-3 right-3 px-2.5 py-1 text-[length:var(--fs-xs)] font-medium rounded-[var(--r-md)] bg-[var(--bg-2)]/90 text-[var(--lime)] border border-[var(--lime)]/30 opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-[var(--lime)]/10 transition-all"
-                      >
-                        {t("activities.addSegment")}
-                      </Link>
-                    )}
-                  </div>
-                ))}
-                {!isOwnProfile && !isSearchActive && hasMoreActivities && (
+                {(hasLocalFilter ? filteredActivities.slice(0, periodLimit) : filteredActivities).map((activity, index) => <CompactActivityCard key={activity.id} activity={activity} priority={index === 0} />)}
+                {!hasLocalFilter && !isSearchActive && hasMoreActivities && (
                   <Card variant="bare" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
                     <Button variant="ghost" block
                       onClick={handleLoadMoreActivities}
@@ -926,6 +927,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </>
             )}
           </div>
+          {hasLocalFilter && filteredActivities.length > periodLimit && <Button variant="ghost" onClick={() => setPeriodLimit(count => count + 20)}>{t("activities.loadMore")}</Button>}
+          </>}
         </div>
       </div>
     </div>

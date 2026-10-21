@@ -71,5 +71,47 @@
   "activities.untitled": "Activity",
   "recent.distance": "Distance covered",
   "recent.time": "Activity time",
-  "dateLocale": "en-US"
+  "dateLocale": "en-US",
+  "profile": {
+    "recentPhotos": "Activity photos",
+    "openPhoto": "Open activity photos",
+    "last28Days": "Last 28 days",
+    "activities": "activities",
+    "activityCalendar": "Activity calendar",
+    "weeklyHours": "Weekly activity hours (h)",
+    "sports": {
+      "bike": "Ride",
+      "run": "Run",
+      "swim": "Swim",
+      "other": "Other",
+      "all": "All"
+    },
+    "noPhotos": "No published photo previews.",
+    "previousPhoto": "Previous photo",
+    "nextPhoto": "Next photo",
+    "openActivity": "View activity",
+    "history": "Activity history",
+    "year": "Year",
+    "week": "Weekly",
+    "month": "Monthly",
+    "noPeriodActivities": "No activities in this period.",
+    "allRecent": "Return to all recent activities",
+    "sections": "Explore profile",
+    "tabs": {
+      "overview": "Overview",
+      "activities": "Activities",
+      "photos": "Activity photos",
+      "achievements": "Highlights",
+      "segments": "Created segments"
+    },
+    "highlights": "Activity highlights",
+    "highlightsScope": "Highlights from recent activities.",
+    "noHighlights": "No published activity highlights.",
+    "noSegments": "No created segments.",
+    "sport": "Sport",
+    "clubs": "My clubs",
+    "clubsError": "Could not load clubs.",
+    "findClubs": "Find clubs",
+    "searchScope": "Search returns up to 50 matches for the first search term. Sport, recording source, and selected period also apply."
+  }
 }
