@@ -1,3 +1,4 @@
+import IntegratedLoadCard from "./IntegratedLoadCard";
 import RunRecordsBoard from "../fitness/RunRecordsBoard";
 import RunRecordsSummary from "../../features/fitness/components/RunRecordsSummary";
 import { sufficiencyBlock, sufficiencySet } from "../../features/sufficiency/__fixtures__";
@@ -263,4 +264,17 @@ it("condition running shares one unknown-source warning and records link with it
   expect(screen.getAllByTestId("K5-4-2")).toHaveLength(1);
   expect(screen.getAllByRole("heading", { name: "거리별 저장 기록" })).toHaveLength(1);
   expect(screen.getByRole("link", { name: /2026.*10.*1/ })).toHaveAttribute("href", "/ko/activity/run-1");
+});
+
+
+it("keeps the integrated contribution proportions when swimming controls are hidden", () => {
+  renderWithProviders(<IntegratedLoadCard focus={null} combined={{ ctl: 100, atl: 110, tsb: -10, contributions: [
+    { discipline: "bike", ctl: 30 }, { discipline: "run", ctl: 30 }, { discipline: "swim", ctl: 40 },
+  ] }} />);
+  const contribution = screen.getByRole("img", { name: /^현재 체력 종목 기여도:/ });
+  const bike = within(contribution).getByRole("img", { name: "사이클 · CTL 30.0 · 30%" });
+  const run = within(contribution).getByRole("img", { name: "러닝 · CTL 30.0 · 30%" });
+  const remainder = within(contribution).getByRole("img", { name: "기타 · CTL 40.0 · 40%" });
+  expect([bike, run, remainder].map(bucket => Number((bucket as HTMLElement).style.flexGrow))).toEqual([30, 30, 40]);
+  expect(within(contribution).queryByRole("img", { name: /수영/ })).not.toBeInTheDocument();
 });

@@ -122,6 +122,6 @@ export type ActivityOverviewPartialReason = "record_receipt" | "fitness" | "hist
 export type ActivityOverviewResponse =
   | { status: "available"; activityId: string; version: typeof ACTIVITY_OVERVIEW_VERSION;
       inputDigest: string; presentation: ActivityOverviewPresentation; partialReasons?: ActivityOverviewPartialReason[];
-      /** 오라이더 원본 활동의 결정적 요약. 명시적 메모가 없을 때만 기본 표시하며 저장된 메모를 덮어쓰지 않는다. */
+      /** 오라이더·Strava 활동의 결정적 요약. 명시적 메모가 없을 때만 기본 표시하며 저장된 메모를 덮어쓰지 않는다. */
       defaultMemo?: string }
   | { status: "unavailable"; activityId: string; reason: "rollout_disabled" | "metrics_unavailable" | "input_changed" };

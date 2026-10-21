@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../config/sportFeatures";
 import { qualifiedRunRecords } from "../features/fitness/runAnalysisReadiness";
 import { estimateVo2max } from "../features/fitness/estimateVo2max";
 import ConditionSectionNav from "../features/fitness/components/ConditionSectionNav";
@@ -1241,7 +1242,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
 
 export default function FitnessPage() {
   const [searchParams] = useSearchParams();
-  const model = useFitnessModel(searchParams.get("sport"), {
+  const model = useFitnessModel(isSportUiEnabled(searchParams.get("sport") ?? "bike") ? searchParams.get("sport") : "bike", {
     decisionId: searchParams.get("decisionId"),
   });
   return <FitnessView model={model} />;

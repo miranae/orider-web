@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import GlossaryText from "../common/GlossaryText";
 /**
  * 통합 부하 기여 카드 (설계 문서 §3.7) — 이 플랫폼 고유의 순간.
@@ -49,10 +50,10 @@ export default function CrossDisciplineLoadCard({ fitness, discipline }: CrossDi
         <GlossaryText>{t("crossLoad.eyebrow")}</GlossaryText>
       </Text>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-4)" }}>
         <Donut contribution={contribution} />
 
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: "1 1 calc(var(--space-8) * 3)", minWidth: 0 }}>
           <Text as="p" variant="body" tone="primary" style={{ margin: 0, lineHeight: 1.5 }}>
             <GlossaryText>{t("crossLoad.headline", {
               sport: t(`discipline.${discipline}`),
@@ -62,7 +63,7 @@ export default function CrossDisciplineLoadCard({ fitness, discipline }: CrossDi
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
             {contribution.slices
-              .filter((s) => s.ctl > 0)
+              .filter((s) => s.ctl > 0 && isSportUiEnabled(s.discipline))
               .map((s) => (
                 <span key={s.discipline} style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)" }}>
                   <span

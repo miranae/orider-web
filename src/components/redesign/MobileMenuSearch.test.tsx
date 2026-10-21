@@ -141,3 +141,21 @@ it.each(["ko", "en"] as const)("keeps the first mobile menu open with a cold boa
     expect(read).not.toHaveBeenCalled();
   } finally { window.matchMedia = original; }
 });
+
+it("hides swimming search options and normalizes a saved swimming draft without changing other sports", async () => {
+  renderWithProviders(<MobileMenuSearch onNavigate={vi.fn()} />, { route: "/ko?sport=swim" });
+  expect(screen.getByLabelText("종목")).toHaveValue("all");
+  expect(screen.queryByRole("option", { name: "수영" })).not.toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "사이클" })).toBeInTheDocument();
+  await userEvent.selectOptions(screen.getByLabelText("검색 대상"), "clubs");
+  expect(screen.queryByRole("option", { name: "수영" })).not.toBeInTheDocument();
+  expect(screen.getByRole("option", { name: "트라이애슬론" })).toBeInTheDocument();
+});
+
+it("retains the current calendar year when submitting the shared activity date filter", async () => {
+  renderWithProviders(<><MobileMenuSearch onNavigate={vi.fn()} /><Location /></>, { route: "/ko?date=year" });
+  expect(screen.getByLabelText("기간")).toHaveValue("year");
+  expect(screen.getByRole("option", { name: "올해" })).toHaveValue("year");
+  await userEvent.click(screen.getByRole("button", { name: "검색하기" }));
+  expect(screen.getByRole("status").textContent).toBe("/ko/?scope=all&date=year&sport=all");
+});

@@ -1743,6 +1743,18 @@ describe("ActivityPage", () => {
     expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
   });
 
+  it("shows saved AI analysis only in the activity overview and preserves other analysis content", async () => {
+    const activity = createMockActivity({ id: "test-activity", userId: "test-uid", aiSummaryPreview: "저장된 AI 결과" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "분석" }));
+    expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
+    expect(screen.getByTestId("activity-analysis-content")).toBeVisible();
+    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    expect(await screen.findAllByTestId("ai-ride-analysis-card")).toHaveLength(1);
+  });
+
   it("shows the owner Strava publishing control when AI analysis streams are unavailable", async () => {
     const activity = createMockActivity({
       id: "test-activity",
@@ -1789,6 +1801,8 @@ describe("ActivityPage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(await screen.findByTestId("elevation-chart")).toBeInTheDocument();
+    expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
     expect(await screen.findByTestId("ai-ride-analysis-card")).toBeInTheDocument();
   });
 

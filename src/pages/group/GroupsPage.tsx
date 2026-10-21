@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import "./ClubSurface.css";
 import { Users } from "lucide-react";
 import GroupRequestHistory from "../../components/group/GroupRequestHistory";
@@ -58,7 +59,7 @@ export default function GroupsPage() {
     setMySearch(queryParam);
   }, [queryParam]);
   useEffect(() => {
-    const sport = ["bike", "run", "swim", "tri"].includes(sportParam)
+    const sport = isSportUiEnabled(sportParam) && ["bike", "run", "swim", "tri"].includes(sportParam)
       ? sportParam as "bike" | "run" | "swim" | "tri" : "ALL";
     setDisciplineFilter(sport);
     setMyDisciplineFilter(sport);
@@ -159,7 +160,7 @@ export default function GroupsPage() {
       {myGroups.length > 0 && <>
         <Text as="h2" variant="title" className="mb-4">{t("myGroups")}</Text>
         <div data-testid="C0-1-1" className="club-my-filters mb-4">
-          <label>{t("list.mySportLabel")}<DropdownSelect label={t("list.mySportLabel")} value={myDisciplineFilter} onChange={value => setMyDisciplineFilter(value as typeof myDisciplineFilter)} options={["ALL", "bike", "run", "swim", "tri"].map(sport => ({ value: sport, label: t(sport === "ALL" ? "filter.all" : `filter.${sport}`) }))} /></label>
+          <label>{t("list.mySportLabel")}<DropdownSelect label={t("list.mySportLabel")} value={myDisciplineFilter} onChange={value => setMyDisciplineFilter(value as typeof myDisciplineFilter)} options={["ALL", "bike", "run", "swim", "tri"].filter(isSportUiEnabled).map(sport => ({ value: sport, label: t(sport === "ALL" ? "filter.all" : `filter.${sport}`) }))} /></label>
           <label>{t("list.mySearchLabel")}<Input type="search" value={mySearch} onChange={event => setMySearch(event.target.value)} aria-label={t("list.mySearchLabel")} placeholder={t("search.groupName")} className="ds-input" /></label>
         </div>
       </>}
@@ -235,7 +236,7 @@ export default function GroupsPage() {
             { v: "run" as const, label: t("filter.run") },
             { v: "swim" as const, label: t("filter.swim") },
             { v: "tri" as const, label: t("filter.tri") },
-          ].map((o) => {
+          ].filter(o => isSportUiEnabled(o.v)).map((o) => {
             const active = disciplineFilter === o.v;
             return (
               <Button

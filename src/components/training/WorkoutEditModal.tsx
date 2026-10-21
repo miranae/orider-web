@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import GlossaryText from "../common/GlossaryText";
 import { useState, useMemo, useRef, useId } from "react";
 import { useTranslation } from "react-i18next";
@@ -519,7 +520,7 @@ export default function WorkoutEditModal({
                 padding: "var(--space-2) 0 var(--space-1)",
               }}
             >
-              {(goalDiscipline ? KINDS_BY_DISCIPLINE[goalDiscipline] ?? SELECTABLE_KINDS : SELECTABLE_KINDS).map((kind) => {
+              {(goalDiscipline ? KINDS_BY_DISCIPLINE[goalDiscipline] ?? SELECTABLE_KINDS : SELECTABLE_KINDS).filter(kind => isSportUiEnabled("swim") || !kind.toLowerCase().includes("swim") || (goalDiscipline === "swim" && kind === day.workout)).map((kind) => {
                 const m = WORKOUT_META[kind];
                 const isSelected = day.workout === kind;
                 return (

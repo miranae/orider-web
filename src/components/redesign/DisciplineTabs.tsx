@@ -1,6 +1,7 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import "./DisciplineTabs.css";
 import { ToggleControls, ToggleButton } from "../../theme/components";
-import { useMemo, useRef, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { getDisciplineColor, getDisciplineLabelKey } from "../../utils/disciplineFilter";
@@ -38,10 +39,15 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
     if (includeTri) {
       base.unshift({ key: "tri" as Discipline, label: t(getDisciplineLabelKey("tri")), icon: <Triangle size={13} />, color: getDisciplineColor("tri") });
     }
-    return base;
+    return base.filter(tab => isSportUiEnabled(tab.key));
   }, [includeTri, t]);
 
-  const active: Discipline = value ?? (searchParams.get("sport") as Discipline) ?? "bike";
+  const requested = value ?? (searchParams.get("sport") as Discipline) ?? "bike";
+  const active: Discipline = isSportUiEnabled(requested) ? requested : "bike";
+  useEffect(() => {
+    if (value !== undefined || isSportUiEnabled(searchParams.get("sport") ?? "bike")) return;
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete("sport"); return next; }, { replace: true });
+  }, [value, searchParams, setSearchParams]);
 
   const handleClick = (key: Discipline) => {
     if (disabledKeys.includes(key)) return;
@@ -108,7 +114,7 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
             aria-disabled={disabled || undefined}
             aria-label={disabled ? `${label} · ${t("discipline.comingSoon")}` : label}
             title={disabled ? t("discipline.comingSoon") : undefined}
-            tabIndex={isActive ? 0 : -1}
+            tabIndex={isActive || (!tabs.some(tab => tab.key === active && !disabledKeys.includes(tab.key)) && idx === tabs.findIndex(tab => !disabledKeys.includes(tab.key))) ? 0 : -1}
           >
             <span className="discipline-tab-content">
               <span className="discipline-tab-heading">

@@ -25,7 +25,6 @@ import {
   isImplausibleAvgSpeed,
 } from "../utils/activitySanity";
 import { Card, Chip } from "../theme/components";
-import ActivityAiSummary from "./activity/ActivityAiSummary";
 import ActivitySocialFooter from "./activity/ActivitySocialFooter";
 import ActivityRouteThumbnail, { shouldReportMapCaptureError } from "./activity/ActivityRouteThumbnail";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
@@ -469,10 +468,6 @@ export default function ActivityCard({
           )}
         </div>
       </div>
-
-      {/* AI 요약 — 생성된 활동에만 노출 (비정규화 aiSummaryPreview ko/en, read 0). 로케일별 슬롯 선택은 컴포넌트 내부 */}
-      {(activity.aiSummaryPreview || activity.aiSummaryPreview_en) &&
-        <ActivityAiSummary summary={activity.aiSummaryPreview} summaryEn={activity.aiSummaryPreview_en} />}
 
       {/* Route map — static image to avoid WebGL overflow + reduce Mapbox costs */}
       {showMap && activity.thumbnailTrack && (

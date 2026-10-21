@@ -1,3 +1,6 @@
+import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../config/activitySubscriptions";
+import RelationshipManagementList, { type RelationshipView } from "../components/profile/RelationshipManagementList";
+import "../components/profile/ProfileSocialStats.css";
 import { Copy } from "lucide-react";
 import "./FriendsPage.css";
 import { useEffect, useState } from "react";
@@ -18,11 +21,14 @@ import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
 export default function FriendsPage() {
   const { user } = useAuth();
   const { t } = useTranslation("friends");
+  const { t: commonT } = useTranslation("common");
   const { friends, requests, sentRequests = [], readError, cancelRequest, friendCode, friendCodeLoading, loading, actionLoading, addByCode, acceptRequest, declineRequest, removeFriend } = useFriends();
   const { showToast } = useToast();
   const dialog = useDialog();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedView = searchParams.get("view");
+  const view: "friends" | RelationshipView = ACTIVITY_SUBSCRIPTIONS_ENABLED && user && !user.isAnonymous && (requestedView === "subscriptions" || requestedView === "subscribers" || requestedView === "blocked") ? requestedView : "friends";
   const fromOnboarding = searchParams.get("source") === "onboarding";
   const continueTo = sanitizeInternalReturnPath(searchParams.get("returnTo"));
   const [codeInput, setCodeInput] = useState("");
@@ -121,9 +127,18 @@ export default function FriendsPage() {
     <div data-testid="P3-0" className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">{t("title")}</h1>
-        <a data-testid="P3-0-2" href="#friend-invite" className={buttonClass({ variant: "secondary", size: "md" })}>{t("inviteButton")}</a>
+        {view === "friends" && <a data-testid="P3-0-2" href="#friend-invite" className={buttonClass({ variant: "secondary", size: "md" })}>{t("inviteButton")}</a>}
       </div>
 
+      {ACTIVITY_SUBSCRIPTIONS_ENABLED && !user.isAnonymous && <div className="friends-tabs friends-management-tabs" role="tablist" aria-label={commonT("activitySubscriptions.management")}>
+        {(["friends", "subscriptions", "subscribers", "blocked"] as const).map(target => <Button key={target} role="tab" aria-selected={view === target}
+          variant={view === target ? "secondary" : "ghost"} onClick={() => setSearchParams(previous => {
+            const params = new URLSearchParams(previous);
+            if (target === "friends") params.delete("view"); else params.set("view", target);
+            return params;
+          })}>{commonT(`activitySubscriptions.${target}`)}</Button>)}
+      </div>}
+      {view !== "friends" ? <RelationshipManagementList key={`${user.uid}:${view}`} uid={user.uid} view={view} /> : <>
       {fromOnboarding && (
         <Card data-testid="P3.onboarding" padding="none" className="rounded-[var(--r-lg)] p-5">
           <Text as="h2" className="font-semibold text-[var(--ink-0)]">{t("onboarding.title")}</Text>
@@ -264,6 +279,7 @@ export default function FriendsPage() {
           )}
         </Card>
       )}
+      </>}
     </div>
   );
 }

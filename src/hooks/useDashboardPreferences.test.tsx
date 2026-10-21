@@ -23,6 +23,7 @@ describe("dashboard preferences", () => {
       datePreset: "all",
       workoutNarrativeExpanded: false,
     });
+    expect(parseDashboardPreferences({ datePreset: "year" }).datePreset).toBe("year");
     localStorage.setItem(dashboardPreferencesStorageKey("broken"), "not-json");
     expect(readDashboardPreferences("broken")).toEqual(DEFAULT_DASHBOARD_PREFERENCES);
   });

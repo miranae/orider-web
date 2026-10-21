@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import "./IntegratedLoadCard.css";
@@ -80,7 +81,7 @@ export default function IntegratedLoadCard({
   const confidence = t(`mobileFitness.integrated.confidence.${confidenceKey}`);
   const windowDays = focus && Number.isFinite(focus.windowDays) && focus.windowDays > 0 ? Math.round(focus.windowDays) : 28;
   const contributionAria = contributionTotal > 0
-    ? DISCIPLINES.map((discipline) => !knownContributions.has(discipline) ? `${t(`mobileFitness.integrated.discipline.${discipline}`)} —` : t("mobileFitness.integrated.barPart", {
+    ? DISCIPLINES.filter(isSportUiEnabled).map((discipline) => !knownContributions.has(discipline) ? `${t(`mobileFitness.integrated.discipline.${discipline}`)} —` : t("mobileFitness.integrated.barPart", {
       label: t(`mobileFitness.integrated.discipline.${discipline}`),
       value: displayNumber(disciplineLoads[discipline]),
       pct: Math.round(percentage(disciplineLoads[discipline], contributionTotal)),
@@ -119,9 +120,9 @@ export default function IntegratedLoadCard({
       <div style={{ marginTop: "var(--space-4)" }}>
         <Text as="h3" variant="subtitle">{t("mobileFitness.integrated.contributionTitle")}</Text>
         <p style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", lineHeight: "var(--lh-relaxed)" }}>{t("mobileFitness.integrated.contributionBasis")}</p>
-        <SegmentTimeline presentation="distribution" aria-label={t("mobileFitness.integrated.contributionBarAria", { values: contributionAria })} rows={[{ id: "contribution", label: t("mobileFitness.integrated.contributionTitle"), buckets: DISCIPLINES.map(discipline => ({ id: discipline, label: `${t(`mobileFitness.integrated.discipline.${discipline}`)} · ${knownContributions.has(discipline) ? t("mobileFitness.integrated.contributionValue", { value: displayNumber(disciplineLoads[discipline]), pct: Math.round(percentage(disciplineLoads[discipline], contributionTotal)) }) : "—"}`, weight: disciplineLoads[discipline], segments: [{ weight: 1, color: DISCIPLINE_COLORS[discipline] }] })) }]} />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
-          {DISCIPLINES.map((discipline) => (
+        <SegmentTimeline presentation="distribution" aria-label={t("mobileFitness.integrated.contributionBarAria", { values: contributionAria })} rows={[{ id: "contribution", label: t("mobileFitness.integrated.contributionTitle"), buckets: DISCIPLINES.map(discipline => ({ id: discipline, label: `${isSportUiEnabled(discipline) ? t(`mobileFitness.integrated.discipline.${discipline}`) : t("common:discipline.other")} · ${knownContributions.has(discipline) ? t("mobileFitness.integrated.contributionValue", { value: displayNumber(disciplineLoads[discipline]), pct: Math.round(percentage(disciplineLoads[discipline], contributionTotal)) }) : "—"}`, weight: disciplineLoads[discipline], segments: [{ weight: 1, color: isSportUiEnabled(discipline) ? DISCIPLINE_COLORS[discipline] : "var(--line-soft)" }] })) }]} />
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${DISCIPLINES.filter(isSportUiEnabled).length}, minmax(0, 1fr))`, gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
+          {DISCIPLINES.filter(isSportUiEnabled).map((discipline) => (
             <Card key={discipline} variant="flat" padding="compact"
               aria-pressed={selectedPart === discipline}
               onPointerEnter={(event) => { if (event.pointerType !== "touch") setSelectedPart(discipline); }}

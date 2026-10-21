@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export type DashboardSportFilter = "all" | "bike" | "run" | "swim";
-export type DashboardFeedScope = "all" | "friends" | "self";
-export type DashboardDatePreset = "all" | "7d" | "30d" | "90d";
+export type DashboardFeedScope = "all" | "friends" | "self" | "following";
+export type DashboardDatePreset = "all" | "7d" | "30d" | "90d" | "year";
 
 export interface DashboardPreferences {
   sportFilter: DashboardSportFilter;
@@ -31,10 +31,10 @@ export function parseDashboardPreferences(value: unknown): DashboardPreferences 
     sportFilter: isOneOf(candidate.sportFilter, ["all", "bike", "run", "swim"])
       ? candidate.sportFilter
       : DEFAULT_DASHBOARD_PREFERENCES.sportFilter,
-    feedScope: isOneOf(candidate.feedScope, ["all", "friends", "self"])
+    feedScope: isOneOf(candidate.feedScope, ["all", "friends", "self", "following"])
       ? candidate.feedScope
       : DEFAULT_DASHBOARD_PREFERENCES.feedScope,
-    datePreset: isOneOf(candidate.datePreset, ["all", "7d", "30d", "90d"])
+    datePreset: isOneOf(candidate.datePreset, ["all", "7d", "30d", "90d", "year"])
       ? candidate.datePreset
       : DEFAULT_DASHBOARD_PREFERENCES.datePreset,
     workoutNarrativeExpanded: typeof candidate.workoutNarrativeExpanded === "boolean"

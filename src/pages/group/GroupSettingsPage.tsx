@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import { handleGroupChoiceKey } from "../../features/group/groupControlKeys";
 import { Users } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -296,7 +297,7 @@ export default function GroupSettingsPage() {
           {isCreator && <div style={{ marginBottom: 'var(--space-4)' }}>
             <Text as="div" variant="bodyMedium" style={{ marginBottom: "var(--space-1-5)" }}>{t("settings.sports")}</Text>
             <div role="group" aria-label={t("settings.sports")} className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
-              {SPORT_OPTIONS.map((o) => {
+              {SPORT_OPTIONS.filter(option => isSportUiEnabled(option.v)).map((o) => {
                 const active = sports.includes(o.v);
                 return (
                   <Button

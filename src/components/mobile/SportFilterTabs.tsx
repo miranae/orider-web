@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import "./SportFilterTabs.css";
 import SportIcon from "../common/SportIcon";
 import { Button } from "../../theme/components";
@@ -21,8 +22,8 @@ export default function SportFilterTabs({ value, onChange, allLabelKey = "label.
   const { t } = useTranslation("common");
   return (
     <div className="sport-filter-tabs" role="group" aria-label={t("discipline.selectAria")}>
-      {TABS.map((f) => {
-        const active = value === f.key;
+      {TABS.filter(tab => isSportUiEnabled(tab.key)).map((f) => {
+        const active = (isSportUiEnabled(value) ? value : "all") === f.key;
         const color = "color" in f ? f.color : undefined;
         return (
           <Button key={f.key} variant={active ? "secondary" : "outline"} leadingIcon={f.key === "all" ? undefined : <SportIcon sport={f.key} size={16} />} aria-pressed={active} onClick={() => onChange(f.key)}

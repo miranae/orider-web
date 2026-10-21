@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../config/sportFeatures";
 import GlossaryText from "../components/common/GlossaryText";
 import { GoalSourceNotice } from "../components/training/GoalInputNotice";
 import type { FitnessProjection } from "@shared/types/goal";
@@ -18,7 +19,7 @@ import { Button, Card, Progress, Text } from "../theme/components";
 export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
   const { t, i18n } = useTranslation("training");
   const [params] = useSearchParams();
-  const model = usePlanModel(params.get("sport"));
+  const model = usePlanModel(isSportUiEnabled(params.get("sport") ?? "bike") ? params.get("sport") : "bike");
   const { user, goal, discipline } = model;
   const [choice, setChoice] = useState<{ sport: string; kind: "event" | "climb" } | null>(null);
   const [error, setError] = useState(false);

@@ -2,23 +2,20 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
-import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
-import { Search, Bell, Settings, LogIn, LogOut, User, Users, Bike, Activity, Trophy, Menu, X } from "lucide-react";
+import { Bell, Settings, LogIn, LogOut, User, Users, Bike, Activity, Trophy, Menu, X } from "lucide-react";
 import iconSvg from "../../assets/icon.svg";
 import { useAuth } from "../../contexts/AuthContext";
 import { isSignInCancelled } from "../../utils/signInCancelled";
 import { useToast } from "../../contexts/ToastContext";
-import { useGlobalSearch } from "../../hooks/useGlobalSearch";
 import { LanguageToggle } from "../i18n/LanguageToggle";
 import type { Notification } from "@shared/types";
-import { Button, Text } from "../../theme/components";
+import { Button } from "../../theme/components";
 import { PRIMARY_HUBS, type HubKey } from "../../config/navHubs";
 import MobileMenuSearch from "./MobileMenuSearch";
 import "./TopNav.css";
 import { timeAgo } from "../../utils/timeAgo";
 
 const navFocusClass = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--lime)]";
-const navFocusWithinClass = "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[var(--lime)]";
 const navIconButtonClass = `flex items-center justify-center ${navFocusClass}`;
 const mobileMenuItemClass = `rounded-[var(--r-md)] ${navFocusClass}`;
 
@@ -37,7 +34,6 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   const { t } = useTranslation('common');
   const { user, profile, signIn, logout } = useAuth();
   const { showToast } = useToast();
-  const navigate = useNavigate();
   const location = useLocation();
   const NAV_ITEMS = useMemo(
     () => PRIMARY_HUBS.map(({ key, labelKey, to }) => ({ key, label: t(labelKey), to })),
@@ -52,39 +48,15 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
     { to: "/athlete/me/gear", labelKey: "nav.equipment", icon: Bike },
     { to: "/settings/account", labelKey: "nav.settings", icon: Settings },
   ];
-  const [desktopHeader, setDesktopHeader] = useState(() => typeof window === "undefined" || window.matchMedia("(min-width: 1024px)").matches);
-  const [createOpen, setCreateOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
   const [signInPending, setSignInPending] = useState(false);
-  const createRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const desktop = window.matchMedia("(min-width: 1024px)");
-    const closeOnMobile = () => {
-      setDesktopHeader(desktop.matches);
-      if (!desktop.matches) { setCreateOpen(false); setMenuOpen(false); }
-    };
-    desktop.addEventListener("change", closeOnMobile);
-    return () => desktop.removeEventListener("change", closeOnMobile);
-  }, []);
-  useEffect(() => {
-    if (!createOpen) return;
-    const closeOutside = (event: MouseEvent) => { if (!createRef.current?.contains(event.target as Node)) setCreateOpen(false); };
-    const closeEscape = (event: KeyboardEvent) => { if (event.key === "Escape") { setCreateOpen(false); createRef.current?.querySelector("button")?.focus(); } };
-    document.addEventListener("mousedown", closeOutside); document.addEventListener("keydown", closeEscape);
-    return () => { document.removeEventListener("mousedown", closeOutside); document.removeEventListener("keydown", closeEscape); };
-  }, [createOpen]);
   const menuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLDivElement>(null);
   const mobileHistoryPushedRef = useRef(false);
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
   const mobilePanelRef = useRef<HTMLDivElement>(null);
-
-  const { results } = useGlobalSearch(searchQuery);
 
   const handleSignInWithGoogle = useCallback(async () => {
     if (signInPending) return;
@@ -97,16 +69,6 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
       setSignInPending(false);
     }
   }, [showToast, signInPending, signIn, t]);
-
-  // 검색 드롭다운 외부 클릭 시 닫기
-  useEffect(() => {
-    if (!searchOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setSearchOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [searchOpen]);
 
   // 아바타 메뉴 외부 클릭 시 닫기
   useEffect(() => {
@@ -144,6 +106,17 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
     return () => document.removeEventListener("mousedown", handler);
   }, [notifOpen]);
 
+  useEffect(() => {
+    if (!notifOpen) return;
+    const closeNotification = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setNotifOpen(false);
+      notifRef.current?.querySelector("button")?.focus();
+    };
+    document.addEventListener("keydown", closeNotification);
+    return () => document.removeEventListener("keydown", closeNotification);
+  }, [notifOpen]);
+
   const stripMobileMenuHistoryState = useCallback(() => {
     const state = window.history.state;
     if (!state || typeof state !== "object" || !("oriderMobileMenu" in state)) return;
@@ -154,6 +127,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   const openMobileMenu = useCallback(() => {
     if (mobileOpen) return;
     setMenuOpen(false);
+    setNotifOpen(false);
     const state = window.history.state;
     window.history.pushState(
       { ...(state && typeof state === "object" ? state : {}), oriderMobileMenu: true },
@@ -165,6 +139,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   }, [mobileOpen]);
 
   const closeMobileMenu = useCallback(() => {
+    mobileTriggerRef.current?.focus();
     if (mobileHistoryPushedRef.current && window.history.state?.oriderMobileMenu) {
       mobileHistoryPushedRef.current = false;
       window.history.back();
@@ -184,15 +159,12 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
     setMenuOpen(false);
   }, [location.pathname, location.search, closeMobileMenuForNavigation]);
 
-  useEffect(() => {
-    if (desktopHeader && mobileOpen) closeMobileMenu();
-  }, [desktopHeader, mobileOpen, closeMobileMenu]);
-
-  // 모바일 메뉴 열릴 때 스크롤 잠금 + 브라우저 뒤로가기 연동
+  // 공용 검색 메뉴 열릴 때 스크롤 잠금 + 브라우저 뒤로가기 연동
   useEffect(() => {
     const handlePopState = () => {
       mobileHistoryPushedRef.current = false;
       setMobileOpen(false);
+      mobileTriggerRef.current?.focus();
     };
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); closeMobileMenu(); }
@@ -214,7 +186,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
     return () => {
       window.removeEventListener("popstate", handlePopState);
       document.removeEventListener("keydown", handleKey);
-      if (mobileOpen) mobileTriggerRef.current?.focus();
+      if (mobileOpen && mobilePanelRef.current?.contains(document.activeElement)) mobileTriggerRef.current?.focus();
       document.body.style.overflow = '';
     };
   }, [mobileOpen, closeMobileMenu]);
@@ -309,118 +281,6 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
         {/* 우측: 검색 + 아이콘 + 인증 */}
         <div className="flex items-center" style={{ gap: 'var(--space-2)', flexShrink: 0 }}>
-          <div className="hidden lg:flex items-center gap-2">
-          <Link to="/settings/account" data-testid="X1-6" className={navIconButtonClass} aria-label={t("nav.settings")}><Settings size={19} /></Link>
-          <div data-testid="X1-3" ref={createRef} className="relative">
-            <Button size="sm" variant="secondary" aria-expanded={createOpen} aria-haspopup="menu" onClick={() => setCreateOpen(value => !value)}>{t("nav.create")}</Button>
-            {createOpen && <div role="menu" className="fixed inset-x-0 bottom-[calc(var(--space-7)+var(--space-6)+env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-var(--space-7)-var(--space-6)-var(--space-8)-var(--space-4)-env(safe-area-inset-bottom,0px))] overflow-y-auto lg:absolute lg:inset-x-auto lg:bottom-auto lg:right-0 lg:top-full lg:max-h-none lg:overflow-visible z-50 min-w-48 rounded-[var(--r-lg)] border border-[var(--line)] bg-[var(--bg-1)] p-2 shadow-lg">
-              {user ? ([
-                ["course", "/course/create"], ["segment", "/segment/create"], ["event", "/event/create"], ["club", "/clubs?new=1"], ["post", "/community/board/write"], ["import", "/athlete/me/activities?import=1"], ["goal", "/coach/goals?new=1"],
-              ] as [string, string][]).map(([key, to]) => <Link key={key} role="menuitem" data-testid={({ course: "M1-1-1", segment: "M1-1-2", event: "M1-1-3", club: "M1-1-4", post: "M1-1-5", import: "M1-1-6", goal: "M1-1-7" } as Record<string, string>)[key]} to={to} onClick={() => setCreateOpen(false)} className="block rounded-[var(--r-md)] px-3 py-2">{t(`nav.create.${key}`)}</Link>) : <Button disabled={signInPending} onClick={() => { setCreateOpen(false); void handleSignInWithGoogle(); }}>{t("auth.loginValue")}</Button>}
-            </div>}
-          </div>
-          </div>
-          {/* 검색 박스 (데스크톱만) */}
-          <div
-            data-testid="X1-2" ref={searchRef}
-            className="hidden lg:block"
-            style={{ position: 'relative', width: 220 }}
-          >
-            <div
-              className={navFocusWithinClass}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                height: 30,
-                borderRadius: "var(--r-md)",
-                border: '1px solid var(--line-soft)',
-                backgroundColor: 'var(--bg-2)',
-                paddingInline: 10,
-                gap: "var(--space-1-5)",
-              }}
-            >
-              <Search size={13} style={{ color: 'var(--ink-4)', flexShrink: 0 }} />
-              <input
-                placeholder={t('topnav.searchPlaceholder')}
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onFocus={() => setSearchOpen(true)}
-                onKeyDown={e => {
-                  if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(""); }
-                  if (e.key === 'Enter' && searchQuery.trim()) {
-                    navigate(`/explore/courses?q=${encodeURIComponent(searchQuery.trim())}`);
-                    setSearchOpen(false);
-                    setSearchQuery("");
-                  }
-                }}
-                style={{
-                  flex: 1,
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  fontSize: "var(--fs-sm)",
-                  color: 'var(--ink-0)',
-                }}
-              />
-            </div>
-
-            {searchOpen && searchQuery.trim() && (
-              <div style={{
-                position: 'absolute', top: 38, left: 0, right: 0,
-                background: 'var(--bg-1)', border: '1px solid var(--line-soft)',
-                borderRadius: 'var(--r-lg)', padding: "var(--space-1-5)", zIndex: 100,
-                maxHeight: 400, overflowY: 'auto',
-              }}>
-                {/* 활동 결과 */}
-                {results.activities.length > 0 && (
-                  <>
-                    <Text as="div" variant="eyebrow" style={{ padding: '6px 10px' }}>{t('topnav.activities')}</Text>
-                    {results.activities.map(a => (
-                      <Link key={a.id} to={`/activity/${a.id}`}
-                        onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: "var(--space-2)", padding: '8px 10px', borderRadius: 'var(--r-md)', textDecoration: 'none', fontSize: "var(--fs-xs)", color: 'var(--ink-1)' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-2)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <span>📍</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 500, color: 'var(--ink-0)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.description || t('label.ride')}</div>
-                          <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{(a.summary.distance / 1000).toFixed(1)} km</div>
-                        </div>
-                      </Link>
-                    ))}
-                  </>
-                )}
-                {/* 코스 결과 */}
-                {results.courses.length > 0 && (
-                  <>
-                    <Text as="div" variant="eyebrow" style={{ padding: '6px 10px', marginTop: results.activities.length > 0 ? 4 : 0 }}>{t('nav.courses')}</Text>
-                    {results.courses.map(c => (
-                      <Link key={c.id} to={`/course/${c.id}`}
-                        onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: "var(--space-2)", padding: '8px 10px', borderRadius: 'var(--r-md)', textDecoration: 'none', fontSize: "var(--fs-xs)", color: 'var(--ink-1)' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-2)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <span>🗺️</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 500, color: 'var(--ink-0)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
-                          <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>{(c.distance / 1000).toFixed(1)} km · {c.regions?.join(', ') || ''}</div>
-                        </div>
-                      </Link>
-                    ))}
-                  </>
-                )}
-                {/* 결과 없음 */}
-                {results.activities.length === 0 && results.courses.length === 0 && (
-                  <div style={{ padding: '16px 10px', textAlign: 'center', fontSize: "var(--fs-xs)", color: 'var(--ink-3)' }}>
-                    {t('label.searchEmpty', { query: searchQuery })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           {user ? (
             <>
               {/* 모바일 알림 벨 → 바텀시트 */}
@@ -428,7 +288,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 <button
                   className={`lg:hidden ${navIconButtonClass}`}
                   data-testid="X1-4" aria-label={t('topnav.notifications')}
-                  onClick={onMobileNotifClick}
+                  onClick={() => { closeMobileMenuForNavigation(); setMenuOpen(false); onMobileNotifClick(); }}
                   style={{ width: 44, height: 44, borderRadius: "var(--r-md)", border: "none", background: "transparent", cursor: "pointer", color: "var(--ink-3)", position: "relative" }}
                 >
                   <Bell size={16} />
@@ -441,7 +301,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
               {/* 데스크톱 알림 벨 + 드롭다운 */}
               <div ref={notifRef} className="hidden lg:block" style={{ position: 'relative' }}>
                 <button
-                  onClick={() => { setNotifOpen(!notifOpen); setMenuOpen(false); }}
+                  onClick={() => { closeMobileMenuForNavigation(); setNotifOpen(!notifOpen); setMenuOpen(false); }}
                   className={navFocusClass}
                   data-testid="X1-4" aria-label={t('topnav.notifications')}
                   style={{
@@ -564,11 +424,6 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 )}
               </div>
 
-              {/* 언어 토글 (데스크톱만) */}
-              <div className="hidden lg:flex items-center">
-                <div data-testid="X1-6"><LanguageToggle variant="header" /></div>
-              </div>
-
               {/* 아바타 + 드롭다운 */}
               <div data-testid="X1-5" ref={menuRef} style={{ position: 'relative' }}>
                 <button
@@ -661,11 +516,6 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
             </>
           ) : (
             <>
-              {/* 언어 토글 (데스크톱, 비로그인) */}
-              <div className="hidden lg:flex items-center">
-                <div data-testid="X1-6"><LanguageToggle variant="header" /></div>
-              </div>
-
               {/* 비로그인: Google 로그인 버튼 (데스크톱) */}
               <div data-testid="X1-5" className="hidden lg:block">
                 <Button
@@ -680,21 +530,35 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
             </>
           )}
         </div>
-        <button ref={mobileTriggerRef} className={`mobile-menu-trigger lg:hidden ${navIconButtonClass}`}
+        <button ref={mobileTriggerRef} className={`mobile-menu-trigger ${navIconButtonClass}`}
           aria-label={mobileOpen ? t('button.close') : t('button.more')} aria-expanded={mobileOpen} aria-controls="mobile-navigation"
           onClick={mobileOpen ? closeMobileMenu : openMobileMenu}>
           {mobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </nav>
 
-      {/* 모바일 메뉴: 헤더 바로 아래에 전체 폭으로 펼친다. */}
+      {/* 검색·필터와 보조 동작은 모든 화면에서 같은 메뉴를 사용한다. */}
       {mobileOpen && (
-        <div id="mobile-navigation" ref={mobilePanelRef} role="navigation" aria-label={t('topnav.mobileNavigation')}
-          className="mobile-navigation lg:hidden" data-testid="X1-5">
+        <div id="mobile-navigation" ref={mobilePanelRef} role="navigation" aria-label={t('button.more')}
+          className="mobile-navigation" data-testid="X1-5">
           <MobileMenuSearch key={user?.uid ?? "guest"} onNavigate={closeMobileMenuForNavigation} />
-          <div className="mobile-navigation-section">
+          <div className="mobile-navigation-section lg:hidden">
             {NAV_ITEMS.map(({ key, label, to }) => <Link key={key} to={to} aria-current={active === key ? 'page' : undefined}
               className={`mobile-navigation-link ${navFocusClass}`} onClick={closeMobileMenuForNavigation}>{label}</Link>)}
+          </div>
+          <div className="mobile-navigation-section hidden lg:block">
+            <Link to="/settings/account" className={`mobile-navigation-link ${navFocusClass}`} onClick={closeMobileMenuForNavigation}>
+              <Settings size={18} /> {t("nav.settings")}
+            </Link>
+            {user && <details className="navigation-create">
+              <summary className={`mobile-navigation-link ${navFocusClass}`}>{t("nav.create")}</summary>
+              {([
+                ["course", "/course/create"], ["segment", "/segment/create"], ["event", "/event/create"],
+                ["club", "/clubs?new=1"], ["post", "/community/board/write"],
+                ["import", "/athlete/me/activities?import=1"], ["goal", "/coach/goals?new=1"],
+              ] as [string, string][]).map(([key, to]) => <Link key={key} to={to}
+                className={`mobile-navigation-link ${navFocusClass}`} onClick={closeMobileMenuForNavigation}>{t(`nav.create.${key}`)}</Link>)}
+            </details>}
           </div>
           {!user && <div className="mobile-navigation-section"><Button onClick={() => { void handleSignInWithGoogle(); closeMobileMenuForNavigation(); }} disabled={signInPending}>
             <LogIn size={15} /> {signInPending ? t('auth.loginLoading') : t('auth.loginValue')}

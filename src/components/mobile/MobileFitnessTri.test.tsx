@@ -114,14 +114,14 @@ describe("MobileFitnessPage tri", () => {
     expect(screen.getByText("종목별 일별 부하와 CTL 추이")).toBeVisible();
   });
 
-  it("keeps all four sports available at narrow widths while the analysis control stays separate", () => {
+  it("keeps enabled sports available at narrow widths while the analysis control stays separate", () => {
     const { container } = renderWithProviders(<MobileFitnessPage data={previewData} />);
     expect(container.querySelector(".mobile-fitness-toolbar__sports [role='group']")).toHaveAccessibleName("종목 선택");
     const sportControls = screen.getByRole("group", {name: "종목 선택"});
-    expect(within(sportControls).getAllByRole("button")).toHaveLength(4);
+    expect(within(sportControls).getAllByRole("button")).toHaveLength(3);
     expect(within(sportControls).getByRole("button", {name: "사이클"})).toBeEnabled();
     expect(within(sportControls).getByRole("button", {name: "러닝"})).toBeEnabled();
-    expect(within(sportControls).getByRole("button", {name: "수영"})).toBeEnabled();
+    expect(within(sportControls).queryByRole("button", {name: "수영"})).not.toBeInTheDocument();
     expect(container.querySelector(".mobile-fitness-toolbar__sports .mobile-fitness-mode-toggle")).toBeNull();
     expect(container.querySelector(".mobile-fitness-toolbar > .mobile-fitness-mode-toggle")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "러닝 분석" })).not.toHaveAttribute("aria-pressed");
@@ -333,7 +333,7 @@ describe("MobileFitnessPage tri", () => {
     expect(screen.getByRole("button", { name: "통합" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "전체" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "개요" })).not.toBeInTheDocument();
-    expect(within(screen.getByRole("group", {name: "종목 선택"})).getByRole("button", {name: "수영"})).toBeInTheDocument();
+    expect(within(screen.getByRole("group", {name: "종목 선택"})).queryByRole("button", {name: "수영"})).not.toBeInTheDocument();
     expect(document.querySelector(".mobile-fitness-mode-toggle")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /오늘은 어떻게 이어갈까요/ })).not.toBeInTheDocument();
     expect(screen.queryByText("잘못된 통합 추천")).not.toBeInTheDocument();

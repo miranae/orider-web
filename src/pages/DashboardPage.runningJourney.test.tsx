@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import i18n from "i18next";
 import enDashboard from "../i18n/resources/en/dashboard.json";
 import { MemoryRouter } from "react-router-dom";
@@ -29,7 +29,7 @@ vi.mock("../utils/yearRecapSeason", () => ({ isYearRecapSeason: () => state.reca
 vi.mock("../utils/runnerLevel", () => ({ estimateRunnerLevel: () => ({ level: "regular" }) }));
 vi.mock("../utils/shoeStatus", () => ({ latestShoeStatus: () => ({ replacementDue: true }) }));
 vi.mock("../utils/runWeeklyRecap", () => ({ computeRunWeeklyRecap: () => ({ lastWeek: { count: 1 } }), isRecapVisible: () => true }));
-vi.mock("../components/mobile/MobileFeedPage", () => ({ default: ({ todayStrip, runningJourney, sportFilter, showYearRecapBanner }: { todayStrip?: ReactNode; runningJourney?: ReactNode; sportFilter?: string; showYearRecapBanner?: boolean }) => <div data-testid="mobile-journey-slot" data-sport-filter={sportFilter} data-year-recap={String(!!showYearRecapBanner)}>{todayStrip}{runningJourney}</div> }));
+vi.mock("../components/mobile/MobileFeedPage", () => ({ default: ({ todayStrip, runningJourney, sportFilter, feedScope, datePreset, activitySearch, showYearRecapBanner }: { todayStrip?: ReactNode; runningJourney?: ReactNode; sportFilter?: string; feedScope?: string; datePreset?: string; activitySearch?: { searchedKeyword: string }; showYearRecapBanner?: boolean }) => <div data-testid="mobile-journey-slot" data-sport-filter={sportFilter} data-feed-scope={feedScope} data-date-preset={datePreset} data-query={activitySearch?.searchedKeyword} data-year-recap={String(!!showYearRecapBanner)}>{todayStrip}{runningJourney}</div> }));
 vi.mock("../components/dashboard/RunEmptyState", () => ({ default: () => <div>run-empty-journey</div> }));
 vi.mock("../components/dashboard/WeeklyRecapCard", () => ({ default: () => <div>run-weekly-recap</div> }));
 vi.mock("../components/dashboard/ThresholdPaceNudge", () => ({ default: () => <div>run-threshold-nudge</div> }));
@@ -56,7 +56,7 @@ describe("owner running dashboard journey parity", () => {
   it("keeps communities below schedules without duplicating the global app installation footer", () => {
     state.mobile = false;
     show();
-    const sidebar = screen.getByRole("complementary");
+    const sidebar = screen.getAllByRole("complementary")[1]!;
     const communityTitle = within(sidebar).getByText("한국 자전거 커뮤니티");
     expect(communityTitle.closest("details")).toBeNull();
     expect(within(sidebar).getByText("내 일정").compareDocumentPosition(communityTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -79,30 +79,32 @@ describe("owner running dashboard journey parity", () => {
     state.mobile = false;
     state.sportFilter = "bike";
     show(`/${lang}?sport=bike`);
-    const table = screen.getByRole("table", { name: lang === "ko" ? "주간 거리와 훈련 부하 요약" : "Weekly distance and training load summary" });
-    expect(within(table).getAllByRole("columnheader")).toHaveLength(4);
-    const rows = within(table).getAllByRole("row");
-    expect(rows[1]).toHaveTextContent(lang === "ko" ? "이동거리 (km)" : "Distance traveled (km)");
-    expect(within(rows[1]!).getAllByRole("cell").map(cell => cell.textContent)).toEqual([loads.length === 4 ? "15" : "20", "40", "0"]);
-    expect(within(rows[2]!).getAllByRole("cell").map(cell => cell.textContent)).toEqual(values);
-    expect(rows[2]).toHaveTextContent(lang === "ko" ? "훈련 부하 (TSS)" : "Load (TSS)");
+    const summary = screen.getByLabelText(lang === "ko" ? "주간 거리와 훈련 부하 요약" : "Weekly distance and training load summary");
+    const periods = within(summary).getAllByRole("definition");
+    expect(periods).toHaveLength(3);
+    expect(periods.map(period => period.children[0]?.lastChild?.textContent)).toEqual([loads.length === 4 ? "15" : "20", "40", "0"]);
+    expect(periods.map(period => period.children[1]?.lastChild?.textContent)).toEqual(values);
+    for (const period of periods) {
+      expect(period).toHaveTextContent(lang === "ko" ? "이동거리 (km)" : "Distance traveled (km)");
+      expect(period).toHaveTextContent(lang === "ko" ? "훈련 부하 (TSS)" : "Load (TSS)");
+    }
     expect(screen.queryByTestId("weekly-tss-bar")).not.toBeInTheDocument();
   });
   it.each([true, false])("falls back from direct home swim links before rendering/querying the selected discipline (mobile=%s)", mobile => {
     state.mobile = mobile;
     show("/ko?sport=swim");
     expect(screen.queryByTestId("dashboard-running-journey")).not.toBeInTheDocument();
-    if (mobile) expect(screen.getByTestId("mobile-journey-slot")).toHaveAttribute("data-sport-filter", "swim");
+    if (mobile) expect(screen.getByTestId("mobile-journey-slot")).toHaveAttribute("data-sport-filter", "all");
     else {
       expect(screen.getByRole("tab", { name: "사이클" })).toHaveAttribute("aria-selected", "true");
-      expect(screen.getByRole("tab", { name: /수영/ })).toBeDisabled();
+      expect(screen.queryByRole("tab", { name: /수영/ })).not.toBeInTheDocument();
     }
     expect(state.update).not.toHaveBeenCalled();
   });
   it("uses the saved mobile swim filter without silently persisting it", () => {
     state.sportFilter = "swim";
     show();
-    expect(screen.getByTestId("mobile-journey-slot")).toHaveAttribute("data-sport-filter", "swim");
+    expect(screen.getByTestId("mobile-journey-slot")).toHaveAttribute("data-sport-filter", "all");
     expect(state.update).not.toHaveBeenCalled();
   });
   it("uses the mobile saved run filter without requiring a URL sport parameter", () => {
@@ -159,7 +161,7 @@ describe("owner running dashboard journey parity", () => {
     state.mobile = false;
     state.runs = [{} as Activity];
     show("/ko?sport=run");
-    const sidebar = screen.getByRole("complementary");
+    const sidebar = screen.getAllByRole("complementary")[1]!;
     const cross = within(sidebar).getByText("run-cross-load");
     expect(screen.getByTestId("dashboard-running-journey")).not.toHaveTextContent("run-cross-load");
     expect(screen.getByTestId("run-monthly-distance").compareDocumentPosition(cross) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -187,7 +189,7 @@ describe("owner running dashboard journey parity", () => {
     expect(screen.getByRole("heading", { name: "최근 7일 내 러닝·걷기·하이킹" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "훈련 상태" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("H2-3-1")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "월간 운동일지 →" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run");
+    expect(screen.getByRole("link", { name: "월간 운동일지" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run");
     expect(screen.getByTestId("H2-1-1")).toHaveTextContent("역치 페이스");
     expect(screen.getByTestId("run-weekly-activity")).toBeInTheDocument();
     expect(screen.getByTestId("run-monthly-distance")).toBeInTheDocument();
@@ -206,13 +208,24 @@ it("정본 API가 켜진 자전거 홈은 현재 Fitness와 시계열을 중복 
 });
 
 
-it.each(["self", "friends", "all"].flatMap(scope => ["bike", "run"].map(sport => [scope, sport])))("uses the selected fixed sport icon for an empty desktop %s feed in %s", async (scope, sport) => {
+it.each(["self", "friends", "all"])("shares the desktop feed with the selected scope %s and sport rather than a duplicate search control", scope => {
   state.mobile = false;
   state.feedScope = scope;
-  const view = show(`/ko?sport=${sport}`);
-  const icon = await screen.findByTestId("dashboard-feed-empty-icon");
-  expect(icon.tagName.toLowerCase()).toBe("svg");
-  expect(icon).toHaveAttribute("data-icon", sport);
-  expect(view.container).not.toHaveTextContent("🚴");
-  expect(screen.getByRole("tab", { name: /수영/ })).toBeDisabled();
+  show("/ko?sport=run");
+  expect(screen.getByTestId("mobile-journey-slot")).toHaveAttribute("data-sport-filter", "run");
+  expect(screen.getByRole("tab", { name: "러닝" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.queryByRole("tab", { name: /수영/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+});
+
+it.each(["7d", "year"])("preserves the menu URL search and %s date filter in the shared desktop feed", async (date) => {
+  state.mobile = false;
+  state.sportFilter = "bike";
+  show(`/ko?q=target&scope=friends&date=${date}&sport=run`);
+  const feed = screen.getByTestId("mobile-journey-slot");
+  expect(feed).toHaveAttribute("data-sport-filter", "run");
+  expect(feed).toHaveAttribute("data-feed-scope", "friends");
+  expect(feed).toHaveAttribute("data-date-preset", date);
+  await waitFor(() => expect(feed).toHaveAttribute("data-query", "target"));
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
 });

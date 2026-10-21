@@ -52,8 +52,10 @@ describe("MobileLogPage", () => {
     fireEvent.click(sports.getByRole("button", { name: /사이클/ }));
     expect(screen.getByTestId("query")).toHaveTextContent("sport=bike&keep=1");
     fireEvent.click(screen.getByRole("button", { name: "Change query" }));
-    expect(sports.getByRole("button", { name: /수영/ })).toHaveAttribute("aria-pressed", "true");
+    expect(sports.queryByRole("button", { name: /수영/ })).not.toBeInTheDocument();
+    expect(sports.getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("region", { name: "최근 활동" })).toHaveTextContent("Swim only");
+    expect(screen.getByRole("region", { name: "최근 활동" })).toHaveTextContent("Run only");
   });
 
   it("falls back to all activities for an unsupported sport", () => {

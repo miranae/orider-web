@@ -1,3 +1,5 @@
+import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../config/activitySubscriptions";
+import { admitSubscriptionActivities } from "../services/subscriptionFeed";
 import { SEARCH_PAGE_SIZE } from "../constants/pagination";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
@@ -106,7 +108,7 @@ function logActivityFeedTimeout(source: string, context?: Record<string, unknown
   });
 }
 
-export type ActivityFeedScope = "all" | "friends" | "self";
+export type ActivityFeedScope = "all" | "friends" | "self" | "following";
 
 type BufferedActivity = {
   activity: Activity;
@@ -199,6 +201,8 @@ async function hydrateActivityProfileImages(items: Activity[]): Promise<Activity
 }
 
 export interface UseActivitiesOptions {
+  subscriptionIds?: readonly string[];
+  subscriptionKey?: string;
   enabled?: boolean;
 }
 
@@ -214,7 +218,11 @@ export function useActivities(
     [friendIds],
   );
   // 전체와 친구 피드는 친구 목록 갱신 시 조회 범위와 커서를 함께 갱신한다.
-  const activeFriendIdsKey = scope !== "self" && user ? friendIdsKey : "";
+  const activeFriendIdsKey = (scope === "all" || scope === "friends") && user ? friendIdsKey : "";
+  const subscriptionIdsKey = scope === "following" && ACTIVITY_SUBSCRIPTIONS_ENABLED && user && !user.isAnonymous
+    ? [...new Set(options.subscriptionIds ?? [])].filter(id => id && id !== user.uid).sort().join("\u0000") : "";
+  const subscriptionKey = scope === "following" ? options.subscriptionKey ?? "" : "";
+  const stableSubscriptionIds = useMemo(() => subscriptionIdsKey ? subscriptionIdsKey.split("\u0000") : [], [subscriptionIdsKey]);
   const stableFriendIds = useMemo(
     () => activeFriendIdsKey ? activeFriendIdsKey.split("\u0000") : [],
     [activeFriendIdsKey],
@@ -224,6 +232,8 @@ export function useActivities(
     user?.uid ?? null,
     scope,
     activeFriendIdsKey,
+    subscriptionIdsKey,
+    subscriptionKey,
   ]);
   const feedRequestKeyRef = useRef(feedRequestKey);
   const feedRequestGenerationRef = useRef(0);
@@ -242,6 +252,7 @@ export function useActivities(
   }, []);
 
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [loadedRequestKey, setLoadedRequestKey] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(enabled);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -255,6 +266,15 @@ export function useActivities(
   }, []);
 
   const buildSourceQueries = useCallback((uid: string | null): FeedSourceQuery[] => {
+    if (scope === "following") {
+      if (!uid || !ACTIVITY_SUBSCRIPTIONS_ENABLED || user?.isAnonymous) return [];
+      return [
+        { ownerIds: null, composite: null, filters: [where("deletedAt", "==", null), where("userId", "==", uid)] },
+        ...chunkFriendIds(stableSubscriptionIds).map(ownerIds => ({ ownerIds, composite: null, filters: [
+          where("deletedAt", "==", null), where("userId", "in", ownerIds), where("visibility", "==", "everyone"),
+        ] })),
+      ];
+    }
     if (scope === "self") {
       return uid
         ? [{ ownerIds: null, composite: null, filters: [where("deletedAt", "==", null), where("userId", "==", uid)] }]
@@ -290,13 +310,13 @@ export function useActivities(
         where("visibility", "==", "friends"),
       ],
     })) : []];
-  }, [scope, stableFriendIds]);
+  }, [scope, stableFriendIds, stableSubscriptionIds, user?.isAnonymous]);
 
   // Total count (경량 메타데이터 쿼리, 문서 데이터 전송 없음).
   // 첫 피드/LCP 경로와 같은 Firestore 연결을 두고 경쟁하지 않도록 idle 이후로 미룬다.
   // 카운트는 보조 표시라 첫 화면 렌더 완료 뒤 갱신돼도 사용자 흐름에 영향이 없다.
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || scope === "following") {
       setTotalCount(0);
       return;
     }
@@ -400,7 +420,9 @@ export function useActivities(
       ...source,
       buffer: source.buffer.filter((item) => !consumedBySource.get(sourceIndex)?.has(item.activity.id)),
     }));
-    const hydratedItems = await hydrateActivityProfileImages(selected.map(({ item }) => item.activity));
+    const selectedItems = selected.map(({ item }) => item.activity);
+    const admittedItems = scope === "following" && uid ? await admitSubscriptionActivities(uid, selectedItems) : selectedItems;
+    const hydratedItems = await hydrateActivityProfileImages(admittedItems);
     const hasMore = nextSources.some((source) => source.buffer.length > 0 || !source.exhausted);
 
     return {
@@ -409,7 +431,7 @@ export function useActivities(
       cursor: hasMore ? { sources: nextSources } : null,
       hasMore,
     };
-  }, [buildSourceQueries]);
+  }, [buildSourceQueries, scope, subscriptionKey]);
 
   const fetchPage = useCallback((
     uid: string | null,
@@ -421,6 +443,8 @@ export function useActivities(
       uid,
       scope,
       activeFriendIdsKey,
+      subscriptionIdsKey,
+      subscriptionKey,
       feedCursorRequestKey(cursor),
       pageSize,
     ]);
@@ -438,7 +462,7 @@ export function useActivities(
       // 원래 request의 rejection은 호출자가 처리한다. finally 파생 Promise만 흡수한다.
     });
     return request;
-  }, [activeFriendIdsKey, fetchPageRequest, scope]);
+  }, [activeFriendIdsKey, subscriptionIdsKey, subscriptionKey, fetchPageRequest, scope]);
 
   // 초기 로드 + 유저 변경 시 리셋
   useEffect(() => {
@@ -535,6 +559,7 @@ export function useActivities(
         if (cancelled) return;
         noteFirestoreServerSuccess(first.serverMetadata);
         setActivities(first.items);
+        setLoadedRequestKey(feedRequestKey);
         setFeedCursor(first.cursor);
         setHasMore(first.hasMore);
         setLoading(false);
@@ -582,7 +607,7 @@ export function useActivities(
 
     load();
     return () => { cancelled = true; };
-  }, [enabled, authLoading, user, fetchPage, retryGeneration]);
+  }, [enabled, authLoading, user, fetchPage, retryGeneration, feedRequestKey]);
 
   const loadMore = useCallback(async () => {
     if (!enabled || !feedCursor || loadingMore) return;
@@ -620,7 +645,7 @@ export function useActivities(
   }, [enabled, feedCursor, loadingMore, user, fetchPage, feedRequestKey]);
 
   return {
-    activities,
+    activities: loadedRequestKey === feedRequestKey ? activities : [],
     totalCount,
     loading,
     loadMore,
@@ -915,6 +940,7 @@ async function fetchActivitySearchResults(
   uid: string | null,
   dateFrom: number | null,
   previousCursors?: SearchCursor[],
+  subscriptionIds?: readonly string[],
 ): Promise<SearchPage> {
   const tokens = keyword
     .toLowerCase()
@@ -951,7 +977,9 @@ async function fetchActivitySearchResults(
     if (dateFrom !== null) {
       pubConstraints.splice(3, 0, where("startTime", ">=", dateFrom));
     }
-    constraints.push(pubConstraints);
+    if (subscriptionIds) {
+      chunkFriendIds(subscriptionIds.filter(id => id !== uid)).forEach(ids => constraints.push([...pubConstraints, where("userId", "in", ids)]));
+    } else constraints.push(pubConstraints);
   } else {
     // Guest: public only
     const pubConstraints: QueryConstraint[] = [
@@ -997,16 +1025,19 @@ async function fetchActivitySearchResults(
   }
 
   return {
-    results: await hydrateActivityProfileImages(merged),
+    results: await hydrateActivityProfileImages(subscriptionIds && uid ? await admitSubscriptionActivities(uid, merged) : merged),
     cursors,
     hasMore: cursors.some((cursor) => cursor.hasMore || cursor.buffer.length > 0),
   };
 }
 
-export function useActivitySearch(friendIds: ReadonlySet<string>) {
+export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?: { ids: readonly string[]; key: string; ready: boolean }) {
   const { user } = useAuth();
 
-  const searchOwnerKey = user?.uid ?? "anonymous";
+  const subscriptionIdsKey = subscriptions ? [...new Set(subscriptions.ids)].sort().join("\u0000") : null;
+  const subscriptionIds = useMemo(() => subscriptionIdsKey === null ? undefined : subscriptionIdsKey ? subscriptionIdsKey.split("\u0000") : [], [subscriptionIdsKey]);
+  const subscriptionReady = subscriptions?.ready ?? true;
+  const searchOwnerKey = JSON.stringify([user?.uid ?? "anonymous", subscriptions?.key ?? null, subscriptionIdsKey]);
   const [searchResultState, setSearchResultState] = useState<{ ownerKey: string; keyword: string; datePreset: DatePreset; results: Activity[]; cursors: SearchCursor[]; hasMore: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -1041,7 +1072,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
 
   // Re-fetch when keyword or datePreset changes
   useEffect(() => {
-    if (!active || !searchedKeyword) return;
+    if (!active || !searchedKeyword || !subscriptionReady) return;
 
     let cancelled = false;
     const requestEpoch = ++searchEpoch.current;
@@ -1051,7 +1082,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
 
     const dateFrom = getDateFrom(datePreset);
 
-    fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, dateFrom)
+    fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, dateFrom, undefined, subscriptionIds)
       .then((page) => {
         if (!cancelled && searchEpoch.current === requestEpoch) setSearchResultState({ ownerKey: searchOwnerKey, keyword: searchedKeyword, datePreset, ...page });
       })
@@ -1064,7 +1095,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
       });
 
     return () => { cancelled = true; searchEpoch.current += 1; };
-  }, [active, searchedKeyword, datePreset, user, searchOwnerKey, retryCount]);
+  }, [active, searchedKeyword, datePreset, user, searchOwnerKey, retryCount, subscriptionIds, subscriptionReady]);
 
   // Reset displayCount when filters change
   useEffect(() => {
@@ -1095,7 +1126,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
     const requestEpoch = searchEpoch.current;
     loadingMoreEpoch.current = requestEpoch;
     setLoadingMore(true);
-    fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, getDateFrom(datePreset), currentSearchResultState.cursors)
+    fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, getDateFrom(datePreset), currentSearchResultState.cursors, subscriptionIds)
       .then((page) => {
         if (searchEpoch.current !== requestEpoch) return;
         setSearchResultState((previous) => previous === currentSearchResultState ? {
@@ -1115,7 +1146,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>) {
         if (loadingMoreEpoch.current === requestEpoch) loadingMoreEpoch.current = null;
         if (searchEpoch.current === requestEpoch) setLoadingMore(false);
       });
-  }, [active, currentSearchResultState, datePreset, error, loading, searchedKeyword, user]);
+  }, [active, currentSearchResultState, datePreset, error, loading, searchedKeyword, user, subscriptionIds]);
   const loadMore = useCallback(() => {
     if (displayCount < results.length) setDisplayCount((prev) => prev + 20);
     else loadMoreServer();

@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import CriticalPaceCurve from "../charts/CriticalPaceCurve";
 import type { CurvePeriods, RunPacePoint } from "../../features/fitness/fitnessCurveDocuments";
 import ConditionSectionNav from "../../features/fitness/components/ConditionSectionNav";
@@ -732,7 +733,8 @@ export default function MobileFitnessPage({
   // "탭 눌러도 화면이 그대로" 회귀가 발생한다.
   const [searchParams, setSearchParams] = useSearchParams();
   // 화면 표시용 — URL "tri" 는 탭 "all" 로, 없으면 URL 기본인 bike 와 정합.
-  const urlSport = searchParams.get("sport") ?? "bike";
+  const requestedSport = searchParams.get("sport") ?? "bike";
+  const urlSport = isSportUiEnabled(requestedSport) ? requestedSport : "bike";
   const sportSegment = urlSport === "tri" ? "all" : urlSport;
   const setSportSegment = (v: string) => {
     const next = new URLSearchParams(searchParams);

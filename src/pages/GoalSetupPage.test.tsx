@@ -70,12 +70,12 @@ describe("GoalSetupPage", () => {
   });
 
 
-  it("keeps direct swimming setup read-only with an unavailable status instead of a wizard", async () => {
+  it("normalizes direct swimming setup to the bike wizard without saving a goal", async () => {
     const prior = mockCallableInvocations.length;
     renderWithProviders(<GoalSetupPage />, { authenticated: true, route: "/ko/goal-setup?sport=swim" });
-    expect(await screen.findByText("수영 · 준비 중")).toHaveAttribute("role", "status");
-    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("K3-3-2")).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "3분 안에 나만의 운동 계획 만들기" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /수영/ })).not.toBeInTheDocument();
+    expect(screen.getByTestId("K3-3-2")).toBeInTheDocument();
     expect(mockCallableInvocations.slice(prior).filter(call => /createGoal|generatePlan/i.test(call.name))).toEqual([]);
   });
 
