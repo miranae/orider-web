@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import { RefreshCw, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -98,7 +99,7 @@ export default function MobilePlanPage({
           style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
           <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t('mobile.headerTitle')}</span>
           <div style={{ flex: 1 }} />
-          {(goalId || (!goalTitle && !currentWeek)) && <Button type="button" variant="ghost" size="sm"
+          {(goalId || (!goalTitle && !currentWeek)) && isSportUiEnabled(goalSport ?? "bike") && <Button type="button" variant="ghost" size="sm"
             onClick={() => currentWeek && goalId ? setAddSheetOwner(currentSheetOwner) : navigate(`/goal-setup?sport=${goalSport === "run" || goalSport === "swim" ? goalSport : "bike"}`)}>{t('mobile.addAction')}</Button>}
         </div>
       )}

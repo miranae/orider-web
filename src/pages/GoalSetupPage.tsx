@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../config/sportFeatures";
 import { useGoalFitnessInputs } from "../hooks/useGoalFitnessInputs";
 import { GoalInputNotice } from "../components/training/GoalInputNotice";
 import GoalHub from "./GoalHub";
@@ -443,7 +444,7 @@ function GoalWizard({ embedded = false }: { embedded?: boolean }) {
   const { user, loading: authLoading, signIn } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const discipline = normalizePlanSport(searchParams.get("sport"));
+  const discipline = normalizePlanSport(isSportUiEnabled(searchParams.get("sport") ?? "bike") ? searchParams.get("sport") : "bike");
   const [step, setStep] = useState(1);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<{ name: string; dist: number; elev: number; climbs?: Array<{ gain: number; dist: number; cat: number }> } | null>(null);

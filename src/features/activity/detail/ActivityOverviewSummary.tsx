@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
 import type { useActivityOverview } from "../../../hooks/useActivityOverview";
-import { Button, Card, Chip, Stack, Stat, Text, buttonClass } from "../../../theme/components";
+import { Button, Card, Chip, IconButton, Stack, Stat, Text, buttonClass } from "../../../theme/components";
 import InfoTip from "../../../components/InfoTip";
 import FuelSplitBar from "../../../components/FuelSplitBar";
 import { DeltaBar, FitnessShift, IntensityGauge, MixedValue, OverviewPowerCurve, PercentMeter, ZoneTimeBar, formatSpan, powerComparisonBasis } from "./ActivityOverviewCharts";
@@ -14,7 +14,7 @@ const number = (value: number) => String(Math.round(value * 10) / 10);
 const signed = (value: number) => `${value > 0 ? "+" : ""}${number(value)}`;
 
 /**
- * 섹션 제목에는 용어 강조를 하지 않는다 — 설명은 ⓘ 하나로 연결한다.
+ * 설명이 있는 섹션은 제목을 공통 텍스트 트리거로 사용하고, 접기 동작은 분리한다.
  * `collapsible` 이면 좁은 카드(휴대폰, 카드 폭 480px 미만)에서 접힌 채 시작한다. 그보다 넓으면 늘 펼친다.
  */
 function SummarySection({ title, children, info, className = "", collapsible = false }: { title: string; children: ReactNode; info?: string; className?: string; collapsible?: boolean }) {
@@ -34,12 +34,10 @@ function SummarySection({ title, children, info, className = "", collapsible = f
   const folded = collapsible && narrow && !open;
   return <section ref={ref} className={`min-w-0 border-t border-[var(--line-soft)] pt-[var(--dim-section-gap)] space-y-4 ${className}`} aria-label={title}>
     <div className="activity-overview-section-head">
-      {collapsible && narrow
-        ? <h3 className="activity-overview-section-head__title"><button type="button" className="activity-overview-disclosure" aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen((value) => !value)}>
-            <Text variant="bodyMedium" weight={600} tone="primary">{title}</Text><span aria-hidden="true" className="activity-overview-disclosure__chevron" />
-          </button></h3>
-        : <Text as="h3" variant="bodyMedium" weight={600}>{title}</Text>}
-      {info && <InfoTip content={info} label={t("overviewSummary.aboutSection", { title })} />}
+      <Text as="h3" variant="bodyMedium" weight={600}>
+        {info ? <InfoTip title={title} content={info} label={t("overviewSummary.aboutSection", { title })}>{title}</InfoTip> : title}
+      </Text>
+      {collapsible && narrow && <IconButton variant="ghost" size="md" className="activity-overview-disclosure" aria-label={title} aria-expanded={open} aria-controls={bodyId} onClick={() => setOpen(value => !value)} icon={<span aria-hidden="true" className="activity-overview-disclosure__chevron" />} />}
     </div>
     <div id={bodyId} hidden={folded} className="space-y-4">{children}</div>
   </section>;
@@ -59,7 +57,7 @@ const latin = (value: string) => /^[A-Za-z0-9 .+′'/-]+$/.test(value) ? { "data
  * A reading surface for the sharing summary, not a second analysis dashboard.
  *
  * 첫 화면에서 "어떤 활동이었나" 가 그림으로 읽히게 한다 — 강도 게이지·존 막대, 파워 커브,
- * 훈련 부하 전→후. 숫자는 그림이 가리키는 몇 개만 크게 남기고, 설명은 ⓘ 로 접는다.
+ * 훈련 부하 전→후. 숫자는 그림이 가리키는 몇 개만 크게 남기고, 설명은 제목에서 연다.
  * 값은 전부 서버 정본이다. 없으면 그 그림을 그리지 않는다.
  */
 export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true, ftpW, integrated = false }: { integrated?: boolean; presentation: ActivityOverviewPresentation; isOwner?: boolean;

@@ -123,9 +123,9 @@ export default function WeeklyTssBars({ weeks, tooltipFor, metric = "tss", cover
       </button>)}
     </div>
     {weeks.length > 0 && <div aria-hidden="true" data-testid="weekly-chart-ticks" className="flex" style={{ marginTop: "var(--space-2)", gap: 1, gridColumn: metric === "distance" ? 2 : 1 }}>
-      {weeks.map((week, weekIndex) => <div key={week.week} data-week-index={weekIndex} style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
-        {(weekIndex === 0 || weekIndex === Math.floor(weeks.length / 2) || weekIndex === weeks.length - 1) && <Text as="div" variant="caption" tone="tertiary" mono style={{ whiteSpace: "nowrap" }}>{week.week}</Text>}
-        {weekIndex === weeks.length - 1 && <Text as="div" variant="caption" style={{ whiteSpace: "nowrap", color: "var(--ink-1)", position: "relative", left: "50%", transform: "translateX(-50%)", width: "max-content" }}>{t("sidebar.weeklyTss.thisWeek")}</Text>}
+      {weeks.map((week, weekIndex) => <div key={week.week} data-week-index={weekIndex} style={{ flex: 1, minWidth: 0, textAlign: weekIndex === 0 ? "left" : weekIndex === weeks.length - 1 ? "right" : "center" }}>
+        {(weekIndex === 0 || weekIndex === Math.floor(weeks.length / 2) || weekIndex === weeks.length - 1) && <Text as="div" variant="caption" tone="tertiary" mono style={{ position: "relative", width: "max-content", whiteSpace: "nowrap", left: weekIndex === 0 ? 0 : weekIndex === weeks.length - 1 ? "100%" : "50%", transform: weekIndex === 0 ? undefined : weekIndex === weeks.length - 1 ? "translateX(-100%)" : "translateX(-50%)" }}>{week.week}</Text>}
+        {weekIndex === weeks.length - 1 && <Text as="div" variant="caption" style={{ position: "relative", left: "100%", transform: "translateX(-100%)", width: "max-content", whiteSpace: "nowrap", color: "var(--ink-1)" }}>{t("sidebar.weeklyTss.thisWeek")}</Text>}
       </div>)}
     </div>}
     </div>

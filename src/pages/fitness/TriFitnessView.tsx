@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import { useState, useMemo, useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
@@ -223,7 +224,7 @@ function TripleStackPMC({ bikeCtl = [], runCtl = [], swimCtl = [], totCtl = [], 
         { label: `${t("discipline.run")} CTL`, value: runCtl[hi] },
         { label: `${t("discipline.swim")} CTL`, value: swimCtl[hi] },
         { label: "ATL", value: atl[hi] }, { label: "TSB", value: tsb[hi] },
-      ]).map(item => <ChartValue key={item.label} primary={item.value == null ? t("triView.chart.unknown") : `${item.label === "TSB" && item.value >= 0 ? "+" : ""}${item.value.toFixed(1)}`} secondary={item.label} />)}</div>
+      ]).filter(item => isSportUiEnabled("swim") || item.label !== `${t("discipline.swim")} CTL`).map(item => <ChartValue key={item.label} primary={item.value == null ? t("triView.chart.unknown") : `${item.label === "TSB" && item.value >= 0 ? "+" : ""}${item.value.toFixed(1)}`} secondary={item.label} />)}</div>
     </Card>
     <p className="tri-fitness__chart-hint">{t("triView.chart.interactionHint")}</p>
     </div>
@@ -411,7 +412,7 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
             [`${t("discipline.bike")} · bTSS`, hover.bike, BIKE_COLOR],
             [`${t("discipline.run")} · rTSS`, hover.run, DISCIPLINE_CHART_COLORS.run],
             [`${t("discipline.swim")} · sTSS`, hover.swim, DISCIPLINE_CHART_COLORS.swim],
-          ] as const).map(([label, v, color]) => (
+          ] as const).filter(([, , color]) => isSportUiEnabled("swim") || color !== DISCIPLINE_CHART_COLORS.swim).map(([label, v, color]) => (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)" }}>
               <span style={{ width: 8, height: 8, borderRadius: "var(--r-xs)", background: color, flexShrink: 0 }} />
               <span style={{ color: "var(--ink-2)", minWidth: 44 }}>{label}</span>
@@ -529,7 +530,7 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
   const disciplineEvidence = <>
       {/* IntegratedLoadCard는 현재 snapshot/기여도/포커스, 이 PMC는 시간 추이만 담당한다. */}
       <ChartFrame variant="card" header={<ChartHeader size="compact" title={<h3>{t("triView.pmc.title")}</h3>} description={<>{t("triView.pmc.sub")}<Text as="p" variant="bodySmall" data-testid="tri-legacy-range-note">{t(selectedHistoryRange === "3y" || selectedHistoryRange === "all" ? "triView.pmc.legacyRangeLong" : "triView.pmc.legacyRange", { days: range, selected: t(`history.range.${selectedHistoryRange}`) })}</Text></>} />}>
-        <ChartLegend items={LEGEND_ITEM_KEYS.map(item => ({ label: t(item.key), color: item.color, dasharray: item.type === "line" ? item.dasharray : undefined }))} />
+        <ChartLegend items={LEGEND_ITEM_KEYS.filter(item => item.key !== "discipline.swim" || isSportUiEnabled("swim")).map(item => ({ label: t(item.key), color: item.color, dasharray: item.type === "line" ? item.dasharray : undefined }))} />
         <TripleStackPMC
           bikeCtl={pmcSeries.bikeCtl}
           runCtl={pmcSeries.runCtl}
@@ -592,7 +593,7 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
           <DailyLoadChart data={dailyLoadData} />
           {/* 범례 */}
           <div style={{ marginTop: "var(--space-3)", display: "flex", gap: "var(--space-3)", fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>
-            {dailyLegendItems.map((item) => (
+            {dailyLegendItems.filter(item => item.color !== DISCIPLINE_CHART_COLORS.swim || isSportUiEnabled("swim")).map((item) => (
               <span key={item.label} style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
                 <span style={{ width: 10, height: 10, background: item.color, borderRadius: "var(--r-xs)" }} />
                 {item.label}
@@ -623,10 +624,10 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
               <Text as="div" variant="caption" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.run")}</Text>
               <div><Text variant="dataMedium">{weeklyEvidence.run.display}</Text><Text variant="unit"> TSS</Text></div>
             </div>
-            <div>
+            {isSportUiEnabled("swim") && <div>
               <Text as="div" variant="caption" style={{ fontSize: "var(--fs-xs)", marginBottom: "var(--space-1)" }}>{t("discipline.swim")}</Text>
               <div><Text variant="dataMedium">{weeklyEvidence.swim.display}</Text><Text variant="unit"> TSS</Text></div>
-            </div>
+            </div>}
           </div>
         </Card>
       </div>
@@ -645,7 +646,7 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
         <div className="tri-fitness__sport-cards">
           <PerDisciplineCard label={t("triView.cycling")} color={DISCIPLINE_CHART_COLORS.bike} ctl={bikeSpark} dates={sparkDates.bike} delta={bikeSpark.length >= 2 ? bikeSpark[bikeSpark.length - 1]! - bikeSpark[bikeSpark.length - 2]! : null} tss={weeklyEvidence.bike.display} dist="—" unit="km" lastSess={bikeSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=bike" />
           <PerDisciplineCard label={t("discipline.run")} color={DISCIPLINE_CHART_COLORS.run} ctl={runSpark} dates={sparkDates.run} delta={runSpark.length >= 2 ? runSpark[runSpark.length - 1]! - runSpark[runSpark.length - 2]! : null} tss={weeklyEvidence.run.display} dist="—" unit="km" lastSess={runSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=run" />
-          <PerDisciplineCard disabled label={t("discipline.swim")} color={DISCIPLINE_CHART_COLORS.swim} ctl={swimSpark} dates={sparkDates.swim} delta={swimSpark.length >= 2 ? swimSpark[swimSpark.length - 1]! - swimSpark[swimSpark.length - 2]! : null} tss={weeklyEvidence.swim.display} dist="—" unit="km" lastSess={swimSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=swim" />
+          {isSportUiEnabled("swim") && <PerDisciplineCard disabled label={t("discipline.swim")} color={DISCIPLINE_CHART_COLORS.swim} ctl={swimSpark} dates={sparkDates.swim} delta={swimSpark.length >= 2 ? swimSpark[swimSpark.length - 1]! - swimSpark[swimSpark.length - 2]! : null} tss={weeklyEvidence.swim.display} dist="—" unit="km" lastSess={swimSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=swim" />}
         </div>
       </div>
       {!evidenceOnly && thresholdsSlot}

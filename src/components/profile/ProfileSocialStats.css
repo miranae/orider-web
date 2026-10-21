@@ -1,0 +1,48 @@
+.profile-social {
+  width: 100%;
+  margin-top: var(--space-4);
+  border-top: 1px solid var(--line-soft);
+}
+.profile-social-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.profile-social-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-2);
+  min-height: var(--space-8);
+  background: transparent;
+  color: var(--ink-0);
+  border: 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+.profile-social-stat + .profile-social-stat { border-inline-start: 1px solid var(--line-soft); }
+.profile-social-stat > span { color: var(--ink-3); font-size: var(--fs-xs); }
+.profile-social-stat:focus-visible, .profile-social-person:focus-visible { outline: 2px solid var(--lime); outline-offset: var(--space-0-5); }
+.profile-social-list { display: grid; gap: var(--space-3); }
+.profile-social-person { display: flex; align-items: center; gap: var(--space-3); min-height: var(--space-8); color: var(--ink-0); text-decoration: none; }
+.profile-social-error { display: grid; gap: var(--space-2); padding: var(--space-2); }
+
+.profile-activity-summary { width: 100%; text-align: start; }
+.profile-latest-activity, .profile-streak { padding: var(--space-4) 0; border-top: 1px solid var(--line-soft); }
+.profile-latest-activity h3, .profile-streak h3 { margin: 0 0 var(--space-2); }
+.profile-latest-activity p, .profile-streak p { margin: var(--space-2) 0 0; }
+.profile-latest-link { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); color: var(--ink-0); text-decoration: none; overflow-wrap: anywhere; }
+.profile-latest-link:focus-visible { outline: 2px solid var(--lime); }
+.profile-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-1); margin-top: var(--space-3); }
+.profile-week-day { text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); min-width: 0; color: var(--ink-3); font-size: var(--fs-xs); }
+.profile-week-day--active { color: var(--color-brand-bike); }
+.profile-week-day[aria-current="date"] strong { outline: 1px solid var(--line); border-radius: var(--r-sm); }
+
+.profile-streak .profile-streak-heading { margin: 0 0 var(--space-2); }
+
+.profile-latest-link > span:last-child { white-space: nowrap; }
+
+.profile-social-stats--subscriptions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.profile-social-stat:disabled { cursor: default; }
+.profile-subscription-action { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }

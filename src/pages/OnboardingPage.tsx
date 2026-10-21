@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../config/sportFeatures";
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
@@ -57,7 +58,7 @@ export default function OnboardingPage() {
     }
     const discipline = profile.primaryDiscipline;
     if (discipline === "tri" || discipline === "bike" || discipline === "run" || discipline === "swim") {
-      setSelected(discipline);
+      setSelected(isSportUiEnabled(discipline) ? discipline : null);
     }
   }, [profile, finishTarget, navigate, stravaSignup]);
 
@@ -221,7 +222,7 @@ export default function OnboardingPage() {
               {t("onboarding.discipline.subtitle")}
             </p>
             <div className="flex flex-col gap-3 mb-8">
-              {DISCIPLINES.map(({ key, icon }) => (
+              {DISCIPLINES.filter(item => isSportUiEnabled(item.key)).map(({ key, icon }) => (
                 <button
                   key={key}
                   onClick={() => setSelected(key)}

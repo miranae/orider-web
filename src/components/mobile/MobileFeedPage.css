@@ -33,7 +33,6 @@
 .mobile-feed-card-sport { display: flex; align-items: center; justify-content: center; align-self: start; color: var(--ink-1); }
 .mobile-feed-activity-title { margin: 0; align-self: center; overflow-wrap: anywhere; line-height: var(--fs-2xl); }
 .mobile-feed-card-warning { grid-column: 2; justify-self: start; }
-.mobile-feed-summary { padding-left: var(--feed-content-inset); }
 
 /* 자연 너비의 지표 묶음은 숫자와 단위를 함께 읽고, 공간이 부족하면 묶음째 다음 줄로 보낸다. */
 .mobile-feed-stats {
@@ -150,7 +149,7 @@
 
 .mobile-feed-memo { margin: var(--space-3) 0 0 var(--feed-content-inset); position: relative; z-index: 2; font-size: var(--fs-data-small); line-height: calc(var(--space-4) + var(--space-0-5)); }
 .mobile-feed-memo p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.mobile-feed-memo-collapsed { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 16; overflow: hidden; }
+.mobile-feed-memo-collapsed { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--feed-memo-lines, 3); overflow: hidden; }
 .mobile-feed-photos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: var(--space-1); margin-top: var(--space-1); position: relative; z-index: 2; }
 .mobile-feed-photos--1 { grid-template-columns: minmax(0, 1fr); }
 .mobile-feed-photos--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }

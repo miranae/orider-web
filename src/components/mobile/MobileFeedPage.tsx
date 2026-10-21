@@ -2,6 +2,7 @@ import SportIcon from "../common/SportIcon";
 import HomeActivitySportIcon from "../common/HomeActivitySportIcon";
 import { getHomeActivitySport } from "../../utils/homeActivitySport";
 import GlossaryText from "../common/GlossaryText";
+import InfoTip from "../InfoTip";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/appStoreLinks";
 import { useEffect, useState, useMemo, useRef, type ReactNode } from "react";
 import { Camera, Medal } from "lucide-react";
@@ -15,7 +16,6 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { activityFeedContentPreviewUrl, activityFeedSourceRevision, boundedFeedContent, loadLocalActivityFeedContent, loadActivityFeedComments } from "../../services/activityFeedContent";
 import { logClientError } from "../../services/errorLogger";
 import Avatar from "../Avatar";
-import ActivityAiSummary from "../activity/ActivityAiSummary";
 import ActivityFeedVideo from "../activity/ActivityFeedVideo";
 import ActivitySocialFooter from "../activity/ActivitySocialFooter";
 import { activityTimestampParts, toLocalDate } from "../../utils/dateUtils";
@@ -41,6 +41,7 @@ interface MobileFeedPageProps {
   activities: Activity[];
   loading: boolean;
   error?: boolean;
+  unavailableMessage?: string;
   onRetry?: () => void;
   hasMore: boolean;
   loadingMore: boolean;
@@ -49,6 +50,7 @@ interface MobileFeedPageProps {
   showYearRecapBanner?: boolean;
   currentUserId?: string | null;
   friendIds?: string[];
+  subscriptionIds?: readonly string[];
   feedScope: ActivityFeedScope;
   sportFilter?: SportFilter;
   datePreset?: DashboardDatePreset;
@@ -163,7 +165,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
   const embedded = activity.feedContentV1?.sourceRevision === sourceRevision ? boundedFeedContent(activity.feedContentV1) : null;
   const localContentVisible = localContent?.viewerId === (user?.uid ?? null) && localContent?.sourceRevision === sourceRevision ? localContent : null;
   const content = localContentVisible ?? embedded;
-  const needsDefaultMemo = activity.source === "orider" && !content?.memo?.trim();
+  const needsDefaultMemo = (activity.source === "orider" || activity.source === "strava") && !content?.memo?.trim();
   const [visibleActivityId, setVisibleActivityId] = useState<string | null>(null);
   useEffect(() => {
     if (!needsDefaultMemo || visibleActivityId === activity.id) return;
@@ -288,7 +290,6 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
         </Text>
         {showDataWarning && (
           <span
-            title={t("mobileFeed.dataWarningTooltip")}
             className="mobile-feed-card-warning text-[length:var(--fs-xs)]"
             style={{
               padding: "3px 6px", borderRadius: "var(--r-sm)",
@@ -296,18 +297,13 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
               background: "var(--bg-3)", border: "1px solid var(--amber)",
             }}
           >
-            {t("mobileFeed.dataWarningBadge")}
+            <InfoTip title={t("mobileFeed.dataWarningBadge")} content={t("mobileFeed.dataWarningTooltip")} label={t("mobileFeed.dataWarningBadge")}>{t("mobileFeed.dataWarningBadge")}</InfoTip>
           </span>
         )}
       </div>
 
       {localFailure?.kind === "content" && previewError}
-      {memo && <ActivityMemo memo={memo} memoTruncated={!!content?.memo?.trim() && content.memoTruncated} activityId={activity.id} />}
-
-      {/* 저장된 AI 요약이 있는 활동에만 표시한다. */}
-      {(activity.aiSummaryPreview || activity.aiSummaryPreview_en) && <div className="mobile-feed-summary">
-        <ActivityAiSummary summary={activity.aiSummaryPreview} summaryEn={activity.aiSummaryPreview_en} inset={false} />
-      </div>}
+      {memo && <ActivityMemo key={activity.id} memo={memo} memoTruncated={!!content?.memo?.trim() && content.memoTruncated} activityId={activity.id} />}
 
       {/* 핵심 세 지표는 가로로, 추가 측정값은 보조 행에 표시한다. */}
       <div className={`mobile-feed-stats${discipline === "run" ? " mobile-feed-stats--run" : ""}`} data-testid={discipline === "run" ? "run-card-primary" : undefined}>
@@ -373,7 +369,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
 }
 
 export default function MobileFeedPage({
-  activities, loading, error = false, onRetry, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, currentUserId = null, friendIds = [],
+  activities, loading, error = false, unavailableMessage, onRetry, hasMore, loadingMore, onLoadMore, showYearRecapBanner = false, currentUserId = null, friendIds = [], subscriptionIds = [],
   activitySearch,
   feedScope,
   sportFilter: controlledSportFilter,
@@ -387,6 +383,7 @@ export default function MobileFeedPage({
   const datePreset = controlledDatePreset ?? "all";
   const [renderLimit, setRenderLimit] = useState(MOBILE_FEED_RENDER_INITIAL);
   useEffect(() => { setRenderLimit(MOBILE_FEED_RENDER_INITIAL); }, [activitySearch?.searchedKeyword, sportFilter, datePreset, feedScope]);
+  const subscriptionIdSet = useMemo(() => new Set(subscriptionIds), [subscriptionIds]);
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
   const signedIn = !!user && !user.isAnonymous;
   const effectiveFeedScope = signedIn ? feedScope : "all";
@@ -404,15 +401,19 @@ export default function MobileFeedPage({
   const visibleActivities = sourceActivities.filter((a) => !isTrivialActivity(a));
   const filteredBySport = sportFilter === "all" ? visibleActivities : visibleActivities.filter(a => getDiscipline(a.type) === sportFilter);
   const filteredByScope = filteredBySport.filter((a) => {
+    if (effectiveFeedScope === "following") return a.userId === currentUserId || a.visibility === "everyone" && subscriptionIdSet.has(a.userId);
     if (effectiveFeedScope === "friends") return a.userId === currentUserId || friendIdSet.has(a.userId);
     if (effectiveFeedScope === "self") return currentUserId != null && a.userId === currentUserId;
     return true;
   });
   const cutoff = datePreset === "all"
     ? 0
-    : Date.now() - (datePreset === "7d" ? 7 : datePreset === "30d" ? 30 : 90) * 86400000;
+    : datePreset === "year"
+      ? new Date(new Date().getFullYear(), 0, 1).getTime()
+      : Date.now() - (datePreset === "7d" ? 7 : datePreset === "30d" ? 30 : 90) * 86400000;
   const filteredByDate = cutoff > 0 ? filteredByScope.filter((a) => a.startTime >= cutoff) : filteredByScope;
   const filteredActivities = filteredByDate;
+  const moreCandidates = !searchActive && effectiveFeedScope === "following" && hasMore;
   const renderedActivities = filteredActivities.slice(0, renderLimit);
   const hasHiddenLocalItems = filteredActivities.length > renderedActivities.length;
   const supportingCards = (
@@ -430,6 +431,7 @@ export default function MobileFeedPage({
     </>
   );
 
+  if (unavailableMessage) return <div role="status" style={{ padding: "var(--space-6)" }}><Text as="p" variant="bodySmall" tone="secondary">{unavailableMessage}</Text></div>;
   return (
     <div className="dashboard-home" data-testid="H1-2" style={{ overscrollBehavior: "contain" }}>
       <Text as="h1" className="sr-only">{t("mobileFeed.homeTitle")}</Text>
@@ -462,9 +464,9 @@ export default function MobileFeedPage({
       {!(searchActive ? activitySearch!.loading || activitySearch!.error : loading || error) && filteredActivities.length === 0 && (
         <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
           <div aria-hidden="true" style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>{sportFilter === "all" ? getDisciplineIcon(null) : <SportIcon sport={sportFilter} size={32} style={{ margin: "0 auto" }} />}</div>
-          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{searchActive && activitySearch!.hasMoreServerResults ? t("feed.search.morePossibleTitle") : searchActive ? t("feed.search.emptyTitle") : activities.length > 0 ? t("feed.noMatches.title") : t("mobileFeed.emptyTitle")}</div>
-          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)" }}>{searchActive && activitySearch!.hasMoreServerResults ? t("feed.search.morePossibleDescription") : searchActive ? t("feed.search.emptyDescription") : activities.length > 0 ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
-          {signedIn && !searchActive && activities.length === 0 && <div className="flex gap-3 mt-3"><a href={ORIDER_PLAY_STORE_URL}>Google Play</a><a href={ORIDER_APP_STORE_URL}>App Store</a><Link to="/athlete/me/activities?import=1">{t("todayStrip.importHistory")}</Link></div>}
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{(searchActive && activitySearch!.hasMoreServerResults || moreCandidates) ? t("feed.search.morePossibleTitle") : searchActive ? t("feed.search.emptyTitle") : activities.length > 0 ? t("feed.noMatches.title") : t("mobileFeed.emptyTitle")}</div>
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)" }}>{(searchActive && activitySearch!.hasMoreServerResults || moreCandidates) ? t("feed.search.morePossibleDescription") : searchActive ? t("feed.search.emptyDescription") : activities.length > 0 ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
+          {signedIn && !searchActive && !hasMore && activities.length === 0 && <div className="flex gap-3 mt-3"><a href={ORIDER_PLAY_STORE_URL}>Google Play</a><a href={ORIDER_APP_STORE_URL}>App Store</a><Link to="/athlete/me/activities?import=1">{t("todayStrip.importHistory")}</Link></div>}
 
         </div>
       )}

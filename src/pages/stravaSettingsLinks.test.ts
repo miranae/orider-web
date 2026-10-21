@@ -22,8 +22,7 @@ describe("Strava empty-state settings links", () => {
     const guidance = container.querySelector('[data-home-slot="guidance"]');
     expect(guidance).not.toBeNull();
     expect(within(guidance as HTMLElement).getByRole("link", { name: "Strava 연결" })).toHaveAttribute("href", "/ko/settings/connections");
-    const emptyFeed = within(importLink.closest('[role="status"]') as HTMLElement);
-    expect(emptyFeed.getByRole("link", { name: "Google Play" })).toHaveAttribute("href", ORIDER_PLAY_STORE_URL);
-    expect(emptyFeed.getByRole("link", { name: "App Store" })).toHaveAttribute("href", ORIDER_APP_STORE_URL);
+    expect(screen.getByRole("link", { name: "Google Play" })).toHaveAttribute("href", ORIDER_PLAY_STORE_URL);
+    expect(screen.getByRole("link", { name: "App Store" })).toHaveAttribute("href", ORIDER_APP_STORE_URL);
   });
 });

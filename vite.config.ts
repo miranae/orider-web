@@ -17,12 +17,20 @@ export default defineConfig(({ mode }) => {
   return {
     cacheDir: process.env.ORIDER_VITE_CACHE_DIR || "node_modules/.vite",
     server: {
-      proxy: env.VITE_ACTIVITY_FEED_CONTENT_PREVIEW_URL === "/api/local/activity-feed-content" ? {
-        "/api/local/activity-feed-content": {
-          target: "http://127.0.0.1:8788",
-          rewrite: () => "/activityFeedContent",
-        },
-      } : undefined,
+      proxy: {
+        ...(env.VITE_ACTIVITY_FEED_CONTENT_PREVIEW_URL === "/api/local/activity-feed-content" ? {
+          "/api/local/activity-feed-content": {
+            target: "http://127.0.0.1:8788",
+            rewrite: () => "/activityFeedContent",
+          },
+        } : {}),
+        ...(env.VITE_ACTIVITY_OVERVIEW_PREVIEW_URL === "/api/local/activity-overview" ? {
+          "/api/local/activity-overview": {
+            target: "http://127.0.0.1:8789",
+            rewrite: () => "/activityOverview",
+          },
+        } : {}),
+      },
       fs: {
         allow: [path.resolve(__dirname), realpathSync(path.resolve(__dirname, "node_modules"))],
       },

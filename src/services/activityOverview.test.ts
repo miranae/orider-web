@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { loadActivityOverview } from "./activityOverview";
+import { loadActivityOverview, localActivityOverviewUrl } from "./activityOverview";
 import { logClientError } from "./errorLogger";
 
 vi.mock("./errorLogger", () => ({ logClientError: vi.fn() }));
@@ -74,4 +74,35 @@ describe("App Check 간헐 거부는 조용한 빈 화면이 되면 안 된다",
       expect(mocks.callable).toHaveBeenCalledTimes(1);
     }
   });
+});
+
+it("enables the local overview only for explicit DEV loopback without changing production transport", async () => {
+  expect(localActivityOverviewUrl(true, "127.0.0.1", "/api/local/activity-overview")).toBe("/api/local/activity-overview");
+  expect(localActivityOverviewUrl(false, "localhost", "/api/local/activity-overview")).toBeNull();
+  expect(localActivityOverviewUrl(true, "orider.co.kr", "/api/local/activity-overview")).toBeNull();
+  expect(localActivityOverviewUrl(true, "localhost", "https://example.test/overview")).toBeNull();
+  vi.stubEnv("DEV", false);
+  vi.stubEnv("VITE_ACTIVITY_OVERVIEW_PREVIEW_URL", "/api/local/activity-overview");
+  const fetchSpy = vi.spyOn(globalThis, "fetch");
+  mocks.callable.mockResolvedValueOnce({ data: { status: "unavailable", activityId: "a", reason: "metrics_unavailable" } });
+  try { await loadActivityOverview(services(), "u1", "a", "ko", "production-transport"); expect(fetchSpy).not.toHaveBeenCalled(); }
+  finally { vi.unstubAllEnvs(); fetchSpy.mockRestore(); }
+});
+
+it("bounds a stalled local preview and evicts its pending cache for a manual retry", async () => {
+  vi.useFakeTimers();
+  vi.stubEnv("DEV", true);
+  vi.stubEnv("VITE_ACTIVITY_OVERVIEW_PREVIEW_URL", "/api/local/activity-overview");
+  const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementationOnce((_url, init) => new Promise((_resolve, reject) => {
+    init?.signal?.addEventListener("abort", () => reject(new Error("preview_timeout")), { once: true });
+  }));
+  try {
+    const firebase = services();
+    const failure = expect(loadActivityOverview(firebase, "u1", "a", "ko", "timeout")).rejects.toThrow("preview_timeout");
+    await vi.advanceTimersByTimeAsync(10000);
+    await failure;
+    fetchSpy.mockResolvedValueOnce({ ok: true, json: async () => ({ status: "unavailable", activityId: "a", reason: "metrics_unavailable" }) } as Response);
+    await expect(loadActivityOverview(firebase, "u1", "a", "ko", "timeout")).resolves.toMatchObject({ activityId: "a" });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  } finally { vi.useRealTimers(); vi.unstubAllEnvs(); fetchSpy.mockRestore(); }
 });

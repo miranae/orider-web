@@ -47,7 +47,10 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.queryByText("사이클")).not.toBeInTheDocument();
     const summary = screen.getByRole("region", { name: "이번 주 요약" });
     expect(summary).toHaveTextContent("러닝 60");
-    expect(summary).toHaveTextContent("수영 60");
+    expect(summary).not.toHaveTextContent("수영 60");
+    expect(summary).toHaveTextContent("120");
+    expect(summary).toHaveTextContent("2h 30m");
+    expect(mixedWeek.days[1].workout).toBe("easySwim");
     fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
     expect(edit).toHaveBeenCalledWith(workout, "week-04", 0);
     view.rerender(<MobilePlanContent embedded currentWeek={week} weekLabel="W2" goalDiscipline="bike" />);

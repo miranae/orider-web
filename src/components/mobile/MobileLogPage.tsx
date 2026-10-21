@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import { createPortal } from "react-dom";
 import { Button } from "../../theme/components";
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
@@ -76,7 +77,7 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
   useEffect(() => { if (importParams.get("import") === "1") setImportOpen(true); }, [importParams]);
   const closeImport = () => { setImportOpen(false); const next = new URLSearchParams(importParams); next.delete("import"); setImportParams(next, { replace: true }); };
   const requestedSport = importParams.get("sport");
-  const sportFilter = requestedSport === "bike" || requestedSport === "run" || requestedSport === "swim" ? requestedSport : "all";
+  const sportFilter = requestedSport && isSportUiEnabled(requestedSport) && (requestedSport === "bike" || requestedSport === "run" || requestedSport === "swim") ? requestedSport : "all";
   const setSportFilter = (sport: string) => {
     const next = new URLSearchParams(importParams);
     next.set("sport", sport);
@@ -367,7 +368,7 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
               { icon: <SportIcon sport="bike" size={20} />, label: t("mobileLog.sportBike"), color: getDisciplineColor("bike"), filter: (a: Activity) => getDiscipline(a.type) === "bike", unit: "km", divisor: 1000 },
               { icon: <SportIcon sport="run" size={20} />, label: t("mobileLog.sportRun"), color: getDisciplineColor("run"), filter: (a: Activity) => getDiscipline(a.type) === "run", unit: "km", divisor: 1000 },
               { icon: <SportIcon sport="swim" size={20} />, label: t("mobileLog.sportSwim"), color: getDisciplineColor("swim"), filter: (a: Activity) => getDiscipline(a.type) === "swim", unit: "m", divisor: 1 },
-            ].map(sport => {
+            ].filter(sport => isSportUiEnabled("swim") || sport.unit !== "m").map(sport => {
               const acts = monthRepresentatives.filter(sport.filter);
               if (acts.length === 0) return null;
               const dist = acts.reduce((s, a) => s + (Number.isFinite(a.summary.distance) ? a.summary.distance : 0) / sport.divisor, 0);

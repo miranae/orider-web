@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../config/sportFeatures";
 import { acceptedStatsActivities, acceptedTrainingActivities } from "../utils/estimateTSS";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useLocation, useParams, useSearchParams } from "react-router-dom";
@@ -29,6 +30,7 @@ import { activityFeedSourceRevision, boundedFeedContent } from "../services/acti
 import { isTrivialActivity } from "../utils/activityFilter";
 import { resolveDuration } from "../utils/activityTime";
 import { loadAthleteChartActivities } from "../services/athleteMonthlyActivities";
+import ActivitySubscriptionButton from "../components/profile/ActivitySubscriptionButton";
 import Avatar from "../components/Avatar";
 import AthleteActivityChart from "../components/athlete/AthleteActivityChart";
 import type { AthletePeriod } from "../components/athlete/athleteProfilePeriods";
@@ -680,6 +682,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         </div>
         {!isMe && currentUser && (
           <div data-testid="P0-0-4" className="athlete-friend-actions">
+            <ActivitySubscriptionButton targetUid={userId} />
             {friendStatus === "none" && canSendFriendRequest && (
               <Button
                 onClick={handleSendFriendRequest}
@@ -820,7 +823,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2><p className="athlete-section-note">{t("profile.highlightsScope")}</p>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t("profile.noHighlights")}</p>}</section>}
           {profileTab === "segments" && <section className="athlete-profile-section"><h2>{t("segments.othersTitle")}</h2>{mySegments.length ? <ul className="athlete-highlights">{mySegments.map(segment => <li key={segment.id}><Link to={`/segment/${segment.id}`}>{segment.name} · {(segment.distance / 1000).toFixed(2)} km</Link></li>)}</ul> : <p>{t("profile.noSegments")}</p>}</section>}
           {(profileTab === "overview" || profileTab === "activities") && <>
-          <div className="athlete-section-heading"><label htmlFor="athlete-sport">{t("profile.sport")}</label><Select id="athlete-sport" value={sport} onChange={event => setSport(event.target.value)}>{["all", "bike", "run", "swim"].map(value => <option key={value} value={value}>{t(`profile.sports.${value}`)}</option>)}</Select></div>
+          <div className="athlete-section-heading"><label htmlFor="athlete-sport">{t("profile.sport")}</label><Select id="athlete-sport" value={sport} onChange={event => setSport(event.target.value)}>{["all", "bike", "run", "swim"].filter(isSportUiEnabled).map(value => <option key={value} value={value}>{t(`profile.sports.${value}`)}</option>)}</Select></div>
           {chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p>{t("monthly.error")}</p><Button onClick={() => setChartAttempt(attempt => attempt + 1)}>{t("monthly.retry")}</Button></div> : <AthleteActivityChart loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
 
       {isOwnProfile && <div data-testid="P0-3"><RouteTabNav revealActive tabs={[
@@ -871,7 +874,6 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                 <Button variant="ghost" iconOnly
                   onClick={handleResetSearch}
                   aria-label={t("activities.resetSearch")}
-                  title={t("activities.resetSearch")}
                 >
                   <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

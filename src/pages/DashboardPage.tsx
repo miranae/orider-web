@@ -4,16 +4,13 @@ export type { WeeklyTssBar } from "../components/dashboard/WeeklyTrainingLoadBar
 import GlossaryText from "../components/common/GlossaryText";
 import InfoTip from "../components/InfoTip";
 import { GlossaryProvider } from "../components/common/GlossaryProvider";
-import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
 import { useState, useRef, useMemo, useEffect } from "react";
-import { Search, X } from "lucide-react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { filterByDiscipline, type Discipline } from "../utils/disciplineFilter";
-import { StatBlock, SectionHeader, PageHeader, EmptyState } from "../components/redesign";
+import { type Discipline } from "../utils/disciplineFilter";
+import { SectionHeader } from "../components/redesign";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
-import SportIcon from "../components/common/SportIcon";
 import RunEmptyState from "../components/dashboard/RunEmptyState";
 import WeeklyRecapCard from "../components/dashboard/WeeklyRecapCard";
 import CrossDisciplineLoadCard from "../components/dashboard/CrossDisciplineLoadCard";
@@ -28,7 +25,9 @@ import { useUserFitness } from "../hooks/useUserFitness";
 import { useFirstSyncCelebration } from "../hooks/useFirstSyncCelebration";
 import { computeRunWeeklyRecap, isRecapVisible } from "../utils/runWeeklyRecap";
 import { seoulWeekday } from "../utils/seoulWeek";
-import ActivityCard from "../components/ActivityCard";
+import Avatar from "../components/Avatar";
+import ProfileSocialStats from "../components/profile/ProfileSocialStats";
+import { ChevronRight } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { isSignInCancelled } from "../utils/signInCancelled";
 import { useToast } from "../contexts/ToastContext";
@@ -36,7 +35,7 @@ import { useLocale } from "../contexts/LocaleContext";
 import { formatTrainingLoad } from "../utils/trainingLoadDisplay";
 import { formatDistance } from "../utils/units";
 import { useActivities, useWeeklyStats, useActivitySearch } from "../hooks/useActivities";
-import type { ActivityFeedScope, DatePreset } from "../hooks/useActivities";
+import type { ActivityFeedScope } from "../hooks/useActivities";
 import { useFriends } from "../hooks/useFriends";
 import { logClientError } from "../services/errorLogger";
 import { isYearRecapSeason } from "../utils/yearRecapSeason";
@@ -47,8 +46,11 @@ import { useDashboardPreferences } from "../hooks/useDashboardPreferences";
 import { selectStoredDashboardFitness } from "../features/home/storedDashboardFitness";
 import HomeTodayStrip from "../components/dashboard/HomeTodayStrip";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
+import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../config/activitySubscriptions";
+import { useActivitySubscriptions } from "../hooks/useActivitySubscriptions";
 import { useMobile } from "../hooks/useMobile";
-import { Button, Card, Chip, Input, Text, buttonClass } from "../theme/components";
+import { isSportUiEnabled } from "../config/sportFeatures";
+import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import type { Activity } from "@shared/types";
 import "./DashboardPage.css";
 
@@ -174,31 +176,12 @@ function secToMmss(s: number): string {
 
 // ── 컴포넌트 ──
 
-function FeedSkeleton() {
-  return (
-    <Card padding="none" style={{ overflow: "hidden", padding: "var(--space-3)" }}>
-      <div className="flex items-center gap-3" style={{ marginBottom: 'var(--space-3)' }}>
-        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--bg-3)" }} />
-        <div style={{ flex: 1 }}>
-          <div style={{ height: 12, width: 80, background: "var(--bg-3)", borderRadius: "var(--r-sm)", marginBottom: "var(--space-1-5)" }} />
-          <div style={{ height: 10, width: 60, background: "var(--bg-2)", borderRadius: "var(--r-sm)" }} />
-        </div>
-      </div>
-      <div style={{ height: 16, width: "70%", background: "var(--bg-3)", borderRadius: "var(--r-sm)", marginBottom: 'var(--space-3)' }} />
-      <div style={{ height: 160, background: "var(--bg-2)", borderRadius: "var(--r-sm)" }} />
-    </Card>
-  );
-}
-
 export default function DashboardPage() {
   return <GlossaryProvider><DashboardContent /></GlossaryProvider>;
 }
 
 function DashboardContent() {
   const { t, i18n } = useTranslation("dashboard");
-  // 사이드바 푸터(약관/정책 링크) 접이식 — Layout 데스크톱 푸터를 메인화면에서 흡수 (#347 후속)
-  const [searchInput, setSearchInput] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const { user, profile, loading: authLoading, signIn } = useAuth();
   const { showToast } = useToast();
   const [signInPending, setSignInPending] = useState(false);
@@ -213,38 +196,51 @@ function DashboardContent() {
       setSignInPending(false);
     }
   };
-  const { preferences: dashboardPreferences, update: updateDashboardPreferences } = useDashboardPreferences(
+  const { preferences: dashboardPreferences } = useDashboardPreferences(
     user?.uid ?? null,
     authLoading,
   );
   const [searchParams, setSearchParams] = useSearchParams();
   const scopeParam = searchParams.get("scope");
   const dateParam = searchParams.get("date");
-  const mobileDatePreset = dateParam === "all" || dateParam === "7d" || dateParam === "30d" || dateParam === "90d" ? dateParam : dashboardPreferences.datePreset;
+  const mobileDatePreset = dateParam === "all" || dateParam === "7d" || dateParam === "30d" || dateParam === "90d" || dateParam === "year" ? dateParam : dashboardPreferences.datePreset;
   const { units } = useLocale();
   const isMobile = useMobile(1024);
   const { friends } = useFriends();
   const friendIds = useMemo(() => new Set(friends.map((friend) => friend.userId)), [friends]);
-  const feedScope: ActivityFeedScope = user ? (scopeParam === "all" || scopeParam === "friends" || scopeParam === "self" ? scopeParam : dashboardPreferences.feedScope) : "all";
-  const feedFilter = ({ all: 0, friends: 1, self: 2 } as const)[feedScope];
-  const { activities, loading, loadMore, hasMore, loadingMore, totalCount, error: feedError, retry: retryFeed } = useActivities(feedScope, [...friendIds]);
+  const requestedFeedScope: ActivityFeedScope = user && !user.isAnonymous ? (scopeParam === "all" || scopeParam === "friends" || scopeParam === "self" || scopeParam === "following" ? scopeParam : dashboardPreferences.feedScope) : "all";
+  const feedScope = requestedFeedScope === "following" && !ACTIVITY_SUBSCRIPTIONS_ENABLED ? "all" : requestedFeedScope;
+  const subscriptions = useActivitySubscriptions(feedScope === "following");
+  const { activities, loading: activitiesLoading, loadMore, hasMore, loadingMore, error: activitiesError, retry: retryActivities } = useActivities(feedScope, [...friendIds], {
+    enabled: feedScope !== "following" || subscriptions.ready,
+    subscriptionIds: subscriptions.ids,
+    subscriptionKey: subscriptions.key,
+  });
+  const loading = activitiesLoading || feedScope === "following" && subscriptions.loading;
+  const feedError = activitiesError || feedScope === "following" && subscriptions.error;
+  const retryFeed = () => { if (feedScope === "following" && subscriptions.error) subscriptions.retry(); else retryActivities(); };
   // 정본(서버 집계) 홈 요약 — `homeSummary` 서버 전환 판정 AND 빌드 플래그 뒤에 있다.
   // 꺼져 있으면(오늘의 기본값) 아래 KPI 는 useWeeklyStats 의 클라 집계를 그대로 그린다.
   const canonicalHome = useCanonicalHomeSummary(!isMobile);
   const canonicalFitness = useCanonicalFitnessSummary("homeSummary", !isMobile);
-  const activitySearch = useActivitySearch(friendIds);
+  const searchState = useActivitySearch(friendIds, feedScope === "following" ? subscriptions : undefined);
+  const activitySearch = { ...searchState,
+    loading: searchState.loading || feedScope === "following" && subscriptions.loading,
+    error: searchState.error || feedScope === "following" && subscriptions.error,
+    retry: feedScope === "following" && subscriptions.error ? subscriptions.retry : searchState.retry,
+  };
 
   const queryParam = searchParams.get("q")?.trim() ?? "";
   const { search: searchActivities, reset: resetActivitySearch } = activitySearch;
   useEffect(() => {
-    setSearchInput(queryParam);
     if (queryParam) searchActivities(queryParam, mobileDatePreset);
     else resetActivitySearch();
   }, [queryParam, mobileDatePreset, searchActivities, resetActivitySearch]);
   const sportParam = searchParams.get("sport");
   const parsedDiscipline = normalizeDashboardDiscipline(sportParam);
-  const requestedDiscipline = parsedDiscipline === "swim" ? "bike" : parsedDiscipline;
-  const mobileSportFilter = sportParam === "all" || parsedDiscipline === "tri" ? "all" : parsedDiscipline ?? dashboardPreferences.sportFilter;
+  const requestedDiscipline = sportParam === "all" ? "tri" : parsedDiscipline === "swim" ? "bike" : parsedDiscipline;
+  const requestedSportFilter = sportParam === "all" || parsedDiscipline === "tri" ? "all" : parsedDiscipline ?? dashboardPreferences.sportFilter;
+  const mobileSportFilter = isSportUiEnabled(requestedSportFilter) ? requestedSportFilter : "all";
   const discipline: Discipline = isMobile ? (mobileSportFilter === "all" ? "tri" : mobileSportFilter) : requestedDiscipline ?? "bike";
   const selectedDiscipline = isMobile ? mobileSportFilter : discipline;
   const runStats = useWeeklyStats({
@@ -312,45 +308,11 @@ function DashboardContent() {
     [showOwnerRunningJourney, runHistory.runs],
   );
 
-  // 종목 필터 적용
-  const sportFiltered = useMemo(() => filterByDiscipline(activities, discipline), [activities, discipline]);
-  // 피드 필터 적용 (전체/친구/본인)
-  const filteredActivities = useMemo(
-    () => filterFeedActivities(sportFiltered, feedFilter, user?.uid, friendIds),
-    [sportFiltered, feedFilter, user?.uid, friendIds],
-  );
-
-  const DATE_PRESETS: { label: string; value: DatePreset }[] = [
-    { label: t("feed.datePreset.all"), value: "all" },
-    { label: t("feed.datePreset.7d"), value: "7d" },
-    { label: t("feed.datePreset.30d"), value: "30d" },
-    { label: t("feed.datePreset.90d"), value: "90d" },
-    { label: t("feed.datePreset.year"), value: "year" },
-  ];
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const kw = searchInput.trim();
-    if (kw) activitySearch.search(kw);
-  };
-
-  const handleSearchReset = () => {
-    setSearchInput("");
-    activitySearch.reset();
-    const next = new URLSearchParams(searchParams);
-    next.delete("q");
-    setSearchParams(next);
-  };
-
   const userName = profile?.nickname || user?.displayName || t("header.defaultName");
   // 로그아웃 사용자(광고 유입 첫 인상) 에선 generic "안녕하세요, 라이더님" 대신
   // 가치 제안을 노출. 로그인 후엔 기존 인사말 유지.
   // authLoading 동안엔 익명 카피를 띄우지 않음 — 새로고침 첫 페인트에 로그인
   // 사용자가 익명 헤드라인을 깜빡 보는 현상(#234) 방지.
-  const isAnon = !authLoading && !user;
-  const heroTitle = isAnon
-    ? t("header.anonTitle")
-    : `${t("header.greetingPrefix")}${userName}${t("header.greetingSuffix")}`;
   const showYearRecapBanner = !!user && !user.isAnonymous && selectedDiscipline !== "run" && isYearRecapSeason();
 
   /**
@@ -466,23 +428,23 @@ function DashboardContent() {
     ),
   ];
 
-  const runningJourney = showOwnerRunningJourney ? <div data-testid="dashboard-running-journey">
+  const runningJourney = showOwnerRunningJourney ? <div className="desktop-dashboard-journey" data-testid="dashboard-running-journey">
         {/* 러닝 데이터가 없으면 빈 대시보드 대신 첫 동기화 여정을 보여준다 (§3.0) */}
         {hasNoRuns && (
-          <div style={{ marginTop: 'var(--space-5)' }}>
+          <div>
             <RunEmptyState stravaConnected={!!profile?.stravaConnected} />
           </div>
         )}
         {/* 임계 페이스 설정 유도 — regular 러너에게만 (§3.1) */}
         {showThresholdNudge && (
-          <div style={{ marginTop: 'var(--space-4)' }}>
+          <div>
             <ThresholdPaceNudge visible />
           </div>
         )}
 
         {/* 신발 교체 임박 — 임박했을 때만 (§3.6) */}
         {showOwnerRunningJourney && !hasNoRuns && shoeStatus?.replacementDue && (
-          <div style={{ marginTop: 'var(--space-4)' }}>
+          <div>
             <ShoeReplacementBadge status={shoeStatus} />
           </div>
         )}
@@ -519,7 +481,7 @@ function DashboardContent() {
                   distanceFormatter={distance => formatDistance(distance * 1000, units)}
                   weeks={weeks.map(week => ({ ...week, tss: null, tssUnknownCount: week.tssUnknownCount ?? 0 }))}
                   tooltipFor={() => ""} />
-                <dl className="grid grid-cols-3 gap-2" style={{ marginTop: "var(--space-3)", paddingTop: "var(--space-2)", borderTop: "1px solid var(--line-soft)", textAlign: "center" }}>
+                <dl className="desktop-dashboard-summary">
                   {["avgPerWeek", "peakWeek", "thisWeek"].map((key, index) => <div key={key}>
                     <Text as="dt" variant="caption">{t(`sidebar.weeklyTss.${key}`)}</Text>
                     <Text as="dd" variant="dataSmall" mono>{summary[index] === null ? "—" : `${formatDistance(summary[index]! * 1000, units)}${partial ? "+" : ""}`}</Text>
@@ -549,22 +511,19 @@ function DashboardContent() {
                     weeks={weeklyStats.map((w) => ({ week: w.week, tss: distanceReady || runStats.coverage === "partial" && (w.tss ?? 0) > 0 ? w.tss ?? null : null, tssEstimated: w.tssEstimated, tssUnknownCount: (w.tssUnknownCount ?? 0) + (runStats.coverage === "partial" ? 1 : 0), loadEvidence: w.loadEvidence, distance: w.distance }))}
                     tooltipFor={(w) => `${w.week}: ${formatTrainingLoad(w, t)}`}
                   />
-                  <table aria-label={t("sidebar.weeklyTss.summary")} style={{ width: "100%", tableLayout: "fixed", marginTop: "var(--space-3)", borderTop: "1px solid var(--line-soft)", borderCollapse: "separate", borderSpacing: "0 var(--space-2)" }}>
-                    <thead><tr>
-                      <th scope="col" style={{ width: "28%" }}><span className="sr-only">{t("sidebar.weeklyTss.metric")}</span></th>
-                      {["avgPerWeek", "peakWeek", "thisWeek"].map(key => <th key={key} scope="col"><Text variant="caption" weight={400}>{t(`sidebar.weeklyTss.${key}`)}</Text></th>)}
-                    </tr></thead>
-                    <tbody>
-                      <tr>
-                        <th scope="row" style={{ textAlign: "left" }}><Text variant="caption" weight={400}><InfoTip title={t("sidebar.weeklyTss.distanceHelpTitle")} content={t("sidebar.weeklyTss.distanceHelp")} label={t("sidebar.weeklyTss.distanceRow")} termId="weekly-distance-summary">{t("sidebar.weeklyTss.distanceRow")}</InfoTip></Text></th>
-                        {[avgDistance, peakDistance, currentDistance].map((value, index) => <td key={index} style={{ textAlign: "center" }}><Text variant="dataSmall" mono>{value ?? "—"}</Text></td>)}
-                      </tr>
-                      <tr>
-                        <th scope="row" style={{ textAlign: "left" }}><Text variant="caption" tone="tertiary" weight={400}><InfoTip title={t("sidebar.weeklyTss.summaryHelpTitle")} content={t("sidebar.weeklyTss.summaryHelp", { count: knownTssWeeks.length })} label={t("sidebar.weeklyTss.loadRow")} termId="weekly-load-summary">{t("sidebar.weeklyTss.loadRow")}</InfoTip></Text></th>
-                        {[loadValue(avgTss, knownTssWeeks), loadValue(peakTss, peakWeeks), loadValue(distanceReady || runStats.coverage === "partial" && (currentWeek?.tss ?? 0) > 0 ? currentWeek?.tss ?? null : null, currentWeek ? [currentWeek] : [])].map((value, index) => <td key={index} style={{ textAlign: "center" }}><Text variant="bodySmall" mono tone="tertiary">{value}</Text></td>)}
-                      </tr>
-                    </tbody>
-                  </table>
+                  <dl className="desktop-dashboard-summary" aria-label={t("sidebar.weeklyTss.summary")}>
+                    {["avgPerWeek", "peakWeek", "thisWeek"].map((key, index) => {
+                      const distance = [avgDistance, peakDistance, currentDistance][index];
+                      const load = [loadValue(avgTss, knownTssWeeks), loadValue(peakTss, peakWeeks), loadValue(distanceReady || runStats.coverage === "partial" && (currentWeek?.tss ?? 0) > 0 ? currentWeek?.tss ?? null : null, currentWeek ? [currentWeek] : [])][index];
+                      return <div key={key}>
+                        <Text as="dt" variant="caption">{t(`sidebar.weeklyTss.${key}`)}</Text>
+                        <dd>
+                          <div><Text variant="caption" tone="tertiary"><InfoTip title={t("sidebar.weeklyTss.distanceHelpTitle")} content={t("sidebar.weeklyTss.distanceHelp")} label={t("sidebar.weeklyTss.distanceRow")} termId="weekly-distance-summary">{t("sidebar.weeklyTss.distanceRow")}</InfoTip></Text><Text variant="dataSmall" mono>{distance ?? "—"}</Text></div>
+                          <div><Text variant="caption" tone="tertiary"><InfoTip title={t("sidebar.weeklyTss.summaryHelpTitle")} content={t("sidebar.weeklyTss.summaryHelp", { count: knownTssWeeks.length })} label={t("sidebar.weeklyTss.loadRow")} termId="weekly-load-summary">{t("sidebar.weeklyTss.loadRow")}</InfoTip></Text><Text variant="bodySmall" mono tone="tertiary">{load}</Text></div>
+                        </dd>
+                      </div>;
+                    })}
+                  </dl>
                 </Card>
               );
             })()}
@@ -581,320 +540,71 @@ function DashboardContent() {
     guidance={showYearRecapBanner ? <Link to="/athlete/me/records">{t("todayStrip.recap")}</Link> : !profile?.stravaConnected ? <Link to="/settings/connections">{t("feed.empty.ctaConnectStrava")}</Link> : null}
   /> : null;
 
-  if (isMobile) {
-    return (
-      <MobileFeedPage
-        activitySearch={activitySearch}
-        runningJourney={runningJourney}
-        activities={activities}
-        loading={loading}
-        error={feedError}
-        onRetry={retryFeed}
-        hasMore={hasMore}
-        loadingMore={loadingMore}
-        onLoadMore={loadMore}
-        showYearRecapBanner={showYearRecapBanner}
-        currentUserId={user?.uid ?? null}
-        friendIds={[...friendIds]}
-        feedScope={feedScope}
-        sportFilter={mobileSportFilter}
-        datePreset={mobileDatePreset}
-      />
-    );
-  }
+  const activityFeed = <MobileFeedPage
+    activitySearch={activitySearch}
+    runningJourney={isMobile ? runningJourney : undefined}
+    activities={activities}
+    loading={loading}
+    error={feedError}
+    onRetry={retryFeed}
+    hasMore={hasMore}
+    loadingMore={loadingMore}
+    onLoadMore={loadMore}
+    showYearRecapBanner={isMobile && showYearRecapBanner}
+    currentUserId={user?.uid ?? null}
+    friendIds={[...friendIds]}
+    subscriptionIds={subscriptions.ids}
+    unavailableMessage={feedScope === "following" && subscriptions.unavailable ? t("feed.subscriptionsUnavailable") : undefined}
+    feedScope={feedScope}
+    sportFilter={isMobile ? mobileSportFilter : discipline === "tri" ? "all" : discipline}
+    datePreset={mobileDatePreset}
+  />;
+  if (isMobile) return activityFeed;
 
-  return (
-    <div className="dashboard-home flex flex-col">
-        {/* 페이지 헤더 */}
-        <PageHeader
-          eyebrow={new Date().toLocaleDateString(i18n.language, { year: "numeric", month: "long", day: "numeric", weekday: "long" })}
-          title={heroTitle}
-          subtitle={isAnon ? <span style={{ color: "var(--ink-2)" }}><GlossaryText>{t("header.anonSubtitle")}</GlossaryText></span> : undefined}
-          right={
-            <>
-              {/* 비로그인: 가치 제안 헤더에 실제 로그인 CTA 동반 (#234) —
-                  TopNav 와 동일한 signIn 트리거 재사용. */}
-              {isAnon && (
-                <Button onClick={() => { void handleGuestSignIn(); }} loading={signInPending} variant="primary" size="sm">
-                  {t("header.anonCta")}
-                </Button>
-              )}
-              <div data-testid="H-0"><div data-testid="H-0-1"><DisciplineTabs value={discipline} disabledKeys={["swim"]} /></div></div>
-            </>
-          }
-        />
-
+  return <div className="desktop-dashboard">
+    <div className="desktop-dashboard-layout">
+      <aside className="desktop-dashboard-left" aria-label={t("header.defaultName")}>
+    <div className="desktop-dashboard-tabs" data-testid="H-0"><div data-testid="H-0-1"><DisciplineTabs value={discipline} disabledKeys={isSportUiEnabled("swim") ? ["swim"] : []} onChange={next => setSearchParams(previous => {
+      const params = new URLSearchParams(previous);
+      params.set("sport", next === "tri" ? "all" : next);
+      return params;
+    })} /></div></div>
+        <Card className="desktop-dashboard-identity">
+          {user && !user.isAnonymous ? <>
+            <Link to="/athlete/me" className="desktop-dashboard-profile"><Avatar name={userName} imageUrl={profile?.photoURL || user.photoURL} size="xl" /><Text as="h2" variant="subtitle" weight={600}>{userName}</Text></Link>
+            <ProfileSocialStats />
+            <Link to={`/athlete/me/activities?sport=${canonicalHome.enabled || discipline === "tri" ? "all" : discipline}`} className="desktop-dashboard-profile-link"><span>{t("todayStrip.week")}</span><ChevronRight size={16} aria-hidden="true" /></Link>
+          </> : <>
+            <Text as="h2" variant="subtitle" weight={600}>{t("header.anonTitle")}</Text>
+            <Text as="p" variant="bodySmall" tone="secondary">{t("header.anonSubtitle")}</Text>
+            <Button variant="primary" size="sm" onClick={() => { void handleGuestSignIn(); }} loading={signInPending}>{t("header.anonCta")}</Button>
+          </>}
+        </Card>
+        {user && <Card className="desktop-dashboard-week">
+          <SectionHeader title={t(canonicalHome.enabled ? "kpi.weekGroup" : isRunTab ? "kpi.runWeekGroup" : "kpi.weekGroup")} />
+          <dl className="dashboard-kpi-week">{KPI.map(stat => <div key={stat.label}>
+            <dt><Text variant="caption" tone="tertiary"><GlossaryText>{stat.label}</GlossaryText></Text></dt>
+            <dd><Text variant="dataSmall" weight={600}>{stat.value}</Text>{stat.unit && <Text variant="caption" tone="secondary"> {stat.unit}</Text>}</dd>
+          </div>)}</dl>
+          {!showWeekNumbers && <Text as="p" variant="caption" tone="secondary" className="mt-3">{weekSub}</Text>}
+          {weekChip && <Chip>{weekChip}</Chip>}
+        </Card>}
         {runningJourney}
-
-        {showYearRecapBanner && (
-          <Card
-            padding="none"
-            style={{
-              marginTop: "var(--space-4)",
-              borderColor: "var(--lime)",
-              background: "linear-gradient(135deg, var(--bg-1), var(--bg-0))",
-              overflow: "hidden",
-            }}
-          >
-            <div className="flex items-center justify-between gap-4" style={{ padding: "var(--space-4) var(--space-5)" }}>
-              <div>
-                <Text variant="eyebrow" tone="secondary">{t("yearRecap.eyebrow")}</Text>
-                <Text as="h2" variant="subtitle" weight={700} style={{ marginTop: "var(--space-1)", color: "var(--ink-0)" }}>
-                  {t("yearRecap.title")}
-                </Text>
-                <Text variant="bodySmall" tone="tertiary" style={{ display: "block", marginTop: "var(--space-1)" }}>
-                  <GlossaryText>{t("yearRecap.desc")}</GlossaryText>
-                </Text>
-              </div>
-              <Link to="/athlete/me/records" className={buttonClass({ variant: "primary", size: "sm" })} style={{ textDecoration: "none", flexShrink: 0 }}>
-                {t("yearRecap.cta")}
-              </Link>
-            </div>
-          </Card>
-        )}
-
-        {/* 최근 7일 활동 요약 — 컨디션은 사이드바에서 확인한다. */}
-        {user && (
-          <div className="dashboard-kpi-overview grid gap-3" style={{ marginTop: "var(--space-2)" }}>
-            <Card padding="none" style={{ overflow: "hidden" }}>
-              <div className="flex items-center justify-between gap-3" style={{ padding: "var(--space-2) var(--space-4)", borderBottom: "1px solid var(--line-soft)" }}>
-                <Text as="h2" variant="eyebrow" tone="secondary">{t(canonicalHome.enabled ? "kpi.weekGroup" : isRunTab ? "kpi.runWeekGroup" : "kpi.weekGroup")}</Text>
-                <Link className={buttonClass({ variant: "ghost", size: "sm" })} to={`/athlete/me/activities?sport=${canonicalHome.enabled || discipline === "tri" ? "all" : discipline}`}>{t("todayStrip.week")}</Link>
-              </div>
-              <div className="dashboard-kpi-week grid">
-                {KPI.map((stat) => (
-                  <div key={stat.label} style={{ minWidth: 0, padding: "var(--space-3) var(--space-4)" }}>
-                    <StatBlock {...stat} />
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-          </div>
-        )}
-
-        {/* 메인: 피드 + 사이드바 */}
-        <div className="flex gap-5" style={{ marginTop: 'var(--space-3)' }}>
-          {/* 피드 */}
-          <div className="flex-1 min-w-0 flex flex-col">
-            {/* 헤더: 제목 + 카운트 + 필터 */}
-            <div className="flex items-center gap-2" style={{ marginBottom: "var(--space-2)" }}>
-              <h2 style={{ fontSize: "var(--fs-base)", fontWeight: 600, color: "var(--ink-0)" }}>{t("feed.title")}</h2>
-              {totalCount > 0 && (
-                /* 카운트 옆에 "건 · 전체 피드" 컨텍스트 부연 — 이전엔 "1,573" 만 떠 본인/전체 모호.
-                   tooltip 은 실제 쿼리(본인 OR visibility==everyone)와 일치하게 "전체 공개 + 내 활동" 으로 표기 (#231). */
-                <span
-                  style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}
-                  title={feedScope === "all" ? t("feed.countTooltip") : t(`feed.filter.${feedScope}`)}
-                >
-                  {t("feed.countSuffix", { value: formatNum(totalCount, i18n.language) })}
-                  <span style={{ fontFamily: "var(--font-sans)", color: "var(--ink-3)", marginLeft: 'var(--space-1)' }}>
-                    {feedScope === "all" ? t("feed.feedScope") : t(`feed.filter.${feedScope}`)}
-                  </span>
-                </span>
-              )}
-              <div className="flex-1" />
-              {user && <div data-testid="H1-1" className="flex gap-0.5" style={{ background: "var(--bg-1)", padding: "var(--space-1)", borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)" }}>
-                {([t("feed.filter.all"), t("feed.filter.friends"), t("feed.filter.self")] as const).map((label, i) => (
-                  <button data-testid="H1-1-1"
-                    key={i}
-                    onClick={() => updateDashboardPreferences({ feedScope: (["all", "friends", "self"] as const)[i] })}
-                    aria-pressed={feedFilter === i}
-                    style={{
-                      padding: "5px 10px", fontSize: "var(--fs-xs)", borderRadius: "var(--r-sm)", border: "none", cursor: "pointer",
-                      background: feedFilter === i ? "var(--bg-3)" : "transparent",
-                      color: feedFilter === i ? "var(--ink-0)" : "var(--ink-3)",
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>}
-            </div>
-
-            {/* 검색 입력 */}
-            <form onSubmit={handleSearch} style={{ marginBottom: "var(--space-3)" }}>
-              <div className="flex gap-2 items-center">
-                <div data-testid="H-0-2" style={{ flex: 1, minWidth: 0, position: "relative" }}>
-                  <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--ink-3)", pointerEvents: "none" }} />
-                  <Input
-                    ref={searchInputRef}
-                    type="text"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    placeholder={t("feed.search.placeholder")}
-                    aria-label={t("feed.search.placeholder")}
-                    style={{
-                      width: "100%", height: "var(--dim-button-height)", minHeight: "var(--dim-button-height)",
-                      paddingInlineStart: "calc(var(--space-4) * 2)", paddingInlineEnd: "var(--space-8)",
-                      boxSizing: "border-box",
-                    }}
-                  />
-                  {activitySearch.active && (
-                    <Button type="button" variant="ghost" iconOnly dense
-                      aria-label={t("feed.search.reset")}
-                      onClick={handleSearchReset}
-                      style={{ position: "absolute", right: "var(--space-0-5)", top: "50%", transform: "translateY(-50%)", color: "var(--ink-2)" }}
-                    >
-                      <X size={16} aria-hidden="true" />
-                    </Button>
-                  )}
-                </div>
-                <Button type="submit" variant="secondary" style={{ height: "var(--dim-button-height)", minHeight: "var(--dim-button-height)" }}>{t("feed.search.submit")}</Button>
-              </div>
-
-              {/* 날짜 프리셋 (검색 활성 시만 표시) */}
-              {activitySearch.active && (
-                <div className="flex gap-1" style={{ marginTop: 'var(--space-2)' }}>
-                  {DATE_PRESETS.map((p) => (
-                    <button
-                      key={p.value}
-                      type="button"
-                      onClick={() => activitySearch.setDatePreset(p.value)}
-                      aria-pressed={activitySearch.datePreset === p.value}
-                      style={{
-                        padding: "3px 9px", fontSize: "var(--fs-xs)", borderRadius: "var(--r-sm)", cursor: "pointer",
-                        border: "1px solid " + (activitySearch.datePreset === p.value ? "var(--accent-soft-border)" : "var(--line-soft)"),
-                        background: activitySearch.datePreset === p.value ? "var(--accent-soft-bg)" : "var(--bg-2)",
-                        color: activitySearch.datePreset === p.value ? "var(--ink-1)" : "var(--ink-2)",
-                      }}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                  {activitySearch.totalResults > 0 && (
-                    <span style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", alignSelf: "center" }}>
-                      {t("feed.search.resultsCount", { count: activitySearch.totalResults })}
-                    </span>
-                  )}
-                </div>
-              )}
-            </form>
-
-            {/* 피드 리스트 — 페이지 전체 스크롤에 맡김 (내부 스크롤 제거) */}
-            <div style={{ paddingBottom: 'var(--space-5)' }}>
-            {/* 검색 결과 */}
-            {activitySearch.active && (
-              <>
-                {activitySearch.loading && (
-                  <div data-testid="H1-2" className="flex flex-col gap-3.5">
-                    <FeedSkeleton />
-                    <FeedSkeleton />
-                  </div>
-                )}
-                {!activitySearch.loading && activitySearch.results.length === 0 && (
-                  <Card padding="none" style={{ padding: "var(--space-8)", textAlign: "center" }}>
-                    <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("feed.search.emptyTitle")}</div>
-                    <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("feed.search.emptyDescription")}</div>
-                  </Card>
-                )}
-                {!activitySearch.loading && activitySearch.results.length > 0 && (
-                  <div data-testid="H1-2" className="flex flex-col gap-3.5">
-                    {activitySearch.results.map((activity, i) => (
-                      <div key={activity.id} data-testid="H1-2-1"><ActivityCard activity={activity} priority={i === 0} homeLabels /></div>
-                    ))}
-                    {activitySearch.hasMore && (
-                      <Button variant="secondary" onClick={activitySearch.loadMore} disabled={activitySearch.loadingMore} style={{ width: "100%" }}>
-                        {activitySearch.loadingMore ? t("mobileFeed.loadingMore") : t("feed.loadMore")}
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* 일반 피드 (검색 비활성 시) */}
-            {!activitySearch.active && (
-              <>
-                {loading && (
-                  <div data-testid="H1-2" className="flex flex-col gap-3.5">
-                    <FeedSkeleton />
-                    <FeedSkeleton />
-                    <FeedSkeleton />
-                  </div>
-                )}
-
-                {!loading && feedError && (
-                  <EmptyState
-                    icon="⚠️"
-                    title={activities.length > 0 ? t("feed.partialError.title") : t("feed.error.title")}
-                    description={activities.length > 0 ? t("feed.partialError.description") : t("feed.error.description")}
-                    actions={[{ label: activities.length > 0 ? t("feed.partialError.retry") : t("feed.error.retry"), variant: "primary", onClick: retryFeed }]}
-                  />
-                )}
-
-                {!loading && !feedError && filteredActivities.length === 0 && (
-                  <EmptyState
-                    icon={<SportIcon data-testid="dashboard-feed-empty-icon" sport={discipline === "run" ? "run" : "bike"} size={32} style={{ marginInline: "auto" }} />}
-                    title={activities.length > 0 ? t("feed.noMatches.title") : t("feed.empty.title")}
-                    description={activities.length > 0 ? t("feed.noMatches.description") : t("feed.empty.description")}
-                    actions={activities.length > 0 ? [] : user ? [
-                      { label: "Google Play", variant: "primary", href: ORIDER_PLAY_STORE_URL },
-                      { label: "App Store", variant: "secondary", href: ORIDER_APP_STORE_URL },
-                      { label: t("todayStrip.importHistory"), variant: "secondary", href: "/athlete/me/activities?import=1" },
-                    ] : [{ label: signInPending ? t("header.signingIn") : t("header.anonCta"), variant: "primary", onClick: () => { void handleGuestSignIn(); } }]}
-                  />
-                )}
-
-                {!loading && filteredActivities.length > 0 && (
-                  <div data-testid="H1-2" className="flex flex-col gap-3.5">
-                    {filteredActivities.map((activity, i) => (
-                      <div key={activity.id} data-testid="H1-2-1"><ActivityCard activity={activity} priority={i === 0} homeLabels /></div>
-                    ))}
-                  </div>
-                )}
-
-                {!loading && !feedError && hasMore && (
-                  <Button variant="secondary"
-                    data-testid="H1-2-3" onClick={loadMore}
-                    disabled={loadingMore}
-                    style={{ width: "100%" }}
-                  >
-                    {loadingMore ? (
-                      <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--space-1-5)" }}>
-                        <span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid var(--line)", borderTopColor: "var(--lime)", animation: "spin 0.7s linear infinite", display: "inline-block" }} />
-                        {t("feed.loading")}
-                      </span>
-                    ) : t("feed.loadMore")}
-                  </Button>
-                )}
-              </>
-            )}
-            </div>{/* 스크롤 영역 끝 */}
-          </div>
-
-          <aside className="hidden lg:block w-[340px] flex-shrink-0">
-            <div className="space-y-3">
-              {todayStrip}
-            {/* 한국 자전거 커뮤니티 */}
-            {!isRunTab && <Card padding="none" style={{ padding: 'var(--space-4)' }}>
-              <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("sidebar.community.title")}</Text>
-              <div className="flex flex-col gap-2">
-                {KOREAN_CYCLING_COMMUNITIES.map((c) => (
-                  <a
-                    key={c.name}
-                    href={c.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3"
-                    style={{ padding: "6px 8px", borderRadius: "var(--r-md)", textDecoration: "none", transition: "background .12s" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-2)")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <CommunityLogo {...c} />
-                    <div className="min-w-0">
-                      <div style={{ fontSize: "var(--fs-xs)", fontWeight: 600, color: "var(--ink-0)" }}>{c.name}</div>
-                      <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{t(`home.communities.${c.descKey}`)}</div>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </Card>}
-
-
-            </div>
-          </aside>
-        </div>
-      </div>
-  );
+        {showYearRecapBanner && <Card><Link to="/athlete/me/records">{t("yearRecap.title")}</Link></Card>}
+      </aside>
+      <section className="desktop-dashboard-feed" aria-label={t("feed.title")}>
+        {activityFeed}
+      </section>
+      <aside className="desktop-dashboard-right">
+        {todayStrip}
+        {!isRunTab && <Card padding="card" className="desktop-dashboard-community">
+          <Text as="h2" variant="eyebrow">{t("sidebar.community.title")}</Text>
+          <div className="desktop-dashboard-community-list">{KOREAN_CYCLING_COMMUNITIES.map(community => <a key={community.name} href={community.url} target="_blank" rel="noopener noreferrer">
+            <CommunityLogo {...community} />
+            <span><strong>{community.name}</strong><Text as="span" variant="caption" tone="tertiary">{t(`home.communities.${community.descKey}`)}</Text></span>
+          </a>)}</div>
+        </Card>}
+      </aside>
+    </div>
+  </div>;
 }

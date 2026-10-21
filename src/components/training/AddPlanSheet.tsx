@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import { planCalendarDate } from "@shared/training/planDate";
 import { useRef, useState, useMemo, useId } from "react";
 import { useTranslation } from "react-i18next";
@@ -302,7 +303,7 @@ export default function AddPlanSheet({
                   { key: "run" as Discipline, label: t('discipline.run'), icon: <SportIcon sport="run" size={18} />, color: "var(--amber)" },
                   { key: "swim" as Discipline, label: t('add.swimUnavailable'), icon: <SportIcon sport="swim" size={18} />, color: "var(--lime)" },
                   { key: "rest" as Discipline, label: t('discipline.rest'), icon: <Moon size={18} />, color: "var(--ink-4)" },
-                ]).map(({ key, label, icon, color }) => (
+                ]).filter(option => isSportUiEnabled(option.key)).map(({ key, label, icon, color }) => (
                   <button
                     key={key}
                     disabled={loading || key === "swim"}

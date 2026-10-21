@@ -42,6 +42,7 @@
     "thresholdBikeUnit": "W"
   },
   "feed": {
+    "subscriptionsUnavailable": "Subscriptions are being prepared. Please use another activity scope for now.",
     "title": "Recent Activities",
     "countTooltip": "All public activities + your own activities",
     "feedScope": "· Full feed",
@@ -750,7 +751,7 @@
     "noEvents": "No upcoming registered events",
     "condition": "Condition",
     "conditionLink": "View condition →",
-    "week": "Monthly activity log →",
+    "week": "Monthly activity log",
     "more": "More schedule and training info",
     "support": "Apps and help",
     "recap": "View annual recap →",

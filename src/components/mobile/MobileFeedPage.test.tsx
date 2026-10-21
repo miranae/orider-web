@@ -103,6 +103,18 @@ describe("MobileFeedPage", () => {
     expect(onCardClick).not.toHaveBeenCalled();
     expect(screen.getByRole("link", { name: "FTP 사용자 활동명" })).toHaveAttribute("href", expect.stringContaining("/activity/"));
   });
+  it("opens the data-warning explanation with the shared text tooltip", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<CompactActivityCard activity={createMockActivity({ summary: createMockSummary({ maxSpeed: 300 }) })} />);
+    const trigger = screen.getByRole("button", { name: "⚠ 데이터 이상" });
+    expect(trigger.closest("[title]")).toBeNull();
+    await user.click(trigger);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("GPS noise");
+    expect(trigger).toHaveAttribute("aria-describedby", screen.getByRole("tooltip").id);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
   it("leaves shared activity labels plain outside the home glossary scope", () => {
     renderWithProviders(<CompactActivityCard activity={createMockActivity()} />);
     expect(screen.getByText("획득고도")).toBeInTheDocument();
@@ -131,6 +143,20 @@ describe("MobileFeedPage", () => {
     expect(screen.getByText("최근 사이클")).toBeInTheDocument();
   });
 
+  it("includes this year's activities from local January 1 and excludes the previous year", () => {
+    const year = new Date().getFullYear();
+    const january = new Date(year, 0, 1, 12).getTime();
+    const december = new Date(year - 1, 11, 31, 12).getTime();
+    const activities = [
+      createMockActivity({ id: "january", description: "올해 첫 활동", startTime: january, endTime: january + 3600000 }),
+      createMockActivity({ id: "december", description: "작년 마지막 활동", startTime: december, endTime: december + 3600000 }),
+    ];
+    renderWithProviders(<MobileFeedPage activities={activities} datePreset="year" loading={false}
+      hasMore={false} loadingMore={false} onLoadMore={vi.fn()} feedScope="all" />);
+    expect(screen.getByText("올해 첫 활동")).toBeInTheDocument();
+    expect(screen.queryByText("작년 마지막 활동")).not.toBeInTheDocument();
+  });
+
   it("searches the server for 설레임 even when the activity is outside the loaded feed", async () => {
     const user = userEvent.setup();
     setCollectionDocs("activities", [
@@ -154,6 +180,16 @@ describe("MobileFeedPage", () => {
     await act(async () => { externalSearch.reset(); });
     expect(screen.queryByText("설레임 첫 라이딩")).not.toBeInTheDocument();
   });
+  it("keeps the next-page action when all current subscription candidates were excluded", async () => {
+    const user = userEvent.setup();
+    const next = vi.fn();
+    renderWithProviders(<MobileFeedPage activities={[]} loading={false} hasMore loadingMore={false}
+      onLoadMore={next} feedScope="following" subscriptionIds={["target"]} />, { authenticated: true });
+    await user.click(screen.getByRole("button", { name: "더 보기" }));
+    expect(next).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("link", { name: "Google Play" })).not.toBeInTheDocument();
+  });
+
   it("pages already loaded all-period activities in groups of 20", async () => {
     const user = userEvent.setup();
     const onLoadMore = vi.fn();

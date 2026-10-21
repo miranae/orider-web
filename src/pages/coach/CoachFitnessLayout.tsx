@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import { CoachQuestionLauncher } from "../../features/coach/CoachQuestionLauncher";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTranslation } from "react-i18next";
@@ -12,9 +13,9 @@ export default function CoachFitnessLayout() {
   const [params] = useSearchParams();
   const location = useLocation();
   const today = location.pathname.endsWith("/today");
-  const sport = today && params.get("sport") === "tri" ? "bike" : params.get("sport");
+  const sport = !isSportUiEnabled(params.get("sport") ?? "bike") || (today && params.get("sport") === "tri") ? "bike" : params.get("sport");
   const model = useFitnessModel(sport, { decisionId: params.get("decisionId") });
-  if (today && params.get("sport") === "tri") {
+  if (!isSportUiEnabled(params.get("sport") ?? "bike") || (today && params.get("sport") === "tri")) {
     const next = new URLSearchParams(params);
     next.set("sport", "bike");
     return <Navigate replace to={{ pathname: location.pathname, search: `?${next}`, hash: location.hash }} />;

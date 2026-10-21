@@ -16,11 +16,15 @@ const week: PlanWeek = {
 };
 
 describe("MobilePlanPage goal discipline", () => {
-  it.each(["run", "swim"] as const)("preserves %s when the empty mobile plan opens goal setup", sport => {
+  it.each(["bike", "run"] as const)("preserves %s when the empty mobile plan opens goal setup", sport => {
     function GoalLocation() { const location = useLocation(); return <output>{location.search}</output>; }
     renderWithProviders(<Routes><Route path="/:lang/coach/plan" element={<MobilePlanPage currentWeek={null} weekLabel="" />} /><Route path="/:lang/goal-setup" element={<GoalLocation />} /></Routes>, { route: `/ko/coach/plan?sport=${sport}` });
     fireEvent.click(screen.getByRole("button", { name: /추가/ }));
     expect(screen.getByRole("status")).toHaveTextContent(`?sport=${sport}`);
+  });
+  it("hides goal creation for a disabled swim deep link", () => {
+    renderWithProviders(<MobilePlanPage currentWeek={null} weekLabel="" />, { route: "/ko/coach/plan?sport=swim" });
+    expect(screen.queryByRole("button", { name: /추가/ })).not.toBeInTheDocument();
   });
   it("uses the goal sport for a shared workout code across week and goal changes", () => {
     const view = renderWithProviders(<MobilePlanPage currentWeek={week} weekLabel="W1" goalDiscipline="run" />);
