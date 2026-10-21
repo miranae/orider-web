@@ -1,0 +1,14 @@
+.activity-feed-video video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.activity-feed-video-play, .activity-feed-video-mute { position: absolute; bottom: 0; z-index: 2; }
+.activity-feed-video-play { left: 0; }
+.activity-feed-video-mute { right: 0; }
+.activity-feed-video-time { position: absolute; top: var(--space-1); right: var(--space-1); padding: var(--space-0-5) var(--space-1); border-radius: var(--r-sm); background: var(--bg-1); color: var(--ink-1); font-size: var(--fs-xs); pointer-events: none; }
+.activity-feed-video-error { position: absolute; inset: var(--space-1) var(--space-1) calc(var(--space-7) + var(--space-3)); display: grid; place-items: center; background: var(--bg-1); color: var(--ink-2); font-size: var(--fs-xs); text-align: center; }
+
+.activity-feed-video-player { position: relative; width: 100%; height: 100%; }
+.activity-feed-video--expanded { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: var(--bg-2); }
+.activity-feed-video-close { position: absolute; left: 0; top: 0; z-index: 2; }
+.mobile-feed-inline-video-slot:not(:empty) { margin-top: var(--space-1); }
+
+.activity-feed-video { z-index: 2; }
+.mobile-feed-inline-video-slot { position: relative; z-index: 2; }

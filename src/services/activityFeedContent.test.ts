@@ -61,3 +61,21 @@ describe("operating feed comments", () => {
     await expect(loadActivityFeedComments(services, "viewer", "activity", new AbortController().signal)).rejects.toThrow("account_changed");
   });
 });
+
+it("preserves ordered video metadata and falls back to a photo when video metadata is unsafe", () => {
+  const projection = { version: 1, sourceRevision: "source", revision: "revision", totalPhotoCount: 3, photos: [
+    { id: "movie", url: "https://example.test/poster.jpg", caption: null, kind: "video", videoUrl: "https://example.test/master.m3u8", durationSeconds: 21 },
+    { id: "photo", url: "https://example.test/photo.jpg", caption: null },
+    { id: "invalid", url: "https://example.test/poster2.jpg", caption: null, kind: "video", videoUrl: "javascript:alert(1)", durationSeconds: -2 },
+  ] };
+  const result = boundedFeedContent(projection)!;
+  expect(result.photos.map(item => item.id)).toEqual(["movie", "photo", "invalid"]);
+  expect(result.photos[0]).toMatchObject({ kind: "video", videoUrl: "https://example.test/master.m3u8", durationSeconds: 21 });
+  expect(result.photos[1]).not.toHaveProperty("kind");
+  expect(result.photos[2]).not.toHaveProperty("videoUrl");
+  for (const videoUrl of ["https://user:password@example.test/master.m3u8", "https://example.test/" + "a".repeat(8192), "https://", "http://example.test/master.m3u8"]) {
+    const invalid = boundedFeedContent({ ...projection, photos: [{ ...projection.photos[0], videoUrl }] })!;
+    expect(invalid.photos[0]).not.toHaveProperty("videoUrl");
+    expect(invalid.photos[0]).not.toHaveProperty("kind");
+  }
+});
