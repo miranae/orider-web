@@ -274,7 +274,6 @@
     "date30d": "30일",
     "date90d": "90일",
     "searchContext": "검색: {{query}}",
-
     "occurred": {
       "today": "오늘 {{time}}",
       "yesterday": "어제 {{time}}",
@@ -284,7 +283,6 @@
     "feedTitle": "활동 피드",
     "publicTitle": "공개 활동",
     "publicDescription": "라이더들의 활동을 둘러보고, 로그인해 내 기록도 함께 확인하세요.",
-
     "runSummary": {
       "count": "활동횟수",
       "distance": "이동거리",
@@ -769,5 +767,8 @@
     "avgHeartRate": "평균심박",
     "avgPower": "평균파워",
     "activityTime": "활동시간"
-  }
+  },
+  "charts.weeklyChart.weekTitle": "주별 활동 기록",
+  "charts.weeklyChart.previousWeek": "이전 주",
+  "charts.weeklyChart.nextWeek": "다음 주"
 }
