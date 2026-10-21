@@ -99,6 +99,32 @@ export const DEFAULT_TYPOGRAPHY: TypographyTokens = {
   eyebrow:    { size: H.caption1,    weight: 500, mono: true, letterSpacing: '0.14em' }, // 최소 12px (#401)
 };
 
+/**
+ * HIG 전환 이전 크기 — 앱 WebView 임베드 화면(`/:lang/embed/*`)만 아직 이 값을 쓴다.
+ * Provider `typeScale="legacy"` 가 주입한다. 임베드에도 HIG 를 적용할 때 이 두 상수,
+ * Provider 분기, components.css 의 `data-type-scale="legacy"` 규칙을 함께 지운다.
+ */
+export const LEGACY_FONT_SIZE_RAMP: Record<FontSizeStep, number> = {
+  '2xs': 12, xs: 12, sm: 12, base: 15, md: 15, lg: 17,
+  xl: 22, '2xl': 28, '3xl': 32, '4xl': 36, '5xl': 48,
+};
+
+type UiTypographyKey = Exclude<keyof TypographyTokens, 'dataHero' | 'dataLarge' | 'dataMedium' | 'dataSmall'>;
+
+export const LEGACY_UI_TYPOGRAPHY: Pick<TypographyTokens, UiTypographyKey> = {
+  pageTitle:  { size: 32, weight: 700, lineHeight: 1.15 },
+  title:      { size: 20, weight: 700, lineHeight: 1.3 },
+  subtitle:   { size: 17, weight: 600, lineHeight: 1.4, letterSpacing: '-0.01em' },
+  bodyLarge:  { size: 17, weight: 400, lineHeight: 1.5 },
+  body:       { size: 15, weight: 400, lineHeight: 1.5 },
+  bodyMedium: { size: 15, weight: 500, lineHeight: 1.5 },
+  bodySmall:  { size: 13, weight: 400, lineHeight: 1.5 },
+  caption:    { size: 12, weight: 400, lineHeight: 1.4 },
+  label:      { size: 13, weight: 500, lineHeight: 1.3, letterSpacing: '0' },
+  status:     { size: 13, weight: 500, lineHeight: 1.3, letterSpacing: '0' },
+  eyebrow:    { size: 12, weight: 500, mono: true, letterSpacing: '0.14em' },
+};
+
 /** 앱 패리티 — 모바일 컴퓨터 화면 가독성용 큰 데이터 위계. */
 export const APP_PARITY_TYPOGRAPHY: TypographyTokens = {
   ...DEFAULT_TYPOGRAPHY,

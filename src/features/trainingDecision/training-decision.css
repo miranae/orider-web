@@ -7,6 +7,7 @@
 }
 .training-decision-card .ds-chip { font-size: var(--fs-2xs); overflow-wrap: normal; word-break: keep-all; }
 .training-decision-card .ds-alert { font-size: var(--fs-xs); }
+:where(:root[data-type-scale="legacy"]) .training-decision-card .ds-alert { font-size: .8125rem; }
 .training-decision-card .ds-btn {
   height: auto;
   min-height: 2.5rem;

@@ -15,7 +15,8 @@ export default function AppRoot() {
 
   return (
     <ThemeProvider>
-      <OriderThemeProvider>
+      {/* 앱 WebView 임베드는 아직 HIG 이전 글자 크기 유지 */}
+      <OriderThemeProvider typeScale={embedded ? 'legacy' : 'hig'}>
         {embedded ? (
           <App />
         ) : (
