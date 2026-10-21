@@ -4,6 +4,7 @@ import { Info } from "lucide-react";
 import { splitGlossaryText } from "../utils/termGlossary";
 import { useGlossaryScope } from "./common/GlossaryProvider";
 import { TooltipContent } from "../theme/components/TooltipContent";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 interface InfoTipProps {
   /** 용어와 간단한 설명 */
@@ -185,7 +186,7 @@ export default function InfoTip({ content, title, label, termId, children, class
           lineHeight: textTrigger ? "inherit" : 0,
         }}
       >
-        {textTrigger ? children : <Info size={13} aria-hidden style={{ display: "block" }} />}
+        {textTrigger ? children : <Info size={ICON_SIZE.xs} aria-hidden style={{ display: "block" }} />}
       </button>
       {open && createPortal(title ? (
         <TooltipContent {...tooltipProps} title={title}>{content}</TooltipContent>

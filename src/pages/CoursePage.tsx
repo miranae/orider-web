@@ -58,6 +58,7 @@ import { courseAnalysisNoteKey, useCourseAnalysis } from "../hooks/useCourseAnal
 import { useGear } from "../hooks/useGear";
 import { usePdc } from "../hooks/usePdc";
 import { formatClimbDuration, predictClimb, type ClimbPrediction } from "@shared/sim/climbPrediction";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 interface CourseData {
   id: string;
@@ -915,7 +916,7 @@ export default function CoursePage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<MapPinned size={24} />}
+          icon={<MapPinned size={ICON_SIZE.lg} />}
           title={t("error.notFound")}
           description={course?.deletedAt || course?.hidden ? t("error.deleted") : undefined}
           actions={[{ label: t("button.courseList"), variant: "primary", href: "/explore/courses" }]}
@@ -1008,7 +1009,7 @@ export default function CoursePage() {
             lat: row.location[0],
             lon: row.location[1],
             name: row.name ?? t("waypoint.unnamed"),
-            icon: row.lane === "AID" ? <Banana size={16} aria-hidden="true" /> : row.lane === "KOM" ? <Mountain size={16} aria-hidden="true" /> : row.lane === "CUT" ? <Timer size={16} aria-hidden="true" /> : <Flag size={16} aria-hidden="true" />,
+            icon: row.lane === "AID" ? <Banana size={ICON_SIZE.md} aria-hidden="true" /> : row.lane === "KOM" ? <Mountain size={ICON_SIZE.md} aria-hidden="true" /> : row.lane === "CUT" ? <Timer size={ICON_SIZE.md} aria-hidden="true" /> : <Flag size={ICON_SIZE.md} aria-hidden="true" />,
             // 이름으로 비교하면 같은 이름이 여럿일 때 전부 켜지고, 이름 없는 지점은
             // 선택해도 안 켜진다. 인덱스로 판정한다.
             active: activeWaypointIndex === index,

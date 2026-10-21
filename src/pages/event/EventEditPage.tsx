@@ -22,6 +22,7 @@ import { normalizeStartTime } from "../../utils/event-time";
 import { Button, Chip, Text, Input, Textarea } from "../../theme/components";
 import { Field, PickerRow, Section, Toggle, fieldStyle } from "../../features/event/form/eventFormControls";
 import { joinDtLocal, joinStartTimeKst, newEditableCategory, splitDtLocal, splitStartTime, type EditableCategoryRow } from "../../features/event/form/eventFormUtils";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 type EventType = "GRANFONDO" | "TOUR" | "TT" | "TRAINING";
 type Visibility = "PUBLIC" | "GROUP" | "PRIVATE";
@@ -475,7 +476,7 @@ export default function EventEditPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<CalendarDays size={28} style={{ marginInline: "auto" }} />}
+          icon={<CalendarDays size={ICON_SIZE.xl} style={{ marginInline: "auto" }} />}
           title={t("empty.noResults")}
           actions={[{ label: t("create.eventList"), variant: "primary", onClick: () => navigate("/explore/events") }]}
         />
@@ -488,7 +489,7 @@ export default function EventEditPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<LockKeyhole size={28} style={{ marginInline: "auto" }} />}
+          icon={<LockKeyhole size={ICON_SIZE.xl} style={{ marginInline: "auto" }} />}
           title={t("edit.noPermTitle")}
           description={t("edit.noPermDesc")}
           actions={[{ label: t("edit.viewEvent"), variant: "primary", onClick: () => navigate(`/event/${eventId}`) }]}
@@ -500,7 +501,7 @@ export default function EventEditPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<Clock3 size={28} style={{ marginInline: "auto" }} />}
+          icon={<Clock3 size={ICON_SIZE.xl} style={{ marginInline: "auto" }} />}
           title={t("edit.lockedTitle")}
           description={t("edit.lockedDesc")}
           actions={[{ label: t("edit.viewEvent"), variant: "primary", onClick: () => navigate(`/event/${eventId}`) }]}
@@ -560,7 +561,7 @@ export default function EventEditPage() {
               type="button"
               onClick={() => navigate(`/event/${eventId}/host/participants`)} variant="secondary" size="sm"
             >
-              <Users size={14} aria-hidden="true" /> {t("action.manageParticipants")}
+              <Users size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.manageParticipants")}
             </Button>
           </div>
         </div>
@@ -623,7 +624,7 @@ export default function EventEditPage() {
               }}
             >
               <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-1-5)", color: "var(--amber)", fontWeight: 500 }}>
-                <CircleAlert size={14} aria-hidden="true" /> {t("edit.noticeRequired")}
+                <CircleAlert size={ICON_SIZE.sm} aria-hidden="true" /> {t("edit.noticeRequired")}
               </div>
               {(totalFilled === null ? t("detail.participantsUnavailable") : t("edit.noticeWillSend", { count: totalFilled }))}
             </div>
@@ -703,7 +704,7 @@ export default function EventEditPage() {
                   }}
                   aria-hidden="true"
                 >
-                  <Map size={20} aria-hidden="true" />
+                  <Map size={ICON_SIZE.lg} aria-hidden="true" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[length:var(--ft-body-size)] font-semibold truncate" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-1)' }}>
@@ -728,14 +729,14 @@ export default function EventEditPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
               <Field label={t("field.date")} required warn={data.date !== initialData.date}>
-                <DateField portal icon={<CalendarDays size={14} aria-hidden="true" />}
+                <DateField portal icon={<CalendarDays size={ICON_SIZE.sm} aria-hidden="true" />}
                   value={data.date}
                   onChange={(v) => patch({ date: v })}
                   placeholder={t("field.date")}
                 />
               </Field>
               <Field label={t("field.startTime")} required warn={data.startTime !== initialData.startTime}>
-                <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
+                <TimeField portal icon={<Clock3 size={ICON_SIZE.sm} aria-hidden="true" />}
                   value={data.startTime}
                   onChange={(v) => patch({ startTime: v })}
                   placeholder={t("field.startTime")}
@@ -754,14 +755,14 @@ export default function EventEditPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
               <Field label={t("field.meetTime")} warn={data.meetTime !== initialData.meetTime}>
-                <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
+                <TimeField portal icon={<Clock3 size={ICON_SIZE.sm} aria-hidden="true" />}
                   value={data.meetTime}
                   onChange={(v) => patch({ meetTime: v })}
                   placeholder={t("field.meetTime")}
                 />
               </Field>
               <Field label={t("field.expectedDuration")}>
-                <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
+                <TimeField portal icon={<Clock3 size={ICON_SIZE.sm} aria-hidden="true" />}
                   value={data.expectedDuration}
                   onChange={(v) => patch({ expectedDuration: v })}
                   placeholder="HH:MM"
@@ -823,7 +824,7 @@ export default function EventEditPage() {
                   className="flex items-center"
                   style={{ marginTop: 'var(--space-2)', fontSize: "var(--ft-body-size)", color: "var(--amber)", gap: "var(--space-1-5)" }}
                 >
-                  <CircleAlert size={14} aria-hidden="true" /> {(totalFilled === null ? t("detail.participantsUnavailable") : t("edit.feeChangeNotice", { count: totalFilled }))}
+                  <CircleAlert size={ICON_SIZE.sm} aria-hidden="true" /> {(totalFilled === null ? t("detail.participantsUnavailable") : t("edit.feeChangeNotice", { count: totalFilled }))}
                 </div>
               )}
             </Field>
@@ -923,12 +924,12 @@ export default function EventEditPage() {
                 <div className="flex flex-col" style={{ gap: "var(--space-3)" }}>
                   <Field label={t("field.openAt")} required>
                     <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 'var(--space-2)' }}>
-                      <DateField portal icon={<CalendarDays size={14} aria-hidden="true" />}
+                      <DateField portal icon={<CalendarDays size={ICON_SIZE.sm} aria-hidden="true" />}
                         value={open.date}
                         onChange={(v) => patch({ openAt: joinDtLocal(v, open.time) })}
                         placeholder={t("create.openDate")}
                       />
-                      <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
+                      <TimeField portal icon={<Clock3 size={ICON_SIZE.sm} aria-hidden="true" />}
                         value={open.time}
                         onChange={(v) => patch({ openAt: joinDtLocal(open.date, v) })}
                         placeholder={t("create.timePh")}
@@ -937,13 +938,13 @@ export default function EventEditPage() {
                   </Field>
                   <Field label={t("field.closeAt")} required>
                     <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 'var(--space-2)' }}>
-                      <DateField portal icon={<CalendarDays size={14} aria-hidden="true" />}
+                      <DateField portal icon={<CalendarDays size={ICON_SIZE.sm} aria-hidden="true" />}
                         value={close.date}
                         onChange={(v) => patch({ closeAt: joinDtLocal(v, close.time) })}
                         min={open.date || undefined}
                         placeholder={t("create.closeDate")}
                       />
-                      <TimeField portal icon={<Clock3 size={14} aria-hidden="true" />}
+                      <TimeField portal icon={<Clock3 size={ICON_SIZE.sm} aria-hidden="true" />}
                         value={close.time}
                         onChange={(v) => patch({ closeAt: joinDtLocal(close.date, v) })}
                         placeholder={t("create.timePh")}
@@ -1147,7 +1148,7 @@ export default function EventEditPage() {
                   color: "var(--rose)",
                 }}
               >
-                <CircleAlert size={20} aria-hidden="true" />
+                <CircleAlert size={ICON_SIZE.lg} aria-hidden="true" />
               </div>
               <div>
                 <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", lineHeight: 1.5 }}>

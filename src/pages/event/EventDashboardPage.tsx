@@ -32,10 +32,10 @@ type CourseWaypoint = {
 };
 
 const LANE_ICONS: Record<CourseWaypoint["lane"], ReactNode> = {
-  KOM: <Mountain size={14} aria-hidden="true" />,
-  AID: <Coffee size={14} aria-hidden="true" />,
-  CUT: <Timer size={14} aria-hidden="true" />,
-  SEG: <Flag size={14} aria-hidden="true" />,
+  KOM: <Mountain size={ICON_SIZE.sm} aria-hidden="true" />,
+  AID: <Coffee size={ICON_SIZE.sm} aria-hidden="true" />,
+  CUT: <Timer size={ICON_SIZE.sm} aria-hidden="true" />,
+  SEG: <Flag size={ICON_SIZE.sm} aria-hidden="true" />,
 };
 
 function classifyWaypointLane(type: string, name: string): CourseWaypoint["lane"] {
@@ -79,6 +79,7 @@ function parseGpxString(xml: string, idPrefix: string): { latlngs: Array<[number
 
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate } from "../../components/redesign";
 import { Button, Chip, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface EventInfo {
   name: string;
@@ -257,11 +258,11 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
     "RIDING" | "FINISHED" | "DNF" | "SOS" | "OFFCOURSE",
     { label: string; color: string; emoji: ReactNode }
   > = {
-    RIDING: { label: t("dashboard.status.riding"), color: "var(--lime)", emoji: <Circle size={14} aria-hidden="true" /> },
-    FINISHED: { label: t("dashboard.status.resultPending"), color: "var(--aqua)", emoji: <Square size={14} aria-hidden="true" /> },
-    DNF: { label: t("stats.dnf"), color: "var(--ink-3)", emoji: <X size={14} aria-hidden="true" /> },
-    SOS: { label: t("dashboard.status.sos"), color: "var(--rose)", emoji: <CircleAlert size={14} aria-hidden="true" /> },
-    OFFCOURSE: { label: t("dashboard.status.offCourse"), color: "var(--amber)", emoji: <CircleAlert size={14} aria-hidden="true" /> },
+    RIDING: { label: t("dashboard.status.riding"), color: "var(--lime)", emoji: <Circle size={ICON_SIZE.sm} aria-hidden="true" /> },
+    FINISHED: { label: t("dashboard.status.resultPending"), color: "var(--aqua)", emoji: <Square size={ICON_SIZE.sm} aria-hidden="true" /> },
+    DNF: { label: t("stats.dnf"), color: "var(--ink-3)", emoji: <X size={ICON_SIZE.sm} aria-hidden="true" /> },
+    SOS: { label: t("dashboard.status.sos"), color: "var(--rose)", emoji: <CircleAlert size={ICON_SIZE.sm} aria-hidden="true" /> },
+    OFFCOURSE: { label: t("dashboard.status.offCourse"), color: "var(--amber)", emoji: <CircleAlert size={ICON_SIZE.sm} aria-hidden="true" /> },
   };
 
   const [eventInfo, setEventInfo] = useState<EventInfo | null>(null);
@@ -511,7 +512,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                   newAlerts.push({
                     key: `${loc.uid}-fin-${now}`,
                     ts: now,
-                    emoji: <Square size={14} aria-hidden="true" />,
+                    emoji: <Square size={ICON_SIZE.sm} aria-hidden="true" />,
                     color: "var(--aqua)",
                     message: t("dashboard.alert.resultPending", { bib: bibLabel, name: loc.displayName }),
                   });
@@ -519,7 +520,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                   newAlerts.push({
                     key: `${loc.uid}-dnf-${now}`,
                     ts: now,
-                    emoji: <X size={14} aria-hidden="true" />,
+                    emoji: <X size={ICON_SIZE.sm} aria-hidden="true" />,
                     color: "var(--ink-3)",
                     message: t("dashboard.alert.dnf", { bib: bibLabel, name: loc.displayName }),
                     sub: loc.lastCp ? t("dashboard.alert.dnfSub", { cp: loc.lastCp }) : undefined,
@@ -528,7 +529,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                   newAlerts.push({
                     key: `${loc.uid}-sos-${now}`,
                     ts: now,
-                    emoji: <CircleAlert size={14} aria-hidden="true" />,
+                    emoji: <CircleAlert size={ICON_SIZE.sm} aria-hidden="true" />,
                     color: "var(--rose)",
                     message: t("dashboard.alert.sos", { bib: bibLabel, name: loc.displayName }),
                     sub: loc.lastCp ? t("dashboard.alert.sosSub", { cp: loc.lastCp }) : t("dashboard.alert.locationConfirmed"),
@@ -537,7 +538,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                   newAlerts.push({
                     key: `${loc.uid}-off-${now}`,
                     ts: now,
-                    emoji: <CircleAlert size={14} aria-hidden="true" />,
+                    emoji: <CircleAlert size={ICON_SIZE.sm} aria-hidden="true" />,
                     color: "var(--amber)",
                     message: t("dashboard.alert.offCourse", { bib: bibLabel, name: loc.displayName }),
                     sub: loc.lastCp ? t("dashboard.alert.offCourseSub", { cp: loc.lastCp }) : undefined,
@@ -553,7 +554,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                 newAlerts.push({
                   key: `cp-${cp.cpId}-${now}`,
                   ts: now,
-                  emoji: <MapPin size={14} aria-hidden="true" />,
+                  emoji: <MapPin size={ICON_SIZE.sm} aria-hidden="true" />,
                   color: "var(--lime)",
                   message: t("dashboard.alert.cpPassed", { count: delta, name: cp.name }),
                   sub: t("dashboard.alert.cpTotal", { count: cp.passedCount }),
@@ -745,25 +746,25 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
           </div>
         </div>
         <div data-testid="O1-0" className="flex items-center" style={{ gap: 'var(--space-2)', marginLeft: "auto" }}>
-          {!trackingEnded && <Chip aria-live="polite"><Eye size={14} aria-hidden="true" /> {t("viewer.count", { count: viewerCount })}</Chip>}
+          {!trackingEnded && <Chip aria-live="polite"><Eye size={ICON_SIZE.sm} aria-hidden="true" /> {t("viewer.count", { count: viewerCount })}</Chip>}
           {!trackingEnded && <Button
             type="button"
             onClick={() => eventId && window.open(`/live/${eventId}`, "_blank", "noopener")} variant="secondary" size="sm"
           >
-            <Telescope size={14} aria-hidden="true" /> {t("action.spectatorView")}
+            <Telescope size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.spectatorView")}
           </Button>}
           <Button
             type="button"
             onClick={() => navigate(`/event/${eventId}/host/participants`)} variant="secondary" size="sm"
           >
-            <Users size={14} aria-hidden="true" /> {t("participants")}
+            <Users size={ICON_SIZE.sm} aria-hidden="true" /> {t("participants")}
           </Button>
           {permissions.canAnnounce && (
             <Button
               type="button"
               onClick={handleSendAlert} variant="secondary" size="sm"
             >
-              <Megaphone size={14} aria-hidden="true" /> {t("action.sendNotice")}
+              <Megaphone size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.sendNotice")}
             </Button>
           )}
           {permissions.canStartFinish && eventInfo.status === "OPEN" && <Button disabled={operatorBusy} onClick={onStart}>{t("button.start")}</Button>}
@@ -774,7 +775,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
               disabled={finishing} variant="secondary" size="sm"
               style={{ color: "var(--rose)", borderColor: "color-mix(in oklch, var(--rose) 40%, transparent)" }}
             >
-              <Square size={14} aria-hidden="true" /> {finishing ? t("dashboard.finishing") : t("button.finish")}
+              <Square size={ICON_SIZE.sm} aria-hidden="true" /> {finishing ? t("dashboard.finishing") : t("button.finish")}
             </Button>
           )}
         </div>
@@ -953,11 +954,11 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
           {(!trackingEnded || snapshot) && <div style={{ height: 300, borderTop: "1px solid var(--line-soft)", flexShrink: 0, overflow: "hidden" }}>
             {!snapshot ? (
               <div className="flex items-center justify-center h-full">
-                <EmptyState icon={<Radio size={24} style={{ marginInline: "auto" }} />} title={t(trackingEnded ? "dashboard.trackingEnded" : "dashboard.snapshotUnavailable")} compact />
+                <EmptyState icon={<Radio size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />} title={t(trackingEnded ? "dashboard.trackingEnded" : "dashboard.snapshotUnavailable")} compact />
               </div>
             ) : filteredLocations.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <EmptyState icon={<Users size={24} style={{ marginInline: "auto" }} />} title={t("dashboard.noParticipantsMatch")} compact />
+                <EmptyState icon={<Users size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />} title={t("dashboard.noParticipantsMatch")} compact />
               </div>
             ) : (
               <ParticipantTable

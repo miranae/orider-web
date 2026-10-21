@@ -7,6 +7,7 @@ import { useGroupMemberRole } from "../../hooks/useGroup";
 import type { ReactNode } from "react";
 import type { Group, GroupKind } from "@shared/types";
 import { Button, Card, Chip, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface GroupCardProps {
   group: Group & { isLeader?: boolean };
@@ -33,10 +34,10 @@ const KIND_LABEL_KEYS: Record<GroupKind, string> = {
 };
 
 const DISCIPLINE_META: Record<string, { labelKey: string; color: string; icon: ReactNode }> = {
-  bike: { labelKey: "card.discipline.bike", color: "var(--lime)", icon: <SportIcon sport="bike" size={16} /> },
-  run: { labelKey: "card.discipline.run", color: "var(--amber)", icon: <SportIcon sport="run" size={16} /> },
-  swim: { labelKey: "card.discipline.swim", color: "var(--aqua)", icon: <SportIcon sport="swim" size={16} /> },
-  tri: { labelKey: "card.discipline.tri", color: "var(--aqua)", icon: <Triangle size={12} /> },
+  bike: { labelKey: "card.discipline.bike", color: "var(--lime)", icon: <SportIcon sport="bike" size={ICON_SIZE.md} /> },
+  run: { labelKey: "card.discipline.run", color: "var(--amber)", icon: <SportIcon sport="run" size={ICON_SIZE.md} /> },
+  swim: { labelKey: "card.discipline.swim", color: "var(--aqua)", icon: <SportIcon sport="swim" size={ICON_SIZE.md} /> },
+  tri: { labelKey: "card.discipline.tri", color: "var(--aqua)", icon: <Triangle size={ICON_SIZE.xs} /> },
 };
 
 function badgeText(name: string): string {

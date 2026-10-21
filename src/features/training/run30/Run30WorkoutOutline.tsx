@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Run30Segment, Run30Session } from "./run30Api";
 import { compactRun30Segments, run30Duration } from "./run30Display";
 import "./run30.css";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 
 /** Display only: every source step remains available in its original order. */
 export default function Run30WorkoutOutline({ session, showDuration = true }: { session: Run30Session; showDuration?: boolean }) {
@@ -26,7 +27,7 @@ export default function Run30WorkoutOutline({ session, showDuration = true }: { 
         {tail && <section className="run30-outline-tail"><h4>{t("run30.outline.afterRepeat")}</h4>{tail.segments.map(segment => <div key={segment.stepId}>{segmentRow(segment)}</div>)}</section>}
         <section><h4>{t("run30.outline.finish")}</h4>{segmentRow(last!)}</section>
       </div> : body}
-      <details className="run30-outline-details"><summary><span>{t("run30.outline.allSteps", { count: session.segments.length })}</span><ChevronDown size={16} aria-hidden="true" /></summary>
+      <details className="run30-outline-details"><summary><span>{t("run30.outline.allSteps", { count: session.segments.length })}</span><ChevronDown size={ICON_SIZE.md} aria-hidden="true" /></summary>
         <ol className="run30-segments">{session.segments.map(segment => <li key={segment.stepId}>{segmentRow(segment)}</li>)}</ol>
       </details>
     </>}

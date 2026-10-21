@@ -6,7 +6,7 @@ import type { ActivityRangeAnalysisResponse } from "@shared/types/activity-range
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import type { ActivityRangeSelectionModel } from "../../../hooks/useActivityRangeSelection";
 import type { useActivityRangeAnalysis } from "../../../hooks/useActivityRangeAnalysis";
-import Panel, { ActivityRangeControls, ActivityRangeAnalysisReading } from "./ActivityRangeAnalysisPanel";
+import Panel, { ActivityRangeControls, ActivityChartAxisControls, ActivityRangeAnalysisReading } from "./ActivityRangeAnalysisPanel";
 
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), units: "metric" as "metric" | "imperial" }));
 vi.mock("../../../hooks/useActivityRangeAnalysis", () => ({ useActivityRangeAnalysis: mocks.hook }));
@@ -27,6 +27,13 @@ const metrics: NonNullable<ActivityRangeAnalysisResponse["metrics"]> = {
 const unavailable = { state: "unavailable", metrics: null, response: null, reason: "api_unavailable", retry: vi.fn() } as ReturnType<typeof useActivityRangeAnalysis>;
 beforeEach(() => { mocks.units = "metric"; mocks.hook.mockReset().mockReturnValue(unavailable); selection.select = vi.fn(); });
 describe("canonical elapsed range reading", () => {
+  it("allows public distance-axis browsing while unknown elapsed clocks remain disabled", () => {
+    const change = vi.fn();
+    renderWithProviders(<ActivityChartAxisControls axis="distance" elapsedAvailable={false} onChange={change} />);
+    expect(screen.getByRole("button", { name: "경과시간 축" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "거리 축" }));
+    expect(change).toHaveBeenCalledWith("distance");
+  });
   it("shows zone durations and percentages of observed zone time rather than selected elapsed time", () => {
     const result = { ...metrics, hrZoneSec: [20, 20, 0, 0, 0], powerZoneSec: null };
     const analysis = { ...unavailable, state: "available", metrics: result } as ReturnType<typeof useActivityRangeAnalysis>;

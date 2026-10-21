@@ -33,6 +33,7 @@ import { GearShoeStatus } from "./GearShoeStatus";
 import { GearKitSection } from "./GearKitSection";
 import { LocalizedLink } from "../LocalizedLink";
 import { Button, DropdownSelect, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const CDA_PRESETS = [
   { label: "equipment.presetHoods", value: 0.32 },
@@ -129,7 +130,7 @@ function SensorRow({ sensor, onRemove }: SensorRowProps) {
         aria-label={t("equipment.sensorAriaRemove")}
         style={{ color: "var(--rose)" }}
       >
-        <Trash2 size={12} />
+        <Trash2 size={ICON_SIZE.xs} />
       </Button>
     </div>
   );
@@ -265,7 +266,7 @@ function ProfileCard({
             color: "var(--ink-1)",
           }}
         >
-          <BikeIcon size={20} />
+          <BikeIcon size={ICON_SIZE.lg} />
         </div>
         <div className="settings-bike-title" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-2)", minWidth: 0 }}>
             {editing ? (
@@ -290,7 +291,7 @@ function ProfileCard({
                   disabled={busy}
                   aria-label={t("equipment.bikeSave")}
                 >
-                  <Check size={14} />
+                  <Check size={ICON_SIZE.sm} />
                 </Button>
                 <Button variant="ghost"
                   onClick={() => {
@@ -300,7 +301,7 @@ function ProfileCard({
                   disabled={busy}
                   aria-label={t("equipment.bikeCancel")}
                 >
-                  <X size={14} />
+                  <X size={ICON_SIZE.sm} />
                 </Button>
               </>
             ) : (
@@ -369,7 +370,7 @@ function ProfileCard({
               disabled={busy}
               aria-label={t("equipment.bikeRename")}
             >
-              <Pencil size={12} />
+              <Pencil size={ICON_SIZE.xs} />
             </Button>}
             {!deviceControls && canDelete && (
               <Button variant="ghost"
@@ -378,7 +379,7 @@ function ProfileCard({
                 aria-label={t("equipment.bikeDelete")}
                 style={{ color: "var(--rose)" }}
               >
-                <Trash2 size={12} />
+                <Trash2 size={ICON_SIZE.xs} />
               </Button>
             )}
           </div>

@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { PartyPopper } from "lucide-react";
 import { buttonClass, Text } from "../../theme/components";
 import { LocalizedLink } from "../LocalizedLink";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -92,7 +93,7 @@ export default function FirstSyncCelebration({ activityId, onClose }: FirstSyncC
       >
         <style>{"@keyframes first-sync-in{from{transform:scale(.96);opacity:0}to{transform:none;opacity:1}}"}</style>
 
-        <PartyPopper size={36} aria-hidden="true" style={{ color: "var(--accent)" }} />
+        <PartyPopper size={ICON_SIZE.xl} aria-hidden="true" style={{ color: "var(--accent)" }} />
 
         <Text as="h2" id={titleId} variant="subtitle" tone="primary" style={{ margin: "var(--space-3) 0 var(--space-2)" }}>
           {t("firstSync.title")}

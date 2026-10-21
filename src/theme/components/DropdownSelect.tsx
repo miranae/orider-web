@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from './cn';
 import './DropdownSelect.css';
+import { ICON_SIZE } from '../tokens/icon';
 
 export interface DropdownSelectOption {
   value: string;
@@ -149,7 +150,7 @@ export function DropdownSelect({ value, onChange, options, label, id, placeholde
       disabled={unavailable} className="ds-dropdown-select__trigger" onKeyDown={onKeyDown}
       onBlur={event => { if (!menuRef.current?.contains(event.relatedTarget)) close(); }}
       onClick={() => { setKeyboardNavigation(false); if (open) close(); else show(); }}>
-      <span>{selected?.label ?? placeholder}</span><ChevronDown size={16} aria-hidden="true" />
+      <span>{selected?.label ?? placeholder}</span><ChevronDown size={ICON_SIZE.md} aria-hidden="true" />
     </button>
     {open && createPortal(<div ref={menuRef} id={listId} role="listbox" aria-label={label} className="ds-dropdown-select__menu"
       style={{ ...position, zIndex: menuZIndex, visibility: position ? 'visible' : 'hidden' }}>
@@ -158,7 +159,7 @@ export function DropdownSelect({ value, onChange, options, label, id, placeholde
         data-active={option.value === activeValue} data-keyboard-active={keyboardNavigation && option.value === activeValue} className="ds-dropdown-select__option"
         onPointerMove={() => { setKeyboardNavigation(false); if (!option.disabled) setActiveValue(option.value); }}
         onMouseDown={event => event.preventDefault()} onClick={() => { if (!option.disabled) choose(option.value); }}>
-        <span>{option.label}</span>{option.value === value && <Check size={16} aria-hidden="true" />}
+        <span>{option.label}</span>{option.value === value && <Check size={ICON_SIZE.md} aria-hidden="true" />}
       </div>)}
     </div>, document.body)}
   </div>;

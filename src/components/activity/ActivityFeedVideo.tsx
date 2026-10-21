@@ -6,6 +6,7 @@ import type Hls from "hls.js";
 import type { ActivityFeedContentProjection } from "@shared/types/activity-feed-content";
 import { IconButton } from "../../theme/components";
 import "./ActivityFeedVideo.css";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 type Media = ActivityFeedContentProjection["photos"][number];
 
@@ -177,24 +178,24 @@ export default function ActivityFeedVideo({ media, remainingCount = 0, expanded 
         updateRemaining();
       }}
       onError={event => { if (active && event.currentTarget === videoRef.current) { playIntent.current = false; setFailed(true); setLoading(false); setRequestedUrl(null); } }} />
-    {expanded && <span className="activity-feed-video-close"><IconButton variant="neutral" size="sm" aria-label={t("card.videoClose")} icon={<X size={16} />} onClick={() => { playIntent.current = false; setRequestedUrl(null); onExpansionChange?.(null); }} /></span>}
+    {expanded && <span className="activity-feed-video-close"><IconButton variant="neutral" size="sm" aria-label={t("card.videoClose")} icon={<X size={ICON_SIZE.md} />} onClick={() => { playIntent.current = false; setRequestedUrl(null); onExpansionChange?.(null); }} /></span>}
     {seconds != null && <span className="activity-feed-video-time">{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}</span>}
     {failed && <span role="status" className="activity-feed-video-error">{t("card.videoUnavailable")}</span>}
     {!active && remainingCount > 0 && <span className="mobile-feed-photo-remaining">+{remainingCount}</span>}
     <span className="activity-feed-video-play">
       <IconButton variant="neutral" size="sm" aria-label={t(failed ? "card.videoRetry" : playing || loading ? "card.videoPause" : "card.videoPlay")}
-        aria-pressed={playing} icon={failed ? <RotateCcw size={16} /> : playing || loading ? <Pause size={16} /> : <Play size={16} />} onClick={toggle} />
+        aria-pressed={playing} icon={failed ? <RotateCcw size={ICON_SIZE.md} /> : playing || loading ? <Pause size={ICON_SIZE.md} /> : <Play size={ICON_SIZE.md} />} onClick={toggle} />
     </span>
     {active && <span className="activity-feed-video-mute">
       <IconButton variant="neutral" size="sm" aria-label={t(muted ? "card.videoUnmute" : "card.videoMute")} aria-pressed={!muted}
-        icon={muted ? <VolumeX size={16} /> : <Volume2 size={16} />} onClick={() => setMuted(value => !value)} />
+        icon={muted ? <VolumeX size={ICON_SIZE.md} /> : <Volume2 size={ICON_SIZE.md} />} onClick={() => setMuted(value => !value)} />
     </span>}
   </div>;
   return <>
     <div ref={tileRef} className="mobile-feed-photo activity-feed-video">
       {expanded && expandedOutlet ? <>
         <img src={media.url} alt={media.caption ?? ""} loading="lazy" />
-        <span className="activity-feed-video-play"><IconButton variant="neutral" size="sm" aria-label={t(playing ? "card.videoPause" : "card.videoPlay")} icon={playing ? <Pause size={16} /> : <Play size={16} />} onClick={toggle} /></span>
+        <span className="activity-feed-video-play"><IconButton variant="neutral" size="sm" aria-label={t(playing ? "card.videoPause" : "card.videoPlay")} icon={playing ? <Pause size={ICON_SIZE.md} /> : <Play size={ICON_SIZE.md} />} onClick={toggle} /></span>
       </> : player}
     </div>
     {expanded && expandedOutlet && createPortal(<div className="activity-feed-video activity-feed-video--expanded">{player}</div>, expandedOutlet)}

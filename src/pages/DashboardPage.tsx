@@ -53,6 +53,7 @@ import { isSportUiEnabled } from "../config/sportFeatures";
 import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
 import type { Activity } from "@shared/types";
 import "./DashboardPage.css";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 type FeedFilterIndex = 0 | 1 | 2;
 
@@ -573,7 +574,7 @@ function DashboardContent() {
           {user && !user.isAnonymous ? <>
             <Link to="/athlete/me" className="desktop-dashboard-profile"><Avatar name={userName} imageUrl={profile?.photoURL || user.photoURL} size="xl" /><Text as="h2" variant="subtitle" weight={600}>{userName}</Text></Link>
             <ProfileSocialStats />
-            <Link to={`/athlete/me/activities?sport=${canonicalHome.enabled || discipline === "tri" ? "all" : discipline}`} className="desktop-dashboard-profile-link"><span>{t("todayStrip.week")}</span><ChevronRight size={16} aria-hidden="true" /></Link>
+            <Link to={`/athlete/me/activities?sport=${canonicalHome.enabled || discipline === "tri" ? "all" : discipline}`} className="desktop-dashboard-profile-link"><span>{t("todayStrip.week")}</span><ChevronRight size={ICON_SIZE.md} aria-hidden="true" /></Link>
           </> : <>
             <Text as="h2" variant="subtitle" weight={600}>{t("header.anonTitle")}</Text>
             <Text as="p" variant="bodySmall" tone="secondary">{t("header.anonSubtitle")}</Text>

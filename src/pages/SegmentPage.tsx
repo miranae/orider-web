@@ -28,6 +28,7 @@ import { segmentHistoryContext } from "../features/segments/segmentHistoryNaviga
 import { Button, Card, Text, buttonClass } from "../theme/components";
 import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { isImplausibleAvgSpeed } from "../utils/activitySanity";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 /** 비현실 평속(80 km/h 초과 등)은 "—" 로 가린다. 세그먼트 기록은 bike 기준. */
 function formatEffortSpeed(avgKph: number): string {
@@ -876,7 +877,7 @@ function SegmentDetailContent() {
       {/* Local Legend — 90일 최다완주(#490) */}
       {detailTab === "ranking" && <Card>
         <div className="flex items-baseline justify-between" style={{ marginBottom: "var(--space-2)" }}>
-          <Text as="div" variant="eyebrow"><Crown size={18} aria-hidden="true" className="inline-block" /> <InfoTip title={t("legend.title")} content={t("legend.explanation")}>{t("legend.title")}</InfoTip></Text>
+          <Text as="div" variant="eyebrow"><Crown size={ICON_SIZE.md} aria-hidden="true" className="inline-block" /> <InfoTip title={t("legend.title")} content={t("legend.explanation")}>{t("legend.title")}</InfoTip></Text>
           <span className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-4)" }}>{t("legend.subtitle")}</span>
         </div>
         {legendFresh && legend?.leader ? (

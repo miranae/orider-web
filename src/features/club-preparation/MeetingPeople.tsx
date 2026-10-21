@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Card } from '../../theme/components/Card';
 import { Chip } from '../../theme/components/Chip';
 import { meetingHostId, memberName, occupied, type Meeting, type State } from './domain';
+import { ICON_SIZE } from '../../theme/tokens/icon';
 
 export default function MeetingPeople({ state, meeting, actor }: {
   state: State;
@@ -26,7 +27,7 @@ export default function MeetingPeople({ state, meeting, actor }: {
         <h2>{isCancelled
           ? text('취소 당시 신청 인원', 'Registrations when cancelled')
           : text('누가 함께 오나요?', 'Who is joining?')}</h2>
-        <Users size={20} />
+        <Users size={ICON_SIZE.lg} />
       </div>
       <p className="cp-muted">
         {isCancelled

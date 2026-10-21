@@ -6,6 +6,7 @@ import { logClientError } from "../../../services/errorLogger";
 import { track } from "../../../services/analytics";
 import { canvasToPng, downloadShareCard, drawActivityShareCard, type ActivityShareCardInput } from "./activityShareCard";
 import { ActivityShareMapCapture, type ActivityShareMapCaptureHandle } from "./ActivityShareMapCapture";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 
 type Props = {
   compact?: boolean;
@@ -99,7 +100,7 @@ export function ActivityShareButton({ compact = false, menuItem = false, card, f
         type="button"
         variant={menuItem ? "ghost" : "secondary"}
         className={menuItem ? "activity-management-row" : undefined}
-        leadingIcon={menuItem ? <ImageDown size={18} aria-hidden="true" /> : undefined}
+        leadingIcon={menuItem ? <ImageDown size={ICON_SIZE.md} aria-hidden="true" /> : undefined}
         size="sm"
         disabled={busy}
         aria-busy={busy}

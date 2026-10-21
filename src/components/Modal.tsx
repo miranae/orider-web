@@ -4,6 +4,7 @@ import { useTrainingDialog } from "./training/useTrainingDialog";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { Button, Card } from "../theme/components";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 interface ModalProps {
   open: boolean;
@@ -37,7 +38,7 @@ function AccessibleModalPanel({ onClose, title, maxWidth, children, busy }: Pick
     style={{ background: "var(--bg-1)", maxHeight: "min(90vh, 720px)", overflowY: "auto", overscrollBehavior: "contain", boxShadow: "var(--shadow-lg)" }}>
     <div className="flex items-center justify-between gap-3 mb-4">
       <h2 id={titleId} className="club-card-title" style={{color:"var(--ink-0)",margin:0}}>{title}</h2>
-      <Button data-dialog-initial-focus type="button" variant="ghost" size="sm" aria-label={t("button.close")} disabled={busy} onClick={onClose}><X size={18} aria-hidden="true" /></Button>
+      <Button data-dialog-initial-focus type="button" variant="ghost" size="sm" aria-label={t("button.close")} disabled={busy} onClick={onClose}><X size={ICON_SIZE.md} aria-hidden="true" /></Button>
     </div>
     {children}
   </Card>;

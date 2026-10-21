@@ -27,6 +27,7 @@ import AppInstallLinks from "../../components/AppInstallLinks";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
 import { createEventShareImage, shareEventImage } from "../../features/event/share/eventShareCard";
 import { isVerifiedEventFinisher } from "../../features/event/resultVerification";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export interface ResultEntry {
   userId: string;
@@ -385,7 +386,7 @@ export default function EventResultsPage() {
   }
 
   if (privateResultsUnavailable) {
-    return <>{navigation}<div className="max-w-xl mx-auto py-16"><EmptyState icon={<LockKeyhole size={28} style={{ marginInline: "auto" }} />} title={t("resultsView.privateResultsUnavailable")} /></div></>;
+    return <>{navigation}<div className="max-w-xl mx-auto py-16"><EmptyState icon={<LockKeyhole size={ICON_SIZE.xl} style={{ marginInline: "auto" }} />} title={t("resultsView.privateResultsUnavailable")} /></div></>;
   }
 
   if (loadError) {
@@ -400,7 +401,7 @@ export default function EventResultsPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<Trophy size={28} style={{ marginInline: "auto" }} />}
+          icon={<Trophy size={ICON_SIZE.xl} style={{ marginInline: "auto" }} />}
           title={t("empty.noResults")}
           actions={[{ label: t("create.eventList"), variant: "primary", onClick: () => navigate("/explore/events") }]}
         />
@@ -445,7 +446,7 @@ export default function EventResultsPage() {
                 borderColor: "color-mix(in oklch, var(--aqua) 40%, transparent)",
               }}
             >
-              <Flag size={14} aria-hidden="true" /> {statusLabel}
+              <Flag size={ICON_SIZE.sm} aria-hidden="true" /> {statusLabel}
             </Chip>
             {eventDateStr && (
               <Chip style={{ fontSize: "var(--ft-body-size)" }}>
@@ -630,13 +631,13 @@ export default function EventResultsPage() {
                     sequence: previous && previous.eventId === eventId ? previous.sequence + 1 : 1,
                   }))}
                 >
-                  <Download size={14} aria-hidden="true" /> {t("resultsView.exportAction")}
+                  <Download size={ICON_SIZE.sm} aria-hidden="true" /> {t("resultsView.exportAction")}
                 </Button>
                 <Button
                   type="button" variant="secondary" size="sm"
                   onClick={shareResults}
                 >
-                  <Link2 size={14} aria-hidden="true" /> {t("button.share")}
+                  <Link2 size={ICON_SIZE.sm} aria-hidden="true" /> {t("button.share")}
                 </Button>
               </div>
             </div>
@@ -879,7 +880,7 @@ export default function EventResultsPage() {
               }}
             >
               <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginBottom: "var(--space-3)" }}>
-                <span aria-hidden="true">{eventHead.resultContractVersion && eventHead.resultContractVersion >= 2 && !myResult.verifiedFinisher ? <Hourglass size={18} /> : <Trophy size={18} />}</span>
+                <span aria-hidden="true">{eventHead.resultContractVersion && eventHead.resultContractVersion >= 2 && !myResult.verifiedFinisher ? <Hourglass size={ICON_SIZE.md} /> : <Trophy size={ICON_SIZE.md} />}</span>
                 <span className="event-results-card-title"
                   style={{
                     letterSpacing: "normal",
@@ -943,7 +944,7 @@ export default function EventResultsPage() {
                   style={{ padding: "var(--space-1-5)" }}
                   aria-label={t("button.share")}
                 >
-                  <Link2 size={14} aria-hidden="true" />
+                  <Link2 size={ICON_SIZE.sm} aria-hidden="true" />
                 </Button>
                 {myResult.verifiedFinisher && <Button type="button" variant="secondary" size="sm" aria-label={t("shareCard.completion")} onClick={async () => {
                   try {
@@ -954,7 +955,7 @@ export default function EventResultsPage() {
                     logClientError("EventResultsPage.shareCompletionCard", err, { eventId });
                     await dialog.alert(t("resultsView.shareFailed"), { variant: "danger" });
                   }
-                }}><Image size={14} aria-hidden="true" /></Button>}
+                }}><Image size={ICON_SIZE.sm} aria-hidden="true" /></Button>}
               </div>
             </Card>
           )}

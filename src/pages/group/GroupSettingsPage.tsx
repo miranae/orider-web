@@ -19,6 +19,7 @@ import VisibilityToggle from "../../components/group/VisibilityToggle";
 import { EmptyState, ErrorState } from "../../components/redesign";
 import type { GroupApproval, GroupKind, GroupToggles } from "@shared/types";
 import { Button, Card, Switch, Text, Input, Textarea } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export default function GroupSettingsPage() {
   const { t } = useTranslation("group");
@@ -152,7 +153,7 @@ export default function GroupSettingsPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<Users size={24} style={{marginInline:"auto"}} />}
+          icon={<Users size={ICON_SIZE.lg} style={{marginInline:"auto"}} />}
           title={t("empty.groupNotFound")}
           actions={[{ label: t("empty.goToList"), variant: "primary", href: "/clubs" }]}
         />

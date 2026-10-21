@@ -9,6 +9,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { Button, Card, Text, Input, buttonClass } from "../../theme/components";
 import { LocalizedLink as Link } from "../LocalizedLink";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface ImportActivityModalProps {
   open: boolean;
@@ -128,7 +129,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
       >
         <div className="flex items-center justify-between" style={{ padding: "14px 16px", borderBottom: "1px solid var(--line-soft)" }}>
           <span style={{ fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink-0)" }}>{t("import.modalTitle")}</span>
-          <Button variant="ghost" iconOnly onClick={handleClose} disabled={uploading} aria-label={t("import.close")}><X size={20} aria-hidden="true" /></Button>
+          <Button variant="ghost" iconOnly onClick={handleClose} disabled={uploading} aria-label={t("import.close")}><X size={ICON_SIZE.lg} aria-hidden="true" /></Button>
         </div>
 
         <div style={{ padding: 'var(--space-4)' }}>
@@ -146,18 +147,18 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
             >
               {file ? (
                 <div className="flex items-center gap-3">
-                  <CheckCircle size={18} style={{ color: "var(--lime)", flexShrink: 0 }} />
+                  <CheckCircle size={ICON_SIZE.md} style={{ color: "var(--lime)", flexShrink: 0 }} />
                   <div style={{ flex: 1, textAlign: "left" }}>
                     <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)" }}>{file.name}</div>
                     <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>
                       {fileSizeStr(file)} · {fileExt?.toUpperCase()}
                     </div>
                   </div>
-                  <Button variant="ghost" iconOnly aria-label={t("import.removeFile")} disabled={uploading} onClick={() => setFile(null)}><X size={16} aria-hidden="true" /></Button>
+                  <Button variant="ghost" iconOnly aria-label={t("import.removeFile")} disabled={uploading} onClick={() => setFile(null)}><X size={ICON_SIZE.md} aria-hidden="true" /></Button>
                 </div>
               ) : (
                 <>
-                  <Upload size={24} style={{ color: "var(--ink-4)", marginBottom: "var(--space-1-5)" }} />
+                  <Upload size={ICON_SIZE.lg} style={{ color: "var(--ink-4)", marginBottom: "var(--space-1-5)" }} />
                   <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{t("import.fileHint")}</div>
                   <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 'var(--space-1)' }}>{t("import.fileFormatNote")}</div>
                 </>

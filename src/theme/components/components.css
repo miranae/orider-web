@@ -139,7 +139,7 @@
   gap: 4px;
   padding: 3px 8px;
   border-radius: var(--r-sm, 4px);
-  font-size: 12px;
+  font-size: var(--fs-2xs);
   font-family: var(--font-mono);
   letter-spacing: .02em;
   background: var(--bg-3);
@@ -194,12 +194,13 @@
   background: var(--bg-0);
   border: 1px solid var(--line);
   color: var(--ink-0);
-  font-size: 13px;
+  font-size: var(--ft-body-size, 17px);
   font-family: inherit;
   outline: none;
   transition: border-color .12s;
   width: 100%;
 }
+:where(:root[data-type-scale="legacy"]) .ds-input { font-size: 13px; }
 /* Reserve trailing space without changing the native input/ref contract. */
 .ds-input-action { display: block; position: relative; min-width: 0; width: 100%; }
 .ds-input--with-action { min-height: calc(var(--space-7) + var(--space-4)); padding-right: calc(var(--space-7) + var(--space-5)); }
@@ -262,17 +263,17 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
   gap: 6px;
 }
 .ds-field__label {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   font-weight: 500;
   color: var(--ink-1);
 }
 .ds-field__hint {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--ink-3);
   font-family: var(--font-mono);
 }
 .ds-field__error {
-  font-size: 12px;
+  font-size: var(--fs-xs);
   color: var(--color-error);
 }
 
@@ -347,7 +348,7 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 }
 .ds-stat__label {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-2xs);
   letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--ink-3);
@@ -362,7 +363,7 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 }
 .ds-stat__value-unit {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-2xs);
   color: var(--ink-3);
   margin-left: 2px;
   font-weight: 400;
@@ -372,7 +373,7 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
   align-items: center;
   gap: 4px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-2xs);
 }
 .ds-stat__delta--up { color: var(--color-success); }
 .ds-stat__delta--down { color: var(--color-error); }
@@ -393,9 +394,10 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
   padding: 12px 14px;
   border-radius: var(--r-md, 6px);
   border: 1px solid;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
 }
+:where(:root[data-type-scale="legacy"]) .ds-alert { font-size: 13px; }
 .ds-alert__icon { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
 .ds-alert__body { color: var(--ink-1); flex: 1; min-width: 0; }
 .ds-alert__title { font-weight: 600; color: var(--ink-0); display: block; margin-bottom: 2px; }
@@ -508,33 +510,40 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 .ds-text--data-small   { font-family: var(--font-mono); font-size: var(--fs-data-small, 14px); font-weight: 500; line-height: 1.2; color: var(--ink-0); }
 
 /* UI text */
-.ds-text--page-title   { font-size: var(--ft-page-title-size, var(--fs-3xl)); font-weight: var(--ft-page-title-weight, 700); line-height: var(--ft-page-title-line-height, 1.15); letter-spacing: 0; color: var(--ink-0); }
-.ds-text--title        { font-size: 20px; font-weight: 700; line-height: 1.3; color: var(--ink-0); }
-.ds-text--subtitle     { font-size: 16px; font-weight: 600; line-height: 1.4; letter-spacing: 0.015em; color: var(--ink-0); }
-.ds-text--body-large   { font-size: 16px; font-weight: 500; line-height: 1.5; color: var(--ink-1); }
-.ds-text--body         { font-size: 14px; font-weight: 400; line-height: 1.5; color: var(--ink-1); }
-.ds-text--body-medium  { font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--ink-1); }
-.ds-text--body-small   { font-size: 13px; font-weight: 400; line-height: 1.5; color: var(--ink-1); }
-.ds-text--caption      { font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--ink-2); }
-.ds-text--label        { font-size: 13px; font-weight: 500; line-height: 1.3; letter-spacing: 0.05em; color: var(--ink-1); }
-.ds-text--eyebrow      { font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
+.ds-text--page-title   { font-size: var(--ft-page-title-size, var(--fs-3xl)); font-weight: var(--ft-page-title-weight, 700); line-height: var(--ft-page-title-line-height, 1.2); letter-spacing: 0; color: var(--ink-0); }
+.ds-text--title        { font-size: var(--ft-title-size, 22px); font-weight: var(--ft-title-weight, 700); line-height: var(--ft-title-line-height, 1.3); color: var(--ink-0); }
+.ds-text--subtitle     { font-size: var(--ft-subtitle-size, 17px); font-weight: var(--ft-subtitle-weight, 600); line-height: var(--ft-subtitle-line-height, 1.35); letter-spacing: var(--ft-subtitle-letter-spacing, -0.01em); color: var(--ink-0); }
+.ds-text--body-large   { font-size: var(--ft-body-large-size, 17px); font-weight: var(--ft-body-large-weight, 500); line-height: var(--ft-body-large-line-height, 1.5); color: var(--ink-1); }
+.ds-text--body         { font-size: var(--ft-body-size, 17px); font-weight: var(--ft-body-weight, 400); line-height: var(--ft-body-line-height, 1.5); color: var(--ink-1); }
+.ds-text--body-medium  { font-size: var(--ft-body-medium-size, 17px); font-weight: var(--ft-body-medium-weight, 500); line-height: var(--ft-body-medium-line-height, 1.5); color: var(--ink-1); }
+.ds-text--body-small   { font-size: var(--ft-body-small-size, 15px); font-weight: var(--ft-body-small-weight, 400); line-height: var(--ft-body-small-line-height, 1.45); color: var(--ink-1); }
+.ds-text--caption      { font-size: var(--ft-caption-size, 12px); font-weight: var(--ft-caption-weight, 400); line-height: var(--ft-caption-line-height, 1.4); color: var(--ink-2); }
+.ds-text--label        { font-size: var(--ft-label-size, 13px); font-weight: var(--ft-label-weight, 500); line-height: var(--ft-label-line-height, 1.3); letter-spacing: 0.05em; color: var(--ink-1); }
+.ds-text--eyebrow      { font-family: var(--font-mono); font-size: var(--ft-eyebrow-size, 12px); font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
 .ds-text--mono         { font-family: var(--font-mono); font-feature-settings: 'tnum' 1, 'zero' 1; }
 /* 옛 .num — 인라인 수치 (size 미지정, mono + tnum + medium weight + tight letter-spacing) */
 .ds-text--num          { font-family: var(--font-mono); font-feature-settings: 'tnum' 1; font-weight: 500; letter-spacing: -0.01em; }
 /* 옛 .unit — 수치 옆 작은 단위 표시 (km, W, bpm 등) */
-.ds-text--unit         { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); margin-left: 2px; font-weight: 400; }
+.ds-text--unit         { font-family: var(--font-mono); font-size: var(--ft-caption-size, 12px); color: var(--ink-3); margin-left: 2px; font-weight: 400; }
+
+/* HIG 이전 크기 — 앱 WebView 임베드(`data-type-scale="legacy"`)만. :where 로 명시도를 유지해 아래 size-* 가 계속 이긴다.
+   --ft-* 이전 값과 다르던 변형만 되살린다. 임베드에 HIG 적용 시 LEGACY_* 토큰과 함께 삭제. */
+:where(:root[data-type-scale="legacy"]) .ds-text--subtitle    { font-size: 16px; line-height: 1.4; letter-spacing: 0.015em; }
+:where(:root[data-type-scale="legacy"]) .ds-text--body-large  { font-size: 16px; font-weight: 500; }
+:where(:root[data-type-scale="legacy"]) .ds-text--body        { font-size: 14px; }
+:where(:root[data-type-scale="legacy"]) .ds-text--body-medium { font-size: 14px; }
 
 /* Raw size — 토큰 기반 (테마 교체 시 자동 반영) */
-.ds-text--size-xs   { font-size: var(--fs-xs, 11px); }
-.ds-text--size-sm   { font-size: var(--fs-sm, 12px); }
-.ds-text--size-base { font-size: var(--fs-base, 13px); }
-.ds-text--size-md   { font-size: var(--fs-md, 14px); }
-.ds-text--size-lg   { font-size: var(--fs-lg, 16px); }
-.ds-text--size-xl   { font-size: var(--fs-xl, 20px); }
-.ds-text--size-2xl  { font-size: var(--fs-2xl, 24px); }
-.ds-text--size-3xl  { font-size: var(--fs-3xl, 30px); }
-.ds-text--size-4xl  { font-size: 36px; }
-.ds-text--size-5xl  { font-size: 48px; }
+.ds-text--size-xs   { font-size: var(--fs-xs, 13px); }
+.ds-text--size-sm   { font-size: var(--fs-sm, 15px); }
+.ds-text--size-base { font-size: var(--fs-base, 16px); }
+.ds-text--size-md   { font-size: var(--fs-md, 17px); }
+.ds-text--size-lg   { font-size: var(--fs-lg, 20px); }
+.ds-text--size-xl   { font-size: var(--fs-xl, 22px); }
+.ds-text--size-2xl  { font-size: var(--fs-2xl, 28px); }
+.ds-text--size-3xl  { font-size: var(--fs-3xl, 34px); }
+.ds-text--size-4xl  { font-size: var(--fs-4xl, 40px); }
+.ds-text--size-5xl  { font-size: var(--fs-5xl, 48px); }
 
 /* Tone — 잉크 토큰 단계 */
 .ds-text--tone-0       { color: var(--ink-0); }
@@ -576,6 +585,9 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 .ds-toggle-button__check { color: var(--accent-text); width: calc(var(--dim-icon-s) - var(--space-0-5)); height: calc(var(--dim-icon-s) - var(--space-0-5)); flex-shrink: 0; }
 .ds-toggle-note { color: var(--ink-2); font-size: var(--ft-body-small-size); margin-inline-start: var(--space-2); }
 .ds-toggle-controls--axis { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); max-width: 100%; gap: var(--space-0-5); padding: var(--space-0-5); margin-block: var(--space-4); background: var(--bg-2); border-radius: var(--r-lg); }
+.activity-analysis-controls > .ds-toggle-controls { margin-block: 0; }
+.ds-toggle-controls--axis.ds-toggle-controls--compact { margin: 0; }
+.ds-toggle-controls--axis.ds-toggle-controls--compact .ds-toggle-button { min-height: calc(var(--space-7) + var(--space-3)); padding: var(--space-1); white-space: nowrap; }
 .ds-toggle-controls--axis .ds-btn__label { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .ds-toggle-controls--axis .ds-toggle-button { height: auto; min-height: calc(var(--space-7) + var(--space-3)); min-width: 0; padding: var(--space-2) var(--space-3); font-size: var(--ft-body-small-size); color: var(--ink-2); background: transparent; border-color: transparent; white-space: normal; }
 .ds-toggle-controls--axis .ds-toggle-button:is([aria-pressed="true"], [aria-selected="true"]) { background: var(--bg-1); color: var(--ink-0); box-shadow: var(--shadow-sm); font-weight: var(--ft-subtitle-weight); }

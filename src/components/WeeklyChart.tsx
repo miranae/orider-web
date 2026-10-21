@@ -18,6 +18,7 @@ import { useOriderTheme } from "../theme";
 import { resolveCssColor } from "../utils/cssColor";
 import { formatTrainingLoad } from "../utils/trainingLoadDisplay";
 import { formatNum } from "../utils/units";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 export interface WeeklyStat {
   week: string;
@@ -228,8 +229,8 @@ export default function WeeklyChart({
         <div className="weekly-chart-inspection__header">
           <Text as="h4" variant="bodyMedium" weight={600}>{formatPeriodLabel(selectedRow.week, i18n.language)}</Text>
           <div className="weekly-chart-inspection__navigation">
-            <IconButton aria-label={t(periodUnit === "week" ? "charts.weeklyChart.previousWeek" : "common:field.prevMonth")} disabled={inspectedIndex <= 0} onClick={() => inspect(inspectedIndex - 1)} icon={<ChevronLeft size={18} />} />
-            <IconButton aria-label={t(periodUnit === "week" ? "charts.weeklyChart.nextWeek" : "common:field.nextMonth")} disabled={inspectedIndex >= data.length - 1} onClick={() => inspect(inspectedIndex + 1)} icon={<ChevronRight size={18} />} />
+            <IconButton aria-label={t(periodUnit === "week" ? "charts.weeklyChart.previousWeek" : "common:field.prevMonth")} disabled={inspectedIndex <= 0} onClick={() => inspect(inspectedIndex - 1)} icon={<ChevronLeft size={ICON_SIZE.md} />} />
+            <IconButton aria-label={t(periodUnit === "week" ? "charts.weeklyChart.nextWeek" : "common:field.nextMonth")} disabled={inspectedIndex >= data.length - 1} onClick={() => inspect(inspectedIndex + 1)} icon={<ChevronRight size={ICON_SIZE.md} />} />
           </div>
         </div>
         <div aria-live="polite" aria-atomic="true">

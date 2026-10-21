@@ -10,6 +10,7 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 import { Card, Text } from "../../theme/components";
 import { formatPaceSec } from "../../utils/workoutPace";
 import type { RunWeeklyRecap } from "../../utils/runWeeklyRecap";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export interface WeeklyRecapCardProps {
   recap: RunWeeklyRecap;
@@ -97,7 +98,7 @@ function Stat({
                 : t("runRecap.deltaSlowerA11y", { sec: delta.seconds })
             }
           >
-            <Arrow size={12} aria-hidden="true" style={{ color: delta.improved ? "var(--lime)" : "var(--ink-2)" }} />
+            <Arrow size={ICON_SIZE.xs} aria-hidden="true" style={{ color: delta.improved ? "var(--lime)" : "var(--ink-2)" }} />
             {delta.seconds}
             {t("runRecap.unitSeconds")}
           </span>

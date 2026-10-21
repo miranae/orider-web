@@ -18,6 +18,7 @@ import { isIndoorActivity } from "../../utils/indoorActivity";
 import { planDayKey, planCalendarDate } from "@shared/training/planDate";
 import { acceptedPhysicalActivities, estimateActivityTss, sumAcceptedActivityTss } from "../../utils/estimateTSS";
 import "./MobileLogPage.css";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 // DAY_NAMES — i18n via t("mobileLog.dayNames")
 
@@ -212,7 +213,7 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
           <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{monthLabel}</span>
         </div>
         <div style={{ flex: 1 }} />
-        <Button data-testid="P1-0-2" variant="secondary" onClick={() => setImportOpen(true)} aria-label={t("mobileLog.importAria")} leadingIcon={<Upload size={16} aria-hidden="true" />}>{t("mobileLog.importBtn")}</Button>
+        <Button data-testid="P1-0-2" variant="secondary" onClick={() => setImportOpen(true)} aria-label={t("mobileLog.importAria")} leadingIcon={<Upload size={ICON_SIZE.md} aria-hidden="true" />}>{t("mobileLog.importBtn")}</Button>
       </div>
 
       {/* 종목 필터 */}
@@ -271,9 +272,9 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
           <div style={{ padding: 'var(--space-3) var(--space-4)' }}>
             <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)' }}>
               <div className="flex items-center gap-3">
-                <Button variant="ghost" iconOnly data-testid="P1-0-1" aria-label={t("training:page.prevMonth")} onClick={() => onChangeMonth(-1)}><ChevronLeft size={16} aria-hidden="true" /></Button>
+                <Button variant="ghost" iconOnly data-testid="P1-0-1" aria-label={t("training:page.prevMonth")} onClick={() => onChangeMonth(-1)}><ChevronLeft size={ICON_SIZE.md} aria-hidden="true" /></Button>
                 <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{monthLabel}</span>
-                <Button variant="ghost" iconOnly data-testid="P1-0-1" aria-label={t("training:page.nextMonth")} onClick={() => onChangeMonth(1)}><ChevronRight size={16} aria-hidden="true" /></Button>
+                <Button variant="ghost" iconOnly data-testid="P1-0-1" aria-label={t("training:page.nextMonth")} onClick={() => onChangeMonth(1)}><ChevronRight size={ICON_SIZE.md} aria-hidden="true" /></Button>
               </div>
             </div>
 
@@ -365,9 +366,9 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
           {/* Sport breakdown rows */}
           {!aggregateUnavailable && <div style={{ padding: "0 16px 12px" }}>
             {[
-              { icon: <SportIcon sport="bike" size={20} />, label: t("mobileLog.sportBike"), color: getDisciplineColor("bike"), filter: (a: Activity) => getDiscipline(a.type) === "bike", unit: "km", divisor: 1000 },
-              { icon: <SportIcon sport="run" size={20} />, label: t("mobileLog.sportRun"), color: getDisciplineColor("run"), filter: (a: Activity) => getDiscipline(a.type) === "run", unit: "km", divisor: 1000 },
-              { icon: <SportIcon sport="swim" size={20} />, label: t("mobileLog.sportSwim"), color: getDisciplineColor("swim"), filter: (a: Activity) => getDiscipline(a.type) === "swim", unit: "m", divisor: 1 },
+              { icon: <SportIcon sport="bike" size={ICON_SIZE.lg} />, label: t("mobileLog.sportBike"), color: getDisciplineColor("bike"), filter: (a: Activity) => getDiscipline(a.type) === "bike", unit: "km", divisor: 1000 },
+              { icon: <SportIcon sport="run" size={ICON_SIZE.lg} />, label: t("mobileLog.sportRun"), color: getDisciplineColor("run"), filter: (a: Activity) => getDiscipline(a.type) === "run", unit: "km", divisor: 1000 },
+              { icon: <SportIcon sport="swim" size={ICON_SIZE.lg} />, label: t("mobileLog.sportSwim"), color: getDisciplineColor("swim"), filter: (a: Activity) => getDiscipline(a.type) === "swim", unit: "m", divisor: 1 },
             ].filter(sport => isSportUiEnabled("swim") || sport.unit !== "m").map(sport => {
               const acts = monthRepresentatives.filter(sport.filter);
               if (acts.length === 0) return null;
@@ -450,7 +451,7 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
               {dayDetailActs.map((a) => {
                 const disc = getDiscipline(a.type);
                 // 삼항 else 가 미지 종목을 자전거로 떨어뜨렸다 — 중립 아이콘까지 다루는 헬퍼로 대체.
-                const icon = disc ? <SportIcon sport={disc} size={20} /> : <ActivityIcon size={20} aria-hidden="true" />;
+                const icon = disc ? <SportIcon sport={disc} size={ICON_SIZE.lg} /> : <ActivityIcon size={ICON_SIZE.lg} aria-hidden="true" />;
                 const color = getDisciplineColor(disc);
                 const km = Number.isFinite(a.summary.distance) ? (a.summary.distance / 1000).toFixed(1) : null;
                 const tmStr = formatRecordedDuration(a.summary.ridingTimeMillis);

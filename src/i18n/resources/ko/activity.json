@@ -2724,5 +2724,16 @@
       "title": "상세 지표와 근거",
       "description": "센서 지표, 개인 기록 비교, 피크 기록과 계산 근거를 확인하세요."
     }
+  },
+  "analysisChart": {
+    "keyboardHelp": "화살표로 위치를 이동하고 Shift+화살표로 범위를 선택합니다. Escape로 전체 범위를 복원합니다.",
+    "selectedStats": "선택 구간의 관측 평균·최고입니다. 저장된 전체 활동 지표와 구분됩니다.",
+    "segments": "세그먼트",
+    "restore": "전체 범위 복원",
+    "observedStats": "관측된 원시 표본의 평균·최고입니다. 저장된 활동 요약 지표와 다를 수 있습니다.",
+    "selection": "선택 구간",
+    "selectedStatsLabel": "선택 구간 통계",
+    "distanceShort": "거리",
+    "elapsedShort": "시간"
   }
 }

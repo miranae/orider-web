@@ -5,6 +5,7 @@ import type { Visibility } from "@shared/types";
 import Modal from "../Modal";
 import { LocalizedLink } from "../LocalizedLink";
 import { Button, Text, buttonClass } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface Props {
   open: boolean;
@@ -32,18 +33,18 @@ export default function ActivityManagementModal({ open, canManage, shareAction, 
       <fieldset className="activity-management-actions" disabled={saving}>
         {shareAction}
         {stravaActivityUrl && <a href={stravaActivityUrl} referrerPolicy="no-referrer" className={buttonClass({ variant: "ghost", className: "activity-management-row" })} aria-disabled={saving || undefined} tabIndex={saving ? -1 : undefined} onClick={event => { if (saving) event.preventDefault(); else onClose(); }}>
-          <ExternalLink size={18} aria-hidden="true" /><span>{t("stravaSummary.view")}</span>
+          <ExternalLink size={ICON_SIZE.md} aria-hidden="true" /><span>{t("stravaSummary.view")}</span>
         </a>}
         {canManage && <LocalizedLink to={`/activity/${activityId}/edit`} className={buttonClass({ variant: "ghost", className: "activity-management-row" })} aria-disabled={saving || undefined} tabIndex={saving ? -1 : undefined} onClick={event => { if (saving) event.preventDefault(); else onClose(); }}>
-          <Pencil size={18} aria-hidden="true" /><span>{t("page.management.edit")}</span>
+          <Pencil size={ICON_SIZE.md} aria-hidden="true" /><span>{t("page.management.edit")}</span>
         </LocalizedLink>}
-        <Button variant="ghost" className="activity-management-row" disabled={saving} onClick={onExport} leadingIcon={<Download size={18} aria-hidden="true" />}>{t("tab.export")}</Button>
+        <Button variant="ghost" className="activity-management-row" disabled={saving} onClick={onExport} leadingIcon={<Download size={ICON_SIZE.md} aria-hidden="true" />}>{t("tab.export")}</Button>
       </fieldset>
       {canManage && <fieldset className="activity-management-visibility" disabled={saving}>
         <Text as="legend" variant="bodyMedium" weight={600}>{t("page.management.visibility")}</Text>
         <Text as="p" variant="caption" tone="tertiary">{t("page.management.visibilityHint")}</Text>
         {options.map(option => <label key={option.value}>
-          <option.icon size={18} aria-hidden="true" />
+          <option.icon size={ICON_SIZE.md} aria-hidden="true" />
           <Text variant="bodyMedium">{t(`page.visibility.${option.value}`)}</Text>
           <input type="radio" name={name} value={option.value} checked={visibility === option.value} onChange={() => {
             if (visibility === option.value) return;
@@ -53,7 +54,7 @@ export default function ActivityManagementModal({ open, canManage, shareAction, 
         </label>)}
       </fieldset>}
       {canManage && <div className="activity-management-danger">
-        <Button variant="ghost" className="activity-management-row activity-management-row--danger" disabled={saving} onClick={onDelete} leadingIcon={<Trash2 size={18} aria-hidden="true" />}>{t("page.delete")}</Button>
+        <Button variant="ghost" className="activity-management-row activity-management-row--danger" disabled={saving} onClick={onDelete} leadingIcon={<Trash2 size={ICON_SIZE.md} aria-hidden="true" />}>{t("page.delete")}</Button>
       </div>}
     </div>
   </Modal>;

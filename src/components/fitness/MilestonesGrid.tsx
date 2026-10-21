@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { Card, Text } from "../../theme/components";
 import { MILESTONE_DISTANCES, DISTANCE_MILESTONE_ID } from "@shared/types/milestone";
 import type { Milestone, MilestoneId } from "@shared/types/milestone";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 /** 표시 순서 — 거리 완주 4종 다음 누적 3종. */
 const CUMULATIVE_IDS: MilestoneId[] = ["cumulative_100km", "cumulative_500km", "cumulative_1000km"];
@@ -62,7 +63,7 @@ export default function MilestonesGrid({ achieved }: MilestonesGridProps) {
                 style={{ fontSize: "var(--fs-lg)", filter: done ? "none" : "grayscale(1)" }}
                 aria-hidden="true"
               >
-                <Award size={20} aria-hidden="true" style={{margin: "0 auto"}} />
+                <Award size={ICON_SIZE.lg} aria-hidden="true" style={{margin: "0 auto"}} />
               </div>
               <Text as="div" variant="caption" tone={done ? "primary" : "tertiary"} weight={done ? 600 : 400}>
                 {t(`milestones.label.${id}`)}

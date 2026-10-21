@@ -30,6 +30,7 @@ import { usePersonalHeatmap } from "../hooks/usePersonalHeatmap";
 import LeaderboardPage from "./LeaderboardPage";
 import { LocalizedLink } from "../components/LocalizedLink";
 import { useExplorationGrid } from "../hooks/useExplorationGrid";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 interface SegmentData {
   id: string;
@@ -761,7 +762,7 @@ function ExploreSegmentsContent() {
                 aria-pressed={category === cat.id}
                 className={buttonClass({ variant: category === cat.id ? "primary" : "secondary", className: "inline-flex items-center justify-center gap-2 px-3 py-2 text-[length:var(--ft-body-size)] rounded-[var(--r-lg)] font-medium transition-colors whitespace-nowrap" })}
               >
-                <cat.icon size={16} aria-hidden="true" /> {cat.label}
+                <cat.icon size={ICON_SIZE.md} aria-hidden="true" /> {cat.label}
               </button>
             ))}
           </div>

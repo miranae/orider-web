@@ -17,6 +17,7 @@ import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNaviga
 import { buildFriendInviteUrl, shareFriendInvite } from "../utils/friendInviteShare";
 import i18n from "../i18n";
 import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 export default function FriendsPage() {
   const { user } = useAuth();
@@ -160,7 +161,7 @@ export default function FriendsPage() {
             <Text variant="mono" className="font-semibold text-[var(--aqua)] bg-[var(--aqua)]/10 px-3 py-1 rounded-[var(--r-lg)] text-[length:var(--fs-lg)]">
               {friendCode}
             </Text>
-            <Button variant="ghost" iconOnly aria-label={t("copyTooltip")} onClick={() => { void navigator.clipboard.writeText(friendCode).then(() => showToast(t("copied"))).catch(() => showToast(t("onboarding.shareFailed"), "error")); }}><Copy size={16} aria-hidden="true" /></Button>
+            <Button variant="ghost" iconOnly aria-label={t("copyTooltip")} onClick={() => { void navigator.clipboard.writeText(friendCode).then(() => showToast(t("copied"))).catch(() => showToast(t("onboarding.shareFailed"), "error")); }}><Copy size={ICON_SIZE.md} aria-hidden="true" /></Button>
           </div>
         )}
         <div className="flex gap-2">

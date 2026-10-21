@@ -1,6 +1,7 @@
 import GlossaryText from "../common/GlossaryText";
 import { useTranslation } from "react-i18next";
 import { Sparkles } from "lucide-react";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 /**
  * 스트라바형 카드의 AI 요약 블록 — 활동 doc 에 비정규화된 `aiSummaryPreview`(ko) /
@@ -20,7 +21,7 @@ export default function ActivityAiSummary({ summary, summaryEn, inset = true }: 
       style={{ background: "color-mix(in oklch, var(--lime) 8%, var(--bg-2))", border: "1px solid color-mix(in oklch, var(--lime) 25%, transparent)" }}
     >
       <div className="flex items-center gap-1 mb-1 text-[length:var(--fs-xs)] font-bold" style={{ color: "var(--ink-1)", position: "relative", zIndex: 2 }}>
-        <Sparkles size={12} />
+        <Sparkles size={ICON_SIZE.xs} />
         <GlossaryText>{t("card.aiSummary")}</GlossaryText>
       </div>
       <p className="text-[length:var(--fs-sm)] leading-relaxed line-clamp-2" style={{ color: "var(--ink-1)" }}>
