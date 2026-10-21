@@ -105,7 +105,7 @@ describe("ActivityPage presentation", () => {
     expect(document.querySelector(".activity-detail-technical-details")).toBeNull();
   });
 
-  it("keeps the SNS Overview lean and puts rich visuals before fully visible supplemental Analysis", async () => {
+  it("keeps AI analysis in Overview and rich training visuals in supplemental Analysis", async () => {
     mockRoute.activityId = "restored-dev-overview";
     const activity = createMockActivity({ id: mockRoute.activityId, userId: "test-uid", aiSummaryPreview: "기존 AI 요약" });
     setDocData(`activities/${activity.id}`, activity as unknown as Record<string, unknown>);
@@ -120,7 +120,7 @@ describe("ActivityPage presentation", () => {
     renderWithProviders(<ActivityPage />, { authenticated: true });
     await screen.findByTestId("D1-2");
     expect(screen.queryByTestId("activity-analysis-domains")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
+    expect(screen.getByTestId("ai-ride-analysis-card")).toBeVisible();
     expect(screen.queryByRole("heading", { name: "이번 활동 한눈에" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "이 요약을 Strava에 게시" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
@@ -132,15 +132,17 @@ describe("ActivityPage presentation", () => {
     expect(within(summary).getByRole("img", { name: "피로 · ATL 12.0 → 15.0" })).toBeInTheDocument();
     expect(within(summary).getByRole("img", { name: "폼 · TSB -2.0 → -4.0" })).toBeInTheDocument();
     expect(within(summary).getByTestId("restored-summary-curve")).toBeInTheDocument();
-    const aiAnalysis = screen.getByTestId("ai-ride-analysis-card");
-    expect(screen.getAllByTestId("ai-ride-analysis-card")).toHaveLength(1);
-    expect(aiAnalysis.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
+    expect(summary).toBeVisible();
     expect(screen.queryByRole("button", { name: "상세 기록 보기" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("activity-summary-text")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(screen.queryByTestId("activity-overview-evidence")).not.toBeInTheDocument();
-    expect(screen.getByTestId("ai-ride-analysis-card")).toBeInTheDocument();
+    expect(screen.queryByTestId("ai-ride-analysis-card")).not.toBeInTheDocument();
     expect(screen.getByTestId("activity-analysis-domains")).toBe(summary);
+    fireEvent.click(screen.getByRole("tab", { name: "개요" }));
+    expect(screen.getAllByTestId("ai-ride-analysis-card")).toHaveLength(1);
+    expect(screen.getByTestId("ai-ride-analysis-card")).toBeVisible();
 
   });
 

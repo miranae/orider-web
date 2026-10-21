@@ -106,7 +106,7 @@ describe("IntegratedLoadCard", () => {
     expect(screen.getByRole("img", { name: /최근 28일 부하 포커스: 분류된 부하 없음/ })).toBeInTheDocument();
     expect(screen.getByText("분류 0% · 없음")).toBeInTheDocument();
     expect(screen.queryByText("CTL 0.0 · 0%")).not.toBeInTheDocument();
-    expect(screen.getAllByText("—")).toHaveLength(3);
+    expect(screen.getAllByText("—")).toHaveLength(2);
     expect(screen.getAllByText("0.0 · 0%")).toHaveLength(4);
     expect(document.body.textContent).not.toMatch(/NaN|Infinity|-5\.0|-4\.0/);
   });
@@ -115,7 +115,7 @@ describe("IntegratedLoadCard", () => {
     renderWithProviders(<IntegratedLoadCard combined={{ ctl: 0, atl: 0, tsb: 0, contributions: [{ discipline: "bike", ctl: 0 }] }} focus={null} />);
     expect(screen.getByRole("button", { name: /사이클 CTL 0.0/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /러닝 —/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /수영 —/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /수영/ })).not.toBeInTheDocument();
   });
 
   it("does not render non-finite authoritative totals", () => {
