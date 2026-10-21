@@ -44,6 +44,8 @@ export interface Activity {
   bikeProfileId?: string | null;
   /** Published memo and up to five photo previews; never full activity streams. */
   feedContentV1?: import("./types/activity-feed-content").ActivityFeedContentProjection;
+  /** 서버 생성 기본 본문. 직접 작성한 메모가 항상 우선한다. */
+  readonly defaultSummaryV1?: import("./types/activity-default-summary").ActivityDefaultSummaryV1;
   photoCount: number;
   kudosCount: number;
   commentCount: number;

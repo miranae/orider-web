@@ -24,6 +24,7 @@ import AnalysisTab, { AnalysisLapTable } from "../components/AnalysisTab";
 import ActivityAnalysisBody from "../features/activity/detail/ActivityAnalysisBody";
 import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
 import ActivityOverviewSummary from "../features/activity/detail/ActivityOverviewSummary";
+import ActivityDetailMemo from "../features/activity/detail/ActivityDetailMemo";
 import LapTable from "../components/LapTable";
 import Modal from "../components/Modal";
 import ActivityManagementModal from "../components/activity/ActivityManagementModal";
@@ -1278,6 +1279,7 @@ export default function ActivityPage() {
       {activeTab === "compare" && isActivityOwner && <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} currentMetricsStatus={serverMetrics.status} isOwner={isActivityOwner} comparisonOnly />}
 
       {activeTab === "overview" && <div data-testid="D1-2" className="space-y-6">
+      <ActivityDetailMemo activity={activity} />
       {/* 사진 (가로 스크롤) — Strava + 업로드 사진 */}
       {(photos.length > 0 || uploadedPhotos.length > 0 || user?.uid === activity.userId) && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
