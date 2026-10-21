@@ -128,7 +128,7 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode, 
       <div className="mb-6">
         <Text as="h3" variant="subtitle" className="mb-3">{t("members.inviteLink")}</Text>
         {inviteStatus === "failed" ? <div className="club-invite-load-error" role="alert"><Text as="p" variant="body">{t("invite.linkLoadFailed")}</Text><Button variant="secondary" size="sm" onClick={onRetry}>{t("invite.retry")}</Button></div> : inviteCode ? <div className="flex items-center gap-2">
-          <code className="min-w-0 flex-1 px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-medium-size)] font-mono" style={{background:"var(--bg-1)",color:"var(--ink-0)",wordBreak:"break-all"}}>{buildGroupInviteUrl(inviteCode,i18n.language)}</code>
+          <code className="min-w-0 flex-1 px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-medium-size)]" style={{background:"var(--bg-1)",color:"var(--ink-0)",wordBreak:"break-all"}}>{buildGroupInviteUrl(inviteCode,i18n.language)}</code>
           <Button variant="secondary" size="sm" onClick={handleCopy}>{copied ? t("invite.copied") : t("button.copy")}</Button>
         </div> : <Text as="p" variant="body" role="status">{t(`invite.${inviteStatus}`)}</Text>}
       </div>

@@ -96,7 +96,6 @@ export default function RunEmptyState({ stravaConnected }: RunEmptyStateProps) {
             borderRadius: "var(--r-sm)",
             padding: "2px var(--space-2)",
             fontWeight: 700,
-            letterSpacing: "0.06em",
           }}
         >
           {t("runEmpty.previewTag")}

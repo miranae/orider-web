@@ -52,7 +52,6 @@
   color: var(--bg-0);
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: 0.08em;
 }
 
 .course-hero-title {
@@ -143,8 +142,6 @@
   color: var(--lime);
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
 }
 
 .course-stage-profile__heading {
@@ -732,7 +729,6 @@
   text-align: left;
   font-size: var(--fs-2xs);
   font-weight: 600;
-  letter-spacing: 0.06em;
   color: var(--ink-3);
 }
 

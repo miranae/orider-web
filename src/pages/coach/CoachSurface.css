@@ -1,8 +1,5 @@
 /* 코치의 읽기 위계와 홈에서 확정한 대비·반응형 기준. */
 .coach-surface {
- --ft-page-title-size: var(--fs-xl);
- --ft-page-title-weight: 700;
- --ft-page-title-line-height: 1.35;
  min-width: 0; color: var(--ink-1);
 }
 .coach-surface .coach-page-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); margin-bottom: var(--space-5); }
@@ -23,6 +20,8 @@
 
 .coach-current-state { display: inline-flex; align-items: baseline; gap: var(--space-2); }
 .coach-current-state a { color: var(--ink-1); }
+/* kv(T1): 회복상태 TSB 값 20 Semibold */
+.coach-current-state strong { font-size: var(--fs-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 36rem) {
  .coach-surface .coach-page-header > div:has(> [role="tablist"]) { width: 100%; }

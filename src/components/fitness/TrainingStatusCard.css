@@ -8,7 +8,8 @@
   .fitness-state-labels__item[data-current] { color: var(--ink-1) !important; }
 }
 
-.fitness-current-status--story .fitness-current-status__headline { display: block; width: 100%; margin: 0; font-size: var(--fs-3xl); line-height: var(--lh-tight); letter-spacing: var(--ls-tight); font-weight: 700; }
-.fitness-current-status--story .fitness-current-status__advice { font-size: var(--fs-lg); line-height: var(--lh-relaxed); }
+/* HIG: 큰 값 28 Bold, 본문 17, 게이지 라벨 13 */
+.fitness-current-status--story .fitness-current-status__headline { display: block; width: 100%; margin: 0; font-size: var(--fs-2xl); line-height: var(--lh-tight); font-weight: 700; }
+.fitness-current-status--story .fitness-current-status__advice { font-size: var(--fs-md); line-height: var(--lh-relaxed); }
+.fitness-state-labels .fitness-state-labels__item { font-size: var(--fs-xs); }
 .fitness-current-status--story .fitness-state-labels { margin-top: var(--space-2); }
-@media (max-width: 36rem) { .fitness-current-status--story .fitness-current-status__headline { font-size: var(--fs-2xl); } }

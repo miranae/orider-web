@@ -52,9 +52,10 @@
 .mobile-fitness-page__title {
   margin: 0;
   padding: var(--space-4) var(--space-4) var(--space-2);
-  font-size: var(--fs-2xl);
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: var(--ft-page-title-size);
+  font-weight: var(--ft-page-title-weight);
+  line-height: var(--ft-page-title-line-height);
+  letter-spacing: var(--ft-page-title-letter-spacing);
   color: var(--ink-0);
 }
 .mobile-fitness-current-metrics {

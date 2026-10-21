@@ -146,8 +146,9 @@ function ActivityMemo({ memo, memoTruncated = false, activityId, generated = fal
   if (!memo.trim()) return null;
   return <div className="mobile-feed-memo">
     <p ref={paragraphRef} className={[!expanded && "mobile-feed-memo-collapsed", generated && "mobile-feed-memo-generated"].filter(Boolean).join(" ") || undefined}>{memo}</p>
-    {overflowing && <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? "card.memoLess" : "card.memoMore")}</Button>}
-    {memoTruncated && <Link to={`/activity/${activityId}`}>{t("card.memoMore")}</Link>}
+    {/* "더 보기"는 본문과 같은 17 Regular 청록 글자 링크로 읽힌다. */}
+    {overflowing && <button type="button" className="mobile-feed-memo-more" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? "card.memoLess" : "card.memoMore")}</button>}
+    {memoTruncated && <Link to={`/activity/${activityId}`} className="mobile-feed-memo-more">{t("card.memoMore")}</Link>}
   </div>;
 }
 
@@ -260,12 +261,12 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
         <span className="mobile-feed-card-avatar"><Avatar userId={activity.userId} name={nickname} imageUrl={activity.profileImage} size={40} className="mobile-feed-author-avatar" /></span>
         <div className="mobile-feed-card-identity">
           <Text as="div" variant="bodySmall" size="md" weight={600} tone="primary" className="mobile-feed-author-name">{nickname}</Text>
-          <Text as="div" variant="caption" tone="tertiary" className="mobile-feed-activity-metadata"><time dateTime={timestamp?.iso}>{occurredAt}</time>{device && <span>{`·\u00a0${device}`}</span>}{region && <span>{`·\u00a0${region}`}</span>}</Text>
+          <Text as="div" variant="caption" size="sm" tone="tertiary" className="mobile-feed-activity-metadata"><time dateTime={timestamp?.iso}>{occurredAt}</time>{device && <span>{`·\u00a0${device}`}</span>}{region && <span>{`·\u00a0${region}`}</span>}</Text>
         </div>
         <span className="mobile-feed-card-sport" role="img" aria-label={activitySportLabel}>
-          {activitySport ? <HomeActivitySportIcon sport={activitySport} size={ICON_SIZE.xl} /> : getDisciplineIcon(null)}
+          {activitySport ? <HomeActivitySportIcon sport={activitySport} size={ICON_SIZE.lg} /> : getDisciplineIcon(null)}
         </span>
-        <Text as="h3" variant="title" size="xl" weight={600} tone="primary" className="mobile-feed-activity-title">
+        <Text as="h3" variant="title" size="xl" weight={700} tone="primary" className="mobile-feed-activity-title">
           {activity.description || t("mobileFeed.defaultActivity")}
         </Text>
         {showDataWarning && (

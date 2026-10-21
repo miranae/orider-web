@@ -149,7 +149,7 @@ function SwimLaneTimeline({ laps }: { laps?: ActivityStreams["laps"] }) {
 
         return (
           <div style={{ marginTop: "var(--space-3)", paddingTop: 14, borderTop: '1px solid var(--line-soft)' }}>
-            <Text as="div" variant="caption" tone="quaternary" mono style={{ letterSpacing: '0.08em', marginBottom: 'var(--space-2)' }}>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>
               {t("swimCards.sessionHrTrend")}
             </Text>
             <svg viewBox={`0 0 ${svgW} ${svgH}`} style={{ width: '100%', height: 80, display: 'block' }} preserveAspectRatio="none">
@@ -324,7 +324,7 @@ function SwimSplitTable({ laps }: { laps?: ActivityStreams["laps"] }) {
           <thead>
             <tr style={{ background: 'var(--bg-2)', color: 'var(--ink-3)' }}>
               {headers.map(h => (
-                <th key={h} className="text-[length:var(--fs-xs)]" style={{ padding: 'var(--space-2) var(--space-3)', textAlign: h === setHeader ? 'left' : 'right', fontWeight: 500, fontFamily: 'var(--font-mono)', letterSpacing: '0.05em' }}>{h}</th>
+                <th key={h} className="text-[length:var(--fs-xs)]" style={{ padding: 'var(--space-2) var(--space-3)', textAlign: h === setHeader ? 'left' : 'right', fontWeight: 500 }}>{h}</th>
               ))}
             </tr>
           </thead>

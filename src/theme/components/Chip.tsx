@@ -25,7 +25,7 @@ export const Chip = forwardRef<HTMLSpanElement, ChipProps>(function Chip(
       role={rest.role ?? (isInteractive ? 'button' : undefined)}
       aria-pressed={rest['aria-pressed'] ?? (selected === undefined ? undefined : selected)}
       tabIndex={rest.tabIndex ?? (isInteractive ? 0 : undefined)}
-      className={cn('ds-chip', variant !== 'default' && `ds-chip--${variant}`, isInteractive && 'ds-chip--selectable', className)}
+      className={cn('ds-chip', variant !== 'default' && `ds-chip--${variant}`, (selectable || selected !== undefined) ? 'ds-chip--selectable' : isInteractive && 'ds-chip--clickable', className)}
       onKeyDown={(event) => {
         rest.onKeyDown?.(event);
         if (event.defaultPrevented || typeof rest.onClick !== 'function') return;

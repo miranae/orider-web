@@ -292,8 +292,6 @@ export default function DateField({
                   fontSize: "var(--fs-2xs)",
                   color: i === 0 ? "var(--rose)" : i === 6 ? "var(--aqua)" : "var(--ink-3)",
                   padding: "4px 0",
-                  fontFamily: "var(--font-mono)",
-                  letterSpacing: "0.06em",
                 }}
               >
                 {w}

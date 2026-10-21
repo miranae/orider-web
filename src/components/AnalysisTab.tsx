@@ -964,7 +964,7 @@ export default function AnalysisTab({
           <div className="rounded-[var(--r-lg)] overflow-hidden" style={{ background: 'var(--bg-2)' }}>
             <table className="w-full text-[length:var(--fs-sm)]">
               <thead>
-                <tr className="text-[length:var(--fs-xs)] uppercase tracking-wide" style={{ color: 'var(--ink-3)' }}>
+                <tr className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
                   <th className="text-left px-4 py-2">{t("analysis.bestEfforts.duration")}</th>
                   {!integratedPower?.powerFingerprint?.length && <th className="text-right px-4 py-2">{t("analysis.bestEfforts.power")}</th>}
                   {weightKg && <th className="text-right px-4 py-2">{t("analysis.bestEfforts.wkg")}</th>}
@@ -1018,7 +1018,7 @@ export default function AnalysisTab({
           <div className="rounded-[var(--r-lg)] overflow-x-auto" style={{ background: 'var(--bg-2)', border: '1px solid var(--line-soft)' }}>
             <table aria-labelledby="climb-analysis-heading" className="w-full text-[length:var(--fs-sm)]">
               <thead>
-                <tr className="text-[length:var(--fs-xs)] uppercase tracking-wide" style={{ color: 'var(--ink-3)' }}>
+                <tr className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
                   <th className="text-left px-3 py-2">{t("analysis.climbs.header.index")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.start")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.climbs.header.length")}</th>
@@ -1097,7 +1097,7 @@ export default function AnalysisTab({
           <div className="rounded-[var(--r-lg)] overflow-x-auto" style={{ background: 'var(--bg-2)', border: '1px solid var(--line-soft)' }}>
             <table className="w-full text-[length:var(--fs-sm)]">
               <thead>
-                <tr className="text-[length:var(--fs-xs)] uppercase tracking-wide" style={{ color: 'var(--ink-3)' }}>
+                <tr className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
                   <th className="text-left px-3 py-2">{t("analysis.splits.header.km")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.splits.header.pace")}</th>
                   <th className="text-right px-3 py-2">{t("analysis.splits.header.gap")}</th>
@@ -1168,7 +1168,7 @@ export function AnalysisLapTable({ laps, ftp, sport = "ride", onSelectLap, canSe
       <div className="rounded-[var(--r-lg)] overflow-x-auto" style={{ background: 'var(--bg-2)' }}>
         <table className="w-full whitespace-nowrap text-[length:var(--fs-md)]">
           <thead>
-            <tr className="text-[length:var(--fs-md)] uppercase tracking-wide" style={{ color: 'var(--ink-3)' }}>
+            <tr className="text-[length:var(--fs-md)]" style={{ color: 'var(--ink-3)' }}>
               <th className="text-left px-3 py-2">{t("analysis.lap.header.lap")}</th>
               <th className="text-right px-3 py-2">{t(isRun ? "analysis.lap.header.recordedTime" : "analysis.lap.header.time")}</th>
               <th className="text-right px-3 py-2">{t("analysis.lap.header.distance")}</th>

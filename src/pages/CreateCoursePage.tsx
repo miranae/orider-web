@@ -103,25 +103,25 @@ function StatsPanel({ stats, hideGrades = false }: { stats: ReturnType<typeof co
   return (
     <div className={`grid grid-cols-2 ${hideGrades ? "" : "sm:grid-cols-4"} gap-y-4 gap-x-6`}>
       <div className="border-l-2 border-[var(--lime)] pl-3">
-        <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] uppercase tracking-wide">{t("distance")}</div>
+        <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)]">{t("distance")}</div>
         <div className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
           {(stats.distance / 1000).toFixed(2)} <span className="text-[length:var(--fs-sm)] font-normal text-[var(--ink-2)]">km</span>
         </div>
       </div>
       <div className="border-l-2 border-[var(--lime)] pl-3">
-        <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] uppercase tracking-wide">{t("elevationGainShort")}</div>
+        <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)]">{t("elevationGainShort")}</div>
         <div className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
           {stats.elevationGain} <span className="text-[length:var(--fs-sm)] font-normal text-[var(--ink-2)]">m</span>
         </div>
       </div>
       {!hideGrades && <div className="border-l-2 border-[var(--line)] pl-3">
-        <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] uppercase tracking-wide">{t("averageGrade")}</div>
+        <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)]">{t("averageGrade")}</div>
         <div className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
           {stats.avgGrade} <span className="text-[length:var(--fs-sm)] font-normal text-[var(--ink-2)]">%</span>
         </div>
       </div>}
       {!hideGrades && <div className="border-l-2 border-[var(--line)] pl-3">
-        <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] uppercase tracking-wide">{t("maxGrade")}</div>
+        <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)]">{t("maxGrade")}</div>
         <div className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
           {stats.maxGrade} <span className="text-[length:var(--fs-sm)] font-normal text-[var(--ink-2)]">%</span>
         </div>

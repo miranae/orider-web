@@ -5,19 +5,10 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.training-decision-card .ds-chip { font-size: var(--fs-2xs); overflow-wrap: normal; word-break: keep-all; }
+/* 태그(T4): 공용 <Chip> 15·모서리 6 그대로 — 줄바꿈 규칙만 지정 */
+.training-decision-card .ds-chip { overflow-wrap: normal; word-break: keep-all; }
 .training-decision-card .ds-alert { font-size: var(--fs-xs); }
 :where(:root[data-type-scale="legacy"]) .training-decision-card .ds-alert { font-size: .8125rem; }
-.training-decision-card .ds-btn {
-  height: auto;
-  min-height: 2.5rem;
-  padding-block: .5rem;
-  font-size: .8125rem;
-  line-height: 1.25;
-  overflow-wrap: normal;
-  word-break: keep-all;
-}
-.training-decision-card .ds-btn--sm { min-height: 1.75rem; padding-block: .35rem; font-size: .75rem; }
 .training-decision-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
 .training-decision-card__header > div { display: grid; gap: var(--space-1); }
 .training-decision-card__sessions { display: grid; gap: var(--space-2); }
@@ -28,14 +19,16 @@
 .training-decision-card__confidence-signals { margin: var(--space-2) 0 0; padding-inline-start: var(--space-5); }
 .training-decision-card__reasons { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
 .training-decision-card__reasons > div { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
+/* 세션 subcard(T3): 모서리 10, eyebrow 13, 제목 20 Bold, 메타 15 비례폭 */
 .training-decision-session { display: grid; grid-template-columns: minmax(6.5rem, 0.34fr) minmax(0, 1fr); gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); }
+.training-decision-session__title { font-size: var(--fs-lg); font-weight: 700; }
 .training-decision-session--recommended { border-color: var(--amber); background: color-mix(in srgb, var(--amber) 8%, transparent); }
 .training-decision-session--effective { border-color: var(--lime); background: color-mix(in srgb, var(--lime) 7%, transparent); }
 .training-decision-card--home .training-decision-session { grid-template-columns: 1fr; gap: var(--space-1); }
 .training-decision-card--plan .training-decision-card__sessions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .training-decision-card--plan .training-decision-session { align-content: start; grid-template-columns: 1fr; gap: var(--space-1); }
 .training-decision-session__summary { display: grid; gap: var(--space-2); min-width: 0; }
-.training-decision-session__meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); color: var(--ink-2); font-family: var(--font-mono); font-size: var(--fs-sm); }
+.training-decision-session__meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); color: var(--ink-2); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .training-decision-card__actions, .training-decision-proposal__actions, .training-execution-actions__row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); }
 .training-decision-card__actions > *, .training-decision-proposal__actions > *, .training-execution-actions .ds-btn { min-inline-size: min(100%, 8rem); }
 .training-decision-card .ds-btn { max-width: 100%; white-space: normal; }

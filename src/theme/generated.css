@@ -85,7 +85,8 @@
   --fs-3xl: 34px;
   --fs-4xl: 40px;
   --fs-5xl: 48px;
-  --font-mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  --font-mono: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, "Segoe UI", sans-serif;
+  --font-code: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, "Segoe UI", sans-serif;
   --feed-thumb-aspect: 14 / 5;
   --strava: #FC4C02;
@@ -221,7 +222,8 @@
   --fs-3xl: 34px;
   --fs-4xl: 40px;
   --fs-5xl: 48px;
-  --font-mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  --font-mono: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, "Segoe UI", sans-serif;
+  --font-code: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
   --font-sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, "Segoe UI", sans-serif;
   --feed-thumb-aspect: 14 / 5;
   --strava: #FC4C02;
@@ -358,7 +360,8 @@
     --fs-3xl: 34px;
     --fs-4xl: 40px;
     --fs-5xl: 48px;
-    --font-mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+    --font-mono: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, "Segoe UI", sans-serif;
+    --font-code: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
     --font-sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", system-ui, "Segoe UI", sans-serif;
     --feed-thumb-aspect: 14 / 5;
     --strava: #FC4C02;

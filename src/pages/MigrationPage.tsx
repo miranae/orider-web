@@ -581,7 +581,7 @@ export default function MigrationPage() {
 function StatBox({ label, value, unit }: { label: string; value: string; unit?: string }) {
   return (
     <div className="bg-[var(--bg-2)] rounded-[var(--r-lg)] p-3">
-      <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)] uppercase tracking-wide">{label}</div>
+      <div className="text-[length:var(--fs-xs)] text-[var(--ink-2)]">{label}</div>
       <div className="text-[length:var(--fs-xl)] font-bold text-[var(--ink-0)] mt-1">
         {value}<span className="text-[length:var(--fs-sm)] font-normal text-[var(--ink-2)] ml-0.5">{unit}</span>
       </div>

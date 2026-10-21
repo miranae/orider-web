@@ -183,6 +183,10 @@
   transition: background .12s, border-color .12s, color .12s;
 }
 .ds-chip--selectable:hover { background: var(--bg-2); }
+/* 누를 수 있는 태그(예: 글 카드 태그로 거르기) — 모양은 태그 그대로. */
+.ds-chip--clickable { cursor: pointer; }
+.ds-chip--clickable:hover { filter: brightness(.96); }
+.ds-chip--clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ds-chip--selectable:is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"]) {
   background: var(--control-primary-fill);
   border-color: var(--control-primary-fill);
@@ -219,7 +223,7 @@
 .ds-input:focus { border-color: var(--accent); }
 .ds-input:disabled { opacity: .6; cursor: not-allowed; }
 .ds-input--invalid { border-color: var(--color-error); }
-.ds-input--mono { font-family: var(--font-mono); }
+.ds-input--mono { font-family: var(--font-code); }
 
 textarea.ds-input { min-height: 80px; padding: 8px 12px; resize: vertical; line-height: 1.5; height: auto; }
 textarea.ds-input.ds-textarea--compact { min-height: var(--dim-button-height); }

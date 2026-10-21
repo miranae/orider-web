@@ -111,6 +111,7 @@ export function ProfileHero({
                   border: "1px solid color-mix(in oklch, var(--aqua) 30%, transparent)",
                   borderRadius: "var(--r-sm)",
                   color: "var(--aqua)",
+                  fontFamily: "var(--font-code)",
                   letterSpacing: "0.08em",
                 }}
               >

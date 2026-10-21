@@ -303,7 +303,7 @@ export default function SwimGoalSetupWizard({ Stepper }: SwimGoalSetupWizardProp
           {/* Feasibility 패널 */}
           <div data-testid="K3-3-5" style={{ padding: 'var(--space-5)', background: 'var(--bg-2)', borderRadius: "var(--r-lg)", border: '1px solid var(--line-soft)', borderLeft: `3px solid ${feasColor}`, alignSelf: 'start' }}>
             <GoalInputNotice assumed={inputs.cssSource === "assumed"} />
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-2)', fontWeight: 500, marginBottom: 'var(--space-3)' }}>
+            <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-2)', fontWeight: 500, marginBottom: 'var(--space-3)' }}>
               {t('swimWizard.feasibilityLabel')}
             </div>
             <div style={{ fontSize: "var(--fs-4xl)", fontWeight: 700, color: feasColor, letterSpacing: '-0.02em', marginBottom: 'var(--space-1)' }}>
@@ -373,7 +373,7 @@ export default function SwimGoalSetupWizard({ Stepper }: SwimGoalSetupWizardProp
               [t('swimWizard.kpi.tsbGoal'), '+10', null],
             ] as const).map(([k, v, u]) => (
               <div key={k} style={{ padding: "var(--space-3)", background: 'var(--bg-2)', borderRadius: "var(--r-md)", border: '1px solid var(--line-soft)' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-2)', fontWeight: 500, marginBottom: "var(--space-1-5)" }}>{k}</div>
+                <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-2)', fontWeight: 500, marginBottom: "var(--space-1-5)" }}>{k}</div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-1)' }}>
                   <span style={{ fontSize: "var(--fs-3xl)", fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--ink-0)', letterSpacing: '-0.02em' }}>{v}</span>
                   {u && <span style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-sm)", color: 'var(--ink-2)' }}>{u}</span>}
@@ -422,7 +422,7 @@ export default function SwimGoalSetupWizard({ Stepper }: SwimGoalSetupWizardProp
                 ['z5', cssPaceSec - 15, cssPaceSec - 8, 'var(--zone-5)'],
               ] as const).map(([key, fast, slow, color]) => (
                 <div key={key} style={{ padding: 'var(--space-3)', background: 'var(--bg-2)', borderRadius: "var(--r-md)", borderLeft: `3px solid ${color}` }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: "var(--fs-xs)", letterSpacing: '0.06em', color, marginBottom: "var(--space-1-5)", fontWeight: 600 }}>{t(`swimWizard.paceZone.${key}`)}</div>
+                  <div style={{ fontSize: "var(--fs-xs)", color, marginBottom: "var(--space-1-5)", fontWeight: 600 }}>{t(`swimWizard.paceZone.${key}`)}</div>
                   <div style={{ fontSize: "var(--fs-sm)", color: 'var(--ink-0)', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
                     {secToMmss(fast)} – {secToMmss(slow)}
                   </div>

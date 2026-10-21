@@ -1,4 +1,4 @@
-import { ArrowLeftRight, BarChart3, ChevronDown, Layers, Route, Menu, Trophy } from "lucide-react";
+import { ChevronDown, Menu, Trophy } from "lucide-react";
 import SportIcon from "../components/common/SportIcon";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from "react";
@@ -60,7 +60,7 @@ import StravaSummaryPublishing from "../components/activity/StravaSummaryPublish
 import SegmentEffortsCard from "../components/activity/SegmentEffortsCard";
 import { segmentHistoryPath } from "../features/segments/segmentHistoryNavigation";
 import { logClientError } from "../services/errorLogger";
-import { Button, Card, IconButton, Text, buttonClass } from "../theme/components";
+import { Button, Card, IconButton, Text, ToggleButton, ToggleControls, buttonClass } from "../theme/components";
 import { ErrorState } from "../components/redesign";
 import { formatDuration, formatTime, type SegmentEffortData } from "../features/activity/detail/activityDetailUtils";
 import { ActivityStatsGrid, hasSecondaryActivityStats } from "../features/activity/detail/ActivityStatsGrid";
@@ -1024,11 +1024,11 @@ export default function ActivityPage() {
                 <img src="/favicon.svg" alt="Orider" className="w-4 h-4" />
               )}
               <span
-                className="inline-flex items-center gap-1 text-[length:var(--fs-xs)] px-1.5 py-0.5 rounded-[var(--r-sm)] font-medium"
+                className="inline-flex items-center gap-1 text-[length:var(--fs-sm)] px-1.5 py-0.5 rounded-[var(--r-sm)] font-medium"
                 style={{ background: 'var(--surface-2)', color: 'var(--ink-1)' }}
                 title={tCommon(getSportLabelKey(activity.type))}
               >
-                {sport !== "other" && <SportIcon sport={sport === "ride" ? "bike" : sport} size={ICON_SIZE.md} />}{tCommon(getSportLabelKey(activity.type))}
+                {sport !== "other" && <SportIcon sport={sport === "ride" ? "bike" : sport} size={ICON_SIZE.sm} />}{tCommon(getSportLabelKey(activity.type))}
                 {/* Virtual* 종목은 라벨이 이미 "가상 …" 이라 실내 표기를 덧붙이지 않는다. */}
                 {isIndoorActivity(activity) && !isVirtualActivityType(activity.type) && (
                   <span style={{ color: 'var(--ink-3)' }}>· {tCommon("sport.indoor")}</span>
@@ -1126,7 +1126,8 @@ export default function ActivityPage() {
 
       {/* ── 탭 네비게이션 ── */}
       <div className="activity-detail-navigation" ref={activityNavigationRef}>
-        <div className="activity-detail-tabs" role="tablist" aria-label={t("detail.navigation")} onKeyDown={(event) => {
+        {/* HIG 세그먼트 컨트롤 — 검은 알약 대신 회색 바탕 위 흰 선택 항목. */}
+        <ToggleControls variant="axis" className="activity-detail-tabs" role="tablist" aria-label={t("detail.navigation")} onKeyDown={(event) => {
           const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
           const index = tabs.indexOf(event.target as HTMLButtonElement);
           if (index < 0 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -1136,17 +1137,17 @@ export default function ActivityPage() {
           tabs[next]?.click();
         }}>
           {[
-            { id: "overview", icon: Layers },
-            { id: "analysis", icon: BarChart3 },
-            { id: "segments", icon: Route },
-            ...(isActivityOwner ? [{ id: "compare", icon: ArrowLeftRight }] : []),
-          ].map(({ id, icon: Icon }) => <button key={id} id={`activity-tab-${id}`} data-testid="D1-T" type="button" role="tab"
-            aria-selected={activeTab === id} aria-controls="activity-tab-panel" tabIndex={activeTab === id ? 0 : -1}
+            { id: "overview" },
+            { id: "analysis" },
+            { id: "segments" },
+            ...(isActivityOwner ? [{ id: "compare" }] : []),
+          ].map(({ id }) => <ToggleButton key={id} id={`activity-tab-${id}`} data-testid="D1-T" role="tab"
+            selected={activeTab === id} aria-controls="activity-tab-panel" tabIndex={activeTab === id ? 0 : -1}
             onClick={() => { pendingPeakLocation.current = null; pendingLap.current = null; setActiveTab(id); }}>
-            <Icon size={ICON_SIZE.md} aria-hidden="true" /><span>{t(`tab.${id}`)}</span>
+            {t(`tab.${id}`)}
             {id === "segments" && segmentEfforts.length > 0 && <span className="activity-detail-tab-count">{segmentEfforts.length}</span>}
-          </button>)}
-        </div>
+          </ToggleButton>)}
+        </ToggleControls>
       </div>
       <div className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
@@ -1239,7 +1240,7 @@ export default function ActivityPage() {
           {secondaryStatsAvailable && <details className="activity-detail-secondary-stats" open={wideStats || secondaryStatsOpen} onToggle={(event) => {
             if (!wideStats) setSecondaryStatsOpen(event.currentTarget.open);
           }}>
-            <summary>{t("detail.additionalStats")}<ChevronDown size={ICON_SIZE.md} aria-hidden="true" /></summary>
+            <summary>{t("detail.additionalStats")}<ChevronDown size={ICON_SIZE.md} className="activity-detail-disclosure-chevron" aria-hidden="true" /></summary>
             {keyStatsStrip("secondary")}
           </details>}
         </div>

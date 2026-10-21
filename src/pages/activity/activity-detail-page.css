@@ -1,15 +1,12 @@
 .activity-detail { min-width: 0; }
 .activity-detail-header h1 { overflow-wrap: anywhere; text-wrap: balance; }
-.activity-detail-navigation { border: 1px solid var(--line-soft); border-radius: var(--r-xl); background: var(--bg-1); padding: var(--space-1); }
-.activity-detail-tabs { display: flex; gap: var(--space-1); overflow-x: auto; scrollbar-width: thin; }
-.activity-detail-tabs > button { display: flex; justify-content: center; align-items: center; gap: var(--space-2); flex: 1 0 auto; min-width: calc(var(--space-7) + var(--space-3)); min-height: calc(var(--space-7) + var(--space-3)); padding: var(--space-3); white-space: nowrap; border-radius: var(--r-lg); color: var(--ink-2); font-size: var(--fs-sm); font-weight: 600; cursor: pointer; transition: background .15s, color .15s; }
-.activity-detail-tabs > button:hover { background: var(--bg-2); color: var(--ink-0); }
-.activity-detail-tabs > button[aria-selected="true"] { background: var(--ink-0); color: var(--bg-0); }
-.activity-detail-tab-count { font-family: var(--font-mono); font-size: var(--fs-xs); opacity: .8; }
+/* 개요/분석/구간/비교는 HIG 세그먼트 컨트롤(공유 ToggleControls axis)을 페이지 바탕 위에 전폭으로 둔다. */
+.activity-detail-navigation { padding-block: var(--space-2); background: var(--bg-0); }
+.activity-detail-navigation > .activity-detail-tabs { display: grid; width: 100%; margin: 0; }
+.activity-detail-tab-count { margin-inline-start: var(--space-1); font-variant-numeric: tabular-nums; color: var(--ink-2); }
 .activity-detail-panel { min-width: 0; display: flex; flex-direction: column; gap: var(--space-6); }
 .activity-detail-panel:focus { outline: none; }
-.activity-detail-panel:focus-visible, .activity-detail-tabs > button:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
-.activity-detail-tabs > button:focus-visible { outline-offset: calc(var(--space-1) * -1); }
+.activity-detail-panel:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
 .activity-detail-section-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .activity-detail-section-heading p { margin-top: var(--space-2); max-width: 48rem; text-wrap: pretty; }
 .activity-detail-analysis { display: flex; flex-direction: column; gap: var(--space-6); min-width: 0; }
@@ -20,10 +17,8 @@
 .activity-detail-loading { display: flex; align-items: center; justify-content: center; gap: var(--space-3); min-height: calc(var(--space-8) * 3); color: var(--ink-2); font-size: var(--fs-sm); }
 .activity-detail-spinner { width: var(--space-5); height: var(--space-5); border: 2px solid var(--line); border-top-color: var(--ink-1); border-radius: 50%; animation: activity-detail-spin 1s linear infinite; }
 @keyframes activity-detail-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .activity-detail-spinner { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .activity-detail-spinner { animation: none; } .activity-detail-disclosure-chevron { transition: none; } }
 @media (max-width: 40rem) {
-  .activity-detail-tabs > button { padding-inline: var(--space-2); gap: var(--space-1); }
-  .activity-detail-tabs > button > svg { display: none; }
   .activity-detail-load-card { flex-wrap: wrap; }
   .activity-detail-load-card > .ds-btn { width: 100%; }
   .activity-detail-segment-actions { flex-direction: column; }
@@ -39,7 +34,8 @@
 .activity-detail .activity-analysis-content > div:first-of-type:has(> .grid) { border-top: 0; padding-top: 0; }
 .activity-detail .activity-analysis-content h3 { font-size: var(--fs-md); font-weight: 600; letter-spacing: normal; }
 .activity-detail .activity-analysis-content .grid > div { min-width: 0; }
-.activity-detail-route-frame { overflow: hidden; border: 1px solid var(--line-soft); border-radius: var(--r-xl); }
+/* 지도 모서리 10 (HIG 카드와 같은 반경), 테두리 없음. */
+.activity-detail-route-frame { overflow: hidden; border-radius: var(--r-md); }
 .activity-detail-achievement-icon { background: var(--bg-2); color: var(--ink-1); }
 .activity-detail-achievement-badge { background: var(--bg-2); color: var(--ink-1); border: 1px solid var(--line-soft); }
 .activity-detail-segment-actions { flex-wrap: wrap; }
@@ -74,8 +70,8 @@
 
 /* 기록의 핵심과 탐색은 먼저, 센서 세부값은 그 다음에 읽는다. */
 .activity-detail { display: flex; flex-direction: column; gap: var(--space-4); }
-.activity-detail-header h1 { font-size: var(--fs-xl); line-height: 1.3; }
-.activity-detail-navigation { position: sticky; top: 0; z-index: 20; box-shadow: 0 var(--space-1) var(--space-4) color-mix(in srgb, var(--bg-0) 85%, transparent); }
+.activity-detail-header h1 { font-size: var(--fs-xl); font-weight: 700; line-height: 1.3; letter-spacing: normal; }
+.activity-detail-navigation { position: sticky; top: 0; z-index: 20; }
 .activity-detail-hero { display: grid; gap: var(--space-3); min-width: 0; }
 .activity-detail-primary-stats { overflow: hidden; }
 .activity-detail .activity-stats-primary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -86,20 +82,23 @@
 .activity-stats-primary .ds-text--eyebrow { font-size: var(--fs-xs); letter-spacing: normal; }
 .activity-stats-primary .ds-text--data-large { font-size: var(--fs-xl); }
 .activity-stats-primary .ds-text--unit { font-size: var(--fs-xs); }
-.activity-detail-secondary-stats { min-width: 0; border: 1px solid var(--line-soft); border-radius: var(--r-xl); background: var(--bg-1); overflow: hidden; }
-.activity-detail-secondary-stats > summary { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); min-height: var(--space-8); font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); cursor: pointer; list-style: none; }
+/* "추가 기록 보기" 펼침: 카드 안 최소 44 행, 본문 17, 아래 화살표 20. */
+.activity-detail-secondary-stats { min-width: 0; border-radius: var(--r-md); background: var(--bg-1); overflow: hidden; }
+.activity-detail-secondary-stats > summary { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) var(--space-4); min-height: var(--dim-button-height); font-size: var(--fs-md); font-weight: 400; color: var(--ink-0); cursor: pointer; list-style: none; }
+.activity-detail-disclosure-chevron { width: var(--space-5); height: var(--space-5); flex-shrink: 0; color: var(--ink-3); transition: transform .15s; }
 .activity-detail-secondary-stats > summary::-webkit-details-marker { display: none; }
 .activity-detail-secondary-stats[open] > summary { border-bottom: 1px solid var(--line-soft); }
 .activity-detail-secondary-stats[open] > summary svg { transform: rotate(180deg); }
 .activity-detail-secondary-stats > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: calc(var(--space-1) * -1); }
 .activity-stats-secondary > div { padding: var(--space-3); }
-.activity-stats-secondary .ds-text--data-large { font-size: var(--fs-lg); }
+.activity-stats-secondary .ds-text--data-large { font-size: var(--fs-xl); }
 .activity-stats-secondary .ds-text--eyebrow { font-size: var(--fs-xs); letter-spacing: normal; }
 .activity-stats-secondary .ds-text--unit { font-size: var(--fs-xs); }
 .activity-detail-resizable-map { position: relative; height: 16rem; min-height: 12rem; }
 .activity-detail-route-frame[data-map-expanded="true"] .activity-detail-resizable-map { height: max(16rem, min(70dvh, 46rem)); }
 .activity-detail-route-map { height: 100%; }
 .activity-detail-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-2); padding: var(--space-4); }
+.activity-detail-header .ds-text--page-title { font-size: var(--fs-xl); font-weight: 700; letter-spacing: normal; }
 .activity-detail-summary { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 @media (min-width: 64rem) {
   .activity-detail-header { grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-4); padding: var(--space-5); }

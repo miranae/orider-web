@@ -39,9 +39,9 @@ describe("training decision surface boundary", () => {
 
   it("keeps the visible scheduled and recommended labels on Fitness without local readiness copy", () => {
     renderSurface("fitness");
-    expect(screen.getByText("원래 계획")).toBeVisible();
+    // 원래 계획과 현재 실행안이 같으면 한 장으로 합쳐 보인다(HIG T2).
+    expect(screen.getByText("현재 실행안 · 원래 계획 기준")).toBeVisible();
     expect(screen.getByText("조정 권고")).toBeVisible();
-    expect(screen.getByText("현재 실행안")).toBeVisible();
     expect(screen.queryByText(/CTL|ATL|TSB|ACWR/i)).not.toBeInTheDocument();
   });
 

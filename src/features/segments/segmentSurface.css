@@ -1,5 +1,6 @@
 .segment-surface { min-width: 0; font-family: inherit; font-size: var(--ft-body-size); color: var(--ink-1); line-height: var(--ft-body-line-height); }
-.segment-surface h1 { font-size: var(--fs-xl); font-weight: var(--ft-title-weight); line-height: 1.35; overflow-wrap: anywhere; }
+/* 상세·작성 화면 제목은 22 유지 — 목록 허브 제목(pageTitle)은 34 */
+.segment-surface h1:not(.ds-text--page-title) { font-size: var(--fs-xl); font-weight: var(--ft-title-weight); line-height: 1.35; overflow-wrap: anywhere; }
 .segment-surface h2 { font-size: var(--ft-title-size); font-weight: var(--ft-title-weight); line-height: var(--ft-title-line-height); }
 .segment-surface h3 { font-size: var(--fs-lg); font-weight: 600; }
 .segment-surface .ds-text--eyebrow { font-family: inherit; font-size: var(--ft-body-size); letter-spacing: normal; text-transform: none; }
@@ -15,8 +16,7 @@
 .segment-surface .segment-create-chart-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-2) var(--space-3); }
 .segment-surface .segment-create-categories { grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); }
 
-/* Scoped form and toolbar dimensions; keep native range and file controls intact. */
-.segment-surface .ds-input:not(textarea):not([type="range"]):not([type="file"]), .segment-surface .ds-dropdown-select__trigger { height: var(--dim-button-height); min-height: var(--dim-button-height); box-sizing: border-box; }
+/* Scoped toolbar dimensions; .ds-input keeps the design-system HIG height. */
 .segment-surface textarea.ds-input { min-height: calc(var(--dim-button-height) * 2); }
 .segment-surface .ds-btn { min-height: var(--dim-button-height); }
 .segment-surface .segment-search-action { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: var(--dim-button-height); width: var(--dim-button-height); padding: 0; }
