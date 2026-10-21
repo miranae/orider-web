@@ -48,11 +48,11 @@
 .athlete-recent-visuals { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); margin-top: var(--space-3); }
 .athlete-calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-1); align-items: center; justify-items: center; }
 .athlete-calendar-label { font-size: var(--fs-xs); color: var(--ink-3); }
-.athlete-calendar-day { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--bg-3); }
+.athlete-calendar-day { border: 0; padding: 0; cursor: pointer; width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--bg-3); }
 .athlete-calendar-day--active { background: var(--accent); }
 .athlete-week-bars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); }
 .athlete-week-bar-column { min-width: 0; text-align: center; font-size: var(--fs-xs); color: var(--ink-3); }
-.athlete-week-bar { height: calc(var(--space-8) * 2); display: flex; flex-direction: column-reverse; justify-content: flex-start; border-bottom: 1px solid var(--line-soft); }
+.athlete-week-bar { width: 100%; padding: 0; border: 0; background: transparent; cursor: pointer; height: calc(var(--space-8) * 2); display: flex; flex-direction: column-reverse; justify-content: flex-start; border-bottom: 1px solid var(--line-soft); }
 .athlete-week-bar-segment { display: block; width: 100%; background: var(--accent); }
 .athlete-week-bar-segment--run { background: var(--color-info); }
 .athlete-week-bar-segment--swim { background: var(--chart-altitude); }

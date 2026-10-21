@@ -1,0 +1,6 @@
+.home-today-strip { display: grid; gap: var(--space-4); min-width: 0; overflow-wrap: anywhere; }
+.home-today-strip > * { min-width: 0; }
+.home-today-header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2); width: 100%; min-width: 0; }
+.home-today-header h2 { min-width: 0; flex: 1 1 calc(var(--space-8) * 2); }
+.home-today-strip a { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.home-today-weekly { display: grid; gap: var(--space-4); min-width: 0; }

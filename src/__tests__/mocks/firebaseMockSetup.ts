@@ -202,6 +202,8 @@ vi.mock("firebase/firestore", () => {
 
 // ─── firebase/functions ──────────────────────────────────
 vi.mock("firebase/functions", () => ({
+  getFunctions: vi.fn(() => ({})),
+  connectFunctionsEmulator: vi.fn(),
   httpsCallable: vi.fn((_functions: unknown, name: string) => {
     return vi.fn(async (data?: unknown) => {
       recordCallableInvocation(name, data);

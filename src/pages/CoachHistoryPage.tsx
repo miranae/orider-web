@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../config/sportFeatures";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { coachRoute } from "../utils/coachRoute";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -95,8 +96,8 @@ export default function CoachHistoryPage() {
   const { threadId } = useParams<{ threadId?: string }>();
   const [params] = useSearchParams();
   const requestedSport = params.get("sport");
-  const coachDiscipline = requestedSport === "bike" || requestedSport === "run" || requestedSport === "swim"
-    ? requestedSport : profile?.primaryDiscipline && profile.primaryDiscipline !== "tri" ? profile.primaryDiscipline : "bike";
+  const preferredSport = requestedSport ?? profile?.primaryDiscipline;
+  const coachDiscipline = preferredSport && isSportUiEnabled(preferredSport) && (preferredSport === "bike" || preferredSport === "run" || preferredSport === "swim") ? preferredSport : "bike";
   const uid = user?.uid ?? null;
   const generationRef = useRef(0);
   const routeGenerationRef = useRef(0);

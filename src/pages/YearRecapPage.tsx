@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../config/sportFeatures";
 import { useMemo, useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import SportIcon from "../components/common/SportIcon";
@@ -52,7 +53,7 @@ export default function YearRecapPage() {
   const { activities: allActivities, loading } = useYearActivities(user?.uid);
   const [params, setParams] = useSearchParams();
   const sport = params.get("sport");
-  const discipline: SportDiscipline = sport === "run" || sport === "swim" || sport === "bike" ? sport : "tri";
+  const discipline: SportDiscipline = sport && isSportUiEnabled(sport) && (sport === "run" || sport === "swim" || sport === "bike") ? sport : "tri";
   const activities = useMemo(() => discipline === "tri" ? allActivities : filterByDiscipline(allActivities, discipline), [allActivities, discipline]);
   const { run } = useRunRecords(discipline === "run");
   const [dismissedMilestones, setDismissedMilestones] = useState<Set<string>>(new Set());

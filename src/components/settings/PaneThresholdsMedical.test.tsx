@@ -137,7 +137,6 @@ describe("separate threshold and private medical writes", () => {
 it.each([
   { field: "ftp", value: 200, label: /FTP.*training.fieldFtpHint/ },
   { field: "thresholdPace", value: 275, label: /training.fieldThresholdPace/ },
-  { field: "css", value: 108, label: /^CSS/ },
 ])("명시 확인은 같은 $field 기본값도 저장하며 폼을 열기만 해서는 확인하지 않는다", async ({ field, value, label }) => {
   mocks.getDoc.mockResolvedValue({ exists: () => true, data: () => ({
     ftp: 250, maxHr: 190, lthr: 165, weightKg: 68, thresholdPace: 260, css: 100, [field]: value,
@@ -274,6 +273,6 @@ it("running thresholds appear before cycling while retaining all fields and run 
   const pace = screen.getByLabelText(/training.fieldThresholdPace/);
   const ftp = screen.getByLabelText(/FTP.*training.fieldFtpHint/);
   expect(pace.compareDocumentPosition(ftp) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(screen.getByLabelText(/^CSS/)).toBeInTheDocument();
+  expect(screen.queryByLabelText(/^CSS/)).not.toBeInTheDocument();
   expect(screen.getByText("training.cardHrZones · training.settingsSport.run")).toBeInTheDocument();
 });

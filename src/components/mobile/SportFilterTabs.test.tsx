@@ -26,3 +26,12 @@ it("uses stable decorative SVGs while retaining labeled filter actions", () => {
   fireEvent.click(run);
   expect(change).toHaveBeenCalledWith("run");
 });
+
+
+it("hides swimming and presents all sports for a legacy swimming filter", () => {
+  const change = vi.fn();
+  renderWithProviders(<SportFilterTabs value="swim" onChange={change} />);
+  expect(screen.queryByRole("button", { name: "수영" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "전체", pressed: true })).toBeInTheDocument();
+  expect(change).not.toHaveBeenCalled();
+});

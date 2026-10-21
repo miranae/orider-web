@@ -1313,13 +1313,6 @@ export default function ActivityPage() {
         formatTimeAgo={timeAgo}
       /></section>
 
-      </div>}
-
-      <div className="activity-detail-analysis-content space-y-6" data-testid="activity-analysis-content" hidden={activeTab !== "analysis"}>
-      {activeTab === "analysis" && <>
-      {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
-      <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={runGapSecPerKm} />
-
       {/* AI 활동 분석 — 실외는 경로, 실내/가상은 파워·심박·거리 스트림으로 분석 가능. */}
       {canShowAiAnalysis && (
         <AiRideAnalysisCard
@@ -1331,6 +1324,13 @@ export default function ActivityPage() {
           summaryPreviewEn={activity.aiSummaryPreview_en}
         />
       )}
+
+      </div>}
+
+      <div className="activity-detail-analysis-content space-y-6" data-testid="activity-analysis-content" hidden={activeTab !== "analysis"}>
+      {activeTab === "analysis" && <>
+      {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
+      <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={runGapSecPerKm} />
 
       {sport === "ride" ? <ActivityAnalysisBody
         overview={overview} isOwner={isActivityOwner} preview={activePowerOverride != null}

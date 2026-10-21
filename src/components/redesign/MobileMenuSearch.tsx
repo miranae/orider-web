@@ -7,6 +7,7 @@ import { LocalizedLink } from "../LocalizedLink";
 import { Button, Input, Select } from "../../theme/components";
 import koBoard from "../../i18n/resources/ko/board.json";
 import enBoard from "../../i18n/resources/en/board.json";
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import { useAuth } from "../../contexts/AuthContext";
 import { readDashboardPreferences } from "../../hooks/useDashboardPreferences";
 import { searchPublicUserProfilesPage, type PublicUserProfile } from "../../services/publicProfiles";
@@ -24,6 +25,8 @@ const boardTabs = {
   en: { all: enBoard["tab.all"], inquiry: enBoard["tab.inquiry"], devlog: enBoard["tab.devlog"], archive: enBoard["tab.archive"] },
 };
 
+import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../../config/activitySubscriptions";
+
 const defaults: Record<SearchCategory, Record<string, string>> = {
   activities: { q: "", scope: "all", date: "all", sport: "all" },
   athletes: { q: "", match: "prefix" },
@@ -33,11 +36,11 @@ const defaults: Record<SearchCategory, Record<string, string>> = {
   posts: { q: "", type: "all", tag: "" },
 };
 type SearchField = { key: string; label: string; options?: [string, string][] };
-const sports: [string, string][] = [["bike", "bike"], ["run", "run"], ["swim", "swim"]];
+const sports = ([["bike", "bike"], ["run", "run"], ["swim", "swim"]] as [string, string][]).filter(([sport]) => isSportUiEnabled(sport));
 const fields: Record<SearchCategory, SearchField[]> = {
   activities: [
-    { key: "scope", label: "scope", options: [["all", "all"], ["friends", "friends"], ["self", "self"]] },
-    { key: "date", label: "date", options: [["all", "all"], ["7d", "7d"], ["30d", "30d"], ["90d", "90d"]] },
+    { key: "scope", label: "scope", options: [["all", "all"], ...(ACTIVITY_SUBSCRIPTIONS_ENABLED ? [["following", "following"] as [string, string]] : []), ["friends", "friends"], ["self", "self"]] },
+    { key: "date", label: "date", options: [["all", "all"], ["7d", "7d"], ["30d", "30d"], ["90d", "90d"], ["year", "year"]] },
     { key: "sport", label: "sport", options: [["all", "all"], ...sports] },
   ],
   athletes: [{ key: "match", label: "match", options: [["prefix", "prefix"], ["exact", "exact"]] }],
@@ -82,6 +85,12 @@ export default function MobileMenuSearch({ onNavigate }: { onNavigate: () => voi
         restoredRoute = raw.route;
       }
     } catch { /* 저장소가 없어도 현재 URL 조건으로 검색할 수 있다. */ }
+    restored = { ...restored };
+    for (const key of ["activities", "clubs"] as const) {
+      const sport = restored[key].sport;
+      if (sport && !isSportUiEnabled(sport)) restored[key] = { ...restored[key], sport: key === "activities" ? "all" : "ALL" };
+    }
+    if (!ACTIVITY_SUBSCRIPTIONS_ENABLED && restored.activities.scope === "following") restored.activities = { ...restored.activities, scope: "all" };
     const current = routeCategory(location.pathname);
     if (!current || restoredRoute === `${location.pathname}${location.search}`) return restored;
     const params = new URLSearchParams(location.search);
@@ -93,6 +102,8 @@ export default function MobileMenuSearch({ onNavigate }: { onNavigate: () => voi
       initial.sport = preferences.sportFilter;
     }
     for (const key of Object.keys(initial)) if (params.has(key)) initial[key] = params.get(key)!;
+    if (initial.scope === "following" && !ACTIVITY_SUBSCRIPTIONS_ENABLED) initial.scope = "all";
+    if (initial.sport && !isSportUiEnabled(initial.sport)) initial.sport = defaults[current].sport ?? "all";
     return { ...restored, [current]: initial };
   });
   useEffect(() => {

@@ -40,9 +40,9 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 const enterViewport = () => act(() => { intersections.splice(0).forEach(intersect => intersect()); });
 
-describe("native mobile feed default memo", () => {
-  it("loads a native default only when the card enters the viewport without storing it", async () => {
-    const activity = native();
+describe("deterministic mobile feed default memo", () => {
+  it.each(["orider", "strava"] as const)("loads a %s default only when the card enters the viewport without storing it", async source => {
+    const activity = { ...native(), source };
     renderWithProviders(card(activity));
     expect(mocks.load).not.toHaveBeenCalled();
     enterViewport();
@@ -50,8 +50,8 @@ describe("native mobile feed default memo", () => {
     expect(mocks.load).toHaveBeenCalledOnce();
     expect(activity.feedContentV1).toBeUndefined();
   });
-  it("preserves an explicit memo and avoids the overview request", () => {
-    renderWithProviders(card(withMemo(native(), "내가 작성한 메모")));
+  it.each(["orider", "strava"] as const)("preserves an explicit %s memo and avoids the overview request", source => {
+    renderWithProviders(card(withMemo({ ...native(), source }, "내가 작성한 메모")));
     enterViewport();
     expect(screen.getByText("내가 작성한 메모")).toBeVisible();
     expect(mocks.load).not.toHaveBeenCalled();
@@ -66,7 +66,7 @@ describe("native mobile feed default memo", () => {
     expect(screen.queryByText(/스트라바와 같은 활동 요약/)).not.toBeInTheDocument();
     expect(mocks.load).toHaveBeenCalledOnce();
   });
-  it.each(["strava", "apple_health", "health_connect", undefined] as const)("does not request a native default for source %s", source => {
+  it.each(["apple_health", "health_connect", undefined] as const)("does not request a native default for source %s", source => {
     renderWithProviders(card({ ...native(), source }));
     enterViewport();
     expect(mocks.load).not.toHaveBeenCalled();
@@ -92,7 +92,7 @@ describe("native mobile feed default memo", () => {
     view.rerender(card(activity, "u2"));
     expect(screen.queryByText(/스트라바와 같은 활동 요약/)).not.toBeInTheDocument();
     expect(mocks.load.mock.lastCall?.[1]).toBe("u2");
-    view.rerender(card({ ...activity, source: "strava" }, "u2"));
+    view.rerender(card({ ...activity, source: "apple_health" }, "u2"));
     expect(screen.queryByText(/스트라바와 같은 활동 요약/)).not.toBeInTheDocument();
     expect(mocks.load).toHaveBeenCalledTimes(2);
   });

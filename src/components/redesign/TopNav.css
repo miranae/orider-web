@@ -147,3 +147,26 @@
   font-size: var(--fs-xs);
   line-height: calc(var(--space-4) + var(--space-0-5));
 }
+
+@media (min-width: 1024px) {
+  .mobile-menu-trigger {
+    margin-left: 0;
+  }
+  .mobile-navigation {
+    inset-inline-start: auto;
+    width: min(100%, calc(var(--space-8) * 13));
+    bottom: 0;
+    border-inline-start: 1px solid var(--line-soft);
+    box-shadow: var(--shadow-lg);
+  }
+  .navigation-create > summary {
+    list-style: none;
+  }
+  .navigation-create > summary::-webkit-details-marker {
+    display: none;
+  }
+  .navigation-create > a {
+    padding-inline-start: var(--space-4);
+    font-size: var(--fs-md);
+  }
+}

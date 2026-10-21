@@ -1,3 +1,5 @@
+import "./TrainingLogPage.css";
+import { isSportUiEnabled } from "../config/sportFeatures";
 import { useActivityRepresentatives, withActivityRepresentatives } from "../hooks/useActivityRepresentatives";
 import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
@@ -15,11 +17,10 @@ import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
 import RecentActivitySummary from "../components/activity/RecentActivitySummary";
 import ImportActivityModal from "../components/mobile/ImportActivityModal";
-import SportFilterTabs from "../components/mobile/SportFilterTabs";
 import { getDiscipline } from "../utils/disciplineFilter";
 import { acceptedPhysicalActivities, estimateActivityTss, sumAcceptedActivityTss } from "../utils/estimateTSS";
 import { planDayKey, planCalendarDate, planMonthBounds } from "@shared/training/planDate";
-import { Button, Card, Text } from "../theme/components";
+import { Button, Card, Text, ToggleControls, ToggleButton } from "../theme/components";
 import { ErrorState } from "../components/redesign";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
 
@@ -27,7 +28,6 @@ const LOG_WEEK_GRID_COLUMNS = "repeat(7, minmax(72px, 1fr)) 60px";
 const LOG_CALENDAR_CARD_STYLE: CSSProperties = {
   padding: 0,
   overflowX: "auto",
-  overflowY: "hidden",
   WebkitOverflowScrolling: "touch",
 };
 
@@ -166,11 +166,11 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
 
   return (
     <div
+      className="training-log-day"
       style={{
-        minHeight: 66,
+        minHeight: "calc(var(--space-8) * 2)",
         padding: "var(--space-2)",
-        borderRadius: "var(--r-sm)",
-        background: "var(--bg-2)",
+        background: "var(--bg-1)",
         border: `1px solid ${isToday ? "var(--lime)" : "var(--line-soft)"}`,
         opacity: isCurrentMonth ? 1 : 0.2,
         display: "flex",
@@ -193,7 +193,6 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
         {!single && hasAct && (
           <span
             aria-label={t("log.activitiesCount", { count: activities.length })}
-            title={t("log.activitiesCountTitle", { count: activities.length })}
             style={{
               fontSize: "var(--fs-xs)",
               fontFamily: "var(--font-mono)",
@@ -217,12 +216,14 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
             type="button"
             data-testid="P1-2-2" onClick={() => navigate(`/coach/plan?sport=${plan.discipline}&date=${dateKey}`)}
             key={`${plan.workout}-${index}`}
-            title={`Plan · ${plan.plannedTSS} TSS · ${plan.plannedDurationMin}m`}
+            aria-label={`${t("log.planLabel")} · ${plan.plannedTSS} TSS · ${plan.plannedDurationMin}m`}
+            className="training-log-day-plan"
             style={{
               display: "flex",
+              flexWrap: "wrap",
               alignItems: "center",
               gap: "var(--space-1)",
-              padding: "3px 5px",
+              padding: "var(--space-1)",
               borderRadius: "var(--r-sm)",
               border: `1px dashed ${color}`,
               color,
@@ -254,13 +255,14 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
               e.stopPropagation();
               navigate(`/activity/${a.id}`);
             }}
-            title={`${fmtTime(a.startTime)} · ${formatActivityDist(a)}`}
+            className="training-log-day-activity"
             style={{
-              display: "flex",
+              display: "grid",
+              gridTemplateColumns: "auto minmax(0, 1fr)",
               alignItems: "center",
               gap: "var(--space-1)",
               color,
-              padding: "3px 2px",
+              padding: "var(--space-1) var(--space-0-5)",
               borderRadius: "var(--r-sm)",
               border: "none",
               background: "transparent",
@@ -279,8 +281,8 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
               {formatActivityDist(a)}
             </span>
             {/* 모르면 대시 — 0 을 "부하 없음" 확정값처럼 보여주지 않는다 (#2237). */}
-            <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-3)", lineHeight: 1, marginLeft: "auto" }}>
-              {tss == null ? "–" : tss}
+            <span className="training-log-day-load" style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-3)" }}>
+              {tss == null ? "–" : tss} TSS
               {tssEstimated && <span style={{ marginLeft: "var(--space-0-5)", color: "var(--ink-4)" }}>{t("page.tssEstimated")}</span>}
             </span>
           </button>
@@ -515,7 +517,7 @@ export default function TrainingLogPage() {
 
   const [importParams, setImportParams] = useSearchParams();
   const requestedSport = importParams.get("sport");
-  const sportFilter = requestedSport === "bike" || requestedSport === "run" || requestedSport === "swim" ? requestedSport : "all";
+  const sportFilter = requestedSport && isSportUiEnabled(requestedSport) && (requestedSport === "bike" || requestedSport === "run" || requestedSport === "swim") ? requestedSport : "all";
   const setSportFilter = (sport: string) => {
     const next = new URLSearchParams(importParams);
     next.set("sport", sport);
@@ -717,18 +719,22 @@ export default function TrainingLogPage() {
   }
 
   return (
-    <div className="site-shell" style={{ paddingBottom: 'var(--space-8)' }}>
+    <div className="training-log-page">
 
       {/* ── 헤더 ───────────────────────────────────────────────── */}
-      <div data-testid="P1-1" style={{ borderBottom: "1px solid var(--line-soft)", padding: "20px 0 16px" }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+      <header data-testid="P1-1" className="training-log-header">
+        <div className="training-log-heading">
           <Text as="h1" variant="title" style={{ margin: 0 }}>{t("page.logTitle")}</Text>
           <Text as="span" variant="caption" tone="secondary">{t("page.logActivities", { count: kpi.count })}</Text>
         </div>
-        <SportFilterTabs value={sportFilter} onChange={setSportFilter} />
-        <Text variant="caption" tone="secondary">{t("log.recordBasis")}</Text>
-        {kpi.tssEstimated && <Text variant="caption" tone="secondary">{t("log.estimateBasis")}</Text>}
-        <Card data-testid="P1-1-1" padding="none" style={{ padding: 0, display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
+        <ToggleControls aria-label={tCommon("discipline.selectAria")}>
+          {["all", "bike", "run", "swim"].filter(isSportUiEnabled).map(sport => <ToggleButton key={sport} selected={sportFilter === sport} onClick={() => setSportFilter(sport)}>{tCommon(sport === "all" ? "label.all" : `sportFilter.${sport}`)}</ToggleButton>)}
+        </ToggleControls>
+        <div className="training-log-notes">
+          <Text as="p" variant="caption" tone="secondary">{t("log.recordBasis")}</Text>
+          {kpi.tssEstimated && <Text as="p" variant="caption" tone="secondary">{t("log.estimateBasis")}</Text>}
+        </div>
+        <div data-testid="P1-1-1" className="training-log-metrics">
           {[
             { label: t("page.logTotalDistance"), value: `${kpi.dist.toFixed(1)}`, unit: "km", color: "var(--aqua)" },
             { label: t("page.logTotalTime"), value: formatDuration(kpi.time), unit: null, color: "var(--ink-0)" },
@@ -736,8 +742,8 @@ export default function TrainingLogPage() {
             // 추정치가 섞였으면 밝힌다 — 서버 사전계산값과 구분되지 않으면 안 된다 (#2237).
             { label: t("page.logTotalTSS"), value: kpi.tss == null ? "–" : `${kpi.tss}`, unit: kpi.tssUnknownCount > 0 ? t("log.loadPartial", { count: kpi.tssUnknownCount }) : kpi.tssEstimated ? t("page.tssEstimatedIncluded") : null, color: "var(--rose)" },
             { label: t("page.logActivityCount"), value: `${kpi.count}`, unit: t("page.logActivityUnit"), color: "var(--lime)" },
-          ].map(({ label, value, unit, color }, i) => (
-            <div key={label} style={{ padding: "14px 16px", borderRight: i < 4 ? "1px solid var(--line-soft)" : "none" }}>
+          ].map(({ label, value, unit, color }) => (
+            <div key={label} className="training-log-metric">
               <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}><GlossaryText>{label}</GlossaryText></Text>
               <div style={{ display: "flex", alignItems: "baseline", gap: "var(--space-1)" }}>
                 <Text variant="dataLarge" style={{ color }}>{loading || loadError ? "–" : value}</Text>
@@ -745,22 +751,15 @@ export default function TrainingLogPage() {
               </div>
             </div>
           ))}
-        </Card>
-      </div>
+        </div>
+      </header>
 
       {/* ── 바디 ───────────────────────────────────────────────────── */}
-      <div data-testid="P1-0" style={{ padding: "20px 0 0" }}>
+      <div data-testid="P1-0" className="training-log-body">
 
         {/* 월 네비게이션 */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 'var(--space-3)',
-            marginBottom: "var(--space-3)",
-          }}
-        >
-          <Button variant="secondary" data-testid="P1-0-1" onClick={goPrevMonth}>
+        <div className="training-log-month-nav">
+          <Button variant="ghost" size="sm" data-testid="P1-0-1" onClick={goPrevMonth}>
             {t("page.prevMonth")}
           </Button>
           <span
@@ -775,16 +774,16 @@ export default function TrainingLogPage() {
           >
             {monthLabel}
           </span>
-          <Button variant="secondary"
+          <Button variant="ghost" size="sm"
             onClick={goNextMonth}
             disabled={isThisMonth}
             style={{ opacity: isThisMonth ? 0.4 : 1 }}
           >
             {t("page.nextMonth")}
           </Button>
-          <Button variant="secondary" leadingIcon={<Upload size={16} aria-hidden="true" />} onClick={() => setImportOpen(true)}>{t("page.import")}</Button>
+          <Button variant="outline" size="sm" leadingIcon={<Upload size={16} aria-hidden="true" />} onClick={() => setImportOpen(true)}>{t("page.import")}</Button>
           {!isThisMonth && (
-            <Button variant="secondary"
+            <Button variant="ghost" size="sm"
               onClick={() =>
                 setSelectedMonth({ year: today.getUTCFullYear(), month: today.getUTCMonth() })
               }
@@ -795,13 +794,13 @@ export default function TrainingLogPage() {
         </div>
 
         {/* 캘린더 그리드 */}
-        <Card data-testid="P1-2" padding="none" style={LOG_CALENDAR_CARD_STYLE}>
+        <Card data-testid="P1-2" padding="none" className="training-log-calendar" style={LOG_CALENDAR_CARD_STYLE}>
           {/* 요일 헤더 */}
           <div
             style={{
               display: "grid",
               gridTemplateColumns: LOG_WEEK_GRID_COLUMNS,
-              padding: "8px 10px",
+              padding: "var(--space-2)",
               borderBottom: "1px solid var(--line-soft)",
               background: "var(--bg-2)",
               gap: "var(--space-1)",
@@ -822,7 +821,7 @@ export default function TrainingLogPage() {
           </div>
 
           {/* 주별 행 */}
-          <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+          <div style={{ padding: "var(--space-2)", display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
             {loadError
               ? (
                   <div style={{ padding: "var(--space-4)" }}>
@@ -891,7 +890,7 @@ export default function TrainingLogPage() {
                     <div style={{
                       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
                       fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: (weekLoad.value ?? 0) > 0 ? "var(--ink-1)" : "var(--ink-4)",
-                      borderLeft: "1px solid var(--line-soft)", paddingLeft: 6,
+                      borderLeft: "1px solid var(--line-soft)", paddingLeft: "var(--space-1)", minWidth: 0, overflowWrap: "anywhere",
                     }}>
                       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-0-5)" }}><GlossaryText>TSS</GlossaryText></div>
                       <div>{weekLoad.value == null ? "–" : weekLoad.value}{weekLoad.estimated ? t("page.tssEstimated") : ""}</div>
@@ -904,7 +903,7 @@ export default function TrainingLogPage() {
         </Card>
 
         {/* 월간 일별 거리 바 */}
-        {!loading && !loadError && <Card padding="none" style={{ marginTop: "var(--space-3)", padding: "14px 16px" }}>
+        {!loading && !loadError && <Card padding="none" className="training-log-distance-chart" style={{ padding: "var(--space-4)" }}>
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("page.monthlyBarTitle")}</Text>
           <MiniBarChart values={barValues} labels={barLabels} unit="km" />
           <div

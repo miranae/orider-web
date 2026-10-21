@@ -26,7 +26,7 @@ describe('운동 추가 선택과 적용', () => {
     expect(dialog).toHaveAccessibleName('add.title');
     expect(dialog).toBeVisible();
     const controls = within(dialog);
-    expect(controls.getByRole('button', { name: 'add.swimUnavailable' })).toBeDisabled();
+    expect(controls.queryByRole('button', { name: 'add.swimUnavailable' })).not.toBeInTheDocument();
     fireEvent.click(controls.getByRole('button', { name: 'discipline.rest' }));
     expect(mocks.transaction).not.toHaveBeenCalled();
     fireEvent.click(controls.getByRole('button', { name: 'discipline.bike' }));

@@ -42,6 +42,7 @@
     "thresholdBikeUnit": "W"
   },
   "feed": {
+    "subscriptionsUnavailable": "구독 기능을 준비하고 있어요. 다른 활동 범위를 이용해 주세요.",
     "title": "최근 활동",
     "countTooltip": "전체 공개 활동 + 내 활동 합계",
     "feedScope": "· 전체 피드",
@@ -750,7 +751,7 @@
     "noEvents": "다가오는 참가 일정이 없어요",
     "condition": "컨디션",
     "conditionLink": "컨디션 보기 →",
-    "week": "월간 운동일지 →",
+    "week": "월간 운동일지",
     "more": "일정·운동 안내 더 보기",
     "support": "앱 설치·도움말",
     "recap": "연간 회고 보기 →",

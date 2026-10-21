@@ -183,8 +183,7 @@ describe("TriFitnessView parity", () => {
     expect(screen.getByTestId("desktop-integrated-detail")).toHaveTextContent("integrated 46.7/43.7/3");
     expect(screen.getByRole("link", { name: /사이클링/ })).toHaveTextContent("35.2");
     expect(screen.getByRole("link", { name: /러닝/ })).toHaveTextContent("8.1");
-    expect(screen.getByRole("group", { name: "수영 · 준비 중" })).toHaveTextContent("3.4");
-    expect(screen.getByRole("group", { name: "수영 · 준비 중" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByRole("group", { name: "수영 · 준비 중" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /수영/ })).not.toBeInTheDocument();
   });
 
@@ -287,7 +286,7 @@ describe("TriFitnessView parity", () => {
     expect(screen.getByTestId("desktop-integrated-detail")).toHaveTextContent("integrated 51.2/44.4/6.8");
     expect(screen.getByRole("link", { name: /사이클링/ })).toHaveTextContent("40.0");
     expect(screen.getByRole("link", { name: /러닝/ })).toHaveTextContent("7.3");
-    expect(screen.getByRole("group", { name: "수영 · 준비 중" })).toHaveTextContent("3.9");
+    expect(screen.queryByRole("group", { name: "수영 · 준비 중" })).not.toBeInTheDocument();
   });
 
   it("opens condition evidence and supports keyboard daily load with unknown distinct from zero", () => {

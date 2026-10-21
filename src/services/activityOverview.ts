@@ -3,6 +3,11 @@ import type { ActivityOverviewResponse } from "@shared/types/activity-overview";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "./errorLogger";
 
+export function localActivityOverviewUrl(dev: boolean, hostname: string, configured?: string): string | null {
+  return dev && ["localhost", "127.0.0.1", "[::1]"].includes(hostname)
+    && configured === "/api/local/activity-overview" ? configured : null;
+}
+
 const requests = new WeakMap<FirebaseServices, Map<string, { expires: number; promise: Promise<ActivityOverviewResponse> }>>();
 
 /**
@@ -37,16 +42,28 @@ export function loadActivityOverview(services: FirebaseServices, uid: string | n
   if (signedInUid() !== uid) return Promise.reject(new Error("account_changed"));
   let cache = requests.get(services);
   if (!cache) { cache = new Map(); requests.set(services, cache); }
-  const key = JSON.stringify([uid, activityId, lang, revision]);
+  const previewUrl = localActivityOverviewUrl(import.meta.env.DEV, globalThis.location?.hostname ?? "", import.meta.env.VITE_ACTIVITY_OVERVIEW_PREVIEW_URL);
+  const key = JSON.stringify([uid, activityId, lang, revision, previewUrl]);
   const prior = cache.get(key);
   if (!refresh && prior && prior.expires > Date.now()) return prior.promise;
   const promise = (async () => {
     const call = async (): Promise<ActivityOverviewResponse> => {
-      await services.ensureAppCheckReady();
-      if (signedInUid() !== uid) throw new Error("account_changed");
-      const result = await httpsCallable<{ activityId: string; lang: "ko" | "en" }, ActivityOverviewResponse>(services.functions, "getActivityOverview")({ activityId, lang });
-      if (signedInUid() !== uid || result.data.activityId !== activityId) throw new Error("input_changed");
-      return result.data;
+      let data: ActivityOverviewResponse;
+      if (previewUrl) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        try {
+          const response = await fetch(previewUrl, { method: "POST", signal: controller.signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ activityId, lang }) });
+          if (!response.ok) throw new Error("overview_preview_failed");
+          data = await response.json() as ActivityOverviewResponse;
+        } finally { clearTimeout(timeout); }
+      } else {
+        await services.ensureAppCheckReady();
+        if (signedInUid() !== uid) throw new Error("account_changed");
+        data = (await httpsCallable<{ activityId: string; lang: "ko" | "en" }, ActivityOverviewResponse>(services.functions, "getActivityOverview")({ activityId, lang })).data;
+      }
+      if (signedInUid() !== uid || data.activityId !== activityId) throw new Error("input_changed");
+      return data;
     };
     try {
       return await call();

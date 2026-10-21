@@ -226,7 +226,7 @@ it("preserves observed effects, historical zone uncertainty and previous-best pe
  expect(screen.getByText(renderedText(/일부 비교 기록 기준/))).toBeInTheDocument();
  // 역대 최고가 없으면 비교선 없이 활동 전 최고 대비 % 만 남는다(툴팁·보조 목록이 같은 기준).
  expect(screen.getByText(renderedText(/활동 전 최고 대비 110%/))).toBeInTheDocument();
- // 비교 기준 설명은 그림 옆 ⓘ 로 접혀 있다.
+ // 비교 기준 설명은 섹션 제목에서 연다.
  expect(screen.queryByText(renderedText(/활동 전 최고 대비는 이번 활동 이전/))).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole("button", { name: "구간 최고 출력 설명" }));
  expect(screen.getByRole("tooltip")).toHaveTextContent(/활동 전 최고 대비는 이번 활동 이전/);

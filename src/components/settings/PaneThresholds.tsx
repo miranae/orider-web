@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import { useEffect, useId, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -416,7 +417,7 @@ export function PaneThresholds({ discipline = "bike" }: { discipline?: "bike" | 
           { label: "LTHR", value: lthr || "—", unit: "bpm" },
           { label: t("training.statMaxHr"), value: maxHr || "—", unit: "bpm" },
           { label: "CSS", value: css || "—", unit: "/100m" },
-        ] : [
+        ].filter(item => isSportUiEnabled("swim") || item.label !== "CSS") : [
           { label: <GlossaryText>FTP</GlossaryText>, value: ftp || "—", unit: "W" },
           { label: <GlossaryText>W/kg</GlossaryText>, value: wkg, highlight: true },
           { label: t("training.statMaxHr"), value: maxHr || "—", unit: "bpm" },
@@ -451,7 +452,7 @@ export function PaneThresholds({ discipline = "bike" }: { discipline?: "bike" | 
 
         <FieldGrid cols={3}>
           <div className="threshold-sport-group-title">{t(`training.settingsSport.${discipline}`)}</div>
-          {discipline === "run" ? <>{paceField}{lthrField}{maxHrField}<div className="threshold-sport-group-title">{t("training.otherSports")}</div>{ftpGroup}{cssField}</> : discipline === "tri" ? <>{maxHrField}{lthrField}<div className="threshold-sport-group-title">{t("training.settingsSport.bike")}</div>{ftpGroup}<div className="threshold-sport-group-title">{t("training.settingsSport.run")}</div>{paceField}<div className="threshold-sport-group-title">{t("training.settingsSport.swim")}</div>{cssField}</> : <>{ftpGroup}{maxHrField}{lthrField}<div className="threshold-sport-group-title">{t("training.otherSports")}</div>{paceField}{cssField}</>}
+          {discipline === "run" ? <>{paceField}{lthrField}{maxHrField}<div className="threshold-sport-group-title">{t("training.otherSports")}</div>{ftpGroup}{isSportUiEnabled("swim") && cssField}</> : discipline === "tri" ? <>{maxHrField}{lthrField}<div className="threshold-sport-group-title">{t("training.settingsSport.bike")}</div>{ftpGroup}<div className="threshold-sport-group-title">{t("training.settingsSport.run")}</div>{paceField}{isSportUiEnabled("swim") && <div className="threshold-sport-group-title">{t("training.settingsSport.swim")}</div>}{isSportUiEnabled("swim") && cssField}</> : <>{ftpGroup}{maxHrField}{lthrField}<div className="threshold-sport-group-title">{t("training.otherSports")}</div>{paceField}{isSportUiEnabled("swim") && cssField}</>}
         </FieldGrid>
       </SettingsCard>
 

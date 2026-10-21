@@ -4,3 +4,9 @@
 .friends-sent > a { flex: 1; min-width: 0; }
 .friends-sent > a > span { min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 24rem) { .friends-request > a { flex-basis: 100%; } .friends-request > div { margin-left: auto; } }
+
+.friends-management-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.friends-relationship-list { display: grid; gap: var(--space-3); }
+.friends-relationship-row { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: var(--space-3); padding-block: var(--space-2); }
+.friends-relationship-row > a { min-width: 0; flex: 1; }
+.friends-relationship-row > a > span:last-child { overflow-wrap: anywhere; }

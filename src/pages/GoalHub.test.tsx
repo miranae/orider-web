@@ -36,13 +36,13 @@ describe("goal hub", () => {
     expect(screen.getByRole("link", { name: "30분 달리기 프로그램" })).toHaveAttribute("href", "/ko/coach/plan?sport=run");
     expect(screen.queryByRole("button", { name: "대회·코스 완주" })).not.toBeInTheDocument();
   });
-  it("offers one current-program plan link and disables swimming without changing saved goals", () => {
+  it("offers one current-program plan link and hides swimming without changing saved goals", () => {
     state.sport = "run";
     state.goal = { id: "run", title: "30분 달리기", runProgram: { week: 1 } };
     renderWithProviders(<GoalHub wizard={<div>run wizard</div>} />);
     expect(screen.getAllByRole("link", { name: "계획 보기 →" })).toHaveLength(1);
     expect(screen.queryByRole("link", { name: "30분 달리기 프로그램" })).not.toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "수영 · 준비 중" })).toBeDisabled();
+    expect(screen.queryByRole("tab", { name: /수영/ })).not.toBeInTheDocument();
     expect(state.goal.runProgram).toEqual({ week: 1 });
   });
   it("requires sign-in for anonymous identities before type selection", () => {

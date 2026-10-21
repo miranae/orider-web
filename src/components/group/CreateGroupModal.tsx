@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import { handleGroupChoiceKey } from "../../features/group/groupControlKeys";
 import "../../pages/group/ClubSurface.css";
 import { useState, useMemo } from "react";
@@ -283,7 +284,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
           <div>
             <Text as="div" variant="bodyMedium" style={{ marginBottom: "var(--space-1-5)" }}>{t("create.sportsLabel")}</Text>
             <div className="flex items-center flex-wrap" style={{ gap: "var(--space-1-5)" }}>
-              {SPORT_OPTIONS.map((o) => {
+              {SPORT_OPTIONS.filter(option => isSportUiEnabled(option.v)).map((o) => {
                 const active = sports.includes(o.v);
                 return (
                   <Button

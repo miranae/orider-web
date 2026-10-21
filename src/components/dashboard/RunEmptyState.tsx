@@ -105,7 +105,7 @@ export default function RunEmptyState({ stravaConnected }: RunEmptyStateProps) {
           <GlossaryText>{t("runEmpty.sampleSentence", { gap: SAMPLE.gapLabel })}</GlossaryText>
         </Text>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 6rem), 1fr))", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
           <SampleStat label={t("runEmpty.samplePace")} value={SAMPLE.paceLabel} />
           <SampleStat label="GAP" value={SAMPLE.gapLabel} />
           <SampleStat label={t("runEmpty.sampleLoad")} value={SAMPLE.loadLabel} />

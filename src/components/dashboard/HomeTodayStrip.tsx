@@ -1,3 +1,4 @@
+import "./HomeTodayStrip.css";
 import GlossaryText from "../common/GlossaryText";
 import { useEffect, useState, type ReactNode } from "react";
 import { collection, doc, limit, onSnapshot, query, where } from "firebase/firestore";
@@ -59,7 +60,7 @@ function HomeGoalSummary({ discipline, monthlyKm, monthlyFlowPercent, weeklyAver
   const current = state?.owner === owner ? state : null;
   const goal = current?.goal;
   const days = goal ? Math.ceil(((goal.targetDate ?? goal.eventDate) - Date.now()) / 86400000) : NaN;
-  return <Card padding="compact" data-home-slot="goal" header={<div className="flex items-center justify-between gap-2" style={{ width: "100%" }}>
+  return <Card padding="card" data-home-slot="goal" header={<div className="home-today-header">
     <Text as="h2" variant="subtitle">{current && !current.loading && !current.failed && !goal && weeklyAverageKm > 0 ? discipline === "run" ? <>{t("todayStrip.monthFlow")} · {t(getDisciplineLabelKey(discipline))}</> : t("todayStrip.monthFlowAllTitle") : <>{t("todayStrip.goal")} · {t(getDisciplineLabelKey(discipline))}</>}</Text>
     {(goal || current?.failed) && <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/goals?sport=${discipline}`}>{t("todayStrip.goalLink")}</LocalizedLink>}
   </div>}>
@@ -90,7 +91,7 @@ export default function HomeTodayStrip({ discipline, conditionDiscipline = disci
   const { t } = useTranslation("dashboard");
   if (!user || user.isAnonymous || mobile) return null;
   const conditionSlot = (
-    <Card data-testid="H2-1-1" data-home-slot="condition" padding="compact" header={<div className="flex items-center justify-between gap-2" style={{ width: "100%" }}>
+    <Card data-testid="H2-1-1" data-home-slot="condition" padding="card" header={<div className="home-today-header">
       <Text as="h2" variant="subtitle">{t(getDisciplineLabelKey(conditionDiscipline))} · {t("todayStrip.condition")}</Text>
       <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/condition?sport=${conditionDiscipline}`}>{t("todayStrip.conditionLink")}</LocalizedLink>
     </div>}>
@@ -103,7 +104,7 @@ export default function HomeTodayStrip({ discipline, conditionDiscipline = disci
   );
   const goalSlot = <HomeGoalSummary discipline={discipline} monthlyFlowPercent={monthlyFlowPercent} monthlyKm={monthlyKm} weeklyAverageKm={weeklyAverageKm} />;
   const recapSlot = runningRecap && <div data-testid="H2-3-4">{runningRecap}</div>;
-  const weeklyDetailSlot = weeklyDetails && <div className="space-y-3" data-testid="H2-3-2">{weeklyDetails}</div>;
+  const weeklyDetailSlot = weeklyDetails && <div className="home-today-weekly" data-testid="H2-3-2">{weeklyDetails}</div>;
   const primarySlots = discipline === "run" ? <>
     {conditionSlot}<HomeTodaySummary discipline={discipline} />{goalSlot}{recapSlot}{weeklyDetailSlot}
   </> : <>
@@ -114,5 +115,5 @@ export default function HomeTodayStrip({ discipline, conditionDiscipline = disci
     <HomeUpcomingEvents />
     {guidance && <Card data-testid="H2-5-1" data-home-slot="guidance">{guidance}</Card>}
   </>;
-  return <div className="space-y-3" data-testid="home-today-strip">{primarySlots}{secondarySlots}</div>;
+  return <div className="home-today-strip" data-testid="home-today-strip">{primarySlots}{secondarySlots}</div>;
 }

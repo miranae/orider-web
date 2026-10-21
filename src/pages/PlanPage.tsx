@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../config/sportFeatures";
 import { Text } from "../theme/components";
 import { planDayKey } from "@shared/training/planDate";
 import { LocalizedLink } from "../components/LocalizedLink";
@@ -52,7 +53,7 @@ export default function PlanPage() {
   const navigate = useNavigate();
   const isMobile = useMobile();
   const [searchParams] = useSearchParams();
-  const model = usePlanModel(searchParams.get("sport"));
+  const model = usePlanModel(isSportUiEnabled(searchParams.get("sport") ?? "bike") ? searchParams.get("sport") : "bike");
   const { discipline, goal, weeks, loading, loadError } = model;
   const run30 = useRun30Program(discipline === "run" && user != null);
   // 서버 관리 프로그램 목표는 계획 직접 쓰기(편집·추가·재생성·재설정·적응 적용)를 규칙이 거부한다.

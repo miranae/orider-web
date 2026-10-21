@@ -1,3 +1,4 @@
+import { isSportUiEnabled } from "../../../config/sportFeatures";
 import { ChevronLeft, ChevronRight, Moon } from "lucide-react";
 import InfoTip from "../../../components/InfoTip";
 import GlossaryText from "../../../components/common/GlossaryText";
@@ -253,7 +254,7 @@ export default function MobilePlanContent({
               <div className="mobile-plan-sport-legend">
                 {bikeTSS > 0 && <span><i style={{ background: "var(--aqua)" }} />{t('discipline.bike')} {Math.round(bikeTSS)}</span>}
                 {runTSS > 0 && <span><i style={{ background: "var(--amber)" }} />{t('discipline.run')} {Math.round(runTSS)}</span>}
-                {swimTSS > 0 && <span><i style={{ background: "var(--lime)" }} />{t('discipline.swim')} {Math.round(swimTSS)}</span>}
+                {isSportUiEnabled("swim") && swimTSS > 0 && <span><i style={{ background: "var(--lime)" }} />{t('discipline.swim')} {Math.round(swimTSS)}</span>}
               </div>
             </div>}
           </section>
