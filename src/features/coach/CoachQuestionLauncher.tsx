@@ -36,6 +36,7 @@ import { safeClarificationText } from "./coachClarificationText";
 import { CoachPmcInsightCard, type CoachPmcQuestionSelection } from "./CoachPmcInsightCard";
 import { CoachRiderInsightCard, type CoachRiderQuestionSelection } from "./CoachRiderInsightCard";
 import "./coach-question.css";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 type QuestionSource = "suggestion_1" | "suggestion_2" | "suggestion_3" | "free_text";
 type Phase = "closed" | "loading_status" | "ready" | "submitting" | "complete" | "network_error" | "terminal_error" | "load_error";
@@ -618,7 +619,7 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
     <>
       {showPmcInsight && user && <CoachRiderInsightCard user={user} discipline={discipline} onQuestionSelect={chooseRiderQuestion} />}
       {showPmcInsight && user && <CoachPmcInsightCard user={user} discipline={discipline} onQuestionSelect={choosePmcQuestion} />}
-      <Button data-testid="K6-F-1" ref={triggerRef} block={triggerBlock} variant="outline" leadingIcon={<Sparkles size={18} />} onClick={openProgressPlannerQuestion}>{triggerLabel ?? t("open")}</Button>
+      <Button data-testid="K6-F-1" ref={triggerRef} block={triggerBlock} variant="outline" leadingIcon={<Sparkles size={ICON_SIZE.md} />} onClick={openProgressPlannerQuestion}>{triggerLabel ?? t("open")}</Button>
       {open && createPortal(
         <div data-testid="K6-S" className="coach-sheet" role="presentation">
           <button type="button" className="coach-sheet__backdrop" tabIndex={-1} aria-hidden="true" aria-label={t("close")}
@@ -628,9 +629,9 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
               <div className="coach-sheet__intro"><Text ref={titleRef} tabIndex={-1} id="coach-sheet-title" as="h2" variant="title">{t("title")}</Text>
                 <Text as="p" variant="bodySmall" tone="secondary">{t("subtitle")}</Text></div>
               <div className="coach-sheet__header-actions">
-                {user && <Button dense variant="ghost" size="sm" leadingIcon={<History size={17} />} disabled={phase === "submitting" || consentOpen}
+                {user && <Button dense variant="ghost" size="sm" leadingIcon={<History size={ICON_SIZE.md} />} disabled={phase === "submitting" || consentOpen}
                   onClick={() => { clearSession(); navigate(coachRoute("/coach/chat", discipline)); }}>{t("history.open")}</Button>}
-                <Button iconOnly dense variant="ghost" aria-label={t("close")} disabled={phase === "submitting" || consentOpen} onClick={closeSheet}><X size={20} /></Button>
+                <Button iconOnly dense variant="ghost" aria-label={t("close")} disabled={phase === "submitting" || consentOpen} onClick={closeSheet}><X size={ICON_SIZE.lg} /></Button>
               </div>
             </header>
             <div className="coach-sheet__content">
@@ -656,9 +657,9 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
                       {plannerContext && <Text as="span" variant="caption" tone="accent"
                         data-prescription-id={plannerContext.prescriptionId} data-source-request-id={plannerContext.sourceRequestId}>{t("progress.questions.linked")}</Text>}
                       {ridePlanContext && <Text as="span" variant="caption" tone="accent">{t("ridePlan.questions.linked")}</Text>}
-                      {productSlice === "latest_activity_review" && <Chip variant="accent" icon={<Sparkles size={12} />}
+                      {productSlice === "latest_activity_review" && <Chip variant="accent" icon={<Sparkles size={ICON_SIZE.xs} />}
                         aria-label={t("latestActivityReviewClear")} onClick={clearLatestActivityReviewMode}>
-                        {t("latestActivityReviewLinked")} <X size={12} aria-hidden />
+                        {t("latestActivityReviewLinked")} <X size={ICON_SIZE.xs} aria-hidden />
                       </Chip>}
                       {showCounter && <Text id="coach-question-counter" as="span" className="coach-sheet__counter" variant="caption" tone="tertiary" mono>{draft.length}/1000</Text>}
                     </div>

@@ -6,13 +6,14 @@ import ClubCourseMap from "./ClubCourseMap";
 import "./coursePreview.css";
 import { checkpointTypeLabel } from "./checkpointPresentation";
 import { MeetingSegmentCards } from "./MeetingSegments";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export function CourseSummary({ meeting }: { meeting: Meeting }) {
   return (
     <div className="cp-course-summary" aria-label={mt("코스 거리와 획득고도")}>
       <div>
         <span>
-          <Route size={16} />
+          <Route size={ICON_SIZE.md} />
           {mt("거리")}
         </span>
         <strong>
@@ -24,7 +25,7 @@ export function CourseSummary({ meeting }: { meeting: Meeting }) {
       </div>
       <div>
         <span>
-          <Mountain size={16} />
+          <Mountain size={ICON_SIZE.md} />
           {mt("획득고도")}
         </span>
         <strong>

@@ -19,6 +19,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import MapGL, { Marker, Popup, type MapRef } from "react-map-gl/mapbox";
 import { MAP_STYLE, DEFAULT_VIEW } from "../utils/mapbox";
 import { buildMonthCells, firstPolylinePoint } from "../features/event/discovery/eventViews";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 type EventStatus = "OPEN" | "LIVE" | "FINISHED" | "CANCELLED" | "DRAFT" | "UNKNOWN";
 type DisplayEventStatus = EventStatus | "PAST";
@@ -87,8 +88,8 @@ export function eventAvailability(events: ReadonlyArray<Pick<EventInfo, "status"
 
 const TYPE_FILTER_KEYS: Array<{ k: string; labelKey: string; icon: ReactNode }> = [
   { k: "ALL", labelKey: "type.all", icon: "" },
-  { k: "GRANFONDO", labelKey: "type.granfondo", icon: <Mountain size={16} aria-hidden="true" /> },
-  { k: "TOUR", labelKey: "type.tour", icon: <SportIcon sport="bike" size={16} /> },
+  { k: "GRANFONDO", labelKey: "type.granfondo", icon: <Mountain size={ICON_SIZE.md} aria-hidden="true" /> },
+  { k: "TOUR", labelKey: "type.tour", icon: <SportIcon sport="bike" size={ICON_SIZE.md} /> },
 ];
 
 export function registeredEventCount(value: unknown): number | undefined {
@@ -103,10 +104,10 @@ function typeLabelKey(t: string): string {
 }
 
 function typeIcon(t: string): ReactNode {
-  if (t === "GRANFONDO") return <Mountain size={16} aria-hidden="true" />;
-  if (t === "TOUR") return <SportIcon sport="bike" size={16} />;
-  if (t === "GROUP_RIDE") return <Users size={16} aria-hidden="true" />;
-  return <CalendarDays size={16} aria-hidden="true" />;
+  if (t === "GRANFONDO") return <Mountain size={ICON_SIZE.md} aria-hidden="true" />;
+  if (t === "TOUR") return <SportIcon sport="bike" size={ICON_SIZE.md} />;
+  if (t === "GROUP_RIDE") return <Users size={ICON_SIZE.md} aria-hidden="true" />;
+  return <CalendarDays size={ICON_SIZE.md} aria-hidden="true" />;
 }
 
 function formatDateTime(ts: number): { date: string; time: string } {
@@ -584,7 +585,7 @@ export default function EventsPage() {
         </div>
 
         <details className="event-advanced-filters">
-          <summary>{t("filter.more")}{activeAdvancedCount > 0 && <span className="event-filter-count">{activeAdvancedCount}</span>}<ChevronDown className="event-filter-chevron" size={16} aria-hidden="true" /></summary>
+          <summary>{t("filter.more")}{activeAdvancedCount > 0 && <span className="event-filter-count">{activeAdvancedCount}</span>}<ChevronDown className="event-filter-chevron" size={ICON_SIZE.md} aria-hidden="true" /></summary>
           <div className="event-advanced-filters__body">{advancedFilters}</div>
         </details>
 
@@ -614,14 +615,14 @@ export default function EventsPage() {
       {/* 리스트 — 2컬럼 그리드 */}
       {events.length === 0 ? (
         <EmptyState
-          icon={<CalendarDays size={24} style={{ marginInline: "auto" }} />}
+          icon={<CalendarDays size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />}
           title={t("empty.noEvents")}
           description={user ? t("empty.createFirst") : undefined}
           actions={user ? [{ label: t("button.create"), variant: "primary", href: "/event/create" }] : undefined}
         />
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon={<SportIcon sport="bike" size={24} style={{ marginInline: "auto" }} />}
+          icon={<SportIcon sport="bike" size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />}
           title={t("empty.noMatch")}
           description={t("empty.adjustFilters")}
           actions={[
@@ -663,7 +664,7 @@ export default function EventsPage() {
           {mapEvents.some(({ point }) => !point) && <Text as="p" variant="body" tone="secondary" style={{ padding: "var(--space-3) var(--space-4)", margin: 0 }}>{t("view.noCoordinates", { count: mapEvents.filter(({ point }) => !point).length })}</Text>}
           <div data-testid="E3-4" style={{ height: 560 }}>
             <MapGL ref={eventMapRef} onLoad={fitCurrentMapBounds} initialViewState={mapBounds ? { bounds: mapBounds, fitBoundsOptions: { padding: 48, maxZoom: 10 } } : DEFAULT_VIEW} mapStyle={MAP_STYLE} mapboxAccessToken={getMapboxToken()} style={{ width: "100%", height: "100%" }}>
-              {mapEvents.map(({ event, point }) => point && <Marker key={event.id} latitude={point[0]} longitude={point[1]} anchor="bottom"><button type="button" aria-label={event.name} onClick={(click) => { click.stopPropagation(); setMapEventId(event.id); }} style={{ border: 0, background: "var(--lime)", color: "var(--primary-fg)", borderRadius: "50%", width: 32, height: 32, cursor: "pointer" }}><SportIcon sport="bike" size={16} /></button></Marker>)}
+              {mapEvents.map(({ event, point }) => point && <Marker key={event.id} latitude={point[0]} longitude={point[1]} anchor="bottom"><button type="button" aria-label={event.name} onClick={(click) => { click.stopPropagation(); setMapEventId(event.id); }} style={{ border: 0, background: "var(--lime)", color: "var(--primary-fg)", borderRadius: "50%", width: 32, height: 32, cursor: "pointer" }}><SportIcon sport="bike" size={ICON_SIZE.md} /></button></Marker>)}
               {(() => { const selected = mapEvents.find(({ event }) => event.id === mapEventId); return selected?.point ? <Popup closeOnClick={false} latitude={selected.point[0]} longitude={selected.point[1]} onClose={() => setMapEventId(null)} maxWidth="min(320px, calc(100% - var(--space-4)))" style={{ minWidth: 180 }} offset={36}><div style={{ minWidth: 0, overflowWrap: "anywhere" }}><strong>{selected.event.name}</strong><div style={{ color: "var(--ink-3)", margin: "var(--space-1) 0" }}>{selected.event.meetLocation || selected.event.region || t("view.routeStart")}</div><Link data-testid="E3-4-1" to={`/event/${selected.event.id}`}>{t("action.viewDetails")} →</Link></div></Popup> : null; })()}
             </MapGL>
           </div>
@@ -1035,7 +1036,7 @@ function EventCard({
               className="flex items-center"
               style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", gap: "var(--space-1-5)" }}
             >
-              <CalendarDays size={14} aria-hidden="true" />
+              <CalendarDays size={ICON_SIZE.sm} aria-hidden="true" />
               <span style={{ fontFamily: "var(--font-mono)" }}>
                 {date}
                 {time && ` · ${time}`}
@@ -1064,8 +1065,8 @@ function EventCard({
         {(event.seriesId || event.difficulty || event.viewerCount != null || event.followerCount != null) && <div className="flex flex-wrap" style={{ gap: "var(--space-1)" }}>
           {event.seriesId && <Chip style={{ fontSize: "var(--ft-body-size)" }}>{t("series.round", { round: event.round ?? 1 })}</Chip>}
           {event.difficulty && <Chip style={{ fontSize: "var(--ft-body-size)" }}>{t(`difficulty.${event.difficulty.toLowerCase()}`)}</Chip>}
-          {event.viewerCount != null && <Chip style={{ fontSize: "var(--ft-body-size)" }}><Eye size={14} aria-hidden="true" /> {t("viewer.count", { count: event.viewerCount })}</Chip>}
-          {event.followerCount != null && <Chip style={{ fontSize: "var(--ft-body-size)" }}><Bell size={14} aria-hidden="true" /> {t("follow.count", { count: event.followerCount })}</Chip>}
+          {event.viewerCount != null && <Chip style={{ fontSize: "var(--ft-body-size)" }}><Eye size={ICON_SIZE.sm} aria-hidden="true" /> {t("viewer.count", { count: event.viewerCount })}</Chip>}
+          {event.followerCount != null && <Chip style={{ fontSize: "var(--ft-body-size)" }}><Bell size={ICON_SIZE.sm} aria-hidden="true" /> {t("follow.count", { count: event.followerCount })}</Chip>}
         </div>}
 
         {/* 메트릭 행 — 데이터 있을 때만 */}
@@ -1073,19 +1074,19 @@ function EventCard({
           <div style={{ display: "flex", gap: 'var(--space-6)', fontSize: "var(--ft-body-size)", color: "var(--ink-2)", flexWrap: "wrap" }}>
             {event.distance != null && (
               <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
-                <SportIcon sport="bike" size={14} />
+                <SportIcon sport="bike" size={ICON_SIZE.sm} />
                 <span style={{ fontFamily: "var(--font-mono)" }}>{event.distance.toFixed(1)} km</span>
               </div>
             )}
             {event.elevationGain != null && (
               <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
-                <Mountain size={14} aria-hidden="true" />
+                <Mountain size={ICON_SIZE.sm} aria-hidden="true" />
                 <span style={{ fontFamily: "var(--font-mono)" }}>↑ {event.elevationGain}m</span>
               </div>
             )}
             {event.maxParticipants != null && (
               <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1-5)" }}>
-                <Users size={14} aria-hidden="true" />
+                <Users size={ICON_SIZE.sm} aria-hidden="true" />
                 <span style={{ fontFamily: "var(--font-mono)" }}>
                   {event.registered ?? "—"}
                   <span style={{ color: "var(--ink-3)" }}>/{event.maxParticipants}</span>

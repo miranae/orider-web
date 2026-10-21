@@ -21,6 +21,7 @@ import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate } from "../../c
 import { normalizeStartTime } from "../../utils/event-time";
 import { Button, Card, Chip, Text, Input, DropdownSelect } from "../../theme/components";
 import { isVerifiedEventFinisher } from "../../features/event/resultVerification";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 type ParticipantStatus = "REGISTERED" | "PAID" | "CHECKED_IN" | "RACING" | "FINISHED" | "DNF" | "DSQ" | "REFUNDED" | "NO_SHOW" | "CANCELLED";
 
@@ -431,7 +432,7 @@ export default function EventParticipantsPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<CalendarDays size={28} style={{ marginInline: "auto" }} />}
+          icon={<CalendarDays size={ICON_SIZE.xl} style={{ marginInline: "auto" }} />}
           title={t("participantsView.eventNotFound")}
           actions={[{ label: t("participantsView.eventListLink"), variant: "primary", onClick: () => navigate("/explore/events") }]}
         />
@@ -442,7 +443,7 @@ export default function EventParticipantsPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<LockKeyhole size={28} style={{ marginInline: "auto" }} />}
+          icon={<LockKeyhole size={ICON_SIZE.xl} style={{ marginInline: "auto" }} />}
           title={t("participantsView.noPermission")}
           description={t("participantsView.noPermissionDesc")}
           actions={[{ label: t("participantsView.eventDetailLink"), variant: "primary", onClick: () => navigate(`/event/${eventId}`) }]}
@@ -509,21 +510,21 @@ export default function EventParticipantsPage() {
           </div>
           <div className="flex flex-wrap" style={{ gap: 'var(--space-2)' }}>
             <Button type="button" onClick={() => navigate(`/event/${eventId}/host/edit`)} variant="secondary" size="sm">
-              <PencilLine size={14} aria-hidden="true" /> {t("action.editEvent")}
+              <PencilLine size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.editEvent")}
             </Button>
             <Button
               type="button"
               disabled
               title={t("participantsView.csvSoon")} variant="secondary" size="sm"
             >
-              <Download size={14} aria-hidden="true" /> {t("action.exportCSV")} · {t("participantsView.comingSoon")}
+              <Download size={ICON_SIZE.sm} aria-hidden="true" /> {t("action.exportCSV")} · {t("participantsView.comingSoon")}
             </Button>
             <Button
               type="button"
               disabled
               title={t("participantsView.noticeSoon")} variant="secondary" size="sm"
             >
-              <Megaphone size={14} aria-hidden="true" /> {t("participantsView.broadcastBtn")} · {t("participantsView.comingSoon")}
+              <Megaphone size={ICON_SIZE.sm} aria-hidden="true" /> {t("participantsView.broadcastBtn")} · {t("participantsView.comingSoon")}
             </Button>
           </div>
         </div>
@@ -551,7 +552,7 @@ export default function EventParticipantsPage() {
               gap: 'var(--space-3)',
             }}
           >
-            <span aria-hidden="true" style={{ color: "var(--amber)", flexShrink: 0 }}><CircleAlert size={14} /></span>
+            <span aria-hidden="true" style={{ color: "var(--amber)", flexShrink: 0 }}><CircleAlert size={ICON_SIZE.sm} /></span>
             <div style={{ flex: 1, fontSize: "var(--ft-body-size)", color: "var(--ink-1)" }}>
               {t("participantsView.noBibWarning", { count: stats.noBib })}
             </div>
@@ -600,7 +601,7 @@ export default function EventParticipantsPage() {
                   fontSize: "var(--ft-body-size)",
                 }}
               >
-                <Search size={16} aria-hidden="true" />
+                <Search size={ICON_SIZE.md} aria-hidden="true" />
               </span>
               <Input
                 className="event-input-with-leading-icon"
@@ -681,7 +682,7 @@ export default function EventParticipantsPage() {
                 onClick={() => handleBulk("sms")}
                 disabled={busy} variant="secondary" size="sm" className="disabled:opacity-50"
               >
-                <Send size={14} aria-hidden="true" /> {t("participantsView.action.sms")}
+                <Send size={ICON_SIZE.sm} aria-hidden="true" /> {t("participantsView.action.sms")}
               </Button>
               <Button
                 type="button"
@@ -1001,7 +1002,7 @@ export default function EventParticipantsPage() {
                   style={{ justifyContent: "flex-start", width: "100%" }}
                   title={t("participantsView.bibChangeSoon")}
                 >
-                  <PencilLine size={14} aria-hidden="true" /> {t("participantsView.action.bibChange")} · {t("participantsView.comingSoon")}
+                  <PencilLine size={ICON_SIZE.sm} aria-hidden="true" /> {t("participantsView.action.bibChange")} · {t("participantsView.comingSoon")}
                 </Button>
                 <Button
                   type="button" variant="secondary" size="sm"
@@ -1009,14 +1010,14 @@ export default function EventParticipantsPage() {
                   style={{ justifyContent: "flex-start", width: "100%" }}
                   title={t("participantsView.smsSingleSoon")}
                 >
-                  <Send size={14} aria-hidden="true" /> {t("participantsView.action.smsSingle")} · {t("participantsView.comingSoon")}
+                  <Send size={ICON_SIZE.sm} aria-hidden="true" /> {t("participantsView.action.smsSingle")} · {t("participantsView.comingSoon")}
                 </Button>
                 <Button
                   type="button" variant="secondary" size="sm"
                   style={{ justifyContent: "flex-start", width: "100%" }}
                   onClick={() => navigate(`/event/${eventId}/host`)}
                 >
-                  <MapPin size={14} aria-hidden="true" /> {t(trackingEnded ? "participantsView.action.endedView" : "participantsView.action.liveView")}
+                  <MapPin size={ICON_SIZE.sm} aria-hidden="true" /> {t(trackingEnded ? "participantsView.action.endedView" : "participantsView.action.liveView")}
                 </Button>
                 {drawer.status === "RACING" && (
                   <Button

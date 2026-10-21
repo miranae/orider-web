@@ -34,6 +34,7 @@ import { logClientError } from "../services/errorLogger";
 import { Card, Stat, Text, Button, Stack } from "../theme/components";
 import LifetimeMilestonesGrid from "../components/fitness/LifetimeMilestonesGrid";
 import { useMilestones } from "../hooks/useMilestones";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 /** km, 콤마·정수 */
 function km(meters: number): string {
@@ -151,7 +152,7 @@ export default function YearRecapPage() {
         <Card data-testid="P2.emptyYear">
           <Stack gap="var(--space-3)" align="center">
             <Text variant="dataMedium" tone="tertiary">
-              <CalendarDays size={24} aria-hidden="true" />
+              <CalendarDays size={ICON_SIZE.lg} aria-hidden="true" />
             </Text>
             <Text weight={600}>{t("empty.title", { year })}</Text>
             <Text tone="tertiary" variant="bodySmall">
@@ -207,21 +208,21 @@ export default function YearRecapPage() {
             <Stack gap="var(--space-3)">
               {recap.longestDistance && (
                 <HighlightRow
-                  icon={<Route size={18} />}
+                  icon={<Route size={ICON_SIZE.md} />}
                   label={t("highlight.longestDistance")}
                   value={`${(recap.longestDistance.value / 1000).toFixed(1)} km`}
                 />
               )}
               {recap.longestDuration && (
                 <HighlightRow
-                  icon={<Clock size={18} />}
+                  icon={<Clock size={ICON_SIZE.md} />}
                   label={t("highlight.longestDuration")}
                   value={`${(recap.longestDuration.value / 3600000).toFixed(1)} ${t("unit.hour")}`}
                 />
               )}
               {recap.biggestClimb && (
                 <HighlightRow
-                  icon={<Mountain size={18} />}
+                  icon={<Mountain size={ICON_SIZE.md} />}
                   label={t("highlight.biggestClimb")}
                   value={`${Math.round(recap.biggestClimb.value)} m`}
                 />
@@ -245,7 +246,7 @@ export default function YearRecapPage() {
             <div className="flex" style={{ gap: "var(--space-2)", marginTop: "var(--space-3)", flexWrap: "wrap" }}>
               <Button
                 variant="primary"
-                leadingIcon={<Share2 size={16} />}
+                leadingIcon={<Share2 size={ICON_SIZE.md} />}
                 loading={shareBusy}
                 onClick={() => handleShare("square")}
               >
@@ -253,7 +254,7 @@ export default function YearRecapPage() {
               </Button>
               <Button
                 variant="secondary"
-                leadingIcon={<Download size={16} />}
+                leadingIcon={<Download size={ICON_SIZE.md} />}
                 loading={shareBusy}
                 onClick={() => handleShare("story")}
               >
@@ -281,7 +282,7 @@ function DisciplineRow({
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center" style={{ gap: "var(--space-2)" }}>
-        <span style={{ fontSize: "var(--fs-lg)" }}>{discipline === "bike" || discipline === "run" || discipline === "swim" ? <SportIcon sport={discipline} size={20} /> : <ActivityIcon size={20} aria-hidden="true" />}</span>
+        <span style={{ fontSize: "var(--fs-lg)" }}>{discipline === "bike" || discipline === "run" || discipline === "swim" ? <SportIcon sport={discipline} size={ICON_SIZE.lg} /> : <ActivityIcon size={ICON_SIZE.lg} aria-hidden="true" />}</span>
         <Text weight={600} style={{ color }}>
           {t(getDisciplineLabelKey(discipline))}
         </Text>

@@ -11,6 +11,7 @@ import { AddPlanSheet } from "../training";
 import AdaptationBanner from "../training/AdaptationBanner";
 import { Button } from "../../theme/components";
 import type { Discipline } from "../../utils/disciplineFilter";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export interface MobilePlanPageProps {
   selectedDate?: string;
@@ -125,7 +126,7 @@ export default function MobilePlanPage({
               onClick={() => { void (action as () => void | Promise<void>)(); }}
               style={{ whiteSpace: "nowrap" }}
             >
-              {index === 1 && <RefreshCw size={16} aria-hidden="true" />}{index === 2 && <Target size={16} aria-hidden="true" />}{String(label)}
+              {index === 1 && <RefreshCw size={ICON_SIZE.md} aria-hidden="true" />}{index === 2 && <Target size={ICON_SIZE.md} aria-hidden="true" />}{String(label)}
             </Button>
           ) : null)}
         </div>

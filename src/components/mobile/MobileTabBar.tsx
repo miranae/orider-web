@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PRIMARY_HUBS, type HubKey } from "../../config/navHubs";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const mobileTabFocusClass = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--lime)]";
 
@@ -58,7 +59,7 @@ export default function MobileTabBar({
               style={{ color: isActive ? "var(--lime)" : "var(--ink-4)", minHeight: 44 }}
             >
               <span className="relative">
-                <Icon size={20} strokeWidth={isActive ? 2.2 : 1.7} />
+                <Icon size={ICON_SIZE.lg} strokeWidth={isActive ? 2.2 : 1.7} />
               </span>
               <span className="whitespace-nowrap text-[length:var(--fs-xs)] font-medium" style={{ letterSpacing: "-0.01em" }}>
                 {label}

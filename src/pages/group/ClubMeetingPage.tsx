@@ -44,6 +44,7 @@ import {
   type ClubMeetingSnapshot,
 } from "../../services/clubMeetings";
 import "../../features/club-preparation/clubPreparation.css";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export default function ClubMeetingPage({
   mode = "detail",
@@ -376,15 +377,15 @@ function ServerMeetingDetail({
         )}
         <div className="cp-meeting-facts">
           <span>
-            <CalendarDays size={18} aria-hidden="true" />
+            <CalendarDays size={ICON_SIZE.md} aria-hidden="true" />
             {meeting.date} <strong>{meeting.time}</strong>
           </span>
           <span>
-            <MapPin size={18} aria-hidden="true" />
+            <MapPin size={ICON_SIZE.md} aria-hidden="true" />
             {meeting.place}
           </span>
           <span>
-            <Users size={18} aria-hidden="true" />
+            <Users size={ICON_SIZE.md} aria-hidden="true" />
             {text(
               `참석 ${joined.length} / ${meeting.capacity}명 · 대기 ${waiting.length}명`,
               `${joined.length} / ${meeting.capacity} attending · ${waiting.length} waiting`,

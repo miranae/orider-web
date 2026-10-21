@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CHART_CSS_VARIABLES, COLOR_CSS_VARIABLES, GENERATED_DEFAULT_SCHEME } from './generated';
+import { FONT_SIZE_RAMP } from './tokens/typography';
 
 const root = resolve(import.meta.dirname, '../..');
 
@@ -22,6 +23,13 @@ describe('generated design tokens', () => {
     for (const [key, variable] of Object.entries(COLOR_CSS_VARIABLES)) {
       expect(css).toContain(`${variable}: ${GENERATED_DEFAULT_SCHEME.light.colors[key]};`);
       expect(css).toContain(`${variable}: ${GENERATED_DEFAULT_SCHEME.dark.colors[key]};`);
+    }
+  });
+
+  it('정적 --fs-* (하이드레이션 전 기본값)가 FONT_SIZE_RAMP 와 같다', () => {
+    const manifest = JSON.parse(readFileSync(resolve(root, 'design-tokens/orider.tokens.json'), 'utf8'));
+    for (const [step, size] of Object.entries(FONT_SIZE_RAMP)) {
+      expect(manifest.staticCssVariables[`--fs-${step}`]).toBe(`${size}px`);
     }
   });
 

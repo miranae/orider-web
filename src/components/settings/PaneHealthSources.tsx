@@ -15,6 +15,7 @@ import type {
 } from "@shared/types";
 import { DropdownSelect, Card, Chip } from "../../theme/components";
 import { Toggle } from "./_primitives";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 /**
  * Stage 1 PR F — 헬스 소스 연결 + 주 소스 선택 + 보존 정책 UI.
@@ -31,19 +32,19 @@ const PROVIDER_META: Record<
 > = {
   strava: {
     label: "Strava",
-    icon: <Activity size={20} />,
+    icon: <Activity size={ICON_SIZE.lg} />,
     hintKey: "healthSources.stravaHint",
     webConnectable: true,
   },
   apple_health: {
     label: "Apple Health",
-    icon: <Heart size={20} />,
+    icon: <Heart size={ICON_SIZE.lg} />,
     hintKey: "healthSources.appleHealthHint",
     webConnectable: false,
   },
   health_connect: {
     label: "Health Connect",
-    icon: <Watch size={20} />,
+    icon: <Watch size={ICON_SIZE.lg} />,
     hintKey: "healthSources.healthConnectHint",
     webConnectable: false,
   },
@@ -109,7 +110,7 @@ function ProviderCard({
             borderTop: "1px solid var(--line)",
           }}
         >
-          <Smartphone size={14} />
+          <Smartphone size={ICON_SIZE.sm} />
           {t("healthSources.appPermissionRequired")}
         </div>
       )}
@@ -296,7 +297,7 @@ export function PaneHealthSources() {
               color: "var(--ink-2)",
             }}
           >
-            <AlertCircle size={14} style={{ flexShrink: 0, marginTop: "var(--space-0-5)" }} />
+            <AlertCircle size={ICON_SIZE.sm} style={{ flexShrink: 0, marginTop: "var(--space-0-5)" }} />
             <span>
               {t("healthSources.retainForeverActiveHint")}
             </span>

@@ -89,6 +89,7 @@ import { EquipmentSignalCard } from "../features/activity/detail/EquipmentSignal
 import { useActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
 import { ActivityFtpDecisionCard } from "../features/activity/detail/ActivityFtpDecisionCard";
 import { fitnessDateKeyFor } from "@shared/training/dateKey";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 export default function ActivityPage() {
   const { t, i18n } = useTranslation("activity");
@@ -987,7 +988,7 @@ export default function ActivityPage() {
                 style={{ background: 'var(--surface-2)', color: 'var(--ink-1)' }}
                 title={tCommon(getSportLabelKey(activity.type))}
               >
-                {sport !== "other" && <SportIcon sport={sport === "ride" ? "bike" : sport} size={16} />}{tCommon(getSportLabelKey(activity.type))}
+                {sport !== "other" && <SportIcon sport={sport === "ride" ? "bike" : sport} size={ICON_SIZE.md} />}{tCommon(getSportLabelKey(activity.type))}
                 {/* Virtual* 종목은 라벨이 이미 "가상 …" 이라 실내 표기를 덧붙이지 않는다. */}
                 {isIndoorActivity(activity) && !isVirtualActivityType(activity.type) && (
                   <span style={{ color: 'var(--ink-3)' }}>· {tCommon("sport.indoor")}</span>
@@ -1031,7 +1032,7 @@ export default function ActivityPage() {
           aria-haspopup="dialog"
           aria-expanded={openManagementScope === managementScope}
           onClick={() => setOpenManagementScope(managementScope)}
-          icon={<Menu size={20} aria-hidden="true" />}
+          icon={<Menu size={ICON_SIZE.lg} aria-hidden="true" />}
         />
       </Card>
 
@@ -1102,7 +1103,7 @@ export default function ActivityPage() {
           ].map(({ id, icon: Icon }) => <button key={id} id={`activity-tab-${id}`} data-testid="D1-T" type="button" role="tab"
             aria-selected={activeTab === id} aria-controls="activity-tab-panel" tabIndex={activeTab === id ? 0 : -1}
             onClick={() => { pendingPeakLocation.current = null; pendingLap.current = null; setActiveTab(id); }}>
-            <Icon size={18} aria-hidden="true" /><span>{t(`tab.${id}`)}</span>
+            <Icon size={ICON_SIZE.md} aria-hidden="true" /><span>{t(`tab.${id}`)}</span>
             {id === "segments" && segmentEfforts.length > 0 && <span className="activity-detail-tab-count">{segmentEfforts.length}</span>}
           </button>)}
         </div>
@@ -1136,7 +1137,7 @@ export default function ActivityPage() {
           {secondaryStatsAvailable && <details className="activity-detail-secondary-stats" open={wideStats || secondaryStatsOpen} onToggle={(event) => {
             if (!wideStats) setSecondaryStatsOpen(event.currentTarget.open);
           }}>
-            <summary>{t("detail.additionalStats")}<ChevronDown size={16} aria-hidden="true" /></summary>
+            <summary>{t("detail.additionalStats")}<ChevronDown size={ICON_SIZE.md} aria-hidden="true" /></summary>
             {keyStatsStrip("secondary")}
           </details>}
         </div>
@@ -1681,7 +1682,7 @@ export default function ActivityPage() {
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Trophy size={20} aria-hidden="true" style={{ color: "var(--amber)" }} />
+              <Trophy size={ICON_SIZE.lg} aria-hidden="true" style={{ color: "var(--amber)" }} />
               <h3 className="text-[length:var(--fs-sm)] font-bold" style={{ color: 'var(--ink-0)' }}>{t("page.topResults")}</h3>
               <span className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>{topResults.length}</span>
             </div>

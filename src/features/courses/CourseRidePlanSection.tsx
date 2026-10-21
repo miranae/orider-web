@@ -11,6 +11,7 @@ import { getRuntimeConfig } from "../../services/runtimeConfig";
 import type { CoachRidePlanContext } from "../../services/coachV2Contract";
 import { CoachQuestionLauncher } from "../coach/CoachQuestionLauncher";
 import "./course-ride-plan.css";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface Props {
   courseId: string;
@@ -142,7 +143,7 @@ export function CourseRidePlanSection({ courseId, isOwner, user, onSignIn }: Pro
             <Text as="p" variant="eyebrow" tone="accent">{t("ridePlan.eyebrow")}</Text>
             <Text id="course-ride-plan-title" as="h2" variant="title">{t("ridePlan.title")}</Text>
           </div>
-          <Sparkles aria-hidden size={20} />
+          <Sparkles aria-hidden size={ICON_SIZE.lg} />
         </header>
         <RidePlanContent state={state} plan={plan} aiEnabled={respondEnabled} questionState={questionState}
           onRetry={() => setAttempt((value) => value + 1)} onQuestionSelect={chooseQuestion} />

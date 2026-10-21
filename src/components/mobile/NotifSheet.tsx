@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import type { Notification } from "@shared/types";
 import { timeAgo } from "../../utils/timeAgo";
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface NotifSheetProps {
   open: boolean;
@@ -49,7 +50,7 @@ export default function NotifSheet({ open, onClose, notifications, onMarkAllRead
               </button>
             )}
             <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", padding: "var(--space-2)", minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <X size={20} style={{ color: "var(--ink-3)" }} />
+              <X size={ICON_SIZE.lg} style={{ color: "var(--ink-3)" }} />
             </button>
           </div>
         </div>

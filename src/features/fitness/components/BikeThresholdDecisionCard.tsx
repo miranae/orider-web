@@ -8,6 +8,7 @@ import { LocalizedLink } from "../../../components/LocalizedLink";
 import { Card, Text, buttonClass } from "../../../theme/components";
 import FtpProgressionCard from "./FtpProgressionCard";
 import BikeFtpDecisionActionPanel from "./BikeFtpDecisionActionPanel";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 
 type T = (key: string, values?: Record<string, unknown>) => string;
 
@@ -93,7 +94,7 @@ export default function BikeThresholdDecisionCard({
         style={{ minHeight: 44, width: "100%", marginTop: "var(--space-4)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 var(--space-3)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", background: "var(--bg-1)", color: "var(--ink-1)" }}
       >
         <Text as="span" variant="label">{t("thresholdDecision.evidenceToggle")}</Text>
-        {evidenceOpen ? <ChevronUp size={18} aria-hidden /> : <ChevronDown size={18} aria-hidden />}
+        {evidenceOpen ? <ChevronUp size={ICON_SIZE.md} aria-hidden /> : <ChevronDown size={ICON_SIZE.md} aria-hidden />}
       </button>}
       {inlineEvidence && <Text as="h3" variant="subtitle" style={{ marginTop: "var(--space-4)" }}>{t("thresholdDecision.evidenceToggle")}</Text>}
       <div id="bike-threshold-evidence" hidden={!inlineEvidence && !evidenceOpen} style={{ marginTop: "var(--space-2)" }}>

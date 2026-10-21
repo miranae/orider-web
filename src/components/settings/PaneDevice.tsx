@@ -41,6 +41,7 @@ import {
 } from "./_primitives";
 import { LayoutEditorCard } from "./LayoutEditorCard";
 import { Button, Card, DropdownSelect, buttonClass } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 function formatDateTime(ms: number, locale: string): string {
   if (!ms) return "-";
@@ -110,7 +111,7 @@ function ScopeBadge({ scope }: { scope: Scope }) {
         border: "1px solid var(--line-soft)",
       }}
     >
-      {isUser ? <Users size={10} /> : <PhoneIcon size={10} />}
+      {isUser ? <Users size={ICON_SIZE.xs} /> : <PhoneIcon size={ICON_SIZE.xs} />}
       {label}
     </span>
   );
@@ -188,7 +189,7 @@ function EditableCard({
             onClick={onEdit}
             aria-label={t("device.editAriaLabel")}
           >
-            <Pencil size={12} /> {t("device.edit")}
+            <Pencil size={ICON_SIZE.xs} /> {t("device.edit")}
           </Button>
         )
       }
@@ -843,7 +844,7 @@ export function PaneDevice() {
             color: "var(--ink-0)",
           }}
         >
-          <Smartphone size={22} />
+          <Smartphone size={ICON_SIZE.lg} />
         </div>
         <div className="settings-device-header__selector" style={{ minWidth: 0 }}>
           {records.length > 1 ? (
@@ -924,7 +925,7 @@ export function PaneDevice() {
           }}
           aria-label={t("device.deleteDeviceAriaLabel")}
         >
-          <Trash2 size={14} />
+          <Trash2 size={ICON_SIZE.sm} />
         </Button>
         <Button variant="secondary" onClick={() => void reload()}>
           {t("device.reload")}

@@ -19,6 +19,7 @@ import { LocalizedLink } from "../components/LocalizedLink";
 import { LegacySettingsRedirect } from "../components/routing/LegacyRedirect";
 import { Text, buttonClass } from "../theme/components";
 import { NAV_GROUPS, settingsTabPath, type SectionId } from "../components/settings/settingsNavigation";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 function SettingsPanes({ section }: { section: SectionId }) {
   return (
@@ -108,7 +109,7 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
                   onClick={() => navigate(settingsTabPath(item.id))}
                   className={"settings-navitem" + (active ? " is-active" : "")}
                 >
-                  <Ic size={15} />
+                  <Ic size={ICON_SIZE.md} />
                   <span className="settings-navitem-text">
                     <span className="settings-navitem-label">{t(item.labelKey)}</span>
                     <span className="settings-navitem-hint">{t(item.hintKey)}</span>
