@@ -2735,5 +2735,26 @@
     "selectedStatsLabel": "Selected range statistics",
     "distanceShort": "Distance",
     "elapsedShort": "Time"
+  },
+
+  "overviewSocial": {
+    "title": "Activity story",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "closeViewer": "Close photos",
+    "memoUnavailable": "Memo is unavailable.",
+    "signInPhotos": "Sign in to view photos",
+    "memoPartial": "Only part of the memo is available.",
+    "noMemo": "No memo has been added.",
+    "openPhoto": "View photo {{index}} of {{count}}",
+    "photosPending": "Load the activity photos to view them.",
+    "noPhotos": "No photos have been added.",
+    "loadPhotos": "Load more photos",
+    "photoError": "Could not load photos.",
+    "noCompanions": "No confirmed companions.",
+    "allResults": "View all",
+    "noResults": "No highlights to display.",
+    "previousPhoto": "Previous photo",
+    "nextPhoto": "Next photo"
   }
 }

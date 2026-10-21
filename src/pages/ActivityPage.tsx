@@ -23,6 +23,8 @@ import "./activity/activity-detail-page.css";
 import AnalysisTab, { AnalysisLapTable } from "../components/AnalysisTab";
 import ActivityAnalysisBody from "../features/activity/detail/ActivityAnalysisBody";
 import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
+import ActivityOverviewSocial, { type OverviewAchievement } from "../features/activity/detail/ActivityOverviewSocial";
+import { activityFeedSourceRevision, boundedFeedContent } from "../services/activityFeedContent";
 import ActivityOverviewSummary from "../features/activity/detail/ActivityOverviewSummary";
 import LapTable from "../components/LapTable";
 import Modal from "../components/Modal";
@@ -104,6 +106,7 @@ export default function ActivityPage() {
   const dialog = useDialog();
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [coRiders, setCoRiders] = useState<Activity[]>([]);
+  const [coRiderIdentity, setCoRiderIdentity] = useState("");
   const [liked, setLiked] = useState(false);
   const [kudosList, setKudosList] = useState<{ userId: string; nickname: string; profileImage?: string | null }[]>([]);
   const [kudosLoaded, setKudosLoaded] = useState(false);
@@ -157,6 +160,8 @@ export default function ActivityPage() {
     revertVirtualPowerPreview,
     activePowerOverride,
   } = analysisModel;
+  const currentCoRiderIdentity = `${activityId ?? ""}:${user?.uid ?? "guest"}:${activity?.groupRideId ?? ""}`;
+  const visibleCoRiders = coRiderIdentity === currentCoRiderIdentity ? coRiders : [];
   const stravaSummaryLang = i18n.language?.startsWith("en") ? "en" : "ko";
   const shareDiscipline = getDiscipline(activity?.type);
   // 미지 종목(요가·근력 등)은 종목별 피트니스 시계열이 없다 — uid 를 주지 않아 조회를
@@ -169,7 +174,9 @@ export default function ActivityPage() {
   const bikePdc = bikePdcState.pdc;
   // Inline description editing
   // Photo upload/delete
-  const [uploadedPhotos, setUploadedPhotos] = useState<UploadedPhoto[]>([]);
+  const uploadedPhotoIdentity = `${activityId ?? ""}:${user?.uid ?? "guest"}`;
+  const [uploadedPhotoState, setUploadedPhotoState] = useState<{ identity: string; photos: UploadedPhoto[] } | null>(null);
+  const uploadedPhotos = uploadedPhotoState?.identity === uploadedPhotoIdentity ? uploadedPhotoState.photos : [];
   const [photoUploading, setPhotoUploading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
@@ -303,6 +310,8 @@ export default function ActivityPage() {
       return;
     }
 
+    let cancelled = false;
+    const identity = currentCoRiderIdentity;
     const q = query(
       collection(firestore, "activities"),
       where("groupRideId", "==", activity.groupRideId),
@@ -313,15 +322,17 @@ export default function ActivityPage() {
       const candidates = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }) as Activity)
         .filter((a) => a.visibility === "everyone");
-      setCoRiders(selectActualCoRiders(activity, candidates));
+      if (!cancelled) { setCoRiders(selectActualCoRiders(activity, candidates)); setCoRiderIdentity(identity); }
     }).catch((err) => {
+      if (cancelled) return;
       if (isPermissionDeniedError(err)) {
         setCoRiders([]);
         return;
       }
       logClientError("ActivityPage.bg", err, {});
     });
-  }, [activity?.groupRideId, activity?.id]);
+    return () => { cancelled = true; };
+  }, [activity?.groupRideId, activity?.id, currentCoRiderIdentity]);
 
   // Real-time kudos subscription
   useEffect(() => {
@@ -515,19 +526,22 @@ export default function ActivityPage() {
   // Load uploaded photos from activity_photos/{activityId} (exclude soft-deleted)
   useEffect(() => {
     if (!activityId) return;
+    let active = true;
+    const identity = uploadedPhotoIdentity;
     const photosRef = query(
       collection(firestore, "activity_photos", activityId, "photos"),
       where("deletedAt", "==", null),
       orderBy("createdAt", "asc"),
     );
-    return onSnapshot(photosRef, (snap) => {
-      setUploadedPhotos(
-        snap.docs.map((d) => ({ id: d.id, ...d.data() } as UploadedPhoto)),
-      );
+    const unsubscribe = onSnapshot(photosRef, (snap) => {
+      if (active) setUploadedPhotoState({ identity, photos: snap.docs.map((d) => ({ id: d.id, ...d.data() } as UploadedPhoto)) });
     }, (err) => {
+      if (!active) return;
+      setUploadedPhotoState(null);
       logClientError("ActivityPage.photos", err, { path: `activity_photos/${activityId}/photos` });
     });
-  }, [activityId]);
+    return () => { active = false; unsubscribe(); };
+  }, [activityId, uploadedPhotoIdentity]);
 
   // Save description
   const handleSaveDescription = async () => {
@@ -735,6 +749,11 @@ export default function ActivityPage() {
     [hoveredSegment, streams, runSplitLocation, peakLocation, rangeSelection.selection, rangeSelection.chartRange],
   );
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
+  const sourceRevision = activity ? activityFeedSourceRevision(activity) : null;
+  const publishedContent = activity?.feedContentV1?.sourceRevision === sourceRevision ? boundedFeedContent(activity.feedContentV1) : null;
+  const overviewMemo = publishedContent?.memo?.trim() ? publishedContent.memo
+    : overview.response?.status === "available" && overview.response.activityId === activity?.id ? overview.response.defaultMemo ?? null : null;
+
   const hasStreams = sampledData.length > 0;
   const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, user?.uid, activityId, user?.isAnonymous === true);
   const runGapSecPerKm = serverMetrics.metrics?.runMetrics?.splitTimeStatus === "native_timer_mismatch"
@@ -995,6 +1014,17 @@ export default function ActivityPage() {
       />
   );
 
+  const overviewPhotos = [
+    ...(photos.length ? photos.filter(photo => photo.url).map(photo => ({ ...photo, url: photo.url!, id: `strava-${photo.id}` }))
+      : (publishedContent?.photos ?? []).map(photo => ({ ...photo, id: `strava-${photo.id}` }))),
+    ...uploadedPhotos.map(photo => ({ ...photo, id: `upload-${photo.id}`, uploadId: photo.id, ownerId: photo.userId })),
+  ];
+  const overviewAchievements: OverviewAchievement[] = topResults.length ? topResults.map(effort => ({
+    id: String(effort.id), segmentId: String(effort.segment.id), effortId: effort.id,
+    name: effort.name, badge: effort.prRank ? effort.prRank === 1 ? "PR" : effort.prRank === 2 ? "2nd" : "3rd" : `KOM ${effort.komRank}`,
+    time: formatTime(effort.elapsedTime),
+  })) : (activity.topAchievements ?? []).map((result, index) => ({ id: `published-${index}`, segmentId: result.segmentId, name: result.segmentName, badge: result.type, time: result.time }));
+
   return (
     <div className="site-shell activity-detail">
       {/* 1. Header (제목) */}
@@ -1147,6 +1177,17 @@ export default function ActivityPage() {
           </button>)}
         </div>
       </div>
+      {activeTab === "overview" && <ActivityOverviewSocial key={`${activity.id}:${user?.uid ?? "guest"}:${sourceRevision}`} activityId={activity.id}
+        memo={overviewMemo} memoLoading={!publishedContent?.memo?.trim() && overview.loading} memoError={!publishedContent?.memo?.trim() && overview.error}
+        photosKnown={!!streams || !!publishedContent || typeof activity.photoCount === "number"} memoTruncated={publishedContent?.memoTruncated} photos={overviewPhotos}
+        totalPhotos={Math.max(photos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0) + uploadedPhotos.length}
+        companions={visibleCoRiders} achievements={overviewAchievements}
+ owner={isActivityOwner} viewerId={user?.uid} uploading={photoUploading} canUpload={uploadedPhotos.length < MAX_PHOTOS}
+        loadingPhotos={loadingStreams || showStreamSpinner} photoError={streamsError} canLoadPhotos={!streamsSignInRequired}
+        onSignIn={() => { void signIn(); }} onLoadPhotos={() => { if (streamsError) void retryStreams(); else requestStreams(); }} onUpload={() => photoInputRef.current?.click()}
+        onDelete={id => { const photo = uploadedPhotos.find(item => item.id === id); if (photo) void handleDeletePhoto(photo); }}
+        onLocate={location => { setFlyToPosition(null); setTimeout(() => setFlyToPosition(location), 10); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
+        onShowResults={() => setActiveTab("segments")} />}
       <div className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
       <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined}>
@@ -1278,114 +1319,6 @@ export default function ActivityPage() {
       {activeTab === "compare" && isActivityOwner && <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} currentMetricsStatus={serverMetrics.status} isOwner={isActivityOwner} comparisonOnly />}
 
       {activeTab === "overview" && <div data-testid="D1-2" className="space-y-6">
-      {/* 사진 (가로 스크롤) — Strava + 업로드 사진 */}
-      {(photos.length > 0 || uploadedPhotos.length > 0 || user?.uid === activity.userId) && (
-        <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-          <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>
-            {t("page.photos")} ({photos.length + uploadedPhotos.length})
-          </h3>
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory scrollbar-thin" style={{ '--scrollbar-thumb': 'var(--line)' } as React.CSSProperties}>
-            {/* Strava photos */}
-            {photos.map((photo) => photo.url && (
-              <button
-                type="button"
-                key={`strava-${photo.id}`}
-                className="relative group flex-shrink-0 w-48 h-48 sm:w-56 sm:h-56 snap-start overflow-hidden rounded-[var(--r-lg)] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lime)]" style={{ background: 'var(--bg-2)' }}
-                onClick={() => {
-                  if (photo.location) {
-                    setFlyToPosition(null);
-                    setTimeout(() => setFlyToPosition(photo.location), 10);
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }
-                }}
-                aria-label={photo.location ? t("page.photoMapFocus") : t("page.photoPreview")}
-              >
-                <img
-                  src={photo.url}
-                  alt={photo.caption || t("page.photoPreview")}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
-                />
-                {photo.caption && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                    <p className="text-[length:var(--fs-xs)] text-[var(--ink-0)] truncate">{photo.caption}</p>
-                  </div>
-                )}
-              </button>
-            ))}
-            {/* Uploaded photos */}
-            {uploadedPhotos.map((photo) => (
-              <div
-                key={`upload-${photo.id}`}
-                className="relative group flex-shrink-0 w-48 h-48 sm:w-56 sm:h-56 snap-start overflow-hidden rounded-[var(--r-lg)]"
-                style={{ background: 'var(--bg-2)' }}
-              >
-                <button
-                  type="button"
-                  className="h-full w-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lime)]"
-                  onClick={() => {
-                    const loc = photo.location;
-                    if (loc) {
-                      setFlyToPosition(null);
-                      setTimeout(() => setFlyToPosition(loc), 10);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }
-                  }}
-                  aria-label={photo.location ? t("page.photoMapFocus") : t("page.photoPreview")}
-                >
-                  <img
-                    src={photo.url}
-                    alt={t("page.photoPreview")}
-                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    loading="lazy"
-                  />
-                </button>
-                {user?.uid === photo.userId && (
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo); }}
-                    className="absolute top-1.5 right-1.5 w-7 h-7 bg-black/60 hover:bg-red-600 text-[var(--ink-0)] rounded-full flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-                    title={t("page.delete")}
-                    aria-label={t("page.delete")}
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
-              </div>
-            ))}
-            {/* Upload button (owner only) */}
-            {user?.uid === activity.userId && uploadedPhotos.length < MAX_PHOTOS && (
-              <button
-                onClick={() => photoInputRef.current?.click()}
-                disabled={photoUploading}
-                className="flex-shrink-0 w-48 h-48 sm:w-56 sm:h-56 snap-start rounded-[var(--r-lg)] border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-50"
-                style={{ borderColor: 'var(--line)', color: 'var(--ink-3)' }}
-              >
-                {photoUploading ? (
-                  <>
-                    <svg className="w-8 h-8 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    <span className="text-[length:var(--fs-xs)]">{t("page.uploading")}</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span className="text-[length:var(--fs-xs)]">{t("page.addPhoto")}</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-
-        </Card>
-      )}
-
       {/* ── 6. 좋아요 & 댓글 ── */}
       <section data-testid="D1-6"><KudosCommentsCard
         user={user}
@@ -1593,7 +1526,7 @@ export default function ActivityPage() {
 
       {activeTab === "segments" && <>
       {/* Co-riders (함께 탄 라이더) */}
-      {coRiders.length > 0 && (
+      {visibleCoRiders.length > 0 && (
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--ink-1)' }}>
             <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none">
@@ -1602,10 +1535,10 @@ export default function ActivityPage() {
               <circle cx="16" cy="8" r="2.5" fill="#F97316" opacity="0.1" stroke="#F97316" strokeWidth="1.2" />
               <path d="M14 19.5v-.5a4 4 0 018 0v.5" stroke="#F97316" strokeWidth="1.3" strokeLinecap="round" />
             </svg>
-            {t("page.coRiders", { count: coRiders.length })}
+            {t("page.coRiders", { count: visibleCoRiders.length })}
           </h3>
           <div className="space-y-2">
-            {coRiders.map((r) => (
+            {visibleCoRiders.map((r) => (
               <Link
                 key={r.id}
                 to={`/activity/${r.id}`}

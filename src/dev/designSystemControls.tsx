@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'r
 import { createRoot } from 'react-dom/client';
 import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import {
-  Button, IconButton, Checkbox, Card, Section, Select, Field, Input, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
+  Button, IconButton, MediaViewer, Checkbox, Card, Section, Select, Field, Input, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
   Chip, ChartRangeControls, type ChartRangeMode, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
   type DataTableColumn,
   MapResizeControls, MapNavigation, MapControlButton, ChartLegend, ChartValue, ChartTooltip,
@@ -78,6 +78,8 @@ const chartLabels = {
 };
 
 function ControlsCatalog() {
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const [mediaIndex, setMediaIndex] = useState(0);
   const [analysisAxis, setAnalysisAxis] = useState<'distance' | 'time'>('time');
   const [analysisMetrics, setAnalysisMetrics] = useState<FixtureMetric[]>(['hr', 'power', 'speed']);
   const [analysisRange, setAnalysisRange] = useState<[number, number] | null>(null);
@@ -403,6 +405,15 @@ function ControlsCatalog() {
             })}</tbody></table>
           </div>
           <Text as="p" variant="bodySmall" tone="tertiary">평균은 실제 관측 시간을 가중합니다. 미수신 구간을 제외하고 0 W·0 km/h는 유지합니다. 예시 기록은 09:00·09:02에 시작하며, 중간에 3분간 센서 공백이 있습니다.</Text>
+        </section>
+
+        <section className="catalog-section">
+          <Text as="h2" variant="title">전체 화면 미디어 뷰어</Text>
+          <Text as="p" variant="bodySmall">확대·이동, 기본 배율 좌우 스와이프, 키보드 탐색과 포커스 복귀. 사진 목록과 권한은 호출 화면이 관리합니다.</Text>
+          <Button variant="neutral" onClick={() => setMediaOpen(true)}>예시 이미지 열기</Button>
+          <MediaViewer open={mediaOpen} item={{ id: `example-${mediaIndex}`, url: '/favicon.svg', alt: 'ORider 예시 아이콘' }} label="예시 미디어" position={`${mediaIndex + 1} / 2`}
+            labels={{ previous: '이전 사진', next: '다음 사진', zoomIn: '확대', zoomOut: '축소', close: '닫기' }}
+            onClose={() => setMediaOpen(false)} onPrevious={() => setMediaIndex(index => 1 - index)} onNext={() => setMediaIndex(index => 1 - index)} />
         </section>
 
         <section id="states" className="catalog-section">
