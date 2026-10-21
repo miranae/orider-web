@@ -104,3 +104,13 @@ it("pins month details below the chart and supports click, previous/next and key
   expect(screen.getByRole("heading", { name: "2024년 1월" })).toBeInTheDocument();
   expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 });
+
+it("reports explicit period selection with week navigation without changing default consumers", () => {
+  const onPeriodSelect = vi.fn();
+  renderWithProviders(<WeeklyChart data={data.slice(0, 3)} rich periodUnit="week" onPeriodSelect={onPeriodSelect} />);
+  expect(onPeriodSelect).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "이전 주" }));
+  expect(onPeriodSelect).toHaveBeenLastCalledWith("2024.02");
+  act(() => { bar.mock.lastCall![0].options.onClick({}, [{ index: 0 }]); });
+  expect(onPeriodSelect).toHaveBeenLastCalledWith("2024.01");
+});

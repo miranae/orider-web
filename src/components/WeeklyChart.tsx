@@ -46,6 +46,8 @@ interface WeeklyChartProps {
   /** 카드 + 종목 토글 + 모든 지표 툴팁의 풍부한 형태로 렌더링 */
   rich?: boolean;
   showAllPeriods?: boolean;
+  onPeriodSelect?: (period: string) => void;
+  periodUnit?: "week" | "month";
 }
 
 const COLOR_MAP: Record<MetricKey, string> = {
@@ -69,6 +71,8 @@ export default function WeeklyChart({
   height = 150,
   rich = false,
   showAllPeriods = false,
+  onPeriodSelect,
+  periodUnit = "month",
 }: WeeklyChartProps) {
   const { t, i18n } = useTranslation("dashboard");
   const { variant } = useOriderTheme();
@@ -136,12 +140,12 @@ export default function WeeklyChart({
   const inspectedIndex = selectedRow ? data.indexOf(selectedRow) : 0;
   const inspect = (index: number) => {
     const row = data[Math.max(0, Math.min(data.length - 1, index))];
-    if (row) setSelectedWeek(row.week);
+    if (row) { setSelectedWeek(row.week); onPeriodSelect?.(row.week); }
   };
 
   const chartElement = (
     <div ref={scrollRef} style={{ overflowX: showAllPeriods ? "auto" : undefined }} tabIndex={rich || showAllPeriods ? 0 : undefined}
-      aria-label={rich ? t("charts.weeklyChart.title") : undefined}
+      aria-label={rich ? t(periodUnit === "week" ? "charts.weeklyChart.weekTitle" : "charts.weeklyChart.title") : undefined}
       onKeyDown={event => {
         if (!rich || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
         event.preventDefault();
@@ -206,7 +210,7 @@ export default function WeeklyChart({
       <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
         <div className="min-w-0">
           <h3 className="text-[length:var(--fs-sm)] font-semibold text-[var(--ink-0)]">
-            {t("charts.weeklyChart.title")}
+            {t(periodUnit === "week" ? "charts.weeklyChart.weekTitle" : "charts.weeklyChart.title")}
           </h3>
           <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)] mt-0.5">
             {active.label} {formatNum(totalActive, active.digits)} {active.unit}
@@ -220,12 +224,12 @@ export default function WeeklyChart({
       </div>
       {showAllPeriods && data.length > 0 && <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)] mb-2">{data[0]?.week} – {latestPeriod}</p>}
       {chartElement}
-      {selectedRow && <section className="weekly-chart-inspection" aria-label={t("charts.weeklyChart.title")}>
+      {selectedRow && <section className="weekly-chart-inspection" aria-label={t(periodUnit === "week" ? "charts.weeklyChart.weekTitle" : "charts.weeklyChart.title")}>
         <div className="weekly-chart-inspection__header">
           <Text as="h4" variant="bodyMedium" weight={600}>{formatPeriodLabel(selectedRow.week, i18n.language)}</Text>
           <div className="weekly-chart-inspection__navigation">
-            <IconButton aria-label={t("common:field.prevMonth")} disabled={inspectedIndex <= 0} onClick={() => inspect(inspectedIndex - 1)} icon={<ChevronLeft size={18} />} />
-            <IconButton aria-label={t("common:field.nextMonth")} disabled={inspectedIndex >= data.length - 1} onClick={() => inspect(inspectedIndex + 1)} icon={<ChevronRight size={18} />} />
+            <IconButton aria-label={t(periodUnit === "week" ? "charts.weeklyChart.previousWeek" : "common:field.prevMonth")} disabled={inspectedIndex <= 0} onClick={() => inspect(inspectedIndex - 1)} icon={<ChevronLeft size={18} />} />
+            <IconButton aria-label={t(periodUnit === "week" ? "charts.weeklyChart.nextWeek" : "common:field.nextMonth")} disabled={inspectedIndex >= data.length - 1} onClick={() => inspect(inspectedIndex + 1)} icon={<ChevronRight size={18} />} />
           </div>
         </div>
         <div aria-live="polite" aria-atomic="true">

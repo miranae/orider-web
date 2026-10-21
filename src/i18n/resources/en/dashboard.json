@@ -274,7 +274,6 @@
     "date30d": "30d",
     "date90d": "90d",
     "searchContext": "Search: {{query}}",
-
     "occurred": {
       "today": "Today at {{time}}",
       "yesterday": "Yesterday at {{time}}",
@@ -284,7 +283,6 @@
     "feedTitle": "Activity feed",
     "publicTitle": "Public activities",
     "publicDescription": "Explore riders’ activities. Sign in to see your own records too.",
-
     "runSummary": {
       "count": "Activity count",
       "distance": "Distance traveled",
@@ -769,5 +767,8 @@
     "avgHeartRate": "Average heart rate",
     "avgPower": "Average power",
     "activityTime": "Activity time"
-  }
+  },
+  "charts.weeklyChart.weekTitle": "Weekly activity",
+  "charts.weeklyChart.previousWeek": "Previous week",
+  "charts.weeklyChart.nextWeek": "Next week"
 }
