@@ -4,6 +4,7 @@ export interface ActivityOverviewPresentation {
   /**
    * 판정 한 줄. 근거(임계값·존·부하)가 있어 규칙 하나가 걸렸을 때만 있다.
    * 없으면 **줄을 비운다** — "오늘의 라이딩이었어요" 같은 내용 없는 문장을 만들지 않는다(2026-09-21).
+   * `session.character` 가 없으면(성격 확인 중·판정 불가) 이 줄도 없다 — 칩과 문장이 다른 결론을 내지 않는다(#3232).
    */
   coachSentence?: string;
   /** 측정 시간·심박 노출·검증된 기록에서 나온 관찰 태그. */
@@ -82,7 +83,10 @@ export interface ActivityOverviewPresentation {
   powerFingerprint?: Array<{ duration: string; watts: number; medianWatts?: number; deltaPct?: number;
     competitionRank?: number; isBestInWindow?: boolean; tiedBest?: boolean; priorSampleCount?: number;
     recordAchievement?: "first" | "new" | "tie";
-    /** 이 구간의 내 역대 최고(이번 활동 포함). 기록 영수증이 평가됐을 때만 채워진다 — 표본 조건 없이 항상 비교할 수 있는 기준. */
+    /**
+     * 이 구간의 내 역대 최고(이번 활동 포함). 기록 영수증이 평가됐을 때만 채워진다 — 표본 조건 없이 항상 비교할 수 있는 기준.
+     * 계열은 항상 짧은 구간 ≥ 긴 구간이다 — 더 짧은 구간 최고보다 큰 값은 서버가 비운다(#3228). `previousBestPct` 의 기준도 같다.
+     */
     allTimeBestWatts?: number;
     /** watts ÷ allTimeBestWatts × 100 (상한 100). 서버가 한 번 계산한다 — 소비처가 각자 나누지 않는다. */
     allTimeBestPct?: number;
@@ -117,5 +121,7 @@ export const ACTIVITY_OVERVIEW_VERSION = "activity-overview-v1" as const;
 export type ActivityOverviewPartialReason = "record_receipt" | "fitness" | "history";
 export type ActivityOverviewResponse =
   | { status: "available"; activityId: string; version: typeof ACTIVITY_OVERVIEW_VERSION;
-      inputDigest: string; presentation: ActivityOverviewPresentation; defaultMemo?: string; partialReasons?: ActivityOverviewPartialReason[] }
+      inputDigest: string; presentation: ActivityOverviewPresentation; partialReasons?: ActivityOverviewPartialReason[];
+      /** 오라이더 원본 활동의 결정적 요약. 명시적 메모가 없을 때만 기본 표시하며 저장된 메모를 덮어쓰지 않는다. */
+      defaultMemo?: string }
   | { status: "unavailable"; activityId: string; reason: "rollout_disabled" | "metrics_unavailable" | "input_changed" };
