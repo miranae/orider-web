@@ -12,7 +12,7 @@ import { cn } from './cn';
  * <Button variant="ghost" leadingIcon={<Icon/>}>설정</Button>
  * <Button loading>업로드 중</Button>
  */
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'neutral' | 'ghost' | 'outline' | 'danger';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'> {

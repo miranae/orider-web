@@ -632,6 +632,8 @@
     "routeMapAlt": "Route map",
     "noAchievements": "No segment records",
     "segmentCount": "{{count}} segments",
+    "achievementHighlightsLabel": "Highlights",
+    "achievementHighlights": "{{count}} highlighted achievements",
     "segmentCount_one": "{{count}} segment",
     "segmentCount_other": "{{count}} segments",
     "gearRemaining": "{{name}} service in {{distance}} km",
@@ -647,7 +649,13 @@
       "daysAgo_one": "{{count}} day ago",
       "daysAgo_other": "{{count}} days ago"
     },
-    "runSplitsLink": "View pace and km splits"
+    "runSplitsLink": "View pace and km splits",
+    "openPhoto": "View photo {{index}} of {{count}}",
+    "memoMore": "Read more",
+    "commentsLoadError": "Comments could not be loaded.",
+    "contentLoadError": "Memo and photos could not be loaded.",
+    "contentRetry": "Try again",
+    "memoLess": "Show less"
   },
   "socialErrors": {
     "auth": "Your sign-in has expired. Please sign in again.",

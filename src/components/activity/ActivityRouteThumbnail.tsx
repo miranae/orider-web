@@ -81,6 +81,10 @@ interface ActivityRouteThumbnailProps {
   contentSelectedRevision?: number | null;
   priority?: boolean;
   layout?: "desktop" | "mobile";
+  /** Disable the legacy mobile side bleed when media already owns its full card inset. */
+  mobileFullBleed?: boolean;
+  /** Square display uses a live fitted route and never publishes a different canonical thumbnail. */
+  shape?: "wide" | "square";
 }
 
 /**
@@ -98,6 +102,8 @@ export default function ActivityRouteThumbnail({
   contentSelectedRevision,
   priority = false,
   layout = "desktop",
+  mobileFullBleed = true,
+  shape = "wide",
 }: ActivityRouteThumbnailProps) {
   const { t } = useTranslation("activity");
   const { user } = useAuth();
@@ -182,7 +188,7 @@ export default function ActivityRouteThumbnail({
   const mayCapture = revisionState.kind === "managed"
     ? user?.uid === userId
     : revisionState.kind === "legacy" && (visibility === "everyone" || !!user);
-  const needsCapture = mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
+  const needsCapture = shape !== "square" && mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -291,7 +297,7 @@ export default function ActivityRouteThumbnail({
   }, [activityId, canonicalFileName, captureIdentity, captureSlot, needsCapture, revisionState]);
 
   const isMobile = layout === "mobile";
-  const frameClassName = "block relative group overflow-hidden w-full aspect-[var(--feed-thumb-aspect)]";
+  const frameClassName = `block relative group overflow-hidden w-full ${shape === "square" ? "aspect-square" : "aspect-[var(--feed-thumb-aspect)]"}`;
   const frameStyle = { background: "var(--bg-2)" };
   const hoverDim = !isMobile && (
     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -313,7 +319,9 @@ export default function ActivityRouteThumbnail({
       />
     </Suspense>
   ) : placeholder;
-  if (canonicalImageUrl) {
+  if (shape === "square") {
+    content = liveRoute;
+  } else if (canonicalImageUrl) {
     content = (
       <>
         {!imageLoaded && <div className="absolute inset-0">{timedOutImageUrl === canonicalImageUrl ? liveRoute : placeholder}</div>}
@@ -354,7 +362,7 @@ export default function ActivityRouteThumbnail({
           ref={containerRef}
           data-map-thumbnail-frame
           className={frameClassName}
-          style={{ ...frameStyle, margin: "0 -16px 10px", width: "calc(100% + 32px)" }}
+          style={{ ...frameStyle, margin: mobileFullBleed ? "0 -16px 10px" : 0, width: mobileFullBleed ? "calc(100% + 32px)" : "100%" }}
         >
           {content}
         </div>

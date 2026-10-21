@@ -632,6 +632,8 @@
     "routeMapAlt": "경로 지도",
     "noAchievements": "구간 기록 없음",
     "segmentCount": "{{count}}개 세그먼트",
+    "achievementHighlightsLabel": "주요 성과",
+    "achievementHighlights": "주요 성과 {{count}}개",
     "gearRemaining": "{{name}} 정비까지 {{distance}} km",
     "gearOverdue": "{{name}} 정비 권장 {{distance}} km 초과",
     "viewOnStrava": "View on Strava",
@@ -647,7 +649,13 @@
     },
     "segmentCount_one": "{{count}}개 세그먼트",
     "segmentCount_other": "{{count}}개 세그먼트",
-    "runSplitsLink": "페이스·km별 기록 보기"
+    "runSplitsLink": "페이스·km별 기록 보기",
+    "openPhoto": "사진 {{index}} / {{count}} 보기",
+    "memoMore": "더 보기",
+    "commentsLoadError": "댓글을 불러오지 못했어요.",
+    "contentLoadError": "메모와 사진을 불러오지 못했어요.",
+    "contentRetry": "다시 시도",
+    "memoLess": "접기"
   },
   "socialErrors": {
     "auth": "로그인이 만료되었습니다. 다시 로그인해 주세요.",

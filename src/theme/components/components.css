@@ -25,6 +25,10 @@
 .ds-btn--primary:hover:not(:disabled) { background: color-mix(in srgb, var(--control-primary-fill) 92%, var(--ink-0)); }
 .ds-btn--secondary { background: var(--accent-soft-bg); color: var(--control-accent-text); }
 .ds-btn--secondary:hover:not(:disabled) { background: var(--accent-soft-border); }
+.ds-btn--neutral { background: var(--bg-2); color: var(--ink-1); }
+.ds-btn--neutral:hover:not(:disabled) { background: var(--bg-3); }
+.ds-btn--neutral .ds-btn__icon { font-size: var(--dim-icon-s); }
+.ds-btn--neutral:is([aria-pressed="true"], [aria-expanded="true"]) { background: var(--accent-soft-bg); color: var(--control-accent-text); }
 .ds-btn--ghost { background: transparent; color: var(--ink-2); }
 .ds-btn--ghost:hover:not(:disabled) { background: var(--bg-2); color: var(--ink-0); }
 .ds-btn--outline { background: transparent; color: var(--control-accent-text); border-color: var(--accent-soft-border); }
@@ -206,6 +210,7 @@
 .ds-input--mono { font-family: var(--font-mono); }
 
 textarea.ds-input { min-height: 80px; padding: 8px 12px; resize: vertical; line-height: 1.5; height: auto; }
+textarea.ds-input.ds-textarea--compact { min-height: var(--dim-button-height); }
 
 select.ds-input {
   appearance: none;

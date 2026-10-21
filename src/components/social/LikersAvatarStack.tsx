@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import Avatar from "../Avatar";
+import "./LikersAvatarStack.css";
 import { LocalizedLink as Link } from "../LocalizedLink";
 
 export interface LikerAvatarItem {
@@ -28,6 +29,8 @@ interface LikersAvatarStackProps {
   linkToProfile?: boolean;
   /** 아바타 링에 쓸 배경색 토큰 (카드 배경과 맞춰야 겹침이 깔끔하다) */
   ringColor?: string;
+  /** 피드 행의 작은 24px 아바타와 12px 겹침. 기본 스택은 유지한다. */
+  compact?: boolean;
 }
 
 const OVERLAP_PX = -8;
@@ -56,6 +59,7 @@ export default function LikersAvatarStack({
   max = 5,
   linkToProfile = true,
   ringColor = "var(--bg-1)",
+  compact = false,
 }: LikersAvatarStackProps) {
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
@@ -207,7 +211,7 @@ export default function LikersAvatarStack({
           <span
             key={k.userId}
             style={{
-              marginLeft: i === 0 ? 0 : OVERLAP_PX,
+              marginLeft: i === 0 ? 0 : compact ? -12 : OVERLAP_PX,
               borderRadius: "9999px",
               boxShadow: `0 0 0 2px ${ringColor}`,
               // 앞선 아바타가 뒤 아바타에 가리도록(최신이 위) 쌓임 순서 역전
@@ -218,6 +222,7 @@ export default function LikersAvatarStack({
               name={k.nickname}
               imageUrl={k.profileImage}
               size="sm"
+              className={compact ? "likers-avatar--compact" : undefined}
               userId={linkToProfile ? k.userId : undefined}
               // 겹쳐 쌓이므로 44px 타깃 확장은 끔 (이웃 아바타를 덮어 오탭 유발)
               tapTarget={false}
@@ -229,9 +234,9 @@ export default function LikersAvatarStack({
             aria-hidden
             className="flex items-center justify-center rounded-full font-semibold"
             style={{
-              width: 28,
-              height: 28,
-              marginLeft: OVERLAP_PX,
+              width: compact ? 24 : 28,
+              height: compact ? 24 : 28,
+              marginLeft: compact ? -12 : OVERLAP_PX,
               background: "var(--bg-2)",
               color: "var(--ink-2)",
               fontSize: "var(--fs-xs)",
