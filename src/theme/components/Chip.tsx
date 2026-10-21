@@ -6,13 +6,15 @@ export type ChipVariant = 'default' | 'accent' | 'success' | 'warning' | 'danger
 export interface ChipProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: ChipVariant;
   selectable?: boolean;
+  /** 필터 칩 선택 상태 — `aria-pressed` 로 노출되어 HIG 필터 칩(청록 채움)으로 그려진다. */
+  selected?: boolean;
   /** 좌측 작은 점 (상태 표시용). */
   dot?: boolean;
   icon?: ReactNode;
 }
 
 export const Chip = forwardRef<HTMLSpanElement, ChipProps>(function Chip(
-  { variant = 'default', selectable, dot, icon, className, children, ...rest },
+  { variant = 'default', selectable, selected, dot, icon, className, children, ...rest },
   ref,
 ) {
   const isInteractive = selectable || typeof rest.onClick === 'function';
@@ -21,6 +23,7 @@ export const Chip = forwardRef<HTMLSpanElement, ChipProps>(function Chip(
       ref={ref}
       {...rest}
       role={rest.role ?? (isInteractive ? 'button' : undefined)}
+      aria-pressed={rest['aria-pressed'] ?? (selected === undefined ? undefined : selected)}
       tabIndex={rest.tabIndex ?? (isInteractive ? 0 : undefined)}
       className={cn('ds-chip', variant !== 'default' && `ds-chip--${variant}`, isInteractive && 'ds-chip--selectable', className)}
       onKeyDown={(event) => {
