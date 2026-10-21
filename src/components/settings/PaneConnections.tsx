@@ -15,8 +15,9 @@ import { track } from "../../services/analytics";
 
 import { SettingsCard, InlineRow, Toggle } from "./_primitives";
 import { Button, Text, buttonClass } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
-function StravaIcon({ size = 22 }: { size?: number }) {
+function StravaIcon({ size = ICON_SIZE.lg }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
@@ -172,7 +173,7 @@ export function PaneConnections() {
       name: "Strava",
       desc: t("pane.connections.stravaDesc"),
       brand: "#FC4C02",
-      icon: <StravaIcon size={22} />,
+      icon: <StravaIcon size={ICON_SIZE.lg} />,
       connected: stravaConnected,
       onConnect: () => connectStrava(stravaSignup ? guidancePath : "/settings/connections"),
       onDisconnect: handleStravaDisconnect,

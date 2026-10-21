@@ -28,6 +28,7 @@ import {
 import { reportCoachReadError, type CoachReadErrorKind } from "../services/coachReadError";
 import "../features/coach/coach-question.css";
 import "../features/coach/coach-history.css";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 const PAGE_SIZE = 20;
 
@@ -364,7 +365,7 @@ export default function CoachHistoryPage() {
 
   if (!user) return <section className="coach-history-page coach-history-page--signed-out">
     <header data-testid="K6-0" className="coach-history-page__header">
-      <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><Bot size={16} aria-hidden /> {t("history.eyebrow")}</Text>
+      <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><Bot size={ICON_SIZE.md} aria-hidden /> {t("history.eyebrow")}</Text>
         <Text data-testid="K6-0-1" className="coach-history-page__title" as="h1" variant="pageTitle">{t("history.entryTitle")}</Text>
         <Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.entryDescription")}</Text></div>
       {launcher}
@@ -376,7 +377,7 @@ export default function CoachHistoryPage() {
 
   return <section className={`coach-history-page${threadId ? " has-selection" : ""}`}>
     <header data-testid="K6-0" className="coach-history-page__header">
-      <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><History size={16} aria-hidden /> {t("history.eyebrow")}</Text>
+      <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><History size={ICON_SIZE.md} aria-hidden /> {t("history.eyebrow")}</Text>
         <Text data-testid="K6-0-1" className="coach-history-page__title" as="h1" variant="pageTitle">{t("history.title")}</Text><Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.description")}</Text></div>
       <div className="coach-history-page__actions">{launcher}
         {threads.length > 0 && <Button data-testid="K6-0-4" className="coach-history-page__delete-all" variant="ghost" size="sm"
@@ -393,10 +394,10 @@ export default function CoachHistoryPage() {
             aria-disabled={submitting && threadId === item.threadId ? true : undefined}
             onClick={(event) => { if (submitting && threadId === item.threadId) event.preventDefault(); }}>
             <Text as="strong" variant="body">{item.title}</Text>
-            <span className="coach-history-item__meta"><Chip>{t(`discipline.${item.discipline}`)}</Chip><span><Clock3 size={14} aria-hidden />{formatDate(item.updatedAt, i18n.language)}</span><span>{t("history.turnCount", { count: item.turnCount })}</span></span>
+            <span className="coach-history-item__meta"><Chip>{t(`discipline.${item.discipline}`)}</Chip><span><Clock3 size={ICON_SIZE.sm} aria-hidden />{formatDate(item.updatedAt, i18n.language)}</span><span>{t("history.turnCount", { count: item.turnCount })}</span></span>
           </LocalizedLink>
           <Button data-testid="K6-1-2" className="coach-history-item__delete" iconOnly dense size="sm" variant="ghost" aria-label={t("history.deleteNamed", { title: item.title })}
-            disabled={deleting || (submitting && threadId === item.threadId)} onClick={() => void removeThread(item)}><Trash2 size={18} /></Button>
+            disabled={deleting || (submitting && threadId === item.threadId)} onClick={() => void removeThread(item)}><Trash2 size={ICON_SIZE.md} /></Button>
         </article>)}</div>
         {cursor && <Button block variant="ghost" loading={loadingMore} data-testid="K6-1-3" onClick={() => void loadMore()}>{t("history.loadMore")}</Button>}
       </section>
@@ -412,7 +413,7 @@ export default function CoachHistoryPage() {
             <LocalizedLink data-testid="K6-2-9" to={coachRoute("/coach/chat", thread.discipline)} className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={t("history.back")}><ArrowLeft aria-hidden /></LocalizedLink>
             <div><Text id="coach-thread-title" as="h2" variant="subtitle">{thread.title}</Text><Text as="p" variant="caption" tone="tertiary">{t(`discipline.${thread.discipline}`)} · {formatDate(thread.updatedAt, i18n.language)}</Text></div>
             <Button className="coach-thread-detail__delete" iconOnly dense size="sm" variant="ghost" aria-label={t("history.deleteNamed", { title: thread.title })}
-              disabled={deleting || submitting} onClick={() => void removeThread(thread)}><Trash2 size={18} /></Button>
+              disabled={deleting || submitting} onClick={() => void removeThread(thread)}><Trash2 size={ICON_SIZE.md} /></Button>
           </header>
           <div data-testid="K6-2-1" className="coach-thread-turns">{threadCursor && <Button block variant="ghost" loading={loadingEarlierTurns} data-testid="K6-2-2" onClick={() => void loadEarlierTurns()}>{t("history.loadEarlierTurns")}</Button>}
             {thread.turns.map((turn, index) => {
@@ -427,12 +428,12 @@ export default function CoachHistoryPage() {
                 <time dateTime={turn.createdAt}><Text as="span" variant="caption" tone="tertiary">{formatDate(turn.createdAt, i18n.language)}</Text></time>
               </header>
               <section className="coach-thread-message coach-thread-message--user" aria-label={`${turnLabel} · ${t("history.you")}`}>
-                <div className="coach-thread-message__identity"><span className="coach-thread-message__avatar" aria-hidden><UserRound size={16} /></span>
+                <div className="coach-thread-message__identity"><span className="coach-thread-message__avatar" aria-hidden><UserRound size={ICON_SIZE.md} /></span>
                   <Text as="h4" variant="label">{t("history.you")}</Text></div>
                 <Card variant="inset" className="coach-thread-turn__question"><Text as="p" variant="body">{turn.question}</Text></Card>
               </section>
               <section className="coach-thread-message coach-thread-message--coach" aria-label={`${turnLabel} · ${t("history.coachName")}`}>
-                <div className="coach-thread-message__identity"><span className="coach-thread-message__avatar" aria-hidden><Bot size={16} /></span>
+                <div className="coach-thread-message__identity"><span className="coach-thread-message__avatar" aria-hidden><Bot size={ICON_SIZE.md} /></span>
                   <Text as="h4" variant="label">{t("history.coachName")}</Text></div>
                 <div className={`coach-thread-turn__answer${turn.response.outcome !== "answer" && !hasStoredAnswer(turn.response) ? " coach-thread-turn__answer--terminal" : ""}`}><CoachAnswerDocumentView response={turn.response}
                   locale={i18n.language} onAction={answerAction} historical />

@@ -28,6 +28,7 @@ import { Card, Chip } from "../theme/components";
 import ActivitySocialFooter from "./activity/ActivitySocialFooter";
 import ActivityRouteThumbnail, { shouldReportMapCaptureError } from "./activity/ActivityRouteThumbnail";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 export { shouldReportMapCaptureError };
 
@@ -122,7 +123,7 @@ function AchievementBadge({ type }: { type: AchievementType }) {
 
   return (
     <span className="inline-flex items-center gap-1 whitespace-nowrap px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={badgeStyle}>
-      <Icon size={12} aria-hidden="true" />
+      <Icon size={ICON_SIZE.xs} aria-hidden="true" />
       <GlossaryText>{type}</GlossaryText>
     </span>
   );
@@ -357,11 +358,11 @@ export default function ActivityCard({
               <div className="hidden md:flex items-center gap-1 flex-shrink-0">
                 {komCount > 0 && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--ink-1)', borderColor: 'var(--lime)' }}>
-                    <Crown size={12} aria-hidden="true" /><GlossaryText>{"KOM"}</GlossaryText></span>
+                    <Crown size={ICON_SIZE.xs} aria-hidden="true" /><GlossaryText>{"KOM"}</GlossaryText></span>
                 )}
                 {prCount > 0 && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--r-sm)] text-[length:var(--fs-xs)] font-bold border" style={{ background: 'var(--bg-3)', color: 'var(--ink-1)', borderColor: 'var(--line-soft)' }}>
-                    <Medal size={12} aria-hidden="true" /><GlossaryText>{"PR"}</GlossaryText>{prCount}
+                    <Medal size={ICON_SIZE.xs} aria-hidden="true" /><GlossaryText>{"PR"}</GlossaryText>{prCount}
                   </span>
                 )}
               </div>

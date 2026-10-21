@@ -14,6 +14,7 @@ import type { FeasibilityLabel } from '@shared/types/goal';
 import { DateField } from '../redesign';
 import "./goal-preview.css";
 import { Button, Card, Chip, Input, Text } from "../../theme/components";
+import { ICON_SIZE } from '../../theme/tokens/icon';
 
 // ── 러닝 이벤트 라이브러리 ──────────────────────────────────────────────────
 const EVENTS = [
@@ -210,7 +211,7 @@ export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps)
 
             {/* 목표일 */}
             <label htmlFor="run-goal-date" style={{ display: 'block', marginTop: 'var(--space-5)', marginBottom: 'var(--space-2)' }}><Text variant="bodyMedium">{t('runWizard.targetDate')}</Text></label>
-            <DateField portal icon={<CalendarDays size={16} />}
+            <DateField portal icon={<CalendarDays size={ICON_SIZE.md} />}
               id="run-goal-date"
               value={eventDate}
               min={minDateStr}

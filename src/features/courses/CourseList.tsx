@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button, Card, Chip, Text, buttonClass } from "../../theme/components";
 import type { CourseData } from "./courseSnapshot";
 import { courseTagLabel, primaryCourseTags } from "./courseTags";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export function climbCatLabel(cat: number): string {
   if (cat === 5) return "HC";
@@ -258,7 +259,7 @@ export function CourseList({
                   <div><dt>{t("distance")}</dt><dd>{distKm} km</dd></div>
                   <div><dt><InfoTip title={t("elevationGainShort")} content={t("metrics.elevationHelp")}>{t("elevationGainShort")}</InfoTip></dt><dd>{elevM} m</dd></div>
                   <div><dt><InfoTip title={t("metrics.gainPerKm")} content={t("metrics.gainPerKmHelp", { distance: distKm, gain: elevM, value: mpk })}>{t("metrics.gainPerKm")}</InfoTip></dt><dd>{mpk} m/km</dd></div>
-                  {course.likeCount > 0 && <div className="course-list-likes"><dt><Heart size={14} aria-hidden="true" />{t("metrics.likes")}</dt><dd>{course.likeCount}</dd></div>}
+                  {course.likeCount > 0 && <div className="course-list-likes"><dt><Heart size={ICON_SIZE.sm} aria-hidden="true" />{t("metrics.likes")}</dt><dd>{course.likeCount}</dd></div>}
                 </dl>
               </div>
             );

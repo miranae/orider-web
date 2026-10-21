@@ -23,6 +23,7 @@ import {
   type JoinGroupPublicResult,
 } from "../../features/group/groupJoinResult";
 import type { Group } from "@shared/types";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export default function GroupsPage() {
   const { t } = useTranslation("group");
@@ -177,7 +178,7 @@ export default function GroupsPage() {
       ) : myGroups.length === 0 ? null : filteredMyGroups.length === 0 ? (
         <div className="mb-8">
           <EmptyState
-            icon={<Users size={24} style={{ marginInline: "auto" }} />}
+            icon={<Users size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />}
             title={t("list.noGroupsFiltered")}
             description={t("list.noGroupsFilteredDesc")}
             compact
@@ -278,7 +279,7 @@ export default function GroupsPage() {
         <LoadingSkeleton kind="list" count={3} />
       ) : filteredPublicGroups.length === 0 ? (
         <div data-testid="C0-2-4"><EmptyState
-          icon={<Users size={24} style={{ marginInline: "auto" }} />}
+          icon={<Users size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />}
           title={hasPublicFilters ? t("list.noGroupsFiltered") : t("empty.noPublicGroups")}
           description={hasPublicFilters ? t("list.noPublicGroupsFilteredDesc") : undefined}
           compact

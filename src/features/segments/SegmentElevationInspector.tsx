@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import ElevationChart from "../../components/ElevationChart";
 import { Button } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 /** Uses only the chart's existing recorded samples; no additional reads. */
 export default function SegmentElevationInspector(props: ComponentProps<typeof ElevationChart>) {
@@ -47,7 +48,7 @@ export default function SegmentElevationInspector(props: ComponentProps<typeof E
       {sample && <div ref={panel} className="absolute top-0 right-0 z-10 p-3 rounded-[var(--r-lg)] border text-[length:var(--ft-body-size)]" data-testid="segment-elevation-inspection" role="group" aria-label={t("chart.sampleTitle")} tabIndex={0}
         onPointerDown={event => { event.stopPropagation(); if (event.pointerType === "touch") event.currentTarget.focus({preventScroll:true}); }}
         style={{width:"min(320px, 100%, calc(100vw - 32px))",maxHeight:"min(20rem, 50vh)",overflowY:"auto",background:"var(--bg-1)",borderColor:"var(--line)",boxShadow:"var(--shadow-md)",color:"var(--ink-1)"}}>
-        <div className="sticky top-0 flex items-center justify-between gap-2 mb-2" style={{background:"var(--bg-1)"}}><strong>{t("chart.sampleTitle")}</strong><Button variant="ghost" size="sm" aria-label={common("button.close")} onClick={event => {event.stopPropagation();close();}}><X size={18} aria-hidden="true" /></Button></div>
+        <div className="sticky top-0 flex items-center justify-between gap-2 mb-2" style={{background:"var(--bg-1)"}}><strong>{t("chart.sampleTitle")}</strong><Button variant="ghost" size="sm" aria-label={common("button.close")} onClick={event => {event.stopPropagation();close();}}><X size={ICON_SIZE.md} aria-hidden="true" /></Button></div>
         <dl className="grid grid-cols-2 gap-3">
           <div><dt style={{color:"var(--ink-2)"}}>{t("distance")}</dt><dd className="m-0 font-medium">{Number.isFinite(sample.distance) ? `${(sample.distance / 1000).toFixed(2)} km` : "—"}</dd></div>
           <div><dt style={{color:"var(--ink-2)"}}>{t("chart.altitude")}</dt><dd className="m-0 font-medium">{Number.isFinite(sample.elevation) ? `${sample.elevation.toFixed(0)} m` : "—"}</dd></div>

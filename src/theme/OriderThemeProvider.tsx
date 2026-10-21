@@ -11,6 +11,7 @@ import { useTheme, type ResolvedTheme } from '../contexts/ThemeContext';
 import type { OriderTheme, OriderThemeVariant } from './OriderTheme';
 import { DEFAULT_THEME, THEMES, type ThemeId } from './themes';
 import { CHART_CSS_VARIABLES, COLOR_CSS_VARIABLES, DIMENSION_CSS_VARIABLES } from './generated';
+import { FONT_SIZE_RAMP } from './tokens/typography';
 
 /**
  * 디자인 시스템 Provider — 앱(Compose `LocalOriderTheme`) 패턴의 웹 포팅.
@@ -100,23 +101,10 @@ function applyToRoot(theme: OriderTheme, variant: OriderThemeVariant) {
   style.setProperty('--fs-data-large', `${t.dataLarge.size}px`);
   style.setProperty('--fs-data-medium', `${t.dataMedium.size}px`);
   style.setProperty('--fs-data-small', `${t.dataSmall.size}px`);
-  // 일반 ramp (index.css `--fs-*` 와 호환)
-  // 최소 12px — 모바일 접근성 하한 (#401). 2xs/xs 는 역할(위계)만 다르고 크기 하한은 공유.
-  style.setProperty('--fs-2xs', `12px`);
-  style.setProperty('--fs-xs', `12px`);
-  style.setProperty('--fs-sm', `12px`);
-  style.setProperty('--fs-base', `${t.body.size}px`);
-  style.setProperty('--fs-md', `${t.bodyMedium.size}px`);
-  style.setProperty('--fs-lg', `${t.bodyLarge.size}px`);
-  // xl~3xl: 앱 v3 표준(title 22sp / display) 정합 + 단조 증가 고정.
-  // 과거엔 압축형 데이터 토큰(dataSmall/Medium)에서 파생해 DEFAULT 테마에서
-  // 2xl(18)·3xl(18) < xl(20) 역전이 발생 → UI 헤딩 램프를 데이터 위계와 분리.
-  // 실제 데이터 수치는 --fs-data-* / <Text> 데이터 variant 사용.
-  style.setProperty('--fs-xl', `22px`);
-  style.setProperty('--fs-2xl', `28px`);
-  style.setProperty('--fs-3xl', `32px`);
-  style.setProperty('--fs-4xl', `36px`);
-  style.setProperty('--fs-5xl', `48px`);
+  // 일반 ramp — HIG 텍스트 스타일 단계 (`FONT_SIZE_RAMP`). 최소 12px — 모바일 접근성 하한 (#401).
+  for (const [step, size] of Object.entries(FONT_SIZE_RAMP)) {
+    style.setProperty(`--fs-${step}`, `${size}px`);
+  }
 
   // 모든 typography 키 — `--ft-{kebab}-{size|weight}` 로도 노출
   (Object.keys(t) as Array<keyof typeof t>).forEach((key) => {

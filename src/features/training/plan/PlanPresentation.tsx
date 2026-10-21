@@ -27,6 +27,7 @@ import {
   phaseColor,
   phaseLabel,
 } from "./planDisplay";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -99,7 +100,7 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
     onClick={event => { event.stopPropagation(); onClick(); }}
     className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary-dark)]"
     style={{ ...style, border: 0, padding: 0, background: 'transparent', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)', minHeight: 24 }}>
-    {content}<Eye size={12} aria-hidden="true" />
+    {content}<Eye size={ICON_SIZE.xs} aria-hidden="true" />
   </button> : <div style={style}>{content}</div>;
 
   // 건너뛴 날은 휴식처럼 흐리게 + 취소선
@@ -459,12 +460,12 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
           </Button>
         )}
         {onReroll && (
-          <Button variant="secondary" size="sm" leadingIcon={<RefreshCw size={16} aria-hidden="true" />} data-testid="K4-3-3" onClick={() => { void onReroll(); }}>
+          <Button variant="secondary" size="sm" leadingIcon={<RefreshCw size={ICON_SIZE.md} aria-hidden="true" />} data-testid="K4-3-3" onClick={() => { void onReroll(); }}>
             {t('buttons.reroll')}
           </Button>
         )}
         {onGoalReset && (
-          <Button variant="secondary" size="sm" leadingIcon={<Target size={16} aria-hidden="true" />} data-testid="K4-3-4" onClick={onGoalReset}>
+          <Button variant="secondary" size="sm" leadingIcon={<Target size={ICON_SIZE.md} aria-hidden="true" />} data-testid="K4-3-4" onClick={onGoalReset}>
             {t('buttons.goalReset')}
           </Button>
         )}

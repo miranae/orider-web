@@ -117,6 +117,7 @@ import { useTrainingDialog } from "./useTrainingDialog";
 import { createPortal } from "react-dom";
 import { KINDS_BY_DISCIPLINE } from "../../utils/workoutDiscipline";
 import { Button, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 // ── Props ─────────────────────────────────────────────────────────────
 
@@ -461,7 +462,7 @@ export default function WorkoutEditModal({
         {/* #476 임포트된 구조화 워크아웃 요약 */}
         {!usesEffectiveExecutionPrescription(day, weekAdjustmentReason) && day.intervals && day.intervals.length > 0 && (
           <div style={{ fontSize: "var(--fs-md)", color: 'var(--ink-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <Upload size={12} style={{ color: 'var(--aqua)', flexShrink: 0 }} />
+            <Upload size={ICON_SIZE.xs} style={{ color: 'var(--aqua)', flexShrink: 0 }} />
             <span>
               {day.workoutName ? `${day.workoutName} · ` : ''}
               {t('edit.importedIntervals', { count: day.intervals.length })}
@@ -487,7 +488,7 @@ export default function WorkoutEditModal({
             disabled={loading || outcomeLocked}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)' }}
           >
-            {day.completed ? <Undo2 size={14} /> : <Check size={14} />}
+            {day.completed ? <Undo2 size={ICON_SIZE.sm} /> : <Check size={ICON_SIZE.sm} />}
             {day.completed ? t('edit.uncheckCompleted') : t('edit.markCompleted')}
           </Button>
 
@@ -497,7 +498,7 @@ export default function WorkoutEditModal({
             disabled={loading || outcomeLocked}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)', color: day.skipped ? 'var(--lime)' : 'var(--amber)' }}
           >
-            {day.skipped ? <Undo2 size={14} /> : <SkipForward size={14} />}
+            {day.skipped ? <Undo2 size={ICON_SIZE.sm} /> : <SkipForward size={ICON_SIZE.sm} />}
             {day.skipped ? t('edit.unskip') : t('edit.skip')}
           </Button>
 
@@ -507,7 +508,7 @@ export default function WorkoutEditModal({
             disabled={loading}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)' }}
           >
-            <RefreshCw size={14} /> {t('edit.changeWorkout')}
+            <RefreshCw size={ICON_SIZE.sm} /> {t('edit.changeWorkout')}
           </Button>
 
           {/* 워크아웃 종류 선택 칩 */}
@@ -565,7 +566,7 @@ export default function WorkoutEditModal({
             disabled={loading}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)' }}
           >
-            <ArrowUpDown size={14} /> {t('edit.swapPrev')}
+            <ArrowUpDown size={ICON_SIZE.sm} /> {t('edit.swapPrev')}
           </Button>
 
           {/* 다음 날과 교환 */}
@@ -574,7 +575,7 @@ export default function WorkoutEditModal({
             disabled={loading}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)' }}
           >
-            <ArrowUpDown size={14} /> {t('edit.swapNext')}
+            <ArrowUpDown size={ICON_SIZE.sm} /> {t('edit.swapNext')}
           </Button>
 
           {/* #476 구조화 워크아웃 파일 임포트 (.zwo/.erg/.mrc) */}
@@ -583,7 +584,7 @@ export default function WorkoutEditModal({
             disabled={loading}
             style={{ justifyContent: 'flex-start', gap: 'var(--space-2)' }}
           >
-            <Upload size={14} /> {t('edit.importWorkout')}
+            <Upload size={ICON_SIZE.sm} /> {t('edit.importWorkout')}
           </Button>
           <input
             ref={fileRef}

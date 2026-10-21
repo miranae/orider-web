@@ -11,6 +11,7 @@ import { canManageGroup } from "../../features/group/groupPermissions";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import RideCard from "../../components/group/RideCard";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export default function GroupRidesPage() {
   const { t } = useTranslation("group");
@@ -47,7 +48,7 @@ export default function GroupRidesPage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<Users size={24} style={{ marginInline: "auto" }} />}
+          icon={<Users size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />}
           title={t("empty.groupNotFound")}
           actions={[{ label: t("empty.goToList"), variant: "primary", href: "/clubs" }]}
         />
@@ -97,7 +98,7 @@ export default function GroupRidesPage() {
       {loading && rides.length === 0 ? (
         <LoadingSkeleton kind="list" count={5} />
       ) : filteredRides.length === 0 && !hasMore ? (
-        <EmptyState icon={<SportIcon sport="bike" size={24} style={{ marginInline: "auto" }} />} title={t("empty.noRides")} compact />
+        <EmptyState icon={<SportIcon sport="bike" size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />} title={t("empty.noRides")} compact />
       ) : (
         <div data-testid="C2-1" className="space-y-3">
           {filteredRides.map((r) => (

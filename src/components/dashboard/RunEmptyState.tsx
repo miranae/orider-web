@@ -16,6 +16,7 @@ import { buttonClass, Card, Text } from "../../theme/components";
 import { useStrava } from "../../hooks/useStrava";
 import { track } from "../../services/analytics";
 import { LocalizedLink as Link } from "../LocalizedLink";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export interface RunEmptyStateProps {
   /** Strava 연결 여부에 따라 최근 기록을 불러오는 방법을 안내한다. */
@@ -45,7 +46,7 @@ export default function RunEmptyState({ stravaConnected }: RunEmptyStateProps) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
       <div style={{ textAlign: "center", padding: "var(--space-6) var(--space-3) var(--space-2)" }}>
-        <RunIcon size={32} aria-hidden="true" style={{ color: "var(--ink-3)", margin: "0 auto" }} />
+        <RunIcon size={ICON_SIZE.xl} aria-hidden="true" style={{ color: "var(--ink-3)", margin: "0 auto" }} />
         {/* 한국어는 어절 단위로 끊어야 읽힌다 — keep-all 없이는 좁은 폭에서 단어 중간이 갈린다. */}
         <Text
           as="h2"

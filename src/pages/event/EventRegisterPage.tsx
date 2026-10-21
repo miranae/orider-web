@@ -31,6 +31,7 @@ import {
   type Gender,
   type ShirtSize,
 } from "../../features/event/register/eventRegistrationUtils";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface EventCategory {
   id: string;
@@ -475,7 +476,7 @@ export default function EventRegisterPage() {
       <div className="event-register-state max-w-xl mx-auto py-16">
         {detailNavigation}
         <EmptyState
-          icon={<CalendarDays size={28} style={{ marginInline: "auto" }} />}
+          icon={<CalendarDays size={ICON_SIZE.xl} style={{ marginInline: "auto" }} />}
           title={t("empty.noResults")}
           actions={[{ label: t("register.goEventList"), variant: "primary", onClick: () => navigate("/explore/events") }]}
         />
@@ -488,7 +489,7 @@ export default function EventRegisterPage() {
       <div className="event-register-state max-w-xl mx-auto py-16">
         {detailNavigation}
         <EmptyState
-          icon={<Clock3 size={28} style={{ marginInline: "auto" }} />}
+          icon={<Clock3 size={ICON_SIZE.xl} style={{ marginInline: "auto" }} />}
           title={t("register.notOpen")}
           description={
             event.status === "LIVE"
@@ -508,7 +509,7 @@ export default function EventRegisterPage() {
       <div className="event-register-state max-w-xl mx-auto py-16">
         {detailNavigation}
         <EmptyState
-          icon={<Clock3 size={28} style={{ marginInline: "auto" }} />}
+          icon={<Clock3 size={ICON_SIZE.xl} style={{ marginInline: "auto" }} />}
           title={t("register.closed")}
           description={t("register.closedDesc", { dateTime: fmtIsoLocal(event.closeAt) })}
           actions={[{ label: t("register.goEventDetail"), variant: "primary", onClick: () => navigate(`/event/${eventId}`) }]}

@@ -1,6 +1,7 @@
 import GlossaryText from "../common/GlossaryText";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { Chip, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface StatBlockProps {
   label: string;
@@ -62,8 +63,8 @@ export default function StatBlock({
         <Text as="div" variant="mono" className="flex items-center"
           style={{ gap: "var(--space-0-5)", fontSize: 'var(--fs-base)', color: deltaColor, fontWeight: 500 }}
         >
-          {deltaKind === 'up' && <ArrowUp size={12} strokeWidth={2.5} />}
-          {deltaKind === 'down' && <ArrowDown size={12} strokeWidth={2.5} />}
+          {deltaKind === 'up' && <ArrowUp size={ICON_SIZE.xs} strokeWidth={2.5} />}
+          {deltaKind === 'down' && <ArrowDown size={ICON_SIZE.xs} strokeWidth={2.5} />}
           <span>{delta}</span>
         </Text>
       )}

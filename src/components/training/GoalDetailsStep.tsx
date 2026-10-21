@@ -6,6 +6,7 @@ import { calcFeasibility as calcFeasibilityCore } from '@shared/training/feasibi
 import { FEAS_COLORS, FEAS_LABEL_KEYS } from './constants';
 import { DateField } from '../redesign';
 import { Input, Text } from '../../theme/components';
+import { ICON_SIZE } from '../../theme/tokens/icon';
 
 // ─── 클라이언트 사이드 feasibility 계산 (서버와 동일 규칙) ──────────────────
 // shared/training/feasibility.ts 가 단일 소스 — 완주(거리/난이도 기반) 분기만 추가.
@@ -214,7 +215,7 @@ export default function GoalDetailsStep({
             marginTop: 'var(--space-5)',
             marginBottom: 'var(--space-2)',
           }}>{t('goalDetails.targetDate')}</label>
-        <DateField portal icon={<CalendarDays size={16} />} id={`${fieldId}-date`}
+        <DateField portal icon={<CalendarDays size={ICON_SIZE.md} />} id={`${fieldId}-date`}
           value={eventDate}
           min={minDateStr}
           onChange={handleDateChange}

@@ -23,6 +23,7 @@ import type { Milestone, MilestoneId } from "@shared/types/milestone";
 import { useCanonicalSurfaceEnabled } from "../../hooks/useCanonicalRollout";
 import { getDiscipline } from "../../utils/disciplineFilter";
 import { computeLifetimeMilestones, computeLifetimeTotals } from "../../utils/lifetimeMilestones";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 /** 배지 한 칸의 상태 — `pending` 은 "서버가 아직 판정할 수 없음"(잠금 아님). */
 type BadgeState = "achieved" | "locked" | "pending";
@@ -126,7 +127,7 @@ export default function LifetimeMilestonesGrid({ activities, achieved, loading =
                 }}
               >
                 <div style={{ fontSize: "var(--fs-lg)", filter: done ? "none" : "grayscale(1)" }} aria-hidden="true">
-                  <Award size={20} aria-hidden="true" style={{margin: "0 auto"}} />
+                  <Award size={ICON_SIZE.lg} aria-hidden="true" style={{margin: "0 auto"}} />
                 </div>
                 <Text as="div" variant="caption" tone={done ? "primary" : "tertiary"} weight={done ? 600 : 400}>
                   {t("lifetimeMilestones.label", { km: km.toLocaleString() })}

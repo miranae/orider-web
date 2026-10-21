@@ -27,6 +27,7 @@ import { normalizeStartTime } from "../../utils/event-time";
 import { canManageGroup } from "../../features/group/groupPermissions";
 import { setGroupMemberRole, transferGroupLeadership } from "../../features/group/groupLeadership";
 import { useLocalizedNavigate } from "../../hooks/useLocalizedNavigate";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 type Tab = "members" | "pending" | "invite";
 type RoleFilter = "all" | "leader" | "co-leader" | "member";
@@ -415,7 +416,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<Users size={24} style={{ marginInline: "auto" }} />}
+          icon={<Users size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />}
           title={t("empty.groupNotFound")}
           actions={[{ label: t("empty.goToList"), variant: "primary", href: "/clubs" }]}
         />
@@ -515,7 +516,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
           {membersLoading ? (
             <LoadingSkeleton kind="list" count={5} />
           ) : membersError && members.length === 0 ? null : filteredMembers.length === 0 ? (
-            <EmptyState icon={<Search size={24} style={{ marginInline: "auto" }} />} title={t("empty.noMembers")} compact />
+            <EmptyState icon={<Search size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />} title={t("empty.noMembers")} compact />
           ) : (
             <><p className="club-table-hint" id={management ? "club-management-table-hint" : "club-members-table-hint"}>{t("members.table.scrollHint")}</p><Card data-testid={management ? "C7-2" : "C6-2"} role="region" aria-label={t("breadcrumb.memberManagement")} aria-describedby={management ? "club-management-table-hint" : "club-members-table-hint"} tabIndex={0} className="club-members-table" padding="none" style={{ padding: 0, overflowX: "auto" }}>
               {/* Header */}
@@ -672,7 +673,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
           {pendingLoading ? (
             <LoadingSkeleton kind="list" count={3} />
           ) : pending.length === 0 ? (
-            <EmptyState icon={<Inbox size={24} style={{ marginInline: "auto" }} />} title={t("empty.noPendingRequests")} description={t("members.pendingDesc")} compact />
+            <EmptyState icon={<Inbox size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />} title={t("empty.noPendingRequests")} description={t("members.pendingDesc")} compact />
           ) : (
             <Card data-testid="C7-1" padding="none" style={{ padding: 0 }}>
               <ul role="list" style={{ listStyle: "none", margin: 0, padding: 0 }}>

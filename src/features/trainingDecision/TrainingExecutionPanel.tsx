@@ -16,6 +16,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useActivities } from "../../hooks/useActivities";
 import { getDiscipline } from "../../utils/disciplineFilter";
 import type { Activity } from "@shared/types";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 type ActivityWithRevision = Activity & { activityRevision?: unknown };
 
@@ -257,7 +258,7 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
           <Button size="sm" variant="outline" data-testid="K2-4-1" onClick={() => void outcome("partial")}>{t("decision.execution.partial")}</Button></>}
         {!exactLink && <><Button size="sm" variant="ghost" data-testid="K2-4-2" onClick={() => void outcome("skipped")}>{t("decision.execution.skip")}</Button>
           <div className="fitness-date-control"><label htmlFor={`${manualPanelId}-postpone-date`}><Text as="span" variant="caption" tone="secondary">{t("decision.execution.postponeDate")}</Text></label>
-            <DateField id={`${manualPanelId}-postpone-date`} portal icon={<CalendarDays size={16} aria-hidden="true" />} value={postponedTo} onChange={setPostponedTo} />
+            <DateField id={`${manualPanelId}-postpone-date`} portal icon={<CalendarDays size={ICON_SIZE.md} aria-hidden="true" />} value={postponedTo} onChange={setPostponedTo} />
           </div>
           <Button size="sm" variant="ghost" disabled={!postponedTo} data-testid="K2-4-3" onClick={() => void outcome("postponed")}>{t("decision.execution.postpone")}</Button></>}
       </div>}

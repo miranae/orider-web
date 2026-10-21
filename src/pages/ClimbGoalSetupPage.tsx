@@ -13,6 +13,7 @@ import PermissionGate from '../components/redesign/states/PermissionGate';
 import { Button, Card, Field, Input, Text } from '../theme/components';
 import { functions } from '../services/firebase';
 import { buildClimbGoalRequest, climbGoalDateBounds } from '../features/training/climbGoal';
+import { ICON_SIZE } from '../theme/tokens/icon';
 
 export default function ClimbGoalSetupPage({ embedded = false }: { embedded?: boolean }) {
   const { t } = useTranslation('training');
@@ -51,7 +52,7 @@ export default function ClimbGoalSetupPage({ embedded = false }: { embedded?: bo
       <Field label={t('climbGoal.name')} htmlFor={`${fieldId}-name`}><Input id={`${fieldId}-name`} style={{ height: 'var(--dim-button-height)' }} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} /></Field>
       <Field label={t('climbGoal.duration')} htmlFor={`${fieldId}-duration`}><Input id={`${fieldId}-duration`} style={{ height: 'var(--dim-button-height)' }} type="number" min={3} max={240} value={duration} onChange={(e) => setDuration(e.target.value)} /></Field>
       <Field label={t('climbGoal.wkg')} hint={<GlossaryText>W/kg</GlossaryText>} htmlFor={`${fieldId}-wkg`}><Input id={`${fieldId}-wkg`} style={{ height: 'var(--dim-button-height)' }} type="number" min={1} max={8} step={0.1} value={wkg} onChange={(e) => setWkg(e.target.value)} /></Field>
-      <Field label={t('climbGoal.date')} htmlFor={`${fieldId}-date`}><DateField id={`${fieldId}-date`} portal icon={<CalendarDays size={16} />} presets={false} min={dateBounds.min} max={dateBounds.max} value={date} onChange={setDate} /></Field>
+      <Field label={t('climbGoal.date')} htmlFor={`${fieldId}-date`}><DateField id={`${fieldId}-date`} portal icon={<CalendarDays size={ICON_SIZE.md} />} presets={false} min={dateBounds.min} max={dateBounds.max} value={date} onChange={setDate} /></Field>
       <Field label={t('climbGoal.sessions')} htmlFor={`${fieldId}-sessions`}><Input id={`${fieldId}-sessions`} style={{ height: 'var(--dim-button-height)' }} type="number" min={1} max={6} value={sessions} onChange={(e) => setSessions(e.target.value)} /></Field>
       <LocalizedLink data-testid="K3-4-3" to="/explore/segments">{t("goalHub.pickSegment")}</LocalizedLink>
       {error && <Text role="alert" variant="caption" style={{ color: 'var(--rose)' }}>{t('climbGoal.error')}</Text>}

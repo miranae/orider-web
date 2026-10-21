@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Trophy } from "lucide-react";
 import { buttonClass, Text } from "../../theme/components";
 import type { MilestoneId } from "@shared/types/milestone";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -88,7 +89,7 @@ export default function MilestoneCelebration({ milestoneId, onClose }: Milestone
         <style>{"@keyframes milestone-in{from{transform:scale(.94);opacity:0}to{transform:none;opacity:1}}"}</style>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--space-2)" }}>
-          <Trophy size={28} aria-hidden="true" style={{ color: "var(--accent)" }} />
+          <Trophy size={ICON_SIZE.xl} aria-hidden="true" style={{ color: "var(--accent)" }} />
         </div>
 
         <Text as="h2" id={titleId} variant="subtitle" tone="primary" style={{ margin: "var(--space-3) 0 var(--space-2)" }}>

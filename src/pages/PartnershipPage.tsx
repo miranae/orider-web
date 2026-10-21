@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { Card, buttonClass } from "../theme/components";
+import { ICON_SIZE } from "../theme/tokens/icon";
 
 const purposes = [
   { key: "build", Icon: PencilRuler },
@@ -45,10 +46,10 @@ export default function PartnershipPage() {
       <nav aria-label={t("partnership.choicesLabel")} className="grid gap-3 md:grid-cols-3">
         {purposes.map(({ key, Icon }) => <Link key={key} to={`/partnership/${key}`} className="min-w-0 rounded-[var(--r-lg)] transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)]">
           <Card className="flex h-full flex-col gap-3">
-            <Icon aria-hidden="true" size={20} className="text-[var(--accent)]" />
+            <Icon aria-hidden="true" size={ICON_SIZE.lg} className="text-[var(--accent)]" />
             <h2 className="text-[length:var(--fs-lg)] font-semibold text-[var(--ink-0)]">{t(`partnership.${key}.title`)}</h2>
             <p className="flex-1 text-[length:var(--fs-sm)] leading-relaxed text-[var(--ink-2)]">{t(`partnership.${key}.summary`)}</p>
-            <ArrowRight aria-hidden="true" size={16} className="text-[var(--accent)]" />
+            <ArrowRight aria-hidden="true" size={ICON_SIZE.md} className="text-[var(--accent)]" />
           </Card>
         </Link>)}
       </nav>
@@ -67,7 +68,7 @@ export function PartnershipDetailPage({ purpose }: { purpose: Purpose }) {
   const sections = t(`partnership.${purpose}.sections`, { returnObjects: true }) as DetailSection[];
   return (
     <div ref={pageRef} className="mx-auto max-w-3xl break-keep space-y-6 pb-8">
-      <Link to="/partnership" className="inline-flex min-h-[var(--dim-button-height)] items-center gap-2 text-[length:var(--fs-sm)] text-[var(--ink-2)] underline underline-offset-4"><ArrowLeft aria-hidden="true" size={16} />{t("partnership.back")}</Link>
+      <Link to="/partnership" className="inline-flex min-h-[var(--dim-button-height)] items-center gap-2 text-[length:var(--fs-sm)] text-[var(--ink-2)] underline underline-offset-4"><ArrowLeft aria-hidden="true" size={ICON_SIZE.md} />{t("partnership.back")}</Link>
       <header className="space-y-3">
         <p className="text-[length:var(--fs-xs)] font-semibold text-[var(--ink-3)]">{t("partnership.eyebrow")}</p>
         <h1 className="text-[length:var(--fs-2xl)] font-bold tracking-tight text-[var(--ink-0)]">{t(`partnership.${purpose}.title`)}</h1>
@@ -103,7 +104,7 @@ function PartnershipContact({ purpose }: { purpose: Purpose }) {
           <a href="mailto:orider.app@gmail.com" draggable={false} className="select-text break-all font-semibold text-[var(--accent)] underline underline-offset-4" style={{ userSelect: "text" }}>orider.app@gmail.com</a>
         </div>
         <p className="text-[length:var(--fs-xs)] leading-relaxed text-[var(--ink-3)]">{t("partnership.emailHint")}</p>
-        <a href="mailto:orider.app@gmail.com" className={buttonClass({ variant: "primary", className: "w-full sm:w-auto" })}><Mail aria-hidden="true" size={16} /><span className="ds-btn__label">{t(`partnership.${purpose}.emailAction`)}</span></a>
+        <a href="mailto:orider.app@gmail.com" className={buttonClass({ variant: "primary", className: "w-full sm:w-auto" })}><Mail aria-hidden="true" size={ICON_SIZE.md} /><span className="ds-btn__label">{t(`partnership.${purpose}.emailAction`)}</span></a>
       </div>
     </Card>
   </section>;

@@ -41,6 +41,7 @@ import { getComparisonSeriesColors } from "../../theme/charts/comparisonSeriesCo
 import { observedRideRange } from "./groupRideRangeMetrics";
 import { groupRideClock, nearestClockSample, clockSampleTolerance } from "./groupRideClock";
 import { GroupRideOverlayControls } from "./GroupRideOverlayControls";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 
 
@@ -543,7 +544,7 @@ export default function GroupRidePage() {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
-          icon={<SportIcon sport="bike" size={24} style={{ marginInline: "auto" }} />}
+          icon={<SportIcon sport="bike" size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />}
           title={t("empty.rideNotFound")}
           actions={[{ label: t("rides.groupRides"), variant: "primary", href: `/club/${groupId}/rides` }]}
         />
@@ -685,7 +686,7 @@ export default function GroupRidePage() {
                 )}
               </Map>
               <MapResizeControls expanded={mapExpanded} controlsId={mapId} expandLabel={t("ridePage.map.expand")} collapseLabel={t("ridePage.map.collapse")} onToggle={() => setMapExpanded(value => !value)} />
-              <MapNavigation orientation="horizontal"><MapControlButton aria-label={t("ridePage.map.fit")} onClick={() => mapRef.current?.fitBounds(mapBounds, { padding: 30 })}><LocateFixed size={16} />{t("ridePage.map.fit")}</MapControlButton></MapNavigation>
+              <MapNavigation orientation="horizontal"><MapControlButton aria-label={t("ridePage.map.fit")} onClick={() => mapRef.current?.fitBounds(mapBounds, { padding: 30 })}><LocateFixed size={ICON_SIZE.md} />{t("ridePage.map.fit")}</MapControlButton></MapNavigation>
             </div>
           )}
 

@@ -16,6 +16,7 @@ import {
 import { LocalizedLink } from "../LocalizedLink";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { Field, SettingsCard, fieldInputStyle } from "./_primitives";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const AVAILABLE_SCOPES: PersonalApiScope[] = [
   "profile:read",
@@ -155,7 +156,7 @@ export function PaneDeveloper() {
             </div>
           </div>
           <div className="rounded-[var(--r-lg)] border p-3" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)" }}>
-            <KeyRound size={20} style={{ color: "var(--lime)" }} />
+            <KeyRound size={ICON_SIZE.lg} style={{ color: "var(--lime)" }} />
             <Text as="p" variant="bodySmall" className="mt-2" style={{ color: "var(--ink-2)" }}>
               {t("pane.developer.once")}
             </Text>
@@ -176,7 +177,7 @@ export function PaneDeveloper() {
               {createdKey.key}
             </code>
             <Button size="md" variant="secondary" onClick={() => void copyText(createdKey.key)}>
-              <Copy size={15} />
+              <Copy size={ICON_SIZE.sm} />
               {t("pane.developer.copy")}
             </Button>
           </div>
@@ -200,7 +201,7 @@ export function PaneDeveloper() {
                     </div>
                   </div>
                   <Button size="md" variant="ghost" loading={revokingId === key.id} onClick={() => void handleRevoke(key)}>
-                    <Trash2 size={15} />
+                    <Trash2 size={ICON_SIZE.sm} />
                     {t("pane.developer.revoke")}
                   </Button>
                 </div>
@@ -222,7 +223,7 @@ export function PaneDeveloper() {
             {curlExample}
           </code>
           <Button size="md" variant="secondary" onClick={() => void copyText(curlExample)}>
-            <Copy size={15} />
+            <Copy size={ICON_SIZE.sm} />
             {t("pane.developer.copy")}
           </Button>
         </div>
