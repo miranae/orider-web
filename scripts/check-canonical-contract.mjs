@@ -114,6 +114,9 @@ function main() {
   if (!/power:\s*[^;]*"estimated"/.test(overview)) errors.push('overview power estimated 의미가 없다');
   if (!/ftpVerificationRequired\?:\s*boolean/.test(overview)) errors.push('overview FTP 확인 필요 의미가 없다');
 
+  const defaultSummary = readFileSync(new URL('../shared/types/activity-default-summary.ts', import.meta.url), 'utf8');
+  if (createHash('sha256').update(defaultSummary).digest('hex') !== '47f457e8ed67ef1fd9fed36459ee2f566b856ffef4c5d9b79ae725b1841d2b45') errors.push('저장 활동 요약 계약 mirror가 backend 합의본과 다르다');
+
   if (errors.length > 0) {
     console.error(`canonical 계약 사본 드리프트 ${errors.length}건:`);
     for (const error of errors) console.error(`  - ${error}`);

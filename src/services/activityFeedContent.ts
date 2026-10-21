@@ -10,6 +10,24 @@ export function activityFeedSourceRevision(activity: Activity): string {
     activity.contentSelectedRevision ?? null, revision.stravaSegmentEnrichmentRevision ?? null]);
 }
 
+/** 저장된 현재 활동의 본문만 선택한다. 열람으로 요약 생성·저장을 요청하지 않는다. */
+export function resolveActivityMemo(activity: Activity, lang: "ko" | "en", content: unknown = activity.feedContentV1): {
+  memo: string; authored: boolean; truncated: boolean;
+} | null {
+  const sourceRevision = activityFeedSourceRevision(activity);
+  const authored = boundedFeedContent(content);
+  if (authored?.sourceRevision === sourceRevision && authored.memo?.trim())
+    return { memo: authored.memo, authored: true, truncated: authored.memoTruncated };
+  if (activity.source !== "orider" && activity.source !== "strava") return null;
+  const summary = activity.defaultSummaryV1;
+  if (!summary || summary.version !== 1 || summary.state !== "ready" || summary.sourceRevision !== sourceRevision
+    || typeof summary.formatterVersion !== "string" || !/^[a-z0-9][a-z0-9._-]{0,99}$/i.test(summary.formatterVersion)
+    || typeof summary.inputDigest !== "string" || !/^[a-f0-9]{64}$/i.test(summary.inputDigest)) return null;
+  const memo = summary.text?.[lang];
+  return typeof memo === "string" && memo.trim() && memo.length <= 3500
+    ? { memo, authored: false, truncated: false } : null;
+}
+
 const loopback = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 export function localActivityFeedContentUrl(dev: boolean, hostname: string, configured?: string): string | null {
   return dev && loopback.has(hostname) && configured === "/api/local/activity-feed-content" ? configured : null;

@@ -7,13 +7,12 @@ import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/app
 import { useEffect, useState, useMemo, useRef, type ReactNode } from "react";
 import { Camera, Medal } from "lucide-react";
 import { useActivityAuthor } from "../../hooks/useActivityAuthor";
-import { useActivityOverview } from "../../hooks/useActivityOverview";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import type { Activity } from "@shared/types";
 import type { ActivityFeedContent, ActivityFeedContentProjection } from "@shared/types/activity-feed-content";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
-import { activityFeedContentPreviewUrl, activityFeedSourceRevision, boundedFeedContent, loadLocalActivityFeedContent, loadActivityFeedComments } from "../../services/activityFeedContent";
+import { activityFeedContentPreviewUrl, activityFeedSourceRevision, boundedFeedContent, resolveActivityMemo, loadLocalActivityFeedContent, loadActivityFeedComments } from "../../services/activityFeedContent";
 import { logClientError } from "../../services/errorLogger";
 import Avatar from "../Avatar";
 import ActivityFeedVideo from "../activity/ActivityFeedVideo";
@@ -127,7 +126,7 @@ export function MobileRouteThumbnail({ activity, priority = false, content }: { 
   </div>;
 }
 
-function ActivityMemo({ memo, memoTruncated = false, activityId }: { memo: string; memoTruncated?: boolean; activityId: string }) {
+function ActivityMemo({ memo, memoTruncated = false, activityId, generated = false }: { memo: string; memoTruncated?: boolean; activityId: string; generated?: boolean }) {
   const { t } = useTranslation("activity");
   const [expanded, setExpanded] = useState(false);
   const paragraphRef = useRef<HTMLParagraphElement>(null);
@@ -145,7 +144,7 @@ function ActivityMemo({ memo, memoTruncated = false, activityId }: { memo: strin
   }, [expanded, memo]);
   if (!memo.trim()) return null;
   return <div className="mobile-feed-memo">
-    <p ref={paragraphRef} className={!expanded ? "mobile-feed-memo-collapsed" : undefined}>{memo}</p>
+    <p ref={paragraphRef} className={[!expanded && "mobile-feed-memo-collapsed", generated && "mobile-feed-memo-generated"].filter(Boolean).join(" ") || undefined}>{memo}</p>
     {overflowing && <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? "card.memoLess" : "card.memoMore")}</Button>}
     {memoTruncated && <Link to={`/activity/${activityId}`}>{t("card.memoMore")}</Link>}
   </div>;
@@ -165,28 +164,8 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
   const embedded = activity.feedContentV1?.sourceRevision === sourceRevision ? boundedFeedContent(activity.feedContentV1) : null;
   const localContentVisible = localContent?.viewerId === (user?.uid ?? null) && localContent?.sourceRevision === sourceRevision ? localContent : null;
   const content = localContentVisible ?? embedded;
-  const needsDefaultMemo = (activity.source === "orider" || activity.source === "strava") && !content?.memo?.trim();
-  const [visibleActivityId, setVisibleActivityId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!needsDefaultMemo || visibleActivityId === activity.id) return;
-    if (typeof IntersectionObserver === "undefined") { setVisibleActivityId(activity.id); return; }
-    const observer = new IntersectionObserver(entries => {
-      if (entries.some(entry => entry.isIntersecting)) {
-        observer.disconnect();
-        setVisibleActivityId(activity.id);
-      }
-    });
-    if (cardRef.current) observer.observe(cardRef.current);
-    return () => observer.disconnect();
-  }, [activity.id, needsDefaultMemo, visibleActivityId]);
-  const overviewActivity = activity as Activity & { metadataRevision?: unknown; updatedAt?: unknown };
-  const overview = useActivityOverview(activity.id, needsDefaultMemo && visibleActivityId === activity.id, JSON.stringify([
-    sourceRevision, activity.source, activity.sourceMeta, activity.visibility,
-    activity.isVirtualPower, activity.virtualPowerParams, overviewActivity.metadataRevision, overviewActivity.updatedAt,
-  ]));
-  const defaultMemo = needsDefaultMemo && overview.response?.status === "available" && overview.response.activityId === activity.id
-    ? overview.response.defaultMemo : null;
-  const memo = content?.memo?.trim() ? content.memo : defaultMemo;
+  const resolvedMemo = resolveActivityMemo(activity, i18n.language.startsWith("en") ? "en" : "ko", content);
+  const memo = resolvedMemo?.memo;
 
   useEffect(() => {
     setLocalContent(null);
@@ -303,7 +282,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
       </div>
 
       {localFailure?.kind === "content" && previewError}
-      {memo && <ActivityMemo key={activity.id} memo={memo} memoTruncated={!!content?.memo?.trim() && content.memoTruncated} activityId={activity.id} />}
+      {memo && <ActivityMemo key={activity.id} memo={memo} memoTruncated={resolvedMemo?.truncated} generated={resolvedMemo?.authored === false} activityId={activity.id} />}
 
       {/* 핵심 세 지표는 가로로, 추가 측정값은 보조 행에 표시한다. */}
       <div className={`mobile-feed-stats${discipline === "run" ? " mobile-feed-stats--run" : ""}`} data-testid={discipline === "run" ? "run-card-primary" : undefined}>
