@@ -42,6 +42,8 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks(id) {
             if (id.includes("node_modules")) {
+              // Keep the playback-only decoder out of the initial shared vendor payload.
+              if (id.includes("/hls.js/")) return "vendor-hls";
               if (id.includes("firebase")) return "vendor-firebase";
               if (id.includes("mapbox-gl") || id.includes("react-map-gl")) return "vendor-mapbox";
               if (id.includes("chart.js") || id.includes("react-chartjs-2")) return "vendor-charts";

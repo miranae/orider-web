@@ -17,6 +17,14 @@ export function localActivityFeedContentUrl(dev: boolean, hostname: string, conf
 export const activityFeedContentPreviewUrl = () => localActivityFeedContentUrl(import.meta.env.DEV,
   typeof window === "undefined" ? "" : window.location.hostname, import.meta.env.VITE_ACTIVITY_FEED_CONTENT_PREVIEW_URL);
 
+function safeVideoUrl(value: unknown): string | null {
+  if (typeof value !== "string" || value.length > 8192) return null;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" && !parsed.username && !parsed.password ? value : null;
+  } catch { return null; }
+}
+
 /** Reject incomplete projections rather than deriving photo paths or treating a title as a memo. */
 export function boundedFeedContent(value: unknown): ActivityFeedContentProjection | null {
   if (!value || typeof value !== "object") return null;
@@ -28,7 +36,15 @@ export function boundedFeedContent(value: unknown): ActivityFeedContentProjectio
     memo: typeof data.memo === "string" ? data.memo.slice(0, 32768) : null,
     memoTruncated: data.memoTruncated === true || (typeof data.memo === "string" && data.memo.length > 32768),
     photos: data.photos.filter(photo => photo && typeof photo.id === "string" && typeof photo.url === "string"
-      && /^https:\/\//i.test(photo.url)).slice(0, 5).map(photo => ({ id: photo.id, url: photo.url, caption: typeof photo.caption === "string" ? photo.caption : null })),
+      && /^https:\/\//i.test(photo.url)).slice(0, 5).map(photo => {
+      const videoUrl = safeVideoUrl(photo.videoUrl);
+      return { id: photo.id, url: photo.url, caption: typeof photo.caption === "string" ? photo.caption : null,
+        ...(photo.kind === "video" && videoUrl ? {
+          kind: "video" as const, videoUrl,
+          ...(typeof photo.durationSeconds === "number" && Number.isFinite(photo.durationSeconds) && photo.durationSeconds >= 0 ? { durationSeconds: photo.durationSeconds } : {}),
+        } : {}),
+      };
+    }),
     totalPhotoCount: Math.max(0, Math.floor(data.totalPhotoCount)),
   };
 }

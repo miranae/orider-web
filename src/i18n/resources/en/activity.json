@@ -650,6 +650,13 @@
       "daysAgo_other": "{{count}} days ago"
     },
     "runSplitsLink": "View pace and km splits",
+    "videoClose": "Close video",
+    "videoPlay": "Play video",
+    "videoPause": "Pause video",
+    "videoMute": "Mute video",
+    "videoUnmute": "Unmute video",
+    "videoRetry": "Retry video",
+    "videoUnavailable": "Video could not be played.",
     "openPhoto": "View photo {{index}} of {{count}}",
     "memoMore": "Read more",
     "commentsLoadError": "Comments could not be loaded.",
