@@ -3,11 +3,11 @@ import enRecap from "../i18n/resources/en/recap.json";
 import enCommon from "../i18n/resources/en/common.json";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
-const mocks = vi.hoisted(() => ({ activities: [] as import("@shared/types").Activity[], draw: vi.fn((_recap: unknown, _labels: unknown, _ratio: unknown) => ({})), save: vi.fn() }));
+const mocks = vi.hoisted(() => ({ activities: [] as import("@shared/types").Activity[], error: false, retry: vi.fn(), draw: vi.fn((_recap: unknown, _labels: unknown, _ratio: unknown) => ({})), save: vi.fn() }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner" }, profile: { nickname: "Owner" } }) }));
-vi.mock("../hooks/useYearActivities", () => ({ useYearActivities: () => ({ activities: mocks.activities, loading: false }) }));
+vi.mock("../hooks/useYearActivities", () => ({ useYearActivities: () => ({ activities: mocks.activities, loading: false, error: mocks.error, retry: mocks.retry }) }));
 vi.mock("../hooks/useRunRecords", () => ({ useRunRecords: () => ({ run: undefined }) }));
 vi.mock("../hooks/useMilestones", () => ({ useMilestones: () => ({ achieved: new Map(), loading: false, markCelebrated: vi.fn() }) }));
 vi.mock("../components/fitness/LifetimeMilestonesGrid", () => ({ default: ({scopeLabel}: {scopeLabel: string}) => <p data-testid="lifetime-scope">{scopeLabel}</p> }));
@@ -28,6 +28,8 @@ async function sharedRecap() {
   await waitFor(() => expect(mocks.draw).toHaveBeenCalled());
   return mocks.draw.mock.calls[0]![0] as unknown as { totalDistanceMeters: number; totalCount: number; breakdown: Array<{ discipline: string }> };
 }
+beforeEach(() => { mocks.error = false; mocks.retry.mockClear(); });
+
 describe("annual recap sport scope", () => {
   it.each(["", "&sport=tri"])("includes running and swimming in default/all totals and sharing %s", async query => {
     show(query);
@@ -67,4 +69,14 @@ it("renders English sport activity counts from the recap namespace without leaki
     expect(screen.getAllByText(/1 activity ·/)).toHaveLength(3);
     expect(document.body.textContent).not.toContain("activityCount");
   } finally { await i18n.changeLanguage("ko"); }
+});
+
+it("shows a retryable read error instead of an empty year or share actions", () => {
+  mocks.error = true;
+  show();
+  expect(screen.getByRole("alert")).toHaveTextContent("연간 기록을 불러오지 못했습니다");
+  expect(screen.queryByTestId("P2.emptyYear")).not.toBeInTheDocument();
+  expect(screen.queryByTestId("P2-4-2")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+  expect(mocks.retry).toHaveBeenCalledOnce();
 });

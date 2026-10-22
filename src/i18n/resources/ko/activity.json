@@ -2735,5 +2735,26 @@
     "selectedStatsLabel": "선택 구간 통계",
     "distanceShort": "거리",
     "elapsedShort": "시간"
+  },
+
+  "overviewSocial": {
+    "title": "활동 이야기",
+    "zoomIn": "확대",
+    "zoomOut": "축소",
+    "closeViewer": "사진 닫기",
+    "memoUnavailable": "메모를 확인할 수 없어요.",
+    "signInPhotos": "로그인하여 사진 확인",
+    "memoPartial": "메모의 일부만 표시됩니다.",
+    "noMemo": "등록된 메모가 없어요.",
+    "openPhoto": "사진 {{index}} / {{count}} 보기",
+    "photosPending": "사진을 불러와 확인할 수 있어요.",
+    "noPhotos": "등록된 사진이 없어요.",
+    "loadPhotos": "사진 더 불러오기",
+    "photoError": "사진을 불러오지 못했어요.",
+    "noCompanions": "확인된 동승자가 없어요.",
+    "allResults": "전체 보기",
+    "noResults": "표시할 주요 성과가 없어요.",
+    "previousPhoto": "이전 사진",
+    "nextPhoto": "다음 사진"
   }
 }

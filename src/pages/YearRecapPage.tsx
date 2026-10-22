@@ -9,6 +9,7 @@ import RunRecordsBoard from "../components/fitness/RunRecordsBoard";
 import MilestonesGrid from "../components/fitness/MilestonesGrid";
 import MilestoneCelebration from "../components/fitness/MilestoneCelebration";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
+import { ErrorState } from "../components/redesign";
 import { useRunRecords } from "../hooks/useRunRecords";
 import { filterByDiscipline, type Discipline as SportDiscipline } from "../utils/disciplineFilter";
 import { useTranslation } from "react-i18next";
@@ -51,7 +52,7 @@ function int(v: number): string {
 export default function YearRecapPage() {
   const { user, profile } = useAuth();
   const { t } = useTranslation("recap");
-  const { activities: allActivities, loading } = useYearActivities(user?.uid);
+  const { activities: allActivities, loading, error, retry } = useYearActivities(user?.uid);
   const [params, setParams] = useSearchParams();
   const sport = params.get("sport");
   const discipline: SportDiscipline = sport && isSportUiEnabled(sport) && (sport === "run" || sport === "swim" || sport === "bike") ? sport : "tri";
@@ -148,6 +149,8 @@ export default function YearRecapPage() {
         <Card data-testid="P2.loading">
           <Text tone="tertiary">{t("loading")}</Text>
         </Card>
+      ) : error ? (
+        <ErrorState title={t("loadError")} onRetry={retry} />
       ) : isEmpty ? (
         <Card data-testid="P2.emptyYear">
           <Stack gap="var(--space-3)" align="center">

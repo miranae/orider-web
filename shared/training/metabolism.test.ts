@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  cyclingWorkKcal,
   relativeFatOxidation,
   fatEnergyFraction,
   fatMaxIntensityPctFtp,
@@ -88,7 +89,7 @@ describe("computeFatMaxProfile", () => {
 describe("computeRideSubstrate", () => {
   it("빈 스트림 graceful → 0", () => {
     const s = computeRideSubstrate([], 250, 70);
-    expect(s).toEqual({ fatKcal: 0, carbKcal: 0, fatPct: 0, totalKcal: 0 });
+    expect(s).toEqual({ fatKcal: 0, carbKcal: 0, fatPct: 0, totalKcal: 0, fatGrams: 0 });
   });
 
   it("짧은 스트림도 graceful", () => {
@@ -146,5 +147,27 @@ describe("computeRideSubstrate 시간 가중 (#2437)", () => {
     const b = computeRideSubstrate(Array(900).fill(200), 250, null, Array(900).fill(2));
     expect(b.totalKcal).toBe(a.totalKcal);
     expect(b.fatKcal).toBe(a.fatKcal);
+    // 절대값 고정 — 1800초×200W = 360 kJ → /0.24 /4.184 ≈ 358 kcal
+    expect(b.totalKcal).toBe(359); // 360 kJ / 0.24 / 4.184 = 358.6
+  });
+});
+
+
+describe("사이클 칼로리 공통 환산", () => {
+  it("750kJ는 총 에너지와 기질 모델 모두 747kcal다", () => {
+    expect(Math.round(cyclingWorkKcal(750))).toBe(747);
+    const substrate = computeRideSubstrate(Array(3000).fill(250), 207, null);
+    expect(substrate.totalKcal).toBe(747);
+    expect(substrate.fatKcal + substrate.carbKcal).toBe(substrate.totalKcal);
+  });
+
+  it.each([100, 170, 200, 250, 300])("반올림 후에도 지방과 탄수 합계가 총 kcal와 일치한다 (%iW)", (watts) => {
+    const substrate = computeRideSubstrate(Array(5778).fill(watts), 207, null);
+    expect(substrate.fatKcal + substrate.carbKcal).toBe(substrate.totalKcal);
+    expect(substrate.totalKcal).toBe(Math.round(cyclingWorkKcal(watts * 5778 / 1000)));
+  });
+
+  it.each([0, -1, NaN, Infinity])("유효한 기계일이 없으면 0이다 (%s)", (workKj) => {
+    expect(cyclingWorkKcal(workKj)).toBe(0);
   });
 });

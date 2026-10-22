@@ -5,6 +5,8 @@ import { getDoc, getDocs, onSnapshot, where } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import ActivityPage from "./ActivityPage";
+import { withStoredSummary, STORED_ACTIVITY_SUMMARY } from "../__tests__/fixtures/activityDefaultSummary";
+import { activityFeedSourceRevision } from "../services/activityFeedContent";
 import * as overviewHook from "../hooks/useActivityOverview";
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { clearRideRouteIntentMemoryForTests } from "../features/activity/detail/RideActivityRouteButton";
@@ -1938,4 +1940,30 @@ describe("ActivityPage", () => {
       expect(document.querySelector(".animate-pulse") || notFound).toBeTruthy();
     });
   });
+  it("retains the current stored default summary once in the new overview", async () => {
+    const activity = withStoredSummary(createMockActivity({ id: "test-activity", source: "strava" }));
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    renderWithProviders(<ActivityPage />);
+    const story = await screen.findByRole("region", { name: "활동 이야기" });
+    expect(within(story).getByText(/저장된 활동 요약/).textContent).toBe(STORED_ACTIVITY_SUMMARY);
+    expect(screen.getAllByText(/저장된 활동 요약/)).toHaveLength(1);
+  });
+
+  it.each([true, false])("only renders a memo and preview from the current complete projection revision (%s)", async valid => {
+    const activity = createMockActivity({ id: "test-activity", source: "strava" });
+    activity.feedContentV1 = { version: 1, sourceRevision: valid ? activityFeedSourceRevision(activity) : "stale",
+      revision: "r1", memo: "수집된 원문 메모", memoTruncated: false, totalPhotoCount: 9,
+      photos: [{ id: "one", url: "https://images.example/one.jpg", caption: null }] };
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    renderWithProviders(<ActivityPage />);
+    const story = await screen.findByRole("region", { name: "활동 이야기" });
+    if (valid) {
+      expect(within(story).getByText("수집된 원문 메모")).toBeInTheDocument();
+      expect(within(story).getByRole("button", { name: "사진 1 / 9 보기" })).toBeInTheDocument();
+    } else {
+      expect(within(story).queryByText("수집된 원문 메모")).not.toBeInTheDocument();
+      expect(within(story).queryByRole("button", { name: "사진 1 / 9 보기" })).not.toBeInTheDocument();
+    }
+  });
+
 });

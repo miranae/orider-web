@@ -471,3 +471,7 @@ semantic accent 16% 음영과 2px 양끝선을 그리며 취소·선택 완료 �
 `Select variant="filter"`는 즉시 적용되는 조회 조건에 사용하는 native 선택 컨트롤이다. 중립 배경과 둥근 선택 면을 쓰며 일반 폼 Select는 유지한다. 자세한 토큰·상태·모바일 규칙은 [Native filter selection](../README.md#native-filter-selection)을 참고한다. 인접한 필터는 `Field` 제목으로 구분한다.
 
 `IconButton size="compact"`는 보조 도구용 36px 표면과 18px 그림을 사용하며 기존 44px 최소 터치 영역을 유지한다. 기본 ghost 표현은 중립 배경이다. `indicator`는 작은 accent 점만 추가한다. 적용된 조건은 호출자가 `aria-label`에 포함하고, 패널의 열림 상태는 `aria-expanded`로 전달한다. 기존 sm/md/lg 크기는 바뀌지 않는다.
+
+## MediaViewer
+
+`MediaViewer`는 전체 화면 사진 확인용 dialog입니다. dark theme 토큰, 44px 컨트롤, 커서 중심 휠 확대·이동(브라우저 Ctrl/Cmd 확대는 유지), 기본 배율 좌우 스와이프, 키보드·포커스·스크롤 잠금을 제공합니다. 사진 ID별로 배율·이동을 초기화합니다. 호출 화면은 실제 읽은 목록의 순서·전체 개수·이전/다음·부분 목록 불러오기·삭제 권한을 관리합니다. 일반 `Modal`의 모양이나 동작은 바꾸지 않습니다.

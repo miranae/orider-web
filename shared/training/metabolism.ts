@@ -39,6 +39,11 @@ export const SUSTAINABLE_CAP_MIN = 240;
  */
 export const GROSS_EFFICIENCY = 0.24;
 
+/** 사이클 기계일(kJ)을 총 대사 에너지(kcal)로 환산하는 공통 정본. */
+export function cyclingWorkKcal(workKj: number): number {
+  return Number.isFinite(workKj) && workKj > 0 ? workKj / GROSS_EFFICIENCY / 4.184 : 0;
+}
+
 /**
  * 강도(%FTP) → 상대 지방산화율 (0~1, 정점에서 1).
  * 정점 FATMAX_PEAK_PCT_FTP 를 중심으로 한 비대칭 가우시안:
@@ -129,6 +134,8 @@ export interface RideSubstrate {
   fatPct: number;
   /** 총 소비 에너지 추정 (kcal). */
   totalKcal: number;
+  /** 지방 소모 추정 (g) = fatKcal ÷ 9. 화면·게시·코치가 각자 나누지 않도록 정본에 둔다. "감량" 이 아니다. */
+  fatGrams: number;
 }
 
 /**
@@ -153,7 +160,7 @@ export function computeRideSubstrate(
 ): RideSubstrate {
   void weightKg; // v1 미사용 (위 주석 참조)
   if (!watts || watts.length === 0 || !Number.isFinite(ftp) || ftp <= 0) {
-    return { fatKcal: 0, carbKcal: 0, fatPct: 0, totalKcal: 0 };
+    return { fatKcal: 0, carbKcal: 0, fatPct: 0, totalKcal: 0, fatGrams: 0 };
   }
 
   // 일(J) = W × 소유 초. 샘플 수가 아니라 시간으로 적분한다.
@@ -169,16 +176,15 @@ export function computeRideSubstrate(
     fatJoules += w * seconds * frac;
   }
 
-  const kjToKcal = (kj: number) => kj / GROSS_EFFICIENCY / 4.184;
-  const totalKcal = kjToKcal(totalJoules / 1000);
-  const fatKcal = kjToKcal(fatJoules / 1000);
-  const carbKcal = totalKcal - fatKcal;
+  const totalKcal = cyclingWorkKcal(totalJoules / 1000);
+  const fatKcal = cyclingWorkKcal(fatJoules / 1000);
   const fatPct = totalKcal > 0 ? fatKcal / totalKcal : 0;
 
   return {
     fatKcal: Math.round(fatKcal),
-    carbKcal: Math.round(carbKcal),
+    carbKcal: Math.round(totalKcal) - Math.round(fatKcal),
     fatPct,
     totalKcal: Math.round(totalKcal),
+    fatGrams: Math.round(fatKcal / 9 * 10) / 10,
   };
 }
