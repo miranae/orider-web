@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import "../../i18n";
@@ -116,4 +116,30 @@ it("compact open evidence preserves each requirement/action and deduplicates ide
   expect(group.querySelectorAll("details")).toHaveLength(0);
   expect(group.querySelectorAll('a[href="/ko/settings/account#body-info"]')).toHaveLength(4);
   expect(screen.getAllByTestId("sufficiency-req-weight")).toHaveLength(4);
+});
+
+it("does not present expired or pending evidence as current unmet requirements", () => {
+  const delayed = sufficiencyBlock({ state: "delayed", remainingRequirementCount: 0, nextAction: null });
+  const pending = sufficiencyBlock({ featureId: "power_model", state: "processing", remainingRequirementCount: 2 });
+  const view = renderUi(<SufficiencyGroup sets={[sufficiencySet([delayed, pending, { ...delayed, featureId: "rider_profile" }, { ...pending, featureId: "ftp_estimate" }])]} testId="status-group" />);
+  expect(screen.getByTestId("status-group")).not.toHaveTextContent("잠긴 기능");
+  expect(screen.getByTestId("status-group")).not.toHaveTextContent("남은 요건");
+  view.unmount();
+  const zero = sufficiencyBlock({ remainingRequirementCount: 0, nextAction: null });
+  renderUi(<SufficiencyCard set={sufficiencySet([zero])} block={zero} testId="zero" />);
+  expect(screen.getByTestId("zero")).toHaveTextContent("계산 결과를 아직 확인할 수 없어요");
+  expect(screen.queryByTestId("zero-remaining")).not.toBeInTheDocument();
+});
+
+it("keeps each server action available behind a native evidence disclosure", () => {
+  const rows = ["power_model", "vo2max", "rider_profile", "ftp_estimate"].map(featureId => sufficiencyBlock({ featureId }));
+  renderUi(<SufficiencyGroup collapsible set={sufficiencySet(rows)} testId="readiness" />);
+  const group = screen.getByTestId("readiness");
+  const summary = screen.getByText("계산 근거 확인 · 4개 지표").closest("summary")!;
+  expect(group.querySelector("details")).not.toHaveAttribute("open");
+  fireEvent.click(summary);
+  expect(group.querySelector("details")).toHaveAttribute("open");
+  expect(screen.getByTestId("readiness-vo2max-current-action")).toBeVisible();
+  fireEvent.click(summary);
+  expect(group.querySelector("details")).not.toHaveAttribute("open");
 });

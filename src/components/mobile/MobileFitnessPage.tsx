@@ -832,6 +832,16 @@ export default function MobileFitnessPage({
 
   </>);
 
+  const mobileAnalysis = part === "analysis" && !embedded;
+  const modelContent = (<>
+          {part === "analysis" && isBike && <BikePerformanceSummaryCard part="analysis" decision={data.thresholdDecision} pdc={data.pdcSummary} weightKg={data.weightKg} />}
+          {(part === "analysis" || part === "condition") && !runReadiness && !(part === "condition" && data.discipline === "run" && !embedded && runningRecordsSlot && data.runEvidence.thresholdPaceSec == null) && <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
+          {(part === "analysis" || part === "condition") && isBike && data.cyclingAbility && riderSet && riderBlock && <SufficiencyInline set={riderSet} block={riderBlock} testId="K5-1-1-sufficiency-inline" />}
+          {(part === "analysis" || part === "condition") && !embedded && data.discipline === "run" && !(part === "condition" && runningRecordsSlot && !runReadiness && qualifiedRunRecords(data.runEvidence).length === 0) && <RunRecordsSummary evidence={data.runEvidence} readiness={runReadiness} sourceBoard={part === "condition" && Boolean(runningRecordsSlot)} />}
+          {part === "condition" && runningRecordsSlot}
+          {(part === "analysis" || part === "condition") && !embedded && isBike && sectionState.derived === "ready" && <MobileCyclingEvidence condition={part === "condition"} data={data} />}
+  </>);
+
   const analysisContent = (
 <div id={part === "condition" ? "condition-metrics" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "mobile-fitness-riding-metrics condition-section-target" : undefined} style={{ paddingTop: 14 }}>
           {part === "condition" && <Text as="h2" variant="title" className="mobile-fitness-riding-metrics__title">{t(data.discipline === "bike" ? "fitness:condition.metrics.bikeTitle" : "fitness:condition.metrics.runTitle")}</Text>}
@@ -849,13 +859,9 @@ export default function MobileFitnessPage({
             </div>
           )}
           {part === "condition" && isBike && <>{bikePowerCurveContent}{bikePeriodZoneContent}</>}
-          {(part === "analysis" || part === "condition") && <SufficiencyGroup inline={part === "condition"} sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="K5-sufficiency-group" />}
-          {part === "analysis" && isBike && <BikePerformanceSummaryCard part="analysis" decision={data.thresholdDecision} pdc={data.pdcSummary} weightKg={data.weightKg} />}
-          {(part === "analysis" || part === "condition") && !runReadiness && !(part === "condition" && data.discipline === "run" && !embedded && runningRecordsSlot && data.runEvidence.thresholdPaceSec == null) && <SportPerformanceCard discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
-          {(part === "analysis" || part === "condition") && isBike && data.cyclingAbility && riderSet && riderBlock && <SufficiencyInline set={riderSet} block={riderBlock} testId="K5-1-1-sufficiency-inline" />}
-          {(part === "analysis" || part === "condition") && !embedded && data.discipline === "run" && !(part === "condition" && runningRecordsSlot && !runReadiness && qualifiedRunRecords(data.runEvidence).length === 0) && <RunRecordsSummary evidence={data.runEvidence} readiness={runReadiness} sourceBoard={part === "condition" && Boolean(runningRecordsSlot)} />}
-          {part === "condition" && runningRecordsSlot}
-          {(part === "analysis" || part === "condition") && !embedded && isBike && sectionState.derived === "ready" && <MobileCyclingEvidence condition={part === "condition"} data={data} />}
+          {!mobileAnalysis && (part === "analysis" || part === "condition") && <SufficiencyGroup inline={part === "condition"} sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="K5-sufficiency-group" />}
+          {mobileAnalysis && bikePowerCurveContent}
+          {mobileAnalysis && isBike ? <DetailsSection title={t("mobileFitness.modelDetails")}>{modelContent}</DetailsSection> : modelContent}
           {/* 임계값 카드 */}
           {sectionState.derived === "ready" && data.threshold && !isBike && (
             <SectionCard>
@@ -903,7 +909,7 @@ export default function MobileFitnessPage({
               : <Text as="p" variant="bodySmall" tone="secondary">{t("fitness:criticalPace.unavailable")}</Text>}
           </SectionCard>}
 
-          {!(part === "condition" && isBike) && bikePowerCurveContent}
+          {!mobileAnalysis && !(part === "condition" && isBike) && bikePowerCurveContent}
 
           {data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
 
@@ -931,11 +937,12 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
-          {sectionState.derived === "ready" && isBike && !showZones && !data.threshold && (
+          {sectionState.derived === "ready" && isBike && !showZones && !data.threshold && !(mobileAnalysis && data.powerCurve && (mobileCurveBlock ? !needsSufficiencyCard(data.activityWindowSufficiency!, mobileCurveBlock) && data.powerCurve.length > 0 : data.powerCurve.length >= 2)) && (
             <div style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
               <GlossaryText>{t("mobileFitness.analysisInsufficient")}</GlossaryText>
             </div>
           )}
+          {mobileAnalysis && <SufficiencyGroup collapsible sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="K5-sufficiency-group" />}
         </div>
   );
 
@@ -985,7 +992,7 @@ export default function MobileFitnessPage({
 
   return (
     <div className={embedded ? "mobile-fitness-page mobile-fitness-page--embedded" : "mobile-fitness-page mobile-fitness-page--web"}>
-      <h1 data-testid={part === "analysis" ? "K5-0-1" : part === "condition" ? "K1-0-1" : undefined} className={embedded ? "orider-embedded-page-title" : part === "condition" ? "mobile-fitness-page__title" : "sr-only"}>{part === "analysis" ? t("fitness:analysis.header.title") : part === "condition" ? t("fitness:condition.header.title") : t("mobileFitness.title")}</h1>
+      <h1 data-testid={part === "analysis" ? "K5-0-1" : part === "condition" ? "K1-0-1" : undefined} className={embedded ? "orider-embedded-page-title" : part === "condition" || part === "analysis" && !embedded ? "mobile-fitness-page__title" : "sr-only"}>{part === "analysis" ? t("fitness:analysis.header.title") : part === "condition" ? t("fitness:condition.header.title") : t("mobileFitness.title")}</h1>
 
       <div className="mobile-fitness-toolbar">
         <div data-testid={part === "analysis" ? "K5-0-2" : part === "condition" ? "K1-0-2" : undefined} className="mobile-fitness-toolbar__sports">
@@ -998,7 +1005,11 @@ export default function MobileFitnessPage({
       </div>
 
 
-      {periodSlot}
+      {!embedded && part === "analysis" ? <div className="mobile-analysis-period">
+        <Text as="p" variant="label">{t("fitness:history.range")}</Text>{periodSlot}
+        <Text as="p" variant="caption" tone="secondary">{t("mobileFitness.periodScope")}</Text>
+        <LocalizedLink to={`/coach/condition?sport=${data.discipline}`}>{t("mobileFitness.conditionLink")} →</LocalizedLink>
+      </div> : periodSlot}
       {activeTab === "overview" && (
         <div style={{ paddingTop: "var(--space-2)" }}>
           {conditionStoryContent}
