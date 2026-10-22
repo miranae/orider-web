@@ -285,3 +285,13 @@ it("does not label the whole mobile analysis insufficient when a permitted recor
   expect(screen.getByRole("img", { name: /파워 커브 · 최근 28일/ })).toBeVisible();
   expect(screen.queryByText("분석할 데이터가 아직 충분하지 않아요.")).not.toBeInTheDocument();
 });
+
+it("retains the server power-curve lock even when raw points are present", () => {
+  const block = sufficiencyBlock({ featureId: "power_curve", viewId: "mobile", state: "locked", nextAction: { code: "record_power_ride" },
+    requirements: [{ requirementId: "power_curve_points", kind: "count", satisfaction: "not_met", guarantee: "minimum", target: { value: 2, unit: "point" }, current: { value: 1, unit: "point" } }] });
+  const fixture = { ...data, powerCurve: [{ durationSeconds: 5, maxPower: 500 }, { durationSeconds: 1200, maxPower: 200 }], activityWindowSufficiency: sufficiencySet([block]) };
+  renderWithProviders(<MobileFitnessPage data={fixture} part="analysis" />);
+  expect(screen.queryByRole("img", { name: /파워 커브 · 최근 28일/ })).not.toBeInTheDocument();
+  expect(screen.getByTestId("K5-2-1-sufficiency")).toBeVisible();
+  expect(block.state).toBe("locked");
+});
