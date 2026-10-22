@@ -169,6 +169,7 @@ describe("mobile web analysis evidence", () => {
       runEvidence: { thresholdPaceSec: null, records: [{ distance: "5km", seconds: 1200, date: "2026-10-01", activityId: "activity", startTime: 1, qualification: "source_qualified", unit: "seconds" }] } }} />);
     expect(screen.getByTestId("K5-4")).toHaveTextContent("5km · 20:00");
     expect(within(screen.getByTestId("K5-4")).getByRole("link")).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
+    expandDetails();
     expect(screen.getByText("달성한 러닝 마일스톤")).toBeVisible();
     expect(document.getElementById("condition-metrics")).toBeNull();
 
@@ -258,6 +259,7 @@ it("analysis cycling shows actual curve and zones before missing-evidence requir
 it("analysis running shares one unknown-source warning and records link with its source board", () => {
   const runEvidence = { thresholdPaceSec: null, records: [], unverifiedRecords: [{ distance: "5km" as const, date: "2026-10-01", activityId: "run-1" }] };
   renderWithProviders(<MobileFitnessPage part="analysis" data={{ ...data, discipline: "run", runEvidence, threshold: { label: "역치 페이스", value: "4:20", unit: "/km", sub: "설정 기준" } }} runningRecordsSlot={<RunRecordsBoard run={{ "5km": [{ value: 1200, date: "2026-10-01", activityId: "run-1" }] }} footer={<RunRecordsSummary evidence={runEvidence} sourceBoard />} />} />);
+  expandDetails();
   expect(screen.getAllByText("종목과 시간 단위가 확인되지 않은 거리별 저장 기록은 시간과 페이스를 표시하지 않습니다. 시간별 페이스 분석과는 별개입니다.")).toHaveLength(1);
   expect(screen.getAllByTestId("K5-4-2")).toHaveLength(1);
   expect(screen.getAllByRole("heading", { name: "거리별 저장 기록" })).toHaveLength(1);
@@ -306,4 +308,16 @@ it("keeps condition focused on current state and load with links to analysis and
   expect(document.getElementById("ftp-decision")).toBeNull();
   expect(screen.getByRole("link", { name: /수행 지표·기록 비교는 분석에서/ })).toHaveAttribute("href", "/ko/coach/analysis?sport=bike");
   expect(screen.getByRole("link", { name: /훈련 기준 설정/ })).toHaveAttribute("href", "/ko/settings/training?sport=bike");
+});
+
+
+it("prioritizes available pace changes over the source-only distance record list", () => {
+  const view = renderWithProviders(<MobileFitnessPage part="analysis" data={{ ...data, discipline: "run" }} runPaceCurve={{ recent28: [{ durationSec: 60, paceSecPerKm: 300 }], prev28: [{ durationSec: 60, paceSecPerKm: 320 }] }} runningRecordsSlot={<p>Original distance sources</p>} />);
+  const curve = screen.getByTestId("K5-2-3");
+  const sources = screen.getByText("Original distance sources");
+  expect(curve.compareDocumentPosition(sources) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(sources.closest("details")).toHaveProperty("open", false);
+  expect(view.container.querySelectorAll('[data-testid="K5-2-3"]')).toHaveLength(1);
+  expandDetails();
+  expect(sources).toBeVisible();
 });

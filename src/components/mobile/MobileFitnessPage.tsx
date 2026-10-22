@@ -832,18 +832,24 @@ export default function MobileFitnessPage({
           {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods nativeActivities={nativePowerActivities} inline={part === "condition" && embedded} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
 
           {/* 두 종목 부하 근거를 파워 우선 선택으로 숨기지 않는다. */}
-          {sectionState.derived === "ready" && (part === "condition" || part === "analysis" && !embedded) && data.zoneEvidence && <FitnessZoneDistributions evidence={data.zoneEvidence} />}
+          {sectionState.derived === "ready" && (part === "condition" || part === "analysis" && !embedded) && data.zoneEvidence && <FitnessZoneDistributions compact={part === "analysis" && !embedded} evidence={data.zoneEvidence} />}
 
   </>);
 
   const mobileAnalysis = part === "analysis" && !embedded;
   const mobileCondition = part === "condition" && !embedded;
+  const hasRunCurve = Boolean(runPaceCurve && (runPaceCurve.recent28.length > 0 || runPaceCurve.prev28.length > 0));
+  const runCurveContent = ((part === "condition" || mobileAnalysis) && data.discipline === "run" && sectionState.derived === "ready" && <SectionCard specId="K5-2-3" title={t("fitness:criticalPace.title")}>
+            {runPaceCurve && (runPaceCurve.recent28.length > 0 || runPaceCurve.prev28.length > 0)
+              ? <CriticalPaceCurve recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} />
+              : <Text as="p" variant="bodySmall" tone="secondary">{t("fitness:criticalPace.unavailable")}</Text>}
+          </SectionCard>);
   const modelContent = (<>
           {part === "analysis" && embedded && isBike && <BikePerformanceSummaryCard compact={!embedded} part="analysis" decision={data.thresholdDecision} pdc={data.pdcSummary} weightKg={data.weightKg} />}
-          {(part === "analysis" || part === "condition") && !runReadiness && !(part === "condition" && data.discipline === "run" && !embedded && runningRecordsSlot && data.runEvidence.thresholdPaceSec == null) && <SportPerformanceCard compact={!embedded} discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
+          {(part === "analysis" || part === "condition") && !(mobileAnalysis && data.discipline === "run") && !runReadiness && !(part === "condition" && data.discipline === "run" && !embedded && runningRecordsSlot && data.runEvidence.thresholdPaceSec == null) && <SportPerformanceCard compact={!embedded} discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
           {(part === "analysis" || part === "condition") && isBike && data.cyclingAbility && riderSet && riderBlock && <SufficiencyInline set={riderSet} block={riderBlock} testId="K5-1-1-sufficiency-inline" />}
           {(part === "analysis" || part === "condition") && !embedded && data.discipline === "run" && !(runningRecordsSlot && !runReadiness && qualifiedRunRecords(data.runEvidence).length === 0) && <RunRecordsSummary evidence={data.runEvidence} readiness={runReadiness} sourceBoard={Boolean(runningRecordsSlot)} />}
-          {(part === "condition" || mobileAnalysis) && runningRecordsSlot}
+          {(part === "condition" || mobileAnalysis) && (mobileAnalysis && runningRecordsSlot ? <DetailsSection title={t("mobileFitness.runRecordSources")}>{runningRecordsSlot}</DetailsSection> : runningRecordsSlot)}
           {(part === "analysis" || part === "condition") && !embedded && isBike && sectionState.derived === "ready" && <MobileCyclingEvidence condition={part === "condition" || mobileAnalysis} data={data} />}
   </>);
 
@@ -886,6 +892,7 @@ export default function MobileFitnessPage({
           )}
           {part === "condition" && isBike && <>{bikePowerCurveContent}{bikePeriodZoneContent}</>}
           {!mobileAnalysis && (part === "analysis" || part === "condition") && <SufficiencyGroup inline={part === "condition"} sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="K5-sufficiency-group" />}
+          {mobileAnalysis && hasRunCurve && runCurveContent}
           {mobileAnalysis && bikePowerCurveContent}
           {mobileAnalysis && sectionState.derived === "ready" && isBike && powerCurveEvidenceSlot && <AnchoredDetailsSection defaultOpen id="analysis-comparison" title={t("mobileFitness.powerChanges")}>{powerCurveEvidenceSlot}</AnchoredDetailsSection>}
           {mobileAnalysis && isBike && ridingEvidenceSlot && <DetailsSection title={t("fitness:pedaling.title")}>{ridingEvidenceSlot}</DetailsSection>}
@@ -931,11 +938,8 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
-          {(part === "condition" || mobileAnalysis) && data.discipline === "run" && sectionState.derived === "ready" && <SectionCard specId="K5-2-3" title={t("fitness:criticalPace.title")}>
-            {runPaceCurve && (runPaceCurve.recent28.length > 0 || runPaceCurve.prev28.length > 0)
-              ? <CriticalPaceCurve recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} />
-              : <Text as="p" variant="bodySmall" tone="secondary">{t("fitness:criticalPace.unavailable")}</Text>}
-          </SectionCard>}
+          {!mobileAnalysis && runCurveContent}
+          {mobileAnalysis && !hasRunCurve && runCurveContent}
 
           {!mobileAnalysis && !(part === "condition" && isBike) && bikePowerCurveContent}
 

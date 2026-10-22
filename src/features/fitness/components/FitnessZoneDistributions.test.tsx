@@ -43,3 +43,11 @@ describe("FitnessZoneDistributions", () => {
     expect(screen.getByText("0–<138 bpm · 0–81% LTHR")).toBeVisible();
   });
 });
+
+
+it("uses a compact missing-source status while retaining valid zero distributions", () => {
+  const view = renderWithProviders(<FitnessZoneDistributions compact evidence={{ ...evidence, hr: { ...evidence.hr, counts: null, total: 0, recordCount: 0 }, power: { ...evidence.power, counts: [0, 0, 0, 0, 0, 0, 0], total: 0 } }} />);
+  expect(view.container.querySelectorAll(".fitness-zone-evidence__card")).toHaveLength(1);
+  expect(view.container).toHaveTextContent(/심박 존 분포.*확인 가능한 존 기록이 없습니다.*미확인\/불완전 1개/);
+  expect(screen.getAllByText("0초 · —%")).toHaveLength(7);
+});
