@@ -1,3 +1,4 @@
+import { useMainScrollPosition } from "../hooks/useMainScrollPosition";
 import { Suspense, useState, useEffect, useRef } from "react";
 import GlossaryProvider from "./common/GlossaryProvider";
 import "../pages/coach/CoachSurface.css";
@@ -102,6 +103,7 @@ export default function Layout() {
   const path = stripLangPrefix(location.pathname);
   const activeNav = resolveDetailHub(path, location.state);
   const mainRef = useRef<HTMLElement>(null);
+  useMainScrollPosition(mainRef);
   const [friendRequestCount, setFriendRequestCount] = useState(0);
 
   // 온보딩 리다이렉트: step이 설정됐지만 "done"이 아닌 신규 유저
@@ -120,11 +122,6 @@ export default function Layout() {
       navigate(buildOnboardingRedirectTarget(location.pathname, location.search, location.hash), { replace: true });
     }
   }, [profile?.onboardingStep, path, navigate, location.pathname, location.search, location.hash]);
-
-  // 경로 변경 시 main에 포커스 (스크린리더 접근성)
-  useEffect(() => {
-    mainRef.current?.focus();
-  }, [location.pathname]);
 
   // Map 컴포넌트는 내부적으로 ResizeObserver를 사용하여 자동 리사이즈됨
 
