@@ -94,9 +94,21 @@
 .mobile-weekly-load__notes { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
 .mobile-weekly-load__notes > p { margin: 0; }
 
-/* 페이지 셸(px-4) 안에 놓일 때 자체 좌우 여백 16 과 겹쳐 32 가 되므로, 모바일에선 셸 여백을 상쇄해 다른 화면과 같은 16 거터로 맞춘다 */
-@media (max-width: 47.99rem) {
-  .site-shell > .fitness-reading > .mobile-fitness-page { margin-inline: calc(var(--space-4) * -1); }
+/* 웹은 Layout 셸의 거터를 그대로 사용한다. 임베드의 섹션 여백은 별도 유지한다. */
+.mobile-fitness-page--web { min-width: 0; }
+.mobile-fitness-page--web .mobile-fitness-toolbar,
+.mobile-fitness-page--web > .condition-section-nav,
+.mobile-fitness-page--web .condition-ftp-section,
+.mobile-fitness-page--web .condition-method-section { margin-inline: 0; }
+.mobile-fitness-page--web .mobile-fitness-page__title,
+.mobile-fitness-page--web .mobile-fitness-load-section > h2,
+.mobile-fitness-page--web .mobile-fitness-riding-metrics__title,
+.mobile-fitness-page--web .fitness-coach--story { padding-inline: 0; }
+.mobile-fitness-page--web .fitness-coach--story .mobile-fitness-section,
+.mobile-fitness-page--web .mobile-fitness-section {
+  margin-inline: 0 !important;
+  border-inline: 0;
+  border-radius: var(--r-md);
 }
 @media (max-width: 47.99rem) {
   .mobile-fitness-page__title { padding: var(--space-1) var(--space-4) 0; }

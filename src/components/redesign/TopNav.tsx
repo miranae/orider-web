@@ -204,7 +204,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
   return (
     <>
-      <nav data-testid="X1-1" className="top-nav gap-2 px-3 lg:gap-6 lg:px-5"
+      <nav data-testid="X1-1" className="top-nav gap-2 lg:gap-6"
         style={{
           position: 'sticky',
           top: 0,
