@@ -146,7 +146,7 @@ export function AppRoutes() {
           <Route path="settings/display" element={<SettingsPage tab="display" />} />
           <Route path="settings/developer" element={<SettingsPage tab="developer" />} />
           <Route path="settings/device" element={<SettingsPage tab="device" />} />
-          <Route path="settings/training" element={<LegacyRedirect to="/coach/condition#thresholds" />} />
+          <Route path="settings/training" element={<SettingsPage tab="training" />} />
           <Route path="settings/*" element={<LegacyRedirect to="/settings/account" />} />
           {/* 클럽 — club/join 정적이 club/:groupId 보다 먼저. 발급 정본은 group/join/:code */}
           <Route path="clubs" element={<GroupsPage />} />

@@ -116,3 +116,6 @@
 }
 
 .mobile-analysis-period { display: grid; gap: var(--space-2); margin-block: var(--space-4); }
+
+.mobile-condition-destinations { display: grid; gap: var(--space-2); margin-block: var(--space-4); }
+.mobile-condition-destinations > a { display: flex; align-items: center; min-height: var(--dim-button-height); color: var(--accent); }

@@ -121,3 +121,14 @@ it('explains repeated metric and evidence terms without nesting tooltip buttons 
   expect(container.querySelectorAll('[data-glossary-term="eftp"] button').length).toBeGreaterThan(1);
   expect(container.querySelector('button button, a button, svg button')).toBeNull();
 });
+
+
+it("summarizes missing mobile estimates once while retaining valid zero and partial estimates", () => {
+  const view = renderWithProviders(<BikePerformanceSummaryCard compact part="analysis" />);
+  expect(view.container.querySelectorAll("[data-performance-metric]")).toHaveLength(0);
+  expect(screen.getByText(/추정 근거 부족:/)).toHaveTextContent(/eFTP.*CP.*TTE/);
+  view.rerender(<BikePerformanceSummaryCard compact part="analysis" decision={{ ...completeDecision, cpW: 0, tteMin: null, latestMonthlyEstimate: null }} />);
+  expect(view.container.querySelectorAll("[data-performance-metric]")).toHaveLength(1);
+  expect(view.container.querySelector('[data-performance-metric="cp"]')).toHaveTextContent("0");
+  expect(screen.getByText(/추정 근거 부족:/)).not.toHaveTextContent("CP");
+});

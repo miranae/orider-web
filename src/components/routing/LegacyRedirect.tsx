@@ -8,7 +8,7 @@ const SETTINGS_SECTION_TARGETS: Record<string, string> = {
   health_sources: "/settings/connections",
   app: "/settings/display",
   developer: "/settings/developer",
-  training: "/coach/condition",
+  training: "/settings/training",
   equipment: "/athlete/me/gear",
   device: "/settings/device",
 };

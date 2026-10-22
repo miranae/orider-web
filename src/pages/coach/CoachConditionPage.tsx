@@ -1,6 +1,6 @@
 import { Section, buttonClass } from "../../theme/components";
 import { lazy, Suspense, useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import CrossDisciplineLoadCard from "../../components/dashboard/CrossDisciplineLoadCard";
 import { FitnessView } from "../FitnessPage";
@@ -12,15 +12,23 @@ const PaneThresholds = lazy(() => import("../../components/settings/PaneThreshol
 
 export default function CoachConditionPage() {
   const model = useCoachFitnessModel();
+  const { lang = "ko" } = useParams();
   const { user } = useAuth();
   const { t } = useTranslation("settings");
-  const { hash, key } = useLocation();
+  const { hash, key, search } = useLocation();
   const details = useRef<HTMLElement>(null);
   useEffect(() => {
     if (hash !== "#thresholds" || !details.current) return;
     details.current.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }, [hash, key, user?.uid]);
-  const thresholdsSlot = user && !user.isAnonymous ? <section id="thresholds" ref={details}
+  const params = new URLSearchParams(search);
+  const analysisHashes = ["#condition-metrics", "#condition-ftp", "#ftp-decision"];
+  if (model.isMobile && (hash === "#thresholds" || (analysisHashes.includes(hash) && !(hash === "#condition-metrics" && model.discipline === "tri")) || params.has("decisionId"))) {
+    const target = hash === "#thresholds" ? "/settings/training" : "/coach/analysis";
+    const targetHash = hash === "#condition-metrics" ? "#analysis-comparison" : hash === "#thresholds" ? "#thresholds" : "#ftp-decision";
+    return <Navigate replace to={{ pathname: `/${lang}${target}`, search, hash: targetHash }} />;
+  }
+  const thresholdsSlot = !model.isMobile && user && !user.isAnonymous ? <section id="thresholds" ref={details}
     className="site-shell condition-thresholds-section"
     aria-label={t("training.coachThresholds")}>
     <Section title={t("training.coachThresholds")}>

@@ -27,7 +27,7 @@ describe("mobile period power analysis", () => {
       { durationSeconds: 1200, maxPower: 196 },
     ];
     const previous = [{ durationSeconds: 300, maxPower: 246, sourceActivityId: "previous-5m", startTime: 1000 }];
-    const { container } = renderWithProviders(<MobileFitnessPage part="condition" data={{ ...data, powerCurve: current }}
+    const { container } = renderWithProviders(<MobileFitnessPage part="condition" embedded data={{ ...data, powerCurve: current }}
       powerCurveEvidenceSlot={<BikePowerCurveEvidence current={current} previous={previous} />} />);
     expect(container.querySelectorAll('[data-testid="K5-2-1"]')).toHaveLength(1);
     expect(container.querySelector("[data-power-curve-visual]")).toBeNull();
@@ -43,13 +43,13 @@ describe("mobile period power analysis", () => {
     expect(container.querySelector('a[href$="/activity/peak-1s"]')).toBeInTheDocument();
   });
   it.each(["loading", "error"] as const)("keeps the shared power evidence behind the derived %s gate", derived => {
-    renderWithProviders(<MobileFitnessPage part="condition" data={data} sectionState={{ trend: "ready", derived }}
+    renderWithProviders(<MobileFitnessPage part="condition" embedded data={data} sectionState={{ trend: "ready", derived }}
       powerCurveEvidenceSlot={<div data-testid="shared-condition-power" />} />);
     expect(screen.queryByTestId("shared-condition-power")).not.toBeInTheDocument();
   });
   it("keeps the condition curve, single period request and both zone distributions in reading order", () => {
     mocks.periods.mockClear();
-    renderWithProviders(<MobileFitnessPage part="condition" data={{ ...data,
+    renderWithProviders(<MobileFitnessPage part="condition" embedded data={{ ...data,
       powerCurve: [{ durationSeconds: 5, maxPower: 850 }, { durationSeconds: 300, maxPower: 264 }],
       zoneEvidence: { windowDays: 30, startTime: Date.UTC(2026, 8, 19), endTime: Date.UTC(2026, 9, 19),
         hr: { counts: [10, 0, 0, 0, 0], total: 10, recordCount: 1, missingCount: 0, boundaries: null },

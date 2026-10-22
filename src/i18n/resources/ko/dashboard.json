@@ -774,5 +774,9 @@
   "charts.weeklyChart.nextWeek": "다음 주",
   "mobileFitness.modelDetails": "추정 지표와 산출 근거",
   "mobileFitness.periodScope": "분석 조회 기간입니다. 이번 달 활동과 최근 28일 커브는 별도 기준입니다.",
-  "mobileFitness.conditionLink": "현재 컨디션 확인"
+  "mobileFitness.conditionLink": "현재 컨디션 확인",
+  "mobileFitness.performance.missingMetrics": "추정 근거 부족: {{metrics}}",
+  "mobileFitness.powerChanges": "파워 변화 · 두 기간 비교",
+  "mobileFitness.analysisDestination": "수행 지표·기록 비교는 분석에서",
+  "mobileFitness.weeklyUnknown": "최근 28일의 주간 부하를 아직 확인할 수 없어요."
 }
