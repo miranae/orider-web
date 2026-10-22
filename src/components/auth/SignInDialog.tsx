@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import Modal from "../Modal";
 import { LocalizedLink } from "../LocalizedLink";
 import { startSocialAuth, type SocialProvider } from "../../services/socialAuth";
+import { getRuntimeConfig } from "../../services/runtimeConfig";
 
 type Provider = "google" | SocialProvider;
 
@@ -42,8 +43,6 @@ export function KakaoLogo() {
 
 // 로그인 진입 화면은 기존 운영 제공자만 노출한다. 설정의 계정 연결은 유지한다.
 const SHOW_ADDITIONAL_SIGN_IN_BUTTONS = false;
-// Strava는 별도 재개 판단 전까지 숨김을 유지한다.
-const SHOW_STRAVA_SIGN_IN_BUTTON = false;
 
 const BUTTON_CLASS = "w-full h-12 flex items-center justify-center gap-2 px-4 py-3 rounded-[var(--r-lg)] font-medium transition-opacity disabled:opacity-60";
 
@@ -103,7 +102,8 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
           <KakaoLogo />{t("signIn.kakao")}
         </button>
         </>}
-        {SHOW_STRAVA_SIGN_IN_BUTTON && <button data-testid="A1-1-4" type="button" aria-label={t("signIn.strava")}
+        {/* Strava 로그인은 개발 서버에서만 검증하고 운영에서는 숨긴다. */}
+        {getRuntimeConfig().appEnvironment === "stage" && <button data-testid="A1-1-4" type="button" aria-label={t("signIn.strava")}
           className="w-full h-12 flex items-center justify-center rounded-[var(--r-lg)] overflow-hidden disabled:opacity-60"
           style={{ background: "var(--strava-login)" }} disabled={pending !== null}
           onClick={() => { void handleSocial("strava"); }}>

@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 const mocks = vi.hoisted(() => ({ start: vi.fn() }));
 vi.mock("../../services/socialAuth", () => ({ startSocialAuth: mocks.start }));
 import { SignInDialog } from "./SignInDialog";
+import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 
 const showDialog = (onGoogle = vi.fn().mockResolvedValue(undefined)) => {
   render(<MemoryRouter><SignInDialog open onClose={vi.fn()} onGoogle={onGoogle} /></MemoryRouter>);
@@ -11,7 +12,11 @@ const showDialog = (onGoogle = vi.fn().mockResolvedValue(undefined)) => {
 };
 
 describe("production sign-in choices", () => {
-  beforeEach(() => { mocks.start.mockReset(); });
+  beforeEach(() => {
+    mocks.start.mockReset();
+    resetRuntimeConfigForTests({ appEnvironment: "production" });
+  });
+  afterEach(() => { resetRuntimeConfigForTests({}); });
 
   it("keeps Google as the only sign-in choice and starts its existing flow", () => {
     const google = vi.fn().mockResolvedValue(undefined);
@@ -25,6 +30,27 @@ describe("production sign-in choices", () => {
     fireEvent.click(button);
     expect(google).toHaveBeenCalledOnce();
     expect(mocks.start).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, "production", "development", "test"])("keeps Strava hidden outside stage: %s", appEnvironment => {
+    resetRuntimeConfigForTests({ appEnvironment });
+    showDialog();
+    expect(screen.queryByRole("button", { name: "Strava로 계속하기" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("A1-1-4")).not.toBeInTheDocument();
+  });
+
+  it("shows only Google and Strava in stage and starts the existing Strava login flow", () => {
+    resetRuntimeConfigForTests({ appEnvironment: "stage" });
+    mocks.start.mockImplementation(() => new Promise<void>(() => {}));
+    const google = showDialog();
+    const strava = screen.getByRole("button", { name: "Strava로 계속하기" });
+    expect(google).toBeVisible();
+    expect(strava).toBeVisible();
+    for (const id of ["A1-1-2", "A1-1-3"]) expect(screen.queryByTestId(id)).not.toBeInTheDocument();
+    fireEvent.click(strava);
+    expect(mocks.start).toHaveBeenCalledExactlyOnceWith("strava", "login");
+    expect(google).toBeDisabled();
+    expect(strava).toBeDisabled();
   });
 
   it("restores Google sign-in after a failure and permits retry", async () => {
