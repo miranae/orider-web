@@ -4,6 +4,7 @@
   "rider": "Rider",
   "loginRequired": "Please sign in.",
   "loading": "Loading...",
+  "loadError": "Unable to load annual records. Please try again.",
   "selectYear": "Select year",
   "activeDays": "{{count}} active days",
   "totalCalories": "{{kcal}} kcal burned",
