@@ -1,3 +1,6 @@
+/* 배경은 전체 폭, 탐색 내용은 페이지 셸과 같은 최대 폭·거터를 사용한다. */
+.top-nav { padding-inline: max(var(--site-shell-gutter), calc((100% - var(--site-shell-max)) / 2 + var(--site-shell-gutter))); }
+
 /* HIG 상단 막대: 모바일 44(터치 44·아이콘 22·프로필 32), 넓은 화면은 기존 52 유지. */
 .top-nav { height: var(--dim-button-height); }
 .top-nav-avatar { width: var(--space-7); height: var(--space-7); flex-shrink: 0; }

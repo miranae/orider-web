@@ -487,9 +487,8 @@ function PowerCurveMini({ points, color, ariaLabel, detailed = false }: { points
 
 // ── 카드 컨테이너 ─────────────────────────────────────────────
 function SectionCard({ specId, children, title, sub, accentColor, ariaLabel, compact = false, readableSub = false }: { specId?: string; children: React.ReactNode; title?: string; sub?: string; accentColor?: string; ariaLabel?: string; compact?: boolean; readableSub?: boolean }) {
-  // 모바일은 화면이 좁아 모든 카드를 화면 전폭으로 쓴다(섹션 스타일). Layout 컨텐츠 래퍼
-  // (max-w mx-auto px-4 = 좌우 16px) 인셋을 음수 마진(-16)으로 상쇄해 좌우 끝까지 채우고,
-  // 좌우 border·radius 는 제거하고 상하 구분선만 둔다. 콘텐츠는 좌우 16px padding 으로 가독성 유지.
+  // 기본 섹션 geometry는 기존 임베드 표현을 유지한다. 웹에서는 --web 스코프가
+  // 음수 여백을 제거하고 Layout 셸의 거터 안에 카드·제목·탭을 정렬한다.
   return (
     <div data-testid={specId} className="mobile-fitness-section" role={ariaLabel ? "region" : undefined} aria-label={ariaLabel} style={{
       margin: compact ? "0 -16px var(--space-2)" : "0 -16px 12px",
@@ -985,7 +984,7 @@ export default function MobileFitnessPage({
   const conditionStoryContent = conditionStory ? cloneElement(coachSlot as ReactElement<{ trendSlot?: ReactNode; evidenceNavSlot?: ReactNode }>, { trendSlot: conditionTrend, evidenceNavSlot: conditionNavigation }) : null;
 
   return (
-    <div className={embedded ? "mobile-fitness-page mobile-fitness-page--embedded" : "mobile-fitness-page"}>
+    <div className={embedded ? "mobile-fitness-page mobile-fitness-page--embedded" : "mobile-fitness-page mobile-fitness-page--web"}>
       <h1 data-testid={part === "analysis" ? "K5-0-1" : part === "condition" ? "K1-0-1" : undefined} className={embedded ? "orider-embedded-page-title" : part === "condition" ? "mobile-fitness-page__title" : "sr-only"}>{part === "analysis" ? t("fitness:analysis.header.title") : part === "condition" ? t("fitness:condition.header.title") : t("mobileFitness.title")}</h1>
 
       <div className="mobile-fitness-toolbar">
