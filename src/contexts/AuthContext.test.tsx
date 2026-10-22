@@ -265,8 +265,9 @@ describe("AuthContext", () => {
 
     await user.click(screen.getByText("로그인"));
     expect(mockSignInWithPopup).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("A1-1-2")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("A1-1-3")).not.toBeInTheDocument();
+    expect(screen.getByTestId("A1-1-2")).toBeInTheDocument();
+    expect(screen.getByTestId("A1-1-3")).toBeInTheDocument();
+    expect(screen.getByTestId("A1-1-4")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "이용약관" })).toHaveAttribute("href", "/ko/terms");
     expect(screen.getByRole("link", { name: "개인정보처리방침" })).toHaveAttribute("href", "/ko/privacy");
     await user.click(screen.getByTestId("A1-1-1"));
