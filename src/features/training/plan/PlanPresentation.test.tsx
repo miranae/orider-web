@@ -264,3 +264,14 @@ it.each([false, true])("distinguishes post-goal stored workouts and keeps their 
   expect(screen.getByText("목표일 이후 저장된 운동")).toBeInTheDocument();
   expect(screen.getByTestId(mobile ? "K4-5m" : "K4-5")).toHaveTextContent("45");
 });
+
+it.each([false, true])("keeps elapsed goal dates signed without changing plan progress (mobile=%s)", mobile => {
+  vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: mobile && query === "(max-width: 1023px)", media: query, onchange: null,
+    addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
+  vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-22T12:00:00+09:00"));
+  const scoped = { ...model, goalDate: new Date("2026-10-18T00:00:00+09:00"), daysLeft: 0 } as unknown as PlanModel;
+  renderWithProviders(<PlanPresentation model={scoped} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
+  expect(screen.getByText("D+4")).toBeInTheDocument();
+  expect(scoped.daysLeft).toBe(0);
+  expect(scoped.progress).toBe(25);
+});

@@ -1,3 +1,4 @@
+import DetailsSection from "../../components/redesign/DetailsSection";
 /**
  * 데이터 충분도 표시 — 서버가 같은 계산에서 함께 만든 블록을 **그대로** 보여 준다.
  *
@@ -65,6 +66,7 @@ function headline(t: (key: string, options?: Record<string, unknown>) => string,
   state: SufficiencyState): string {
   if (state === "delayed") return t("sufficiency.state.delayed");
   if (state === "processing") return t("sufficiency.state.processing");
+  if (block.remainingRequirementCount === 0) return t("sufficiency.state.unavailable");
   if (onlySufficientRemains(block) && block.nextAction) {
     return t("sufficiency.state.openOnAction", { action: t(`sufficiency.action.${block.nextAction.code}`) });
   }
@@ -76,16 +78,16 @@ export function SufficiencyCard({ set, block, testId, compact = false, hideTimin
   const { t } = useTranslation("fitness");
   const state = displayedSufficiencyState(set, block, Date.now());
   useEffect(() => { trackSufficiencyView(set, block, state, "card"); }, [set, block, state]);
-  const showDetails = state !== "delayed" && state !== "processing";
+  const showDetails = state === "locked" && block.remainingRequirementCount > 0;
   const Container = compact ? "article" : Card;
   return <Container data-testid={testId} className={compact ? "sufficiency-evidence-row" : undefined} aria-label={t(featureLabelKey(block))}>
     <Text as="p" variant="eyebrow">{t(featureLabelKey(block))}</Text>
     <Text data-testid={`${testId}-state`} as="p" variant="bodyMedium" style={{ marginTop: "var(--space-1)" }}>
       {headline(t, block, state)}
     </Text>
-    <Text data-testid={`${testId}-remaining`} as="p" variant="caption" tone="tertiary">
+    {showDetails && <Text data-testid={`${testId}-remaining`} as="p" variant="caption" tone="tertiary">
       {t("sufficiency.remaining", { n: block.remainingRequirementCount })}
-    </Text>
+    </Text>}
     {!hideTiming && <Text as="p" variant="caption" tone="tertiary">{t("sufficiency.asOf", { date: new Date(set.asOf).toLocaleDateString() })}
       {set.nextUpdateAt != null && ` · ${t("sufficiency.nextUpdate", { date: new Date(set.nextUpdateAt).toLocaleDateString() })}`}
     </Text>}
@@ -120,7 +122,7 @@ export function SufficiencyInline({ set, block, testId }: { set: SufficiencySet;
     {unmet && <Text data-testid={`${testId}-requirement`} as="span" variant="caption" tone="tertiary">
       {t(`sufficiency.req.${unmet.requirementId}.not_met`, { target: unmet.target?.value, current: unmet.current?.value })}
     </Text>}
-    <Text data-testid={`${testId}-remaining`} as="span" variant="caption" tone="tertiary">{t("sufficiency.remaining", { n: block.remainingRequirementCount })}</Text>
+    {state === "low_evidence" && block.remainingRequirementCount > 0 && <Text data-testid={`${testId}-remaining`} as="span" variant="caption" tone="tertiary">{t("sufficiency.remaining", { n: block.remainingRequirementCount })}</Text>}
     {state === "low_evidence" && <ActionLine block={block} testId={testId} />}
   </div>;
 }
@@ -156,7 +158,7 @@ export function SufficiencyInputMap() {
 }
 
 /** 서로 다른 owner의 요건을 합산하지 않고 기능별로 펼친다. */
-export function SufficiencyGroup({ set, sets, testId, inline = false }: { set?: SufficiencySet; sets?: SufficiencySet[]; testId: string; inline?: boolean }) {
+export function SufficiencyGroup({ set, sets, testId, inline = false, collapsible = false }: { set?: SufficiencySet; sets?: SufficiencySet[]; testId: string; inline?: boolean; collapsible?: boolean }) {
   const { t } = useTranslation("fitness");
   const rows = (sets ?? (set ? [set] : [])).flatMap(owner => owner.blocks
     .filter(block => needsSufficiencyCard(owner, block)).map(block => ({ owner, block })));
@@ -173,10 +175,14 @@ export function SufficiencyGroup({ set, sets, testId, inline = false }: { set?: 
   const representative = rows.filter(({ block }) => block.nextAction != null).sort((a, b) =>
     (actionFeatures[b.block.nextAction!.code]?.length ?? 0) - (actionFeatures[a.block.nextAction!.code]?.length ?? 0))[0];
   const commonTiming = rows.every(({ owner }) => owner.asOf === rows[0]!.owner.asOf && owner.nextUpdateAt === rows[0]!.owner.nextUpdateAt);
+  const allLocked = rows.every(({ owner, block }) => displayedSufficiencyState(owner, block, Date.now()) === "locked" && block.remainingRequirementCount > 0);
+  if (collapsible) return <div data-testid={testId}><DetailsSection title={t("sufficiency.groupEvidence", { n: blocks.length })}>
+    {rows.map(({ owner, block }) => <SufficiencyCard compact key={`${block.discipline}-${block.featureId}-${block.viewId}`} set={owner} block={block} testId={`${testId}-${block.featureId}-${block.viewId}`} />)}
+  </DetailsSection></div>;
   return <Card data-testid={testId} padding="card">
-    <Text as="p" variant="bodyMedium">{t(inline ? "sufficiency.groupEvidence" : "sufficiency.group", { n: blocks.length })}</Text>
-    {!inline && <ul>{blocks.map(block => <li key={`${block.discipline}-${block.featureId}-${block.viewId}`}>
-      {t(featureLabelKey(block))} · {t("sufficiency.remaining", { n: block.remainingRequirementCount })}
+    <Text as="p" variant="bodyMedium">{t(inline || !allLocked ? "sufficiency.groupEvidence" : "sufficiency.group", { n: blocks.length })}</Text>
+    {!inline && <ul>{rows.map(({ owner, block }) => <li key={`${block.discipline}-${block.featureId}-${block.viewId}`}>
+      {t(featureLabelKey(block))} · {headline(t, block, displayedSufficiencyState(owner, block, Date.now()))}
     </li>)}</ul>}
     {!inline && representative && displayedSufficiencyState(representative.owner, representative.block, Date.now()) === "locked" && <ActionLine block={representative.block} testId={testId} />}
     {inline ? <div data-testid={`${testId}-inline`} className="condition-sufficiency-evidence">{rows.map(({ owner, block }) => <SufficiencyCard compact hideTiming={commonTiming} key={`${block.discipline}-${block.featureId}-${block.viewId}`} set={owner} block={block} testId={`${testId}-${block.featureId}-${block.viewId}`} />)}</div> : <details data-testid={`${testId}-expand`}><summary>{t("sufficiency.expand")}</summary>

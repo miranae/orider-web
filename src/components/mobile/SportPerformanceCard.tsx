@@ -24,11 +24,13 @@ function formatPace(seconds: number) {
 
 export default function SportPerformanceCard({
   discipline,
+  compact = false,
   cycling,
   run,
   swim,
 }: {
   discipline: Discipline;
+  compact?: boolean;
   cycling: CyclingAbilityResult | null;
   run: RunEvidence;
   swim: SwimEvidence;
@@ -48,7 +50,7 @@ export default function SportPerformanceCard({
     }
   }
   if (discipline === "tri") return null;
-  if (discipline === "bike") return <div data-testid="K5-1m"><CyclingAbilityCard cycling={cycling} /></div>;
+  if (discipline === "bike") return <div data-testid="K5-1m"><CyclingAbilityCard compact={compact} cycling={cycling} /></div>;
 
   return (
     <section data-testid="K5-1m" aria-label={t(discipline === "run" ? "mobileFitness.sport.run.cardAria" : "mobileFitness.sport.cardAria")} style={{ background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-4)" }}>

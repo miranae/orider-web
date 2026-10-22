@@ -1,3 +1,4 @@
+import { useMainScrollPosition } from "../hooks/useMainScrollPosition";
 import { Suspense, useState, useEffect, useRef } from "react";
 import GlossaryProvider from "./common/GlossaryProvider";
 import "../pages/coach/CoachSurface.css";
@@ -102,6 +103,7 @@ export default function Layout() {
   const path = stripLangPrefix(location.pathname);
   const activeNav = resolveDetailHub(path, location.state);
   const mainRef = useRef<HTMLElement>(null);
+  useMainScrollPosition(mainRef);
   const [friendRequestCount, setFriendRequestCount] = useState(0);
 
   // 온보딩 리다이렉트: step이 설정됐지만 "done"이 아닌 신규 유저
@@ -120,11 +122,6 @@ export default function Layout() {
       navigate(buildOnboardingRedirectTarget(location.pathname, location.search, location.hash), { replace: true });
     }
   }, [profile?.onboardingStep, path, navigate, location.pathname, location.search, location.hash]);
-
-  // 경로 변경 시 main에 포커스 (스크린리더 접근성)
-  useEffect(() => {
-    mainRef.current?.focus();
-  }, [location.pathname]);
 
   // Map 컴포넌트는 내부적으로 ResizeObserver를 사용하여 자동 리사이즈됨
 
@@ -247,7 +244,7 @@ export default function Layout() {
 
       {/* 대시보드: 데스크톱/모바일 모두 페이지 전체 스크롤 (워크아웃·KPI 포함) */}
       {path === "/" && (
-        <main ref={mainRef} tabIndex={-1} className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
+        <main ref={mainRef} tabIndex={-1} className="site-main flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
           <div className="site-shell md:px-6 md:py-6" data-page-shell="home">
             <Suspense fallback={<DashboardShell />}>
               <DashboardPage />
@@ -258,8 +255,8 @@ export default function Layout() {
 
       {/* 다른 페이지: main 영역 내부 스크롤 */}
       {path !== "/" && (
-        <main ref={mainRef} tabIndex={-1} className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
-          <div className={`site-shell px-4 md:px-6 py-6 animate-page-in${path.startsWith("/coach/") ? " coach-surface" : ""}`} data-page-shell="content">
+        <main ref={mainRef} tabIndex={-1} className="site-main flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
+          <div className={`site-shell site-shell--padded py-6 animate-page-in${path.startsWith("/coach/") ? " coach-surface" : ""}`} data-page-shell="content">
             {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} />}
             <Suspense fallback={<div style={{ height: 200 }} />}>
               {path === "/explore/segments" && <ExplorePage />}
@@ -275,7 +272,7 @@ export default function Layout() {
         className="hidden lg:block flex-shrink-0 border-t"
         style={{ borderColor: 'var(--line)', background: 'var(--bg-1)' }}
       >
-        <div className="site-shell px-4 md:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
+        <div className="site-shell site-shell--padded py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)' }}>
           <span className="flex items-center gap-2">&copy; 2026 Orider <span className="inline-block px-1.5 py-0.5 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] font-medium" style={{ background: 'var(--amber)', color: 'var(--bg-0)', opacity: 0.85 }}>Beta</span><span className="flex items-center gap-1" style={{ color: 'var(--ink-3)' }}><svg className="w-3 h-3 text-[#FC4C02]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" /></svg>Powered by Strava</span></span>
           <div data-testid={path === "/" ? "H-F-1" : undefined}><FooterNavigation /></div>
         </div>

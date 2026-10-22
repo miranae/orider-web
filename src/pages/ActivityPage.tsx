@@ -1,3 +1,4 @@
+import { useMobile } from "../hooks/useMobile";
 import { ChevronDown, Menu, Trophy } from "lucide-react";
 import SportIcon from "../components/common/SportIcon";
 import { getRuntimeConfig } from "../services/runtimeConfig";
@@ -181,6 +182,7 @@ export default function ActivityPage() {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
   const activityNavigationRef = useRef<HTMLDivElement>(null);
+  const mobileReading = useMobile();
   const [wideStats, setWideStats] = useState(false);
   const [secondaryStatsOpen, setSecondaryStatsOpen] = useState(false);
   useEffect(() => {
@@ -1015,6 +1017,18 @@ export default function ActivityPage() {
       />
   );
 
+  const summarySection = (
+        <div className="activity-detail-summary" hidden={activeTab === "analysis"}>
+          <Card padding="none" className="activity-detail-primary-stats">{keyStatsStrip("primary")}</Card>
+          {secondaryStatsAvailable && <details className="activity-detail-secondary-stats" open={wideStats || secondaryStatsOpen} onToggle={(event) => {
+            if (!wideStats) setSecondaryStatsOpen(event.currentTarget.open);
+          }}>
+            <summary>{t("detail.additionalStats")}<ChevronDown size={ICON_SIZE.md} className="activity-detail-disclosure-chevron" aria-hidden="true" /></summary>
+            {keyStatsStrip("secondary")}
+          </details>}
+        </div>
+  );
+
   const overviewPhotos = [
     ...(photos.length ? photos.filter(photo => photo.url).map(photo => ({ ...photo, url: photo.url!, id: `strava-${photo.id}` }))
       : (publishedContent?.photos ?? []).map(photo => ({ ...photo, id: `strava-${photo.id}` }))),
@@ -1180,7 +1194,10 @@ export default function ActivityPage() {
           </ToggleButton>)}
         </ToggleControls>
       </div>
-      {activeTab === "overview" && <ActivityOverviewSocial key={`${activity.id}:${user?.uid ?? "guest"}:${sourceRevision}`} activityId={activity.id}
+      {mobileReading && activeTab === "overview" && <section className="activity-mobile-records" aria-label={t("detail.keyRecords")}>
+        <Text as="h2" variant="subtitle">{t("detail.keyRecords")}</Text>{summarySection}
+      </section>}
+      {activeTab === "overview" && <ActivityOverviewSocial key={`${activity.id}:${user?.uid ?? "guest"}:${sourceRevision}`} activityId={activity.id} prioritizeResults={mobileReading}
         memo={overviewMemo} memoMono={resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
         photosKnown={!!streams || !!publishedContent || typeof activity.photoCount === "number"} memoTruncated={publishedContent?.memoTruncated} photos={overviewPhotos}
         totalPhotos={Math.max(photos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0) + uploadedPhotos.length}
@@ -1277,15 +1294,7 @@ export default function ActivityPage() {
 
       </div>}
 
-        <div className="activity-detail-summary" hidden={activeTab === "analysis"}>
-          <Card padding="none" className="activity-detail-primary-stats">{keyStatsStrip("primary")}</Card>
-          {secondaryStatsAvailable && <details className="activity-detail-secondary-stats" open={wideStats || secondaryStatsOpen} onToggle={(event) => {
-            if (!wideStats) setSecondaryStatsOpen(event.currentTarget.open);
-          }}>
-            <summary>{t("detail.additionalStats")}<ChevronDown size={ICON_SIZE.md} className="activity-detail-disclosure-chevron" aria-hidden="true" /></summary>
-            {keyStatsStrip("secondary")}
-          </details>}
-        </div>
+        {!mobileReading || activeTab !== "overview" ? summarySection : null}
 
       </div>
       <div id="activity-tab-panel" role="tabpanel" aria-labelledby={`activity-tab-${activeTab}`} tabIndex={0} className="activity-detail-panel">

@@ -6,6 +6,7 @@ import AbilityScoreScale from "./AbilityScoreScale";
 
 type CyclingAbilityCardProps = {
   cycling: CyclingAbilityResult | null;
+  compact?: boolean;
   variant?: "mobile" | "desktop";
 };
 
@@ -23,9 +24,14 @@ function uniqueStrongestAxis(cycling: CyclingAbilityResult | null): CyclingAbili
   return strongest.length === 1 ? strongest[0]?.key ?? null : null;
 }
 
-function CyclingAbilityContent({ cycling }: Pick<CyclingAbilityCardProps, "cycling">) {
+function CyclingAbilityContent({ cycling, compact }: Pick<CyclingAbilityCardProps, "cycling" | "compact">) {
   const { t } = useTranslation("dashboard");
   const strongestAxis = uniqueStrongestAxis(cycling);
+  if (compact && !cycling?.axes.some(axis => axis.score != null || axis.evidence.some(item => item.watts != null || item.wPerKg != null))) return <>
+    <Text variant="eyebrow"><GlossaryText>{t("mobileFitness.sport.bike.title")}</GlossaryText></Text>
+    <Text as="p" variant="bodySmall" tone="secondary">{t("mobileFitness.sport.noMeasuredEvidence")}</Text>
+    <a href="/web-manual/ch06-advanced.html#s6-3" style={{ color: "var(--accent)" }}>{t("mobileFitness.sport.bike.manualLink")}</a>
+  </>;
   return (
     <>
       <Text variant="eyebrow"><GlossaryText>{t("mobileFitness.sport.bike.title")}</GlossaryText></Text>
@@ -80,18 +86,18 @@ function CyclingAbilityContent({ cycling }: Pick<CyclingAbilityCardProps, "cycli
   );
 }
 
-export default function CyclingAbilityCard({ cycling, variant = "mobile" }: CyclingAbilityCardProps) {
+export default function CyclingAbilityCard({ cycling, compact = false, variant = "mobile" }: CyclingAbilityCardProps) {
   const { t } = useTranslation("dashboard");
   if (variant === "desktop") {
     return (
       <Card data-testid="K5-1-1" padding="none" aria-label={t("mobileFitness.sport.cardAria")} style={{ marginTop: "var(--space-4)", padding: "var(--space-4) var(--space-6)" }}>
-        <CyclingAbilityContent cycling={cycling} />
+        <CyclingAbilityContent cycling={cycling} compact={compact} />
       </Card>
     );
   }
   return (
     <section data-testid="K5-1-1" aria-label={t("mobileFitness.sport.cardAria")} style={{ background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)", borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-4)" }}>
-      <CyclingAbilityContent cycling={cycling} />
+      <CyclingAbilityContent cycling={cycling} compact={compact} />
     </section>
   );
 }

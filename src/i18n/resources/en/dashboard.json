@@ -732,7 +732,7 @@
   "todayStrip": {
     "goalCountdownTitle": "Days to your goal",
     "goalCountdownLabel": "Goal date explanation",
-    "goalCountdownHelp": "D−N counts days until the goal date; D+N counts days since it. The date difference is rounded up to whole days.",
+    "goalCountdownHelp": "D−N counts days until the goal, D+N days since it, and D-DAY is the goal day. Uses KST calendar dates, like the plan.",
     "weekTitle": "My last 7 days · {{sport}}",
     "findEvents": "Find events →",
     "goalLink": "View goal →",
@@ -771,5 +771,13 @@
   },
   "charts.weeklyChart.weekTitle": "Weekly activity",
   "charts.weeklyChart.previousWeek": "Previous week",
-  "charts.weeklyChart.nextWeek": "Next week"
+  "charts.weeklyChart.nextWeek": "Next week",
+  "mobileFitness.modelDetails": "Model estimates and evidence",
+  "mobileFitness.periodScope": "Analysis window. This month’s activity and the recent 28-day curve use separate periods.",
+  "mobileFitness.conditionLink": "View current condition",
+  "mobileFitness.performance.missingMetrics": "Insufficient estimation evidence: {{metrics}}",
+  "mobileFitness.powerChanges": "Power changes · compare two periods",
+  "mobileFitness.analysisDestination": "Performance and record comparisons in Analysis",
+  "mobileFitness.weeklyUnknown": "Weekly comparison needs more daily-load evidence.",
+  "mobileFitness.runRecordSources": "Distance records, sources and milestones"
 }

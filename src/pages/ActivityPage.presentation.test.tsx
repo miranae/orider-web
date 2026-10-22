@@ -391,3 +391,19 @@ it("does not offer route creation or app transfer for another rider's nonpublic 
   expect(screen.queryByRole("button", { name: "코스 등록" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "이 경로로 라이드" })).not.toBeInTheDocument();
 });
+
+it("places one primary record summary before the mobile story while retaining map and memo access", async () => {
+  const media = vi.spyOn(window, "matchMedia").mockImplementation(query => ({
+    matches: query.includes("max-width"), media: query, onchange: null,
+    addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn(),
+  }));
+  try {
+    setDocData("activities/test-activity", createMockActivity({ id: "test-activity", userId: "test-uid", memo: "기록 설명 보존" }) as unknown as Record<string, unknown>);
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    const stats = await screen.findByTestId("activity-stats-primary");
+    const story = await screen.findByRole("region", { name: "활동 이야기" });
+    expect(screen.getAllByTestId("activity-stats-primary")).toHaveLength(1);
+    expect(stats.compareDocumentPosition(story) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("D1-1")).toBeInTheDocument();
+  } finally { media.mockRestore(); }
+});

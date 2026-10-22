@@ -18,6 +18,7 @@ interface Props {
   loadingPhotos: boolean; photoError?: string | null; canLoadPhotos: boolean;
   onSignIn?: () => void; onLoadPhotos: () => void; onUpload: () => void; onDelete: (id: string) => void; onLocate: (location: [number, number]) => void;
   onShowResults: () => void;
+  prioritizeResults?: boolean;
 }
 const safeImage = (url: string) => { try { const value = new URL(url); return value.protocol === "https:" && !value.username && !value.password; } catch { return false; } };
 
@@ -45,7 +46,14 @@ export default function ActivityOverviewSocial(props: Props) {
   }, [memo, expanded]);
   useEffect(() => { setExpanded(false); setSelected(null); }, [activityId]);
   const load = () => { if (props.canLoadPhotos && !props.loadingPhotos) props.onLoadPhotos(); };
+  const results = (achievements.length > 0 && <div className="activity-overview-results">
+      <section className="activity-overview-achievements" aria-label={t("page.topResults")}>
+        <div className="activity-overview-section-heading"><Text as="h2" variant="bodyMedium" weight={600}>{t("page.topResults")}</Text>{achievements.length > 0 && <Button variant="ghost" size="sm" onClick={props.onShowResults}>{t("overviewSocial.allResults")}</Button>}</div>
+        {<ul>{achievements.slice(0, 3).map(result => <li key={result.id}><span className="activity-overview-result-badge">{result.badge}</span><div><Link to={segmentHistoryPath(result.segmentId, result.effortId, activityId)}>{result.name}</Link><Text as="p" variant="caption" tone="secondary">{result.time}</Text></div></li>)}</ul>}
+      </section>
+    </div>);
   return <section className="activity-overview-social" data-has-results={achievements.length > 0} aria-label={t("overviewSocial.title")}>
+    {props.prioritizeResults && results}
     <div className="activity-overview-story">
       {memo?.trim() ? <div className="activity-overview-memo">
         <Text as="p" variant="body" ref={memoRef} mono={props.memoMono} className={expanded ? undefined : "activity-overview-memo--collapsed"}>{memo}</Text>
@@ -72,12 +80,7 @@ export default function ActivityOverviewSocial(props: Props) {
         {<div className="activity-overview-companion-list">{companions.map(rider => <Link key={rider.id} to={`/activity/${rider.id}`} aria-label={rider.nickname}><Avatar size="sm" name={rider.nickname} imageUrl={rider.profileImage}  /><Text variant="caption">{rider.nickname}</Text></Link>)}</div>}
       </div>}
     </div>
-    {achievements.length > 0 && <div className="activity-overview-results">
-      <section className="activity-overview-achievements" aria-label={t("page.topResults")}>
-        <div className="activity-overview-section-heading"><Text as="h2" variant="bodyMedium" weight={600}>{t("page.topResults")}</Text>{achievements.length > 0 && <Button variant="ghost" size="sm" onClick={props.onShowResults}>{t("overviewSocial.allResults")}</Button>}</div>
-        {<ul>{achievements.slice(0, 3).map(result => <li key={result.id}><span className="activity-overview-result-badge">{result.badge}</span><div><Link to={segmentHistoryPath(result.segmentId, result.effortId, activityId)}>{result.name}</Link><Text as="p" variant="caption" tone="secondary">{result.time}</Text></div></li>)}</ul>}
-      </section>
-    </div>}
+    {!props.prioritizeResults && results}
     <MediaViewer open={!!photo} item={photo ? { id: photo.id, url: photo.url, alt: photo.caption ?? t("page.photoPreview"), caption: photo.caption } : undefined}
       label={t("page.photos")} position={`${index + 1} / ${total}`} onClose={() => setSelected(null)}
       labels={{ previous: t("overviewSocial.previousPhoto"), next: t("overviewSocial.nextPhoto"), zoomIn: t("overviewSocial.zoomIn"), zoomOut: t("overviewSocial.zoomOut"), close: t("overviewSocial.closeViewer") }}

@@ -732,7 +732,7 @@
   "todayStrip": {
     "goalCountdownTitle": "목표일까지 남은 날",
     "goalCountdownLabel": "목표 날짜 설명",
-    "goalCountdownHelp": "D−N은 목표일까지 남은 날짜 수, D+N은 목표일로부터 지난 날짜 수입니다. 목표 날짜와 현재 시각의 차이를 일 단위로 올림해 표시합니다.",
+    "goalCountdownHelp": "D−N은 목표일까지 남은 날, D+N은 지난 날, D-DAY는 목표 당일입니다. 계획과 같은 한국 시간(KST) 달력 날짜 기준입니다.",
     "weekTitle": "내 최근 7일 · {{sport}}",
     "findEvents": "일정 찾기 →",
     "goalLink": "목표 보기 →",
@@ -771,5 +771,13 @@
   },
   "charts.weeklyChart.weekTitle": "주별 활동 기록",
   "charts.weeklyChart.previousWeek": "이전 주",
-  "charts.weeklyChart.nextWeek": "다음 주"
+  "charts.weeklyChart.nextWeek": "다음 주",
+  "mobileFitness.modelDetails": "추정 지표와 산출 근거",
+  "mobileFitness.periodScope": "분석 조회 기간입니다. 이번 달 활동과 최근 28일 커브는 별도 기준입니다.",
+  "mobileFitness.conditionLink": "현재 컨디션 확인",
+  "mobileFitness.performance.missingMetrics": "추정 근거 부족: {{metrics}}",
+  "mobileFitness.powerChanges": "파워 변화 · 두 기간 비교",
+  "mobileFitness.analysisDestination": "수행 지표·기록 비교는 분석에서",
+  "mobileFitness.weeklyUnknown": "주별 비교에 필요한 일별 부하 근거가 부족해요.",
+  "mobileFitness.runRecordSources": "거리 기록·출처와 마일스톤"
 }

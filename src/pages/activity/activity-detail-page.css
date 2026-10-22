@@ -234,3 +234,5 @@
 .activity-detail-hero[data-analysis="true"] .activity-detail-route-frame[data-map-expanded="true"] .activity-detail-resizable-map { height: max(16rem, min(70dvh, 46rem)); }
 .activity-detail-summary[hidden] { display: none; }
 .activity-detail-chart-workspace { min-width: 0; }
+
+.activity-mobile-records { display: grid; gap: var(--space-3); margin-block: var(--space-4); min-width: 0; }

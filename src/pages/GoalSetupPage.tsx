@@ -565,7 +565,7 @@ function GoalWizard({ embedded = false }: { embedded?: boolean }) {
   const eyebrowLabel = t(`goals.eyebrowLabel.${discipline}`);
 
   return (
-    <div style={{ maxWidth: 1080, margin: "0 auto", padding: embedded ? "var(--space-4) 0 var(--space-6)" : "0 var(--space-6) var(--space-12)" }}>
+    <div style={{ maxWidth: 1080, margin: "0 auto", padding: embedded ? "var(--space-4) 0 var(--space-6)" : "0 0 var(--space-12)" }}>
       {/* 공통 헤더 */}
       <div style={{ marginBottom: 'var(--space-6)', paddingTop: 28 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)', marginBottom: "var(--space-1-5)", flexWrap: "wrap" }}>
