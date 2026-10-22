@@ -778,5 +778,5 @@
   "mobileFitness.performance.missingMetrics": "추정 근거 부족: {{metrics}}",
   "mobileFitness.powerChanges": "파워 변화 · 두 기간 비교",
   "mobileFitness.analysisDestination": "수행 지표·기록 비교는 분석에서",
-  "mobileFitness.weeklyUnknown": "최근 28일의 주간 부하를 아직 확인할 수 없어요."
+  "mobileFitness.weeklyUnknown": "주별 비교에 필요한 일별 부하 근거가 부족해요."
 }

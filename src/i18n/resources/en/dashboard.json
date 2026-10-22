@@ -778,5 +778,5 @@
   "mobileFitness.performance.missingMetrics": "Insufficient estimation evidence: {{metrics}}",
   "mobileFitness.powerChanges": "Power changes · compare two periods",
   "mobileFitness.analysisDestination": "Performance and record comparisons in Analysis",
-  "mobileFitness.weeklyUnknown": "Weekly load for the last 28 days is not yet available."
+  "mobileFitness.weeklyUnknown": "Weekly comparison needs more daily-load evidence."
 }
