@@ -247,7 +247,7 @@ export default function Layout() {
 
       {/* 대시보드: 데스크톱/모바일 모두 페이지 전체 스크롤 (워크아웃·KPI 포함) */}
       {path === "/" && (
-        <main ref={mainRef} tabIndex={-1} className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
+        <main ref={mainRef} tabIndex={-1} className="site-main flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
           <div className="site-shell md:px-6 md:py-6" data-page-shell="home">
             <Suspense fallback={<DashboardShell />}>
               <DashboardPage />
@@ -258,7 +258,7 @@ export default function Layout() {
 
       {/* 다른 페이지: main 영역 내부 스크롤 */}
       {path !== "/" && (
-        <main ref={mainRef} tabIndex={-1} className="flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
+        <main ref={mainRef} tabIndex={-1} className="site-main flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
           <div className={`site-shell site-shell--padded py-6 animate-page-in${path.startsWith("/coach/") ? " coach-surface" : ""}`} data-page-shell="content">
             {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} />}
             <Suspense fallback={<div style={{ height: 200 }} />}>

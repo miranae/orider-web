@@ -51,6 +51,11 @@
   :root { --site-shell-gutter: var(--space-6); }
 }
 
+/* 내부 스크롤바 유무와 관계없이 넓은 화면의 본문 중심을 헤더·푸터와 맞춘다. */
+@media (min-width: 64rem) {
+  .site-main { scrollbar-gutter: stable both-edges; }
+}
+
 code, kbd, pre, samp { font-family: var(--font-code); }
 
 body {
