@@ -1,4 +1,5 @@
 .route-tab-nav {
+  position: relative;
   display: flex;
   border-bottom: 1px solid var(--line-soft);
 }
@@ -13,15 +14,18 @@
   display: none;
 }
 
+/* 스크롤 화살표는 탭 위에 겹쳐 띄운다 — 숨겨져 있을 때 자리를 차지해 탭이 밀리지 않게 */
 .route-tab-nav__more {
+  position: absolute;
+  top: 0;
+  bottom: 3px;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 32px;
-  min-height: 44px;
+  width: 32px;
   border: 0;
-  border-left: 1px solid var(--line-soft);
-  background: var(--bg-0);
+  background: linear-gradient(to left, var(--bg-0) 60%, transparent);
   color: var(--ink-2);
   font-size: var(--fs-lg);
   cursor: pointer;
@@ -30,4 +34,12 @@
 .route-tab-nav__more:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+
+.route-tab-nav__more:first-child { left: 0; background: linear-gradient(to right, var(--bg-0) 60%, transparent); }
+.route-tab-nav__more:last-child { right: 0; }
+
+/* 모바일: 허브 하위탭은 사이트 헤더 바로 아래 화면 폭 전체에 붙인다(HIG 하위 탭 막대) */
+@media (max-width: 47.99rem) {
+  .hub-subnav { margin: calc(var(--space-6) * -1) calc(var(--space-4) * -1) var(--space-4); padding-inline: var(--space-2); }
 }

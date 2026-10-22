@@ -97,11 +97,14 @@
 .activity-detail-resizable-map { position: relative; height: 16rem; min-height: 12rem; }
 .activity-detail-route-frame[data-map-expanded="true"] .activity-detail-resizable-map { height: max(16rem, min(70dvh, 46rem)); }
 .activity-detail-route-map { height: 100%; }
-.activity-detail-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-2); padding: var(--space-4); }
+.activity-detail-header { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; padding: var(--space-4); }
+/* 메뉴(3선)는 오른쪽 위 모서리에 띄워 제목·날짜가 카드 폭을 다 쓰게 한다 — 이름 줄만 메뉴 폭만큼 비운다 */
+.activity-detail-header .activity-detail-header__menu { position: absolute; top: var(--space-2); right: var(--space-2); }
+.activity-detail-header__name-row { padding-inline-end: calc(var(--space-7) + var(--space-3)); }
 .activity-detail-header .ds-text--page-title { font-size: var(--fs-xl); font-weight: 700; letter-spacing: normal; }
 .activity-detail-summary { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 @media (min-width: 64rem) {
-  .activity-detail-header { grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-4); padding: var(--space-5); }
+  .activity-detail-header { padding: var(--space-5); }
   .activity-detail-secondary-stats > summary { display: none; }
   .activity-detail .activity-stats-secondary { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .activity-detail-resizable-map { height: 24rem; }

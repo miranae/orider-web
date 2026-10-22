@@ -11,6 +11,11 @@
   --ft-page-title-line-height: 1.35;
 }
 .course-catalog { min-height: 0; }
+/* HIG 가이드: 제목·부제는 왼쪽 열, "+ 새 코스"는 모바일에서도 같은 줄 오른쪽 — 부제만 왼쪽 열 안에서 줄바꿈 */
+.course-catalog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.course-catalog-head > :last-child { flex-shrink: 0; }
+/* 비로그인 CTA 는 문구가 길어 좁은 폭에서 아래 줄로 넘긴다 */
+.course-catalog-head:has(> [data-testid="E1-5-2"]) { flex-wrap: wrap; }
 .course-detail-surface h1,
 .course-create-surface h1,
 .course-edit-surface h1 { font-size: var(--fs-xl); line-height: 1.35; }

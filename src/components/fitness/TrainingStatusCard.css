@@ -13,3 +13,10 @@
 .fitness-current-status--story .fitness-current-status__advice { font-size: var(--fs-md); line-height: var(--lh-relaxed); }
 .fitness-state-labels .fitness-state-labels__item { font-size: var(--fs-xs); }
 .fitness-current-status--story .fitness-state-labels { margin-top: var(--space-2); }
+/* story(HIG 가이드): 라벨 한 줄 양끝 정렬 — 현재 구간만 ink-0 Bold, 나머지 ink-2. 좁은 폭(24rem 이하)은 위 2열 폴백 유지 */
+.fitness-current-status--story .fitness-state-labels__item { color: var(--ink-2); font-weight: 400; }
+.fitness-current-status--story .fitness-state-labels__item[data-current] { color: var(--ink-0); font-weight: 700; }
+@media (min-width: 24.0625rem) {
+  .fitness-current-status--story .fitness-state-labels { display: flex; justify-content: space-between; gap: var(--space-1); }
+  .fitness-current-status--story .fitness-state-labels__item { white-space: nowrap; text-align: start; }
+}

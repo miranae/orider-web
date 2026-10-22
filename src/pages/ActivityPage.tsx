@@ -999,7 +999,7 @@ export default function ActivityPage() {
   return (
     <div className="site-shell activity-detail">
       {/* 1. Header (제목) */}
-      <Card padding="none" className="activity-detail-header">
+      <Card className="activity-detail-header">
         <div className="activity-detail-identity">
           <Avatar
             name={activityNickname}
@@ -1008,7 +1008,7 @@ export default function ActivityPage() {
             userId={activity.userId}
           />
           <div className="flex-1 min-w-0">
-            <div className="flex items-center flex-wrap gap-2 mb-1">
+            <div className="activity-detail-header__name-row flex items-center flex-wrap gap-2 mb-1.5">
               <Link
                 to={`/athlete/${activity.userId}`}
                 className="font-semibold text-[length:var(--fs-sm)] hover:underline min-w-0 break-words"
@@ -1067,6 +1067,7 @@ export default function ActivityPage() {
           </div>
         </div>
         <IconButton
+          className="activity-detail-header__menu"
           aria-label={t("page.management.title")}
           title={t("page.management.title")}
           aria-haspopup="dialog"

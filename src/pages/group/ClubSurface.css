@@ -14,7 +14,9 @@
   gap: var(--space-3) var(--space-4);
   margin-bottom: var(--space-5);
 }
-.club-page-header { padding-bottom: var(--space-4); border-bottom: 1px solid var(--line-soft); }
+.club-page-header { padding-bottom: var(--space-1); row-gap: var(--space-5); }
+/* HIG 큰 제목 아래 부제는 한 칸 띄운다 */
+.club-page-header h1 + p { margin-top: var(--space-2); }
 .club-page-header > div:first-child,
 .club-subnav-header > div { min-width: 0; flex: 1 1 auto; }
 .club-page-header h1,

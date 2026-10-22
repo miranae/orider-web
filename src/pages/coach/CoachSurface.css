@@ -18,10 +18,10 @@
  .coach-page-header > div:has(> [role="tablist"]) { flex-basis: 100%; }
 }
 
-.coach-current-state { display: inline-flex; align-items: baseline; gap: var(--space-2); }
-.coach-current-state a { color: var(--ink-1); }
-/* kv(T1): 회복상태 TSB 값 20 Semibold */
-.coach-current-state strong { font-size: var(--fs-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
+/* HIG 가이드: "회복상태 TSB 26.3" 한 줄 전체가 20 Semibold ink-0 (라벨도 같은 굵기·크기) */
+.coach-current-state { display: inline-flex; align-items: baseline; gap: var(--space-2); font-size: var(--fs-lg); font-weight: 600; color: var(--ink-0); }
+.coach-current-state a { color: var(--ink-0); }
+.coach-current-state strong { font-size: inherit; font-weight: inherit; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 36rem) {
  .coach-surface .coach-page-header > div:has(> [role="tablist"]) { width: 100%; }
@@ -62,4 +62,10 @@
  display: inline-flex;
  align-items: center;
  gap: var(--space-2);
+}
+
+/* 모바일 HIG 간격 — 하위탭·제목·종목 전환·카드 사이를 20 으로 맞춘다(세그먼트 자체 위아래 16 + 4) */
+@media (max-width: 47.99rem) {
+  .coach-surface .fitness-reading { padding-top: var(--space-1) !important; }
+  .coach-surface .coach-page-header { row-gap: var(--space-1); }
 }

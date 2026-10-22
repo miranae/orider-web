@@ -22,7 +22,7 @@ export default function HubSubNav({ hubKey }: { hubKey: HubKey }) {
   // 모바일 설정 상세는 iOS 내비 막대(‹ 제목)가 위치를 알려 준다 — 하위탭까지 쌓이면 세 겹이 된다
   if (isMobile && /^(\/[a-z]{2})?\/settings\//.test(pathname)) return null;
   return (
-    <div style={{ marginBottom: "var(--space-4)" }}>
+    <div className="hub-subnav" style={{ marginBottom: "var(--space-4)" }}>
       <RouteTabNav
         revealActive
         tabs={hub.subs.map((s) => ({
