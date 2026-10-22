@@ -58,7 +58,7 @@ describe("LegacySettingsRedirect", () => {
     expect(resolveLegacySettingsTarget("?section=health_sources").pathname).toBe("/settings/connections");
     expect(resolveLegacySettingsTarget("?section=app").pathname).toBe("/settings/display");
     expect(resolveLegacySettingsTarget("?section=developer").pathname).toBe("/settings/developer");
-    expect(resolveLegacySettingsTarget("?section=training").pathname).toBe("/coach/condition");
+    expect(resolveLegacySettingsTarget("?section=training").pathname).toBe("/settings/training");
     expect(resolveLegacySettingsTarget("?section=device").pathname).toBe("/settings/device");
     expect(resolveLegacySettingsTarget("?section=connections").pathname).toBe("/settings/connections");
   });
@@ -67,7 +67,7 @@ describe("LegacySettingsRedirect", () => {
     expect(renderAt("/en/settings?section=equipment&profileId=p1&panel=data-pages#editor", "settings", <LegacySettingsRedirect />)).toBe("/en/settings/device?profileId=p1&panel=data-pages#editor");
   });
   it("운동 설정은 임계값 앵커를 우선하고 다른 쿼리를 보존한다", () => {
-    expect(renderAt("/ko/settings?section=training&sport=run", "settings", <LegacySettingsRedirect />)).toBe("/ko/coach/condition?sport=run#thresholds");
+    expect(renderAt("/ko/settings?section=training&sport=run", "settings", <LegacySettingsRedirect />)).toBe("/ko/settings/training?sport=run#thresholds");
     expect(renderAt("/en/settings/training?sport=bike#zones", "settings/training", <LegacyRedirect to="/coach/condition#thresholds" />)).toBe("/en/coach/condition?sport=bike#thresholds");
   });
   it("section 이 없거나 알 수 없으면 account", () => {

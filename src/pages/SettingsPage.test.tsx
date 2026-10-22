@@ -1,6 +1,7 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
+import { getCurrentUser } from "../__tests__/mocks/firebase";
 import SettingsPage from "./SettingsPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 
@@ -113,4 +114,16 @@ describe("SettingsPage", () => {
     await user.click(screen.getByText("연결 앱"));
     await waitFor(() => expect(screen.getByRole("button", { name: "연결" })).toBeInTheDocument());
   });
+});
+
+
+it("offers the existing training fields at their settings destination and keeps anonymous editing unavailable", async () => {
+  const view = renderWithProviders(<SettingsPage tab="training" />, { authenticated: true, route: "/ko/settings/training?sport=run#thresholds" });
+  expect(await screen.findByLabelText("FTP")).toBeVisible();
+  expect(document.getElementById("thresholds")).toBeVisible();
+  expect(screen.getByRole("link", { name: "기기 반영 상태 보기 →" })).toHaveAttribute("href", "/ko/settings/device");
+  Object.assign(getCurrentUser()!, { isAnonymous: true });
+  view.rerender(<SettingsPage tab="training" />);
+  expect(screen.getByText("로그인이 필요합니다.")).toBeInTheDocument();
+  expect(screen.queryByLabelText("FTP")).not.toBeInTheDocument();
 });

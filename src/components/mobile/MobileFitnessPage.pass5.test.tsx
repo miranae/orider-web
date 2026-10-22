@@ -73,3 +73,13 @@ it("keeps the stored summary separate from four weekly windows", () => {
   renderWithProviders(<MobileFitnessPage data={{ ...weeklyFixture, weeklyTSS: [0, 0, 0, 0], weeklyLoadStoredSummary: true }} part="condition" embedded />);
   expect(within(screen.getByTestId("K1-7-2")).queryByRole("list")).not.toBeInTheDocument();
 });
+
+
+it("summarizes wholly missing web weeks without a blank plot and retains confirmed zero", () => {
+  const view = renderWithProviders(<MobileFitnessPage data={{ ...weeklyFixture, weeklyTSS: [null, null, null, null], weeklyLoadPartial: true }} part="condition" />);
+  expect(screen.getByText("최근 28일의 주간 부하를 아직 확인할 수 없어요.")).toBeVisible();
+  expect(within(screen.getByTestId("K1-7-2")).queryByRole("list")).not.toBeInTheDocument();
+  view.rerender(<MobileFitnessPage data={{ ...weeklyFixture, weeklyTSS: [null, 0, null, null], weeklyLoadPartial: true }} part="condition" />);
+  expect(within(screen.getByTestId("K1-7-2")).getByRole("list")).toHaveTextContent("0");
+  expect(screen.queryByText("최근 28일의 주간 부하를 아직 확인할 수 없어요.")).not.toBeInTheDocument();
+});

@@ -473,9 +473,9 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             }}
             nativePowerActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))}
             triEvidenceSlot={part === "condition" && discipline === "tri" ? <TriFitnessView evidenceOnly condition range={range} selectedHistoryRange={historyRange} onRangeChange={changePageRange} breakdown={triFitnessBreakdown} timeline={triFitnessTimeline} combinedLoad={combinedLoad} loadFocus={integratedLoadFocus} /> : null}
-            powerCurveEvidenceSlot={part === "condition" && discipline === "bike" ? <BikePowerCurveEvidence current={currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} /> : null}
+            powerCurveEvidenceSlot={(part === "condition" || part === "analysis") && discipline === "bike" ? <BikePowerCurveEvidence current={currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} /> : null}
             runPaceCurve={runPaceCurve}
-            runningRecordsSlot={part === "condition" && discipline === "run" ? <><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} footer={qualifiedRunRecords(model.runEvidence).length === 0 && !needsRunAnalysisReadiness(model.runEvidence, !!model.mobilePageProps.data.threshold, model.mobilePageProps.data.zones.length > 0) ? <RunRecordsSummary evidence={model.runEvidence} sourceBoard /> : undefined} /><MilestonesGrid achieved={milestones} /></> : null}
+            runningRecordsSlot={(part === "condition" || part === "analysis") && discipline === "run" ? <><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} footer={qualifiedRunRecords(model.runEvidence).length === 0 && !needsRunAnalysisReadiness(model.runEvidence, !!model.mobilePageProps.data.threshold, model.mobilePageProps.data.zones.length > 0) ? <RunRecordsSummary evidence={model.runEvidence} sourceBoard /> : undefined} /><MilestonesGrid achieved={milestones} /></> : null}
             periodSlot={periodControls}
             analysisSummarySlot={analysisSummarySlot}
             conditionSupplementSlot={conditionSupplementSlot}
@@ -491,7 +491,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             data={{ ...model.mobilePageProps.data, ...(part === "condition" ? { pmcProjection: futureGoal ? model.mobilePageProps.data.pmcProjection : null } : {}), monthlyVo2maxTrend: vo2maxTrend, powerGaps, pdcSufficiency, loadSufficiency, activityWindowSufficiency }}
             runningRaceEstimatesOwnerUid={user.isAnonymous || (part !== "all" && getRuntimeConfig().appEnvironment !== "stage") ? undefined : user.uid}
             part={part}
-            ridingEvidenceSlot={part === "condition" && discipline === "bike" ? <FitnessPedalingEvidence activities={disciplineActivities} metricsMap={metricsMap} locale={i18n.language} /> : null}
+            ridingEvidenceSlot={(part === "condition" || part === "analysis") && discipline === "bike" ? <FitnessPedalingEvidence activities={disciplineActivities} metricsMap={metricsMap} locale={i18n.language} /> : null}
             powerCurvePeriodsOwnerUid={user.uid}
             powerCurvePeriodsEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true}
             embedded={embedded}

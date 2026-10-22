@@ -8,6 +8,7 @@ import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import MobileSettingsPage from "../components/mobile/MobileSettingsPage";
 import "../components/settings/settings.css";
 
+import { PaneThresholds } from "../components/settings/PaneThresholds";
 import { PaneAccount } from "../components/settings/PaneAccount";
 import { PaneEquipment } from "../components/settings/PaneEquipment";
 import { PaneConnections } from "../components/settings/PaneConnections";
@@ -21,9 +22,11 @@ import { Text } from "../theme/components";
 import { NAV_GROUPS, settingsTabPath, type SectionId } from "../components/settings/settingsNavigation";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
-function SettingsPanes({ section }: { section: SectionId }) {
+function SettingsPanes({ section, discipline }: { section: SectionId; discipline: "bike" | "run" | "swim" | "tri" }) {
+  const { t } = useTranslation("settings");
   return (
     <>
+      {section === "training" && <section id="thresholds"><PaneThresholds discipline={discipline} /><LocalizedLink to="/settings/device">{t("training.deviceStatus")}</LocalizedLink></section>}
       {section === "account" && <PaneAccount />}
       {section === "gear" && <PaneEquipment />}
       {section === "device" && <><PaneDevice /><PaneEquipment part="device" /></>}
@@ -46,11 +49,13 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
   const navigate = useLocalizedNavigate();
   const [searchParams] = useSearchParams();
   const location = useLocation();
+  const selectedSport = searchParams.get("sport");
+  const discipline = selectedSport === "run" || selectedSport === "swim" || selectedSport === "tri" ? selectedSport : "bike";
   if (tab === "gear" && searchParams.get("panel") === "data-pages") return <Navigate to={{ pathname: location.pathname.replace(/athlete\/me\/gear$/, "settings/device"), search: location.search, hash: location.hash }} replace />;
 
   if (!tab && !(isMobile && !searchParams.has("section"))) return <LegacySettingsRedirect />;
 
-  if (!user) {
+  if (!user || tab === "training" && user.isAnonymous) {
     return (
       <div data-testid={tab === "gear" ? "P4.guest" : "S.guest"} className="text-center py-12" style={{ color: "var(--ink-2)" }}>
         {t("loginRequired")}
@@ -80,7 +85,7 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
           </Text>
         </header>
         <main className="mobile-settings-detail" style={{ padding: "var(--space-4)" }}>
-          <SettingsPanes section={section} />
+          <SettingsPanes section={section} discipline={discipline} />
         </main>
       </div>
     );
@@ -128,7 +133,7 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
           <p>{current && t(current.hintKey)}</p>
         </div>
 
-        <SettingsPanes section={section} />
+        <SettingsPanes section={section} discipline={discipline} />
       </main>
     </div>
   );
