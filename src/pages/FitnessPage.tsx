@@ -262,7 +262,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                     {t(daysLeft < 0 ? "condition.goal.past" : "goal.eyebrow", { course: goalDisplayName })}
                   </Text>}
                   <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-0)", fontWeight: 500 }}>
-                    {eventDateStr}{daysLeft >= 0 && <> · D-<Text variant="mono" style={{ color: "var(--lime)" }}>{daysLeft}</Text></>}
+                    {eventDateStr}{daysLeft >= 0 && <> · D-<Text variant="num" style={{ color: "var(--lime)" }}>{daysLeft}</Text></>}
                     <span style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginLeft: "var(--space-2)" }}>
                       {activeGoal.goalType === 'climb'
                         ? `${activeGoal.target?.climbDurationMin ?? activeGoal.targetDurationMin ?? '—'} min${activeGoal.target?.targetWkg != null ? ` · ${activeGoal.target.targetWkg.toFixed(1)} W/kg` : ''}`
@@ -764,7 +764,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                   <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "stretch", gap: "var(--space-1)" }}>
                     <FitnessEvidenceTrend title={t("vo2maxCard.pdcLabel")} description={trendDescription} color="var(--aqua)"
                       points={vo2maxTrend.map(point => ({ key: point.period, label: point.period, value: point.v, unit: "ml/kg/min", detail: t("vo2maxCard.pdcSub") }))} />
-                    <Text as="div" variant="mono" className="text-[length:var(--fs-xs)]" style={{ color: delta >= 0 ? "var(--lime)" : "var(--rose)" }}>
+                    <Text as="div" variant="num" className="text-[length:var(--fs-xs)]" style={{ color: delta >= 0 ? "var(--lime)" : "var(--rose)" }}>
                       {delta >= 0 ? "+" : ""}{delta.toFixed(1)} · {t("vo2maxCard.trendSpan", { n: vo2maxTrend.length })}
                     </Text>
                   </div>
@@ -958,13 +958,13 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
                   {zones.map((zone) => (
                     <div key={zone.z} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-2)" }}>
                       <div style={{ width: 60 }}>
-                        <span style={{ color: zone.color, fontFamily: "var(--font-mono)", fontWeight: 600, fontSize: "var(--fs-xs)" }}>{zone.z}</span>
+                        <span style={{ color: zone.color, fontWeight: 600, fontSize: "var(--fs-xs)" }}>{zone.z}</span>
                         <span style={{ fontSize: "var(--fs-xs)" }}>{zone.name}</span>
                       </div>
                       <div style={{ flex: 1, height: 18, background: "var(--bg-2)", borderRadius: "var(--r-xs)", overflow: "hidden" }}>
                         <div style={{ width: zone.pct != null ? `${zone.pct}%` : "0%", height: "100%", background: zone.color }} />
                       </div>
-                      <div style={{ width: 40, textAlign: "right", fontSize: "var(--fs-sm)", fontFamily: "var(--font-mono)" }}>{zone.pct != null ? `${zone.pct}%` : "—"}</div>
+                      <div style={{ width: 40, textAlign: "right", fontSize: "var(--fs-sm)", fontVariantNumeric: "tabular-nums" }}>{zone.pct != null ? `${zone.pct}%` : "—"}</div>
                     </div>
                   ))}
                   {allNullPct && (

@@ -1,4 +1,5 @@
 import { useLocation } from "react-router-dom";
+import { useMobile } from "../hooks/useMobile";
 import { useTranslation } from "react-i18next";
 import { RouteTabNav } from "./TabNav";
 import { getHub, type HubKey } from "../config/navHubs";
@@ -13,12 +14,15 @@ import { getHub, type HubKey } from "../config/navHubs";
 export default function HubSubNav({ hubKey }: { hubKey: HubKey }) {
   const { t } = useTranslation("common");
   const hub = getHub(hubKey);
-  const { search } = useLocation();
+  const { search, pathname } = useLocation();
+  const isMobile = useMobile();
   const sport = new URLSearchParams(search).get("sport");
   const coachSearch = hubKey === "coach" && sport ? `?${new URLSearchParams({ sport })}` : "";
   if (hub.subs.length <= 1) return null;
+  // 모바일 설정 상세는 iOS 내비 막대(‹ 제목)가 위치를 알려 준다 — 하위탭까지 쌓이면 세 겹이 된다
+  if (isMobile && /^(\/[a-z]{2})?\/settings\//.test(pathname)) return null;
   return (
-    <div style={{ marginBottom: "var(--space-4)" }}>
+    <div className="hub-subnav" style={{ marginBottom: "var(--space-4)" }}>
       <RouteTabNav
         revealActive
         tabs={hub.subs.map((s) => ({

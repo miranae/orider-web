@@ -927,7 +927,6 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
                 fontSize: "var(--ft-body-size)",
                 color: "var(--lime)",
                 fontWeight: 600,
-                letterSpacing: "0.06em",
                 pointerEvents: "none",
               }}
             >

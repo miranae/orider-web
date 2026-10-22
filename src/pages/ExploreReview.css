@@ -1,10 +1,14 @@
 /* Scoped to the reviewed discovery and event editor surfaces. */
 :is(.explore-events-surface, .explore-challenges-surface, .explore-records-surface, .explore-editor-surface) {
-  --ft-page-title-size: var(--fs-xl);
-  --ft-page-title-line-height: 1.4;
   font-size: var(--ft-body-size);
 }
-:is(.explore-events-surface, .explore-challenges-surface, .explore-records-surface, .explore-editor-surface) h1 { font-size: var(--fs-xl) !important; line-height: 1.4; letter-spacing: normal !important; overflow-wrap: anywhere; }
+/* 작성·상세 화면은 콘텐츠 제목이라 22 유지 — 목록 허브(이벤트·챌린지·레시피)는 다른 허브와 같은 34 페이지 제목 */
+.explore-editor-surface {
+  --ft-page-title-size: var(--fs-xl);
+  --ft-page-title-line-height: 1.4;
+}
+.explore-editor-surface h1 { font-size: var(--fs-xl) !important; line-height: 1.4; letter-spacing: normal !important; overflow-wrap: anywhere; }
+:is(.explore-events-surface, .explore-challenges-surface, .explore-records-surface) h1 { overflow-wrap: anywhere; }
 :is(.explore-events-surface, .explore-challenges-surface, .explore-records-surface, .explore-editor-surface) h2 { font-size: var(--ft-title-size) !important; line-height: var(--ft-title-line-height); }
 :is(.explore-events-surface, .explore-challenges-surface, .explore-records-surface, .explore-editor-surface) h3 { font-size: var(--ft-subtitle-size) !important; }
 :is(.explore-events-surface, .explore-challenges-surface, .explore-records-surface, .explore-editor-surface) .ds-btn__label { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
@@ -16,7 +20,6 @@
 .challenge-create-details { flex: 1 1 100%; min-width: 0; }
 .challenge-create-details > summary, .creator-technical-summary > summary { cursor: pointer; font-size: var(--ft-body-size); color: var(--ink-2); }
 .challenge-create-fields { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2); margin-top: var(--space-3); }
-.challenge-create-fields .ds-input { height: var(--dim-button-height); }
 .challenge-create-fields > label { min-width: 0 !important; flex: 1 1 12rem; }
 .creator-technical-summary > div { margin-top: var(--space-3); }
 .explore-records-surface p { font-size: var(--ft-body-size); }

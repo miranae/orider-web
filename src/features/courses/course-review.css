@@ -3,12 +3,19 @@
 .course-detail-surface,
 .course-create-surface,
 .course-edit-surface {
-  --ft-page-title-size: var(--fs-xl);
-  --ft-page-title-line-height: 1.35;
   font-size: var(--ft-body-size);
 }
+/* 상세·작성 화면은 콘텐츠 제목이라 22 유지 — 목록(.course-catalog)은 다른 허브와 같은 34 페이지 제목 */
+:is(.course-detail-surface, .course-create-surface, .course-edit-surface) {
+  --ft-page-title-size: var(--fs-xl);
+  --ft-page-title-line-height: 1.35;
+}
 .course-catalog { min-height: 0; }
-.course-catalog h1,
+/* HIG 가이드: 제목·부제는 왼쪽 열, "+ 새 코스"는 모바일에서도 같은 줄 오른쪽 — 부제만 왼쪽 열 안에서 줄바꿈 */
+.course-catalog-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.course-catalog-head > :last-child { flex-shrink: 0; }
+/* 비로그인 CTA 는 문구가 길어 좁은 폭에서 아래 줄로 넘긴다 */
+.course-catalog-head:has(> [data-testid="E1-5-2"]) { flex-wrap: wrap; }
 .course-detail-surface h1,
 .course-create-surface h1,
 .course-edit-surface h1 { font-size: var(--fs-xl); line-height: 1.35; }
@@ -24,8 +31,7 @@
   flex-wrap: wrap;
   gap: var(--space-3);
   padding: var(--space-3);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-md);
   background: var(--bg-1);
 }
 .course-catalog-filters > div {
@@ -99,3 +105,9 @@
 
 .course-builder-coordinates .ds-field { flex: 1 1 10rem; min-width: 0; }
 .course-builder-coordinates .ds-field__hint { font-family: inherit; }
+
+/* HIG 펼침 행 — 44 높이·17·왼쪽 화살표(열리면 아래로). 기본 ▶ 표식은 숨긴다. */
+.course-popular > summary { display: flex; align-items: center; gap: var(--space-3); min-height: var(--dim-button-height); font-size: var(--fs-md); color: var(--ink-0); list-style: none; cursor: pointer; }
+.course-popular > summary::-webkit-details-marker { display: none; }
+.course-popular > summary::before { content: ""; flex-shrink: 0; width: var(--space-2); height: var(--space-2); border-right: 2px solid var(--ink-2); border-bottom: 2px solid var(--ink-2); transform: rotate(-45deg); transition: transform .15s; }
+.course-popular[open] > summary::before { transform: rotate(45deg); }

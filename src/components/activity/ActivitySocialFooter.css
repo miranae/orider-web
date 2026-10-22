@@ -1,6 +1,11 @@
 .activity-social-feed { border-top: var(--dim-divider-thickness) solid var(--line-soft); }
-.activity-social-feed-row { display: flex; align-items: center; gap: var(--space-4); min-height: calc(var(--space-8) + var(--space-4)); padding-block: var(--space-3); }
-.activity-social-feed-totals { display: flex; align-items: center; flex: 1; min-width: 0; gap: var(--space-2); color: var(--ink-2); font-size: var(--fs-xs); }
+.activity-social-feed-row { display: flex; align-items: center; gap: var(--space-1); min-height: calc(var(--space-8) + var(--space-4)); padding-block: var(--space-3); }
+/* 좋아요·댓글: 배경 없는 아이콘 버튼, 터치 영역 44, 버튼 사이 4. */
+.activity-social-feed-action { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); min-width: var(--dim-button-height); min-height: var(--dim-button-height); padding: 0 var(--space-2); border: 0; border-radius: var(--r-md); background: none; color: var(--ink-1); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; cursor: pointer; }
+.activity-social-feed-action[aria-pressed="true"], .activity-social-feed-action[aria-expanded="true"] { color: var(--accent-text); }
+.activity-social-feed-action:disabled { opacity: .5; cursor: default; }
+.activity-social-feed-action:focus-visible { outline: var(--space-0-5) solid var(--accent); outline-offset: calc(var(--space-0-5) * -1); }
+.activity-social-feed-totals { display: flex; align-items: center; flex: 1; min-width: 0; gap: var(--space-2); margin-right: var(--space-3); color: var(--ink-2); font-size: var(--fs-xs); }
 
 .activity-social-feed-comments { display: grid; gap: var(--space-4); padding: 0 var(--space-2) var(--space-4); }
 .activity-social-feed-comment { display: flex; align-items: flex-start; gap: var(--space-4); font-size: var(--fs-xs); line-height: calc(var(--space-4) + var(--space-0-5)); }

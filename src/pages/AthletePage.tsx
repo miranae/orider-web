@@ -667,7 +667,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           {photoURL ? <SafeImage src={photoURL} alt={nickname} fallbackLabel={nickname} className="athlete-identity__photo" referrerPolicy="no-referrer" /> : <Avatar name={nickname} size="lg" className="athlete-identity__photo athlete-identity__fallback" />}
         </div>
         <div>
-          <h1 data-testid="P0-0-1" className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">
+          <h1 data-testid="P0-0-1" className="athlete-identity__name">
             {nickname}
           </h1>
           {profileForPage?.bio && <Text as="p" variant="body" tone="secondary">{profileForPage.bio}</Text>}
@@ -818,7 +818,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         </aside>
         <div data-testid="P0-2" className="athlete-profile-main">
           <nav aria-label={t("profile.sections")}>
-            <TabNav tabs={(["overview", "activities", "photos", "achievements", "segments"] as const).map(id => ({ id, label: t(`profile.tabs.${id}`) }))} activeTab={profileTab} onChange={id => setProfileTab(id as typeof profileTab)} />
+            <TabNav appearance="segmented" tabs={(["overview", "activities", "photos", "achievements", "segments"] as const).map(id => ({ id, label: t(`profile.tabs.${id}`) }))} activeTab={profileTab} onChange={id => setProfileTab(id as typeof profileTab)} />
           </nav>
           {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2><AthletePhotoGallery photos={recentPhotos} /></section>}
           {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2><p className="athlete-section-note">{t("profile.highlightsScope")}</p>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t("profile.noHighlights")}</p>}</section>}

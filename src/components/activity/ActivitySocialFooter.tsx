@@ -141,8 +141,9 @@ export default function ActivitySocialFooter({ activity, presentation = "default
           <span>{t("card.kudosShort")} {localKudos}</span>
         </div>}
         {/* 좋아요 토글 + 카운트 */}
-        {feed ? <Button variant="neutral" size="sm" onClick={handleToggleKudos} disabled={!user}
-          aria-label={t("card.kudosShort")} aria-pressed={liked} leadingIcon={<Heart size={ICON_SIZE.lg} fill={liked ? "currentColor" : "none"} />} /> :         <button
+        {/* HIG 피드 동작: 배경 없는 22 아이콘, 터치 44. */}
+        {feed ? <button type="button" className="activity-social-feed-action" onClick={handleToggleKudos} disabled={!user}
+          aria-label={t("card.kudosShort")} aria-pressed={liked}><Heart size={ICON_SIZE.lg} fill={liked ? "currentColor" : "none"} aria-hidden="true" /></button> :         <button
           type="button"
           onClick={handleToggleKudos}
           disabled={!user}
@@ -159,10 +160,11 @@ export default function ActivitySocialFooter({ activity, presentation = "default
         {!feed && <LikersAvatarStack likers={hydratedRecent} totalCount={localKudos} />}
 
         {/* 댓글 — 카드 안 입력칸 토글 */}
-        {feed ? <Button variant="neutral" size="sm" onClick={handleToggleComment}
-          aria-label={t("card.comment")} aria-expanded={showComment} leadingIcon={<MessageCircle size={ICON_SIZE.lg} />}>
-          {localComments > 0 ? localComments : null}
-        </Button> :         <button
+        {feed ? <button type="button" className="activity-social-feed-action" onClick={handleToggleComment}
+          aria-label={t("card.comment")} aria-expanded={showComment}>
+          <MessageCircle size={ICON_SIZE.lg} aria-hidden="true" />
+          {localComments > 0 && <span>{localComments}</span>}
+        </button> :         <button
           type="button"
           onClick={handleToggleComment}
           className={feed ? "flex items-center justify-center gap-1.5 transition-opacity" : "flex items-center justify-center gap-1.5 ml-auto transition-opacity"}

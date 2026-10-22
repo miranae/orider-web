@@ -129,7 +129,7 @@ export default function YearRecapPage() {
       {/* 헤더 + 연도 선택 */}
       <div data-testid="P2-0" className="recap-header">
         <div>
-          <Text as="h1" variant="title" weight={700}>
+          <Text as="h1" variant="pageTitle">
             {t("title")}
           </Text>
           <Text tone="tertiary" variant="bodySmall">

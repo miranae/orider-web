@@ -52,9 +52,10 @@
 .mobile-fitness-page__title {
   margin: 0;
   padding: var(--space-4) var(--space-4) var(--space-2);
-  font-size: var(--fs-2xl);
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: var(--ft-page-title-size);
+  font-weight: var(--ft-page-title-weight);
+  line-height: var(--ft-page-title-line-height);
+  letter-spacing: var(--ft-page-title-letter-spacing);
   color: var(--ink-0);
 }
 .mobile-fitness-current-metrics {
@@ -92,3 +93,12 @@
 .mobile-weekly-load__bar { width: 100%; border-radius: var(--r-xs); }
 .mobile-weekly-load__notes { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
 .mobile-weekly-load__notes > p { margin: 0; }
+
+/* 페이지 셸(px-4) 안에 놓일 때 자체 좌우 여백 16 과 겹쳐 32 가 되므로, 모바일에선 셸 여백을 상쇄해 다른 화면과 같은 16 거터로 맞춘다 */
+@media (max-width: 47.99rem) {
+  .site-shell > .fitness-reading > .mobile-fitness-page { margin-inline: calc(var(--space-4) * -1); }
+}
+@media (max-width: 47.99rem) {
+  .mobile-fitness-page__title { padding: var(--space-1) var(--space-4) 0; }
+  .mobile-fitness-toolbar { margin-top: var(--space-1); margin-bottom: var(--space-1); }
+}

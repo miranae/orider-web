@@ -44,7 +44,7 @@ export default function LapTable({ laps, onSelectLap, canSelectLap }: LapTablePr
     <div className="overflow-x-auto">
       <table className="w-full text-[length:var(--fs-sm)]">
         <thead>
-          <tr className="text-[length:var(--fs-xs)] uppercase tracking-wide" style={{ borderBottom: '1px solid var(--line-soft)', color: 'var(--ink-3)' }}>
+          <tr className="text-[length:var(--fs-xs)]" style={{ borderBottom: '1px solid var(--line-soft)', color: 'var(--ink-3)' }}>
             <th className="text-left py-2 px-2">{t("lapTable.header.lap")}</th>
             <th className="text-right py-2 px-2">{t("lapTable.header.distance")}</th>
             <th className="text-right py-2 px-2">{t("lapTable.header.time")}</th>

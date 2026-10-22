@@ -43,9 +43,13 @@
   margin-inline: auto;
 }
 
+code, kbd, pre, samp { font-family: var(--font-code); }
+
 body {
   margin: 0;
   font-family: var(--font-sans);
+  /* HIG: 수치는 시스템 서체 + 고정폭 숫자. --font-mono 는 시스템 서체를 가리키고, 코드·키는 --font-code */
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--bg-0);

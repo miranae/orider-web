@@ -1,4 +1,3 @@
 .recipe-share-actions .ds-btn { min-height: var(--dim-button-height); gap: var(--space-2); }
 @media (max-width: 480px) { .recipe-share-actions .ds-btn { flex: 1 1 100%; } }
 
-.recipe-share-card input.ds-input { min-height: var(--dim-button-height); }
