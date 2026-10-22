@@ -69,9 +69,9 @@ describe("ActivityPage server summary presentation", () => {
     mocks.model!.overview.response = null;
     renderWithProviders(<ActivityPage />, { authenticated: false });
     expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByTestId("activity-detail-memo").textContent).toBe("▰ 피크 파워 (W)\n 1s 10s\n938 767");
+    expect(within(screen.getByRole("region", { name: "활동 이야기" })).getByText(/▰ 피크 파워/).textContent).toBe("▰ 피크 파워 (W)\n 1s 10s\n938 767");
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
-    expect(screen.queryByTestId("activity-detail-memo")).not.toBeInTheDocument();
+    expect(screen.queryByText(/▰ 피크 파워/)).not.toBeInTheDocument();
   });
 
   it.each([12, null])("러닝 GAP 카드 평균도 요약 스트립의 정본 값 %s를 전달한다", avgSpeedKph => {
