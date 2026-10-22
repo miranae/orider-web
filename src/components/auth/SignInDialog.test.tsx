@@ -11,20 +11,20 @@ const showDialog = (onGoogle = vi.fn().mockResolvedValue(undefined)) => {
   return screen.getByRole("button", { name: "Google로 계속하기" });
 };
 
-describe("production sign-in choices", () => {
+describe("social sign-in choices", () => {
   beforeEach(() => {
     mocks.start.mockReset();
     resetRuntimeConfigForTests({ appEnvironment: "production" });
   });
   afterEach(() => { resetRuntimeConfigForTests({}); });
 
-  it("keeps Google as the only sign-in choice and starts its existing flow", () => {
+  it("shows all providers and starts the existing Google flow", () => {
     const google = vi.fn().mockResolvedValue(undefined);
     const button = showDialog(google);
     for (const name of ["네이버로 계속하기", "카카오로 계속하기", "Strava로 계속하기"]) {
-      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name })).toBeVisible();
     }
-    for (const id of ["A1-1-2", "A1-1-3", "A1-1-4"]) expect(screen.queryByTestId(id)).not.toBeInTheDocument();
+    for (const id of ["A1-1-2", "A1-1-3", "A1-1-4"]) expect(screen.getByTestId(id)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "이용약관" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "개인정보처리방침" })).toBeInTheDocument();
     fireEvent.click(button);
@@ -32,25 +32,44 @@ describe("production sign-in choices", () => {
     expect(mocks.start).not.toHaveBeenCalled();
   });
 
-  it.each([undefined, "production", "development", "test"])("keeps Strava hidden outside stage: %s", appEnvironment => {
+  it.each([undefined, "production", "stage", "development", "test"])("shows all providers regardless of runtime environment: %s", appEnvironment => {
     resetRuntimeConfigForTests({ appEnvironment });
     showDialog();
-    expect(screen.queryByRole("button", { name: "Strava로 계속하기" })).not.toBeInTheDocument();
-    expect(screen.queryByTestId("A1-1-4")).not.toBeInTheDocument();
+    for (const name of ["Google로 계속하기", "네이버로 계속하기", "카카오로 계속하기", "Strava로 계속하기"]) {
+      expect(screen.getByRole("button", { name })).toBeVisible();
+    }
   });
 
-  it("shows only Google and Strava in stage and starts the existing Strava login flow", () => {
-    resetRuntimeConfigForTests({ appEnvironment: "stage" });
+  it.each([
+    ["naver", "네이버로 계속하기"],
+    ["kakao", "카카오로 계속하기"],
+    ["strava", "Strava로 계속하기"],
+  ])("starts the existing %s login and prevents concurrent provider requests", (provider, name) => {
     mocks.start.mockImplementation(() => new Promise<void>(() => {}));
-    const google = showDialog();
-    const strava = screen.getByRole("button", { name: "Strava로 계속하기" });
-    expect(google).toBeVisible();
-    expect(strava).toBeVisible();
-    for (const id of ["A1-1-2", "A1-1-3"]) expect(screen.queryByTestId(id)).not.toBeInTheDocument();
-    fireEvent.click(strava);
-    expect(mocks.start).toHaveBeenCalledExactlyOnceWith("strava", "login");
-    expect(google).toBeDisabled();
-    expect(strava).toBeDisabled();
+    showDialog();
+    const button = screen.getByRole("button", { name });
+    fireEvent.click(button);
+    expect(mocks.start).toHaveBeenCalledExactlyOnceWith(provider, "login");
+    for (const id of ["A1-1-1", "A1-1-2", "A1-1-3", "A1-1-4"]) expect(screen.getByTestId(id)).toBeDisabled();
+    fireEvent.click(button);
+    fireEvent.click(screen.getByRole("button", { name: "Google로 계속하기" }));
+    expect(mocks.start).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["naver", "네이버로 계속하기"],
+    ["kakao", "카카오로 계속하기"],
+    ["strava", "Strava로 계속하기"],
+  ])("restores %s login after a failure and permits retry", async (provider, name) => {
+    mocks.start.mockRejectedValueOnce(new Error("unavailable")).mockImplementationOnce(() => new Promise<void>(() => {}));
+    showDialog();
+    const button = screen.getByRole("button", { name });
+    fireEvent.click(button);
+    expect(await screen.findByRole("alert")).toHaveTextContent("로그인에 실패했습니다");
+    for (const id of ["A1-1-1", "A1-1-2", "A1-1-3", "A1-1-4"]) expect(screen.getByTestId(id)).toBeEnabled();
+    fireEvent.click(button);
+    expect(mocks.start).toHaveBeenNthCalledWith(2, provider, "login");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("restores Google sign-in after a failure and permits retry", async () => {
@@ -78,6 +97,7 @@ describe("production sign-in choices", () => {
     const button = showDialog(google);
     fireEvent.click(button);
     expect(button).toBeDisabled();
+    for (const id of ["A1-1-2", "A1-1-3", "A1-1-4"]) expect(screen.getByTestId(id)).toBeDisabled();
     fireEvent.click(button);
     expect(google).toHaveBeenCalledOnce();
     finish();
