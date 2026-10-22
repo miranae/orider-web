@@ -470,7 +470,7 @@ export default function EventsPage() {
       {isMobile ? (
         <header className="event-mobile-heading">
           <div>
-            <h1>{t("title")}</h1>
+            <Text as="h1" variant="pageTitle">{t("title")}</Text>
             <p>{t("page.subtitleMobile")}</p>
           </div>
           {user && (
@@ -698,7 +698,7 @@ export default function EventsPage() {
         .explore-events-surface [data-testid="E3-4"] .mapboxgl-popup-close-button { width: var(--space-6); height: var(--space-6); padding: 0; display: grid; place-items: center; font: inherit; color: var(--ink-2); border-radius: var(--r-sm); }
         .event-calendar-agenda, .event-calendar-count { display: none; }
         .event-mobile-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding-block: var(--space-2); }
-        .event-mobile-heading h1 { margin: 0; color: var(--ink-0); font-size: var(--fs-2xl); line-height: 1.15; }
+        .event-mobile-heading h1 { margin: 0; }
         .event-mobile-heading p { margin: var(--space-1) 0 0; color: var(--ink-2); font-size: var(--fs-xs); }
         .event-mobile-heading a { flex-shrink: 0; }
         .event-filter-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding-top: var(--space-1); }

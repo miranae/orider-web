@@ -100,7 +100,7 @@ export default function SegmentEffortsCard<E extends SegmentEffortData>({
       <div className="overflow-x-auto activity-detail-segment-table" tabIndex={0} role="region" aria-label={t("segments.title")}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-xs)" }}>
           <thead>
-            <tr style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: "var(--fs-2xs)", letterSpacing: "0.08em" }}>
+            <tr style={{ color: "var(--ink-2)", fontSize: "var(--fs-xs)" }}>
               <th scope="col" style={{ textAlign: "left", padding: "10px 18px", fontWeight: 500 }}>{t("segments.header.name")}</th>
               <th scope="col" style={{ textAlign: "right", padding: "10px 10px", fontWeight: 500 }}>{t("segments.header.time")}</th>
               <th scope="col" style={{ textAlign: "right", padding: "10px 10px", fontWeight: 500 }}>{t("segments.header.distance")}</th>

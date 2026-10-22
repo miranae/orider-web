@@ -468,7 +468,7 @@ export default function EventCreatePage() {
         <Card padding="none" style={{ padding: 'var(--space-5)', textAlign: "left", marginBottom: 'var(--space-5)' }}>
           <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: "var(--ft-body-size)" }}>
             <span style={{ color: "var(--ink-3)" }}>{t("label.eventId")}</span>
-            <span style={{ color: "var(--ink-0)", fontFamily: "var(--font-mono)" }}>{createdEventId}</span>
+            <span style={{ color: "var(--ink-0)", fontFamily: "var(--font-code)" }}>{createdEventId}</span>
           </div>
           <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: "var(--ft-body-size)" }}>
             <span style={{ color: "var(--ink-3)" }}>{t("create.statusLabel")}</span>

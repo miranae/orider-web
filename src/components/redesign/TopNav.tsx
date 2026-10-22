@@ -204,9 +204,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
   return (
     <>
-      <nav data-testid="X1-1" className="gap-2 px-3 lg:gap-6 lg:px-5"
+      <nav data-testid="X1-1" className="top-nav gap-2 px-3 lg:gap-6 lg:px-5"
         style={{
-          height: 52,
           position: 'sticky',
           top: 0,
           zIndex: 50,
@@ -447,8 +446,9 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                 >
                   <span
                     aria-hidden="true"
+                    className="top-nav-avatar"
                     style={{
-                      width: 28, height: 28, borderRadius: '50%',
+                      borderRadius: '50%',
                       border: '1px solid var(--line)',
                       background: 'var(--bg-3)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',

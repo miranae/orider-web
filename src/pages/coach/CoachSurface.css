@@ -1,8 +1,5 @@
 /* 코치의 읽기 위계와 홈에서 확정한 대비·반응형 기준. */
 .coach-surface {
- --ft-page-title-size: var(--fs-xl);
- --ft-page-title-weight: 700;
- --ft-page-title-line-height: 1.35;
  min-width: 0; color: var(--ink-1);
 }
 .coach-surface .coach-page-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); margin-bottom: var(--space-5); }
@@ -21,8 +18,10 @@
  .coach-page-header > div:has(> [role="tablist"]) { flex-basis: 100%; }
 }
 
-.coach-current-state { display: inline-flex; align-items: baseline; gap: var(--space-2); }
-.coach-current-state a { color: var(--ink-1); }
+/* HIG 가이드: "회복상태 TSB 26.3" 한 줄 전체가 20 Semibold ink-0 (라벨도 같은 굵기·크기) */
+.coach-current-state { display: inline-flex; align-items: baseline; gap: var(--space-2); font-size: var(--fs-lg); font-weight: 600; color: var(--ink-0); }
+.coach-current-state a { color: var(--ink-0); }
+.coach-current-state strong { font-size: inherit; font-weight: inherit; font-variant-numeric: tabular-nums; }
 
 @media (max-width: 36rem) {
  .coach-surface .coach-page-header > div:has(> [role="tablist"]) { width: 100%; }
@@ -63,4 +62,10 @@
  display: inline-flex;
  align-items: center;
  gap: var(--space-2);
+}
+
+/* 모바일 HIG 간격 — 하위탭·제목·종목 전환·카드 사이를 20 으로 맞춘다(세그먼트 자체 위아래 16 + 4) */
+@media (max-width: 47.99rem) {
+  .coach-surface .fitness-reading { padding-top: var(--space-1) !important; }
+  .coach-surface .coach-page-header { row-gap: var(--space-1); }
 }

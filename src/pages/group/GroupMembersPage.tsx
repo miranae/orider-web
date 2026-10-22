@@ -719,7 +719,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
           <h2 className="text-[length:var(--ft-title-size)] font-semibold" style={{ color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{t("members.inviteLink")}</h2>
           {invite.status === "failed" ? <div className="club-invite-load-error mb-4" role="alert"><Text as="p" variant="body">{t("invite.linkLoadFailed")}</Text><Button variant="secondary" size="sm" onClick={()=>{ invite.retry(); setInvitationsAttempt(value=>value+1); }}>{t("invite.retry")}</Button></div> : invite.code ? <>
           <div className="flex items-center" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
-            <code style={{ padding: "var(--space-2) var(--space-3)", background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", fontFamily: "var(--font-mono)", color: "var(--lime)", flex: 1, minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" }}>
+            <code style={{ padding: "var(--space-2) var(--space-3)", background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", fontFamily: "var(--font-code)", color: "var(--lime)", flex: 1, minWidth: 0, overflowWrap: "anywhere", wordBreak: "break-word" }}>
               {invite.code ? buildGroupInviteUrl(invite.code, i18n.language) : ""}
             </code>
             <Button data-testid="C6-3-1"

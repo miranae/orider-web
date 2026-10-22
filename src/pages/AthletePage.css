@@ -1,8 +1,10 @@
 .athlete-identity { display: flex; align-items: flex-start; flex-wrap: wrap; gap: var(--space-4); }
 .athlete-identity > :nth-child(2) { flex: 1; min-width: 0; }
 .athlete-identity h1 { overflow-wrap: anywhere; }
+/* 이름 30 Bold (P2) */
+.athlete-identity__name { font-size: calc(var(--fs-2xl) + var(--space-0-5)); font-weight: 700; line-height: 1.2; color: var(--ink-0); }
 .athlete-identity__avatar { flex-shrink: 0; }
-.athlete-identity__photo { width: calc(var(--space-8) + var(--space-4)); height: calc(var(--space-8) + var(--space-4)); border-radius: 50%; object-fit: cover; }
+.athlete-identity__photo { width: calc(var(--space-8) + var(--space-6)); height: calc(var(--space-8) + var(--space-6)); border-radius: 50%; object-fit: cover; }
 .athlete-friend-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .athlete-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); }
 .athlete-stat { min-width: 0; }
@@ -34,9 +36,9 @@
 .athlete-cover a { min-width: 0; min-height: 0; }
 .athlete-cover img { width: 100%; height: 100%; object-fit: cover; }
 .athlete-profile-heading { display: grid; grid-template-columns: 2fr 3fr; gap: var(--space-8); padding: 0 var(--space-6) var(--space-6); border-bottom: 1px solid var(--line-soft); }
-.athlete-profile .athlete-identity { display: flex; flex-direction: column; flex-wrap: nowrap; gap: var(--space-3); margin-top: calc(var(--space-8) * -1.25); position: relative; }
-.athlete-profile .athlete-identity__photo { width: calc(var(--space-8) * 2 + var(--space-6)); height: calc(var(--space-8) * 2 + var(--space-6)); border: var(--space-1) solid var(--bg-1); }
-.athlete-profile .athlete-identity h1 { font-size: var(--fs-2xl); line-height: 1.2; }
+/* 프로필 사진 72 (P2) — 표지 위로 절반만 걸친다. */
+.athlete-profile .athlete-identity { display: flex; flex-direction: column; flex-wrap: nowrap; gap: var(--space-3); margin-top: calc(var(--space-6) * -1.5); position: relative; }
+.athlete-profile .athlete-identity__photo { width: calc(var(--space-8) + var(--space-6)); height: calc(var(--space-8) + var(--space-6)); border: var(--space-1) solid var(--bg-1); }
 .athlete-profile-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--space-8); padding: var(--space-6); align-items: start; }
 .athlete-profile-sidebar { grid-column: 2; grid-row: 1; display: grid; gap: var(--space-6); min-width: 0; }
 .athlete-profile-main { grid-column: 1; grid-row: 1; min-width: 0; display: grid; gap: var(--space-5); }
@@ -105,4 +107,19 @@
 .athlete-cover--6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .athlete-cover--6 > :nth-child(-n + 2) { grid-column: span 2; grid-row: span 2; }
 
-.athlete-profile .athlete-identity__fallback { font-size: var(--fs-4xl); color: var(--ink-1); }
+.athlete-profile .athlete-identity__fallback { font-size: var(--fs-2xl); color: var(--ink-1); }
+
+/* 모바일(P2 가이드): 표지+신원만 독립 카드(반경 10, bg-1, 안쪽 0 16 16, 테두리 없음).
+   최근 28일·차트·2단 탭은 카드 밖 페이지 배경에 둔다. */
+@media (max-width: 40rem) {
+  .athlete-profile { background: transparent; }
+  .athlete-profile .athlete-cover { border-radius: var(--r-md) var(--r-md) 0 0; }
+  .athlete-profile-heading { padding: 0; gap: var(--space-6); border-bottom: 0; }
+  /* 카드 흰 바탕이 표지를 덮지 않게 겹침은 사진에만 건다 (72의 절반). */
+  .athlete-profile .athlete-identity { margin-top: 0; padding: 0 var(--space-4) var(--space-4); background: var(--bg-1); border-radius: 0 0 var(--r-md) var(--r-md); }
+  .athlete-profile .athlete-identity__avatar { position: relative; margin-top: calc((var(--space-8) + var(--space-6)) / -2); }
+  .athlete-profile--no-cover .athlete-identity { margin-top: 0; }
+  .athlete-recent-summary { padding-top: 0; }
+  .athlete-recent-summary h2 { font-size: var(--fs-xl); font-weight: 700; color: var(--ink-0); }
+  .athlete-profile-layout { padding: var(--space-6) 0 0; gap: var(--space-6); }
+}

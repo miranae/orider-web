@@ -1,6 +1,6 @@
 /* Reviewed course controls only. Native range/file and chart targets keep their own interactions. */
 :is(.course-catalog, .course-detail-surface, .course-create-surface, .course-edit-surface) .ds-input:not(textarea):not([type="range"]):not([type="file"]),
-:is(.course-catalog, .course-detail-surface, .course-create-surface, .course-edit-surface) .ds-dropdown-select__trigger { height: var(--dim-button-height); min-height: var(--dim-button-height); box-sizing: border-box; }
+:is(.course-catalog, .course-detail-surface, .course-create-surface, .course-edit-surface) .ds-dropdown-select__trigger { box-sizing: border-box; }
 :is(.course-catalog, .course-detail-surface, .course-create-surface, .course-edit-surface) textarea.ds-input { min-height: calc(var(--dim-button-height) * 2); }
 :is(.course-catalog, .course-detail-surface, .course-create-surface, .course-edit-surface) .ds-btn { min-height: var(--dim-button-height); height: var(--dim-button-height); }
 .course-catalog-filters .ds-btn { min-width: var(--dim-button-height); }

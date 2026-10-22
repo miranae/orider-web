@@ -17,7 +17,7 @@ import { PaneApp } from "../components/settings/PaneApp";
 import { PaneDeveloper } from "../components/settings/PaneDeveloper";
 import { LocalizedLink } from "../components/LocalizedLink";
 import { LegacySettingsRedirect } from "../components/routing/LegacyRedirect";
-import { Text, buttonClass } from "../theme/components";
+import { Text } from "../theme/components";
 import { NAV_GROUPS, settingsTabPath, type SectionId } from "../components/settings/settingsNavigation";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
@@ -70,12 +70,12 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
         <header className="mobile-settings-header">
           <LocalizedLink
             to={section === "gear" ? "/athlete/me" : "/settings"}
-            className={buttonClass({ variant: "ghost", size: "md", iconOnly: true })}
+            className="mobile-settings-back"
             aria-label={t(section === "gear" ? "nav.backToProfile" : "nav.backToSettings")}
           >
-            <ChevronLeft aria-hidden="true" />
+            <ChevronLeft size={ICON_SIZE.lg} aria-hidden="true" />
           </LocalizedLink>
-          <Text as="h1" variant="subtitle" weight={700}>
+          <Text as="h1" variant="subtitle" className="mobile-settings-title">
             {section === "gear" ? t("nav.equipmentLabel") : current && t(current.labelKey)}
           </Text>
         </header>

@@ -43,22 +43,22 @@ export default function FitnessSummary({ current, weekAgo }: FitnessSummaryProps
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div className="rounded-[var(--r-lg)] p-4 border" style={{ background: "var(--bg-0)", borderColor: "var(--line-soft)" }}>
-        <div className="text-[length:var(--fs-xs)] uppercase tracking-wide" style={{ color: "var(--ink-2)" }}>{t("fitnessSummary.ctl")}</div>
+        <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>{t("fitnessSummary.ctl")}</div>
         <div className="mt-1 text-[length:var(--fs-2xl)] font-bold text-blue-600 tabular-nums">{current.ctl.toFixed(1)}</div>
         {ctlDelta.text && <div className={`text-[length:var(--fs-xs)] mt-0.5 ${ctlDelta.color}`}>{t("fitnessSummary.vsWeekAgo", { delta: ctlDelta.text })}</div>}
       </div>
       <div className="rounded-[var(--r-lg)] p-4 border" style={{ background: "var(--bg-0)", borderColor: "var(--line-soft)" }}>
-        <div className="text-[length:var(--fs-xs)] uppercase tracking-wide" style={{ color: "var(--ink-2)" }}>{t("fitnessSummary.atl")}</div>
+        <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>{t("fitnessSummary.atl")}</div>
         <div className="mt-1 text-[length:var(--fs-2xl)] font-bold text-red-500 tabular-nums">{current.atl.toFixed(1)}</div>
         {atlDelta.text && <div className={`text-[length:var(--fs-xs)] mt-0.5 ${atlDelta.color}`}>{t("fitnessSummary.vsWeekAgo", { delta: atlDelta.text })}</div>}
       </div>
       <div className="rounded-[var(--r-lg)] p-4 border" style={{ background: "var(--bg-0)", borderColor: "var(--line-soft)" }}>
-        <div className="text-[length:var(--fs-xs)] uppercase tracking-wide" style={{ color: "var(--ink-2)" }}>{t("fitnessSummary.tsb")}</div>
+        <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>{t("fitnessSummary.tsb")}</div>
         <div className="mt-1 text-[length:var(--fs-2xl)] font-bold text-emerald-600 tabular-nums">{current.tsb.toFixed(1)}</div>
         {tsbDelta.text && <div className={`text-[length:var(--fs-xs)] mt-0.5 ${tsbDelta.color}`}>{t("fitnessSummary.vsWeekAgo", { delta: tsbDelta.text })}</div>}
       </div>
       <div className={`rounded-[var(--r-lg)] p-4 border ${statusStyle.bgColor}`} style={{ borderColor: "var(--line-soft)" }}>
-        <div className="text-[length:var(--fs-xs)] uppercase tracking-wide" style={{ color: "var(--ink-2)" }}>{t("fitnessSummary.status")}</div>
+        <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-2)" }}>{t("fitnessSummary.status")}</div>
         <div className={`mt-1 text-[length:var(--fs-lg)] font-bold ${statusStyle.color}`}>{statusLabel}</div>
         <div className="text-[length:var(--fs-xs)] mt-1" style={{ color: "var(--ink-2)" }}>{t("fitnessSummary.tsbOptimal")}</div>
       </div>

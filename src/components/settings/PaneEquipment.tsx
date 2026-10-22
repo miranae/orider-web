@@ -432,9 +432,6 @@ function ProfileCard({
               fontSize: "var(--fs-xs)",
               color: "var(--ink-3)",
               padding: "6px 0",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              fontFamily: "var(--font-mono)",
             }}
           >
             {t("equipment.bikeSensors")} {profile.sensors.length > 0 ? `(${profile.sensors.length})` : ""}

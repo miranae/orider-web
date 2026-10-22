@@ -65,16 +65,16 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
       style={{
         padding: 'var(--space-4)',
         display: "grid",
-        gridTemplateColumns: "48px 1fr",
+        gridTemplateColumns: "calc(var(--space-8) + var(--space-2)) minmax(0, 1fr)",
         gap: "var(--space-3)",
         transition: "border-color 0.15s",
       }}
     >
-      {/* Badge */}
+      {/* 클럽 아이콘 56, 모서리 12 (K5) */}
       <div
         style={{
-          width: 48, height: 48, borderRadius: "var(--r-md)",
-          background: "var(--bg-2)", border: "1px solid var(--line-soft)",
+          width: "calc(var(--space-8) + var(--space-2))", height: "calc(var(--space-8) + var(--space-2))", borderRadius: "var(--r-lg)",
+          background: "var(--bg-2)",
           display: "grid", placeItems: "center",
           fontSize: "var(--fs-base)", fontWeight: 800, color: meta.color, letterSpacing: "-0.02em",
           flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", lineHeight: 1,
@@ -100,9 +100,10 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
             <Chip style={{ color: "var(--lime)", fontSize: "var(--ft-caption-size)", padding: "1px 6px", whiteSpace: "nowrap" }}>{t("card.leader")}</Chip>
           )}
         </div>
-        <div className="flex items-center flex-wrap text-[length:var(--ft-body-size)]" style={{ gap: 'var(--space-1)', color: "var(--ink-3)", marginBottom: "var(--space-1-5)" }}>
+        <div className="flex items-center flex-wrap text-[length:var(--fs-sm)]" style={{ gap: 'var(--space-1)', color: "var(--ink-2)", marginBottom: "var(--space-1-5)" }}>
           <span aria-hidden="true" style={{ display: "inline-flex", alignItems: "center", color: meta.color }}>{meta.icon}</span>
-          <span style={{ color: meta.color }}>{kindLabel ?? t(meta.labelKey)}</span>
+          {/* 종목 15 청록 (K5) */}
+          <span style={{ color: "var(--control-accent-text)" }}>{kindLabel ?? t(meta.labelKey)}</span>
           {group.city && (<><span aria-hidden="true">·</span><span>{group.city}</span></>)}
           {typeof group.memberCount === "number" && Number.isFinite(group.memberCount) && group.memberCount >= 0 && (<>
             <span aria-hidden="true">·</span>
@@ -110,7 +111,7 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
           </>)}
         </div>
         {group.description && !why && (
-          <p className="text-[length:var(--ft-body-size)] line-clamp-2" style={{ color: "var(--ink-2)", margin: 0 }}>{group.description}</p>
+          <p className="text-[length:var(--fs-sm)] line-clamp-2" style={{ color: "var(--ink-2)", margin: 0 }}>{group.description}</p>
         )}
         {why && (
           <p className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", margin: 0 }}>{why}</p>

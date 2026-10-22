@@ -1,0 +1,7 @@
+/* HIG 탭 막대: 높이 49(홈 인디케이터 안전 영역은 아래에 더함), 아이콘 25, 라벨 10 Medium. */
+.mobile-tab-bar-nav { display: flex; align-items: stretch; height: calc(var(--space-8) + var(--dim-divider-thickness)); }
+.mobile-tab-bar-item { display: flex; flex: 1; min-width: 0; flex-direction: column; align-items: center; justify-content: flex-start; gap: var(--space-0-5); padding-top: var(--space-1-5); min-height: var(--dim-button-height); border-radius: var(--r-md); color: var(--ink-4); text-decoration: none; }
+.mobile-tab-bar-item[aria-current="page"] { color: var(--lime); }
+/* 아이콘 토큰에 25 단계가 없어 탭 막대만 HIG 값(25)으로 키운다. */
+.mobile-tab-bar-item svg { width: 25px; height: 25px; }
+.mobile-tab-bar-label { font-size: 10px; font-weight: 500; line-height: 1.2; white-space: nowrap; }
