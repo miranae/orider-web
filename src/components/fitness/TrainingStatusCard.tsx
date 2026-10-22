@@ -170,7 +170,7 @@ export default function TrainingStatusCard({
             data-current={i === band.index || undefined}
             as="span"
             variant="caption"
-            style={{
+            style={presentation === "story" ? undefined : {
               color: i === band.index ? toneColor : "var(--ink-4)",
               fontWeight: i === band.index ? 700 : 400,
             }}

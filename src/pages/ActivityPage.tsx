@@ -1,4 +1,4 @@
-import { ArrowLeftRight, BarChart3, ChevronDown, Layers, Route, Menu, Trophy } from "lucide-react";
+import { ChevronDown, Menu, Trophy } from "lucide-react";
 import SportIcon from "../components/common/SportIcon";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from "react";
@@ -24,7 +24,7 @@ import AnalysisTab, { AnalysisLapTable } from "../components/AnalysisTab";
 import ActivityAnalysisBody from "../features/activity/detail/ActivityAnalysisBody";
 import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
 import ActivityOverviewSocial, { type OverviewAchievement } from "../features/activity/detail/ActivityOverviewSocial";
-import { activityFeedSourceRevision, boundedFeedContent } from "../services/activityFeedContent";
+import { activityFeedSourceRevision, boundedFeedContent, resolveActivityMemo } from "../services/activityFeedContent";
 import ActivityOverviewSummary from "../features/activity/detail/ActivityOverviewSummary";
 import LapTable from "../components/LapTable";
 import Modal from "../components/Modal";
@@ -61,7 +61,7 @@ import StravaSummaryPublishing from "../components/activity/StravaSummaryPublish
 import SegmentEffortsCard from "../components/activity/SegmentEffortsCard";
 import { segmentHistoryPath } from "../features/segments/segmentHistoryNavigation";
 import { logClientError } from "../services/errorLogger";
-import { Button, Card, IconButton, Text, buttonClass } from "../theme/components";
+import { Button, Card, IconButton, Text, ToggleButton, ToggleControls, buttonClass } from "../theme/components";
 import { ErrorState } from "../components/redesign";
 import { formatDuration, formatTime, type SegmentEffortData } from "../features/activity/detail/activityDetailUtils";
 import { ActivityStatsGrid, hasSecondaryActivityStats } from "../features/activity/detail/ActivityStatsGrid";
@@ -751,8 +751,9 @@ export default function ActivityPage() {
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
   const sourceRevision = activity ? activityFeedSourceRevision(activity) : null;
   const publishedContent = activity?.feedContentV1?.sourceRevision === sourceRevision ? boundedFeedContent(activity.feedContentV1) : null;
-  const overviewMemo = publishedContent?.memo?.trim() ? publishedContent.memo
-    : overview.response?.status === "available" && overview.response.activityId === activity?.id ? overview.response.defaultMemo ?? null : null;
+  const resolvedMemo = activity ? resolveActivityMemo(activity, stravaSummaryLang) : null;
+  const overviewMemo = resolvedMemo?.memo ?? (publishedContent?.memo?.trim() ? publishedContent.memo
+    : overview.response?.status === "available" && overview.response.activityId === activity?.id ? overview.response.defaultMemo ?? null : null);
 
   const hasStreams = sampledData.length > 0;
   const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, user?.uid, activityId, user?.isAnonymous === true);
@@ -1028,7 +1029,7 @@ export default function ActivityPage() {
   return (
     <div className="site-shell activity-detail">
       {/* 1. Header (제목) */}
-      <Card padding="none" className="activity-detail-header">
+      <Card className="activity-detail-header">
         <div className="activity-detail-identity">
           <Avatar
             name={activityNickname}
@@ -1037,7 +1038,7 @@ export default function ActivityPage() {
             userId={activity.userId}
           />
           <div className="flex-1 min-w-0">
-            <div className="flex items-center flex-wrap gap-2 mb-1">
+            <div className="activity-detail-header__name-row flex items-center flex-wrap gap-2 mb-1.5">
               <Link
                 to={`/athlete/${activity.userId}`}
                 className="font-semibold text-[length:var(--fs-sm)] hover:underline min-w-0 break-words"
@@ -1053,11 +1054,11 @@ export default function ActivityPage() {
                 <img src="/favicon.svg" alt="Orider" className="w-4 h-4" />
               )}
               <span
-                className="inline-flex items-center gap-1 text-[length:var(--fs-xs)] px-1.5 py-0.5 rounded-[var(--r-sm)] font-medium"
+                className="inline-flex items-center gap-1 text-[length:var(--fs-sm)] px-1.5 py-0.5 rounded-[var(--r-sm)] font-medium"
                 style={{ background: 'var(--surface-2)', color: 'var(--ink-1)' }}
                 title={tCommon(getSportLabelKey(activity.type))}
               >
-                {sport !== "other" && <SportIcon sport={sport === "ride" ? "bike" : sport} size={ICON_SIZE.md} />}{tCommon(getSportLabelKey(activity.type))}
+                {sport !== "other" && <SportIcon sport={sport === "ride" ? "bike" : sport} size={ICON_SIZE.sm} />}{tCommon(getSportLabelKey(activity.type))}
                 {/* Virtual* 종목은 라벨이 이미 "가상 …" 이라 실내 표기를 덧붙이지 않는다. */}
                 {isIndoorActivity(activity) && !isVirtualActivityType(activity.type) && (
                   <span style={{ color: 'var(--ink-3)' }}>· {tCommon("sport.indoor")}</span>
@@ -1096,6 +1097,7 @@ export default function ActivityPage() {
           </div>
         </div>
         <IconButton
+          className="activity-detail-header__menu"
           aria-label={t("page.management.title")}
           title={t("page.management.title")}
           aria-haspopup="dialog"
@@ -1155,7 +1157,8 @@ export default function ActivityPage() {
 
       {/* ── 탭 네비게이션 ── */}
       <div className="activity-detail-navigation" ref={activityNavigationRef}>
-        <div className="activity-detail-tabs" role="tablist" aria-label={t("detail.navigation")} onKeyDown={(event) => {
+        {/* HIG 세그먼트 컨트롤 — 검은 알약 대신 회색 바탕 위 흰 선택 항목. */}
+        <ToggleControls variant="axis" className="activity-detail-tabs" role="tablist" aria-label={t("detail.navigation")} onKeyDown={(event) => {
           const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
           const index = tabs.indexOf(event.target as HTMLButtonElement);
           if (index < 0 || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -1165,20 +1168,20 @@ export default function ActivityPage() {
           tabs[next]?.click();
         }}>
           {[
-            { id: "overview", icon: Layers },
-            { id: "analysis", icon: BarChart3 },
-            { id: "segments", icon: Route },
-            ...(isActivityOwner ? [{ id: "compare", icon: ArrowLeftRight }] : []),
-          ].map(({ id, icon: Icon }) => <button key={id} id={`activity-tab-${id}`} data-testid="D1-T" type="button" role="tab"
-            aria-selected={activeTab === id} aria-controls="activity-tab-panel" tabIndex={activeTab === id ? 0 : -1}
+            { id: "overview" },
+            { id: "analysis" },
+            { id: "segments" },
+            ...(isActivityOwner ? [{ id: "compare" }] : []),
+          ].map(({ id }) => <ToggleButton key={id} id={`activity-tab-${id}`} data-testid="D1-T" role="tab"
+            selected={activeTab === id} aria-controls="activity-tab-panel" tabIndex={activeTab === id ? 0 : -1}
             onClick={() => { pendingPeakLocation.current = null; pendingLap.current = null; setActiveTab(id); }}>
-            <Icon size={ICON_SIZE.md} aria-hidden="true" /><span>{t(`tab.${id}`)}</span>
+            {t(`tab.${id}`)}
             {id === "segments" && segmentEfforts.length > 0 && <span className="activity-detail-tab-count">{segmentEfforts.length}</span>}
-          </button>)}
-        </div>
+          </ToggleButton>)}
+        </ToggleControls>
       </div>
       {activeTab === "overview" && <ActivityOverviewSocial key={`${activity.id}:${user?.uid ?? "guest"}:${sourceRevision}`} activityId={activity.id}
-        memo={overviewMemo} memoLoading={!publishedContent?.memo?.trim() && overview.loading} memoError={!publishedContent?.memo?.trim() && overview.error}
+        memo={overviewMemo} memoMono={resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
         photosKnown={!!streams || !!publishedContent || typeof activity.photoCount === "number"} memoTruncated={publishedContent?.memoTruncated} photos={overviewPhotos}
         totalPhotos={Math.max(photos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0) + uploadedPhotos.length}
         companions={visibleCoRiders} achievements={overviewAchievements}
@@ -1279,7 +1282,7 @@ export default function ActivityPage() {
           {secondaryStatsAvailable && <details className="activity-detail-secondary-stats" open={wideStats || secondaryStatsOpen} onToggle={(event) => {
             if (!wideStats) setSecondaryStatsOpen(event.currentTarget.open);
           }}>
-            <summary>{t("detail.additionalStats")}<ChevronDown size={ICON_SIZE.md} aria-hidden="true" /></summary>
+            <summary>{t("detail.additionalStats")}<ChevronDown size={ICON_SIZE.md} className="activity-detail-disclosure-chevron" aria-hidden="true" /></summary>
             {keyStatsStrip("secondary")}
           </details>}
         </div>
@@ -1319,6 +1322,7 @@ export default function ActivityPage() {
       {activeTab === "compare" && isActivityOwner && <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} currentMetricsStatus={serverMetrics.status} isOwner={isActivityOwner} comparisonOnly />}
 
       {activeTab === "overview" && <div data-testid="D1-2" className="space-y-6">
+
       {/* ── 6. 좋아요 & 댓글 ── */}
       <section data-testid="D1-6"><KudosCommentsCard
         user={user}

@@ -1,7 +1,8 @@
 import { getDocs, limit } from "firebase/firestore";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { activityFeedSourceRevision, boundedFeedContent, localActivityFeedContentUrl, loadLocalActivityFeedContent, loadActivityFeedComments } from "./activityFeedContent";
+import { activityFeedSourceRevision, boundedFeedContent, localActivityFeedContentUrl, loadLocalActivityFeedContent, loadActivityFeedComments, resolveActivityMemo } from "./activityFeedContent";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
+import { withStoredSummary } from "../__tests__/fixtures/activityDefaultSummary";
 
 describe("bounded feed content", () => {
   it("only enables the explicit local read adapter on DEV loopback", () => {
@@ -78,4 +79,22 @@ it("preserves ordered video metadata and falls back to a photo when video metada
     expect(invalid.photos[0]).not.toHaveProperty("videoUrl");
     expect(invalid.photos[0]).not.toHaveProperty("kind");
   }
+});
+
+
+describe("stored summary wire validation", () => {
+  it("chooses the requested stored language and accepts later formatter versions without a frontend rollout", () => {
+    const activity = withStoredSummary(createMockActivity({ source: "strava" }), "한국어", "English");
+    expect(resolveActivityMemo(activity, "ko")?.memo).toBe("한국어");
+    expect(resolveActivityMemo(activity, "en")?.memo).toBe("English");
+    expect(resolveActivityMemo({ ...activity, defaultSummaryV1: { ...activity.defaultSummaryV1!, formatterVersion: "strava-share-v30" } }, "ko")?.memo).toBe("한국어");
+  });
+  it("ignores malformed, unbound or incomplete stored summary fields", () => {
+    const activity = withStoredSummary(createMockActivity({ source: "strava" }));
+    for (const patch of [{ version: 2 }, { formatterVersion: "" }, { inputDigest: "invalid" }, { sourceRevision: "stale" },
+      { text: { en: "English only" } }, { text: { ko: " " } }, { text: { ko: "x".repeat(3501) } }]) {
+      const invalid = { ...activity, defaultSummaryV1: { ...activity.defaultSummaryV1, ...patch } } as unknown as typeof activity;
+      expect(resolveActivityMemo(invalid, "ko")).toBeNull();
+    }
+  });
 });

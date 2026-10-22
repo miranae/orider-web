@@ -202,7 +202,7 @@ function RiderCard({
           </div>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", letterSpacing: "0.05em" }}>{t("liveView.rankLabel")}</div>
+          <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>{t("liveView.rankLabel")}</div>
           <div style={{ fontSize: "var(--fs-xl)", fontFamily: "var(--font-mono)", color, fontWeight: 600 }}>
             {loc.status === "FINISHED" ? "—" : loc.overallRank ?? "—"}
           </div>
@@ -768,9 +768,7 @@ export default function EventLivePage() {
             <span
               style={{
                 fontSize: "var(--ft-body-size)",
-                letterSpacing: "0.08em",
                 color: "var(--lime)",
-                textTransform: "uppercase",
                 fontWeight: 500,
               }}
             >
@@ -798,7 +796,7 @@ export default function EventLivePage() {
           <div aria-live="polite" style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}><Eye size={ICON_SIZE.sm} aria-hidden="true" /> {t("viewer.count", { count: viewerCount })}</div>
           {elapsedLabel && (
             <div style={{ textAlign: "right", fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>
-              <div style={{ letterSpacing: "0.05em", textTransform: "uppercase" }}>{t("label.elapsed")}</div>
+              <div>{t("label.elapsed")}</div>
               <div
                 style={{
                   fontFamily: "var(--font-mono)",

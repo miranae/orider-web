@@ -16,7 +16,7 @@ import GroupCard from "../../components/group/GroupCard";
 import CreateGroupModal from "../../components/group/CreateGroupModal";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate } from "../../components/redesign";
-import { Button, Card, Text, DropdownSelect, Input } from "../../theme/components";
+import { Button, Card, Chip, Text, DropdownSelect, Input } from "../../theme/components";
 import {
   isPendingGroupJoinResult,
   type JoinGroupByCodeResult,
@@ -80,7 +80,10 @@ export default function GroupsPage() {
   const myGroupIdList = useMemo(() => myGroups.map((g) => g.id), [myGroups]);
   const { byGroup: nextEventLabels } = useGroupNextEvents(myGroupIdList);
 
+  // 클럽이 1개 이하면 종목 선택·검색을 숨기므로 필터도 적용하지 않는다 (K4).
+  const showMyFilters = myGroups.length > 1;
   const filterGroups = <T extends { name: string; discipline?: string }>(list: T[]): T[] => {
+    if (!showMyFilters) return list;
     const q = mySearch.trim().toLowerCase();
     return list.filter((g) => {
       if (myDisciplineFilter !== "ALL" && (g.discipline ?? "bike") !== myDisciplineFilter) return false;
@@ -89,7 +92,7 @@ export default function GroupsPage() {
     });
   };
 
-  const filteredMyGroups = useMemo(() => filterGroups(myGroups), [myGroups, myDisciplineFilter, mySearch]);
+  const filteredMyGroups = useMemo(() => filterGroups(myGroups), [myGroups, myDisciplineFilter, mySearch, showMyFilters]);
   const hasPublicFilters = Boolean(searchQuery.trim() || cityFilter.trim() || disciplineFilter !== "ALL");
   const filteredPublicGroups = useMemo(
     () => publicGroups.filter((g) => !myGroupIds.has(g.id)),
@@ -160,10 +163,10 @@ export default function GroupsPage() {
   const myClubSection = <section data-testid="C0-1">
       {myGroups.length > 0 && <>
         <Text as="h2" variant="title" className="mb-4">{t("myGroups")}</Text>
-        <div data-testid="C0-1-1" className="club-my-filters mb-4">
+        {showMyFilters && <div data-testid="C0-1-1" className="club-my-filters mb-4">
           <label>{t("list.mySportLabel")}<DropdownSelect label={t("list.mySportLabel")} value={myDisciplineFilter} onChange={value => setMyDisciplineFilter(value as typeof myDisciplineFilter)} options={["ALL", "bike", "run", "swim", "tri"].filter(isSportUiEnabled).map(sport => ({ value: sport, label: t(sport === "ALL" ? "filter.all" : `filter.${sport}`) }))} /></label>
           <label>{t("list.mySearchLabel")}<Input type="search" value={mySearch} onChange={event => setMySearch(event.target.value)} aria-label={t("list.mySearchLabel")} placeholder={t("search.groupName")} className="ds-input" /></label>
-        </div>
+        </div>}
       </>}
 
       {Boolean(myGroupsError) && myGroups.length > 0 && <div className="mb-4"><ErrorState title={t("error.loadFailed")} onRetry={retryMyGroups} compact /></div>}
@@ -199,10 +202,10 @@ export default function GroupsPage() {
     <div className="club-surface">
       <header data-testid="C0-0" className="club-page-header">
         <div><Text as="h1" variant="pageTitle">{t("clubsTitle")}</Text>
-        {myGroups.length > 0 && <Text as="p" variant="body" tone="secondary" data-testid="C0-0-1">{t("list.groupCount", { count: myGroups.length })}</Text>}</div>
+        {myGroups.length > 0 && <Text as="p" variant="bodySmall" tone="tertiary" data-testid="C0-0-1">{t("list.groupCount", { count: myGroups.length })}</Text>}</div>
         <div className="club-page-actions">
-          {myGroups.length > 0 && <Button data-testid="C0-0-2" variant="secondary" size="sm" onClick={() => { document.getElementById("club-find")?.scrollIntoView({ block: "start" }); findSearchRef.current?.focus({ preventScroll: true }); }}>{t("list.findClubs")}</Button>}
-          <Button data-testid="C0-0-3" onClick={() => setShowCreate(true)} variant="primary" size="sm">{t("button.create")}</Button>
+          {myGroups.length > 0 && <Button data-testid="C0-0-2" variant="secondary" onClick={() => { document.getElementById("club-find")?.scrollIntoView({ block: "start" }); findSearchRef.current?.focus({ preventScroll: true }); }}>{t("list.findClubs")}</Button>}
+          <Button data-testid="C0-0-3" onClick={() => setShowCreate(true)} variant="primary">{t("button.create")}</Button>
         </div>
       </header>
       {(myGroups.length > 0 || myLoading || Boolean(myGroupsError)) && myClubSection}
@@ -218,8 +221,7 @@ export default function GroupsPage() {
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t("search.groupName")}
           aria-label={t("search.groupName")}
-          className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-size)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
-          style={{ flex: "1 1 200px", background: "var(--bg-2)", border: "1px solid var(--line-soft)", color: "var(--ink-0)" }}
+          className="club-find-query"
         />
         <Input
           type="search"
@@ -227,8 +229,7 @@ export default function GroupsPage() {
           onChange={(e) => setCityFilter(e.target.value)}
           placeholder={t("search.city")}
           aria-label={t("search.city")}
-          className="px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-size)] focus:outline-none focus:ring-1 focus:ring-[var(--lime)]"
-          style={{ flex: "0 1 180px", background: "var(--bg-2)", border: "1px solid var(--line-soft)", color: "var(--ink-0)" }}
+          className="club-find-city"
         />
         <div role="group" aria-label={t("filter.all")} className="flex items-center flex-wrap" style={{ gap: 'var(--space-1)' }}>
           {[
@@ -240,19 +241,9 @@ export default function GroupsPage() {
           ].filter(o => isSportUiEnabled(o.v)).map((o) => {
             const active = disciplineFilter === o.v;
             return (
-              <Button
-                key={o.v}
-                type="button"
-                onClick={() => setDisciplineFilter(o.v)}
-                aria-pressed={active} variant="secondary" size="sm"
-                style={{
-                  background: active ? "var(--bg-3)" : "transparent",
-                  color: active ? "var(--ink-0)" : "var(--ink-3)",
-                  fontWeight: active ? 600 : 400,
-                }}
-              >
+              <Chip key={o.v} selectable selected={active} onClick={() => setDisciplineFilter(o.v)}>
                 {o.label}
-              </Button>
+              </Chip>
             );
           })}
         </div>
@@ -303,19 +294,14 @@ export default function GroupsPage() {
       <Card data-testid="C0-3" className="club-invite-card" padding="card">
         <Text as="h2" variant="title">{t("find.inviteTitle")}</Text>
         <Text as="p" variant="body" tone="secondary">{t("find.inviteHint")}</Text>
-        <label htmlFor="club-invite-code">{t("find.inviteLabel")}</label>
+        <label htmlFor="club-invite-code" className="club-invite-label">{t("find.inviteLabel")}</label>
         <div className="club-invite-form">
         <Input id="club-invite-code" data-testid="C0-3-1"
           type="text"
           value={inviteCode}
           onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
           placeholder={t("find.inviteCode")}
-          className="flex-1 px-3 py-2 rounded-[var(--r-md)] text-[length:var(--ft-body-size)]"
-          style={{
-            background: "var(--bg-2)",
-            border: "1px solid var(--line)",
-            color: "var(--ink-1)",
-          }}
+          className="flex-1"
           maxLength={9}
         />
         <Button

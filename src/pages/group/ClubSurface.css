@@ -1,7 +1,5 @@
 /* 클럽에 한정한 홈·코치 공통 읽기 위계. */
 .club-surface {
-  --ft-page-title-size: var(--fs-xl);
-  --ft-page-title-line-height: 1.35;
   min-width: 0;
   font-size: var(--ft-body-size);
   line-height: var(--ft-body-line-height);
@@ -16,18 +14,14 @@
   gap: var(--space-3) var(--space-4);
   margin-bottom: var(--space-5);
 }
-.club-page-header { padding-bottom: var(--space-4); border-bottom: 1px solid var(--line-soft); }
+.club-page-header { padding-bottom: var(--space-1); row-gap: var(--space-5); }
+/* HIG 큰 제목 아래 부제는 한 칸 띄운다 */
+.club-page-header h1 + p { margin-top: var(--space-2); }
 .club-page-header > div:first-child,
 .club-subnav-header > div { min-width: 0; flex: 1 1 auto; }
 .club-page-header h1,
 .club-subnav-header h1 { overflow-wrap: anywhere; }
 .club-page-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-.club-surface .ds-btn--primary,
-.club-surface .ds-btn--primary:hover:not(:disabled) {
-  background: var(--color-primary-dark);
-  color: var(--primary-fg);
-  border-color: var(--color-primary-dark);
-}
 .club-invite-card,
 .club-league-card { display: grid; gap: var(--space-3); margin-block: var(--space-5); }
 .club-invite-form { display: flex; flex-wrap: wrap; gap: var(--space-2); }
@@ -63,9 +57,13 @@
 }
 
 .club-my-filters { display: flex; flex-wrap: wrap; gap: var(--space-3); }
-.club-my-filters label { display: grid; gap: var(--space-2); flex: 1 1 12rem; font-size: var(--ft-body-size); color: var(--ink-2); }
+/* 라벨 15 보조색, 입력·선택 상자는 공용 36 채움 프레임 그대로 (K3). */
+.club-my-filters label { display: grid; gap: var(--space-2); flex: 1 1 12rem; font-size: var(--fs-sm); color: var(--ink-2); }
 .club-my-filters input,
-.club-my-filters select { width: 100%; font-size: var(--ft-body-size); }
+.club-my-filters select { width: 100%; }
+.club-invite-label { font-size: var(--fs-sm); color: var(--ink-2); }
+.club-find-query { flex: 1 1 12.5rem; min-width: 0; }
+.club-find-city { flex: 0 1 11.25rem; min-width: 0; }
 .club-create-review { display: grid; gap: var(--space-3); }
 .club-create-review > div { display: grid; grid-template-columns: minmax(5rem, 1fr) minmax(0, 2fr); gap: var(--space-3); }
 .club-create-review dt { color: var(--ink-2); }
@@ -132,16 +130,7 @@
 
 .club-news-layout > :empty { display: none; }
 
-/* Club controls share the 40px frame; multiline and native selection targets keep their own height. */
-.club-surface .ds-input:not(textarea):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
-.club-surface .ds-dropdown-select__trigger {
-  box-sizing: border-box;
-  height: var(--dim-button-height);
-  min-height: var(--dim-button-height);
-  padding: var(--space-1-5) var(--space-3) !important;
-  font-size: var(--ft-body-size);
-  line-height: var(--ft-body-line-height);
-}
+/* 한 줄 입력·선택 상자는 공용 36 채움 프레임(G3·G4)을 그대로 쓴다. 여러 줄 입력만 높이를 늘린다. */
 .club-surface textarea.ds-input {
   box-sizing: border-box;
   height: auto;

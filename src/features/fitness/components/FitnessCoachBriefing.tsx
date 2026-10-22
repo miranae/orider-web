@@ -86,7 +86,7 @@ function formatDuration(seconds: number, locale: string): string {
 }
 
 function MetricDelta({ label, value, color }: { label: string; value: number | null; color: string }) {
-  return <Stat compact label={<GlossaryText>{label}</GlossaryText>} value={value == null ? "—" : signed(value)} style={{ borderInlineStart: `2px solid ${color}`, paddingInlineStart: "var(--space-2)" }} />;
+  return <Stat label={<GlossaryText>{label}</GlossaryText>} value={value == null ? "—" : signed(value)} style={{ borderInlineStart: `2px solid ${color}`, paddingInlineStart: "var(--space-2)" }} />;
 }
 
 function coachConclusion(tsb: number): { key: "recover" | "easy" | "ready"; tone: "warning" | "accent" | "success" } {
@@ -147,8 +147,8 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
             <Card key={entry.activity.id} variant={selectedEntry ? "inset" : "flat"} padding="compact" onClick={() => onSelectActivity(entry.activity.id)} aria-pressed={selectedEntry} className="fitness-coach__recent" data-selected={selectedEntry || undefined}>
               <Text as="div" variant="bodyMedium">{activityLabel(entry, locale, t)}</Text>
               <div className="fitness-coach__recent-impact">
-                <Text as="div" variant="mono">CTL {signed(entry.marginalImpact.ctl)}</Text>
-                <Text as="div" variant="mono">ATL {signed(entry.marginalImpact.atl)}</Text>
+                <Text as="div" variant="num">CTL {signed(entry.marginalImpact.ctl)}</Text>
+                <Text as="div" variant="num">ATL {signed(entry.marginalImpact.atl)}</Text>
               </div>
               <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}>{entry.confidence === "canonical-single" ? t("coach.recent.canonical") : entry.confidence === "activity-tss" ? t("coach.recent.activityTss") : t("coach.recent.estimated")}</Text>
             </Card>
@@ -167,7 +167,7 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
         </>}
         <div className="fitness-coach__impact-heading">
           <div>
-            <Text as="div" variant="caption">{t("coach.impact.eyebrow")}</Text>
+            <Text as="div" variant="eyebrow">{t("coach.impact.eyebrow")}</Text>
             <Text as="h3" variant="subtitle" style={{ margin: "var(--space-2) 0 var(--space-1)" }}>
               {selected ? activityLabel(selected, locale, t) : selectedPending ? pendingActivityLabel(selectedPending, locale, t) : canonicalAvailable ? t("coach.impact.empty") : t("coach.impact.unavailable")}
             </Text>
@@ -189,7 +189,7 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
         {stimulus && (
           <div data-testid={part === "condition" ? "K1-3-3" : undefined} className="fitness-coach__stimulus">
             <div>
-              <Text as="div" variant="caption">{t("coach.stimulus.eyebrow")}</Text>
+              <Text as="div" variant="eyebrow">{t("coach.stimulus.eyebrow")}</Text>
               <Text as="div" variant="bodyMedium" style={{ marginTop: "var(--space-2)" }}>{t(`coach.stimulus.type.${stimulus.workoutType}`)}</Text>
             </div>
             <div className="fitness-coach__evidence">
@@ -211,7 +211,7 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
   const trainingChoiceCard = (
 <div className="fitness-coach__primary-grid fitness-coach__primary-grid--choice">
         <ChoiceSurface data-testid={part === "today" ? "K2-1" : undefined} className="fitness-coach__choice-card">
-          <Text as="div" variant="caption">{t("coach.choice.eyebrow")}</Text>
+          <Text as="div" variant="eyebrow">{t("coach.choice.eyebrow")}</Text>
           <Text data-testid={part === "today" && choiceTitle ? "K2-1-5" : undefined} as={part === "today" ? "h2" : "h3"} variant={part === "today" ? "title" : "subtitle"} style={{ margin: "var(--space-2) 0" }}>{choiceTitle ?? t(part === "condition" ? "condition.story.decisionTitle" : "coach.choice.title")}</Text>
           {canonicalAvailable && <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}><GlossaryText>{t(part === "today" ? "today.genericWorkoutBasis" : "coach.choice.body")}</GlossaryText></Text>}
           {!canonicalAvailable && <Text as="p" variant="caption" tone="secondary">{t("today.forecastUnavailable")}</Text>}
@@ -234,7 +234,7 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
               {choiceForecast.map((point) => (
                 <div key={point.hoursAhead}>
                   <Text as="div" variant="caption">{t("coach.choice.hours", { hours: point.hoursAhead })}</Text>
-                  <Text as="div" variant="mono" style={{ marginTop: "var(--space-1)", color: "var(--ink-1)" }}><GlossaryText>{`CTL ${point.ctl.toFixed(1)} · ATL ${point.atl.toFixed(1)} · TSB ${signed(point.tsb)}`}</GlossaryText></Text>
+                  <Text as="div" variant="num" style={{ marginTop: "var(--space-1)", color: "var(--ink-1)" }}><GlossaryText>{`CTL ${point.ctl.toFixed(1)} · ATL ${point.atl.toFixed(1)} · TSB ${signed(point.tsb)}`}</GlossaryText></Text>
                 </div>
               ))}
             </div>
@@ -267,9 +267,9 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
             </>}
           </div>
           <div data-testid={part === "condition" ? "K1-1-1" : undefined} className="fitness-coach__current-metrics">
-            <Stat compact label={<GlossaryText>{t("coach.metric.ctl")}</GlossaryText>} value={current.ctl.toFixed(1)} />
-            <Stat compact label={<GlossaryText>{t("coach.metric.atl")}</GlossaryText>} value={current.atl.toFixed(1)} />
-            <Stat compact label={<GlossaryText>{t("coach.metric.tsb")}</GlossaryText>} value={signed(current.tsb)} />
+            <Stat label={<GlossaryText>{t("coach.metric.ctl")}</GlossaryText>} value={current.ctl.toFixed(1)} />
+            <Stat label={<GlossaryText>{t("coach.metric.atl")}</GlossaryText>} value={current.atl.toFixed(1)} />
+            <Stat label={<GlossaryText>{t("coach.metric.tsb")}</GlossaryText>} value={signed(current.tsb)} />
           </div>
         </div>
         {part === "condition" && <div className="fitness-coach__story-primary-action"><LocalizedLink className={buttonClass({ variant: "primary", block: true })} data-testid="K1-1-3" to={`/coach/today?sport=${discipline}`}>{t("today.header.title")} →</LocalizedLink></div>}

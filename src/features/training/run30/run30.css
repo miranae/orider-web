@@ -161,8 +161,8 @@
 
 .run30-stage__date {
   color: var(--ink-2);
-  font-family: var(--font-mono);
   font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .run30-stage__title {
@@ -196,7 +196,7 @@
 
 .run30-segments__duration {
   color: var(--ink-2);
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .run30-safety-text {

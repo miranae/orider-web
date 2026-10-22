@@ -7,13 +7,12 @@ import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/app
 import { useEffect, useState, useMemo, useRef, type ReactNode } from "react";
 import { Camera, Medal } from "lucide-react";
 import { useActivityAuthor } from "../../hooks/useActivityAuthor";
-import { useActivityOverview } from "../../hooks/useActivityOverview";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import type { Activity } from "@shared/types";
 import type { ActivityFeedContent, ActivityFeedContentProjection } from "@shared/types/activity-feed-content";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
-import { activityFeedContentPreviewUrl, activityFeedSourceRevision, boundedFeedContent, loadLocalActivityFeedContent, loadActivityFeedComments } from "../../services/activityFeedContent";
+import { activityFeedContentPreviewUrl, activityFeedSourceRevision, boundedFeedContent, resolveActivityMemo, loadLocalActivityFeedContent, loadActivityFeedComments } from "../../services/activityFeedContent";
 import { logClientError } from "../../services/errorLogger";
 import Avatar from "../Avatar";
 import ActivityFeedVideo from "../activity/ActivityFeedVideo";
@@ -128,7 +127,7 @@ export function MobileRouteThumbnail({ activity, priority = false, content }: { 
   </div>;
 }
 
-function ActivityMemo({ memo, memoTruncated = false, activityId }: { memo: string; memoTruncated?: boolean; activityId: string }) {
+function ActivityMemo({ memo, memoTruncated = false, activityId, generated = false }: { memo: string; memoTruncated?: boolean; activityId: string; generated?: boolean }) {
   const { t } = useTranslation("activity");
   const [expanded, setExpanded] = useState(false);
   const paragraphRef = useRef<HTMLParagraphElement>(null);
@@ -146,9 +145,10 @@ function ActivityMemo({ memo, memoTruncated = false, activityId }: { memo: strin
   }, [expanded, memo]);
   if (!memo.trim()) return null;
   return <div className="mobile-feed-memo">
-    <p ref={paragraphRef} className={!expanded ? "mobile-feed-memo-collapsed" : undefined}>{memo}</p>
-    {overflowing && <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? "card.memoLess" : "card.memoMore")}</Button>}
-    {memoTruncated && <Link to={`/activity/${activityId}`}>{t("card.memoMore")}</Link>}
+    <p ref={paragraphRef} className={[!expanded && "mobile-feed-memo-collapsed", generated && "mobile-feed-memo-generated"].filter(Boolean).join(" ") || undefined}>{memo}</p>
+    {/* "더 보기"는 본문과 같은 17 Regular 청록 글자 링크로 읽힌다. */}
+    {overflowing && <button type="button" className="mobile-feed-memo-more" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? "card.memoLess" : "card.memoMore")}</button>}
+    {memoTruncated && <Link to={`/activity/${activityId}`} className="mobile-feed-memo-more">{t("card.memoMore")}</Link>}
   </div>;
 }
 
@@ -166,28 +166,8 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
   const embedded = activity.feedContentV1?.sourceRevision === sourceRevision ? boundedFeedContent(activity.feedContentV1) : null;
   const localContentVisible = localContent?.viewerId === (user?.uid ?? null) && localContent?.sourceRevision === sourceRevision ? localContent : null;
   const content = localContentVisible ?? embedded;
-  const needsDefaultMemo = (activity.source === "orider" || activity.source === "strava") && !content?.memo?.trim();
-  const [visibleActivityId, setVisibleActivityId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!needsDefaultMemo || visibleActivityId === activity.id) return;
-    if (typeof IntersectionObserver === "undefined") { setVisibleActivityId(activity.id); return; }
-    const observer = new IntersectionObserver(entries => {
-      if (entries.some(entry => entry.isIntersecting)) {
-        observer.disconnect();
-        setVisibleActivityId(activity.id);
-      }
-    });
-    if (cardRef.current) observer.observe(cardRef.current);
-    return () => observer.disconnect();
-  }, [activity.id, needsDefaultMemo, visibleActivityId]);
-  const overviewActivity = activity as Activity & { metadataRevision?: unknown; updatedAt?: unknown };
-  const overview = useActivityOverview(activity.id, needsDefaultMemo && visibleActivityId === activity.id, JSON.stringify([
-    sourceRevision, activity.source, activity.sourceMeta, activity.visibility,
-    activity.isVirtualPower, activity.virtualPowerParams, overviewActivity.metadataRevision, overviewActivity.updatedAt,
-  ]));
-  const defaultMemo = needsDefaultMemo && overview.response?.status === "available" && overview.response.activityId === activity.id
-    ? overview.response.defaultMemo : null;
-  const memo = content?.memo?.trim() ? content.memo : defaultMemo;
+  const resolvedMemo = resolveActivityMemo(activity, i18n.language.startsWith("en") ? "en" : "ko", content);
+  const memo = resolvedMemo?.memo;
 
   useEffect(() => {
     setLocalContent(null);
@@ -281,12 +261,12 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
         <span className="mobile-feed-card-avatar"><Avatar userId={activity.userId} name={nickname} imageUrl={activity.profileImage} size={40} className="mobile-feed-author-avatar" /></span>
         <div className="mobile-feed-card-identity">
           <Text as="div" variant="bodySmall" size="md" weight={600} tone="primary" className="mobile-feed-author-name">{nickname}</Text>
-          <Text as="div" variant="caption" tone="tertiary" className="mobile-feed-activity-metadata"><time dateTime={timestamp?.iso}>{occurredAt}</time>{device && <span>{`·\u00a0${device}`}</span>}{region && <span>{`·\u00a0${region}`}</span>}</Text>
+          <Text as="div" variant="caption" size="sm" tone="tertiary" className="mobile-feed-activity-metadata"><time dateTime={timestamp?.iso}>{occurredAt}</time>{device && <span>{`·\u00a0${device}`}</span>}{region && <span>{`·\u00a0${region}`}</span>}</Text>
         </div>
         <span className="mobile-feed-card-sport" role="img" aria-label={activitySportLabel}>
-          {activitySport ? <HomeActivitySportIcon sport={activitySport} size={ICON_SIZE.xl} /> : getDisciplineIcon(null)}
+          {activitySport ? <HomeActivitySportIcon sport={activitySport} size={ICON_SIZE.lg} /> : getDisciplineIcon(null)}
         </span>
-        <Text as="h3" variant="title" size="xl" weight={600} tone="primary" className="mobile-feed-activity-title">
+        <Text as="h3" variant="title" size="xl" weight={700} tone="primary" className="mobile-feed-activity-title">
           {activity.description || t("mobileFeed.defaultActivity")}
         </Text>
         {showDataWarning && (
@@ -304,7 +284,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
       </div>
 
       {localFailure?.kind === "content" && previewError}
-      {memo && <ActivityMemo key={activity.id} memo={memo} memoTruncated={!!content?.memo?.trim() && content.memoTruncated} activityId={activity.id} />}
+      {memo && <ActivityMemo key={activity.id} memo={memo} memoTruncated={resolvedMemo?.truncated} generated={resolvedMemo?.authored === false} activityId={activity.id} />}
 
       {/* 핵심 세 지표는 가로로, 추가 측정값은 보조 행에 표시한다. */}
       <div className={`mobile-feed-stats${discipline === "run" ? " mobile-feed-stats--run" : ""}`} data-testid={discipline === "run" ? "run-card-primary" : undefined}>

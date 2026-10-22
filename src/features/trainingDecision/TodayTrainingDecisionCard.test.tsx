@@ -197,9 +197,10 @@ describe("TodayTrainingDecisionCard", () => {
     const { container } = render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
     expect(container.querySelector(".training-decision-card__sessions")).toBeInTheDocument();
     expect(screen.getByText("변경 권고 · 아직 미적용")).toBeInTheDocument();
-    expect(screen.getByText("원래 계획")).toBeInTheDocument();
+    // 미적용 권고 — 현재 실행안이 원래 계획과 같아 한 장으로 합쳐진다(HIG T2).
+    expect(screen.getByText("현재 실행안 · 원래 계획 기준")).toBeInTheDocument();
+    expect(screen.queryByText("원래 계획")).not.toBeInTheDocument();
     expect(screen.getByText("조정 권고")).toBeInTheDocument();
-    expect(screen.getByText("현재 실행안")).toBeInTheDocument();
     expect(screen.getByText("권고 변화 -20분 · -45 TSS")).toBeInTheDocument();
     expect(screen.queryByText("계획 유지")).not.toBeInTheDocument();
     expect(screen.getByText("회복")).toBeInTheDocument();

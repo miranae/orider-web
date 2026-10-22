@@ -838,7 +838,7 @@ export default function CreatorHubPage() {
             <Sparkles size={ICON_SIZE.sm} />
             {copy.eyebrow}
           </div>
-          <h1 data-testid="E6-0" className="mt-2 max-w-4xl text-[length:var(--fs-3xl)] font-bold leading-tight" style={{ color: "var(--ink-0)" }}>{copy.headline}</h1>
+          <Text as="h1" variant="pageTitle" data-testid="E6-0" className="mt-2 max-w-4xl">{copy.headline}</Text>
           <p className="mt-3 max-w-4xl text-[length:var(--fs-base)] leading-7" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.subtitle}</GlossaryText></p>
           <div className="mt-6 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
             <Button className={recipeActionClass} size="sm" variant="secondary" onClick={handleGenerateDiary} loading={generating || policyLoading}>
@@ -862,7 +862,7 @@ export default function CreatorHubPage() {
               <BookOpen size={ICON_SIZE.sm} />
               {copy.title}
             </Link>
-            <h1 className="mt-3 max-w-3xl text-[length:var(--fs-2xl)] font-bold leading-tight" style={{ color: "var(--ink-0)" }}>{activeDetail?.title ?? copy.title}</h1>
+            <h1 className="mt-3 max-w-3xl text-[length:var(--fs-xl)] font-bold leading-tight" style={{ color: "var(--ink-0)" }}>{activeDetail?.title ?? copy.title}</h1>
             <p className="mt-2 max-w-3xl text-[length:var(--ft-body-size)] leading-6" style={{ color: "var(--ink-3)" }}>{activeDetail?.body ?? copy.subtitle}</p>
           </>
           )}

@@ -10,8 +10,10 @@ import type { LngLatBounds } from "mapbox-gl";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { getMapboxToken } from "../utils/mapbox";
-import { ErrorState } from "../components/redesign";
-import { Button, buttonClass, Text, Input } from "../theme/components";
+import { ChevronDown } from "lucide-react";
+import { ErrorState, LoadingSkeleton } from "../components/redesign";
+import { Button, buttonClass, Chip, Text, Input } from "../theme/components";
+import { ICON_SIZE } from "../theme/tokens/icon";
 import { CourseList } from "../features/courses/CourseList";
 import { CoursesMap, isCourseInBounds } from "../features/courses/CoursesMap";
 import { filterAndSortCourses, type SortMode, type SurfaceFilter } from "../features/courses/courseCatalog";
@@ -43,10 +45,6 @@ const COURSES_FILTER_GROUP_STYLE: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: "var(--space-2)",
-};
-
-const COURSES_FILTER_BUTTON_STYLE: React.CSSProperties = {
-  padding: "var(--space-1) var(--space-2)",
 };
 
 const DISTANCE_FILTER_MAX_KM = 200;
@@ -269,7 +267,7 @@ export default function CoursesPage() {
     <div className="course-catalog flex flex-col -mx-4 -my-6" style={{ height: "calc(100dvh - 56px)" }}>
       {/* 컨트롤 바 */}
       <div className="flex-shrink-0" style={COURSES_CONTROL_STACK_STYLE}>
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="course-catalog-head">
           <div className="min-w-0">
             <Text data-testid="E1-0" as="h1" variant="pageTitle">{t("title")}</Text>
             <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
@@ -295,7 +293,7 @@ export default function CoursesPage() {
               className={buttonClass({ variant: "ghost", className: "course-search-action transition-colors" })}
               style={{ color: "var(--ink-3)" }}
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg width={ICON_SIZE.md} height={ICON_SIZE.md} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </button>
@@ -310,27 +308,27 @@ export default function CoursesPage() {
 
             />
           </div>
-          <div className="course-catalog-actions flex" style={{ gap: "var(--space-1)" }}>
-            {user && <Button data-testid="E1-3-7" size="sm" variant="secondary" aria-pressed={mineOnly} onClick={() => { const next = new URLSearchParams(searchParams); if (mineOnly) next.delete("mine"); else next.set("mine", "1"); setSearchParams(next); }}>{t("myCourses")}</Button>}
+          <div className="course-catalog-actions flex" style={{ gap: "var(--space-2)" }}>
+            {/* 정렬·범위는 HIG 필터 칩(G2) — 동작 버튼(새 코스·지도 보기)과 모양을 구분한다 */}
+            {user && <Chip data-testid="E1-3-7" selectable selected={mineOnly} className="whitespace-nowrap" onClick={() => { const next = new URLSearchParams(searchParams); if (mineOnly) next.delete("mine"); else next.set("mine", "1"); setSearchParams(next); }}>{t("myCourses")}</Chip>}
 
             {([
               { id: "latest" as SortMode, label: t("sort.latest") },
               { id: "popular" as SortMode, label: t("sort.popular") },
             ]).map((s) => (
-              <Button data-testid="E1-3-5"
+              <Chip data-testid="E1-3-5"
                 key={s.id}
-                aria-pressed={sortMode === s.id} onClick={() => setSortMode(s.id)} variant="secondary" className="whitespace-nowrap"
-                style={sortMode === s.id ? { background: "var(--lime)", color: "var(--primary-fg)", borderColor: "var(--lime)", fontWeight: 600 } : undefined}
+                selectable selected={sortMode === s.id} onClick={() => setSortMode(s.id)} className="whitespace-nowrap"
               >
                 {s.label}
-              </Button>
+              </Chip>
             ))}
           </div>
         </div>
 
         {/* 노면/난이도 다축 필터(#489) + 거리/고도/지역 탐색 필터(#243) */}
         <div className="course-catalog-filter-toolbar">
-          <Button variant="secondary" size="sm" aria-expanded={mobileFiltersOpen} aria-controls="course-catalog-filter-controls" onClick={() => setMobileFiltersOpen(open => !open)}>{t("filter.conditions", { count: activeFilterCount })}</Button>
+          <Chip selectable aria-expanded={mobileFiltersOpen} aria-controls="course-catalog-filter-controls" onClick={() => setMobileFiltersOpen(open => !open)}>{t("filter.conditions", { count: activeFilterCount })}<ChevronDown aria-hidden="true" size={ICON_SIZE.sm} /></Chip>
           {activeFilterCount > 0 && <Button data-testid="course-mobile-reset" variant="secondary" size="sm" onClick={resetFilters}>{t("filter.reset")}</Button>}
         </div>
         <div id="course-catalog-filter-controls" data-collapsed={!mobileFiltersOpen} data-testid="E1-3" className="course-catalog-filters" style={COURSES_FILTER_ROW_STYLE}>
@@ -344,11 +342,9 @@ export default function CoursesPage() {
             ]).map((o) => {
               const active = surfaceFilter === o.v;
               return (
-                <button data-testid="E1-3-1" key={o.v || "all"} type="button" aria-pressed={active} onClick={() => updateRouteFilter("surface", o.v)}
-                  className={buttonClass({ variant: "ghost", className: "text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors" })}
-                  style={active ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+                <Chip data-testid="E1-3-1" key={o.v || "all"} selectable selected={active} onClick={() => updateRouteFilter("surface", o.v)}>
                   {o.label}
-                </button>
+                </Chip>
               );
             })}
           </div>
@@ -421,19 +417,15 @@ export default function CoursesPage() {
           {regionOptions.length > 0 && (
             <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
               <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("filter.region")}</span>
-              <button data-testid="E1-3-3" type="button" onClick={() => setRegionFilter("")}
-                className={buttonClass({ variant: "ghost", className: "text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors" })}
-                style={!regionFilter ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+              <Chip data-testid="E1-3-3" onClick={() => setRegionFilter("")} selectable selected={!regionFilter}>
                 {t("filter.all")}
-              </button>
+              </Chip>
               {regionOptions.slice(0, 12).map((region) => {
                 const active = regionFilter === region;
                 return (
-                  <button key={region} type="button" onClick={() => setRegionFilter(active ? "" : region)}
-                    className={buttonClass({ variant: "ghost", className: "text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors whitespace-nowrap" })}
-                    style={active ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+                  <Chip key={region} onClick={() => setRegionFilter(active ? "" : region)} selectable selected={active}>
                     {region}
-                  </button>
+                  </Chip>
                 );
               })}
             </div>
@@ -454,8 +446,9 @@ export default function CoursesPage() {
             {([10, 20, 50] as const).map((km) => {
               const active = myLoc != null && radiusKm === km;
               return (
-                <button data-testid="E1-3-4" key={km} type="button" disabled={locating}
+                <Chip data-testid="E1-3-4" key={km} aria-disabled={locating}
                   onClick={() => {
+                    if (locating) return; // 위치 확인 중 — 권한 창 응답 전 중복 요청 방지
                     if (active) { setRadiusKm(null); return; }
                     if (myLoc) { setRadiusKm(km); return; }
                     setLocating(true);
@@ -469,29 +462,23 @@ export default function CoursesPage() {
                       },
                       { timeout: 8000, maximumAge: 300000 },
                     );
-                  }}
-                  className={buttonClass({ variant: "ghost", className: "text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors" })}
-                  style={active ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+                  }} selectable selected={active}>
                   {t("filter.radiusKm", { km })}
-                </button>
+                </Chip>
               );
             })}
           </div>
           <div className="flex shrink-0 items-center" style={COURSES_FILTER_GROUP_STYLE}>
             <span className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("difficulty")}</span>
-            <button type="button" onClick={() => updateRouteFilter("difficulty", "")}
-              className={buttonClass({ variant: "ghost", className: "text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border transition-colors" })}
-              style={difficultyFilter == null ? { ...COURSES_FILTER_BUTTON_STYLE, background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { ...COURSES_FILTER_BUTTON_STYLE, borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+            <Chip onClick={() => updateRouteFilter("difficulty", "")} selectable selected={difficultyFilter == null}>
               {t("filter.all")}
-            </button>
+            </Chip>
             {[1, 2, 3, 4, 5].map((n) => {
               const active = difficultyFilter === n;
               return (
-                <button key={n} type="button" onClick={() => updateRouteFilter("difficulty", active ? "" : String(n))}
-                  className={buttonClass({ variant: "ghost", className: "w-7 h-7 text-[length:var(--fs-xs)] rounded-[var(--r-sm)] border font-semibold transition-colors" })}
-                  style={active ? { background: "color-mix(in oklch, var(--lime) 12%, transparent)", borderColor: "var(--lime)", color: "var(--lime)" } : { borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
+                <Chip key={n} onClick={() => updateRouteFilter("difficulty", active ? "" : String(n))} selectable selected={active}>
                   {n}
-                </button>
+                </Chip>
               );
             })}
           </div>
@@ -506,7 +493,6 @@ export default function CoursesPage() {
             <Button data-testid="E1-4-1"
               type="button"
               variant="secondary"
-              size="sm"
               onClick={() => setMobileMapOpen((open) => !open)}
               className="w-full justify-center"
               aria-expanded={mobileMapOpen}
@@ -523,8 +509,9 @@ export default function CoursesPage() {
           <ErrorState title={t("error.loadFailed")} onRetry={searchQuery ? serverSearch.retry : retry} />
         </div>
       ) : activeLoading ? (
-        <div className="flex-1 flex items-center justify-center" style={{ background: "var(--bg-0)" }}>
-          <div className="w-8 h-8 border-4 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--lime) transparent var(--lime) var(--lime)" }} />
+        // 스피너만 있는 빈 화면 대신 목록 모양 스켈레톤(E4)
+        <div className="flex-1 overflow-hidden" style={{ background: "var(--bg-0)", padding: "var(--space-4)" }}>
+          <LoadingSkeleton kind="list" />
         </div>
       ) : (
         <div data-testid="E1-4" className={mapUnavailable ? "flex-1 flex flex-col min-h-0" : "flex-1 flex flex-col lg:flex-row min-h-0"} style={{ background: "var(--bg-0)" }}>
@@ -548,7 +535,7 @@ export default function CoursesPage() {
           )}
 
           <div className={mapUnavailable ? "flex-1 overflow-y-auto" : "flex-1 lg:flex-[1] lg:max-w-md overflow-y-auto"} style={{ borderTop: "1px solid var(--line-soft)", background: "var(--bg-0)" }}>
-            {searchQuery ? <CourseSegmentSearch query={searchQuery} /> : !mineOnly && <details className="p-3"><summary>{t("recommendations")}</summary><ChallengeFeed part="courses" /></details>}
+            {searchQuery ? <CourseSegmentSearch query={searchQuery} /> : !mineOnly && <details className="course-popular p-3"><summary>{t("recommendations")}</summary><ChallengeFeed part="courses" /></details>}
             <CourseList
               courses={listCourses}
               allCourseCount={activeCourses.length}

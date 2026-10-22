@@ -111,7 +111,7 @@ function SplitTable({ laps, thresholdPaceSecPerKm }: { laps?: Array<Omit<NonNull
       <div style={{ overflowX: 'auto' }}>
         <table className="text-[length:var(--fs-xs)]" style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
-            <tr className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-3)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em' }}>
+            <tr className="text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-2)' }}>
               <th style={{ textAlign: 'left', padding: '10px 18px', fontWeight: 500 }}>{t("analysis.run.lap")}</th>
               <th style={{ textAlign: 'right', padding: '10px 10px', fontWeight: 500 }}>{t("runCards.colPace")}</th>
               <th style={{ textAlign: 'left', padding: '10px 10px', fontWeight: 500, width: '25%' }}></th>
@@ -274,7 +274,7 @@ function CadenceCard({ laps, cadenceUnit }: { laps?: ActivityStreams["laps"]; ca
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 'var(--space-2)', marginTop: "var(--space-3)" }}>
         {stats.map(stat => (
           <div key={stat.label} style={{ background: 'var(--bg-3)', borderRadius: 'var(--r-md)', padding: '8px 10px' }}>
-            <Text as="div" variant="caption" tone="quaternary" mono style={{ marginBottom: 'var(--space-1)', letterSpacing: '0.05em' }}>{stat.label}</Text>
+            <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-1)' }}>{stat.label}</Text>
             <Text as="div" variant="dataSmall" tone="primary" mono>
               {stat.value}
               {stat.unit && <Text variant="unit" tone="tertiary" style={{ marginLeft: "var(--space-0-5)" }}>{stat.unit}</Text>}

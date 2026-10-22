@@ -1,6 +1,6 @@
 import { isSportUiEnabled } from "../../config/sportFeatures";
 import { createPortal } from "react-dom";
-import { Button } from "../../theme/components";
+import { Button, Text } from "../../theme/components";
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
 import SportIcon from "../common/SportIcon";
 import GlossaryText from "../common/GlossaryText";
@@ -349,7 +349,7 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
 
           {/* 월간 요약 */}
           <div style={{ padding: "14px 16px 8px" }}>
-            <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)" }}>{t("mobileLog.monthlySummary")}</span>
+            <Text variant="eyebrow">{t("mobileLog.monthlySummary")}</Text>
           </div>
           <div className="mobile-log__summary">
             {[

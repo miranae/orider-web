@@ -64,7 +64,7 @@ export default function ChallengeFeed({ part = "all" }: { part?: "all" | "monthl
       {user && part !== "courses" && (
         <section data-testid="E4-1" aria-labelledby="personal-monthly-challenge-title">
           <SectionHeader icon={Trophy} title={t("discover.challenge.monthlyTitle")} />
-          <Card padding="none" className="p-4!" style={{ borderRadius: "var(--r-lg)" }}>
+          <Card padding="none" className="p-4!">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 id="personal-monthly-challenge-title" className="font-semibold" style={{ color: "var(--ink-0)" }}>
@@ -135,7 +135,7 @@ export default function ChallengeFeed({ part = "all" }: { part?: "all" | "monthl
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {courses.map((course) => (
               <Link data-testid="E1-2-1" key={course.id} to={`/course/${course.id}`}>
-                <Card padding="none" className="p-3! h-full hover:border-[var(--lime)]/50 transition-colors" style={{ borderRadius: "var(--r-lg)" }}>
+                <Card padding="none" className="p-3! h-full hover:border-[var(--lime)]/50 transition-colors">
                   <span className="font-semibold text-[length:var(--fs-sm)] truncate" style={{ color: "var(--ink-0)" }}>{course.name}</span>
                   <div className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-3)" }}>
                     {km(course.distance)}km · ↑{Math.round(course.elevationGain)}m
@@ -168,7 +168,7 @@ function FallbackSegments({ segments }: { segments: OverviewSeg[] | null }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {segments.map((segment) => (
           <Link key={segment.id} to={`/segment/${segment.id}`}>
-            <Card padding="none" className="p-3! h-full hover:border-[var(--lime)]/50 transition-colors" style={{ borderRadius: "var(--r-lg)" }}>
+            <Card padding="none" className="p-3! h-full hover:border-[var(--lime)]/50 transition-colors">
               <div className="flex items-center gap-2">
                 {catLabel(segment.climbCategory) && (
                   <span className="text-[length:var(--fs-xs)] px-1.5 py-0.5 rounded-[var(--r-sm)] font-bold" style={{ background: "var(--bg-3)", color: "var(--lime)" }}>

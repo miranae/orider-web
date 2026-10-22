@@ -86,7 +86,7 @@ export const DEFAULT_TYPOGRAPHY: TypographyTokens = {
   dataMedium: { size: 18, weight: 500, mono: true, letterSpacing: '-0.01em', lineHeight: 1 },
   dataSmall:  { size: 14, weight: 500, mono: true, lineHeight: 1.2 },
 
-  pageTitle:  { size: H.largeTitle,  weight: 700, lineHeight: 1.2 },
+  pageTitle:  { size: H.largeTitle,  weight: 700, lineHeight: 1.2, letterSpacing: '-0.01em' },
   title:      { size: H.title2,      weight: 700, lineHeight: 1.3 },
   subtitle:   { size: H.body,        weight: 600, lineHeight: 1.35, letterSpacing: '-0.01em' }, // Headline
   bodyLarge:  { size: H.body,        weight: 500, lineHeight: 1.5 },
@@ -96,7 +96,7 @@ export const DEFAULT_TYPOGRAPHY: TypographyTokens = {
   caption:    { size: H.caption1,    weight: 400, lineHeight: 1.4 },
   label:      { size: H.footnote,    weight: 500, lineHeight: 1.3, letterSpacing: '0' },
   status:     { size: H.footnote,    weight: 500, lineHeight: 1.3, letterSpacing: '0' },
-  eyebrow:    { size: H.caption1,    weight: 500, mono: true, letterSpacing: '0.14em' }, // 최소 12px (#401)
+  eyebrow:    { size: H.footnote,    weight: 400, letterSpacing: '0' }, // HIG 섹션 라벨 — 고정폭·자간·대문자 없음
 };
 
 /**

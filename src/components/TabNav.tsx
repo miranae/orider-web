@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, NavLink, matchPath, useParams, useLocation, type NavLinkProps } from "react-router-dom";
 import { SUPPORTED_LANGS } from "../i18n/detector";
+import { ToggleButton, ToggleControls } from "../theme/components";
 import "./TabNav.css";
 
 const langSet = new Set<string>([...SUPPORTED_LANGS]);
@@ -20,9 +21,37 @@ interface TabNavProps {
   tabs: { id: string; label: string; count?: number; specId?: string }[];
   activeTab: string;
   onChange: (id: string) => void;
+  /** `segmented` — 상위 하위탭(밑줄) 아래 2단계 탭. HIG 세그먼트 컨트롤 모양으로 단계를 구분한다. */
+  appearance?: "underline" | "segmented";
 }
 
-export default function TabNav({ tabs, activeTab, onChange }: TabNavProps) {
+export default function TabNav({ tabs, activeTab, onChange, appearance = "underline" }: TabNavProps) {
+  if (appearance === "segmented") {
+    // 탭 패턴 — 선택된 탭만 Tab 순서에 두고 화살표·Home·End 로 이동
+    const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+      const current = tabs.findIndex((tab) => tab.id === activeTab);
+      const last = tabs.length - 1;
+      const next = event.key === "ArrowRight" ? (current >= last ? 0 : current + 1)
+        : event.key === "ArrowLeft" ? (current <= 0 ? last : current - 1)
+        : event.key === "Home" ? 0
+        : event.key === "End" ? last
+        : -1;
+      const target = tabs[next];
+      if (!target) return;
+      event.preventDefault();
+      onChange(target.id);
+      event.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')[next]?.focus();
+    };
+    return (
+      <ToggleControls variant="axis" role="tablist" className="tab-nav--segmented" onKeyDown={moveFocus}>
+        {tabs.map((tab) => (
+          <ToggleButton key={tab.id} data-testid={tab.specId} role="tab" tabIndex={activeTab === tab.id ? 0 : -1} selected={activeTab === tab.id} onClick={() => onChange(tab.id)}>
+            {tab.label}{tab.count != null && ` (${tab.count})`}
+          </ToggleButton>
+        ))}
+      </ToggleControls>
+    );
+  }
   return (
     <div className="flex border-b overflow-x-auto" role="tablist" style={{ borderColor: "var(--line-soft)" }}>
       {tabs.map((tab) => (
@@ -33,7 +62,7 @@ export default function TabNav({ tabs, activeTab, onChange }: TabNavProps) {
           role="tab"
           aria-selected={activeTab === tab.id}
           onClick={() => onChange(tab.id)}
-          className={`flex-shrink-0 whitespace-nowrap min-h-[44px] flex items-center rounded-t-[var(--r-sm)] px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${tabFocusClass} ${
+          className={`flex-shrink-0 whitespace-nowrap min-h-[44px] flex items-center rounded-t-[var(--r-sm)] px-2.5 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-[3px] transition-colors ${tabFocusClass} ${
             activeTab === tab.id
               ? ""
               : "border-transparent hover:border-[var(--line)]"
@@ -138,7 +167,7 @@ export function RouteTabNav({ tabs, state, revealActive = true }: RouteTabNavPro
       <div ref={scrollerRef} className="route-tab-nav__scroller flex overflow-x-auto">
       {tabs.map((tab) => {
         const aliasActive = tab.activePaths?.some(path => matchPath({ path: localizeTo(path, lang), end: false }, pathname)) ?? false;
-        const className = (active: boolean) => `flex-shrink-0 whitespace-nowrap min-h-[44px] flex items-center rounded-t-[var(--r-sm)] px-2 sm:px-4 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-2 transition-colors ${tabFocusClass} ${active ? "" : "border-transparent hover:border-[var(--line)]"}`;
+        const className = (active: boolean) => `flex-shrink-0 whitespace-nowrap min-h-[44px] flex items-center rounded-t-[var(--r-sm)] px-2.5 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-[3px] transition-colors ${tabFocusClass} ${active ? "" : "border-transparent hover:border-[var(--line)]"}`;
         const style = (active: boolean) => active ? { borderColor: "var(--lime)", color: "var(--lime)" } : { color: "var(--ink-2)" };
         // NavLink는 자체 목적지 일치 여부로 aria-current를 결정하므로 별칭은 실제 Link로 표현한다.
         return aliasActive ? (

@@ -994,10 +994,8 @@ export default function EventDetailPage() {
                           textAlign: i === 0 || i >= 3 ? "right" : "left",
                           padding: "10px 16px",
                           fontSize: "var(--fs-xs)",
-                          letterSpacing: "0.06em",
-                          color: "var(--ink-3)",
+                          color: "var(--ink-2)",
                           fontWeight: 500,
-                          textTransform: "uppercase",
                         }}
                       >
                         {h}

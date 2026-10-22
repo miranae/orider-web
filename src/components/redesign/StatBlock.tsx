@@ -34,12 +34,8 @@ export default function StatBlock({
     <div className="flex flex-col" style={{ gap: 'var(--space-2)' }}>
       {/* 레이블 */}
       <span style={{
-        fontFamily: 'var(--font-mono)',
         fontSize: 'var(--fs-xs)',
-        letterSpacing: '0.08em',
-        textTransform: 'uppercase' as const,
         color: 'var(--ink-2)',
-        fontWeight: 500,
       }}>
         <GlossaryText>{label}</GlossaryText>
       </span>

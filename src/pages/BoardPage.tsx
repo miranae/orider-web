@@ -9,7 +9,8 @@ import { useToast } from '../contexts/ToastContext';
 import { EmptyState, ErrorState, LoadingSkeleton } from '../components/redesign';
 import type { BoardType } from '@shared/types';
 import { BoardFeedbackIcon } from "../features/board/BoardFeedbackIcon";
-import { Button, Card, Chip, Input } from "../theme/components";
+import { Button, Card, Chip, Input, Text, type ChipVariant } from "../theme/components";
+import { ChevronRight, Search } from "lucide-react";
 import { useMobile } from "../hooks/useMobile";
 import SafeImage from "../components/SafeImage";
 import { useBoardBlocks } from "../features/board/useBoardBlocks";
@@ -17,6 +18,14 @@ import { BoardImage } from "../features/board/BoardImage";
 import { LocalizedLink } from "../components/LocalizedLink";
 import "./BoardList.css";
 import { ICON_SIZE } from "../theme/tokens/icon";
+
+/** 글 종류 태그 색 — 작업일지는 초록(G16), 문의는 청록, 자료실은 주황, 인기는 빨강. */
+const BOARD_TYPE_CHIP: Partial<Record<BoardType, ChipVariant>> = {
+  devlog: 'success',
+  inquiry: 'accent',
+  archive: 'warning',
+  hot: 'danger',
+};
 
 /**
  * 체크 해제된 태그로부터 실제 제외 집합과 "총개수 보정이 필요한 태그 수"를 계산한다.
@@ -205,14 +214,14 @@ const BoardPage: React.FC = () => {
         {/* 제목과 주요 동작은 모든 화면에서 같은 순서로 표시한다. */}
         <div className="board-list-header">
           <div>
-            <h1 data-testid="M2-0" className="text-[length:var(--fs-2xl)] font-bold">{t("page.communityTitle")}</h1>
-            <p className="text-[var(--ink-3)] text-[length:var(--fs-sm)] mt-1">
+            <Text as="h1" variant="pageTitle" data-testid="M2-0">{t("page.communityTitle")}</Text>
+            <p className="text-[var(--ink-2)] text-[length:var(--fs-sm)] mt-1">
               {t("page.communitySubtitle")}
             </p>
           </div>
           {selectedBoard !== 'devlog' && (
             <Button data-testid="M2-0-2"
-              onClick={() => navigate(selectedBoard === 'inquiry' ? '/community/board/write?type=inquiry' : '/community/board/write')} variant="primary" className="px-4 py-2 text-[length:var(--fs-sm)] font-medium whitespace-nowrap"
+              onClick={() => navigate(selectedBoard === 'inquiry' ? '/community/board/write?type=inquiry' : '/community/board/write')} variant="primary"
             >
               {selectedBoard === 'inquiry' ? t("label.writingForm") : t("label.writingPost")}
             </Button>
@@ -223,11 +232,7 @@ const BoardPage: React.FC = () => {
         <div className="board-list-controls">
           <div className="board-list-search">
             <div data-testid="M2-1" className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ink-3)]">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </span>
+              <span className="board-search-icon" aria-hidden="true"><Search size={ICON_SIZE.md} /></span>
               <Input data-testid="M2-1-1"
                 type="search"
                 aria-label={t("placeholder.search")}
@@ -243,7 +248,7 @@ const BoardPage: React.FC = () => {
             <div className="flex">
               <Button
                 onClick={handleSearch}
-                disabled={isMyPosts || isMyInquiryView || !searchQuery.trim()} variant="secondary" className="px-4 py-2 text-[length:var(--fs-sm)] font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={isMyPosts || isMyInquiryView} variant="secondary"
               >
                 {t("button.search")}
               </Button>
@@ -262,18 +267,16 @@ const BoardPage: React.FC = () => {
 
           </div>
           <div className="board-list-tabs">
-            {user && <Button data-testid="M2-1-2" size="sm" aria-pressed={isMyPosts} onClick={() => updateFilters({ view: isMyPosts ? undefined : "mine", type: undefined, q: undefined, tag: undefined }, new Set())}>{t("tab.mine")}</Button>}
+            {user && <Chip data-testid="M2-1-2" selectable selected={isMyPosts} onClick={() => updateFilters({ view: isMyPosts ? undefined : "mine", type: undefined, q: undefined, tag: undefined }, new Set())}>{t("tab.mine")}</Chip>}
             {(isMyPosts ? [] : ['all', 'devlog', 'inquiry', 'archive'] as const).map((type) => (
-              <Button data-testid="M2-0-1"
+              <Chip data-testid="M2-0-1"
                 key={type}
+                selectable
+                selected={selectedBoard === type}
                 onClick={() => selectBoard(type)}
-                variant={selectedBoard === type ? "outline" : "secondary"}
-                size="sm"
-                aria-pressed={selectedBoard === type}
-                className="min-h-[44px] whitespace-nowrap"
               >
                 {type === 'all' ? t("tab.all") : type === 'devlog' ? t("tab.devlog") : type === 'inquiry' ? t("tab.inquiry") : t("tab.archive")}
-              </Button>
+              </Chip>
             ))}
           </div>
         </div>
@@ -286,11 +289,9 @@ const BoardPage: React.FC = () => {
                 aria-expanded={tagsExpanded}
                 aria-controls="board-tag-exclusions"
                 onClick={() => setTagsExpanded(!tagsExpanded)}
-                className="flex min-h-[44px] items-center gap-1 text-[length:var(--fs-xs)] text-[var(--ink-3)] hover:text-[var(--ink-1)] transition-colors"
+                className="board-tag-disclosure"
               >
-                <svg className={`w-3.5 h-3.5 transition-transform ${tagsExpanded ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                <ChevronRight size={ICON_SIZE.md} aria-hidden="true" className={`transition-transform ${tagsExpanded ? 'rotate-90' : ''}`} />
                 {t("label.tagFilterCount", { count: panelTags.length })}
               </button>
               {/* 접혀있을 때도 activeTag 칩은 표시 */}
@@ -328,7 +329,7 @@ const BoardPage: React.FC = () => {
                       aria-pressed={isUnchecked}
                       aria-label={t("label.excludeTag", { tag: name })}
                       onClick={() => toggleTag(name)}
-                      className={`text-[length:var(--fs-xs)] px-2.5 py-1 rounded-full transition-colors ${isUnchecked ? 'opacity-40 line-through' : ''}`}
+                      className={isUnchecked ? 'opacity-40 line-through' : undefined}
                     >
                       #{name}
                     </Chip>
@@ -461,40 +462,27 @@ const BoardPage: React.FC = () => {
                 <div className="flex gap-3">
                 <div className="flex-1 min-w-0">
                 <div className="board-list-meta flex items-center gap-2 mb-1">
-                  <span className={`text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] font-bold uppercase ${
-                    post.boardType === 'free' ? 'bg-blue-900/30 text-blue-400' :
-                    post.boardType === 'hot' ? 'bg-red-900/30 text-red-400' :
-                    post.boardType === 'archive' ? 'bg-amber-900/30 text-[var(--amber)]' :
-                    post.boardType === 'gear' ? 'bg-purple-900/30 text-purple-400' :
-                    post.boardType === 'inquiry' ? 'bg-[var(--lime)]/10 text-[var(--lime)]' :
-                    post.boardType === 'devlog' ? 'bg-emerald-900/30 text-emerald-400' :
-                    'bg-green-900/30 text-green-400'
-                  }`}>
+                  {/* 글 종류 태그 — 15, 읽히는 대비 (G16) */}
+                  <Chip variant={BOARD_TYPE_CHIP[post.boardType] ?? 'default'}>
                     {t(`label.boardTypes.${post.boardType}`)}
-                  </span>
+                  </Chip>
                   {post.feedbackType && (() => {
 
                     const label = t(`label.feedbackTypes.${post.feedbackType}`);
                     return label ? (
-                      <span className="inline-flex items-center gap-1 text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--amber)]/10 text-[var(--amber)] font-medium">
-                        <BoardFeedbackIcon type={post.feedbackType} size={ICON_SIZE.sm} /> {label}
-                      </span>
+                      <Chip variant="warning" icon={<BoardFeedbackIcon type={post.feedbackType} size={ICON_SIZE.sm} />}>{label}</Chip>
                     ) : null;
                   })()}
                   {post.isPrivate && (
-                    <span className="text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--rose)]/10 text-[var(--rose)] font-medium">
-                      {t("label.privatePost")}
-                    </span>
+                    <Chip variant="danger">{t("label.privatePost")}</Chip>
                   )}
                   {isMyInquiryView && post.inquiryStatus && (
-                    <span className="text-[length:var(--fs-xs)] px-2 py-0.5 rounded-[var(--r-sm)] bg-[var(--aqua)]/10 text-[var(--aqua)] font-medium">
-                      {t(`inquiry.status.${post.inquiryStatus}` as any)}
-                    </span>
+                    <Chip variant="accent">{t(`inquiry.status.${post.inquiryStatus}` as any)}</Chip>
                   )}
-                  <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{new Date(post.createdAt).toLocaleDateString(i18n.language)}</span>
+                  <span className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">{new Date(post.createdAt).toLocaleDateString(i18n.language)}</span>
                   <div className="ml-auto flex items-center gap-1">
                     {post.sourceSite && (
-                      <span className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{post.sourceSite}</span>
+                      <span className="text-[length:var(--fs-sm)] text-[var(--ink-2)]">{post.sourceSite}</span>
                     )}
                     {user && user.uid === post.userId && (
                       <div className="relative -my-3 -mr-2">
@@ -532,7 +520,7 @@ const BoardPage: React.FC = () => {
                   if (main) sessionStorage.setItem('board-scroll', String(main.scrollTop));
                 }}>{post.title}</LocalizedLink></h2>
                 <div className="board-list-summary">
-                  <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)] line-clamp-2 md:line-clamp-3">{post.content.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/[#*_~`>\-[\]()!|]/g, '').replace(/\n+/g, ' ').slice(0, 200)}</p>
+                  <p className="text-[length:var(--fs-sm)] text-[var(--ink-2)] line-clamp-2">{post.content.replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/[#*_~`>\-[\]()!|]/g, '').replace(/\n+/g, ' ').slice(0, 200)}</p>
                   {isMobile && post.imageUrls && post.imageUrls.length > 0 && (
                     <BoardImage src={post.imageUrls[0]} alt={t("label.thumbnail", { title: post.title })} referrerPolicy="no-referrer" className="board-list-thumbnail rounded-[var(--r-lg)] object-cover flex-shrink-0 border border-[var(--line-soft)]" loading="lazy" decoding="async" />
                   )}
@@ -548,7 +536,6 @@ const BoardPage: React.FC = () => {
                       {shownTags.map(tag => (
                         <Chip
                           key={tag}
-                          selectable
                           variant={activeTag === tag ? 'accent' : 'default'}
                           aria-pressed={activeTag === tag}
                           aria-disabled={isMyPosts || isMyInquiryView}
@@ -568,12 +555,12 @@ const BoardPage: React.FC = () => {
                   );
                 })()}
 
-                <div className="board-list-footer text-[length:var(--fs-xs)] text-[var(--ink-3)]">
+                <div className="board-list-footer text-[length:var(--fs-sm)] text-[var(--ink-2)]">
                   <div className="flex items-center gap-2">
                     {post.profileImage ? (
-                      <SafeImage src={post.profileImage} alt={post.nickname} fallbackLabel={post.nickname} className="w-5 h-5 rounded-full object-cover" loading="lazy" decoding="async" />
+                      <SafeImage src={post.profileImage} alt={post.nickname} fallbackLabel={post.nickname} className="w-6 h-6 rounded-full object-cover" loading="lazy" decoding="async" />
                     ) : (
-                      <div className="w-5 h-5 rounded-full bg-[var(--bg-3)]" />
+                      <div className="w-6 h-6 rounded-full bg-[var(--bg-3)]" />
                     )}
                     <span>{post.nickname}</span>
                   </div>
@@ -660,7 +647,7 @@ const BoardPage: React.FC = () => {
       {!isMyPosts && !isMyInquiryView && panelTags.length > 0 && (
         <aside className="hidden xl:block xl:w-[240px] xl:flex-none">
           <Card padding="none" className="p-4!">
-            <p className="text-[length:var(--fs-xs)] font-semibold uppercase tracking-widest text-[var(--ink-3)] mb-3">
+            <p className="text-[length:var(--fs-xs)] font-semibold text-[var(--ink-3)] mb-3">
               {t("label.popularTags")}
             </p>
             <div className="flex flex-wrap gap-1.5">

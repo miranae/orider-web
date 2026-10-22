@@ -137,11 +137,9 @@ export default function ParticipantTable({
                   style={{
                     textAlign: RIGHT_ALIGN_IDX.has(i) ? "right" : "left",
                     padding: "10px 14px",
-                    fontSize: "var(--fs-2xs)",
-                    letterSpacing: "0.06em",
-                    color: "var(--ink-3)",
+                    fontSize: "var(--fs-xs)",
+                    color: "var(--ink-2)",
                     fontWeight: 500,
-                    textTransform: "uppercase",
                     borderBottom: "1px solid var(--line-soft)",
                   }}
                 >

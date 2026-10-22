@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 
 import { LocalizedLink } from "../LocalizedLink";
 import { NAV_GROUPS, settingsTabPath } from "../settings/settingsNavigation";
-import { Text, buttonClass } from "../../theme/components";
+import { Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 
 /** Mobile settings root: a short category hub; settings themselves live on dedicated subpages. */
 export default function MobileSettingsPage() {
@@ -14,12 +15,12 @@ export default function MobileSettingsPage() {
       <header className="mobile-settings-header">
         <LocalizedLink
           to="/athlete/me"
-          className={buttonClass({ variant: "ghost", size: "md", iconOnly: true })}
+          className="mobile-settings-back"
           aria-label={t("nav.backToProfile")}
         >
-          <ChevronLeft aria-hidden="true" />
+          <ChevronLeft size={ICON_SIZE.lg} aria-hidden="true" />
         </LocalizedLink>
-        <Text as="h1" variant="subtitle" weight={700}>{t("title")}</Text>
+        <Text as="h1" variant="subtitle" className="mobile-settings-title">{t("title")}</Text>
       </header>
 
       <main className="mobile-settings-groups" aria-label={t("nav.mobileHubLabel")}>
@@ -35,10 +36,11 @@ export default function MobileSettingsPage() {
                     to={settingsTabPath(item.id)}
                     className="mobile-settings-item"
                   >
-                    <span className="mobile-settings-item-icon" aria-hidden="true"><Icon /></span>
+                    {/* 색 타일 29 + 흰 글리프 18 (S4) — 행마다 다른 색 */}
+                    <span className="mobile-settings-item-icon" data-tint={item.id} aria-hidden="true"><Icon /></span>
                     <span className="mobile-settings-item-copy">
-                      <Text as="span" variant="body" weight={600}>{t(item.labelKey)}</Text>
-                      <Text as="span" variant="caption" tone="tertiary">{t(item.hintKey)}</Text>
+                      <Text as="span" variant="body">{t(item.labelKey)}</Text>
+                      <Text as="span" variant="bodySmall" tone="tertiary">{t(item.hintKey)}</Text>
                     </span>
                     <ChevronRight className="mobile-settings-item-chevron" aria-hidden="true" />
                   </LocalizedLink>

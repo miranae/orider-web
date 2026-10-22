@@ -4,12 +4,8 @@ import { ToggleControls, ToggleButton } from "../../theme/components";
 import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { getDisciplineColor, getDisciplineLabelKey } from "../../utils/disciplineFilter";
+import { getDisciplineLabelKey } from "../../utils/disciplineFilter";
 import { track } from "../../services/analytics";
-import { Triangle } from "lucide-react";
-import SportIcon from "../common/SportIcon";
-import type { ReactNode } from "react";
-import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export type Discipline = "tri" | "bike" | "run" | "swim";
 
@@ -31,14 +27,15 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation("common");
 
-  const tabs = useMemo<{ key: Discipline; label: string; icon: ReactNode; color: string }[]>(() => {
+  // HIG 세그먼트: 텍스트 전용 (아이콘 없음)
+  const tabs = useMemo<{ key: Discipline; label: string }[]>(() => {
     const base = [
-      { key: "bike" as Discipline, label: t(getDisciplineLabelKey("bike")), icon: <SportIcon sport="bike" size={ICON_SIZE.md} />, color: getDisciplineColor("bike") },
-      { key: "run"  as Discipline, label: t(getDisciplineLabelKey("run")),  icon: <SportIcon sport="run" size={ICON_SIZE.md} />, color: getDisciplineColor("run") },
-      { key: "swim" as Discipline, label: t(getDisciplineLabelKey("swim")), icon: <SportIcon sport="swim" size={ICON_SIZE.md} />, color: getDisciplineColor("swim") },
+      { key: "bike" as Discipline, label: t(getDisciplineLabelKey("bike")) },
+      { key: "run"  as Discipline, label: t(getDisciplineLabelKey("run")) },
+      { key: "swim" as Discipline, label: t(getDisciplineLabelKey("swim")) },
     ];
     if (includeTri) {
-      base.unshift({ key: "tri" as Discipline, label: t(getDisciplineLabelKey("tri")), icon: <Triangle size={ICON_SIZE.xs} />, color: getDisciplineColor("tri") });
+      base.unshift({ key: "tri" as Discipline, label: t(getDisciplineLabelKey("tri")) });
     }
     return base.filter(tab => isSportUiEnabled(tab.key));
   }, [includeTri, t]);
@@ -98,7 +95,7 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
       aria-label={t("discipline.selectAria")}
       className="discipline-tabs"
     >
-      {tabs.map(({ key, label, icon, color }, idx) => {
+      {tabs.map(({ key, label }, idx) => {
         const disabled = disabledKeys.includes(key);
         const isActive = !disabled && active === key;
         return (
@@ -119,12 +116,8 @@ export default function DisciplineTabs({ value, onChange, includeTri, disabledKe
           >
             <span className="discipline-tab-content">
               <span className="discipline-tab-heading">
-                <span aria-hidden="true" style={{ display: "inline-flex", color }}>{icon}</span>
                 <span data-discipline-label><span data-discipline-full>{label}</span><span data-discipline-compact>{t(`discipline.compact.${key}`)}</span></span>
               </span>
-              {disabledKeys.length > 0 && <span data-discipline-availability aria-hidden="true">
-                {disabled && <><span data-discipline-full>{t("discipline.comingSoon")}</span><span data-discipline-compact>{t("discipline.compact.soon")}</span></>}
-              </span>}
             </span>
           </ToggleButton>
         );

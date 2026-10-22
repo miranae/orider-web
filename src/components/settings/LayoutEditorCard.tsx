@@ -591,9 +591,6 @@ function PickerPanel({
               style={{
                 fontSize: "var(--fs-xs)",
                 color: "var(--ink-3)",
-                fontFamily: "var(--font-mono)",
-                textTransform: "uppercase",
-                letterSpacing: "0.06em",
                 marginBottom: 'var(--space-1)',
               }}
             >

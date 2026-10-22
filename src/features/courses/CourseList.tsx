@@ -171,7 +171,7 @@ export function CourseList({
   return (
     <div style={{ padding: "var(--space-3)" }}>
       {mapUnavailable && (
-        <div className="rounded-[var(--r-lg)]" role="status" style={{ background: "var(--bg-1)", border: "1px solid var(--line-soft)", marginBottom: "var(--space-3)", padding: "var(--space-3) var(--space-4)" }}>
+        <div className="rounded-[var(--r-md)]" role="status" style={{ background: "var(--bg-1)", marginBottom: "var(--space-3)", padding: "var(--space-3) var(--space-4)" }}>
           <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("map.unavailableTitle")}</div>
           <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>{t("map.listPriorityDescription")}</div>
           {onRetryMap && (
@@ -221,10 +221,10 @@ export function CourseList({
                 onMouseLeave={() => onHoverCourse(null)}
                 onClick={() => onSelectCourse(course.id)}
                 onDoubleClick={() => onOpenCourse(course.id)}
-                className="course-list-card cursor-pointer rounded-[var(--r-lg)] transition-colors"
+                className="course-list-card cursor-pointer rounded-[var(--r-md)] transition-colors"
                 style={{
                   background: highlighted ? "color-mix(in oklch, var(--lime) 6%, var(--bg-2))" : "var(--bg-1)",
-                  border: highlighted ? "1px solid var(--lime)" : "1px solid var(--line-soft)",
+                  border: highlighted ? "1px solid var(--lime)" : "1px solid transparent",
                   borderLeft: highlighted ? "2px solid var(--lime)" : "2px solid transparent",
                   padding: "var(--space-3)",
                 }}

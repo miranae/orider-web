@@ -1,3 +1,6 @@
+/* HIG 상단 막대: 모바일 44(터치 44·아이콘 22·프로필 32), 넓은 화면은 기존 52 유지. */
+.top-nav { height: var(--dim-button-height); }
+.top-nav-avatar { width: var(--space-7); height: var(--space-7); flex-shrink: 0; }
 .mobile-menu-trigger {
   margin-left: auto;
   width: calc(var(--space-7) + var(--space-3));
@@ -9,9 +12,10 @@
 }
 .mobile-navigation {
   position: fixed;
-  top: calc(var(--space-8) + var(--space-1));
+  top: var(--dim-button-height);
   inset-inline: 0;
-  bottom: calc(var(--space-8) + var(--space-1-5) + env(safe-area-inset-bottom, 0px));
+  /* 하단 탭 막대 49 + 윗선 1 */
+  bottom: calc(var(--space-8) + var(--space-0-5) + env(safe-area-inset-bottom, 0px));
   z-index: 49;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -169,4 +173,10 @@
     padding-inline-start: var(--space-4);
     font-size: var(--fs-md);
   }
+}
+
+/* 넓은 화면의 상단 막대 52 — 기본 규칙 뒤에 두어 덮어쓴다. */
+@media (min-width: 48rem) {
+  .top-nav { height: calc(var(--space-8) + var(--space-1)); }
+  .mobile-navigation { top: calc(var(--space-8) + var(--space-1)); }
 }

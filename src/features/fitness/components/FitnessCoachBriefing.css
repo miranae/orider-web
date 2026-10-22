@@ -101,8 +101,8 @@
 
 /* Condition reads as a decision, followed by its evidence. Other coach surfaces keep their layout. */
 .fitness-coach__story-hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--space-6); margin-bottom: var(--space-7); }
-.fitness-coach--story .fitness-coach__summary { display: grid; gap: var(--space-5); }
-.fitness-coach--story .fitness-coach__current-metrics { padding-top: var(--space-4); border-top: 1px solid var(--line-soft); }
+/* HIG 가이드: 게이지와 CTL/ATL/TSB 사이 구분선 없음, 카드 내부 간격 12 */
+.fitness-coach--story .fitness-coach__summary { display: grid; gap: var(--space-3); }
 .fitness-coach__story-choice { min-width: 0; padding-inline-start: var(--space-6); border-inline-start: 1px solid var(--line-soft); }
 .fitness-coach--story .fitness-coach__summary-evidence { padding: 0; background: transparent; }
 .fitness-coach--story .fitness-coach__summary-evidence > div { display: flex; flex-wrap: wrap; gap: var(--space-2); }
@@ -116,8 +116,6 @@
 
 @media (min-width: 52rem) {
   .fitness-coach__story-hero { gap: var(--space-5); margin-bottom: var(--space-3); }
-  .fitness-coach--story .fitness-coach__summary { gap: var(--space-3); }
-  .fitness-coach--story .fitness-coach__current-metrics { padding-top: var(--space-3); }
   .fitness-coach__story-choice { padding-inline-start: var(--space-5); }
   .fitness-coach--story .fitness-coach__forecast { margin-top: var(--space-3); }
   .fitness-coach--story .fitness-coach__forecast > div { padding: var(--space-2); }

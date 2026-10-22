@@ -1,7 +1,7 @@
 import { isSportUiEnabled } from "../../config/sportFeatures";
 import "./SportFilterTabs.css";
 import SportIcon from "../common/SportIcon";
-import { Button } from "../../theme/components";
+import { Chip } from "../../theme/components";
 import { useTranslation } from "react-i18next";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
@@ -14,9 +14,9 @@ interface SportFilterTabsProps {
 
 const TABS = [
   { key: "all",  labelKey: "label.all" },
-  { key: "bike", labelKey: "sportFilter.bike", color: "var(--aqua)" },
-  { key: "run",  labelKey: "sportFilter.run",  color: "var(--amber)" },
-  { key: "swim", labelKey: "sportFilter.swim", color: "var(--lime)" },
+  { key: "bike", labelKey: "sportFilter.bike" },
+  { key: "run",  labelKey: "sportFilter.run" },
+  { key: "swim", labelKey: "sportFilter.swim" },
 ] as const;
 
 export default function SportFilterTabs({ value, onChange, allLabelKey = "label.all" }: SportFilterTabsProps) {
@@ -25,18 +25,10 @@ export default function SportFilterTabs({ value, onChange, allLabelKey = "label.
     <div className="sport-filter-tabs" role="group" aria-label={t("discipline.selectAria")}>
       {TABS.filter(tab => isSportUiEnabled(tab.key)).map((f) => {
         const active = (isSportUiEnabled(value) ? value : "all") === f.key;
-        const color = "color" in f ? f.color : undefined;
         return (
-          <Button key={f.key} variant={active ? "secondary" : "outline"} leadingIcon={f.key === "all" ? undefined : <SportIcon sport={f.key} size={ICON_SIZE.md} />} aria-pressed={active} onClick={() => onChange(f.key)}
-            style={{
-              flex: 1, minWidth: 0, paddingInline: "var(--space-2)", fontSize: "var(--fs-xs)", fontWeight: active ? 600 : 400,
-              borderRadius: "var(--r-xl)", cursor: "pointer",
-              border: `1px solid ${active ? (color || "var(--ink-2)") : "var(--line-soft)"}`,
-              background: active ? "var(--bg-3)" : "transparent",
-              color: active ? (color || "var(--ink-0)") : "var(--ink-3)",
-            }}>
+          <Chip key={f.key} selectable selected={active} icon={f.key === "all" ? undefined : <SportIcon sport={f.key} size={ICON_SIZE.md} />} onClick={() => onChange(f.key)}>
             {t(f.key === "all" ? allLabelKey : f.labelKey).replace(/^[🚴🏃🏊]\uFE0F?\s*/u, "")}
-          </Button>
+          </Chip>
         );
       })}
     </div>

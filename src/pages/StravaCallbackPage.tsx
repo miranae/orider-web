@@ -227,7 +227,7 @@ export default function StravaCallbackPage() {
         {step === "done" && (
           <div className="space-y-4 text-left">
             <div className="rounded-[var(--r-lg)] border border-[var(--line-soft)] bg-[var(--bg-1)] p-4">
-              <p className="text-[length:var(--fs-xs)] uppercase tracking-[0.08em] text-[var(--ink-4)]">
+              <p className="text-[length:var(--fs-xs)] text-[var(--ink-4)]">
                 {t("stravaCallback.summary.eyebrow")}
               </p>
               <p className="mt-1 text-[length:var(--fs-base)] font-semibold text-[var(--ink-0)]">

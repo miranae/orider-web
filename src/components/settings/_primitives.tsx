@@ -6,21 +6,16 @@ import { useTranslation } from "react-i18next";
 import GlossaryText from "../common/GlossaryText";
 import { Card, Stat, Switch } from "../../theme/components";
 
+// 모양(36 높이·채움·모서리 10·17)은 .ds-input(HIG)이 정한다 — 여기선 폭·박스 모델만.
 const inputBox: CSSProperties = {
-  background: "var(--bg-2)",
-  border: "1px solid var(--line)",
-  borderRadius: "var(--r-md)",
-  padding: "var(--space-2) var(--space-3)",
-  minHeight: "var(--dim-button-height)",
   boxSizing: "border-box",
-  fontSize: "var(--fs-sm)",
   color: "var(--ink-0)",
 };
 export const fieldInputStyle: CSSProperties = { ...inputBox, width: "100%" };
 export const monoInputStyle: CSSProperties = {
   ...inputBox,
   width: "100%",
-  fontFamily: "var(--font-mono)",
+  fontFamily: "var(--font-code)",
   textAlign: "center",
 };
 

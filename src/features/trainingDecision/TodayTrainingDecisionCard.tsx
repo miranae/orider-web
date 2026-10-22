@@ -118,6 +118,11 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
   const recommendedAdjustment = recommendationVisible ? primaryRecommendedAdjustment(decision) : null;
   const recommended = recommendedAdjustment ? primaryRecommendedSession(decision) : null;
   const effective = primaryEffectiveSession(decision);
+  // 표시 전용: 원래 계획과 현재 실행안이 같은 내용이면 카드 하나로 합쳐 중복 표시를 없앤다(T2).
+  const effectiveMatchesScheduled = !!scheduled && !!effective
+    && effective.current.workout === scheduled.current.workout
+    && effective.current.durationMin === scheduled.current.durationMin
+    && effective.current.targetTss === scheduled.current.targetTss;
   const action = recommendedAdjustment ? decisionAction(decision) : null;
   const applied = decision.receipt?.status === "applied";
   const recommendationPending = Boolean(recommendedAdjustment && !applied);
@@ -168,13 +173,15 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
       && <Text as="p" variant="caption" tone="secondary" data-fallback-reason={decision.fallback.reasonCode}>
         {t(`decision.fallback.reason.${decision.fallback.reasonCode}`)}</Text>}
     <div data-testid={surface === "today" ? "K2-2-1" : "K4-4-1"} className="training-decision-card__sessions">
-      <TrainingDecisionSessionView label={t("decision.scheduled")} session={scheduled} />
+      {/* 같은 내용이면 원래 계획 자리에 한 장만 — 조정 권고와의 비교 순서는 유지 */}
+      {effectiveMatchesScheduled ? <TrainingDecisionSessionView label={t("decision.effectiveScheduled")} session={effective} tone="effective" />
+        : <TrainingDecisionSessionView label={t("decision.scheduled")} session={scheduled} />}
       {recommended && <TrainingDecisionSessionView label={t("decision.recommended")} session={recommended} tone="recommended" />}
       {recommendationPending && !recommended && <div className="training-decision-session training-decision-session--recommended" data-session-role="recommended">
         <Text as="span" variant="caption" tone="secondary">{t("decision.recommended")}</Text>
         <Text as="strong" variant="subtitle">{t(`decision.status.${action}`)}</Text>
       </div>}
-      <TrainingDecisionSessionView label={t("decision.effective")} session={effective} tone="effective" />
+      {!effectiveMatchesScheduled && <TrainingDecisionSessionView label={t("decision.effective")} session={effective} tone="effective" />}
       {extraCount > 0 && <Text as="p" variant="caption" tone="secondary">{t("decision.extraSessions", { count: extraCount })}</Text>}
     </div>
     {deltaTarget && scheduled && <Text className="training-decision-card__delta" as="p" variant="caption" tone="secondary">

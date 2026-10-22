@@ -544,7 +544,7 @@ export default function EventEditPage() {
               >
                 {event.status}
               </Chip>
-              <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>{event.id}</span>
+              <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-code)" }}>{event.id}</span>
             </div>
             <h1 className="truncate" style={{ fontSize: "var(--fs-2xl)", letterSpacing: "-0.02em", color: "var(--ink-0)" }}>
               {data.name}

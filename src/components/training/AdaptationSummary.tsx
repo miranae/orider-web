@@ -104,8 +104,6 @@ export default function AdaptationSummary({ flag, href = "/coach/plan", style }:
         style={{
           fontSize: "var(--fs-xs)",
           color: tone.ink,
-          fontFamily: "var(--font-mono)",
-          letterSpacing: ".06em",
           flexShrink: 0,
         }}
       >
