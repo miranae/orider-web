@@ -114,3 +114,5 @@
   .mobile-fitness-page__title { padding: var(--space-1) var(--space-4) 0; }
   .mobile-fitness-toolbar { margin-top: var(--space-1); margin-bottom: var(--space-1); }
 }
+
+.mobile-analysis-period { display: grid; gap: var(--space-2); margin-block: var(--space-4); }

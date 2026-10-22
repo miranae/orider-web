@@ -1,3 +1,6 @@
+import { goalCountdown } from "../utils/goalCountdown";
+import { formatPlanGoalTitle } from "../features/training/plan/planDisplay";
+import { useMobile } from "../hooks/useMobile";
 import { isSportUiEnabled } from "../config/sportFeatures";
 import GlossaryText from "../components/common/GlossaryText";
 import { GoalSourceNotice } from "../components/training/GoalInputNotice";
@@ -21,6 +24,11 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
   const [params] = useSearchParams();
   const model = usePlanModel(isSportUiEnabled(params.get("sport") ?? "bike") ? params.get("sport") : "bike");
   const { user, goal, discipline } = model;
+  const mobile = useMobile();
+  const rawTitle = goal?.title || goal?.courseName || "";
+  const title = formatPlanGoalTitle(rawTitle);
+  const targetMs = goal?.targetDate ?? goal?.eventDate ?? model.goalDate?.getTime();
+  const displayDate = targetMs != null && Number.isFinite(new Date(targetMs).getTime()) ? new Date(targetMs) : null;
   const [choice, setChoice] = useState<{ sport: string; kind: "event" | "climb" } | null>(null);
   const [error, setError] = useState(false);
   const types = useRef<HTMLDivElement>(null);
@@ -59,7 +67,8 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
       {model.loadError != null && <Button onClick={model.retryLoad}>{t("goalHub.retry")}</Button>}
       {goal && <Card data-testid="K3-1">
         <GoalSourceNotice goal={goal} discipline={discipline} />
-        <div data-testid="K3-1-1"><Text as="h2" variant="title">{goal.title || goal.courseName}</Text><Text>{t(`goalHub.goalType.${goal.runProgram ? "program" : goal.goalType === "climb" ? "climb" : goal.eventType === "completion" ? "completion" : goal.eventType === "time" ? "time" : "race"}`)} · {model.goalDate?.toLocaleDateString(i18n.resolvedLanguage ?? i18n.language)} · D-{Math.max(0, model.daysLeft)}</Text><Text>{goal.targetDurationMin ? t("goalHub.minutes", { value: goal.targetDurationMin }) : null}{goal.target?.climbDurationMin ? <GlossaryText>{`${t("goalHub.minutes", { value: goal.target.climbDurationMin })} · ${goal.target.targetWkg ?? "—"} W/kg`}</GlossaryText> : null}</Text></div>
+        <div data-testid="K3-1-1"><Text as="h2" variant="title" style={{ overflowWrap: "anywhere" }}>{mobile ? title.name : rawTitle}</Text>
+          {mobile && title.meta && <><Text as="p" variant="bodySmall" tone="secondary">{title.meta}</Text><details className="goal-title-original"><summary>{t("goalHub.originalTitle")}</summary><Text as="p" variant="bodySmall" style={{ overflowWrap: "anywhere" }}>{rawTitle}</Text></details></>}<Text>{t(`goalHub.goalType.${goal.runProgram ? "program" : goal.goalType === "climb" ? "climb" : goal.eventType === "completion" ? "completion" : goal.eventType === "time" ? "time" : "race"}`)} · {displayDate?.toLocaleDateString(i18n.resolvedLanguage ?? i18n.language, { timeZone: "Asia/Seoul" })} · {goalCountdown(targetMs)}</Text><Text>{goal.targetDurationMin ? t("goalHub.minutes", { value: goal.targetDurationMin }) : null}{goal.target?.climbDurationMin ? <GlossaryText>{`${t("goalHub.minutes", { value: goal.target.climbDurationMin })} · ${goal.target.targetWkg ?? "—"} W/kg`}</GlossaryText> : null}</Text></div>
         <div data-testid="K3-1-2" style={{ marginBlock: "var(--space-4)" }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-2)", color: "var(--ink-1)" }}>
             <Text>{t("goalHub.planProgress")}</Text><Text variant="dataMedium">{model.progress}%</Text>

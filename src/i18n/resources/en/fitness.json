@@ -1314,5 +1314,6 @@
   "condition.story.methodsBody": "Calculation coverage and data states to consider when reading these metrics.",
   "condition.story.detailTitle": "Performance evidence in your records",
   "condition.story.activityBasis": "The condition above is an interpretation of training load. Below, inspect the selected activity’s contribution separately. Rest if you have pain or signs of illness.",
-  "powerCurve.valuesInfo": "About these values"
+  "powerCurve.valuesInfo": "About these values",
+  "sufficiency.state.unavailable": "The calculated result is not available yet"
 }

@@ -1,3 +1,4 @@
+import { goalCountdown } from "../../utils/goalCountdown";
 import "./HomeTodayStrip.css";
 import GlossaryText from "../common/GlossaryText";
 import { useEffect, useState, type ReactNode } from "react";
@@ -59,7 +60,7 @@ function HomeGoalSummary({ discipline, monthlyKm, monthlyFlowPercent, weeklyAver
   }, [user, discipline, owner]);
   const current = state?.owner === owner ? state : null;
   const goal = current?.goal;
-  const days = goal ? Math.ceil(((goal.targetDate ?? goal.eventDate) - Date.now()) / 86400000) : NaN;
+  const countdown = goal ? goalCountdown(goal.targetDate ?? goal.eventDate) : "—";
   return <Card padding="card" data-home-slot="goal" header={<div className="home-today-header">
     <Text as="h2" variant="subtitle">{current && !current.loading && !current.failed && !goal && weeklyAverageKm > 0 ? discipline === "run" ? <>{t("todayStrip.monthFlow")} · {t(getDisciplineLabelKey(discipline))}</> : t("todayStrip.monthFlowAllTitle") : <>{t("todayStrip.goal")} · {t(getDisciplineLabelKey(discipline))}</>}</Text>
     {(goal || current?.failed) && <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/goals?sport=${discipline}`}>{t("todayStrip.goalLink")}</LocalizedLink>}
@@ -69,7 +70,7 @@ function HomeGoalSummary({ discipline, monthlyKm, monthlyFlowPercent, weeklyAver
         : goal ? <>
           <Text as="p" variant="bodyMedium" weight={700} style={{ overflowWrap: "anywhere" }}>{goal.title || goal.courseName || t("todayStrip.goal")}</Text>
           <div className="flex flex-wrap items-center gap-2">
-            {Number.isFinite(days) && <Chip><Text variant="caption" mono><InfoTip title={t("todayStrip.goalCountdownTitle")} content={t("todayStrip.goalCountdownHelp")} label={t("todayStrip.goalCountdownLabel")} termId="countdown">{`D${days >= 0 ? "−" : "+"}${Math.abs(days)}`}</InfoTip></Text></Chip>}
+            {countdown !== "—" && <Chip><Text variant="caption" mono><InfoTip title={t("todayStrip.goalCountdownTitle")} content={t("todayStrip.goalCountdownHelp")} label={t("todayStrip.goalCountdownLabel")} termId="countdown">{countdown}</InfoTip></Text></Chip>}
             {user && <HomeGoalForecast uid={user.uid} discipline={discipline} goalId={goal.id} />}
           </div>
         </> : weeklyAverageKm <= 0 ? <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/goals?sport=${discipline}`}>{t("todayStrip.createGoal")}</LocalizedLink>

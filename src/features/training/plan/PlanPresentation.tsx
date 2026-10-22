@@ -1,3 +1,4 @@
+import { goalCountdown } from "../../../utils/goalCountdown";
 import { summarizeStoredPlan } from "./planScope";
 import { Eye, RefreshCw, Target } from "lucide-react";
 import GlossaryText from "../../../components/common/GlossaryText";
@@ -819,13 +820,13 @@ export default function PlanPresentation({
                   {t('page.goalDateLabel')}{' '}
                   <span style={{ color: 'var(--ink-0)', fontFamily: 'var(--font-mono)' }}>
                     {goalDate.toLocaleDateString(i18n.language, {
-                      year: 'numeric', month: '2-digit', day: '2-digit',
+                      year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Seoul',
                     })}
                   </span>
                 </span>
               )}
               <span>
-                {t('page.daysLeftPrefix')}<span style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)' }}>{daysLeft}</span>
+                <span style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)' }}>{goalDate ? goalCountdown(goalDate.getTime()) : `${t('page.daysLeftPrefix')}${daysLeft}`}</span>
               </span>
               {goal && goal.goalType !== 'climb' && (goal.courseDist > 0 || goal.courseElev > 0) && (
                 <span>

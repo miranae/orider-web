@@ -100,6 +100,7 @@ describe("mobile web analysis evidence", () => {
   });
   it("shows measured monthly VO2 trend and CP strength/weakness evidence", () => {
     renderWithProviders(<MobileFitnessPage data={data} part="analysis" />);
+    fireEvent.click(screen.getByText("추정 지표와 산출 근거"));
     expect(screen.getByTestId("K5-1-3")).toHaveTextContent("~52");
     expect(screen.getByTestId("K5-1-3")).toHaveTextContent("+3.0");
     expect(screen.getByTestId("K5-1-4")).toHaveTextContent("+13%");
@@ -277,4 +278,20 @@ it("keeps the integrated contribution proportions when swimming controls are hid
   const remainder = within(contribution).getByRole("img", { name: "기타 · CTL 40.0 · 40%" });
   expect([bike, run, remainder].map(bucket => Number((bucket as HTMLElement).style.flexGrow))).toEqual([30, 30, 40]);
   expect(within(contribution).queryByRole("img", { name: /수영/ })).not.toBeInTheDocument();
+});
+
+it("does not label the whole mobile analysis insufficient when a permitted recorded curve is visible", () => {
+  renderWithProviders(<MobileFitnessPage data={{ ...data, powerCurve: [{ durationSeconds: 5, maxPower: 500 }, { durationSeconds: 1200, maxPower: 200 }] }} part="analysis" />);
+  expect(screen.getByRole("img", { name: /파워 커브 · 최근 28일/ })).toBeVisible();
+  expect(screen.queryByText("분석할 데이터가 아직 충분하지 않아요.")).not.toBeInTheDocument();
+});
+
+it("retains the server power-curve lock even when raw points are present", () => {
+  const block = sufficiencyBlock({ featureId: "power_curve", viewId: "mobile", state: "locked", nextAction: { code: "record_power_ride" },
+    requirements: [{ requirementId: "power_curve_points", kind: "count", satisfaction: "not_met", guarantee: "minimum", target: { value: 2, unit: "point" }, current: { value: 1, unit: "point" } }] });
+  const fixture = { ...data, powerCurve: [{ durationSeconds: 5, maxPower: 500 }, { durationSeconds: 1200, maxPower: 200 }], activityWindowSufficiency: sufficiencySet([block]) };
+  renderWithProviders(<MobileFitnessPage data={fixture} part="analysis" />);
+  expect(screen.queryByRole("img", { name: /파워 커브 · 최근 28일/ })).not.toBeInTheDocument();
+  expect(screen.getByTestId("K5-2-1-sufficiency")).toBeVisible();
+  expect(block.state).toBe("locked");
 });

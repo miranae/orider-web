@@ -1211,5 +1211,6 @@
     "minutes": "{{count}} minutes"
   },
   "scope.summary": "Scheduled through the goal: {{untilGoal}} · Stored after the goal: {{afterGoal}} · Overdue: {{overdue}}. The calendar and progress cover the full stored plan.",
-  "scope.nextAfterGoal": "Stored workout after the goal"
+  "scope.nextAfterGoal": "Stored workout after the goal",
+  "goalHub.originalTitle": "Original goal name"
 }

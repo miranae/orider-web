@@ -69,3 +69,5 @@
   .coach-surface .fitness-reading { padding-top: var(--space-1) !important; }
   .coach-surface .coach-page-header { row-gap: var(--space-1); }
 }
+
+.goal-title-original > summary { min-height: var(--dim-button-height); padding-block: var(--space-2); list-style-position: inside; color: var(--accent); cursor: pointer; }

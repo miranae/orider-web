@@ -2756,5 +2756,6 @@
     "noResults": "No highlights to display.",
     "previousPhoto": "Previous photo",
     "nextPhoto": "Next photo"
-  }
+  },
+  "detail.keyRecords": "Key records"
 }

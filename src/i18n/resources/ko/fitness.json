@@ -1314,5 +1314,6 @@
   "condition.story.methodsBody": "지표를 읽을 때 확인할 계산 범위와 데이터 상태입니다.",
   "condition.story.detailTitle": "기록에서 확인하는 수행 능력",
   "condition.story.activityBasis": "위 컨디션은 훈련 부하에 따른 해석입니다. 아래에서는 선택한 활동의 기여도를 따로 확인합니다. 통증이나 질병 신호가 있으면 쉬세요.",
-  "powerCurve.valuesInfo": "선택값 설명"
+  "powerCurve.valuesInfo": "선택값 설명",
+  "sufficiency.state.unavailable": "계산 결과를 아직 확인할 수 없어요"
 }

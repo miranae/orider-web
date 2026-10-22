@@ -63,13 +63,40 @@ describe("goal hub", () => {
 it.each(['ko', 'en'])('uses the active %s UI locale for the saved target date', async locale => {
   const previous = i18n.language;
   i18n.addResourceBundle('en', 'training', enTraining, true, true);
-  const expectedDate = new Date('2026-12-01').toLocaleDateString(locale);
+  const expectedDate = new Date('2026-12-01').toLocaleDateString(locale, { timeZone: 'Asia/Seoul' });
   const format = vi.spyOn(Date.prototype, 'toLocaleDateString');
   try {
     await i18n.changeLanguage(locale);
     state.goal = { id: 'localized-date', title: 'Locale goal', eventType: 'completion' };
     renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />, { route: `/${locale}/coach/goals?sport=bike` });
     expect(screen.getByTestId('K3-1-1')).toHaveTextContent(expectedDate);
-    expect(format).toHaveBeenCalledWith(locale);
+    expect(format).toHaveBeenCalledWith(locale, { timeZone: 'Asia/Seoul' });
   } finally { format.mockRestore(); await i18n.changeLanguage(previous); }
+});
+
+it("shows elapsed goal days without changing a saved goal", () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date("2026-10-22T12:00:00+09:00"));
+  try {
+    state.goal = { id: "past", title: "Saved goal", eventDate: Date.parse("2026-10-18T00:00:00+09:00") };
+    renderWithProviders(<GoalHub wizard={<div />} />);
+    expect(screen.getByTestId("K3-1-1")).toHaveTextContent("D+4");
+    expect(state.goal.title).toBe("Saved goal");
+  } finally { vi.useRealTimers(); }
+});
+
+it("separates a generated mobile goal name and metadata while retaining the original", () => {
+  const media = vi.spyOn(window, "matchMedia").mockImplementation(query => ({
+    matches: query.includes("max-width"), media: query, onchange: null,
+    addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn(),
+  }));
+  const raw = "2026_비앙키그란폰도춘천_그란폰도_122.91km";
+  try {
+    state.goal = { id: "readable", title: raw };
+    renderWithProviders(<GoalHub wizard={<div />} />);
+    expect(screen.getByRole("heading", { name: "비앙키그란폰도춘천" })).toBeVisible();
+    expect(screen.getByText("2026 · 그란폰도 · 122.91 km")).toBeVisible();
+    fireEvent.click(screen.getByText("목표 이름 원문"));
+    expect(screen.getByText(raw)).toBeVisible();
+    expect(state.goal.title).toBe(raw);
+  } finally { media.mockRestore(); }
 });

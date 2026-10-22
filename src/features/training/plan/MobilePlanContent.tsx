@@ -1,3 +1,4 @@
+import { goalCountdown } from "../../../utils/goalCountdown";
 import { isSportUiEnabled } from "../../../config/sportFeatures";
 import { ChevronLeft, ChevronRight, Moon } from "lucide-react";
 import InfoTip from "../../../components/InfoTip";
@@ -184,7 +185,7 @@ export default function MobilePlanContent({
             <div style={{ width: `${Math.min(100, Math.max(0, progressPct ?? 0))}%`, height: "100%", background: "var(--lime)" }} />
           </div>
           <div className="mobile-plan-goal-stats">
-            <span><small>{t("mobile.goalCountdown")}</small><strong>{daysLeft != null ? `${t("page.daysLeftPrefix")}${daysLeft}` : "—"}</strong></span>
+            <span><small>{t("mobile.goalCountdown")}</small><strong>{goalDate ? goalCountdown(goalDate.getTime()) : daysLeft != null ? `${t("page.daysLeftPrefix")}${daysLeft}` : "—"}</strong></span>
             <span><small><InfoTip title={t("metrics.progress")} content={t("metrics.progressBasis")}>{t("metrics.progress")}</InfoTip></small><strong>{progressPct != null ? `${progressPct}%` : "—"}</strong></span>
             {totalTSS != null && totalTSS > 0 && <span><small><GlossaryText>{t("metrics.completedTSS")}</GlossaryText></small><strong>{completedTSS ?? 0}/{totalTSS}</strong></span>}
             {remainingSessions != null && <span><small>{t("metrics.sessionsLeft")}</small><strong>{remainingSessions} {t("mobile.sessionsUnit")}</strong></span>}

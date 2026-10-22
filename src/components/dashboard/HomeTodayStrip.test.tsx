@@ -170,4 +170,13 @@ describe("home today strip", () => {
     expect(mocks.callable).not.toHaveBeenCalled();
     expect(mocks.snapshot).not.toHaveBeenCalled();
   });
+  it("shows the same elapsed KST goal days as the goal page", () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-10-22T23:55:00+09:00"));
+    try {
+      mocks.goal = { id: "past", title: "Saved goal", eventDate: Date.parse("2026-10-18T00:00:00+09:00") };
+      render(<MemoryRouter><HomeTodayStrip {...props} /></MemoryRouter>);
+      expect(screen.getByTestId("H2-3-3")).toHaveTextContent("D+4");
+    } finally { now.mockRestore(); }
+  });
+
 });
