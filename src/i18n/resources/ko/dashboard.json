@@ -778,5 +778,6 @@
   "mobileFitness.performance.missingMetrics": "추정 근거 부족: {{metrics}}",
   "mobileFitness.powerChanges": "파워 변화 · 두 기간 비교",
   "mobileFitness.analysisDestination": "수행 지표·기록 비교는 분석에서",
-  "mobileFitness.weeklyUnknown": "주별 비교에 필요한 일별 부하 근거가 부족해요."
+  "mobileFitness.weeklyUnknown": "주별 비교에 필요한 일별 부하 근거가 부족해요.",
+  "mobileFitness.runRecordSources": "거리 기록·출처와 마일스톤"
 }
