@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { useMainScrollPosition } from "./useMainScrollPosition";
@@ -45,4 +45,20 @@ it("waits for a lazy anchor to mount before revealing it", async () => {
   expect(scroll).not.toHaveBeenCalled();
   fireEvent.click(screen.getByText("Load target"));
   await waitFor(() => expect(scroll).toHaveBeenCalledWith({ block: "start" }));
+});
+
+it("tracks an anchor while earlier content grows and stops when the user takes control", () => {
+  let resized: () => void = () => {};
+  vi.stubGlobal("ResizeObserver", class { constructor(callback: () => void) { resized = callback; } observe() {} disconnect() {} });
+  const scroll = vi.fn();
+  HTMLElement.prototype.scrollIntoView = scroll;
+  try {
+    render(<MemoryRouter initialEntries={["/analysis#evidence"]}><Fixture /></MemoryRouter>);
+    expect(scroll).toHaveBeenCalledOnce();
+    act(() => resized());
+    expect(scroll).toHaveBeenCalledTimes(2);
+    fireEvent.pointerDown(screen.getByRole("main"));
+    act(() => resized());
+    expect(scroll).toHaveBeenCalledTimes(2);
+  } finally { vi.unstubAllGlobals(); }
 });
