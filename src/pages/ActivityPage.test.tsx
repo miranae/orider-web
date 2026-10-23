@@ -464,6 +464,24 @@ describe("ActivityPage", () => {
     expect(screen.getByLabelText("시작 시간")).toBeInTheDocument();
     await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toBeDefined());
   });
+  it("keeps the start button for a run without a distance stream (no chart to drag)", async () => {
+    mockRoute.activityId = "run-without-distance";
+    const epoch = 1791375809874, count = 101;
+    const activity = createMockActivity({ id: mockRoute.activityId, type: "Run", userId: "test-uid", source: "orider", startTime: epoch,
+      summary: createMockSummary({ ridingTimeMillis: 100000, elapsedTimeMillis: 100000 }) });
+    setDocData(`activities/${mockRoute.activityId}`, activity as unknown as Record<string, unknown>);
+    // 거리·고도·경로·랩이 없다 — 드래그할 차트도, 고를 랩도 없다.
+    setDocData(`activity_streams/${mockRoute.activityId}`, { userId: "test-uid", json: JSON.stringify({
+      time: Array.from({ length: count }, (_, index) => epoch + index * 1000),
+      heartrate: Array.from({ length: count }, (_, index) => 120 + (index % 20)),
+    }) });
+    renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=analysis` });
+    fireEvent.click(await screen.findByRole("button", { name: "구간 분석" }));
+    // 시간 입력으로 구간 분석을 시작할 수 있다.
+    expect(screen.getByLabelText("시작 시간")).toBeInTheDocument();
+    expect(screen.getByLabelText("끝 시간")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "구간 선택 종료" })).toHaveAttribute("aria-pressed", "true");
+  });
   it.each(["ready", "cancel", "account", "activity", "navigate", "invalid"])("handles cold peak location once with %s intent", async (mode) => {
     mockRoute.activityId = `cold-peak-${mode}`;
     const id = mockRoute.activityId;

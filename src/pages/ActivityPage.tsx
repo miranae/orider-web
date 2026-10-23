@@ -1519,7 +1519,8 @@ export default function ActivityPage() {
         canViewRunSplitLocation={!!runSplitLocation?.routeRange && !!runSplitLocation.chartRange}
       />}
       {activeTab === "analysis" && sport === "run" && isActivityOwner && activity?.id && !(showElevation && elevData.length > 0) && <div className="space-y-4">
-        <ActivityRangeControls selection={rangeSelection} />
+        {/* 차트가 없는 달리기(거리 스트림 없음)는 드래그할 그래프가 없어 시작 버튼으로만 구간 분석을 연다. */}
+        <ActivityRangeControls selection={rangeSelection} showToggle />
         <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} />
       </div>}
       {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} supplemental />}
