@@ -38,14 +38,13 @@ export const HUBS: Hub[] = [
     to: "/coach/condition",
     subs: [
       { labelKey: "nav.fitness", to: "/coach/condition" },
-      { labelKey: "nav.todayTraining", to: "/coach/today" },
-      { labelKey: "nav.plan", to: "/coach/plan" },
+      { labelKey: "nav.planRecords", to: "/coach/plan" },
       { labelKey: "nav.goals", to: "/coach/goals" },
       { labelKey: "nav.analysis", to: "/coach/analysis" },
       { labelKey: "nav.chat", to: "/coach/chat" },
     ],
     match: (p) =>
-      p.startsWith("/coach/") || p === "/goal-setup" || p === "/goal/climb",
+      p.startsWith("/coach/") || p === "/athlete/me/activities" || p === "/goal-setup" || p === "/goal/climb",
   },
   {
     key: "club",
@@ -110,7 +109,7 @@ export function getHub(key: HubKey): Hub {
 
 /** 정확히 서브탭 목적지에서만 서브탭바를 노출한다. */
 export function isHubSubRoute(path: string): boolean {
-  return HUBS.some((h) => h.subs.some((s) => s.to === path));
+  return path === "/athlete/me/activities" || path === "/coach/today" || HUBS.some((h) => h.subs.some((s) => s.to === path));
 }
 
 /** 상세는 진입 허브를 유지한다. 직접 진입은 활동/선수는 홈, 나머지는 탐색. */

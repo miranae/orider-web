@@ -5,10 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setDocData } from "../__tests__/mocks/firebase";
 import GoalHub from "./GoalHub";
-const state = vi.hoisted(() => ({ goal: null as null | Record<string, unknown>, sport: "bike", user: { uid: "owner" } as { uid: string; isAnonymous?: boolean } | null }));
-vi.mock("../hooks/usePlanModel", () => ({ usePlanModel: () => ({ user: state.user, goal: state.goal, discipline: state.sport, loading: false, loadError: null, progress: 12, weeks: [], daysLeft: 30, goalDate: new Date("2026-12-01"), retryLoad: vi.fn() }) }));
+const state = vi.hoisted(() => ({ goal: null as null | Record<string, unknown>, sport: "bike", loading: false, loadError: null as Error | null, freshLoaded: true, user: { uid: "owner" } as { uid: string; isAnonymous?: boolean } | null }));
+vi.mock("../hooks/usePlanModel", () => ({ usePlanModel: () => ({ user: state.user, goal: state.goal, discipline: state.sport, loading: state.loading, loadError: state.loadError, freshLoaded: state.freshLoaded, progress: 12, weeks: [], daysLeft: 30, goalDate: new Date("2026-12-01"), retryLoad: vi.fn() }) }));
 vi.mock("./ClimbGoalSetupPage", () => ({ default: () => <div>climb form</div> }));
-beforeEach(() => { state.goal = null; state.sport = "bike"; state.user = { uid: "owner" }; });
+beforeEach(() => { window.matchMedia = vi.fn().mockImplementation(query => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() })); state.loading = false; state.loadError = null; state.freshLoaded = true; state.goal = null; state.sport = "bike"; state.user = { uid: "owner" }; });
 describe("goal hub", () => {
   it("shows the existing goal before type selection and opens the wizard only after choosing", () => {
     state.goal = { id: "g", title: "Winter course", courseName: "Course", eventType: "completion" };
@@ -99,4 +99,17 @@ it("separates a generated mobile goal name and metadata while retaining the orig
     expect(screen.getByText(raw)).toBeVisible();
     expect(state.goal.title).toBe(raw);
   } finally { media.mockRestore(); }
+});
+
+
+it.each(["loading", "stale", "error"])("does not offer goal replacement before the existing state is confirmed: %s", phase => {
+  state.loading = phase === "loading";
+  state.freshLoaded = phase !== "stale";
+  state.loadError = phase === "error" ? new Error("read failed") : null;
+  renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />, { route: "/ko/coach/goals?sport=bike" });
+  expect(screen.getByRole("button", { name: "대회·코스 완주" })).toBeDisabled();
+  expect(screen.getByTestId("K3-2-2")).toBeDisabled();
+  expect(screen.queryByText("event wizard")).not.toBeInTheDocument();
+  if (phase === "error") expect(screen.getByRole("alert")).toHaveTextContent("기존 목표");
+  else expect(screen.getByRole("status")).toBeInTheDocument();
 });

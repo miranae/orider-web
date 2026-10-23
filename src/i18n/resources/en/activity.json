@@ -604,7 +604,7 @@
       "tie": "Tied best",
       "firstRecord": "First attempt",
       "collapse": "Collapse",
-    "more": "+{{count}} more"
+      "more": "+{{count}} more"
     },
     "temp": {
       "device": "measured",
@@ -979,7 +979,9 @@
       "paceConsistencyDesc": "Pace std-dev (lower = steadier)",
       "fastestKm": "Fastest 1km",
       "wPrimeBal": "W'bal trajectory",
-      "wPrimeBalMin": "min {{pct}}%"
+      "wPrimeBalMin": "min {{pct}}%",
+      "longestCoast": "Longest coast",
+      "coastingTime": "Coasting time"
     },
     "glossary": {
       "tss": "Training Stress Score — overall load from intensity × duration. 100 = 1 hr at FTP.",
@@ -1297,7 +1299,16 @@
     "recordBasis": "KST dates · Linked saved records are listed separately; training load counts each workout once.",
     "estimateBasis": "Estimated load uses the current profile FTP or duration and may differ from the saved server load.",
     "totalElevation": "Elevation gain",
-    "chooseFile": "Choose file"
+    "chooseFile": "Choose file",
+    "searchMonth": "Find an activity in the selected month",
+    "searchScope": "{{month}} · Search the names, dates and IDs of loaded records for the selected sport. Change the month to view other periods.",
+    "noMatching": "No matches in the selected month and sport.",
+    "clearSearch": "Clear search",
+    "previousPage": "Previous records",
+    "nextPage": "Next records",
+    "recordPages": "Activity record pages",
+    "dayPages": "Activities on this date",
+    "pageStatus": "{{from}}–{{to}} of {{total}} · Page {{page}}/{{pages}}"
   },
   "import": {
     "modalTitle": "Upload activity",
@@ -2719,7 +2730,7 @@
       "terrain": "Speed and terrain",
       "activityCalories": "Total activity energy",
       "modelCalories": "Power-based fuel model"
-},
+    },
     "technicalDetails": {
       "title": "Detailed metrics and evidence",
       "description": "Explore sensor metrics, personal benchmarks, peak efforts and calculation evidence."
@@ -2736,7 +2747,6 @@
     "distanceShort": "Distance",
     "elapsedShort": "Time"
   },
-
   "overviewSocial": {
     "title": "Activity story",
     "zoomIn": "Zoom in",

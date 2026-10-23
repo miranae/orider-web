@@ -1,3 +1,5 @@
+import { isPendingPlanWorkout, presentPlanDayRecord } from "./planRecordPresentation";
+import CoachDetailSection from "../../fitness/components/CoachDetailSection";
 import { goalCountdown } from "../../../utils/goalCountdown";
 import { isSportUiEnabled } from "../../../config/sportFeatures";
 import { ChevronLeft, ChevronRight, Moon } from "lucide-react";
@@ -67,7 +69,10 @@ function kstDayOfMonth(ms: number): number | null {
   return Number(dateStr.slice(8, 10));
 }
 
+export interface PlanNextAction { day: PlanDay; weekId: string; dayIndex: number }
+
 export interface MobilePlanContentProps {
+  nextAction?: PlanNextAction | null;
   selectedDate?: string;
   embedded?: boolean;
   chromeSlot?: ReactNode;
@@ -95,6 +100,7 @@ export interface MobilePlanContentProps {
 
 export default function MobilePlanContent({
   selectedDate,
+  nextAction,
   embedded = false,
   chromeSlot,
   adaptationSlot,
@@ -139,11 +145,16 @@ export default function MobilePlanContent({
   const [goalExpanded, setGoalExpanded] = useState(false);
   const formattedGoal = goalTitle ? formatPlanGoalTitle(goalTitle) : null;
   const todayWorkout = todayIdx >= 0 ? days[todayIdx] : null;
-  const todayActionable = todayWorkout && !todayWorkout.completed && !todayWorkout.skipped && todayWorkout.workout !== "rest";
+  const pendingWorkout = (day: PlanDay) => embedded
+    ? !day.completed && !day.skipped && day.workout !== "rest"
+    : isPendingPlanWorkout(day, { date: kstDateString(day.date), today: todayStr });
+  const todayActionable = todayWorkout && pendingWorkout(todayWorkout);
   const nextWorkoutIdx = todayActionable ? todayIdx : days.findIndex(day =>
-    kstDateString(day.date) >= todayStr && !day.completed && !day.skipped && day.workout !== "rest",
+    kstDateString(day.date) >= todayStr && pendingWorkout(day),
   );
-  const nextWorkout = nextWorkoutIdx >= 0 ? days[nextWorkoutIdx] : null;
+  const localNextWorkout = nextWorkoutIdx >= 0 ? days[nextWorkoutIdx] : undefined;
+  const actionable = !embedded && nextAction !== undefined ? nextAction : localNextWorkout && currentWeek ? {day: localNextWorkout, weekId: currentWeek.id, dayIndex: nextWorkoutIdx} : null;
+  const nextWorkout = actionable?.day ?? null;
   const workoutLabel = (day: PlanDay) => day.workout === "goal"
     ? t(goalDate && kstDateString(day.date) === kstDateString(goalDate.getTime()) ? "page.goalDay" : "page.goalWorkout")
     : WORKOUT_LABELS[day.workout] ?? day.workout;
@@ -172,11 +183,11 @@ export default function MobilePlanContent({
           <Text as="div" variant="eyebrow" className="mobile-plan-section-label">{t("goal")}</Text>
           <div className="mobile-plan-goal-heading">
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h2 data-testid="K4-2-1" title={goalTitle} aria-label={goalTitle} className={`mobile-plan-goal-title${goalExpanded ? " is-expanded" : ""}`}>{goalExpanded ? goalTitle : formattedGoal?.name}</h2>
-              {!goalExpanded && formattedGoal?.meta && <div className="mobile-plan-goal-meta">{formattedGoal.meta}</div>}
+              <h2 data-testid="K4-2-1" title={embedded ? goalTitle : undefined} aria-label={goalTitle} className={`mobile-plan-goal-title${embedded && goalExpanded ? " is-expanded" : ""}`}>{embedded && goalExpanded ? goalTitle : formattedGoal?.name}</h2>
+              {!(embedded && goalExpanded) && formattedGoal?.meta && <div className="mobile-plan-goal-meta">{formattedGoal.meta}</div>}
             </div>
             {(formattedGoal?.meta || goalTitle.length > 32) && (
-              <Button type="button" variant="ghost" size="sm" data-testid="K4-2-3" aria-expanded={goalExpanded} onClick={() => setGoalExpanded(value => !value)} style={{ flexShrink: 0 }}>
+              !embedded ? <InfoTip activation="click" title={t("mobile.showOriginal")} label={t("mobile.showOriginal")} content={goalTitle}>{t("mobile.showOriginal")}</InfoTip> : <Button type="button" variant="ghost" size="sm" data-testid="K4-2-3" aria-expanded={goalExpanded} onClick={() => setGoalExpanded(value => !value)} style={{ flexShrink: 0 }}>
                 {goalExpanded ? t("mobile.collapseGoal") : t("mobile.showOriginal")}
               </Button>
             )}
@@ -191,10 +202,10 @@ export default function MobilePlanContent({
             {remainingSessions != null && <span><small>{t("metrics.sessionsLeft")}</small><strong>{remainingSessions} {t("mobile.sessionsUnit")}</strong></span>}
             {weeksLeft != null && <span><small>{t("metrics.weeksLeft")}</small><strong>{weeksLeft} {t("metrics.weeksUnit")}</strong></span>}
           </div>
-          {actionsSlot && <details style={{ marginTop: "var(--space-2)", borderTop: "1px solid var(--line-soft)", paddingTop: "var(--space-1)", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>
+          {actionsSlot && (!embedded ? <CoachDetailSection id="plan-management" title={t("mobile.managePlan")}>{actionsSlot}</CoachDetailSection> : <details style={{ marginTop: "var(--space-2)", borderTop: "1px solid var(--line-soft)", paddingTop: "var(--space-1)", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>
             <summary style={{ cursor: "pointer", fontWeight: 600 }}>{t("mobile.managePlan")}</summary>
             <div style={{ paddingTop: "var(--space-2)" }}>{actionsSlot}</div>
-          </details>}
+          </details>)}
         </Card>
       )}
 
@@ -202,11 +213,11 @@ export default function MobilePlanContent({
         <Card data-testid="K4-5m-2" padding="compact" className="mobile-plan-next">
           <div className="mobile-plan-next-main">
             <div className="mobile-plan-next-copy">
-              <Text as="span" variant="eyebrow" style={{ color: "var(--lime)" }}>{goalDate && kstDateString(nextWorkout.date) > kstDateString(goalDate.getTime()) ? t("scope.nextAfterGoal") : nextWorkoutIdx === todayIdx ? t("mobile.todayNext") : t("mobile.weekNext")}</Text>
+              <Text as="span" variant="eyebrow" style={{ color: "var(--lime)" }}>{goalDate && kstDateString(nextWorkout.date) > kstDateString(goalDate.getTime()) ? t("scope.nextAfterGoal") : kstDateString(nextWorkout.date) === todayStr ? t("mobile.todayNext") : t("mobile.weekNext")}</Text>
               <strong><GlossaryText>{nextWorkoutLabel}</GlossaryText></strong>
-              <span>{nextWorkoutIdx !== todayIdx && `${kstDateString(nextWorkout.date)} · `}{nextDuration > 0 && `${nextDuration} ${t("mobile.minutesUnit")}`}{effectivePlanTSS(nextWorkout) > 0 && <>{nextDuration > 0 && " · "}<GlossaryText>{`${effectivePlanTSS(nextWorkout)} TSS`}</GlossaryText></>}</span>
+              <span>{kstDateString(nextWorkout.date) !== todayStr && `${kstDateString(nextWorkout.date)} · `}{nextDuration > 0 && `${nextDuration} ${t("mobile.minutesUnit")}`}{effectivePlanTSS(nextWorkout) > 0 && <>{nextDuration > 0 && " · "}<GlossaryText>{`${effectivePlanTSS(nextWorkout)} TSS`}</GlossaryText></>}</span>
             </div>
-            {onEditWorkout && <Button type="button" size="sm" onClick={() => openEditFor(nextWorkoutIdx)}>{t("mobile.edit")}</Button>}
+            {onEditWorkout && <Button type="button" size="sm" onClick={() => { if (actionable) onEditWorkout(actionable.day, actionable.weekId, actionable.dayIndex); }}>{t("mobile.edit")}</Button>}
           </div>
         </Card>
       )}
@@ -270,25 +281,26 @@ export default function MobilePlanContent({
           <Button type="button" variant="ghost" size="sm" onClick={() => openEditFor(editTargetIdx)}>{t('mobile.edit')}</Button>
         )}
       </div>
-      {todayIdx > 0 && (
+      {embedded && todayIdx > 0 && (
         <Button type="button" variant="secondary" onClick={() => setShowPastDays(value => !value)} aria-expanded={showPastDays}
           style={{ margin: "0 var(--space-4) var(--space-1)", minHeight: "var(--dim-button-height)", height: "var(--dim-button-height)", justifyContent: "flex-start" }}>
           {showPastDays ? t('mobile.hidePastDays') : t('mobile.showPastDays', { count: todayIdx })}
         </Button>
       )}
       {days.map((day, i) => {
-        if (todayIdx > 0 && i < todayIdx && !showPastDays && kstDateString(day.date) !== selectedDate) return null;
+        if (embedded && todayIdx > 0 && i < todayIdx && !showPastDays && kstDateString(day.date) !== selectedDate) return null;
         const dayStr = day.date ? kstDateString(day.date) : "";
         const dayOfMonth = day.date ? kstDayOfMonth(day.date) : null;
         const weekdayIndex = (planCalendarDate(day.date).getUTCDay() + 6) % 7;
         const weekdayName = DAY_NAMES[weekdayIndex] ?? "";
         const isToday = dayStr === todayStr;
         const isRest = day.workout === "rest";
-        const isDone = day.completed;
+        const saved = !embedded ? presentPlanDayRecord(day, {date: dayStr, today: todayStr}) : null;
+        const isDone = saved ? saved.outcome === "completed" : day.completed;
         const isPast = dayStr !== "" && dayStr < todayStr;
         const label = workoutLabel(day);
         const state = isDone ? "done" : isToday ? "today" : isRest ? "off" : isPast ? "past" : "planned";
-        const stateLabel = state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned');
+        const stateLabel = saved ? t(`planRecords.state.${saved.outcome}`) : state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned');
 
         const intensityColor = isRest ? "var(--ink-4)"
           : (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? "var(--amber)"
@@ -313,6 +325,7 @@ export default function MobilePlanContent({
                   background: isToday || dayStr === selectedDate ? "color-mix(in oklch, var(--lime) 6%, var(--bg-0))" : "transparent" }}>
                   <Moon size={ICON_SIZE.md} aria-hidden="true" />
                   <span style={{ fontSize: "var(--fs-sm)", color: "var(--ink-4)" }}>{t('mobile.restDay')}</span>
+                  {saved && saved.outcome !== 'rest' && <Text variant="caption" tone="secondary">{stateLabel}</Text>}
                 </div>
               </div>
             </div>
@@ -372,6 +385,8 @@ export default function MobilePlanContent({
               <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{label}</div>
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>
                 {stateLabel}
+                {saved && saved.linkage !== "confirmed" && (saved.linkage !== "none" || ["completed", "partial", "markedComplete"].includes(saved.outcome)) && <Text as="p" variant="caption" tone="secondary">{t(`planRecords.basis.${saved.linkage}`)}</Text>}
+                {saved?.postponedToLocalDate && <Text as="p" variant="caption" tone="secondary">{t("planRecords.postponedDate", {date: saved.postponedToLocalDate})}</Text>}
               </div>
             </div>
             {state === "done" && <span style={{ color: "var(--lime)", fontSize: "var(--fs-base)" }}>✓</span>}
@@ -399,7 +414,7 @@ export default function MobilePlanContent({
         </div>
       </details>
 
-      {!embedded && <div style={{ height: 80 }} />}
+
 
       {footerSlot}
     </div>

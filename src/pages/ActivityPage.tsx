@@ -1385,7 +1385,7 @@ export default function ActivityPage() {
         ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} totalCalories={stripStats.caloriesKcal.value}
         storedLoad={(isActivityOwner || overview.response?.status !== "available" || differentLoadValues) && !activePowerOverride && !analysisTabProps?.suppressServerPowerMetrics && (serverMetrics.status === "ready" || serverMetrics.status === "stale") ? serverMetrics.metrics?.tss ?? null : null}
         sharedStats={{ averagePower: stripStats.avgPower.value, averageCadence: stripStats.avgCadence.value, averageHeartRate: stripStats.avgHr.value, maxHeartRate: stripStats.maxHr.value }}
-        analysisProps={hasAnalysisStreams && analysisTabProps ? { ...analysisTabProps, onSignIn: () => { void signIn(); } } : null}
+        analysisProps={analysisTabProps ? { ...analysisTabProps, onSignIn: () => { void signIn(); } } : null}
         timeline={null}
         provenance={differentLoadValues ? <Text as="p" variant="caption" tone="secondary">{t("detail.loadValuesDescription")}{serverMetrics.status === "stale" ? ` · ${t("detail.previousAnalysisValue")}` : ""}</Text> : null}
         benchmark={isActivityOwner && shareDiscipline === "bike" ? <>
@@ -1452,7 +1452,7 @@ export default function ActivityPage() {
 
 
 
-      {(sport === "run" || hasAnalysisStreams && !!analysisTabProps
+      {(sport === "run" || !!analysisTabProps
         || overview.enabled && (isActivityOwner || overview.response?.status === "available")
         || isActivityOwner && shareDiscipline === "bike"
         || !hasAnalysisStreams && (isActivityOwner || overview.response?.status !== "available") && summarySensorMetrics.length > 0) && <Card className="activity-detail-analysis-details">
@@ -1475,7 +1475,7 @@ export default function ActivityPage() {
         suppliedPdcState={bikePdcState} defaultExpanded /> }
 
       </div>
-      {activeTab === "analysis" && sport !== "run" && hasAnalysisStreams && analysisTabProps && (
+      {activeTab === "analysis" && sport !== "run" && analysisTabProps && (
         <div>
           {/* 가상 파워 보정 컨트롤 — 소유자만 노출.
               훅이 소유권과 활성 자전거를 함께 검증해 비소유자의 프로필로 활동 스트림을

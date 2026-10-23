@@ -95,8 +95,8 @@ describe("mobile web analysis evidence", () => {
       sufficiencyBlock({ featureId: "ftp_estimate", viewId: "current" }),
     ]);
     renderWithProviders(<MobileFitnessPage data={{ ...data, discipline, pdcSufficiency }} consistencyStreak={{ streakWeeks: 2, activeDays90d: 4, activeWeeks90d: 2, score90d: 10, thisWeekCount: 1, needsThisWeek: 0 }} part="analysis" />);
-    expandDetails();
     if (discipline === "bike") {
+      fireEvent.click(screen.getByRole("button", { name: /지표별 데이터 근거/ }));
       expect(screen.getByTestId("K5-sufficiency-group-power_model-cp_w_prime")).toBeVisible();
       expect(screen.getByTestId("K5-sufficiency-group-ftp_estimate-current")).toBeVisible();
     } else {
@@ -106,7 +106,7 @@ describe("mobile web analysis evidence", () => {
   });
   it("shows measured monthly VO2 trend and CP strength/weakness evidence", () => {
     renderWithProviders(<MobileFitnessPage data={data} part="analysis" />);
-    fireEvent.click(screen.getByText("추정 지표와 산출 근거"));
+    fireEvent.click(screen.getByRole("button", { name: /추정 지표와 산출 근거/ }));
     expect(screen.getByTestId("K5-1-3")).toHaveTextContent("~52");
     expect(screen.getByTestId("K5-1-3")).toHaveTextContent("+3.0");
     expect(screen.getByTestId("K5-1-4")).toHaveTextContent("+13%");
@@ -134,15 +134,15 @@ describe("mobile web analysis evidence", () => {
     expect(screen.getByTestId("K5-3-1")).toHaveTextContent("140–180 W");
     const curve = screen.getByRole("img", { name: /파워 커브 · 최근 28일/ });
     expect(curve).toBeVisible();
-    expect(screen.getAllByText("페달링 실측 근거")).toHaveLength(1);
+    expect(screen.queryByText("페달링 실측 근거")).not.toBeInTheDocument();
     expect(container.querySelector(".mobile-fitness-riding-metrics")).toBeNull();
     expect(screen.queryByRole("button", { name: "분석" })).not.toBeInTheDocument();
   });
   it.each([false, true])("keeps moved period controls collapsed until opened with enabled=%s while waiting for an explicit query", enabled => {
     const before = mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods").length;
     renderWithProviders(<MobileFitnessPage data={data} part="analysis" powerCurvePeriodsOwnerUid="test-uid" powerCurvePeriodsEnabled={enabled} />, { authenticated: true });
-    expect(screen.getByTestId("K5-5-1").tagName).toBe("DETAILS");
-    expandDetails();
+    expect(screen.queryByRole("button", { name: "기간 분석 불러오기" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /기간별 훈련 강도/ }));
     const load = screen.getByRole("button", { name: "기간 분석 불러오기" });
     expect(load).toBeVisible();
     expect(load).toHaveProperty("disabled", !enabled);
@@ -159,8 +159,8 @@ describe("mobile web analysis evidence", () => {
     expandDetails();
     expect(screen.getByTestId("K1-6-6")).toHaveTextContent("243–257 W");
     expect(screen.getByTestId("K1-6-6")).toHaveTextContent("3.47–3.67 W/kg");
-    expect(container.querySelectorAll(".fitness-zone-evidence__card")).toHaveLength(2);
-    expect(container.querySelectorAll(".fitness-zone-evidence__zones li")).toHaveLength(12);
+    expect(document.querySelectorAll(".fitness-zone-evidence__card")).toHaveLength(2);
+    expect(document.querySelectorAll(".fitness-zone-evidence__zones li")).toHaveLength(12);
     expect(screen.getByTestId("K5-3-1")).toHaveTextContent("140–180 W");
   });
 
@@ -169,7 +169,7 @@ describe("mobile web analysis evidence", () => {
       runEvidence: { thresholdPaceSec: null, records: [{ distance: "5km", seconds: 1200, date: "2026-10-01", activityId: "activity", startTime: 1, qualification: "source_qualified", unit: "seconds" }] } }} />);
     expect(screen.getByTestId("K5-4")).toHaveTextContent("5km · 20:00");
     expect(within(screen.getByTestId("K5-4")).getByRole("link")).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
-    expandDetails();
+    fireEvent.click(screen.getByRole("button", { name: /거리 기록·출처와 마일스톤/ }));
     expect(screen.getByText("달성한 러닝 마일스톤")).toBeVisible();
     expect(document.getElementById("condition-metrics")).toBeNull();
 
@@ -202,7 +202,7 @@ it("opens the mobile analysis decision link with the existing accept action", as
   const onAccept = vi.fn();
   renderWithProviders(<MobileFitnessPage data={data} part="analysis" ftpDecision={pendingDecision} onAcceptDecision={onAccept} />, { authenticated: true, route: `/ko/coach/analysis?decisionId=${pendingDecision.decisionId}` });
   const decisionSection = document.getElementById("ftp-decision");
-  expect(decisionSection?.tagName).toBe("DETAILS");
+  expect(screen.getByRole("dialog", { name: /FTP/ })).toBeVisible();
   const accept = screen.getByRole("button", { name: "이 FTP로 변경" });
   expect(accept).toBeVisible();
   fireEvent.click(accept);
@@ -221,7 +221,7 @@ it("renders the two-line running analysis summary outside the full records board
 
 it("keeps the mobile expired decision read-only", () => {
   renderWithProviders(<MobileFitnessPage data={data} part="analysis" ftpDecision={{ ...pendingDecision, expiresAt: Date.now() - 1 }} />, { authenticated: true, route: "/ko/coach/analysis#ftp-decision" });
-  expect(document.getElementById("ftp-decision")?.tagName).toBe("DETAILS");
+  expect(screen.getByRole("dialog", { name: /FTP/ })).toBeVisible();
   expect(screen.queryByRole("button", { name: "이 FTP로 변경" })).toBeNull();
 });
 
@@ -249,8 +249,8 @@ it("analysis cycling shows actual curve and zones before missing-evidence requir
   renderWithProviders(<MobileFitnessPage data={{ ...data, pdcSufficiency, zoneEvidence: { windowDays: 30, startTime: 0, endTime: 86400000, hr: { counts: [1], total: 1, recordCount: 1, missingCount: 0, boundaries: null }, power: { counts: [1], total: 1, recordCount: 1, missingCount: 0 } } }} part="analysis" powerCurveEvidenceSlot={<section aria-label="raw power evidence">264 W / 246 W</section>} />);
   expandDetails();
   const curve = screen.getByRole("region", { name: "raw power evidence" });
-  const requirements = screen.getByTestId("K5-sufficiency-group");
-  const zones = screen.getByRole("heading", { name: "심박 존 분포" });
+  const requirements = screen.getByRole("button", { name: /지표별 데이터 근거/ });
+  const zones = screen.getByRole("button", { name: /기간별 훈련 강도/ });
   expect(curve.compareDocumentPosition(zones) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(zones.compareDocumentPosition(requirements) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.getAllByRole("region", { name: "raw power evidence" })).toHaveLength(1);
@@ -259,7 +259,7 @@ it("analysis cycling shows actual curve and zones before missing-evidence requir
 it("analysis running shares one unknown-source warning and records link with its source board", () => {
   const runEvidence = { thresholdPaceSec: null, records: [], unverifiedRecords: [{ distance: "5km" as const, date: "2026-10-01", activityId: "run-1" }] };
   renderWithProviders(<MobileFitnessPage part="analysis" data={{ ...data, discipline: "run", runEvidence, threshold: { label: "역치 페이스", value: "4:20", unit: "/km", sub: "설정 기준" } }} runningRecordsSlot={<RunRecordsBoard run={{ "5km": [{ value: 1200, date: "2026-10-01", activityId: "run-1" }] }} footer={<RunRecordsSummary evidence={runEvidence} sourceBoard />} />} />);
-  expandDetails();
+  fireEvent.click(screen.getByRole("button", { name: /거리 기록·출처와 마일스톤/ }));
   expect(screen.getAllByText("종목과 시간 단위가 확인되지 않은 거리별 저장 기록은 시간과 페이스를 표시하지 않습니다. 시간별 페이스 분석과는 별개입니다.")).toHaveLength(1);
   expect(screen.getAllByTestId("K5-4-2")).toHaveLength(1);
   expect(screen.getAllByRole("heading", { name: "거리별 저장 기록" })).toHaveLength(1);
@@ -298,7 +298,8 @@ it("retains the server power-curve lock even when raw points are present", () =>
 
 it("keeps condition focused on current state and load with links to analysis and settings", () => {
   renderWithProviders(<MobileFitnessPage data={data} part="condition" ridingEvidenceSlot={<p>activity details</p>} powerCurveEvidenceSlot={<p>comparison</p>} />);
-  expect(screen.getByText("현재 컨디션")).toBeVisible();
+  expect(document.getElementById("condition-current")).toBeVisible();
+  expect(screen.queryByRole("navigation", { name: /컨디션/ })).not.toBeInTheDocument();
   expect(document.getElementById("condition-load")).toBeVisible();
   expect(screen.queryByText("activity details")).not.toBeInTheDocument();
   expect(screen.queryByText("comparison")).not.toBeInTheDocument();
@@ -316,8 +317,8 @@ it("prioritizes available pace changes over the source-only distance record list
   const curve = screen.getByTestId("K5-2-3");
   const sources = screen.getByText("Original distance sources");
   expect(curve.compareDocumentPosition(sources) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(sources.closest("details")).toHaveProperty("open", false);
+  expect(sources).not.toBeVisible();
   expect(view.container.querySelectorAll('[data-testid="K5-2-3"]')).toHaveLength(1);
-  expandDetails();
+  fireEvent.click(screen.getByRole("button", { name: /거리 기록·출처와 마일스톤/ }));
   expect(sources).toBeVisible();
 });

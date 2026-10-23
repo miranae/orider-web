@@ -33,3 +33,17 @@ describe("coach shared fitness layout", () => {
     expect(screen.getByText("bike ?sport=bike&decisionId=keep#execution")).toBeInTheDocument();
   });
 });
+
+it.each(["all", "unknown", "swim"])("normalizes unsupported coach sport %s while preserving context", sport => {
+  mount(`/coach/condition?sport=${sport}&date=2026-09-03#condition-trend`);
+  expect(screen.getByText("bike ?sport=bike&date=2026-09-03#condition-trend")).toBeInTheDocument();
+});
+it("preserves tri integrated condition and its model", () => {
+  mount("/coach/condition?sport=tri");
+  expect(screen.getByText("tri ?sport=tri")).toBeInTheDocument();
+});
+it("uses bike consistently for an unspecified coach sport", () => {
+  mount("/coach/analysis");
+  expect(screen.getByText("bike")).toBeInTheDocument();
+  expect(mocks.sport).toHaveBeenLastCalledWith("bike");
+});

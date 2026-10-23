@@ -41,8 +41,8 @@ function cadenceOnlyRide(coasting: boolean): UseActivityMetricsState {
 }
 
 const renderRide = () => render(
-  <AnalysisTab activityId="strava_2" sport="ride" isOwner
-    streams={{ time: [], distance: [] } as unknown as ActivityStreams} summary={{ distance: 42000 } as never} />,
+  <ThemeProvider><OriderThemeProvider><AnalysisTab activityId="strava_2" sport="ride" isOwner
+    streams={{ time: [], distance: [] } as unknown as ActivityStreams} summary={{ distance: 42000 } as never} /></OriderThemeProvider></ThemeProvider>,
 );
 
 describe("자전거 코스팅 카드 (#3221)", () => {
@@ -53,8 +53,8 @@ describe("자전거 코스팅 카드 (#3221)", () => {
     expect(screen.getByText("코스팅")).toBeInTheDocument();
     expect(screen.getByText("22")).toBeInTheDocument();
     expect(screen.getByText(/이동 중 페달을 쉰 시간/)).toBeInTheDocument();
-    // 파워 없는 라이딩에서 기존 페달 품질 카드는 그대로 숨긴다.
-    expect(screen.queryByText("케이던스 일관성")).not.toBeInTheDocument();
+    // 케이던스 센서의 분산은 파워 측정 여부와 독립적인 저장 값이다.
+    expect(screen.getByText("케이던스 일관성")).toBeInTheDocument();
   });
 
   it("코스팅 값이 없으면 카드를 그리지 않는다(0 으로 채우지 않음)", () => {
@@ -63,4 +63,53 @@ describe("자전거 코스팅 카드 (#3221)", () => {
     renderRide();
     expect(screen.queryByText("코스팅")).not.toBeInTheDocument();
   });
+});
+
+
+it("preserves duration-only coasting and a measured zero without inventing a percentage", () => {
+  state.language = "ko";
+  state.metrics = cadenceOnlyRide(false);
+  state.metrics.metrics!.cyclingMetrics = { cadenceStdDev: 12, longestZ4PlusSec: null, coastingSec: 0, longestCoastSec: 0 };
+  renderRide();
+  expect(screen.getByText("페달을 쉰 시간")).toBeInTheDocument();
+  expect(screen.getByText("최장 연속 코스팅")).toBeInTheDocument();
+  expect(screen.queryByText("코스팅")).not.toBeInTheDocument();
+});
+
+
+it("retains cadence variation without power, coasting or fabricated power metrics", () => {
+  state.language = "ko";
+  state.metrics = cadenceOnlyRide(false);
+  renderRide();
+  expect(screen.getByText("케이던스 일관성")).toBeInTheDocument();
+  expect(screen.getByText("12")).toBeInTheDocument();
+  expect(screen.queryByText("코스팅")).not.toBeInTheDocument();
+  expect(screen.queryByText("최장 Z4+ 유지")).not.toBeInTheDocument();
+});
+
+
+it("keeps the previous-analysis status visible for saved cadence-only evidence", () => {
+  state.language="ko";
+  state.metrics={status:"stale",metrics:{version:1,computedAt:1700000000000,discipline:"bike",cyclingMetrics:{cadenceStdDev:7}}} as unknown as UseActivityMetricsState;
+  renderRide();
+  expect(screen.getByText("케이던스 일관성")).toBeVisible();
+  expect(screen.getByText(koActivity.serverMetrics.staleChip)).toBeVisible();
+});
+
+
+it("does not render a non-finite saved cadence beside valid coasting zero", () => {
+  state.language="ko";
+  state.metrics={status:"ready",metrics:{discipline:"bike",cyclingMetrics:{cadenceStdDev:NaN,longestCoastSec:0}}} as unknown as UseActivityMetricsState;
+  renderRide();
+  expect(screen.queryByText("케이던스 일관성")).not.toBeInTheDocument();
+  expect(screen.queryByText("NaN")).not.toBeInTheDocument();
+  expect(screen.getByText("최장 연속 코스팅")).toBeVisible();
+});
+
+
+it.each([{avgHr:120},{avgPower:180}])("retains the saved-only previous-analysis status for %j", sensor => {
+  state.language="ko";
+  state.metrics={status:"stale",metrics:{version:1,computedAt:1700000000000,discipline:"bike",...sensor}} as unknown as UseActivityMetricsState;
+  renderRide();
+  expect(screen.getByText(koActivity.serverMetrics.staleChip)).toBeVisible();
 });

@@ -1,12 +1,12 @@
+import CoachDetailSection from "../../features/fitness/components/CoachDetailSection";
+import PlanRecordEvidence, { type PlanRecordEntry } from "../../features/training/plan/PlanRecordEvidence";
 import { isSportUiEnabled } from "../../config/sportFeatures";
-import { createPortal } from "react-dom";
-import { Button, Text } from "../../theme/components";
-import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
+import { Button, Input, Text } from "../../theme/components";
 import SportIcon from "../common/SportIcon";
 import GlossaryText from "../common/GlossaryText";
 import { Activity as ActivityIcon, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState, useMemo, useEffect, useRef, type ReactNode } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useMemo, useEffect, useId, type ReactNode } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { Upload } from "lucide-react";
@@ -36,6 +36,9 @@ interface MobileLogPageProps {
   representativeCandidates?: Activity[];
   ftp?: number;
   plannedDates?: string[];
+  plansByDate?: Record<string, PlanRecordEntry[]>;
+  planState?: "loading" | "ready" | "error";
+  onRetryPlan?: () => void;
   plannedSports?: Record<string, "bike" | "run" | "swim">;
   year: number;
   month: number;
@@ -69,11 +72,18 @@ function MobileLogSkeleton() {
   );
 }
 
-export default function MobileLogPage({ recentSummarySlot, activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, aggregateUnavailable = false, ftp, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
+export default function MobileLogPage({ recentSummarySlot, activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, aggregateUnavailable = false, ftp, planState = "ready", onRetryPlan, plansByDate = {}, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
   const { t, i18n } = useTranslation("activity");
   const DAY_NAMES = (t("mobileLog.dayNames", { returnObjects: true }) as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const [tab, setTab] = useState<"month" | "activity">("month");
   const [importParams, setImportParams] = useSearchParams();
+  const location = useLocation();
+  const searchId = useId();
+  const tab = importParams.get("view") === "activities" ? "activity" : "month";
+  const setTab = (nextTab: "month" | "activity") => {
+    const next = new URLSearchParams(importParams);
+    if (nextTab === "activity") next.set("view", "activities"); else next.delete("view");
+    setImportParams(next, { preventScrollReset: true });
+  };
   const [importOpen, setImportOpen] = useState(importParams.get("import") === "1");
   useEffect(() => { if (importParams.get("import") === "1") setImportOpen(true); }, [importParams]);
   const closeImport = () => { setImportOpen(false); const next = new URLSearchParams(importParams); next.delete("import"); setImportParams(next, { replace: true }); };
@@ -82,12 +92,31 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
   const setSportFilter = (sport: string) => {
     const next = new URLSearchParams(importParams);
     next.set("sport", sport);
+    next.delete("page"); next.delete("pageMonth"); next.delete("dayPage");
     setImportParams(next, { replace: true });
   };
-  const [activityLimit, setActivityLimit] = useState(20);
-  const [dayDetailActs, setDayDetailActs] = useState<Activity[] | null>(null);
-  const daySheetRef = useRef<HTMLDivElement>(null);
-  useBodyScrollLock(dayDetailActs !== null);
+  const monthScope = `${year}-${String(month + 1).padStart(2, "0")}`;
+  const searchQuery = importParams.get("q") ?? "";
+  const setSearch = (value: string) => {
+    const next = new URLSearchParams(importParams);
+    if (value) next.set("q", value); else next.delete("q");
+    next.delete("page"); next.delete("pageMonth");
+    setImportParams(next, { replace: true, preventScrollReset: true });
+  };
+  const setPage = (page: number, day = false) => {
+    const next = new URLSearchParams(importParams);
+    next.set(day ? "dayPage" : "page", String(page));
+    if (!day) next.set("pageMonth", monthScope);
+    setImportParams(next, { replace: day, state: location.state, preventScrollReset: true });
+  };
+  const requestedDay = importParams.get("day");
+  const requestedDayTime = requestedDay ? Date.parse(`${requestedDay}T00:00:00Z`) : NaN;
+  const selectedDay = requestedDay && /^\d{4}-\d{2}-\d{2}$/.test(requestedDay) && Number.isFinite(requestedDayTime) && new Date(requestedDayTime).toISOString().slice(0, 10) === requestedDay ? requestedDay : null;
+  const openDay = (date: string) => {
+    const next = new URLSearchParams(importParams);
+    next.set("day", date); next.set("detail", "record-day"); next.delete("dayPage");
+    setImportParams(next, { state: { coachDetail: "record-day" }, preventScrollReset: true });
+  };
   const navigate = useNavigate();
 
   // Sport filter
@@ -145,40 +174,35 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
   };
 
   const monthLabel = t("mobileLog.monthLabel", { year, month: month + 1 });
+  const monthControls = (
+    <div className="flex items-center justify-between" style={{ marginBottom: "var(--space-2)" }}>
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" iconOnly data-testid="P1-0-1" aria-label={t("training:page.prevMonth")} onClick={() => onChangeMonth(-1)}><ChevronLeft size={ICON_SIZE.md} aria-hidden="true" /></Button>
+        <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{monthLabel}</span>
+        <Button variant="ghost" iconOnly data-testid="P1-0-1" aria-label={t("training:page.nextMonth")} onClick={() => onChangeMonth(1)}><ChevronRight size={ICON_SIZE.md} aria-hidden="true" /></Button>
+      </div>
+    </div>
+  );
+  const dayDetailActs = selectedDay ? actByDate.get(selectedDay) ?? [] : [];
 
   // Activities tab uses the selected month, matching the calendar and summary range.
   const recentActs = [...monthActs].sort((a, b) => b.startTime - a.startTime);
-  const visibleRecentActs = recentActs.slice(0, activityLimit);
+  const query = searchQuery.trim().toLocaleLowerCase(i18n.language);
+  const matchingActs = query ? recentActs.filter(activity => `${activity.description ?? ""} ${activity.id} ${planDayKey(activity.startTime)}`.toLocaleLowerCase(i18n.language).includes(query)) : recentActs;
+  const requestedPage = importParams.get("pageMonth") === monthScope ? Number(importParams.get("page")) : 1;
+  const pageCount = Math.max(1, Math.ceil(matchingActs.length / 20));
+  const page = Math.min(Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1, pageCount);
+  const visibleRecentActs = matchingActs.slice((page - 1) * 20, page * 20);
+  const requestedDayPage = Number(importParams.get("dayPage"));
+  const dayPages = Math.max(1, Math.ceil(dayDetailActs.length / 20));
+  const dayPage = Math.min(Number.isSafeInteger(requestedDayPage) && requestedDayPage > 0 ? requestedDayPage : 1, dayPages);
+  const visibleDayActs = dayDetailActs.slice((dayPage - 1) * 20, dayPage * 20);
+  const pagination = (total: number, current: number, pages: number, day = false) => total > 0 && <nav className="mobile-log__pagination" aria-label={t(day ? "mobileLog.dayPages" : "mobileLog.recordPages")}>
+    <Text as="p" variant="caption" role="status">{t("mobileLog.pageStatus", { from: (current - 1) * 20 + 1, to: Math.min(current * 20, total), total, page: current, pages })}</Text>
+    {pages > 1 && <div><Button variant="secondary" disabled={current <= 1} onClick={() => setPage(current - 1, day)}>{t("mobileLog.previousPage")}</Button><Button variant="secondary" disabled={current >= pages} onClick={() => setPage(current + 1, day)}>{t("mobileLog.nextPage")}</Button></div>}
+  </nav>;
 
-  useEffect(() => {
-    if (!dayDetailActs) return;
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const focusable = () => Array.from(daySheetRef.current?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? []);
-    focusable()[0]?.focus();
-    const handleKeys = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setDayDetailActs(null);
-      } else if (event.key === "Tab") {
-        const items = focusable();
-        if (items.length === 0) return;
-        const first = items[0]!;
-        const last = items[items.length - 1]!;
-        if (event.shiftKey && (document.activeElement === first || !daySheetRef.current?.contains(document.activeElement))) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && (document.activeElement === last || !daySheetRef.current?.contains(document.activeElement))) {
-          event.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKeys);
-    return () => {
-      window.removeEventListener("keydown", handleKeys);
-      previousFocus?.focus();
-    };
-  }, [dayDetailActs]);
+
 
   const activityRow = (a: Activity) => {
     const d = planCalendarDate(a.startTime);
@@ -270,13 +294,7 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
         <>
           {/* Calendar */}
           <div style={{ padding: 'var(--space-3) var(--space-4)' }}>
-            <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)' }}>
-              <div className="flex items-center gap-3">
-                <Button variant="ghost" iconOnly data-testid="P1-0-1" aria-label={t("training:page.prevMonth")} onClick={() => onChangeMonth(-1)}><ChevronLeft size={ICON_SIZE.md} aria-hidden="true" /></Button>
-                <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{monthLabel}</span>
-                <Button variant="ghost" iconOnly data-testid="P1-0-1" aria-label={t("training:page.nextMonth")} onClick={() => onChangeMonth(1)}><ChevronRight size={ICON_SIZE.md} aria-hidden="true" /></Button>
-              </div>
-            </div>
+            {monthControls}
 
             <div className="grid grid-cols-7 gap-1">
               {DAY_NAMES.map((d, i) => (
@@ -302,13 +320,9 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
                   <button key={i} type="button" data-testid={hasPlan && dayActs.length === 0 ? "P1-2-2" : "P1-2-1"} className="mobile-log__calendar-day" disabled={dayActs.length === 0 && !hasPlan}
                     aria-label={dayActs.length > 0 ? t("mobileLog.dayActivitiesTitle", { month: date.getUTCMonth() + 1, day: date.getUTCDate(), count: dayActs.length }) : undefined}
                     onClick={() => {
-                      if (dayActs.length === 1) {
-                        navigate(`/activity/${dayActs[0]!.id}`);
-                      } else if (dayActs.length > 1) {
-                        setDayDetailActs(dayActs);
-                      } else if (hasPlan) {
-                        navigate(`/coach/plan?sport=${plannedSports[key] ?? (sportFilter === "run" || sportFilter === "swim" ? sportFilter : "bike")}&date=${key}`);
-                      }
+                      if (hasPlan && !plansByDate[key]?.length) navigate(`/coach/plan?sport=${plannedSports[key] ?? "bike"}&date=${key}`);
+                      else if (hasPlan || dayActs.length > 1) openDay(key);
+                      else if (dayActs.length === 1) navigate(`/activity/${dayActs[0]!.id}`);
                     }}
                     style={{
                       appearance: "none", width: "100%", aspectRatio: "1", background: "var(--bg-2)",
@@ -390,65 +404,26 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
 
       {!loading && tab === "activity" && (
         <>
-          {visibleRecentActs.map(activityRow)}
-          {recentActs.length > visibleRecentActs.length && (
-            <div style={{ padding: "var(--space-3) var(--space-4)" }}>
-              <button
-                type="button"
-                onClick={() => setActivityLimit((limit) => limit + 20)}
-                style={{ width: "100%", minHeight: 44, borderRadius: "var(--r-md)", border: "1px solid var(--line-soft)", background: "var(--bg-2)", color: "var(--ink-1)", fontSize: "var(--fs-sm)", fontWeight: 600 }}
-              >
-                {t("mobileLog.loadMore", { defaultValue: "더 보기" })}
-              </button>
-            </div>
-          )}
-          {recentActs.length === 0 && (
-            <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)", fontSize: "var(--fs-sm)" }}>
-              {t("mobileLog.emptyActivity")}
-            </div>
-          )}
+          <div style={{ padding: "var(--space-3) var(--space-4) 0" }}>{monthControls}</div>
+          <div className="mobile-log__finder"><label htmlFor={searchId}><Text variant="bodySmall">{t("mobileLog.searchMonth")}</Text></label><Input id={searchId} type="search" value={searchQuery} onChange={event => setSearch(event.target.value)} aria-describedby={`${searchId}-scope`} /><Text as="p" id={`${searchId}-scope`} variant="caption" tone="secondary">{t("mobileLog.searchScope", { month: monthLabel })}</Text></div>
+          <section aria-label={t("mobileLog.tabActivity")}>
+            {visibleRecentActs.map(activityRow)}
+          </section>
+          {pagination(matchingActs.length, page, pageCount)}
+          {matchingActs.length === 0 && <div className="mobile-log__empty"><Text as="p" variant="bodySmall" role="status">{t(query ? "mobileLog.noMatching" : "mobileLog.emptyActivity")}</Text>{query && <Button variant="ghost" onClick={() => setSearch("")}>{t("mobileLog.clearSearch")}</Button>}</div>}
         </>
       )}
 
-      <div style={{ height: 80 }} />
       <ImportActivityModal open={importOpen} onClose={closeImport} />
 
-      {/* 하루 여러 활동 바텀시트 */}
-      {dayDetailActs && createPortal(
-        <>
-          {/* 오버레이 */}
-          <button type="button" aria-label={t("mobileLog.close")}
-            onClick={() => setDayDetailActs(null)}
-            style={{
-              position: "fixed", inset: 0, zIndex: 998,
-              background: "color-mix(in srgb, var(--bg-0) 45%, transparent)",
-              border: 0,
-            }}
-          />
-          {/* 시트 */}
-          <div ref={daySheetRef} role="dialog" aria-modal="true" aria-label={t("mobileLog.dayActivitiesTitle", { month: planCalendarDate(dayDetailActs[0]!.startTime).getUTCMonth() + 1, day: planCalendarDate(dayDetailActs[0]!.startTime).getUTCDate(), count: dayDetailActs.length })}
-            style={{
-              position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 999,
-              background: "var(--bg-1)",
-              borderRadius: "16px 16px 0 0",
-              boxShadow: "0 -4px 24px color-mix(in srgb, var(--bg-0) 30%, transparent)",
-              paddingBottom: "env(safe-area-inset-bottom, 16px)",
-            }}
-          >
-            {/* 핸들 */}
-            <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
-              <div style={{ width: 40, height: 4, borderRadius: "var(--r-sm)", background: "var(--line)" }} />
-            </div>
-            {/* 제목 */}
-            <div style={{ padding: "var(--space-2) var(--space-4) var(--space-3)", fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>
-              {(() => {
-                const d = planCalendarDate(dayDetailActs[0]!.startTime);
-                return t("mobileLog.dayActivitiesTitle", { month: d.getUTCMonth() + 1, day: d.getUTCDate(), count: dayDetailActs.length });
-              })()}
-            </div>
-            {/* 활동 목록 */}
-            <div style={{ overflowY: "auto", maxHeight: "60vh" }}>
-              {dayDetailActs.map((a) => {
+      {selectedDay && <CoachDetailSection id="record-day" requested={importParams.get("detail") == null} title={t("training:planRecords.dayTitle", { date: selectedDay })}>
+        {loading ? <Text role="status">{t("common:button.loading")}</Text> : <>
+          {planState !== "ready" && <div>
+            <Text as="p" variant="bodySmall" role={planState === "error" ? "alert" : "status"}>{t(planState === "error" ? "training:planRecords.error" : "training:planRecords.loading")}</Text>
+            {planState === "error" && onRetryPlan && <Button variant="secondary" onClick={onRetryPlan}>{t("common:button.retry")}</Button>}
+          </div>}
+          <PlanRecordEvidence date={selectedDay} plans={plansByDate[selectedDay] ?? []} />
+              {visibleDayActs.map((a) => {
                 const disc = getDiscipline(a.type);
                 // 삼항 else 가 미지 종목을 자전거로 떨어뜨렸다 — 중립 아이콘까지 다루는 헬퍼로 대체.
                 const icon = disc ? <SportIcon sport={disc} size={ICON_SIZE.lg} /> : <ActivityIcon size={ICON_SIZE.lg} aria-hidden="true" />;
@@ -459,7 +434,7 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
                 return (
                   <button type="button"
                     key={a.id}
-                    onClick={() => { setDayDetailActs(null); navigate(`/activity/${a.id}`); }}
+                    onClick={() => navigate(`/activity/${a.id}`)}
                     style={{
                       display: "flex", alignItems: "center", gap: 'var(--space-3)',
                       padding: "var(--space-3) var(--space-4)",
@@ -487,14 +462,10 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
                   </button>
                 );
               })}
-            </div>
-            {/* 닫기 버튼 */}
-            <div style={{ padding: "var(--space-3) var(--space-4)" }}>
-              <Button block variant="secondary" onClick={() => setDayDetailActs(null)}>{t("mobileLog.close")}</Button>
-            </div>
-          </div>
-        </>, document.body
-      )}
+          {pagination(dayDetailActs.length, dayPage, dayPages, true)}
+          {!dayDetailActs.length && <Text as="p" variant="bodySmall" tone="secondary">{t("training:planRecords.noActivity")}</Text>}
+        </>}
+      </CoachDetailSection>}
     </div>
   );
 }

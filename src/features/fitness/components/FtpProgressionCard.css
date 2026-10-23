@@ -5,3 +5,5 @@
 .ftp-progression__x-axis { grid-column: 2; display: flex; justify-content: space-between; gap: var(--space-2); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--ink-3); }
 .ftp-progression__x-axis > span { white-space: nowrap; }
 .ftp-progression__x-axis[data-ticks="1"] { justify-content: center; }
+
+.ftp-progression__readout { height: 11rem; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; margin-top: var(--space-2); }

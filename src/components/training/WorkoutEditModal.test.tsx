@@ -226,6 +226,8 @@ it("종류 선택 버튼 밖 범례에서 강도 설명을 열며 쓰기를 실�
   const trigger = legend.querySelector('[data-glossary-term="z4"] button')!;
   expect(trigger).not.toBeNull();
   fireEvent.focus(trigger);
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  fireEvent.click(trigger);
   expect(screen.getByRole('tooltip')).toBeInTheDocument();
   expect(document.querySelector('button button')).toBeNull();
   expect(updateDoc).not.toHaveBeenCalled();

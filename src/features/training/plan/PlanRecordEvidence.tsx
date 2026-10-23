@@ -1,0 +1,33 @@
+import { useTranslation } from "react-i18next";
+import { planDayKey } from "@shared/training/planDate";
+import { LocalizedLink } from "../../../components/LocalizedLink";
+import { Text, buttonClass } from "../../../theme/components";
+import { presentPlanRecord, type PlanRecordEntry } from "./planRecordPresentation";
+
+export type { PlanRecordEntry } from "./planRecordPresentation";
+
+/** Saved plan/execution evidence only: this view cannot reserve, link, confirm, or write an outcome. */
+export default function PlanRecordEvidence({ date, plans, today = planDayKey(Date.now()) }: {
+  date: string; plans: readonly PlanRecordEntry[]; today?: string;
+}) {
+  const { t } = useTranslation("training");
+  if (!plans.length) return null;
+  const rows = plans.map(plan => ({ plan, view: presentPlanRecord(plan, { date, today }) }));
+  return <section aria-label={t("planRecords.comparison")} style={{ display: "grid", gap: "var(--space-3)", padding: "var(--space-4)" }}>
+    <Text as="h3" variant="subtitle">{t("planRecords.comparison")}</Text>
+    {rows.map(({ plan, view }, index) => <div key={index} style={{ display: "grid", gap: "var(--space-1)" }}>
+      <Text as="p" variant="bodySmall" style={{ margin: 0 }}>{t("planRecords.prescription", { workout: `${t(`discipline.${plan.discipline}`)} · ${t(`workouts.${plan.workout}`)}`, load: view.plannedLoad ?? "—", minutes: view.plannedDurationMin ?? "—" })}</Text>
+      <Text as="p" variant="bodyMedium" style={{ margin: 0 }}>{t(`planRecords.state.${view.outcome}`)}</Text>
+      {!(view.outcome === "rest" && view.linkage === "none") && <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{t(`planRecords.basis.${view.linkage}`)}</Text>}
+      {view.actualLoad != null && <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{t("planRecords.actualLoad", { value: view.actualLoad })}</Text>}
+      {view.activityLinks.some(link => link.kind === "record") && view.actualLoad == null && <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{t("planRecords.loadUnavailable")}</Text>}
+      {view.candidateLoad != null && <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{t("planRecords.candidateLoad", { value: view.candidateLoad })}</Text>}
+      {view.postponedToLocalDate && <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{t("planRecords.postponedDate", { date: view.postponedToLocalDate })}</Text>}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+        {view.activityLinks.map(link => <LocalizedLink key={link.id} className={buttonClass({ variant: "ghost", size: "sm" })} to={`/activity/${encodeURIComponent(link.id)}`}>{link.kind === "candidate" ? t("planRecords.viewCandidate") : t("today.viewActivity")}</LocalizedLink>)}
+        <LocalizedLink className={buttonClass({ variant: "secondary", size: "sm" })} to={`/coach/plan?sport=${plan.discipline}${view.localDate ? `&date=${view.localDate}` : ""}`}>{t("planRecords.reviewPlan")}</LocalizedLink>
+      </div>
+    </div>)}
+    {rows.some(({ view }) => view.linkage !== "confirmed" && !(view.outcome === "rest" && view.linkage === "none")) && <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{t("planRecords.matchingNote")}</Text>}
+  </section>;
+}

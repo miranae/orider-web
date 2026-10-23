@@ -4,3 +4,7 @@
 .sufficiency-evidence-row ul { margin-block: var(--space-2); padding-inline-start: var(--space-4); }
 .sufficiency-evidence-row a { font-size: var(--fs-xs); }
 @media (max-width: 48rem) { .condition-sufficiency-evidence.condition-sufficiency-evidence { grid-template-columns: minmax(0, 1fr); } }
+
+.sufficiency-inline-requirements { flex-basis: 100%; min-width: 0; }
+.sufficiency-inline-requirements ul { margin: 0; padding-inline-start: var(--space-4); }
+.sufficiency-inline-requirements p { margin-block: var(--space-1); }

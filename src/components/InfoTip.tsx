@@ -1,6 +1,8 @@
 import { useState, useId, useRef, useLayoutEffect, useEffect, type ReactNode, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { Info } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { IconButton } from "../theme/components/IconButton";
+import { Info, X } from "lucide-react";
 import { splitGlossaryText } from "../utils/termGlossary";
 import { useGlossaryScope } from "./common/GlossaryProvider";
 import { TooltipContent } from "../theme/components/TooltipContent";
@@ -25,22 +27,22 @@ interface InfoTipProps {
    */
   /** `accent`: theme-aware semantic accent text, without an underline. */
   tone?: "default" | "inherit" | "accent";
-  /** Explicit activation avoids opening explanations while using nearby controls. */
-  activation?: "hover-focus" | "click";
+  /** Compatibility for callers explicitly requesting the shared click behavior. */
+  activation?: "click";
 }
 
 const TIP_WIDTH = 232;
 const VIEWPORT_MARGIN = 8;
 
-/** Hover, focus, or tap for a description. The portal escapes clipped card/chart containers. */
-export default function InfoTip({ content, title, label, termId, children, className, style, tone = "default", activation = "hover-focus" }: InfoTipProps) {
+/** Explicit click, tap, Enter or Space opens a description. The portal escapes clipped card/chart containers. */
+export default function InfoTip({ content, title, label, termId, children, className, style, tone = "default" }: InfoTipProps) {
+  const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ left: VIEWPORT_MARGIN, top: VIEWPORT_MARGIN });
   const id = useId();
+  const closeRef = useRef<HTMLButtonElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const tipRef = useRef<HTMLSpanElement>(null);
-  const pinned = useRef(false);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const textTrigger = children !== undefined && children !== null;
   const termSource = label ?? (typeof children === "string" ? children : content);
   const sourceParts = splitGlossaryText(termSource);
@@ -53,26 +55,31 @@ export default function InfoTip({ content, title, label, termId, children, class
   const tipWidth = title ? 320 : TIP_WIDTH;
   const viewportMargin = title ? 12 : VIEWPORT_MARGIN;
 
-  function cancelClose() {
-    clearTimeout(closeTimer.current);
+  function close() { setOpen(false); }
+
+  function show() {
+    document.dispatchEvent(new CustomEvent("orider-help-open", { detail: id }));
+    setOpen(true);
   }
 
-  function close() {
-    cancelClose();
-    pinned.current = false;
-    setOpen(false);
+  function dismissAndRestore() {
+    close();
+    buttonRef.current?.focus({ preventScroll: true });
   }
 
-  function leave() {
-    cancelClose();
-    if (!pinned.current && document.activeElement !== buttonRef.current) {
-      closeTimer.current = setTimeout(() => setOpen(false), 120);
-    }
-  }
-
-  useEffect(() => () => clearTimeout(closeTimer.current), []);
   useEffect(() => {
-    pinned.current = false;
+    const otherHelp = (event: Event) => { if ((event as CustomEvent<string>).detail !== id) close(); };
+    const navigation = () => close();
+    document.addEventListener("orider-help-open", otherHelp);
+    window.addEventListener("popstate", navigation);
+    window.addEventListener("hashchange", navigation);
+    return () => {
+      document.removeEventListener("orider-help-open", otherHelp);
+      window.removeEventListener("popstate", navigation);
+      window.removeEventListener("hashchange", navigation);
+    };
+  }, [id]);
+  useEffect(() => {
     setOpen(false);
   }, [scopeKey]);
 
@@ -94,10 +101,14 @@ export default function InfoTip({ content, title, label, termId, children, class
     }
     updatePosition();
     window.addEventListener("resize", updatePosition);
-    window.addEventListener("scroll", updatePosition, true);
+    const onScroll = (event: Event) => {
+      if (event.target instanceof Node && tipRef.current?.contains(event.target)) return;
+      close();
+    };
+    window.addEventListener("scroll", onScroll, true);
     return () => {
       window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("scroll", onScroll, true);
     };
   }, [open, content, title, tipWidth, viewportMargin]);
 
@@ -106,16 +117,13 @@ export default function InfoTip({ content, title, label, termId, children, class
     function onPointerDown(event: PointerEvent) {
       const target = event.target as Node;
       if (!buttonRef.current?.contains(target) && !tipRef.current?.contains(target)) {
-        pinned.current = false;
-        clearTimeout(closeTimer.current);
         setOpen(false);
       }
     }
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        pinned.current = false;
-        clearTimeout(closeTimer.current);
-        setOpen(false);
+        event.stopPropagation();
+        dismissAndRestore();
       }
     }
     document.addEventListener("pointerdown", onPointerDown);
@@ -128,10 +136,6 @@ export default function InfoTip({ content, title, label, termId, children, class
 
   const tooltipProps = {
     ref: tipRef,
-    id,
-    role: "tooltip",
-    onMouseEnter: cancelClose,
-    onMouseLeave: leave,
     style: {
       position: "fixed",
       left: position.left,
@@ -140,6 +144,10 @@ export default function InfoTip({ content, title, label, termId, children, class
       width: `min(${tipWidth}px, calc(100vw - ${2 * viewportMargin}px))`,
       maxHeight: `calc(100dvh - ${2 * viewportMargin}px)`,
       overflowY: "auto",
+      display: "block",
+      background: "var(--bg-1)",
+      borderRadius: "var(--r-lg)",
+      boxShadow: "var(--shadow-md)",
     } satisfies CSSProperties,
   };
 
@@ -156,15 +164,18 @@ export default function InfoTip({ content, title, label, termId, children, class
         type="button"
         aria-label={label ?? content}
         aria-describedby={open ? id : undefined}
-        onMouseEnter={() => { if (activation === "hover-focus") { cancelClose(); setOpen(true); } }}
-        onMouseLeave={leave}
-        onFocus={() => { if (activation === "hover-focus") { cancelClose(); setOpen(true); } }}
-        onBlur={close}
+        aria-expanded={open}
+        aria-controls={open ? `${id}-popover` : undefined}
+        onKeyDown={event => {
+          if (event.key === "Tab" && !event.shiftKey && open) {
+            event.preventDefault();
+            closeRef.current?.focus({ preventScroll: true });
+          }
+        }}
+        onBlur={event => { if (!tipRef.current?.contains(event.relatedTarget as Node)) close(); }}
         onClick={(event) => {
           event.stopPropagation();
-          cancelClose();
-          pinned.current = !pinned.current;
-          setOpen(pinned.current);
+          if (open) close(); else show();
         }}
         style={{
           display: "inline-flex",
@@ -188,13 +199,16 @@ export default function InfoTip({ content, title, label, termId, children, class
       >
         {textTrigger ? children : <Info size={ICON_SIZE.xs} aria-hidden style={{ display: "block" }} />}
       </button>
-      {open && createPortal(title ? (
-        <TooltipContent {...tooltipProps} title={title}>{content}</TooltipContent>
+      {open && createPortal(<span {...tooltipProps} className="ds-help-popover" id={`${id}-popover`} role="group" aria-label={title ?? label ?? content}
+        onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node) && event.relatedTarget !== buttonRef.current) close(); }}>
+        <IconButton className="ds-help-popover__close" ref={closeRef} aria-label={t("button.close")} variant="ghost" size="sm" onClick={event => { event.stopPropagation(); dismissAndRestore(); }} icon={<X size={ICON_SIZE.xs} aria-hidden />} />
+        {title ? (
+        <TooltipContent id={id} role="tooltip" title={title}>{content}</TooltipContent>
       ) : (
         <span
-          {...tooltipProps}
+          id={id} role="tooltip"
           style={{
-            ...tooltipProps.style,
+            display: "block",
             padding: "var(--space-2) var(--space-3)",
             borderRadius: "var(--r-md)",
             background: "var(--bg-0)",
@@ -212,7 +226,7 @@ export default function InfoTip({ content, title, label, termId, children, class
         >
           {content}
         </span>
-      ), document.body)}
+      )}</span>, document.body)}
     </span>
   );
 }

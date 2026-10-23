@@ -1,4 +1,8 @@
+import { presentPlanRecord } from "../features/training/plan/planRecordPresentation";
+import { usePlanRecordOverlay } from "../features/training/plan/usePlanRecordOverlay";
 import "./TrainingLogPage.css";
+import PlanRecordNavigation from "../features/training/plan/PlanRecordNavigation";
+import type { PlanRecordEntry } from "../features/training/plan/PlanRecordEvidence";
 import { isSportUiEnabled } from "../config/sportFeatures";
 import { useActivityRepresentatives, withActivityRepresentatives } from "../hooks/useActivityRepresentatives";
 import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties } from "react";
@@ -7,12 +11,11 @@ import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNaviga
 import { useSearchParams } from "react-router-dom";
 import GlossaryText from "../components/common/GlossaryText";
 import { Upload } from "lucide-react";
-import { collection, query, where, orderBy, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
-import type { PlanDay, PlanWeek } from "@shared/types/goal";
 import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
 import RecentActivitySummary from "../components/activity/RecentActivitySummary";
@@ -121,42 +124,35 @@ interface LogDayCellProps {
   ftp?: number;
 }
 
-interface PlanGhost {
-  discipline: "bike" | "run" | "swim";
-  workout: PlanDay["workout"];
-  plannedTSS: number;
-  plannedDurationMin: number;
-}
+type PlanGhost = PlanRecordEntry;
 
-function effectivePlanTSS(day: PlanDay): number {
-  return day.adjustedTSS ?? day.plannedTSS ?? 0;
-}
-
-function effectivePlanDuration(day: PlanDay): number {
-  return day.adjustedDurationMin ?? day.plannedDurationMin ?? 0;
-}
-
-function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth, dayNum, dateKey, todayKey, ftp }: LogDayCellProps) {
+export function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum, dateKey, todayKey, ftp }: LogDayCellProps) {
   const navigate = useNavigate();
   const { t } = useTranslation("training");
-  const [expanded, setExpanded] = useState(false);
+  const [calendarParams, setCalendarParams] = useSearchParams();
+  const expanded = calendarParams.get("calendarDay") === dateKey;
+  const setDayPage = (page: number) => {
+    const next = new URLSearchParams(calendarParams);
+    next.set("calendarDay", dateKey); next.set("calendarPage", String(page));
+    setCalendarParams(next, { preventScrollReset: true });
+  };
+  const toggleExpanded = () => {
+    const next = new URLSearchParams(calendarParams);
+    if (expanded) { next.delete("calendarDay"); next.delete("calendarPage"); }
+    else { next.set("calendarDay", dateKey); next.set("calendarPage", "1"); }
+    setCalendarParams(next, { preventScrollReset: true });
+  };
   const hasAct = activities.length > 0;
-  const hasPlan = plans.length > 0;
   const single = activities.length === 1;
-  const plannedTSS = plans.reduce((sum, plan) => sum + plan.plannedTSS, 0);
-  // 계획 대비 달성 비교용 내부 수치 — 아는 값만 더한다(모르는 활동은 0 으로 세지 않는다).
-  const actualLoad = sumAcceptedActivityTss(loadActivities, ftp);
-  const actualTSS = actualLoad.value;
-  const adherence =
-    !hasPlan ? null :
-    hasAct ? (actualLoad.unknownCount > 0 || actualTSS === null ? "unknown"
-      : actualLoad.estimated ? "estimated" : actualTSS >= plannedTSS * 0.8 ? "hit" : "under") :
-    dateKey < todayKey ? "missed" : "planned";
-  const adherenceLabel = adherence === "hit" ? "✓" : adherence === "under" ? "△" : adherence === "missed" ? "!" : adherence === "unknown" ? "?" : adherence === "estimated" ? "~" : "";
+
 
   // 활동 정렬 — 시작 시각 빠른 순
   const sorted = [...activities].sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
-  const visible = expanded ? sorted : sorted.slice(0, 2);
+  const pageSize = 20;
+  const pages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const requestedPage = Number(calendarParams.get("calendarPage"));
+  const page = Math.min(Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1, pages);
+  const visible = expanded ? sorted.slice((page - 1) * pageSize, page * pageSize) : sorted.slice(0, 2);
   const hiddenCount = sorted.length - 2;
 
   const fmtTime = (ts: number) => {
@@ -212,6 +208,7 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
       {/* 활동 목록 — 각 행이 개별 클릭 영역 */}
       {plans.map((plan, index) => {
         const color = sportColor(plan.workout);
+        const presentation = presentPlanRecord(plan, { date: dateKey, today: todayKey });
         return (
           <button
             type="button"
@@ -236,11 +233,7 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
             <span style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", lineHeight: 1.2 }}>
               {plan.plannedTSS} TSS
             </span>
-            {index === 0 && adherenceLabel && (
-              <span aria-label={adherence === "unknown" ? t("log.loadUnknown") : adherence === "estimated" ? t("page.tssEstimated") : undefined} style={{ marginLeft: "auto", fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", lineHeight: 1 }}>
-                {adherenceLabel}
-              </span>
-            )}
+            <span data-plan-outcome={presentation.outcome} style={{ fontSize: "var(--fs-xs)" }}>{t(`planRecords.state.${presentation.outcome}`)}</span>
           </button>
         );
       })}
@@ -289,7 +282,14 @@ function LogDayCell({ activities, loadActivities, plans, isToday, isCurrentMonth
           </button>
         );
       })}
-      {hiddenCount > 0 && <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}
+      {expanded && sorted.length > 0 && <nav aria-label={t("activity:mobileLog.dayPages")} style={{ display: "grid", gap: "var(--space-1)" }}>
+        <Text as="p" variant="caption" role="status">{t("activity:mobileLog.pageStatus", { from: (page - 1) * pageSize + 1, to: Math.min(page * pageSize, sorted.length), total: sorted.length, page, pages })}</Text>
+        {pages > 1 && <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-1)" }}>
+          <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => setDayPage(page - 1)}>{t("activity:mobileLog.previousPage")}</Button>
+          <Button variant="secondary" size="sm" disabled={page >= pages} onClick={() => setDayPage(page + 1)}>{t("activity:mobileLog.nextPage")}</Button>
+        </div>}
+      </nav>}
+      {hiddenCount > 0 && <button type="button" aria-expanded={expanded} onClick={toggleExpanded}
         style={{ alignSelf: "flex-start", minHeight: 24, padding: "0 var(--space-1)", border: 0, background: "none", color: "var(--accent)", fontSize: "var(--fs-xs)", fontWeight: 600, cursor: "pointer" }}>
         {t(expanded ? "log.hideExtraActivities" : "log.showExtraActivities", { count: hiddenCount })}
       </button>}
@@ -390,39 +390,47 @@ export default function TrainingLogPage() {
   const { t: tCommon } = useTranslation("common");
   const { user, profile } = useAuth();
   const ftp = profile?.ftp ?? undefined;
+  const [importParams, setImportParams] = useSearchParams();
+  const requestedSport = importParams.get("sport");
   const today = planCalendarDate(Date.now());
   const [selectedMonth, setSelectedMonth] = useState<{ year: number; month: number }>({
     year: today.getUTCFullYear(),
     month: today.getUTCMonth(),
   });
 
-  // 월별 캐시 — 본 적 있는 달은 재요청하지 않는다 (Firestore 읽기 절감 + 즉시 표시)
-  const [activitiesByMonth, setActivitiesByMonth] = useState<Map<string, Activity[]>>(new Map());
-  const [planByMonth, setPlanByMonth] = useState<Map<string, PlanGhost[]>>(new Map());
-  const [loadedMonths, setLoadedMonths] = useState<Set<string>>(new Set());
-  const [failedMonths, setFailedMonths] = useState<Set<string>>(new Set());
-  const requestedMonths = useRef<Set<string>>(new Set()); // 진행 중 + 완료 가드 (중복 페치 방지)
-
-  // 유저 전환 시 캐시 리셋
+  // A result belongs to both its owner/source and the request generation that started it.
+  const monthScopeRef = useRef({ uid: user?.uid, firestore, epoch: 0, active: true, requested: new Set<string>() });
+  if (monthScopeRef.current.uid !== user?.uid || monthScopeRef.current.firestore !== firestore) {
+    monthScopeRef.current = { uid: user?.uid, firestore, epoch: 0, active: true, requested: new Set() };
+  }
+  const monthScope = monthScopeRef.current;
+  const [monthCache, setMonthCache] = useState(() => ({ scope: monthScope, activities: new Map<string, Activity[]>(), loaded: new Set<string>(), failed: new Set<string>() }));
+  // Gate the first render too: effects have not cleared the previous owner's state yet.
+  const activitiesByMonth = useMemo(() => monthCache.scope === monthScope ? monthCache.activities : new Map<string, Activity[]>(), [monthCache, monthScope]);
+  const loadedMonths = monthCache.scope === monthScope ? monthCache.loaded : new Set<string>();
+  const failedMonths = monthCache.scope === monthScope ? monthCache.failed : new Set<string>();
   useEffect(() => {
-    requestedMonths.current = new Set();
-    setActivitiesByMonth(new Map());
-    setPlanByMonth(new Map());
-    setLoadedMonths(new Set());
-    setFailedMonths(new Set());
-  }, [user?.uid]);
+    monthScope.active = true;
+    monthScope.requested.clear();
+    setMonthCache({ scope: monthScope, activities: new Map(), loaded: new Set(), failed: new Set() });
+    return () => { monthScope.active = false; monthScope.epoch += 1; };
+  }, [monthScope]);
 
   // 월 경계 양쪽 하루의 대표 후보만 함께 읽는다. 월당 한 쿼리와 재방문 캐시는 유지한다.
   const loadMonth = useCallback(
     async (year: number, month: number) => {
       if (!user) return;
+      const scope = monthScopeRef.current;
+      const epoch = scope.epoch;
+      const current = () => scope.active && monthScopeRef.current === scope && scope.epoch === epoch;
+      if (scope.uid !== user.uid || scope.firestore !== firestore || !current()) return;
       const key = monthKey(year, month);
-      if (requestedMonths.current.has(key)) return; // 이미 로드했거나 진행 중
-      requestedMonths.current.add(key);
-      setFailedMonths((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
+      if (scope.requested.has(key)) return;
+      scope.requested.add(key);
+      setMonthCache(prev => {
+        if (prev.scope !== scope) return prev;
+        const failed = new Set(prev.failed); failed.delete(key);
+        return { ...prev, failed };
       });
       try {
         const { start, end } = planMonthBounds(year, month);
@@ -435,21 +443,21 @@ export default function TrainingLogPage() {
           orderBy("startTime", "desc"),
         );
         const snap = await getDocs(q);
+        if (!current()) return;
         const acts = snap.docs.map((d) => {
           const activity = { id: d.id, ...d.data() } as Activity;
           // 렌더링용 빈 요약은 측정값 0을 만들지 않는다. 누락 부하는 unknown으로 남는다.
           return { ...activity, summary: activity.summary ?? {} as Activity["summary"] };
         });
-        setActivitiesByMonth((prev) => new Map(prev).set(key, acts));
-        setLoadedMonths((prev) => new Set(prev).add(key));
+        setMonthCache(prev => prev.scope === scope && current() ? { ...prev, activities: new Map(prev.activities).set(key, acts), loaded: new Set(prev.loaded).add(key) } : prev);
       } catch (err) {
-        requestedMonths.current.delete(key); // 실패 시 재시도 허용
-        setLoadedMonths((prev) => new Set(prev).add(key));
-        setFailedMonths((prev) => new Set(prev).add(key));
+        if (!current()) return;
+        scope.requested.delete(key); // 실패 시 재시도 허용
+        setMonthCache(prev => prev.scope === scope && current() ? { ...prev, loaded: new Set(prev.loaded).add(key), failed: new Set(prev.failed).add(key) } : prev);
         logClientError("TrainingLogPage.loadActivities", err, { key });
       }
     },
-    [user],
+    [user, firestore],
   );
 
   // 선택 월 변경 시 해당 월 + 직전 월(이전 탐색·모바일 최근 탭 대비) 로드
@@ -461,64 +469,23 @@ export default function TrainingLogPage() {
     loadMonth(prev.year, prev.month);
   }, [user, selectedMonth, loadMonth]);
 
+
+  const requestedDate = importParams.get("day") ?? importParams.get("date");
   useEffect(() => {
-    if (!user) return;
-    const uid = user.uid;
-    let cancelled = false;
-    async function loadPlan() {
-      try {
-        const goalSnap = await getDocs(
-          query(
-            collection(firestore, "goals"),
-            where("userId", "==", uid),
-            where("status", "==", "active"),
-            limit(1),
-          ),
-        );
-        if (cancelled || goalSnap.empty) {
-          if (!cancelled) setPlanByMonth(new Map());
-          return;
-        }
-
-        const goalId = goalSnap.docs[0]!.id;
-        const goalSport = goalSnap.docs[0]!.data().discipline;
-        const discipline = goalSport === "run" || goalSport === "swim" ? goalSport : "bike";
-        const planSnap = await getDocs(
-          query(collection(firestore, "goals", goalId, "plan"), orderBy("weekNumber")),
-        );
-        if (cancelled) return;
-
-        const next = new Map<string, PlanGhost[]>();
-        for (const docSnap of planSnap.docs) {
-          const week = { id: docSnap.id, ...docSnap.data() } as PlanWeek;
-          for (const day of week.days ?? []) {
-            if (day.workout === "rest" || day.skipped) continue;
-            const key = msToDateKey(day.date);
-            const plannedTSS = Math.round(effectivePlanTSS(day));
-            if (plannedTSS <= 0) continue;
-            const plans = next.get(key) ?? [];
-            plans.push({
-              discipline,
-              workout: day.workout,
-              plannedTSS,
-              plannedDurationMin: Math.round(effectivePlanDuration(day)),
-            });
-            next.set(key, plans);
-          }
-        }
-        setPlanByMonth(next);
-      } catch (err) {
-        setPlanByMonth(new Map());
-        logClientError("TrainingLogPage.loadPlanOverlay", err, {});
-      }
-    }
-    void loadPlan();
-    return () => { cancelled = true; };
-  }, [user]);
-
-  const [importParams, setImportParams] = useSearchParams();
-  const requestedSport = importParams.get("sport");
+    if (!requestedDate || !/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) return;
+    const date = new Date(`${requestedDate}T00:00:00Z`);
+    if (!Number.isFinite(date.getTime()) || dateToKey(date) !== requestedDate) return;
+    setSelectedMonth({ year: date.getUTCFullYear(), month: date.getUTCMonth() });
+  }, [requestedDate]);
   const sportFilter = requestedSport && isSportUiEnabled(requestedSport) && (requestedSport === "bike" || requestedSport === "run" || requestedSport === "swim") ? requestedSport : "all";
+  useEffect(() => {
+    if (requestedSport == null || requestedSport === sportFilter) return;
+    const next = new URLSearchParams(importParams);
+    next.set("sport", sportFilter);
+    setImportParams(next, { replace: true });
+  }, [requestedSport, sportFilter, importParams, setImportParams]);
+  const planOverlay = usePlanRecordOverlay(user?.uid, sportFilter);
+  const planByMonth = planOverlay.plans;
   const setSportFilter = (sport: string) => {
     const next = new URLSearchParams(importParams);
     next.set("sport", sport);
@@ -548,16 +515,12 @@ export default function TrainingLogPage() {
   const loadError = failedMonths.has(selectedMonthKey) || representativeState.error;
   const retryMonth = () => {
     representativeState.retry();
-    requestedMonths.current.delete(selectedMonthKey);
-    setLoadedMonths((prev) => {
-      const next = new Set(prev);
-      next.delete(selectedMonthKey);
-      return next;
-    });
-    setFailedMonths((prev) => {
-      const next = new Set(prev);
-      next.delete(selectedMonthKey);
-      return next;
+    monthScope.requested.delete(selectedMonthKey);
+    setMonthCache(prev => {
+      if (prev.scope !== monthScope) return prev;
+      const loaded = new Set(prev.loaded), failed = new Set(prev.failed);
+      loaded.delete(selectedMonthKey); failed.delete(selectedMonthKey);
+      return { ...prev, loaded, failed };
     });
     void loadMonth(selectedMonth.year, selectedMonth.month);
   };
@@ -647,19 +610,27 @@ export default function TrainingLogPage() {
   const isThisMonth =
     selectedMonth.year === today.getUTCFullYear() && selectedMonth.month === today.getUTCMonth();
 
-  const goPrevMonth = () => {
-    setSelectedMonth((prev) => {
-      const m = prev.month - 1;
-      return m < 0 ? { year: prev.year - 1, month: 11 } : { year: prev.year, month: m };
-    });
+  const changeMonth = (year: number, month: number, day = 1) => {
+    const next = new URLSearchParams(importParams);
+    next.delete("day");
+    next.delete("detail");
+    next.set("date", dateToKey(new Date(Date.UTC(year, month, day))));
+    setSelectedMonth({ year, month });
+    setImportParams(next);
   };
+  const shiftMonth = (delta: number) => {
+    const next = new Date(Date.UTC(selectedMonth.year, selectedMonth.month + delta, 1));
+    changeMonth(next.getUTCFullYear(), next.getUTCMonth());
+  };
+  const goPrevMonth = () => shiftMonth(-1);
+  const goNextMonth = () => shiftMonth(1);
 
-  const goNextMonth = () => {
-    setSelectedMonth((prev) => {
-      const m = prev.month + 1;
-      return m > 11 ? { year: prev.year + 1, month: 0 } : { year: prev.year, month: m };
-    });
-  };
+  const selectedMonthPrefix = `${selectedMonth.year}-${String(selectedMonth.month + 1).padStart(2, "0")}-`;
+  const validRequestedDate = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
+    && Number.isFinite(Date.parse(`${requestedDate}T00:00:00Z`))
+    && dateToKey(new Date(`${requestedDate}T00:00:00Z`)) === requestedDate;
+  const recordDate = validRequestedDate && requestedDate.startsWith(selectedMonthPrefix)
+    ? requestedDate : `${selectedMonthPrefix}01`;
 
   const monthLabel = t("log.monthLabel", { year: selectedMonth.year, month: selectedMonth.month + 1 });
 
@@ -679,6 +650,14 @@ export default function TrainingLogPage() {
     return () => media.removeEventListener("change", update);
   }, []);
 
+  const planRecordHeader = <>
+    <PlanRecordNavigation date={recordDate} />
+    <div style={{ marginBottom: "var(--space-3)" }}>
+      <Text as="p" variant="caption" tone="secondary" role={planOverlay.state === "error" ? "alert" : planOverlay.state === "loading" ? "status" : undefined}>{t(planOverlay.state === "error" ? "planRecords.error" : planOverlay.state === "loading" ? "planRecords.loading" : planOverlay.plans.size ? "planRecords.scope" : "planRecords.empty")}</Text>
+      {planOverlay.state === "error" && <Button variant="secondary" size="sm" onClick={planOverlay.retry}>{tCommon("button.retry")}</Button>}
+    </div>
+  </>;
+
   if (!user) {
     return <GuestValuePreview kind="log" lang={i18n.language} />;
   }
@@ -687,16 +666,21 @@ export default function TrainingLogPage() {
     if (failedMonths.has(selectedMonthKey)) {
       return (
         <div style={{ padding: "var(--space-4)" }}>
+          {planRecordHeader}
           <ErrorState title={tCommon("error.title")} onRetry={retryMonth} />
         </div>
       );
     }
     return (
       <>
+      {planRecordHeader}
       {representativeState.error && <ErrorState title={tCommon("error.title")} onRetry={representativeState.retry} compact />}
       <MobileLogPage
         recentSummarySlot={isMobile && !user.isAnonymous ? <RecentActivitySummary key={user.uid} sport={sportFilter} /> : undefined}
         plannedDates={[...visiblePlans.keys()]}
+        plansByDate={Object.fromEntries(visiblePlans)}
+        planState={planOverlay.state}
+        onRetryPlan={planOverlay.retry}
         plannedSports={Object.fromEntries([...visiblePlans].map(([date, plans]) => [date, plans[0]?.discipline ?? "bike"]))}
         ftp={ftp}
         activities={activities}
@@ -705,15 +689,7 @@ export default function TrainingLogPage() {
         month={selectedMonth.month}
         loading={!loadedMonths.has(selectedMonthKey)}
         aggregateUnavailable={representativeState.loading || representativeState.error}
-        onChangeMonth={(delta) => {
-          setSelectedMonth((prev) => {
-            let m = prev.month + delta;
-            let y = prev.year;
-            if (m < 0) { m = 11; y--; }
-            if (m > 11) { m = 0; y++; }
-            return { year: y, month: m };
-          });
-        }}
+        onChangeMonth={shiftMonth}
       />
       </>
     );
@@ -721,6 +697,7 @@ export default function TrainingLogPage() {
 
   return (
     <div className="training-log-page">
+      {planRecordHeader}
 
       {/* ── 헤더 ───────────────────────────────────────────────── */}
       <header data-testid="P1-1" className="training-log-header">
@@ -786,7 +763,7 @@ export default function TrainingLogPage() {
           {!isThisMonth && (
             <Button variant="ghost" size="sm"
               onClick={() =>
-                setSelectedMonth({ year: today.getUTCFullYear(), month: today.getUTCMonth() })
+                changeMonth(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
               }
             >
               {t("page.currentMonth")}

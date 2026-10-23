@@ -1,12 +1,11 @@
+import { readPreferredActiveGoal } from "../features/training/plan/readActivePlanGoals";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   collection,
   getDocs,
-  limit,
   orderBy,
   query,
-  where,
 } from "firebase/firestore";
 
 import type { Goal, PlanDay, PlanWeek } from "@shared/types/goal";
@@ -162,28 +161,9 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
       if (snapshot?.fresh && !forced) return;
       if (forced) invalidatePlanSnapshot(snapshotKey);
       try {
-        let snap = await getDocs(
-          query(
-            collection(firestore, "goals"),
-            where("userId", "==", user.uid),
-            where("status", "==", "active"),
-            where("discipline", "==", discipline),
-            limit(1),
-          ),
-        );
+        const nextGoal = await readPreferredActiveGoal(firestore, user.uid, discipline);
         if (cancelled) return;
-        if (snap.empty) {
-          snap = await getDocs(
-            query(
-              collection(firestore, "goals"),
-              where("userId", "==", user.uid),
-              where("status", "==", "active"),
-              limit(1),
-            ),
-          );
-        }
-        if (cancelled) return;
-        if (snap.empty) {
+        if (!nextGoal) {
           setGoal(null);
           setWeeks([]);
           setGoalLoading(false);
@@ -196,8 +176,6 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
           return;
         }
 
-        const docSnap = snap.docs[0]!;
-        const nextGoal = { id: docSnap.id, ...docSnap.data() } as Goal;
         try {
           const planSnap = await getDocs(
             query(
@@ -221,10 +199,10 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
           if (cached === null) {
             setGoal(null);
             setWeeks([]);
-            setPlanError(error);
           }
+          setPlanError(error);
           setGoalLoading(false);
-          setFreshLoaded(cached === null);
+          setFreshLoaded(false);
           logClientError("PlanPage.planLoad", error, { discipline, goalId: nextGoal.id });
         } finally {
           if (!cancelled) setPlanLoading(false);
@@ -234,11 +212,11 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
         if (cached === null) {
           setGoal(null);
           setWeeks([]);
-          setGoalError(error);
         }
+        setGoalError(error);
         setGoalLoading(false);
         setPlanLoading(false);
-        setFreshLoaded(cached === null);
+        setFreshLoaded(false);
         logClientError("PlanPage.goalLoad", error, { discipline });
       }
     };
@@ -296,27 +274,37 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
     const contextKey = refreshGenerationRef.current.key;
     const generation = ++refreshGenerationRef.current.value;
     const cacheEnabled = prepareTrainingSurfaceCacheOwner(user.uid, user.isAnonymous === true);
-    const planSnap = await getDocs(
-      query(
-        collection(firestore, "goals", goal.id, "plan"),
-        orderBy("weekNumber"),
-      ),
-    );
-    if (refreshGenerationRef.current.key !== contextKey
-        || refreshGenerationRef.current.value !== generation) return;
-    const nextWeeks = planSnap.docs.map((item) => ({ id: item.id, ...item.data() }) as PlanWeek);
-    setWeeks(nextWeeks);
-    setCacheHit(scope !== null);
-    const cacheKey = { uid: user.uid, surface: "plan" as const, sport: discipline, locale };
-    if (cacheEnabled) {
-      setTrainingSurfaceCache(cacheKey, { goal, weeks: nextWeeks });
-      // 주차만 조회해서는 캡처한 목표의 신선도를 연장할 수 없다.
-      if (snapshot) setTrainingSurfaceCache(snapshotKey, {
-        data: { goal, weeks: nextWeeks }, savedAt: snapshot.savedAt,
-        timezone: snapshot.timezone, invalidated: snapshot.invalidated,
-      });
+    try {
+      const planSnap = await getDocs(
+        query(
+          collection(firestore, "goals", goal.id, "plan"),
+          orderBy("weekNumber"),
+        ),
+      );
+      if (refreshGenerationRef.current.key !== contextKey
+          || refreshGenerationRef.current.value !== generation) return;
+      setPlanError(null);
+      const nextWeeks = planSnap.docs.map((item) => ({ id: item.id, ...item.data() }) as PlanWeek);
+      setWeeks(nextWeeks);
+      setCacheHit(scope !== null);
+      const cacheKey = { uid: user.uid, surface: "plan" as const, sport: discipline, locale };
+      if (cacheEnabled) {
+        setTrainingSurfaceCache(cacheKey, { goal, weeks: nextWeeks });
+        // 주차만 조회해서는 캡처한 목표의 신선도를 연장할 수 없다.
+        if (snapshot) setTrainingSurfaceCache(snapshotKey, {
+          data: { goal, weeks: nextWeeks }, savedAt: snapshot.savedAt,
+          timezone: snapshot.timezone, invalidated: snapshot.invalidated,
+        });
+      }
+      setFreshLoaded(scope === null || readPlanSnapshot(snapshotKey)?.fresh === true);
+    } catch (error) {
+      if (refreshGenerationRef.current.key === contextKey
+          && refreshGenerationRef.current.value === generation) {
+        setPlanError(error);
+        setFreshLoaded(false);
+      }
+      throw error;
     }
-    setFreshLoaded(scope === null || readPlanSnapshot(snapshotKey)?.fresh === true);
   }, [discipline, firestore, goal, locale, scope, user]);
 
   return {

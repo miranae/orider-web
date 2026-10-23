@@ -297,3 +297,5 @@
 .run30-stages > .run30-section-head > h3 { font-size: var(--ft-title-size); font-weight: var(--ft-title-weight); }
 
 .run30-outline-phases > .run30-outline-tail { background: var(--bg-1); border-style: dashed; }
+
+.run30-stage > .coach-detail-entry { align-self: stretch; margin-top: 0; }

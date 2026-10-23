@@ -114,6 +114,8 @@ it('explains repeated metric and evidence terms without nesting tooltip buttons 
   }
   const trigger = container.querySelector<HTMLButtonElement>('[data-glossary-term="eftp"] button')!;
   fireEvent.focus(trigger);
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  fireEvent.click(trigger);
   expect(screen.getByRole('tooltip')).toHaveTextContent('활동 기록과 파워 모델로 추정한 FTP');
   fireEvent.keyDown(trigger, { key: 'Escape' });
   await userEvent.click(screen.getByRole('button', { name: '산출 근거 보기' }));

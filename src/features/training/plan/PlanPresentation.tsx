@@ -1,3 +1,4 @@
+import { isPendingPlanWorkout, presentPlanDayRecord } from "./planRecordPresentation";
 import { goalCountdown } from "../../../utils/goalCountdown";
 import { summarizeStoredPlan } from "./planScope";
 import { Eye, RefreshCw, Target } from "lucide-react";
@@ -57,6 +58,7 @@ const PLAN_CALENDAR_CARD_STYLE: CSSProperties = {
 };
 
 interface DayCellProps {
+  embedded?: boolean;
   selected?: boolean;
   day: PlanDay;
   isToday: boolean;
@@ -67,7 +69,7 @@ interface DayCellProps {
   onClick?: () => void;
 }
 
-function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goalDate, onClick }: DayCellProps) {
+function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFactor, currentTsb, goalDate, onClick }: DayCellProps) {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const weekdayName = buildDayNames(tCommon)[(planCalendarDate(day.date).getUTCDay() + 6) % 7] ?? '';
@@ -78,21 +80,26 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
   const isGoal = day.workout === 'goal';
   const isGoalDate = !!goalDate && kstDayKey(day.date) === kstDayKey(goalDate.getTime());
   const workoutLabel = isGoal ? t(isGoalDate ? 'page.goalDay' : 'page.goalWorkout') : meta.label;
-  const isSkipped = day.skipped === true;
+  const saved = !embedded ? presentPlanDayRecord(day, {date: kstDayKey(day.date), today: kstDayKey(Date.now())}) : null;
+  const isDone = saved ? saved.outcome === "completed" : day.completed;
+  const isSkipped = saved ? saved.outcome === "skipped" : day.skipped === true;
   const isPast = day.date < Date.now() && !isToday;
   // 결근: 과거 일자 + 미완료 + 미스킵 + 비휴식/비목표일
-  const isMissed = isPast && !day.completed && !day.skipped && !isRest && !isGoal;
+  const isMissed = embedded && isPast && !day.completed && !day.skipped && !isRest && !isGoal;
   const dimmed = isPast && !day.completed && !isRest;
   // 자동 적응 — adjustedTSS/adjustedDurationMin이 있으면 그 값을 표시
   const isAdjusted = day.adjustedTSS != null && !isRest && !isGoal;
   const effectiveTSS = day.adjustedTSS ?? day.plannedTSS;
   const effectiveDur = day.adjustedDurationMin ?? day.plannedDurationMin;
-  // 완료 달성률은 조정된 처방 대비다. 기존 actualTSS=0은 미수집과 명시적0을 구분할 근거가 없어 미표시한다.
-  const completionRatio = day.completed && day.actualTSS != null && day.actualTSS > 0 && effectiveTSS > 0
-    ? day.actualTSS / effectiveTSS
+  // 일반 웹은 확정 연결의 저장 부하만 비교한다. 임베드는 기존 양수 부하 표시를 유지한다.
+  const displayedActualTSS = saved ? saved.linkage === "confirmed" ? saved.actualLoad : null : day.actualTSS != null && day.actualTSS > 0 ? day.actualTSS : null;
+  const completionRatio = isDone && displayedActualTSS != null && effectiveTSS > 0
+    ? displayedActualTSS / effectiveTSS
     : null;
   const daysUntil = Math.max(0, Math.floor((day.date - planDayStartMs(Date.now())) / DAY_MS));
-  const downshift = !isPast && !isSkipped && !isRest && !isGoal && !day.completed && currentTsb != null
+  const pendingWorkout = embedded ? !isSkipped && !isRest && !isGoal && !day.completed
+    : isPendingPlanWorkout(day, { date: kstDayKey(day.date), today: kstDayKey(Date.now()) });
+  const downshift = !isPast && pendingWorkout && currentTsb != null
     ? evaluateRecoveryDownshift({ workoutKind: day.workout, tsb: currentTsb, daysUntil })
     : null;
 
@@ -130,7 +137,7 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
           <span onClick={event => event.stopPropagation()}><GlossaryText>{meta.label}</GlossaryText></span>
         </div>
         <div style={{ fontSize: "var(--ft-body-size)", color: 'var(--ink-4)', paddingLeft: 6, fontFamily: 'inherit' }}>
-          {t('page.skipped')}
+          {saved ? t(`planRecords.state.${saved.outcome}`) : t('page.skipped')}
         </div>
         {dateControl(dateLabel, {
           position: 'absolute', top: 2, right: 4,
@@ -161,6 +168,7 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
         </svg>}
         <div style={{ fontSize: "var(--fs-xs)", fontWeight: 700, marginTop: 'var(--space-1)', letterSpacing: '0.04em' }}>{workoutLabel}</div>
+        {saved && <Text as="p" variant="caption">{t(`planRecords.state.${saved.outcome}`)}</Text>}
         {dateControl(dateLabel, {
           position: 'absolute', top: 2, right: 4,
           fontFamily: 'inherit', fontSize: "var(--ft-body-size)", color: isGoalDate ? 'var(--primary-fg)' : 'var(--ink-1)',
@@ -190,7 +198,13 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
         gap: 'var(--space-1)',
       }}
     >
-      {day.actualActivityId && <LocalizedLink data-testid="K4-5-5" to={`/activity/${encodeURIComponent(day.actualActivityId)}`} onClick={event => event.stopPropagation()}>{t("today.viewActivity")}</LocalizedLink>}
+      {embedded && day.actualActivityId && <LocalizedLink data-testid="K4-5-5" to={`/activity/${encodeURIComponent(day.actualActivityId)}`} onClick={event => event.stopPropagation()}>{t("today.viewActivity")}</LocalizedLink>}
+      {saved && <>
+        <Text as="p" variant="caption">{t(`planRecords.state.${saved.outcome}`)}</Text>
+        {saved.linkage !== "confirmed" && (saved.linkage !== "none" || ["completed", "partial", "markedComplete"].includes(saved.outcome)) && <Text as="p" variant="caption" tone="secondary">{t(`planRecords.basis.${saved.linkage}`)}</Text>}
+        {saved.postponedToLocalDate && <Text as="p" variant="caption" tone="secondary">{t("planRecords.postponedDate", {date: saved.postponedToLocalDate})}</Text>}
+        {saved.activityLinks.map(link => <LocalizedLink key={link.id} data-testid="K4-5-5" to={`/activity/${encodeURIComponent(link.id)}`} onClick={event => event.stopPropagation()}>{t(link.kind === "candidate" ? "planRecords.viewCandidate" : "today.viewActivity")}</LocalizedLink>)}
+      </>}
       {/* TODAY badge */}
       {isToday && (
         <div
@@ -260,7 +274,7 @@ function DayCell({ selected, day, isToday, weekAdjustmentFactor, currentTsb, goa
       {dateControl(<>
         <span>{dateLabel}</span>
         {/* 완료 — 달성률 + ✓ (이상값 방지를 위해 999% 캡) */}
-        {day.completed && (
+        {isDone && (
           <>
             {completionRatio != null && (
               <span style={{
@@ -612,14 +626,15 @@ export default function PlanPresentation({
   }, [selectedDate, weeks, currentWeekIndex]);
   const hasCurrentWeek = weeks[currentWeekIndex]?.days.some(isTodayCell) ?? false;
   const visibleWeeks = showPreviousWeeks || currentWeekIndex === 0 ? weeks : weeks.slice(currentWeekIndex);
-  const remainingSessions = weeks.reduce((total, week) => total + week.days.filter((day) =>
-    !day.completed && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal',
-  ).length, 0);
   const todayKey = kstDayKey(Date.now());
-  const planScope = summarizeStoredPlan(weeks, goalDate, Date.now());
+  const pendingWorkout = (day: PlanDay) => embedded
+    ? !day.completed && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal'
+    : isPendingPlanWorkout(day, { date: kstDayKey(day.date), today: todayKey });
+  const remainingSessions = weeks.reduce((total, week) => total + week.days.filter(pendingWorkout).length, 0);
+  const planScope = summarizeStoredPlan(weeks, goalDate, Date.now(), { legacy: embedded });
   const scopeNotice = goalDate && planScope.afterGoal > 0 ? <Text data-testid="plan-scope-notice" as="p" variant="bodySmall" tone="secondary" style={{ padding: "var(--space-3) var(--space-4)" }}>{t("scope.summary", planScope)}</Text> : null;
   const nextAction = weeks.slice(currentWeekIndex).flatMap((week) => week.days.map((day, dayIndex) => ({ day, weekId: week.id, dayIndex })))
-    .find(({ day }) => kstDayKey(day.date) >= todayKey && !day.completed && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal');
+    .find(({ day }) => kstDayKey(day.date) >= todayKey && pendingWorkout(day));
   const nextActionLabel = nextAction ? buildWorkoutMeta(t)[nextAction.day.workout]?.label ?? nextAction.day.workout : null;
   const goalTitle = goal?.title ?? goal?.courseName ?? '—';
   const formattedGoal = formatPlanGoalTitle(goalTitle);
@@ -705,6 +720,7 @@ export default function PlanPresentation({
   if (isMobile && !loading) {
     const mobileProps: MobilePlanContentProps = {
       selectedDate,
+      nextAction: embedded ? undefined : nextAction ?? null,
       embedded,
       currentWeek: mobilePlanViewModel.currentWeek,
       weekLabel: mobilePlanViewModel.weekLabel,
@@ -1048,6 +1064,7 @@ export default function PlanPresentation({
                       return (
                         <DayCell
                           key={di}
+                          embedded={embedded}
                           selected={kstDayKey(day.date) === selectedDate}
                           day={day}
                           isToday={isTodayCell(day)}

@@ -1,4 +1,47 @@
 {
+  "planRecords": {
+    "dayTitle": "{{date}} 계획과 기록",
+    "noActivity": "이 날짜에 현재 조회된 활동 기록이 없습니다. 미동기화·조회 범위를 확인한 뒤 수행 여부를 판단하세요.",
+    "today": "오늘 훈련",
+    "title": "계획/기록",
+    "plan": "훈련 계획",
+    "records": "활동 기록·수행 확인",
+    "comparison": "계획과 실제 기록",
+    "prescription": "계획 · {{workout}} · {{load}} TSS · {{minutes}}분",
+    "linked": "이 계획에 연결된 활동 기록이 있습니다.",
+    "unlinked": "연결된 활동이 없습니다. 같은 날의 기록만으로 계획 완료를 판단하지 않습니다.",
+    "actualLoad": "계획에 저장된 연결 부하 · {{value}} TSS",
+    "loadUnavailable": "연결 활동의 저장 부하를 아직 확인할 수 없습니다.",
+    "reviewPlan": "해당 계획 확인·다음 활동 조정",
+    "state": {
+      "rest": "휴식 계획",
+      "completed": "완료로 기록됨",
+      "partial": "부분 완료로 기록됨",
+      "markedComplete": "완료 표시 · 연결 근거 확인 필요",
+      "skipped": "건너뜀으로 기록됨",
+      "postponed": "연기로 기록됨",
+      "scheduled": "예정된 계획",
+      "today": "오늘 계획 · 수행 여부 미확인",
+      "unconfirmed": "수행 여부 미확인",
+      "unknown": "저장 상태 확인 필요"
+    },
+    "basis": {
+      "confirmed": "확정된 활동 연결",
+      "probable": "추정 연결 후보 · 확인 필요",
+      "legacy": "이전 방식의 저장 연결 · 확정 근거 미확인",
+      "none": "활동 미연결",
+      "unknown": "연결 근거 미확인"
+    },
+    "matchingNote": "같은 날의 기록이나 부하만으로 계획 완료를 판단하지 않습니다.",
+    "candidateLoad": "추정 후보의 저장 부하 · {{value}} TSS",
+    "viewCandidate": "연결 후보 활동 보기",
+    "postponedDate": "옮긴 날짜 · {{date}}",
+    "scope": "활성 목표의 계획과 같은 날짜의 기록을 함께 표시합니다. 날짜가 같다는 이유만으로 수행 완료를 판단하지 않습니다.",
+    "loading": "계획을 확인하는 중입니다. 활동 기록은 계속 볼 수 있습니다.",
+    "error": "계획을 불러오지 못했습니다. 활동 기록은 계속 볼 수 있습니다.",
+    "empty": "선택한 종목의 활성 계획이 없습니다. 기존 활동 기록은 아래에서 확인할 수 있습니다.",
+    "currentPlan": "현재 계획으로"
+  },
   "title": "훈련",
   "plan": {
     "revalidatingUpdating": "최근 활동을 반영해 계획을 다듬는 중…",
@@ -202,7 +245,8 @@
       "swim": "수영 대회"
     },
     "goalDayEstimate": "목표일 예상",
-    "planProgress": "계획진행률"
+    "planProgress": "계획진행률",
+    "readError": "기존 목표를 확인하지 못했습니다. 다시 불러온 뒤 생성하거나 변경할 수 있습니다."
   },
   "goals": {
     "wizardTitle": {
@@ -234,6 +278,7 @@
     "courseEmptyDesc": "코스를 먼저 만들거나 GPX를 업로드하세요",
     "courseSearchPlaceholder": "코스 검색...",
     "courseSearchEmpty": "\"{{query}}\" 검색 결과가 없습니다",
+    "courseCreateAction": "코스 만들기",
     "courseCreateLink": "원하는 코스가 없나요? 새 코스 만들기 (GPX 업로드 / 활동에서 생성)",
     "courseSelectInstructions": "목표로 삼을 코스를 선택하세요",
     "courseSelectDetail": "내 수준 대비 난이도를 실시간으로 비교해드립니다",

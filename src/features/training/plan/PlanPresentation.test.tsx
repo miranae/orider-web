@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlanModel } from "../../../hooks/usePlanModel";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import PlanPresentation from "./PlanPresentation";
+import MobilePlanPage from "../../../components/mobile/MobilePlanPage";
 
 const model = {
   discipline: "bike",
@@ -181,12 +182,12 @@ describe("PlanPresentation responsive layout", () => {
     fireEvent.click(screen.getByRole("button", { name: "지난 주 접기" }));
     expect(screen.queryByText("W1")).not.toBeInTheDocument();
   });
-  it("조정된 처방 85 TSS를 실제 85 TSS로 완료하면 100%다", () => {
+  it.each([{actual: 85, expected: "100%"}, {actual: 0, expected: "0%"}])("확정 연결의 저장 부하 $actual TSS를 조정된 처방과 비교한다", ({actual, expected}) => {
     vi.spyOn(window, "matchMedia").mockImplementation((query) => ({matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn()}));
     const date = Date.now();
-    const adjusted = {...model, weeks: [{id: "week-01", weekNumber: 1, phase: "build", startDate: date, plannedTSS: 100, days: [{date, dayOfWeek: 0, workout: "z2", plannedTSS: 100, adjustedTSS: 85, actualTSS: 85, completed: true, plannedDurationMin: 60}]}]} as unknown as PlanModel;
+    const adjusted = {...model, weeks: [{id: "week-01", weekNumber: 1, phase: "build", startDate: date, plannedTSS: 100, days: [{date, dayOfWeek: 0, workout: "z2", plannedTSS: 100, adjustedTSS: 85, actualTSS: actual, actualActivityId: "saved-ride", matchMethod: "explicit-start", matchConfidence: "exact", completed: true, plannedDurationMin: 60}]}]} as unknown as PlanModel;
     renderWithProviders(<PlanPresentation model={adjusted} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
-    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.getByText(expected)).toBeInTheDocument();
     expect(screen.queryByText("85%")).not.toBeInTheDocument();
   });
 
@@ -230,7 +231,7 @@ it.each([false, true])("labels only the actual target date as goal day (mobile=%
   renderWithProviders(<PlanPresentation model={{ ...model, goalDate: new Date(date), weeks: [{ id: "truth-week", weekNumber: 1, phase: "taper", startDate: date, days: [goal, { ...goal, date: date + 7 * 86400000 }] }] } as unknown as PlanModel}
     mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
   const calendar = within(screen.getByTestId(mobile ? "K4-5m" : "K4-5"));
-  expect(calendar.getAllByText("목표일")).toHaveLength(mobile ? 2 : 1);
+  expect(calendar.getAllByText("목표일")).toHaveLength(1);
   expect(calendar.getByText("목표 운동")).toBeInTheDocument();
 });
 
@@ -274,4 +275,57 @@ it.each([false, true])("keeps elapsed goal dates signed without changing plan pr
   expect(screen.getByText("D+4")).toBeInTheDocument();
   expect(scoped.daysLeft).toBe(0);
   expect(scoped.progress).toBe(25);
+});
+
+
+it("normal mobile keeps the next future week's precise edit target when returning from a past record", () => {
+  vi.spyOn(window,"matchMedia").mockImplementation(query=>({matches:query==="(max-width: 1023px)",media:query,onchange:null,addListener:vi.fn(),removeListener:vi.fn(),addEventListener:vi.fn(),removeEventListener:vi.fn(),dispatchEvent:vi.fn()}));
+  const current=Date.now(),past=current-7*86400000,future=current+7*86400000;
+  const day={date:current,dayOfWeek:0,workout:"z2",plannedTSS:30,plannedDurationMin:45,completed:true,skipped:false};
+  const futureDay={...day,date:future,completed:false};
+  const scoped={...model,weeks:[{id:"past",weekNumber:1,phase:"base",startDate:past,plannedTSS:30,days:[{...day,date:past}]},{id:"current",weekNumber:2,phase:"base",startDate:current,plannedTSS:30,days:[day]},{id:"future",weekNumber:3,phase:"base",startDate:future,plannedTSS:30,days:[{...futureDay,workout:"rest"},futureDay]}],isTodayCell:(value:{date:number})=>value.date===current} as unknown as PlanModel;
+  const edit=vi.fn();
+  const renderMobile=(props: import("./MobilePlanContent").MobilePlanContentProps)=><MobilePlanPage {...props}/>;
+  const view=renderWithProviders(<PlanPresentation model={scoped} selectedDate={new Date(past+9*3600000).toISOString().slice(0,10)} mobileWeekOffset={-1} onMobileWeekOffsetChange={vi.fn()} onEditWorkout={edit} renderMobile={renderMobile}/>);
+  view.rerender(<PlanPresentation model={scoped} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} onEditWorkout={edit} renderMobile={renderMobile}/>);
+  fireEvent.click(screen.getAllByRole("button",{name:"편집"})[0]);
+  expect(edit).toHaveBeenCalledWith(futureDay,"future",1);
+  view.rerender(<PlanPresentation model={scoped} embedded mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()}/>);
+  expect(screen.queryByText("다음 운동")).not.toBeInTheDocument();
+});
+
+it("desktop day cells distinguish saved partial, manual completion, probable linkage and postponement", () => {
+  vi.spyOn(window,"matchMedia").mockImplementation(query=>({matches:false,media:query,onchange:null,addListener:vi.fn(),removeListener:vi.fn(),addEventListener:vi.fn(),removeEventListener:vi.fn(),dispatchEvent:vi.fn()}));
+  const date=Date.now()-7*86400000;
+  const base={date,dayOfWeek:0,workout:"z2",plannedTSS:30,plannedDurationMin:45,completed:true,actualTSS:30};
+  const scoped={...model,weeks:[{id:"saved",weekNumber:1,phase:"base",startDate:date,plannedTSS:120,days:[{...base,executionStatus:"partial"},{...base},{...base,completed:false,actualActivityId:"candidate",matchConfidence:"probable",matchMethod:"legacy-time-window"},{...base,completed:false,executionStatus:"postponed",postponedToLocalDate:"2026-11-01"}]}]} as unknown as PlanModel;
+  renderWithProviders(<PlanPresentation model={scoped} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()}/>);
+  expect(screen.getByText("부분 완료로 기록됨")).toBeInTheDocument();
+  expect(screen.getByText("완료 표시 · 연결 근거 확인 필요")).toBeInTheDocument();
+  expect(screen.getByText("추정 연결 후보 · 확인 필요")).toBeInTheDocument();
+  expect(screen.getByText("연기로 기록됨")).toBeInTheDocument();
+  expect(screen.getByRole("link",{name:"연결 후보 활동 보기"})).toHaveAttribute("href",expect.stringContaining("/activity/candidate"));
+  expect(screen.queryByText("100%")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("미완료")).not.toBeInTheDocument();
+});
+
+
+it.each([false, true].flatMap(mobile => [0, 1].flatMap(offset =>
+  ["completed", "skipped", "postponed", "partial"].map(status => ({ mobile, offset, status })),
+)))("selects the next pending occurrence past saved $status with false mirrors (mobile=$mobile, futureOffset=$offset)", ({ mobile, offset, status }) => {
+  vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: mobile && query === "(max-width: 1023px)", media: query, onchange: null,
+    addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
+  const date = Date.now() + offset * 86400000;
+  const closed = { date, dayOfWeek: 0, workout: "z2", plannedTSS: 30, plannedDurationMin: 45,
+    completed: false, skipped: false, executionStatus: status, ...(status === "postponed" ? { postponedToLocalDate: "2027-01-01" } : {}) };
+  const pending = { date: date + 86400000, dayOfWeek: 1, workout: "tempo", plannedTSS: 40, plannedDurationMin: 60, completed: false, skipped: false };
+  const scoped = { ...model, weeks: [{ id: "outcome-week", weekNumber: 1, phase: "base", startDate: date, plannedTSS: 70, days: [closed, pending] }],
+    isTodayCell: (day: { date: number }) => day.date === date && offset === 0 } as unknown as PlanModel;
+  const edit = vi.fn();
+  renderWithProviders(<PlanPresentation model={scoped} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} onEditWorkout={edit}
+    renderMobile={props => <MobilePlanPage {...props} />} />);
+  fireEvent.click(mobile ? within(screen.getByTestId("K4-5m-2")).getByRole("button", { name: "편집" }) : screen.getByRole("button", { name: "운동 상세" }));
+  expect(edit).toHaveBeenCalledExactlyOnceWith(pending, "outcome-week", 1);
+  expect(closed.completed).toBe(false);
+  expect(closed.executionStatus).toBe(status);
 });

@@ -16,3 +16,5 @@
 
 
 .critical-pace-curve__values { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-3); }
+
+.critical-pace-curve__readout { height: 10rem; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; }

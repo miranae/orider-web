@@ -51,10 +51,17 @@ it("keeps the streak explanation in the standard information tooltip", async () 
   expect(trigger.querySelector("svg")).toBeNull();
   expect(trigger.style.textDecoration).not.toContain("underline");
   await userEvent.hover(trigger);
+  trigger.focus();
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  await userEvent.keyboard("{Enter}");
   expect(await screen.findByRole("tooltip")).toHaveTextContent("최근 52주");
   expect(trigger).toHaveAttribute("aria-describedby", screen.getByRole("tooltip").id);
   await userEvent.keyboard("{Escape}");
   await waitFor(() => expect(screen.queryByRole("tooltip")).not.toBeInTheDocument());
+  expect(trigger).toHaveFocus();
+  trigger.blur();
   trigger.focus();
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  await userEvent.keyboard(" ");
   expect(await screen.findByRole("tooltip")).toBeInTheDocument();
 });

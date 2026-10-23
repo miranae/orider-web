@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import * as activityAcceptance from "../../utils/estimateTSS";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import i18n from "i18next";
 import enTraining from "../../i18n/resources/en/training.json";
 import { MemoryRouter, useNavigate, useLocation } from "react-router-dom";
@@ -99,7 +99,7 @@ describe("MobileLogPage", () => {
     expect(view.container.querySelectorAll(".mobile-log__activity")).toHaveLength(2);
   });
 
-  it("makes calendar days and multi-activity sheet keyboard-operable", () => {
+  it("makes calendar days and URL-backed activity details keyboard-operable", async () => {
     const changeMonth = vi.fn();
     const estimatedRide = activity("b", 3);
     estimatedRide.summary.tss = null;
@@ -111,19 +111,19 @@ describe("MobileLogPage", () => {
     day.focus();
     fireEvent.keyDown(day, { key: "Enter" });
     fireEvent.click(day);
-    const sheet = screen.getByRole("dialog", { name: "9월 3일 활동 2건" });
-    const firstActivity = within(sheet).getByRole("button", { name: /Ride a/ });
-    const close = within(sheet).getByRole("button", { name: "닫기" });
-    expect(sheet.parentElement).toBe(document.body);
+    const sheet = screen.getByRole("dialog", { name: "2026-09-03 계획과 기록" });
+    expect(within(sheet).getByRole("button", { name: /Ride a/ })).toBeVisible();
+    const close = within(sheet).getByRole("button", { name: "← 뒤로" });
+    expect(sheet.parentElement?.parentElement).toBe(document.body);
     expect(document.body.style.overflow).toBe("hidden");
-    expect(firstActivity).toHaveFocus();
-    expect(within(sheet).getByRole("button", { name: /Ride b/ })).toHaveTextContent("TSS 추정");
-    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
     expect(close).toHaveFocus();
-    fireEvent.keyDown(window, { key: "Tab" });
-    expect(firstActivity).toHaveFocus();
-    fireEvent.keyDown(window, { key: "Escape" });
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: /Ride b/ })).toHaveTextContent("TSS 추정");
+    fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
+    expect(within(sheet).getByRole("button", { name: /Ride b/ })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement!, { key: "Tab" });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(day).toHaveFocus();
     expect(document.body.style.overflow).not.toBe("hidden");
     fireEvent.click(screen.getByRole("button", { name: "9월 22일 활동 1건" }));
@@ -169,4 +169,26 @@ it("탭과 날짜 상세 상태 변경은 월 대표를 다시 계산하지 않�
     fireEvent.click(screen.getByRole("tab", {name: "월간"}));
     expect(representatives.mock.calls.length).toBe(calls);
   } finally { representatives.mockRestore(); }
+});
+
+
+it("keeps dense month records bounded by page and starts a changed month or sport at page one", () => {
+  const rides = Array.from({ length: 41 }, (_, i) => activity(`dense-${i}`, 2));
+  const runs = rides.map((a, i) => ({ ...a, id: `run-${i}`, type: "Run", description: `Run dense-${i}` }));
+  const october = rides.map(a => ({ ...a, id: `oct-${a.id}`, description: `October ${a.id}`, startTime: new Date(2026, 9, 2, 9).getTime() }));
+  const acts = [...rides, ...runs, ...october];
+  const view = render(<MemoryRouter><MobileLogPage activities={acts} year={2026} month={8} onChangeMonth={vi.fn()} /></MemoryRouter>);
+  fireEvent.click(screen.getAllByRole("tab")[1]!);
+  expect(screen.getAllByText(/^(Ride|Run) dense-/)).toHaveLength(20);
+  fireEvent.click(screen.getByRole("button", { name: "다음 기록" }));
+  expect(screen.getAllByText(/^(Ride|Run) dense-/)).toHaveLength(20);
+  fireEvent.click(screen.getByRole("button", { name: /러닝/ }));
+  expect(screen.getAllByText(/^Run dense-/)).toHaveLength(20);
+  view.rerender(<MemoryRouter><MobileLogPage activities={acts} year={2026} month={9} onChangeMonth={vi.fn()} /></MemoryRouter>);
+  fireEvent.click(screen.getByRole("button", { name: "전체" }));
+  expect(screen.getAllByText(/^October dense-/)).toHaveLength(20);
+  fireEvent.click(screen.getByRole("button", { name: "다음 기록" }));
+  fireEvent.click(screen.getByRole("button", { name: "다음 기록" }));
+  expect(screen.getAllByText(/^October dense-/)).toHaveLength(1);
+  expect(screen.getByRole("button", { name: "다음 기록" })).toBeDisabled();
 });

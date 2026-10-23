@@ -15,6 +15,28 @@ const labels: Record<string, string> = {
 const t = (key: string) => labels[key] ?? key;
 
 describe("BikeThresholdDecisionCard", () => {
+  it.each([false, true])("requires explicit stable detail selection opt-in: %s", stable => {
+    renderWithProviders(<BikeThresholdDecisionCard inlineEvidence stableDetails={stable}
+      decision={{ activeFtpW: 250, automaticCandidateW: null, cpW: null, recentTwentyMinuteW: null, latestMonthlyEstimate: null, tteMin: null, activityCount: 0 }}
+      hasZoneData ftpDecision={null} onAcceptDecision={vi.fn()} t={t}
+      progressionPoints={[{ period: "2026-05", ftpW: 240, source: "20m" }, { period: "2026-06", ftpW: 245, source: "20m" }]} />);
+    const chart = screen.getByRole("img", { name: /월별 추정 FTP 추이 차트/ });
+    if (stable) {
+      expect(screen.getByRole("combobox")).toBeInTheDocument();
+      expect(document.querySelector(".ftp-progression__readout")).toBeInTheDocument();
+      fireEvent.focus(chart);
+      fireEvent.pointerLeave(chart, { pointerType: "mouse" });
+      expect(document.querySelector(".ftp-progression__readout")).toBeInTheDocument();
+    } else {
+      expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+      expect(document.querySelector("[data-ftp-tooltip]")).not.toBeInTheDocument();
+      fireEvent.focus(chart);
+      expect(document.querySelector("[data-ftp-tooltip]")).toBeInTheDocument();
+      fireEvent.blur(chart);
+      expect(document.querySelector("[data-ftp-tooltip]")).not.toBeInTheDocument();
+    }
+  });
+
   it("distinguishes the active value, candidate, CP, raw 20m and monthly eFTP", () => {
     renderWithProviders(
       <BikeThresholdDecisionCard

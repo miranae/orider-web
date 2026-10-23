@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "types": ["node", "vite/client", "geojson"] },
+  "include": ["coach-layout.config.ts", "coach-layout.vite.config.ts", "coach-app-local.config.ts", "fixtures/coach-layout.tsx", "component-tests/coach-layout.spec.ts", "component-tests/coach-app-local.spec.ts", "component-tests/pmc-history.spec.ts"],
+  "exclude": ["../src/**/*.test.ts", "../src/**/*.test.tsx"]
+}

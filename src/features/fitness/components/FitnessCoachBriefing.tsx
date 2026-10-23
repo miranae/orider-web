@@ -43,6 +43,7 @@ interface FitnessCoachBriefingProps {
   statusSlot?: ReactNode;
   currentBasis?: string;
   currentDate?: string;
+  showConditionChoices?: boolean;
 }
 
 const CHOICE_LOAD: Record<TrainingChoice, number> = { rest: 0, recovery: 20, endurance: 45 };
@@ -101,7 +102,7 @@ function initialTrainingChoice(tsb: number): TrainingChoice {
   return "endurance";
 }
 
-export default function FitnessCoachBriefing({ part = "all", impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false, evidenceNavSlot, deliveryEnabled = true, choiceTitle, weekChangeSlot, metricsNoteSlot, statusSlot, currentBasis, currentDate }: FitnessCoachBriefingProps) {
+export default function FitnessCoachBriefing({ part = "all", impacts, selectedActivityId, onSelectActivity, forecast, current, decisionSlot, locale, canonicalAvailable, pendingActivity, pendingDayLoad, metricsMap, discipline, userId = null, trendSlot, mobilePriority = false, evidenceNavSlot, deliveryEnabled = true, choiceTitle, weekChangeSlot, metricsNoteSlot, statusSlot, currentBasis, currentDate, showConditionChoices = true }: FitnessCoachBriefingProps) {
   const { t } = useTranslation("fitness");
   const [mode, setMode] = useState<ImpactMode>("marginal");
   const [trainingChoice, setTrainingChoice] = useState<TrainingChoice>(() => part === "today" && !canonicalAvailable ? "rest" : initialTrainingChoice(current.tsb));
@@ -171,6 +172,7 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
             <Text as="h3" variant="subtitle" style={{ margin: "var(--space-2) 0 var(--space-1)" }}>
               {selected ? activityLabel(selected, locale, t) : selectedPending ? pendingActivityLabel(selectedPending, locale, t) : canonicalAvailable ? t("coach.impact.empty") : t("coach.impact.unavailable")}
             </Text>
+            {selected && <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/activity/${encodeURIComponent(selected.activity.id)}?tab=analysis`}>{t("pedaling.openAnalysis")} →</LocalizedLink>}
             {selected && <Text variant="caption" tone="tertiary">{t(selected.confidence === "activity-tss" ? "coach.impact.activityTssLoad" : "coach.impact.load", { load: selected.attributedLoad.toFixed(0) })}</Text>}
           </div>
           <ToggleControls variant="axis" aria-label={t("coach.impact.modeLabel")} data-testid={part === "condition" ? "K1-3-2" : undefined}>
@@ -287,9 +289,9 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
     <section aria-labelledby={mobilePriority || (part === "condition" && statusSlot) ? undefined : "fitness-coach-title"} className={`fitness-coach${mobilePriority ? " fitness-coach--mobile-priority" : ""}${part === "condition" ? " fitness-coach--story" : ""}`}>
       {part === "condition" ? <Card className="fitness-coach__story-hero">
         {currentSummary}
-        <div className="fitness-coach__story-choice">
+        {showConditionChoices && <div className="fitness-coach__story-choice">
           {trainingChoiceCard}
-        </div>
+        </div>}
       </Card> : part !== "today" && !mobilePriority ? currentSummary : null}
       {part === "condition" && evidenceNavSlot}
       {part === "condition" && <div className="fitness-coach__evidence-heading"><Text as="h2" variant="title">{t("condition.story.evidenceTitle")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("condition.story.evidenceBody")}</Text></div>}

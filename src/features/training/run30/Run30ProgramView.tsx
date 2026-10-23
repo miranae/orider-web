@@ -1,4 +1,5 @@
 import Run30WorkoutOutline from "./Run30WorkoutOutline";
+import { useMobile } from "../../../hooks/useMobile";
 import "../../fitness/components/fitness-analysis-controls.css";
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -242,6 +243,8 @@ function ChangeDialog({ change }: { change: Run30ChangeState }) {
 /** 계획 탭의 Run30 프로그램 관리 화면(임베드·웹 공용). */
 export default function Run30ProgramView({ api, program, onRefresh, startMode, today: todayOverride }: Run30ProgramViewProps) {
   const { t } = useTranslation("training");
+  const isMobile = useMobile();
+  const stableDetails = startMode.kind === "web" && isMobile;
   const viewModel = useMemo(() => buildRun30ViewModel(program), [program]);
   const change = useRun30Change(api, program, onRefresh);
   const today = todayOverride ?? localToday();
@@ -288,7 +291,7 @@ export default function Run30ProgramView({ api, program, onRefresh, startMode, t
 
       <TodayCard program={program} viewModel={viewModel} change={change} startMode={startMode} today={today} />
 
-      <div data-testid="K4-R-8"><Run30StageList viewModel={viewModel} /></div>
+      <div data-testid="K4-R-8"><Run30StageList viewModel={viewModel} stableDetails={stableDetails} /></div>
 
       <section className="run30-card run30-safety" aria-labelledby="run30-safety-title">
         <h3 id="run30-safety-title" className="run30-section-title">{t("run30.safety.title")}</h3>

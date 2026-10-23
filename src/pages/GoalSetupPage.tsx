@@ -24,7 +24,7 @@ import type { FeasibilityLabel } from "@shared/types/goal";
 // ── Feasibility 계산 (클라이언트 미리보기용 — 서버 버전이 권위 있는 값) ──────
 
 import { calcFeasibility as calcFeasibilityCore } from "@shared/training/feasibility";
-import { Alert, Button, Card, Chip, Input, Text } from "../theme/components";
+import { Alert, Button, buttonClass, Card, Chip, Input, Text } from "../theme/components";
 
 interface FeasibilityResult {
   label: FeasibilityLabel;
@@ -241,6 +241,7 @@ function CourseSelectStep({ selectedId, onSelect }: CourseSelectStepProps) {
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
           {t('goals.courseEmptyDesc')}
         </div>
+        <Link to="/course/create" className={buttonClass({ variant: "primary" })} style={{ marginTop: "var(--space-4)" }}>{t("goals.courseCreateAction")}</Link>
       </Card>
     );
   }
@@ -409,6 +410,8 @@ function WizardFooter({ step, canNext, submitting, onPrev, onNext, onStart }: Wi
     >
       <Button variant="ghost"
         onClick={onPrev}
+        disabled={step === 1}
+        aria-hidden={step === 1 || undefined}
         style={{ opacity: step === 1 ? 0 : 1, pointerEvents: step === 1 ? "none" : "auto" }}
       >
         {t('footerButtons.prev')}
@@ -570,7 +573,7 @@ function GoalWizard({ embedded = false }: { embedded?: boolean }) {
       <div style={{ marginBottom: 'var(--space-6)', paddingTop: 28 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)', marginBottom: "var(--space-1-5)", flexWrap: "wrap" }}>
           <Text as="div" variant="eyebrow">{eyebrowLabel}</Text>
-          <DisciplineTabs disabledKeys={["swim"]} />
+          {!embedded && <DisciplineTabs disabledKeys={["swim"]} />}
         </div>
         <Text as={embedded ? "h2" : "h1"} variant={embedded ? "title" : "pageTitle"} style={{ margin: 0 }}>
           {pageTitle}
