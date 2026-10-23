@@ -5,7 +5,7 @@
  * 데이터를 수정할 수 있다. 그래서 Layout 이 아니라 앱 최상위에서 렌더해 모든 페이지에
  * 일관되게 뜨도록 한다.
  */
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { signOut } from "firebase/auth";
 
 import { useAuth } from "../contexts/AuthContext";
@@ -42,6 +42,7 @@ function getServerSnapshot(): ImpersonationRead {
 export default function ImpersonationBanner() {
   const { user, profile, loading } = useAuth();
   const { showToast } = useToast();
+  const bannerRef = useRef<HTMLDivElement>(null);
 
   // 로그아웃하면 남은 위임 상태를 정리한다 — 그대로 두면 같은 계정으로 정상 로그인했을
   // 때 uid 만 맞아 정상 세션이 위임 세션으로 오인된다. 단 인증 복원 중(loading)에는
@@ -59,9 +60,27 @@ export default function ImpersonationBanner() {
   // 단 값이 깨진 경우(corrupt)는 대상 uid 를 대조할 수 없어도 배너를 띄운다 —
   // 위임 중인데 배너가 없는 상태가 이 컴포넌트가 막으려는 최악의 경우다.
   const state = read.status === "active" ? read.state : null;
-  if (loading || !user) return null;
-  if (read.status === "none") return null;
-  if (state && state.targetUid !== user.uid) return null;
+  const visible = !loading && !!user && read.status !== "none" && (!state || state.targetUid === user.uid);
+
+  // 줄바꿈·글꼴·화면 회전으로 달라지는 실제 높이를 메뉴의 sticky 시작점과 공유한다.
+  // 배너가 없어지면 일반 로그인/임베드 화면에 빈 공간을 남기지 않는다.
+  useLayoutEffect(() => {
+    const banner = bannerRef.current;
+    if (!visible || !banner) return;
+    const root = document.documentElement;
+    const update = () => root.style.setProperty("--impersonation-banner-height", `${banner.getBoundingClientRect().height}px`);
+    update();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
+    observer?.observe(banner);
+    window.addEventListener("resize", update);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", update);
+      root.style.removeProperty("--impersonation-banner-height");
+    };
+  }, [visible]);
+
+  if (!visible || !user) return null;
 
   const name = profile?.nickname ?? user.email ?? user.uid;
   const issuedBy = state?.by ?? "확인 불가";
@@ -82,17 +101,18 @@ export default function ImpersonationBanner() {
 
   return (
     <div
+      ref={bannerRef}
       role="alert"
       className="sticky top-0 z-50 flex items-center gap-3 bg-[var(--color-primary-dark)] px-3 py-2"
       style={{ color: "var(--primary-fg)", fontSize: "var(--fs-sm)" }}
     >
-      <span className="flex-1">
+      <span className="min-w-0 flex-1 break-words">
         위임 세션 — <strong>{name}</strong> 으로 로그인 중 (발급: {issuedBy})
       </span>
       <button
         type="button"
         onClick={onExit}
-        className="border px-2 py-1"
+        className="shrink-0 border px-2 py-1"
         style={{ borderColor: "var(--primary-fg)", fontSize: "var(--fs-sm)", borderRadius: "var(--r-md)" }}
       >
         종료

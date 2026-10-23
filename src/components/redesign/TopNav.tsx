@@ -207,7 +207,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
       <nav data-testid="X1-1" className="top-nav gap-2 lg:gap-6"
         style={{
           position: 'sticky',
-          top: 0,
+          top: "var(--impersonation-banner-height, 0px)",
           zIndex: 50,
           backgroundColor: 'var(--bg-1)',
           borderBottom: '1px solid var(--line-soft)',
