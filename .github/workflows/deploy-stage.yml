@@ -24,13 +24,16 @@ jobs:
     environment: stage
     env:
       VITE_MODE: production
-      PRODUCTION_RUNTIME_CONFIG_PATH: ${{ runner.temp }}/orider-production-runtime-config.json
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
         with:
           node-version: 24
           package-manager-cache: false
+      - name: Set production runtime snapshot path
+        env:
+          PRODUCTION_RUNTIME_CONFIG_PATH: ${{ runner.temp }}/orider-production-runtime-config.json
+        run: echo "PRODUCTION_RUNTIME_CONFIG_PATH=$PRODUCTION_RUNTIME_CONFIG_PATH" >> "$GITHUB_ENV"
       - name: Pin production data runtime and verify backend CORS
         run: node scripts/prepare-production-data-runtime.mjs
       - name: Check development Hosting and production data identity
