@@ -1,3 +1,4 @@
+import ActivityMemoText from "../components/activity/ActivityMemoText";
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus, Search, SlidersHorizontal } from 'lucide-react';
@@ -235,6 +236,11 @@ function ControlsCatalog() {
             <div className="catalog-card-example"><div className="catalog-example-label"><Text variant="label">flat · 가벼운 묶음</Text><code>Card variant="flat"</code></div><Card variant="flat" title="내일의 그룹 라이딩"><div className="catalog-card-content"><Text variant="body">09:00 · 공원 입구에서 출발</Text><Text as="p" variant="bodySmall" tone="tertiary">가볍게 몸을 푸는 회복 라이딩 · 3명 예정</Text><Text variant="caption" tone="tertiary">생성한 일정 예시</Text></div></Card></div>
             <div className="catalog-card-example"><div className="catalog-example-label"><Text variant="label">inset · 보조 내용</Text><code>Card variant="inset"</code></div><Card variant="inset" padding="compact" title="라이딩 메모"><div className="catalog-card-content"><Text as="p" variant="body">후반 오르막에서 힘을 아끼고, 마지막 평지에서 일정한 페이스를 유지했습니다.</Text><Text variant="caption" tone="tertiary">생성한 개인 메모 예시</Text></div></Card></div>
             <div className="catalog-card-example"><div className="catalog-example-label"><Text variant="label">bare · 자식이 여백을 관리</Text><code>Card variant="bare"</code></div><Card variant="bare"><svg className="catalog-card-route" viewBox="0 0 600 264" role="img" aria-label="생성한 예시 경로 미리보기"><path d={fixtureRoutePath()} fill="none" stroke={recordColors[0]} strokeWidth="4" /></svg><div className="catalog-card-payload"><Text as="h3" variant="subtitle">경로 미리보기</Text><Text as="p" variant="bodySmall" tone="tertiary">카드의 표면과 테두리는 유지합니다. 내부 여백만 제거해 미디어는 가장자리까지, 설명은 자식의 여백으로 배치합니다.</Text><Text variant="caption" tone="tertiary">생성한 경로 예시 · 서버 요청 없음</Text></div></Card></div>
+          </div>
+          <div className="catalog-section-demo">
+            <Text as="h3" variant="subtitle">자동 요약의 고정폭 열</Text>
+            <Text as="p" variant="bodySmall" fixedWidth style={{ whiteSpace: 'pre-wrap' }}><ActivityMemoText generated memo={'▰ 피크 파워 (W)\n   1s    5s   10s   30s    1m    2m    5m   10m   20m   30m\n  352   323   283   251   232   219   186   178   157   149\n\n▰ 파워 영역 · 계측 01:58:24\n  Z1   Z2   Z3   Z4   Z5   Z6   Z7\n 18%  14%  20%  20%  16%  11%   1%\n\n▰ 심박 영역 · 계측 01:58:24\n  Z1   Z2   Z3   Z4   Z5\n  3%   5%  26%  66%   0%'} /></Text>
+            <Text as="p" variant="caption" tone="tertiary">Text fixedWidth · 공백으로 맞춘 헤더와 값은 실제 고정폭 글꼴로 표시합니다.</Text>
           </div>
           <div className="catalog-section-demo">
             <Section actionsLayout="responsive" title="훈련 요약" headingLevel={3} description={`${FIXTURE_SUMMARY_ROWS[sectionRecord]!.label} · 생성한 예시`} actions={<Button variant="ghost" size="sm" onClick={() => setSectionRecord(sectionRecord === 0 ? 1 : 0)}>다른 기록 보기</Button>}>

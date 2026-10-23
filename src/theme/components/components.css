@@ -531,6 +531,7 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 .ds-text--label        { font-size: var(--ft-label-size, 13px); font-weight: var(--ft-label-weight, 500); line-height: var(--ft-label-line-height, 1.3); letter-spacing: 0.05em; color: var(--ink-1); }
 .ds-text--eyebrow      { font-family: var(--font-sans); font-size: var(--ft-eyebrow-size, 13px); font-weight: var(--ft-eyebrow-weight, 400); letter-spacing: 0; text-transform: none; color: var(--ink-2); }
 .ds-text--mono         { font-family: var(--font-mono); font-feature-settings: 'tnum' 1, 'zero' 1; }
+.ds-text--fixed-width  { font-family: var(--font-code); font-variant-ligatures: none; }
 /* 옛 .num — 인라인 수치 (size 미지정, mono + tnum + medium weight + tight letter-spacing) */
 .ds-text--num          { font-family: var(--font-sans); font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; font-weight: 500; letter-spacing: -0.01em; }
 /* 옛 .unit — 수치 옆 작은 단위 표시 (km, W, bpm 등) */

@@ -1,0 +1,2 @@
+.activity-memo-table { display: inline-block; max-width: 100%; overflow-x: auto; white-space: pre; overflow-wrap: normal; vertical-align: top; }
+.activity-memo-table:focus-visible { outline: var(--space-0-5) solid var(--accent); outline-offset: var(--space-0-5); }

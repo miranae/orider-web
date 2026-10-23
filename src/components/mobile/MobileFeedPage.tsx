@@ -1,3 +1,4 @@
+import ActivityMemoText from "../activity/ActivityMemoText";
 import SportIcon from "../common/SportIcon";
 import HomeActivitySportIcon from "../common/HomeActivitySportIcon";
 import { getHomeActivitySport } from "../../utils/homeActivitySport";
@@ -145,7 +146,7 @@ function ActivityMemo({ memo, memoTruncated = false, activityId, generated = fal
   }, [expanded, memo]);
   if (!memo.trim()) return null;
   return <div className="mobile-feed-memo">
-    <p ref={paragraphRef} className={[!expanded && "mobile-feed-memo-collapsed", generated && "mobile-feed-memo-generated"].filter(Boolean).join(" ") || undefined}>{memo}</p>
+    <p ref={paragraphRef} className={[!expanded && "mobile-feed-memo-collapsed", generated && "mobile-feed-memo-generated"].filter(Boolean).join(" ") || undefined}><ActivityMemoText memo={memo} generated={generated} tableFocusable={expanded} /></p>
     {/* "더 보기"는 본문과 같은 17 Regular 청록 글자 링크로 읽힌다. */}
     {overflowing && <button type="button" className="mobile-feed-memo-more" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? "card.memoLess" : "card.memoMore")}</button>}
     {memoTruncated && <Link to={`/activity/${activityId}`} className="mobile-feed-memo-more">{t("card.memoMore")}</Link>}

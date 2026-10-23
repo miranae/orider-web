@@ -1,3 +1,4 @@
+import ActivityMemoText from "../../../components/activity/ActivityMemoText";
 import { ICON_SIZE } from '../../../theme/tokens/icon';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -56,7 +57,7 @@ export default function ActivityOverviewSocial(props: Props) {
     {props.prioritizeResults && results}
     <div className="activity-overview-story">
       {memo?.trim() ? <div className="activity-overview-memo">
-        <Text as="p" variant="body" ref={memoRef} mono={props.memoMono} className={expanded ? undefined : "activity-overview-memo--collapsed"}>{memo}</Text>
+        <Text as="p" variant="body" ref={memoRef} fixedWidth={props.memoMono} className={expanded ? undefined : "activity-overview-memo--collapsed"}><ActivityMemoText memo={memo} generated={props.memoMono} tableFocusable={expanded} /></Text>
         {overflowing && <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? "card.memoLess" : "card.memoMore")}</Button>}
         {props.memoTruncated && <Text as="p" variant="caption" tone="secondary">{t("overviewSocial.memoPartial")}</Text>}
       </div> : <Text as="p" variant="bodyMedium" tone="tertiary" role={props.memoLoading ? "status" : undefined}>{t(props.memoLoading ? "detail.loadingData" : props.memoError ? "overviewSocial.memoUnavailable" : "overviewSocial.noMemo")}</Text>}

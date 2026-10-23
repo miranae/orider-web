@@ -43,8 +43,10 @@ export interface TextProps extends HTMLAttributes<HTMLElement> {
   tone?: TextTone;
   /** 줄바꿈/말줄임. */
   truncate?: boolean;
-  /** 수치(JetBrains Mono + tnum). */
+  /** UI 수치의 동일 너비 숫자(tnum). */
   mono?: boolean;
+  /** 공백으로 열을 맞춘 자동 요약 등 실제 고정폭 텍스트. */
+  fixedWidth?: boolean;
   /** 의미 태그 (h1/h2/p/etc). 기본 span. */
   as?: ElementType;
   children?: ReactNode;
@@ -83,7 +85,7 @@ const TONE_CLASS: Record<TextTone, string> = {
 };
 
 export const Text = forwardRef<HTMLElement, TextProps>(function Text(
-  { variant, size, weight, tone, truncate, mono, as = 'span', className, children, style, ...rest },
+  { variant, size, weight, tone, truncate, mono, fixedWidth, as = 'span', className, children, style, ...rest },
   ref,
 ) {
   const merged = cn(
@@ -93,6 +95,7 @@ export const Text = forwardRef<HTMLElement, TextProps>(function Text(
     tone && TONE_CLASS[tone],
     truncate && 'ds-text--truncate',
     (mono || variant === 'mono') && 'ds-text--mono',
+    fixedWidth && 'ds-text--fixed-width',
     className,
   );
   return createElement(

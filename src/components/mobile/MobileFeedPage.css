@@ -150,7 +150,7 @@
 .mobile-feed-memo-more { display: inline-flex; align-items: center; min-height: var(--dim-button-height); padding: 0; border: 0; background: none; color: var(--accent-text); font: inherit; font-weight: 400; text-decoration: none; cursor: pointer; }
 .mobile-feed-memo-more:focus-visible { outline: var(--space-0-5) solid var(--accent); outline-offset: var(--space-0-5); }
 .mobile-feed-memo p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.mobile-feed-memo-generated { font-family: var(--font-mono); }
+.mobile-feed-memo-generated { font-family: var(--font-code); font-variant-ligatures: none; }
 .mobile-feed-memo-collapsed { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--feed-memo-lines, 3); overflow: hidden; }
 .mobile-feed-photos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: var(--space-1); margin-top: var(--space-1); position: relative; z-index: 2; }
 .mobile-feed-photos--1 { grid-template-columns: minmax(0, 1fr); }
