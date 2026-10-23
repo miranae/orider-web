@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { markRawPartStreams } from "../../../services/activityStreamSource";
+import { rawPartChartStreams } from "../../../__tests__/fixtures/rawPartChartStreams";
 
 import {
   buildChartOverlays,
@@ -23,6 +25,37 @@ function withSparseSlot(values: number[], missingIndex: number): number[] {
 }
 
 describe("activityDetailDerived", () => {
+  it("shows measured raw-part HR/cadence and preserves every observed altitude without accepting null-filled legacy channels", () => {
+    const raw = rawPartChartStreams();
+    raw.heartrate![26] = 0;
+    expect(getAvailableOverlays(buildSampledData(raw)).map(cfg => cfg.key)).toEqual(["speed"]);
+    const marked = markRawPartStreams(raw, "a".repeat(64));
+    const points = buildSampledData(marked);
+    expect(getAvailableOverlays(points).map(cfg => cfg.key)).toEqual(["speed", "hr", "cadence"]);
+    raw.altitude!.forEach((value, index) => {
+      if (value != null) expect(points.some(point => point.sourceIndex === index && point.altitude === value)).toBe(true);
+    });
+    const gap = points.find(point => point.sourceIndex === 23)!;
+    expect(gap.heartRate).toBeNull();
+    expect(points.find(point => point.sourceIndex === 26)?.cadence).toBe(0);
+    expect(points.find(point => point.sourceIndex === 26)?.heartRate).toBeNull();
+    expect(buildSummaryStats(marked, null)?.overlays.hr?.max).toBe(139);
+    expect(buildSummaryStats(marked, null)?.overlays.cadence?.max).toBe(80);
+  });
+
+  it("rejects malformed raw-part sensor values and clocks rather than relaxing legacy validation", () => {
+    for (const value of [-1, NaN, undefined]) {
+      const streams = rawPartChartStreams();
+      streams.heartrate![1] = value as number;
+      streams.cadence![1] = value as number;
+      expect(getAvailableOverlays(buildSampledData(markRawPartStreams(streams, "a".repeat(64)))).map(cfg => cfg.key)).toEqual(["speed"]);
+    }
+    const streams = rawPartChartStreams();
+    streams.time![10] = 11;
+    expect(getAvailableOverlays(buildSampledData(markRawPartStreams(streams, "a".repeat(64)))).map(cfg => cfg.key)).toEqual(["speed"]);
+    expect(() => markRawPartStreams(streams, "bad-revision")).toThrow("INVALID_PERSONAL_API_RESPONSE");
+  });
+
   it("preserves exact source indices when downsampling duplicate distances and sensor extrema", () => {
     const count = 1200;
     const distance = Array.from({ length: count }, (_, index) => Math.floor(index / 10) * 50);

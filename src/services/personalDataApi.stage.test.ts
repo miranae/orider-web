@@ -3,6 +3,7 @@ import { getActivityStreamsWithAuth, validatedRunEffortFacts } from "./personalD
 import { resetRuntimeConfigForTests } from "./runtimeConfig";
 import type { Auth } from "firebase/auth";
 import type { Functions } from "firebase/functions";
+import { isRawPartStreams } from "./activityStreamSource";
 const mocks = vi.hoisted(() => ({ call: vi.fn() }));
 vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn(() => mocks.call) }));
 afterEach(() => { resetRuntimeConfigForTests(); vi.unstubAllGlobals(); mocks.call.mockReset(); });
@@ -18,10 +19,17 @@ const available = { activityId: "native_1", state: "available", streamInputRevis
 describe("shared-data stage stream callable", () => {
   it("uses the matching Auth/AppCheck app and returns exact raw data without REST fallback", async () => {
     const { auth, services, fetchMock } = setup(); mocks.call.mockResolvedValue({ data: available });
-    expect(await getActivityStreamsWithAuth(auth, "native_1", services)).toEqual(available.streams);
+    const streams = await getActivityStreamsWithAuth(auth, "native_1", services);
+    expect(streams).toMatchObject(available.streams);
+    expect(isRawPartStreams(streams)).toBe(true);
+    expect(isRawPartStreams({ ...streams, watts: [10, 20] })).toBe(true);
     expect(services.ensureAppCheckReady).toHaveBeenCalledOnce();
     expect(mocks.call).toHaveBeenCalledWith({ activityId: "native_1" });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it("does not mark api_streams as raw parts", async () => {
+    const { auth, services } = setup(); mocks.call.mockResolvedValue({ data: { ...available, sourceLayer: "api_streams" } });
+    expect(isRawPartStreams(await getActivityStreamsWithAuth(auth, "native_1", services))).toBe(false);
   });
   it.each(["pending", "changed_input", "unavailable"])("does not expose streams or fallback for %s", async state => {
     const { auth, services, fetchMock } = setup(); mocks.call.mockResolvedValue({ data: { ...available, state } });
@@ -55,6 +63,7 @@ it("opts into canonical effort facts in the same stream read and preserves the r
   expect(mocks.call).toHaveBeenCalledExactlyOnceWith({ activityId: "native_1", includeRunEffortFacts: true });
   expect(result.time).toBe(available.streams.time);
   expect(result.runningBestEffortsFacts).toEqual(effortFacts);
+  expect(isRawPartStreams(result)).toBe(true);
 });
 it("withholds invalid anchors or changed revisions without inventing a fallback", () => {
   expect(validatedRunEffortFacts({ ...effortFacts, streamInputRevision: "c".repeat(64) }, available.streamInputRevision)).toBeNull();
