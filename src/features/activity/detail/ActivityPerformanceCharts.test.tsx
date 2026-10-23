@@ -2,7 +2,11 @@ import { render, screen, cleanup } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import ActivityPerformanceCharts from "./ActivityPerformanceCharts";
 import { getPerformanceOverlays } from "./activityPerformancePresentation";
-import { buildChartOverlays } from "./activityDetailDerived";
+import { buildChartOverlays, buildSampledData, buildSummaryStats } from "./activityDetailDerived";
+import { markRawPartStreams } from "../../../services/activityStreamSource";
+import { rawPartChartStreams } from "../../../__tests__/fixtures/rawPartChartStreams";
+import type { AnalysisChartPresentation } from "../../../components/ElevationChartAnalysis";
+import type { OverlayDataset } from "../../../components/ElevationChart";
 import type { SampledPoint } from "./activityDetailUtils";
 const captured = vi.hoisted(() => ({ props: {} as Record<string, unknown> }));
 vi.mock("../../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: "metric" }) }));
@@ -39,4 +43,27 @@ it("shows pace clock values while cycling retains km/h", () => {
   expect(screen.queryByText(/Infinity|NaN/)).not.toBeInTheDocument();
   view.rerender(<Chart />);
   expect(screen.getByText(/속도 12.0 km\/h/)).toBeInTheDocument();
+});
+
+it("passes observed elevation times and measured sensor gaps through the raw-part analysis chart", () => {
+  const streams = markRawPartStreams(rawPartChartStreams(), "a".repeat(64));
+  const points = buildSampledData(streams);
+  const available = getPerformanceOverlays(points, "ride", "metric", null, "cadence");
+  const selected = new Set(available.map(cfg => cfg.key));
+  const sourceIndices = points.map(point => point.sourceIndex!);
+  const elapsed = sourceIndices.map(index => streams.time![index]!);
+  render(<ActivityPerformanceCharts analysisStyle rawStreams={streams} sourceIndices={sourceIndices}
+    elapsedAxisSec={elapsed} elevData={points.map(point => ({ distance: point.distance, elevation: point.altitude }))}
+    availableOverlays={available} activeOverlays={selected} focusedOverlayKey={null} toggleOverlay={vi.fn()}
+    chartOverlays={buildChartOverlays(available, selected, points, key => key)} hoverPoint={null}
+    summaryStats={buildSummaryStats(streams, null)} sport="ride" recordedRunCadenceUnit={null} metrics={null} />);
+  const presentation = captured.props.analysisPresentation as AnalysisChartPresentation;
+  expect(presentation.elevationObservationTimeSec).toEqual(elapsed);
+  expect(presentation.lanes.hr?.maximum).toBe("139");
+  expect(presentation.lanes.cadence?.maximum).toBe("80");
+  const overlays = captured.props.overlays as OverlayDataset[];
+  expect(overlays.map(overlay => overlay.key)).toEqual(["speed", "hr", "cadence"]);
+  const cadence = overlays.find(overlay => overlay.key === "cadence")!;
+  expect(cadence.data[sourceIndices.indexOf(17)]).toBeNull();
+  expect(cadence.data[sourceIndices.indexOf(26)]).toBe(0);
 });

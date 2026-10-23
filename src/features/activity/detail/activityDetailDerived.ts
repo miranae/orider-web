@@ -1,6 +1,7 @@
 import type { OverlayDataset } from "../../../components/ElevationChart";
 import type { ActivityStreams, ActivitySummary } from "@shared/types";
 import type { VirtualPowerParams } from "../../../utils/virtualPower";
+import { isRawPartStreams } from "../../../services/activityStreamSource";
 
 import {
   explicitAxisRejectionReason,
@@ -1405,6 +1406,18 @@ export function buildActivityAnalysisProjection(
   };
 }
 
+/** raw_parts 응답의 센서 값은 route와 같은 1초 격자를 쓰며, 미관측 칸은 null이다. */
+function rawPartChartChannel(streams: ActivityStreams, channel: "heartrate" | "cadence"): Array<number | null> | undefined {
+  if (!isRawPartStreams(streams)) return undefined;
+  const time = streams.time;
+  const values = streams[channel] as unknown;
+  if (!Array.isArray(time) || !time.length || time.length !== streams.distance?.length
+    || !hasDenseArraySlots(time) || !time.every((value, index) => value === index)
+    || !Array.isArray(values) || values.length !== time.length
+    || !hasValidExplicitSensorChannelValues(values)) return undefined;
+  return values as Array<number | null>;
+}
+
 /** The exact trusted full-resolution channels used by the activity chart sampler. */
 export function buildAlignedActivityChartChannels(streams: ActivityStreams, contextOrDuration?: ActivitySensorSelectionContext | number, activityStartTime?: number) {
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
@@ -1420,7 +1433,7 @@ export function buildAlignedActivityChartChannels(streams: ActivityStreams, cont
   const chartHeartRateValues = selectedHeartRate.values?.map((value) => (
     typeof value === "number" && value > 0 ? value : null
   ));
-  const chartHeartRate = alignSensorChannelForChart(
+  const chartHeartRate = rawPartChartChannel(streams, "heartrate")?.map(value => value != null && value > 0 ? value : null) ?? alignSensorChannelForChart(
     chartHeartRateValues,
     selectedHeartRate.source === "sensorStreamsV1" ? "explicit" : "legacy",
     streams,
@@ -1436,7 +1449,7 @@ export function buildAlignedActivityChartChannels(streams: ActivityStreams, cont
     context,
     len,
   );
-  const alignedCadence = alignSensorChannelForChart(chartCadence, "legacy", streams, context, len);
+  const alignedCadence = rawPartChartChannel(streams, "cadence") ?? alignSensorChannelForChart(chartCadence, "legacy", streams, context, len);
   return { chartHeartRate, chartPower, alignedCadence };
 }
 
@@ -1453,6 +1466,10 @@ export function buildSampledData(
   const selectedIndexes = new Set<number>();
   for (let i = 0; i < len; i += interval) selectedIndexes.add(i);
   if (len > 0) selectedIndexes.add(len - 1);
+  // 1초 격자 사이의 GPS 고도 관측을 간격 샘플링으로 잃지 않는다.
+  if (isRawPartStreams(streams)) streams.altitude?.forEach((value, index) => {
+    if (index < len && value != null && Number.isFinite(value)) selectedIndexes.add(index);
+  });
   const chartChannels: Array<readonly (number | null)[] | undefined> = [
     streams.altitude,
     streams.velocity_smooth,
@@ -1486,7 +1503,7 @@ export function buildSampledData(
     points.push({
       sourceIndex: i,
       latlng: streams.latlng?.[i] as [number, number] ?? null,
-      distance: dist[i] ?? 0,
+      distance: dist[i] ?? (isRawPartStreams(streams) ? NaN : 0),
       altitude: (streams.altitude as number[] | undefined)?.[i] ?? 0,
       speed: (streams.velocity_smooth?.[i] ?? 0) * 3.6,
       heartRate: chartHeartRate ? chartHeartRate[i] ?? null : null,
@@ -1520,6 +1537,13 @@ export function buildSummaryStats(
   }
   if (sensorSummary?.averageCadence != null && sensorSummary.maxCadence != null) {
     stats.cadence = { avg: sensorSummary.averageCadence, max: sensorSummary.maxCadence };
+  }
+  // 차트의 관측값 통계만 보완한다. 저장된 서버 분석/센서 신뢰 판정은 바꾸지 않는다.
+  if (streams && isRawPartStreams(streams)) {
+    for (const [key, channel] of [["hr", "heartrate"], ["cadence", "cadence"]] as const) {
+      const values = positiveValues(rawPartChartChannel(streams, channel));
+      if (values.length) stats[key] = { avg: average(values), max: maximum(values) };
+    }
   }
   if (altitude.length === 0 && Object.keys(stats).length === 0) return null;
   const minElev = altitude.length > 0

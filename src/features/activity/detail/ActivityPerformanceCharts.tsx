@@ -1,11 +1,12 @@
 import type { ActivityStreams } from "@shared/types";
+import { isRawPartStreams } from "../../../services/activityStreamSource";
 import { buildAlignedActivityChartChannels, type ActivitySensorSelectionContext } from "./activityDetailDerived";
 import { useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocale } from "../../../contexts/LocaleContext";
 import ElevationChart, { type OverlayDataset } from "../../../components/ElevationChart";
 import { ActivityZoneTimeline } from "../../../components/activity/ActivityZoneTimeline";
-import { Button, Card, ChartLegend, Section, Text, ToggleButton, ToggleControls } from "../../../theme/components";
+import { Card, ChartLegend, Section, Text, ToggleButton, ToggleControls } from "../../../theme/components";
 import { formatDistance } from "../../../utils/units";
 import InfoTip from "../../../components/InfoTip";
 import { elapsedRangeFromChartSelection, formatElapsedBoundary } from "./activityRangeSelection";
@@ -98,8 +99,9 @@ export default function ActivityPerformanceCharts({
     return <div className="activity-analysis-charts">
       <ElevationChart data={analysisData} overlays={analysisOverlays} elapsedAxisSec={elapsedAxisSec} xAxis={xAxis} showElevation={hasElevation}
         onHoverIndex={onHoverIndex} highlightRange={chartHighlightRange} rangeMode={!!onRangeChange} range={range} onRangeChange={onRangeChange} analysisPresentation={{ axisControls, identity: chartIdentity, visualRange, onVisualRangeChange, hoverIndex, segments,
-          segmentsLabel: t("tab.segments"), segmentDetailsLabel: t("tab.segments"), canonicalRange: chartHighlightRange, selectionCaption: visualRange ? <div className="activity-analysis-selection"><Text variant="bodySmall">{t("analysisChart.selection")} · {summaryParts.join(" · ")}</Text><Button variant="ghost" size="sm" onClick={() => onVisualRangeChange?.(null)}>{t("analysisChart.restore")}</Button></div> : null,
-          controls: <div className="activity-analysis-controls">{rangeControls}</div>, maximumLabel: t("peakInspector.maximum"), averageLabel: visualRange ? t("peakInspector.average") : <InfoTip title={t("peakInspector.average")} content={t("analysisChart.observedStats")} label={t("peakInspector.average")}>{t("peakInspector.average")}</InfoTip>, keyboardLabel: t("analysisChart.keyboardHelp"),
+          elevationObservationTimeSec: isRawPartStreams(rawStreams) ? elapsedAxisSec : undefined,
+          segmentsLabel: t("tab.segments"), segmentDetailsLabel: t("tab.segments"), canonicalRange: chartHighlightRange, selectionHint: t("analysisChart.selectHint"), selectionCaption: visualRange ? <div className="activity-analysis-selection"><Text variant="bodySmall">{t("analysisChart.selection")} · {summaryParts.join(" · ")}</Text></div> : null,
+          controls: rangeControls ? <div className="activity-analysis-controls">{rangeControls}</div> : undefined, maximumLabel: t("peakInspector.maximum"), averageLabel: visualRange ? t("peakInspector.average") : <InfoTip tone="inherit" title={t("peakInspector.average")} content={t("analysisChart.observedStats")} label={t("peakInspector.average")}>{t("peakInspector.average")}</InfoTip>, keyboardLabel: t("analysisChart.keyboardHelp"),
           elevation: { label: t("page.elevation"), maximum: elevationValue(stats?.maxElev), current: elevationValue(hoverIndex == null ? hoverPoint?.altitude : analysisData[hoverIndex]?.elevation), unit: units === "imperial" ? "ft" : "m", formatScale: elevationValue },
           lanes: Object.fromEntries(availableOverlays.map(cfg => [cfg.key, { label: overlayLabel(cfg),
             maximum: formatMetric(cfg, stats?.overlays[cfg.key]?.max, true), average: formatMetric(cfg, stats?.overlays[cfg.key]?.avg, true),

@@ -44,3 +44,24 @@ export function analysisPlotPoints(axis: readonly number[], values: readonly (nu
   });
   return points;
 }
+
+/** 1초 격자의 빈 고도 칸은 건너뛰되, 실제 관측 시각의 긴 공백은 연결하지 않는다. */
+export function analysisObservedElevationPoints(axis: readonly number[], values: readonly (number | null)[], elapsedSeconds: readonly number[]) {
+  if (elapsedSeconds.length !== values.length) return analysisPlotPoints(axis, values);
+  const observations = values.flatMap((value, index) => value != null && Number.isFinite(value)
+    && Number.isFinite(axis[index]) && Number.isFinite(elapsedSeconds[index])
+    ? [{ x: axis[index]!, y: value, sourceIndex: index, time: elapsedSeconds[index]! }] : []);
+  const intervals = observations.slice(1).map((point, index) => point.time - observations[index]!.time)
+    .filter(delta => delta > 0).sort((a, b) => a - b);
+  // 보통 GPS 관측 간격의 3배까지만 연결하며, 긴 중단을 정상 간격으로 오인하지 않는다.
+  const maxGap = Math.min(30, (intervals[Math.floor(intervals.length / 2)] ?? 0) * 3);
+  const points: Array<{ x: number; y: number | null; sourceIndex: number | null }> = [];
+  observations.forEach((point, index) => {
+    const previous = observations[index - 1];
+    if (previous && (point.time - previous.time > maxGap || point.time <= previous.time)) {
+      points.push({ x: (previous.x + point.x) / 2, y: null, sourceIndex: null });
+    }
+    points.push({ x: point.x, y: point.y, sourceIndex: point.sourceIndex });
+  });
+  return points;
+}
