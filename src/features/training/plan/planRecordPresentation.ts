@@ -108,3 +108,16 @@ export function isPendingPlanWorkout(day: PlanDay, context: {date: string; today
   const outcome = presentPlanDayRecord(day, context).outcome;
   return outcome === "scheduled" || outcome === "today" || outcome === "unconfirmed";
 }
+
+/** 읽기 전용 부하 평가. 저장된 실행 결과와 연결은 덮어쓰지 않는다. */
+export type PlanLoadEntry = Pick<PlanDay, "workout" | "plannedTSS" | "adjustedTSS" | "actualActivityId"> & { matchMethod?: unknown; matchConfidence?: unknown };
+export function planLoadFulfillment(day: PlanLoadEntry, row: { linkedLoads?: Record<string, number>; fulfilledWeek?: unknown } | undefined,
+  ready: boolean): "exceeded" | "met" | "week" | null {
+  if (!ready) return null;
+  const linkage = linkageOf({ ...day, discipline: "bike", plannedDurationMin: 0 }, savedId(day.actualActivityId), null);
+  const target = day.adjustedTSS ?? day.plannedTSS;
+  const actual = day.actualActivityId ? row?.linkedLoads?.[day.actualActivityId] : undefined;
+  if (day.workout !== "rest" && linkage === "confirmed" && typeof actual === "number" && Number.isFinite(target) && target > 0 && actual >= target)
+    return actual > target ? "exceeded" : "met";
+  return row?.fulfilledWeek ? "week" : null;
+}

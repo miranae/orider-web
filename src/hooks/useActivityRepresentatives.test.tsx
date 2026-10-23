@@ -1,5 +1,5 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import { limit, onSnapshot, query } from "firebase/firestore";
+import { doc, limit, onSnapshot, query, type Firestore } from "firebase/firestore";
 import type { Activity } from "@shared/types";
 import { acceptedPhysicalActivities } from "../utils/estimateTSS";
 import { MAX_MISSING_REPRESENTATIVES, useActivityRepresentatives, withActivityRepresentatives } from "./useActivityRepresentatives";
@@ -17,7 +17,8 @@ const emit = (id: string, row: Activity | null) => act(() => callbacks.get(id)?.
 beforeEach(() => {
   callbacks = new Map();
   stops = new Map();
-  vi.mocked(onSnapshot).mockClear().mockImplementation((ref, next) => {
+  vi.mocked(onSnapshot).mockClear().mockImplementation((ref, optionsOrNext, callback) => {
+    const next = typeof optionsOrNext === "function" ? optionsOrNext : callback;
     const id = (ref as unknown as {path: string}).path.split("/").at(-1)!;
     callbacks.set(id, next as Callback);
     const stop = vi.fn();
@@ -314,4 +315,63 @@ it("group owner 세대 전환은 이전 witness callback을 격리한다", () =>
   act(() => previous({docs: [{id: fragment.id, data: () => fragment}]} as never));
   expect(result.current.representatives.size).toBe(0);
   expect(onSnapshot).toHaveBeenCalledTimes(2);
+});
+
+it("uses the injected Firebase instance and clears old-instance representative callbacks", () => {
+  const first = {} as Firestore;
+  const second = {} as Firestore;
+  const h = renderHook(({ firestore }) => useActivityRepresentatives([fragment], "rider", [fragment], firestore), { initialProps: { firestore: first } });
+  expect(doc).toHaveBeenLastCalledWith(first, "activities", "full");
+  const oldCallback = callbacks.get("full")!;
+  const oldStop = stops.get("full")!;
+  h.rerender({ firestore: second });
+  expect(oldStop).toHaveBeenCalledOnce();
+  expect(doc).toHaveBeenLastCalledWith(second, "activities", "full");
+  act(() => oldCallback({ exists: () => true, data: () => full } as never));
+  expect(h.result.current.representatives.has("full")).toBe(false);
+  emit("full", full);
+  expect(h.result.current.representatives.get("full")?.id).toBe("full");
+});
+
+it.each(["missing", "stale"])("holds %s cached direct evidence until server metadata confirms it", kind => {
+  const h = renderHook(() => useActivityRepresentatives([fragment], "rider", [fragment], undefined, true));
+  expect(onSnapshot).toHaveBeenLastCalledWith(expect.anything(), { includeMetadataChanges: true }, expect.any(Function), expect.any(Function));
+  act(() => callbacks.get("full")!({ exists: () => kind !== "missing", data: () => full, metadata: { fromCache: true, hasPendingWrites: false } } as never));
+  expect(h.result.current.loading).toBe(true);
+  expect(h.result.current.representatives.has("full")).toBe(false);
+  act(() => callbacks.get("full")!({ exists: () => true, data: () => full, metadata: { fromCache: false, hasPendingWrites: false } } as never));
+  expect(h.result.current.loading).toBe(false);
+  expect(h.result.current.representatives.get("full")?.id).toBe("full");
+  // 문서 내용이 같아도 pending-write metadata가 바뀌면 정확한 집계를 보류한다.
+  act(() => callbacks.get("full")!({ exists: () => true, data: () => full, metadata: { fromCache: false, hasPendingWrites: true } } as never));
+  expect(h.result.current.loading).toBe(true);
+  act(() => callbacks.get("full")!({ exists: () => true, data: () => full, metadata: { fromCache: false, hasPendingWrites: false } } as never));
+  expect(h.result.current.loading).toBe(false);
+});
+
+it("waits for server-confirmed group witnesses, including metadata-only group confirmation", () => {
+  const farFull = { ...full, startTime: monthStart - 60 * 3600000, endTime: monthStart - 58 * 3600000, summary: { distance: 100000, ridingTimeMillis: 7200000 } } as Activity;
+  const bridge = { ...fragment, id: "bridge", startTime: monthStart - 59 * 3600000, endTime: fragment.endTime, summary: { distance: 100000, ridingTimeMillis: 60 * 3600000 } } as Activity;
+  const h = renderHook(() => useActivityRepresentatives([fragment], "rider", [fragment, farFull], undefined, true));
+  act(() => callbacks.get("full")!({ exists: () => true, data: () => farFull, metadata: { fromCache: false, hasPendingWrites: false } } as never));
+  const docs = [{ id: bridge.id, data: () => bridge }, { id: fragment.id, data: () => fragment }];
+  act(() => callbacks.get("activities")!({ docs, metadata: { fromCache: true, hasPendingWrites: false } } as never));
+  expect(h.result.current.loading).toBe(true);
+  expect(h.result.current.representatives.has("bridge")).toBe(false);
+  act(() => callbacks.get("activities")!({ docs, metadata: { fromCache: false, hasPendingWrites: false } } as never));
+  expect(h.result.current.loading).toBe(false);
+  expect(h.result.current.representatives.has("bridge")).toBe(true);
+});
+
+it("does not reuse an inactive cached confirmation when a range opens a new strict subscription", () => {
+  const h = renderHook(({ rows }) => useActivityRepresentatives(rows, "rider", rows, undefined, true), { initialProps: { rows: [fragment] } });
+  act(() => callbacks.get("full")!({ exists: () => true, data: () => full, metadata: { fromCache: false, hasPendingWrites: false } } as never));
+  expect(h.result.current.loading).toBe(false);
+  h.rerender({ rows: [] });
+  h.rerender({ rows: [fragment] });
+  expect(h.result.current.loading).toBe(true);
+  act(() => callbacks.get("full")!({ exists: () => true, data: () => full, metadata: { fromCache: true, hasPendingWrites: false } } as never));
+  expect(h.result.current.loading).toBe(true);
+  act(() => callbacks.get("full")!({ exists: () => true, data: () => full, metadata: { fromCache: false, hasPendingWrites: false } } as never));
+  expect(h.result.current.loading).toBe(false);
 });

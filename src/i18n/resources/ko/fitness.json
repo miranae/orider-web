@@ -1335,9 +1335,11 @@
   "analysis.detailUnavailable": "이 상세는 현재 선택한 종목의 분석에 없습니다.",
   "analysis.backToCurrent": "현재 종목 분석 보기",
   "sufficiency.evidenceRemaining": "확인할 근거 {{n}}개",
-  "sufficiency.loadQuality.basis": "현재 계산에는 추정 부하 또는 서로 다른 산정 방식이 섞인 날이 포함돼요. 전체 활동 수가 부족하다는 뜻은 아니에요.",
+  "sufficiency.loadQuality.basis": "이 평가에 반영된 부하에는 추정값 또는 서로 다른 산정 방식이 섞인 날이 포함돼요. 전체 활동 수가 부족하다는 뜻은 아니에요.",
   "sufficiency.loadQuality.criterion": "이 품질 요건은 수치로 정한 완료 기준이 제공되지 않아요. 활동을 더해도 표시가 유지될 수 있어요.",
-  "sufficiency.loadQuality.scope": "전체 활동 수와 날짜별 부하 산정 내역은 이 요건 정보에 포함되지 않아요.",
+  "sufficiency.loadQuality.scope": "부하 반영 대기와 품질 제한은 별개입니다. 이 평가에는 대상 기간의 시작·끝과 원인 날짜가 제공되지 않습니다. 아래는 이 시점에 저장된 요건입니다.",
   "sufficiency.loadQuality.review": "기록별 부하 확인",
-  "sufficiency.requirementUnavailable": "요건 개수는 전달됐지만 일부 항목의 설명을 확인할 수 없어요. 충족 조건을 임의로 안내하지 않아요."
+  "sufficiency.requirementUnavailable": "요건 개수는 전달됐지만 일부 항목의 설명을 확인할 수 없어요. 충족 조건을 임의로 안내하지 않아요.",
+  "sufficiency.loadQuality.asOf": "품질 평가 기준 시점 · {{date}}",
+  "sufficiency.loadQuality.refresh": "현재 부하 갱신 상태 · {{status}}"
 }

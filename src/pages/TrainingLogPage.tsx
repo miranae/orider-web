@@ -1,14 +1,17 @@
+import PlanPeriodReturn from "../features/training/plan/PlanPeriodReturn";
+import { LocalizedLink } from "../components/LocalizedLink";
 import { presentPlanRecord } from "../features/training/plan/planRecordPresentation";
 import { usePlanRecordOverlay } from "../features/training/plan/usePlanRecordOverlay";
 import "./TrainingLogPage.css";
 import PlanRecordNavigation from "../features/training/plan/PlanRecordNavigation";
-import type { PlanRecordEntry } from "../features/training/plan/PlanRecordEvidence";
+import PlanRecordEvidence, { type PlanRecordEntry } from "../features/training/plan/PlanRecordEvidence";
+import CoachDetailSection from "../features/fitness/components/CoachDetailSection";
 import { isSportUiEnabled } from "../config/sportFeatures";
 import { useActivityRepresentatives, withActivityRepresentatives } from "../hooks/useActivityRepresentatives";
 import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import GlossaryText from "../components/common/GlossaryText";
 import { Upload } from "lucide-react";
 import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
@@ -23,7 +26,7 @@ import ImportActivityModal from "../components/mobile/ImportActivityModal";
 import { getDiscipline } from "../utils/disciplineFilter";
 import { acceptedPhysicalActivities, estimateActivityTss, sumAcceptedActivityTss } from "../utils/estimateTSS";
 import { planDayKey, planCalendarDate, planMonthBounds } from "@shared/training/planDate";
-import { Button, Card, Text, ToggleControls, ToggleButton } from "../theme/components";
+import { buttonClass, Button, Card, Text, ToggleControls, ToggleButton } from "../theme/components";
 import { ErrorState } from "../components/redesign";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
 import { ICON_SIZE } from "../theme/tokens/icon";
@@ -212,7 +215,11 @@ export function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum,
         return (
           <button
             type="button"
-            data-testid="P1-2-2" onClick={() => navigate(`/coach/plan?sport=${plan.discipline}&date=${dateKey}`)}
+            data-testid="P1-2-2" onClick={() => {
+              const next = new URLSearchParams(calendarParams);
+              next.set("day", dateKey); next.set("detail", "record-day");
+              setCalendarParams(next, { preventScrollReset: true });
+            }}
             key={`${plan.workout}-${index}`}
             aria-label={`${t("log.planLabel")} · ${plan.plannedTSS} TSS · ${plan.plannedDurationMin}m`}
             className="training-log-day-plan"
@@ -386,6 +393,7 @@ function MiniBarChart({ values, labels, unit = "" }: MiniBarChartProps) {
 // ── Main Page ─────────────────────────────────────────────────────────
 
 export default function TrainingLogPage() {
+  const { state: comparisonState } = useLocation();
   const { t, i18n } = useTranslation("training");
   const { t: tCommon } = useTranslation("common");
   const { user, profile } = useAuth();
@@ -650,7 +658,7 @@ export default function TrainingLogPage() {
     return () => media.removeEventListener("change", update);
   }, []);
 
-  const planRecordHeader = <>
+  const planRecordHeader = <><PlanPeriodReturn />
     <PlanRecordNavigation date={recordDate} />
     <div style={{ marginBottom: "var(--space-3)" }}>
       <Text as="p" variant="caption" tone="secondary" role={planOverlay.state === "error" ? "alert" : planOverlay.state === "loading" ? "status" : undefined}>{t(planOverlay.state === "error" ? "planRecords.error" : planOverlay.state === "loading" ? "planRecords.loading" : planOverlay.plans.size ? "planRecords.scope" : "planRecords.empty")}</Text>
@@ -770,6 +778,17 @@ export default function TrainingLogPage() {
             </Button>
           )}
         </div>
+
+        {requestedDate && validRequestedDate && (visiblePlans.has(requestedDate) || importParams.has("day") || importParams.get("detail") === "record-day") && <CoachDetailSection id="record-day" requested={importParams.get("detail") == null} title={t("planRecords.dayTitle", { date: requestedDate })}>
+          <PlanRecordEvidence date={requestedDate} plans={visiblePlans.get(requestedDate) ?? []} />
+          {loading ? <Text role="status">{tCommon("button.loading")}</Text> : loadError ? <ErrorState title={tCommon("error.title")} onRetry={retryMonth} compact /> : <>
+            {(byDay.get(requestedDate) ?? []).map(activity => {
+              const load = estimateActivityTss(activity, ftp);
+              return <div key={activity.id}><LocalizedLink to={`/activity/${encodeURIComponent(activity.id)}`} className={buttonClass({ variant: "ghost", size: "sm" })}>{t("today.viewActivity")} · {new Date(activity.startTime).toLocaleTimeString(i18n.language)} · {load.value == null ? "—" : load.value.toLocaleString(i18n.language, { maximumFractionDigits: 1 })} TSS{load.estimated ? ` · ${t("page.tssEstimated")}` : ""}</LocalizedLink>{comparisonState?.periodEvidence?.date === requestedDate && <Text as="p" variant="caption" tone="secondary">{t(comparisonState.periodEvidence.activityIds?.includes(activity.id) ? "loadComparison.representativeIncluded" : "loadComparison.representativeOriginal")}</Text>}</div>;
+            })}
+            {!byDay.get(requestedDate)?.length && <Text as="p">{t("planRecords.noActivity")}</Text>}
+          </>}
+        </CoachDetailSection>}
 
         {/* 캘린더 그리드 */}
         <Card data-testid="P1-2" padding="none" className="training-log-calendar" style={LOG_CALENDAR_CARD_STYLE}>
