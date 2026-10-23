@@ -2737,7 +2737,6 @@
     }
   },
   "analysisChart": {
-    "selectHint": "Drag across the chart to inspect a range.",
     "keyboardHelp": "Use arrow keys to move the cursor and Shift+arrow keys to select a range. Escape restores the full range.",
     "selectedStats": "Observed average and maximum within the selected range, separate from saved whole-activity metrics.",
     "segments": "Segments",

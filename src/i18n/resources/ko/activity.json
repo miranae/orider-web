@@ -2737,7 +2737,6 @@
     }
   },
   "analysisChart": {
-    "selectHint": "그래프를 드래그하면 구간 기록을 볼 수 있어요.",
     "keyboardHelp": "화살표로 위치를 이동하고 Shift+화살표로 범위를 선택합니다. Escape로 전체 범위를 복원합니다.",
     "selectedStats": "선택 구간의 관측 평균·최고입니다. 저장된 전체 활동 지표와 구분됩니다.",
     "segments": "세그먼트",

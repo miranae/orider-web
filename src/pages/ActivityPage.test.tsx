@@ -430,19 +430,18 @@ describe("ActivityPage", () => {
       altitude: Array(count).fill(10), latlng: Array.from({ length: count }, () => [37, 127]),
     }) });
     renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
-    await screen.findByRole("button", { name: "경과시간 축" });
-    // 구간 분석 버튼은 없다 — 그래프에서 고른 범위가 곧 구간 분석을 연다.
-    expect(screen.queryByRole("button", { name: "구간 분석" })).not.toBeInTheDocument();
+    const selectRange = await screen.findByRole("button", { name: "구간 분석" });
     act(() => performanceChartProps.mock.lastCall![0].onVisualRangeChange([10, 20]));
     expect(performanceChartProps.mock.lastCall?.[0].visualRange).toEqual([10, 20]);
+    fireEvent.click(selectRange);
+    expect(performanceChartProps.mock.lastCall?.[0].visualRange).toBeNull();
+    expect(performanceChartProps.mock.lastCall?.[0].hoverIndex).toBeNull();
     const inputs = [screen.getByLabelText("시작 시간"), screen.getByLabelText("끝 시간")];
     fireEvent.change(inputs[0]!, { target: { value: "0:20" } });
     fireEvent.change(inputs[1]!, { target: { value: "0:40" } });
     fireEvent.click(screen.getByRole("button", { name: "범위 적용" }));
     await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 20, endIndex: 40 }));
     expect(elevationChartProps.mock.lastCall?.[0].range).toEqual([20, 40]);
-    // 시간으로 고친 범위에 확대도 맞춘다.
-    expect(performanceChartProps.mock.lastCall?.[0].visualRange).toEqual([20, 40]);
     fireEvent.click(screen.getByRole("button", { name: "경과시간 축" }));
     expect(elevationChartProps.mock.lastCall?.[0].xAxis).toBe("elapsed");
     expect(elevationChartProps.mock.lastCall?.[0].elapsedAxisSec[20]).toBe(20);
@@ -455,14 +454,6 @@ describe("ActivityPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "범위 지우기" }));
     expect(routeMapProps.mock.lastCall?.[0].highlightRange).toBeUndefined();
     expect(screen.queryByText("구간 분석을 준비 중입니다", { exact: false })).not.toBeInTheDocument();
-    // 지운 뒤 구간 모드(고도 핸들 전용)에 갇히지 않는다 — 일반 드래그로 다시 고르면 구간 분석이 새로 열린다.
-    expect(elevationChartProps.mock.lastCall?.[0].onRangeChange).toBeUndefined();
-    expect(performanceChartProps.mock.lastCall?.[0].visualRange).toBeNull();
-    expect(screen.queryByLabelText("시작 시간")).not.toBeInTheDocument();
-    act(() => performanceChartProps.mock.lastCall![0].onVisualRangeChange([30, 50]));
-    expect(performanceChartProps.mock.lastCall?.[0].visualRange).toEqual([30, 50]);
-    expect(screen.getByLabelText("시작 시간")).toBeInTheDocument();
-    await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toBeDefined());
   });
   it.each(["ready", "cancel", "account", "activity", "navigate", "invalid"])("handles cold peak location once with %s intent", async (mode) => {
     mockRoute.activityId = `cold-peak-${mode}`;
