@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { collection, doc, limit, onSnapshot, query, where } from "firebase/firestore";
+import { collection, doc, limit, onSnapshot, query, where, type Firestore, type DocumentSnapshot, type QuerySnapshot } from "firebase/firestore";
 import type { Activity } from "@shared/types";
-import { firestore } from "../services/firebase";
+import { firestore as defaultFirestore } from "../services/firebase";
 import { acceptedPhysicalActivities } from "../utils/estimateTSS";
 
 export const MAX_MISSING_REPRESENTATIVES = 30;
 export const MAX_REPRESENTATIVE_WITNESSES = 200;
 const MAX_CACHED_GROUPS = 50;
 type LinkedActivity = Activity & { rollupSupersededBy?: unknown; invalidSummary?: unknown };
-type CacheEntry = { representative?: Activity | null; witnesses?: Activity[]; docError?: boolean; groupError?: boolean; docToken?: symbol; groupToken?: symbol };
+type CacheEntry = { representative?: Activity | null; witnesses?: Activity[]; docError?: boolean; groupError?: boolean; docToken?: symbol; groupToken?: symbol; docConfirmed?: boolean; groupConfirmed?: boolean };
 const flag = (row: Activity, uid: string) => {
   if ((row as LinkedActivity).invalidSummary) return null;
   const id = (row as LinkedActivity).rollupSupersededBy;
@@ -47,7 +47,7 @@ export function withActivityRepresentatives(rows: readonly Activity[], represent
 /** 현재 월만 구독한다. 비활성 월은 즉시 해제하고 uid별 최대 50그룹의 캐시만 보존한다.
  * 그룹 증거는 직접 대표와 겹치지 않을 때만 조회하며, flag 자체를 집계 제외 근거로 쓰지 않는다.
  */
-export function useActivityRepresentatives(rows: readonly Activity[], uid: string | null | undefined, knownRows: readonly Activity[] = rows) {
+export function useActivityRepresentatives(rows: readonly Activity[], uid: string | null | undefined, knownRows: readonly Activity[] = rows, firestore: Firestore = defaultFirestore, requireServerConfirmation = false) {
   const [state, setState] = useState<{ uid: typeof uid; cache: Map<string, CacheEntry>; active: Map<string, symbol> }>({ uid, cache: new Map(), active: new Map() });
   const subscriptions = useRef(new Map<string, () => void>());
   const pendingGroups = useRef(new Set<string>());
@@ -63,7 +63,7 @@ export function useActivityRepresentatives(rows: readonly Activity[], uid: strin
       listenerTokens.current.clear();
       pendingGroups.current.clear();
     };
-  }, [uid]);
+  }, [uid, firestore, requireServerConfirmation]);
   const cache = useMemo(() => state.uid === uid ? state.cache : new Map<string, CacheEntry>(), [state, uid]);
   const active = useMemo(() => state.uid === uid ? state.active : new Map<string, symbol>(), [state.uid, state.active, uid]);
   const known = useMemo(() => new Map(knownRows.filter(row => row.userId === uid).map(row => [row.id, normalize(row)])), [knownRows, uid]);
@@ -144,13 +144,19 @@ export function useActivityRepresentatives(rows: readonly Activity[], uid: strin
       const token = Symbol(key);
       listenerTokens.current.set(key, token);
       subscriptions.current.set(key, () => {});
-      subscriptions.current.set(key, onSnapshot(doc(firestore, "activities", id), snapshot => {
+      const reference = doc(firestore, "activities", id);
+      const next = (snapshot: DocumentSnapshot) => {
         if (generation.current !== currentGeneration || listenerTokens.current.get(key) !== token) return;
+        const confirmed = snapshot.metadata?.fromCache === false && snapshot.metadata.hasPendingWrites === false;
+        if (requireServerConfirmation && !confirmed) { update(id, { docToken: token, docConfirmed: false }); return; }
         const row = snapshot.exists() ? normalize({ ...snapshot.data(), id } as Activity) : null;
-        update(id, { docToken: token, representative: row?.userId === uid ? row : null, docError: Boolean(row && row.userId !== uid) });
-      }, () => {
+        update(id, { docToken: token, docConfirmed: confirmed, representative: row?.userId === uid ? row : null, docError: Boolean(row && row.userId !== uid) });
+      };
+      const failed = () => {
         if (listenerTokens.current.get(key) === token) update(id, { docError: true });
-      }));
+      };
+      subscriptions.current.set(key, requireServerConfirmation
+        ? onSnapshot(reference, { includeMetadataChanges: true }, next, failed) : onSnapshot(reference, next, failed));
     }
     syncActive();
     // 최초 그룹 스캔을 직렬화해 총 후보 예산을 다음 조회 limit에 반영한다.
@@ -164,20 +170,26 @@ export function useActivityRepresentatives(rows: readonly Activity[], uid: strin
     const token = Symbol(key);
     listenerTokens.current.set(key, token);
     subscriptions.current.set(key, () => {});
-    subscriptions.current.set(key, onSnapshot(query(collection(firestore, "activities"), where("userId", "==", uid),
-      where("rollupSupersededBy", "==", id), limit(readLimit)), snapshot => {
+    const reference = query(collection(firestore, "activities"), where("userId", "==", uid),
+      where("rollupSupersededBy", "==", id), limit(readLimit));
+    const next = (snapshot: QuerySnapshot) => {
       if (generation.current !== currentGeneration || listenerTokens.current.get(key) !== token) return;
+      const confirmed = snapshot.metadata?.fromCache === false && snapshot.metadata.hasPendingWrites === false;
+      if (requireServerConfirmation && !confirmed) { update(id, { groupToken: token, groupConfirmed: false }); return; }
       pendingGroups.current.delete(id);
       const witnesses = snapshot.docs.map(document => normalize({ ...document.data(), id: document.id } as Activity));
-      update(id, { groupToken: token, witnesses: witnesses.filter(row => row.userId === uid),
+      update(id, { groupToken: token, groupConfirmed: confirmed, witnesses: witnesses.filter(row => row.userId === uid),
         groupError: witnesses.length >= readLimit || witnesses.some(row => row.userId !== uid) });
-    }, () => {
+    };
+    const failed = () => {
       if (listenerTokens.current.get(key) !== token) return;
       pendingGroups.current.delete(id);
       update(id, { groupError: true });
-    }));
+    };
+    subscriptions.current.set(key, requireServerConfirmation
+      ? onSnapshot(reference, { includeMetadataChanges: true }, next, failed) : onSnapshot(reference, next, failed));
     syncActive();
-  }, [targets, cache, uid, overBudget, witnessCount]);
+  }, [targets, cache, uid, overBudget, witnessCount, firestore, requireServerConfirmation]);
   const retry = useCallback(() => {
     generation.current++;
     for (const unsubscribe of subscriptions.current.values()) unsubscribe();
@@ -185,10 +197,10 @@ export function useActivityRepresentatives(rows: readonly Activity[], uid: strin
     listenerTokens.current.clear();
     pendingGroups.current.clear();
     setState({ uid, cache: new Map(), active: new Map() });
-  }, [uid]);
+  }, [uid, firestore, requireServerConfirmation]);
   const error = overBudget || [...targets.direct].some(id => cache.get(id)?.docError)
     || [...targets.groups].some(id => cache.get(id)?.groupError);
-  const loading = !error && ([...targets.direct].some(id => !("representative" in (cache.get(id) ?? {})))
-    || [...targets.groups].some(id => !cache.get(id)?.witnesses));
+  const loading = !error && ([...targets.direct].some(id => !("representative" in (cache.get(id) ?? {})) || requireServerConfirmation && (!cache.get(id)?.docConfirmed || !cache.get(id)?.docToken || active.get(`doc:${id}`) !== cache.get(id)?.docToken))
+    || [...targets.groups].some(id => !cache.get(id)?.witnesses || requireServerConfirmation && (!cache.get(id)?.groupConfirmed || !cache.get(id)?.groupToken || active.get(`group:${id}`) !== cache.get(id)?.groupToken)));
   return { representatives, error, retry, loading };
 }

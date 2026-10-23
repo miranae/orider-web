@@ -1,5 +1,6 @@
 import { isPendingPlanWorkout } from "./planRecordPresentation";
-import type { PlanWeek } from "@shared/types/goal";
+import type { Goal, PlanWeek } from "@shared/types/goal";
+import { getPlanLoadRangeBounds } from "./planLoadComparison";
 import { planDayKey } from "@shared/training/planDate";
 
 /** Presentation ranges only; stored schedule, progress and prescription values stay unchanged. */
@@ -19,4 +20,17 @@ export function summarizeStoredPlan(weeks: PlanWeek[], goalDate: Date | null | u
     else untilGoal++;
   }
   return { untilGoal, afterGoal, overdue };
+}
+
+/** 목표기간은 저장 계획 시작일부터 정본 목표일까지이며, 잘못된 목표일은 추정하지 않는다. */
+export function goalLoadScope(weeks: PlanWeek[], goal: Goal | null | undefined, now: number) {
+  const target = goal?.targetDate ?? goal?.eventDate;
+  const goalDate = typeof target === "number" && Number.isFinite(target) && planDayKey(target) ? new Date(target) : null;
+  const dates = weeks.flatMap(week => week.days.map(day => planDayKey(day.date))).filter(Boolean).sort();
+  const range = { start: dates[0] ?? "", end: goalDate ? planDayKey(goalDate.getTime()) : "" };
+  const valid = !!getPlanLoadRangeBounds(range);
+  const today = planDayKey(now);
+  const expired = !!goalDate && range.end < today;
+  const remainingDays = goalDate ? Math.max(0, Math.round((Date.parse(`${range.end}T00:00:00+09:00`) - Date.parse(`${today}T00:00:00+09:00`)) / 86_400_000)) : null;
+  return { range, valid, goalDate, expired, remainingWeeks: remainingDays === null ? null : Math.ceil(remainingDays / 7) };
 }

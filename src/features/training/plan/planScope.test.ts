@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { PlanWeek } from "@shared/types/goal";
-import { summarizeStoredPlan } from "./planScope";
+import type { Goal, PlanWeek } from "@shared/types/goal";
+import { goalLoadScope, summarizeStoredPlan } from "./planScope";
 
 const day = (date: string, overrides = {}) => ({ date: Date.parse(`${date}T12:00:00+09:00`), workout: "z2", completed: false, skipped: false, ...overrides });
 describe("stored plan presentation ranges", () => {
@@ -21,4 +21,20 @@ it("counts only pending occurrences despite stale false mirrors and preserves th
   expect(summarizeStoredPlan(weeks, null, now)).toEqual({ untilGoal: 1, afterGoal: 0, overdue: 0 });
   expect(summarizeStoredPlan(weeks, null, now, { legacy: true })).toEqual({ untilGoal: 5, afterGoal: 0, overdue: 0 });
   expect(JSON.stringify(weeks)).toBe(before);
+});
+
+
+describe("goal load scope", () => {
+  const weeks = [{ days: [day("2026-08-17"), day("2026-10-25")] }] as PlanWeek[];
+  const now = Date.parse("2026-10-23T00:00:00+09:00");
+  it("uses the canonical deadline, excludes post-goal plans and reports zero remaining weeks after it passes", () => {
+    const goal = { targetDate: Date.parse("2026-10-18T23:30:00+09:00"), eventDate: Date.parse("2026-10-25T00:00:00+09:00") } as Goal;
+    expect(goalLoadScope(weeks, goal, now)).toMatchObject({ valid: true, expired: true, remainingWeeks: 0, range: { start: "2026-08-17", end: "2026-10-18" } });
+    expect(goalLoadScope(weeks, { ...goal, targetDate: undefined }, now).range.end).toBe("2026-10-25");
+  });
+  it("does not replace malformed, missing, reversed or oversized goal ranges with all stored plans", () => {
+    for (const targetDate of [NaN, undefined, Date.parse("2026-08-16T00:00:00+09:00"), Date.parse("2028-10-18T00:00:00+09:00")]) {
+      expect(goalLoadScope(weeks, { targetDate, eventDate: NaN } as Goal, now).valid).toBe(false);
+    }
+  });
 });

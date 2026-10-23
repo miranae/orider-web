@@ -1,3 +1,7 @@
+import PlanGoalLoadSummary from "../features/training/plan/PlanGoalLoadSummary";
+import { goalLoadScope } from "../features/training/plan/planScope";
+import { usePlanLoadComparison } from "../features/training/plan/usePlanLoadComparison";
+import { useAuth } from "../contexts/AuthContext";
 import { goalCountdown } from "../utils/goalCountdown";
 import { formatPlanGoalTitle } from "../features/training/plan/planDisplay";
 import { useMobile } from "../hooks/useMobile";
@@ -18,17 +22,22 @@ import { LocalizedLink } from "../components/LocalizedLink";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import CoachSignInButton from "./coach/CoachSignInButton";
 import ClimbGoalSetupPage from "./ClimbGoalSetupPage";
-import { Button, buttonClass, Card, Progress, Text } from "../theme/components";
+import { Button, buttonClass, Card, Text } from "../theme/components";
 
 export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
   const { t, i18n } = useTranslation("training");
   const [params] = useSearchParams();
   const model = usePlanModel(isSportUiEnabled(params.get("sport") ?? "bike") ? params.get("sport") : "bike");
   const { user, goal, discipline } = model;
+  const { profile } = useAuth();
+  const goalReady = !model.loading && model.loadError == null && model.freshLoaded !== false;
+  const scope = goalLoadScope(model.weeks, goal, Date.now());
+  const load = usePlanLoadComparison({ uid: user?.uid, discipline, weeks: model.weeks, range: scope.range, ftp: profile?.ftp,
+    enabled: goalReady && model.goalMatchesDiscipline && !!user && !user.isAnonymous && !!goal && scope.valid });
   const mobile = useMobile();
   const rawTitle = goal?.title || goal?.courseName || "";
   const title = formatPlanGoalTitle(rawTitle);
-  const targetMs = goal?.targetDate ?? goal?.eventDate ?? model.goalDate?.getTime();
+  const targetMs = goal?.targetDate ?? goal?.eventDate;
   const displayDate = targetMs != null && Number.isFinite(new Date(targetMs).getTime()) ? new Date(targetMs) : null;
   const [choice, setChoice] = useState<{ sport: string; kind: "event" | "climb" } | null>(null);
   const [error, setError] = useState(false);
@@ -59,7 +68,6 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
       navigate("/");
     } catch { setError(true); }
   };
-  const goalReady = !model.loading && model.loadError == null && model.freshLoaded !== false;
   const choose = (kind: "event" | "climb") => { if (goalReady) setChoice({ sport: discipline, kind }); };
   const selected = choice?.sport === discipline ? choice.kind : null;
   return <div className="site-shell">
@@ -71,12 +79,9 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
         {model.cacheHit && model.freshLoaded === false && <Text as="p">{t("embeddedStatus.cached", { ns: "common" })}</Text>}
         <GoalSourceNotice goal={goal} discipline={discipline} />
         <div data-testid="K3-1-1"><Text as="h2" variant="title" style={{ overflowWrap: "anywhere" }}>{mobile ? title.name : rawTitle}</Text>
-          {mobile && title.meta && <><Text as="p" variant="bodySmall" tone="secondary">{title.meta}</Text><InfoTip activation="click" title={t("goalHub.originalTitle")} label={t("goalHub.originalTitle")} content={rawTitle}>{t("goalHub.originalTitle")}</InfoTip></>}<Text>{t(`goalHub.goalType.${goal.runProgram ? "program" : goal.goalType === "climb" ? "climb" : goal.eventType === "completion" ? "completion" : goal.eventType === "time" ? "time" : "race"}`)} · {displayDate?.toLocaleDateString(i18n.resolvedLanguage ?? i18n.language, { timeZone: "Asia/Seoul" })} · {goalCountdown(targetMs)}</Text><Text>{goal.targetDurationMin ? t("goalHub.minutes", { value: goal.targetDurationMin }) : null}{goal.target?.climbDurationMin ? <GlossaryText>{`${t("goalHub.minutes", { value: goal.target.climbDurationMin })} · ${goal.target.targetWkg ?? "—"} W/kg`}</GlossaryText> : null}</Text></div>
+          {mobile && title.meta && <><Text as="p" variant="bodySmall" tone="secondary">{title.meta}</Text><InfoTip activation="click" title={t("goalHub.originalTitle")} label={t("goalHub.originalTitle")} content={rawTitle}>{t("goalHub.originalTitle")}</InfoTip></>}<Text>{t(`goalHub.goalType.${goal.runProgram ? "program" : goal.goalType === "climb" ? "climb" : goal.eventType === "completion" ? "completion" : goal.eventType === "time" ? "time" : "race"}`)} · {displayDate?.toLocaleDateString(i18n.resolvedLanguage ?? i18n.language, { timeZone: "Asia/Seoul" })} · {goalCountdown(targetMs)}{scope.expired ? ` · ${t("goalLoad.expiredBadge")}` : ""}</Text><Text>{goal.targetDurationMin ? t("goalHub.minutes", { value: goal.targetDurationMin }) : null}{goal.target?.climbDurationMin ? <GlossaryText>{`${t("goalHub.minutes", { value: goal.target.climbDurationMin })} · ${goal.target.targetWkg ?? "—"} W/kg`}</GlossaryText> : null}</Text></div>
         <div data-testid="K3-1-2" style={{ marginBlock: "var(--space-4)" }}>
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "var(--space-3)", marginBottom: "var(--space-2)", color: "var(--ink-1)" }}>
-            <Text>{t("goalHub.planProgress")}</Text><Text variant="dataMedium">{goalReady ? `${model.progress}%` : "—"}</Text>
-          </div>
-          <Progress value={goalReady ? model.progress / 100 : 0} aria-hidden={!goalReady || undefined} aria-label={t("goalHub.progress")} />
+          {goalReady && model.goalMatchesDiscipline ? <PlanGoalLoadSummary scope={scope} load={load} /> : <Text>—</Text>}
           {goalDay && <Text>{t("goalHub.goalDayEstimate")} · <GlossaryText>{`CTL ${goalDay.ctl.toFixed(1)} · TSB ${goalDay.tsb.toFixed(1)}`}</GlossaryText></Text>}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-3)" }}>

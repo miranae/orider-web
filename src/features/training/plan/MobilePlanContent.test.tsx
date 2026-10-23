@@ -67,6 +67,8 @@ describe("MobilePlanContent product hierarchy", () => {
         currentWeek={week}
         weekLabel="이번 주"
         goalTitle="2026_비앙키그란폰도춘천_그란폰도_122.91km"
+        goalLoadSummary={<p>목표기간 부하 비교</p>}
+        goalDate={new Date(today + 25 * 86400000)}
         daysLeft={25}
         progressPct={7}
         completedTSS={169}
@@ -80,8 +82,9 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("비앙키그란폰도춘천");
     expect(screen.getByRole("heading", { level: 2 })).toHaveAccessibleName("2026_비앙키그란폰도춘천_그란폰도_122.91km");
     expect(screen.getByText("2026 · 그란폰도 · 122.91 km")).toBeInTheDocument();
-    expect(screen.getByText("D-25")).toBeInTheDocument();
-    expect(screen.getByRole("progressbar", { name: "진행률" })).toHaveAttribute("aria-valuenow", "7");
+    expect(screen.getByText("D−25")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar", { name: "진행률" })).not.toBeInTheDocument();
+    expect(screen.getByText("목표기간 부하 비교")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "계획 관리 →" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "계획 관리 →" }));
     expect(screen.getByRole("button", { name: "ICS" })).toBeInTheDocument();
@@ -107,8 +110,8 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.queryByText("0/0")).not.toBeInTheDocument();
     expect(screen.queryByText("CTL")).not.toBeInTheDocument();
     expect(screen.getByText("30 분")).toBeInTheDocument();
-    expect(screen.getByText("4 회")).toBeInTheDocument();
-    expect(screen.getByText("2 주")).toBeInTheDocument();
+    expect(screen.queryByText("4 회")).not.toBeInTheDocument();
+    expect(screen.queryByText("2 주")).not.toBeInTheDocument();
     expect(screen.queryByText("0 TSS")).not.toBeInTheDocument();
   });
 
