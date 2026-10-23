@@ -40,7 +40,11 @@
     "loading": "Checking plans. Your activity records remain available.",
     "error": "Plans could not be loaded. Your activity records remain available.",
     "empty": "No active plan for this sport. Existing activity records remain available below.",
-    "currentPlan": "Current plan"
+    "currentPlan": "Current plan",
+    "loadSnapshotBasis": "This is the load saved with the plan link or candidate. The activity detail has a separately calculated saved analysis and may differ. The plan does not provide the load method or snapshot time, so the cause cannot be confirmed here. Planned duration and activity moving time also use different bases.",
+    "notComparable": "Until the link is confirmed, this value cannot establish plan completion or the day’s total load.",
+    "returnComparison": "Return to the original performance comparison",
+    "reviewContext": "Review the plan, keep it, or rest. Returning restores the original comparison date, sport, period and detail."
   },
   "title": "Training",
   "plan": {

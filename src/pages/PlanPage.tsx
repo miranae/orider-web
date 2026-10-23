@@ -1,4 +1,5 @@
 import { isSportUiEnabled } from "../config/sportFeatures";
+import PlanComparisonReturn from "../features/training/plan/PlanComparisonReturn";
 import PlanRecordNavigation from "../features/training/plan/PlanRecordNavigation";
 import { Button, Text } from "../theme/components";
 import { planDayKey } from "@shared/training/planDate";
@@ -62,7 +63,7 @@ export default function PlanPage() {
     if (requestedSport == null || requestedSport === planSport) return;
     const next = new URLSearchParams(searchParams);
     next.set("sport", planSport);
-    navigate(`${location.pathname}?${next}${location.hash}`, { replace: true });
+    navigate(`${location.pathname}?${next}${location.hash}`, { replace: true, state: location.state });
   }, [requestedSport, planSport, searchParams, navigate, location.pathname, location.hash]);
   const { discipline, goal, weeks, loading, loadError } = model;
   const run30 = useRun30Program(discipline === "run" && user != null);
@@ -95,6 +96,7 @@ export default function PlanPage() {
 
   const selectionOwner = `${user?.uid ?? ""}:${discipline}:${goal?.id ?? ""}`;
   useEffect(() => { setSelectedDay(null); }, [selectionOwner]);
+  useEffect(() => { if (!location.state?.coachWorkout) setSelectedDay(null); }, [location.key, location.state]);
 
   const exportPlanIcs = () => {
     if (!goal) return;
@@ -156,15 +158,15 @@ export default function PlanPage() {
         const next = new URLSearchParams(searchParams);
         ["weekId", "dayIndex", "detail"].forEach(key => next.delete(key));
         next.set("date", planDayKey(day.date));
-        navigate(`${location.pathname}?${next}${location.hash}`);
+        navigate(`${location.pathname}?${next}${location.hash}`, { state: location.state });
       }}
       onEditWorkout={serverManagedPlan ? undefined : (day, weekId, dayIndex) => {
         if (!goal) return;
         setSelectedDay({ owner: selectionOwner, goalId: goal.id, day, weekId, dayIndex });
-        const next = new URLSearchParams(searchParams);
-        ["weekId", "dayIndex", "detail"].forEach(key => next.delete(key));
-        next.set("date", planDayKey(day.date));
-        navigate(`${location.pathname}?${next}${location.hash}`, { replace: true });
+        // 검토를 별도 이력으로 열어 닫기·뒤로가기에서 원래 비교 맥락을 복원한다.
+        navigate(`${location.pathname}${location.search}${location.hash}`, {
+          state: { ...location.state, coachWorkout: true }, preventScrollReset: true,
+        });
       }}
       onIcsExport={exportPlanIcs}
       onReroll={serverManagedPlan ? undefined : rerollPlan}
@@ -211,11 +213,11 @@ export default function PlanPage() {
   const selectedDate = selectedDay?.owner === selectionOwner ? planDayKey(selectedDay.day.date) : targetDate;
   const recordDate = selectedDate && (!model.goalMatchesDiscipline || visibleDays.some(day => planDayKey(day.date) === selectedDate))
     ? selectedDate : planDayKey(visibleDays[0]?.date ?? Date.now());
-  const goalLink = <><header data-testid="K4-0" className="site-shell coach-page-header"><Text data-testid="K4-0-1" as="h1" variant="pageTitle">{t("mobile.weeklyPlan")}</Text><div data-testid="K4-0-2"><DisciplineTabs value={discipline} disabledKeys={["swim"]} /></div>{goal && <LocalizedLink data-testid="K4-2-4" to={`/coach/goals?sport=${discipline}`}>{t("goalHub.title")} →</LocalizedLink>}</header><PlanRecordNavigation date={recordDate} />{model.goalMatchesDiscipline && weeks.length > 0 && (mobileWeekOffset !== 0 || targetDate) && <Button variant="ghost" onClick={() => {
+  const goalLink = <><PlanComparisonReturn /><header data-testid="K4-0" className="site-shell coach-page-header"><Text data-testid="K4-0-1" as="h1" variant="pageTitle">{t("mobile.weeklyPlan")}</Text><div data-testid="K4-0-2"><DisciplineTabs value={discipline} disabledKeys={["swim"]} /></div>{goal && <LocalizedLink data-testid="K4-2-4" to={`/coach/goals?sport=${discipline}`}>{t("goalHub.title")} →</LocalizedLink>}</header><PlanRecordNavigation date={recordDate} />{model.goalMatchesDiscipline && weeks.length > 0 && (mobileWeekOffset !== 0 || targetDate) && <Button variant="ghost" onClick={() => {
     setMobileWeekOffset(0);
     const next = new URLSearchParams(searchParams);
     ["date", "weekId", "dayIndex", "detail"].forEach(key => next.delete(key));
-    navigate(`/coach/plan?${next}`, { replace: true });
+    navigate(`/coach/plan?${next}`, { replace: true, state: location.state });
   }}>{t("planRecords.currentPlan")} →</Button>}</>;
   const targetNotice = runTarget.unavailable ? <p role="status" className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{tActivity("analysis.run.nextPlan.unavailable")}</p> : null;
 
@@ -287,7 +289,7 @@ export default function PlanPage() {
           dayIndex={selectedDay.dayIndex}
           goalId={selectedDay.goalId}
           goalDiscipline={goal.discipline as "bike" | "run" | "swim" | undefined}
-          onClose={() => setSelectedDay(null)}
+          onClose={() => { setSelectedDay(null); if (location.state?.coachWorkout) navigate(-1); }}
           onUpdate={() => {
             setSelectedDay(null);
             if (isMobile) {

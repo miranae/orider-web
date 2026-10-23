@@ -1335,9 +1335,11 @@
   "analysis.detailUnavailable": "This detail is not available for the selected sport.",
   "analysis.backToCurrent": "View the current sport analysis",
   "sufficiency.evidenceRemaining": "{{n}} evidence item(s) to review",
-  "sufficiency.loadQuality.basis": "This calculation includes days with estimated load or mixed calculation methods. This does not mean your total activity count is too low.",
+  "sufficiency.loadQuality.basis": "The loads included in this assessment contain estimated or mixed-method days. This does not mean there are too few activities overall.",
   "sufficiency.loadQuality.criterion": "No numerical completion threshold is provided for this quality requirement. Adding activities may leave this status unchanged.",
-  "sufficiency.loadQuality.scope": "The total activity count and daily calculation breakdown are not included in this requirement information.",
+  "sufficiency.loadQuality.scope": "Load update progress and quality limitations are separate. This assessment does not provide evaluation start/end dates or the dates responsible. The requirements below were saved for this assessment.",
   "sufficiency.loadQuality.review": "Review load in activity records",
-  "sufficiency.requirementUnavailable": "The requirement count was provided, but details for some items are unavailable. Their completion criteria cannot be confirmed."
+  "sufficiency.requirementUnavailable": "The requirement count was provided, but details for some items are unavailable. Their completion criteria cannot be confirmed.",
+  "sufficiency.loadQuality.asOf": "Quality assessment as of · {{date}}",
+  "sufficiency.loadQuality.refresh": "Current load update status · {{status}}"
 }

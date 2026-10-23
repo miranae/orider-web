@@ -2,7 +2,8 @@ import { presentPlanRecord } from "../features/training/plan/planRecordPresentat
 import { usePlanRecordOverlay } from "../features/training/plan/usePlanRecordOverlay";
 import "./TrainingLogPage.css";
 import PlanRecordNavigation from "../features/training/plan/PlanRecordNavigation";
-import type { PlanRecordEntry } from "../features/training/plan/PlanRecordEvidence";
+import PlanRecordEvidence, { type PlanRecordEntry } from "../features/training/plan/PlanRecordEvidence";
+import CoachDetailSection from "../features/fitness/components/CoachDetailSection";
 import { isSportUiEnabled } from "../config/sportFeatures";
 import { useActivityRepresentatives, withActivityRepresentatives } from "../hooks/useActivityRepresentatives";
 import { useState, useEffect, useMemo, useCallback, useRef, type CSSProperties } from "react";
@@ -212,7 +213,11 @@ export function LogDayCell({ activities, plans, isToday, isCurrentMonth, dayNum,
         return (
           <button
             type="button"
-            data-testid="P1-2-2" onClick={() => navigate(`/coach/plan?sport=${plan.discipline}&date=${dateKey}`)}
+            data-testid="P1-2-2" onClick={() => {
+              const next = new URLSearchParams(calendarParams);
+              next.set("day", dateKey); next.set("detail", "record-day");
+              setCalendarParams(next, { preventScrollReset: true });
+            }}
             key={`${plan.workout}-${index}`}
             aria-label={`${t("log.planLabel")} · ${plan.plannedTSS} TSS · ${plan.plannedDurationMin}m`}
             className="training-log-day-plan"
@@ -770,6 +775,10 @@ export default function TrainingLogPage() {
             </Button>
           )}
         </div>
+
+        {requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) && visiblePlans.has(requestedDate) && <CoachDetailSection id="record-day" requested={importParams.get("detail") == null} title={t("planRecords.dayTitle", { date: requestedDate })}>
+          <PlanRecordEvidence date={requestedDate} plans={visiblePlans.get(requestedDate) ?? []} />
+        </CoachDetailSection>}
 
         {/* 캘린더 그리드 */}
         <Card data-testid="P1-2" padding="none" className="training-log-calendar" style={LOG_CALENDAR_CARD_STYLE}>
