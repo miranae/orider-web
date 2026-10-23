@@ -353,3 +353,26 @@ it.each(["metric", "imperial"] as const)("preserves MIN distance as a conversion
   rerender(<ActivityRangeAnalysisReading selection={bound} sport="bike" analysis={{ ...analysis, response: zero }} />);
   expect(distanceCell()).toHaveTextContent("0.00"); expect(distanceCell()).not.toHaveTextContent("—");
 });
+
+describe("range controls split around the chart", () => {
+  it("keeps only the button row between charts and renders the expanding editor separately", () => {
+    const { container, rerender } = renderWithProviders(<ActivityRangeControls selection={selection} part="toolbar" />);
+    expect(container.querySelector(".activity-range-time-inputs")).toBeNull();
+    expect(container.querySelectorAll("button").length).toBeGreaterThan(0);
+    rerender(<ActivityRangeControls selection={selection} part="details" />);
+    expect(container.querySelector(".activity-range-time-inputs")).not.toBeNull();
+    rerender(<ActivityRangeControls selection={{ ...selection, enabled: false }} part="details" />);
+    expect(container.querySelector(".activity-range-controls")).toBeNull();
+  });
+  it("offers the start button only where dragging cannot open range analysis (embedded charts)", () => {
+    const toggle = vi.fn();
+    const idle = { ...selection, enabled: false, selection: null, toggle };
+    const { rerender } = renderWithProviders(<ActivityRangeControls selection={idle} part="toolbar" />);
+    expect(screen.queryByRole("button", { name: "구간 분석" })).not.toBeInTheDocument();
+    rerender(<ActivityRangeControls selection={idle} showToggle part="toolbar" />);
+    fireEvent.click(screen.getByRole("button", { name: "구간 분석" }));
+    expect(toggle).toHaveBeenCalledTimes(1);
+    rerender(<ActivityRangeControls selection={{ ...idle, enabled: true }} showToggle part="toolbar" />);
+    expect(screen.getByRole("button", { name: "구간 선택 종료" })).toHaveAttribute("aria-pressed", "true");
+  });
+});
