@@ -53,6 +53,7 @@ it("uses accepted final Strava load once, while candidate snapshots remain indiv
   expect(result.summary).toMatchObject({ plannedTss: 65, actualTss: 220, deltaTss: 155, plannedDayCount: 1 });
   expect(result.summary.ratioPct).toBeCloseTo(220 / 65 * 100);
   expect(result.days[0]?.activityIds).toEqual(["strava_123"]);
+  expect(result.days[0]?.linkedLoads).toEqual({ fragment: 220, strava_123: 220 });
   expect(plan.completed).toBe(false);
   expect(plan.probableTSS).toBe(100);
 });
@@ -62,4 +63,30 @@ it("distinguishes missing plans from explicit zero-load rest without suppressing
   const actual = [activity("unlinked", "2026-10-22", 30)];
   expect(computePlanLoadComparison([], actual, period, "bike", now).summary).toMatchObject({ plannedDayCount: 0, plannedTss: null, actualTss: 30, ratioPct: null, deltaTss: null });
   expect(computePlanLoadComparison(weeks(day("2026-10-22", 0, {workout:"rest"})), actual, period, "bike", now).summary).toMatchObject({ plannedDayCount: 1, plannedTss: 0, actualTss: 30, ratioPct: null, deltaTss: 30 });
+});
+
+
+describe("stored weekly load fulfillment", () => {
+  const weekDays = Array.from({ length: 7 }, (_, index) => day(`2026-10-${19 + index}`, 20));
+  const week = weeks(...weekDays);
+  const fullRange = { start: "2026-10-19", end: "2026-10-25" };
+  it("counts the same actual load for all workout purposes and preserves daily facts", () => {
+    const input = week.map(value => ({ ...value, days: value.days.map((item, index) => ({ ...item, workout: index === 0 ? "vo2" as const : item.workout })) }));
+    const result = computePlanLoadComparison(input, [activity("unlinked", "2026-10-20", 150)], fullRange, "bike", now);
+    expect(result.days[0]).toMatchObject({ actualTss: 0, fulfilledWeek: { weekNumber: 1, plannedTss: 140, actualTss: 150 } });
+    expect(result.days[6]).toMatchObject({ actualTss: null, future: true, fulfilledWeek: { plannedTss: 140 } });
+    expect(input[0].days.every(item => !item.completed)).toBe(true);
+  });
+  it("does not turn a selected period or missing weekly loads into parent fulfillment", () => {
+    const actual = [activity("ride", "2026-10-20", 200)];
+    expect(computePlanLoadComparison(week, actual, { start: "2026-10-20", end: "2026-10-20" }, "bike", now).days[0].fulfilledWeek).toBeUndefined();
+    expect(computePlanLoadComparison(week, [...actual, activity("unknown", "2026-10-21", undefined)], fullRange, "bike", now).days.every(row => !row.fulfilledWeek)).toBe(true);
+    expect(computePlanLoadComparison(week, [activity("run", "2026-10-20", 200, { type: "Run" })], fullRange, "bike", now).days.every(row => !row.fulfilledWeek)).toBe(true);
+  });
+  it("retains canonical accepted load for a representative link, separate from saved candidate load", () => {
+    const linked = day("2026-10-20", 65, { actualActivityId: "ride", actualTSS: 100, matchMethod: "manual", matchConfidence: "manual" } as Partial<PlanDay>);
+    const result = computePlanLoadComparison(weeks(linked), [activity("ride", "2026-10-20", 220)], fullRange, "bike", now);
+    expect(result.days[1].linkedLoads).toEqual({ ride: 220 });
+    expect(linked.actualTSS).toBe(100);
+  });
 });

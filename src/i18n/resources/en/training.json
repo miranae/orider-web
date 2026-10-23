@@ -1268,6 +1268,13 @@
     "calendarAttainment": "Attainment {{ratio}} · Difference {{difference}} TSS",
     "calendarLoading": "Loading",
     "calendarUnknown": "Unconfirmed",
+    "fulfillment": {
+      "met": "Load target met by linked activity",
+      "exceeded": "Load target exceeded by linked activity",
+      "week": "Fulfilled by W{{week}} weekly load target",
+      "weekBasis": "Weekly actual {{actual}} / planned {{planned}} TSS · Execution records for each date are retained separately.",
+      "executionFact": "Saved execution record for this date: {{state}}"
+    },
     "calendarUnconfirmed": "Plan execution unconfirmed",
     "calendarBasis": "Load attainment compares all activity on the same day and is separate from confirmed plan execution.",
     "title": "Plan vs. actual load",

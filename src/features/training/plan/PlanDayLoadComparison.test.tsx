@@ -39,3 +39,20 @@ it("does not cap load attainment or change a skipped workout into a completed wo
   expect(skipped.completed).toBe(false);
   expect(skipped.skipped).toBe(true);
 });
+
+
+it("shows weekly fulfillment alongside the date load without rewriting the workout", () => {
+  render(<PlanDayLoadComparison day={day} row={{ ...row, fulfilledWeek: { weekNumber: 6, plannedTss: 300, actualTss: 350, estimated: false } }} state="ready" />);
+  expect(screen.getByText("W6 주간 부하 목표로 충족")).toBeInTheDocument();
+  expect(screen.getByText("계획 65 · 실제 0 TSS")).toBeInTheDocument();
+  expect(day.completed).toBe(false);
+});
+it("uses confirmed linked accepted load for exceeded completion even without a stored completion flag", () => {
+  const linked = { ...day, actualActivityId: "ride", matchMethod: "manual", matchConfidence: "manual" } as PlanDay;
+  const view = render(<PlanDayLoadComparison day={linked} row={{ ...row, linkedLoads: { ride: 220 } }} state="ready" />);
+  expect(screen.getByText("연결 활동으로 부하 목표 초과 완료")).toBeInTheDocument();
+  view.rerender(<PlanDayLoadComparison day={{ ...linked, matchConfidence: "probable" } as PlanDay} row={{ ...row, linkedLoads: { ride: 220 } }} state="ready" />);
+  expect(screen.queryByText("연결 활동으로 부하 목표 초과 완료")).not.toBeInTheDocument();
+  view.rerender(<PlanDayLoadComparison day={linked} row={{ ...row, linkedLoads: { ride: 220 } }} state="incomplete" />);
+  expect(screen.queryByText("연결 활동으로 부하 목표 초과 완료")).not.toBeInTheDocument();
+});

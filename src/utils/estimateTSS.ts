@@ -3,7 +3,7 @@ import { physicalRideLoadEvidence, physicalRideMovingSeconds } from "@shared/tra
 import { isStatsCountable } from "@shared/training/activityStatsEligibility";
 import { TIME_FACTORS } from "@shared/training/activityLoad";
 import { acceptedActivityLoad } from "@shared/training/acceptedActivityLoad";
-import { dedupeSamePhysicalRides, type PhysicalRideActivity } from "./samePhysicalRide";
+import { groupSamePhysicalRides, pickPhysicalRideRepresentative, type PhysicalRideActivity } from "./samePhysicalRide";
 import { disciplineOfType } from "@shared/sport/discipline";
 
 /**
@@ -91,7 +91,7 @@ export function acceptedTrainingActivities(activities: readonly Activity[], ftp?
 }
 
 /** 거리·시간·횟수도 부하와 같은 대표를 사용한다. 레거시 날짜·비훈련 종목은 보존한다. */
-export function acceptedPhysicalActivities(activities: readonly Activity[], _ftp?: number): Activity[] {
+export function physicalActivityRepresentativeIds(activities: readonly Activity[]): Map<string, string> {
   const positive = (value: unknown) => typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
   const rows: (PhysicalRideActivity & { activity: Activity; sportFamily: string })[] = activities.flatMap((activity) => {
     const discipline = disciplineOfType(activity.type);
@@ -112,8 +112,18 @@ export function acceptedPhysicalActivities(activities: readonly Activity[], _ftp
     owned.push(row);
     byOwner.set(key, owned);
   }
-  const representatives = new Set([...byOwner.values()].flatMap((owned) => dedupeSamePhysicalRides(owned).map((row) => row.activity)));
-  return activities.filter((activity) => representatives.has(activity));
+  const result = new Map<string, string>();
+  for (const owned of byOwner.values()) for (const group of groupSamePhysicalRides(owned)) {
+    const representative = pickPhysicalRideRepresentative(group);
+    for (const row of group) result.set(row.id, representative.id);
+  }
+  return result;
+}
+
+/** 거리·시간·횟수도 부하와 같은 대표를 사용한다. */
+export function acceptedPhysicalActivities(activities: readonly Activity[], _ftp?: number): Activity[] {
+  const representatives = physicalActivityRepresentativeIds(activities);
+  return activities.filter(activity => representatives.get(activity.id) === activity.id);
 }
 
 /** 거리·시간·횟수 통계는 서버 누적 통계와 같은 인입 정책을 먼저 적용한다.

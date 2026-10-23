@@ -24,7 +24,7 @@ function boundedRead<T>(request: Promise<T>, timers: Set<ReturnType<typeof globa
 }
 function unavailableActual(comparison: PlanLoadComparison): PlanLoadComparison {
   return { summary: { ...comparison.summary, actualTss: null, ratioPct: null, deltaTss: null },
-    days: comparison.days.map(row => ({ ...row, actualTss: null, ratioPct: null, deltaTss: null })) };
+    days: comparison.days.map(row => ({ ...row, actualTss: null, ratioPct: null, deltaTss: null, linkedLoads: undefined, fulfilledWeek: undefined })) };
 }
 
 /** 소유자 기록을 완전히 읽고 대표를 보강한 후에만 정확한 달성률을 제공한다. */
