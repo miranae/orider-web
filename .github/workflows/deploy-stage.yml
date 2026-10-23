@@ -1,6 +1,6 @@
 name: Deploy (Hosting → stage)
 
-# dev를 운영과 분리된 orider-dev Firebase 프로젝트에서 검증한다.
+# 개발 코드는 orider-dev Hosting에 배포하며 데이터·기능 기본값은 현재 운영 snapshot을 사용한다.
 on:
   push:
     branches:
@@ -23,54 +23,20 @@ jobs:
     runs-on: ubuntu-latest
     environment: stage
     env:
-      VITE_MODE: stage
-      # Stage uses STAGE_* values only. Do not fall back to production repository
-      # secrets/vars, otherwise OAuth/App Check issues are hidden until release.
-      VITE_FIREBASE_API_KEY: ${{ secrets.STAGE_VITE_FIREBASE_API_KEY }}
-      VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.STAGE_VITE_FIREBASE_AUTH_DOMAIN }}
-      VITE_FIREBASE_PROJECT_ID: ${{ vars.STAGE_VITE_FIREBASE_PROJECT_ID }}
-      VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.STAGE_VITE_FIREBASE_STORAGE_BUCKET }}
-      VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.STAGE_VITE_FIREBASE_MESSAGING_SENDER_ID }}
-      VITE_FIREBASE_APP_ID: ${{ secrets.STAGE_VITE_FIREBASE_APP_ID }}
-      VITE_FIREBASE_FUNCTIONS_BASE: ${{ vars.STAGE_VITE_FIREBASE_FUNCTIONS_BASE }}
-      # Optional; keep unset until the canonical Auth handlers/callbacks are approved.
-      VITE_SOCIAL_AUTH_FUNCTIONS_BASE: ${{ vars.STAGE_VITE_SOCIAL_AUTH_FUNCTIONS_BASE }}
-      VITE_FIREBASE_FUNCTIONS_REGION: ${{ vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION }}
-      VITE_STRAVA_CLIENT_ID: ${{ secrets.STAGE_VITE_STRAVA_CLIENT_ID }}
-      VITE_STRAVA_REDIRECT_URI: ${{ vars.STAGE_VITE_STRAVA_REDIRECT_URI }}
-      VITE_SEGMENT_TILES_BASE: ${{ vars.STAGE_VITE_SEGMENT_TILES_BASE }}
-      VITE_HEATMAP_BASE: ${{ vars.STAGE_VITE_HEATMAP_BASE }}
-      VITE_MAPBOX_TOKEN: ${{ secrets.STAGE_VITE_MAPBOX_TOKEN }}
-      VITE_APPCHECK_RECAPTCHA_SITE_KEY: ${{ secrets.STAGE_VITE_APPCHECK_RECAPTCHA_SITE_KEY }}
-      VITE_ORIDER_AI_API_BASE: ${{ vars.STAGE_VITE_ORIDER_AI_API_BASE }}
-      VITE_COACH_PROGRESS_PLANNER_ENABLED: ${{ vars.STAGE_VITE_COACH_PROGRESS_PLANNER_ENABLED }}
-      VITE_COACH_PMC_INSIGHT_ENABLED: ${{ vars.STAGE_VITE_COACH_PMC_INSIGHT_ENABLED }}
-      VITE_COACH_RIDER_INSIGHT_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDER_INSIGHT_ENABLED }}
-      VITE_TRAINING_DECISION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_DECISION_ENABLED }}
-      # Configure every STAGE_* variable explicitly as true/false. Keep rollout
-      # false until the stage canonicalRollout server document is ready.
-      VITE_TRAINING_DECISION_CANONICAL_ENABLED: ${{ vars.STAGE_VITE_TRAINING_DECISION_CANONICAL_ENABLED }}
-      VITE_CANONICAL_CONSUMERS_ENABLED: ${{ vars.STAGE_VITE_CANONICAL_CONSUMERS_ENABLED }}
-      VITE_CANONICAL_WEATHER: ${{ vars.STAGE_VITE_CANONICAL_WEATHER }}
-      VITE_CANONICAL_COURSE: ${{ vars.STAGE_VITE_CANONICAL_COURSE }}
-      VITE_CANONICAL_MAINTENANCE: ${{ vars.STAGE_VITE_CANONICAL_MAINTENANCE }}
-      VITE_CANONICAL_MILESTONES: ${{ vars.STAGE_VITE_CANONICAL_MILESTONES }}
-      VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED: ${{ vars.STAGE_VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED }}
-      VITE_TRAINING_ANALYSIS_PERIODS_ENABLED: ${{ vars.STAGE_VITE_TRAINING_ANALYSIS_PERIODS_ENABLED }}
-      VITE_CANONICAL_ROLLOUT_ENABLED: ${{ vars.STAGE_VITE_CANONICAL_ROLLOUT_ENABLED }}
-      VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_EXECUTION_ENABLED }}
-      VITE_RIDER_WORKOUT_DELIVERY_ENABLED: ${{ vars.STAGE_VITE_RIDER_WORKOUT_DELIVERY_ENABLED }}
-      VITE_COACH_RIDE_PLAN_TOKEN_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_TOKEN_ENABLED }}
-      VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_SNAPSHOT_ENABLED }}
-      VITE_COACH_RIDE_PLAN_AI_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_AI_ENABLED }}
-      VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED }}
+      VITE_MODE: production
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
         with:
           node-version: 24
           package-manager-cache: false
-      - name: Check isolated stage identity
+      - name: Set production runtime snapshot path
+        env:
+          PRODUCTION_RUNTIME_CONFIG_PATH: ${{ runner.temp }}/orider-production-runtime-config.json
+        run: echo "PRODUCTION_RUNTIME_CONFIG_PATH=$PRODUCTION_RUNTIME_CONFIG_PATH" >> "$GITHUB_ENV"
+      - name: Pin production data runtime and verify backend CORS
+        run: node scripts/prepare-production-data-runtime.mjs
+      - name: Check development Hosting and production data identity
         env:
           STAGE_FIREBASE_PROJECT_ID: ${{ vars.STAGE_FIREBASE_PROJECT_ID }}
         run: node scripts/check-isolated-stage.mjs
@@ -91,21 +57,6 @@ jobs:
           service_account: ${{ vars.STAGE_GCP_SERVICE_ACCOUNT }}
           token_format: access_token
           create_credentials_file: true
-      - name: Verify isolated stage analysis callable contract
-        env:
-          SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
-        run: >-
-          node scripts/verify-stage-analysis-callables.mjs
-          --project "${{ vars.STAGE_FIREBASE_PROJECT_ID }}"
-          --region "${{ vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION }}"
-      - name: Restore stage deploy authentication
-        id: deploy-auth
-        uses: google-github-actions/auth@v3
-        with:
-          workload_identity_provider: ${{ vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.STAGE_GCP_SERVICE_ACCOUNT }}
-          token_format: access_token
-          create_credentials_file: true
       - name: Deploy stage Hosting only
         run: |
           set -euo pipefail
@@ -116,7 +67,7 @@ jobs:
             --only hosting \
             --project "${{ vars.STAGE_FIREBASE_PROJECT_ID }}" \
             --non-interactive \
-            --token "${{ steps.deploy-auth.outputs.access_token }}" 2>&1 | tee firebase-stage-deploy.log
+            --token "${{ steps.auth.outputs.access_token }}" 2>&1 | tee firebase-stage-deploy.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -ne 0 ] && grep -q "is the current active version" firebase-stage-deploy.log; then
@@ -139,5 +90,10 @@ jobs:
           done
           if [ "$ok" != "1" ]; then
             echo "::error::stage가 방금 빌드한 번들($built)을 서빙하지 않음 — stale 배포/캐시."
+            exit 1
+          fi
+          curl -fsSL -H 'Cache-Control: no-cache' "https://orider-dev.web.app/runtime-config.json?cacheBust=${GITHUB_SHA}" -o "$RUNNER_TEMP/live-runtime-config.json"
+          if ! cmp -s dist/runtime-config.json "$RUNNER_TEMP/live-runtime-config.json"; then
+            echo "::error::개발 사이트의 runtime 설정이 고정한 운영 snapshot과 다릅니다."
             exit 1
           fi
