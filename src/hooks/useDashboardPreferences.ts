@@ -19,6 +19,7 @@ export const DEFAULT_DASHBOARD_PREFERENCES: DashboardPreferences = {
 };
 
 const STORAGE_PREFIX = "orider.dashboardPreferences.v1";
+const PREFERENCES_CHANGED_EVENT = "orider-dashboard-preferences-changed";
 
 function isOneOf<T extends string>(value: unknown, values: readonly T[]): value is T {
   return typeof value === "string" && values.includes(value as T);
@@ -69,6 +70,8 @@ export function updateDashboardPreferences(
     const resolvedStorage = storage ?? window.localStorage;
     const current = readDashboardPreferences(uid, resolvedStorage);
     resolvedStorage.setItem(dashboardPreferencesStorageKey(uid), JSON.stringify({ ...current, ...patch }));
+    // storage는 다른 탭에만 전달되므로 같은 탭의 홈에도 변경을 알린다.
+    if (!storage) window.dispatchEvent(new CustomEvent(PREFERENCES_CHANGED_EVENT, { detail: { uid } }));
     return true;
   } catch {
     return false;
@@ -95,6 +98,24 @@ export function useDashboardPreferences(uid: string | null, authLoading: boolean
     preferencesRef.current = next;
     setPreferences(next);
     setHydratedIdentity(uid ?? "guest");
+    if (!uid) return;
+    const restore = () => {
+      const restored = readDashboardPreferences(uid);
+      preferencesRef.current = restored;
+      setPreferences(restored);
+    };
+    const changed = (event: Event) => {
+      if ((event as CustomEvent<{ uid: string }>).detail?.uid === uid) restore();
+    };
+    const stored = (event: StorageEvent) => {
+      if (event.key === null || event.key === dashboardPreferencesStorageKey(uid)) restore();
+    };
+    window.addEventListener(PREFERENCES_CHANGED_EVENT, changed);
+    window.addEventListener("storage", stored);
+    return () => {
+      window.removeEventListener(PREFERENCES_CHANGED_EVENT, changed);
+      window.removeEventListener("storage", stored);
+    };
   }, [authLoading, uid]);
 
   const update = useCallback((patch: Partial<DashboardPreferences>) => {

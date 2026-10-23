@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { createInstance } from "i18next";
 import { I18nextProvider } from "react-i18next";
 import koCommon from "../../i18n/resources/ko/common.json";
@@ -6,14 +6,27 @@ import enCommon from "../../i18n/resources/en/common.json";
 import TopNav from "./TopNav";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import type { User } from "firebase/auth";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { searchPublicUserProfilesPage } from "../../services/publicProfiles";
 import MobileMenuSearch from "./MobileMenuSearch";
+import { AuthContextProvider, useAuth } from "../../contexts/AuthContext";
+import { readDashboardPreferences, updateDashboardPreferences, useDashboardPreferences } from "../../hooks/useDashboardPreferences";
 vi.mock("../../hooks/useGlobalSearch", () => ({ useGlobalSearch: () => ({ results: { activities: [], courses: [] } }) }));
 vi.mock("../../services/publicProfiles", () => ({ searchPublicUserProfilesPage: vi.fn() }));
-beforeEach(() => { sessionStorage.clear(); vi.mocked(searchPublicUserProfilesPage).mockReset(); });
+beforeEach(() => { sessionStorage.clear(); localStorage.clear(); vi.mocked(searchPublicUserProfilesPage).mockReset(); });
 function Location() { const location = useLocation(); return <output>{location.pathname}{location.search}</output>; }
+function MountedHomePreferences() {
+  const { user, loading } = useAuth();
+  const { preferences } = useDashboardPreferences(user?.uid ?? null, loading);
+  return <><div data-testid="home-preferences">{JSON.stringify(preferences)}</div><Link to="/ko/">홈으로</Link></>;
+}
+function ClosingMenuJourney() {
+  const [open, setOpen] = useState(true);
+  const { user } = useAuth();
+  return <>{open ? <MobileMenuSearch key={user?.uid ?? "guest"} onNavigate={() => setOpen(false)} /> : <button onClick={() => setOpen(true)}>메뉴 다시 열기</button>}<MountedHomePreferences /><Location /></>;
+}
 
 it.each([
   ["activities", "/ko/?q=test&scope=all&date=all&sport=all"], ["clubs", "/ko/clubs?q=test"], ["courses", "/ko/explore/courses?q=test"],
@@ -158,4 +171,64 @@ it("retains the current calendar year when submitting the shared activity date f
   expect(screen.getByRole("option", { name: "올해" })).toHaveValue("year");
   await userEvent.click(screen.getByRole("button", { name: "검색하기" }));
   expect(screen.getByRole("status").textContent).toBe("/ko/?scope=all&date=year&sport=all");
+});
+
+it("persists applied filters and reset for mounted home, bare-home navigation and reload", async () => {
+  updateDashboardPreferences("test-uid", { feedScope: "self", sportFilter: "bike", datePreset: "7d", workoutNarrativeExpanded: false });
+  const fixture = <ClosingMenuJourney />;
+  const view = renderWithProviders(fixture, { route: "/ko/", authenticated: true });
+  await userEvent.selectOptions(screen.getByLabelText("활동 범위"), "friends");
+  await userEvent.selectOptions(screen.getByLabelText("종목"), "run");
+  await userEvent.selectOptions(screen.getByLabelText("기간"), "30d");
+  await userEvent.click(screen.getByRole("button", { name: "검색하기" }));
+  expect(readDashboardPreferences("test-uid")).toEqual({ feedScope: "friends", sportFilter: "run", datePreset: "30d", workoutNarrativeExpanded: false });
+  expect(screen.getByTestId("home-preferences")).toHaveTextContent('"feedScope":"friends"');
+  await userEvent.click(screen.getByRole("button", { name: "메뉴 다시 열기" }));
+  await userEvent.click(screen.getByRole("button", { name: "검색 조건 초기화" }));
+  await userEvent.click(screen.getByRole("link", { name: "홈으로" }));
+  await userEvent.click(screen.getByRole("button", { name: "메뉴 다시 열기" }));
+  expect(screen.getByRole("status")).toHaveTextContent("/ko/");
+  expect(screen.getByTestId("home-preferences")).toHaveTextContent('"feedScope":"all"');
+  expect(readDashboardPreferences("test-uid")).toEqual({ feedScope: "all", sportFilter: "all", datePreset: "all", workoutNarrativeExpanded: false });
+  view.unmount();
+  renderWithProviders(fixture, { route: "/ko/", authenticated: true });
+  expect(screen.getByLabelText("활동 범위")).toHaveValue("all");
+  expect(screen.getByLabelText("종목")).toHaveValue("all");
+  expect(screen.getByLabelText("기간")).toHaveValue("all");
+  expect(screen.getByTestId("home-preferences")).toHaveTextContent('"feedScope":"all"');
+});
+
+it("keeps home preferences unchanged when applying or resetting another search category", async () => {
+  updateDashboardPreferences("test-uid", { feedScope: "self", sportFilter: "bike", datePreset: "7d" });
+  const saved = readDashboardPreferences("test-uid");
+  renderWithProviders(<MobileMenuSearch onNavigate={vi.fn()} />, { route: "/ko/", authenticated: true });
+  await userEvent.selectOptions(screen.getByLabelText("검색 대상"), "clubs");
+  await userEvent.selectOptions(screen.getByLabelText("종목"), "run");
+  await userEvent.click(screen.getByRole("button", { name: "검색하기" }));
+  await userEvent.click(screen.getByRole("button", { name: "검색 조건 초기화" }));
+  expect(readDashboardPreferences("test-uid")).toEqual(saved);
+});
+
+it("reopens reset drafts after the menu closes immediately from bare home", async () => {
+  updateDashboardPreferences("test-uid", { feedScope: "self", sportFilter: "bike", datePreset: "7d" });
+  renderWithProviders(<ClosingMenuJourney />, { route: "/ko/", authenticated: true });
+  expect(screen.getByLabelText("활동 범위")).toHaveValue("self");
+  await userEvent.click(screen.getByRole("button", { name: "검색 조건 초기화" }));
+  await userEvent.click(screen.getByRole("link", { name: "홈으로" }));
+  await userEvent.click(screen.getByRole("button", { name: "메뉴 다시 열기" }));
+  expect(screen.getByLabelText("활동 범위")).toHaveValue("all");
+  expect(screen.getByLabelText("종목")).toHaveValue("all");
+  expect(screen.getByLabelText("기간")).toHaveValue("all");
+});
+
+it.each([false, true])("does not persist activity filters for guest or anonymous sessions (%s)", async anonymous => {
+  const menu = <MobileMenuSearch onNavigate={vi.fn()} />;
+  renderWithProviders(anonymous ? <AuthContextProvider value={{
+    user: { uid: "anonymous", isAnonymous: true } as User,
+    profile: null, profileLoading: false, loading: false, signIn: vi.fn(), logout: vi.fn(),
+  }}>{menu}</AuthContextProvider> : menu, { route: "/ko/" });
+  await userEvent.selectOptions(screen.getByLabelText("종목"), "run");
+  await userEvent.click(screen.getByRole("button", { name: "검색하기" }));
+  await userEvent.click(screen.getByRole("button", { name: "검색 조건 초기화" }));
+  expect(Object.keys(localStorage).filter(key => key.startsWith("orider.dashboardPreferences.v1."))).toEqual([]);
 });

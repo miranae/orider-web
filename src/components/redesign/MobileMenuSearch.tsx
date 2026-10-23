@@ -9,7 +9,7 @@ import koBoard from "../../i18n/resources/ko/board.json";
 import enBoard from "../../i18n/resources/en/board.json";
 import { isSportUiEnabled } from "../../config/sportFeatures";
 import { useAuth } from "../../contexts/AuthContext";
-import { readDashboardPreferences } from "../../hooks/useDashboardPreferences";
+import { parseDashboardPreferences, readDashboardPreferences, updateDashboardPreferences } from "../../hooks/useDashboardPreferences";
 import { searchPublicUserProfilesPage, type PublicUserProfile } from "../../services/publicProfiles";
 
 const destinations = {
@@ -69,7 +69,7 @@ function routeCategory(path: string): SearchCategory | null {
 export default function MobileMenuSearch({ onNavigate }: { onNavigate: () => void }) {
   const { t, i18n } = useTranslation("common");
   const boardTabLabels = (i18n.resolvedLanguage ?? i18n.language).startsWith("ko") ? boardTabs.ko : boardTabs.en;
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useLocalizedNavigate();
   const location = useLocation();
   const storageKey = `orider.menuSearch.v1.${user?.uid ?? "guest"}`;
@@ -121,6 +121,25 @@ export default function MobileMenuSearch({ onNavigate }: { onNavigate: () => voi
   };
   const activeCount = Object.entries(draft).filter(([key, value]) => key === "q" ? value.trim() : value !== defaults[category][key]).length;
   const applyDestination = (values: Record<string, string>) => {
+    // 이동과 동시에 메뉴가 닫혀도 적용/초기화한 초안을 남긴다.
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify({
+        route: `${location.pathname}${location.search}`,
+        drafts: { ...drafts, [category]: values },
+      }));
+    } catch { /* 저장소가 없어도 URL 조건은 적용한다. */ }
+    if (category === "activities" && user && !user.isAnonymous && !authLoading) {
+      const preferences = parseDashboardPreferences({
+        feedScope: values.scope,
+        datePreset: values.date,
+        sportFilter: values.sport,
+      });
+      updateDashboardPreferences(user.uid, {
+        feedScope: preferences.feedScope,
+        datePreset: preferences.datePreset,
+        sportFilter: preferences.sportFilter,
+      });
+    }
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(values)) {
       if (value.trim() && (category === "activities" || value !== defaults[category][key])) params.set(key, value.trim());
