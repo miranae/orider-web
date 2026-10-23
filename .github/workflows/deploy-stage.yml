@@ -31,7 +31,9 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - name: Set production runtime snapshot path
-        run: echo "PRODUCTION_RUNTIME_CONFIG_PATH=$RUNNER_TEMP/orider-production-runtime-config.json" >> "$GITHUB_ENV"
+        env:
+          PRODUCTION_RUNTIME_CONFIG_PATH: ${{ runner.temp }}/orider-production-runtime-config.json
+        run: echo "PRODUCTION_RUNTIME_CONFIG_PATH=$PRODUCTION_RUNTIME_CONFIG_PATH" >> "$GITHUB_ENV"
       - name: Pin production data runtime and verify backend CORS
         run: node scripts/prepare-production-data-runtime.mjs
       - name: Check development Hosting and production data identity

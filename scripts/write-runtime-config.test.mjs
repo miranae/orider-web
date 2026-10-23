@@ -80,7 +80,7 @@ test("writes coordinated activity analysis expansion gate default-off and only e
 test("development uses the pinned production runtime instead of an independent activity analysis flag", () => {
   const stage = readFileSync(".github/workflows/deploy-stage.yml", "utf8");
   const production = readFileSync(".github/workflows/deploy.yml", "utf8");
-  assert.match(stage, /PRODUCTION_RUNTIME_CONFIG_PATH[=:]/);
+  assert.match(stage, /PRODUCTION_RUNTIME_CONFIG_PATH:/);
   assert.match(production, /VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED: \$\{\{ vars\.VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED \}\}/);
 });
 
