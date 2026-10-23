@@ -604,7 +604,7 @@
       "tie": "최고 타이",
       "firstRecord": "첫 기록",
       "collapse": "접기",
-    "more": "+{{count}}개 더"
+      "more": "+{{count}}개 더"
     },
     "temp": {
       "device": "실측",
@@ -979,7 +979,9 @@
       "paceConsistencyDesc": "페이스 표준편차(작을수록 일정)",
       "fastestKm": "최고 1km",
       "wPrimeBal": "W' 잔량 궤적",
-      "wPrimeBalMin": "최저 {{pct}}%"
+      "wPrimeBalMin": "최저 {{pct}}%",
+      "longestCoast": "최장 연속 코스팅",
+      "coastingTime": "페달을 쉰 시간"
     },
     "glossary": {
       "tss": "훈련 부하 점수 (Training Stress Score) — 강도와 시간을 합친 총 훈련 부하. 100 = FTP로 1시간.",
@@ -1297,7 +1299,16 @@
     "recordBasis": "KST 기준 · 연동된 저장 기록은 각각 표시하며, 훈련 부하는 같은 운동을 한 번만 반영합니다.",
     "estimateBasis": "추정 부하는 현재 프로필 FTP 또는 시간 기준이며, 서버에 저장된 부하와 다를 수 있습니다.",
     "totalElevation": "누적 상승고도",
-    "chooseFile": "파일 선택"
+    "chooseFile": "파일 선택",
+    "searchMonth": "선택한 달에서 활동 찾기",
+    "searchScope": "{{month}} · 선택 종목으로 불러온 기록의 이름·날짜·ID에서 검색합니다. 다른 달은 월을 이동해 확인하세요.",
+    "noMatching": "선택한 달과 종목에서 검색 결과가 없습니다.",
+    "clearSearch": "검색 지우기",
+    "previousPage": "이전 기록",
+    "nextPage": "다음 기록",
+    "recordPages": "활동 기록 페이지",
+    "dayPages": "이 날짜의 활동 페이지",
+    "pageStatus": "{{total}}개 중 {{from}}–{{to}} · {{page}}/{{pages}}페이지"
   },
   "import": {
     "modalTitle": "활동 업로드",
@@ -2719,7 +2730,7 @@
       "terrain": "속도·지형",
       "activityCalories": "총 소모 열량",
       "modelCalories": "파워 기반 연료 모델"
-},
+    },
     "technicalDetails": {
       "title": "상세 지표와 근거",
       "description": "센서 지표, 개인 기록 비교, 피크 기록과 계산 근거를 확인하세요."
@@ -2736,7 +2747,6 @@
     "distanceShort": "거리",
     "elapsedShort": "시간"
   },
-
   "overviewSocial": {
     "title": "활동 이야기",
     "zoomIn": "확대",
@@ -2756,5 +2766,6 @@
     "noResults": "표시할 주요 성과가 없어요.",
     "previousPhoto": "이전 사진",
     "nextPhoto": "다음 사진"
-  }
+  },
+  "detail.keyRecords": "핵심 기록"
 }

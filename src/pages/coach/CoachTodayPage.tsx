@@ -1,3 +1,4 @@
+import PlanRecordNavigation from "../../features/training/plan/PlanRecordNavigation";
 import { useRun30Start, type Run30StartMode } from "../../features/training/run30/run30Start";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
@@ -72,6 +73,7 @@ export default function CoachTodayPage() {
   const loading = model.loading || !model.timeseriesLoaded;
   return <div className="site-shell fitness-reading" style={{ padding: "var(--space-5) var(--space-4)" }}>
     {header}
+    <PlanRecordNavigation />
     <TodayTrainingDecisionSource user={user} discipline={sport}>{state => {
       const hasScheduled = Boolean(state.decision?.scheduledSessions.length);
       const healthBlocked = state.decision != null && state.decision.healthGate.state !== "clear";

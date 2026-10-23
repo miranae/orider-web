@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { chooseDropdown, chooseDate } from "../fitnessControlTestUtils";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -20,6 +21,44 @@ describe("NativePowerTwelvePersonalView",()=>{
   expect(p.onPeriods).toHaveBeenLastCalledWith([{...p.periods[0]!,fromInclusiveMs:Date.UTC(2026,9,10)}]);
   chooseDate(end,"2026-10-10");
   expect(p.onPeriods).toHaveBeenLastCalledWith([{...p.periods[0]!,toExclusiveMs:Date.UTC(2026,9,11)}]);
+  expect(p.onInspect).not.toHaveBeenCalled();expect(p.onLoad).not.toHaveBeenCalled();
+ });
+
+ it("shows the empty source without candidates or page controls",()=>{
+  const p=props();p.activities=[];
+  render(<MemoryRouter><NativePowerTwelvePersonalView {...p}/></MemoryRouter>);
+  expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button",{name:"다음 활동"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  expect(p.onInspect).not.toHaveBeenCalled();expect(p.onLoad).not.toHaveBeenCalled();
+ });
+ it("bounds a thousand candidates, searches all loaded activities and preserves selections across pages",()=>{
+  const p=props();p.activities=Array.from({length:1000},(_,index)=>({activityId:`activity_${index+1}`,title:`라이딩 ${index+1}`,headBinding:String(index)}));
+  function Controlled(){const [selectedIds,onSelect]=useState<string[]>([]);return <NativePowerTwelvePersonalView {...p} selectedIds={selectedIds} onSelect={ids=>{p.onSelect(ids);onSelect(ids);}}/>;}
+  render(<MemoryRouter><Controlled/></MemoryRouter>);
+  expect(screen.getAllByRole("checkbox")).toHaveLength(20);
+  expect(screen.getByRole("button",{name:"이전 활동"})).toBeDisabled();
+  fireEvent.click(screen.getByRole("checkbox",{name:"라이딩 1"}));
+  fireEvent.click(screen.getByRole("button",{name:"다음 활동"}));
+  expect(screen.getAllByRole("checkbox")).toHaveLength(20);
+  expect(screen.queryByRole("checkbox",{name:"라이딩 1"})).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("checkbox",{name:"라이딩 21"}));
+  expect(screen.getByRole("checkbox",{name:"라이딩 22"})).toBeDisabled();
+  fireEvent.click(screen.getByRole("button",{name:"이전 활동"}));
+  expect(screen.getByRole("checkbox",{name:"라이딩 1"})).toBeChecked();
+  const search=screen.getByRole("searchbox",{name:"불러온 활동 검색"});
+  fireEvent.change(search,{target:{value:"activity_1000"}});
+  expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+  expect(screen.getByRole("checkbox",{name:"라이딩 1000"})).toBeDisabled();
+  expect(screen.queryByRole("button",{name:"다음 활동"})).not.toBeInTheDocument();
+  fireEvent.change(search,{target:{value:"없는 활동"}});
+  expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  expect(screen.getByText("일치하는 활동이 없습니다.")).toBeInTheDocument();
+  fireEvent.change(search,{target:{value:""}});
+  expect(screen.getAllByRole("checkbox")).toHaveLength(20);
+  expect(screen.getByRole("checkbox",{name:"라이딩 1"})).toBeChecked();
+  expect(p.onSelect).toHaveBeenLastCalledWith(["activity_1","activity_21"]);
+  expect(p.onSelect).toHaveBeenCalledTimes(2);
   expect(p.onInspect).not.toHaveBeenCalled();expect(p.onLoad).not.toHaveBeenCalled();
  });
 

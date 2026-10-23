@@ -31,7 +31,7 @@ const storedPoints = lifecycle === "processed" ? basePoints : basePoints.slice(0
 const wire: FitnessTimeseriesDoc = {
   discipline: "bike", schemaVersion: 1, computedAt, points: storedPoints,
   startDate: storedPoints[0].date, endDate: storedPoints[storedPoints.length - 1].date, pointCount: storedPoints.length,
-  loadSnapshot: { inputRevision: 2, inputDigest: "fixture-input-2", asOf: computedAt,
+  loadSnapshot: { inputRevision: 2, inputDigest: "a".repeat(64), asOf: computedAt,
     inputReadTime: { seconds: computedAt / 1000, nanoseconds: 0 },
     coverageStartDate: basePoints[0].date, coverageEndDate: today,
     points: basePoints.map(point => ({ date: point.date, dailyLoad: point.date === today ? 70 : point.dailyLoad,

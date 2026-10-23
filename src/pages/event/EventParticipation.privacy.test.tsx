@@ -39,7 +39,7 @@ function show(component: React.ReactNode) {
   return render(<MemoryRouter initialEntries={["/ko/event/ev"]}><RouteControl /><Routes><Route path="/:lang/event/:eventId" element={component} /></Routes></MemoryRouter>);
 }
 async function expectFocusedTooltip(trigger: HTMLElement, description: string) {
-  await act(async () => { trigger.focus(); });
+  await act(async () => { trigger.focus(); fireEvent.click(trigger); });
   expect(trigger).toHaveFocus();
   await waitFor(() => expect(trigger).toHaveAttribute("aria-describedby"));
   const tooltipId = trigger.getAttribute("aria-describedby");

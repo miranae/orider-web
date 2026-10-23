@@ -1,0 +1,7 @@
+.coach-detail-entry { margin-top: var(--space-4); }
+.coach-detail { position: fixed; inset: 0; z-index: var(--layer-modal); background: var(--bg-0); }
+.coach-detail[hidden] { display: none; }
+.coach-detail__panel { display: flex; flex-direction: column; height: 100%; min-width: 0; }
+.coach-detail__header { display: flex; align-items: center; gap: var(--space-3); padding: max(var(--space-2), env(safe-area-inset-top)) var(--space-3) var(--space-2); border-bottom: var(--dim-divider-thickness) solid var(--line-soft); background: var(--bg-1); }
+.coach-detail__header h2 { margin: 0; overflow-wrap: anywhere; min-width: 0; }
+.coach-detail__body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--space-4) var(--space-4) max(var(--space-5), env(safe-area-inset-bottom)); }

@@ -1,4 +1,5 @@
 import {
+  Activity,
   Database,
   KeyRound,
   Link2,
@@ -34,6 +35,7 @@ export interface NavGroupDef {
 export const SECTION_IDS: SectionId[] = [
   "account",
   "device",
+  "training",
   "connections",
   "developer",
   "display",
@@ -52,6 +54,7 @@ export const NAV_GROUPS: NavGroupDef[] = [
     items: [
       { id: "account", icon: UserIcon, labelKey: "nav.accountLabel", hintKey: "nav.accountHint" },
       { id: "device", icon: Smartphone, labelKey: "nav.deviceLabel", hintKey: "nav.deviceHint" },
+      { id: "training", icon: Activity, labelKey: "nav.trainingLabel", hintKey: "nav.trainingHint" },
     ],
   },
   {

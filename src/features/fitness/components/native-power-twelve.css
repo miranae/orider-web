@@ -12,3 +12,5 @@
 .native-twelve-table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
 .native-twelve-table th, .native-twelve-table td { padding: var(--space-3); border-bottom: 1px solid var(--line-soft); text-align: start; vertical-align: top; }
 @media (max-width: 30rem) { .native-twelve-values { grid-template-columns: minmax(0, 1fr); } .native-twelve-candidate { align-items: start; } }
+
+.native-twelve-finder, .native-twelve-activity-pagination { display: grid; gap: var(--space-2); margin-block: var(--space-3); min-inline-size: 0; }

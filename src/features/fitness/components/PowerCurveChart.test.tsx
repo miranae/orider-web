@@ -36,7 +36,21 @@ it("uses shared tooltip content for hover and keyboard-accessible selected value
   expect(screen.getByRole("tooltip")).toHaveTextContent("330 W");
   fireEvent.pointerLeave(container.querySelector('circle[fill="transparent"]')!);
   fireEvent.focus(screen.getByRole("button"));
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button"));
   expect(screen.getByRole("tooltip")).toHaveTextContent("320 W");
   fireEvent.keyDown(document, { key: "Escape" });
   expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+});
+
+
+it("stable sources keep both slots present across duration changes and preserve links", () => {
+  const { container } = render(<PowerCurveChart stableSelection current={[{ durationSeconds: 60, maxPower: 500, sourceActivityId: "one", startTime: 1000 }, { durationSeconds: 300, maxPower: 300 }]} previous={[]} />);
+  const values = container.querySelector('[data-stable]')!;
+  expect(values.querySelectorAll('.power-curve-evidence__source')).toHaveLength(2);
+  expect(screen.getAllByText('powerCurve.sourceUnavailable')).toHaveLength(2);
+  chooseDropdown(screen.getByRole('combobox'), 'duration.min 1');
+  expect(values.querySelectorAll('.power-curve-evidence__source')).toHaveLength(2);
+  expect(screen.getByRole('link')).toHaveAttribute('href', '/activity/one');
+  expect(screen.getAllByText('powerCurve.sourceUnavailable')).toHaveLength(1);
 });

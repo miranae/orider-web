@@ -26,6 +26,8 @@ export interface MobileFitnessPdcSummary {
 }
 
 interface BikePerformanceSummaryCardProps {
+  compact?: boolean;
+  stableDetails?: boolean;
   part?: "all" | "condition" | "analysis";
   decision?: BikeThresholdDecision;
   pdc?: MobileFitnessPdcSummary | null;
@@ -44,7 +46,7 @@ const RIDER_TYPE_KEYS = new Set([
 ]);
 
 
-export default function BikePerformanceSummaryCard({ part = "all", decision, pdc, weightKg, progression = [], ftpHistory = [], ftpDecision = null, ftpReceipt = null, ftpDeviceReceipts = [], decisionBusy = false, onAcceptDecision = () => undefined }: BikePerformanceSummaryCardProps) {
+export default function BikePerformanceSummaryCard({ part = "all", compact = false, stableDetails = false, decision, pdc, weightKg, progression = [], ftpHistory = [], ftpDecision = null, ftpReceipt = null, ftpDeviceReceipts = [], decisionBusy = false, onAcceptDecision = () => undefined }: BikePerformanceSummaryCardProps) {
   const { t } = useTranslation("dashboard");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const evidenceId = useId();
@@ -80,6 +82,8 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
     { key: "tte", label: t("mobileFitness.performance.metrics.tte"), value: decision?.tteMin ?? null, unit: t("fitness:thresholdDecision.minuteUnit"), status: decision?.tteMin != null ? t("mobileFitness.performance.estimated") : t("mobileFitness.performance.insufficient") },
     { key: "vo2max", label: "VO₂max", value: vo2max, unit: "ml/kg/min", status: vo2max != null ? t("mobileFitness.performance.estimated") : t("mobileFitness.performance.insufficient") },
   ];
+  const displayedMetrics = metrics.filter(metric => metric.key !== "vo2max" || part !== "analysis" && (part !== "condition" || pdc?.vo2maxEst == null));
+  const missingMetrics = displayedMetrics.filter(metric => metric.value == null);
   return (
     <Section className="mobile-fitness-performance" title={<GlossaryText>{t("mobileFitness.performance.title")}</GlossaryText>} aria-label={t("mobileFitness.performance.ariaLabel")}>
       {part !== "analysis" && <>
@@ -110,7 +114,7 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
       </div>
       </>}
       <div className="mobile-fitness-performance__metrics">
-        {metrics.filter(metric => metric.key !== "vo2max" || part !== "analysis" && (part !== "condition" || pdc?.vo2maxEst == null)).map((metric) => (
+        {displayedMetrics.filter(metric => !compact || metric.value != null).map((metric) => (
           <div key={metric.key} data-performance-metric={metric.key} className="mobile-fitness-performance__metric">
             <Stat compact label={<GlossaryText>{metric.label}</GlossaryText>} value={metric.value ?? "—"} unit={metric.value == null ? undefined : metric.unit} />
             <Text as="div" variant="caption" tone="tertiary" style={{ marginTop: "var(--space-1)" }}><GlossaryText>{metric.status}</GlossaryText></Text>
@@ -118,14 +122,17 @@ export default function BikePerformanceSummaryCard({ part = "all", decision, pdc
         ))}
       </div>
 
+      {compact && missingMetrics.length > 0 && <Text as="p" variant="bodySmall" tone="secondary" style={{ marginTop: "var(--space-3)" }}>
+        <GlossaryText>{t("mobileFitness.performance.missingMetrics", { metrics: missingMetrics.map(metric => metric.label).join(" · ") })}</GlossaryText>
+      </Text>}
       {part === "condition" && <div className="mobile-fitness-performance__candidate" style={{ marginTop: "var(--space-3)" }}>
         <Text as="h3" variant="subtitle">{t("fitness:thresholdDecision.candidateLabel")}</Text>
-        <Text as="div" variant="dataMedium">{decision?.automaticCandidateW ?? "—"}{decision?.automaticCandidateW != null ? " W" : ""}</Text>
+        {(!compact || decision?.automaticCandidateW != null) && <Text as="div" variant="dataMedium">{decision?.automaticCandidateW ?? "—"}{decision?.automaticCandidateW != null ? " W" : ""}</Text>}
         <Text as="p" variant="caption" tone="secondary">{decision?.automaticCandidateW != null ? t("fitness:thresholdDecision.candidateSub", { count: decision.activityCount }) : t("fitness:thresholdDecision.noCandidate")}</Text>
         <Text as="p" variant="caption" tone="secondary">{t("fitness:thresholdDecision.modelOnly")}</Text>
       </div>}
       {part !== "analysis" && <>
-      <div className="mobile-fitness-performance__trend"><FtpProgressionCard points={progression} history={ftpHistory} currentFtpW={activeFtp} breakthrough={null} embedded compact showHistory={part === "condition"} /></div>
+      <div className="mobile-fitness-performance__trend"><FtpProgressionCard points={progression} history={ftpHistory} currentFtpW={activeFtp} breakthrough={null} embedded compact stableSelection={stableDetails} showHistory={part === "condition" || stableDetails} /></div>
 
       <BikeFtpDecisionActionPanel
         decision={ftpDecision}

@@ -1036,8 +1036,8 @@ export function useFitnessModel(
       .filter((point) => point.maxPower > 0)
       .map((point) => ({ durationSeconds: point.durationSeconds, maxPower: Math.round(point.maxPower) }));
     let threshold: MobileFitnessData["threshold"] = null;
-    if (discipline === "run" && profile?.thresholdPace) {
-      threshold = { label: t("mobile.threshold.runLabel"), value: secToMmss(profile.thresholdPace), unit: "/km", sub: t("mobile.threshold.runSub") };
+    if (discipline === "run" && runEvidence.thresholdPaceSec != null) {
+      threshold = { label: t("mobile.threshold.runLabel"), value: secToMmss(runEvidence.thresholdPaceSec), unit: "/km", sub: t(userFitness?.thresholds?.run?.thresholdPace != null ? "mobile.threshold.runCanonicalSub" : "mobile.threshold.runProfileSub") };
     } else if (discipline === "swim" && profile?.css) {
       threshold = { label: "CSS", value: secToMmss(profile.css), unit: "/100m", sub: t("mobile.threshold.swimSub") };
     } else if (discipline === "bike" && ftp > 0) {
@@ -1105,7 +1105,7 @@ export function useFitnessModel(
     canonicalFtpW, canonicalRiderView, combinedLoad, currentPoint, cyclingAbility, hasCanonicalTimeseries,
     discipline, zoneActivities, fitnessClock, fitnessDateKeyBasis, ftpHistory, integratedLoadFocus, mayUsePersistedPdcFallback,
     metricsMap, mobileZoneDistribution, zoneEvidence, ownerRiderBlock, pdc, powerCurveProgressions, profile, projection,
-    runEvidence, swimEvidence, t, thresholdDecision, weeklyStats,
+    runEvidence, swimEvidence, t, thresholdDecision, userFitness, weeklyStats,
   ]);
 
   return {

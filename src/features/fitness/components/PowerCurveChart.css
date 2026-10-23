@@ -32,3 +32,5 @@
 @media (max-width: 48rem) {
   .power-curve-evidence__chart { height: calc(var(--space-8) * 4.5); }
 }
+
+.power-curve-evidence__values[data-stable] .power-curve-evidence__source { height: 3.5rem; overflow-y: auto; }

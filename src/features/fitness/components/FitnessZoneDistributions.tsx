@@ -17,7 +17,7 @@ export interface FitnessZoneEvidence {
   power: FitnessZoneSeries;
 }
 
-export function FitnessZoneDistributions({ evidence }: { evidence: FitnessZoneEvidence }) {
+export function FitnessZoneDistributions({ evidence, compact = false }: { evidence: FitnessZoneEvidence; compact?: boolean }) {
   const { t, i18n } = useTranslation("fitness");
   const date = (time: number) => new Date(time).toLocaleDateString(i18n.language);
   return <div className="fitness-zone-evidence">
@@ -26,6 +26,9 @@ export function FitnessZoneDistributions({ evidence }: { evidence: FitnessZoneEv
       const boundaries = kind === "hr" ? evidence.hr.boundaries : null;
       const names = kind === "hr" ? ["hrZone.recovery", "hrZone.endurance", "hrZone.tempo", "hrZone.threshold", "hrZone.vo2max"]
         : ["zone.recovery", "zone.endurance", "zone.tempo", "zone.threshold", "zone.vo2max", "zone.anaerobic", "zone.neuromuscular"];
+      if (compact && !series.counts?.length) return <Text as="p" key={kind} variant="bodySmall" tone="secondary">
+        {t(`zoneEvidence.${kind}`)} · {t("zoneEvidence.unknown")} {t("zoneEvidence.records", { count: series.recordCount, missing: series.missingCount })} · {t("zoneEvidence.period", { days: evidence.windowDays, start: date(evidence.startTime), end: date(evidence.endTime) })}
+      </Text>;
       return <Card key={kind} className="fitness-zone-evidence__card">
         <ChartHeader size="compact" title={<h3>{t(`zoneEvidence.${kind}`)}</h3>} />
         <Text as="p" variant="body" tone="secondary">{t("zoneEvidence.period", { days: evidence.windowDays, start: date(evidence.startTime), end: date(evidence.endTime) })}</Text>

@@ -108,7 +108,7 @@ describe("course preparation climb predictions", () => {
     render(<MemoryRouter initialEntries={[`/${language}/course/course-climb?tab=prepare`]}><CoursePage /></MemoryRouter>);
     await screen.findByText("Climbing course");
     const maxGrade = screen.getByRole("button", { name: language === "ko" ? "최대경사" : "Max. Grade" });
-    fireEvent.mouseEnter(maxGrade);
+    fireEvent.click(maxGrade);
     expect(screen.getByRole("tooltip")).toHaveTextContent("100");
     fireEvent.mouseLeave(maxGrade);
     const preparation = await screen.findByTestId("D2-2");

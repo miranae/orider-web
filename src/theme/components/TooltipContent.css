@@ -26,3 +26,13 @@
   letter-spacing: normal;
   line-height: 1.5;
 }
+
+/* Help actions remain reachable while a long definition scrolls. */
+.ds-help-popover .ds-help-popover__close {
+  position: sticky;
+  top: 0;
+  display: flex;
+  margin-inline-start: auto;
+  background: var(--bg-1);
+  z-index: 1;
+}

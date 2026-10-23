@@ -1,0 +1,9 @@
+.plan-day-load-comparison {
+  display: grid;
+  gap: var(--space-1);
+  padding-block: var(--space-2);
+  overflow-wrap: anywhere;
+}
+.plan-day-load-comparison p {
+  margin: 0;
+}

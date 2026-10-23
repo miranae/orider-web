@@ -49,7 +49,8 @@ it("forwards the actual target date through the mobile wrapper instead of markin
   const date = Date.now() + 86400000;
   const goal = { ...week.days[0]!, date, workout: "goal" as const };
   renderWithProviders(<MobilePlanPage currentWeek={{ ...week, days: [goal, { ...goal, date: date + 7 * 86400000 }] }} weekLabel="W1" goalDate={new Date(date)} />);
-  expect(screen.getAllByText("목표일")).toHaveLength(2);
+  expect(screen.getAllByText("목표일")).toHaveLength(1);
+  expect(screen.queryByTestId("K4-5m-2")).not.toBeInTheDocument();
   expect(screen.getByText("목표 운동")).toBeInTheDocument();
 });
 

@@ -2,9 +2,9 @@ import { forwardRef, type HTMLAttributes } from 'react';
 import { Button, type ButtonProps } from './Button';
 import { cn } from './cn';
 
-export type ControlToolbarProps = HTMLAttributes<HTMLDivElement>;
-export function ControlToolbar({ className, role = 'group', ...props }: ControlToolbarProps) {
-  return <div role={role} className={cn('ds-control-toolbar', className)} {...props} />;
+export type ControlToolbarProps = HTMLAttributes<HTMLDivElement> & { layout?: 'default' | 'navigation' };
+export function ControlToolbar({ className, role = 'group', layout = 'default', ...props }: ControlToolbarProps) {
+  return <div role={role} className={cn('ds-control-toolbar', layout === 'navigation' && 'ds-control-toolbar--navigation', className)} {...props} />;
 }
 
 export interface ToolbarGroupProps extends HTMLAttributes<HTMLDivElement> { separator?: boolean }

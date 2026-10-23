@@ -84,6 +84,10 @@ function ConditionFixture({ sport = "bike", thresholdsSlot }: { sport?: string; 
   return <FitnessView model={useFitnessModel(sport)} part="condition" thresholdsSlot={thresholdsSlot} />;
 }
 
+function AnalysisFixture({ sport = "bike" }: { sport?: string } = {}) {
+  return <FitnessView model={useFitnessModel(sport)} part="analysis" />;
+}
+
 function seedWindowLoad(entries: Array<{ activityId: string; activityType: string; discipline: "bike" | "run"; startTime: number; load: number }>) {
   setDocData("users/test-uid/fitness/activity_window", {version: 1, windowDays: 90, maxEntries: 768, generation: 1, updatedAt: Date.now(), truncated: false,
     entries: entries.map(({load, ...entry}) => ({...entry, hrZoneSec: null, powerZoneSec: null, mmp: {}, swolf: null, distancePerStroke: null,
@@ -975,25 +979,15 @@ describe("FitnessPage", () => {
           nextAction: { code: "record_power_ride" }, requirements: [] }),
       ]) });
 
-    it.each(["bike", "run"])("컨디션 %s에는 해당 종목의 PDC 요건만 표시한다", async sport => {
+    it.each(["bike", "run"])("컨디션 %s는 상세 수행 분석을 중복 노출하지 않는다", async sport => {
       viewport.isMobile = false;
-      setDocData("users/test-uid/fitness/pdc_bike", { ...emptyPdc(), sufficiency: sufficiencySet([
-        sufficiencyBlock(),
-        sufficiencyBlock({ featureId: "power_model", viewId: "cp_w_prime" }),
-        sufficiencyBlock({ featureId: "rider_profile", viewId: "profile" }),
-        sufficiencyBlock({ featureId: "ftp_estimate", viewId: "current" }),
-      ]) });
+      setDocData("users/test-uid/fitness/pdc_bike", emptyPdc());
       setCollectionDocs("activities", [{ id: "scope-activity", userId: "test-uid", type: sport === "bike" ? "Ride" : "Run", startTime: Date.now(), deletedAt: null, summary: { distance: 5000 } }]);
       renderWithProviders(<ConditionFixture sport={sport} />, { authenticated: true, route: `/ko/coach/condition?sport=${sport}` });
-      if (sport === "bike") {
-        expect(await screen.findByTestId("condition-metrics-sufficiency-power_model-cp_w_prime")).toBeVisible();
-        expect(screen.getByTestId("condition-metrics-sufficiency-ftp_estimate-current")).toBeVisible();
-        expect(await screen.findByTestId("K1-4-2")).toBeVisible();
-      } else {
-        expect(await screen.findByRole("heading", { name: "러닝 원본 기록 · 출처 확인" })).toBeVisible();
-        expect(screen.queryByTestId("condition-metrics-sufficiency")).not.toBeInTheDocument();
-        expect(await screen.findByTestId("K1-4-2")).toHaveTextContent("전체 종목 운동 루틴");
-      }
+      await screen.findByTestId("K1-4-2");
+      expect(document.getElementById("condition-metrics")).toBeNull();
+      expect(screen.queryByRole("heading", { name: "러닝 원본 기록 · 출처 확인" })).not.toBeInTheDocument();
+      expect(screen.queryByTestId("K5-2-2")).not.toBeInTheDocument();
     });
 
     it("데스크톱 K5-1 의 비어 있던 자리에 블록이 선다", async () => {
@@ -1054,55 +1048,37 @@ describe("FitnessPage", () => {
       expect(screen.getByTestId("K1-2-sufficiency-action").getAttribute("href")).toContain("/settings/connections");
     });
 
-    it("컨디션에서 VO2max와 파워 커브 및 존을 접지 않고 복원한다", async () => {
+    it("분석이 VO2max와 두 기간 파워 비교 및 존의 대표 위치가 된다", async () => {
       viewport.isMobile = false;
       setDocData("users/test-uid/fitness/pdc_bike", parity.persistedPdc);
       setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride", startTime: Date.now(), deletedAt: null, summary: { distance: 20_000, ridingTimeMillis: 3_600_000 } }]);
-      const { container } = renderWithProviders(<ConditionFixture />, { authenticated: true, route: "/ko/coach/condition?sport=bike" });
+      renderWithProviders(<AnalysisFixture />, { authenticated: true, route: "/ko/coach/analysis?sport=bike" });
       expect(await screen.findByText("~56")).toBeInTheDocument();
-      expect(screen.getByTestId("K5-2-2")).toBeInTheDocument();
-      expect(screen.getByText("심박 존 분포")).toBeInTheDocument();
-      expect(container.querySelector(".condition-riding-metrics details")).toBeNull();
-      const curve = screen.getByTestId("K5-2-2");
-      const periods = screen.getByRole("region", { name: "기간별 실측 파워 비교" });
-      const zones = screen.getByRole("heading", { name: "심박 존 분포" });
-      expect(curve.compareDocumentPosition(periods) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(periods.compareDocumentPosition(zones) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-      expect(screen.getAllByTestId("K5-5")).toHaveLength(1);
-      const navigation = screen.getByRole("navigation", { name: "구간 바로가기" });
-      expect(screen.getAllByRole("navigation", { name: "구간 바로가기" })).toHaveLength(1);
-      for (const anchor of navigation.querySelectorAll("a")) {
-        expect(document.getElementById(anchor.getAttribute("href")!.slice(1))).not.toBeNull();
-      }
-
+      expect(screen.getByRole("region", { name: "라이더 타입 · 역량과 성향" }).closest("#analysis-model")).not.toBeNull();
+      expect(document.getElementById("analysis-comparison")).toHaveTextContent("파워 커브");
+      expect(screen.queryByTestId("K5-2-2")).not.toBeInTheDocument();
+      expect(document.getElementById("analysis-periods")?.querySelector(".fitness-zone-evidence")).not.toBeNull();
+      expect(screen.getByRole("region", { name: "기간별 실측 파워 비교" }).closest("#analysis-periods")).not.toBeNull();
       expect(screen.getByRole("button", { name: "기간 분석 불러오기" })).toBeDisabled();
+      expect(screen.queryByRole("combobox", { name: "분석할 라이딩" })).not.toBeInTheDocument();
     });
 
-    it("컨디션은 VO2max 값이 없어도 정의와 단위 및 미확인 상태를 남긴다", async () => {
+    it("분석은 VO2max 결측을 수치로 채우지 않고 정의와 단위를 보존한다", async () => {
       viewport.isMobile = false;
       setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride", startTime: Date.now(), deletedAt: null, summary: { distance: 20_000 } }]);
-      renderWithProviders(<ConditionFixture />, { authenticated: true, route: "/ko/coach/condition?sport=bike" });
-      expect(await screen.findByText(/VO₂max는 최대 산소 섭취량/)).toBeInTheDocument();
+      renderWithProviders(<AnalysisFixture />, { authenticated: true, route: "/ko/coach/analysis?sport=bike" });
+      expect(await screen.findByText("PDC 기반 VO2max 추정")).toBeInTheDocument();
       expect(screen.getAllByText("ml/kg/min").length).toBeGreaterThan(0);
     });
 
-    it("컨디션 러닝에 기록 보드와 마일스톤을 복원하고 축하 쓰기는 활성화하지 않는다", async () => {
+    it("분석 러닝에서 기록 보드와 마일스톤을 보존하고 축하 쓰기는 활성화하지 않는다", async () => {
       viewport.isMobile = false;
       setCollectionDocs("activities", [{ id: "run-1", userId: "test-uid", type: "Run", startTime: Date.now(), deletedAt: null, summary: { distance: 5_000 } }]);
-      renderWithProviders(<ConditionFixture sport="run" />, { authenticated: true, route: "/ko/coach/condition?sport=run" });
+      renderWithProviders(<AnalysisFixture sport="run" />, { authenticated: true, route: "/ko/coach/analysis?sport=run" });
       expect(await screen.findByRole("heading", { name: "러닝 원본 기록 · 출처 확인" })).toBeInTheDocument();
-      expect(await screen.findByRole("heading", { name: "러닝 분석 준비" })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "러닝 훈련 기준 설정" })).toHaveAttribute("href", "/ko/coach/condition?sport=run#thresholds");
       expect(screen.getByTestId("K5-4-2")).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
-      expect(screen.getByText("마일스톤")).toBeInTheDocument();
-      const runEvidence = screen.getByTestId("K5-4");
-      expect(runEvidence.closest("#condition-metrics")).not.toBeNull();
-      const load = document.getElementById("condition-load");
-      expect(load?.compareDocumentPosition(runEvidence)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-      expect(screen.getByRole("navigation", { name: "구간 바로가기" })).toContainElement(screen.getByRole("link", { name: /러닝 지표/ }));
-      expect(screen.getAllByRole("navigation", { name: "구간 바로가기" })).toHaveLength(1);
-      expect(screen.getByRole("navigation", { name: "구간 바로가기" }).querySelector('[href="#condition-current"], [href="#condition-trend"], [href="#condition-activities"]')).toBeNull();
-
+      expect(screen.getByText("마일스톤").closest("#analysis-run-records")).not.toBeNull();
+      expect(screen.queryByRole("navigation", { name: "구간 바로가기" })).not.toBeInTheDocument();
     });
 
     it("모바일 컨디션에도 원본 기록 보드와 마일스톤 슬롯을 전달한다", async () => {

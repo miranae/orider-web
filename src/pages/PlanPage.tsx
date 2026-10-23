@@ -1,10 +1,13 @@
 import { isSportUiEnabled } from "../config/sportFeatures";
-import { Text } from "../theme/components";
+import PlanComparisonReturn from "../features/training/plan/PlanComparisonReturn";
+import PlanRecordNavigation from "../features/training/plan/PlanRecordNavigation";
+import PlanLoadComparison from "../features/training/plan/PlanLoadComparisonPanel";
+import { Button, Text } from "../theme/components";
 import { planDayKey } from "@shared/training/planDate";
 import { LocalizedLink } from "../components/LocalizedLink";
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
 import { doc, updateDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 
@@ -46,14 +49,23 @@ export default function PlanPage() {
   const { t, i18n } = useTranslation("training");
   const { t: tActivity } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { firestore, functions } = useFirebaseServices();
   const { showToast } = useToast();
   const dialog = useDialog();
   const navigate = useNavigate();
   const isMobile = useMobile();
   const [searchParams] = useSearchParams();
-  const model = usePlanModel(isSportUiEnabled(searchParams.get("sport") ?? "bike") ? searchParams.get("sport") : "bike");
+  const location = useLocation();
+  const requestedSport = searchParams.get("sport");
+  const planSport = requestedSport === "run" || requestedSport === "swim" && isSportUiEnabled(requestedSport) ? requestedSport : "bike";
+  const model = usePlanModel(planSport);
+  useEffect(() => {
+    if (requestedSport == null || requestedSport === planSport) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("sport", planSport);
+    navigate(`${location.pathname}?${next}${location.hash}`, { replace: true, state: location.state });
+  }, [requestedSport, planSport, searchParams, navigate, location.pathname, location.hash]);
   const { discipline, goal, weeks, loading, loadError } = model;
   const run30 = useRun30Program(discipline === "run" && user != null);
   // 서버 관리 프로그램 목표는 계획 직접 쓰기(편집·추가·재생성·재설정·적응 적용)를 규칙이 거부한다.
@@ -85,6 +97,7 @@ export default function PlanPage() {
 
   const selectionOwner = `${user?.uid ?? ""}:${discipline}:${goal?.id ?? ""}`;
   useEffect(() => { setSelectedDay(null); }, [selectionOwner]);
+  useEffect(() => { if (!location.state?.coachWorkout) setSelectedDay(null); }, [location.key, location.state]);
 
   const exportPlanIcs = () => {
     if (!goal) return;
@@ -122,6 +135,10 @@ export default function PlanPage() {
     }
   };
 
+  const todayWeek = weeks.findIndex(week => week.days.some(model.isTodayCell));
+  const futureWeek = weeks.findIndex(week => week.days.some(day => day.date >= Date.now()));
+  const currentWeek = todayWeek >= 0 ? todayWeek : futureWeek >= 0 ? futureWeek : Math.max(0, weeks.length - 1);
+  const visibleWeekIndex = Math.max(0, Math.min(weeks.length - 1, currentWeek + mobileWeekOffset));
   const renderPresentation = (decisionSlot?: ReactNode) => (
     <PlanPresentation
       model={model}
@@ -135,20 +152,39 @@ export default function PlanPage() {
         />
       ) : undefined}
       mobileWeekOffset={mobileWeekOffset}
-      onMobileWeekOffsetChange={setMobileWeekOffset}
-      onEditWorkout={serverManagedPlan ? undefined : (day, weekId, dayIndex) => { if (goal) setSelectedDay({ owner: selectionOwner, goalId: goal.id, day, weekId, dayIndex }); }}
+      onMobileWeekOffsetChange={(offset) => {
+        setMobileWeekOffset(offset);
+        const day = weeks[Math.max(0, Math.min(weeks.length - 1, currentWeek + offset))]?.days[0];
+        if (!day) return;
+        const next = new URLSearchParams(searchParams);
+        ["weekId", "dayIndex", "detail"].forEach(key => next.delete(key));
+        next.set("date", planDayKey(day.date));
+        navigate(`${location.pathname}?${next}${location.hash}`, { state: location.state });
+      }}
+      onEditWorkout={serverManagedPlan ? undefined : (day, weekId, dayIndex) => {
+        if (!goal) return;
+        setSelectedDay({ owner: selectionOwner, goalId: goal.id, day, weekId, dayIndex });
+        // 검토를 별도 이력으로 열어 닫기·뒤로가기에서 원래 비교 맥락을 복원한다.
+        navigate(`${location.pathname}${location.search}${location.hash}`, {
+          state: { ...location.state, coachWorkout: true }, preventScrollReset: true,
+        });
+      }}
       onIcsExport={exportPlanIcs}
       onReroll={serverManagedPlan ? undefined : rerollPlan}
       onGoalReset={serverManagedPlan ? undefined : () => navigate(`/coach/goals?sport=${discipline}&new=1&returnTo=${encodeURIComponent(`/coach/plan?sport=${discipline}`)}`)}
       onAbandon={abandonGoal}
       renderMobile={(props) => (
         <MobilePlanPage key={selectionOwner}
+          dayLoads={props.dayLoads}
+          loadState={props.loadState}
+          nextAction={props.nextAction}
           selectedDate={props.selectedDate}
           currentWeek={props.currentWeek}
           weekLabel={props.weekLabel}
           goalId={serverManagedPlan ? undefined : goal?.id}
           goalTitle={props.goalTitle}
           goalDiscipline={props.goalDiscipline}
+          goalLoadSummary={props.goalLoadSummary}
           goalDate={props.goalDate}
           daysLeft={props.daysLeft}
           progressPct={props.progressPct}
@@ -177,7 +213,17 @@ export default function PlanPage() {
     return <GuestValuePreview kind="plan" lang={i18n.language} />;
   }
 
-  const goalLink = <header data-testid="K4-0" className="site-shell coach-page-header"><Text data-testid="K4-0-1" as="h1" variant="pageTitle">{t("mobile.weeklyPlan")}</Text><div data-testid="K4-0-2"><DisciplineTabs value={discipline} disabledKeys={["swim"]} /></div>{goal && <LocalizedLink data-testid="K4-2-4" to={`/coach/goals?sport=${discipline}`}>{t("goalHub.title")} →</LocalizedLink>}</header>;
+  const visibleDays = weeks[visibleWeekIndex]?.days ?? [];
+  const selectedDate = selectedDay?.owner === selectionOwner ? planDayKey(selectedDay.day.date) : targetDate;
+  const recordDate = selectedDate && (!model.goalMatchesDiscipline || visibleDays.some(day => planDayKey(day.date) === selectedDate))
+    ? selectedDate : planDayKey(visibleDays[0]?.date ?? Date.now());
+  const loadComparison = model.goalMatchesDiscipline && goal && weeks.length > 0 && !loading && !loadError && model.freshLoaded !== false && !user.isAnonymous ? <div className="site-shell"><PlanLoadComparison key={selectionOwner} uid={user.uid} discipline={discipline} weeks={weeks} selectedDate={targetDate ?? undefined} ftp={profile?.ftp} /></div> : null;
+  const goalLink = <><PlanComparisonReturn /><header data-testid="K4-0" className="site-shell coach-page-header"><Text data-testid="K4-0-1" as="h1" variant="pageTitle">{t("mobile.weeklyPlan")}</Text><div data-testid="K4-0-2"><DisciplineTabs value={discipline} disabledKeys={["swim"]} /></div>{goal && <LocalizedLink data-testid="K4-2-4" to={`/coach/goals?sport=${discipline}`}>{t("goalHub.title")} →</LocalizedLink>}</header><PlanRecordNavigation date={recordDate} />{loadComparison}{model.goalMatchesDiscipline && weeks.length > 0 && (mobileWeekOffset !== 0 || targetDate) && <Button variant="ghost" onClick={() => {
+    setMobileWeekOffset(0);
+    const next = new URLSearchParams(searchParams);
+    ["date", "weekId", "dayIndex", "detail"].forEach(key => next.delete(key));
+    navigate(`/coach/plan?${next}`, { replace: true, state: location.state });
+  }}>{t("planRecords.currentPlan")} →</Button>}</>;
   const targetNotice = runTarget.unavailable ? <p role="status" className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>{tActivity("analysis.run.nextPlan.unavailable")}</p> : null;
 
   const refreshAfterProgramChange = async () => {
@@ -248,7 +294,7 @@ export default function PlanPage() {
           dayIndex={selectedDay.dayIndex}
           goalId={selectedDay.goalId}
           goalDiscipline={goal.discipline as "bike" | "run" | "swim" | undefined}
-          onClose={() => setSelectedDay(null)}
+          onClose={() => { setSelectedDay(null); if (location.state?.coachWorkout) navigate(-1); }}
           onUpdate={() => {
             setSelectedDay(null);
             if (isMobile) {

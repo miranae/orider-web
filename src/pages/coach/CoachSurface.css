@@ -25,7 +25,7 @@
 
 @media (max-width: 36rem) {
  .coach-surface .coach-page-header > div:has(> [role="tablist"]) { width: 100%; }
- .coach-surface .coach-question-launcher { position: static; display: flex; justify-content: flex-end; margin-top: var(--space-5); margin-bottom: var(--space-4); }
+
 }
 
 /* 코치 포털은 body 직속이므로 페이지 스코프와 같은 대비를 명시한다. */
@@ -68,4 +68,10 @@
 @media (max-width: 47.99rem) {
   .coach-surface .fitness-reading { padding-top: var(--space-1) !important; }
   .coach-surface .coach-page-header { row-gap: var(--space-1); }
+}
+
+.goal-title-original > summary { min-height: var(--dim-button-height); padding-block: var(--space-2); list-style-position: inside; color: var(--accent); cursor: pointer; }
+
+@media (max-width: 1023px) {
+ .coach-surface .coach-question-launcher { position: static; display: flex; justify-content: flex-end; margin-top: var(--space-5); margin-bottom: var(--space-4); }
 }

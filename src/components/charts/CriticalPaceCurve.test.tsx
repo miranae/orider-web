@@ -120,3 +120,21 @@ it("selects the nearest supplied duration from a pointer or tap click", () => {
   fireEvent.click(chart, { clientX: 10 });
   expect(screen.getByRole("status")).toHaveTextContent("지속시간 · 30s");
 });
+
+
+it("stable coach readout remains mounted and ignores passive hover and focus", () => {
+  render(<CriticalPaceCurve stableSelection recentPoints={[{ durationSec: 30, paceSecPerKm: 240 }, { durationSec: 300, paceSecPerKm: 280 }]} />);
+  const chart = screen.getByRole("img");
+  chart.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, right: 400, bottom: 180, width: 400, height: 180, toJSON: () => ({}) });
+  const readout = screen.getByRole("status");
+  expect(readout).toHaveClass("critical-pace-curve__readout");
+  expect(readout).toHaveTextContent("지속시간 · 5m");
+  fireEvent(chart, new MouseEvent("pointermove", { bubbles: true, clientX: 10 }));
+  fireEvent.focus(chart);
+  expect(readout).toHaveTextContent("지속시간 · 5m");
+  fireEvent.keyDown(chart, { key: "Home" });
+  expect(readout).toHaveTextContent("지속시간 · 30s");
+  fireEvent.keyDown(chart, { key: "Escape" });
+  expect(screen.getByRole("status")).toBe(readout);
+  expect(readout).toHaveTextContent("지속시간 · 5m");
+});

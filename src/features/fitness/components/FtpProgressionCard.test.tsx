@@ -157,3 +157,23 @@ it("shows watt values and distinct calendar dates without shrinking SVG text on 
   fireEvent.focus(screen.getByRole("img"));
   expect(screen.getByRole("status")).toHaveTextContent("255 W");
 });
+
+it("keeps the explicit FTP readout mounted and unchanged by hover/focus while retaining keyboard record selection", () => {
+  renderWithProviders(<FtpProgressionCard stableSelection points={[
+    { period: "2026-05", ftpW: 245, source: "20m" },
+    { period: "2026-06", ftpW: 252, source: "20m" },
+  ]} history={[]} currentFtpW={250} breakthrough={null} embedded compact />);
+  const chart = screen.getByRole("img");
+  const readout = screen.getByRole("status");
+  const before = readout.textContent;
+  fireEvent.pointerMove(chart, { clientX: 0, pointerType: "mouse" });
+  fireEvent.focus(chart);
+  expect(readout.textContent).toBe(before);
+  fireEvent.keyDown(chart, { key: "ArrowLeft" });
+  expect(readout).toHaveTextContent("245 W");
+  fireEvent.blur(chart);
+  fireEvent.pointerLeave(chart, { pointerType: "mouse" });
+  expect(screen.getByRole("status")).toBe(readout);
+  expect(readout).toHaveTextContent("245 W");
+  expect(screen.getByRole("combobox", { name: "FTP 기록 선택" })).toHaveTextContent("245 W");
+});

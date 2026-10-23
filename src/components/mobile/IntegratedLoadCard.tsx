@@ -1,5 +1,5 @@
 import { isSportUiEnabled } from "../../config/sportFeatures";
-import { useState } from "react";
+import InfoTip from "../InfoTip";
 import { useTranslation } from "react-i18next";
 import "./IntegratedLoadCard.css";
 import { Card, Chip, Section, Stat, Text, SegmentTimeline } from "../../theme/components";
@@ -54,7 +54,6 @@ export default function IntegratedLoadCard({
   condition?: boolean;
 }) {
   const { t } = useTranslation("dashboard");
-  const [selectedPart, setSelectedPart] = useState<string | null>(null);
   const ctl = safeAuthoritativeLoad(combined.ctl);
   const atl = safeAuthoritativeLoad(combined.atl);
   const tsb = safeSigned(combined.tsb);
@@ -95,23 +94,15 @@ export default function IntegratedLoadCard({
     })).join(", ")
     : t("mobileFitness.integrated.noFocusData");
 
-  const focusEvidence = focus ? (
-        <div style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", lineHeight: "var(--lh-relaxed)", paddingBottom: "var(--space-1)" }}>
-          <p style={{ margin: 0 }}>{t(condition ? "mobileFitness.integrated.conditionSource" : "mobileFitness.integrated.authoritativeSource")}</p>
-          <p style={{ margin: "var(--space-2) 0 0" }}>{t("mobileFitness.integrated.focusBasis")}</p>
-          <p style={{ margin: "var(--space-2) 0 0" }}>{t("mobileFitness.integrated.sources", {
-            power: displayNumber(safeLoad(focus.sourceLoad?.power)),
-            hr: displayNumber(safeLoad(focus.sourceLoad?.heartRate)),
-            unclassified: displayNumber(safeLoad(focus.sourceLoad?.unclassified)),
-          })}</p>
-          <p style={{ margin: "var(--space-2) 0 0" }}>
-            {focus.hasAnaerobicBikeDetail ? t("mobileFitness.integrated.anaerobicBikeDetail") : t("mobileFitness.integrated.hrHighIntensityNote")}
-          </p>
-        </div>
-  ) : null;
+  const focusEvidence = focus ? [
+    t(condition ? "mobileFitness.integrated.conditionSource" : "mobileFitness.integrated.authoritativeSource"),
+    t("mobileFitness.integrated.focusBasis"),
+    t("mobileFitness.integrated.sources", { power: displayNumber(safeLoad(focus.sourceLoad?.power)), hr: displayNumber(safeLoad(focus.sourceLoad?.heartRate)), unclassified: displayNumber(safeLoad(focus.sourceLoad?.unclassified)) }),
+    t(focus.hasAnaerobicBikeDetail ? "mobileFitness.integrated.anaerobicBikeDetail" : "mobileFitness.integrated.hrHighIntensityNote"),
+  ].join(" ") : "";
 
   return (
-    <Section actionsLayout="responsive" title={t("mobileFitness.integrated.title")} description={t("mobileFitness.integrated.eyebrow")} actions={focus ? <Chip>{t("mobileFitness.integrated.coverageChip", { pct: Math.round(coverage), confidence })}</Chip> : undefined} onKeyDown={(event) => { if (event.key === "Escape") setSelectedPart(null); }} aria-label={t("mobileFitness.integrated.cardAria")} aria-labelledby="" className={condition ? "integrated-load--condition" : undefined}>
+    <Section actionsLayout="responsive" title={t("mobileFitness.integrated.title")} description={t("mobileFitness.integrated.eyebrow")} actions={focus ? <Chip>{t("mobileFitness.integrated.coverageChip", { pct: Math.round(coverage), confidence })}</Chip> : undefined} aria-label={t("mobileFitness.integrated.cardAria")} aria-labelledby="" className={condition ? "integrated-load--condition" : undefined}>
       <div className="integrated-load__metrics">
         <div><Stat label={t("mobileFitness.integrated.ctlLabel")} value={displayNumber(ctl)} /><Text as="p" variant="bodySmall" tone="secondary">{t("mobileFitness.integrated.ctlHint")}</Text></div>
         {(["atl", "tsb"] as const).map(key => { const value = key === "atl" ? atl : tsb; return <div key={key}><Stat compact label={t(`mobileFitness.integrated.${key}Label`)} value={`${key === "tsb" && value >= 0 ? "+" : ""}${displayNumber(value)}`} /><Text as="p" variant="bodySmall" tone="secondary">{t(`mobileFitness.integrated.${key}Hint`)}</Text></div>; })}
@@ -123,15 +114,11 @@ export default function IntegratedLoadCard({
         <SegmentTimeline presentation="distribution" aria-label={t("mobileFitness.integrated.contributionBarAria", { values: contributionAria })} rows={[{ id: "contribution", label: t("mobileFitness.integrated.contributionTitle"), buckets: DISCIPLINES.map(discipline => ({ id: discipline, label: `${isSportUiEnabled(discipline) ? t(`mobileFitness.integrated.discipline.${discipline}`) : t("common:discipline.other")} · ${knownContributions.has(discipline) ? t("mobileFitness.integrated.contributionValue", { value: displayNumber(disciplineLoads[discipline]), pct: Math.round(percentage(disciplineLoads[discipline], contributionTotal)) }) : "—"}`, weight: disciplineLoads[discipline], segments: [{ weight: 1, color: isSportUiEnabled(discipline) ? DISCIPLINE_COLORS[discipline] : "var(--line-soft)" }] })) }]} />
         <div style={{ display: "grid", gridTemplateColumns: `repeat(${DISCIPLINES.filter(isSportUiEnabled).length}, minmax(0, 1fr))`, gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
           {DISCIPLINES.filter(isSportUiEnabled).map((discipline) => (
-            <Card key={discipline} variant="flat" padding="compact"
-              aria-pressed={selectedPart === discipline}
-              onPointerEnter={(event) => { if (event.pointerType !== "touch") setSelectedPart(discipline); }}
-              onPointerLeave={(event) => { if (event.pointerType !== "touch") setSelectedPart(null); }}
-              onFocus={() => setSelectedPart(discipline)} onBlur={() => setSelectedPart(null)}
-              onClick={() => setSelectedPart(discipline)} style={{ minWidth: 0 }}>
+            <Card key={discipline} variant="flat" padding="compact" style={{ minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: "var(--space-1)", color: "var(--ink-3)", fontSize: "var(--fs-xs)" }}>
                 <span aria-hidden="true" style={{ width: "var(--space-1-5)", height: "var(--space-1-5)", borderRadius: "var(--r-full)", background: DISCIPLINE_COLORS[discipline], flex: "0 0 auto" }} />
                 <span>{t(`mobileFitness.integrated.discipline.${discipline}`)}</span>
+                <InfoTip label={t(`mobileFitness.integrated.discipline.${discipline}`)} title={t("mobileFitness.integrated.contributionTitle")} content={`${knownContributions.has(discipline) ? t("mobileFitness.integrated.contributionValue", { value: displayNumber(disciplineLoads[discipline]), pct: Math.round(percentage(disciplineLoads[discipline], contributionTotal)) }) : "—"}. ${t(condition ? "mobileFitness.integrated.conditionSource" : "mobileFitness.integrated.authoritativeSource")}`} />
               </div>
               <div style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)", fontSize: "var(--fs-xs)", marginTop: "var(--space-1)" }}>
                 {knownContributions.has(discipline) ? t("mobileFitness.integrated.contributionValue", {
@@ -142,9 +129,6 @@ export default function IntegratedLoadCard({
             </Card>
           ))}
         </div>
-        {selectedPart && DISCIPLINES.some(key => key === selectedPart) && <p role="status" className="integrated-load__readout">
-          {t("mobileFitness.integrated.contributionTitle")} · {t(`mobileFitness.integrated.discipline.${selectedPart}`)}: {knownContributions.has(selectedPart as (typeof DISCIPLINES)[number]) ? t("mobileFitness.integrated.contributionValue", { value: displayNumber(disciplineLoads[selectedPart as (typeof DISCIPLINES)[number]]), pct: Math.round(percentage(disciplineLoads[selectedPart as (typeof DISCIPLINES)[number]], contributionTotal)) }) : "—"}. {t(condition ? "mobileFitness.integrated.conditionSource" : "mobileFitness.integrated.authoritativeSource")}
-        </p>}
       </div>
 
       <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: "var(--space-4)", paddingTop: "var(--space-4)" }}>
@@ -169,22 +153,16 @@ export default function IntegratedLoadCard({
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-2) var(--space-3)", marginTop: "var(--space-2)" }}>
           {BUCKETS.map(({ key, color }) => (
             <Card key={key} variant="flat" padding="compact"
-              aria-pressed={selectedPart === key}
-              onPointerEnter={(event) => { if (event.pointerType !== "touch") setSelectedPart(key); }}
-              onPointerLeave={(event) => { if (event.pointerType !== "touch") setSelectedPart(null); }}
-              onFocus={() => setSelectedPart(key)} onBlur={() => setSelectedPart(null)} onClick={() => setSelectedPart(key)}
               style={{ display: "grid", gap: "var(--space-2)", minWidth: 0 }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", minWidth: 0 }}>
                 <span aria-hidden="true" style={{ width: "var(--space-1-5)", height: "var(--space-1-5)", borderRadius: "var(--r-full)", background: color, flex: "0 0 auto" }} />
                 <span>{t(`mobileFitness.integrated.bucket.${key}`)}</span>
+                <InfoTip label={t(`mobileFitness.integrated.bucket.${key}`)} title={t("mobileFitness.integrated.focusTitle", { days: windowDays })} content={`${t(`mobileFitness.integrated.bucket.${key}`)}: ${displayNumber(focusLoads[key])} TSS · ${Math.round(percentage(focusLoads[key], focusTotal))}%. ${t("mobileFitness.integrated.focusBasis")}`} />
               </span>
               <span style={{ color: "var(--ink-1)", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>{displayNumber(focusLoads[key])} · {Math.round(percentage(focusLoads[key], focusTotal))}%</span>
             </Card>
           ))}
         </div>
-        {selectedPart && BUCKETS.some(({ key }) => key === selectedPart) && <p role="status" className="integrated-load__readout">
-          {t("mobileFitness.integrated.focusTitle", { days: windowDays })} · {t(`mobileFitness.integrated.bucket.${selectedPart}`)}: {displayNumber(focusLoads[selectedPart as LoadFocusBucket])} TSS · {Math.round(percentage(focusLoads[selectedPart as LoadFocusBucket], focusTotal))}%. {t("mobileFitness.integrated.focusBasis")}
-        </p>}
         <div style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginTop: "var(--space-3)" }}>
           {t("mobileFitness.integrated.coverage", { pct: Math.round(coverage), confidence })}
         </div>
@@ -193,15 +171,10 @@ export default function IntegratedLoadCard({
       </div>
 
       </div>
-      {focus && (condition ? <section className="integrated-load__evidence" aria-label={t("mobileFitness.integrated.detailsToggle")}>
-        <Text as="h3" variant="subtitle">{t("mobileFitness.integrated.detailsToggle")}</Text>
-        {focusEvidence}
-      </section> : <details style={{ borderTop: "1px solid var(--line-soft)", marginTop: "var(--space-4)" }}>
-        <summary style={{ minHeight: 44, display: "flex", alignItems: "center", cursor: "pointer", color: "var(--ink-1)", fontSize: "var(--fs-sm)", fontWeight: 700 }}>
-          {t("mobileFitness.integrated.detailsToggle")}
-        </summary>
-        {focusEvidence}
-      </details>)}
+      {focus && <section className="integrated-load__evidence" aria-label={t("mobileFitness.integrated.detailsToggle")}>
+        <Text as="h3" variant="subtitle">{t("mobileFitness.integrated.detailsToggle")} <InfoTip label={t("mobileFitness.integrated.detailsToggle")} title={t("mobileFitness.integrated.detailsToggle")} content={focusEvidence} /></Text>
+      </section>}
+
 
     </Section>
   );

@@ -72,6 +72,32 @@ describe("dashboard preferences", () => {
     expect(updateDashboardPreferences("rider", { feedScope: "self" }, throwingStorage)).toBe(false);
   });
 
+  it("keeps mounted consumers in sync after a same-tab update without mixing accounts", () => {
+    updateDashboardPreferences("rider-a", { feedScope: "self", workoutNarrativeExpanded: false });
+    const first = renderHook(() => useDashboardPreferences("rider-a", false));
+    const second = renderHook(() => useDashboardPreferences("rider-a", false));
+    const other = renderHook(() => useDashboardPreferences("rider-b", false));
+    act(() => updateDashboardPreferences("rider-a", { feedScope: "all", datePreset: "30d" }));
+    expect(first.result.current.preferences).toMatchObject({ feedScope: "all", datePreset: "30d", workoutNarrativeExpanded: false });
+    expect(second.result.current.preferences).toEqual(first.result.current.preferences);
+    expect(other.result.current.preferences).toEqual(DEFAULT_DASHBOARD_PREFERENCES);
+    act(() => second.result.current.update({ sportFilter: "run" }));
+    expect(first.result.current.preferences).toMatchObject({ feedScope: "all", datePreset: "30d", sportFilter: "run" });
+  });
+
+  it("restores other-tab writes and storage clearing for the active account only", () => {
+    const h = renderHook(() => useDashboardPreferences("rider", false));
+    localStorage.setItem(dashboardPreferencesStorageKey("other"), JSON.stringify({ feedScope: "self" }));
+    act(() => window.dispatchEvent(new StorageEvent("storage", { key: dashboardPreferencesStorageKey("other") })));
+    expect(h.result.current.preferences.feedScope).toBe("all");
+    localStorage.setItem(dashboardPreferencesStorageKey("rider"), JSON.stringify({ feedScope: "self" }));
+    act(() => window.dispatchEvent(new StorageEvent("storage", { key: dashboardPreferencesStorageKey("rider") })));
+    expect(h.result.current.preferences.feedScope).toBe("self");
+    localStorage.clear();
+    act(() => window.dispatchEvent(new StorageEvent("storage", { key: null })));
+    expect(h.result.current.preferences).toEqual(DEFAULT_DASHBOARD_PREFERENCES);
+  });
+
   it("survives a browser that throws while resolving localStorage", () => {
     const localStorageGetter = vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
       throw new DOMException("Storage access denied", "SecurityError");

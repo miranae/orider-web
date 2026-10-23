@@ -1,4 +1,5 @@
 import "./components/fitness-analysis-controls.css";
+import InfoTip from "../../components/InfoTip";
 import { CalendarDays } from "lucide-react";
 import DateField from "../../components/redesign/DateField";
 import { useId, useState } from "react";
@@ -52,7 +53,7 @@ export default function RunningRaceEstimatesPanel({ ownerUid }: { ownerUid: stri
   };
   const snapshot = (value: StageRaceEstimateSnapshot, historical = false) => <div className="space-y-3">
     <Text as="p" variant="bodyMedium" tone="secondary">{t(historical ? "raceEstimates.savedAt" : "raceEstimates.asOf", { date: date(value.asOf) })}</Text>
-    <table className="w-full text-[length:var(--fs-md)]"><caption className="sr-only">{t("raceEstimates.table")}</caption><thead><tr><th scope="col" className="text-left">{t("raceEstimates.distance")}</th><th scope="col" className="text-left">{t("raceEstimates.time")}</th><th scope="col" className="text-left">{t("raceEstimates.kind")}</th></tr></thead><tbody>{value.estimates.map(row => <tr key={row.target}><th scope="row" className="py-3 text-left font-normal">{t(`raceEstimates.target.${row.target}`)}</th><td title={row.elapsedSeconds === null ? undefined : `${row.elapsedSeconds} s`}>{row.elapsedSeconds === null ? "—" : raceTime(row.elapsedSeconds)}</td><td>{t(`raceEstimates.status.${row.status}`)}</td></tr>)}</tbody></table>
+    <table className="w-full text-[length:var(--fs-md)]"><caption className="sr-only">{t("raceEstimates.table")}</caption><thead><tr><th scope="col" className="text-left">{t("raceEstimates.distance")}</th><th scope="col" className="text-left">{t("raceEstimates.time")}</th><th scope="col" className="text-left">{t("raceEstimates.kind")}</th></tr></thead><tbody>{value.estimates.map(row => <tr key={row.target}><th scope="row" className="py-3 text-left font-normal">{t(`raceEstimates.target.${row.target}`)}</th><td>{row.elapsedSeconds === null ? "—" : <InfoTip label={`${t("raceEstimates.time")} · ${t(`raceEstimates.target.${row.target}`)}`} content={`${row.elapsedSeconds} s`}>{raceTime(row.elapsedSeconds)}</InfoTip>}</td><td>{t(`raceEstimates.status.${row.status}`)}</td></tr>)}</tbody></table>
     <Text as="p" variant="bodyMedium" tone="secondary">{t("raceEstimates.disclaimer")}</Text>
     <details><summary className={`cursor-pointer list-item font-semibold ${touch}`}>{t("raceEstimates.evidence")}</summary><div className="space-y-3">
       <Text as="p" variant="bodyMedium" tone="secondary">{t("raceEstimates.clockNote")}</Text>

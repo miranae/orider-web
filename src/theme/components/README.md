@@ -457,7 +457,7 @@ pointer 이동은 rAF당 최신 좌표만 처리하고 up은 마지막 좌표를
 
 차트 도구 주변 설명에는 `InfoTip activation="click"`을 사용해 hover나 단순 focus가
 도구를 가리지 않게 한다. 클릭·Enter·Space로 열고 재클릭·외부 클릭·Escape로 닫는다.
-기본 InfoTip의 hover/focus 동작은 유지한다. 구간 선택 중에는 모든 lane의 plot 안에
+모든 InfoTip은 클릭·탭·Enter/Space로만 연다. hover/focus는 설명을 자동으로 열지 않는다. 구간 선택 중에는 모든 lane의 plot 안에
 semantic accent 16% 음영과 2px 양끝선을 그리며 취소·선택 완료 후 제거한다.
 
 1024px 미만 화면과 coarse pointer의 `Input`·`Select`는 최소48px 조작 높이를 사용한다. 768px 미만 화면과 coarse pointer의 본문 입력 글자는 최소16px로 iOS의 자동 확대를 피하며, Textarea의 기본 최소80px 높이는 유지한다. 짧은 댓글 작성기는 `compact`를 선택해 한 줄·표준 버튼과 동일한 최소 높이로 시작할 수 있으며, 기본 세로 드래그 크기 조절을 유지한다. 사용처에서 높이·글자를 다시 덮어쓰지 않는다.
@@ -475,3 +475,11 @@ semantic accent 16% 음영과 2px 양끝선을 그리며 취소·선택 완료 �
 ## MediaViewer
 
 `MediaViewer`는 전체 화면 사진 확인용 dialog입니다. dark theme 토큰, 44px 컨트롤, 커서 중심 휠 확대·이동(브라우저 Ctrl/Cmd 확대는 유지), 기본 배율 좌우 스와이프, 키보드·포커스·스크롤 잠금을 제공합니다. 사진 ID별로 배율·이동을 초기화합니다. 호출 화면은 실제 읽은 목록의 순서·전체 개수·이전/다음·부분 목록 불러오기·삭제 권한을 관리합니다. 일반 `Modal`의 모양이나 동작은 바꾸지 않습니다.
+
+분석 선택 구간과 이전/다음/오늘 도구는 `DropdownSelect touchTarget`과 `ControlToolbar layout="navigation"`을 함께 사용한다. 두 컨트롤은 같은 44px 기준이며 좁은 화면에서는 도구가 다음 줄 전체 폭을 사용한다.
+
+공통 InfoTip은 모든 입력 장치에서 클릭·탭·Enter/Space로만 열고 닫는다. hover나 focus만으로는 열리지 않으며 포커스 표시는 유지한다.
+설명은 본문을 밀지 않는 viewport 제한 포털로 표시하며 한 번에 하나만 연다.
+명시적 닫기와 Escape는 트리거로 포커스를 돌려주고, 바깥 누르기·본문 스크롤·탐색 시 닫힌다.
+고정한 설명에서 Tab으로 닫기 버튼에 접근할 수 있으며 긴 설명의 닫기는 스크롤 중에도 남는다.
+차트의 데이터 선택/수치 툴팁은 해당 차트의 선택 동작을 유지한다.

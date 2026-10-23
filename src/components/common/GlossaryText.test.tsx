@@ -69,7 +69,7 @@ describe("GlossaryText", () => {
     render(<GlossaryText>GPX / HH:MM / DNF / SOS / LIVE</GlossaryText>, { wrapper: GlossaryProvider });
     for (const term of ["GPX", "HH:MM", "DNF", "SOS", "LIVE"]) {
       const trigger = screen.getByRole("button", { name: `${term} 설명` });
-      fireEvent.focus(trigger);
+      fireEvent.click(trigger);
       expect(await screen.findByRole("tooltip")).toHaveClass("ds-tooltip-content");
       fireEvent.blur(trigger);
     }
@@ -92,7 +92,7 @@ describe("GlossaryText", () => {
     expect(screen.getAllByRole("button")).toHaveLength(1);
     const term = screen.getByRole("button", { name: "러닝 파워 설명" });
     expect(term).toHaveTextContent("러닝 파워");
-    fireEvent.focus(term);
+    fireEvent.click(term);
     expect(screen.getByRole("tooltip")).toHaveTextContent("기기·서비스마다 다릅니다");
     expect(screen.getByRole("tooltip")).toHaveTextContent("사이클 파워·FTP와 직접 비교하기보다");
     expect(screen.getByRole("tooltip")).not.toHaveTextContent("보통 파워미터로 측정");
@@ -106,10 +106,10 @@ describe("GlossaryText", () => {
       expect(screen.getAllByRole("button")).toHaveLength(2);
       const running = screen.getByRole("button", { name: "About Running power" });
       expect(running).toHaveTextContent("Running power");
-      fireEvent.focus(running);
+      fireEvent.click(running);
       expect(screen.getByRole("tooltip")).toHaveTextContent("Inputs and methods vary by device and service");
       fireEvent.blur(running);
-      fireEvent.focus(screen.getByRole("button", { name: "About Power" }));
+      fireEvent.click(screen.getByRole("button", { name: "About Power" }));
       expect(screen.getByRole("tooltip")).toHaveTextContent("In cycling it is usually measured by a power meter");
     } finally {
       await act(async () => { await i18n.changeLanguage("ko"); });
@@ -132,7 +132,7 @@ describe("GlossaryText", () => {
     try {
       render(<GlossaryText>CTL</GlossaryText>, { wrapper: GlossaryProvider });
       await waitFor(() => expect(screen.getByRole("button", { name: "About CTL" })).toBeInTheDocument());
-      fireEvent.focus(screen.getByRole("button", { name: "About CTL" }));
+      fireEvent.click(screen.getByRole("button", { name: "About CTL" }));
       expect(screen.getByRole("tooltip")).toHaveTextContent(/roughly six weeks.*more weight.*does not directly measure fitness/i);
     } finally {
       await act(async () => { await i18n.changeLanguage("ko"); });
@@ -166,10 +166,32 @@ describe("InfoTip interactions", () => {
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 
+  it("dismisses explicitly with focus restoration and keeps only one help open", async () => {
+    const user = userEvent.setup();
+    render(<><InfoTip label="First" content="First definition" /><InfoTip label="Second" content="Second definition" /></>);
+    const first = screen.getByRole("button", { name: "First" });
+    await user.click(first);
+    expect(first).toHaveAttribute("aria-expanded", "true");
+    await user.tab();
+    expect(screen.getByRole("button", { name: "닫기" })).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(first).toHaveFocus();
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    fireEvent.click(first);
+    fireEvent.click(screen.getByRole("button", { name: "Second" }));
+    expect(screen.getAllByRole("tooltip")).toHaveLength(1);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Second definition");
+    fireEvent.scroll(window);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    fireEvent.click(first);
+    fireEvent.popState(window);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  });
+
   it("uses separate design-system title and body text for structured explanations", () => {
     render(<InfoTip tone="accent" title="훈련 부하 점수" content="시간과 상대 강도로 계산합니다." label="TSS 설명">TSS</InfoTip>);
     const button = screen.getByRole("button", { name: "TSS 설명" });
-    fireEvent.focus(button);
+    fireEvent.click(button);
     const tooltip = screen.getByRole("tooltip");
     expect(button).toHaveAttribute("aria-describedby", tooltip.id);
     expect(tooltip).toHaveClass("ds-tooltip-content");
@@ -196,6 +218,8 @@ describe("InfoTip interactions", () => {
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
     await user.tab();
     fireEvent.focus(button);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    await user.keyboard("{Enter}");
     expect(screen.getByRole("tooltip")).toBeInTheDocument();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
@@ -205,30 +229,25 @@ describe("InfoTip interactions", () => {
     const user = userEvent.setup();
     render(<><InfoTip content="Definition" /><button>Elsewhere</button></>);
     await user.tab();
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    await user.keyboard("{Enter}");
     const tip = screen.getByRole("tooltip");
     expect(screen.getByRole("button", { name: "Definition" })).toHaveAttribute("aria-describedby", tip.id);
     await user.click(screen.getByRole("button", { name: "Elsewhere" }));
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 
-  it("portals outside clipped containers and allows moving the pointer into the tooltip", () => {
-    vi.useFakeTimers();
-    try {
-      const { container } = render(<div style={{ overflow: "hidden" }}><InfoTip content="Definition" /></div>);
-      const button = screen.getByRole("button");
-      fireEvent.mouseEnter(button);
-      const tip = screen.getByRole("tooltip");
-      expect(container.contains(tip)).toBe(false);
-      expect(tip.parentElement).toBe(document.body);
-      expect(button).toHaveStyle({ minWidth: "var(--space-6)", minHeight: "var(--space-6)" });
-      fireEvent.mouseLeave(button);
-      fireEvent.mouseEnter(tip);
-      act(() => { vi.advanceTimersByTime(150); });
-      expect(screen.getByRole("tooltip")).toBeInTheDocument();
-      fireEvent.mouseLeave(tip);
-      act(() => { vi.advanceTimersByTime(150); });
-      expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
-    } finally { vi.useRealTimers(); }
+  it("never opens from hover or focus, and keeps clicked explanations open on pointer leave", () => {
+    const { container } = render(<div style={{ overflow: "hidden" }}><InfoTip content="Definition" /></div>);
+    const button = screen.getByRole("button");
+    fireEvent.mouseEnter(button);
+    fireEvent.focus(button);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    fireEvent.click(button);
+    const tip = screen.getByRole("tooltip");
+    expect(container.contains(tip)).toBe(false);
+    fireEvent.mouseLeave(button);
+    expect(screen.getByRole("tooltip")).toBeVisible();
   });
 
   it("clamps both axes at the viewport edge", () => {
@@ -238,8 +257,8 @@ describe("InfoTip interactions", () => {
     });
     try {
       render(<InfoTip content="Definition" />);
-      fireEvent.mouseEnter(screen.getByRole("button"));
-      expect(screen.getByRole("tooltip")).toHaveStyle({ left: "784px", top: "652px", position: "fixed" });
+      fireEvent.click(screen.getByRole("button"));
+      expect(screen.getByRole("tooltip").parentElement).toHaveStyle({ left: "784px", top: "652px", position: "fixed" });
     } finally { bounds.mockRestore(); }
   });
 });

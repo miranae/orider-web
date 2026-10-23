@@ -40,20 +40,23 @@ describe("IntegratedLoadCard", () => {
     expect(screen.getByRole("img", { name: /최근 28일 부하 포커스: 기초 유산소 40.0, 40퍼센트/ })).toBeInTheDocument();
     expect(screen.getByText("주요 부하 · 기초 유산소")).toBeInTheDocument();
     expect(screen.getByText("분류 커버리지 90% · 신뢰도 높음")).toBeInTheDocument();
-    expect(screen.getByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).not.toBeVisible();
+    expect(screen.queryByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).not.toBeInTheDocument();
   });
 
-  it("keeps condition methodology open and supports selected contribution and focus readouts", () => {
+  it("keeps values static and opens contribution and focus explanations only by activation", () => {
     renderWithProviders(<IntegratedLoadCard condition combined={{ ctl: 40, atl: 35, tsb: 5, contributions: [{ discipline: "bike", ctl: 40 }] }} focus={focus} />);
-    expect(screen.getByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).toBeVisible();
-    const bike = screen.getByRole("button", { name: /사이클 CTL 40.0/ });
-    fireEvent.focus(bike);
-    expect(screen.getByRole("status")).toHaveTextContent("40.0");
-    fireEvent.keyDown(bike, { key: "Escape" });
+    const bike = screen.getByRole("button", { name: "사이클", exact:true });
+    fireEvent.pointerEnter(bike); fireEvent.focus(bike);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /기초 유산소 40.0/ }));
-    expect(screen.getByRole("status")).toHaveTextContent("28일");
-    expect(screen.getByRole("status")).toHaveTextContent("40%");
+    fireEvent.click(bike);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("40.0");
+    fireEvent.keyDown(bike, { key: "Escape" });
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "기초 유산소", exact:true }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("28일");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("40%");
+    expect(screen.getByText("40.0 · 40%")).toBeVisible();
   });
 
   it("keeps methodology closed until the accessible details control is opened", async () => {
@@ -62,9 +65,9 @@ describe("IntegratedLoadCard", () => {
       ctl: 42, atl: 38, tsb: 4, contributions: [],
     }} focus={focus} />);
 
-    const toggle = screen.getByText("계산 방법과 해석 근거").closest("summary");
+    const toggle = screen.getByRole("button", { name: "계산 방법과 해석 근거", exact:true });
     expect(toggle).toBeInTheDocument();
-    expect(screen.getByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).not.toBeVisible();
+    expect(screen.queryByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).not.toBeInTheDocument();
 
     await user.click(toggle!);
     expect(screen.getByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).toBeVisible();
@@ -113,8 +116,8 @@ describe("IntegratedLoadCard", () => {
 
   it("distinguishes known zero contribution from absent sport evidence", () => {
     renderWithProviders(<IntegratedLoadCard combined={{ ctl: 0, atl: 0, tsb: 0, contributions: [{ discipline: "bike", ctl: 0 }] }} focus={null} />);
-    expect(screen.getByRole("button", { name: /사이클 CTL 0.0/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /러닝 —/ })).toBeInTheDocument();
+    expect(screen.getByText("CTL 0.0 · 0%")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "러닝", exact:true }).closest(".ds-card")).toHaveTextContent("—");
     expect(screen.queryByRole("button", { name: /수영/ })).not.toBeInTheDocument();
   });
 

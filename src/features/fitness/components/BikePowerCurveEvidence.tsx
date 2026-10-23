@@ -4,11 +4,12 @@ import { Card, ChartFrame, ChartHeader, ChartLegend, Stat, Text } from "../../..
 import type { PowerCurvePoint } from "../fitnessPageUtils";
 import PowerCurveChart from "./PowerCurveChart";
 
-export function BikePowerCurveEvidence({ current, previous, expected, emptyContent }: {
+export function BikePowerCurveEvidence({ current, previous, expected, emptyContent, compact = false }: {
   current: PowerCurvePoint[];
   previous: PowerCurvePoint[];
   expected?: PowerCurvePoint[];
   emptyContent?: ReactNode;
+  compact?: boolean;
 }) {
   const { t } = useTranslation("fitness");
   const keyDurations = [5, 60, 300, 1200];
@@ -22,12 +23,13 @@ export function BikePowerCurveEvidence({ current, previous, expected, emptyConte
       ...(expected?.length ? [{ label: t("powerCurve.expectedLegend"), color: "var(--aqua)", dasharray: "2 3" }] : []),
     ]} />
     <ChartFrame variant="embedded">
-    {current.length > 0 ? <div data-testid="K5-2-1"><PowerCurveChart current={current} previous={previous} expected={expected} /></div>
+    {current.length > 0 ? <div data-testid="K5-2-1"><PowerCurveChart stableSelection={compact} current={current} previous={previous} expected={expected} /></div>
       : <div className="bike-power-curve-evidence__empty">{emptyContent ?? <Text as="p" variant="bodySmall" tone="secondary">{t("powerCurve.empty")}</Text>}</div>}
     </ChartFrame>
-    <div data-testid="K5-2-2" className="bike-power-curve-evidence__keys">{keyDurations.map((duration, index) => {
+    {(!compact || current.length > 0) && <div data-testid="K5-2-2" className="bike-power-curve-evidence__keys">{keyDurations.map((duration, index) => {
       const value = current.find(point => point.durationSeconds === duration)?.maxPower;
+      if (compact && value == null) return null;
       return <Stat compact key={duration} label={`${t(`powerCurve.duration.${keyNames[index]}`)} · ${t(`powerCurve.label.${keyLabels[index]}`)}`} value={value == null ? "—" : value.toLocaleString()} unit={value == null ? undefined : "W"} />;
-    })}</div>
+    })}</div>}
   </Card>;
 }

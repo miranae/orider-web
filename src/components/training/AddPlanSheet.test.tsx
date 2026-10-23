@@ -69,6 +69,8 @@ it('선택 버튼 밖 읽기 영역과 강도 범례에서 설명을 열고 선�
   const trigger = explanation.querySelector('[data-glossary-term="tss"] button')!;
   expect(trigger).not.toBeNull();
   fireEvent.focus(trigger);
+  expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+  fireEvent.click(trigger);
   expect(screen.getByRole('tooltip')).toBeInTheDocument();
   const legend = screen.getByTestId('workout-intensity-glossary');
   fireEvent.click(legend.closest('details')!.querySelector('summary')!);

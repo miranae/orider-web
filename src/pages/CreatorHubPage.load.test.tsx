@@ -34,7 +34,7 @@ it.each([
   const bar = screen.getByTestId("creator-distance-bar");
   // A missing/zero training score must not change a known distance bar.
   expect(bar).toHaveStyle({ height: "132px" });
-  fireEvent.mouseEnter(bar.closest("button")!);
+  fireEvent.click(bar.closest("button")!);
   expect(screen.getByRole("tooltip")).toHaveTextContent("12.0 km");
   expect(screen.getByRole("tooltip")).toHaveTextContent(label);
   expect(screen.getByRole("tooltip")).toHaveTextContent(qualifier);
@@ -87,7 +87,7 @@ it.each(["ko", "en"])("keeps all six distance bars, three complete mobile dates 
   expect(Array.from(container.querySelectorAll('.creator-week-tick[data-mobile-tick="true"]')).map(tick => tick.textContent)).toEqual(["8/31", "9/14", "10/5"]);
   expect(Array.from(container.querySelectorAll(".creator-week-tick")).map(tick => tick.textContent)).toEqual(["8/31", "9/7", "9/14", "9/21", "9/28", "10/5"]);
   expect(bars[5]?.closest("button")).toHaveAccessibleName(/10\/5/);
-  fireEvent.mouseEnter(bars[5]!.closest("button")!);
+  fireEvent.click(bars[5]!.closest("button")!);
   const body = screen.getByRole("tooltip").querySelector(".ds-tooltip-content__body");
   expect(body?.textContent?.split("\n")).toEqual(language === "ko" ? [
     "이동거리 188.0 km", "활동시간 7.1 h", "TSS 561점", "파워 기반 TSS 347점", "산출 기준 미상 TSS 214점",

@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockCallableInvocations, mockSignInWithPopup } from "../__tests__/mocks/firebase";
@@ -56,6 +57,22 @@ describe("GoalSetupPage", () => {
       view.rerender(<GoalSetupPage />);
       expect(screen.queryByText("코스 목록을 불러오지 못했어요.")).not.toBeInTheDocument();
       expect(screen.getByText("등록된 코스가 없습니다")).toBeInTheDocument();
+    } finally { spy.mockRestore(); }
+  });
+
+  it("skips the invisible previous action in the first step keyboard order", async () => {
+    const spy = vi.spyOn(courseHook, "useCourses").mockReturnValue({ courses: [], items: [], loading: false, loadingMore: false, hasMore: false, loadMore: vi.fn(), error: false, retry: vi.fn(), search: () => [] });
+    try {
+      renderWithProviders(<GoalSetupPage />, { authenticated: true, route: "/ko/goal-setup?sport=bike" });
+      const create = await screen.findByRole("link", { name: /코스 만들기/ });
+      const previous = screen.getByText("← 이전").closest("button")!;
+      create.focus();
+      await userEvent.tab();
+      expect(previous).not.toHaveFocus();
+      expect(previous).toBeDisabled();
+      expect(screen.queryByRole("button", { name: "← 이전" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "다음 →" })).toBeDisabled();
+      expect(mockCallableInvocations.filter(call => /createGoal|generatePlan/i.test(call.name))).toEqual([]);
     } finally { spy.mockRestore(); }
   });
 

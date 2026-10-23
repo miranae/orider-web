@@ -597,7 +597,7 @@ export default function EventResultsPage() {
               style={{ padding: "14px 20px", borderBottom: "1px solid var(--line-soft)", gap: "var(--space-4)" }}
             >
               <div className="event-results-card-title text-[length:var(--ft-subtitle-size)] font-semibold" style={{ color: "var(--ink-0)" }}>{t("label.allResults")}</div>
-              <div className="flex" style={{ gap: "var(--space-0-5)" }}>
+              <div className="flex event-category-filters" style={{ gap: "var(--space-0-5)" }}>
                 {categories.map((c) => {
                   const active = activeCategory === c;
                   return (

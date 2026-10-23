@@ -38,7 +38,7 @@ describe("PowerSkillsObservedView", () => {
     expect(screen.queryByText("1970-01-01 – 2026-10-12")).not.toBeInTheDocument();
     expect(screen.getByText("powerSkills.gridNote").closest("details")).not.toHaveAttribute("open");
     expect(screen.getByText(/periodCurve.exactBounds 1970-01-01/).closest("details")).not.toHaveAttribute("open");
-    expect(view.container.querySelectorAll('tbody span[aria-label="powerSkills.channel_unavailable"]')).toHaveLength(24);
+    expect(view.container.querySelectorAll('tbody button[aria-label="powerSkills.channel_unavailable"]')).toHaveLength(24);
     expect(view.container.querySelectorAll("tbody tr")).toHaveLength(12);
     expect(screen.getByText("powerSkills.tableUnavailable")).toBeInTheDocument();
   });

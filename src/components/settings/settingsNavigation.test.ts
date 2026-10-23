@@ -17,6 +17,7 @@ describe("settings navigation vocabulary", () => {
     expect(SECTION_IDS.map(settingsTabPath)).toEqual([
       "/settings/account",
       "/settings/device",
+      "/settings/training",
       "/settings/connections",
       "/settings/developer",
       "/settings/display",

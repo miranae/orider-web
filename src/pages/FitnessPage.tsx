@@ -1,3 +1,4 @@
+import CoachDetailRouteNotice from "../features/fitness/components/CoachDetailRouteNotice";
 import { isSportUiEnabled } from "../config/sportFeatures";
 import { qualifiedRunRecords } from "../features/fitness/runAnalysisReadiness";
 import { estimateVo2max } from "../features/fitness/estimateVo2max";
@@ -40,6 +41,7 @@ import MobileFitnessPage from "../components/mobile/MobileFitnessPage";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../components/redesign";
 import DetailsSection from "../components/redesign/DetailsSection";
+import AnchoredDetailsSection from "../components/redesign/AnchoredDetailsSection";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import FtpDecisionSection from "../features/fitness/components/FtpDecisionSection";
@@ -76,6 +78,7 @@ import { toLocalDate } from "../utils/dateUtils";
 import { fitnessTodayKey } from "@shared/training/dateKey";
 import TriFitnessView from "./fitness/TriFitnessView";
 import { formatPlanGoalTitle } from "../features/training/plan/planDisplay";
+import LoadQualityEvidence from "../features/sufficiency/LoadQualityEvidence";
 import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../features/sufficiency/SufficiencyBlock";
 
 export interface FitnessViewProps {
@@ -98,6 +101,7 @@ export function fitnessGoalDisplayName(goal: { title?: string | null; courseName
 
 export function FitnessView({ thresholdsSlot, ...props }: FitnessViewProps) {
   return <GlossaryProvider scopeKey="coach-fitness">
+    {!props.embedded && props.part === "analysis" && <CoachDetailRouteNotice discipline={props.model.discipline} />}
     <FitnessViewContent {...props} thresholdsSlot={thresholdsSlot} />
   </GlossaryProvider>;
 }
@@ -352,6 +356,11 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const hasSufficiency = Boolean(pdcSufficiency?.blocks.length || loadSufficiency?.blocks.length || activityWindowSufficiency?.blocks.length);
   const loadTrendBlock = findSufficiencyBlock(loadSufficiency, "load_history", "trend");
   const loadFormBlock = findSufficiencyBlock(loadSufficiency, "load_history", "form");
+  // Saved training thresholds remain reviewable even before any activity history exists.
+  const emptyAnalysisFtpEntry = !embedded && part === "analysis" && discipline === "bike" ? <FtpDecisionSection title={t("condition.basis.title")} anchorEnabled compact={renderMobile} collapsible={!renderMobile}>
+    <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={model.zoneEvidence.hr.counts != null || model.zoneEvidence.power.counts != null} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={deriveEstimatedFtpProgression(pdc?.history)} ftpHistory={ftpHistory} t={t} />
+  </FtpDecisionSection> : null;
+
 
   if (!hasSufficiency && renderMobile && (loading || !timeseriesLoaded)) {
     return (
@@ -383,6 +392,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
       return <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         <EmptyState icon="📈" title={t("canonical.emptyTitle")} description={t("canonical.emptyBody")} />
         {!embedded && thresholdsSlot}
+        {emptyAnalysisFtpEntry}
       </div>;
     }
   }
@@ -403,6 +413,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           ]}
         />
         {!embedded && thresholdsSlot}
+        {emptyAnalysisFtpEntry}
       </div>
     );
   }
@@ -438,10 +449,11 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     const renderMobileContent = (decisionState?: TodayTrainingDecisionState) => {
       const mobileCoachBriefing = discipline !== "tri" && currentPoint ? (
         <FitnessCoachBriefing
+          showConditionChoices={embedded}
           currentBasis={currentBasis}
           weekChangeSlot={part === "condition" ? null : weekChangeSlot}
           metricsNoteSlot={loadSufficiency && loadFormBlock
-            ? <SufficiencyInline set={loadSufficiency} block={loadFormBlock} testId="K1-1-1-briefing-sufficiency-inline" /> : null}
+            ? <LoadQualityEvidence points={model.pmcHistoryPoints} set={loadSufficiency} block={loadFormBlock} testId="K1-1-1-briefing-sufficiency-inline" /> : null}
           part={part === "condition" ? "condition" : "all"}
           key={`${discipline}-${currentPoint.date}`}
           impacts={activityImpacts}
@@ -473,9 +485,9 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             }}
             nativePowerActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))}
             triEvidenceSlot={part === "condition" && discipline === "tri" ? <TriFitnessView evidenceOnly condition range={range} selectedHistoryRange={historyRange} onRangeChange={changePageRange} breakdown={triFitnessBreakdown} timeline={triFitnessTimeline} combinedLoad={combinedLoad} loadFocus={integratedLoadFocus} /> : null}
-            powerCurveEvidenceSlot={part === "condition" && discipline === "bike" ? <BikePowerCurveEvidence current={currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} /> : null}
+            powerCurveEvidenceSlot={(part === "condition" || part === "analysis") && discipline === "bike" ? <BikePowerCurveEvidence compact={!embedded} current={currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} /> : null}
             runPaceCurve={runPaceCurve}
-            runningRecordsSlot={part === "condition" && discipline === "run" ? <><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} footer={qualifiedRunRecords(model.runEvidence).length === 0 && !needsRunAnalysisReadiness(model.runEvidence, !!model.mobilePageProps.data.threshold, model.mobilePageProps.data.zones.length > 0) ? <RunRecordsSummary evidence={model.runEvidence} sourceBoard /> : undefined} /><MilestonesGrid achieved={milestones} /></> : null}
+            runningRecordsSlot={(part === "condition" || part === "analysis") && discipline === "run" ? <><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} footer={qualifiedRunRecords(model.runEvidence).length === 0 && !needsRunAnalysisReadiness(model.runEvidence, !!model.mobilePageProps.data.threshold, model.mobilePageProps.data.zones.length > 0) ? <RunRecordsSummary evidence={model.runEvidence} sourceBoard /> : undefined} /><MilestonesGrid achieved={milestones} /></> : null}
             periodSlot={periodControls}
             analysisSummarySlot={analysisSummarySlot}
             conditionSupplementSlot={conditionSupplementSlot}
@@ -491,7 +503,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             data={{ ...model.mobilePageProps.data, ...(part === "condition" ? { pmcProjection: futureGoal ? model.mobilePageProps.data.pmcProjection : null } : {}), monthlyVo2maxTrend: vo2maxTrend, powerGaps, pdcSufficiency, loadSufficiency, activityWindowSufficiency }}
             runningRaceEstimatesOwnerUid={user.isAnonymous || (part !== "all" && getRuntimeConfig().appEnvironment !== "stage") ? undefined : user.uid}
             part={part}
-            ridingEvidenceSlot={part === "condition" && discipline === "bike" ? <FitnessPedalingEvidence activities={disciplineActivities} metricsMap={metricsMap} locale={i18n.language} /> : null}
+            ridingEvidenceSlot={embedded && (part === "condition" || part === "analysis") && discipline === "bike" ? <FitnessPedalingEvidence activities={disciplineActivities} metricsMap={metricsMap} locale={i18n.language} /> : null}
             powerCurvePeriodsOwnerUid={user.uid}
             powerCurvePeriodsEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true}
             embedded={embedded}
@@ -632,6 +644,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             ]}
           />
           {!embedded && thresholdsSlot}
+          {emptyAnalysisFtpEntry}
         </div>
       </div>
     );
@@ -735,13 +748,13 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const bikeMetrics = <>
         {/* 상세 분석 — 바이크 개선 액션·VO2max·강점/약점·야외 페이싱·라이더 유형. */}
         {discipline === "bike" && (
-        <div className="coach-analysis-details" data-testid={part === "analysis" ? "K5-1" : undefined}><ConditionMetricSection condition={part === "condition"} title={t(part === "condition" ? "condition.metrics.performanceTitle" : "conclusion.detailToggle")}>
+        <div className="coach-analysis-details" data-testid={part === "analysis" ? "K5-1" : undefined}><ConditionMetricSection condition={part === "condition" || !embedded && part === "analysis"} title={t(part === "condition" ? "condition.metrics.performanceTitle" : "conclusion.detailToggle")}>
         {/* PDC 기반 VO2max 근거와 월별 추이. 현재 적용 FTP 공식값과 구분한다. */}
-        {(pdc?.vo2maxEst != null || part === "condition") && (
+        {(pdc?.vo2maxEst != null || part === "condition" || !embedded && part === "analysis") && (
           <Card padding="none" style={{ marginTop: "var(--space-4)", padding: "16px 24px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", flexWrap: "wrap" }}>
               <div>
-                {part === "condition" && <div className="condition-formula-vo2">
+                {(part === "condition" || !embedded && part === "analysis") && <div className="condition-formula-vo2">
                   <Text as="p" variant="caption">{t("vo2maxCard.formulaLabel")}</Text>
                   <Text as="p" variant="dataLarge">{estimateVo2max(thresholdDecision?.activeFtpW ?? null, profile?.weightKg) ?? "—"} <Text as="span" variant="unit">ml/kg/min</Text></Text>
                   <Text as="p" variant="caption" tone="tertiary">{t("vo2maxCard.formulaBasis")}</Text>
@@ -825,7 +838,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {/* 야외 페이싱 가이드 — 장거리/그란폰도 지속 목표. CP(임계파워)의 −10~−5%. bike + pdc.cp 있을 때만 */}
         {part === "all" && pacingCard}
 
-        {part === "condition" && <Card><FitnessPdcProfile pdc={model.mobilePageProps.data.pdcSummary} /></Card>}
+        {(part === "condition" || !embedded && part === "analysis") && <Card><FitnessPdcProfile pdc={model.mobilePageProps.data.pdcSummary} /></Card>}
         {/* 사이클링 능력 — 모바일과 동일한 최근 90일 PDC 3축 실측 근거. */}
         {discipline === "bike" && cyclingAbility && (
           <CyclingAbilityCard cycling={cyclingAbility} variant="desktop" />
@@ -936,7 +949,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           {part === "condition" && periodPowerCard}
 </>;
 
-  const zoneDistributionCard = part === "condition" ? <FitnessZoneDistributions evidence={model.zoneEvidence} /> : <>
+  const zoneDistributionCard = part === "condition" || !embedded && part === "analysis" ? <FitnessZoneDistributions evidence={model.zoneEvidence} compact={!embedded && part === "analysis"} /> : <>
         {/* 존 분포 — 단독 풀폭 (오늘의 권장은 상단 hero 로 이동) */}
         {!runReadiness && <div data-testid="K5-3" style={{ marginTop: 'var(--space-5)' }}>
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>
@@ -981,7 +994,31 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         </div>}
   </>;
 
-  const conditionNavigation = part === "condition" ? <ConditionSectionNav sections={[
+  // Web analysis owns performance changes and their supporting tools on every viewport.
+  // The condition surface keeps load/recovery; embedded presentations retain their contract below.
+  if (!embedded && part === "analysis") return <div className="fitness-reading">
+    {pageHeader}
+    <div className="site-shell" style={bodyPad}>
+      <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
+      <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
+      {discipline === "run" && <RunRecordsSummary evidence={model.runEvidence} readiness={runReadiness} />}
+      <section id="analysis-comparison" className="condition-section-target" tabIndex={-1}>
+        {discipline === "bike" ? <BikePowerCurveEvidence compact current={curveBlock && needsSufficiencyCard(activityWindowSufficiency!, curveBlock) ? [] : currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} emptyContent={activityWindowSufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(activityWindowSufficiency, curveBlock) ? <SufficiencyCard set={activityWindowSufficiency} block={curveBlock} testId="K5-2-1-sufficiency" /> : undefined} />
+          : <Card><Text as="h2" variant="subtitle">{t("criticalPace.title")}</Text><Text as="p" variant="caption" tone="secondary">{t("criticalPace.periodNote")}</Text><CriticalPaceCurve stableSelection recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} /></Card>}
+      </section>
+      <SufficiencyGroup summaryOnly sets={analysisSets} testId="analysis-readiness-summary" />
+      {analysisSummarySlot && <AnchoredDetailsSection queryDetail id="analysis-activity-flow" title={t("analysis.categories.activity")} >{analysisSummarySlot}</AnchoredDetailsSection>}
+      {discipline === "bike" && <AnchoredDetailsSection queryDetail id="analysis-model" title={t("analysis.categories.model")}>{bikeMetrics}{pacingCard}</AnchoredDetailsSection>}
+      {discipline === "run" && <AnchoredDetailsSection queryDetail id="analysis-run-records" title={t("analysis.categories.records")}><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} /><MilestonesGrid achieved={milestones} />{!user.isAnonymous && getRuntimeConfig().appEnvironment === "stage" && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}</AnchoredDetailsSection>}
+      <AnchoredDetailsSection queryDetail id="analysis-periods" title={t("analysis.categories.periods")}>{periodPowerCard}{discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline />}{zoneDistributionCard}</AnchoredDetailsSection>
+      {discipline === "bike" && <FtpDecisionSection title={t("condition.basis.title")} anchorEnabled collapsible>
+        <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={!!zoneDistribution} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={ftpProgression} ftpHistory={ftpHistory} t={t} />
+      </FtpDecisionSection>}
+      {isSufficiencyGrouped(...analysisSets) && <AnchoredDetailsSection queryDetail id="analysis-evidence" title={t("analysis.categories.evidence")}><SufficiencyGroup inline sets={analysisSets} testId="K5-sufficiency-group" /></AnchoredDetailsSection>}
+    </div>
+  </div>;
+
+  const conditionNavigation = embedded && part === "condition" ? <ConditionSectionNav sections={[
     ...(currentPoint ? [{ id: "condition-current", label: t("condition.current.title") }, { id: "condition-trend", label: t("condition.chart.region") }, { id: "condition-activities", label: t("coach.recent.title") }] : []),
     { id: "condition-load", label: t("condition.load.title") },
     { id: "condition-metrics", label: t(discipline === "bike" ? "condition.metrics.bikeTitle" : "condition.metrics.runTitle") },
@@ -1000,11 +1037,12 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {part !== "condition" && <SufficiencyGroup sets={analysisSets} testId="K5-sufficiency-group" />}
         {part !== "analysis" && discipline !== "tri" && currentPoint && (
           <FitnessCoachBriefing
+          showConditionChoices={embedded}
           currentDate={currentPoint.date}
           currentBasis={currentBasis}
             weekChangeSlot={part === "condition" ? null : weekChangeSlot}
             metricsNoteSlot={loadSufficiency && loadFormBlock
-              ? <SufficiencyInline set={loadSufficiency} block={loadFormBlock} testId="K1-1-1-sufficiency-inline" />
+              ? <LoadQualityEvidence points={model.pmcHistoryPoints} set={loadSufficiency} block={loadFormBlock} testId="K1-1-1-sufficiency-inline" />
               : null}
           part={part === "condition" ? "condition" : "all"}
             key={`${discipline}-${currentPoint.date}`}
@@ -1195,11 +1233,11 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           {part !== "condition" && performanceCurves}
         </div>
 
-        {!embedded && (part === "analysis" || part === "condition") && discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline={part === "condition"} />}
+        {!embedded && part !== "condition" && discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline />}
 
         {part !== "condition" && zoneDistributionCard}
         </ConditionLoadSection></div>
-        {part === "condition" && <section id="condition-metrics" tabIndex={-1} className="condition-riding-metrics condition-section-target" aria-labelledby="condition-riding-metrics-title">
+        {part === "condition" && embedded && <section id="condition-metrics" tabIndex={-1} className="condition-riding-metrics condition-section-target" aria-labelledby="condition-riding-metrics-title">
           <Text as="h2" variant="title" id="condition-riding-metrics-title">{t(discipline === "bike" ? "condition.metrics.bikeTitle" : "condition.metrics.runTitle")}</Text>
           <Text as="p" variant="bodySmall" tone="secondary">{t("condition.metrics.description")}</Text>
           {discipline === "run" && <>
@@ -1207,13 +1245,13 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             {(runReadiness || qualifiedRunRecords(model.runEvidence).length > 0) && <RunRecordsSummary evidence={model.runEvidence} readiness={runReadiness} />}
             <MilestonesGrid achieved={milestones} />
           </>}
-          {discipline === "bike" && <FitnessPedalingEvidence activities={disciplineActivities} metricsMap={metricsMap} locale={i18n.language} />}
+          {embedded && discipline === "bike" && <FitnessPedalingEvidence activities={disciplineActivities} metricsMap={metricsMap} locale={i18n.language} />}
           <div className="condition-riding-metrics__evidence">{performanceCurves}{zoneDistributionCard}</div>
           <SufficiencyGroup inline={part === "condition"} sets={analysisSets} testId="condition-metrics-sufficiency" />
           {bikeMetrics}
         </section>}
 
-        {part !== "analysis" && discipline === "bike" && (
+        {part !== "analysis" && (part !== "condition" || embedded) && discipline === "bike" && (
           <FtpDecisionSection title={t(part === "condition" ? "condition.basis.title" : "conclusion.performanceDetailToggle")} anchorEnabled={!embedded && part === "condition"}>
             <BikeThresholdDecisionCard
               inlineEvidence={part === "condition"}

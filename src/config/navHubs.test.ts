@@ -1,4 +1,8 @@
+import { createElement } from "react";
+import { screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
+import HubSubNav from "../components/HubSubNav";
+import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { getActiveHub, getHub, isDetailRoute, resolveDetailHub, isHubSubRoute, PRIMARY_HUBS } from "./navHubs";
 
 describe("navHubs", () => {
@@ -19,7 +23,7 @@ describe("navHubs", () => {
       expect(getActiveHub("/explore/recipes")).toBe("explore");
       expect(getActiveHub("/clubs")).toBe("club");
       expect(getActiveHub("/athlete/me")).toBe("settings");
-      expect(getActiveHub("/athlete/me/activities")).toBe("settings");
+      expect(getActiveHub("/athlete/me/activities")).toBe("coach");
       expect(getActiveHub("/athlete/me/records")).toBe("settings");
       expect(getActiveHub("/athlete/me/friends")).toBe("settings");
       expect(getActiveHub("/athlete/me/gear")).toBe("settings");
@@ -63,20 +67,20 @@ describe("navHubs", () => {
 
   describe("isHubSubRoute", () => {
     it("허브 서브 목적지(목록/루트)에선 true", () => {
-      for (const p of ["/coach/condition", "/coach/today", "/coach/plan", "/coach/goals", "/coach/analysis", "/coach/chat", "/explore/challenges", "/explore/segments", "/explore/courses", "/explore/events", "/explore/recipes", "/athlete/me", "/settings/account"]) {
+      for (const p of ["/coach/condition", "/coach/today", "/coach/plan", "/coach/goals", "/coach/analysis", "/coach/chat", "/athlete/me/activities", "/explore/challenges", "/explore/segments", "/explore/courses", "/explore/events", "/explore/recipes", "/athlete/me", "/settings/account"]) {
         expect(isHubSubRoute(p)).toBe(true);
       }
     });
 
     it("상세·흐름·홈 경로에선 false (서브탭바 미노출)", () => {
-      for (const p of ["/", "/community/board/123", "/club/g1", "/segment/s1", "/segment/create", "/course/c1", "/event/e1", "/goal/climb", "/goal-setup", "/activity/xyz", "/clubs", "/athlete/me/activities", "/athlete/me/records", "/explore/segments/leaderboard", "/athlete/me/friends", "/about"]) {
+      for (const p of ["/", "/community/board/123", "/club/g1", "/segment/s1", "/segment/create", "/course/c1", "/event/e1", "/goal/climb", "/goal-setup", "/activity/xyz", "/clubs", "/athlete/me/records", "/explore/segments/leaderboard", "/athlete/me/friends", "/about"]) {
         expect(isHubSubRoute(p)).toBe(false);
       }
     });
   });
 
   it("getHub 은 key 로 허브를 반환", () => {
-    expect(getHub("coach").subs.map((s) => s.to)).toEqual(["/coach/condition", "/coach/today", "/coach/plan", "/coach/goals", "/coach/analysis", "/coach/chat"]);
+    expect(getHub("coach").subs.map((s) => s.to)).toEqual(["/coach/condition", "/coach/plan", "/coach/goals", "/coach/analysis", "/coach/chat"]);
     expect(getHub("explore").subs.map((s) => s.to)).toEqual(["/explore/courses", "/explore/segments", "/explore/events", "/explore/challenges", "/explore/recipes"]);
     expect(getHub("community").subs).toHaveLength(0);
     expect(getHub("settings").subs.map((s) => s.to)).toEqual(["/athlete/me", "/settings/account"]);
@@ -107,4 +111,25 @@ describe("detail flow route boundaries", () => {
     expect(resolveDetailHub("/activity/a1/edit")).toBe("home");
     expect(resolveDetailHub("/course/c1/edit")).toBe("explore");
   });
+});
+
+
+describe("coach plan/record entry aliases", () => {
+  it.each(["/coach/today", "/athlete/me/activities"])("keeps %s under the same five-tab coach navigation", path => {
+    expect(getActiveHub(path)).toBe("coach");
+    expect(isHubSubRoute(path)).toBe(true);
+    renderWithProviders(createElement(HubSubNav, { hubKey: "coach" }), { route: `/ko${path}?sport=run&date=2026-10-14` });
+    const links = screen.getAllByRole("link");
+    expect(links).toHaveLength(5);
+    const plan = screen.getByRole("link", { name: "계획/기록" });
+    expect(plan).toHaveAttribute("aria-current", "page");
+    expect(plan).toHaveAttribute("href", "/ko/coach/plan?sport=run&date=2026-10-14");
+    expect(links.filter(link => link.getAttribute("aria-current") === "page")).toEqual([plan]);
+  });
+});
+
+it.each(["all", "tri"])("normalizes the plan destination from records sport=%s without mislabeling coach scope", sport => {
+  renderWithProviders(createElement(HubSubNav, { hubKey: "coach" }), { route: `/ko/athlete/me/activities?sport=${sport}&day=2026-10-14` });
+  expect(screen.getByRole("link", { name: "계획/기록" })).toHaveAttribute("href", "/ko/coach/plan?sport=bike&date=2026-10-14");
+  expect(screen.getByRole("link", { name: "컨디션" })).toHaveAttribute("href", `/ko/coach/condition?sport=${sport === "tri" ? "tri" : "bike"}`);
 });

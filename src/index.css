@@ -35,12 +35,25 @@
 
 :root {
   --site-shell-max: 1440px;
+  --site-shell-gutter: var(--space-4);
 }
 
 .site-shell {
+  min-width: 0;
   width: 100%;
   max-width: var(--site-shell-max);
   margin-inline: auto;
+}
+
+/* 페이지·하위탭·푸터의 좌우 정렬선은 셸 한 곳에서 소유한다. */
+.site-shell--padded { padding-inline: var(--site-shell-gutter); }
+@media (min-width: 48rem) {
+  :root { --site-shell-gutter: var(--space-6); }
+}
+
+/* 내부 스크롤바 유무와 관계없이 넓은 화면의 본문 중심을 헤더·푸터와 맞춘다. */
+@media (min-width: 64rem) {
+  .site-main { scrollbar-gutter: stable both-edges; }
 }
 
 code, kbd, pre, samp { font-family: var(--font-code); }

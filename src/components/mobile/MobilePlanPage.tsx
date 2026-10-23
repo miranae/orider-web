@@ -1,23 +1,26 @@
 import { isSportUiEnabled } from "../../config/sportFeatures";
 import { RefreshCw, Target } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import type { AdaptationFlag, PlanDay, PlanWeek } from "@shared/types/goal";
-import MobilePlanContent from "../../features/training/plan/MobilePlanContent";
+import MobilePlanContent, { type PlanNextAction } from "../../features/training/plan/MobilePlanContent";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { AddPlanSheet } from "../training";
 import AdaptationBanner from "../training/AdaptationBanner";
 import { Button } from "../../theme/components";
 import type { Discipline } from "../../utils/disciplineFilter";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import type { PlanCalendarLoads } from "../../features/training/plan/PlanDayLoadComparison";
 
-export interface MobilePlanPageProps {
+export interface MobilePlanPageProps extends PlanCalendarLoads {
+  nextAction?: PlanNextAction | null;
   selectedDate?: string;
   currentWeek: PlanWeek | null;
   weekLabel: string;
   goalId?: string;
+  goalLoadSummary?: ReactNode;
   goalTitle?: string;
   goalDiscipline?: Discipline;
   goalDate?: Date | null;
@@ -44,10 +47,14 @@ function kstDateString(ms: number): string {
 }
 
 export default function MobilePlanPage({
+  dayLoads,
+  loadState,
   selectedDate,
+  nextAction,
   currentWeek,
   weekLabel,
   goalId,
+  goalLoadSummary,
   goalTitle,
   goalDiscipline,
   goalDate,
@@ -80,11 +87,15 @@ export default function MobilePlanPage({
 
   return (
     <MobilePlanContent
+      dayLoads={dayLoads}
+      loadState={loadState}
       selectedDate={selectedDate}
+      nextAction={nextAction}
       currentWeek={currentWeek}
       weekLabel={weekLabel}
       goalTitle={goalTitle}
       goalDiscipline={goalDiscipline}
+      goalLoadSummary={goalLoadSummary}
       goalDate={goalDate}
       daysLeft={daysLeft}
       progressPct={progressPct}

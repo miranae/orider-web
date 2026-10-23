@@ -84,3 +84,16 @@ it("does not report unknown or still loading media as an empty gallery", () => {
   view.rerender(<ActivityOverviewSocial {...base} photos={[]} totalPhotos={0} photosKnown />);
   expect(screen.queryByText("등록된 사진이 없어요.")).not.toBeInTheDocument();
 });
+
+
+it("reads mobile achievements before the story without duplicating results or changing desktop order", () => {
+  const view = renderWithProviders(<ActivityOverviewSocial {...base} prioritizeResults />);
+  const results = view.container.querySelector(".activity-overview-results")!;
+  const story = view.container.querySelector(".activity-overview-story")!;
+  expect(results.compareDocumentPosition(story) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getAllByRole("link", { name: "남산 업힐" })).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "전체 보기" }));
+  expect(base.onShowResults).toHaveBeenCalledOnce();
+  view.rerender(<ActivityOverviewSocial {...base} />);
+  expect(story.compareDocumentPosition(results) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});

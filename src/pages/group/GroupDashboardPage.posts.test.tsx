@@ -57,7 +57,7 @@ describe("group post editing", () => {
     ]) {
       const trigger = screen.getByLabelText(name, { selector: "button" });
       expect(trigger).toHaveRole("button");
-      await act(async () => { trigger.focus(); });
+      await act(async () => { trigger.focus(); fireEvent.click(trigger); });
       expect(trigger).toHaveFocus();
       await waitFor(() => expect(trigger).toHaveAttribute("aria-describedby"));
       const tooltip = document.getElementById(trigger.getAttribute("aria-describedby")!);

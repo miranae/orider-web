@@ -6,7 +6,7 @@
  * 접근성 배선 없이 키보드/스크린리더 지원을 그대로 얻는다.
  */
 import { ChevronDown } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
@@ -14,13 +14,21 @@ export default function DetailsSection({
   title,
   defaultOpen = false,
   children,
+  id,
+  headingId,
+  ref,
 }: {
   title: string;
   defaultOpen?: boolean;
   children: ReactNode;
+  id?: string;
+  headingId?: string;
+  ref?: Ref<HTMLDetailsElement>;
 }) {
   return (
     <details
+      ref={ref}
+      id={id}
       className="ds-details-section"
       open={defaultOpen}
       style={{
@@ -41,7 +49,7 @@ export default function DetailsSection({
         }}
       >
         <ChevronDown aria-hidden="true" className="ds-details-section__chevron" size={ICON_SIZE.md} />
-        <Text as="span" variant="bodyMedium" style={{ color: "var(--ink-1)" }}>
+        <Text id={headingId} as="span" variant="bodyMedium" style={{ color: "var(--ink-1)" }}>
           {title}
         </Text>
       </summary>
