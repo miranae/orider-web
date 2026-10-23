@@ -20,6 +20,8 @@ export interface RuntimeConfig {
   aiApiBase?: string;
   /** 활동 구간·개인 구간 이력·기간 파워 API 배포와 검증 후 켜는 소비 스위치. 기본 꺼짐. */
   activityAnalysisExpansionEnabled?: boolean;
+  activitySubscriptionsEnabled?: boolean;
+  activitySubscriptionsBackendReady?: boolean;
   /** Strava 미리보기·준비 API 배포 검증 후 명시적으로 켠다. 기본 꺼짐. */
   stravaSummaryPreviewEnabled?: boolean;
   /** 배포 검증한 stage 기간 통계·존 읽기 API의 별도 스위치. */
@@ -91,6 +93,8 @@ function readBuildFallbackConfig(): RuntimeConfig {
     personalApiBase: import.meta.env.VITE_ORIDER_PERSONAL_API_BASE,
     aiApiBase: import.meta.env.VITE_ORIDER_AI_API_BASE,
     activityAnalysisExpansionEnabled: import.meta.env.VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED === "true",
+    activitySubscriptionsEnabled: import.meta.env.VITE_ACTIVITY_SUBSCRIPTIONS_ENABLED === "true",
+    activitySubscriptionsBackendReady: import.meta.env.VITE_ACTIVITY_SUBSCRIPTIONS_BACKEND_READY === "true",
     stravaSummaryPreviewEnabled: false,
     trainingAnalysisPeriodsEnabled: import.meta.env.VITE_TRAINING_ANALYSIS_PERIODS_ENABLED === "true",
     coachPmcInsightEnabled: import.meta.env.VITE_COACH_PMC_INSIGHT_ENABLED === "true",
@@ -169,6 +173,19 @@ export function resetRuntimeConfigForTests(config: RuntimeConfig = {}): void {
 
 /** Shared data is intentional; analysis stays isolated and Auth needs an explicit reviewed exception. */
 export function assertIsolatedStageRuntime(config: RuntimeConfig, hostname = globalThis.location?.hostname, origin = globalThis.location?.origin): void {
+  const developmentHost = hostname === "orider-dev.web.app" || hostname === "orider-dev.firebaseapp.com";
+  if (developmentHost && config.appEnvironment === "production") {
+    if (origin !== `https://${hostname}` || config.firebaseProjectId !== "miranae-orider-g1"
+      || config.firebaseAuthDomain !== "miranae-orider-g1.firebaseapp.com"
+      || !/^miranae-orider-g1\.(?:firebasestorage\.app|appspot\.com)$/.test(config.firebaseStorageBucket ?? "")
+      || config.firebaseAppId !== "1:289663940841:web:ba08cdae154286e6499878"
+      || config.firebaseMessagingSenderId !== "289663940841" || config.firebaseFunctionsRegion !== "asia-northeast3"
+      || config.useEmulators === true || config.socialAuthFunctionsBase
+      || (config.firebaseFunctionsBase && config.firebaseFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net")
+      || config.personalApiBase !== "https://orider.co.kr"
+      || config.aiApiBase !== "https://orider-ai-api-h5zqzw3n4a-du.a.run.app") throw new Error("development/production-data-profile-mismatch");
+    return;
+  }
   if (config.socialAuthFunctionsBase && (config.appEnvironment !== "stage" || origin !== "https://orider-dev.web.app"
     || config.socialAuthFunctionsBase !== "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net")) {
     throw new Error("stage/social-auth-endpoint-mismatch");

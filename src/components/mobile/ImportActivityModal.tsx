@@ -10,6 +10,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { Button, Card, Text, Input, buttonClass } from "../../theme/components";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import { getRuntimeConfig } from "../../services/runtimeConfig";
 
 interface ImportActivityModalProps {
   open: boolean;
@@ -56,7 +57,8 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
       formData.append("visibility", visibility);
 
       const endpoint = isZip ? "/api/v1/import/batch" : "/api/v1/import/activity";
-      const res = await fetch(endpoint, {
+      const base = (getRuntimeConfig().personalApiBase || "").replace(/\/$/, "");
+      const res = await fetch(`${base}${endpoint}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,

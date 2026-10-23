@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import ImportActivityModal from "./ImportActivityModal";
+import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 
 const mocks = vi.hoisted(() => ({ navigate: vi.fn(), toast: vi.fn(), token: vi.fn().mockResolvedValue("test-only-token") }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({user: {uid: "test", getIdToken: mocks.token}}) }));
@@ -8,7 +9,7 @@ vi.mock("../../contexts/ToastContext", () => ({ useToast: () => ({showToast: moc
 vi.mock("../../hooks/useLocalizedNavigate", async (importOriginal) => ({ ...await importOriginal<typeof import("../../hooks/useLocalizedNavigate")>(), useLocalizedNavigate: () => mocks.navigate }));
 
 beforeEach(() => { mocks.navigate.mockClear(); });
-afterEach(() => { vi.unstubAllGlobals(); });
+afterEach(() => { vi.unstubAllGlobals(); resetRuntimeConfigForTests(); });
 
 it("portals upload above its caller, traps focus, and closes safely with Escape", () => {
   const close = vi.fn();
@@ -61,6 +62,18 @@ it("completion coach navigation clears the form without referencing an uninitial
   expect(coachLink).toHaveAttribute("href", "/ko/coach/condition");
   fireEvent.click(coachLink);
   expect(close).toHaveBeenCalledOnce();
+});
+
+it.each([["run.fit", "activity"], ["activities.zip", "batch"]])("uploads %s to the configured production API with the existing user token", async (filename, route) => {
+  resetRuntimeConfigForTests({ appEnvironment: "production", personalApiBase: "https://orider.co.kr/" });
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: { activityId: "result", created: 1 } }) });
+  vi.stubGlobal("fetch", fetchMock);
+  render(<MemoryRouter><ImportActivityModal open onClose={vi.fn()} /></MemoryRouter>);
+  fireEvent.change(screen.getByTestId("P1-3-1"), { target: { files: [new File(["synthetic"], filename)] } });
+  fireEvent.click(screen.getByRole("button", { name: "업로드" }));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+  expect(fetchMock).toHaveBeenCalledWith(`https://orider.co.kr/api/v1/import/${route}`, expect.objectContaining({ method: "POST", headers: { Authorization: "Bearer test-only-token" } }));
+  await waitFor(() => expect(screen.getByRole("dialog")).toHaveAccessibleName("처리 완료"));
 });
 
 
