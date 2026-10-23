@@ -23,6 +23,15 @@ function setBounds(element: HTMLElement) { element.getBoundingClientRect = () =>
 function latestPlots() { return state.lines.mock.calls.slice(-2).map(([props]) => props); }
 beforeEach(() => { state.lines.mockClear(); state.change.mockClear(); state.hover.mockClear(); vi.stubGlobal("PointerEvent", MouseEvent); });
 afterEach(() => vi.unstubAllGlobals());
+it("renders sparse raw-part elevation as measured segments while retaining cursor indices and long gaps", () => {
+  renderWithProviders(<ElevationChart data={[10, NaN, 20, NaN, 30, NaN, 40].map((elevation, index) => ({ distance: index * 100, elevation }))}
+    analysisPresentation={{ elevationObservationTimeSec: [0, 1, 5, 6, 10, 11, 100],
+      elevation: { label: "Elevation", maximum: "40", current: "—", unit: "m" }, lanes: {},
+      maximumLabel: "Max", averageLabel: "Avg", keyboardLabel: "keyboard", segmentsLabel: "Segments", segmentDetailsLabel: "Details" }} />);
+  const points = state.lines.mock.lastCall![0].data.datasets[0].data;
+  expect(points.map((point: { sourceIndex: number | null }) => point.sourceIndex)).toEqual([0, 2, 4, null, 6]);
+  expect(points.map((point: { y: number | null }) => point.y)).toEqual([10, 20, 30, null, 40]);
+});
 it("brushes any metric, keeps the full overview and y scale, and does not clear on the synthetic click", () => {
   renderWithProviders(<Example />);
   const plot = plots()[1]!; setBounds(plot);

@@ -8,12 +8,14 @@ import { ChartTooltip } from "../theme/components/Chart";
 import { formatElapsedBoundary } from "../features/activity/detail/activityRangeSelection";
 import { Text } from "../theme/components";
 import { ACTIVITY_ANALYSIS_PRESENTATION } from "../theme/charts/chartPresentation";
-import { analysisCoordinates, analysisDomain, analysisPlotPoints, nearestAnalysisIndex, orderedChartRange } from "./analysisChartCoordinates";
+import { analysisCoordinates, analysisDomain, analysisPlotPoints, analysisObservedElevationPoints, nearestAnalysisIndex, orderedChartRange } from "./analysisChartCoordinates";
 import type { ElevationChartProps } from "./ElevationChart";
 import "../theme/charts/analysisTimeline.css";
 
 export interface AnalysisLaneLabel { label: string; maximum: string; average?: string; current: string; unit: string; formatScale?: (value: number) => string }
 export interface AnalysisChartPresentation {
+  /** raw_parts 고도 관측의 실제 경과 시각. 모든 값은 차트의 표본 인덱스와 대응한다. */
+  elevationObservationTimeSec?: readonly number[];
   identity?: string;
   lanes: Record<string, AnalysisLaneLabel>;
   elevation: AnalysisLaneLabel;
@@ -191,7 +193,9 @@ export default function ElevationChartAnalysis({ data, overlays = [], elapsedAxi
       {!overview && Array.from({ length: tickCount }, (_, index) => <span key={`grid-${index}`} aria-hidden="true" className="analysis-timeline-gridline" style={{ left: `${index / (tickCount - 1) * 100}%` }} />)}
       {overview && ownerMode && range && range.map((index, side) => <span key={side} aria-hidden="true" className="analysis-timeline-range-handle" style={{ left: `${(axis[index]! - fullDomain[0]) / (fullDomain[1] - fullDomain[0]) * 100}%` }} />)}
       <Line plugins={[plugin]} data={{ datasets: [{ label: overview ? "__overview" : key,
-        data: analysisPlotPoints(axis, values),
+        data: overview && p.elevationObservationTimeSec
+          ? analysisObservedElevationPoints(axis, values, p.elevationObservationTimeSec)
+          : analysisPlotPoints(axis, values),
         borderColor: color, backgroundColor: overview ? variant.chartColors.grid : "transparent", fill: overview, borderWidth: overview ? 1 : 1.5,
         pointRadius: 0, tension: 0, spanGaps: false }] }} options={{ ...options(overview), scales: { ...options(overview).scales, y: { display: false, reverse, min: yMin, max: yMax > yMin ? yMax : yMin + 1 } } }} />
     </div><div aria-hidden="true" className="analysis-timeline-scale"><span>{formatScale(yMax)}</span><span>{formatScale(yMin)}</span></div></>;
