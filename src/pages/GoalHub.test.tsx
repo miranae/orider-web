@@ -6,7 +6,7 @@ import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setDocData } from "../__tests__/mocks/firebase";
 import GoalHub from "./GoalHub";
 const state = vi.hoisted(() => ({ goal: null as null | Record<string, unknown>, sport: "bike", loading: false, loadError: null as Error | null, freshLoaded: true, user: { uid: "owner" } as { uid: string; isAnonymous?: boolean } | null }));
-vi.mock("../hooks/usePlanModel", () => ({ usePlanModel: () => ({ user: state.user, goal: state.goal, discipline: state.sport, loading: state.loading, loadError: state.loadError, freshLoaded: state.freshLoaded, progress: 12, weeks: [], daysLeft: 30, goalDate: new Date("2026-12-01"), retryLoad: vi.fn() }) }));
+vi.mock("../hooks/usePlanModel", () => ({ usePlanModel: () => ({ user: state.user, goal: state.goal, discipline: state.sport, loading: state.loading, loadError: state.loadError, freshLoaded: state.freshLoaded, goalMatchesDiscipline: true, progress: 12, weeks: [], daysLeft: 30, goalDate: new Date("2026-12-01"), retryLoad: vi.fn() }) }));
 vi.mock("./ClimbGoalSetupPage", () => ({ default: () => <div>climb form</div> }));
 beforeEach(() => { window.matchMedia = vi.fn().mockImplementation(query => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() })); state.loading = false; state.loadError = null; state.freshLoaded = true; state.goal = null; state.sport = "bike"; state.user = { uid: "owner" }; });
 describe("goal hub", () => {
@@ -14,8 +14,9 @@ describe("goal hub", () => {
     state.goal = { id: "g", title: "Winter course", courseName: "Course", eventType: "completion" };
     renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />, { route: "/ko/coach/goals?sport=bike" });
     expect(screen.getByTestId("K3-1-1")).toHaveTextContent("Winter course");
-    expect(screen.getByTestId("K3-1-2")).toHaveTextContent("계획진행률12%");
-    expect(screen.getByRole("progressbar", { name: "목표 진행률" })).toHaveAttribute("aria-valuenow", "12");
+    expect(screen.getByTestId("K3-1-2")).toHaveTextContent("목표기간 훈련 부하");
+    expect(screen.getByTestId("K3-1-2")).toHaveTextContent("목표기간을 확인할 수 없어");
+    expect(screen.queryByRole("progressbar", { name: "목표 진행률" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "목표 포기" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "계획 보기 →" })).toHaveAttribute("href", "/ko/coach/plan?sport=bike");
     expect(screen.queryByText("event wizard")).not.toBeInTheDocument();
@@ -67,7 +68,7 @@ it.each(['ko', 'en'])('uses the active %s UI locale for the saved target date', 
   const format = vi.spyOn(Date.prototype, 'toLocaleDateString');
   try {
     await i18n.changeLanguage(locale);
-    state.goal = { id: 'localized-date', title: 'Locale goal', eventType: 'completion' };
+    state.goal = { id: 'localized-date', title: 'Locale goal', eventType: 'completion', eventDate: Date.parse('2026-12-01') };
     renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />, { route: `/${locale}/coach/goals?sport=bike` });
     expect(screen.getByTestId('K3-1-1')).toHaveTextContent(expectedDate);
     expect(format).toHaveBeenCalledWith(locale, { timeZone: 'Asia/Seoul' });
