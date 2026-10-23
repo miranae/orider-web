@@ -30,6 +30,10 @@ import {
   phaseLabel,
 } from "./planDisplay";
 import { ICON_SIZE } from "../../../theme/tokens/icon";
+import { useAuth } from "../../../contexts/AuthContext";
+import { usePlanLoadComparison } from "./usePlanLoadComparison";
+import PlanDayLoadComparison, { type PlanCalendarLoads } from "./PlanDayLoadComparison";
+import type { PlanLoadComparisonRow } from "./planLoadComparison";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -67,9 +71,11 @@ interface DayCellProps {
   currentTsb?: number | null;
   goalDate?: Date | null;
   onClick?: () => void;
+  dayLoad?: PlanLoadComparisonRow;
+  loadState?: PlanCalendarLoads["loadState"];
 }
 
-function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFactor, currentTsb, goalDate, onClick }: DayCellProps) {
+function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFactor, currentTsb, goalDate, onClick, dayLoad, loadState }: DayCellProps) {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const weekdayName = buildDayNames(tCommon)[(planCalendarDate(day.date).getUTCDay() + 6) % 7] ?? '';
@@ -102,6 +108,8 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
   const downshift = !isPast && pendingWorkout && currentTsb != null
     ? evaluateRecoveryDownshift({ workoutKind: day.workout, tsb: currentTsb, daysUntil })
     : null;
+  const dailyLoad = !embedded && <PlanDayLoadComparison day={day} row={dayLoad} state={loadState} />;
+  const savedStatus = saved && t(saved.outcome === "unconfirmed" || saved.outcome === "today" ? "loadComparison.calendarUnconfirmed" : `planRecords.state.${saved.outcome}`);
 
   const dateControl = (content: ReactNode, style: CSSProperties) => onClick ? <button
     type="button" aria-label={t('page.dayDetails', { date: kstDayKey(day.date), workout: workoutLabel })}
@@ -136,8 +144,9 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
         <div style={{ fontSize: "var(--fs-sm)", color: 'var(--ink-2)', textDecoration: 'line-through', paddingLeft: 6 }}>
           <span onClick={event => event.stopPropagation()}><GlossaryText>{meta.label}</GlossaryText></span>
         </div>
+        {dailyLoad}
         <div style={{ fontSize: "var(--ft-body-size)", color: 'var(--ink-4)', paddingLeft: 6, fontFamily: 'inherit' }}>
-          {saved ? t(`planRecords.state.${saved.outcome}`) : t('page.skipped')}
+          {saved ? savedStatus : t('page.skipped')}
         </div>
         {dateControl(dateLabel, {
           position: 'absolute', top: 2, right: 4,
@@ -168,7 +177,8 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
         </svg>}
         <div style={{ fontSize: "var(--fs-xs)", fontWeight: 700, marginTop: 'var(--space-1)', letterSpacing: '0.04em' }}>{workoutLabel}</div>
-        {saved && <Text as="p" variant="caption">{t(`planRecords.state.${saved.outcome}`)}</Text>}
+        {dailyLoad}
+        {saved && <Text as="p" variant="caption">{savedStatus}</Text>}
         {dateControl(dateLabel, {
           position: 'absolute', top: 2, right: 4,
           fontFamily: 'inherit', fontSize: "var(--ft-body-size)", color: isGoalDate ? 'var(--primary-fg)' : 'var(--ink-1)',
@@ -191,7 +201,7 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
           ? 'color-mix(in oklch, var(--lime) 10%, var(--bg-2))'
           : 'var(--bg-2)',
         border: `1px solid ${isToday || selected ? 'var(--lime)' : 'var(--line-soft)'}`,
-        opacity: isRest ? 0.65 : dimmed ? 0.85 : 1,
+        opacity: isRest && !(dayLoad?.actualTss && dayLoad.actualTss > 0) ? 0.65 : dimmed ? 0.85 : 1,
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
@@ -199,12 +209,6 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
       }}
     >
       {embedded && day.actualActivityId && <LocalizedLink data-testid="K4-5-5" to={`/activity/${encodeURIComponent(day.actualActivityId)}`} onClick={event => event.stopPropagation()}>{t("today.viewActivity")}</LocalizedLink>}
-      {saved && <>
-        <Text as="p" variant="caption">{t(`planRecords.state.${saved.outcome}`)}</Text>
-        {saved.linkage !== "confirmed" && (saved.linkage !== "none" || ["completed", "partial", "markedComplete"].includes(saved.outcome)) && <Text as="p" variant="caption" tone="secondary">{t(`planRecords.basis.${saved.linkage}`)}</Text>}
-        {saved.postponedToLocalDate && <Text as="p" variant="caption" tone="secondary">{t("planRecords.postponedDate", {date: saved.postponedToLocalDate})}</Text>}
-        {saved.activityLinks.map(link => <LocalizedLink key={link.id} data-testid="K4-5-5" to={`/activity/${encodeURIComponent(link.id)}`} onClick={event => event.stopPropagation()}>{t(link.kind === "candidate" ? "planRecords.viewCandidate" : "today.viewActivity")}</LocalizedLink>)}
-      </>}
       {/* TODAY badge */}
       {isToday && (
         <div
@@ -257,9 +261,16 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
           }}
         >
           {effectiveDur > 0 && <span style={{ whiteSpace: 'nowrap' }}>{effectiveDur} {t('mobile.minutesUnit')}</span>}
-          {effectiveTSS > 0 && <span onClick={event => event.stopPropagation()} style={{ whiteSpace: 'nowrap' }}><GlossaryText>{`${effectiveTSS} TSS`}</GlossaryText></span>}
+          {embedded && effectiveTSS > 0 && <span onClick={event => event.stopPropagation()} style={{ whiteSpace: 'nowrap' }}><GlossaryText>{`${effectiveTSS} TSS`}</GlossaryText></span>}
         </div>
       )}
+      {dailyLoad}
+      {saved && <>
+        <Text as="p" variant="caption" tone="secondary">{savedStatus}</Text>
+        {saved.linkage !== "confirmed" && (saved.linkage !== "none" || ["completed", "partial", "markedComplete"].includes(saved.outcome)) && <Text as="p" variant="caption" tone="secondary">{t(`planRecords.basis.${saved.linkage}`)}</Text>}
+        {saved.postponedToLocalDate && <Text as="p" variant="caption" tone="secondary">{t("planRecords.postponedDate", {date: saved.postponedToLocalDate})}</Text>}
+        {saved.activityLinks.map(link => <LocalizedLink key={link.id} data-testid="K4-5-5" to={`/activity/${encodeURIComponent(link.id)}`} onClick={event => event.stopPropagation()}>{t(link.kind === "candidate" ? "planRecords.viewCandidate" : "today.viewActivity")}</LocalizedLink>)}
+      </>}
       {/* 자동 조정 칩 — week 단위 canonical factor 사용 (day별 ratio 누적 오차 회피) */}
       {isAdjusted && weekAdjustmentFactor != null && (
         <div style={{ position: 'absolute', bottom: 4, left: 6 }}>
@@ -276,7 +287,7 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
         {/* 완료 — 달성률 + ✓ (이상값 방지를 위해 999% 캡) */}
         {isDone && (
           <>
-            {completionRatio != null && (
+            {embedded && completionRatio != null && (
               <span style={{
                 fontSize: "var(--fs-xs)",
                 color: 'var(--ink-1)',
@@ -582,6 +593,7 @@ export default function PlanPresentation({
 }: PlanPresentationProps) {
   const { t, i18n } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
+  const { user, profile } = useAuth();
   const [goalExpanded, setGoalExpanded] = useState(false);
   const [showPreviousWeeks, setShowPreviousWeeks] = useState(false);
   const DAY_NAMES = useMemo(() => buildDayNames(tCommon), [tCommon]);
@@ -648,6 +660,15 @@ export default function PlanPresentation({
       canNextWeek: mobileWeekIdx < weeks.length - 1,
     };
   }, [currentWeekIndex, hasCurrentWeek, mobileWeekOffset, t, weeks]);
+  const calendarDates = (isMobile ? mobilePlanViewModel.currentWeek?.days ?? [] : visibleWeeks.flatMap(week => week.days)).map(day => kstDayKey(day.date)).filter(Boolean).sort();
+  const calendarRange = { start: calendarDates[0] ?? "", end: calendarDates[calendarDates.length - 1] ?? "" };
+  const calendarLoads = usePlanLoadComparison({ uid: user?.uid, discipline, weeks, range: calendarRange, ftp: profile?.ftp,
+    enabled: !embedded && !!goal && goalMatchesDiscipline && !loading && !loadError });
+  const calendarLoadsByDate = useMemo(() => new Map(calendarLoads.days.map(day => [day.date, day])), [calendarLoads.days]);
+  const calendarLoadNotice = !embedded && <div style={{ marginBottom: "var(--space-3)" }}>
+    <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.calendarBasis")}</Text>
+    {["error", "incomplete", "invalid"].includes(calendarLoads.state) && <div role="status"><Text as="p" variant="bodySmall" tone="warning">{t(calendarLoads.state === "invalid" ? "loadComparison.invalidRange" : "loadComparison.incomplete")}</Text><Button variant="secondary" size="sm" onClick={calendarLoads.retry}>{t("loadComparison.retry")}</Button></div>}
+  </div>;
   if (!loading && loadError) {
     return (
       <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
@@ -720,6 +741,8 @@ export default function PlanPresentation({
   if (isMobile && !loading) {
     const mobileProps: MobilePlanContentProps = {
       selectedDate,
+      dayLoads: calendarLoadsByDate,
+      loadState: calendarLoads.state,
       nextAction: embedded ? undefined : nextAction ?? null,
       embedded,
       currentWeek: mobilePlanViewModel.currentWeek,
@@ -743,6 +766,7 @@ export default function PlanPresentation({
       <>
         <GoalSourceNotice goal={goal} discipline={discipline} />
         {scopeNotice}
+        {calendarLoadNotice}
         {decisionSlot && <div style={{ padding: "var(--space-3) var(--space-4)" }}>{decisionSlot}</div>}
         {renderMobile ? renderMobile(mobileProps) : <MobilePlanContent {...mobileProps} />}
       </>
@@ -966,6 +990,8 @@ export default function PlanPresentation({
         {loading ? (
           <SkeletonGrid />
         ) : (
+          <>
+          {calendarLoadNotice}
           <Card data-testid="K4-5" padding="none" style={PLAN_CALENDAR_CARD_STYLE}>
             {/* Header */}
             <div
@@ -1067,6 +1093,8 @@ export default function PlanPresentation({
                           embedded={embedded}
                           selected={kstDayKey(day.date) === selectedDate}
                           day={day}
+                          dayLoad={calendarLoadsByDate.get(kstDayKey(day.date))}
+                          loadState={calendarLoads.state}
                           isToday={isTodayCell(day)}
                           goalDate={goalDate}
                           weekAdjustmentFactor={wk.adjustmentFactor}
@@ -1103,6 +1131,7 @@ export default function PlanPresentation({
               })
             )}
           </Card>
+          </>
         )}
 
         {/* Legend */}

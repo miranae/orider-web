@@ -173,6 +173,8 @@ export default function PlanPage() {
       onAbandon={abandonGoal}
       renderMobile={(props) => (
         <MobilePlanPage key={selectionOwner}
+          dayLoads={props.dayLoads}
+          loadState={props.loadState}
           nextAction={props.nextAction}
           selectedDate={props.selectedDate}
           currentWeek={props.currentWeek}

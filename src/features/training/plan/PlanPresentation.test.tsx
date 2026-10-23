@@ -139,7 +139,7 @@ describe("PlanPresentation responsive layout", () => {
     renderWithProviders(<PlanPresentation model={desktopModel} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
     expect(screen.queryByText("108.0km")).not.toBeInTheDocument();
     expect(screen.getByText("240 분")).toBeInTheDocument();
-    expect(screen.getByText("180 TSS")).toHaveStyle({ whiteSpace: "nowrap" });
+    expect(screen.getByText(/계획 180 · 실제/)).toBeInTheDocument();
   });
 
   it("omits unsupported fitness forecasts and empty course metrics for a time-based running goal", () => {
@@ -182,13 +182,13 @@ describe("PlanPresentation responsive layout", () => {
     fireEvent.click(screen.getByRole("button", { name: "지난 주 접기" }));
     expect(screen.queryByText("W1")).not.toBeInTheDocument();
   });
-  it.each([{actual: 85, expected: "100%"}, {actual: 0, expected: "0%"}])("확정 연결의 저장 부하 $actual TSS를 조정된 처방과 비교한다", ({actual, expected}) => {
+  it.each([85, 0])("확정 연결에 저장된 %s TSS를 정본 일별 부하로 대신 사용하지 않는다", actual => {
     vi.spyOn(window, "matchMedia").mockImplementation((query) => ({matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn()}));
     const date = Date.now();
     const adjusted = {...model, weeks: [{id: "week-01", weekNumber: 1, phase: "build", startDate: date, plannedTSS: 100, days: [{date, dayOfWeek: 0, workout: "z2", plannedTSS: 100, adjustedTSS: 85, actualTSS: actual, actualActivityId: "saved-ride", matchMethod: "explicit-start", matchConfidence: "exact", completed: true, plannedDurationMin: 60}]}]} as unknown as PlanModel;
     renderWithProviders(<PlanPresentation model={adjusted} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
-    expect(screen.getByText(expected)).toBeInTheDocument();
-    expect(screen.queryByText("85%")).not.toBeInTheDocument();
+    expect(screen.getByText("계획 85 · 실제 미확인 TSS")).toBeInTheDocument();
+    expect(screen.getByText("달성 — · 차이 — TSS")).toBeInTheDocument();
   });
 
 });

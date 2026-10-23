@@ -1259,6 +1259,13 @@
   "scope.nextAfterGoal": "목표일 이후 저장된 운동",
   "goalHub.originalTitle": "목표 이름 원문",
   "loadComparison": {
+    "calendarLabel": "{{date}} 부하 비교",
+    "calendarLoads": "계획 {{planned}} · 실제 {{actual}} TSS",
+    "calendarAttainment": "달성 {{ratio}} · 차이 {{difference}} TSS",
+    "calendarLoading": "조회 중",
+    "calendarUnknown": "미확인",
+    "calendarUnconfirmed": "계획 수행 미확정",
+    "calendarBasis": "부하 달성률은 같은 날의 전체 활동을 비교한 값이며 계획 수행의 확정 여부와는 별개입니다.",
     "title": "계획 대비 기록",
     "period": "비교 기간",
     "day": "일",

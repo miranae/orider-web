@@ -1259,6 +1259,13 @@
   "scope.nextAfterGoal": "Stored workout after the goal",
   "goalHub.originalTitle": "Original goal name",
   "loadComparison": {
+    "calendarLabel": "{{date}} load comparison",
+    "calendarLoads": "Plan {{planned}} · Actual {{actual}} TSS",
+    "calendarAttainment": "Attainment {{ratio}} · Difference {{difference}} TSS",
+    "calendarLoading": "Loading",
+    "calendarUnknown": "Unconfirmed",
+    "calendarUnconfirmed": "Plan execution unconfirmed",
+    "calendarBasis": "Load attainment compares all activity on the same day and is separate from confirmed plan execution.",
     "title": "Plan vs. actual load",
     "period": "Comparison period",
     "day": "Day",

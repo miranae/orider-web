@@ -12,8 +12,9 @@ import AdaptationBanner from "../training/AdaptationBanner";
 import { Button } from "../../theme/components";
 import type { Discipline } from "../../utils/disciplineFilter";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import type { PlanCalendarLoads } from "../../features/training/plan/PlanDayLoadComparison";
 
-export interface MobilePlanPageProps {
+export interface MobilePlanPageProps extends PlanCalendarLoads {
   nextAction?: PlanNextAction | null;
   selectedDate?: string;
   currentWeek: PlanWeek | null;
@@ -45,6 +46,8 @@ function kstDateString(ms: number): string {
 }
 
 export default function MobilePlanPage({
+  dayLoads,
+  loadState,
   selectedDate,
   nextAction,
   currentWeek,
@@ -82,6 +85,8 @@ export default function MobilePlanPage({
 
   return (
     <MobilePlanContent
+      dayLoads={dayLoads}
+      loadState={loadState}
       selectedDate={selectedDate}
       nextAction={nextAction}
       currentWeek={currentWeek}

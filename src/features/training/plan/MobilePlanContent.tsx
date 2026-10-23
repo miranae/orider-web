@@ -19,6 +19,7 @@ import { Button, Card, Text } from "../../../theme/components";
 import { formatPlanGoalTitle } from "./planDisplay";
 import "./MobilePlanContent.css";
 import { ICON_SIZE } from "../../../theme/tokens/icon";
+import PlanDayLoadComparison, { type PlanCalendarLoads } from "./PlanDayLoadComparison";
 
 /** rest → bike 폴백으로 Discipline 타입 보장 (색상/아이콘 표시용) */
 function getWorkoutDisciplineForDisplay(workout: string, goalDiscipline?: Discipline): Discipline {
@@ -71,7 +72,7 @@ function kstDayOfMonth(ms: number): number | null {
 
 export interface PlanNextAction { day: PlanDay; weekId: string; dayIndex: number }
 
-export interface MobilePlanContentProps {
+export interface MobilePlanContentProps extends PlanCalendarLoads {
   nextAction?: PlanNextAction | null;
   selectedDate?: string;
   embedded?: boolean;
@@ -99,6 +100,8 @@ export interface MobilePlanContentProps {
 }
 
 export default function MobilePlanContent({
+  dayLoads,
+  loadState,
   selectedDate,
   nextAction,
   embedded = false,
@@ -300,7 +303,7 @@ export default function MobilePlanContent({
         const isPast = dayStr !== "" && dayStr < todayStr;
         const label = workoutLabel(day);
         const state = isDone ? "done" : isToday ? "today" : isRest ? "off" : isPast ? "past" : "planned";
-        const stateLabel = saved ? t(`planRecords.state.${saved.outcome}`) : state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned');
+        const stateLabel = saved ? t(saved.outcome === "unconfirmed" || saved.outcome === "today" ? "loadComparison.calendarUnconfirmed" : `planRecords.state.${saved.outcome}`) : state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned');
 
         const intensityColor = isRest ? "var(--ink-4)"
           : (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? "var(--amber)"
@@ -328,6 +331,7 @@ export default function MobilePlanContent({
                   {saved && saved.outcome !== 'rest' && <Text variant="caption" tone="secondary">{stateLabel}</Text>}
                 </div>
               </div>
+              {!embedded && loadState && <PlanDayLoadComparison day={day} row={dayLoads?.get(dayStr)} state={loadState} />}
             </div>
           );
         }
@@ -383,6 +387,7 @@ export default function MobilePlanContent({
                 )}
               </div>
               <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{label}</div>
+              {!embedded && loadState && <PlanDayLoadComparison day={day} row={dayLoads?.get(dayStr)} state={loadState} />}
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>
                 {stateLabel}
                 {saved && saved.linkage !== "confirmed" && (saved.linkage !== "none" || ["completed", "partial", "markedComplete"].includes(saved.outcome)) && <Text as="p" variant="caption" tone="secondary">{t(`planRecords.basis.${saved.linkage}`)}</Text>}
