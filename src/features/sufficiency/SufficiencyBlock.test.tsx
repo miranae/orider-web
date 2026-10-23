@@ -49,6 +49,33 @@ describe("SufficiencyCard", () => {
     expect(screen.queryByTestId("K-action")).toBeNull();
   });
 
+  it.each(["delayed", "processing"] as const)("%s: 이미 충족한 조건과 미확정 분석을 알리고 추가 기록 행동은 요구하지 않는다", state => {
+    const block = sufficiencyBlock({ featureId: "power_model", state, remainingRequirementCount: 0,
+      nextAction: { code: "record_power_ride" }, requirements: [
+        { requirementId: "measured_power_activities", kind: "count", satisfaction: "met", guarantee: "minimum",
+          target: { value: 1, unit: "activity" }, current: { value: 20, unit: "activity" },
+          excluded: [{ reason: "metrics_pending", count: 1 }] },
+      ] });
+    renderUi(<SufficiencyCard set={sufficiencySet([block], { nextUpdateAt: Date.now() + 86400000 })} block={block} testId="pending" />);
+    expect(screen.getByTestId("pending-explanation")).toHaveTextContent("일부 활동의 분석 결과가 확정되지 않아");
+    expect(screen.getByTestId("pending-explanation")).toHaveTextContent("확인된 계산 조건은 모두 충족");
+    expect(screen.getByTestId("pending-requirements")).toHaveTextContent("실측 파워 기록 20개");
+    expect(screen.getByTestId("pending-requirements")).toHaveTextContent("분석 결과 미확정 1개");
+    expect(screen.getByTestId("pending")).toHaveTextContent("결과를 확인할 수 있는 날짜는 아직 정해지지 않았어요");
+    expect(screen.queryByTestId("pending-action")).toBeNull();
+    expect(screen.queryByTestId("pending-remaining")).toBeNull();
+  });
+
+  it("만료된 조건은 현재 충족 여부나 미확정 분석 원인으로 단정하지 않는다", () => {
+    const block = sufficiencyBlock({ state: "delayed", remainingRequirementCount: 0, nextAction: null,
+      requirements: [{ requirementId: "measured_power_activities", kind: "count", satisfaction: "met", guarantee: "minimum",
+        current: { value: 20, unit: "activity" }, excluded: [{ reason: "metrics_pending", count: 1 }] }] });
+    renderUi(<SufficiencyCard set={sufficiencySet([block], { staleAfter: 1 })} block={block} testId="stale" />);
+    expect(screen.getByTestId("stale-explanation")).toHaveTextContent("갱신 기한이 지나");
+    expect(screen.getByTestId("stale-explanation")).not.toHaveTextContent("모두 충족");
+    expect(screen.queryByTestId("stale-requirements")).toBeNull();
+  });
+
   it("노출 이벤트는 같은 블록에 한 번만, uid 없이 보낸다", () => {
     const block = sufficiencyBlock();
     const set = sufficiencySet([block]);
