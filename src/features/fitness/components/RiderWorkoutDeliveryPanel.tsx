@@ -43,8 +43,9 @@ function EnabledRiderWorkoutDeliveryPanel({ uid, workoutType, targetTss, onBusyC
       </div>
       <label className="fitness-coach__device-select">
         <Text as="span" variant="bodyMedium">{t("coach.delivery.target")}</Text>
-        <div data-testid={explicitWorkoutLabel ? "K2-3-1" : undefined}><DropdownSelect disabled={busy} label={t("coach.delivery.target")} value={String(controller.targetDeviceId)} onChange={next => controller.setTargetDeviceId(next)} options={controller.devices.map((device) => ({ value: String(device.deviceId), label: `${device.deviceName || t("coach.delivery.deviceFallback")} · ${device.appVersion || device.platform || device.deviceId}` }))} /></div>
+        <div data-testid={explicitWorkoutLabel ? "K2-3-1" : undefined}><DropdownSelect disabled={busy} label={t("coach.delivery.target")} value={String(controller.targetDeviceId)} onChange={next => controller.setTargetDeviceId(next)} options={controller.devices.map((device) => ({ value: String(device.deviceId), label: `${device.deviceName || t("coach.delivery.deviceFallback")} · ${device.appVersion ? t("coach.delivery.appVersion", { version: device.appVersion }) : device.platform || device.deviceId}` }))} /></div>
       </label>
+      <Text as="p" variant="caption" tone="tertiary">{t("coach.delivery.deviceHelp")}</Text>
       {controller.restoreLoading && <Text as="p" variant="caption" tone="tertiary">{t("coach.delivery.restoring")}</Text>}
       {controller.canCreate && !controller.submitError && (
         <Button data-testid={explicitWorkoutLabel ? "K2-3-3" : undefined} variant="primary" block disabled={busy || !selectedDevice || controller.restoreLoading} onClick={() => void controller.submit()}>
