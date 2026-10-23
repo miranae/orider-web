@@ -622,7 +622,7 @@ export default function EventParticipantsPage() {
               />
             </div>
 
-            <div className="flex" style={{ gap: 'var(--space-1)' }}>
+            <div className="flex event-category-filters" style={{ gap: 'var(--space-1)' }}>
               <Button
                 type="button"
                 onClick={() => setCategoryFilter("ALL")}
