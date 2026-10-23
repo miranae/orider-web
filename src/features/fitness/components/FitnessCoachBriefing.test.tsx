@@ -233,8 +233,8 @@ describe("FitnessCoachBriefing", () => {
   it("requires a registered device instead of pretending a G1 transfer and keeps rest local", () => {
     renderBriefing({ current: { ctl: 42, atl: 49, tsb: -10.6 } });
 
-    expect(screen.getByText(/G1 워크아웃 수신 기능을 안전하게 준비/)).toBeInTheDocument();
-    expect(screen.queryByText("G1 수신 확인")).not.toBeInTheDocument();
+    expect(screen.getByText(/아직 기기로 요청하지 않습니다/)).toBeInTheDocument();
+    expect(screen.queryByText("기기 수신 확인")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("radio", { name: /완전 휴식/ }));
     expect(screen.getByRole("button", { name: "오늘 선택 확인" })).toBeInTheDocument();

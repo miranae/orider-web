@@ -22,9 +22,9 @@ describe("RiderWorkoutDeliveryPanel", () => {
 
   it("shows a TSS preflight without inventing steps and requests the selected device", () => {
     renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="recovery" targetTss={20} />);
-    expect(screen.getByText(/20 TSS 선택/)).toBeInTheDocument();
+    expect(screen.getByText(/목표 20 TSS/)).toBeInTheDocument();
     expect(screen.queryByText("서버가 확정한 워크아웃")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "이 G1에 워크아웃 요청" }));
+    fireEvent.click(screen.getByRole("button", { name: "이 기기에 운동 보내기" }));
     expect(mocks.submit).toHaveBeenCalledTimes(1);
   });
 
@@ -76,12 +76,12 @@ describe("RiderWorkoutDeliveryPanel", () => {
   });
 
   it.each([
-    ["received", "G1 수신 확인"],
+    ["received", "기기 수신 확인"],
     ["deferred_in_ride", "현재 라이딩 종료 후 적용"],
     ["ready_for_next_ride", "다음 라이딩 준비 완료"],
-    ["execution_started", "G1에서 운동 시작"],
+    ["execution_started", "기기에서 운동 시작"],
     ["completed", "운동 완료"],
-    ["failed", "G1 적용 실패"],
+    ["failed", "기기 적용 실패"],
     ["superseded", "더 최신 워크아웃으로 대체됨"],
   ])("renders the %s receipt state without offering an unsafe retry", (state, label) => {
     mocks.controller = { ...mocks.controller, deliveryState: state };
