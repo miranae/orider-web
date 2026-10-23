@@ -143,3 +143,56 @@ it("keeps each server action available behind a native evidence disclosure", () 
   fireEvent.click(summary);
   expect(group.querySelector("details")).not.toHaveAttribute("open");
 });
+
+
+it("shows one existing actionable requirement without a long repeated block list in the coach summary", () => {
+  const blocks = ["power_model", "vo2max", "rider_profile", "ftp_estimate"].map(featureId => sufficiencyBlock({ featureId, nextAction: { code: "connect_power_meter" } }));
+  renderUi(<SufficiencyGroup summaryOnly set={sufficiencySet(blocks)} testId="summary" />);
+  expect(screen.getByTestId("summary-action")).toHaveAttribute("href", "/ko/settings/device");
+  expect(screen.getAllByRole("link")).toHaveLength(1);
+  expect(screen.queryByTestId("summary-expand")).not.toBeInTheDocument();
+});
+
+
+describe("load quality evidence without activity-count claims", () => {
+  const load = (extra: Partial<ReturnType<typeof sufficiencyBlock>> = {}) => sufficiencyBlock({
+    featureId: "load_history", viewId: "form", state: "low_evidence", remainingRequirementCount: 1,
+    nextAction: { code: "record_activity" }, source: { basis: "estimated", assumedInputs: [] },
+    requirements: [
+      { requirementId: "load_days", kind: "count", satisfaction: "met", guarantee: "sufficient", current: {value:300,unit:"day"},target:{value:1,unit:"day"} },
+      { requirementId: "load_history_period", kind: "period", satisfaction: "met", guarantee: "sufficient",current:{value:42,unit:"day"},target:{value:42,unit:"day"} },
+      { requirementId: "load_quality", kind: "quality", satisfaction: "not_met", guarantee: "unpredictable" },
+    ], ...extra,
+  });
+  beforeEach(async () => { await i18n.changeLanguage("ko"); });
+  it("names the quality requirement alongside a long established history, without asking for one more ride or hardware", () => {
+    const block=load();
+    renderUi(<SufficiencyInline set={sufficiencySet([block])} block={block} testId="quality" />);
+    expect(screen.getByTestId("quality")).toHaveTextContent("부하가 잡힌 날 300일");
+    expect(screen.getByTestId("quality")).toHaveTextContent("추정 또는 혼합 부하 포함");
+    expect(screen.getByTestId("quality")).toHaveTextContent("수치로 정한 완료 기준이 제공되지 않아요");
+    expect(screen.getByTestId("quality")).not.toHaveTextContent("파워미터 연결");
+    expect(screen.getByTestId("quality")).not.toHaveTextContent("남은 요건 1개");
+    expect(screen.getByTestId("quality-review")).toHaveAttribute("href","/ko/athlete/me/activities?sport=bike");
+    expect(screen.getByTestId("quality-action")).toHaveAttribute("href","/ko/settings/connections");
+  });
+  it("shows both period and quality issues rather than only the first one", () => {
+    const block=load(); block.remainingRequirementCount=2;
+    block.requirements[1]={...block.requirements[1]!,satisfaction:"not_met",current:{value:10,unit:"day"}};
+    renderUi(<SufficiencyInline set={sufficiencySet([block])} block={block} testId="mixed" />);
+    expect(screen.getByTestId("mixed")).toHaveTextContent("첫 기록 10일째");
+    expect(screen.getByTestId("mixed")).toHaveTextContent("추정 또는 혼합 부하 포함");
+    expect(screen.getByTestId("mixed-remaining")).toHaveTextContent("2개");
+  });
+  it.each(["processing","delayed"] as const)("does not present stale or unfinished quality as a current actionable requirement: %s", state => {
+    const block=load({state,nextAction:null});
+    renderUi(<SufficiencyInline set={sufficiencySet([block])} block={block} testId="pending" />);
+    expect(screen.queryByTestId("pending-requirement")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("pending-action")).not.toBeInTheDocument();
+  });
+  it("admits that an owner supplied a count without the requirement details", () => {
+    const block=load({requirements:[],nextAction:null});
+    renderUi(<SufficiencyInline set={sufficiencySet([block])} block={block} testId="unknown" />);
+    expect(screen.getByTestId("unknown")).toHaveTextContent("일부 항목의 설명을 확인할 수 없어요");
+  });
+});

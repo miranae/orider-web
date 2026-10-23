@@ -22,10 +22,12 @@ export interface DropdownSelectProps {
   className?: string;
   /** Opt in when a portaled menu must appear above its containing dialog. */
   menuZIndex?: number;
+  /** Match a toolbar's independent touch target height. */
+  touchTarget?: boolean;
 }
 
 /** Opt-in single selection; focus stays on the combobox while its listbox is open. */
-export function DropdownSelect({ value, onChange, options, label, id, placeholder = '', disabled, className, menuZIndex }: DropdownSelectProps) {
+export function DropdownSelect({ value, onChange, options, label, id, placeholder = '', disabled, className, menuZIndex, touchTarget = false }: DropdownSelectProps) {
   const generatedId = useId();
   const triggerId = id ?? generatedId;
   const listId = `${triggerId}-list`;
@@ -143,7 +145,7 @@ export function DropdownSelect({ value, onChange, options, label, id, placeholde
     }
   }
 
-  return <div className={cn('ds-dropdown-select', className)}>
+  return <div className={cn('ds-dropdown-select', touchTarget && 'ds-dropdown-select--touch', className)}>
     <button ref={triggerRef} id={triggerId} type="button" role="combobox" aria-label={label}
       aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? listId : undefined}
       aria-activedescendant={open && activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}

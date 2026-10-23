@@ -1,11 +1,11 @@
 import "./fitness-analysis-controls.css";
 import { CalendarDays } from "lucide-react";
 import DateField from "../../../components/redesign/DateField";
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { NativePowerTwelveResponse, NativePowerTwelvePeriod, NativePowerTwelveWinner } from "@shared/types/stage-native-power-v2-twelve";
 import { NATIVE_POWER_V2_TWELVE_SECONDS } from "@shared/types/stage-native-power-v2-twelve";
-import { Button, DropdownSelect, Text } from "../../../theme";
+import { Button, DropdownSelect, Input, Text } from "../../../theme";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { makeDurationLabel } from "../fitnessPageUtils";
 import { nativeTwelveDisplayValue } from "../models/nativePowerTwelve";
@@ -23,6 +23,16 @@ export function NativePowerTwelvePersonalView(props: NativePowerTwelveViewProps)
   const { t } = useTranslation("fitness");
   const id = useId(), label = makeDurationLabel(t);
   const [unit, setUnit] = useState<"W"|"W/kg">("W"), [duration, setDuration] = useState(300), [tableOrigin, setTableOrigin] = useState<"measured"|"storedNativeUnverified">("measured");
+  const [activitySearch, setActivitySearch] = useState("");
+  const [activityPage, setActivityPage] = useState(0);
+  const matchingActivities = useMemo(() => {
+    const query = activitySearch.trim().toLocaleLowerCase();
+    return query ? props.activities.filter(activity => `${activity.title} ${activity.activityId}`.toLocaleLowerCase().includes(query)) : props.activities;
+  }, [activitySearch, props.activities]);
+  const pageSize = 20;
+  const activityPages = Math.max(1, Math.ceil(matchingActivities.length / pageSize));
+  const currentActivityPage = Math.min(activityPage, activityPages - 1);
+  const visibleActivities = matchingActivities.slice(currentActivityPage * pageSize, (currentActivityPage + 1) * pageSize);
   const date = (ms: number) => new Date(ms).toISOString().slice(0, 10);
   const display = (winner: NativePowerTwelveWinner|null) => {
     const value = unit === "W" ? winner?.slot.witness?.maxAveragePowerW : winner?.slot.wattsPerKg;
@@ -36,10 +46,22 @@ export function NativePowerTwelvePersonalView(props: NativePowerTwelveViewProps)
     <div className="space-y-2"><Text as="h3" variant="bodyLarge" weight={600}>{t("powerSkills.native.title")}</Text>
       <Text as="p" variant="bodyMedium" tone="secondary">{t("powerSkills.native.scope")}</Text></div>
     <details className="native-twelve-details" open={!props.response}><summary>{t("powerSkills.native.selectActivities", { count: props.selectedIds.length })}</summary>
-      <div className="native-twelve-candidates">{props.activities.map(activity => <div key={activity.activityId} className="native-twelve-candidate">
+      <div className="native-twelve-finder">
+        <label htmlFor={`${id}-activity-search`}><Text variant="bodyMedium">{t("powerSkills.native.activitySearch")}</Text></label>
+        <Input id={`${id}-activity-search`} type="search" value={activitySearch} aria-describedby={`${id}-activity-search-hint`} onChange={event => { setActivitySearch(event.target.value); setActivityPage(0); }} />
+        <Text as="p" id={`${id}-activity-search-hint`} variant="bodySmall" tone="secondary">{t("powerSkills.native.activitySearchHint")}</Text>
+      </div>
+      <div className="native-twelve-candidates">{visibleActivities.map(activity => <div key={activity.activityId} className="native-twelve-candidate">
         <label><input type="checkbox" checked={props.selectedIds.includes(activity.activityId)} disabled={props.busy || !props.selectedIds.includes(activity.activityId) && props.selectedIds.length >= 2} onChange={event => props.onSelect(event.target.checked ? [...props.selectedIds, activity.activityId] : props.selectedIds.filter(value => value !== activity.activityId))} /><Text variant="bodyMedium">{activity.title}</Text></label>
         <Button variant="secondary" size="lg" disabled={props.busy || !props.enabled || !props.selectedIds.includes(activity.activityId)} onClick={() => props.onInspect(activity.activityId)}>{t(props.inspectedIds.includes(activity.activityId) ? "powerSkills.native.reinspect" : "powerSkills.native.inspect")}</Button>
-      </div>)}{props.activities.length === 0 && <Text as="p" variant="bodyMedium" tone="secondary">{t("powerSkills.native.noActivities")}</Text>}</div>
+      </div>)}{matchingActivities.length === 0 && <Text as="p" variant="bodyMedium" tone="secondary">{props.activities.length === 0 ? t("powerSkills.native.noActivities") : t("powerSkills.native.noMatchingActivities")}</Text>}</div>
+      {matchingActivities.length > 0 && <div className="native-twelve-activity-pagination">
+        <Text as="p" variant="bodySmall" tone="secondary" role="status">{t("powerSkills.native.activityPage", { total: matchingActivities.length, from: currentActivityPage * pageSize + 1, to: Math.min((currentActivityPage + 1) * pageSize, matchingActivities.length), page: currentActivityPage + 1, pages: activityPages })}</Text>
+        {activityPages > 1 && <div className="native-twelve-controls">
+          <Button variant="secondary" disabled={currentActivityPage === 0} onClick={() => setActivityPage(currentActivityPage - 1)}>{t("powerSkills.native.previousActivities")}</Button>
+          <Button variant="secondary" disabled={currentActivityPage === activityPages - 1} onClick={() => setActivityPage(currentActivityPage + 1)}>{t("powerSkills.native.nextActivities")}</Button>
+        </div>}
+      </div>}
     </details>
     <div className="native-twelve-controls"><Button variant="secondary" size="lg" disabled={props.busy} onClick={() => { const now = Date.now(); props.onPeriods([{ id: "recent", fromInclusiveMs: now - 56 * 86400000, toExclusiveMs: now }, { id: "all", fromInclusiveMs: 0, toExclusiveMs: now }]); }}>{t("powerSkills.native.presets")}</Button>
       <Button variant="primary" size="lg" disabled={!props.enabled || props.busy || props.selectedIds.length === 0 || props.selectedIds.some(value => !props.inspectedIds.includes(value)) || props.periods.some(period => period.fromInclusiveMs >= period.toExclusiveMs || period.toExclusiveMs > Date.now())} onClick={props.onLoad}>{t(props.busy ? "powerSkills.native.loading" : "powerSkills.native.load")}</Button></div>

@@ -1,4 +1,47 @@
 {
+  "planRecords": {
+    "dayTitle": "{{date}} plan and activity",
+    "noActivity": "No activity is currently loaded for this date. Check sync and the loaded range before judging execution.",
+    "today": "Today's training",
+    "title": "Plan / records",
+    "plan": "Training plan",
+    "records": "Activities and execution",
+    "comparison": "Plan and recorded activity",
+    "prescription": "Plan · {{workout}} · {{load}} TSS · {{minutes}} min",
+    "linked": "A recorded activity is linked to this plan.",
+    "unlinked": "No activity is linked. Activity on the same date does not establish plan completion.",
+    "actualLoad": "Linked load saved with the plan · {{value}} TSS",
+    "loadUnavailable": "Saved load for the linked activity is not available yet.",
+    "reviewPlan": "Review plan and adjust next activity",
+    "state": {
+      "rest": "Planned rest",
+      "completed": "Recorded as completed",
+      "partial": "Recorded as partially completed",
+      "markedComplete": "Marked complete · link needs verification",
+      "skipped": "Recorded as skipped",
+      "postponed": "Recorded as postponed",
+      "scheduled": "Scheduled plan",
+      "today": "Today's plan · execution unconfirmed",
+      "unconfirmed": "Execution unconfirmed",
+      "unknown": "Saved status needs verification"
+    },
+    "basis": {
+      "confirmed": "Confirmed activity link",
+      "probable": "Possible activity match · verification needed",
+      "legacy": "Legacy saved link · confirmation evidence unavailable",
+      "none": "No linked activity",
+      "unknown": "Link evidence unavailable"
+    },
+    "matchingNote": "Activity or load on the same date does not establish plan completion.",
+    "candidateLoad": "Saved load for the possible match · {{value}} TSS",
+    "viewCandidate": "View possible matching activity",
+    "postponedDate": "Rescheduled date · {{date}}",
+    "scope": "Shows active goal plans alongside activity on the same date. A shared date does not establish completion.",
+    "loading": "Checking plans. Your activity records remain available.",
+    "error": "Plans could not be loaded. Your activity records remain available.",
+    "empty": "No active plan for this sport. Existing activity records remain available below.",
+    "currentPlan": "Current plan"
+  },
   "title": "Training",
   "plan": {
     "revalidatingUpdating": "Refining plan based on recent activity…",
@@ -202,7 +245,8 @@
       "swim": "Swimming race"
     },
     "goalDayEstimate": "Goal-day estimate",
-    "planProgress": "Plan progress"
+    "planProgress": "Plan progress",
+    "readError": "Could not check existing goals. Reload before creating or changing a goal."
   },
   "goals": {
     "wizardTitle": {
@@ -234,6 +278,7 @@
     "courseEmptyDesc": "Create a course or upload a GPX file first",
     "courseSearchPlaceholder": "Search courses...",
     "courseSearchEmpty": "No results found for \"{{query}}\"",
+    "courseCreateAction": "Create a course",
     "courseCreateLink": "Can't find the course you want? Create a new one (GPX upload / from activity)",
     "courseSelectInstructions": "Select a course for your goal",
     "courseSelectDetail": "We'll compare difficulty in real-time based on your fitness level",

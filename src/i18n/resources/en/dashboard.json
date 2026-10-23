@@ -1,4 +1,5 @@
 {
+  "mobileFitness.activityFlow": "Activity volume and weekly patterns",
   "header": {
     "greetingPrefix": "Hi, ",
     "greetingSuffix": ".",
@@ -633,7 +634,8 @@
       },
       "modelEvidence": "eFTP uses 95% of the monthly best 20-minute average power; CP and TTE come from the last 90-day PDC model. All are estimates and never change active FTP automatically."
     },
-    "zoneSourcePowerHistorical": "Z1–Z7 combined using each activity’s FTP · not reclassified with current FTP. Includes only activities with complete zone evidence."
+    "zoneSourcePowerHistorical": "Z1–Z7 combined using each activity’s FTP · not reclassified with current FTP. Includes only activities with complete zone evidence.",
+    "modelEvidence": "Data behind the metrics"
   },
   "runEmpty": {
     "title": "No recent running records",

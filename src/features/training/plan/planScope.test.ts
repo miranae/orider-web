@@ -12,3 +12,13 @@ describe("stored plan presentation ranges", () => {
     expect(JSON.stringify(weeks)).toBe(before);
   });
 });
+
+
+it("counts only pending occurrences despite stale false mirrors and preserves the embedded legacy count", () => {
+  const weeks = [{ days: ["completed", "skipped", "postponed", "partial"].map(executionStatus => day("2026-10-21", { executionStatus })).concat([day("2026-10-22")]) }] as PlanWeek[];
+  const now = Date.parse("2026-10-20T00:00:00+09:00");
+  const before = JSON.stringify(weeks);
+  expect(summarizeStoredPlan(weeks, null, now)).toEqual({ untilGoal: 1, afterGoal: 0, overdue: 0 });
+  expect(summarizeStoredPlan(weeks, null, now, { legacy: true })).toEqual({ untilGoal: 5, afterGoal: 0, overdue: 0 });
+  expect(JSON.stringify(weeks)).toBe(before);
+});

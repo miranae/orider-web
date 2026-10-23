@@ -1,4 +1,5 @@
 import { useState } from "react";
+import userEvent from "@testing-library/user-event";
 import { DropdownSelect } from "../../theme/components";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
@@ -68,4 +69,51 @@ it("preserves tooltip Escape priority before closing the containing dialog", () 
   expect(close).not.toHaveBeenCalled();
   fireEvent.keyDown(term, { key: "Escape" });
   expect(close).toHaveBeenCalledOnce();
+});
+
+
+it("keeps focus inside an owned portalled date picker and lets Escape close only the calendar", async () => {
+  const { default: DateField } = await import("../redesign/DateField");
+  const close = vi.fn();
+  function CalendarFixture() {
+    const ref = useTrainingDialog(close, false);
+    return <div ref={ref}><button>Close owner</button><DateField value="2026-10-14" onChange={vi.fn()} portal /></div>;
+  }
+  render(<CalendarFixture />);
+  const trigger = screen.getByRole("button", { name: /2026/ });
+  fireEvent.keyDown(trigger, { key: "Enter" });
+  const calendar = screen.getByRole("dialog");
+  const day = calendar.querySelector<HTMLButtonElement>('[data-calendar-date="2026-10-14"]')!;
+  expect(day).toHaveFocus();
+  fireEvent.keyDown(day, { key: "ArrowRight" });
+  expect(calendar.querySelector('[data-calendar-date="2026-10-15"]')).toHaveFocus();
+  fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus(); expect(close).not.toHaveBeenCalled();
+  fireEvent.keyDown(trigger, { key: "Escape" });
+  expect(close).toHaveBeenCalledOnce();
+});
+
+it("excludes inherited disabled fieldset controls while preserving its first legend and enabled Tab cycle", async () => {
+  function DisabledFieldsetFixture() {
+    const ref = useTrainingDialog(vi.fn(), false);
+    return <div ref={ref}><button>Close detail</button><button>Enabled action</button><fieldset disabled><legend><button>Available legend action</button></legend><button>Inherited disabled action</button><input aria-label="Inherited disabled input" /><legend><button>Second legend disabled action</button></legend></fieldset></div>;
+  }
+  render(<DisabledFieldsetFixture />);
+  const close = screen.getByRole("button", { name: "Close detail" });
+  const enabled = screen.getByRole("button", { name: "Enabled action" });
+  const legend = screen.getByRole("button", { name: "Available legend action" });
+  expect(close).toHaveFocus();
+  expect(screen.getByRole("button", { name: "Inherited disabled action" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Second legend disabled action" })).toBeDisabled();
+  await userEvent.tab({ shift: true });
+  expect(legend).toHaveFocus();
+  await userEvent.tab();
+  expect(close).toHaveFocus();
+  await userEvent.tab();
+  expect(enabled).toHaveFocus();
+  await userEvent.tab();
+  expect(legend).toHaveFocus();
+  await userEvent.tab();
+  expect(close).toHaveFocus();
 });

@@ -570,7 +570,8 @@ export default function AnalysisTab({
     </div>;
   }
 
-  if (!renderSections && !hasPower && !hasHr && cyclingDynamicsCards.length === 0 && !hasRunAnalysis
+  const hasIndependentPedaling = [sm?.cyclingMetrics?.cadenceStdDev, sm?.cyclingMetrics?.coastingSec, sm?.cyclingMetrics?.longestCoastSec].some(value => typeof value === "number" && Number.isFinite(value));
+  if (!renderSections && !hasPower && !hasHr && !hasIndependentPedaling && cyclingDynamicsCards.length === 0 && !hasRunAnalysis
     && !laps?.length && caloriesKcal == null && climbRows.length === 0) {
     // 서버 분석 문서가 아직 없거나 로딩 중이면 "스트림 없음" 이 아니다 — 모름을 없음으로 그리지 않는다.
     // kill switch — 서버가 이 면을 껐다. 빈 화면으로 두면 "데이터가 없다" 로 읽힌다.
@@ -630,6 +631,7 @@ export default function AnalysisTab({
       {/* Phase A.7: 서버 메트릭 배너 (있으면 표시) */}
       <ServerMetricsBanner
         state={visibleServerMetrics}
+        showStatusWithoutMetrics={hasIndependentPedaling || cyclingDynamicsCards.length > 0 || (!analysisSummary && !streams.time?.length && (hasHr || hasPower))}
         suppressPowerMetrics={suppressServerPowerMetrics || serverMetrics.metrics?.avgPower != null}
         suppressHeartRateMetrics={suppressServerHeartRateMetrics || serverMetrics.metrics?.avgHr != null}
       />
@@ -721,8 +723,8 @@ export default function AnalysisTab({
         </div>
       )),
     dynamics: (cyclingDynamicsSection),
-    pedaling: renderSections && !(hasPower && (sm?.quadrant || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null && sm.cyclingMetrics.longestZ4PlusSec > 0 && integratedPower?.thresholdWork?.longestZ4PlusSec == null) || sm?.cyclingMetrics?.coastingPct != null && sm.cyclingMetrics.coastingSec != null) ? null : (((hasPower && (sm?.quadrant || sm?.cyclingMetrics?.cadenceStdDev != null || sm?.cyclingMetrics?.longestZ4PlusSec != null))
-        || sm?.cyclingMetrics?.coastingPct != null) && (
+    pedaling: renderSections && !(finiteSavedMetric(sm?.cyclingMetrics?.cadenceStdDev) || hasPower && (sm?.quadrant || sm?.cyclingMetrics?.longestZ4PlusSec != null && sm.cyclingMetrics.longestZ4PlusSec >= 0 && integratedPower?.thresholdWork?.longestZ4PlusSec == null) || finiteSavedMetric(sm?.cyclingMetrics?.coastingSec) || finiteSavedMetric(sm?.cyclingMetrics?.longestCoastSec)) ? null : (((finiteSavedMetric(sm?.cyclingMetrics?.cadenceStdDev) || hasPower && (sm?.quadrant || sm?.cyclingMetrics?.longestZ4PlusSec != null))
+        || finiteSavedMetric(sm?.cyclingMetrics?.coastingSec) || finiteSavedMetric(sm?.cyclingMetrics?.longestCoastSec)) && (
         <div>
           <h3 className="text-[length:var(--fs-sm)] font-semibold mb-3" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.pedalQuality")}</h3>
           <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -734,13 +736,15 @@ export default function AnalysisTab({
                 <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="ink" label={t("analysis.metric.q3")} value={Math.round(sm.quadrant.q3Pct).toString()} unit="%" description={t("analysis.metric.q3Desc")} tooltip={t("analysis.glossary.quadrant")} />
               </>
             )}
-            {hasPower && sm?.cyclingMetrics?.longestZ4PlusSec != null && sm.cyclingMetrics.longestZ4PlusSec > 0 && integratedPower?.thresholdWork?.longestZ4PlusSec == null && (
+            {hasPower && sm?.cyclingMetrics?.longestZ4PlusSec != null && sm.cyclingMetrics.longestZ4PlusSec >= 0 && integratedPower?.thresholdWork?.longestZ4PlusSec == null && (
               <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="amber" label={t("analysis.metric.longestZ4")} value={formatDuration(sm.cyclingMetrics.longestZ4PlusSec)} description={t("analysis.metric.longestZ4Desc")} tooltip={t("analysis.glossary.longestZ4")} />
             )}
-            {hasPower && sm?.cyclingMetrics?.cadenceStdDev != null && (
+            {finiteSavedMetric(sm?.cyclingMetrics?.cadenceStdDev) && (
               <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="violet" label={t("analysis.metric.cadenceConsistency")} value={sm.cyclingMetrics.cadenceStdDev.toFixed(0)} unit="rpm σ" description={t("analysis.metric.cadenceConsistencyDesc")} tooltip={t("analysis.glossary.cadenceConsistency")} />
             )}
-            {sm?.cyclingMetrics?.coastingPct != null && sm.cyclingMetrics.coastingSec != null && (
+            {finiteSavedMetric(sm?.cyclingMetrics?.longestCoastSec) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="aqua" label={t("analysis.metric.longestCoast")} value={formatDuration(sm.cyclingMetrics.longestCoastSec)} tooltip={t("analysis.glossary.coasting")} />}
+            {finiteSavedMetric(sm?.cyclingMetrics?.coastingSec) && !finiteSavedMetric(sm.cyclingMetrics.coastingPct) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="aqua" label={t("analysis.metric.coastingTime")} value={formatDuration(sm.cyclingMetrics.coastingSec)} tooltip={t("analysis.glossary.coasting")} />}
+            {finiteSavedMetric(sm?.cyclingMetrics?.coastingPct) && finiteSavedMetric(sm.cyclingMetrics.coastingSec) && (
               <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="aqua" label={t("analysis.metric.coasting")} value={Math.round(sm.cyclingMetrics.coastingPct).toString()} unit="%" description={t("analysis.metric.coastingDesc", { duration: formatDuration(sm.cyclingMetrics.coastingSec) })} tooltip={t("analysis.glossary.coasting")} />
             )}
           </div>
@@ -1216,3 +1220,5 @@ export function AnalysisLapTable({ laps, ftp, sport = "ride", onSelectLap, canSe
     </div>
   );
 }
+
+function finiteSavedMetric(value: number | null | undefined): value is number { return typeof value === "number" && Number.isFinite(value); }

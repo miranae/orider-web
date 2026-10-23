@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import type { AdaptationFlag, PlanDay, PlanWeek } from "@shared/types/goal";
-import MobilePlanContent from "../../features/training/plan/MobilePlanContent";
+import MobilePlanContent, { type PlanNextAction } from "../../features/training/plan/MobilePlanContent";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { AddPlanSheet } from "../training";
 import AdaptationBanner from "../training/AdaptationBanner";
@@ -14,6 +14,7 @@ import type { Discipline } from "../../utils/disciplineFilter";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export interface MobilePlanPageProps {
+  nextAction?: PlanNextAction | null;
   selectedDate?: string;
   currentWeek: PlanWeek | null;
   weekLabel: string;
@@ -45,6 +46,7 @@ function kstDateString(ms: number): string {
 
 export default function MobilePlanPage({
   selectedDate,
+  nextAction,
   currentWeek,
   weekLabel,
   goalId,
@@ -81,6 +83,7 @@ export default function MobilePlanPage({
   return (
     <MobilePlanContent
       selectedDate={selectedDate}
+      nextAction={nextAction}
       currentWeek={currentWeek}
       weekLabel={weekLabel}
       goalTitle={goalTitle}

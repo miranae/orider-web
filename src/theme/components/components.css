@@ -774,3 +774,9 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 .ds-media-viewer__previous .ds-btn__icon svg, .ds-media-viewer__next .ds-btn__icon svg { width: var(--space-7); height: var(--space-7); }
 .ds-media-viewer__toolbar .ds-btn__icon svg { width: var(--space-6); height: var(--space-6); }
 @media (max-width: 40rem) { .ds-media-viewer__previous .ds-btn__icon svg, .ds-media-viewer__next .ds-btn__icon svg { width: var(--space-6); height: var(--space-6); } }
+
+/* Navigation companion to a labeled selection field. */
+.ds-control-toolbar--navigation { margin: 0; padding: 0; }
+@media (max-width: 36rem) {
+  .ds-control-toolbar--navigation { display: grid; width: 100%; grid-template-columns: repeat(2, calc(var(--space-7) + var(--space-3))) minmax(0, 1fr); }
+}

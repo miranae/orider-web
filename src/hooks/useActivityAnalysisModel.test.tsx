@@ -120,6 +120,26 @@ describe("useActivityAnalysisModel", () => {
   });
 
 
+  it.each([ACTIVITY_METRICS_VERSION, ACTIVITY_METRICS_VERSION - 1])("retains saved cadence without inventing stream availability at version %s", async version => {
+    const activity = {...makeActivity("orider_saved_cadence"), summary: {distance:30,ridingTimeMillis:4000}} as Activity;
+    setDocData(`activities/${activity.id}`, activity as unknown as Record<string,unknown>);
+    setDocData(`activity_metrics/${activity.id}`, {version,discipline:"bike",cyclingMetrics:{cadenceStdDev:0}});
+    const {result}=renderHook(()=>useActivityAnalysisModel(activity.id));
+    await waitFor(()=>expect(result.current.analysisTabProps).not.toBeNull());
+    expect(result.current.hasAnalysisStreams).toBe(false);
+    expect(result.current.analysisTabProps?.serverMetrics.metrics?.cyclingMetrics?.cadenceStdDev).toBe(0);
+  });
+
+  it.each([{inputPending:true},{inputCoverage:"pending"},{}])("does not promote pending or empty saved evidence %j", async extra => {
+    const activity = {...makeActivity("orider_unready_saved"), summary: {distance:30,ridingTimeMillis:4000}} as Activity;
+    setDocData(`activities/${activity.id}`, activity as unknown as Record<string,unknown>);
+    setDocData(`activity_metrics/${activity.id}`, {version:ACTIVITY_METRICS_VERSION,...extra,...(Object.keys(extra).length?{cyclingMetrics:{cadenceStdDev:7.2}}:{})});
+    const {result}=renderHook(()=>useActivityAnalysisModel(activity.id));
+    await waitFor(()=>expect(result.current.serverMetrics.status).toBe("ready"));
+    expect(result.current.analysisTabProps).toBeNull();
+    expect(result.current.hasAnalysisStreams).toBe(false);
+  });
+
   const analysisSummary: ActivityAnalysisSummary = {
     schemaVersion: 1,
     // native LapData 평균 속도는 km/h: 1km / 100초 = 36km/h (스트림 m/s와 구분).

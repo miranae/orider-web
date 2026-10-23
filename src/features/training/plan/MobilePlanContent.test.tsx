@@ -82,14 +82,14 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.getByText("2026 · 그란폰도 · 122.91 km")).toBeInTheDocument();
     expect(screen.getByText("D-25")).toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: "진행률" })).toHaveAttribute("aria-valuenow", "7");
-    expect(screen.getByText("계획 관리")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("계획 관리"));
+    expect(screen.getByRole("button", { name: "계획 관리 →" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "계획 관리 →" }));
     expect(screen.getByRole("button", { name: "ICS" })).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     const expand = screen.getByRole("button", { name: "원문 보기" });
-    expect(expand).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(expand);
-    expect(screen.getByRole("button", { name: "접기" })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("2026_비앙키그란폰도춘천");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("2026_비앙키그란폰도춘천");
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("비앙키그란폰도춘천");
     expect(screen.getByText("오늘의 다음 운동")).toBeInTheDocument();
     expect(screen.getByText("75 분 · 60 TSS")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "주간 선택" })).toHaveTextContent("이번 주");
@@ -162,9 +162,9 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(summary).toHaveTextContent("러닝 30");
   });
 
-  it("prioritizes today while keeping earlier days accessible", () => {
+  it("keeps the legacy embedded earlier-day expansion", () => {
     const priorDay = { ...workout, date: today - 86_400_000, workout: "rest" as const };
-    renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [priorDay, workout] }} weekLabel="이번 주" />);
+    renderWithProviders(<MobilePlanContent embedded currentWeek={{ ...week, days: [priorDay, workout] }} weekLabel="이번 주" />);
     const reveal = screen.getByRole("button", { name: "지난 1일 보기" });
     expect(reveal).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("휴식일")).not.toBeInTheDocument();
@@ -203,4 +203,34 @@ it("uses canonical KST dates for weekdays while preserving the stored edit index
   expect(edit).toHaveBeenCalledWith(friday, week.id, 0);
   expect(screen.getByText('토')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /^월 16 / })).not.toBeInTheDocument();
+});
+
+
+it("keeps the whole seven-day web week in place without a height-changing past-days toggle", () => {
+  const priorDay = { ...workout, date: today - 86400000, workout: "rest" as const };
+  renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [priorDay, workout] }} weekLabel="이번 주" />);
+  expect(screen.getByText("휴식일")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /지난 .*일 보기/ })).not.toBeInTheDocument();
+  expect(screen.getByText("오늘의 다음 운동")).toBeInTheDocument();
+});
+
+
+it("uses saved evidence labels instead of treating partial and manual completion mirrors as confirmed done",()=>{
+  const days=[{...workout,completed:true,executionStatus:"partial"},{...workout,completed:true},{...workout,actualActivityId:"candidate",matchMethod:"legacy-time-window",matchConfidence:"probable"},{...workout,executionStatus:"postponed",postponedToLocalDate:"2026-11-01"}];
+  renderWithProviders(<MobilePlanContent currentWeek={{...week,days:days as PlanDay[]}} weekLabel="이번 주" nextAction={null}/>);
+  expect(screen.getByText("부분 완료로 기록됨")).toBeInTheDocument();
+  expect(screen.getByText("완료 표시 · 연결 근거 확인 필요")).toBeInTheDocument();
+  expect(screen.getByText("추정 연결 후보 · 확인 필요")).toBeInTheDocument();
+  expect(screen.getByText("연기로 기록됨")).toBeInTheDocument();
+  expect(screen.queryByText("✓")).not.toBeInTheDocument();
+});
+
+
+it.each(["completed", "skipped", "postponed", "partial"])("uses saved %s before false mirrors in its standalone next-card fallback", status => {
+  const closed = { ...workout, executionStatus: status } as PlanDay;
+  const pending = { ...workout, date: today + 86400000, workout: "tempo" as const };
+  const edit = vi.fn();
+  renderWithProviders(<MobilePlanContent currentWeek={{ ...week, days: [closed, pending] }} weekLabel="이번 주" onEditWorkout={edit} />);
+  fireEvent.click(screen.getAllByRole("button", { name: "편집" })[0]);
+  expect(edit).toHaveBeenCalledExactlyOnceWith(pending, week.id, 1);
 });

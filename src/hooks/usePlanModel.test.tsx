@@ -210,8 +210,12 @@ describe("usePlanModel", () => {
     expect(second.result.current.weeks).toHaveLength(1);
     await waitFor(() => expect(getDocsMock).toHaveBeenCalledTimes(1));
     expect(second.result.current.freshLoaded).toBe(false);
-    expect(second.result.current.loadError).toBeNull();
+    await waitFor(() => expect(second.result.current.goalError).toEqual(new Error("offline")));
+    expect(second.result.current.loadError).toEqual(new Error("offline"));
     expect(second.result.current.weeks).toHaveLength(1);
+    act(() => second.result.current.retryLoad());
+    await waitFor(() => expect(second.result.current.freshLoaded).toBe(true));
+    expect(second.result.current.loadError).toBeNull();
     getDocsMock.mockImplementation(originalImplementation);
   });
 
@@ -277,7 +281,30 @@ describe("usePlanModel", () => {
     expect(hook.result.current.goal?.id).toBe("cached-goal");
     expect(hook.result.current.weeks[0]?.id).toBe("cached-week");
     expect(getTrainingSurfaceCache<typeof cachedTuple>(cacheKey)).toEqual(cachedTuple);
+    await waitFor(() => expect(hook.result.current.planError).toEqual(new Error("plan offline")));
+    expect(hook.result.current.loadError).toEqual(new Error("plan offline"));
+    expect(hook.result.current.freshLoaded).toBe(false);
+    act(() => hook.result.current.retryLoad());
+    await waitFor(() => expect(hook.result.current.freshLoaded).toBe(true));
+    expect(hook.result.current.loadError).toBeNull();
     getDocsMock.mockImplementation(originalImplementation);
+  });
+
+  it("keeps manual plan refresh errors visible until a successful retry without losing the saved weeks", async () => {
+    setCollectionDocs("goals", [{ id: "goal", userId: "owner", discipline: "bike", status: "active" }]);
+    setCollectionDocs("goals/goal/plan", [{ id: "week", weekNumber: 1, days: [] }]);
+    const hook = renderHook(() => usePlanModel("bike"), { wrapper });
+    await waitFor(() => expect(hook.result.current.freshLoaded).toBe(true));
+    const failure = new Error("manual plan offline");
+    vi.mocked(getDocs).mockRejectedValueOnce(failure);
+    await act(async () => { await expect(hook.result.current.refreshPlanWeeks()).rejects.toBe(failure); });
+    expect(hook.result.current.planError).toBe(failure);
+    expect(hook.result.current.freshLoaded).toBe(false);
+    expect(hook.result.current.goal?.id).toBe("goal");
+    expect(hook.result.current.weeks[0]?.id).toBe("week");
+    await act(async () => { await hook.result.current.refreshPlanWeeks(); });
+    expect(hook.result.current.loadError).toBeNull();
+    expect(hook.result.current.freshLoaded).toBe(true);
   });
 
   it("never exposes the previous sport tuple while the next key is taking ownership", () => {

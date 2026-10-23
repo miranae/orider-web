@@ -14,10 +14,12 @@ export default function PowerCurveChart({
   current,
   previous,
   expected,
+  stableSelection = false,
 }: {
   current: PowerCurvePoint[];
   previous: PowerCurvePoint[];
   expected?: PowerCurvePoint[];
+  stableSelection?: boolean;
 }) {
   const { t } = useTranslation("fitness");
   const durationLabel = makeDurationLabel(t);
@@ -119,7 +121,7 @@ export default function PowerCurveChart({
       ].join(" · ")} className="power-curve-evidence__values-info">{t("powerCurve.valuesInfo")}</InfoTip></div>
       <DropdownSelect id={id} label={t("powerCurve.durationSelect")} value={String(selected.durationSeconds)} onChange={next => setSelectedDuration(Number(next))} options={current.map((point) => ({ value: String(point.durationSeconds), label: durationLabel(point.durationSeconds) }))} />
       </div>
-      <div className="power-curve-evidence__values">{[selected, previousSelected].map((point, index) => <div key={index} className="space-y-2"><Stat compact label={t(index ? "period.previous" : "period.recent")} value={point ? point.maxPower.toFixed(0) : "—"} unit={point ? "W" : undefined} />{point?.sourceActivityId && point.startTime != null && <LocalizedLink className="underline" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}><Text variant="bodySmall">{t("powerCurve.source", { date: new Date(point.startTime).toLocaleDateString() })}</Text></LocalizedLink>}</div>)}</div>
+      <div className="power-curve-evidence__values" data-stable={stableSelection || undefined}>{[selected, previousSelected].map((point, index) => <div key={index} className="space-y-2"><Stat compact label={t(index ? "period.previous" : "period.recent")} value={point ? point.maxPower.toFixed(0) : "—"} unit={point ? "W" : undefined} /><div className="power-curve-evidence__source">{point?.sourceActivityId && point.startTime != null ? <LocalizedLink className="underline" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}><Text variant="bodySmall">{t("powerCurve.source", { date: new Date(point.startTime).toLocaleDateString() })}</Text></LocalizedLink> : stableSelection ? <Text variant="caption" tone="secondary">{t("powerCurve.sourceUnavailable")}</Text> : null}</div></div>)}</div>
     </div>}
     <Text as="p" className="power-curve-evidence__note" variant="caption" tone="tertiary">{t("powerCurve.windowNote")}</Text>
     </div>

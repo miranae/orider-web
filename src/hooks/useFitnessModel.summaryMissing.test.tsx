@@ -1,5 +1,6 @@
 import { cleanup, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import MobileFitnessPage from "../components/mobile/MobileFitnessPage";
 import TriFitnessView from "../pages/fitness/TriFitnessView";
 import { MemoryRouter } from "react-router-dom";
 import type { Activity } from "@shared/types";
@@ -12,8 +13,8 @@ import { FitnessView } from "../pages/FitnessPage";
 import FitnessCoachBriefing from "../features/fitness/components/FitnessCoachBriefing";
 import { deriveActivityImpacts, activityIdsCoveredByImpacts } from "../features/fitness/activityImpact";
 import { deriveActivityStimulus } from "../features/fitness/activityStimulus";
-const mocks = vi.hoisted(() => ({user:{uid:"rider-a",isAnonymous:false},firestore:{},timeseries:null as FitnessTimeseriesDoc|null, multisport: false}));
-vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, profile: null }) }));
+const mocks = vi.hoisted(() => ({user:{uid:"rider-a",isAnonymous:false},firestore:{},timeseries:null as FitnessTimeseriesDoc|null, multisport: false, profile: null as {thresholdPace?:number}|null, userFitness: null as {thresholds:{run:{thresholdPace:number}}}|null}));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, profile: mocks.profile }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => ({ firestore: mocks.firestore }) }));
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: vi.fn() }) }));
 vi.mock("./useTrainingDecision", () => ({useTrainingDecision:()=>({enabled:false,envelope:null})}));
@@ -26,7 +27,7 @@ vi.mock("../features/fitness/useFitnessCurves", () => ({ useFitnessCurves: () =>
 }) }));
 vi.mock("./useBikeFtpDecision", () => ({ useBikeFtpDecision: () => ({ decision: null }) }));
 vi.mock("./useCoachRiderInsight", () => ({ useCoachRiderInsight: () => ({ insight: null }) }));
-vi.mock("./useUserFitness", () => ({ useUserFitness: () => ({ fitness: null }) }));
+vi.mock("./useUserFitness", () => ({ useUserFitness: () => ({ fitness: mocks.userFitness }) }));
 vi.mock("./useFitnessClock", () => ({ useFitnessClock: () => Date.now() }));
 vi.mock("./useConsistencyStreak", () => ({ useConsistencyStreak: () => ({ summary: null }) }));
 vi.mock("./useRunRecords", () => ({ useRunRecords: () => ({ run: null }) }));
@@ -47,7 +48,7 @@ function seed(activities: Activity[]) {
   setCollectionDocs("activities", activities as unknown as Array<Record<string,unknown>&{id:string}>);
   for (const a of activities) setDocData(`activity_metrics/${a.id}`,{tss:100});
 }
-beforeEach(()=>{clearTrainingSurfaceCache();mocks.timeseries=null;mocks.multisport=false;vi.mocked(getDoc).mockClear();});
+beforeEach(()=>{clearTrainingSurfaceCache();mocks.timeseries=null;mocks.multisport=false;mocks.profile=null;mocks.userFitness=null;vi.mocked(getDoc).mockClear();});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 describe("retained activity without raw summary",()=>{
   it.each(["bike", "run", "swim", "tri"])("%s 체력은 활동별 metrics를 읽지 않고 게시된 부하를 유지한다", async sport => {
@@ -74,13 +75,13 @@ describe("retained activity without raw summary",()=>{
     expect(impacts[0]).toMatchObject({attributedLoad:100,confidence:"canonical-single"});
     expect(activityIdsCoveredByImpacts([a],impacts).has(a.id)).toBe(true);
     expect(deriveActivityStimulus(a)).toMatchObject({durationSec:null,intensityFactor:null,workoutType:"unknown",source:"insufficient"});
-    render(<FitnessCoachBriefing impacts={impacts} selectedActivityId={a.id} onSelectActivity={vi.fn()} forecast={null} current={point} decisionSlot={null} locale="ko" canonicalAvailable discipline="bike"/>);
+    render(<MemoryRouter><FitnessCoachBriefing impacts={impacts} selectedActivityId={a.id} onSelectActivity={vi.fn()} forecast={null} current={point} decisionSlot={null} locale="ko" canonicalAvailable discipline="bike"/></MemoryRouter>);
     expect(screen.getByText("반영 부하 100 TSS")).toBeInTheDocument();
     expect(screen.queryByText(/0 min|0분|0.0 km|NaN/)).not.toBeInTheDocument();
   });
   it("pending briefing retains its activity without inventing raw duration or distance",()=>{
     const a=activity(null);
-    render(<FitnessCoachBriefing impacts={[]} selectedActivityId={a.id} onSelectActivity={vi.fn()} forecast={null} current={point} decisionSlot={null} locale="ko" canonicalAvailable pendingActivity={a} discipline="bike"/>);
+    render(<MemoryRouter><FitnessCoachBriefing impacts={[]} selectedActivityId={a.id} onSelectActivity={vi.fn()} forecast={null} current={point} decisionSlot={null} locale="ko" canonicalAvailable pendingActivity={a} discipline="bike"/></MemoryRouter>);
     expect(screen.getAllByText("일일 부하 반영을 기다리는 중").length).toBeGreaterThan(0);
     expect(screen.queryByText(/0 min|0분|0.0 km|NaN/)).not.toBeInTheDocument();
   });
@@ -161,5 +162,25 @@ describe("retained activity without raw summary",()=>{
     const h=renderHook(()=>useFitnessModel("tri",options));
     expect(h.result.current.triFitnessTimeline.length).toBeGreaterThan(0);
     expect(h.result.current.combinedLoad).toMatchObject({ctl:0,atl:0,tsb:0});
+  });
+});
+
+
+describe("running threshold model to actual mobile analysis contract", () => {
+  it.each([
+    { canonical: 260, profile: undefined, expected: "4:20", basis: "저장된 러닝 훈련 기준" },
+    { canonical: undefined, profile: 280, expected: "4:40", basis: "프로필에 저장된 러닝 기준" },
+    { canonical: 260, profile: 280, expected: "4:20", basis: "저장된 러닝 훈련 기준" },
+  ])("keeps canonical=$canonical and profile=$profile consistent across evidence and displayed threshold", ({ canonical, profile, expected, basis }) => {
+    mocks.profile = profile == null ? null : { thresholdPace: profile };
+    mocks.userFitness = canonical == null ? null : { thresholds: { run: { thresholdPace: canonical } } };
+    seed([]);
+    function View() { const model = useFitnessModel("run", options); return <><output data-testid="threshold-model">{model.runEvidence.thresholdPaceSec}</output><MobileFitnessPage data={model.mobilePageProps.data} part="analysis" /></>; }
+    render(<MemoryRouter><View /></MemoryRouter>);
+    expect(screen.getByTestId("threshold-model")).toHaveTextContent(String(canonical ?? profile));
+    expect(screen.getAllByText(expected).length).toBeGreaterThan(0);
+    expect(screen.getByText(basis)).toBeInTheDocument();
+    expect(screen.queryByText(/역치 페이스가 아직 설정되지/)).not.toBeInTheDocument();
+    if (canonical != null && profile != null) expect(screen.queryByText("4:40")).not.toBeInTheDocument();
   });
 });

@@ -176,6 +176,7 @@
     }
   },
   "nav": {
+    "planRecords": "Plan / records",
     "todayTraining": "Today’s workout",
     "analysis": "Analysis",
     "fitness": "Condition",

@@ -1,9 +1,10 @@
-import { useEffect } from "react";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter, useNavigate } from "react-router-dom";
+import { useEffect, useLayoutEffect } from "react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter, useNavigate, useLocation } from "react-router-dom";
 import { getDocs, onSnapshot, where } from "firebase/firestore";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import TrainingLogPage from "./TrainingLogPage";
+import TrainingLogPage, {LogDayCell} from "./TrainingLogPage";
+import type {Activity} from "@shared/types";
 import { planCalendarDate, planMonthBounds } from "@shared/training/planDate";
 
 const state = vi.hoisted(() => ({ mobile: false, user: { uid: "rider" } as { uid: string; isAnonymous?: boolean } | null, recentRead: vi.fn() }));
@@ -45,7 +46,8 @@ function expectMetric(label: string, value: string) {
 
 function QueryNavigation() {
   const navigate = useNavigate();
-  return <button onClick={() => navigate("?sport=bike")}>Change sport query</button>;
+  const location = useLocation();
+  return <button onClick={() => { const next = new URLSearchParams(location.search); next.set("sport", "bike"); navigate(`?${next}`); }}>Change sport query</button>;
 }
 
 describe("운동 기록의 부분 요약", () => {
@@ -141,7 +143,7 @@ describe("운동 기록의 확정 부하와 달성 상태", () => {
     render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
     await waitFor(() => expectMetric("훈련부하 TSS", "100"));
     expectMetric("전체 활동수", "1");
-    await waitFor(() => expect(screen.getByLabelText("실제 부하 미확인 · 달성 여부 판단 불가")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByText("수행 여부 미확인").length).toBeGreaterThan(0));
     expect(screen.getByRole("button", { name: /원본 기록/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /대표 기록/ })).toBeInTheDocument();
   });
@@ -161,11 +163,12 @@ describe("운동 기록의 확정 부하와 달성 상태", () => {
     render(<MemoryRouter><TrainingLogPage /></MemoryRouter>);
     await waitFor(() => expectMetric("훈련부하 TSS", "307"));
     if (unknown) {
-      await waitFor(() => expect(screen.getByLabelText("실제 부하 미확인 · 달성 여부 판단 불가")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getAllByText("수행 여부 미확인").length).toBeGreaterThan(0));
       expect(screen.queryByText("△")).not.toBeInTheDocument();
       expect(screen.queryByText("✓")).not.toBeInTheDocument();
     } else {
-      await waitFor(() => expect(screen.getByText("✓")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getAllByText("수행 여부 미확인").length).toBeGreaterThan(0));
+      expect(screen.queryByText("✓")).not.toBeInTheDocument();
     }
   });
 });
@@ -256,4 +259,144 @@ it("모바일 대표 조회 실패는 원본을 유지하고 합계만 미확인
   await waitFor(() => expect(screen.getByRole("button", {name: /보존할 원본/})).toBeInTheDocument());
   expect(screen.getByLabelText("이번 달 운동 요약")).toHaveTextContent("–");
   expect(screen.getByLabelText("이번 달 운동 요약")).not.toHaveTextContent("3.0km");
+});
+
+
+describe("activity month owner isolation", () => {
+  type Snapshot = Awaited<ReturnType<typeof getDocs>>;
+  const empty = { docs: [], empty: true } as unknown as Snapshot;
+  const snapshot = (uid: string, name: string): Snapshot => ({ docs: [{ id: `${uid}-record`, data: () => ({userId: uid, type: "Ride", description: name, startTime, summary: {distance: 1000, ridingTimeMillis: 600000, tss: 0}})}], empty: false }) as unknown as Snapshot;
+  function pending() { let resolve!: (value: Snapshot) => void; let reject!: (reason: Error) => void; const promise = new Promise<Snapshot>((yes,no) => { resolve=yes; reject=no; }); return {promise,resolve,reject}; }
+
+  it("hides a loaded previous owner in the first commit before passive cache reset", async () => {
+    state.mobile=true;
+    vi.mocked(getDocs).mockReset().mockResolvedValue(empty).mockResolvedValueOnce(snapshot("rider", "이전 계정 기록"));
+    const frames: string[]=[];
+    function Probe() { useLayoutEffect(() => { frames.push(document.body.textContent ?? ""); }); return <TrainingLogPage/>; }
+    const view=render(<MemoryRouter><Probe/></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("tab",{name:"활동"}));
+    expect(await screen.findByText("이전 계정 기록")).toBeInTheDocument();
+    const next=pending();vi.mocked(getDocs).mockImplementationOnce(() => next.promise);
+    state.user={uid:"next-owner"};
+    view.rerender(<MemoryRouter><Probe/></MemoryRouter>);
+    expect(frames.at(-1)).not.toContain("이전 계정 기록");
+    expect(screen.queryByText("이전 계정 기록")).not.toBeInTheDocument();
+    await act(async () => next.resolve(snapshot("next-owner", "현재 계정 기록")));
+    expect(await screen.findByText("현재 계정 기록")).toBeInTheDocument();
+  });
+
+  it.each([
+    {outcome:"success", afterCurrent:false}, {outcome:"failure", afterCurrent:false},
+    {outcome:"success", afterCurrent:true}, {outcome:"failure", afterCurrent:true},
+  ] as const)("ignores previous owner $outcome with current owner loaded=$afterCurrent", async ({outcome,afterCurrent}) => {
+    state.mobile=true;
+    const previous=pending(), next=pending();
+    vi.mocked(getDocs).mockReset().mockResolvedValue(empty).mockImplementationOnce(() => previous.promise);
+    const view=render(<MemoryRouter><TrainingLogPage/></MemoryRouter>);
+    await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(3));
+    vi.mocked(getDocs).mockImplementationOnce(() => next.promise);
+    state.user={uid:"next-owner"};
+    view.rerender(<MemoryRouter><TrainingLogPage/></MemoryRouter>);
+    await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(6));
+    fireEvent.click(screen.getByRole("tab",{name:"활동"}));
+    if(afterCurrent) await act(async () => next.resolve(snapshot("next-owner","새 계정 완료 기록")));
+    await act(async () => { if(outcome==="success") previous.resolve(snapshot("rider","늦은 이전 기록")); else previous.reject(new Error("old-owner-failure")); });
+    expect(screen.queryByText("늦은 이전 기록")).not.toBeInTheDocument();
+    // A stale success must not mark B's still-pending month as loaded; a stale failure must not show its error/retry screen.
+    if(!afterCurrent) expect(document.querySelector('[aria-hidden="true"] .grid-cols-7')).toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:"다시 시도"})).not.toBeInTheDocument();
+    if(!afterCurrent) await act(async () => next.resolve(snapshot("next-owner","새 계정 완료 기록")));
+    expect(await screen.findByText("새 계정 완료 기록")).toBeInTheDocument();
+    expect(screen.queryByText("늦은 이전 기록")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:"다시 시도"})).not.toBeInTheDocument();
+  });
+});
+
+
+it("does not normalize an impossible day deep link into another calendar month", async () => {
+  vi.mocked(getDocs).mockReset().mockResolvedValue({docs:[],empty:true} as never);
+  vi.mocked(where).mockClear();
+  render(<MemoryRouter initialEntries={["/?day=2026-02-31&detail=record-day"]}><TrainingLogPage/></MemoryRouter>);
+  await waitFor(() => expectMetric("전체 활동수","0"));
+  expect(getDocs).toHaveBeenCalledTimes(3);
+  const bounds=planMonthBounds(now.getUTCFullYear(),now.getUTCMonth());
+  expect(where).toHaveBeenCalledWith("startTime", ">=", bounds.start - 86400000);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+function HistoryProbe() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  return <><output data-testid="record-url">{location.pathname}{location.search}</output><button onClick={() => navigate(-1)}>History back</button><button onClick={() => navigate(1)}>History forward</button></>;
+}
+it.each([false, true])("preserves a selected day through month navigation, history and reload mobile=%s", async mobile => {
+  state.mobile = mobile;
+  vi.mocked(getDocs).mockReset().mockResolvedValue({ docs: [], empty: true } as never);
+  const mount = (entry: string) => render(<MemoryRouter initialEntries={[entry]}><HistoryProbe /><TrainingLogPage /></MemoryRouter>);
+  const view = mount("/ko/athlete/me/activities?sport=run&date=2026-09-17");
+  const planLink = () => screen.getByRole("link", { name: "훈련 계획" });
+  await waitFor(() => expect(planLink()).toHaveAttribute("href", "/ko/coach/plan?sport=run&date=2026-09-17"));
+  fireEvent.click(screen.getByRole("button", { name: /이전 달/ }));
+  await waitFor(() => expect(planLink()).toHaveAttribute("href", "/ko/coach/plan?sport=run&date=2026-08-01"));
+  expect(screen.getByTestId("record-url")).toHaveTextContent("date=2026-08-01");
+  fireEvent.click(screen.getByRole("button", { name: "History back" }));
+  await waitFor(() => expect(planLink()).toHaveAttribute("href", "/ko/coach/plan?sport=run&date=2026-09-17"));
+  fireEvent.click(screen.getByRole("button", { name: "History forward" }));
+  await waitFor(() => expect(planLink()).toHaveAttribute("href", "/ko/coach/plan?sport=run&date=2026-08-01"));
+  const reloadUrl = screen.getByTestId("record-url").textContent!;
+  view.unmount(); mount(reloadUrl);
+  await waitFor(() => expect(planLink()).toHaveAttribute("href", "/ko/coach/plan?sport=run&date=2026-08-01"));
+});
+it.each(["all", "tri", ""])("keeps the all-records filter, query and plan destination consistent sport=%s", async sport => {
+  vi.mocked(getDocs).mockReset().mockResolvedValue({ docs: [], empty: true } as never);
+  render(<MemoryRouter initialEntries={[`/ko/athlete/me/activities${sport ? `?sport=${sport}` : ""}`]}><HistoryProbe /><TrainingLogPage /></MemoryRouter>);
+  await waitFor(() => expect(within(screen.getByTestId("P1-1")).getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "true"));
+  if (sport) expect(screen.getByTestId("record-url")).toHaveTextContent("sport=all");
+  expect(screen.getByRole("link", { name: "훈련 계획" }).getAttribute("href")).toContain("sport=bike");
+});
+
+
+describe("desktop day record pagination",()=>{
+  const dayKey=new Date(startTime+9*3600000).toISOString().slice(0,10);
+  const rows=(count:number)=>Array.from({length:count},(_,index)=>({id:`dense-${index+1}`,userId:"rider",type:"Ride",description:`기록 ${String(index+1).padStart(4,"0")}`,startTime:startTime+index*1000,summary:{distance:0,ridingTimeMillis:0,tss:0}} as Activity));
+  const cell=(activities:Activity[])=><LogDayCell activities={activities} loadActivities={activities} plans={[]} isToday={false} isCurrentMonth dayNum={1} dateKey={dayKey} todayKey={dayKey}/>;
+  it.each([0,1])("keeps %s records directly available without unnecessary page controls", count=>{
+    render(<MemoryRouter>{cell(rows(count))}</MemoryRouter>);
+    expect(screen.queryAllByRole("button",{name:/^기록 /})).toHaveLength(count);
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+  });
+  it("bounds a thousand records to twenty per page and reaches every record including the last",()=>{
+    render(<MemoryRouter>{cell(rows(1000))}</MemoryRouter>);
+    expect(screen.getAllByRole("button",{name:/^기록 /})).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button",{name:"외 998건 보기"}));
+    const pages=screen.getByRole("navigation",{name:"이 날짜의 활동 페이지"});
+    expect(within(pages).getByRole("button",{name:"이전 기록"})).toBeDisabled();
+    const seen=new Set<string>();
+    for(let page=1;page<=50;page++){
+      const records=screen.getAllByRole("button",{name:/^기록 /});
+      expect(records).toHaveLength(20);
+      for(const row of records) seen.add(row.getAttribute("aria-label")!);
+      if(page<50) fireEvent.click(within(pages).getByRole("button",{name:"다음 기록"}));
+    }
+    expect(seen.size).toBe(1000);
+    expect(within(pages).getByRole("status")).toHaveTextContent("1000개 중 981–1000 · 50/50페이지");
+    expect(within(pages).getByRole("button",{name:"다음 기록"})).toBeDisabled();
+    expect(screen.getByRole("button",{name:/^기록 1000 /})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:"접기"}));
+    expect(screen.getAllByRole("button",{name:/^기록 /})).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button",{name:"외 998건 보기"}));
+    expect(screen.getByRole("button",{name:/^기록 0001 /})).toBeInTheDocument();
+  }, 15000);
+  it("restores the last page after opening an individual activity and going back, preserving other URL context",async()=>{
+    render(<MemoryRouter initialEntries={[`/ko/athlete/me/activities?sport=bike&date=${dayKey}&calendarDay=${dayKey}&calendarPage=50&keep=1`]}><HistoryProbe/>{cell(rows(1000))}</MemoryRouter>);
+    fireEvent.click(screen.getByRole("button",{name:/^기록 1000 /}));
+    expect(screen.getByTestId("record-url")).toHaveTextContent("/activity/dense-1000");
+    fireEvent.click(screen.getByRole("button",{name:"History back"}));
+    await waitFor(()=>expect(screen.getByRole("button",{name:/^기록 1000 /})).toBeInTheDocument());
+    expect(screen.getAllByRole("button",{name:/^기록 /})).toHaveLength(20);
+    expect(screen.getByTestId("record-url")).toHaveTextContent("sport=bike");
+    expect(screen.getByTestId("record-url")).toHaveTextContent(`date=${dayKey}`);
+    expect(screen.getByTestId("record-url")).toHaveTextContent("calendarPage=50");
+    expect(screen.getByTestId("record-url")).toHaveTextContent("keep=1");
+  });
 });

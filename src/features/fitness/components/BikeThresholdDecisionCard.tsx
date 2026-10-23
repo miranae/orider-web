@@ -24,6 +24,7 @@ export default function BikeThresholdDecisionCard({
   ftpHistory = [],
   defaultEvidenceOpen = false,
   inlineEvidence = false,
+  stableDetails = false,
   t,
 }: {
   decision: BikeThresholdDecision;
@@ -37,6 +38,7 @@ export default function BikeThresholdDecisionCard({
   ftpHistory?: FtpHistoryEntry[];
   defaultEvidenceOpen?: boolean;
   inlineEvidence?: boolean;
+  stableDetails?: boolean;
   t: T;
 }) {
   const [evidenceOpen, setEvidenceOpen] = useState(defaultEvidenceOpen);
@@ -113,6 +115,7 @@ export default function BikeThresholdDecisionCard({
           currentFtpW={decision.activeFtpW}
           breakthrough={null}
           embedded
+          stableSelection={stableDetails}
           showHistory={inlineEvidence}
         />
       </div>

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'r
 import { createRoot } from 'react-dom/client';
 import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import {
-  Button, IconButton, MediaViewer, Checkbox, Card, Section, Select, Field, Input, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
+  Button, IconButton, ControlToolbar, ToolbarButton, DropdownSelect, MediaViewer, Checkbox, Card, Section, Select, Field, Input, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
   Chip, ChartRangeControls, type ChartRangeMode, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
   type DataTableColumn,
   MapResizeControls, MapNavigation, MapControlButton, ChartLegend, ChartValue, ChartTooltip,
@@ -258,6 +258,7 @@ function ControlsCatalog() {
         </section>
 
         <section id="selection" className="catalog-section">
+          <div className="catalog-example-row"><div><Text as="h3" variant="subtitle">선택 구간과 이동</Text><Text as="p" variant="bodySmall">같은 높이의 선택·이동 도구. 모바일에서는 이동 도구가 한 줄 전체를 사용합니다.</Text></div><div style={{ display: 'grid', gap: 'var(--space-2)' }}><DropdownSelect touchTarget label="선택 구간 예시" value={String(sectionRecord)} onChange={value => setSectionRecord(Number(value))} options={[{ value: '0', label: '2026-10-01 – 2026-10-07' }, { value: '1', label: '2026-10-08 – 2026-10-14' }]} /><ControlToolbar layout="navigation" aria-label="선택 이동 예시"><ToolbarButton disabled={sectionRecord === 0} onClick={() => setSectionRecord(0)} aria-label="이전 구간">←</ToolbarButton><ToolbarButton disabled={sectionRecord === 1} onClick={() => setSectionRecord(1)} aria-label="다음 구간">→</ToolbarButton><ToolbarButton onClick={() => setSectionRecord(1)}>오늘</ToolbarButton></ControlToolbar></div></div>
           <div className="catalog-section-heading"><Text as="h2" variant="title">선택 컨트롤</Text><Text as="p" variant="body" tone="tertiary">켜짐은 체크로, 단일 선택은 분절된 표면으로 보여줍니다.</Text></div>
           <div className="catalog-example-row"><div className="catalog-example-note"><Text as="h3" variant="subtitle">여러 지표 선택</Text><Text as="p" variant="bodySmall">단독 상태 예시입니다. 여러 항목을 각각 켜고 끌 수 있으며, 아래 실제 조합과는 별도로 동작합니다.</Text><code>ToggleControls · metric</code></div>
             <ToggleControls aria-label="단독 지표 선택 예시">{FIXTURE_METRICS.map(metric => <ToggleButton key={metric.id} showCheck selected={exampleMetrics.includes(metric.id)} onClick={() => setExampleMetrics(exampleMetrics.includes(metric.id) ? exampleMetrics.filter(value => value !== metric.id) : [...exampleMetrics, metric.id])}>{metric.label}</ToggleButton>)}</ToggleControls>

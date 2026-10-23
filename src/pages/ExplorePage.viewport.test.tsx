@@ -34,13 +34,13 @@ it("explains the existing private-grid totals with a bounded recorded-period bas
  renderWithProviders(<ExplorePage/>,{route:"/explore/segments",authenticated:true});
  fireEvent.click(await screen.findByTestId("E2-1-3"));
  const tiles = screen.getByRole("button",{name:"방문 타일 383개"});
- fireEvent.mouseEnter(tiles);
+ fireEvent.click(tiles);
  const tooltip = await screen.findByRole("tooltip");
  expect(tooltip).toHaveTextContent("최근 12개월");
  expect(tooltip).toHaveTextContent("최대 500개");
  expect(tooltip).toHaveTextContent("같은 칸은 한 번만");
  fireEvent.keyDown(document,{key:"Escape"});
- fireEvent.mouseEnter(screen.getByRole("button",{name:"맥스 스퀘어 4×4"}));
+ fireEvent.click(screen.getByRole("button",{name:"맥스 스퀘어 4×4"}));
  expect(await screen.findByRole("tooltip")).toHaveTextContent("빈칸 없이");
  expect(screen.getByRole("tooltip")).toHaveTextContent("가로 4칸·세로 4칸");
 });

@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { EstimatedFtpPoint, FtpBreakthrough } from "@shared/training/ftpProgression";
 import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
 import { LocalizedLink } from "../../../components/LocalizedLink";
-import { Card, Text, buttonClass } from "../../../theme/components";
+import { Card, DropdownSelect, Text, buttonClass } from "../../../theme/components";
 
 export default function FtpProgressionCard({
   points,
@@ -14,6 +14,7 @@ export default function FtpProgressionCard({
   embedded = false,
   compact = false,
   showHistory = false,
+  stableSelection = false,
 }: {
   points: EstimatedFtpPoint[];
   history?: FtpHistoryEntry[];
@@ -22,6 +23,7 @@ export default function FtpProgressionCard({
   embedded?: boolean;
   compact?: boolean;
   showHistory?: boolean;
+  stableSelection?: boolean;
 }) {
   const { t, i18n } = useTranslation("fitness");
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -69,7 +71,7 @@ export default function FtpProgressionCard({
     ...points.map((point) => ({ date: `${point.period}-01`, timestamp: Date.parse(`${point.period}-01T00:00:00Z`), value: point.ftpW, label: `${t("ftpProgression.autoSeriesLabel")} · ${t(point.source === "20m" ? "chartDetail.ftpSource20m" : "chartDetail.ftpSource1h")}`, note: t("chartDetail.ftpEstimateNote"), period: point.period })),
     ...sortedHistory.map((entry) => ({ date: new Date(entry.changedAt).toLocaleDateString(i18n.language), timestamp: entry.changedAt, value: entry.value, label: t(`ftpProgression.source.${entry.source}`), note: t("chartDetail.ftpAppliedNote"), period: null })),
   ].sort((a, b) => a.timestamp - b.timestamp);
-  const selectedPoint = selectedIndex == null ? null : chartPoints[Math.min(selectedIndex, chartPoints.length - 1)];
+  const selectedPoint = selectedIndex == null && !stableSelection ? null : chartPoints[Math.min(selectedIndex ?? chartPoints.length - 1, chartPoints.length - 1)];
   const selectedDayPoints = selectedPoint ? chartPoints.filter(point => new Date(point.timestamp).toISOString().slice(0, 10) === new Date(selectedPoint.timestamp).toISOString().slice(0, 10)) : [];
   const selectPointer = (event: React.PointerEvent<SVGSVGElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -98,7 +100,7 @@ export default function FtpProgressionCard({
       {hasChart && (
         <div style={{ marginTop: "var(--space-4)" }}>
           <div className="ftp-progression__legend" style={{ display: "flex", flexWrap: "wrap", gap: compact ? "var(--space-2)" : "var(--space-3)", marginBottom: "var(--space-2)" }}>
-            {points.length > 0 && <Text as="span" variant="caption" tone="secondary">● {t("ftpProgression.autoSeriesLabel")}</Text>}
+            {points.length > 0 && <Text as="span" variant="caption" tone="secondary"><span aria-hidden="true" style={stableSelection ? { color: "var(--aqua)" } : undefined}>●</span> {t("ftpProgression.autoSeriesLabel")}</Text>}
             {hasHistory && <Text as="span" variant="caption" tone="secondary" style={{ color: "var(--violet)" }}>● {t("ftpProgression.historySeriesLabel")}</Text>}
             {currentFtpW != null && currentFtpW > 0 && (
               <Text as="span" variant="caption" tone="secondary">┄ {t("ftpProgression.activeReferenceLabel", { value: currentFtpW })}</Text>
@@ -106,9 +108,9 @@ export default function FtpProgressionCard({
           </div>
           <div className="ftp-progression__chart">
           <div className="ftp-progression__y-axis" aria-hidden="true"><span>W</span>{[hi, (lo + hi) / 2, lo].map(value => <span key={value}>{value}</span>)}</div>
-          <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img" tabIndex={0} aria-label={`${trendDescription}. ${t("chartDetail.navigate")}`} className="ftp-progression__plot"
-            onPointerMove={selectPointer} onPointerDown={selectPointer} onPointerLeave={event => { if (event.pointerType === "mouse") setSelectedIndex(null); }}
-            onFocus={() => setSelectedIndex(chartPoints.length - 1)} onBlur={() => setSelectedIndex(null)}
+          <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img" tabIndex={0} aria-label={`${trendDescription}. ${t(stableSelection ? "ftpProgression.selectRecordHint" : "chartDetail.navigate")}`} className="ftp-progression__plot"
+            onPointerMove={stableSelection ? undefined : selectPointer} onPointerDown={stableSelection ? undefined : selectPointer} onPointerLeave={event => { if (!stableSelection && event.pointerType === "mouse") setSelectedIndex(null); }}
+            onFocus={stableSelection ? undefined : () => setSelectedIndex(chartPoints.length - 1)} onBlur={stableSelection ? undefined : () => setSelectedIndex(null)}
             onKeyDown={event => {
               if (event.key === "Escape") setSelectedIndex(null);
               if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); setSelectedIndex(index => Math.max(0, Math.min(chartPoints.length - 1, (index ?? chartPoints.length - 1) + (event.key === "ArrowRight" ? 1 : -1)))); }
@@ -131,7 +133,8 @@ export default function FtpProgressionCard({
           </svg>
           <div className="ftp-progression__x-axis" aria-hidden="true" data-ticks={axisTimes.length}>{axisTimes.map(timestamp => <span key={timestamp}>{formatAxisTime(timestamp)}</span>)}</div>
           </div>
-          {selectedPoint && <div role="status" data-ftp-tooltip style={{ padding: "var(--space-3)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-sm)", background: "var(--bg-2)", color: "var(--ink-1)", fontSize: "var(--fs-sm)", overflowWrap: "anywhere" }}>
+          {stableSelection && <DropdownSelect label={t("ftpProgression.selectRecord")} value={String(selectedIndex ?? chartPoints.length - 1)} onChange={value => setSelectedIndex(Number(value))} options={chartPoints.map((point, index) => ({ value: String(index), label: `${point.period ?? point.date} · ${point.value} W · ${point.label}` }))} />}
+          {selectedPoint && <div className={stableSelection ? "ftp-progression__readout" : undefined} role="status" tabIndex={stableSelection ? 0 : undefined} aria-label={stableSelection ? t("ftpProgression.selectRecord") : undefined} data-ftp-tooltip style={{ padding: "var(--space-3)", border: "1px solid var(--line-soft)", borderRadius: "var(--r-sm)", background: "var(--bg-2)", color: "var(--ink-1)", fontSize: "var(--fs-sm)", overflowWrap: "anywhere" }}>
             {selectedDayPoints.map((point, index) => <div key={index} style={{ paddingBlock: "var(--space-1)" }}>
               <strong>{point.period ?? point.date} · {point.value} W</strong>
               <div>{point.label}</div><div>{point.note}</div>

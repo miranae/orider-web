@@ -35,7 +35,7 @@ import { fitnessTodayKey, type FitnessDateKeyBasis } from "@shared/training/date
 import FtpDecisionSection from "../../features/fitness/components/FtpDecisionSection";
 import { qualifiedRunRecords, needsRunAnalysisReadiness } from "../../features/fitness/runAnalysisReadiness";
 import RunRecordsSummary from "../../features/fitness/components/RunRecordsSummary";
-import AnchoredDetailsSection from "../redesign/AnchoredDetailsSection";
+import CoachDetailSection from "../../features/fitness/components/CoachDetailSection";
 import DetailsSection from "../redesign/DetailsSection";
 import SportFilterTabs from "./SportFilterTabs";
 import { getDisciplineColor } from "../../utils/disciplineFilter";
@@ -811,8 +811,8 @@ export default function MobileFitnessPage({
 
   const bikePowerCurveContent = (<>
           {/* 파워 커브 (bike) */}
-          {sectionState.derived === "ready" && isBike && part === "condition" && powerCurveEvidenceSlot}
-          {sectionState.derived === "ready" && isBike && !(part === "condition" && powerCurveEvidenceSlot) && data.powerCurve && (mobileCurveBlock ? !needsSufficiencyCard(data.activityWindowSufficiency!, mobileCurveBlock) && data.powerCurve.length > 0 : data.powerCurve.length >= 2) && (
+          {sectionState.derived === "ready" && isBike && (part === "condition" || part === "analysis" && !embedded && !(mobileCurveBlock && needsSufficiencyCard(data.activityWindowSufficiency!, mobileCurveBlock))) && powerCurveEvidenceSlot}
+          {sectionState.derived === "ready" && isBike && !((part === "condition" || part === "analysis" && !embedded) && powerCurveEvidenceSlot) && data.powerCurve && (mobileCurveBlock ? !needsSufficiencyCard(data.activityWindowSufficiency!, mobileCurveBlock) && data.powerCurve.length > 0 : data.powerCurve.length >= 2) && (
             <SectionCard specId="K5-2-1">
               <div data-power-curve-copy style={{ marginBottom: "var(--space-2)" }}>
                 <Text variant="eyebrow">{powerCurveTitle}</Text>
@@ -829,7 +829,7 @@ export default function MobileFitnessPage({
 
   </>);
   const bikePeriodZoneContent = (<>
-          {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods nativeActivities={nativePowerActivities} inline={part === "condition" && embedded} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
+          {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods nativeActivities={nativePowerActivities} inline={part === "condition" && embedded || part === "analysis" && !embedded} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
 
           {/* 두 종목 부하 근거를 파워 우선 선택으로 숨기지 않는다. */}
           {sectionState.derived === "ready" && (part === "condition" || part === "analysis" && !embedded) && data.zoneEvidence && <FitnessZoneDistributions compact={part === "analysis" && !embedded} evidence={data.zoneEvidence} />}
@@ -841,7 +841,7 @@ export default function MobileFitnessPage({
   const hasRunCurve = Boolean(runPaceCurve && (runPaceCurve.recent28.length > 0 || runPaceCurve.prev28.length > 0));
   const runCurveContent = ((part === "condition" || mobileAnalysis) && data.discipline === "run" && sectionState.derived === "ready" && <SectionCard specId="K5-2-3" title={t("fitness:criticalPace.title")}>
             {runPaceCurve && (runPaceCurve.recent28.length > 0 || runPaceCurve.prev28.length > 0)
-              ? <CriticalPaceCurve recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} />
+              ? <CriticalPaceCurve stableSelection={!embedded} recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} />
               : <Text as="p" variant="bodySmall" tone="secondary">{t("fitness:criticalPace.unavailable")}</Text>}
           </SectionCard>);
   const modelContent = (<>
@@ -849,7 +849,7 @@ export default function MobileFitnessPage({
           {(part === "analysis" || part === "condition") && !(mobileAnalysis && data.discipline === "run") && !runReadiness && !(part === "condition" && data.discipline === "run" && !embedded && runningRecordsSlot && data.runEvidence.thresholdPaceSec == null) && <SportPerformanceCard compact={!embedded} discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
           {(part === "analysis" || part === "condition") && isBike && data.cyclingAbility && riderSet && riderBlock && <SufficiencyInline set={riderSet} block={riderBlock} testId="K5-1-1-sufficiency-inline" />}
           {(part === "analysis" || part === "condition") && !embedded && data.discipline === "run" && !(runningRecordsSlot && !runReadiness && qualifiedRunRecords(data.runEvidence).length === 0) && <RunRecordsSummary evidence={data.runEvidence} readiness={runReadiness} sourceBoard={Boolean(runningRecordsSlot)} />}
-          {(part === "condition" || mobileAnalysis) && (mobileAnalysis && runningRecordsSlot ? <DetailsSection title={t("mobileFitness.runRecordSources")}>{runningRecordsSlot}</DetailsSection> : runningRecordsSlot)}
+          {(part === "condition" || mobileAnalysis) && (mobileAnalysis && (runningRecordsSlot || data.discipline === "run" && runningRaceEstimatesOwnerUid) ? <CoachDetailSection id="analysis-run-records" title={t("mobileFitness.runRecordSources")}>{runningRecordsSlot}{data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}</CoachDetailSection> : runningRecordsSlot)}
           {(part === "analysis" || part === "condition") && !embedded && isBike && sectionState.derived === "ready" && <MobileCyclingEvidence condition={part === "condition" || mobileAnalysis} data={data} />}
   </>);
 
@@ -858,6 +858,7 @@ export default function MobileFitnessPage({
             <BikePerformanceSummaryCard
               part={mobileAnalysis ? "condition" : part}
               compact={!embedded}
+              stableDetails={mobileAnalysis}
               decision={data.thresholdDecision}
               pdc={data.pdcSummary}
               weightKg={data.weightKg}
@@ -878,7 +879,6 @@ export default function MobileFitnessPage({
 <div id={mobileAnalysis && !isBike ? "analysis-comparison" : part === "condition" && !mobileCondition ? "condition-metrics" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "mobile-fitness-riding-metrics condition-section-target" : undefined} style={{ paddingTop: 14 }}>
           {part === "condition" && !mobileCondition && <Text as="h2" variant="title" className="mobile-fitness-riding-metrics__title">{t(data.discipline === "bike" ? "fitness:condition.metrics.bikeTitle" : "fitness:condition.metrics.runTitle")}</Text>}
           {part === "condition" && <Text as="p" variant="bodySmall" tone="secondary">{t("fitness:condition.metrics.description")}</Text>}
-          {!embedded && part === "analysis" && analysisSummarySlot}
           {part === "condition" && ridingEvidenceSlot}
           {sectionState.derived === "loading" && (
             <div role="status" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>
@@ -893,10 +893,10 @@ export default function MobileFitnessPage({
           {part === "condition" && isBike && <>{bikePowerCurveContent}{bikePeriodZoneContent}</>}
           {!mobileAnalysis && (part === "analysis" || part === "condition") && <SufficiencyGroup inline={part === "condition"} sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="K5-sufficiency-group" />}
           {mobileAnalysis && hasRunCurve && runCurveContent}
-          {mobileAnalysis && bikePowerCurveContent}
-          {mobileAnalysis && sectionState.derived === "ready" && isBike && powerCurveEvidenceSlot && <AnchoredDetailsSection defaultOpen id="analysis-comparison" title={t("mobileFitness.powerChanges")}>{powerCurveEvidenceSlot}</AnchoredDetailsSection>}
-          {mobileAnalysis && isBike && ridingEvidenceSlot && <DetailsSection title={t("fitness:pedaling.title")}>{ridingEvidenceSlot}</DetailsSection>}
-          {mobileAnalysis && isBike ? <DetailsSection title={t("mobileFitness.modelDetails")}>{modelContent}</DetailsSection> : modelContent}
+          {mobileAnalysis && <div id={isBike ? "analysis-comparison" : undefined}>{bikePowerCurveContent}</div>}
+          {mobileAnalysis && <SufficiencyGroup summaryOnly sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="analysis-readiness-summary" />}
+          {mobileAnalysis && analysisSummarySlot && <CoachDetailSection id="analysis-activity-flow" title={t("mobileFitness.activityFlow")}>{analysisSummarySlot}</CoachDetailSection>}
+          {mobileAnalysis && isBike ? <CoachDetailSection id="analysis-model" title={t("mobileFitness.modelDetails")}>{modelContent}</CoachDetailSection> : modelContent}
           {/* 임계값 카드 */}
           {sectionState.derived === "ready" && data.threshold && !isBike && (
             <SectionCard>
@@ -943,11 +943,9 @@ export default function MobileFitnessPage({
 
           {!mobileAnalysis && !(part === "condition" && isBike) && bikePowerCurveContent}
 
-          {data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
+          {!mobileAnalysis && data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
 
-          {!embedded && part === "analysis" && data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} />}
-
-          {!(part === "condition" && isBike) && bikePeriodZoneContent}
+          {mobileAnalysis && data.discipline !== "tri" ? <CoachDetailSection id="analysis-periods" title={t("activity:trainingPeriods.title")}><FitnessPeriodEvidence discipline={data.discipline} inline />{bikePeriodZoneContent}</CoachDetailSection> : !(part === "condition" && isBike) && bikePeriodZoneContent}
 
           {/* 존 정의 */}
           {sectionState.derived === "ready" && showZones && (embedded || data.zones.some(zone => zone.rangeLabel || zone.percentLabel)) && (
@@ -975,12 +973,12 @@ export default function MobileFitnessPage({
             </div>
           )}
           {mobileAnalysis && bikeThresholdSection}
-          {mobileAnalysis && <SufficiencyGroup collapsible sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="K5-sufficiency-group" />}
+          {mobileAnalysis && isSufficiencyGrouped(...mobileAnalysisSets) && <CoachDetailSection id="analysis-evidence" title={t("mobileFitness.modelEvidence")}><SufficiencyGroup inline sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="K5-sufficiency-group" /></CoachDetailSection>}
         </div>
   );
 
   const conditionStory = part === "condition" && data.discipline !== "tri" && isValidElement(coachSlot);
-  const conditionNavigation = (<ConditionSectionNav sections={[
+  const conditionNavigation = embedded ? (<ConditionSectionNav sections={[
         { id: "condition-current", label: t("fitness:condition.current.title") },
         { id: "condition-trend", label: t("fitness:condition.chart.region") },
         ...(coachSlot && data.discipline !== "tri" ? [{ id: "condition-activities", label: t("fitness:coach.recent.title") }] : []),
@@ -988,7 +986,7 @@ export default function MobileFitnessPage({
         ...((embedded || data.discipline === "tri") && (data.discipline !== "tri" || triEvidenceSlot) ? [{ id: "condition-metrics", label: t(data.discipline === "tri" ? "fitness:condition.metrics.triTitle" : data.discipline === "bike" ? "fitness:condition.metrics.bikeTitle" : "fitness:condition.metrics.runTitle") }] : []),
         ...(isBike && embedded ? [{ id: "condition-ftp", label: t("fitness:condition.basis.title") }] : []),
         ...(!embedded && !mobileCondition && hasThresholdSettings ? [{ id: "thresholds", label: t("fitness:condition.settings.title") }] : []),
-      ]} />);
+      ]} />) : null;
   const conditionTrend = (          <section id={part === "condition" ? "condition-trend" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "condition-section-target" : undefined}>
           <SectionCard title={pmcHistoryPoints ? undefined : trendSectionTitle} sub={pmcHistoryPoints ? undefined : pmcSub} accentColor={pmcCtlColor}>
             {sectionState.trend === "loading" ? (
@@ -1135,8 +1133,8 @@ export default function MobileFitnessPage({
             <LocalizedLink to={`/coach/analysis?sport=${data.discipline}`}>{t("mobileFitness.analysisDestination")} →</LocalizedLink>
             <LocalizedLink to={`/settings/training?sport=${data.discipline}`}>{t("fitness:condition.settings.title")} →</LocalizedLink>
           </div>}
-          {part === "condition" && data.discipline !== "tri" && (mobileCondition ? <DetailsSection title={t("fitness:condition.story.methodsTitle")}><PmcHistoryMethodNotes canonical={pmcHistoryCanonical} /></DetailsSection> : <section className="condition-method-section"><Text as="h2" variant="title">{t("fitness:condition.story.methodsTitle")}</Text><PmcHistoryMethodNotes canonical={pmcHistoryCanonical} /></section>)}
-          {!embedded && (mobileCondition && thresholdsSlot ? <AnchoredDetailsSection title={t("fitness:condition.settings.title")}>{thresholdsSlot}</AnchoredDetailsSection> : thresholdsSlot)}
+          {part === "condition" && data.discipline !== "tri" && (mobileCondition ? <CoachDetailSection id="condition-methods" title={t("fitness:condition.story.methodsTitle")}><PmcHistoryMethodNotes canonical={pmcHistoryCanonical} /></CoachDetailSection> : <section className="condition-method-section"><Text as="h2" variant="title">{t("fitness:condition.story.methodsTitle")}</Text><PmcHistoryMethodNotes canonical={pmcHistoryCanonical} /></section>)}
+          {!embedded && (mobileCondition && thresholdsSlot ? <CoachDetailSection id="thresholds" title={t("fitness:condition.settings.title")}>{thresholdsSlot}</CoachDetailSection> : thresholdsSlot)}
 
           {embedded && data.discipline !== "tri" && (
             <details className="mobile-fitness-provenance">

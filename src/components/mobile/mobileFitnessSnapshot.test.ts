@@ -60,20 +60,19 @@ describe("mobile fitness decision hierarchy", () => {
 
   it("keeps integrated load visible and its calculation evidence in a closed disclosure", async () => {
     const user = userEvent.setup();
-    const { container } = renderWithProviders(createElement(IntegratedLoadCard, {
+    renderWithProviders(createElement(IntegratedLoadCard, {
       combined: { ctl: 40, atl: 45, tsb: -5, contributions: [{ discipline: "bike", ctl: 40 }] },
       focus: { windowDays: 28, totalLoad: 100, buckets: { baseAerobic: 100, highAerobic: 0, highIntensity: 0, unclassified: 0 },
         sourceLoad: { power: 100, heartRate: 0, unclassified: 0 }, disciplineLoad: { bike: 100, run: 0, swim: 0, other: 0 },
         activityCount: 5, coveragePct: 100, confidence: "high", hasAnaerobicBikeDetail: false },
     }));
     expect(screen.getByText("40.0")).toBeVisible();
-    const details = container.querySelector("details")!;
-    expect(details).not.toHaveAttribute("open");
-    const summary = within(details).getByText("계산 방법과 해석 근거");
-    const source = within(details).getByText("사이클·러닝·수영을 합쳐 서버에서 계산한 CTL · ATL · TSB");
-    expect(source).not.toBeVisible();
-    await user.click(summary);
-    expect(details).toHaveAttribute("open");
-    expect(source).toBeVisible();
+    const help = screen.getByRole("button", { name: "계산 방법과 해석 근거", exact:true });
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    await user.click(help);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("사이클·러닝·수영을 합쳐 서버에서 계산한 CTL · ATL · TSB");
+    await user.keyboard("{Escape}");
+    expect(help).toHaveFocus();
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
   });
 });

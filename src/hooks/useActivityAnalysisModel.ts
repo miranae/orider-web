@@ -13,6 +13,7 @@ import {
   withSynthesizedElapsedTime,
   type ActivityPowerOverride,
 } from "../features/activity/detail/activityDetailDerived";
+import { buildCyclingDynamicsCards } from "../features/activity/detail/cyclingDynamicsPresentation";
 import { resolveAnalysisSummaryTiming } from "../features/activity/detail/analysisSummaryTiming";
 import {
   createActivityPowerOverride,
@@ -354,8 +355,22 @@ export function useActivityAnalysisModel(
     if (wattsOverride && !activePowerOverride) setWattsOverride(null);
   }, [activePowerOverride, wattsOverride]);
 
+  // Saved sensor evidence remains readable when the raw stream is unavailable.
+  // Pending inputs and empty documents are not usable evidence, even with a current schema.
+  const stored = serverMetrics.metrics;
+  const hasStoredSensorAnalysis = (serverMetrics.status === "ready" || serverMetrics.status === "stale")
+    && stored?.inputPending !== true && stored?.inputCoverage !== "pending"
+    && ([stored?.avgCadence, stored?.maxCadence, stored?.avgHr, stored?.maxHr,
+      stored?.avgPower, stored?.np, stored?.cyclingMetrics?.cadenceStdDev,
+      stored?.cyclingMetrics?.coastingSec,
+      stored?.cyclingMetrics?.longestCoastSec, stored?.cyclingMetrics?.longestZ4PlusSec,
+      stored?.decoupling?.ef, stored?.decoupling?.decouplingPct,
+      ...Object.values(stored?.quadrant ?? {}),
+    ].some(value => typeof value === "number" && Number.isFinite(value))
+      || !!stored && buildCyclingDynamicsCards(stored).length > 0);
+
   const analysisTabProps = useMemo<AnalysisTabProps | null>(() => {
-    if (!activity || (!analysisProjection && !serverAnalysisSummary && sport !== "run") || !displayedSummary) return null;
+    if (!activity || (!analysisProjection && !serverAnalysisSummary && !hasStoredSensorAnalysis && sport !== "run") || !displayedSummary) return null;
     return {
       activityId: activityId ?? null,
       isOwner: isActivityOwner,
@@ -380,6 +395,7 @@ export function useActivityAnalysisModel(
     activity,
     activityId,
     analysisProjection,
+    hasStoredSensorAnalysis,
     displayedSummary,
     hasStreamCadenceCandidate,
     hasStreamHeartRateCandidate,
