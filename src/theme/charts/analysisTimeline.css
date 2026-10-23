@@ -16,7 +16,10 @@
 .analysis-timeline-segment > span { display: block; height: var(--space-4); background: var(--bg-3); border: 1px solid var(--line); border-radius: var(--r-sm); }
 .analysis-timeline-segment[aria-pressed="true"] > span { background: var(--accent-soft-bg); border-color: var(--accent); }
 .analysis-timeline-segment:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-0-5); }
-.analysis-timeline-segment-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); padding-block: var(--space-2); }
+/* 선택 여부와 상관없이 한 줄 높이를 유지한다(길면 말줄임). */
+.analysis-timeline-segment-summary { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--space-2); height: var(--space-8); overflow: hidden; white-space: nowrap; }
+.analysis-timeline-segment-summary > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.analysis-timeline-segment-summary > :first-child { flex-shrink: 0; max-width: 50%; }
 .analysis-timeline-scale { display: flex; flex-direction: column; justify-content: space-between; align-self: stretch; padding-block: var(--space-1); color: var(--ink-3); font-size: var(--fs-xs); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .analysis-timeline-label, .analysis-timeline-current { align-self: stretch; align-content: center; padding-inline: var(--space-2); background: var(--bg-0); }
@@ -35,3 +38,10 @@
 .analysis-timeline-axis-controls { min-width: 0; }
 
 .activity-analysis-controls:empty { display: none; }
+
+/* 구간 설명 자리 — 선택 전(안내)과 선택 후(구간 요약·복원) 모두 같은 한 줄 높이. */
+.analysis-timeline-caption-slot { display: flex; align-items: center; height: var(--space-8); min-width: 0; overflow: hidden; }
+.analysis-timeline-caption-slot > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.analysis-timeline-caption-slot .activity-analysis-selection { flex-wrap: nowrap; width: 100%; padding-block: 0; gap: var(--space-2); }
+.analysis-timeline-caption-slot .activity-analysis-selection > :first-child { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.analysis-timeline-caption-slot .activity-analysis-selection > :last-child { flex-shrink: 0; }

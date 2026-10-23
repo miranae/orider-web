@@ -15,6 +15,7 @@ function Example({ elapsed = false, identity = "activity" }: { elapsed?: boolean
       lanes: { speed: { label: "Speed", maximum: "40", average: "20", current: "—", unit: "km/h" } },
       maximumLabel: "Max", averageLabel: "Avg", keyboardLabel: "keyboard", segmentsLabel: "Segments", segmentDetailsLabel: "Details",
       segments: [{ id: "effort", name: "Real segment", startIndex: 1, endIndex: 3, summary: "2 km", href: "/activity/one?tab=segments" }],
+      selectionHint: "Drag to inspect", selectionCaption: range ? <span>Selected range</span> : null,
     }} />;
 }
 function plots() { return screen.getAllByRole("group", { name: /keyboard/ }); }
@@ -111,4 +112,19 @@ it("keeps axis controls accessible and adapts tick density to the measured plot 
   plot.getBoundingClientRect = () => ({ left: 0, width: 600, top: 0, bottom: 100, right: 600, height: 100, x: 0, y: 0, toJSON() {} });
   act(() => resize());
   expect(ticks.children).toHaveLength(6);
+});
+
+it("keeps the caption and segment summary rows in place before and after selecting a range", () => {
+  const { container } = renderWithProviders(<Example />);
+  const rows = () => [...container.querySelectorAll(".analysis-timeline > .analysis-timeline-row, .analysis-timeline > .analysis-timeline-segment-summary")].map(row => row.className);
+  const before = rows();
+  expect(container.querySelector(".analysis-timeline-caption-slot")).toHaveTextContent("Drag to inspect");
+  expect(container.querySelector(".analysis-timeline-segment-summary")).toHaveAttribute("data-empty", "true");
+  const plot = plots()[1]!; setBounds(plot);
+  fireEvent.pointerDown(plot, { clientX: 25, button: 0 }); fireEvent.pointerMove(plot, { clientX: 75 }); fireEvent.pointerUp(window, { clientX: 75 });
+  // 선택 뒤에도 같은 줄 구성 — 고도 아래·지표 위에 줄이 새로 끼어들지 않는다.
+  expect(rows()).toEqual(before);
+  expect(container.querySelector(".analysis-timeline-caption-slot")).toHaveTextContent("Selected range");
+  expect(container.querySelector(".analysis-timeline-segment-summary")).not.toHaveAttribute("data-empty");
+  expect(container.querySelector(".analysis-timeline-segment-summary")).toHaveTextContent("Real segment");
 });

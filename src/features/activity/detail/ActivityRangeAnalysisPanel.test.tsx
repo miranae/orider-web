@@ -353,3 +353,15 @@ it.each(["metric", "imperial"] as const)("preserves MIN distance as a conversion
   rerender(<ActivityRangeAnalysisReading selection={bound} sport="bike" analysis={{ ...analysis, response: zero }} />);
   expect(distanceCell()).toHaveTextContent("0.00"); expect(distanceCell()).not.toHaveTextContent("—");
 });
+
+describe("range controls split around the chart", () => {
+  it("keeps only the button row between charts and renders the expanding editor separately", () => {
+    const { container, rerender } = renderWithProviders(<ActivityRangeControls selection={selection} part="toolbar" />);
+    expect(container.querySelector(".activity-range-time-inputs")).toBeNull();
+    expect(container.querySelectorAll("button").length).toBeGreaterThan(0);
+    rerender(<ActivityRangeControls selection={selection} part="details" />);
+    expect(container.querySelector(".activity-range-time-inputs")).not.toBeNull();
+    rerender(<ActivityRangeControls selection={{ ...selection, enabled: false }} part="details" />);
+    expect(container.querySelector(".activity-range-controls")).toBeNull();
+  });
+});
