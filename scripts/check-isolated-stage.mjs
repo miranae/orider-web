@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
 import { checkIsolatedStageConfig } from "./lib/isolated-stage-config.mjs";
+import { productionDataConfig } from "./lib/production-data-config.mjs";
 if (process.env.STAGE_FIREBASE_PROJECT_ID && process.env.STAGE_FIREBASE_PROJECT_ID !== "orider-dev") throw new Error("stage Hosting project must be orider-dev");
 const hosting = JSON.parse(readFileSync("firebase.stage.json", "utf8")).hosting;
 if (hosting.site !== "orider-dev" || hosting.rewrites.some(rule => rule.function || rule.run)) throw new Error("isolated stage Hosting must have no server rewrites");
+if (process.env.PRODUCTION_RUNTIME_CONFIG_PATH) {
+  productionDataConfig(JSON.parse(readFileSync(process.env.PRODUCTION_RUNTIME_CONFIG_PATH, "utf8")));
+  console.log("[development-hosting] production data snapshot and development Hosting verified");
+  process.exit(0);
+}
 checkIsolatedStageConfig({
   appEnvironment: process.env.VITE_MODE,
   firebaseProjectId: process.env.VITE_FIREBASE_PROJECT_ID,
