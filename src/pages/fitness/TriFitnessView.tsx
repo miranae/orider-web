@@ -550,8 +550,8 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
   return (
     <div data-testid={evidenceOnly ? "condition-tri-mobile-evidence" : "K1-8"}>
       {/* 헤더 — PageHeader 패턴 */}
-      {!evidenceOnly && <div className="site-shell" style={{ padding: "24px 28px 18px", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
-        <div style={{ flex: 1 }}>
+      {!evidenceOnly && <div className="site-shell tri-fitness__header">
+        <div className="tri-fitness__heading">
           <Text as="div" variant="caption" style={{ marginBottom: 'var(--space-2)' }}>{t("triView.header.eyebrow")}</Text>
           <Text as="h1" variant="pageTitle" data-testid="K1-0-1" style={{ marginBottom: "var(--space-1-5)" }}>
             {t(condition ? "condition.header.title" : "triView.header.title")}
