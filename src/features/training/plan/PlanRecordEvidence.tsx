@@ -1,3 +1,4 @@
+import { useAuth } from "../../../contexts/AuthContext";
 import PlanDayLoadComparison from "./PlanDayLoadComparison";
 import PlanPeriodReturn from "./PlanPeriodReturn";
 import { useLocation } from "react-router-dom";
@@ -15,10 +16,11 @@ export default function PlanRecordEvidence({ date, plans, today = planDayKey(Dat
 }) {
   const { t } = useTranslation("training");
   const location = useLocation();
+  const { user } = useAuth();
   if (!plans.length) return <PlanPeriodReturn />;
   const evidence = location.state?.periodEvidence;
   const rows = plans.map(plan => ({ plan, view: presentPlanRecord(plan, { date, today }),
-    loadRow: evidence?.date === date && evidence.discipline === plan.discipline && evidence.row?.date === date ? evidence.row : undefined }));
+    loadRow: user && evidence?.uid === user.uid && evidence.date === date && evidence.discipline === plan.discipline && evidence.row?.date === date ? evidence.row : undefined }));
   return <section aria-label={t("planRecords.comparison")} style={{ display: "grid", maxWidth: "70ch", gap: "var(--space-3)", padding: "var(--space-4)" }}>
     <Text as="h3" variant="subtitle">{t("planRecords.comparison")}</Text>
     <PlanPeriodReturn />

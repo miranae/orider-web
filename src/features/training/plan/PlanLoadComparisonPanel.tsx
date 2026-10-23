@@ -6,7 +6,7 @@ import type { PlanWeek } from "@shared/types/goal";
 import { planCalendarDate, planDayKey } from "@shared/training/planDate";
 import InfoTip from "../../../components/InfoTip";
 import { Button, Card, Field, Input, Stat, Text, ToggleButton, ToggleControls } from "../../../theme/components";
-import { usePlanLoadComparison } from "./usePlanLoadComparison";
+import { usePlanPeriodComparison } from "./usePlanPeriodComparison";
 import { getPlanLoadRangeBounds, type PlanLoadRange } from "./planLoadComparison";
 import "./PlanLoadComparisonPanel.css";
 
@@ -62,10 +62,10 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
   originParams.set("loadPeriod", period);
   if (period === "range") { originParams.set("loadStart", custom.start); originParams.set("loadEnd", custom.end); }
   else originParams.set("loadDate", date);
-  const dayLink = (day: string) => <LocalizedLink to={`/athlete/me/activities?sport=${discipline}&date=${day}&day=${day}&detail=record-day`} state={{ periodEvidence: result.state === "ready" ? { date: day, discipline, row: result.days.find(row => row.date === day), activityIds: result.days.find(row => row.date === day)?.activityIds ?? [] } : undefined, periodReturn: { pathname: location.pathname, search: `?${originParams}`, hash: "#plan-load-comparison" } }}>{t("loadComparison.reviewDay", { date: day })}</LocalizedLink>;
+  const dayLink = (day: string) => <LocalizedLink to={`/athlete/me/activities?sport=${discipline}&date=${day}&day=${day}&detail=record-day`} state={{ periodEvidence: result.state === "ready" ? { uid, date: day, discipline, row: result.days.find(row => row.date === day), activityIds: result.days.find(row => row.date === day)?.activityIds ?? [] } : undefined, periodReturn: { pathname: location.pathname, search: `?${originParams}`, hash: "#plan-load-comparison" } }}>{t("loadComparison.reviewDay", { date: day })}</LocalizedLink>;
   const range = useMemo(() => periodRange(period, date, custom), [period, date, custom]);
   const valid = getPlanLoadRangeBounds(range) !== null;
-  const result = usePlanLoadComparison({ uid, discipline, weeks, range, enabled: enabled && valid, ftp });
+  const result = usePlanPeriodComparison({ uid, discipline, weeks, range, enabled: enabled && valid, ftp });
   const number = (value: number | null | undefined, signed = false) => value == null || !Number.isFinite(value) ? "—" : new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1, signDisplay: signed ? "exceptZero" : "auto" }).format(value);
   const ready = valid && (result.state === "ready" || result.state === "incomplete");
   const summary = ready ? result.summary : null;
@@ -111,6 +111,7 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
           <Stat compact role="group" aria-label={t("loadComparison.attainment")} label={<InfoTip label={t("loadComparison.attainment")} title={t("loadComparison.attainment")} content={t("loadComparison.formula")}>{t("loadComparison.attainment")}</InfoTip>} value={number(summary?.ratioPct)} unit={summary?.ratioPct == null ? undefined : "%"} />
         </div>
         <div className="plan-load-comparison__notes">
+          {result.parentWeeksPending && <div className="plan-load-comparison__notice"><Text as="p" variant="bodySmall" role="status">{t("loadComparison.parentWeekPending")}</Text><Button variant="secondary" onClick={result.retryParentWeeks}>{t("loadComparison.retry")}</Button></div>}
           {summary?.plannedDayCount === 0 && <Text as="p" variant="bodySmall">{t("loadComparison.planUnset")}</Text>}
           {summary?.plannedTss === 0 && <Text as="p" variant="bodySmall">{t("loadComparison.noPlan")}</Text>}
           {result.state === "incomplete" && <div className="plan-load-comparison__notice"><Text as="p" variant="bodySmall" tone="warning" role="status">{t("loadComparison.incomplete")}</Text><Button variant="secondary" onClick={result.retry}>{t("loadComparison.retry")}</Button></div>}

@@ -5,6 +5,7 @@ import PlanLoadComparison from "./PlanLoadComparisonPanel";
 import { usePlanLoadComparison } from "./usePlanLoadComparison";
 import type { PlanLoadComparisonRow, PlanLoadComparisonSummary } from "./planLoadComparison";
 
+vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner" } }) }));
 const fixture = vi.hoisted(() => ({
   result: {
     state: "ready",

@@ -28,6 +28,7 @@ export default function PlanDayLoadComparison({ day, row, state }: {
   return <div className="plan-day-load-comparison" role="group" aria-label={t("loadComparison.calendarLabel", { date })}>
     {fulfillment && <Text as="p" variant="bodySmall" weight={600}>{t(`loadComparison.fulfillment.${fulfillment}`, { week: row?.fulfilledWeek?.weekNumber })}{(fulfillment === "week" ? row?.fulfilledWeek?.estimated : row?.estimated) ? ` · ${t("page.tssEstimated")}` : ""}</Text>}
     {fulfillment === "week" && <Text as="p" variant="caption" tone="secondary">{t("loadComparison.fulfillment.weekBasis", { actual: number(row?.fulfilledWeek?.actualTss), planned: number(row?.fulfilledWeek?.plannedTss) })}</Text>}
+    {row?.parentWeekPending && <Text as="p" variant="caption" tone="secondary">{t("loadComparison.parentWeekPendingRecord")}</Text>}
     <Text as="p" variant="caption">{t("loadComparison.calendarLoads", { planned: number(planned), actual })}{known && row.estimated ? ` · ${t("page.tssEstimated")}` : ""}</Text>
     <Text as="p" variant="bodySmall" weight={600}>{t("loadComparison.calendarAttainment", { ratio: known && !future && row.ratioPct != null ? `${number(row.ratioPct)}%` : "—", difference: known && !future ? number(row.deltaTss, true) : "—" })}</Text>
   </div>;

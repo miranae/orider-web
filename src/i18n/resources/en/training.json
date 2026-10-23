@@ -1275,6 +1275,8 @@
       "weekBasis": "Weekly actual {{actual}} / planned {{planned}} TSS · Execution records for each date are retained separately.",
       "executionFact": "Saved execution record for this date: {{state}}"
     },
+    "parentWeekPending": "Evidence for the full stored plan week is pending or unavailable, separately from selected-period totals. Weekly fulfillment is not yet confirmed.",
+    "parentWeekPendingRecord": "Full stored-week load evidence is unconfirmed. Return to the original period to check again.",
     "calendarUnconfirmed": "Plan execution unconfirmed",
     "calendarBasis": "Load attainment compares all activity on the same day and is separate from confirmed plan execution.",
     "title": "Plan vs. actual load",
