@@ -16,7 +16,7 @@ export interface PlanLoadComparisonSummary {
   estimated: boolean;
   unknownCount: number;
 }
-export interface PlanLoadComparisonRow extends PlanLoadComparisonSummary { date: string; future: boolean; activityIds?: string[]; linkedLoads?: Record<string, number>; fulfilledWeek?: { weekNumber: number; plannedTss: number; actualTss: number; estimated: boolean } }
+export interface PlanLoadComparisonRow extends PlanLoadComparisonSummary { date: string; future: boolean; activityIds?: string[]; linkedLoads?: Record<string, number>; parentWeekPending?: boolean; fulfilledWeek?: { weekNumber: number; plannedTss: number; actualTss: number; estimated: boolean } }
 export interface PlanLoadComparison { summary: PlanLoadComparisonSummary; days: PlanLoadComparisonRow[] }
 const DAY_MS = 86_400_000;
 const nonnegative = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0;

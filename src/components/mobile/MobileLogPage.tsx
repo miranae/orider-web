@@ -455,7 +455,7 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
                       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", fontFamily: "var(--font-mono)", marginTop: "var(--space-0-5)" }}>
                         {km !== null ? `${km}km` : "—"} · {tmStr}{tss == null ? "" : ` · ${Math.round(tss)} TSS${tssEstimated ? ` ${t("training:page.tssEstimated")}` : ""}`}
                       </div>
-                      {location.state?.periodEvidence?.date === selectedDay && !aggregateUnavailable && <Text as="p" variant="caption" tone="secondary">{t(location.state.periodEvidence.activityIds?.includes(a.id) ? "training:loadComparison.representativeIncluded" : "training:loadComparison.representativeOriginal")}</Text>}
+                      {typeof location.state?.periodEvidence?.uid === "string" && location.state.periodEvidence.uid === a.userId && location.state.periodEvidence.date === selectedDay && !aggregateUnavailable && <Text as="p" variant="caption" tone="secondary">{t(location.state.periodEvidence.activityIds?.includes(a.id) ? "training:loadComparison.representativeIncluded" : "training:loadComparison.representativeOriginal")}</Text>}
                     </div>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M9 18l6-6-6-6" />

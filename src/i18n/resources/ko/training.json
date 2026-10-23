@@ -1275,6 +1275,8 @@
       "weekBasis": "주간 실제 {{actual}} / 계획 {{planned}} TSS · 날짜별 실행 기록은 별도로 유지합니다.",
       "executionFact": "저장된 날짜별 실행 기록: {{state}}"
     },
+    "parentWeekPending": "선택 기간의 합계와 별도로 저장된 주 전체의 근거를 확인 중이거나 확인하지 못했습니다. 주간 충족 여부는 아직 확정하지 않습니다.",
+    "parentWeekPendingRecord": "저장된 주 전체의 부하 근거가 미확인입니다. 원래 기간으로 돌아가 다시 확인해 주세요.",
     "calendarUnconfirmed": "계획 수행 미확정",
     "calendarBasis": "부하 달성률은 같은 날의 전체 활동을 비교한 값이며 계획 수행의 확정 여부와는 별개입니다.",
     "title": "계획 대비 기록",
