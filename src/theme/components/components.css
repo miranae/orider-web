@@ -590,7 +590,11 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 .ds-toggle-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); margin-bottom: var(--space-3); }
 .ds-btn.ds-toggle-button { min-height: calc(var(--space-7) + var(--space-3)); padding: var(--space-2) var(--space-3); border: var(--dim-divider-thickness) solid transparent; border-radius: var(--r-md); color: var(--ink-2); background: transparent; font-size: var(--ft-body-small-size); font-weight: var(--ft-body-small-weight); line-height: var(--ft-body-small-line-height); gap: var(--space-1); }
 .ds-btn.ds-toggle-button:is([aria-pressed="true"], [aria-selected="true"]) { color: var(--ink-0); background: var(--bg-2); border-color: transparent; font-weight: var(--ft-body-medium-weight); }
-.ds-btn.ds-toggle-button:hover:not(:disabled) { color: var(--ink-1); background: var(--bg-2); }
+/* 터치 기기는 탭한 버튼에 :hover 가 남는다(iOS 는 다른 곳을 눌러도 유지). 선택된 항목에는 hover 를 입히지 않고,
+   hover 는 실제 포인터가 있는 기기에서만 쓴다 — 선택 탭이 회색(비선택처럼)으로 보이던 원인. */
+@media (hover: hover) {
+  .ds-btn.ds-toggle-button:hover:not(:disabled):not([aria-pressed="true"]):not([aria-selected="true"]) { color: var(--ink-1); background: var(--bg-2); }
+}
 .ds-btn.ds-toggle-button:focus-visible { outline: var(--space-0-5) solid var(--accent); outline-offset: var(--space-0-5); }
 .ds-toggle-button__check { color: var(--accent-text); width: calc(var(--dim-icon-s) - var(--space-0-5)); height: calc(var(--dim-icon-s) - var(--space-0-5)); flex-shrink: 0; }
 .ds-toggle-note { color: var(--ink-2); font-size: var(--ft-body-small-size); margin-inline-start: var(--space-2); }
