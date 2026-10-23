@@ -1,6 +1,7 @@
 import { isPendingPlanWorkout, presentPlanDayRecord } from "./planRecordPresentation";
 import { goalCountdown } from "../../../utils/goalCountdown";
-import { summarizeStoredPlan } from "./planScope";
+import PlanGoalLoadSummary from "./PlanGoalLoadSummary";
+import { goalLoadScope, summarizeStoredPlan } from "./planScope";
 import { Eye, RefreshCw, Target } from "lucide-react";
 import GlossaryText from "../../../components/common/GlossaryText";
 import InfoTip from "../../../components/InfoTip";
@@ -607,7 +608,7 @@ export default function PlanPresentation({
     revalidating,
     justRecomputed,
     currentTsb,
-    goalDate,
+    goalDate: modelGoalDate,
     daysLeft,
     totalTSS,
     completedTSS,
@@ -638,13 +639,19 @@ export default function PlanPresentation({
   }, [selectedDate, weeks, currentWeekIndex]);
   const hasCurrentWeek = weeks[currentWeekIndex]?.days.some(isTodayCell) ?? false;
   const visibleWeeks = showPreviousWeeks || currentWeekIndex === 0 ? weeks : weeks.slice(currentWeekIndex);
+  const goalScope = goalLoadScope(weeks, goal, Date.now());
+  const goalDate = embedded ? modelGoalDate : goalScope.goalDate;
+  const goalLoads = usePlanLoadComparison({ uid: user?.uid, discipline, weeks, range: goalScope.range, ftp: profile?.ftp,
+    enabled: !embedded && goalScope.valid && !!goal && goalMatchesDiscipline && !loading && !loadError });
+  const goalLoadSummary = !embedded ? <PlanGoalLoadSummary scope={goalScope} load={goalLoads} /> : undefined;
   const todayKey = kstDayKey(Date.now());
   const pendingWorkout = (day: PlanDay) => embedded
     ? !day.completed && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal'
     : isPendingPlanWorkout(day, { date: kstDayKey(day.date), today: todayKey });
   const remainingSessions = weeks.reduce((total, week) => total + week.days.filter(pendingWorkout).length, 0);
   const planScope = summarizeStoredPlan(weeks, goalDate, Date.now(), { legacy: embedded });
-  const scopeNotice = goalDate && planScope.afterGoal > 0 ? <Text data-testid="plan-scope-notice" as="p" variant="bodySmall" tone="secondary" style={{ padding: "var(--space-3) var(--space-4)" }}>{t("scope.summary", planScope)}</Text> : null;
+  const hasPlansAfterGoal = !!goalDate && weeks.some(week => week.days.some(day => kstDayKey(day.date) > kstDayKey(goalDate.getTime())));
+  const scopeNotice = (embedded ? goalDate && planScope.afterGoal > 0 : hasPlansAfterGoal) ? <Text data-testid="plan-scope-notice" as="p" variant="bodySmall" tone="secondary" style={{ padding: "var(--space-3) var(--space-4)" }}>{embedded ? t("scope.summary", planScope) : t("goalLoad.calendar")}</Text> : null;
   const nextAction = weeks.slice(currentWeekIndex).flatMap((week) => week.days.map((day, dayIndex) => ({ day, weekId: week.id, dayIndex })))
     .find(({ day }) => kstDayKey(day.date) >= todayKey && pendingWorkout(day));
   const nextActionLabel = nextAction ? buildWorkoutMeta(t)[nextAction.day.workout]?.label ?? nextAction.day.workout : null;
@@ -752,6 +759,7 @@ export default function PlanPresentation({
       goalTitle: goal?.title ?? goal?.courseName,
       goalDiscipline: goal?.discipline,
       goalDate,
+      goalLoadSummary,
       daysLeft,
       progressPct: progress,
       completedTSS,
@@ -801,7 +809,7 @@ export default function PlanPresentation({
               {!embedded && (
                 <>
                   <Text as="div" variant="bodyMedium">
-                    {t('page.planTitle')}
+                    {t('goalLoad.title')}
                   </Text>
 
                 </>
@@ -836,7 +844,7 @@ export default function PlanPresentation({
                   whiteSpace: 'nowrap',
                 }}
               >
-                {t('page.inProgress')}
+                {t(!embedded && goalScope.expired ? 'goalLoad.expiredBadge' : 'page.inProgress')}
               </span>
               {(formattedGoal.meta || goalTitle.length > 50) && (
                 <Button type="button" variant="ghost" size="sm" data-testid="K4-2-3" aria-expanded={goalExpanded} onClick={() => setGoalExpanded(value => !value)}>
@@ -866,7 +874,7 @@ export default function PlanPresentation({
                 </span>
               )}
               <span>
-                <span style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)' }}>{goalDate ? goalCountdown(goalDate.getTime()) : `${t('page.daysLeftPrefix')}${daysLeft}`}</span>
+                <span style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)' }}>{goalDate ? goalCountdown(goalDate.getTime()) : embedded ? `${t('page.daysLeftPrefix')}${daysLeft}` : '—'}</span>
               </span>
               {goal && goal.goalType !== 'climb' && (goal.courseDist > 0 || goal.courseElev > 0) && (
                 <span>
@@ -888,7 +896,7 @@ export default function PlanPresentation({
                 </span>
               )}
             </div>
-            <div style={{ marginTop: 'var(--space-4)', maxWidth: 480 }}>
+            {embedded && <div style={{ marginTop: 'var(--space-4)', maxWidth: 480 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 'var(--space-1)', color: 'var(--ink-2)', fontSize: 'var(--fs-sm)' }}>
                 <InfoTip title={t('metrics.progress')} content={t('metrics.progressBasis')}>{t('metrics.progress')}</InfoTip>
                 <strong style={{ color: 'var(--ink-1)', fontFamily: 'var(--font-mono)', fontSize: 'var(--fs-md)' }}>{progress}%</strong>
@@ -896,11 +904,11 @@ export default function PlanPresentation({
               <div role="progressbar" aria-label={t('metrics.progress')} aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} style={{ height: 6, borderRadius: 'var(--r-xs)', background: 'var(--bg-3)', overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${Math.min(100, Math.max(0, progress))}%`, background: 'var(--lime)' }} />
               </div>
-            </div>
+            </div>}
           </div>
 
-          {/* Right: 4-KPI */}
-          <div
+          {/* Embedded prescription progress; web shows canonical goal-period load. */}
+          {!embedded ? goalLoadSummary : <div
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
@@ -938,7 +946,7 @@ export default function PlanPresentation({
                 </div>
               </div>
             ))}
-          </div>
+          </div>}
         </div>
       </div>
 

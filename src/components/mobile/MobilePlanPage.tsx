@@ -1,6 +1,6 @@
 import { isSportUiEnabled } from "../../config/sportFeatures";
 import { RefreshCw, Target } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
@@ -20,6 +20,7 @@ export interface MobilePlanPageProps extends PlanCalendarLoads {
   currentWeek: PlanWeek | null;
   weekLabel: string;
   goalId?: string;
+  goalLoadSummary?: ReactNode;
   goalTitle?: string;
   goalDiscipline?: Discipline;
   goalDate?: Date | null;
@@ -53,6 +54,7 @@ export default function MobilePlanPage({
   currentWeek,
   weekLabel,
   goalId,
+  goalLoadSummary,
   goalTitle,
   goalDiscipline,
   goalDate,
@@ -93,6 +95,7 @@ export default function MobilePlanPage({
       weekLabel={weekLabel}
       goalTitle={goalTitle}
       goalDiscipline={goalDiscipline}
+      goalLoadSummary={goalLoadSummary}
       goalDate={goalDate}
       daysLeft={daysLeft}
       progressPct={progressPct}

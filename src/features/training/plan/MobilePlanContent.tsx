@@ -84,6 +84,7 @@ export interface MobilePlanContentProps extends PlanCalendarLoads {
   weekLabel: string;
   canPrevWeek?: boolean;
   canNextWeek?: boolean;
+  goalLoadSummary?: ReactNode;
   goalTitle?: string;
   goalDiscipline?: Discipline;
   goalDate?: Date | null;
@@ -113,6 +114,7 @@ export default function MobilePlanContent({
   weekLabel,
   canPrevWeek = true,
   canNextWeek = true,
+  goalLoadSummary,
   goalTitle,
   goalDiscipline,
   goalDate,
@@ -195,7 +197,8 @@ export default function MobilePlanContent({
               </Button>
             )}
           </div>
-          <div data-testid="K4-2-2" role="progressbar" aria-label={t("metrics.progress")} aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} className="mobile-plan-progress">
+          {!embedded && <Text as="p" variant="caption" tone="secondary">{goalDate ? goalCountdown(goalDate.getTime()) : "—"}</Text>}
+          {embedded ? <><div data-testid="K4-2-2" role="progressbar" aria-label={t("metrics.progress")} aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100} className="mobile-plan-progress">
             <div style={{ width: `${Math.min(100, Math.max(0, progressPct ?? 0))}%`, height: "100%", background: "var(--lime)" }} />
           </div>
           <div className="mobile-plan-goal-stats">
@@ -205,6 +208,7 @@ export default function MobilePlanContent({
             {remainingSessions != null && <span><small>{t("metrics.sessionsLeft")}</small><strong>{remainingSessions} {t("mobile.sessionsUnit")}</strong></span>}
             {weeksLeft != null && <span><small>{t("metrics.weeksLeft")}</small><strong>{weeksLeft} {t("metrics.weeksUnit")}</strong></span>}
           </div>
+          </> : goalLoadSummary}
           {actionsSlot && (!embedded ? <CoachDetailSection id="plan-management" title={t("mobile.managePlan")}>{actionsSlot}</CoachDetailSection> : <details style={{ marginTop: "var(--space-2)", borderTop: "1px solid var(--line-soft)", paddingTop: "var(--space-1)", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>
             <summary style={{ cursor: "pointer", fontWeight: 600 }}>{t("mobile.managePlan")}</summary>
             <div style={{ paddingTop: "var(--space-2)" }}>{actionsSlot}</div>

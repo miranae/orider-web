@@ -182,6 +182,7 @@ export default function PlanPage() {
           goalId={serverManagedPlan ? undefined : goal?.id}
           goalTitle={props.goalTitle}
           goalDiscipline={props.goalDiscipline}
+          goalLoadSummary={props.goalLoadSummary}
           goalDate={props.goalDate}
           daysLeft={props.daysLeft}
           progressPct={props.progressPct}
