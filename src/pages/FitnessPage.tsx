@@ -78,6 +78,7 @@ import { toLocalDate } from "../utils/dateUtils";
 import { fitnessTodayKey } from "@shared/training/dateKey";
 import TriFitnessView from "./fitness/TriFitnessView";
 import { formatPlanGoalTitle } from "../features/training/plan/planDisplay";
+import LoadQualityEvidence from "../features/sufficiency/LoadQualityEvidence";
 import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../features/sufficiency/SufficiencyBlock";
 
 export interface FitnessViewProps {
@@ -452,7 +453,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           currentBasis={currentBasis}
           weekChangeSlot={part === "condition" ? null : weekChangeSlot}
           metricsNoteSlot={loadSufficiency && loadFormBlock
-            ? <SufficiencyInline set={loadSufficiency} block={loadFormBlock} testId="K1-1-1-briefing-sufficiency-inline" /> : null}
+            ? <LoadQualityEvidence points={model.pmcHistoryPoints} set={loadSufficiency} block={loadFormBlock} testId="K1-1-1-briefing-sufficiency-inline" /> : null}
           part={part === "condition" ? "condition" : "all"}
           key={`${discipline}-${currentPoint.date}`}
           impacts={activityImpacts}
@@ -1041,7 +1042,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           currentBasis={currentBasis}
             weekChangeSlot={part === "condition" ? null : weekChangeSlot}
             metricsNoteSlot={loadSufficiency && loadFormBlock
-              ? <SufficiencyInline set={loadSufficiency} block={loadFormBlock} testId="K1-1-1-sufficiency-inline" />
+              ? <LoadQualityEvidence points={model.pmcHistoryPoints} set={loadSufficiency} block={loadFormBlock} testId="K1-1-1-sufficiency-inline" />
               : null}
           part={part === "condition" ? "condition" : "all"}
             key={`${discipline}-${currentPoint.date}`}

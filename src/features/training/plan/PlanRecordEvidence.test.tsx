@@ -48,3 +48,20 @@ it("does not ask an ordinary rest plan to acquire an activity link", () => {
   expect(screen.queryByText("활동 미연결")).not.toBeInTheDocument();
   expect(screen.queryByText("수행 여부 미확인")).not.toBeInTheDocument();
 });
+
+
+it("keeps the candidate snapshot separate from detail analysis and carries the full return context", async () => {
+  const { fireEvent } = await import("@testing-library/react");
+  const { Routes, Route, useLocation } = await import("react-router-dom");
+  const { default: PlanComparisonReturn } = await import("./PlanComparisonReturn");
+  const route = "/ko/athlete/me/activities?sport=bike&date=2026-10-14&range=90&detail=record-day#comparison";
+  const Location = () => <output>{useLocation().search}</output>;
+  renderWithProviders(<Routes><Route path="/ko/athlete/me/activities" element={<><Location /><PlanRecordEvidence date="2026-10-14" plans={[{ discipline: "bike", workout: "z2", plannedTSS: 65, plannedDurationMin: 90, probableActivityId: "synthetic-candidate", probableTSS: 100 }]} /></>} /><Route path="/ko/coach/plan" element={<PlanComparisonReturn />} /></Routes>, { route });
+  expect(screen.getByText("추정 후보의 저장 부하 · 100 TSS")).toBeVisible();
+  expect(screen.getByText(/산정 방식과 저장 시각이 제공되지 않아/)).toBeVisible();
+  expect(screen.getByText(/연결 확인 전에는/)).toBeVisible();
+  fireEvent.click(screen.getByRole("link", { name: /다음 활동 조정/ }));
+  expect(screen.getByRole("link", { name: "원래 날짜의 수행 비교로 돌아가기" })).toHaveAttribute("href", route);
+  fireEvent.click(screen.getByRole("link", { name: "원래 날짜의 수행 비교로 돌아가기" }));
+  expect(screen.getByRole("status")).toHaveTextContent("range=90&detail=record-day");
+});

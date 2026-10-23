@@ -105,7 +105,7 @@ export function SufficiencyCard({ set, block, testId, compact = false, hideTimin
  * 열림·잠김 등 다른 상태에서는 아무것도 그리지 않는다(카드가 그 자리를 맡는다).
  */
 export function SufficiencyInline({ set, block, testId }: { set: SufficiencySet; block: SufficiencyBlock; testId: string }) {
-  const { t } = useTranslation("fitness");
+  const { t, i18n } = useTranslation("fitness");
   const state = displayedSufficiencyState(set, block, Date.now());
   const visible = state === "low_evidence" || state === "delayed" || state === "processing";
   useEffect(() => { if (visible) trackSufficiencyView(set, block, state, "inline"); }, [set, block, state, visible]);
@@ -116,18 +116,19 @@ export function SufficiencyInline({ set, block, testId }: { set: SufficiencySet;
   const missingExplanation = showRequirements && block.remainingRequirementCount > block.requirements.filter(row => row.satisfaction !== "met").length;
   return <div data-testid={testId} className="flex flex-wrap items-center gap-2 mt-1">
     {(state === "delayed" || state === "processing") && <Text as="span" variant="caption">{t(`sufficiency.state.${state}`)}</Text>}
+    {block.featureId === "load_history" && <Text as="p" variant="caption" tone="secondary">{t("sufficiency.loadQuality.asOf", { date: new Date(set.asOf).toLocaleString(i18n.resolvedLanguage ?? i18n.language, { timeZoneName: "short" }) })}</Text>}
     {(assumed || state === "low_evidence") && <Chip variant="warning">{t(assumed ? "sufficiency.chip.assumed" : "sufficiency.chip.lowEvidence")}</Chip>}
     {assumed && <Text as="span" variant="caption" tone="tertiary">
       {block.source.assumedInputs.map(input => t(`sufficiency.assumedInput.${input}`)).join(", ")}
     </Text>}
-    {showRequirements && block.remainingRequirementCount > 0 && <Text data-testid={`${testId}-remaining`} as="span" variant="caption" tone="tertiary">{t(quality ? "sufficiency.evidenceRemaining" : "sufficiency.remaining", { n: block.remainingRequirementCount })}</Text>}
+    {showRequirements && !quality && block.remainingRequirementCount > 0 && <Text data-testid={`${testId}-remaining`} as="span" variant="caption" tone="tertiary">{t(quality ? "sufficiency.evidenceRemaining" : "sufficiency.remaining", { n: block.remainingRequirementCount })}</Text>}
     {showRequirements && <div className="sufficiency-inline-requirements" data-testid={`${testId}-requirement`}>
-      <ul>{block.requirements.map(row => <RequirementLine key={row.requirementId} row={row} />)}</ul>
       {quality && <>
         <Text as="p" variant="bodySmall" tone="secondary">{t("sufficiency.loadQuality.basis")}</Text>
         <Text as="p" variant="bodySmall" tone="secondary">{t("sufficiency.loadQuality.criterion")}</Text>
         <Text as="p" variant="caption" tone="tertiary">{t("sufficiency.loadQuality.scope")}</Text>
       </>}
+      <ul>{block.requirements.map(row => <RequirementLine key={row.requirementId} row={row} />)}</ul>
       {missingExplanation && <Text as="p" variant="bodySmall" tone="secondary">{t("sufficiency.requirementUnavailable")}</Text>}
     </div>}
     {quality && <LocalizedLink data-testid={`${testId}-review`} to={`/athlete/me/activities?sport=${block.discipline}`} className={buttonClass({ variant: "ghost", size: "sm" })}>{t("sufficiency.loadQuality.review")} →</LocalizedLink>}

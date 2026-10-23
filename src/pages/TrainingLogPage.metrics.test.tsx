@@ -400,3 +400,13 @@ describe("desktop day record pagination",()=>{
     expect(screen.getByTestId("record-url")).toHaveTextContent("keep=1");
   });
 });
+
+it("opens the desktop plan comparison without dropping the selected record context", () => {
+  const dateKey = new Date(startTime + 9 * 3600000).toISOString().slice(0, 10);
+  render(<MemoryRouter initialEntries={[`/ko/athlete/me/activities?sport=bike&date=${dateKey}&calendarPage=3&range=90`]}><HistoryProbe /><LogDayCell activities={[]} loadActivities={[]} plans={[{discipline:"bike",workout:"z2",plannedTSS:65,plannedDurationMin:90,probableActivityId:"candidate",probableTSS:100}]} isToday={false} isCurrentMonth dayNum={1} dateKey={dateKey} todayKey={dateKey} /></MemoryRouter>);
+  fireEvent.click(screen.getByTestId("P1-2-2"));
+  expect(screen.getByTestId("record-url")).toHaveTextContent("/ko/athlete/me/activities");
+  expect(screen.getByTestId("record-url")).toHaveTextContent(`day=${dateKey}`);
+  expect(screen.getByTestId("record-url")).toHaveTextContent("detail=record-day");
+  expect(screen.getByTestId("record-url")).toHaveTextContent("calendarPage=3&range=90");
+});

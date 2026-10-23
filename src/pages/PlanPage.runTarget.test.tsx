@@ -2,16 +2,16 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import PlanPage from "./PlanPage";
 import TrainingLogPage from "./TrainingLogPage";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { mockCallableInvocations } from "../__tests__/mocks/firebase";
 const model = vi.hoisted(() => ({ value: {} as Record<string, unknown>, mobile: false, sport: vi.fn() }));
 vi.mock("../hooks/usePlanModel", () => ({ usePlanModel: (sport: string) => { model.sport(sport); return model.value; } }));
 vi.mock("../hooks/useMobile", () => ({ useMobile: () => model.mobile }));
 vi.mock("../contexts/DialogContext", () => ({ useDialog: () => ({ confirm: vi.fn() }) }));
-vi.mock("../features/training/plan/PlanPresentation", () => ({ default: ({ mobileWeekOffset, onMobileWeekOffsetChange }: { mobileWeekOffset: number; onMobileWeekOffsetChange: (offset: number) => void }) => <div data-testid="plan-presentation" data-week-offset={mobileWeekOffset}><button onClick={() => onMobileWeekOffsetChange(mobileWeekOffset - 1)}>Previous plan week</button><button onClick={() => onMobileWeekOffsetChange(mobileWeekOffset + 1)}>Next plan week</button></div> }));
+vi.mock("../features/training/plan/PlanPresentation", () => ({ default: ({ mobileWeekOffset, onMobileWeekOffsetChange, onEditWorkout }: { mobileWeekOffset: number; onMobileWeekOffsetChange: (offset: number) => void; onEditWorkout: (day: unknown, week: string, index: number) => void }) => <div data-testid="plan-presentation" data-week-offset={mobileWeekOffset}><button onClick={() => onEditWorkout({date: Date.parse("2026-10-02T00:00:00+09:00"), workout: "z2"}, "week-next", 0)}>Review next workout</button><button onClick={() => onMobileWeekOffsetChange(mobileWeekOffset - 1)}>Previous plan week</button><button onClick={() => onMobileWeekOffsetChange(mobileWeekOffset + 1)}>Next plan week</button></div> }));
 vi.mock("../features/trainingDecision/TodayTrainingDecisionCard", () => ({ default: () => null }));
-vi.mock("../components/training/WorkoutEditModal", () => ({ default: () => <div data-testid="workout-editor" /> }));
+vi.mock("../components/training/WorkoutEditModal", () => ({ default: ({ onClose }: { onClose: () => void }) => <div data-testid="workout-editor"><button onClick={onClose}>Close review</button></div> }));
 const date = Date.parse("2026-10-01T00:00:00+09:00");
 function setup() {
   model.value = { discipline: "run", goal: { id: "goal-owned", userId: "test-uid", discipline: "run", status: "active" }, weeks: [
@@ -104,4 +104,18 @@ it("replaces the old selected day with the visible week's date after intentional
   await waitFor(() => expect(screen.getByRole("link", { name: "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-09-30"));
   fireEvent.click(screen.getByRole("button", { name: "Next plan week" }));
   await waitFor(() => expect(screen.getByRole("link", { name: "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-10-01"));
+});
+
+
+it.each(["close", "back"])("restores the original date, range and detail after next workout %s", async action => {
+  setup(); model.value.discipline = "bike";
+  const Context = () => { const location = useLocation(); const navigate = useNavigate(); return <><output data-testid="context">{location.search}{location.hash}</output><button onClick={() => navigate(-1)}>Browser back</button><PlanPage /></>; };
+  const search = "?sport=bike&date=2026-10-01&range=90&detail=closed#comparison";
+  renderWithProviders(<Context />, { authenticated: true, route: `/ko/coach/plan${search}` });
+  fireEvent.click(await screen.findByText("Review next workout"));
+  expect(await screen.findByTestId("workout-editor")).toBeVisible();
+  expect(screen.getByTestId("context")).toHaveTextContent(search);
+  fireEvent.click(screen.getByText(action === "close" ? "Close review" : "Browser back"));
+  await waitFor(() => expect(screen.queryByTestId("workout-editor")).not.toBeInTheDocument());
+  expect(screen.getByTestId("context")).toHaveTextContent(search);
 });

@@ -182,7 +182,9 @@ describe("load quality evidence without activity-count claims", () => {
     renderUi(<SufficiencyInline set={sufficiencySet([block])} block={block} testId="mixed" />);
     expect(screen.getByTestId("mixed")).toHaveTextContent("첫 기록 10일째");
     expect(screen.getByTestId("mixed")).toHaveTextContent("추정 또는 혼합 부하 포함");
-    expect(screen.getByTestId("mixed-remaining")).toHaveTextContent("2개");
+    expect(screen.queryByTestId("mixed-remaining")).not.toBeInTheDocument();
+    expect(screen.getByTestId("mixed")).toHaveTextContent("품질 평가 기준 시점");
+    expect(screen.getByTestId("mixed")).toHaveTextContent("시작·끝과 원인 날짜가 제공되지 않습니다");
   });
   it.each(["processing","delayed"] as const)("does not present stale or unfinished quality as a current actionable requirement: %s", state => {
     const block=load({state,nextAction:null});
