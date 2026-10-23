@@ -136,6 +136,10 @@ int main(int argc, char **argv) {
   if (access(path, R_OK) != 0) return 69;
   char *prompt = read_all(stdin);
   if (!strstr(prompt, "origin/main...HEAD") || !strstr(prompt, "--- diff ---")) return 79;
+  char *instructions_end = strstr(prompt, "\n--- metadata ---\n");
+  if (!instructions_end) return 79;
+  /* 리뷰 범위는 지시문에서만 검사한다. diff 안의 플래그 문자열은 무관하다. */
+  *instructions_end = '\0';
   const char *codex_home = getenv("CODEX_HOME");
   if (!codex_home) return 82;
   snprintf(path, sizeof(path), "%s/auth.json", codex_home);
