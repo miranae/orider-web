@@ -28,11 +28,10 @@ export function ActivityChartAxisControls({ axis, elapsedAvailable, onChange, co
 export function ActivityRangeControls({ selection, showAxis = true, part = "all" }: { selection: ActivityRangeSelectionModel; showAxis?: boolean; part?: "all" | "toolbar" | "details" }) {
   const { t } = useTranslation("activity");
   if (!selection.ownerUid) return null;
-  if (part === "details" && !selection.enabled) return null;
+  if ((part === "details" || (part === "toolbar" && !showAxis)) && !selection.enabled) return null;
   return <section className="activity-range-controls space-y-3" aria-label={t("rangeAnalysis.controls")}>
-    {part !== "details" && <Stack direction="row" wrap align="center" gap="var(--space-2)">
-      {showAxis && <ActivityChartAxisControls axis={selection.xAxis} elapsedAvailable={!!selection.sampledAxis} onChange={selection.setXAxis} />}
-      <Button size="sm" variant="secondary" aria-pressed={selection.enabled} onClick={selection.toggle}>{t(selection.enabled ? "rangeAnalysis.endSelection" : "rangeAnalysis.select")}</Button>
+    {part !== "details" && showAxis && <Stack direction="row" wrap align="center" gap="var(--space-2)">
+      <ActivityChartAxisControls axis={selection.xAxis} elapsedAvailable={!!selection.sampledAxis} onChange={selection.setXAxis} />
     </Stack>}
     {part !== "toolbar" && selection.enabled && (Number.isFinite(selection.durationSec) && selection.durationSec > 0 ? <RangeTimeControls key={`${selection.identity}:${selection.selection?.requestId ?? "none"}`} selection={selection} />
       : <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.unknownAxis")}</Text>)}

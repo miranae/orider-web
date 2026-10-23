@@ -430,18 +430,19 @@ describe("ActivityPage", () => {
       altitude: Array(count).fill(10), latlng: Array.from({ length: count }, () => [37, 127]),
     }) });
     renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
-    const selectRange = await screen.findByRole("button", { name: "구간 분석" });
+    await screen.findByRole("button", { name: "경과시간 축" });
+    // 구간 분석 버튼은 없다 — 그래프에서 고른 범위가 곧 구간 분석을 연다.
+    expect(screen.queryByRole("button", { name: "구간 분석" })).not.toBeInTheDocument();
     act(() => performanceChartProps.mock.lastCall![0].onVisualRangeChange([10, 20]));
     expect(performanceChartProps.mock.lastCall?.[0].visualRange).toEqual([10, 20]);
-    fireEvent.click(selectRange);
-    expect(performanceChartProps.mock.lastCall?.[0].visualRange).toBeNull();
-    expect(performanceChartProps.mock.lastCall?.[0].hoverIndex).toBeNull();
     const inputs = [screen.getByLabelText("시작 시간"), screen.getByLabelText("끝 시간")];
     fireEvent.change(inputs[0]!, { target: { value: "0:20" } });
     fireEvent.change(inputs[1]!, { target: { value: "0:40" } });
     fireEvent.click(screen.getByRole("button", { name: "범위 적용" }));
     await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 20, endIndex: 40 }));
     expect(elevationChartProps.mock.lastCall?.[0].range).toEqual([20, 40]);
+    // 시간으로 고친 범위에 확대도 맞춘다.
+    expect(performanceChartProps.mock.lastCall?.[0].visualRange).toEqual([20, 40]);
     fireEvent.click(screen.getByRole("button", { name: "경과시간 축" }));
     expect(elevationChartProps.mock.lastCall?.[0].xAxis).toBe("elapsed");
     expect(elevationChartProps.mock.lastCall?.[0].elapsedAxisSec[20]).toBe(20);

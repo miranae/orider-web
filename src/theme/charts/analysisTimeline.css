@@ -4,11 +4,17 @@
 .analysis-timeline-current { display: grid; justify-items: end; gap: var(--space-0-5); min-width: 0; overflow-wrap: anywhere; text-align: right; }
 .analysis-timeline-plot { position: relative; min-width: 0; touch-action: none; cursor: crosshair; }
 .analysis-timeline-plot:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-0-5); }
-.analysis-timeline-segments { position: relative; height: var(--space-8); margin-block: var(--space-1); }
+.analysis-timeline-segments { position: relative; height: var(--space-5); }
 .analysis-timeline-segment { position: absolute; top: 0; height: 100%; padding: 0; border: 0; background: transparent; cursor: pointer; }
-.analysis-timeline-axis { min-height: var(--space-7); border: 0; }
-.analysis-timeline-ticks { position: relative; height: var(--space-4); font-size: var(--fs-xs); color: var(--ink-3); }
-.analysis-timeline-ticks > span { position: absolute; white-space: nowrap; }
+.analysis-timeline-axis { border: 0; }
+/* 아래 지표 레인의 x축 — 기준선과 눈금이 레인 쪽으로 붙는다. */
+.analysis-timeline-ticks { position: relative; align-self: end; height: calc(var(--space-4) + var(--space-1-5)); border-bottom: 1px solid var(--ink-3); font-size: var(--fs-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.analysis-timeline-ticks > span { position: absolute; top: 0; white-space: nowrap; line-height: var(--space-4); }
+.analysis-timeline-ticks > span::after { content: ""; position: absolute; bottom: calc(-1 * var(--space-1-5)); width: 1px; height: var(--space-1); background: var(--ink-3); }
+.analysis-timeline-ticks > span:first-child::after { left: 0; }
+.analysis-timeline-ticks > span:last-child::after { right: 0; }
+.analysis-timeline-ticks > span:not(:first-child):not(:last-child)::after { left: 50%; }
+.analysis-timeline-gridline { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-soft); pointer-events: none; }
 @media (max-width: 40rem) {
   .analysis-timeline-row { grid-template-columns: calc(var(--space-8) * 2) minmax(0, 1fr) var(--space-6) calc(var(--space-8) + var(--space-2)); gap: var(--space-1); }
 }
@@ -17,30 +23,34 @@
 .analysis-timeline-segment[aria-pressed="true"] > span { background: var(--accent-soft-bg); border-color: var(--accent); }
 .analysis-timeline-segment:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-0-5); }
 /* 선택 여부와 상관없이 한 줄 높이를 유지한다(길면 말줄임). */
-.analysis-timeline-segment-summary { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--space-2); height: var(--space-8); overflow: hidden; white-space: nowrap; }
+.analysis-timeline-segment-summary { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--space-1); width: 100%; height: var(--space-6); overflow: hidden; white-space: nowrap; }
 .analysis-timeline-segment-summary > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .analysis-timeline-segment-summary > :first-child { flex-shrink: 0; max-width: 50%; }
 .analysis-timeline-scale { display: flex; flex-direction: column; justify-content: space-between; align-self: stretch; padding-block: var(--space-1); color: var(--ink-3); font-size: var(--fs-xs); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .analysis-timeline-label, .analysis-timeline-current { align-self: stretch; align-content: center; padding-inline: var(--space-2); background: var(--bg-0); }
 
-.activity-analysis-controls, .activity-analysis-selection { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); padding-block: var(--space-2); }
+.activity-analysis-controls, .activity-analysis-selection { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding-block: var(--space-1); }
 
 .analysis-timeline-range-handle { position: absolute; z-index: 1; top: 0; bottom: 0; width: var(--space-0-5); background: var(--accent); transform: translateX(-50%); pointer-events: none; }
 
 
 .analysis-timeline-toolbar > div, .analysis-timeline-caption > div { grid-column: 2 / -1; min-width: 0; }
-.analysis-timeline-toolbar, .analysis-timeline-caption { border-bottom: 0; }
+.analysis-timeline-toolbar, .analysis-timeline-caption, .analysis-timeline-segments-row { border-bottom: 0; }
 .analysis-timeline-current { font-variant-numeric: tabular-nums; }
 .analysis-timeline-current > * { white-space: nowrap; }
 
-.analysis-timeline-axis { padding-block: var(--space-2); }
-.analysis-timeline-axis-controls { min-width: 0; }
+.analysis-timeline-axis { padding-block: var(--space-1) 0; }
+/* 왼쪽 레이블 열과 같은 안쪽 여백, 아래 레인과는 띄운다(눈금 기준선은 레인에 붙는다). */
+.analysis-timeline-axis-controls { min-width: 0; align-self: center; padding-inline-start: var(--space-2); }
+.analysis-timeline-axis .analysis-timeline-axis-controls:not(:empty) { margin-block: var(--space-1) var(--space-1-5); }
+/* 단위는 눈금 숫자와 같은 줄(기준선 위)에 맞춘다. */
+.analysis-timeline-axis-unit { align-self: end; padding-bottom: var(--space-1-5); line-height: var(--space-4); }
 
 .activity-analysis-controls:empty { display: none; }
 
 /* 구간 설명 자리 — 선택 전(안내)과 선택 후(구간 요약·복원) 모두 같은 한 줄 높이. */
-.analysis-timeline-caption-slot { display: flex; align-items: center; height: var(--space-8); min-width: 0; overflow: hidden; }
+.analysis-timeline-caption-slot { display: flex; align-items: center; height: var(--space-6); min-width: 0; overflow: hidden; }
 .analysis-timeline-caption-slot > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .analysis-timeline-caption-slot .activity-analysis-selection { flex-wrap: nowrap; width: 100%; padding-block: 0; gap: var(--space-2); }
 .analysis-timeline-caption-slot .activity-analysis-selection > :first-child { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

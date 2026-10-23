@@ -54,7 +54,7 @@ export default function ElevationChartAnalysis({ data, overlays = [], elapsedAxi
     const observer = new ResizeObserver(measure); observer.observe(plot);
     return () => observer.disconnect();
   }, [showElevation]);
-  const tickCount = Math.max(2, Math.min(6, Math.floor(plotWidth / 90) + 1));
+  const tickCount = Math.max(2, Math.min(6, Math.floor(plotWidth / 60) + 1));
   const [segmentHover, setSegmentHover] = useState<string | number | null>(null);
   const segmentTooltipId = useId();
   const [hover, setHover] = useState<number | null>(null);
@@ -66,6 +66,10 @@ export default function ElevationChartAnalysis({ data, overlays = [], elapsedAxi
   const interactive = ownerMode || Boolean(p.onVisualRangeChange);
   const activeSegmentRange = ownerMode ? range : selected;
   const activeSegment = p.segments?.find(segment => activeSegmentRange?.[0] === segment.startIndex && activeSegmentRange?.[1] === segment.endIndex) ?? null;
+  // 세그먼트를 고르면 같은 한 줄 자리에 선택 구간 대신 세그먼트 이름·기록을 보여준다(줄을 더 만들지 않는다).
+  const segmentSummary = activeSegment ? <div className="analysis-timeline-segment-summary">
+        <>{/* 끝의 "구간" 링크 대신 세그먼트 이름이 상세로 간다. */}{activeSegment!.href ? <Link to={activeSegment!.href} aria-label={`${activeSegment!.name} · ${p.segmentDetailsLabel}`}><Text variant="bodySmall" weight={600}>{activeSegment!.name}</Text></Link> : <Text variant="bodySmall" weight={600}>{activeSegment!.name}</Text>}{activeSegment!.summary && <Text variant="caption">{activeSegment!.summary}</Text>}</>
+      </div> : null;
   const suppressClick = useRef(false);
   const pinnedHover = useRef(false);
   const setPoint = (index: number | null) => { setHover(index); onHoverIndex?.(index); };
@@ -184,6 +188,7 @@ export default function ElevationChartAnalysis({ data, overlays = [], elapsedAxi
         const next = Math.max(0, Math.min(data.length - 1, previous + (event.key === "ArrowLeft" ? -1 : 1)));
         setPoint(next); if (event.shiftKey) p.onVisualRangeChange?.(orderedChartRange([selected?.[0] ?? previous, next], data.length));
       }}>
+      {!overview && Array.from({ length: tickCount }, (_, index) => <span key={`grid-${index}`} aria-hidden="true" className="analysis-timeline-gridline" style={{ left: `${index / (tickCount - 1) * 100}%` }} />)}
       {overview && ownerMode && range && range.map((index, side) => <span key={side} aria-hidden="true" className="analysis-timeline-range-handle" style={{ left: `${(axis[index]! - fullDomain[0]) / (fullDomain[1] - fullDomain[0]) * 100}%` }} />)}
       <Line plugins={[plugin]} data={{ datasets: [{ label: overview ? "__overview" : key,
         data: analysisPlotPoints(axis, values),
@@ -195,10 +200,10 @@ export default function ElevationChartAnalysis({ data, overlays = [], elapsedAxi
     {showElevation && <div className="analysis-timeline-row analysis-timeline-overview">{label(p.elevation)}{plot("elevation", data.map(point => point.elevation), variant.chartColors.gridAxis, true)}<Text variant="bodySmall" className="analysis-timeline-current">{p.elevation.current} {p.elevation.unit}</Text></div>}
     {/* 구간을 선택해도 고도 아래·지표 위 높이가 바뀌지 않도록 설명 자리를 항상 같은 높이로 둔다. */}
     {(interactive || p.selectionCaption) && <div className="analysis-timeline-row analysis-timeline-caption" data-selection={p.selectionCaption ? "active" : "idle"}>
-      <div className="analysis-timeline-caption-slot">{p.selectionCaption ?? (p.selectionHint ? <Text variant="caption" tone="tertiary">{p.selectionHint}</Text> : null)}</div>
+      <div className="analysis-timeline-caption-slot">{activeSegment ? segmentSummary : p.selectionCaption ?? (p.selectionHint ? <Text variant="caption" tone="tertiary">{p.selectionHint}</Text> : null)}</div>
     </div>}
     {!!p.segments?.length && <>
-      <div className="analysis-timeline-row"><span /><div className="analysis-timeline-segments" aria-label={p.segmentsLabel}>{p.segments.map(segment => {
+      <div className="analysis-timeline-row analysis-timeline-segments-row"><span /><div className="analysis-timeline-segments" aria-label={p.segmentsLabel}>{p.segments.map(segment => {
         const start = axis[segment.startIndex], end = axis[segment.endIndex];
         if (!Number.isFinite(start) || !Number.isFinite(end) || end! <= start!) return null;
         const activeRange = ownerMode ? range : selected;
@@ -212,13 +217,9 @@ export default function ElevationChartAnalysis({ data, overlays = [], elapsedAxi
             setPoint(segment.endIndex); }} className="analysis-timeline-segment"
           style={{ left: `${(start! - fullDomain[0]) / (fullDomain[1] - fullDomain[0]) * 100}%`, width: `${(end! - start!) / (fullDomain[1] - fullDomain[0]) * 100}%` }}><span aria-hidden="true" /></button>;
       })}{p.segments.find(segment => segment.id === segmentHover) && <ChartTooltip id={segmentTooltipId} label={p.segments.find(segment => segment.id === segmentHover)!.name} style={{ bottom: "100%", left: 0 }}>{p.segments.find(segment => segment.id === segmentHover)!.summary}</ChartTooltip>}</div><span /><span /></div>
-      {/* 선택한 세그먼트 요약도 자리를 미리 잡아 둔다 — 선택 전후 높이가 같다. */}
-      <div className="analysis-timeline-segment-summary" data-empty={activeSegment ? undefined : "true"}>
-        {activeSegment ? <><Text variant="bodySmall" weight={600}>{activeSegment.name}</Text>{activeSegment.summary && <Text variant="caption">{activeSegment.summary}</Text>}{activeSegment.href && <Link to={activeSegment.href}>{p.segmentDetailsLabel}</Link>}</> : null}
-      </div>
     </>}
     {p.controls && <div className="analysis-timeline-row analysis-timeline-toolbar"><div>{p.controls}</div></div>}
-    <div className="analysis-timeline-row analysis-timeline-axis"><div className="analysis-timeline-axis-controls">{p.axisControls}</div><div aria-hidden="true" className="analysis-timeline-ticks">{Array.from({ length: tickCount }, (_, index) => <span key={index} style={{ left: `${index / (tickCount - 1) * 100}%`, transform: index === 0 ? undefined : index === tickCount - 1 ? "translateX(-100%)" : "translateX(-50%)" }}>{coordinate.elapsed ? formatElapsedBoundary(Math.round((domain[0] + (domain[1] - domain[0]) * index / (tickCount - 1)) * 60)) : (domain[0] + (domain[1] - domain[0]) * index / (tickCount - 1)).toFixed(1)}</span>)}</div><Text variant="caption" aria-hidden="true">{coordinate.elapsed ? "" : units === "imperial" ? "mi" : "km"}</Text><span /></div>
+    <div className="analysis-timeline-row analysis-timeline-axis"><div className="analysis-timeline-axis-controls">{p.axisControls}</div><div aria-hidden="true" className="analysis-timeline-ticks">{Array.from({ length: tickCount }, (_, index) => <span key={index} style={{ left: `${index / (tickCount - 1) * 100}%`, transform: index === 0 ? undefined : index === tickCount - 1 ? "translateX(-100%)" : "translateX(-50%)" }}>{coordinate.elapsed ? formatElapsedBoundary(Math.round((domain[0] + (domain[1] - domain[0]) * index / (tickCount - 1)) * 60)) : (domain[0] + (domain[1] - domain[0]) * index / (tickCount - 1)).toFixed(1)}</span>)}</div><Text variant="caption" aria-hidden="true" className="analysis-timeline-axis-unit">{coordinate.elapsed ? "" : units === "imperial" ? "mi" : "km"}</Text><span /></div>
     {overlays.map(overlay => <div key={overlay.key ?? overlay.label} className="analysis-timeline-row">{label(p.lanes[overlay.key ?? ""] ?? { label: overlay.label, maximum: "—", average: "—", current: "—", unit: overlay.unit ?? "" })}{plot(overlay.key ?? overlay.label, overlay.data, overlay.color, false, overlay.reverseAxis)}<div className="analysis-timeline-current"><Text variant="bodyMedium" weight={600}>{p.lanes[overlay.key ?? ""]?.current ?? "—"}</Text><Text variant="caption" tone="tertiary">{p.lanes[overlay.key ?? ""]?.unit ?? overlay.unit}</Text></div></div>)}
   </div>;
 }

@@ -57,7 +57,8 @@ it("preserves the exact sample tuple when changing axes and makes real segment b
   fireEvent.click(screen.getByRole("button", { name: "Real segment · 2 km" }));
   expect(state.change).toHaveBeenLastCalledWith([1, 3]);
   expect(screen.getByRole("button", { name: "Real segment · 2 km" })).toHaveAttribute("aria-pressed", "true");
-  expect(screen.getByRole("link", { name: "Details" })).toHaveAttribute("href", "/ko/activity/one?tab=segments");
+  // 끝의 상세 링크 대신 세그먼트 이름이 상세로 간다.
+  expect(screen.getByRole("link", { name: "Real segment · Details" })).toHaveAttribute("href", "/ko/activity/one?tab=segments");
   view.rerender(<Example elapsed />);
   expect(latestPlots()[1].options.scales.x).toMatchObject({ min: 0.25, max: 1 });
   expect(state.change).toHaveBeenCalledTimes(1);
@@ -114,17 +115,16 @@ it("keeps axis controls accessible and adapts tick density to the measured plot 
   expect(ticks.children).toHaveLength(6);
 });
 
-it("keeps the caption and segment summary rows in place before and after selecting a range", () => {
+it("keeps one caption row in place before and after selecting a range or a segment", () => {
   const { container } = renderWithProviders(<Example />);
-  const rows = () => [...container.querySelectorAll(".analysis-timeline > .analysis-timeline-row, .analysis-timeline > .analysis-timeline-segment-summary")].map(row => row.className);
+  const rows = () => [...container.querySelectorAll(".analysis-timeline > *")].map(row => row.className);
   const before = rows();
   expect(container.querySelector(".analysis-timeline-caption-slot")).toHaveTextContent("Drag to inspect");
-  expect(container.querySelector(".analysis-timeline-segment-summary")).toHaveAttribute("data-empty", "true");
+  expect(container.querySelector(".analysis-timeline-segment-summary")).toBeNull();
   const plot = plots()[1]!; setBounds(plot);
   fireEvent.pointerDown(plot, { clientX: 25, button: 0 }); fireEvent.pointerMove(plot, { clientX: 75 }); fireEvent.pointerUp(window, { clientX: 75 });
   // 선택 뒤에도 같은 줄 구성 — 고도 아래·지표 위에 줄이 새로 끼어들지 않는다.
   expect(rows()).toEqual(before);
-  expect(container.querySelector(".analysis-timeline-caption-slot")).toHaveTextContent("Selected range");
-  expect(container.querySelector(".analysis-timeline-segment-summary")).not.toHaveAttribute("data-empty");
-  expect(container.querySelector(".analysis-timeline-segment-summary")).toHaveTextContent("Real segment");
+  // 고른 범위가 세그먼트와 같으면 같은 자리에 세그먼트 이름·기록이 나온다(줄이 늘지 않는다).
+  expect(container.querySelector(".analysis-timeline-caption-slot .analysis-timeline-segment-summary")).toHaveTextContent("Real segment");
 });
