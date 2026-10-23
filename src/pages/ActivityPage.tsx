@@ -652,14 +652,23 @@ export default function ActivityPage() {
     setVisualState(previous => previous.identity === visualIdentity && previous.range?.[0] === selectionStart && previous.range?.[1] === selectionEnd
       ? previous : { identity: visualIdentity, axis: visualAxis, range: [selectionStart, selectionEnd] });
   }, [selectionStart, selectionEnd, visualIdentity, visualAxis, rangeEnabled, toggleRange]);
+  // 드래그로 만든 구간 선택인지 기억한다. 최고 노력·스플릿 위치를 새로 고르면 그 하이라이트가
+  // 이전 드래그 범위에 가려지지 않게 드래그 선택을 푼다(#1302 이전 동작). 랩·시간 입력 선택은 유지한다.
+  const dragSelection = useRef<{ startOffsetSec: number; endOffsetSec: number } | null>(null);
   const setVisualRange = (range: [number, number] | null) => {
     if (range && (!Number.isInteger(range[0]) || !Number.isInteger(range[1]) || range[0] < 0 || range[1] <= range[0] || range[1] >= sampledData.length)) return;
     setVisualState({ identity: visualIdentity, axis: visualAxis, range });
     setHoverIndex(range?.[1] ?? null);
+    dragSelection.current = null;
     if (!rangeSelection.ownerUid) return;
     const elapsed = range && rangeSelection.axis ? elapsedRangeFromChartSelection(rangeSelection.axis, sourceIndices, range) : null;
-    if (elapsed) rangeSelection.selectAndEnable(elapsed);
+    if (elapsed) { rangeSelection.selectAndEnable(elapsed); dragSelection.current = elapsed; }
     else if (!range && rangeSelection.enabled) rangeSelection.toggle();
+  };
+  const releaseDragSelection = useRef(() => {});
+  releaseDragSelection.current = () => {
+    const dragged = dragSelection.current, current = rangeSelection.selection;
+    if (visualRange && dragged && current && current.startOffsetSec === dragged.startOffsetSec && current.endOffsetSec === dragged.endOffsetSec) setVisualRange(null);
   };
   const visualRouteRange = useMemo(() => {
     if (!visualRange || !streams?.latlng) return null;
@@ -678,12 +687,16 @@ export default function ActivityPage() {
     [effectiveStreams, streamSensorSummary],
   );
   const { location: runSplitLocation, onSelectSplit: selectRunSplit } = useRunSplitLocation(activityId, activity?.id, sport === "run", streams, sampledData, resolveObservedDistanceKm(serverMetrics.metrics ?? {}, activity?.summary?.distance));
+  // 스플릿 선택은 프로필이 마운트·탭 전환 때도 자동으로 부르므로 드래그를 풀지 않는다.
+  // 사용자가 "구간 위치 보기"를 눌렀을 때만 이전 드래그 범위를 풀어 스플릿 하이라이트를 보인다.
+  const onViewRunSplitLocation = useCallback(() => { releaseDragSelection.current(); viewRunSplitLocation(); }, [viewRunSplitLocation]);
   const peakLocation = useMemo(() => resolvePeakEffortLocation(selectedPeak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData),
     [selectedPeak, serverMetrics.metrics, streams, sampledData]);
   const locatePeak = useCallback((peak: RidePeakEffort | null) => {
     pendingPeakLocation.current = null;
     setPeakSelection({ activityId, peak });
     if (!peak) return;
+    releaseDragSelection.current();
     if (!streams) {
       pendingPeakLocation.current = { activityId, uid: user?.uid, peak };
       requestStreams();
@@ -1515,7 +1528,7 @@ export default function ActivityPage() {
         onSelectLap={rangeSelection.ownerUid ? selectLap : undefined}
         canSelectLap={canSelectLap}
         onSelectRunSplit={selectRunSplit}
-        onViewRunSplitLocation={viewRunSplitLocation}
+        onViewRunSplitLocation={onViewRunSplitLocation}
         canViewRunSplitLocation={!!runSplitLocation?.routeRange && !!runSplitLocation.chartRange}
       />}
       {activeTab === "analysis" && sport === "run" && isActivityOwner && activity?.id && !(showElevation && elevData.length > 0) && <div className="space-y-4">

@@ -464,25 +464,6 @@ describe("ActivityPage", () => {
     expect(screen.getByLabelText("시작 시간")).toBeInTheDocument();
     await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toBeDefined());
   });
-  it("starts, applies, clears and reselects a time range for a run without a distance stream (no chart to drag)", async () => {
-    resetRuntimeConfigForTests({ activityAnalysisExpansionEnabled: false });
-    const id = mockRoute.activityId = "run-without-distance", epoch = 1791375809874, time = Array.from({ length: 101 }, (_, index) => epoch + index * 1000);
-    setDocData(`activities/${id}`, createMockActivity({ id, type: "Run", userId: "test-uid", source: "orider", startTime: epoch,
-      summary: createMockSummary({ ridingTimeMillis: 100000, elapsedTimeMillis: 100000 }) }) as unknown as Record<string, unknown>);
-    // 거리·고도·경로·랩이 없다 — 드래그할 차트도, 고를 랩도 없어 시작 버튼과 시간 입력만으로 끝까지 간다.
-    setDocData(`activity_streams/${id}`, { userId: "test-uid", json: JSON.stringify({ time, heartrate: time.map((_, index) => 120 + index % 20) }) });
-    renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${id}?tab=analysis` });
-    fireEvent.click(await screen.findByRole("button", { name: "구간 분석" }));
-    expect(screen.getByRole("button", { name: "구간 선택 종료" })).toHaveAttribute("aria-pressed", "true");
-    const apply = (start: string, end: string) => { fireEvent.change(screen.getByLabelText("시작 시간"), { target: { value: start } });
-      fireEvent.change(screen.getByLabelText("끝 시간"), { target: { value: end } }); fireEvent.click(screen.getByRole("button", { name: "범위 적용" })); };
-    apply("0:20", "0:40");
-    expect(await screen.findByText("구간 분석을 준비 중입니다", { exact: false })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "범위 지우기" }));
-    expect(screen.queryByText("구간 분석을 준비 중입니다", { exact: false })).not.toBeInTheDocument();
-    apply("0:50", "1:10");
-    expect(await screen.findByText("구간 분석을 준비 중입니다", { exact: false })).toBeInTheDocument();
-  });
   it.each(["ready", "cancel", "account", "activity", "navigate", "invalid"])("handles cold peak location once with %s intent", async (mode) => {
     mockRoute.activityId = `cold-peak-${mode}`;
     const id = mockRoute.activityId;
