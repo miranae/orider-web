@@ -23,7 +23,7 @@ export default function CoachDetailSection({ id, title, requested = false, child
     if (location.state?.coachDetail === id) { navigate(-1); return; }
     const next = new URLSearchParams(location.search);
     next.set("detail", "closed");
-    navigate({ search: next.toString(), hash: location.hash }, { replace: true, preventScrollReset: true });
+    navigate({ search: next.toString(), hash: location.hash }, { replace: true, preventScrollReset: true, state: location.state });
   };
   const surface = useRef<HTMLDivElement>(null);
   useEffect(() => {

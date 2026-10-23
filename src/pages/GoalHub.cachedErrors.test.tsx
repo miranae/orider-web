@@ -41,7 +41,7 @@ describe("GoalHub cached plan read failures with the real model", () => {
     await waitFor(() => expect(screen.getByTestId("K3-1-1")).toHaveTextContent("Confirmed goal"));
     expect(screen.queryByText("저장된 이전 정보를 표시하고 있습니다.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "목표 포기" })).toBeEnabled();
-    expect(screen.getByTestId("K3-1-2")).toHaveTextContent("0%");
-    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
+    expect(screen.getByTestId("K3-1-2")).toHaveTextContent("목표기간을 확인할 수 없어");
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 });

@@ -1,3 +1,4 @@
+import PlanPeriodReturn from "./PlanPeriodReturn";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink } from "../../../components/LocalizedLink";
@@ -13,6 +14,7 @@ export default function PlanComparisonReturn() {
     || typeof target.search !== "string" || typeof target.hash !== "string") return null;
   return <aside className="site-shell">
     <Text as="p" variant="bodySmall" tone="secondary">{t("planRecords.reviewContext")}</Text>
-    <LocalizedLink to={target} className={buttonClass({ variant: "secondary", size: "sm" })}>{t("planRecords.returnComparison")}</LocalizedLink>
+    <PlanPeriodReturn />
+    <LocalizedLink state={{ periodEvidence: state?.periodEvidence, periodReturn: state?.periodReturn }} to={target} className={buttonClass({ variant: "secondary", size: "sm" })}>{t("planRecords.returnComparison")}</LocalizedLink>
   </aside>;
 }
