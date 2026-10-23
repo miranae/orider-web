@@ -78,24 +78,37 @@ export function SufficiencyCard({ set, block, testId, compact = false, hideTimin
   const { t } = useTranslation("fitness");
   const state = displayedSufficiencyState(set, block, Date.now());
   useEffect(() => { trackSufficiencyView(set, block, state, "card"); }, [set, block, state]);
-  const showDetails = state === "locked" && block.remainingRequirementCount > 0;
+  const stale = set.staleAfter != null && Date.now() > set.staleAfter;
+  const awaitingResult = state === "delayed" || state === "processing";
+  const showDetails = (state === "locked" && block.remainingRequirementCount > 0)
+    || (awaitingResult && !stale && block.requirements.length > 0);
+  const pendingMetrics = block.requirements.some(row => row.excluded?.some(item => item.reason === "metrics_pending"));
+  const requirementsMet = block.remainingRequirementCount === 0 && block.requirements.length > 0
+    && block.requirements.every(row => row.satisfaction === "met");
   const Container = compact ? "article" : Card;
   return <Container data-testid={testId} className={compact ? "sufficiency-evidence-row" : undefined} aria-label={t(featureLabelKey(block))}>
     <Text as="p" variant="eyebrow">{t(featureLabelKey(block))}</Text>
     <Text data-testid={`${testId}-state`} as="p" variant="bodyMedium" style={{ marginTop: "var(--space-1)" }}>
       {headline(t, block, state)}
     </Text>
-    {showDetails && <Text data-testid={`${testId}-remaining`} as="p" variant="caption" tone="tertiary">
+    {awaitingResult && <Text data-testid={`${testId}-explanation`} as="p" variant="bodySmall" tone="secondary">
+      {t(stale ? "sufficiency.delay.stale" : pendingMetrics ? "sufficiency.delay.metricsPending"
+        : state === "processing" ? "sufficiency.delay.processing" : "sufficiency.delay.unknown")}
+      {!stale && requirementsMet && ` ${t("sufficiency.delay.requirementsMet")}`}
+    </Text>}
+    {showDetails && state === "locked" && <Text data-testid={`${testId}-remaining`} as="p" variant="caption" tone="tertiary">
       {t("sufficiency.remaining", { n: block.remainingRequirementCount })}
     </Text>}
     {!hideTiming && <Text as="p" variant="caption" tone="tertiary">{t("sufficiency.asOf", { date: new Date(set.asOf).toLocaleDateString() })}
       {set.nextUpdateAt != null && ` · ${t("sufficiency.nextUpdate", { date: new Date(set.nextUpdateAt).toLocaleDateString() })}`}
     </Text>}
+    {!hideTiming && awaitingResult && set.nextUpdateAt != null && <Text as="p" variant="caption" tone="tertiary">{t("sufficiency.nextUpdateExplanation")}</Text>}
     {showDetails && <>
+      {awaitingResult && <Text as="p" variant="caption" tone="tertiary">{t("sufficiency.delay.checkedRequirements")}</Text>}
       <ul data-testid={`${testId}-requirements`} className="mt-2 space-y-1">
         {block.requirements.map(row => <RequirementLine key={row.requirementId} row={row} />)}
       </ul>
-      <div className="mt-3"><ActionLine block={block} testId={testId} /></div>
+      {state === "locked" && <div className="mt-3"><ActionLine block={block} testId={testId} /></div>}
     </>}
   </Container>;
 }
@@ -200,6 +213,7 @@ export function SufficiencyGroup({ set, sets, testId, inline = false, collapsibl
       {rows.map(({ owner, block }) => <SufficiencyCard key={`${block.discipline}-${block.featureId}-${block.viewId}`} set={owner} block={{ ...block, nextAction: null }} testId={`${testId}-${block.featureId}-${block.viewId}`} />)}
     </details>}
     {inline && commonTiming && <Text as="p" variant="caption" tone="tertiary">{t("sufficiency.asOf", { date: new Date(rows[0]!.owner.asOf).toLocaleDateString() })}{rows[0]!.owner.nextUpdateAt != null && ` · ${t("sufficiency.nextUpdate", { date: new Date(rows[0]!.owner.nextUpdateAt!).toLocaleDateString() })}`}</Text>}
+    {inline && commonTiming && rows[0]!.owner.nextUpdateAt != null && rows.some(({ owner, block }) => ["delayed", "processing"].includes(displayedSufficiencyState(owner, block, Date.now()))) && <Text as="p" variant="caption" tone="tertiary">{t("sufficiency.nextUpdateExplanation")}</Text>}
   </Card>;
 }
 

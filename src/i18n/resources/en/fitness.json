@@ -1168,7 +1168,7 @@
   "sufficiency.req.load_quality.not_met": "Load calculation · estimated or mixed load included",
   "sufficiency.view.vo2max.monthly": "Monthly VO₂max trend",
   "sufficiency.remaining": "Remaining requirements: {{n}}",
-  "sufficiency.nextUpdate": "Next update scheduled for {{date}}",
+  "sufficiency.nextUpdate": "Next recalculation scheduled for {{date}}",
   "sufficiency.feature.power_model": "CP·W′ power model",
   "sufficiency.feature.ftp_estimate": "FTP estimate",
   "sufficiency.feature.vo2max": "VO₂max estimate",
@@ -1180,7 +1180,7 @@
   "sufficiency.asOf": "Based on rides before {{date}}",
   "sufficiency.excludedPrefix": "excluded:",
   "sufficiency.excluded.virtual_power": "{{n}} virtual power",
-  "sufficiency.excluded.metrics_pending": "{{n}} still analyzing",
+  "sufficiency.excluded.metrics_pending": "{{n}} with unconfirmed analysis results",
   "sufficiency.chip.assumed": "Assumed value",
   "sufficiency.chip.lowEvidence": "Low evidence",
   "sufficiency.assumedInput.weightKg": "Calculated with the default weight",
@@ -1341,5 +1341,12 @@
   "sufficiency.loadQuality.review": "Review load in activity records",
   "sufficiency.requirementUnavailable": "The requirement count was provided, but details for some items are unavailable. Their completion criteria cannot be confirmed.",
   "sufficiency.loadQuality.asOf": "Quality assessment as of · {{date}}",
-  "sufficiency.loadQuality.refresh": "Current load update status · {{status}}"
+  "sufficiency.loadQuality.refresh": "Current load update status · {{status}}",
+  "sufficiency.nextUpdateExplanation": "This is the scheduled recalculation date. Result availability is not yet confirmed.",
+  "sufficiency.delay.stale": "The calculation evidence is overdue for an update, so its current status cannot be verified.",
+  "sufficiency.delay.metricsPending": "Some activity analysis results are not final, so this metric cannot be displayed yet.",
+  "sufficiency.delay.processing": "Analysis of your imported rides has not finished yet.",
+  "sufficiency.delay.unknown": "The calculation result is delayed. A specific reason has not been provided yet.",
+  "sufficiency.delay.requirementsMet": "All checked calculation requirements are met.",
+  "sufficiency.delay.checkedRequirements": "Requirements checked in the last calculation"
 }

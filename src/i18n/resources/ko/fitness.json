@@ -1168,7 +1168,7 @@
   "sufficiency.req.load_quality.not_met": "부하 산정 방식 · 추정 또는 혼합 부하 포함",
   "sufficiency.view.vo2max.monthly": "VO₂max 월별 추이",
   "sufficiency.remaining": "남은 요건 {{n}}개",
-  "sufficiency.nextUpdate": "다음 반영 예정 {{date}}",
+  "sufficiency.nextUpdate": "다음 재계산 예정 {{date}}",
   "sufficiency.feature.power_model": "CP·W′ 지속 파워 모델",
   "sufficiency.feature.ftp_estimate": "FTP 추정",
   "sufficiency.feature.vo2max": "VO₂max 추정",
@@ -1180,7 +1180,7 @@
   "sufficiency.asOf": "{{date}} 0시까지의 기록 기준",
   "sufficiency.excludedPrefix": "제외",
   "sufficiency.excluded.virtual_power": "가상 파워 {{n}}개",
-  "sufficiency.excluded.metrics_pending": "분석 중 {{n}}개",
+  "sufficiency.excluded.metrics_pending": "분석 결과 미확정 {{n}}개",
   "sufficiency.chip.assumed": "가정값",
   "sufficiency.chip.lowEvidence": "낮은 근거",
   "sufficiency.assumedInput.weightKg": "체중을 기본값으로 계산했어요",
@@ -1341,5 +1341,12 @@
   "sufficiency.loadQuality.review": "기록별 부하 확인",
   "sufficiency.requirementUnavailable": "요건 개수는 전달됐지만 일부 항목의 설명을 확인할 수 없어요. 충족 조건을 임의로 안내하지 않아요.",
   "sufficiency.loadQuality.asOf": "품질 평가 기준 시점 · {{date}}",
-  "sufficiency.loadQuality.refresh": "현재 부하 갱신 상태 · {{status}}"
+  "sufficiency.loadQuality.refresh": "현재 부하 갱신 상태 · {{status}}",
+  "sufficiency.nextUpdateExplanation": "재계산 예정일이며, 결과를 확인할 수 있는 날짜는 아직 정해지지 않았어요.",
+  "sufficiency.delay.stale": "계산 근거의 갱신 기한이 지나 최신 상태를 확인할 수 없어요.",
+  "sufficiency.delay.metricsPending": "일부 활동의 분석 결과가 확정되지 않아 지표를 표시하지 못하고 있어요.",
+  "sufficiency.delay.processing": "가져온 기록의 분석이 아직 끝나지 않았어요.",
+  "sufficiency.delay.unknown": "계산 결과가 지연되고 있어요. 구체적인 지연 사유는 아직 제공되지 않았어요.",
+  "sufficiency.delay.requirementsMet": "확인된 계산 조건은 모두 충족했어요.",
+  "sufficiency.delay.checkedRequirements": "마지막 계산에서 확인한 조건"
 }
