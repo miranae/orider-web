@@ -703,7 +703,8 @@ export default function EventsPage() {
         .event-mobile-heading a { flex-shrink: 0; }
         .event-filter-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding-top: var(--space-1); }
         .event-card__title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow: hidden; line-height: 1.35; }
-        .event-status-filters { display: flex; gap: var(--space-0-5); border-bottom: 1px solid var(--line-soft); }
+        .event-status-filters { display: flex; flex-wrap: wrap; gap: var(--space-0-5); border-bottom: 1px solid var(--line-soft); }
+        .event-status-filters > button { flex-shrink: 0; }
         .event-advanced-filters { position: relative; margin-left: auto; }
         .event-advanced-filters[open] { flex-basis: 100%; order: 1; }
         .event-advanced-filters summary { display: flex; align-items: center; gap: var(--space-1); min-height: 40px; padding: 0 var(--space-2); border: 1px solid var(--line-soft); border-radius: var(--r-md); color: var(--ink-1); font-size: var(--fs-xs); cursor: pointer; list-style: none; }
@@ -724,7 +725,7 @@ export default function EventsPage() {
           .event-summary > div { padding: var(--space-2) !important; gap: var(--space-1) !important; }
           .event-summary__sub { display: none; }
           .event-filter-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); }
-          .event-status-filters { min-width: 0; overflow-x: auto; white-space: nowrap; }
+          .event-status-filters { min-width: 0; }
           .event-status-filters button { padding-inline: var(--space-2) !important; }
           .event-advanced-filters { margin-left: 0; }
           .event-advanced-filters[open] { grid-column: 1 / -1; }
@@ -733,6 +734,8 @@ export default function EventsPage() {
           .event-view-count { display: inline; margin-left: auto; }
         }
         @media (max-width: 36rem) {
+          .event-filter-toolbar { grid-template-columns: minmax(0, 1fr); }
+          .event-advanced-filters { justify-self: start; }
           .explore-events-surface .event-summary > div { padding: var(--space-2) !important; }
           .explore-events-surface .event-summary > div > span { display: none; }
           .explore-events-surface .event-summary .ds-text--eyebrow { word-break: normal !important; overflow-wrap: normal; hyphens: none; min-height: calc(var(--ft-body-size) * 2.8); line-height: 1.4; }

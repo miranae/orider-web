@@ -52,3 +52,7 @@
 .event-controls-surface div:has(> button[aria-haspopup="dialog"]) > div[role="dialog"] {
   z-index: 1000 !important;
 }
+
+/* 카테고리는 버튼 단위로 다음 줄로 보내고, 긴 이름만 버튼 안에서 줄바꿈한다. */
+.event-controls-surface .event-category-filters { flex-wrap: wrap; min-width: 0; max-width: 100%; }
+.event-controls-surface .event-category-filters > button { flex: 0 0 auto; max-width: 100%; height: auto; min-height: var(--dim-button-height); overflow-wrap: anywhere; }
