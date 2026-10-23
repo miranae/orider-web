@@ -55,3 +55,6 @@
 .analysis-timeline-caption-slot .activity-analysis-selection { flex-wrap: nowrap; width: 100%; padding-block: 0; gap: var(--space-2); }
 .analysis-timeline-caption-slot .activity-analysis-selection > :first-child { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .analysis-timeline-caption-slot .activity-analysis-selection > :last-child { flex-shrink: 0; }
+
+/* 레이블의 도움말(평균) 트리거가 줄 높이를 키우지 않게 — 구간 선택 시(일반 텍스트)와 같은 위치. */
+.analysis-timeline-label button[aria-expanded] { min-height: 0 !important; line-height: inherit; vertical-align: baseline; }
