@@ -16,7 +16,7 @@ test("feature gate forwards changed flags only to Vitest while the full test cha
   assert.equal(packageScripts["test:contracts"], ["test:production-hosting-evidence", "test:merge-gate-ci-reuse",
     "test:social-callable-contract", "test:runtime-config-writer", "test:canonical-deploy-env", "test:deploy-config",
     "test:dco", "test:merge-pr-review-range", "test:script-tests-wired", "test:quality-alert-count",
-    "check:canonical-contract", "test:test-script-forwarding", "test:merge-check-policy"].map(name => `npm run ${name}`).join(" && "));
+    "check:canonical-contract", "test:test-script-forwarding", "test:merge-check-policy", "test:merge-review"].map(name => `npm run ${name}`).join(" && "));
   const targeted = [...script.matchAll(/run_step "targeted Vitest"[^\n]*\\\n\s*([^\n]+)/gu)].map(match => match[1]).find(command => command.includes("--changed"));
   assert.ok(targeted, "the feature gate must have a targeted test command");
   assert.match(targeted, /^npm run test:vitest -- --changed "origin\/\$BASE" --passWithNoTests$/u);
