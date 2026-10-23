@@ -119,8 +119,11 @@ describe("충분도 표시의 대기·묶음 규칙", () => {
  });
  it("열린 컨디션에서는 지연된 계산 근거를 잠김으로 바꾸거나 상세에 숨기지 않는다",()=>{
   const blocks=["power_model","vo2max","ftp_estimate","rider_profile"].map(featureId=>sufficiencyBlock({featureId,state:"delayed",remainingRequirementCount:0,nextAction:null}));
-  renderUi(<SufficiencyGroup inline set={sufficiencySet(blocks)} testId="G"/>);
+  renderUi(<SufficiencyGroup inline set={sufficiencySet(blocks, { nextUpdateAt: Date.now() + 86400000 })} testId="G"/>);
   expect(screen.getByTestId("G")).toHaveTextContent("계산 근거 확인 · 4개 지표");
+  expect(screen.getAllByText("마지막 계산에서 확인한 조건")).toHaveLength(4);
+  expect(screen.getAllByTestId("sufficiency-req-power_5min_or_cp")).toHaveLength(4);
+  expect(screen.getAllByText("재계산 예정일이며, 결과를 확인할 수 있는 날짜는 아직 정해지지 않았어요.")).toHaveLength(1);
   expect(screen.getByTestId("G").querySelector("details")).toBeNull();
   expect(screen.getAllByText("지금은 확인할 수 없어요")).toHaveLength(4);
   expect(screen.getByTestId("G")).not.toHaveTextContent("잠긴 기능");
