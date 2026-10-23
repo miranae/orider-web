@@ -1,3 +1,4 @@
+import PlanDayLoadComparison from "./PlanDayLoadComparison";
 import PlanPeriodReturn from "./PlanPeriodReturn";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -15,13 +16,16 @@ export default function PlanRecordEvidence({ date, plans, today = planDayKey(Dat
   const { t } = useTranslation("training");
   const location = useLocation();
   if (!plans.length) return <PlanPeriodReturn />;
-  const rows = plans.map(plan => ({ plan, view: presentPlanRecord(plan, { date, today }) }));
+  const evidence = location.state?.periodEvidence;
+  const rows = plans.map(plan => ({ plan, view: presentPlanRecord(plan, { date, today }),
+    loadRow: evidence?.date === date && evidence.discipline === plan.discipline && evidence.row?.date === date ? evidence.row : undefined }));
   return <section aria-label={t("planRecords.comparison")} style={{ display: "grid", maxWidth: "70ch", gap: "var(--space-3)", padding: "var(--space-4)" }}>
     <Text as="h3" variant="subtitle">{t("planRecords.comparison")}</Text>
     <PlanPeriodReturn />
-    {rows.map(({ plan, view }, index) => <div key={index} style={{ display: "grid", gap: "var(--space-1)" }}>
+    {rows.map(({ plan, view, loadRow }, index) => <div key={index} style={{ display: "grid", gap: "var(--space-1)" }}>
       <Text as="p" variant="bodySmall" style={{ margin: 0 }}>{t("planRecords.prescription", { workout: `${t(`discipline.${plan.discipline}`)} · ${t(`workouts.${plan.workout}`)}`, load: view.plannedLoad ?? "—", minutes: view.plannedDurationMin ?? "—" })}</Text>
-      <Text as="p" variant="bodyMedium" style={{ margin: 0 }}>{t(`planRecords.state.${view.outcome}`)}</Text>
+      {loadRow && <PlanDayLoadComparison day={{ ...plan, date: Date.parse(`${date}T00:00:00+09:00`) }} row={loadRow} state="ready" />}
+      <Text as="p" variant={loadRow ? "caption" : "bodyMedium"} style={{ margin: 0 }}>{loadRow ? t("loadComparison.fulfillment.executionFact", { state: t(`planRecords.state.${view.outcome}`) }) : t(`planRecords.state.${view.outcome}`)}</Text>
       {!(view.outcome === "rest" && view.linkage === "none") && <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{t(`planRecords.basis.${view.linkage}`)}</Text>}
       {view.actualLoad != null && <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{t("planRecords.actualLoad", { value: view.actualLoad })}</Text>}
       {view.activityLinks.some(link => link.kind === "record") && view.actualLoad == null && <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{t("planRecords.loadUnavailable")}</Text>}

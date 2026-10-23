@@ -1,5 +1,5 @@
 import { useLocation } from "react-router-dom";
-import { isPendingPlanWorkout, presentPlanDayRecord } from "./planRecordPresentation";
+import { isPendingPlanWorkout, presentPlanDayRecord, planLoadFulfillment } from "./planRecordPresentation";
 import { goalCountdown } from "../../../utils/goalCountdown";
 import PlanGoalLoadSummary from "./PlanGoalLoadSummary";
 import { goalLoadScope, summarizeStoredPlan } from "./planScope";
@@ -111,7 +111,8 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
     ? evaluateRecoveryDownshift({ workoutKind: day.workout, tsb: currentTsb, daysUntil })
     : null;
   const dailyLoad = !embedded && <PlanDayLoadComparison day={day} row={dayLoad} state={loadState} />;
-  const savedStatus = saved && t(saved.outcome === "unconfirmed" || saved.outcome === "today" ? "loadComparison.calendarUnconfirmed" : `planRecords.state.${saved.outcome}`);
+  const fulfillment = planLoadFulfillment(day, dayLoad, loadState === "ready");
+  const savedStatus = saved && (fulfillment ? t("loadComparison.fulfillment.executionFact", { state: t(`planRecords.state.${saved.outcome}`) }) : t(saved.outcome === "unconfirmed" || saved.outcome === "today" ? "loadComparison.calendarUnconfirmed" : `planRecords.state.${saved.outcome}`));
 
   const dateControl = (content: ReactNode, style: CSSProperties) => onClick ? <button
     type="button" aria-label={t('page.dayDetails', { date: kstDayKey(day.date), workout: workoutLabel })}
@@ -671,7 +672,8 @@ export default function PlanPresentation({
       canNextWeek: mobileWeekIdx < weeks.length - 1,
     };
   }, [currentWeekIndex, hasCurrentWeek, mobileWeekOffset, t, weeks]);
-  const calendarDates = (isMobile ? mobilePlanViewModel.currentWeek?.days ?? [] : visibleWeeks.flatMap(week => week.days)).map(day => kstDayKey(day.date)).filter(Boolean).sort();
+  const calendarWeeks = isMobile ? mobilePlanViewModel.currentWeek ? [mobilePlanViewModel.currentWeek] : [] : visibleWeeks;
+  const calendarDates = calendarWeeks.flatMap(week => [week.startDate, week.startDate + 6 * DAY_MS, ...week.days.map(day => day.date)]).map(kstDayKey).filter(Boolean).sort();
   const calendarRange = { start: calendarDates[0] ?? "", end: calendarDates[calendarDates.length - 1] ?? "" };
   const calendarLoads = usePlanLoadComparison({ uid: user?.uid, discipline, weeks, range: calendarRange, ftp: profile?.ftp,
     enabled: !embedded && !!goal && goalMatchesDiscipline && !loading && !loadError && model.freshLoaded !== false });

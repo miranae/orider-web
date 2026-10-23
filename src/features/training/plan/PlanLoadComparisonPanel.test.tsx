@@ -93,14 +93,16 @@ it("allows retrying incomplete activity coverage", () => {
 });
 
 
-it("restores a custom period and open daily evidence after drilling into individual records", () => {
+it.each([false, true])("restores period and parent fulfillment through record drilldown, with plan=%s", withPlan => {
+  fixture.result.days[0].fulfilledWeek = { weekNumber: 6, plannedTss: 100, actualTss: 130, estimated: false };
   fixture.result = { ...fixture.result, days: [fixture.result.days[0]!, { ...fixture.result.days[0]!, date: "2026-10-20" }] };
   const original = "/ko/coach/plan?sport=bike&loadPeriod=range&loadStart=2026-10-19&loadEnd=2026-10-23&loadDetails=open";
   const Location = () => <output data-testid="period-location">{useLocation().pathname}{useLocation().search}</output>;
-  render(<MemoryRouter initialEntries={[original]}><Location /><Routes><Route path="/ko/coach/plan" element={<PlanLoadComparison uid="owner" discipline="bike" weeks={[]} />} /><Route path="/ko/athlete/me/activities" element={<PlanRecordEvidence date="2026-10-19" plans={[]} />} /></Routes></MemoryRouter>);
+  render(<MemoryRouter initialEntries={[original]}><Location /><Routes><Route path="/ko/coach/plan" element={<PlanLoadComparison uid="owner" discipline="bike" weeks={[]} />} /><Route path="/ko/athlete/me/activities" element={<PlanRecordEvidence date="2026-10-19" plans={withPlan ? [{ discipline: "bike", workout: "vo2", plannedTSS: 100, plannedDurationMin: 60 }] : []} />} /></Routes></MemoryRouter>);
   expect(screen.getByText("일별 비교 보기").closest("details")).toHaveAttribute("open");
   fireEvent.click(screen.getByRole("link", {name:"2026-10-19 근거 보기"}));
   expect(screen.getByText(/기간 실제 합계에는 미연결 활동도 포함/)).toBeVisible();
+  if (withPlan) expect(screen.getByText("W6 주간 부하 목표로 충족")).toBeVisible();
   expect(screen.getByRole("link",{name:"원래 기간 부하 비교로 돌아가기"})).toHaveAttribute("href", original+"#plan-load-comparison");
   fireEvent.click(screen.getByRole("link",{name:"원래 기간 부하 비교로 돌아가기"}));
   expect(screen.getByTestId("period-location")).toHaveTextContent(original);

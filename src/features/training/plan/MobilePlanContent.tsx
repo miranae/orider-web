@@ -1,4 +1,4 @@
-import { isPendingPlanWorkout, presentPlanDayRecord } from "./planRecordPresentation";
+import { isPendingPlanWorkout, presentPlanDayRecord, planLoadFulfillment } from "./planRecordPresentation";
 import CoachDetailSection from "../../fitness/components/CoachDetailSection";
 import { goalCountdown } from "../../../utils/goalCountdown";
 import { isSportUiEnabled } from "../../../config/sportFeatures";
@@ -307,7 +307,8 @@ export default function MobilePlanContent({
         const isPast = dayStr !== "" && dayStr < todayStr;
         const label = workoutLabel(day);
         const state = isDone ? "done" : isToday ? "today" : isRest ? "off" : isPast ? "past" : "planned";
-        const stateLabel = saved ? t(saved.outcome === "unconfirmed" || saved.outcome === "today" ? "loadComparison.calendarUnconfirmed" : `planRecords.state.${saved.outcome}`) : state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned');
+        const fulfillment = planLoadFulfillment(day, dayLoads?.get(dayStr), loadState === "ready");
+        const stateLabel = saved ? fulfillment ? t("loadComparison.fulfillment.executionFact", { state: t(`planRecords.state.${saved.outcome}`) }) : t(saved.outcome === "unconfirmed" || saved.outcome === "today" ? "loadComparison.calendarUnconfirmed" : `planRecords.state.${saved.outcome}`) : state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned');
 
         const intensityColor = isRest ? "var(--ink-4)"
           : (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? "var(--amber)"

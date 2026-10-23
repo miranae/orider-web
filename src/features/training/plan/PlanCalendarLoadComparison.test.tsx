@@ -49,7 +49,7 @@ it("renders actual load directly in desktop normal, rest, skipped, goal and futu
   expect(screen.getByRole("group", { name: "2026-10-21 부하 비교" })).toHaveTextContent("실제 20 TSS");
   expect(screen.getByRole("group", { name: "2026-10-22 부하 비교" })).toHaveTextContent("달성 68% · 차이 -32 TSS");
   expect(screen.getByRole("group", { name: "2026-10-26 부하 비교" })).toHaveTextContent("실제 예정");
-  await waitFor(() => expect(vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0]).toMatchObject({ range: { start: "2026-10-19", end: "2026-10-26" }, enabled: true }));
+  await waitFor(() => expect(vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0]).toMatchObject({ range: { start: "2026-10-19", end: "2026-11-01" }, enabled: true }));
   expect(weeks[0].days.every(value => !value.completed)).toBe(true);
 });
 
@@ -57,9 +57,19 @@ it("passes the selected mobile week's comparison through the real MobilePlanPage
   layout(true);
   const view = renderWithProviders(<PlanPresentation model={model} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} renderMobile={props => <MobilePlanPage {...props} />} />, { authenticated: true });
   expect(screen.getByRole("group", { name: "2026-10-20 부하 비교" })).toHaveTextContent("달성 — · 차이 +118 TSS");
-  expect(vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0].range).toEqual({ start: "2026-10-19", end: "2026-10-23" });
+  expect(vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0].range).toEqual({ start: "2026-10-19", end: "2026-10-25" });
   view.rerender(<PlanPresentation model={model} mobileWeekOffset={1} onMobileWeekOffsetChange={vi.fn()} renderMobile={props => <MobilePlanPage {...props} />} />);
   expect(screen.queryByRole("group", { name: "2026-10-19 부하 비교" })).not.toBeInTheDocument();
   expect(screen.getByRole("group", { name: "2026-10-26 부하 비교" })).toHaveTextContent("실제 예정 TSS");
-  expect(vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0].range).toEqual({ start: "2026-10-26", end: "2026-10-26" });
+  expect(vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0].range).toEqual({ start: "2026-10-26", end: "2026-11-01" });
+});
+
+
+it.each([false, true])("shows weekly fulfillment and retains daily execution facts, mobile=%s", mobile => {
+  layout(mobile);
+  loadFixture.days[0].fulfilledWeek = { weekNumber: 1, plannedTss: 255, actualTss: 300, estimated: false };
+  renderWithProviders(<PlanPresentation model={model} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} renderMobile={props => <MobilePlanPage {...props} />} />, { authenticated: true });
+  expect(screen.getByRole("group", { name: "2026-10-19 부하 비교" })).toHaveTextContent("W1 주간 부하 목표로 충족");
+  expect(screen.getByText(/저장된 날짜별 실행 기록:/)).toBeInTheDocument();
+  expect(weeks[0].days[0].completed).toBe(false);
 });

@@ -1268,6 +1268,13 @@
     "calendarAttainment": "달성 {{ratio}} · 차이 {{difference}} TSS",
     "calendarLoading": "조회 중",
     "calendarUnknown": "미확인",
+    "fulfillment": {
+      "met": "연결 활동으로 부하 목표 완료",
+      "exceeded": "연결 활동으로 부하 목표 초과 완료",
+      "week": "W{{week}} 주간 부하 목표로 충족",
+      "weekBasis": "주간 실제 {{actual}} / 계획 {{planned}} TSS · 날짜별 실행 기록은 별도로 유지합니다.",
+      "executionFact": "저장된 날짜별 실행 기록: {{state}}"
+    },
     "calendarUnconfirmed": "계획 수행 미확정",
     "calendarBasis": "부하 달성률은 같은 날의 전체 활동을 비교한 값이며 계획 수행의 확정 여부와는 별개입니다.",
     "title": "계획 대비 기록",

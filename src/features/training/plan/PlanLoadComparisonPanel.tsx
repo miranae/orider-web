@@ -62,7 +62,7 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
   originParams.set("loadPeriod", period);
   if (period === "range") { originParams.set("loadStart", custom.start); originParams.set("loadEnd", custom.end); }
   else originParams.set("loadDate", date);
-  const dayLink = (day: string) => <LocalizedLink to={`/athlete/me/activities?sport=${discipline}&date=${day}&day=${day}&detail=record-day`} state={{ periodEvidence: result.state === "ready" ? { date: day, activityIds: result.days.find(row => row.date === day)?.activityIds ?? [] } : undefined, periodReturn: { pathname: location.pathname, search: `?${originParams}`, hash: "#plan-load-comparison" } }}>{t("loadComparison.reviewDay", { date: day })}</LocalizedLink>;
+  const dayLink = (day: string) => <LocalizedLink to={`/athlete/me/activities?sport=${discipline}&date=${day}&day=${day}&detail=record-day`} state={{ periodEvidence: result.state === "ready" ? { date: day, discipline, row: result.days.find(row => row.date === day), activityIds: result.days.find(row => row.date === day)?.activityIds ?? [] } : undefined, periodReturn: { pathname: location.pathname, search: `?${originParams}`, hash: "#plan-load-comparison" } }}>{t("loadComparison.reviewDay", { date: day })}</LocalizedLink>;
   const range = useMemo(() => periodRange(period, date, custom), [period, date, custom]);
   const valid = getPlanLoadRangeBounds(range) !== null;
   const result = usePlanLoadComparison({ uid, discipline, weeks, range, enabled: enabled && valid, ftp });
