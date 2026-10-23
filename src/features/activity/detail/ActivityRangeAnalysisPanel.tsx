@@ -25,13 +25,18 @@ export function ActivityChartAxisControls({ axis, elapsedAvailable, onChange, co
  * `toolbar` 는 그래프 사이의 버튼 줄만, `details` 는 선택 중 펼쳐지는 시간 입력·안내만 그린다.
  * 그래프 사이 높이가 선택 모드에 따라 바뀌지 않도록 펼쳐지는 부분은 그래프 아래에 둔다.
  */
-export function ActivityRangeControls({ selection, showAxis = true, part = "all" }: { selection: ActivityRangeSelectionModel; showAxis?: boolean; part?: "all" | "toolbar" | "details" }) {
+/**
+ * `showToggle` — 드래그로 구간 분석을 열 수 없는 화면(임베디드 상세 차트: 확대 없는 기존 차트)만 시작·종료 버튼을 둔다.
+ * 분석 탭은 그래프에서 고른 범위가 곧 구간 분석을 연다(ActivityPage).
+ */
+export function ActivityRangeControls({ selection, showAxis = true, showToggle = false, part = "all" }: { selection: ActivityRangeSelectionModel; showAxis?: boolean; showToggle?: boolean; part?: "all" | "toolbar" | "details" }) {
   const { t } = useTranslation("activity");
   if (!selection.ownerUid) return null;
-  if ((part === "details" || (part === "toolbar" && !showAxis)) && !selection.enabled) return null;
+  if ((part === "details" || (part === "toolbar" && !showAxis && !showToggle)) && !selection.enabled) return null;
   return <section className="activity-range-controls space-y-3" aria-label={t("rangeAnalysis.controls")}>
-    {part !== "details" && showAxis && <Stack direction="row" wrap align="center" gap="var(--space-2)">
-      <ActivityChartAxisControls axis={selection.xAxis} elapsedAvailable={!!selection.sampledAxis} onChange={selection.setXAxis} />
+    {part !== "details" && (showAxis || showToggle) && <Stack direction="row" wrap align="center" gap="var(--space-2)">
+      {showAxis && <ActivityChartAxisControls axis={selection.xAxis} elapsedAvailable={!!selection.sampledAxis} onChange={selection.setXAxis} />}
+      {showToggle && <Button size="sm" variant="secondary" aria-pressed={selection.enabled} onClick={selection.toggle}>{t(selection.enabled ? "rangeAnalysis.endSelection" : "rangeAnalysis.select")}</Button>}
     </Stack>}
     {part !== "toolbar" && selection.enabled && (Number.isFinite(selection.durationSec) && selection.durationSec > 0 ? <RangeTimeControls key={`${selection.identity}:${selection.selection?.requestId ?? "none"}`} selection={selection} />
       : <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.unknownAxis")}</Text>)}

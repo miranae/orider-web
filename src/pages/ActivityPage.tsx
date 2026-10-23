@@ -639,17 +639,19 @@ export default function ActivityPage() {
   const selectionStart = rangeSelection.enabled ? rangeSelection.chartRange?.[0] : undefined;
   const selectionEnd = rangeSelection.enabled ? rangeSelection.chartRange?.[1] : undefined;
   const hadSelection = useRef(false);
+  const rangeEnabled = rangeSelection.enabled, toggleRange = rangeSelection.toggle;
   useLayoutEffect(() => {
     const had = hadSelection.current;
     hadSelection.current = selectionStart !== undefined && selectionEnd !== undefined;
     // 범위를 지우면(시간 입력의 지우기 등) 확대도 함께 푼다.
     if (selectionStart === undefined || selectionEnd === undefined) {
-      if (had) setVisualState(previous => previous.range ? { ...previous, range: null } : previous);
+      // 지운 뒤에도 구간 모드에 갇히지 않게 구간 분석도 끝낸다 — 다시 드래그하면 새로 열린다.
+      if (had) { setVisualState(previous => previous.range ? { ...previous, range: null } : previous); if (rangeEnabled) toggleRange(); }
       return;
     }
     setVisualState(previous => previous.identity === visualIdentity && previous.range?.[0] === selectionStart && previous.range?.[1] === selectionEnd
       ? previous : { identity: visualIdentity, axis: visualAxis, range: [selectionStart, selectionEnd] });
-  }, [selectionStart, selectionEnd, visualIdentity, visualAxis]);
+  }, [selectionStart, selectionEnd, visualIdentity, visualAxis, rangeEnabled, toggleRange]);
   const setVisualRange = (range: [number, number] | null) => {
     if (range && (!Number.isInteger(range[0]) || !Number.isInteger(range[1]) || range[0] < 0 || range[1] <= range[0] || range[1] >= sampledData.length)) return;
     setVisualState({ identity: visualIdentity, axis: visualAxis, range });
@@ -1284,7 +1286,7 @@ export default function ActivityPage() {
           }} />}
           rangeAnalysis={activity?.id ? <><ActivityRangeControls selection={rangeSelection} showAxis={false} part="details" /><ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /></> : null}
           range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampledData.length - 1]}
-          onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis && !visualRange ? rangeSelection.selectChart : undefined}
+          onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis && rangeSelection.selection && !visualRange ? rangeSelection.selectChart : undefined}
           onHoverIndex={handleElevHover} chartHighlightRange={chartHighlightRange}
           metrics={serverMetrics.metrics} powerSource={streamSensorSummary?.powerSource}
         />

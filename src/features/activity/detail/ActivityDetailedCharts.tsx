@@ -72,7 +72,7 @@ export default function ActivityDetailedCharts({ model, highlightedPeak = null, 
         chartHighlightRange={rangeSelection.selection ? rangeSelection.chartRange : resolvePeakEffortLocation(highlightedPeak, model.serverMetrics.metrics?.peakEfforts?.indexAxis, model.streams, sampled)?.chartRange}
         onHoverIndex={setHoverIndex} metrics={model.serverMetrics?.metrics} powerSource={model.streamSensorSummary?.powerSource}
         elapsedAxisSec={rangeSelection.sampledAxis ?? undefined} xAxis={rangeSelection.xAxis}
-        rangeControls={<ActivityRangeControls selection={rangeSelection} part="toolbar" />}
+        rangeControls={<ActivityRangeControls selection={rangeSelection} showToggle part="toolbar" />}
         rangeAnalysis={<><ActivityRangeControls selection={rangeSelection} part="details" /><ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activityId} sport={model.sport} selection={rangeSelection} previewActive={model.activePowerOverride != null} /></>}
         range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampled.length - 1]}
         onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis ? rangeSelection.selectChart : undefined}

@@ -455,6 +455,14 @@ describe("ActivityPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "범위 지우기" }));
     expect(routeMapProps.mock.lastCall?.[0].highlightRange).toBeUndefined();
     expect(screen.queryByText("구간 분석을 준비 중입니다", { exact: false })).not.toBeInTheDocument();
+    // 지운 뒤 구간 모드(고도 핸들 전용)에 갇히지 않는다 — 일반 드래그로 다시 고르면 구간 분석이 새로 열린다.
+    expect(elevationChartProps.mock.lastCall?.[0].onRangeChange).toBeUndefined();
+    expect(performanceChartProps.mock.lastCall?.[0].visualRange).toBeNull();
+    expect(screen.queryByLabelText("시작 시간")).not.toBeInTheDocument();
+    act(() => performanceChartProps.mock.lastCall![0].onVisualRangeChange([30, 50]));
+    expect(performanceChartProps.mock.lastCall?.[0].visualRange).toEqual([30, 50]);
+    expect(screen.getByLabelText("시작 시간")).toBeInTheDocument();
+    await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toBeDefined());
   });
   it.each(["ready", "cancel", "account", "activity", "navigate", "invalid"])("handles cold peak location once with %s intent", async (mode) => {
     mockRoute.activityId = `cold-peak-${mode}`;
