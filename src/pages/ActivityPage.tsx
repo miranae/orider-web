@@ -8,7 +8,7 @@ import { useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { elapsedRangeFromChartSelection } from "../features/activity/detail/activityRangeSelection";
-import { getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
+import { canonicalActivityChartMetrics, withCanonicalChartSummary, getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
 import { ActivityGrowthPanel } from "../features/activity/detail/ActivityGrowthPanel";
 import { ActivityPersonalBenchmark } from "../features/activity/detail/ActivityPersonalBenchmark";
 import ActivityPeakEffortInspector from "../features/activity/detail/ActivityPeakEffortInspector";
@@ -674,20 +674,10 @@ export default function ActivityPage() {
   const availableOverlays = useMemo(() => getPerformanceOverlays(
     sampledData, sport, units, recordedRunCadenceUnit, t("analysis.run.cadenceUnit"),
   ), [sampledData, sport, units, recordedRunCadenceUnit, t]);
-  const canonicalSummaryMetrics = !activePowerOverride && serverMetrics.metrics?.version != null && serverMetrics.metrics.version >= 41
-    && activity?.activityPresentationV1?.computedAt === serverMetrics.metrics.computedAt ? serverMetrics.metrics : null;
-  const summaryStats = useMemo(() => {
-    const observed = buildSummaryStats(effectiveStreams, streamSensorSummary);
-    if (!observed || !canonicalSummaryMetrics) return observed;
-    const overlays = { ...observed.overlays };
-    for (const [key, avg, max] of [["speed", canonicalSummaryMetrics.avgSpeedKph, canonicalSummaryMetrics.maxSpeedKph],
-      ["power", canonicalSummaryMetrics.avgPower, canonicalSummaryMetrics.maxPower],
-      ["hr", canonicalSummaryMetrics.avgHr, canonicalSummaryMetrics.maxHr],
-      ["cadence", canonicalSummaryMetrics.avgCadence, canonicalSummaryMetrics.maxCadence]] as const) {
-      if (typeof avg === "number" && typeof max === "number") overlays[key] = { avg, max };
-    }
-    return { ...observed, overlays };
-  }, [effectiveStreams, streamSensorSummary, canonicalSummaryMetrics]);
+  const canonicalSummaryMetrics = canonicalActivityChartMetrics(activity, serverMetrics.metrics, !!activePowerOverride);
+  const summaryStats = useMemo(() => withCanonicalChartSummary(
+    buildSummaryStats(effectiveStreams, streamSensorSummary), canonicalSummaryMetrics,
+  ), [effectiveStreams, streamSensorSummary, canonicalSummaryMetrics]);
   const { location: runSplitLocation, onSelectSplit: selectRunSplit } = useRunSplitLocation(activityId, activity?.id, sport === "run", streams, sampledData, resolveObservedDistanceKm(serverMetrics.metrics ?? {}, activity?.summary?.distance));
   const peakLocation = useMemo(() => resolvePeakEffortLocation(selectedPeak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData),
     [selectedPeak, serverMetrics.metrics, streams, sampledData]);
@@ -856,7 +846,7 @@ export default function ActivityPage() {
   const latestMetrics = serverMetrics.status === "ready" || serverMetrics.status === "stale" ? serverMetrics.metrics : null;
   const hasCanonicalSensorPresentation = canonicalSummaryMetrics != null;
   const powerNeedsPreview = activePowerOverride != null || hasStreamPowerCandidate && !hasCanonicalSensorPresentation;
-  const displayedSummary = { ...(selectedSummary ?? s),
+  const displayedSummary = { ...(hasCanonicalSensorPresentation ? s : selectedSummary ?? s),
     ...(latestMetrics && !powerNeedsPreview && latestMetrics.tss !== undefined ? { tss: latestMetrics.tss } : {}) };
   const activityDate = Number.isFinite(activity.startTime) && Number.isFinite(new Date(activity.startTime).getTime())
     ? fitnessDateKeyFor(activity.startTime, fitnessTimeseries?.loadSnapshot?.dateKeyBasis)
