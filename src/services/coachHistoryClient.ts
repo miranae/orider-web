@@ -14,12 +14,24 @@ export interface CoachThreadSummary {
   revision: number;
 }
 
+export interface CoachHistoryFailureResponse {
+  apiVersion: "v2";
+  capabilityVersion: "p1" | "p2";
+  schemaVersion: "coach-history-failure-v1";
+  requestId: string;
+  outcome: "failed";
+  error: { code: "internal_error"; retryable: true; fallbackAvailable: false };
+  execution: { asOf: string };
+}
+
+export type CoachHistoryResponse = CoachV2Response | CoachP2Response | CoachHistoryFailureResponse;
+
 export interface CoachThreadTurn {
   turnId: string;
   requestId: string;
   question: string;
   createdAt: string;
-  response: CoachV2Response | CoachP2Response;
+  response: CoachHistoryResponse;
   responseFormat: CoachResponseFormat;
   sessionRevision: number;
 }
@@ -50,6 +62,19 @@ function iso(value: unknown): value is string {
   if (typeof value !== "string" || !ISO_UTC.test(value) || !Number.isFinite(Date.parse(value))) return false;
   const normalized = new Date(value).toISOString();
   return value === normalized || value === normalized.replace(".000Z", "Z");
+}
+
+function parseFailureResponse(value: Record<string, unknown>): CoachHistoryFailureResponse {
+  const error = record(value.error);
+  const execution = record(value.execution);
+  if (value.apiVersion !== "v2" || !["p1", "p2"].includes(String(value.capabilityVersion))
+      || value.schemaVersion !== "coach-history-failure-v1" || value.outcome !== "failed"
+      || typeof value.requestId !== "string" || !UUID.test(value.requestId)
+      || error?.code !== "internal_error" || error.retryable !== true || error.fallbackAvailable !== false
+      || !iso(execution?.asOf)) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
+  return { apiVersion: "v2", capabilityVersion: value.capabilityVersion as "p1" | "p2",
+    schemaVersion: "coach-history-failure-v1", requestId: value.requestId, outcome: "failed",
+    error: { code: "internal_error", retryable: true, fallbackAvailable: false }, execution: { asOf: execution.asOf } };
 }
 
 function cursor(value: unknown): value is string | null {
@@ -130,7 +155,8 @@ export function parseCoachThread(input: unknown, expectedLimit = 20): CoachThrea
         || Number(turn.sessionRevision) < 0) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
     // Detail DTO stores the response document itself; the live endpoint wraps it in { data }.
     const storedResponse = record(turn.response);
-    const response = storedResponse?.capabilityVersion === "p2"
+    const response = storedResponse?.schemaVersion === "coach-history-failure-v1" ? parseFailureResponse(storedResponse)
+      : storedResponse?.capabilityVersion === "p2"
       ? parseCoachP2Response({ data: turn.response }) : parseCoachV2Response({ data: turn.response });
     if (response.requestId !== turn.requestId) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
     const responseFormat = turn.responseFormat === undefined ? "auto" : turn.responseFormat;

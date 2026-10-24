@@ -17,13 +17,12 @@ import { getCoachConsentPolicy, type CoachConsentPolicy } from "../services/coac
 import { getCoachStatus, type CoachQuota } from "../services/coachClient";
 import {
   COACH_P1_CAPABILITY_VERSION, COACH_V2_API_VERSION, COACH_V2_REQUEST_SCHEMA_VERSION,
-  type CoachAnswerActionCode, type CoachEntityRef, type CoachV2QuestionRequest, type CoachV2Response,
+  type CoachAnswerActionCode, type CoachEntityRef, type CoachV2QuestionRequest,
 } from "../services/coachV2Contract";
-import type { CoachP2Response } from "../services/coachP2Contract";
 import {
   continueCoachThread, deleteAllCoachThreads, deleteCoachThread, getCoachThread, getCoachThreads,
   isCoachHistoryTransportError,
-  type CoachThread, type CoachThreadSummary,
+  type CoachHistoryResponse, type CoachThread, type CoachThreadSummary,
 } from "../services/coachHistoryClient";
 import { reportCoachReadError, type CoachReadErrorKind } from "../services/coachReadError";
 import "../features/coach/coach-question.css";
@@ -52,13 +51,18 @@ function formatDate(value: string, locale: string): string {
   catch { return value; }
 }
 
-function hasStoredAnswer(response: CoachV2Response | CoachP2Response): boolean {
-  return response.capabilityVersion === "p2" ? response.outcome === "answer" : Boolean(response.answer);
+function hasStoredAnswer(response: CoachHistoryResponse): boolean {
+  return "answer" in response && Boolean(response.answer);
 }
 
-function CoachStoredTurnResult({ response }: { response: CoachV2Response | CoachP2Response }) {
+function CoachStoredTurnResult({ response }: { response: CoachHistoryResponse }) {
   const { t } = useTranslation("coach");
   if (response.outcome === "answer") return null;
+  if (response.schemaVersion === "coach-history-failure-v1") {
+    return <Card className="coach-thread-turn__outcome coach-thread-turn__outcome--warning" variant="inset">
+      <Text as="p" variant="bodySmall" tone="warning">{t("v2State.failed")}</Text>
+    </Card>;
+  }
   if (response.capabilityVersion === "p2") {
     return <Card className="coach-thread-turn__outcome coach-thread-turn__outcome--warning" variant="inset">
       <Text as="h3" variant="subtitle" tone="warning">{t("p2Unavailable.title")}</Text>
@@ -435,8 +439,8 @@ export default function CoachHistoryPage() {
               <section className="coach-thread-message coach-thread-message--coach" aria-label={`${turnLabel} · ${t("history.coachName")}`}>
                 <div className="coach-thread-message__identity"><span className="coach-thread-message__avatar" aria-hidden><Bot size={ICON_SIZE.md} /></span>
                   <Text as="h4" variant="label">{t("history.coachName")}</Text></div>
-                <div className={`coach-thread-turn__answer${turn.response.outcome !== "answer" && !hasStoredAnswer(turn.response) ? " coach-thread-turn__answer--terminal" : ""}`}><CoachAnswerDocumentView response={turn.response}
-                  locale={i18n.language} onAction={answerAction} historical />
+                <div className={`coach-thread-turn__answer${turn.response.outcome !== "answer" && !hasStoredAnswer(turn.response) ? " coach-thread-turn__answer--terminal" : ""}`}>{turn.response.schemaVersion !== "coach-history-failure-v1" && <CoachAnswerDocumentView response={turn.response}
+                  locale={i18n.language} onAction={answerAction} historical />}
                   <CoachStoredTurnResult response={turn.response} />
                 </div>
               </section>

@@ -363,6 +363,20 @@ describe("CoachHistoryPage", () => {
     expect(composer).toHaveValue("");
   });
 
+  it("shows an interrupted request receipt with its question and keeps follow-up available", async () => {
+    mocks.detail.mockResolvedValue({ thread: { ...summary, turns: [{ turnId: requestId, requestId,
+      question: "실패한 질문도 다시 확인해줘", createdAt: "2026-07-19T02:00:00Z", sessionRevision: 2,
+      response: { apiVersion: "v2", capabilityVersion: "p2", schemaVersion: "coach-history-failure-v1", requestId,
+        outcome: "failed", error: { code: "internal_error", retryable: true, fallbackAvailable: false },
+        execution: { asOf: "2026-07-19T02:00:00Z" } } }] }, nextCursor: null });
+    setup(`/ko/coach/chat/${threadId}`);
+    expect(await screen.findByText("실패한 질문도 다시 확인해줘")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "대화 2 · O·RIDER 코치" }))
+      .toHaveTextContent("답변을 완성하지 못했습니다.");
+    expect(screen.queryByText(`answer ${requestId}`)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("이 대화에서 이어 묻기")).toBeEnabled());
+  });
+
   it("labels each saved turn with chronology and explicit speaker identity", async () => {
     const firstId = "323e4567-e89b-42d3-a456-426614174002";
     mocks.detail.mockResolvedValue({ thread: { ...summary, turns: [
