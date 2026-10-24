@@ -1,3 +1,4 @@
+import { getVisibleEventPage } from "../../services/eventDiscovery";
 import "./ClubSurface.css";
 import { LockKeyhole, Users } from "lucide-react";
 import { isActiveEventRegistration } from "../../features/event/activeRegistration";
@@ -7,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
-import { collection, doc, getDoc, getDocs, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { collection, doc, getDoc, query, where, limit, onSnapshot } from "firebase/firestore";
 import { auth, ensureAppCheckReady, firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { isPermissionDeniedError } from "../../utils/firebaseErrors";
@@ -91,16 +92,7 @@ export default function GroupDashboardPage() {
     setUpcomingLoading(true);
     (async () => {
       try {
-        const snap = await getDocs(
-          query(
-            collection(firestore, "events"),
-            where("info.groupId", "==", groupId),
-            where("info.status", "in", ["OPEN", "LIVE"]),
-            ...(!currentMemberRole ? [where("info.visibility", "==", "PUBLIC")] : []),
-            orderBy("info.startTime", "asc"),
-            limit(3)
-          )
-        );
+        const snap = await getVisibleEventPage({ groupId, publicOnly: !currentMemberRole, statuses: ["OPEN", "LIVE"], limit: 3 });
         const list: UpcomingEvent[] = await Promise.all(snap.docs.map(async (d) => {
           const data = d.data();
           const info = data.info ?? {};

@@ -6,18 +6,8 @@ import { isActiveEventRegistration } from "../../features/event/activeRegistrati
 import { useEffect, useState, useRef } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  where,
-  startAfter,
-  type QueryDocumentSnapshot,
-} from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
+import { getVisibleEventPage, type EventEnvelopeDoc } from "../../services/eventDiscovery";
 import { groupCalendarUrl } from "../../features/group/groupCalendar";
 import { firestore } from "../../services/firebase";
 import { normalizeStartTime } from "../../utils/event-time";
@@ -83,26 +73,11 @@ export default function GroupEventsPage() {
       setLoading(false);
       return;
     }
-    const constraints = [
-      where("info.groupId", "==", groupId),
-      orderBy("info.startTime", status === "FINISHED" ? "desc" : "asc"),
-      limit(20),
-      ...(status === "all"
-        ? [where("info.status", "in", ["OPEN", "LIVE"])]
-        : [where("info.status", "==", status)]),
-    ];
-    if (!role) constraints.unshift(where("info.visibility", "==", "PUBLIC"));
     (async () => {
-      const docs: QueryDocumentSnapshot[] = [];
-      let cursor: QueryDocumentSnapshot | undefined;
+      const docs: EventEnvelopeDoc[] = [];
+      let cursor: string | undefined;
       while (!cancelled && docs.length < 20) {
-        const page = await getDocs(
-          query(
-            collection(firestore, "events"),
-            ...constraints,
-            ...(cursor ? [startAfter(cursor)] : []),
-          ),
-        );
+        const page = await getVisibleEventPage({ groupId, publicOnly: !role, statuses: status === "all" ? ["OPEN", "LIVE"] : [status], descending: status === "FINISHED", limit: 20, ...(cursor ? { cursor } : {}) });
         docs.push(
           ...page.docs.filter((item) => {
             const info = item.data().info ?? {};
@@ -113,9 +88,8 @@ export default function GroupEventsPage() {
             );
           }),
         );
-        const last = page.docs[page.docs.length - 1];
-        if (page.docs.length < 20 || !last || last.id === cursor?.id) break;
-        cursor = last;
+        if (!page.nextCursor || page.nextCursor === cursor) break;
+        cursor = page.nextCursor;
       }
       return docs.slice(0, 20);
     })()
