@@ -26,6 +26,7 @@ const contracts = [
   'scripts/test-script-forwarding.test.mjs',
   'scripts/merge-check-policy.test.mjs',
   'scripts/merge-review.test.mjs',
+  'scripts/sync-main-to-dev.test.mjs',
 ];
 
 function runGate({ feature = false, fail = '' } = {}) {
