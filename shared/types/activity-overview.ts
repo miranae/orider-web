@@ -107,6 +107,9 @@ export interface ActivityOverviewPresentation {
     previousBestPct?: number }>;
   runRecordAchievements?: Array<{ distance: string; valueSec: number; competitionRank: number;
     recordAchievement: "first" | "new" | "tie" }>;
+  /** 정본 러닝 스플릿의 이동시간 기준 구간 지표. 타이머 불일치가 있으면 비운다. */
+  runningWork?: { fastestKm: { km: number; paceSec: number }; slowestKm: { km: number; paceSec: number };
+    firstHalfPaceSec: number; secondHalfPaceSec: number; halfDeltaSec: number };
   thresholdWork?: { matchesCount?: number; matchesTotalSec?: number; longestZ4PlusSec?: number;
     anaerobicSec?: number; wPrimeDepletionPct?: number; wPrimeRemainingPct?: number;
     /** FTP 초과분으로 한 일(kJ) — "무산소 운동량". 옛 지표 문서엔 없다. */ aboveFtpKj?: number };
