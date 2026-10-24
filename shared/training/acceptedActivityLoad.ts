@@ -1,4 +1,4 @@
-import { estimateLoad, isNegligibleActivitySummary, isSaneTss, type LoadDiscipline } from './activityLoad';
+import { activityDurationMillis, estimateLoad, isNegligibleActivitySummary, isSaneTss, type LoadDiscipline } from './activityLoad';
 
 export interface AcceptedActivityLoad {
   value: number;
@@ -18,18 +18,21 @@ export function acceptedActivityLoad(activity: Record<string, unknown>, discipli
   const direct = typeof activity.tss === 'number' && isSaneTss(activity.tss) ? activity.tss : null;
   const recorded = direct ?? (typeof summary.tss === 'number' && isSaneTss(summary.tss) ? summary.tss : null);
   const reliable = recorded !== null || streamTss !== null;
-  if (isNegligibleActivitySummary(summary)) return { value: 0, known: true, reliable, source: 'excluded' };
+  const durationMillis = activityDurationMillis(summary);
+  if (isNegligibleActivitySummary({ ...summary, ridingTimeMillis: durationMillis })) return { value: 0, known: true, reliable, source: 'excluded' };
   const precomputedTss = activity.source === 'strava' && streamTss !== null ? null : recorded;
-  const durationMillis = typeof summary.ridingTimeMillis === 'number' ? summary.ridingTimeMillis
-    : typeof summary.movingTimeMillis === 'number' ? summary.movingTimeMillis
-    : typeof summary.elapsedTimeMillis === 'number' ? summary.elapsedTimeMillis : 0;
   const load = estimateLoad({ precomputedTss, streamTss, ftp: ftp ?? null,
     avgPower: typeof summary.averagePower === 'number' ? summary.averagePower : null,
     streamTrimpTss: typeof summary.streamTrimpTss === 'number' ? summary.streamTrimpTss : null,
     relativeEffort: typeof summary.relativeEffort === 'number' ? summary.relativeEffort : null,
     durationMillis, discipline });
+  // A measured zero is different from missing duration. Positive distance contradicts
+  // zero motion, so incomplete/corrupt moving-time summaries remain unknown.
+  const zeroMotion = summary.movingTimeSec === 0 && durationMillis === 0
+    && [summary.distance, summary.distanceKm, summary.ridingTimeMillis, summary.movingTimeMillis, summary.elapsedTimeMillis]
+      .every(value => value == null || typeof value === 'number' && Number.isFinite(value) && value === 0);
   const known = precomputedTss !== null || streamTss !== null
-    || load.source === 'tss' || load.source === 'trimp' || load.value > 0 || activity.tss === 0 || summary.tss === 0;
+    || load.source === 'tss' || load.source === 'trimp' || load.value > 0 || activity.tss === 0 || summary.tss === 0 || zeroMotion;
   return { value: load.value, known, reliable, source: !known ? 'unknown'
     : precomputedTss !== null ? 'recorded' : streamTss !== null ? 'server' : load.source === 'tss' ? 'power_estimate' : load.source === 'trimp' ? 'trimp' : 'time' };
 }
