@@ -330,6 +330,39 @@ describe("CoachHistoryPage", () => {
     expect(screen.queryByText("현재 지원하지 않는 질문입니다")).not.toBeInTheDocument();
   });
 
+  it("restores an unavailable P2 question and lets the user ask again in its saved thread", async () => {
+    const followUpId = "323e4567-e89b-42d3-a456-426614174002";
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
+    const question = "내 마지막 운동 기록을 코칭해줘.";
+    const originalPage = { thread: { ...summary, turns: [{ turnId: requestId, requestId, question,
+      createdAt: "2026-07-19T02:00:00Z", sessionRevision: 2,
+      response: { requestId, capabilityVersion: "p2", outcome: "unavailable",
+        error: { code: "rollout_ineligible" }, quota: { consumed: false } } }] }, nextCursor: null };
+    mocks.detail.mockReset().mockResolvedValueOnce(originalPage).mockResolvedValueOnce({ thread: {
+      ...summary, turnCount: 3, revision: 3, turns: [...originalPage.thread.turns, {
+        turnId: followUpId, requestId: followUpId, question, createdAt: "2026-07-19T03:00:00Z",
+        response: { ...response, requestId: followUpId, outcome: "answer" }, sessionRevision: 3,
+      }],
+    }, nextCursor: null });
+    mocks.more.mockResolvedValue({ ...response, requestId: followUpId, outcome: "answer", httpOk: true });
+
+    setup(`/ko/coach/chat/${threadId}`);
+    const savedQuestion = await screen.findByRole("region", { name: "대화 2 · 나" });
+    expect(savedQuestion).toHaveTextContent(question);
+    expect(screen.getByRole("region", { name: "대화 2 · O·RIDER 코치" }))
+      .toHaveTextContent("현재 계정에는 이 코칭 경로가 열려 있지 않습니다.");
+    const composer = screen.getByLabelText("이 대화에서 이어 묻기");
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: question } });
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    expect(await screen.findByText(`answer ${followUpId}`)).toBeInTheDocument();
+    expect(mocks.more).toHaveBeenCalledWith(threadId, expect.objectContaining({
+      question, expectedSessionRevision: 2, requestId: followUpId,
+    }));
+    expect(savedQuestion).toHaveTextContent(question);
+    expect(composer).toHaveValue("");
+  });
+
   it("labels each saved turn with chronology and explicit speaker identity", async () => {
     const firstId = "323e4567-e89b-42d3-a456-426614174002";
     mocks.detail.mockResolvedValue({ thread: { ...summary, turns: [

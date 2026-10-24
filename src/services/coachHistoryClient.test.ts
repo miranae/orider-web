@@ -80,8 +80,12 @@ describe("coachHistoryClient", () => {
       error: { code: "rollout_ineligible", retryable: false, fallbackAvailable: false },
       retry: { mode: "none", providerCallAllowed: false, retryable: false, reasonCode: "rollout_ineligible" },
       execution: { graphVersion: "p2-v1", started: false } };
-    expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [{ ...p2Turn, response: unavailable }] },
-      nextCursor: null } })).toThrow("INVALID_COACH_HISTORY_RESPONSE");
+    expect(parseCoachThread({ data: { thread: { ...summary, turns: [p1Turn, { ...p2Turn, response: unavailable }] },
+      nextCursor: null } }).thread.turns[1]).toMatchObject({ question: p2Turn.question, sessionRevision: 75,
+      response: { capabilityVersion: "p2", outcome: "unavailable", error: { code: "rollout_ineligible" } } });
+    expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [{ ...p2Turn,
+      response: { ...unavailable, requestId: olderTurnId } }] }, nextCursor: null } }))
+      .toThrow("INVALID_COACH_HISTORY_RESPONSE");
   });
 
   it("parses the closed per-turn response format and rejects unknown values", () => {
