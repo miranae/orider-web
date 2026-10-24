@@ -594,8 +594,8 @@ describe("ActivityPage", () => {
     expect(screen.queryByText("평가 근거 다시 불러오기")).not.toBeInTheDocument();
   });
 
-  it("passes identity, visibility and canonical sensor metrics to overview and sharing", async () => {
-  const activity = createMockActivity({ id: "test-activity", userId: "owner-a", source: "orider", visibility: "friends",
+  it.each([true, false])("passes canonical sensor metrics to overview and sharing for owner=%s", async (isOwner) => {
+  const activity = createMockActivity({ id: "test-activity", userId: "owner-a", source: "orider", visibility: isOwner ? "friends" : "everyone",
     summary: createMockSummary({ tss: 25, averagePower: 113, normalizedPower: 143, ridingTimeMillis: 60_000 }) });
   const metrics = { version: ACTIVITY_METRICS_VERSION, computedAt: 123, discipline: "bike", distanceKm: 0.3,
     avgSpeedKph: 21.6, maxSpeedKph: 30, avgPower: 102, maxPower: 400, np: 159, tss: 54.23,
@@ -606,19 +606,21 @@ describe("ActivityPage", () => {
     mapImageUrl: null, summary: { ...activity.summary, averagePower: 102, tss: 54.23, normalizedPower: 159,
       distance: 300, movingTimeSec: 50, pauseTimeSec: 10, ridingTimeMillis: 50_000, elapsedTimeMillis: 60_000 },
   } } as unknown as Record<string, unknown>);
-  setDocData("activity_metrics/test-activity", metrics);
+  setDocData(`activity_metrics${isOwner ? "" : "_public"}/test-activity`,
+    Object.fromEntries(Object.entries(metrics).filter(([key]) => isOwner || key !== "tss")));
   setDocData("activity_streams/test-activity", { userId: "owner-a", json: JSON.stringify({
     time: Array.from({ length: 60 }, (_, i) => i), distance: Array.from({ length: 60 }, (_, i) => i * 5),
     altitude: Array(60).fill(10), watts: Array(60).fill(102),
   }) });
   shareButtonProps.mockClear();
-  renderWithProviders(<ActivityPage />, { authenticated: true, user: { uid: "owner-a" } });
+  renderWithProviders(<ActivityPage />, { authenticated: isOwner, user: { uid: "owner-a" } });
   const stats = await screen.findByTestId("activity-detail-hero");
   await waitFor(() => expect(stats).toHaveTextContent("평균 파워102W"));
+  await waitFor(() => expect(stats).toHaveTextContent(/TSS\s*54/));
   fireEvent.click(await screen.findByRole("button", { name: "활동 관리" }));
   await screen.findByText("share-card");
   await waitFor(() => expect(shareButtonProps).toHaveBeenLastCalledWith(expect.objectContaining({
-    activityId: "test-activity", visibility: "friends",
+    activityId: "test-activity", visibility: isOwner ? "friends" : "everyone",
     card: expect.objectContaining({ elevation: "331 m", performanceMetrics: expect.arrayContaining([
       expect.objectContaining({ value: "54" }), expect.objectContaining({ value: "159", unit: "W" }),
     ]) }),

@@ -857,7 +857,7 @@ export default function ActivityPage() {
   const hasCanonicalSensorPresentation = canonicalSummaryMetrics != null;
   const powerNeedsPreview = activePowerOverride != null || hasStreamPowerCandidate && !hasCanonicalSensorPresentation;
   const displayedSummary = { ...(selectedSummary ?? s),
-    ...(latestMetrics && !powerNeedsPreview ? { tss: latestMetrics.tss } : {}) };
+    ...(latestMetrics && !powerNeedsPreview && latestMetrics.tss !== undefined ? { tss: latestMetrics.tss } : {}) };
   const activityDate = Number.isFinite(activity.startTime) && Number.isFinite(new Date(activity.startTime).getTime())
     ? fitnessDateKeyFor(activity.startTime, fitnessTimeseries?.loadSnapshot?.dateKeyBasis)
     : null;
