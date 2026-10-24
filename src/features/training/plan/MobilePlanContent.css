@@ -6,9 +6,18 @@
   padding: var(--space-3);
 }
 
-/* 이 화면은 셸 거터가 없는 앱 임베드용으로 안쪽 16 을 스스로 가진다. 웹 코치 화면은 셸 거터 안에 들어오므로
-   16 만큼 밖으로 빼서 안쪽 정렬선을 셸 정렬선에 맞춘다(그대로 두면 32 들어간다). */
-.coach-surface .mobile-plan-content { margin-inline: calc(-1 * var(--space-4)); }
+.mobile-plan-week-navigation,
+.mobile-plan-adaptation { padding-inline: var(--space-4); }
+.mobile-plan-week-header { padding: var(--space-1) var(--space-4); }
+
+/* 앱 임베드는 셸 거터가 없어 위 좌우 16 을 스스로 가진다. 웹 코치 화면은 셸 거터 안에 들어오므로
+   좌우를 비워 카드·목록·헤더 막대가 모두 셸 정렬선(다른 카드와 같은 선)에 닿게 한다. */
+.coach-surface .mobile-plan-goal,
+.coach-surface .mobile-plan-next,
+.coach-surface .mobile-plan-week-summary { margin-inline: 0; }
+.coach-surface .mobile-plan-week-navigation,
+.coach-surface .mobile-plan-adaptation,
+.coach-surface .mobile-plan-week-header { padding-inline: 0; }
 
 .mobile-plan-section-label {
   margin: 0 0 var(--space-1);

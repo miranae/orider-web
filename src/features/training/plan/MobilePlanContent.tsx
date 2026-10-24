@@ -232,7 +232,7 @@ export default function MobilePlanContent({
       {adaptationSlot}
 
       {/* Week navigation */}
-      <div data-testid="K4-5m-1" className="mobile-plan-week-navigation flex items-center justify-center" role="group" aria-label={t('mobile.weekHeading')} style={{ padding: "0 var(--space-4)", gap: 'var(--space-4)' }}>
+      <div data-testid="K4-5m-1" className="mobile-plan-week-navigation flex items-center justify-center" role="group" aria-label={t('mobile.weekHeading')} style={{ gap: 'var(--space-4)' }}>
         <button type="button" onClick={onWeekPrev} disabled={!onWeekPrev || !canPrevWeek} aria-label={t('mobile.previousWeek')}
           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><ChevronLeft size={ICON_SIZE.lg} aria-hidden="true" /></button>
         <div style={{ textAlign: "center", minWidth: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{weekLabel}</div>
@@ -282,7 +282,7 @@ export default function MobilePlanContent({
       })()}
 
       {/* Weekly plan — vertical list */}
-      <div className="flex items-center justify-between" style={{ padding: "var(--space-1) var(--space-4)" }}>
+      <div className="mobile-plan-week-header flex items-center justify-between">
         <Text variant="eyebrow" className="mobile-plan-section-label">{t('mobile.weeklyPlan')}</Text>
         {onEditWorkout && editTargetIdx >= 0 && (
           <Button type="button" variant="ghost" size="sm" onClick={() => openEditFor(editTargetIdx)}>{t('mobile.edit')}</Button>

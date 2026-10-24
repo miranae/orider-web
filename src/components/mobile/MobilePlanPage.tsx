@@ -116,7 +116,7 @@ export default function MobilePlanPage({
         </div>
       )}
       adaptationSlot={goalId && adaptationFlag ? (
-        <div style={{ padding: "0 16px" }}>
+        <div className="mobile-plan-adaptation">
           <AdaptationBanner goalId={goalId} flag={adaptationFlag} onChange={onPlanUpdate ?? (() => undefined)} />
         </div>
       ) : undefined}
