@@ -46,6 +46,8 @@ export interface ActivityOverviewPresentation {
     segmentName?: string; segmentPr?: boolean };
   session: {
     discipline: "bike" | "run" | "swim" | "other";
+    /** 보행 종목은 러닝 기록 및 사이클 부하 판정과 분리한다. */
+    activityKind?: "walk" | "hike";
     character?: "recovery" | "endurance" | "tempo" | "threshold" | "highIntensity"
       | "interval" | "race" | "mixed" | "polarized" | "racePace";
     movingSec?: number;
