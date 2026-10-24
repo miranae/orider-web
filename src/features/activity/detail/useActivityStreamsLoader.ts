@@ -1,3 +1,4 @@
+import { activitySensorOrigin } from "./activitySensorOrigin";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -47,7 +48,7 @@ export async function loadCanonicalActivityStreams(
   activityId: string,
   fallbackUserId?: string,
   services?: { auth: Auth; firestore: Firestore; functions?: Functions; ensureAppCheckReady?: (forceRefresh?: boolean) => Promise<void> },
-  options?: { includeRunEffortFacts?: boolean },
+  options?: { includeRunEffortFacts?: boolean; useCanonicalApi?: boolean },
 ): Promise<ActivityStreams> {
   const { auth, firestore } = services ?? { auth: defaultAuth, firestore: defaultFirestore };
   if (getRuntimeConfig().appEnvironment === "stage") {
@@ -55,7 +56,7 @@ export async function loadCanonicalActivityStreams(
       ? (services.functions && services.ensureAppCheckReady ? { functions: services.functions, ensureAppCheckReady: services.ensureAppCheckReady } : undefined)
       : { functions: defaultFunctions, ensureAppCheckReady: defaultEnsureAppCheckReady };
     if (!provider) throw new Error("stage/callable-context-missing");
-    return getActivityStreamsWithAuth(auth, activityId, provider, options);
+    return getActivityStreamsWithAuth(auth, activityId, provider, options ? { includeRunEffortFacts: options.includeRunEffortFacts } : undefined);
   }
   const loadFromApi = async () => {
     const streams = services
@@ -64,6 +65,7 @@ export async function loadCanonicalActivityStreams(
     if (fallbackUserId) streams.userId = fallbackUserId;
     return streams;
   };
+  if (options?.useCanonicalApi) return loadFromApi();
   let snap;
   try {
     snap = await getDoc(doc(firestore, "activity_streams", activityId));
@@ -132,12 +134,12 @@ export function useActivityStreamsLoader({
     const source = (activity as Activity & { source?: string }).source;
     const stravaId = getStravaActivityId(activity);
 
-    const sensorActivityId = activity.activityPresentationV1?.sensorOriginActivityId ?? activityId;
-    if (activityId && (getRuntimeConfig().appEnvironment === "stage" || usesCanonicalActivityStreams(activityId, source) || sensorActivityId !== activityId)) {
+    const sensorOriginId = activitySensorOrigin(activity);
+    if (activityId && (getRuntimeConfig().appEnvironment === "stage" || usesCanonicalActivityStreams(activityId, source) || sensorOriginId != null)) {
       setLoadingStreams(true);
       setStreamsError(null);
       const timer = setTimeout(() => { if (active) setShowStreamSpinner(true); }, 500);
-      loadCanonicalActivityStreams(sensorActivityId!, activity.userId, services, { includeRunEffortFacts: !!userId && userId === activity.userId && disciplineOfType(activity.type) === "run" }).then((parsed) => {
+      loadCanonicalActivityStreams(activityId, activity.userId, services, { includeRunEffortFacts: !!userId && userId === activity.userId && disciplineOfType(activity.type) === "run", ...(sensorOriginId ? { useCanonicalApi: true } : {}) }).then((parsed) => {
         if (active) setStreams(parsed);
       }).catch((err) => {
         if (!active) return;
