@@ -574,36 +574,15 @@ log "PR #$PR_NUM squash merge"
 # that branch. Delete the remote ref through the API after a successful merge.
 gh pr merge "$PR_NUM" --squash --match-head-commit "$HEAD_OID" || die "gh pr merge 실패 (충돌/보호 규칙/head SHA 상태 확인)"
 
-# squash 승격은 main에 새 커밋을 만들기 때문에 dev와 ancestry가 갈라진다. 승격 직후
-# main을 dev에 되병합해 다음 승격 PR이 이미 배포된 변경을 다시 표시하지 않게 한다.
-# fetch 후 origin/dev를 먼저 병합하므로 승격 도중 dev에 추가된 커밋도 잃지 않는다.
-# push race는 최신 origin/dev를 다시 병합한 뒤 일반 push로 제한 재시도한다(강제 push 금지).
+# Preserve linear protected dev history through a reviewed topic PR, never a direct merge push.
 sync_main_back_to_dev() {
-  local attempt max_attempts=3
-  for attempt in $(seq 1 "$max_attempts"); do
-    log "승격 후 main→dev 동기화 ($attempt/$max_attempts)"
-    git fetch origin main dev --quiet \
-      || die "main 승격은 완료됐지만 origin/main·origin/dev fetch에 실패했습니다. dev에서 origin/dev와 origin/main을 병합해 push하세요."
-
-    if ! git merge origin/dev --no-edit --quiet; then
-      git merge --abort >/dev/null 2>&1 || true
-      die "main 승격은 완료됐지만 최신 origin/dev 병합이 충돌했습니다. dev에서 origin/dev를 병합한 뒤 origin/main을 병합·push하세요."
-    fi
-    if ! git merge origin/main --no-edit --quiet; then
-      git merge --abort >/dev/null 2>&1 || true
-      die "main 승격은 완료됐지만 origin/main→dev 동기화가 충돌했습니다. dev에서 origin/main을 병합·push하세요."
-    fi
-
-    if git push --quiet origin HEAD:dev; then
-      echo "  dev 동기화 완료: $(git rev-parse --short=12 HEAD)"
-      return 0
-    fi
-    warn "동시 dev 갱신으로 push 실패 — 최신 origin/dev 병합 후 재시도"
-  done
-  die "main 승격은 완료됐지만 dev 동기화 push가 $max_attempts회 실패했습니다. dev에서 origin/dev와 origin/main을 병합한 뒤 일반 push로 복구하세요."
+  local production_commit
+  production_commit="$(gh pr view "$PR_NUM" --json mergeCommit -q '.mergeCommit.oid')"
+  [[ "$production_commit" =~ ^[0-9a-f]{40}$ ]] || die "production squash SHA 확인 실패"
+  node scripts/sync-main-to-dev.mjs "$production_commit" \
+    || die "main 병합은 완료됐습니다. 위 backport PR을 공식 게이트로 병합한 뒤 출력된 sync 재개 명령을 실행하세요."
 }
 
-# dev 승격뿐 아니라 hotfix→main 도 동기화 — hotfix 변경이 dev에 없으면 다음 승격에서 유실된다.
 if [[ "$BASE" == "main" ]]; then
   sync_main_back_to_dev
 fi
