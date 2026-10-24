@@ -11,11 +11,13 @@ import { auth, ensureAppCheckReady, functions } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useMyGroups, usePublicGroups } from "../../hooks/useGroup";
+import { usePublicClubDirectory } from "../../hooks/usePublicClubDirectory";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
+import ClubLoginGate from "../../components/group/ClubLoginGate";
 import GroupCard from "../../components/group/GroupCard";
 import CreateGroupModal from "../../components/group/CreateGroupModal";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
-import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate } from "../../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card, Chip, Text, DropdownSelect, Input } from "../../theme/components";
 import {
   isPendingGroupJoinResult,
@@ -67,17 +69,25 @@ export default function GroupsPage() {
   }, [sportParam]);
   useEffect(() => { setCityFilter(cityParam); }, [cityParam]);
   const findSearchRef = useRef<HTMLInputElement>(null);
-  const { groups: publicGroups, loading: publicLoading, error: publicGroupsError, retry: retryPublicGroups, hasMore: publicHasMore, loadingMore: publicLoadingMore, loadMore: loadMorePublicGroups } = usePublicGroups({
+  const { groups: signedPublicGroups, loading: signedPublicLoading, error: signedPublicGroupsError, retry: signedRetryPublicGroups, hasMore: signedPublicHasMore, loadingMore: signedPublicLoadingMore, loadMore: signedLoadMorePublicGroups } = usePublicGroups({
     enabled: !!user,
     searchText: searchQuery,
     discipline: disciplineFilter,
     city: cityFilter,
     maxCount: 20,
   });
+  const anonymousDirectory = usePublicClubDirectory({ searchText: searchQuery, discipline: disciplineFilter, city: cityFilter }, !user);
+  const publicGroups = user ? signedPublicGroups : anonymousDirectory.groups;
+  const publicLoading = user ? signedPublicLoading : anonymousDirectory.loading;
+  const publicGroupsError = user ? signedPublicGroupsError : anonymousDirectory.error;
+  const retryPublicGroups = user ? signedRetryPublicGroups : anonymousDirectory.retry;
+  const publicHasMore = user ? signedPublicHasMore : anonymousDirectory.hasMore;
+  const publicLoadingMore = user ? signedPublicLoadingMore : anonymousDirectory.loadingMore;
+  const loadMorePublicGroups = user ? signedLoadMorePublicGroups : anonymousDirectory.loadMore;
   const navigate = useNavigate();
 
-  const myGroupIds = new Set(myGroups.map((g) => g.id));
-  const myGroupIdList = useMemo(() => myGroups.map((g) => g.id), [myGroups]);
+  const myGroupIds = new Set((user ? myGroups : []).map((g) => g.id));
+  const myGroupIdList = useMemo(() => uid ? myGroups.map((g) => g.id) : [], [myGroups, uid]);
   const { byGroup: nextEventLabels } = useGroupNextEvents(myGroupIdList);
 
   // 클럽이 1개 이하면 종목 선택·검색을 숨기므로 필터도 적용하지 않는다 (K4).
@@ -94,9 +104,10 @@ export default function GroupsPage() {
 
   const filteredMyGroups = useMemo(() => filterGroups(myGroups), [myGroups, myDisciplineFilter, mySearch, showMyFilters]);
   const hasPublicFilters = Boolean(searchQuery.trim() || cityFilter.trim() || disciplineFilter !== "ALL");
+  // 로그인 회원의 기존 가입 클럽 제외 계약을 유지한다.
   const filteredPublicGroups = useMemo(
-    () => publicGroups.filter((g) => !myGroupIds.has(g.id)),
-    [publicGroups, myGroupIds]
+    () => user ? publicGroups.filter((group) => !myGroupIds.has(group.id)) : publicGroups,
+    [publicGroups, myGroupIds, user]
   );
 
   const handleJoinByCode = async () => {
@@ -152,14 +163,6 @@ export default function GroupsPage() {
     }
   };
 
-  if (!user) {
-    return (
-      <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("error.loginRequired")} />
-      </div>
-    );
-  }
-
   const myClubSection = <section data-testid="C0-1">
       {myGroups.length > 0 && <>
         <Text as="h2" variant="title" className="mb-4">{t("myGroups")}</Text>
@@ -195,23 +198,24 @@ export default function GroupsPage() {
         </div>
       )}
 
-      <GroupRequestHistory userId={user.uid} />
+      <GroupRequestHistory userId={user?.uid} />
     </section>;
 
   return (
     <div className="club-surface">
       <header data-testid="C0-0" className="club-page-header">
         <div><Text as="h1" variant="pageTitle">{t("clubsTitle")}</Text>
-        {myGroups.length > 0 && <Text as="p" variant="bodySmall" tone="tertiary" data-testid="C0-0-1">{t("list.groupCount", { count: myGroups.length })}</Text>}</div>
+        {user && myGroups.length > 0 && <Text as="p" variant="bodySmall" tone="tertiary" data-testid="C0-0-1">{t("list.groupCount", { count: myGroups.length })}</Text>}</div>
         <div className="club-page-actions">
-          {myGroups.length > 0 && <Button data-testid="C0-0-2" variant="secondary" onClick={() => { document.getElementById("club-find")?.scrollIntoView({ block: "start" }); findSearchRef.current?.focus({ preventScroll: true }); }}>{t("list.findClubs")}</Button>}
-          <Button data-testid="C0-0-3" onClick={() => setShowCreate(true)} variant="primary">{t("button.create")}</Button>
+          {user && myGroups.length > 0 && <Button data-testid="C0-0-2" variant="secondary" onClick={() => { document.getElementById("club-find")?.scrollIntoView({ block: "start" }); findSearchRef.current?.focus({ preventScroll: true }); }}>{t("list.findClubs")}</Button>}
+          {user && <Button data-testid="C0-0-3" onClick={() => setShowCreate(true)} variant="primary">{t("button.create")}</Button>}
         </div>
       </header>
-      {(myGroups.length > 0 || myLoading || Boolean(myGroupsError)) && myClubSection}
+      {user && (myGroups.length > 0 || myLoading || Boolean(myGroupsError)) && myClubSection}
 
       <Text as="h2" variant="title" data-testid="C0-2" id="club-find" className="mb-4">{t("find.section")}</Text>
-      {!myLoading && !myGroupsError && myGroups.length === 0 && <Text as="p" variant="body" tone="secondary" data-testid="C0.noClub" className="mb-4">{t("list.noGroupsDesc")}</Text>}
+      {user && !myLoading && !myGroupsError && myGroups.length === 0 && <Text as="p" variant="body" tone="secondary" data-testid="C0.noClub" className="mb-4">{t("list.noGroupsDesc")}</Text>}
+      {!user && <Text as="p" tone="secondary" className="mb-4">{t("public.directoryHint")}</Text>}
       {/* 검색 + 종목 필터 */}
       <div data-testid="C0-2-1" className="flex items-center flex-wrap mb-4" style={{ gap: 'var(--space-2)' }}>
         <Input
@@ -281,8 +285,9 @@ export default function GroupsPage() {
             <GroupCard
               key={g.id}
               group={g}
-              showJoinButton
-              onJoin={() => handleJoinPublic(g)}
+              showMyRole={myGroupIds.has(g.id)}
+              showJoinButton={!myGroupIds.has(g.id)}
+              onJoin={!user || myGroupIds.has(g.id) ? undefined : () => handleJoinPublic(g as Group)}
               joining={joiningPublic === g.id}
             />
           ))}
@@ -291,7 +296,8 @@ export default function GroupsPage() {
 
       {publicHasMore && !publicLoading && <Button variant="secondary" disabled={publicLoadingMore} onClick={loadMorePublicGroups}>{t("common:button.more")}</Button>}
 
-      <Card data-testid="C0-3" className="club-invite-card" padding="card">
+      {!user && <ClubLoginGate />}
+      {user && <Card data-testid="C0-3" className="club-invite-card" padding="card">
         <Text as="h2" variant="title">{t("find.inviteTitle")}</Text>
         <Text as="p" variant="body" tone="secondary">{t("find.inviteHint")}</Text>
         <label htmlFor="club-invite-code" className="club-invite-label">{t("find.inviteLabel")}</label>
@@ -311,11 +317,11 @@ export default function GroupsPage() {
           {joining ? t("button.joining") : t("button.joinCode")}
         </Button>
         </div>
-      </Card>
+      </Card>}
       {error && <p className="text-[length:var(--ft-body-size)] text-red-500 mb-4">{error}</p>}
 
 
-      {!myLoading && !myGroupsError && myGroups.length === 0 && <GroupRequestHistory userId={user.uid} sectionId="C0-1" />}
+      {user && !myLoading && !myGroupsError && myGroups.length === 0 && <GroupRequestHistory userId={user?.uid} sectionId="C0-1" />}
       <Card padding="card" className="club-league-card"><Text as="h2" variant="subtitle">{t("challenges.title")}</Text><Text as="p" variant="body" tone="secondary">{t("challenges.desc")}</Text><Link data-testid="C0-4" to="/explore/challenges">{t("list.viewLeague")}</Link></Card>
 
       <CreateGroupModal

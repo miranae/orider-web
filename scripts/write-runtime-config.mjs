@@ -9,6 +9,7 @@
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { checkIsolatedStageConfig } from "./lib/isolated-stage-config.mjs";
+import { publicClubEndpoint } from "./lib/public-club-deploy-config.mjs";
 import { productionDataConfig } from "./lib/production-data-config.mjs";
 
 const args = process.argv.slice(2);
@@ -37,6 +38,8 @@ function readBoolEnv(name) {
 }
 
 const config = {
+  // 공개 API는 명시한 주소만 사용한다. 원본 Firestore나 운영 주소로 암묵 폴백하지 않는다.
+  publicClubApiUrl: publicClubEndpoint(readEnv("VITE_PUBLIC_CLUB_API_URL")),
   firebaseApiKey: readEnv("VITE_FIREBASE_API_KEY"),
   firebaseAuthDomain: readEnv("VITE_FIREBASE_AUTH_DOMAIN"),
   firebaseProjectId: readEnv("VITE_FIREBASE_PROJECT_ID"),
