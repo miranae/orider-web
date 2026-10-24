@@ -64,6 +64,17 @@ export interface ActivityOverviewPresentation {
     caloriesKcal?: number;
     classificationReason?: string;
   };
+  /** 보행 스트림의 경과시간 구간 분석. 이동 페이스 또는 러닝 PR이 아니다. */
+  pedestrianAnalysis?: {
+    elapsedSec?: number; nonMovingSec?: number;
+    stream?: { sampleCount: number; elapsedSec: number; distanceKm: number;
+      gaps: Array<{ atKm: number; seconds: number }>; gapSeconds: number;
+      splits: Array<{ fromKm: number; toKm: number; elapsedSec: number; gapSec?: number }> };
+    history?: { windowDays: number; count: number; complete: boolean;
+      medianDistanceKm?: number; medianMovingSec?: number; medianPaceSecPerKm?: number;
+      distanceRank?: number; durationRank?: number };
+    elevationSuspect?: boolean;
+  };
   personal?: Array<{ axis: string; personalIndex: number; band: ActivityOverviewBand; sampleCount: number }>;
   comparisonMetadata?: { windowDays: number; character: string; priorSampleCount: number;
     historyCompleteness: "complete" | "incomplete" | "unknown" };
