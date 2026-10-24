@@ -105,6 +105,8 @@ export default function CoachHistoryPage() {
   const coachDiscipline = preferredSport && isSportUiEnabled(preferredSport) && (preferredSport === "bike" || preferredSport === "run" || preferredSport === "swim") ? preferredSport : "bike";
   const uid = user?.uid ?? null;
   const generationRef = useRef(0);
+  const listRequestRef = useRef(0);
+  const quotaRequestRef = useRef(0);
   const routeGenerationRef = useRef(0);
   const uidRef = useRef(uid);
   const routeThreadRef = useRef(threadId);
@@ -158,23 +160,25 @@ export default function CoachHistoryPage() {
 
   const loadList = useCallback(async (generation = generationRef.current, expectedUid = uidRef.current) => {
     if (!expectedUid) { setLoadingList(false); return; }
+    const requestSequence = ++listRequestRef.current;
     setLoadingList(true); setLoadError(false);
     try {
       const page = await getCoachThreads(PAGE_SIZE);
-      if (!current(generation, expectedUid)) return;
+      if (!current(generation, expectedUid) || listRequestRef.current !== requestSequence) return;
       setThreads(page.threads); setCursor(page.nextCursor);
-    } catch (error) { if (current(generation, expectedUid)) { setListFailure(reportCoachReadError("history-list", error)); setLoadError(true); } }
-    finally { if (current(generation, expectedUid)) setLoadingList(false); }
+    } catch (error) { if (current(generation, expectedUid) && listRequestRef.current === requestSequence) { setListFailure(reportCoachReadError("history-list", error)); setLoadError(true); } }
+    finally { if (current(generation, expectedUid) && listRequestRef.current === requestSequence) setLoadingList(false); }
   }, [current]);
 
   const loadQuota = useCallback(async (generation = generationRef.current, expectedUid = uidRef.current) => {
     if (!expectedUid) return;
+    const requestSequence = ++quotaRequestRef.current;
     setLoadingQuota(true); setQuotaError(false);
     try {
       const status = await getCoachStatus();
-      if (current(generation, expectedUid)) setQuota(status.quota);
-    } catch (error) { if (current(generation, expectedUid)) { setQuotaFailure(reportCoachReadError("history-quota", error)); setQuota(null); setQuotaError(true); } }
-    finally { if (current(generation, expectedUid)) setLoadingQuota(false); }
+      if (current(generation, expectedUid) && quotaRequestRef.current === requestSequence) setQuota(status.quota);
+    } catch (error) { if (current(generation, expectedUid) && quotaRequestRef.current === requestSequence) { setQuotaFailure(reportCoachReadError("history-quota", error)); setQuota(null); setQuotaError(true); } }
+    finally { if (current(generation, expectedUid) && quotaRequestRef.current === requestSequence) setLoadingQuota(false); }
   }, [current]);
 
   const loadThread = useCallback(async (targetId: string, generation = generationRef.current, expectedUid = uidRef.current,
@@ -212,13 +216,14 @@ export default function CoachHistoryPage() {
   async function loadMore() {
     if (!cursor || loadingMore || !uid) return;
     const generation = generationRef.current; const expectedUid = uid;
+    const listRequest = listRequestRef.current;
     setLoadingMore(true);
     try {
       const page = await getCoachThreads(PAGE_SIZE, cursor);
-      if (!current(generation, expectedUid)) return;
+      if (!current(generation, expectedUid) || listRequestRef.current !== listRequest) return;
       setThreads((current) => [...current, ...page.threads.filter((next) => !current.some((item) => item.threadId === next.threadId))]);
       setCursor(page.nextCursor);
-    } catch (error) { if (current(generation, expectedUid)) { setListFailure(reportCoachReadError("history-list", error)); setLoadError(true); } }
+    } catch (error) { if (current(generation, expectedUid) && listRequestRef.current === listRequest) { setListFailure(reportCoachReadError("history-list", error)); setLoadError(true); } }
     finally { if (current(generation, expectedUid)) setLoadingMore(false); }
   }
 
@@ -364,6 +369,7 @@ export default function CoachHistoryPage() {
     user={user}
     discipline={coachDiscipline}
     onSignIn={signIn}
+    onRequestSettled={() => { void loadList(); void loadQuota(); }}
     triggerBlock={false}
   /></div>;
 
