@@ -40,7 +40,6 @@ export function ActivityRangeControls({ selection, showAxis = true, showToggle =
     </Stack>}
     {part !== "toolbar" && selection.enabled && (Number.isFinite(selection.durationSec) && selection.durationSec > 0 ? <RangeTimeControls key={`${selection.identity}:${selection.selection?.requestId ?? "none"}`} selection={selection} />
       : <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.unknownAxis")}</Text>)}
-    {part !== "toolbar" && selection.enabled && selection.selection && <Text as="p" variant="bodyMedium" mono>{t("rangeAnalysis.boundaryLegend", { start: formatElapsedBoundary(selection.selection.startOffsetSec), end: formatElapsedBoundary(selection.selection.endOffsetSec) })}</Text>}
   </section>;
 }
 
@@ -62,7 +61,6 @@ function RangeTimeControls({ selection }: { selection: ActivityRangeSelectionMod
     {!valid && <Text id={`${id}-error`} as="p" variant="bodyMedium" tone="secondary" role="alert">{t("rangeAnalysis.invalidTime")}</Text>}
     {!selection.axis && <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.noRouteAxis")}</Text>}
     <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.shortHint")}</Text>
-    <details className="activity-range-details"><summary>{t("rangeAnalysis.howToSelect")}</summary><Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.selectionHint")}</Text></details>
   </div>;
 }
 
@@ -152,7 +150,6 @@ export function ActivityRangeAnalysisReading({ selection, sport, analysis, previ
   return <section className="activity-range-reading space-y-4" aria-label={t("rangeAnalysis.title")}>
     <Text as="h3" variant="subtitle">{t("rangeAnalysis.title")}</Text>
     {analysis.state === "available" && metrics && <Text as="p" variant="bodyMedium" tone="secondary">{t(previewActive ? "rangeAnalysis.canonicalPreviewBasis" : "rangeAnalysis.canonicalBasis")}</Text>}
-    <Text as="p" variant="bodyMedium" mono>{t("rangeAnalysis.window", { start: duration(selection.selection.startOffsetSec), end: duration(selection.selection.endOffsetSec) })}</Text>
     {(selection.locationUnavailable || selection.clippedBoundary) && <Text as="p" variant="bodyMedium" tone="secondary">{t(selection.locationUnavailable ? "rangeAnalysis.locationUnavailable" : "rangeAnalysis.clippedLocation")}</Text>}
     {!metrics ? <div role="status" className="space-y-3"><Text as="p" variant="bodyMedium" tone="secondary">{t(analysis.reason === "api_unavailable" ? "rangeAnalysis.apiUnavailable" : `rangeAnalysis.${analysis.state}`)}</Text>
       {analysis.reason === "source_reload_required" && onReloadSource && <Button variant="secondary" size="sm" onClick={onReloadSource}>{t("rangeAnalysis.reloadSource")}</Button>}
