@@ -10,7 +10,7 @@ import { Button, Card, Chip, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface GroupCardProps {
-  group: Group & { isLeader?: boolean };
+  group: Pick<Group, "id" | "name"> & Partial<Group> & { isLeader?: boolean };
   showJoinButton?: boolean;
   showMyRole?: boolean;
   onJoin?: () => void;

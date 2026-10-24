@@ -24,6 +24,8 @@ jobs:
     environment: stage
     env:
       VITE_MODE: production
+      # 개발 Hosting도 운영 데이터다. 공개 GET endpoint만 명시적으로 준비한다.
+      VITE_PUBLIC_CLUB_API_URL: ${{ vars.VITE_PUBLIC_CLUB_API_URL }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
@@ -36,6 +38,8 @@ jobs:
         run: echo "PRODUCTION_RUNTIME_CONFIG_PATH=$PRODUCTION_RUNTIME_CONFIG_PATH" >> "$GITHUB_ENV"
       - name: Pin production data runtime and verify backend CORS
         run: node scripts/prepare-production-data-runtime.mjs
+      - name: Verify public club API before development Hosting deployment
+        run: node scripts/verify-public-club-api.mjs --runtime "$PRODUCTION_RUNTIME_CONFIG_PATH" --origin https://orider-dev.web.app
       - name: Check development Hosting and production data identity
         env:
           STAGE_FIREBASE_PROJECT_ID: ${{ vars.STAGE_FIREBASE_PROJECT_ID }}
