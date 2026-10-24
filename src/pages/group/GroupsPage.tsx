@@ -1,3 +1,4 @@
+import NextEventContinuation from "../../components/group/NextEventContinuation";
 import { isSportUiEnabled } from "../../config/sportFeatures";
 import "./ClubSurface.css";
 import { Users } from "lucide-react";
@@ -88,7 +89,7 @@ export default function GroupsPage() {
 
   const myGroupIds = new Set((user ? myGroups : []).map((g) => g.id));
   const myGroupIdList = useMemo(() => uid ? myGroups.map((g) => g.id) : [], [myGroups, uid]);
-  const { byGroup: nextEventLabels } = useGroupNextEvents(myGroupIdList);
+  const { byGroup: nextEventLabels, incompleteGroups = new Set<string>() } = useGroupNextEvents(myGroupIdList);
 
   // 클럽이 1개 이하면 종목 선택·검색을 숨기므로 필터도 적용하지 않는다 (K4).
   const showMyFilters = myGroups.length > 1;
@@ -193,7 +194,7 @@ export default function GroupsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           {filteredMyGroups.map((g) => (
-            <GroupCard key={g.id} group={g} showMyRole nextEvent={nextEventLabels.get(g.id)} />
+            <div key={g.id}><GroupCard group={g} showMyRole nextEvent={nextEventLabels.get(g.id)} />{incompleteGroups.has(g.id) && <NextEventContinuation groupId={g.id} />}</div>
           ))}
         </div>
       )}
