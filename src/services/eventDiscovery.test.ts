@@ -29,6 +29,25 @@ describe("authorized event discovery adapter", () => {
       { publicOnly: true, statuses: ["OPEN", "LIVE", "FINISHED"], limit: 250, cursor: "first" },
     ]);
   });
+  it("continues empty private windows before returning public and legacy group rows", async () => {
+    const token = "~ed1_" + "a".repeat(48);
+    setCallableImplementation("listVisibleEventEnvelopes", value => {
+      const request = value as { cursor?: string };
+      if (!request.cursor) return { data: { rows: [], nextCursor: token } };
+      return { data: { rows: [
+        { id: "public", data: { info: { visibility: "PUBLIC" } } },
+        { id: "legacy", data: { info: {} } },
+        { id: "group", data: { info: { visibility: "GROUP" } } },
+      ], nextCursor: null } };
+    });
+    const result = await getPublicEvents(["OPEN", "LIVE"]);
+    expect(result.docs.map(doc => doc.id)).toEqual(["public", "legacy", "group"]);
+    expect(mockCallableInvocations.filter(call => call.name === "listVisibleEventEnvelopes").map(call => call.data)).toEqual([
+      { publicOnly: true, statuses: ["OPEN", "LIVE"], limit: 250 },
+      { publicOnly: true, statuses: ["OPEN", "LIVE"], limit: 250, cursor: token },
+    ]);
+    expect(getDocs).not.toHaveBeenCalled();
+  });
   it("fails closed on server rejection without a raw Firestore collection fallback", async () => {
     setCallableImplementation("listVisibleEventEnvelopes", () => { throw new Error("permission-denied"); });
     await expect(getVisibleEventPage({ groupId: "club", publicOnly: false })).rejects.toThrow("permission-denied");
