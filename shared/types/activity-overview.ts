@@ -110,8 +110,6 @@ export interface ActivityOverviewPresentation {
   /** 정본 러닝 스플릿의 이동시간 기준 구간 지표. 타이머 불일치가 있으면 비운다. */
   /** 시간별 최고 평균 페이스. 관측된 연속 구간 기준이며 러닝 PR과는 별개다. */
   paceFingerprint?: Array<{ durationSec: number; paceSecPerKm: number }>;
-  /** 개인 체중을 공개하지 않는 명시적 기준 체중의 참고 에너지. 실제 개인 소모량이 아니다. */
-  referenceEnergy?: { caloriesKcal: number; referenceWeightKg: 70; basis: "running_distance" | "level_walking_met"; met?: number };
   runningWork?: { fastestKm: { km: number; paceSec: number }; slowestKm: { km: number; paceSec: number };
     firstHalfPaceSec: number; secondHalfPaceSec: number; halfDeltaSec: number };
   thresholdWork?: { matchesCount?: number; matchesTotalSec?: number; longestZ4PlusSec?: number;
