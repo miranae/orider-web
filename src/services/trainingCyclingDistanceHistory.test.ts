@@ -1,3 +1,4 @@
+import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { compiledBikeProvenanceWire } from "./activityBikeDistanceEvidence.fixture";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CyclingDistanceHistoryResponse, CyclingDistanceHistoryRequest } from "@shared/types/training-cycling-distance-history";
@@ -693,12 +694,12 @@ describe("activity totals channel calculator 35 boundary", () => {
   const safe=validateCyclingDistanceHistoryResponse(r,opted,NOW);expect(safe.activities.find(row=>row.activityId==="native")!.activityTotals).toBeUndefined();expect(safe.activities.find(row=>row.activityId==="native")!.distanceObservations).toEqual(neutralHistory(r).activities.find(row=>row.activityId===native.activityId)!.distanceObservations);
   const legacy=structuredClone(r);for(const row of legacy.activities)delete row.activityTotals;expect(validateCyclingDistanceHistoryResponse(legacy,request,NOW)).toEqual(neutralHistory(legacy));
  });
- it("keeps v35 canonical totals and accepts its outdated summary under calculator v36", () => {
+ it("keeps v35 canonical totals and only accepts summaries older than the current calculator", () => {
   expect(validateCyclingDistanceHistoryResponse(totalsWire,opted,NOW)).toEqual(neutralHistory(totalsWire));
   const r=oldWire(), old=r.activities.find(row=>row.activityId==="outdated34")!;
   old.analysis.calculatorVersion=35;
   expect(validateCyclingDistanceHistoryResponse(r,opted,NOW)).toEqual(neutralHistory(r));
-  old.analysis.calculatorVersion=36;
+  old.analysis.calculatorVersion=ACTIVITY_METRICS_VERSION;
   expect(validateCyclingDistanceHistoryResponse(r,opted,NOW).activities.find(row=>row.activityId==="outdated34")!.activityTotals).toBeUndefined();
  });
  it("preserves nullable old-summary distance independently of observed zero gain", () => {

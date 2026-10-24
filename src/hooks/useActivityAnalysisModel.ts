@@ -1,3 +1,4 @@
+import { withActivityPresentation } from "@shared/analysis/activityPresentation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentProps, Dispatch, SetStateAction } from "react";
 import { doc, getDoc } from "firebase/firestore";
@@ -129,7 +130,7 @@ export function useActivityAnalysisModel(
           }
           setActivityProcessing(false);
           // 누락된 선택 요약이 정상 경로/센서/개요의 조회까지 막지 않는다. 수치 0은 만들지 않는다.
-          setActivity({ id: snap.id, ...data, summary: usableSummary ? data.summary : {} } as Activity);
+          setActivity(withActivityPresentation({ id: snap.id, ...data, summary: usableSummary ? data.summary : {} } as Activity));
         } else {
           setActivityProcessing(false);
         }

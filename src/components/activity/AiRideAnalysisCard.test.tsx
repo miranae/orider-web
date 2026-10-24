@@ -144,7 +144,7 @@ describe("AiRideAnalysisCard", () => {
       narrativeApiMocks.peek.mockResolvedValue({ ...narrative([segment(0, 10, "Saved English coaching")]), generatedAt, stale: true });
       const { container } = renderWithProviders(<AiRideAnalysisCard activityId="english-saved-generation-date" enabled />);
       expect(await screen.findByText("Saved English coaching")).toBeInTheDocument();
-      expect(screen.getByText(/This analysis was written using the data available when it was generated/)).toBeInTheDocument();
+      expect(screen.getByText(/Reanalysis needed/)).toBeInTheDocument();
       expect(container.querySelector("time")).toHaveTextContent(new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(generatedAt));
       expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
     } finally {
@@ -245,7 +245,7 @@ describe("AiRideAnalysisCard", () => {
       expect(screen.getByText("전반적으로 안정적인 페이스의 라이딩이었습니다.")).toBeInTheDocument();
     });
     expect(screen.queryByText("분석시작")).not.toBeInTheDocument();
-    expect(screen.getByText(/저장된 AI 요약/)).toBeInTheDocument();
+    expect(screen.getByText(/생성 당시의 분석/)).toBeInTheDocument();
   });
 
   it("keeps the saved AI summary and hides raw auth errors when detail reload is unauthenticated", async () => {
@@ -268,7 +268,7 @@ describe("AiRideAnalysisCard", () => {
 
     await waitFor(() => {
       expect(screen.getByText("저장된 요약은 계속 보여야 합니다.")).toBeInTheDocument();
-      expect(screen.getByText(/로그인 상태를 확인/)).toBeInTheDocument();
+      expect(screen.getByText(/로그인해 주세요/)).toBeInTheDocument();
     });
     expect(screen.queryByText(/분석 실패/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Unauthenticated/)).not.toBeInTheDocument();
