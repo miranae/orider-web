@@ -1,4 +1,3 @@
-import { isSportUiEnabled } from "../../config/sportFeatures";
 import CriticalPaceCurve from "../charts/CriticalPaceCurve";
 import type { CurvePeriods, RunPacePoint } from "../../features/fitness/fitnessCurveDocuments";
 import ConditionSectionNav from "../../features/fitness/components/ConditionSectionNav";
@@ -37,7 +36,7 @@ import { qualifiedRunRecords, needsRunAnalysisReadiness } from "../../features/f
 import RunRecordsSummary from "../../features/fitness/components/RunRecordsSummary";
 import CoachDetailSection from "../../features/fitness/components/CoachDetailSection";
 import DetailsSection from "../redesign/DetailsSection";
-import SportFilterTabs from "./SportFilterTabs";
+import TabNav from "../TabNav";
 import { getDisciplineColor } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
 import { Button, Chip, Text, ToggleControls, ToggleButton } from "../../theme/components";
@@ -735,10 +734,6 @@ export default function MobileFitnessPage({
   // props 로 다시 흘려준다. URL 동기화 없이 로컬 state 만 바꾸면 데이터가 안 바뀌어
   // "탭 눌러도 화면이 그대로" 회귀가 발생한다.
   const [searchParams, setSearchParams] = useSearchParams();
-  // 화면 표시용 — URL "tri" 는 탭 "all" 로, 없으면 URL 기본인 bike 와 정합.
-  const requestedSport = searchParams.get("sport") ?? "bike";
-  const urlSport = isSportUiEnabled(requestedSport) ? requestedSport : "bike";
-  const sportSegment = urlSport === "tri" ? "all" : urlSport;
   const setSportSegment = (v: string) => {
     const next = new URLSearchParams(searchParams);
     next.set("sport", v === "all" ? "tri" : v);
@@ -756,11 +751,6 @@ export default function MobileFitnessPage({
     ? pmcTitle
     : t("mobileFitness.trendTitle");
 
-  const analysisTabLabel = data.discipline === "bike"
-    ? t("mobileFitness.tabAnalysis")
-    : data.discipline === "run"
-    ? t("mobileFitness.tabZonesRun")
-    : t("mobileFitness.tabZonesSwim");
   const activeTab = part === "analysis" ? "analysis" : part === "condition" || data.discipline === "tri" ? "overview" : tab;
   const tsbValue = data.hasLoadData && Number.isFinite(data.tsb) ? Number(data.tsb.toFixed(1)) : null;
   const tsbInterpretation = tsbValue == null ? t("mobileFitness.tsbMeaning.noData")
@@ -1027,13 +1017,19 @@ export default function MobileFitnessPage({
 
       <div className="mobile-fitness-toolbar">
         <div data-testid={part === "analysis" ? "K5-0-2" : part === "condition" ? "K1-0-2" : undefined} className="mobile-fitness-toolbar__sports">
-          {part === "condition" || part === "analysis" ? <DisciplineTabs includeTri disabledKeys={["swim"]} value={data.discipline} onChange={value => setSportSegment(value === "tri" ? "all" : value)} /> : <SportFilterTabs value={sportSegment} onChange={setSportSegment} allLabelKey="discipline.tri" />}
+          {/* 종목은 한 줄 균등 세그먼트. 수영은 sportFeatures 플래그가 켜지면 같은 줄에 자동으로 더해진다. */}
+          {part === "condition" || part === "analysis"
+            ? <DisciplineTabs includeTri disabledKeys={["swim"]} value={data.discipline} onChange={value => setSportSegment(value === "tri" ? "all" : value)} />
+            : <DisciplineTabs includeTri value={data.discipline} onChange={value => setSportSegment(value === "tri" ? "all" : value)} />}
         </div>
-        {part === "all" && data.discipline !== "tri" && <button type="button" className="mobile-fitness-mode-toggle"
-          onClick={() => setTab(activeTab === "overview" ? "analysis" : "overview")}>
-          {activeTab === "overview" ? analysisTabLabel : t("mobileFitness.tabOverview")}
-        </button>}
       </div>
+      {/* 개요·분석은 두 탭을 늘 보여 현재 위치를 표시한다. 통합은 분석이 없어 숨기지 않고 흐리게 둬 화면이 흔들리지 않게 한다. */}
+      {part === "all" && <div className="mobile-fitness-mode-tabs">
+        <TabNav activeTab={activeTab} onChange={next => setTab(next === "analysis" ? "analysis" : "overview")} tabs={[
+          { id: "overview", label: t("mobileFitness.tabOverview") },
+          { id: "analysis", label: t("mobileFitness.tabAnalysis"), disabled: data.discipline === "tri", title: data.discipline === "tri" ? t("mobileFitness.analysisNeedsSport") : undefined },
+        ]} />
+      </div>}
 
 
       {!embedded && part === "analysis" ? <div className="mobile-analysis-period">

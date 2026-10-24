@@ -114,17 +114,20 @@ describe("MobileFitnessPage tri", () => {
     expect(screen.getByText("종목별 일별 부하와 CTL 추이")).toBeVisible();
   });
 
-  it("keeps enabled sports available at narrow widths while the analysis control stays separate", () => {
+  it("keeps sports in one equal segment row and shows overview and analysis as separate tabs", () => {
     const { container } = renderWithProviders(<MobileFitnessPage data={previewData} />);
-    expect(container.querySelector(".mobile-fitness-toolbar__sports [role='group']")).toHaveAccessibleName("종목 선택");
-    const sportControls = screen.getByRole("group", {name: "종목 선택"});
-    expect(within(sportControls).getAllByRole("button")).toHaveLength(3);
-    expect(within(sportControls).getByRole("button", {name: "사이클"})).toBeEnabled();
-    expect(within(sportControls).getByRole("button", {name: "러닝"})).toBeEnabled();
-    expect(within(sportControls).queryByRole("button", {name: "수영"})).not.toBeInTheDocument();
-    expect(container.querySelector(".mobile-fitness-toolbar__sports .mobile-fitness-mode-toggle")).toBeNull();
-    expect(container.querySelector(".mobile-fitness-toolbar > .mobile-fitness-mode-toggle")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "러닝 분석" })).not.toHaveAttribute("aria-pressed");
+    const sportControls = screen.getByRole("tablist", {name: "종목 선택"});
+    expect(container.querySelector(".mobile-fitness-toolbar__sports")).toContainElement(sportControls);
+    expect(within(sportControls).getAllByRole("tab")).toHaveLength(3);
+    expect(within(sportControls).getByRole("tab", {name: "통합"})).toBeEnabled();
+    expect(within(sportControls).getByRole("tab", {name: "사이클"})).toBeEnabled();
+    expect(within(sportControls).getByRole("tab", {name: "러닝"})).toBeEnabled();
+    expect(within(sportControls).queryByRole("tab", {name: /수영/})).not.toBeInTheDocument();
+    const modeTabs = container.querySelector(".mobile-fitness-mode-tabs [role='tablist']") as HTMLElement;
+    expect(modeTabs).toBeInTheDocument();
+    expect(within(modeTabs).getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
+    expect(within(modeTabs).getByRole("tab", { name: "분석" })).not.toHaveAttribute("aria-disabled");
+    expect(container.querySelector(".mobile-fitness-mode-toggle")).toBeNull();
   });
 
   it("shows current status and today's entry before PMC, then keeps the full coach action after the chart", () => {
@@ -330,11 +333,12 @@ describe("MobileFitnessPage tri", () => {
 
     expect(screen.queryByTestId("sport-performance-card")).not.toBeInTheDocument();
     expect(sportPerformanceSpy).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "통합" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "전체" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "개요" })).not.toBeInTheDocument();
-    expect(within(screen.getByRole("group", {name: "종목 선택"})).queryByRole("button", {name: "수영"})).not.toBeInTheDocument();
-    expect(document.querySelector(".mobile-fitness-mode-toggle")).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "통합" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: "전체" })).not.toBeInTheDocument();
+    // 통합은 분석이 없어도 탭 줄을 남겨 화면이 흔들리지 않게 한다.
+    expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-disabled", "true");
+    expect(within(screen.getByRole("tablist", {name: "종목 선택"})).queryByRole("tab", {name: /수영/})).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /오늘은 어떻게 이어갈까요/ })).not.toBeInTheDocument();
     expect(screen.queryByText("잘못된 통합 추천")).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "통합 멀티스포츠 상태" })).toBeInTheDocument();
@@ -353,17 +357,18 @@ describe("MobileFitnessPage tri", () => {
       <MobileFitnessPage data={{ ...base, discipline: "bike" } satisfies MobileFitnessData} />,
     );
 
-    await user.click(screen.getByRole("button", { name: "분석" }));
-    expect(screen.getByRole("button", { name: "개요" })).not.toHaveAttribute("aria-pressed");
+    await user.click(screen.getByRole("tab", { name: "분석" }));
+    expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
 
     rerender(<MobileFitnessPage data={{ ...base, discipline: "tri" } satisfies MobileFitnessData} />);
-    expect(screen.queryByRole("button", { name: "개요" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-disabled", "true");
 
     rerender(<MobileFitnessPage data={{ ...base, discipline: "run" } satisfies MobileFitnessData} />);
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "러닝 분석" })).not.toHaveAttribute("aria-pressed");
+      expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
     });
-    expect(screen.getByRole("group", { name: "종목 선택" })).toBeInTheDocument();
+    expect(screen.getByRole("tablist", { name: "종목 선택" })).toBeInTheDocument();
   });
 
   it("renders authoritative integrated detail exactly once on tri", () => {
