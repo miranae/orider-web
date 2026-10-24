@@ -116,7 +116,7 @@ export interface ActivityOverviewPresentation {
     anaerobicSec?: number; wPrimeDepletionPct?: number; wPrimeRemainingPct?: number;
     /** FTP 초과분으로 한 일(kJ) — "무산소 운동량". 옛 지표 문서엔 없다. */ aboveFtpKj?: number };
   /** `fatGrams` = 지방 연소 kcal ÷ 9. 서버 지표(substrate.fatGrams)에서 그대로 온다 — 화면·게시가 따로 나누지 않는다. */
-  energy?: { totalKcal: number; fatKcal?: number; carbKcal?: number; fatPct?: number; carbPct?: number; fatGrams?: number };
+  energy?: { totalKcal: number; fatKcal?: number; carbKcal?: number; fatPct?: number; carbPct?: number; fatGrams?: number; carbGrams?: number; basis?: "heart_rate_zones" };
   sportDetails?: Array<{ label: string; value: string; priority: "primary" | "secondary" }>;
   qualityNote?: boolean;
   /**
