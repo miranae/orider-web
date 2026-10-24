@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { getVisibleEventPage } from "../services/eventDiscovery";
 import { logClientError } from "../services/errorLogger";
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
@@ -35,8 +34,8 @@ export function formatNextLabel(ts: number, name: string, locale: string): strin
   })} · ${name}`;
 }
 
-export function isEligibleNextEvent(info: Record<string, unknown>, publicOnly: boolean): boolean {
-  return !publicOnly || (info.visibility === "PUBLIC" && info.deletedAt == null);
+export function isEligibleNextEvent(info: Record<string, unknown>, publicOnly: boolean, serverAuthorized = false): boolean {
+  return !publicOnly || (info.deletedAt == null && info.kind !== "CLUB_MEETING" && (info.visibility === "PUBLIC" || (serverAuthorized && (info.visibility == null || info.visibility === "GROUP"))));
 }
 
 /**
@@ -63,28 +62,14 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
       try {
         const map = new Map<string, NextEventInfo>();
         const uniqueGroupIds = [...new Set(groupIds)];
-        const snapshots = publicOnly
-          ? await Promise.all(uniqueGroupIds.map((groupId) => getDocs(query(
-              collection(firestore, "events"),
-              where("info.groupId", "==", groupId),
-              where("info.visibility", "==", "PUBLIC"),
-            ))))
-          : await Promise.all(Array.from(
-              { length: Math.ceil(uniqueGroupIds.length / 10) },
-              (_, index) => uniqueGroupIds.slice(index * 10, index * 10 + 10),
-            ).map((chunk) => getDocs(query(
-              collection(firestore, "events"),
-              where("info.groupId", "in", chunk),
-              where("info.status", "in", ["OPEN", "LIVE"]),
-              orderBy("info.startTime", "asc"),
-            ))));
+        const snapshots = await Promise.all(uniqueGroupIds.map(groupId => getVisibleEventPage({ groupId, publicOnly, statuses: ["OPEN", "LIVE"], limit: 250 })));
 
         snapshots.forEach((snap) => {
           snap.docs.forEach((doc) => {
             if (doc.id === excludeEventId) return;
             const d = doc.data();
             const info = d.info ?? {};
-            if (!isEligibleNextEvent(info, publicOnly)) return;
+            if (!isEligibleNextEvent(info, publicOnly, true)) return;
             if (info.status !== "OPEN" && info.status !== "LIVE") return;
             const groupId: string = info.groupId ?? "";
             if (!uniqueGroupIds.includes(groupId)) return;
