@@ -330,7 +330,8 @@
     display: block;
     height: auto;
     min-height: 0;
-    padding: var(--space-4);
+    /* 좌우 정렬선은 Layout 셸 거터가 소유한다 — 여기서 또 주면 다른 코치 화면보다 16 더 들어간다. */
+    padding: var(--space-4) 0;
     padding-block-end: calc(var(--space-8) + var(--space-6) + env(safe-area-inset-bottom));
   }
 

@@ -1095,11 +1095,11 @@ export default function MobileFitnessPage({
 
           <section id={part === "condition" ? "condition-load" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "mobile-fitness-load-section condition-section-target" : undefined}>
           {part === "condition" && <Text as="h2" variant="title">{t("fitness:condition.load.title")}</Text>}
-          {part === "condition" && <Text as="p" variant="bodySmall" tone="secondary" style={{ paddingInline: "var(--space-4)" }}>{t("fitness:condition.load.description")}</Text>}
+          {part === "condition" && <Text as="p" variant="bodySmall" tone="secondary" className="mobile-fitness-load-section__description">{t("fitness:condition.load.description")}</Text>}
           {part === "condition" && periodEvidenceSlot && <SectionCard>{periodEvidenceSlot}</SectionCard>}
           {!embedded && part === "condition" && conditionSupplementSlot}
           {(part === "condition" || data.discipline === "bike") && consistencyStreak && (
-            <div style={{ padding: "0 14px 14px" }}>
+            <div className="mobile-fitness-streak">
               <ConsistencyStreakCard summary={consistencyStreak} compact allSports={part === "condition"} />
             </div>
           )}

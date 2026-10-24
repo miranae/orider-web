@@ -6,6 +6,10 @@
   padding: var(--space-3);
 }
 
+/* 이 화면은 셸 거터가 없는 앱 임베드용으로 안쪽 16 을 스스로 가진다. 웹 코치 화면은 셸 거터 안에 들어오므로
+   16 만큼 밖으로 빼서 안쪽 정렬선을 셸 정렬선에 맞춘다(그대로 두면 32 들어간다). */
+.coach-surface .mobile-plan-content { margin-inline: calc(-1 * var(--space-4)); }
+
 .mobile-plan-section-label {
   margin: 0 0 var(--space-1);
   color: var(--ink-3);
