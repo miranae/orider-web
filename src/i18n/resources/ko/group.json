@@ -595,5 +595,7 @@
   "ridePage.chart.additionalRecords": "+{{count}}개 선택 기록",
   "ridePage.chart.panRange": "구간 이동",
   "ridePage.chart.panHint": "드래그로 이동 · 이동 버튼에서 ←·→ · 세로축은 전체 기록 기준",
-  "ridePage.chart.panUnavailable": "구간을 선택하면 이동할 수 있어요."
+  "ridePage.chart.panUnavailable": "구간을 선택하면 이동할 수 있어요.",
+  "events.discoveryIncomplete": "다음 이벤트를 더 확인할 수 있습니다.",
+  "events.continueDiscovery": "이벤트 목록에서 계속 확인"
 }

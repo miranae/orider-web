@@ -40,15 +40,17 @@ export function isEligibleNextEvent(info: Record<string, unknown>, publicOnly: b
 
 /**
  * 그룹별 가장 가까운 OPEN/LIVE 이벤트 1건씩 묶어 반환.
- * Firestore in-clause 한도(10) 단위로 chunk 쿼리.
+ * One bounded discovery request per group; unfinished groups offer the full paginated list.
  */
 export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, publicOnly = false) {
   const { t, i18n } = useTranslation("group");
   const [byGroup, setByGroup] = useState<Map<string, string>>(new Map());
   const [eventByGroup, setEventByGroup] = useState<Map<string, NextEventInfo>>(new Map());
   const [loading, setLoading] = useState(false);
+  const [incompleteGroups, setIncompleteGroups] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    setIncompleteGroups(new Set());
     if (groupIds.length === 0) {
       setByGroup(new Map());
       setEventByGroup(new Map());
@@ -82,6 +84,7 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
           });
         });
         if (cancelled) return;
+        setIncompleteGroups(new Set(uniqueGroupIds.filter((groupId, index) => snapshots[index].nextCursor && !map.has(groupId))));
         const labels = new Map<string, string>();
         map.forEach((v, k) => labels.set(k, formatNextLabel(v.startTime, v.name, localeTag())));
         setByGroup(labels);
@@ -100,5 +103,5 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
     };
   }, [excludeEventId, groupIds.join("|"), i18n.language, publicOnly, t]);
 
-  return { byGroup, eventByGroup, loading };
+  return { byGroup, eventByGroup, incompleteGroups, loading };
 }

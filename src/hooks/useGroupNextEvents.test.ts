@@ -96,3 +96,37 @@ describe("group next events", () => {
     expect(isEligibleNextEvent({ visibility:"PUBLIC",kind:"CLUB_MEETING" },true,true)).toBe(false);
   });
 });
+
+
+describe("bounded next-event discovery continuation", () => {
+  beforeEach(() => installEventDiscoveryFixture());
+
+  it("reports an empty private scan window as incomplete without automatic requests", async () => {
+    setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [], nextCursor: "~ed1_" + "a".repeat(48) } }));
+    const { result } = renderHook(() => useGroupNextEvents(["g1"], undefined, true));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.incompleteGroups.has("g1")).toBe(true);
+    expect(result.current.eventByGroup.size).toBe(0);
+    expect(mockCallableInvocations.filter(call => call.name === "listVisibleEventEnvelopes")).toHaveLength(1);
+  });
+
+  it("offers continuation when the first page contains only the excluded event", async () => {
+    setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [{ id: "current", data: { info: { groupId: "g1", visibility: "PUBLIC", status: "OPEN", startTime: 100 } } }], nextCursor: "current" } }));
+    const { result } = renderHook(() => useGroupNextEvents(["g1"], "current", true));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.incompleteGroups.has("g1")).toBe(true);
+    expect(result.current.eventByGroup.size).toBe(0);
+  });
+
+  it("clears incomplete state on group changes and does not mark a resolved next event incomplete", async () => {
+    setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [], nextCursor: "~ed1_" + "b".repeat(48) } }));
+    const { result, rerender } = renderHook(({ groups }) => useGroupNextEvents(groups, undefined, true), { initialProps: { groups: ["g1"] } });
+    await waitFor(() => expect(result.current.incompleteGroups.has("g1")).toBe(true));
+    setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [{ id: "next", data: { info: { groupId: "g2", visibility: "PUBLIC", status: "OPEN", startTime: 100 } } }], nextCursor: "next" } }));
+    rerender({ groups: ["g2"] });
+    await waitFor(() => expect(result.current.eventByGroup.get("g2")?.id).toBe("next"));
+    expect(result.current.incompleteGroups.size).toBe(0);
+    rerender({ groups: [] });
+    expect(result.current.incompleteGroups.size).toBe(0);
+  });
+});

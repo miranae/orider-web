@@ -597,5 +597,7 @@
   "ridePage.chart.additionalRecords": "+{{count}} selected records",
   "ridePage.chart.panRange": "Pan",
   "ridePage.chart.panHint": "Drag to pan, or use arrow keys on Pan. Y axes stay fixed to all records.",
-  "ridePage.chart.panUnavailable": "Select a range to enable panning."
+  "ridePage.chart.panUnavailable": "Select a range to enable panning.",
+  "events.discoveryIncomplete": "More events may be available.",
+  "events.continueDiscovery": "Continue in the event list"
 }
