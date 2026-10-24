@@ -21,6 +21,7 @@ import { useToast } from "../../contexts/ToastContext";
 import { useGroup, useGroupMemberRole, useGroupMembers } from "../../hooks/useGroup";
 import { useGroupRideStats } from "../../hooks/useGroupRides";
 import { createGroupPost, updateGroupPost, useGroupPosts } from "../../hooks/useGroupPosts";
+import PublicClubPreview from "../../components/group/PublicClubPreview";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import RideCard from "../../components/group/RideCard";
 import Avatar from "../../components/Avatar";
@@ -40,7 +41,7 @@ interface UpcomingEvent {
 export default function GroupDashboardPage() {
   const { t, i18n } = useTranslation("group");
   const { groupId } = useParams();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const dialog = useDialog();
   const [joining, setJoining] = useState(false);
   const [joinPending, setJoinPending] = useState(false);
@@ -50,11 +51,11 @@ export default function GroupDashboardPage() {
   const { showToast } = useToast();
   const { role: currentMemberRole, loading: roleLoading, error: roleError, retry: retryRole } = useGroupMemberRole(groupId, user?.uid);
   const accessKey = `${user?.uid ?? ""}:${currentMemberRole ?? ""}`;
-  const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId, accessKey);
-  const { members, loading: membersLoading, error: membersError, retry: retryMembers } = useGroupMembers(currentMemberRole ? groupId : undefined, 8, accessKey);
+  const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(user ? groupId : undefined, accessKey);
+  const { members, loading: membersLoading, error: membersError, retry: retryMembers } = useGroupMembers(user && currentMemberRole ? groupId : undefined, 8, accessKey);
 
-  const { rides, aggregate, loading: ridesLoading, error: ridesError, retry: retryRides } = useGroupRideStats(currentMemberRole ? groupId : undefined, accessKey);
-  const { posts, loading: postsLoading, error: postsError } = useGroupPosts(currentMemberRole ? groupId : undefined, accessKey);
+  const { rides, aggregate, loading: ridesLoading, error: ridesError, retry: retryRides } = useGroupRideStats(user && currentMemberRole ? groupId : undefined, accessKey);
+  const { posts, loading: postsLoading, error: postsError } = useGroupPosts(user && currentMemberRole ? groupId : undefined, accessKey);
   const [postContent, setPostContent] = useState("");
   const [posting, setPosting] = useState(false);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
@@ -83,7 +84,7 @@ export default function GroupDashboardPage() {
   const [upcomingLoading, setUpcomingLoading] = useState(true);
   const [upcomingAttempt, setUpcomingAttempt] = useState(0);
   useEffect(() => {
-    if (!groupId) { setUpcomingLoading(false); return; }
+    if (!groupId || !user) { setUpcomingLoading(false); return; }
     let cancelled = false;
     setUpcomingEvents([]);
     setUpcomingError(false);
@@ -134,11 +135,13 @@ export default function GroupDashboardPage() {
     return () => { cancelled = true; };
   }, [groupId, t, user?.uid, accessKey, upcomingAttempt]);
 
+  if (!user && !authLoading) return <PublicClubPreview groupId={groupId} />;
+
   if (roleError && !roleLoading) {
     return <ErrorState title={t("error.loadFailed")} onRetry={retryRole} />;
   }
 
-  if (groupLoading || roleLoading) {
+  if (authLoading || groupLoading || roleLoading) {
     return (
       <div className="space-y-6 animate-pulse">
         <div className="h-6 w-48 rounded-[var(--r-sm)]" style={{ background: "var(--bg-2)" }} />

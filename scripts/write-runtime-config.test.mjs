@@ -1,3 +1,4 @@
+import { PUBLIC_CLUB_ENDPOINT, publicClubEndpoint, withPublicClubEndpoint, verifyPublicClubApi } from "./lib/public-club-deploy-config.mjs";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -196,4 +197,44 @@ test("development deploy readiness checks reads, writes, AI and callable CORS in
   for (const patch of [{ "access-control-allow-origin": "https://other.example" }, { "access-control-allow-methods": "GET,POST" }, { "access-control-allow-headers": "authorization,content-type" }]) {
     await assert.rejects(verifyProductionDataCors(config, async () => new Response(null, { status: 204, headers: { ...headers, ...patch } })), /CORS not ready/);
   }
+});
+
+
+test("public club endpoint is explicit runtime config with no production fallback", () => {
+  assert.equal(render({ VITE_PUBLIC_CLUB_API_URL: "" }).publicClubApiUrl, undefined);
+  const endpoint = PUBLIC_CLUB_ENDPOINT;
+  assert.equal(render({ VITE_PUBLIC_CLUB_API_URL: endpoint }).publicClubApiUrl, endpoint);
+});
+
+
+test("public club production snapshot preserves routes and refuses endpoint injection", () => {
+  const input = productionFixture();
+  const selected = withPublicClubEndpoint(input, PUBLIC_CLUB_ENDPOINT);
+  const config = productionDataConfig(selected);
+  assert.equal(config.publicClubApiUrl, PUBLIC_CLUB_ENDPOINT);
+  assert.equal(config.aiApiBase, input.aiApiBase);
+  assert.equal(input.publicClubApiUrl, undefined);
+  assert.equal(productionBuildEnv(config).VITE_PUBLIC_CLUB_API_URL, PUBLIC_CLUB_ENDPOINT);
+  for (const value of ["http://localhost:8798/publicClubs", PUBLIC_CLUB_ENDPOINT + "?secret=x", PUBLIC_CLUB_ENDPOINT + ".evil", "https://user:password@example.test/"]) {
+    assert.throws(() => publicClubEndpoint(value));
+  }
+});
+
+test("public club deployment preflight is read only and fails closed on cache, fields or origin", async () => {
+  let calls = 0;
+  const origin = "https://orider-dev.web.app";
+  const response = (data, cache = "no-store") => ({ ok: true, headers: new Headers({ "access-control-allow-origin": origin, "cache-control": cache }), json: async () => data });
+  const fake = async (url, options) => {
+    calls++;
+    assert.equal(url, PUBLIC_CLUB_ENDPOINT + "?size=1");
+    assert.equal(options.method, "GET"); assert.equal(options.credentials, "omit");
+    assert.equal(options.redirect, "error"); assert.equal(options.headers.Authorization, undefined);
+    return response({ clubs: [], nextCursor: null });
+  };
+  assert.deepEqual(await verifyPublicClubApi({ publicClubApiUrl: PUBLIC_CLUB_ENDPOINT }, origin, fake), { ok: true, clubCount: 0 });
+  await assert.rejects(verifyPublicClubApi({}, origin, fake), /not configured/);
+  assert.equal(calls, 1);
+  await assert.rejects(verifyPublicClubApi({ publicClubApiUrl: PUBLIC_CLUB_ENDPOINT }, origin, async () => response({ clubs: [], nextCursor: null }, "max-age=60")));
+  await assert.rejects(verifyPublicClubApi({ publicClubApiUrl: PUBLIC_CLUB_ENDPOINT }, origin, async () => response({ clubs: [{ id: "fixture", name: "fixture", description: "", approval: "manual", members: [] }], nextCursor: null })));
+  await assert.rejects(verifyPublicClubApi({ publicClubApiUrl: PUBLIC_CLUB_ENDPOINT }, "https://unapproved.test", fake));
 });
