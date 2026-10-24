@@ -1407,7 +1407,7 @@ export function buildActivityAnalysisProjection(
 }
 
 /** raw_parts 응답의 센서 값은 route와 같은 1초 격자를 쓰며, 미관측 칸은 null이다. */
-function rawPartChartChannel(streams: ActivityStreams, channel: "heartrate" | "cadence"): Array<number | null> | undefined {
+function rawPartChartChannel(streams: ActivityStreams, channel: "heartrate" | "cadence" | "watts"): Array<number | null> | undefined {
   if (!isRawPartStreams(streams)) return undefined;
   const time = streams.time;
   const values = streams[channel] as unknown;
@@ -1440,7 +1440,7 @@ export function buildAlignedActivityChartChannels(streams: ActivityStreams, cont
     context,
     len,
   );
-  const chartPower = alignSensorChannelForChart(
+  const chartPower = (context.powerOverride ? undefined : rawPartChartChannel(streams, "watts")) ?? alignSensorChannelForChart(
     selectedPower.values,
     selectedPower.source === "sensorStreamsV1"
       ? "explicit"
@@ -1540,8 +1540,9 @@ export function buildSummaryStats(
   }
   // 차트의 관측값 통계만 보완한다. 저장된 서버 분석/센서 신뢰 판정은 바꾸지 않는다.
   if (streams && isRawPartStreams(streams)) {
-    for (const [key, channel] of [["hr", "heartrate"], ["cadence", "cadence"]] as const) {
-      const values = positiveValues(rawPartChartChannel(streams, channel));
+    for (const [key, channel] of [["hr", "heartrate"], ["cadence", "cadence"], ["power", "watts"]] as const) {
+      const raw = rawPartChartChannel(streams, channel);
+      const values = key === "power" ? (raw ?? []).filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0) : positiveValues(raw);
       if (values.length) stats[key] = { avg: average(values), max: maximum(values) };
     }
   }

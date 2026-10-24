@@ -43,6 +43,27 @@ describe("activityDetailDerived", () => {
     expect(buildSummaryStats(marked, null)?.overlays.cadence?.max).toBe(80);
   });
 
+  it("renders trusted raw-part power gaps without accepting malformed or unmarked legacy power", () => {
+    const raw = rawPartChartStreams();
+    raw.watts = raw.time!.map((_, i) => i % 23 === 0 ? null : i === 600 ? 0 : 100) as number[];
+    expect(getAvailableOverlays(buildSampledData(raw)).map(cfg => cfg.key)).not.toContain("power");
+    const marked = markRawPartStreams(raw, "a".repeat(64));
+    const points = buildSampledData(marked);
+    expect(getAvailableOverlays(points).map(cfg => cfg.key)).toContain("power");
+    expect(points.find(point => point.sourceIndex === 23)?.power).toBeNull();
+    expect(points.find(point => point.sourceIndex === 600)?.power).toBe(0);
+    expect(buildSummaryStats(marked, null)?.overlays.power?.avg).toBeCloseTo(57300 / 574);
+    expect(buildSummaryStats(marked, null)?.overlays.power?.max).toBe(100);
+    for (const bad of [-1, undefined, Number.NaN]) {
+      const invalid = {...raw, watts:[...raw.watts!]}; invalid.watts[1] = bad as number;
+      expect(getAvailableOverlays(buildSampledData(markRawPartStreams(invalid, "a".repeat(64)))).map(cfg => cfg.key)).not.toContain("power");
+    }
+    const preview = {...marked, watts:raw.time!.map(()=>250)};
+    const context = buildActivitySensorSelectionContext({ridingTimeMillis:600_000,elapsedTimeMillis:600_000}, undefined,
+      {source:"virtualPowerOverride", time:raw.time!});
+    expect(buildSampledData(preview, context).filter(point=>point.power!=null).every(point=>point.power===250)).toBe(true);
+  });
+
   it("rejects malformed raw-part sensor values and clocks rather than relaxing legacy validation", () => {
     for (const value of [-1, NaN, undefined]) {
       const streams = rawPartChartStreams();

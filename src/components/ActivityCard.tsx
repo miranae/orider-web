@@ -1,3 +1,4 @@
+import { withActivityPresentation } from "@shared/analysis/activityPresentation";
 import { Crown, Medal } from "lucide-react";
 import { localeTag } from "../utils/localeDate";
 import "./ActivityCard.css";
@@ -225,13 +226,14 @@ function IdentityDataChips({ pdc }: { pdc?: PdcDoc | null }) {
 }
 
 export default function ActivityCard({
-  activity,
+  activity: rawActivity,
   showMap = true,
   hideAuthor = false,
   priority = false,
   identityPdc = null,
   homeLabels = false,
 }: ActivityCardProps) {
+  const activity = withActivityPresentation(rawActivity);
   const { t } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
   const timeAgo = useTimeAgo();

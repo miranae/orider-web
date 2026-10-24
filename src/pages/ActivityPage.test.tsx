@@ -1,3 +1,4 @@
+import * as personalDataApi from "../services/personalDataApi";
 import { useLocation, useNavigate } from "react-router-dom";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -228,7 +229,7 @@ describe("ActivityPage", () => {
     await screen.findByRole("tab", { name: "비교" });
     expect(screen.queryByText("share-card")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Strava에서 확인" })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("tab").map(tab => tab.textContent)).toEqual(["개요", "분석", "구간", "비교"]);
+    expect(screen.getAllByRole("tab").map(tab => tab.textContent)).toEqual(["개요", "분석", "구간2", "비교"]);
     expect(screen.queryByRole("tab", { name: "내보내기" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "활동 관리" }));
     const menu = within(screen.getByRole("dialog", { name: "활동 관리" }));
@@ -594,18 +595,41 @@ describe("ActivityPage", () => {
     expect(screen.queryByText("평가 근거 다시 불러오기")).not.toBeInTheDocument();
   });
 
-  it("passes activity identity and visibility context to the share action", async () => {
-    const activity = createMockActivity({ id: "test-activity", visibility: "friends" });
-    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
-    shareButtonProps.mockClear();
-    renderWithProviders(<ActivityPage />);
-    fireEvent.click(await screen.findByRole("button", { name: "활동 관리" }));
-    await screen.findByText("share-card");
-    expect(shareButtonProps).toHaveBeenCalledWith(expect.objectContaining({
-      activityId: "test-activity",
-      visibility: "friends",
-    }));
-  });
+  it.each([[true, true], [false, false], [false, true]])("passes canonical sensor metrics after loading streams for owner=%s authenticated=%s", async (isOwner, authenticated) => {
+  const activity = createMockActivity({ id: "test-activity", userId: "owner-a", source: "orider", visibility: isOwner ? "friends" : "everyone",
+    summary: createMockSummary({ tss: 25, averagePower: 113, normalizedPower: 143, ridingTimeMillis: 60_000 }) });
+  const metrics = { version: ACTIVITY_METRICS_VERSION, computedAt: 123, discipline: "bike", distanceKm: 0.3,
+    avgSpeedKph: 21.6, maxSpeedKph: 30, avgPower: 102, maxPower: 400, np: 159, tss: 54.23,
+    movingTimeSec: 50, pauseTimeSec: 10, durationSec: 60, elevationGainM: 331, caloriesKcal: 607 };
+  setDocData("activities/test-activity", { ...activity, activityPresentationV1: {
+    version: 1, metricsVersion: ACTIVITY_METRICS_VERSION, computedAt: 123, activityRevision: null,
+    contentSelectedRevision: null, sensorOriginActivityId: "test-activity", thumbnailTrack: activity.thumbnailTrack,
+    mapImageUrl: null, summary: { ...activity.summary, averagePower: 102, tss: 54.23, normalizedPower: 159,
+      distance: 300, movingTimeSec: 50, pauseTimeSec: 10, ridingTimeMillis: 50_000, elapsedTimeMillis: 60_000 },
+  } } as unknown as Record<string, unknown>);
+  setDocData(`activity_metrics${isOwner ? "" : "_public"}/test-activity`,
+    Object.fromEntries(Object.entries(metrics).filter(([key]) => isOwner || key !== "tss")));
+  setDocData("activity_streams/test-activity", { userId: "owner-a", json: JSON.stringify({
+    time: Array.from({ length: 60 }, (_, i) => i), distance: Array.from({ length: 60 }, (_, i) => i * 5),
+    altitude: Array(60).fill(10), watts: Array(60).fill(102),
+  }) });
+  shareButtonProps.mockClear();
+  const streamRead = vi.spyOn(personalDataApi, "getActivityStreamsWithAuth").mockResolvedValue(createMockStreams({ watts: Array(60).fill(103), heartrate: Array(60).fill(143) }));
+  renderWithProviders(<ActivityPage />, { authenticated, user: { uid: isOwner ? "owner-a" : "viewer-a" } });
+  const stats = await screen.findByTestId("activity-detail-hero");
+  await waitFor(() => expect(stats).toHaveTextContent("평균 파워102W"));
+  await waitFor(() => expect(stats).toHaveTextContent(/TSS\s*54/));
+  if (authenticated) await waitFor(() => expect(streamRead).toHaveBeenCalled());
+  fireEvent.click(await screen.findByRole("button", { name: "활동 관리" }));
+  await screen.findByText("share-card");
+  await waitFor(() => expect(shareButtonProps).toHaveBeenLastCalledWith(expect.objectContaining({
+    activityId: "test-activity", visibility: isOwner ? "friends" : "everyone",
+    card: expect.objectContaining({ elevation: "331 m", performanceMetrics: expect.arrayContaining([
+      expect.objectContaining({ value: "54" }), expect.objectContaining({ value: "159", unit: "W" }),
+    ]) }),
+  })));
+  streamRead.mockRestore();
+});
 
   it("passes activity-date fitness and VO2max into the exported image", async () => {
     simulateLogin("owner-a");
@@ -1974,5 +1998,8 @@ describe("ActivityPage", () => {
       expect(within(story).queryByRole("button", { name: "사진 1 / 9 보기" })).not.toBeInTheDocument();
     }
   });
+
+
+
 
 });

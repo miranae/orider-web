@@ -1,3 +1,5 @@
+import { canonicalActivityChartMetrics } from "../features/activity/detail/activityPerformancePresentation";
+import { withActivityPresentation } from "@shared/analysis/activityPresentation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentProps, Dispatch, SetStateAction } from "react";
 import { doc, getDoc } from "firebase/firestore";
@@ -129,7 +131,7 @@ export function useActivityAnalysisModel(
           }
           setActivityProcessing(false);
           // 누락된 선택 요약이 정상 경로/센서/개요의 조회까지 막지 않는다. 수치 0은 만들지 않는다.
-          setActivity({ id: snap.id, ...data, summary: usableSummary ? data.summary : {} } as Activity);
+          setActivity(withActivityPresentation({ id: snap.id, ...data, summary: usableSummary ? data.summary : {} } as Activity));
         } else {
           setActivityProcessing(false);
         }
@@ -282,7 +284,9 @@ export function useActivityAnalysisModel(
     || (effectiveStreams.distance?.length ?? 0) > 0
     || (effectiveStreams.laps?.length ?? 0) > 0
   );
+  const canonicalSummary = canonicalActivityChartMetrics(activity, serverMetrics.metrics, !!activePowerOverride) != null;
   const displayedSummary = useMemo(() => {
+    if (canonicalSummary) return activity?.summary ?? null;
     const summary = activity?.summary;
     if (summary && serverAnalysisSummary && !activePowerOverride) {
       return { ...summary, ...serverAnalysisSummary.correctedAverages };
@@ -311,14 +315,14 @@ export function useActivityAnalysisModel(
       normalizedPower: hasStreamPowerCandidate ? null : summary.normalizedPower,
       tss: hasStreamPowerCandidate ? null : summary.tss,
     };
-  }, [activePowerOverride, activity?.summary, effectiveStreams, hasStreamCadenceCandidate, hasStreamPowerCandidate, serverAnalysisSummary, streamSensorSummary]);
+  }, [canonicalSummary, activePowerOverride, activity?.summary, effectiveStreams, hasStreamCadenceCandidate, hasStreamPowerCandidate, serverAnalysisSummary, streamSensorSummary]);
 
-  const avgPowerValue = serverAnalysisSummary && !activePowerOverride
+  const avgPowerValue = (canonicalSummary || serverAnalysisSummary) && !activePowerOverride
     ? displayedSummary?.averagePower ?? null
     : effectiveStreams && hasStreamPowerCandidate
     ? streamSensorSummary?.averagePower ?? null
     : activity?.summary.averagePower ?? activity?.avgPower ?? null;
-  const normalizedPowerValue = serverAnalysisSummary && !activePowerOverride
+  const normalizedPowerValue = (canonicalSummary || serverAnalysisSummary) && !activePowerOverride
     ? displayedSummary?.normalizedPower ?? null
     : effectiveStreams && hasStreamPowerCandidate
     ? null

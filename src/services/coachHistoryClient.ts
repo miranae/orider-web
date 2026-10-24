@@ -14,12 +14,24 @@ export interface CoachThreadSummary {
   revision: number;
 }
 
+export interface CoachHistoryFailureResponse {
+  apiVersion: "v2";
+  capabilityVersion: "p1" | "p2";
+  schemaVersion: "coach-history-failure-v1";
+  requestId: string;
+  outcome: "failed";
+  error: { code: string; httpStatus: number; retryable: boolean; fallbackAvailable: false };
+  execution: { asOf: string };
+}
+
+export type CoachHistoryResponse = CoachV2Response | CoachP2Response | CoachHistoryFailureResponse;
+
 export interface CoachThreadTurn {
   turnId: string;
   requestId: string;
   question: string;
   createdAt: string;
-  response: CoachV2Response | CoachP2Response;
+  response: CoachHistoryResponse;
   responseFormat: CoachResponseFormat;
   sessionRevision: number;
 }
@@ -50,6 +62,21 @@ function iso(value: unknown): value is string {
   if (typeof value !== "string" || !ISO_UTC.test(value) || !Number.isFinite(Date.parse(value))) return false;
   const normalized = new Date(value).toISOString();
   return value === normalized || value === normalized.replace(".000Z", "Z");
+}
+
+function parseFailureResponse(value: Record<string, unknown>): CoachHistoryFailureResponse {
+  const error = record(value.error);
+  const execution = record(value.execution);
+  if (value.apiVersion !== "v2" || !["p1", "p2"].includes(String(value.capabilityVersion))
+      || value.schemaVersion !== "coach-history-failure-v1" || value.outcome !== "failed"
+      || typeof value.requestId !== "string" || !UUID.test(value.requestId)
+      || typeof error?.code !== "string" || !/^[a-z][a-z0-9_-]{0,99}$/.test(error.code)
+      || !Number.isInteger(error.httpStatus) || Number(error.httpStatus) < 400 || Number(error.httpStatus) > 599
+      || typeof error.retryable !== "boolean" || error.fallbackAvailable !== false
+      || !iso(execution?.asOf)) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
+  return { apiVersion: "v2", capabilityVersion: value.capabilityVersion as "p1" | "p2",
+    schemaVersion: "coach-history-failure-v1", requestId: value.requestId, outcome: "failed",
+    error: { code: error.code, httpStatus: error.httpStatus as number, retryable: error.retryable, fallbackAvailable: false }, execution: { asOf: execution.asOf } };
 }
 
 function cursor(value: unknown): value is string | null {
@@ -130,13 +157,9 @@ export function parseCoachThread(input: unknown, expectedLimit = 20): CoachThrea
         || Number(turn.sessionRevision) < 0) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
     // Detail DTO stores the response document itself; the live endpoint wraps it in { data }.
     const storedResponse = record(turn.response);
-    const response = storedResponse?.capabilityVersion === "p2"
+    const response = storedResponse?.schemaVersion === "coach-history-failure-v1" ? parseFailureResponse(storedResponse)
+      : storedResponse?.capabilityVersion === "p2"
       ? parseCoachP2Response({ data: turn.response }) : parseCoachV2Response({ data: turn.response });
-    // P2 outbox persists only terminal answers. An unavailable envelope in history is contract drift,
-    // not a renderable turn, and must not poison follow-up/session semantics.
-    if (response.capabilityVersion === "p2" && response.outcome !== "answer") {
-      throw new Error("INVALID_COACH_HISTORY_RESPONSE");
-    }
     if (response.requestId !== turn.requestId) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
     const responseFormat = turn.responseFormat === undefined ? "auto" : turn.responseFormat;
     if (!COACH_RESPONSE_FORMATS.includes(responseFormat as CoachResponseFormat)) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
