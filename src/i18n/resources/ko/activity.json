@@ -2746,7 +2746,9 @@
     "selection": "선택 구간",
     "selectedStatsLabel": "선택 구간 통계",
     "distanceShort": "거리",
-    "elapsedShort": "시간"
+    "elapsedShort": "시간",
+    "canonicalMaximum": "분석 최고",
+    "canonicalAverage": "분석 평균"
   },
   "overviewSocial": {
     "title": "활동 이야기",
@@ -2766,7 +2768,8 @@
     "allResults": "전체 보기",
     "noResults": "표시할 주요 성과가 없어요.",
     "previousPhoto": "이전 사진",
-    "nextPhoto": "다음 사진"
+    "nextPhoto": "다음 사진",
+    "memoSnapshot": "{{date}}에 생성된 요약입니다. 현재 분석과 다를 수 있어요."
   },
   "detail.keyRecords": "핵심 기록"
 }

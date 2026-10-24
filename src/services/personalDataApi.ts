@@ -125,14 +125,15 @@ export async function getActivityStreamsWithAuth(
     }
     return streams;
   }
-  const payload = await apiFetch<{ data?: ActivityStreams }>(
+  const payload = await apiFetch<{ data?: ActivityStreams; sourceLayer?: string; streamInputRevision?: string }>(
     authInstance,
     `/activities/${encodeURIComponent(activityId)}/streams`,
   );
   if (!payload.data || typeof payload.data !== "object") {
     throw new Error("INVALID_PERSONAL_API_RESPONSE");
   }
-  return payload.data;
+  return payload.sourceLayer === "raw_parts" && payload.streamInputRevision
+    ? markRawPartStreams(payload.data, payload.streamInputRevision) : payload.data;
 }
 
 /** 확인할 수 없는 위치를 버리고 원본 스트림 표시는 유지한다. */

@@ -1,3 +1,4 @@
+import { useActivityAuthor } from "../hooks/useActivityAuthor";
 import { useMobile } from "../hooks/useMobile";
 import { ChevronDown, Menu, Trophy } from "lucide-react";
 import SportIcon from "../components/common/SportIcon";
@@ -152,8 +153,8 @@ export default function ActivityPage() {
     streamSensorSummary,
     displayedSummary: selectedSummary,
     avgPowerValue,
-    normalizedPowerValue,
     hasStreamPowerCandidate,
+    normalizedPowerValue,
     hasAnalysisStreams,
     sensorSelectionContext,
     analysisTabProps,
@@ -673,10 +674,20 @@ export default function ActivityPage() {
   const availableOverlays = useMemo(() => getPerformanceOverlays(
     sampledData, sport, units, recordedRunCadenceUnit, t("analysis.run.cadenceUnit"),
   ), [sampledData, sport, units, recordedRunCadenceUnit, t]);
-  const summaryStats = useMemo(
-    () => buildSummaryStats(effectiveStreams, streamSensorSummary),
-    [effectiveStreams, streamSensorSummary],
-  );
+  const canonicalSummaryMetrics = !activePowerOverride && serverMetrics.metrics?.version != null && serverMetrics.metrics.version >= 41
+    && activity?.activityPresentationV1?.computedAt === serverMetrics.metrics.computedAt ? serverMetrics.metrics : null;
+  const summaryStats = useMemo(() => {
+    const observed = buildSummaryStats(effectiveStreams, streamSensorSummary);
+    if (!observed || !canonicalSummaryMetrics) return observed;
+    const overlays = { ...observed.overlays };
+    for (const [key, avg, max] of [["speed", canonicalSummaryMetrics.avgSpeedKph, canonicalSummaryMetrics.maxSpeedKph],
+      ["power", canonicalSummaryMetrics.avgPower, canonicalSummaryMetrics.maxPower],
+      ["hr", canonicalSummaryMetrics.avgHr, canonicalSummaryMetrics.maxHr],
+      ["cadence", canonicalSummaryMetrics.avgCadence, canonicalSummaryMetrics.maxCadence]] as const) {
+      if (typeof avg === "number" && typeof max === "number") overlays[key] = { avg, max };
+    }
+    return { ...observed, overlays };
+  }, [effectiveStreams, streamSensorSummary, canonicalSummaryMetrics]);
   const { location: runSplitLocation, onSelectSplit: selectRunSplit } = useRunSplitLocation(activityId, activity?.id, sport === "run", streams, sampledData, resolveObservedDistanceKm(serverMetrics.metrics ?? {}, activity?.summary?.distance));
   const peakLocation = useMemo(() => resolvePeakEffortLocation(selectedPeak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData),
     [selectedPeak, serverMetrics.metrics, streams, sampledData]);
@@ -768,11 +779,13 @@ export default function ActivityPage() {
     [hoveredSegment, streams, runSplitLocation, peakLocation, rangeSelection.selection, rangeSelection.chartRange],
   );
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
+  const author = useActivityAuthor(activity ?? { userId: "" });
   const sourceRevision = activity ? activityFeedSourceRevision(activity) : null;
   const publishedContent = activity?.feedContentV1?.sourceRevision === sourceRevision ? boundedFeedContent(activity.feedContentV1) : null;
   const resolvedMemo = activity ? resolveActivityMemo(activity, stravaSummaryLang) : null;
-  const overviewMemo = resolvedMemo?.memo ?? (publishedContent?.memo?.trim() ? publishedContent.memo
-    : overview.response?.status === "available" && overview.response.activityId === activity?.id ? overview.response.defaultMemo ?? null : null);
+  const freshDefaultMemo = overview.response?.status === "available" && overview.response.activityId === activity?.id
+    ? overview.response.defaultMemo ?? null : null;
+  const overviewMemo = resolvedMemo?.authored ? resolvedMemo.memo : freshDefaultMemo ?? resolvedMemo?.memo ?? publishedContent?.memo ?? null;
 
   const hasStreams = sampledData.length > 0;
   const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, user?.uid, activityId, user?.isAnonymous === true);
@@ -840,7 +853,11 @@ export default function ActivityPage() {
   }
 
   const s = activity.summary;
-  const displayedSummary = selectedSummary ?? s;
+  const latestMetrics = serverMetrics.status === "ready" || serverMetrics.status === "stale" ? serverMetrics.metrics : null;
+  const hasCanonicalSensorPresentation = canonicalSummaryMetrics != null;
+  const powerNeedsPreview = activePowerOverride != null || hasStreamPowerCandidate && !hasCanonicalSensorPresentation;
+  const displayedSummary = { ...(selectedSummary ?? s),
+    ...(latestMetrics && !powerNeedsPreview ? { tss: latestMetrics.tss } : {}) };
   const activityDate = Number.isFinite(activity.startTime) && Number.isFinite(new Date(activity.startTime).getTime())
     ? fitnessDateKeyFor(activity.startTime, fitnessTimeseries?.loadSnapshot?.dateKeyBasis)
     : null;
@@ -855,10 +872,10 @@ export default function ActivityPage() {
   };
   // Until streams and activity_metrics share a revision fingerprint, any raw power candidate
   // makes saved/server NP and TSS provenance unprovable. Keep trusted stream avg/max only.
-  const activityTss = sport === "run" ? serverMetrics.metrics?.streamTrimpTss ?? null : hasStreamPowerCandidate
+  const activityTss = sport === "run" ? serverMetrics.metrics?.streamTrimpTss ?? null : powerNeedsPreview
     ? null
     : serverMetrics.metrics?.tss ?? s.tss;
-  const activityNp = sport !== "ride" || hasStreamPowerCandidate
+  const activityNp = sport !== "ride" || powerNeedsPreview
     ? null
     : serverMetrics.metrics?.np ?? normalizedPowerValue;
 
@@ -873,8 +890,8 @@ export default function ActivityPage() {
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const stravaActivityId = getStravaActivityId(activity);
   const stravaActivityUrl = stravaActivityId ? `https://www.strava.com/activities/${stravaActivityId}` : null;
-  const activityNickname = activity.nickname?.trim() || (isActivityOwner ? profile?.nickname?.trim() || user?.displayName?.trim() : null) || tCommon("label.rider");
-  const activityProfileImage = activity.profileImage || (user?.uid === activity.userId ? profile?.photoURL ?? user?.photoURL ?? null : null);
+  const activityNickname = author.nickname?.trim() || (isActivityOwner ? profile?.nickname?.trim() || user?.displayName?.trim() : null) || tCommon("label.rider");
+  const activityProfileImage = author.profileImage || (user?.uid === activity.userId ? profile?.photoURL ?? user?.photoURL ?? null : null);
   const hasAnalysisRoute = !!streams?.latlng?.length;
   const hasTrack = !!(activity.thumbnailTrack || hasAnalysisRoute);
   const canCreateFromOwnRoute = isActivityOwner && hasAnalysisRoute && sport !== "swim";
@@ -908,7 +925,7 @@ export default function ActivityPage() {
     avgPowerValue,
     avgSpeedFallbackKph: fallbackAvgKph,
     normalizedPowerValue,
-    hasStreamPowerCandidate,
+    hasStreamPowerCandidate: powerNeedsPreview,
   });
   const runCadenceUnit = recordedRunCadenceUnit;
   const stripStats = sport === "run" ? {
@@ -1151,11 +1168,11 @@ export default function ActivityPage() {
                 athlete: activityNickname,
                 sport: tCommon(getSportLabelKey(activity.type)),
                 date: formatFullDate(activity.startTime),
-                distance: Number.isFinite(s.distance) ? `${distVal(s.distance)} ${distUnit}` : "—",
-                duration: Number.isFinite(s.ridingTimeMillis) ? formatDuration(s.ridingTimeMillis) : "—",
-                elevation: Number.isFinite(s.elevationGain) ? `${elevVal(s.elevationGain)} ${elevUnit}` : "—",
+                distance: stripStats.distanceM.value != null ? `${distVal(stripStats.distanceM.value)} ${distUnit}` : "—",
+                duration: Number.isFinite(speedDur.displayMs) ? formatDuration(speedDur.displayMs) : "—",
+                elevation: stripStats.elevationGainM.value != null ? `${elevVal(stripStats.elevationGainM.value)} ${elevUnit}` : "—",
                 distanceLabel: t("stat.distance"),
-                durationLabel: t("stat.time"),
+                durationLabel: t(speedDur.usingMoving ? "stat.movingTime" : "stat.elapsedTime"),
                 elevationLabel: t("stat.elev"),
                 elevationProfileLabel: t("page.share.elevationProfile"),
                 performanceLabel: t("page.share.performanceLabel"),
@@ -1207,7 +1224,7 @@ export default function ActivityPage() {
             selected={activeTab === id} aria-controls="activity-tab-panel" tabIndex={activeTab === id ? 0 : -1}
             onClick={() => { pendingPeakLocation.current = null; pendingLap.current = null; setActiveTab(id); }}>
             {t(`tab.${id}`)}
-            {id === "segments" && segmentEfforts.length > 0 && <span className="activity-detail-tab-count">{segmentEfforts.length}</span>}
+            {id === "segments" && (segmentEfforts.length || activity.segmentEffortCount) > 0 && <span className="activity-detail-tab-count">{segmentEfforts.length || activity.segmentEffortCount}</span>}
           </ToggleButton>)}
         </ToggleControls>
       </div>
@@ -1215,12 +1232,12 @@ export default function ActivityPage() {
         <Text as="h2" variant="subtitle">{t("detail.keyRecords")}</Text>{summarySection}
       </section>}
       {activeTab === "overview" && <ActivityOverviewSocial key={`${activity.id}:${user?.uid ?? "guest"}:${sourceRevision}`} activityId={activity.id} prioritizeResults={mobileReading}
-        memo={overviewMemo} memoMono={resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
+        memo={overviewMemo} memoGeneratedAt={!resolvedMemo?.authored && !freshDefaultMemo ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
         photosKnown={!!streams || !!publishedContent || typeof activity.photoCount === "number"} memoTruncated={publishedContent?.memoTruncated} photos={overviewPhotos}
         totalPhotos={Math.max(photos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0) + uploadedPhotos.length}
         companions={visibleCoRiders} achievements={overviewAchievements}
  owner={isActivityOwner} viewerId={user?.uid} uploading={photoUploading} canUpload={uploadedPhotos.length < MAX_PHOTOS}
-        loadingPhotos={loadingStreams || showStreamSpinner} photoError={streamsError} canLoadPhotos={!streamsSignInRequired}
+        loadingPhotos={loadingStreams || showStreamSpinner} photoError={(activity.photoCount ?? 0) > overviewPhotos.length ? streamsError : null} canLoadPhotos={!streamsSignInRequired}
         onSignIn={() => { void signIn(); }} onLoadPhotos={() => { if (streamsError) void retryStreams(); else requestStreams(); }} onUpload={() => photoInputRef.current?.click()}
         onDelete={id => { const photo = uploadedPhotos.find(item => item.id === id); if (photo) void handleDeletePhoto(photo); }}
         onLocate={location => { setFlyToPosition(null); setTimeout(() => setFlyToPosition(location), 10); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
@@ -1272,7 +1289,7 @@ export default function ActivityPage() {
         </Card>
       )}
       {showElevation && elevData.length > 0 && (
-        <ActivityPerformanceCharts embedded analysisStyle
+        <ActivityPerformanceCharts embedded analysisStyle canonicalSummary={hasCanonicalSensorPresentation}
           chartIdentity={visualIdentity} rawStreams={effectiveStreams} sensorSelectionContext={sensorSelectionContext}
           rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
           visualRange={visualRange} onVisualRangeChange={setVisualRange} hoverIndex={hoverIndex} segments={chartSegments}

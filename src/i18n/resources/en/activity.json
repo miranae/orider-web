@@ -2746,7 +2746,9 @@
     "selection": "Selected range",
     "selectedStatsLabel": "Selected range statistics",
     "distanceShort": "Distance",
-    "elapsedShort": "Time"
+    "elapsedShort": "Time",
+    "canonicalMaximum": "Analysis maximum",
+    "canonicalAverage": "Analysis average"
   },
   "overviewSocial": {
     "title": "Activity story",
@@ -2766,7 +2768,8 @@
     "allResults": "View all",
     "noResults": "No highlights to display.",
     "previousPhoto": "Previous photo",
-    "nextPhoto": "Next photo"
+    "nextPhoto": "Next photo",
+    "memoSnapshot": "Summary generated on {{date}}. Current analysis may differ."
   },
   "detail.keyRecords": "Key records"
 }

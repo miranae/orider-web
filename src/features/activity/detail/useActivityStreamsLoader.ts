@@ -115,7 +115,8 @@ export function useActivityStreamsLoader({
   const requestStreams = useCallback(() => { setRequestedScope(scope); }, [scope]);
   const shouldLoad = enabled || requestedScope === scope;
   // stage reader는 인증이 필수다. 공개 요약을 결측 스트림으로 오해하지 않도록 별도 상태를 보존한다.
-  const streamsSignInRequired = getRuntimeConfig().appEnvironment === "stage" && !userId;
+  const streamsSignInRequired = !userId && (getRuntimeConfig().appEnvironment === "stage"
+    || !!activity?.activityPresentationV1);
   const [retryKey, setRetryKey] = useState(0);
   const retryStreams = useCallback(async () => { setRequestedScope(scope); setRetryKey(key => key + 1); }, [scope]);
 
@@ -131,11 +132,12 @@ export function useActivityStreamsLoader({
     const source = (activity as Activity & { source?: string }).source;
     const stravaId = getStravaActivityId(activity);
 
-    if (activityId && (getRuntimeConfig().appEnvironment === "stage" || usesCanonicalActivityStreams(activityId, source))) {
+    const sensorActivityId = activity.activityPresentationV1?.sensorOriginActivityId ?? activityId;
+    if (activityId && (getRuntimeConfig().appEnvironment === "stage" || usesCanonicalActivityStreams(activityId, source) || sensorActivityId !== activityId)) {
       setLoadingStreams(true);
       setStreamsError(null);
       const timer = setTimeout(() => { if (active) setShowStreamSpinner(true); }, 500);
-      loadCanonicalActivityStreams(activityId, activity.userId, services, { includeRunEffortFacts: !!userId && userId === activity.userId && disciplineOfType(activity.type) === "run" }).then((parsed) => {
+      loadCanonicalActivityStreams(sensorActivityId!, activity.userId, services, { includeRunEffortFacts: !!userId && userId === activity.userId && disciplineOfType(activity.type) === "run" }).then((parsed) => {
         if (active) setStreams(parsed);
       }).catch((err) => {
         if (!active) return;
@@ -195,8 +197,8 @@ export function useActivityStreamsLoader({
     setStreams,
     showStreamSpinner: loadedScope === scope && showStreamSpinner,
     setShowStreamSpinner,
-    streamsError: loadedScope === scope ? streamsError : null,
-    streamsSignInRequired,
+    streamsError: loadedScope === scope && streamsError !== "SIGN_IN_REQUIRED" ? streamsError : null,
+    streamsSignInRequired: streamsSignInRequired || loadedScope === scope && streamsError === "SIGN_IN_REQUIRED",
     setStreamsError,
     loadingStreams: loadedScope === scope && loadingStreams,
     setLoadingStreams,

@@ -17,6 +17,7 @@ export interface Activity {
   startTime: number;
   endTime: number;
   summary: ActivitySummary;
+  readonly activityPresentationV1?: import("./analysis/activityPresentation").ActivityPresentationV1;
   /** 활동 생성 시 서버가 GPS 시작점으로 계산한 영어 지역명. 카드 조회 시 재계산하지 않는다. */
   readonly regionName?: string | null;
   thumbnailTrack: string; // encoded polyline
