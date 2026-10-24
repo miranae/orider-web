@@ -6,7 +6,14 @@
 .coach-page-header h1 { flex: 1 1 auto; margin: 0; }
 .coach-page-header > div:has(> [role="tablist"]) { width: fit-content; max-width: 100%; }
 .coach-page-header > a { display: inline-flex; align-items: baseline; gap: var(--space-2); color: var(--ink-1); }
+/* 코치 머리 규칙: 제목 줄 = 제목(왼쪽) + 종목 전환(오른쪽 끝, 제목과 세로 가운데). 목표 링크·TSB 등은 아래 줄.
+   페이지마다 뒤따르는 요소 수가 달라 전환 위치가 제각각이던 것을 한 규칙으로 고정한다. */
+.coach-surface .coach-page-header > h1 { order: 0; }
+.coach-surface .coach-page-header > div:has(> [role="tablist"]) { order: 1; margin-inline-start: auto; }
+.coach-surface .coach-page-header > :not(h1):not(div:has(> [role="tablist"])) { order: 2; flex-basis: 100%; }
 .coach-surface .fitness-reading { padding-inline: 0 !important; }
+/* 데스크톱 컨디션·분석은 안쪽 site-shell 이 좌우 24 를 또 줘서 다른 코치 화면보다 들어가 있었다. 셸 거터만 쓴다. */
+.coach-surface .fitness-reading .site-shell { padding-inline: 0 !important; }
 .coach-surface .ds-btn--primary, .coach-surface .ds-btn--primary:hover:not(:disabled) { background: var(--color-primary-dark); color: var(--primary-fg); border-color: var(--color-primary-dark); }
 .coach-inline-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-4); padding: var(--space-4); border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--bg-2); }
 .coach-surface [data-testid="K3-1"] { display: grid; gap: var(--space-4); }
