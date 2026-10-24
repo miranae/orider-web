@@ -90,5 +90,9 @@ describe("group next events", () => {
     expect(isEligibleNextEvent({ visibility: "PUBLIC", deletedAt: null }, true)).toBe(true);
     expect(isEligibleNextEvent({}, true)).toBe(false);
     expect(isEligibleNextEvent({ visibility: "GROUP" }, false)).toBe(true);
+    expect(isEligibleNextEvent({ visibility:"GROUP" },true,true)).toBe(true);
+    expect(isEligibleNextEvent({},true,true)).toBe(true);
+    expect(isEligibleNextEvent({ visibility:"PRIVATE" },true,true)).toBe(false);
+    expect(isEligibleNextEvent({ visibility:"PUBLIC",kind:"CLUB_MEETING" },true,true)).toBe(false);
   });
 });

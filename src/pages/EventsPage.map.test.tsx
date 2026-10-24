@@ -1,8 +1,9 @@
+import { getDoc } from "firebase/firestore";
 import { installEventDiscoveryFixture } from "../__tests__/fixtures/eventDiscovery";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
-import { setCollectionDocs } from "../__tests__/mocks/firebase";
+import { setCollectionDocs, setCallableImplementation, mockCallableInvocations } from "../__tests__/mocks/firebase";
 import eventStrings from "../i18n/resources/ko/event.json";
 import EventsPage from "./EventsPage";
 
@@ -25,6 +26,52 @@ beforeEach(() => { installEventDiscoveryFixture(); fitBounds.mockClear(); mapCli
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe("event map camera intent", () => {
+  it("stops on rejected continuation and restarts from the first page only after Retry", async () => {
+    const token="~ed1_"+"e".repeat(48);
+    setCallableImplementation("listVisibleEventEnvelopes",input=>{
+      if((input as {cursor?:string}).cursor)throw new Error("Unavailable cursor");
+      return {data:{rows:[],nextCursor:token}};
+    });
+    renderWithProviders(<EventsPage/>,{route:"/ko/explore/events"});
+    fireEvent.click(await screen.findByRole("button",{name:eventStrings["message.next"],exact:true}));
+    await screen.findByText(eventStrings["dashboard.errorLoadEvent"]);
+    expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button",{name:/다시|retry/i}));
+    await screen.findByRole("button",{name:eventStrings["message.next"],exact:true});
+    const calls=mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes");
+    expect(calls).toHaveLength(3);expect(calls[2].data).not.toHaveProperty("cursor");
+  });
+
+  it("does not continue or hydrate course data when a pending discovery response arrives after navigation", async () => {
+    let finish!:(value:unknown)=>void;
+    setCallableImplementation("listVisibleEventEnvelopes",()=>new Promise(resolve=>{finish=resolve;}));
+    const view=renderWithProviders(<EventsPage/>,{route:"/ko/explore/events"});
+    await waitFor(()=>expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes")).toHaveLength(1));
+    view.unmount();vi.mocked(getDoc).mockClear();
+    await act(async()=>finish({data:{rows:[{id:"late",data:{info:{status:"OPEN",visibility:"PUBLIC",courseIds:["no-read-after-navigation"]}}}],nextCursor:"~ed1_"+"d".repeat(48)}}));
+    expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes")).toHaveLength(1);
+    expect(getDoc).not.toHaveBeenCalled();
+  });
+
+  it("keeps an incomplete private window bounded until Next and then shows public, legacy and GROUP rows", async () => {
+    const token="~ed1_"+"c".repeat(48);
+    setCallableImplementation("listVisibleEventEnvelopes", input => {
+      const request=input as {cursor?:string};
+      return {data:request.cursor ? {rows:[
+        {id:"prefix-public",data:{info:{name:"Public after private prefix",status:"OPEN",visibility:"PUBLIC",startTime:Date.now()+60_000}}},
+        {id:"prefix-legacy",data:{info:{name:"Legacy after private prefix",status:"OPEN",startTime:Date.now()+60_000}}},
+        {id:"prefix-group",data:{info:{name:"GROUP after private prefix",status:"OPEN",visibility:"GROUP",startTime:Date.now()+60_000}}},
+      ],nextCursor:null} : {rows:[],nextCursor:token}};
+    });
+    renderWithProviders(<EventsPage/>,{route:"/ko/explore/events"});
+    const next=await screen.findByRole("button",{name:eventStrings["message.next"],exact:true});
+    expect(screen.queryByText(eventStrings["empty.noEvents"])).not.toBeInTheDocument();
+    expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes")).toHaveLength(1);
+    fireEvent.click(next);
+    for(const name of ["Public after private prefix","Legacy after private prefix","GROUP after private prefix"])expect(await screen.findByText(name,{exact:true})).toBeInTheDocument();
+    expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes")).toHaveLength(2);
+  });
+
   it("fits late URL GPX data and explicit filters while preserving the camera during ordinary renders", async () => {
     let finishGpx!: (response: Response) => void;
     vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(resolve => { finishGpx = resolve; })));

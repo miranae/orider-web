@@ -40,7 +40,7 @@ interface UpcomingEvent {
 }
 
 export default function GroupDashboardPage() {
-  const { t, i18n } = useTranslation("group");
+  const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
   const { user, loading: authLoading } = useAuth();
   const dialog = useDialog();
@@ -82,6 +82,7 @@ export default function GroupDashboardPage() {
   // 다가오는 그룹 이벤트
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [upcomingError, setUpcomingError] = useState(false);
+  const [upcomingIncomplete, setUpcomingIncomplete] = useState(false);
   const [upcomingLoading, setUpcomingLoading] = useState(true);
   const [upcomingAttempt, setUpcomingAttempt] = useState(0);
   useEffect(() => {
@@ -89,10 +90,13 @@ export default function GroupDashboardPage() {
     let cancelled = false;
     setUpcomingEvents([]);
     setUpcomingError(false);
+    setUpcomingIncomplete(false);
     setUpcomingLoading(true);
     (async () => {
       try {
         const snap = await getVisibleEventPage({ groupId, publicOnly: !currentMemberRole, statuses: ["OPEN", "LIVE"], limit: 3 });
+        if (cancelled) return;
+        setUpcomingIncomplete(Boolean(snap.nextCursor));
         const list: UpcomingEvent[] = await Promise.all(snap.docs.map(async (d) => {
           const data = d.data();
           const info = data.info ?? {};
@@ -430,12 +434,13 @@ export default function GroupDashboardPage() {
       )}
 
       {/* 다가오는 이벤트 */}
-      {(upcomingEvents.length > 0 || upcomingLoading || upcomingError) && (
+      {(upcomingEvents.length > 0 || upcomingLoading || upcomingError || upcomingIncomplete) && (
         <Card data-testid="C1-4" padding="none" className="mb-5 p-4" style={{ borderRadius: "var(--r-lg)" }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="club-card-title" style={{ color: "var(--ink-1)" }}>{t("dashboard.upcomingEvents")}</h2>
             <Link data-testid="C1-4-1" to={`/club/${groupId}/events`} className="text-[length:var(--ft-body-size)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreEvents")}</Link>
           </div>
+          {upcomingIncomplete && !upcomingLoading && !upcomingError && <p role="status">{t("event:discovery.partial")}</p>}
           {upcomingLoading ? <LoadingSkeleton kind="list" count={2} /> : upcomingError ? <ErrorState title={t("error.eventsLoadFailed")} onRetry={()=>setUpcomingAttempt(value=>value+1)} compact /> : <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" style={{ listStyle: "none", margin: 0, padding: 0, gap: "var(--space-2)" }}>
             {upcomingEvents.map((e) => (
               <li key={e.id} className="flex items-center justify-between" style={{ padding: "10px 12px", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", gap: "var(--space-2)" }}>

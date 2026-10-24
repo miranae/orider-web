@@ -34,8 +34,8 @@ export function formatNextLabel(ts: number, name: string, locale: string): strin
   })} · ${name}`;
 }
 
-export function isEligibleNextEvent(info: Record<string, unknown>, publicOnly: boolean): boolean {
-  return !publicOnly || (info.visibility === "PUBLIC" && info.deletedAt == null);
+export function isEligibleNextEvent(info: Record<string, unknown>, publicOnly: boolean, serverAuthorized = false): boolean {
+  return !publicOnly || (info.deletedAt == null && info.kind !== "CLUB_MEETING" && (info.visibility === "PUBLIC" || (serverAuthorized && (info.visibility == null || info.visibility === "GROUP"))));
 }
 
 /**
@@ -69,7 +69,7 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
             if (doc.id === excludeEventId) return;
             const d = doc.data();
             const info = d.info ?? {};
-            if (!isEligibleNextEvent(info, publicOnly)) return;
+            if (!isEligibleNextEvent(info, publicOnly, true)) return;
             if (info.status !== "OPEN" && info.status !== "LIVE") return;
             const groupId: string = info.groupId ?? "";
             if (!uniqueGroupIds.includes(groupId)) return;

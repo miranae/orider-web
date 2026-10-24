@@ -7,7 +7,7 @@ import { useEffect, useState, useRef } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc } from "firebase/firestore";
-import { getVisibleEventPage, type EventEnvelopeDoc } from "../../services/eventDiscovery";
+import { getVisibleEventPage } from "../../services/eventDiscovery";
 import { groupCalendarUrl } from "../../features/group/groupCalendar";
 import { firestore } from "../../services/firebase";
 import { normalizeStartTime } from "../../utils/event-time";
@@ -64,9 +64,14 @@ export default function GroupEventsPage() {
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [status, setStatus] = useState("all");
+  const eventScope = JSON.stringify([groupId, accessKey, status]);
+  const [eventPage, setEventPage] = useState<{ scope: string; cursor?: string }>({ scope: "" });
+  const eventCursor = eventPage.scope === eventScope ? eventPage.cursor : undefined;
+  const [eventNextCursor, setEventNextCursor] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     setEvents([]);
+    setEventNextCursor(null);
     setLoading(true);
     setError(false);
     if (!groupId) {
@@ -74,26 +79,15 @@ export default function GroupEventsPage() {
       return;
     }
     (async () => {
-      const docs: EventEnvelopeDoc[] = [];
-      let cursor: string | undefined;
-      while (!cancelled && docs.length < 20) {
-        const page = await getVisibleEventPage({ groupId, publicOnly: !role, statuses: status === "all" ? ["OPEN", "LIVE"] : [status], descending: status === "FINISHED", limit: 20, ...(cursor ? { cursor } : {}) });
-        docs.push(
-          ...page.docs.filter((item) => {
-            const info = item.data().info ?? {};
-            return (
-              info.kind !== "CLUB_MEETING" &&
-              info.deletedAt == null &&
-              info.status !== "DRAFT"
-            );
-          }),
-        );
-        if (!page.nextCursor || page.nextCursor === cursor) break;
-        cursor = page.nextCursor;
-      }
-      return docs.slice(0, 20);
+      const page = await getVisibleEventPage({ groupId, publicOnly: !role, statuses: status === "all" ? ["OPEN", "LIVE"] : [status], descending: status === "FINISHED", limit: 20, ...(eventCursor ? { cursor: eventCursor } : {}) });
+      if (!cancelled) setEventNextCursor(page.nextCursor);
+      return page.docs.filter(item => {
+        const info = item.data().info ?? {};
+        return info.kind !== "CLUB_MEETING" && info.deletedAt == null && info.status !== "DRAFT";
+      });
     })()
       .then(async (eventDocs) => {
+        if (cancelled) return;
         const rows = await Promise.all(
           eventDocs.map(async (eventDoc) => {
             const data = eventDoc.data();
@@ -152,7 +146,7 @@ export default function GroupEventsPage() {
     return () => {
       cancelled = true;
     };
-  }, [groupId, accessKey, role, retry, status]);
+  }, [groupId, accessKey, role, retry, status, eventCursor]);
   useEffect(() => {
     let cancelled = false;
     setMeetings([]);
@@ -333,12 +327,12 @@ export default function GroupEventsPage() {
         ) : error ? (
           <ErrorState
             title={t("error.loadFailed")}
-            onRetry={() => setRetry((value) => value + 1)}
+            onRetry={() => { setEventPage({ scope: eventScope }); setRetry((value) => value + 1); }}
           />
         ) : visibleEvents.length === 0 ? (
           <div data-testid="C3-1-3">
             <EmptyState
-              title={t(`events.empty.${status}`)}
+              title={eventNextCursor || eventCursor ? t("event:discovery.emptyPage") : t(`events.empty.${status}`)}
               actions={[
                 { label: t("dashboard.moreEvents"), href: "/explore/events" },
               ]}
@@ -387,6 +381,11 @@ export default function GroupEventsPage() {
           ))
         )}
       </section>
+      {!loading && !error && (eventNextCursor || eventCursor) && <div>
+        <p role="status">{t("event:discovery.partial")}</p>
+        {eventCursor && <Button variant="secondary" onClick={() => setEventPage({ scope: eventScope })}>{t("event:discovery.first")}</Button>}
+        {eventNextCursor && <Button variant="secondary" onClick={() => setEventPage({ scope: eventScope, cursor: eventNextCursor })}>{t("event:message.next")}</Button>}
+      </div>}
     </div>
   );
 }

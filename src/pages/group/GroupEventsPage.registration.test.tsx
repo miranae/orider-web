@@ -28,10 +28,14 @@ describe("club event registration actions", () => {
     expect(await screen.findByRole("link",{name:"이벤트 보기"})).toHaveAttribute("href","/ko/event/event-1");
     expect(screen.queryByRole("link",{name:"참가 신청"})).not.toBeInTheDocument();
   });
-  it("does not let twenty club meeting envelopes hide legacy events",async()=>{
+  it("keeps hidden club envelopes bounded until an explicit next page reveals legacy events",async()=>{
     const envelope=(id:string,kind?:string)=>({id,info:{name:id,groupId:"club",kind,status:"OPEN",startTime:Date.now()+86400000}});
     setCollectionDocs("events",[...Array.from({length:20},(_,index)=>envelope(`meeting-${index}`,"CLUB_MEETING")),envelope("Legacy race")]);
-    showPage();expect(await screen.findByRole("link",{name:"Legacy race"})).toBeInTheDocument();expect(screen.queryByRole("link",{name:"meeting-0"})).not.toBeInTheDocument();
+    showPage();
+    const next=await screen.findByRole("button",{name:"다음",exact:true});
+    expect(screen.queryByRole("link",{name:"Legacy race"})).not.toBeInTheDocument();
+    fireEvent.click(next);
+    expect(await screen.findByRole("link",{name:"Legacy race"})).toBeInTheDocument();expect(screen.queryByRole("link",{name:"meeting-0"})).not.toBeInTheDocument();
   });
   it("names the empty state for the selected finished filter",async()=>{
     setCollectionDocs("events",[]);showPage();fireEvent.click(screen.getByRole("button",{name:"종료"}));

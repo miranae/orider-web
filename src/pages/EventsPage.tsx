@@ -11,7 +11,7 @@ import { getPublicEvents } from "../services/eventDiscovery";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
-import { EmptyState, LoadingSkeleton, PageHeader } from "../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton, PageHeader } from "../components/redesign";
 import { decodeTrack, encodePolyline } from "../utils/polyline";
 import { getMapboxToken } from "../utils/mapbox";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
@@ -196,13 +196,13 @@ function toMillis(v: unknown): number {
   return 0;
 }
 
-export function isPublicEventInfo(info: Record<string, unknown>): boolean {
+export function isPublicEventInfo(info: Record<string, unknown>, serverAuthorized = false): boolean {
   if (info.kind === "CLUB_MEETING" || info.deletedAt) return false;
   const status = info.status;
   const visibility = info.visibility;
   return (
     PUBLIC_EVENT_STATUSES.includes(status as (typeof PUBLIC_EVENT_STATUSES)[number]) &&
-    visibility === "PUBLIC"
+    (visibility === "PUBLIC" || (serverAuthorized && (visibility == null || visibility === "GROUP")))
   );
 }
 
@@ -243,6 +243,10 @@ export default function EventsPage() {
   const [courseThumbs, setCourseThumbs] = useState<Record<string, string>>({});
   const [myEventIds, setMyEventIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [pageCursor, setPageCursor] = useState<string>();
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [pageError, setPageError] = useState(false);
+  const [pageAttempt, setPageAttempt] = useState(0);
   const [statusFilter, setStatusFilter] = useState<"ALL" | EventStatus>("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [regionFilter, setRegionFilter] = useState<string>("ALL");
@@ -259,15 +263,22 @@ export default function EventsPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setMyEventIds(new Set());
+    setPageError(false);
+    setNextCursor(null);
     (async () => {
       try {
-        const snap = await getPublicEvents([...PUBLIC_EVENT_STATUSES]);
+        const snap = await getPublicEvents([...PUBLIC_EVENT_STATUSES], pageCursor);
+        if (cancelled) return;
+        setNextCursor(snap.nextCursor);
         const list: EventInfo[] = [];
         snap.forEach((doc) => {
           const d = doc.data();
           const info = d.info || {};
           // 공개 목록 방어선: 서버 쿼리와 같은 조건을 클라이언트에서도 한 번 더 확인한다.
-          if (!isPublicEventInfo(info)) return;
+          if (!isPublicEventInfo(info, true)) return;
           list.push({
             id: doc.id,
             name: info.name || t("noName"),
@@ -316,6 +327,7 @@ export default function EventsPage() {
                 return { id: d.id, polyline: poly };
               })
             );
+            if (cancelled) return;
             const polyMap = new Map(updates.filter((u) => u.polyline).map((u) => [u.id, u.polyline as string]));
             if (polyMap.size > 0) {
               setEvents((prev) =>
@@ -354,10 +366,12 @@ export default function EventsPage() {
               }
             })
           );
+          if (cancelled) return;
           setCoursePolylines(polyMap);
           setCourseThumbs(thumbMap);
         }
 
+        if (cancelled) return;
         if (user) {
           try {
             const myParticipantDocs = await Promise.all(
@@ -366,18 +380,22 @@ export default function EventsPage() {
                 return participantSnap.exists() ? event.id : null;
               }),
             );
+            if (cancelled) return;
             setMyEventIds(new Set(myParticipantDocs.filter((id): id is string => !!id)));
           } catch (err) {
             logClientError("EventsPage.loadMyEvents", err);
           }
         }
       } catch (err) {
+        if (cancelled) return;
         logClientError("EventsPage.loadEvents", err);
+        setPageError(true);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [user]);
+    return () => { cancelled = true; };
+  }, [user, pageCursor, pageAttempt]);
 
   const filtered = useMemo(() => {
     return events
@@ -608,13 +626,19 @@ export default function EventsPage() {
         )}
       </div>
 
+      {(nextCursor || pageCursor) && !pageError && <div>
+        <p role="status">{t("discovery.partial")}</p>
+        {pageCursor && <Button variant="secondary" onClick={() => setPageCursor(undefined)}>{t("discovery.first")}</Button>}
+        {nextCursor && <Button variant="secondary" onClick={() => setPageCursor(nextCursor)}>{t("message.next")}</Button>}
+      </div>}
+
       {/* 리스트 — 2컬럼 그리드 */}
-      {events.length === 0 ? (
+      {pageError ? <ErrorState title={t("dashboard.errorLoadEvent")} onRetry={() => { setPageCursor(undefined); setPageAttempt(value => value + 1); }} /> : events.length === 0 ? (
         <EmptyState
           icon={<CalendarDays size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />}
-          title={t("empty.noEvents")}
-          description={user ? t("empty.createFirst") : undefined}
-          actions={user ? [{ label: t("button.create"), variant: "primary", href: "/event/create" }] : undefined}
+          title={nextCursor || pageCursor ? t("discovery.emptyPage") : t("empty.noEvents")}
+          description={!nextCursor && !pageCursor && user ? t("empty.createFirst") : undefined}
+          actions={!nextCursor && !pageCursor && user ? [{ label: t("button.create"), variant: "primary", href: "/event/create" }] : undefined}
         />
       ) : filtered.length === 0 ? (
         <EmptyState
