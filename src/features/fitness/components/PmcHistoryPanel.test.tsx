@@ -1,4 +1,3 @@
-import { chooseDropdownAt, dropdownSelectedIndex } from "../fitnessControlTestUtils";
 import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
@@ -9,6 +8,13 @@ import type { PmcHistoryPoint } from "../pmcHistory";
 const point = (date: string, ctl = 40, dailyLoad = 60): FitnessPoint => ({ date, ctl, atl: ctl + 5, tsb: -5, dailyLoad });
 const points = [point("2023-09-06"), point("2025-09-06", 30), point("2026-09-05"), point("2026-09-06", 50, 0)];
 const renderPanel = (data = points) => renderWithProviders(<PmcHistoryPanel points={data} today="2026-09-06" canonical />);
+// 선택 구간 드롭다운·이동 버튼은 없앴다 — 선택은 차트 슬라이더(aria-valuenow, 키보드)로 읽고 옮긴다.
+const selectedOf = (slider: HTMLElement) => Number(slider.getAttribute("aria-valuenow")) - 1;
+const selectAt = (slider: HTMLElement, index: number) => {
+  fireEvent.keyDown(slider, { key: "Home" });
+  for (let step = 0; step < index; step++) fireEvent.keyDown(slider, { key: "ArrowRight" });
+};
+const tsbSlider = () => screen.getByRole("slider", { name: "회복 상태 · 독립 축" });
 
 describe("PmcHistoryPanel", () => {
   it("never represents an unconfirmed load as known zero while preserving confirmed zero", () => {
@@ -87,7 +93,7 @@ describe("PmcHistoryPanel", () => {
     expect(within(table).getByText("1/1 일")).toBeInTheDocument();
   });
 
-  it("changes day/week/month granularity and keeps navigation synchronized with the value strip", () => {
+  it("changes day/week/month granularity and keeps the chart selection synchronized with the value strip", () => {
     const { container } = renderPanel();
     expect(screen.getByText("컨디션 변화")).toBeInTheDocument();
     expect(screen.queryByText(/실적 \+ 예측/)).not.toBeInTheDocument();
@@ -96,7 +102,6 @@ describe("PmcHistoryPanel", () => {
     expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("단기피로 ATL");
     expect(container.querySelector(".pmc-history__value-strip")).toHaveTextContent("회복상태 TSB");
     const ranges = within(screen.getByTestId("K1-2-1"));
-    const navigation = within(screen.getByTestId("K1-2-4"));
     const plot = within(screen.getByTestId("K1-2-3"));
     const trendChart = plot.getByRole("img");
     const trendPoint = { x: 0, y: 0, matrixTransform: () => ({ x: trendPoint.x, y: trendPoint.y }) };
@@ -104,20 +109,23 @@ describe("PmcHistoryPanel", () => {
     Object.defineProperty(trendChart, "getScreenCTM", { value: () => ({ inverse: () => ({}) }) });
     fireEvent.pointerDown(trendChart, { clientX: 44, clientY: 40 });
     fireEvent.pointerUp(trendChart, { clientX: 44, clientY: 40 });
-    expect(dropdownSelectedIndex(navigation.getByRole("combobox"))).toBe(0);
-    fireEvent.click(navigation.getByRole("button", { name: "오늘" }));
+    expect(selectedOf(tsbSlider())).toBe(0);
+    // 선택 구간 표시·좌우·오늘 버튼은 없다.
+    expect(screen.queryByTestId("K1-2-4")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "오늘" })).not.toBeInTheDocument();
+    fireEvent.keyDown(tsbSlider(), { key: "End" });
     expect(ranges.getByRole("button", { name: "90일" })).toHaveAttribute("aria-pressed", "true");
     const initialSelectionX = container.querySelector('[data-pmc-selection="true"] line')?.getAttribute("x1");
-    fireEvent.click(navigation.getByRole("button", { name: "이전 구간" }));
-    expect(screen.getAllByText("2026-09-05 – 2026-09-05")).toHaveLength(2);
+    fireEvent.keyDown(tsbSlider(), { key: "ArrowLeft" });
+    expect(screen.getAllByText("2026-09-05 – 2026-09-05")).toHaveLength(1);
     expect(container.querySelector('[data-pmc-selection="true"] line')?.getAttribute("x1")).not.toBe(initialSelectionX);
-    fireEvent.click(navigation.getByRole("button", { name: "오늘" }));
-    expect(screen.getAllByText("2026-09-06 – 2026-09-06")).toHaveLength(2);
+    fireEvent.keyDown(tsbSlider(), { key: "End" });
+    expect(screen.getAllByText("2026-09-06 – 2026-09-06")).toHaveLength(1);
     fireEvent.click(ranges.getByRole("button", { name: "180일" }));
     expect(screen.getByText("주평균")).toBeInTheDocument();
     expect(container.querySelector('[data-pmc-today-marker="true"]')).not.toBeInTheDocument();
     expect(container.querySelector(".pmc-history__value-strip strong")).toHaveTextContent("주평균");
-    expect(navigation.getByRole("button", { name: "최신 구간" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "최신 구간" })).not.toBeInTheDocument();
     const chart = plot.getByRole("img");
     expect(chart).toHaveAccessibleName(/주평균/);
     fireEvent.pointerMove(chart, { clientX: 400, clientY: 10 });
@@ -136,9 +144,7 @@ describe("PmcHistoryPanel", () => {
     const choices = [42, 90, 180, 365, "3y", "all"] as const;
     const view = renderWithProviders(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange={42} onControlledRangeChange={onControlledRangeChange} rangeChoices={choices} />);
     expect(screen.getByText("일별")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("combobox"));
-    expect(screen.getAllByRole("option")).toHaveLength(42);
-    fireEvent.keyDown(screen.getByRole("combobox"), { key: "Escape" });
+    expect(tsbSlider()).toHaveAttribute("aria-valuemax", "42");
     expect(screen.getByRole("button", { name: "90일" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "6주" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "1년" }));
@@ -172,7 +178,7 @@ describe("PmcHistoryPanel", () => {
       expect(within(metrics).getByText(ctl!)).toBeVisible();
     }
     expect(container.querySelector(".pmc-history__value-strip [data-pmc-metric]")).not.toBeInTheDocument();
-    chooseDropdownAt(screen.getByRole("combobox"), 9);
+    selectAt(screen.getByRole("slider", { name: "연도별 체력 차트. 좌우 방향키로 월 선택" }), 9);
     expect(screen.getAllByText("기록 없음")).toHaveLength(2);
     expect(screen.getByTestId("K1-2-7")).toHaveTextContent("—");
     expect(screen.getByTestId("K1-2-7").querySelectorAll(".pmc-history__evidence-grid dd")).toHaveLength(8);
@@ -219,7 +225,7 @@ describe("PmcHistoryPanel", () => {
     expect(range.compareDocumentPosition(chart!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(container.querySelector(".pmc-history__latest")).toBeNull();
     expect(screen.getAllByRole("heading", { name: "컨디션 변화" })).toHaveLength(1);
-    expect(container.querySelector(".pmc-history__navigation label")?.compareDocumentPosition(screen.getByRole("button", { name: "오늘" }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(container.querySelector(".pmc-history__navigation")).toBeNull();
   });
 
   it("keeps selected values keyed to the plotted series and emphasizes the independent zero baseline", () => {
@@ -282,26 +288,26 @@ describe("PmcHistoryPanel", () => {
     expect(document.querySelectorAll("[data-pmc-tooltip-metric]")).toHaveLength(3);
     fireEvent.pointerDown(tsb, { clientX: 48, clientY: 20 });
     fireEvent.pointerUp(tsb, { clientX: 48, clientY: 20 });
-    expect(dropdownSelectedIndex(screen.getByRole("combobox"))).toBe(0);
+    expect(selectedOf(tsb)).toBe(0);
     expect(tsb).toHaveFocus();
     expect(tsb.getAttribute("aria-valuetext")).toMatch(/장기체력 CTL.*단기피로 ATL.*회복상태 TSB/);
     fireEvent.pointerLeave(main);
     for (const index of [0, 44, 89]) {
-      chooseDropdownAt(screen.getByRole("combobox"), index);
+      selectAt(tsb, index);
       expect(container.querySelector('[data-pmc-selection="true"] line')).toHaveAttribute("x1", container.querySelector('[data-tsb-cursor="true"]')?.getAttribute("x1"));
     }
     fireEvent.pointerDown(tsb, { clientX: 48, clientY: 20 });
     fireEvent.pointerUp(tsb, { clientX: 70, clientY: 20 });
-    expect(dropdownSelectedIndex(screen.getByRole("combobox"))).toBe(89);
-    chooseDropdownAt(screen.getByRole("combobox"), 0);
+    expect(selectedOf(tsb)).toBe(89);
+    selectAt(tsb, 0);
     fireEvent.pointerMove(tsb, { clientX: 400, clientY: 20, pointerType: "touch" });
     expect(document.querySelector('[data-pmc-tooltip="true"]')).not.toBeInTheDocument();
     fireEvent.pointerDown(tsb, { clientX: 48, clientY: 20, pointerType: "touch" });
     fireEvent.pointerCancel(tsb, { clientX: 70, clientY: 42, pointerType: "touch" });
     fireEvent.pointerUp(tsb, { clientX: 70, clientY: 42, pointerType: "touch" });
-    expect(dropdownSelectedIndex(screen.getByRole("combobox"))).toBe(0);
+    expect(selectedOf(tsb)).toBe(0);
     fireEvent.keyDown(tsb, { key: "End" });
-    expect(dropdownSelectedIndex(screen.getByRole("combobox"))).toBe(89);
+    expect(selectedOf(tsb)).toBe(89);
   });
 
   it("labels every compared year in the hover tooltip", () => {
