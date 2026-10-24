@@ -601,9 +601,11 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 .ds-toggle-controls--axis::-webkit-scrollbar { display: none; }
 .ds-toggle-controls--axis .ds-btn__label { min-width: 0; }
 /* HIG 세그먼트 컨트롤: 32 높이(안쪽 28), 13, 항목 모서리 7, 한 줄. 터치 영역은 .ds-btn::after 가 44 로 확장. */
-.ds-toggle-controls--axis .ds-toggle-button { height: 28px; min-height: 28px; min-width: 0; padding: 0 var(--space-3); border-radius: 7px; font-size: var(--fs-xs); font-weight: var(--ft-body-weight); line-height: 1.2; color: var(--ink-0); background: transparent; border-color: transparent; white-space: nowrap; }
+.ds-toggle-controls--axis .ds-toggle-button { height: 28px; min-height: 28px; min-width: 0; padding: 0 var(--space-3); border-radius: 7px; font-size: var(--fs-xs); font-weight: var(--ft-body-weight); line-height: 1.2; color: var(--ink-2); background: transparent; border-color: transparent; white-space: nowrap; }
 .ds-toggle-controls--axis .ds-toggle-button:disabled { color: var(--ink-4); opacity: 1; }
-.ds-toggle-controls--axis .ds-toggle-button:is([aria-pressed="true"], [aria-selected="true"]) { background: var(--bg-1); color: var(--ink-0); box-shadow: 0 1px 3px rgba(0,0,0,.12); font-weight: var(--ft-subtitle-weight); }
+/* 선택은 칩·주요 버튼과 같은 청록 채움 — 흰 칸은 트랙(--control-fill)과 대비가 약 1.26:1 이라 다크에서는 사라졌다.
+   .ds-btn 까지 붙여 호버 규칙(.ds-btn.ds-toggle-button:hover)보다 뒤에서 이기게 한다. */
+.ds-toggle-controls--axis .ds-btn.ds-toggle-button:is([aria-pressed="true"], [aria-selected="true"]) { background: var(--control-primary-fill); color: var(--primary-fg); box-shadow: none; font-weight: var(--ft-subtitle-weight); }
 
 /* ===== Map controls: area size is separate from camera zoom ===== */
 .ds-btn.ds-map-resize { position: absolute; top: 0; left: 0; z-index: 1; width: calc(var(--space-7) + var(--space-3)); min-width: calc(var(--space-7) + var(--space-3)); height: calc(var(--space-7) + var(--space-3)); min-height: calc(var(--space-7) + var(--space-3)); border: 0; box-shadow: none; padding: 0; color: var(--ink-2); border-radius: var(--r-lg) 0 var(--r-lg) 0; background: linear-gradient(315deg, transparent, var(--bg-1)); }
