@@ -28,7 +28,8 @@ export function acceptedActivityLoad(activity: Record<string, unknown>, discipli
     durationMillis, discipline });
   // A measured zero is different from missing duration. Positive distance contradicts
   // zero motion, so incomplete/corrupt moving-time summaries remain unknown.
-  const zeroMotion = summary.movingTimeSec === 0 && durationMillis === 0
+  const zeroMotion = activity.source === 'orider' && summary.movingTimeSec === 0 && durationMillis === 0
+    && typeof summary.pauseTimeSec === 'number' && Number.isFinite(summary.pauseTimeSec) && summary.pauseTimeSec > 0
     && [summary.distance, summary.distanceKm, summary.ridingTimeMillis, summary.movingTimeMillis, summary.elapsedTimeMillis]
       .every(value => value == null || typeof value === 'number' && Number.isFinite(value) && value === 0);
   const known = precomputedTss !== null || streamTss !== null

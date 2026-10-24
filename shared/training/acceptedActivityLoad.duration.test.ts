@@ -11,9 +11,14 @@ describe("accepted load duration evidence", () => {
     expect(activity).toEqual(original);
   });
 
-  it("does not classify a long seconds-only ride as negligible", () => {
-    expect(acceptedActivityLoad({ summary: { distance: 100, movingTimeSec: 1800 } }, "bike"))
+  it("does not classify a legacy zero-millis ride as negligible when moving seconds are positive", () => {
+    expect(acceptedActivityLoad({ summary: { distance: 100, ridingTimeMillis: 0, movingTimeSec: 1800 } }, "bike"))
       .toMatchObject({ value: 21, known: true, source: "time" });
+  });
+
+  it("does not upgrade seconds-only presentation summaries over final metrics", () => {
+    expect(acceptedActivityLoad({ summary: { distanceKm: 30, movingTimeSec: 3600 } }, "bike"))
+      .toMatchObject({ known: false, source: "unknown" });
   });
 
   it("keeps explicit zero motion known without manufacturing a load from pauses", () => {
@@ -22,7 +27,7 @@ describe("accepted load duration evidence", () => {
   });
 
   it.each([
-    {}, { pauseTimeSec: 120 }, { ridingTimeMillis: 0 },
+    {}, { movingTimeSec: 0 }, { pauseTimeSec: 120 }, { ridingTimeMillis: 0 },
     { movingTimeSec: 0, distance: 20_000 }, { movingTimeSec: 0, distanceKm: 20 },
     { movingTimeSec: 0, distance: Number.NaN },
     { movingTimeSec: 0, ridingTimeMillis: -1 },

@@ -32,13 +32,14 @@ export const TIME_FACTORS: Record<LoadDiscipline, number> = { bike: 42, run: 60,
  */
 export const DEFAULT_TIME_FACTOR = 50;
 
-/** Legacy zero/invalid millis must not hide a usable duration stored in seconds. */
+/** Recover a legacy riding-millis zero from moving seconds without reclassifying
+ * seconds-only summaries whose final metrics supply the presentation evidence. */
 export function activityDurationMillis(summary: Record<string, unknown>): number {
   for (const value of [summary.ridingTimeMillis, summary.movingTimeMillis, summary.elapsedTimeMillis]) {
     if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
   }
   const seconds = summary.movingTimeSec;
-  return typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
+  return summary.ridingTimeMillis === 0 && typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
     && Number.isFinite(seconds * 1000) ? seconds * 1000 : 0;
 }
 
