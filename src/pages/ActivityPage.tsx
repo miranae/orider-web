@@ -785,7 +785,7 @@ export default function ActivityPage() {
   const resolvedMemo = activity ? resolveActivityMemo(activity, stravaSummaryLang) : null;
   const freshDefaultMemo = overview.response?.status === "available" && overview.response.activityId === activity?.id
     ? overview.response.defaultMemo ?? null : null;
-  const overviewMemo = resolvedMemo?.authored ? resolvedMemo.memo : freshDefaultMemo ?? resolvedMemo?.memo ?? publishedContent?.memo ?? null;
+  const overviewMemo = resolvedMemo?.memo ?? freshDefaultMemo ?? publishedContent?.memo ?? null;
 
   const hasStreams = sampledData.length > 0;
   const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, user?.uid, activityId, user?.isAnonymous === true);
@@ -1232,7 +1232,7 @@ export default function ActivityPage() {
         <Text as="h2" variant="subtitle">{t("detail.keyRecords")}</Text>{summarySection}
       </section>}
       {activeTab === "overview" && <ActivityOverviewSocial key={`${activity.id}:${user?.uid ?? "guest"}:${sourceRevision}`} activityId={activity.id} prioritizeResults={mobileReading}
-        memo={overviewMemo} memoGeneratedAt={!resolvedMemo?.authored && !freshDefaultMemo ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
+        memo={overviewMemo} memoGeneratedAt={resolvedMemo?.authored === false ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
         photosKnown={!!streams || !!publishedContent || typeof activity.photoCount === "number"} memoTruncated={publishedContent?.memoTruncated} photos={overviewPhotos}
         totalPhotos={Math.max(photos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0) + uploadedPhotos.length}
         companions={visibleCoRiders} achievements={overviewAchievements}

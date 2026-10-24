@@ -545,13 +545,13 @@
     "loginBtn": "Log in",
     "waitHint": "Awaiting analysis — press the button to start AI segment analysis.",
     "waitHintRun": "Awaiting analysis — press the button to start AI run segment coaching.",
-    "previewOnlyHint": "Showing the saved AI summary. Detailed segment cache is missing or has not synced yet.",
-    "previewAuthHint": "Showing the saved AI summary. Check your sign-in state to reload detailed segment analysis.",
+    "previewOnlyHint": "Analysis saved at the time of generation.",
+    "previewAuthHint": "Analysis saved at the time of generation. Sign in to load the details.",
     "generatedAt": "Analysis generated",
     "refreshingHint": "Reanalyzing with the latest data. Your saved analysis remains visible.",
     "refreshFailedHint": "Reanalysis failed. Your saved analysis is preserved.",
-    "staleHint": "This analysis was written using the data available when it was generated. Data has since changed; you can reanalyze with the latest data.",
-    "staleLoginHint": "This analysis was written using the data available when it was generated. Sign in to reanalyze with the latest data.",
+    "staleHint": "Reanalysis needed",
+    "staleLoginHint": "Reanalysis needed",
     "loginHint": "Sign in to use AI segment analysis.",
     "runPreview": {
       "pace": {
