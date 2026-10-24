@@ -1224,7 +1224,7 @@ export default function ActivityPage() {
             selected={activeTab === id} aria-controls="activity-tab-panel" tabIndex={activeTab === id ? 0 : -1}
             onClick={() => { pendingPeakLocation.current = null; pendingLap.current = null; setActiveTab(id); }}>
             {t(`tab.${id}`)}
-            {id === "segments" && (segmentEfforts.length || activity.segmentEffortCount) > 0 && <span className="activity-detail-tab-count">{segmentEfforts.length || activity.segmentEffortCount}</span>}
+            {id === "segments" && (segmentEfforts.length || activity.segmentEffortCount) > 0 && <span className="activity-detail-tab-count" aria-hidden="true">{segmentEfforts.length || activity.segmentEffortCount}</span>}
           </ToggleButton>)}
         </ToggleControls>
       </div>

@@ -228,7 +228,7 @@ describe("ActivityPage", () => {
     await screen.findByRole("tab", { name: "비교" });
     expect(screen.queryByText("share-card")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Strava에서 확인" })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("tab").map(tab => tab.textContent)).toEqual(["개요", "분석", "구간2", "비교"]);
+    expect(screen.getAllByRole("tab").map(tab => tab.textContent)).toEqual(["개요", "분석", "구간", "비교"]);
     expect(screen.queryByRole("tab", { name: "내보내기" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "활동 관리" }));
     const menu = within(screen.getByRole("dialog", { name: "활동 관리" }));
