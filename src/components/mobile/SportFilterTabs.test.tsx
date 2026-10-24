@@ -18,11 +18,13 @@ describe("SportFilterTabs first label", () => {
   });
 });
 
-it("uses stable decorative SVGs while retaining labeled filter actions", () => {
+it("renders a one-line text segment like DisciplineTabs and reports the chosen sport", () => {
   const change = vi.fn();
   renderWithProviders(<SportFilterTabs value="bike" onChange={change} />);
+  const group = screen.getByRole("group", { name: "종목 선택" });
+  expect(group).toHaveClass("ds-toggle-controls--axis");
   const run = screen.getByRole("button", {name: "러닝", pressed: false});
-  expect(run.querySelector('svg[data-icon="run"]')).toHaveAttribute("aria-hidden", "true");
+  expect(run.querySelector("svg")).toBeNull();
   fireEvent.click(run);
   expect(change).toHaveBeenCalledWith("run");
 });
