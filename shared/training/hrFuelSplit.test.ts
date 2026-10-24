@@ -15,6 +15,10 @@ describe("explicit HR fuel model assumptions", () => {
       expect(result.fatPct + result.carbPct).toBe(100);
     }
   });
+  it("caps the representative midpoint at maximum heart rate", () => {
+    const extended = bounds.map(row => ({ ...row })); extended[4]!.maxBpmExclusive = 240;
+    expect(estimateHrFuelSplit(600, 3600, 200, [0, 0, 0, 0, 3600], extended)).toMatchObject({ fatKcal: 0, carbKcal: 600 });
+  });
   it("rejects absent, incomplete, overcounted or malformed evidence", () => {
     for (const seconds of [undefined, [], [0, 2000, 0, 0, 0], [0, 5000, 0, 0, 0], [NaN, 3600, 0, 0, 0]])
       expect(estimateHrFuelSplit(600, 3600, 200, seconds, bounds)).toBeUndefined();

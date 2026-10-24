@@ -35,7 +35,7 @@ export function estimateHrFuelSplit(totalKcal: unknown, movingSec: unknown, maxH
       || !Number.isFinite(row.minBpm) || !Number.isFinite(row.maxBpmExclusive) || row.minBpm < 0
       || row.maxBpmExclusive <= row.minBpm || i > 0 && Math.abs(row.minBpm - previousUpper) > 1) return undefined;
     previousUpper = row.maxBpmExclusive;
-    const midpoint = (row.minBpm + Math.min(maxHr, row.maxBpmExclusive)) / 2;
+    const midpoint = Math.min(maxHr, (row.minBpm + row.maxBpmExclusive) / 2);
     weighted += zoneSeconds[i] * fatShare(midpoint / maxHr);
   }
   const total = Math.round(totalKcal); const fatKcal = Math.round(total * weighted / seconds); const carbKcal = total - fatKcal;
