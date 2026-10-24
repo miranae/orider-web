@@ -84,7 +84,7 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
           });
         });
         if (cancelled) return;
-        setIncompleteGroups(new Set(uniqueGroupIds.filter((groupId, index) => snapshots[index].nextCursor && !map.has(groupId))));
+        setIncompleteGroups(new Set(uniqueGroupIds.filter((groupId, index) => snapshots[index]?.nextCursor && !map.has(groupId))));
         const labels = new Map<string, string>();
         map.forEach((v, k) => labels.set(k, formatNextLabel(v.startTime, v.name, localeTag())));
         setByGroup(labels);
