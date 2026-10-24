@@ -6,7 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { collection, doc, getDoc, getDocs, query, where } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
+import { getPublicEvents } from "../services/eventDiscovery";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
@@ -260,12 +261,7 @@ export default function EventsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const eventsQuery = query(
-          collection(firestore, "events"),
-          where("info.status", "in", [...PUBLIC_EVENT_STATUSES]),
-          where("info.visibility", "==", "PUBLIC"),
-        );
-        const snap = await getDocs(eventsQuery);
+        const snap = await getPublicEvents([...PUBLIC_EVENT_STATUSES]);
         const list: EventInfo[] = [];
         snap.forEach((doc) => {
           const d = doc.data();

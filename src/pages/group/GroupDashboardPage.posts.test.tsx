@@ -1,10 +1,11 @@
-import { getDoc, getDocs } from "firebase/firestore";
+import { installEventDiscoveryFixture } from "../../__tests__/fixtures/eventDiscovery";
+import { getDoc } from "firebase/firestore";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { auth, ensureAppCheckReady } from "../../services/firebase";
 import { createGroupPost, updateGroupPost } from "../../hooks/useGroupPosts";
-import { setCollectionDocs, setDocData } from "../../__tests__/mocks/firebase";
+import { setCollectionDocs, setDocData, setCallableImplementation, mockCallableInvocations } from "../../__tests__/mocks/firebase";
 import GroupDashboardPage from "./GroupDashboardPage";
 
 const state = vi.hoisted(() => ({
@@ -34,6 +35,7 @@ function edit() {
   return screen.getByRole("textbox", { name: "게시글 내용 수정" });
 }
 beforeEach(() => {
+  installEventDiscoveryFixture();
   state.roleError = null; state.retryRole.mockReset();
   state.aggregate = null;
   state.ridesLoading = false; state.ridesError = null; state.retryRides.mockReset();
@@ -88,7 +90,7 @@ describe("group post editing", () => {
     expect(screen.getByTestId("C1-3-1")).toHaveValue("New draft");
   });
   it("shows a recoverable upcoming-events error instead of silently dropping the section",async()=>{
-    vi.mocked(getDocs).mockRejectedValueOnce(new Error("events offline"));render(<Page/>);
+    setCallableImplementation("listVisibleEventEnvelopes",()=>{throw new Error("events offline");});render(<Page/>);
     expect(await screen.findByText("다가오는 이벤트를 불러오지 못했습니다.")).toBeInTheDocument();
     fireEvent.click(within(screen.getByTestId("C1-4")).getByRole("button",{name:/다시/}));
     await waitFor(()=>expect(screen.queryByText("다가오는 이벤트를 불러오지 못했습니다.")).not.toBeInTheDocument());
@@ -121,7 +123,7 @@ describe("group post editing", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "취소", exact: true }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(state.showToast).not.toHaveBeenCalled();
-    expect(ensureAppCheckReady).not.toHaveBeenCalled();
+    expect(mockCallableInvocations.some(call=>call.name==="reportGroupPost")).toBe(false);
   });
   it("does not expose a private club introduction or rules to a nonmember", () => {
     state.role = null; state.visibility = "private";
@@ -228,7 +230,7 @@ describe("club statistics failure isolation", () => {
   it.each(["loading", "unavailable", "error"])("keeps independent club content while statistics are %s", async statsState => {
     state.ridesLoading = statsState === "loading";
     state.ridesError = statsState === "loading" ? null : statsState;
-    setCollectionDocs("events", [{ id: "event-survives", info: { name: "Independent upcoming event", status: "OPEN", startTime: Date.now() + 86400000 } }]);
+    setCollectionDocs("events", [{ id: "event-survives", info: { name: "Independent upcoming event", groupId: "group-1", status: "OPEN", startTime: Date.now() + 86400000 } }]);
     render(<Page />);
     expect(screen.getByText("Private introduction")).toBeInTheDocument();
     expect(screen.getByText("Private rules")).toBeInTheDocument();

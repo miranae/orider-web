@@ -1,7 +1,7 @@
+import { installEventDiscoveryFixture } from "../__tests__/fixtures/eventDiscovery";
 import { renderHook, waitFor } from "@testing-library/react";
-import { getDocs, orderBy, where } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setCollectionDocs } from "../__tests__/mocks/firebase";
+import { setCollectionDocs, setCallableImplementation, mockCallableInvocations } from "../__tests__/mocks/firebase";
 import { logClientError } from "../services/errorLogger";
 import { formatNextLabel, isEligibleNextEvent, useGroupNextEvents } from "./useGroupNextEvents";
 
@@ -9,9 +9,7 @@ vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 
 describe("group next events", () => {
   beforeEach(() => {
-    vi.mocked(getDocs).mockClear();
-    vi.mocked(where).mockClear();
-    vi.mocked(orderBy).mockClear();
+    installEventDiscoveryFixture();
     vi.mocked(logClientError).mockClear();
     setCollectionDocs("events", []);
   });
@@ -22,7 +20,7 @@ describe("group next events", () => {
     expect(formatNextLabel(timestamp, "저녁 라이딩", "ko-KR")).toContain("화");
   });
 
-  it("uses one equality-only privacy query per group and filters status client-side", async () => {
+  it("requests public server-authorized discovery per group", async () => {
     setCollectionDocs("events", [
       { id: "later", info: { groupId: "g1", visibility: "PUBLIC", status: "OPEN", startTime: 200, name: "Later" } },
       { id: "next", info: { groupId: "g1", visibility: "PUBLIC", status: "LIVE", startTime: 100, name: "Next" } },
@@ -34,17 +32,15 @@ describe("group next events", () => {
     const { result } = renderHook(() => useGroupNextEvents(["g1", "g2"], undefined, true));
     await waitFor(() => expect(result.current.eventByGroup.get("g1")?.id).toBe("next"));
 
-    expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(2);
-    expect(vi.mocked(where)).toHaveBeenCalledWith("info.groupId", "==", "g1");
-    expect(vi.mocked(where)).toHaveBeenCalledWith("info.groupId", "==", "g2");
-    expect(vi.mocked(where)).toHaveBeenCalledTimes(4);
-    expect(vi.mocked(where)).not.toHaveBeenCalledWith("info.status", "in", ["OPEN", "LIVE"]);
-    expect(vi.mocked(orderBy)).not.toHaveBeenCalled();
+    expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes").map(call=>call.data)).toEqual([
+      {groupId:"g1",publicOnly:true,statuses:["OPEN","LIVE"],limit:250},
+      {groupId:"g2",publicOnly:true,statuses:["OPEN","LIVE"],limit:250},
+    ]);
     expect(result.current.eventByGroup.get("g1")?.id).toBe("next");
     expect(result.current.eventByGroup.has("g2")).toBe(false);
   });
 
-  it("preserves the chunked member query when public-only mode is off", async () => {
+  it("requests member-authorized discovery when public-only mode is off", async () => {
     setCollectionDocs("events", [
       { id: "group-event", info: { groupId: "g1", visibility: "GROUP", status: "OPEN", startTime: 100, name: "Members" } },
     ]);
@@ -52,16 +48,12 @@ describe("group next events", () => {
     const { result } = renderHook(() => useGroupNextEvents(["g1"], undefined, false));
     await waitFor(() => expect(result.current.eventByGroup.get("g1")?.id).toBe("group-event"));
 
-    expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(where)).toHaveBeenCalledWith("info.groupId", "in", ["g1"]);
-    expect(vi.mocked(where)).toHaveBeenCalledWith("info.status", "in", ["OPEN", "LIVE"]);
-    expect(vi.mocked(where)).not.toHaveBeenCalledWith("info.visibility", "==", "PUBLIC");
-    expect(vi.mocked(orderBy)).toHaveBeenCalledWith("info.startTime", "asc");
+    expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes").map(call=>call.data)).toEqual([{groupId:"g1",publicOnly:false,statuses:["OPEN","LIVE"],limit:250}]);
     expect(result.current.eventByGroup.get("g1")?.id).toBe("group-event");
   });
 
   it("observes query failures and clears stale results", async () => {
-    vi.mocked(getDocs).mockRejectedValueOnce(new Error("permission denied"));
+    setCallableImplementation("listVisibleEventEnvelopes",()=>{throw new Error("permission denied");});
     const { result } = renderHook(() => useGroupNextEvents(["g1"], undefined, true));
     await waitFor(() => expect(vi.mocked(logClientError)).toHaveBeenCalled());
 
@@ -83,7 +75,7 @@ describe("group next events", () => {
     );
     await waitFor(() => expect(result.current.eventByGroup.get("g1")?.id).toBe("event-b"));
 
-    vi.mocked(getDocs).mockImplementationOnce(() => new Promise(() => {}));
+    setCallableImplementation("listVisibleEventEnvelopes",()=>new Promise(()=>{}));
     rerender({ excludeEventId: "event-b" });
 
     await waitFor(() => expect(result.current.eventByGroup.size).toBe(0));
