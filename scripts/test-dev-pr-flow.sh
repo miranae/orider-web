@@ -21,11 +21,11 @@ assert_contains scripts/start-work.sh 'gh pr create -B \$BASE' \
   'start-work guidance must create the PR against the selected base'
 assert_contains scripts/merge-pr.sh '\[\[ "\$BASE" == "main" && "\$HEADREF" != "dev" && "\$HEADREF" != hotfix/\* \]\]' \
   'merge gate must reject heads targeting main other than dev or hotfix/*'
-assert_contains scripts/merge-pr.sh 'WAIT_CHECKS.*BASE.*main' \
-  'GitHub check waiting must be limited to main promotion PRs'
+assert_contains scripts/merge-pr.sh 'node scripts/merge-check-policy.mjs' \
+  'all PR merges must retain exact-head GitHub check validation'
 assert_contains scripts/merge-pr.sh 'BASE.*== "dev".*HEADREF.*!= "dev"' \
   'feature gate must be selected only for topic PRs targeting dev'
-assert_contains scripts/merge-pr.sh 'npm test -- --changed "origin/\$BASE" --passWithNoTests' \
+assert_contains scripts/merge-pr.sh 'npm run test:vitest -- --changed "origin/\$BASE" --passWithNoTests' \
   'feature gate must run changed-file Vitest with no-test allowance'
 assert_contains scripts/merge-pr.sh 'npx tsc -b --pretty false' \
   'feature gate must run TypeScript typecheck'
@@ -48,15 +48,14 @@ assert_contains scripts/merge-pr.sh 'HEADREF.*!= "dev"' \
   'merge cleanup must preserve the dev integration branch'
 assert_contains scripts/merge-pr.sh 'sync_main_back_to_dev' \
   'squash promotion must synchronize main back into dev'
-assert_contains scripts/merge-pr.sh 'git merge origin/dev --no-edit' \
-  'post-promotion sync must preserve concurrent dev advances first'
-assert_contains scripts/merge-pr.sh 'git merge origin/main --no-edit' \
-  'post-promotion sync must merge promoted main back into dev'
-assert_contains scripts/merge-pr.sh 'git push --quiet origin HEAD:dev' \
-  'post-promotion sync must update dev with a normal push'
-if grep -Eq 'git push[^#]*(--force|-f([[:space:]]|$))' scripts/merge-pr.sh; then
-  fail 'dev synchronization must never force-push'
+assert_contains scripts/merge-pr.sh 'node scripts/sync-main-to-dev.mjs' \
+  'production sync must use the reviewed linear backport workflow'
+assert_contains scripts/sync-main-to-dev.mjs "'--draft', '--base', 'dev'" \
+  'backport must start as a dev-target draft PR'
+if grep -Eq 'git (merge origin/main|push[^#]*HEAD:dev)|--admin|--force' scripts/sync-main-to-dev.mjs; then
+  fail 'sync must not bypass protected branches'
 fi
+node --test scripts/sync-main-to-dev.test.mjs || fail 'linear backport behavior tests failed'
 
 for workflow in ci.yml dco.yml pr-gate.yml main-promote-guard.yml; do
   assert_contains ".github/workflows/$workflow" 'branches: \[main\]' \
