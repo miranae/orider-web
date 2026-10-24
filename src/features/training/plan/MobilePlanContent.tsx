@@ -342,8 +342,9 @@ export default function MobilePlanContent({
         }
 
         return (
-          <div key={i} className="flex items-center gap-3.5"
+          <div key={i} className="mobile-plan-day flex items-center gap-3.5"
             data-plan-date={dayStr}
+            data-highlight={isToday || dayStr === selectedDate ? "" : undefined}
             aria-current={dayStr === selectedDate ? "date" : undefined}
             data-testid={dayStr === selectedDate ? "K4-5-6" : undefined}
             role={onEditWorkout ? "button" : undefined}
