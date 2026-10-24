@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { LocalizedLink as Link } from "../LocalizedLink";
 import { useTranslation } from "react-i18next";
 import { Text } from "../../theme";
 
