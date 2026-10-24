@@ -367,7 +367,7 @@ describe("CoachHistoryPage", () => {
     mocks.detail.mockResolvedValue({ thread: { ...summary, turns: [{ turnId: requestId, requestId,
       question: "실패한 질문도 다시 확인해줘", createdAt: "2026-07-19T02:00:00Z", sessionRevision: 2,
       response: { apiVersion: "v2", capabilityVersion: "p2", schemaVersion: "coach-history-failure-v1", requestId,
-        outcome: "failed", error: { code: "internal_error", retryable: true, fallbackAvailable: false },
+        outcome: "failed", error: { code: "internal", httpStatus: 500, retryable: true, fallbackAvailable: false },
         execution: { asOf: "2026-07-19T02:00:00Z" } } }] }, nextCursor: null });
     setup(`/ko/coach/chat/${threadId}`);
     expect(await screen.findByText("실패한 질문도 다시 확인해줘")).toBeInTheDocument();

@@ -20,7 +20,7 @@ export interface CoachHistoryFailureResponse {
   schemaVersion: "coach-history-failure-v1";
   requestId: string;
   outcome: "failed";
-  error: { code: "internal_error"; retryable: true; fallbackAvailable: false };
+  error: { code: string; httpStatus: number; retryable: boolean; fallbackAvailable: false };
   execution: { asOf: string };
 }
 
@@ -70,11 +70,13 @@ function parseFailureResponse(value: Record<string, unknown>): CoachHistoryFailu
   if (value.apiVersion !== "v2" || !["p1", "p2"].includes(String(value.capabilityVersion))
       || value.schemaVersion !== "coach-history-failure-v1" || value.outcome !== "failed"
       || typeof value.requestId !== "string" || !UUID.test(value.requestId)
-      || error?.code !== "internal_error" || error.retryable !== true || error.fallbackAvailable !== false
+      || typeof error?.code !== "string" || !/^[a-z][a-z0-9_-]{0,99}$/.test(error.code)
+      || !Number.isInteger(error.httpStatus) || Number(error.httpStatus) < 400 || Number(error.httpStatus) > 599
+      || typeof error.retryable !== "boolean" || error.fallbackAvailable !== false
       || !iso(execution?.asOf)) throw new Error("INVALID_COACH_HISTORY_RESPONSE");
   return { apiVersion: "v2", capabilityVersion: value.capabilityVersion as "p1" | "p2",
     schemaVersion: "coach-history-failure-v1", requestId: value.requestId, outcome: "failed",
-    error: { code: "internal_error", retryable: true, fallbackAvailable: false }, execution: { asOf: execution.asOf } };
+    error: { code: error.code, httpStatus: error.httpStatus as number, retryable: error.retryable, fallbackAvailable: false }, execution: { asOf: execution.asOf } };
 }
 
 function cursor(value: unknown): value is string | null {
