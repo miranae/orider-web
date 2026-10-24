@@ -1,3 +1,4 @@
+import * as personalDataApi from "../services/personalDataApi";
 import { useLocation, useNavigate } from "react-router-dom";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -594,7 +595,7 @@ describe("ActivityPage", () => {
     expect(screen.queryByText("평가 근거 다시 불러오기")).not.toBeInTheDocument();
   });
 
-  it.each([true, false])("passes canonical sensor metrics to overview and sharing for owner=%s", async (isOwner) => {
+  it.each([[true, true], [false, false], [false, true]])("passes canonical sensor metrics after loading streams for owner=%s authenticated=%s", async (isOwner, authenticated) => {
   const activity = createMockActivity({ id: "test-activity", userId: "owner-a", source: "orider", visibility: isOwner ? "friends" : "everyone",
     summary: createMockSummary({ tss: 25, averagePower: 113, normalizedPower: 143, ridingTimeMillis: 60_000 }) });
   const metrics = { version: ACTIVITY_METRICS_VERSION, computedAt: 123, discipline: "bike", distanceKm: 0.3,
@@ -613,10 +614,12 @@ describe("ActivityPage", () => {
     altitude: Array(60).fill(10), watts: Array(60).fill(102),
   }) });
   shareButtonProps.mockClear();
-  renderWithProviders(<ActivityPage />, { authenticated: isOwner, user: { uid: "owner-a" } });
+  const streamRead = vi.spyOn(personalDataApi, "getActivityStreamsWithAuth").mockResolvedValue(createMockStreams({ watts: Array(60).fill(103), heartrate: Array(60).fill(143) }));
+  renderWithProviders(<ActivityPage />, { authenticated, user: { uid: isOwner ? "owner-a" : "viewer-a" } });
   const stats = await screen.findByTestId("activity-detail-hero");
   await waitFor(() => expect(stats).toHaveTextContent("평균 파워102W"));
   await waitFor(() => expect(stats).toHaveTextContent(/TSS\s*54/));
+  if (authenticated) await waitFor(() => expect(streamRead).toHaveBeenCalled());
   fireEvent.click(await screen.findByRole("button", { name: "활동 관리" }));
   await screen.findByText("share-card");
   await waitFor(() => expect(shareButtonProps).toHaveBeenLastCalledWith(expect.objectContaining({
@@ -625,6 +628,7 @@ describe("ActivityPage", () => {
       expect.objectContaining({ value: "54" }), expect.objectContaining({ value: "159", unit: "W" }),
     ]) }),
   })));
+  streamRead.mockRestore();
 });
 
   it("passes activity-date fitness and VO2max into the exported image", async () => {
