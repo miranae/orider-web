@@ -30,8 +30,10 @@ export function acceptedActivityLoad(activity: Record<string, unknown>, discipli
   // zero motion, so incomplete/corrupt moving-time summaries remain unknown.
   const zeroMotion = activity.source === 'orider' && summary.movingTimeSec === 0 && durationMillis === 0
     && typeof summary.pauseTimeSec === 'number' && Number.isFinite(summary.pauseTimeSec) && summary.pauseTimeSec > 0
-    && [summary.distance, summary.distanceKm, summary.ridingTimeMillis, summary.movingTimeMillis, summary.elapsedTimeMillis]
-      .every(value => value == null || typeof value === 'number' && Number.isFinite(value) && value === 0);
+    && [summary.distance, summary.distanceKm, summary.ridingTimeMillis, summary.movingTimeMillis]
+      .every(value => value == null || typeof value === 'number' && Number.isFinite(value) && value === 0)
+    && (summary.elapsedTimeMillis == null || typeof summary.elapsedTimeMillis === 'number'
+      && Number.isFinite(summary.elapsedTimeMillis) && summary.elapsedTimeMillis >= 0);
   const known = precomputedTss !== null || streamTss !== null
     || load.source === 'tss' || load.source === 'trimp' || load.value > 0 || activity.tss === 0 || summary.tss === 0 || zeroMotion;
   return { value: load.value, known, reliable, source: !known ? 'unknown'

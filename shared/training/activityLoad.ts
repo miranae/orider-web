@@ -35,12 +35,17 @@ export const DEFAULT_TIME_FACTOR = 50;
 /** Recover a legacy riding-millis zero from moving seconds without reclassifying
  * seconds-only summaries whose final metrics supply the presentation evidence. */
 export function activityDurationMillis(summary: Record<string, unknown>): number {
-  for (const value of [summary.ridingTimeMillis, summary.movingTimeMillis, summary.elapsedTimeMillis]) {
+  for (const value of [summary.ridingTimeMillis, summary.movingTimeMillis]) {
     if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
   }
   const seconds = summary.movingTimeSec;
-  return summary.ridingTimeMillis === 0 && typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
-    && Number.isFinite(seconds * 1000) ? seconds * 1000 : 0;
+  if (summary.ridingTimeMillis === 0) {
+    return typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
+      && Number.isFinite(seconds * 1000) ? seconds * 1000 : 0;
+  }
+  if (summary.movingTimeMillis === 0) return 0;
+  const elapsed = summary.elapsedTimeMillis;
+  return typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed > 0 ? elapsed : 0;
 }
 
 /** #1391: 0km 대 테스트·쓰레기 기록 판정 상수 — 부하/집계 산입 차단 기준. */

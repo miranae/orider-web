@@ -26,6 +26,17 @@ describe("accepted load duration evidence", () => {
     expect(acceptedActivityLoad(activity, "bike")).toEqual({ value: 0, known: true, reliable: false, source: "time" });
   });
 
+  it("never converts elapsed pause time into exercise load", () => {
+    expect(acceptedActivityLoad({ source: "orider", summary: {
+      ridingTimeMillis: 0, movingTimeSec: 0, pauseTimeSec: 3600, elapsedTimeMillis: 3_600_000,
+    } }, "bike")).toMatchObject({ value: 0, known: true });
+    expect(acceptedActivityLoad({ summary: { ridingTimeMillis: 0, movingTimeSec: 1800,
+      distance: 20_000, elapsedTimeMillis: 3_600_000 } }, "bike"))
+      .toMatchObject({ value: 21, known: true });
+    expect(acceptedActivityLoad({ summary: { ridingTimeMillis: 0, distance: 20_000,
+      elapsedTimeMillis: 3_600_000 } }, "bike")).toMatchObject({ value: 0, known: false });
+  });
+
   it.each([
     {}, { movingTimeSec: 0 }, { pauseTimeSec: 120 }, { ridingTimeMillis: 0 },
     { movingTimeSec: 0, distance: 20_000 }, { movingTimeSec: 0, distanceKm: 20 },
