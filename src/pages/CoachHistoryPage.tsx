@@ -17,13 +17,12 @@ import { getCoachConsentPolicy, type CoachConsentPolicy } from "../services/coac
 import { getCoachStatus, type CoachQuota } from "../services/coachClient";
 import {
   COACH_P1_CAPABILITY_VERSION, COACH_V2_API_VERSION, COACH_V2_REQUEST_SCHEMA_VERSION,
-  type CoachAnswerActionCode, type CoachEntityRef, type CoachV2QuestionRequest, type CoachV2Response,
+  type CoachAnswerActionCode, type CoachEntityRef, type CoachV2QuestionRequest,
 } from "../services/coachV2Contract";
-import type { CoachP2Response } from "../services/coachP2Contract";
 import {
   continueCoachThread, deleteAllCoachThreads, deleteCoachThread, getCoachThread, getCoachThreads,
   isCoachHistoryTransportError,
-  type CoachThread, type CoachThreadSummary,
+  type CoachHistoryResponse, type CoachThread, type CoachThreadSummary,
 } from "../services/coachHistoryClient";
 import { reportCoachReadError, type CoachReadErrorKind } from "../services/coachReadError";
 import "../features/coach/coach-question.css";
@@ -52,13 +51,18 @@ function formatDate(value: string, locale: string): string {
   catch { return value; }
 }
 
-function hasStoredAnswer(response: CoachV2Response | CoachP2Response): boolean {
-  return response.capabilityVersion === "p2" ? response.outcome === "answer" : Boolean(response.answer);
+function hasStoredAnswer(response: CoachHistoryResponse): boolean {
+  return "answer" in response && Boolean(response.answer);
 }
 
-function CoachStoredTurnResult({ response }: { response: CoachV2Response | CoachP2Response }) {
+function CoachStoredTurnResult({ response }: { response: CoachHistoryResponse }) {
   const { t } = useTranslation("coach");
   if (response.outcome === "answer") return null;
+  if (response.schemaVersion === "coach-history-failure-v1") {
+    return <Card className="coach-thread-turn__outcome coach-thread-turn__outcome--warning" variant="inset">
+      <Text as="p" variant="bodySmall" tone="warning">{t("v2State.failed")}</Text>
+    </Card>;
+  }
   if (response.capabilityVersion === "p2") {
     return <Card className="coach-thread-turn__outcome coach-thread-turn__outcome--warning" variant="inset">
       <Text as="h3" variant="subtitle" tone="warning">{t("p2Unavailable.title")}</Text>
@@ -101,6 +105,8 @@ export default function CoachHistoryPage() {
   const coachDiscipline = preferredSport && isSportUiEnabled(preferredSport) && (preferredSport === "bike" || preferredSport === "run" || preferredSport === "swim") ? preferredSport : "bike";
   const uid = user?.uid ?? null;
   const generationRef = useRef(0);
+  const listRequestRef = useRef(0);
+  const quotaRequestRef = useRef(0);
   const routeGenerationRef = useRef(0);
   const uidRef = useRef(uid);
   const routeThreadRef = useRef(threadId);
@@ -154,23 +160,25 @@ export default function CoachHistoryPage() {
 
   const loadList = useCallback(async (generation = generationRef.current, expectedUid = uidRef.current) => {
     if (!expectedUid) { setLoadingList(false); return; }
+    const requestSequence = ++listRequestRef.current;
     setLoadingList(true); setLoadError(false);
     try {
       const page = await getCoachThreads(PAGE_SIZE);
-      if (!current(generation, expectedUid)) return;
+      if (!current(generation, expectedUid) || listRequestRef.current !== requestSequence) return;
       setThreads(page.threads); setCursor(page.nextCursor);
-    } catch (error) { if (current(generation, expectedUid)) { setListFailure(reportCoachReadError("history-list", error)); setLoadError(true); } }
-    finally { if (current(generation, expectedUid)) setLoadingList(false); }
+    } catch (error) { if (current(generation, expectedUid) && listRequestRef.current === requestSequence) { setListFailure(reportCoachReadError("history-list", error)); setLoadError(true); } }
+    finally { if (current(generation, expectedUid) && listRequestRef.current === requestSequence) setLoadingList(false); }
   }, [current]);
 
   const loadQuota = useCallback(async (generation = generationRef.current, expectedUid = uidRef.current) => {
     if (!expectedUid) return;
+    const requestSequence = ++quotaRequestRef.current;
     setLoadingQuota(true); setQuotaError(false);
     try {
       const status = await getCoachStatus();
-      if (current(generation, expectedUid)) setQuota(status.quota);
-    } catch (error) { if (current(generation, expectedUid)) { setQuotaFailure(reportCoachReadError("history-quota", error)); setQuota(null); setQuotaError(true); } }
-    finally { if (current(generation, expectedUid)) setLoadingQuota(false); }
+      if (current(generation, expectedUid) && quotaRequestRef.current === requestSequence) setQuota(status.quota);
+    } catch (error) { if (current(generation, expectedUid) && quotaRequestRef.current === requestSequence) { setQuotaFailure(reportCoachReadError("history-quota", error)); setQuota(null); setQuotaError(true); } }
+    finally { if (current(generation, expectedUid) && quotaRequestRef.current === requestSequence) setLoadingQuota(false); }
   }, [current]);
 
   const loadThread = useCallback(async (targetId: string, generation = generationRef.current, expectedUid = uidRef.current,
@@ -208,13 +216,14 @@ export default function CoachHistoryPage() {
   async function loadMore() {
     if (!cursor || loadingMore || !uid) return;
     const generation = generationRef.current; const expectedUid = uid;
+    const listRequest = listRequestRef.current;
     setLoadingMore(true);
     try {
       const page = await getCoachThreads(PAGE_SIZE, cursor);
-      if (!current(generation, expectedUid)) return;
+      if (!current(generation, expectedUid) || listRequestRef.current !== listRequest) return;
       setThreads((current) => [...current, ...page.threads.filter((next) => !current.some((item) => item.threadId === next.threadId))]);
       setCursor(page.nextCursor);
-    } catch (error) { if (current(generation, expectedUid)) { setListFailure(reportCoachReadError("history-list", error)); setLoadError(true); } }
+    } catch (error) { if (current(generation, expectedUid) && listRequestRef.current === listRequest) { setListFailure(reportCoachReadError("history-list", error)); setLoadError(true); } }
     finally { if (current(generation, expectedUid)) setLoadingMore(false); }
   }
 
@@ -360,6 +369,7 @@ export default function CoachHistoryPage() {
     user={user}
     discipline={coachDiscipline}
     onSignIn={signIn}
+    onRequestSettled={() => { void loadList(); void loadQuota(); }}
     triggerBlock={false}
   /></div>;
 
@@ -435,8 +445,8 @@ export default function CoachHistoryPage() {
               <section className="coach-thread-message coach-thread-message--coach" aria-label={`${turnLabel} · ${t("history.coachName")}`}>
                 <div className="coach-thread-message__identity"><span className="coach-thread-message__avatar" aria-hidden><Bot size={ICON_SIZE.md} /></span>
                   <Text as="h4" variant="label">{t("history.coachName")}</Text></div>
-                <div className={`coach-thread-turn__answer${turn.response.outcome !== "answer" && !hasStoredAnswer(turn.response) ? " coach-thread-turn__answer--terminal" : ""}`}><CoachAnswerDocumentView response={turn.response}
-                  locale={i18n.language} onAction={answerAction} historical />
+                <div className={`coach-thread-turn__answer${turn.response.outcome !== "answer" && !hasStoredAnswer(turn.response) ? " coach-thread-turn__answer--terminal" : ""}`}>{turn.response.schemaVersion !== "coach-history-failure-v1" && <CoachAnswerDocumentView response={turn.response}
+                  locale={i18n.language} onAction={answerAction} historical />}
                   <CoachStoredTurnResult response={turn.response} />
                 </div>
               </section>

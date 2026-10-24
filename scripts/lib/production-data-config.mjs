@@ -1,3 +1,4 @@
+import { publicClubEndpoint } from "./public-club-deploy-config.mjs";
 import { createHash } from "node:crypto";
 
 export const PRODUCTION_ORIGIN = "https://orider.co.kr";
@@ -45,6 +46,7 @@ export function productionDataConfig(source) {
     if ((key.endsWith("Enabled") || key === "activitySubscriptionsBackendReady") && typeof value !== "boolean") throw new Error(`production data invalid flag ${key}`);
   }
   if (!["activitySubscriptionsEnabled", "activitySubscriptionsBackendReady"].every(key => typeof source[key] === "boolean")) throw new Error("production subscription runtime flags missing");
+  publicClubEndpoint(source.publicClubApiUrl);
   const config = { ...source, personalApiBase: source.personalApiBase || PRODUCTION_ORIGIN };
   const allowed = {
     personalApiBase: [PRODUCTION_ORIGIN], aiApiBase: [PRODUCTION_AI_ORIGIN],
@@ -67,6 +69,7 @@ export function productionDataConfig(source) {
 /** 실행 시점 설정과 일부 기존 build-time 소비자 모두 같은 snapshot을 사용한다. */
 export function productionBuildEnv(config) {
   const keys = {
+    publicClubApiUrl: "VITE_PUBLIC_CLUB_API_URL",
     firebaseApiKey: "VITE_FIREBASE_API_KEY", firebaseAuthDomain: "VITE_FIREBASE_AUTH_DOMAIN", firebaseProjectId: "VITE_FIREBASE_PROJECT_ID",
     firebaseStorageBucket: "VITE_FIREBASE_STORAGE_BUCKET", firebaseMessagingSenderId: "VITE_FIREBASE_MESSAGING_SENDER_ID", firebaseAppId: "VITE_FIREBASE_APP_ID",
     firebaseFunctionsRegion: "VITE_FIREBASE_FUNCTIONS_REGION", firebaseFunctionsBase: "VITE_FIREBASE_FUNCTIONS_BASE",
