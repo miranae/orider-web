@@ -9,9 +9,21 @@ interface Page { rows: Array<{ id: string; data: DocumentData }>; nextCursor: st
 /** Discovery never falls back to a raw events query: that would bypass private-event filtering. */
 export async function getVisibleEventPage(options: Options) {
   await ensureAppCheckReady();
-  const result = await httpsCallable<Options, Page>(functions, "listVisibleEventEnvelopes")(options);
-  const docs: EventEnvelopeDoc[] = result.data.rows.map(row => ({ id: row.id, data: () => row.data }));
-  return { docs, nextCursor: result.data.nextCursor, forEach: (callback: (doc: EventEnvelopeDoc) => void) => docs.forEach(callback) };
+  const call = httpsCallable<Options, Page>(functions, "listVisibleEventEnvelopes");
+  const seen = new Set(options.cursor ? [options.cursor] : []);
+  let request = options;
+  let page: Page;
+  // Widgets and paginated group screens expect a visible page, not a false empty
+  // result from a bounded window containing only inaccessible events.
+  while (true) {
+    page = (await call(request)).data;
+    if (page.rows.length || !page.nextCursor) break;
+    if (seen.has(page.nextCursor)) throw new Error("Event discovery continuation made no progress");
+    seen.add(page.nextCursor);
+    request = { ...options, cursor: page.nextCursor };
+  }
+  const docs: EventEnvelopeDoc[] = page.rows.map(row => ({ id: row.id, data: () => row.data }));
+  return { docs, nextCursor: page.nextCursor, forEach: (callback: (doc: EventEnvelopeDoc) => void) => docs.forEach(callback) };
 }
 
 export async function getPublicEvents(statuses: string[]) {

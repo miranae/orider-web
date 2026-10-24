@@ -48,6 +48,29 @@ describe("authorized event discovery adapter", () => {
     ]);
     expect(getDocs).not.toHaveBeenCalled();
   });
+  it("fills a group widget page across empty windows without changing its scope or limit", async () => {
+    const token = "~ed1_" + "b".repeat(48);
+    setCallableImplementation("listVisibleEventEnvelopes", value => {
+      const request = value as { cursor?: string };
+      return { data: request.cursor
+        ? { rows: [{ id: "visible-meeting", data: { info: { kind: "CLUB_MEETING" } } }], nextCursor: "visible-meeting" }
+        : { rows: [], nextCursor: token } };
+    });
+    const options = { groupId: "club", publicOnly: false, statuses: ["OPEN", "LIVE"], descending: true, limit: 3 };
+    const page = await getVisibleEventPage(options);
+    expect(page.docs.map(doc => doc.id)).toEqual(["visible-meeting"]);
+    expect(page.nextCursor).toBe("visible-meeting");
+    expect(mockCallableInvocations.filter(call => call.name === "listVisibleEventEnvelopes").map(call => call.data)).toEqual([
+      options, { ...options, cursor: token },
+    ]);
+    expect(getDocs).not.toHaveBeenCalled();
+  });
+  it("rejects a cycling empty continuation instead of looping or claiming a complete empty page", async () => {
+    setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [], nextCursor: "same-cursor" } }));
+    await expect(getVisibleEventPage({ groupId: "club", publicOnly: true, limit: 3 })).rejects.toThrow("made no progress");
+    expect(mockCallableInvocations.filter(call => call.name === "listVisibleEventEnvelopes")).toHaveLength(2);
+    expect(getDocs).not.toHaveBeenCalled();
+  });
   it("fails closed on server rejection without a raw Firestore collection fallback", async () => {
     setCallableImplementation("listVisibleEventEnvelopes", () => { throw new Error("permission-denied"); });
     await expect(getVisibleEventPage({ groupId: "club", publicOnly: false })).rejects.toThrow("permission-denied");
