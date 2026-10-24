@@ -6,7 +6,6 @@ import { goalLoadScope, summarizeStoredPlan } from "./planScope";
 import { Eye, RefreshCw, Target } from "lucide-react";
 import GlossaryText from "../../../components/common/GlossaryText";
 import InfoTip from "../../../components/InfoTip";
-import { GoalSourceNotice } from "../../../components/training/GoalInputNotice";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { planDayKey as kstDayKey, planDayStartMs, planCalendarDate } from "@shared/training/planDate";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
@@ -690,7 +689,6 @@ export default function PlanPresentation({
 
           </div>
         )}
-        <GoalSourceNotice goal={goal} discipline={discipline} />
         {decisionSlot && <div style={{ marginBottom: "var(--space-4)" }}>{decisionSlot}</div>}
         <div style={{ padding: "24px 0" }}>
           <ErrorState title={tCommon("error.title")} onRetry={retryLoad} />
@@ -778,7 +776,6 @@ export default function PlanPresentation({
     };
     return (
       <>
-        <GoalSourceNotice goal={goal} discipline={discipline} />
         {scopeNotice}
         {calendarLoadNotice}
         {decisionSlot && <div style={{ padding: "var(--space-3) var(--space-4)" }}>{decisionSlot}</div>}
@@ -790,7 +787,6 @@ export default function PlanPresentation({
   return (
     <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
 
-      <GoalSourceNotice goal={goal} discipline={discipline} />
       {scopeNotice}
       {/* ── Goal Header ─────────────────────────────────────────────── */}
       <div
