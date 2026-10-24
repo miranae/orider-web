@@ -48,6 +48,7 @@ interface Props {
   user: User | null;
   discipline: CoachDiscipline;
   onSignIn: () => void;
+  onRequestSettled?: () => void;
   triggerBlock?: boolean;
   showPmcInsight?: boolean;
   ridePlanSelection?: { selectionId: string; question: string; context: CoachRidePlanContext } | null;
@@ -118,7 +119,7 @@ function clarificationQuestion(question: string, promptKey: string, optionId: st
 
 export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock = true, showPmcInsight = false,
   ridePlanSelection = null, progressPlannerSelection = null, presetQuestion = null, presetIntent = "free",
-  triggerLabel }: Props) {
+  triggerLabel, onRequestSettled }: Props) {
   const { t, i18n } = useTranslation("coach");
   const dialog = useDialog();
   const navigate = useLocalizedNavigate();
@@ -382,7 +383,11 @@ export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock
       }
     }
     finally {
-      if (sessionGenerationRef.current === sessionGeneration && auth.currentUser === sdkUser) inFlightRef.current = false;
+      if (sessionGenerationRef.current === sessionGeneration && auth.currentUser === sdkUser
+        && contextRef.current.uid === actor && contextRef.current.discipline === discipline) {
+        inFlightRef.current = false;
+        onRequestSettled?.();
+      }
       else if (sessionGenerationRef.current === sessionGeneration && activeRequestRef.current === id) clearSession();
     }
   }

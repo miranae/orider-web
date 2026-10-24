@@ -42,6 +42,7 @@ interface ActivityPerformanceChartsProps {
   chartOverlays: OverlayDataset[];
   hoverPoint: SampledPoint | null;
   summaryStats: ReturnType<typeof buildSummaryStats>;
+  canonicalSummary?: boolean;
   sport: string;
   recordedRunCadenceUnit: Parameters<typeof runningCadenceSpm>[1];
   onHoverIndex?: (index: number | null) => void;
@@ -56,7 +57,7 @@ interface ActivityPerformanceChartsProps {
 /** 공유 웹/임베드 차트. 표본 선택·단위·서버 구간 계약은 기존 상세 모델을 그대로 사용한다. */
 export default function ActivityPerformanceCharts({
   elevData, availableOverlays, activeOverlays, focusedOverlayKey, toggleOverlay,
-  chartOverlays, hoverPoint, summaryStats, sport, recordedRunCadenceUnit,
+  chartOverlays, hoverPoint, summaryStats, canonicalSummary = false, sport, recordedRunCadenceUnit,
   onHoverIndex, chartHighlightRange, metrics, powerSource, hasElevation = true, range, onRangeChange,
   axisControls, rangeControls, rangeAnalysis, elapsedAxisSec, xAxis, embedded = false,
   analysisStyle = false, chartIdentity, hoverIndex, visualRange, onVisualRangeChange, visualSummaryStats, segments, rawElapsedAxis, sourceIndices, rawStreams, sensorSelectionContext,
@@ -101,7 +102,7 @@ export default function ActivityPerformanceCharts({
         onHoverIndex={onHoverIndex} highlightRange={chartHighlightRange} rangeMode={!!onRangeChange} range={range} onRangeChange={onRangeChange} analysisPresentation={{ axisControls, identity: chartIdentity, visualRange, onVisualRangeChange, hoverIndex, segments,
           elevationObservationTimeSec: isRawPartStreams(rawStreams) ? elapsedAxisSec : undefined,
           segmentsLabel: t("tab.segments"), segmentDetailsLabel: t("tab.segments"), canonicalRange: chartHighlightRange, selectionHint: t("analysisChart.selectHint"), selectionCaption: visualRange ? <div className="activity-analysis-selection"><Text variant="bodySmall">{t("analysisChart.selection")} · {summaryParts.join(" · ")}</Text></div> : null,
-          controls: rangeControls ? <div className="activity-analysis-controls">{rangeControls}</div> : undefined, maximumLabel: t("peakInspector.maximum"), averageLabel: visualRange ? t("peakInspector.average") : <InfoTip tone="inherit" title={t("peakInspector.average")} content={t("analysisChart.observedStats")} label={t("peakInspector.average")}>{t("peakInspector.average")}</InfoTip>, keyboardLabel: t("analysisChart.keyboardHelp"),
+          controls: rangeControls ? <div className="activity-analysis-controls">{rangeControls}</div> : undefined, maximumLabel: t(canonicalSummary && !visualRange ? "analysisChart.canonicalMaximum" : "peakInspector.maximum"), averageLabel: canonicalSummary && !visualRange ? t("analysisChart.canonicalAverage") : visualRange ? t("peakInspector.average") : <InfoTip tone="inherit" title={t("peakInspector.average")} content={t("analysisChart.observedStats")} label={t("peakInspector.average")}>{t("peakInspector.average")}</InfoTip>, keyboardLabel: t("analysisChart.keyboardHelp"),
           elevation: { label: t("page.elevation"), maximum: elevationValue(stats?.maxElev), current: elevationValue(hoverIndex == null ? hoverPoint?.altitude : analysisData[hoverIndex]?.elevation), unit: units === "imperial" ? "ft" : "m", formatScale: elevationValue },
           lanes: Object.fromEntries(availableOverlays.map(cfg => [cfg.key, { label: overlayLabel(cfg),
             maximum: formatMetric(cfg, stats?.overlays[cfg.key]?.max, true), average: formatMetric(cfg, stats?.overlays[cfg.key]?.avg, true),

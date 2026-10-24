@@ -277,3 +277,15 @@ describe("SensorStreamsV1 origin provenance", () => {
     )?.powerSource).toBe("sensorStreamsV1");
   });
 });
+
+import type { Activity } from "@shared/types";
+import { activitySensorOrigin } from "./activitySensorOrigin";
+const activity = { id: "strava_export", activityRevision: "r1", contentSelectedRevision: null,
+  activityPresentationV1: { version: 1, activityRevision: "r1", contentSelectedRevision: null,
+    sensorOriginActivityId: "orider_original" } } as unknown as Activity;
+it("uses the current source only and drops stale links after edits", () => {
+  expect(activitySensorOrigin(activity)).toBe("orider_original");
+  expect(activitySensorOrigin({ ...activity, contentSelectedRevision: 1 })).toBeNull();
+  expect(activitySensorOrigin({ ...activity, activityRevision: "r2" } as Activity)).toBeNull();
+  expect(activitySensorOrigin(null)).toBeNull();
+});

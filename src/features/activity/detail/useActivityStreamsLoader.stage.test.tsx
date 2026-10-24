@@ -58,3 +58,19 @@ it("keeps stage sign-in-required distinct from missing data, skips anonymous rea
   expect(result.current.streams).toBeNull();
   expect(getStreams).not.toHaveBeenCalled();
 });
+
+it.each(["stage", "production"])("keeps export identity and attachments while requesting canonical sensors in %s", async appEnvironment => {
+  resetRuntimeConfigForTests({ appEnvironment });
+  const activity = { id: "strava_123", source: "strava", userId: "owner", type: "Ride",
+    activityPresentationV1: { version: 1, activityRevision: null, contentSelectedRevision: null,
+      sensorOriginActivityId: "orider_original" } } as Activity;
+  const streams = { time: [0, 1], watts: [100, 120], segment_efforts: [{ id: "export-effort" }] };
+  vi.mocked(getActivityStreamsWithAuth).mockResolvedValue(streams as never);
+  const beforeReads = vi.mocked(getDoc).mock.calls.length;
+  const getStreams = vi.fn();
+  const { result } = renderHook(() => useActivityStreamsLoader({ activityId: activity.id, activity, userId: "owner", getStreams, t: key => key }));
+  await waitFor(() => expect(result.current.streams).toEqual(streams));
+  expect(vi.mocked(getActivityStreamsWithAuth).mock.calls[0]?.[1]).toBe(activity.id);
+  expect(vi.mocked(getDoc).mock.calls.length).toBe(beforeReads);
+  expect(getStreams).not.toHaveBeenCalled();
+});
