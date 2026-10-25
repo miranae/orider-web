@@ -69,7 +69,8 @@ describe("ActivityPage server summary presentation", () => {
     mocks.model!.overview.response = null;
     renderWithProviders(<ActivityPage />, { authenticated: false });
     expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
-    expect(within(screen.getByRole("region", { name: "활동 이야기" })).getByText(/▰ 피크 파워/).textContent).toBe("▰ 피크 파워 (W)\n 1s 10s\n938 767");
+    if (source === "strava") expect(within(screen.getByRole("region", { name: "활동 이야기" })).getByText(/Strava 원본/)).toBeInTheDocument();
+    else expect(within(screen.getByRole("region", { name: "활동 이야기" })).getByText(/▰ 피크 파워/).textContent).toBe("▰ 피크 파워 (W)\n 1s 10s\n938 767");
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(screen.queryByText(/▰ 피크 파워/)).not.toBeInTheDocument();
   });

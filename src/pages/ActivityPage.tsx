@@ -1,3 +1,5 @@
+import { stravaRecordOf, formatStravaRecord } from "@shared/analysis/stravaRecord";
+import StravaMetricComparison from "../features/activity/detail/StravaMetricComparison";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
 import { useMobile } from "../hooks/useMobile";
 import { ChevronDown, Menu, Trophy } from "lucide-react";
@@ -8,7 +10,7 @@ import { useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { elapsedRangeFromChartSelection } from "../features/activity/detail/activityRangeSelection";
-import { canonicalActivityChartMetrics, withCanonicalChartSummary, getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
+import { canonicalActivityChartMetrics, withStravaChartSummary, withCanonicalChartSummary, getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
 import { ActivityGrowthPanel } from "../features/activity/detail/ActivityGrowthPanel";
 import { ActivityPersonalBenchmark } from "../features/activity/detail/ActivityPersonalBenchmark";
 import ActivityPeakEffortInspector from "../features/activity/detail/ActivityPeakEffortInspector";
@@ -675,9 +677,9 @@ export default function ActivityPage() {
     sampledData, sport, units, recordedRunCadenceUnit, t("analysis.run.cadenceUnit"),
   ), [sampledData, sport, units, recordedRunCadenceUnit, t]);
   const canonicalSummaryMetrics = canonicalActivityChartMetrics(activity, serverMetrics.metrics, !!activePowerOverride);
-  const summaryStats = useMemo(() => withCanonicalChartSummary(
+  const summaryStats = useMemo(() => withStravaChartSummary(withCanonicalChartSummary(
     buildSummaryStats(effectiveStreams, streamSensorSummary), canonicalSummaryMetrics,
-  ), [effectiveStreams, streamSensorSummary, canonicalSummaryMetrics]);
+  ), activity, !!activePowerOverride), [effectiveStreams, streamSensorSummary, canonicalSummaryMetrics, activity, activePowerOverride]);
   const { location: runSplitLocation, onSelectSplit: selectRunSplit } = useRunSplitLocation(activityId, activity?.id, sport === "run", streams, sampledData, resolveObservedDistanceKm(serverMetrics.metrics ?? {}, activity?.summary?.distance));
   const peakLocation = useMemo(() => resolvePeakEffortLocation(selectedPeak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData),
     [selectedPeak, serverMetrics.metrics, streams, sampledData]);
@@ -775,7 +777,11 @@ export default function ActivityPage() {
   const resolvedMemo = activity ? resolveActivityMemo(activity, stravaSummaryLang) : null;
   const freshDefaultMemo = overview.response?.status === "available" && overview.response.activityId === activity?.id
     ? overview.response.defaultMemo ?? null : null;
-  const overviewMemo = resolvedMemo?.memo ?? freshDefaultMemo ?? publishedContent?.memo ?? null;
+  const providerRecord = activity?.source === "strava" ? stravaRecordOf(activity) : null;
+  const overviewMemo = providerRecord && !resolvedMemo?.authored
+    ? freshDefaultMemo && overview.response?.status === "available" && overview.response.presentation.stravaRecord
+      ? freshDefaultMemo : formatStravaRecord(providerRecord, stravaSummaryLang)
+    : resolvedMemo?.memo ?? freshDefaultMemo ?? publishedContent?.memo ?? null;
 
   const hasStreams = sampledData.length > 0;
   const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, user?.uid, activityId, user?.isAnonymous === true);
@@ -847,7 +853,8 @@ export default function ActivityPage() {
   const hasCanonicalSensorPresentation = canonicalSummaryMetrics != null;
   const powerNeedsPreview = activePowerOverride != null || hasStreamPowerCandidate && !hasCanonicalSensorPresentation;
   const displayedSummary = { ...(hasCanonicalSensorPresentation ? s : selectedSummary ?? s),
-    ...(latestMetrics && !powerNeedsPreview && latestMetrics.tss !== undefined ? { tss: latestMetrics.tss } : {}) };
+    ...(activity.source === "strava" ? { tss: null, normalizedPower: null } : {}),
+    ...(activity.source !== "strava" && latestMetrics && !powerNeedsPreview && latestMetrics.tss !== undefined ? { tss: latestMetrics.tss } : {}) };
   const activityDate = Number.isFinite(activity.startTime) && Number.isFinite(new Date(activity.startTime).getTime())
     ? fitnessDateKeyFor(activity.startTime, fitnessTimeseries?.loadSnapshot?.dateKeyBasis)
     : null;
@@ -870,8 +877,8 @@ export default function ActivityPage() {
     : serverMetrics.metrics?.np ?? normalizedPowerValue;
 
   const sharePerformanceMetrics = [
-    shareMetric(t(sport === "run" ? "analysis.run.hrLoad" : "page.share.tss"), activityTss),
-    shareMetric(activityNp != null ? t("page.share.normalizedPower") : t(sport === "run" ? "stat.runningPower" : "stat.avgPower"), activityNp ?? avgPowerValue, "W"),
+    shareMetric(`${activity.source === "strava" ? "Orider " : ""}${t(sport === "run" ? "analysis.run.hrLoad" : "page.share.tss")}`, activityTss),
+    shareMetric(activityNp != null ? `${activity.source === "strava" ? "Orider " : ""}${t("page.share.normalizedPower")}` : t(sport === "run" ? "stat.runningPower" : "stat.avgPower"), activityNp ?? avgPowerValue, "W"),
     shareMetric("CTL", fitnessAtActivity?.ctl),
     shareMetric("ATL", fitnessAtActivity?.atl),
     shareMetric("TSB", fitnessAtActivity?.tsb, undefined, true),
@@ -898,8 +905,9 @@ export default function ActivityPage() {
   // 서버 activity_metrics 가 이동/정지 시간의 정본. 활동 문서의 movingTimeSec/pauseTimeSec 는
   // 같은 문서를 비정규화한 미러라 폴백으로 안전하다. Strava 의 ridingTimeMillis 는 이동시간
   // 성격이므로 총 경과시간은 start/end 차이로 확정한다.
-  const movingTimeSec = serverMetrics.metrics?.movingTimeSec ?? s.movingTimeSec;
-  const pauseTimeSec = serverMetrics.metrics?.pauseTimeSec ?? s.pauseTimeSec;
+  const movingTimeSec = providerRecord?.moving_time ?? serverMetrics.metrics?.movingTimeSec ?? s.movingTimeSec;
+  const pauseTimeSec = providerRecord?.elapsed_time != null && providerRecord.moving_time != null
+    ? Math.max(0, providerRecord.elapsed_time - providerRecord.moving_time) : serverMetrics.metrics?.pauseTimeSec ?? s.pauseTimeSec;
   const speedDur = resolveDuration({
     ridingTimeMillis: s.ridingTimeMillis,
     elapsedTimeMillis: s.elapsedTimeMillis,
@@ -912,6 +920,7 @@ export default function ActivityPage() {
   // 요약 스트립도 AnalysisTab 과 같은 서버 정본을 쓴다 — 한 화면에서 값이 갈리지 않도록 (#885 §2).
   const rawStripStats = resolveSummaryStripStats(serverMetrics, {
     summary: displayedSummary,
+    stravaRecord: providerRecord,
     avgPowerValue,
     avgSpeedFallbackKph: fallbackAvgKph,
     normalizedPowerValue,
@@ -946,7 +955,7 @@ export default function ActivityPage() {
   // Top results: efforts with PR or KOM achievements
   const topResults = segmentEfforts.filter(
     (e) => (e.prRank != null && e.prRank >= 1 && e.prRank <= 3) || (e.komRank != null && e.komRank >= 1 && e.komRank <= 10),
-  );
+  ).sort((a, b) => (a.prRank ?? 100) - (b.prRank ?? 100));
   const streamUnavailableMessage = loadingStreams || showStreamSpinner
     ? t("page.loadingGps")
     : streamsError ?? t("page.streamsMissing");
@@ -1043,6 +1052,7 @@ export default function ActivityPage() {
 
   const summarySection = (
         <div className="activity-detail-summary" hidden={activeTab === "analysis"}>
+          {providerRecord && <Text as="p" variant="caption" tone="secondary">{t("sourceMetrics.sourceNotice")}</Text>}
           <Card padding="none" className="activity-detail-primary-stats">{keyStatsStrip("primary")}</Card>
           {secondaryStatsAvailable && <details className="activity-detail-secondary-stats" open={wideStats || secondaryStatsOpen} onToggle={(event) => {
             if (!wideStats) setSecondaryStatsOpen(event.currentTarget.open);
@@ -1222,7 +1232,7 @@ export default function ActivityPage() {
         <Text as="h2" variant="subtitle">{t("detail.keyRecords")}</Text>{summarySection}
       </section>}
       {activeTab === "overview" && <ActivityOverviewSocial key={`${activity.id}:${user?.uid ?? "guest"}:${sourceRevision}`} activityId={activity.id} prioritizeResults={mobileReading}
-        memo={overviewMemo} memoGeneratedAt={resolvedMemo?.authored === false ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
+        memo={overviewMemo} memoGeneratedAt={!providerRecord && resolvedMemo?.authored === false ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
         photosKnown={!!streams || !!publishedContent || typeof activity.photoCount === "number"} memoTruncated={publishedContent?.memoTruncated} photos={overviewPhotos}
         totalPhotos={Math.max(photos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0) + uploadedPhotos.length}
         companions={visibleCoRiders} achievements={overviewAchievements}
@@ -1279,7 +1289,7 @@ export default function ActivityPage() {
         </Card>
       )}
       {showElevation && elevData.length > 0 && (
-        <ActivityPerformanceCharts embedded analysisStyle canonicalSummary={hasCanonicalSensorPresentation}
+        <ActivityPerformanceCharts embedded analysisStyle canonicalSummary={!!providerRecord || hasCanonicalSensorPresentation} sourceLabel={providerRecord && !activePowerOverride ? "Strava" : undefined}
           chartIdentity={visualIdentity} rawStreams={effectiveStreams} sensorSelectionContext={sensorSelectionContext}
           rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
           visualRange={visualRange} onVisualRangeChange={setVisualRange} hoverIndex={hoverIndex} segments={chartSegments}
@@ -1400,14 +1410,16 @@ export default function ActivityPage() {
 
       <div className="activity-detail-analysis-content space-y-6" data-testid="activity-analysis-content" hidden={activeTab !== "analysis"}>
       {activeTab === "analysis" && <>
+      {providerRecord && <StravaMetricComparison record={providerRecord} metrics={activePowerOverride ? null : latestMetrics} />}
+      {providerRecord && <Text as="h2" variant="subtitle">{t("sourceMetrics.orider")}</Text>}
       {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
       <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={runGapSecPerKm} />
 
       {sport === "ride" ? <ActivityAnalysisBody
         overview={overview} isOwner={isActivityOwner} preview={activePowerOverride != null}
-        ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} totalCalories={stripStats.caloriesKcal.value}
+        ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} totalCalories={providerRecord ? latestMetrics?.caloriesKcal ?? null : stripStats.caloriesKcal.value}
         storedLoad={(isActivityOwner || overview.response?.status !== "available" || differentLoadValues) && !activePowerOverride && !analysisTabProps?.suppressServerPowerMetrics && (serverMetrics.status === "ready" || serverMetrics.status === "stale") ? serverMetrics.metrics?.tss ?? null : null}
-        sharedStats={{ averagePower: stripStats.avgPower.value, averageCadence: stripStats.avgCadence.value, averageHeartRate: stripStats.avgHr.value, maxHeartRate: stripStats.maxHr.value }}
+        sharedStats={providerRecord ? { averagePower: latestMetrics?.avgPower ?? null, averageCadence: latestMetrics?.avgCadence ?? null, averageHeartRate: latestMetrics?.avgHr ?? null, maxHeartRate: latestMetrics?.maxHr ?? null } : { averagePower: stripStats.avgPower.value, averageCadence: stripStats.avgCadence.value, averageHeartRate: stripStats.avgHr.value, maxHeartRate: stripStats.maxHr.value }}
         analysisProps={analysisTabProps ? { ...analysisTabProps, onSignIn: () => { void signIn(); } } : null}
         timeline={null}
         provenance={differentLoadValues ? <Text as="p" variant="caption" tone="secondary">{t("detail.loadValuesDescription")}{serverMetrics.status === "stale" ? ` · ${t("detail.previousAnalysisValue")}` : ""}</Text> : null}

@@ -1,3 +1,4 @@
+import type { StravaSummaryV1 } from "@shared/analysis/stravaRecord";
 import { resolveObservedDistanceKm } from "@shared/training/activityDistanceEvidence";
 /**
  * 활동 상세 요약 스트립의 값 출처 결정 (#885 §2, epic #2237).
@@ -41,6 +42,7 @@ export interface SummaryStripStats {
 
 export interface SummaryStripInputs {
   summary: ActivitySummary;
+  stravaRecord?: StravaSummaryV1 | null;
   /** 센서 선택을 반영한 평균 파워 (기존 폴백 경로). */
   avgPowerValue: number | null;
   /** 이동시간 보정까지 끝낸 화면 평균속도 (기존 폴백 경로). */
@@ -65,7 +67,7 @@ function num(value: number | null | undefined): number | null {
 
 export function resolveSummaryStripStats(
   state: UseActivityMetricsState,
-  { summary, avgPowerValue, avgSpeedFallbackKph, normalizedPowerValue, hasStreamPowerCandidate }: SummaryStripInputs,
+  { summary, stravaRecord, avgPowerValue, avgSpeedFallbackKph, normalizedPowerValue, hasStreamPowerCandidate }: SummaryStripInputs,
 ): SummaryStripStats {
   const m = state.status === "ready" || state.status === "stale" ? state.metrics : null;
   /** 서버 문서를 기다리는 중 — 폴백에 "기기 요약" 표식이 필요한 상태. */
@@ -88,7 +90,7 @@ export function resolveSummaryStripStats(
   });
 
   const observedDistanceKm = m ? resolveObservedDistanceKm(m, summary.distance) : null;
-  return {
+  const result: SummaryStripStats = {
     distanceM: pick(observedDistanceKm == null ? null : observedDistanceKm * 1000, summary.distance),
     avgSpeedKph: pick(m?.avgSpeedKph, avgSpeedFallbackKph ?? summary.averageSpeed),
     maxSpeedKph: pick(m?.maxSpeedKph, summary.maxSpeed),
@@ -105,4 +107,14 @@ export function resolveSummaryStripStats(
     movingTimeSec: pickServerMirror(m?.movingTimeSec, summary.movingTimeSec),
     pauseTimeSec: pickServerMirror(m?.pauseTimeSec, summary.pauseTimeSec),
   };
+  if (!stravaRecord) return result;
+  const source = (value: number | null | undefined): StripStat => ({ value: num(value), provisional: false });
+  const r = stravaRecord;
+  return { ...result, distanceM: source(r.distance), avgSpeedKph: source(r.average_speed == null ? null : r.average_speed * 3.6),
+    maxSpeedKph: source(r.max_speed == null ? null : r.max_speed * 3.6), elevationGainM: source(r.total_elevation_gain),
+    caloriesKcal: source(r.calories), avgHr: source(r.average_heartrate), maxHr: source(r.max_heartrate),
+    avgCadence: source(r.average_cadence), avgPower: source(r.average_watts), maxPower: source(r.max_watts),
+    // Weighted average power is displayed by its provider name, never as Orider NP.
+    np: EMPTY, movingTimeSec: source(r.moving_time),
+    pauseTimeSec: source(r.elapsed_time != null && r.moving_time != null ? Math.max(0, r.elapsed_time - r.moving_time) : null) };
 }

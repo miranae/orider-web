@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withCanonicalChartSummary, getPerformanceOverlays } from "./activityPerformancePresentation";
+import { withStravaChartSummary, withCanonicalChartSummary, getPerformanceOverlays } from "./activityPerformancePresentation";
 import { buildChartOverlays } from "./activityDetailDerived";
 import type { SampledPoint } from "./activityDetailUtils";
 const point = (speed: number, heartRate: number | null = null, power: number | null = null): SampledPoint => ({
@@ -35,4 +35,12 @@ it("keeps canonical averages when public metrics omit private maxima", () => {
   expect(result?.overlays).toEqual({hr:{avg:144,max:183},power:{avg:102,max:1893},speed:{avg:20.9,max:43.2}});
   expect(observed.overlays.hr.avg).toBe(143);
   expect(withCanonicalChartSummary(observed, null)).toBe(observed);
+});
+
+it("keeps Strava whole-activity chart headings on the same provider values as the overview", () => {
+  const observed = { minElev: 0, maxElev: 100, overlays: { speed: { avg: 25.2, max: 54.2 }, power: { avg: 120, max: 780 } } };
+  const activity = { source: "strava", stravaSummaryV1: { version: 1, average_speed: 25.6 / 3.6, max_speed: 60.4 / 3.6, average_watts: 120.9 } } as unknown as import("@shared/types").Activity;
+  const result = withStravaChartSummary(observed, activity);
+  expect(result?.overlays.speed.avg).toBeCloseTo(25.6); expect(result?.overlays.speed.max).toBeCloseTo(60.4);
+  expect(result?.overlays.power.avg).toBe(120.9); expect(observed.overlays.speed.max).toBe(54.2);
 });

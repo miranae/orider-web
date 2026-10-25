@@ -2771,5 +2771,15 @@
     "nextPhoto": "다음 사진",
     "memoSnapshot": "{{date}}에 생성된 요약입니다. 현재 분석과 다를 수 있어요."
   },
-  "detail.keyRecords": "핵심 기록"
+  "detail.keyRecords": "핵심 기록",
+  "sourceMetrics": {
+    "sourceNotice": "Strava 원본 기준 · 자체 계산값은 분석에서 구분해 표시합니다.",
+    "orider": "Orider 분석",
+    "comparison": "Strava 원본과 Orider 분석",
+    "explanation": "기본 기록은 Strava 원본을 사용합니다. —는 제공되지 않은 값이며, 가중평균 파워와 NP는 서로 다른 지표입니다. 구간을 선택하면 차트는 선택한 표본의 통계를 표시합니다.",
+    "metric": "지표",
+    "weightedPower": "가중평균 파워",
+    "work": "일량",
+    "deviceTemperature": "기기 온도"
+  }
 }
