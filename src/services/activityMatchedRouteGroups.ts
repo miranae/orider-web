@@ -16,8 +16,9 @@ function timestamp(value: unknown): value is ActivityMatchedRouteGroupResponse["
   return count(time.seconds, 253402300799) && count(time.nanoseconds, 999999999) && time.nanoseconds % 1000 === 0;
 }
 export function validActivityMatchedRouteGroupRequest(value: unknown): value is ActivityMatchedRouteGroupRequest {
-  return record(value) && exact(value, ["mode", "anchorActivityId", "discipline", ...(Object.prototype.hasOwnProperty.call(value, "cursor") ? ["cursor"] : [])])
+  return record(value) && exact(value, ["mode", "anchorActivityId", "discipline", ...(Object.prototype.hasOwnProperty.call(value, "geometryPolicy") ? ["geometryPolicy"] : []), ...(Object.prototype.hasOwnProperty.call(value, "cursor") ? ["cursor"] : [])])
     && value.mode === "matched_route_group_page" && id(value.anchorActivityId) && (value.discipline === "run" || value.discipline === "bike")
+    && (!Object.prototype.hasOwnProperty.call(value, "geometryPolicy") || value.geometryPolicy === "complete" || value.geometryPolicy === "observed_native")
     && (!Object.prototype.hasOwnProperty.call(value, "cursor") || opaque(value.cursor));
 }
 function summary(value: unknown, now: number, year = false): value is MatchedRouteMetricSummary {
@@ -44,18 +45,19 @@ function canonical(value: unknown, request: ActivityMatchedRouteGroupRequest, st
 export function validateActivityMatchedRouteGroupResponse(value: unknown, request: ActivityMatchedRouteGroupRequest, now = Date.now()): ActivityMatchedRouteGroupResponse {
   const invalid = (): never => { throw new Error("invalid_matched_route_group_response"); };
   if (!validActivityMatchedRouteGroupRequest(request) || !exact(value, ["mode", "anchorActivityId", "discipline", "state", "readTime", "expiresAt", "groupToken", "nextCursor", "scope", "coverage", "omittedCounts", "members", "summary", "io"])) invalid();
-  const r = value as ActivityMatchedRouteGroupResponse;
+  const r = value as ActivityMatchedRouteGroupResponse, observed = request.geometryPolicy === "observed_native";
+  const geometry = observed ? "observed_gap_free_coverage_unproven" : "observed_complete_gap_free";
   if (r.mode !== request.mode || r.anchorActivityId !== request.anchorActivityId || r.discipline !== request.discipline || !timestamp(r.readTime)
     || matchedRouteReadTimeMs(r.readTime) > now || r.expiresAt !== r.readTime.seconds * 1000 + Math.floor(r.readTime.nanoseconds / 1e6) + limits.ttlMs
     || !["available", "index_missing", "anchor_unsupported", "changed_input", "expired", "budget_partial"].includes(r.state)
     || r.groupToken !== null && !opaque(r.groupToken) || r.nextCursor !== null && (!opaque(r.nextCursor) || r.nextCursor === request.cursor || !r.groupToken)) invalid();
   if (r.state !== "expired" && now >= r.expiresAt) throw new Error("matched_route_group_expired");
   if (!exact(r.scope, ["kind", "indexQueryPolicy", "groupPolicy", "descriptorLimit", "validatedLimit"]) || r.scope.kind !== "bounded_owner_stored_index_cohort"
-    || r.scope.indexQueryPolicy !== "document_id_first20_v1" || r.scope.groupPolicy !== "observed-complete-link-v1" || r.scope.descriptorLimit !== 20 || r.scope.validatedLimit !== 6
+    || r.scope.indexQueryPolicy !== "document_id_first20_v1" || r.scope.groupPolicy !== (observed ? "observed-native-complete-link-v1" : "observed-complete-link-v1") || r.scope.descriptorLimit !== 20 || r.scope.validatedLimit !== 6
     || !exact(r.coverage, ["indexCohort", "sourceValidation", "wholeHistory", "geometry", "gpsAccuracy", "deduplication"])
     || !["exhausted", "descriptor_capped", "not_inspected"].includes(r.coverage.indexCohort)
     || !["complete_in_cohort", "validation_capped", "omitted", "not_inspected"].includes(r.coverage.sourceValidation)
-    || !["observed_complete_gap_free", "unavailable"].includes(r.coverage.geometry) || r.coverage.wholeHistory !== "unknown" || r.coverage.gpsAccuracy !== "unknown" || r.coverage.deduplication !== "unknown"
+    || ![geometry, "unavailable"].includes(r.coverage.geometry) || r.coverage.wholeHistory !== "unknown" || r.coverage.gpsAccuracy !== "unknown" || r.coverage.deduplication !== "unknown"
     || !exact(r.omittedCounts, ["unsupportedDescriptor", "partialGeometry", "gapGeometry", "changedSource", "validationCap", "nonAnchorCluster"])
     || !Object.values(r.omittedCounts).every(value => count(value, 20)) || r.omittedCounts.nonAnchorCluster > 5
     || !exact(r.io, ["logicalDocuments", "metadataRequests", "descriptorComparisons", "rawDownloads", "writes"])
@@ -67,7 +69,7 @@ export function validateActivityMatchedRouteGroupResponse(value: unknown, reques
       || !id(member.activityId) || seen.has(member.activityId) || !epoch(member.startTime) || member.startTime > matchedRouteReadTimeMs(r.readTime)
       || member.year !== Number(new Intl.DateTimeFormat("en", { timeZone: "Asia/Seoul", year: "numeric" }).format(member.startTime))
       || member.isAnchor !== (member.activityId === request.anchorActivityId) || !canonical(member.canonicalAverage, request, member.startTime)) invalid();
-    const m = member.canonicalAverage, exclusion = m.state !== "available" ? "metric_unavailable" : m.inputCoverage !== "complete" ? "partial_terminal"
+    const m = member.canonicalAverage, exclusion = observed ? "observed_geometry_only" : m.state !== "available" ? "metric_unavailable" : m.inputCoverage !== "complete" ? "partial_terminal"
       : m.avgSpeedKph === null || m.avgSpeedKph <= 0 ? "null_or_zero_speed" : null;
     if (member.rankingExclusionReason !== exclusion || member.rankingEligible !== (exclusion === null)) invalid();
     const previous = r.members[seen.size - 1];
@@ -78,8 +80,8 @@ export function validateActivityMatchedRouteGroupResponse(value: unknown, reques
     const s = r.summary;
     if (!exact(s, ["memberCount", "knownMetricCount", "rankEligibleCount", "fastestActivityIds", "trend", "years"])) invalid();
     const { years: _years, ...counts } = s;
-    if (!summary(counts, matchedRouteReadTimeMs(r.readTime))) invalid();
-    if (!r.groupToken || r.coverage.geometry !== "observed_complete_gap_free" || !["available", "budget_partial"].includes(r.state) || s.memberCount < r.members.length || !dense(s.years, 6) || !s.years.length) invalid();
+    if (observed && s.rankEligibleCount !== 0 || !summary(counts, matchedRouteReadTimeMs(r.readTime))) invalid();
+    if (!r.groupToken || r.coverage.geometry !== geometry || !["available", "budget_partial"].includes(r.state) || s.memberCount < r.members.length || !dense(s.years, 6) || !s.years.length) invalid();
     const years = new Set<number>();
     for (const year of s.years) {
       if (!summary(year, matchedRouteReadTimeMs(r.readTime), true) || !Number.isSafeInteger(year.year) || year.year < 1970 || years.has(year.year)) invalid();

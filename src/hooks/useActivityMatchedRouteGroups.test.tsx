@@ -72,3 +72,26 @@ describe("manual matched route group privacy", () => {
     expect(foreign.result.current.available).toBe(false); await act(async () => foreign.result.current.start()); expect(mocks.load).toHaveBeenCalledTimes(1);
   });
 });
+
+it('changes policy scope without fetching and discards a late response from the old policy', async () => {
+  let resolve!: (value: ActivityMatchedRouteGroupResponse) => void;
+  mocks.load.mockImplementationOnce(() => new Promise(r => { resolve = r; }));
+  const hook = renderHook(({ observed }) => useActivityMatchedRouteGroups('owner', 'anchor', 'run', 'head', observed ? 'observed_native' : 'complete'), { initialProps: { observed: false } });
+  let pending!: Promise<void>;
+  act(() => { pending = hook.result.current.start(); });
+  hook.rerender({ observed: true });
+  await act(async () => { resolve(page()); await pending; });
+  expect(hook.result.current.pages).toEqual([]);
+  expect(mocks.load).toHaveBeenCalledTimes(1);
+  await act(async () => hook.result.current.start());
+  expect(mocks.load.mock.calls[1]![2]).toMatchObject({ geometryPolicy: 'observed_native' });
+});
+
+it('keeps observed policy on each explicitly requested page', async () => {
+  mocks.load.mockResolvedValueOnce(page(true)).mockResolvedValueOnce(page(false, true));
+  const hook = renderHook(() => useActivityMatchedRouteGroups('owner', 'anchor', 'run', 'head', 'observed_native'));
+  await act(async () => hook.result.current.start());
+  await act(async () => hook.result.current.loadMore());
+  expect(mocks.load.mock.calls.map(call => call[2].geometryPolicy)).toEqual(['observed_native', 'observed_native']);
+  expect(mocks.load.mock.calls[1]![2].cursor).toBe(page(true).nextCursor);
+});

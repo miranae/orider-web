@@ -2618,9 +2618,15 @@
     "exclusions": {
       "metric_unavailable": "평균 비교에서 제외 · 분석 미확인",
       "partial_terminal": "평균 비교에서 제외 · 일부 표본 분석",
-      "null_or_zero_speed": "평균 비교에서 제외 · 양수 평균 미확인"
+      "null_or_zero_speed": "평균 비교에서 제외 · 양수 평균 미확인",
+      "observed_geometry_only": "전체 경로 미확인 · 순위 제외"
     },
-    "partialGeometry": "이 활동의 경로 데이터가 일부만 있어 전체 경로 그룹 비교에서 제외했습니다. 기존 GPS 비교는 계속 사용할 수 있습니다."
+    "partialGeometry": "이 활동의 경로 데이터가 일부만 있어 전체 경로 그룹 비교에서 제외했습니다. 기존 GPS 비교는 계속 사용할 수 있습니다.",
+    "observedTitle": "관측된 경로가 비슷한 활동",
+    "mode": "경로 탐색 기준",
+    "completeMode": "전체 경로가 확인된 활동",
+    "observedScope": "기록된 GPS 구간만 비교합니다. 전체 주행 경로의 수집 여부는 확인되지 않았습니다. 최고 기록·추세·체력 향상을 비교하지 않습니다.",
+    "observedCounts": "관측 경로 그룹 {{total}}개 중 {{loaded}}개 표시 · 개별 평균 {{known}}개 확인"
   },
   "cyclingSnapshotPreference": {
     "basisLabel": "기록 기준",

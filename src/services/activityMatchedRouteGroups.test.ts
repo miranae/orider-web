@@ -528,3 +528,19 @@ describe("authenticated single manual callable", () => {
     await expect(loadActivityMatchedRouteGroups(sdk, "owner", request)).rejects.toThrow("account_changed"); expect(mocks.call).not.toHaveBeenCalled();
   });
 });
+
+it('binds observed-native policy to coverage and rejects rankings or default-policy substitution', () => {
+  const wire = clone(compiled[0]!.first);
+  wire.scope.groupPolicy = 'observed-native-complete-link-v1';
+  wire.coverage.geometry = 'observed_gap_free_coverage_unproven';
+  for (const row of wire.members) { row.rankingEligible = false; row.rankingExclusionReason = 'observed_geometry_only'; }
+  for (const stats of [wire.summary!, ...wire.summary!.years]) {
+    stats.rankEligibleCount = 0; stats.fastestActivityIds = [];
+    stats.trend = { state: 'insufficient', basis: 'canonical_avg_speed_kph', count: 0, reason: 'insufficient_distinct_dates' };
+  }
+  const observed = { ...request, geometryPolicy: 'observed_native' as const };
+  expect(validateActivityMatchedRouteGroupResponse(wire, observed, clock)).toBe(wire);
+  expect(() => validateActivityMatchedRouteGroupResponse(wire, request, clock)).toThrow();
+  wire.members[0]!.rankingEligible = true;
+  expect(() => validateActivityMatchedRouteGroupResponse(wire, observed, clock)).toThrow();
+});
