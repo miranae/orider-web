@@ -1375,5 +1375,36 @@
     "partialDay": "Only complete KST calendar days can be summed. A total for today or a partial day is not available.",
     "completed": "Observed load for complete KST days {{start}} – {{end}}: {{value}} · final partial day excluded",
     "pmcBounds": "Fitness bounds: day before {{start}} → closing {{end}}"
+  },
+  "bikeSnapshot": {
+    "identityLimit": "Too many records are linked as the same activity to check this period. Review the duplicate links.",
+    "weightPartial": "Records with missing or incompatible weight are excluded from W/kg. Values are maxima among records with usable stored weight.",
+    "weightComplete": "Stored weight for the W/kg comparison has been checked.",
+    "title": "Check the full period",
+    "intro": "Large histories are read in steps. Complete totals appear only after verification finishes.",
+    "start": "Start full-period check",
+    "resume": "Check status and continue",
+    "restart": "Start a fresh check",
+    "stop": "Stop and clear results",
+    "progress": "Checking {{count}} records",
+    "error": "The check did not finish. Check status to continue.",
+    "invalidated": "Sources changed or the check expired. Start a fresh check.",
+    "basis": "Checked {{count}} records as of {{time}}. Later changes appear in a fresh check.",
+    "metrics": {
+      "distanceM": "Distance",
+      "movingTimeSec": "Moving time",
+      "elevationGainM": "Elevation gain"
+    },
+    "coverage": "Known {{known}} · missing {{missing}} · activity-summary fallback {{fallback}}",
+    "observed": "Subtotal of observed records: {{value}}",
+    "power": "Period power records",
+    "powerComplete": "The full period was checked. Records with available power are compared.",
+    "powerPartial": "Some power sources are missing. These are maxima among verified records.",
+    "weightBasis": "W/kg uses weight saved at calculation time. Its source activity can differ from the W maximum.",
+    "zonesCoverage": "Zones available: heart rate {{hr}} · power {{power}} / {{count}} representative activities",
+    "ftp": "FTP {{ftp}} W · {{source}}",
+    "hr": "Heart-rate reference {{bpm}} bpm",
+    "zones": "Show training zones",
+    "moreZones": "Show next training zones"
   }
 }

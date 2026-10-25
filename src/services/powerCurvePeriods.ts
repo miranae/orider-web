@@ -60,7 +60,7 @@ export function validatePowerCurvePeriodsResponse(response: PowerCurvePeriodsRes
   });
   return response;
 }
-function validateDenseObservations(value: unknown, period: PowerCurvePeriodsResponse["periods"][number]) {
+export function validateDenseObservations(value: unknown, period: { fromInclusive: number; toExclusive: number; coverage: { truncated: boolean; candidateActivityCount: number } }) {
   const invalid = () => { throw new Error("invalid_power_curve_periods_response"); };
   const record = (input: unknown): Record<string, unknown> | null => input !== null && typeof input === "object" && !Array.isArray(input) ? input as Record<string, unknown> : null;
   const data = record(value);

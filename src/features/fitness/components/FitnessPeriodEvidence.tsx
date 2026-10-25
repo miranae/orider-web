@@ -1,3 +1,4 @@
+import BikePeriodSnapshotPanel from "./BikePeriodSnapshotPanel";
 import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import PeriodLoadEvidence from "./PeriodLoadEvidence";
 import { usePeriodControls } from "../../../hooks/usePeriodControls";
@@ -74,6 +75,7 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries }: { ownerUid
         <Text as="h3" variant="subtitle">{t("periodCurve.period", { n: index + 1 })} · {trainingCalendarDate(period.fromInclusive)} – {trainingCalendarDate(period.toExclusive - 1)}</Text>
         <Text>{period.totals.distanceM.totalValue == null ? "—" : formatDistance(period.totals.distanceM.totalValue, units)} · {period.totals.movingTimeSec.totalValue == null ? "—" : formatElapsedBoundary(period.totals.movingTimeSec.totalValue)} · {period.totals.elevationGainM.totalValue == null ? "—" : formatElev(period.totals.elevationGainM.totalValue, units)}</Text>
         {period.coverage.truncated && <Text>{activityT("trainingPeriods.truncated")}</Text>}
+        {discipline === "bike" && period.coverage.truncated && <BikePeriodSnapshotPanel ownerUid={ownerUid} period={period} />}
       </section>)}</div>
       <PeriodLoadEvidence ownerUid={ownerUid} discipline={discipline} periods={result.response.periods} timeseries={timeseries} />
       <RunPeriodComparisonPanel response={result.response} />
