@@ -17,10 +17,19 @@ export default function NativeActivityMemoEditor({ activityId, onSaved }: { acti
   const [revision, setRevision] = useState<string | null>(null);
   const [error, setError] = useState<"failed" | "conflict" | null>(null);
   const [saved, setSaved] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  const focusTarget = useRef<"editor" | "trigger" | null>(null);
+  useEffect(() => {
+    if (busy || !focusTarget.current) return;
+    const target = focusTarget.current === "editor" ? textarea.current : trigger.current;
+    focusTarget.current = null;
+    target?.focus();
+  });
   const generation = useRef(0);
   const inFlight = useRef(false);
   useEffect(() => {
-    generation.current += 1; inFlight.current = false; setOpen(false); setBusy(false); setDraft(""); setRevision(null); setError(null); setSaved(false);
+    generation.current += 1; inFlight.current = false; focusTarget.current = null; setOpen(false); setBusy(false); setDraft(""); setRevision(null); setError(null); setSaved(false);
     return () => { generation.current += 1; };
   }, [activityId, client]);
   async function load() {
@@ -31,7 +40,7 @@ export default function NativeActivityMemoEditor({ activityId, onSaved }: { acti
       const detail = await client.load(activityId);
       if (request !== generation.current) return;
       if (!detail.nativeMemoRevision || detail.activity.userId !== user?.uid) throw new Error("memo_unavailable");
-      setDraft(detail.content.memo ?? ""); setRevision(detail.nativeMemoRevision); setOpen(true);
+      focusTarget.current = "editor"; setDraft(detail.content.memo ?? ""); setRevision(detail.nativeMemoRevision); setOpen(true);
     } catch { if (request === generation.current) setError("failed"); }
     finally { if (request === generation.current) { inFlight.current = false; setBusy(false); } }
   }
@@ -42,18 +51,18 @@ export default function NativeActivityMemoEditor({ activityId, onSaved }: { acti
     try {
       const result = await client.setNativeMemo(activityId, draft.trim(), revision);
       if (request !== generation.current) return;
-      setRevision(result.memoRevision); setOpen(false); setSaved(true); onSaved(draft.trim());
+      focusTarget.current = "trigger"; setRevision(result.memoRevision); setOpen(false); setSaved(true); onSaved(draft.trim());
     } catch (reason) {
       if (request !== generation.current) return;
       setError(typeof reason === "object" && reason !== null && "code" in reason && reason.code === "functions/aborted" ? "conflict" : "failed");
     } finally { if (request === generation.current) { inFlight.current = false; setBusy(false); } }
   }
   return <Stack gap="var(--space-3)">
-    {!open ? <Button variant="outline" loading={busy} onClick={() => void load()}>{t("nativeMemo.edit")}</Button> : <>
-      <Textarea aria-label={t("nativeMemo.label")} value={draft} maxLength={32768} disabled={busy} invalid={!!error} onChange={event => setDraft(event.target.value)} />
+    {!open ? <Button ref={trigger} variant="outline" loading={busy} onClick={() => void load()}>{t("nativeMemo.edit")}</Button> : <>
+      <Textarea ref={textarea} aria-label={t("nativeMemo.label")} value={draft} maxLength={32768} disabled={busy} invalid={!!error} onChange={event => setDraft(event.target.value)} />
       <Stack direction="row" gap="var(--space-2)">
         <Button loading={busy} disabled={busy || error === "conflict"} onClick={() => void save()}>{t("kudosCard.save")}</Button>
-        <Button variant="ghost" disabled={busy} onClick={() => { setOpen(false); setError(null); }}>{t("kudosCard.cancel")}</Button>
+        <Button variant="ghost" disabled={busy} onClick={() => { focusTarget.current = "trigger"; setOpen(false); setError(null); }}>{t("kudosCard.cancel")}</Button>
         {error === "conflict" && <Button variant="outline" disabled={busy} onClick={() => void load()}>{t("nativeMemo.reload")}</Button>}
       </Stack>
     </>}

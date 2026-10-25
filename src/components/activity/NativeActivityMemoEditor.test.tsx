@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+import userEvent from "@testing-library/user-event";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import NativeActivityMemoEditor from "./NativeActivityMemoEditor";
@@ -39,4 +41,41 @@ describe("native memo editing", () => {
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(mocks.setNativeMemo).not.toHaveBeenCalled();
   });
+});
+
+it("moves keyboard focus into the loaded memo and restores it after cancel and save", async () => {
+  const user = userEvent.setup();
+  mocks.setNativeMemo.mockResolvedValue({ memoRevision: "revision2" });
+  render(<NativeActivityMemoEditor activityId="ride" onSaved={vi.fn()} />);
+  await user.tab();
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(screen.getByRole("textbox")).toHaveFocus());
+  await user.tab();
+  await user.tab();
+  expect(screen.getByRole("button", { name: "취소" })).toHaveFocus();
+  await user.keyboard("{Enter}");
+  expect(screen.getByRole("button", { name: "라이딩 본문 작성·수정" })).toHaveFocus();
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(screen.getByRole("textbox")).toHaveFocus());
+  await user.tab();
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(screen.getByRole("button", { name: "라이딩 본문 작성·수정" })).toHaveFocus());
+});
+
+it("does not restore focus into an editor removed by the parent after save", async () => {
+  const user = userEvent.setup();
+  mocks.setNativeMemo.mockResolvedValue({ memoRevision: "revision2" });
+  function Parent() {
+    const [saved, setSaved] = useState(false);
+    const next = useRef<HTMLButtonElement>(null);
+    useEffect(() => { if (saved) next.current?.focus(); }, [saved]);
+    return saved ? <button ref={next}>다음 활동</button> : <NativeActivityMemoEditor activityId="ride" onSaved={() => setSaved(true)} />;
+  }
+  render(<Parent />);
+  await user.tab();
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(screen.getByRole("textbox")).toHaveFocus());
+  await user.tab();
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(screen.getByRole("button", { name: "다음 활동" })).toHaveFocus());
 });

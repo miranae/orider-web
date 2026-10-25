@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -68,4 +69,32 @@ describe("paged public comments", () => {
     await act(async () => resolve({ comments: [row("late")], nextCursor: null }));
     expect(revoked).not.toHaveBeenCalled();
   });
+});
+
+it("restores keyboard focus after comment editing and focuses a stable list after deletion", async () => {
+  const user = userEvent.setup();
+  client.editComment.mockResolvedValue({ text: "수정 완료" });
+  client.deleteComment.mockResolvedValue({ deleted: true });
+  renderList();
+  await user.tab();
+  await user.tab();
+  await user.keyboard("{Enter}");
+  expect(screen.getByRole("textbox")).toHaveFocus();
+  await user.tab();
+  await user.tab();
+  await user.keyboard("{Enter}");
+  expect(screen.getByRole("button", { name: "수정" })).toHaveFocus();
+  await user.keyboard("{Enter}");
+  await user.tab();
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(screen.getByRole("button", { name: "수정" })).toHaveFocus());
+  await user.tab();
+  await user.keyboard("{Enter}");
+  expect(screen.getByRole("button", { name: "삭제 확인" })).toHaveFocus();
+  await user.keyboard("{Enter}");
+  await waitFor(() => expect(screen.queryByText("수정 완료")).not.toBeInTheDocument());
+  expect(document.activeElement).not.toBe(document.body);
+  expect(document.activeElement).toContainElement(screen.getByRole("button", { name: "댓글 더 보기" }));
+  await user.tab();
+  expect(screen.getByRole("button", { name: "댓글 더 보기" })).toHaveFocus();
 });

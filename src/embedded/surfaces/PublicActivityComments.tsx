@@ -26,10 +26,22 @@ export default function PublicActivityComments({ activityId, userId, initialComm
   const [pageError, setPageError] = useState(false);
   const [reported, setReported] = useState(false);
   const [editor, setEditor] = useState<{ id: string; action: "edit" | "delete" | "report"; text: string } | null>(null);
+  const container = useRef<HTMLDivElement>(null);
+  const editorInput = useRef<HTMLTextAreaElement>(null);
+  const confirm = useRef<HTMLButtonElement>(null);
+  const editorTrigger = useRef<HTMLButtonElement | null>(null);
+  const focusTarget = useRef<"editor" | "trigger" | "list" | null>(null);
+  useEffect(() => {
+    if (busy || !focusTarget.current) return;
+    const target = focusTarget.current === "editor" ? editorInput.current ?? confirm.current
+      : focusTarget.current === "trigger" && editorTrigger.current?.isConnected ? editorTrigger.current : container.current;
+    focusTarget.current = null;
+    target?.focus();
+  });
   const generation = useRef(0);
   const inFlight = useRef(false);
   useEffect(() => {
-    generation.current += 1; inFlight.current = false;
+    generation.current += 1; inFlight.current = false; focusTarget.current = null;
     setComments(initialComments); setCursor(null); setExpanded(false); setError(false); setPageError(false); setBusy(false); setEditor(null);
     return () => { generation.current += 1; };
   }, [activityId, userId, client, initialComments]);
@@ -44,6 +56,7 @@ export default function PublicActivityComments({ activityId, userId, initialComm
         const existing = restart || !expanded ? [] : previous;
         return [...new Map([...existing, ...page.comments].map(comment => [comment.id, comment])).values()];
       });
+      if (!page.nextCursor) focusTarget.current = "list";
       setCursor(page.nextCursor); setExpanded(true);
     } catch (reason) {
       if (request !== generation.current) return;
@@ -70,6 +83,7 @@ export default function PublicActivityComments({ activityId, userId, initialComm
         if (request !== generation.current) return;
         setReported(true);
       }
+      focusTarget.current = editor.action === "delete" ? "list" : "trigger";
       setEditor(null);
     } catch (reason) {
       if (request !== generation.current) return;
@@ -77,21 +91,21 @@ export default function PublicActivityComments({ activityId, userId, initialComm
       else setError(true);
     } finally { if (request === generation.current) { inFlight.current = false; setBusy(false); } }
   }
-  return <Stack gap="var(--space-3)">
+  return <div ref={container} tabIndex={-1} role="group" aria-label={t("kudosCard.comments", { count })}><Stack gap="var(--space-3)">
     {comments.map(comment => <div key={comment.id}>
       <LocalizedLink to={`/athlete/${encodeURIComponent(comment.userId)}`}><Text weight={600}>{comment.nickname}</Text></LocalizedLink>
       <Text as="p">{comment.text}</Text>
       {userId && <Stack direction="row" gap="var(--space-2)">
         {userId === comment.userId ? <>
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => { setEditor({ id: comment.id, action: "edit", text: comment.text }); setError(false); }}>{t("kudosCard.edit")}</Button>
-          <Button size="sm" variant="ghost" disabled={busy} onClick={() => { setEditor({ id: comment.id, action: "delete", text: "" }); setError(false); }}>{t("kudosCard.delete")}</Button>
-        </> : <Button size="sm" variant="ghost" disabled={busy} onClick={() => { setEditor({ id: comment.id, action: "report", text: "" }); setError(false); }}>{t("kudosCard.report")}</Button>}
+          <Button size="sm" variant="ghost" disabled={busy} onClick={event => { editorTrigger.current = event.currentTarget; focusTarget.current = "editor"; setEditor({ id: comment.id, action: "edit", text: comment.text }); setError(false); }}>{t("kudosCard.edit")}</Button>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={event => { editorTrigger.current = event.currentTarget; focusTarget.current = "editor"; setEditor({ id: comment.id, action: "delete", text: "" }); setError(false); }}>{t("kudosCard.delete")}</Button>
+        </> : <Button size="sm" variant="ghost" disabled={busy} onClick={event => { editorTrigger.current = event.currentTarget; focusTarget.current = "editor"; setEditor({ id: comment.id, action: "report", text: "" }); setError(false); }}>{t("kudosCard.report")}</Button>}
       </Stack>}
       {editor?.id === comment.id && <Stack gap="var(--space-2)">
-        {editor.action === "delete" ? <Text>{t("kudosCard.deleteConfirm")}</Text> : <Textarea aria-label={t(editor.action === "edit" ? "kudosCard.ariaEdit" : "kudosCard.reportReason")} value={editor.text} maxLength={editor.action === "edit" ? 500 : 1000} disabled={busy} invalid={error} onChange={event => setEditor({ ...editor, text: event.target.value })} />}
+        {editor.action === "delete" ? <Text>{t("kudosCard.deleteConfirm")}</Text> : <Textarea ref={editorInput} aria-label={t(editor.action === "edit" ? "kudosCard.ariaEdit" : "kudosCard.reportReason")} value={editor.text} maxLength={editor.action === "edit" ? 500 : 1000} disabled={busy} invalid={error} onChange={event => setEditor({ ...editor, text: event.target.value })} />}
         <Stack direction="row" gap="var(--space-2)">
-          <Button variant={editor.action === "delete" ? "danger" : "primary"} loading={busy} disabled={busy || (editor.action !== "delete" && !editor.text.trim())} onClick={() => void save()}>{t(editor.action === "delete" ? "publicDetail.confirmDelete" : "kudosCard.save")}</Button>
-          <Button variant="ghost" disabled={busy} onClick={() => { setEditor(null); setError(false); }}>{t("kudosCard.cancel")}</Button>
+          <Button ref={confirm} variant={editor.action === "delete" ? "danger" : "primary"} loading={busy} disabled={busy || (editor.action !== "delete" && !editor.text.trim())} onClick={() => void save()}>{t(editor.action === "delete" ? "publicDetail.confirmDelete" : "kudosCard.save")}</Button>
+          <Button variant="ghost" disabled={busy} onClick={() => { focusTarget.current = "trigger"; setEditor(null); setError(false); }}>{t("kudosCard.cancel")}</Button>
         </Stack>
         {error && <Text role="alert">{t("publicDetail.mutationFailed")}</Text>}
       </Stack>}
@@ -100,5 +114,5 @@ export default function PublicActivityComments({ activityId, userId, initialComm
     {pageError && <Text role="alert">{t("publicDetail.commentsFailed")}</Text>}
     {(cursor || (!expanded && count > initialComments.length) || pageError) && <Button variant="outline" loading={busy} disabled={busy} onClick={() => void loadPage(pageError)}>{t(pageError ? "publicDetail.commentsRestart" : "publicDetail.moreComments")}</Button>}
     {expanded && !cursor && !pageError && <Text variant="caption">{t("publicDetail.commentsComplete")}</Text>}
-  </Stack>;
+  </Stack></div>;
 }
