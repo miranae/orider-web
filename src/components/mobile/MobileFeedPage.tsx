@@ -109,9 +109,9 @@ export function MobileRouteThumbnail({ activity, priority = false, content }: { 
   </div>;
   const photoTiles = photos.map((photo, index) => photo.kind === "video" && photo.videoUrl
     ? <ActivityFeedVideo key={photo.id} media={photo} expanded={expandedVideoId === photo.id} expandedOutlet={expandedOutlet} onExpansionChange={setExpandedVideoId} remainingCount={index === photos.length - 1 ? photoCount - photos.length : 0} />
-    : <Link key={photo.id} to={`/activity/${activity.id}?tab=overview`} className="mobile-feed-photo" aria-label={t("card.openPhoto", { index: index + 1, count: photoCount })}>
+    : <Link key={photo.id} to={`/activity/${activity.id}?tab=overview`} className="mobile-feed-photo" aria-label={content?.totalPhotoCountExact === false ? t("publicDetail.openPhotoPreview", { index: index + 1 }) : t("card.openPhoto", { index: index + 1, count: photoCount })}>
     <img src={photo.url} alt={photo.caption ?? ""} loading="lazy" />
-    {index === photos.length - 1 && photoCount > photos.length && <span className="mobile-feed-photo-remaining">+{photoCount - photos.length}</span>}
+    {index === photos.length - 1 && photoCount > photos.length && <span className="mobile-feed-photo-remaining">{content?.totalPhotoCountExact === false ? t("publicDetail.morePhotos") : `+${photoCount - photos.length}`}</span>}
   </Link>);
   return <div className={`mobile-feed-route${!hasMap ? " mobile-feed-route--photos-only" : ""}`}>
     {squareMap ? <div className={`mobile-feed-media mobile-feed-media--${photos.length}`}>{map}{photoTiles}</div> : <>
@@ -121,7 +121,7 @@ export function MobileRouteThumbnail({ activity, priority = false, content }: { 
     <div ref={setExpandedOutlet} className="mobile-feed-inline-video-slot" />
     {photoCount > 0 && photos.length === 0 && <div className="mobile-feed-photo-entry">
       <Link to={`/activity/${activity.id}?tab=overview`} className={buttonClass({ variant: "neutral", size: "sm" })}>
-        <Camera size={ICON_SIZE.md} aria-hidden="true" /> {t("page.photos")} {photoCount}
+        <Camera size={ICON_SIZE.md} aria-hidden="true" /> {t("page.photos")} {photoCount}{content?.totalPhotoCountExact === false ? "+" : ""}
       </Link>
     </div>}
   </div>;

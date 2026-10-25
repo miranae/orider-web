@@ -1,11 +1,14 @@
 import "./PublicActivitySurface.css";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import PublicActivityPhotos from "./PublicActivityPhotos";
+import PublicActivityComments from "./PublicActivityComments";
+import { LocalizedLink } from "../../components/LocalizedLink";
 import Avatar from "../../components/Avatar";
 import { useAuth } from "../../contexts/AuthContext";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { createPublicActivityClient, isPublicActivityAccessError, type PublicActivityDetail } from "../../services/publicActivityDetail";
-import { Button, Section, Stack, Stat, Text } from "../../theme/components";
+import { Button, Section, Stack, Stat, Text, Textarea } from "../../theme/components";
 import EmbeddedSurfaceState from "./EmbeddedSurfaceState";
 
 const RouteMap = lazy(() => import("../../components/RouteMap"));
@@ -95,12 +98,12 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
   const format = (n: number | null, digits = 0) => n === null ? "—" : n.toLocaleString(i18n.language, { maximumFractionDigits: digits });
   const mapImage = detail.mapPreview?.imageUrl && /^https:\/\//i.test(detail.mapPreview.imageUrl) ? detail.mapPreview.imageUrl : null;
   const route = detail.mapPreview?.encodedPolyline || undefined;
-  const photos = (detail.content.photos ?? []).filter(photo => /^https:\/\//i.test(photo.url)).slice(0, 5);
+
   return <main className={embedded ? "orider-embedded-surface public-activity-surface" : "public-activity-surface"} data-testid="embedded-public-activity">
     <Stack gap="var(--space-5)">
       <header className="orider-embedded-author">
         <Avatar name={activity.nickname} imageUrl={activity.profileImage} size="md" />
-        <div><Text weight={600}>{activity.nickname}</Text><h1>{activity.description || t("publicDetail.title")}</h1>
+        <div><LocalizedLink to={`/athlete/${encodeURIComponent(activity.userId)}`}><Text weight={600}>{activity.nickname}</Text></LocalizedLink><h1>{activity.description || t("publicDetail.title")}</h1>
           <Text variant="caption">{activity.startTime > 0 ? new Date(activity.startTime).toLocaleString(i18n.language) : "—"}</Text></div>
       </header>
       <Section title={t("publicDetail.summary")}>
@@ -119,17 +122,19 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
       </Section>}
       {detail.content.status === "pending" ? <Text role="status">{t("publicDetail.pending")}</Text> : <>
         {detail.content.memo && <Text as="p">{detail.content.memo}</Text>}
-        {photos.map(photo => <img key={photo.id} src={photo.url} alt={photo.caption || t("page.photoPreview")} loading="lazy" className="public-activity-photo" />)}
-        {detail.uploadedPhotosTruncated && <Text variant="caption">{t("publicDetail.photoPreview")}</Text>}
+        <PublicActivityPhotos activityId={activityId} initialPhotos={detail.content.photos ?? []} truncated={detail.uploadedPhotosTruncated === true} client={client}
+          onAccessRevoked={() => { setDetail(null); setFailed(true); setAccessDenied(true); }} />
       </>}
       <Section title={t("kudosCard.comments", { count: activity.commentCount })}>
         <Stack gap="var(--space-3)">
           <Button variant="outline" disabled={busy || !user || user.isAnonymous} aria-pressed={detail.viewerHasKudos} onClick={() => void mutate("kudos")}>{t(detail.viewerHasKudos ? "kudosCard.kudosCancel" : "kudosCard.kudos")} · {activity.kudosCount}</Button>
-          {(detail.content.comments ?? []).map(comment => <div key={comment.id}><Text weight={600}>{comment.nickname}</Text><Text as="p">{comment.text}</Text></div>)}
-          {activity.commentCount > (detail.content.comments?.length ?? 0) && <Text variant="caption">{t("publicDetail.commentPreview")}</Text>}
+          <PublicActivityComments activityId={activityId} userId={user && !user.isAnonymous ? user.uid : null}
+            initialComments={detail.content.comments} count={activity.commentCount} client={client}
+            onDeleted={() => setDetail(current => current ? { ...current, activity: { ...current.activity, commentCount: Math.max(0, current.activity.commentCount - 1) } } : current)}
+            onAccessRevoked={() => { setDetail(null); setFailed(true); setAccessDenied(true); }} />
           {(!user || user.isAnonymous) && <Text>{t("kudosCard.loginDesc")}</Text>}
-          <label><Text>{t("kudosCard.ariaInput")}</Text><textarea className="public-activity-comment" aria-label={t("kudosCard.ariaInput")} value={text} maxLength={500} disabled={busy || !user || user.isAnonymous} onChange={event => setText(event.target.value)} /></label>
-          <Button disabled={busy || !text.trim() || !user || user.isAnonymous} onClick={() => void mutate("comment")}>{t(busy ? "kudosCard.submitting" : "kudosCard.submit")}</Button>
+          <label><Text>{t("kudosCard.ariaInput")}</Text><Textarea aria-label={t("kudosCard.ariaInput")} value={text} maxLength={500} disabled={busy || !user || user.isAnonymous} onChange={event => setText(event.target.value)} /></label>
+          <Button loading={busy} disabled={busy || !text.trim() || !user || user.isAnonymous} onClick={() => void mutate("comment")}>{t(busy ? "kudosCard.submitting" : "kudosCard.submit")}</Button>
           {mutationError && <Text role="alert">{t("publicDetail.mutationFailed")}</Text>}
           {posted && <Text role="status">{t("publicDetail.posted")}</Text>}
         </Stack>

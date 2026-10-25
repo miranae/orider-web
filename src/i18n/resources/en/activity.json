@@ -1,5 +1,22 @@
 {
+  "nativeMemo": {
+    "edit": "Write or edit ride description",
+    "label": "Ride description",
+    "reload": "Replace draft with latest description",
+    "failed": "Could not load or save the description. Your draft is preserved.",
+    "conflict": "The description changed elsewhere. Your draft is preserved. Load the latest description before editing again.",
+    "saved": "Description saved. Feed updates may take a moment."
+  },
   "publicDetail": {
+    "photosFailed": "Could not load more photos. Please try again.",
+    "morePhotos": "More photos",
+    "openPhotoPreview": "Open photo {{index}} preview",
+    "moreComments": "Load more comments",
+    "commentsRestart": "Reload from the beginning",
+    "commentsFailed": "Could not load the next comments. Current comments are preserved.",
+    "commentsComplete": "All currently accessible comments are loaded.",
+    "confirmDelete": "Confirm deletion",
+
     "accessDenied": "This activity is unavailable. It may have been deleted or its visibility or access may have changed.",
     "route": "Ride route",
     "mapLoading": "Loading route.",

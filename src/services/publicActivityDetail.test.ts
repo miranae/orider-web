@@ -29,3 +29,11 @@ describe("public activity transport", () => {
     await expect(createPublicActivityClient(services("viewer")).load("a")).rejects.toThrow("invalid_public_activity");
   });
 });
+
+it("passes opaque comment cursors and optimistic memo revisions without changing them", async () => {
+  const client = createPublicActivityClient(services("viewer"));
+  await client.comments("a", "opaque-cursor");
+  expect(mocks.call).toHaveBeenLastCalledWith({ activityId: "a", cursor: "opaque-cursor" });
+  await client.setNativeMemo("a", "memo", "revision");
+  expect(mocks.call).toHaveBeenLastCalledWith({ activityId: "a", memo: "memo", expectedMemoRevision: "revision" });
+});
