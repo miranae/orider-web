@@ -2945,18 +2945,20 @@
     },
     "status": {
       "loading": "Checking records sequentially.",
-      "ready": "This check is finished. Continue if more records remain.",
       "error": "The request result could not be confirmed. Check progress again.",
       "expired": "This check has expired. Start again.",
       "invalidated": "The account or an activity changed. Results were cleared. Start again.",
-      "stopped": "Stopped and cleared the displayed results.",
-      "hidden": "The result needs to be checked again."
+      "stopped": "Cleared the displayed result.",
+      "hidden": "The result needs to be checked again.",
+      "complete": "History check complete.",
+      "paused": "More records remain. Continue to check them."
     },
     "best": {
       "unavailable": "No comparable elapsed time was found in this check.",
       "observed_best_with_gaps": "Some records remain unresolved or unavailable. The time below is the shortest among the verified records.",
       "verified_recorded_best": "The comparison set saved at the request time has been checked."
     },
-    "sources": "{{missing}} sources unavailable · {{unsupported}} unsupported · {{changed}} changed"
+    "sources": "{{missing}} sources unavailable · {{unsupported}} unsupported · {{changed}} changed",
+    "close": "Close result"
   }
 }
