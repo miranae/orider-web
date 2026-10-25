@@ -1,3 +1,4 @@
+import { feedSessionKey, readFeedDepth, saveFeedDepth } from "../services/feedNavigationDepth";
 import { compareActivityFeedOrder } from "../utils/activityFeedOrder";
 import { useActivitySafety } from "./useActivitySafety";
 import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../config/activitySubscriptions";
@@ -192,6 +193,7 @@ async function hydrateActivityProfileImages(items: Activity[]): Promise<Activity
 }
 
 export interface UseActivitiesOptions {
+  navigationKey?: string;
   subscriptionIds?: readonly string[];
   subscriptionKey?: string;
   enabled?: boolean;
@@ -219,7 +221,10 @@ export function useActivities(
     () => activeFriendIdsKey ? activeFriendIdsKey.split("\u0000") : [],
     [activeFriendIdsKey],
   );
+  const sessionKey = feedSessionKey(user);
+  const depthKey = options.navigationKey ? `${sessionKey}:${scope}:${options.navigationKey}` : undefined;
   const feedRequestKey = JSON.stringify([
+    sessionKey,
     user == null ? "anonymous" : "authenticated",
     user?.uid ?? null,
     scope,
@@ -377,6 +382,8 @@ export function useActivities(
           ...(nextSource.last ? [startAfter(nextSource.last)] : []),
         ];
         const snap = await getDocs(makeSourceQuery(col, sourceQuery, constraints));
+        // Offline cache cannot establish current visibility after returning to the feed.
+        if (snap.metadata?.fromCache || snap.metadata?.hasPendingWrites) throw new Error("feed_server_confirmation_required");
         if (snap.metadata?.fromCache === false && snap.metadata.hasPendingWrites === false) {
           serverMetadata = snap.metadata;
         }
@@ -429,6 +436,7 @@ export function useActivities(
     pageSize = FEED_PAGE_SIZE,
   ): Promise<ActivityPage> => {
     const key = JSON.stringify([
+      sessionKey,
       uid == null ? "anonymous" : "authenticated",
       uid,
       scope,
@@ -452,7 +460,7 @@ export function useActivities(
       // 원래 request의 rejection은 호출자가 처리한다. finally 파생 Promise만 흡수한다.
     });
     return request;
-  }, [activeFriendIdsKey, subscriptionIdsKey, subscriptionKey, fetchPageRequest, scope]);
+  }, [activeFriendIdsKey, subscriptionIdsKey, subscriptionKey, fetchPageRequest, scope, sessionKey]);
 
   // 초기 로드 + 유저 변경 시 리셋
   useEffect(() => {
@@ -589,6 +597,22 @@ export function useActivities(
         });
         setFeedCursor(rest.cursor);
         setHasMore(rest.hasMore);
+        // Restore the visited depth using fresh authorized reads, never cached rows.
+        let replay = rest;
+        let count = first.items.length + rest.items.length;
+        const desired = readFeedDepth(depthKey, FEED_PAGE_SIZE);
+        let replayPages = 0;
+        while (count < desired && replay.cursor && replay.hasMore && !cancelled && replayPages++ < 20) {
+          try { replay = await fetchPage(user?.uid ?? null, replay.cursor); }
+          catch { if (!cancelled) { setActivities([]); setError(true); } return; }
+          if (cancelled) return;
+          count += replay.items.length;
+          const replayItems = replay.items;
+          setActivities(previous => [...previous, ...replayItems.filter(item => !previous.some(existing => existing.id === item.id))]);
+          setFeedCursor(replay.cursor);
+          setHasMore(replay.hasMore);
+        }
+
       } finally {
         if (!cancelled) setLoading(false);
         if (!cancelled) setLoadingMore(false);
@@ -597,7 +621,7 @@ export function useActivities(
 
     load();
     return () => { cancelled = true; };
-  }, [enabled, authLoading, user, fetchPage, retryGeneration, feedRequestKey]);
+  }, [enabled, authLoading, user, fetchPage, retryGeneration, feedRequestKey, depthKey]);
 
   const loadMore = useCallback(async () => {
     if (!enabled || !feedCursor || loadingMore) return;
@@ -615,6 +639,7 @@ export function useActivities(
       // A→B→A처럼 키가 되돌아와도 단조 증가 generation으로 옛 A 요청을 구분한다.
       if (!isCurrentRequest()) return;
       noteFirestoreServerSuccess(result.serverMetadata);
+      saveFeedDepth(depthKey, activities.length + result.items.length);
       setActivities((prev) => [...prev, ...result.items]);
       setFeedCursor(result.cursor);
       setHasMore(result.hasMore);
@@ -632,7 +657,7 @@ export function useActivities(
         setLoadingMore(false);
       }
     }
-  }, [enabled, feedCursor, loadingMore, user, fetchPage, feedRequestKey]);
+  }, [enabled, feedCursor, loadingMore, user, fetchPage, feedRequestKey, depthKey, activities.length]);
 
   return {
     activities: loadedRequestKey === feedRequestKey ? activities.filter(safety.allows) : [],
@@ -991,6 +1016,7 @@ async function fetchActivitySearchResults(
     if (previous && (!previous.hasMore || buffer.length >= SEARCH_LIMIT)) return { ...previous, buffer };
     const readLimit = SEARCH_LIMIT - buffer.length;
     const snap = await getDocs(query(col, ...source, limit(readLimit), ...(previous?.last ? [startAfter(previous.last)] : [])));
+    if (snap.metadata?.fromCache || snap.metadata?.hasPendingWrites) throw new Error("feed_server_confirmation_required");
     return {
       last: snap.docs[snap.docs.length - 1] ?? previous?.last ?? null,
       hasMore: snap.docs.length === readLimit,
@@ -1020,13 +1046,13 @@ async function fetchActivitySearchResults(
   };
 }
 
-export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?: { ids: readonly string[]; key: string; ready: boolean }) {
+export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?: { ids: readonly string[]; key: string; ready: boolean }, navigationKey?: string) {
   const { user } = useAuth();
 
   const subscriptionIdsKey = subscriptions ? [...new Set(subscriptions.ids)].sort().join("\u0000") : null;
   const subscriptionIds = useMemo(() => subscriptionIdsKey === null ? undefined : subscriptionIdsKey ? subscriptionIdsKey.split("\u0000") : [], [subscriptionIdsKey]);
   const subscriptionReady = subscriptions?.ready ?? true;
-  const searchOwnerKey = JSON.stringify([user?.uid ?? "anonymous", subscriptions?.key ?? null, subscriptionIdsKey]);
+  const searchOwnerKey = JSON.stringify([feedSessionKey(user), user?.uid ?? "anonymous", subscriptions?.key ?? null, subscriptionIdsKey]);
   const [searchResultState, setSearchResultState] = useState<{ ownerKey: string; keyword: string; datePreset: DatePreset; results: Activity[]; cursors: SearchCursor[]; hasMore: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -1040,6 +1066,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
   const [ownerPreset, setOwnerPreset] = useState<OwnerPreset>("all");
 
   const [displayCount, setDisplayCount] = useState(20);
+  const searchDepthKey = navigationKey ? `${searchOwnerKey}:search:${navigationKey}:${searchedKeyword}:${datePreset}` : undefined;
   const [retryCount, setRetryCount] = useState(0);
   const searchEpoch = useRef(0);
 
@@ -1073,19 +1100,29 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
     const dateFrom = getDateFrom(datePreset);
 
     fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, dateFrom, undefined, subscriptionIds)
-      .then((page) => {
-        if (!cancelled && searchEpoch.current === requestEpoch) setSearchResultState({ ownerKey: searchOwnerKey, keyword: searchedKeyword, datePreset, ...page });
+      .then(async (page) => {
+        let accumulated = page;
+        let pages = 0;
+        const desired = readFeedDepth(searchDepthKey, 20);
+        while (!cancelled && searchEpoch.current === requestEpoch && accumulated.hasMore && accumulated.results.length < desired && pages++ < 10) {
+          const next = await fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, dateFrom, accumulated.cursors, subscriptionIds);
+          accumulated = { ...next, results: [...accumulated.results, ...next.results.filter(item => !accumulated.results.some(previous => previous.id === item.id))] };
+        }
+        if (!cancelled && searchEpoch.current === requestEpoch) {
+          setSearchResultState({ ownerKey: searchOwnerKey, keyword: searchedKeyword, datePreset, ...accumulated });
+          setDisplayCount(Math.max(20, desired));
+        }
       })
       .catch((err) => {
         logClientError("useActivitySearch.search", err, { datePreset });
-        if (!cancelled && searchEpoch.current === requestEpoch) setError(true);
+        if (!cancelled && searchEpoch.current === requestEpoch) { setSearchResultState(null); setError(true); }
       })
       .finally(() => {
         if (!cancelled && searchEpoch.current === requestEpoch) setLoading(false);
       });
 
     return () => { cancelled = true; searchEpoch.current += 1; };
-  }, [active, searchedKeyword, datePreset, user, searchOwnerKey, retryCount, subscriptionIds, subscriptionReady]);
+  }, [active, searchedKeyword, datePreset, user, searchOwnerKey, retryCount, subscriptionIds, subscriptionReady, searchDepthKey]);
 
   // Reset displayCount when filters change
   useEffect(() => {
@@ -1119,6 +1156,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
     fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, getDateFrom(datePreset), currentSearchResultState.cursors, subscriptionIds)
       .then((page) => {
         if (searchEpoch.current !== requestEpoch) return;
+        saveFeedDepth(searchDepthKey, currentSearchResultState.results.length + page.results.length);
         setSearchResultState((previous) => previous === currentSearchResultState ? {
           ...previous,
           results: [...previous.results, ...page.results.filter((activity) => !previous.results.some((item) => item.id === activity.id))],
@@ -1136,7 +1174,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
         if (loadingMoreEpoch.current === requestEpoch) loadingMoreEpoch.current = null;
         if (searchEpoch.current === requestEpoch) setLoadingMore(false);
       });
-  }, [active, currentSearchResultState, datePreset, error, loading, searchedKeyword, user, subscriptionIds]);
+  }, [active, currentSearchResultState, datePreset, error, loading, searchedKeyword, user, subscriptionIds, searchDepthKey]);
   const loadMore = useCallback(() => {
     if (displayCount < results.length) setDisplayCount((prev) => prev + 20);
     else loadMoreServer();

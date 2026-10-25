@@ -1,3 +1,5 @@
+import { useLocation } from "react-router-dom";
+import { feedSessionKey, readFeedDepth, saveFeedDepth } from "../../services/feedNavigationDepth";
 import { compareActivityFeedOrder } from "../../utils/activityFeedOrder";
 import { NativeActivityPhotoImage } from "../activity/NativeActivityPhotoImage";
 import { seoulYearStartMs } from "../../utils/seoulWeek";
@@ -260,7 +262,7 @@ export function CompactActivityCard({ activity: rawActivity, priority = false }:
   });
 
   return (
-    <article ref={cardRef} data-testid="H1-2-1" className="mobile-feed-card">
+    <article ref={cardRef} data-scroll-anchor={activity.id} data-testid="H1-2-1" className="mobile-feed-card">
       <Link
         to={`/activity/${activity.id}`}
         aria-label={activity.description || t("mobileFeed.defaultActivity")}
@@ -373,8 +375,11 @@ export default function MobileFeedPage({
   const searchActive = activitySearch?.active ?? false;
   const sportFilter = controlledSportFilter ?? "all";
   const datePreset = controlledDatePreset ?? "all";
-  const [renderLimit, setRenderLimit] = useState(MOBILE_FEED_RENDER_INITIAL);
-  useEffect(() => { setRenderLimit(MOBILE_FEED_RENDER_INITIAL); }, [activitySearch?.searchedKeyword, sportFilter, datePreset, feedScope]);
+  const location = useLocation();
+  const renderKey = `${feedSessionKey(user)}:render:${location.key}:${location.search}:${activitySearch?.searchedKeyword ?? ""}:${sportFilter}:${datePreset}:${feedScope}`;
+  const [renderLimit, setRenderLimit] = useState(() => readFeedDepth(renderKey, MOBILE_FEED_RENDER_INITIAL));
+  useEffect(() => { setRenderLimit(readFeedDepth(renderKey, MOBILE_FEED_RENDER_INITIAL)); }, [renderKey]);
+  const extendRenderLimit = () => setRenderLimit(value => { const next = value + MOBILE_FEED_RENDER_STEP; saveFeedDepth(renderKey, next); return next; });
   const subscriptionIdSet = useMemo(() => new Set(subscriptionIds), [subscriptionIds]);
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
   const signedIn = !!user && !user.isAnonymous;
@@ -473,9 +478,9 @@ export default function MobileFeedPage({
           <Button data-testid="H1-2-3" variant="secondary" size="lg"
             onClick={() => {
               if (hasHiddenLocalItems) {
-                setRenderLimit((value) => value + MOBILE_FEED_RENDER_STEP);
+                extendRenderLimit();
               } else if (searchActive) {
-                setRenderLimit((value) => value + MOBILE_FEED_RENDER_STEP);
+                extendRenderLimit();
                 activitySearch!.loadMoreServer();
               } else {
                 onLoadMore();

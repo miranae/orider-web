@@ -106,7 +106,7 @@ export default function Layout() {
   const path = stripLangPrefix(location.pathname);
   const activeNav = resolveDetailHub(path, location.state);
   const mainRef = useRef<HTMLElement>(null);
-  useMainScrollPosition(mainRef);
+  useMainScrollPosition(mainRef, user);
   const [friendRequestCount, setFriendRequestCount] = useState(0);
 
   // 온보딩 리다이렉트: step이 설정됐지만 "done"이 아닌 신규 유저

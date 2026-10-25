@@ -65,6 +65,16 @@ describe("useActivities", () => {
     vi.mocked(noteFirestoreServerSuccess).mockClear();
   });
 
+  it("does not publish cached activity rows as current permission evidence", async () => {
+    const data = createMockActivity({ id: "revoked-cached" });
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [{ id: data.id, data: () => data }], metadata: { fromCache: true, hasPendingWrites: false } } as never);
+    const { result } = renderHook(() => useActivities(), { wrapper });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.activities.some(activity => activity.id === "revoked-cached")).toBe(false);
+    await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 3000 });
+    expect(result.current.activities.some(activity => activity.id === "revoked-cached")).toBe(false);
+  });
+
   it("reports actual server metadata after a current feed request succeeds", async () => {
     vi.mocked(getDocs).mockResolvedValueOnce({
       docs: [],
@@ -671,7 +681,80 @@ describe("useActivities", () => {
       mockedGetDocs.mockReset();
       if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
     }
+  });  it("does not append an old load-more response after same-UID auth session replacement", async () => {
+    simulateLogin({ uid: "owner-1" });
+    const mockedGetDocs = vi.mocked(getDocs);
+    const defaultImplementation = mockedGetDocs.getMockImplementation();
+    mockedGetDocs.mockClear();
+    let resolveOldPage!: (value: unknown) => void;
+
+    const snapshot = (ids: string[]) => ({
+      docs: ids.map((id, index) => {
+        const data = createMockActivity({
+          id,
+          userId: id === "self-new" ? "owner-1" : "other-1",
+          // 정렬키(startTime)를 인덱스로 고정 — 기본값은 호출 시각 기반이라 순서가 흔들린다.
+          startTime: 1_000 - index,
+        });
+        return { id, data: () => data, exists: () => true, ref: { path: `activities/${id}` } };
+      }),
+      size: ids.length,
+      empty: ids.length === 0,
+    });
+
+    const oldPage = new Promise((resolve) => { resolveOldPage = resolve; });
+    mockedGetDocs
+      .mockResolvedValueOnce(snapshot(["all-1", "all-2", "all-3"]) as never)
+      .mockResolvedValueOnce(snapshot(Array.from({ length: 7 }, (_, index) => `all-rest-${index}`)) as never)
+      .mockImplementationOnce(() => oldPage as never)
+      .mockResolvedValueOnce(snapshot(["all-new"]) as never);
+
+    try {
+      const { result } = renderHook(
+        ({ scope }: { scope: "all" | "self" }) => useActivities(scope),
+        { wrapper, initialProps: { scope: "all" as const } },
+      );
+
+      await waitFor(() => expect(result.current.activities).toHaveLength(10));
+      await waitFor(() => expect(result.current.loadingMore).toBe(false));
+      expect(result.current.hasMore).toBe(true);
+
+      act(() => { void result.current.loadMore(); });
+      await waitFor(() => expect(mockedGetDocs).toHaveBeenCalledTimes(3));
+      act(() => simulateLogin({ uid: "owner-1" }));
+      await waitFor(() => expect(result.current.activities.map((activity) => activity.id)).toEqual(["all-new"]));
+
+      await act(async () => { resolveOldPage(snapshot(["old-scope-result"])); });
+      expect(result.current.activities.map((activity) => activity.id)).toEqual(["all-new"]);
+    } finally {
+      mockedGetDocs.mockReset();
+      if (defaultImplementation) mockedGetDocs.mockImplementation(defaultImplementation);
+    }
   });
+  it("replays visited pages with current reads instead of resurrecting cached activities", async () => {
+    simulateLogin({ uid: "depth-owner" });
+    const get = vi.mocked(getDocs); const original = get.getMockImplementation();
+    const snapshot = (prefix: string, start: number, count: number) => ({ docs: Array.from({ length: count }, (_, n) => {
+      const id = `${prefix}-${start + n}`; const data = createMockActivity({ id, userId: "depth-owner", startTime: 100000 - start - n });
+      return { id, data: () => data, exists: () => true, ref: { path: `activities/${id}` } };
+    }), size: count, empty: count === 0 });
+    get.mockResolvedValueOnce(snapshot("old", 0, 3) as never).mockResolvedValueOnce(snapshot("old", 3, 7) as never)
+      .mockResolvedValueOnce(snapshot("old", 10, 10) as never)
+      .mockResolvedValueOnce(snapshot("current", 0, 3) as never).mockResolvedValueOnce(snapshot("current", 3, 7) as never)
+      .mockResolvedValueOnce(snapshot("current", 10, 10) as never);
+    try {
+      const first = renderHook(() => useActivities("all", [], { navigationKey: "visited-history-entry" }), { wrapper });
+      await waitFor(() => expect(first.result.current.loadingMore).toBe(false));
+      await waitFor(() => expect(first.result.current.activities).toHaveLength(10));
+      await act(async () => first.result.current.loadMore());
+      expect(first.result.current.activities).toHaveLength(20); first.unmount();
+      const returned = renderHook(() => useActivities("all", [], { navigationKey: "visited-history-entry" }), { wrapper });
+      expect(returned.result.current.activities).toHaveLength(0);
+      await waitFor(() => expect(returned.result.current.activities).toHaveLength(20));
+      expect(returned.result.current.activities.every(activity => activity.id.startsWith("current-"))).toBe(true);
+    } finally { get.mockReset(); if (original) get.mockImplementation(original); }
+  });
+
 });
 
 describe("useWeeklyStats", () => {
@@ -1249,6 +1332,31 @@ describe("useWeeklyStats", () => {
 });
 
 describe("useActivitySearch", () => {
+  it("restores search depth from fresh pages on history return", async () => {
+    simulateLogin({ uid: "search-depth-owner" });
+    const get = vi.mocked(getDocs); const original = get.getMockImplementation();
+    const docs = (prefix: string) => Array.from({ length: 21 }, (_, i) => {
+      const data = createMockActivity({ id: `${prefix}-${i}`, userId: "search-depth-owner", startTime: 100 - i });
+      return { id: data.id, data: () => data };
+    });
+    for (const prefix of ["old", "fresh"]) {
+      const rows = docs(prefix);
+      for (const page of [rows.slice(0, 20), rows.slice(0, 20), rows.slice(20), rows.slice(20)]) get.mockResolvedValueOnce({ docs: page } as never);
+    }
+    try {
+      const first = renderHook(() => useActivitySearch(new Set(), undefined, "search-entry"), { wrapper });
+      act(() => first.result.current.search("ride"));
+      await waitFor(() => expect(first.result.current.results).toHaveLength(20));
+      act(() => first.result.current.loadMoreServer());
+      await waitFor(() => expect(first.result.current.results).toHaveLength(21)); first.unmount();
+      const returned = renderHook(() => useActivitySearch(new Set(), undefined, "search-entry"), { wrapper });
+      act(() => returned.result.current.search("ride"));
+      expect(returned.result.current.allResults).toHaveLength(0);
+      await waitFor(() => expect(returned.result.current.results).toHaveLength(21));
+      expect(returned.result.current.results.every(activity => activity.id.startsWith("fresh-"))).toBe(true);
+    } finally { get.mockReset(); if (original) get.mockImplementation(original); }
+  });
+
   it.each([false, true])("reads at most 20 per source and preserves merged order across pages (ties=%s)", async (ties) => {
     simulateLogin({ uid: "user-1" });
     const own = Array.from({ length: 20 }, (_, index) => {
