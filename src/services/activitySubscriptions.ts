@@ -1,3 +1,4 @@
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { collection, getCountFromServer, getDocs, limit, orderBy, query, startAfter } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { auth, firestore, ensureAppCheckReady } from "./firebase";
@@ -9,8 +10,8 @@ export type SubscriptionKind = "subscriptions" | "subscribers";
 export interface ActivitySubscriptionRelation { userId: string; nickname: string | null; profileImage: string | null }
 export interface ActivitySubscriptionSummary { targetUid: string; subscribed: boolean; subscriberCount: number; subscriptionCount: number }
 export const ACTIVITY_SUBSCRIPTIONS_CHANGED_EVENT = "orider:activity-subscriptions-changed";
-function assertOwner(uid: string, expectedUser = auth.currentUser) {
-  if (!uid || !expectedUser || auth.currentUser !== expectedUser || expectedUser.uid !== uid || expectedUser.isAnonymous) throw new Error("activity-subscriptions-owner-required");
+function assertOwner(uid: string, expectedUser = auth.currentUser, currentAuth = auth) {
+  if (!uid || !expectedUser || currentAuth.currentUser !== expectedUser || expectedUser.uid !== uid || expectedUser.isAnonymous) throw new Error("activity-subscriptions-owner-required");
   return expectedUser;
 }
 function assertReady(): void {
@@ -50,21 +51,23 @@ async function readOwnRelationshipPage(uid: string, kind: SubscriptionKind | "bl
     hasMore: snapshot.docs.length > 20,
   };
 }
-export async function getActivitySubscriptionSummary(uid: string, targetUid: string): Promise<ActivitySubscriptionSummary> {
-  const expectedUser = assertOwner(uid); assertReady();
-  await ensureAppCheckReady(); assertOwner(uid, expectedUser);
-  const { data } = await httpsCallable<{ targetUid: string }, ActivitySubscriptionSummary>(getActivitySocialFunctions(), "getActivitySubscriptionSummary")({ targetUid });
-  assertOwner(uid, expectedUser);
+export async function getActivitySubscriptionSummary(uid: string, targetUid: string, services?: FirebaseServices): Promise<ActivitySubscriptionSummary> {
+  const currentAuth = services?.auth ?? auth;
+  const expectedUser = assertOwner(uid, currentAuth.currentUser, currentAuth); assertReady();
+  await (services?.ensureAppCheckReady ?? ensureAppCheckReady)(); assertOwner(uid, expectedUser, currentAuth);
+  const { data } = await httpsCallable<{ targetUid: string }, ActivitySubscriptionSummary>(getActivitySocialFunctions(services?.functions), "getActivitySubscriptionSummary")({ targetUid });
+  assertOwner(uid, expectedUser, currentAuth);
   if (data.targetUid !== targetUid || typeof data.subscribed !== "boolean" || !Number.isSafeInteger(data.subscriberCount)
     || data.subscriberCount < 0 || !Number.isSafeInteger(data.subscriptionCount) || data.subscriptionCount < 0) throw new Error("activity-subscriptions-invalid-response");
   return data;
 }
-export async function setActivitySubscription(uid: string, targetUid: string, subscribed: boolean) {
-  const expectedUser = assertOwner(uid); assertReady();
+export async function setActivitySubscription(uid: string, targetUid: string, subscribed: boolean, services?: FirebaseServices) {
+  const currentAuth = services?.auth ?? auth;
+  const expectedUser = assertOwner(uid, currentAuth.currentUser, currentAuth); assertReady();
   if (!targetUid || targetUid === uid || targetUid.includes("/")) throw new Error("activity-subscriptions-invalid-target");
-  await ensureAppCheckReady(); assertOwner(uid, expectedUser);
-  const { data } = await httpsCallable<{ targetUid: string; subscribed: boolean }, { targetUid: string; subscribed: boolean }>(getActivitySocialFunctions(), "setActivitySubscription")({ targetUid, subscribed });
-  assertOwner(uid, expectedUser);
+  await (services?.ensureAppCheckReady ?? ensureAppCheckReady)(); assertOwner(uid, expectedUser, currentAuth);
+  const { data } = await httpsCallable<{ targetUid: string; subscribed: boolean }, { targetUid: string; subscribed: boolean }>(getActivitySocialFunctions(services?.functions), "setActivitySubscription")({ targetUid, subscribed });
+  assertOwner(uid, expectedUser, currentAuth);
   if (data.targetUid !== targetUid || data.subscribed !== subscribed) throw new Error("activity-subscriptions-invalid-response");
   window.dispatchEvent(new CustomEvent(ACTIVITY_SUBSCRIPTIONS_CHANGED_EVENT, { detail: { uid } }));
   return data;

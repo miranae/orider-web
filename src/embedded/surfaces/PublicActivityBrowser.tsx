@@ -1,3 +1,4 @@
+import ActivitySubscriptionButton from "../../components/profile/ActivitySubscriptionButton";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { useTranslation } from "react-i18next";
@@ -97,6 +98,7 @@ function PublicProfile({ userId, onActivity }: { userId: string; onActivity: (id
   return <Section title={t("embeddedProfile.title")}><Stack gap="var(--dim-section-gap)">
     {author && <><Avatar name={author.nickname?.trim() || t("embeddedProfile.rider")} imageUrl={author.profileImage} /><Text weight={600}>{author.nickname?.trim() || t("embeddedProfile.rider")}</Text></>}
     <Text>{t("embeddedProfile.scope")}</Text>
+    <ActivitySubscriptionButton targetUid={userId} services={services} />
     {busy && <Text role="status">{t("embeddedProfile.loading")}</Text>}
     {failed && <Text role="alert">{t("embeddedProfile.unavailable")}</Text>}
     {!busy && !failed && !visible.length && <Text>{t("embeddedProfile.empty")}</Text>}

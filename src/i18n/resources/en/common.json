@@ -518,7 +518,8 @@
     "unblock": "Unblock",
     "blockedDescription": "Only people you blocked. Unblocking does not restore friendships or subscriptions.",
     "actionFailed": "Could not update. Please try again.",
-    "managementNotReady": "Relationship management coming soon"
+    "managementNotReady": "Relationship management coming soon",
+    "signInRequired": "Sign in in the app to follow this rider."
   },
   "notif.loading": "Checking notifications…",
   "notif.failed": "Could not verify notification status. Please retry.",

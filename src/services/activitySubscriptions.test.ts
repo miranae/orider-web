@@ -114,3 +114,17 @@ it("discards relation data if the same UID logs in again during profile hydratio
   });
   await expect(readOwnSubscriptionPage("owner", "subscriptions")).rejects.toThrow("owner-required");
 });
+it("uses only the injected SDK account and rejects its same-UID replacement before emitting", async () => {
+  const viewer = { uid: "embedded", isAnonymous: false };
+  const services = { auth: { currentUser: viewer }, ensureAppCheckReady: vi.fn(async () => {}), functions: { app: {} } };
+  const listener = vi.fn(); window.addEventListener(ACTIVITY_SUBSCRIPTIONS_CHANGED_EVENT, listener);
+  try {
+    vi.mocked(httpsCallable).mockReturnValue(vi.fn(async () => {
+      services.auth.currentUser = { ...viewer };
+      return { data: { targetUid: "target", subscribed: true } };
+    }) as never);
+    await expect(setActivitySubscription("embedded", "target", true, services as never)).rejects.toThrow("owner-required");
+    expect(services.ensureAppCheckReady).toHaveBeenCalledOnce();
+    expect(listener).not.toHaveBeenCalled();
+  } finally { window.removeEventListener(ACTIVITY_SUBSCRIPTIONS_CHANGED_EVENT, listener); }
+});

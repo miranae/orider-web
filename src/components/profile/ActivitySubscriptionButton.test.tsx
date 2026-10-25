@@ -50,3 +50,28 @@ it.each(["other", "test-uid"])("discards pending mutation after SDK session repl
   act(() => finish({ targetUid: "target", subscribed: true }));
   await waitFor(() => expect(screen.queryByRole("button", { name: "구독 취소" })).not.toBeInTheDocument());
 });
+it("uses injected services and clears a hidden in-flight result until foreground revalidation", async () => {
+  const services = { auth: { currentUser: { uid: "embedded", isAnonymous: false } } };
+  let finish!: (value: { targetUid: string; subscribed: boolean }) => void;
+  vi.mocked(setActivitySubscription).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  renderWithProviders(<ActivitySubscriptionButton targetUid="target" services={services as never} />, { authenticated: true });
+  await userEvent.click(await screen.findByRole("button", { name: "구독" }));
+  expect(setActivitySubscription).toHaveBeenLastCalledWith("embedded", "target", true, services);
+  const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+  try {
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    await act(async () => finish({ targetUid: "target", subscribed: true }));
+    expect(screen.queryByRole("button", { name: "구독 취소" })).not.toBeInTheDocument();
+    hidden.mockReturnValue(false);
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    expect(await screen.findByRole("button", { name: "구독" })).toBeEnabled();
+    expect(getActivitySubscriptionSummary).toHaveBeenLastCalledWith("embedded", "target", services);
+  } finally { hidden.mockRestore(); }
+});
+it.each(["guest", "self"])("does not mutate the injected %s profile", mode => {
+  const services = { auth: { currentUser: mode === "guest" ? null : { uid: "target", isAnonymous: false } } };
+  renderWithProviders(<ActivitySubscriptionButton targetUid="target" services={services as never} />, { authenticated: true });
+  expect(getActivitySubscriptionSummary).not.toHaveBeenCalled();
+  expect(setActivitySubscription).not.toHaveBeenCalled();
+  if (mode === "guest") expect(screen.getByText("팔로우하려면 앱에서 로그인해 주세요.")).toBeInTheDocument();
+});
