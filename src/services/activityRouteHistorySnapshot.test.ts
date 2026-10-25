@@ -1,0 +1,21 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
+import { loadRouteHistorySnapshot, validateRouteHistorySnapshot } from "./activityRouteHistorySnapshot";
+const mocks=vi.hoisted(()=>({call:vi.fn(),ready:vi.fn()}));
+vi.mock("firebase/functions",()=>({httpsCallable:()=>mocks.call}));
+vi.mock("./activityRouteEvidence",()=>({observedRouteAvailable:()=>true}));
+vi.mock("./localTrainingEmulator",()=>({localTrainingEmulatorAvailable:()=>true,matchesLocalTrainingEmulator:()=>true}));
+const request={anchorActivityId:"anchor",discipline:"bike",action:"start"} as const;
+export function snapshotFixture(){const asOf=Date.now()-100;return{runId:"12345678-1234-1234-1234-123456789abc",version:0,state:"scanning",asOf,expiresAt:asOf+3000000,scope:"recorded_observations_at_snapshot",scanned:0,excluded:0,unresolved:0,candidateCount:0,wholeHistory:"in_progress",physicalRideCompleteness:"unknown",bestStatus:"pending",best:null};}
+function services(){const app={name:"test",options:{projectId:"demo-test"}},auth={app,currentUser:{uid:"owner",isAnonymous:false}};return{auth,functions:{app},ensureAppCheckReady:mocks.ready} as unknown as FirebaseServices;}
+beforeEach(()=>{mocks.call.mockReset();mocks.ready.mockReset();mocks.ready.mockResolvedValue(undefined);});
+describe("route history response",()=>{
+ it("accepts pending and rejects a premature best",()=>{expect(validateRouteHistorySnapshot(snapshotFixture(),request).best).toBeNull();expect(()=>validateRouteHistorySnapshot({...snapshotFixture(),best:{bestElapsedSec:12}},request)).toThrow();});
+ it("accepts completed bounded recorded winner and rejects completeness/status contradictions",()=>{const value={...snapshotFixture(),state:"complete",wholeHistory:"enumerated_at_read_time",bestStatus:"verified_recorded_best",best:{anchorActivityId:"anchor",anchorInputRevision:"a".repeat(64),groups:1,rows:1,eligibleGroups:1,ambiguousGroups:0,unavailableGroups:0,states:{verified:1,missing:0,unsupported:0,changed:0},bestElapsedSec:600,bestActivityIds:["source"],tieCount:1,tiesTruncated:false}};
+  expect(validateRouteHistorySnapshot(value,request).best?.bestElapsedSec).toBe(600);
+  expect(()=>validateRouteHistorySnapshot({...value,unresolved:1},request)).toThrow();expect(()=>validateRouteHistorySnapshot({...value,physicalRideCompleteness:"complete"},request)).toThrow();
+ });
+ it("permits version jumps but rejects another snapshot or decreasing counts",()=>{const previous=validateRouteHistorySnapshot(snapshotFixture(),request),next={...previous,version:5,scanned:2,candidateCount:2};const advance={...request,action:"advance",runId:previous.runId,expectedVersion:previous.version} as const;expect(validateRouteHistorySnapshot(next,advance,previous).version).toBe(5);expect(()=>validateRouteHistorySnapshot({...next,asOf:next.asOf-1},advance,previous)).toThrow();});
+});
+it("blocks dispatch after same uid SDK replacement while AppCheck waits",async()=>{let resolve!:()=>void;mocks.ready.mockImplementation(()=>new Promise<void>(r=>{resolve=r;}));const s=services(),pending=loadRouteHistorySnapshot(s,"owner",request);s.auth.currentUser={...s.auth.currentUser!};resolve();await expect(pending).rejects.toThrow("account_changed");expect(mocks.call).not.toHaveBeenCalled();});
+it("discards a late result after same uid replacement",async()=>{let resolve!:(v:unknown)=>void;mocks.call.mockImplementation(()=>new Promise(r=>{resolve=r;}));const s=services(),pending=loadRouteHistorySnapshot(s,"owner",request);await Promise.resolve();s.auth.currentUser={...s.auth.currentUser!};resolve({data:snapshotFixture()});await expect(pending).rejects.toThrow("account_changed");});

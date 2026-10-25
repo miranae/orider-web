@@ -2922,5 +2922,39 @@
     "empty": "No public activities to show.",
     "more": "Load more",
     "rider": "Rider"
+  },
+  "routeHistory": {
+    "title": "Check route times across saved history",
+    "scope": "Review your saved activities as of this request in small steps. Records identified as the same activity are grouped, then elapsed times through the observed reference interval are compared. Continue each step explicitly.",
+    "start": "Start history check",
+    "restart": "Start a new check",
+    "continue": "Check next records",
+    "retry": "Check progress again",
+    "stop": "Stop and clear results",
+    "counts": "{{scanned}} activities checked · {{candidates}} candidates · {{excluded}} excluded · {{unresolved}} unresolved",
+    "time": "As of {{asOf}} KST · continue until {{expires}} KST",
+    "elapsed": "Shortest verified elapsed time {{time}}",
+    "quality": "{{eligible}} eligible groups · {{ambiguous}} ambiguous · {{unavailable}} unavailable",
+    "source": "Open source activity {{index}}",
+    "ties": "Showing {{shown}} of {{count}} tied records.",
+    "limit": "These are saved observed intervals. This does not establish a complete physical ride or your current all-time personal best. Returning from a source requires a fresh check. Stopping does not cancel a step already sent to the server.",
+    "phase": {
+      "scanning": "Checking activities. No best time is shown yet.",
+      "identity": "Checking overlapping activity records.",
+      "reducing": "Comparing elapsed times in the checked records."
+    },
+    "status": {
+      "loading": "Checking one step.",
+      "ready": "This step is complete.",
+      "error": "The request result could not be confirmed. Check progress again.",
+      "expired": "This check has expired. Start again.",
+      "invalidated": "The account or an activity changed. Results were cleared. Start again.",
+      "stopped": "Stopped and cleared the displayed results."
+    },
+    "best": {
+      "unavailable": "No comparable elapsed time was found in this check.",
+      "observed_best_with_gaps": "Some records remain unresolved or unavailable. The time below is the shortest among the verified records.",
+      "verified_recorded_best": "The comparison set saved at the request time has been checked."
+    }
   }
 }

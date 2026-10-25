@@ -1,3 +1,4 @@
+import ActivityRouteHistorySnapshotPanel from "./ActivityRouteHistorySnapshotPanel";
 import { useLocation } from "react-router-dom";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { useRouteHistoryControls } from "../../../hooks/useRouteHistoryControls";
@@ -28,7 +29,7 @@ export default function ActivityRouteIndexHistoryPanel({ activity, observedMetri
   const ticks = firstTick ? firstTick.y === lastTick?.y ? [firstTick] : [firstTick, lastTick!] : [];
   const date = (time: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(time);
   if (!query.available) return null;
-  return <><ActivityRouteInventoryPanel activity={activity} observedMetricsIdentity={observedMetricsIdentity} /><ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity={observedMetricsIdentity} /><section className="route-index-history" aria-label={t("routeIndexHistory.title")}>
+  return <><ActivityRouteHistorySnapshotPanel activity={activity} observedMetricsIdentity={observedMetricsIdentity} /><ActivityRouteInventoryPanel activity={activity} observedMetricsIdentity={observedMetricsIdentity} /><ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity={observedMetricsIdentity} /><section className="route-index-history" aria-label={t("routeIndexHistory.title")}>
     <details open={controls.open} onToggle={event => { const open = event.currentTarget.open; if (open !== controls.open) setControls(value => ({ ...value, open })); }}>
       <summary><Text variant="bodyMedium" weight={600}>{t("routeIndexHistory.title")}</Text></summary>
       <div className="route-index-history-body">

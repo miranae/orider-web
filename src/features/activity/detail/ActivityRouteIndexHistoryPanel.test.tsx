@@ -1,3 +1,4 @@
+vi.mock("./ActivityRouteHistorySnapshotPanel", () => ({ default: () => null }));
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
 import type { ReactNode } from "react";
 import { fireEvent, render as renderUi, screen } from "@testing-library/react";
