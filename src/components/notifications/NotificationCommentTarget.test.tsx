@@ -7,6 +7,19 @@ vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: state.use
 vi.mock("../../services/webNotifications", () => ({ createWebNotificationClient: () => ({ comment: state.comment }) }));
 beforeEach(() => { vi.clearAllMocks(); state.user = { uid: "viewer", isAnonymous: false }; state.comment.mockResolvedValue({ comment: { id: "target", nickname: "작성자", text: "멀리 있는 정확한 댓글" } }); });
 afterEach(cleanup);
+it("focuses a new destination but preserves keyboard focus during access refresh", async () => {
+  const view = render(<><input aria-label="댓글 작성" /><NotificationCommentTarget activityId="ride" commentId="target" /></>);
+  await screen.findByText("멀리 있는 정확한 댓글");
+  expect(document.activeElement).toContainElement(screen.getByText("멀리 있는 정확한 댓글"));
+  const input = screen.getByRole("textbox", { name: "댓글 작성" });
+  input.focus();
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  await screen.findByText("멀리 있는 정확한 댓글");
+  expect(input).toHaveFocus();
+  view.rerender(<><input aria-label="댓글 작성" /><NotificationCommentTarget activityId="ride" commentId="another" /></>);
+  await screen.findByText("멀리 있는 정확한 댓글");
+  expect(document.activeElement).toContainElement(screen.getByText("멀리 있는 정확한 댓글"));
+});
 it("loads an exact comment independently of paginated preview comments", async () => {
   render(<NotificationCommentTarget />); expect(await screen.findByText("멀리 있는 정확한 댓글")).toBeInTheDocument();
   expect(state.comment).toHaveBeenCalledWith("ride", "target");

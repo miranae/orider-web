@@ -49,7 +49,14 @@ export function NotificationCommentTarget({ activityId: explicitActivityId, comm
       window.removeEventListener("orider:activity-safety-changed", changed); window.removeEventListener("orider:activity-content-changed", changed); };
   }, [activityId, commentId]);
   const current = state?.key === key && state.client === client ? state : null;
-  useEffect(() => { if (current) heading.current?.focus(); }, [current]);
+  const focusedTarget = useRef<string | null>(null);
+  useEffect(() => { focusedTarget.current = null; }, [key]);
+  useEffect(() => {
+    if (current && focusedTarget.current !== key) {
+      focusedTarget.current = key;
+      heading.current?.focus();
+    }
+  }, [current, key]);
   if (commentId === null || !visible) return null;
   return <div ref={heading} tabIndex={-1}><Section title={t("notif.commentDestination")}><Stack gap="var(--space-3)">
     {!validTarget ? <Text role="status">{t("notif.targetUnavailable")}</Text> : !uid && !authLoading ? <><Text>{t("notif.loginDestination")}</Text>{!embedded && <Button onClick={() => void signIn()}>{t("notif.signIn")}</Button>}</>
