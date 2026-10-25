@@ -1,4 +1,4 @@
-import { matchesLocalTrainingEmulator } from "./localTrainingEmulator";
+import { localTrainingEmulatorAvailable, matchesLocalTrainingEmulator } from "./localTrainingEmulator";
 import { httpsCallable } from "firebase/functions";
 import { MATCHED_ROUTE_GROUP_LIMITS as limits, type ActivityMatchedRouteGroupRequest, type ActivityMatchedRouteGroupResponse, type MatchedRouteMetricSummary } from "@shared/activity-matched-route-groups";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -99,7 +99,7 @@ export function validateActivityMatchedRouteGroupResponse(value: unknown, reques
 export async function loadActivityMatchedRouteGroups(services: FirebaseServices, uid: string, request: ActivityMatchedRouteGroupRequest) {
   const current = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
   if (!current()) throw new Error("account_changed");
-  if (!observedRouteAvailable() || services.functions.app !== services.auth.app || (services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net" && !matchesLocalTrainingEmulator(services))) throw new Error("matched_route_group_unsupported");
+  if (!observedRouteAvailable() || services.functions.app !== services.auth.app || (localTrainingEmulatorAvailable() ? !matchesLocalTrainingEmulator(services) : services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net")) throw new Error("matched_route_group_unsupported");
   if (!validActivityMatchedRouteGroupRequest(request)) throw new Error("invalid_matched_route_group_request");
   await services.ensureAppCheckReady(); if (!current()) throw new Error("account_changed");
   const response = await httpsCallable<ActivityMatchedRouteGroupRequest, unknown>(services.functions, "getActivityStreams")(request);

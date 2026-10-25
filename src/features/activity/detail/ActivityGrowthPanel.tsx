@@ -1,3 +1,4 @@
+import { localTrainingEmulatorAvailable } from "../../../services/localTrainingEmulator";
 import GlossaryProvider from "../../../components/common/GlossaryProvider";
 import GlossaryText from "../../../components/common/GlossaryText";
 import { disciplineOfType } from "@shared/sport/discipline";
@@ -62,7 +63,7 @@ function comparisonDuration(value: number | null, delta = false): string {
 }
 function Comparison({ activity, metrics, currentMetricsStatus, comparisonOnly }: Omit<ActivityGrowthPanelProps, "isOwner">) {
   const { t, i18n } = useTranslation("activity");
-  const stageRoutes = !comparisonOnly || getRuntimeConfig().appEnvironment === "stage";
+  const stageRoutes = !comparisonOnly || getRuntimeConfig().appEnvironment === "stage" || localTrainingEmulatorAvailable();
   const { user } = useAuth();
   const { units } = useLocale();
   const distanceFactor = units === "imperial" ? 1 / 1.609344 : 1;
@@ -293,6 +294,7 @@ function GrowthSections(props: ActivityGrowthPanelProps) {
       </>}
       <ActivityRouteIndexHistoryPanel activity={props.activity} observedMetricsIdentity={JSON.stringify([props.currentMetricsStatus, props.metrics?.computedAt])} />
     </>}
+    {localTrainingEmulatorAvailable() && getRuntimeConfig().appEnvironment !== "stage" && <ActivityRouteIndexHistoryPanel activity={props.activity} observedMetricsIdentity={JSON.stringify([props.currentMetricsStatus, props.metrics?.computedAt])} />}
     <LocalizedLink to={`/coach/analysis?sport=${disciplineOfType(props.activity.type)}`}>{t("growth.analysisLink")}</LocalizedLink>
   </section>;
   const content = <Stack gap="var(--dim-section-gap)" className={props.embedded ? undefined : "activity-growth-content"}>

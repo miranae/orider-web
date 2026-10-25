@@ -11,7 +11,7 @@ it("allows only explicit local demo with the actual SDK endpoint and owner",asyn
  vi.stubGlobal("location",{hostname:"localhost"});resetRuntimeConfigForTests(config);
  const app={options:{projectId:"demo-route"}},services={auth:{app,currentUser:{uid:"owner",isAnonymous:false}},functions:{app,region:"asia-northeast3",emulatorOrigin:"http://localhost:5029"},ensureAppCheckReady:vi.fn()} as any;
  call.mockResolvedValue({data:routeResponse()});expect(observedRouteAvailable()).toBe(true);await loadActivityRouteEvidence(services,"owner","first");expect(call).toHaveBeenCalledOnce();
- services.functions.emulatorOrigin="https://remote.example";await expect(loadActivityRouteEvidence(services,"owner","first")).rejects.toThrow("route_not_supported");expect(call).toHaveBeenCalledOnce();
+ services.functions.customDomain="https://asia-northeast3-orider-dev.cloudfunctions.net"; services.functions.emulatorOrigin="https://remote.example";await expect(loadActivityRouteEvidence(services,"owner","first")).rejects.toThrow("route_not_supported");expect(call).toHaveBeenCalledOnce();
 });
 it("does not enable hosted, production builds, real projects or missing opt-in",()=>{
  vi.stubGlobal("location",{hostname:"localhost"});

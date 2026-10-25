@@ -72,7 +72,7 @@ export function validateRouteEvidenceResponse(value: unknown, activityId: string
 export async function loadActivityRouteEvidence(services: FirebaseServices, uid: string, activityId: string, expectedRouteInputRevision?: string, canonical?: RouteCanonicalAverageOption) {
   const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
   if (!matches()) throw new Error("account_changed");
-  if (!observedRouteAvailable() || services.functions.app !== services.auth.app || (services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net" && !matchesLocalTrainingEmulator(services))) throw new Error("route_not_supported");
+  if (!observedRouteAvailable() || services.functions.app !== services.auth.app || (localTrainingEmulatorAvailable() ? !matchesLocalTrainingEmulator(services) : services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net")) throw new Error("route_not_supported");
   if (!opaque(activityId) || activityId.includes("/") || expectedRouteInputRevision !== undefined && !digest(expectedRouteInputRevision)) throw new Error("invalid_route_request");
   await services.ensureAppCheckReady();
   if (!matches()) throw new Error("account_changed");
