@@ -222,7 +222,7 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
       </Section>}
       {(route || mapImage) && <Section title={t("publicDetail.route")}>
         {route ? <Suspense fallback={<Text role="status">{t("publicDetail.mapLoading")}</Text>}>
-          <RouteMap polyline={route} interactive={false} height="18rem" fallbackImageUrl={mapImage} fallbackImageAlt={t("publicDetail.route")} />
+          <RouteMap polyline={route} interactive={false} height="aspect-video" fallbackImageUrl={mapImage} fallbackImageAlt={t("publicDetail.route")} />
         </Suspense> : <PublicActivityMapImage key={activityId} src={mapImage!} />}
         <Text variant="caption" tone="secondary">{t("publicDetail.routePreview")}</Text>
       </Section>}

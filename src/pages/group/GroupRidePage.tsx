@@ -28,7 +28,8 @@ import Map, { Source, Layer, Marker } from "react-map-gl/mapbox";
 import type { LngLatBoundsLike } from "mapbox-gl";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../../utils/mapbox";
 import { decodeTrack } from "../../utils/polyline";
-import { getBounds } from "../../components/RouteMap";
+import { getBounds, RouteMapFallback, supportsWebGL } from "../../components/RouteMap";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 
 import GroupRidePerformanceChart, { type GroupRideOverlay } from "./GroupRidePerformanceChart";
 import InfoTip from "../../components/InfoTip";
@@ -49,6 +50,8 @@ import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export default function GroupRidePage() {
   const mapboxToken = getMapboxToken();
+  const [webglSupported] = useState(supportsWebGL);
+  const [mapFailed, setMapFailed] = useState(false);
   const { t } = useTranslation(["group", "common"]);
   const { groupId, rideId } = useParams();
   const { user } = useAuth();
@@ -285,6 +288,15 @@ const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(acti
       end: chartAxis === "time" ? clockOrigin + highlightedRange.end * 60_000 : highlightedRange.end * 1000,
     }),
   })) : [], [highlightedRange, visibleRouteGeoJSONs, streams, clockAxes, clockOrigin, chartAxis]);
+
+  const fallbackSegments = visibleRouteGeoJSONs.flatMap(route => route.geojson.geometry.coordinates);
+  const fallbackPositions: [number, number][] = [], fallbackStarts: number[] = [];
+  for (const segment of fallbackSegments) {
+    fallbackStarts.push(fallbackPositions.length);
+    fallbackPositions.push(...segment.map(([lng, lat]) => [lat!, lng!] as [number, number]));
+  }
+  const mapFallback = <RouteMapFallback positions={fallbackPositions} segmentStarts={fallbackStarts} height="h-full" rounded
+    imageAlt={t("common:map.routeImageAlt")} title={t("common:map.unavailableTitle")} description={t("common:map.unavailableDescription")} />;
 
   const clockZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const displayLocale = localeTag();
@@ -568,8 +580,9 @@ const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(acti
           {/* 루트 맵 - 전체 참가자 경로 표시 (항상 렌더링, 바운드만 필요) */}
           {mapBounds && (
             <div ref={mapFrameRef} id={mapId} data-testid="C2R-1" className="club-ride-map" data-map-expanded={mapExpanded}>
-              <Map
+              {!mapboxToken || !webglSupported || mapFailed ? mapFallback : <ErrorBoundary fallback={() => mapFallback} onError={() => setMapFailed(true)}><Map
                 ref={mapRef}
+                onError={() => setMapFailed(true)}
                 mapboxAccessToken={mapboxToken}
                 mapStyle={MAP_STYLE}
                 initialViewState={{ bounds: mapBounds, fitBoundsOptions: { padding: 30 } }}
@@ -637,9 +650,9 @@ const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(acti
                     />
                   </Marker>
                 )}
-              </Map>
+              </Map></ErrorBoundary>}
               <MapResizeControls expanded={mapExpanded} controlsId={mapId} expandLabel={t("ridePage.map.expand")} collapseLabel={t("ridePage.map.collapse")} onToggle={() => setMapExpanded(value => !value)} />
-              <MapNavigation orientation="horizontal"><MapControlButton aria-label={t("ridePage.map.fit")} onClick={() => mapRef.current?.fitBounds(mapBounds, { padding: 30 })}><LocateFixed size={ICON_SIZE.md} />{t("ridePage.map.fit")}</MapControlButton></MapNavigation>
+              <MapNavigation orientation="horizontal"><MapControlButton disabled={!mapboxToken || !webglSupported || mapFailed} aria-label={t("ridePage.map.fit")} onClick={() => mapRef.current?.fitBounds(mapBounds, { padding: 30 })}><LocateFixed size={ICON_SIZE.md} />{t("ridePage.map.fit")}</MapControlButton></MapNavigation>
             </div>
           )}
 

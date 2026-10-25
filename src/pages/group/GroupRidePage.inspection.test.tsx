@@ -294,3 +294,5 @@ it("keeps exact range and formatted coverage accessible without adding visible c
 });
 
 vi.mock("../../services/activityDiscovery", () => ({ loadActivityDiscovery: vi.fn(async () => ({ items: mockCollectionData.get("activities") ?? [], nextCursor: null, scannedCount: 0, exhausted: true, totalCount: null })) }));
+
+vi.mock("../../components/RouteMap", async importOriginal => ({ ...await importOriginal<typeof import("../../components/RouteMap")>(), supportsWebGL: () => true }));

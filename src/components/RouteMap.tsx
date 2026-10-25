@@ -113,7 +113,7 @@ function findNearestIndex(positions: [number, number][], lat: number, lng: numbe
   return minIdx;
 }
 
-function supportsWebGL(): boolean {
+export function supportsWebGL(): boolean {
   if (typeof document === "undefined") return true;
   try {
     const canvas = document.createElement("canvas");
@@ -126,7 +126,7 @@ function supportsWebGL(): boolean {
   }
 }
 
-function RouteMapFallback({
+export function RouteMapFallback({
   positions,
   segmentStarts,
   imageUrl,

@@ -29,7 +29,7 @@ vi.mock("../../hooks/useGroup", () => ({ useGroup: () => ({ group: { toggles: { 
 vi.mock("../../components/ComparisonChart", () => ({ default: (props: unknown) => { comparison(props); return <div />; } }));
 vi.mock("./GroupRidePerformanceChart", () => ({ default: (props: { beforePlot?: React.ReactNode }) => { elevation(props); return <>{props.beforePlot}</>; } }));
 vi.mock("../../utils/mapbox", () => ({ getMapboxToken: () => "test-token", MAP_STYLE: "", applyKoreaCyclingStyle: vi.fn() }));
-vi.mock("react-map-gl/mapbox", () => ({ default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>, Source: ({ children, data }: { children: React.ReactNode; data: unknown }) => <div data-testid="route-source" data-geometry={JSON.stringify(data)}>{children}</div>, Layer: ({ id, paint }: { id: string; paint: Record<string, string> }) => <div data-testid={`layer-${id}`} data-color={paint["line-color"]} data-width={paint["line-width"]} data-opacity={paint["line-opacity"]} />, Marker: ({ longitude, latitude }: { longitude: number; latitude: number }) => <div data-testid="hover-marker" data-longitude={longitude} data-latitude={latitude} /> }));
+vi.mock("react-map-gl/mapbox", () => ({ default: ({ children, onError }: { children: React.ReactNode; onError: () => void }) => <div><button onClick={onError}>simulate map error</button>{children}</div>, Source: ({ children, data }: { children: React.ReactNode; data: unknown }) => <div data-testid="route-source" data-geometry={JSON.stringify(data)}>{children}</div>, Layer: ({ id, paint }: { id: string; paint: Record<string, string> }) => <div data-testid={`layer-${id}`} data-color={paint["line-color"]} data-width={paint["line-width"]} data-opacity={paint["line-opacity"]} />, Marker: ({ longitude, latitude }: { longitude: number; latitude: number }) => <div data-testid="hover-marker" data-longitude={longitude} data-latitude={latitude} /> }));
 
 function RideWithExit() {
   const navigate = useNavigate();
@@ -437,4 +437,16 @@ it("renders a safe preview independently of unrelated same-length sensor clocks"
     expect(JSON.parse(source.getAttribute("data-geometry")!).geometry.coordinates).toEqual([[[127, 37], [127.002, 37], [127.004, 37]]]);
   });
   expect(screen.queryByTestId("hover-marker")).not.toBeInTheDocument();
+});
+
+vi.mock("../../components/RouteMap", async importOriginal => ({ ...await importOriginal<typeof import("../../components/RouteMap")>(), supportsWebGL: () => true }));
+
+it("renders the existing safe route-line fallback when the map provider fails", async () => {
+  setCollectionDocs("activities", [{ ...activity("preview", null, null), source: "strava", thumbnailTrack: "37,127;37,127.002;37,127.004" }]);
+  renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
+  fireEvent.click(await screen.findByRole("button", { name: "simulate map error" }));
+  const map = screen.getByTestId("C2R-1");
+  expect(map.querySelector("svg path")?.getAttribute("d")).toBeTruthy();
+  expect(within(map).getByText("경로 미리보기")).toBeInTheDocument();
+  expect(within(map).getByRole("button", { name: "전체 경로 보기" })).toBeDisabled();
 });
