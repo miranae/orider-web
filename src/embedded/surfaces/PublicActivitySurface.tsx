@@ -29,9 +29,11 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
   const services = useFirebaseServices();
   const { user } = useAuth();
   const { t, i18n } = useTranslation("activity");
-  const client = useMemo(() => createPublicActivityClient(services), [services, user?.uid]);
+  const client = useMemo(() => createPublicActivityClient(services), [services, user?.uid, services.auth.currentUser]);
   const [detail, setDetail] = useState<PublicActivityDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mapFresh, setMapFresh] = useState(false);
+  const [verifiedMap, setVerifiedMap] = useState<{ client: typeof client; activityId: string; value: PublicActivityDetail["mapPreview"] } | null>(null);
   const [failed, setFailed] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
   const [removed, setRemoved] = useState<{ scope: string; action: "hide" | "block" } | null>(null);
@@ -58,12 +60,12 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
     const request = ++generation.current;
     const finish = startJourneyMeasurement("activity_detail_ready", embedded ? "embedded_public_activity" : "web_public_activity", "detail");
     detailMeasurement.current = finish;
-    setDetail(null); setLoading(true); setFailed(false); setAccessDenied(false); setText(""); setPosted(false); setMutationError(false); setBusy(false); inFlight.current = false; commentRequest.current = null;
+    setMapFresh(false); setDetail(null); setLoading(true); setFailed(false); setAccessDenied(false); setText(""); setPosted(false); setMutationError(false); setBusy(false); inFlight.current = false; commentRequest.current = null;
     const load = attempt === 0 && retryKey === 0 && initialDetail?.activity.id === activityId ? Promise.resolve(initialDetail) : client.load(activityId);
     void load.then(data => {
       if (generation.current !== request) return;
       settledGeneration.current = request;
-      setDetail(data); setLoading(false); callbacks.current.onReady();
+      setDetail(data); setVerifiedMap({ client, activityId, value: data.mapPreview }); setMapFresh(document.visibilityState !== "hidden"); setLoading(false); callbacks.current.onReady();
     }).catch(error => {
       if (generation.current !== request) return;
       settledGeneration.current = request;
@@ -76,6 +78,44 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
     if (failed) detailMeasurement.current?.(accessDenied ? "access_denied" : "error");
     else if (detail?.activity.id === activityId) detailMeasurement.current?.("success");
   }, [loading, failed, accessDenied, detail, activityId]);
+
+  const hasDetail = detail !== null;
+  useEffect(() => {
+    if (loading || failed || !hasDetail) return;
+    let alive = true, sequence = 0, refreshing = false;
+    const visible = () => document.visibilityState !== "hidden";
+    const refresh = async () => {
+      setMapFresh(false);
+      if (!visible() || refreshing) return;
+      refreshing = true;
+      const request = ++sequence, ownerGeneration = generation.current;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const fresh = await Promise.race([client.load(activityId), new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("public_map_refresh_timeout")), 10_000); })]);
+        if (!alive || request !== sequence || ownerGeneration !== generation.current || !visible()) return;
+        setDetail(current => current ? { ...fresh, ...(inFlight.current ? {
+          viewerHasKudos: current.viewerHasKudos,
+          activity: { ...fresh.activity, kudosCount: current.activity.kudosCount, commentCount: current.activity.commentCount },
+        } : {}) } : current);
+        setVerifiedMap({ client, activityId, value: fresh.mapPreview }); setMapFresh(true);
+      } catch (reason) {
+        if (!alive || request !== sequence || ownerGeneration !== generation.current) return;
+        const code = typeof reason === "object" && reason !== null && "code" in reason ? String(reason.code) : "";
+        if (isPublicActivityAccessError(reason) || code === "functions/unauthenticated" || reason instanceof Error && reason.message === "account_changed") revokeAccess();
+        // Network failures retain text/drafts, but never restore the old public geometry.
+      } finally { clearTimeout(timeout); if (request === sequence) refreshing = false; }
+    };
+    const visibility = () => {
+      if (document.visibilityState === "hidden") { sequence++; refreshing = false; setMapFresh(false); }
+      else void refresh();
+    };
+    const focus = () => { void refresh(); };
+    const timer = window.setInterval(() => { void refresh(); }, 30_000);
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("focus", focus);
+    return () => { alive = false; sequence++; window.clearInterval(timer); document.removeEventListener("visibilitychange", visibility); window.removeEventListener("focus", focus); };
+  // Revalidation must not restart its cadence after its own DTO update.
+  }, [activityId, client, loading, failed, revokeAccess, hasDetail]);
 
   const mutate = useCallback(async (action: "kudos" | "comment") => {
     if (!user || user.isAnonymous || !detail || inFlight.current || (action === "comment" && !text.trim())) return;
@@ -150,8 +190,9 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
   const normalizedPower = numeric(metrics?.np);
   const powerSource = activity.effectiveFacts?.powerSource;
   const powerLabel = powerSource === "measured" || powerSource === "estimated" ? powerSource : "unknown";
-  const mapImage = detail.mapPreview?.imageUrl && /^https:\/\//i.test(detail.mapPreview.imageUrl) ? detail.mapPreview.imageUrl : null;
-  const route = detail.mapPreview?.encodedPolyline || undefined;
+  const publicMap = mapFresh && verifiedMap?.client === client && verifiedMap.activityId === activityId ? verifiedMap.value : null;
+  const mapImage = publicMap?.imageUrl && /^https:\/\//i.test(publicMap.imageUrl) ? publicMap.imageUrl : null;
+  const route = publicMap?.encodedPolyline || undefined;
 
   return <main className={embedded ? "orider-embedded-surface public-activity-surface" : "public-activity-surface"} data-testid="embedded-public-activity">
     <Stack gap="var(--space-5)">

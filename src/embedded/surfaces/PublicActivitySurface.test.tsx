@@ -231,3 +231,59 @@ it("does not expose report/hide/block controls for the activity owner", async ()
   render(<PublicActivitySurface {...props} />); await screen.findByText("한강 라이딩");
   expect(screen.queryByRole("button", { name: "작성자 차단" })).not.toBeInTheDocument();
 });
+
+it("removes old geometry on focus and keeps it hidden after a temporary network failure", async () => {
+  const data = fixture(); data.mapPreview = { imageUrl: "https://maps.example.test/old", encodedPolyline: null };
+  mocks.load.mockResolvedValueOnce(data).mockRejectedValueOnce(new Error("offline"));
+  render(<PublicActivitySurface {...props} />);
+  await screen.findByRole("img", { name: "라이딩 경로" });
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "보존 초안" } });
+  fireEvent.focus(window);
+  await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(2));
+  expect(screen.queryByRole("img", { name: "라이딩 경로" })).not.toBeInTheDocument();
+  expect(screen.getByRole("textbox")).toHaveValue("보존 초안");
+  mocks.load.mockResolvedValueOnce({ ...data, mapPreview: { imageUrl: null, encodedPolyline: null } });
+  fireEvent.focus(window);
+  await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(3));
+  expect(screen.queryByRole("img", { name: "라이딩 경로" })).not.toBeInTheDocument();
+});
+it("revalidates visible details every 30 seconds and revokes the whole detail on denial", async () => {
+  render(<PublicActivitySurface {...props} />);
+  await screen.findByText("한강 라이딩");
+  vi.useFakeTimers();
+  try {
+    // Start a fresh interval under the fake clock.
+    cleanup(); mocks.load.mockResolvedValueOnce(fixture()).mockRejectedValueOnce({ code: "functions/permission-denied" });
+    render(<PublicActivitySurface {...props} />);
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(screen.queryByText("한강 라이딩")).not.toBeInTheDocument();
+  } finally { vi.useRealTimers(); }
+});
+it("hides geometry while backgrounded and ignores a late response from before backgrounding", async () => {
+  const data = fixture(); data.mapPreview = { imageUrl: "https://maps.example.test/old", encodedPolyline: null };
+  let resolve!: (value: PublicActivityDetail) => void;
+  mocks.load.mockResolvedValueOnce(data).mockReturnValueOnce(new Promise(r => { resolve = r; }));
+  render(<PublicActivitySurface {...props} />);
+  await screen.findByRole("img", { name: "라이딩 경로" });
+  fireEvent.focus(window);
+  vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+  fireEvent(document, new Event("visibilitychange"));
+  await act(async () => resolve(data));
+  expect(screen.queryByRole("img", { name: "라이딩 경로" })).not.toBeInTheDocument();
+  vi.restoreAllMocks();
+});
+it("does not restore revoked geometry from a late social aggregate response", async () => {
+  const data = fixture(); data.mapPreview = { imageUrl: "https://maps.example.test/old", encodedPolyline: null };
+  let resolve!: (value: { enabled: boolean }) => void;
+  mocks.load.mockResolvedValueOnce(data).mockResolvedValueOnce({ ...data, mapPreview: { imageUrl: null, encodedPolyline: null } }).mockResolvedValue({ ...data, viewerHasKudos: true, activity: { ...data.activity, kudosCount: 3 } });
+  mocks.setKudos.mockReturnValueOnce(new Promise(r => { resolve = r; }));
+  render(<PublicActivitySurface {...props} />);
+  await screen.findByRole("img", { name: "라이딩 경로" });
+  fireEvent.click(screen.getByRole("button", { name: /좋아요/ }));
+  fireEvent.focus(window);
+  await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(2));
+  await act(async () => resolve({ enabled: true }));
+  await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(3));
+  expect(screen.queryByRole("img", { name: "라이딩 경로" })).not.toBeInTheDocument();
+});
