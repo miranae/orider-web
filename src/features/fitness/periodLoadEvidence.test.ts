@@ -10,6 +10,27 @@ function source(): FitnessTimeseriesDoc {
 }
 const start=Date.parse('2026-10-24T00:00:00+09:00'), end=Date.parse('2026-10-26T00:00:00+09:00');
 describe('selected canonical period load',()=>{
+ it('includes proven final zero days before the first saved PMC without inventing opening fitness',()=>{
+  const s=source();
+  const from=Date.parse('2026-09-28T00:00:00+09:00');
+  s.points=s.points.filter(p=>p.date>='2026-10-24');s.startDate='2026-10-24';s.pointCount=2;
+  s.loadSnapshot!.coverageStartDate='2026-09-28';
+  s.loadSnapshot!.points=Array.from({length:28},(_,i)=>{
+   const date=new Date(from+i*86400000+9*3600000).toISOString().slice(0,10);
+   return {date,dailyLoad:date==='2026-10-24'?13:0,status:'final' as const,quality:date==='2026-10-24'?'precomputed' as const:'zero' as const};
+  });
+  const evidence=periodLoadEvidence(s,from,end);
+  expect(evidence).toMatchObject({total:13,before:null,after:{date:'2026-10-25'},reason:null});
+  expect(evidence.points).toHaveLength(28);
+  expect(evidence.points[0]).toMatchObject({date:'2026-09-28',dailyLoad:0,loadStatus:'final',ctl:null,atl:null,tsb:null});
+  s.loadSnapshot!.points[0].status='unknown';
+  expect(periodLoadEvidence(s,from,end).total).toBeNull();
+ });
+ it('does not synthesize PMC even for an entirely zero load snapshot with no saved points',()=>{
+  const s=source();s.points=[];s.startDate=null;s.endDate=null;s.pointCount=0;
+  s.loadSnapshot!.points.forEach(p=>{p.dailyLoad=0;p.quality='zero';});
+  expect(periodLoadEvidence(s,start,end)).toMatchObject({total:0,before:null,after:null,reason:null});
+ });
  it('rejects partial days and overflowing totals',()=>{
   expect(periodLoadEvidence(source(),start+1,end).reason).toBe('partialDay');
   expect(periodLoadEvidence(source(),start,end-1).reason).toBe('partialDay');
