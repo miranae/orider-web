@@ -18,7 +18,7 @@ function wire(): ActivityRouteIndexPageResponse {
     candidates: [{ activityId: "candidate", startTime: now - 86400000, match: { state: "available", direction: "forward", guidance: "observed_similar", forwardCandidate: true,
       coverage: "not_complete", lengthRatio: 1, forward: { meanSeparationM: 0, p95SeparationM: 0, startSeparationM: 0, endSeparationM: 0 },
       reverse: { meanSeparationM: 100, p95SeparationM: 100, startSeparationM: 100, endSeparationM: 100 }, limitations: ["sample_based", "no_loop_rotation", "coverage_not_complete"] },
-      canonicalAverage: { state: "available", reason: null, version: 35, metricsRevision: "a".repeat(64), discipline: "run", startTime: now - 86400000, computedAt: now - 1000, avgSpeedKph: 12, inputCoverage: "complete", sourceLayer: "raw_parts" } }],
+      canonicalAverage: { state: "available", reason: null, version: 41, metricsRevision: "a".repeat(64), discipline: "run", startTime: now - 86400000, computedAt: now - 1000, avgSpeedKph: 12, inputCoverage: "complete", sourceLayer: "raw_parts" } }],
     omitted: [], io: { documents: 12, metadata: 1, rawDownloads: 0, writes: 0 }, limitations: ["direct_anchor_only", "scanned_page_only", "source_geo_quality_unknown", "gcs_firestore_non_atomic"] };
 }
 afterEach(() => { vi.useRealTimers(); mocks.available = true; mocks.invoke.mockReset(); });

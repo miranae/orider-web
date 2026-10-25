@@ -7,7 +7,7 @@ export function routeResponse(activityId = "first"): ActivityRouteEvidenceRespon
 }
 /** 단일 활동별 확정 평균의 합성 스냅샷. GPS 입력과 지표 revision을 공유하지 않는다. */
 export function routeAverageResponse(activityId = "first", startTime = 1700000000000, discipline: "bike" | "run" = "bike", speed: number | null = 12): ActivityRouteEvidenceResponse {
-  return { ...routeResponse(activityId), canonicalAverage: { state: "available", reason: null, metricsRevision: "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc", version: 35, discipline, startTime, computedAt: startTime + 3600000, avgSpeedKph: speed, inputCoverage: "complete", sourceLayer: "raw_parts" } };
+  return { ...routeResponse(activityId), canonicalAverage: { state: "available", reason: null, metricsRevision: "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc", version: 41, discipline, startTime, computedAt: startTime + 3600000, avgSpeedKph: speed, inputCoverage: "complete", sourceLayer: "raw_parts" } };
 }
 
 /** 실제 reader의 합성 출력을 그대로 고정한다. 운영 데이터·실행 시 외부 파일 의존은 없다. */
@@ -56,7 +56,7 @@ export const backendCanonicalWireFixture = {
           "state": "available",
           "reason": null,
           "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-          "version": 35,
+          "version": 41,
           "discipline": "bike",
           "startTime": 1789999970000,
           "computedAt": 1790000010000,
@@ -103,7 +103,7 @@ export const backendCanonicalWireFixture = {
           "state": "available",
           "reason": null,
           "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-          "version": 35,
+          "version": 41,
           "discipline": "bike",
           "startTime": 1789999970000,
           "computedAt": 1790000010000,
@@ -150,7 +150,7 @@ export const backendCanonicalWireFixture = {
           "state": "available",
           "reason": null,
           "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-          "version": 35,
+          "version": 41,
           "discipline": "bike",
           "startTime": 1789999970000,
           "computedAt": 1790000010000,
@@ -277,7 +277,7 @@ export const backendCanonicalWireFixture = {
           "state": "available",
           "reason": null,
           "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-          "version": 35,
+          "version": 41,
           "discipline": "run",
           "startTime": 1789999970000,
           "computedAt": 1790000010000,
@@ -324,7 +324,7 @@ export const backendCanonicalWireFixture = {
           "state": "available",
           "reason": null,
           "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-          "version": 35,
+          "version": 41,
           "discipline": "run",
           "startTime": 1789999970000,
           "computedAt": 1790000010000,
@@ -371,7 +371,7 @@ export const backendCanonicalWireFixture = {
           "state": "available",
           "reason": null,
           "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-          "version": 35,
+          "version": 41,
           "discipline": "run",
           "startTime": 1789999970000,
           "computedAt": 1790000010000,

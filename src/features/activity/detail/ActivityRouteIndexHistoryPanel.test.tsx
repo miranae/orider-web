@@ -17,7 +17,7 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ i18n: { language: moc
 const activity = { id: "anchor", userId: "owner", type: "Run", startTime: 1790000000000, source: "orider" } as Activity;
 function page(count = 7): ActivityRouteIndexPageResponse {
   return { candidates: Array.from({ length: count }, (_, index) => ({ activityId: `record-${index}`, startTime: Date.UTC(index ? 2026 : 2025, 0, 1),
-    match: {}, canonicalAverage: index === 2 ? { state: "pending", reason: "metrics_pending", metricsRevision: null } : { state: "available", reason: null, metricsRevision: "a".repeat(64), version: 35, discipline: "run", startTime: Date.UTC(index ? 2026 : 2025, 0, 1), computedAt: Date.UTC(2026, 8, 1), avgSpeedKph: 12, inputCoverage: "partial_terminal", sourceLayer: "raw_parts" } })),
+    match: {}, canonicalAverage: index === 2 ? { state: "pending", reason: "metrics_pending", metricsRevision: null } : { state: "available", reason: null, metricsRevision: "a".repeat(64), version: 41, discipline: "run", startTime: Date.UTC(index ? 2026 : 2025, 0, 1), computedAt: Date.UTC(2026, 8, 1), avgSpeedKph: 12, inputCoverage: "partial_terminal", sourceLayer: "raw_parts" } })),
     readTime: { seconds: 1791792000, nanoseconds: 0 }, pageScannedCount: count, geometryPrefilteredCount: 0, sourceValidatedCount: count, omitted: [], nextCursor: { after: { startLatitude: 37, activityId: "last" } } } as unknown as ActivityRouteIndexPageResponse;
 }
 beforeEach(() => { mocks.available = true; mocks.status = "idle"; mocks.pages = []; mocks.start.mockReset(); mocks.more.mockReset(); mocks.hook.mockReset(); mocks.language = "ko"; mocks.units = "metric"; });
@@ -76,7 +76,7 @@ describe("readable canonical candidate trends", () => {
   });
   it.each(["run", "bike"])("shows existing-scale value/unit ticks and isolated points for %s, including imperial units", discipline => {
     const received = page(4), speeds = [12, 6, 18];
-    received.candidates.forEach((row, index) => { if (index === 2) return; row.canonicalAverage = { state: "available", reason: null, metricsRevision: "a".repeat(64), version: 35, discipline: discipline as "run" | "bike", startTime: row.startTime, computedAt: row.startTime + 1, avgSpeedKph: speeds[index === 3 ? 2 : index]!, inputCoverage: "complete", sourceLayer: "inline_streams" }; });
+    received.candidates.forEach((row, index) => { if (index === 2) return; row.canonicalAverage = { state: "available", reason: null, metricsRevision: "a".repeat(64), version: 41, discipline: discipline as "run" | "bike", startTime: row.startTime, computedAt: row.startTime + 1, avgSpeedKph: speeds[index === 3 ? 2 : index]!, inputCoverage: "complete", sourceLayer: "inline_streams" }; });
     mocks.pages = [received]; mocks.status = "partial";
     const view = render(<ActivityRouteIndexHistoryPanel activity={{ ...activity, type: discipline === "run" ? "Run" : "Ride" }} observedMetricsIdentity="head" />);
     const chart = screen.getByRole("img"), ticks = chart.querySelectorAll(".route-index-history-value-axis span");

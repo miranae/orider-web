@@ -1,3 +1,4 @@
+import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { httpsCallable } from "firebase/functions";
 import type { ActivityCanonicalAverage, ActivityRouteEvidence, ActivityRouteEvidenceResponse, ObservedRouteComparison } from "@shared/activity-route-comparison";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -16,8 +17,8 @@ export function observedRouteAvailable() {
   const config = getRuntimeConfig();
   return localTrainingEmulatorAvailable() || config.appEnvironment === "stage" && config.firebaseFunctionsBase === "https://asia-northeast3-orider-dev.cloudfunctions.net";
 }
-// 별도 선택 채널의 서버 계약35다. 일반 프런트 지표 version34는 변경하지 않는다.
-export const ROUTE_CANONICAL_AVERAGE_VERSION = 35;
+// The optional channel uses the same canonical contract as the producer.
+export const ROUTE_CANONICAL_AVERAGE_VERSION = ACTIVITY_METRICS_VERSION;
 export interface RouteCanonicalAverageOption { includeCanonicalAverage: true; startTime: number; discipline: "bike" | "run" }
 export function validCanonicalAverage(value: unknown, expected?: RouteCanonicalAverageOption): value is ActivityCanonicalAverage {
   const average = record(value);
