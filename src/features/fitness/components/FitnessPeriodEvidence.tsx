@@ -1,3 +1,5 @@
+import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
+import PeriodLoadEvidence from "./PeriodLoadEvidence";
 import { usePeriodControls } from "../../../hooks/usePeriodControls";
 import { validTrainingPeriodControls, type TrainingPeriodControls } from "./periodControls";
 import { localTrainingEmulatorAvailable } from "../../../services/localTrainingEmulator";
@@ -17,12 +19,12 @@ import { formatElapsedBoundary } from "../../activity/detail/activityRangeSelect
 import { Button, Input, Text, ToggleControls, ToggleButton } from "../../../theme/components";
 
 type Sport = "bike" | "run" | "swim";
-export default function FitnessPeriodEvidence({ discipline, inline = false }: { discipline: Sport; inline?: boolean }) {
+export default function FitnessPeriodEvidence({ discipline, inline = false, timeseries = null }: { discipline: Sport; inline?: boolean; timeseries?: FitnessTimeseriesDoc | null }) {
   const { user } = useAuth();
   if ((getRuntimeConfig().appEnvironment !== "stage" && !(discipline === "bike" && localTrainingEmulatorAvailable())) || !user || user.isAnonymous) return null;
-  return <PeriodEvidence key={`${user.uid}:${discipline}`} ownerUid={user.uid} discipline={discipline} inline={inline} />;
+  return <PeriodEvidence key={`${user.uid}:${discipline}`} ownerUid={user.uid} discipline={discipline} inline={inline} timeseries={timeseries} />;
 }
-function PeriodEvidence({ ownerUid, discipline, inline }: { ownerUid: string; discipline: Sport; inline: boolean }) {
+function PeriodEvidence({ ownerUid, discipline, inline, timeseries }: { ownerUid: string; discipline: Sport; inline: boolean; timeseries: FitnessTimeseriesDoc | null }) {
   const { t } = useTranslation("fitness");
   const { t: activityT } = useTranslation("activity");
   const { units } = useLocale();
@@ -73,6 +75,7 @@ function PeriodEvidence({ ownerUid, discipline, inline }: { ownerUid: string; di
         <Text>{period.totals.distanceM.totalValue == null ? "—" : formatDistance(period.totals.distanceM.totalValue, units)} · {period.totals.movingTimeSec.totalValue == null ? "—" : formatElapsedBoundary(period.totals.movingTimeSec.totalValue)} · {period.totals.elevationGainM.totalValue == null ? "—" : formatElev(period.totals.elevationGainM.totalValue, units)}</Text>
         {period.coverage.truncated && <Text>{activityT("trainingPeriods.truncated")}</Text>}
       </section>)}</div>
+      <PeriodLoadEvidence ownerUid={ownerUid} discipline={discipline} periods={result.response.periods} timeseries={timeseries} />
       <RunPeriodComparisonPanel response={result.response} />
       <TrainingPeriodZonesPanel response={result.response} ownerUid={ownerUid} />
       {discipline === "run" && <RunEffortStageManagementPanel ownerUid={ownerUid} appliedResponse={result.response} />}

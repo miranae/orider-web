@@ -658,7 +658,10 @@ export default function TrainingLogPage() {
     return () => media.removeEventListener("change", update);
   }, []);
 
-  const planRecordHeader = <><PlanPeriodReturn />
+  const fitnessReturn = comparisonState?.fitnessPeriodReturn;
+  const safeFitnessReturn = fitnessReturn?.uid === user?.uid && typeof fitnessReturn?.pathname === "string" && /^\/(?:ko\/|en\/)?coach\/(?:analysis|condition)$/.test(fitnessReturn.pathname) && typeof fitnessReturn.search === "string" && typeof fitnessReturn.hash === "string" ? fitnessReturn : null;
+  const fitnessPeriodReturnLink = safeFitnessReturn && <LocalizedLink to={safeFitnessReturn}>{t("fitness:periodLoad.return")}</LocalizedLink>;
+  const planRecordHeader = <>{!(isMobile || isNarrowLayout) && fitnessPeriodReturnLink}<PlanPeriodReturn />
     <PlanRecordNavigation date={recordDate} />
     <div style={{ marginBottom: "var(--space-3)" }}>
       <Text as="p" variant="caption" tone="secondary" role={planOverlay.state === "error" ? "alert" : planOverlay.state === "loading" ? "status" : undefined}>{t(planOverlay.state === "error" ? "planRecords.error" : planOverlay.state === "loading" ? "planRecords.loading" : planOverlay.plans.size ? "planRecords.scope" : "planRecords.empty")}</Text>
@@ -684,6 +687,7 @@ export default function TrainingLogPage() {
       {planRecordHeader}
       {representativeState.error && <ErrorState title={tCommon("error.title")} onRetry={representativeState.retry} compact />}
       <MobileLogPage
+        periodReturnSlot={fitnessPeriodReturnLink}
         recentSummarySlot={isMobile && !user.isAnonymous ? <RecentActivitySummary key={user.uid} sport={sportFilter} /> : undefined}
         plannedDates={[...visiblePlans.keys()]}
         plansByDate={Object.fromEntries(visiblePlans)}
