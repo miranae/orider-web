@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { authorizeNativeActivityPhoto, isLegacyActivityPhotoUrl, loadNativeActivityPhoto, uploadNativeActivityPhoto } from "./nativeActivityPhoto";
+import { loadNativeActivityCover, setNativeActivityCover, authorizeNativeActivityPhoto, isLegacyActivityPhotoUrl, loadNativeActivityPhoto, uploadNativeActivityPhoto } from "./nativeActivityPhoto";
 const mocks = vi.hoisted(() => ({ call: vi.fn(), getFunctions: vi.fn(() => ({})), callable: vi.fn(), ready: vi.fn() }));
 vi.mock("firebase/functions", () => ({ getFunctions: mocks.getFunctions, httpsCallable: (...args: unknown[]) => { mocks.callable(...args); return mocks.call; }, connectFunctionsEmulator: vi.fn() }));
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
@@ -46,4 +46,16 @@ it("checks access without requesting another image payload and rejects unconfirm
   expect(mocks.call).toHaveBeenCalledWith({ ...photo, accessOnly: true });
   mocks.call.mockResolvedValue({ data: { authorized: false } });
   await expect(authorizeNativeActivityPhoto(services(), photo)).rejects.toThrow("photo_access_unconfirmed");
+});
+
+it("loads cover CAS state and validates selections without altering image-byte access", async () => {
+  const source = services();
+  mocks.call.mockResolvedValue({ data: { nativeCoverPhotoId: null, nativeCoverRevision: "r0" } });
+  await expect(loadNativeActivityCover(source, "ride")).resolves.toEqual({ photoId: null, coverRevision: "r0" });
+  mocks.call.mockResolvedValue({ data: { photoId: "photo", coverRevision: "r1" } });
+  await setNativeActivityCover(source, "ride", "photo", "r0");
+  expect(mocks.call).toHaveBeenLastCalledWith({ activityId: "ride", photoId: "photo", expectedCoverRevision: "r0" });
+  await expect(setNativeActivityCover(services(null), "ride", "photo", "r0")).rejects.toThrow("sign_in_required");
+  mocks.call.mockImplementation(async () => { Object.assign(source.auth, { currentUser: { uid: "other" } }); return { data: { photoId: "photo", coverRevision: "r2" } }; });
+  await expect(setNativeActivityCover(source, "ride", "photo", "r1")).rejects.toThrow("account_changed");
 });

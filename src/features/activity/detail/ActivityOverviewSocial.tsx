@@ -1,3 +1,4 @@
+import { ActivityCoverPhotoControl } from "./ActivityCoverPhotoControl";
 import { NativeActivityPhotoImage } from "../../../components/activity/NativeActivityPhotoImage";
 import { useNativeActivityPhoto } from "../../../hooks/useNativeActivityPhoto";
 import { isNativePhotoReference, isLegacyActivityPhotoUrl, type NativePhotoReference } from "../../../services/nativeActivityPhoto";
@@ -17,7 +18,7 @@ export interface OverviewAchievement { id: string; segmentId: string; name: stri
 interface Props {
   activityId: string; memo: string | null; memoMono?: boolean; memoGeneratedAt?: number; memoLoading?: boolean; memoError?: boolean; photosKnown?: boolean; memoTruncated?: boolean; photos: OverviewPhoto[]; totalPhotos: number;
   companions: Activity[]; achievements: OverviewAchievement[];
-  owner: boolean; viewerId?: string; uploading: boolean; canUpload: boolean;
+  coverPhotoId?: string | null; canChooseCover?: boolean; owner: boolean; viewerId?: string; uploading: boolean; canUpload: boolean;
   loadingPhotos: boolean; photoError?: string | null; canLoadPhotos: boolean;
   onSignIn?: () => void; onLoadPhotos: () => void; onUpload: () => void; onDelete: (id: string) => void; onLocate: (location: [number, number]) => void;
   onShowResults: () => void;
@@ -33,7 +34,10 @@ export default function ActivityOverviewSocial(props: Props) {
   const [overflowing, setOverflowing] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
-  const safePhotos = useMemo(() => photos.filter(photo => isNativePhotoReference(photo.nativePhoto) || safeImage(photo.url)), [photos]);
+  const safePhotos = useMemo(() => photos.filter(photo => isNativePhotoReference(photo.nativePhoto) || safeImage(photo.url)).sort((a, b) => {
+    const selectedCover = (item: OverviewPhoto) => props.owner && item.ownerId === props.viewerId && !!props.coverPhotoId && item.nativePhoto?.photoId === props.coverPhotoId;
+    return Number(selectedCover(b)) - Number(selectedCover(a));
+  }), [photos, props.owner, props.viewerId, props.coverPhotoId]);
   const index = safePhotos.findIndex(photo => photo.id === selected);
   const photo = safePhotos[index];
   const nativePreview = useNativeActivityPhoto(photo?.nativePhoto);
@@ -49,7 +53,7 @@ export default function ActivityOverviewSocial(props: Props) {
     const observer = new ResizeObserver(measure); observer.observe(paragraph);
     return () => observer.disconnect();
   }, [memo, expanded]);
-  useEffect(() => { setExpanded(false); setSelected(null); }, [activityId]);
+  useEffect(() => { setExpanded(false); setSelected(null); }, [activityId, props.viewerId]);
   const load = () => { if (props.canLoadPhotos && !props.loadingPhotos) props.onLoadPhotos(); };
   const results = (achievements.length > 0 && <div className="activity-overview-results">
       <section className="activity-overview-achievements" aria-label={t("page.topResults")}>
@@ -100,6 +104,8 @@ export default function ActivityOverviewSocial(props: Props) {
           {photo?.uploadId && photo.ownerId === props.viewerId && <IconButton variant="danger" icon={<Trash2 size={ICON_SIZE.md} />} aria-label={t("page.delete")} onClick={() => props.onDelete(photo.uploadId!)} />}
           {total > safePhotos.length && props.canLoadPhotos && <Button variant="ghost" size="sm" disabled={props.loadingPhotos} onClick={load}>{t(props.photoError ? "page.retry" : props.loadingPhotos ? "detail.loadingData" : "overviewSocial.loadPhotos")}</Button>}
         </div>
+        {props.canChooseCover && props.owner && props.viewerId && photo?.nativePhoto && photo.ownerId === props.viewerId && <ActivityCoverPhotoControl
+          key={`${activityId}:${props.viewerId}`} activityId={activityId} photoId={photo.nativePhoto.photoId} />}
         {props.loadingPhotos && <Text as="p" variant="bodySmall" role="status">{t("detail.loadingData")}</Text>}
         {props.photoError && <Text as="p" variant="bodySmall" role="alert">{t("overviewSocial.photoError")}</Text>}
       </>} />

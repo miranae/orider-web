@@ -1056,7 +1056,7 @@ export default function ActivityPage() {
   );
 
   const overviewPhotoCandidates: OverviewPhoto[] = [
-    ...(photos.length ? photos.filter(photo => photo.url).map(photo => ({ ...photo, url: photo.url!, id: `strava-${photo.id}` }))
+    ...(isActivityOwner && activity.source === "orider" && uploadedPhotoState?.identity === uploadedPhotoIdentity ? [] : photos.length ? photos.filter(photo => photo.url).map(photo => ({ ...photo, url: photo.url!, id: `strava-${photo.id}` }))
       : (publishedContent?.photos ?? []).map(photo => ({ ...photo, id: `strava-${photo.id}` }))),
     ...uploadedPhotos.map(photo => ({ ...photo, id: `upload-${photo.id}`, uploadId: photo.id, ownerId: photo.userId })),
   ];
@@ -1064,6 +1064,9 @@ export default function ActivityPage() {
   const overviewPhotos = [...new Map(overviewPhotoCandidates.map(photo => [
     photo.nativePhoto ? `native:${photo.nativePhoto.activityId}:${photo.nativePhoto.photoId}` : photo.id, photo,
   ])).values()];
+  // The server stamps ownership on the selection; deleted/foreign photos cannot become the cover.
+  const coverSelection = (activity as typeof activity & { nativeCoverPhotoV1?: { userId?: string; photoId?: string | null } }).nativeCoverPhotoV1;
+  const coverPhotoId = coverSelection?.userId === activity.userId ? coverSelection.photoId : null;
   const overviewAchievements: OverviewAchievement[] = topResults.length ? topResults.map(effort => ({
     id: String(effort.id), segmentId: String(effort.segment.id), effortId: effort.id,
     name: effort.name, badge: effort.prRank ? effort.prRank === 1 ? "PR" : effort.prRank === 2 ? "2nd" : "3rd" : `KOM ${effort.komRank}`,
@@ -1234,7 +1237,7 @@ export default function ActivityPage() {
           ? Math.max(overviewPhotos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0)
           : Math.max(photos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0) + uploadedPhotos.length}
         companions={visibleCoRiders} achievements={overviewAchievements}
- owner={isActivityOwner} viewerId={user?.uid} uploading={photoUploading} canUpload={uploadedPhotos.length < MAX_PHOTOS}
+ coverPhotoId={activity.source === "orider" ? coverPhotoId : null} canChooseCover={activity.source === "orider"} owner={isActivityOwner} viewerId={user?.uid} uploading={photoUploading} canUpload={uploadedPhotos.length < MAX_PHOTOS}
         loadingPhotos={loadingStreams || showStreamSpinner} photoError={(activity.photoCount ?? 0) > overviewPhotos.length ? streamsError : null} canLoadPhotos={!streamsSignInRequired}
         onSignIn={() => { void signIn(); }} onLoadPhotos={() => { if (streamsError) void retryStreams(); else requestStreams(); }} onUpload={() => photoInputRef.current?.click()}
         onDelete={id => { const photo = uploadedPhotos.find(item => item.id === id); if (photo) void handleDeletePhoto(photo); }}

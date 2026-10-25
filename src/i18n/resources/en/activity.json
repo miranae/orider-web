@@ -8,6 +8,14 @@
     "saved": "Description saved. Feed updates may take a moment."
   },
   "publicDetail": {
+    "power": "Power",
+    "averagePower": "Average power",
+    "normalizedPower": "Normalized power (NP)",
+    "powerSource": {
+      "measured": "Power identified as measured.",
+      "estimated": "Estimated power. Interpret separately from power meter measurements.",
+      "unknown": "Stored power values. Measurement provenance is unconfirmed."
+    },
     "photosFailed": "Could not load more photos. Please try again.",
     "morePhotos": "More photos",
     "openPhotoPreview": "Open photo {{index}} preview",
@@ -2843,5 +2851,12 @@
     "hideDone": "Activity hidden.",
     "blockDone": "Author blocked.",
     "home": "Back to feed"
+  },
+  "coverPhoto": {
+    "current": "Current cover photo",
+    "select": "Set as cover photo",
+    "clear": "Clear cover selection",
+    "failed": "Could not confirm the cover selection. Reload before choosing again.",
+    "saved": "Cover photo selection saved."
   }
 }

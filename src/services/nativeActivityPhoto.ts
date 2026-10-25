@@ -57,3 +57,20 @@ export async function authorizeNativeActivityPhoto(services: FirebaseServices, p
   const result = await call<{ authorized: boolean }>(services, "getActivityPhotoData", { ...photo, accessOnly: true });
   if (result.authorized !== true) throw new Error("photo_access_unconfirmed");
 }
+
+export interface NativeActivityCover { photoId: string | null; coverRevision: string }
+function coverResult(value: NativeActivityCover): NativeActivityCover {
+  if ((value.photoId !== null && (typeof value.photoId !== "string" || !id.test(value.photoId))) ||
+    typeof value.coverRevision !== "string" || !value.coverRevision) throw new Error("invalid_cover_response");
+  return value;
+}
+export async function loadNativeActivityCover(services: FirebaseServices, activityId: string): Promise<NativeActivityCover> {
+  if (!services.auth.currentUser || services.auth.currentUser.isAnonymous) throw new Error("sign_in_required");
+  const result = await call<{ nativeCoverPhotoId: string | null; nativeCoverRevision: string }>(services, "getActivityPublicDetail", { activityId });
+  return coverResult({ photoId: result.nativeCoverPhotoId, coverRevision: result.nativeCoverRevision });
+}
+export async function setNativeActivityCover(services: FirebaseServices, activityId: string, photoId: string | null, expectedCoverRevision: string): Promise<NativeActivityCover> {
+  if (!services.auth.currentUser || services.auth.currentUser.isAnonymous) throw new Error("sign_in_required");
+  if (!id.test(activityId) || (photoId !== null && !id.test(photoId)) || !expectedCoverRevision) throw new Error("invalid_cover_request");
+  return coverResult(await call<NativeActivityCover>(services, "setActivityCoverPhoto", { activityId, photoId, expectedCoverRevision }));
+}

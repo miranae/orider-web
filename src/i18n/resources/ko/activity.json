@@ -8,6 +8,14 @@
     "saved": "본문을 저장했습니다. 피드 반영에는 잠시 걸릴 수 있습니다."
   },
   "publicDetail": {
+    "power": "파워",
+    "averagePower": "평균 파워",
+    "normalizedPower": "정규화 파워 (NP)",
+    "powerSource": {
+      "measured": "측정으로 표기된 파워입니다.",
+      "estimated": "추정 파워입니다. 파워미터 측정값과 구분해서 확인하세요.",
+      "unknown": "저장된 파워값입니다. 측정 출처는 확인되지 않았습니다."
+    },
     "photosFailed": "사진을 더 불러오지 못했습니다. 다시 시도해 주세요.",
     "morePhotos": "추가 사진",
     "openPhotoPreview": "사진 {{index}} 미리보기 열기",
@@ -2843,5 +2851,12 @@
     "hideDone": "이 활동을 숨겼습니다.",
     "blockDone": "작성자를 차단했습니다.",
     "home": "피드로 돌아가기"
+  },
+  "coverPhoto": {
+    "current": "현재 대표사진",
+    "select": "대표사진으로 선택",
+    "clear": "대표사진 선택 해제",
+    "failed": "대표사진 설정을 확인하지 못했습니다. 다시 불러온 뒤 선택해 주세요.",
+    "saved": "대표사진 설정을 저장했습니다."
   }
 }

@@ -38,6 +38,7 @@ it("keeps upload and delete owner boundaries and photo location actions", () => 
   fireEvent.click(screen.getByRole("button", { name: "사진 1 / 1 보기" }));
   expect(screen.queryByRole("button", { name: "삭제" })).not.toBeInTheDocument();
   view.rerender(<ActivityOverviewSocial {...base} photos={[uploaded]} totalPhotos={1} viewerId="owner" owner canUpload />);
+  fireEvent.click(screen.getByRole("button", { name: "사진 1 / 1 보기" }));
   fireEvent.click(screen.getByRole("button", { name: "삭제" }));
   expect(base.onDelete).toHaveBeenCalledWith("one");
   fireEvent.click(screen.getByRole("button", { name: /지도/ }));
@@ -111,4 +112,19 @@ it("renders a native photo reference through authorized bytes instead of a stora
   fireEvent.click(screen.getByRole("button",{name:"사진 1 / 1 보기"}));
   expect(await screen.findByRole("dialog")).toHaveTextContent("1 / 1");
   create.mockRestore();
+});
+
+it("orders the selected native cover first and falls back after its deletion", async () => {
+  nativeLoad.mockResolvedValue(new Blob(["photo"], { type: "image/webp" }));
+  const items = [1, 2].map(n => ({ id: `upload-p${n}`, url: "", caption: `native ${n}`, nativePhoto: { activityId: "ride", photoId: `p${n}` }, ownerId: "owner", uploadId: `p${n}` }));
+  const view = renderWithProviders(<ActivityOverviewSocial {...base} activityId="ride" photos={items} totalPhotos={2} owner viewerId="owner" coverPhotoId="p2" />);
+  expect(screen.getAllByRole("button", { name: /사진 .* 보기/ })[0]).toHaveAccessibleName("사진 1 / 2 보기");
+  await waitFor(() => expect(screen.getAllByRole("img")[0]).toHaveAttribute("alt", "native 2"));
+  view.rerender(<ActivityOverviewSocial {...base} activityId="ride" photos={[items[0]!]} totalPhotos={1} owner viewerId="owner" coverPhotoId="p2" />);
+  expect(screen.getAllByRole("img")[0]).toHaveAttribute("alt", "native 1");
+  fireEvent.click(screen.getByRole("button", { name: "사진 1 / 1 보기" }));
+  await screen.findByRole("dialog");
+  view.rerender(<ActivityOverviewSocial {...base} activityId="ride" photos={[items[0]!]} totalPhotos={1} owner={false} viewerId="different" canChooseCover coverPhotoId="p2" />);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "대표사진으로 선택" })).not.toBeInTheDocument();
 });
