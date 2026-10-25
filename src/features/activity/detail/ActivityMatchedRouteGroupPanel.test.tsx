@@ -51,8 +51,8 @@ describe("bounded route group panel", () => {
   });
   it("forwards original head/metric identity and excludes deleted/public activity", () => {
     mocks.available = false; const view = render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="observed" />);
-    expect(view.container).toBeEmptyDOMElement(); expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", "bike", expect.stringContaining("observed"));
-    view.rerender(<ActivityMatchedRouteGroupPanel activity={{ ...activity, deletedAt: 1 }} observedMetricsIdentity="changed" />); expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", null, expect.stringContaining("changed"));
+    expect(view.container).toBeEmptyDOMElement(); expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", "bike", expect.stringContaining("observed"), "complete");
+    view.rerender(<ActivityMatchedRouteGroupPanel activity={{ ...activity, deletedAt: 1 }} observedMetricsIdentity="changed" />); expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", null, expect.stringContaining("changed"), "complete");
   });
   it.each(["ko", "en"])("explains the verified early anchor partial-geometry exclusion in %s without calls", language => {
     const time = 1791792000000;
@@ -75,4 +75,20 @@ describe("bounded route group panel", () => {
     mocks.status = status; render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="head" />);
     expect(screen.getByText(ko.routeGroup.states[status as keyof typeof ko.routeGroup.states])).toBeInTheDocument(); expect(screen.getByRole("button", { name: ko.routeGroup.refresh })).toBeInTheDocument(); expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
+});
+
+it('requires native opt-in, suppresses comparison chart and fastest badges while keeping activity links', () => {
+  const view = render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="metrics" />);
+  fireEvent.click(screen.getByText(ko.routeGroup.title));
+  fireEvent.change(screen.getByLabelText(ko.routeGroup.mode), { target: { value: 'observed_native' } });
+  expect(mocks.start).not.toHaveBeenCalled();
+  expect(mocks.hook.mock.calls.at(-1)![4]).toBe('observed_native');
+  mocks.pages = [page()]; mocks.status = 'complete';
+  view.rerender(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="metrics" />);
+  expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  expect(screen.getByText(ko.routeGroup.observedScope)).toBeInTheDocument();
+  expect(screen.getAllByRole('link')).toHaveLength(3);
+  expect(screen.queryByText(new RegExp(ko.routeGroup.fastest))).not.toBeInTheDocument();
+  view.rerender(<ActivityMatchedRouteGroupPanel activity={{ ...activity, id: 'another' }} observedMetricsIdentity="metrics" />);
+  expect(mocks.hook.mock.calls.at(-1)![4]).toBe('complete');
 });
