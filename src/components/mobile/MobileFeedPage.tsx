@@ -218,16 +218,20 @@ export function CompactActivityCard({ activity: rawActivity, priority = false }:
       <Button variant="ghost" size="sm" onClick={() => setContentRetry(value => value + 1)}>{tActivity("card.contentRetry")}</Button>
     </div> : null;
 
-  const distance = formatDistance(s.distance, units);
+  const knownDistance = Number.isFinite(s.distance) && s.distance >= 0;
+  const distance = knownDistance ? formatDistance(s.distance, units) : "—";
   // #236: 정지 큰 활동은 이동시간 우선 (상세·데스크톱 카드와 동일 정책 — resolveDuration 공유).
   const sd = resolveDuration({ ...s, startTime: activity.startTime, endTime: activity.endTime });
-  const dur = formatDur(sd.displayMs);
-  const elev = formatElev(s.elevationGain, units);
+  const knownDuration = Number.isFinite(sd.displayMs) && sd.displayMs >= 0;
+  const dur = knownDuration ? formatDur(sd.displayMs) : "—";
+  const elev = Number.isFinite(s.elevationGain) && s.elevationGain >= 0 ? formatElev(s.elevationGain, units) : "—";
   // 평균 속도도 시간 기준과 일치 — 전환 시 거리/이동시간, 아니면 거리/경과 (#236 후속).
-  const elapsedSpd = s.distance > 0 && s.ridingTimeMillis > 0
+  const elapsedSpd = knownDistance && Number.isFinite(s.ridingTimeMillis) && s.ridingTimeMillis > 0
     ? (s.distance / 1000) / (s.ridingTimeMillis / 3600000)
-    : 0;
-  const spdNum = resolveAvgSpeedKph(s.distance, sd, elapsedSpd);
+    : Number.NaN;
+  const spdNum = knownDistance && knownDuration
+    ? s.distance === 0 && sd.displayMs > 0 ? 0 : resolveAvgSpeedKph(s.distance, sd, elapsedSpd)
+    : Number.NaN;
   const nickname = useActivityAuthor(activity).nickname ?? t("mobileFeed.defaultRider");
   const discipline = getDiscipline(activity.type);
   const activitySport = getHomeActivitySport(activity);
@@ -238,10 +242,12 @@ export function CompactActivityCard({ activity: rawActivity, priority = false }:
     : t(getDisciplineLabelKey(discipline));
   // 비현실 속도(GPS noise/오등록) 가드 — 광고 유입자 첫인상 신뢰성 보호.
   const spdImplausible = isImplausibleAvgSpeed(spdNum, discipline ?? undefined);
-  const spd = spdNum > 0 && !spdImplausible ? formatSpeed(spdNum / 3.6, units, "bike") : "—";
+  const spd = Number.isFinite(spdNum) && spdNum >= 0 && !spdImplausible ? formatSpeed(spdNum / 3.6, units, "bike") : "—";
   const pace = spdNum > 0 && !spdImplausible ? formatPace(3600 / spdNum, units) : "—";
   const heartRate = s.averageHeartRate;
-  const hasHr = heartRate != null && heartRate > 0 && !isImplausibleActivityHeartRate(heartRate);
+  const hasHr = heartRate != null && Number.isFinite(heartRate) && heartRate > 0 && !isImplausibleActivityHeartRate(heartRate);
+  const runningPower = s.averagePower ?? activity.avgPower;
+  const hasRunningPower = runningPower != null && Number.isFinite(runningPower) && runningPower > 0;
   const showDataWarning = isImplausibleActivity({
     distanceM: s.distance,
     durationMs: s.ridingTimeMillis,
@@ -318,8 +324,8 @@ export function CompactActivityCard({ activity: rawActivity, priority = false }:
           ...(discipline !== "run" ? [{ label: t("mobileFeed.statSpeed"), value: spd }] : []),
           ...(hasHr ? [{ label: t("homeMetrics.avgHeartRate"), value: `${Math.round(heartRate)}bpm` }] : []),
           ...(discipline === "run" ? [{ label: t("mobileFeed.statElev"), value: elev }] : []),
-          ...(discipline === "run" && (s.averagePower ?? activity.avgPower ?? 0) > 0
-            ? [{ label: tActivity("stat.runningPower"), value: `${Math.round(s.averagePower ?? activity.avgPower ?? 0)}W` }] : []),
+          ...(discipline === "run" && hasRunningPower
+            ? [{ label: tActivity("stat.runningPower"), value: `${Math.round(runningPower!)}W` }] : []),
         ].map(stat => {
           const measurement = /^(.*?)(km\/h|mph|bpm|ft|m|W)$/.exec(stat.value);
           return <span key={stat.label} className="mobile-feed-secondary-stat">

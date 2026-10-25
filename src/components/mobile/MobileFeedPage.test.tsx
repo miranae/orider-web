@@ -37,6 +37,36 @@ async function searchFromMenu(keyword: string) {
 }
 
 describe("MobileFeedPage", () => {
+  it.each([undefined, null, NaN, -1])("renders unknown elevation without invented zero or NaN (%s)", elevationGain => {
+    const activity = createMockActivity({ source: "orider", summary: createMockSummary() });
+    Object.assign(activity.summary, { elevationGain });
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(view.container).not.toHaveTextContent("NaN");
+    expect(view.container).toHaveTextContent("—");
+  });
+  it.each([undefined, null, NaN, Infinity, -1])("does not invent distance, duration or speed for invalid metric inputs (%s)", missing => {
+    const activity = createMockActivity({ source: "orider", summary: createMockSummary() });
+    Object.assign(activity, { startTime: undefined, endTime: undefined });
+    Object.assign(activity.summary, { distance: missing, ridingTimeMillis: missing, elapsedTimeMillis: undefined, movingTimeSec: undefined, pauseTimeSec: undefined });
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(view.container).not.toHaveTextContent(/NaN|Infinity/);
+    const distance = screen.getByText("이동거리").parentElement!;
+    expect(distance).toHaveTextContent("—");
+    expect(view.container).not.toHaveTextContent(/0\.0\s*km\/h/);
+  });
+  it("preserves measured zero distance and elevation and zero speed over a known duration", () => {
+    const activity = createMockActivity({ source: "orider", summary: createMockSummary({ distance: 0, elevationGain: 0, ridingTimeMillis: 60000 }) });
+    Object.assign(activity, { endTime: undefined });
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(screen.getByText("이동거리").parentElement!).toHaveTextContent(/0\s*m/);
+    expect(view.container).toHaveTextContent(/0\.0\s*km\/h/);
+    expect(view.container).not.toHaveTextContent("NaN");
+  });
+  it.each([Infinity, NaN])("hides nonfinite running heart rate and power (%s)", invalid => {
+    const activity = createMockActivity({ type: "Run", summary: createMockSummary({ averageHeartRate: invalid, averagePower: invalid }) });
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(view.container).not.toHaveTextContent(/NaN|Infinity/);
+  });
   it("uses revision-bound native display metrics like public and owner detail", () => {
     const activity = { ...createMockActivity({ source: "orider", summary: createMockSummary({ distance: 6000, elevationGain: 12, ridingTimeMillis: 600000 }) }),
       activityRevision: "current", contentSelectedRevision: 1,
