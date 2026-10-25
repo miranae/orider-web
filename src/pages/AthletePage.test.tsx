@@ -318,3 +318,14 @@ describe("AthletePage", () => {
     });
   });
 });
+
+it("retains distinct native references in the profile cover despite empty URL fields", async () => {
+  const { activityFeedSourceRevision } = await import("../services/activityFeedContent");
+  const activity = createMockActivity({id:"native-photo-ride",userId:"athlete-1",source:"orider"});
+  setCollectionDocs("activities", [{...activity,feedContentV1:{version:1,revision:"photo-rev",sourceRevision:activityFeedSourceRevision(activity),memo:null,totalPhotoCount:2,comments:[],photos:[
+    {id:"one",url:"",caption:null,nativePhoto:{activityId:activity.id,photoId:"one"}},
+    {id:"two",url:"",caption:null,nativePhoto:{activityId:activity.id,photoId:"two"}},
+  ]}}]);
+  const view = renderWithProviders(<AthletePage />, {authenticated:true,user:{uid:"athlete-1"}});
+  await waitFor(() => expect(view.container.querySelectorAll(".athlete-cover .athlete-photo-trigger")).toHaveLength(2));
+});

@@ -25,7 +25,7 @@ import { Activity as ActivityIcon, Route, Clock3, Mountain, Pencil, Share2, Arro
 import TabNav, { RouteTabNav } from "../components/TabNav";
 import "./AthletePage.css";
 import { CompactActivityCard } from "../components/mobile/MobileFeedPage";
-import AthletePhotoGallery from "../components/athlete/AthletePhotoGallery";
+import AthletePhotoGallery, { athletePhotoIdentity } from "../components/athlete/AthletePhotoGallery";
 import AthleteRecentSummary from "../components/athlete/AthleteRecentSummary";
 import { activityFeedSourceRevision, boundedFeedContent } from "../services/activityFeedContent";
 import { isTrivialActivity } from "../utils/activityFilter";
@@ -591,8 +591,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     return chartActivities.filter(activity => activity.userId === userId).sort((a, b) => b.startTime - a.startTime).flatMap(activity => {
       if (activity.feedContentV1?.sourceRevision !== activityFeedSourceRevision(activity)) return [];
       return (boundedFeedContent(activity.feedContentV1)?.photos ?? []).flatMap(photo => {
-        if (seen.has(photo.url)) return [];
-        seen.add(photo.url);
+        const identity = athletePhotoIdentity(photo);
+        if (seen.has(identity)) return [];
+        seen.add(identity);
         return [{ ...photo, activityId: activity.id }];
       });
     }).slice(0, 6);
