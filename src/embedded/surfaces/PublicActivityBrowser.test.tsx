@@ -1,11 +1,11 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PublicActivityBrowser from "./PublicActivityBrowser";
-const mocks = vi.hoisted(() => ({ services: { auth: { currentUser: { uid: "viewer" } } }, listeners: [] as (() => void)[], load: vi.fn() }));
+const mocks = vi.hoisted(() => ({ services: { auth: { currentUser: { uid: "viewer" } } }, listeners: [] as (() => void)[], detailProps: vi.fn(), load: vi.fn() }));
 vi.mock("../../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
 vi.mock("firebase/auth", () => ({ onAuthStateChanged: (_auth: unknown, callback: () => void) => { mocks.listeners.push(callback); return () => { mocks.listeners = mocks.listeners.filter(fn => fn !== callback); }; } }));
 vi.mock("../../services/activityDiscovery", () => ({ loadActivityDiscovery: mocks.load }));
-vi.mock("./PublicActivitySurface", () => ({ default: ({ activityId }: { activityId: string }) => <div><span>detail:{activityId}</span><a href="/ko/athlete/author">author</a><a href="/ko/athlete/commenter">comment author</a><a href="/ko/settings">settings</a></div> }));
+vi.mock("./PublicActivitySurface", () => ({ default: (props: { activityId: string; initialDetail?: unknown }) => { mocks.detailProps(props); const { activityId } = props; return <div><span>detail:{activityId}</span><a href="/ko/athlete/author">author</a><a href="/ko/athlete/commenter">comment author</a><a href="/ko/settings">settings</a></div>; } }));
 const row = { id: "public-ride", userId: "author", nickname: "Public Rider", profileImage: null, description: "Public Ride" };
 const props = { activityId: "original", retryKey: 0, embedded: true, onReady: vi.fn(), onError: vi.fn() };
 beforeEach(() => { mocks.services = { auth: { currentUser: { uid: "viewer" } } }; mocks.listeners = []; mocks.load.mockReset().mockResolvedValue({ items: [row], nextCursor: null }); });
@@ -40,6 +40,20 @@ describe("embedded public profile navigation", () => {
     await act(async () => finish({ items: [row], nextCursor: null }));
     expect(screen.queryByText("Public Rider")).not.toBeInTheDocument();
     expect(screen.getByText("detail:original")).toBeInTheDocument();
+  });
+  it("never reuses preflight detail when returning from a profile", async () => {
+    const initialDetail = { activity: { id: "original" } } as never;
+    render(<PublicActivityBrowser {...props} initialDetail={initialDetail} />);
+    expect(mocks.detailProps.mock.lastCall?.[0].initialDetail).toBe(initialDetail);
+    fireEvent.click(screen.getByRole("link", { name: "author" }));
+    await screen.findByText("Public Rider");
+    fireEvent.click(screen.getByRole("button", { name: "돌아가기" }));
+    expect(mocks.detailProps.mock.lastCall?.[0].initialDetail).toBeUndefined();
+    props.onError.mockClear(); props.onReady.mockClear();
+    mocks.detailProps.mock.lastCall?.[0].onError("activity_load_failed");
+    mocks.detailProps.mock.lastCall?.[0].onReady();
+    expect(props.onError).not.toHaveBeenCalled();
+    expect(props.onReady).not.toHaveBeenCalled();
   });
   it("clears the profile when the injected Firebase app is replaced", async () => {
     const view = render(<PublicActivityBrowser {...props} />);

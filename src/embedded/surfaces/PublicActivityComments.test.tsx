@@ -11,6 +11,10 @@ const renderList = (initial = [row("c1")]) => render(<PublicActivityComments act
 afterEach(cleanup);
 beforeEach(() => { vi.clearAllMocks(); client.comments.mockResolvedValue({ comments: [row("c1"), row("c2")], nextCursor: "opaque-2", scannedCount: 2 }); });
 describe("paged public comments", () => {
+  it("keeps an unnamed comment author link accessible", async () => {
+    renderList([{ ...row("unnamed"), nickname: " " }]);
+    expect(screen.getByRole("link", { name: "라이더" })).toHaveAttribute("href", "/ko/athlete/viewer");
+  });
   it("uses opaque cursors, deduplicates pages and links author profiles", async () => {
     renderList();
     expect(screen.getByRole("link", { name: "라이더" })).toHaveAttribute("href", "/ko/athlete/viewer");

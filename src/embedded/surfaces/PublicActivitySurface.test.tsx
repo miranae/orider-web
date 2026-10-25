@@ -23,6 +23,11 @@ const props = { activityId: "native-ride", retryKey: 0, onReady: vi.fn(), onErro
 afterEach(cleanup);
 beforeEach(() => { authState.uid = "viewer"; vi.clearAllMocks(); mocks.load.mockResolvedValue(fixture()); mocks.setKudos.mockResolvedValue({ enabled: true }); mocks.postComment.mockResolvedValue({ commentId: "new" }); });
 describe("public embedded activity", () => {
+  it("provides a clickable generic rider label for empty author names", async () => {
+    const data = fixture(); data.activity.nickname = " "; mocks.load.mockResolvedValue(data);
+    render(<PublicActivitySurface {...props} />);
+    expect(await screen.findByRole("link", { name: "라이더" })).toHaveAttribute("href", "/ko/athlete/owner");
+  });
   it("keeps activity and reactions available when a static map fails", async () => {
     const data = fixture();
     data.mapPreview = { imageUrl: "https://maps.example.test/failed", encodedPolyline: null };

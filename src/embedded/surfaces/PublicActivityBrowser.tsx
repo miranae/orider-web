@@ -16,6 +16,7 @@ export default function PublicActivityBrowser(props: Props) {
   const viewer = services.auth.currentUser;
   const { t } = useTranslation("activity");
   const [history, setHistory] = useState<Destination[]>([]);
+  const visitedChild = useRef(false);
   const [unsupported, setUnsupported] = useState(false);
   const [generation, setGeneration] = useState(0);
   const identity = useRef({ services, viewer, activityId: props.activityId });
@@ -38,6 +39,7 @@ export default function PublicActivityBrowser(props: Props) {
       ? /^\/(?:ko|en)\/(athlete|activity)\/([A-Za-z0-9_-]{1,200})$/.exec(url.pathname) : null;
     if (!match || !match[2]) { setUnsupported(true); return; }
     setUnsupported(false);
+    visitedChild.current = true;
     const id = match[2];
     setHistory(items => [...items, { kind: match[1] === "athlete" ? "profile" : "activity", id }]);
   };
@@ -48,7 +50,8 @@ export default function PublicActivityBrowser(props: Props) {
       {destination?.kind === "profile" ? <PublicProfile key={`${destination.id}:${generation}`} userId={destination.id}
         onActivity={id => setHistory(items => [...items, { kind: "activity", id }])} />
         : <PublicActivitySurface {...props} key={`${destination?.id ?? props.activityId}:${generation}`}
-          initialDetail={destination ? undefined : props.initialDetail} activityId={destination?.id ?? props.activityId} />}
+          onReady={visitedChild.current ? () => {} : props.onReady} onError={visitedChild.current ? () => {} : props.onError}
+          initialDetail={destination || visitedChild.current ? undefined : props.initialDetail} activityId={destination?.id ?? props.activityId} />}
     </Stack>
   </div>;
 }
@@ -92,7 +95,7 @@ function PublicProfile({ userId, onActivity }: { userId: string; onActivity: (id
   const visible = valid ? rows : [];
   const author = visible[0];
   return <Section title={t("embeddedProfile.title")}><Stack gap="var(--dim-section-gap)">
-    {author && <><Avatar name={author.nickname} imageUrl={author.profileImage} /><Text weight={600}>{author.nickname}</Text></>}
+    {author && <><Avatar name={author.nickname?.trim() || t("embeddedProfile.rider")} imageUrl={author.profileImage} /><Text weight={600}>{author.nickname?.trim() || t("embeddedProfile.rider")}</Text></>}
     <Text>{t("embeddedProfile.scope")}</Text>
     {busy && <Text role="status">{t("embeddedProfile.loading")}</Text>}
     {failed && <Text role="alert">{t("embeddedProfile.unavailable")}</Text>}

@@ -197,8 +197,8 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
   return <main className={embedded ? "orider-embedded-surface public-activity-surface" : "public-activity-surface"} data-testid="embedded-public-activity">
     <Stack gap="var(--space-5)">
       <header className="orider-embedded-author">
-        <Avatar name={activity.nickname} imageUrl={activity.profileImage} size="md" />
-        <div><LocalizedLink to={`/athlete/${encodeURIComponent(activity.userId)}`}><Text weight={600}>{activity.nickname}</Text></LocalizedLink><h1>{activity.description || t("publicDetail.title")}</h1>
+        <Avatar name={activity.nickname?.trim() || t("embeddedProfile.rider")} imageUrl={activity.profileImage} size="md" />
+        <div><LocalizedLink to={`/athlete/${encodeURIComponent(activity.userId)}`}><Text weight={600}>{activity.nickname?.trim() || t("embeddedProfile.rider")}</Text></LocalizedLink><h1>{activity.description || t("publicDetail.title")}</h1>
           <Text variant="caption">{activity.startTime > 0 ? new Date(activity.startTime).toLocaleString(i18n.language) : "—"}</Text></div>
       </header>
       {user && !user.isAnonymous && user.uid !== activity.userId && <PublicActivitySafety key={`${user.uid}:${activityId}`}

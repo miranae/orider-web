@@ -2913,6 +2913,7 @@
     "loading": "Loading…",
     "unavailable": "Profile activities are currently unavailable.",
     "empty": "No public activities to show.",
-    "more": "Load more"
+    "more": "Load more",
+    "rider": "Rider"
   }
 }

@@ -102,7 +102,7 @@ export default function PublicActivityComments({ activityId, userId, initialComm
   }
   return <div ref={container} tabIndex={-1} role="group" aria-label={t("kudosCard.comments", { count })}><Stack gap="var(--space-3)">
     {comments.map(comment => <div key={comment.id}>
-      <LocalizedLink to={`/athlete/${encodeURIComponent(comment.userId)}`}><Text weight={600}>{comment.nickname}</Text></LocalizedLink>
+      <LocalizedLink to={`/athlete/${encodeURIComponent(comment.userId)}`}><Text weight={600}>{comment.nickname?.trim() || t("embeddedProfile.rider")}</Text></LocalizedLink>
       <Text as="p">{comment.text}</Text>
       {userId && <Stack direction="row" gap="var(--space-2)">
         {userId === comment.userId ? <>
