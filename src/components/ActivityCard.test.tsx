@@ -1,3 +1,4 @@
+import { loadPublicActivityMap } from "../services/publicActivityMaps";
 import i18n from "i18next";
 import enActivity from "../i18n/resources/en/activity.json";
 import enCommon from "../i18n/resources/en/common.json";
@@ -8,6 +9,8 @@ import ActivityCard, { shouldReportMapCaptureError } from "./ActivityCard";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
 import { setCallableResult, setDocData } from "../__tests__/mocks/firebase";
+
+vi.mock("../services/publicActivityMaps", () => ({ loadPublicActivityMap: vi.fn(async () => null) }));
 
 // 실제 지도 SDK 대신 표시 지도와 숨겨진 캡처 지도를 구분한다.
 vi.mock("./RouteMap", () => ({
@@ -228,6 +231,7 @@ describe("ActivityCard", () => {
     const activity = createMockActivity({
       mapImageUrl: "https://storage.googleapis.com/legacy/map.webp",
     });
+    vi.mocked(loadPublicActivityMap).mockResolvedValue({ activityId: activity.id, revision: "current", privacyEnabled: false, mapPreview: { encodedPolyline: activity.thumbnailTrack!, imageUrl: activity.mapImageUrl! } });
     renderWithProviders(<ActivityCard activity={activity} />);
 
     await waitFor(() => {

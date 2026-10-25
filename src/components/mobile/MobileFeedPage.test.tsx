@@ -1,3 +1,4 @@
+import { loadPublicActivityMap } from "../../services/publicActivityMaps";
 import { useState } from "react";
 import { GlossaryProvider } from "../common/GlossaryProvider";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -13,6 +14,12 @@ import type { User } from "firebase/auth";
 import { AuthContextProvider } from "../../contexts/AuthContext";
 import { activityFeedSourceRevision } from "../../services/activityFeedContent";
 import { signInCancelledError } from "../../utils/signInCancelled";
+
+vi.mock("../../services/publicActivityMaps", () => ({ loadPublicActivityMap: vi.fn() }));
+beforeEach(() => {
+  vi.mocked(loadPublicActivityMap).mockImplementation(async (_services, activityId) => ({ activityId, revision: "current", privacyEnabled: false,
+    mapPreview: { encodedPolyline: createMockActivity().thumbnailTrack!, imageUrl: "https://storage.googleapis.com/legacy/map.webp" } }));
+});
 
 vi.mock("../../services/activityDiscovery", () => ({loadActivityDiscovery: vi.fn(async (_services, request) => {
  const rows=mockCollectionData.get("activities")??[],offset=Number(request.cursor??0),end=offset+(request.limit??20);
@@ -606,7 +613,8 @@ describe("MobileFeedPage", () => {
     expect(container.querySelector(`img[src="${activity.mapImageUrl}"]`)).not.toBeInTheDocument();
   });
 
-  it("does not mount an anonymous capture map for a private activity", async () => {
+  it("does not render or capture a private activity when current map access is denied", async () => {
+    vi.mocked(loadPublicActivityMap).mockResolvedValue(null);
     const activity = createMockActivity({
       id: "private-thumbnail",
       visibility: "private",
@@ -624,7 +632,8 @@ describe("MobileFeedPage", () => {
       />,
     );
 
-    await waitFor(() => expect(screen.getAllByTestId("route-map")).toHaveLength(1));
+    await waitFor(() => expect(loadPublicActivityMap).toHaveBeenCalled());
+    expect(screen.queryByTestId("route-map")).not.toBeInTheDocument();
   });
 
   it("also mounts the hidden canonical capture map for the activity owner", async () => {
@@ -656,6 +665,7 @@ describe("MobileFeedPage", () => {
     const mapImageUrl = `https://firebasestorage.googleapis.com/v0/b/test/o/${objectPath}?alt=media`;
     expect(isCanonicalMapThumbnailUrl(mapImageUrl, activity.userId, fileName, "test")).toBe(true);
     activity.mapImageUrl = mapImageUrl;
+    vi.mocked(loadPublicActivityMap).mockResolvedValue({ activityId: activity.id, revision: "current", privacyEnabled: false, mapPreview: { encodedPolyline: activity.thumbnailTrack!, imageUrl: mapImageUrl } });
 
     const { container } = renderWithProviders(
       <MobileFeedPage
@@ -789,7 +799,7 @@ describe("published mobile feed body and photos", () => {
     expect(within(gallery).getByText("+9")).toBeVisible();
   });
 
-  it("shows actual memo and three photos under the map with the remaining count", () => {
+  it("shows actual memo and three photos under the map with the remaining count", async () => {
     const activity = createMockActivity({ photoCount: 10 });
     activity.feedContentV1 = { version: 1, sourceRevision: activityFeedSourceRevision(activity), revision: "r1", memo: "함께 달린 기록\n다음에도 함께해요", memoTruncated: false, totalPhotoCount: 10,
       photos: [0, 1, 2].map(id => ({ id: String(id), url: `https://example.com/${id}.jpg`, caption: `사진${id}` })) };
@@ -799,7 +809,7 @@ describe("published mobile feed body and photos", () => {
     expect(gallery.querySelectorAll("img")).toHaveLength(3);
     expect(screen.getByText("+7")).toBeVisible();
     expect(within(gallery as HTMLElement).getAllByRole("link")[0]).toHaveAttribute("href", `/ko/activity/${activity.id}?tab=overview`);
-    expect(gallery.previousElementSibling?.querySelector("[data-map-thumbnail-frame]")).toBeInTheDocument();
+    await waitFor(() => expect(gallery.previousElementSibling?.querySelector("[data-map-thumbnail-frame]")).toBeInTheDocument());
   });
   it("omits stale memo and photos after the activity publication revision changes", () => {
     const activity = createMockActivity({ contentRevision: 2, photoCount: 0 });
@@ -819,7 +829,7 @@ describe("attachment-confirmed feed media cases", () => {
     { map: true, count: 3, visible: 3, remaining: 0, shared: false },
     { map: true, count: 4, visible: 4, remaining: 0, shared: true },
     { map: true, count: 10, visible: 5, remaining: 5, shared: false },
-  ])("keeps map=$map/photos=$count media bounded and in the confirmed row groups", ({ map, count, visible, remaining, shared }) => {
+  ])("keeps map=$map/photos=$count media bounded and in the confirmed row groups", async ({ map, count, visible, remaining, shared }) => {
     const activity = createMockActivity({ thumbnailTrack: map ? "mock-polyline" : "", photoCount: count });
     const content = { version: 1 as const, sourceRevision: activityFeedSourceRevision(activity), revision: "cases", memo: null, memoTruncated: false, totalPhotoCount: count,
       photos: Array.from({ length: Math.min(count, 5) }, (_, id) => ({ id: String(id), url: `https://example.com/${id}.jpg`, caption: null })) };
@@ -828,11 +838,12 @@ describe("attachment-confirmed feed media cases", () => {
     expect(photoLinks).toHaveLength(visible);
     if (remaining) expect(screen.getByText(`+${remaining}`)).toBeVisible();
     else expect(screen.queryByText(/^\+/)).not.toBeInTheDocument();
+    if (map) await waitFor(() => expect(view.container.querySelector("[data-map-thumbnail-frame]")).toBeInTheDocument());
     const mapFrame = view.container.querySelector("[data-map-thumbnail-frame]");
     expect(!!mapFrame).toBe(map);
     if (mapFrame) {
-      const mapGroup = mapFrame.parentElement!;
-      expect(mapGroup.parentElement === photoLinks[0].parentElement).toBe(shared);
+      const sharedMedia = mapFrame.closest(".mobile-feed-media");
+      expect(sharedMedia !== null && sharedMedia === photoLinks[0].parentElement).toBe(shared);
       expect(mapFrame).toHaveClass(shared ? "aspect-square" : "aspect-[var(--feed-thumb-aspect)]");
     }
   });
@@ -852,4 +863,13 @@ it("keeps an inline video poster before the next photo without navigating or dow
   expect(video).not.toHaveAttribute("src");
   expect(gallery.children[1]).toHaveAttribute("href", `/ko/activity/${activity.id}?tab=overview`);
   expect(gallery.children[1].querySelector("img")).toHaveAttribute("src", "https://example.test/photo.jpg");
+});
+
+it("does not reuse a cached card map when current map access is unavailable", async () => {
+  vi.mocked(loadPublicActivityMap).mockResolvedValue(null);
+  const activity = createMockActivity({ mapImageUrl: "https://example.test/stale-map.webp" });
+  const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+  await waitFor(() => expect(loadPublicActivityMap).toHaveBeenCalled());
+  expect(screen.queryByTestId("route-map")).not.toBeInTheDocument();
+  expect(view.container.querySelector('img[src="https://example.test/stale-map.webp"]')).not.toBeInTheDocument();
 });
