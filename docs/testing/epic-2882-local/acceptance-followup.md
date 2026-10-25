@@ -141,3 +141,31 @@ Auth namespace and reversible cleanup. The 1,001-record fixture remains availabl
 for user review. Main-runtime activation/smoke evidence is recorded by the root
 checkpoint; this isolated panel proof does not stand in for whole-router or
 production verification. The epic stays open and all work remains local.
+
+## R7 subscription and current-permission follow-up — 2026-10-26
+
+The subsequent audit found a real integration gap: segment following rankings read
+legacy `following` relationships instead of profile `subscriptions`. BE `fb1a85c0`
+fixed the source and actual subscribe/unsubscribe, block and private transitions were
+verified. WEB `6f7e3f6f` binds requests to the exact SDK session and rechecks current
+access on visibility/focus and every 30 seconds. BE `9d6d8203` gives this endpoint a
+240/hour budget while retaining its existing 10/minute local burst. The limit tests
+cover 120 polls plus 120 interactive requests and rejection beyond both bounds.
+
+WEB: 927 files / 9,761 tests, contracts, TypeScript, development build, lint and
+quality budgets passed. BE: 942 files / 15,754 tests, build, lint and compatibility
+passed; 58 files / 564 opt-in tests were skipped. These are replacement checkpoint
+counts, not additions to earlier overlapping suites.
+
+External `leaderboard-lifecycle/` retains actual SDK checks, including 30-second
+refresh, follow/unfollow and transport failure result removal. Visibility events
+were injected in a headless browser, not an OS-background test. AbortSignal does
+not guarantee cancellation of the underlying HTTP request. Final source
+`8257f010fa83` / artifact `d3dc8d993397` is now active on local main 5029/5039 with
+verified R5 start/advance/status smoke and R6/R7 unauthenticated 401 responses.
+Data services, original fixtures and remote environments were not changed.
+
+Remaining R7 work includes the report → administrator eligibility decision →
+rematch/reinstate procedure. Native followings and exact notification destinations
+are implemented locally but iOS hosted runtime gates remain in progress. No remote
+issue or PR updates were posted; the local draft is external `LOCAL-ISSUE-UPDATES.md`.
