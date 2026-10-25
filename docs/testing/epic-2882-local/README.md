@@ -75,3 +75,8 @@ Final product source: web `3933cd42`, server `16f07db7`. All changes after the l
 - Measurement history is retained: the initial frame-event counter incorrectly counted same-document router updates; the final counter counts actual main-document navigation requests. Earlier watch-contaminated and auth-region results are separate from the final run.
 
 Open http://localhost:5174/ko/ for the synthetic feed. Owner analysis: http://localhost:5174/ko/activity/ui-raw-native-ride?demoAccount=owner&tab=analysis . Recorded GPS preview: http://localhost:5174/ko/activity/ui-route-native-2?demoAccount=owner&tab=analysis (select “기록된 경로 보기”). External `full-app/README.md` contains the dedicated browser startup command; `local-flow-benchmark-results.json` contains all 120 attempts. Runtime remains running for local review.
+
+
+## Subsequent acceptance audit
+
+The first local handoff was not the full acceptance boundary. See [acceptance-followup.md](acceptance-followup.md) for subsequently discovered and fixed photo-access, safety-action, KST-filter and period-state gaps, the new 9,467-test combined checkpoint, actual Storage/browser evidence, and requirements still outstanding. The earlier latency result applies only to its recorded SHA.
