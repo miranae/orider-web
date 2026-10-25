@@ -1994,7 +1994,4 @@ describe("ActivityPage", () => {
       expect(within(story).queryByRole("button", { name: "사진 1 / 9 보기" })).not.toBeInTheDocument();
     }
   });
-
-
-
 });
