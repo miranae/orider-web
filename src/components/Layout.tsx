@@ -1,3 +1,5 @@
+import { useNotificationInbox } from "../hooks/useNotificationInbox";
+import { NotificationInboxStatus } from "./notifications/NotificationInboxStatus";
 import { useMainScrollPosition } from "../hooks/useMainScrollPosition";
 import { Suspense, useState, useEffect, useRef } from "react";
 import GlossaryProvider from "./common/GlossaryProvider";
@@ -8,7 +10,7 @@ import { lazyWithRetry as lazy } from "../utils/lazyWithRetry";
 import { stripLangPrefix } from "../i18n/detector";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import {
-  collection, query, orderBy, limit, onSnapshot, doc, updateDoc,
+  collection, onSnapshot,
 } from "firebase/firestore";
 import { firestore, auth } from "../services/firebase";
 import { useAuth } from "../contexts/AuthContext";
@@ -22,7 +24,6 @@ import { TopNav } from "./redesign";
 import MobileTabBar from "./mobile/MobileTabBar";
 import HubSubNav from "./HubSubNav";
 import { resolveDetailHub, isHubSubRoute } from "../config/navHubs";
-import { logClientError } from "../services/errorLogger";
 import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
 import { recordRouteRedirect } from "../services/routeLoopTelemetry";
 // 네비 IA는 5개 기본 허브와 설정 유틸리티 허브를 config/navHubs.ts 에서 공유한다.
@@ -55,7 +56,8 @@ export function buildOnboardingRedirectTarget(pathname: string, search = "", has
 }
 
 export function notificationTarget(notification: Notification): string | null {
-  if (notification.activityId) return `/activity/${encodeURIComponent(notification.activityId)}`;
+  if (notification.access === "unavailable" || notification.type === "unavailable") return null;
+  if (notification.activityId) return `/activity/${encodeURIComponent(notification.activityId)}${notification.type === "comment" && notification.commentId ? `?comment=${encodeURIComponent(notification.commentId)}` : ""}`;
   if (notification.segmentId) return `/segment/${encodeURIComponent(notification.segmentId)}`;
   if (notification.type === "friend_request") return "/athlete/me/friends?tab=requests";
   if (notification.type === "friend_accept") {
@@ -96,7 +98,8 @@ function DashboardShell() {
 
 export default function Layout() {
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const inbox = useNotificationInbox();
+  const notifications = inbox.items;
   const { user, profile } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -109,6 +112,7 @@ export default function Layout() {
   // 온보딩 리다이렉트: step이 설정됐지만 "done"이 아닌 신규 유저
   useEffect(() => {
     if (
+      user && !user.isAnonymous &&
       profile?.onboardingStep &&
       profile.onboardingStep !== "done" &&
       !shouldBypassOnboardingRedirect(path)
@@ -121,69 +125,10 @@ export default function Layout() {
       });
       navigate(buildOnboardingRedirectTarget(location.pathname, location.search, location.hash), { replace: true });
     }
-  }, [profile?.onboardingStep, path, navigate, location.pathname, location.search, location.hash]);
+  }, [user, profile?.onboardingStep, path, navigate, location.pathname, location.search, location.hash]);
 
   // Map 컴포넌트는 내부적으로 ResizeObserver를 사용하여 자동 리사이즈됨
 
-  // Real-time notification subscription
-  //
-  // 견고화: onSnapshot 에러는 리스너를 종료시키므로(재시도 없음), 로드/리로드 시
-  // 인증 토큰이 준비되기 직전 리스너가 붙으면 permission-denied 가 한 번 나고 그 세션
-  // 동안 알림이 멈추던 문제(+양성 레이스인데 에러 이메일 발송)를 해결.
-  //  - auth 전환 중(로그아웃/유저 교체) 권한오류는 양성으로 보고 로깅 생략 (곧 effect 재실행).
-  //  - 그 외 일시 오류는 backoff 재구독(최대 3회). 끝까지 실패할 때만 표준 로거로 보고.
-  useEffect(() => {
-    if (!user) {
-      setNotifications([]);
-      return;
-    }
-    let cancelled = false;
-    let unsubscribe: (() => void) | null = null;
-    let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    let attempts = 0;
-
-    const subscribe = () => {
-      if (cancelled) return;
-      const q = query(
-        collection(firestore, "notifications", user.uid, "items"),
-        orderBy("createdAt", "desc"),
-        limit(20),
-      );
-      unsubscribe = onSnapshot(q, (snap) => {
-        attempts = 0; // 정상 수신 시 재시도 카운터 리셋
-        setNotifications(
-          snap.docs
-            .map((d) => ({ id: d.id, ...d.data() }) as Notification)
-            .filter((n) => n.dismissedAt == null),
-        );
-      }, (err) => {
-        // 에러가 나면 이 리스너는 죽은 상태 — 정리 후 재구독 판단.
-        unsubscribe?.();
-        unsubscribe = null;
-        if (cancelled) return;
-        // 로그아웃/유저 교체 도중 발생한 권한오류는 양성 레이스 — effect 가 곧 재실행되므로 무시.
-        const current = auth.currentUser;
-        const isAuthRace =
-          (err as { code?: string }).code === "permission-denied" &&
-          (!current || current.uid !== user.uid);
-        if (isAuthRace) return;
-        // 일시 오류는 backoff 재구독(1s·2s·3s). 마지막까지 실패할 때만 보고.
-        if (attempts < 3) {
-          attempts += 1;
-          retryTimer = setTimeout(subscribe, 1000 * attempts);
-          return;
-        }
-        logClientError("Layout.notifications", err, { path: `notifications/${user.uid}/items` });
-      });
-    };
-
-    subscribe();
-    return () => {
-      cancelled = true;
-      if (retryTimer) clearTimeout(retryTimer);
-      unsubscribe?.();
-    };
-  }, [user]);
 
   useEffect(() => {
     if (!user) {
@@ -199,47 +144,29 @@ export default function Layout() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const handleMarkAllRead = async () => {
-    if (!user) return;
-    const visible = notifications;
-    if (visible.length === 0) return;
-    setNotifications(items => items.map(item => ({ ...item, read: true })));
-    try {
-      await Promise.all(visible.map((n) =>
-        updateDoc(doc(firestore, "notifications", user.uid, "items", n.id), { read: true }),
-      ));
-    } catch (err) {
-      setNotifications(visible);
-      logClientError("Layout.notifications.markAllRead", err, { path: `notifications/${user.uid}/items` });
-    }
-  };
-
-  const handleNotificationClick = async (notification: Notification) => {
-    if (!user) return;
+  const handleMarkAllRead = () => { void inbox.markRead(notifications.filter(item => !item.read).map(item => item.id)); };
+  const handleNotificationClick = (notification: Notification) => {
+    if (!user || user.isAnonymous || auth.currentUser?.uid !== user.uid || !notifications.some(item => item.id === notification.id)) return;
     const target = notificationTarget(notification);
-    try {
-      if (!notification.read) {
-        await updateDoc(doc(firestore, "notifications", user.uid, "items", notification.id), { read: true });
-      }
-    } catch (err) {
-      logClientError("Layout.notifications.markOneRead", err, {
-        path: `notifications/${user.uid}/items/${notification.id}`,
-      });
-    } finally {
-      if (target) navigate(target);
-    }
+    // Destination readiness must not wait for an offline/read-receipt write.
+    if (target) navigate(target);
+    if (!notification.read) void inbox.markRead([notification.id]);
   };
+  const notificationStatus = <NotificationInboxStatus empty={!notifications.length} loading={inbox.loading} failed={inbox.failed} hasMore={inbox.hasMore}
+    onRetry={() => void inbox.refresh()} onMore={() => void inbox.more()} />;
 
   return (
     <div className="flex flex-col" style={{ height: "100dvh", background: 'var(--bg-0)', color: 'var(--ink-1)' }}>
       <TopNav
         active={activeNav}
         notifications={notifications}
+        notificationStatus={notificationStatus}
         unreadCount={unreadCount}
         friendRequestCount={friendRequestCount}
         onMarkAllRead={handleMarkAllRead}
         onNotificationClick={(notification) => { void handleNotificationClick(notification); }}
-        onMobileNotifClick={() => setNotifOpen(!notifOpen)}
+        onMobileNotifClick={() => { if (!notifOpen) void inbox.refresh(); setNotifOpen(!notifOpen); }}
+        onNotificationsOpen={() => void inbox.refresh()}
       />
 
       {/* 대시보드: 데스크톱/모바일 모두 페이지 전체 스크롤 (워크아웃·KPI 포함) */}
@@ -288,6 +215,7 @@ export default function Layout() {
             open={notifOpen}
             onClose={() => setNotifOpen(false)}
             notifications={notifications}
+            notificationStatus={notificationStatus}
             onMarkAllRead={handleMarkAllRead}
             onNotificationClick={(notification) => { void handleNotificationClick(notification); }}
           />

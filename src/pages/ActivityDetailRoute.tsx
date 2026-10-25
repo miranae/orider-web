@@ -1,3 +1,4 @@
+import { NotificationCommentTarget } from "../components/notifications/NotificationCommentTarget";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { collection, documentId, getDocs, limit, query, where } from "firebase/firestore";
 import { useParams } from "react-router-dom";
@@ -14,8 +15,7 @@ const ignore = () => {};
 
 /** Resolve access using a public projection before mounting any owner data hooks. */
 export default function ActivityDetailRoute() {
-  if (!getRuntimeConfig().publicActivityDetailEnabled) return <OwnerActivityPage />;
-  return <PublicActivityDetailRoute />;
+  return <><NotificationCommentTarget />{!getRuntimeConfig().publicActivityDetailEnabled ? <OwnerActivityPage /> : <PublicActivityDetailRoute />}</>;
 }
 
 function PublicActivityDetailRoute() {

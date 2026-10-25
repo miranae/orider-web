@@ -1,3 +1,4 @@
+import { announceActivityContentChange } from "../services/activityContentChanged";
 import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
@@ -507,6 +508,7 @@ export default function ActivityPage() {
     if (!(await dialog.confirm(t("page.deleteConfirm"), { destructive: true }))) return;
     const deletedAt = Date.now();
     await updateDoc(doc(firestore, "activities", activityId), { deletedAt });
+    announceActivityContentChange(activityId);
     setActivity({ ...activity, deletedAt } as Activity);
     showToast(t("page.deleteToast"), "info");
   };
@@ -514,6 +516,7 @@ export default function ActivityPage() {
   const handleRestoreActivity = async () => {
     if (!activityId || !user || user.uid !== activity?.userId) return;
     await updateDoc(doc(firestore, "activities", activityId), { deletedAt: null });
+    announceActivityContentChange(activityId);
     setActivity({ ...activity, deletedAt: null } as Activity);
     showToast(t("page.restoreToast"));
   };
@@ -524,6 +527,7 @@ export default function ActivityPage() {
     setActivity({ ...activity, visibility });
     try {
       await updateDoc(doc(firestore, "activities", activity.id), { visibility });
+      announceActivityContentChange(activity.id);
       showToast(t("page.visibilityToast"));
     } catch (err) {
       setActivity({ ...activity, visibility: previous });

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -24,6 +25,8 @@ const mobileMenuItemClass = `rounded-[var(--r-md)] ${navFocusClass}`;
 interface TopNavProps {
   active: HubKey;
   notifications?: Notification[];
+  notificationStatus?: ReactNode;
+  onNotificationsOpen?: () => void;
   unreadCount?: number;
   friendRequestCount?: number;
   onMarkAllRead?: () => void;
@@ -31,7 +34,7 @@ interface TopNavProps {
   onMobileNotifClick?: () => void;
 }
 
-export default function TopNav({ active, notifications = [], unreadCount = 0, friendRequestCount = 0, onMarkAllRead, onNotificationClick, onMobileNotifClick }: TopNavProps) {
+export default function TopNav({ active, notifications = [], unreadCount = 0, friendRequestCount = 0, onMarkAllRead, onNotificationClick, onMobileNotifClick, notificationStatus, onNotificationsOpen }: TopNavProps) {
   const { t } = useTranslation('common');
   const { user, profile, signIn, logout } = useAuth();
   const { showToast } = useToast();
@@ -301,7 +304,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
               {/* 데스크톱 알림 벨 + 드롭다운 */}
               <div ref={notifRef} className="hidden lg:block" style={{ position: 'relative' }}>
                 <button
-                  onClick={() => { closeMobileMenuForNavigation(); setNotifOpen(!notifOpen); setMenuOpen(false); }}
+                  onClick={() => { closeMobileMenuForNavigation(); if (!notifOpen) onNotificationsOpen?.(); setNotifOpen(!notifOpen); setMenuOpen(false); }}
                   className={navFocusClass}
                   data-testid="X1-4" aria-label={t('topnav.notifications')}
                   style={{
@@ -368,7 +371,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
                     {/* 알림 목록 */}
                     <div style={{ maxHeight: 360, overflowY: 'auto' }}>
-                      {notifications.length === 0 ? (
+                      {notificationStatus}
+                      {notifications.length === 0 && !notificationStatus ? (
                         <div style={{ padding: 'var(--space-6) var(--space-3)', textAlign: 'center', fontSize: "var(--fs-sm)", color: 'var(--ink-4)' }}>
                           {t('label.noNotifications')}
                         </div>
@@ -410,7 +414,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                               )}
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <p style={{ margin: 0, fontSize: "var(--fs-xs)", color: 'var(--ink-1)', lineHeight: 1.4 }}>{n.message}</p>
+                              <p style={{ margin: 0, fontSize: "var(--fs-xs)", color: 'var(--ink-1)', lineHeight: 1.4 }}>{n.access === "unavailable" || n.type === "unavailable" ? t("notif.unavailable") : n.message}</p>
                               <p style={{ margin: '3px 0 0', fontSize: "var(--fs-xs)", color: 'var(--ink-4)' }}>{timeAgo(n.createdAt, t)}</p>
                             </div>
                             {!n.read && (

@@ -189,7 +189,7 @@ export interface Comment {
 
 export interface Notification {
   id: string;
-  type: 'kudos' | 'comment' | 'follow' | 'friend_request' | 'friend_accept' | 'group_invite' | 'kom' | 'segment_approved' | 'segment_rejected' | 'pr' | 'group_request_approved' | 'group_request_rejected' | 'event_alert' | 'coach_prescription';
+  type: 'unavailable' | 'kudos' | 'comment' | 'follow' | 'friend_request' | 'friend_accept' | 'group_invite' | 'kom' | 'segment_approved' | 'segment_rejected' | 'pr' | 'group_request_approved' | 'group_request_rejected' | 'event_alert' | 'coach_prescription';
   fromUserId: string;
   fromNickname: string;
   fromProfileImage: string | null;
@@ -203,6 +203,8 @@ export interface Notification {
   read: boolean;
   createdAt: number;
   dismissedAt?: number | null;
+  commentId?: string | null;
+  access?: "available" | "unavailable";
 }
 
 // ── Segment ──────────────────────────────────────────────────────────

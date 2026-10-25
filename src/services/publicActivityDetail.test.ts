@@ -64,3 +64,9 @@ it("does not publish hide success after the account changes during submission", 
   await expect(createPublicActivityClient(source).hideActivity("a")).rejects.toThrow("account_changed");
   expect(listener).not.toHaveBeenCalled(); window.removeEventListener("orider:activity-safety-changed", listener);
 });
+it("invalidates exact comment destinations after successful mutations using only activity identity", async () => {
+  const handler = vi.fn(); window.addEventListener("orider:activity-content-changed", handler);
+  await createPublicActivityClient(services("viewer")).deleteComment("a", "private-comment-id");
+  expect(handler).toHaveBeenCalledOnce(); expect(handler.mock.calls[0][0].detail).toEqual({ activityId: "a" });
+  window.removeEventListener("orider:activity-content-changed", handler);
+});

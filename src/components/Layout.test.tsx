@@ -1,14 +1,35 @@
+import { useLocation } from "react-router-dom";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Layout, { notificationTarget, buildOnboardingRedirectTarget, shouldBypassOnboardingRedirect } from "./Layout";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
-import { setCollectionDocs, mockSignInWithPopup, mockUpdateDoc } from "../__tests__/mocks/firebase";
+import { setCollectionDocs, mockSignInWithPopup, mockCollectionData, getCurrentUser } from "../__tests__/mocks/firebase";
 import { createMockNotification } from "../__tests__/fixtures/mockData";
+
+const notificationApi = vi.hoisted(() => ({ mark: vi.fn() }));
+vi.mock("../services/webNotifications", () => ({ createWebNotificationClient: () => ({
+  list: async () => { await Promise.resolve(); return { items: mockCollectionData.get(`notifications/${getCurrentUser()?.uid}/items`) ?? [], nextCursor: null }; },
+  markRead: async (ids: string[]) => { await notificationApi.mark(ids); return { ids }; },
+}) }));
+function LocationProbe() { const location = useLocation(); return <output data-testid="destination">{location.pathname}{location.search}</output>; }
 
 // Mock icon.svg import
 vi.mock("../assets/icon.svg", () => ({ default: "/icon.svg" }));
 
 describe("Layout", () => {
+  it.each([true, false])("only real accounts with incomplete profiles enter onboarding (anonymous=%s)", async (isAnonymous) => {
+    renderWithProviders(<><Layout /><LocationProbe /></>, {
+      route: "/ko/club/public-club?tab=rides", authenticated: true,
+      user: { uid: "onboarding-user", isAnonymous }, profile: { onboardingStep: "sport" },
+    });
+    await waitFor(() => expect(screen.getByTestId("destination")).toHaveTextContent(isAnonymous
+      ? "/ko/club/public-club?tab=rides"
+      : "/ko/onboarding?returnTo=%2Fclub%2Fpublic-club%3Ftab%3Drides"));
+    if (isAnonymous) {
+      await act(async () => { await Promise.resolve(); });
+      expect(screen.getByTestId("destination")).not.toHaveTextContent("/onboarding");
+    }
+  });
   it.each([
     [{ type: "friend_request" }, "/athlete/me/friends?tab=requests"],
     [{ type: "friend_accept", fromUserId: "friend-uid" }, "/athlete/friend-uid"],
@@ -20,6 +41,8 @@ describe("Layout", () => {
     [{ type: "event_alert", eventId: "e1" }, "/event/e1"],
     [{ type: "coach_prescription", threadId: "t1" }, "/coach/chat/t1"],
     [{ type: "comment", activityId: "a1" }, "/activity/a1"],
+    [{ type: "comment", activityId: "a1", commentId: "c-1" }, "/activity/a1?comment=c-1"],
+    [{ type: "unavailable", access: "unavailable" }, null],
     [{ type: "pr", segmentId: "s1" }, "/segment/s1"],
     [{ type: "comment", deepLink: "https://example.com" }, "/"],
   ] as const)("routes supported notification payload %j to its real destination", (payload, target) => {
@@ -141,7 +164,7 @@ describe("Layout", () => {
   });
 
   it("opens a notification from the mobile sheet and marks it read", async () => {
-    mockUpdateDoc.mockClear();
+    notificationApi.mark.mockClear();
     const user = userEvent.setup();
     renderWithProviders(<Layout />, {
       authenticated: true,
@@ -167,15 +190,12 @@ describe("Layout", () => {
     await user.click(screen.getByText("활동 알림"));
 
     await waitFor(() => {
-      expect(mockUpdateDoc).toHaveBeenCalledWith(
-        expect.objectContaining({ path: "notifications/uid-1/items/n1" }),
-        { read: true },
-      );
+      expect(notificationApi.mark).toHaveBeenCalledWith(["n1"]);
     });
   });
 
   it("marks visible notifications read while retaining the list", async () => {
-    mockUpdateDoc.mockClear();
+    notificationApi.mark.mockClear();
     const user = userEvent.setup();
     renderWithProviders(<Layout />, {
       authenticated: true,
@@ -192,20 +212,7 @@ describe("Layout", () => {
     await user.click(notificationButtons[0]!);
     await user.click(await screen.findByRole("button", { name: "모두 읽음" }));
 
-    await waitFor(() => {
-      expect(mockUpdateDoc).toHaveBeenCalledWith(
-        expect.objectContaining({ path: "notifications/uid-1/items/n1" }),
-        { read: true },
-      );
-      expect(mockUpdateDoc).toHaveBeenCalledWith(
-        expect.objectContaining({ path: "notifications/uid-1/items/n2" }),
-        { read: true },
-      );
-    });
-    expect(mockUpdateDoc).toHaveBeenCalledWith(
-      expect.objectContaining({ path: "notifications/uid-1/items/n3" }),
-      { read: true },
-    );
+    await waitFor(() => expect(notificationApi.mark).toHaveBeenCalledWith(["n1", "n2"]));
     expect(screen.getByText("첫 번째 알림")).toBeInTheDocument();
     expect(screen.getByText("두 번째 알림")).toBeInTheDocument();
     expect(screen.getByText("이미 읽은 알림")).toBeInTheDocument();
@@ -294,4 +301,15 @@ describe("Layout", () => {
       expect(screen.queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
     });
   });
+});
+
+it("opens the exact comment destination without waiting for a read receipt", async () => {
+  notificationApi.mark.mockReturnValueOnce(new Promise(() => {}));
+  const user = userEvent.setup();
+  renderWithProviders(<><Layout /><LocationProbe /></>, { authenticated: true, user: { uid: "uid-1" } });
+  setCollectionDocs("notifications/uid-1/items", [{ ...createMockNotification({ type: "comment", activityId: "ride", commentId: "target-comment", message: "댓글로 이동", read: false }), id: "target" }]);
+  await user.click((await screen.findAllByRole("button", { name: "알림" }))[0]!);
+  await user.click(await screen.findByText("댓글로 이동"));
+  await waitFor(() => expect(screen.getByTestId("destination")).toHaveTextContent("/ko/activity/ride?comment=target-comment"));
+  expect(notificationApi.mark).toHaveBeenCalledWith(["target"]);
 });

@@ -1,3 +1,4 @@
+import { announceActivityContentChange } from "./activityContentChanged";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { ActivityFeedComment, ActivityFeedContent } from "@shared/types/activity-feed-content";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -44,6 +45,7 @@ export function createPublicActivityClient(services: FirebaseServices) {
     }
     const result = await httpsCallable<object, T>(functions, name, { timeout: 10000 })(payload);
     assertAccount();
+    if (["editActivityComment", "deleteActivityComment", "setActivityCommentHidden"].includes(name) && "activityId" in payload && typeof payload.activityId === "string") announceActivityContentChange(payload.activityId);
     return result.data;
   }
   return {
