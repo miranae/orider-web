@@ -2,7 +2,7 @@
 
 ## Public discovery, route inventory and settings continuation
 
-2026-10-26. Product web through `79905e59`, followed by the friend-invite correction `55acd692`. All work remains local.
+2026-10-26. Product web through `79905e59`, followed by the friend-invite correction `55acd692` and nickname-boundary follow-ups through `c0100af1`. All work remains local.
 
 - Public home/search/profile/group/co-rider/post-linked activity reads now use current-authorized server projections. Direct original activity/stream/public-metric reads are owner-only in the isolated demo. REST detail/streams also recheck current ownership, blocks, visibility and deletion/merge fences. The Firebase emulator automatically reloaded the local rule source; no remote rule deployment occurred.
 - Public charts with incomplete bounded history suppress totals; private training load is not estimated from duration. Generated summaries are displayed only with validated stored revisions. See [public discovery migration](public-discovery-migration.md).
@@ -12,7 +12,7 @@
 
 ### Combined local gates
 
-- Node 22 web full regression: **909 files / 9,561 tests passed**, followed by all contract suites. Full lint, quality budget and final development build passed. Friend-invite's later added suites separately passed **3 files / 9 tests**; these overlap the main run and must not be added to a unique total.
+- Node 22 web full regression: **909 files / 9,561 tests passed**, followed by all contract suites. Full lint, quality budget and final development build passed. Friend-invite's later added suites separately passed **3 files / 10 tests**; these overlap the main run and must not be added to a unique total.
 - The first full web run failed 18 tests across five suites. Four suites had stale service/query mocks after the public API and notification-settings migration; fixtures were corrected without weakening product guards. The remaining EventParticipation timeout passed alone (60 tests) and in the complete four-worker rerun; no timeout threshold was increased.
 - Final Functions source `ddacc947`: **929 files / 15,639 tests passed**, with **55 files / 535 opt-in tests skipped**. Node 22 build, full lint and compatibility passed. Separate real-Firestore/mirror checks passed ten tests. Build source hash `d95c55910ff3`, artifact `30e8d8c2cd13`; log `/tmp/be-friend-final-full.log`. Skipped cases are not counted as successes.
 - Local review uses real Firebase SDK/HTTP paths and synthetic data. The home showed ten cards, a foreign profile five cards, and all four discovery requests returned 200 at 390 px with no page errors/overflow. Group selection, current-authorized co-riders and stored native streams were also exercised. These checks do not establish production cost, p95, complete-history ranking, device support or paid-Strava parity.
@@ -21,7 +21,7 @@ Logs: `/tmp/orider-2882-r1-web-{full-final,contracts-final,lint-final,quality-fi
 
 ### Final running local snapshot
 
-Immutable artifact `30e8d8c2cd13`, source `d95c55910ff3`, is active on the dedicated local stack. Final browser checks passed anonymous friend-code preview, current privacy revocation removing that preview, and owner detail narrative cache-only read. Resolver, discovery and narrative returned HTTP 200 with no browser errors; no model generation was requested. Temporary invite fixtures were cleaned. Evidence: external `r1-friend-browser/results.json` and screenshots. The deliberately persistent review profile, feed and period fixtures remain available.
+Immutable artifact `30e8d8c2cd13`, source `d95c55910ff3`, is active on the dedicated local stack. Final browser checks passed anonymous friend-code preview, current privacy revocation removing that preview, and owner detail narrative cache-only read. Resolver, discovery and narrative returned HTTP 200 with no browser errors; no model generation was requested. The 200/201-character nickname boundary passed a focused regression after the build; final TypeScript and lint checks also passed. Temporary invite fixtures were cleaned. See [group and invite verification](group-invite-followup.md). Evidence: external `r1-friend-browser/results.json` and screenshots. The deliberately persistent review profile, feed and period fixtures remain available.
 
 ## Earlier feed / period checkpoint
 
