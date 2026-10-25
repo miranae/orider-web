@@ -9,7 +9,7 @@ User steering: web/server first, app later; stop dev delivery and show a finishe
 | R5 | Opt-in native observed geometry with strict continuity checks and explicit unknown coverage; ranking remains ineligible | Promoting unknown routes to complete, production indexing/backfill, national competitive claims |
 | R6 | KST 28-day/YTD/custom controls, real synthetic period/power API results; explicit distinct populations and linked-source regression | Rebinning historical PMC, deployed flags and real-account rollout |
 | R7 | Sign-in/retry preserves club invitation; fail-closed public club OG plus matching hosting contract | Mobile installation return path and beta-club participation results |
-| R0 / R8 | Isolated integration, 9,367 web tests, targeted server and real emulator checks, mobile/desktop screenshots | Production p95, all physical devices, whole-app E2E and beta accuracy claims |
+| R0 / R8 | Isolated integration, 9,376 web tests, targeted server and real emulator checks, mobile/desktop screenshots | Production p95, all physical devices, whole-app E2E and beta accuracy claims |
 | R9 | Reproducible local review artifacts | Recruiting/contacting riders, two-week beta, release/marketing decision, deployment/store publishing |
 
 The epic explicitly distinguishes the first working web/server slice from the full roadmap. This local integration does not close the full epic or prove feature parity with paid Strava. The prior dev period-comparison merge preceded the user's local-only instruction; subsequent changes remain local.
