@@ -94,7 +94,7 @@ export function selectActualCoRiders(base: Activity, candidates: Activity[], ver
     if (verified?.serverVerifiedAnchorId !== base.id && !hasPersistedSynchronizedMatch(base, candidate)) continue;
     if (getSportCategory(candidate.type) !== baseSport) continue;
     if (isVirtual(candidate) !== baseVirtual) continue;
-    if ((candidate.summary.distance ?? 0) < MIN_CANDIDATE_DISTANCE_M) continue;
+    if (!Number.isFinite(candidate.summary.distance) || candidate.summary.distance < MIN_CANDIDATE_DISTANCE_M) continue;
     if (activityDurationMs(candidate) < MIN_CANDIDATE_DURATION_MS) continue;
     if (!hasEnoughOverlap(base, candidate)) continue;
 
