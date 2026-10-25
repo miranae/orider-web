@@ -74,7 +74,7 @@ export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, 
       })}
       <Text as="p" variant="bodyMedium" tone="tertiary">{t(normalized ? "periodCurve.weightPointNote" : "periodCurve.pointNote")}</Text>
     </div></details>
-    {(normalized ? response.periods.some(period => period.weightNormalized?.powerDurationObservations !== undefined) : periods.some(period => period.powerDurationObservations !== undefined)) && <PowerDurationPeriodsView response={response} unit={unit} />}
+    {(normalized ? response.periods.some(period => period.weightNormalized?.powerDurationObservations !== undefined) : periods.some(period => period.powerDurationObservations !== undefined)) && <PowerDurationPeriodsView response={response} unit={unit} selectedDuration={duration} onDurationChange={setDuration} />}
   </div>;
 }
 function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string; callableEnabled: boolean; embedded: boolean }) {

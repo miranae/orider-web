@@ -168,3 +168,26 @@ it("restores manual period and duration after navigating to its source and back"
   fireEvent.click(screen.getByText("periodCurve.load"));
   expect(screen.getAllByRole("link")[0]).toHaveAttribute("href", "/en/activity/sprint");
 });
+
+it("restores the dense observation duration after source navigation with existing period hints", async () => {
+  const data = response();
+  data.periods[0]!.powerDurationObservations = {
+    algorithmVersion: "power-duration-grid-v1", gridVersion: 1, timingBasis: "sample_owned_elapsed", scope: "observed_power_candidates",
+    fromInclusive: data.periods[0]!.fromInclusive, toExclusive: data.periods[0]!.toExclusive,
+    partial: false, scanTruncated: false, inputCandidateCount: 1,
+    counts: { available: 1, missing: 0, pending: 0, incomplete: 0, malformed: 0, unavailable: 0 },
+    unavailableReasonCounts: { incomplete_input: 0, virtual_power: 0, unknown_provenance: 0, unaligned_elapsed_axis: 0, missing_power: 0, input_limit: 0 },
+    points: [300, 4685].map(durationSeconds => ({ durationSeconds, maxAveragePowerW: 200, sourceActivityId: `dense-${durationSeconds}`, startTime: data.periods[0]!.fromInclusive, parentRevision: "revision", provenance: "direct_file", observedActivityCount: 1 })),
+  };
+  mocks.hook.mockImplementation((_uid, selection) => ({ state: selection ? "ready" : "idle", response: selection ? data : null }));
+  function Source() { const navigate = useNavigate(); return <button onClick={() => navigate(-1)}>Back to periods</button>; }
+  const view = render(<MemoryRouter initialEntries={["/en/fitness"]}><Routes><Route path="/:lang/fitness" element={<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled />} /><Route path="/:lang/activity/:id" element={<Source />} /></Routes></MemoryRouter>);
+  fireEvent.click(screen.getByText("comparison.fourWeeks")); fireEvent.click(screen.getByText("periodCurve.load"));
+  chooseDropdown(view.container.querySelector('.dense-period-power [role="combobox"]') as HTMLElement, "densePeriod.hours 1 densePeriod.minutes 18 densePeriod.seconds 5");
+  await waitFor(() => expect(sessionStorage.length).toBe(1));
+  fireEvent.click(view.container.querySelector('.dense-period-source')!);
+  fireEvent.click(await screen.findByText("Back to periods"));
+  await waitFor(() => expect(screen.getByRole("button", { name: "comparison.fourWeeks" })).toHaveAttribute("aria-pressed", "true"));
+  fireEvent.click(screen.getByText("periodCurve.load"));
+  expect(view.container.querySelector('.dense-period-source')).toHaveAttribute("href", "/en/activity/dense-4685");
+});
