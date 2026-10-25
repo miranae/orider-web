@@ -48,7 +48,7 @@ import { formatDistance, formatSpeed } from "../utils/units";
 import { resolveDuration, resolveAvgSpeedKph } from "../utils/activityTime";
 import {
   doc, updateDoc,
-  collection, query, where, getDocs, orderBy, onSnapshot,
+  collection, query, where, orderBy, onSnapshot,
 } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { activitySocialErrorMessageKey, activitySocialMutations } from "../services/activitySocialMutations";
