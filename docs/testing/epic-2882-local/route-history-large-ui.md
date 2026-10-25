@@ -18,7 +18,7 @@ The scoped fix sets history-step's per-owner burst allowance to 200/10 seconds w
 
 ## Actual browser results
 
-The namespace `demo-route-history-ui-scale` contained a separate synthetic owner and 1,001 GPX-derived records. Actual GPX parsing and receipt construction populated Firestore/Storage directly; this does **not** claim 1,001 UI uploads. No background triggers were registered for this namespace.
+The namespace `demo-route-history-ui-scale` contained a separate synthetic owner and 1,001 GPX-derived records. Actual GPX parsing and receipt construction populated Firestore/Storage directly; this does **not** claim 1,001 UI uploads. No background triggers were registered for this namespace. Auth9309 was shared: its demo API key resolved the new synthetic UID into the existing demo Auth namespace, while Firestore/Storage/Functions used the isolated project. No pre-existing account was changed. The exact new Auth UID was separately removed after this namespace audit; `cleanup-results.json` records that correction.
 
 The harness rendered the actual history panel and services with actual Firebase Auth/AppCheck/Functions SDK connections. It was a component integration harness, **not** the complete application's router.
 
