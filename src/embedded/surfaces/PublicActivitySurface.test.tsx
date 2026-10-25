@@ -1,3 +1,4 @@
+import { track } from "../../services/analytics";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactElement } from "react";
 import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
@@ -5,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PublicActivitySurface from "./PublicActivitySurface";
 import type { PublicActivityDetail } from "../../services/publicActivityDetail";
 
+vi.mock("../../services/analytics", () => ({ track: vi.fn() }));
 const render = (element: ReactElement) => rtlRender(element, { wrapper: MemoryRouter });
 const authState = vi.hoisted(() => ({ uid: "viewer" }));
 const mocks = vi.hoisted(() => ({ load: vi.fn(), setKudos: vi.fn(), postComment: vi.fn() }));
@@ -38,6 +40,7 @@ describe("public embedded activity", () => {
     expect(screen.queryByText("88")).not.toBeInTheDocument();
     expect(screen.getByText("바람이 좋았어요")).toBeInTheDocument();
     expect(props.onReady).toHaveBeenCalledTimes(1);
+    expect(track).toHaveBeenCalledWith("activity_detail_ready", expect.objectContaining({ outcome: "success", surface: "web_public_activity" }));
   });
   it("preserves comment text on failure and reads back after confirmed success", async () => {
     mocks.postComment.mockRejectedValueOnce(new Error("offline"));
@@ -63,6 +66,7 @@ describe("public embedded activity", () => {
     expect(screen.queryByText("바람이 좋았어요")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(mocks.load).toHaveBeenCalledTimes(1);
+    expect(track).toHaveBeenCalledWith("social_action_result", expect.objectContaining({ outcome: "access_denied", operation: "kudos" }));
   });
   it("removes a comment draft and public content when posting loses access", async () => {
     mocks.postComment.mockRejectedValueOnce({ code: "functions/permission-denied" });
@@ -160,4 +164,17 @@ describe("public embedded activity", () => {
     await act(async () => resolve(fixture()));
     expect(screen.queryByText("한강 라이딩")).not.toBeInTheDocument();
   });
+});
+
+it("does not report a retried load ready using the previous rendered detail", async () => {
+  const view = render(<PublicActivitySurface {...props} />);
+  await screen.findByText("한강 라이딩");
+  let reject!: (error: unknown) => void;
+  mocks.load.mockReturnValueOnce(new Promise((_resolve, fail) => { reject = fail; }));
+  view.rerender(<PublicActivitySurface {...props} retryKey={1} />);
+  const detailEvents = () => vi.mocked(track).mock.calls.filter(([event]) => event === "activity_detail_ready");
+  expect(detailEvents()).toHaveLength(1);
+  await act(async () => reject({ code: "functions/permission-denied" }));
+  await waitFor(() => expect(detailEvents()).toHaveLength(2));
+  expect(detailEvents()[1]?.[1]).toEqual(expect.objectContaining({ outcome: "access_denied" }));
 });

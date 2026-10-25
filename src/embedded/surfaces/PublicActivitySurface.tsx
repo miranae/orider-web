@@ -1,3 +1,4 @@
+import { startJourneyMeasurement, type JourneyOutcome } from "../../services/journeyMeasurement";
 import "./PublicActivitySurface.css";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -37,9 +38,13 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
   const [mutationError, setMutationError] = useState(false);
   const [posted, setPosted] = useState(false);
   const generation = useRef(0);
+  const settledGeneration = useRef(0);
+  const detailMeasurement = useRef<ReturnType<typeof startJourneyMeasurement> | null>(null);
+  const socialMeasurement = useRef<ReturnType<typeof startJourneyMeasurement> | null>(null);
   const inFlight = useRef(false);
   const commentRequest = useRef<{ text: string; id: string } | null>(null);
   const revokeAccess = useCallback(() => {
+    socialMeasurement.current?.("access_denied");
     generation.current += 1; inFlight.current = false; commentRequest.current = null;
     setDetail(null); setFailed(true); setAccessDenied(true); setText(""); setBusy(false);
   }, []);
@@ -47,22 +52,34 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
   callbacks.current = { onReady, onError };
   useEffect(() => {
     const request = ++generation.current;
+    const finish = startJourneyMeasurement("activity_detail_ready", embedded ? "embedded_public_activity" : "web_public_activity", "detail");
+    detailMeasurement.current = finish;
     setDetail(null); setLoading(true); setFailed(false); setAccessDenied(false); setText(""); setPosted(false); setMutationError(false); setBusy(false); inFlight.current = false; commentRequest.current = null;
     const load = attempt === 0 && retryKey === 0 && initialDetail?.activity.id === activityId ? Promise.resolve(initialDetail) : client.load(activityId);
     void load.then(data => {
       if (generation.current !== request) return;
+      settledGeneration.current = request;
       setDetail(data); setLoading(false); callbacks.current.onReady();
     }).catch(error => {
       if (generation.current !== request) return;
+      settledGeneration.current = request;
       setLoading(false); setFailed(true); setAccessDenied(isPublicActivityAccessError(error)); callbacks.current.onError("activity_load_failed");
     });
-    return () => { generation.current += 1; };
-  }, [activityId, client, retryKey, attempt, initialDetail]);
+    return () => { generation.current += 1; finish("cancelled"); socialMeasurement.current?.("cancelled"); };
+  }, [activityId, client, retryKey, attempt, initialDetail, embedded]);
+  useEffect(() => {
+    if (loading || settledGeneration.current !== generation.current) return;
+    if (failed) detailMeasurement.current?.(accessDenied ? "access_denied" : "error");
+    else if (detail?.activity.id === activityId) detailMeasurement.current?.("success");
+  }, [loading, failed, accessDenied, detail, activityId]);
 
   const mutate = useCallback(async (action: "kudos" | "comment") => {
     if (!user || user.isAnonymous || !detail || inFlight.current || (action === "comment" && !text.trim())) return;
     inFlight.current = true; setBusy(true); setMutationError(false); setPosted(false);
     const request = generation.current;
+    const finish = startJourneyMeasurement("social_action_result", embedded ? "embedded_public_activity" : "web_public_activity", action);
+    socialMeasurement.current = finish;
+    let outcome: JourneyOutcome = "success";
     try {
       const countKey = action === "kudos" ? "kudosCount" : "commentCount";
       const previousCount = detail.activity[countKey];
@@ -94,21 +111,24 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
           if (!aggregatePending) break;
         }
       } catch (error) {
+        outcome = isPublicActivityAccessError(error) ? "access_denied" : "readback_error";
         if (request === generation.current) {
           if (isPublicActivityAccessError(error)) { setDetail(null); setFailed(true); setAccessDenied(true); }
           else setMutationError(true);
         }
       }
     } catch (error) {
+      outcome = isPublicActivityAccessError(error) ? "access_denied" : "error";
       if (request === generation.current) {
         if (isPublicActivityAccessError(error)) {
           setDetail(null); setFailed(true); setAccessDenied(true); setText(""); commentRequest.current = null;
         } else setMutationError(true);
       }
     } finally {
+      finish(request === generation.current ? outcome : "cancelled");
       if (request === generation.current) { inFlight.current = false; setBusy(false); }
     }
-  }, [activityId, client, detail, text, user]);
+  }, [activityId, client, detail, text, user, embedded]);
 
   if (loading || failed || !detail || detail.activity.id !== activityId) return <EmbeddedSurfaceState title={t("publicDetail.title")} loading={loading} message={accessDenied ? t("publicDetail.accessDenied") : undefined} onRetry={() => setAttempt(value => value + 1)} />;
   const activity = detail.activity;
