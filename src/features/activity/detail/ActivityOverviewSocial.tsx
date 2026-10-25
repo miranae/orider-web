@@ -1,3 +1,6 @@
+import { NativeActivityPhotoImage } from "../../../components/activity/NativeActivityPhotoImage";
+import { useNativeActivityPhoto } from "../../../hooks/useNativeActivityPhoto";
+import { isNativePhotoReference, isLegacyActivityPhotoUrl, type NativePhotoReference } from "../../../services/nativeActivityPhoto";
 import { ICON_SIZE } from '../../../theme/tokens/icon';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -9,7 +12,7 @@ import { Button, IconButton, MediaViewer, Text } from "../../../theme/components
 import { segmentHistoryPath } from "../../segments/segmentHistoryNavigation";
 import "./activity-overview-social.css";
 
-export interface OverviewPhoto { id: string; url: string; caption?: string | null; location?: [number, number] | null; uploadId?: string; ownerId?: string }
+export interface OverviewPhoto { id: string; url: string; nativePhoto?: NativePhotoReference; caption?: string | null; location?: [number, number] | null; uploadId?: string; ownerId?: string }
 export interface OverviewAchievement { id: string; segmentId: string; name: string; badge: string; time: string; effortId?: number }
 interface Props {
   activityId: string; memo: string | null; memoMono?: boolean; memoGeneratedAt?: number; memoLoading?: boolean; memoError?: boolean; photosKnown?: boolean; memoTruncated?: boolean; photos: OverviewPhoto[]; totalPhotos: number;
@@ -20,7 +23,7 @@ interface Props {
   onShowResults: () => void;
   prioritizeResults?: boolean;
 }
-const safeImage = (url: string) => { try { const value = new URL(url); return value.protocol === "https:" && !value.username && !value.password; } catch { return false; } };
+const safeImage = (url: string) => { try { const value = new URL(url); return value.protocol === "https:" && !isLegacyActivityPhotoUrl(url) && !value.username && !value.password; } catch { return false; } };
 
 /** Overview-only composition; all content and mutations retain their existing parent authority. */
 export default function ActivityOverviewSocial(props: Props) {
@@ -30,9 +33,11 @@ export default function ActivityOverviewSocial(props: Props) {
   const [overflowing, setOverflowing] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
-  const safePhotos = useMemo(() => photos.filter(photo => safeImage(photo.url)), [photos]);
+  const safePhotos = useMemo(() => photos.filter(photo => isNativePhotoReference(photo.nativePhoto) || safeImage(photo.url)), [photos]);
   const index = safePhotos.findIndex(photo => photo.id === selected);
   const photo = safePhotos[index];
+  const nativePreview = useNativeActivityPhoto(photo?.nativePhoto);
+  const previewUrl = photo?.nativePhoto ? nativePreview.url : photo?.url;
   const total = Math.max(props.totalPhotos, safePhotos.length);
   useEffect(() => {
     if (expanded) return;
@@ -65,7 +70,7 @@ export default function ActivityOverviewSocial(props: Props) {
         {safePhotos.slice(0, 5).map((item, position) => <button type="button" className="activity-overview-photo" key={item.id}
           aria-label={t("overviewSocial.openPhoto", { index: position + 1, count: total })}
           onClick={() => { setSelected(item.id); if (total > safePhotos.length) load(); }}>
-          <img src={item.url} alt={item.caption ?? ""} loading="lazy" />
+          {item.nativePhoto ? <NativeActivityPhotoImage nativePhoto={item.nativePhoto} alt={item.caption ?? ""} loading="lazy" /> : <img src={item.url} alt={item.caption ?? ""} loading="lazy" />}
           {position === 4 && total > 5 && <span className="activity-overview-photo-more">+{total - 4}</span>}
         </button>)}
       </div>
@@ -82,7 +87,9 @@ export default function ActivityOverviewSocial(props: Props) {
       </div>}
     </div>
     {!props.prioritizeResults && results}
-    <MediaViewer open={!!photo} item={photo ? { id: photo.id, url: photo.url, alt: photo.caption ?? t("page.photoPreview"), caption: photo.caption } : undefined}
+    {photo?.nativePhoto && !previewUrl && <Text as="p" role="status">{t(nativePreview.error ? "publicDetail.photosFailed" : "detail.loadingData")}</Text>}
+    {photo?.nativePhoto && nativePreview.error != null && <Button onClick={nativePreview.retry}>{t("page.retry")}</Button>}
+    <MediaViewer open={!!photo} item={photo && previewUrl ? { id: photo.id, url: previewUrl, alt: photo.caption ?? t("page.photoPreview"), caption: photo.caption } : undefined}
       label={t("page.photos")} position={`${index + 1} / ${total}`} onClose={() => setSelected(null)}
       labels={{ previous: t("overviewSocial.previousPhoto"), next: t("overviewSocial.nextPhoto"), zoomIn: t("overviewSocial.zoomIn"), zoomOut: t("overviewSocial.zoomOut"), close: t("overviewSocial.closeViewer") }}
       onPrevious={index > 0 ? () => setSelected(safePhotos[index - 1]!.id) : safePhotos.length > 1 && safePhotos.length >= total && props.photosKnown !== false ? () => setSelected(safePhotos[safePhotos.length - 1]!.id) : undefined}

@@ -1,3 +1,4 @@
+import { isNativePhotoReference, isLegacyActivityPhotoUrl } from "./nativeActivityPhoto";
 import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
 import { toMillis } from "../utils/timeAgo";
 import type { Activity } from "@shared/types";
@@ -53,10 +54,10 @@ export function boundedFeedContent(value: unknown): ActivityFeedContentProjectio
     version: 1, revision: data.revision, sourceRevision: data.sourceRevision,
     memo: typeof data.memo === "string" ? data.memo.slice(0, 32768) : null,
     memoTruncated: data.memoTruncated === true || (typeof data.memo === "string" && data.memo.length > 32768),
-    photos: data.photos.filter(photo => photo && typeof photo.id === "string" && typeof photo.url === "string"
-      && /^https:\/\//i.test(photo.url)).slice(0, 5).map(photo => {
+    photos: data.photos.filter(photo => photo && typeof photo.id === "string" && (isNativePhotoReference(photo.nativePhoto) || (typeof photo.url === "string"
+      && /^https:\/\//i.test(photo.url) && !isLegacyActivityPhotoUrl(photo.url)))).slice(0, 5).map(photo => {
       const videoUrl = safeVideoUrl(photo.videoUrl);
-      return { id: photo.id, url: photo.url, caption: typeof photo.caption === "string" ? photo.caption : null,
+      return { id: photo.id, url: photo.nativePhoto ? "" : photo.url, ...(isNativePhotoReference(photo.nativePhoto) ? { nativePhoto: photo.nativePhoto } : {}), caption: typeof photo.caption === "string" ? photo.caption : null,
         ...(photo.kind === "video" && videoUrl ? {
           kind: "video" as const, videoUrl,
           ...(typeof photo.durationSeconds === "number" && Number.isFinite(photo.durationSeconds) && photo.durationSeconds >= 0 ? { durationSeconds: photo.durationSeconds } : {}),

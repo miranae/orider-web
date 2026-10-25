@@ -1,3 +1,5 @@
+import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
 import { stravaRecordOf, formatStravaRecord } from "@shared/analysis/stravaRecord";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
@@ -28,7 +30,7 @@ import "./activity/activity-detail-page.css";
 import AnalysisTab, { AnalysisLapTable } from "../components/AnalysisTab";
 import ActivityAnalysisBody from "../features/activity/detail/ActivityAnalysisBody";
 import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
-import ActivityOverviewSocial, { type OverviewAchievement } from "../features/activity/detail/ActivityOverviewSocial";
+import ActivityOverviewSocial, { type OverviewAchievement, type OverviewPhoto } from "../features/activity/detail/ActivityOverviewSocial";
 import { activityFeedSourceRevision, boundedFeedContent, resolveActivityMemo } from "../services/activityFeedContent";
 import ActivityOverviewSummary from "../features/activity/detail/ActivityOverviewSummary";
 import LapTable from "../components/LapTable";
@@ -42,11 +44,10 @@ import { useLocale } from "../contexts/LocaleContext";
 import { formatDistance, formatSpeed } from "../utils/units";
 import { resolveDuration, resolveAvgSpeedKph } from "../utils/activityTime";
 import {
-  doc, setDoc, updateDoc,
+  doc, updateDoc,
   collection, query, where, getDocs, orderBy, onSnapshot,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { firestore, storage } from "../services/firebase";
+import { firestore } from "../services/firebase";
 import { activitySocialErrorMessageKey, activitySocialMutations } from "../services/activitySocialMutations";
 import { track, trackActivationStep } from "../services/analytics";
 import type { Activity, Visibility } from "@shared/types";
@@ -180,6 +181,7 @@ export default function ActivityPage() {
   const bikePdc = bikePdcState.pdc;
   // Inline description editing
   // Photo upload/delete
+  const photoServices = useFirebaseServices();
   const uploadedPhotoIdentity = `${activityId ?? ""}:${user?.uid ?? "guest"}`;
   const [uploadedPhotoState, setUploadedPhotoState] = useState<{ identity: string; photos: UploadedPhoto[] } | null>(null);
   const uploadedPhotos = uploadedPhotoState?.identity === uploadedPhotoIdentity ? uploadedPhotoState.photos : [];
@@ -541,7 +543,7 @@ export default function ActivityPage() {
       orderBy("createdAt", "asc"),
     );
     const unsubscribe = onSnapshot(photosRef, (snap) => {
-      if (active) setUploadedPhotoState({ identity, photos: snap.docs.map((d) => ({ id: d.id, ...d.data() } as UploadedPhoto)) });
+      if (active) setUploadedPhotoState({ identity, photos: snap.docs.map((d) => ({ ...d.data(), id: d.id, url: "", nativePhoto: { activityId, photoId: d.id } } as UploadedPhoto)) });
     }, (err) => {
       if (!active) return;
       setUploadedPhotoState(null);
@@ -587,18 +589,7 @@ export default function ActivityPage() {
         return;
       }
       const photoId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const storagePath = `activity_photos/${user.uid}/${activityId}/${photoId}.webp`;
-      const storageRef = ref(storage, storagePath);
-      await uploadBytes(storageRef, blob, { contentType: "image/webp" });
-      const url = await getDownloadURL(storageRef);
-      await setDoc(doc(firestore, "activity_photos", activityId, "photos", photoId), {
-        storagePath,
-        url,
-        userId: user.uid,
-        createdAt: Date.now(),
-        deletedAt: null,
-        ...(location ? { location } : {}),
-      });
+      await uploadNativeActivityPhoto(photoServices, { activityId, photoId }, blob, location);
       showToast(t("page.photoToast.uploaded"));
     } catch {
       showToast(t("page.photoToast.uploadFailed"));
@@ -1064,11 +1055,15 @@ export default function ActivityPage() {
         </div>
   );
 
-  const overviewPhotos = [
+  const overviewPhotoCandidates: OverviewPhoto[] = [
     ...(photos.length ? photos.filter(photo => photo.url).map(photo => ({ ...photo, url: photo.url!, id: `strava-${photo.id}` }))
       : (publishedContent?.photos ?? []).map(photo => ({ ...photo, id: `strava-${photo.id}` }))),
     ...uploadedPhotos.map(photo => ({ ...photo, id: `upload-${photo.id}`, uploadId: photo.id, ownerId: photo.userId })),
   ];
+  // Owner uploads carry deletion/location controls; prefer them over the same published preview.
+  const overviewPhotos = [...new Map(overviewPhotoCandidates.map(photo => [
+    photo.nativePhoto ? `native:${photo.nativePhoto.activityId}:${photo.nativePhoto.photoId}` : photo.id, photo,
+  ])).values()];
   const overviewAchievements: OverviewAchievement[] = topResults.length ? topResults.map(effort => ({
     id: String(effort.id), segmentId: String(effort.segment.id), effortId: effort.id,
     name: effort.name, badge: effort.prRank ? effort.prRank === 1 ? "PR" : effort.prRank === 2 ? "2nd" : "3rd" : `KOM ${effort.komRank}`,
@@ -1235,7 +1230,9 @@ export default function ActivityPage() {
       {activeTab === "overview" && <ActivityOverviewSocial key={`${activity.id}:${user?.uid ?? "guest"}:${sourceRevision}`} activityId={activity.id} prioritizeResults={mobileReading}
         memo={nativeMemoOverride?.activityId === activity.id ? nativeMemoOverride.memo : overviewMemo} memoGeneratedAt={nativeMemoOverride?.activityId !== activity.id && !providerRecord && resolvedMemo?.authored === false ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={nativeMemoOverride?.activityId !== activity.id && resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
         photosKnown={!!streams || !!publishedContent || typeof activity.photoCount === "number"} memoTruncated={publishedContent?.memoTruncated} photos={overviewPhotos}
-        totalPhotos={Math.max(photos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0) + uploadedPhotos.length}
+        totalPhotos={activity.source === "orider"
+          ? Math.max(overviewPhotos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0)
+          : Math.max(photos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0) + uploadedPhotos.length}
         companions={visibleCoRiders} achievements={overviewAchievements}
  owner={isActivityOwner} viewerId={user?.uid} uploading={photoUploading} canUpload={uploadedPhotos.length < MAX_PHOTOS}
         loadingPhotos={loadingStreams || showStreamSpinner} photoError={(activity.photoCount ?? 0) > overviewPhotos.length ? streamsError : null} canLoadPhotos={!streamsSignInRequired}

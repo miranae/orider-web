@@ -73,7 +73,7 @@ export function ActivityMediaPanel({
                 .map((p) => ({ id: String(p.id), url: p.url!, location: p.location!, caption: p.caption })),
               ...uploadedPhotos
                 .filter((p) => p.location)
-                .map((p) => ({ id: `upload-${p.id}`, url: p.url, location: p.location!, caption: null as string | null })),
+                .map((p) => ({ id: `upload-${p.id}`, url: p.url, nativePhoto: p.nativePhoto, location: p.location!, caption: null as string | null })),
             ]}
             flyToRange={selectedSegmentRange}
             flyToPosition={selectedSegmentRange ? undefined : flyToPosition}

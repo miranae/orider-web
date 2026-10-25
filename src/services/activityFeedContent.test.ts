@@ -103,3 +103,12 @@ it("preserves bounded photo-count uncertainty rather than inventing an exact tot
   expect(boundedFeedContent({ version: 1, revision: "revision", sourceRevision: "source", memo: null,
     photos: [], totalPhotoCount: 6, totalPhotoCountExact: false })?.totalPhotoCountExact).toBe(false);
 });
+
+it("keeps protected photo references but never reuses legacy Storage bearer URLs", () => {
+  const nativePhoto = { activityId: "ride", photoId: "photo" };
+  const result = boundedFeedContent({ version: 1, revision: "revision", sourceRevision: "source", totalPhotoCount: 3,
+    photos: [{ id: "photo", url: "https://example.com/ignored", nativePhoto },
+      { id: "legacy", url: "https://firebasestorage.googleapis.com/v0/b/demo/o/activity_photos%2Fowner%2Fride%2Flegacy.webp?token=old" },
+      { id: "invalid", url: "https://example.com/%invalid" }] });
+  expect(result?.photos).toEqual([{ id: "photo", url: "", nativePhoto, caption: null }]);
+});

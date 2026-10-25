@@ -1,3 +1,5 @@
+import { NativeActivityPhotoImage } from "../../components/activity/NativeActivityPhotoImage";
+import { isNativePhotoReference, isLegacyActivityPhotoUrl } from "../../services/nativeActivityPhoto";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Stack, Text } from "../../theme/components";
@@ -36,7 +38,7 @@ export default function PublicActivityPhotos({ activityId, initialPhotos, trunca
     } finally { if (request === generation.current) { inFlight.current = false; setBusy(false); } }
   }
   return <Stack gap="var(--space-3)">
-    {photos.filter(photo => /^https:\/\//i.test(photo.url)).map(photo => <img key={photo.id} src={photo.url} alt={photo.caption || t("page.photoPreview")} loading="lazy" className="public-activity-photo" />)}
+    {photos.filter(photo => isNativePhotoReference(photo.nativePhoto) || (/^https:\/\//i.test(photo.url) && !isLegacyActivityPhotoUrl(photo.url))).map(photo => photo.nativePhoto ? <NativeActivityPhotoImage key={photo.id} nativePhoto={photo.nativePhoto} retryable onAccessRevoked={onAccessRevoked} alt={photo.caption || t("page.photoPreview")} loading="lazy" className="public-activity-photo" /> : <img key={photo.id} src={photo.url} alt={photo.caption || t("page.photoPreview")} loading="lazy" className="public-activity-photo" />)}
     {remaining && <Text variant="caption">{t("publicDetail.photoPreview")}</Text>}
     {failed && <Text role="alert">{t("publicDetail.photosFailed")}</Text>}
     {truncated && (!expanded || failed) && <Button variant="outline" loading={busy} disabled={busy} onClick={() => void expand()}>{t("publicDetail.morePhotos")}</Button>}

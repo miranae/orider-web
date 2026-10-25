@@ -1,3 +1,4 @@
+import { NativeActivityPhotoImage } from "../activity/NativeActivityPhotoImage";
 import { seoulYearStartMs } from "../../utils/seoulWeek";
 import { withActivityPresentation } from "@shared/analysis/activityPresentation";
 import SportIcon from "../common/SportIcon";
@@ -112,7 +113,7 @@ export function MobileRouteThumbnail({ activity, priority = false, content }: { 
   const photoTiles = photos.map((photo, index) => photo.kind === "video" && photo.videoUrl
     ? <ActivityFeedVideo key={photo.id} media={photo} expanded={expandedVideoId === photo.id} expandedOutlet={expandedOutlet} onExpansionChange={setExpandedVideoId} remainingCount={index === photos.length - 1 ? photoCount - photos.length : 0} />
     : <Link key={photo.id} to={`/activity/${activity.id}?tab=overview`} className="mobile-feed-photo" aria-label={content?.totalPhotoCountExact === false ? t("publicDetail.openPhotoPreview", { index: index + 1 }) : t("card.openPhoto", { index: index + 1, count: photoCount })}>
-    <img src={photo.url} alt={photo.caption ?? ""} loading="lazy" />
+    {photo.nativePhoto ? <NativeActivityPhotoImage nativePhoto={photo.nativePhoto} alt={photo.caption ?? ""} loading="lazy" /> : <img src={photo.url} alt={photo.caption ?? ""} loading="lazy" />}
     {index === photos.length - 1 && photoCount > photos.length && <span className="mobile-feed-photo-remaining">{content?.totalPhotoCountExact === false ? t("publicDetail.morePhotos") : `+${photoCount - photos.length}`}</span>}
   </Link>);
   return <div className={`mobile-feed-route${!hasMap ? " mobile-feed-route--photos-only" : ""}`}>

@@ -5,7 +5,7 @@ export interface ActivityFeedContentProjection {
   revision: string;
   memo: string | null;
   memoTruncated: boolean;
-  photos: Array<{ id: string; url: string; caption: string | null; kind?: "video"; videoUrl?: string; durationSeconds?: number }>;
+  photos: Array<{ id: string; url: string; nativePhoto?: { activityId: string; photoId: string }; caption: string | null; kind?: "video"; videoUrl?: string; durationSeconds?: number }>;
   totalPhotoCount: number;
   /** False means a bounded scan lower bound, not an exact total. */
   totalPhotoCountExact?: boolean;

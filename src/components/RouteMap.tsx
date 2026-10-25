@@ -1,3 +1,5 @@
+import { NativeActivityPhotoImage } from "./activity/NativeActivityPhotoImage";
+import type { NativePhotoReference } from "../services/nativeActivityPhoto";
 import type { ReactNode } from "react";
 import { useMemo, useEffect, useRef, useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,6 +19,7 @@ import { ICON_SIZE } from "../theme/tokens/icon";
 export interface PhotoMarker {
   id: string;
   url: string;
+  nativePhoto?: NativePhotoReference;
   location: [number, number];
   caption?: string | null;
 }
@@ -301,7 +304,8 @@ export default function RouteMap({
   fallbackHeight,
 }: RouteMapProps) {
   const { t } = useTranslation("common");
-  const [selectedPhoto, setSelectedPhoto] = useState<PhotoMarker | null>(null);
+  const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
+  const selectedPhoto = photos?.find(photo => photo.id === selectedPhotoId);
   const [mapFailed, setMapFailed] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [webglSupported] = useState(() => supportsWebGL());
@@ -501,14 +505,14 @@ export default function RouteMap({
             anchor="center"
             onClick={(e: { originalEvent: MouseEvent }) => {
               e.originalEvent.stopPropagation();
-              setSelectedPhoto(photo);
+              setSelectedPhotoId(photo.id);
             }}
           >
             <div style={{
               width: 36, height: 36, borderRadius: "50%", border: "3px solid var(--ink-0)",
               boxShadow: "0 2px 6px color-mix(in srgb, var(--bg-0) 30%, transparent)", overflow: "hidden", background: "var(--bg-3)", cursor: "pointer",
             }}>
-              <img src={photo.url} alt={photo.caption || ""} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              {photo.nativePhoto ? <NativeActivityPhotoImage nativePhoto={photo.nativePhoto} alt={photo.caption || ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <img src={photo.url} alt={photo.caption || ""} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
             </div>
           </Marker>
         ))}
@@ -554,7 +558,7 @@ export default function RouteMap({
             longitude={selectedPhoto.location[1]}
             latitude={selectedPhoto.location[0]}
             anchor="bottom"
-            onClose={() => setSelectedPhoto(null)}
+            onClose={() => setSelectedPhotoId(null)}
             closeOnClick   // 사진 외 지도 영역 클릭 시 닫힘
             closeButton={false}
             maxWidth="280px"
@@ -564,7 +568,7 @@ export default function RouteMap({
               <button
                 type="button"
                 aria-label="닫기"
-                onClick={() => setSelectedPhoto(null)}
+                onClick={() => setSelectedPhotoId(null)}
                 style={{
                   position: "absolute",
                   top: 6,
@@ -587,11 +591,11 @@ export default function RouteMap({
                   <path d="M2 2 L8 8 M8 2 L2 8" />
                 </svg>
               </button>
-              <img
+              {selectedPhoto.nativePhoto ? <NativeActivityPhotoImage nativePhoto={selectedPhoto.nativePhoto} retryable alt={selectedPhoto.caption || ""} style={{ width: "100%", maxHeight: 280, objectFit: "cover", borderRadius: "var(--r-sm)" }} /> : <img
                 src={selectedPhoto.url}
                 alt={selectedPhoto.caption || ""}
                 style={{ width: "100%", maxHeight: 280, objectFit: "cover", borderRadius: "var(--r-sm)" }}
-              />
+              />}
               {selectedPhoto.caption && (
                 <p style={{ margin: "8px 0 0", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>{selectedPhoto.caption}</p>
               )}
