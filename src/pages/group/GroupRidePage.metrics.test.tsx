@@ -24,7 +24,7 @@ vi.mock("../../hooks/useGroup", () => ({ useGroup: () => ({ group: { toggles: { 
 vi.mock("../../components/ComparisonChart", () => ({ default: (props: unknown) => { comparison(props); return <div />; } }));
 vi.mock("./GroupRidePerformanceChart", () => ({ default: (props: { beforePlot?: React.ReactNode }) => { elevation(props); return <>{props.beforePlot}</>; } }));
 vi.mock("../../utils/mapbox", () => ({ getMapboxToken: () => "test-token", MAP_STYLE: "", applyKoreaCyclingStyle: vi.fn() }));
-vi.mock("react-map-gl/mapbox", () => ({ default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>, Source: ({ children }: { children: React.ReactNode }) => <>{children}</>, Layer: ({ id, paint }: { id: string; paint: Record<string, string> }) => <div data-testid={`layer-${id}`} data-color={paint["line-color"]} data-width={paint["line-width"]} data-opacity={paint["line-opacity"]} />, Marker: ({ longitude, latitude }: { longitude: number; latitude: number }) => <div data-testid="hover-marker" data-longitude={longitude} data-latitude={latitude} /> }));
+vi.mock("react-map-gl/mapbox", () => ({ default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>, Source: ({ children, data }: { children: React.ReactNode; data: unknown }) => <div data-testid="route-source" data-geometry={JSON.stringify(data)}>{children}</div>, Layer: ({ id, paint }: { id: string; paint: Record<string, string> }) => <div data-testid={`layer-${id}`} data-color={paint["line-color"]} data-width={paint["line-width"]} data-opacity={paint["line-opacity"]} />, Marker: ({ longitude, latitude }: { longitude: number; latitude: number }) => <div data-testid="hover-marker" data-longitude={longitude} data-latitude={latitude} /> }));
 
 function RideWithExit() {
   const navigate = useNavigate();
@@ -416,4 +416,20 @@ it("loads authorized stored provider streams by public activity identity without
   expect(await screen.findByTestId("C2R-2")).toBeInTheDocument();
   expect(streamsApi).toHaveBeenCalledWith("provider-record");
   expect(mockCallableInvocations.some(call => call.name === "stravaGetActivityStreams")).toBe(false);
+});
+
+it("renders a safe preview independently of unrelated same-length sensor clocks", async () => {
+  elevation.mockClear();
+  setCollectionDocs("activities", [{ ...activity("preview", null, null), source: "strava", thumbnailTrack: "37,127;37,127.002;37,127.004" }]);
+  const epoch = 1792105200000;
+  streamsApi.mockResolvedValue({ time: [epoch, epoch + 1000, epoch + 2000], distance: [0, 10, 20], altitude: [10, 11, 12] });
+  renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
+  await waitFor(() => expect(streamsApi).toHaveBeenCalledWith("preview"));
+  await waitFor(() => expect(elevation.mock.lastCall?.[0].data).toHaveLength(3));
+  await screen.findByTestId("C2R-2");
+  await waitFor(() => {
+    const source = screen.getAllByTestId("route-source")[0]!;
+    expect(JSON.parse(source.getAttribute("data-geometry")!).geometry.coordinates).toEqual([[[127, 37], [127.002, 37], [127.004, 37]]]);
+  });
+  expect(screen.queryByTestId("hover-marker")).not.toBeInTheDocument();
 });

@@ -196,7 +196,6 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
   }, [mobileOpen, closeMobileMenu]);
 
   const nickname = profile?.nickname || user?.displayName || "";
-  const avatarInitials = nickname ? nickname.slice(0, 2) : "";
   const photoURL = user?.photoURL || profile?.photoURL;
 
   const dropdownItemStyle: React.CSSProperties = {
@@ -463,7 +462,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                     {photoURL ? (
                       <img src={photoURL} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                      avatarInitials || <User size={ICON_SIZE.sm} />
+                      <User size={ICON_SIZE.sm} />
                     )}
                   </span>
                   {friendRequestCount > 0 && (

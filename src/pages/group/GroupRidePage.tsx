@@ -245,7 +245,8 @@ export default function GroupRidePage() {
 
       if (positions.length === 0) return null;
 
-      const geojson = groupRideMapRange({ latlng: positions }, clockAxes.get(a.id));
+      // A simplified/privacy-clipped preview has no correspondence to raw sensor indices.
+      const geojson = groupRideMapRange({ latlng: positions }, s?.latlng?.length ? clockAxes.get(a.id) : null);
 
       return { id: a.id, geojson, color, positions };
     }).filter(Boolean) as { id: string; geojson: GeoJSON.Feature<GeoJSON.MultiLineString>; color: string; positions: [number, number][] }[];
