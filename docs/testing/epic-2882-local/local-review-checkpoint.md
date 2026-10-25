@@ -19,6 +19,10 @@
 
 Logs: `/tmp/orider-2882-r1-web-{full-final,contracts-final,lint-final,quality-final,build-final}.log`. The review profile is intentionally retained using external `r1-discovery/review-profile.cjs apply|status|cleanup`, preserving prior fields and the R6 fixtures.
 
+### Final running local snapshot
+
+Immutable artifact `30e8d8c2cd13`, source `d95c55910ff3`, is active on the dedicated local stack. Final browser checks passed anonymous friend-code preview, current privacy revocation removing that preview, and owner detail narrative cache-only read. Resolver, discovery and narrative returned HTTP 200 with no browser errors; no model generation was requested. Temporary invite fixtures were cleaned. Evidence: external `r1-friend-browser/results.json` and screenshots. The deliberately persistent review profile, feed and period fixtures remain available.
+
 ## Earlier feed / period checkpoint
 
 The checkpoint below remains historical evidence. Its timing measurements and source hashes are not measurements of the subsequent discovery changes.
