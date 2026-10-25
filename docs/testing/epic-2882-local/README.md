@@ -61,3 +61,17 @@ The whole epic remains open. App work is deferred, and production deployment, re
 - Activity SEO and OG use the same anonymous public-detail authorization. Canonical 6 km/10 m appeared in crawler metadata; after a separate synthetic activity became private, SEO became noindex and OG returned 404 with no-store. OG bytes were preseeded synthetic cache bytes, not an external map rendering test.
 
 Latest broad web regression checkpoint: 883 files / 9,391 tests passed; development build passed. Later isolated changes must retain their own targeted evidence. Runtime auth-region and artifact-watch errors are preserved separately from corrected results; earlier business-call-only success observations are not evidence that every auxiliary request had succeeded.
+
+
+## Final local handoff
+
+Final product source: web `3933cd42`, server `16f07db7`. All changes after the local-only instruction remain local; no remote issue edits, pushes, merges or deployments were performed for this handoff.
+
+- Web full regression: 884 files / 9,413 tests and contract suites passed. The final route-guidance copy change then passed 19 focused tests, locale key parity, lint and a fresh development build. Node 22 build, full lint and quality budget passed.
+- Server current combined source: Node 22 build and full lint passed. Feature-specific regression and actual emulator/API evidence are documented above and in the external runbooks.
+- Owner GPS preview is explicitly requested by the owner and rejects stale account/source results. Two actual native uploads produced indexed observed routes; the actual route comparison and two-member group API succeeded. Unknown coverage remains explicit and excluded from competitive ranking. Missing/nonfinite feed metrics render a dash while actual zero remains zero.
+- Frozen-source browser measurement: 120/120 successful navigation-to-render attempts, 30 fresh contexts and 30 same-context reloads for each of feed and owner analysis. Each attempt made exactly one main-document request. No page errors or HTTP >=400 from local Functions were observed. Start/end source SHA both `3933cd42`.
+- Local p95: feed 369 ms fresh / 280 ms reload; owner analysis 974 ms fresh / 903 ms reload. Chrome headless, 390x844, unthrottled loopback, warm synthetic emulators. These values do not establish production or backend cold-start performance.
+- Measurement history is retained: the initial frame-event counter incorrectly counted same-document router updates; the final counter counts actual main-document navigation requests. Earlier watch-contaminated and auth-region results are separate from the final run.
+
+Open http://localhost:5174/ko/ for the synthetic feed. Owner analysis: http://localhost:5174/ko/activity/ui-raw-native-ride?demoAccount=owner&tab=analysis . Recorded GPS preview: http://localhost:5174/ko/activity/ui-route-native-2?demoAccount=owner&tab=analysis (select “기록된 경로 보기”). External `full-app/README.md` contains the dedicated browser startup command; `local-flow-benchmark-results.json` contains all 120 attempts. Runtime remains running for local review.
