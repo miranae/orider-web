@@ -2827,5 +2827,21 @@
     "sourceNotice": "Strava record · Orider calculations are identified in Analysis.",
     "orider": "Orider analysis"
   },
-  "trainingPeriods.populationBasis": "Distance, time and training zones scan up to 200 records per period and count one representative of explicitly linked copies. Their activity counts and eligible records may differ from power curves."
+  "trainingPeriods.populationBasis": "Distance, time and training zones scan up to 200 records per period and count one representative of explicitly linked copies. Their activity counts and eligible records may differ from power curves.",
+  "publicSafety": {
+    "report": "Report activity",
+    "hide": "Hide activity",
+    "block": "Block author",
+    "reportConfirm": "Tell us what needs review. Reporting does not hide the activity.",
+    "hideConfirm": "Hide this activity from your feed and close its details.",
+    "blockConfirm": "Block this author and remove follows in both directions. These activity details will close.",
+    "note": "Report details (optional)",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "failed": "Could not complete this action. Your details were kept; please retry.",
+    "reported": "Report submitted.",
+    "hideDone": "Activity hidden.",
+    "blockDone": "Author blocked.",
+    "home": "Back to feed"
+  }
 }

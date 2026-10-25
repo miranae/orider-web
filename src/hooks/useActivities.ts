@@ -1,3 +1,4 @@
+import { useActivitySafety } from "./useActivitySafety";
 import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../config/activitySubscriptions";
 import { admitSubscriptionActivities } from "../services/subscriptionFeed";
 import { SEARCH_PAGE_SIZE } from "../constants/pagination";
@@ -213,6 +214,7 @@ export function useActivities(
 ) {
   const enabled = options.enabled ?? true;
   const { user, loading: authLoading } = useAuth();
+  const safety = useActivitySafety(user && !user.isAnonymous ? user.uid : null, enabled);
   const friendIdsKey = useMemo(
     () => Array.from(new Set(friendIds.filter(Boolean))).sort().join("\u0000"),
     [friendIds],
@@ -645,14 +647,14 @@ export function useActivities(
   }, [enabled, feedCursor, loadingMore, user, fetchPage, feedRequestKey]);
 
   return {
-    activities: loadedRequestKey === feedRequestKey ? activities : [],
+    activities: loadedRequestKey === feedRequestKey ? activities.filter(safety.allows) : [],
     totalCount,
-    loading,
+    loading: loading || safety.loading,
     loadMore,
     hasMore,
     loadingMore,
-    error,
-    retry,
+    error: error || safety.error,
+    retry: () => { safety.retry(); retry(); },
   };
 }
 
@@ -1043,6 +1045,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
   const loadingMoreEpoch = useRef<number | null>(null);
   const [error, setError] = useState(false);
   const [active, setActive] = useState(false);
+  const safety = useActivitySafety(user && !user.isAnonymous ? user.uid : null, active);
   const [searchedKeyword, setSearchedKeyword] = useState("");
 
   const [datePreset, setDatePreset] = useState<DatePreset>("all");
@@ -1117,8 +1120,8 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
       }
     }
 
-    return filtered;
-  }, [active, currentSearchResultState, ownerPreset, user, friendIds]);
+    return filtered.filter(safety.allows);
+  }, [active, currentSearchResultState, ownerPreset, user, friendIds, safety.allows]);
 
   const loadMoreServer = useCallback(() => {
     if (!active || loading || error || !currentSearchResultState?.hasMore || loadingMoreEpoch.current === searchEpoch.current) return;
@@ -1174,9 +1177,9 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
     hasMoreServerResults: !!currentSearchResultState?.hasMore,
     loadingMore,
     totalResults: results.length,
-    loading,
-    error,
-    retry,
+    loading: loading || safety.loading,
+    error: error || safety.error,
+    retry: () => { safety.retry(); retry(); },
     loadMore,
     loadMoreServer,
     hasMore,

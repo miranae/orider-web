@@ -2,6 +2,7 @@ import { startJourneyMeasurement, type JourneyOutcome } from "../../services/jou
 import "./PublicActivitySurface.css";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import PublicActivitySafety from "./PublicActivitySafety";
 import PublicActivityPhotos from "./PublicActivityPhotos";
 import PublicActivityComments from "./PublicActivityComments";
 import { LocalizedLink } from "../../components/LocalizedLink";
@@ -32,6 +33,8 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
+  const [removed, setRemoved] = useState<{ scope: string; action: "hide" | "block" } | null>(null);
+  const safetyScope = `${user?.uid ?? "anonymous"}:${activityId}`;
   const [attempt, setAttempt] = useState(0);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -130,6 +133,8 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
     }
   }, [activityId, client, detail, text, user, embedded]);
 
+  if (removed?.scope === safetyScope) return <main className="public-activity-surface"><Text role="status" tabIndex={-1} ref={node => node?.focus()}>{t(`publicSafety.${removed.action}Done`)}</Text><LocalizedLink to="/">{t("publicSafety.home")}</LocalizedLink></main>;
+
   if (loading || failed || !detail || detail.activity.id !== activityId) return <EmbeddedSurfaceState title={t("publicDetail.title")} loading={loading} message={accessDenied ? t("publicDetail.accessDenied") : undefined} onRetry={() => setAttempt(value => value + 1)} />;
   const activity = detail.activity;
   const metrics = activity.effectiveFacts?.status === "canonical" ? activity.effectiveFacts.metrics : null;
@@ -150,6 +155,10 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
         <div><LocalizedLink to={`/athlete/${encodeURIComponent(activity.userId)}`}><Text weight={600}>{activity.nickname}</Text></LocalizedLink><h1>{activity.description || t("publicDetail.title")}</h1>
           <Text variant="caption">{activity.startTime > 0 ? new Date(activity.startTime).toLocaleString(i18n.language) : "—"}</Text></div>
       </header>
+      {user && !user.isAnonymous && user.uid !== activity.userId && <PublicActivitySafety key={`${user.uid}:${activityId}`}
+        activityId={activityId} authorId={activity.userId} client={client} onAccessRevoked={revokeAccess}
+        onRemoved={action => { generation.current += 1; inFlight.current = false; commentRequest.current = null;
+          socialMeasurement.current?.("cancelled"); setDetail(null); setText(""); setBusy(false); setRemoved({ scope: safetyScope, action }); }} />}
       <Section title={t("publicDetail.summary")}>
         <Stack direction="row" gap="var(--space-5)">
           <Stat label={t("publicDetail.distance")} value={format(distance, 2)} unit="km" />

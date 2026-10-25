@@ -56,6 +56,19 @@ export function createPublicActivityClient(services: FirebaseServices) {
     editComment: (activityId: string, commentId: string, text: string) => call<{ commentId: string; text: string }>("editActivityComment", { activityId, commentId, text }),
     deleteComment: (activityId: string, commentId: string) => call<{ deleted: boolean }>("deleteActivityComment", { activityId, commentId }),
     reportComment: (activityId: string, commentId: string, note: string) => call<{ reportId: string }>("reportActivitySocialContent", { activityId, commentId, reason: "other", note }),
+    reportActivity: (activityId: string, note: string) => call<{ reportId: string }>("reportActivitySocialContent", { activityId, reason: "other", note }),
+    async hideActivity(activityId: string) {
+      const result = await call<{ activityId: string; hidden: boolean }>("setActivityHidden", { activityId, hidden: true });
+      if (result.activityId !== activityId || result.hidden !== true) throw new Error("invalid_hide_response");
+      window.dispatchEvent(new CustomEvent("orider:activity-safety-changed", { detail: { uid, activityId, hidden: true } }));
+    },
+    async blockAuthor(targetUid: string) {
+      if (targetUid === uid) throw new Error("cannot_block_self");
+      const result = await call<{ targetUid: string; blocked: boolean }>("setActivitySocialBlock", { targetUid, blocked: true });
+      if (result.targetUid !== targetUid || result.blocked !== true) throw new Error("invalid_block_response");
+      window.dispatchEvent(new CustomEvent("orider:activity-safety-changed", { detail: { uid, targetUid, blocked: true } }));
+      window.dispatchEvent(new CustomEvent("orider:activity-subscriptions-changed", { detail: { uid } }));
+    },
     setKudos: (activityId: string, enabled: boolean) => call<{ enabled: boolean }>("setActivityKudos", { activityId, enabled }),
     postComment: (activityId: string, text: string, clientRequestId: string) => call<{ commentId: string }>("postActivityComment", { activityId, text, parentId: null, clientRequestId }),
   };

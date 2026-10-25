@@ -1396,3 +1396,22 @@ describe("useActivitySearch", () => {
     expect(result.current.results).toEqual([]);
   });
 });
+
+it("keeps persisted safety preferences across feed reload and restores unhidden/unblocked cards", async () => {
+  simulateLogin({ uid: "safety-viewer" });
+  setCollectionDocs("activities", [
+    { ...createMockActivity({ id: "hidden-ride", userId: "author-a" }), id: "hidden-ride" },
+    { ...createMockActivity({ id: "blocked-ride", userId: "author-b" }), id: "blocked-ride" },
+    { ...createMockActivity({ id: "visible-ride", userId: "author-c" }), id: "visible-ride" },
+  ]);
+  setCollectionDocs("users/safety-viewer/hidden_activities", [{ id: "hidden-ride" }]);
+  setCollectionDocs("users/safety-viewer/blocks", [{ id: "author-b" }]);
+  const { result } = renderHook(() => useActivities(), { wrapper });
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.activities.map(item => item.id)).toEqual(["visible-ride"]);
+  act(() => result.current.retry());
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  expect(result.current.activities.map(item => item.id)).toEqual(["visible-ride"]);
+  act(() => { setCollectionDocs("users/safety-viewer/hidden_activities", []); setCollectionDocs("users/safety-viewer/blocks", []); });
+  expect(result.current.activities).toHaveLength(3);
+});

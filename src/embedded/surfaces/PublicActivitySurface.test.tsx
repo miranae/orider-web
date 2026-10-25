@@ -9,7 +9,7 @@ import type { PublicActivityDetail } from "../../services/publicActivityDetail";
 vi.mock("../../services/analytics", () => ({ track: vi.fn() }));
 const render = (element: ReactElement) => rtlRender(element, { wrapper: MemoryRouter });
 const authState = vi.hoisted(() => ({ uid: "viewer" }));
-const mocks = vi.hoisted(() => ({ load: vi.fn(), setKudos: vi.fn(), postComment: vi.fn() }));
+const mocks = vi.hoisted(() => ({ load: vi.fn(), setKudos: vi.fn(), postComment: vi.fn(), hideActivity: vi.fn(), blockAuthor: vi.fn(), reportActivity: vi.fn() }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: authState.uid, isAnonymous: false } }) }));
 vi.mock("../../services/publicActivityDetail", () => ({ isPublicActivityAccessError: (error: { code?: string }) => ["functions/permission-denied", "functions/not-found", "functions/failed-precondition"].includes(error.code ?? ""), createPublicActivityClient: () => ({ ...mocks }) }));
 const fixture = (): PublicActivityDetail => ({
@@ -177,4 +177,21 @@ it("does not report a retried load ready using the previous rendered detail", as
   await act(async () => reject({ code: "functions/permission-denied" }));
   await waitFor(() => expect(detailEvents()).toHaveLength(2));
   expect(detailEvents()[1]?.[1]).toEqual(expect.objectContaining({ outcome: "access_denied" }));
+});
+
+it.each([["활동 숨기기", "이 활동을 숨겼습니다."], ["작성자 차단", "작성자를 차단했습니다."]])("removes DTO, photos, drafts and reaction controls after %s", async (action, message) => {
+  render(<PublicActivitySurface {...props} />);
+  await screen.findByText("한강 라이딩");
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "남은 초안" } });
+  fireEvent.click(screen.getByRole("button", { name: action }));
+  fireEvent.click(screen.getByRole("button", { name: "확인" }));
+  expect(await screen.findByText(message)).toHaveFocus();
+  expect(screen.queryByText("바람이 좋았어요")).not.toBeInTheDocument();
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /좋아요/ })).not.toBeInTheDocument();
+});
+it("does not expose report/hide/block controls for the activity owner", async () => {
+  authState.uid = "owner";
+  render(<PublicActivitySurface {...props} />); await screen.findByText("한강 라이딩");
+  expect(screen.queryByRole("button", { name: "작성자 차단" })).not.toBeInTheDocument();
 });

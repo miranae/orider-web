@@ -37,3 +37,30 @@ it("passes opaque comment cursors and optimistic memo revisions without changing
   await client.setNativeMemo("a", "memo", "revision");
   expect(mocks.call).toHaveBeenLastCalledWith({ activityId: "a", memo: "memo", expectedMemoRevision: "revision" });
 });
+
+it("uses existing activity-level safety contracts and validates hide/block acknowledgement", async () => {
+  const client = createPublicActivityClient(services("viewer"));
+  await client.reportActivity("a", "privacy");
+  expect(mocks.call).toHaveBeenLastCalledWith({ activityId: "a", reason: "other", note: "privacy" });
+  mocks.call.mockResolvedValue({ data: { activityId: "a", hidden: true } });
+  await client.hideActivity("a"); expect(mocks.call).toHaveBeenLastCalledWith({ activityId: "a", hidden: true });
+  mocks.call.mockResolvedValue({ data: { targetUid: "author", blocked: true } });
+  await client.blockAuthor("author"); expect(mocks.call).toHaveBeenLastCalledWith({ targetUid: "author", blocked: true });
+  await expect(client.blockAuthor("viewer")).rejects.toThrow("cannot_block_self");
+  await expect(client.hideActivity("a")).rejects.toThrow("invalid_hide_response");
+});
+it.each([null, "anonymous"])("does not allow safety writes for %s", async uid => {
+  const source = services(uid); if (source.auth.currentUser) Object.assign(source.auth.currentUser, { isAnonymous: true });
+  const client = createPublicActivityClient(source);
+  await expect(client.hideActivity("a")).rejects.toThrow("sign_in_required");
+  await expect(client.blockAuthor("author")).rejects.toThrow("sign_in_required");
+  await expect(client.reportActivity("a", "")).rejects.toThrow("sign_in_required");
+  expect(mocks.call).not.toHaveBeenCalled();
+});
+it("does not publish hide success after the account changes during submission", async () => {
+  const source = services("viewer"); const listener = vi.fn();
+  window.addEventListener("orider:activity-safety-changed", listener);
+  mocks.call.mockImplementation(async () => { Object.assign(source.auth, { currentUser: { uid: "other" } }); return { data: { activityId: "a", hidden: true } }; });
+  await expect(createPublicActivityClient(source).hideActivity("a")).rejects.toThrow("account_changed");
+  expect(listener).not.toHaveBeenCalled(); window.removeEventListener("orider:activity-safety-changed", listener);
+});
