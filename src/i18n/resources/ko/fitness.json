@@ -832,7 +832,7 @@
   "periodCurve.asOf": "데이터 조회 기준 {{date}} UTC · 실측 파워 · W",
   "periodCurve.chart": "선택 기간의 실측 파워 커브 비교",
   "periodCurve.duration": "확인할 지속시간",
-  "periodCurve.source": "원본 활동 보기 · {{date}} UTC",
+  "periodCurve.source": "원본 활동 보기 · {{date}} KST",
   "periodCurve.complete": "조회 완료",
   "periodCurve.partial": "일부 기록 포함",
   "periodCurve.empty": "선택 기간에 표시할 확정 실측 파워 기록이 없습니다.",
@@ -1357,5 +1357,6 @@
   "comparison.fourWeeks": "최근 4주 ↔ 이전 4주",
   "comparison.yearToDate": "올해 ↔ 전년 동기간",
   "comparison.fourWeeksNote": "오늘을 제외한 완료된 28일과 바로 이전 28일을 비교합니다.",
-  "comparison.yearToDateNote": "각 연도 1월 1일부터 같은 월·일·시각까지 비교합니다. 2월 29일은 전년 2월 28일로 맞춥니다."
+  "comparison.yearToDateNote": "각 연도 1월 1일부터 같은 월·일·시각까지 비교합니다. 2월 29일은 전년 2월 28일로 맞춥니다.",
+  "periodCurve.populationBasis": "파워 곡선은 기간별 최대 1,000개 기록에서 측정 파워의 최고값을 찾습니다. 연결된 원본·복제 기록도 각각 비교하므로 거리·시간 통계와 포함 활동 수가 다를 수 있습니다."
 }

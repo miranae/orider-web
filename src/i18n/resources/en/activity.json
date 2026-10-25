@@ -2817,5 +2817,6 @@
   "sourceMetrics": {
     "sourceNotice": "Strava record · Orider calculations are identified in Analysis.",
     "orider": "Orider analysis"
-  }
+  },
+  "trainingPeriods.populationBasis": "Distance, time and training zones scan up to 200 records per period and count one representative of explicitly linked copies. Their activity counts and eligible records may differ from power curves."
 }

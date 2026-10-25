@@ -37,6 +37,7 @@ export function PowerCurvePeriodsView({ response, unit = "W" }: { response: Powe
   const x = (seconds: number) => 56 + Math.log(seconds) / Math.log(3600) * 280;
   const y = (watts: number) => 146 - watts / high * 118;
   return <div className="fitness-analysis-controls period-curve-analysis space-y-4">
+    <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.populationBasis")}</Text>
     {normalized && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
     {normalized && response.periods.some(period => !period.weightNormalized) && <Text as="p" variant="bodyMedium" role="status">{t("periodCurve.weightUnsupported")}</Text>}
     <ChartFrame variant="embedded">

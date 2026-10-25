@@ -1,3 +1,4 @@
+import { localTrainingEmulatorAvailable } from "../../../services/localTrainingEmulator";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -16,7 +17,7 @@ import { Button, Input, Text, ToggleControls, ToggleButton } from "../../../them
 type Sport = "bike" | "run" | "swim";
 export default function FitnessPeriodEvidence({ discipline, inline = false }: { discipline: Sport; inline?: boolean }) {
   const { user } = useAuth();
-  if (getRuntimeConfig().appEnvironment !== "stage" || !user || user.isAnonymous) return null;
+  if ((getRuntimeConfig().appEnvironment !== "stage" && !(discipline === "bike" && localTrainingEmulatorAvailable())) || !user || user.isAnonymous) return null;
   return <PeriodEvidence key={`${user.uid}:${discipline}`} ownerUid={user.uid} discipline={discipline} inline={inline} />;
 }
 function PeriodEvidence({ ownerUid, discipline, inline }: { ownerUid: string; discipline: Sport; inline: boolean }) {

@@ -832,7 +832,7 @@
   "periodCurve.asOf": "Data snapshot {{date}} UTC · Measured power · W",
   "periodCurve.chart": "Measured power curve comparison for selected periods",
   "periodCurve.duration": "Duration to inspect",
-  "periodCurve.source": "View source activity · {{date}} UTC",
+  "periodCurve.source": "View source activity · {{date}} KST",
   "periodCurve.complete": "Scan complete",
   "periodCurve.partial": "Some records included",
   "periodCurve.empty": "No confirmed measured power points are available for the selected periods.",
@@ -1357,5 +1357,6 @@
   "comparison.fourWeeks": "Last 4 weeks vs previous 4 weeks",
   "comparison.yearToDate": "Year to date vs previous year",
   "comparison.fourWeeksNote": "Compare the last 28 complete days, excluding today, with the preceding 28 days.",
-  "comparison.yearToDateNote": "Compare from January 1 to the same month, day and time in each year. February 29 maps to February 28 in the previous year."
+  "comparison.yearToDateNote": "Compare from January 1 to the same month, day and time in each year. February 29 maps to February 28 in the previous year.",
+  "periodCurve.populationBasis": "Power curves take measured maxima from up to 1,000 records per period. Linked originals and copies are compared separately, so included activity counts may differ from distance and time totals."
 }
