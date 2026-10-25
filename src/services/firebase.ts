@@ -1,3 +1,4 @@
+import { isApprovedQaAppCheckUser } from "./qaAppCheckIdentity";
 import { getStageQaAppCheckSession, hasStageQaAppCheckGrant } from "./stageQaAppCheck";
 import { initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, connectAuthEmulator, signInWithEmailAndPassword, type Auth } from "firebase/auth";
@@ -108,6 +109,9 @@ export function getFirebaseApp(): FirebaseApp | undefined {
  * 이 promise 를 await 해서 enforceAppCheck 보안 경로를 유지한다.
  */
 function ensureAppCheckReadyUnchecked(forceRefresh = false): Promise<void> {
+  // Only the existing authenticated QA identities skip the client readiness gate.
+  // The server independently verifies Auth UID and all resource permissions.
+  if (isApprovedQaAppCheckUser(_auth?.currentUser, app?.options.projectId)) return Promise.resolve();
   if (isEmulatorRuntime()) return Promise.resolve();
   if (forceRefresh && appCheckRefreshPromise) return appCheckRefreshPromise;
   if (!forceRefresh && appCheckPromise) return appCheckPromise;
