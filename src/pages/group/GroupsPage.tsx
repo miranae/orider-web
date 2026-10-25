@@ -1,3 +1,4 @@
+import { appCheckFailureRecovery } from "../../services/appCheckFailureRecovery";
 import NextEventContinuation from "../../components/group/NextEventContinuation";
 import { isSportUiEnabled } from "../../config/sportFeatures";
 import "./ClubSurface.css";
@@ -34,6 +35,7 @@ export default function GroupsPage() {
   const uid = user?.uid;
   const joinIntent = useRef(0);
   useEffect(() => {
+    setJoinRetryAt(0);
     setJoining(false);
     setJoiningPublic(null);
     setPendingNotice("");
@@ -50,6 +52,13 @@ export default function GroupsPage() {
   const [joiningPublic, setJoiningPublic] = useState<string | null>(null);
   const [pendingNotice, setPendingNotice] = useState("");
   const [error, setError] = useState("");
+  const [joinRetryAt, setJoinRetryAt] = useState(0);
+  useEffect(() => {
+    if (!joinRetryAt) return;
+    // 대기 종료는 버튼만 복구한다. 가입·토큰 요청을 자동 재실행하지 않는다.
+    const timer = setTimeout(() => setJoinRetryAt(0), Math.min(Math.max(0, joinRetryAt - Date.now()), 2_147_483_647));
+    return () => clearTimeout(timer);
+  }, [joinRetryAt]);
   const [disciplineFilter, setDisciplineFilter] = useState<"ALL" | "bike" | "run" | "swim" | "tri">("ALL");
   const [myDisciplineFilter, setMyDisciplineFilter] = useState<"ALL" | "bike" | "run" | "swim" | "tri">("ALL");
   const [cityFilter, setCityFilter] = useState("");
@@ -112,7 +121,7 @@ export default function GroupsPage() {
   );
 
   const handleJoinByCode = async () => {
-    if (!uid || !inviteCode.trim() || joining) return;
+    if (!uid || !inviteCode.trim() || joining || joinRetryAt > Date.now()) return;
     const intent = joinIntent.current;
     const isCurrent = () => intent === joinIntent.current && auth.currentUser?.uid === uid;
     setJoining(true);
@@ -132,6 +141,14 @@ export default function GroupsPage() {
       navigate(`/club/${result.data.groupId}`);
     } catch (err: any) {
       if (!isCurrent()) return;
+      const attestation = appCheckFailureRecovery(err);
+      if (attestation) {
+        if (attestation.waitMs) setJoinRetryAt(Date.now() + attestation.waitMs);
+        setError(attestation.waitMs
+          ? t("error.joinVerificationWait", { count: Math.ceil(attestation.waitMs / 60_000) })
+          : t("error.joinVerificationFailed"));
+        return;
+      }
       setError((!["functions/permission-denied", "functions/unauthenticated"].includes(err?.code) && (err?.code === "functions/not-found" || err?.message === "Invalid invite code" || err?.message === "Invalid or expired invite code" || (err?.code === "functions/invalid-argument" && err?.message === "유효한 초대 코드가 필요합니다."))) ? t("error.invalidInviteCode") : t("error.joinFailed"));
     } finally {
       if (isCurrent()) setJoining(false);
@@ -313,13 +330,13 @@ export default function GroupsPage() {
         />
         <Button
           onClick={handleJoinByCode}
-          disabled={!inviteCode.trim() || joining} variant="secondary" className="disabled:opacity-50"
+          disabled={!inviteCode.trim() || joining || joinRetryAt > 0} variant="secondary" className="disabled:opacity-50"
         >
           {joining ? t("button.joining") : t("button.joinCode")}
         </Button>
         </div>
       </Card>}
-      {error && <p className="text-[length:var(--ft-body-size)] text-red-500 mb-4">{error}</p>}
+      {error && <p role="alert" className="text-[length:var(--ft-body-size)] text-red-500 mb-4">{error}</p>}
 
 
       {user && !myLoading && !myGroupsError && myGroups.length === 0 && <GroupRequestHistory userId={user?.uid} sectionId="C0-1" />}
