@@ -2904,5 +2904,15 @@
     "liveFailed": "The current public map could not be verified. Return to this view to retry.",
     "liveUnavailable": "No currently verified public route.",
     "revocationPending": "Access removal for the previous map image is incomplete. The public map is hidden. Preview and save again."
+  },
+  "embeddedProfile": {
+    "back": "Back",
+    "unsupported": "This destination is unavailable in this screen.",
+    "title": "Public profile",
+    "scope": "Only currently accessible public activities are shown.",
+    "loading": "Loading…",
+    "unavailable": "Profile activities are currently unavailable.",
+    "empty": "No public activities to show.",
+    "more": "Load more"
   }
 }

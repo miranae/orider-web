@@ -56,7 +56,7 @@ import {
   prepareTrainingSurfaceCacheOwner,
 } from "./trainingSurfaceCache";
 
-const PublicActivitySurface = lazy(() => import("./surfaces/PublicActivitySurface"));
+const PublicActivitySurface = lazy(() => import("./surfaces/PublicActivityBrowser"));
 const ActivityAnalysisSurface = lazy(() => import("./surfaces/ActivityAnalysisSurface"));
 const loadFitnessSurface = () => import("./surfaces/FitnessSurface");
 const loadPlanSurface = () => import("./surfaces/PlanSurface");
@@ -675,6 +675,7 @@ export default function EmbeddedBootstrapRoot({
   const handleNavigation = useCallback((event: MouseEvent<HTMLDivElement>) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    if (target.closest("[data-embedded-public-browser]")) return;
     const anchor = target.closest("a[href]");
     if (!(anchor instanceof HTMLAnchorElement)) return;
     let destination: URL;
