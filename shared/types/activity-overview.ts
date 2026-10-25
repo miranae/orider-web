@@ -1,6 +1,7 @@
 export type ActivityOverviewBand = "lower" | "usual" | "higher";
 
 export interface ActivityOverviewPresentation {
+  stravaRecord?: import("../analysis/stravaRecord").StravaSummaryV1;
   /**
    * 판정 한 줄. 근거(임계값·존·부하)가 있어 규칙 하나가 걸렸을 때만 있다.
    * 없으면 **줄을 비운다** — "오늘의 라이딩이었어요" 같은 내용 없는 문장을 만들지 않는다(2026-09-21).

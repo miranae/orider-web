@@ -97,9 +97,9 @@ const p2Answer = { apiVersion: "v2", capabilityVersion: "p2", schemaVersion: "co
 const p1PlannerAnswer = { ...p1Answer, answer: { ...p1Answer.answer,
   blocks: [{ kind: "prescription", blockId: "progress-rx", prescription: prescriptionFixture }] } };
 
-function setup(currentUser: User | null = user, discipline: "bike" | "run" | "swim" = "bike") {
+function setup(currentUser: User | null = user, discipline: "bike" | "run" | "swim" = "bike", onRequestSettled?: () => void) {
   return render(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider>
-    <CoachQuestionLauncher user={currentUser} discipline={discipline} onSignIn={vi.fn()} />
+    <CoachQuestionLauncher user={currentUser} discipline={discipline} onSignIn={vi.fn()} onRequestSettled={onRequestSettled} />
   </DialogProvider></MemoryRouter>);
 }
 
@@ -730,10 +730,11 @@ describe("CoachQuestionLauncher", () => {
   });
 
   it.each(["response", "error"])("discards deferred ask %s after same-owner SDK relogin", async (outcome) => {
+    const settled = vi.fn();
     let resolve!: (value: typeof answer) => void;
     let reject!: (value: Error) => void;
     mocks.ask.mockImplementationOnce(() => new Promise((done, fail) => { resolve = done; reject = fail; }));
-    setup(); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    setup(user, "bike", settled); await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
     fireEvent.change(screen.getByLabelText("내 운동에 대한 질문"), { target: { value: "최근 운동을 요약해줘" } });
     await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
@@ -741,6 +742,7 @@ describe("CoachQuestionLauncher", () => {
     await act(async () => { if (outcome === "response") resolve(answer); else reject(new CoachClientError("transport", "NETWORK_ERROR")); });
     expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).toBeNull();
     expect(mocks.analytics.complete).not.toHaveBeenCalled();
+    expect(settled).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
     await screen.findByText("오늘 3회 남음");
   });
@@ -1063,19 +1065,21 @@ describe("CoachQuestionLauncher", () => {
   });
 
   it("discards a late in-flight response after a discipline session reset", async () => {
+    const settled = vi.fn();
     let resolve!: (value: typeof answer) => void;
     mocks.ask.mockReturnValue(new Promise((done) => { resolve = done; }));
-    const view = setup(user, "bike");
+    const view = setup(user, "bike", settled);
     await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" })); await screen.findByText("오늘 3회 남음");
     await userEvent.click(screen.getByRole("button", { name: /FTP 3\.5 W\/kg을 만들고 싶어\./ })); await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
     expect(screen.getByText("운동 기록을 확인하고 답변을 준비하고 있습니다…")).toBeInTheDocument();
-    view.rerender(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider><CoachQuestionLauncher user={user} discipline="run" onSignIn={vi.fn()} /></DialogProvider></MemoryRouter>);
+    view.rerender(<MemoryRouter initialEntries={["/ko/"]}><DialogProvider><CoachQuestionLauncher user={user} discipline="run" onSignIn={vi.fn()} onRequestSettled={settled} /></DialogProvider></MemoryRouter>);
     expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).not.toBeInTheDocument();
     resolve(answer);
     await act(async () => { await Promise.resolve(); });
     expect(screen.queryByRole("dialog", { name: "O·RIDER Coach" })).not.toBeInTheDocument();
     expect(document.body).not.toHaveTextContent("이번 주 훈련량이 높았습니다.");
     expect(mocks.analytics.complete).not.toHaveBeenCalled();
+    expect(settled).not.toHaveBeenCalled();
   });
 
   it("discards a late in-flight error after a consent session reset", async () => {

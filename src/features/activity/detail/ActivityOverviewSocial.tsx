@@ -12,7 +12,7 @@ import "./activity-overview-social.css";
 export interface OverviewPhoto { id: string; url: string; caption?: string | null; location?: [number, number] | null; uploadId?: string; ownerId?: string }
 export interface OverviewAchievement { id: string; segmentId: string; name: string; badge: string; time: string; effortId?: number }
 interface Props {
-  activityId: string; memo: string | null; memoMono?: boolean; memoLoading?: boolean; memoError?: boolean; photosKnown?: boolean; memoTruncated?: boolean; photos: OverviewPhoto[]; totalPhotos: number;
+  activityId: string; memo: string | null; memoMono?: boolean; memoGeneratedAt?: number; memoLoading?: boolean; memoError?: boolean; photosKnown?: boolean; memoTruncated?: boolean; photos: OverviewPhoto[]; totalPhotos: number;
   companions: Activity[]; achievements: OverviewAchievement[];
   owner: boolean; viewerId?: string; uploading: boolean; canUpload: boolean;
   loadingPhotos: boolean; photoError?: string | null; canLoadPhotos: boolean;
@@ -57,6 +57,7 @@ export default function ActivityOverviewSocial(props: Props) {
     <div className="activity-overview-story">
       {memo?.trim() ? <div className="activity-overview-memo">
         <Text as="p" variant="body" ref={memoRef} mono={props.memoMono} className={expanded ? undefined : "activity-overview-memo--collapsed"}>{memo}</Text>
+        {props.memoGeneratedAt != null && <Text as="p" variant="caption" tone="secondary">{t("overviewSocial.memoSnapshot", { date: new Date(props.memoGeneratedAt).toLocaleString() })}</Text>}
         {overflowing && <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? "card.memoLess" : "card.memoMore")}</Button>}
         {props.memoTruncated && <Text as="p" variant="caption" tone="secondary">{t("overviewSocial.memoPartial")}</Text>}
       </div> : <Text as="p" variant="bodyMedium" tone="tertiary" role={props.memoLoading ? "status" : undefined}>{t(props.memoLoading ? "detail.loadingData" : props.memoError ? "overviewSocial.memoUnavailable" : "overviewSocial.noMemo")}</Text>}
