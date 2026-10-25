@@ -1,3 +1,4 @@
+import { activitySensorOrigin } from "../features/activity/detail/activitySensorOrigin";
 import { useMemo, useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import type { ActivityAnalysisModel } from "./useActivityAnalysisModel";
@@ -12,7 +13,8 @@ export function useActivityRangeSelection(model: ActivityAnalysisModel, sampled:
   const activity = model.activity, metrics = model.serverMetrics?.metrics;
   const activityRevision = activity as (typeof activity & Record<string, unknown>);
   const metricsRevision = metrics as (typeof metrics & Record<string, unknown>);
-  const identity = JSON.stringify([user?.uid, activity?.id, activity?.startTime, activity?.source, model.isActivityOwner, metrics?.computedAt,
+  const analysisActivityId = activitySensorOrigin(activity) ?? activity?.id;
+  const identity = JSON.stringify([analysisActivityId, user?.uid, activity?.id, activity?.startTime, activity?.source, model.isActivityOwner, metrics?.computedAt,
     activity?.contentRevision, activity?.contentSelectedRevision, activity?.sourceMeta, activity?.visibility, activity?.isVirtualPower,
     activityRevision?.metadataRevision, activityRevision?.updatedAt,
     metricsRevision?.metricsRevision, metricsRevision?.inputDigest, metricsRevision?.etag, metricsRevision?.sourceLayer,
@@ -57,7 +59,7 @@ export function useActivityRangeSelection(model: ActivityAnalysisModel, sampled:
     && Array.from(route!.slice(bounds.startIndex, bounds.endIndex + 1)).every(point => Array.isArray(point)
       && Number.isFinite(point[0]) && Number.isFinite(point[1]) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180)
     ? { startIndex: bounds.startIndex, endIndex: bounds.endIndex } : undefined;
-  return { rawSource: model.streams, sourceLoading: model.loadingStreams, sourceLocked,
+  return { analysisActivityId, rawSource: model.streams, sourceLoading: model.loadingStreams, sourceLocked,
     lockSource: () => { if (!sourceLocked) setSourceLock({ scope: sourceScope, source: model.streams, refreshing: false }); },
     reloadSource: async () => {
       if (!sourceLocked) return;
