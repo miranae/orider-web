@@ -7,12 +7,17 @@ import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { createMockActivity, createMockSummary } from "../../__tests__/fixtures/mockData";
 import { getCanonicalMapThumbnailFileName, isCanonicalMapThumbnailUrl } from "../activity/ActivityRouteThumbnail";
 import { useActivitySearch } from "../../hooks/useActivities";
-import { setCollectionDocs } from "../../__tests__/mocks/firebase";
-import { getDocs, startAfter, where } from "firebase/firestore";
+import { setCollectionDocs, mockCollectionData } from "../../__tests__/mocks/firebase";
+import { loadActivityDiscovery } from "../../services/activityDiscovery";
 import type { User } from "firebase/auth";
 import { AuthContextProvider } from "../../contexts/AuthContext";
 import { activityFeedSourceRevision } from "../../services/activityFeedContent";
 import { signInCancelledError } from "../../utils/signInCancelled";
+
+vi.mock("../../services/activityDiscovery", () => ({loadActivityDiscovery: vi.fn(async (_services, request) => {
+ const rows=mockCollectionData.get("activities")??[],offset=Number(request.cursor??0),end=offset+(request.limit??20);
+ return {items:rows.slice(offset,end),nextCursor:end<rows.length?String(end):null,exhausted:end>=rows.length};
+})}));
 
 vi.mock("../RouteMap", () => ({
   default: ({ interactive, fallbackImageUrl }: { interactive?: boolean; fallbackImageUrl?: string | null }) => (
@@ -211,7 +216,7 @@ describe("MobileFeedPage", () => {
     setCollectionDocs("activities", [
       { id: "older-match", ...createMockActivity({ id: "older-match", description: "설레임 첫 라이딩" }) },
     ]);
-    const searchWhere = vi.mocked(where);
+    const searchWhere = vi.mocked(loadActivityDiscovery);
     searchWhere.mockClear();
 
     function SearchFeed() {
@@ -225,7 +230,7 @@ describe("MobileFeedPage", () => {
     await searchFromMenu("설레임");
 
     expect(await screen.findByText("설레임 첫 라이딩")).toBeInTheDocument();
-    expect(searchWhere).toHaveBeenCalledWith("keywords", "array-contains", "설레임");
+    expect(searchWhere).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({keyword:"설레임",scope:"all"}));
     await act(async () => { externalSearch.reset(); });
     expect(screen.queryByText("설레임 첫 라이딩")).not.toBeInTheDocument();
   });
@@ -260,9 +265,9 @@ describe("MobileFeedPage", () => {
       const activity = createMockActivity({ id: `ride-${index}`, description: `설레임 활동 ${index}`, startTime: 1_000_000 - index });
       return { id: activity.id, data: () => activity };
     });
-    const reads = vi.mocked(getDocs).mockClear();
-    reads.mockResolvedValueOnce({ docs: matches.slice(0, 20) } as Awaited<ReturnType<typeof getDocs>>)
-      .mockResolvedValueOnce({ docs: matches.slice(20, 40) } as Awaited<ReturnType<typeof getDocs>>);
+    const reads = vi.mocked(loadActivityDiscovery).mockClear();
+    reads.mockResolvedValueOnce({ items: matches.slice(0, 20).map(d=>d.data()),nextCursor:"20",exhausted:false } as never)
+      .mockResolvedValueOnce({ items: matches.slice(20, 40).map(d=>d.data()),nextCursor:"40",exhausted:false } as never);
 
     function SearchFeed() {
       const activitySearch = useActivitySearch(new Set());
@@ -303,7 +308,7 @@ describe("MobileFeedPage", () => {
     const user = userEvent.setup();
     const loaded = createMockActivity({ id: "loaded-match", description: "설레임 로드된 라이딩" });
     setCollectionDocs("activities", []);
-    const searchRead = vi.mocked(getDocs);
+    const searchRead = vi.mocked(loadActivityDiscovery);
     searchRead.mockClear().mockRejectedValueOnce(new Error("search unavailable"));
 
     function SearchFeed() {
@@ -330,9 +335,9 @@ describe("MobileFeedPage", () => {
       return { id: activity.id, data: () => activity };
     });
     const run = createMockActivity({ id: "later-run", type: "run", description: "설레임 나중 러닝", startTime: 1 });
-    vi.mocked(getDocs).mockResolvedValueOnce({ docs: firstPage } as Awaited<ReturnType<typeof getDocs>>)
-      .mockResolvedValueOnce({ docs: [{ id: run.id, data: () => run }] } as Awaited<ReturnType<typeof getDocs>>);
-    vi.mocked(startAfter).mockClear();
+    vi.mocked(loadActivityDiscovery).mockResolvedValueOnce({ items: firstPage.map(d=>d.data()),nextCursor:"20",exhausted:false } as never)
+      .mockResolvedValueOnce({ items: [run],nextCursor:null,exhausted:true } as never);
+
 
     function SearchFeed() {
       const activitySearch = useActivitySearch(new Set());
@@ -347,7 +352,7 @@ describe("MobileFeedPage", () => {
     await user.click(screen.getByRole("button", { name: "더 보기" }));
 
     expect(await screen.findByText("설레임 나중 러닝")).toBeInTheDocument();
-    expect(startAfter).toHaveBeenCalled();
+    expect(loadActivityDiscovery).toHaveBeenLastCalledWith(expect.anything(),expect.objectContaining({cursor:"20"}));
   });
 
 

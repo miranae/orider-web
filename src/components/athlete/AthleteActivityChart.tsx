@@ -7,7 +7,7 @@ import { athleteProfilePeriods, type AthletePeriod } from "./athleteProfilePerio
 
 export default function AthleteActivityChart({ activities, loadActivities = activities, selected, onSelect }: { activities: Activity[]; loadActivities?: Activity[]; selected: AthletePeriod | null; onSelect: (period: AthletePeriod | null) => void }) {
   const { t, i18n } = useTranslation("athlete");
-  const years = useMemo(() => [...new Set([new Date().getFullYear(), ...activities.filter(item => Number.isFinite(item.startTime)).map(item => new Date(item.startTime).getFullYear())])].sort((a, b) => b - a), [activities]);
+  const years = useMemo(() => [...new Set([new Date().getFullYear(), ...activities.filter(item => Number.isFinite(item.startTime) && item.startTime > 0).map(item => new Date(item.startTime).getFullYear())])].sort((a, b) => b - a), [activities]);
   const [year, setYear] = useState(new Date().getFullYear());
   const [mode, setMode] = useState<"week" | "month">("month");
   const [attempt, setAttempt] = useState(0);

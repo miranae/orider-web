@@ -1,8 +1,8 @@
+import { loadActivityDiscovery } from "../services/activityDiscovery";
+import { useFirebaseServices, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { feedSessionKey, readFeedDepth, saveFeedDepth } from "../services/feedNavigationDepth";
-import { compareActivityFeedOrder } from "../utils/activityFeedOrder";
 import { useActivitySafety } from "./useActivitySafety";
 import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../config/activitySubscriptions";
-import { admitSubscriptionActivities } from "../services/subscriptionFeed";
 import { SEARCH_PAGE_SIZE } from "../constants/pagination";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
@@ -12,27 +12,15 @@ import {
   orderBy,
   limit,
   getDocs,
-  getCountFromServer,
-  or,
-  and,
-  startAfter,
-  type QueryDocumentSnapshot,
-  type DocumentData,
-  type QueryConstraint,
-  type QueryCompositeFilterConstraint,
-  type QueryNonFilterConstraint,
-  type CollectionReference,
 } from "firebase/firestore";
 import { firestore } from "../services/firebase";
 import { debugLog, logClientError } from "../services/errorLogger";
-import { getPublicUserProfiles } from "../services/publicProfiles";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
 import { disciplineOfType } from "@shared/sport/discipline";
 import type { WeeklyStat } from "../components/WeeklyChart";
 import { acceptedTrainingActivities, acceptedStatsActivities } from "../utils/estimateTSS";
 import { buildWeeklyLoadEvidence } from "../utils/weeklyLoadEvidence";
-import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { getDiscipline, type Discipline } from "../utils/disciplineFilter";
 import { seoulWeekStartMs, seoulYearStartMs } from "../utils/seoulWeek";
 import {
@@ -57,7 +45,7 @@ const FEED_LOAD_TIMEOUT_MS = 12_000;
 // 친구 피드는 userId(in)의 각 후보마다 rules의 양방향 친구 exists() 검사를 수행한다.
 // 단일 쿼리의 rules 문서 접근 호출 한도(10)를 넘지 않도록 5명씩 나눈다.
 // visibility(in) 두 값과 곱해진 DNF 분기도 Firestore의 30-disjunction 한도 안에 남는다.
-const FRIEND_QUERY_CHUNK_SIZE = 5;
+
 
 class ActivityFeedTimeoutError extends Error {
   constructor() {
@@ -113,21 +101,11 @@ function logActivityFeedTimeout(source: string, context?: Record<string, unknown
 
 export type ActivityFeedScope = "all" | "friends" | "self" | "following";
 
-type BufferedActivity = {
-  activity: Activity;
-  doc: QueryDocumentSnapshot<DocumentData>;
-};
-
-type FeedSourceCursor = {
-  ownerIds: string[] | null;
-  last: QueryDocumentSnapshot<DocumentData> | null;
-  exhausted: boolean;
-  buffer: BufferedActivity[];
-};
-
-type FeedCursor = {
-  sources: FeedSourceCursor[];
-};
+function invalidDiscoveryCursor(error: unknown) {
+  const e = error as { code?: string; message?: string };
+  return ['permission-denied', 'unauthenticated', 'failed-precondition'].includes(e.code?.replace('functions/', '') ?? '') || e.message === 'account_changed';
+}
+type FeedCursor = string;
 
 type ActivityPage = {
   serverMetadata?: { fromCache: boolean; hasPendingWrites: boolean };
@@ -136,61 +114,9 @@ type ActivityPage = {
   hasMore: boolean;
 };
 
-type FeedSourceQuery = {
-  ownerIds: string[] | null;
-  composite: QueryCompositeFilterConstraint | null;
-  filters: QueryConstraint[];
-};
-
-function makeSourceQuery(
-  col: CollectionReference<DocumentData>,
-  source: FeedSourceQuery,
-  trailing: QueryNonFilterConstraint[] = [],
-) {
-  return source.composite
-    ? query(col, source.composite, ...trailing)
-    : query(col, ...source.filters, ...trailing);
-}
-
-function chunkFriendIds(friendIds: readonly string[]): string[][] {
-  const uniqueIds = Array.from(new Set(friendIds.filter(Boolean)));
-  const chunks: string[][] = [];
-  for (let index = 0; index < uniqueIds.length; index += FRIEND_QUERY_CHUNK_SIZE) {
-    chunks.push(uniqueIds.slice(index, index + FRIEND_QUERY_CHUNK_SIZE));
-  }
-  return chunks;
-}
-
 const activityPageRequests = new Map<string, Promise<ActivityPage>>();
 
-function feedCursorRequestKey(cursor: FeedCursor | null): unknown {
-  return cursor?.sources.map((source) => ({
-    ownerIds: source.ownerIds,
-    lastPath: source.last?.ref.path ?? null,
-    exhausted: source.exhausted,
-    bufferedActivityIds: source.buffer.map(({ activity }) => activity.id),
-  })) ?? null;
-}
-
-async function hydrateActivityProfileImages(items: Activity[]): Promise<Activity[]> {
-  const missingProfileImageUserIds = Array.from(
-    new Set(items.filter((activity) => !activity.profileImage).map((activity) => activity.userId)),
-  );
-  if (missingProfileImageUserIds.length === 0) return items;
-
-  try {
-    const profiles = await getPublicUserProfiles(missingProfileImageUserIds);
-    return items.map((activity) => {
-      if (activity.profileImage) return activity;
-      const photoURL = profiles.get(activity.userId)?.photoURL;
-      return photoURL ? { ...activity, profileImage: photoURL } : activity;
-    });
-  } catch (err) {
-    if (isPermissionDeniedError(err)) return items;
-    logClientError("useActivities.profileImages", err, { userCount: missingProfileImageUserIds.length });
-    return items;
-  }
-}
+function feedCursorRequestKey(cursor: FeedCursor | null): unknown { return cursor; }
 
 export interface UseActivitiesOptions {
   navigationKey?: string;
@@ -205,6 +131,7 @@ export function useActivities(
   options: UseActivitiesOptions = {},
 ) {
   const enabled = options.enabled ?? true;
+  const services = useFirebaseServices();
   const { user, loading: authLoading } = useAuth();
   const safety = useActivitySafety(user && !user.isAnonymous ? user.uid : null, enabled);
   const friendIdsKey = useMemo(
@@ -216,15 +143,10 @@ export function useActivities(
   const subscriptionIdsKey = scope === "following" && ACTIVITY_SUBSCRIPTIONS_ENABLED && user && !user.isAnonymous
     ? [...new Set(options.subscriptionIds ?? [])].filter(id => id && id !== user.uid).sort().join("\u0000") : "";
   const subscriptionKey = scope === "following" ? options.subscriptionKey ?? "" : "";
-  const stableSubscriptionIds = useMemo(() => subscriptionIdsKey ? subscriptionIdsKey.split("\u0000") : [], [subscriptionIdsKey]);
-  const stableFriendIds = useMemo(
-    () => activeFriendIdsKey ? activeFriendIdsKey.split("\u0000") : [],
-    [activeFriendIdsKey],
-  );
   const sessionKey = feedSessionKey(user);
   const depthKey = options.navigationKey ? `${sessionKey}:${scope}:${options.navigationKey}` : undefined;
   const feedRequestKey = JSON.stringify([
-    sessionKey,
+    sessionKey, feedSessionKey(services),
     user == null ? "anonymous" : "authenticated",
     user?.uid ?? null,
     scope,
@@ -250,7 +172,7 @@ export function useActivities(
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loadedRequestKey, setLoadedRequestKey] = useState<string | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
+  const totalCount = 0; // Safe discovery does not claim a whole-history count.
   const [loading, setLoading] = useState(enabled);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -262,173 +184,13 @@ export function useActivities(
     setRetryGeneration((generation) => generation + 1);
   }, []);
 
-  const buildSourceQueries = useCallback((uid: string | null): FeedSourceQuery[] => {
-    if (scope === "following") {
-      if (!uid || !ACTIVITY_SUBSCRIPTIONS_ENABLED || user?.isAnonymous) return [];
-      return [
-        { ownerIds: null, composite: null, filters: [where("deletedAt", "==", null), where("userId", "==", uid)] },
-        ...chunkFriendIds(stableSubscriptionIds).map(ownerIds => ({ ownerIds, composite: null, filters: [
-          where("deletedAt", "==", null), where("userId", "in", ownerIds), where("visibility", "==", "everyone"),
-        ] })),
-      ];
-    }
-    if (scope === "self") {
-      return uid
-        ? [{ ownerIds: null, composite: null, filters: [where("deletedAt", "==", null), where("userId", "==", uid)] }]
-        : [];
-    }
-    if (scope === "friends") {
-      if (!uid) return [];
-      return [
-        { ownerIds: null, composite: null, filters: [where("deletedAt", "==", null), where("userId", "==", uid)] },
-        ...chunkFriendIds(stableFriendIds.filter((id) => id !== uid)).map((ownerIds) => ({
-          ownerIds,
-          composite: null,
-          filters: [
-            where("deletedAt", "==", null),
-            where("userId", "in", ownerIds),
-            where("visibility", "in", ["everyone", "friends"]),
-          ],
-        })),
-      ];
-    }
-    return [{
-      ownerIds: null,
-      composite: uid
-        ? and(where("deletedAt", "==", null), or(where("userId", "==", uid), where("visibility", "==", "everyone")))
-        : null,
-      filters: uid ? [] : [where("deletedAt", "==", null), where("visibility", "==", "everyone")],
-    }, ...uid ? chunkFriendIds(stableFriendIds.filter((id) => id !== uid)).map((ownerIds) => ({
-      ownerIds,
-      composite: null,
-      filters: [
-        where("deletedAt", "==", null),
-        where("userId", "in", ownerIds),
-        where("visibility", "==", "friends"),
-      ],
-    })) : []];
-  }, [scope, stableFriendIds, stableSubscriptionIds, user?.isAnonymous]);
-
-  // Total count (경량 메타데이터 쿼리, 문서 데이터 전송 없음).
-  // 첫 피드/LCP 경로와 같은 Firestore 연결을 두고 경쟁하지 않도록 idle 이후로 미룬다.
-  // 카운트는 보조 표시라 첫 화면 렌더 완료 뒤 갱신돼도 사용자 흐름에 영향이 없다.
-  useEffect(() => {
-    if (!enabled || scope === "following") {
-      setTotalCount(0);
-      return;
-    }
-    if (authLoading) return;
-
-    let cancelled = false;
-    let timerId: ReturnType<typeof setTimeout> | null = null;
-    // 범위가 바뀐 직후 이전 범위의 건수를 새 라벨로 보여주지 않는다.
-    setTotalCount(0);
-
-    const run = () => {
-      if (cancelled) return;
-
-      const col = collection(firestore, "activities");
-      const sourceQueries = buildSourceQueries(user?.uid ?? null);
-      Promise.all(sourceQueries.map((source) => getCountFromServer(makeSourceQuery(col, source))))
-        .then((snaps) => {
-          if (!cancelled) setTotalCount(snaps.reduce((sum, snap) => sum + snap.data().count, 0));
-        })
-        .catch((err) => logClientError("useActivities.count", err, { scope }));
-    };
-
-    // requestIdleCallback 은 Firebase/App Check 준비 중에도 너무 일찍 실행될 수 있어
-    // 첫 피드 쿼리와 다시 경쟁한다. 보조 카운트는 LCP 이후에 확실히 보낸다.
-    timerId = setTimeout(run, 4500);
-
-    return () => {
-      cancelled = true;
-      if (timerId != null) clearTimeout(timerId);
-    };
-  }, [enabled, authLoading, user, buildSourceQueries, scope]);
-
   const fetchPageRequest = useCallback(async (
-    uid: string | null,
-    cursor: FeedCursor | null,
-    pageSize = FEED_PAGE_SIZE,
+    uid: string | null, cursor: FeedCursor | null, pageSize = FEED_PAGE_SIZE,
   ): Promise<ActivityPage> => {
-    const col = collection(firestore, "activities");
-    let serverMetadata: ActivityPage["serverMetadata"];
-    const sourceQueries = buildSourceQueries(uid);
-    const previousSources = cursor?.sources ?? sourceQueries.map((source) => ({
-      ownerIds: source.ownerIds,
-      last: null,
-      exhausted: false,
-      buffer: [],
-    }));
-
-    const sources = await Promise.all(previousSources.map(async (source, index): Promise<FeedSourceCursor> => {
-      if (source.buffer.length >= pageSize || source.exhausted) return source;
-      const sourceQuery = sourceQueries[index];
-      if (!sourceQuery) return { ...source, exhausted: true };
-      let nextSource = source;
-
-      // 각 소스가 pageSize개의 유효 문서 또는 실제 끝에 도달할 때까지 frontier를
-      // 전진시킨다. summary 없는 비정상 문서를 제외한 뒤 buffer가 짧은 상태에서 다른
-      // 소스의 오래된 항목을 먼저 내보내면 다음 페이지에 더 최신 항목이 나타날 수 있다.
-      while (nextSource.buffer.length < pageSize && !nextSource.exhausted) {
-        const constraints = [
-          // startTime DESC also implies document name DESC; keep compareActivityFeedOrder aligned.
-          // 인덱스(orider-g1-web `firestore/firestore.indexes.json`):
-          //   본인   `deletedAt, userId, startTime DESC`
-          //   공개   `deletedAt, visibility, startTime DESC`
-          //   친구   `userId, deletedAt, visibility, startTime DESC` (#2362 로 추가)
-          orderBy("startTime", "desc"),
-          limit(pageSize),
-          ...(nextSource.last ? [startAfter(nextSource.last)] : []),
-        ];
-        const snap = await getDocs(makeSourceQuery(col, sourceQuery, constraints));
-        // Offline cache cannot establish current visibility after returning to the feed.
-        if (snap.metadata?.fromCache || snap.metadata?.hasPendingWrites) throw new Error("feed_server_confirmation_required");
-        if (snap.metadata?.fromCache === false && snap.metadata.hasPendingWrites === false) {
-          serverMetadata = snap.metadata;
-        }
-        nextSource = {
-          ...nextSource,
-          last: snap.docs[snap.docs.length - 1] ?? nextSource.last,
-          exhausted: snap.docs.length < pageSize,
-          buffer: [
-            ...nextSource.buffer,
-            ...snap.docs
-              .map((doc) => ({ doc, activity: ({ id: doc.id, ...doc.data() }) as Activity }))
-              .filter(({ activity }) => activity.summary != null),
-          ],
-        };
-      }
-      return nextSource;
-    }));
-
-    const merged = sources
-      .flatMap((source, sourceIndex) => source.buffer.map((item) => ({ item, sourceIndex })))
-      // Match each source's implicit document-name DESC tie order, independent of source partitions.
-      .sort((left, right) => compareActivityFeedOrder(left.item.activity, right.item.activity));
-    const selected = merged.slice(0, pageSize);
-    const consumedBySource = new Map<number, Set<string>>();
-    selected.forEach(({ item, sourceIndex }) => {
-      const consumed = consumedBySource.get(sourceIndex) ?? new Set<string>();
-      consumed.add(item.activity.id);
-      consumedBySource.set(sourceIndex, consumed);
-    });
-    const nextSources = sources.map((source, sourceIndex) => ({
-      ...source,
-      buffer: source.buffer.filter((item) => !consumedBySource.get(sourceIndex)?.has(item.activity.id)),
-    }));
-    const selectedItems = selected.map(({ item }) => item.activity);
-    const admittedItems = scope === "following" && uid ? await admitSubscriptionActivities(uid, selectedItems) : selectedItems;
-    const hydratedItems = await hydrateActivityProfileImages(admittedItems);
-    const hasMore = nextSources.some((source) => source.buffer.length > 0 || !source.exhausted);
-
-    return {
-      items: hydratedItems,
-      serverMetadata,
-      cursor: hasMore ? { sources: nextSources } : null,
-      hasMore,
-    };
-  }, [buildSourceQueries, scope, subscriptionKey]);
+    if ((scope === 'self' || scope === 'friends' || scope === 'following') && (!uid || user?.isAnonymous)) return { items: [], cursor: null, hasMore: false };
+    const page = await loadActivityDiscovery(services, { scope, limit: pageSize, ...(cursor ? { cursor } : {}) });
+    return { items: page.items, cursor: page.nextCursor, hasMore: !page.exhausted };
+  }, [services, scope, user?.isAnonymous]);
 
   const fetchPage = useCallback((
     uid: string | null,
@@ -436,7 +198,7 @@ export function useActivities(
     pageSize = FEED_PAGE_SIZE,
   ): Promise<ActivityPage> => {
     const key = JSON.stringify([
-      sessionKey,
+      sessionKey, feedSessionKey(services),
       uid == null ? "anonymous" : "authenticated",
       uid,
       scope,
@@ -460,7 +222,7 @@ export function useActivities(
       // 원래 request의 rejection은 호출자가 처리한다. finally 파생 Promise만 흡수한다.
     });
     return request;
-  }, [activeFriendIdsKey, subscriptionIdsKey, subscriptionKey, fetchPageRequest, scope, sessionKey]);
+  }, [activeFriendIdsKey, subscriptionIdsKey, subscriptionKey, fetchPageRequest, scope, sessionKey, services]);
 
   // 초기 로드 + 유저 변경 시 리셋
   useEffect(() => {
@@ -640,7 +402,7 @@ export function useActivities(
       if (!isCurrentRequest()) return;
       noteFirestoreServerSuccess(result.serverMetadata);
       saveFeedDepth(depthKey, activities.length + result.items.length);
-      setActivities((prev) => [...prev, ...result.items]);
+      setActivities((prev) => [...prev, ...result.items.filter(item => !prev.some(old => old.id === item.id))]);
       setFeedCursor(result.cursor);
       setHasMore(result.hasMore);
     } catch (err) {
@@ -651,6 +413,7 @@ export function useActivities(
       } else {
         handleActivityFeedError("useActivities.loadMore", err, { scope });
       }
+      if (invalidDiscoveryCursor(err)) { setActivities([]); setFeedCursor(null); setHasMore(false); }
       setError(true);
     } finally {
       if (isCurrentRequest()) {
@@ -945,114 +708,24 @@ function getDateFrom(preset: DatePreset): number | null {
 export type OwnerPreset = "all" | "friends" | "me";
 
 const SEARCH_LIMIT = SEARCH_PAGE_SIZE;
-type SearchCursor = { last: QueryDocumentSnapshot<DocumentData> | null; hasMore: boolean; buffer: Activity[] };
+type SearchCursor = string;
 type SearchPage = { results: Activity[]; cursors: SearchCursor[]; hasMore: boolean };
-
-/** Server-side keyword search for activities using array-contains */
-async function fetchActivitySearchResults(
-  keyword: string,
-  uid: string | null,
-  dateFrom: number | null,
-  previousCursors?: SearchCursor[],
-  subscriptionIds?: readonly string[],
-): Promise<SearchPage> {
-  const tokens = keyword
-    .toLowerCase()
-    .split(/[^\p{L}\p{N}]+/gu)
-    .filter(Boolean);
-  if (tokens.length === 0) return { results: [], cursors: [], hasMore: false };
-  const token = tokens[0]!;
-
-  const col = collection(firestore, "activities");
-
-  // Build queries based on auth state
-  const constraints: QueryConstraint[][] = [];
-
-  if (uid) {
-    // 1. My activities
-    const myConstraints: QueryConstraint[] = [
-      where("userId", "==", uid),
-      where("deletedAt", "==", null),
-      where("keywords", "array-contains", token),
-      orderBy("startTime", "desc"),
-    ];
-    if (dateFrom !== null) {
-      myConstraints.splice(3, 0, where("startTime", ">=", dateFrom));
-    }
-    constraints.push(myConstraints);
-
-    // 2. Public activities (excluding mine)
-    const pubConstraints: QueryConstraint[] = [
-      where("deletedAt", "==", null),
-      where("visibility", "==", "everyone"),
-      where("keywords", "array-contains", token),
-      orderBy("startTime", "desc"),
-    ];
-    if (dateFrom !== null) {
-      pubConstraints.splice(3, 0, where("startTime", ">=", dateFrom));
-    }
-    if (subscriptionIds) {
-      chunkFriendIds(subscriptionIds.filter(id => id !== uid)).forEach(ids => constraints.push([...pubConstraints, where("userId", "in", ids)]));
-    } else constraints.push(pubConstraints);
-  } else {
-    // Guest: public only
-    const pubConstraints: QueryConstraint[] = [
-      where("deletedAt", "==", null),
-      where("visibility", "==", "everyone"),
-      where("keywords", "array-contains", token),
-      orderBy("startTime", "desc"),
-    ];
-    if (dateFrom !== null) {
-      pubConstraints.splice(3, 0, where("startTime", ">=", dateFrom));
-    }
-    constraints.push(pubConstraints);
-  }
-
-  // Keep unconsumed source results so the merged page is capped at 20 without
-  // skipping activities or fetching them again on the next click.
-  const cursors = await Promise.all(constraints.map(async (source, index): Promise<SearchCursor> => {
-    const previous = previousCursors?.[index];
-    const buffer = [...(previous?.buffer ?? [])];
-    if (previous && (!previous.hasMore || buffer.length >= SEARCH_LIMIT)) return { ...previous, buffer };
-    const readLimit = SEARCH_LIMIT - buffer.length;
-    const snap = await getDocs(query(col, ...source, limit(readLimit), ...(previous?.last ? [startAfter(previous.last)] : [])));
-    if (snap.metadata?.fromCache || snap.metadata?.hasPendingWrites) throw new Error("feed_server_confirmation_required");
-    return {
-      last: snap.docs[snap.docs.length - 1] ?? previous?.last ?? null,
-      hasMore: snap.docs.length === readLimit,
-      buffer: [...buffer, ...snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Activity)],
-    };
-  }));
-
-  const merged: Activity[] = [];
-  while (merged.length < SEARCH_LIMIT) {
-    let next: Activity | undefined;
-    for (const cursor of cursors) {
-      const candidate = cursor.buffer[0];
-      if (candidate && (!next || compareActivityFeedOrder(candidate, next) < 0)) next = candidate;
-    }
-    if (!next) break;
-    merged.push(next);
-    // My public activities appear in both sources. Consume both copies together.
-    for (const cursor of cursors) {
-      cursor.buffer = cursor.buffer.filter((activity) => activity.id !== next.id);
-    }
-  }
-
-  return {
-    results: await hydrateActivityProfileImages(subscriptionIds && uid ? await admitSubscriptionActivities(uid, merged) : merged),
-    cursors,
-    hasMore: cursors.some((cursor) => cursor.hasMore || cursor.buffer.length > 0),
-  };
+async function fetchActivitySearchResults(services: FirebaseServices, keyword: string, _uid: string | null, dateFrom: number | null, previousCursors?: SearchCursor[], subscriptionIds?: readonly string[]): Promise<SearchPage> {
+  const token = keyword.toLowerCase().split(/[^\p{L}\p{N}]+/gu).filter(Boolean)[0];
+  if (!token) return { results: [], cursors: [], hasMore: false };
+  const page = await loadActivityDiscovery(services, { scope: subscriptionIds ? 'following' : 'all', keyword: token, limit: SEARCH_LIMIT,
+    ...(dateFrom !== null ? { fromInclusive: dateFrom } : {}), ...(previousCursors?.[0] ? { cursor: previousCursors[0] } : {}) });
+  return { results: page.items, cursors: page.nextCursor ? [page.nextCursor] : [], hasMore: !page.exhausted };
 }
 
 export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?: { ids: readonly string[]; key: string; ready: boolean }, navigationKey?: string) {
   const { user } = useAuth();
+  const services = useFirebaseServices();
 
   const subscriptionIdsKey = subscriptions ? [...new Set(subscriptions.ids)].sort().join("\u0000") : null;
   const subscriptionIds = useMemo(() => subscriptionIdsKey === null ? undefined : subscriptionIdsKey ? subscriptionIdsKey.split("\u0000") : [], [subscriptionIdsKey]);
   const subscriptionReady = subscriptions?.ready ?? true;
-  const searchOwnerKey = JSON.stringify([feedSessionKey(user), user?.uid ?? "anonymous", subscriptions?.key ?? null, subscriptionIdsKey]);
+  const searchOwnerKey = JSON.stringify([feedSessionKey(user), feedSessionKey(services), user?.uid ?? "anonymous", subscriptions?.key ?? null, subscriptionIdsKey]);
   const [searchResultState, setSearchResultState] = useState<{ ownerKey: string; keyword: string; datePreset: DatePreset; results: Activity[]; cursors: SearchCursor[]; hasMore: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -1099,13 +772,13 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
 
     const dateFrom = getDateFrom(datePreset);
 
-    fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, dateFrom, undefined, subscriptionIds)
+    fetchActivitySearchResults(services, searchedKeyword, user?.uid ?? null, dateFrom, undefined, subscriptionIds)
       .then(async (page) => {
         let accumulated = page;
         let pages = 0;
         const desired = readFeedDepth(searchDepthKey, 0);
         while (!cancelled && searchEpoch.current === requestEpoch && accumulated.hasMore && accumulated.results.length < desired && pages++ < 10) {
-          const next = await fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, dateFrom, accumulated.cursors, subscriptionIds);
+          const next = await fetchActivitySearchResults(services, searchedKeyword, user?.uid ?? null, dateFrom, accumulated.cursors, subscriptionIds);
           accumulated = { ...next, results: [...accumulated.results, ...next.results.filter(item => !accumulated.results.some(previous => previous.id === item.id))] };
         }
         if (!cancelled && searchEpoch.current === requestEpoch) {
@@ -1122,7 +795,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
       });
 
     return () => { cancelled = true; searchEpoch.current += 1; };
-  }, [active, searchedKeyword, datePreset, user, searchOwnerKey, retryCount, subscriptionIds, subscriptionReady, searchDepthKey]);
+  }, [active, searchedKeyword, datePreset, user, searchOwnerKey, retryCount, subscriptionIds, subscriptionReady, searchDepthKey, services]);
 
   // Reset displayCount when filters change
   useEffect(() => {
@@ -1153,7 +826,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
     const requestEpoch = searchEpoch.current;
     loadingMoreEpoch.current = requestEpoch;
     setLoadingMore(true);
-    fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, getDateFrom(datePreset), currentSearchResultState.cursors, subscriptionIds)
+    fetchActivitySearchResults(services, searchedKeyword, user?.uid ?? null, getDateFrom(datePreset), currentSearchResultState.cursors, subscriptionIds)
       .then((page) => {
         if (searchEpoch.current !== requestEpoch) return;
         saveFeedDepth(searchDepthKey, currentSearchResultState.results.length + page.results.length);
@@ -1168,13 +841,14 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
       .catch((err) => {
         if (searchEpoch.current !== requestEpoch) return;
         logClientError("useActivitySearch.loadMore", err, { datePreset });
+        if (invalidDiscoveryCursor(err)) setSearchResultState(null);
         setError(true);
       })
       .finally(() => {
         if (loadingMoreEpoch.current === requestEpoch) loadingMoreEpoch.current = null;
         if (searchEpoch.current === requestEpoch) setLoadingMore(false);
       });
-  }, [active, currentSearchResultState, datePreset, error, loading, searchedKeyword, user, subscriptionIds, searchDepthKey]);
+  }, [active, currentSearchResultState, datePreset, error, loading, searchedKeyword, user, subscriptionIds, searchDepthKey, services]);
   const loadMore = useCallback(() => {
     if (displayCount < results.length) setDisplayCount((prev) => prev + 20);
     else loadMoreServer();

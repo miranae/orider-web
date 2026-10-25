@@ -1,4 +1,6 @@
 {
+  "publicDiscoveryLimit": "The public-record scan reached its limit, so complete totals and monthly charts are unavailable. This is not a connection error. Continue browsing individual records with Load more below.",
+  "publicDiscoveryScope": "Statistics describe public records checked with current access, up to 200 activities. Totals are withheld when the scan is incomplete. Undated records are excluded from monthly charts; private sensors and training load are not provided.",
   "notFound": "User not found.",
   "stats.activities": "Activities",
   "stats.publicActivities": "Public activities",

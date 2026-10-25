@@ -1,3 +1,5 @@
+import { loadActivityDiscovery } from "../services/activityDiscovery";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadSegmentMetadataPage } from "../services/segmentMetadata";
 import { isSportUiEnabled } from "../config/sportFeatures";
 import { acceptedStatsActivities, acceptedTrainingActivities } from "../utils/estimateTSS";
@@ -112,6 +114,7 @@ function AthleteIdentityChips({
 
 /** meUserId: /athlete/me 라우트가 로그인 uid 로 해석해 넘긴다. 없으면 :userId 파라미터. */
 export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
+  const services = useFirebaseServices();
   const { userId: paramUserId } = useParams<{ userId: string }>();
   const userId = meUserId ?? paramUserId;
   const { user: currentUser, profile: currentProfile, loading: authLoading } = useAuth();
@@ -156,10 +159,16 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreActivities, setHasMoreActivities] = useState(true);
+  const [publicSearchCursor, setPublicSearchCursor] = useState<string | null>(null);
+  const [publicSearchError, setPublicSearchError] = useState(false);
+  const [publicActivityCursor, setPublicActivityCursor] = useState<string | null>(null);
+  const profileReadIdentity = useRef({ userId, viewer: services.auth.currentUser });
+  if (profileReadIdentity.current.userId !== userId || profileReadIdentity.current.viewer !== services.auth.currentUser) profileReadIdentity.current = { userId, viewer: services.auth.currentUser };
   const [lastActivityDoc, setLastActivityDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [chartActivities, setChartActivities] = useState<Activity[]>([]);
   const [chartLoading, setChartLoading] = useState(true);
   const [chartError, setChartError] = useState(false);
+  const [chartLimited, setChartLimited] = useState(false);
   const [chartAttempt, setChartAttempt] = useState(0);
 
   // My segments
@@ -245,9 +254,16 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       setActivitiesLoading(true);
       setDisplayActivities([]);
       setLastActivityDoc(null);
+      setPublicActivityCursor(null);
       setHasMoreActivities(true);
 
       try {
+        if (!isOwnProfile) {
+          const page = await loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, limit: ACTIVITIES_PAGE_SIZE });
+          if (cancelled) return;
+          setDisplayActivities(page.items); setPublicActivityCursor(page.nextCursor); setHasMoreActivities(!page.exhausted);
+          return;
+        }
         const constraints = [
           where("userId", "==", userId),
           where("deletedAt", "==", null),
@@ -275,20 +291,20 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
     load();
     return () => { cancelled = true; };
-  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus]);
+  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus, services, currentUser]);
 
   // 월간 누적은 접근 가능한 전체 활동을 모두 읽은 뒤에만 표시한다.
   useEffect(() => {
     let cancelled = false;
     setChartActivities([]);
-    setChartError(false);
+    setChartError(false); setChartLimited(false);
     setChartLoading(true);
     if (!userId || (profileLoading && !ownProfileFallback)) return;
     if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
       setChartLoading(false);
       return;
     }
-    void loadAthleteChartActivities(userId, isOwnProfile, () => cancelled)
+    void loadAthleteChartActivities(userId, isOwnProfile, () => cancelled, services)
       .then((items) => {
         if (cancelled || !items) return;
         setChartActivities(items);
@@ -296,11 +312,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       .catch((err) => {
         if (cancelled) return;
         logClientError("AthletePage.loadChartActivities", err, { userId, isOwnProfile });
+        setChartLimited(err instanceof Error && err.message === "public_activity_inventory_incomplete");
         setChartError(true);
       })
       .finally(() => { if (!cancelled) setChartLoading(false); });
     return () => { cancelled = true; };
-  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus, chartAttempt]);
+  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus, chartAttempt, services, currentUser]);
 
   // 4. 서버 검색: keywords array-contains 쿼리
   const handleSearch = () => {
@@ -321,6 +338,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
     let cancelled = false;
     setSearchLoading(true);
+    setPublicSearchCursor(null); setPublicSearchError(false);
 
     const token = searchQuery
       .toLowerCase()
@@ -342,20 +360,28 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       limit(50),
     ];
 
-    getDocs(query(collection(firestore, "activities"), ...constraints)).then((snap) => {
-      if (cancelled) return;
-      const items = docsToActivities(snap.docs);
-      // 비공개 필터 (본인이 아닌 경우)
-      setSearchResults(isOwnProfile ? items : items.filter((a) => a.visibility === "everyone"));
-    }).catch((err) => {
-      logClientError("AthletePage.searchActivities", err, { userId, token });
-      if (!cancelled) setSearchResults([]);
-    }).finally(() => {
-      if (!cancelled) setSearchLoading(false);
-    });
+    const read = isOwnProfile
+      ? getDocs(query(collection(firestore, "activities"), ...constraints)).then(snap => docsToActivities(snap.docs))
+      : loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, keyword: token, limit: 20 }).then(page => { if (!cancelled) setPublicSearchCursor(page.nextCursor); return page.items; });
+    read.then(items => { if (!cancelled) setSearchResults(items); }).catch(err => {
+      logClientError("AthletePage.searchActivities", err, { userId }); if (!cancelled) { setSearchResults([]); setPublicSearchError(true); }
+    }).finally(() => { if (!cancelled) setSearchLoading(false); });
 
     return () => { cancelled = true; };
-  }, [searchQuery, userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus]);
+  }, [searchQuery, userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus, services, currentUser]);
+
+  const loadMorePublicSearch = async () => {
+    if (!userId || !publicSearchCursor || searchLoading || isOwnProfile) return;
+    const identity = profileReadIdentity.current;
+    setSearchLoading(true); setPublicSearchError(false);
+    try {
+      const keyword = searchQuery.toLowerCase().split(/[^\p{L}\p{N}]+/gu).filter(Boolean)[0];
+      const page = await loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, keyword, limit: 20, cursor: publicSearchCursor });
+      if (profileReadIdentity.current !== identity) return;
+      setSearchResults(previous => [...previous, ...page.items.filter(item => !previous.some(old => old.id === item.id))]); setPublicSearchCursor(page.nextCursor);
+    } catch { if (profileReadIdentity.current === identity) { setSearchResults([]); setPublicSearchCursor(null); setPublicSearchError(true); } }
+    finally { if (profileReadIdentity.current === identity) setSearchLoading(false); }
+  };
 
   const handleResetSearch = () => {
     setSearchQuery("");
@@ -363,11 +389,18 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   };
 
   const handleLoadMoreActivities = async () => {
-    if (!userId || !lastActivityDoc || loadingMore) return;
+    if (!userId || (!lastActivityDoc && !publicActivityCursor) || loadingMore) return;
     if (profileLoading && !ownProfileFallback) return;
     if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") return;
     setLoadingMore(true);
+    const identity = profileReadIdentity.current;
     try {
+      if (!isOwnProfile) {
+        const page = await loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, limit: 20, ...(publicActivityCursor ? { cursor: publicActivityCursor } : {}) });
+        if (profileReadIdentity.current !== identity) return;
+        setDisplayActivities(previous => [...previous, ...page.items.filter(item => !previous.some(old => old.id === item.id))]);
+        setPublicActivityCursor(page.nextCursor); setHasMoreActivities(!page.exhausted); return;
+      }
       const constraints = [
         where("userId", "==", userId),
         where("deletedAt", "==", null),
@@ -378,13 +411,15 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       ];
       const q = query(collection(firestore, "activities"), ...constraints);
       const snap = await getDocs(q);
+      if (profileReadIdentity.current !== identity) return;
       setDisplayActivities((prev) => [...prev, ...docsToActivities(snap.docs)]);
       setLastActivityDoc(snap.docs[snap.docs.length - 1] ?? null);
       setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
     } catch (err) {
       logClientError("AthletePage.loadMoreActivities", err, { userId, isOwnProfile });
+      if (profileReadIdentity.current === identity && !isOwnProfile) { setDisplayActivities([]); setPublicActivityCursor(null); setHasMoreActivities(false); }
     } finally {
-      setLoadingMore(false);
+      if (profileReadIdentity.current === identity) setLoadingMore(false);
     }
   };
 
@@ -404,7 +439,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       setMySegments(page.items.map(data => ({ id: data.id, name: String(data.name ?? ""), distance: Number(data.distance ?? 0), status: String(data.status ?? "active"), createdAt: Number(data.createdAt ?? 0) })));
     }).catch((err) => logClientError("AthletePage.bg", err, {}));
     return () => { active = false; };
-  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus]);
+  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus, services, currentUser]);
 
   // Check friend relationship
   useEffect(() => {
@@ -583,7 +618,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const isMe = isOwnProfile;
 
   const acceptedChartActivities = useMemo(() => acceptedStatsActivities(chartActivities.filter(activity => activity.userId === userId)), [chartActivities, userId]);
-  const acceptedLoadActivities = useMemo(() => acceptedTrainingActivities(chartActivities.filter(activity => activity.userId === userId)), [chartActivities, userId]);
+  const acceptedLoadActivities = useMemo(() => isOwnProfile ? acceptedTrainingActivities(chartActivities.filter(activity => activity.userId === userId)) : [], [chartActivities, userId, isOwnProfile]);
   const stats = useMemo(() => aggregateActivityStats(acceptedChartActivities), [acceptedChartActivities]);
   const statsReady = !chartLoading && !chartError;
   const recentPhotos = useMemo(() => {
@@ -732,7 +767,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         )}
       </section>
 
-      <AthleteRecentSummary activities={acceptedChartActivities} loading={chartLoading} error={chartError} />
+      {!isOwnProfile && <Text as="p" tone="secondary">{t("publicDiscoveryScope")}</Text>}
+      {!chartLimited && <AthleteRecentSummary activities={acceptedChartActivities} loading={chartLoading} error={chartError} />}
+      {chartLimited && <Text as="p" role="status">{t("publicDiscoveryLimit")}</Text>}
       </div>
       <div className="athlete-profile-layout">
       <aside className="athlete-profile-sidebar">
@@ -741,9 +778,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         <div data-testid="P0-1" className="athlete-stats">
           {[
             { label: t(isOwnProfile ? "stats.activities" : "stats.publicActivities"), value: statsReady ? t("stats.activitiesValue", { count: stats.count }) : "—", Icon: ActivityIcon },
-            { label: t("stats.distance"), value: statsReady ? <span>{Math.round(stats.distance / 1000).toLocaleString(i18n.language)} <small>km</small></span> : "—", Icon: Route },
-            { label: t("stats.time"), value: statsReady ? <><span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "hour", unitDisplay: "narrow"}).format(Math.floor(stats.time / 3600000))}</span>{" "}<span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "minute", unitDisplay: "narrow"}).format(Math.floor((stats.time % 3600000) / 60000))}</span></> : "—", Icon: Clock3 },
-            { label: t("stats.elevation"), value: statsReady ? <span>{Math.round(stats.elevation).toLocaleString(i18n.language)} <small>m</small></span> : "—", Icon: Mountain },
+            { label: t("stats.distance"), value: statsReady && acceptedChartActivities.every(a => Number.isFinite(a.summary?.distance)) ? <span>{Math.round(stats.distance / 1000).toLocaleString(i18n.language)} <small>km</small></span> : "—", Icon: Route },
+            { label: t("stats.time"), value: statsReady && acceptedChartActivities.every(a => Number.isFinite(resolveDuration(a.summary ?? {}).displayMs)) ? <><span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "hour", unitDisplay: "narrow"}).format(Math.floor(stats.time / 3600000))}</span>{" "}<span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "minute", unitDisplay: "narrow"}).format(Math.floor((stats.time % 3600000) / 60000))}</span></> : "—", Icon: Clock3 },
+            { label: t("stats.elevation"), value: statsReady && acceptedChartActivities.every(a => Number.isFinite(a.summary?.elevationGain)) ? <span>{Math.round(stats.elevation).toLocaleString(i18n.language)} <small>m</small></span> : "—", Icon: Mountain },
           ].map(({label, value, Icon}) => <div key={label} className="athlete-stat"><span className="athlete-stat__label"><Icon size={ICON_SIZE.md} aria-hidden="true" />{label}</span><strong className="athlete-stat__value">{value}</strong></div>)}
         </div>
         <Text as="p" variant="caption" tone="secondary" className="mt-2">{t(isOwnProfile ? "stats.scopeOwn" : "stats.scopePublic")}</Text>
@@ -843,7 +880,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           {profileTab === "segments" && <section className="athlete-profile-section"><h2>{t("segments.othersTitle")}</h2>{mySegments.length ? <ul className="athlete-highlights">{mySegments.map(segment => <li key={segment.id}><Link to={`/segment/${segment.id}`}>{segment.name} · {(segment.distance / 1000).toFixed(2)} km</Link></li>)}</ul> : <p>{t("profile.noSegments")}</p>}</section>}
           {(profileTab === "overview" || profileTab === "activities") && <>
           <div className="athlete-section-heading"><label htmlFor="athlete-sport">{t("profile.sport")}</label><Select id="athlete-sport" value={sport} onChange={event => setSport(event.target.value)}>{["all", "bike", "run", "swim"].filter(isSportUiEnabled).map(value => <option key={value} value={value}>{t(`profile.sports.${value}`)}</option>)}</Select></div>
-          {chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p>{t("monthly.error")}</p><Button onClick={() => setChartAttempt(attempt => attempt + 1)}>{t("monthly.retry")}</Button></div> : <AthleteActivityChart loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
+          {chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p>{t(chartLimited ? "publicDiscoveryLimit" : "monthly.error")}</p>{!chartLimited && <Button onClick={() => setChartAttempt(attempt => attempt + 1)}>{t("monthly.retry")}</Button>}</div> : <AthleteActivityChart loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
 
       {isOwnProfile && <div data-testid="P0-3"><RouteTabNav revealActive tabs={[
         { to: "/athlete/me", label: t("self.overview"), end: true },
@@ -948,6 +985,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </>
             )}
           </div>
+          {!isOwnProfile && isSearchActive && publicSearchError && <Text role="alert">{t("monthly.error")}</Text>}
+          {!isOwnProfile && isSearchActive && publicSearchCursor && <Button variant="ghost" disabled={searchLoading} onClick={() => void loadMorePublicSearch()}>{t("activities.loadMore")}</Button>}
+          {!isSearchActive && !hasLocalFilter && filteredActivities.length === 0 && hasMoreActivities && <Button variant="ghost" disabled={loadingMore} onClick={() => void handleLoadMoreActivities()}>{t("activities.loadMore")}</Button>}
           {hasLocalFilter && filteredActivities.length > periodLimit && <Button variant="ghost" onClick={() => setPeriodLimit(count => count + 20)}>{t("activities.loadMore")}</Button>}
           </>}
         </div>
