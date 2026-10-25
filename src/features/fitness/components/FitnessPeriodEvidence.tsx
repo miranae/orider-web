@@ -1,3 +1,5 @@
+import { usePeriodControls } from "../../../hooks/usePeriodControls";
+import { validTrainingPeriodControls, type TrainingPeriodControls } from "./periodControls";
 import { localTrainingEmulatorAvailable } from "../../../services/localTrainingEmulator";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -25,15 +27,18 @@ function PeriodEvidence({ ownerUid, discipline, inline }: { ownerUid: string; di
   const { t: activityT } = useTranslation("activity");
   const { units } = useLocale();
   const today = trainingCalendarDate(Date.now());
-  const [preset, setPreset] = useState<TrainingComparisonPreset | null>("fourWeeks");
-  const [ranges, setRanges] = useState(() => trainingComparisonPeriods("fourWeeks", Date.now()).map(period => ({
+  const [controls, setControls] = usePeriodControls<TrainingPeriodControls>(ownerUid, `training-${discipline}`, () => ({ preset: "fourWeeks", ranges: trainingComparisonPeriods("fourWeeks", Date.now()).map(period => ({
     from: trainingCalendarDate(period.fromInclusive), through: trainingCalendarDate(period.toExclusive - 1),
-  })));
+  })) }), validTrainingPeriodControls);
+  const { preset, ranges } = controls;
+  const setPreset = (preset: TrainingComparisonPreset | null) => setControls(v => ({ ...v, preset }));
+  const setRanges = (update: (ranges: TrainingPeriodControls["ranges"]) => TrainingPeriodControls["ranges"]) => setControls(v => ({ ...v, ranges: update(v.ranges) }));
   const [selection, setSelection] = useState<TrainingAnalysisPeriodsSelection | null>(null);
   const [invalid, setInvalid] = useState(false);
   const available = trainingAnalysisPeriodsAvailable();
   const result = useTrainingAnalysisPeriods(ownerUid, selection, available);
   const submit = () => {
+    setControls(value => value); // An explicit load wins over late session restoration.
     const periods = preset ? trainingComparisonPeriods(preset, Date.now()) : ranges.map(range => trainingCalendarPeriod(range.from, range.through, Date.now()));
     if (periods.some(period => !period || period.fromInclusive >= period.toExclusive)) { setInvalid(true); return; }
     setInvalid(false);

@@ -1,3 +1,5 @@
+import { usePeriodControls } from "../../../hooks/usePeriodControls";
+import { validPowerPeriodControls, type PowerPeriodControls, type PeriodDraft as Draft } from "./periodControls";
 import "./fitness-analysis-controls.css";
 import { CalendarDays } from "lucide-react";
 import DateField from "../../../components/redesign/DateField";
@@ -18,12 +20,13 @@ import { NativePowerTwelvePersonalPanel } from "./NativePowerTwelvePersonalPanel
 import type { NativePowerLoadedActivity } from "./NativePowerTwelvePersonalView";
 import { PowerSkillsObservedView } from "./PowerSkillsObservedView";
 import { ICON_SIZE } from "../../../theme/tokens/icon";
-type Draft = { preset: "year" | "all" | "custom"; from: string; through: string };
-export function PowerCurvePeriodsView({ response, unit = "W" }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg" }) {
+export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, onDurationChange }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg"; selectedDuration?: number; onDurationChange?: (duration: number) => void }) {
   const { t } = useTranslation("fitness");
   const id = useId();
   const durationLabel = makeDurationLabel(t);
-  const [duration, setDuration] = useState(300);
+  const [localDuration, setLocalDuration] = useState(300);
+  const duration = selectedDuration ?? localDuration;
+  const setDuration = (next: number) => { setLocalDuration(next); onDurationChange?.(next); };
   const normalized = unit === "W/kg";
   const periods = response.periods.map(period => normalized ? { ...period, points: period.weightNormalized?.points ?? [],
     coverage: period.weightNormalized?.coverage ?? period.coverage, status: period.weightNormalized?.status ?? period.status } : period);
@@ -79,15 +82,18 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
   const id = useId();
   const today = trainingCalendarDate(Date.now());
   const makeDraft = (): Draft => ({ preset: "year", from: `${today.slice(0, 4)}-01-01`, through: today });
-  const [skillsMode, setSkillsMode] = useState(false);
-  const [comparison, setComparison] = useState<TrainingComparisonPreset | null>(null);
-  const [drafts, setDrafts] = useState<Draft[]>(() => [makeDraft()]);
+  const [controls, setControls] = usePeriodControls<PowerPeriodControls>(ownerUid, "power", () => ({ skillsMode: false, comparison: null, drafts: [makeDraft()], unit: "W", duration: 300 }), validPowerPeriodControls);
+  const { skillsMode, comparison, drafts, unit } = controls;
+  const setSkillsMode = (skillsMode: boolean) => setControls(v => ({ ...v, skillsMode }));
+  const setComparison = (comparison: TrainingComparisonPreset | null) => setControls(v => ({ ...v, comparison }));
+  const setDrafts = (update: (drafts: Draft[]) => Draft[]) => setControls(v => ({ ...v, drafts: update(v.drafts) }));
+  const setUnit = (unit: "W" | "W/kg") => setControls(v => ({ ...v, unit }));
   const [selection, setSelection] = useState<PowerCurvePeriodsSelection | null>(null);
   const [invalid, setInvalid] = useState(false);
-  const [unit, setUnit] = useState<"W" | "W/kg">("W");
   const result = usePowerCurvePeriods(ownerUid, selection, callableEnabled);
   const update = (index: number, patch: Partial<Draft>) => { setComparison(null); setDrafts(values => values.map((value, i) => index === i ? { ...value, ...patch } : value)); setSelection(null); setInvalid(false); };
   const submit = () => {
+    setControls(value => value); // An explicit load wins over late session restoration.
     const now = Date.now();
     const periods = skillsMode ? [{ fromInclusive: Math.max(0, now - 56 * 86400000), toExclusive: now }, { fromInclusive: 0, toExclusive: now }] : comparison ? trainingComparisonPeriods(comparison, now) : drafts.map(draft => draft.preset === "all" ? { fromInclusive: 0, toExclusive: now }
       : draft.preset === "year" ? { fromInclusive: Date.parse(`${trainingCalendarDate(now).slice(0, 4)}-01-01T00:00:00+09:00`), toExclusive: now }
@@ -116,7 +122,7 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
     {invalid && <Text as="p" variant="bodyMedium" role="alert">{t("periodCurve.invalid")}</Text>}
     {result.state === "loading" && <Text as="p" variant="bodyMedium">{t("periodCurve.loading")}</Text>}
     {result.state === "error" && <Text as="p" variant="bodyMedium" role="alert">{t("periodCurve.error")}</Text>}
-    {result.response && (skillsMode ? <PowerSkillsObservedView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} /> : <PowerCurvePeriodsView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} />)}
+    {result.response && (skillsMode ? <PowerSkillsObservedView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} /> : <PowerCurvePeriodsView selectedDuration={controls.duration} onDurationChange={duration => setControls(v => ({ ...v, duration }))} key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} />)}
     {result.response && stageActivityPowerAvailable() && <PowerEffortPreferencePanel ownerUid={ownerUid} mode="stage_power_effort_adjusted_canonical" activityIds={[...new Set(result.response.periods.flatMap(p=>[...p.points.map(v=>v.sourceActivityId),...(p.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[])]))].slice(0,20)} periods={result.response.periods.map((p,i)=>({id:`period_${i}`,fromInclusiveMs:p.fromInclusive,toExclusiveMs:p.toExclusive}))} scopeKey={JSON.stringify([selection,result.response.inputDigest])}/>}
   </section>;
 }

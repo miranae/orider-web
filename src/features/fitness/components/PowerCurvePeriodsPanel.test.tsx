@@ -1,16 +1,18 @@
+import { webcrypto } from "node:crypto";
 import { chooseDropdown, chooseDate } from "../fitnessControlTestUtils";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PowerCurvePeriodsResponse } from "@shared/types/power-curve-periods";
 import { PowerCurvePeriodsPanel, PowerCurvePeriodsView } from "./PowerCurvePeriodsPanel";
-const mocks = vi.hoisted(() => ({ hook: vi.fn(), owner: "owner" }));
+const mocks = vi.hoisted(() => ({ services: { auth: { currentUser: { uid: "owner", isAnonymous: false, metadata: { creationTime: "2026-01-01" } }, app: { name: "demo", options: { projectId: "demo-test" } } } }, hook: vi.fn(), owner: "owner" }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string, params?: Record<string, unknown>) => `${key}${params ? ` ${Object.values(params).join(" ")}` : ""}` }) }));
+vi.mock("../../../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: mocks.owner, isAnonymous: false } }) }));
 vi.mock("../../../hooks/usePowerCurvePeriods", () => ({ usePowerCurvePeriods: (...args: unknown[]) => mocks.hook(...args) }));
 const period = (partial = false): PowerCurvePeriodsResponse["periods"][number] => ({ fromInclusive: Date.UTC(2025, 11, 31, 15), toExclusive: Date.UTC(2026, 8, 30, 15), status: partial ? "partial" : "complete", points: [{ durationSeconds: 1, watts: 750.321, sourceActivityId: "sprint", startTime: Date.UTC(2026, 1, 1), source: "strava_api", cohortEligible: false, metricsRevision: "1:2" }, { durationSeconds: 300, watts: 250.123, sourceActivityId: "long", startTime: Date.UTC(2026, 2, 1), source: "direct_file", cohortEligible: true, metricsRevision: "1:2" }], coverage: { scannedActivityCount: partial ? 1000 : 2, candidateActivityCount: partial ? 1000 : 2, candidateCountKnown: !partial, includedActivityCount: 2, pendingActivityCount: partial ? 998 : 0, missingActivityCount: 0, incompleteActivityCount: 0, ineligibleActivityCount: 0, skippedActivityCount: 0, truncated: partial, scanLimit: 1000 } });
 const response = (): PowerCurvePeriodsResponse => ({ version: 1, discipline: "bike", unit: "W", asOf: Date.UTC(2026, 9, 10), inputDigest: "a".repeat(64), periods: [period(), { ...period(true), points: [period().points[1]!] }] });
-beforeEach(() => { mocks.owner = "owner"; mocks.hook.mockReset().mockReturnValue({ state: "preparing", response: null }); });
+beforeEach(() => { sessionStorage.clear(); vi.stubGlobal("crypto", webcrypto); mocks.owner = "owner"; mocks.hook.mockReset().mockReturnValue({ state: "preparing", response: null }); });
 describe("PowerCurvePeriodsPanel", () => {
   it("preserves exact W, paired missing values, localized source navigation and partial/truncated diagnostics", () => {
     const view = render(<MemoryRouter initialEntries={["/en/fitness"]}><Routes><Route path="/:lang/fitness" element={<PowerCurvePeriodsView response={response()} />} /></Routes></MemoryRouter>);
@@ -151,4 +153,18 @@ describe("PowerCurvePeriodsPanel", () => {
     } finally { clock.mockRestore(); }
   });
 
+});
+
+it("restores manual period and duration after navigating to its source and back", async () => {
+  mocks.hook.mockImplementation((_uid, selection) => ({ state: selection ? "ready" : "idle", response: selection ? response() : null }));
+  function Source() { const navigate = useNavigate(); return <button onClick={() => navigate(-1)}>Back to periods</button>; }
+  const view = render(<MemoryRouter initialEntries={["/en/fitness"]}><Routes><Route path="/:lang/fitness" element={<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled />} /><Route path="/:lang/activity/:id" element={<Source />} /></Routes></MemoryRouter>);
+  fireEvent.click(screen.getByText("comparison.fourWeeks")); fireEvent.click(screen.getByText("periodCurve.load"));
+  fireEvent.click(view.container.querySelector('[data-duration="1"]')!);
+  await waitFor(() => expect(sessionStorage.length).toBe(1));
+  fireEvent.click(screen.getAllByRole("link")[0]!); fireEvent.click(await screen.findByText("Back to periods"));
+  await waitFor(() => expect(screen.getByRole("button", { name: "comparison.fourWeeks" })).toHaveAttribute("aria-pressed", "true"));
+  expect(screen.queryByRole("link")).toBeNull();
+  fireEvent.click(screen.getByText("periodCurve.load"));
+  expect(screen.getAllByRole("link")[0]).toHaveAttribute("href", "/en/activity/sprint");
 });
