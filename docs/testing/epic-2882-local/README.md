@@ -17,7 +17,7 @@ Demo and transport artifacts: `/Users/kyoungnam/Documents/Codex/2026-10-26/oride
 
 The browser demo uses actual source components and Firebase SDK calls against synthetic data in `demo-orider-epic-2882-full`. The final dedicated stack runs Functions port 5029, Firestore port 8398 and Auth port 9309, including actual background aggregation and native feed projection triggers. Earlier narrow-transport artifacts remain for traceability. No real athlete data is required. The demo shell is separate from the deployed application; it is not a full application routing/deployment validation.
 
-The training-only local switch requires a development bundle, loopback page, explicit emulator configuration, a demo project, an exact loopback customDomain and matching Firebase app identity. A Functions emulatorOrigin override is rejected because the SDK would ignore customDomain. No stage-derived options or running analysis are enabled by this local switch.
+The training-only local switch requires a development bundle, loopback page, explicit emulator configuration, a demo project, an exact loopback customDomain and matching Firebase app identity. If Functions has an emulatorOrigin override, its effective origin/project/region URL must match the configured local demo endpoint exactly; a matching customDomain alone never authorizes a different actual destination. No stage-derived options or running analysis are enabled by this local switch.
 
 ## Evidence boundaries
 

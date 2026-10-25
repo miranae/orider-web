@@ -24,6 +24,10 @@ describe("local training transport fence", () => {
     const app = { options: { projectId: "demo-local" } };
     const services = { auth: { app }, functions: { app, customDomain: local.firebaseFunctionsBase } } as unknown as FirebaseServices;
     expect(matchesLocalTrainingEmulator(services)).toBe(true);
+    const emulator = { ...services, functions: Object.assign({}, services.functions, { emulatorOrigin: "http://127.0.0.1:5019", region: "asia-northeast3" }) };
+    expect(matchesLocalTrainingEmulator(emulator)).toBe(true);
+    expect(matchesLocalTrainingEmulator({ ...emulator, functions: { ...emulator.functions, region: "us-central1" } })).toBe(false);
+    expect(matchesLocalTrainingEmulator({ ...emulator, functions: { ...emulator.functions, emulatorOrigin: "https://remote.example" } })).toBe(false);
     expect(matchesLocalTrainingEmulator({ ...services, functions: Object.assign({}, services.functions, { emulatorOrigin: "http://localhost:5001" }) })).toBe(false);
     expect(matchesLocalTrainingEmulator({ ...services, functions: { ...services.functions, customDomain: "https://prod.example" } })).toBe(false);
     expect(matchesLocalTrainingEmulator({ ...services, functions: { ...services.functions, app: { ...services.functions.app } } })).toBe(false);

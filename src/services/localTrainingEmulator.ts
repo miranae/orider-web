@@ -15,9 +15,11 @@ export function localTrainingEmulatorAvailable(): boolean {
   } catch { return false; }
 }
 export function matchesLocalTrainingEmulator(services: FirebaseServices): boolean {
-  return localTrainingEmulatorAvailable() && services.functions.app === services.auth.app
-    && services.auth.app.options.projectId === getRuntimeConfig().firebaseProjectId
-    && services.functions.customDomain === getRuntimeConfig().firebaseFunctionsBase
-    // The SDK gives emulatorOrigin precedence over customDomain when building URLs.
-    && (services.functions as typeof services.functions & { emulatorOrigin?: string | null }).emulatorOrigin == null;
+  if (!localTrainingEmulatorAvailable() || services.functions.app !== services.auth.app
+    || services.auth.app.options.projectId !== getRuntimeConfig().firebaseProjectId) return false;
+  // Match the URL the SDK will actually use. emulatorOrigin takes precedence over customDomain.
+  const origin = (services.functions as typeof services.functions & { emulatorOrigin?: string | null }).emulatorOrigin;
+  const endpoint = origin == null ? services.functions.customDomain
+    : `${origin}/${services.functions.app.options.projectId}/${services.functions.region}`;
+  return endpoint === getRuntimeConfig().firebaseFunctionsBase;
 }
