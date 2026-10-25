@@ -39,4 +39,16 @@ Actual owner analysis, self feed and another account's public detail all used th
 
 The viewer also added one kudos, confirmed persisted count 1 on a fresh page, then cancelled it with HTTP 200. A final fresh page and Firestore read showed count 0 and no kudos documents. `import-session/direct-social-results.json` records zero page errors and the restored state. The add-response body was not retained because the harness waited on the button's obsolete label after it changed; no duplicate add was issued, and the persisted readback/cancellation evidence is kept separately.
 
-Review: `http://localhost:5174/ko/activity/uxyEMYsnBXehbX9lDZ31?demoAccount=import&tab=analysis`. The alias exists only in the external local harness. This verifies GPX, not FIT/TCX/ZIP; manual single-job processing is not automatic scheduler completion. This older activity's broader training/PMC processing is excluded by existing policy and is not claimed by the single-activity analysis result.
+Review: `http://localhost:5174/ko/activity/uxyEMYsnBXehbX9lDZ31?demoAccount=import&tab=analysis`. The alias exists only in the external local harness. This verifies GPX, not FIT/TCX/ZIP; manual single-job processing is not automatic scheduler completion. The older activity skips the immediate 24-hour derived-recompute request; this is not a prohibition on the existing lazy training revalidation path. Period/PMC behavior is investigated separately and is not established by the single-activity analysis result.
+
+## GPX period and diary follow-up
+
+The first import account initialized its fitness calendar before an explicit timezone was stored. Its UTC history and subsequent future KST transition were preserved. No documents were deleted or dates relabeled to force agreement.
+
+A second isolated account (`demoAccount=importKst`) saved Asia/Seoul through the actual settings UI before importing its GPX. Actual import, automatic metrics enqueue, normal settling time and guarded single-job processing passed again. The real Auth SDK then called the existing bike revalidation endpoint once; the owner had exactly one activity. This is a fixture-specific bounded execution, not a claim that the general revalidation endpoint has an activity-count cap.
+
+Firestore readback confirms initial Asia/Seoul calendar version 1, estimated daily load 7 on October 20, and processed PMC with matching input/load revisions. The period endpoint returned HTTP 200: September 28–October 25 totals 1.25 km / 600 seconds / 5 m and load 7. End-of-period CTL/ATL/TSB were 0.1 / 0.5 / -0.3; the next day's ATL is 0.4, so those observations must not be compared as the same date. Before-history PMC remains unavailable. The prior empty period has confirmed load 0, without inventing PMC values.
+
+The load remains `source: time`, `reliable: false`, with no recorded TSS or server-derived measured load. The diary displays the imported activity through its existing activity-list path; no materialized `daily_activities` document was created. Bike PMC completion does not make the combined multisport `fitness/current` complete: absent other-sport inputs leave that aggregate pending.
+
+Evidence: external `gpx-canonical/period-kst-before.json`, `process-kst-job-results.json`, `period-kst-after.json`, `period-followup-plan.md`, and `import-kst/direct-period-results.json`. The mobile period screenshot was opened for visual inspection; the browser reported no page errors. Review: `http://localhost:5174/ko/coach/analysis?sport=bike&detail=analysis-periods&demoAccount=importKst`.
