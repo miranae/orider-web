@@ -2959,6 +2959,7 @@
       "verified_recorded_best": "The comparison set saved at the request time has been checked."
     },
     "sources": "{{missing}} sources unavailable · {{unsupported}} unsupported · {{changed}} changed",
-    "close": "Close result"
+    "close": "Close result",
+    "recover": "Check previous progress"
   }
 }

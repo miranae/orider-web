@@ -2959,6 +2959,7 @@
       "verified_recorded_best": "조회 시점에 저장되어 있던 비교 대상의 확인을 마쳤습니다."
     },
     "sources": "원본 확인 불가 {{missing}}개 · 지원하지 않는 원본 {{unsupported}}개 · 변경된 원본 {{changed}}개",
-    "close": "결과 닫기"
+    "close": "결과 닫기",
+    "recover": "이전 진행 확인"
   }
 }

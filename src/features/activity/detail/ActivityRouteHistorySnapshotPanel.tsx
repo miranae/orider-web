@@ -15,6 +15,7 @@ export default function ActivityRouteHistorySnapshotPanel({activity,observedMetr
  return <section aria-label={t("routeHistory.title")} className="matched-route-group"><details><summary><Text weight={600}>{t("routeHistory.title")}</Text></summary><Stack gap="var(--space-3)">
   <Text as="p">{t("routeHistory.scope")}</Text>
   <Stack direction="row" wrap gap="var(--space-2)"><Button variant="outline" disabled={query.running} onClick={()=>void query.start()}>{t(data?"routeHistory.restart":"routeHistory.start")}</Button>
+   {query.canRecover&&<Button disabled={query.running} onClick={()=>void query.recover()}>{t("routeHistory.recover")}</Button>}
    {data&&(data.state!=="complete"||query.status==="error")&&<Button disabled={query.running} loading={query.status==="loading"} onClick={()=>void query.advance()}>{t(query.status==="error"?"routeHistory.retry":"routeHistory.continue")}</Button>}
    {(data||query.status==="loading")&&<Button variant="ghost" onClick={query.stop}>{t(data?.state==="complete"&&!query.running?"routeHistory.close":"routeHistory.stop")}</Button>}
   </Stack>
