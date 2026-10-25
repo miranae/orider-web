@@ -1,4 +1,23 @@
 {
+  "publicDetail": {
+    "accessDenied": "활동을 볼 수 없습니다. 삭제되었거나 공개 범위 또는 접근 권한이 변경되었을 수 있습니다.",
+    "route": "라이딩 경로",
+    "mapLoading": "경로를 불러오고 있습니다.",
+    "routePreview": "공개 경로 미리보기입니다. 원본 GPS 스트림은 표시하지 않습니다.",
+    "photoPreview": "일부 사진 미리보기입니다.",
+    "title": "공개 활동",
+    "summary": "라이딩 기록",
+    "distance": "거리",
+    "duration": "기록 시간",
+    "minutes": "분",
+    "elevation": "획득 고도",
+    "calculated": "서버에서 확인한 활동 기록입니다.",
+    "recorded": "저장된 원본 기록입니다. 분석 결과는 아직 확인되지 않았습니다.",
+    "pending": "사진과 본문을 준비하고 있습니다.",
+    "commentPreview": "일부 댓글 미리보기입니다.",
+    "mutationFailed": "반응을 저장하지 못했습니다. 입력한 내용을 확인하고 다시 시도해 주세요.",
+    "posted": "댓글을 등록했습니다."
+  },
   "cyclingEffortPreference": {
     "restoreAvailable": "기존 제외 선택을 복원할 수 있습니다.",
     "legacyUnsupported": "이전 분석 형식이라 이 거리의 기록시간을 확인할 수 없습니다.",
