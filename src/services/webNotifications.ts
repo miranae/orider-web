@@ -3,6 +3,7 @@ import type { Notification } from "@shared/types";
 import type { ActivityFeedComment } from "@shared/types/activity-feed-content";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
+export interface NotificationPreferences { push: boolean; kudos: boolean; comment: boolean; weeklyDigestEmail: boolean }
 const connected = new WeakSet<object>();
 export function createWebNotificationClient(services: FirebaseServices) {
   const viewer = services.auth.currentUser;
@@ -20,6 +21,8 @@ export function createWebNotificationClient(services: FirebaseServices) {
     assertAccount(); return result.data;
   }
   return {
+    getPreferences: () => call<NotificationPreferences>("getNotificationPreferences", {}),
+    setPreferences: (patch: Partial<NotificationPreferences>) => call<NotificationPreferences>("setNotificationPreferences", patch),
     async list(cursor: string | null = null) {
       const page = await call<{ items: Notification[]; nextCursor: string | null }>("getWebNotifications", { limit: 20, ...(cursor ? { cursor } : {}) });
       // Unavailable envelopes intentionally contain no actor, activity or comment identifiers.

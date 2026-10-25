@@ -1,3 +1,4 @@
+import { NotificationPreferencesCard } from "./NotificationPreferencesCard";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Eye, Globe, User } from "lucide-react";
@@ -317,6 +318,8 @@ export function PaneAccount() {
           </Field>
         </FieldGrid>
       </SettingsCard>
+
+      <NotificationPreferencesCard />
 
       <ProfileBodyEditor />
 
