@@ -79,8 +79,12 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
       } catch (error) {
         if (request === generation.current) { setDetail(null); setFailed(true); setAccessDenied(isPublicActivityAccessError(error)); }
       }
-    } catch {
-      if (request === generation.current) setMutationError(true);
+    } catch (error) {
+      if (request === generation.current) {
+        if (isPublicActivityAccessError(error)) {
+          setDetail(null); setFailed(true); setAccessDenied(true); setText(""); commentRequest.current = null;
+        } else setMutationError(true);
+      }
     } finally {
       if (request === generation.current) { inFlight.current = false; setBusy(false); }
     }

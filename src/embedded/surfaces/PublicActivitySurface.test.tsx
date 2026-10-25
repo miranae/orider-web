@@ -8,7 +8,7 @@ import type { PublicActivityDetail } from "../../services/publicActivityDetail";
 const render = (element: ReactElement) => rtlRender(element, { wrapper: MemoryRouter });
 const mocks = vi.hoisted(() => ({ load: vi.fn(), setKudos: vi.fn(), postComment: vi.fn() }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "viewer", isAnonymous: false } }) }));
-vi.mock("../../services/publicActivityDetail", () => ({ isPublicActivityAccessError: () => false, createPublicActivityClient: () => mocks }));
+vi.mock("../../services/publicActivityDetail", () => ({ isPublicActivityAccessError: (error: { code?: string }) => ["functions/permission-denied", "functions/not-found", "functions/failed-precondition"].includes(error.code ?? ""), createPublicActivityClient: () => mocks }));
 const fixture = (): PublicActivityDetail => ({
   activity: { id: "native-ride", userId: "owner", nickname: "라이더", profileImage: null,
     description: "한강 라이딩", type: "Ride", startTime: 1792800000000, kudosCount: 2, commentCount: 0,
@@ -52,6 +52,25 @@ describe("public embedded activity", () => {
     expect(mocks.postComment).toHaveBeenLastCalledWith("native-ride", "함께 타요", expect.any(String));
     expect(mocks.postComment.mock.calls[0][2]).toBe(mocks.postComment.mock.calls[1][2]);
     expect(mocks.load).toHaveBeenCalledTimes(2);
+  });
+  it.each(["functions/permission-denied", "functions/not-found", "functions/failed-precondition"])("removes public content when a reaction loses access: %s", async code => {
+    mocks.setKudos.mockRejectedValueOnce({ code });
+    render(<PublicActivitySurface {...props} />);
+    await screen.findByText("한강 라이딩");
+    fireEvent.click(screen.getByRole("button", { name: /좋아요/ }));
+    await waitFor(() => expect(screen.queryByText("한강 라이딩")).not.toBeInTheDocument());
+    expect(screen.queryByText("바람이 좋았어요")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(mocks.load).toHaveBeenCalledTimes(1);
+  });
+  it("removes a comment draft and public content when posting loses access", async () => {
+    mocks.postComment.mockRejectedValueOnce({ code: "functions/permission-denied" });
+    render(<PublicActivitySurface {...props} />);
+    await screen.findByText("한강 라이딩");
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "초안" } });
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+    await waitFor(() => expect(screen.queryByText("한강 라이딩")).not.toBeInTheDocument());
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
   it("serializes reaction taps while a request is pending", async () => {
     let resolve!: (value: { enabled: boolean }) => void;
