@@ -1,6 +1,6 @@
 # Acceptance follow-up after the first local handoff
 
-Latest local implementation and complete verification checkpoint: [feed restoration, period load/log, metrics ownership and local review](local-review-checkpoint.md). It records current map privacy, accessibility, route inventory and beta-plan evidence, earlier source-specific measurements, and remaining acceptance limits. Test results remain tied to their source checkpoint.
+Latest local verification: [route readiness, session boundaries and real GPX period/diary processing](route-readiness-and-session-checkpoint.md). Earlier [feed restoration, period load/log, metrics ownership and local review](local-review-checkpoint.md) records map privacy, accessibility, route inventory and beta-plan evidence. Test results remain tied to their source checkpoint; later source changes require their own evidence.
 
 2026-10-26. The preceding handoff proved a working local slice, not every requirement in epic miranae/orider-g1-app#2882. This audit re-read the current epic through authenticated GitHub CLI (the connector returned 404), compared source and existing evidence, and continued local implementation. Remote writes, pushes, merges and deployment remain prohibited by the user's latest instruction. Web and server remain the priority. Limited Android/iOS compatibility work is now in progress locally for the access-checked notification and public-feed contracts; it is not yet verified or release-ready.
 
@@ -56,7 +56,7 @@ Two focused suites / 25 tests, changed-file ESLint and TypeScript passed. Tests 
 | R0/R8 paid comparison and release-wide QA | Real paid-Strava paired comparison, production latency/cost and physical-device evidence are absent. Local emulator measurements are not substitutes. Overlapping profile photo reads now share requests; sequential reads can still repeat. See the bounded [photo read evidence](photo-read-coalescing.md), which is not production cost evidence. |
 | R9 beta/release decision | [Executable beta plan](beta-execution-plan.md) now defines the proposed 24-person cohorts, 14-day tasks, full denominators and stop/resume decision records. Real-rider recruitment, two-week observation, staged release, store versions and product-owner launch decision remain unperformed. No external contact is authorized by this local work. |
 
-The goal and full epic remain open. No remote issue state is changed by this report.
+The goal and full epic remain open. No remote issue state is changed by this report. Current local APP follow-up is deferred again behind web/server: Android's combined local run passed 96 tests, but hosted iOS XCTest is not green. A minimal Firebase bootstrap isolation follow-up compiles and still reaches an additional LTHR observer dependency. Neither that compile nor the web/server gates establishes native release compatibility.
 
 ## Earlier combined local checkpoint
 
