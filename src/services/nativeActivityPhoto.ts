@@ -26,14 +26,36 @@ async function call<T>(services: FirebaseServices, name: string, payload: object
   if (services.auth.currentUser !== viewer) throw new Error("account_changed");
   return result.data;
 }
+// Coalesce only overlapping reads. Settled bytes/permissions are never cached.
+// A replacement Firebase User (even with the same uid) gets a new request scope.
+const pendingReads = new WeakMap<FirebaseServices, {
+  viewer: FirebaseServices["auth"]["currentUser"]; requests: Map<string, Promise<unknown>>;
+}>();
+function sharePhotoRead<T>(services: FirebaseServices, photo: NativePhotoReference, kind: "bytes" | "access", read: () => Promise<T>): Promise<T> {
+  const viewer = services.auth.currentUser;
+  let scope = pendingReads.get(services);
+  if (!scope || scope.viewer !== viewer) {
+    scope = { viewer, requests: new Map() };
+    pendingReads.set(services, scope);
+  }
+  const key = JSON.stringify([kind, photo.activityId, photo.photoId]);
+  const existing = scope.requests.get(key);
+  if (existing) return existing as Promise<T>;
+  const requests = scope.requests;
+  const pending = read().finally(() => { if (requests.get(key) === pending) requests.delete(key); });
+  requests.set(key, pending);
+  return pending;
+}
 export async function loadNativeActivityPhoto(services: FirebaseServices, photo: NativePhotoReference): Promise<Blob> {
   if (!isNativePhotoReference(photo)) throw new Error("invalid_photo");
-  const data = await call<{ base64: string; contentType: string }>(services, "getActivityPhotoData", photo);
-  if (!["image/webp", "image/jpeg", "image/png"].includes(data.contentType) || typeof data.base64 !== "string"
-    || !data.base64.length || data.base64.length > 6990508 || !/^[A-Za-z0-9+/]*={0,2}$/.test(data.base64)) throw new Error("invalid_photo");
-  const bytes = Uint8Array.from(atob(data.base64), char => char.charCodeAt(0));
-  if (!bytes.length || bytes.length > 5 * 1024 * 1024) throw new Error("invalid_photo");
-  return new Blob([bytes], { type: data.contentType });
+  return sharePhotoRead(services, photo, "bytes", async () => {
+    const data = await call<{ base64: string; contentType: string }>(services, "getActivityPhotoData", photo);
+    if (!["image/webp", "image/jpeg", "image/png"].includes(data.contentType) || typeof data.base64 !== "string"
+      || !data.base64.length || data.base64.length > 6990508 || !/^[A-Za-z0-9+/]*={0,2}$/.test(data.base64)) throw new Error("invalid_photo");
+    const bytes = Uint8Array.from(atob(data.base64), char => char.charCodeAt(0));
+    if (!bytes.length || bytes.length > 5 * 1024 * 1024) throw new Error("invalid_photo");
+    return new Blob([bytes], { type: data.contentType });
+  });
 }
 export async function uploadNativeActivityPhoto(services: FirebaseServices, photo: NativePhotoReference, blob: Blob, location?: [number, number] | null) {
   const viewer = services.auth.currentUser;
@@ -54,8 +76,10 @@ export async function uploadNativeActivityPhoto(services: FirebaseServices, phot
 /** Revalidate a currently displayed image without downloading its bytes again. */
 export async function authorizeNativeActivityPhoto(services: FirebaseServices, photo: NativePhotoReference): Promise<void> {
   if (!isNativePhotoReference(photo)) throw new Error("invalid_photo");
-  const result = await call<{ authorized: boolean }>(services, "getActivityPhotoData", { ...photo, accessOnly: true });
-  if (result.authorized !== true) throw new Error("photo_access_unconfirmed");
+  return sharePhotoRead(services, photo, "access", async () => {
+    const result = await call<{ authorized: boolean }>(services, "getActivityPhotoData", { ...photo, accessOnly: true });
+    if (result.authorized !== true) throw new Error("photo_access_unconfirmed");
+  });
 }
 
 export interface NativeActivityCover { photoId: string | null; coverRevision: string }

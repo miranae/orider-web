@@ -59,3 +59,37 @@ it("loads cover CAS state and validates selections without altering image-byte a
   mocks.call.mockImplementation(async () => { Object.assign(source.auth, { currentUser: { uid: "other" } }); return { data: { photoId: "photo", coverRevision: "r2" } }; });
   await expect(setNativeActivityCover(source, "ride", "photo", "r1")).rejects.toThrow("account_changed");
 });
+
+it("coalesces overlapping image reads but reauthorizes every subsequent read", async () => {
+  const source = services();
+  const [first, second] = await Promise.all([loadNativeActivityPhoto(source, photo), loadNativeActivityPhoto(source, photo)]);
+  expect(mocks.call).toHaveBeenCalledTimes(1);
+  expect(first).toBe(second);
+  await loadNativeActivityPhoto(source, photo);
+  expect(mocks.call).toHaveBeenCalledTimes(2);
+});
+it("does not retain failed reads and keeps permission probes separate from bytes", async () => {
+  const source = services();
+  mocks.call.mockRejectedValueOnce(new Error("denied"));
+  const results = await Promise.allSettled([loadNativeActivityPhoto(source, photo), loadNativeActivityPhoto(source, photo)]);
+  expect(results.map(result => result.status)).toEqual(["rejected", "rejected"]);
+  expect(mocks.call).toHaveBeenCalledTimes(1);
+  mocks.call.mockImplementation(async payload => ({ data: payload.accessOnly ? { authorized: true } : { base64: "aW1hZ2U=", contentType: "image/png" } }));
+  await Promise.all([loadNativeActivityPhoto(source, photo), authorizeNativeActivityPhoto(source, photo), authorizeNativeActivityPhoto(source, photo)]);
+  expect(mocks.call).toHaveBeenCalledTimes(3);
+  await authorizeNativeActivityPhoto(source, photo);
+  expect(mocks.call).toHaveBeenCalledTimes(4);
+});
+it("isolates service, photo and replacement-account scopes including same uid", async () => {
+  const source = services();
+  let settle!: (data: unknown) => void;
+  mocks.call.mockReturnValueOnce(new Promise(resolve => { settle = resolve; }));
+  const old = loadNativeActivityPhoto(source, photo);
+  const rejected = expect(old).rejects.toThrow("account_changed");
+  await vi.waitFor(() => expect(mocks.call).toHaveBeenCalledTimes(1));
+  Object.assign(source.auth, { currentUser: { uid: "owner", isAnonymous: false } });
+  await Promise.all([loadNativeActivityPhoto(source, photo), loadNativeActivityPhoto(services(), photo), loadNativeActivityPhoto(source, { ...photo, photoId: "another" })]);
+  expect(mocks.call).toHaveBeenCalledTimes(4);
+  settle({ data: { base64: "aW1hZ2U=", contentType: "image/png" } });
+  await rejected;
+});
