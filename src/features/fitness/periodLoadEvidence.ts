@@ -33,7 +33,7 @@ export function periodLoadEvidence(source: FitnessTimeseriesDoc | null, from: nu
       return { date: point.date, dailyLoad: point.dailyLoad,
         loadStatus: point.status === 'final' ? 'final' : 'unconfirmed',
         ctl: pmc?.ctl ?? null, atl: pmc?.atl ?? null, tsb: pmc?.tsb ?? null,
-        calculationStatus: pmc?.calculationStatus ?? 'estimated' };
+        calculationStatus: pmc?.calculationStatus ?? 'missing' };
     });
   const days = (observedTo - startMs) / DAY;
   const valid = points.length === days && new Set(points.map(point => point.date)).size === days && points.every(point => point.loadStatus === 'final' && Number.isFinite(point.dailyLoad) && point.dailyLoad >= 0);

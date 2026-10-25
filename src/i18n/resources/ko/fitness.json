@@ -34,6 +34,7 @@
   "history.pmc.server": "서버 계산",
   "history.pmc.derived": "종목 합산",
   "history.pmc.estimated": "추정 계산",
+  "history.missingPmc": "일부 날짜에 저장된 PMC 계산이 없습니다.",
   "history.pmc.missing": "계산 없음",
   "history.pmc.pending": "반영 대기",
   "history.pmc.failed": "계산 실패",

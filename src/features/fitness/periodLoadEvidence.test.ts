@@ -22,7 +22,7 @@ describe('selected canonical period load',()=>{
   const evidence=periodLoadEvidence(s,from,end);
   expect(evidence).toMatchObject({total:13,before:null,after:{date:'2026-10-25'},reason:null});
   expect(evidence.points).toHaveLength(28);
-  expect(evidence.points[0]).toMatchObject({date:'2026-09-28',dailyLoad:0,loadStatus:'final',ctl:null,atl:null,tsb:null});
+  expect(evidence.points[0]).toMatchObject({date:'2026-09-28',dailyLoad:0,loadStatus:'final',ctl:null,atl:null,tsb:null,calculationStatus:'missing'});
   s.loadSnapshot!.points[0].status='unknown';
   expect(periodLoadEvidence(s,from,end).total).toBeNull();
  });

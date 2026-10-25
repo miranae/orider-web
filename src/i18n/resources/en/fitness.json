@@ -34,6 +34,7 @@
   "history.pmc.server": "Server calculation",
   "history.pmc.derived": "Discipline sum",
   "history.pmc.estimated": "Estimated calculation",
+  "history.missingPmc": "Saved PMC calculations are unavailable for some dates.",
   "history.pmc.missing": "No calculation",
   "history.pmc.pending": "Awaiting update",
   "history.pmc.failed": "Calculation failed",
