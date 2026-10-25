@@ -26,9 +26,9 @@ it("suppresses late old-account response even when UID is unchanged", async () =
  await act(async () => done(current)); expect(screen.queryByTestId("safe-map")).toBeNull();
 });
 it("allows saving a protective setting that hides all geometry when GPS is unavailable", async () => {
- m.preview.mockResolvedValue({ ...current, state: "no_gps", mapPreview: { encodedPolyline: null, imageUrl: null } }); render(<ActivityMapPrivacyControl activityId="a" />); await open(); fireEvent.click(screen.getByRole("button", { name: "변경 미리보기" }));
+ m.preview.mockResolvedValue({ ...current, state: "no_gps", mapPreview: { encodedPolyline: null, imageUrl: null } }); render(<ActivityMapPrivacyControl activityId="a" />); await open(); fireEvent.change(screen.getByLabelText("시작 지점 보호 반경 (m)"), { target: { value: "300" } }); fireEvent.click(screen.getByRole("button", { name: "변경 미리보기" }));
  await waitFor(() => expect(screen.getByText(/경로 GPS가 없어/)).toBeInTheDocument()); expect(screen.getByRole("button", { name: "이 설정 저장" })).toBeEnabled();
- fireEvent.click(screen.getByRole("button", { name: "이 설정 저장" })); await waitFor(() => expect(m.save).toHaveBeenCalledOnce());
+ fireEvent.click(screen.getByRole("button", { name: "이 설정 저장" })); await waitFor(() => expect(m.save).toHaveBeenCalledWith("a", { startMeters: 300, endMeters: 0 }, "r1"));
 });
 it("cancel returns keyboard focus to the opening control", async () => {
  render(<ActivityMapPrivacyControl activityId="a" />); await open();
