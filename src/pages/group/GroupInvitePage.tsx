@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Button } from "../../theme/components";
+import { Button, Stack, Text } from "../../theme/components";
 import { EmptyState } from "../../components/redesign";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
 import { auth, ensureAppCheckReady, functions } from "../../services/firebase";
+import { appCheckFailureRecovery } from "../../services/appCheckFailureRecovery";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -33,15 +34,26 @@ export default function GroupInvitePage() {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
-  const [processed, setProcessed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [joinError, setJoinError] = useState<"invalid" | "failed" | null>(null);
+
+  const [retryAt, setRetryAt] = useState(0);
+  useEffect(() => {
+    if (!retryAt) return;
+    const timer = setTimeout(() => setRetryAt(0), Math.min(Math.max(0, retryAt - Date.now()), 2_147_483_647));
+    return () => clearTimeout(timer);
+  }, [retryAt]);
 
   const uid = user?.uid;
+  const isAnonymous = user?.isAnonymous === true;
   const inviteCode = normalizeGroupInviteCode(code);
   useEffect(() => {
-    if (!uid || !inviteCode || processed) return;
+    if (authLoading || !uid || isAnonymous || !inviteCode) return;
     let cancelled = false;
-    const current = () => !cancelled && auth.currentUser?.uid === uid;
+    const current = () => !cancelled && auth.currentUser?.uid === uid && auth.currentUser.isAnonymous !== true;
     setProcessing(true);
+    setJoinError(null);
+    setRetryAt(0);
 
     ensureAppCheckReady()
       .then(() => current() ? httpsCallable<{ inviteCode: string }, JoinGroupByCodeResult>(functions, "joinGroupByCode")({ inviteCode }) : undefined)
@@ -49,26 +61,28 @@ export default function GroupInvitePage() {
         if (!current() || !result) return;
         if (isPendingGroupJoinResult(result.data)) {
           showToast(t("join.pendingToast"));
-          setProcessed(true);
           navigate("/clubs", { replace: true });
           return;
         }
         const groupId = result.data.groupId;
         if (!groupId) throw new Error("Missing group id");
         showToast(t("inviteLink.joined"));
-        setProcessed(true);
         navigate(`/club/${groupId}`, { replace: true });
       })
       .catch((err) => {
         if (!current()) return;
-        logClientError("GroupInvitePage.join", err, { inviteCode });
-        showToast((!["functions/permission-denied", "functions/unauthenticated"].includes(err?.code) && (err?.code === "functions/not-found" || err?.message === "Invalid invite code" || err?.message === "Invalid or expired invite code" || (err?.code === "functions/invalid-argument" && err?.message === "유효한 초대 코드가 필요합니다."))) ? t("error.invalidInviteCode") : t("error.joinFailed"), "error");
-        setProcessed(true);
-        navigate("/clubs", { replace: true });
+        // The invite code is a join credential: do not copy it into diagnostics.
+        logClientError("GroupInvitePage.join", err);
+        const invalid = !["functions/permission-denied", "functions/unauthenticated"].includes(err?.code)
+          && (err?.code === "functions/not-found" || err?.message === "Invalid invite code" || err?.message === "Invalid or expired invite code"
+            || (err?.code === "functions/invalid-argument" && err?.message === "유효한 초대 코드가 필요합니다."));
+        const recovery = appCheckFailureRecovery(err);
+        if (recovery?.waitMs) setRetryAt(Date.now() + recovery.waitMs);
+        setJoinError(invalid ? "invalid" : "failed");
       })
       .finally(() => { if (current()) setProcessing(false); });
     return () => { cancelled = true; };
-  }, [inviteCode, navigate, processed, showToast, t, uid]);
+  }, [authLoading, inviteCode, navigate, showToast, t, uid, isAnonymous, attempt]);
 
   if (authLoading) {
     return <InviteSpinner label={t("inviteLink.loading")} />;
@@ -85,11 +99,11 @@ export default function GroupInvitePage() {
     );
   }
 
-  if (user && processing) {
+  if (user && !isAnonymous && processing) {
     return <InviteSpinner label={t("inviteLink.joining")} />;
   }
 
-  if (!user) {
+  if (!user || isAnonymous) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center max-w-sm mx-auto px-4">
@@ -118,5 +132,14 @@ export default function GroupInvitePage() {
     );
   }
 
+  if (joinError) return <div className="max-w-xl mx-auto py-16">
+    <Stack gap="var(--space-4)">
+      <Text as="h1" variant="subtitle">{t("inviteLink.title")}</Text>
+      <Text role="alert">{t(joinError === "invalid" ? "error.invalidInviteCode" : "inviteLink.retryMessage")}</Text>
+      {retryAt > 0 && <Text>{t("error.joinVerificationWait", { count: Math.ceil((retryAt - Date.now()) / 60_000) })}</Text>}
+      {joinError === "failed" && <Button disabled={retryAt > 0} onClick={() => setAttempt(value => value + 1)}>{t("inviteLink.retry")}</Button>}
+      <Button variant="ghost" onClick={() => navigate("/clubs")}>{t("subNav.groupList")}</Button>
+    </Stack>
+  </div>;
   return null;
 }

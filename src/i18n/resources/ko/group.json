@@ -1,4 +1,6 @@
 {
+  "inviteLink.retry": "가입 다시 시도",
+  "inviteLink.retryMessage": "클럽에 가입하지 못했습니다. 초대 링크를 유지했으니 연결 상태를 확인하고 다시 시도해 주세요.",
   "public.loginTitle": "로그인하고 클럽에 참여하세요",
   "public.directoryHint": "가입 전 클럽 소개와 활동 지역을 살펴보세요.",
   "error.publicLoadFailed": "공개 클럽을 불러오지 못했어요. 다시 시도해 주세요.",

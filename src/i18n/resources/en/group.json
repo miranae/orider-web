@@ -1,4 +1,6 @@
 {
+  "inviteLink.retry": "Retry joining",
+  "inviteLink.retryMessage": "Could not join the club. Your invite link is preserved. Check your connection and try again.",
   "public.loginTitle": "Sign in to join a club",
   "public.directoryHint": "Explore club introductions and locations before joining.",
   "error.publicLoadFailed": "Could not load public clubs. Please try again.",
