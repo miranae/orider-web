@@ -16,7 +16,6 @@
     "commentsFailed": "Could not load the next comments. Current comments are preserved.",
     "commentsComplete": "All currently accessible comments are loaded.",
     "confirmDelete": "Confirm deletion",
-
     "accessDenied": "This activity is unavailable. It may have been deleted or its visibility or access may have changed.",
     "route": "Ride route",
     "mapLoading": "Loading route.",
@@ -751,7 +750,7 @@
     "indoorRun": "Indoor run",
     "indoorRide": "Indoor ride",
     "indoorActivity": "Indoor activity",
-    "routePreviewUnavailable": "Route preview unavailable",
+    "routePreviewUnavailable": "Route information",
     "routePreviewUnavailableDesc": "No map preview was provided. This does not establish whether the activity contains raw GPS.",
     "noGps": "No GPS data",
     "noGpsDesc": "No route data was recorded for this activity",
@@ -852,6 +851,13 @@
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out",
       "fitRoute": "Show entire route"
+    },
+    "ownerRoutePreview": {
+      "load": "Show recorded route",
+      "retry": "Retry route preview",
+      "scope": "Preview of observed GPS, reduced to at most 200 points. Complete route coverage and GPS accuracy are unconfirmed.",
+      "empty": "No displayable GPS section was found in this record.",
+      "error": "Could not load the route. Please try again."
     }
   },
   "overlay": {

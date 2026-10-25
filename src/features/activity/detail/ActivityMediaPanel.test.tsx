@@ -104,7 +104,7 @@ describe("ActivityMediaPanel no-map state", () => {
 
   it("does not infer absent GPS from a missing native map preview", () => {
     renderNoMap({ type: "Ride", source: "orider" });
-    expect(screen.getByText("경로 미리보기를 확인할 수 없습니다")).toBeInTheDocument();
+    expect(screen.getByText("경로 정보")).toBeInTheDocument();
     expect(screen.queryByText("GPS 데이터 없음")).not.toBeInTheDocument();
   });
 

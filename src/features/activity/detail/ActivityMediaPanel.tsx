@@ -1,3 +1,5 @@
+import NativeOwnerRoutePreview from "./NativeOwnerRoutePreview";
+import { observedRouteAvailable } from "../../../services/activityRouteEvidence";
 import { useId, useState } from "react";
 import type { TFunction } from "i18next";
 import type { Activity, ActivityStreams } from "@shared/types";
@@ -195,13 +197,14 @@ export function ActivityMediaPanel({
           <path d="M12 8v1m0 6v1m-4-4h1m6 0h1" />
         </svg>
       </div>
-      <div>
+      <div className="min-w-0 flex-1">
         <p className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>
           {indoor ? indoorTitle : t(activity.source === "orider" ? "page.routePreviewUnavailable" : "page.noGps")}
         </p>
         <p className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-2)" }}>
           {indoor ? t("page.indoorDesc") : t(activity.source === "orider" ? "page.routePreviewUnavailableDesc" : "page.noGpsDesc")}
         </p>
+        {!indoor && activity.source === "orider" && observedRouteAvailable() && <NativeOwnerRoutePreview activity={activity} t={t} />}
       </div>
     </Card>
   );
