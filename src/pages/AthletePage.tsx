@@ -393,7 +393,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     if (!userId) return;
     if (profileLoading && !ownProfileFallback) return;
     if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
-      setMySegments([]);
+      setMySegments([]); setSegmentsMore(false); setSegmentCursor(null);
       return;
     }
     let active = true;
