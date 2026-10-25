@@ -1,3 +1,4 @@
+import { withActivityPresentation } from "@shared/analysis/activityPresentation";
 import SportIcon from "../common/SportIcon";
 import HomeActivitySportIcon from "../common/HomeActivitySportIcon";
 import { getHomeActivitySport } from "../../utils/homeActivitySport";
@@ -153,7 +154,8 @@ function ActivityMemo({ memo, memoTruncated = false, activityId, generated = fal
 }
 
 /** 시안과 일치하는 컴팩트 모바일 활동 카드 */
-export function CompactActivityCard({ activity, priority = false }: { activity: Activity; priority?: boolean }) {
+export function CompactActivityCard({ activity: rawActivity, priority = false }: { activity: Activity; priority?: boolean }) {
+  const activity = withActivityPresentation(rawActivity);
   const { t, i18n } = useTranslation("dashboard");
   const services = useFirebaseServices();
   const { user } = useAuth();

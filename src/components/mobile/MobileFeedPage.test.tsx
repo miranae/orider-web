@@ -37,6 +37,25 @@ async function searchFromMenu(keyword: string) {
 }
 
 describe("MobileFeedPage", () => {
+  it("uses revision-bound native display metrics like public and owner detail", () => {
+    const activity = { ...createMockActivity({ source: "orider", summary: createMockSummary({ distance: 6000, elevationGain: 12, ridingTimeMillis: 600000 }) }),
+      activityRevision: "current", contentSelectedRevision: 1,
+      activityPresentationV1: { version: 1 as const, metricsVersion: 3, computedAt: 1, activityRevision: "current", contentSelectedRevision: 1,
+        sensorOriginActivityId: "native", summary: { elevationGain: 10 }, thumbnailTrack: "", mapImageUrl: null } };
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(view.container).toHaveTextContent(/10\s*m/);
+    expect(view.container).not.toHaveTextContent(/12\s*m/);
+    view.rerender(<CompactActivityCard activity={{ ...activity, activityRevision: "changed" }} />);
+    expect(view.container).toHaveTextContent(/12\s*m/);
+  });
+  it("preserves provider summary semantics when the source is Strava", () => {
+    const activity = { ...createMockActivity({ source: "strava", summary: createMockSummary({ elevationGain: 12 }) }),
+      activityRevision: "current",
+      activityPresentationV1: { version: 1 as const, metricsVersion: 3, computedAt: 1, activityRevision: "current", contentSelectedRevision: null,
+        sensorOriginActivityId: "provider", summary: { elevationGain: 10 }, thumbnailTrack: "", mapImageUrl: null } };
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(view.container).toHaveTextContent(/12\s*m/);
+  });
   it("consumes external search without duplicating query controls and follows its external reset", async () => {
     setCollectionDocs("activities", [{ id: "match", ...createMockActivity({ id: "match", description: "설레임 검색 결과" }) }]);
     function Feed() {
