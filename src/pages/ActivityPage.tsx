@@ -1,5 +1,4 @@
 import { stravaRecordOf, formatStravaRecord } from "@shared/analysis/stravaRecord";
-import StravaMetricComparison from "../features/activity/detail/StravaMetricComparison";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
 import { useMobile } from "../hooks/useMobile";
 import { ChevronDown, Menu, Trophy } from "lucide-react";
@@ -1414,7 +1413,6 @@ export default function ActivityPage() {
 
       <div className="activity-detail-analysis-content space-y-6" data-testid="activity-analysis-content" hidden={activeTab !== "analysis"}>
       {activeTab === "analysis" && <>
-      {providerRecord && <StravaMetricComparison sport={sport} record={providerRecord} metrics={activePowerOverride ? null : latestMetrics} />}
       {providerRecord && <Text as="h2" variant="subtitle">{t("sourceMetrics.orider")}</Text>}
       {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
       <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={runGapSecPerKm} />

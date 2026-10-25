@@ -1535,12 +1535,11 @@ describe("ActivityPage", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "분석" }));
 
     expect(await screen.findByText("Strava 원본 센서 요약")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Strava 원본과 Orider 분석" })).not.toBeInTheDocument();
     expect(screen.getAllByText("평균 심박").length).toBeGreaterThan(0);
     expect(screen.getAllByText("평균 파워").length).toBeGreaterThan(0);
     expect(screen.getAllByText("최대 파워").length).toBeGreaterThan(0);
-    // 서버 정본이 없으면 저장된 요약에 "기기 요약" 표식이 붙는다 — 값은 그대로 기기 값이다.
     expect(screen.queryByText(/NP 147 W/)).not.toBeInTheDocument();
-    expect(screen.getByRole("row", { name: /가중평균 파워 147 W/ })).toBeInTheDocument();
   });
 
   it("suppresses legacy sensor summaries measured only in the opening fragment", async () => {
