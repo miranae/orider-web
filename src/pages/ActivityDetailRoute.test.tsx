@@ -7,7 +7,7 @@ vi.mock("../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ publicA
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.auth.currentUser, loading: false }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => services }));
 const services = { auth: mocks.auth, firestore: {} };
-vi.mock("../services/publicActivityDetail", () => ({ isPublicActivityAccessError: () => false, createPublicActivityClient: () => ({ load: mocks.load }) }));
+vi.mock("../services/publicActivityDetail", () => ({ isPublicActivityAccessError: (error: { code?: string }) => ["functions/permission-denied", "functions/not-found", "functions/failed-precondition"].includes(error.code ?? ""), createPublicActivityClient: () => ({ load: mocks.load }) }));
 vi.mock("firebase/firestore", () => ({ collection: vi.fn(), documentId: () => "__name__", getDocs: mocks.getDocs, query: vi.fn(), where: vi.fn(), limit: vi.fn() }));
 vi.mock("./ActivityPage", () => ({ default: () => { mocks.owner(); return <div>owner analysis</div>; } }));
 vi.mock("../embedded/surfaces/PublicActivitySurface", () => ({ default: () => <div>public detail</div> }));
@@ -64,4 +64,13 @@ it("clears the previous owner surface immediately for a new session with the sam
   mocks.auth.currentUser = { uid: "viewer" };
   view.rerender(route());
   expect(screen.queryByText("owner analysis")).not.toBeInTheDocument();
+});
+
+it.each(["permission-denied", "not-found", "failed-precondition", "unauthenticated"])("does not bypass authoritative %s with a raw owner fallback", async code => {
+  mocks.load.mockRejectedValue({ code: `functions/${code}` });
+  mocks.getDocs.mockResolvedValue({ docs: [{ id: "native", data: () => ({ userId: "viewer" }) }] });
+  render(route());
+  await screen.findByRole("alert");
+  expect(mocks.getDocs).not.toHaveBeenCalled();
+  expect(mocks.owner).not.toHaveBeenCalled();
 });

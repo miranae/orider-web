@@ -36,7 +36,8 @@ function PublicActivityDetailRoute() {
       .catch(async error => {
         // During a separate backend rollout, preserve existing owner analysis only after
         // a server-filtered ownership read. Never fetch an unfiltered activity as fallback.
-        if (uid && !user?.isAnonymous) {
+        const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+        if (uid && !user?.isAnonymous && !isPublicActivityAccessError(error) && code !== "functions/unauthenticated") {
           try {
             const owned = await getDocs(query(collection(services.firestore, "activities"),
               where(documentId(), "==", activityId), where("userId", "==", uid), limit(1)));
