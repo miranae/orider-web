@@ -751,6 +751,8 @@
     "indoorRun": "Indoor run",
     "indoorRide": "Indoor ride",
     "indoorActivity": "Indoor activity",
+    "routePreviewUnavailable": "Route preview unavailable",
+    "routePreviewUnavailableDesc": "No map preview was provided. This does not establish whether the activity contains raw GPS.",
     "noGps": "No GPS data",
     "noGpsDesc": "No route data was recorded for this activity",
     "indoorDesc": "This activity was recorded indoors, so there is no route to map",

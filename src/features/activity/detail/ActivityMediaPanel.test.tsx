@@ -102,6 +102,12 @@ describe("ActivityMediaPanel no-map state", () => {
     expect(screen.getByText("실내 활동")).toBeInTheDocument();
   });
 
+  it("does not infer absent GPS from a missing native map preview", () => {
+    renderNoMap({ type: "Ride", source: "orider" });
+    expect(screen.getByText("경로 미리보기를 확인할 수 없습니다")).toBeInTheDocument();
+    expect(screen.queryByText("GPS 데이터 없음")).not.toBeInTheDocument();
+  });
+
   it("keeps the no-GPS message for outdoor activities without a track", () => {
     renderNoMap({ type: "TrailRun" });
     expect(screen.getByText("GPS 데이터 없음")).toBeInTheDocument();

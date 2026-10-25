@@ -197,10 +197,10 @@ export function ActivityMediaPanel({
       </div>
       <div>
         <p className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>
-          {indoor ? indoorTitle : t("page.noGps")}
+          {indoor ? indoorTitle : t(activity.source === "orider" ? "page.routePreviewUnavailable" : "page.noGps")}
         </p>
         <p className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-2)" }}>
-          {indoor ? t("page.indoorDesc") : t("page.noGpsDesc")}
+          {indoor ? t("page.indoorDesc") : t(activity.source === "orider" ? "page.routePreviewUnavailableDesc" : "page.noGpsDesc")}
         </p>
       </div>
     </Card>
