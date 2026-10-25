@@ -15,28 +15,28 @@ export default function BikePeriodSnapshotPanel(props:{ownerUid:string;period:Po
 function Panel({ownerUid,period}:{ownerUid:string;period:PowerCurvePeriod}){
  const {t,i18n}=useTranslation("fitness"),{units}=useLocale(),snapshot=useBikePeriodSnapshot(ownerUid,period),r=snapshot.data,result=r?.result;
  return <section className="space-y-3" aria-label={t("bikeSnapshot.title")}>
-  <Text as="h4" variant="subtitle">{t("bikeSnapshot.title")}</Text><Text>{t("bikeSnapshot.intro")}</Text>
+  <Text as="h4" variant="subtitle">{t("bikeSnapshot.title")}</Text><Text as="p">{t("bikeSnapshot.intro")}</Text>
   <Stack direction="row" wrap gap="var(--space-2)"><Button disabled={snapshot.running} onClick={()=>void(snapshot.canResume?snapshot.resume():snapshot.start())}>{t(snapshot.canResume?"bikeSnapshot.resume":"bikeSnapshot.start")}</Button>{snapshot.canResume&&<Button disabled={snapshot.running} variant="ghost" onClick={()=>void snapshot.start()}>{t("bikeSnapshot.restart")}</Button>}{snapshot.running&&<Button variant="ghost" onClick={snapshot.stop}>{t("bikeSnapshot.stop")}</Button>}</Stack>
-  {snapshot.running&&<Text role="status">{t("bikeSnapshot.progress",{count:r?.scanned??0})}</Text>}
-  {snapshot.error&&<Text role="alert">{t(snapshot.errorKind==="limit"?"bikeSnapshot.identityLimit":snapshot.errorKind==="invalidated"?"bikeSnapshot.invalidated":"bikeSnapshot.error")}</Text>}
-  {r&&["expired","invalidated"].includes(r.state)&&<Text role="status">{t("bikeSnapshot.invalidated")}</Text>}
+  {snapshot.running&&<Text as="p" role="status">{t("bikeSnapshot.progress",{count:r?.scanned??0})}</Text>}
+  {snapshot.error&&<Text as="p" role="alert">{t(snapshot.errorKind==="limit"?"bikeSnapshot.identityLimit":snapshot.errorKind==="invalidated"?"bikeSnapshot.invalidated":"bikeSnapshot.error")}</Text>}
+  {r&&["expired","invalidated"].includes(r.state)&&<Text as="p" role="status">{t("bikeSnapshot.invalidated")}</Text>}
   {result&&<>
-   <Text>{t("bikeSnapshot.basis",{count:r!.scanned,time:new Intl.DateTimeFormat(i18n.language,{timeZone:"Asia/Seoul",dateStyle:"short",timeStyle:"short"}).format(r!.asOf)+" KST"})}</Text>
+   <Text as="p">{t("bikeSnapshot.basis",{count:r!.scanned,time:new Intl.DateTimeFormat(i18n.language,{timeZone:"Asia/Seoul",dateStyle:"short",timeStyle:"short"}).format(r!.asOf)+" KST"})}</Text>
    <div>{(["distanceM","movingTimeSec","elevationGainM"] as const).map(key=>{const total=result.totals[key],format=(value:number)=>key==="distanceM"?formatDistance(value,units):key==="movingTimeSec"?formatElapsedBoundary(value):formatElev(value,units);return <section key={key} className="space-y-2">
-    <Text weight={600}>{t(`bikeSnapshot.metrics.${key}`)} · {total.totalValue===null?"—":format(total.totalValue)}</Text>
-    <Text>{t("bikeSnapshot.coverage",{known:total.knownActivityCount,missing:total.missingActivityCount,fallback:total.summaryFallbackCount})}</Text>
-    {total.totalValue===null&&total.observedValue!==null&&<Text>{t("bikeSnapshot.observed",{value:format(total.observedValue)})}</Text>}
+    <Text as="p" weight={600}>{t(`bikeSnapshot.metrics.${key}`)} · {total.totalValue===null?"—":format(total.totalValue)}</Text>
+    <Text as="p">{t("bikeSnapshot.coverage",{known:total.knownActivityCount,missing:total.missingActivityCount,fallback:total.summaryFallbackCount})}</Text>
+    {total.totalValue===null&&total.observedValue!==null&&<Text as="p">{t("bikeSnapshot.observed",{value:format(total.observedValue)})}</Text>}
    </section>;})}</div>
-   <Text as="h5" weight={600}>{t("bikeSnapshot.power")}</Text><Text>{t(result.power.status==="complete"?"bikeSnapshot.powerComplete":"bikeSnapshot.powerPartial")}</Text>
-   <Text>{t(result.power.weightNormalized?.status==="complete"?"bikeSnapshot.weightComplete":"bikeSnapshot.weightPartial")}</Text>
-   {result.power.weightNormalized&&<Text>{t("periodCurve.weightCoverage",{...result.power.weightNormalized.weightCounts})}</Text>}
+   <Text as="h5" weight={600}>{t("bikeSnapshot.power")}</Text><Text as="p">{t(result.power.status==="complete"?"bikeSnapshot.powerComplete":"bikeSnapshot.powerPartial")}</Text>
+   <Text as="p">{t(result.power.weightNormalized?.status==="complete"?"bikeSnapshot.weightComplete":"bikeSnapshot.weightPartial")}</Text>
+   {result.power.weightNormalized&&<Text as="p">{t("periodCurve.weightCoverage",{...result.power.weightNormalized.weightCounts})}</Text>}
    <ul>{result.power.points.map(point=>{const weight=result.power.weightNormalized?.points.find(p=>p.durationSeconds===point.durationSeconds);return <li key={point.durationSeconds}>
     <LocalizedLink to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}>{formatElapsedBoundary(point.durationSeconds)} · {point.watts.toFixed(1)} W</LocalizedLink>
     {weight&&<> · <LocalizedLink to={`/activity/${encodeURIComponent(weight.sourceActivityId)}`}>{weight.wattsPerKg.toFixed(2)} W/kg</LocalizedLink></>}
-   </li>;})}</ul><Text variant="caption">{t("bikeSnapshot.weightBasis")}</Text>
+   </li>;})}</ul><Text as="p" variant="caption">{t("bikeSnapshot.weightBasis")}</Text>
    <BikeSnapshotDensePower ownerUid={ownerUid} power={result.power}/>
-   <Text>{t("bikeSnapshot.zonesCoverage",{hr:result.heartRate.eligibleActivityCount,power:result.powerZones.eligibleActivityCount,count:r!.representatives})}</Text>
-   {r!.zoneGroups.map(zone=><section key={zone.id}><Text weight={600}>{zone.kind==="power"?t("bikeSnapshot.ftp",{ftp:zone.group.ftp,source:zone.group.powerSource}):t("bikeSnapshot.hr",{bpm:zone.group.boundaries.referenceBpm})}</Text><Text>{zone.group.seconds.map((seconds,i)=>`Z${i+1} ${formatElapsedBoundary(seconds)}`).join(" · ")}</Text></section>)}
+   <Text as="p">{t("bikeSnapshot.zonesCoverage",{hr:result.heartRate.eligibleActivityCount,power:result.powerZones.eligibleActivityCount,count:r!.representatives})}</Text>
+   {r!.zoneGroups.map(zone=><section key={zone.id}><Text as="p" weight={600}>{zone.kind==="power"?t("bikeSnapshot.ftp",{ftp:zone.group.ftp,source:zone.group.powerSource}):t("bikeSnapshot.hr",{bpm:zone.group.boundaries.referenceBpm})}</Text><Text as="p">{zone.group.seconds.map((seconds,i)=>`Z${i+1} ${formatElapsedBoundary(seconds)}`).join(" · ")}</Text></section>)}
    <Button disabled={snapshot.running} variant="ghost" onClick={()=>void snapshot.zones()}>{t(r!.nextZone?"bikeSnapshot.moreZones":"bikeSnapshot.zones")}</Button>
   </>}
  </section>;

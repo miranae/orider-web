@@ -23,3 +23,5 @@ it("supports the dense duration grid and independent W and W/kg source links",()
  mount();const select=screen.getByRole('combobox',{name:'periodCurve.duration'});const duration=POWER_DURATION_GRID.find(d=>![1,5,10,30,60,120,300,600,1200,1800,3600].includes(d))!;chooseDropdownAt(select,POWER_DURATION_GRID.indexOf(duration));
  expect(screen.getByRole('link',{name:/ · W$/})).toHaveAttribute('href',`/ko/activity/watts-${duration}`);expect(screen.getByRole('link',{name:/ · W\/kg$/})).toHaveAttribute('href',`/ko/activity/weight-${duration}`);
 });
+
+it("separates metric and coverage copy into block paragraphs",()=>{mount();expect(screen.getByText(/^bikeSnapshot.metrics.distanceM/).tagName).toBe("P");expect(screen.getAllByText(/^bikeSnapshot.coverage/)[0].tagName).toBe("P");expect(screen.getByText("bikeSnapshot.powerComplete").tagName).toBe("P");expect(screen.getByText("bikeSnapshot.weightPartial").tagName).toBe("P");});
