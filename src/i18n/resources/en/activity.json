@@ -2780,6 +2780,7 @@
     "metric": "Metric",
     "weightedPower": "Weighted average power",
     "work": "Work",
+    "sensorSummary": "Strava source sensor summary",
     "maxCadence": "Maximum cadence",
     "deviceTemperature": "Device temperature"
   }

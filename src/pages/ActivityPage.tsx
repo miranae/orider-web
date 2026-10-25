@@ -1449,7 +1449,7 @@ export default function ActivityPage() {
       {activeTab === "analysis" && summarySensorMetrics.length > 0 && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
         <div className="space-y-4">
           <SummarySensorFallbackCard
-            title={t("page.summarySensorTitle")}
+            title={t(providerRecord ? "sourceMetrics.sensorSummary" : "page.summarySensorTitle")}
             description={t(streamsSignInRequired ? "page.summarySensorSignInDesc" : "page.summarySensorDesc")}
             metrics={summarySensorMetrics}
           />
@@ -1499,7 +1499,7 @@ export default function ActivityPage() {
       {activeTab === "analysis" && sport !== "run" && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
         <div className="space-y-4">
           <SummarySensorFallbackCard
-            title={t("page.summarySensorTitle")}
+            title={t(providerRecord ? "sourceMetrics.sensorSummary" : "page.summarySensorTitle")}
             description={t(streamsSignInRequired ? "page.summarySensorSignInDesc" : "page.summarySensorDesc")}
             metrics={summarySensorMetrics}
           />

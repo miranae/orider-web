@@ -2780,6 +2780,7 @@
     "metric": "지표",
     "weightedPower": "가중평균 파워",
     "work": "일량",
+    "sensorSummary": "Strava 원본 센서 요약",
     "maxCadence": "최대 케이던스",
     "deviceTemperature": "기기 온도"
   }

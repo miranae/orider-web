@@ -1534,7 +1534,7 @@ describe("ActivityPage", () => {
 
     fireEvent.click(await screen.findByRole("tab", { name: "분석" }));
 
-    expect(await screen.findByText("저장된 센서 요약")).toBeInTheDocument();
+    expect(await screen.findByText("Strava 원본 센서 요약")).toBeInTheDocument();
     expect(screen.getAllByText("평균 심박").length).toBeGreaterThan(0);
     expect(screen.getAllByText("평균 파워").length).toBeGreaterThan(0);
     expect(screen.getAllByText("최대 파워").length).toBeGreaterThan(0);
