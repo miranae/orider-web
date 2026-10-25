@@ -19,6 +19,6 @@ export async function resolveFriendInvitePreview(services: FirebaseServices, fri
   const profile = data.profile;
   if (profile === null) return null;
   if (!profile || typeof profile.userId !== "string" || !profile.userId || profile.userId.includes("/") || typeof profile.nickname !== "string" || !profile.nickname.trim()
-    || profile.nickname.length > 100 || profile.photoURL !== null && (typeof profile.photoURL !== "string" || !/^https:\/\//.test(profile.photoURL))) throw Error("invalid_friend_invite");
+    || profile.nickname.length > 200 || profile.photoURL !== null && (typeof profile.photoURL !== "string" || !/^https:\/\//.test(profile.photoURL))) throw Error("invalid_friend_invite");
   return { userId: profile.userId, nickname: profile.nickname, photoURL: profile.photoURL };
 }
