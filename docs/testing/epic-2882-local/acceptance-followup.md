@@ -16,6 +16,9 @@
 - **R2 representative photos:** owner select/clear/current indicator, revision conflicts and deleted-photo fallback are implemented locally. Actual browser and background-trigger/concurrent-write evidence is in [cover and power verification](cover-and-power-verification.md).
 - **R4 public power:** canonical average/normalized power now carries estimated/measured/unknown provenance; zero remains distinct from missing. The same [verification record](cover-and-power-verification.md) explains conservative classification and actual mobile browser evidence.
 
+- **R3 notification follow-up:** activity/comment notifications now recheck current visibility, block and deletion before serving content; exact comment destinations, read receipts and login return are connected. Hidden/background/account changes clear content; periodic checks have documented timing limits. See [notification verification](notification-followup.md).
+- **R7 club invitation:** anonymous public preview, login return, idempotent active/pending membership recovery and first reaction are verified locally. See [club journey](club-invite-journey.md).
+
 ## Earlier authoritative local evidence
 
 Web product SHA `1fe01913` plus tests/mocks through `c8473585`; server `c03e505d`.
@@ -39,9 +42,10 @@ Paths above are relative to `/Users/kyoungnam/Documents/Codex/2026-10-26/orider-
 
 | Requirement | Evidence gap / next work |
 |---|---|
+| R3 notification release compatibility | New raw notification rules require the existing Android/KMP consumer to migrate to the access-checked API, including its dismiss action, before release. Local web completion does not authorize deploying these rules alone. |
 | R1 historical photo revocation | Production bearer token revocation and old projection migration have not run. Local tests cannot prove old production URLs are revoked. A bounded inventory/explicit rollout is required when authorized. |
 | R5 native repeat-route personal best | Observed geometry still has unknown complete coverage, so the two-route group demo does not prove a personal best or whole-history rank. The [coverage audit](native-route-coverage-audit.md) traces actual recorder/upload contracts: local FINISHED/checkpoint/failure state is not uploaded; finalized bytes do not prove capture completeness. A versioned recorder sequence/terminal-flush witness and whole-history index contract remain required. App work is deferred; no speculative verifier is added. Never promote unknown to complete for convenience. |
-| R0/R8 paid comparison and release-wide QA | Real paid-Strava paired comparison, production latency/cost and physical-device evidence are absent. Local emulator measurements are not substitutes. Profile cover and strip can still make duplicate visible-photo byte requests; keep this cost explicit. |
+| R0/R8 paid comparison and release-wide QA | Real paid-Strava paired comparison, production latency/cost and physical-device evidence are absent. Local emulator measurements are not substitutes. Overlapping profile photo reads now share requests; sequential reads can still repeat. See the bounded [photo read evidence](photo-read-coalescing.md), which is not production cost evidence. |
 | R9 beta/release decision | Real-rider recruitment, two-week observation, staged release, store versions and product-owner launch decision remain unperformed. No external contact is authorized by this local work. |
 
 The goal and full epic remain open. No remote issue state is changed by this report.
@@ -49,3 +53,16 @@ The goal and full epic remain open. No remote issue state is changed by this rep
 ## Latest combined local checkpoint
 
 Web `1a014fe6`, server `8c04d91f`: 893 web files / 9,480 tests and all contract suites passed. Web full lint, quality budget and development build passed. Server build, full lint and compatibility checks passed. See [cover/power evidence](cover-and-power-verification.md) for actual browser, concurrency and background-trigger checks. These supersede earlier full-regression counts for this source; earlier performance measurements remain scoped to their original SHA.
+
+## Notification / club / photo-read checkpoint
+
+2026-10-26, web product `e4a7c59f`, server `0ad26ef1`:
+
+- Web **896 files / 9,509 tests passed**, followed by all contract suites. Full lint, quality budget and development build passed.
+- Functions **925 files / 15,574 tests passed**, with **52 files / 531 opt-in tests skipped**. Build, full lint and compatibility checks passed. Separate emulator/rules/browser evidence remains necessary; skipped cases are not counted as passed.
+- The first complete Functions run exposed seven regressions: authentication had moved after local runtime inspection, and four older test contracts/fixtures had not followed the native matcher/current-public-record changes. Authentication ordering was fixed; reviewed deletion-read fingerprints and source-aware fixtures were updated without weakening the guards. The full rerun passed.
+- The first complete web run exposed two friend-acceptance tests still mocking the removed raw notification listener. They now exercise the new inbox contract and retain sender-path validation; the full rerun passed.
+- Notification browser: 5/5 checks, no page errors, fixture mutations restored. Club browser: invitation/login/join/ride/reaction and anonymous preview/login return passed; server readback proved one invite use and one kudos aggregate.
+- Logs: `/tmp/orider-2882-notification-{web,functions}-all-final.log`, plus corresponding `*-build-final.log`, `*-lint-final.log` and web `*-quality-final.log`. Synthetic evidence is linked from the feature documents.
+
+Subsequent static-map failure presentation fix `116422c0`: failed static images now show a shared error state and retry action, rather than a broken image. The same URL is retried without changing signed URLs; source changes reset the error. Two focused suites / 29 tests, focused lint, final development build and quality budget passed. The polyline and photo paths were not changed. Actual full-app browser kept the real public-detail HTTP 200 and intercepted only the known synthetic `https://localhost:5223/ride.svg` image: first transport failure, then retry success; two image requests, no page errors. Artifacts: `map-retry/results.json`, `failed.png`, `recovered.png` in the external demo evidence root. The initial failed screenshot remains in notification evidence.

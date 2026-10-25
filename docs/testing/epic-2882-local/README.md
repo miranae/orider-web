@@ -84,3 +84,11 @@ The first local handoff was not the full acceptance boundary. See [acceptance-fo
 ## Representative photos, power provenance and consistent ordering
 
 Latest local increment: [implementation and verification](cover-and-power-verification.md). Owner cover selection/clear/deletion fallback, conservative public power provenance and Firestore-compatible same-time feed/search ordering are implemented. Web 893 files / 9,480 tests plus contract suites, lint, quality budget and development build passed at product `1a014fe6`; server `8c04d91f` build/lint/compat passed. [Remaining acceptance](acceptance-followup.md) continues to distinguish deferred recorder/beta/release work from completed local behavior.
+
+## Notification, club and media follow-up
+
+The local web now reads notifications through current access checks and opens the exact comment, including login return, deletion/block handling and account/background cleanup. Club invitation retry is idempotent; anonymous visitors can reach the public preview and return after login. Overlapping native photo reads share only in-flight requests, and failed static maps provide an explicit retry.
+
+Evidence: [notifications](notification-followup.md), [club journey](club-invite-journey.md), [photo reads](photo-read-coalescing.md), [latest combined checks and remaining acceptance](acceptance-followup.md).
+
+Broad checkpoint: web 896 files / 9,509 tests plus contract suites; Functions 925 files / 15,574 tests with 531 opt-in tests skipped. Subsequent static-map presentation: 29 focused tests and final development build/quality budget passed. All changes remain local. Existing Android raw-notification consumers must migrate before the new notification rules can be released; no standalone rules deployment is authorized or performed.
