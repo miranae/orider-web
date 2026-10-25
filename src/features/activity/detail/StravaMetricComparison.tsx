@@ -3,7 +3,7 @@ import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import { useTranslation } from "react-i18next";
 import { DataTable, Section, Text } from "../../../theme/components";
 import { useLocale } from "../../../contexts/LocaleContext";
-import { formatDistance, formatSpeed, formatElev, type Units } from "../../../utils/units";
+import { formatDistance, formatSpeed, formatElev, formatTemp, type Units } from "../../../utils/units";
 export default function StravaMetricComparison({ record: r, metrics: m }: { record: StravaSummaryV1; metrics: Partial<ActivityMetrics> | null }) {
   const { units } = useLocale();
   return <StravaMetricComparisonContent record={r} metrics={m} units={units} />;
@@ -25,7 +25,7 @@ export function StravaMetricComparisonContent({ record: r, metrics: m, units }: 
     [t("sourceMetrics.work"), num(r.kilojoules, " kJ"), num(m?.workKj, " kJ", 1)],
     [t("stat.calories"), num(r.calories, " kcal"), num(m?.caloriesKcal, " kcal")],
     ["Relative Effort", num(r.suffer_score), "—"],
-    [t("sourceMetrics.deviceTemperature"), num(r.average_temp, " °C"), "—"],
+    [t("sourceMetrics.deviceTemperature"), r.average_temp == null ? "—" : formatTemp(r.average_temp, units), "—"],
   ];
   return <Section title={t("sourceMetrics.comparison")}>
     <Text as="p" variant="caption" tone="secondary">{t("sourceMetrics.explanation")}</Text>

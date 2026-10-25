@@ -1419,7 +1419,7 @@ export default function ActivityPage() {
         overview={overview} isOwner={isActivityOwner} preview={activePowerOverride != null}
         ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} totalCalories={providerRecord ? latestMetrics?.caloriesKcal ?? null : stripStats.caloriesKcal.value}
         storedLoad={(isActivityOwner || overview.response?.status !== "available" || differentLoadValues) && !activePowerOverride && !analysisTabProps?.suppressServerPowerMetrics && (serverMetrics.status === "ready" || serverMetrics.status === "stale") ? serverMetrics.metrics?.tss ?? null : null}
-        sharedStats={{ averagePower: stripStats.avgPower.value, averageCadence: stripStats.avgCadence.value, averageHeartRate: stripStats.avgHr.value, maxHeartRate: stripStats.maxHr.value }}
+        sharedStats={providerRecord ? { averagePower: latestMetrics?.avgPower ?? null, averageCadence: latestMetrics?.avgCadence ?? null, averageHeartRate: latestMetrics?.avgHr ?? null, maxHeartRate: latestMetrics?.maxHr ?? null } : { averagePower: stripStats.avgPower.value, averageCadence: stripStats.avgCadence.value, averageHeartRate: stripStats.avgHr.value, maxHeartRate: stripStats.maxHr.value }}
         analysisProps={analysisTabProps ? { ...analysisTabProps, onSignIn: () => { void signIn(); } } : null}
         timeline={null}
         provenance={differentLoadValues ? <Text as="p" variant="caption" tone="secondary">{t("detail.loadValuesDescription")}{serverMetrics.status === "stale" ? ` · ${t("detail.previousAnalysisValue")}` : ""}</Text> : null}
