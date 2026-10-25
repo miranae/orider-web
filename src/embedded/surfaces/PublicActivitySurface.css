@@ -1,0 +1,7 @@
+.public-activity-surface { padding: var(--space-4); color: var(--ink-1); }
+
+.public-activity-photo {
+  width: 100%;
+  height: auto;
+  border-radius: var(--r-lg);
+}

@@ -54,11 +54,12 @@ export default function ActivityAnalysisSurface({
     readyKey.current = null;
     errorKey.current = null;
     if (model.activity) {
+      model.overview.retry();
       void model.retryStreams();
     } else {
       model.retryActivity();
     }
-  }, [model.activity, model.retryActivity, model.retryStreams, retryKey]);
+  }, [model.activity, model.overview.retry, model.retryActivity, model.retryStreams, retryKey]);
 
   useEffect(() => {
     let code: SurfaceErrorCode;
@@ -144,7 +145,9 @@ export default function ActivityAnalysisSurface({
       {(model.sport === "run" || model.sport === "ride") && <ActivityDetailedCharts key={activityId} model={model} highlightedPeak={selectedPeak} onClearHighlightedPeak={() => setPeakSelection({ activityId, peak: null })} />}
       {model.sport === "run" && model.analysisTabProps ? <AnalysisTab {...model.analysisTabProps} /> : model.loadingStreams || model.showStreamSpinner ? <div className="orider-embedded-status" role="status">Loading analysis</div>
         : model.analysisTabProps ? <AnalysisTab {...model.analysisTabProps} />
-          : <div className="orider-embedded-status" role="alert">Analysis is unavailable.</div>}
+          : model.overview.loading ? <div className="orider-embedded-status" role="status">{tCommon("embeddedStatus.loading")}</div>
+            : model.overview.response?.status === "available" ? null
+              : <div className="orider-embedded-status" role="alert">{tCommon("embeddedStatus.unavailable")}</div>}
     </main>
   );
 }

@@ -1,4 +1,40 @@
 {
+  "nativeMemo": {
+    "edit": "Write or edit ride description",
+    "label": "Ride description",
+    "reload": "Replace draft with latest description",
+    "failed": "Could not load or save the description. Your draft is preserved.",
+    "conflict": "The description changed elsewhere. Your draft is preserved. Load the latest description before editing again.",
+    "saved": "Description saved. Feed updates may take a moment."
+  },
+  "publicDetail": {
+    "photosFailed": "Could not load more photos. Please try again.",
+    "morePhotos": "More photos",
+    "openPhotoPreview": "Open photo {{index}} preview",
+    "moreComments": "Load more comments",
+    "commentsRestart": "Reload from the beginning",
+    "commentsFailed": "Could not load the next comments. Current comments are preserved.",
+    "commentsComplete": "All currently accessible comments are loaded.",
+    "confirmDelete": "Confirm deletion",
+
+    "accessDenied": "This activity is unavailable. It may have been deleted or its visibility or access may have changed.",
+    "route": "Ride route",
+    "mapLoading": "Loading route.",
+    "routePreview": "Public route preview. Raw GPS streams are not displayed.",
+    "photoPreview": "Showing a preview of photos.",
+    "title": "Public activity",
+    "summary": "Ride summary",
+    "distance": "Distance",
+    "duration": "Recorded time",
+    "minutes": "min",
+    "elevation": "Elevation gain",
+    "calculated": "Activity facts verified by the server.",
+    "recorded": "Recorded summary. Analysis results are not yet verified.",
+    "pending": "Photos and description are being prepared.",
+    "commentPreview": "Showing a preview of comments.",
+    "mutationFailed": "Could not save your reaction. Review your text and try again.",
+    "posted": "Comment posted."
+  },
   "cyclingEffortPreference": {
     "restoreAvailable": "The existing excluded selection can be restored.",
     "legacyUnsupported": "This older analysis format does not allow checking the record time for this distance.",

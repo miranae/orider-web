@@ -30,7 +30,7 @@ import { LocaleRedirect } from "./components/i18n/LocaleRedirect";
 import { LegacyRedirect } from "./components/routing/LegacyRedirect";
 import { firestore } from "./services/firebase";
 
-const ActivityPage = lazyTimed("ActivityPage", () => import("./pages/ActivityPage"));
+const ActivityPage = lazyTimed("ActivityPage", () => import("./pages/ActivityDetailRoute"));
 const ActivityEditPage = lazyTimed("ActivityEditPage", () => import("./pages/activity/ActivityEditPage"));
 const GroupsPage = lazyTimed("GroupsPage", () => import("./pages/group/GroupsPage"));
 const GroupDashboardPage = lazyTimed("GroupDashboardPage", () => import("./pages/group/GroupDashboardPage"));
@@ -111,6 +111,7 @@ export function AppRoutes() {
       <Route path="/:lang" element={<LocaleRoot />}>
         <Route path="live/:eventId" element={<EventLivePage />} />
         <Route path="onboarding" element={<OnboardingPage />} />
+        <Route path="embed/activity/:activityId/public" element={<EmbeddedBootstrapRoot surfaceKind="activity-public" />} />
         <Route path="embed/activity/:activityId/analysis" element={<EmbeddedBootstrapRoot surfaceKind="activity-analysis" />} />
         <Route path="embed/fitness" element={<EmbeddedBootstrapRoot surfaceKind="fitness" />} />
         <Route path="embed/plan" element={<EmbeddedBootstrapRoot surfaceKind="plan" />} />
@@ -380,7 +381,7 @@ function StandardApp() {
 }
 
 export function isEmbeddedRoutePath(pathname: string): boolean {
-  return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/analysis|fitness|plan)\/?$/.test(pathname);
+  return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/(?:analysis|public)|fitness|plan)\/?$/.test(pathname);
 }
 
 export default function App() {
