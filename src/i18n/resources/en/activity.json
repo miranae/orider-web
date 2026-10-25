@@ -1,4 +1,23 @@
 {
+  "publicDetail": {
+    "accessDenied": "This activity is unavailable. It may have been deleted or its visibility or access may have changed.",
+    "route": "Ride route",
+    "mapLoading": "Loading route.",
+    "routePreview": "Public route preview. Raw GPS streams are not displayed.",
+    "photoPreview": "Showing a preview of photos.",
+    "title": "Public activity",
+    "summary": "Ride summary",
+    "distance": "Distance",
+    "duration": "Recorded time",
+    "minutes": "min",
+    "elevation": "Elevation gain",
+    "calculated": "Activity facts verified by the server.",
+    "recorded": "Recorded summary. Analysis results are not yet verified.",
+    "pending": "Photos and description are being prepared.",
+    "commentPreview": "Showing a preview of comments.",
+    "mutationFailed": "Could not save your reaction. Review your text and try again.",
+    "posted": "Comment posted."
+  },
   "cyclingEffortPreference": {
     "restoreAvailable": "The existing excluded selection can be restored.",
     "legacyUnsupported": "This older analysis format does not allow checking the record time for this distance.",

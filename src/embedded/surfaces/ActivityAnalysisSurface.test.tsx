@@ -25,6 +25,13 @@ describe("embedded activity independent overview readiness", () => {
     expect(screen.getByText("saved evidence")).toBeInTheDocument();
     expect(onError).not.toHaveBeenCalled();
     expect(onReady).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it("retries canonical overview together with streams after host retry", () => {
+    const { rerender } = render(<ActivityAnalysisSurface activityId="a" retryKey={0} onError={vi.fn()} onReady={vi.fn()} />);
+    rerender(<ActivityAnalysisSurface activityId="a" retryKey={1} onError={vi.fn()} onReady={vi.fn()} />);
+    expect(state.model.overview.retry).toHaveBeenCalledTimes(1);
+    expect(state.model.retryStreams).toHaveBeenCalledTimes(1);
   });
   it("reports stream failure only when overview is also unavailable", () => {
     state.model.overview = { ...state.model.overview, loading: false, error: true };

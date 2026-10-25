@@ -56,6 +56,7 @@ import {
   prepareTrainingSurfaceCacheOwner,
 } from "./trainingSurfaceCache";
 
+const PublicActivitySurface = lazy(() => import("./surfaces/PublicActivitySurface"));
 const ActivityAnalysisSurface = lazy(() => import("./surfaces/ActivityAnalysisSurface"));
 const loadFitnessSurface = () => import("./surfaces/FitnessSurface");
 const loadPlanSurface = () => import("./surfaces/PlanSurface");
@@ -142,7 +143,7 @@ interface EmbeddedBootstrapRootProps {
   surfaceKind?: EmbeddedSurfaceKind;
 }
 
-export type EmbeddedSurfaceKind = "activity-analysis" | "fitness" | "plan";
+export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "fitness" | "plan";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -357,7 +358,7 @@ function AuthorizedSurface({
         bridge.send(
           "surface.error",
           { code: "profile_load_failed" },
-          surfaceKind === "activity-analysis" ? undefined : selectionRequestIdRef.current,
+          (surfaceKind === "activity-analysis" || surfaceKind === "activity-public") ? undefined : selectionRequestIdRef.current,
         );
       },
     );
@@ -439,7 +440,11 @@ function AuthorizedSurface({
                 <div className="orider-embedded-status__pulse" />
               </div>
             )}>
-              {surfaceKind === "activity-analysis" && activityId ? (
+              {surfaceKind === "activity-public" && activityId ? (
+                <PublicActivitySurface embedded activityId={activityId} retryKey={retryKey}
+                  onReady={() => bridge.send("surface.ready", { activityId })}
+                  onError={(code) => bridge.send("surface.error", { code })} />
+              ) : surfaceKind === "activity-analysis" && activityId ? (
                 <ActivityAnalysisSurface
                   activityId={activityId}
                   retryKey={retryKey}
@@ -829,7 +834,7 @@ export default function EmbeddedBootstrapRoot({
           return;
         }
         if (
-          surfaceKind === "activity-analysis"
+          (surfaceKind === "activity-analysis" || surfaceKind === "activity-public")
           || !sessionAccepted.current
           || !acceptedUid.current
           || controlServices.auth.currentUser?.uid !== acceptedUid.current
@@ -1007,7 +1012,7 @@ export default function EmbeddedBootstrapRoot({
     };
   }, [bridge, commitSurfaceSelection, controlServices, initialTrainingSurface, runStartChannel, safeSend, surfaceKind]);
 
-  const selectedTrainingSurface = surfaceKind === "activity-analysis"
+  const selectedTrainingSurface = (surfaceKind === "activity-analysis" || surfaceKind === "activity-public")
     ? null
     : surfaceSelection.surface;
   const trainingShellReady = useCallback(() => {
@@ -1028,7 +1033,7 @@ export default function EmbeddedBootstrapRoot({
     // 응답은 커밋된 props 가 아니라 최신 선택에 보낸다. 재선택 메시지와 커밋 사이에 준비가
     // 도착하면 재선택 시점엔 lastReady 가 없어 대신 응답도 없으므로, 여기서 새 requestId 에 보낸다.
     const latest = latestSelection.current;
-    if (surfaceKind === "activity-analysis" || !latest.surface || latest.mountKey !== mounted.mountKey) return;
+    if ((surfaceKind === "activity-analysis" || surfaceKind === "activity-public") || !latest.surface || latest.mountKey !== mounted.mountKey) return;
     handleTrainingSurfaceReady(
       latest.surface,
       latest.generation,
@@ -1058,12 +1063,12 @@ export default function EmbeddedBootstrapRoot({
       data-testid="embedded-bootstrap-root"
       onClickCapture={handleNavigation}
     >
-      {session && (surfaceKind !== "activity-analysis" || activityId) ? (
+      {session && ((surfaceKind !== "activity-analysis" && surfaceKind !== "activity-public") || activityId) ? (
         <AuthorizedSurface
           key={services.auth.currentUser?.uid ?? "signed-out"}
           activityId={activityId}
           bridge={bridge}
-          mountedTrainingSurface={surfaceKind === "activity-analysis" ? null : surfaceSelection.mounted}
+          mountedTrainingSurface={(surfaceKind === "activity-analysis" || surfaceKind === "activity-public") ? null : surfaceSelection.mounted}
           onTrainingShellReady={trainingShellReady}
           onTrainingSurfaceReady={trainingSurfaceReady}
           planBackgroundRefreshKey={planBackgroundRefreshKey}
