@@ -1,5 +1,7 @@
 # Epic 2882 local integration
 
+**Latest local review:** [current implementation, combined gates, browser evidence and remaining limits](local-review-checkpoint.md). Earlier checkpoints below remain historical evidence for their named source revisions.
+
 2026-10-26. The user's local-only instruction supersedes the earlier remote delivery workflow. Do not push, merge, deploy, or update remote issues from this checkout.
 
 ## Integrated behavior
