@@ -12,7 +12,10 @@
 - **R6 comparison continuity:** valid period, W/Wkg and duration inputs survive original-activity navigation and return in the same browser session. Scope includes Firebase app/project, owner and account creation. Aggregate results, health values and activity IDs are not persisted; users explicitly query again. Validation rejects invalid/future ranges and stale hydration cannot replace new input.
 - Photo consumer follow-ups cover profile reference deduplication, owner projection/upload deduplication, photo deletion controls and removal of stale map popups. Existing provider-photo behavior remains distinct.
 
-## Authoritative local evidence
+- **R2 representative photos:** owner select/clear/current indicator, revision conflicts and deleted-photo fallback are implemented locally. Actual browser and background-trigger/concurrent-write evidence is in [cover and power verification](cover-and-power-verification.md).
+- **R4 public power:** canonical average/normalized power now carries estimated/measured/unknown provenance; zero remains distinct from missing. The same [verification record](cover-and-power-verification.md) explains conservative classification and actual mobile browser evidence.
+
+## Earlier authoritative local evidence
 
 Web product SHA `1fe01913` plus tests/mocks through `c8473585`; server `c03e505d`.
 
@@ -36,10 +39,12 @@ Paths above are relative to `/Users/kyoungnam/Documents/Codex/2026-10-26/orider-
 | Requirement | Evidence gap / next work |
 |---|---|
 | R1 historical photo revocation | Production bearer token revocation and old projection migration have not run. Local tests cannot prove old production URLs are revoked. A bounded inventory/explicit rollout is required when authorized. |
-| R2 representative photo selection | Existing add/delete/view path does not let an owner select the cover photo. Implement selection consistently across feed/detail/sharing, including deletion fallback. |
-| R4 power provenance | `activity-effective-facts` currently omits measured/estimated provenance from the public effective-facts contract; preserve existing canonical evidence and test measured/estimated/unknown/absent rather than invent it. |
 | R5 native repeat-route personal best | Observed geometry still has unknown complete coverage, so the two-route group demo does not prove a personal best or whole-history rank. The [coverage audit](native-route-coverage-audit.md) traces actual recorder/upload contracts: local FINISHED/checkpoint/failure state is not uploaded; finalized bytes do not prove capture completeness. A versioned recorder sequence/terminal-flush witness and whole-history index contract remain required. App work is deferred; no speculative verifier is added. Never promote unknown to complete for convenience. |
 | R0/R8 paid comparison and release-wide QA | Real paid-Strava paired comparison, production latency/cost and physical-device evidence are absent. Local emulator measurements are not substitutes. Profile cover and strip can still make duplicate visible-photo byte requests; keep this cost explicit. |
 | R9 beta/release decision | Real-rider recruitment, two-week observation, staged release, store versions and product-owner launch decision remain unperformed. No external contact is authorized by this local work. |
 
 The goal and full epic remain open. No remote issue state is changed by this report.
+
+## Latest combined local checkpoint
+
+Web `1a014fe6`, server `8c04d91f`: 893 web files / 9,480 tests and all contract suites passed. Web full lint, quality budget and development build passed. Server build, full lint and compatibility checks passed. See [cover/power evidence](cover-and-power-verification.md) for actual browser, concurrency and background-trigger checks. These supersede earlier full-regression counts for this source; earlier performance measurements remain scoped to their original SHA.

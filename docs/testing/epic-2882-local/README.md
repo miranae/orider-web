@@ -80,3 +80,7 @@ Open http://localhost:5174/ko/ for the synthetic feed. Owner analysis: http://lo
 ## Subsequent acceptance audit
 
 The first local handoff was not the full acceptance boundary. See [acceptance-followup.md](acceptance-followup.md) for subsequently discovered and fixed photo-access, safety-action, KST-filter and period-state gaps, the new 9,467-test combined checkpoint, actual Storage/browser evidence, and requirements still outstanding. The earlier latency result applies only to its recorded SHA.
+
+## Representative photos, power provenance and consistent ordering
+
+Latest local increment: [implementation and verification](cover-and-power-verification.md). Owner cover selection/clear/deletion fallback, conservative public power provenance and Firestore-compatible same-time feed/search ordering are implemented. Web 893 files / 9,480 tests plus contract suites, lint, quality budget and development build passed at product `1a014fe6`; server `8c04d91f` build/lint/compat passed. [Remaining acceptance](acceptance-followup.md) continues to distinguish deferred recorder/beta/release work from completed local behavior.
