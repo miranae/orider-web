@@ -1,3 +1,4 @@
+import { mockCollectionData } from "../../__tests__/mocks/firebase";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import i18n from "i18next";
@@ -404,4 +405,15 @@ it("keeps hidden records selectable in the table and caps only the visible legen
   expect(within(table).getByRole("checkbox", { name: "Record 1 표시" })).toBeChecked();
   expect(screen.getByRole("button", { name: "Record 1 숨기기" })).toHaveAttribute("aria-pressed", "true");
   expect(elevation.mock.lastCall?.[0].overlays.filter((overlay: { yAxisID: string }) => overlay.yAxisID === "yPower")).toHaveLength(6);
+});
+
+vi.mock("../../services/activityDiscovery", () => ({ loadActivityDiscovery: vi.fn(async () => ({ items: mockCollectionData.get("activities") ?? [], nextCursor: null, scannedCount: 0, exhausted: true, totalCount: null })) }));
+
+it("loads authorized stored provider streams by public activity identity without a provider id", async () => {
+  setCollectionDocs("activities", [{ ...activity("provider-record", null, null), source: "strava" }]);
+  streamsApi.mockResolvedValue({ distance: [0, 1000], altitude: [10, 20] });
+  renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
+  expect(await screen.findByTestId("C2R-2")).toBeInTheDocument();
+  expect(streamsApi).toHaveBeenCalledWith("provider-record");
+  expect(mockCallableInvocations.some(call => call.name === "stravaGetActivityStreams")).toBe(false);
 });

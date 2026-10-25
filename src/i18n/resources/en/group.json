@@ -603,5 +603,10 @@
   "events.discoveryIncomplete": "More events may be available.",
   "events.continueDiscovery": "Continue in the event list",
   "error.joinVerificationWait": "Browser verification is temporarily limited, so your join request was not sent. Wait about {{count}} min before trying again. You do not need to re-enter the invite code.",
-  "error.joinVerificationFailed": "Browser verification could not finish, so your join request was not sent. Check your network and browser settings, then try again later."
+  "error.joinVerificationFailed": "Browser verification could not finish, so your join request was not sent. Check your network and browser settings, then try again later.",
+  "ridePage.discoveryScope": "Compare public and your own activities retrieved so far. Each page reflects access and data at the time it was read.",
+  "ridePage.discoveryMore": "Load more activities",
+  "ridePage.discoveryLoading": "Loading…",
+  "ridePage.discoveryLimited": "This view reached its query limit. These records do not establish the total participant count.",
+  "ridePage.discoveryRefresh": "Refresh activities"
 }
