@@ -37,12 +37,12 @@ export default function SegmentLocalLegend({ segmentId }: { segmentId: string })
     <details><summary>{t("nativeBoard.criteria")}</summary><Text as="p">{t("safeLegend.criteria")}</Text></details>
     {user && !user.isAnonymous ? <Button disabled={loading} loading={loading} onClick={() => void load()}>{t("safeLegend.load")}</Button> : <Text>{t("empty.loginRequired")}</Text>}
     {error && <Text role="alert">{t("safeLegend.error")}</Text>}
-    {result && <>
+    {result && <details open={result.coverage!=="partial"}><summary>{t("safeLegend.quickScope")}</summary>
       <Text role="status">{t(result.coverage === "partial" ? "safeLegend.partial" : "safeLegend.complete", { count: result.scannedCount, total: result.totalEfforts, riders: result.riderCount })}</Text>
       <Text variant="caption">{new Date(result.windowStartMs).toLocaleDateString(undefined, { timeZone: "Asia/Seoul" })} – {new Date(result.windowEndMs).toLocaleDateString(undefined, { timeZone: "Asia/Seoul" })}</Text>
       {result.leader ? <Text>{t("safeLegend.leader", { name: result.leader.nickname || t("nativeBoard.rider"), count: result.leader.effortCount })}</Text> : result.coverage === "complete" && <Text>{t("safeLegend.minimum")}</Text>}
 
-    </>}
+    </details>}
     {offered===scope.current&&<SegmentLocalLegendProgress segmentId={segmentId}/> }
   </Stack></Card>;
 }

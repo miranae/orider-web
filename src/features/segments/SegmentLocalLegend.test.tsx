@@ -25,3 +25,10 @@ it("explains partial coverage without presenting a winner", async () => {
 it("removes a completed legacy result on focus without automatic refetch",async()=>{
  mocks.load.mockResolvedValueOnce(result);renderWithProviders(<SegmentLocalLegend segmentId="s"/>,{authenticated:true});fireEvent.click(screen.getByRole("button",{name:"완주 수 조회·새로고침"}));await screen.findByText(/확인된 모집단의 최다 완주:/);act(()=>window.dispatchEvent(new Event("focus")));expect(screen.queryByText(/확인된 모집단의 최다 완주:/)).not.toBeInTheDocument();expect(mocks.load).toHaveBeenCalledTimes(1);
 });
+it("keeps the provisional 500-record explanation collapsed and labels its scope", async () => {
+ mocks.load.mockResolvedValue({...result,coverage:"partial",scannedCount:500,leader:null});
+ renderWithProviders(<SegmentLocalLegend segmentId="s"/>,{authenticated:true});
+ fireEvent.click(screen.getByRole("button",{name:"완주 수 조회·새로고침"}));
+ const summary=await screen.findByText("빠른 조회 · 최대 500개");
+ expect(summary.closest("details")).not.toHaveAttribute("open");
+});

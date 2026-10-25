@@ -349,6 +349,8 @@
     "stop": "Stop and clear results",
     "limit": "The safe verification limit was reached. No complete ranking is shown.",
     "expired": "This check expired. Start again.",
-    "checked": "Access checked at {{time}}. Recheck shortly to refresh this result."
-  }
+    "checked": "Access checked at {{time}}. Recheck shortly to refresh this result.",
+    "scope": "Full range check · up to 2,000 records"
+  },
+  "safeLegend.quickScope": "Quick check · up to 500 records"
 }
