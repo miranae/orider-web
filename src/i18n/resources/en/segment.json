@@ -311,7 +311,7 @@
   "exploration.squareTitle": "Max square",
   "exploration.squareExplanation": "The largest square completely filled with visited tiles. A 4×4 square is four cells wide and four cells tall. Calculated from loaded activity routes in the last 12 months.",
   "nativeBoard.title": "Native records · fastest first",
-  "nativeBoard.policy": "Public outdoor cycling recorded by ORider. Indoor, e-bike, duplicate, deleted and implausible efforts are excluded. Only currently accessible records are compared; this is not a global KOM or a global participant ranking.",
+  "nativeBoard.policy": "Public outdoor cycling recorded by ORider. Indoor, e-bike, duplicate, deleted and implausible efforts are excluded. Only currently accessible records are compared; this is not a global KOM or a global participant ranking. Records are fastest first, excluding subsequent records by the same rider. Scope members are not a participant count.",
   "nativeBoard.scope": "Compare with",
   "nativeBoard.all": "All public riders",
   "nativeBoard.following": "Following",
@@ -323,11 +323,13 @@
   "nativeBoard.to": "To",
   "nativeBoard.load": "Start over / refresh",
   "nativeBoard.error": "Unable to load records. Check membership and dates, then start over. Clubs or following lists over 1,000 members are not supported.",
-  "nativeBoard.coverage": "{{count}} verified riders on this page, fastest first. Later efforts by the same rider are excluded.",
-  "nativeBoard.members": "{{count}} members in the filter (not a participant count).",
+  "nativeBoard.coverage": "{{count}} verified riders on this page",
+  "nativeBoard.members": "{{count}} members in scope",
   "nativeBoard.rider": "Rider",
   "nativeBoard.next": "Next fastest records",
   "nativeBoard.limit": "Reached 1,000 riders. Narrow the dates or club and start over.",
   "nativeBoard.end": "Last page for these conditions. Refresh from the start when records or access change.",
-  "nativeBoard.legendPreparing": "Most frequent rider will return when its aggregation can verify activity access and deletion status."
+  "nativeBoard.legendPreparing": "Most frequent rider will return when its aggregation can verify activity access and deletion status.",
+  "nativeBoard.intro": "Compare public outdoor rides recorded by ORider.",
+  "nativeBoard.criteria": "Comparison criteria and coverage"
 }

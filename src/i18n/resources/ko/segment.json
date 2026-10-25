@@ -309,7 +309,7 @@
   "exploration.squareTitle": "맥스 스퀘어",
   "exploration.squareExplanation": "방문 타일이 빈칸 없이 채운 가장 큰 정사각형입니다. 4×4는 가로 4칸·세로 4칸을 뜻합니다. 최근 12개월 동안 불러온 활동 경로로 계산합니다.",
   "nativeBoard.title": "자체 기록 · 빠른 순",
-  "nativeBoard.policy": "오라이더 자체 기록 중 공개된 야외 자전거 활동입니다. 실내·전기자전거·중복·삭제·비정상 속도 기록은 제외합니다. 현재 볼 수 있는 기록만 비교하며 전체 KOM이나 전체 참가자 순위를 뜻하지 않습니다.",
+  "nativeBoard.policy": "오라이더 자체 기록 중 공개된 야외 자전거 활동입니다. 실내·전기자전거·중복·삭제·비정상 속도 기록은 제외합니다. 현재 볼 수 있는 기록만 비교하며 전체 KOM이나 전체 참가자 순위를 뜻하지 않습니다. 빠른 순으로 조회하며 같은 라이더의 후속 기록은 제외합니다. 대상 회원 수는 참가자 수와 다릅니다.",
   "nativeBoard.scope": "비교 대상",
   "nativeBoard.all": "전체 공개 라이더",
   "nativeBoard.following": "내 팔로잉",
@@ -321,11 +321,13 @@
   "nativeBoard.to": "종료일",
   "nativeBoard.load": "처음부터 조회·새로고침",
   "nativeBoard.error": "기록을 불러오지 못했습니다. 가입 상태·기간을 확인하고 처음부터 다시 조회해주세요. 1,000명 초과 클럽·팔로잉은 지원하지 않습니다.",
-  "nativeBoard.coverage": "이 페이지에서 확인한 라이더 {{count}}명. 빠른 순으로 조회하며 같은 라이더의 후속 기록은 제외합니다.",
-  "nativeBoard.members": "필터 대상 회원 {{count}}명 (참가자 수와 다릅니다).",
+  "nativeBoard.coverage": "이 페이지에서 확인된 라이더 {{count}}명",
+  "nativeBoard.members": "대상 회원 {{count}}명",
   "nativeBoard.rider": "라이더",
   "nativeBoard.next": "다음 빠른 기록 확인",
   "nativeBoard.limit": "1,000명 조회 한도에 도달했습니다. 기간이나 클럽을 좁혀 처음부터 조회하세요.",
   "nativeBoard.end": "현재 조건의 마지막 페이지입니다. 기록·공개 범위가 바뀌면 처음부터 새로고침하세요.",
-  "nativeBoard.legendPreparing": "구간 최다 완주자는 공개 범위와 삭제 상태를 검증하는 집계가 준비될 때 제공됩니다."
+  "nativeBoard.legendPreparing": "구간 최다 완주자는 공개 범위와 삭제 상태를 검증하는 집계가 준비될 때 제공됩니다.",
+  "nativeBoard.intro": "공개된 자체 야외 라이딩 기록을 비교합니다.",
+  "nativeBoard.criteria": "비교 기준과 조회 범위"
 }

@@ -42,3 +42,12 @@ it("offers continuation even when a scanned page has no eligible rider", async (
   fireEvent.click(screen.getByRole("button", { name: "처음부터 조회·새로고침" }));
   expect(await screen.findByRole("button", { name: "다음 빠른 기록 확인" })).toBeEnabled();
 });
+
+it("keeps detailed criteria collapsed and gives anonymous riders a readable label", async () => {
+  mocks.load.mockResolvedValue({ ...response("", null), scopeMemberCount: 3 });
+  renderWithProviders(<SegmentLeaderboard segmentId="s" />, { authenticated: true });
+  expect(screen.getByText("비교 기준과 조회 범위").closest("details")).not.toHaveAttribute("open");
+  fireEvent.click(screen.getByRole("button", { name: "처음부터 조회·새로고침" }));
+  expect(await screen.findByRole("link", { name: /라이더/ })).toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("이 페이지에서 확인된 라이더 1명 · 대상 회원 3명");
+});

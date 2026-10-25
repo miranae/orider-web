@@ -42,7 +42,8 @@ export default function SegmentLeaderboard({ segmentId }: { segmentId: string })
   }
   return <Card><Stack gap="var(--space-3)">
     <Text as="h2" variant="title">{t("nativeBoard.title")}</Text>
-    <Text as="p">{t("nativeBoard.policy")}</Text>
+    <Text as="p">{t("nativeBoard.intro")}</Text>
+    <details><summary>{t("nativeBoard.criteria")}</summary><Text as="p">{t("nativeBoard.policy")}</Text></details>
     <label>{t("nativeBoard.scope")}<Select value={scope} onChange={e => setScope(e.target.value as typeof scope)}>
       <option value="all">{t("nativeBoard.all")}</option><option value="following">{t("nativeBoard.following")}</option><option value="club">{t("nativeBoard.club")}</option>
     </Select></label>
@@ -54,8 +55,7 @@ export default function SegmentLeaderboard({ segmentId }: { segmentId: string })
     {!user || user.isAnonymous ? <Text role="status">{t("empty.loginRequired")}</Text> : <Button disabled={!valid || view?.loading} loading={view?.loading} onClick={() => void load()}>{t("nativeBoard.load")}</Button>}
     {view?.error && <Text role="alert">{t("nativeBoard.error")}</Text>}
     {view?.result && <>
-      <Text role="status">{t("nativeBoard.coverage", { count: view.result.entries.length })}</Text>
-      {view.result.scopeMemberCount !== null && <Text>{t("nativeBoard.members", { count: view.result.scopeMemberCount })}</Text>}
+      <Text role="status">{t("nativeBoard.coverage", { count: view.result.entries.length })}{view.result.scopeMemberCount !== null && <> · {t("nativeBoard.members", { count: view.result.scopeMemberCount })}</>}</Text>
       {view.result.entries.map(e => <Stack key={e.id} gap="var(--space-1)">
         <LocalizedLink to={`/activity/${e.activityId}`}>{e.nickname || t("nativeBoard.rider")} · {formatElapsedMillis(e.elapsedTime)}</LocalizedLink>
         <Text variant="caption">{e.averageSpeed.toFixed(1)} km/h · {new Date(e.startDate).toLocaleDateString(undefined, { timeZone: "Asia/Seoul" })}</Text>
