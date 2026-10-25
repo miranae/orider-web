@@ -2878,5 +2878,28 @@
     "exhausted": "End of the stored index at this snapshot. This does not prove that missing or unindexed source history has been covered.",
     "lifetime": "Rows reflect each page read; earlier pages are not continuously rechecked. In-app edits/deletes, account changes, or 30-minute expiry clear the list. Refresh for changes outside this app. Returning from a source restores controls only; start a new read.",
     "return": "Return to route history search"
+  },
+  "mapPrivacy": {
+    "title": "Public map privacy",
+    "current": "Saved settings: start radius {{startMeters}}m · finish radius {{endMeters}}m",
+    "explanation": "Hide a 0–5,000m radius around the start and finish, including return visits. Public maps show only the longest safe section. Your original analysis stays intact.",
+    "start": "Start protection radius (m)",
+    "end": "Finish protection radius (m)",
+    "unsaved": "Unsaved preview — not applied to the public map yet.",
+    "published": "Map under the current visibility setting",
+    "no_gps": "Route GPS is unavailable; a privacy preview cannot be generated.",
+    "hidden": "No section remains outside the protection areas. The public map is hidden.",
+    "changed_source": "The original route changed. The public map is hidden until you preview and save again.",
+    "preview": "Preview changes",
+    "save": "Save these settings",
+    "limit": "Previously downloaded or shared images cannot be recalled. Photos may reveal locations.",
+    "failed": "Could not verify the settings. Reload and try again.",
+    "conflict": "The settings or route changed elsewhere. Reload the latest state.",
+    "saved": "Public map privacy settings saved.",
+    "visibility": {
+      "everyone": "Map shown on this public activity",
+      "friends": "Map shared with friends",
+      "private": "Private activity — not shown to other people."
+    }
   }
 }

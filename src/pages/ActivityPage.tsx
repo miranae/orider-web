@@ -1,3 +1,5 @@
+import { createActivityMapPrivacyClient } from "../services/activityMapPrivacy";
+import ActivityMapPrivacyControl from "../components/activity/ActivityMapPrivacyControl";
 import { loadActivityDiscovery } from "../services/activityDiscovery";
 import RouteInventoryReturn from "../features/activity/detail/RouteInventoryReturn";
 import { announceActivityContentChange } from "../services/activityContentChanged";
@@ -1177,8 +1179,8 @@ export default function ActivityPage() {
                 elevationProfileLabel: t("page.share.elevationProfile"),
                 performanceLabel: t("page.share.performanceLabel"),
                 footer: t("page.share.footer"),
-                backgroundImageUrl: activity.mapImageUrl,
-                includeRouteImage: activity.visibility === "everyone",
+                backgroundImageUrl: undefined,
+                includeRouteImage: false,
                 performanceMetrics: sharePerformanceMetrics,
                 elevationProfile: streams?.altitude?.length && streams.altitude.length >= 2 ? elevData : [],
                 weather: activity.weather,
@@ -1187,7 +1189,16 @@ export default function ActivityPage() {
               url={window.location.href}
               activityId={activity.id}
               visibility={activity.visibility}
-              routeTrack={activity.visibility === "everyone" ? activity.thumbnailTrack : null}
+              shareContext={user} shareRevision={sourceRevision ?? undefined}
+              resolvePublicMap={async () => {
+                const viewer = user;
+                if (photoServices.auth.currentUser !== viewer) throw new Error("account_changed");
+                const detail = await createActivityMapPrivacyClient(photoServices).load(activity.id);
+                if (photoServices.auth.currentUser !== viewer) throw new Error("account_changed");
+                const map = detail.visibility === "everyone" ? detail.mapPreview : null;
+                return { encodedPolyline: map?.encodedPolyline ?? null, imageUrl: map?.imageUrl ?? null,
+                  revision: JSON.stringify([detail.activityId, detail.revision, detail.visibility, map]) };
+              }}
               onFeedback={showToast}
             />
             {activity.visibility !== "everyone" && (
@@ -1247,6 +1258,7 @@ export default function ActivityPage() {
       {activeTab === "overview" && isActivityOwner && activity.source === "orider" && getRuntimeConfig().publicActivityDetailEnabled === true &&
         <NativeActivityMemoEditor key={`${activity.id}:${user?.uid}`} activityId={activity.id}
           onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })} />}
+      {isActivityOwner && activeTab === "overview" && <ActivityMapPrivacyControl activityId={activity.id} />}
       <div className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
       <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined}>
