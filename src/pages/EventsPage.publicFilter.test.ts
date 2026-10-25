@@ -30,6 +30,11 @@ describe("eventAvailability", () => {
 });
 
 describe("isPublicEventInfo", () => {
+  it("retains server-authorized legacy and GROUP rows while rejecting private/club rows",()=>{
+    for(const visibility of [undefined,"GROUP"])expect(isPublicEventInfo({status:"OPEN",visibility},true)).toBe(true);
+    expect(isPublicEventInfo({status:"OPEN",visibility:"PRIVATE"},true)).toBe(false);
+    expect(isPublicEventInfo({kind:"CLUB_MEETING",status:"OPEN",visibility:"PUBLIC"},true)).toBe(false);
+  });
   it("keeps club meeting metadata out of generic public event recruitment",()=>{expect(isPublicEventInfo({kind:"CLUB_MEETING",status:"OPEN",visibility:"PUBLIC"})).toBe(false);});
   it.each(["OPEN", "LIVE", "FINISHED"])("allows public %s events", (status) => {
     expect(isPublicEventInfo({ status, visibility: "PUBLIC" })).toBe(true);

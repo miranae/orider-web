@@ -1,3 +1,4 @@
+import NextEventContinuation from "../../components/group/NextEventContinuation";
 import "../EventControls.css";
 import { Download, Flag, Hourglass, Image, Link2, LockKeyhole, Trophy } from "lucide-react";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
@@ -152,7 +153,7 @@ export default function EventResultsPage() {
   useEffect(() => { setCsvNotice(null); }, [eventId]);
   const groupId = eventHead?.groupId;
   const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
-  const { eventByGroup: nextEvents } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
+  const { eventByGroup: nextEvents, incompleteGroups = new Set<string>() } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
 
   const shareResults = async () => {
     if (!eventHead) return;
@@ -855,6 +856,7 @@ export default function EventResultsPage() {
               <div className="text-[length:var(--ft-subtitle-size)] font-semibold" style={{ color: "var(--ink-0)", marginTop: "var(--space-1)" }}>{t("resultsView.nextAction.title")}</div>
               {activeGroupId && (
                 <div className="flex flex-col" style={{ gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+                  {incompleteGroups.has(activeGroupId) && <NextEventContinuation groupId={activeGroupId} />}
                   {nextEvents.get(activeGroupId) && (
                     <Link to={`/event/${nextEvents.get(activeGroupId)!.id}`} className="text-[length:var(--ft-body-size)]" style={{ color: "var(--aqua)" }}>
                       {t("resultsView.nextAction.nextEvent", { name: nextEvents.get(activeGroupId)!.name })} →
