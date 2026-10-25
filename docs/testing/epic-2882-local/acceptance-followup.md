@@ -40,6 +40,12 @@ Paths above are relative to `/Users/kyoungnam/Documents/Codex/2026-10-26/orider-
 - Current product build, full lint and quality budgets passed. Later changes after that build are tests and documentation only.
 - The seven historical synthetic `ui-native-ride` photos had HTTPS fixture URLs but no actual Storage objects. They were replaced using the real bounded upload writer in the isolated demo project; the previous synthetic document snapshot and exact changed IDs are retained in `full-stack/demo-photo-before-byte-migration.json` and `demo-photo-byte-migration.json`. No production documents or tokens were touched.
 
+## Subscription session continuation
+
+Local web `12bb2011` binds subscription summaries, relationship/profile hydration, subscription writes and unblock writes to the exact originating Firebase SDK user, not only its UID. A same-UID sign-in during AppCheck readiness now prevents dispatch; a replacement during an in-flight response prevents accepting stale data or emitting the feed refresh event. The profile subscription control also discards old-session pending state and starts a fresh summary read. Requests already dispatched cannot be undone by this client fence; server authorization still applies.
+
+Two focused suites / 25 tests, changed-file ESLint and TypeScript passed. Tests include same-UID and different-UID replacement, no dispatch after readiness, no stale refresh event, relation hydration and normal subscribe/unsubscribe. This is deterministic race coverage, not a new real-browser subscription journey. Log: `/tmp/orider-r3-session-test.log`.
+
 ## Still not satisfied
 
 | Requirement | Evidence gap / next work |
