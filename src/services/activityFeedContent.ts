@@ -64,6 +64,7 @@ export function boundedFeedContent(value: unknown): ActivityFeedContentProjectio
       };
     }),
     totalPhotoCount: Math.max(0, Math.floor(data.totalPhotoCount)),
+    ...(data.totalPhotoCountExact === false ? { totalPhotoCountExact: false } : {}),
   };
 }
 

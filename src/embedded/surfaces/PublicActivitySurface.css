@@ -5,13 +5,3 @@
   height: auto;
   border-radius: var(--r-lg);
 }
-.public-activity-comment {
-  display: block;
-  width: 100%;
-  min-height: 6em;
-  padding: var(--space-3);
-  color: var(--ink-1);
-  background: var(--bg-2);
-  border: 1px solid var(--line-soft);
-  border-radius: var(--r-md);
-}

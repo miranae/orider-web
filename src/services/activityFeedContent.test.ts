@@ -98,3 +98,8 @@ describe("stored summary wire validation", () => {
     }
   });
 });
+
+it("preserves bounded photo-count uncertainty rather than inventing an exact total", () => {
+  expect(boundedFeedContent({ version: 1, revision: "revision", sourceRevision: "source", memo: null,
+    photos: [], totalPhotoCount: 6, totalPhotoCountExact: false })?.totalPhotoCountExact).toBe(false);
+});

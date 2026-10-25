@@ -1,8 +1,11 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import type { ReactElement } from "react";
+import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PublicActivitySurface from "./PublicActivitySurface";
 import type { PublicActivityDetail } from "../../services/publicActivityDetail";
 
+const render = (element: ReactElement) => rtlRender(element, { wrapper: MemoryRouter });
 const mocks = vi.hoisted(() => ({ load: vi.fn(), setKudos: vi.fn(), postComment: vi.fn() }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "viewer", isAnonymous: false } }) }));
 vi.mock("../../services/publicActivityDetail", () => ({ isPublicActivityAccessError: () => false, createPublicActivityClient: () => mocks }));

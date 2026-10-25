@@ -1,3 +1,4 @@
+import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
 import { stravaRecordOf, formatStravaRecord } from "@shared/analysis/stravaRecord";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
 import { useMobile } from "../hooks/useMobile";
@@ -131,6 +132,7 @@ export default function ActivityPage() {
   const [showAllSegments, setShowAllSegments] = useState(false);
   const [activeOverlays, setActiveOverlays] = useState<Set<string> | null>(null);
   const [focusedOverlayKey, setFocusedOverlayKey] = useState<string | null>(null);
+  const [nativeMemoOverride, setNativeMemoOverride] = useState<{ activityId: string; memo: string } | null>(null);
   const analysisModel = useActivityAnalysisModel(activityId);
   const {
     activity,
@@ -1231,7 +1233,7 @@ export default function ActivityPage() {
         <Text as="h2" variant="subtitle">{t("detail.keyRecords")}</Text>{summarySection}
       </section>}
       {activeTab === "overview" && <ActivityOverviewSocial key={`${activity.id}:${user?.uid ?? "guest"}:${sourceRevision}`} activityId={activity.id} prioritizeResults={mobileReading}
-        memo={overviewMemo} memoGeneratedAt={!providerRecord && resolvedMemo?.authored === false ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
+        memo={nativeMemoOverride?.activityId === activity.id ? nativeMemoOverride.memo : overviewMemo} memoGeneratedAt={nativeMemoOverride?.activityId !== activity.id && !providerRecord && resolvedMemo?.authored === false ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={nativeMemoOverride?.activityId !== activity.id && resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
         photosKnown={!!streams || !!publishedContent || typeof activity.photoCount === "number"} memoTruncated={publishedContent?.memoTruncated} photos={overviewPhotos}
         totalPhotos={Math.max(photos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0) + uploadedPhotos.length}
         companions={visibleCoRiders} achievements={overviewAchievements}
@@ -1241,6 +1243,9 @@ export default function ActivityPage() {
         onDelete={id => { const photo = uploadedPhotos.find(item => item.id === id); if (photo) void handleDeletePhoto(photo); }}
         onLocate={location => { setFlyToPosition(null); setTimeout(() => setFlyToPosition(location), 10); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
         onShowResults={() => setActiveTab("segments")} />}
+      {activeTab === "overview" && isActivityOwner && activity.source === "orider" && getRuntimeConfig().publicActivityDetailEnabled === true &&
+        <NativeActivityMemoEditor key={`${activity.id}:${user?.uid}`} activityId={activity.id}
+          onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })} />}
       <div className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
       <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined}>
