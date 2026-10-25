@@ -15,17 +15,32 @@ export function validateSegmentLeaderboard(r: SegmentLeaderboardResponse, reques
       new Set(r.entries.map(e => e.userId)).size !== r.entries.length || r.entries.some((e, i) => e.averageWatts !== null || e.averageHeartrate !== null || e.averageSpeed > 80 || e.startDate < request.fromMs || e.startDate > request.toMs || i > 0 && r.entries[i - 1]!.elapsedTime > e.elapsedTime)) throw new Error("invalid_leaderboard_response");
   return r;
 }
-async function invoke<T>(services: FirebaseServices, uid: string, name: string, data: unknown): Promise<T> {
-  const current = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
+export const SEGMENT_LEADERBOARD_TIMEOUT_MS = 10000;
+async function invoke<T>(services: FirebaseServices, uid: string, name: string, data: unknown, signal?: AbortSignal): Promise<T> {
+  const { auth, functions } = services, viewer = auth.currentUser, app = auth.app, functionsApp = functions.app;
+  let expired = false;
+  const current = () => !expired && !signal?.aborted && !!viewer && !!uid && viewer.uid === uid && !viewer.isAnonymous
+    && app === functionsApp && services.auth === auth && auth.app === app && auth.currentUser === viewer && services.functions === functions && functions.app === functionsApp;
   if (!current()) throw new Error("account_changed");
-  await services.ensureAppCheckReady();
-  if (!current()) throw new Error("account_changed");
-  const result = await httpsCallable<unknown, T>(services.functions, name)(data);
-  if (!current()) throw new Error("account_changed");
-  return result.data;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let abort: (() => void) | undefined;
+  const boundary = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => { expired = true; reject(new Error("leaderboard_timeout")); }, SEGMENT_LEADERBOARD_TIMEOUT_MS);
+    abort = () => { expired = true; reject(new Error("leaderboard_cancelled")); };
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+  const work = async () => {
+    await services.ensureAppCheckReady();
+    if (!current()) throw new Error("account_changed");
+    const result = await httpsCallable<unknown, T>(functions, name)(data);
+    if (!current()) throw new Error("account_changed");
+    return result.data;
+  };
+  try { return await Promise.race([work(), boundary]); }
+  finally { clearTimeout(timer); if (abort) signal?.removeEventListener("abort", abort); }
 }
-export async function loadSegmentLeaderboard(services: FirebaseServices, uid: string, request: SegmentLeaderboardRequest) {
-  return validateSegmentLeaderboard(await invoke<SegmentLeaderboardResponse>(services, uid, "getSegmentLeaderboard", request), request);
+export async function loadSegmentLeaderboard(services: FirebaseServices, uid: string, request: SegmentLeaderboardRequest, signal?: AbortSignal) {
+  return validateSegmentLeaderboard(await invoke<SegmentLeaderboardResponse>(services, uid, "getSegmentLeaderboard", request, signal), request);
 }
 export async function loadMySegmentAttempts(services: FirebaseServices, uid: string, segmentId: string) {
   const result = await invoke<{ entries: SegmentLeaderboardEntry[] }>(services, uid, "getMySegmentAttempts", { segmentId });

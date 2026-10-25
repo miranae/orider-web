@@ -1,3 +1,4 @@
+import { onAuthStateChanged } from "firebase/auth";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -8,6 +9,7 @@ import type { SegmentLeaderboardRequest, SegmentLeaderboardResponse } from "@sha
 import { Button, Card, Input, Select, Stack, Text } from "../../theme/components";
 import { LocalizedLink } from "../../components/LocalizedLink";
 import { formatElapsedMillis } from "../leaderboard/leaderboardFormat";
+const visible = () => document.visibilityState !== "hidden";
 const date = (value: number) => new Date(value + 9 * 3600000).toISOString().slice(0, 10);
 export default function SegmentLeaderboard({ segmentId }: { segmentId: string }) {
   const { t } = useTranslation("segment");
@@ -18,28 +20,61 @@ export default function SegmentLeaderboard({ segmentId }: { segmentId: string })
   const [clubId, setClubId] = useState("");
   const [from, setFrom] = useState(() => date(Date.now() - 30 * 86400000));
   const [to, setTo] = useState(() => date(Date.now()));
-  const [state, setState] = useState<{ key: string; result: SegmentLeaderboardResponse | null; loading: boolean; error: boolean } | null>(null);
+  const [state, setState] = useState<{ token: object; key: string; result: SegmentLeaderboardResponse | null; loading: boolean; error: boolean } | null>(null);
   const key = JSON.stringify([segmentId, user?.uid, scope, clubId, from, to]);
-  const epoch = useMemo(() => ({}), [key, services]);
+  const sdk = services.auth.currentUser;
+  const epoch = useMemo(() => ({}), [key, services, user, sdk, services.auth, services.auth.app, services.functions, services.functions.app]);
   const current = useRef(epoch); current.current = epoch;
-  const busy = useRef(false);
-  useEffect(() => { current.current = epoch; busy.current = false; return () => { current.current = {}; }; }, [epoch]);
-  const view = state?.key === key ? state : null;
+  const request = useRef<{ token: object; controller: AbortController } | null>(null);
+  const selection = useRef<{ epoch: object; cursor?: string } | null>(null);
+  const pending = useRef(false);
+  const lastFocus = useRef(0);
+  const reload = useRef<() => void>(() => {});
+  const view = state?.key === key && state.token === epoch && visible() ? state : null;
   const fromMs = Date.parse(`${from}T00:00:00+09:00`);
   const toMs = Date.parse(`${to}T23:59:59.999+09:00`);
   const valid = Number.isFinite(fromMs) && Number.isFinite(toMs) && fromMs <= toMs && to <= date(Date.now()) && (scope !== "club" || !!clubId);
+  useEffect(() => {
+    current.current = epoch; selection.current = null; pending.current = false; lastFocus.current = 0; setState(null);
+    const clear = () => {
+      current.current = {}; selection.current = null; pending.current = false;
+      request.current?.controller.abort(); setState(null);
+    };
+    const unsubscribe = onAuthStateChanged(services.auth, () => { if (services.auth.currentUser !== sdk) clear(); });
+    return () => { unsubscribe(); clear(); };
+  }, [epoch, services, sdk]);
   async function load(cursor?: string) {
-    if (!user || user.isAnonymous || !valid || busy.current) return;
-    const token = epoch;
-    busy.current = true;
-    // Clear old records before revalidation; never retain a page after a denied refresh.
-    setState({ key, result: null, loading: true, error: false });
+    if (!user || user.isAnonymous || !sdk || sdk.uid !== user.uid || services.auth.currentUser !== sdk || !valid || request.current || !visible()) return;
+    const token = epoch, controller = new AbortController(), attempt = { token, controller };
+    request.current = attempt; selection.current = { epoch, cursor }; pending.current = false;
+    setState({ token, key, result: null, loading: true, error: false });
+    const fresh = () => current.current === token && services.auth.currentUser === sdk && !controller.signal.aborted && visible();
     try {
-      const result = await loadSegmentLeaderboard(services, user.uid, { segmentId, fromMs, toMs, scope, ...(scope === "club" ? { clubId } : {}), ...(cursor ? { cursor } : {}) });
-      if (current.current === token) setState({ key, result, loading: false, error: false });
-    } catch { if (current.current === token) setState({ key, result: null, loading: false, error: true }); }
-    finally { if (current.current === token) busy.current = false; }
+      const result = await loadSegmentLeaderboard(services, user.uid, { segmentId, fromMs, toMs, scope, ...(scope === "club" ? { clubId } : {}), ...(cursor ? { cursor } : {}) }, controller.signal);
+      if (fresh()) setState({ token, key, result, loading: false, error: false });
+    } catch { if (fresh()) { selection.current = null; setState({ token, key, result: null, loading: false, error: true }); } }
+    finally {
+      if (request.current === attempt) request.current = null;
+      if (pending.current && current.current === token && visible()) { pending.current = false; reload.current(); }
+    }
   }
+  reload.current = () => {
+    const active = selection.current;
+    if (!active || active.epoch !== epoch || !visible()) return;
+    setState(null);
+    if (request.current) { pending.current = true; return; }
+    void load(active.cursor);
+  };
+  useEffect(() => {
+    const recheck = () => { const now = Date.now(); if (now - lastFocus.current < 500 || request.current && !request.current.controller.signal.aborted) return; lastFocus.current = now; reload.current(); };
+    const visibility = () => {
+      if (!visible()) { lastFocus.current = 0; setState(null); request.current?.controller.abort(); }
+      else recheck();
+    };
+    window.addEventListener("focus", recheck); document.addEventListener("visibilitychange", visibility);
+    const timer = state?.result ? setTimeout(() => reload.current(), 30000) : undefined;
+    return () => { window.removeEventListener("focus", recheck); document.removeEventListener("visibilitychange", visibility); clearTimeout(timer); };
+  }, [epoch, state?.result]);
   return <Card><Stack gap="var(--space-3)">
     <Text as="h2" variant="title">{t("nativeBoard.title")}</Text>
     <Text as="p">{t("nativeBoard.intro")}</Text>
