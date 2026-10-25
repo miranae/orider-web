@@ -23,6 +23,29 @@ const props = { activityId: "native-ride", retryKey: 0, onReady: vi.fn(), onErro
 afterEach(cleanup);
 beforeEach(() => { authState.uid = "viewer"; vi.clearAllMocks(); mocks.load.mockResolvedValue(fixture()); mocks.setKudos.mockResolvedValue({ enabled: true }); mocks.postComment.mockResolvedValue({ commentId: "new" }); });
 describe("public embedded activity", () => {
+  it.each([
+    ["estimated", "추정 파워입니다."], ["measured", "측정으로 표기된 파워입니다."], ["unknown", "측정 출처는 확인되지 않았습니다."],
+  ] as const)("labels canonical power provenance: %s", async (powerSource, label) => {
+    const data = fixture();
+    data.activity.effectiveFacts = { status: "canonical", powerSource, metrics: { avgPower: 0, np: 123 } };
+    mocks.load.mockResolvedValue(data);
+    render(<PublicActivitySurface {...props} />);
+    expect(await screen.findByText(label, { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("0")).toBeInTheDocument();
+    expect(screen.getByText("123")).toBeInTheDocument();
+  });
+  it.each(["stale", "processing", "failed"])("does not relabel recorded or unready power as canonical: %s", async status => {
+    const data = fixture();
+    data.activity.summary.averagePower = 999;
+    data.activity.effectiveFacts = { status, powerSource: "estimated", metrics: { avgPower: 777 } };
+    mocks.load.mockResolvedValue(data);
+    render(<PublicActivitySurface {...props} />);
+    await screen.findByText("한강 라이딩");
+    expect(screen.queryByText("999")).not.toBeInTheDocument();
+    expect(screen.queryByText("777")).not.toBeInTheDocument();
+    expect(screen.queryByText("평균 파워")).not.toBeInTheDocument();
+  });
+
   it("converts native recorded metres to kilometres when canonical facts are unavailable", async () => {
     const data = fixture();
     data.activity.summary.distance = 25000;

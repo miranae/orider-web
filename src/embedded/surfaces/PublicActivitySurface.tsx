@@ -145,6 +145,10 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
   const seconds = value("durationSec", numeric(activity.summary.ridingTimeMillis) == null ? null : Number(activity.summary.ridingTimeMillis) / 1000);
   const elevation = value("elevationGainM", activity.summary.elevationGain);
   const format = (n: number | null, digits = 0) => n === null ? "—" : n.toLocaleString(i18n.language, { maximumFractionDigits: digits });
+  const power = numeric(metrics?.avgPower);
+  const normalizedPower = numeric(metrics?.np);
+  const powerSource = activity.effectiveFacts?.powerSource;
+  const powerLabel = powerSource === "measured" || powerSource === "estimated" ? powerSource : "unknown";
   const mapImage = detail.mapPreview?.imageUrl && /^https:\/\//i.test(detail.mapPreview.imageUrl) ? detail.mapPreview.imageUrl : null;
   const route = detail.mapPreview?.encodedPolyline || undefined;
 
@@ -167,6 +171,13 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
         </Stack>
         <Text variant="caption" tone="secondary">{t(metrics ? "publicDetail.calculated" : "publicDetail.recorded")}</Text>
       </Section>
+      {(power !== null || normalizedPower !== null) && <Section title={t("publicDetail.power")}>
+        <Stack direction="row" gap="var(--space-5)">
+          <Stat label={t("publicDetail.averagePower")} value={format(power)} unit="W" />
+          <Stat label={t("publicDetail.normalizedPower")} value={format(normalizedPower)} unit="W" />
+        </Stack>
+        <Text variant="caption" tone="secondary">{t(`publicDetail.powerSource.${powerLabel}`)}</Text>
+      </Section>}
       {(route || mapImage) && <Section title={t("publicDetail.route")}>
         {route ? <Suspense fallback={<Text role="status">{t("publicDetail.mapLoading")}</Text>}>
           <RouteMap polyline={route} interactive={false} height="18rem" fallbackImageUrl={mapImage} fallbackImageAlt={t("publicDetail.route")} />

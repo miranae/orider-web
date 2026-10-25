@@ -9,10 +9,12 @@ export interface PublicActivityDetail {
     id: string; userId: string; nickname: string; profileImage: string | null;
     description: string; type: string; startTime: number; kudosCount: number; commentCount: number;
     summary: Record<string, unknown>;
-    effectiveFacts: { status: string; metrics: Record<string, number | null> | null };
+    effectiveFacts: { status: string; powerSource?: "measured" | "estimated" | "unknown" | null; metrics: Record<string, number | null> | null };
   };
   viewerHasKudos: boolean;
   nativeMemoRevision?: string | null;
+  nativeCoverPhotoId?: string | null;
+  nativeCoverRevision?: string;
   mapPreview?: { imageUrl: string | null; encodedPolyline: string | null };
   uploadedPhotosTruncated?: boolean;
   content: Pick<ActivityFeedContent, "status" | "activityId" | "comments"> & Partial<ActivityFeedContent>;
