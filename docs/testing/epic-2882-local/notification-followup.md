@@ -17,3 +17,7 @@ Incomplete real accounts still enter onboarding; anonymous public-preview sessio
 - First failed browser selector retained in `results-before-authoritative-message-fix.json`: it expected stored notification text, while the server correctly regenerated the current authoritative comment text. The corrected journey passed.
 
 External OAuth, production, mobile apps and complete end-to-end coverage are not established by this local test. No remote writes or deployment occurred.
+
+## Rollout dependency
+
+The server rules intentionally deny raw `notifications/{uid}/items` reads/writes. WEB depends on the three new callable handlers and current rules as one coordinated rollout. Native app consumers that still read or mark raw notification documents must migrate to equivalent authenticated callable contracts before those rules can be released to them; this work does not establish app compatibility. The current work is local only and does not authorize deploying the rules independently.
