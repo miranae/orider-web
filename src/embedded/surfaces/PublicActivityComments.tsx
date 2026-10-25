@@ -38,13 +38,21 @@ export default function PublicActivityComments({ activityId, userId, initialComm
     focusTarget.current = null;
     target?.focus();
   });
+  // Confirmed deletions must survive a late parent aggregate read or page response.
+  const deletedIds = useRef(new Set<string>());
+  useEffect(() => { deletedIds.current.clear(); }, [activityId, userId, client]);
   const generation = useRef(0);
   const inFlight = useRef(false);
+  const initialCommentsRef = useRef(initialComments);
+  initialCommentsRef.current = initialComments;
   useEffect(() => {
     generation.current += 1; inFlight.current = false; focusTarget.current = null;
-    setComments(initialComments); setCursor(null); setExpanded(false); setError(false); setPageError(false); setBusy(false); setEditor(null);
+    setComments(initialCommentsRef.current); setCursor(null); setExpanded(false); setError(false); setPageError(false); setBusy(false); setEditor(null);
     return () => { generation.current += 1; };
-  }, [activityId, userId, client, initialComments]);
+  }, [activityId, userId, client]);
+  useEffect(() => {
+    setComments(initialComments.filter(comment => !deletedIds.current.has(comment.id)));
+  }, [initialComments]);
   async function loadPage(restart = false) {
     if (inFlight.current) return;
     inFlight.current = true; setBusy(true); setPageError(false);
@@ -54,7 +62,7 @@ export default function PublicActivityComments({ activityId, userId, initialComm
       if (request !== generation.current) return;
       setComments(previous => {
         const existing = restart || !expanded ? [] : previous;
-        return [...new Map([...existing, ...page.comments].map(comment => [comment.id, comment])).values()];
+        return [...new Map([...existing, ...page.comments].filter(comment => !deletedIds.current.has(comment.id)).map(comment => [comment.id, comment])).values()];
       });
       if (!page.nextCursor) focusTarget.current = "list";
       setCursor(page.nextCursor); setExpanded(true);
@@ -77,6 +85,7 @@ export default function PublicActivityComments({ activityId, userId, initialComm
       } else if (editor.action === "delete") {
         await client.deleteComment(activityId, editor.id);
         if (request !== generation.current) return;
+        deletedIds.current.add(editor.id);
         setComments(rows => rows.filter(comment => comment.id !== editor.id)); onDeleted?.();
       } else {
         await client.reportComment(activityId, editor.id, editor.text.trim());

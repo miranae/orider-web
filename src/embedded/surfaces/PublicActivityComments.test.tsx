@@ -98,3 +98,31 @@ it("restores keyboard focus after comment editing and focuses a stable list afte
   await user.tab();
   expect(screen.getByRole("button", { name: "댓글 더 보기" })).toHaveFocus();
 });
+
+it("does not resurrect a confirmed deletion from stale parent or page data and resets on account change", async () => {
+  client.deleteComment.mockResolvedValue({ deleted: true });
+  const make = (userId = "viewer") => <PublicActivityComments activityId="ride" userId={userId} initialComments={[row("c1")]} count={8} client={client as unknown as ReturnType<typeof createPublicActivityClient>} onAccessRevoked={revoked} />;
+  const view = render(make(), { wrapper: MemoryRouter });
+  fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+  fireEvent.click(screen.getByRole("button", { name: "삭제 확인" }));
+  await waitFor(() => expect(screen.queryByText("c1")).not.toBeInTheDocument());
+  view.rerender(make());
+  expect(screen.queryByText("c1")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "댓글 더 보기" }));
+  await screen.findByText("c2");
+  expect(screen.queryByText("c1")).not.toBeInTheDocument();
+  view.rerender(make("other-viewer"));
+  expect(screen.getByText("c1")).toBeInTheDocument();
+});
+
+it("keeps an in-flight deletion valid when the same account receives a refreshed preview", async () => {
+  let resolve!: (value: { deleted: boolean }) => void;
+  client.deleteComment.mockReturnValueOnce(new Promise(r => { resolve = r; }));
+  const make = () => <PublicActivityComments activityId="ride" userId="viewer" initialComments={[row("c1")]} count={8} client={client as unknown as ReturnType<typeof createPublicActivityClient>} onAccessRevoked={revoked} />;
+  const view = render(make(), { wrapper: MemoryRouter });
+  fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+  fireEvent.click(screen.getByRole("button", { name: "삭제 확인" }));
+  view.rerender(make());
+  await act(async () => resolve({ deleted: true }));
+  expect(screen.queryByText("c1")).not.toBeInTheDocument();
+});

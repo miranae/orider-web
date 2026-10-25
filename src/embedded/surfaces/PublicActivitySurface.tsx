@@ -165,7 +165,7 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
         onRemoved={action => { generation.current += 1; inFlight.current = false; commentRequest.current = null;
           socialMeasurement.current?.("cancelled"); setDetail(null); setText(""); setBusy(false); setRemoved({ scope: safetyScope, action }); }} />}
       <Section title={t("publicDetail.summary")}>
-        <Stack direction="row" gap="var(--space-5)">
+        <Stack direction="row" wrap gap="var(--space-5)">
           <Stat label={t("publicDetail.distance")} value={format(distance, 2)} unit="km" />
           <Stat label={t("publicDetail.duration")} value={seconds === null ? "—" : format(Math.floor(seconds / 60))} unit={t("publicDetail.minutes")} />
           <Stat label={t("publicDetail.elevation")} value={format(elevation)} unit="m" />
@@ -173,7 +173,7 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
         <Text variant="caption" tone="secondary">{t(metrics ? "publicDetail.calculated" : "publicDetail.recorded")}</Text>
       </Section>
       {(power !== null || normalizedPower !== null) && <Section title={t("publicDetail.power")}>
-        <Stack direction="row" gap="var(--space-5)">
+        <Stack direction="row" wrap gap="var(--space-5)">
           <Stat label={t("publicDetail.averagePower")} value={format(power)} unit="W" />
           <Stat label={t("publicDetail.normalizedPower")} value={format(normalizedPower)} unit="W" />
         </Stack>
