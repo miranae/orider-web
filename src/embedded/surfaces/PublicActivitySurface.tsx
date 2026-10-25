@@ -39,6 +39,10 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
   const generation = useRef(0);
   const inFlight = useRef(false);
   const commentRequest = useRef<{ text: string; id: string } | null>(null);
+  const revokeAccess = useCallback(() => {
+    generation.current += 1; inFlight.current = false; commentRequest.current = null;
+    setDetail(null); setFailed(true); setAccessDenied(true); setText(""); setBusy(false);
+  }, []);
   const callbacks = useRef({ onReady, onError });
   callbacks.current = { onReady, onError };
   useEffect(() => {
@@ -60,24 +64,40 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
     inFlight.current = true; setBusy(true); setMutationError(false); setPosted(false);
     const request = generation.current;
     try {
+      const countKey = action === "kudos" ? "kudosCount" : "commentCount";
+      const previousCount = detail.activity[countKey];
+      let confirmed = detail;
       if (action === "kudos") {
         const result = await client.setKudos(activityId, !detail.viewerHasKudos);
         if (request !== generation.current) return;
-        setDetail({ ...detail, viewerHasKudos: result.enabled, activity: { ...detail.activity,
-          kudosCount: Math.max(0, detail.activity.kudosCount + (result.enabled === detail.viewerHasKudos ? 0 : result.enabled ? 1 : -1)) } });
+        confirmed = { ...detail, viewerHasKudos: result.enabled, activity: { ...detail.activity,
+          kudosCount: Math.max(0, detail.activity.kudosCount + (result.enabled === detail.viewerHasKudos ? 0 : result.enabled ? 1 : -1)) } };
       } else {
         const body = text.trim();
         if (commentRequest.current?.text !== body) commentRequest.current = { text: body, id: crypto.randomUUID() };
         await client.postComment(activityId, body, commentRequest.current.id);
         if (request !== generation.current) return;
         setText(""); setPosted(true); commentRequest.current = null;
+        confirmed = { ...detail, activity: { ...detail.activity, commentCount: previousCount + 1 } };
       }
-      // Read back through the same permission-checked projection after every mutation.
+      setDetail(confirmed);
+      // Aggregate triggers can lag the confirmed write. Preserve only the unchanged
+      // pre-write count while retrying; changed server counts remain authoritative.
       try {
-        const refreshed = await client.load(activityId);
-        if (request === generation.current) setDetail(refreshed);
+        for (let read = 0; read < 3; read += 1) {
+          if (read > 0) await new Promise(resolve => setTimeout(resolve, read * 250));
+          if (request !== generation.current) return;
+          const refreshed = await client.load(activityId);
+          if (request !== generation.current) return;
+          const aggregatePending = confirmed.activity[countKey] !== previousCount && refreshed.activity[countKey] === previousCount;
+          setDetail(aggregatePending ? { ...refreshed, activity: { ...refreshed.activity, [countKey]: confirmed.activity[countKey] } } : refreshed);
+          if (!aggregatePending) break;
+        }
       } catch (error) {
-        if (request === generation.current) { setDetail(null); setFailed(true); setAccessDenied(isPublicActivityAccessError(error)); }
+        if (request === generation.current) {
+          if (isPublicActivityAccessError(error)) { setDetail(null); setFailed(true); setAccessDenied(true); }
+          else setMutationError(true);
+        }
       }
     } catch (error) {
       if (request === generation.current) {
@@ -127,7 +147,7 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
       {detail.content.status === "pending" ? <Text role="status">{t("publicDetail.pending")}</Text> : <>
         {detail.content.memo && <Text as="p">{detail.content.memo}</Text>}
         <PublicActivityPhotos activityId={activityId} initialPhotos={detail.content.photos ?? []} truncated={detail.uploadedPhotosTruncated === true} client={client}
-          onAccessRevoked={() => { setDetail(null); setFailed(true); setAccessDenied(true); }} />
+          onAccessRevoked={revokeAccess} />
       </>}
       <Section title={t("kudosCard.comments", { count: activity.commentCount })}>
         <Stack gap="var(--space-3)">
@@ -135,7 +155,7 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
           <PublicActivityComments activityId={activityId} userId={user && !user.isAnonymous ? user.uid : null}
             initialComments={detail.content.comments} count={activity.commentCount} client={client}
             onDeleted={() => setDetail(current => current ? { ...current, activity: { ...current.activity, commentCount: Math.max(0, current.activity.commentCount - 1) } } : current)}
-            onAccessRevoked={() => { setDetail(null); setFailed(true); setAccessDenied(true); }} />
+            onAccessRevoked={revokeAccess} />
           {(!user || user.isAnonymous) && <Text>{t("kudosCard.loginDesc")}</Text>}
           <label><Text>{t("kudosCard.ariaInput")}</Text><Textarea aria-label={t("kudosCard.ariaInput")} value={text} maxLength={500} disabled={busy || !user || user.isAnonymous} onChange={event => setText(event.target.value)} /></label>
           <Button loading={busy} disabled={busy || !text.trim() || !user || user.isAnonymous} onClick={() => void mutate("comment")}>{t(busy ? "kudosCard.submitting" : "kudosCard.submit")}</Button>

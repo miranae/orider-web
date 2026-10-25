@@ -6,9 +6,10 @@ import PublicActivitySurface from "./PublicActivitySurface";
 import type { PublicActivityDetail } from "../../services/publicActivityDetail";
 
 const render = (element: ReactElement) => rtlRender(element, { wrapper: MemoryRouter });
+const authState = vi.hoisted(() => ({ uid: "viewer" }));
 const mocks = vi.hoisted(() => ({ load: vi.fn(), setKudos: vi.fn(), postComment: vi.fn() }));
-vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "viewer", isAnonymous: false } }) }));
-vi.mock("../../services/publicActivityDetail", () => ({ isPublicActivityAccessError: (error: { code?: string }) => ["functions/permission-denied", "functions/not-found", "functions/failed-precondition"].includes(error.code ?? ""), createPublicActivityClient: () => mocks }));
+vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: authState.uid, isAnonymous: false } }) }));
+vi.mock("../../services/publicActivityDetail", () => ({ isPublicActivityAccessError: (error: { code?: string }) => ["functions/permission-denied", "functions/not-found", "functions/failed-precondition"].includes(error.code ?? ""), createPublicActivityClient: () => ({ ...mocks }) }));
 const fixture = (): PublicActivityDetail => ({
   activity: { id: "native-ride", userId: "owner", nickname: "라이더", profileImage: null,
     description: "한강 라이딩", type: "Ride", startTime: 1792800000000, kudosCount: 2, commentCount: 0,
@@ -18,7 +19,7 @@ const fixture = (): PublicActivityDetail => ({
 });
 const props = { activityId: "native-ride", retryKey: 0, onReady: vi.fn(), onError: vi.fn() };
 afterEach(cleanup);
-beforeEach(() => { vi.clearAllMocks(); mocks.load.mockResolvedValue(fixture()); mocks.setKudos.mockResolvedValue({ enabled: true }); mocks.postComment.mockResolvedValue({ commentId: "new" }); });
+beforeEach(() => { authState.uid = "viewer"; vi.clearAllMocks(); mocks.load.mockResolvedValue(fixture()); mocks.setKudos.mockResolvedValue({ enabled: true }); mocks.postComment.mockResolvedValue({ commentId: "new" }); });
 describe("public embedded activity", () => {
   it("converts native recorded metres to kilometres when canonical facts are unavailable", async () => {
     const data = fixture();
@@ -83,12 +84,73 @@ describe("public embedded activity", () => {
     await act(async () => resolve({ enabled: true }));
   });
   it("clears public content if permissions fail on mutation readback", async () => {
-    mocks.load.mockResolvedValueOnce(fixture()).mockRejectedValue(new Error("permission-denied"));
+    mocks.load.mockResolvedValueOnce(fixture()).mockRejectedValue({ code: "functions/permission-denied" });
     render(<PublicActivitySurface {...props} />);
     await screen.findByText("한강 라이딩");
     fireEvent.click(screen.getByRole("button", { name: /좋아요/ }));
     await waitFor(() => expect(screen.queryByText("한강 라이딩")).not.toBeInTheDocument());
     expect(await screen.findByRole("button", { name: /다시/ })).toBeInTheDocument();
+  });
+  it("never rolls a confirmed kudos count back while its aggregate catches up", async () => {
+    const stale = { ...fixture(), viewerHasKudos: true };
+    const fresh = { ...stale, activity: { ...stale.activity, kudosCount: 3 } };
+    mocks.load.mockResolvedValueOnce(fixture()).mockResolvedValueOnce(stale).mockResolvedValueOnce(fresh);
+    render(<PublicActivitySurface {...props} />);
+    await screen.findByText("한강 라이딩");
+    fireEvent.click(screen.getByRole("button", { name: /좋아요/ }));
+    await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "좋아요 취소 · 3" })).toBeInTheDocument();
+    await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(3));
+    expect(screen.getByRole("button", { name: "좋아요 취소 · 3" })).toBeInTheDocument();
+  });
+  it("keeps confirmed content when aggregate readback has a network failure", async () => {
+    mocks.load.mockResolvedValueOnce(fixture()).mockRejectedValueOnce(new Error("offline"));
+    render(<PublicActivitySurface {...props} />);
+    await screen.findByText("한강 라이딩");
+    fireEvent.click(screen.getByRole("button", { name: /좋아요/ }));
+    await screen.findByRole("alert");
+    expect(screen.getByRole("button", { name: "좋아요 취소 · 3" })).toBeInTheDocument();
+    expect(screen.getByText("한강 라이딩")).toBeInTheDocument();
+  });
+  it("accepts changed server counts instead of overriding concurrent reactions", async () => {
+    const updated = fixture(); updated.viewerHasKudos = true; updated.activity.kudosCount = 7;
+    mocks.load.mockResolvedValueOnce(fixture()).mockResolvedValueOnce(updated);
+    render(<PublicActivitySurface {...props} />);
+    await screen.findByText("한강 라이딩");
+    fireEvent.click(screen.getByRole("button", { name: /좋아요/ }));
+    expect(await screen.findByRole("button", { name: "좋아요 취소 · 7" })).toBeInTheDocument();
+    expect(mocks.load).toHaveBeenCalledTimes(2);
+  });
+  it("clears confirmed optimistic content if access is revoked during aggregate retry", async () => {
+    mocks.load.mockResolvedValueOnce(fixture()).mockResolvedValueOnce({ ...fixture(), viewerHasKudos: true }).mockRejectedValueOnce({ code: "functions/permission-denied" });
+    render(<PublicActivitySurface {...props} />);
+    await screen.findByText("한강 라이딩");
+    fireEvent.click(screen.getByRole("button", { name: /좋아요/ }));
+    await waitFor(() => expect(screen.queryByText("한강 라이딩")).not.toBeInTheDocument());
+  });
+  it("stops aggregate retries after the viewer changes", async () => {
+    mocks.load.mockResolvedValueOnce(fixture()).mockResolvedValueOnce({ ...fixture(), viewerHasKudos: true }).mockRejectedValueOnce({ code: "functions/permission-denied" });
+    const { rerender } = render(<PublicActivitySurface {...props} />);
+    await screen.findByText("한강 라이딩");
+    fireEvent.click(screen.getByRole("button", { name: /좋아요/ }));
+    await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(2));
+    authState.uid = "next-viewer";
+    rerender(<PublicActivitySurface {...props} />);
+    await waitFor(() => expect(screen.queryByText("한강 라이딩")).not.toBeInTheDocument());
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 350)); });
+    expect(mocks.load).toHaveBeenCalledTimes(3);
+  });
+  it("allows cancelling kudos after all bounded aggregate reads remain stale", async () => {
+    mocks.load.mockResolvedValueOnce(fixture()).mockResolvedValue({ ...fixture(), viewerHasKudos: true });
+    render(<PublicActivitySurface {...props} />);
+    await screen.findByText("한강 라이딩");
+    fireEvent.click(screen.getByRole("button", { name: /좋아요/ }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "좋아요 취소 · 3" })).toBeEnabled(), { timeout: 1500 });
+    expect(mocks.load).toHaveBeenCalledTimes(4);
+    mocks.setKudos.mockResolvedValueOnce({ enabled: false }); mocks.load.mockResolvedValueOnce(fixture());
+    fireEvent.click(screen.getByRole("button", { name: "좋아요 취소 · 3" }));
+    expect(await screen.findByRole("button", { name: "좋아요 · 2" })).toBeInTheDocument();
+    expect(mocks.setKudos).toHaveBeenLastCalledWith("native-ride", false);
   });
   it("drops late results from a previous activity", async () => {
     let resolve!: (value: PublicActivityDetail) => void;
