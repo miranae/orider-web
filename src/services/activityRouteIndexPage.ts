@@ -1,3 +1,4 @@
+import { matchesLocalTrainingEmulator } from "./localTrainingEmulator";
 import { httpsCallable } from "firebase/functions";
 import type { ActivityRouteIndexCursor, ActivityRouteIndexPageRequest, ActivityRouteIndexPageResponse } from "@shared/activity-route-index-page";
 import { OBSERVED_ROUTE_POLICY_V1 as policy } from "@shared/observed-route-comparison";
@@ -113,7 +114,7 @@ export function validateActivityRouteIndexPageResponse(value: unknown, request: 
 export async function loadActivityRouteIndexPage(services: FirebaseServices, uid: string, request: ActivityRouteIndexPageRequest) {
   const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
   if (!matches()) throw new Error("account_changed");
-  if (!observedRouteAvailable() || services.functions.app !== services.auth.app || services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("route_index_not_supported");
+  if (!observedRouteAvailable() || services.functions.app !== services.auth.app || (services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net" && !matchesLocalTrainingEmulator(services))) throw new Error("route_index_not_supported");
   if (!validActivityRouteIndexPageRequest(request)) throw new Error("invalid_route_index_request");
   await services.ensureAppCheckReady(); if (!matches()) throw new Error("account_changed");
   const response = await httpsCallable<ActivityRouteIndexPageRequest, unknown>(services.functions, "getActivityStreams")(request);

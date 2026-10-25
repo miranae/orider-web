@@ -2,6 +2,7 @@ import { httpsCallable } from "firebase/functions";
 import type { ActivityCanonicalAverage, ActivityRouteEvidence, ActivityRouteEvidenceResponse, ObservedRouteComparison } from "@shared/activity-route-comparison";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { OBSERVED_ROUTE_POLICY_V1 } from "@shared/observed-route-comparison";
+import { localTrainingEmulatorAvailable, matchesLocalTrainingEmulator } from "./localTrainingEmulator";
 import { getRuntimeConfig } from "./runtimeConfig";
 export const ROUTE_RESPONSE_MAX_BYTES = 4 * 1024 * 1024;
 const digest = (value: unknown): value is string => typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
@@ -13,7 +14,7 @@ const opaque = (value: unknown): value is string => typeof value === "string" &&
 const record = (value: unknown): Record<string, unknown> | null => value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 export function observedRouteAvailable() {
   const config = getRuntimeConfig();
-  return config.appEnvironment === "stage" && config.firebaseFunctionsBase === "https://asia-northeast3-orider-dev.cloudfunctions.net";
+  return localTrainingEmulatorAvailable() || config.appEnvironment === "stage" && config.firebaseFunctionsBase === "https://asia-northeast3-orider-dev.cloudfunctions.net";
 }
 // 별도 선택 채널의 서버 계약35다. 일반 프런트 지표 version34는 변경하지 않는다.
 export const ROUTE_CANONICAL_AVERAGE_VERSION = 35;
@@ -71,7 +72,7 @@ export function validateRouteEvidenceResponse(value: unknown, activityId: string
 export async function loadActivityRouteEvidence(services: FirebaseServices, uid: string, activityId: string, expectedRouteInputRevision?: string, canonical?: RouteCanonicalAverageOption) {
   const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
   if (!matches()) throw new Error("account_changed");
-  if (!observedRouteAvailable() || services.functions.app !== services.auth.app || services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("route_not_supported");
+  if (!observedRouteAvailable() || services.functions.app !== services.auth.app || (services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net" && !matchesLocalTrainingEmulator(services))) throw new Error("route_not_supported");
   if (!opaque(activityId) || activityId.includes("/") || expectedRouteInputRevision !== undefined && !digest(expectedRouteInputRevision)) throw new Error("invalid_route_request");
   await services.ensureAppCheckReady();
   if (!matches()) throw new Error("account_changed");
