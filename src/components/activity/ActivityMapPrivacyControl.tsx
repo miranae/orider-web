@@ -49,7 +49,7 @@ export default function ActivityMapPrivacyControl({ activityId }: { activityId: 
       <Field label={t("mapPrivacy.end")} htmlFor={`map-end-${activityId}`}><Input id={`map-end-${activityId}`} type="number" min={0} max={5000} step={1} value={end} disabled={busy} invalid={!valid} onChange={event => edit(event.target.value, "end")} /></Field>
       <Text role="status">{t(current.preview ? "mapPrivacy.unsaved" : "mapPrivacy.published")}</Text>
       {displayed?.state === "available" && displayed.mapPreview.encodedPolyline
-        ? <RouteMap polyline={displayed.mapPreview.encodedPolyline} interactive={false} height="18rem" />
+        ? <RouteMap polyline={displayed.mapPreview.encodedPolyline} interactive={false} height="aspect-video" />
         : displayed?.state === "available" && displayed.mapPreview.imageUrl ? <img src={displayed.mapPreview.imageUrl} alt={t("mapPrivacy.published")} loading="lazy" />
         : <Text role="status">{t(`mapPrivacy.${displayed?.state === "available" ? "no_gps" : displayed?.state ?? "no_gps"}`)}</Text>}
       <Stack direction="row" wrap gap="var(--space-2)">
