@@ -1,9 +1,9 @@
 import { track } from "./analytics";
 
-type Event = "activity_detail_ready" | "analysis_ready" | "social_action_result";
-type Surface = "web_public_activity" | "embedded_public_activity" | "training_period_analysis";
+type Event = "activity_detail_ready" | "analysis_ready" | "social_action_result" | "club_join" | "share_open";
+type Surface = "web_public_activity" | "embedded_public_activity" | "training_period_analysis" | "web_club_invite";
 export type JourneyOutcome = "success" | "error" | "cancelled" | "access_denied" | "readback_error";
-type Operation = "detail" | "training_periods" | "kudos" | "comment";
+type Operation = "detail" | "training_periods" | "kudos" | "comment" | "join" | "open";
 
 /** Fixed dimensions only: never accept IDs, dates, metric values or error messages. */
 export function startJourneyMeasurement(event: Event, surface: Surface, operation: Operation) {

@@ -42,7 +42,9 @@ interface UpcomingEvent {
 export default function GroupDashboardPage() {
   const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
-  const { user, loading: authLoading } = useAuth();
+  const { user: authUser, loading: authLoading } = useAuth();
+  // Anonymous Firebase sessions are visitors, not club members or join identities.
+  const user = authUser?.isAnonymous ? null : authUser;
   const dialog = useDialog();
   const [joining, setJoining] = useState(false);
   const [joinPending, setJoinPending] = useState(false);

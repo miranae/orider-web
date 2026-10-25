@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { mockCallableInvocations, mockSignInWithPopup, setCallableResult, setCallableImplementation, simulateLogin } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import GroupInvitePage from "./GroupInvitePage";
+import * as journeyMeasurement from "../../services/journeyMeasurement";
 import koGroup from "../../i18n/resources/ko/group.json";
 
 function renderInvite(route = "/ko/group/join/abcd1234", authenticated = true, isAnonymous = false) {
@@ -37,6 +38,8 @@ describe("GroupInvitePage", () => {
   });
 
   it("keeps a failed invitation and retries the same code only on request", async () => {
+    const finishes: Array<ReturnType<typeof vi.fn>> = [];
+    const measurement = vi.spyOn(journeyMeasurement, "startJourneyMeasurement").mockImplementation(() => { const finish = vi.fn(); finishes.push(finish); return finish; });
     let calls = 0;
     setCallableImplementation("joinGroupByCode", () => {
       if (++calls === 1) throw Object.assign(new Error("offline"), { code: "functions/unavailable" });
@@ -49,6 +52,11 @@ describe("GroupInvitePage", () => {
     fireEvent.click(screen.getByRole("button", { name: koGroup["inviteLink.retry"] }));
     expect(await screen.findByText("group destination")).toBeInTheDocument();
     expect(calls).toBe(2);
+    const joinFinishes = measurement.mock.calls.flatMap((call, index) => call[0] === "club_join" ? [finishes[index]!] : []);
+    expect(joinFinishes[0]).toHaveBeenCalledWith("error");
+    expect(joinFinishes[1]).toHaveBeenCalledWith("success");
+    expect(measurement.mock.calls.every(call => call.length === 3 && call[1] === "web_club_invite")).toBe(true);
+    measurement.mockRestore();
   });
 
   it("ignores a completed join from the previous account", async () => {

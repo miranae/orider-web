@@ -1,3 +1,4 @@
+import { startJourneyMeasurement } from "../../services/journeyMeasurement";
 import { useEffect, useState } from "react";
 import { Button, Stack, Text } from "../../theme/components";
 import { EmptyState } from "../../components/redesign";
@@ -48,7 +49,11 @@ export default function GroupInvitePage() {
   const isAnonymous = user?.isAnonymous === true;
   const inviteCode = normalizeGroupInviteCode(code);
   useEffect(() => {
+    if (inviteCode) startJourneyMeasurement("share_open", "web_club_invite", "open")("success");
+  }, [inviteCode]);
+  useEffect(() => {
     if (authLoading || !uid || isAnonymous || !inviteCode) return;
+    const finish = startJourneyMeasurement("club_join", "web_club_invite", "join");
     let cancelled = false;
     const current = () => !cancelled && auth.currentUser?.uid === uid && auth.currentUser.isAnonymous !== true;
     setProcessing(true);
@@ -60,17 +65,20 @@ export default function GroupInvitePage() {
       .then((result) => {
         if (!current() || !result) return;
         if (isPendingGroupJoinResult(result.data)) {
+          finish("success");
           showToast(t("join.pendingToast"));
           navigate("/clubs", { replace: true });
           return;
         }
         const groupId = result.data.groupId;
         if (!groupId) throw new Error("Missing group id");
+        finish("success");
         showToast(t("inviteLink.joined"));
         navigate(`/club/${groupId}`, { replace: true });
       })
       .catch((err) => {
         if (!current()) return;
+        finish(err?.code === "functions/permission-denied" ? "access_denied" : "error");
         // The invite code is a join credential: do not copy it into diagnostics.
         logClientError("GroupInvitePage.join", err);
         const invalid = !["functions/permission-denied", "functions/unauthenticated"].includes(err?.code)
@@ -81,7 +89,7 @@ export default function GroupInvitePage() {
         setJoinError(invalid ? "invalid" : "failed");
       })
       .finally(() => { if (current()) setProcessing(false); });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; finish("cancelled"); };
   }, [authLoading, inviteCode, navigate, showToast, t, uid, isAnonymous, attempt]);
 
   if (authLoading) {

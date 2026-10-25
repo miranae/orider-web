@@ -7,25 +7,30 @@ import { auth, ensureAppCheckReady } from "../../services/firebase";
 import { createGroupPost, updateGroupPost } from "../../hooks/useGroupPosts";
 import { setCollectionDocs, setDocData, setCallableImplementation, mockCallableInvocations } from "../../__tests__/mocks/firebase";
 import GroupDashboardPage from "./GroupDashboardPage";
+import { useGroup, useGroupMemberRole } from "../../hooks/useGroup";
 
 const state = vi.hoisted(() => ({
-  roleError: null as Error | null, retryRole: vi.fn(),
+  isAnonymous: false, signIn: vi.fn(), roleError: null as Error | null, retryRole: vi.fn(),
   aggregate: null as { lifetimeDistance: number; lifetimeRideCount: number; longestRideDistance: number } | null,
   ridesLoading: false, ridesError: null as string | null, retryRides: vi.fn(),
   visibility: "public", uid: "owner", role: "leader" as string | null, creatorId: "owner", authorId: "owner",
   showToast: vi.fn(), posts: [{ id: "post-1", content: "Original announcement", authorId: "owner", authorName: "Original author", kind: "announcement", createdAt: 1 }],
 }));
-vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: state.uid } }) }));
+vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: state.uid, isAnonymous: state.isAnonymous }, loading: false, signIn: state.signIn }) }));
 vi.mock("../../contexts/ToastContext", () => ({ useToast: () => ({ showToast: state.showToast }) }));
 vi.mock("../../hooks/useGroup", () => ({
-  useGroup: () => ({ group: { id: "group-1", creatorId: state.creatorId, name: "QA group", description: "Private introduction", rules: "Private rules", visibility: state.visibility, memberCount: 2 }, loading: false }),
-  useGroupMemberRole: () => ({ role: state.role, error: state.roleError, retry: state.retryRole }),
+  useGroup: vi.fn(() => ({ group: { id: "group-1", creatorId: state.creatorId, name: "QA group", description: "Private introduction", rules: "Private rules", visibility: state.visibility, memberCount: 2 }, loading: false })),
+  useGroupMemberRole: vi.fn(() => ({ role: state.role, error: state.roleError, retry: state.retryRole })),
   useGroupMembers: () => ({ members: [], loading: false }),
 }));
 vi.mock("../../hooks/useGroupRides", () => ({ useGroupRideStats: () => ({ rides: [], loading: state.ridesLoading, error: state.ridesError, retry: state.retryRides, aggregate: state.aggregate }) }));
 vi.mock("../../hooks/useGroupPosts", () => ({
   useGroupPosts: () => ({ posts: state.posts.map((post) => ({ ...post, authorId: state.authorId })), loading: false }),
   createGroupPost: vi.fn(), updateGroupPost: vi.fn(),
+}));
+vi.mock("../../services/publicClubs", () => ({
+  getPublicClub: vi.fn(async () => ({ id: "group-1", name: "Public club preview", approval: "auto", sports: ["bike"] })),
+  PublicClubUnavailable: class extends Error {},
 }));
 vi.mock("../../components/group/GroupSubNav", () => ({ default: () => null }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
@@ -36,6 +41,7 @@ function edit() {
 }
 beforeEach(() => {
   installEventDiscoveryFixture();
+  state.isAnonymous = false; state.signIn.mockReset().mockResolvedValue(undefined);
   state.roleError = null; state.retryRole.mockReset();
   state.aggregate = null;
   state.ridesLoading = false; state.ridesError = null; state.retryRides.mockReset();
@@ -47,6 +53,25 @@ beforeEach(() => {
   Object.assign(auth, { currentUser: { uid: "owner" } });
 });
 describe("group post editing", () => {
+  it("keeps anonymous shared-link visitors on the public login path and resumes member access after real sign-in", async () => {
+    state.isAnonymous = true;
+    state.roleError = new Error("a guest must not reach the member error branch");
+    const view = render(<Page />);
+    expect(await screen.findByText("Public club preview")).toBeInTheDocument();
+    expect(useGroup).toHaveBeenLastCalledWith(undefined, ":leader");
+    expect(useGroupMemberRole).toHaveBeenLastCalledWith("group-1", undefined);
+    expect(screen.queryByTestId("C1-0-3")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("C1-3-1")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+    await waitFor(() => expect(state.signIn).toHaveBeenCalledTimes(1));
+    expect(mockCallableInvocations.some(call => call.name === "joinGroupPublic")).toBe(false);
+    state.isAnonymous = false; state.roleError = null;
+    view.rerender(<Page />);
+    await waitFor(() => expect(screen.getByTestId("C1-3-1")).toBeInTheDocument());
+    expect(useGroupMemberRole).toHaveBeenLastCalledWith("group-1", "owner");
+    expect(screen.queryByTestId("public-club-preview")).not.toBeInTheDocument();
+  });
+
 
   it("identifies distance sums and explains the maximum combined group ride", async () => {
     state.aggregate = { lifetimeDistance: 522000, lifetimeRideCount: 3, longestRideDistance: 306600 };
