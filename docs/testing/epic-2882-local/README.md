@@ -94,3 +94,12 @@ The local web now reads notifications through current access checks and opens th
 Evidence: [notifications](notification-followup.md), [club journey](club-invite-journey.md), [photo reads](photo-read-coalescing.md), [latest combined checks and remaining acceptance](acceptance-followup.md).
 
 Broad checkpoint: web 896 files / 9,509 tests plus contract suites; Functions 925 files / 15,574 tests with 531 opt-in tests skipped. Subsequent static-map presentation: 29 focused tests and final development build/quality budget passed. All changes remain local. Existing Android raw-notification consumers must migrate before the new notification rules can be released; no standalone rules deployment is authorized or performed.
+
+
+## Embedded public profiles and following checkpoint
+
+At local product `037b672f`, the existing public activity embed supports author/comment-author profiles, public activity navigation and Back, with current-session cleanup and fresh detail reads on return. Existing subscription APIs now support the injected embedded Firebase session; self-subscription and guest mutation remain disallowed.
+
+Actual SDK/browser evidence verified subscribe → following inventory6 public target activities → unsubscribe → inventory0, then restored the original relationship. All eight HTTP responses were200 with zero page errors. Native following-tab implementation and physical-device handshake/back behavior are not part of this evidence.
+
+Final Node22 checks ran sequentially: Vitest917 files /9,638 tests (two workers), contracts, development build, zero-warning lint and quality budget all passed. See [embedded-profile-follow.md](embedded-profile-follow.md) for source commits, transport/error-injection boundaries, screenshots, preserved logs and limitations. No remote writes or deployment occurred.
