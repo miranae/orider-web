@@ -1,7 +1,8 @@
+import { loadSegmentMetadataPage } from "../services/segmentMetadata";
 import { SEARCH_PAGE_SIZE, usePagedSearch } from "../hooks/usePagedSearch";
 import { useMemo, useState, useRef } from "react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { collection, getDocs, limit, orderBy, query, startAfter, where, type QueryDocumentSnapshot, type DocumentData } from "firebase/firestore";
+import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
@@ -40,11 +41,11 @@ export default function LeaderboardPage({ search = "", discipline = "bike", cate
 
   const currentOwner = useRef(user?.uid);
   currentOwner.current = user?.uid;
-  const segmentPages = usePagedSearch(JSON.stringify([user?.uid, discipline, category, search]), async (cursor: QueryDocumentSnapshot<DocumentData> | null) => {
+  const segmentPages = usePagedSearch(JSON.stringify([user?.uid, discipline, category, search]), async (cursor: string | null) => {
     const uid = user?.uid;
     if (!cursor) { setMyBest(new Map()); setMyRanks(new Map()); }
-    const segSnap = await getDocs(query(collection(firestore, "segments"), orderBy("totalEfforts", "desc"), ...(cursor ? [startAfter(cursor)] : []), limit(SEARCH_PAGE_SIZE)));
-    const items: SegmentInfo[] = segSnap.docs.map(doc => ({ id: doc.id, ...doc.data(), name: doc.data().name ?? t("leaderboardPage.unnamed"), distance: doc.data().distance ?? 0, discipline: doc.data().discipline ?? doc.data().sport ?? "bike" }));
+    const page = await loadSegmentMetadataPage({ mode: "popular", ...(cursor ? { cursor } : {}) });
+    const items: SegmentInfo[] = page.items.map(data => ({ ...data, name: String(data.name ?? t("leaderboardPage.unnamed")), distance: Number(data.distance ?? 0), discipline: String(data.discipline ?? data.sport ?? "bike") }));
     if (uid && items.length) {
       try {
         const prSnap = await getDocs(query(collection(firestore, "user_prs", uid, "segments"), where("__name__", "in", items.map(item => item.id)), limit(SEARCH_PAGE_SIZE)));
@@ -63,7 +64,7 @@ export default function LeaderboardPage({ search = "", discipline = "bike", cate
         }
       } catch (err) { logClientError("LeaderboardPage.loadMyBest", err); }
     }
-    return { items, cursor: segSnap.docs[segSnap.docs.length - 1] ?? null, hasMore: segSnap.docs.length === SEARCH_PAGE_SIZE };
+    return { items, cursor: page.cursor, hasMore: page.hasMore };
   });
   const { items: segments, loading } = segmentPages;
 

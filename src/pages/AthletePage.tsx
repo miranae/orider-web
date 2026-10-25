@@ -1,3 +1,4 @@
+import { loadSegmentMetadataPage } from "../services/segmentMetadata";
 import { isSportUiEnabled } from "../config/sportFeatures";
 import { acceptedStatsActivities, acceptedTrainingActivities } from "../utils/estimateTSS";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
@@ -163,6 +164,24 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   // My segments
   const [mySegments, setMySegments] = useState<{ id: string; name: string; distance: number; status: string; createdAt: number }[]>([]);
+  const [segmentCursor, setSegmentCursor] = useState<string | null>(null);
+  const [segmentsMore, setSegmentsMore] = useState(false);
+  const [segmentsBusy, setSegmentsBusy] = useState(false);
+  const segmentScope = useRef(userId);
+  segmentScope.current = userId;
+  const loadMoreSegments = async () => {
+    if (!userId || !segmentCursor || segmentsBusy) return;
+    const scope = userId;
+    setSegmentsBusy(true);
+    try {
+      const page = await loadSegmentMetadataPage({ mode: "creator", creatorUid: scope, cursor: segmentCursor });
+      if (segmentScope.current !== scope) return;
+      setMySegments(previous => [...previous, ...page.items.map(data => ({ id: data.id, name: String(data.name ?? ""), distance: Number(data.distance ?? 0), status: String(data.status ?? "active"), createdAt: Number(data.createdAt ?? 0) }))]);
+      setSegmentCursor(page.cursor); setSegmentsMore(page.hasMore);
+    } catch (error) { logClientError("AthletePage.moreSegments", error); }
+    finally { if (segmentScope.current === scope) setSegmentsBusy(false); }
+  };
+
 
   // Friend state: 'none' | 'request_sent' | 'request_received' | 'friends'
   const [friendStatus, setFriendStatus] = useState<"none" | "request_sent" | "request_received" | "friends">("none");
@@ -377,17 +396,14 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       setMySegments([]);
       return;
     }
-    getDocs(query(
-      collection(firestore, "segments"),
-      where("createdByUid", "==", userId),
-      where("deletedAt", "==", null),
-      orderBy("createdAt", "desc"),
-    )).then((snap) => {
-      setMySegments(snap.docs.map((d) => {
-        const data = d.data();
-        return { id: d.id, name: data.name, distance: data.distance, status: data.status ?? "active", createdAt: data.createdAt };
-      }));
+    let active = true;
+    setMySegments([]); setSegmentsMore(false); setSegmentCursor(null); setSegmentsBusy(false);
+    loadSegmentMetadataPage({ mode: "creator", creatorUid: userId }).then((page) => {
+      if (!active) return;
+      setSegmentCursor(page.cursor); setSegmentsMore(page.hasMore);
+      setMySegments(page.items.map(data => ({ id: data.id, name: String(data.name ?? ""), distance: Number(data.distance ?? 0), status: String(data.status ?? "active"), createdAt: Number(data.createdAt ?? 0) })));
     }).catch((err) => logClientError("AthletePage.bg", err, {}));
+    return () => { active = false; };
   }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus]);
 
   // Check friend relationship
@@ -822,6 +838,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           </nav>
           {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2><AthletePhotoGallery photos={recentPhotos} /></section>}
           {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2><p className="athlete-section-note">{t("profile.highlightsScope")}</p>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t("profile.noHighlights")}</p>}</section>}
+          {segmentsMore && <button type="button" disabled={segmentsBusy} onClick={loadMoreSegments}>{t("common:button.more")}</button>}
           {profileTab === "segments" && <section className="athlete-profile-section"><h2>{t("segments.othersTitle")}</h2>{mySegments.length ? <ul className="athlete-highlights">{mySegments.map(segment => <li key={segment.id}><Link to={`/segment/${segment.id}`}>{segment.name} · {(segment.distance / 1000).toFixed(2)} km</Link></li>)}</ul> : <p>{t("profile.noSegments")}</p>}</section>}
           {(profileTab === "overview" || profileTab === "activities") && <>
           <div className="athlete-section-heading"><label htmlFor="athlete-sport">{t("profile.sport")}</label><Select id="athlete-sport" value={sport} onChange={event => setSport(event.target.value)}>{["all", "bike", "run", "swim"].filter(isSportUiEnabled).map(value => <option key={value} value={value}>{t(`profile.sports.${value}`)}</option>)}</Select></div>
