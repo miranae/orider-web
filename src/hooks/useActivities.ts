@@ -600,7 +600,7 @@ export function useActivities(
         // Restore the visited depth using fresh authorized reads, never cached rows.
         let replay = rest;
         let count = first.items.length + rest.items.length;
-        const desired = readFeedDepth(depthKey, FEED_PAGE_SIZE);
+        const desired = readFeedDepth(depthKey, 0);
         let replayPages = 0;
         while (count < desired && replay.cursor && replay.hasMore && !cancelled && replayPages++ < 20) {
           try { replay = await fetchPage(user?.uid ?? null, replay.cursor); }
@@ -1103,7 +1103,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
       .then(async (page) => {
         let accumulated = page;
         let pages = 0;
-        const desired = readFeedDepth(searchDepthKey, 20);
+        const desired = readFeedDepth(searchDepthKey, 0);
         while (!cancelled && searchEpoch.current === requestEpoch && accumulated.hasMore && accumulated.results.length < desired && pages++ < 10) {
           const next = await fetchActivitySearchResults(searchedKeyword, user?.uid ?? null, dateFrom, accumulated.cursors, subscriptionIds);
           accumulated = { ...next, results: [...accumulated.results, ...next.results.filter(item => !accumulated.results.some(previous => previous.id === item.id))] };
