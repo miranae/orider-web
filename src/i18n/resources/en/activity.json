@@ -853,9 +853,10 @@
       "fitRoute": "Show entire route"
     },
     "ownerRoutePreview": {
+      "hint": "View the route when recorded GPS is available.",
       "load": "Show recorded route",
       "retry": "Retry route preview",
-      "scope": "Preview of observed GPS, reduced to at most 200 points. Complete route coverage and GPS accuracy are unconfirmed.",
+      "scope": "Preview of recorded GPS. Complete route coverage and location accuracy are unconfirmed.",
       "empty": "No displayable GPS section was found in this record.",
       "error": "Could not load the route. Please try again."
     }

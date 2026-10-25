@@ -183,6 +183,7 @@ export function ActivityMediaPanel({
 
   // 실내 판정은 trainer 필드와 Virtual* 종목을 함께 본다 — "가상 라이딩" 고정 문구는 러닝·트레이너 라이딩에 틀렸다.
   const indoor = isIndoorActivity(activity);
+  const nativePreviewAvailable = !indoor && activity.source === "orider" && observedRouteAvailable();
   const lowerType = activity.type?.toLowerCase() ?? "";
   const indoorTitle = sport === "ride"
     ? t("page.indoorRide")
@@ -202,9 +203,9 @@ export function ActivityMediaPanel({
           {indoor ? indoorTitle : t(activity.source === "orider" ? "page.routePreviewUnavailable" : "page.noGps")}
         </p>
         <p className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-2)" }}>
-          {indoor ? t("page.indoorDesc") : t(activity.source === "orider" ? "page.routePreviewUnavailableDesc" : "page.noGpsDesc")}
+          {indoor ? t("page.indoorDesc") : t(nativePreviewAvailable ? "page.ownerRoutePreview.hint" : activity.source === "orider" ? "page.routePreviewUnavailableDesc" : "page.noGpsDesc")}
         </p>
-        {!indoor && activity.source === "orider" && observedRouteAvailable() && <NativeOwnerRoutePreview activity={activity} t={t} />}
+        {nativePreviewAvailable && <NativeOwnerRoutePreview activity={activity} t={t} />}
       </div>
     </Card>
   );
