@@ -13,3 +13,12 @@ User steering: web/server first, app later; stop dev delivery and show a finishe
 | R9 | Reproducible local review artifacts | Recruiting/contacting riders, two-week beta, release/marketing decision, deployment/store publishing |
 
 The epic explicitly distinguishes the first working web/server slice from the full roadmap. This local integration does not close the full epic or prove feature parity with paid Strava. The prior dev period-comparison merge preceded the user's local-only instruction; subsequent changes remain local.
+
+## Later local continuation
+
+- Public feed, search, profiles, group rides, co-rider lookup and linked-post previews now use access-checked server projections. Original activities, streams and metrics have owner-only raw read rules in the isolated demo; REST activity/stream readers recheck current access. The Firebase emulator reloaded local rule changes automatically; this was not a remote deployment. Native clients must migrate before these rules can be released.
+- Public profile chart totals are withheld when the bounded inventory is incomplete, and private training load is not inferred from duration. Feed/group pages can be empty while offering continuation; they do not claim whole-history counts.
+- Notification preferences persist through owner-bound callables, without disabling the inbox. Weekly email defaults off; no external delivery was exercised.
+- Native matched-route inventory now continues with year-filtered, owner-bound cursors. It remains an inventory of observations, not whole-history personal-best eligibility.
+
+See the feature verification documents for exact snapshots, regressions, actual browser evidence and remaining limits. Earlier full test totals and latency measurements remain attached to their original source checkpoints.

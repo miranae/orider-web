@@ -1,6 +1,6 @@
 # Acceptance follow-up after the first local handoff
 
-Latest local implementation and complete verification checkpoint: [feed restoration, period load/log, metrics ownership and local review](local-review-checkpoint.md). It records the 9,528 web / 15,586 Functions test checkpoint, remaining restoration/history limits, and both rapid and paced browser measurements without suppressing rate-limit responses.
+Latest local implementation and complete verification checkpoint: [feed restoration, period load/log, metrics ownership and local review](local-review-checkpoint.md). It records the current discovery/settings/inventory verification (9,561 web / 15,639 Functions tests), earlier source-specific measurements, and remaining restoration/history limits without suppressing rate-limit responses.
 
 2026-10-26. The preceding handoff proved a working local slice, not every requirement in epic miranae/orider-g1-app#2882. This audit re-read the current epic through authenticated GitHub CLI (the connector returned 404), compared source and existing evidence, and continued local implementation. Remote writes, pushes, merges and deployment remain prohibited by the user's latest instruction. App implementation remains deferred.
 

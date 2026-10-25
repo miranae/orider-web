@@ -1,4 +1,27 @@
-# Latest local review checkpoint
+# Local review checkpoints
+
+## Public discovery, route inventory and settings continuation
+
+2026-10-26. Product web through `79905e59`, followed by the friend-invite correction `55acd692`. All work remains local.
+
+- Public home/search/profile/group/co-rider/post-linked activity reads now use current-authorized server projections. Direct original activity/stream/public-metric reads are owner-only in the isolated demo. REST detail/streams also recheck current ownership, blocks, visibility and deletion/merge fences. The Firebase emulator automatically reloaded the local rule source; no remote rule deployment occurred.
+- Public charts with incomplete bounded history suppress totals; private training load is not estimated from duration. Generated summaries are displayed only with validated stored revisions. See [public discovery migration](public-discovery-migration.md).
+- [Route inventory](route-inventory-continuation.md) has bounded year-filtered continuation and original-activity return, without promoting uncertain capture/history coverage into personal-best eligibility.
+- [Notification settings](notification-settings-followup.md) now persist through owner-bound APIs. Inbox access remains independent; external push/email delivery was not exercised.
+- Friend-invite preview now uses a bounded code resolver rather than a prohibited original/public-document query. Responses contain only an allowed public profile, with current blocking/account checks. The final mutation also checks current fences and bilateral blocks.
+
+### Combined local gates
+
+- Node 22 web full regression: **909 files / 9,561 tests passed**, followed by all contract suites. Full lint, quality budget and final development build passed. Friend-invite's later added suites separately passed **3 files / 9 tests**; these overlap the main run and must not be added to a unique total.
+- The first full web run failed 18 tests across five suites. Four suites had stale service/query mocks after the public API and notification-settings migration; fixtures were corrected without weakening product guards. The remaining EventParticipation timeout passed alone (60 tests) and in the complete four-worker rerun; no timeout threshold was increased.
+- Final Functions source `ddacc947`: **929 files / 15,639 tests passed**, with **55 files / 535 opt-in tests skipped**. Node 22 build, full lint and compatibility passed. Separate real-Firestore/mirror checks passed ten tests. Build source hash `d95c55910ff3`, artifact `30e8d8c2cd13`; log `/tmp/be-friend-final-full.log`. Skipped cases are not counted as successes.
+- Local review uses real Firebase SDK/HTTP paths and synthetic data. The home showed ten cards, a foreign profile five cards, and all four discovery requests returned 200 at 390 px with no page errors/overflow. Group selection, current-authorized co-riders and stored native streams were also exercised. These checks do not establish production cost, p95, complete-history ranking, device support or paid-Strava parity.
+
+Logs: `/tmp/orider-2882-r1-web-{full-final,contracts-final,lint-final,quality-final,build-final}.log`. The review profile is intentionally retained using external `r1-discovery/review-profile.cjs apply|status|cleanup`, preserving prior fields and the R6 fixtures.
+
+## Earlier feed / period checkpoint
+
+The checkpoint below remains historical evidence. Its timing measurements and source hashes are not measurements of the subsequent discovery changes.
 
 2026-10-26. Web product `71b3a57c`, backend product `d759a635` (documentation through `f3eb7e8d`). No remote writes, pushes, merges or deployments.
 
