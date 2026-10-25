@@ -19,3 +19,7 @@ A bounded date input opens the selected day of the training log. The return link
 - New local runtime exports the actual `ensureFitnessCurves` and `revalidateTraining` handlers. Earlier wrapper omissions are recorded in pre-fix artifacts; they are not represented as successful API calls.
 
 The selected aggregate is a saved-input snapshot, not proof that all external imports have completed. Non-KST history requires an explicit backend rebucketing contract before it can produce equivalent KST totals. Training sums and power maxima retain their documented populations and scan bounds.
+
+## Subsequent actual producer verification
+
+The manually populated browser lifecycle fixture above remains evidence of UI consumption only. Subsequent backend work `d265c501` / `4978193c` independently executes raw upload/finalization, real metrics, diary and PMC writers against a new isolated synthetic owner. It also fixes fresh explicit-timezone initialization while retaining all existing PMC history. Canonical load13 appears on the same KST day in diary and PMC; the KST period reader returns canonical6000m/600s. See the server `docs/testing/epic-2882-canonical-load/verification.md` and [current integrated checkpoint](local-review-checkpoint.md). This evidence does not retroactively turn the earlier manually populated UI fixture into producer proof or establish production event delivery.
