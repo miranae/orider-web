@@ -329,4 +329,4 @@ export interface SplitRow {
 }
 
 /** 현재 ActivityMetrics 계산 스키마 버전. 변경 시 +1, backfill 트리거. */
-export const ACTIVITY_METRICS_VERSION = 41;
+export const ACTIVITY_METRICS_VERSION = 42;

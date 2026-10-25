@@ -678,8 +678,10 @@ export default function ActivityPage() {
   ), [sampledData, sport, units, recordedRunCadenceUnit, t]);
   const canonicalSummaryMetrics = canonicalActivityChartMetrics(activity, serverMetrics.metrics, !!activePowerOverride);
   const summaryStats = useMemo(() => withStravaChartSummary(withCanonicalChartSummary(
-    buildSummaryStats(effectiveStreams, streamSensorSummary), canonicalSummaryMetrics,
-  ), activity, !!activePowerOverride), [effectiveStreams, streamSensorSummary, canonicalSummaryMetrics, activity, activePowerOverride]);
+    buildSummaryStats(effectiveStreams, streamSensorSummary, { distanceM: activity?.summary?.distance,
+      movingTimeSec: serverMetrics.metrics?.movingTimeSec ?? activity?.summary?.movingTimeSec
+        ?? (activity?.source === "strava" ? activity.summary.ridingTimeMillis / 1000 : null) }), canonicalSummaryMetrics,
+  ), activity, !!activePowerOverride), [effectiveStreams, streamSensorSummary, canonicalSummaryMetrics, activity, activePowerOverride, serverMetrics.metrics]);
   const { location: runSplitLocation, onSelectSplit: selectRunSplit } = useRunSplitLocation(activityId, activity?.id, sport === "run", streams, sampledData, resolveObservedDistanceKm(serverMetrics.metrics ?? {}, activity?.summary?.distance));
   const peakLocation = useMemo(() => resolvePeakEffortLocation(selectedPeak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData),
     [selectedPeak, serverMetrics.metrics, streams, sampledData]);
