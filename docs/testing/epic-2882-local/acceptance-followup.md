@@ -94,7 +94,7 @@ The final audit found additional web/server work, so the local epic is not marke
 
 - **R5 interaction scale:** the former 20-request action would require roughly 38 actions for 1,001 independent records. Web `6a0e554f` now performs at most 2,000 sequential requests per explicit action with one in flight, session/expiry checks before dispatch, and no error retry loop. A tab-local checkpoint stores only opaque run ID/version/expiry; restoring it requires an explicit status check and explicit continuation. Same-UID SDK replacement invalidates it. Four focused suites / 33 tests, TypeScript and scoped lint passed; full regression for this revision is pending.
 - **R5 actual server scale:** the immutable `d3f9cc5effbf` server completed 1,001 separately identified, actually parsed synthetic GPX observations in 51.328 seconds: 754 progress calls and two status calls. It found the sole fastest record on the final page, excluded a post-T insertion, resumed from a serialized checkpoint and emitted no provisional best. Every source was verified, all 1,001 groups were eligible, and exact owned fixtures were cleaned up. This single local direct-server sample bypasses callable quota/AppCheck and does not prove UI or production latency. Full evidence: external `r5-scale-1001/README.md`, `run.cjs`, `result.json`. Actual panel/SDK verification is underway in another isolated project.
-- **R6 period scale:** the existing training scan stops at 200 and power scan at 1,000. Resumable exact-T owner-period aggregation is being implemented while retaining canonical-source, explicit-identity and threshold-context semantics. Partial results must not be displayed as complete totals. Source changes after T are not a claim of continuously current history.
+- **R6 period scale:** the existing quick training/power scans retain their 200/1,000 limits. The new explicit resumable owner-period path completes 1,001 stored records without claiming continuously current history. Only completed runs expose totals, and missing dense curves or stored weights remain partial. Actual SDK evidence and source boundaries are in [bike-period-snapshot-ui.md](bike-period-snapshot-ui.md).
 - **R7 Local Legend scale:** the existing 500-effort getter is preserved. A resumable preparation and bounded final current-snapshot validation path is being implemented. It must recheck all relevant current permissions/source witnesses before emitting a leader; old census pages cannot establish current access. No broad client rule migration or weakened privacy contract is being deployed.
 
 The active review runtime remains immutable while these source changes are validated. There have been no remote pushes, merges, deployments or issue updates.
@@ -125,8 +125,19 @@ quick partial read is collapsed separately from the full-range result to avoid
 contradictory winner messages. [Legend verification](legend-progress-followup.md)
 records its independent Auth/Functions/Vite runtime and exact cleanup manifest.
 
-R6 actual 1,001-record UI confirmed distance, independent W/Wkg winners, and missing
-weight counts, but exposed a backend dense-power fold omission when only later pages
-have a dense channel. That failure is preserved and being fixed; it is not reported
-as a completed dense-curve check. The primary demo has not yet activated the new
-combined server runtime. The epic stays open and all work remains local.
+R6 actual 1,001-record UI initially exposed a backend dense-power fold omission
+when only later pages had a dense channel. That failed result remains preserved.
+BE `498572b9`, immutable `a0913c1a20f6` / source `a14a7b402052`, now supplies the
+channel with all preceding missing counters. A fresh run on the same fixture passed:
+258 SDK callable HTTP200s, one in flight, 36.488 seconds, 1,001 km, independent W and
+W/kg source winners, 85 selectable durations, 999 missing dense curves and weights,
+and 25 FTP contexts paged as 20 + 5. There were no page/request errors or 390px
+horizontal overflow. The prior WEB full-suite and later display-only checks remain
+separate above; no new full-suite count is inferred from this browser run.
+
+[Period snapshot UI evidence](bike-period-snapshot-ui.md) records the actual SDK
+harness at <http://127.0.0.1:5264/>, synthetic canonical-input limitation, separate
+Auth namespace and reversible cleanup. The 1,001-record fixture remains available
+for user review. Main-runtime activation/smoke evidence is recorded by the root
+checkpoint; this isolated panel proof does not stand in for whole-router or
+production verification. The epic stays open and all work remains local.
