@@ -1,14 +1,13 @@
 import { useFirebaseServices, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadActivityDiscovery } from "../services/activityDiscovery";
 import { useEffect, useState } from "react";
-import { collection, getDocs, limit, query, where, type DocumentData } from "firebase/firestore";
+import { resolveFriendInvitePreview } from "../services/friendInvitePreview";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { useAuth } from "../contexts/AuthContext";
 import { useFriends } from "../hooks/useFriends";
 import { useToast } from "../contexts/ToastContext";
-import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { Button, Card } from "../theme/components";
 
@@ -17,11 +16,6 @@ interface InvitePreview {
   nickname: string;
   photoURL: string | null;
   rideImageUrl: string | null;
-}
-
-function readText(data: DocumentData, field: string): string | null {
-  const value = data[field];
-  return typeof value === "string" && value.trim() ? value : null;
 }
 
 async function loadRecentRideImage(services: FirebaseServices, userId: string): Promise<string | null> {
@@ -35,18 +29,10 @@ async function loadRecentRideImage(services: FirebaseServices, userId: string): 
 }
 
 async function loadInvitePreview(services: FirebaseServices, code: string): Promise<InvitePreview | null> {
-  const snap = await getDocs(query(
-    collection(firestore, "users_public"),
-    where("friendCode", "==", code),
-    limit(1),
-  ));
-  const profileDoc = snap.docs[0];
-  if (!profileDoc) return null;
-  const data = profileDoc.data();
-  const nickname = readText(data, "nickname") ?? readText(data, "displayName") ?? profileDoc.id.slice(0, 8);
-  const photoURL = readText(data, "photoURL");
-  const rideImageUrl = await loadRecentRideImage(services, profileDoc.id);
-  return { userId: profileDoc.id, nickname, photoURL, rideImageUrl };
+  const profile = await resolveFriendInvitePreview(services, code);
+  if (!profile) return null;
+  const rideImageUrl = await loadRecentRideImage(services, profile.userId);
+  return { ...profile, rideImageUrl };
 }
 
 export default function FriendInvitePage() {
@@ -54,16 +40,19 @@ export default function FriendInvitePage() {
   const { code } = useParams<{ code: string }>();
   const { t } = useTranslation("friends");
   const { user, loading: authLoading, signIn } = useAuth();
+  const signedIn = !!user && !user.isAnonymous;
   const { addByCode, actionLoading } = useFriends();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
   const [processed, setProcessed] = useState(false);
-  const [invitePreview, setInvitePreview] = useState<InvitePreview | null>(null);
+  const [previewState, setPreviewState] = useState<{ user: typeof user; code: typeof code; value: InvitePreview } | null>(null);
+  const invitePreview = previewState?.user === user && previewState?.code === code ? previewState.value : null;
+  const setInvitePreview = (value: InvitePreview | null) => setPreviewState(value ? { user, code, value } : null);
   const [inviteError, setInviteError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user || !code || processed || processing) return;
+    if (!signedIn || !code || processed || processing) return;
     setProcessing(true);
     addByCode(code, "invite_link")
       .then((result) => {
@@ -89,23 +78,29 @@ export default function FriendInvitePage() {
         setProcessed(true);
       })
       .finally(() => setProcessing(false));
-  }, [user, code, processed]);
+  }, [user, signedIn, code, processed]);
 
   useEffect(() => {
-    if (!code || user) return;
-    let cancelled = false;
-    loadInvitePreview(services, code)
-      .then((preview) => {
-        if (!cancelled) setInvitePreview(preview);
-      })
-      .catch((err) => {
-        logClientError("FriendInvitePage.invitePreview", err, { code });
-        if (!cancelled) setInvitePreview(null);
+    let generation = 0;
+    let stopped = false;
+    setInvitePreview(null);
+    if (!code || signedIn) return;
+    const refresh = () => {
+      const request = ++generation;
+      if (document.visibilityState === "hidden") { setInvitePreview(null); return; }
+      void loadInvitePreview(services, code).then(preview => {
+        if (!stopped && request === generation) setInvitePreview(preview);
+      }).catch(err => {
+        if (!stopped && request === generation) setInvitePreview(null);
+        logClientError("FriendInvitePage.invitePreview", err);
       });
-    return () => {
-      cancelled = true;
     };
-  }, [code, user, services]);
+    refresh();
+    const timer = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { stopped = true; generation++; window.clearInterval(timer); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+  }, [code, user, signedIn, services]);
 
   if (authLoading) {
     return (
@@ -136,7 +131,7 @@ export default function FriendInvitePage() {
     );
   }
 
-  if (user && (processing || actionLoading)) {
+  if (signedIn && (processing || actionLoading)) {
     return (
       <div data-testid="P3-4" className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
@@ -167,7 +162,7 @@ export default function FriendInvitePage() {
     );
   }
 
-  if (user && inviteError) {
+  if (signedIn && inviteError) {
     return (
       <div data-testid="P3-4" className="flex items-center justify-center min-h-[60vh]">
         <Card data-testid="P3-4-1" className="max-w-sm text-center" padding="card">
@@ -204,7 +199,7 @@ export default function FriendInvitePage() {
     );
   }
 
-  if (!user) {
+  if (!signedIn) {
     return (
       <div data-testid="P3-4" className="flex items-center justify-center min-h-[60vh]">
         <div data-testid="P3-4-1" className="text-center max-w-sm mx-auto px-4">
