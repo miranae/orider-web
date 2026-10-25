@@ -13,11 +13,13 @@
 - 같은 날짜의 거리/시간과 `훈련 부하 13`을 확인합니다. `선택한 날의 훈련일지 보기`에서 10월 24일 활동과 월간 부하 13을 확인하고 돌아오면 직접 선택 범위가 유지됩니다.
 - 원본 활동: http://localhost:5174/ko/activity/r6-producer-1792959370538-ride?demoAccount=producer
 
-새 브라우저의 기본 28일 범위는 아직 확인되지 않은 날이 포함되어 합계를 `—`로 표시합니다. 단일일 결과를 28일 전체 이력 검증으로 확대하지 않습니다. 이 최초 기대 불일치도 `r6-producer-browser/first-default-window-results.json`으로 보존했습니다.
+최초 새 브라우저의 기본 28일 합계 `—`는 WEB 회귀였습니다. 서버에는 1,500일 `loadSnapshot`과 확정 0일·조회 coverage가 있었지만, WEB이 최초 활동부터 존재하는 PMC 표시 행을 합계에도 사용했습니다. 따라서 앞선 9bede6e0의 “서버 미확정 날짜” 설명은 잘못된 진단이며 정정합니다. `canonical-load/coverage-readback.json`이 서버 근거이고 `r6-producer-browser/first-default-window-results.json`은 수정 전 회귀 화면 증거입니다. 수정은 부하 합계를 검증된 loadSnapshot에서, CTL/ATL/TSB 시작·종료값은 실제 PMC 행에서 각각 읽습니다. 없는 PMC 시작값을 0으로 만들지 않습니다.
 
 ## 실제 검증
 
-`r6-producer-browser/results.json`: 기간 HTTP 읽기, KST 2026-10-24 일지의 부하 13, 원본 계산 결과를 소비한 기간 복귀 3개 검사 PASS. 관련 함수 응답 전부 200, page errors 0, 390px 수평 넘침 없음. `period.png`에서 단일일 날짜·부하 13이 실제 표시되는 것을 시각 확인했습니다. `diary.png`는 같은 일지입니다.
+`826cbbbd`와 `62c60994` 수정 뒤 `r6-producer-browser/results.json`의 5개 검사 PASS: 기본 28일 합계 13, 펼친 추세의 첫 활동 이전 CTL/ATL/TSB 미확정과 “계산 없음” 표시, 실제 기간 HTTP 읽기, KST 2026-10-24 일지 부하 13, 단일일 13 및 기간 복귀. 관련 함수 응답 전부 200, page errors 0, 390px 수평 넘침 없음. `default-trend-fixed.png`에서 “일부 날짜에 저장된 PMC 계산이 없습니다.”와 빈 PMC 값이 실제 보이고 “추정 계산”으로 잘못 표시되지 않는 것을 확인했습니다. `default-period-fixed.png`는 기본 합계, `period.png`는 단일일 날짜·부하 13, `diary.png`는 같은 일지입니다.
+
+직전 시도는 기본 합계와 일지까지 통과했으나 세 번째 기간 요청에서 2회/10초 burst 제한으로 429가 발생했습니다. 이를 `after-fix-rate-limit-attempt.json`에 보존했습니다. 최종 재검증은 세 번째 요청 전 11초 간격을 두었고 세 기간 요청 모두 200이었습니다. 제한이나 제품 guard는 변경하지 않았습니다.
 
 `r6-producer-browser/activity-results.json`: 해당 원본 활동 제목과 소유자 제어 표시, 공개 상세 읽기/계정 준비/알림 모두 HTTP 200, page errors 0. `owner-activity.png` 보존.
 
