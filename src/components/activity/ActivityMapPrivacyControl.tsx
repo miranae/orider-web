@@ -28,7 +28,7 @@ export default function ActivityMapPrivacyControl({ activityId }: { activityId: 
       const value = kind === "load" ? await client.load(activityId) : kind === "preview" ? await client.preview(activityId, settings, current!.current.revision) : await client.save(activityId, settings, current!.current.revision);
       if (request !== generation.current) return;
       if (kind === "preview") setState({ client, activityId, current: current!.current, preview: value });
-      else { focusEditor.current = kind === "load"; setState({ client, activityId, current: value, preview: null }); setStart(String(value.settings.startMeters)); setEnd(String(value.settings.endMeters)); setOpen(true); setSaved(kind === "save"); }
+      else { focusEditor.current = kind === "load"; setState({ client, activityId, current: value, preview: null }); setStart(String(value.settings.startMeters)); setEnd(String(value.settings.endMeters)); setOpen(true); setSaved(kind === "save" && !value.revocationPending); }
     } catch (reason) {
       if (request !== generation.current) return;
       const code = typeof reason === "object" && reason !== null && "code" in reason ? String(reason.code) : "";
@@ -44,6 +44,7 @@ export default function ActivityMapPrivacyControl({ activityId }: { activityId: 
       <Text>{t("mapPrivacy.current", { ...current.current.settings })}</Text>
       <Text variant="bodySmall">{t(`mapPrivacy.visibility.${current.current.visibility}`)}</Text>
       <Text variant="bodySmall">{t("mapPrivacy.explanation")}</Text>
+      {current.current.revocationPending && <Text role="alert">{t("mapPrivacy.revocationPending")}</Text>}
       <Field label={t("mapPrivacy.start")} htmlFor={`map-start-${activityId}`}><Input ref={input} id={`map-start-${activityId}`} type="number" min={0} max={5000} step={1} value={start} disabled={busy} invalid={!valid} onChange={event => edit(event.target.value, "start")} /></Field>
       <Field label={t("mapPrivacy.end")} htmlFor={`map-end-${activityId}`}><Input id={`map-end-${activityId}`} type="number" min={0} max={5000} step={1} value={end} disabled={busy} invalid={!valid} onChange={event => edit(event.target.value, "end")} /></Field>
       <Text role="status">{t(current.preview ? "mapPrivacy.unsaved" : "mapPrivacy.published")}</Text>

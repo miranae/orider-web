@@ -5,7 +5,7 @@ vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: m.user })
 vi.mock("../../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => m.services }));
 vi.mock("../../services/activityMapPrivacy", () => ({ createActivityMapPrivacyClient: () => ({ load: m.load, preview: m.preview, save: m.save }) }));
 vi.mock("../RouteMap", () => ({ default: ({ polyline }: { polyline: string }) => <div data-testid="safe-map">{polyline}</div> }));
-const current = { activityId: "a", revision: "r1", visibility: "everyone", settings: { startMeters: 0, endMeters: 0 }, mapPreview: { encodedPolyline: "current", imageUrl: null }, state: "available", policy: "endpoint_radius_longest_safe_section_v1" };
+const current = { activityId: "a", revision: "r1", revocationPending: false, visibility: "everyone", settings: { startMeters: 0, endMeters: 0 }, mapPreview: { encodedPolyline: "current", imageUrl: null }, state: "available", policy: "endpoint_radius_longest_safe_section_v1" };
 beforeEach(() => { vi.clearAllMocks(); m.user = { uid: "owner" }; m.load.mockResolvedValue(current); m.preview.mockResolvedValue({ ...current, mapPreview: { encodedPolyline: "preview", imageUrl: null } }); m.save.mockResolvedValue({ ...current, revision: "r2", settings: { startMeters: 250, endMeters: 0 } }); });
 const open = async () => { fireEvent.click(screen.getByRole("button", { name: "공개 지도 보호 설정" })); await screen.findByLabelText("시작 지점 보호 반경 (m)"); };
 it("requires preview of current draft before saving and distinguishes unsaved geometry", async () => {

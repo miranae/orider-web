@@ -1,3 +1,4 @@
+import { usePublicActivityMaps } from "../../hooks/usePublicActivityMaps";
 import { useGroupRideActivities } from "../../hooks/useGroupRideActivities";
 import { X, LocateFixed } from "lucide-react";
 import { groupRideMapRange } from "./groupRideMapRange";
@@ -91,6 +92,7 @@ export default function GroupRidePage() {
   const [streamRetry, setStreamRetry] = useState(0);
   const [hiddenRiders, setHiddenRiders] = useState<{ context: typeof loadedActivityContext; ids: Set<string> } | null>(null);
   const visibleRiders = useMemo(() => new Set(loadedActivities.filter(activity => hiddenRiders?.context !== loadedActivityContext || !hiddenRiders.ids.has(activity.id)).map(activity => activity.id)), [loadedActivities, loadedActivityContext, hiddenRiders]);
+const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(activity => activity.userId !== user?.uid && visibleRiders.has(activity.id)).map(activity => activity.id));
   const [chartAxis, setChartAxis] = useState<"distance" | "time">("distance");
   const [selectedViewport, setSelectedViewport] = useState<{ axis: "distance" | "time"; start: number; end: number } | null>(null);
   const [fullViewport, setFullViewport] = useState<{ axis: "distance" | "time"; start: number; end: number } | null>(null);
@@ -237,20 +239,22 @@ export default function GroupRidePage() {
       let positions: [number, number][] = [];
 
       const s = streams[a.id];
-      if (s?.latlng && s.latlng.length > 0) {
+      if (a.userId === user?.uid && s?.latlng && s.latlng.length > 0) {
         positions = s.latlng;
-      } else if (a.thumbnailTrack) {
+      } else if (a.userId === user?.uid && a.thumbnailTrack) {
         positions = decodeTrack(a.thumbnailTrack) as [number, number][];
+      } else if (currentPublicMaps[a.id]?.mapPreview.encodedPolyline) {
+        positions = decodeTrack(currentPublicMaps[a.id]!.mapPreview.encodedPolyline!) as [number, number][];
       }
 
       if (positions.length === 0) return null;
 
       // A simplified/privacy-clipped preview has no correspondence to raw sensor indices.
-      const geojson = groupRideMapRange({ latlng: positions }, s?.latlng?.length ? clockAxes.get(a.id) : null);
+      const geojson = groupRideMapRange({ latlng: positions }, a.userId === user?.uid && s?.latlng?.length ? clockAxes.get(a.id) : null);
 
       return { id: a.id, geojson, color, positions };
     }).filter(Boolean) as { id: string; geojson: GeoJSON.Feature<GeoJSON.MultiLineString>; color: string; positions: [number, number][] }[];
-  }, [activities, streams, clockAxes, activityColors]);
+  }, [activities, streams, clockAxes, activityColors, currentPublicMaps, user]);
 
   // Bounds from ALL routes (stable — does not change on rider toggle)
   const mapBounds = useMemo((): LngLatBoundsLike | null => {
@@ -446,8 +450,8 @@ export default function GroupRidePage() {
 
   const hoverMarkerPosition = useMemo((): [number, number] | null => {
     const base = inspectedRiders.find(row => row.activity.id === elevationChartData?.baseActivityId);
-    return base && base.selectedIndex >= 0 ? streams[base.activity.id]?.latlng?.[base.selectedIndex] ?? null : null;
-  }, [inspectedRiders, elevationChartData, streams]);
+    return base && base.activity.userId === user?.uid && base.selectedIndex >= 0 ? streams[base.activity.id]?.latlng?.[base.selectedIndex] ?? null : null;
+  }, [inspectedRiders, elevationChartData, streams, user]);
 
   const averageViewport = selectedViewport?.axis === chartAxis ? selectedViewport : fullViewport?.axis === chartAxis ? fullViewport : null;
   const intervalReports = useMemo(() => new globalThis.Map(visibleActivities.map(activity => [activity.id, averageViewport ? observedRideRange(streams[activity.id], clockAxes.get(activity.id), {

@@ -14,6 +14,11 @@ import { getComparisonSeriesColors } from "../../theme/charts/comparisonSeriesCo
 
 const { comparison, elevation, publicProfiles, streamsApi } = vi.hoisted(() => ({ comparison: vi.fn(), elevation: vi.fn(), publicProfiles: vi.fn(), streamsApi: vi.fn() }));
 vi.mock("../../services/personalDataApi", () => ({ getActivityStreams: streamsApi }));
+vi.mock("../../services/publicActivityMaps", () => ({ loadPublicActivityMap: vi.fn(async (_services: unknown, id: string) => {
+  const a = (mockCollectionData.get("activities") ?? []).find(item => item.id === id);
+  const encodedPolyline = a?.thumbnailTrack ?? (["first", "second"].includes(id) ? "37,127;38,128" : null);
+  return { activityId: id, revision: "safe-fixture", privacyEnabled: true, mapPreview: { encodedPolyline, imageUrl: null } };
+}) }));
 vi.mock("../../services/publicProfiles", () => ({ getPublicUserProfiles: publicProfiles }));
 beforeEach(() => {
   publicProfiles.mockReset().mockResolvedValue(new Map());
@@ -147,7 +152,7 @@ describe("club ride metric presentation", () => {
     expect(screen.getByTestId("ride-chart-inspection")).toBeInTheDocument();
   });
   it("passes each rider's own elevation distances without truncating different sample counts", async () => {
-    setCollectionDocs("activities", ["first", "second"].map(id => ({ ...activity(id, null, null), source: "orider" })));
+    setCollectionDocs("activities", ["first", "second"].map(id => ({ ...activity(id, null, null), source: "orider", userId: id === "valid" || id === "first" ? "test-uid" : id })));
     setDocData("activity_streams/first", { distance: [0, 1000], altitude: [10, 20] });
     setDocData("activity_streams/second", { distance: [0, 500, 2000], altitude: [30, 40, 50] });
     elevation.mockClear();
@@ -192,7 +197,7 @@ describe("club ride metric presentation", () => {
   });
 
   it("skips empty or invalid elevation records when choosing the chart and map reference", async () => {
-    setCollectionDocs("activities", ["empty", "invalid", "valid"].map(id => ({ ...activity(id, null, null), source: "orider" })));
+    setCollectionDocs("activities", ["empty", "invalid", "valid"].map(id => ({ ...activity(id, null, null), source: "orider", userId: id === "valid" || id === "first" ? "test-uid" : id })));
     setDocData("activity_streams/empty", { distance: [0, 1000], altitude: [] });
     setDocData("activity_streams/invalid", { distance: [0, 1000], altitude: [NaN, Infinity] });
     setDocData("activity_streams/valid", { distance: [0, 1000], altitude: [0, 20], latlng: [[37, 127], [38, 128]] });
@@ -205,7 +210,7 @@ describe("club ride metric presentation", () => {
     expect(screen.getByTestId("hover-marker")).toHaveAttribute("data-longitude", "128");
   });
   it("omits incomplete elevation pairs without synthesizing zero and retains original GPS indices", async () => {
-    setCollectionDocs("activities", [{ ...activity("sparse", null, null), source: "orider" }]);
+    setCollectionDocs("activities", [{ ...activity("sparse", null, null), source: "orider", userId: "test-uid" }]);
     setDocData("activity_streams/sparse", { distance: [0, NaN, 1000, 2000, Infinity, 3000], altitude: [0, 99, 20], latlng: [[37, 127], [37.1, 127.1], [38, 128], [39, 129]] });
     elevation.mockClear();
     renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
@@ -332,7 +337,7 @@ it("updates map, elevation, sensor series and table colors together on theme cha
     return <><button onClick={() => setTheme("light")}>Light fixture</button><button onClick={() => setTheme("dark")}>Dark fixture</button></>;
   }
   elevation.mockClear();
-  setCollectionDocs("activities", ["first", "second"].map(id => ({ ...activity(id, null, null), source: "orider" })));
+  setCollectionDocs("activities", ["first", "second"].map(id => ({ ...activity(id, null, null), source: "orider", userId: id === "valid" || id === "first" ? "test-uid" : id })));
   for (const id of ["first", "second"]) setDocData(`activity_streams/${id}`, { distance: [0, 1000], altitude: [10, 20], watts: [0, 200], latlng: [[37, 127], [38, 128]] });
   renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<><ThemeSwitch /><GroupRidePage /></>} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
   fireEvent.click(screen.getByRole("button", { name: "Light fixture" }));

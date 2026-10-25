@@ -2900,6 +2900,9 @@
       "everyone": "Map shown on this public activity",
       "friends": "Map shared with friends",
       "private": "Private activity — not shown to other people."
-    }
+    },
+    "liveFailed": "The current public map could not be verified. Return to this view to retry.",
+    "liveUnavailable": "No currently verified public route.",
+    "revocationPending": "Access removal for the previous map image is incomplete. The public map is hidden. Preview and save again."
   }
 }

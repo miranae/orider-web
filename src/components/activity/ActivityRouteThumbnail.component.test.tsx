@@ -4,7 +4,7 @@ import {
   mockCallableInvocations,
   setCallableImplementation,
 } from "../../__tests__/mocks/firebase";
-import ActivityRouteThumbnail from "./ActivityRouteThumbnail";
+import { CanonicalActivityRouteThumbnail as ActivityRouteThumbnail } from "./ActivityRouteThumbnail";
 
 const routeMapControl = vi.hoisted(() => ({
   delayNextCapture: false,
