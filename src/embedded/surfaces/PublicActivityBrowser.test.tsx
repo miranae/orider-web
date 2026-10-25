@@ -1,3 +1,4 @@
+import { embeddedCommentId } from "../commentTarget";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import PublicActivityBrowser from "./PublicActivityBrowser";
@@ -6,11 +7,32 @@ vi.mock("../../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: 
 vi.mock("firebase/auth", () => ({ onAuthStateChanged: (_auth: unknown, callback: () => void) => { mocks.listeners.push(callback); return () => { mocks.listeners = mocks.listeners.filter(fn => fn !== callback); }; } }));
 vi.mock("../../services/activityDiscovery", () => ({ loadActivityDiscovery: mocks.load }));
 vi.mock("./PublicActivitySurface", () => ({ default: (props: { activityId: string; initialDetail?: unknown }) => { mocks.detailProps(props); const { activityId } = props; return <div><span>detail:{activityId}</span><a href="/ko/athlete/author">author</a><a href="/ko/athlete/commenter">comment author</a><a href="/ko/settings">settings</a></div>; } }));
+vi.mock("../../components/notifications/NotificationCommentTarget", () => ({ NotificationCommentTarget: ({ activityId, commentId }: { activityId: string; commentId: string }) => <div>target:{activityId}:{commentId}</div> }));
 const row = { id: "public-ride", userId: "author", nickname: "Public Rider", profileImage: null, description: "Public Ride" };
 const props = { activityId: "original", retryKey: 0, embedded: true, onReady: vi.fn(), onError: vi.fn() };
 beforeEach(() => { mocks.services = { auth: { currentUser: { uid: "viewer" } } }; mocks.listeners = []; mocks.load.mockReset().mockResolvedValue({ items: [row], nextCursor: null }); });
 afterEach(cleanup);
 describe("embedded public profile navigation", () => {
+  it("binds the notification target only to the initial activity and re-mounts it on return", async () => {
+    render(<PublicActivityBrowser {...props} commentId="outside-preview" />);
+    expect(screen.getByText("target:original:outside-preview")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: "author" }));
+    await screen.findByText("Public Rider");
+    expect(screen.queryByText(/target:/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Public Ride" }));
+    expect(screen.queryByText(/target:/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "돌아가기" }));
+    await screen.findByText("Public Rider");
+    fireEvent.click(screen.getByRole("button", { name: "돌아가기" }));
+    expect(screen.getByText("target:original:outside-preview")).toBeInTheDocument();
+  });
+  it("strictly parses the explicit embed commentId contract", () => {
+    expect(embeddedCommentId(new URLSearchParams("commentId=c_25-ABC"))).toBe("c_25-ABC");
+    expect(embeddedCommentId(new URLSearchParams("comment=legacy"))).toBeNull();
+    for (const query of ["commentId=", "commentId=a&commentId=b", "commentId=%2Fother", "commentId=%252Fother", "commentId=..", `commentId=${"a".repeat(201)}`]) {
+      expect(embeddedCommentId(new URLSearchParams(query))).toBe("");
+    }
+  });
   it.each(["author", "comment author"])("opens %s through injected discovery and returns to original detail", async label => {
     render(<PublicActivityBrowser {...props} />);
     fireEvent.click(screen.getByRole("link", { name: label }));

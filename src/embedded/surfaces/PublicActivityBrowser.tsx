@@ -1,3 +1,4 @@
+import { NotificationCommentTarget } from "../../components/notifications/NotificationCommentTarget";
 import ActivitySubscriptionButton from "../../components/profile/ActivitySubscriptionButton";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { onAuthStateChanged } from "firebase/auth";
@@ -8,7 +9,8 @@ import { Button, Section, Stack, Text } from "../../theme/components";
 import Avatar from "../../components/Avatar";
 import PublicActivitySurface from "./PublicActivitySurface";
 
-type Props = React.ComponentProps<typeof PublicActivitySurface>;
+type Props = React.ComponentProps<typeof PublicActivitySurface> & { commentId?: string | null };
+
 type Destination = { kind: "activity"; id: string } | { kind: "profile"; id: string };
 
 /** Public-only navigation within the authorized account; never mounts owner profile tools. */
@@ -48,6 +50,7 @@ export default function PublicActivityBrowser(props: Props) {
     <Stack gap="var(--dim-section-gap)">
       {!!destination && <Button variant="secondary" onClick={() => { setHistory(items => items.slice(0, -1)); setUnsupported(false); }}>{t("embeddedProfile.back")}</Button>}
       {unsupported && <Text role="status">{t("embeddedProfile.unsupported")}</Text>}
+      {!destination && props.commentId !== undefined && props.commentId !== null && <NotificationCommentTarget activityId={props.activityId} commentId={props.commentId} embedded />}
       {destination?.kind === "profile" ? <PublicProfile key={`${destination.id}:${generation}`} userId={destination.id}
         onActivity={id => setHistory(items => [...items, { kind: "activity", id }])} />
         : <PublicActivitySurface {...props} key={`${destination?.id ?? props.activityId}:${generation}`}

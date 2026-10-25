@@ -1,3 +1,4 @@
+import { onAuthStateChanged } from "firebase/auth";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -8,25 +9,33 @@ import { createWebNotificationClient } from "../../services/webNotifications";
 import { Button, Section, Stack, Text } from "../../theme/components";
 
 /** Exact authorized destination, independent of the first page of activity comments. */
-export function NotificationCommentTarget() {
-  const { activityId } = useParams<{ activityId: string }>(); const [params] = useSearchParams();
-  const commentId = params.get("comment");
+export function NotificationCommentTarget({ activityId: explicitActivityId, commentId: explicitCommentId, embedded = false }: { activityId?: string; commentId?: string | null; embedded?: boolean } = {}) {
+  const route = useParams<{ activityId: string }>(); const [params] = useSearchParams();
+  const activityId = explicitActivityId ?? route.activityId;
+  const commentId = explicitActivityId !== undefined ? explicitCommentId ?? null : params.get("comment");
+  const validTarget = typeof activityId === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(activityId)
+    && typeof commentId === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(commentId);
   const { user, signIn, loading: authLoading } = useAuth(); const services = useFirebaseServices();
   const { t } = useTranslation("common"); const uid = user && !user.isAnonymous ? user.uid : null;
-  const client = useMemo(() => createWebNotificationClient(services), [services, user]);
+  const [sessionEpoch, setSessionEpoch] = useState(0);
+  const viewer = services.auth.currentUser;
+  const client = useMemo(() => createWebNotificationClient(services), [services, user, viewer, sessionEpoch]);
   const key = JSON.stringify([activityId, commentId, uid]);
   const [state, setState] = useState<{ client: typeof client; key: string; comment?: ActivityFeedComment | null; failed?: boolean; denied?: boolean } | null>(null);
   const [visible, setVisible] = useState(document.visibilityState === "visible");
   const [attempt, setAttempt] = useState(0); const heading = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!activityId || !commentId || !uid || authLoading || !visible) return;
+    if (!validTarget || !activityId || !commentId || !uid || authLoading || !visible) return;
     let active = true; setState(null);
-    void client.comment(activityId, commentId).then(result => { if (active) setState({ client, key, comment: result.comment }); })
-      .catch(error => { if (active) setState({ client, key, failed: true, denied: ["functions/permission-denied", "functions/not-found"].includes(error?.code) }); });
+    void client.comment(activityId, commentId).then(result => { if (active && services.auth.currentUser === viewer) setState({ client, key, comment: result.comment }); })
+      .catch(error => { if (active && services.auth.currentUser === viewer) setState({ client, key, failed: true, denied: ["functions/permission-denied", "functions/not-found"].includes(error?.code) }); });
     return () => { active = false; };
-  }, [activityId, commentId, uid, authLoading, client, key, attempt, visible]);
+  }, [activityId, commentId, uid, authLoading, client, key, attempt, visible, validTarget, services, viewer]);
+  useEffect(() => onAuthStateChanged(services.auth, () => {
+    if (services.auth.currentUser !== viewer) { setState(null); setSessionEpoch(value => value + 1); }
+  }), [services, viewer]);
   useEffect(() => {
-    if (!commentId) return;
+    if (commentId === null) return;
     const refresh = () => { if (document.visibilityState === "visible") { setState(null); setAttempt(value => value + 1); } };
     const visibility = () => { setState(null); setVisible(document.visibilityState === "visible"); if (document.visibilityState === "visible") refresh(); };
     const changed = (event: Event) => {
@@ -41,9 +50,9 @@ export function NotificationCommentTarget() {
   }, [activityId, commentId]);
   const current = state?.key === key && state.client === client ? state : null;
   useEffect(() => { if (current) heading.current?.focus(); }, [current]);
-  if (!commentId || !visible) return null;
+  if (commentId === null || !visible) return null;
   return <div ref={heading} tabIndex={-1}><Section title={t("notif.commentDestination")}><Stack gap="var(--space-3)">
-    {!uid && !authLoading ? <><Text>{t("notif.loginDestination")}</Text><Button onClick={() => void signIn()}>{t("notif.signIn")}</Button></>
+    {!validTarget ? <Text role="status">{t("notif.targetUnavailable")}</Text> : !uid && !authLoading ? <><Text>{t("notif.loginDestination")}</Text>{!embedded && <Button onClick={() => void signIn()}>{t("notif.signIn")}</Button>}</>
       : !current ? <Text role="status">{t("notif.loading")}</Text>
       : current.failed && !current.denied ? <><Text role="alert">{t("notif.failed")}</Text><Button onClick={() => setAttempt(value => value + 1)}>{t("notif.retry")}</Button></>
       : current.comment ? <><Text weight={600}>{current.comment.nickname}</Text><Text as="p">{current.comment.text}</Text></>

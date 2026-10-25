@@ -1,3 +1,4 @@
+import { embeddedCommentId } from "./commentTarget";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { doc, onSnapshot } from "firebase/firestore";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -11,7 +12,7 @@ import {
   useState,
   type MouseEvent,
 } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
 import type { UserProfile } from "@shared/types";
 import { AuthContextProvider, type AuthContextValue } from "../contexts/AuthContext";
@@ -321,6 +322,8 @@ function AuthorizedSurface({
   surfaceKind: EmbeddedSurfaceKind;
   trainingSurfaceVisible: boolean;
 }) {
+  const [embeddedParams] = useSearchParams();
+  const embeddedTarget = embeddedCommentId(embeddedParams);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const shellStatusRef = useRef<HTMLParagraphElement>(null);
@@ -441,7 +444,7 @@ function AuthorizedSurface({
               </div>
             )}>
               {surfaceKind === "activity-public" && activityId ? (
-                <PublicActivitySurface embedded activityId={activityId} retryKey={retryKey}
+                <PublicActivitySurface embedded activityId={activityId} commentId={embeddedTarget} retryKey={retryKey}
                   onReady={() => bridge.send("surface.ready", { activityId })}
                   onError={(code) => bridge.send("surface.error", { code })} />
               ) : surfaceKind === "activity-analysis" && activityId ? (

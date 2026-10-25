@@ -1,3 +1,4 @@
+import { simulateLogin } from "../../__tests__/mocks/firebase";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { NotificationCommentTarget } from "./NotificationCommentTarget";
 const state = vi.hoisted(() => ({ user: { uid: "viewer", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, comment: vi.fn(), signIn: vi.fn() }));
@@ -36,4 +37,27 @@ it("removes comment text while backgrounded and verifies access on return", asyn
   state.comment.mockResolvedValue({ comment: null }); visibility.mockReturnValue("visible");
   act(() => document.dispatchEvent(new Event("visibilitychange")));
   await screen.findByText(/댓글이 삭제·숨김/); visibility.mockRestore();
+});
+
+it("uses explicit embedded activity/comment targets instead of route parameters", async () => {
+  render(<NotificationCommentTarget activityId="embedded-ride" commentId="comment-25" embedded />);
+  await screen.findByText("멀리 있는 정확한 댓글");
+  expect(state.comment).toHaveBeenCalledWith("embedded-ride", "comment-25");
+});
+it.each(["", "../bad", "a/b", "a".repeat(201)])("rejects malformed explicit targets without an API read: %s", commentId => {
+  render(<NotificationCommentTarget activityId="ride" commentId={commentId} embedded />);
+  expect(screen.getByText(/댓글이 삭제·숨김/)).toBeInTheDocument();
+  expect(state.comment).not.toHaveBeenCalled();
+});
+it("does not inherit the router comment when the explicit target is absent", () => {
+  render(<NotificationCommentTarget activityId="other-ride" commentId={null} embedded />);
+  expect(state.comment).not.toHaveBeenCalled();
+});
+it("discards a pending response after exact SDK user replacement", async () => {
+  let resolve!: (value: unknown) => void;
+  state.comment.mockReturnValueOnce(new Promise(done => { resolve = done; })).mockResolvedValue({ comment: null });
+  render(<NotificationCommentTarget activityId="ride" commentId="target" embedded />);
+  act(() => simulateLogin({ uid: "viewer" }));
+  await act(async () => resolve({ comment: { text: "stale target body" } }));
+  expect(screen.queryByText("stale target body")).not.toBeInTheDocument();
 });
