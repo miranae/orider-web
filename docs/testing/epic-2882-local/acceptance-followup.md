@@ -98,3 +98,35 @@ The final audit found additional web/server work, so the local epic is not marke
 - **R7 Local Legend scale:** the existing 500-effort getter is preserved. A resumable preparation and bounded final current-snapshot validation path is being implemented. It must recheck all relevant current permissions/source witnesses before emitting a leader; old census pages cannot establish current access. No broad client rule migration or weakened privacy contract is being deployed.
 
 The active review runtime remains immutable while these source changes are validated. There have been no remote pushes, merges, deployments or issue updates.
+
+## Large-history web gates — 2026-10-26
+
+Web functional source `655fe654` (including R5 `6a0e554f` and R7 `7c42d45a`):
+**927 files / 9,751 tests passed** in 281.35 seconds, and all contract suites passed.
+R6 presentation-only block-text correction `5335e039` separately passed four focused
+panel tests; the default full suite was already running when that small change was
+made, so its coverage is not silently attributed to the earlier full-suite snapshot.
+Final source through `5335e039` passed development build, zero-warning lint and quality
+budgets. Production configuration/build and remote deployment were not performed.
+Logs: `/tmp/orider-large-history-final-web-{full,contracts,build,lint,quality}.log`.
+
+Actual R5 UI: one explicit start, 754 SDK callable HTTP200s, 1,001 records, unique
+100-second winner, 62.657 seconds. Reload after 35 responses recovered the same run
+through explicit status and continuation. The initial real 429 is retained and the
+scoped burst correction is recorded in [route-history-large-ui.md](route-history-large-ui.md).
+The synthetic Auth UID was initially created in the shared local Auth namespace;
+its exact UID was subsequently deleted and readback documented. Other demo users
+were preserved; Firestore and Storage remained in their dedicated namespace.
+
+Actual R7 UI: existing 500-effort partial result → 1,001-effort complete snapshot,
+current block recheck excludes the blocked owner's records, no page errors, all
+normal POST requests HTTP200. The 390px viewport has no horizontal overflow. The
+quick partial read is collapsed separately from the full-range result to avoid
+contradictory winner messages. [Legend verification](legend-progress-followup.md)
+records its independent Auth/Functions/Vite runtime and exact cleanup manifest.
+
+R6 actual 1,001-record UI confirmed distance, independent W/Wkg winners, and missing
+weight counts, but exposed a backend dense-power fold omission when only later pages
+have a dense channel. That failure is preserved and being fixed; it is not reported
+as a completed dense-curve check. The primary demo has not yet activated the new
+combined server runtime. The epic stays open and all work remains local.
