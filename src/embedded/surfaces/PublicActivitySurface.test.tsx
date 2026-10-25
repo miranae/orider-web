@@ -23,6 +23,19 @@ const props = { activityId: "native-ride", retryKey: 0, onReady: vi.fn(), onErro
 afterEach(cleanup);
 beforeEach(() => { authState.uid = "viewer"; vi.clearAllMocks(); mocks.load.mockResolvedValue(fixture()); mocks.setKudos.mockResolvedValue({ enabled: true }); mocks.postComment.mockResolvedValue({ commentId: "new" }); });
 describe("public embedded activity", () => {
+  it("keeps activity and reactions available when a static map fails", async () => {
+    const data = fixture();
+    data.mapPreview = { imageUrl: "https://maps.example.test/failed", encodedPolyline: null };
+    mocks.load.mockResolvedValue(data);
+    render(<PublicActivitySurface {...props} />);
+    fireEvent.error(await screen.findByRole("img", { name: "라이딩 경로" }));
+    expect(screen.getByText("경로 지도를 불러오지 못했습니다.")).toBeInTheDocument();
+    expect(screen.getByText("한강 라이딩")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "좋아요 · 2" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    expect(screen.getByRole("img", { name: "라이딩 경로" })).toHaveAttribute("src", data.mapPreview.imageUrl);
+    expect(mocks.load).toHaveBeenCalledTimes(1);
+  });
   it.each([
     ["estimated", "추정 파워입니다."], ["measured", "측정으로 표기된 파워입니다."], ["unknown", "측정 출처는 확인되지 않았습니다."],
   ] as const)("labels canonical power provenance: %s", async (powerSource, label) => {

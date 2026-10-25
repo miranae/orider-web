@@ -8,6 +8,8 @@
     "saved": "본문을 저장했습니다. 피드 반영에는 잠시 걸릴 수 있습니다."
   },
   "publicDetail": {
+    "mapImageFailed": "경로 지도를 불러오지 못했습니다.",
+    "mapImageFailedHint": "다시 시도해 주세요. 활동 기록과 댓글은 계속 볼 수 있습니다.",
     "power": "파워",
     "averagePower": "평균 파워",
     "normalizedPower": "정규화 파워 (NP)",

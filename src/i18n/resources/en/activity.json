@@ -8,6 +8,8 @@
     "saved": "Description saved. Feed updates may take a moment."
   },
   "publicDetail": {
+    "mapImageFailed": "The route map could not be loaded.",
+    "mapImageFailedHint": "Try again. Activity details and comments are still available.",
     "power": "Power",
     "averagePower": "Average power",
     "normalizedPower": "Normalized power (NP)",

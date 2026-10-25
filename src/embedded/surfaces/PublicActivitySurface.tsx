@@ -2,6 +2,7 @@ import { startJourneyMeasurement, type JourneyOutcome } from "../../services/jou
 import "./PublicActivitySurface.css";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import PublicActivityMapImage from "./PublicActivityMapImage";
 import PublicActivitySafety from "./PublicActivitySafety";
 import PublicActivityPhotos from "./PublicActivityPhotos";
 import PublicActivityComments from "./PublicActivityComments";
@@ -181,7 +182,7 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
       {(route || mapImage) && <Section title={t("publicDetail.route")}>
         {route ? <Suspense fallback={<Text role="status">{t("publicDetail.mapLoading")}</Text>}>
           <RouteMap polyline={route} interactive={false} height="18rem" fallbackImageUrl={mapImage} fallbackImageAlt={t("publicDetail.route")} />
-        </Suspense> : <img className="public-activity-photo" src={mapImage!} alt={t("publicDetail.route")} />}
+        </Suspense> : <PublicActivityMapImage key={activityId} src={mapImage!} />}
         <Text variant="caption" tone="secondary">{t("publicDetail.routePreview")}</Text>
       </Section>}
       {detail.content.status === "pending" ? <Text role="status">{t("publicDetail.pending")}</Text> : <>
