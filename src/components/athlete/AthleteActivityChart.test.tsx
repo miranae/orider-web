@@ -12,7 +12,8 @@ it("defaults to the current month and excludes future weeks while forwarding exa
   fireEvent.click(screen.getByRole("button", { name: "주간" }));
   const props = chart.mock.lastCall![0];
   expect(props.periodUnit).toBe("week");
-  expect(new Date(props.data.at(-1).week).getTime()).toBeLessThanOrEqual(now.getTime());
+  // A date-only chart label is a local calendar date; bare ISO parsing uses UTC.
+  expect(new Date(`${props.data.at(-1).week}T00:00:00`).getTime()).toBeLessThanOrEqual(now.getTime());
   fireEvent.click(screen.getByRole("button", { name: "Inspect period" }));
   expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({ start: new Date(now.getFullYear(), 0, 1).getTime() }));
 });
