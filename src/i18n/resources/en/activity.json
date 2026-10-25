@@ -2774,12 +2774,6 @@
   "detail.keyRecords": "Key records",
   "sourceMetrics": {
     "sourceNotice": "Strava record · Orider calculations are identified in Analysis.",
-    "orider": "Orider analysis",
-    "comparison": "Strava record and Orider analysis",
-    "explanation": "The activity uses Strava values. — means unavailable; weighted average power and NP are separate metrics. Selecting a chart range shows statistics for those samples.",
-    "metric": "Metric",
-    "weightedPower": "Weighted average power",
-    "work": "Work",
-    "deviceTemperature": "Device temperature"
+    "orider": "Orider analysis"
   }
 }
