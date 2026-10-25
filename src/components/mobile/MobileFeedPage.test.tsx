@@ -806,7 +806,7 @@ it("keeps Strava source metrics consistent with detail despite stale calculated 
     total_elevation_gain: 645, average_heartrate: 140.2, average_watts: 120.9,
   } });
   renderWithProviders(<CompactActivityCard activity={activity} />);
-  expect(screen.getByRole("article")).toHaveTextContent(/135.4\s*km/);
+  expect(screen.getByRole("article")).toHaveTextContent(/135.36\s*km/);
   expect(screen.getByRole("article")).toHaveTextContent(/25.6\s*km\/h/);
   expect(screen.getByRole("article")).toHaveTextContent(/645\s*m/);
   expect(screen.queryByText(/NaN|Infinity/)).not.toBeInTheDocument();

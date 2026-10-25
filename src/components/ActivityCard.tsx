@@ -389,7 +389,7 @@ export default function ActivityCard({
             const power = sourcePower;
             return <>
               <div className="grid grid-cols-3 gap-3" data-testid="run-card-primary">
-                <StatBlock label={t(homeLabels ? "dashboard:homeMetrics.distance" : "stat.distance")} value={distanceM == null ? "—" : formatDistance(distanceM, units)} />
+                <StatBlock label={t(homeLabels ? "dashboard:homeMetrics.distance" : "stat.distance")} value={distanceM == null ? "—" : formatDistance(distanceM, units, sourceRecord ? 2 : 1)} />
                 <StatBlock label={t("stat.avgPace")} value={speed > 0 && !isImplausibleAvgSpeed(speed, "run") ? formatPace(3600 / speed, units) : "—"} prominent />
                 <StatBlock label={t(homeLabels ? `dashboard:homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, duration.usingMoving)}` : "stat.time")} value={Number.isFinite(duration.displayMs) ? formatDuration(duration.displayMs) : "—"} />
               </div>
@@ -403,7 +403,7 @@ export default function ActivityCard({
           <div
             className="grid gap-x-3 gap-y-2 text-[length:var(--fs-sm)] grid-cols-3"
           >
-            <StatBlock label={t(homeLabels ? "dashboard:homeMetrics.distance" : "stat.distance")} value={distanceM == null ? "—" : formatDistance(distanceM, units)} />
+            <StatBlock label={t(homeLabels ? "dashboard:homeMetrics.distance" : "stat.distance")} value={distanceM == null ? "—" : formatDistance(distanceM, units, sourceRecord ? 2 : 1)} />
             <StatBlock label={t("stat.elevShort")} value={elevationM == null ? "—" : formatElev(elevationM, units)} />
             {(() => {
               // #236: 정지 큰 활동은 이동시간 우선 표시 (상세 페이지와 동일 정책). 전환 시

@@ -219,7 +219,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
     </div> : null;
 
   const distanceM = sourceRecord ? sourceRecord.distance : s.distance;
-  const distance = distanceM == null ? "—" : formatDistance(distanceM, units);
+  const distance = distanceM == null ? "—" : formatDistance(distanceM, units, sourceRecord ? 2 : 1);
   // #236: 정지 큰 활동은 이동시간 우선 (상세·데스크톱 카드와 동일 정책 — resolveDuration 공유).
   const sd = resolveDuration({ ...s, stravaRecord: sourceRecord, startTime: activity.startTime, endTime: activity.endTime });
   const dur = Number.isFinite(sd.displayMs) ? formatDur(sd.displayMs) : "—";

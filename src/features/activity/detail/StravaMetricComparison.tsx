@@ -21,7 +21,7 @@ export function StravaMetricComparisonContent({ record: r, metrics: m, units, sp
   const rows = [
     [t("stat.movingTime"), time(r.moving_time), time(m?.movingTimeSec)],
     [t("stat.elapsedTime"), time(r.elapsed_time), time(m?.durationSec)],
-    [t("stat.distance"), r.distance == null ? "—" : formatDistance(r.distance, units), m?.distanceKm == null ? "—" : formatDistance(m.distanceKm * 1000, units)],
+    [t("stat.distance"), r.distance == null ? "—" : formatDistance(r.distance, units, 2), m?.distanceKm == null ? "—" : formatDistance(m.distanceKm * 1000, units)],
     [t("stat.avgSpeed"), speed(r.average_speed == null ? null : r.average_speed * 3.6), speed(m?.avgSpeedKph)],
     [t("stat.maxSpeed"), speed(r.max_speed == null ? null : r.max_speed * 3.6), speed(m?.maxSpeedKph)],
     [t("analysis.metric.elevGain"), elevation(r.total_elevation_gain), elevation(m?.elevationGainM)],

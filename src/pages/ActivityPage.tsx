@@ -1042,7 +1042,7 @@ export default function ActivityPage() {
         avgSpeedImplausible={avgSpeedImplausible}
         maxSpeedImplausible={maxSpeedImplausible}
         showElevation={showElevation}
-        distVal={distVal}
+        distVal={m => distVal(m, providerRecord ? 2 : 1)}
         distUnit={distUnit}
         speedVal={speedVal}
         speedUnit={speedUnit}
@@ -1170,7 +1170,7 @@ export default function ActivityPage() {
                 athlete: activityNickname,
                 sport: tCommon(getSportLabelKey(activity.type)),
                 date: formatFullDate(activity.startTime),
-                distance: stripStats.distanceM.value != null ? `${distVal(stripStats.distanceM.value)} ${distUnit}` : "—",
+                distance: stripStats.distanceM.value != null ? `${distVal(stripStats.distanceM.value, providerRecord ? 2 : 1)} ${distUnit}` : "—",
                 duration: Number.isFinite(speedDur.displayMs) ? formatDuration(speedDur.displayMs) : "—",
                 elevation: stripStats.elevationGainM.value != null ? `${elevVal(stripStats.elevationGainM.value)} ${elevUnit}` : "—",
                 distanceLabel: t("stat.distance"),
