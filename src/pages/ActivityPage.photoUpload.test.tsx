@@ -2,7 +2,8 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import ActivityPage from "./ActivityPage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
-import { setDocData, setCollectionDocs, simulateLogin } from "../__tests__/mocks/firebase";
+import { setDocData, setCollectionDocs, simulateLogin, mockUpdateDoc } from "../__tests__/mocks/firebase";
+vi.mock("../contexts/DialogContext", () => ({ useDialog: () => ({ confirm: async () => true, alert: vi.fn() }) }));
 const photo = vi.hoisted(() => ({ upload: vi.fn(), load: vi.fn() }));
 vi.mock("../services/nativeActivityPhoto", async importOriginal => ({ ...await importOriginal<typeof import("../services/nativeActivityPhoto")>(), uploadNativeActivityPhoto: photo.upload, loadNativeActivityPhoto: photo.load }));
 vi.mock("../features/activity/detail/photoGps", () => ({ extractGpsFromFile: vi.fn().mockResolvedValue([37,127]) }));
@@ -36,4 +37,18 @@ it.each(["permission-denied","account_changed"])("keeps a failed %s upload out o
  await waitFor(() => expect(input.value).toBe(""));
  expect(screen.queryByRole("button",{name:/사진 1 \/ 1 보기/})).toBeNull();
  expect(photo.load).not.toHaveBeenCalled();
+});
+
+it("deduplicates published and owner-native photos while retaining owner delete controls", async () => {
+ const { activityFeedSourceRevision } = await import("../services/activityFeedContent");
+ const activity=createMockActivity({id:"photo-ride",userId:"test-uid",source:"orider",photoCount:1});
+ const reference={activityId:"photo-ride",photoId:"one"};
+ setDocData("activities/photo-ride",{...activity,feedContentV1:{version:1,revision:"ready",sourceRevision:activityFeedSourceRevision(activity),memo:null,totalPhotoCount:1,comments:[],photos:[{id:"one",url:"",nativePhoto:reference,caption:null}]}});
+ setCollectionDocs("activity_photos/photo-ride/photos",[{id:"one",userId:"test-uid",deletedAt:null,createdAt:1,location:[37,127]}]);
+ renderWithProviders(<ActivityPage />, {authenticated:true});
+ const open=await screen.findByRole("button",{name:"사진 1 / 1 보기"});
+ expect(screen.queryByRole("button",{name:/사진 2 \/ 2 보기/})).toBeNull();
+ fireEvent.click(open);
+ const remove=await screen.findByRole("button",{name:"삭제"}); fireEvent.click(remove);
+ await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalledWith(expect.objectContaining({path:"activity_photos/photo-ride/photos/one"}),expect.objectContaining({deletedAt:expect.any(Number)})));
 });
