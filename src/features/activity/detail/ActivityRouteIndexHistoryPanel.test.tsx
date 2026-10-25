@@ -6,6 +6,7 @@ import ko from "../../../i18n/resources/ko/activity.json";
 import en from "../../../i18n/resources/en/activity.json";
 import ActivityRouteIndexHistoryPanel from "./ActivityRouteIndexHistoryPanel";
 const mocks = vi.hoisted(() => ({ available: true, status: "idle", pages: [] as ActivityRouteIndexPageResponse[], start: vi.fn(), more: vi.fn(), language: "ko", units: "metric", hook: vi.fn() }));
+vi.mock("./ActivityRouteInventoryPanel", () => ({ default: () => null }));
 vi.mock("./ActivityMatchedRouteGroupPanel", () => ({ default: ({ activity, observedMetricsIdentity }: { activity: Activity; observedMetricsIdentity: string }) => mocks.available ? <span data-testid="adjacent-route-group" data-activity={activity.id} data-identity={observedMetricsIdentity} /> : null }));
 vi.mock("../../../hooks/useActivityRouteIndexHistory", () => ({ useActivityRouteIndexHistory: (...args: unknown[]) => { mocks.hook(...args); return { available: mocks.available, status: mocks.status, pages: mocks.pages, start: mocks.start, loadMore: mocks.more }; } }));
 vi.mock("../../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: mocks.units, locale: mocks.language }) }));

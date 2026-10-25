@@ -1,3 +1,4 @@
+import RouteInventoryReturn from "../features/activity/detail/RouteInventoryReturn";
 import { announceActivityContentChange } from "../services/activityContentChanged";
 import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -787,6 +788,7 @@ export default function ActivityPage() {
   if (loadingActivity) {
     return (
       <div className="site-shell activity-detail">
+      <RouteInventoryReturn ownerUid={activity.userId} />
         <div className="h-80 rounded-[var(--r-lg)] animate-pulse" style={{ background: 'var(--bg-2)' }} />
         <div className="h-8 rounded-[var(--r-sm)] w-1/3 animate-pulse" style={{ background: 'var(--bg-2)' }} />
         <div className="grid grid-cols-4 gap-3">
@@ -1079,6 +1081,7 @@ export default function ActivityPage() {
 
   return (
     <div className="site-shell activity-detail">
+      <RouteInventoryReturn ownerUid={activity.userId} />
       {/* 1. Header (제목) */}
       <Card className="activity-detail-header">
         <div className="activity-detail-identity">

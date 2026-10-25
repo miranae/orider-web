@@ -2860,5 +2860,23 @@
     "clear": "Clear cover selection",
     "failed": "Could not confirm the cover selection. Reload before choosing again.",
     "saved": "Cover photo selection saved."
+  },
+  "routeInventory": {
+    "finished": "This stored-index exploration has finished.",
+    "title": "Explore records with shapes similar to this activity",
+    "scope": "Inspect up to five stored route index entries per request. Each record is compared individually with the anchor. These observations do not establish complete history, the same road, or a personal best.",
+    "year": "Search year (KST; leave blank for all years)",
+    "allYears": "All years",
+    "invalidYear": "Enter a year from 1970 through this year, or leave blank.",
+    "find": "Start route history search",
+    "counts": "{{pages}} pages · {{scanned}} index entries inspected · {{count}} similar records",
+    "snapshot": "Fixed snapshot date: {{date}}",
+    "emptyMore": "No matching record for this year so far. More index pages remain available to inspect.",
+    "empty": "No matching record was found in the inspected index.",
+    "openSource": "Open source activity",
+    "more": "Inspect the next five index entries",
+    "exhausted": "End of the stored index at this snapshot. This does not prove that missing or unindexed source history has been covered.",
+    "lifetime": "Rows reflect each page read; earlier pages are not continuously rechecked. In-app edits/deletes, account changes, or 30-minute expiry clear the list. Refresh for changes outside this app. Returning from a source restores controls only; start a new read.",
+    "return": "Return to route history search"
   }
 }
