@@ -1,4 +1,7 @@
-import { useId, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { LocalizedLink } from "../../../components/LocalizedLink";
+import { useRouteHistoryControls } from "../../../hooks/useRouteHistoryControls";
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import type { Activity } from "@shared/types";
 import { useActivityMatchedRouteGroups } from "../../../hooks/useActivityMatchedRouteGroups";
@@ -8,14 +11,13 @@ import { Button, Select, Text } from "../../../theme";
 import { matchedRoutePresentation } from "./matchedRouteGroupPresentation";
 import "./activity-matched-route-group.css";
 export default function ActivityMatchedRouteGroupPanel({ activity, observedMetricsIdentity }: { activity: Activity; observedMetricsIdentity: string }) {
-  const { t, i18n } = useTranslation("activity"), { units, locale } = useLocale(), id = useId();
+  const { t, i18n } = useTranslation("activity"), { units } = useLocale(), id = useId(), location = useLocation();
   const sport = getDiscipline(activity.type), discipline = sport === "run" || sport === "bike" ? sport : null;
-  const [mode, setMode] = useState({ activityId: activity.id, observed: false });
-  const observed = activity.source === "orider" && mode.activityId === activity.id && mode.observed;
-  const head = JSON.stringify([activity.contentRevision, activity.contentSelectedRevision, activity.startTime, activity.endTime, activity.source, activity.deletedAt, observedMetricsIdentity]);
+  const [controls, setControls] = useRouteHistoryControls(activity.userId, activity.id, "group");
+  const observed = activity.source === "orider" && controls.observed;
+  const head = JSON.stringify([(activity as Activity & { activityRevision?: string }).activityRevision, (activity as Activity & { sourceRevision?: string }).sourceRevision, (activity as Activity & { sourceContentDigest?: string }).sourceContentDigest, activity.contentRevision, activity.contentSelectedRevision, activity.startTime, activity.endTime, activity.source, activity.deletedAt, observedMetricsIdentity]);
   const query = useActivityMatchedRouteGroups(activity.userId, activity.id, activity.deletedAt == null ? discipline : null, head, observed ? "observed_native" : "complete");
-  const [filter, setFilter] = useState<{ token: string | null; year: number | null }>({ token: null, year: null });
-  const latest = query.pages[query.pages.length - 1], summary = latest?.summary, year = filter.token === latest?.groupToken ? filter.year : null;
+  const latest = query.pages[query.pages.length - 1], summary = latest?.summary, year = controls.year;
   // 후보 조회 전 anchor 경로가 부분 표본으로 제외된 응답만 구체적으로 설명한다.
   const partialAnchor = query.status === "unsupported" && latest?.state === "anchor_unsupported" && latest.groupToken === null
     && latest.coverage.indexCohort === "not_inspected" && latest.coverage.sourceValidation === "not_inspected" && latest.omittedCounts.partialGeometry === 1
@@ -27,17 +29,17 @@ export default function ActivityMatchedRouteGroupPanel({ activity, observedMetri
   const date = (time: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).format(time);
   if (!query.available) return null;
   return <section className="matched-route-group" aria-label={t(observed ? "routeGroup.observedTitle" : "routeGroup.title")}>
-    <details><summary><Text variant="bodyMedium" weight={600}>{t(observed ? "routeGroup.observedTitle" : "routeGroup.title")}</Text></summary>
+    <details open={controls.open} onToggle={event => { const open = event.currentTarget.open; if (open !== controls.open) setControls(value => ({ ...value, open })); }}><summary><Text variant="bodyMedium" weight={600}>{t(observed ? "routeGroup.observedTitle" : "routeGroup.title")}</Text></summary>
       <div className="matched-route-group-body">
         <Text as="p" variant="bodyMedium" tone="secondary">{t("routeGroup.scope")}</Text>
-        {activity.source === "orider" && <label htmlFor={`${id}-mode`}><Text variant="bodyMedium">{t("routeGroup.mode")}</Text><Select id={`${id}-mode`} value={observed ? "observed_native" : "complete"} onChange={event => setMode({ activityId: activity.id, observed: event.target.value === "observed_native" })}><option value="complete">{t("routeGroup.completeMode")}</option><option value="observed_native">{t("routeGroup.observedTitle")}</option></Select></label>}
+        {activity.source === "orider" && <label htmlFor={`${id}-mode`}><Text variant="bodyMedium">{t("routeGroup.mode")}</Text><Select id={`${id}-mode`} value={observed ? "observed_native" : "complete"} onChange={event => setControls(value => ({ ...value, observed: event.target.value === "observed_native" }))}><option value="complete">{t("routeGroup.completeMode")}</option><option value="observed_native">{t("routeGroup.observedTitle")}</option></Select></label>}
         {observed && <Text as="p" variant="bodyMedium" tone="secondary">{t("routeGroup.observedScope")}</Text>}
-        <Button size="sm" variant="outline" loading={query.status === "loading"} disabled={query.status === "loading"} onClick={() => { setFilter({ token: null, year: null }); void query.start(); }}>{t(query.status === "idle" ? "routeGroup.find" : "routeGroup.refresh")}</Button>
+        <Button size="sm" variant="outline" loading={query.status === "loading"} disabled={query.status === "loading"} onClick={() => { void query.start(); }}>{t(query.status === "idle" ? "routeGroup.find" : "routeGroup.refresh")}</Button>
         {query.status !== "idle" && <Text as="p" variant="bodyMedium" tone="secondary">{t(partialAnchor ? "routeGroup.partialGeometry" : `routeGroup.states.${query.status}`)}</Text>}
         {summary && <>
           <Text as="p" variant="bodyMedium" tone="secondary">{t(observed ? "routeGroup.observedCounts" : "routeGroup.counts", { loaded: data.allCount, total: summary.memberCount, known: summary.knownMetricCount, eligible: summary.rankEligibleCount })}</Text>
           <Text as="p" variant="bodyMedium" tone="secondary">{t("routeGroup.snapshot", { date: date(latest!.readTime.seconds * 1000 + latest!.readTime.nanoseconds / 1e6) })}</Text>
-          {summary.years.length > 1 && <label htmlFor={id}><Text variant="bodyMedium">{t("routeGroup.year")}</Text><Select id={id} value={year ?? ""} onChange={event => setFilter({ token: latest!.groupToken, year: event.target.value ? Number(event.target.value) : null })}><option value="">{t("routeGroup.allYears")}</option>{summary.years.map(value => <option key={value.year} value={value.year}>{value.year}</option>)}</Select></label>}
+          {(summary.years.length > 1 || year !== null) && <label htmlFor={id}><Text variant="bodyMedium">{t("routeGroup.year")}</Text><Select id={id} value={year ?? ""} onChange={event => setControls(value => ({ ...value, year: event.target.value ? Number(event.target.value) : null }))}><option value="">{t("routeGroup.allYears")}</option>{year !== null && !summary.years.some(value => value.year === year) && <option value={year}>{year}</option>}{summary.years.map(value => <option key={value.year} value={value.year}>{value.year}</option>)}</Select></label>}
           {year !== null && selectedSummary && <Text as="p" variant="bodyMedium" tone="secondary">{t("routeGroup.yearCounts", { year, loaded: data.rows.length, total: selectedSummary.memberCount })}</Text>}
           {!observed && <>
           <Text as="h4" variant="bodyMedium" weight={600}>{t(discipline === "run" ? "routeGroup.pace" : "routeGroup.speed")}</Text>
@@ -50,7 +52,7 @@ export default function ActivityMatchedRouteGroupPanel({ activity, observedMetri
           {selectedSummary?.trend.state === "insufficient" && <Text as="p" variant="bodyMedium" tone="secondary">{t("routeGroup.noTrend")}</Text>}
           </>}
           <ul>{data.points.map(point => <li key={point.row.activityId}>
-            <a href={`/${locale}/activity/${encodeURIComponent(point.row.activityId)}`}><time dateTime={new Date(point.row.startTime).toISOString()}>{date(point.row.startTime)}</time><span>{point.formatted}</span><span>{point.row.isAnchor ? t("routeGroup.anchor") : ""}{!observed && selectedSummary?.fastestActivityIds.includes(point.row.activityId) ? ` · ${t("routeGroup.fastest")}` : ""}</span></a>
+            <LocalizedLink to={`/activity/${encodeURIComponent(point.row.activityId)}`} state={{ routeInventoryReturn: { uid: activity.userId, pathname: location.pathname, search: location.search, hash: location.hash } }}><time dateTime={new Date(point.row.startTime).toISOString()}>{date(point.row.startTime)}</time><span>{point.formatted}</span><span>{point.row.isAnchor ? t("routeGroup.anchor") : ""}{!observed && selectedSummary?.fastestActivityIds.includes(point.row.activityId) ? ` · ${t("routeGroup.fastest")}` : ""}</span></LocalizedLink>
             <Text as="p" variant="bodyMedium" tone="secondary">{point.row.canonicalAverage.state === "available" ? t("routeGroup.computed", { date: date(point.row.canonicalAverage.computedAt) }) : t("routeGroup.missing")}{point.row.rankingExclusionReason ? ` · ${t(`routeGroup.exclusions.${point.row.rankingExclusionReason}`)}` : ""}</Text>
           </li>)}</ul>
           {latest?.nextCursor && <Button size="sm" variant="outline" disabled={query.status === "loading"} onClick={() => void query.loadMore()}>{t("routeGroup.more")}</Button>}

@@ -112,7 +112,9 @@ export function validateActivityRouteIndexPageResponse(value: unknown, request: 
   return r;
 }
 export async function loadActivityRouteIndexPage(services: FirebaseServices, uid: string, request: ActivityRouteIndexPageRequest) {
-  const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
+  const auth = services.auth, app = auth.app, viewer = auth.currentUser, functions = services.functions;
+  const matches = () => !!uid && !!viewer && viewer.uid === uid && !viewer.isAnonymous && services.auth === auth
+    && auth.app === app && auth.currentUser === viewer && services.functions === functions && functions.app === app;
   if (!matches()) throw new Error("account_changed");
   if (!observedRouteAvailable() || services.functions.app !== services.auth.app || (localTrainingEmulatorAvailable() ? !matchesLocalTrainingEmulator(services) : services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net")) throw new Error("route_index_not_supported");
   if (!validActivityRouteIndexPageRequest(request)) throw new Error("invalid_route_index_request");

@@ -95,3 +95,23 @@ it('keeps observed policy on each explicitly requested page', async () => {
   expect(mocks.load.mock.calls.map(call => call[2].geometryPolicy)).toEqual(['observed_native', 'observed_native']);
   expect(mocks.load.mock.calls[1]![2].cursor).toBe(page(true).nextCursor);
 });
+
+ it("clears same-UID replaced-session pages and rejects its pending response", async () => {
+  const view = renderHook(() => useActivityMatchedRouteGroups("owner", "anchor", "bike", "head"));
+  await act(async () => { await view.result.current.start(); });
+  expect(view.result.current.pages).toHaveLength(1);
+  let resolve!: (value: ReturnType<typeof page>) => void;
+  mocks.load.mockImplementation(() => new Promise(r => { resolve = r; }));
+  let pending!: Promise<void>; act(() => { pending = view.result.current.start(); });
+  act(() => { mocks.services.auth.currentUser = { uid: "owner", isAnonymous: false }; mocks.observer?.(mocks.services.auth.currentUser); });
+  expect(view.result.current.pages).toEqual([]);
+  await act(async () => { resolve(page()); await pending; });
+  expect(view.result.current.pages).toEqual([]);
+  expect(view.result.current.status).toBe("idle");
+ });
+ it("invalidates accepted results after an activity edit", async () => {
+  const view = renderHook(() => useActivityMatchedRouteGroups("owner", "anchor", "bike", "head"));
+  await act(async () => { await view.result.current.start(); });
+  act(() => window.dispatchEvent(new Event("orider:activity-content-changed")));
+  expect(view.result.current.pages).toEqual([]); expect(view.result.current.status).toBe("invalidated");
+ });

@@ -1,4 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
+import type { ReactNode } from "react";
+import { fireEvent, render as renderUi, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
 import type { ActivityMatchedRouteGroupResponse } from "@shared/activity-matched-route-groups";
@@ -51,7 +53,7 @@ describe("bounded route group panel", () => {
   });
   it("forwards original head/metric identity and excludes deleted/public activity", () => {
     mocks.available = false; const view = render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="observed" />);
-    expect(view.container).toBeEmptyDOMElement(); expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", "bike", expect.stringContaining("observed"), "complete");
+    expect(view.container.querySelector("section")).toBeNull(); expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", "bike", expect.stringContaining("observed"), "complete");
     view.rerender(<ActivityMatchedRouteGroupPanel activity={{ ...activity, deletedAt: 1 }} observedMetricsIdentity="changed" />); expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", null, expect.stringContaining("changed"), "complete");
   });
   it.each(["ko", "en"])("explains the verified early anchor partial-geometry exclusion in %s without calls", language => {
@@ -91,4 +93,28 @@ it('requires native opt-in, suppresses comparison chart and fastest badges while
   expect(screen.queryByText(new RegExp(ko.routeGroup.fastest))).not.toBeInTheDocument();
   view.rerender(<ActivityMatchedRouteGroupPanel activity={{ ...activity, id: 'another' }} observedMetricsIdentity="metrics" />);
   expect(mocks.hook.mock.calls.at(-1)![4]).toBe('complete');
+});
+
+function render(ui: ReactNode) { return renderUi(ui, { wrapper: ({ children }) => <MemoryRouter initialEntries={[`/${mocks.language}/activity/anchor?tab=compare`]}><Routes><Route path="/:lang/*" element={<>{children}<LocationEvidence /></>} /></Routes></MemoryRouter> }); }
+
+function LocationEvidence() { const location = useLocation(); return <output data-testid="route-location">{JSON.stringify({pathname:location.pathname,state:location.state})}</output>; }
+
+it("opens source through SPA with a validated return destination and no extra queries", () => {
+ mocks.pages = [page()]; mocks.status = "partial";
+ render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="metrics" />);
+ fireEvent.click(screen.getAllByRole("link")[1]!);
+ const location = JSON.parse(screen.getByTestId("route-location").textContent!);
+ expect(location.state.routeInventoryReturn).toEqual({uid:"owner",pathname:"/ko/activity/anchor",search:"?tab=compare",hash:""});
+ expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.more).not.toHaveBeenCalled();
+});
+
+it("keeps a restored year clearable when a fresh result no longer includes it", () => {
+ mocks.pages = [page()]; mocks.status = "partial";
+ const view=render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="metrics" />);
+ fireEvent.change(screen.getByLabelText(ko.routeGroup.year),{target:{value:"2025"}});
+ const fresh=page(); fresh.summary!.years=fresh.summary!.years.filter(value=>value.year===2026); fresh.members=fresh.members.filter(value=>value.year===2026); mocks.pages=[fresh];
+ view.rerender(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="metrics" />);
+ expect(screen.getByLabelText(ko.routeGroup.year)).toHaveValue("2025");
+ fireEvent.change(screen.getByLabelText(ko.routeGroup.year),{target:{value:""}});
+ expect(screen.getAllByRole("link")).toHaveLength(2);
 });

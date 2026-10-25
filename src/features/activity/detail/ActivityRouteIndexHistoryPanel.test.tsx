@@ -1,4 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
+import type { ReactNode } from "react";
+import { fireEvent, render as renderUi, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
 import type { ActivityRouteIndexPageResponse } from "@shared/activity-route-index-page";
@@ -58,7 +60,7 @@ describe("route candidate compact panel", () => {
   });
   it("does not offer private UI when eligibility is false and forwards deleted activity as ineligible", () => {
     mocks.available = false;
-    const view = render(<ActivityRouteIndexHistoryPanel activity={activity} observedMetricsIdentity="head" />); expect(view.container).toBeEmptyDOMElement();
+    const view = render(<ActivityRouteIndexHistoryPanel activity={activity} observedMetricsIdentity="head" />); expect(view.container.querySelector("section")).toBeNull();
     view.rerender(<ActivityRouteIndexHistoryPanel activity={{ ...activity, deletedAt: 10 }} observedMetricsIdentity="head" />);
     expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", null, expect.any(String)); expect(mocks.start).not.toHaveBeenCalled();
   });
@@ -87,4 +89,17 @@ describe("readable canonical candidate trends", () => {
     mocks.units = "imperial"; view.rerender(<ActivityRouteIndexHistoryPanel activity={{ ...activity, type: discipline === "run" ? "Run" : "Ride" }} observedMetricsIdentity="head" />);
     expect(screen.getByRole("img").querySelector(".route-index-history-value-axis")).toHaveTextContent(discipline === "run" ? "/mi" : "mph"); expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.more).not.toHaveBeenCalled();
   });
+});
+
+function render(ui: ReactNode) { return renderUi(ui, { wrapper: ({ children }) => <MemoryRouter initialEntries={[`/${mocks.language}/activity/anchor?tab=compare`]}><Routes><Route path="/:lang/*" element={<>{children}<LocationEvidence /></>} /></Routes></MemoryRouter> }); }
+
+function LocationEvidence() { const location = useLocation(); return <output data-testid="route-location">{JSON.stringify({pathname:location.pathname,state:location.state})}</output>; }
+
+it("opens source through SPA with a validated return destination and no extra queries", () => {
+ mocks.pages = [page()]; mocks.status = "partial";
+ render(<ActivityRouteIndexHistoryPanel activity={activity} observedMetricsIdentity="metrics" />);
+ fireEvent.click(screen.getAllByRole("link")[1]!);
+ const location = JSON.parse(screen.getByTestId("route-location").textContent!);
+ expect(location.state.routeInventoryReturn).toEqual({uid:"owner",pathname:"/ko/activity/anchor",search:"?tab=compare",hash:""});
+ expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.more).not.toHaveBeenCalled();
 });

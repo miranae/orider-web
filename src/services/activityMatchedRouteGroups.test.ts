@@ -544,3 +544,13 @@ it('binds observed-native policy to coverage and rejects rankings or default-pol
   wire.members[0]!.rankingEligible = true;
   expect(() => validateActivityMatchedRouteGroupResponse(wire, observed, clock)).toThrow();
 });
+
+ it.each(["appcheck", "response"])("rejects same-UID SDK replacement at %s", async phase => {
+  const app = {}, auth = { app, currentUser: { uid: "owner", isAnonymous: false } };
+  const ensure = vi.fn().mockResolvedValue(undefined);
+  const sdk = { auth, functions: { app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: ensure } as unknown as FirebaseServices;
+  if (phase === "appcheck") ensure.mockImplementation(async () => { auth.currentUser = { ...auth.currentUser }; });
+  else mocks.call.mockImplementation(async () => { auth.currentUser = { ...auth.currentUser }; return { data: {} }; });
+  await expect(loadActivityMatchedRouteGroups(sdk, "owner", request)).rejects.toThrow("account_changed");
+  expect(mocks.call).toHaveBeenCalledTimes(phase === "appcheck" ? 0 : 1);
+ });

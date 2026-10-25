@@ -140,3 +140,13 @@ describe("actual compiled reader wire compatibility", () => {
     expect(() => validateActivityRouteIndexPageResponse(value, request, value.readTime.seconds * 1000 + 1000)).toThrow("invalid_route_index_page");
   });
 });
+
+ it.each(["appcheck", "response"])("rejects same-UID SDK replacement at %s", async phase => {
+  const app = {}, auth = { app, currentUser: { uid: "owner", isAnonymous: false } };
+  const ensure = vi.fn().mockResolvedValue(undefined);
+  const sdk = { auth, functions: { app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: ensure } as unknown as FirebaseServices;
+  if (phase === "appcheck") ensure.mockImplementation(async () => { auth.currentUser = { ...auth.currentUser }; });
+  else mocks.invoke.mockImplementation(async () => { auth.currentUser = { ...auth.currentUser }; return { data: {} }; });
+  await expect(loadActivityRouteIndexPage(sdk, "owner", request)).rejects.toThrow("account_changed");
+  expect(mocks.invoke).toHaveBeenCalledTimes(phase === "appcheck" ? 0 : 1);
+ });

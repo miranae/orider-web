@@ -97,7 +97,9 @@ export function validateActivityMatchedRouteGroupResponse(value: unknown, reques
   return r;
 }
 export async function loadActivityMatchedRouteGroups(services: FirebaseServices, uid: string, request: ActivityMatchedRouteGroupRequest) {
-  const current = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
+  const auth = services.auth, app = auth.app, viewer = auth.currentUser, functions = services.functions;
+  const current = () => !!uid && !!viewer && viewer.uid === uid && !viewer.isAnonymous && services.auth === auth
+    && auth.app === app && auth.currentUser === viewer && services.functions === functions && functions.app === app;
   if (!current()) throw new Error("account_changed");
   if (!observedRouteAvailable() || services.functions.app !== services.auth.app || (localTrainingEmulatorAvailable() ? !matchesLocalTrainingEmulator(services) : services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net")) throw new Error("matched_route_group_unsupported");
   if (!validActivityMatchedRouteGroupRequest(request)) throw new Error("invalid_matched_route_group_request");
