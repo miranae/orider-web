@@ -167,13 +167,16 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
   it("shows the live route after a stalled image request and accepts a late image load", async () => {
     const fileName = "activity-123.r1.route-v2-fcfef7dfc9b21144.webp";
     const mapImageUrl = `https://firebasestorage.googleapis.com/v0/b/test/o/${encodeURIComponent(`map_thumbnails/${baseProps.userId}/${fileName}`)}?alt=media`;
-    vi.useFakeTimers();
-    const { container, queryByTestId } = renderWithProviders(
-      <ActivityRouteThumbnail {...baseProps} mapImageUrl={mapImageUrl} contentRevision={3} contentSelectedRevision={1} priority />,
+    // Resolve the native crypto digest using real timers before measuring the image deadline.
+    // A single microtask does not guarantee crypto.subtle.digest has completed under suite load.
+    const { container, queryByTestId, rerender } = renderWithProviders(
+      <ActivityRouteThumbnail {...baseProps} contentRevision={3} contentSelectedRevision={1} priority />,
       { authenticated: false },
     );
+    await waitFor(() => expect(queryByTestId("route-map")).toBeInTheDocument());
+    vi.useFakeTimers();
     try {
-      await act(async () => { await Promise.resolve(); });
+      rerender(<ActivityRouteThumbnail {...baseProps} mapImageUrl={mapImageUrl} contentRevision={3} contentSelectedRevision={1} priority />);
       const image = container.querySelector<HTMLImageElement>(`img[src="${mapImageUrl}"]`);
       expect(image).toBeInTheDocument();
       act(() => { vi.advanceTimersByTime(7_999); });
