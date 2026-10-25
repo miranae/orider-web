@@ -12,3 +12,11 @@ it("names provider evidence separately from analysis, preserving source calories
   expect(within(screen.getByRole("row", { name: /칼로리/ })).getByText("2279 kcal")).toBeInTheDocument();
   expect(within(screen.getByRole("row", { name: /^TSS/ })).getByText("—")).toBeInTheDocument();
 });
+
+it("normalizes cadence units independently for Strava source and Orider analysis", () => {
+  render(<StravaMetricComparisonContent units="metric" sport="run" record={{ version: 1, average_cadence: 90, max_cadence: 100 }}
+    metrics={{ avgCadence: 182, maxCadence: 205, cadenceUnit: "spm" }} />);
+  const row = screen.getByRole("row", { name: /평균 케이던스/ });
+  expect(within(row).getByText("180 spm")).toBeInTheDocument();
+  expect(within(row).getByText("182 spm")).toBeInTheDocument();
+});

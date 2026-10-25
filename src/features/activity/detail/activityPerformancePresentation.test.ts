@@ -44,3 +44,17 @@ it("keeps Strava whole-activity chart headings on the same provider values as th
   expect(result?.overlays.speed.avg).toBeCloseTo(25.6); expect(result?.overlays.speed.max).toBeCloseTo(60.4);
   expect(result?.overlays.power.avg).toBe(120.9); expect(observed.overlays.speed.max).toBe(54.2);
 });
+
+it("does not fill missing Strava maxima, HR or cadence from stream calculations", () => {
+  const observed = { minElev: 0, maxElev: 100, overlays: {
+    speed: { avg: 25.2, max: 54.2 }, power: { avg: 120, max: 780 },
+    hr: { avg: 141, max: 182 }, cadence: { avg: 71, max: 107 },
+  } };
+  const activity = { source: "strava", stravaSummaryV1: { version: 1, average_watts: 121, average_heartrate: 140 } } as unknown as import("@shared/types").Activity;
+  const result = withStravaChartSummary(observed, activity)!;
+  expect(result.overlays.power).toEqual({ avg: 121, max: NaN });
+  expect(result.overlays.hr).toEqual({ avg: 140, max: NaN });
+  expect(result.overlays.cadence).toEqual({ avg: NaN, max: NaN });
+  expect(result.overlays.speed).toEqual({ avg: NaN, max: NaN });
+  expect(withStravaChartSummary(observed, activity, true)?.overlays.power).toEqual(observed.overlays.power);
+});

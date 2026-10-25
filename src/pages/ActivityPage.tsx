@@ -853,7 +853,7 @@ export default function ActivityPage() {
   const hasCanonicalSensorPresentation = canonicalSummaryMetrics != null;
   const powerNeedsPreview = activePowerOverride != null || hasStreamPowerCandidate && !hasCanonicalSensorPresentation;
   const displayedSummary = { ...(hasCanonicalSensorPresentation ? s : selectedSummary ?? s),
-    ...(activity.source === "strava" ? { tss: null, normalizedPower: null } : {}),
+    ...(activity.source === "strava" ? { tss: null, normalizedPower: null, swolf: null } : {}),
     ...(activity.source !== "strava" && latestMetrics && !powerNeedsPreview && latestMetrics.tss !== undefined ? { tss: latestMetrics.tss } : {}) };
   const activityDate = Number.isFinite(activity.startTime) && Number.isFinite(new Date(activity.startTime).getTime())
     ? fitnessDateKeyFor(activity.startTime, fitnessTimeseries?.loadSnapshot?.dateKeyBasis)
@@ -871,14 +871,14 @@ export default function ActivityPage() {
   // makes saved/server NP and TSS provenance unprovable. Keep trusted stream avg/max only.
   const activityTss = sport === "run" ? serverMetrics.metrics?.streamTrimpTss ?? null : powerNeedsPreview
     ? null
-    : serverMetrics.metrics?.tss ?? s.tss;
+    : serverMetrics.metrics?.tss ?? (providerRecord ? null : s.tss);
   const activityNp = sport !== "ride" || powerNeedsPreview
     ? null
-    : serverMetrics.metrics?.np ?? normalizedPowerValue;
+    : serverMetrics.metrics?.np ?? (providerRecord ? null : normalizedPowerValue);
 
   const sharePerformanceMetrics = [
     shareMetric(`${activity.source === "strava" ? "Orider " : ""}${t(sport === "run" ? "analysis.run.hrLoad" : "page.share.tss")}`, activityTss),
-    shareMetric(activityNp != null ? `${activity.source === "strava" ? "Orider " : ""}${t("page.share.normalizedPower")}` : t(sport === "run" ? "stat.runningPower" : "stat.avgPower"), activityNp ?? avgPowerValue, "W"),
+    shareMetric(`${activity.source === "strava" ? "Orider " : ""}${t(activityNp != null ? "page.share.normalizedPower" : sport === "run" ? "stat.runningPower" : "stat.avgPower")}`, activityNp ?? (providerRecord && !activePowerOverride ? latestMetrics?.avgPower : avgPowerValue), "W"),
     shareMetric("CTL", fitnessAtActivity?.ctl),
     shareMetric("ATL", fitnessAtActivity?.atl),
     shareMetric("TSB", fitnessAtActivity?.tsb, undefined, true),
@@ -900,15 +900,16 @@ export default function ActivityPage() {
 
   // activitySanity 가드 — 비현실 속도 노출 차단용. sport "ride" → discipline "bike".
   const discipline = sport === "ride" ? "bike" : sport === "run" ? "run" : "swim";
-  const avgSpeedImplausible = isImplausibleAvgSpeed(s.averageSpeed, discipline);
-  const maxSpeedImplausible = isImplausibleMaxSpeed(s.maxSpeed, discipline);
+  const avgSpeedImplausible = isImplausibleAvgSpeed(providerRecord ? (providerRecord.average_speed ?? NaN) * 3.6 : s.averageSpeed, discipline);
+  const maxSpeedImplausible = isImplausibleMaxSpeed(providerRecord ? (providerRecord.max_speed ?? NaN) * 3.6 : s.maxSpeed, discipline);
   // 서버 activity_metrics 가 이동/정지 시간의 정본. 활동 문서의 movingTimeSec/pauseTimeSec 는
   // 같은 문서를 비정규화한 미러라 폴백으로 안전하다. Strava 의 ridingTimeMillis 는 이동시간
   // 성격이므로 총 경과시간은 start/end 차이로 확정한다.
-  const movingTimeSec = providerRecord?.moving_time ?? serverMetrics.metrics?.movingTimeSec ?? s.movingTimeSec;
-  const pauseTimeSec = providerRecord?.elapsed_time != null && providerRecord.moving_time != null
-    ? Math.max(0, providerRecord.elapsed_time - providerRecord.moving_time) : serverMetrics.metrics?.pauseTimeSec ?? s.pauseTimeSec;
+  const movingTimeSec = providerRecord ? providerRecord.moving_time : serverMetrics.metrics?.movingTimeSec ?? s.movingTimeSec;
+  const pauseTimeSec = providerRecord ? (providerRecord.elapsed_time != null && providerRecord.moving_time != null
+    ? Math.max(0, providerRecord.elapsed_time - providerRecord.moving_time) : null) : serverMetrics.metrics?.pauseTimeSec ?? s.pauseTimeSec;
   const speedDur = resolveDuration({
+    stravaRecord: providerRecord,
     ridingTimeMillis: s.ridingTimeMillis,
     elapsedTimeMillis: s.elapsedTimeMillis,
     startTime: activity.startTime,
@@ -916,7 +917,7 @@ export default function ActivityPage() {
     movingTimeSec,
     pauseTimeSec,
   });
-  const fallbackAvgKph = resolveAvgSpeedKph(s.distance, speedDur, s.averageSpeed);
+  const fallbackAvgKph = resolveAvgSpeedKph(s.distance, speedDur, s.averageSpeed, providerRecord);
   // 요약 스트립도 AnalysisTab 과 같은 서버 정본을 쓴다 — 한 화면에서 값이 갈리지 않도록 (#885 §2).
   const rawStripStats = resolveSummaryStripStats(serverMetrics, {
     summary: displayedSummary,
@@ -929,7 +930,7 @@ export default function ActivityPage() {
   const runCadenceUnit = recordedRunCadenceUnit;
   const stripStats = sport === "run" ? {
     ...rawStripStats,
-    avgCadence: { ...rawStripStats.avgCadence, value: runningCadenceSpm(rawStripStats.avgCadence.value, runCadenceUnit) },
+    avgCadence: { ...rawStripStats.avgCadence, value: runningCadenceSpm(rawStripStats.avgCadence.value, providerRecord ? "strides_per_minute" : runCadenceUnit) },
   } : rawStripStats;
   const displayAvgKph = stripStats.avgSpeedKph.value ?? fallbackAvgKph;
   const displayAvgImplausible = isImplausibleAvgSpeed(displayAvgKph, discipline);
@@ -1022,13 +1023,14 @@ export default function ActivityPage() {
     && analysisLoad != null && Number.isFinite(analysisLoad) && Math.round(acceptedLoad * 10) / 10 !== Math.round(analysisLoad);
 
   const secondaryStatsAvailable = hasSecondaryActivityStats({ summary: displayedSummary, stats: stripStats, sport,
-    showElevation, runTrainingLoad: serverMetrics.metrics?.streamTrimpTss ?? null });
+    showElevation, runTrainingLoad: providerRecord ? null : serverMetrics.metrics?.streamTrimpTss ?? null });
 
   const keyStatsStrip = (section: "primary" | "secondary") => (
       <ActivityStatsGrid
         section={section}
-        runTrainingLoad={serverMetrics.metrics?.streamTrimpTss ?? null}
+        runTrainingLoad={providerRecord ? null : serverMetrics.metrics?.streamTrimpTss ?? null}
         summary={displayedSummary}
+        stravaRecord={providerRecord}
         stats={stripStats}
         sport={sport}
         interpretationContext={runDetail.interpretationContext}
@@ -1289,7 +1291,7 @@ export default function ActivityPage() {
         </Card>
       )}
       {showElevation && elevData.length > 0 && (
-        <ActivityPerformanceCharts embedded analysisStyle canonicalSummary={!!providerRecord || hasCanonicalSensorPresentation} sourceLabel={providerRecord && !activePowerOverride ? "Strava" : undefined}
+        <ActivityPerformanceCharts embedded analysisStyle canonicalSummary={!!providerRecord || hasCanonicalSensorPresentation} sourceLabel={providerRecord ? "Strava" : undefined} powerPreview={activePowerOverride != null}
           chartIdentity={visualIdentity} rawStreams={effectiveStreams} sensorSelectionContext={sensorSelectionContext}
           rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
           visualRange={visualRange} onVisualRangeChange={setVisualRange} hoverIndex={hoverIndex} segments={chartSegments}
@@ -1410,7 +1412,7 @@ export default function ActivityPage() {
 
       <div className="activity-detail-analysis-content space-y-6" data-testid="activity-analysis-content" hidden={activeTab !== "analysis"}>
       {activeTab === "analysis" && <>
-      {providerRecord && <StravaMetricComparison record={providerRecord} metrics={activePowerOverride ? null : latestMetrics} />}
+      {providerRecord && <StravaMetricComparison sport={sport} record={providerRecord} metrics={activePowerOverride ? null : latestMetrics} />}
       {providerRecord && <Text as="h2" variant="subtitle">{t("sourceMetrics.orider")}</Text>}
       {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
       <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={runGapSecPerKm} />

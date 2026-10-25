@@ -44,6 +44,7 @@ interface ActivityPerformanceChartsProps {
   summaryStats: ReturnType<typeof buildSummaryStats>;
   canonicalSummary?: boolean;
   sourceLabel?: string;
+  powerPreview?: boolean;
   sport: string;
   recordedRunCadenceUnit: Parameters<typeof runningCadenceSpm>[1];
   onHoverIndex?: (index: number | null) => void;
@@ -58,7 +59,7 @@ interface ActivityPerformanceChartsProps {
 /** 공유 웹/임베드 차트. 표본 선택·단위·서버 구간 계약은 기존 상세 모델을 그대로 사용한다. */
 export default function ActivityPerformanceCharts({
   elevData, availableOverlays, activeOverlays, focusedOverlayKey, toggleOverlay,
-  chartOverlays, hoverPoint, summaryStats, canonicalSummary = false, sourceLabel, sport, recordedRunCadenceUnit,
+  chartOverlays, hoverPoint, summaryStats, canonicalSummary = false, sourceLabel, powerPreview = false, sport, recordedRunCadenceUnit,
   onHoverIndex, chartHighlightRange, metrics, powerSource, hasElevation = true, range, onRangeChange,
   axisControls, rangeControls, rangeAnalysis, elapsedAxisSec, xAxis, embedded = false,
   analysisStyle = false, chartIdentity, hoverIndex, visualRange, onVisualRangeChange, visualSummaryStats, segments, rawElapsedAxis, sourceIndices, rawStreams, sensorSelectionContext,
@@ -88,7 +89,7 @@ export default function ActivityPerformanceCharts({
     const formatMetric = (cfg: OverlayConfig, value: number | null | undefined, summary = false) => {
       if (value == null || !Number.isFinite(value)) return "—";
       if (summary && sport === "run" && cfg.key === "speed") value = value > 0 ? 60 / value * (units === "imperial" ? 1.609344 : 1) : null;
-      else if (summary && sport === "run" && cfg.key === "cadence" && recordedRunCadenceUnit != null) value = runningCadenceSpm(value, recordedRunCadenceUnit);
+      else if (summary && sport === "run" && cfg.key === "cadence" && (sourceLabel || recordedRunCadenceUnit != null)) value = runningCadenceSpm(value, sourceLabel && !visualRange ? "strides_per_minute" : recordedRunCadenceUnit);
       else if (sport !== "run" && cfg.key === "speed" && units === "imperial") value /= 1.609344;
       return value == null || !Number.isFinite(value) ? "—" : cfg.formatValue?.(value) ?? (cfg.key === "speed" ? value.toFixed(1) : String(Math.round(value)));
     };
@@ -103,9 +104,13 @@ export default function ActivityPerformanceCharts({
         onHoverIndex={onHoverIndex} highlightRange={chartHighlightRange} rangeMode={!!onRangeChange} range={range} onRangeChange={onRangeChange} analysisPresentation={{ axisControls, identity: chartIdentity, visualRange, onVisualRangeChange, hoverIndex, segments,
           elevationObservationTimeSec: isRawPartStreams(rawStreams) ? elapsedAxisSec : undefined,
           segmentsLabel: t("tab.segments"), segmentDetailsLabel: t("tab.segments"), canonicalRange: chartHighlightRange, selectionHint: t("analysisChart.selectHint"), selectionCaption: visualRange ? <div className="activity-analysis-selection"><Text variant="bodySmall">{t("analysisChart.selection")} · {summaryParts.join(" · ")}</Text></div> : null,
-          controls: rangeControls ? <div className="activity-analysis-controls">{rangeControls}</div> : undefined, maximumLabel: sourceLabel && !visualRange ? `${sourceLabel} ${t("peakInspector.maximum")}` : t(canonicalSummary && !visualRange ? "analysisChart.canonicalMaximum" : "peakInspector.maximum"), averageLabel: sourceLabel && !visualRange ? `${sourceLabel} ${t("peakInspector.average")}` : canonicalSummary && !visualRange ? t("analysisChart.canonicalAverage") : visualRange ? t("peakInspector.average") : <InfoTip tone="inherit" title={t("peakInspector.average")} content={t("analysisChart.observedStats")} label={t("peakInspector.average")}>{t("peakInspector.average")}</InfoTip>, keyboardLabel: t("analysisChart.keyboardHelp"),
-          elevation: { label: t("page.elevation"), maximum: elevationValue(stats?.maxElev), current: elevationValue(hoverIndex == null ? hoverPoint?.altitude : analysisData[hoverIndex]?.elevation), unit: units === "imperial" ? "ft" : "m", formatScale: elevationValue },
+          controls: rangeControls ? <div className="activity-analysis-controls">{rangeControls}</div> : undefined, maximumLabel: sourceLabel ? `${visualRange ? t("sourceMetrics.orider") : sourceLabel} ${t("peakInspector.maximum")}` : t(canonicalSummary && !visualRange ? "analysisChart.canonicalMaximum" : "peakInspector.maximum"), averageLabel: sourceLabel ? `${visualRange ? t("sourceMetrics.orider") : sourceLabel} ${t("peakInspector.average")}` : canonicalSummary && !visualRange ? t("analysisChart.canonicalAverage") : visualRange ? t("peakInspector.average") : <InfoTip tone="inherit" title={t("peakInspector.average")} content={t("analysisChart.observedStats")} label={t("peakInspector.average")}>{t("peakInspector.average")}</InfoTip>, keyboardLabel: t("analysisChart.keyboardHelp"),
+          elevation: { maximumLabel: sourceLabel ? `${t("sourceMetrics.orider")} ${t("peakInspector.maximum")}` : undefined, label: t("page.elevation"), maximum: elevationValue(stats?.maxElev), current: elevationValue(hoverIndex == null ? hoverPoint?.altitude : analysisData[hoverIndex]?.elevation), unit: units === "imperial" ? "ft" : "m", formatScale: elevationValue },
           lanes: Object.fromEntries(availableOverlays.map(cfg => [cfg.key, { label: overlayLabel(cfg),
+            ...(sourceLabel && powerPreview && cfg.key === "power" ? {
+              maximumLabel: `${t("sourceMetrics.orider")} ${t("peakInspector.maximum")}`,
+              averageLabel: `${t("sourceMetrics.orider")} ${t("peakInspector.average")}`,
+            } : {}),
             maximum: formatMetric(cfg, stats?.overlays[cfg.key]?.max, true), average: formatMetric(cfg, stats?.overlays[cfg.key]?.avg, true),
             current: formatMetric(cfg, hoverIndex != null ? analysisOverlays.find(overlay => overlay.key === cfg.key)?.data[hoverIndex] : hoverPoint ? cfg.getValue(hoverPoint) : null), formatScale: value => formatMetric(cfg, value), unit: sport !== "run" && cfg.key === "speed" && units === "imperial" ? "mph" : cfg.unit }])) }} />
       {rangeAnalysis}

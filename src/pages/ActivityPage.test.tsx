@@ -1537,7 +1537,7 @@ describe("ActivityPage", () => {
     expect(await screen.findByText("저장된 센서 요약")).toBeInTheDocument();
     expect(screen.getAllByText("평균 심박").length).toBeGreaterThan(0);
     expect(screen.getAllByText("평균 파워").length).toBeGreaterThan(0);
-    expect(screen.getByText("최대 파워")).toBeInTheDocument();
+    expect(screen.getAllByText("최대 파워").length).toBeGreaterThan(0);
     // 서버 정본이 없으면 저장된 요약에 "기기 요약" 표식이 붙는다 — 값은 그대로 기기 값이다.
     expect(screen.queryByText(/NP 147 W/)).not.toBeInTheDocument();
     expect(screen.getByRole("row", { name: /가중평균 파워 147 W/ })).toBeInTheDocument();
