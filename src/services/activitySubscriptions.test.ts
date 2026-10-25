@@ -1,3 +1,4 @@
+import { ensureAppCheckReady } from "./firebase";
 import { getCountFromServer, getDocs, limit, startAfter } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { activitySubscriptionsBackendReady } from "../config/activitySubscriptions";
@@ -7,6 +8,7 @@ import { readOwnFriendCount, readOwnSubscriptionPage, getActivitySubscriptionSum
 vi.mock("../config/activitySubscriptions", () => ({ activitySubscriptionsBackendReady: vi.fn(() => true) }));
 vi.mock("./publicProfiles", () => ({ getPublicUserProfiles: vi.fn() }));
 beforeEach(() => {
+  vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
   simulateLogin({ uid: "owner" }); vi.mocked(activitySubscriptionsBackendReady).mockReturnValue(true);
   vi.mocked(getCountFromServer).mockReset(); vi.mocked(getDocs).mockReset(); vi.mocked(httpsCallable).mockReset();
   vi.mocked(getPublicUserProfiles).mockReset().mockResolvedValue(new Map());
@@ -50,10 +52,10 @@ it("publishes an account-scoped refresh event only after a successful real calla
     expect(listener).toHaveBeenCalledOnce(); expect(listener.mock.calls[0]?.[0].detail).toEqual({ uid: "owner" });
   } finally { window.removeEventListener(ACTIVITY_SUBSCRIPTIONS_CHANGED_EVENT, listener); }
 });
-it("discards successful old-account mutations and emits no refresh event", async () => {
+it.each(["other", "owner"])("discards a replaced session (%s) mutation and emits no refresh event", async replacementUid => {
   const listener = vi.fn(); window.addEventListener(ACTIVITY_SUBSCRIPTIONS_CHANGED_EVENT, listener);
   try {
-    vi.mocked(httpsCallable).mockReturnValue(vi.fn(async () => { simulateLogin({ uid: "other" }); return { data: { targetUid: "target", subscribed: true } }; }) as never);
+    vi.mocked(httpsCallable).mockReturnValue(vi.fn(async () => { simulateLogin({ uid: replacementUid }); return { data: { targetUid: "target", subscribed: true } }; }) as never);
     await expect(setActivitySubscription("owner", "target", true)).rejects.toThrow("owner-required");
     expect(listener).not.toHaveBeenCalled();
   } finally { window.removeEventListener(ACTIVITY_SUBSCRIPTIONS_CHANGED_EVENT, listener); }
@@ -90,4 +92,25 @@ it("uses the existing unblock callable and never restores a subscription", async
   expect(httpsCallable).toHaveBeenCalledWith(expect.anything(), "setActivitySocialBlock");
   expect(call).toHaveBeenCalledWith({ targetUid: "target", blocked: false });
   expect(httpsCallable).not.toHaveBeenCalledWith(expect.anything(), "setActivitySubscription");
+});
+
+it.each(["summary", "subscribe", "unblock"])("does not dispatch %s after SDK identity changes during readiness", async operation => {
+  let ready!: () => void;
+  vi.mocked(ensureAppCheckReady).mockImplementationOnce(() => new Promise(resolve => { ready = resolve; }));
+  const request = operation === "summary" ? getActivitySubscriptionSummary("owner", "target")
+    : operation === "subscribe" ? setActivitySubscription("owner", "target", true)
+      : unblockActivitySubscriptionTarget("owner", "target");
+  const rejection = expect(request).rejects.toThrow("owner-required");
+  simulateLogin({ uid: "owner" });
+  ready();
+  await rejection;
+  expect(httpsCallable).not.toHaveBeenCalled();
+});
+it("discards relation data if the same UID logs in again during profile hydration", async () => {
+  vi.mocked(getDocs).mockResolvedValue({ docs: [{ id: "target" }] } as never);
+  vi.mocked(getPublicUserProfiles).mockImplementationOnce(async () => {
+    simulateLogin({ uid: "owner" });
+    return new Map();
+  });
+  await expect(readOwnSubscriptionPage("owner", "subscriptions")).rejects.toThrow("owner-required");
 });

@@ -40,13 +40,13 @@ it("does not grant or retain an actionable state when access is blocked", async 
   expect(await screen.findByRole("button", { name: "구독할 수 없음" })).toBeDisabled();
   expect(setActivitySubscription).not.toHaveBeenCalled();
 });
-it("discards old-account pending state and mutation responses", async () => {
+it.each(["other", "test-uid"])("discards pending mutation after SDK session replacement (%s)", async replacementUid => {
   let finish!: (value: { targetUid: string; subscribed: boolean }) => void;
   vi.mocked(setActivitySubscription).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
   renderWithProviders(<ActivitySubscriptionButton targetUid="target" />, { authenticated: true });
   await userEvent.click(await screen.findByRole("button", { name: "구독" }));
   vi.mocked(getActivitySubscriptionSummary).mockImplementation(() => new Promise(() => {}));
-  act(() => simulateLogin({ uid: "other" }));
+  act(() => simulateLogin({ uid: replacementUid }));
   act(() => finish({ targetUid: "target", subscribed: true }));
   await waitFor(() => expect(screen.queryByRole("button", { name: "구독 취소" })).not.toBeInTheDocument());
 });

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../../config/activitySubscriptions";
@@ -18,10 +18,10 @@ export default function ActivitySubscriptionButton({ targetUid }: { targetUid: s
   const { user } = useAuth();
   const { t } = useTranslation("common");
   const uid = user && !user.isAnonymous ? user.uid : null;
-  const key = `${uid}:${targetUid}`;
-  const latestKey = useRef(key);
+  const key = useMemo(() => ({ user, targetUid }), [user, targetUid]);
+  const latestKey = useRef<typeof key | null>(key);
   latestKey.current = key;
-  const [state, setState] = useState<{ key: string; subscribed?: boolean; failure?: Failure; pending?: boolean } | null>(null);
+  const [state, setState] = useState<{ key: typeof key; subscribed?: boolean; failure?: Failure; pending?: boolean } | null>(null);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!ACTIVITY_SUBSCRIPTIONS_ENABLED || !uid || !targetUid || uid === targetUid) return;
@@ -34,7 +34,7 @@ export default function ActivitySubscriptionButton({ targetUid }: { targetUid: s
       if (!isSubscriptionsNotDeployed(error)) logClientError("profile.subscriptionState", error, {});
       setState({ key, failure: failureOf(error) });
     });
-    return () => { active = false; latestKey.current = ""; };
+    return () => { active = false; latestKey.current = null; };
   }, [uid, targetUid, key, attempt]);
   if (!ACTIVITY_SUBSCRIPTIONS_ENABLED || !uid || !targetUid || uid === targetUid) return null;
   const current = state?.key === key ? state : null;
