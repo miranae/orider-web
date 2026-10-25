@@ -2,7 +2,8 @@ import { httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { SegmentLocalLegend } from "@shared/types/segment-local-legend";
 export async function loadSegmentLocalLegend(services: FirebaseServices, uid: string, segmentId: string): Promise<SegmentLocalLegend> {
-  const current = () => services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
+  const {auth,functions}=services,user=auth.currentUser;
+  const current = () => !!user && user.uid === uid && !user.isAnonymous && services.auth === auth && auth.currentUser === user && services.functions === functions;
   if (!uid || !current()) throw new Error("account_changed");
   await services.ensureAppCheckReady();
   if (!current()) throw new Error("account_changed");

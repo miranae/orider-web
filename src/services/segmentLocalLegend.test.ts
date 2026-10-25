@@ -15,3 +15,7 @@ it("drops a response if the signed in account changed", async () => {
   setCallableImplementation("getSegmentLocalLegend", () => { Object.assign(s.auth.currentUser!, { uid: "other" }); return { data: response }; });
   await expect(loadSegmentLocalLegend(s, "viewer", "s")).rejects.toThrow("account_changed");
 });
+
+it("rejects a same-UID replacement during readiness and response", async()=>{
+ for(const phase of ["ready","response"]){const s=services();const replace=()=>Object.assign(s.auth,{currentUser:{uid:"viewer",isAnonymous:false}});const call=vi.fn(()=>{if(phase==="response")replace();return {data:response};});setCallableImplementation("getSegmentLocalLegend",call);if(phase==="ready")vi.mocked(s.ensureAppCheckReady).mockImplementation(async()=>{replace();});await expect(loadSegmentLocalLegend(s,"viewer","s")).rejects.toThrow("account_changed");if(phase==="ready")expect(call).not.toHaveBeenCalled();}
+});

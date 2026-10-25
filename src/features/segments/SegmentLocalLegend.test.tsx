@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import SegmentLocalLegend from "./SegmentLocalLegend";
 const mocks = vi.hoisted(() => ({ load: vi.fn() }));
@@ -20,4 +20,8 @@ it("explains partial coverage without presenting a winner", async () => {
   fireEvent.click(screen.getByRole("button", { name: "완주 수 조회·새로고침" }));
   expect(await screen.findByRole("status")).toHaveTextContent("전체 기간을 확인하지 못해 레전드를 선정하지 않습니다");
   expect(screen.queryByText(/확인된 모집단의 최다 완주:/)).not.toBeInTheDocument();
+});
+
+it("removes a completed legacy result on focus without automatic refetch",async()=>{
+ mocks.load.mockResolvedValueOnce(result);renderWithProviders(<SegmentLocalLegend segmentId="s"/>,{authenticated:true});fireEvent.click(screen.getByRole("button",{name:"완주 수 조회·새로고침"}));await screen.findByText(/확인된 모집단의 최다 완주:/);act(()=>window.dispatchEvent(new Event("focus")));expect(screen.queryByText(/확인된 모집단의 최다 완주:/)).not.toBeInTheDocument();expect(mocks.load).toHaveBeenCalledTimes(1);
 });

@@ -1,0 +1,9 @@
+# R7 bounded Local Legend continuation — local source checkpoint
+
+The existing500-candidate read remains available. Partial results offer a locally gated continuation:100-candidate census steps, then one current read-only server transaction revalidates all supported candidates before returning a leader. Census is preparation, not an authorization grant. UI distinguishes censusAsOf and finalAsOf; no provisional leader is shown. Limits are2000 candidates/30000 reads/32MiB/90s server validation,50-minute run lifetime. A limit/error cannot display a cached winner.
+
+WEB validators require the exact KST13-week start and fixed window end,50-minute expiry,finalAsOf within the run lifetime,complete coverage and bounded validation metrics. The callable is local-emulator-only and uses exact Firebase SDK user/service identity. Its130s whole-operation deadline includes AppCheck readiness and prevents a late readiness completion from dispatching a timed-out mutation.
+
+A lost response resumes through status before another step. Stop/hidden/account replacement discards in-flight results. Displayed results clear on focus/backgrounding or after30s; only explicit revalidation restores them. Legacy500 result identity/clear behavior is also guarded. The continuation offer survives clearing the legacy partial counts, so a long-running child is not unmounted by the parent timer.
+
+Four focused WEB suites18tests PASS; tsc and scoped lint PASS. BE isolated tests cover501/1001completion and2001limit plus current ACL/revision/CAS/race cases. These are source/isolated-emulator evidence. The new callable is not yet in the currently running d3 snapshot, so actual browser-to-runtime continuation remains pending a separately approved immutable activation. No runtime5039/5029 change or remote write was performed in this pass.
