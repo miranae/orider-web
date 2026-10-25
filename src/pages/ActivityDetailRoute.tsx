@@ -25,14 +25,14 @@ function PublicActivityDetailRoute() {
   const { t } = useTranslation("activity");
   const uid = user?.uid ?? null;
   const key = JSON.stringify([activityId, uid]);
-  const client = useMemo(() => createPublicActivityClient(services), [services, uid]);
+  const client = useMemo(() => createPublicActivityClient(services), [services, user]);
   const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<{ key: string; detail?: PublicActivityDetail; failed?: boolean; ownerFallback?: boolean; accessDenied?: boolean } | null>(null);
+  const [state, setState] = useState<{ owner: typeof user; key: string; detail?: PublicActivityDetail; failed?: boolean; ownerFallback?: boolean; accessDenied?: boolean } | null>(null);
   useEffect(() => {
     if (!activityId || authLoading) return;
     let active = true;
     setState(null);
-    void client.load(activityId).then(detail => { if (active) setState({ key, detail }); })
+    void client.load(activityId).then(detail => { if (active) setState({ owner: user, key, detail }); })
       .catch(async error => {
         // During a separate backend rollout, preserve existing owner analysis only after
         // a server-filtered ownership read. Never fetch an unfiltered activity as fallback.
@@ -41,16 +41,16 @@ function PublicActivityDetailRoute() {
             const owned = await getDocs(query(collection(services.firestore, "activities"),
               where(documentId(), "==", activityId), where("userId", "==", uid), limit(1)));
             if (!active) return;
-            if (services.auth.currentUser?.uid === uid && owned.docs.some(doc => doc.id === activityId && doc.data().userId === uid)) {
-              setState({ key, ownerFallback: true }); return;
+            if (services.auth.currentUser === user && !owned.metadata?.fromCache && !owned.metadata?.hasPendingWrites && owned.docs.some(doc => doc.id === activityId && doc.data().userId === uid)) {
+              setState({ owner: user, key, ownerFallback: true }); return;
             }
           } catch { /* Fail closed for missing, denied, or unavailable owner reads. */ }
         }
-        if (active) setState({ key, failed: true, accessDenied: isPublicActivityAccessError(error) });
+        if (active) setState({ owner: user, key, failed: true, accessDenied: isPublicActivityAccessError(error) });
       });
     return () => { active = false; };
-  }, [activityId, authLoading, client, key, attempt, uid, user?.isAnonymous, services]);
-  const current = !authLoading && state?.key === key ? state : null;
+  }, [activityId, authLoading, client, key, attempt, uid, user, services]);
+  const current = !authLoading && state?.key === key && state.owner === user ? state : null;
   if (current?.ownerFallback) return <Suspense fallback={<EmbeddedSurfaceState title={t("publicDetail.title")} loading />}><OwnerActivityPage key={key} /></Suspense>;
   if (!activityId || !current?.detail) return <EmbeddedSurfaceState title={t("publicDetail.title")} loading={!!activityId && !current?.failed} message={current?.accessDenied ? t("publicDetail.accessDenied") : undefined} onRetry={() => setAttempt(value => value + 1)} />;
   if (uid && !user?.isAnonymous && current.detail.activity.userId === uid) return <Suspense fallback={<EmbeddedSurfaceState title={t("publicDetail.title")} loading />}><OwnerActivityPage key={key} /></Suspense>;

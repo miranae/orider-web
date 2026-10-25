@@ -29,9 +29,10 @@ export interface PublicCommentsPage {
 
 const emulatorClients = new WeakSet<object>();
 export function createPublicActivityClient(services: FirebaseServices) {
-  const uid = services.auth.currentUser?.uid ?? null;
+  const owner = services.auth.currentUser;
+  const uid = owner?.uid ?? null;
   const assertAccount = () => {
-    if ((services.auth.currentUser?.uid ?? null) !== uid) throw new Error("account_changed");
+    if (services.auth.currentUser !== owner) throw new Error("account_changed");
   };
   async function call<T>(name: string, payload: object): Promise<T> {
     assertAccount();

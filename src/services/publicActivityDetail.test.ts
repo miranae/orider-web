@@ -70,3 +70,9 @@ it("invalidates exact comment destinations after successful mutations using only
   expect(handler).toHaveBeenCalledOnce(); expect(handler.mock.calls[0][0].detail).toEqual({ activityId: "a" });
   window.removeEventListener("orider:activity-content-changed", handler);
 });
+
+it("rejects the old response after same-uid reauthentication", async () => {
+  const source = services("viewer");
+  mocks.call.mockImplementation(async () => { Object.assign(source.auth, { currentUser: { uid: "viewer", isAnonymous: false } }); return { data: {} }; });
+  await expect(createPublicActivityClient(source).load("a")).rejects.toThrow("account_changed");
+});

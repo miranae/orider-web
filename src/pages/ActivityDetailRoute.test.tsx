@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ActivityDetailRoute from "./ActivityDetailRoute";
 const mocks = vi.hoisted(() => ({ load: vi.fn(), getDocs: vi.fn(), uid: "viewer", enabled: true, auth: { currentUser: { uid: "viewer" } }, owner: vi.fn() }));
 vi.mock("../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ publicActivityDetailEnabled: mocks.enabled }) }));
-vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: mocks.uid, isAnonymous: false }, loading: false }) }));
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.auth.currentUser, loading: false }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => services }));
 const services = { auth: mocks.auth, firestore: {} };
 vi.mock("../services/publicActivityDetail", () => ({ isPublicActivityAccessError: () => false, createPublicActivityClient: () => ({ load: mocks.load }) }));
@@ -55,4 +55,13 @@ describe("activity route public/owner boundary", () => {
     await act(async () => resolve({ activity: { id: "native", userId: "viewer" } }));
     expect(mocks.owner).not.toHaveBeenCalled();
   });
+});
+
+it("clears the previous owner surface immediately for a new session with the same uid", async () => {
+  mocks.load.mockResolvedValueOnce({ activity: { id: "native", userId: "viewer" } }).mockReturnValueOnce(new Promise(() => {}));
+  const view = render(route());
+  expect(await screen.findByText("owner analysis")).toBeInTheDocument();
+  mocks.auth.currentUser = { uid: "viewer" };
+  view.rerender(route());
+  expect(screen.queryByText("owner analysis")).not.toBeInTheDocument();
 });
