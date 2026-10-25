@@ -46,9 +46,25 @@ export interface ActivityMatchedRouteGroupResponse {
     groupPolicy: 'anchor-pair-observation-v1' | 'observed-complete-link-v1' | 'observed-native-complete-link-v1'; descriptorLimit: 20 | 5; validatedLimit: 6 };
   coverage: { indexCohort: 'exhausted' | 'descriptor_capped' | 'not_inspected'; sourceValidation: 'complete_in_cohort' | 'validation_capped' | 'omitted' | 'not_inspected';
     wholeHistory: 'unknown'; geometry: 'observed_complete_gap_free' | 'observed_gap_free_coverage_unproven' | 'unavailable'; gpsAccuracy: 'unknown'; deduplication: 'unknown' };
+  ownerHistoryReadiness?: OwnerRouteHistoryReadiness;
   inventory?: { nextCursor: string | null; exhausted: boolean; scannedCount: number; year: number | null; matchingBasis: 'anchor_pairwise' };
   omittedCounts: MatchedRouteGroupOmittedCounts;
   /** member page와 별개로 summary는 전체 bounded anchor cluster 기준이다. */
   members: ActivityMatchedRouteGroupMember[]; summary: ActivityMatchedRouteGroupSummary | null;
   io: { logicalDocuments: number; metadataRequests: number; descriptorComparisons: number; rawDownloads: 0; writes: 0 };
+}
+
+/** Observational owner inventory, never a whole-history PB certificate. */
+export interface OwnerRouteHistoryReadiness {
+  state: 'scanning' | 'traversed' | 'invalidated';
+  /** Milliseconds of last committed scan page; invalidation preserves this timestamp and counts. */
+  asOf: number;
+  scanned: number;
+  /** Stored owner-bound index observed; NOT current source validation. */
+  indexed: number;
+  missing: number;
+  /** Capture completeness unproven; overlaps indexed/missing. */
+  unknown: number;
+  consistency: 'current_owner_seek_pages';
+  personalBest: 'unavailable';
 }

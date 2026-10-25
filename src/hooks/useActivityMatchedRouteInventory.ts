@@ -11,25 +11,25 @@ type Status = "idle" | "loading" | "partial" | "complete" | "error" | "expired" 
 interface Session { scope: string; generation: number; pages: ActivityMatchedRouteInventoryResponse[]; status: Status }
 /** 선택 범위와 실제 SDK 계정이 일치할 때 명시 버튼으로만 한 페이지를 읽는다. */
 export function useActivityMatchedRouteInventory(ownerUid: string, activityId: string, discipline: "bike" | "run" | null, headIdentity: string, geometryPolicy: MatchedRouteGeometryPolicy = "complete", year: number | null = null) {
-  const { user } = useAuth(), services = useFirebaseServices(), sdkUser = services.auth.currentUser;
+  const { user } = useAuth(), services = useFirebaseServices(), auth = services.auth, app = auth.app, sdkUser = auth.currentUser;
   const eligible = !!discipline && observedRouteAvailable() && !!user && !user.isAnonymous && user.uid === ownerUid
     && !!sdkUser && !sdkUser.isAnonymous && sdkUser.uid === ownerUid;
   const scope = eligible ? JSON.stringify([ownerUid, activityId, discipline, headIdentity, geometryPolicy, year, services.auth.app?.name, services.auth.app?.options.projectId]) : null;
-  const identity = useRef({ scope, services }), generation = useRef(0), busy = useRef(false), session = useRef<Session | null>(null);
-  if (identity.current.scope !== scope || identity.current.services !== services) {
-    identity.current = { scope, services }; generation.current++; busy.current = false; session.current = null;
+  const identity = useRef({ scope, services, sdkUser, auth, app }), generation = useRef(0), busy = useRef(false), session = useRef<Session | null>(null);
+  if (identity.current.scope !== scope || identity.current.services !== services || identity.current.sdkUser !== sdkUser || identity.current.auth !== auth || identity.current.app !== app) {
+    identity.current = { scope, services, sdkUser, auth, app }; generation.current++; busy.current = false; session.current = null;
   }
   const [result, setResult] = useState<Session | null>(null);
   const visible = result?.scope === scope && result.generation === generation.current ? result : null;
   const tail = visible?.pages[visible.pages.length - 1], expired = !!tail && Date.now() >= tail.expiresAt;
   useEffect(() => {
-    let authKey = `${services.auth.currentUser?.uid}:${services.auth.currentUser?.isAnonymous}`;
-    return onAuthStateChanged(services.auth, authUser => {
-      const next = `${authUser?.uid}:${authUser?.isAnonymous}`;
+    let authKey = auth.currentUser;
+    return onAuthStateChanged(auth, authUser => {
+      const next = authUser;
       if (next === authKey) return;
       authKey = next; generation.current++; busy.current = false; session.current = null; setResult(null);
     });
-  }, [services]);
+  }, [services, auth]);
   useEffect(() => () => { generation.current++; busy.current = false; session.current = null; }, []);
   const expire = useCallback(() => {
     if (!scope || identity.current.scope !== scope || identity.current.services !== services) return;
@@ -57,14 +57,15 @@ export function useActivityMatchedRouteInventory(ownerUid: string, activityId: s
   }, [scope]);
   const run = useCallback(async (restart: boolean) => {
     if (!scope || !discipline || busy.current || identity.current.scope !== scope || identity.current.services !== services
-      || services.auth.currentUser?.uid !== ownerUid || services.auth.currentUser.isAnonymous) return;
+      || !sdkUser || sdkUser.uid !== ownerUid || sdkUser.isAnonymous || services.auth !== auth || auth.app !== app || auth.currentUser !== sdkUser) return;
     const previous = restart ? null : session.current, pages = previous?.pages ?? [], before = pages[pages.length - 1];
     if (!restart && (!previous || !before?.inventory.nextCursor || !["partial", "error"].includes(previous.status))) return;
     if (before && Date.now() >= before.expiresAt) { expire(); return; }
     if (restart) generation.current++;
     const requestGeneration = generation.current;
     const current = () => requestGeneration === generation.current && identity.current.scope === scope && identity.current.services === services
-      && services.auth.currentUser?.uid === ownerUid && !services.auth.currentUser.isAnonymous;
+      && identity.current.sdkUser === sdkUser && services.auth === auth && auth.app === app && auth.currentUser === sdkUser
+      && sdkUser.uid === ownerUid && !sdkUser.isAnonymous;
     const request: ActivityMatchedRouteInventoryRequest = { mode: "matched_route_inventory_page", anchorActivityId: activityId, discipline, ...(year !== null ? { year } : {}), ...(geometryPolicy === "observed_native" ? { geometryPolicy } : {}), ...(before?.inventory.nextCursor ? { inventoryCursor: before.inventory.nextCursor } : {}) };
     if (!validActivityMatchedRouteInventoryRequest(request)) { expire(); return; }
     busy.current = true;
@@ -91,7 +92,7 @@ export function useActivityMatchedRouteInventory(ownerUid: string, activityId: s
         status: timeout ? "expired" : invalidated ? "invalidated" : unsupported ? "unsupported" : "error" };
       session.current = value; setResult(value);
     } finally { if (current()) busy.current = false; }
-  }, [scope, discipline, services, ownerUid, activityId, expire, geometryPolicy, year]);
+  }, [scope, discipline, services, auth, app, sdkUser, ownerUid, activityId, expire, geometryPolicy, year]);
   return { available: scope !== null, status: expired ? "expired" as const : visible?.status ?? "idle", pages: expired ? [] : visible?.pages ?? [],
     start: () => run(true), loadMore: () => run(false), restart: () => run(true) };
 }

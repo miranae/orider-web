@@ -15,6 +15,18 @@ vi.mock('react-i18next',()=>({useTranslation:()=>({i18n:{language:'en'},t:(key:s
 const activity={id:'anchor',userId:'owner',type:'Ride',source:'orider'} as Activity;
 function Position(){const location=useLocation();return <output>{JSON.stringify(location)}</output>;}
 beforeEach(()=>{mocks.uid='owner';mocks.pages=[];mocks.start.mockClear();mocks.more.mockClear();mocks.hook.mockClear();});
+it('shows observed history readiness and its limits separately from page exhaustion',()=>{
+ const page=routeInventoryPage();
+ page.ownerHistoryReadiness={state:'traversed',asOf:Date.now(),scanned:12,indexed:9,missing:3,unknown:12,consistency:'current_owner_seek_pages',personalBest:'unavailable'};
+ mocks.pages=[page];
+ const view=render(<MemoryRouter><ActivityRouteInventoryPanel activity={activity} observedMetricsIdentity="head"/></MemoryRouter>);
+ expect(screen.getByText('routeInventory.history.traversed')).toBeInTheDocument();
+ expect(screen.getByText('routeInventory.history.scope')).toBeInTheDocument();
+ page.ownerHistoryReadiness.state='invalidated';
+ view.rerender(<MemoryRouter><ActivityRouteInventoryPanel activity={activity} observedMetricsIdentity="head"/></MemoryRouter>);
+ expect(screen.getByText('routeInventory.history.invalidated')).toBeInTheDocument();
+ expect(screen.queryByText('routeInventory.history.traversed')).not.toBeInTheDocument();
+});
 it('validates year controls and never fetches merely opening or changing a filter',()=>{
  render(<MemoryRouter><ActivityRouteInventoryPanel activity={activity} observedMetricsIdentity="head"/></MemoryRouter>);
  fireEvent.click(screen.getByText('routeInventory.title'));

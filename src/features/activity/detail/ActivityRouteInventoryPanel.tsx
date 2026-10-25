@@ -35,6 +35,11 @@ export default function ActivityRouteInventoryPanel({activity,observedMetricsIde
    {!valid&&<Text role="alert">{t('routeInventory.invalidYear')}</Text>}
    <Button variant="outline" loading={query.status==='loading'} disabled={!valid||query.status==='loading'} onClick={()=>void query.start()}>{t(query.status==='idle'?'routeInventory.find':'routeGroup.refresh')}</Button>
    {query.status!=='idle'&&<Text role="status" aria-live="polite">{t(query.status==='complete'?'routeInventory.finished':`routeGroup.states.${query.status}`)}</Text>}
+   {last?.ownerHistoryReadiness && <div>
+    <Text as="p" weight={600}>{t(`routeInventory.history.${last.ownerHistoryReadiness.state}`)}</Text>
+    <Text as="p">{t('routeInventory.history.counts',{scanned:last.ownerHistoryReadiness.scanned,indexed:last.ownerHistoryReadiness.indexed,missing:last.ownerHistoryReadiness.missing})}</Text>
+    <Text as="p" variant="caption" tone="secondary">{t('routeInventory.history.scope',{date:date(last.ownerHistoryReadiness.asOf),unknown:last.ownerHistoryReadiness.unknown})}</Text>
+   </div>}
    {!!query.pages.length&&<><Text>{t('routeInventory.counts',{scanned,count:rows.length,pages:query.pages.length})}</Text><Text variant="caption">{t('routeInventory.snapshot',{date:date(last!.readTime.seconds*1000)})}</Text>
     {!rows.length&&<Text>{t(last?.inventory.nextCursor?'routeInventory.emptyMore':'routeInventory.empty')}</Text>}
     <ul>{rows.map(row=><li key={row.activityId}><LocalizedLink to={`/activity/${encodeURIComponent(row.activityId)}?tab=overview`} state={{routeInventoryReturn:{uid:activity.userId,pathname:location.pathname,search:location.search,hash:location.hash}}}><time dateTime={new Date(row.startTime).toISOString()}>{date(row.startTime)}</time><span>{t('routeInventory.openSource')}</span></LocalizedLink></li>)}</ul>

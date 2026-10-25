@@ -2862,6 +2862,13 @@
     "saved": "Cover photo selection saved."
   },
   "routeInventory": {
+    "history": {
+          "scanning": "Checking stored activity history",
+          "traversed": "Stored activity traversal finished",
+          "invalidated": "Activities changed; another check is needed",
+          "counts": "{{scanned}} activities inspected · {{indexed}} found in the stored route comparison index · {{missing}} not found in that index",
+          "scope": "This account-wide inspection covers all years and sports, independently of the selected filters. Last inspected: {{date}}. Missing index entries do not mean source routes are absent. This is not a single fixed snapshot of all history. Capture completeness is unproven for {{unknown}} activities, overlapping the counts above. Existing route data does not establish current source validation or a personal best."
+    },
     "finished": "This stored-index exploration has finished.",
     "title": "Explore records with shapes similar to this activity",
     "scope": "Inspect up to five stored route index entries per request. Each record is compared individually with the anchor. These observations do not establish complete history, the same road, or a personal best.",

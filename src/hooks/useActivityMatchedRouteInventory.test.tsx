@@ -40,3 +40,24 @@ it('failed-precondition invalidates all accumulated observations',async()=>{
  const h=renderHook(()=>useActivityMatchedRouteInventory('owner','anchor','bike','head'));
  await act(async()=>h.result.current.start());await act(async()=>h.result.current.loadMore());expect(h.result.current.pages).toEqual([]);expect(h.result.current.status).toBe('invalidated');
 });
+
+it('removes existing pages immediately when the same UID SDK session is replaced',async()=>{
+ const h=renderHook(()=>useActivityMatchedRouteInventory('owner','anchor','bike','head'));
+ await act(async()=>h.result.current.start());expect(h.result.current.pages).toHaveLength(1);
+ act(()=>{mocks.services.auth.currentUser={...mocks.services.auth.currentUser};mocks.observer!(mocks.services.auth.currentUser);});
+ expect(h.result.current.pages).toEqual([]);expect(h.result.current.status).toBe('idle');
+ expect(mocks.load).toHaveBeenCalledOnce();
+});
+it('drops a delayed prior-session response without resetting a fresh request',async()=>{
+ let resolve!:(v:ReturnType<typeof routeInventoryPage>)=>void;
+ mocks.load.mockImplementationOnce(()=>new Promise(r=>{resolve=r;}));
+ const h=renderHook(()=>useActivityMatchedRouteInventory('owner','anchor','bike','head'));
+ let old!:Promise<void>;act(()=>{old=h.result.current.start();});
+ mocks.services.auth.currentUser={...mocks.services.auth.currentUser};h.rerender();
+ expect(h.result.current.pages).toEqual([]);
+ await act(async()=>h.result.current.start());
+ expect(h.result.current.status).toBe('complete');
+ await act(async()=>{resolve(routeInventoryPage({ids:['stale']}));await old;});
+ expect(h.result.current.pages[0].members[0].activityId).not.toBe('stale');
+ expect(h.result.current.status).toBe('complete');
+});

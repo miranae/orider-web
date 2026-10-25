@@ -19,8 +19,16 @@ export function validActivityMatchedRouteInventoryRequest(v: unknown): v is Acti
 }
 export function validateActivityMatchedRouteInventoryResponse(value: unknown, request: ActivityMatchedRouteInventoryRequest, now=Date.now()): ActivityMatchedRouteInventoryResponse {
  const invalid=():never=>{throw new Error('invalid_matched_route_inventory_response');};
- if (!validActivityMatchedRouteInventoryRequest(request)||!exact(value,['mode','anchorActivityId','discipline','state','readTime','expiresAt','groupToken','nextCursor','scope','coverage','inventory','omittedCounts','members','summary','io'])) invalid();
+ if (!validActivityMatchedRouteInventoryRequest(request)||!exact(value,['mode','anchorActivityId','discipline','state','readTime','expiresAt','groupToken','nextCursor','scope','coverage','inventory','omittedCounts','members','summary','io',...(object(value)&&'ownerHistoryReadiness' in value?['ownerHistoryReadiness']:[])])) invalid();
  const r=value as ActivityMatchedRouteInventoryResponse;
+ if ('ownerHistoryReadiness' in r) {
+  const h=r.ownerHistoryReadiness;
+  if(!exact(h,['state','asOf','scanned','indexed','missing','unknown','consistency','personalBest'])
+   || !['scanning','traversed','invalidated'].includes(String(h.state)) || !count(h.asOf,now)
+   || ![h.scanned,h.indexed,h.missing,h.unknown].every(v=>count(v,Number.MAX_SAFE_INTEGER))
+   || Number(h.indexed)+Number(h.missing)!==h.scanned || Number(h.unknown)>Number(h.scanned)
+   || h.consistency!=='current_owner_seek_pages' || h.personalBest!=='unavailable') invalid();
+ }
  if(r.mode!==request.mode||r.anchorActivityId!==request.anchorActivityId||r.discipline!==request.discipline||!['available','index_missing','anchor_unsupported','changed_input','expired','budget_partial'].includes(r.state)
   || !exact(r.readTime,['seconds','nanoseconds'])||!count(r.readTime.seconds,253402300799)||!count(r.readTime.nanoseconds,999999999)||r.readTime.nanoseconds%1000!==0
   || r.readTime.seconds*1000+r.readTime.nanoseconds/1e6>now||r.expiresAt!==r.readTime.seconds*1000+Math.floor(r.readTime.nanoseconds/1e6)+1800000
@@ -51,7 +59,9 @@ export function validateMatchedRouteInventoryAppend(pages: readonly ActivityMatc
  if(new Set(ids).size!==ids.length||response.inventory.nextCursor&&pages.some(p=>p.inventory.nextCursor===response.inventory.nextCursor))invalid();
 }
 export async function loadActivityMatchedRouteInventory(services: FirebaseServices,uid:string,request:ActivityMatchedRouteInventoryRequest){
- const current=()=>!!uid&&services.auth.currentUser?.uid===uid&&!services.auth.currentUser.isAnonymous;
+ const auth=services.auth,app=auth.app,viewer=auth.currentUser,functions=services.functions;
+ const current=()=>!!uid&&!!viewer&&!viewer.isAnonymous&&viewer.uid===uid&&services.auth===auth&&auth.app===app
+  &&auth.currentUser===viewer&&services.functions===functions&&functions.app===app;
  if(!current())throw new Error('account_changed');
  if(!observedRouteAvailable()||services.functions.app!==services.auth.app||(localTrainingEmulatorAvailable()?!matchesLocalTrainingEmulator(services):services.functions.customDomain!=='https://asia-northeast3-orider-dev.cloudfunctions.net'))throw new Error('matched_route_inventory_unsupported');
  if(!validActivityMatchedRouteInventoryRequest(request))throw new Error('invalid_matched_route_inventory_request');
