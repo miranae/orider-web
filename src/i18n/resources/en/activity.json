@@ -2887,7 +2887,7 @@
     "end": "Finish protection radius (m)",
     "unsaved": "Unsaved preview — not applied to the public map yet.",
     "published": "Map under the current visibility setting",
-    "no_gps": "Route GPS is unavailable; a privacy preview cannot be generated.",
+    "no_gps": "Route GPS is unavailable, so a safe section cannot be calculated. Saving a protection radius hides the entire public map.",
     "hidden": "No section remains outside the protection areas. The public map is hidden.",
     "changed_source": "The original route changed. The public map is hidden until you preview and save again.",
     "preview": "Preview changes",

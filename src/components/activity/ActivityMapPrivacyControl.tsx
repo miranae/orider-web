@@ -53,7 +53,7 @@ export default function ActivityMapPrivacyControl({ activityId }: { activityId: 
         : <Text role="status">{t(`mapPrivacy.${displayed?.state === "available" ? "no_gps" : displayed?.state ?? "no_gps"}`)}</Text>}
       <Stack direction="row" wrap gap="var(--space-2)">
         <Button variant="secondary" disabled={!valid || busy} loading={busy} onClick={() => void run("preview")}>{t("mapPrivacy.preview")}</Button>
-        <Button disabled={!current.preview || busy || !valid || current.preview.state === "no_gps" || current.preview.state === "changed_source"} loading={busy} onClick={() => void run("save")}>{t("mapPrivacy.save")}</Button>
+        <Button disabled={!current.preview || busy || !valid || current.preview.state === "changed_source"} loading={busy} onClick={() => void run("save")}>{t("mapPrivacy.save")}</Button>
         <Button variant="ghost" disabled={busy} onClick={() => { setOpen(false); setState(null); trigger.current?.focus(); }}>{t("kudosCard.cancel")}</Button>
       </Stack>
       <Text variant="caption">{t("mapPrivacy.limit")}</Text>
