@@ -13,9 +13,14 @@ import { FitnessView } from "../pages/FitnessPage";
 import FitnessCoachBriefing from "../features/fitness/components/FitnessCoachBriefing";
 import { deriveActivityImpacts, activityIdsCoveredByImpacts } from "../features/fitness/activityImpact";
 import { deriveActivityStimulus } from "../features/fitness/activityStimulus";
-const mocks = vi.hoisted(() => ({user:{uid:"rider-a",isAnonymous:false},firestore:{},timeseries:null as FitnessTimeseriesDoc|null, multisport: false, profile: null as {thresholdPace?:number}|null, userFitness: null as {thresholds:{run:{thresholdPace:number}}}|null}));
+const mocks = vi.hoisted(() => ({user:{uid:"rider-a",isAnonymous:false,metadata:{creationTime:"2026-01-01"}},firestore:{},timeseries:null as FitnessTimeseriesDoc|null, multisport: false, profile: null as {thresholdPace?:number}|null, userFitness: null as {thresholds:{run:{thresholdPace:number}}}|null}));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, profile: mocks.profile }) }));
-vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => ({ firestore: mocks.firestore }) }));
+vi.mock("../contexts/FirebaseServicesContext", () => {
+  const app = {name:"fitness-test",options:{projectId:"demo-fitness-test"}};
+  const services = {firestore:mocks.firestore,auth:{app,get currentUser(){return mocks.user;}},functions:{app},
+    ensureAppCheckReady:vi.fn().mockResolvedValue(undefined),getAppCheckToken:vi.fn().mockResolvedValue(null)};
+  return {useFirebaseServices:()=>services};
+});
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: vi.fn() }) }));
 vi.mock("./useTrainingDecision", () => ({useTrainingDecision:()=>({enabled:false,envelope:null})}));
 vi.mock("./useFtpHistory", () => ({ useFtpHistory: () => ({ entries: [] }) }));
@@ -48,7 +53,7 @@ function seed(activities: Activity[]) {
   setCollectionDocs("activities", activities as unknown as Array<Record<string,unknown>&{id:string}>);
   for (const a of activities) setDocData(`activity_metrics/${a.id}`,{tss:100});
 }
-beforeEach(()=>{clearTrainingSurfaceCache();mocks.timeseries=null;mocks.multisport=false;mocks.profile=null;mocks.userFitness=null;vi.mocked(getDoc).mockClear();});
+beforeEach(()=>{sessionStorage.clear();clearTrainingSurfaceCache();mocks.timeseries=null;mocks.multisport=false;mocks.profile=null;mocks.userFitness=null;vi.mocked(getDoc).mockClear();});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 describe("retained activity without raw summary",()=>{
   it.each(["bike", "run", "swim", "tri"])("%s 체력은 활동별 metrics를 읽지 않고 게시된 부하를 유지한다", async sport => {
