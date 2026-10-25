@@ -51,3 +51,19 @@ it("clears a rendered result on same-UID SDK replacement and on focus",async()=>
  mocks.services.auth.currentUser={...mocks.user};view.rerender(<SegmentLocalLegendProgress segmentId="s"/>);
  expect(screen.queryByText(/라이더 A/)).not.toBeInTheDocument();
 });
+
+it("expires a completed checkpoint and starts a fresh run instead of trapping resume",async()=>{
+ vi.useFakeTimers();
+ try{
+  mocks.load.mockResolvedValueOnce({...complete,expiresAt:Date.now()+1000});
+  renderWithProviders(<SegmentLocalLegendProgress segmentId="s"/>);
+  await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"더 많은 기록 확인"}));});
+  expect(screen.getByText(/라이더 A/)).toBeInTheDocument();
+  await act(async()=>{vi.advanceTimersByTime(1001);});
+  expect(screen.queryByText(/라이더 A/)).not.toBeInTheDocument();
+  mocks.load.mockResolvedValueOnce({...complete,expiresAt:Date.now()+60000});
+  await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"더 많은 기록 확인"}));});
+  expect(mocks.load.mock.calls.map(c=>c[2].action)).toEqual(["start","start"]);
+  expect(mocks.load.mock.calls[1][2]).not.toHaveProperty("runId");
+ }finally{vi.useRealTimers();}
+});

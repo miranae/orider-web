@@ -22,11 +22,16 @@ export default function SegmentLocalLegendProgress({segmentId}:{segmentId:string
   const timer=run?.result?setTimeout(()=>clear(),Math.min(30000,Math.max(0,run.expiresAt-Date.now()))):undefined;
   return()=>{document.removeEventListener("visibilitychange",hide);window.removeEventListener("focus",focus);if(timer)clearTimeout(timer);};
  },[run]);
+ useEffect(()=>{
+  if(!run||run.state==="expired")return;
+  const timer=setTimeout(()=>{epoch.current++;setStored({epoch:epoch.current,run:{...run,state:"expired",result:null,finalAsOf:null},error:false,stale:true});},Math.max(0,run.expiresAt-Date.now()));
+  return()=>clearTimeout(timer);
+ },[run]);
  async function start(restart:boolean){
   if(!user||user.isAnonymous||!sdk||sdk.isAnonymous||sdk.uid!==user.uid||busy.current)return;
   const origin=owner.current,token=++epoch.current;
   const current=()=>token===epoch.current&&owner.current===origin&&services.auth.currentUser===sdk&&document.visibilityState!=="hidden";
-  let latest=restart?null:run;
+  let latest=restart||(run&&Date.now()>=run.expiresAt)?null:run;
   busy.current=true;setRunning(true);setStored({epoch:token,run:latest?{...latest,result:null,finalAsOf:null}:null,error:false,stale:true});
   try{
    for(let i=0;i<32;i++){
@@ -45,7 +50,7 @@ export default function SegmentLocalLegendProgress({segmentId}:{segmentId:string
  const result=!stale?run?.result:null;
  return <Stack gap="var(--space-2)">
   <Text as="p">{t("legendProgress.intro")}</Text>
-  <Button disabled={running||!user||user.isAnonymous} onClick={()=>void start(!run||run.state==="expired"||run.state==="limit")}>{t(run&&run.state!=="expired"&&run.state!=="limit"?"legendProgress.resume":"legendProgress.start")}</Button>
+  <Button disabled={running||!user||user.isAnonymous} onClick={()=>void start(!run||run.state==="expired"||run.state==="limit"||Date.now()>=run.expiresAt)}>{t(run&&run.state!=="expired"&&run.state!=="limit"&&Date.now()<run.expiresAt?"legendProgress.resume":"legendProgress.start")}</Button>
   {running&&<><Text role="status">{t("legendProgress.loading",{steps:run?.steps??0})}</Text><Button variant="ghost" onClick={()=>clear(true)}>{t("legendProgress.stop")}</Button></>}
   {stored.epoch===epoch.current&&stored.error&&<Text role="alert">{t("safeLegend.error")}</Text>}
   {run?.state==="limit"&&<Text role="status">{t("legendProgress.limit")}</Text>}
