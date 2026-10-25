@@ -192,10 +192,10 @@ describe("MobileFeedPage", () => {
     expect(screen.getByText("최근 사이클")).toBeInTheDocument();
   });
 
-  it("includes this year's activities from local January 1 and excludes the previous year", () => {
-    const year = new Date().getFullYear();
-    const january = new Date(year, 0, 1, 12).getTime();
-    const december = new Date(year - 1, 11, 31, 12).getTime();
+  it("includes this year from January 1 KST and excludes the preceding millisecond", () => {
+    const year = new Date(Date.now() + 9 * 3600000).getUTCFullYear();
+    const january = Date.UTC(year, 0, 1) - 9 * 3600000;
+    const december = january - 1;
     const activities = [
       createMockActivity({ id: "january", description: "올해 첫 활동", startTime: january, endTime: january + 3600000 }),
       createMockActivity({ id: "december", description: "작년 마지막 활동", startTime: december, endTime: december + 3600000 }),

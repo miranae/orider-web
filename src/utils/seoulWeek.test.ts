@@ -1,3 +1,4 @@
+import { seoulYearStartMs } from "./seoulWeek";
 import { describe, it, expect } from "vitest";
 import { seoulWeekStartMs, seoulWeekday, seoulWeekRange, isWithin, WEEK_MS } from "./seoulWeek";
 
@@ -70,5 +71,14 @@ describe("seoulWeekRange", () => {
     const last = seoulWeekRange(now, 1);
     const prev = seoulWeekRange(now, 2);
     expect(prev.endMs).toBe(last.startMs);
+  });
+});
+
+describe("seoulYearStartMs", () => {
+  it("switches years at KST midnight while UTC is still December", () => {
+    const boundary = Date.parse("2026-01-01T00:00:00+09:00");
+    expect(seoulYearStartMs(boundary - 1)).toBe(Date.parse("2025-01-01T00:00:00+09:00"));
+    expect(seoulYearStartMs(boundary)).toBe(boundary);
+    expect(seoulYearStartMs(Date.parse("2026-12-31T23:59:59+09:00"))).toBe(boundary);
   });
 });

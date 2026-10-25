@@ -1,3 +1,4 @@
+import { seoulYearStartMs } from "../../utils/seoulWeek";
 import { withActivityPresentation } from "@shared/analysis/activityPresentation";
 import SportIcon from "../common/SportIcon";
 import HomeActivitySportIcon from "../common/HomeActivitySportIcon";
@@ -398,7 +399,7 @@ export default function MobileFeedPage({
   const cutoff = datePreset === "all"
     ? 0
     : datePreset === "year"
-      ? new Date(new Date().getFullYear(), 0, 1).getTime()
+      ? seoulYearStartMs(Date.now())
       : Date.now() - (datePreset === "7d" ? 7 : datePreset === "30d" ? 30 : 90) * 86400000;
   const filteredByDate = cutoff > 0 ? filteredByScope.filter((a) => a.startTime >= cutoff) : filteredByScope;
   const filteredActivities = filteredByDate;

@@ -31,7 +31,7 @@ import { acceptedTrainingActivities, acceptedStatsActivities } from "../utils/es
 import { buildWeeklyLoadEvidence } from "../utils/weeklyLoadEvidence";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { getDiscipline, type Discipline } from "../utils/disciplineFilter";
-import { seoulWeekStartMs } from "../utils/seoulWeek";
+import { seoulWeekStartMs, seoulYearStartMs } from "../utils/seoulWeek";
 import {
   executeFirestoreSessionRecovery,
   firestoreRecoveryLogContext,
@@ -922,8 +922,7 @@ function getDateFrom(preset: DatePreset): number | null {
     case "90d":
       return now.getTime() - 90 * 86400000;
     case "year": {
-      const yearStart = new Date(now.getFullYear(), 0, 1);
-      return yearStart.getTime();
+      return seoulYearStartMs(now.getTime());
     }
   }
 }
