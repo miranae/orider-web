@@ -9,7 +9,7 @@ const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v ===
 const exact = (v: unknown, keys: string[]): v is Record<string, unknown> => object(v) && Object.keys(v).length === keys.length && keys.every(k => Object.prototype.hasOwnProperty.call(v,k));
 const count = (v: unknown, max: number): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v <= max;
 const id = (v: unknown): v is string => typeof v === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(v);
-const cursor = (v: unknown): v is string => typeof v === 'string' && v.length <= 2800 && /^mrgi1\.[A-Za-z0-9_-]{39,}$/.test(v);
+const cursor = (v: unknown): v is string => typeof v === 'string' && v.length <= 2800 && /^mrgi1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(v);
 export function validActivityMatchedRouteInventoryRequest(v: unknown): v is ActivityMatchedRouteInventoryRequest {
  return object(v) && exact(v,['mode','anchorActivityId','discipline',...('geometryPolicy' in v?['geometryPolicy']:[]),...('year' in v?['year']:[]),...('inventoryCursor' in v?['inventoryCursor']:[])])
   && v.mode==='matched_route_inventory_page' && id(v.anchorActivityId) && ['bike','run'].includes(String(v.discipline))
