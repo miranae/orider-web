@@ -440,14 +440,15 @@ describe("useActivities", () => {
     expect(where).toHaveBeenCalledWith("visibility", "in", ["everyone", "friends"]);
   });
 
-  it.each(["self", "friends", "all"] as const)("applies %s visibility across pages and counts without duplicate own/public activities", async (scope) => {
+  it.each(["self", "friends", "all"] as const)("applies %s visibility and document-name ties across pages without duplicate own/public activities", async (scope) => {
     type Constraint = { type: string; args: unknown[] };
     type MockQuery = { constraints: Constraint[] };
     const rows = ["owner-1", "friend-1", "stranger"].flatMap((userId, ownerIndex) =>
       (["everyone", "friends", "private"] as const).flatMap((visibility, visibilityIndex) =>
         Array.from({ length: 4 }, (_, index) => createMockActivity({
           id: `${userId}-${visibility}-${index}`, userId, visibility,
-          deletedAt: null, startTime: 1000 - index * 100 - ownerIndex * 10 - visibilityIndex,
+          deletedAt: null, startTime: 1000 - index * 100,
+          source: (ownerIndex + visibilityIndex) % 2 ? "orider" : "strava",
           profileImage: "https://example.com/avatar.jpg",
         })),
       ),
@@ -463,7 +464,7 @@ describe("useActivities", () => {
     };
     const selectedRows = (request: MockQuery) => rows
       .filter((row) => request.constraints.every((constraint) => matches(row, constraint)))
-      .sort((a, b) => b.startTime - a.startTime);
+      .sort((a, b) => b.startTime - a.startTime || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
     const queryMock = vi.mocked(query);
     const docsMock = vi.mocked(getDocs);
     const countMock = vi.mocked(getCountFromServer);
@@ -488,7 +489,7 @@ describe("useActivities", () => {
         row.userId === "owner-1" ||
         (scope !== "self" && row.userId === "friend-1" && row.visibility !== "private") ||
         (scope === "all" && row.visibility === "everyone")
-      )).sort((a, b) => b.startTime - a.startTime).map((row) => row.id);
+      )).sort((a, b) => b.startTime - a.startTime || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0)).map((row) => row.id);
       await waitFor(() => expect(result.current.activities.length).toBe(Math.min(expected.length, 10)));
       await waitFor(() => expect(result.current.loadingMore).toBe(false));
       while (result.current.hasMore) {
@@ -1248,14 +1249,14 @@ describe("useWeeklyStats", () => {
 });
 
 describe("useActivitySearch", () => {
-  it("reads at most 20 per source and preserves the merged order across pages", async () => {
+  it.each([false, true])("reads at most 20 per source and preserves merged order across pages (ties=%s)", async (ties) => {
     simulateLogin({ uid: "user-1" });
     const own = Array.from({ length: 20 }, (_, index) => {
-      const activity = createMockActivity({ id: `own-${index}`, userId: "user-1", startTime: 100 - index * 2 });
+      const activity = createMockActivity({ id: `own-${String(20 - index).padStart(2, "0")}`, userId: "user-1", startTime: ties ? 100 : 100 - index * 2 });
       return { id: activity.id, data: () => activity };
     });
     const publicDocs = Array.from({ length: 20 }, (_, index) => {
-      const activity = createMockActivity({ id: `public-${index}`, userId: "other", startTime: 99 - index * 2 });
+      const activity = createMockActivity({ id: `public-${String(20 - index).padStart(2, "0")}`, userId: "other", startTime: ties ? 100 : 99 - index * 2 });
       return { id: activity.id, data: () => activity };
     });
     const reads = vi.mocked(getDocs).mockClear();
@@ -1266,7 +1267,7 @@ describe("useActivitySearch", () => {
     const { result } = renderHook(() => useActivitySearch(new Set()), { wrapper });
     act(() => result.current.search("ride"));
     await waitFor(() => expect(result.current.results).toHaveLength(20));
-    expect(result.current.results.map((activity) => activity.startTime)).toEqual(Array.from({ length: 20 }, (_, index) => 100 - index));
+    expect(result.current.results.map(activity => activity.id)).toEqual(ties ? publicDocs.map(doc => doc.id) : Array.from({ length: 20 }, (_, index) => (index % 2 ? publicDocs : own)[Math.floor(index / 2)].id));
     expect(reads).toHaveBeenCalledTimes(2);
     expect(vi.mocked(limit).mock.calls.every(([count]) => count <= 20)).toBe(true);
 
@@ -1274,7 +1275,14 @@ describe("useActivitySearch", () => {
       .mockResolvedValueOnce({ docs: [] } as unknown as Awaited<ReturnType<typeof getDocs>>);
     act(() => { result.current.loadMore(); result.current.loadMore(); });
     await waitFor(() => expect(result.current.results).toHaveLength(40));
-    expect(result.current.results.map((activity) => activity.startTime)).toEqual(Array.from({ length: 40 }, (_, index) => 100 - index));
+    expect(result.current.results.map(activity => activity.id)).toEqual(ties ? [...publicDocs, ...own].map(doc => doc.id) : Array.from({ length: 40 }, (_, index) => (index % 2 ? publicDocs : own)[Math.floor(index / 2)].id));
+    if (ties) {
+      // The untouched own buffer fills page two; its source must not be refetched early.
+      expect(reads).toHaveBeenCalledTimes(3);
+      expect(result.current.hasMore).toBe(true);
+      act(() => result.current.loadMore());
+      await waitFor(() => expect(result.current.hasMore).toBe(false));
+    }
     expect(reads).toHaveBeenCalledTimes(4);
     expect(startAfter).toHaveBeenCalledWith(own[19]);
     expect(startAfter).toHaveBeenCalledWith(publicDocs[19]);

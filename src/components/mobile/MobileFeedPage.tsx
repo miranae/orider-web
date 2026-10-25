@@ -1,3 +1,4 @@
+import { compareActivityFeedOrder } from "../../utils/activityFeedOrder";
 import { NativeActivityPhotoImage } from "../activity/NativeActivityPhotoImage";
 import { seoulYearStartMs } from "../../utils/seoulWeek";
 import { withActivityPresentation } from "@shared/analysis/activityPresentation";
@@ -387,7 +388,7 @@ export default function MobileFeedPage({
         merged.set(activity.id, activity);
       }
     }
-    return [...merged.values()].sort((a, b) => b.startTime - a.startTime);
+    return [...merged.values()].sort(compareActivityFeedOrder);
   })() : activities;
   const visibleActivities = sourceActivities.filter((a) => !isTrivialActivity(a));
   const filteredBySport = sportFilter === "all" ? visibleActivities : visibleActivities.filter(a => getDiscipline(a.type) === sportFilter);
