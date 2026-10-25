@@ -25,3 +25,9 @@ it("rejects malformed or unsafe response and propagates network failure", async 
   await expect(resolveFriendInvitePreview(services(), "ABC123")).rejects.toThrow("invalid_friend_invite");
   m.call.mockRejectedValue(new Error("offline")); await expect(resolveFriendInvitePreview(services(), "ABC123")).rejects.toThrow("offline");
 });
+it("accepts the server 200-character nickname boundary and rejects overflow", async () => {
+  m.call.mockResolvedValue({ data: { profile: { ...profile, nickname: "가".repeat(200) } } });
+  await expect(resolveFriendInvitePreview(services(), "ABC123")).resolves.toMatchObject({ nickname: "가".repeat(200) });
+  m.call.mockResolvedValue({ data: { profile: { ...profile, nickname: "가".repeat(201) } } });
+  await expect(resolveFriendInvitePreview(services(), "ABC123")).rejects.toThrow("invalid_friend_invite");
+});
