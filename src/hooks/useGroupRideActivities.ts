@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import type { Activity } from "@shared/types";
-import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import { useFirebaseServices, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadActivityDiscovery } from "../services/activityDiscovery";
 import { logClientError } from "../services/errorLogger";
 
 const MAX_PAGES = 10;
 const EMPTY: Activity[] = [];
-type Context = { rideId: string; user: User | null; revision: number };
+type Context = { services: FirebaseServices; rideId: string; user: User | null; revision: number };
 type PageState = { context: Context; activities: Activity[]; cursor: string | null; pages: number };
 /** Bounded public observations; raw activity documents never enter the group view. */
 export function useGroupRideActivities(rideId: string | undefined, user: User | null) {
@@ -18,7 +18,7 @@ export function useGroupRideActivities(rideId: string | undefined, user: User | 
   const [error, setError] = useState(false);
   const active = useRef<Context | null>(null);
   const pending = useRef(false);
-  const current = state && state.context.rideId === rideId && state.context.user === user && state.context.revision === revision ? state : null;
+  const current = state && state.context.rideId === rideId && state.context.services === services && state.context.user === user && state.context.revision === revision ? state : null;
   useEffect(() => {
     const refresh = () => setRevision(value => value + 1);
     window.addEventListener("orider:activity-content-changed", refresh);
@@ -29,7 +29,7 @@ export function useGroupRideActivities(rideId: string | undefined, user: User | 
     };
   }, []);
   useEffect(() => {
-    const context = rideId ? { rideId, user, revision } : null;
+    const context = rideId ? { services, rideId, user, revision } : null;
     active.current = context; pending.current = false;
     setState(null); setError(false); setBusy(!!context);
     if (!context) return;
@@ -55,7 +55,10 @@ export function useGroupRideActivities(rideId: string | undefined, user: User | 
       setState({ context, activities: [...items.values()], cursor: page.nextCursor, pages: current.pages + 1 });
     } catch (err) {
       if (active.current !== context) return;
-      logClientError("useGroupRideActivities.loadMore", err); setError(true);
+      logClientError("useGroupRideActivities.loadMore", err);
+      const code = typeof err === "object" && err !== null && "code" in err ? String(err.code).replace(/^functions\//, "") : "";
+      if (["permission-denied", "unauthenticated", "not-found", "failed-precondition"].includes(code) || err instanceof Error && err.message === "account_changed") setState(null);
+      setError(true);
     } finally { if (active.current === context) { pending.current = false; setBusy(false); } }
   };
   return { context: current?.context ?? null, activities: current?.activities ?? EMPTY, loading: busy && !current, loadingMore: busy && !!current, error,

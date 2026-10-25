@@ -78,7 +78,8 @@ function isBetterCoRider(base: Activity, next: Activity, current: Activity): boo
   return next.id < current.id;
 }
 
-export function selectActualCoRiders(base: Activity, candidates: Activity[]): Activity[] {
+/** serverVerifiedAnchorId is only supplied after the owner-anchor discovery contract verifies each returned peer. */
+export function selectActualCoRiders(base: Activity, candidates: Activity[], verified?: { serverVerifiedAnchorId: string }): Activity[] {
   const baseSport = getSportCategory(base.type);
   const baseVirtual = isVirtual(base);
   const byUser = new Map<string, Activity>();
@@ -90,7 +91,7 @@ export function selectActualCoRiders(base: Activity, candidates: Activity[]): Ac
     // 타인의 원본 스트림은 클라이언트에서 읽을 수 없다. 썸네일 경로와 활동 시간대를
     // 각각 비교해 동승을 추정하지 않고, 백엔드가 같은 시각의 GPS 근접성을 검증해
     // 양쪽 활동에 저장한 직접 peer 관계만 표시한다.
-    if (!hasPersistedSynchronizedMatch(base, candidate)) continue;
+    if (verified?.serverVerifiedAnchorId !== base.id && !hasPersistedSynchronizedMatch(base, candidate)) continue;
     if (getSportCategory(candidate.type) !== baseSport) continue;
     if (isVirtual(candidate) !== baseVirtual) continue;
     if ((candidate.summary.distance ?? 0) < MIN_CANDIDATE_DISTANCE_M) continue;

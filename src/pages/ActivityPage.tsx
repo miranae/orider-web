@@ -1,3 +1,4 @@
+import { loadActivityDiscovery } from "../services/activityDiscovery";
 import RouteInventoryReturn from "../features/activity/detail/RouteInventoryReturn";
 import { announceActivityContentChange } from "../services/activityContentChanged";
 import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
@@ -323,17 +324,11 @@ export default function ActivityPage() {
 
     let cancelled = false;
     const identity = currentCoRiderIdentity;
-    const q = query(
-      collection(firestore, "activities"),
-      where("groupRideId", "==", activity.groupRideId),
-      where("deletedAt", "==", null),
-      where("visibility", "==", "everyone"),
-    );
-    getDocs(q).then((snap) => {
-      const candidates = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }) as Activity)
-        .filter((a) => a.visibility === "everyone");
-      if (!cancelled) { setCoRiders(selectActualCoRiders(activity, candidates)); setCoRiderIdentity(identity); }
+    loadActivityDiscovery(photoServices, { scope: "groupRide", rideId: activity.groupRideId, anchorActivityId: activity.id, limit: 20 }).then(page => {
+      if (!cancelled) {
+        setCoRiders(selectActualCoRiders(activity, page.items, { serverVerifiedAnchorId: activity.id }));
+        setCoRiderIdentity(identity);
+      }
     }).catch((err) => {
       if (cancelled) return;
       if (isPermissionDeniedError(err)) {
@@ -343,7 +338,7 @@ export default function ActivityPage() {
       logClientError("ActivityPage.bg", err, {});
     });
     return () => { cancelled = true; };
-  }, [activity?.groupRideId, activity?.id, currentCoRiderIdentity]);
+  }, [activity?.groupRideId, activity?.id, currentCoRiderIdentity, photoServices, user]);
 
   // Real-time kudos subscription
   useEffect(() => {

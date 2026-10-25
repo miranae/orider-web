@@ -1,8 +1,9 @@
+import { useFirebaseServices, type FirebaseServices } from "../contexts/FirebaseServicesContext";
+import { loadActivityDiscovery } from "../services/activityDiscovery";
 import { useEffect, useState } from "react";
-import { collection, getDocs, limit, orderBy, query, where, type DocumentData } from "firebase/firestore";
+import { collection, getDocs, limit, query, where, type DocumentData } from "firebase/firestore";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import type { Activity } from "@shared/types";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
 import { useAuth } from "../contexts/AuthContext";
 import { useFriends } from "../hooks/useFriends";
@@ -23,26 +24,17 @@ function readText(data: DocumentData, field: string): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
-async function loadRecentRideImage(userId: string): Promise<string | null> {
+async function loadRecentRideImage(services: FirebaseServices, userId: string): Promise<string | null> {
   try {
-    const snap = await getDocs(query(
-      collection(firestore, "activities"),
-      where("userId", "==", userId),
-      where("deletedAt", "==", null),
-      orderBy("createdAt", "desc"),
-      limit(8),
-    ));
-    const recentPublicRide = snap.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }) as Activity)
-      .find((activity) => activity.visibility === "everyone" && (activity.mapImageUrl || activity.thumbnailTrack));
-    return recentPublicRide?.mapImageUrl ?? null;
+    const page = await loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, limit: 8 });
+    return page.items.find(activity => activity.mapImageUrl)?.mapImageUrl ?? null;
   } catch (err) {
     logClientError("FriendInvitePage.recentRidePreview", err, { userId });
     return null;
   }
 }
 
-async function loadInvitePreview(code: string): Promise<InvitePreview | null> {
+async function loadInvitePreview(services: FirebaseServices, code: string): Promise<InvitePreview | null> {
   const snap = await getDocs(query(
     collection(firestore, "users_public"),
     where("friendCode", "==", code),
@@ -53,11 +45,12 @@ async function loadInvitePreview(code: string): Promise<InvitePreview | null> {
   const data = profileDoc.data();
   const nickname = readText(data, "nickname") ?? readText(data, "displayName") ?? profileDoc.id.slice(0, 8);
   const photoURL = readText(data, "photoURL");
-  const rideImageUrl = await loadRecentRideImage(profileDoc.id);
+  const rideImageUrl = await loadRecentRideImage(services, profileDoc.id);
   return { userId: profileDoc.id, nickname, photoURL, rideImageUrl };
 }
 
 export default function FriendInvitePage() {
+  const services = useFirebaseServices();
   const { code } = useParams<{ code: string }>();
   const { t } = useTranslation("friends");
   const { user, loading: authLoading, signIn } = useAuth();
@@ -101,7 +94,7 @@ export default function FriendInvitePage() {
   useEffect(() => {
     if (!code || user) return;
     let cancelled = false;
-    loadInvitePreview(code)
+    loadInvitePreview(services, code)
       .then((preview) => {
         if (!cancelled) setInvitePreview(preview);
       })
@@ -112,7 +105,7 @@ export default function FriendInvitePage() {
     return () => {
       cancelled = true;
     };
-  }, [code, user]);
+  }, [code, user, services]);
 
   if (authLoading) {
     return (

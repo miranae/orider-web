@@ -47,3 +47,12 @@ it("stops after the view budget without reporting a complete participant count",
   await act(async () => result.current.loadMore());
   expect(loadActivityDiscovery).toHaveBeenCalledTimes(10);
 });
+
+it("removes earlier pages when the next request proves access was revoked", async () => {
+  vi.mocked(loadActivityDiscovery).mockResolvedValueOnce(page(["private-later"], "next")).mockRejectedValueOnce({ code: "functions/permission-denied" });
+  const { result } = renderHook(() => useGroupRideActivities("ride", owner));
+  await waitFor(() => expect(result.current.hasMore).toBe(true));
+  await act(async () => result.current.loadMore());
+  expect(result.current.activities).toEqual([]);
+  expect(result.current.error).toBe(true);
+});
