@@ -1,3 +1,4 @@
+import SegmentLocalLegend from "../features/segments/SegmentLocalLegend";
 import SegmentLeaderboard from "../features/segments/SegmentLeaderboard";
 import { loadMySegmentAttempts } from "../services/segmentLeaderboard";
 import { segmentMetric } from "../features/segments/segmentMetric";
@@ -647,7 +648,7 @@ function SegmentDetailContent() {
         </Card>}
       </div>
 
-      {detailTab === "ranking" && <Text as="p">{t("nativeBoard.legendPreparing")}</Text>}
+      {detailTab === "ranking" && segmentId && <SegmentLocalLegend key={`legend:${segmentId}:${user?.uid ?? ""}`} segmentId={segmentId} />}
 
       {/* 이 세그먼트를 쓰는 코스 — 역링크(#495) */}
       {detailTab === "overview" && usedByCourses.length > 0 && (

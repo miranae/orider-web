@@ -329,5 +329,14 @@
   "nativeBoard.end": "현재 조건의 마지막 페이지입니다. 기록·공개 범위가 바뀌면 처음부터 새로고침하세요.",
   "nativeBoard.legendPreparing": "구간 최다 완주자는 공개 범위와 삭제 상태를 검증하는 집계가 준비될 때 제공됩니다.",
   "nativeBoard.intro": "공개된 자체 야외 라이딩 기록을 비교합니다.",
-  "nativeBoard.criteria": "비교 기준과 조회 범위"
+  "nativeBoard.criteria": "비교 기준과 조회 범위",
+  "safeLegend.title": "로컬 레전드",
+  "safeLegend.intro": "이번 주를 포함한 13주간 공개 자체 기록의 완주 수를 비교합니다.",
+  "safeLegend.criteria": "한국시간 월요일 기준 13주입니다. 공개된 자체 야외 자전거 활동만 권한과 최신 버전을 확인하며, 같은 활동의 중복 기록은 한 번 셉니다. 최소 3회 완주부터 선정하며 동률은 기간 내 첫 완주가 빠른 순입니다. 현재 볼 수 있는 모집단 내 비교이며 전체 라이더 순위가 아닙니다.",
+  "safeLegend.load": "완주 수 조회·새로고침",
+  "safeLegend.error": "완주 수를 불러오지 못했습니다. 다시 시도해주세요.",
+  "safeLegend.partial": "최근 {{count}}개 기록 중 {{riders}}명의 완주 {{total}}회를 확인했습니다. 전체 기간을 확인하지 못해 레전드를 선정하지 않습니다.",
+  "safeLegend.complete": "기간 내 공개 허용 기록: {{riders}}명 · {{total}}회 완주",
+  "safeLegend.leader": "확인된 모집단의 최다 완주: {{name}} · {{count}}회",
+  "safeLegend.minimum": "선정 기준인 3회 이상 완주한 라이더가 아직 없습니다."
 }

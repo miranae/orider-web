@@ -331,5 +331,14 @@
   "nativeBoard.end": "Last page for these conditions. Refresh from the start when records or access change.",
   "nativeBoard.legendPreparing": "Most frequent rider will return when its aggregation can verify activity access and deletion status.",
   "nativeBoard.intro": "Compare public outdoor rides recorded by ORider.",
-  "nativeBoard.criteria": "Comparison criteria and coverage"
+  "nativeBoard.criteria": "Comparison criteria and coverage",
+  "safeLegend.title": "Local Legend",
+  "safeLegend.intro": "Compare completions from public native rides over 13 weeks including this week.",
+  "safeLegend.criteria": "The window starts on a Korean-time Monday, 13 weeks including this week. Only authorized current native outdoor cycling records count; duplicate records of the same activity count once. A minimum of 3 completions is required; ties favor the earliest completion in the window. This compares currently accessible riders, not all riders.",
+  "safeLegend.load": "Load or refresh completions",
+  "safeLegend.error": "Unable to load completions. Please try again.",
+  "safeLegend.partial": "Verified {{total}} completions by {{riders}} riders among the latest {{count}} records. The window is incomplete, so no legend is selected.",
+  "safeLegend.complete": "Authorized records in the window: {{riders}} riders · {{total}} completions",
+  "safeLegend.leader": "Most completions in the verified population: {{name}} · {{count}}",
+  "safeLegend.minimum": "No rider has reached the minimum of 3 completions yet."
 }
