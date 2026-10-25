@@ -1,7 +1,7 @@
 /** Public owner-only projection: no private source paths or input receipts. */
 export interface RecordedRouteHistoryBestDto {
   anchorActivityId: string; anchorInputRevision: string;
-  groups: number; rows: number; eligibleGroups: number; ambiguousGroups: number; unavailableGroups: number;
+  groups: number; rows: number; eligibleGroups: number; ambiguousGroups: number; unavailableGroups: number; excludedGroups: number;
   states: Record<"verified" | "missing" | "unsupported" | "changed", number>;
   bestElapsedSec: number | null; bestActivityIds: string[]; tieCount: number; tiesTruncated: boolean;
 }

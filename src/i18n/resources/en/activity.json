@@ -2925,36 +2925,38 @@
   },
   "routeHistory": {
     "title": "Check route times across saved history",
-    "scope": "Review your saved activities as of this request in small steps. Records identified as the same activity are grouped, then elapsed times through the observed reference interval are compared. Continue each step explicitly.",
+    "scope": "Check saved activities as of this request and compare elapsed times through the observed reference interval. Each action checks a bounded batch sequentially.",
     "start": "Start history check",
     "restart": "Start a new check",
     "continue": "Check next records",
     "retry": "Check progress again",
     "stop": "Stop and clear results",
-    "counts": "{{scanned}} activities checked · {{candidates}} candidates · {{excluded}} excluded · {{unresolved}} unresolved",
+    "counts": "{{scanned}} activities checked · {{candidates}} candidates · {{excluded}} excluded · {{unresolved}} processing unresolved",
     "time": "As of {{asOf}} KST · continue until {{expires}} KST",
     "elapsed": "Shortest verified elapsed time {{time}}",
-    "quality": "{{eligible}} eligible groups · {{ambiguous}} ambiguous · {{unavailable}} unavailable",
+    "quality": "{{eligible}} eligible groups · {{excluded}} different-route or direction exclusions · {{ambiguous}} ambiguous · {{unavailable}} unavailable",
     "source": "Open source activity {{index}}",
     "ties": "Showing {{shown}} of {{count}} tied records.",
-    "limit": "These are saved observed intervals. This does not establish a complete physical ride or your current all-time personal best. Returning from a source requires a fresh check. Stopping does not cancel a step already sent to the server.",
+    "limit": "Comparison uses GPS intervals saved at the request time. Missing records or later changes may not be reflected.",
     "phase": {
       "scanning": "Checking activities. No best time is shown yet.",
       "identity": "Checking overlapping activity records.",
       "reducing": "Comparing elapsed times in the checked records."
     },
     "status": {
-      "loading": "Checking one step.",
-      "ready": "This step is complete.",
+      "loading": "Checking records sequentially.",
+      "ready": "This check is finished. Continue if more records remain.",
       "error": "The request result could not be confirmed. Check progress again.",
       "expired": "This check has expired. Start again.",
       "invalidated": "The account or an activity changed. Results were cleared. Start again.",
-      "stopped": "Stopped and cleared the displayed results."
+      "stopped": "Stopped and cleared the displayed results.",
+      "hidden": "The result needs to be checked again."
     },
     "best": {
       "unavailable": "No comparable elapsed time was found in this check.",
       "observed_best_with_gaps": "Some records remain unresolved or unavailable. The time below is the shortest among the verified records.",
       "verified_recorded_best": "The comparison set saved at the request time has been checked."
-    }
+    },
+    "sources": "{{missing}} sources unavailable · {{unsupported}} unsupported · {{changed}} changed"
   }
 }
