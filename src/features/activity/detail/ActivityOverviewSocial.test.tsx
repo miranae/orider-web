@@ -1,7 +1,10 @@
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import type { Activity } from "@shared/types";
 import ActivityOverviewSocial, { type OverviewPhoto } from "./ActivityOverviewSocial";
+
+const nativeLoad = vi.hoisted(() => vi.fn());
+vi.mock("../../../services/nativeActivityPhoto", async importOriginal => ({ ...await importOriginal<typeof import("../../../services/nativeActivityPhoto")>(), loadNativeActivityPhoto: nativeLoad }));
 
 const photo = (index: number): OverviewPhoto => ({ id: `strava-${index}`, url: `https://images.example/${index}.jpg`, caption: `Photo ${index}` });
 const base = { activityId: "strava_1", memo: "작성자가 남긴 실제 메모", photos: Array.from({ length: 5 }, (_, index) => photo(index)), totalPhotos: 9,
@@ -96,4 +99,16 @@ it("reads mobile achievements before the story without duplicating results or ch
   expect(base.onShowResults).toHaveBeenCalledOnce();
   view.rerender(<ActivityOverviewSocial {...base} />);
   expect(story.compareDocumentPosition(results) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+it("renders a native photo reference through authorized bytes instead of a storage URL", async () => {
+  nativeLoad.mockResolvedValue(new Blob(["photo"], {type:"image/webp"}));
+  const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:authorized-photo");
+  const reference = {activityId:"native-ride",photoId:"native-photo"};
+  renderWithProviders(<ActivityOverviewSocial {...base} photos={[{id:"native-photo",url:"",nativePhoto:reference,caption:"Native photo"}]} totalPhotos={1} />);
+  await waitFor(() => expect(screen.getByRole("img",{name:"Native photo"})).toHaveAttribute("src","blob:authorized-photo"));
+  expect(nativeLoad).toHaveBeenCalledWith(expect.anything(),reference);
+  fireEvent.click(screen.getByRole("button",{name:"사진 1 / 1 보기"}));
+  expect(await screen.findByRole("dialog")).toHaveTextContent("1 / 1");
+  create.mockRestore();
 });
