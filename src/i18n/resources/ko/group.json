@@ -597,5 +597,7 @@
   "ridePage.chart.panHint": "드래그로 이동 · 이동 버튼에서 ←·→ · 세로축은 전체 기록 기준",
   "ridePage.chart.panUnavailable": "구간을 선택하면 이동할 수 있어요.",
   "events.discoveryIncomplete": "다음 이벤트를 더 확인할 수 있습니다.",
-  "events.continueDiscovery": "이벤트 목록에서 계속 확인"
+  "events.continueDiscovery": "이벤트 목록에서 계속 확인",
+  "error.joinVerificationWait": "브라우저 보안 확인이 일시 제한되어 가입 신청을 보내지 못했습니다. 약 {{count}}분 후 다시 시도해 주세요. 초대 코드를 다시 입력할 필요는 없습니다.",
+  "error.joinVerificationFailed": "브라우저 보안 확인을 완료하지 못해 가입 신청을 보내지 못했습니다. 네트워크와 브라우저 설정을 확인한 뒤 잠시 후 다시 시도해 주세요."
 }
