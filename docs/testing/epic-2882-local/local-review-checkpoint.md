@@ -1,6 +1,25 @@
 # Local review checkpoints
 
-## Public discovery, route inventory and settings continuation
+## Endpoint map privacy and local acceptance continuation
+
+2026-10-26. Server `663d0042`, source `fa358f202dee`, active local artifact `91bc5869dcfd`. Web product through `71615230`; subsequent final test fixture checkpoint is recorded below. No remote writes, pushes, merges, rule deployment or application deployment occurred.
+
+- [Map privacy](map-privacy-followup.md): owner preview/save uses endpoint radii, revision checks and original-source witnesses. Protected public geometry cannot cross hidden endpoint areas; missing or changed source hides the entire public map. Original owner GPS/analysis remain intact. Existing derived map objects are removed in bounded, retryable batches; original streams/photos are untouched. This does not revoke copies already downloaded or prove production historical URL cleanup.
+- Visible feed/profile/group maps and public detail revalidate current server geometry on focus/visibility and a 30-second cadence. Background/error states clear geometry. Requests are identity-scoped, batched up to 20 and have a whole-operation deadline. Browser scheduling/network suspension prevent a hard wall-clock guarantee.
+- Actual isolated SDK/HTTP browser checks cover preview without persistence, saved 300m protection, nonowner coordinate omission, preserved owner originals, source-change fail-closed behavior, and already-open detail/feed 300m → 5000m hidden → 300m restored. The review fixture remains at 300m. Group selection, original-activity return and lack of false raw hover mapping passed.
+- [Accessibility and recovery](public-ui-accessibility-recovery.md): 200% text, keyboard navigation, recoverable comment failures and comment-delete races were verified. Visual inspection found zero-height maps and missing group map-provider fallback; both were fixed. Public and group safe route SVGs have positive measured bounds and actual screenshots. This proves route-line fallback, not a successful Mapbox basemap.
+- Server R5 inventory dry-run now supports bounded cursor continuation with no writes or object byte downloads. Actual five synthetic activities paged 2/2/1 with retry/resume and unchanged source timestamps. See the server `docs/analysis/native-route-backfill-plan.md`; this is not a production migration or proof of complete recorder history.
+- [R9 beta plan](beta-execution-plan.md) defines proposed cohorts, 14-day tasks, denominators and stop/resume decisions. No recruitment, real-rider observation or staged release occurred.
+
+Server Node 22 gates: **931 files / 15,646 tests passed**, **55 files / 539 opt-in tests skipped**; build, lint and compatibility passed. Separate actual Firestore/Storage checks passed 6 tests, direct Storage rules 1, Firestore policy 12 and upload race 6. These are overlapping runs and are not summed. Evidence is in external `map-privacy/` and the server verification document.
+
+Final web checkpoint `7de2887e` (product `71615230`, test correction `5a6a3ebc`): **916 files / 9,609 tests passed**. Final development build, full lint and quality budget passed. All contract suites passed at the preceding `208f17d6` source boundary; subsequent changes were route rendering, component test fixtures and documentation, with no contract scripts changed. Logs: `/tmp/orider-2882-privacy-web-final-{rerun,build,lint,quality}.log` and `/tmp/orider-2882-privacy-final-web-contracts.log`.
+
+The first final web run had 12 failures in ActivityCard/MobileFeedPage: mocks did not supply the new current-map API/readiness and DOM ancestry assertions depended on the old wrapper. Tests now await the actual contract and assert current-unavailable never restores cached geometry/images. No product privacy guard or timeout threshold was weakened. The complete rerun passed.
+
+Runtime verification and actual Firestore ruleCoverage readback are recorded in external `map-privacy/rules-readback.json`; source and active rules hash matched `46c535dc81095c24a0875dad8c88260d9e31eddb4534d99b0e1bcc997c6b07e8`. Review links are in external `REVIEW.md`. Complete paid-Strava parity, production migration/performance, actual rider beta and deferred app acceptance remain unproven.
+
+## Earlier public discovery, route inventory and settings continuation
 
 2026-10-26. Product web through `79905e59`, followed by the friend-invite correction `55acd692` and nickname-boundary follow-ups through `c0100af1`. All work remains local.
 

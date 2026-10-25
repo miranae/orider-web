@@ -1,6 +1,6 @@
 # Acceptance follow-up after the first local handoff
 
-Latest local implementation and complete verification checkpoint: [feed restoration, period load/log, metrics ownership and local review](local-review-checkpoint.md). It records the current discovery/settings/inventory verification (9,561 web / 15,639 Functions tests), earlier source-specific measurements, and remaining restoration/history limits without suppressing rate-limit responses.
+Latest local implementation and complete verification checkpoint: [feed restoration, period load/log, metrics ownership and local review](local-review-checkpoint.md). It records current map privacy, accessibility, route inventory and beta-plan evidence, earlier source-specific measurements, and remaining acceptance limits. Test results remain tied to their source checkpoint.
 
 2026-10-26. The preceding handoff proved a working local slice, not every requirement in epic miranae/orider-g1-app#2882. This audit re-read the current epic through authenticated GitHub CLI (the connector returned 404), compared source and existing evidence, and continued local implementation. Remote writes, pushes, merges and deployment remain prohibited by the user's latest instruction. App implementation remains deferred.
 
@@ -52,7 +52,7 @@ Paths above are relative to `/Users/kyoungnam/Documents/Codex/2026-10-26/orider-
 
 The goal and full epic remain open. No remote issue state is changed by this report.
 
-## Latest combined local checkpoint
+## Earlier combined local checkpoint
 
 Web `1a014fe6`, server `8c04d91f`: 893 web files / 9,480 tests and all contract suites passed. Web full lint, quality budget and development build passed. Server build, full lint and compatibility checks passed. See [cover/power evidence](cover-and-power-verification.md) for actual browser, concurrency and background-trigger checks. These supersede earlier full-regression counts for this source; earlier performance measurements remain scoped to their original SHA.
 
