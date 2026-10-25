@@ -40,6 +40,8 @@ function main() {
   const errors = [];
   // BE/WEB는 같은 accepted-load와 modern PMC 증거 순수 계약을 사용한다.
   for (const [file, expected] of [
+    ['analysis/stravaRecord.ts', 'fee21dad9c66d4955808a22ed992c9d3035b99b2f5e55e533fbc08dd8ca659a7'],
+    ['analysis/activityPresentation.ts', '3a28b2083c8cdee47597c8e948a26c64a7bfc53018d6af589553a01d65efce29'],
     ['training/activityStatsEligibility.ts', 'ca4ca327765cf7d3841e92168775a87f97c786ee009301b99206d52af943b581'],
     ['training/physicalRideEvidence.fixture.json', '9af4d9021447b1049b37f82dec9edc51216f07437b1f6830a15c1b179afaf93f'],
     ['training/physicalRideEvidence.ts', '49172ee603a27165a777b07d519cf83ab7419a96fc5e55911d3a2ff0d2f353f3'],
@@ -111,12 +113,12 @@ function main() {
 
   // overview wire 의미도 미러가 보존해야 한다 — 표시값만 맞아도 추정/잠정이 빠지면 계약 드리프트다.
   const overview = readFileSync(new URL('../shared/types/activity-overview.ts', import.meta.url), 'utf8');
-  if (createHash('sha256').update(overview).digest('hex') !== '9a30c7fcbab3a71f6319e5a36477086dce6904b97bd26704f12b3e0dcb1f8fc2') errors.push('overview 전체 계약 mirror가 backend 합의본과 다르다');
+  if (createHash('sha256').update(overview).digest('hex') !== 'da7f1bd309c822a594c7597ec0723e041cdb6db99e501792ebbcdf026feee1b6') errors.push('overview 전체 계약 mirror가 backend 합의본과 다르다');
   if (!/power:\s*[^;]*"estimated"/.test(overview)) errors.push('overview power estimated 의미가 없다');
   if (!/ftpVerificationRequired\?:\s*boolean/.test(overview)) errors.push('overview FTP 확인 필요 의미가 없다');
 
   const defaultSummary = readFileSync(new URL('../shared/types/activity-default-summary.ts', import.meta.url), 'utf8');
-  if (createHash('sha256').update(defaultSummary).digest('hex') !== '47f457e8ed67ef1fd9fed36459ee2f566b856ffef4c5d9b79ae725b1841d2b45') errors.push('저장 활동 요약 계약 mirror가 backend 합의본과 다르다');
+  if (createHash('sha256').update(defaultSummary).digest('hex') !== '9f3b4e10202ca06a970d3dd881b46e37ac940ab1cc966db27aedb3b17ca9f0e3') errors.push('저장 활동 요약 계약 mirror가 backend 합의본과 다르다');
 
   if (errors.length > 0) {
     console.error(`canonical 계약 사본 드리프트 ${errors.length}건:`);

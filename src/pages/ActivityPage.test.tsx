@@ -12,15 +12,8 @@ import * as overviewHook from "../hooks/useActivityOverview";
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { clearRideRouteIntentMemoryForTests } from "../features/activity/detail/RideActivityRouteButton";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
-import {
-  mockCallableInvocations,
-  mockSignInWithPopup,
-  mockUpdateDoc,
-  simulateLogin,
-  setCallableResult,
-  setCollectionDocs,
-  setDocData,
-} from "../__tests__/mocks/firebase";
+import { mockCallableInvocations, mockSignInWithPopup, mockUpdateDoc, simulateLogin,
+  setCallableResult, setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import { createMockActivity, createMockStreams, createMockSummary } from "../__tests__/fixtures/mockData";
 
 const shareButtonProps = vi.hoisted(() => vi.fn());
@@ -1546,7 +1539,8 @@ describe("ActivityPage", () => {
     expect(screen.getAllByText("평균 파워").length).toBeGreaterThan(0);
     expect(screen.getByText("최대 파워")).toBeInTheDocument();
     // 서버 정본이 없으면 저장된 요약에 "기기 요약" 표식이 붙는다 — 값은 그대로 기기 값이다.
-    expect(screen.getByText(/NP 147 W/)).toBeInTheDocument();
+    expect(screen.queryByText(/NP 147 W/)).not.toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /가중평균 파워 147 W/ })).toBeInTheDocument();
   });
 
   it("suppresses legacy sensor summaries measured only in the opening fragment", async () => {
@@ -1973,13 +1967,15 @@ describe("ActivityPage", () => {
       expect(document.querySelector(".animate-pulse") || notFound).toBeTruthy();
     });
   });
-  it("retains the current stored default summary once in the new overview", async () => {
-    const activity = withStoredSummary(createMockActivity({ id: "test-activity", source: "strava" }));
+  it.each(["orider", "strava"] as const)("uses current source evidence instead of stale generated text for %s", async source => {
+    const activity = withStoredSummary(createMockActivity({ id: "test-activity", source }));
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     renderWithProviders(<ActivityPage />);
     const story = await screen.findByRole("region", { name: "활동 이야기" });
-    expect(within(story).getByText(/저장된 활동 요약/).textContent).toBe(STORED_ACTIVITY_SUMMARY);
-    expect(screen.getAllByText(/저장된 활동 요약/)).toHaveLength(1);
+    if (source === "strava") {
+      expect(within(story).getByText(/Strava 원본/)).toBeInTheDocument();
+      expect(within(story).queryByText(/저장된 활동 요약/)).not.toBeInTheDocument();
+    } else expect(within(story).getByText(/저장된 활동 요약/).textContent).toBe(STORED_ACTIVITY_SUMMARY);
   });
 
   it.each([true, false])("only renders a memo and preview from the current complete projection revision (%s)", async valid => {
@@ -1998,7 +1994,6 @@ describe("ActivityPage", () => {
       expect(within(story).queryByRole("button", { name: "사진 1 / 9 보기" })).not.toBeInTheDocument();
     }
   });
-
 
 
 
