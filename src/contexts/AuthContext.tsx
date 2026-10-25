@@ -1,3 +1,4 @@
+import { appCheckFailureRecovery } from "../services/appCheckFailureRecovery";
 import {
   createContext,
   useCallback,
@@ -96,7 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelled || generation !== authGeneration) throw new Error("auth/session-changed");
         try { return await fn(); }
         catch (err) {
-          if (cancelled || generation !== authGeneration || i >= retries - 1) throw err;
+          // 제공자가 재시도를 금지한 토큰 발급은 1초/2초 뒤 반복하지 않는다.
+          if (appCheckFailureRecovery(err)?.throttled || cancelled || generation !== authGeneration || i >= retries - 1) throw err;
           await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
         }
       }
@@ -116,6 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const { data: ensuredProfile } = await callWithRetry(async () => {
             await ensureAppCheckReady();
+            // 대기 중 계정 전환/해제된 이전 작업은 새 인증 주체로 요청하지 않는다.
+            if (!isCurrent()) throw new Error("auth/session-changed");
             const ensureProfile = authCallable<void, UserProfile>("ensureUserProfile");
             return ensureProfile();
           }, generation);
