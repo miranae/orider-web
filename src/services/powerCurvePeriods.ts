@@ -146,7 +146,8 @@ function validateWeightNormalized(period: PowerCurvePeriodsResponse["periods"][n
   if (data.status !== (period.status === "partial" || excluded > 0 || dense?.partial ? "partial" : "complete")) invalid();
 }
 export async function loadPowerCurvePeriods(services: FirebaseServices, uid: string, request: PowerCurvePeriodsRequest) {
-  const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
+  const session = services.auth.currentUser;
+  const matches = () => !!uid && !!session && services.auth.currentUser === session && session.uid === uid && !session.isAnonymous;
   if (!matches()) throw new Error("account_changed");
   if (!validPowerCurvePeriodsRequest(request)) throw new Error("invalid_power_curve_periods_request");
   await services.ensureAppCheckReady();
