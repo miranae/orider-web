@@ -275,7 +275,7 @@
 .activity-power-reading-controls { display: grid; grid-template-columns: repeat(2, minmax(12rem, max-content)); align-items: end; gap: var(--space-4); margin-bottom: var(--space-5); }
 .activity-power-reading-controls:empty { display: none; }
 .activity-power-reading-controls > * { min-width: 0; }
-.activity-analysis-zone { grid-template-rows: auto 1fr auto; }
+.activity-analysis-zone { grid-template-rows: auto 1fr; align-content: start; }
 .activity-analysis-comparison-reading { max-width: 65ch; line-height: 1.6; }
 @media (max-width: 40rem) {
   .activity-power-reading-controls { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }

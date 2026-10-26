@@ -1,3 +1,4 @@
+import InfoTip from "../../../components/InfoTip";
 import { PowerReadingControls } from "./PowerReadingControls";
 import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
@@ -183,7 +184,7 @@ function ZoneStrip({ weights, className, label, labelled = false, items, sheen =
   </div>;
 }
 
-export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading, layout = "compact" }: { layout?: "compact" | "rows"; zone: Zone; highPercent?: number; baselineHighPercent?: number; heading: ReactNode }) {
+export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading, afterStrip, workKj, layout = "compact" }: { afterStrip?: ReactNode; workKj?: readonly (number | undefined)[]; layout?: "compact" | "rows"; zone: Zone; highPercent?: number; baselineHighPercent?: number; heading: ReactNode }) {
   const { t } = useTranslation(["activity", "fitness"]);
   const labels = zone.kind === "power" ? POWER_ZONE_LABELS : HR_ZONE_LABELS;
   const pcts = zone.currentPercentages?.length === zone.seconds.length ? zone.currentPercentages : undefined;
@@ -204,16 +205,17 @@ export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading, l
       </span>}
     </div>
     <ZoneStrip sheen={zone.kind === "power"} weights={weights} labelled items={items} label={`${t("overviewSummary.zoneBarLabel")}: ${describe(pcts)}`} />
+    {afterStrip}
     {baseline && <div className="activity-overview-zones__baseline">
       <ZoneStrip sheen={zone.kind === "power"} weights={baseline} className="activity-overview-zones__strip--baseline" label={`${t("overviewSummary.zoneBaselineAria")}: ${describe(baseline)}`} />
       <Text variant="caption" tone="tertiary">{t(zone.baselineScope === "discipline" ? "overviewSummary.zoneBaselineDiscipline" : "overviewSummary.zoneBaseline", { count: zone.priorSampleCount })}
         {baselineHighPercent != null && <> · <GlossaryText>{t("overviewSummary.usualHigh", { pct: one(baselineHighPercent) })}</GlossaryText></>}</Text>
     </div>}
-    {layout === "rows" ? <table className="activity-zone-reading-table" aria-label={t("overviewSummary.zoneBarLabel")}>
-      <thead><tr><th scope="col">{t("overviewEvidence.zone")}</th>{pcts && <th scope="col">%</th>}<th scope="col">{t("overviewEvidence.duration")}</th></tr></thead>
+    {layout === "rows" ? <table className={`activity-zone-reading-table ${workKj ? "activity-zone-reading-table--work" : ""}`} aria-label={t("overviewSummary.zoneBarLabel")}>
+      <thead><tr><th scope="col">{t("overviewEvidence.zone")}</th>{pcts && <th scope="col">%</th>}<th scope="col">{t("overviewEvidence.duration")}</th>{workKj && <th scope="col">kJ</th>}</tr></thead>
       <tbody>{zone.seconds.map((seconds, i) => <tr key={i}>
         <th scope="row"><span className="activity-zone-reading-name"><span aria-hidden="true" className={`activity-overview-swatch activity-overview-zone--${i + 1}`} />{name(i)}</span></th>
-        {pcts && <td>{`${one(pcts[i]!)}%`}</td>}<td>{clock(seconds)}</td>
+        {pcts && <td>{baseline ? <InfoTip tone="inherit" title={name(i)} label={t("analysisReading.zoneComparison", { zone: name(i) })} content={[t("overviewSummary.usualPct", { pct: one(baseline[i]!) }), zone.deltaPercentagePoints?.[i] != null ? `${t("overviewEvidence.change")} ${zone.deltaPercentagePoints[i]! > 0 ? "+" : ""}${one(zone.deltaPercentagePoints[i]!)}%p` : null].filter(Boolean).join(" · ")}>{`${one(pcts[i]!)}%`}</InfoTip> : `${one(pcts[i]!)}%`}</td>}<td>{clock(seconds)}</td>{workKj && <td>{workKj[i] != null && Number.isFinite(workKj[i]) ? one(workKj[i]!) : "—"}</td>}
       </tr>)}</tbody>
     </table> : <>
     <ul className="activity-overview-zones__legend" style={cssVar({ "--rows": Math.ceil(shown.length / 2) })}>

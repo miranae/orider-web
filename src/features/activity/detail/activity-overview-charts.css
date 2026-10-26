@@ -227,3 +227,7 @@
 .activity-zone-reading-table td { color: var(--ink-0); white-space: nowrap; }
 .activity-zone-reading-name { display: flex; align-items: center; gap: var(--space-2); }
 .activity-zone-reading-name > span { flex-shrink: 0; }
+
+.activity-power-zone-readings { display: grid; gap: var(--space-3); min-width: 0; }
+.activity-zone-reading-table--work th:first-child { width: 34%; }
+.activity-zone-reading-table--work th:not(:first-child), .activity-zone-reading-table--work td { padding-left: var(--space-1); }

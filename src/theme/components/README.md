@@ -504,3 +504,5 @@ semantic accent 16% 음영과 2px 양끝선을 그리며 취소·선택 완료 �
 활동 요약처럼 설명이 있는 수치는 `Stat layout="responsive"`를 사용하면 좁은 화면에서 라벨·수치를 같은 행에 두고 설명을 다음 행 전체 폭으로 읽을 수 있습니다. 페이지는 Stat 내부를 덮어쓰지 않고 수치 묶음의 열 수만 정합니다.
 
 `ToggleControls variant="axis" layout="field"`는 Input/Select 옆의 레이블이 있는 선택 항목에 사용한다. 외부 여백 없이 36px 높이로 정렬하며, 기본 차트 축 컨트롤의 32px 표시는 유지한다.
+
+`DistributionStrip` displays caller-supplied category weights as a single strip. Segment and legend triggers share hover/focus/tap explanations, with Escape/outside-tap dismissal. Zero categories remain in the legend, missing categories should be omitted by the caller. The activity reading catalogue demonstrates Seiler and FTP distributions with synthetic data.
