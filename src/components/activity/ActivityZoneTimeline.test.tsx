@@ -48,3 +48,8 @@ it.each([
   expect(screen.queryByRole("region",{name:"존 타임라인"})).not.toBeInTheDocument();
   expect(screen.getByText(/위치가 확인되지 않은 존 타임라인은/)).toBeInTheDocument();
 });
+
+it("does not mislabel absent FTP or HR boundaries as missing zone-time positions", () => {
+  const { container } = renderWithProviders(<ActivityZoneTimeline metrics={metrics({contextSnapshot: {} as ActivityMetricsDoc["contextSnapshot"], hrZoneBoundaries:null, renderSeries:{resolution:2,axes:{watts:[200,200],heartrate:[150,150]}}})} />);
+  expect(container).toBeEmptyDOMElement();
+});

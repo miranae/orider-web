@@ -51,7 +51,7 @@ export function ActivityZoneTimeline({ metrics }: ActivityZoneTimelineProps) {
     ];
   }, [metrics, t]);
   const axes = metrics?.renderSeries?.axes;
-  const hasObservedAxis = [axes?.heartrate, axes?.watts].filter(values => values?.some(value => typeof value === "number" && Number.isFinite(value))).length;
+  const hasObservedAxis = [metrics?.hrZoneBoundaries ? axes?.heartrate : undefined, metrics?.contextSnapshot?.ftp ? axes?.watts : undefined].filter(values => values?.some(value => typeof value === "number" && Number.isFinite(value))).length;
   if (hasObservedAxis === 0) return null;
   return <>
     {series.length > 0 && <ZoneTimeline series={series} movingDurationSec={metrics?.movingTimeSec} />}
