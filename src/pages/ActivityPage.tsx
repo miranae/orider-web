@@ -1,3 +1,4 @@
+import { useJourneyReadiness, ownerAnalysisOutcome } from "../hooks/useJourneyReadiness";
 import { activityIndependentRoute } from "../features/activity/detail/activityIndependentRoute";
 import { isPublicActivityAccessError } from "../services/publicActivityDetail";
 import { useAuthorizedActivityComments } from "../features/activity/detail/useAuthorizedActivityComments";
@@ -243,6 +244,15 @@ function ActivityPageContent({ publicAccess }: { publicAccess?: ActivityPublicAc
   const requestedTab = searchParams.get("tab") ?? "overview";
   const activeTab = requestedTab === "insights" ? "analysis" : requestedTab === "splits" || requestedTab === "laps" ? "segments"
     : ["overview", "analysis", "segments"].includes(requestedTab) || (requestedTab === "compare" && isActivityOwner) ? requestedTab : "overview";
+  const restartAnalysisMeasurement = useJourneyReadiness("analysis_ready", "web_owner_activity", "activity_analysis",
+    !publicAccess && !!user && !user.isAnonymous && activeTab === "analysis", activityId ?? "", user,
+    ownerAnalysisOutcome({ activityLoading: loadingActivity || authLoading, activityReady: !!activity && activity.id === activityId && isActivityOwner,
+      error: !!activityLoadError || !!streamsError || overview.error, processing: !!activityProcessing,
+      metricsStatus: serverMetrics.status, inputPending: serverMetrics.metrics?.inputPending, inputCoverage: serverMetrics.metrics?.inputCoverage,
+      overviewLoading: overview.loading, overviewStatus: overview.response?.status,
+      streamsLoading: loadingStreams, streamsResolved: !!streams,
+      noSensor: !!streamSensorSummary && !streamSensorSummary.hasPowerStream && !streamSensorSummary.hasHeartRateStream && !streamSensorSummary.hasCadenceStream && streamSensorSummary.rejections.length === 0,
+    }));
   useLayoutEffect(() => {
     const list = activityNavigationRef.current?.querySelector<HTMLElement>('[role="tablist"]');
     if (!list) return;
@@ -836,7 +846,7 @@ function ActivityPageContent({ publicAccess }: { publicAccess?: ActivityPublicAc
         <ErrorState
           title={isPermissionError ? tCommon("error.permission") : tCommon("error.title")}
           description={isPermissionError ? t("card.noActivity") : tCommon("error.description")}
-          onRetry={retryActivity}
+          onRetry={() => { restartAnalysisMeasurement(); retryActivity(); }}
         />
       </div>
     );
@@ -848,7 +858,7 @@ function ActivityPageContent({ publicAccess }: { publicAccess?: ActivityPublicAc
         title={t("card.processingActivity")}
         description={t("card.processingActivityDesc")}
         retryLabel={t("page.retry")}
-        onRetry={retryActivity}
+        onRetry={() => { restartAnalysisMeasurement(); retryActivity(); }}
       />
     );
   }
@@ -1371,7 +1381,7 @@ function ActivityPageContent({ publicAccess }: { publicAccess?: ActivityPublicAc
           <div className="text-center text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>
             <p>{streamsError}</p>
             <button
-              onClick={() => { void retryStreams(); }}
+              onClick={() => { restartAnalysisMeasurement(); void retryStreams(); }}
               className="mt-2 font-medium hover:underline" style={{ color: 'var(--lime)' }}
             >
               {t("page.retry")}

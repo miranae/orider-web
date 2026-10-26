@@ -1,12 +1,12 @@
 import { track } from "./analytics";
 
-type Event = "activity_detail_ready" | "analysis_ready" | "social_action_result" | "club_join" | "share_open";
-type Surface = "web_public_activity" | "embedded_public_activity" | "training_period_analysis" | "web_club_invite";
-export type JourneyOutcome = "success" | "error" | "cancelled" | "access_denied" | "readback_error";
-type Operation = "detail" | "training_periods" | "kudos" | "comment" | "join" | "open";
+export type JourneyEvent = "feed_first_content" | "activity_detail_ready" | "analysis_ready" | "social_action_result" | "club_join" | "share_open";
+export type JourneySurface = "web_home_feed" | "web_owner_activity" | "web_public_activity" | "embedded_public_activity" | "training_period_analysis" | "web_club_invite";
+export type JourneyOutcome = "success" | "error" | "cancelled" | "access_denied" | "readback_error" | "empty" | "no_sensor" | "partial" | "stale" | "pending" | "unavailable";
+export type JourneyOperation = "feed_initial" | "activity_analysis" | "detail" | "training_periods" | "kudos" | "comment" | "join" | "open";
 
 /** Fixed dimensions only: never accept IDs, dates, metric values or error messages. */
-export function startJourneyMeasurement(event: Event, surface: Surface, operation: Operation) {
+export function startJourneyMeasurement(event: JourneyEvent, surface: JourneySurface, operation: JourneyOperation) {
   const start = performance.now();
   let finished = false;
   return (outcome: JourneyOutcome) => {

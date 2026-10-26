@@ -1,3 +1,4 @@
+import { track } from "../../services/analytics";
 import { loadPublicActivityMap } from "../../services/publicActivityMaps";
 import { useState } from "react";
 import { GlossaryProvider } from "../common/GlossaryProvider";
@@ -15,6 +16,7 @@ import { AuthContextProvider } from "../../contexts/AuthContext";
 import { activityFeedSourceRevision } from "../../services/activityFeedContent";
 import { signInCancelledError } from "../../utils/signInCancelled";
 
+vi.mock("../../services/analytics", () => ({ track: vi.fn() }));
 vi.mock("../../services/publicActivityMaps", () => ({ loadPublicActivityMap: vi.fn() }));
 beforeEach(() => {
   vi.mocked(loadPublicActivityMap).mockImplementation(async (_services, activityId) => ({ activityId, revision: "current", privacyEnabled: false,
@@ -872,4 +874,18 @@ it("does not reuse a cached card map when current map access is unavailable", as
   await waitFor(() => expect(loadPublicActivityMap).toHaveBeenCalled());
   expect(screen.queryByTestId("route-map")).not.toBeInTheDocument();
   expect(view.container.querySelector('img[src="https://example.test/stale-map.webp"]')).not.toBeInTheDocument();
+});
+
+it("reports first committed home content only after loading and preserves error/retry attempts", async () => {
+  vi.mocked(track).mockClear();
+  const retry = vi.fn();
+  const props = { activities: [], loading: true, error: false, hasMore: false, loadingMore: false, onLoadMore: vi.fn(), onRetry: retry };
+  const view = renderWithProviders(<MobileFeedPage {...props} />);
+  expect(vi.mocked(track).mock.calls.filter(c => c[0] === "feed_first_content")).toHaveLength(0);
+  view.rerender(<MobileFeedPage {...props} loading={false} error />);
+  await waitFor(() => expect(track).toHaveBeenCalledWith("feed_first_content", expect.objectContaining({ outcome: "error" })));
+  fireEvent.click(screen.getByRole("button", { name: /다시/ }));
+  expect(retry).toHaveBeenCalledTimes(1);
+  view.rerender(<MobileFeedPage {...props} loading={false} />);
+  await waitFor(() => expect(track).toHaveBeenCalledWith("feed_first_content", expect.objectContaining({ outcome: "empty" })));
 });

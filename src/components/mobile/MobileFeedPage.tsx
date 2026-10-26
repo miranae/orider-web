@@ -1,3 +1,4 @@
+import { useJourneyReadiness } from "../../hooks/useJourneyReadiness";
 import { useLocation } from "react-router-dom";
 import { feedSessionKey, readFeedDepth, saveFeedDepth } from "../../services/feedNavigationDepth";
 import { compareActivityFeedOrder } from "../../utils/activityFeedOrder";
@@ -371,7 +372,7 @@ export default function MobileFeedPage({
   runningJourney,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const searchActive = activitySearch?.active ?? false;
   const sportFilter = controlledSportFilter ?? "all";
   const datePreset = controlledDatePreset ?? "all";
@@ -412,6 +413,9 @@ export default function MobileFeedPage({
   const filteredActivities = filteredByDate;
   const moreCandidates = !searchActive && effectiveFeedScope === "following" && hasMore;
   const renderedActivities = filteredActivities.slice(0, renderLimit);
+  const retryMeasurement = useJourneyReadiness("feed_first_content", "web_home_feed", "feed_initial", true,
+    renderKey, user, authLoading || (searchActive ? activitySearch!.loading : loading) ? null
+      : (searchActive ? activitySearch!.error : error) ? "error" : filteredActivities.length ? "success" : "empty");
   const hasHiddenLocalItems = filteredActivities.length > renderedActivities.length;
   const supportingCards = (
     <>
@@ -447,14 +451,14 @@ export default function MobileFeedPage({
         <div role="alert" style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-2)" }}>{t(activities.length > 0 ? "feed.partialError.title" : "feed.error.title")}</div>
           <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)", marginBottom: "var(--space-4)" }}>{t(activities.length > 0 ? "feed.partialError.description" : "feed.error.description")}</div>
-          {onRetry && <Button variant="primary" onClick={onRetry}>{t(activities.length > 0 ? "feed.partialError.retry" : "feed.error.retry")}</Button>}
+          {onRetry && <Button variant="primary" onClick={() => { retryMeasurement(); onRetry?.(); }}>{t(activities.length > 0 ? "feed.partialError.retry" : "feed.error.retry")}</Button>}
         </div>
       )}
 
       {searchActive && !activitySearch!.loading && activitySearch!.error && (
         <div role="alert" style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
           <div style={{ fontSize: "var(--fs-sm)", marginBottom: "var(--space-4)" }}>{t(filteredActivities.length > 0 ? "feed.partialError.title" : "feed.error.title")}</div>
-          <Button variant="primary" onClick={activitySearch!.retry}>{t("feed.error.retry")}</Button>
+          <Button variant="primary" onClick={() => { retryMeasurement(); activitySearch!.retry(); }}>{t("feed.error.retry")}</Button>
         </div>
       )}
 
