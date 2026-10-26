@@ -364,4 +364,10 @@ describe("AiRideAnalysisCard", () => {
     expect(screen.getByTitle(/0–12.5km/)).toBeInTheDocument();
   });
 
+  it("preserves recorded zero speed and power rather than treating them as missing", async () => {
+    narrativeApiMocks.peek.mockResolvedValue(narrative([{ ...segment(0, 1, "recorded resting segment"), avgSpeedKmh: 0, avgPowerW: 0 }]));
+    renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="recorded-zero-metrics" enabled />);
+    expect(await screen.findByText(/0km\/h · 0W/)).toBeInTheDocument();
+  });
+
 });
