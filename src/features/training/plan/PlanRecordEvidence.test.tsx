@@ -7,6 +7,7 @@ import PlanRecordNavigation from "./PlanRecordNavigation";
 describe("plan / recorded activity loop", () => {
   it("preserves sport and selected period between the existing canonical screens", () => {
     renderWithProviders(<PlanRecordNavigation date="2026-10-14" />, { route: "/ko/coach/plan?sport=run&decisionId=unrelated" });
+    expect(screen.getByRole("link", { name: "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-10-14");
     expect(screen.getByRole("link", { name: "훈련 계획" })).toHaveAttribute("href", "/ko/coach/plan?sport=run&date=2026-10-14");
   });
   it("shows only saved linkage and load, and keeps an unlinked same-day workout distinct", () => {

@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import PlanPage from "./PlanPage";
-import { useLocation, useNavigate } from "react-router-dom";
+import TrainingLogPage from "./TrainingLogPage";
+import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { mockCallableInvocations } from "../__tests__/mocks/firebase";
 const model = vi.hoisted(() => ({ value: {} as Record<string, unknown>, mobile: false, sport: vi.fn() }));
@@ -69,14 +70,24 @@ it("returns from a dated record comparison to the current plan without writing o
   expect(mockCallableInvocations.slice(priorCalls).filter(({ name }) => !["ensureUserProfile", "getCurrentRun30Program"].includes(name))).toEqual([]);
 });
 
-it.each([false, true])("preserves the selected midweek day in plan navigation mobile=%s", async mobile => {
+it.each([false, true])("preserves the selected midweek day in the records handoff mobile=%s", async mobile => {
   setup(); model.mobile = mobile;
   model.value.weeks = [{ id: "week-current", days: [{ date: date - 86400000 }, { date }] }];
   renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/coach/plan?sport=run&date=2026-10-01" });
   expect(await screen.findByTestId("plan-presentation")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "훈련 계획" })).toHaveAttribute("href", "/ko/coach/plan?sport=run&date=2026-10-01");
+  expect(screen.getByRole("link", { name: "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-10-01");
 });
 
+it("keeps an exact selected day through the real plan → records → plan route round trip", async () => {
+  setup(); model.mobile = false;
+  model.value.weeks = [{ id: "week-current", days: [{ date: date - 86400000 }, { date }] }];
+  renderWithProviders(<Routes><Route path="/ko/coach/plan" element={<PlanPage />} /><Route path="/ko/athlete/me/activities" element={<TrainingLogPage />} /></Routes>, { authenticated: true, route: "/ko/coach/plan?sport=run&date=2026-10-01" });
+  fireEvent.click(await screen.findByRole("link", { name: "활동 기록·수행 확인" }));
+  await waitFor(() => expect(screen.getByRole("link", { name: "훈련 계획" })).toHaveAttribute("href", "/ko/coach/plan?sport=run&date=2026-10-01"));
+  fireEvent.click(screen.getByRole("link", { name: "훈련 계획" }));
+  expect(await screen.findByTestId("plan-presentation")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-10-01");
+});
 it.each(["all", "tri", ""])("uses the existing bike plan fallback consistently sport=%s", async sport => {
   setup(); model.mobile = false; model.value.discipline = "bike"; model.sport.mockClear();
   renderWithProviders(<PlanPage />, { authenticated: true, route: `/ko/coach/plan?date=2026-10-01${sport ? `&sport=${sport}` : ""}` });
@@ -90,9 +101,9 @@ it("replaces the old selected day with the visible week's date after intentional
   renderWithProviders(<PlanPage />, { authenticated: true, route: "/ko/coach/plan?sport=run&date=2026-10-01" });
   expect(await screen.findByTestId("plan-presentation")).toHaveAttribute("data-week-offset", "1");
   fireEvent.click(screen.getByRole("button", { name: "Previous plan week" }));
-  await waitFor(() => expect(screen.getByRole("link", { name: "훈련 계획" })).toHaveAttribute("href", "/ko/coach/plan?sport=run&date=2026-09-30"));
+  await waitFor(() => expect(screen.getByRole("link", { name: "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-09-30"));
   fireEvent.click(screen.getByRole("button", { name: "Next plan week" }));
-  await waitFor(() => expect(screen.getByRole("link", { name: "훈련 계획" })).toHaveAttribute("href", "/ko/coach/plan?sport=run&date=2026-10-01"));
+  await waitFor(() => expect(screen.getByRole("link", { name: "활동 기록·수행 확인" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&date=2026-10-01"));
 });
 
 
