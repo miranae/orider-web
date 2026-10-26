@@ -194,3 +194,36 @@ start/advance/status reached complete and all8 unauthenticated endpoint probes
 on5029/5039 returned401. activation.json is verificationPending:false. No remote
 push, merge, issue update or dev deployment occurred. Native runtime/physical-device
 and external beta/paid-comparison requirements remain separately uncompleted.
+
+
+### Profile calendar KST follow-up (2026-10-26, local only)
+
+Profile year/month/Monday-week aggregation, selected-period labels and the recent
+28-day calendar now use the existing Asia/Seoul calendar helpers, consistent with
+the period-analysis calendar. Korean/English UI explicitly identifies KST.
+31 distinct focused tests passed independently under UTC, America/Los_Angeles and
+Asia/Seoul (not 93 unique tests), including UTC year-end, KST midnight and Monday
+boundaries. Node22 typecheck and changed-file ESLint passed. No full-suite rerun
+was needed for this profile-only date/display change; owner R6 logic is unchanged.
+
+Actual Chrome local app profile (`/ko/athlete/ui-owner?demoAccount=viewer`) at
+390×844 showed both KST notices and the current 28-day calendar. Read-only DOM
+measurement found viewport/document width 390px and both notice widths 358px;
+no horizontal overflow. Existing synthetic accounts and records were unchanged.
+The external harness omits the normal copy-locales Vite plugin, so its ignored
+public/locales athlete bundles were synchronized from source before verification.
+This is local synthetic UI evidence, not a production/browser-timezone matrix;
+the three-timezone matrix above is automated regression evidence.
+
+Remaining public-profile limitation: chart inventory still stops after ten
+20-item pages (up to 50 candidates scanned per request). If enumeration is not
+complete, charts/recent summary are withheld with an explicit limit message.
+Profiles beyond this budget therefore do not yet have complete chart exploration.
+The existing public discovery contract already accepts fromInclusive/toExclusive
+and opaque cursors, but pages are current-authorized seek reads, not one fixed
+historical snapshot. A subsequent bounded, explicit period/continuation UI must
+retain incomplete-state/permission checks rather than claim exact whole-history
+totals. Candidate files are AthletePage, athleteMonthlyActivities, the profile
+chart/recent-summary components and their tests; a coherent complete public
+snapshot would additionally require a new server contract. No owner-private API
+reuse, automatic unbounded query or budget increase was introduced here.

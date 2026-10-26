@@ -1,3 +1,4 @@
+import { planCalendarDate } from "@shared/training/planDate";
 import { loadActivityDiscovery } from "./activityDiscovery";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { collection, getDocs, limit, query, startAfter, where, type DocumentData, type QueryDocumentSnapshot } from "firebase/firestore";
@@ -60,8 +61,8 @@ export function aggregateMonthlyActivities(activities: Activity[], now = new Dat
   const membersByMonth = new Map<number, Activity[]>();
   for (const activity of alreadyAccepted ? activities : acceptedTrainingActivities(activities)) {
     if (!Number.isFinite(activity.startTime) || activity.startTime <= 0) continue;
-    const date = new Date(activity.startTime);
-    const month = date.getFullYear() * 12 + date.getMonth();
+    const date = planCalendarDate(activity.startTime);
+    const month = date.getUTCFullYear() * 12 + date.getUTCMonth();
     const members = membersByMonth.get(month) ?? [];
     members.push(activity); membersByMonth.set(month, members);
     if (!months.has(month)) months.set(month, emptyMonth(month));
@@ -71,10 +72,10 @@ export function aggregateMonthlyActivities(activities: Activity[], now = new Dat
     if ("discoveryFacts" in activity && (!Number.isFinite(activity.startTime) || activity.startTime <= 0)) continue;
     const timestamp = Number.isFinite(activity.startTime) && activity.startTime > 0
       ? activity.startTime : activity.createdAt;
-    const date = new Date(timestamp);
+    const date = planCalendarDate(timestamp);
     const summary = activity.summary ?? {};
     if (!Number.isFinite(date.getTime()) || timestamp <= 0) continue;
-    const month = date.getFullYear() * 12 + date.getMonth();
+    const month = date.getUTCFullYear() * 12 + date.getUTCMonth();
     const row = months.get(month) ?? emptyMonth(month);
     row.distance += Number.isFinite(summary.distance) ? summary.distance / 1000 : 0;
     const duration = resolveDuration(summary).displayMs;
@@ -93,7 +94,7 @@ export function aggregateMonthlyActivities(activities: Activity[], now = new Dat
   }
   if (months.size === 0) return [];
   const first = Math.min(...months.keys());
-  const last = Math.max(...months.keys(), now.getFullYear() * 12 + now.getMonth());
+  const last = Math.max(...months.keys(), planCalendarDate(now.getTime()).getUTCFullYear() * 12 + planCalendarDate(now.getTime()).getUTCMonth());
   return Array.from({ length: last - first + 1 }, (_, i) => months.get(first + i) ?? emptyMonth(first + i));
 }
 

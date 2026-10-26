@@ -75,6 +75,7 @@
   "recent.time": "운동시간",
   "dateLocale": "ko-KR",
   "profile": {
+    "calendarBasis": "한국 시간(KST) 기준",
     "recentPhotos": "활동 사진",
     "openPhoto": "활동 사진 보기",
     "last28Days": "최근 28일",

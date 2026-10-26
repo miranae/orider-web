@@ -75,6 +75,7 @@
   "recent.time": "Activity time",
   "dateLocale": "en-US",
   "profile": {
+    "calendarBasis": "Calendar dates use Korea Standard Time (KST)",
     "recentPhotos": "Activity photos",
     "openPhoto": "Open activity photos",
     "last28Days": "Last 28 days",
