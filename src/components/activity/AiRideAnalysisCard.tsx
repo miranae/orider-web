@@ -11,7 +11,7 @@ import ActivitySocialSummary from "./ActivitySocialSummary";
  */
 import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Card, Text, Button } from "../../theme/components";
+import { Card, Text, Button, Chip } from "../../theme/components";
 
 /** 구간당 메달(🏅/🏆) 기본 노출 상한 — 한 구간이 수십 개 세그먼트에 매칭되면 메달 벽이 생겨 가독성 저하. */
 const MEDAL_LIMIT = 5;
