@@ -21,12 +21,12 @@ export default function ActivityRouteHistorySnapshotPanel({activity,observedMetr
    {(data||query.status==="loading")&&<Button variant="ghost" onClick={query.stop}>{t(data?.state==="complete"&&!query.running?"routeHistory.close":query.running?"routeHistory.cancel":"routeHistory.stop")}</Button>}
   </Stack>
   <Button variant="ghost" disabled={query.running} onClick={()=>void query.loadHistory()}>{t("routeHistory.loadHistory")}</Button>
-  {entries.length>0&&<Stack direction="row" wrap gap="var(--space-2)">{entries.map((item,index)=><Button key={item.runId} variant="outline" aria-pressed={query.selectedRun===item.runId} disabled={query.running} onClick={()=>void query.openSaved(item.runId)}>{t("routeHistory.historyEntry",{index:index+1,time:date(item.asOf),count:item.scanned})}</Button>)}</Stack>}
+  {entries.length>0&&<Stack direction="row" wrap gap="var(--space-2)">{entries.map((item,index)=><Button key={item.runId} variant="neutral" aria-pressed={data?.runId===item.runId} disabled={query.running} onClick={()=>void query.openSaved(item.runId)}>{t("routeHistory.historyEntry",{index:index+1,time:date(item.asOf),count:item.scanned})}{data?.runId===item.runId&&<> · {t("routeHistory.selected")}</>}</Button>)}</Stack>}
   {query.history?.items.length===0&&entries.length===0&&<Text>{t("routeHistory.historyEmpty")}</Text>}
   {query.history?.nextCursor&&<Button disabled={query.running} onClick={()=>void query.loadHistory(true)}>{t("routeHistory.moreHistory")}</Button>}
   {query.previousResult&&<Text role="note">{t("routeHistory.previousResult")}</Text>}
   {query.running&&query.progress&&query.progress.runId!==data?.runId&&<Text>{t("routeHistory.newProgress",{count:query.progress.scanned})}</Text>}
-  {query.status!=="idle"&&<Text role="status">{t(`routeHistory.status.${query.status==="ready"?(data?.state==="complete"?"complete":"paused"):query.status}`)}</Text>}
+  {query.status!=="idle"&&(query.status!=="ready"||data)&&<Text role="status">{t(`routeHistory.status.${query.status==="ready"?(data?.state==="complete"?"complete":"paused"):query.status}`)}</Text>}
   {data&&<><Text>{t("routeHistory.counts",{scanned:data.scanned,candidates:data.candidateCount,excluded:data.excluded,unresolved:data.unresolved})}</Text><Text variant="caption">{t(data.retention==="saved_result"?"routeHistory.savedTime":"routeHistory.time",{asOf:date(data.asOf),expires:date(data.expiresAt)})}</Text>
    {(data.state!=="complete"||query.status==="ready")&&<Text>{t(data.state==="complete"?`routeHistory.best.${data.bestStatus}`:`routeHistory.phase.${data.state}`)}</Text>}</>}
   {data?.currentSourceChanged&&<Text>{t("routeHistory.sourceChanged")}</Text>}

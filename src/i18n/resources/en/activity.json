@@ -2990,6 +2990,7 @@
     "rider": "Rider"
   },
   "routeHistory": {
+    "selected": "Selected",
     "cancel": "Stop new query",
     "loadHistory": "View saved comparisons",
     "historyEntry": "Result {{index}} · {{time}} · {{count}} records checked",

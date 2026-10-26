@@ -2990,6 +2990,7 @@
     "rider": "라이더"
   },
   "routeHistory": {
+    "selected": "선택됨",
     "cancel": "새 조회 중단",
     "loadHistory": "저장된 비교 결과 보기",
     "historyEntry": "결과 {{index}} · {{time}} · 확인한 기록 {{count}}개",

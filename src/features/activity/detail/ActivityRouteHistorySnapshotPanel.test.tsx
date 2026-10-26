@@ -27,6 +27,10 @@ it("lists saved comparisons without starting a new calculation and opens a chose
 });
 
 it("distinguishes equal-time results and marks the selected saved result",()=>{
- mocks.query.selectedRun="old";mocks.query.history={items:[{runId:"old",asOf:1000,scanned:2},{runId:"new",asOf:1000,scanned:2}],nextCursor:null};mocks.query.previousResults=[{runId:"old",asOf:1000,scanned:2}];mount();
- const buttons=screen.getAllByRole("button",{name:/routeHistory.historyEntry/});expect(buttons).toHaveLength(2);expect(buttons[0].textContent).not.toBe(buttons[1].textContent);expect(buttons.filter(button=>button.getAttribute("aria-pressed")==="true")).toHaveLength(1);
+ mocks.query.selectedRun=null;mocks.query.data={runId:"old",state:"complete",asOf:1000,expiresAt:3001000,best:null};mocks.query.status="error";mocks.query.history={items:[{runId:"old",asOf:1000,scanned:2},{runId:"new",asOf:1000,scanned:2}],nextCursor:null};mocks.query.previousResults=[{runId:"old",asOf:1000,scanned:2}];mount();
+ const buttons=screen.getAllByRole("button",{name:/routeHistory.historyEntry/});expect(buttons).toHaveLength(2);expect(buttons[0].textContent).not.toBe(buttons[1].textContent);expect(buttons.filter(button=>button.getAttribute("aria-pressed")==="true")).toHaveLength(1);expect(screen.getByRole("button",{name:/routeHistory.selected/})).toHaveAttribute("aria-pressed","true");
+});
+
+it("does not describe a loaded history list as an unfinished query",()=>{
+ mocks.query.history={items:[{runId:"saved",asOf:1000,scanned:2}],nextCursor:null};mocks.query.data=null;mocks.query.status="ready";mount();expect(screen.queryByRole("status")).not.toBeInTheDocument();expect(screen.getByRole("button",{name:/routeHistory.historyEntry/})).toBeEnabled();
 });
