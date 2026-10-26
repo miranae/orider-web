@@ -1,4 +1,4 @@
-import type { SavedActivityAnalysis } from "../services/activityReanalysis";
+import { useSavedActivityAnalysisSelection } from "../hooks/useSavedActivityAnalysisSelection";
 import { ActivityReanalysisControl } from "../features/activity/detail/ActivityReanalysisControl";
 import type { JourneyOutcome } from "../services/journeyMeasurement";
 import { useJourneyReadiness, ownerAnalysisOutcome } from "../hooks/useJourneyReadiness";
@@ -152,9 +152,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const [activeOverlays, setActiveOverlays] = useState<Set<string> | null>(null);
   const [focusedOverlayKey, setFocusedOverlayKey] = useState<string | null>(null);
   const [nativeMemoOverride, setNativeMemoOverride] = useState<{ activityId: string; memo: string } | null>(null);
-  const analysisServices = useFirebaseServices();
-  const [savedAnalysis, setSavedAnalysis] = useState<{ activityId: string; viewer: typeof user; sdkViewer: typeof analysisServices.auth.currentUser; value: SavedActivityAnalysis } | null>(null);
-  const selectedAnalysis = savedAnalysis && savedAnalysis.activityId === activityId && savedAnalysis.viewer === user && savedAnalysis.sdkViewer === analysisServices.auth.currentUser ? savedAnalysis.value : undefined;
+  const { selected: selectedAnalysis, select: selectSavedAnalysis } = useSavedActivityAnalysisSelection(activityId);
   const analysisModel = useActivityAnalysisModel(activityId, publicAccess?.model, selectedAnalysis);
   const authorizedComments = useAuthorizedActivityComments(publicAccess);
   const {
@@ -1326,7 +1324,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         <NativeActivityMemoEditor key={`${activity.id}:${user?.uid}`} activityId={activity.id}
           onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })} />}
       {isActivityOwner && activeTab === "overview" && <ActivityMapPrivacyControl activityId={activity.id} />}
-      {isActivityOwner && activeTab === "analysis" && <ActivityReanalysisControl activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={value => setSavedAnalysis(value ? { activityId: activity.id, viewer: user, sdkViewer: analysisServices.auth.currentUser, value } : null)} />}
+      {isActivityOwner && activeTab === "analysis" && <ActivityReanalysisControl activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
       <div className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
       <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined}>

@@ -14,6 +14,9 @@ import { getSportLabelKey } from "../../utils/sportType";
 import { useAuth } from "../../contexts/AuthContext";
 import AnalysisTab from "../../components/AnalysisTab";
 import ActivityOverviewEvidence from "../../features/activity/detail/ActivityOverviewEvidence";
+import { ActivityReanalysisControl } from "../../features/activity/detail/ActivityReanalysisControl";
+import AiRideAnalysisCard from "../../components/activity/AiRideAnalysisCard";
+import { useSavedActivityAnalysisSelection } from "../../hooks/useSavedActivityAnalysisSelection";
 import { useActivityAnalysisModel } from "../../hooks/useActivityAnalysisModel";
 
 export interface ActivityAnalysisSurfaceProps {
@@ -32,12 +35,15 @@ export default function ActivityAnalysisSurface({
   onError,
 }: ActivityAnalysisSurfaceProps) {
   const [peakSelection, setPeakSelection] = useState<{ activityId: string; peak: RidePeakEffort | null }>({ activityId, peak: null });
-  const model = useActivityAnalysisModel(activityId);
+  const { selected: savedAnalysis, select: selectSavedAnalysis } = useSavedActivityAnalysisSelection(activityId);
+  const model = useActivityAnalysisModel(activityId, undefined, savedAnalysis);
+  const showingSaved = !!savedAnalysis && model.isActivityOwner;
+  const hasStoredAnalysis = !!model.serverMetrics?.metrics && !!model.analysisTabProps;
   const { user } = useAuth();
   const { t: tCommon } = useTranslation("common");
   const formatFullDate = useFormatFullDate();
   useEffect(() => { setPeakSelection({ activityId, peak: null }); }, [activityId, user?.uid, model.isActivityOwner, model.serverMetrics?.metrics?.computedAt, model.activePowerOverride]);
-  const selectedPeak = peakSelection.activityId === activityId
+  const selectedPeak = !showingSaved && peakSelection.activityId === activityId
     && visiblePeakEfforts(model.serverMetrics?.metrics ?? null, model.isActivityOwner, model.activePowerOverride != null || model.analysisTabProps?.suppressServerPowerMetrics === true)
       .some(peak => peak.durationSec === peakSelection.peak?.durationSec && peak.startOffsetSec === peakSelection.peak?.startOffsetSec && peak.avgPowerW === peakSelection.peak?.avgPowerW)
     ? peakSelection.peak : null;
@@ -65,7 +71,7 @@ export default function ActivityAnalysisSurface({
     let code: SurfaceErrorCode;
     if (model.activityLoadError) code = "activity_load_failed";
     else if (!model.loadingActivity && !model.activity && !model.activityProcessing) code = "activity_not_found";
-    else if (!model.loadingStreams && model.streamsError
+    else if (!hasStoredAnalysis && !model.loadingStreams && model.streamsError
       && !model.overview.loading && model.overview.response?.status !== "available") code = "streams_load_failed";
     else return;
 
@@ -76,6 +82,7 @@ export default function ActivityAnalysisSurface({
   }, [
     model.activity,
     model.activityLoadError,
+    hasStoredAnalysis,
     model.activityProcessing,
     model.loadingActivity,
     model.loadingStreams,
@@ -91,13 +98,14 @@ export default function ActivityAnalysisSurface({
       readyKey.current === retryKey
       || model.loadingActivity
       || model.activityProcessing
-      || ((model.loadingStreams || model.showStreamSpinner || !model.analysisTabProps)
+      || (!hasStoredAnalysis && (model.loadingStreams || model.showStreamSpinner || !model.analysisTabProps)
         && model.overview.response?.status !== "available")
     ) return;
     readyKey.current = retryKey;
     onReady();
   }, [
     model.activityProcessing,
+    hasStoredAnalysis,
     model.analysisTabProps,
     model.loadingActivity,
     model.loadingStreams,
@@ -127,27 +135,32 @@ export default function ActivityAnalysisSurface({
           </div>
         </header>
       )}
-      <ActivityOverviewEvidence isOwner={model.isActivityOwner} overview={model.overview} preview={model.activePowerOverride != null} />
-      {model.activity?.summary && <ActivityGrowthPanel activity={model.activity}
+      {model.isActivityOwner && model.activity?.id === activityId && <ActivityReanalysisControl activityId={activityId} selectedRevision={savedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
+      {!showingSaved && <ActivityOverviewEvidence isOwner={model.isActivityOwner} overview={model.overview} preview={model.activePowerOverride != null} />}
+      {!showingSaved && model.activity?.summary && <ActivityGrowthPanel activity={model.activity}
         metrics={model.serverMetrics?.metrics ?? null} isOwner={model.isActivityOwner} />}
-      <ActivityPersonalBenchmark activityId={activityId} ownerUid={model.isActivityOwner ? user?.uid : null}
+      {!showingSaved && <ActivityPersonalBenchmark activityId={activityId} ownerUid={model.isActivityOwner ? user?.uid : null}
         sport={model.sport === "ride" ? "bike" : model.sport}
-        metrics={model.activePowerOverride || model.analysisTabProps?.suppressServerPowerMetrics ? null : model.serverMetrics?.metrics ?? null} />
+        metrics={model.activePowerOverride || model.analysisTabProps?.suppressServerPowerMetrics ? null : model.serverMetrics?.metrics ?? null} />}
       <ActivityPeakEffortInspector chartOnly activityId={activityId} metrics={model.serverMetrics?.metrics ?? null} isOwner={model.isActivityOwner}
         invalidated={model.activePowerOverride != null || model.analysisTabProps?.suppressServerPowerMetrics === true}
         suppressHeartRate={model.analysisTabProps?.suppressServerHeartRateMetrics} suppressCadence={model.analysisTabProps?.suppressServerCadenceMetrics}
         locationUnavailable={!!model.streams && selectedPeak != null && !peakLocation}
         locating={model.loadingStreams && peakSelection.activityId === activityId && peakSelection.peak != null}
-        onLocate={peak => {
+        onLocate={showingSaved ? undefined : peak => {
           setPeakSelection({ activityId, peak });
           if (peak && !model.streams && !model.loadingStreams) model.requestStreams();
         }} />
-      {(model.sport === "run" || model.sport === "ride") && <ActivityDetailedCharts key={activityId} model={model} highlightedPeak={selectedPeak} onClearHighlightedPeak={() => setPeakSelection({ activityId, peak: null })} />}
-      {model.sport === "run" && model.analysisTabProps ? <AnalysisTab {...model.analysisTabProps} /> : model.loadingStreams || model.showStreamSpinner ? <div className="orider-embedded-status" role="status">Loading analysis</div>
-        : model.analysisTabProps ? <AnalysisTab {...model.analysisTabProps} />
+      {!showingSaved && (model.sport === "run" || model.sport === "ride") && <ActivityDetailedCharts key={activityId} model={model} highlightedPeak={selectedPeak} onClearHighlightedPeak={() => setPeakSelection({ activityId, peak: null })} />}
+      {model.analysisTabProps && (model.sport === "run" || hasStoredAnalysis || (!model.loadingStreams && !model.showStreamSpinner)) ? <AnalysisTab {...model.analysisTabProps} />
+        : model.loadingStreams || model.showStreamSpinner ? <div className="orider-embedded-status" role="status">Loading analysis</div>
           : model.overview.loading ? <div className="orider-embedded-status" role="status">{tCommon("embeddedStatus.loading")}</div>
             : model.overview.response?.status === "available" ? null
               : <div className="orider-embedded-status" role="alert">{tCommon("embeddedStatus.unavailable")}</div>}
+      {model.isActivityOwner && (model.sport === "ride" || model.sport === "run") && <AiRideAnalysisCard
+        activityId={activityId} enabled sport={model.sport} isActivityOwner
+        summaryPreview={model.activity?.aiSummaryPreview} summaryPreviewEn={model.activity?.aiSummaryPreview_en} />}
+
     </main>
   );
 }
