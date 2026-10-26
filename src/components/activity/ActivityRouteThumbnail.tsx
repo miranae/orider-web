@@ -1,3 +1,4 @@
+import { Text } from "../../theme/components";
 import { usePublicActivityMaps } from "../../hooks/usePublicActivityMaps";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -106,11 +107,15 @@ export default function ActivityRouteThumbnail(props: ActivityRouteThumbnailProp
   }, []);
   const { maps, failed } = usePublicActivityMaps([props.activityId], visible);
   const map = maps[props.activityId];
+  const resolvedWithoutRoute = failed || Object.prototype.hasOwnProperty.call(maps, props.activityId);
   return <div ref={host}>
     {map?.mapPreview.encodedPolyline ? <CanonicalActivityRouteThumbnail {...props}
       key={map.revision} polyline={map.mapPreview.encodedPolyline} mapImageUrl={map.mapPreview.imageUrl}
       allowCapture={map.privacyEnabled === false} />
-      : <div className={props.shape === "square" ? "aspect-square" : "aspect-[var(--feed-thumb-aspect)]"} role="img" aria-label={t(failed ? "mapPrivacy.liveFailed" : "mapPrivacy.liveUnavailable")}>{t(failed ? "mapPrivacy.liveFailed" : "mapPrivacy.liveUnavailable")}</div>}
+      : resolvedWithoutRoute ? <Text as="div" variant="bodySmall" tone="secondary" role="status" style={{ padding: "var(--dim-item-gap)" }}>
+        {t(failed ? "mapPrivacy.liveFailed" : "mapPrivacy.liveUnavailable")}
+      </Text>
+      : <div className={props.shape === "square" ? "aspect-square" : "aspect-[var(--feed-thumb-aspect)]"} aria-hidden="true"><MapThumbnailSkeleton /></div>}
   </div>;
 }
 
