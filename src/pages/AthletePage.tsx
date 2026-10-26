@@ -777,7 +777,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       {!isOwnProfile && <Text as="p" tone="secondary">{t("publicDiscoveryScope")}</Text>}
       {isOwnProfile && !chartLimited && <AthleteRecentSummary activities={acceptedChartActivities} loading={chartLoading} error={chartError} />}
       {!isOwnProfile && <div>
-        <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : publicGlobal.status === "complete" ? "publicPeriod.globalComplete" : `publicPeriod.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>
+        <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : `publicGlobal.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>
         {publicGlobal.status !== "loading" && <Button onClick={publicGlobal.status === "partial" || publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>{t(publicGlobal.status === "partial" ? "publicPeriod.globalMore" : publicGlobal.status === "error" ? "monthly.retry" : "publicPeriod.refresh")}</Button>}
       </div>}
       </div>
