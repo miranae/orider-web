@@ -71,3 +71,19 @@
 제품 `26ba058c`(독립 센서/GPS축), `776edad9`(GPS 배지), `8f0a1989`(불완전zone timeline)와 역치없는채널의오안내만보강한 `83e35058`을구분합니다. 실제UI는 `8f0a1989`/BE `96b5eec048cb` 고정실행이며최종역치조건은별도7단위회귀/tsc/scopedlint로검증했습니다. 초기4suite170 + ActivityPage16 + 최종zone7 = 서로다른6suite193tests; 반복실행건수를추가합산하지않습니다. `8f0a1989`까지 Node22 devbuild/qualityPASS(배포아님), 최종역치후속tscPASS. 이전검증의전체suite를이번소스의전체회귀로주장하지않습니다.
 
 `E/indoor-fit-no-gps/UI-VERIFICATION.md`에ready문자열/없는안내를잘못기대한하네스실패를최종성공과분리했습니다. GPX legacyclock의최신runtime실제왕복은같은폴더 `legacy-clock-browser-results.json`의별도실행이며이FIT센서증거와합산하지않습니다. 자격증명파일은문서/로그에포함하지않습니다.
+
+
+## F6–F9 TCX GPS 없는 기록과 독립 센서축
+
+2026-10-26 실제 WEB `8cd65f20` / BE immutable `15d318b954df`에서 `E/indoor-tcx-no-gps`의 네 파일을 검증했습니다. `Sport=Biking`은 Ride를 유지하며 GPS 부재만으로 실내·VirtualRide로 바꾸지 않습니다. `processed-results.json`, `api-read-results.json`은 실제 REST201 → 정상 due processor → 같은 원본 재계산 → owner REST 증거이고, `UI-VERIFICATION.md`와 각 `*-browser-results.json`은 별도 실제 앱390px 증거입니다.
+
+| 원본 | 바이트 | SHA256 | 실제 UI/한계 |
+|---|---:|---|---|
+| `indoor-tcx-no-gps/sensors-no-gps.tcx` | 127675 | `a7a7ec036252ad1574ae97db629267030e22712933698d7f6b45c90185f33515` | F6 `nogps`: 명시 거리0, GPS 없음/Ride 유지 |
+| `indoor-tcx-no-gps/sensor-gps-dropout.tcx` | 127879 | `17f0e39f5e0d118cee682571951ee0bdf1626bce76b50ce73747bba3a744984c` | F7 `gpsdropout`: GPS2점과601센서 독립, 거리1419m→1.4km, known-moving zone0은 센서결측이 아님 |
+| `indoor-tcx-no-gps/sensors-two-laps-no-gps.tcx` | 127899 | `af40d1122fe44dfa4f2e948327a1b57d760dd32fd5ae3583649d9288ff81337a` | F8 `twolaps`: 두 lap 합산600초, 명시 거리0.0km |
+| `indoor-tcx-no-gps/sensors-no-gps-no-distance.tcx` | 107207 | `a67fb0bc32f752bfbc2caa4ea3d2b10f1da4ffdf16f7b78116311f6d066c7745` | F9 `missingdistance`: 기록거리null/정본distanceSource:null→이동거리--, 측정0과 구별;10/27 미래 fixture로 기간이력 주장 없음 |
+
+모두600초/601표본, 센서 누락100초·실제0W100초·관측500초/평균160W입니다. 각 실제 화면은 elapsed 축/거리축 비활성, 누락 hover `—`·실제 `0 W`·정상 `200 W`, 평균속도 미확인, 양수 canvas170×72 및5HTTP200/pageErrors0/overflowfalse를 확인했습니다. GPS 없는 화면은 GPS 배지를 표시하지 않으며, GPS2점도 센서가2표본으로 줄지 않습니다. 알려지지 않은 존 시간위치는 정확한 타임라인처럼 재분배하지 않습니다. 원본 파일 네 개 SHA256/byte size를 직접 계산했습니다.
+
+WEB 좁은 안내 수정 `0983f468`은3suite35tests/tsc/scopedlint, 거리 소비 계약 회귀 `8cd65f20`은2suite31tests/tsc/scopedlint로 검증했습니다. 반복 실행을 전체회귀 수로 합산하지 않습니다. 기존 유료Strava 허용오차 미정/실기기 미검증 경계는 그대로입니다.
