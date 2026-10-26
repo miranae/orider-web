@@ -243,3 +243,14 @@ it("does not add an empty technical card for a sensorless public activity withou
   renderWithProviders(<ActivityPage />, { route: "/ko/activity/summary-only?tab=analysis" });
   expect(screen.queryByRole("heading", { name: "상세 지표와 근거" })).not.toBeInTheDocument();
 });
+
+it("does not label a GPS-less imported sensor chart as GPS", () => {
+  const raw = { distance: [], time: [], latlng: [], importedSensorObservationsV1: {
+    version: 1, state: "available", source: "parsed_import_points", timeUnit: "relative_milliseconds",
+    originEpochMs: mocks.model!.activity!.startTime, timeMs: [0,1000,2000], routeTimeMs: [],
+    watts: [200,0,200], heartrate: [150,150,150], cadence: [80,0,80] } };
+  mocks.model!.streams = raw;
+  mocks.model!.effectiveStreams = { ...raw, time: [0,1,2] };
+  renderWithProviders(<ActivityPage />, { authenticated: true });
+  expect(screen.queryByText("GPS", {exact:true})).not.toBeInTheDocument();
+});

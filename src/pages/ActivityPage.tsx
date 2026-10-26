@@ -1115,7 +1115,7 @@ export default function ActivityPage() {
                   <span style={{ color: 'var(--ink-3)' }}>· {tCommon("sport.indoor")}</span>
                 )}
               </span>
-              {hasStreams && (
+              {hasAnalysisRoute && (
                 <span className="text-[length:var(--fs-xs)] px-1.5 py-0.5 rounded-[var(--r-sm)] font-medium" style={{ background: 'color-mix(in srgb, var(--lime) 15%, transparent)', color: 'var(--lime)' }}>GPS</span>
               )}
               {(avgSpeedImplausible || displayAvgImplausible || maxSpeedImplausible) && (
