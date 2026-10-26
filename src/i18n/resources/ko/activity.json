@@ -552,7 +552,6 @@
     "refreshFailedHint": "다시 분석하지 못했습니다. 저장된 분석은 유지됩니다.",
     "staleHint": "활동 데이터가 바뀌었어요",
     "analystVersion": "분석가 {{version}}",
-    "analystUpdatedBadge": "새 분석가로 다시 분석 가능",
     "reanalyzeWithNewAnalystBtn": "새 분석가로 다시 분석",
     "loginHint": "로그인하면 AI 구간 분석을 이용할 수 있어요.",
     "runPreview": {
