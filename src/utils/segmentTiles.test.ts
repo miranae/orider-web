@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { segmentTileUrl } from "./segmentTiles";
-afterEach(() => resetRuntimeConfigForTests());
+beforeEach(() => vi.stubEnv("VITE_SEGMENT_TILES_BASE", ""));
+afterEach(() => { vi.unstubAllEnvs(); resetRuntimeConfigForTests(); });
 describe("segment tile project isolation", () => {
   it("uses stage bucket even when the module loaded before runtime config", () => {
     resetRuntimeConfigForTests({ firebaseProjectId: "orider-dev", firebaseStorageBucket: "orider-dev.firebasestorage.app" });

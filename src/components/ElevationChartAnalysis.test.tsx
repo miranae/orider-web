@@ -5,11 +5,11 @@ import ElevationChart from "./ElevationChart";
 const state = vi.hoisted(() => ({ lines: vi.fn(), change: vi.fn(), hover: vi.fn() }));
 vi.mock("react-chartjs-2", () => ({ Line: (props: unknown) => { state.lines(props); return <div data-testid="analysis-line" />; } }));
 const data = [0, 1, 2, 3, 4].map(index => ({ distance: index * 1000, elevation: index * 10 }));
-function Example({ elapsed = false, identity = "activity" }: { elapsed?: boolean; identity?: string }) {
+function Example({ elapsed = false, identity = "activity", exact = false }: { elapsed?: boolean; identity?: string; exact?: boolean }) {
   const [range, setRange] = useState<[number, number] | null>(null);
   return <ElevationChart data={data} xAxis={elapsed ? "elapsed" : "distance"} elapsedAxisSec={[0, 15, 45, 60, 120]}
     overlays={[{ key: "speed", label: "Speed", data: [0, 10, null, 30, 40], color: "red", yAxisID: "speed" }]}
-    onHoverIndex={state.hover} analysisPresentation={{ identity, hoverIndex: undefined, visualRange: range,
+    onHoverIndex={state.hover} analysisPresentation={{ elapsedViewport: exact ? { startOffsetSec: 21, endOffsetSec: 81 } : null, identity, hoverIndex: undefined, visualRange: range,
       onVisualRangeChange: next => { state.change(next); setRange(next); },
       elevation: { label: "Elevation", maximum: "40", current: "—", unit: "m" },
       lanes: { speed: { label: "Speed", maximum: "40", average: "20", current: "—", unit: "km/h" } },
@@ -136,4 +136,13 @@ it("keeps one caption row in place before and after selecting a range or a segme
   expect(rows()).toEqual(before);
   // 고른 범위가 세그먼트와 같으면 같은 자리에 세그먼트 이름·기록이 나온다(줄이 늘지 않는다).
   expect(container.querySelector(".analysis-timeline-caption-slot .analysis-timeline-segment-summary")).toHaveTextContent("Real segment");
+});
+
+it("clips elapsed plot and tick labels to exact requested time rather than enclosing samples", () => {
+  renderWithProviders(<Example elapsed exact />);
+  const [overview, metric] = latestPlots();
+  expect(overview.options.scales.x).toMatchObject({ min: 0, max: 2 });
+  expect(metric.options.scales.x).toMatchObject({ min: .35, max: 1.35 });
+  expect(screen.getByText("0:21")).toBeInTheDocument();
+  expect(screen.getByText("1:21")).toBeInTheDocument();
 });

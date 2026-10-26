@@ -3,11 +3,13 @@ import { getCountFromServer, getDocs } from "firebase/firestore";
 import React from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setCollectionDocs } from "../__tests__/mocks/firebase";
+import { setCollectionDocs, mockCollectionData } from "../__tests__/mocks/firebase";
 import { AuthProvider } from "../contexts/AuthContext";
 import { ToastProvider } from "../contexts/ToastContext";
 import { invalidateCoursesCache } from "./useCourses";
 import { useGlobalSearch } from "./useGlobalSearch";
+
+vi.mock("../services/activityDiscovery", () => ({loadActivityDiscovery: vi.fn(async () => ({items:mockCollectionData.get("activities")??[],nextCursor:null,exhausted:true}))}));
 
 function wrapper({ children }: { children: React.ReactNode }) {
   return (

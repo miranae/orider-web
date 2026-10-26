@@ -1,3 +1,4 @@
+import { matchesAnalysisCapability } from "./analysisCapability";
 import { httpsCallable } from "firebase/functions";
 import type { ActivityRouteIndexCursor, ActivityRouteIndexPageRequest, ActivityRouteIndexPageResponse } from "@shared/activity-route-index-page";
 import { OBSERVED_ROUTE_POLICY_V1 as policy } from "@shared/observed-route-comparison";
@@ -111,12 +112,17 @@ export function validateActivityRouteIndexPageResponse(value: unknown, request: 
   return r;
 }
 export async function loadActivityRouteIndexPage(services: FirebaseServices, uid: string, request: ActivityRouteIndexPageRequest) {
-  const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
+  const auth = services.auth, app = auth.app, viewer = auth.currentUser, functions = services.functions;
+  const matches = () => !!uid && !!viewer && viewer.uid === uid && !viewer.isAnonymous && services.auth === auth
+    && auth.app === app && auth.currentUser === viewer && services.functions === functions && functions.app === app;
   if (!matches()) throw new Error("account_changed");
-  if (!observedRouteAvailable() || services.functions.app !== services.auth.app || services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("route_index_not_supported");
+  if (!observedRouteAvailable() || !matchesAnalysisCapability(services, "routes")) throw new Error("route_index_not_supported");
   if (!validActivityRouteIndexPageRequest(request)) throw new Error("invalid_route_index_request");
-  await services.ensureAppCheckReady(); if (!matches()) throw new Error("account_changed");
+  await services.ensureAppCheckReady();
+  if (!matches()) throw new Error("account_changed");
+  if (!matchesAnalysisCapability(services, "routes")) throw new Error("route_not_supported");
   const response = await httpsCallable<ActivityRouteIndexPageRequest, unknown>(services.functions, "getActivityStreams")(request);
   if (!matches()) throw new Error("account_changed");
+  if (!matchesAnalysisCapability(services, "routes")) throw new Error("route_not_supported");
   return validateActivityRouteIndexPageResponse(response.data, request);
 }

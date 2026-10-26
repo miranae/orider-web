@@ -14,11 +14,11 @@ export interface ActivityAnalysisSummary {
     averageHeartRate: number | null; maxHeartRate: number | null;
     averageCadence: number | null; maxCadence: number | null;
     averagePower: number | null; maxPower: number | null;
-    heartRateSource: "sensorStreamsV1" | "heartrate" | null;
-    powerSource: "sensorStreamsV1" | "virtualPowerOverride" | "watts" | "watts_calc" | null;
+    heartRateSource: "importedSensorObservationsV1" | "sensorStreamsV1" | "heartrate" | null;
+    powerSource: "importedSensorObservationsV1" | "sensorStreamsV1" | "virtualPowerOverride" | "watts" | "watts_calc" | null;
     rejections: Array<{
       channel: "power" | "heart_rate" | "cadence";
-      source: "sensorStreamsV1" | "virtualPowerOverride" | "legacy";
+      source: "importedSensorObservationsV1" | "sensorStreamsV1" | "virtualPowerOverride" | "legacy";
       reason: "invalid_channel" | "invalid_metadata" | "invalid_axis" | "missing_duration"
         | "duration_mismatch" | "origin_mismatch" | "insufficient_coverage"
         | "insufficient_measurements" | "sparse_axis";

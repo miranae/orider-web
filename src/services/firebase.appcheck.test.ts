@@ -26,6 +26,8 @@ vi.mock("./stageQaAppCheck", () => ({
 vi.mock("firebase/app", () => ({ initializeApp: vi.fn((config: Record<string, unknown>) => ({ name: "app", options: config })) }));
 vi.mock("firebase/auth", () => ({
   getAuth: vi.fn(() => mocks.auth),
+  initializeAuth: vi.fn(() => mocks.auth),
+  inMemoryPersistence: { kind: "memory-auth" },
   GoogleAuthProvider: class {},
   connectAuthEmulator: vi.fn(),
   signInWithEmailAndPassword: vi.fn(),
@@ -33,6 +35,7 @@ vi.mock("firebase/auth", () => ({
 vi.mock("firebase/firestore", () => ({
   initializeFirestore: vi.fn(() => ({})),
   persistentLocalCache: vi.fn(() => ({})),
+  memoryLocalCache: vi.fn(() => ({ kind: "memory-firestore" })),
   persistentMultipleTabManager: vi.fn(() => ({})),
   connectFirestoreEmulator: vi.fn(),
 }));
@@ -87,6 +90,29 @@ describe("ensureAppCheckReady", () => {
       firebaseAppId: "test-app",
       appCheckRecaptchaSiteKey: "site-key",
     };
+  });
+
+  it("isolates explicit local demo sessions without using or migrating browser persistence", async () => {
+    mocks.emulatorRuntime = true; mocks.runtimeConfig.firebaseProjectId = "demo-isolated-review";
+    const authSdk = await import("firebase/auth"), firestoreSdk = await import("firebase/firestore");
+    vi.mocked(authSdk.getAuth).mockClear(); vi.mocked(firestoreSdk.persistentLocalCache).mockClear();
+    const firebase = await import("./firebase");
+    await firebase.initFirebase({ isolatedEmulatorSession: true });
+    expect(authSdk.initializeAuth).toHaveBeenLastCalledWith(expect.anything(), { persistence: authSdk.inMemoryPersistence });
+    expect(authSdk.getAuth).not.toHaveBeenCalled();
+    expect(firestoreSdk.persistentLocalCache).not.toHaveBeenCalled();
+    expect(firestoreSdk.initializeFirestore).toHaveBeenLastCalledWith(expect.anything(), { localCache: { kind: "memory-firestore" } });
+  });
+  it.each(["build", "origin", "project", "emulators"])("rejects isolated sessions before SDK initialization without the %s boundary", async boundary => {
+    mocks.emulatorRuntime = true; mocks.runtimeConfig.firebaseProjectId = "demo-isolated-review";
+    if (boundary === "build") vi.stubEnv("DEV", false);
+    if (boundary === "origin") vi.stubGlobal("location", { hostname: "example.com" });
+    if (boundary === "project") mocks.runtimeConfig.firebaseProjectId = "real-project";
+    if (boundary === "emulators") mocks.emulatorRuntime = false;
+    const { initializeApp } = await import("firebase/app"); vi.mocked(initializeApp).mockClear();
+    const firebase = await import("./firebase");
+    await expect(firebase.initFirebase({ isolatedEmulatorSession: true })).rejects.toThrow("isolated-session-requires-local-demo-emulators");
+    expect(initializeApp).not.toHaveBeenCalled();
   });
 
   it.each(["localhost", "127.0.0.1", "[::1]"])("uses opt-in Firestore long polling on Vite loopback %s", async hostname => {

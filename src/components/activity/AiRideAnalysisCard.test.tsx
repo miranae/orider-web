@@ -1,12 +1,16 @@
+import { FirebaseServicesProvider, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import * as runtimeConfig from "../../services/runtimeConfig";
 import i18n from "i18next";
 import enActivity from "../../i18n/resources/en/activity.json";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
+import { renderWithProviders as renderProviders } from "../../__tests__/utils/renderWithProviders";
 import AiRideAnalysisCard from "./AiRideAnalysisCard";
 import type { ActivityNarrative, NarrativeSegment } from "../../hooks/useActivityNarrative";
 
+const renderWithProviders: typeof renderProviders = (ui, options) => renderProviders(ui, { authenticated: true, ...options });
+
 const narrativeApiMocks = vi.hoisted(() => ({
+  history: vi.fn(),
   generate: vi.fn(),
   peek: vi.fn(),
   appCheckThrottleRetryAfterMs: vi.fn(),
@@ -19,6 +23,8 @@ vi.mock("../../services/activityNarrativeApi", () => ({
   appCheckThrottleRetryAfterMs: narrativeApiMocks.appCheckThrottleRetryAfterMs,
   claimActivityNarrativeAppCheckThrottleRecovery: narrativeApiMocks.claimActivityNarrativeAppCheckThrottleRecovery,
 }));
+
+vi.mock("../../services/activityNarrativeHistory", () => ({ loadActivityNarrativeHistory: narrativeApiMocks.history }));
 
 function segment(fromKm: number, toKm: number, narrative: string): NarrativeSegment {
   return {
@@ -70,7 +76,7 @@ function narrative(segments: NarrativeSegment[]): ActivityNarrative & { hit: tru
 describe("AiRideAnalysisCard", () => {
   it("uses a fixed SVG for the AI heading without requesting generation", async () => {
     narrativeApiMocks.peek.mockResolvedValue(null);
-    const { container } = renderWithProviders(<AiRideAnalysisCard activityId="svg-header" enabled summaryPreview="Saved summary" />, { authenticated: true });
+    const { container } = renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="svg-header" enabled summaryPreview="Saved summary" />, { authenticated: true });
     const heading = await screen.findByText("AI 라이딩 분석");
     expect(heading.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument();
     expect(container).not.toHaveTextContent("🤖");
@@ -80,12 +86,35 @@ describe("AiRideAnalysisCard", () => {
   it("stage hides unsupported AI analysis and makes no peek or generation requests", async () => {
     const runtime = vi.spyOn(runtimeConfig, "getRuntimeConfig").mockReturnValue({ ...runtimeConfig.getRuntimeConfig(), appEnvironment: "stage" });
     try {
-      const { container } = renderWithProviders(<AiRideAnalysisCard activityId="stage-ai-hidden" enabled summaryPreview="Saved AI preview" />, { authenticated: true });
+      const { container } = renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="stage-ai-hidden" enabled summaryPreview="Saved AI preview" />, { authenticated: true });
       await act(async () => { await Promise.resolve(); });
       expect(container).toBeEmptyDOMElement();
       expect(narrativeApiMocks.peek).not.toHaveBeenCalled();
       expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
     } finally { runtime.mockRestore(); }
+  });
+
+  it("offers explicit reanalysis for a normal old result with a valid share summary and preserves it on input failure", async () => {
+    const saved = { ...narrative([segment(0, 10, "정상 이전 코칭")]), narrativeVersion: "old-v1", generatedAt: 123000, stale: false,
+      shareSummary: "기존 저장된 공유 문구" };
+    narrativeApiMocks.peek.mockResolvedValue(saved);
+    narrativeApiMocks.generate.mockRejectedValueOnce(Object.assign(Error("input not ready"), { code: "failed-precondition", details: { reason: "narrative_streams_not_ready" } }));
+    const { container } = renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="normal-old-explicit-refresh" enabled />);
+    const button = await screen.findByRole("button", { name: "다시 분석", exact: true });
+    expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
+    fireEvent.click(button);
+    await waitFor(() => expect(narrativeApiMocks.generate).toHaveBeenCalledExactlyOnceWith({ activityId: "normal-old-explicit-refresh", lang: "ko", forceRefresh: true }, expect.objectContaining({ auth: expect.anything() })));
+    expect(await screen.findByRole("alert")).toHaveTextContent("저장된 분석은 유지됩니다");
+    expect(screen.getByText("정상 이전 코칭")).toBeInTheDocument();
+    expect(container.querySelector("time")).toHaveAttribute("datetime", new Date(123000).toISOString());
+    narrativeApiMocks.history.mockResolvedValueOnce({ items: [{ revisionId: "a".repeat(64), generatedAt: 1000, version: "older-v0" }], nextCursor: null, selected: null })
+      .mockResolvedValueOnce({ items: [], nextCursor: null, selected: { revisionId: "a".repeat(64), narrative: { ...saved, summary: "선택한 과거 결과", generatedAt: 1000 } } });
+    fireEvent.click(screen.getByRole("button", { name: "이전 AI 분석 보기" }));
+    fireEvent.click(await screen.findByRole("button", { name: /older-v0/ }));
+    expect(await screen.findByText("선택한 과거 결과")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "다시 분석", exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "다시 시도", exact: true })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "현재 분석으로 돌아가기" })).toBeInTheDocument();
   });
 
   it("keeps a legacy saved analysis and its timestamp visible through refresh failure and retry", async () => {
@@ -95,7 +124,7 @@ describe("AiRideAnalysisCard", () => {
     let rejectRefresh!: (error: Error) => void;
     narrativeApiMocks.generate.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectRefresh = reject; }))
       .mockResolvedValueOnce({ ...saved, generatedAt: generatedAt + 60_000, stale: false, summary: "최신 코칭 요약" });
-    const { container } = renderWithProviders(<AiRideAnalysisCard activityId="legacy-stale-refresh" enabled isActivityOwner />, { authenticated: true });
+    const { container } = renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="legacy-stale-refresh" enabled />, { authenticated: true });
     expect(await screen.findByText("생성 당시 구간 코칭")).toBeInTheDocument();
     const time = container.querySelector("time")!;
     expect(time).toHaveAttribute("datetime", new Date(generatedAt).toISOString());
@@ -105,7 +134,7 @@ describe("AiRideAnalysisCard", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("저장된 분석을 계속 표시합니다");
     expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
     expect(screen.getByText("생성 당시 구간 코칭")).toBeInTheDocument();
-    await waitFor(() => expect(narrativeApiMocks.generate).toHaveBeenCalledWith({ activityId: "legacy-stale-refresh", lang: "ko", forceRefresh: true }));
+    await waitFor(() => expect(narrativeApiMocks.generate).toHaveBeenCalledWith({ activityId: "legacy-stale-refresh", lang: "ko", forceRefresh: true }, expect.objectContaining({ auth: expect.anything(), functions: expect.anything() })));
     await act(async () => rejectRefresh(new Error("temporary refresh failure")));
     expect(await screen.findByRole("alert")).toHaveTextContent("저장된 분석은 유지됩니다");
     expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
@@ -118,16 +147,16 @@ describe("AiRideAnalysisCard", () => {
   it("does not carry an explicit refresh request into another activity or language", async () => {
     narrativeApiMocks.peek.mockResolvedValue({ ...narrative([segment(0, 10, "기존 코칭")]), stale: true });
     narrativeApiMocks.generate.mockResolvedValue({ ...narrative([segment(0, 10, "다시 분석한 코칭")]), stale: false });
-    const { rerender } = renderWithProviders(<AiRideAnalysisCard activityId="scope-refresh-a" enabled isActivityOwner />, { authenticated: true });
+    const { rerender } = renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="scope-refresh-a" enabled />, { authenticated: true });
     expect(await screen.findByText("기존 코칭")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "변경사항 반영해 다시 분석" }));
     expect(await screen.findByText("다시 분석한 코칭")).toBeInTheDocument();
-    rerender(<AiRideAnalysisCard activityId="scope-refresh-b" enabled isActivityOwner />);
+    rerender(<AiRideAnalysisCard isActivityOwner activityId="scope-refresh-b" enabled />);
     expect(await screen.findByText("기존 코칭")).toBeInTheDocument();
     expect(narrativeApiMocks.generate).toHaveBeenCalledTimes(1);
     await act(async () => { await i18n.changeLanguage("en"); });
     try {
-      await waitFor(() => expect(narrativeApiMocks.peek).toHaveBeenCalledWith({ activityId: "scope-refresh-b", cacheOnly: true, lang: "en" }));
+      await waitFor(() => expect(narrativeApiMocks.peek).toHaveBeenCalledWith({ activityId: "scope-refresh-b", cacheOnly: true, lang: "en" }, expect.objectContaining({ auth: expect.anything() })));
       expect(narrativeApiMocks.generate).toHaveBeenCalledTimes(1);
     } finally {
       await act(async () => { await i18n.changeLanguage("ko"); });
@@ -154,7 +183,7 @@ describe("AiRideAnalysisCard", () => {
 
   it("does not invent a timestamp for a saved analysis without a valid generation date", async () => {
     narrativeApiMocks.peek.mockResolvedValue({ ...narrative([segment(0, 10, "시각 없는 코칭")]), generatedAt: NaN });
-    const { container } = renderWithProviders(<AiRideAnalysisCard activityId="invalid-generation-date" enabled />);
+    const { container } = renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="invalid-generation-date" enabled />);
     expect(await screen.findByText("시각 없는 코칭")).toBeInTheDocument();
     expect(container.querySelector("time")).toBeNull();
   });
@@ -194,17 +223,17 @@ describe("AiRideAnalysisCard", () => {
     });
   });
 
-  it("does not offer a share-text regeneration button when a cached analysis has no share summary", async () => {
+  it("keeps explicit reanalysis without restoring the removed share-text feature", async () => {
     narrativeApiMocks.peek.mockResolvedValue({ ...narrative([segment(0, 10, "구간 코칭")]), shareSummary: null });
     renderWithProviders(<AiRideAnalysisCard activityId="invalid-short-share" enabled isActivityOwner />, { authenticated: true });
     expect(await screen.findByText("구간 코칭")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /다시 분석/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다시 분석" })).toBeInTheDocument();
     expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
   });
 
   it("shows saved AI summary instead of a fresh analysis CTA when detail cache misses", async () => {
     renderWithProviders(
-      <AiRideAnalysisCard
+      <AiRideAnalysisCard isActivityOwner
         activityId="strava_19098693942"
         enabled
         summaryPreview="전반적으로 안정적인 페이스의 라이딩이었습니다."
@@ -222,7 +251,7 @@ describe("AiRideAnalysisCard", () => {
     narrativeApiMocks.generate.mockRejectedValue(new Error("Unauthenticated"));
 
     renderWithProviders(
-      <AiRideAnalysisCard
+      <AiRideAnalysisCard isActivityOwner
         activityId="strava_19098693941"
         enabled
         summaryPreview="저장된 요약은 계속 보여야 합니다."
@@ -250,7 +279,7 @@ describe("AiRideAnalysisCard", () => {
     ));
 
     renderWithProviders(
-      <AiRideAnalysisCard activityId="app-check-throttle" enabled />,
+      <AiRideAnalysisCard isActivityOwner activityId="app-check-throttle" enabled />,
       { authenticated: true },
     );
 
@@ -272,7 +301,7 @@ describe("AiRideAnalysisCard", () => {
     ]));
 
     renderWithProviders(
-      <AiRideAnalysisCard activityId="focused-segments-visible" enabled />,
+      <AiRideAnalysisCard isActivityOwner activityId="focused-segments-visible" enabled />,
     );
 
     expect(await screen.findByText("구간별 분석 (2)")).toBeInTheDocument();
@@ -290,7 +319,7 @@ describe("AiRideAnalysisCard", () => {
     ]));
 
     renderWithProviders(
-      <AiRideAnalysisCard activityId="focused-segments-empty" enabled />,
+      <AiRideAnalysisCard isActivityOwner activityId="focused-segments-empty" enabled />,
     );
 
     await screen.findByText("전체 코칭 요약");
@@ -299,6 +328,121 @@ describe("AiRideAnalysisCard", () => {
     expect(screen.getByTitle(/0–15km/)).toBeInTheDocument();
     expect(screen.getByTitle(/15–30km/)).toBeInTheDocument();
   });
+  it.each([true, false])("reads ACL-authorized stored AI for a viewer without generation controls (signed in: %s)", async authenticated => {
+    const saved = narrative([segment(0, 10, "허용된 활동 분석")]);
+    narrativeApiMocks.peek.mockResolvedValue(saved);
+    narrativeApiMocks.history.mockResolvedValueOnce({items:[{revisionId:"d".repeat(64),generatedAt:2,version:"viewer-old"}],nextCursor:null,selected:null})
+      .mockResolvedValueOnce({items:[],nextCursor:null,selected:{revisionId:"d".repeat(64),narrative:{...saved,summary:"허용된 이전 분석"}}});
+    renderProviders(<AiRideAnalysisCard activityId={`viewer-history-${authenticated}`} enabled />, {authenticated});
+    expect(await screen.findByText("허용된 활동 분석")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("이전 AI 분석 보기"));fireEvent.click(await screen.findByRole("button",{name:/viewer-old/}));
+    expect(await screen.findByText("허용된 이전 분석")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("현재 분석으로 돌아가기"));
+    expect(await screen.findByText("전체 코칭 요약")).toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:"다시 분석"})).not.toBeInTheDocument();
+    expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
+  });
+
+  it("hides cached comparison text after the server revokes narrative access", async () => {
+    narrativeApiMocks.peek.mockResolvedValue({ ...narrative([segment(0, 10, "private prior rides")]), stale: true });
+    narrativeApiMocks.generate.mockRejectedValue(Object.assign(new Error("Access denied"), { code: "permission-denied" }));
+    renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="revoke-cached-grounding" enabled />);
+    expect(await screen.findByText("private prior rides")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "변경사항 반영해 다시 분석" }));
+    await waitFor(() => expect(screen.queryByText("private prior rides")).not.toBeInTheDocument());
+    expect(screen.queryByText("전체 코칭 요약")).not.toBeInTheDocument();
+  });
+
+  it("omits absent legacy metrics and uses saved segment boundaries for the timeline", async () => {
+    const saved = narrative([segment(0, 12.5, "legacy coaching")]);
+    const legacy = saved as unknown as { overall: Record<string, unknown>; segments: Record<string, unknown>[] };
+    delete legacy.overall.totalDistanceKm;
+    for (const key of ["avgSpeedKmh", "avgPowerW", "avgHr", "relWind"]) delete legacy.segments[0][key];
+    narrativeApiMocks.peek.mockResolvedValue(saved);
+    const { container } = renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="legacy-missing-metrics" enabled />);
+    await screen.findByText("legacy coaching");
+    expect(container.textContent).not.toMatch(/undefined|NaN|ai\.wind\./);
+    expect(screen.queryByText(/0W|HR0|0km\/h/)).not.toBeInTheDocument();
+    expect(screen.getByText("12.5km")).toBeInTheDocument();
+    expect(screen.getByTitle(/0–12.5km/)).toBeInTheDocument();
+  });
+
+  it("preserves recorded zero speed and power rather than treating them as missing", async () => {
+    narrativeApiMocks.peek.mockResolvedValue(narrative([{ ...segment(0, 1, "recorded resting segment"), avgSpeedKmh: 0, avgPowerW: 0 }]));
+    renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="recorded-zero-metrics" enabled />);
+    expect(await screen.findByText(/0km\/h · 0W/)).toBeInTheDocument();
+  });
+
+});
+
+it("selects saved narrative content and returns to the current result without generation", async () => {
+  const current = narrative([segment(0, 10, "현재 구간 코칭")]);
+  const previous = { ...narrative([segment(0, 5, "당시 구간 코칭")]), summary: "당시 분석 요약", generatedAt: 2 };
+  narrativeApiMocks.peek.mockResolvedValue(current);
+  narrativeApiMocks.history.mockResolvedValueOnce({ items: [{ revisionId: "a".repeat(64), generatedAt: 1e100, version: "old-v1" }], nextCursor: null, selected: null })
+    .mockResolvedValueOnce({ items: [], nextCursor: null, selected: { revisionId: "a".repeat(64), narrative: previous } });
+  const before = narrativeApiMocks.generate.mock.calls.length;
+  renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="history-content" enabled />);
+  await screen.findByText("현재 구간 코칭");
+  fireEvent.click(screen.getByRole("button", { name: "이전 AI 분석 보기" }));
+  fireEvent.click(await screen.findByRole("button", { name: /old-v1/ }));
+  await screen.findByText("당시 분석 요약");
+  expect(screen.getByText("당시 구간 코칭")).toBeInTheDocument();
+  expect(screen.queryByText("현재 구간 코칭")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "현재 분석으로 돌아가기" }));
+  expect(screen.getByText("현재 구간 코칭")).toBeInTheDocument();
+  expect(narrativeApiMocks.generate).toHaveBeenCalledTimes(before);
+});
+
+it("keeps the selected narrative through a failed history read but clears it on access denial", async () => {
+  const current = narrative([segment(0, 10, "현재 유지 코칭")]);
+  const previous = { ...narrative([segment(0, 5, "이전 보존 코칭")]), summary: "이전 보존 분석", generatedAt: 3 };
+  narrativeApiMocks.peek.mockResolvedValue(current);
+  narrativeApiMocks.history.mockResolvedValueOnce({ items: [{ revisionId: "b".repeat(64), generatedAt: 3, version: "saved-v2" }], nextCursor: null, selected: null })
+    .mockResolvedValueOnce({ items: [], nextCursor: null, selected: { revisionId: "b".repeat(64), narrative: previous } })
+    .mockRejectedValueOnce(Error("offline"))
+    .mockRejectedValueOnce(Object.assign(Error("denied"), { code: "functions/permission-denied" }));
+  renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="history-failure" enabled />);
+  await screen.findByText("현재 유지 코칭");
+  fireEvent.click(screen.getByRole("button", { name: "이전 AI 분석 보기" }));
+  fireEvent.click(await screen.findByRole("button", { name: /saved-v2/ }));
+  await screen.findByText("이전 보존 분석");
+  fireEvent.click(screen.getByRole("button", { name: "이전 AI 분석 보기" }));
+  await screen.findByRole("alert");
+  expect(screen.getByText("이전 보존 분석")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "이전 AI 분석 보기" }));
+  await waitFor(() => expect(screen.queryByText("이전 보존 분석")).not.toBeInTheDocument());
+  expect(screen.queryByText("현재 유지 코칭")).not.toBeInTheDocument();
+});
+
+
+it("preserves summary-only current and historical analysis without a segment timeline or generation", async () => {
+  const current = { ...narrative([]), summary: "현재 요약만 있는 분석" };
+  const previous = { ...narrative([]), summary: "당시 요약만 있는 분석", shareSummary: null, generatedAt: 2 };
+  narrativeApiMocks.peek.mockResolvedValue(current);
+  narrativeApiMocks.history.mockResolvedValueOnce({ items: [{ revisionId: "c".repeat(64), generatedAt: 2, version: "summary-only" }], nextCursor: null, selected: null })
+    .mockResolvedValueOnce({ items: [], nextCursor: null, selected: { revisionId: "c".repeat(64), narrative: previous } });
+  const before = narrativeApiMocks.generate.mock.calls.length;
+  const { container } = renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="summary-only-history" enabled />);
+  await screen.findByText(current.summary);
+  fireEvent.click(screen.getByRole("button", { name: "이전 AI 분석 보기" }));
+  fireEvent.click(await screen.findByRole("button", { name: /summary-only/ }));
+  await screen.findByText(previous.summary);
+  expect(screen.queryByText(current.summary)).not.toBeInTheDocument();
+  expect(container).not.toHaveTextContent("Infinity");
+  expect(screen.queryByText("30km")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "현재 분석으로 돌아가기" }));
+  expect(screen.getByText(current.summary)).toBeInTheDocument();
+  expect(narrativeApiMocks.generate).toHaveBeenCalledTimes(before);
+});
+
+it("does not resurrect a legacy preview when the shared cache reader denies access",async()=>{
+ narrativeApiMocks.peek.mockRejectedValue({code:"permission-denied"});
+ renderProviders(<AiRideAnalysisCard activityId="public-denied-cache" enabled summaryPreview="회수된 본문"/>,{authenticated:false});
+ await waitFor(()=>expect(narrativeApiMocks.peek).toHaveBeenCalled());
+ await act(async()=>{});expect(screen.queryByText("회수된 본문")).not.toBeInTheDocument();
+ expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
+});
 
   describe("snapshot reanalysis notice", () => {
     const states = [
@@ -342,6 +486,7 @@ describe("AiRideAnalysisCard", () => {
         if (label === button) expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
         else expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
       }
+      if (button === null) expect(screen.getByRole("button", { name: "다시 분석", exact: true })).toBeInTheDocument();
       expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
     });
 
@@ -361,7 +506,7 @@ describe("AiRideAnalysisCard", () => {
       const { container } = renderWithProviders(<AiRideAnalysisCard activityId="snapshot-analyst-refresh" enabled isActivityOwner />, { authenticated: true });
       fireEvent.click(await screen.findByRole("button", { name: "새 분석가로 다시 분석" }));
       expect(await screen.findByText("새 분석가 요약")).toBeInTheDocument();
-      expect(narrativeApiMocks.generate).toHaveBeenCalledWith({ activityId: "snapshot-analyst-refresh", lang: "ko", forceRefresh: true });
+      expect(narrativeApiMocks.generate).toHaveBeenCalledWith({ activityId: "snapshot-analyst-refresh", lang: "ko", forceRefresh: true }, expect.objectContaining({ auth: expect.anything() }));
       expect(container).toHaveTextContent("· 분석가 v70");
       expect(screen.queryByText("새 분석가로 다시 분석 가능")).not.toBeInTheDocument();
     });
@@ -382,4 +527,3 @@ describe("AiRideAnalysisCard", () => {
       expect(screen.queryByText("stop_heavy")).not.toBeInTheDocument();
     });
   });
-});

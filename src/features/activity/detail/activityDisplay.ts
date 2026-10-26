@@ -10,6 +10,7 @@ export interface UploadedPhoto {
   id: string;
   url: string;
   storagePath: string;
+  nativePhoto?: { activityId: string; photoId: string };
   userId: string;
   createdAt: number;
   location?: [number, number] | null;

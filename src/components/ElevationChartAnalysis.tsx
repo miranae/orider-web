@@ -27,6 +27,8 @@ export interface AnalysisChartPresentation {
   canonicalRange?: [number, number];
   hoverIndex?: number | null;
   visualRange?: [number, number] | null;
+  /** Exact elapsed viewport; sample handles remain only interaction anchors. */
+  elapsedViewport?: { startOffsetSec: number; endOffsetSec: number } | null;
   onVisualRangeChange?: (range: [number, number] | null) => void;
   axisControls?: ReactNode;
   controls?: ReactNode;
@@ -43,8 +45,11 @@ export default function ElevationChartAnalysis({ data, overlays = [], elapsedAxi
   const coordinate = analysisCoordinates(data, elapsedAxisSec, xAxis === "elapsed", units === "imperial");
   const axis = coordinate.values;
   const selected = orderedChartRange(p.visualRange, data.length);
-  const domain = analysisDomain(axis, selected);
   const fullDomain = analysisDomain(axis);
+  const exact = p.elapsedViewport;
+  const domain: [number, number] = coordinate.elapsed && exact && Number.isFinite(exact.startOffsetSec) && Number.isFinite(exact.endOffsetSec)
+    && exact.startOffsetSec / 60 >= fullDomain[0] && exact.endOffsetSec / 60 <= fullDomain[1] && exact.endOffsetSec > exact.startOffsetSec
+    ? [exact.startOffsetSec / 60, exact.endOffsetSec / 60] : analysisDomain(axis, selected);
   const timelineRef = useRef<HTMLDivElement>(null);
   const [plotWidth, setPlotWidth] = useState(0);
   useEffect(() => {

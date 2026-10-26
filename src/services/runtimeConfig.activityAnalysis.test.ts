@@ -25,3 +25,18 @@ it.each(["true", 1, null, {}, false])("training period capability rejects non-bo
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ trainingAnalysisPeriodsEnabled: value }) }));
   await loadRuntimeConfig(); expect(getRuntimeConfig().trainingAnalysisPeriodsEnabled).toBe(false);
 });
+
+
+describe("public detail rollout", () => {
+  it("defaults off", () => {
+    vi.stubEnv("VITE_PUBLIC_ACTIVITY_DETAIL_ENABLED", "false");
+    resetRuntimeConfigForTests();
+    expect(getRuntimeConfig().publicActivityDetailEnabled).toBe(false);
+  });
+  it.each([true, false, "true", 1, null])("requires exact boolean true for remote %s", async value => {
+    resetRuntimeConfigForTests();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ publicActivityDetailEnabled: value }) }));
+    await loadRuntimeConfig();
+    expect(getRuntimeConfig().publicActivityDetailEnabled).toBe(value === true);
+  });
+});

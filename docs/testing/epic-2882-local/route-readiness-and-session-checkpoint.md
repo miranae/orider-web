@@ -1,0 +1,76 @@
+# Local route readiness and session checkpoint
+
+2026-10-26. Web product `a71b3041`, server product `8e921185` (read-gate test fixture follow-up `6a344fc7`). No push, merge, remote issue update or deployment. Existing local data services remain running.
+
+## User-visible changes
+
+- File import is bound to the originating Firebase SDK user/app and modal lifetime. Account replacement, dismissal and unmount abort the client request and discard old completion/error UI. A request already accepted by the server is not rolled back by client abort. Local browser evidence uses real Auth logout and an intercepted import transport; it does not prove server import processing.
+- Exact notification comments focus once per destination. Periodic access checks preserve keyboard focus and the unsent composer text. Fourteen component tests and an actual 30-second local SDK refresh passed. The first browser attempt failed a combined assertion without diagnostic output; the saved repeat run passed and is not a reliability claim.
+- Route inventory shows optional owner-wide history inspection counts and their date. Counts cover all years/sports independently of the selected route filter. A missing stored index does not establish missing source GPS. The UI retains `wholeHistory: unknown` and `personalBest: unavailable`.
+- Route inventory also invalidates results when the actual SDK user object changes, including a new session with the same UID. AppCheck-delayed dispatch and old responses are fenced. Three focused suites / 25 tests passed, including readiness and session cases.
+
+## Actual local evidence
+
+External evidence root: `/Users/kyoungnam/Documents/Codex/2026-10-26/orider-epic-2882`.
+
+- `import-session/results.json`: actual local SDK logout clears dialog, file and completion; no old activity navigation. Import POST is intercepted, no server file write.
+- `embedded-profile/comment-focus-results.json`: two exact-comment HTTP 200 responses, preserved focused composer and draft, zero page errors, no posted comment.
+- `r5-inventory/readiness-seed-results.json`: actual bounded producer traversed ten synthetic owner activity documents; two stored owner-bound indices found, eight missing, capture completeness unproven for all ten. A single page was sufficient for this review fixture; multi-page/CAS/invalidation tests are separate server evidence.
+- `r5-inventory/readiness-http-results.json`: both local Functions ports 5039 and 5029 returned 200 to the owner and 403 to another account without readiness content. Emulator unsigned credentials are not production signature verification.
+- `r5-inventory/readiness-browser-results.json` and `readiness-mobile.png`: real app router, Auth SDK and HTTP response; counts displayed, zero page errors and no horizontal overflow at 390px. Screenshot opened and inspected.
+
+Runtime snapshot source `60a51e00950d`, artifact `bf67d93039e9`. Wrapper replacement reloaded local Functions code; Firestore/Auth/Storage were not restarted. The wrapper does not register route-index background triggers; actual event delivery for the new invalidation hook is not claimed. The callable reads the producer's explicit inspection snapshot. Dedicated server tests exercise invalidation and concurrent transactions against Firestore.
+
+## Verification and limits
+
+Web a71b3041: **917 files / 9,667 tests passed**, 317.61 seconds. TypeScript, complete contracts, build:dev, full lint with zero warnings and quality budgets passed. Logs: `/tmp/orider-2882-readiness-web-{full,contracts,build,lint-all,quality}.log`. Server 6a344fc7: **933 files / 15,651 tests passed**, with **55 files / 541 opt-in tests skipped**, no failures, 105.65 seconds. Final log: `/tmp/orider-route-readiness-full-vitest-rerun.log`. Build integrity verification confirms the same source/artifact hashes after the fixture-only commit. Earlier full-suite counts are not applied to this source.
+
+Server bounded producer / reader / trigger tests: 68 passed. Separate old-default-deny versus new-explicit-deny rules checks passed for owner/other/anonymous read, list and write. The first complete server run had one expected read-gate fingerprint fixture failure, preserved in `/tmp/orider-route-readiness-full-vitest.log`; the fixture-only update keeps the runtime artifact unchanged.
+
+The producer is deliberately demo/loopback-only. It is a readiness inspection, not a production backfill, consistent owner-wide snapshot, capture-completeness witness, deduplication proof or PB reducer. Production migration, native terminal capture proof and actual-rider comparison remain unfinished. APP changes remain local; its focused Swift compilation passed after the actor annotation fix, but hosted XCTest still encounters an additional Firebase-dependent LTHR observer. That app follow-up does not block local web/server review and is not reported as passed.
+
+## Actual direct GPX input follow-up
+
+The external local wrapper then registered the existing `onActivityStreamsMetrics` Firestore handler from the same immutable artifact, without a scheduler or data-service restart. A newly created synthetic owner imported 601 GPS/elevation/time points through the actual web dialog and REST endpoint. The POST returned 201 and stored the actual compressed stream in the Storage emulator. The real background event enqueued generation 1 of its metrics job.
+
+After the real 120-second settling policy elapsed, a guarded external harness ran exactly this job through the actual processor with its expected generation/due time. No clock or lease bypass. The job finished `done`; metrics v41 were bound to the same owner, unchanged source-stream update time/content digest and final activity revision. Canonical values: 1.25 km, 600 seconds, elevation gain 5 m. Recorded elevation 6 m is distinct from the algorithm's canonical 5 m. The self feed rounds distance to 1.3 km. Heart rate, power and NP remain missing; the UI labels its time-based load estimate instead of implying measured sensor data.
+
+Actual owner analysis, self feed and another account's public detail all used the same imported activity and produced zero page errors. `import-session/direct-canonical-analysis.png` was opened for visual inspection. Evidence and exact-resource cleanup instructions are in `import-session/direct-import-plan.md`, `direct-resource-manifest.json` and `gpx-canonical/process-one-job-results.json`. Synthetic fixtures are retained for review; existing owner/viewer/producer activity documents were not modified.
+
+The viewer also added one kudos, confirmed persisted count 1 on a fresh page, then cancelled it with HTTP 200. A final fresh page and Firestore read showed count 0 and no kudos documents. `import-session/direct-social-results.json` records zero page errors and the restored state. The add-response body was not retained because the harness waited on the button's obsolete label after it changed; no duplicate add was issued, and the persisted readback/cancellation evidence is kept separately.
+
+Review: `http://localhost:5174/ko/activity/uxyEMYsnBXehbX9lDZ31?demoAccount=import&tab=analysis`. The alias exists only in the external local harness. This verifies GPX, not FIT/TCX/ZIP; manual single-job processing is not automatic scheduler completion. The older activity skips the immediate 24-hour derived-recompute request; this is not a prohibition on the existing lazy training revalidation path. Period/PMC behavior is investigated separately and is not established by the single-activity analysis result.
+
+## GPX period and diary follow-up
+
+The first import account initialized its fitness calendar before an explicit timezone was stored. Its UTC history and subsequent future KST transition were preserved. No documents were deleted or dates relabeled to force agreement.
+
+A second isolated account (`demoAccount=importKst`) saved Asia/Seoul through the actual settings UI before importing its GPX. Actual import, automatic metrics enqueue, normal settling time and guarded single-job processing passed again. The real Auth SDK then called the existing bike revalidation endpoint once; the owner had exactly one activity. This is a fixture-specific bounded execution, not a claim that the general revalidation endpoint has an activity-count cap.
+
+Firestore readback confirms initial Asia/Seoul calendar version 1, estimated daily load 7 on October 20, and processed PMC with matching input/load revisions. The period endpoint returned HTTP 200: September 28–October 25 totals 1.25 km / 600 seconds / 5 m and load 7. End-of-period CTL/ATL/TSB were 0.1 / 0.5 / -0.3; the next day's ATL is 0.4, so those observations must not be compared as the same date. Before-history PMC remains unavailable. The prior empty period has confirmed load 0, without inventing PMC values.
+
+The load remains `source: time`, `reliable: false`, with no recorded TSS or server-derived measured load. The diary displays the imported activity through its existing activity-list path; no materialized `daily_activities` document was created. Bike PMC completion does not make the combined multisport `fitness/current` complete: absent other-sport inputs leave that aggregate pending.
+
+Evidence: external `gpx-canonical/period-kst-before.json`, `process-kst-job-results.json`, `period-kst-after.json`, `period-followup-plan.md`, and `import-kst/direct-period-results.json`. The mobile period screenshot was opened for visual inspection; the browser reported no page errors. Review: `http://localhost:5174/ko/coach/analysis?sport=bike&detail=analysis-periods&demoAccount=importKst`.
+
+## FIT, TCX and ZIP follow-up
+
+On the same immutable server artifact `bf67d93039e9`, a separate KST synthetic owner imported real files generated with the existing web FIT/TCX exporters. FIT and TCX each returned creation success. A small ZIP created two valid activities, reported one corrupt supported entry as failed, and excluded an unsupported text entry. Repeating the ZIP skipped the same two activity IDs rather than creating duplicates; the corrupt entry remained a failure.
+
+Four explicit activity IDs and their automatically enqueued jobs were processed after normal due times using an exact-ID-set guard. All four reached canonical v41 and actual owner analysis with no pending state or browser page errors. The three sensor-bearing synthetic files retained average HR 140, average power 214 and NP 214.5; the GPS-only entry retained null HR/power/NP and showed no measured-power chart. A recorded sensor stream does not establish historical FTP/HR thresholds: those remain missing, and the load is still labeled a time-based estimate. These are synthetic sensor samples, not real-rider measurements.
+
+External `import-formats/validation-summary.json` joins the actual document readback with browser observations. Version 41 is a server-document assertion, not a badge asserted on the sensor panel. Upload results, four-resource cleanup manifest, screenshots and review links are retained under `import-formats/`. No automatic scheduler completion or production file compatibility beyond these representative cases is claimed.
+
+## Fresh-account calendar and summary correction
+
+The GPX follow-up exposed a real signup-path gap rather than only a synthetic fixture omission: new profiles do not store a timezone, the diary defaults to Asia/Seoul, but the first PMC previously rejected that default and initialized UTC. Server `d8fc470e` accepts the shared KST fallback only before any PMC history exists and only when all raw timezone candidates are absent/null. Malformed settings, existing UTC history, ledgers, summaries, account fences and concurrent initialization remain protected. No user settings or historical documents are migrated.
+
+Server `22d02a26` also fixes the 7/30-day summary window: a calendar date's UTC anchor was incorrectly compared with actual activity timestamps, excluding early-morning KST activities from totals while retaining them in daily points. Totals, sessions and metadata now use each activity's effective stored date key. Existing UTC and mixed calendar history are preserved. The separate `today` summary retains its documented KST-local-today meaning; this change does not unify every date policy. Existing rounding of totals versus daily points can still differ for fractional loads.
+
+Node 22 build, lint and compatibility checks passed. Final server run: **933 files / 15,662 tests passed**, **55 files / 542 tests skipped**, 101.78 seconds. Separate focused runs include 53 tests with actual isolated Firestore calendar transactions and 32 summary-calendar tests. Logs: `/tmp/orider-summary-calendar-basis-full.log`; initial fixture and TypeScript failures were retained before correction. Web product remains `a71b3041`, so its earlier 9,667-test gate is unchanged.
+
+The prepared immutable server snapshot source `70846fac5b6f`, artifact `a40a029fab3b`, was activated locally after the gates passed. Only Functions wrappers reloaded; Auth, Firestore and Storage were not restarted. Existing direct-file evidence above remains scoped to `bf67d93039e9`; actual signup/browser confirmation of the new calendar is recorded separately after execution.
+
+Actual new-runtime verification passed: real `ensureUserProfile` and UI onboarding left timezone unset; GPX imported at UTC October 19 15:30 / KST October 20 00:30; the diary was visited before fitness revalidation. Automatic metrics enqueue and normal due-time guarded processing completed, then one real SDK revalidation returned `recomputed`. The new calendar is KST, daily estimated load is 7, week total/session count is 7/1 with `byDay=[7,0,0,0,0,0,0]`, and month total/count is 7/1. Period HTTP 200 and the actual mobile screen show load 7 with the same October 25 end-of-period PMC values above. The screenshot was opened for visual inspection. The first browser navigation stalled while waiting for full page load; its owned context was closed and navigation retried using DOM readiness. No product fix was inferred from that harness timeout.
+
+The original UTC fixture's user, series, summary, ledger, activity and stream document hashes/update times remained identical. Both local Functions ports again returned owner 200 and other-user 403 without readiness content. Evidence: external `import-unset-timezone/`, `gpx-canonical/fresh-default-runbook.md`, `period-fresh-default-after.json`, and `r5-inventory/fresh-calendar-http-results.json`. Review alias `importUnset` is external-harness-only. The broader epic, native follow-ups, production rollout and real-rider validation remain open.

@@ -518,6 +518,17 @@
     "unblock": "차단 해제",
     "blockedDescription": "내가 차단한 사용자만 표시합니다. 차단을 해제해도 친구나 구독 관계는 자동 복원되지 않습니다.",
     "actionFailed": "변경하지 못했습니다. 다시 시도해 주세요.",
-    "managementNotReady": "관계 관리 기능 준비 중"
-  }
+    "managementNotReady": "관계 관리 기능 준비 중",
+    "signInRequired": "팔로우하려면 앱에서 로그인해 주세요."
+  },
+  "notif.loading": "알림을 확인하고 있어요.",
+  "notif.failed": "알림 상태를 확인하지 못했습니다. 다시 시도해 주세요.",
+  "notif.retry": "다시 시도",
+  "notif.more": "이전 알림 더 보기",
+  "notif.unavailable": "삭제되었거나 더 이상 접근할 수 없는 알림입니다.",
+  "notif.commentDestination": "알림의 댓글",
+  "notif.loginDestination": "알림의 댓글을 확인하려면 로그인해 주세요. 로그인 후 이 위치로 돌아옵니다.",
+  "notif.signIn": "로그인",
+  "notif.targetUnavailable": "댓글이 삭제·숨김 처리되었거나 접근 권한이 변경되어 확인할 수 없습니다.",
+  "notif.refreshScope": "최근 알림을 20개씩 표시합니다. 30초마다 또는 창으로 돌아오면 현재 권한을 확인하고 최신 20개로 갱신합니다."
 }

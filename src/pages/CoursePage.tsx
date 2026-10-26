@@ -1,3 +1,4 @@
+import { loadSegmentMetadata } from "../services/segmentMetadata";
 import { useDefaultSport } from "../hooks/useDefaultSport";
 import { Banana, Flag, MapPinned, Mountain, Timer } from "lucide-react";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -429,12 +430,12 @@ export default function CoursePage() {
     const ids = (course?.segmentIds ?? []).slice(0, 12);
     if (ids.length === 0) { setLinkedSegments([]); return; }
     let cancelled = false;
-    Promise.all(ids.map((id) => getDoc(doc(firestore, "segments", id))))
+    loadSegmentMetadata(ids)
       .then((snaps) => {
         if (cancelled) return;
-        setLinkedSegments(snaps.filter((s) => s.exists()).map((s) => {
-          const x = s.data()!;
-          return { id: s.id, name: x.name ?? "", distance: x.distance ?? 0, averageGrade: x.averageGrade ?? 0, climbCategory: x.climbCategory ?? 0 };
+        setLinkedSegments(snaps.map((s) => {
+          const x = s;
+          return { id: s.id, name: String(x.name ?? ""), distance: Number(x.distance ?? 0), averageGrade: Number(x.averageGrade ?? 0), climbCategory: Number(x.climbCategory ?? 0) };
         }));
       })
       .catch((err) => { logClientError("CoursePage.linkedSegments", err, { courseId }); });

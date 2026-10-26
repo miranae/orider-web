@@ -1,3 +1,4 @@
+import { mockCollectionData } from "../../__tests__/mocks/firebase";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import i18n from "i18next";
@@ -13,6 +14,11 @@ import { getComparisonSeriesColors } from "../../theme/charts/comparisonSeriesCo
 
 const { comparison, elevation, publicProfiles, streamsApi } = vi.hoisted(() => ({ comparison: vi.fn(), elevation: vi.fn(), publicProfiles: vi.fn(), streamsApi: vi.fn() }));
 vi.mock("../../services/personalDataApi", () => ({ getActivityStreams: streamsApi }));
+vi.mock("../../services/publicActivityMaps", () => ({ loadPublicActivityMap: vi.fn(async (_services: unknown, id: string) => {
+  const a = (mockCollectionData.get("activities") ?? []).find(item => item.id === id);
+  const encodedPolyline = a?.thumbnailTrack ?? (["first", "second"].includes(id) ? "37,127;38,128" : null);
+  return { activityId: id, revision: "safe-fixture", privacyEnabled: true, mapPreview: { encodedPolyline, imageUrl: null } };
+}) }));
 vi.mock("../../services/publicProfiles", () => ({ getPublicUserProfiles: publicProfiles }));
 beforeEach(() => {
   publicProfiles.mockReset().mockResolvedValue(new Map());
@@ -23,7 +29,7 @@ vi.mock("../../hooks/useGroup", () => ({ useGroup: () => ({ group: { toggles: { 
 vi.mock("../../components/ComparisonChart", () => ({ default: (props: unknown) => { comparison(props); return <div />; } }));
 vi.mock("./GroupRidePerformanceChart", () => ({ default: (props: { beforePlot?: React.ReactNode }) => { elevation(props); return <>{props.beforePlot}</>; } }));
 vi.mock("../../utils/mapbox", () => ({ getMapboxToken: () => "test-token", MAP_STYLE: "", applyKoreaCyclingStyle: vi.fn() }));
-vi.mock("react-map-gl/mapbox", () => ({ default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>, Source: ({ children }: { children: React.ReactNode }) => <>{children}</>, Layer: ({ id, paint }: { id: string; paint: Record<string, string> }) => <div data-testid={`layer-${id}`} data-color={paint["line-color"]} data-width={paint["line-width"]} data-opacity={paint["line-opacity"]} />, Marker: ({ longitude, latitude }: { longitude: number; latitude: number }) => <div data-testid="hover-marker" data-longitude={longitude} data-latitude={latitude} /> }));
+vi.mock("react-map-gl/mapbox", () => ({ default: ({ children, onError }: { children: React.ReactNode; onError: () => void }) => <div><button onClick={onError}>simulate map error</button>{children}</div>, Source: ({ children, data }: { children: React.ReactNode; data: unknown }) => <div data-testid="route-source" data-geometry={JSON.stringify(data)}>{children}</div>, Layer: ({ id, paint }: { id: string; paint: Record<string, string> }) => <div data-testid={`layer-${id}`} data-color={paint["line-color"]} data-width={paint["line-width"]} data-opacity={paint["line-opacity"]} />, Marker: ({ longitude, latitude }: { longitude: number; latitude: number }) => <div data-testid="hover-marker" data-longitude={longitude} data-latitude={latitude} /> }));
 
 function RideWithExit() {
   const navigate = useNavigate();
@@ -146,7 +152,7 @@ describe("club ride metric presentation", () => {
     expect(screen.getByTestId("ride-chart-inspection")).toBeInTheDocument();
   });
   it("passes each rider's own elevation distances without truncating different sample counts", async () => {
-    setCollectionDocs("activities", ["first", "second"].map(id => ({ ...activity(id, null, null), source: "orider" })));
+    setCollectionDocs("activities", ["first", "second"].map(id => ({ ...activity(id, null, null), source: "orider", userId: id === "valid" || id === "first" ? "test-uid" : id })));
     setDocData("activity_streams/first", { distance: [0, 1000], altitude: [10, 20] });
     setDocData("activity_streams/second", { distance: [0, 500, 2000], altitude: [30, 40, 50] });
     elevation.mockClear();
@@ -191,7 +197,7 @@ describe("club ride metric presentation", () => {
   });
 
   it("skips empty or invalid elevation records when choosing the chart and map reference", async () => {
-    setCollectionDocs("activities", ["empty", "invalid", "valid"].map(id => ({ ...activity(id, null, null), source: "orider" })));
+    setCollectionDocs("activities", ["empty", "invalid", "valid"].map(id => ({ ...activity(id, null, null), source: "orider", userId: id === "valid" || id === "first" ? "test-uid" : id })));
     setDocData("activity_streams/empty", { distance: [0, 1000], altitude: [] });
     setDocData("activity_streams/invalid", { distance: [0, 1000], altitude: [NaN, Infinity] });
     setDocData("activity_streams/valid", { distance: [0, 1000], altitude: [0, 20], latlng: [[37, 127], [38, 128]] });
@@ -204,7 +210,7 @@ describe("club ride metric presentation", () => {
     expect(screen.getByTestId("hover-marker")).toHaveAttribute("data-longitude", "128");
   });
   it("omits incomplete elevation pairs without synthesizing zero and retains original GPS indices", async () => {
-    setCollectionDocs("activities", [{ ...activity("sparse", null, null), source: "orider" }]);
+    setCollectionDocs("activities", [{ ...activity("sparse", null, null), source: "orider", userId: "test-uid" }]);
     setDocData("activity_streams/sparse", { distance: [0, NaN, 1000, 2000, Infinity, 3000], altitude: [0, 99, 20], latlng: [[37, 127], [37.1, 127.1], [38, 128], [39, 129]] });
     elevation.mockClear();
     renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
@@ -331,7 +337,7 @@ it("updates map, elevation, sensor series and table colors together on theme cha
     return <><button onClick={() => setTheme("light")}>Light fixture</button><button onClick={() => setTheme("dark")}>Dark fixture</button></>;
   }
   elevation.mockClear();
-  setCollectionDocs("activities", ["first", "second"].map(id => ({ ...activity(id, null, null), source: "orider" })));
+  setCollectionDocs("activities", ["first", "second"].map(id => ({ ...activity(id, null, null), source: "orider", userId: id === "valid" || id === "first" ? "test-uid" : id })));
   for (const id of ["first", "second"]) setDocData(`activity_streams/${id}`, { distance: [0, 1000], altitude: [10, 20], watts: [0, 200], latlng: [[37, 127], [38, 128]] });
   renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<><ThemeSwitch /><GroupRidePage /></>} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
   fireEvent.click(screen.getByRole("button", { name: "Light fixture" }));
@@ -404,4 +410,43 @@ it("keeps hidden records selectable in the table and caps only the visible legen
   expect(within(table).getByRole("checkbox", { name: "Record 1 표시" })).toBeChecked();
   expect(screen.getByRole("button", { name: "Record 1 숨기기" })).toHaveAttribute("aria-pressed", "true");
   expect(elevation.mock.lastCall?.[0].overlays.filter((overlay: { yAxisID: string }) => overlay.yAxisID === "yPower")).toHaveLength(6);
+});
+
+vi.mock("../../services/activityDiscovery", () => ({ loadActivityDiscovery: vi.fn(async () => ({ items: mockCollectionData.get("activities") ?? [], nextCursor: null, scannedCount: 0, exhausted: true, totalCount: null })) }));
+
+it("loads authorized stored provider streams by public activity identity without a provider id", async () => {
+  setCollectionDocs("activities", [{ ...activity("provider-record", null, null), source: "strava" }]);
+  streamsApi.mockResolvedValue({ distance: [0, 1000], altitude: [10, 20] });
+  renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
+  expect(await screen.findByTestId("C2R-2")).toBeInTheDocument();
+  expect(streamsApi).toHaveBeenCalledWith("provider-record");
+  expect(mockCallableInvocations.some(call => call.name === "stravaGetActivityStreams")).toBe(false);
+});
+
+it("renders a safe preview independently of unrelated same-length sensor clocks", async () => {
+  elevation.mockClear();
+  setCollectionDocs("activities", [{ ...activity("preview", null, null), source: "strava", thumbnailTrack: "37,127;37,127.002;37,127.004" }]);
+  const epoch = 1792105200000;
+  streamsApi.mockResolvedValue({ time: [epoch, epoch + 1000, epoch + 2000], distance: [0, 10, 20], altitude: [10, 11, 12] });
+  renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
+  await waitFor(() => expect(streamsApi).toHaveBeenCalledWith("preview"));
+  await waitFor(() => expect(elevation.mock.lastCall?.[0].data).toHaveLength(3));
+  await screen.findByTestId("C2R-2");
+  await waitFor(() => {
+    const source = screen.getAllByTestId("route-source")[0]!;
+    expect(JSON.parse(source.getAttribute("data-geometry")!).geometry.coordinates).toEqual([[[127, 37], [127.002, 37], [127.004, 37]]]);
+  });
+  expect(screen.queryByTestId("hover-marker")).not.toBeInTheDocument();
+});
+
+vi.mock("../../components/RouteMap", async importOriginal => ({ ...await importOriginal<typeof import("../../components/RouteMap")>(), supportsWebGL: () => true }));
+
+it("renders the existing safe route-line fallback when the map provider fails", async () => {
+  setCollectionDocs("activities", [{ ...activity("preview", null, null), source: "strava", thumbnailTrack: "37,127;37,127.002;37,127.004" }]);
+  renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
+  fireEvent.click(await screen.findByRole("button", { name: "simulate map error" }));
+  const map = screen.getByTestId("C2R-1");
+  expect(map.querySelector("svg path")?.getAttribute("d")).toBeTruthy();
+  expect(within(map).getByText("경로 미리보기")).toBeInTheDocument();
+  expect(within(map).getByRole("button", { name: "전체 경로 보기" })).toBeDisabled();
 });

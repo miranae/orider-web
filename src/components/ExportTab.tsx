@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Activity, ActivityStreams } from "@shared/types";
 import { generateTcx } from "../utils/exportTcx";
@@ -11,6 +11,7 @@ import { logClientError } from "../services/errorLogger";
 interface ExportTabProps {
   activity: Activity;
   streams: ActivityStreams;
+  resolveCurrentStreams?: () => Promise<ActivityStreams>;
 }
 
 function makeFilename(activity: Activity, ext: string): string {
@@ -38,32 +39,37 @@ const FORMATS = [
   { id: "csv", label: "CSV", descKey: "export.formatCsvDesc", icon: "📊" },
 ] as const;
 
-export default function ExportTab({ activity, streams }: ExportTabProps) {
+export default function ExportTab({ activity, streams, resolveCurrentStreams }: ExportTabProps) {
   const { t } = useTranslation("activity");
   const { showToast } = useToast();
+  const generation = useRef(0);
+  useEffect(() => { generation.current++; return () => { generation.current++; }; }, [activity.id, resolveCurrentStreams]);
 
-  const handleExport = useCallback((format: string) => {
+  const handleExport = useCallback(async (format: string) => {
+    const request = generation.current;
     try {
+      const currentStreams = resolveCurrentStreams ? await resolveCurrentStreams() : streams;
+      if (request !== generation.current) return;
       switch (format) {
         case "fit": {
-          const data = generateFit(activity, streams);
+          const data = generateFit(activity, currentStreams);
           const ab = new ArrayBuffer(data.byteLength);
           new Uint8Array(ab).set(data);
           downloadBlob(new Blob([ab], { type: "application/octet-stream" }), makeFilename(activity, "fit"));
           break;
         }
         case "tcx": {
-          const xml = generateTcx(activity, streams);
+          const xml = generateTcx(activity, currentStreams);
           downloadBlob(new Blob([xml], { type: "application/xml" }), makeFilename(activity, "tcx"));
           break;
         }
         case "csv": {
-          const csv = generateCsv(streams);
+          const csv = generateCsv(currentStreams);
           downloadBlob(new Blob([csv], { type: "text/csv" }), makeFilename(activity, "csv"));
           break;
         }
         case "gpx": {
-          const gpx = generateGpx(activity, streams);
+          const gpx = generateGpx(activity, currentStreams);
           if (gpx) {
             downloadBlob(new Blob([gpx], { type: "application/gpx+xml" }), makeFilename(activity, "gpx"));
           }
@@ -74,7 +80,7 @@ export default function ExportTab({ activity, streams }: ExportTabProps) {
       logClientError("ExportTab.export", err, { activityId: activity.id, format });
       showToast(t("export.errorAlert"), "error");
     }
-  }, [activity, streams, t, showToast]);
+  }, [activity, streams, resolveCurrentStreams, t, showToast]);
 
   const hasGps = !!streams.latlng?.length;
   const hasPower = !!streams.watts?.length;

@@ -62,3 +62,26 @@ it("tracks an anchor while earlier content grows and stops when the user takes c
     expect(scroll).toHaveBeenCalledTimes(2);
   } finally { vi.unstubAllGlobals(); }
 });
+
+it("keeps the same feed card offset while late content changes and stops on user input", () => {
+  let resized = () => {}; let cardTop = 500;
+  vi.stubGlobal("ResizeObserver", class { constructor(callback: () => void) { resized = callback; } observe() {} disconnect() {} });
+  function FeedFixture() {
+    const ref = useRef<HTMLElement>(null); const location = useLocation(); const navigate = useNavigate();
+    useMainScrollPosition(ref);
+    return <><button onClick={() => navigate("/detail")}>Open</button><button onClick={() => navigate(-1)}>Return</button><main ref={ref}>{location.pathname === "/" && <article data-scroll-anchor="ride">Ride</article>}</main></>;
+  }
+  const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const top = this.dataset.scrollAnchor ? cardTop - screen.getByRole("main").scrollTop : 0;
+    return { top, bottom: top + 300, left: 0, right: 390, width: 390, height: 300, x: 0, y: top, toJSON: () => ({}) };
+  });
+  try {
+    render(<MemoryRouter><FeedFixture /></MemoryRouter>);
+    const main = screen.getByRole("main"); fireEvent.pointerDown(main);
+    main.scrollTop = 600; fireEvent.scroll(main);
+    fireEvent.click(screen.getByText("Open")); fireEvent.click(screen.getByText("Return"));
+    expect(main.scrollTop).toBe(600);
+    cardTop = 700; act(() => resized()); expect(main.scrollTop).toBe(800);
+    fireEvent.wheel(main); cardTop = 900; act(() => resized()); expect(main.scrollTop).toBe(800);
+  } finally { bounds.mockRestore(); vi.unstubAllGlobals(); }
+});
