@@ -695,6 +695,15 @@
       "openSource": "Open source activity",
       "revision": "Input revision at generation: {{revision}}",
       "revisionUnknown": "Input revision at generation is unknown"
+    },
+    "history": {
+      "open": "Previous AI analyses",
+      "current": "Return to current analysis",
+      "viewing": "Viewing a saved AI analysis.",
+      "failed": "Could not load the previous analysis. The displayed result is kept.",
+      "entry": "{{time}} · {{version}}",
+      "empty": "No previous AI analyses saved.",
+      "more": "More previous analyses"
     }
   },
   "card": {

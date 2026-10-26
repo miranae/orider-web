@@ -695,6 +695,15 @@
       "openSource": "원본 활동 보기",
       "revision": "생성 당시 자료 버전: {{revision}}",
       "revisionUnknown": "생성 당시 자료 버전 미확인"
+    },
+    "history": {
+      "open": "이전 AI 분석 보기",
+      "current": "현재 분석으로 돌아가기",
+      "viewing": "저장된 이전 AI 분석을 보고 있습니다.",
+      "failed": "이전 분석을 불러오지 못했습니다. 표시 중인 결과는 유지됩니다.",
+      "entry": "{{time}} · {{version}}",
+      "empty": "저장된 이전 AI 분석이 없습니다.",
+      "more": "이전 분석 더 보기"
     }
   },
   "card": {

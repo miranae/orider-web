@@ -9,6 +9,7 @@ import type { ActivityNarrative, NarrativeSegment } from "../../hooks/useActivit
 const renderWithProviders: typeof renderProviders = (ui, options) => renderProviders(ui, { authenticated: true, ...options });
 
 const narrativeApiMocks = vi.hoisted(() => ({
+  history: vi.fn(),
   generate: vi.fn(),
   peek: vi.fn(),
   retrySummary: vi.fn(),
@@ -23,6 +24,8 @@ vi.mock("../../services/activityNarrativeApi", () => ({
   appCheckThrottleRetryAfterMs: narrativeApiMocks.appCheckThrottleRetryAfterMs,
   claimActivityNarrativeAppCheckThrottleRecovery: narrativeApiMocks.claimActivityNarrativeAppCheckThrottleRecovery,
 }));
+
+vi.mock("../../services/activityNarrativeHistory", () => ({ loadActivityNarrativeHistory: narrativeApiMocks.history }));
 
 function segment(fromKm: number, toKm: number, narrative: string): NarrativeSegment {
   return {
@@ -370,4 +373,44 @@ describe("AiRideAnalysisCard", () => {
     expect(await screen.findByText(/0km\/h · 0W/)).toBeInTheDocument();
   });
 
+});
+
+it("selects saved narrative content and returns to the current result without generation", async () => {
+  const current = narrative([segment(0, 10, "현재 구간 코칭")]);
+  const previous = { ...narrative([segment(0, 5, "당시 구간 코칭")]), summary: "당시 분석 요약", generatedAt: 2 };
+  narrativeApiMocks.peek.mockResolvedValue(current);
+  narrativeApiMocks.history.mockResolvedValueOnce({ items: [{ revisionId: "a".repeat(64), generatedAt: 2, version: "old-v1" }], nextCursor: null, selected: null })
+    .mockResolvedValueOnce({ items: [], nextCursor: null, selected: { revisionId: "a".repeat(64), narrative: previous } });
+  const before = narrativeApiMocks.generate.mock.calls.length;
+  renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="history-content" enabled />);
+  await screen.findByText("현재 구간 코칭");
+  fireEvent.click(screen.getByRole("button", { name: "이전 AI 분석 보기" }));
+  fireEvent.click(await screen.findByRole("button", { name: /old-v1/ }));
+  await screen.findByText("당시 분석 요약");
+  expect(screen.getByText("당시 구간 코칭")).toBeInTheDocument();
+  expect(screen.queryByText("현재 구간 코칭")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "현재 분석으로 돌아가기" }));
+  expect(screen.getByText("현재 구간 코칭")).toBeInTheDocument();
+  expect(narrativeApiMocks.generate).toHaveBeenCalledTimes(before);
+});
+
+it("keeps the selected narrative through a failed history read but clears it on access denial", async () => {
+  const current = narrative([segment(0, 10, "현재 유지 코칭")]);
+  const previous = { ...narrative([segment(0, 5, "이전 보존 코칭")]), summary: "이전 보존 분석", generatedAt: 3 };
+  narrativeApiMocks.peek.mockResolvedValue(current);
+  narrativeApiMocks.history.mockResolvedValueOnce({ items: [{ revisionId: "b".repeat(64), generatedAt: 3, version: "saved-v2" }], nextCursor: null, selected: null })
+    .mockResolvedValueOnce({ items: [], nextCursor: null, selected: { revisionId: "b".repeat(64), narrative: previous } })
+    .mockRejectedValueOnce(Error("offline"))
+    .mockRejectedValueOnce(Object.assign(Error("denied"), { code: "functions/permission-denied" }));
+  renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="history-failure" enabled />);
+  await screen.findByText("현재 유지 코칭");
+  fireEvent.click(screen.getByRole("button", { name: "이전 AI 분석 보기" }));
+  fireEvent.click(await screen.findByRole("button", { name: /saved-v2/ }));
+  await screen.findByText("이전 보존 분석");
+  fireEvent.click(screen.getByRole("button", { name: "이전 AI 분석 보기" }));
+  await screen.findByRole("alert");
+  expect(screen.getByText("이전 보존 분석")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "이전 AI 분석 보기" }));
+  await waitFor(() => expect(screen.queryByText("이전 보존 분석")).not.toBeInTheDocument());
+  expect(screen.queryByText("현재 유지 코칭")).not.toBeInTheDocument();
 });

@@ -1,3 +1,4 @@
+import { useActivityNarrativeHistory } from "../../hooks/useActivityNarrativeHistory";
 import NarrativeComparisonGrounding from "./NarrativeComparisonGrounding";
 import { captureActivityNarrativeSession } from "../../services/activityNarrativeSession";
 import { Bot } from "lucide-react";
@@ -276,14 +277,28 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     window.setTimeout(() => setTriggerFull(true), 0);
   };
 
-  const data = isActivityOwner && user && !full.accessRevoked ? full.data ?? peek.data : null;
+  const history = useActivityNarrativeHistory(activityId, lang, narrativeEnabled && !full.accessRevoked);
+  const data = isActivityOwner && user && !full.accessRevoked && !history.accessRevoked ? history.selected?.narrative ?? full.data ?? peek.data : null;
+  const historyControls = <div className="flex flex-wrap gap-2 mb-3">
+    <Button size="sm" variant="ghost" loading={history.busy} onClick={() => { void history.load(); }}>{t("ai.history.open")}</Button>
+    {history.selected && <Button size="sm" variant="ghost" onClick={history.clear}>{t("ai.history.current")}</Button>}
+    {history.selected && <Text variant="caption" role="status">{t("ai.history.viewing")}</Text>}
+    {history.failed && <Text variant="caption" tone="danger" role="alert">{t("ai.history.failed")}</Text>}
+    {history.list?.items.map(row => <Button key={row.revisionId} size="sm" variant="outline" disabled={history.busy} onClick={() => { void history.load(row.revisionId); }}>
+      {t("ai.history.entry", { version: row.version ?? "—", time: row.generatedAt == null ? "—" : new Intl.DateTimeFormat(lang === "en" ? "en-US" : "ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(row.generatedAt) })}
+    </Button>)}
+    {history.list?.items.length === 0 && <Text variant="caption">{t("ai.history.empty")}</Text>}
+    {history.list?.nextCursor && <Button size="sm" variant="ghost" disabled={history.busy} onClick={() => { void history.load(undefined, history.list!.nextCursor!); }}>{t("ai.history.more")}</Button>}
+  </div>;
 
   if (!narrativeEnabled) return null;
+  if (history.accessRevoked) return <Card>{historyControls}</Card>;
 
   // peek 로딩 중 (첫 열람, 빠름)
-  if (peek.loading) {
+  if (peek.loading && !data) {
     return (
       <Card>
+        {historyControls}
         <div className="flex items-center gap-2">
           <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
         </div>
@@ -300,10 +315,11 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
 
   // peek miss: 아직 분석 없음 → "분석시작" 버튼 또는 생성 중 스피너.
   // 소유자의 캐시가 없을 때만 명시적 생성 또는 기존 소유자 요약을 표시한다.
-  if (peek.cacheMiss && !triggerFull && !full.data) {
+  if (peek.cacheMiss && !triggerFull && !data) {
     if (previewSummary) {
       return (
         <Card>
+        {historyControls}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
             {user ? (
@@ -330,6 +346,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     }
     return (
       <Card>
+        {historyControls}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
           {user ? (
@@ -364,6 +381,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   if (triggerFull && full.loading && !data) {
     return (
       <Card>
+        {historyControls}
         <div className="flex items-center gap-2">
           <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
         </div>
@@ -387,6 +405,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     if (previewSummary) {
       return (
         <Card>
+        {historyControls}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
             {authError ? (
@@ -422,6 +441,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
 
     return (
       <Card>
+        {historyControls}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
           {appCheckThrottled ? (
@@ -444,7 +464,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   }
 
   // 코칭은 부가 기능 — 미생성/빈 결과는 조용히 숨김 (개요 다른 카드 정상 노출)
-  if (!data || data.segments.length === 0) return null;
+  if (!data || data.segments.length === 0) return <Card>{historyControls}</Card>;
 
   const { overall } = data;
   const generatedDate = Number.isFinite(data.generatedAt) && data.generatedAt > 0
@@ -464,12 +484,13 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
 
   return (
     <Card>
+        {historyControls}
       {/* 헤더 */}
       <div className="flex items-center flex-wrap gap-2 mb-3">
         <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
         {tempBadge && <Text variant="caption" tone="tertiary">{tempBadge}</Text>}
         {data.isVirtualPower && <Text variant="caption" tone="tertiary">{t("ai.virtualPower")}</Text>}
-        {user && (data.stale || needsShareRegeneration) && (
+        {user && !history.selected && (data.stale || needsShareRegeneration) && (
           <Button size="sm" variant="secondary" onClick={retryFullAnalysis} disabled={full.loading}>
             {t(data.stale ? "ai.refreshAnalysisBtn" : "ai.regenerateShareSummaryBtn")}
           </Button>
@@ -503,7 +524,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
       {/* 상세 AI 분석과 짧은 공유 문구는 각각의 내용을 유지한다. */}
       <Text variant="body" tone="primary" as="p">{data.summary}</Text>
       <ActivitySocialSummary key={`${activityId}:${lang}:${user?.uid ?? "anonymous"}:${data.generatedAt}`}
-        activityId={activityId ?? undefined} lang={lang} summary={data.socialSummary} isActivityOwner={isActivityOwner} />
+        activityId={activityId ?? undefined} lang={lang} summary={data.socialSummary} isActivityOwner={isActivityOwner && !history.selected} />
       {data.stale && (
         <Text variant="caption" tone="tertiary" as="p" className="mt-2">
           {user ? t("ai.staleHint") : t("ai.staleLoginHint")}
