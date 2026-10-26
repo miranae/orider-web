@@ -483,3 +483,26 @@ semantic accent 16% 음영과 2px 양끝선을 그리며 취소·선택 완료 �
 명시적 닫기와 Escape는 트리거로 포커스를 돌려주고, 바깥 누르기·본문 스크롤·탐색 시 닫힌다.
 고정한 설명에서 Tab으로 닫기 버튼에 접근할 수 있으며 긴 설명의 닫기는 스크롤 중에도 남는다.
 차트의 데이터 선택/수치 툴팁은 해당 차트의 선택 동작을 유지한다.
+
+## 활동 분석: 다른 페이지에 적용할 읽기 순서
+
+`ActivityPage`의 분석 탭은 다음 조합의 실제 사용처입니다. 데이터 조회·권한·계산은 기능 레이어에 유지합니다.
+
+1. **요약**: 한 문장의 활동 해석과 서로 다른 핵심 지표를 `Card` + `Stat`로 먼저 보여 줍니다. 상세 본문에서 같은 요약을 반복하지 않습니다.
+2. **탐색**: 지도와 센서 차트는 기록의 위치·시간을 찾는 작업 공간입니다. 목차 링크는 실제 존재하는 섹션만 가리키며 고정 헤더에 제목이 가리지 않아야 합니다.
+3. **비교**: 같은 지표의 기간별 비교는 `ToggleControls variant="axis"`로 기준을 바꿉니다. 비교별 차트를 세로로 쌓지 않습니다. 축·색·플롯 높이는 같게 유지하고, 선택한 시간의 현재값·기준값을 차트 아래에도 남깁니다.
+4. **근거**: 핵심 분포와 결과는 펼쳐 두고, 큰 표·파생 지표·계산 방법은 `Disclosure`에 둡니다. 누락값을 0으로 보이게 하거나 비교 기간·실측 여부를 숨기지 않습니다.
+
+`Disclosure`는 native `details`/`summary`의 키보드 동작을 사용합니다. `title`은 무엇을 확인할 수 있는지, 선택적인 `description`은 포함된 정보의 범위를 씁니다. 요약 안에는 버튼이나 링크를 중첩하지 않습니다. 기본은 닫힘이며 열림이 꼭 필요한 경우 `open`을 사용합니다. 자식은 마운트 상태를 유지하므로 비싼 조회의 지연 실행은 기능에서 별도로 관리해야 합니다.
+
+검수는 점수 대신 다음 관측을 남깁니다: 실제 데이터 출처와 기준일, 390px/데스크톱에서 가로 넘침 없음, 비교 전환 시 하나의 차트, 시간 선택과 수치·출처의 동기화, 닫힌 상세의 재접근, 빈 값·권한 없는 데이터의 처리. 화면 사진은 민감한 활동 정보를 제외한 합성 예시만 저장소에 커밋합니다.
+
+처음 방문한 사용자를 위한 분석에서는 `Stat description`으로 수치의 단위·기준·의미를 함께 제공합니다. 파워 비교는 활동 목적과 최고 기록 비교의 한계를 설명하며 훈련 성패나 체력 저하로 단정하지 않습니다. 지도·센서 탐색은 핵심 분석 앞에서 기본 접힘이며, 펼침 버튼과 목차·최고 노력 위치 찾기로 다시 열 수 있습니다. 모바일과 데스크톱 모두 같은 데이터와 읽기 순서를 유지하고 공간만 조정합니다.
+
+시간별 파워·속도 곡선의 공통 외형은 `theme/charts/durationCurvePresentation.ts`가 소유합니다. 현재 계열은 얇은 실선과 옅은 면으로, 비교 계열은 점선으로 표시합니다. 세로 격자와 기본 점의 강조를 줄이고, 선택한 표본에는 툴팁을 유지합니다. 측정 지점 사이를 직선으로 연결하며 시간축·단위·결측·기록 판단은 기능 레이어가 관리합니다.
+
+활동 요약처럼 설명이 있는 수치는 `Stat layout="responsive"`를 사용하면 좁은 화면에서 라벨·수치를 같은 행에 두고 설명을 다음 행 전체 폭으로 읽을 수 있습니다. 페이지는 Stat 내부를 덮어쓰지 않고 수치 묶음의 열 수만 정합니다.
+
+`ToggleControls variant="axis" layout="field"`는 Input/Select 옆의 레이블이 있는 선택 항목에 사용한다. 외부 여백 없이 36px 높이로 정렬하며, 기본 차트 축 컨트롤의 32px 표시는 유지한다.
+
+`DistributionStrip` displays caller-supplied category weights as a single strip. Segment and legend triggers share hover/focus/tap explanations, with Escape/outside-tap dismissal. The title and right-aligned legend share one header row. `unlabelled` weights reserve passive strip space without a label or tooltip. Zero categories remain in the legend, missing categories should be omitted by the caller. The activity reading catalogue demonstrates Seiler and FTP distributions with synthetic data.

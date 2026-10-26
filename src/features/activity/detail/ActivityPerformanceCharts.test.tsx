@@ -114,3 +114,16 @@ it("presents exact elapsed selection statistics instead of enclosing downsample 
   expect(screen.getByText(/20:00/)).toHaveTextContent("12.0");
   expect(presentation.lanes.power?.average).toBe("200");
 });
+
+it("labels calculated elevation separately from Strava sensor summary headings", () => {
+  const points = [point];
+  const available = getPerformanceOverlays(points, "ride", "metric", null, "cadence");
+  const selected = new Set(available.map(cfg => cfg.key));
+  render(<ActivityPerformanceCharts analysisStyle sourceLabel="Strava" elevData={[{ distance: 100, elevation: 0 }]}
+    availableOverlays={available} activeOverlays={selected} focusedOverlayKey={null} toggleOverlay={vi.fn()}
+    chartOverlays={buildChartOverlays(available, selected, points, key => key)} hoverPoint={point}
+    summaryStats={{ minElev: 0, maxElev: 100, overlays: { speed: { avg: 25.6, max: 60.4 } } }} sport="ride" recordedRunCadenceUnit={null} metrics={null} />);
+  const presentation = captured.props.analysisPresentation as AnalysisChartPresentation;
+  expect(presentation.maximumLabel).toMatch(/Strava/);
+  expect(presentation.elevation.maximumLabel).toMatch(/Orider/);
+});

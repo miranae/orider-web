@@ -4,7 +4,6 @@ import NarrativeComparisonGrounding from "./NarrativeComparisonGrounding";
 import { captureActivityNarrativeSession } from "../../services/activityNarrativeSession";
 import { Bot } from "lucide-react";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
-import ActivitySocialSummary from "./ActivitySocialSummary";
 /**
  * AI 라이딩 분석 카드 (활동 개요).
  *
@@ -473,7 +472,11 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   const generatedDate = Number.isFinite(data.generatedAt) && data.generatedAt > 0
     ? new Date(data.generatedAt) : null;
   const generatedAt = generatedDate && Number.isFinite(generatedDate.getTime()) ? generatedDate : null;
-  const needsShareRegeneration = isActivityOwner && !history.selected && data.shareSummary === null;
+  // 분석은 생성 당시의 스냅샷 — 안내는 상단의 소유자 버튼 하나뿐(배지 중복 제거), 본문·처방은 그대로 둔다.
+  // 서버 계약: null 은 "안내 없음". 필드 자체가 없는(구 서버) 응답만 stale 로 폴백한다.
+  const reanalysis = data.reanalysisAvailable !== undefined ? data.reanalysisAvailable : (data.stale ? "inputs_changed" : null);
+  const ownerReanalysis = isActivityOwner ? reanalysis : null;
+  const analystVersion = data.narrativeVersion ? data.narrativeVersion.replace(/^rsn-/, "") : "";
   const coachedSegments = data.segments.filter((segment) => segment.narrative !== "");
   const tempBadge =
     overall.tempStartC != null && overall.tempEndC != null
@@ -495,18 +498,27 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         {data.isVirtualPower && <Text variant="caption" tone="tertiary">{t("ai.virtualPower")}</Text>}
         {canGenerate && !history.selected && (
           <Button size="sm" variant="secondary" onClick={retryFullAnalysis} disabled={full.loading}>
-            {t(data.stale ? "ai.refreshAnalysisBtn" : needsShareRegeneration ? "ai.regenerateShareSummaryBtn" : "ai.reanalyzeBtn")}
+            {t(ownerReanalysis === "analyst_updated" ? "ai.reanalyzeWithNewAnalystBtn" : ownerReanalysis === "inputs_changed" ? "ai.refreshAnalysisBtn" : "ai.reanalyzeBtn")}
           </Button>
         )}
       </div>
 
-      {generatedAt && (
-        <Text variant="caption" tone="tertiary" as="p" className="mb-3">
-          {t("ai.generatedAt")} {" "}
-          <time dateTime={generatedAt.toISOString()}>
-            {new Intl.DateTimeFormat(lang === "en" ? "en-US" : "ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(generatedAt)}
-          </time>
-        </Text>
+      {(generatedAt || analystVersion || ownerReanalysis) && (
+        <div className="flex items-center flex-wrap gap-2 mb-3">
+          {(generatedAt || analystVersion) && (
+            <Text variant="caption" tone="tertiary" as="p">
+              {generatedAt && (
+                <>
+                  {t("ai.generatedAt")} {" "}
+                  <time dateTime={generatedAt.toISOString()}>
+                    {new Intl.DateTimeFormat(lang === "en" ? "en-US" : "ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(generatedAt)}
+                  </time>
+                </>
+              )}
+              {analystVersion && <>{generatedAt ? " · " : ""}{t("ai.analystVersion", { version: analystVersion })}</>}
+            </Text>
+          )}
+        </div>
       )}
       {!history.selected && triggerFull && full.loading && (
         <p role="status" className="mb-3 text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>
@@ -524,28 +536,15 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         </div>
       )}
 
-      {/* 상세 AI 분석과 짧은 공유 문구는 각각의 내용을 유지한다. */}
       <Text variant="body" tone="primary" as="p">{data.summary}</Text>
-      <ActivitySocialSummary key={`${scope}:${data.generatedAt}`}
-        activityId={activityId ?? undefined} lang={lang} summary={data.socialSummary} isActivityOwner={isActivityOwner && !history.selected} />
-      {data.stale && (
-        <Text variant="caption" tone="tertiary" as="p" className="mt-2">
-          {user ? t("ai.staleHint") : t("ai.staleLoginHint")}
-        </Text>
-      )}
-
-      {!data.stale && needsShareRegeneration && (
-        <Text variant="caption" tone="tertiary" as="p" className="mt-2">
-          {t("ai.regenerateShareSummaryHint")}
-        </Text>
-      )}
 
       <NarrativeComparisonGrounding grounding={data.comparisonGrounding} generatedAt={data.generatedAt} />
 
       {/* 전체 플래그 */}
       {overall.flags.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
-          {overall.flags.map((f) => <FlagChip key={f} flag={f} t={t} />)}
+          {/* stop_heavy 는 AI 해석 입력용 서버 플래그 — 요약 본문에 녹아 있으므로 칩으로 따로 그리지 않는다. */}
+          {overall.flags.filter((f) => f !== "stop_heavy").map((f) => <FlagChip key={f} flag={f} t={t} />)}
         </div>
       )}
 

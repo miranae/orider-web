@@ -13,7 +13,6 @@ const narrativeApiMocks = vi.hoisted(() => ({
   history: vi.fn(),
   generate: vi.fn(),
   peek: vi.fn(),
-  retrySummary: vi.fn(),
   appCheckThrottleRetryAfterMs: vi.fn(),
   claimActivityNarrativeAppCheckThrottleRecovery: vi.fn(),
 }));
@@ -21,7 +20,6 @@ const narrativeApiMocks = vi.hoisted(() => ({
 vi.mock("../../services/activityNarrativeApi", () => ({
   generateActivityNarrative: narrativeApiMocks.generate,
   peekActivityNarrative: narrativeApiMocks.peek,
-  retryActivitySocialSummary: narrativeApiMocks.retrySummary,
   appCheckThrottleRetryAfterMs: narrativeApiMocks.appCheckThrottleRetryAfterMs,
   claimActivityNarrativeAppCheckThrottleRecovery: narrativeApiMocks.claimActivityNarrativeAppCheckThrottleRecovery,
 }));
@@ -171,9 +169,11 @@ describe("AiRideAnalysisCard", () => {
     try {
       const generatedAt = Date.UTC(2026, 8, 30, 4, 25);
       narrativeApiMocks.peek.mockResolvedValue({ ...narrative([segment(0, 10, "Saved English coaching")]), generatedAt, stale: true });
-      const { container } = renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="english-saved-generation-date" enabled />);
+      const { container } = renderWithProviders(<AiRideAnalysisCard activityId="english-saved-generation-date" enabled isActivityOwner />, { authenticated: true });
       expect(await screen.findByText("Saved English coaching")).toBeInTheDocument();
-      expect(screen.getByText(/Reanalysis needed/)).toBeInTheDocument();
+      expect(screen.queryByText("Activity data has changed")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Reanalyze with latest data" })).toBeInTheDocument();
+      expect(container).toHaveTextContent("· analyst test");
       expect(container.querySelector("time")).toHaveTextContent(new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(generatedAt));
       expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
     } finally {
@@ -188,7 +188,7 @@ describe("AiRideAnalysisCard", () => {
     expect(container.querySelector("time")).toBeNull();
   });
 
-  it("shows full AI analysis alongside distinct short sharing text, segment coaching and prescriptions", async () => {
+  it("shows full AI analysis, segment coaching and prescriptions without rendering a cached share summary", async () => {
     narrativeApiMocks.peek.mockResolvedValue({
       ...narrative([segment(0, 10, "구간별 코칭 유지")]),
       socialSummary: {
@@ -201,20 +201,17 @@ describe("AiRideAnalysisCard", () => {
       },
       prescriptions: [{ horizon: "ride", theme: "recovery", title: "회복 권고", detail: "다음 주행은 가볍게" }],
     });
-    renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="coaching-with-social-summary" enabled />, { authenticated: true });
-    expect(await screen.findByText("공유할 성취 요약")).toBeInTheDocument();
-    expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
+    renderWithProviders(<AiRideAnalysisCard activityId="coaching-with-social-summary" enabled isActivityOwner />, { authenticated: true });
+    expect(await screen.findByText("전체 코칭 요약")).toBeInTheDocument();
     expect(screen.getByText("다음 주행은 가볍게")).toBeInTheDocument();
     expect(screen.getByText("구간별 코칭 유지")).toBeInTheDocument();
-    expect(screen.getByText("51.9 → 53.3 (+1.4)")).toBeInTheDocument();
-    expect(screen.getByText("같은 종목의 일별 정산값입니다. 활동일 값에는 그날의 모든 활동이 포함됩니다.")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "공유용 요약" })).toBeInTheDocument();
+    expect(screen.queryByText("공유할 성취 요약")).not.toBeInTheDocument();
+    expect(screen.queryByText("51.9 → 53.3 (+1.4)")).not.toBeInTheDocument();
   });
 
   beforeEach(() => {
     window.sessionStorage.clear();
     narrativeApiMocks.generate.mockReset();
-    narrativeApiMocks.retrySummary.mockReset();
     narrativeApiMocks.peek.mockReset().mockResolvedValue({ hit: false });
     narrativeApiMocks.claimActivityNarrativeAppCheckThrottleRecovery.mockReset().mockReturnValue(false);
     narrativeApiMocks.appCheckThrottleRetryAfterMs.mockReset().mockImplementation((error: unknown) => {
@@ -226,60 +223,12 @@ describe("AiRideAnalysisCard", () => {
     });
   });
 
-  it("does not carry a recovered share summary across named sessions with the same UID and generation time", async () => {
-    function services(name: string): FirebaseServices {
-      const app = { name };
-      return { auth: { app, currentUser: { uid: "same-owner" } }, functions: { app } } as unknown as FirebaseServices;
-    }
-    const a = services("A"), b = services("B");
-    const saved = narrative([segment(0, 10, "같은 시각 코칭")]);
-    narrativeApiMocks.peek.mockResolvedValue(saved);
-    narrativeApiMocks.retrySummary.mockResolvedValue({ socialSummary: { narrative: "A 세션만 복구한 공유요약", achievements: [], shareText: "A" } });
-    const view = (value: FirebaseServices) => <FirebaseServicesProvider services={value}><AiRideAnalysisCard isActivityOwner activityId="named-share-scope" enabled /></FirebaseServicesProvider>;
-    const { rerender } = renderWithProviders(view(a));
-    await screen.findByText("같은 시각 코칭");
-    fireEvent.click(screen.getByRole("button", { name: "공유요약 다시 불러오기" }));
-    await screen.findByText("A 세션만 복구한 공유요약");
-    rerender(view(b));
-    await screen.findByText("같은 시각 코칭");
-    expect(screen.queryByText("A 세션만 복구한 공유요약")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "공유요약 다시 불러오기" })).toBeInTheDocument();
-    expect(narrativeApiMocks.retrySummary).toHaveBeenCalledTimes(1);
-  });
-
-  it("retries only a missing share summary and keeps coaching visible through failure and success", async () => {
-    narrativeApiMocks.peek.mockResolvedValue(narrative([segment(0, 10, "구간 코칭 보존")]));
-    narrativeApiMocks.retrySummary.mockRejectedValueOnce(new Error("temporary"))
-      .mockResolvedValueOnce({ socialSummary: { narrative: "복구된 공유요약", achievements: [], shareText: "복구된 공유요약" } });
-    renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="retry-only-summary" enabled />, { authenticated: true });
-    expect(await screen.findByText("전체 코칭 요약")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "공유요약 다시 불러오기" }));
-    expect(await screen.findByText("공유요약을 불러오지 못했습니다. 다시 시도해 주세요.")).toBeInTheDocument();
-    expect(screen.getByText("구간 코칭 보존")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "공유요약 다시 불러오기" }));
-    expect(await screen.findByText("복구된 공유요약")).toBeInTheDocument();
-    expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
-    expect(screen.getByText("구간 코칭 보존")).toBeInTheDocument();
-    expect(narrativeApiMocks.retrySummary).toHaveBeenCalledWith("retry-only-summary", "ko", expect.objectContaining({ auth: expect.anything() }));
-    expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
-  });
-
-  it("lets the owner explicitly regenerate a fresh analysis with invalid short share text", async () => {
+  it("keeps explicit reanalysis without restoring the removed share-text feature", async () => {
     narrativeApiMocks.peek.mockResolvedValue({ ...narrative([segment(0, 10, "구간 코칭")]), shareSummary: null });
-    narrativeApiMocks.generate.mockResolvedValue({
-      ...narrative([segment(0, 10, "구간 코칭")]), shareSummary: "새로운 짧은 성취 문구",
-      socialSummary: { narrative: "새로운 짧은 성취 문구", achievements: [], shareText: "새로운 짧은 성취 문구" },
-    });
-    renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="invalid-short-share" enabled />, { authenticated: true });
-    const regenerate = await screen.findByRole("button", { name: "공유 문구를 위해 다시 분석" });
+    renderWithProviders(<AiRideAnalysisCard activityId="invalid-short-share" enabled isActivityOwner />, { authenticated: true });
+    expect(await screen.findByText("구간 코칭")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다시 분석" })).toBeInTheDocument();
     expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
-    fireEvent.click(regenerate);
-    expect(await screen.findByText("새로운 짧은 성취 문구")).toBeInTheDocument();
-    expect(narrativeApiMocks.generate).toHaveBeenCalledWith(expect.objectContaining({
-      activityId: "invalid-short-share", forceRefresh: true,
-    }), expect.objectContaining({ auth: expect.anything() }));
-    expect(narrativeApiMocks.retrySummary).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "공유 문구를 위해 다시 분석" })).not.toBeInTheDocument();
   });
 
   it("shows saved AI summary instead of a fresh analysis CTA when detail cache misses", async () => {
@@ -494,3 +443,87 @@ it("does not resurrect a legacy preview when the shared cache reader denies acce
  await act(async()=>{});expect(screen.queryByText("회수된 본문")).not.toBeInTheDocument();
  expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
 });
+
+  describe("snapshot reanalysis notice", () => {
+    const states = [
+      { name: "analyst_updated", extra: { reanalysisAvailable: "analyst_updated" as const, stale: false }, badge: null, button: "새 분석가로 다시 분석" },
+      { name: "inputs_changed", extra: { reanalysisAvailable: "inputs_changed" as const, stale: true }, badge: null, button: "변경사항 반영해 다시 분석" },
+      { name: "legacy stale fallback", extra: { stale: true }, badge: null, button: "변경사항 반영해 다시 분석" },
+      { name: "explicit null with stale (server says no notice)", extra: { stale: true, reanalysisAvailable: null }, badge: null, button: null },
+      { name: "null", extra: { reanalysisAvailable: null, stale: false }, badge: null, button: null },
+    ];
+    const allBadges = ["새 분석가로 다시 분석 가능", "활동 데이터가 바뀌었어요"];
+    const allButtons = ["새 분석가로 다시 분석", "변경사항 반영해 다시 분석"];
+
+    function snapshot(extra: Partial<ActivityNarrative>) {
+      return {
+        ...narrative([segment(0, 10, "스냅샷 구간 코칭")]),
+        narrativeVersion: "rsn-v69",
+        generatedAt: Date.UTC(2026, 9, 20, 3, 0),
+        prescriptions: [{ horizon: "ride", theme: "pacing", title: "페이싱", detail: "스냅샷 처방" }],
+        ...extra,
+      } as ActivityNarrative & { hit: true };
+    }
+
+    function expectSnapshotContentVisible(container: HTMLElement) {
+      expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
+      expect(screen.getByText("스냅샷 구간 코칭")).toBeInTheDocument();
+      expect(screen.getByText("스냅샷 처방")).toBeInTheDocument();
+      expect(container).toHaveTextContent("· 분석가 v69");
+      expect(container.querySelector("time")).not.toBeNull();
+    }
+
+    it.each(states)("owner sees the $name badge and button with the full snapshot", async ({ name, extra, badge, button }) => {
+      narrativeApiMocks.peek.mockResolvedValue(snapshot(extra));
+      const { container } = renderWithProviders(<AiRideAnalysisCard activityId={`snapshot-owner-${name}`} enabled isActivityOwner />, { authenticated: true });
+      expect(await screen.findByText("스냅샷 구간 코칭")).toBeInTheDocument();
+      expectSnapshotContentVisible(container);
+      for (const text of allBadges) {
+        if (text === badge) expect(screen.getByText(text)).toBeInTheDocument();
+        else expect(screen.queryByText(text)).not.toBeInTheDocument();
+      }
+      for (const label of allButtons) {
+        if (label === button) expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+        else expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+      }
+      if (button === null) expect(screen.getByRole("button", { name: "다시 분석", exact: true })).toBeInTheDocument();
+      expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
+    });
+
+    it.each(states)("non-owner sees only time and analyst version for $name", async ({ name, extra }) => {
+      narrativeApiMocks.peek.mockResolvedValue(snapshot(extra));
+      const { container } = renderWithProviders(<AiRideAnalysisCard activityId={`snapshot-viewer-${name}`} enabled />, { authenticated: true });
+      expect(await screen.findByText("스냅샷 구간 코칭")).toBeInTheDocument();
+      expectSnapshotContentVisible(container);
+      for (const text of allBadges) expect(screen.queryByText(text)).not.toBeInTheDocument();
+      for (const label of allButtons) expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
+      expect(screen.queryByText("재분석 필요")).not.toBeInTheDocument();
+    });
+
+    it("owner reanalyzes with the new analyst through the forceRefresh path", async () => {
+      narrativeApiMocks.peek.mockResolvedValue(snapshot({ reanalysisAvailable: "analyst_updated" }));
+      narrativeApiMocks.generate.mockResolvedValue({ ...snapshot({ reanalysisAvailable: null }), narrativeVersion: "rsn-v70", summary: "새 분석가 요약" });
+      const { container } = renderWithProviders(<AiRideAnalysisCard activityId="snapshot-analyst-refresh" enabled isActivityOwner />, { authenticated: true });
+      fireEvent.click(await screen.findByRole("button", { name: "새 분석가로 다시 분석" }));
+      expect(await screen.findByText("새 분석가 요약")).toBeInTheDocument();
+      expect(narrativeApiMocks.generate).toHaveBeenCalledWith({ activityId: "snapshot-analyst-refresh", lang: "ko", forceRefresh: true }, expect.objectContaining({ auth: expect.anything() }));
+      expect(container).toHaveTextContent("· 분석가 v70");
+      expect(screen.queryByText("새 분석가로 다시 분석 가능")).not.toBeInTheDocument();
+    });
+
+    it("omits the analyst version when the saved analysis has none", async () => {
+      narrativeApiMocks.peek.mockResolvedValue(snapshot({ narrativeVersion: "" }));
+      const { container } = renderWithProviders(<AiRideAnalysisCard activityId="snapshot-no-version" enabled />);
+      expect(await screen.findByText("스냅샷 구간 코칭")).toBeInTheDocument();
+      expect(container).not.toHaveTextContent("분석가");
+      expect(container.querySelector("time")).not.toBeNull();
+    });
+
+    it("does not render the server stop_heavy flag as a chip (AI 해석 입력 전용)", async () => {
+      narrativeApiMocks.peek.mockResolvedValue(snapshot({ overall: { ...narrative([]).overall, flags: ["stop_heavy"] } }));
+      renderWithProviders(<AiRideAnalysisCard activityId="snapshot-stop-heavy" enabled />);
+      expect(await screen.findByText("AI 라이딩 분석")).toBeInTheDocument();
+      expect(screen.queryByText("정지 많음")).not.toBeInTheDocument();
+      expect(screen.queryByText("stop_heavy")).not.toBeInTheDocument();
+    });
+  });

@@ -15,7 +15,7 @@ import { announceActivityContentChange } from "../services/activityContentChange
 import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
-import { stravaRecordOf, formatStravaRecord } from "@shared/analysis/stravaRecord";
+import { stravaRecordOf } from "@shared/analysis/stravaRecord";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
 import { useMobile } from "../hooks/useMobile";
 import { ChevronDown, Menu, Trophy } from "lucide-react";
@@ -28,6 +28,7 @@ import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { elapsedRangeFromChartSelection } from "../features/activity/detail/activityRangeSelection";
 import { canonicalActivityChartMetrics, withStravaChartSummary, withCanonicalChartSummary, getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
 import { ActivityGrowthPanel } from "../features/activity/detail/ActivityGrowthPanel";
+import { ActivityAnalysisSummary } from "../features/activity/detail/ActivityAnalysisSummary";
 import { ActivityPersonalBenchmark } from "../features/activity/detail/ActivityPersonalBenchmark";
 import ActivityPeakEffortInspector from "../features/activity/detail/ActivityPeakEffortInspector";
 import { resolvePeakEffortLocation, twentyMinuteEffort, visiblePeakEfforts } from "../features/activity/detail/activityPeakEfforts";
@@ -128,6 +129,8 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
   const dialog = useDialog();
+  const [explorationMounted, setExplorationMounted] = useState(false);
+  const [analysisExploreOpen, setAnalysisExploreOpen] = useState(false);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [coRiders, setCoRiders] = useState<Activity[]>([]);
   const [coRiderIdentity, setCoRiderIdentity] = useState("");
@@ -257,6 +260,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
       streamsLoading: loadingStreams, streamsResolved: !!streams,
       noSensor: !!streamSensorSummary && !streamSensorSummary.hasPowerStream && !streamSensorSummary.hasHeartRateStream && !streamSensorSummary.hasCadenceStream && streamSensorSummary.rejections.length === 0,
     }));
+  useEffect(() => { if (activity && (activeTab !== "analysis" || sport !== "ride" || analysisExploreOpen)) setExplorationMounted(true); }, [activity, activeTab, sport, analysisExploreOpen]);
   useLayoutEffect(() => {
     const list = activityNavigationRef.current?.querySelector<HTMLElement>('[role="tablist"]');
     if (!list) return;
@@ -719,8 +723,10 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   ), [sampledData, sport, units, recordedRunCadenceUnit, t]);
   const canonicalSummaryMetrics = selectedAnalysis ? null : canonicalActivityChartMetrics(activity, serverMetrics.metrics, !!activePowerOverride);
   const summaryStats = useMemo(() => withStravaChartSummary(withCanonicalChartSummary(
-    buildSummaryStats(effectiveStreams, streamSensorSummary), canonicalSummaryMetrics,
-  ), activity, !!activePowerOverride), [effectiveStreams, streamSensorSummary, canonicalSummaryMetrics, activity, activePowerOverride]);
+    buildSummaryStats(effectiveStreams, streamSensorSummary, { distanceM: activity?.summary?.distance,
+      movingTimeSec: serverMetrics.metrics?.movingTimeSec ?? activity?.summary?.movingTimeSec
+        ?? (activity?.source === "strava" ? activity.summary.ridingTimeMillis / 1000 : null) }), canonicalSummaryMetrics,
+  ), activity, !!activePowerOverride), [effectiveStreams, streamSensorSummary, canonicalSummaryMetrics, activity, activePowerOverride, serverMetrics.metrics]);
   const { location: runSplitLocation, onSelectSplit: selectRunSplit } = useRunSplitLocation(activityId, activity?.id, sport === "run", streams, sampledData, resolveObservedDistanceKm(serverMetrics.metrics ?? {}, activity?.summary?.distance));
   const peakLocation = useMemo(() => resolvePeakEffortLocation(selectedPeak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData),
     [selectedPeak, serverMetrics.metrics, streams, sampledData]);
@@ -728,6 +734,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     pendingPeakLocation.current = null;
     setPeakSelection({ activityId, peak });
     if (!peak || selectedAnalysis) return;
+    setAnalysisExploreOpen(true);
     if (!streams) {
       pendingPeakLocation.current = { activityId, uid: user?.uid, peak };
       requestStreams();
@@ -820,8 +827,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     ? overview.response.defaultMemo ?? null : null;
   const providerRecord = activity?.source === "strava" ? stravaRecordOf(activity) : null;
   const overviewMemo = providerRecord && !resolvedMemo?.authored
-    ? freshDefaultMemo && overview.response?.status === "available" && overview.response.presentation.stravaRecord
-      ? freshDefaultMemo : formatStravaRecord(providerRecord, stravaSummaryLang)
+    ? freshDefaultMemo ?? resolvedMemo?.memo ?? publishedContent?.memo ?? null
     : resolvedMemo?.memo ?? freshDefaultMemo ?? publishedContent?.memo ?? null;
 
   const hasStreams = sampledData.length > 0;
@@ -907,7 +913,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const hasCanonicalSensorPresentation = canonicalSummaryMetrics != null;
   const powerNeedsPreview = activePowerOverride != null || hasStreamPowerCandidate && !hasCanonicalSensorPresentation;
   const displayedSummary = { ...(hasCanonicalSensorPresentation ? s : selectedSummary ?? s),
-    ...(!selectedAnalysis && activity.source === "strava" ? { tss: null, normalizedPower: null } : {}),
+    ...(!selectedAnalysis && activity.source === "strava" ? { tss: null, normalizedPower: null, swolf: null } : {}),
     ...(activity.source !== "strava" && latestMetrics && !powerNeedsPreview && latestMetrics.tss !== undefined ? { tss: latestMetrics.tss } : {}) };
   const activityDate = Number.isFinite(activity.startTime) && Number.isFinite(new Date(activity.startTime).getTime())
     ? fitnessDateKeyFor(activity.startTime, fitnessTimeseries?.loadSnapshot?.dateKeyBasis)
@@ -925,14 +931,14 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   // makes saved/server NP and TSS provenance unprovable. Keep trusted stream avg/max only.
   const activityTss = sport === "run" ? serverMetrics.metrics?.streamTrimpTss ?? null : powerNeedsPreview
     ? null
-    : serverMetrics.metrics?.tss ?? s.tss;
+    : serverMetrics.metrics?.tss ?? (providerRecord ? null : s.tss);
   const activityNp = sport !== "ride" || powerNeedsPreview
     ? null
-    : serverMetrics.metrics?.np ?? normalizedPowerValue;
+    : serverMetrics.metrics?.np ?? (providerRecord ? null : normalizedPowerValue);
 
   const sharePerformanceMetrics = [
     shareMetric(`${activity.source === "strava" ? "Orider " : ""}${t(sport === "run" ? "analysis.run.hrLoad" : "page.share.tss")}`, activityTss),
-    shareMetric(activityNp != null ? `${activity.source === "strava" ? "Orider " : ""}${t("page.share.normalizedPower")}` : t(sport === "run" ? "stat.runningPower" : "stat.avgPower"), activityNp ?? avgPowerValue, "W"),
+    shareMetric(`${activity.source === "strava" ? "Orider " : ""}${t(activityNp != null ? "page.share.normalizedPower" : sport === "run" ? "stat.runningPower" : "stat.avgPower")}`, activityNp ?? (providerRecord && !activePowerOverride ? latestMetrics?.avgPower : avgPowerValue), "W"),
     shareMetric("CTL", fitnessAtActivity?.ctl),
     shareMetric("ATL", fitnessAtActivity?.atl),
     shareMetric("TSB", fitnessAtActivity?.tsb, undefined, true),
@@ -953,15 +959,16 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
 
   // activitySanity 가드 — 비현실 속도 노출 차단용. sport "ride" → discipline "bike".
   const discipline = sport === "ride" ? "bike" : sport === "run" ? "run" : "swim";
-  const avgSpeedImplausible = isImplausibleAvgSpeed(s.averageSpeed, discipline);
-  const maxSpeedImplausible = isImplausibleMaxSpeed(s.maxSpeed, discipline);
+  const avgSpeedImplausible = isImplausibleAvgSpeed(providerRecord ? (providerRecord.average_speed ?? NaN) * 3.6 : s.averageSpeed, discipline);
+  const maxSpeedImplausible = isImplausibleMaxSpeed(providerRecord ? (providerRecord.max_speed ?? NaN) * 3.6 : s.maxSpeed, discipline);
   // 서버 activity_metrics 가 이동/정지 시간의 정본. 활동 문서의 movingTimeSec/pauseTimeSec 는
   // 같은 문서를 비정규화한 미러라 폴백으로 안전하다. Strava 의 ridingTimeMillis 는 이동시간
   // 성격이므로 총 경과시간은 start/end 차이로 확정한다.
-  const movingTimeSec = providerRecord?.moving_time ?? serverMetrics.metrics?.movingTimeSec ?? s.movingTimeSec;
-  const pauseTimeSec = providerRecord?.elapsed_time != null && providerRecord.moving_time != null
-    ? Math.max(0, providerRecord.elapsed_time - providerRecord.moving_time) : serverMetrics.metrics?.pauseTimeSec ?? s.pauseTimeSec;
+  const movingTimeSec = providerRecord ? providerRecord.moving_time : serverMetrics.metrics?.movingTimeSec ?? s.movingTimeSec;
+  const pauseTimeSec = providerRecord ? (providerRecord.elapsed_time != null && providerRecord.moving_time != null
+    ? Math.max(0, providerRecord.elapsed_time - providerRecord.moving_time) : null) : serverMetrics.metrics?.pauseTimeSec ?? s.pauseTimeSec;
   const speedDur = resolveDuration({
+    stravaRecord: providerRecord,
     ridingTimeMillis: s.ridingTimeMillis,
     elapsedTimeMillis: s.elapsedTimeMillis,
     startTime: activity.startTime,
@@ -969,7 +976,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     movingTimeSec,
     pauseTimeSec,
   });
-  const fallbackAvgKph = resolveAvgSpeedKph(s.distance, speedDur, s.averageSpeed);
+  const fallbackAvgKph = resolveAvgSpeedKph(s.distance, speedDur, s.averageSpeed, providerRecord);
   // 요약 스트립도 AnalysisTab 과 같은 서버 정본을 쓴다 — 한 화면에서 값이 갈리지 않도록 (#885 §2).
   const rawStripStats = resolveSummaryStripStats(serverMetrics, {
     summary: displayedSummary,
@@ -982,7 +989,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const runCadenceUnit = recordedRunCadenceUnit;
   const stripStats = sport === "run" ? {
     ...rawStripStats,
-    avgCadence: { ...rawStripStats.avgCadence, value: runningCadenceSpm(rawStripStats.avgCadence.value, runCadenceUnit) },
+    avgCadence: { ...rawStripStats.avgCadence, value: runningCadenceSpm(rawStripStats.avgCadence.value, providerRecord ? "strides_per_minute" : runCadenceUnit) },
   } : rawStripStats;
   const displayAvgKph = stripStats.avgSpeedKph.value ?? fallbackAvgKph;
   const displayAvgImplausible = isImplausibleAvgSpeed(displayAvgKph, discipline);
@@ -1075,13 +1082,14 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     && analysisLoad != null && Number.isFinite(analysisLoad) && Math.round(acceptedLoad * 10) / 10 !== Math.round(analysisLoad);
 
   const secondaryStatsAvailable = hasSecondaryActivityStats({ summary: displayedSummary, stats: stripStats, sport,
-    showElevation, runTrainingLoad: serverMetrics.metrics?.streamTrimpTss ?? null });
+    showElevation, runTrainingLoad: providerRecord ? null : serverMetrics.metrics?.streamTrimpTss ?? null });
 
   const keyStatsStrip = (section: "primary" | "secondary") => (
       <ActivityStatsGrid
         section={section}
-        runTrainingLoad={serverMetrics.metrics?.streamTrimpTss ?? null}
+        runTrainingLoad={providerRecord ? null : serverMetrics.metrics?.streamTrimpTss ?? null}
         summary={displayedSummary}
+        stravaRecord={providerRecord}
         stats={stripStats}
         sport={sport}
         interpretationContext={runDetail.interpretationContext}
@@ -1093,7 +1101,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         avgSpeedImplausible={avgSpeedImplausible}
         maxSpeedImplausible={maxSpeedImplausible}
         showElevation={showElevation}
-        distVal={distVal}
+        distVal={m => distVal(m, providerRecord ? 2 : 1)}
         distUnit={distUnit}
         speedVal={speedVal}
         speedUnit={speedUnit}
@@ -1229,7 +1237,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
                 athlete: activityNickname,
                 sport: tCommon(getSportLabelKey(activity.type)),
                 date: formatFullDate(activity.startTime),
-                distance: stripStats.distanceM.value != null ? `${distVal(stripStats.distanceM.value)} ${distUnit}` : "—",
+                distance: stripStats.distanceM.value != null ? `${distVal(stripStats.distanceM.value, providerRecord ? 2 : 1)} ${distUnit}` : "—",
                 duration: Number.isFinite(speedDur.displayMs) ? formatDuration(speedDur.displayMs) : "—",
                 elevation: stripStats.elevationGainM.value != null ? `${elevVal(stripStats.elevationGainM.value)} ${elevUnit}` : "—",
                 distanceLabel: t("stat.distance"),
@@ -1324,14 +1332,27 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
           onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })} />}
       {isActivityOwner && activeTab === "overview" && <ActivityMapPrivacyControl activityId={activity.id} />}
       {activeTab === "analysis" && <ActivityReanalysisControl canReanalyze={isActivityOwner} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
-      <div className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
+      {activeTab === "analysis" && <header className="activity-analysis-intro">
+        <div><Text as="h2" variant="title">{t("detail.analysis.title")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("analysisReading.intro")}</Text></div>
+        <nav aria-label={t("analysisReading.navigation")} className="activity-analysis-navigation">
+          <a href="#activity-tab-panel">{t("detail.analysisTopics.training")}</a>
+          {sport === "ride" && overview.response?.status === "available" && <>
+            {!!overview.response.presentation.zones?.length && <a href="#analysis-topic-intensity">{t("analysisReading.intensity")}</a>}
+            {!!overview.response.presentation.powerFingerprint?.length && <a href="#analysis-topic-records">{t("analysisReading.power")}</a>}
+          </>}
+          <a href="#activity-route-map" onClick={() => setAnalysisExploreOpen(true)}>{t("analysisReading.explore")}</a>
+        </nav>
+      </header>}
+      {activeTab === "analysis" && sport === "ride" && overview.enabled && !overview.loading && overview.response?.status === "available" && <ActivityAnalysisSummary presentation={overview.response.presentation} />}
+      {activeTab === "analysis" && sport === "ride" && <div className="activity-analysis-exploration-toggle"><Button variant="outline" aria-expanded={analysisExploreOpen} aria-controls="activity-analysis-exploration" onClick={() => setAnalysisExploreOpen(value => !value)}>{t("analysisReading.exploration")}<ChevronDown size={ICON_SIZE.md} aria-hidden="true" /></Button><Text as="p" variant="caption" tone="tertiary">{t("analysisReading.explorationHint")}</Text></div>}
+      <div id="activity-analysis-exploration" hidden={activeTab === "analysis" && sport === "ride" && !analysisExploreOpen} className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
       <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined}>
       {selectedMapSegment && <div className="activity-detail-segment-map-selection">
         <p role="status">{t("segments.selectedOnMap", { name: selectedMapSegment.name })}</p>
         <Button variant="outline" size="sm" onClick={returnToSegment}>{t("segments.returnToSegment")}</Button>
       </div>}
-      <ActivityMediaPanel
+      {(activeTab !== "analysis" || sport !== "ride" || analysisExploreOpen || explorationMounted) && <ActivityMediaPanel
         allowOwnerPreview={!publicAccess}
         activity={activity}
         streams={streams}
@@ -1349,7 +1370,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         uploadedPhotos={uploadedPhotos}
         flyToPosition={flyToPosition}
         t={t}
-      />
+      />}
       </div>
 
       {activeTab === "analysis" && <div className="activity-detail-chart-workspace" aria-label={t("detail.chartsTitle")}>
@@ -1375,7 +1396,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         </Card>
       )}
       {showElevation && elevData.length > 0 && (
-        <div ref={analysisRangeAnchor} tabIndex={-1} role="region" aria-label={t("detail.chartsTitle")}><ActivityPerformanceCharts embedded analysisStyle canonicalSummary={!!providerRecord || hasCanonicalSensorPresentation} sourceLabel={providerRecord && !activePowerOverride ? "Strava" : undefined}
+        <div ref={analysisRangeAnchor} tabIndex={-1} role="region" aria-label={t("detail.chartsTitle")}><ActivityPerformanceCharts embedded analysisStyle canonicalSummary={!!providerRecord || hasCanonicalSensorPresentation} sourceLabel={providerRecord && !activePowerOverride ? "Strava" : undefined} powerPreview={activePowerOverride != null}
           chartIdentity={visualIdentity} rawStreams={effectiveStreams} sensorSelectionContext={sensorSelectionContext}
           selectedElapsedRange={rangeSelection.selection} rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
           visualRange={visualRange} onVisualRangeChange={setVisualRange} hoverIndex={hoverIndex} segments={chartSegments}
@@ -1417,7 +1438,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
 
       </div>
       <div id="activity-tab-panel" role="tabpanel" aria-labelledby={`activity-tab-${activeTab}`} tabIndex={0} className="activity-detail-panel">
-      {activeTab !== "overview" && <div className="activity-detail-section-heading">
+      {activeTab !== "overview" && activeTab !== "analysis" && <div className="activity-detail-section-heading">
         <div><Text as="h2" variant="title">{t(`detail.${activeTab}.title`)}</Text>
           <Text as="p" variant="bodyMedium" tone="secondary">{t(`detail.${activeTab}.description`)}</Text></div>
       </div>}
@@ -1501,11 +1522,11 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
 
       <div className="activity-detail-analysis-content space-y-6" data-testid="activity-analysis-content" hidden={activeTab !== "analysis"}>
       {activeTab === "analysis" && <>
-      {providerRecord && <Text as="h2" variant="subtitle">{t("sourceMetrics.orider")}</Text>}
+
       {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
       <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={runGapSecPerKm} />
 
-      {sport === "ride" ? <ActivityAnalysisBody
+      {sport === "ride" ? <ActivityAnalysisBody summaryOutside
         overview={overview} isOwner={isActivityOwner} preview={activePowerOverride != null}
         ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} totalCalories={providerRecord ? latestMetrics?.caloriesKcal ?? null : stripStats.caloriesKcal.value}
         storedLoad={(isActivityOwner || overview.response?.status !== "available" || differentLoadValues) && !activePowerOverride && !analysisTabProps?.suppressServerPowerMetrics && (serverMetrics.status === "ready" || serverMetrics.status === "stale") ? serverMetrics.metrics?.tss ?? null : null}
@@ -1517,7 +1538,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
       {activeTab === "analysis" && activity?.id && <ActivityPersonalBenchmark activityId={activity.id}
         ownerUid={isActivityOwner ? user?.uid : null} sport={shareDiscipline ?? "other"}
         metrics={activePowerOverride || analysisTabProps?.suppressServerPowerMetrics ? null : serverMetrics.metrics}
-        suppliedPdcState={bikePdcState} defaultExpanded /> }        </> : null}
+        suppliedPdcState={bikePdcState} embedded /> }        </> : null}
         peakInspector={<>
 
       {(visiblePeakEfforts(serverMetrics.metrics, isActivityOwner || !!publicAccess, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true).length > 0 || twentyMinuteEffort(serverMetrics.metrics, isActivityOwner || !!publicAccess, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true)) && sport === "ride" && activity?.id && <ActivityPeakEffortInspector
@@ -1527,6 +1548,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         onSelectTwentyMinute={selectedAnalysis ? undefined : range => {
           if (!rangeSelection.ownerUid || rangeSelection.sourceLocked) return;
           setPeakSelection({ activityId, peak: null });
+          setAnalysisExploreOpen(true);
           rangeSelection.selectAndEnable(range);
           setVisualState({ identity: visualIdentity, axis: "elapsed", range: null });
           requestAnimationFrame(() => {
@@ -1535,7 +1557,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
           });
           if (!streams) requestStreams();
         }}
-        defaultExpanded onLocate={selectedAnalysis ? undefined : locatePeak} locating={loadingStreams && selectedPeak != null}
+        onLocate={selectedAnalysis ? undefined : locatePeak} locating={loadingStreams && selectedPeak != null}
         locationUnavailable={!!streams && selectedPeak != null && !peakLocation} /> }        </>}
         powerControls={isActivityOwner && (canRecalculateVirtualPowerPreview || activePowerOverride) ? <div className="activity-analysis-power-controls">
           <Text as="h3" variant="bodyMedium" weight={600}>{t("page.vp.heading")}</Text>
@@ -1548,7 +1570,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
       {activeTab === "analysis" && summarySensorMetrics.length > 0 && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
         <div className="space-y-4">
           <SummarySensorFallbackCard
-            title={t("page.summarySensorTitle")}
+            title={t(providerRecord ? "sourceMetrics.sensorSummary" : "page.summarySensorTitle")}
             description={t(streamsSignInRequired ? "page.summarySensorSignInDesc" : "page.summarySensorDesc")}
             metrics={summarySensorMetrics}
           />
@@ -1598,7 +1620,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
       {activeTab === "analysis" && sport !== "run" && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
         <div className="space-y-4">
           <SummarySensorFallbackCard
-            title={t("page.summarySensorTitle")}
+            title={t(providerRecord ? "sourceMetrics.sensorSummary" : "page.summarySensorTitle")}
             description={t(streamsSignInRequired ? "page.summarySensorSignInDesc" : "page.summarySensorDesc")}
             metrics={summarySensorMetrics}
           />

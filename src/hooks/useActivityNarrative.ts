@@ -64,40 +64,20 @@ export interface Prescription {
   detail: string;
 }
 
-export interface FitnessImpactValues { ctl: number; atl: number; tsb: number }
-
-export interface ActivitySocialSummary {
-  narrative: string;
-  achievements: Array<{ id: string; text: string }>;
-  fitnessImpact?: {
-    status: "available";
-    discipline: "bike" | "run" | "swim";
-    asOf: number;
-    timezone: "UTC";
-    before: FitnessImpactValues;
-    after: FitnessImpactValues;
-    delta: FitnessImpactValues;
-  } | {
-    status: "pending";
-    discipline: "bike" | "run" | "swim";
-    asOf: number;
-    timezone: "UTC";
-    before: FitnessImpactValues;
-  } | { status: "unavailable"; reason: string };
-  shareText: string;
-}
-
 export interface ActivityNarrative {
   comparisonGrounding?: ActivityNarrativeGrounding | null;
-  socialSummary?: ActivitySocialSummary;
-  /** 짧은 공유 문구 생성에 실패한 새 분석은 null. 구버전 캐시는 미포함. */
-  shareSummary?: string | null;
   narrativeVersion: string;
   generatedAt: number;
   isVirtualPower: boolean;
   summary: string;
   /** 서버 입력 fingerprint가 현재 활동/메트릭/프로필과 달라 기존 분석을 표시 중인 상태. */
   stale?: boolean;
+  /**
+   * 다시 분석 안내 (소유자 배지·버튼용, 어떤 내용도 가리지 않는다).
+   * analyst_updated = 분석가 판이 바뀜, inputs_changed = 활동 데이터가 바뀜(stale 과 같은 뜻).
+   * 구버전 서버는 미포함 → stale 로 폴백.
+   */
+  reanalysisAvailable?: "analyst_updated" | "inputs_changed" | null;
   /** 코치 처방 (rsn-v10+). 구버전 캐시는 미포함 → 옵셔널. */
   prescriptions?: Prescription[];
   overall: {

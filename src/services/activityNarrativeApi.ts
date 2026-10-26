@@ -6,7 +6,7 @@ import { logClientError } from "./errorLogger";
 import { track } from "./analytics";
 import { captureActivityNarrativeSession, type ActivityNarrativeServices } from "./activityNarrativeSession";
 type NarrativeSession = ReturnType<typeof captureActivityNarrativeSession>;
-import type { ActivityNarrative, ActivitySocialSummary, NarrativeLang } from "../hooks/useActivityNarrative";
+import type { ActivityNarrative, NarrativeLang } from "../hooks/useActivityNarrative";
 
 export interface ActivityNarrativeGenerateRequest {
   activityId: string;
@@ -19,7 +19,6 @@ export interface ActivityNarrativePeekRequest {
   activityId: string;
   lang: NarrativeLang;
   cacheOnly: true;
-  socialSummaryOnly?: boolean;
   forceRefresh?: never;
 }
 
@@ -39,8 +38,7 @@ interface ActivityNarrativeErrorPayload {
   };
 }
 
-type ActivitySocialSummaryResponse = { socialSummary?: ActivitySocialSummary };
-type ActivityNarrativeResponse = ActivityNarrative | ActivityNarrativePeekResponse | ActivitySocialSummaryResponse;
+type ActivityNarrativeResponse = ActivityNarrative | ActivityNarrativePeekResponse;
 type CompatibilityFallbackReason =
   | "rest_not_configured"
   | "rest_route_unavailable"
@@ -465,16 +463,11 @@ async function requestActivityNarrativePeek<T extends ActivityNarrativeResponse>
     });
   }
   if (state.viewer !== viewer) { state.viewer = viewer; state.pending.clear(); }
-  const key = JSON.stringify([session.key, configuredBaseUrl(), request.activityId, request.lang, !!request.socialSummaryOnly]);
+  const key = JSON.stringify([session.key, configuredBaseUrl(), request.activityId, request.lang]);
   const existing = state.pending.get(key);
   if (existing) return existing as Promise<T>;
   const pending = requestActivityNarrative<T>(request, services);
   state.pending.set(key, pending);
   try { return await pending; }
   finally { if (state.pending.get(key) === pending) state.pending.delete(key); }
-}
-
-/** AI를 재생성하지 않고 공유요약만 재조회한다. */
-export function retryActivitySocialSummary(activityId: string, lang: NarrativeLang, services?: ActivityNarrativeServices): Promise<ActivitySocialSummaryResponse> {
-  return requestActivityNarrativePeek<ActivitySocialSummaryResponse>({ activityId, lang, cacheOnly: true, socialSummaryOnly: true }, services);
 }

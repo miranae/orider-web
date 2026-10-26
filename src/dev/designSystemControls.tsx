@@ -2,13 +2,15 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'r
 import { createRoot } from 'react-dom/client';
 import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import {
-  Button, IconButton, ControlToolbar, ToolbarButton, DropdownSelect, MediaViewer, Checkbox, Card, Section, Select, Field, Input, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
-  Chip, ChartRangeControls, type ChartRangeMode, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
+  Button, IconButton, ControlToolbar, ToolbarButton, DropdownSelect, MediaViewer, Checkbox, Card, Section, Disclosure, Select, Field, Input, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
+  Stat, Chip, ChartRangeControls, type ChartRangeMode, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
   type DataTableColumn,
   MapResizeControls, MapNavigation, MapControlButton, ChartLegend, ChartValue, ChartTooltip,
   ComparisonChart, CHART_PRESENTATION, DEFAULT_THEME,
 } from '../theme';
 import { panChartRange } from '../theme/charts/chartViewport';
+import ActivityReadingLayoutPreview from './ActivityReadingLayoutPreview';
+import DurationCurvePreview from './DurationCurvePreview';
 import InfoTip from '../components/InfoTip';
 import SportIcon from '../components/common/SportIcon';
 import { COLOR_CSS_VARIABLES, CHART_CSS_VARIABLES, DIMENSION_CSS_VARIABLES } from '../theme/generated';
@@ -229,6 +231,9 @@ function ControlsCatalog() {
         </section>
 
         <section id="cards" className="catalog-section">
+          <Section title="요약과 상세" description="핵심 결과는 본문에, 표와 계산 근거는 같은 펼침 패턴에 둡니다.">
+            <Disclosure title="수치와 계산 기준" description="필요할 때 원본 수치와 비교 범위를 확인합니다."><Text as="p" variant="bodySmall">이번 활동 240 W · 최근 90일 최고 260 W. 비교 기준의 날짜와 출처는 상세 정보와 함께 표시합니다.</Text></Disclosure>
+          </Section>
           <div className="catalog-section-heading"><Text as="h2" variant="title">카드와 섹션</Text><Text as="p" variant="body" tone="tertiary">카드는 독립된 콘텐츠를, 섹션은 이어지는 정보의 순서와 위계를 만듭니다.</Text></div>
           <div className="catalog-card-grid">
             <div className="catalog-card-example"><div className="catalog-example-label"><Text variant="label">default · 독립 콘텐츠</Text><code>Card</code></div><Card title="강변 아침 라이딩" sub="생성한 예시"><div className="catalog-card-content"><Text variant="dataMedium">32.4 <Text variant="unit">km</Text></Text><Text as="p" variant="bodySmall" tone="tertiary">90분 · 평탄한 강변 왕복 코스</Text><Button variant="ghost" size="sm" aria-pressed={cardSelected} onClick={() => setCardSelected(!cardSelected)}>{cardSelected ? '선택 해제' : '활동 선택'}</Button><Text as="p" variant="caption" tone="tertiary" role="status">{cardSelected ? '이 활동을 선택했습니다.' : '활동을 선택하면 여기에 표시합니다.'}</Text></div></Card></div>
@@ -238,9 +243,11 @@ function ControlsCatalog() {
           </div>
           <div className="catalog-section-demo">
             <Section actionsLayout="responsive" title="훈련 요약" headingLevel={3} description={`${FIXTURE_SUMMARY_ROWS[sectionRecord]!.label} · 생성한 예시`} actions={<Button variant="ghost" size="sm" onClick={() => setSectionRecord(sectionRecord === 0 ? 1 : 0)}>다른 기록 보기</Button>}>
-              <div className="catalog-section-metrics"><div><Text as="p" variant="caption" tone="tertiary">평균 파워</Text><Text variant="dataMedium">{FIXTURE_SUMMARY_ROWS[sectionRecord]!.power!.toFixed(0)} <Text variant="unit">W</Text></Text></div><div><Text as="p" variant="caption" tone="tertiary">평균 심박수</Text><Text variant="dataMedium">{FIXTURE_SUMMARY_ROWS[sectionRecord]!.hr!.toFixed(0)} <Text variant="unit">bpm</Text></Text></div><div><Text as="p" variant="caption" tone="tertiary">활동 시간</Text><Text variant="dataMedium">90 <Text variant="unit">분</Text></Text></div></div>
+              <div className="catalog-section-metrics"><Stat layout="responsive" label="훈련 부하" value="120" description="시간과 강도를 반영한 활동의 훈련량 · 생성 예시" /><div><Text as="p" variant="caption" tone="tertiary">평균 파워</Text><Text variant="dataMedium">{FIXTURE_SUMMARY_ROWS[sectionRecord]!.power!.toFixed(0)} <Text variant="unit">W</Text></Text></div><div><Text as="p" variant="caption" tone="tertiary">평균 심박수</Text><Text variant="dataMedium">{FIXTURE_SUMMARY_ROWS[sectionRecord]!.hr!.toFixed(0)} <Text variant="unit">bpm</Text></Text></div><div><Text as="p" variant="caption" tone="tertiary">활동 시간</Text><Text variant="dataMedium">90 <Text variant="unit">분</Text></Text></div></div>
             </Section>
           </div>
+          <Section title="존별 시간 정렬" description="이름·비중·시간을 고정된 열로 비교합니다. 생성 데이터입니다."><ActivityReadingLayoutPreview /></Section>
+          <Section title="시간별 최고 파워" description="공통 곡선 외형 · 생성 데이터. 실제 분석은 단위·기간·출처·선택을 기능에서 관리합니다."><DurationCurvePreview variant={theme} /></Section>
           <Text as="p" variant="bodySmall" tone="tertiary">Section은 제목·설명·관련 동작을 같은 기준선에 둡니다. 이어지는 표와 차트까지 매번 카드로 감싸지 않습니다. 소스: <code>src/theme/components/Card.tsx</code> · <code>Section.tsx</code>.</Text>
         </section>
 

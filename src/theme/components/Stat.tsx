@@ -8,9 +8,12 @@ export interface StatProps extends HTMLAttributes<HTMLDivElement> {
   value: ReactNode;
   unit?: ReactNode;
   delta?: StatDelta;
+  description?: ReactNode;
   /** 카드 배경/테두리 포함. */
   card?: boolean;
   compact?: boolean;
+  /** Narrow screens place the label beside its value, with explanation below. */
+  layout?: "stacked" | "responsive";
 }
 
 /**
@@ -24,14 +27,16 @@ export function Stat({
   value,
   unit,
   delta,
+  description,
   card,
   compact,
+  layout = "stacked",
   className,
   ...rest
 }: StatProps) {
   return (
     <div
-      className={cn('ds-stat', card && 'ds-stat--card', compact && 'ds-stat--compact', className)}
+      className={cn('ds-stat', card && 'ds-stat--card', compact && 'ds-stat--compact', layout === 'responsive' && 'ds-stat--responsive', className)}
       {...rest}
     >
       <div className="ds-stat__label">{label}</div>
@@ -39,6 +44,7 @@ export function Stat({
         {value}
         {unit && <span className="ds-stat__value-unit">{unit}</span>}
       </div>
+      {description && <div className="ds-stat__description">{description}</div>}
       {delta && (
         <span className={cn('ds-stat__delta', `ds-stat__delta--${delta.direction ?? 'neutral'}`)}>
           {delta.direction === 'up' ? '▲' : delta.direction === 'down' ? '▼' : '—'} {delta.value}

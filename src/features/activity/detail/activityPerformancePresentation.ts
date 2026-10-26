@@ -58,7 +58,7 @@ export function withStravaChartSummary(observed: ReturnType<typeof buildSummaryS
   for (const [key, avg, max] of [["speed", r.average_speed == null ? null : r.average_speed * 3.6, r.max_speed == null ? null : r.max_speed * 3.6],
     ["power", r.average_watts, r.max_watts], ["hr", r.average_heartrate, r.max_heartrate], ["cadence", r.average_cadence, r.max_cadence]] as const) {
     if (key === "power" && powerPreview) continue;
-    if (overlays[key] || avg != null || max != null) overlays[key] = { avg: avg ?? overlays[key]?.avg ?? NaN, max: max ?? overlays[key]?.max ?? NaN };
+    if (overlays[key] || avg != null || max != null) overlays[key] = { avg: avg ?? NaN, max: max ?? NaN };
   }
   return { ...observed, overlays };
 }

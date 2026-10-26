@@ -1,15 +1,16 @@
 import { Fragment, isValidElement, type ComponentProps, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
+import { ActivityPowerComparison } from "./ActivityPowerComparison";
 import AnalysisTab, { type ActivityAnalysisSections } from "../../../components/AnalysisTab";
 import type { useActivityOverview } from "../../../hooks/useActivityOverview";
 import GlossaryProvider from "../../../components/common/GlossaryProvider";
 import GlossaryText from "../../../components/common/GlossaryText";
 import { Link } from "react-router-dom";
 import FuelSplitBar from "../../../components/FuelSplitBar";
-import { Button, Chip, Section, Stack, Stat, Text } from "../../../theme/components";
-import { zoneSurfaceStyle } from "../../../theme/charts/zoneSurface";
-import { FitnessShift, IntensityGauge, OverviewPowerCurve, PercentMeter, formatSpan, powerDurationSeconds } from "./ActivityOverviewCharts";
+import { Button, Chip, Disclosure, Section, Stack, Stat, Text } from "../../../theme/components";
+import { criticalDistribution, PowerZoneReadings } from "./PowerZoneReadings";
+import { FitnessShift, ZoneTimeBar, IntensityGauge, OverviewPowerCurve, PercentMeter, formatSpan, powerDurationSeconds } from "./ActivityOverviewCharts";
 
 interface Props {
   overview: ReturnType<typeof useActivityOverview>;
@@ -26,6 +27,7 @@ interface Props {
   peakInspector: ReactNode;
   sensorFallback: ReactNode;
   powerControls?: ReactNode;
+  summaryOutside?: boolean;
 }
 
 function readable(node: ReactNode): boolean {
@@ -53,7 +55,7 @@ export default function ActivityAnalysisBody(props: Props) {
   const num = (value: number | null | undefined, unit = "") => value != null && Number.isFinite(value) ? `${Math.round(value * 10) / 10}${unit}` : "—";
   const span = (seconds: number) => formatSpan(seconds, { hour: copy("hour"), minute: copy("minute"), second: copy("second") });
   const signed = (value: number | undefined, unit: string) => value != null && Number.isFinite(value) ? `${value > 0 ? "+" : ""}${num(value, unit)}` : "—";
-  const note = (value: ReactNode) => <Text as="p" variant="caption" tone="tertiary"><GlossaryText>{value}</GlossaryText></Text>;
+  const note = (value: ReactNode) => <Text as="p" variant="bodySmall" tone="secondary"><GlossaryText>{value}</GlossaryText></Text>;
   const facts = (rows: [string, ReactNode][]) => <dl className="activity-analysis-facts">{rows.map(([name, value]) => <div key={name}><Text as="dt" variant="bodySmall" tone="secondary"><GlossaryText>{name}</GlossaryText></Text><Text as="dd" variant="bodyMedium" weight={600}>{value}</Text></div>)}</dl>;
   const personal = (axes: string[]) => (p?.personal ?? []).filter(row => axes.includes(row.axis)).map(row => <div key={row.axis} className="activity-analysis-comparison">
     <PercentMeter mid value={row.personalIndex} label={<GlossaryText>{label(`axes.${row.axis}`)}</GlossaryText>} display={`${num(row.personalIndex)} · ${row.sampleCount}${copy("samples")}`} />
@@ -123,7 +125,7 @@ export default function ActivityAnalysisBody(props: Props) {
         {!overview.loading && !(overview.response?.status === "unavailable" && overview.response.reason === "rollout_disabled") && <Button size="sm" variant="outline" onClick={overview.retry}>{label("retry")}</Button>}
       </div>}
       <Topic id="training" title={t("detail.analysisTopics.training")} visible={!!p && (p.session.load != null || p.session.normalizedPowerW != null || p.session.intensityFactor != null || !!fitness || !!p.coachSentence || !!p.personal?.length || p.thresholdBasis === "none") || readable(raw.load) || props.storedLoad != null}>
-        {p && <Stack gap="var(--space-3)">
+        {p && !props.summaryOutside && <Stack gap="var(--space-3)">
           <Stack direction="row" wrap>{p.session.character && <Chip variant="accent">{label(`characters.${p.session.character}`)}</Chip>}{p.aboveUsualVolume && <Chip>{copy("aboveUsualVolume")}</Chip>}</Stack>
           {p.coachSentence && <Text as="p" variant="bodyLarge" tone="primary"><GlossaryText>{p.coachSentence}</GlossaryText></Text>}
           {p.session.classificationReason && note(p.session.classificationReason)}
@@ -136,47 +138,42 @@ export default function ActivityAnalysisBody(props: Props) {
           {power && p.session.intensityFactor != null && <IntensityGauge value={p.session.intensityFactor} />}
           {p.session.load != null && note(`${t("detail.acceptedLoadDescription")} ${p.session.loadKind === "tss" ? t("detail.acceptedLoadTssBasis") : p.session.loadSource === "time" ? t("detail.acceptedLoadTimeBasis") : p.session.loadSource === "trimp" ? t("detail.acceptedLoadHrBasis") : ""}`)}
         </Stack>}
+        {props.summaryOutside && p && <>
+          {power && p.session.intensityFactor != null && <IntensityGauge value={p.session.intensityFactor} />}
+          {p.session.load != null && note(`${t("detail.acceptedLoadDescription")} ${p.session.loadKind === "tss" ? t("detail.acceptedLoadTssBasis") : p.session.loadSource === "time" ? t("detail.acceptedLoadTimeBasis") : p.session.loadSource === "trimp" ? t("detail.acceptedLoadHrBasis") : ""}`)}
+        </>}
         {provenance}
         {fitness && (post ? <FitnessShift prior={fitness} post={post} rowLabel={key => <GlossaryText>{fitnessName(key)}</GlossaryText>} metricName={fitnessName}
           priorCaption={`${copy("beforeLegend")} · ${form(fitness)} · ${fitness.asOf}`} postCaption={`${label("after")} · ${form(post)} · ${post.asOf}`} />
           : <>{facts((["ctl", "atl", "tsb"] as const).map(key => [fitnessName(key), num(fitness[key])]))}{note(`${form(fitness)} · ${fitness.asOf}`)}</>)}
         {p?.thresholdBasis === "none" && <div className="activity-analysis-comparison">{note(copy(isOwner ? "thresholdMissing" : "thresholdMissingOther"))}{isOwner && <Link to="/coach/condition?sport=bike#thresholds">{copy("thresholdMissingCta")}</Link>}</div>}
         {p && !p.personal?.length && p.availability?.personal && p.availability.personal !== "available" && note(label(`personalStates.${p.availability.personal}`))}
-        {p?.fitnessScope === "integrated" && note(label("fitnessDefinition"))}
-        {p?.sportFitnessStatus && note(`${t("overviewSummary.sportOnly", { sport: label(`sports.${p.sportFitnessStatus.discipline}`) })} · CTL ${num(p.sportFitnessStatus.ctl)}${p.sportFitnessStatus.evidence !== "sufficient" ? ` · ${label("fitnessLimited")}` : ""}`)}
         {personal(["sessionLoad", ...(p?.personal ?? []).filter(row => !["sessionLoad", "highIntensityExposure", "cadenceVariability", "paceVariability", "muscularLoad"].includes(row.axis)).map(row => row.axis)])}
         {currentFtp != null && note(`${t("detail.analysisTopics.ftpBasis")} ${num(currentFtp, " W")}`)}
         {p?.availability?.power === "estimated" && note(label("powerEstimated"))}
         {p?.session.ftpVerificationRequired && note(label("ftpVerificationRequired"))}
         {extras(["분석 기준 FTP", "Analysis FTP"])}
-        {raw.load}
+        {(readable(raw.load) || p?.fitnessScope === "integrated" || p?.sportFitnessStatus) && <Disclosure title={t("analysisReading.fitnessBasis")}>
+          {p?.fitnessScope === "integrated" && note(label("fitnessDefinition"))}
+          {p?.sportFitnessStatus && note(`${t("overviewSummary.sportOnly", { sport: label(`sports.${p.sportFitnessStatus.discipline}`) })} · CTL ${num(p.sportFitnessStatus.ctl)}${p.sportFitnessStatus.evidence !== "sufficient" ? ` · ${label("fitnessLimited")}` : ""}`)}
+          {raw.load}
+        </Disclosure>}
         {!readable(raw.load) && props.storedLoad != null && <Stat compact label={t("detail.analysisLoadLabel")} value={String(Math.round(props.storedLoad))} />}
       </Topic>
       <Topic id="intensity" title={t("detail.analysisTopics.intensity")} visible={zones.length > 0 || readable(raw.zones) || readable(raw.bands) || readable(raw.anaerobic) || !!effort && Object.values(effort).some(value => value != null)}>
-        {zones.map(zone => {
-          const rawZones = zone.kind === "power" ? context?.powerZones : context?.hrZones;
-          const differentTimes = rawZones?.length === zone.seconds.length && rawZones.some((rawZone, index) => rawZone.seconds !== zone.seconds[index]);
-          const totalZoneSeconds = zone.seconds.reduce((sum, seconds) => sum + seconds, 0);
-          const showCurrent = !!zone.currentPercentages?.some(value => Number.isFinite(value));
-          const showBaseline = !!zone.baselinePercentages?.some(value => Number.isFinite(value));
-          const showDelta = !!zone.deltaPercentagePoints?.some(value => Number.isFinite(value));
+        <div className="activity-analysis-zones">{zones.map(zone => {
+          const isPower = zone.kind === "power";
           return <section key={zone.kind} className="activity-analysis-zone" aria-label={label(zone.kind)}>
           <Text as="h3" variant="bodyMedium" weight={600}>{label(zone.kind)}</Text>
-          <div className="activity-analysis-table" role="region" tabIndex={0} aria-label={label(zone.kind)}><table>
-            <thead><tr>{[label("zone"), differentTimes ? t("detail.analysisTopics.summaryZoneTime") : label("duration"), ...(differentTimes ? [t("detail.analysisTopics.metricZoneTime")] : []), ...(showCurrent ? ["%"] : []), ...(showBaseline ? [label("baseline")] : []), ...(showDelta ? [label("change")] : []), ...(zone.kind === "power" && context?.zoneKj ? ["kJ"] : [])].map(name => <th scope="col" key={name}>{name}</th>)}</tr></thead>
-            <tbody>{zone.seconds.map((seconds, index) => <tr key={index}>
-              <th scope="row">Z{index + 1}</th><td title={num(seconds, " s")}>{span(seconds)}{!showCurrent && <span className="activity-analysis-zone-track" aria-hidden="true"><span style={{ width: `${totalZoneSeconds > 0 ? seconds / totalZoneSeconds * 100 : 0}%`, background: `var(--zone-${index + 1})`, ...(zone.kind === "power" ? zoneSurfaceStyle : {}) }} /></span>}</td>{differentTimes && <td title={num(rawZones?.[index]?.seconds, " s")}>{rawZones?.[index]?.seconds != null ? span(rawZones[index]!.seconds) : "—"}</td>}
-              {showCurrent && <td><div className="activity-analysis-zone-value"><span>{num(zone.currentPercentages?.[index], "%")}</span><span className="activity-analysis-zone-track" aria-hidden="true"><span style={{ width: `${Math.max(0, Math.min(100, zone.currentPercentages?.[index] ?? 0))}%`, background: `var(--zone-${index + 1})`, ...(zone.kind === "power" ? zoneSurfaceStyle : {}) }} /></span></div></td>}
-              {showBaseline && <td>{num(zone.baselinePercentages?.[index], "%")}</td>}{showDelta && <td>{signed(zone.deltaPercentagePoints?.[index], "%p")}</td>}
-              {zone.kind === "power" && context?.zoneKj && <td>{num(context.zoneKj[`z${index + 1}` as keyof typeof context.zoneKj])}</td>}
-            </tr>)}</tbody>
-          </table></div>
-          {note(`${label("samples")} ${num(zone.priorSampleCount)}${zone.baselinePercentages ? ` · ${label(`baselineScope.${zone.baselineScope ?? "sameCharacter"}`)}` : ""}${zone.historyCompleteness ? ` · ${label(`completeness.${zone.historyCompleteness}`)}` : ""}${zone.provisional ? ` · ${label("zoneProvisional")}` : ""}`)}
-        </section>; })}
+          <ZoneTimeBar layout="rows" zone={zone} heading={t("overviewSummary.thisActivity")}
+            workKj={isPower && context?.zoneKj ? zone.seconds.map((_, i) => context.zoneKj?.[`z${i + 1}` as keyof typeof context.zoneKj]) : undefined}
+            afterStrip={isPower ? <PowerZoneReadings seiler={context?.seilerZones} bands={context?.criticalBands} powerSeconds={context?.powerZones?.map(row => row.seconds)} /> : undefined} />
+          {zone.priorSampleCount != null && note(`${label("samples")} ${num(zone.priorSampleCount)}${zone.baselinePercentages ? ` · ${label(`baselineScope.${zone.baselineScope ?? "sameCharacter"}`)}` : ""}${zone.historyCompleteness ? ` · ${label(`completeness.${zone.historyCompleteness}`)}` : ""}${zone.provisional ? ` · ${label("zoneProvisional")}` : ""}`)}
+        </section>; })}</div>
         {context?.maxHr != null && note(`${t("detail.analysisTopics.hrBasis")} ${num(context.maxHr, " bpm")}`)}
-        {raw.zones}
+        {readable(raw.zones) && <Disclosure title={t("analysisReading.zoneDetails")}>{raw.zones}</Disclosure>}
         {personal(["highIntensityExposure"])}
-        {raw.bands}
+        {(!zones.some(zone => zone.kind === "power") || !criticalDistribution(context?.criticalBands, context?.powerZones?.map(row => row.seconds))) && readable(raw.bands) && <Disclosure title={t("analysisReading.thresholdDetails")}>{raw.bands}</Disclosure>}
         {effort && facts([
           ...(effort.matchesCount != null ? [[copy("matches"), num(effort.matchesCount)]] as [string, ReactNode][] : []),
           ...(effort.matchesTotalSec != null ? [[label("matchesTotal"), span(effort.matchesTotalSec)]] as [string, ReactNode][] : []),
@@ -186,31 +183,33 @@ export default function ActivityAnalysisBody(props: Props) {
           ...(effort.wPrimeDepletionPct != null ? [[copy("reserve"), num(effort.wPrimeDepletionPct, "%")]] as [string, ReactNode][] : []),
           ...(effort.wPrimeRemainingPct != null ? [[copy("remaining"), num(effort.wPrimeRemainingPct, "%")]] as [string, ReactNode][] : []),
         ])}
-        {raw.anaerobic}
+        {readable(raw.anaerobic) && <Disclosure title={t("analysisReading.anaerobicDetails")}>{raw.anaerobic}</Disclosure>}
         {(effort?.wPrimeDepletionPct != null || effort?.wPrimeRemainingPct != null || readable(raw.anaerobic)) && note(t("detail.analysisTopics.wPrimeModel"))}
       </Topic>
       <Topic id="records" title={t("detail.analysisTopics.records")} visible={curveRows.length > 0 || readable(raw.power) || readable(raw.powerCurve) || readable(benchmark) || readable(peakInspector) || !!p?.peakMoment || readable(props.powerControls)}>
         {props.powerControls}
-        {raw.power}
         {extras(["평균 파워", "Average power"])}
-        {curveRows.length > 0 ? <>
-          <OverviewPowerCurve rows={curveRows} recordsEvaluated={records} comparableMedian={p?.comparisonMetadata?.historyCompleteness === "complete" && curveRows.some(row => row.deltaPct != null && Number.isFinite(row.deltaPct) && (row.medianWatts ?? 0) > 0 && (row.priorSampleCount ?? 0) >= 3)} ftpW={currentFtp} />
+        {(curveRows.length > 0 || readable(raw.powerCurve) || readable(benchmark)) && <ActivityPowerComparison inlineControls={curveRows.length > 0} benchmark={benchmark}
+          current={curveRows.length > 0 ? (<OverviewPowerCurve interactiveReading rows={curveRows} recordsEvaluated={records} comparableMedian={p?.comparisonMetadata?.historyCompleteness === "complete" && curveRows.some(row => row.deltaPct != null && Number.isFinite(row.deltaPct) && (row.medianWatts ?? 0) > 0 && (row.priorSampleCount ?? 0) >= 3)} ftpW={currentFtp} />) : raw.powerCurve}
+          evidence={curveRows.length > 0 ? <>
           <div className="activity-analysis-table" role="region" tabIndex={0} aria-label={t("detail.analysisTopics.records")}><table>
             <thead><tr>{availablePowerColumns.map(column => <th scope="col" key={column.label}>{column.label}</th>)}</tr></thead>
             <tbody>{curveRows.map(row => <tr key={row.duration}>{availablePowerColumns.map((column, index) => index === 0 ? <th scope="row" key={column.label}>{column.value(row)}</th> : <td key={column.label}>{column.value(row)}</td>)}</tr>)}</tbody>
           </table></div>
           {note(`${label("bestScope")} · ${label("previousBestScope")}`)}
           {p?.comparisonMetadata && note(t("overviewEvidence.scope", { days: p.comparisonMetadata.windowDays, count: p.comparisonMetadata.priorSampleCount, character: label(`characters.${p.comparisonMetadata.character}`) }))}
-        </> : raw.powerCurve}
+</> : null} />}
+        {readable(raw.power) && <Disclosure title={t("analysisReading.powerMetrics")}>{raw.power}</Disclosure>}
         {context?.weightKg != null && note(`${t("detail.analysisTopics.weightBasis")} ${num(context.weightKg, " kg")}`)}
         {p?.highlight && note(p.highlight.reason)}
         {(curveRows.length > 0 || p?.availability?.records) && note(label(`recordStates.${records ? p?.powerFingerprint?.length ? "evaluatedWithEvidence" : "evaluatedEmpty" : p?.availability?.records ?? "unavailable"}`))}
-        {benchmark}{peakInspector}
-        {p?.peakMoment && note([label("peakMoment"), p.peakMoment.segmentName, p.peakMoment.segmentPr ? label("segmentPr") : null, p.peakMoment.fromKm != null && p.peakMoment.toKm != null ? t("overviewEvidence.peakMomentAt", { from: p.peakMoment.fromKm, to: p.peakMoment.toKm }) : null, `${num(p.peakMoment.durationSec, " s")} · ${num(p.peakMoment.avgPowerW, " W")}`, p.peakMoment.avgSpeedKmh != null ? num(p.peakMoment.avgSpeedKmh, " km/h") : null, p.peakMoment.maxHr != null ? `${label("maxHrShort")} ${num(p.peakMoment.maxHr, " bpm")}` : null].filter(Boolean).join(" · "))}
+        {peakInspector}
+        {p?.peakMoment && note([label("peakMoment"), p.peakMoment.segmentName, p.peakMoment.segmentPr ? label("segmentPr") : null, p.peakMoment.fromKm != null && p.peakMoment.toKm != null ? t("overviewEvidence.peakMomentAt", { from: p.peakMoment.fromKm, to: p.peakMoment.toKm }) : null, `${span(p.peakMoment.durationSec)} · ${num(p.peakMoment.avgPowerW, " W")}`, p.peakMoment.avgSpeedKmh != null ? num(p.peakMoment.avgSpeedKmh, " km/h") : null, p.peakMoment.maxHr != null ? `${label("maxHrShort")} ${num(p.peakMoment.maxHr, " bpm")}` : null].filter(Boolean).join(" · "))}
       </Topic>
       <Topic id="efficiency" title={t("detail.analysisTopics.efficiency")}>
         {extras(["평균 케이던스", "Average cadence", "평균 심박", "Average HR", "최대 심박", "Max HR"])}
-        {raw.heartRate}{raw.cadence}{raw.pedaling}{raw.dynamics}
+        {raw.heartRate}{raw.cadence}
+        {(readable(raw.pedaling) || readable(raw.dynamics)) && <Disclosure title={t("analysisReading.pedalingDetails")}>{raw.pedaling}{raw.dynamics}</Disclosure>}
         {personal(["cadenceVariability", "paceVariability", "muscularLoad"])}
       </Topic>
       <Topic id="energy" title={t("detail.analysisTopics.energy")}>
@@ -242,7 +241,7 @@ export default function ActivityAnalysisBody(props: Props) {
           const changed = different.filter(([, canonical, metric]) => canonical == null || Math.round(canonical * 10) !== Math.round(metric * 10));
           return changed.length ? <div className="activity-analysis-comparison">{note(t("detail.analysisTopics.fuelDifference"))}{facts(changed.map(([name, , metric, unit]) => [name, num(metric, unit)]))}</div> : null;
         })()}
-        {raw.energyFacts}{extras(["일량", "Work"])}{raw.metabolism}
+        {raw.energyFacts}{extras(["일량", "Work"])}{readable(raw.metabolism) && <Disclosure title={t("analysisReading.metabolismDetails")}>{raw.metabolism}</Disclosure>}
         {(p?.recovery || energy) && note(t("detail.analysisTopics.energyModel"))}
       </Topic>
       <Topic id="terrain" title={t("detail.analysisTopics.terrain")}>
@@ -255,7 +254,7 @@ export default function ActivityAnalysisBody(props: Props) {
           ...(p.routeLoad.maxGradePct != null ? [[label("maxGrade"), num(p.routeLoad.maxGradePct, "%")]] as [string, ReactNode][] : []),
         ])}
         {p?.routeLoad?.elevationSuspect && note(copy("elevationSuspect"))}
-        {raw.climbs}{raw.runSplits}{raw.laps}
+        {readable(raw.climbs) && <Disclosure title={t("analysisReading.climbDetails")}>{raw.climbs}</Disclosure>}{raw.runSplits}{raw.laps}
       </Topic>
       {sensorFallback}
       {!!extraDetails.length && facts(extraDetails.map(row => [row.label, row.value]))}

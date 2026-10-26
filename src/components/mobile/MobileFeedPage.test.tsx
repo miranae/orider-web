@@ -906,3 +906,15 @@ it("reports first committed home content only after loading and preserves error/
   view.rerender(<MobileFeedPage {...props} loading={false} />);
   await waitFor(() => expect(track).toHaveBeenCalledWith("feed_first_content", expect.objectContaining({ outcome: "empty" })));
 });
+
+it("keeps Strava source metrics consistent with detail despite stale calculated summary fields", () => {
+  const activity = createMockActivity({ source: "strava", stravaSummaryV1: { version: 1,
+    distance: 135361, moving_time: 19046, elapsed_time: 31351, average_speed: 25.6 / 3.6,
+    total_elevation_gain: 645, average_heartrate: 140.2, average_watts: 120.9,
+  } });
+  renderWithProviders(<CompactActivityCard activity={activity} />);
+  expect(screen.getByRole("article")).toHaveTextContent(/135.36\s*km/);
+  expect(screen.getByRole("article")).toHaveTextContent(/25.6\s*km\/h/);
+  expect(screen.getByRole("article")).toHaveTextContent(/645\s*m/);
+  expect(screen.queryByText(/NaN|Infinity/)).not.toBeInTheDocument();
+});

@@ -114,13 +114,13 @@ describe("ServerMetricsBanner sensor provenance", () => {
     const provisional = { ...readyState, metrics: { ...readyState.metrics, inputPending: true, sourceLayer: "inline_streams", inputCoverage: "partial_terminal" } };
     render(<ServerMetricsBanner state={provisional as never} />);
     expect(screen.getByText("잠정값 · 업로드 반영 중")).toBeInTheDocument();
-    expect(screen.getByText("잘린 입력 기준")).toBeInTheDocument();
+    expect(screen.getByText("일부 기록으로 분석")).toBeInTheDocument();
   });
 
   it("출처 표식이 없으면 칩을 그리지 않는다", () => {
     render(<ServerMetricsBanner state={readyState as never} />);
     expect(screen.queryByText("잠정값 · 업로드 반영 중")).not.toBeInTheDocument();
-    expect(screen.queryByText("잘린 입력 기준")).not.toBeInTheDocument();
+    expect(screen.queryByText("일부 기록으로 분석")).not.toBeInTheDocument();
   });
   it("stale 상태에서도 값을 보여주되 '이전 분석' 칩을 붙인다 (#885)", () => {
     render(<ServerMetricsBanner state={{ ...readyState, status: "stale" } as never} />);
@@ -139,12 +139,12 @@ describe("ServerMetricsBanner sensor provenance", () => {
 describe("ServerMetricsBanner kill switch", () => {
   it("disabled 는 중단 문구를 낸다", () => {
     render(<ServerMetricsBanner state={{ status: "disabled", metrics: null }} />);
-    expect(screen.getByText("서버 분석 표시를 일시 중단했습니다.")).toBeInTheDocument();
+    expect(screen.getByText("분석 결과 표시를 잠시 중단했습니다. 기록은 보존됩니다.")).toBeInTheDocument();
   });
 });
 
 
  it.each(["complete", "pending", undefined])("does not infer clipped input from inline storage (coverage=%s)", (inputCoverage) => {
   render(<ServerMetricsBanner state={{ ...readyState, metrics: { ...readyState.metrics, sourceLayer: "inline_streams", inputCoverage } } as never} />);
-  expect(screen.queryByText("잘린 입력 기준")).not.toBeInTheDocument();
+  expect(screen.queryByText("일부 기록으로 분석")).not.toBeInTheDocument();
  });

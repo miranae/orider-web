@@ -423,7 +423,7 @@
     "noWarning": "경고 없음",
     "private": "비공개 지표",
     "modelNote": "회복·연료·W′는 계측값을 바탕으로 한 모델이며 직접 측정한 생리값은 아닙니다.",
-    "qualityNote": "승인값이 없으면 계측값을 사용합니다.",
+    "qualityNote": "직접 확인한 값이 없으면 기록된 센서 값을 사용합니다.",
     "peakPower": "최대 {{value}} W",
     "ftpMissing": "활동 당시 FTP 정본 없음",
     "sports": {
@@ -588,8 +588,6 @@
     "checking": "확인 중…",
     "startBtn": "분석시작",
     "refreshDetailBtn": "상세 분석 다시 불러오기",
-    "regenerateShareSummaryBtn": "공유 문구를 위해 다시 분석",
-    "regenerateShareSummaryHint": "짧은 공유 문구를 생성하지 못했습니다. 다시 분석하면 공유 문구도 새로 생성합니다.",
     "reanalyzeBtn": "다시 분석",
     "refreshAnalysisBtn": "변경사항 반영해 다시 분석",
     "loginBtn": "로그인",
@@ -600,8 +598,7 @@
     "generatedAt": "분석 생성 시각",
     "refreshingHint": "최신 데이터로 다시 분석 중입니다. 저장된 분석을 계속 표시합니다.",
     "refreshFailedHint": "다시 분석하지 못했습니다. 저장된 분석은 유지됩니다.",
-    "staleHint": "재분석 필요",
-    "staleLoginHint": "재분석 필요",
+    "staleHint": "활동 데이터가 바뀌었어요",
     "loginHint": "로그인하면 AI 구간 분석을 이용할 수 있어요.",
     "runPreview": {
       "pace": {
@@ -709,7 +706,9 @@
       "entry": "{{time}} · {{version}}",
       "empty": "저장된 이전 AI 분석이 없습니다.",
       "more": "이전 분석 더 보기"
-    }
+    },
+    "analystVersion": "분석가 {{version}}",
+    "reanalyzeWithNewAnalystBtn": "새 분석가로 다시 분석"
   },
   "card": {
     "noActivity": "활동을 찾을 수 없습니다.",
@@ -1018,7 +1017,7 @@
       "ifDesc": "FTP {{ftp}}W",
       "ifDescDefault": "FTP {{ftp}}W (기본)",
       "work": "일량",
-      "workDesc": "Work",
+      "workDesc": "페달에 전달한 에너지",
       "kjPerHour": "kJ/시간",
       "kjPerHourDesc": "강도 지표",
       "trimpDesc": "HR 기반 부하",
@@ -1049,7 +1048,7 @@
       "hrDrift": "HR 드리프트",
       "hrDriftDesc": "후반 vs 전반 평균",
       "ef": "EF",
-      "efDesc": "NP ÷ avgHR",
+      "efDesc": "정규화 파워 ÷ 평균 심박",
       "decoupling": "디커플링",
       "decouplingDesc": "유산소 내구성 (Pw:Hr)",
       "distance": "이동거리",
@@ -1610,8 +1609,8 @@
     "swimLoadHigh": "고강도"
   },
   "serverMetrics": {
-    "missing": "서버 분석 데이터 없음 — orider 직접 업로드 활동만 자동 계산됩니다.",
-    "chip": "서버 분석",
+    "missing": "분석 결과가 아직 없습니다. 직접 업로드한 활동은 자동으로 분석됩니다.",
+    "chip": "활동 분석",
     "workoutTypeLabel": "유형",
     "confidenceHint": "신뢰도 {{pct}}%",
     "movingTimeLabel": "분석상 이동시간",
@@ -1630,8 +1629,8 @@
     },
     "provisionalChip": "잠정값 · 업로드 반영 중",
     "staleChip": "저장된 이전 분석",
-    "truncatedInputChip": "잘린 입력 기준",
-    "paused": "서버 분석 표시를 일시 중단했습니다."
+    "truncatedInputChip": "일부 기록으로 분석",
+    "paused": "분석 결과 표시를 잠시 중단했습니다. 기록은 보존됩니다."
   },
   "vp": {
     "badge": "가상 파워",
@@ -1792,30 +1791,6 @@
     "phaseProvisional": "중간 요약의 게시 단계입니다. 상세 요약은 준비 중입니다.",
     "resultTarget": "게시 요청 대상 · Strava 활동 {{id}}",
     "statusTitle": "게시 상태"
-  },
-  "socialSummary": {
-    "retry": "공유요약 다시 불러오기",
-    "retrying": "공유요약 불러오는 중…",
-    "retryHint": "기존 코칭은 유지됩니다. 공유요약만 다시 불러올 수 있습니다.",
-    "retryError": "공유요약을 불러오지 못했습니다. 다시 시도해 주세요.",
-    "title": "공유용 요약",
-    "sports": {
-      "bike": "자전거",
-      "run": "러닝",
-      "swim": "수영"
-    },
-    "settled": "전날 정산 → 활동일 정산",
-    "pendingTitle": "전날 정산",
-    "ctl": "체력 · CTL",
-    "atl": "ATL · 피로",
-    "tsb": "폼 · TSB",
-    "dailyBasis": "같은 종목의 일별 정산값입니다. 활동일 값에는 그날의 모든 활동이 포함됩니다.",
-    "pendingBasis": "활동일 정산이 끝나면 같은 종목의 후속 값을 표시합니다.",
-    "unavailable": "활동일 정산이 끝나지 않았거나 피트니스 데이터가 부족합니다.",
-    "private": "이 활동의 비공개 설정으로 피트니스 수치를 공유하지 않습니다.",
-    "copy": "공유 문구 복사",
-    "copied": "공유 문구를 복사했습니다.",
-    "error": "복사하지 못했습니다. 다시 시도해 주세요."
   },
   "growth": {
     "title": "활동 변화와 통계",
@@ -2823,7 +2798,7 @@
     "analysisMetricSource": "세부 분석은 이 활동의 저장된 분석 지표를 표시해요.",
     "loadingData": "상세 기록을 불러오는 중…",
     "acceptedLoadLabel": "반영 훈련 부하",
-    "acceptedLoadDescription": "체력·피로 계산에 반영한 서버 부하예요.",
+    "acceptedLoadDescription": "체력·피로 계산에 반영한 이번 활동의 부하입니다.",
     "acceptedLoadTssBasis": "TSS 기준",
     "acceptedLoadTimeBasis": "시간 기반 추정",
     "acceptedLoadHrBasis": "심박 기반",
@@ -2906,7 +2881,8 @@
   "detail.keyRecords": "핵심 기록",
   "sourceMetrics": {
     "sourceNotice": "Strava 원본 기준 · 자체 계산값은 분석에서 구분해 표시합니다.",
-    "orider": "Orider 분석"
+    "orider": "Orider 분석",
+    "sensorSummary": "Strava 원본 센서 요약"
   },
   "trainingPeriods.populationBasis": "거리·시간·훈련 존은 기간별 최대 200개 기록을 조회하고, 같은 활동으로 명시적으로 연결된 기록 중 대표 하나를 집계합니다. 파워 곡선의 비교 대상과 활동 수가 다를 수 있습니다.",
   "publicSafety": {
@@ -3061,5 +3037,63 @@
     "savedVersion": "버전 {{version}} · {{time}}",
     "noHistory": "보관된 이전 분석이 없습니다.",
     "more": "더 보기"
+  },
+  "analysisReading": {
+    "powerTitle": "시간별 최고 파워",
+    "powerDescription": "각 시간 동안 가장 높게 유지한 평균 출력입니다. 전체 라이딩의 평균 파워와는 다릅니다.",
+    "compareWith": "파워 비교 기준",
+    "records": "역대 기록",
+    "recent": "최근 90일",
+    "powerDetails": "시간별 수치와 기록 근거",
+    "powerDetailsDescription": "W/kg · FTP 대비 · 역대 최고 · 활동 전 최고",
+    "powerMetrics": "출력 특성 자세히 보기",
+    "loadDetails": "부하의 상세 지표와 계산 기준",
+    "zoneDetails": "다른 강도 분류로 보기",
+    "thresholdDetails": "역치 영역별 체류 시간",
+    "anaerobicDetails": "임계 파워와 무산소 여력",
+    "pedalingDetails": "페달링 패턴 자세히 보기",
+    "metabolismDetails": "에너지 대사 추정 자세히 보기",
+    "climbDetails": "오르막별 상세 기록",
+    "navigation": "분석 바로가기",
+    "explore": "차트 탐색",
+    "summary": "훈련 요약",
+    "intensity": "강도 분포",
+    "power": "파워 기록",
+    "efficiency": "심박·페달링",
+    "energy": "에너지",
+    "terrain": "속도·지형",
+    "intro": "기록을 읽고, 비교하고, 필요한 근거까지 확인하세요.",
+    "loadMeaning": "시간과 강도를 반영한 이번 활동의 훈련량",
+    "npMeaning": "출력의 오르내림을 반영한 파워 · 단순 평균과 다릅니다",
+    "ifMeaning": "내 FTP 대비 강도 · 1.00이 FTP 기준입니다",
+    "exploration": "경로와 센서 기록 살펴보기",
+    "explorationHint": "지도를 펼쳐 시간·위치별 기록을 확인하고 구간을 선택할 수 있습니다.",
+    "comparisonMeaning": "이 비교를 읽는 방법",
+    "comparisonContext": "최고 기록과의 차이는 이번 활동에서 발휘한 출력의 차이입니다. 활동의 목적과 소요 시간이 다르므로, 낮은 비율만으로 훈련의 질이나 체력 저하를 판단하지 않습니다.",
+    "zoneEvidence": "시간·일량과 비교 근거",
+    "comparisonLower": "{{duration}} 최고 평균 파워는 최근 90일 최고보다 {{gap}} W 낮았습니다. 기준 기록의 {{fraction}}%입니다.",
+    "comparisonHigher": "{{duration}} 최고 평균 파워는 최근 90일 기준보다 {{gap}} W 높았습니다. 기준 기록의 {{fraction}}%입니다.",
+    "comparisonEqual": "{{duration}} 최고 평균 파워는 최근 90일 최고와 같았습니다.",
+    "loadTimeMeaning": "파워·심박 없이 이동 시간으로 추정한 훈련량",
+    "loadHrMeaning": "심박과 시간을 반영한 이번 활동의 훈련량",
+    "fitnessBasis": "체력 지표의 범위와 계산 기준",
+    "recordLower": "{{duration}} 최고 평균 파워는 {{reference}}보다 {{gap}} W 낮았습니다.",
+    "recordHigher": "{{duration}} 최고 평균 파워는 {{reference}}보다 {{gap}} W 높았습니다.",
+    "recordEqual": "{{duration}} 최고 평균 파워는 {{reference}}와 같습니다.",
+    "seilerRange1": "FTP 75% 미만 · Z1–Z2 범위",
+    "seilerRange2": "FTP 75% 이상 100% 미만 · Z3–Z4 일부",
+    "seilerRange3": "FTP 100% 이상 · Z4 일부–Z7",
+    "below83": "83% 미만",
+    "below83Range": "FTP 83% 미만",
+    "ftpBands": "FTP 기준 영역",
+    "ftpBasis": "FTP 기준",
+    "band": {
+      "sweetSpot": "스위트스폿",
+      "threshold": "역치",
+      "vo2": "VO2max",
+      "anaerobic": "무산소"
+    },
+    "zoneComparison": "{{zone}} 비교 근거",
+    "powerVo2Range": "FTP 105% 이상 120% 미만"
   }
 }

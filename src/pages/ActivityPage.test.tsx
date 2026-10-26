@@ -385,6 +385,8 @@ describe("ActivityPage", () => {
     }) });
     renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=analysis" });
     await screen.findByTestId("elevation-chart");
+    expect(screen.getByTestId("activity-detail-hero")).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "경로와 센서 기록 살펴보기" }));
     expect(screen.getAllByTestId("route-map")).toHaveLength(1);
     expect(screen.getAllByTestId("elevation-chart")).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "구간 분석" })).not.toBeInTheDocument();
@@ -420,6 +422,7 @@ describe("ActivityPage", () => {
       altitude: Array(count).fill(10), latlng: Array.from({ length: count }, () => [37, 127]),
     }) });
     renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
+    fireEvent.click(await screen.findByRole("button", { name: "경로와 센서 기록 살펴보기" }));
     await screen.findByRole("button", { name: "경과시간 축" });
     // 구간 분석 버튼은 없다 — 그래프에서 고른 범위가 곧 구간 분석을 연다.
     expect(screen.queryByRole("button", { name: "구간 분석" })).not.toBeInTheDocument();
@@ -482,7 +485,7 @@ describe("ActivityPage", () => {
       const rendered = renderWithProviders(<ActivityPage />, { authenticated: true });
       await screen.findByTestId("activity-stats-primary");
       fireEvent.click(screen.getByRole("tab", { name: "분석" }));
-      expect(await screen.findByRole("button", { name: "최고 노력 자세히 보기" })).toHaveAttribute("aria-expanded", "true");
+      fireEvent.click(await screen.findByRole("button", { name: "최고 노력 자세히 보기" }));
       await waitFor(() => expect(release).not.toBeNull());
       if (mode === "invalid") fireEvent.click(screen.getByRole("button", { name: "5분" }));
       fireEvent.click(screen.getByRole("button", { name: "차트·지도에서 구간 보기" }));
@@ -524,7 +527,7 @@ describe("ActivityPage", () => {
       presentation: { coachSentence: "내 지속출력이 돋보인 활동", session: { discipline: "bike", load: 42 }, recovery: { hours: 11 } },
     } });
     renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
-    expect(await within(await screen.findByTestId("activity-analysis-domains")).findByText("내 지속출력이 돋보인 활동")).toBeInTheDocument();
+    expect(await screen.findByText("내 지속출력이 돋보인 활동")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "훈련 부하와 체력" })).toBeInTheDocument();
     expect(screen.getByTestId("activity-analysis-domains").compareDocumentPosition(screen.getByTestId("strava-summary-publishing")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId("activity-analysis-domains")).toBeInTheDocument();
@@ -556,14 +559,14 @@ describe("ActivityPage", () => {
     renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
     expect(await screen.findByText("49.0 / 51.0")).toBeInTheDocument();
     const summary = screen.getByTestId("activity-analysis-domains");
-    expect(await within(summary).findByText("306.9")).toBeInTheDocument();
+    expect(await screen.findByText("306.9")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "지난 활동과 비교" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "활동 통계" })).not.toBeInTheDocument();
-    expect(within(summary).getByText("164.9")).toBeInTheDocument();
-    expect(within(summary).getByText("164.9")).toBeInTheDocument();
-    expect(within(summary).getByText("0.94")).toBeInTheDocument();
-    expect(within(summary).getAllByText("679")).toHaveLength(2);
-    expect(within(summary).getAllByText("Z7").length).toBeGreaterThan(0);
+    expect(screen.getByText("164.9")).toBeInTheDocument();
+    expect(screen.getByText("0.94")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("시간별 수치와 기록 근거"));
+    expect(within(summary).getByRole("row", { name: /5s 679/ })).toBeInTheDocument();
+    expect(within(summary).getByRole("row", { name: /Z7.*1:40/ })).toBeInTheDocument();
     expect(screen.getByText("49.0 / 51.0")).toBeInTheDocument();
     expect(summary).toHaveTextContent("추정 파워 기준");
     expect(screen.queryByText("FTP 미설정")).not.toBeInTheDocument();
@@ -835,7 +838,7 @@ describe("ActivityPage", () => {
     expect(screen.getAllByText("250").length).toBeGreaterThan(0);
     expect(screen.queryByText("444")).not.toBeInTheDocument();
     expect(screen.queryByText("333")).not.toBeInTheDocument();
-    expect(screen.queryByText("서버 분석")).not.toBeInTheDocument();
+    expect(screen.queryByText("활동 분석")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     await waitFor(() => expect(stats).toHaveTextContent("평균 파워250W"));
     const latestShareMetrics = () => {
@@ -1016,7 +1019,7 @@ describe("ActivityPage", () => {
     });
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     // 서버 분석 문서가 없을 때는 "스트림 없음" 이 아니라 "서버 분석 없음" — 모름을 없음으로 그리지 않는다(리뷰 A3)
-    expect(await screen.findByText(/서버 분석 데이터 없음/)).toBeInTheDocument();
+    expect(await screen.findByText(/분석 결과가 아직 없습니다/)).toBeInTheDocument();
     expect(screen.queryByText("파워 분석")).not.toBeInTheDocument();
     expect(screen.queryByText("심박 분석")).not.toBeInTheDocument();
   });
@@ -1530,11 +1533,11 @@ describe("ActivityPage", () => {
 
     fireEvent.click(await screen.findByRole("tab", { name: "분석" }));
 
-    expect(await screen.findByText("저장된 센서 요약")).toBeInTheDocument();
+    expect(await screen.findByText("Strava 원본 센서 요약")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Strava 원본과 Orider 분석" })).not.toBeInTheDocument();
     expect(screen.getAllByText("평균 심박").length).toBeGreaterThan(0);
     expect(screen.getAllByText("평균 파워").length).toBeGreaterThan(0);
-    expect(screen.getByText("최대 파워")).toBeInTheDocument();
+    expect(screen.getAllByText("최대 파워").length).toBeGreaterThan(0);
     expect(screen.queryByText(/NP 147 W/)).not.toBeInTheDocument();
   });
 
@@ -1866,6 +1869,7 @@ describe("ActivityPage", () => {
       userId: "user-1",
       json: JSON.stringify(createMockStreams()),
     });
+    fireEvent.click(screen.getByRole("button", { name: "경로와 센서 기록 살펴보기" }));
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
 
     expect(await screen.findByText("저장된 분석 지표")).toBeInTheDocument();
@@ -1962,15 +1966,13 @@ describe("ActivityPage", () => {
       expect(document.querySelector(".animate-pulse") || notFound).toBeTruthy();
     });
   });
-  it.each(["orider", "strava"] as const)("uses current source evidence instead of stale generated text for %s", async source => {
+  it.each(["orider", "strava"] as const)("uses the verified stored Orider memo without generating a provider fallback for %s", async source => {
     const activity = withStoredSummary(createMockActivity({ id: "test-activity", source }));
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     renderWithProviders(<ActivityPage />);
     const story = await screen.findByRole("region", { name: "활동 이야기" });
-    if (source === "strava") {
-      expect(within(story).getByText(/Strava 원본/)).toBeInTheDocument();
-      expect(within(story).queryByText(/저장된 활동 요약/)).not.toBeInTheDocument();
-    } else expect(within(story).getByText(/저장된 활동 요약/).textContent).toBe(STORED_ACTIVITY_SUMMARY);
+    expect(within(story).getByText(/저장된 활동 요약/).textContent).toBe(STORED_ACTIVITY_SUMMARY);
+    expect(within(story).queryByText(/Strava 원본/)).not.toBeInTheDocument();
   });
 
   it.each([true, false])("only renders a memo and preview from the current complete projection revision (%s)", async valid => {
