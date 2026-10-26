@@ -31,3 +31,7 @@
 
 - BE `failed-precondition/details.reason=route_backend_unavailable`은 그룹·연도 탐색에서 기존 이용 불가 상태로 표시하고 수집 결과를 폐기한다. 원본 변경에 따른 invalidated와 구별하며 자동 재시도하지 않는다.
 - Node 22 focused: 17 suites / 396 tests PASS, 추가 그룹·inventory hook 2 suites / 20 tests PASS (서로 다른 파일, 총 19 suites / 416 tests). TypeScript 및 소유 TypeScript 파일 scoped ESLint PASS. 전체 회귀는 통합 담당자가 별도로 수행한다. 과거 9860-test checkpoint를 이 변경의 전체 통과로 소급하지 않는다.
+
+### 비교 탭 실제 진입 후속
+
+독립 리뷰에서 서비스와 별개로 ActivityPage가 사용하는 `ActivityGrowthPanel comparisonOnly`의 Stage/local 조건이 남아 있음을 확인했다. 경로 index/history 및 선택 활동의 경로 비교 진입은 기존 routes capability로 통합하고, Stage 전용 거리·파워 도구 조건은 유지했다. production-shaped comparisonOnly 렌더에서 index 1회·history·선택 pair 노출 및 Stage power 미노출을 검증했다. 해당 panel 47 tests PASS, tsc/scoped lint PASS. 이 회귀는 앞 416개와 중복되는 panel suite의 재실행이므로 합산하지 않는다.
