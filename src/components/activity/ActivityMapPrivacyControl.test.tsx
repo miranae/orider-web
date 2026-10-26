@@ -32,7 +32,7 @@ it("allows saving a protective setting that hides all geometry when GPS is unava
 });
 it("cancel returns keyboard focus to the opening control", async () => {
  render(<ActivityMapPrivacyControl activityId="a" />); await open();
- expect(screen.getByLabelText("시작 지점 보호 반경 (m)")).toHaveFocus();
+ await waitFor(() => expect(screen.getByLabelText("시작 지점 보호 반경 (m)")).toHaveFocus());
  fireEvent.click(screen.getByRole("button", { name: "취소" }));
  expect(screen.getByRole("button", { name: "공개 지도 보호 설정" })).toHaveFocus(); expect(screen.queryByTestId("safe-map")).toBeNull();
 });
