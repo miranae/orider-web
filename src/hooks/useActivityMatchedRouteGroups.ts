@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import type { ActivityMatchedRouteGroupRequest, ActivityMatchedRouteGroupResponse } from "@shared/activity-matched-route-groups";
+import type { MatchedRouteGeometryPolicy, ActivityMatchedRouteGroupRequest, ActivityMatchedRouteGroupResponse } from "@shared/activity-matched-route-groups";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { observedRouteAvailable } from "../services/activityRouteEvidence";
@@ -9,11 +9,11 @@ import { loadActivityMatchedRouteGroups, validateMatchedRouteGroupAppend, validA
 type Status = "idle" | "loading" | "partial" | "complete" | "error" | "expired" | "invalidated" | "unsupported" | "index_missing" | "budget";
 interface Session { scope: string; generation: number; pages: ActivityMatchedRouteGroupResponse[]; status: Status }
 /** 선택 범위와 실제 SDK 계정이 일치할 때 명시 버튼으로만 한 페이지를 읽는다. */
-export function useActivityMatchedRouteGroups(ownerUid: string, activityId: string, discipline: "bike" | "run" | null, headIdentity: string) {
+export function useActivityMatchedRouteGroups(ownerUid: string, activityId: string, discipline: "bike" | "run" | null, headIdentity: string, geometryPolicy: MatchedRouteGeometryPolicy = "complete") {
   const { user } = useAuth(), services = useFirebaseServices(), sdkUser = services.auth.currentUser;
   const eligible = !!discipline && observedRouteAvailable() && !!user && !user.isAnonymous && user.uid === ownerUid
     && !!sdkUser && !sdkUser.isAnonymous && sdkUser.uid === ownerUid;
-  const scope = eligible ? JSON.stringify([ownerUid, activityId, discipline, headIdentity]) : null;
+  const scope = eligible ? JSON.stringify([ownerUid, activityId, discipline, headIdentity, geometryPolicy]) : null;
   const identity = useRef({ scope, services }), generation = useRef(0), busy = useRef(false), session = useRef<Session | null>(null);
   if (identity.current.scope !== scope || identity.current.services !== services) {
     identity.current = { scope, services }; generation.current++; busy.current = false; session.current = null;
@@ -54,7 +54,7 @@ export function useActivityMatchedRouteGroups(ownerUid: string, activityId: stri
     const requestGeneration = generation.current;
     const current = () => requestGeneration === generation.current && identity.current.scope === scope && identity.current.services === services
       && services.auth.currentUser?.uid === ownerUid && !services.auth.currentUser.isAnonymous;
-    const request: ActivityMatchedRouteGroupRequest = { mode: "matched_route_group_page", anchorActivityId: activityId, discipline, ...(before?.nextCursor ? { cursor: before.nextCursor } : {}) };
+    const request: ActivityMatchedRouteGroupRequest = { mode: "matched_route_group_page", anchorActivityId: activityId, discipline, ...(geometryPolicy === "observed_native" ? { geometryPolicy } : {}), ...(before?.nextCursor ? { cursor: before.nextCursor } : {}) };
     if (!validActivityMatchedRouteGroupRequest(request)) { expire(); return; }
     busy.current = true;
     const loading: Session = { scope, generation: requestGeneration, pages, status: "loading" };
@@ -80,7 +80,7 @@ export function useActivityMatchedRouteGroups(ownerUid: string, activityId: stri
         status: timeout ? "expired" : invalidated ? "invalidated" : unsupported ? "unsupported" : "error" };
       session.current = value; setResult(value);
     } finally { if (current()) busy.current = false; }
-  }, [scope, discipline, services, ownerUid, activityId, expire]);
+  }, [scope, discipline, services, ownerUid, activityId, expire, geometryPolicy]);
   return { available: scope !== null, status: expired ? "expired" as const : visible?.status ?? "idle", pages: expired ? [] : visible?.pages ?? [],
     start: () => run(true), loadMore: () => run(false), restart: () => run(true) };
 }

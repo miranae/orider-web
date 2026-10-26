@@ -2557,9 +2557,15 @@
     "exclusions": {
       "metric_unavailable": "Excluded from average comparison · analysis unavailable",
       "partial_terminal": "Excluded from average comparison · partial samples",
-      "null_or_zero_speed": "Excluded from average comparison · no positive average"
+      "null_or_zero_speed": "Excluded from average comparison · no positive average",
+      "observed_geometry_only": "Whole-route coverage unconfirmed · excluded from rankings"
     },
-    "partialGeometry": "This activity has only partial route data, so it was excluded from whole-route group comparison. Existing GPS comparison remains available."
+    "partialGeometry": "This activity has only partial route data, so it was excluded from whole-route group comparison. Existing GPS comparison remains available.",
+    "observedTitle": "Activities with similar observed routes",
+    "mode": "Route matching basis",
+    "completeMode": "Activities with complete route coverage",
+    "observedScope": "Only recorded GPS sections are compared. Whole-ride route coverage is unconfirmed. Records, trends and fitness improvements are not compared.",
+    "observedCounts": "{{loaded}} of {{total}} observed-route activities shown · {{known}} individual averages available"
   },
   "cyclingSnapshotPreference": {
     "basisLabel": "Record basis",
