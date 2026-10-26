@@ -284,3 +284,15 @@ it.each([false, true])("distinguishes confirmed elapsed time from an untyped pro
   renderWithProviders(<ActivityCard activity={createMockActivity({ regionName: "Yeongdeungpo-gu, Seoul", sourceMeta: { deviceModel: "Garmin Edge 840" } })} homeLabels showMap={false} />);
   expect(screen.getByText("· Yeongdeungpo-gu, Seoul").parentElement).toHaveTextContent("Garmin Edge 840 · Yeongdeungpo-gu, Seoul");
 });
+
+it("keeps Strava source metrics consistent with detail despite stale calculated summary fields", () => {
+  const activity = createMockActivity({ source: "strava", stravaSummaryV1: { version: 1,
+    distance: 135361, moving_time: 19046, elapsed_time: 31351, average_speed: 25.6 / 3.6,
+    total_elevation_gain: 645, average_heartrate: 140.2, average_watts: 120.9,
+  } });
+  renderWithProviders(<ActivityCard activity={activity} />);
+  expect(screen.getByText("135.36km")).toBeInTheDocument();
+  expect(screen.getByText("25.6km/h")).toBeInTheDocument();
+  expect(screen.getByText("645m")).toBeInTheDocument();
+  expect(screen.queryByText(/NaN|Infinity/)).not.toBeInTheDocument();
+});

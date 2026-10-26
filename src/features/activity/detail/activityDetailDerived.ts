@@ -1,3 +1,4 @@
+import { averageActivitySpeedKph, observedMaxSpeedKph } from "@shared/analysis/activitySpeed";
 import type { OverlayDataset } from "../../../components/ElevationChart";
 import type { ActivityStreams, ActivitySummary } from "@shared/types";
 import type { VirtualPowerParams } from "../../../utils/virtualPower";
@@ -1522,13 +1523,17 @@ export function getAvailableOverlays(sampledData: SampledPoint[]): OverlayConfig
 export function buildSummaryStats(
   streams: ActivityStreams | null,
   sensorSummary: StreamSensorSummary | null,
+  speedContext?: { distanceM?: number | null; movingTimeSec?: number | null },
 ): { minElev: number; maxElev: number; overlays: Record<string, { avg: number; max: number }> } | null {
   const altitude = (runtimeArray<unknown>(streams?.altitude) ?? []).filter(
     (value): value is number => typeof value === "number" && Number.isFinite(value),
   );
   const stats: Record<string, { avg: number; max: number }> = {};
   const speed = positiveValues(streams?.velocity_smooth).map((value) => value * 3.6);
-  if (speed.length > 0) stats.speed = { avg: average(speed), max: maximum(speed) };
+  if (speed.length > 0) stats.speed = {
+    avg: speedContext ? averageActivitySpeedKph(speedContext.distanceM, speedContext.movingTimeSec) ?? NaN : average(speed),
+    max: observedMaxSpeedKph(runtimeArray<number>(streams?.velocity_smooth)) ?? NaN,
+  };
   if (sensorSummary?.averageHeartRate != null && sensorSummary.maxHeartRate != null) {
     stats.hr = { avg: sensorSummary.averageHeartRate, max: sensorSummary.maxHeartRate };
   }

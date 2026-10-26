@@ -799,3 +799,15 @@ it("keeps an inline video poster before the next photo without navigating or dow
   expect(gallery.children[1]).toHaveAttribute("href", `/ko/activity/${activity.id}?tab=overview`);
   expect(gallery.children[1].querySelector("img")).toHaveAttribute("src", "https://example.test/photo.jpg");
 });
+
+it("keeps Strava source metrics consistent with detail despite stale calculated summary fields", () => {
+  const activity = createMockActivity({ source: "strava", stravaSummaryV1: { version: 1,
+    distance: 135361, moving_time: 19046, elapsed_time: 31351, average_speed: 25.6 / 3.6,
+    total_elevation_gain: 645, average_heartrate: 140.2, average_watts: 120.9,
+  } });
+  renderWithProviders(<CompactActivityCard activity={activity} />);
+  expect(screen.getByRole("article")).toHaveTextContent(/135.36\s*km/);
+  expect(screen.getByRole("article")).toHaveTextContent(/25.6\s*km\/h/);
+  expect(screen.getByRole("article")).toHaveTextContent(/645\s*m/);
+  expect(screen.queryByText(/NaN|Infinity/)).not.toBeInTheDocument();
+});

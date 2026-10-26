@@ -67,3 +67,16 @@ it("passes observed elevation times and measured sensor gaps through the raw-par
   expect(cadence.data[sourceIndices.indexOf(17)]).toBeNull();
   expect(cadence.data[sourceIndices.indexOf(26)]).toBe(0);
 });
+
+it("labels calculated elevation separately from Strava sensor summary headings", () => {
+  const points = [point];
+  const available = getPerformanceOverlays(points, "ride", "metric", null, "cadence");
+  const selected = new Set(available.map(cfg => cfg.key));
+  render(<ActivityPerformanceCharts analysisStyle sourceLabel="Strava" elevData={[{ distance: 100, elevation: 0 }]}
+    availableOverlays={available} activeOverlays={selected} focusedOverlayKey={null} toggleOverlay={vi.fn()}
+    chartOverlays={buildChartOverlays(available, selected, points, key => key)} hoverPoint={point}
+    summaryStats={{ minElev: 0, maxElev: 100, overlays: { speed: { avg: 25.6, max: 60.4 } } }} sport="ride" recordedRunCadenceUnit={null} metrics={null} />);
+  const presentation = captured.props.analysisPresentation as AnalysisChartPresentation;
+  expect(presentation.maximumLabel).toMatch(/Strava/);
+  expect(presentation.elevation.maximumLabel).toMatch(/Orider/);
+});
