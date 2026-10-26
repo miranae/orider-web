@@ -46,10 +46,10 @@ function BenchmarkReading({ metrics, state }: { metrics: MetricsLike | null; sta
         onPointSelect={index => setSelectedDuration(points[index]!.seconds)} />
       <label className="activity-benchmark-duration" htmlFor={id}><Text variant="bodySmall" tone="secondary">{t("benchmark.duration")}</Text><Select id={id} value={selected.seconds} onChange={event => setSelectedDuration(Number(event.target.value))}>{points.map(point => <option key={point.key} value={point.seconds}>{duration(point.seconds)}</option>)}</Select></label>
       <div className="activity-benchmark-values"><Stat compact label={t("benchmark.current")} value={selected.watts.toFixed(0)} unit="W" /><Stat compact label={t("benchmark.reference")} value={selected.referenceWatts.toFixed(0)} unit="W" /></div>
-      <Text as="p" variant="bodySmall" tone="secondary">{t("benchmark.difference", { gap: `${gap > 0 ? "+" : ""}${gap}`, fraction: fraction.toFixed(1) })}</Text>
+      <Text as="p" variant="bodySmall" tone="secondary">{t(`analysisReading.comparison${gap < 0 ? "Lower" : gap > 0 ? "Higher" : "Equal"}`, { duration: duration(selected.seconds), gap: Math.abs(gap), fraction: fraction.toFixed(1) })}</Text>
       <LocalizedLink className="activity-benchmark-source" to={`/activity/${encodeURIComponent(selected.activityId)}`}>{t("benchmark.source", { date: selected.date })}</LocalizedLink>
     </ChartFrame>
-    <Text as="p" variant="bodySmall" tone="secondary">{t("benchmark.timingShort")}</Text>
+    <Text as="p" variant="caption" tone="tertiary">{t("benchmark.timingShort")}</Text>
     <Disclosure title={t("benchmark.readingGuide")}>
       <div className="space-y-3">
         <Text as="p" variant="bodySmall" tone="secondary">{t("benchmark.timingNote")}</Text>

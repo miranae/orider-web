@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Line } from "react-chartjs-2";
-import type { ChartOptions, Plugin } from "chart.js";
+import type { ChartOptions, Plugin, ScriptableContext } from "chart.js";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,6 +12,7 @@ import {
   Filler,
   Tooltip,
 } from "chart.js";
+import { DURATION_CURVE_PRESENTATION as CURVE, durationCurveArea } from "../theme/charts/durationCurvePresentation";
 import { formatNum } from "../utils/units";
 import { useOriderTheme } from "../theme";
 import { resolveCssColor } from "../utils/cssColor";
@@ -140,11 +141,15 @@ export default function DurationCurveChart({
         label: datasetLabel,
         data: xy(points.map((p) => p.value)),
         borderColor: seriesColor,
-        backgroundColor: "transparent",
-        borderWidth: 2,
-        pointRadius: 4,
+        backgroundColor: (context: ScriptableContext<"line">) => durationCurveArea(context, seriesColor),
+        borderWidth: CURVE.lineWidth,
+        borderCapStyle: "round" as const,
+        borderJoinStyle: "round" as const,
+        pointRadius: CURVE.pointRadius,
+        pointHoverRadius: CURVE.hoverRadius,
+        pointBorderWidth: 0,
         pointBackgroundColor: seriesColor,
-        fill: false,
+        fill: "origin" as const,
         // 창 사이 값은 측정하지 않았다 — 곡선 보간은 없는 값을 그린다.
         tension: 0,
         // 양 끝 점(1초·가장 긴 창)이 플롯 테두리에서 반쪽 잘리지 않게 한다(여유는 layout.padding).
@@ -155,9 +160,10 @@ export default function DurationCurveChart({
         data: xy(comparison.values),
         borderColor: comparisonColor,
         backgroundColor: comparisonColor,
-        borderWidth: 1.5,
+        borderWidth: CURVE.referenceWidth,
         borderDash: [5, 4],
-        pointRadius: 2,
+        pointRadius: 0,
+        pointHoverRadius: CURVE.hoverRadius,
         pointBackgroundColor: comparisonColor,
         fill: false,
         tension: 0,
@@ -325,7 +331,8 @@ export default function DurationCurveChart({
               return shown.has(index) && points[index] ? formatDuration(points[index]!.durationSeconds) : "";
             },
           },
-          grid: { color: gridColor },
+          grid: { color: gridColor, drawOnChartArea: false, drawTicks: false },
+          border: { display: false },
         } : {
           display: true,
           ticks: xTicks === "all" ? {
@@ -338,7 +345,8 @@ export default function DurationCurveChart({
               return show ? this.getLabelForValue(Number(value)) : "";
             },
           } : { color: textColor, font: { size: 12 }, autoSkip: true, maxTicksLimit: 6 },
-          grid: { color: gridColor },
+          grid: { color: gridColor, drawOnChartArea: false, drawTicks: false },
+          border: { display: false },
         },
         y: {
           display: true,
@@ -346,7 +354,8 @@ export default function DurationCurveChart({
           title: unitAxisTitle ? { display: true, text: unit, color: textColor, font: { size: 12 } } : { display: false },
           ...(yStep ? { max: yStep * Math.ceil(yMax / yStep) } : {}),
           ticks: { color: textColor, font: { size: 12 }, maxTicksLimit: 6, ...(yStep ? { stepSize: yStep } : {}), callback: (v) => unitAxisTitle ? `${v}` : `${v}${unit}` },
-          grid: { color: gridColor },
+          grid: { color: gridColor, drawTicks: false },
+          border: { display: false },
         },
       },
     };

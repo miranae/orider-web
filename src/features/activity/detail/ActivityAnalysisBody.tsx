@@ -10,7 +10,7 @@ import { Link } from "react-router-dom";
 import FuelSplitBar from "../../../components/FuelSplitBar";
 import { Button, Chip, Disclosure, Section, Stack, Stat, Text } from "../../../theme/components";
 import { zoneSurfaceStyle } from "../../../theme/charts/zoneSurface";
-import { FitnessShift, IntensityGauge, OverviewPowerCurve, PercentMeter, formatSpan, powerDurationSeconds } from "./ActivityOverviewCharts";
+import { FitnessShift, ZoneTimeBar, IntensityGauge, OverviewPowerCurve, PercentMeter, formatSpan, powerDurationSeconds } from "./ActivityOverviewCharts";
 
 interface Props {
   overview: ReturnType<typeof useActivityOverview>;
@@ -55,7 +55,7 @@ export default function ActivityAnalysisBody(props: Props) {
   const num = (value: number | null | undefined, unit = "") => value != null && Number.isFinite(value) ? `${Math.round(value * 10) / 10}${unit}` : "—";
   const span = (seconds: number) => formatSpan(seconds, { hour: copy("hour"), minute: copy("minute"), second: copy("second") });
   const signed = (value: number | undefined, unit: string) => value != null && Number.isFinite(value) ? `${value > 0 ? "+" : ""}${num(value, unit)}` : "—";
-  const note = (value: ReactNode) => <Text as="p" variant="caption" tone="tertiary"><GlossaryText>{value}</GlossaryText></Text>;
+  const note = (value: ReactNode) => <Text as="p" variant="bodySmall" tone="secondary"><GlossaryText>{value}</GlossaryText></Text>;
   const facts = (rows: [string, ReactNode][]) => <dl className="activity-analysis-facts">{rows.map(([name, value]) => <div key={name}><Text as="dt" variant="bodySmall" tone="secondary"><GlossaryText>{name}</GlossaryText></Text><Text as="dd" variant="bodyMedium" weight={600}>{value}</Text></div>)}</dl>;
   const personal = (axes: string[]) => (p?.personal ?? []).filter(row => axes.includes(row.axis)).map(row => <div key={row.axis} className="activity-analysis-comparison">
     <PercentMeter mid value={row.personalIndex} label={<GlossaryText>{label(`axes.${row.axis}`)}</GlossaryText>} display={`${num(row.personalIndex)} · ${row.sampleCount}${copy("samples")}`} />
@@ -139,8 +139,6 @@ export default function ActivityAnalysisBody(props: Props) {
           {p.session.load != null && note(`${t("detail.acceptedLoadDescription")} ${p.session.loadKind === "tss" ? t("detail.acceptedLoadTssBasis") : p.session.loadSource === "time" ? t("detail.acceptedLoadTimeBasis") : p.session.loadSource === "trimp" ? t("detail.acceptedLoadHrBasis") : ""}`)}
         </Stack>}
         {props.summaryOutside && p && <>
-          {p.session.classificationReason && note(p.session.classificationReason)}
-          {!!p.observedEffects?.length && note(p.observedEffects.join(" · "))}
           {power && p.session.intensityFactor != null && <IntensityGauge value={p.session.intensityFactor} />}
           {p.session.load != null && note(`${t("detail.acceptedLoadDescription")} ${p.session.loadKind === "tss" ? t("detail.acceptedLoadTssBasis") : p.session.loadSource === "time" ? t("detail.acceptedLoadTimeBasis") : p.session.loadSource === "trimp" ? t("detail.acceptedLoadHrBasis") : ""}`)}
         </>}
@@ -150,14 +148,16 @@ export default function ActivityAnalysisBody(props: Props) {
           : <>{facts((["ctl", "atl", "tsb"] as const).map(key => [fitnessName(key), num(fitness[key])]))}{note(`${form(fitness)} · ${fitness.asOf}`)}</>)}
         {p?.thresholdBasis === "none" && <div className="activity-analysis-comparison">{note(copy(isOwner ? "thresholdMissing" : "thresholdMissingOther"))}{isOwner && <Link to="/coach/condition?sport=bike#thresholds">{copy("thresholdMissingCta")}</Link>}</div>}
         {p && !p.personal?.length && p.availability?.personal && p.availability.personal !== "available" && note(label(`personalStates.${p.availability.personal}`))}
-        {p?.fitnessScope === "integrated" && note(label("fitnessDefinition"))}
-        {p?.sportFitnessStatus && note(`${t("overviewSummary.sportOnly", { sport: label(`sports.${p.sportFitnessStatus.discipline}`) })} · CTL ${num(p.sportFitnessStatus.ctl)}${p.sportFitnessStatus.evidence !== "sufficient" ? ` · ${label("fitnessLimited")}` : ""}`)}
         {personal(["sessionLoad", ...(p?.personal ?? []).filter(row => !["sessionLoad", "highIntensityExposure", "cadenceVariability", "paceVariability", "muscularLoad"].includes(row.axis)).map(row => row.axis)])}
         {currentFtp != null && note(`${t("detail.analysisTopics.ftpBasis")} ${num(currentFtp, " W")}`)}
         {p?.availability?.power === "estimated" && note(label("powerEstimated"))}
         {p?.session.ftpVerificationRequired && note(label("ftpVerificationRequired"))}
         {extras(["분석 기준 FTP", "Analysis FTP"])}
-        {readable(raw.load) && <Disclosure title={t("analysisReading.loadDetails")}>{raw.load}</Disclosure>}
+        {(readable(raw.load) || p?.fitnessScope === "integrated" || p?.sportFitnessStatus) && <Disclosure title={t("analysisReading.fitnessBasis")}>
+          {p?.fitnessScope === "integrated" && note(label("fitnessDefinition"))}
+          {p?.sportFitnessStatus && note(`${t("overviewSummary.sportOnly", { sport: label(`sports.${p.sportFitnessStatus.discipline}`) })} · CTL ${num(p.sportFitnessStatus.ctl)}${p.sportFitnessStatus.evidence !== "sufficient" ? ` · ${label("fitnessLimited")}` : ""}`)}
+          {raw.load}
+        </Disclosure>}
         {!readable(raw.load) && props.storedLoad != null && <Stat compact label={t("detail.analysisLoadLabel")} value={String(Math.round(props.storedLoad))} />}
       </Topic>
       <Topic id="intensity" title={t("detail.analysisTopics.intensity")} visible={zones.length > 0 || readable(raw.zones) || readable(raw.bands) || readable(raw.anaerobic) || !!effort && Object.values(effort).some(value => value != null)}>
@@ -170,7 +170,8 @@ export default function ActivityAnalysisBody(props: Props) {
           const showDelta = !!zone.deltaPercentagePoints?.some(value => Number.isFinite(value));
           return <section key={zone.kind} className="activity-analysis-zone" aria-label={label(zone.kind)}>
           <Text as="h3" variant="bodyMedium" weight={600}>{label(zone.kind)}</Text>
-          <div className="activity-analysis-table" role="region" tabIndex={0} aria-label={label(zone.kind)}><table>
+          <ZoneTimeBar zone={zone} heading={t("overviewSummary.thisActivity")} />
+          <Disclosure title={t("analysisReading.zoneEvidence")}><div className="activity-analysis-table" role="region" tabIndex={0} aria-label={label(zone.kind)}><table>
             <thead><tr>{[label("zone"), differentTimes ? t("detail.analysisTopics.summaryZoneTime") : label("duration"), ...(differentTimes ? [t("detail.analysisTopics.metricZoneTime")] : []), ...(showCurrent ? ["%"] : []), ...(showBaseline ? [label("baseline")] : []), ...(showDelta ? [label("change")] : []), ...(zone.kind === "power" && context?.zoneKj ? ["kJ"] : [])].map(name => <th scope="col" key={name}>{name}</th>)}</tr></thead>
             <tbody>{zone.seconds.map((seconds, index) => <tr key={index}>
               <th scope="row">Z{index + 1}</th><td title={num(seconds, " s")}>{span(seconds)}{!showCurrent && <span className="activity-analysis-zone-track" aria-hidden="true"><span style={{ width: `${totalZoneSeconds > 0 ? seconds / totalZoneSeconds * 100 : 0}%`, background: `var(--zone-${index + 1})`, ...(zone.kind === "power" ? zoneSurfaceStyle : {}) }} /></span>}</td>{differentTimes && <td title={num(rawZones?.[index]?.seconds, " s")}>{rawZones?.[index]?.seconds != null ? span(rawZones[index]!.seconds) : "—"}</td>}
@@ -178,7 +179,7 @@ export default function ActivityAnalysisBody(props: Props) {
               {showBaseline && <td>{num(zone.baselinePercentages?.[index], "%")}</td>}{showDelta && <td>{signed(zone.deltaPercentagePoints?.[index], "%p")}</td>}
               {zone.kind === "power" && context?.zoneKj && <td>{num(context.zoneKj[`z${index + 1}` as keyof typeof context.zoneKj])}</td>}
             </tr>)}</tbody>
-          </table></div>
+          </table></div></Disclosure>
           {zone.priorSampleCount != null && note(`${label("samples")} ${num(zone.priorSampleCount)}${zone.baselinePercentages ? ` · ${label(`baselineScope.${zone.baselineScope ?? "sameCharacter"}`)}` : ""}${zone.historyCompleteness ? ` · ${label(`completeness.${zone.historyCompleteness}`)}` : ""}${zone.provisional ? ` · ${label("zoneProvisional")}` : ""}`)}
         </section>; })}</div>
         {context?.maxHr != null && note(`${t("detail.analysisTopics.hrBasis")} ${num(context.maxHr, " bpm")}`)}
@@ -215,7 +216,7 @@ export default function ActivityAnalysisBody(props: Props) {
         {p?.highlight && note(p.highlight.reason)}
         {(curveRows.length > 0 || p?.availability?.records) && note(label(`recordStates.${records ? p?.powerFingerprint?.length ? "evaluatedWithEvidence" : "evaluatedEmpty" : p?.availability?.records ?? "unavailable"}`))}
         {peakInspector}
-        {p?.peakMoment && note([label("peakMoment"), p.peakMoment.segmentName, p.peakMoment.segmentPr ? label("segmentPr") : null, p.peakMoment.fromKm != null && p.peakMoment.toKm != null ? t("overviewEvidence.peakMomentAt", { from: p.peakMoment.fromKm, to: p.peakMoment.toKm }) : null, `${num(p.peakMoment.durationSec, " s")} · ${num(p.peakMoment.avgPowerW, " W")}`, p.peakMoment.avgSpeedKmh != null ? num(p.peakMoment.avgSpeedKmh, " km/h") : null, p.peakMoment.maxHr != null ? `${label("maxHrShort")} ${num(p.peakMoment.maxHr, " bpm")}` : null].filter(Boolean).join(" · "))}
+        {p?.peakMoment && note([label("peakMoment"), p.peakMoment.segmentName, p.peakMoment.segmentPr ? label("segmentPr") : null, p.peakMoment.fromKm != null && p.peakMoment.toKm != null ? t("overviewEvidence.peakMomentAt", { from: p.peakMoment.fromKm, to: p.peakMoment.toKm }) : null, `${span(p.peakMoment.durationSec)} · ${num(p.peakMoment.avgPowerW, " W")}`, p.peakMoment.avgSpeedKmh != null ? num(p.peakMoment.avgSpeedKmh, " km/h") : null, p.peakMoment.maxHr != null ? `${label("maxHrShort")} ${num(p.peakMoment.maxHr, " bpm")}` : null].filter(Boolean).join(" · "))}
       </Topic>
       <Topic id="efficiency" title={t("detail.analysisTopics.efficiency")}>
         {extras(["평균 케이던스", "Average cadence", "평균 심박", "Average HR", "최대 심박", "Max HR"])}

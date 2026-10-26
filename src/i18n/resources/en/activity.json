@@ -374,7 +374,7 @@
     "noWarning": "No warning",
     "private": "Private metrics",
     "modelNote": "Recovery, fuel and W′ are measurement-based models, not direct physiological measurements.",
-    "qualityNote": "Measured values are used when approved values are unavailable.",
+    "qualityNote": "Recorded sensor values are used unless you have confirmed a value.",
     "peakPower": "Peak {{value}} W",
     "ftpMissing": "Activity-time canonical FTP unavailable",
     "sports": {
@@ -552,7 +552,6 @@
     "refreshFailedHint": "Reanalysis failed. Your saved analysis is preserved.",
     "staleHint": "Activity data has changed",
     "analystVersion": "analyst {{version}}",
-    "analystUpdatedBadge": "Reanalysis available with new analyst",
     "reanalyzeWithNewAnalystBtn": "Reanalyze with new analyst",
     "loginHint": "Sign in to use AI segment analysis.",
     "runPreview": {
@@ -595,8 +594,7 @@
       "heat_late_ride": "Late-ride heat",
       "fast_start": "Fast start",
       "predominantly_high_intensity": "High intensity",
-      "late_power_fade": "Late power fade",
-      "stop_heavy": "Stop-heavy"
+      "late_power_fade": "Late power fade"
     },
     "effort": {
       "komRank": "KOM #{{n}}",
@@ -904,7 +902,7 @@
       "ifDesc": "FTP {{ftp}}W",
       "ifDescDefault": "FTP {{ftp}}W (default)",
       "work": "Work",
-      "workDesc": "Work",
+      "workDesc": "Energy delivered through the pedals",
       "kjPerHour": "kJ/hr",
       "kjPerHourDesc": "Intensity",
       "trimpDesc": "HR-based load",
@@ -935,7 +933,7 @@
       "hrDrift": "HR Drift",
       "hrDriftDesc": "Back vs front half avg",
       "ef": "EF",
-      "efDesc": "NP ÷ avgHR",
+      "efDesc": "Normalized power ÷ average heart rate",
       "decoupling": "Decoupling",
       "decouplingDesc": "Aerobic durability (Pw:Hr)",
       "distance": "Distance",
@@ -1494,8 +1492,8 @@
     "swimLoadHigh": "High intensity"
   },
   "serverMetrics": {
-    "missing": "No server analysis data — only activities uploaded directly via orider are auto-computed.",
-    "chip": "Server analysis",
+    "missing": "Analysis is not available yet. Directly uploaded activities are analyzed automatically.",
+    "chip": "Activity analysis",
     "workoutTypeLabel": "Type",
     "confidenceHint": "{{pct}}% confidence",
     "movingTimeLabel": "Analyzed moving time",
@@ -1514,8 +1512,8 @@
     },
     "provisionalChip": "Provisional · upload in progress",
     "staleChip": "From an earlier analysis · awaiting recompute",
-    "truncatedInputChip": "From truncated input",
-    "paused": "Server analysis display is paused."
+    "truncatedInputChip": "Based on a partial recording",
+    "paused": "Analysis is temporarily unavailable. Your activity is preserved."
   },
   "vp": {
     "badge": "Virtual Power",
@@ -1695,7 +1693,6 @@
     "tsb": "TSB · Form",
     "dailyBasis": "These are daily totals for the same sport. The activity day includes every activity on that day.",
     "pendingBasis": "The same-sport activity day value appears after the day closes.",
-    "unavailable": "The activity day has not closed yet, or fitness data is unavailable.",
     "private": "Fitness values are not shared because of this activity's privacy settings.",
     "copy": "Copy share text",
     "copied": "Share text copied.",
@@ -2695,7 +2692,7 @@
     "analysisMetricSource": "Detailed analysis displays the stored analysis metrics for this activity.",
     "loadingData": "Loading detailed recordings…",
     "acceptedLoadLabel": "Applied training load",
-    "acceptedLoadDescription": "The server load used for fitness and fatigue calculations.",
+    "acceptedLoadDescription": "This activity’s load contributes to fitness and fatigue calculations.",
     "acceptedLoadTssBasis": "TSS basis",
     "acceptedLoadTimeBasis": "Estimated from time",
     "acceptedLoadHrBasis": "Heart-rate basis",
@@ -2804,6 +2801,23 @@
     "efficiency": "Heart rate & pedaling",
     "energy": "Energy",
     "terrain": "Speed & terrain",
-    "intro": "Read your ride, compare your performance, and explore the evidence."
+    "intro": "Read your ride, compare your performance, and explore the evidence.",
+    "loadMeaning": "Training demand from this activity’s duration and intensity",
+    "npMeaning": "Power adjusted for fluctuations · distinct from average power",
+    "ifMeaning": "Intensity relative to your FTP · 1.00 is the FTP reference",
+    "exploration": "Explore the route and sensor recordings",
+    "explorationHint": "Open the map to inspect time and location, or select a section.",
+    "comparisonMeaning": "How to read this comparison",
+    "comparisonContext": "The gap describes the power produced during this activity. Purpose and duration differ between rides, so a lower percentage alone does not establish poorer training or declining fitness.",
+    "zoneEvidence": "Time, work and comparison evidence",
+    "comparisonLower": "Your best {{duration}} average was {{gap}} W below the 90-day best, or {{fraction}}% of that reference.",
+    "comparisonHigher": "Your best {{duration}} average was {{gap}} W above the 90-day reference, or {{fraction}}% of that reference.",
+    "comparisonEqual": "Your best {{duration}} average matched the 90-day best.",
+    "loadTimeMeaning": "Estimated from moving time without power or heart rate",
+    "loadHrMeaning": "Training demand from heart rate and duration",
+    "fitnessBasis": "Fitness scope and calculation basis",
+    "recordLower": "The best average power for {{duration}} was {{gap}} W below {{reference}}.",
+    "recordHigher": "The best average power for {{duration}} was {{gap}} W above {{reference}}.",
+    "recordEqual": "The best average power for {{duration}} matched {{reference}}."
   }
 }

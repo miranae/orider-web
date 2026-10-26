@@ -11,7 +11,7 @@ import ActivitySocialSummary from "./ActivitySocialSummary";
  */
 import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Card, Text, Button, Chip } from "../../theme/components";
+import { Card, Text, Button } from "../../theme/components";
 
 /** 구간당 메달(🏅/🏆) 기본 노출 상한 — 한 구간이 수십 개 세그먼트에 매칭되면 메달 벽이 생겨 가독성 저하. */
 const MEDAL_LIMIT = 5;
@@ -451,7 +451,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     ? new Date(data.generatedAt) : null;
   const generatedAt = generatedDate && Number.isFinite(generatedDate.getTime()) ? generatedDate : null;
   const needsShareRegeneration = isActivityOwner && data.shareSummary === null;
-  // 분석은 생성 당시의 스냅샷 — 안내는 소유자 배지·버튼뿐, 본문·공유 문구·처방은 그대로 둔다.
+  // 분석은 생성 당시의 스냅샷 — 안내는 상단의 소유자 버튼 하나뿐(배지 중복 제거), 본문·공유 문구·처방은 그대로 둔다.
   // 서버 계약: null 은 "안내 없음". 필드 자체가 없는(구 서버) 응답만 stale 로 폴백한다.
   const reanalysis = data.reanalysisAvailable !== undefined ? data.reanalysisAvailable : (data.stale ? "inputs_changed" : null);
   const ownerReanalysis = isActivityOwner ? reanalysis : null;
@@ -493,11 +493,6 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
               {analystVersion && <>{generatedAt ? " · " : ""}{t("ai.analystVersion", { version: analystVersion })}</>}
             </Text>
           )}
-          {ownerReanalysis && (
-            <Chip variant={ownerReanalysis === "analyst_updated" ? "accent" : "default"}>
-              {t(ownerReanalysis === "analyst_updated" ? "ai.analystUpdatedBadge" : "ai.staleHint")}
-            </Chip>
-          )}
         </div>
       )}
       {triggerFull && full.loading && (
@@ -529,7 +524,8 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
       {/* 전체 플래그 */}
       {overall.flags.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
-          {overall.flags.map((f) => <FlagChip key={f} flag={f} t={t} />)}
+          {/* stop_heavy 는 AI 해석 입력용 서버 플래그 — 요약 본문에 녹아 있으므로 칩으로 따로 그리지 않는다. */}
+          {overall.flags.filter((f) => f !== "stop_heavy").map((f) => <FlagChip key={f} flag={f} t={t} />)}
         </div>
       )}
 

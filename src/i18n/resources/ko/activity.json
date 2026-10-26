@@ -374,7 +374,7 @@
     "noWarning": "경고 없음",
     "private": "비공개 지표",
     "modelNote": "회복·연료·W′는 계측값을 바탕으로 한 모델이며 직접 측정한 생리값은 아닙니다.",
-    "qualityNote": "승인값이 없으면 계측값을 사용합니다.",
+    "qualityNote": "직접 확인한 값이 없으면 기록된 센서 값을 사용합니다.",
     "peakPower": "최대 {{value}} W",
     "ftpMissing": "활동 당시 FTP 정본 없음",
     "sports": {
@@ -552,7 +552,6 @@
     "refreshFailedHint": "다시 분석하지 못했습니다. 저장된 분석은 유지됩니다.",
     "staleHint": "활동 데이터가 바뀌었어요",
     "analystVersion": "분석가 {{version}}",
-    "analystUpdatedBadge": "새 분석가로 다시 분석 가능",
     "reanalyzeWithNewAnalystBtn": "새 분석가로 다시 분석",
     "loginHint": "로그인하면 AI 구간 분석을 이용할 수 있어요.",
     "runPreview": {
@@ -595,8 +594,7 @@
       "heat_late_ride": "후반 더위",
       "fast_start": "빠른 출발",
       "predominantly_high_intensity": "고강도 위주",
-      "late_power_fade": "후반 출력저하",
-      "stop_heavy": "정지 많음"
+      "late_power_fade": "후반 출력저하"
     },
     "effort": {
       "komRank": "KOM {{n}}위",
@@ -904,7 +902,7 @@
       "ifDesc": "FTP {{ftp}}W",
       "ifDescDefault": "FTP {{ftp}}W (기본)",
       "work": "일량",
-      "workDesc": "Work",
+      "workDesc": "페달에 전달한 에너지",
       "kjPerHour": "kJ/시간",
       "kjPerHourDesc": "강도 지표",
       "trimpDesc": "HR 기반 부하",
@@ -935,7 +933,7 @@
       "hrDrift": "HR 드리프트",
       "hrDriftDesc": "후반 vs 전반 평균",
       "ef": "EF",
-      "efDesc": "NP ÷ avgHR",
+      "efDesc": "정규화 파워 ÷ 평균 심박",
       "decoupling": "디커플링",
       "decouplingDesc": "유산소 내구성 (Pw:Hr)",
       "distance": "이동거리",
@@ -1494,8 +1492,8 @@
     "swimLoadHigh": "고강도"
   },
   "serverMetrics": {
-    "missing": "서버 분석 데이터 없음 — orider 직접 업로드 활동만 자동 계산됩니다.",
-    "chip": "서버 분석",
+    "missing": "분석 결과가 아직 없습니다. 직접 업로드한 활동은 자동으로 분석됩니다.",
+    "chip": "활동 분석",
     "workoutTypeLabel": "유형",
     "confidenceHint": "신뢰도 {{pct}}%",
     "movingTimeLabel": "분석상 이동시간",
@@ -1514,8 +1512,8 @@
     },
     "provisionalChip": "잠정값 · 업로드 반영 중",
     "staleChip": "이전 분석 기준 · 재계산 대기",
-    "truncatedInputChip": "잘린 입력 기준",
-    "paused": "서버 분석 표시를 일시 중단했습니다."
+    "truncatedInputChip": "일부 기록으로 분석",
+    "paused": "분석 결과 표시를 잠시 중단했습니다. 기록은 보존됩니다."
   },
   "vp": {
     "badge": "가상 파워",
@@ -1695,7 +1693,6 @@
     "tsb": "폼 · TSB",
     "dailyBasis": "같은 종목의 일별 정산값입니다. 활동일 값에는 그날의 모든 활동이 포함됩니다.",
     "pendingBasis": "활동일 정산이 끝나면 같은 종목의 후속 값을 표시합니다.",
-    "unavailable": "활동일 정산이 끝나지 않았거나 피트니스 데이터가 부족합니다.",
     "private": "이 활동의 비공개 설정으로 피트니스 수치를 공유하지 않습니다.",
     "copy": "공유 문구 복사",
     "copied": "공유 문구를 복사했습니다.",
@@ -2695,7 +2692,7 @@
     "analysisMetricSource": "세부 분석은 이 활동의 저장된 분석 지표를 표시해요.",
     "loadingData": "상세 기록을 불러오는 중…",
     "acceptedLoadLabel": "반영 훈련 부하",
-    "acceptedLoadDescription": "체력·피로 계산에 반영한 서버 부하예요.",
+    "acceptedLoadDescription": "체력·피로 계산에 반영한 이번 활동의 부하입니다.",
     "acceptedLoadTssBasis": "TSS 기준",
     "acceptedLoadTimeBasis": "시간 기반 추정",
     "acceptedLoadHrBasis": "심박 기반",
@@ -2804,6 +2801,23 @@
     "efficiency": "심박·페달링",
     "energy": "에너지",
     "terrain": "속도·지형",
-    "intro": "기록을 읽고, 비교하고, 필요한 근거까지 확인하세요."
+    "intro": "기록을 읽고, 비교하고, 필요한 근거까지 확인하세요.",
+    "loadMeaning": "시간과 강도를 반영한 이번 활동의 훈련량",
+    "npMeaning": "출력의 오르내림을 반영한 파워 · 단순 평균과 다릅니다",
+    "ifMeaning": "내 FTP 대비 강도 · 1.00이 FTP 기준입니다",
+    "exploration": "경로와 센서 기록 살펴보기",
+    "explorationHint": "지도를 펼쳐 시간·위치별 기록을 확인하고 구간을 선택할 수 있습니다.",
+    "comparisonMeaning": "이 비교를 읽는 방법",
+    "comparisonContext": "최고 기록과의 차이는 이번 활동에서 발휘한 출력의 차이입니다. 활동의 목적과 소요 시간이 다르므로, 낮은 비율만으로 훈련의 질이나 체력 저하를 판단하지 않습니다.",
+    "zoneEvidence": "시간·일량과 비교 근거",
+    "comparisonLower": "{{duration}} 최고 평균 파워는 최근 90일 최고보다 {{gap}} W 낮았습니다. 기준 기록의 {{fraction}}%입니다.",
+    "comparisonHigher": "{{duration}} 최고 평균 파워는 최근 90일 기준보다 {{gap}} W 높았습니다. 기준 기록의 {{fraction}}%입니다.",
+    "comparisonEqual": "{{duration}} 최고 평균 파워는 최근 90일 최고와 같았습니다.",
+    "loadTimeMeaning": "파워·심박 없이 이동 시간으로 추정한 훈련량",
+    "loadHrMeaning": "심박과 시간을 반영한 이번 활동의 훈련량",
+    "fitnessBasis": "체력 지표의 범위와 계산 기준",
+    "recordLower": "{{duration}} 최고 평균 파워는 {{reference}}보다 {{gap}} W 낮았습니다.",
+    "recordHigher": "{{duration}} 최고 평균 파워는 {{reference}}보다 {{gap}} W 높았습니다.",
+    "recordEqual": "{{duration}} 최고 평균 파워는 {{reference}}와 같습니다."
   }
 }

@@ -137,7 +137,7 @@ it("retains the prior-only fitness timestamp and form without manufacturing a po
 it("preserves the complete highlighted peak scene even outside inspector durations", () => {
   renderWithProviders(<ActivityAnalysisBody {...props({ ...rich, peakMoment: { durationSec: 90, avgPowerW: 371, avgSpeedKmh: 51, maxHr: 191, fromKm: 2, toKm: 3 } })} peakInspector={null} />);
   const records = topic("파워 기록과 최고 노력");
-  expect(records).toHaveTextContent("90 s");
+  expect(records).toHaveTextContent("1분 30초");
   expect(records).toHaveTextContent("371 W");
   expect(records).toHaveTextContent("51 km/h");
   expect(records).toHaveTextContent("191 bpm");
@@ -180,4 +180,23 @@ it("keeps public loading diagnostics private and offers recovery for transient o
   input.overview.response = { status: "unavailable", activityId: "fixture", reason: "rollout_disabled" };
   rerender(<ActivityAnalysisBody {...input} isOwner analysisProps={null} />);
   expect(screen.queryByRole("button", { name: "평가 근거 다시 불러오기" })).not.toBeInTheDocument();
+});
+
+
+it("shows the recorded zone distribution first and reveals exact comparison evidence on demand", () => {
+  renderWithProviders(<ActivityAnalysisBody {...props(rich)} />);
+  const power = within(screen.getByRole("heading", { name: "파워", level: 3 }).closest("section")!);
+  expect(power.getByRole("group", { name: /55.6%/ })).toBeVisible();
+  expect(power.getByRole("table", { hidden: true })).not.toBeVisible();
+  fireEvent.click(power.getByText("시간·일량과 비교 근거"));
+  expect(power.getByRole("table")).toBeVisible();
+  expect(power.getByText("+5.6%p")).toBeVisible();
+});
+
+it("keeps fitness scope available behind an initially closed explanation", () => {
+  renderWithProviders(<ActivityAnalysisBody {...props({ ...rich, fitnessScope: "integrated" })} />);
+  const explanation = screen.getByText(/체력·피로·폼은 기록된/);
+  expect(explanation).not.toBeVisible();
+  fireEvent.click(screen.getByText("체력 지표의 범위와 계산 기준"));
+  expect(explanation).toBeVisible();
 });

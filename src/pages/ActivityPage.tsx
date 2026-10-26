@@ -109,6 +109,8 @@ export default function ActivityPage() {
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
   const dialog = useDialog();
+  const [explorationMounted, setExplorationMounted] = useState(false);
+  const [analysisExploreOpen, setAnalysisExploreOpen] = useState(false);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [coRiders, setCoRiders] = useState<Activity[]>([]);
   const [coRiderIdentity, setCoRiderIdentity] = useState("");
@@ -208,6 +210,7 @@ export default function ActivityPage() {
   const requestedTab = searchParams.get("tab") ?? "overview";
   const activeTab = requestedTab === "insights" ? "analysis" : requestedTab === "splits" || requestedTab === "laps" ? "segments"
     : ["overview", "analysis", "segments"].includes(requestedTab) || (requestedTab === "compare" && isActivityOwner) ? requestedTab : "overview";
+  useEffect(() => { if (activity && (activeTab !== "analysis" || sport !== "ride" || analysisExploreOpen)) setExplorationMounted(true); }, [activity, activeTab, sport, analysisExploreOpen]);
   useLayoutEffect(() => {
     const list = activityNavigationRef.current?.querySelector<HTMLElement>('[role="tablist"]');
     if (!list) return;
@@ -689,6 +692,7 @@ export default function ActivityPage() {
     pendingPeakLocation.current = null;
     setPeakSelection({ activityId, peak });
     if (!peak) return;
+    setAnalysisExploreOpen(true);
     if (!streams) {
       pendingPeakLocation.current = { activityId, uid: user?.uid, peak };
       requestStreams();
@@ -1248,23 +1252,24 @@ export default function ActivityPage() {
       {activeTab === "analysis" && <header className="activity-analysis-intro">
         <div><Text as="h2" variant="title">{t("detail.analysis.title")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("analysisReading.intro")}</Text></div>
         <nav aria-label={t("analysisReading.navigation")} className="activity-analysis-navigation">
-          <a href="#activity-route-map">{t("analysisReading.explore")}</a>
           <a href="#activity-tab-panel">{t("detail.analysisTopics.training")}</a>
           {sport === "ride" && overview.response?.status === "available" && <>
             {!!overview.response.presentation.zones?.length && <a href="#analysis-topic-intensity">{t("analysisReading.intensity")}</a>}
             {!!overview.response.presentation.powerFingerprint?.length && <a href="#analysis-topic-records">{t("analysisReading.power")}</a>}
           </>}
+          <a href="#activity-route-map" onClick={() => setAnalysisExploreOpen(true)}>{t("analysisReading.explore")}</a>
         </nav>
       </header>}
       {activeTab === "analysis" && sport === "ride" && overview.enabled && !overview.loading && overview.response?.status === "available" && <ActivityAnalysisSummary presentation={overview.response.presentation} />}
-      <div className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
+      {activeTab === "analysis" && sport === "ride" && <div className="activity-analysis-exploration-toggle"><Button variant="outline" aria-expanded={analysisExploreOpen} aria-controls="activity-analysis-exploration" onClick={() => setAnalysisExploreOpen(value => !value)}>{t("analysisReading.exploration")}<ChevronDown size={ICON_SIZE.md} aria-hidden="true" /></Button><Text as="p" variant="caption" tone="tertiary">{t("analysisReading.explorationHint")}</Text></div>}
+      <div id="activity-analysis-exploration" hidden={activeTab === "analysis" && sport === "ride" && !analysisExploreOpen} className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
       <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined}>
       {selectedMapSegment && <div className="activity-detail-segment-map-selection">
         <p role="status">{t("segments.selectedOnMap", { name: selectedMapSegment.name })}</p>
         <Button variant="outline" size="sm" onClick={returnToSegment}>{t("segments.returnToSegment")}</Button>
       </div>}
-      <ActivityMediaPanel
+      {(activeTab !== "analysis" || sport !== "ride" || analysisExploreOpen || explorationMounted) && <ActivityMediaPanel
         activity={activity}
         streams={streams}
         sport={sport}
@@ -1278,7 +1283,7 @@ export default function ActivityPage() {
         uploadedPhotos={uploadedPhotos}
         flyToPosition={flyToPosition}
         t={t}
-      />
+      />}
       </div>
 
       {activeTab === "analysis" && <div className="activity-detail-chart-workspace" aria-label={t("detail.chartsTitle")}>

@@ -17,6 +17,7 @@ export function ActivityPowerComparison({ current, benchmark, evidence }: { curr
       </ToggleControls>}
     </div>
     <div id={id}>{recent ? benchmark : current}</div>
+    <div className="activity-analysis-comparison-reading"><Text as="h4" variant="bodyMedium" weight={600}>{t("analysisReading.comparisonMeaning")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("analysisReading.comparisonContext")}</Text></div>
     {!recent && evidence && <Disclosure title={t("analysisReading.powerDetails")} description={t("analysisReading.powerDetailsDescription")}>{evidence}</Disclosure>}
   </div>;
 }
