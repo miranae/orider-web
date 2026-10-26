@@ -1,3 +1,4 @@
+import { PowerReadingControls } from "./PowerReadingControls";
 import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import GlossaryText from "../../../components/common/GlossaryText";
@@ -182,7 +183,7 @@ function ZoneStrip({ weights, className, label, labelled = false, items, sheen =
   </div>;
 }
 
-export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }: { zone: Zone; highPercent?: number; baselineHighPercent?: number; heading: ReactNode }) {
+export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading, layout = "compact" }: { layout?: "compact" | "rows"; zone: Zone; highPercent?: number; baselineHighPercent?: number; heading: ReactNode }) {
   const { t } = useTranslation(["activity", "fitness"]);
   const labels = zone.kind === "power" ? POWER_ZONE_LABELS : HR_ZONE_LABELS;
   const pcts = zone.currentPercentages?.length === zone.seconds.length ? zone.currentPercentages : undefined;
@@ -208,6 +209,13 @@ export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }:
       <Text variant="caption" tone="tertiary">{t(zone.baselineScope === "discipline" ? "overviewSummary.zoneBaselineDiscipline" : "overviewSummary.zoneBaseline", { count: zone.priorSampleCount })}
         {baselineHighPercent != null && <> · <GlossaryText>{t("overviewSummary.usualHigh", { pct: one(baselineHighPercent) })}</GlossaryText></>}</Text>
     </div>}
+    {layout === "rows" ? <table className="activity-zone-reading-table" aria-label={t("overviewSummary.zoneBarLabel")}>
+      <thead><tr><th scope="col">{t("overviewEvidence.zone")}</th>{pcts && <th scope="col">%</th>}<th scope="col">{t("overviewEvidence.duration")}</th></tr></thead>
+      <tbody>{zone.seconds.map((seconds, i) => <tr key={i}>
+        <th scope="row"><span className="activity-zone-reading-name"><span aria-hidden="true" className={`activity-overview-swatch activity-overview-zone--${i + 1}`} />{name(i)}</span></th>
+        {pcts && <td>{`${one(pcts[i]!)}%`}</td>}<td>{clock(seconds)}</td>
+      </tr>)}</tbody>
+    </table> : <>
     <ul className="activity-overview-zones__legend" style={cssVar({ "--rows": Math.ceil(shown.length / 2) })}>
       {shown.map((i) => <li key={i}>
         <span aria-hidden="true" className={`activity-overview-swatch activity-overview-zone--${i + 1}`} />
@@ -219,7 +227,8 @@ export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }:
         </span>}
       </li>)}
     </ul>
-    {empty.length > 0 && <p className="activity-overview-zones__empty"><MixedValue value={t("overviewSummary.zonesEmpty", { zones: empty.map(name).join(", ") })} /></p>}
+    </>}
+    {layout !== "rows" && empty.length > 0 && <p className="activity-overview-zones__empty"><MixedValue value={t("overviewSummary.zonesEmpty", { zones: empty.map(name).join(", ") })} /></p>}
   </div>;
 }
 
@@ -343,6 +352,7 @@ export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, f
   const gap = selected && referenceValue != null ? Math.round(selected.value - referenceValue) : null;
   const ftp = ftpW != null && Number.isFinite(ftpW) && ftpW > 0 ? Math.round(ftpW) : null;
   return <div className="activity-overview-curve">
+    {interactiveReading && selected && <PowerReadingControls><label className="activity-benchmark-duration" htmlFor={`${listId}-duration`}><Text variant="bodySmall" tone="secondary">{t("benchmark.duration")}</Text><Select id={`${listId}-duration`} value={selected.durationSeconds} onChange={event => setSelectedDuration(Number(event.target.value))}>{points.map(point => <option key={point.durationSeconds} value={point.durationSeconds}>{duration(point.row.duration)}</option>)}</Select></label></PowerReadingControls>}
     <DurationCurveChart
       points={points.map(({ durationSeconds, value }) => ({ durationSeconds, value }))}
       unit="W" color="var(--chart-power)" datasetLabel={t("overviewSummary.thisActivity")}
@@ -355,7 +365,7 @@ export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, f
       emptyTitle={t("dashboard:charts.powerCurve.emptyTitle")} emptyDescription={t("dashboard:charts.powerCurve.emptyDescription")}
     />
     {interactiveReading && selected && <>
-      <label className="activity-benchmark-duration" htmlFor={`${listId}-duration`}><Text variant="bodySmall" tone="secondary">{t("benchmark.duration")}</Text><Select id={`${listId}-duration`} value={selected.durationSeconds} onChange={event => setSelectedDuration(Number(event.target.value))}>{points.map(point => <option key={point.durationSeconds} value={point.durationSeconds}>{duration(point.row.duration)}</option>)}</Select></label>
+
       <div className="activity-benchmark-values"><Stat compact label={t("overviewSummary.thisActivity")} value={one(selected.value)} unit="W" />{comparison && <Stat compact label={comparison.label} value={comparison.values[selectedIndex] != null ? one(comparison.values[selectedIndex]!) : "—"} unit={comparison.values[selectedIndex] != null ? "W" : undefined} />}</div>
       {comparison && gap != null && <Text as="p" variant="bodySmall" tone="secondary">{t(`analysisReading.record${gap < 0 ? "Lower" : gap > 0 ? "Higher" : "Equal"}`, { duration: duration(selected.row.duration), reference: comparison.label, gap: Math.abs(gap) })}</Text>}
       {!!facts(selected.row).length && <Text as="p" variant="bodySmall" tone="secondary">{facts(selected.row).join(" · ")}</Text>}

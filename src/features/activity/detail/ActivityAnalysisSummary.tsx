@@ -20,9 +20,9 @@ export function ActivityAnalysisSummary({ presentation: p }: { presentation: Act
       </div>
     </div>
     <div className="activity-analysis-summary__metrics">
-      {session.load != null && <Stat label={t("detail.acceptedLoadLabel")} value={Math.round(session.load * 10) / 10} description={t(`analysisReading.${session.loadSource === "time" ? "loadTimeMeaning" : session.loadSource === "trimp" ? "loadHrMeaning" : "loadMeaning"}`)} />}
-      {session.normalizedPowerW != null && <Stat label={<GlossaryText>NP</GlossaryText>} value={Math.round(session.normalizedPowerW * 10) / 10} unit="W" description={t("analysisReading.npMeaning")} />}
-      {session.intensityFactor != null && <Stat label={<GlossaryText>IF</GlossaryText>} value={session.intensityFactor.toFixed(2)} description={t("analysisReading.ifMeaning")} />}
+      {session.load != null && <Stat layout="responsive" label={t("detail.acceptedLoadLabel")} value={Math.round(session.load * 10) / 10} description={t(`analysisReading.${session.loadSource === "time" ? "loadTimeMeaning" : session.loadSource === "trimp" ? "loadHrMeaning" : "loadMeaning"}`)} />}
+      {session.normalizedPowerW != null && <Stat layout="responsive" label={<GlossaryText>NP</GlossaryText>} value={Math.round(session.normalizedPowerW * 10) / 10} unit="W" description={t("analysisReading.npMeaning")} />}
+      {session.intensityFactor != null && <Stat layout="responsive" label={<GlossaryText>IF</GlossaryText>} value={session.intensityFactor.toFixed(2)} description={t("analysisReading.ifMeaning")} />}
     </div>
   </Card></GlossaryProvider>;
 }

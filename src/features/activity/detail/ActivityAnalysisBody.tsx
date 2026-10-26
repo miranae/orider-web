@@ -170,7 +170,7 @@ export default function ActivityAnalysisBody(props: Props) {
           const showDelta = !!zone.deltaPercentagePoints?.some(value => Number.isFinite(value));
           return <section key={zone.kind} className="activity-analysis-zone" aria-label={label(zone.kind)}>
           <Text as="h3" variant="bodyMedium" weight={600}>{label(zone.kind)}</Text>
-          <ZoneTimeBar zone={zone} heading={t("overviewSummary.thisActivity")} />
+          <ZoneTimeBar layout="rows" zone={zone} heading={t("overviewSummary.thisActivity")} />
           <Disclosure title={t("analysisReading.zoneEvidence")}><div className="activity-analysis-table" role="region" tabIndex={0} aria-label={label(zone.kind)}><table>
             <thead><tr>{[label("zone"), differentTimes ? t("detail.analysisTopics.summaryZoneTime") : label("duration"), ...(differentTimes ? [t("detail.analysisTopics.metricZoneTime")] : []), ...(showCurrent ? ["%"] : []), ...(showBaseline ? [label("baseline")] : []), ...(showDelta ? [label("change")] : []), ...(zone.kind === "power" && context?.zoneKj ? ["kJ"] : [])].map(name => <th scope="col" key={name}>{name}</th>)}</tr></thead>
             <tbody>{zone.seconds.map((seconds, index) => <tr key={index}>
@@ -201,7 +201,7 @@ export default function ActivityAnalysisBody(props: Props) {
       <Topic id="records" title={t("detail.analysisTopics.records")} visible={curveRows.length > 0 || readable(raw.power) || readable(raw.powerCurve) || readable(benchmark) || readable(peakInspector) || !!p?.peakMoment || readable(props.powerControls)}>
         {props.powerControls}
         {extras(["평균 파워", "Average power"])}
-        {(curveRows.length > 0 || readable(raw.powerCurve) || readable(benchmark)) && <ActivityPowerComparison benchmark={benchmark}
+        {(curveRows.length > 0 || readable(raw.powerCurve) || readable(benchmark)) && <ActivityPowerComparison inlineControls={curveRows.length > 0} benchmark={benchmark}
           current={curveRows.length > 0 ? (<OverviewPowerCurve interactiveReading rows={curveRows} recordsEvaluated={records} comparableMedian={p?.comparisonMetadata?.historyCompleteness === "complete" && curveRows.some(row => row.deltaPct != null && Number.isFinite(row.deltaPct) && (row.medianWatts ?? 0) > 0 && (row.priorSampleCount ?? 0) >= 3)} ftpW={currentFtp} />) : raw.powerCurve}
           evidence={curveRows.length > 0 ? <>
           <div className="activity-analysis-table" role="region" tabIndex={0} aria-label={t("detail.analysisTopics.records")}><table>

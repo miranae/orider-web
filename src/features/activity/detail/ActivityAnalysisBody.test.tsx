@@ -1,3 +1,4 @@
+import { PowerReadingControls } from "./PowerReadingControls";
 import { fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
@@ -8,7 +9,7 @@ import type { ActivityAnalysisSections } from "../../../components/AnalysisTab";
 
 const fixture = vi.hoisted(() => ({ raw: {} as ActivityAnalysisSections, calls: vi.fn(), curve: vi.fn() }));
 vi.mock("../../../components/AnalysisTab", () => ({ default: (props: { renderSections: (sections: ActivityAnalysisSections) => ReactNode }) => { fixture.calls(); return props.renderSections(fixture.raw); } }));
-vi.mock("./ActivityOverviewCharts", async original => ({ ...await original<typeof import("./ActivityOverviewCharts")>(), OverviewPowerCurve: (props: unknown) => { fixture.curve(props); return <div data-testid="power-curve" />; } }));
+vi.mock("./ActivityOverviewCharts", async original => ({ ...await original<typeof import("./ActivityOverviewCharts")>(), OverviewPowerCurve: (props: unknown) => { fixture.curve(props); return <><PowerReadingControls /><div data-testid="power-curve" /></>; } }));
 vi.mock("react-chartjs-2", () => ({ Line: () => <div data-testid="power-curve" /> }));
 
 const rich: ActivityOverviewPresentation = {
@@ -29,7 +30,7 @@ const props = (presentation?: ActivityOverviewPresentation) => ({
   analysisProps: {} as NonNullable<Parameters<typeof ActivityAnalysisBody>[0]["analysisProps"]>,
   isOwner: true, preview: false, ftpW: 220, totalCalories: 336, storedLoad: null,
   sharedStats: { averagePower: 170, averageCadence: 80, averageHeartRate: null, maxHeartRate: null },
-  timeline: <p>record timeline</p>, provenance: <p>different load source</p>, benchmark: <p>90-day reference</p>, peakInspector: <p>peak locator</p>, sensorFallback: null,
+  timeline: <p>record timeline</p>, provenance: <p>different load source</p>, benchmark: <><PowerReadingControls /><p>90-day reference</p></>, peakInspector: <p>peak locator</p>, sensorFallback: null,
 });
 const topic = (name: string) => screen.getByRole("heading", { name, level: 2 }).closest("section")!;
 beforeEach(() => { fixture.raw = {}; fixture.calls.mockClear(); fixture.curve.mockClear(); });
@@ -187,9 +188,9 @@ it("shows the recorded zone distribution first and reveals exact comparison evid
   renderWithProviders(<ActivityAnalysisBody {...props(rich)} />);
   const power = within(screen.getByRole("heading", { name: "파워", level: 3 }).closest("section")!);
   expect(power.getByRole("group", { name: /55.6%/ })).toBeVisible();
-  expect(power.getByRole("table", { hidden: true })).not.toBeVisible();
+  expect(power.getByText("시간·일량과 비교 근거").closest("details")).not.toHaveAttribute("open");
   fireEvent.click(power.getByText("시간·일량과 비교 근거"));
-  expect(power.getByRole("table")).toBeVisible();
+  expect(power.getByText("시간·일량과 비교 근거").closest("details")).toHaveAttribute("open");
   expect(power.getByText("+5.6%p")).toBeVisible();
 });
 
