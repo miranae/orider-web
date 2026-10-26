@@ -107,4 +107,31 @@ describe("V2 arbitrary-duration manual opaque session",()=>{
   expect(result.current.result?.witness?.durationMs).toBe(300000);expect(result.current.canCalculate).toBe(false);expect(mock.load).toHaveBeenCalledTimes(2);
  });
 
+ it("retains only completed witnesses whose revision the server explicitly reauthorized",async()=>{
+  const other=nativePowerV2DurationFixture(600,true);other.witness!.snapshotRevision="b".repeat(64);
+  mock.load.mockResolvedValueOnce(nativePowerV2DurationFixture(300)).mockResolvedValueOnce(nativePowerV2DurationFixture(300,true))
+   .mockResolvedValueOnce(nativePowerV2DurationFixture(600)).mockResolvedValueOnce(other)
+   .mockRejectedValueOnce(Object.assign(Error("session expired"),{code:"functions/failed-precondition",details:{reason:"saved_result_access_confirmed",snapshotRevision:"a".repeat(64)}}));
+  const {result,rerender}=renderHook(({draft})=>useNativePowerV2Duration(activity,draft),{initialProps:{draft:"300"}});
+  await act(()=>result.current.confirm());await act(()=>result.current.calculate());
+  rerender({draft:"600"});await act(()=>result.current.confirm());await act(()=>result.current.calculate());
+  expect(result.current.history).toHaveLength(2);await act(()=>result.current.calculate());
+  expect(result.current.history).toHaveLength(1);expect(result.current.result?.witness?.durationMs).toBe(300000);
+  expect(result.current.result?.session).toBeNull();expect(result.current.metadata).toBeNull();expect(result.current.canCalculate).toBe(false);expect(result.current.failure).toBe(true);
+  const requests=mock.load.mock.calls.length;await act(()=>result.current.calculate());expect(mock.load).toHaveBeenCalledTimes(requests);
+ });
+ it.each([
+  ["functions/failed-precondition",{reason:"saved_result_access_confirmed",snapshotRevision:"b".repeat(64)}],
+  ["functions/failed-precondition",{reason:"saved_result_access_confirmed",snapshotRevision:"invalid"}],
+  ["functions/failed-precondition",{reason:"source_changed",snapshotRevision:"a".repeat(64)}],
+  ["functions/failed-precondition",null],
+  ["functions/permission-denied",{reason:"saved_result_access_confirmed",snapshotRevision:"a".repeat(64)}],
+  ["functions/unauthenticated",{reason:"saved_result_access_confirmed",snapshotRevision:"a".repeat(64)}],
+ ])("does not treat unbound or authority errors as retained access (%s, %j)",async(code,details)=>{
+  mock.load.mockResolvedValueOnce(nativePowerV2DurationFixture(300)).mockResolvedValueOnce(nativePowerV2DurationFixture(300,true))
+   .mockRejectedValueOnce(Object.assign(Error("rejected"),{code,details}));
+  const {result}=renderHook(()=>useNativePowerV2Duration(activity,"300"));await act(()=>result.current.confirm());await act(()=>result.current.calculate());await act(()=>result.current.confirm());
+  expect(result.current.result).toBeNull();expect(result.current.history).toEqual([]);expect(result.current.canCalculate).toBe(false);
+ });
+
 });

@@ -71,8 +71,20 @@ export function useNativePowerV2Duration(activity: Activity, draft: string, scop
   } catch (error) {
    if (active()) {
     const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
-    // Existing callable conflates revoked authority and invalid source/session. Do not bypass that security fence.
-    if (/permission-denied|unauthenticated|not-found|failed-precondition/.test(code)) setCompleted(null);
+    // A failed computation never renews its opaque session. Only an explicit server access check
+    // can retain completed witnesses bound to the exact publication revision it confirmed.
+    const details = error && typeof error === "object" && "details" in error ? error.details : null;
+    const evidence = details && typeof details === "object" ? details as Record<string, unknown> : null;
+    const confirmedRevision = (code === "functions/failed-precondition" || code === "failed-precondition")
+     && evidence?.reason === "saved_result_access_confirmed" && typeof evidence.snapshotRevision === "string"
+     && /^[a-f0-9]{64}$/u.test(evidence.snapshotRevision) ? evidence.snapshotRevision : null;
+    if (confirmedRevision) setCompleted(previous => {
+     if (previous?.scope !== accessScope) return null;
+     const entries = previous.entries.filter(entry => entry.response.witness?.snapshotRevision === confirmedRevision);
+     if (!entries.length) return null;
+     return { ...previous, entries, selected: entries.some(entry => entry.id === previous.selected) ? previous.selected : entries[entries.length - 1]!.id };
+    });
+    else if (/permission-denied|unauthenticated|not-found|failed-precondition/.test(code)) setCompleted(null);
     setState({ generation, metadata: null, confirmedAt: null, expiresAt: null, busy: false, failure: true });
    }
   } finally { if (active()) ref.current.busy = false; }
