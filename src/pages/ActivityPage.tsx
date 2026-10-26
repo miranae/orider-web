@@ -948,8 +948,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const canCreateFromOwnRoute = isActivityOwner && hasAnalysisRoute && sport !== "swim";
   const canRegisterPublicRoute = !!user && !isActivityOwner && activity.visibility === "everyone" && hasTrack && sport !== "swim";
   const canRideActivityRoute = (isActivityOwner || activity.visibility === "everyone") && sport === "ride" && hasTrack;
-  const hasAiSummaryPreview = !!(activity.aiSummaryPreview || activity.aiSummaryPreview_en);
-  const canShowAiAnalysis = (sport === "ride" || sport === "run") && (hasAnalysisStreams || hasAiSummaryPreview);
+  const canShowAiAnalysis = sport === "ride" || sport === "run";
   const showElevation = sport === "ride" || sport === "run";
 
   // activitySanity 가드 — 비현실 속도 노출 차단용. sport "ride" → discipline "bike".
@@ -1324,7 +1323,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         <NativeActivityMemoEditor key={`${activity.id}:${user?.uid}`} activityId={activity.id}
           onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })} />}
       {isActivityOwner && activeTab === "overview" && <ActivityMapPrivacyControl activityId={activity.id} />}
-      {isActivityOwner && activeTab === "analysis" && <ActivityReanalysisControl activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
+      {activeTab === "analysis" && <ActivityReanalysisControl canReanalyze={isActivityOwner} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
       <div className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
       <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined}>

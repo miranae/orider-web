@@ -5,16 +5,15 @@ import { createActivityReanalysisClient, type SavedActivityAnalysis, type Activi
 import { Button, Stack, Text } from "../../../theme/components";
 
 /** This control never edits or clears displayed metrics; publication remains server-owned. */
-export function ActivityReanalysisControl({ activityId, selectedRevision, onSelect }: { activityId: string; selectedRevision?: string; onSelect: (value: SavedActivityAnalysis | null) => void }) {
+export function ActivityReanalysisControl({ activityId, selectedRevision, onSelect, canReanalyze = true, onAccessRevoked }: { canReanalyze?: boolean; onAccessRevoked?: () => void; activityId: string; selectedRevision?: string; onSelect: (value: SavedActivityAnalysis | null) => void }) {
   const services = useFirebaseServices(), viewer = services.auth.currentUser;
   const client = useMemo(() => createActivityReanalysisClient(services), [services, viewer]);
   const identity = useMemo(() => ({ client, activityId }), [client, activityId]);
   const scope = useRef({ identity, generation: 0 });
   if (scope.current.identity !== identity) scope.current = { identity, generation: scope.current.generation + 1 };
-  if (!viewer || viewer.isAnonymous) return null;
-  return <ReanalysisSession key={scope.current.generation} activityId={activityId} client={client} selectedRevision={selectedRevision} onSelect={onSelect} />;
+  return <ReanalysisSession key={scope.current.generation} activityId={activityId} client={client} selectedRevision={selectedRevision} onSelect={onSelect} canReanalyze={canReanalyze && !!viewer && !viewer.isAnonymous} onAccessRevoked={onAccessRevoked} />;
 }
-function ReanalysisSession({ activityId, client, selectedRevision, onSelect }: { activityId: string; client: ReturnType<typeof createActivityReanalysisClient>; selectedRevision?: string; onSelect: (value: SavedActivityAnalysis | null) => void }) {
+function ReanalysisSession({ activityId, client, selectedRevision, onSelect, canReanalyze, onAccessRevoked }: { canReanalyze: boolean; onAccessRevoked?: () => void; activityId: string; client: ReturnType<typeof createActivityReanalysisClient>; selectedRevision?: string; onSelect: (value: SavedActivityAnalysis | null) => void }) {
   const [stored, setStored] = useState<{ client: typeof client; activityId: string; data: ActivityReanalysisState } | null>(null);
   const [history, setHistory] = useState<ActivityAnalysisHistory | null>(null);
   const [busy, setBusy] = useState(false), [failed, setFailed] = useState(false);
@@ -29,7 +28,7 @@ function ReanalysisSession({ activityId, client, selectedRevision, onSelect }: {
     return () => { generation.current++; };
   }, [client, activityId]);
   const load = async () => {
-    if (pending.current) return;
+    if (!canReanalyze || pending.current) return;
     const token = generation.current; pending.current = true; setBusy(true); setFailed(false);
     try {
       const data = await client.load(activityId, request.current?.id);
@@ -41,7 +40,7 @@ function ReanalysisSession({ activityId, client, selectedRevision, onSelect }: {
     finally { if (token === generation.current) { pending.current = false; setBusy(false); } }
   };
   const submit = async () => {
-    if (!state?.canReanalyze || state.pending || pending.current) return;
+    if (!canReanalyze || !state?.canReanalyze || state.pending || pending.current) return;
     const token = generation.current; pending.current = true; setBusy(true); setFailed(false);
     request.current ??= { id: crypto.randomUUID(), revision: state.metricsRevision };
     try {
@@ -58,7 +57,13 @@ function ReanalysisSession({ activityId, client, selectedRevision, onSelect }: {
       if (token !== generation.current) return;
       if (revisionId) { if (!data.selected) throw Error("missing_saved_analysis"); onSelect(data.selected); }
       else setHistory(previous => ({ ...data, items: cursor ? [...(previous?.items ?? []), ...data.items] : data.items }));
-    } catch { if (token === generation.current) setFailed(true); }
+    } catch (error) {
+      if (token === generation.current) {
+        setFailed(true);
+        const code = typeof error === "object" && error !== null && "code" in error ? String(error.code).replace(/^functions\//, "") : "";
+        if (["permission-denied", "unauthenticated", "not-found", "failed-precondition"].includes(code)) { setHistory(null); onSelect(null); onAccessRevoked?.(); }
+      }
+    }
     finally { if (token === generation.current) { pending.current = false; setBusy(false); } }
   };
   return <section aria-label={t("reanalysis.title")}>
@@ -69,8 +74,8 @@ function ReanalysisSession({ activityId, client, selectedRevision, onSelect }: {
       {failed && <Text as="p" role="alert" variant="bodySmall">{t("reanalysis.failed")}</Text>}
       {selectedRevision && <Text as="p" role="status" variant="bodySmall">{t("reanalysis.viewingSaved")}</Text>}
       <Stack direction="row" gap="sm">
-        <Button variant="ghost" disabled={busy} onClick={() => { void load(); }}>{t("reanalysis.check")}</Button>
-        {state?.canReanalyze && !state.pending && <Button variant="outline" disabled={busy} onClick={() => { void submit(); }}>{t("reanalysis.start")}</Button>}
+        {canReanalyze && <Button variant="ghost" disabled={busy} onClick={() => { void load(); }}>{t("reanalysis.check")}</Button>}
+        {canReanalyze && state?.canReanalyze && !state.pending && <Button variant="outline" disabled={busy} onClick={() => { void submit(); }}>{t("reanalysis.start")}</Button>}
         <Button variant="ghost" disabled={busy} onClick={() => { void readHistory(); }}>{t("reanalysis.history")}</Button>
         {selectedRevision && <Button variant="ghost" disabled={busy} onClick={() => onSelect(null)}>{t("reanalysis.current")}</Button>}
       </Stack>

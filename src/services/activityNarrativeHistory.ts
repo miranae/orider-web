@@ -9,8 +9,7 @@ export interface NarrativeHistory {
 const revision = (v: unknown): v is string => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
 export async function loadActivityNarrativeHistory(activityId: string, lang: NarrativeLang, revisionId?: string, cursor?: string, services?: ActivityNarrativeServices): Promise<NarrativeHistory> {
   const session = captureActivityNarrativeSession(services);
-  const { auth, functions, ensureAppCheckReady } = session.services;
-  if (!auth.currentUser || auth.currentUser.isAnonymous) throw Object.assign(Error("Sign in required"), { code: "unauthenticated" });
+  const { functions, ensureAppCheckReady } = session.services;
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(activityId) || revisionId !== undefined && !revision(revisionId) || cursor !== undefined && !revision(cursor)) throw Error("invalid_narrative_history_request");
   await ensureAppCheckReady(); session.assertCurrent();
   const { data } = await httpsCallable<object, NarrativeHistory>(functions, "getActivityNarrativeHistory", { timeout: 10000 })({ activityId, lang, ...(revisionId ? { revisionId } : {}), ...(cursor ? { cursor } : {}) });

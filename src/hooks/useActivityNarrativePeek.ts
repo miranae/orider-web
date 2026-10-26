@@ -14,12 +14,13 @@ import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
  */
 import { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { captureActivityNarrativeSession } from "../services/activityNarrativeSession";
+import { captureActivityNarrativeSession, isActivityNarrativeAccessRevoked } from "../services/activityNarrativeSession";
 import { logClientError } from "../services/errorLogger";
 import { peekActivityNarrative } from "../services/activityNarrativeApi";
 import type { ActivityNarrative, NarrativeLang } from "./useActivityNarrative";
 
 interface PeekState {
+  accessRevoked?: boolean;
   data: ActivityNarrative | null;
   loading: boolean;
   /** true = 서버에 캐시 없음. false = 아직 로딩 중이거나 hit. */
@@ -75,7 +76,7 @@ export function useActivityNarrativePeek(activityId: string | null, enabled: boo
         if (cancelled || !session.isCurrent()) return;
         logClientError("useActivityNarrativePeek", error, { lang });
         // peek 실패는 생성 트리거로 이어지지 않게 miss 처리한다.
-        setState({ data: null, loading: false, cacheMiss: true });
+        setState({ data: null, loading: false, cacheMiss: true, accessRevoked: isActivityNarrativeAccessRevoked(error) });
       });
 
     return () => { cancelled = true; };

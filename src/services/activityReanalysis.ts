@@ -15,13 +15,13 @@ export interface ActivityReanalysisResult {
 const revision = (value: unknown) => value === null || typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
 export function createActivityReanalysisClient(services: FirebaseServices) {
   const { auth, functions } = services, viewer = auth.currentUser, app = auth.app;
-  const assertAccount = () => {
-    if (!viewer || viewer.isAnonymous || services.auth !== auth || auth.currentUser !== viewer || auth.app !== app
+  const assertAccount = (ownerOperation: boolean) => {
+    if ((ownerOperation && (!viewer || viewer.isAnonymous)) || services.auth !== auth || auth.currentUser !== viewer || auth.app !== app
       || services.functions !== functions || functions.app !== app) throw Error("account_changed");
   };
-  async function invoke<T>(name: string, data: object): Promise<T> {
+  async function invoke<T>(name: string, data: object, ownerOperation = true): Promise<T> {
     let expired = false, timer: ReturnType<typeof setTimeout> | undefined;
-    const current = () => { if (expired) throw Error("reanalysis_timeout"); assertAccount(); };
+    const current = () => { if (expired) throw Error("reanalysis_timeout"); assertAccount(ownerOperation); };
     current();
     try {
       return await Promise.race([
@@ -48,7 +48,7 @@ export function createActivityReanalysisClient(services: FirebaseServices) {
     async history(activityId: string, revisionId?: string, cursor?: string): Promise<ActivityAnalysisHistory> {
       activity(activityId);
       if (revisionId !== undefined && !revision(revisionId)) throw Error("invalid_revision");
-      const result = await invoke<ActivityAnalysisHistory>("getActivityAnalysisHistory", { activityId, ...(revisionId ? { revisionId } : {}), ...(cursor ? { cursor } : {}) });
+      const result = await invoke<ActivityAnalysisHistory>("getActivityAnalysisHistory", { activityId, ...(revisionId ? { revisionId } : {}), ...(cursor ? { cursor } : {}) }, false);
       const version = (v: unknown) => v === null || Number.isSafeInteger(v) && (v as number) >= 0;
       if (!result || !Array.isArray(result.items) || result.items.length > 50 || result.items.some(row => !row || !row.revisionId || !revision(row.revisionId) || !version(row.calculatorVersion) || !version(row.calculatedAt))
         || !(result.nextCursor === null || typeof result.nextCursor === "string" && result.nextCursor.length > 0 && result.nextCursor.length < 10000)

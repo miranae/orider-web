@@ -379,12 +379,18 @@ describe("AiRideAnalysisCard", () => {
     expect(screen.getByTitle(/0–15km/)).toBeInTheDocument();
     expect(screen.getByTitle(/15–30km/)).toBeInTheDocument();
   });
-  it.each([true, false])("does not expose owner narrative or request it for a non-owner (signed in: %s)", async (authenticated) => {
-    narrativeApiMocks.peek.mockResolvedValue(narrative([segment(0, 10, "private history")]));
-    const { container } = renderProviders(<AiRideAnalysisCard activityId="non-owner-history" enabled summaryPreview="private cached preview" />, { authenticated });
-    await act(async () => {});
-    expect(container).toBeEmptyDOMElement();
-    expect(narrativeApiMocks.peek).not.toHaveBeenCalled();
+  it.each([true, false])("reads ACL-authorized stored AI for a viewer without generation controls (signed in: %s)", async authenticated => {
+    const saved = narrative([segment(0, 10, "허용된 활동 분석")]);
+    narrativeApiMocks.peek.mockResolvedValue(saved);
+    narrativeApiMocks.history.mockResolvedValueOnce({items:[{revisionId:"d".repeat(64),generatedAt:2,version:"viewer-old"}],nextCursor:null,selected:null})
+      .mockResolvedValueOnce({items:[],nextCursor:null,selected:{revisionId:"d".repeat(64),narrative:{...saved,summary:"허용된 이전 분석"}}});
+    renderProviders(<AiRideAnalysisCard activityId={`viewer-history-${authenticated}`} enabled />, {authenticated});
+    expect(await screen.findByText("허용된 활동 분석")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("이전 AI 분석 보기"));fireEvent.click(await screen.findByRole("button",{name:/viewer-old/}));
+    expect(await screen.findByText("허용된 이전 분석")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("현재 분석으로 돌아가기"));
+    expect(await screen.findByText("전체 코칭 요약")).toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:"다시 분석"})).not.toBeInTheDocument();
     expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
   });
 
@@ -479,4 +485,12 @@ it("preserves summary-only current and historical analysis without a segment tim
   fireEvent.click(screen.getByRole("button", { name: "현재 분석으로 돌아가기" }));
   expect(screen.getByText(current.summary)).toBeInTheDocument();
   expect(narrativeApiMocks.generate).toHaveBeenCalledTimes(before);
+});
+
+it("does not resurrect a legacy preview when the shared cache reader denies access",async()=>{
+ narrativeApiMocks.peek.mockRejectedValue({code:"permission-denied"});
+ renderProviders(<AiRideAnalysisCard activityId="public-denied-cache" enabled summaryPreview="회수된 본문"/>,{authenticated:false});
+ await waitFor(()=>expect(narrativeApiMocks.peek).toHaveBeenCalled());
+ await act(async()=>{});expect(screen.queryByText("회수된 본문")).not.toBeInTheDocument();
+ expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
 });

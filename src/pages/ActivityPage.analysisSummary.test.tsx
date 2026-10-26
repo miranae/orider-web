@@ -25,7 +25,7 @@ vi.mock("../components/AnalysisTab", () => ({ default: (props: ComponentProps<ty
 }, AnalysisLapTable: (props: Record<string, unknown>) => { mocks.lapProps(props); return <div data-testid="summary-laps"><h3>랩 분석</h3>Laps</div>; } }));
 vi.mock("../components/RouteMap", () => ({ default: () => <div /> }));
 vi.mock("../components/ElevationChart", () => ({ default: () => <div /> }));
-vi.mock("../components/activity/AiRideAnalysisCard", () => ({ default: () => <div /> }));
+vi.mock("../components/activity/AiRideAnalysisCard", () => ({ default: () => <div data-testid="stored-ai-card" /> }));
 vi.mock("react-router-dom", async (importOriginal) => ({
   ...await importOriginal<typeof import("react-router-dom")>(),
   useParams: () => ({ activityId: "summary-only" }),
@@ -253,4 +253,11 @@ it("does not label a GPS-less imported sensor chart as GPS", () => {
   mocks.model!.effectiveStreams = { ...raw, time: [0,1,2] };
   renderWithProviders(<ActivityPage />, { authenticated: true });
   expect(screen.queryByText("GPS", {exact:true})).not.toBeInTheDocument();
+});
+
+it("mounts saved AI reading even without optional preview, streams or analysisSummary",()=>{
+ mocks.model!.hasAnalysisStreams=false;mocks.model!.streams=null;mocks.model!.analysisTabProps=undefined;
+ delete mocks.model!.activity!.aiSummaryPreview;
+ renderWithProviders(<ActivityPage/>,{authenticated:true});
+ expect(screen.getByTestId("stored-ai-card")).toBeInTheDocument();
 });

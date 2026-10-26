@@ -176,8 +176,9 @@ export function useActivityAnalysisModel(
     && !!user
     && activity.userId === user.uid;
   const ownedMetrics = useActivityMetrics(!publicMode && activity?.id === activityId ? activityId ?? null : null, isActivityOwner);
-  const serverMetrics = savedAnalysis && isActivityOwner ? { status: "stale" as const, metrics: savedAnalysis.metrics } : publicMode ? publicInput.metrics : ownedMetrics;
-  const showingSavedAnalysis = !!savedAnalysis && isActivityOwner;
+  const canReadSavedAnalysis = !!activity && activity.id === activityId;
+  const serverMetrics = savedAnalysis && canReadSavedAnalysis ? { status: "stale" as const, metrics: savedAnalysis.metrics } : publicMode ? publicInput.metrics : ownedMetrics;
+  const showingSavedAnalysis = !!savedAnalysis && canReadSavedAnalysis;
   // 확정 소유자 요약이 오기 전에는 스트림을 요청하지 않는다. 과거 문서만 기존 경로로 폴백한다.
   const serverAnalysisSummary = (isActivityOwner || publicMode)
     && serverMetrics.metrics?.inputPending !== true

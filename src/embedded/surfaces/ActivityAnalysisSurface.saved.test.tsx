@@ -76,7 +76,7 @@ it("masks selection synchronously on exact SDK replacement and on activity chang
   view.rerender(<ActivityAnalysisSurface {...p} activityId="b" />);
   expect(f.selected).toBeUndefined();
 });
-it("still reports actual activity denial and exposes no owner history controls for a visitor", () => {
+it("reports actual activity denial without exposing cached history controls or content", () => {
   const p = props(); f.denied = true; f.owner = false;
   render(<ActivityAnalysisSurface {...p} />);
   expect(p.onError).toHaveBeenCalledWith("activity_load_failed");
@@ -89,4 +89,14 @@ it("revisits the activity and reads saved history again without starting a new c
   expect(f.selected).toBeUndefined(); await selectPrevious();
   await waitFor(() => expect(f.history).toHaveBeenCalledTimes(4));
   expect(f.request).not.toHaveBeenCalled();
+});
+
+it("offers shared history selection to an allowed visitor without owner state or generation",async()=>{
+ f.owner=false;render(<ActivityAnalysisSurface {...props()}/>);
+ expect(screen.getByText("shared AI history a false")).toBeInTheDocument();
+ expect(screen.queryByText("reanalysis.check")).not.toBeInTheDocument();
+ await selectPrevious();expect(f.selected).toBe(f.saved);
+ expect(screen.queryByText("current source chart")).not.toBeInTheDocument();
+ fireEvent.click(screen.getByText("reanalysis.current"));expect(screen.getByText("stored power 222")).toBeInTheDocument();
+ expect(f.load).not.toHaveBeenCalled();expect(f.request).not.toHaveBeenCalled();
 });

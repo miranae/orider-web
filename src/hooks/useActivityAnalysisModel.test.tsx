@@ -195,6 +195,18 @@ describe("useActivityAnalysisModel", () => {
     await waitFor(() => expect(result.current.serverMetrics.metrics?.avgHr).toBe(180));
   });
 
+  it.each([null,{uid:"visitor"}])("uses selected public history without current stream/overview mixing for %j",async viewer=>{
+    mocks.user=viewer;const activity=makeActivity("public-saved-selection");
+    const selected={revisionId:"a".repeat(64),metrics:{version:1,avgHr:123,durationSec:120,movingTimeSec:100,analysisSummary:{...analysisSummary,correctedAverages:{...analysisSummary.correctedAverages,averageHeartRate:123}}} as never};
+    const input={activity,metrics:{status:"ready" as const,metrics:{version:ACTIVITY_METRICS_VERSION,avgHr:180} as never},accessRevision:"current",onAccessRevoked:vi.fn()};
+    const {result,rerender}=renderHook(({saved})=>useActivityAnalysisModel(activity.id,input,saved),{initialProps:{saved:selected as typeof selected|undefined}});
+    await waitFor(()=>expect(result.current.serverMetrics.metrics?.avgHr).toBe(123));
+    expect(result.current.isActivityOwner).toBe(false);expect(result.current.overview.enabled).toBe(false);
+    expect(result.current.streams).toBeNull();expect(result.current.analysisTabProps?.summary.averageHeartRate).toBe(123);
+    act(()=>result.current.requestStreams());expect(mocks.getStreams).not.toHaveBeenCalled();
+    rerender({saved:undefined});expect(result.current.serverMetrics.metrics?.avgHr).toBe(180);
+  });
+
   it("loads embedded detail streams once after the chart CTA and keeps summary entry at zero", async () => {
     const activity = makeActivity("orider_chart_cta");
     seedActivity(activity);

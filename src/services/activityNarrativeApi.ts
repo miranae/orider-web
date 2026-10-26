@@ -409,8 +409,8 @@ async function requestActivityNarrative<T extends ActivityNarrativeResponse>(
     await waitForNarrativeAuthReady(services?.auth);
   }
   const session = captureActivityNarrativeSession(services);
-  // #1636 완료 전 REST 인증기는 익명 요청을 받지 않는다. 공개 활동 cacheOnly의 기존
-  // 익명 읽기 계약만 한 릴리스 호환 callable로 유지하고, 생성 요청은 우회하지 않는다.
+  // 비로그인 저장 결과 읽기는 현재 활동 ACL을 검사하는 callable을 사용한다.
+  // 생성 요청은 이 읽기 전용 경로로 우회하지 않는다.
   if (!session.services.auth?.currentUser && request.cacheOnly === true) {
     return callActivityNarrativeCallable<T>(request, "anonymous_peek", session);
   }

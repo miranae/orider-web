@@ -254,8 +254,9 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   const previewSummary = lang === "en" ? (summaryPreviewEn || summaryPreview) : (summaryPreview || summaryPreviewEn);
   const { user, signIn } = useAuth();
   const narrativeServices = useFirebaseServices();
-  // 1단계: 소유자의 캐시만 확인한다. 과거 비공개 기록이 포함된 AI 본문은 공개 DTO와 분리한다.
-  const narrativeEnabled = enabled && isActivityOwner && !!user && getRuntimeConfig().appEnvironment !== "stage";
+  // 저장된 활동 분석은 현재 활동 ACL로 읽고, 새 생성은 소유자의 명시적 조작으로만 요청한다.
+  const narrativeEnabled = enabled && getRuntimeConfig().appEnvironment !== "stage";
+  const canGenerate = isActivityOwner && !!user && !user.isAnonymous;
   const peek = useActivityNarrativePeek(activityId, narrativeEnabled, lang);
   // 2단계: 사용자가 "분석시작"을 눌렀을 때만 full 생성 호출.
   //   인증된 소유자의 명시적 조작만 생성 요청으로 이어진다.
@@ -265,7 +266,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   const setTriggerFull = (trigger: boolean) => setTriggerScope(trigger ? scope : null);
   const [forceRefresh, setForceRefresh] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const full = useActivityNarrativeWithOptions(activityId, narrativeEnabled && triggerFull && !!user, lang, forceRefresh, refreshKey);
+  const full = useActivityNarrativeWithOptions(activityId, narrativeEnabled && triggerFull && canGenerate, lang, forceRefresh, refreshKey);
   const [expanded, setExpanded] = useState(true);
   const [appCheckRecoveryAttempted, setAppCheckRecoveryAttempted] = useState(false);
   const appCheckThrottled = appCheckThrottleRetryAfterMs(full.error) != null;
@@ -277,6 +278,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   }, [appCheckRecoveryAttempted, appCheckThrottled]);
 
   const retryFullAnalysis = () => {
+    if (!canGenerate) return;
     if (activityId) invalidateActivityNarrativePeekCache(activityId, lang);
     setForceRefresh(true);
     setRefreshKey((v) => v + 1);
@@ -285,7 +287,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   };
 
   const history = useActivityNarrativeHistory(activityId, lang, narrativeEnabled && !full.accessRevoked);
-  const data = isActivityOwner && user && !full.accessRevoked && !history.accessRevoked ? history.selected?.narrative ?? full.data ?? peek.data : null;
+  const data = !peek.accessRevoked && !full.accessRevoked && !history.accessRevoked ? history.selected?.narrative ?? full.data ?? peek.data : null;
   const historyControls = <div className="flex flex-wrap gap-2 mb-3">
     <Button size="sm" variant="ghost" loading={history.busy} onClick={() => { void history.load(); }}>{t("ai.history.open")}</Button>
     {history.selected && <Button size="sm" variant="ghost" onClick={history.clear}>{t("ai.history.current")}</Button>}
@@ -299,7 +301,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   </div>;
 
   if (!narrativeEnabled) return null;
-  if (history.accessRevoked) return <Card>{historyControls}</Card>;
+  if (peek.accessRevoked || history.accessRevoked) return <Card>{historyControls}</Card>;
 
   // peek 로딩 중 (첫 열람, 빠름)
   if (peek.loading && !data) {
@@ -329,7 +331,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         {historyControls}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
-            {user ? (
+            {canGenerate ? (
               <Button
                 size="sm"
                 variant="secondary"
@@ -356,7 +358,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         {historyControls}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
-          {user ? (
+          {canGenerate ? (
             <Button
               size="sm"
               variant="secondary"
@@ -368,16 +370,10 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
             >
               {t("ai.startBtn")}
             </Button>
-          ) : (
-            <Button size="sm" variant="secondary" onClick={() => signIn()}>
-              {t("ai.loginBtn")}
-            </Button>
-          )}
+          ) : null}
         </div>
         <Text variant="caption" tone="tertiary" as="p" className="mt-2">
-          {user
-            ? t(sport === "run" ? "ai.waitHintRun" : "ai.waitHint")
-            : t("ai.loginHint")}
+          {canGenerate ? t(sport === "run" ? "ai.waitHintRun" : "ai.waitHint") : t("ai.history.empty")}
         </Text>
         {sport === "run" && <RunAnalysisPreview t={t} />}
       </Card>
@@ -497,7 +493,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
         {tempBadge && <Text variant="caption" tone="tertiary">{tempBadge}</Text>}
         {data.isVirtualPower && <Text variant="caption" tone="tertiary">{t("ai.virtualPower")}</Text>}
-        {isActivityOwner && user && !history.selected && (
+        {canGenerate && !history.selected && (
           <Button size="sm" variant="secondary" onClick={retryFullAnalysis} disabled={full.loading}>
             {t(data.stale ? "ai.refreshAnalysisBtn" : needsShareRegeneration ? "ai.regenerateShareSummaryBtn" : "ai.reanalyzeBtn")}
           </Button>

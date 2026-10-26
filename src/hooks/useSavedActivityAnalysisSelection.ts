@@ -13,7 +13,7 @@ export function useSavedActivityAnalysisSelection(activityId: string | undefined
   current.current = identity;
   const [selection, setSelection] = useState<{ identity: typeof identity; value: SavedActivityAnalysis } | null>(null);
   const select = useCallback((value: SavedActivityAnalysis | null) => {
-    if (current.current !== identity || !identity.user || identity.sdkUser !== services.auth.currentUser) return;
+    if (current.current !== identity || identity.sdkUser !== services.auth.currentUser) return;
     setSelection(value ? { identity, value } : null);
   }, [identity, services]);
   return { selected: selection?.identity === identity ? selection.value : undefined, select };

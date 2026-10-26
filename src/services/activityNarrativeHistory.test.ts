@@ -25,9 +25,9 @@ describe("saved narrative reads", () => {
     });
     await expect(loadActivityNarrativeHistory("ride", "ko")).rejects.toMatchObject({ code: "auth/session-changed" });
   });
-  it("does not request private history while signed out", async () => {
-    mocks.auth.currentUser = null;
-    await expect(loadActivityNarrativeHistory("ride", "ko")).rejects.toMatchObject({ code: "unauthenticated" });
-    expect(mocks.invoke).not.toHaveBeenCalled();
+  it.each([null, {uid:"anonymous",isAnonymous:true}])("reads common-ACL history with nullable or anonymous session %j", async user => {
+    mocks.auth.currentUser = user;
+    const data={items:[],selected:null,nextCursor:null};mocks.invoke.mockResolvedValue({data});
+    await expect(loadActivityNarrativeHistory("ride","ko")).resolves.toEqual(data);
   });
 });

@@ -37,7 +37,7 @@ export default function ActivityAnalysisSurface({
   const [peakSelection, setPeakSelection] = useState<{ activityId: string; peak: RidePeakEffort | null }>({ activityId, peak: null });
   const { selected: savedAnalysis, select: selectSavedAnalysis } = useSavedActivityAnalysisSelection(activityId);
   const model = useActivityAnalysisModel(activityId, undefined, savedAnalysis);
-  const showingSaved = !!savedAnalysis && model.isActivityOwner;
+  const showingSaved = !!savedAnalysis;
   const hasStoredAnalysis = !!model.serverMetrics?.metrics && !!model.analysisTabProps;
   const { user } = useAuth();
   const { t: tCommon } = useTranslation("common");
@@ -97,6 +97,7 @@ export default function ActivityAnalysisSurface({
     if (
       readyKey.current === retryKey
       || model.loadingActivity
+      || model.activityLoadError || !model.activity || model.activity.id !== activityId
       || model.activityProcessing
       || (!hasStoredAnalysis && (model.loadingStreams || model.showStreamSpinner || !model.analysisTabProps)
         && model.overview.response?.status !== "available")
@@ -104,6 +105,7 @@ export default function ActivityAnalysisSurface({
     readyKey.current = retryKey;
     onReady();
   }, [
+    activityId, model.activity, model.activityLoadError,
     model.activityProcessing,
     hasStoredAnalysis,
     model.analysisTabProps,
@@ -123,6 +125,8 @@ export default function ActivityAnalysisSurface({
     );
   }
 
+  if (model.activityLoadError || !model.activity) return null;
+
   return (
     <main className="orider-embedded-surface" data-testid="embedded-activity-analysis">
       {!model.isActivityOwner && model.activity && (
@@ -135,7 +139,7 @@ export default function ActivityAnalysisSurface({
           </div>
         </header>
       )}
-      {model.isActivityOwner && model.activity?.id === activityId && <ActivityReanalysisControl activityId={activityId} selectedRevision={savedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
+      {model.activity?.id === activityId && <ActivityReanalysisControl canReanalyze={model.isActivityOwner} onAccessRevoked={model.retryActivity} activityId={activityId} selectedRevision={savedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
       {!showingSaved && <ActivityOverviewEvidence isOwner={model.isActivityOwner} overview={model.overview} preview={model.activePowerOverride != null} />}
       {!showingSaved && model.activity?.summary && <ActivityGrowthPanel activity={model.activity}
         metrics={model.serverMetrics?.metrics ?? null} isOwner={model.isActivityOwner} />}
@@ -157,8 +161,8 @@ export default function ActivityAnalysisSurface({
           : model.overview.loading ? <div className="orider-embedded-status" role="status">{tCommon("embeddedStatus.loading")}</div>
             : model.overview.response?.status === "available" ? null
               : <div className="orider-embedded-status" role="alert">{tCommon("embeddedStatus.unavailable")}</div>}
-      {model.isActivityOwner && (model.sport === "ride" || model.sport === "run") && <AiRideAnalysisCard
-        activityId={activityId} enabled sport={model.sport} isActivityOwner
+      {model.activity?.id === activityId && (model.sport === "ride" || model.sport === "run") && <AiRideAnalysisCard
+        activityId={activityId} enabled sport={model.sport} isActivityOwner={model.isActivityOwner}
         summaryPreview={model.activity?.aiSummaryPreview} summaryPreviewEn={model.activity?.aiSummaryPreview_en} />}
 
     </main>

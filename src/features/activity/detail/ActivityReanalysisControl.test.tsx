@@ -33,3 +33,17 @@ it("allows a new explicit request after a completed request when new analysis is
  fireEvent.click(screen.getByText("분석 상태 확인"));fireEvent.click(await screen.findByText("새 버전으로 다시 분석"));await waitFor(()=>expect(m.request).toHaveBeenCalledTimes(2));
  expect(m.request.mock.calls[0]![1]).not.toBe(m.request.mock.calls[1]![1]);expect(m.request.mock.calls[1]![2]).toBe("b".repeat(64));
 });
+
+it("offers visitor history/current selection without status or reanalysis requests",async()=>{
+ const select=vi.fn(),saved={revisionId:hash,metrics:{version:1,np:100}};
+ m.history.mockResolvedValueOnce({items:[{revisionId:hash,calculatorVersion:1,calculatedAt:null}],nextCursor:null,selected:null}).mockResolvedValueOnce({items:[],nextCursor:null,selected:saved});
+ render(<ActivityReanalysisControl activityId="a" canReanalyze={false} onSelect={select}/>);
+ expect(screen.queryByText("분석 상태 확인")).not.toBeInTheDocument();
+ fireEvent.click(screen.getByText("이전 분석 보기"));fireEvent.click(await screen.findByText("버전 1 · —"));
+ await waitFor(()=>expect(select).toHaveBeenCalledWith(saved));expect(m.load).not.toHaveBeenCalled();expect(m.request).not.toHaveBeenCalled();
+});
+it("clears a selected snapshot on explicit history access denial",async()=>{
+ const select=vi.fn(),revoked=vi.fn();m.history.mockRejectedValue({code:"permission-denied"});
+ render(<ActivityReanalysisControl activityId="a" canReanalyze={false} selectedRevision={hash} onSelect={select} onAccessRevoked={revoked}/>);
+ fireEvent.click(screen.getByText("이전 분석 보기"));await waitFor(()=>expect(select).toHaveBeenCalledWith(null));expect(revoked).toHaveBeenCalledTimes(1);
+});

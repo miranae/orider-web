@@ -49,3 +49,17 @@ it("unwraps a final V3 saved result and rejects an unfinished revision", async()
  mocks.call.mockResolvedValue({data:{items:[],nextCursor:null,selected:{revisionId:hash,metrics:{schemaVersion:3,status:"pending",metrics}}}});
  await expect(createActivityReanalysisClient(sdk()).history("a",hash)).rejects.toThrow();
 });
+
+it.each([null,{uid:"anon",isAnonymous:true}])("allows history but rejects owner operations for %j",async user=>{
+ const s=sdk();s.auth.currentUser=user as typeof s.auth.currentUser;const client=createActivityReanalysisClient(s);
+ mocks.call.mockResolvedValue({data:{items:[],selected:null,nextCursor:null}});
+ await expect(client.history("a")).resolves.toMatchObject({items:[]});
+ await expect(client.load("a")).rejects.toThrow("account_changed");
+ await expect(client.request("a","request",hash)).rejects.toThrow("account_changed");
+ expect(mocks.call).toHaveBeenCalledTimes(1);
+});
+it("discards a signed-out history read when login changes its exact scope",async()=>{
+ const s=sdk();s.auth.currentUser=null;
+ mocks.call.mockImplementation(async()=>{s.auth.currentUser={uid:"new"} as typeof s.auth.currentUser;return {data:{items:[],selected:null,nextCursor:null}};});
+ await expect(createActivityReanalysisClient(s).history("a")).rejects.toThrow("account_changed");
+});
