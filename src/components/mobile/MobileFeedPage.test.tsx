@@ -243,6 +243,23 @@ describe("MobileFeedPage", () => {
     await act(async () => { externalSearch.reset(); });
     expect(screen.queryByText("설레임 첫 라이딩")).not.toBeInTheDocument();
   });
+  it("keeps server-authorized followers and friends activities from followed authors", async () => {
+    const activities = [
+      createMockActivity({ id: "follow-visible", userId: "target", visibility: "followers", description: "팔로워 허용 활동" }),
+      createMockActivity({ id: "friend-visible", userId: "target", visibility: "friends", description: "친구 허용 활동" }),
+      createMockActivity({ id: "not-followed", userId: "other", visibility: "everyone", description: "구독하지 않은 작성자" }),
+    ];
+    const view = renderWithProviders(<MobileFeedPage activities={activities} loading={false} hasMore={false} loadingMore={false}
+      onLoadMore={vi.fn()} feedScope="following" subscriptionIds={["target"]} />, { authenticated: true });
+    expect(await screen.findByText("팔로워 허용 활동")).toBeInTheDocument();
+    expect(screen.getByText("친구 허용 활동")).toBeInTheDocument();
+    expect(screen.queryByText("구독하지 않은 작성자")).not.toBeInTheDocument();
+    view.rerender(<MobileFeedPage activities={activities} loading={false} hasMore={false} loadingMore={false}
+      onLoadMore={vi.fn()} feedScope="following" subscriptionIds={[]} />);
+    expect(screen.queryByText("팔로워 허용 활동")).not.toBeInTheDocument();
+    expect(screen.queryByText("친구 허용 활동")).not.toBeInTheDocument();
+  });
+
   it("keeps the next-page action when all current subscription candidates were excluded", async () => {
     const user = userEvent.setup();
     const next = vi.fn();

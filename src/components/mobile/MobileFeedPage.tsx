@@ -399,7 +399,7 @@ export default function MobileFeedPage({
   const visibleActivities = sourceActivities.filter((a) => !isTrivialActivity(a));
   const filteredBySport = sportFilter === "all" ? visibleActivities : visibleActivities.filter(a => getDiscipline(a.type) === sportFilter);
   const filteredByScope = filteredBySport.filter((a) => {
-    if (effectiveFeedScope === "following") return a.userId === currentUserId || a.visibility === "everyone" && subscriptionIdSet.has(a.userId);
+    if (effectiveFeedScope === "following") return a.userId === currentUserId || subscriptionIdSet.has(a.userId);
     if (effectiveFeedScope === "friends") return a.userId === currentUserId || friendIdSet.has(a.userId);
     if (effectiveFeedScope === "self") return currentUserId != null && a.userId === currentUserId;
     return true;
