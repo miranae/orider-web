@@ -9,7 +9,6 @@ import type { ActivityNarrative, NarrativeSegment } from "../../hooks/useActivit
 const narrativeApiMocks = vi.hoisted(() => ({
   generate: vi.fn(),
   peek: vi.fn(),
-  retrySummary: vi.fn(),
   appCheckThrottleRetryAfterMs: vi.fn(),
   claimActivityNarrativeAppCheckThrottleRecovery: vi.fn(),
 }));
@@ -17,7 +16,6 @@ const narrativeApiMocks = vi.hoisted(() => ({
 vi.mock("../../services/activityNarrativeApi", () => ({
   generateActivityNarrative: narrativeApiMocks.generate,
   peekActivityNarrative: narrativeApiMocks.peek,
-  retryActivitySocialSummary: narrativeApiMocks.retrySummary,
   appCheckThrottleRetryAfterMs: narrativeApiMocks.appCheckThrottleRetryAfterMs,
   claimActivityNarrativeAppCheckThrottleRecovery: narrativeApiMocks.claimActivityNarrativeAppCheckThrottleRecovery,
 }));
@@ -161,7 +159,7 @@ describe("AiRideAnalysisCard", () => {
     expect(container.querySelector("time")).toBeNull();
   });
 
-  it("shows full AI analysis alongside distinct short sharing text, segment coaching and prescriptions", async () => {
+  it("shows full AI analysis, segment coaching and prescriptions without rendering a cached share summary", async () => {
     narrativeApiMocks.peek.mockResolvedValue({
       ...narrative([segment(0, 10, "구간별 코칭 유지")]),
       socialSummary: {
@@ -175,19 +173,16 @@ describe("AiRideAnalysisCard", () => {
       prescriptions: [{ horizon: "ride", theme: "recovery", title: "회복 권고", detail: "다음 주행은 가볍게" }],
     });
     renderWithProviders(<AiRideAnalysisCard activityId="coaching-with-social-summary" enabled isActivityOwner />, { authenticated: true });
-    expect(await screen.findByText("공유할 성취 요약")).toBeInTheDocument();
-    expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
+    expect(await screen.findByText("전체 코칭 요약")).toBeInTheDocument();
     expect(screen.getByText("다음 주행은 가볍게")).toBeInTheDocument();
     expect(screen.getByText("구간별 코칭 유지")).toBeInTheDocument();
-    expect(screen.getByText("51.9 → 53.3 (+1.4)")).toBeInTheDocument();
-    expect(screen.getByText("같은 종목의 일별 정산값입니다. 활동일 값에는 그날의 모든 활동이 포함됩니다.")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "공유용 요약" })).toBeInTheDocument();
+    expect(screen.queryByText("공유할 성취 요약")).not.toBeInTheDocument();
+    expect(screen.queryByText("51.9 → 53.3 (+1.4)")).not.toBeInTheDocument();
   });
 
   beforeEach(() => {
     window.sessionStorage.clear();
     narrativeApiMocks.generate.mockReset();
-    narrativeApiMocks.retrySummary.mockReset();
     narrativeApiMocks.peek.mockReset().mockResolvedValue({ hit: false });
     narrativeApiMocks.claimActivityNarrativeAppCheckThrottleRecovery.mockReset().mockReturnValue(false);
     narrativeApiMocks.appCheckThrottleRetryAfterMs.mockReset().mockImplementation((error: unknown) => {
@@ -199,39 +194,12 @@ describe("AiRideAnalysisCard", () => {
     });
   });
 
-  it("retries only a missing share summary and keeps coaching visible through failure and success", async () => {
-    narrativeApiMocks.peek.mockResolvedValue(narrative([segment(0, 10, "구간 코칭 보존")]));
-    narrativeApiMocks.retrySummary.mockRejectedValueOnce(new Error("temporary"))
-      .mockResolvedValueOnce({ socialSummary: { narrative: "복구된 공유요약", achievements: [], shareText: "복구된 공유요약" } });
-    renderWithProviders(<AiRideAnalysisCard activityId="retry-only-summary" enabled isActivityOwner />, { authenticated: true });
-    expect(await screen.findByText("전체 코칭 요약")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "공유요약 다시 불러오기" }));
-    expect(await screen.findByText("공유요약을 불러오지 못했습니다. 다시 시도해 주세요.")).toBeInTheDocument();
-    expect(screen.getByText("구간 코칭 보존")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "공유요약 다시 불러오기" }));
-    expect(await screen.findByText("복구된 공유요약")).toBeInTheDocument();
-    expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
-    expect(screen.getByText("구간 코칭 보존")).toBeInTheDocument();
-    expect(narrativeApiMocks.retrySummary).toHaveBeenCalledWith("retry-only-summary", "ko");
-    expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
-  });
-
-  it("lets the owner explicitly regenerate a fresh analysis with invalid short share text", async () => {
+  it("does not offer a share-text regeneration button when a cached analysis has no share summary", async () => {
     narrativeApiMocks.peek.mockResolvedValue({ ...narrative([segment(0, 10, "구간 코칭")]), shareSummary: null });
-    narrativeApiMocks.generate.mockResolvedValue({
-      ...narrative([segment(0, 10, "구간 코칭")]), shareSummary: "새로운 짧은 성취 문구",
-      socialSummary: { narrative: "새로운 짧은 성취 문구", achievements: [], shareText: "새로운 짧은 성취 문구" },
-    });
     renderWithProviders(<AiRideAnalysisCard activityId="invalid-short-share" enabled isActivityOwner />, { authenticated: true });
-    const regenerate = await screen.findByRole("button", { name: "공유 문구를 위해 다시 분석" });
+    expect(await screen.findByText("구간 코칭")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /다시 분석/ })).not.toBeInTheDocument();
     expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
-    fireEvent.click(regenerate);
-    expect(await screen.findByText("새로운 짧은 성취 문구")).toBeInTheDocument();
-    expect(narrativeApiMocks.generate).toHaveBeenCalledWith(expect.objectContaining({
-      activityId: "invalid-short-share", forceRefresh: true,
-    }));
-    expect(narrativeApiMocks.retrySummary).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "공유 문구를 위해 다시 분석" })).not.toBeInTheDocument();
   });
 
   it("shows saved AI summary instead of a fresh analysis CTA when detail cache misses", async () => {
@@ -348,7 +316,6 @@ describe("AiRideAnalysisCard", () => {
         ...narrative([segment(0, 10, "스냅샷 구간 코칭")]),
         narrativeVersion: "rsn-v69",
         generatedAt: Date.UTC(2026, 9, 20, 3, 0),
-        socialSummary: { narrative: "스냅샷 공유 문구", achievements: [], shareText: "스냅샷 공유 문구" },
         prescriptions: [{ horizon: "ride", theme: "pacing", title: "페이싱", detail: "스냅샷 처방" }],
         ...extra,
       } as ActivityNarrative & { hit: true };
@@ -357,7 +324,6 @@ describe("AiRideAnalysisCard", () => {
     function expectSnapshotContentVisible(container: HTMLElement) {
       expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
       expect(screen.getByText("스냅샷 구간 코칭")).toBeInTheDocument();
-      expect(screen.getByText("스냅샷 공유 문구")).toBeInTheDocument();
       expect(screen.getByText("스냅샷 처방")).toBeInTheDocument();
       expect(container).toHaveTextContent("· 분석가 v69");
       expect(container.querySelector("time")).not.toBeNull();
