@@ -605,6 +605,11 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 .ds-toggle-controls--axis .ds-toggle-button:disabled { color: var(--ink-4); opacity: 1; }
 .ds-toggle-controls--axis .ds-toggle-button:is([aria-pressed="true"], [aria-selected="true"]) { background: var(--bg-1); color: var(--ink-0); box-shadow: 0 1px 3px rgba(0,0,0,.12); font-weight: var(--ft-subtitle-weight); }
 
+/* Field layout aligns segmented choices with native Input/Select controls. */
+.ds-toggle-controls--field { margin: 0; }
+.ds-toggle-controls--axis.ds-toggle-controls--field { min-height: 36px; }
+.ds-toggle-controls--axis.ds-toggle-controls--field .ds-toggle-button { height: 32px; min-height: 32px; }
+
 /* ===== Map controls: area size is separate from camera zoom ===== */
 .ds-btn.ds-map-resize { position: absolute; top: 0; left: 0; z-index: 1; width: calc(var(--space-7) + var(--space-3)); min-width: calc(var(--space-7) + var(--space-3)); height: calc(var(--space-7) + var(--space-3)); min-height: calc(var(--space-7) + var(--space-3)); border: 0; box-shadow: none; padding: 0; color: var(--ink-2); border-radius: var(--r-lg) 0 var(--r-lg) 0; background: linear-gradient(315deg, transparent, var(--bg-1)); }
 .ds-btn.ds-map-resize--bottom-right { top: auto; left: auto; bottom: 0; right: 0; background: linear-gradient(135deg, transparent, var(--bg-1)); }

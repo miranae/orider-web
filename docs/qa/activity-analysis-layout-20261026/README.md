@@ -12,3 +12,12 @@ Synthetic catalogue evidence (no account data): `/design-system-controls.html`, 
 
 ![Desktop fixed columns](zones-light-desktop.png)
 ![Mobile fixed columns](zones-light-mobile.png)
+
+## Follow-up: field control alignment
+
+The live check found that axis controls retained their chart margin and 32px height beside a 36px Select. `ToggleControls layout="field"` now removes external margins and matches Input/Select height. The original chart variant is unchanged.
+
+Synthetic catalogue checks: desktop 1280px labels share the same y coordinate and both controls are 36px high; mobile 390px uses equal 366px-wide fields without horizontal overflow. Screenshots contain generated data only.
+
+![Desktop controls](controls-desktop.png)
+![Mobile controls](controls-mobile.png)

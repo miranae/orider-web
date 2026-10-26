@@ -10,7 +10,7 @@ export function ActivityPowerComparison({ current, benchmark, evidence, inlineCo
   const [basis, setBasis] = useState<"records" | "recent">("records");
   const id = useId();
   const recent = basis === "recent" && !!benchmark;
-  const controls = benchmark && <div className="activity-power-basis"><Text variant="bodySmall" tone="secondary">{t("analysisReading.compareWith")}</Text><ToggleControls variant="axis" aria-label={t("analysisReading.compareWith")}>
+  const controls = benchmark && <div className="activity-power-basis"><Text variant="bodySmall" tone="secondary">{t("analysisReading.compareWith")}</Text><ToggleControls variant="axis" layout="field" aria-label={t("analysisReading.compareWith")}>
         <ToggleButton selected={!recent} aria-controls={id} onClick={() => setBasis("records")}>{t("analysisReading.records")}</ToggleButton>
         <ToggleButton selected={recent} aria-controls={id} onClick={() => setBasis("recent")}>{t("analysisReading.recent")}</ToggleButton>
       </ToggleControls></div>;
