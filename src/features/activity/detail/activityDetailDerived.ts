@@ -1,3 +1,4 @@
+import { hasImportedObservations, importedObservations, importedSeries, importedChannelStats, withImportedObservationTime, withoutImportedObservations } from "./importedActivityObservations";
 import type { OverlayDataset } from "../../../components/ElevationChart";
 import type { ActivityStreams, ActivitySummary } from "@shared/types";
 import type { VirtualPowerParams } from "../../../utils/virtualPower";
@@ -60,8 +61,8 @@ export interface StreamSensorSummary {
   maxPower: number | null;
   hasReliablePower: boolean;
   hasRejectedPowerStream: boolean;
-  heartRateSource: "sensorStreamsV1" | "heartrate" | null;
-  powerSource: "sensorStreamsV1" | "virtualPowerOverride" | "watts" | "watts_calc" | null;
+  heartRateSource: "sensorStreamsV1" | "importedSensorObservationsV1" | "heartrate" | null;
+  powerSource: "sensorStreamsV1" | "importedSensorObservationsV1" | "virtualPowerOverride" | "watts" | "watts_calc" | null;
   rejections: SensorRejectionDiagnostic[];
 }
 
@@ -98,7 +99,7 @@ export type SensorRejectionReason =
 
 export interface SensorRejectionDiagnostic {
   channel: "power" | "heart_rate" | "cadence";
-  source: "sensorStreamsV1" | "virtualPowerOverride" | "legacy";
+  source: "importedSensorObservationsV1" | "sensorStreamsV1" | "virtualPowerOverride" | "legacy";
   reason: SensorRejectionReason;
   axisLength?: number;
   channelLength?: number;
@@ -664,6 +665,11 @@ export function selectActivityPowerStream(
   if (!streams) return { source: null, values: null, finiteValues: [], hasCandidate: false };
 
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
+  if (hasImportedObservations(streams) && !context.powerOverride) {
+    const values = importedObservations(streams, context.activityStartTime, context.explicitDurationSec)?.watts ?? null;
+    const finiteValues = (values ?? []).filter((v): v is number => v != null);
+    return { source: finiteValues.length ? "importedSensorObservationsV1" : null, values, finiteValues, hasCandidate: true };
+  }
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const rawLegacyWatts = (streams as unknown as Record<string, unknown>).watts;
   const rawLegacyCalculatedWatts = (streams as unknown as Record<string, unknown>).watts_calc;
@@ -896,6 +902,11 @@ export function selectActivityHeartRateStream(
   if (!streams) return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: false };
 
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
+  if (hasImportedObservations(streams)) {
+    const values = importedObservations(streams, context.activityStartTime, context.explicitDurationSec)?.heartrate ?? null;
+    const positiveValues = (values ?? []).filter((v): v is number => v != null);
+    return { source: positiveValues.length ? "importedSensorObservationsV1" : null, values, positiveValues, hasRejectedMeasurement: positiveValues.length === 0 };
+  }
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const invalidVersionHeartRate = invalidVersionExplicitChannel(streams, "heartrate");
   if (invalidVersionHeartRate) {
@@ -1037,6 +1048,20 @@ export function deriveStreamSensorSummary(
   if (!streams) return null;
 
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
+  if (hasImportedObservations(streams)) {
+    const hr = importedChannelStats(streams, "heartrate", context.activityStartTime, context.explicitDurationSec);
+    const overrideSummary = context.powerOverride ? deriveStreamSensorSummary(withoutImportedObservations(streams), context) : null;
+    const power = context.powerOverride ? overrideSummary?.hasReliablePower ? { average: overrideSummary.averagePower, maximum: overrideSummary.maxPower } : null
+      : importedChannelStats(streams, "watts", context.activityStartTime, context.explicitDurationSec);
+    const cadence = importedChannelStats(streams, "cadence", context.activityStartTime, context.explicitDurationSec);
+    return { hasHeartRateStream: !!hr, hasRejectedHeartRateStream: !hr,
+      hasCadenceStream: !!cadence, hasRejectedCadenceStream: !cadence,
+      hasPowerStream: !!power, hasRejectedPowerStream: !power, hasReliablePower: !!power,
+      averageHeartRate: hr?.average ?? null, maxHeartRate: hr?.maximum ?? null,
+      averagePower: power?.average ?? null, maxPower: power?.maximum ?? null,
+      averageCadence: cadence?.average ?? null, maxCadence: cadence?.maximum ?? null,
+      heartRateSource: hr ? "importedSensorObservationsV1" : null, powerSource: power ? context.powerOverride ? overrideSummary?.powerSource ?? null : "importedSensorObservationsV1" : null, rejections: [] };
+  }
   const selectedHeartRate = selectActivityHeartRateStream(streams, context);
   const heartRate = selectedHeartRate.positiveValues;
   const legacyHeartRate = selectedHeartRate.source === "heartrate"
@@ -1248,6 +1273,12 @@ export function buildActivityAnalysisProjection(
   if (!streams) return null;
 
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
+  if (hasImportedObservations(streams)) {
+    const exact = withImportedObservationTime(streams, context.activityStartTime, context.explicitDurationSec)!;
+    return { streams: { ...exact, heartrate: undefined, watts: undefined, watts_calc: undefined, cadence: undefined },
+      heartRate: importedSeries(streams, "heartrate", context.activityStartTime, context.explicitDurationSec),
+      power: context.powerOverride ? buildActivityAnalysisProjection(withoutImportedObservations(exact), context)?.power : importedSeries(streams, "watts", context.activityStartTime, context.explicitDurationSec) };
+  }
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const selectedPower = selectActivityPowerStream(streams, context);
   const selectedHeartRate = selectActivityHeartRateStream(streams, context);
@@ -1419,8 +1450,14 @@ function rawPartChartChannel(streams: ActivityStreams, channel: "heartrate" | "c
 }
 
 /** The exact trusted full-resolution channels used by the activity chart sampler. */
-export function buildAlignedActivityChartChannels(streams: ActivityStreams, contextOrDuration?: ActivitySensorSelectionContext | number, activityStartTime?: number) {
+export function buildAlignedActivityChartChannels(streams: ActivityStreams, contextOrDuration?: ActivitySensorSelectionContext | number, activityStartTime?: number): { chartHeartRate: Array<number | null> | undefined; chartPower: Array<number | null> | undefined; alignedCadence: Array<number | null> | undefined } {
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
+  if (hasImportedObservations(streams)) {
+    const block = importedObservations(streams, context.activityStartTime, context.explicitDurationSec);
+    return { chartHeartRate: block?.heartrate,
+      chartPower: context.powerOverride ? buildAlignedActivityChartChannels(withoutImportedObservations(streams), context).chartPower : block?.watts,
+      alignedCadence: block?.cadence };
+  }
   const len = streams.distance?.length ?? 0;
   const selectedPower = selectActivityPowerStream(streams, context);
   const selectedHeartRate = selectActivityHeartRateStream(streams, context);
@@ -1508,7 +1545,7 @@ export function buildSampledData(
       speed: (streams.velocity_smooth?.[i] ?? 0) * 3.6,
       heartRate: chartHeartRate ? chartHeartRate[i] ?? null : null,
       power: chartPower ? chartPower[i] ?? null : null,
-      cadence: alignedCadence?.[i] ?? 0,
+      cadence: alignedCadence?.[i] ?? (hasImportedObservations(streams) ? NaN : 0),
     });
   }
   return points;
@@ -1516,7 +1553,10 @@ export function buildSampledData(
 
 export function getAvailableOverlays(sampledData: SampledPoint[]): OverlayConfig[] {
   if (sampledData.length === 0) return [];
-  return OVERLAY_CONFIGS.filter((cfg) => sampledData.some((d) => (cfg.getValue(d) ?? 0) > 0));
+  return OVERLAY_CONFIGS.filter((cfg) => sampledData.some((d) => {
+    const value = cfg.getValue(d);
+    return value != null && Number.isFinite(value) && (cfg.key === "power" ? value >= 0 : value > 0);
+  }));
 }
 
 export function buildSummaryStats(
@@ -1589,7 +1629,7 @@ export function buildChartOverlays(
     .map((cfg) => ({
       key: cfg.key,
       label: `${labelFor(cfg.label)} (${cfg.unit})`,
-      data: sampledData.map((d) => cfg.getValue(d)),
+      data: sampledData.map((d) => { const value = cfg.getValue(d); return value != null && Number.isFinite(value) ? value : null; }),
       color: resolveCssColor(cfg.color),
       yAxisID: cfg.yAxisID,
       unit: cfg.unit,

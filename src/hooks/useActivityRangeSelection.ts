@@ -24,9 +24,10 @@ export function useActivityRangeSelection(model: ActivityAnalysisModel, sampled:
   const durationSec = activity?.summary?.elapsedTimeMillis != null ? activity.summary.elapsedTimeMillis / 1000
     : metrics?.durationSec ?? 0;
   const movingSec = metrics?.movingTimeSec ?? (activity?.summary?.ridingTimeMillis != null ? activity.summary.ridingTimeMillis / 1000 : null);
-  const axis = useMemo(() => model.streams?.time ? confirmedRouteElapsedAxis({ time: model.streams.time,
+  const chartStreams = model.effectiveStreams ?? model.streams;
+  const axis = useMemo(() => chartStreams?.time ? confirmedRouteElapsedAxis({ time: chartStreams.time,
     activityStartEpochMs: normalizeEpochMilliseconds(activity?.startTime), elapsedDurationSec: durationSec, movingDurationSec: movingSec }) : null,
-  [model.streams, activity?.startTime, durationSec, movingSec]);
+  [chartStreams, activity?.startTime, durationSec, movingSec]);
   const sampledAxis = axis && sampled.every((point, index) => Number.isInteger(point.sourceIndex) && point.sourceIndex! >= 0 && point.sourceIndex! < axis.length
     && (index === 0 || point.sourceIndex! > sampled[index - 1]!.sourceIndex!))
     ? sampled.map(point => axis[point.sourceIndex!]!) : null;

@@ -122,3 +122,16 @@ describe("single elapsed range selection", () => {
     expect(result.current.axis).toBeNull();
   });
 });
+
+it("selects the validated imported subsecond axis instead of rounded legacy timestamps", () => {
+  auth.uid = "owner";
+  const input = { ...model, activity: { ...model.activity!, summary: { elapsedTimeMillis: 2000 } },
+    streams: { time: [0, 1, 1, 2, 2] }, effectiveStreams: { time: [0, .5, 1, 1.5, 2] },
+    serverMetrics: { metrics: { durationSec: 2, movingTimeSec: 2 } } } as ActivityAnalysisModel;
+  const points = [0, 1, 2, 3, 4].map(sourceIndex => ({ sourceIndex, distance: sourceIndex })) as SampledPoint[];
+  const { result } = renderHook(() => useActivityRangeSelection(input, points));
+  expect(result.current.axis).toEqual([0, .5, 1, 1.5, 2]);
+  act(() => result.current.toggle());
+  act(() => result.current.selectChart([1, 3]));
+  expect(result.current.selection).toMatchObject({ startOffsetSec: .5, endOffsetSec: 1.5 });
+});

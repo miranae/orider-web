@@ -1,3 +1,4 @@
+import { withImportedObservationTime } from "../features/activity/detail/importedActivityObservations";
 import { canonicalActivityChartMetrics } from "../features/activity/detail/activityPerformancePresentation";
 import { withActivityPresentation } from "@shared/analysis/activityPresentation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -228,9 +229,10 @@ export function useActivityAnalysisModel(
     activityBike?.virtualPower.enabled ? activityBike.virtualPower : null,
   );
   const effectiveStreams = useMemo(() => {
-    if (!streams || !activePowerOverride) return streams;
-    return { ...streams, watts: activePowerOverride.values };
-  }, [activePowerOverride, streams]);
+    const exact = withImportedObservationTime(streams, activity?.startTime, activity?.summary?.elapsedTimeMillis == null ? undefined : activity.summary.elapsedTimeMillis / 1000);
+    if (!exact || !activePowerOverride) return exact;
+    return { ...exact, watts: activePowerOverride.values };
+  }, [activePowerOverride, streams, activity?.startTime, activity?.summary?.elapsedTimeMillis]);
   const powerOverrideProvenance = useMemo(() => activePowerOverride
     ? { source: activePowerOverride.source, time: activePowerOverride.time }
     : undefined, [activePowerOverride]);

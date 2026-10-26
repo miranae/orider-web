@@ -16,14 +16,14 @@ vi.mock("../../../components/ElevationChart", () => ({ default: (props: Record<s
 vi.mock("../../../components/activity/ActivityZoneTimeline", () => ({ ActivityZoneTimeline: () => null }));
 afterEach(cleanup);
 const point: SampledPoint = { speed: 12, heartRate: null, power: 200, cadence: 0, distance: 100, altitude: 0, latlng: null };
-function Chart({ sport = "ride", powerSource = "watts", hasElevation = false }: {
-  sport?: string; powerSource?: "watts" | "watts_calc"; hasElevation?: boolean;
+function Chart({ sport = "ride", powerSource = "watts", hasElevation = false, power = 200 }: {
+  sport?: string; powerSource?: "watts" | "watts_calc"; hasElevation?: boolean; power?: number | null;
 }) {
   const available = getPerformanceOverlays([point], sport, "metric", null, "cadence");
   const selected = new Set(["speed", "power"]);
   return <ActivityPerformanceCharts elevData={[{ distance: 100, elevation: 0 }]}
     availableOverlays={available} activeOverlays={selected} focusedOverlayKey="speed" toggleOverlay={vi.fn()}
-    chartOverlays={buildChartOverlays(available, selected, [point], key => key)} hoverPoint={point}
+    chartOverlays={buildChartOverlays(available, selected, [point], key => key)} hoverPoint={{ ...point, power }}
     summaryStats={null} sport={sport} recordedRunCadenceUnit={null} metrics={null}
     powerSource={powerSource} hasElevation={hasElevation} />;
 }
@@ -66,4 +66,11 @@ it("passes observed elevation times and measured sensor gaps through the raw-par
   const cadence = overlays.find(overlay => overlay.key === "cadence")!;
   expect(cadence.data[sourceIndices.indexOf(17)]).toBeNull();
   expect(cadence.data[sourceIndices.indexOf(26)]).toBe(0);
+});
+
+it("shows actual zero watts but omits missing power in the detail hover", () => {
+  const view = render(<Chart power={0} />);
+  expect(screen.getByText("실측 파워 0 W")).toBeInTheDocument();
+  view.rerender(<Chart power={null} />);
+  expect(screen.queryByText("실측 파워 0 W")).not.toBeInTheDocument();
 });
