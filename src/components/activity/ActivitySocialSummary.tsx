@@ -83,8 +83,10 @@ export default function ActivitySocialSummary({ summary: initialSummary, isActiv
           <Text variant="caption" tone="tertiary" as="p">{t(impact.status === "available" ? "socialSummary.dailyBasis" : "socialSummary.pendingBasis")}</Text>
         </div>
       )}
-      {(impact?.status === "unavailable" || (impact?.status === "available" && !impact.discipline))
-        && <Text variant="caption" tone="tertiary" as="p">{t(impact?.status === "unavailable" && impact.reason === "privacy-hidden" ? "socialSummary.private" : "socialSummary.unavailable")}</Text>}
+      {/* 체력 수치가 없을 때는 아무것도 보이지 않는다 — 내부 정산 상태를 사용자에게 노출하지 않는다(2026-10-26).
+          비공개 설정으로 숨긴 경우만 그 사실을 알린다. */}
+      {impact?.status === "unavailable" && impact.reason === "privacy-hidden"
+        && <Text variant="caption" tone="tertiary" as="p">{t("socialSummary.private")}</Text>}
       {isActivityOwner && summary.shareText && (
         <div className="space-y-2">
           <Button variant="secondary" size="sm" onClick={() => { void copy(); }}>{t("socialSummary.copy")}</Button>

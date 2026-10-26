@@ -594,8 +594,7 @@
       "heat_late_ride": "Late-ride heat",
       "fast_start": "Fast start",
       "predominantly_high_intensity": "High intensity",
-      "late_power_fade": "Late power fade",
-      "stop_heavy": "Stop-heavy"
+      "late_power_fade": "Late power fade"
     },
     "effort": {
       "komRank": "KOM #{{n}}",
@@ -1694,7 +1693,6 @@
     "tsb": "TSB · Form",
     "dailyBasis": "These are daily totals for the same sport. The activity day includes every activity on that day.",
     "pendingBasis": "The same-sport activity day value appears after the day closes.",
-    "unavailable": "The activity day has not closed yet, or fitness data is unavailable.",
     "private": "Fitness values are not shared because of this activity's privacy settings.",
     "copy": "Copy share text",
     "copied": "Share text copied.",
