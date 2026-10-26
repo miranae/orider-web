@@ -468,20 +468,20 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     );
   }
 
-  // 코칭은 부가 기능 — 미생성/빈 결과는 조용히 숨김 (개요 다른 카드 정상 노출)
-  if (!data || data.segments.length === 0) return <Card>{historyControls}</Card>;
+  // 구간 분석이 없어도 저장된 요약은 독립적인 결과로 보존한다.
+  if (!data) return <Card>{historyControls}</Card>;
 
   const { overall } = data;
   const generatedDate = Number.isFinite(data.generatedAt) && data.generatedAt > 0
     ? new Date(data.generatedAt) : null;
   const generatedAt = generatedDate && Number.isFinite(generatedDate.getTime()) ? generatedDate : null;
-  const needsShareRegeneration = isActivityOwner && data.shareSummary === null;
+  const needsShareRegeneration = isActivityOwner && !history.selected && data.shareSummary === null;
   const coachedSegments = data.segments.filter((segment) => segment.narrative !== "");
   const tempBadge =
     overall.tempStartC != null && overall.tempEndC != null
       ? `🌡️ ${overall.tempStartC}→${overall.tempEndC}° (${overall.tempSource === "device" ? t("ai.temp.device") : t("ai.temp.forecast")})`
       : null;
-  const validTimeline = data.segments.every((segment) => finiteNonnegative(segment.fromKm)
+  const validTimeline = data.segments.length > 0 && data.segments.every((segment) => finiteNonnegative(segment.fromKm)
     && finiteNonnegative(segment.toKm) && segment.toKm >= segment.fromKm);
   const timelineStartKm = validTimeline ? Math.min(...data.segments.map((segment) => segment.fromKm)) : null;
   const totalKm = finiteNonnegative(overall.totalDistanceKm) ? overall.totalDistanceKm

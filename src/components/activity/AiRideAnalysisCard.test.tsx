@@ -414,3 +414,24 @@ it("keeps the selected narrative through a failed history read but clears it on 
   await waitFor(() => expect(screen.queryByText("이전 보존 분석")).not.toBeInTheDocument());
   expect(screen.queryByText("현재 유지 코칭")).not.toBeInTheDocument();
 });
+
+
+it("preserves summary-only current and historical analysis without a segment timeline or generation", async () => {
+  const current = { ...narrative([]), summary: "현재 요약만 있는 분석" };
+  const previous = { ...narrative([]), summary: "당시 요약만 있는 분석", shareSummary: null, generatedAt: 2 };
+  narrativeApiMocks.peek.mockResolvedValue(current);
+  narrativeApiMocks.history.mockResolvedValueOnce({ items: [{ revisionId: "c".repeat(64), generatedAt: 2, version: "summary-only" }], nextCursor: null, selected: null })
+    .mockResolvedValueOnce({ items: [], nextCursor: null, selected: { revisionId: "c".repeat(64), narrative: previous } });
+  const before = narrativeApiMocks.generate.mock.calls.length;
+  const { container } = renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="summary-only-history" enabled />);
+  await screen.findByText(current.summary);
+  fireEvent.click(screen.getByRole("button", { name: "이전 AI 분석 보기" }));
+  fireEvent.click(await screen.findByRole("button", { name: /summary-only/ }));
+  await screen.findByText(previous.summary);
+  expect(screen.queryByText(current.summary)).not.toBeInTheDocument();
+  expect(container).not.toHaveTextContent("Infinity");
+  expect(screen.queryByText("30km")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "현재 분석으로 돌아가기" }));
+  expect(screen.getByText(current.summary)).toBeInTheDocument();
+  expect(narrativeApiMocks.generate).toHaveBeenCalledTimes(before);
+});
