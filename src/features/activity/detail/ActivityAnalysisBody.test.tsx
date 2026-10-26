@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
@@ -43,7 +43,12 @@ describe("activity analysis domain composition", () => {
     expect(screen.queryByRole("heading", { name: "상세 지표와 근거" })).not.toBeInTheDocument();
     expect(fixture.calls).toHaveBeenCalledTimes(1);
     expect(within(topic("훈련 부하와 체력")).getByText("stored TSS 43")).toBeInTheDocument();
-    expect(within(topic("파워 기록과 최고 노력")).getByText("90-day reference")).toBeInTheDocument();
+    expect(screen.queryByText("90-day reference")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "최근 90일" }));
+    expect(screen.queryByTestId("power-curve")).not.toBeInTheDocument();
+    expect(within(topic("파워 기록과 최고 노력")).getByText("90-day reference")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "역대 기록" }));
+    expect(screen.getByTestId("power-curve")).toBeVisible();
     expect(within(topic("파워 기록과 최고 노력")).getByText("peak locator")).toBeInTheDocument();
     expect(within(topic("회복·에너지")).getByText("FATMAX")).toBeInTheDocument();
   });
@@ -171,8 +176,8 @@ it("keeps public loading diagnostics private and offers recovery for transient o
   input.overview.loading = false;
   input.overview.response = { status: "unavailable", activityId: "fixture", reason: "metrics_unavailable" };
   rerender(<ActivityAnalysisBody {...input} isOwner analysisProps={null} />);
-  expect(screen.getByRole("button")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "평가 근거 다시 불러오기" })).toBeInTheDocument();
   input.overview.response = { status: "unavailable", activityId: "fixture", reason: "rollout_disabled" };
   rerender(<ActivityAnalysisBody {...input} isOwner analysisProps={null} />);
-  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "평가 근거 다시 불러오기" })).not.toBeInTheDocument();
 });

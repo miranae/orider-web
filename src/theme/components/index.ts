@@ -76,3 +76,5 @@ export { Checkbox, type CheckboxProps } from './Checkbox';
 
 export { ChartRangeControls, type ChartRangeControlsProps, type ChartRangeControlsLabels, type ChartRangeMode } from './ChartRangeControls';
 export { MediaViewer, type MediaViewerProps } from './MediaViewer';
+
+export { Disclosure, type DisclosureProps } from "./Disclosure";

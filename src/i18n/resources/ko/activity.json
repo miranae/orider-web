@@ -2779,5 +2779,31 @@
     "sourceNotice": "Strava 원본 기준 · 자체 계산값은 분석에서 구분해 표시합니다.",
     "orider": "Orider 분석",
     "sensorSummary": "Strava 원본 센서 요약"
+  },
+  "analysisReading": {
+    "powerTitle": "시간별 최고 파워",
+    "powerDescription": "각 시간 동안 가장 높게 유지한 평균 출력입니다. 전체 라이딩의 평균 파워와는 다릅니다.",
+    "compareWith": "파워 비교 기준",
+    "records": "역대 기록",
+    "recent": "최근 90일",
+    "powerDetails": "시간별 수치와 기록 근거",
+    "powerDetailsDescription": "W/kg · FTP 대비 · 역대 최고 · 활동 전 최고",
+    "powerMetrics": "출력 특성 자세히 보기",
+    "loadDetails": "부하의 상세 지표와 계산 기준",
+    "zoneDetails": "다른 강도 분류로 보기",
+    "thresholdDetails": "역치 영역별 체류 시간",
+    "anaerobicDetails": "임계 파워와 무산소 여력",
+    "pedalingDetails": "페달링 패턴 자세히 보기",
+    "metabolismDetails": "에너지 대사 추정 자세히 보기",
+    "climbDetails": "오르막별 상세 기록",
+    "navigation": "분석 바로가기",
+    "explore": "차트 탐색",
+    "summary": "훈련 요약",
+    "intensity": "강도 분포",
+    "power": "파워 기록",
+    "efficiency": "심박·페달링",
+    "energy": "에너지",
+    "terrain": "속도·지형",
+    "intro": "기록을 읽고, 비교하고, 필요한 근거까지 확인하세요."
   }
 }

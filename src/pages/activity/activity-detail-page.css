@@ -179,8 +179,8 @@
 }
 
 /* 분석은 도메인별 질문을 한 번씩 읽는 연속 본문이다. */
-.activity-analysis-domains { display: grid; gap: var(--space-6); min-width: 0; }
-.activity-analysis-topic { min-width: 0; padding-top: var(--space-6); border-top: 1px solid var(--line-soft); }
+.activity-analysis-domains { display: grid; gap: var(--space-8); min-width: 0; }
+.activity-analysis-topic { min-width: 0; padding-top: var(--space-6); border-top: 1px solid var(--line-soft); scroll-margin-top: 10rem; }
 .activity-analysis-topic:first-child { border-top: 0; padding-top: 0; }
 .activity-analysis-topic__body { display: grid; gap: var(--space-4); min-width: 0; }
 .activity-analysis-topic__body > * { min-width: 0; }
@@ -236,3 +236,29 @@
 .activity-detail-chart-workspace { min-width: 0; }
 
 .activity-mobile-records { display: grid; gap: var(--space-3); margin-block: var(--space-4); min-width: 0; }
+
+/* Reading layout: bounded measure, paired comparable data, supporting detail on demand. */
+.activity-detail-analysis-content { width: 100%; max-width: 68rem; margin-inline: auto; }
+.activity-analysis-intro { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.activity-analysis-intro > div { display: grid; gap: var(--space-2); }
+.activity-analysis-navigation { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+.activity-analysis-navigation a { color: var(--ink-2); font-size: var(--fs-sm); padding-block: var(--space-3); text-underline-offset: var(--space-1); }
+.activity-analysis-navigation a:hover { color: var(--ink-0); text-decoration: underline; }
+.activity-analysis-navigation a:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); }
+.activity-analysis-zones { display: grid; gap: var(--space-6); align-items: start; min-width: 0; }
+.activity-power-comparison { display: grid; gap: var(--space-4); min-width: 0; }
+.activity-power-comparison__header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: var(--space-4); }
+.activity-power-comparison__header > div:first-child { display: grid; gap: var(--space-2); flex: 1 1 20rem; }
+.activity-analysis-topic__body > p { max-width: 65ch; }
+#activity-tab-panel, #activity-route-map { scroll-margin-top: 10rem; }
+@media (min-width: 60rem) { .activity-analysis-zones { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.activity-analysis-summary { display: grid; gap: var(--space-5); }
+.activity-analysis-summary__reading { display: grid; gap: var(--space-3); }
+.activity-analysis-summary__tags { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+@media (min-width: 60rem) {
+  .activity-analysis-summary { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); align-items: center; gap: var(--space-8); }
+}
+
+[id^="analysis-topic-"] { scroll-margin-top: 6rem; }
+.activity-power-comparison > *, .activity-power-comparison__header > * { min-width: 0; }

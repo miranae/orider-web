@@ -780,3 +780,16 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 @media (max-width: 36rem) {
   .ds-control-toolbar--navigation { display: grid; width: 100%; grid-template-columns: repeat(2, calc(var(--space-7) + var(--space-3))) minmax(0, 1fr); }
 }
+
+/* Supporting evidence uses the same disclosure anatomy across reports and detail pages. */
+.ds-disclosure { min-width: 0; border-top: 1px solid var(--line-soft); }
+.ds-disclosure__summary { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--dim-button-height); padding-block: var(--space-3); cursor: pointer; list-style: none; color: var(--ink-1); }
+.ds-disclosure__summary::-webkit-details-marker { display: none; }
+.ds-disclosure__summary:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-1); border-radius: var(--r-sm); }
+.ds-disclosure__heading { display: grid; gap: var(--space-1); min-width: 0; }
+.ds-disclosure__title { font-size: var(--fs-sm); font-weight: 600; }
+.ds-disclosure__description { font-size: var(--fs-xs); color: var(--ink-2); font-weight: 400; }
+.ds-disclosure__chevron { width: var(--fs-md); height: var(--fs-md); flex-shrink: 0; color: var(--ink-2); }
+.ds-disclosure[open] > .ds-disclosure__summary > .ds-disclosure__chevron { transform: rotate(180deg); }
+.ds-disclosure__content { display: grid; gap: var(--space-4); min-width: 0; padding-block: var(--space-2) var(--space-4); }
+.ds-disclosure__content > * { min-width: 0; }

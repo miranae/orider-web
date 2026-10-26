@@ -11,6 +11,7 @@ import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { elapsedRangeFromChartSelection } from "../features/activity/detail/activityRangeSelection";
 import { canonicalActivityChartMetrics, withStravaChartSummary, withCanonicalChartSummary, getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
 import { ActivityGrowthPanel } from "../features/activity/detail/ActivityGrowthPanel";
+import { ActivityAnalysisSummary } from "../features/activity/detail/ActivityAnalysisSummary";
 import { ActivityPersonalBenchmark } from "../features/activity/detail/ActivityPersonalBenchmark";
 import ActivityPeakEffortInspector from "../features/activity/detail/ActivityPeakEffortInspector";
 import { resolvePeakEffortLocation, visiblePeakEfforts } from "../features/activity/detail/activityPeakEfforts";
@@ -1244,6 +1245,18 @@ export default function ActivityPage() {
         onDelete={id => { const photo = uploadedPhotos.find(item => item.id === id); if (photo) void handleDeletePhoto(photo); }}
         onLocate={location => { setFlyToPosition(null); setTimeout(() => setFlyToPosition(location), 10); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
         onShowResults={() => setActiveTab("segments")} />}
+      {activeTab === "analysis" && <header className="activity-analysis-intro">
+        <div><Text as="h2" variant="title">{t("detail.analysis.title")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("analysisReading.intro")}</Text></div>
+        <nav aria-label={t("analysisReading.navigation")} className="activity-analysis-navigation">
+          <a href="#activity-route-map">{t("analysisReading.explore")}</a>
+          <a href="#activity-tab-panel">{t("detail.analysisTopics.training")}</a>
+          {sport === "ride" && overview.response?.status === "available" && <>
+            {!!overview.response.presentation.zones?.length && <a href="#analysis-topic-intensity">{t("analysisReading.intensity")}</a>}
+            {!!overview.response.presentation.powerFingerprint?.length && <a href="#analysis-topic-records">{t("analysisReading.power")}</a>}
+          </>}
+        </nav>
+      </header>}
+      {activeTab === "analysis" && sport === "ride" && overview.enabled && !overview.loading && overview.response?.status === "available" && <ActivityAnalysisSummary presentation={overview.response.presentation} />}
       <div className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
       <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined}>
@@ -1333,7 +1346,7 @@ export default function ActivityPage() {
 
       </div>
       <div id="activity-tab-panel" role="tabpanel" aria-labelledby={`activity-tab-${activeTab}`} tabIndex={0} className="activity-detail-panel">
-      {activeTab !== "overview" && <div className="activity-detail-section-heading">
+      {activeTab !== "overview" && activeTab !== "analysis" && <div className="activity-detail-section-heading">
         <div><Text as="h2" variant="title">{t(`detail.${activeTab}.title`)}</Text>
           <Text as="p" variant="bodyMedium" tone="secondary">{t(`detail.${activeTab}.description`)}</Text></div>
       </div>}
@@ -1412,11 +1425,11 @@ export default function ActivityPage() {
 
       <div className="activity-detail-analysis-content space-y-6" data-testid="activity-analysis-content" hidden={activeTab !== "analysis"}>
       {activeTab === "analysis" && <>
-      {providerRecord && <Text as="h2" variant="subtitle">{t("sourceMetrics.orider")}</Text>}
+
       {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
       <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={runGapSecPerKm} />
 
-      {sport === "ride" ? <ActivityAnalysisBody
+      {sport === "ride" ? <ActivityAnalysisBody summaryOutside
         overview={overview} isOwner={isActivityOwner} preview={activePowerOverride != null}
         ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} totalCalories={providerRecord ? latestMetrics?.caloriesKcal ?? null : stripStats.caloriesKcal.value}
         storedLoad={(isActivityOwner || overview.response?.status !== "available" || differentLoadValues) && !activePowerOverride && !analysisTabProps?.suppressServerPowerMetrics && (serverMetrics.status === "ready" || serverMetrics.status === "stale") ? serverMetrics.metrics?.tss ?? null : null}
@@ -1428,14 +1441,14 @@ export default function ActivityPage() {
       {activeTab === "analysis" && activity?.id && <ActivityPersonalBenchmark activityId={activity.id}
         ownerUid={isActivityOwner ? user?.uid : null} sport={shareDiscipline ?? "other"}
         metrics={activePowerOverride || analysisTabProps?.suppressServerPowerMetrics ? null : serverMetrics.metrics}
-        suppliedPdcState={bikePdcState} defaultExpanded /> }        </> : null}
+        suppliedPdcState={bikePdcState} embedded /> }        </> : null}
         peakInspector={<>
 
       {visiblePeakEfforts(serverMetrics.metrics, isActivityOwner, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true).length > 0 && sport === "ride" && activity?.id && <ActivityPeakEffortInspector
         activityId={activity.id} metrics={serverMetrics.metrics} isOwner={isActivityOwner}
         invalidated={activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true}
         suppressHeartRate={analysisTabProps?.suppressServerHeartRateMetrics} suppressCadence={analysisTabProps?.suppressServerCadenceMetrics}
-        defaultExpanded onLocate={locatePeak} locating={loadingStreams && selectedPeak != null}
+        onLocate={locatePeak} locating={loadingStreams && selectedPeak != null}
         locationUnavailable={!!streams && selectedPeak != null && !peakLocation} /> }        </>}
         powerControls={isActivityOwner && (canRecalculateVirtualPowerPreview || activePowerOverride) ? <div className="activity-analysis-power-controls">
           <Text as="h3" variant="bodyMedium" weight={600}>{t("page.vp.heading")}</Text>

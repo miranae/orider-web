@@ -2779,5 +2779,31 @@
     "sourceNotice": "Strava record · Orider calculations are identified in Analysis.",
     "orider": "Orider analysis",
     "sensorSummary": "Strava source sensor summary"
+  },
+  "analysisReading": {
+    "powerTitle": "Best power by duration",
+    "powerDescription": "Your highest sustained average at each duration, not the average for the whole ride.",
+    "compareWith": "Power comparison basis",
+    "records": "All-time records",
+    "recent": "Last 90 days",
+    "powerDetails": "Duration values and record evidence",
+    "powerDetailsDescription": "W/kg · % FTP · all-time best · previous best",
+    "powerMetrics": "Output characteristics",
+    "loadDetails": "Load metrics and calculation basis",
+    "zoneDetails": "Alternative intensity classification",
+    "thresholdDetails": "Time in threshold bands",
+    "anaerobicDetails": "Critical power and anaerobic reserve",
+    "pedalingDetails": "Pedaling pattern details",
+    "metabolismDetails": "Energy metabolism estimates",
+    "climbDetails": "Individual climb details",
+    "navigation": "Analysis navigation",
+    "explore": "Explore charts",
+    "summary": "Training summary",
+    "intensity": "Intensity",
+    "power": "Power records",
+    "efficiency": "Heart rate & pedaling",
+    "energy": "Energy",
+    "terrain": "Speed & terrain",
+    "intro": "Read your ride, compare your performance, and explore the evidence."
   }
 }
