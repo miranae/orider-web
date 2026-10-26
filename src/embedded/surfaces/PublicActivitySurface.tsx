@@ -11,7 +11,7 @@ import Avatar from "../../components/Avatar";
 import { useAuth } from "../../contexts/AuthContext";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { createPublicActivityClient, isPublicActivityAccessError, type PublicActivityDetail } from "../../services/publicActivityDetail";
-import { Button, Section, Stack, Stat, Text, Textarea } from "../../theme/components";
+import { Button, Card, Section, Stack, Stat, Text, Textarea } from "../../theme/components";
 import EmbeddedSurfaceState from "./EmbeddedSurfaceState";
 
 const RouteMap = lazy(() => import("../../components/RouteMap"));
@@ -194,30 +194,32 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
   const mapImage = publicMap?.imageUrl && /^https:\/\//i.test(publicMap.imageUrl) ? publicMap.imageUrl : null;
   const route = publicMap?.encodedPolyline || undefined;
 
-  return <main className={embedded ? "orider-embedded-surface public-activity-surface" : "public-activity-surface"} data-testid="embedded-public-activity">
-    <Stack gap="var(--space-5)">
-      <header className="orider-embedded-author">
-        <Avatar name={activity.nickname?.trim() || t("embeddedProfile.rider")} imageUrl={activity.profileImage} size="md" />
-        <div><LocalizedLink to={`/athlete/${encodeURIComponent(activity.userId)}`}><Text weight={600}>{activity.nickname?.trim() || t("embeddedProfile.rider")}</Text></LocalizedLink><h1>{activity.description || t("publicDetail.title")}</h1>
-          <Text variant="caption">{activity.startTime > 0 ? new Date(activity.startTime).toLocaleString(i18n.language) : "—"}</Text></div>
+  return <main className={embedded ? "orider-embedded-surface public-activity-surface" : "site-shell public-activity-surface public-activity-surface--web"} data-testid="embedded-public-activity">
+    <Card variant={embedded ? "bare" : "default"} padding={embedded ? "none" : "card"}>
+    <Stack gap="var(--dim-section-gap)">
+      <header className="public-activity-header">
+        <Stack direction="row" align="center" gap="var(--space-3)" className="public-activity-author">
+          <Avatar name={activity.nickname?.trim() || t("embeddedProfile.rider")} imageUrl={activity.profileImage} size="md" />
+          <Stack gap="var(--space-1)" className="public-activity-author-identity">
+            <LocalizedLink to={`/athlete/${encodeURIComponent(activity.userId)}`}><Text variant="bodyMedium" weight={600}>{activity.nickname?.trim() || t("embeddedProfile.rider")}</Text></LocalizedLink>
+            <time dateTime={activity.startTime > 0 ? new Date(activity.startTime).toISOString() : undefined}><Text variant="caption" tone="secondary">{activity.startTime > 0 ? new Date(activity.startTime).toLocaleString(i18n.language) : "—"}</Text></time>
+          </Stack>
+        </Stack>
+        <Text as="h1" variant="pageTitle" tone="primary">{activity.description || t("publicDetail.title")}</Text>
       </header>
-      {user && !user.isAnonymous && user.uid !== activity.userId && <PublicActivitySafety key={`${user.uid}:${activityId}`}
-        activityId={activityId} authorId={activity.userId} client={client} onAccessRevoked={revokeAccess}
-        onRemoved={action => { generation.current += 1; inFlight.current = false; commentRequest.current = null;
-          socialMeasurement.current?.("cancelled"); setDetail(null); setText(""); setBusy(false); setRemoved({ scope: safetyScope, action }); }} />}
       <Section title={t("publicDetail.summary")}>
-        <Stack direction="row" wrap gap="var(--space-5)">
+        <div className="public-activity-stats">
           <Stat label={t("publicDetail.distance")} value={format(distance, 2)} unit="km" />
           <Stat label={t("publicDetail.duration")} value={seconds === null ? "—" : format(Math.floor(seconds / 60))} unit={t("publicDetail.minutes")} />
           <Stat label={t("publicDetail.elevation")} value={format(elevation)} unit="m" />
-        </Stack>
+        </div>
         <Text variant="caption" tone="secondary">{t(metrics ? "publicDetail.calculated" : "publicDetail.recorded")}</Text>
       </Section>
       {(power !== null || normalizedPower !== null) && <Section title={t("publicDetail.power")}>
-        <Stack direction="row" wrap gap="var(--space-5)">
+        <div className="public-activity-stats">
           <Stat label={t("publicDetail.averagePower")} value={format(power)} unit="W" />
           <Stat label={t("publicDetail.normalizedPower")} value={format(normalizedPower)} unit="W" />
-        </Stack>
+        </div>
         <Text variant="caption" tone="secondary">{t(`publicDetail.powerSource.${powerLabel}`)}</Text>
       </Section>}
       {(route || mapImage) && <Section title={t("publicDetail.route")}>
@@ -245,6 +247,13 @@ export default function PublicActivitySurface({ activityId, retryKey, embedded =
           {posted && <Text role="status">{t("publicDetail.posted")}</Text>}
         </Stack>
       </Section>
+      {user && !user.isAnonymous && user.uid !== activity.userId && <div className="public-activity-safety" role="group" aria-label={t("publicSafety.actions")}>
+      <PublicActivitySafety key={`${user.uid}:${activityId}`}
+        activityId={activityId} authorId={activity.userId} client={client} onAccessRevoked={revokeAccess}
+        onRemoved={action => { generation.current += 1; inFlight.current = false; commentRequest.current = null;
+          socialMeasurement.current?.("cancelled"); setDetail(null); setText(""); setBusy(false); setRemoved({ scope: safetyScope, action }); }} />
+      </div>}
     </Stack>
+    </Card>
   </main>;
 }

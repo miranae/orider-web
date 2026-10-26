@@ -5,3 +5,13 @@
   height: auto;
   border-radius: var(--r-lg);
 }
+
+/* Reading width follows the existing board-detail surface; shell owns outer gutters. */
+.public-activity-surface--web { max-width: min(var(--site-shell-max), 64rem); padding: 0; }
+.public-activity-header { display: grid; gap: var(--space-4); min-width: 0; }
+.public-activity-header h1 { margin: 0; overflow-wrap: anywhere; text-wrap: balance; }
+.public-activity-author > :first-child { flex-shrink: 0; }
+.public-activity-author-identity { min-width: 0; overflow-wrap: anywhere; }
+.public-activity-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 6rem), 1fr)); gap: var(--space-4); margin-bottom: var(--space-3); }
+.public-activity-surface--web .ds-section { border-top: var(--dim-divider-thickness) solid var(--line-soft); padding-top: var(--dim-section-gap); }
+.public-activity-safety:has(button) { border-top: var(--dim-divider-thickness) solid var(--line-soft); padding-top: var(--space-3); }

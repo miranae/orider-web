@@ -23,6 +23,16 @@ const props = { activityId: "native-ride", retryKey: 0, onReady: vi.fn(), onErro
 afterEach(cleanup);
 beforeEach(() => { authState.uid = "viewer"; vi.clearAllMocks(); mocks.load.mockResolvedValue(fixture()); mocks.setKudos.mockResolvedValue({ enabled: true }); mocks.postComment.mockResolvedValue({ commentId: "new" }); });
 describe("public embedded activity", () => {
+  it.each([false, true])("keeps public identity, heading and secondary actions accessible in embedded=%s", async embedded => {
+    render(<PublicActivitySurface {...props} embedded={embedded} />);
+    const title = await screen.findByRole("heading", { level: 1, name: "한강 라이딩" });
+    expect(screen.getByRole("link", { name: "라이더" })).toHaveAttribute("href", "/ko/athlete/owner");
+    const controls = screen.getByRole("group", { name: "활동 관리" });
+    expect(title.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("button", { name: "활동 신고", exact: true })).toBeEnabled();
+    expect(screen.getByRole("textbox")).toBeEnabled();
+  });
+
   it("provides a clickable generic rider label for empty author names", async () => {
     const data = fixture(); data.activity.nickname = " "; mocks.load.mockResolvedValue(data);
     render(<PublicActivitySurface {...props} />);
