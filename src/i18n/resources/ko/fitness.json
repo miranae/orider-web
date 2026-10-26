@@ -1350,5 +1350,12 @@
   "sufficiency.delay.processing": "가져온 기록의 분석이 아직 끝나지 않았어요.",
   "sufficiency.delay.unknown": "계산 결과가 지연되고 있어요. 구체적인 지연 사유는 아직 제공되지 않았어요.",
   "sufficiency.delay.requirementsMet": "확인된 계산 조건은 모두 충족했어요.",
-  "sufficiency.delay.checkedRequirements": "마지막 계산에서 확인한 조건"
+  "sufficiency.delay.checkedRequirements": "마지막 계산에서 확인한 조건",
+  "comparison.title": "비교 기간",
+  "comparison.timezone": "한국 시간(KST) 기준입니다. 직접 선택한 종료 날짜를 포함하며 오늘은 요청 시각까지 조회합니다.",
+  "comparison.rollingNote": "최근 56일은 요청 시각부터 56 × 24시간 전까지의 이동 기간입니다. 전체 이력도 조회 상한이 적용됩니다.",
+  "comparison.fourWeeks": "최근 4주 ↔ 이전 4주",
+  "comparison.yearToDate": "올해 ↔ 전년 동기간",
+  "comparison.fourWeeksNote": "오늘을 제외한 완료된 28일과 바로 이전 28일을 비교합니다.",
+  "comparison.yearToDateNote": "각 연도 1월 1일부터 같은 월·일·시각까지 비교합니다. 2월 29일은 전년 2월 28일로 맞춥니다."
 }
