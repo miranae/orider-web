@@ -37,7 +37,7 @@ interface FitnessCoachBriefingProps {
   deliveryEnabled?: boolean;
   choiceTitle?: string;
   weekChangeSlot?: ReactNode;
-  /** 현재 지표(CTL/ATL/TSB) 바로 아래 한 줄 — 부하 이력 해석의 충분도(낮은 근거일 때만 그려진다). */
+  /** 부하 갱신 상태와 해석 근거. 컨디션에서는 현재 상태 옆, 좁은 화면에서는 아래에 둔다. */
   metricsNoteSlot?: ReactNode;
   /** Canonical-aware condition interpretation supplied by the page. */
   statusSlot?: ReactNode;
@@ -166,6 +166,7 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
           <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}>{t("condition.story.activityBasis")}</Text>
           {recentActivities}
         </>}
+        <div className="fitness-coach__impact-detail">
         <div className="fitness-coach__impact-heading">
           <div>
             <Text as="div" variant="eyebrow">{t("coach.impact.eyebrow")}</Text>
@@ -206,6 +207,7 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
             <Text as="p" variant="caption" tone="tertiary" style={{ margin: 0 }}>{t("coach.stimulus.disclaimer")}</Text>
           </div>
         )}
+        </div>
       </Card>
     </div>
   );
@@ -280,15 +282,16 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
             : <Text variant="caption" tone="secondary">{currentBasis}</Text>)}
           {(currentDate || part === "condition") && (part === "condition" ? <Text as="p" variant="caption" tone="tertiary" style={{ margin: 0 }}>{currentBasis}</Text> : <details className="fitness-coach__summary-source"><summary>{t("coach.currentBasisDetails")}</summary><Text as="p" variant="caption" tone="tertiary">{currentBasis}</Text></details>)}
         </div>}
-        {metricsNoteSlot && <div className="fitness-coach__summary-evidence">{metricsNoteSlot}</div>}
+        {metricsNoteSlot && (part !== "condition" || showConditionChoices) && <div className="fitness-coach__summary-evidence">{metricsNoteSlot}</div>}
 
       </SummarySurface>
   );
 
   return (
     <section aria-labelledby={mobilePriority || (part === "condition" && statusSlot) ? undefined : "fitness-coach-title"} className={`fitness-coach${mobilePriority ? " fitness-coach--mobile-priority" : ""}${part === "condition" ? " fitness-coach--story" : ""}`}>
-      {part === "condition" ? <Card className="fitness-coach__story-hero">
+      {part === "condition" ? <Card className={`fitness-coach__story-hero${!showConditionChoices ? " fitness-coach__story-hero--overview" : ""}`}>
         {currentSummary}
+        {!showConditionChoices && metricsNoteSlot && <aside className="fitness-coach__story-evidence">{metricsNoteSlot}</aside>}
         {showConditionChoices && <div className="fitness-coach__story-choice">
           {trainingChoiceCard}
         </div>}

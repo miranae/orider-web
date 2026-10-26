@@ -1415,5 +1415,7 @@
     "moreZones": "Show next training zones",
     "historyItem": "Result {{number}} · {{count}} activities",
     "selected": "Selected"
-  }
+  },
+  "sufficiency.loadQuality.title": "Records and calculation status",
+  "sufficiency.loadQuality.details": "Data quality and evidence"
 }

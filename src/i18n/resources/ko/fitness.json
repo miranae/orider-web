@@ -1415,5 +1415,7 @@
     "moreZones": "다음 훈련 구간 보기",
     "historyItem": "결과 {{number}} · 활동 {{count}}개",
     "selected": "선택됨"
-  }
+  },
+  "sufficiency.loadQuality.title": "기록과 계산 상태",
+  "sufficiency.loadQuality.details": "데이터 품질과 근거"
 }
