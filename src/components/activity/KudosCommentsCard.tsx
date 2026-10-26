@@ -4,7 +4,7 @@ import type { User } from "firebase/auth";
 import type { UserProfile } from "@shared/types";
 import Avatar from "../Avatar";
 import LikersAvatarStack from "../social/LikersAvatarStack";
-import { Card, buttonClass } from "../../theme/components";
+import { Card, Button, Input, buttonClass } from "../../theme/components";
 import { useDialog } from "../../contexts/DialogContext";
 import { useHydratedSocialProfiles } from "./useHydratedSocialProfiles";
 
@@ -86,7 +86,7 @@ export default function KudosCommentsCard({
 
   return (
     <Card padding="none" style={{ padding: 'var(--space-5)' }}>
-      <div className="flex items-center gap-4 pb-3" style={{ borderBottom: '1px solid var(--line-soft)' }}>
+      <div className="flex flex-wrap items-center gap-4 pb-3" style={{ borderBottom: '1px solid var(--line-soft)' }}>
         <button
           onClick={user ? onToggleKudos : onSignIn}
           className="flex items-center gap-1.5 text-[length:var(--fs-sm)] transition-colors hover:text-[var(--lime)]"
@@ -176,14 +176,14 @@ export default function KudosCommentsCard({
       </details>}
 
       {user && (
-        <div className="pt-3 flex items-start gap-2">
+        <div className="pt-3 flex flex-wrap items-start gap-2">
           <Avatar
             name={profile?.nickname ?? user.displayName ?? "User"}
             imageUrl={currentProfileImage}
             size="sm"
           />
-          <div className="flex-1 flex gap-2">
-            <input
+          <div className="min-w-0 flex-1 flex flex-wrap gap-2">
+            <Input
               type="text"
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
@@ -195,24 +195,12 @@ export default function KudosCommentsCard({
               }}
               placeholder={t("kudosCard.placeholder")}
               aria-label={t("kudosCard.ariaInput")}
-              className="flex-1 px-3 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] focus:outline-none"
-              style={{ border: '1px solid var(--line-soft)', background: 'var(--bg-2)', color: 'var(--ink-0)' }}
+              className="min-w-0 flex-1 basis-full sm:basis-0"
             />
-            <button
-              onClick={onSubmitComment}
-              disabled={submitting || !commentText.trim()}
-              className={`${buttonClass({ variant: 'secondary', className: 'px-3 py-2 text-[length:var(--fs-sm)] rounded-[var(--r-lg)] disabled:opacity-50 transition-colors' })} ${submitting ? 'cursor-wait' : ''}`}
-            >
-              {submitting ? (
-                <span className="flex items-center gap-1.5">
-                  <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  {t("kudosCard.submitting")}
-                </span>
-              ) : t("kudosCard.submit")}
-            </button>
+            <Button variant="secondary" onClick={onSubmitComment}
+              loading={submitting} disabled={submitting || !commentText.trim()}>
+              {submitting ? t("kudosCard.submitting") : t("kudosCard.submit")}
+            </Button>
           </div>
         </div>
       )}

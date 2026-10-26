@@ -15,6 +15,19 @@ const defaults = { profile: null, liked: false, kudos: [], comments: [visible, o
   onDeleteComment: vi.fn(), onSaveEditComment: vi.fn(), onSignIn: vi.fn(), formatTimeAgo: () => "now" };
 afterEach(cleanup);
 describe("comment moderation scopes", () => {
+  it("keeps comment keyboard submission and pending protection with the shared input controls", () => {
+    const submit = vi.fn(), setText = vi.fn();
+    const view = render(<KudosCommentsCard {...defaults} user={{ uid: "viewer" } as never} commentText="긴 한국어 댓글 초안" setCommentText={setText} onSubmitComment={submit} />);
+    const input = screen.getByRole("textbox", { name: "kudosCard.ariaInput" });
+    fireEvent.change(input, { target: { value: "바뀐 초안" } });
+    expect(setText).toHaveBeenCalledWith("바뀐 초안");
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    expect(submit).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(submit).toHaveBeenCalledTimes(1);
+    view.rerender(<KudosCommentsCard {...defaults} user={{ uid: "viewer" } as never} commentText="긴 한국어 댓글 초안" submitting onSubmitComment={submit} />);
+    expect(screen.getByRole("button", { name: "kudosCard.submitting" })).toBeDisabled();
+  });
   it("owner can hide visible comments and restore owner-hidden comments, reporting only others", () => {
     const report = vi.fn(), setHidden = vi.fn();
     render(<KudosCommentsCard {...defaults} user={{ uid: "owner" } as never} activityOwnerId="owner" hiddenComments={[hidden]} onReportComment={report} onSetCommentHidden={setHidden} />);

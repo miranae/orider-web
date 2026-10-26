@@ -279,10 +279,10 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
         </div>
 
         {/* flex spacer for mobile */}
-        <div className="flex lg:hidden" style={{ flex: 1 }} />
+        <div className="top-nav-spacer flex lg:hidden" style={{ flex: 1 }} />
 
         {/* 우측: 검색 + 아이콘 + 인증 */}
-        <div className="flex items-center" style={{ gap: 'var(--space-2)', flexShrink: 0 }}>
+        <div className="top-nav-actions flex items-center" style={{ gap: 'var(--space-2)', flexShrink: 0 }}>
           {user ? (
             <>
               {/* 모바일 알림 벨 → 바텀시트 */}
@@ -478,8 +478,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
 
                 {menuOpen && (
                   <div
+                    className="top-nav-profile-menu"
                     style={{
-                      position: 'absolute', top: 46, right: 0, width: 200,
                       background: 'var(--bg-1)', border: '1px solid var(--line-soft)',
                       borderRadius: 'var(--r-lg)', padding: "var(--space-1-5)", zIndex: 100,
                     }}
