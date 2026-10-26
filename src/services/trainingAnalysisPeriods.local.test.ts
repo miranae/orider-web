@@ -30,7 +30,7 @@ describe("local training loader boundary", () => {
     if (kind === "hosted-domain") Object.assign(sdk.functions, { customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" });
     if (kind === "emulator-override") Object.assign(sdk.functions, { emulatorOrigin: "http://localhost:5001", region: "us-central1" });
     if (kind === "real-project") Object.assign(sdk.auth.app.options, { projectId: "miranae-orider-g1" });
-    await expect(loadTrainingAnalysisPeriods(sdk, "owner", request)).rejects.toThrow("stage/callable-context-mismatch");
+    await expect(loadTrainingAnalysisPeriods(sdk, "owner", request)).rejects.toThrow(kind === "foreign-app" ? "account_changed" : "stage/callable-context-mismatch");
     expect(sdk.ensureAppCheckReady).not.toHaveBeenCalled(); expect(mocks.callable).not.toHaveBeenCalled();
   });
   it.each([{ ...request, discipline: "run" as const }, { ...request, includeStageRunEffortPreferences: true as const }])("excludes unsupported local analysis before network", async input => {

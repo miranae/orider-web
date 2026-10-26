@@ -4,6 +4,7 @@ import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { BIKE_DISTANCE_TARGETS } from "@shared/activity-bike-distance-evidence";
 import type { CyclingDistanceHistoryCursor, CyclingDistanceHistoryRequest, CyclingDistanceHistoryResponse, CyclingDistanceHistoryRow } from "@shared/types/training-cycling-distance-history";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
+import { getRuntimeConfig } from "./runtimeConfig";
 import { trainingAnalysisPeriodsAvailable } from "./trainingAnalysisPeriods";
 import { historyPositionAfter, validHistoryDocumentId } from "./trainingAnalysisHistory";
 import { getDiscipline } from "../utils/disciplineFilter";
@@ -130,7 +131,7 @@ export function validateCyclingDistanceHistoryResponse(value: unknown, request: 
   return isolatedTotals || legacy ? { ...r, activities: cleanActivities } : r;
 }
 export async function loadCyclingDistanceHistory(services: FirebaseServices, uid: string, request: CyclingDistanceHistoryRequest) {
-  if (!trainingAnalysisPeriodsAvailable()) throw new Error("api_unavailable");
+  if (getRuntimeConfig().appEnvironment !== "stage" || !trainingAnalysisPeriodsAvailable("bike")) throw new Error("api_unavailable");
   const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
   if (!matches()) throw new Error("account_changed");
   if (services.functions.app !== services.auth.app || services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("stage/callable-context-mismatch");
