@@ -1966,15 +1966,13 @@ describe("ActivityPage", () => {
       expect(document.querySelector(".animate-pulse") || notFound).toBeTruthy();
     });
   });
-  it.each(["orider", "strava"] as const)("uses current source evidence instead of stale generated text for %s", async source => {
+  it.each(["orider", "strava"] as const)("uses the verified stored Orider memo without generating a provider fallback for %s", async source => {
     const activity = withStoredSummary(createMockActivity({ id: "test-activity", source }));
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
     renderWithProviders(<ActivityPage />);
     const story = await screen.findByRole("region", { name: "활동 이야기" });
-    if (source === "strava") {
-      expect(within(story).getByText(/Strava 원본/)).toBeInTheDocument();
-      expect(within(story).queryByText(/저장된 활동 요약/)).not.toBeInTheDocument();
-    } else expect(within(story).getByText(/저장된 활동 요약/).textContent).toBe(STORED_ACTIVITY_SUMMARY);
+    expect(within(story).getByText(/저장된 활동 요약/).textContent).toBe(STORED_ACTIVITY_SUMMARY);
+    expect(within(story).queryByText(/Strava 원본/)).not.toBeInTheDocument();
   });
 
   it.each([true, false])("only renders a memo and preview from the current complete projection revision (%s)", async valid => {
