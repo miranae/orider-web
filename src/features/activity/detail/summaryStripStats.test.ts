@@ -134,3 +134,15 @@ it("uses Strava evidence consistently instead of calculated metrics and never la
   expect(stats.np.value).toBeNull(); expect(stats.pauseTimeSec.value).toBe(12305);
   expect(resolveSummaryStripStats(ready(), { ...inputs, stravaRecord: { version: 1 } }).caloriesKcal.value).toBeNull();
 });
+
+it.each([null, undefined, 0])("미기록 TCX 거리와 명시된 0을 구분한다: %s", (distance) => {
+  const importedInputs = { ...inputs, summary: { ...summary, distance } as unknown as ActivitySummary };
+  expect(resolveSummaryStripStats({ status: "loading", metrics: null }, importedInputs).distanceM)
+    .toEqual({ value: distance === 0 ? 0 : null, provisional: distance === 0 });
+  expect(resolveSummaryStripStats(ready({ version: 41, distanceKm: 0, distanceSource: null }), importedInputs).distanceM)
+    .toEqual({ value: null, provisional: false });
+  if (distance === 0) {
+    expect(resolveSummaryStripStats(ready({ version: 41, distanceKm: 0, distanceSource: "recorded_summary" }), importedInputs).distanceM)
+      .toEqual({ value: 0, provisional: false });
+  }
+});

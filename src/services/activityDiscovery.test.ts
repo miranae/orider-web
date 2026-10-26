@@ -48,3 +48,16 @@ it('rejects same-uid session replacement while awaiting AppCheck before dispatch
  mocks.ready.mockImplementation(async()=>{(services.auth as {currentUser:unknown}).currentUser={...viewer};});
  await expect(loadActivityDiscovery(services,{scope:'all'})).rejects.toThrow('account_changed');expect(mocks.call).not.toHaveBeenCalled();
 });
+
+it('keeps an unrecorded TCX distance unknown before and after metrics, while preserving recorded zero',()=>{
+ const v=item();v.activity.summary.distance=null;v.activity.effectiveFacts.metrics=null;
+ expect(mapDiscoveryActivity(v).summary.distance).toBeNaN();
+ v.activity.effectiveFacts.metrics={distanceKm:null,durationSec:600};
+ expect(mapDiscoveryActivity(v).summary.distance).toBeNaN();
+ v.activity.summary.distance=0;
+ expect(mapDiscoveryActivity(v).summary.distance).toBeNaN();
+ v.activity.effectiveFacts.metrics=null;
+ expect(mapDiscoveryActivity(v).summary.distance).toBe(0);
+ v.activity.effectiveFacts.metrics={distanceKm:0,durationSec:600};
+ expect(mapDiscoveryActivity(v).summary.distance).toBe(0);
+});
