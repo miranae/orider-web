@@ -1618,7 +1618,7 @@
       "racePace": "고강도 혼합"
     },
     "provisionalChip": "잠정값 · 업로드 반영 중",
-    "staleChip": "이전 분석 기준 · 재계산 대기",
+    "staleChip": "저장된 이전 분석",
     "truncatedInputChip": "잘린 입력 기준",
     "paused": "서버 분석 표시를 일시 중단했습니다."
   },

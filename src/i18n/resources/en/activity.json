@@ -1618,7 +1618,7 @@
       "racePace": "Mixed hard efforts"
     },
     "provisionalChip": "Provisional · upload in progress",
-    "staleChip": "From an earlier analysis · awaiting recompute",
+    "staleChip": "Previously saved analysis",
     "truncatedInputChip": "From truncated input",
     "paused": "Server analysis display is paused."
   },
