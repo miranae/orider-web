@@ -2804,6 +2804,19 @@
     "efficiency": "Heart rate & pedaling",
     "energy": "Energy",
     "terrain": "Speed & terrain",
-    "intro": "Read your ride, compare your performance, and explore the evidence."
+    "intro": "Read your ride, compare your performance, and explore the evidence.",
+    "loadMeaning": "Training demand from this activity’s duration and intensity",
+    "npMeaning": "Power adjusted for fluctuations · distinct from average power",
+    "ifMeaning": "Intensity relative to your FTP · 1.00 is the FTP reference",
+    "exploration": "Explore the route and sensor recordings",
+    "explorationHint": "Open the map to inspect time and location, or select a section.",
+    "comparisonMeaning": "How to read this comparison",
+    "comparisonContext": "The gap describes the power produced during this activity. Purpose and duration differ between rides, so a lower percentage alone does not establish poorer training or declining fitness.",
+    "zoneEvidence": "Time, work and comparison evidence",
+    "comparisonLower": "Your best {{duration}} average was {{gap}} W below the 90-day best, or {{fraction}}% of that reference.",
+    "comparisonHigher": "Your best {{duration}} average was {{gap}} W above the 90-day reference, or {{fraction}}% of that reference.",
+    "comparisonEqual": "Your best {{duration}} average matched the 90-day best.",
+    "loadTimeMeaning": "Estimated from moving time without power or heart rate",
+    "loadHrMeaning": "Training demand from heart rate and duration"
   }
 }

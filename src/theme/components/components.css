@@ -793,3 +793,5 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 .ds-disclosure[open] > .ds-disclosure__summary > .ds-disclosure__chevron { transform: rotate(180deg); }
 .ds-disclosure__content { display: grid; gap: var(--space-4); min-width: 0; padding-block: var(--space-2) var(--space-4); }
 .ds-disclosure__content > * { min-width: 0; }
+
+.ds-stat__description { margin-top: var(--space-2); font-size: var(--fs-xs); line-height: var(--ft-body-small-line-height); color: var(--ink-2); max-width: 32ch; word-break: keep-all; overflow-wrap: anywhere; }

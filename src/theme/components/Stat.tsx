@@ -8,6 +8,7 @@ export interface StatProps extends HTMLAttributes<HTMLDivElement> {
   value: ReactNode;
   unit?: ReactNode;
   delta?: StatDelta;
+  description?: ReactNode;
   /** 카드 배경/테두리 포함. */
   card?: boolean;
   compact?: boolean;
@@ -24,6 +25,7 @@ export function Stat({
   value,
   unit,
   delta,
+  description,
   card,
   compact,
   className,
@@ -39,6 +41,7 @@ export function Stat({
         {value}
         {unit && <span className="ds-stat__value-unit">{unit}</span>}
       </div>
+      {description && <div className="ds-stat__description">{description}</div>}
       {delta && (
         <span className={cn('ds-stat__delta', `ds-stat__delta--${delta.direction ?? 'neutral'}`)}>
           {delta.direction === 'up' ? '▲' : delta.direction === 'down' ? '▼' : '—'} {delta.value}

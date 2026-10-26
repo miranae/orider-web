@@ -266,6 +266,7 @@ describe("ActivityPage server summary presentation", () => {
     fireEvent.click(screen.getByRole("tab", { name: "개요" }));
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(mocks.requestStreams).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "경로와 센서 기록 살펴보기" }));
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
     expect(mocks.model!.retryStreams).toHaveBeenCalledOnce();
   });

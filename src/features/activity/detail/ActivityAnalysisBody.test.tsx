@@ -181,3 +181,14 @@ it("keeps public loading diagnostics private and offers recovery for transient o
   rerender(<ActivityAnalysisBody {...input} isOwner analysisProps={null} />);
   expect(screen.queryByRole("button", { name: "평가 근거 다시 불러오기" })).not.toBeInTheDocument();
 });
+
+
+it("shows the recorded zone distribution first and reveals exact comparison evidence on demand", () => {
+  renderWithProviders(<ActivityAnalysisBody {...props(rich)} />);
+  const power = within(screen.getByRole("heading", { name: "파워", level: 3 }).closest("section")!);
+  expect(power.getByRole("group", { name: /55.6%/ })).toBeVisible();
+  expect(power.getByRole("table", { hidden: true })).not.toBeVisible();
+  fireEvent.click(power.getByText("시간·일량과 비교 근거"));
+  expect(power.getByRole("table")).toBeVisible();
+  expect(power.getByText("+5.6%p")).toBeVisible();
+});

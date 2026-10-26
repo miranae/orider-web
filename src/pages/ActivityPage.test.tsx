@@ -389,6 +389,8 @@ describe("ActivityPage", () => {
     }) });
     renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=analysis" });
     await screen.findByTestId("elevation-chart");
+    expect(screen.getByTestId("activity-detail-hero")).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "경로와 센서 기록 살펴보기" }));
     expect(screen.getAllByTestId("route-map")).toHaveLength(1);
     expect(screen.getAllByTestId("elevation-chart")).toHaveLength(1);
     expect(screen.queryByRole("button", { name: "구간 분석" })).not.toBeInTheDocument();
@@ -424,6 +426,7 @@ describe("ActivityPage", () => {
       altitude: Array(count).fill(10), latlng: Array.from({ length: count }, () => [37, 127]),
     }) });
     renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
+    fireEvent.click(await screen.findByRole("button", { name: "경로와 센서 기록 살펴보기" }));
     await screen.findByRole("button", { name: "경과시간 축" });
     // 구간 분석 버튼은 없다 — 그래프에서 고른 범위가 곧 구간 분석을 연다.
     expect(screen.queryByRole("button", { name: "구간 분석" })).not.toBeInTheDocument();
@@ -1870,6 +1873,7 @@ describe("ActivityPage", () => {
       userId: "user-1",
       json: JSON.stringify(createMockStreams()),
     });
+    fireEvent.click(screen.getByRole("button", { name: "경로와 센서 기록 살펴보기" }));
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
 
     expect(await screen.findByText("저장된 분석 지표")).toBeInTheDocument();
