@@ -165,7 +165,32 @@ not guarantee cancellation of the underlying HTTP request. Final source
 verified R5 start/advance/status smoke and R6/R7 unauthenticated 401 responses.
 Data services, original fixtures and remote environments were not changed.
 
-Remaining R7 work includes the report → administrator eligibility decision →
-rematch/reinstate procedure. Native followings and exact notification destinations
+The report → administrator eligibility decision → rematch/reinstate procedure was
+subsequently completed locally; see the checkpoint below. Native followings and exact notification destinations
 are implemented locally but iOS hosted runtime gates remain in progress. No remote
 issue or PR updates were posted; the local draft is external `LOCAL-ISSUE-UPDATES.md`.
+
+
+## R7 ranking reports and administrator queue — local final checkpoint
+
+WEB product5af9dab8 and BEb9cf4c6c add explicit ranking reports, a bounded pending
+queue for existing administrators, audited exclusion, actual source rematching
+and separate current-source restoration. Reports alone never exclude records;
+rematching never silently restores them. Pending queue pages retain continuation
+when current deletion/merge guards filter all candidates. Existing direct document
+access remains denied. See [report acceptance](segment-ranking-report.md).
+
+Actual SDK lifecycle:11 requests (10 successful and one intended premature-restore
+rejection), then4 successful final-queue requests; no page errors or390px overflow.
+The server producer processes synthetic101-point GPS with the actual matcher.
+This is component/SDK/emulator evidence, not physical recording or production.
+WEB928 files/9,767 tests, contracts/typecheck/dev build/lint/quality passed.
+BE's prior full run plus corrected caller-inventory rerun covers942 passing
+files/15,754 tests; follow-up pending-queue build/lint/compat and23 related tests
+passed. These are distinct checkpoints, not a fresh final-source full-suite run.
+
+Current main local runtime is source34909b6605a9/artifactb1186ceebdda. R5 actual
+start/advance/status reached complete and all8 unauthenticated endpoint probes
+on5029/5039 returned401. activation.json is verificationPending:false. No remote
+push, merge, issue update or dev deployment occurred. Native runtime/physical-device
+and external beta/paid-comparison requirements remain separately uncompleted.
