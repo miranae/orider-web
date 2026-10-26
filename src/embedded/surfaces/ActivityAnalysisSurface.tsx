@@ -54,6 +54,12 @@ export default function ActivityAnalysisSurface({
   const readyKey = useRef<number | null>(null);
   const errorKey = useRef<string | null>(null);
 
+  // A new activity entry needs its own host terminal notification, including revisits.
+  useEffect(() => {
+    readyKey.current = null;
+    errorKey.current = null;
+  }, [activityId]);
+
   useEffect(() => {
     if (lastRetryKey.current === retryKey) return;
     lastRetryKey.current = retryKey;
@@ -80,6 +86,7 @@ export default function ActivityAnalysisSurface({
     errorKey.current = key;
     onError(code);
   }, [
+    activityId,
     model.activity,
     model.activityLoadError,
     hasStoredAnalysis,
