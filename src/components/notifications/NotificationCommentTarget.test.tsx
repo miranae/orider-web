@@ -1,5 +1,5 @@
 import { simulateLogin } from "../../__tests__/mocks/firebase";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NotificationCommentTarget } from "./NotificationCommentTarget";
 const state = vi.hoisted(() => ({ user: { uid: "viewer", isAnonymous: false } as { uid: string; isAnonymous: boolean } | null, comment: vi.fn(), signIn: vi.fn() }));
 vi.mock("react-router-dom", async original => ({ ...await original<typeof import("react-router-dom")>(), useParams: () => ({ activityId: "ride" }), useSearchParams: () => [new URLSearchParams("comment=target")] }));
@@ -10,7 +10,7 @@ afterEach(cleanup);
 it("focuses a new destination but preserves keyboard focus during access refresh", async () => {
   const view = render(<><input aria-label="댓글 작성" /><NotificationCommentTarget activityId="ride" commentId="target" /></>);
   await screen.findByText("멀리 있는 정확한 댓글");
-  expect(document.activeElement).toContainElement(screen.getByText("멀리 있는 정확한 댓글"));
+  await waitFor(() => expect(screen.getByText("멀리 있는 정확한 댓글").closest('[tabindex="-1"]')).toHaveFocus());
   const input = screen.getByRole("textbox", { name: "댓글 작성" });
   input.focus();
   await act(async () => window.dispatchEvent(new Event("focus")));
@@ -18,7 +18,7 @@ it("focuses a new destination but preserves keyboard focus during access refresh
   expect(input).toHaveFocus();
   view.rerender(<><input aria-label="댓글 작성" /><NotificationCommentTarget activityId="ride" commentId="another" /></>);
   await screen.findByText("멀리 있는 정확한 댓글");
-  expect(document.activeElement).toContainElement(screen.getByText("멀리 있는 정확한 댓글"));
+  await waitFor(() => expect(screen.getByText("멀리 있는 정확한 댓글").closest('[tabindex="-1"]')).toHaveFocus());
 });
 it("loads an exact comment independently of paginated preview comments", async () => {
   render(<NotificationCommentTarget />); expect(await screen.findByText("멀리 있는 정확한 댓글")).toBeInTheDocument();
