@@ -155,7 +155,7 @@ const initializeEntry = isEmbeddedEntry
       await initEmbeddedFirebase();
     })
   : loadRuntimeConfig()
-      .then(initFirebase)
+      .then(() => initFirebase())
   // 앱 → 웹 로그인 인계: #handoff= 일회용 코드(옛 ?handoff=도 수신)가 있으면
   // AuthProvider 마운트 전에 custom token 로그인까지 끝낸다(코드 없으면 즉시 통과).
       .then(() => consumeAppHandoffCode())
