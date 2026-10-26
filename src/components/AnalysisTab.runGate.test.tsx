@@ -463,3 +463,15 @@ it.each([true, false])("explains missing activity-time HR reference in empty zon
   expect(screen.queryByText("overviewEvidence.hrContextMissing")).not.toBeInTheDocument();
   expect(within(screen.getByRole("region", { name: "analysis.zones.hr" })).getByText("analysis.empty.hrZonesDesc")).toBeInTheDocument();
 });
+
+it("keeps a stale saved running curve and record in the real analysis panel", () => {
+ state.language = "ko";
+ state.metrics = gpsOnlyRunMetrics(); state.metrics.status = "stale";
+ Object.assign(state.metrics.metrics!, { version: 1, inputCoverage: "complete", inputPending: false });
+ Object.assign(state.metrics.metrics!.runMetrics!, { paceCurve: [{durationSec:300,paceSecPerKm:321}], distanceRecords: {"5km":1200} });
+ renderRun();
+ const panel = screen.getByTestId("run-efforts"); panel.setAttribute("open", "");
+ expect(within(panel).getByText("5:21/km")).toBeVisible();
+ expect(within(panel).getByText("20:00")).toBeVisible();
+ expect(within(panel).queryByRole("button")).not.toBeInTheDocument();
+});

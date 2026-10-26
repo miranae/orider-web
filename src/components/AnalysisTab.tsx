@@ -530,7 +530,7 @@ export default function AnalysisTab({
       );
 
   if (sport === "run" && sm) {
-    return <div className="activity-analysis-content space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={streams.runningBestEffortsFacts} onSelectEffort={onSelectRunEffort} effortsReady={visibleServerMetrics.status === "ready"} metrics={sm as ActivityMetricsDoc} isOwner={isOwner} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={onSelectLap} canSelectLap={canSelectLap} />}</div>;
+    return <div className="activity-analysis-content space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={streams.runningBestEffortsFacts} onSelectEffort={onSelectRunEffort} effortsReady={visibleServerMetrics.status === "ready"} previousAnalysis={visibleServerMetrics.status === "stale"} metrics={sm as ActivityMetricsDoc} isOwner={isOwner} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={onSelectLap} canSelectLap={canSelectLap} />}</div>;
   }
 
   const integratedPower = integratedPresentation?.session.discipline === "bike" && !suppressServerPowerMetrics ? integratedPresentation : undefined;
