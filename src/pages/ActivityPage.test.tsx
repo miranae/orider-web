@@ -65,20 +65,7 @@ vi.mock("../components/activity/StravaSummaryPublishing", () => ({
 // ActivityPage 의 분석 탭 임포트 체인(PowerCurveChart 등)이 chart.js 의
 // LogarithmicScale 을 register 하므로, 전역 chart.js mock(setup.ts)에 없는
 // 스케일/요소까지 포함해 이 파일 전용으로 보강한다. (setup.ts 는 수정 금지)
-vi.mock("chart.js", () => ({
-  Chart: { register: vi.fn() },
-  CategoryScale: class {},
-  LinearScale: class {},
-  LogarithmicScale: class {},
-  BarElement: class {},
-  LineElement: class {},
-  PointElement: class {},
-  ArcElement: class {},
-  Title: class {},
-  Tooltip: class {},
-  Legend: class {},
-  Filler: class {},
-}));
+vi.mock("chart.js", async () => (await import("../__tests__/fixtures/activityChartRegistryMock")).activityChartRegistryMock);
 
 const { mockRoute } = vi.hoisted(() => ({
   mockRoute: { activityId: "test-activity" },

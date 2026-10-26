@@ -25,20 +25,7 @@ vi.mock("../components/activity/AiRideAnalysisCard", () => ({ default: () => <di
 vi.mock("../services/stravaSummaryPreview", () => ({ requestStravaSummaryPreview: stravaPreview, isLocalStravaSummaryPreview: () => false }));
 vi.mock("../hooks/useFitnessTimeseries", () => ({ useFitnessTimeseries: () => ({ timeseries: null, loaded: true }) }));
 vi.mock("../hooks/usePdc", () => ({ usePdc: () => ({ status: "missing", pdc: null }) }));
-vi.mock("chart.js", () => ({
-  Chart: { register: vi.fn() },
-  CategoryScale: class {},
-  LinearScale: class {},
-  LogarithmicScale: class {},
-  BarElement: class {},
-  LineElement: class {},
-  PointElement: class {},
-  ArcElement: class {},
-  Title: class {},
-  Tooltip: class {},
-  Legend: class {},
-  Filler: class {},
-}));
+vi.mock("chart.js", async () => (await import("../__tests__/fixtures/activityChartRegistryMock")).activityChartRegistryMock);
 
 function renderWithProviders(ui: ReactElement, options: Parameters<typeof renderProviders>[1] = {}) {
   return renderProviders(<Routes><Route path="/ko/activity/:activityId" element={ui} /></Routes>, {

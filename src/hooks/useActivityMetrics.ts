@@ -1,3 +1,4 @@
+import { savedActivityMetrics } from "../services/savedActivityMetrics";
 /**
  * useActivityMetrics — Phase A 산출물 `activity_metrics/{activityId}` 구독.
  *
@@ -195,15 +196,15 @@ export function useActivityMetrics(activityId: string | null, isOwner = true): U
           update({ status: raw.status === "pending" ? "loading" : "missing", metrics: null });
           return;
         }
+        const saved = savedActivityMetrics(raw);
         const data = isOwner
-          ? ((isLifecycleDocument && raw.metrics && typeof raw.metrics === "object" && !Array.isArray(raw.metrics)
-            ? raw.metrics : raw) as unknown as ActivityMetricsDoc)
+          ? saved.metrics!
           : fromPublicActivityMetrics(raw);
         // version 이 클라 기대보다 낮으면 stale — 값은 그대로 노출하되 호출자가 표식을 붙인다.
         // version 필드가 아예 없는 옛 문서는 0 으로 본다 — 모름을 최신으로 그리면 안 된다 (#2237).
         const version = typeof data.version === "number" && Number.isSafeInteger(data.version)
           && data.version >= 0 ? data.version : 0;
-        const isStale = (isOwner && isLifecycleDocument && raw.stale === true)
+        const isStale = saved.retained || (isOwner && isLifecycleDocument && raw.stale === true)
           || version < ACTIVITY_METRICS_VERSION;
         update({ status: isStale ? "stale" : "ready", metrics: data });
       },

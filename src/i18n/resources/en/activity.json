@@ -3020,5 +3020,21 @@
     "sources": "{{missing}} sources unavailable · {{unsupported}} unsupported · {{changed}} changed",
     "close": "Close result",
     "recover": "Check previous progress"
+  },
+  "reanalysis": {
+    "title": "Saved and new analysis",
+    "keepSaved": "Your saved analysis remains available. You can choose to analyze again with the new version.",
+    "versions": "Saved version {{saved}} · Latest version {{latest}}",
+    "check": "Check analysis status",
+    "start": "Analyze with new version",
+    "queued": "Analysis requested. Saved results remain available until completion.",
+    "completed": "New analysis completed.",
+    "failed": "Could not confirm the request. Saved analysis is unchanged. Retrying uses the same request.",
+    "viewingSaved": "Viewing saved analysis. Ranges are not recalculated from current source data.",
+    "history": "View previous analysis",
+    "current": "Return to current analysis",
+    "savedVersion": "Version {{version}} · {{time}}",
+    "noHistory": "No previous analysis is stored.",
+    "more": "Load more"
   }
 }
