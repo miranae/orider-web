@@ -355,10 +355,10 @@
   "safeLegend.quickScope": "Quick check · up to 500 records",
   "rankingReport": {
     "open": "Report record",
-    "explanation": "Tell us why this record needs review. A report does not immediately remove it from the ranking.",
+    "explanation": "Tell us which record needs review. A report does not immediately exclude a record. After submission, closing this form or refreshing may leave the report accepted. If unsure, submit the same report again to check.",
     "reason": "Reason",
     "submit": "Submit report",
-    "cancel": "Cancel",
+    "cancel": "Close",
     "error": "We could not confirm receipt. Retrying the same report will not create a duplicate.",
     "reasons": {
       "gps_anomaly": "GPS anomaly",
