@@ -505,4 +505,4 @@ semantic accent 16% 음영과 2px 양끝선을 그리며 취소·선택 완료 �
 
 `ToggleControls variant="axis" layout="field"`는 Input/Select 옆의 레이블이 있는 선택 항목에 사용한다. 외부 여백 없이 36px 높이로 정렬하며, 기본 차트 축 컨트롤의 32px 표시는 유지한다.
 
-`DistributionStrip` displays caller-supplied category weights as a single strip. Segment and legend triggers share hover/focus/tap explanations, with Escape/outside-tap dismissal. Zero categories remain in the legend, missing categories should be omitted by the caller. The activity reading catalogue demonstrates Seiler and FTP distributions with synthetic data.
+`DistributionStrip` displays caller-supplied category weights as a single strip. Segment and legend triggers share hover/focus/tap explanations, with Escape/outside-tap dismissal. The title and right-aligned legend share one header row. `unlabelled` weights reserve passive strip space without a label or tooltip. Zero categories remain in the legend, missing categories should be omitted by the caller. The activity reading catalogue demonstrates Seiler and FTP distributions with synthetic data.

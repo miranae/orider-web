@@ -30,6 +30,7 @@ describe('power distribution reading', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /역치 · 0:00/ })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'FTP 기준 영역' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /83% 미만/ })).not.toBeInTheDocument();
   });
   it('keeps zero work and missing work distinct in the only zone table', () => {
     renderWithProviders(<ZoneTimeBar layout="rows" heading="이번 활동" zone={{ kind: 'power', seconds: [30, 30], currentPercentages: [50, 50], priority: 'primary' }} workKj={[0, undefined]} />);

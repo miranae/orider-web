@@ -29,7 +29,7 @@ export function PowerZoneReadings({ seiler, bands, powerSeconds }: {
   const distribution = criticalDistribution(bands, powerSeconds);
   const bandKeys: Record<string, string> = { 'Sweet Spot': 'sweetSpot', Threshold: 'threshold', VO2max: 'vo2', Anaerobic: 'anaerobic' };
   const criticalItems: DistributionItem[] = distribution && bands ? [
-    { id: 'below', label: t('analysisReading.below83'), weight: distribution.remainder, color: 'var(--bg-3)', detail: detail(distribution.remainder, distribution.total, t('analysisReading.below83Range')) },
+    { id: 'below', unlabelled: true, label: t('analysisReading.below83'), weight: distribution.remainder, color: 'var(--bg-3)', detail: detail(distribution.remainder, distribution.total, t('analysisReading.below83Range')) },
     ...bands.map(band => ({ id: band.label, label: bandKeys[band.label] ? t(`analysisReading.band.${bandKeys[band.label]}`) : band.label, weight: band.seconds, color: band.label === 'Anaerobic' ? 'var(--zone-6)' : band.color, detail: detail(band.seconds, distribution.total, `${band.label === 'Anaerobic' ? '≥120% FTP' : band.range} · ${t('analysisReading.ftpBasis')}`) })),
   ] : [];
   if (!seilerItems.length && !criticalItems.length) return null;

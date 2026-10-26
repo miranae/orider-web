@@ -192,7 +192,7 @@ export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading, a
   const baseline = zone.baselinePercentages?.length === zone.seconds.length && (zone.priorSampleCount ?? 0) > 0 ? zone.baselinePercentages : undefined;
   const describe = (values: number[] | undefined) => zone.seconds.map((sec, i) => `Z${i + 1} ${values ? `${one(values[i]!)}%` : clock(sec)}`).join(", ");
   const name = (i: number) => `Z${i + 1}${labels[i] ? ` ${t(labels[i]!.nameKey)}` : ""}`;
-  const items = zone.seconds.map((sec, i) => ({ label: name(i), detail: [clock(sec), pcts ? `${one(pcts[i]!)}%` : null].filter(Boolean).join(" · ") }));
+  const items = zone.seconds.map((sec, i) => ({ label: name(i), detail: [clock(sec), pcts ? `${one(pcts[i]!)}%` : null, zone.kind === "power" && i === 4 ? t("analysisReading.powerVo2Range") : null].filter(Boolean).join(" · ") }));
   // 0% 존은 범례 한 줄로 접는다 — 빈 칸이 같은 무게로 자리를 차지하지 않게.
   const shown = zone.seconds.flatMap((sec, i) => (pcts ? pcts[i]! > 0 : sec > 0) ? [i] : []);
   const empty = zone.seconds.flatMap((sec, i) => (pcts ? pcts[i]! > 0 : sec > 0) ? [] : [i]);
