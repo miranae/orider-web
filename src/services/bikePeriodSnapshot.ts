@@ -1,5 +1,5 @@
 import { httpsCallable } from "firebase/functions";
-import type { BikePeriodSnapshotRequest, BikePeriodSnapshotResponse } from "@shared/types/bike-period-snapshot";
+import type { BikePeriodSnapshotRequest, BikePeriodSnapshotResponse, BikePeriodHistoryRequest, BikePeriodHistoryResponse } from "@shared/types/bike-period-snapshot";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { matchesAnalysisCapability } from "./analysisCapability";
 import { validateBikeSnapshotPower } from "./bikeSnapshotPowerValidation";
@@ -9,12 +9,13 @@ const ids=(v:unknown):v is string[]=>Array.isArray(v)&&v.length<=20&&v.every(s=>
 export function validateBikeSnapshot(value:unknown,request:BikePeriodSnapshotRequest,previous?:BikePeriodSnapshotResponse):BikePeriodSnapshotResponse{
  const r=value as BikePeriodSnapshotResponse,fail=():never=>{throw Error("invalid_bike_snapshot");};
  if(!r||!/^[a-f0-9-]{36}$/.test(r.runId)||!count(r.version)||!["scanning","identity","flattening","selecting","aggregating","complete","invalidated","expired"].includes(r.state)
-  ||!number(r.asOf)||r.asOf>Date.now()||r.expiresAt!==Math.floor(r.asOf)+3000000||r.period?.fromInclusive!==request.period.fromInclusive||r.period.toExclusive!==request.period.toExclusive
+  ||!number(r.asOf)||!Number.isFinite(new Date(r.asOf).getTime())||r.expiresAt!==Math.floor(r.asOf)+3000000||r.period?.fromInclusive!==request.period.fromInclusive||r.period.toExclusive!==request.period.toExclusive
   ||r.scope!=="owner_canonical_records_at_snapshot"||r.sourceFreshness!=="checked_at_each_step_not_continuously_current"
   ||![r.scanned,r.candidates,r.representatives].every(count)||r.representatives>r.candidates||r.candidates>r.scanned
   ||request.action!=="start"&&r.runId!==request.runId
   ||previous&&(r.version<previous.version||r.asOf!==previous.asOf||r.expiresAt!==previous.expiresAt||r.scanned<previous.scanned)
   ||!Array.isArray(r.zoneGroups)||r.zoneGroups.length>20||r.nextZone!==null&&(!/^[a-f0-9]{64}$/.test(r.nextZone)||request.afterZone!==undefined&&r.nextZone<=request.afterZone))fail();
+ if(r.retention!==undefined&&r.retention!==(r.state==="complete"?"saved_result":"temporary_checkpoint")||r.resultFreshness!==undefined&&r.resultFreshness!=="historical_as_of"||r.currentWinnerRevisionChanged!==undefined&&typeof r.currentWinnerRevisionChanged!=="boolean")fail();
  if(r.state!=="complete"){if(r.result!==null||r.zoneGroups.length||r.nextZone!==null)fail();return r;}
  const result=r.result;if(!result||result.pageSize!==20||result.sourceExamplesLimit!==20)return fail();
  for(const key of ["distanceM","movingTimeSec","elevationGainM"] as const){
@@ -52,4 +53,22 @@ export async function loadBikeSnapshot(services:FirebaseServices,uid:string,requ
   if(expired)throw Error("bike_snapshot_timeout");if(!current())throw Error("account_changed");if(!matchesAnalysisCapability(services,"bikePeriods"))throw Error("bike_snapshot_unavailable");return validateBikeSnapshot(response.data,request,previous);};
  try{return await Promise.race([work(),new Promise<never>((_,reject)=>{timer=setTimeout(()=>{expired=true;reject(Error("bike_snapshot_timeout"));},deadlineMs);})]);}
  finally{if(timer!==undefined)clearTimeout(timer);}
+}
+
+export async function loadBikeSnapshotHistory(services:FirebaseServices,uid:string,request:BikePeriodHistoryRequest):Promise<BikePeriodHistoryResponse>{
+ const {auth,functions}=services,user=auth.currentUser,app=auth.app;
+ const current=()=>!!user&&!user.isAnonymous&&user.uid===uid&&auth.currentUser===user&&services.auth===auth&&auth.app===app&&services.functions===functions&&functions.app===app;
+ if(!current())throw Error("account_changed");
+ if(!matchesAnalysisCapability(services,"bikePeriods"))throw Error("bike_snapshot_unavailable");
+ let expired=false,timer:ReturnType<typeof setTimeout>|undefined;
+ const work=async()=>{
+  await services.ensureAppCheckReady();if(expired)throw Error("bike_snapshot_timeout");if(!current())throw Error("account_changed");
+  if(!matchesAnalysisCapability(services,"bikePeriods"))throw Error("bike_snapshot_unavailable");
+  const response=await httpsCallable<BikePeriodHistoryRequest,BikePeriodHistoryResponse>(functions,"getBikeAnalysisPeriodHistory",{timeout:10000})(request);
+  if(expired)throw Error("bike_snapshot_timeout");if(!current())throw Error("account_changed");
+  const r=response.data;
+  if(!r||!Array.isArray(r.items)||r.items.length>20||new Set(r.items.map(i=>i.runId)).size!==r.items.length||r.items.some(i=>!i||!/^[a-f0-9-]{36}$/.test(i.runId)||!number(i.asOf)||!Number.isFinite(new Date(i.asOf).getTime())||!count(i.scanned)||!count(i.representatives)||i.representatives>i.scanned)||r.nextCursor!==null&&(typeof r.nextCursor!=="string"||r.nextCursor.length<1||r.nextCursor.length>256||[...r.nextCursor].some(character=>character.charCodeAt(0)<32)||r.nextCursor===request.cursor))throw Error("invalid_bike_snapshot");
+  return r;
+ };
+ try{return await Promise.race([work(),new Promise<never>((_,reject)=>{timer=setTimeout(()=>{expired=true;reject(Error("bike_snapshot_timeout"));},10000);})]);}finally{if(timer!==undefined)clearTimeout(timer);}
 }

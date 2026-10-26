@@ -6,7 +6,7 @@ import { useLocale } from "../../../contexts/LocaleContext";
 import { formatDistance, formatElev } from "../../../utils/units";
 import { formatElapsedBoundary } from "../../activity/detail/activityRangeSelection";
 import { LocalizedLink } from "../../../components/LocalizedLink";
-import { Button, Stack, Text } from "../../../theme";
+import { Button, Select, Stack, Text } from "../../../theme";
 import BikeSnapshotDensePower from "./BikeSnapshotDensePower";
 export default function BikePeriodSnapshotPanel(props:{ownerUid:string;period:PowerCurvePeriod}){
  if(!analysisCapabilityAvailable("bikePeriods"))return null;
@@ -17,10 +17,15 @@ function Panel({ownerUid,period}:{ownerUid:string;period:PowerCurvePeriod}){
  return <section className="space-y-3" aria-label={t("bikeSnapshot.title")}>
   <Text as="h4" variant="subtitle">{t("bikeSnapshot.title")}</Text><Text as="p">{t("bikeSnapshot.intro")}</Text>
   <Stack direction="row" wrap gap="var(--space-2)"><Button disabled={snapshot.running} onClick={()=>void(snapshot.canResume?snapshot.resume():snapshot.start())}>{t(snapshot.canResume?"bikeSnapshot.resume":"bikeSnapshot.start")}</Button>{snapshot.canResume&&<Button disabled={snapshot.running} variant="ghost" onClick={()=>void snapshot.start()}>{t("bikeSnapshot.restart")}</Button>}{snapshot.running&&<Button variant="ghost" onClick={snapshot.stop}>{t("bikeSnapshot.stop")}</Button>}</Stack>
-  {snapshot.running&&<Text as="p" role="status">{t("bikeSnapshot.progress",{count:r?.scanned??0})}</Text>}
+  <Button disabled={snapshot.running} variant="ghost" onClick={()=>void snapshot.loadHistory()}>{t("bikeSnapshot.loadHistory")}</Button>
+  {snapshot.history&&<><ul>{snapshot.history.items.map(item=><li key={item.runId}><Button disabled={snapshot.running} variant="ghost" onClick={()=>void snapshot.openSaved(item.runId)}>{new Intl.DateTimeFormat(i18n.language,{timeZone:"Asia/Seoul",dateStyle:"short",timeStyle:"medium"}).format(item.asOf)} KST · {item.representatives}</Button></li>)}</ul>{snapshot.history.nextCursor&&<Button disabled={snapshot.running} onClick={()=>void snapshot.loadHistory(true)}>{t("bikeSnapshot.moreHistory")}</Button>}</>}
+  {snapshot.running&&<Text as="p" role="status">{t("bikeSnapshot.progress",{count:snapshot.progressScanned??r?.scanned??0})}</Text>}
   {snapshot.error&&<Text as="p" role="alert">{t(snapshot.errorKind==="limit"?"bikeSnapshot.identityLimit":snapshot.errorKind==="invalidated"?"bikeSnapshot.invalidated":"bikeSnapshot.error")}</Text>}
   {r&&["expired","invalidated"].includes(r.state)&&<Text as="p" role="status">{t("bikeSnapshot.invalidated")}</Text>}
+  {(snapshot.previousResults?.length??0)>0&&<label>{t("bikeSnapshot.history")}<Select value={snapshot.selectedRun??"current"} onChange={event=>snapshot.selectPrevious(event.target.value==="current"?null:event.target.value)}><option value="current">{t("bikeSnapshot.latest")}</option>{snapshot.previousResults.map(old=><option key={old.runId} value={old.runId}>{new Intl.DateTimeFormat(i18n.language,{timeZone:"Asia/Seoul",dateStyle:"short",timeStyle:"medium"}).format(old.asOf)} KST</option>)}</Select></label>}
   {result&&<>
+   {(snapshot.running||snapshot.error)&&<Text as="p" role="status">{t("bikeSnapshot.previousResult")}</Text>}
+   {r?.currentWinnerRevisionChanged&&<Text as="p" role="status">{t("bikeSnapshot.sourceChanged")}</Text>}
    <Text as="p">{t("bikeSnapshot.basis",{count:r!.scanned,time:new Intl.DateTimeFormat(i18n.language,{timeZone:"Asia/Seoul",dateStyle:"short",timeStyle:"short"}).format(r!.asOf)+" KST"})}</Text>
    <div>{(["distanceM","movingTimeSec","elevationGainM"] as const).map(key=>{const total=result.totals[key],format=(value:number)=>key==="distanceM"?formatDistance(value,units):key==="movingTimeSec"?formatElapsedBoundary(value):formatElev(value,units);return <section key={key} className="space-y-2">
     <Text as="p" weight={600}>{t(`bikeSnapshot.metrics.${key}`)} · {total.totalValue===null?"—":format(total.totalValue)}</Text>

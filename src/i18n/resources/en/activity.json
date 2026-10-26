@@ -111,6 +111,10 @@
     "calculate": "Calculate selected records"
   },
   "stagePowerDuration": {
+    "history": "Previous calculations",
+    "latest": "Latest calculation",
+    "previous": "Previous calculation {{count}}",
+    "previousResult": "Showing a previously completed calculation separately from the new calculation.",
     "storedOrigin": "Calculated from stored power values · measurement origin unverified",
     "sourceUnavailable": "Stored power data is missing or verification criteria changed. Choose another activity or check again.",
     "current": "Current activity · {{date}}",

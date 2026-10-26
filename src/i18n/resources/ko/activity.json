@@ -111,6 +111,10 @@
     "calculate": "선택한 기록 계산"
   },
   "stagePowerDuration": {
+    "history": "이전 계산 결과",
+    "latest": "가장 최근 계산",
+    "previous": "이전 계산 {{count}}",
+    "previousResult": "이전에 완료한 계산 결과입니다. 새 계산과 구분하여 표시합니다.",
     "storedOrigin": "저장된 파워값으로 계산 · 측정 출처 미확인",
     "sourceUnavailable": "저장된 파워 데이터가 없거나 확인 기준이 바뀌었습니다. 다른 활동을 선택하거나 새로 확인하세요.",
     "current": "현재 활동 · {{date}}",

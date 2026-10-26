@@ -1,6 +1,6 @@
 import actual from "./__fixtures__/bike-snapshot-1001.json";
 import zones from "./__fixtures__/bike-snapshot-zones.json";
-import { validateBikeSnapshot, loadBikeSnapshot } from "./bikePeriodSnapshot";
+import { validateBikeSnapshot, loadBikeSnapshot, loadBikeSnapshotHistory } from "./bikePeriodSnapshot";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { setCallableImplementation, setCallableResult } from "../__tests__/mocks/firebase";
 vi.mock("./localTrainingEmulator",()=>({localTrainingEmulatorAvailable:()=>true,matchesLocalTrainingEmulator:()=>true}));
@@ -44,4 +44,19 @@ it("validates dense-grid provenance, bounds and independently missing normalized
  power.powerDurationObservations=original;power.weightNormalized!.powerDurationObservations={...original,unit:'W/kg',basis:'calculation_profile_snapshot',partial:true,weightCounts:{includedActivityCount:0,missingWeightActivityCount:1001,invalidWeightActivityCount:0,incompatibleWeightActivityCount:0},counts:{...original.counts,available:0},points:[]};
  expect(validateBikeSnapshot(value,request).result!.power.powerDurationObservations!.points).toHaveLength(POWER_DURATION_GRID.length);
  const bad=structuredClone(value);bad.result!.power.powerDurationObservations!.points[0]!.startTime=value.period.toExclusive;expect(()=>validateBikeSnapshot(bad,request)).toThrow('invalid_bike_snapshot');
+});
+it("accepts explicitly retained historical results and validates their retention metadata",()=>{
+ const historical={...actual,retention:"saved_result",resultFreshness:"historical_as_of",currentWinnerRevisionChanged:true};
+ expect(validateBikeSnapshot(historical,request)).toMatchObject({retention:"saved_result",currentWinnerRevisionChanged:true});
+ for(const patch of [{retention:"temporary_checkpoint"},{resultFreshness:"current"},{currentWinnerRevisionChanged:"yes"}])expect(()=>validateBikeSnapshot({...historical,...patch},request)).toThrow("invalid_bike_snapshot");
+});
+it("reads saved-period history without a calculation and fences same-UID session replacement",async()=>{
+ const s=services(),history={items:[{runId:actual.runId,asOf:actual.asOf,scanned:1001,representatives:1001}],nextCursor:null};
+ setCallableResult("getBikeAnalysisPeriodHistory",{data:history});
+ await expect(loadBikeSnapshotHistory(s,"owner",{period:actual.period})).resolves.toEqual(history);
+ setCallableImplementation("getBikeAnalysisPeriodHistory",()=>{Object.assign(s.auth,{currentUser:{uid:"owner",isAnonymous:false}});return{data:history};});
+ await expect(loadBikeSnapshotHistory(s,"owner",{period:actual.period})).rejects.toThrow("account_changed");
+});
+it("accepts authoritative snapshot times despite a slightly slow client clock",()=>{
+ vi.setSystemTime(actual.asOf-2000);expect(validateBikeSnapshot(actual,request).asOf).toBe(actual.asOf);
 });

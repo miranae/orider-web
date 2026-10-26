@@ -17,7 +17,11 @@ export interface BikePeriodSnapshotRequest {
 export interface BikePeriodSnapshotResponse {
   runId: string; version: number;
   state: "scanning" | "identity" | "flattening" | "selecting" | "aggregating" | "complete" | "invalidated" | "expired";
+  /** expiresAt bounds incomplete work only when retention is saved_result. */
   asOf: number; expiresAt: number; period: PowerCurvePeriod;
+  retention?: "saved_result" | "temporary_checkpoint";
+  resultFreshness?: "historical_as_of";
+  currentWinnerRevisionChanged?: boolean;
   scope: "owner_canonical_records_at_snapshot";
   scanned: number; candidates: number; representatives: number;
   sourceFreshness: "checked_at_each_step_not_continuously_current";
@@ -31,4 +35,10 @@ export interface BikePeriodSnapshotResponse {
   };
   zoneGroups: Array<{ id: string; kind: "heartRate"; group: PeriodHrZoneGroup } | { id: string; kind: "power"; group: PeriodPowerZoneGroup }>;
   nextZone: string | null;
+}
+
+export interface BikePeriodHistoryRequest { period: PowerCurvePeriod; cursor?: string }
+export interface BikePeriodHistoryResponse {
+  items: Array<{ runId: string; asOf: number; scanned: number; representatives: number }>;
+  nextCursor: string | null;
 }

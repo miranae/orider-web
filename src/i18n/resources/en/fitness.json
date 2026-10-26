@@ -1377,6 +1377,12 @@
     "pmcBounds": "Fitness bounds: day before {{start}} → closing {{end}}"
   },
   "bikeSnapshot": {
+    "loadHistory": "View saved period results",
+    "moreHistory": "More saved results",
+    "history": "Previous period results",
+    "latest": "Latest lookup",
+    "previousResult": "Showing the previously completed period result until the new lookup succeeds.",
+    "sourceChanged": "The current source analysis has changed. These saved values retain their displayed snapshot time; you can explicitly start a new lookup.",
     "identityLimit": "Too many records are linked as the same activity to check this period. Review the duplicate links.",
     "weightPartial": "Records with missing or incompatible weight are excluded from W/kg. Values are maxima among records with usable stored weight.",
     "weightComplete": "Stored weight for the W/kg comparison has been checked.",
