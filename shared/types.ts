@@ -53,6 +53,8 @@ export interface Activity {
   commentCount: number;
   /** 피드 카드용 사전 집계 — kudos 추가/제거 시 서버(onKudos*)가 최신순 상위 N명을 비정규화.
    *  카드가 좋아요 아바타를 추가 read 없이(0 read) 표시하기 위함 (스트라바 방식). */
+  /** Current authorized viewer membership; supplied by discovery. */
+  viewerHasKudos?: boolean;
   recentKudos?: Array<{ userId: string; nickname: string; profileImage: string | null }>;
   /** 피드 카드용 AI 요약 미리보기(한국어) — getActivityNarrative 생성 시 summary 를 활동 doc 에 비정규화.
    *  온디맨드 생성이라 대부분 활동엔 없음(undefined) — 있을 때만 카드에 노출. */

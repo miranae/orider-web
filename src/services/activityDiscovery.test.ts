@@ -8,7 +8,7 @@ vi.mock('firebase/functions',()=>({getFunctions:()=>({}),httpsCallable:()=>mocks
 vi.mock('./runtimeConfig',()=>({getRuntimeConfig:()=>({appEnvironment:'stage'}),isEmulatorRuntime:()=>false}));
 const viewer={uid:'owner',isAnonymous:false};
 const services={auth:{currentUser:viewer},functions:{app:{}},ensureAppCheckReady:mocks.ready} as unknown as FirebaseServices;
-function item():ActivityDiscoveryItem{return{presentationRevision:'a'.repeat(64),activity:{id:'ride',userId:'owner',nickname:'Synthetic',profileImage:null,type:'Ride',discipline:'bike',source:'orider',startTime:1,endTime:600001,createdAt:1,description:'Ride',visibility:'everyone',photoCount:0,kudosCount:1,commentCount:0,externalId:null,summary:{distance:99999,ridingTimeMillis:600000,averageSpeed:12,elevationGain:99},summarySource:'recorded',effectiveFacts:{source:'activity_metrics',status:'ready',inputRevision:'a',computedAt:1,coverage:'partial_terminal',thresholdBasis:null,powerSource:null,metrics:{distanceKm:6,durationSec:600,movingTimeSec:500,elevationGainM:null,avgSpeedKph:36}}},content:{status:'ready',memo:'memo',memoTruncated:false,photos:[],totalPhotoCount:0,totalPhotoCountExact:true},mapPreview:{imageUrl:null,encodedPolyline:null}};}
+function item():ActivityDiscoveryItem{return{viewerHasKudos:false,presentationRevision:'a'.repeat(64),activity:{id:'ride',userId:'owner',nickname:'Synthetic',profileImage:null,type:'Ride',discipline:'bike',source:'orider',startTime:1,endTime:600001,createdAt:1,description:'Ride',visibility:'everyone',photoCount:0,kudosCount:1,commentCount:0,externalId:null,summary:{distance:99999,ridingTimeMillis:600000,averageSpeed:12,elevationGain:99},summarySource:'recorded',effectiveFacts:{source:'activity_metrics',status:'ready',inputRevision:'a',computedAt:1,coverage:'partial_terminal',thresholdBasis:null,powerSource:null,metrics:{distanceKm:6,durationSec:600,movingTimeSec:500,elevationGainM:null,avgSpeedKph:36}}},content:{status:'ready',memo:'memo',memoTruncated:false,photos:[],totalPhotoCount:0,totalPhotoCountExact:true},mapPreview:{imageUrl:null,encodedPolyline:null}};}
 function page(){return{items:[item()],nextCursor:null,exhausted:true,scannedCount:1,totalCount:null,expiresAt:Date.now()+600000,order:'startTime_desc',includesUndated:false,consistency:'current_authorized_seek_pages'};}
 beforeEach(()=>{vi.clearAllMocks();(services.auth as {currentUser:unknown}).currentUser=viewer;mocks.ready.mockResolvedValue(undefined);mocks.call.mockResolvedValue({data:page()});});
 it('maps canonical units and preserves unknowns without raw fallback or private training inference',()=>{
@@ -60,4 +60,11 @@ it('keeps an unrecorded TCX distance unknown before and after metrics, while pre
  expect(mapDiscoveryActivity(v).summary.distance).toBe(0);
  v.activity.effectiveFacts.metrics={distanceKm:0,durationSec:600};
  expect(mapDiscoveryActivity(v).summary.distance).toBe(0);
+});
+
+it('preserves exact current viewer membership independently from avatar previews',async()=>{
+ const p=page();p.items[0]!.viewerHasKudos=true;mocks.call.mockResolvedValue({data:p});
+ expect((await loadActivityDiscovery(services,{scope:'all'})).items[0]!.viewerHasKudos).toBe(true);
+ p.items[0]!.viewerHasKudos=false;mocks.call.mockResolvedValue({data:p});
+ expect((await loadActivityDiscovery(services,{scope:'all'})).items[0]!.viewerHasKudos).toBe(false);
 });

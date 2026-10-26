@@ -19,7 +19,7 @@ it("only submits after explicit confirmation and focuses the reason and returnin
 it("cancel aborts an uncertain POST and ignores its late success", async () => {
   let resolve!: (r: unknown) => void; mocks.report.mockReturnValue(new Promise(r => { resolve = r; }));
   show(); fireEvent.click(screen.getByRole("button", { name: "기록 신고" })); fireEvent.click(screen.getByRole("button", { name: "신고 제출" }));
-  fireEvent.click(screen.getByRole("button", { name: "취소" }));
+  fireEvent.click(screen.getByRole("button", { name: "닫기" }));
   expect(mocks.report.mock.calls[0]![3].aborted).toBe(true);
   await act(async () => resolve(result)); expect(screen.queryByRole("status")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "기록 신고" })); expect(screen.getByRole("button", { name: "신고 제출" })).toBeEnabled();
@@ -41,7 +41,7 @@ it("drops a pending response after account replacement and unmount aborts pendin
 it("closing before submission sends nothing and refresh unmount cancels a pending submission", async () => {
   let resolve!: (r: unknown) => void; mocks.report.mockReturnValue(new Promise(r => { resolve = r; }));
   const rendered = show(); fireEvent.click(screen.getByRole("button", { name: "기록 신고" }));
-  fireEvent.click(screen.getByRole("button", { name: "취소" })); expect(mocks.report).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "닫기" })); expect(mocks.report).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "기록 신고" })); fireEvent.click(screen.getByRole("button", { name: "신고 제출" }));
   rendered.unmount(); expect(mocks.report.mock.calls[0]![3].aborted).toBe(true);
   await act(async () => resolve(result)); expect(screen.queryByRole("status")).not.toBeInTheDocument();

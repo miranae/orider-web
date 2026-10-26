@@ -18,6 +18,8 @@ export interface ActivityDiscoveryActivity {
     coverage: string | null; thresholdBasis: null; powerSource: 'measured' | 'estimated' | 'unknown' | null; metrics: Record<string, number | null> | null };
 }
 export interface ActivityDiscoveryItem {
+  /** Exact current viewer membership, not inferred from the bounded recent avatar list. */
+  viewerHasKudos: boolean;
   /** Opaque activity/metric/repair revision. No paths or source fields. */
   presentationRevision: string;
   anchorBoundCoRider?: true;
