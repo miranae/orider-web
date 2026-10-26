@@ -56,7 +56,7 @@ Two focused suites / 25 tests, changed-file ESLint and TypeScript passed. Tests 
 | R0/R8 paid comparison and release-wide QA | Real paid-Strava paired comparison, production latency/cost and physical-device evidence are absent. Local emulator measurements are not substitutes. Overlapping profile photo reads now share requests; sequential reads can still repeat. See the bounded [photo read evidence](photo-read-coalescing.md), which is not production cost evidence. |
 | R9 beta/release decision | [Executable beta plan](beta-execution-plan.md) now defines the proposed 24-person cohorts, 14-day tasks, full denominators and stop/resume decision records. Real-rider recruitment, two-week observation, staged release, store versions and product-owner launch decision remain unperformed. No external contact is authorized by this local work. |
 
-The goal and full epic remain open. No remote issue state is changed by this report. APP remains lower priority than the completed local web/server review. The latest sparse-feed Android/shared run passed 57 tests and production compilation. iOS has an earlier 179-test passing checkpoint, followed by a partially passing expanded run and additional dependency-isolation corrections. The latest source compiles; focused NextRide (15) and pending-publisher (1) tests passed before the final owner-isolation change. The final owner-switch runtime check remains unverified after a runner bootstrap failure and deferred build-resource wait. These overlapping and different-source checkpoints must not be summed or described as a final all-green native gate. See the app handoff and external app-local evidence for exact snapshots.
+The goal and full epic remain open. No remote issue state is changed by this report. APP remains lower priority than web/server. The latest sparse-feed Android/shared run passed 57 tests and production compilation. iOS APP `a447e7c0` passed compilation and the final SwiftData suite: 43 tests, zero failures/skips, after the two formerly failing cases passed individually. The earlier 179-test checkpoint and other expanded-suite partial passes remain separate, overlapping evidence; this is not a fresh final-source all-app gate. Actual native WebView handshakes and physical-device acceptance remain outstanding. Exact snapshots are in the app hosted-Firebase-isolation handoff and external `app-local/swiftdata-final-source.json`.
 
 ## Earlier combined local checkpoint
 
@@ -270,3 +270,25 @@ opened `ui-native-ride`, then browser-back restored both dates and fetched the
 period again. DOM viewport/document widths were both390px. No existing fixture
 or account was changed. This is actual app/SDK local read-only evidence, distinct
 from the deterministic large-page regression. No remote writes or deployment.
+
+
+## Actual public-profile 201-record verification
+
+WEB product `4e5329b6` was verified through the main local app and actual Firebase SDK.
+The isolated fixture consists of one new synthetic profile and 201 minimal recorded-source
+metadata documents; it does not prove raw recording/metrics production. Existing review
+accounts and records were unchanged. A Los Angeles-timezone Chrome viewport of 390×844
+requested the KST period October 1–26, 2026. Eleven explicit period pages returned
+20, 40, …, 200, 201 cumulative records. The completed chart showed 201 km and 201
+original-activity links. Thirteen total discovery responses (including independent initial
+profile reads) returned HTTP200, with zero page errors and no horizontal overflow.
+The fixed authorization deadline subsequently removed the cumulative links and chart,
+showing the explicit stale/requery notice. It did not automatically restart enumeration.
+
+Evidence: external `profile-period-201/results.json`, `completed.png`, `expired.png`,
+`verify.mjs`, and exact fixture/cleanup manifest. Review URL:
+<http://localhost:5174/ko/athlete/profile-period-201-local-20261026?demoAccount=viewer&profileFrom=2026-10-01&profileTo=2026-10-26>.
+The 201-record fixture remains for review; `seed.cjs cleanup` checks its marker and deletes
+only its 203 enumerated documents. No real account, external service, or deployment was changed.
+Node22 development build and repository quality budgets passed after the final profile changes. Logs: `/tmp/orider-profile-period-build.log` and `/tmp/orider-profile-period-quality.log`. Earlier whole-web test
+counts belong to their earlier checkpoint; this update uses the documented focused suites.
