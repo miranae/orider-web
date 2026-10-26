@@ -112,7 +112,7 @@ describe("AiRideAnalysisCard", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("저장된 분석을 계속 표시합니다");
     expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
     expect(screen.getByText("생성 당시 구간 코칭")).toBeInTheDocument();
-    await waitFor(() => expect(narrativeApiMocks.generate).toHaveBeenCalledWith({ activityId: "legacy-stale-refresh", lang: "ko", forceRefresh: true }));
+    await waitFor(() => expect(narrativeApiMocks.generate).toHaveBeenCalledWith({ activityId: "legacy-stale-refresh", lang: "ko", forceRefresh: true }, expect.objectContaining({ auth: expect.anything(), functions: expect.anything() })));
     await act(async () => rejectRefresh(new Error("temporary refresh failure")));
     expect(await screen.findByRole("alert")).toHaveTextContent("저장된 분석은 유지됩니다");
     expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
@@ -134,7 +134,7 @@ describe("AiRideAnalysisCard", () => {
     expect(narrativeApiMocks.generate).toHaveBeenCalledTimes(1);
     await act(async () => { await i18n.changeLanguage("en"); });
     try {
-      await waitFor(() => expect(narrativeApiMocks.peek).toHaveBeenCalledWith({ activityId: "scope-refresh-b", cacheOnly: true, lang: "en" }));
+      await waitFor(() => expect(narrativeApiMocks.peek).toHaveBeenCalledWith({ activityId: "scope-refresh-b", cacheOnly: true, lang: "en" }, expect.objectContaining({ auth: expect.anything() })));
       expect(narrativeApiMocks.generate).toHaveBeenCalledTimes(1);
     } finally {
       await act(async () => { await i18n.changeLanguage("ko"); });
@@ -215,7 +215,7 @@ describe("AiRideAnalysisCard", () => {
     expect(await screen.findByText("복구된 공유요약")).toBeInTheDocument();
     expect(screen.getByText("전체 코칭 요약")).toBeInTheDocument();
     expect(screen.getByText("구간 코칭 보존")).toBeInTheDocument();
-    expect(narrativeApiMocks.retrySummary).toHaveBeenCalledWith("retry-only-summary", "ko");
+    expect(narrativeApiMocks.retrySummary).toHaveBeenCalledWith("retry-only-summary", "ko", expect.objectContaining({ auth: expect.anything() }));
     expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
   });
 
@@ -232,7 +232,7 @@ describe("AiRideAnalysisCard", () => {
     expect(await screen.findByText("새로운 짧은 성취 문구")).toBeInTheDocument();
     expect(narrativeApiMocks.generate).toHaveBeenCalledWith(expect.objectContaining({
       activityId: "invalid-short-share", forceRefresh: true,
-    }));
+    }), expect.objectContaining({ auth: expect.anything() }));
     expect(narrativeApiMocks.retrySummary).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "공유 문구를 위해 다시 분석" })).not.toBeInTheDocument();
   });

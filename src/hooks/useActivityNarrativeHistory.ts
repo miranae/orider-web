@@ -1,9 +1,11 @@
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useEffect, useRef, useState } from "react";
 import { loadActivityNarrativeHistory, type NarrativeHistory } from "../services/activityNarrativeHistory";
 import { captureActivityNarrativeSession, isActivityNarrativeAccessRevoked } from "../services/activityNarrativeSession";
 import type { NarrativeLang } from "./useActivityNarrative";
 export function useActivityNarrativeHistory(activityId: string | null, lang: NarrativeLang, enabled: boolean) {
-  const session = captureActivityNarrativeSession();
+  const services = useFirebaseServices();
+  const session = captureActivityNarrativeSession(services);
   const scope = `${activityId}:${lang}:${session.key}:${enabled}`;
   const [state, setState] = useState<{ scope: string; list: NarrativeHistory | null; selected: NarrativeHistory["selected"]; busy: boolean; failed: boolean; accessRevoked: boolean }>({ scope, list: null, selected: null, busy: false, failed: false, accessRevoked: false });
   const generation = useRef(0), busy = useRef(false);
@@ -14,7 +16,7 @@ export function useActivityNarrativeHistory(activityId: string | null, lang: Nar
     const token = generation.current; busy.current = true;
     setState({ ...current, busy: true, failed: false, accessRevoked: false });
     try {
-      const response = await loadActivityNarrativeHistory(activityId, lang, revisionId, cursor);
+      const response = await loadActivityNarrativeHistory(activityId, lang, revisionId, cursor, services);
       if (token !== generation.current || !session.isCurrent()) return;
       if (revisionId && !response.selected) throw Error("missing_narrative_revision");
       setState({ scope, busy: false, failed: false, accessRevoked: false, selected: revisionId ? response.selected : current.selected,

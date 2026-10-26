@@ -1,3 +1,4 @@
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Text } from "../../theme/components";
@@ -14,6 +15,7 @@ interface Props {
 
 export default function ActivitySocialSummary({ summary: initialSummary, isActivityOwner, activityId, lang = "ko" }: Props) {
   const { t } = useTranslation("activity");
+  const services = useFirebaseServices();
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [recovered, setRecovered] = useState<SocialSummary>();
   const [retryState, setRetryState] = useState<"idle" | "loading" | "error">("idle");
@@ -27,7 +29,7 @@ export default function ActivitySocialSummary({ summary: initialSummary, isActiv
     if (!activityId || !isActivityOwner || retryState === "loading") return;
     setRetryState("loading");
     try {
-      const result = await retryActivitySocialSummary(activityId, lang);
+      const result = await retryActivitySocialSummary(activityId, lang, services);
       if (!mounted.current) return;
       if (!result.socialSummary) { setRetryState("error"); return; }
       setRecovered(result.socialSummary);

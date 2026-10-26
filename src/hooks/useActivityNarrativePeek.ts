@@ -1,3 +1,4 @@
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 /**
  * 활동 AI 분석 캐시 peek — LLM 호출 없이 캐시 여부만 빠르게 확인.
  *
@@ -36,7 +37,8 @@ const peekKey = (activityId: string, lang: NarrativeLang, viewer: string) => `${
  */
 export function useActivityNarrativePeek(activityId: string | null, enabled: boolean, lang: NarrativeLang = "ko"): PeekState {
   const { user } = useAuth();
-  const session = captureActivityNarrativeSession();
+  const services = useFirebaseServices();
+  const session = captureActivityNarrativeSession(services);
   const scope = peekKey(activityId ?? "", lang, `${user?.uid ?? "anonymous"}:${session.key}`);
   const [stateScope, setStateScope] = useState(scope);
   const [state, setState] = useState<PeekState>({ data: null, loading: false, cacheMiss: false });
@@ -56,7 +58,7 @@ export function useActivityNarrativePeek(activityId: string | null, enabled: boo
     let cancelled = false;
     setState({ data: null, loading: true, cacheMiss: false });
 
-    peekActivityNarrative({ activityId, cacheOnly: true, lang })
+    peekActivityNarrative({ activityId, cacheOnly: true, lang }, services)
       .then((d) => {
         if (cancelled || !session.isCurrent()) return;
         if (d.hit) {
@@ -77,7 +79,7 @@ export function useActivityNarrativePeek(activityId: string | null, enabled: boo
       });
 
     return () => { cancelled = true; };
-  }, [activityId, enabled, lang, scope, session]);
+  }, [activityId, enabled, lang, scope, session, services]);
 
   return stateScope === scope && session.isCurrent() ? state : { data: null, loading: enabled, cacheMiss: false };
 }

@@ -1,3 +1,4 @@
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useActivityNarrativeHistory } from "../../hooks/useActivityNarrativeHistory";
 import NarrativeComparisonGrounding from "./NarrativeComparisonGrounding";
 import { captureActivityNarrativeSession } from "../../services/activityNarrativeSession";
@@ -252,12 +253,13 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   const header = <><Bot size={ICON_SIZE.md} aria-hidden="true" style={{ display: "inline", marginInlineEnd: "var(--space-2)", verticalAlign: "text-bottom" }} />{t(sportHeaderKey(sport)).replace(/^🤖\s*/u, "")}</>;
   const previewSummary = lang === "en" ? (summaryPreviewEn || summaryPreview) : (summaryPreview || summaryPreviewEn);
   const { user, signIn } = useAuth();
+  const narrativeServices = useFirebaseServices();
   // 1단계: 소유자의 캐시만 확인한다. 과거 비공개 기록이 포함된 AI 본문은 공개 DTO와 분리한다.
   const narrativeEnabled = enabled && isActivityOwner && !!user && getRuntimeConfig().appEnvironment !== "stage";
   const peek = useActivityNarrativePeek(activityId, narrativeEnabled, lang);
   // 2단계: 사용자가 "분석시작"을 눌렀을 때만 full 생성 호출.
   //   인증된 소유자의 명시적 조작만 생성 요청으로 이어진다.
-  const scope = `${activityId}:${lang}:${user?.uid ?? "anonymous"}:${captureActivityNarrativeSession().key}`;
+  const scope = `${activityId}:${lang}:${user?.uid ?? "anonymous"}:${captureActivityNarrativeSession(narrativeServices).key}`;
   const [triggerScope, setTriggerScope] = useState<string | null>(null);
   const triggerFull = triggerScope === scope;
   const setTriggerFull = (trigger: boolean) => setTriggerScope(trigger ? scope : null);

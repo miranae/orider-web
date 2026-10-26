@@ -1,6 +1,5 @@
 import { httpsCallable } from "firebase/functions";
-import { auth, functions, ensureAppCheckReady } from "./firebase";
-import { captureActivityNarrativeSession } from "./activityNarrativeSession";
+import { captureActivityNarrativeSession, type ActivityNarrativeServices } from "./activityNarrativeSession";
 import type { ActivityNarrative, NarrativeLang } from "../hooks/useActivityNarrative";
 export interface NarrativeHistory {
   items: Array<{ revisionId: string; generatedAt: number | null; version: string | null }>;
@@ -8,8 +7,9 @@ export interface NarrativeHistory {
   selected: { revisionId: string; narrative: ActivityNarrative } | null;
 }
 const revision = (v: unknown): v is string => typeof v === "string" && /^[a-f0-9]{64}$/.test(v);
-export async function loadActivityNarrativeHistory(activityId: string, lang: NarrativeLang, revisionId?: string, cursor?: string): Promise<NarrativeHistory> {
-  const session = captureActivityNarrativeSession();
+export async function loadActivityNarrativeHistory(activityId: string, lang: NarrativeLang, revisionId?: string, cursor?: string, services?: ActivityNarrativeServices): Promise<NarrativeHistory> {
+  const session = captureActivityNarrativeSession(services);
+  const { auth, functions, ensureAppCheckReady } = session.services;
   if (!auth.currentUser || auth.currentUser.isAnonymous) throw Object.assign(Error("Sign in required"), { code: "unauthenticated" });
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(activityId) || revisionId !== undefined && !revision(revisionId) || cursor !== undefined && !revision(cursor)) throw Error("invalid_narrative_history_request");
   await ensureAppCheckReady(); session.assertCurrent();

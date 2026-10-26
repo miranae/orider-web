@@ -1,3 +1,4 @@
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { ActivityNarrativeGrounding } from "@shared/activity-narrative-grounding";
 import { invalidateActivityNarrativePeekCache } from "./useActivityNarrativePeek";
 /**
@@ -147,7 +148,8 @@ export function useActivityNarrativeWithOptions(
   refreshKey = 0,
 ): State {
   const { user } = useAuth();
-  const session = captureActivityNarrativeSession();
+  const services = useFirebaseServices();
+  const session = captureActivityNarrativeSession(services);
   const scope = `${activityId}:${lang}:${user?.uid ?? "anonymous"}:${session.key}`;
   const [stateScope, setStateScope] = useState(scope);
   const [state, setState] = useState<State>({ data: null, loading: false, error: null });
@@ -173,7 +175,7 @@ export function useActivityNarrativeWithOptions(
         activityId,
         lang,
         ...(forceRefresh ? { forceRefresh: true } : {}),
-      });
+      }, services);
       inflight.set(key, promise);
       // 성공 → done 으로 승격, 실패 → inflight 비워 후속 마운트가 재시도 가능
       promise.then((data) => {
@@ -198,7 +200,7 @@ export function useActivityNarrativeWithOptions(
       });
 
     return () => { cancelled = true; };
-  }, [activityId, enabled, lang, forceRefresh, refreshKey, scope, session]);
+  }, [activityId, enabled, lang, forceRefresh, refreshKey, scope, session, services]);
 
   return stateScope === scope && session.isCurrent() ? state : { data: null, loading: enabled, error: null };
 }

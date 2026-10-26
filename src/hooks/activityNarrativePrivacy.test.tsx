@@ -83,4 +83,16 @@ describe("activity narrative viewer isolation", () => {
     expect(result.current.data).toBeNull();
   });
 
+  it.each(["narrative_streams_not_ready", "narrative_generation_inputs_changed"])("preserves saved text and timestamp when explicit generation fails with %s", async reason => {
+    mocks.generate.mockResolvedValueOnce({ summary: "saved generation", generatedAt: 123 });
+    const { result, rerender } = renderHook(({ refresh }) => useActivityNarrativeWithOptions(`typed-${reason}`, true, "ko", refresh > 0, refresh), { initialProps: { refresh: 0 } });
+    await waitFor(() => expect(result.current.data?.summary).toBe("saved generation"));
+    mocks.generate.mockRejectedValueOnce(Object.assign(Error("input unavailable"), { code: "functions/failed-precondition", details: { reason } }));
+    rerender({ refresh: 1 });
+    await waitFor(() => expect(result.current.error).toBe("input unavailable"));
+    expect(result.current.data?.generatedAt).toBe(123);
+    expect(result.current.data?.summary).toBe("saved generation");
+    expect(result.current.accessRevoked).toBe(false);
+  });
+
 });

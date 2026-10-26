@@ -3,7 +3,7 @@ const mocks = vi.hoisted(() => {
   const app = {}, user = { uid: "owner", isAnonymous: false };
   return { app, user, auth: { app, currentUser: user as typeof user | null }, functions: { app }, ready: vi.fn(), invoke: vi.fn() };
 });
-vi.mock("./firebase", () => ({ auth: mocks.auth, functions: mocks.functions, ensureAppCheckReady: mocks.ready }));
+vi.mock("./firebase", () => ({ auth: mocks.auth, functions: mocks.functions, ensureAppCheckReady: mocks.ready, getAppCheckToken: vi.fn() }));
 vi.mock("firebase/functions", () => ({ httpsCallable: () => mocks.invoke }));
 import { loadActivityNarrativeHistory } from "./activityNarrativeHistory";
 beforeEach(() => { mocks.auth.currentUser = mocks.user; mocks.ready.mockReset().mockResolvedValue(undefined); mocks.invoke.mockReset(); });
