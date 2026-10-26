@@ -9,6 +9,7 @@ import type { SegmentLeaderboardRequest, SegmentLeaderboardResponse } from "@sha
 import { Button, Card, Input, Select, Stack, Text } from "../../theme/components";
 import { LocalizedLink } from "../../components/LocalizedLink";
 import { formatElapsedMillis } from "../leaderboard/leaderboardFormat";
+import SegmentRankingReport from "./SegmentRankingReport";
 const visible = () => document.visibilityState !== "hidden";
 const date = (value: number) => new Date(value + 9 * 3600000).toISOString().slice(0, 10);
 export default function SegmentLeaderboard({ segmentId }: { segmentId: string }) {
@@ -94,6 +95,7 @@ export default function SegmentLeaderboard({ segmentId }: { segmentId: string })
       {view.result.entries.map(e => <Stack key={e.id} gap="var(--space-1)">
         <LocalizedLink to={`/activity/${e.activityId}`}>{e.nickname || t("nativeBoard.rider")} · {formatElapsedMillis(e.elapsedTime)}</LocalizedLink>
         <Text variant="caption">{e.averageSpeed.toFixed(1)} km/h · {new Date(e.startDate).toLocaleDateString(undefined, { timeZone: "Asia/Seoul" })}</Text>
+        <SegmentRankingReport activityId={e.activityId} segmentId={segmentId} />
       </Stack>)}
       {view.result.nextCursor && <Button variant="outline" onClick={() => void load(view.result!.nextCursor!)}>{t("nativeBoard.next")}</Button>}
       {!view.result.nextCursor && <Text>{t(view.result.limitReached ? "nativeBoard.limit" : "nativeBoard.end")}</Text>}

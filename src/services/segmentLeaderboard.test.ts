@@ -55,3 +55,15 @@ it("rejects replacement of the Functions service while AppCheck waits", async()=
  await expect(loadSegmentLeaderboard(s,"viewer",request)).rejects.toThrow("account_changed");
  expect(mockCallableInvocations.filter(c=>c.name==="getSegmentLeaderboard")).toHaveLength(0);
 });
+
+it("validates report reasons and server statuses and keeps duplicate retries explicit", async () => {
+ const {reportSegmentRankingEligibility}=await import("./segmentLeaderboard");
+ const r={activityId:"a",segmentId:"s",reason:"gps_anomaly" as const};
+ setCallableResult("reportSegmentRankingEligibility",{data:{reportId:"a".repeat(64),status:"pending",duplicate:true}});
+ await expect(reportSegmentRankingEligibility(services(),"viewer",r)).resolves.toMatchObject({duplicate:true,status:"pending"});
+ await expect(reportSegmentRankingEligibility(services(),"viewer",{...r,reason:"bad" as never})).rejects.toThrow("invalid_segment_report");
+ for (const reportId of ["short", ["a".repeat(64)]]) {
+  setCallableResult("reportSegmentRankingEligibility",{data:{reportId,status:"pending",duplicate:false}});
+  await expect(reportSegmentRankingEligibility(services(),"viewer",r)).rejects.toThrow("invalid_segment_report_response");
+ }
+});

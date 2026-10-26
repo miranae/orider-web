@@ -47,3 +47,13 @@ export async function loadMySegmentAttempts(services: FirebaseServices, uid: str
   if (!result || !entriesValid(result.entries, segmentId) || result.entries.some(e => e.userId !== uid)) throw new Error("invalid_owner_attempts");
   return result.entries;
 }
+
+export const SEGMENT_REPORT_REASONS = ["gps_anomaly", "vehicle", "electric_bike", "duplicate", "indoor", "other"] as const;
+export type SegmentReportReason = typeof SEGMENT_REPORT_REASONS[number];
+export type SegmentReportResult = { reportId: string; status: "pending" | "actioned" | "restored"; duplicate: boolean };
+export async function reportSegmentRankingEligibility(services: FirebaseServices, uid: string, request: { activityId: string; segmentId: string; reason: SegmentReportReason }, signal?: AbortSignal): Promise<SegmentReportResult> {
+  if (!id(request.activityId) || !id(request.segmentId) || !SEGMENT_REPORT_REASONS.includes(request.reason)) throw new Error("invalid_segment_report");
+  const result = await invoke<SegmentReportResult>(services, uid, "reportSegmentRankingEligibility", request, signal);
+  if (!result || typeof result.reportId !== "string" || !/^[a-f0-9]{64}$/.test(result.reportId) || !["pending", "actioned", "restored"].includes(result.status) || typeof result.duplicate !== "boolean") throw new Error("invalid_segment_report_response");
+  return result;
+}

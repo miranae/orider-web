@@ -352,5 +352,26 @@
     "checked": "Access checked at {{time}}. Recheck shortly to refresh this result.",
     "scope": "Full range check · up to 2,000 records"
   },
-  "safeLegend.quickScope": "Quick check · up to 500 records"
+  "safeLegend.quickScope": "Quick check · up to 500 records",
+  "rankingReport": {
+    "open": "Report record",
+    "explanation": "Tell us why this record needs review. A report does not immediately remove it from the ranking.",
+    "reason": "Reason",
+    "submit": "Submit report",
+    "cancel": "Cancel",
+    "error": "We could not confirm receipt. Retrying the same report will not create a duplicate.",
+    "reasons": {
+      "gps_anomaly": "GPS anomaly",
+      "vehicle": "Vehicle use",
+      "electric_bike": "Electric bike",
+      "duplicate": "Duplicate record",
+      "indoor": "Indoor activity",
+      "other": "Other"
+    },
+    "status": {
+      "pending": "Report received and awaiting review.",
+      "actioned": "This report has been actioned.",
+      "restored": "This record was restored after review."
+    }
+  }
 }

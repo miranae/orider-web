@@ -3,7 +3,7 @@ import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { simulateLogin } from "../../__tests__/mocks/firebase";
 import SegmentLeaderboard from "./SegmentLeaderboard";
 const mocks = vi.hoisted(() => ({ load: vi.fn() }));
-vi.mock("../../services/segmentLeaderboard", () => ({ loadSegmentLeaderboard: mocks.load }));
+vi.mock("../../services/segmentLeaderboard", async importOriginal => ({ ...await importOriginal<typeof import("../../services/segmentLeaderboard")>(), loadSegmentLeaderboard: mocks.load }));
 vi.mock("../../hooks/useGroup", () => ({ useMyGroups: () => ({ groups: [{ id: "club", name: "남산 클럽" }], error: null, retry: vi.fn() }) }));
 const response = (name = "라이더", nextCursor: string | null = "next") => ({ entries: [{ id: "e", activityId: "a", userId: "rider", nickname: name, elapsedTime: 100000, averageSpeed: 36, startDate: Date.now() }], nextCursor, scannedCount: 50, limitReached: false, scopeMemberCount: null });
 beforeEach(() => { mocks.load.mockReset(); mocks.load.mockResolvedValue(response()); });

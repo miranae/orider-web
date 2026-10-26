@@ -350,5 +350,26 @@
     "checked": "{{time}}에 공개 범위를 확인했습니다. 결과는 잠시 후 다시 확인해야 합니다.",
     "scope": "전체 범위 확인 · 최대 2,000개"
   },
-  "safeLegend.quickScope": "빠른 조회 · 최대 500개"
+  "safeLegend.quickScope": "빠른 조회 · 최대 500개",
+  "rankingReport": {
+    "open": "기록 신고",
+    "explanation": "검토가 필요한 기록을 알려주세요. 신고만으로 순위에서 즉시 제외되지는 않습니다.",
+    "reason": "신고 사유",
+    "submit": "신고 제출",
+    "cancel": "취소",
+    "error": "접수 여부를 확인하지 못했습니다. 같은 신고를 다시 제출해도 중복 접수되지 않습니다.",
+    "reasons": {
+      "gps_anomaly": "GPS 이상",
+      "vehicle": "차량 이용",
+      "electric_bike": "전기자전거",
+      "duplicate": "중복 기록",
+      "indoor": "실내 활동",
+      "other": "기타"
+    },
+    "status": {
+      "pending": "신고를 접수했습니다. 검토를 기다리고 있습니다.",
+      "actioned": "이 신고는 조치가 완료되었습니다.",
+      "restored": "이 신고는 검토 후 기록이 복원되었습니다."
+    }
+  }
 }
