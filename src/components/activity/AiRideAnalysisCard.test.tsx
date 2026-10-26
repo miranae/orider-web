@@ -408,10 +408,11 @@ describe("AiRideAnalysisCard", () => {
       expect(container.querySelector("time")).not.toBeNull();
     });
 
-    it("labels the server stop_heavy flag", async () => {
+    it("does not render the server stop_heavy flag as a chip (AI 해석 입력 전용)", async () => {
       narrativeApiMocks.peek.mockResolvedValue(snapshot({ overall: { ...narrative([]).overall, flags: ["stop_heavy"] } }));
       renderWithProviders(<AiRideAnalysisCard activityId="snapshot-stop-heavy" enabled />);
-      expect(await screen.findByText("정지 많음")).toBeInTheDocument();
+      expect(await screen.findByText(/135\.36km|요약|분석 생성 시각/)).toBeInTheDocument();
+      expect(screen.queryByText("정지 많음")).not.toBeInTheDocument();
       expect(screen.queryByText("stop_heavy")).not.toBeInTheDocument();
     });
   });

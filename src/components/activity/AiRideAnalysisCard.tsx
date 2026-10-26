@@ -524,7 +524,8 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
       {/* 전체 플래그 */}
       {overall.flags.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
-          {overall.flags.map((f) => <FlagChip key={f} flag={f} t={t} />)}
+          {/* stop_heavy 는 AI 해석 입력용 서버 플래그 — 요약 본문에 녹아 있으므로 칩으로 따로 그리지 않는다. */}
+          {overall.flags.filter((f) => f !== "stop_heavy").map((f) => <FlagChip key={f} flag={f} t={t} />)}
         </div>
       )}
 

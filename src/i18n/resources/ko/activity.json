@@ -594,8 +594,7 @@
       "heat_late_ride": "후반 더위",
       "fast_start": "빠른 출발",
       "predominantly_high_intensity": "고강도 위주",
-      "late_power_fade": "후반 출력저하",
-      "stop_heavy": "정지 많음"
+      "late_power_fade": "후반 출력저하"
     },
     "effort": {
       "komRank": "KOM {{n}}위",
@@ -1694,7 +1693,6 @@
     "tsb": "폼 · TSB",
     "dailyBasis": "같은 종목의 일별 정산값입니다. 활동일 값에는 그날의 모든 활동이 포함됩니다.",
     "pendingBasis": "활동일 정산이 끝나면 같은 종목의 후속 값을 표시합니다.",
-    "unavailable": "활동일 정산이 끝나지 않았거나 피트니스 데이터가 부족합니다.",
     "private": "이 활동의 비공개 설정으로 피트니스 수치를 공유하지 않습니다.",
     "copy": "공유 문구 복사",
     "copied": "공유 문구를 복사했습니다.",
