@@ -371,6 +371,8 @@ export default function AnalysisTab({
   const weightKg = sm?.contextSnapshot?.weightKg ?? null;
   const hasPower = sm != null && (sm.np != null || sm.avgPower != null);
   const hasHr = sm != null && sm.avgHr != null;
+  const hrContextMissing = hasHr && !hasMaxHr;
+  const hrZonesEmptyDescription = t(hrContextMissing ? "overviewEvidence.hrContextMissing" : "analysis.empty.hrZonesDesc");
   const np = sm?.np ?? null;
   const ifactor = sm?.if ?? null;
   const tss = sm?.tss ?? null;
@@ -617,7 +619,7 @@ export default function AnalysisTab({
     : decoupling < 5 ? "good" : decoupling < 10 ? "warn" : "bad";
 
   const assembledZones = <>
-    {hasHr && !presentedHrZone && <ZoneDistributionChart title={t("analysis.zones.hr")} zones={hrZones ?? []} />}
+    {hasHr && !presentedHrZone && <ZoneDistributionChart title={t("analysis.zones.hr")} zones={hrZones ?? []} emptyTitle={t("analysis.empty.hrZonesTitle")} emptyDescription={hrZonesEmptyDescription} />}
     {hasPower && !integratedPower?.zones?.some(zone => zone.kind === "power") && <ZoneDistributionChart surface="sheen" title={t("analysis.zones.power")} zones={powerZones ?? []} />}
     {seilerZones && polarization && <section className="space-y-3">
       <Text as="h3" variant="bodyMedium" weight={600}>{t("analysis.seiler.title")}</Text>
@@ -642,7 +644,7 @@ export default function AnalysisTab({
           {t("overviewEvidence.ftpMissing")}
         </div>
       )}
-      {hasHr && !hasMaxHr && (
+      {hrContextMissing && (
         <div className="rounded-[var(--r-lg)] px-4 py-2.5 text-[length:var(--fs-xs)]" style={{ background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', color: 'var(--amber)' }}>
           {t("overviewEvidence.hrContextMissing")}
         </div>
@@ -881,7 +883,7 @@ export default function AnalysisTab({
                 title={t("analysis.zones.hr")}
                 zones={hrZones ?? []}
                 emptyTitle={t("analysis.empty.hrZonesTitle")}
-                emptyDescription={t("analysis.empty.hrZonesDesc")}
+                emptyDescription={hrZonesEmptyDescription}
               />
             )}
             {powerZoneView === "coggan" && powerZones && (

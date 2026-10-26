@@ -19,7 +19,7 @@ vi.mock("react-i18next", () => ({ useTranslation: (namespace = "activity") => ({
   const value = key.split(".").reduce<unknown>((node, part) => node && typeof node === "object" ? (node as Record<string, unknown>)[part] : undefined, resource);
   return typeof value === "string" ? value.replace(/\{\{(\w+)\}\}/g, (_, name: string) => String(values?.[name] ?? "")) : key;
 } }) }));
-vi.mock("./ZoneDistributionChart", () => ({ default: ({ title }: { title: string }) => <div>{title}</div> }));
+vi.mock("./ZoneDistributionChart", () => ({ default: ({ title, zones = [], emptyDescription }: { title: string; zones?: { seconds: number }[]; emptyDescription?: string }) => <section aria-label={title}>{title}{!zones.some(zone => zone.seconds > 0) && emptyDescription && <p>{emptyDescription}</p>}</section> }));
 vi.mock("../contexts/LocaleContext", () => ({ useLocale: () => ({ locale: "ko", units: state.units }) }));
 
 afterEach(() => { cleanup(); state.units = "metric"; state.language = null; });
@@ -445,4 +445,21 @@ it("shows one matching fuel split in integrated analysis while preserving FATMAX
   state.metrics = { ...state.metrics, metrics: { ...state.metrics.metrics!, fatMax: null } };
   rerender(<ThemeProvider><OriderThemeProvider><AnalysisTab {...props} integratedPresentation={presentation} /></OriderThemeProvider></ThemeProvider>);
   expect(screen.queryByText("metabolism.section")).not.toBeInTheDocument();
+});
+
+
+it.each([true, false])("explains missing activity-time HR reference in empty zones, assembled=%s", assembled => {
+  state.metrics = gpsOnlyRunMetrics();
+  Object.assign(state.metrics.metrics!, { discipline: "bike", avgHr: 150, runMetrics: null, splits: [] });
+  const props = { sport: "ride" as const, streams: { time: [], distance: [] } as unknown as ActivityStreams,
+    renderSections: assembled ? ((sections: import("./AnalysisTab").ActivityAnalysisSections) => <>{sections.zones}</>) : undefined };
+  const { rerender } = render(<AnalysisTab {...props} isOwner />);
+  expect(within(screen.getByRole("region", { name: "analysis.zones.hr" })).getByText("overviewEvidence.hrContextMissing")).toBeInTheDocument();
+  // Allowed visitors receive the same activity-time reference explanation.
+  rerender(<AnalysisTab {...props} isOwner={false} />);
+  expect(within(screen.getByRole("region", { name: "analysis.zones.hr" })).getByText("overviewEvidence.hrContextMissing")).toBeInTheDocument();
+  state.metrics = { ...state.metrics, metrics: { ...state.metrics.metrics!, contextSnapshot: { maxHr: 190 } } } as UseActivityMetricsState;
+  rerender(<AnalysisTab {...props} isOwner />);
+  expect(screen.queryByText("overviewEvidence.hrContextMissing")).not.toBeInTheDocument();
+  expect(within(screen.getByRole("region", { name: "analysis.zones.hr" })).getByText("analysis.empty.hrZonesDesc")).toBeInTheDocument();
 });
