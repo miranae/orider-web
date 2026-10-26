@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { PlanDay } from "@shared/types/goal";
 import PlanDayLoadComparison from "./PlanDayLoadComparison";
 import type { PlanLoadComparisonRow } from "./planLoadComparison";
@@ -55,4 +55,19 @@ it("uses confirmed linked accepted load for exceeded completion even without a s
   expect(screen.queryByText("연결 활동으로 부하 목표 초과 완료")).not.toBeInTheDocument();
   view.rerender(<PlanDayLoadComparison day={linked} row={{ ...row, linkedLoads: { ride: 220 } }} state="incomplete" />);
   expect(screen.queryByText("연결 활동으로 부하 목표 초과 완료")).not.toBeInTheDocument();
+});
+
+it("keeps calendar loads visible while grouping details without triggering the day editor", () => {
+  const edit = vi.fn();
+  render(<div onClick={edit} onKeyDown={edit}><PlanDayLoadComparison compact day={day} row={{ ...row, fulfilledWeek: { weekNumber: 6, plannedTss: 300, actualTss: 350, estimated: false } }} state="ready" evidence={<a href="/activity/example">Saved activity</a>} /></div>);
+  const group = screen.getByRole("group", { name: "2026-10-19 부하 비교" });
+  expect(within(group).getAllByRole("definition")[1]).toHaveTextContent("0 TSS");
+  expect(screen.queryByText("W6 주간 부하 목표로 충족")).not.toBeInTheDocument();
+  expect(screen.getByText("Saved activity")).not.toBeVisible();
+  const summary = screen.getByText("비교 근거").closest("summary")!;
+  fireEvent.click(summary);
+  expect(screen.getByRole("link", { name: "Saved activity" })).toBeVisible();
+  fireEvent.keyDown(summary, { key: "Enter" });
+  expect(edit).not.toHaveBeenCalled();
+  expect(day.completed).toBe(false);
 });
