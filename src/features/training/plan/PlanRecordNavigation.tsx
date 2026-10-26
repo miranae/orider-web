@@ -19,6 +19,5 @@ export default function PlanRecordNavigation({ date }: { date?: string | null })
   return <nav aria-label={t("planRecords.title")} style={{ marginBottom: "var(--space-4)" }}><RouteTabNav tabs={[
     { to: `/coach/today${query(true, false)}`, label: t("planRecords.today"), end: true },
     { to: `/coach/plan${query(true)}`, label: t("planRecords.plan"), end: true },
-    { to: `/athlete/me/activities${query(false)}`, label: t("planRecords.records"), end: true },
   ]} /></nav>;
 }
