@@ -24,6 +24,7 @@ interface ActivityPerformanceChartsProps {
   visualRange?: [number, number] | null;
   onVisualRangeChange?: (range: [number, number] | null) => void;
   visualSummaryStats?: ReturnType<typeof buildSummaryStats>;
+  selectedElapsedRange?: { startOffsetSec: number; endOffsetSec: number } | null;
   rawElapsedAxis?: readonly number[] | null;
   sourceIndices?: readonly number[];
   rawStreams?: ActivityStreams | null;
@@ -62,7 +63,7 @@ export default function ActivityPerformanceCharts({
   chartOverlays, hoverPoint, summaryStats, canonicalSummary = false, sourceLabel, sport, recordedRunCadenceUnit,
   onHoverIndex, chartHighlightRange, metrics, powerSource, hasElevation = true, range, onRangeChange,
   axisControls, rangeControls, rangeAnalysis, elapsedAxisSec, xAxis, embedded = false,
-  analysisStyle = false, chartIdentity, hoverIndex, visualRange, onVisualRangeChange, visualSummaryStats, segments, rawElapsedAxis, sourceIndices, rawStreams, sensorSelectionContext,
+  analysisStyle = false, selectedElapsedRange, chartIdentity, hoverIndex, visualRange, onVisualRangeChange, visualSummaryStats, segments, rawElapsedAxis, sourceIndices, rawStreams, sensorSelectionContext,
 }: ActivityPerformanceChartsProps) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
@@ -83,9 +84,9 @@ export default function ActivityPerformanceCharts({
       return source && (source[rawIndex] == null || !Number.isFinite(source[rawIndex])) ? null : value;
     }),
   })) : chartOverlays, [analysisStyle, rawStreams, sourceIndices, chartOverlays, sourceChannels]);
-  const observedStats = useMemo(() => analysisStyle ? activityVisualRangeStats(rawStreams, sensorSelectionContext, rawElapsedAxis, sourceIndices, visualRange) : null, [analysisStyle, rawStreams, sensorSelectionContext, rawElapsedAxis, sourceIndices, visualRange]);
+  const observedStats = useMemo(() => analysisStyle ? activityVisualRangeStats(rawStreams, sensorSelectionContext, rawElapsedAxis, sourceIndices, visualRange, selectedElapsedRange) : null, [analysisStyle, rawStreams, sensorSelectionContext, rawElapsedAxis, sourceIndices, visualRange, selectedElapsedRange]);
   if (analysisStyle) {
-    const stats = visualRange ? visualSummaryStats ?? observedStats : summaryStats;
+    const stats = selectedElapsedRange ? observedStats : visualRange ? visualSummaryStats ?? observedStats : summaryStats;
     const formatMetric = (cfg: OverlayConfig, value: number | null | undefined, summary = false) => {
       if (value == null || !Number.isFinite(value)) return "—";
       if (summary && sport === "run" && cfg.key === "speed") value = value > 0 ? 60 / value * (units === "imperial" ? 1.609344 : 1) : null;
@@ -94,9 +95,9 @@ export default function ActivityPerformanceCharts({
       return value == null || !Number.isFinite(value) ? "—" : cfg.formatValue?.(value) ?? (cfg.key === "speed" ? value.toFixed(1) : String(Math.round(value)));
     };
     const elevationValue = (value: number | undefined) => value == null || !Number.isFinite(value) ? "—" : String(Math.round(units === "imperial" ? value / 0.3048 : value));
-    const distanceDelta = visualRange && elevData[visualRange[0]] && elevData[visualRange[1]]
+    const distanceDelta = selectedElapsedRange ? observedStats?.distance ?? null : visualRange && elevData[visualRange[0]] && elevData[visualRange[1]]
       ? elevData[visualRange[1]]!.distance - elevData[visualRange[0]]!.distance : null;
-    const timeWindow = visualRange && rawElapsedAxis && sourceIndices ? elapsedRangeFromChartSelection(rawElapsedAxis, sourceIndices, visualRange) : null;
+    const timeWindow = selectedElapsedRange ?? (visualRange && rawElapsedAxis && sourceIndices ? elapsedRangeFromChartSelection(rawElapsedAxis, sourceIndices, visualRange) : null);
     const summaryParts = [distanceDelta !== null && Number.isFinite(distanceDelta) && distanceDelta >= 0 ? formatDistance(distanceDelta, units) : null,
       timeWindow ? formatElapsedBoundary(timeWindow.endOffsetSec - timeWindow.startOffsetSec) : null].filter(Boolean);
     return <div className="activity-analysis-charts">

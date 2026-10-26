@@ -60,7 +60,7 @@ export default function ActivityDetailedCharts({ model, highlightedPeak = null, 
       )}
       {opened && !model.streamsSignInRequired && sampled.length > 0 && <ActivityPerformanceCharts
         rawStreams={model.effectiveStreams} sensorSelectionContext={model.sensorSelectionContext}
-        rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
+        selectedElapsedRange={rangeSelection.selection} rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
         elevData={sampled.map(point => ({ distance: point.distance, elevation: point.altitude }))}
         availableOverlays={available} activeOverlays={selected} focusedOverlayKey={focusedOverlayKey}
         toggleOverlay={key => {

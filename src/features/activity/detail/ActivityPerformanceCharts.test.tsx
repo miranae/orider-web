@@ -92,3 +92,25 @@ it("keeps imported GPS subset elevation at its exact sensor timestamps", () => {
   expect((captured.props.overlays as OverlayDataset[]).find(overlay => overlay.key === "power")?.data).toEqual([200,null,0,200,200]);
   expect(captured.props.xAxis).toBe("elapsed");
 });
+
+it("presents exact elapsed selection statistics instead of enclosing downsample handles", () => {
+  const time = Array.from({ length: 1801 }, (_, i) => i);
+  const streams = { time, distance: time.map(t => t * 10), altitude: time.map(() => 100),
+    watts: time.map(t => t >= 301 && t < 1501 ? 200 : 50), cadence: time.map(() => 80) };
+  const points = buildSampledData(streams);
+  const available = getPerformanceOverlays(points, "ride", "metric", null, "cadence");
+  const selected = new Set(available.map(cfg => cfg.key));
+  render(<ActivityPerformanceCharts analysisStyle rawStreams={streams} rawElapsedAxis={time}
+    sensorSelectionContext={{ activityStartTime: 1700000000000, explicitDurationSec: 1800 }}
+    sourceIndices={points.map(point => point.sourceIndex!)} visualRange={[0, points.length - 1]}
+    selectedElapsedRange={{ startOffsetSec: 301, endOffsetSec: 1501 }}
+    visualSummaryStats={{ minElev: 0, maxElev: 0, overlays: { power: { avg: 50, max: 50 } } }}
+    elevData={points.map(point => ({ distance: point.distance, elevation: point.altitude }))}
+    availableOverlays={available} activeOverlays={selected} focusedOverlayKey={null} toggleOverlay={vi.fn()}
+    chartOverlays={buildChartOverlays(available, selected, points, key => key)} hoverPoint={null}
+    summaryStats={null} sport="ride" recordedRunCadenceUnit={null} metrics={null} />);
+  const presentation = captured.props.analysisPresentation as AnalysisChartPresentation;
+  render(<>{presentation.selectionCaption}</>);
+  expect(screen.getByText(/20:00/)).toHaveTextContent("12.0");
+  expect(presentation.lanes.power?.average).toBe("200");
+});

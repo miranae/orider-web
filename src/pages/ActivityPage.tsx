@@ -291,6 +291,7 @@ function ActivityPageContent({ publicAccess }: { publicAccess?: ActivityPublicAc
       .some(peak => peak.durationSec === peakSelection.peak?.durationSec && peak.startOffsetSec === peakSelection.peak?.startOffsetSec && peak.avgPowerW === peakSelection.peak?.avgPowerW)
     ? peakSelection.peak : null;
   const runLocationAnchor = useRef<HTMLDivElement>(null);
+  const analysisRangeAnchor = useRef<HTMLDivElement>(null);
   const segmentMapScope = `${activityId}:${user?.uid}`;
   const selectedMapSegment = activeTab === "segments" && segmentMapSelection?.scope === segmentMapScope ? segmentMapSelection.effort : null;
   useEffect(() => {
@@ -1344,9 +1345,9 @@ function ActivityPageContent({ publicAccess }: { publicAccess?: ActivityPublicAc
         </Card>
       )}
       {showElevation && elevData.length > 0 && (
-        <ActivityPerformanceCharts embedded analysisStyle canonicalSummary={!!providerRecord || hasCanonicalSensorPresentation} sourceLabel={providerRecord && !activePowerOverride ? "Strava" : undefined}
+        <div ref={analysisRangeAnchor} tabIndex={-1} role="region" aria-label={t("detail.chartsTitle")}><ActivityPerformanceCharts embedded analysisStyle canonicalSummary={!!providerRecord || hasCanonicalSensorPresentation} sourceLabel={providerRecord && !activePowerOverride ? "Strava" : undefined}
           chartIdentity={visualIdentity} rawStreams={effectiveStreams} sensorSelectionContext={sensorSelectionContext}
-          rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
+          selectedElapsedRange={rangeSelection.selection} rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
           visualRange={visualRange} onVisualRangeChange={setVisualRange} hoverIndex={hoverIndex} segments={chartSegments}
           hasElevation={!!effectiveStreams?.altitude?.some(value => value != null && Number.isFinite(value))}
           elevData={elevData} availableOverlays={availableOverlays} activeOverlays={activeOverlays ?? new Set(availableOverlays.map(item => item.key))}
@@ -1361,7 +1362,7 @@ function ActivityPageContent({ publicAccess }: { publicAccess?: ActivityPublicAc
           onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis && rangeSelection.selection && !visualRange ? rangeSelection.selectChart : undefined}
           onHoverIndex={handleElevHover} chartHighlightRange={chartHighlightRange}
           metrics={serverMetrics.metrics} powerSource={streamSensorSummary?.powerSource}
-        />
+        /></div>
       )}
 
       {/* Streams error */}
@@ -1497,7 +1498,10 @@ function ActivityPageContent({ publicAccess }: { publicAccess?: ActivityPublicAc
           setPeakSelection({ activityId, peak: null });
           rangeSelection.selectAndEnable(range);
           setVisualState({ identity: visualIdentity, axis: "elapsed", range: null });
-          viewRunSplitLocation();
+          requestAnimationFrame(() => {
+            analysisRangeAnchor.current?.focus({ preventScroll: true });
+            analysisRangeAnchor.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
+          });
           if (!streams) requestStreams();
         }}
         defaultExpanded onLocate={locatePeak} locating={loadingStreams && selectedPeak != null}
