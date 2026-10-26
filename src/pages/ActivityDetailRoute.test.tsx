@@ -1,6 +1,8 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { track } from "../services/analytics";
+vi.mock("../services/analytics", () => ({ track: vi.fn() }));
 import ActivityDetailRoute from "./ActivityDetailRoute";
 const mocks = vi.hoisted(() => ({ load: vi.fn(), getDocs: vi.fn(), uid: "viewer", enabled: true, auth: { currentUser: { uid: "viewer" } }, owner: vi.fn() }));
 vi.mock("../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ publicActivityDetailEnabled: mocks.enabled }) }));
@@ -10,7 +12,7 @@ const services = { auth: mocks.auth, firestore: {} };
 vi.mock("../services/publicActivityDetail", () => ({ isPublicActivityAccessError: (error: { code?: string }) => ["functions/permission-denied", "functions/not-found", "functions/failed-precondition"].includes(error.code ?? ""), createPublicActivityClient: () => ({ load: mocks.load }) }));
 vi.mock("firebase/firestore", () => ({ collection: vi.fn(), documentId: () => "__name__", getDocs: mocks.getDocs, query: vi.fn(), where: vi.fn(), limit: vi.fn() }));
 vi.mock("./ActivityPage", () => ({ default: () => { mocks.owner(); return <div>owner analysis</div>; } }));
-vi.mock("../embedded/surfaces/PublicActivitySurface", () => ({ default: () => <div>public detail</div> }));
+vi.mock("../embedded/surfaces/PublicActivitySurface", () => ({ default: ({ detailMeasurement }: { detailMeasurement?: (outcome: string) => void }) => <div>public detail<button onClick={() => detailMeasurement?.("success")}>body painted</button></div> }));
 function route() { return <MemoryRouter initialEntries={["/activity/native"]}><Routes><Route path="/activity/:activityId" element={<ActivityDetailRoute />} /></Routes></MemoryRouter>; }
 afterEach(cleanup);
 beforeEach(() => { vi.clearAllMocks(); mocks.enabled = true; mocks.uid = "viewer"; mocks.auth.currentUser.uid = "viewer"; mocks.getDocs.mockResolvedValue({ docs: [] }); });
@@ -73,4 +75,37 @@ it.each(["permission-denied", "not-found", "failed-precondition", "unauthenticat
   await screen.findByRole("alert");
   expect(mocks.getDocs).not.toHaveBeenCalled();
   expect(mocks.owner).not.toHaveBeenCalled();
+});
+
+it("starts before transport and waits for presented detail rather than the first response", async () => {
+ let resolve!: (value: unknown) => void;
+ mocks.load.mockReturnValueOnce(new Promise(r => { resolve = r; }));
+ const view = render(route());
+ expect(track).not.toHaveBeenCalled();
+ await act(async () => resolve({activity:{id:"native",userId:"owner"}}));
+ await screen.findByText("public detail");
+ expect(track).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByText("body painted"));
+ fireEvent.click(screen.getByText("body painted"));
+ view.unmount();
+ expect(track).toHaveBeenCalledTimes(1);
+ expect(track).toHaveBeenCalledWith("activity_detail_ready", expect.objectContaining({outcome:"success"}));
+});
+it("records denied first requests and creates a new attempt on retry", async () => {
+ mocks.load.mockRejectedValueOnce({code:"functions/permission-denied"}).mockResolvedValueOnce({activity:{id:"native",userId:"owner"}});
+ render(route()); await screen.findByRole("alert");
+ expect(track).toHaveBeenCalledWith("activity_detail_ready",expect.objectContaining({outcome:"access_denied"}));
+ fireEvent.click(screen.getByRole("button"));
+ await screen.findByText("public detail"); fireEvent.click(screen.getByText("body painted"));
+ expect(track).toHaveBeenCalledTimes(2);
+});
+it("cancels the old exact SDK session and never counts its late response", async () => {
+ let resolve!: (value: unknown) => void;
+ mocks.load.mockReturnValueOnce(new Promise(r => { resolve = r; })).mockReturnValueOnce(new Promise(() => {}));
+ const view=render(route()); mocks.auth.currentUser={uid:"viewer"}; view.rerender(route());
+ await act(async () => resolve({activity:{id:"native",userId:"owner"}}));
+ expect(screen.queryByText("public detail")).not.toBeInTheDocument();
+ expect(track).toHaveBeenCalledTimes(1);
+ expect(track).toHaveBeenCalledWith("activity_detail_ready",expect.objectContaining({outcome:"cancelled"}));
+ view.unmount(); expect(track).toHaveBeenCalledTimes(2);
 });

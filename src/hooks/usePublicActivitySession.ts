@@ -5,10 +5,11 @@ import { createPublicActivityClient, isPublicActivityAccessError, type PublicAct
 import { startJourneyMeasurement, type JourneyOutcome } from "../services/journeyMeasurement";
 export interface PublicActivitySessionOptions {
  activityId: string; retryKey: number; embedded?: boolean; initialDetail?: PublicActivityDetail;
+ detailMeasurement?: (outcome: JourneyOutcome) => void; onDetailRetry?: () => void;
  onReady: () => void; onError: (code: "activity_load_failed") => void;
 }
 /** Current-public-access lifecycle; presentation and private owner readers stay outside this hook. */
-export function usePublicActivitySession({ activityId, retryKey, embedded = false, initialDetail, onReady, onError }: PublicActivitySessionOptions) {
+export function usePublicActivitySession({ activityId, retryKey, embedded = false, initialDetail, onReady, onError, detailMeasurement: routeMeasurement, onDetailRetry }: PublicActivitySessionOptions) {
   const services = useFirebaseServices();
   const { user } = useAuth();
   const client = useMemo(() => createPublicActivityClient(services), [services, user?.uid, services.auth.currentUser]);
@@ -45,7 +46,7 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
   callbacks.current = { onReady, onError };
   useEffect(() => {
     const request = ++generation.current;
-    const finish = startJourneyMeasurement("activity_detail_ready", embedded ? "embedded_public_activity" : "web_public_activity", "detail");
+    const finish = routeMeasurement ?? startJourneyMeasurement("activity_detail_ready", embedded ? "embedded_public_activity" : "web_public_activity", "detail");
     detailMeasurement.current = finish;
     setMapFresh(false); setDetail(null); setLoading(true); setFailed(false); setAccessDenied(false); setText(""); setPosted(false); setMutationError(false); setBusy(false); inFlight.current = false; commentRequest.current = null;
     const load = attempt === 0 && retryKey === 0 && initialDetail?.activity.id === activityId ? Promise.resolve(initialDetail) : client.load(activityId);
@@ -59,12 +60,12 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
       setLoading(false); setFailed(true); setAccessDenied(isPublicActivityAccessError(error)); callbacks.current.onError("activity_load_failed");
     });
     return () => { generation.current += 1; finish("cancelled"); socialMeasurement.current?.("cancelled"); };
-  }, [activityId, client, retryKey, attempt, initialDetail, embedded, setDetail]);
+  }, [activityId, client, retryKey, attempt, initialDetail, embedded, setDetail, routeMeasurement]);
   useEffect(() => {
     if (loading || settledGeneration.current !== generation.current) return;
     if (failed) detailMeasurement.current?.(accessDenied ? "access_denied" : "error");
-    else if (detail?.activity.id === activityId) detailMeasurement.current?.("success");
-  }, [loading, failed, accessDenied, detail, activityId]);
+    else if (!routeMeasurement && detail?.activity.id === activityId) detailMeasurement.current?.("success");
+  }, [loading, failed, accessDenied, detail, activityId, routeMeasurement]);
 
   const hasDetail = detail !== null;
   useEffect(() => {
@@ -166,5 +167,5 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
     socialMeasurement.current?.("cancelled"); setDetail(null); setText(""); setBusy(false); setRemoved({ scope: safetyScope, action });
   };
   return { user, client, detail, setDetail, loading, failed, accessDenied, removed, safetyScope, mapFresh, verifiedMap,
-    text, setText, busy, mutationError, posted, mutate, revokeAccess, remove, retry: () => setAttempt(value => value + 1) };
+    text, setText, busy, mutationError, posted, mutate, revokeAccess, remove, retry: () => onDetailRetry ? onDetailRetry() : setAttempt(value => value + 1) };
 }

@@ -248,3 +248,20 @@ it("does not restore revoked geometry from a late social aggregate response", as
   await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(3));
   expect(screen.queryByRole("img", { name: "라이딩 경로" })).not.toBeInTheDocument();
 });
+
+it("leaves route-owned detail success to the actual page presentation and delegates retries", async () => {
+ const finish = vi.fn(), retry = vi.fn();
+ mocks.load.mockRejectedValueOnce(new Error("offline"));
+ render(<PublicActivitySurface {...props} detailMeasurement={finish} onDetailRetry={retry} />);
+ await waitFor(() => expect(finish).toHaveBeenCalledWith("error"));
+ fireEvent.click(screen.getByText("다시 시도"));
+ expect(retry).toHaveBeenCalledTimes(1);
+ expect(track).not.toHaveBeenCalledWith("activity_detail_ready", expect.anything());
+});
+it("does not emit an additional detail success when a route supplies the measurement", async () => {
+ const finish=vi.fn();
+ render(<PublicActivitySurface {...props} detailMeasurement={finish} />);
+ await screen.findByText("한강 라이딩");
+ expect(finish).not.toHaveBeenCalledWith("success");
+ expect(track).not.toHaveBeenCalledWith("activity_detail_ready", expect.anything());
+});

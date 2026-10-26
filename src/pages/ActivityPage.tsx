@@ -1,3 +1,4 @@
+import type { JourneyOutcome } from "../services/journeyMeasurement";
 import { useJourneyReadiness, ownerAnalysisOutcome } from "../hooks/useJourneyReadiness";
 import { activityIndependentRoute } from "../features/activity/detail/activityIndependentRoute";
 import { isPublicActivityAccessError } from "../services/publicActivityDetail";
@@ -110,10 +111,10 @@ import { ActivityFtpDecisionCard } from "../features/activity/detail/ActivityFtp
 import { fitnessDateKeyFor } from "@shared/training/dateKey";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
-export default function ActivityPage({ publicAccess }: { publicAccess?: PublicActivitySessionOptions } = {}) {
-  return publicAccess ? <ActivityPublicAccess {...publicAccess}>{access => <ActivityPageContent publicAccess={access} />}</ActivityPublicAccess> : <ActivityPageContent />;
+export default function ActivityPage({ publicAccess, detailMeasurement, detailRetry }: { publicAccess?: PublicActivitySessionOptions; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void } = {}) {
+  return publicAccess ? <ActivityPublicAccess {...publicAccess}>{access => <ActivityPageContent publicAccess={access} detailMeasurement={publicAccess.detailMeasurement} />}</ActivityPublicAccess> : <ActivityPageContent detailMeasurement={detailMeasurement} detailRetry={detailRetry} />;
 }
-function ActivityPageContent({ publicAccess }: { publicAccess?: ActivityPublicAccessState }) {
+function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: { publicAccess?: ActivityPublicAccessState; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void }) {
   const { t, i18n } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
   const timeAgo = useTimeAgo();
@@ -825,6 +826,19 @@ function ActivityPageContent({ publicAccess }: { publicAccess?: ActivityPublicAc
   const runGapSecPerKm = serverMetrics.metrics?.runMetrics?.splitTimeStatus === "native_timer_mismatch"
     ? null : serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null;
 
+  // Detail readiness means committed primary activity content, not lazy analysis/media completion.
+  const detailOutcome: JourneyOutcome | null = loadingActivity ? null : activityLoadError ? "error"
+    : activityProcessing ? "pending" : !activity?.summary ? "unavailable"
+    : activity.deletedAt ? "access_denied" : publicAccess && !publicAccess.session.mapFresh ? null : "success";
+  useEffect(() => {
+    if (!detailMeasurement || !detailOutcome) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => {
+      if (document.visibilityState !== "hidden") detailMeasurement(detailOutcome);
+    }); });
+    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
+  }, [detailMeasurement, detailOutcome]);
+
   if (loadingActivity) {
     return (
       <div className="site-shell activity-detail">
@@ -846,7 +860,7 @@ function ActivityPageContent({ publicAccess }: { publicAccess?: ActivityPublicAc
         <ErrorState
           title={isPermissionError ? tCommon("error.permission") : tCommon("error.title")}
           description={isPermissionError ? t("card.noActivity") : tCommon("error.description")}
-          onRetry={() => { restartAnalysisMeasurement(); retryActivity(); }}
+          onRetry={() => { restartAnalysisMeasurement(); if (detailRetry) detailRetry(); else retryActivity(); }}
         />
       </div>
     );
@@ -858,7 +872,7 @@ function ActivityPageContent({ publicAccess }: { publicAccess?: ActivityPublicAc
         title={t("card.processingActivity")}
         description={t("card.processingActivityDesc")}
         retryLabel={t("page.retry")}
-        onRetry={() => { restartAnalysisMeasurement(); retryActivity(); }}
+        onRetry={() => { restartAnalysisMeasurement(); if (detailRetry) detailRetry(); else retryActivity(); }}
       />
     );
   }

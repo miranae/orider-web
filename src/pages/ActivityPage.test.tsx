@@ -133,6 +133,15 @@ describe("ActivityPage", () => {
     .map(([ref]) => (ref as { path?: string }).path)
     .filter((path) => path?.endsWith("/kudos") || path?.endsWith("/comments"));
 
+  it("finishes routed detail only after the actual primary activity body is committed", async () => {
+    const finish = vi.fn();
+    setDocData("activities/test-activity", createMockActivity({ id: "test-activity", description: "준비 계측 활동" }) as unknown as Record<string, unknown>);
+    renderWithProviders(<ActivityPage detailMeasurement={finish} />, { authenticated: true });
+    expect(finish).not.toHaveBeenCalled();
+    await screen.findByRole("tab", { name: "분석" });
+    await waitFor(() => expect(finish).toHaveBeenCalledWith("success"));
+  });
+
   it("shows loading state initially", () => {
     renderWithProviders(<ActivityPage />);
     // The component starts with loading state
