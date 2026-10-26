@@ -8,6 +8,11 @@ export interface PublicActivitySessionOptions {
  detailMeasurement?: (outcome: JourneyOutcome) => void; onDetailRetry?: () => void;
  onReady: () => void; onError: (code: "activity_load_failed") => void;
 }
+function accessWasLost(error: unknown): boolean {
+  const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+  return isPublicActivityAccessError(error) || code === "functions/unauthenticated"
+    || error instanceof Error && error.message === "account_changed";
+}
 /** Current-public-access lifecycle; presentation and private owner readers stay outside this hook. */
 export function usePublicActivitySession({ activityId, retryKey, embedded = false, initialDetail, onReady, onError, detailMeasurement: routeMeasurement, onDetailRetry }: PublicActivitySessionOptions) {
   const services = useFirebaseServices();
@@ -27,7 +32,11 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
   const [removed, setRemoved] = useState<{ scope: string; action: "hide" | "block" } | null>(null);
   const safetyScope = `${user?.uid ?? "anonymous"}:${activityId}`;
   const [attempt, setAttempt] = useState(0);
-  const [text, setText] = useState("");
+  const [draft, setDraft] = useState<{ session: typeof session; text: string } | null>(null);
+  const text = draft?.session === session ? draft.text : "";
+  const setText = useCallback((value: string) => setDraft({ session, text: value }), [session]);
+  const acceptedSession = useRef<typeof session | null>(null);
+  const requestSession = useRef<typeof session | null>(null);
   const [busy, setBusy] = useState(false);
   const [mutationError, setMutationError] = useState(false);
   const [posted, setPosted] = useState(false);
@@ -39,33 +48,37 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
   const commentRequest = useRef<{ text: string; id: string } | null>(null);
   const revokeAccess = useCallback(() => {
     socialMeasurement.current?.("access_denied");
-    generation.current += 1; inFlight.current = false; commentRequest.current = null;
+    generation.current += 1; inFlight.current = false; commentRequest.current = null; acceptedSession.current = null;
     setDetail(null); setFailed(true); setAccessDenied(true); setText(""); setBusy(false);
-  }, [setDetail]);
+  }, [setDetail, setText]);
   const callbacks = useRef({ onReady, onError });
   callbacks.current = { onReady, onError };
   useEffect(() => {
     const request = ++generation.current;
-    const finish = routeMeasurement ?? startJourneyMeasurement("activity_detail_ready", embedded ? "embedded_public_activity" : "web_public_activity", "detail");
+    const finish = (attempt === 0 ? routeMeasurement : undefined) ?? startJourneyMeasurement("activity_detail_ready", embedded ? "embedded_public_activity" : "web_public_activity", "detail");
     detailMeasurement.current = finish;
-    setMapFresh(false); setDetail(null); setLoading(true); setFailed(false); setAccessDenied(false); setText(""); setPosted(false); setMutationError(false); setBusy(false); inFlight.current = false; commentRequest.current = null;
+    setMapFresh(false); setDetail(null); setLoading(true); setFailed(false); setAccessDenied(false); setPosted(false); setMutationError(false); setBusy(false); inFlight.current = false;
+    if (requestSession.current !== session) { commentRequest.current = null; acceptedSession.current = null; }
+    requestSession.current = session;
     const load = attempt === 0 && retryKey === 0 && initialDetail?.activity.id === activityId ? Promise.resolve(initialDetail) : client.load(activityId);
     void load.then(data => {
       if (generation.current !== request) return;
       settledGeneration.current = request;
+      acceptedSession.current = session;
       setDetail(data); setVerifiedMap({ client, activityId, value: data.mapPreview }); setMapFresh(document.visibilityState !== "hidden"); setLoading(false); callbacks.current.onReady();
     }).catch(error => {
       if (generation.current !== request) return;
       settledGeneration.current = request;
-      setLoading(false); setFailed(true); setAccessDenied(isPublicActivityAccessError(error)); callbacks.current.onError("activity_load_failed");
+      if (accessWasLost(error)) { setText(""); commentRequest.current = null; acceptedSession.current = null; }
+      setLoading(false); setFailed(true); setAccessDenied(accessWasLost(error)); callbacks.current.onError("activity_load_failed");
     });
     return () => { generation.current += 1; finish("cancelled"); socialMeasurement.current?.("cancelled"); };
-  }, [activityId, client, retryKey, attempt, initialDetail, embedded, setDetail, routeMeasurement]);
+  }, [activityId, client, retryKey, attempt, initialDetail, embedded, setDetail, routeMeasurement, session, setText]);
   useEffect(() => {
     if (loading || settledGeneration.current !== generation.current) return;
     if (failed) detailMeasurement.current?.(accessDenied ? "access_denied" : "error");
     else if (!routeMeasurement && detail?.activity.id === activityId) detailMeasurement.current?.("success");
-  }, [loading, failed, accessDenied, detail, activityId, routeMeasurement]);
+  }, [loading, failed, accessDenied, detail, activityId, routeMeasurement, attempt]);
 
   const hasDetail = detail !== null;
   useEffect(() => {
@@ -88,8 +101,7 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
         setVerifiedMap({ client, activityId, value: fresh.mapPreview }); setMapFresh(true);
       } catch (reason) {
         if (!alive || request !== sequence || ownerGeneration !== generation.current) return;
-        const code = typeof reason === "object" && reason !== null && "code" in reason ? String(reason.code) : "";
-        if (isPublicActivityAccessError(reason) || code === "functions/unauthenticated" || reason instanceof Error && reason.message === "account_changed") revokeAccess();
+        if (accessWasLost(reason)) revokeAccess();
         // Network failures retain text/drafts, but never restore the old public geometry.
       } finally { clearTimeout(timeout); if (request === sequence) refreshing = false; }
     };
@@ -143,29 +155,35 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
           if (!aggregatePending) break;
         }
       } catch (error) {
-        outcome = isPublicActivityAccessError(error) ? "access_denied" : "readback_error";
+        outcome = accessWasLost(error) ? "access_denied" : "readback_error";
         if (request === generation.current) {
-          if (isPublicActivityAccessError(error)) { setDetail(null); setFailed(true); setAccessDenied(true); }
+          if (accessWasLost(error)) { revokeAccess(); }
           else setMutationError(true);
         }
       }
     } catch (error) {
-      outcome = isPublicActivityAccessError(error) ? "access_denied" : "error";
+      outcome = accessWasLost(error) ? "access_denied" : "error";
       if (request === generation.current) {
-        if (isPublicActivityAccessError(error)) {
-          setDetail(null); setFailed(true); setAccessDenied(true); setText(""); commentRequest.current = null;
+        if (accessWasLost(error)) {
+          revokeAccess();
         } else setMutationError(true);
       }
     } finally {
       finish(request === generation.current ? outcome : "cancelled");
       if (request === generation.current) { inFlight.current = false; setBusy(false); }
     }
-  }, [activityId, client, detail, text, user, embedded, setDetail]);
+  }, [activityId, client, detail, text, user, embedded, setDetail, setText, revokeAccess]);
 
   const remove = (action: "hide" | "block") => {
     generation.current += 1; inFlight.current = false; commentRequest.current = null;
     socialMeasurement.current?.("cancelled"); setDetail(null); setText(""); setBusy(false); setRemoved({ scope: safetyScope, action });
   };
   return { user, client, detail, setDetail, loading, failed, accessDenied, removed, safetyScope, mapFresh, verifiedMap,
-    text, setText, busy, mutationError, posted, mutate, revokeAccess, remove, retry: () => onDetailRetry ? onDetailRetry() : setAttempt(value => value + 1) };
+    text, setText, busy, mutationError, posted, mutate, revokeAccess, remove, detailMeasurement: detailMeasurement.current ?? undefined, retry: () => {
+      // A route-owned retry unmounts this controller. Keep a known session local
+      // through transient failures so its draft and uncertain-write ID survive.
+      if (acceptedSession.current === session && !accessDenied) setAttempt(value => value + 1);
+      else if (onDetailRetry) onDetailRetry();
+      else setAttempt(value => value + 1);
+    } };
 }

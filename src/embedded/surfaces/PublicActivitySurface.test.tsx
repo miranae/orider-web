@@ -1,3 +1,4 @@
+import { auth } from "../../services/firebase";
 import { track } from "../../services/analytics";
 import { MemoryRouter } from "react-router-dom";
 import type { ReactElement } from "react";
@@ -13,6 +14,7 @@ function PublicActivitySurface(props: PublicActivitySessionOptions) {
   if (!detail || detail.activity.id !== props.activityId || session.loading || session.failed) return <button onClick={session.retry}>다시 시도</button>;
   return <><h1>{detail.activity.description}</h1><p>{detail.content.memo}</p>
     {session.mapFresh && session.verifiedMap?.value?.imageUrl && <img alt="라이딩 경로" src={session.verifiedMap.value.imageUrl} />}
+    {!session.mapFresh && <button onClick={session.retry}>연결 다시 확인</button>}
     <textarea value={session.text} onChange={event => session.setText(event.target.value)} />
     <button disabled={session.busy} onClick={() => { void session.mutate("kudos"); }}>{detail.viewerHasKudos ? "좋아요 취소" : "좋아요"} · {detail.activity.kudosCount}</button>
     <button disabled={session.busy} onClick={() => { void session.mutate("comment"); }}>등록</button>
@@ -53,6 +55,60 @@ describe("authorized activity session controller", () => {
     expect(mocks.postComment).toHaveBeenLastCalledWith("native-ride", "함께 타요", expect.any(String));
     expect(mocks.postComment.mock.calls[0][2]).toBe(mocks.postComment.mock.calls[1][2]);
     expect(mocks.load).toHaveBeenCalledTimes(2);
+  });
+  it("keeps a draft and uncertain comment ID through transient access refresh and local retries", async () => {
+    const parentRetry = vi.fn(), routeFinish = vi.fn();
+    mocks.postComment.mockRejectedValueOnce(new Error("offline"));
+    render(<PublicActivitySurface {...props} onDetailRetry={parentRetry} detailMeasurement={routeFinish} />);
+    await screen.findByText("한강 라이딩");
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "재시도 초안" } });
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+    await screen.findByRole("alert");
+    const requestId = mocks.postComment.mock.calls[0][2];
+    mocks.load.mockRejectedValueOnce(new Error("offline")).mockRejectedValueOnce(new Error("still offline"));
+    fireEvent(window, new Event("focus"));
+    fireEvent.click(await screen.findByRole("button", { name: "연결 다시 확인" }));
+    fireEvent.click(await screen.findByRole("button", { name: "다시 시도" }));
+    await screen.findByText("한강 라이딩");
+    expect(parentRetry).not.toHaveBeenCalled();
+    expect(track).not.toHaveBeenCalledWith("activity_detail_ready", expect.objectContaining({ outcome: "success" }));
+    expect(screen.getByRole("textbox")).toHaveValue("재시도 초안");
+    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+    await waitFor(() => expect(screen.getByRole("textbox")).toHaveValue(""));
+    expect(mocks.postComment.mock.calls[1][2]).toBe(requestId);
+  });
+  it.each(["activity", "viewer"])("does not carry a draft into another %s", async boundary => {
+    const view = render(<PublicActivitySurface {...props} />);
+    await screen.findByText("한강 라이딩");
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "이전 초안" } });
+    const activityId = boundary === "activity" ? "another-ride" : props.activityId;
+    if (boundary === "viewer") authState.uid = "another-viewer";
+    mocks.load.mockResolvedValue({ ...fixture(), activity: { ...fixture().activity, id: activityId } });
+    view.rerender(<PublicActivitySurface {...props} activityId={activityId} />);
+    await screen.findByRole("textbox");
+    expect(screen.getByRole("textbox")).toHaveValue("");
+  });
+  it("masks a draft when the SDK user is replaced with the same UID", async () => {
+    const previous = auth.currentUser;
+    try {
+      const view = render(<PublicActivitySurface {...props} />);
+      await screen.findByText("한강 라이딩");
+      fireEvent.change(screen.getByRole("textbox"), { target: { value: "이전 세션 초안" } });
+      auth.currentUser = { ...previous, uid: previous?.uid ?? "viewer" } as typeof previous;
+      view.rerender(<PublicActivitySurface {...props} />);
+      await screen.findByRole("textbox");
+      expect(screen.getByRole("textbox")).toHaveValue("");
+    } finally { auth.currentUser = previous; }
+  });
+  it.each(["functions/permission-denied", "functions/unauthenticated"])("discards a draft after access loss and later retry: %s", async code => {
+    render(<PublicActivitySurface {...props} />);
+    await screen.findByText("한강 라이딩");
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "폐기할 초안" } });
+    mocks.load.mockRejectedValueOnce({ code });
+    fireEvent(window, new Event("focus"));
+    fireEvent.click(await screen.findByRole("button", { name: "다시 시도" }));
+    await screen.findByRole("textbox");
+    expect(screen.getByRole("textbox")).toHaveValue("");
   });
   it.each(["functions/permission-denied", "functions/not-found", "functions/failed-precondition"])("removes public content when a reaction loses access: %s", async code => {
     mocks.setKudos.mockRejectedValueOnce({ code });
