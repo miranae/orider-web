@@ -292,3 +292,64 @@ The 201-record fixture remains for review; `seed.cjs cleanup` checks its marker 
 only its 203 enumerated documents. No real account, external service, or deployment was changed.
 Node22 development build and repository quality budgets passed after the final profile changes. Logs: `/tmp/orider-profile-period-build.log` and `/tmp/orider-profile-period-quality.log`. Earlier whole-web test
 counts belong to their earlier checkpoint; this update uses the documented focused suites.
+
+## AI generation-time evidence and private history boundary
+
+BE `176e29e9` and WEB `4346bad9`/`ed053efd` add generation-time comparison evidence
+without additional historical queries or model calls. Existing context reads provide
+activity-relative windows, selected/scanned counts, query bounds, missing-data state,
+and snapshot revisions. Display references are bounded and the full source-reference
+set is digested. Legacy caches retain unknown evidence instead of being reconstructed
+from today's records. KST display does not convert activity-relative windows into
+calendar-period aggregates.
+
+The narrative generation and cache endpoints are now owner-only, including older prose
+that can contain private historical training comparisons. Entry and return checks retain
+current ownership/deletion/account/merge/incarnation fences. Raw activity previews remain
+owner-only; public DTO projections exclude them. The web card also gates cached previews,
+and its request/cache scopes include the exact SDK session identity. Late token/AppCheck
+completion and responses from replaced sessions cannot repopulate the current card.
+
+The main local runtime is source `1c3e6b349f5c`, artifact `d7120dbc485f`. Actual compiled
+context collection against local synthetic Firestore records produced two evidence blocks
+from four past activities. Those blocks were attached to explicitly synthetic cached prose:
+this proves collection/transport/presentation, not an actual model generation or conclusion.
+Actual SDK owner retrieval succeeded; other and anonymous accounts were denied. Unauthenticated
+HTTP returned401, real signOut removed the previous explanation, original-source navigation
+worked, and390px rendering had no horizontal overflow or page errors. Legacy evidence
+remained explicitly unknown. See external `narrative-grounding/README.md`, `results.json`,
+`collector-results.json`, `boundaries-results.json`, and desktop/mobile captures.
+
+Visual inspection also exposed missing legacy sensor fields rendered as `undefined`.
+WEB `6b851c51` and test-only `1f6e8b2f` omit unavailable sensor/wind values, preserve actual
+zero power/speed, and use valid stored segment endpoints when the overall distance is absent.
+Invalid segment bounds hide the timeline. The final actual mobile capture no longer displays
+undefined values; it does not invent zero-valued missing measurements.
+
+Gates: WEB five focused suites70 tests, plus final card suite19 tests (overlapping, not additive),
+TypeScript, scoped lint, development build and quality budgets passed. BE30 suites703 tests,
+build/lint/compat passed. R4 metric-definition evidence uses a separate overlapping8 suites338
+checks at docs/analysis/activity-metric-definition-evidence.md. Historical whole-suite counts
+are not attributed to this final source. Remote push/merge/deployment and external messages
+were not performed.
+
+## Source-bound local performance follow-up
+
+External `performance-final-fresh-account/README.md` records120 actual browser attempts
+at WEB `1f6e8b2f` and backend artifact `d7120dbc485f`:30 fresh-browser-context and30
+same-context-reload attempts for each feed and existing sensor analysis. All120 reached
+the defined ready condition; Functions HTTP errors and page errors were zero. Feed p95
+was589/931ms, analysis978/892ms (fresh/reload). Source and fixture hashes were unchanged.
+These are390×844 Chrome/unthrottled-loopback results on a warm synthetic emulator backend,
+not production/physical-device performance or complete chart/new-AI-generation readiness.
+Firestore ERR_ABORTED appeared on60 attempts and is preserved separately; it coincided
+with reload/watch cancellation, so this is not a claim of zero failed network requests.
+Small concurrent backend tests are documented in concurrent-work.json.
+
+The preceding attempt on the shared review account was intentionally interrupted after20
+ready successes because notification-read was already quota-limited at the first sample.
+Its429 responses remain in `performance-final-local/progress.json`; no quota was reset.
+The final run used a fresh synthetic account and a separately produced sensor activity.
+Neither timing set is a direct before/after comparison or evidence for a later producer
+artifact. Any subsequent activity-clock fix is validated separately with actual import,
+recalculation, SDK/UI checks rather than retroactively changing this benchmark's version.
