@@ -1,3 +1,4 @@
+import { importedObservations } from "./importedActivityObservations";
 import type { ActivityStreams } from "@shared/types";
 import { weightedMean } from "../../../utils/sampleTime";
 import { normalizeEpochMilliseconds } from "../../../utils/timestampUnit";
@@ -7,7 +8,7 @@ import { elapsedRangeFromChartSelection } from "./activityRangeSelection";
 /** Observed raw time-window values; never a replacement for stored server analysis metrics. */
 export function activityVisualRangeStats(streams: ActivityStreams | null | undefined, context: ActivitySensorSelectionContext | undefined,
   axis: readonly number[] | null | undefined, sourceIndices: readonly number[] | undefined, range: readonly [number, number] | null | undefined) {
-  if (!streams || !axis || !sourceIndices || !range || axis.length !== streams.distance?.length) return null;
+  if (!streams || !axis || !sourceIndices || !range || axis.length !== (importedObservations(streams, context?.activityStartTime, context?.explicitDurationSec)?.timeMs.length ?? streams.distance?.length)) return null;
   const window = elapsedRangeFromChartSelection(axis, sourceIndices, range);
   if (!window) return null;
   const aligned = buildAlignedActivityChartChannels(streams, context);

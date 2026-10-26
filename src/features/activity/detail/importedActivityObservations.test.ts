@@ -73,3 +73,31 @@ it("does not bridge an imported missing second in visual ranges and preserves de
   expect(activityVisualRangeStats(streams, context, axis, [0, 1, 2], [0, 2])?.overlays.power).toEqual({ avg: 200, max: 200 });
   expect(activityVisualRangeStats(streams, context, axis, [0, 1, 2], [1, 2])?.overlays.power).toBeUndefined();
 });
+
+it("renders GPS-less imported sensors on their own clock without fabricating route values", () => {
+  const original = fixture();
+  const streams = { ...original, distance: [], altitude: [], latlng: [], time: [], importedSensorObservationsV1: { ...original.importedSensorObservationsV1, routeTimeMs: [] } };
+  const context = { activityStartTime: origin - 1000, explicitDurationSec: 3 };
+  const effective = withImportedObservationTime(streams, origin - 1000, 3)!;
+  const sampled = buildSampledData(effective, context);
+  expect(sampled).toHaveLength(5);
+  expect(effective.time).toEqual([1, 1.5, 2, 2.5, 3]);
+  expect(sampled.map(point => point.power)).toEqual([200, null, 0, 200, 200]);
+  expect(sampled.every(point => point.latlng === null && Number.isNaN(point.distance) && Number.isNaN(point.speed))).toBe(true);
+  expect(deriveStreamSensorSummary(effective, context)?.powerSource).toBe("importedSensorObservationsV1");
+  expect(activityVisualRangeStats(effective, context, effective.time, [0,1,2,3,4], [2,4])?.overlays.power?.avg).toBe(100);
+});
+it("joins partial GPS only by exact source time rather than sensor array position", () => {
+  const original = fixture();
+  const streams = { ...original, distance: [10,20], altitude: [100,110], latlng: [[37,127],[37.1,127.1]],
+    importedSensorObservationsV1: { ...original.importedSensorObservationsV1, routeTimeMs: [500,1500] } };
+  const points = buildSampledData(streams);
+  expect(points.map(point => point.routeSourceIndex)).toEqual([null,0,null,1,null]);
+  expect(points.map(point => point.latlng)).toEqual([null,[37,127],null,[37.1,127.1],null]);
+  expect(points[1]!.distance).toBe(10); expect(points[3]!.altitude).toBe(110);
+  expect(buildSampledData({ ...streams, importedSensorObservationsV1: { ...streams.importedSensorObservationsV1, routeTimeMs: [501,1500] } }).every(point => point.power === null)).toBe(true);
+});
+
+it("normalizes accepted epoch seconds consistently for imported session offsets", () => {
+  expect(withImportedObservationTime(fixture(), (origin - 1000) / 1000, 3)?.time).toEqual([1,1.5,2,2.5,3]);
+});

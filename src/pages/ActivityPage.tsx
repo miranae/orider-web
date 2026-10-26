@@ -628,7 +628,7 @@ export default function ActivityPage() {
   const visualSource = useRef({ streams, generation: 0 });
   if (visualSource.current.streams !== streams) visualSource.current = { streams, generation: visualSource.current.generation + 1 };
   const visualIdentity = `${rangeSelection.identity}:${visualSource.current.generation}`;
-  const visualAxis = visualState.identity === visualIdentity && rangeSelection.sampledAxis ? visualState.axis : "distance";
+  const visualAxis = !rangeSelection.distanceAvailable && rangeSelection.sampledAxis ? "elapsed" : visualState.identity === visualIdentity && rangeSelection.sampledAxis ? visualState.axis : "distance";
   const visualRange = visualState.identity === visualIdentity ? visualState.range : null;
   useLayoutEffect(() => { setHoverIndex(null); }, [visualIdentity, visualAxis]);
   // 구간 분석 버튼 없이, 소유자가 그래프에서 고른 범위가 곧 서버 구간 분석 범위다.
@@ -660,12 +660,13 @@ export default function ActivityPage() {
   };
   const visualRouteRange = useMemo(() => {
     if (!visualRange || !streams?.latlng) return null;
-    const startIndex = sampledData[visualRange[0]]?.sourceIndex;
-    const endIndex = sampledData[visualRange[1]]?.sourceIndex;
+    if (sampledData.some(point => point.routeSourceIndex !== undefined)) return rangeSelection.routeRange ?? null;
+    const startIndex = sampledData[visualRange[0]]?.routeSourceIndex === null ? undefined : sampledData[visualRange[0]]?.routeSourceIndex ?? sampledData[visualRange[0]]?.sourceIndex;
+    const endIndex = sampledData[visualRange[1]]?.routeSourceIndex === null ? undefined : sampledData[visualRange[1]]?.routeSourceIndex ?? sampledData[visualRange[1]]?.sourceIndex;
     if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex) || startIndex! < 0 || endIndex! <= startIndex! || endIndex! >= streams.latlng.length) return null;
     if (!streams.latlng.slice(startIndex, endIndex! + 1).every(point => point?.length === 2 && point.every(Number.isFinite) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180)) return null;
     return { startIndex: startIndex!, endIndex: endIndex! };
-  }, [visualRange, sampledData, streams]);
+  }, [visualRange, sampledData, streams, rangeSelection.routeRange]);
   const recordedRunCadenceUnit = serverMetrics.metrics?.cadenceUnit ?? (activity?.source === "strava" ? "strides_per_minute" : activity?.source === "orider" ? "spm" : null);
   const availableOverlays = useMemo(() => getPerformanceOverlays(
     sampledData, sport, units, recordedRunCadenceUnit, t("analysis.run.cadenceUnit"),
@@ -744,9 +745,9 @@ export default function ActivityPage() {
   const segmentEfforts = useMemo(() => getSegmentEfforts(streams), [streams]);
   const chartSegments = useMemo(() => segmentEfforts.flatMap(effort => {
     if (!Number.isInteger(effort.startIndex) || !Number.isInteger(effort.endIndex) || effort.startIndex < 0 || effort.endIndex <= effort.startIndex || effort.endIndex >= (streams?.distance?.length ?? 0)) return [];
-    const startIndex = sampledData.findIndex(point => (point.sourceIndex ?? -1) >= effort.startIndex);
+    const startIndex = sampledData.findIndex(point => (point.routeSourceIndex === null ? -1 : point.routeSourceIndex ?? point.sourceIndex ?? -1) >= effort.startIndex);
     let endIndex = sampledData.length - 1;
-    while (endIndex >= 0 && (sampledData[endIndex]?.sourceIndex ?? Infinity) > effort.endIndex) endIndex--;
+    while (endIndex >= 0 && (sampledData[endIndex]?.routeSourceIndex === null ? Infinity : sampledData[endIndex]?.routeSourceIndex ?? sampledData[endIndex]?.sourceIndex ?? Infinity) > effort.endIndex) endIndex--;
     return startIndex >= 0 && endIndex > startIndex ? [{ id: String(effort.id), name: effort.name, startIndex, endIndex,
       summary: [Number.isFinite(effort.distance) && effort.distance > 0 ? formatDistance(effort.distance, units) : null,
         Number.isFinite(effort.elapsedTime) && effort.elapsedTime > 0 ? formatTime(effort.elapsedTime) : null].filter(Boolean).join(" · "),
@@ -1315,7 +1316,7 @@ export default function ActivityPage() {
           focusedOverlayKey={focusedOverlayKey} toggleOverlay={toggleOverlay} chartOverlays={chartOverlays}
           hoverPoint={hoverPoint} summaryStats={summaryStats} sport={sport} recordedRunCadenceUnit={recordedRunCadenceUnit}
           elapsedAxisSec={rangeSelection.sampledAxis ?? undefined} xAxis={visualAxis}
-          axisControls={<ActivityChartAxisControls compact axis={visualAxis} elapsedAvailable={!!rangeSelection.sampledAxis} onChange={axis => {
+          axisControls={<ActivityChartAxisControls compact axis={visualAxis} distanceAvailable={rangeSelection.distanceAvailable} elapsedAvailable={!!rangeSelection.sampledAxis} onChange={axis => {
             setVisualState({ identity: visualIdentity, axis, range: visualRange }); setHoverIndex(null);
           }} />}
           rangeAnalysis={activity?.id ? <><ActivityRangeControls selection={rangeSelection} showAxis={false} part="details" /><ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={rangeSelection.analysisActivityId ?? activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /></> : null}

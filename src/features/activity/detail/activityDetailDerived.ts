@@ -1497,7 +1497,11 @@ export function buildSampledData(
 ): SampledPoint[] {
   if (!streams?.distance) return [];
   const dist = streams.distance;
-  const len = dist.length;
+  const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
+  const imported = hasImportedObservations(streams) ? importedObservations(streams, context.activityStartTime, context.explicitDurationSec) : null;
+  const len = imported?.timeMs.length ?? dist.length;
+  const routeByTime = imported?.routeTimeMs ? new Map(imported.routeTimeMs.map((time, index) => [time, index])) : null;
+  const routeIndex = (index: number) => routeByTime ? routeByTime.get(imported!.timeMs[index]!) : index;
   const interval = Math.max(1, Math.floor(len / 300));
   const { chartHeartRate, chartPower, alignedCadence } = buildAlignedActivityChartChannels(streams, contextOrDuration, activityStartTime);
   const selectedIndexes = new Set<number>();
@@ -1507,9 +1511,11 @@ export function buildSampledData(
   if (isRawPartStreams(streams)) streams.altitude?.forEach((value, index) => {
     if (index < len && value != null && Number.isFinite(value)) selectedIndexes.add(index);
   });
+  const chartRouteChannel = (values: readonly (number | null)[] | undefined) => routeByTime && values
+    ? Array.from({ length: len }, (_, index) => { const route = routeIndex(index); return route == null ? null : values[route] ?? null; }) : values;
   const chartChannels: Array<readonly (number | null)[] | undefined> = [
-    streams.altitude,
-    streams.velocity_smooth,
+    chartRouteChannel(streams.altitude),
+    chartRouteChannel(streams.velocity_smooth),
     chartHeartRate,
     chartPower,
     alignedCadence,
@@ -1537,12 +1543,14 @@ export function buildSampledData(
   }
   const points: SampledPoint[] = [];
   for (const i of [...selectedIndexes].sort((a, b) => a - b)) {
+    const route = routeIndex(i);
     points.push({
       sourceIndex: i,
-      latlng: streams.latlng?.[i] as [number, number] ?? null,
-      distance: dist[i] ?? (isRawPartStreams(streams) ? NaN : 0),
-      altitude: (streams.altitude as number[] | undefined)?.[i] ?? 0,
-      speed: (streams.velocity_smooth?.[i] ?? 0) * 3.6,
+      routeSourceIndex: routeByTime ? route ?? null : undefined,
+      latlng: route == null ? null : streams.latlng?.[route] as [number, number] ?? null,
+      distance: route == null ? NaN : dist[route] ?? (imported || isRawPartStreams(streams) ? NaN : 0),
+      altitude: route == null ? NaN : streams.altitude?.[route] ?? (imported ? NaN : 0),
+      speed: route == null ? NaN : (streams.velocity_smooth?.[route] ?? (imported ? NaN : 0)) * 3.6,
       heartRate: chartHeartRate ? chartHeartRate[i] ?? null : null,
       power: chartPower ? chartPower[i] ?? null : null,
       cadence: alignedCadence?.[i] ?? (hasImportedObservations(streams) ? NaN : 0),

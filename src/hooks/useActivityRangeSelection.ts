@@ -1,3 +1,4 @@
+import { importedObservations } from "../features/activity/detail/importedActivityObservations";
 import { activitySensorOrigin } from "../features/activity/detail/activitySensorOrigin";
 import { useMemo, useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -24,10 +25,12 @@ export function useActivityRangeSelection(model: ActivityAnalysisModel, sampled:
   const durationSec = activity?.summary?.elapsedTimeMillis != null ? activity.summary.elapsedTimeMillis / 1000
     : metrics?.durationSec ?? 0;
   const movingSec = metrics?.movingTimeSec ?? (activity?.summary?.ridingTimeMillis != null ? activity.summary.ridingTimeMillis / 1000 : null);
+  const activityStartEpoch = normalizeEpochMilliseconds(activity?.startTime);
   const chartStreams = model.effectiveStreams ?? model.streams;
   const axis = useMemo(() => chartStreams?.time ? confirmedRouteElapsedAxis({ time: chartStreams.time,
-    activityStartEpochMs: normalizeEpochMilliseconds(activity?.startTime), elapsedDurationSec: durationSec, movingDurationSec: movingSec }) : null,
-  [chartStreams, activity?.startTime, durationSec, movingSec]);
+    activityStartEpochMs: activityStartEpoch, elapsedDurationSec: durationSec, movingDurationSec: movingSec,
+    routeElapsedConfirmed: !!importedObservations(chartStreams, activity?.startTime, durationSec) }) : null,
+  [chartStreams, activity?.startTime, activityStartEpoch, durationSec, movingSec]);
   const sampledAxis = axis && sampled.every((point, index) => Number.isInteger(point.sourceIndex) && point.sourceIndex! >= 0 && point.sourceIndex! < axis.length
     && (index === 0 || point.sourceIndex! > sampled[index - 1]!.sourceIndex!))
     ? sampled.map(point => axis[point.sourceIndex!]!) : null;
@@ -56,10 +59,14 @@ export function useActivityRangeSelection(model: ActivityAnalysisModel, sampled:
     if (end > start) chartRange = [start, end];
   }
   const route = model.streams?.latlng;
-  const routeRange = bounds && route?.length === axis?.length
-    && Array.from(route!.slice(bounds.startIndex, bounds.endIndex + 1)).every(point => Array.isArray(point)
+  const imported = model.streams ? importedObservations(model.streams, activity?.startTime, durationSec) : null;
+  const routeAxis = imported?.routeTimeMs ? activityStartEpoch == null ? null : imported.routeTimeMs.map(ms => (ms + imported.originEpochMs - activityStartEpoch) / 1000) : axis;
+  const routeBounds = current.selection && routeAxis ? elapsedRangeRouteBounds(routeAxis, current.selection, interpolationLimit) : null;
+  const distanceAvailable = sampled.length > 1 && sampled.every(point => Number.isFinite(point.distance));
+  const routeRange = routeBounds && route?.length === routeAxis?.length
+    && Array.from(route!.slice(routeBounds.startIndex, routeBounds.endIndex + 1)).every(point => Array.isArray(point)
       && Number.isFinite(point[0]) && Number.isFinite(point[1]) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180)
-    ? { startIndex: bounds.startIndex, endIndex: bounds.endIndex } : undefined;
+    ? { startIndex: routeBounds.startIndex, endIndex: routeBounds.endIndex } : undefined;
   return { analysisActivityId, rawSource: model.streams, sourceLoading: model.loadingStreams, sourceLocked,
     lockSource: () => { if (!sourceLocked) setSourceLock({ scope: sourceScope, source: model.streams, refreshing: false }); },
     reloadSource: async () => {
@@ -67,10 +74,10 @@ export function useActivityRangeSelection(model: ActivityAnalysisModel, sampled:
       setSourceLock({ scope: sourceScope, source: model.streams, refreshing: true });
       await model.retryStreams();
     }, identity, ownerUid: owner ? user?.uid : null, enabled: current.enabled, selection: current.selection,
-    xAxis: current.xAxis, durationSec, axis, sampledAxis, chartRange, routeRange,
+    xAxis: !distanceAvailable && sampledAxis ? "elapsed" as const : current.xAxis, distanceAvailable, durationSec, axis, sampledAxis, chartRange, routeRange,
     clippedBoundary: bounds?.clippedBoundary ?? false, locationUnavailable: !!current.selection && !routeRange,
     toggle: () => setState({ ...current, enabled: !current.enabled, selection: null }), clear: () => select(null), select, selectAndEnable: (range: ElapsedRange) => select(range, true),
-    setXAxis: (xAxis: "distance" | "elapsed") => { if (xAxis === "distance" || sampledAxis) setState({ ...current, xAxis }); },
+    setXAxis: (xAxis: "distance" | "elapsed") => { if (xAxis === "distance" ? distanceAvailable : sampledAxis) setState({ ...current, xAxis }); },
     selectChart: (indices: [number, number]) => {
       if (!axis) return;
       const ordered: [number, number] = indices[0] < indices[1] ? indices : [indices[1], indices[0]];

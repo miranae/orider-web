@@ -74,3 +74,21 @@ it("shows actual zero watts but omits missing power in the detail hover", () => 
   view.rerender(<Chart power={null} />);
   expect(screen.queryByText("실측 파워 0 W")).not.toBeInTheDocument();
 });
+
+it("keeps imported GPS subset elevation at its exact sensor timestamps", () => {
+  const streams = { distance: [0,20], altitude: [100,110], time: [0,.5,1,1.5,2],
+    importedSensorObservationsV1: { version: 1, source: "parsed_import_points", state: "available", timeUnit: "relative_milliseconds",
+      originEpochMs: 1792970000000, timeMs: [0,500,1000,1500,2000], routeTimeMs: [500,1500],
+      watts: [200,null,0,200,200], heartrate: [150,null,150,150,150], cadence: [80,null,0,80,80] } };
+  const points = buildSampledData(streams);
+  const available = getPerformanceOverlays(points, "ride", "metric", null, "cadence");
+  const selected = new Set(available.map(cfg => cfg.key));
+  render(<ActivityPerformanceCharts analysisStyle rawStreams={streams} sourceIndices={points.map(point => point.sourceIndex!)}
+    elapsedAxisSec={streams.time} xAxis="elapsed" elevData={points.map(point => ({ distance: point.distance, elevation: point.altitude }))}
+    availableOverlays={available} activeOverlays={selected} focusedOverlayKey={null} toggleOverlay={vi.fn()}
+    chartOverlays={buildChartOverlays(available, selected, points, key => key)} hoverPoint={null}
+    summaryStats={null} sport="ride" recordedRunCadenceUnit={null} metrics={null} powerSource="importedSensorObservationsV1" />);
+  expect((captured.props.data as { elevation: number }[]).map(point => point.elevation)).toEqual([NaN,100,NaN,110,NaN]);
+  expect((captured.props.overlays as OverlayDataset[]).find(overlay => overlay.key === "power")?.data).toEqual([200,null,0,200,200]);
+  expect(captured.props.xAxis).toBe("elapsed");
+});

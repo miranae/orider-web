@@ -1,3 +1,4 @@
+import { normalizeEpochMilliseconds } from "../../../utils/timestampUnit";
 import type { ActivityStreams } from "@shared/types";
 import { validateImportedSensorObservations, selectImportedSensorObservationSeries, type ImportedSensorChannel } from "@shared/analysis/importedSensorObservations";
 
@@ -5,18 +6,20 @@ export function hasImportedObservations(streams: ActivityStreams | null): boolea
   return streams != null && Object.prototype.hasOwnProperty.call(streams, "importedSensorObservationsV1");
 }
 export function importedObservations(streams: ActivityStreams, startTime?: number, durationSec?: number) {
+  const startEpoch = normalizeEpochMilliseconds(startTime);
+  if (startTime != null && startEpoch == null) return null;
   const raw = (streams as unknown as Record<string, unknown>).importedSensorObservationsV1;
   const block = validateImportedSensorObservations(raw, streams.distance?.length);
-  if (!block || block.state !== "available" || startTime != null && (!Number.isSafeInteger(startTime) || block.originEpochMs < startTime)) return null;
+  if (!block || block.state !== "available" || startTime != null && (!Number.isSafeInteger(startTime) || block.originEpochMs < startEpoch!)) return null;
   if (startTime != null && durationSec != null && (!Number.isFinite(durationSec) || durationSec <= 0
-    || block.originEpochMs + block.timeMs[block.timeMs.length - 1]! > startTime + durationSec * 1000)) return null;
+    || block.originEpochMs + block.timeMs[block.timeMs.length - 1]! > startEpoch! + durationSec * 1000)) return null;
   return block;
 }
 /** Preserve exact imported point time; rounded legacy time is not an alternative sensor axis. */
 export function withImportedObservationTime(streams: ActivityStreams | null, startTime?: number, durationSec?: number): ActivityStreams | null {
   if (!streams || !hasImportedObservations(streams)) return streams;
   const block = importedObservations(streams, startTime, durationSec);
-  return block ? { ...streams, time: block.timeMs.map(ms => (ms + block.originEpochMs - (startTime ?? block.originEpochMs)) / 1000) } : streams;
+  return block ? { ...streams, time: block.timeMs.map(ms => (ms + block.originEpochMs - (normalizeEpochMilliseconds(startTime) ?? block.originEpochMs)) / 1000) } : streams;
 }
 export function importedSeries(streams: ActivityStreams, channel: ImportedSensorChannel, startTime?: number, durationSec?: number) {
   const block = importedObservations(streams, startTime, durationSec);

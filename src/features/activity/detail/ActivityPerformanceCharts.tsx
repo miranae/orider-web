@@ -1,3 +1,4 @@
+import { hasImportedObservations } from "./importedActivityObservations";
 import type { ActivityStreams } from "@shared/types";
 import { isRawPartStreams } from "../../../services/activityStreamSource";
 import { buildAlignedActivityChartChannels, type ActivitySensorSelectionContext } from "./activityDetailDerived";
@@ -72,13 +73,13 @@ export default function ActivityPerformanceCharts({
     : t(`overlay.${cfg.label}`);
   const title = !hasElevation ? t("page.detailedCharts") : availableOverlays.length > 0 ? t("page.elevTitleWithPerf") : t("page.elevProfile");
   const sourceChannels = useMemo(() => analysisStyle && rawStreams ? buildAlignedActivityChartChannels(rawStreams, sensorSelectionContext) : null, [analysisStyle, rawStreams, sensorSelectionContext]);
-  const analysisData = useMemo(() => rawStreams && sourceIndices?.length === elevData.length && rawStreams.altitude?.length === rawStreams.distance?.length
+  const analysisData = useMemo(() => rawStreams && !hasImportedObservations(rawStreams) && sourceIndices?.length === elevData.length && rawStreams.altitude?.length === rawStreams.distance?.length
     ? elevData.map((point, index) => ({ ...point, elevation: rawStreams.altitude![sourceIndices[index]!] ?? NaN })) : elevData, [rawStreams, sourceIndices, elevData]);
   const analysisOverlays = useMemo(() => analysisStyle && rawStreams && sourceIndices ? chartOverlays.map(overlay => ({ ...overlay,
     data: overlay.data.map((value, index) => {
       const rawIndex = sourceIndices[index];
       if (rawIndex === undefined || rawIndex < 0) return null;
-      const source = overlay.key === "speed" ? rawStreams.velocity_smooth : overlay.key === "cadence" ? sourceChannels?.alignedCadence : undefined;
+      const source = overlay.key === "speed" ? hasImportedObservations(rawStreams) ? undefined : rawStreams.velocity_smooth : overlay.key === "cadence" ? sourceChannels?.alignedCadence : undefined;
       return source && (source[rawIndex] == null || !Number.isFinite(source[rawIndex])) ? null : value;
     }),
   })) : chartOverlays, [analysisStyle, rawStreams, sourceIndices, chartOverlays, sourceChannels]);

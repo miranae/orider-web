@@ -135,3 +135,35 @@ it("selects the validated imported subsecond axis instead of rounded legacy time
   act(() => result.current.selectChart([1, 3]));
   expect(result.current.selection).toMatchObject({ startOffsetSec: .5, endOffsetSec: 1.5 });
 });
+
+it("uses the indoor sensor clock and keeps missing GPS separate from chart selections", () => {
+  auth.uid = "owner";
+  const marker = { version: 1, state: "available", source: "parsed_import_points", timeUnit: "relative_milliseconds",
+    originEpochMs: epoch + 1000, timeMs: [0,500,1000,1500,2000], routeTimeMs: [],
+    watts: [200,null,0,200,200], heartrate: [150,null,150,150,150], cadence: [80,null,0,80,80] };
+  const raw = { distance: [], latlng: [], time: [], importedSensorObservationsV1: marker };
+  const input = { ...model, activity: { ...model.activity!, summary: { elapsedTimeMillis: 3000 } }, serverMetrics: { metrics: { durationSec: 3, movingTimeSec: 0 } }, streams: raw, effectiveStreams: { ...raw, time: [1,1.5,2,2.5,3] } } as unknown as ActivityAnalysisModel;
+  const points = [0,1,2,3,4].map(sourceIndex => ({ sourceIndex, routeSourceIndex: null, distance: NaN })) as SampledPoint[];
+  const { result } = renderHook(() => useActivityRangeSelection(input, points));
+  expect(result.current.xAxis).toBe("elapsed"); expect(result.current.distanceAvailable).toBe(false);
+  act(() => result.current.setXAxis("distance")); expect(result.current.xAxis).toBe("elapsed");
+  act(() => result.current.selectChart([1,3]));
+  expect(result.current.selection).toMatchObject({ startOffsetSec: 1.5, endOffsetSec: 2.5 });
+  expect(result.current.routeRange).toBeUndefined(); expect(result.current.locationUnavailable).toBe(true);
+});
+
+it("never highlights a sparse GPS interval as a continuous sensor selection", () => {
+  auth.uid = "owner";
+  const raw = { time: [0,600], distance: [0,100], latlng: [[37,127],[37.1,127.1]],
+    importedSensorObservationsV1: { version: 1, state: "available", source: "parsed_import_points", timeUnit: "relative_milliseconds",
+      originEpochMs: epoch, timeMs: Array.from({length:601},(_,i)=>i*1000), routeTimeMs: [0,600000],
+      watts: Array(601).fill(200), heartrate: Array(601).fill(150), cadence: Array(601).fill(80) } };
+  const input = { ...model, activity: { ...model.activity!, startTime: epoch/1000, summary: { elapsedTimeMillis: 600000 } },
+    streams: raw, effectiveStreams: { ...raw, time: Array.from({length:601},(_,i)=>i) }, serverMetrics: {metrics:{durationSec:600,movingTimeSec:0}} } as unknown as ActivityAnalysisModel;
+  const points = [0,300,600].map(sourceIndex => ({sourceIndex,distance:NaN})) as SampledPoint[];
+  const {result} = renderHook(()=>useActivityRangeSelection(input,points));
+  expect(result.current.sampledAxis).toEqual([0,300,600]);
+  act(()=>result.current.selectChart([0,2]));
+  expect(result.current.selection).toMatchObject({startOffsetSec:0,endOffsetSec:600});
+  expect(result.current.routeRange).toBeUndefined();
+});

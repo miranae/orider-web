@@ -7,6 +7,8 @@ export type ImportedSensorObservationsV1 = {
   timeUnit: "relative_milliseconds";
   originEpochMs: number;
   timeMs: number[];
+  /** GPS subset의 동일 센서 원점 기준 시각. 빈 배열은 GPS 미관측이다. */
+  routeTimeMs?: number[];
   heartrate: Array<number | null>;
   watts: Array<number | null>;
   cadence: Array<number | null>;
@@ -25,12 +27,20 @@ export function validateImportedSensorObservations(value: unknown, expectedLengt
   if (v.state !== "available" || v.timeUnit !== "relative_milliseconds"
     || !Number.isSafeInteger(v.originEpochMs) || (v.originEpochMs as number) <= 0
     || !Array.isArray(v.timeMs) || v.timeMs.length < 2
-    || expectedLength != null && v.timeMs.length !== expectedLength) return null;
+    || expectedLength != null && (Array.isArray(v.routeTimeMs) ? v.routeTimeMs.length : v.timeMs.length) !== expectedLength) return null;
   const axis = v.timeMs;
   for (let i = 0; i < axis.length; i++) {
     if (!Object.prototype.hasOwnProperty.call(axis, i) || !Number.isSafeInteger(axis[i])
       || axis[i] < 0 || (i === 0 ? axis[i] !== 0 : axis[i] <= axis[i - 1])
       || !Number.isSafeInteger((v.originEpochMs as number) + axis[i])) return null;
+  }
+  if (Object.prototype.hasOwnProperty.call(v, "routeTimeMs")) {
+    if (!Array.isArray(v.routeTimeMs)) return null;
+    const observed = new Set(axis);
+    for (let i = 0; i < v.routeTimeMs.length; i++) {
+      if (!Object.prototype.hasOwnProperty.call(v.routeTimeMs, i) || !observed.has(v.routeTimeMs[i])
+        || i > 0 && v.routeTimeMs[i] <= v.routeTimeMs[i - 1]) return null;
+    }
   }
   for (const channel of ["heartrate", "watts", "cadence"] as const) {
     const values = v[channel];
