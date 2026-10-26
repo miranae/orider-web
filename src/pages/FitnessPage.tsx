@@ -1270,7 +1270,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           </FtpDecisionSection>
         )}
 
-        {part === "condition" && <section className="condition-method-section"><Text as="h2" variant="title">{t("condition.story.methodsTitle")}</Text><PmcHistoryMethodNotes canonical={model.hasCanonicalHistory} /></section>}
+        {part === "condition" && <section className="condition-method-section"><DetailsSection title={t("condition.story.methodsTitle")}><PmcHistoryMethodNotes canonical={model.hasCanonicalHistory} /></DetailsSection></section>}
         {!embedded && part === "condition" && thresholdsSlot}
 
       </div>

@@ -1357,5 +1357,7 @@
   "comparison.fourWeeks": "최근 4주 ↔ 이전 4주",
   "comparison.yearToDate": "올해 ↔ 전년 동기간",
   "comparison.fourWeeksNote": "오늘을 제외한 완료된 28일과 바로 이전 28일을 비교합니다.",
-  "comparison.yearToDateNote": "각 연도 1월 1일부터 같은 월·일·시각까지 비교합니다. 2월 29일은 전년 2월 28일로 맞춥니다."
+  "comparison.yearToDateNote": "각 연도 1월 1일부터 같은 월·일·시각까지 비교합니다. 2월 29일은 전년 2월 28일로 맞춥니다.",
+  "sufficiency.loadQuality.title": "기록과 계산 상태",
+  "sufficiency.loadQuality.details": "데이터 품질과 근거"
 }

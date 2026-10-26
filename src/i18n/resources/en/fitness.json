@@ -1357,5 +1357,7 @@
   "comparison.fourWeeks": "Last 4 weeks vs previous 4 weeks",
   "comparison.yearToDate": "Year to date vs previous year",
   "comparison.fourWeeksNote": "Compare the last 28 complete days, excluding today, with the preceding 28 days.",
-  "comparison.yearToDateNote": "Compare from January 1 to the same month, day and time in each year. February 29 maps to February 28 in the previous year."
+  "comparison.yearToDateNote": "Compare from January 1 to the same month, day and time in each year. February 29 maps to February 28 in the previous year.",
+  "sufficiency.loadQuality.title": "Records and calculation status",
+  "sufficiency.loadQuality.details": "Data quality and evidence"
 }
