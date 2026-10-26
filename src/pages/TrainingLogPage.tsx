@@ -783,7 +783,7 @@ export default function TrainingLogPage() {
           )}
         </div>
 
-        {requestedDate && validRequestedDate && (visiblePlans.has(requestedDate) || importParams.has("day") || importParams.get("detail") === "record-day") && <CoachDetailSection id="record-day" requested={importParams.get("detail") == null} title={t("planRecords.dayTitle", { date: requestedDate })}>
+        {requestedDate && validRequestedDate && (visiblePlans.has(requestedDate) || importParams.has("day") || importParams.get("detail") === "record-day") && <CoachDetailSection id="record-day" requested={importParams.has("day") && importParams.get("detail") == null} title={t("planRecords.dayTitle", { date: requestedDate })}>
           <PlanRecordEvidence date={requestedDate} plans={visiblePlans.get(requestedDate) ?? []} />
           {loading ? <Text role="status">{tCommon("button.loading")}</Text> : loadError ? <ErrorState title={tCommon("error.title")} onRetry={retryMonth} compact /> : <>
             {(byDay.get(requestedDate) ?? []).map(activity => {

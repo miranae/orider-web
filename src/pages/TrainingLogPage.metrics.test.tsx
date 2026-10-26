@@ -4,6 +4,7 @@ import { MemoryRouter, useNavigate, useLocation } from "react-router-dom";
 import { getDocs, onSnapshot, where } from "firebase/firestore";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TrainingLogPage, {LogDayCell} from "./TrainingLogPage";
+import * as planOverlay from "../features/training/plan/usePlanRecordOverlay";
 import type {Activity} from "@shared/types";
 import { planCalendarDate, planMonthBounds } from "@shared/training/planDate";
 
@@ -38,7 +39,7 @@ beforeEach(() => {
     .mockResolvedValue({ docs: [], empty: true } as unknown as Awaited<ReturnType<typeof getDocs>>)
     .mockResolvedValueOnce({ docs, empty: false } as unknown as Awaited<ReturnType<typeof getDocs>>);
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 function expectMetric(label: string, value: string) {
   expect(screen.getByText(label).parentElement).toHaveTextContent(value);
@@ -423,4 +424,23 @@ it.each(["rider", "other"])("keeps period return inside mobile day detail and sc
     await screen.findByRole("tab", { name: "활동" });
     expect(screen.queryByRole("link", { name: "기간 분석으로 돌아가기" })).toBeNull();
   }
+});
+
+it("keeps month date links on the calendar when the selected date has a plan, while explicit day selection opens details", async () => {
+  const plans = new Map([["2026-10-01", [{ discipline: "bike" as const, workout: "rest" as const, plannedTSS: 0, plannedDurationMin: 0 }]]]);
+  vi.spyOn(planOverlay, "usePlanRecordOverlay").mockReturnValue({ state: "ready", plans, retry: vi.fn() });
+  vi.mocked(getDocs).mockReset().mockResolvedValue({ docs: [], empty: true } as never);
+  const open = (search: string) => render(<MemoryRouter initialEntries={[`/ko/athlete/me/activities?sport=bike&${search}`]}><TrainingLogPage /></MemoryRouter>);
+  let view = open("date=2026-09-01");
+  await waitFor(() => expect(screen.getByTestId("P1-0")).toHaveTextContent("2026년 9월"));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  view.unmount();
+  view = open("date=2026-10-01");
+  await waitFor(() => expect(screen.getByTestId("P1-0")).toHaveTextContent("2026년 10월"));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByTestId("P1-2-2"));
+  expect(await screen.findByRole("dialog", { name: "2026-10-01 계획과 기록" })).toBeVisible();
+  view.unmount();
+  open("date=2026-10-01&day=2026-10-01&detail=record-day");
+  expect(await screen.findByRole("dialog", { name: "2026-10-01 계획과 기록" })).toBeVisible();
 });
