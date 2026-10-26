@@ -1,3 +1,4 @@
+import { currentCanonicalContractFixture } from "./activityRouteEvidence.fixture";
 import { resetRuntimeConfigForTests } from "./runtimeConfig";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -8,7 +9,7 @@ vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn(() => mocks.call) })
 vi.mock("./activityRouteEvidence", async importOriginal => ({ ...(await importOriginal<typeof import("./activityRouteEvidence")>()), observedRouteAvailable: () => mocks.available }));
 // Actual compiled reader output from synthetic SDK only; no owner/runtime evidence.
 // source artifact SHA256: b51e5310242da9faa48f9e04846f91984945bdda3608529d830ee9b9f8cf59ff
-const compiled = [
+const archivedCompiled = [
   {
     "count": 3,
     "archive": false,
@@ -451,12 +452,13 @@ const compiled = [
     }
   }
 ] as unknown as Array<{ count: number; archive: boolean; first: ActivityMatchedRouteGroupResponse; next: ActivityMatchedRouteGroupResponse | null }>;
+const compiled = currentCanonicalContractFixture(archivedCompiled);
 const request: ActivityMatchedRouteGroupRequest = { mode: "matched_route_group_page", anchorActivityId: "anchor", discipline: "bike" };
 const clock = compiled[0]!.first.readTime.seconds * 1000 + 1000;
 const clone = <T,>(value: T): T => structuredClone(value);
 beforeEach(() => { mocks.available = true; mocks.call.mockReset(); });
-describe("compiled matched route wire", () => {
-  it.each(compiled)("accepts compiled $count cohort / archive $archive without rewriting values", fixture => {
+describe("current-version synthetic matched route contract derived from archived wire", () => {
+  it.each(compiled)("accepts synthetic current-version $count cohort / archive $archive without rewriting values", fixture => {
     const response = validateActivityMatchedRouteGroupResponse(fixture.first, request, clock);
     expect(response).toBe(fixture.first); validateMatchedRouteGroupAppend([], response);
     if (fixture.next) {
@@ -557,3 +559,7 @@ it('binds observed-native policy to coverage and rejects rankings or default-pol
  });
 
 beforeEach(() => resetRuntimeConfigForTests({ appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net" }));
+
+it("rejects obsolete available canonical members without rewriting the archived group wire", () => {
+ expect(() => validateActivityMatchedRouteGroupResponse(archivedCompiled[0]!.first, request, clock)).toThrow("invalid_matched_route_group_response");
+});

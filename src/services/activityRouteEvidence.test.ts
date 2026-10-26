@@ -1,7 +1,8 @@
+import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { compareObservedRoutes } from "@shared/observed-route-comparison";
 import { loadActivityRouteEvidence, validateRouteEvidenceResponse, validRouteComparison } from "./activityRouteEvidence";
-import { routeFixture, routeResponse, backendCanonicalWireFixture } from "./activityRouteEvidence.fixture";
+import { routeFixture, routeResponse, backendCanonicalWireFixture, currentCanonicalContractFixture } from "./activityRouteEvidence.fixture";
 const mocks = vi.hoisted(() => ({ call: vi.fn(), config: { appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net" } }));
 vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn(() => mocks.call) }));
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => mocks.config }));
@@ -89,25 +90,36 @@ it("adds canonical opt-in only explicitly and keeps default request/response ide
   const value=await loadActivityRouteEvidence(services,"owner","first",undefined,{includeCanonicalAverage:true,startTime:1700000000000,discipline:"bike"});
   expect(value.canonicalAverage?.state).toBe("available");expect(mocks.call).toHaveBeenCalledExactlyOnceWith({mode:"route_evidence",activityId:"first",includeCanonicalAverage:true});
 });
-it.each(["colon-revision","version34","version35","future42","negative","nan","infinite","start","discipline","revision","computed","coverage","source","extra","null-channel","state"])("isolates malformed canonical%s without losing GPS", async fault => {
+it.each(["colon-revision","version34","version35","futureVersion","negative","nan","infinite","start","discipline","revision","computed","coverage","source","extra","null-channel","state"])("isolates malformed canonical%s without losing GPS", async fault => {
   const { routeAverageResponse }=await import("./activityRouteEvidence.fixture");const value=routeAverageResponse(), a=value.canonicalAverage as any;
-  if(fault==="colon-revision")a.metricsRevision="1700000300:2";if(fault==="version34")a.version=34;if(fault==="version35")a.version=35;if(fault==="future42")a.version=42;if(fault==="negative")a.avgSpeedKph=-1;if(fault==="nan")a.avgSpeedKph=NaN;if(fault==="infinite")a.avgSpeedKph=Infinity;
+  if(fault==="colon-revision")a.metricsRevision="1700000300:2";if(fault==="version34")a.version=34;if(fault==="version35")a.version=35;if(fault==="futureVersion")a.version=ACTIVITY_METRICS_VERSION+1;if(fault==="negative")a.avgSpeedKph=-1;if(fault==="nan")a.avgSpeedKph=NaN;if(fault==="infinite")a.avgSpeedKph=Infinity;
   if(fault==="start")a.startTime++;if(fault==="discipline")a.discipline="run";if(fault==="revision")a.metricsRevision="GPS";if(fault==="computed")a.computedAt=0;
   if(fault==="coverage")a.inputCoverage="pending";if(fault==="source")a.sourceLayer="api_streams";if(fault==="extra")a.guess=true;if(fault==="null-channel")value.canonicalAverage=null as any;if(fault==="state")a.state="changed_input";
   const beforeRoute=value.state==="available"?value.route:null;
   const safe=validateRouteEvidenceResponse(value,"first",undefined,{includeCanonicalAverage:true,startTime:1700000000000,discipline:"bike"});
   expect(safe.canonicalAverage).toBeUndefined();expect(safe.state).toBe("available");if(safe.state==="available")expect(safe.route).toBe(beforeRoute);
 });
-it("preserves canonical41 explicitnull, real0 and partial-terminal; accepts separate honest states and absent oldserver channel", async () => {
+it("preserves current canonical explicitnull, real0 and partial-terminal; accepts separate honest states and absent oldserver channel", async () => {
   const { routeAverageResponse }=await import("./activityRouteEvidence.fixture");const option={includeCanonicalAverage:true as const,startTime:1700000000000,discipline:"bike" as const};
   for(const speed of [0,null,12]){const value=routeAverageResponse("first",option.startTime,"bike",speed);if(value.canonicalAverage?.state!=="available")throw new Error("fixture");value.canonicalAverage.inputCoverage="partial_terminal";expect(validateRouteEvidenceResponse(value,"first",undefined,option)).toBe(value);expect(value.canonicalAverage.avgSpeedKph).toBe(speed);}
   for(const [state,reason] of [["pending","metrics_pending"],["changed_input","metrics_revision_changed"],["unavailable","missing_metrics"]]){const value={...routeResponse(),canonicalAverage:{state,reason,metricsRevision:null}};expect(validateRouteEvidenceResponse(value,"first",undefined,option).canonicalAverage?.state).toBe(state);}
   const old=routeResponse();expect(validateRouteEvidenceResponse(old,"first",undefined,option)).toBe(old);
 });
 
-it.each(backendCanonicalWireFixture.cases)("preserves actual compiled backend canonical$name response instead of silently stripping it", wire => {
+it.each(currentCanonicalContractFixture(backendCanonicalWireFixture).cases)("accepts current-version synthetic canonical$name derived from archived wire", wire => {
   const option={includeCanonicalAverage:true as const,startTime:1789999970000,discipline:wire.name.startsWith("run_")?"run" as const:"bike" as const};
   const value=validateRouteEvidenceResponse(wire.response,wire.response.activityId,undefined,option);
   expect(value.canonicalAverage).toEqual(wire.response.canonicalAverage);expect(value.state).toBe("available");
   expect(backendCanonicalWireFixture.operationalReads).toBe(0);expect(backendCanonicalWireFixture.emittedFixtureSha256).toBe("cdd3833475e2e9bdae84cdd199349be9a79a8971d4a48d2bd9fb96e93e38913c");
+});
+
+it.each(backendCanonicalWireFixture.cases)("keeps archived version41 provenance and isolates its obsolete canonical channel: $name", wire => {
+  const option = { includeCanonicalAverage: true as const, startTime: 1789999970000, discipline: wire.name.startsWith("run_") ? "run" as const : "bike" as const };
+  const value = validateRouteEvidenceResponse(wire.response, wire.response.activityId, undefined, option);
+  if (wire.response.canonicalAverage?.state === "available") {
+    expect(wire.response.canonicalAverage.version).toBe(41);
+    expect(value.canonicalAverage).toBeUndefined();
+    expect(value.state).toBe("available");
+    expect(value.route).toBe(wire.response.route);
+  } else expect(value.canonicalAverage).toEqual(wire.response.canonicalAverage);
 });

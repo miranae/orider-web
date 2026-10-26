@@ -1,5 +1,7 @@
+import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
+import { currentCanonicalContractFixture } from "./activityRouteEvidence.fixture";
 import { resetRuntimeConfigForTests } from "./runtimeConfig";
-import { compiledRouteIndexWire as compiledWire } from "./activityRouteIndexPage.compiled.fixture";
+import { compiledRouteIndexWire as archivedCompiledWire } from "./activityRouteIndexPage.compiled.fixture";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityRouteIndexPageRequest, ActivityRouteIndexPageResponse } from "@shared/activity-route-index-page";
 import { loadActivityRouteIndexPage, routeIndexPositionAfter, validateActivityRouteIndexPageResponse, validActivityRouteIndexPageRequest } from "./activityRouteIndexPage";
@@ -7,6 +9,7 @@ import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 const mocks = vi.hoisted(() => ({ invoke: vi.fn(), available: true }));
 vi.mock("firebase/functions", () => ({ httpsCallable: () => mocks.invoke }));
 vi.mock("./activityRouteEvidence", async original => ({ ...await original<typeof import("./activityRouteEvidence")>(), observedRouteAvailable: () => mocks.available }));
+const compiledWire = currentCanonicalContractFixture(archivedCompiledWire);
 const now = 1791792000000;
 const request: ActivityRouteIndexPageRequest = { mode: "route_index_page", anchorActivityId: "anchor", discipline: "run" };
 // 합성 계약의 반례다. 실제 compiled wire는 백엔드 최종 승인 후 고정한다.
@@ -19,7 +22,7 @@ function wire(): ActivityRouteIndexPageResponse {
     candidates: [{ activityId: "candidate", startTime: now - 86400000, match: { state: "available", direction: "forward", guidance: "observed_similar", forwardCandidate: true,
       coverage: "not_complete", lengthRatio: 1, forward: { meanSeparationM: 0, p95SeparationM: 0, startSeparationM: 0, endSeparationM: 0 },
       reverse: { meanSeparationM: 100, p95SeparationM: 100, startSeparationM: 100, endSeparationM: 100 }, limitations: ["sample_based", "no_loop_rotation", "coverage_not_complete"] },
-      canonicalAverage: { state: "available", reason: null, version: 41, metricsRevision: "a".repeat(64), discipline: "run", startTime: now - 86400000, computedAt: now - 1000, avgSpeedKph: 12, inputCoverage: "complete", sourceLayer: "raw_parts" } }],
+      canonicalAverage: { state: "available", reason: null, version: ACTIVITY_METRICS_VERSION, metricsRevision: "a".repeat(64), discipline: "run", startTime: now - 86400000, computedAt: now - 1000, avgSpeedKph: 12, inputCoverage: "complete", sourceLayer: "raw_parts" } }],
     omitted: [], io: { documents: 12, metadata: 1, rawDownloads: 0, writes: 0 }, limitations: ["direct_anchor_only", "scanned_page_only", "source_geo_quality_unknown", "gcs_firestore_non_atomic"] };
 }
 afterEach(() => { vi.useRealTimers(); mocks.available = true; mocks.invoke.mockReset(); });
@@ -96,7 +99,7 @@ describe("route index page strict contract", () => {
   });
 });
 
-describe("actual compiled reader wire compatibility", () => {
+describe("current-version synthetic contract derived from archived compiled reader wire", () => {
   it.each(compiledWire.pages)("accepts $case/$phase and preserves counts, canonical gaps and source metadata", ({ request: compiledRequest, response }) => {
     const request = compiledRequest as ActivityRouteIndexPageRequest;
     const fullClock = response.readTime.seconds * 1000 + response.readTime.nanoseconds / 1e6;
@@ -123,7 +126,7 @@ describe("actual compiled reader wire compatibility", () => {
     expect(compiledWire.provenance.ownerRuntimeVerified).toBe(false);
     expect(compiledWire.provenance.actualRawCoverageVerified).toBe(false);
   });
-  it.each(["backwards", "snapshot", "counts", "canonical_coercion", "sparse", "scope", "binding"])("rejects actual wire tampering: %s", problem => {
+  it.each(["backwards", "snapshot", "counts", "canonical_coercion", "sparse", "scope", "binding"])("rejects current synthetic wire tampering: %s", problem => {
     const fixture = problem === "canonical_coercion" ? compiledWire.pages[0]! : compiledWire.pages[1]!;
     const value = structuredClone(fixture.response), request = structuredClone(fixture.request) as ActivityRouteIndexPageRequest;
     if (problem === "backwards" && value.nextCursor && request.cursor) value.nextCursor.after = { ...request.cursor.after };
@@ -153,3 +156,9 @@ describe("actual compiled reader wire compatibility", () => {
  });
 
 beforeEach(() => resetRuntimeConfigForTests({ appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net" }));
+
+it("does not relabel archived index metrics as current canonical output", () => {
+ const archived = archivedCompiledWire.pages.find(page => page.response.candidates.some(row => row.canonicalAverage.state === "available"))!;
+ expect(() => validateActivityRouteIndexPageResponse(archived.response, archived.request as ActivityRouteIndexPageRequest,
+   archived.response.readTime.seconds * 1000 + 1000)).toThrow("invalid_route_index_page");
+});
