@@ -1,3 +1,5 @@
+import NarrativeComparisonGrounding from "./NarrativeComparisonGrounding";
+import { captureActivityNarrativeSession } from "../../services/activityNarrativeSession";
 import { Bot } from "lucide-react";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import ActivitySocialSummary from "./ActivitySocialSummary";
@@ -243,15 +245,12 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   const header = <><Bot size={ICON_SIZE.md} aria-hidden="true" style={{ display: "inline", marginInlineEnd: "var(--space-2)", verticalAlign: "text-bottom" }} />{t(sportHeaderKey(sport)).replace(/^🤖\s*/u, "")}</>;
   const previewSummary = lang === "en" ? (summaryPreviewEn || summaryPreview) : (summaryPreview || summaryPreviewEn);
   const { user, signIn } = useAuth();
-  // 1단계: 캐시 peek (LLM 호출 없이 빠른 확인).
-  //   공개(everyone) 활동의 캐시 조회는 비로그인도 허용(CF getActivityNarrative cacheOnly) →
-  //   이미 생성된 분석은 로그아웃 상태에서도 hit 으로 표시된다. 언어별 슬롯 조회.
-  const narrativeEnabled = enabled && getRuntimeConfig().appEnvironment !== "stage";
+  // 1단계: 소유자의 캐시만 확인한다. 과거 비공개 기록이 포함된 AI 본문은 공개 DTO와 분리한다.
+  const narrativeEnabled = enabled && isActivityOwner && !!user && getRuntimeConfig().appEnvironment !== "stage";
   const peek = useActivityNarrativePeek(activityId, narrativeEnabled, lang);
   // 2단계: 사용자가 "분석시작"을 눌렀을 때만 full 생성 호출.
-  //   생성(LLM)은 인증 필수 → 비로그인은 호출 금지. cacheMiss 분기에서 비로그인엔 로그인 CTA 노출
-  //   (= 결과는 공개로 보되, 새 생성은 로그인 필요).
-  const scope = `${activityId}:${lang}:${user?.uid ?? "anonymous"}`;
+  //   인증된 소유자의 명시적 조작만 생성 요청으로 이어진다.
+  const scope = `${activityId}:${lang}:${user?.uid ?? "anonymous"}:${captureActivityNarrativeSession().key}`;
   const [triggerScope, setTriggerScope] = useState<string | null>(null);
   const triggerFull = triggerScope === scope;
   const setTriggerFull = (trigger: boolean) => setTriggerScope(trigger ? scope : null);
@@ -276,7 +275,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     window.setTimeout(() => setTriggerFull(true), 0);
   };
 
-  const data = full.data ?? peek.data;
+  const data = isActivityOwner && user && !full.accessRevoked ? full.data ?? peek.data : null;
 
   if (!narrativeEnabled) return null;
 
@@ -511,6 +510,8 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
           {t("ai.regenerateShareSummaryHint")}
         </Text>
       )}
+
+      <NarrativeComparisonGrounding grounding={data.comparisonGrounding} generatedAt={data.generatedAt} />
 
       {/* 전체 플래그 */}
       {overall.flags.length > 0 && (

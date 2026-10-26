@@ -4,6 +4,8 @@ import { auth, ensureAppCheckReady, functions, getAppCheckToken } from "./fireba
 import { getRuntimeConfig } from "./runtimeConfig";
 import { logClientError } from "./errorLogger";
 import { track } from "./analytics";
+import { captureActivityNarrativeSession } from "./activityNarrativeSession";
+type NarrativeSession = ReturnType<typeof captureActivityNarrativeSession>;
 import type { ActivityNarrative, ActivitySocialSummary, NarrativeLang } from "../hooks/useActivityNarrative";
 
 export interface ActivityNarrativeGenerateRequest {
@@ -164,11 +166,14 @@ function observeTransport(
 
 export async function fetchActivityNarrativeRest<T extends ActivityNarrativeResponse>(
   request: ActivityNarrativeRequest,
+  session?: NarrativeSession,
 ): Promise<T> {
   // 구형 Hosting 산출물처럼 runtime-config에 AI base가 없으면 인증/App Check 작업 전에
   // 명시적인 compatibility fallback으로 분기할 수 있어야 한다.
   const url = endpoint("/v1/activity-narrative");
   await waitForNarrativeAuthReady();
+  session ??= captureActivityNarrativeSession();
+  session.assertCurrent();
   const user = auth?.currentUser;
   if (!user) {
     throw new ActivityNarrativeRestError("Firebase user is not signed in.", {
@@ -181,6 +186,7 @@ export async function fetchActivityNarrativeRest<T extends ActivityNarrativeResp
     getAppCheckToken(),
   ]);
 
+  session.assertCurrent();
   let response: Response;
   try {
     response = await fetch(url, {
@@ -199,6 +205,7 @@ export async function fetchActivityNarrativeRest<T extends ActivityNarrativeResp
     );
   }
 
+  session.assertCurrent();
   if (!response.ok) {
     let payload: ActivityNarrativeErrorPayload | null = null;
     try {
@@ -220,7 +227,9 @@ export async function fetchActivityNarrativeRest<T extends ActivityNarrativeResp
     );
   }
 
-  return response.json() as Promise<T>;
+  const payload = await response.json() as T;
+  session.assertCurrent();
+  return payload;
 }
 
 /** fetch가 읽을 수 있는 HTTP 응답을 받지 못한 실패(회선·CORS 등). */
@@ -248,6 +257,7 @@ function restCompatibilityFallbackReason(
 async function callActivityNarrativeCallable<T extends ActivityNarrativeResponse>(
   request: ActivityNarrativeRequest,
   fallbackReason: CompatibilityFallbackReason,
+  session: NarrativeSession,
 ): Promise<T> {
   // getActivityNarrative 는 enforceAppCheck 이라 App Check 초기화 전에 호출하면 SDK 가 토큰을
   // 아예 붙이지 않아 핸들러 진입 전 플랫폼이 영문 "Unauthenticated" 로 거부한다. main.tsx 의
@@ -264,9 +274,11 @@ async function callActivityNarrativeCallable<T extends ActivityNarrativeResponse
     observeTransport(request, "callable", "error", fallbackReason);
     throw error;
   });
+  session.assertCurrent();
   const fn = httpsCallable<ActivityNarrativeRequest, T>(functions, "getActivityNarrative");
   try {
     const response = await fn(request);
+    session.assertCurrent();
     observeTransport(request, "callable", "success", fallbackReason);
     return response.data;
   } catch (error) {
@@ -282,13 +294,14 @@ async function callActivityNarrativeCallable<T extends ActivityNarrativeResponse
  */
 async function probeGeneratedNarrative(
   request: ActivityNarrativeGenerateRequest,
+  session: NarrativeSession,
 ): Promise<ActivityNarrative | null> {
   try {
     const probe = await fetchActivityNarrativeRest<ActivityNarrativePeekResponse>({
       activityId: request.activityId,
       lang: request.lang,
       cacheOnly: true,
-    });
+    }, session);
     if (probe.hit !== true) return null;
     const { hit: _hit, ...narrative } = probe;
     return narrative;
@@ -326,6 +339,7 @@ async function probeGeneratedNarrative(
 async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse>(
   request: ActivityNarrativeRequest,
   error: unknown,
+  session: NarrativeSession,
 ): Promise<T> {
   // 생성 오류는 추적한다. 읽기 복구 성공은 transport 관측만 남기고 최종 실패는 호출부로 전파한다.
   if (request.cacheOnly !== true) logClientError("activityNarrativeApi.restNetworkRecovery", error, {
@@ -343,7 +357,7 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
     await sleep(REST_NETWORK_RETRY_DELAY_MS);
     let generated: ActivityNarrative | null;
     try {
-      generated = await probeGeneratedNarrative(request);
+      generated = await probeGeneratedNarrative(request, session);
     } catch (probeError) {
       observeTransport(request, "rest", "error");
       throw probeError;
@@ -359,7 +373,7 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
   const failedBase = configuredBaseUrl();
   await sleep(REST_NETWORK_RETRY_DELAY_MS);
   try {
-    const retried = await fetchActivityNarrativeRest<T>(request);
+    const retried = await fetchActivityNarrativeRest<T>(request, session);
     observeTransport(request, "rest", "success");
     return retried;
   } catch (retryError) {
@@ -369,7 +383,7 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
         observeTransport(request, "rest", "error");
         throw retryError;
       }
-      return callActivityNarrativeCallable<T>(request, fallbackReason);
+      return callActivityNarrativeCallable<T>(request, fallbackReason, session);
     }
   }
   // base 별로만 격리하며 토큰·활동·사용자 식별자는 보관하거나 진단에 보내지 않는다.
@@ -384,7 +398,7 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
     }
     peekNetworkCooldowns.set(base, Date.now() + REST_PEEK_NETWORK_COOLDOWN_MS);
   }
-  return callActivityNarrativeCallable<T>(request, "rest_network_unreachable");
+  return callActivityNarrativeCallable<T>(request, "rest_network_unreachable", session);
 }
 
 async function requestActivityNarrative<T extends ActivityNarrativeResponse>(
@@ -393,29 +407,31 @@ async function requestActivityNarrative<T extends ActivityNarrativeResponse>(
   if (activityNarrativeApiEnabled()) {
     await waitForNarrativeAuthReady();
   }
+  const session = captureActivityNarrativeSession();
   // #1636 완료 전 REST 인증기는 익명 요청을 받지 않는다. 공개 활동 cacheOnly의 기존
   // 익명 읽기 계약만 한 릴리스 호환 callable로 유지하고, 생성 요청은 우회하지 않는다.
   if (!auth?.currentUser && request.cacheOnly === true) {
-    return callActivityNarrativeCallable<T>(request, "anonymous_peek");
+    return callActivityNarrativeCallable<T>(request, "anonymous_peek", session);
   }
 
   const base = configuredBaseUrl();
   if (request.cacheOnly === true && base && (peekNetworkCooldowns.get(base) ?? 0) > Date.now()) {
-    return callActivityNarrativeCallable<T>(request, "rest_network_cooldown");
+    return callActivityNarrativeCallable<T>(request, "rest_network_cooldown", session);
   }
 
   try {
-    const response = await fetchActivityNarrativeRest<T>(request);
+    const response = await fetchActivityNarrativeRest<T>(request, session);
     observeTransport(request, "rest", "success");
     return response;
   } catch (error) {
-    if (isRestNetworkError(error)) return recoverFromRestNetworkFailure<T>(request, error);
+    session.assertCurrent();
+    if (isRestNetworkError(error)) return recoverFromRestNetworkFailure<T>(request, error, session);
     const fallbackReason = restCompatibilityFallbackReason(error);
     if (!fallbackReason) {
       observeTransport(request, "rest", "error");
       throw error;
     }
-    return callActivityNarrativeCallable<T>(request, fallbackReason);
+    return callActivityNarrativeCallable<T>(request, fallbackReason, session);
   }
 }
 

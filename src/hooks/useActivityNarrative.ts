@@ -1,3 +1,5 @@
+import type { ActivityNarrativeGrounding } from "@shared/activity-narrative-grounding";
+import { invalidateActivityNarrativePeekCache } from "./useActivityNarrativePeek";
 /**
  * 활동 구간 내러티브 (AI 라이딩 분석) — REST 우선 호출 + 캐시 활용 hook.
  *
@@ -9,6 +11,7 @@
  */
 import { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { captureActivityNarrativeSession, isActivityNarrativeAccessRevoked } from "../services/activityNarrativeSession";
 import { logClientError } from "../services/errorLogger";
 import { generateActivityNarrative } from "../services/activityNarrativeApi";
 
@@ -84,6 +87,7 @@ export interface ActivitySocialSummary {
 }
 
 export interface ActivityNarrative {
+  comparisonGrounding?: ActivityNarrativeGrounding | null;
   socialSummary?: ActivitySocialSummary;
   /** 짧은 공유 문구 생성에 실패한 새 분석은 null. 구버전 캐시는 미포함. */
   shareSummary?: string | null;
@@ -112,6 +116,7 @@ export interface ActivityNarrative {
 }
 
 interface State {
+  accessRevoked?: boolean;
   data: ActivityNarrative | null;
   loading: boolean;
   error: string | null;
@@ -142,7 +147,8 @@ export function useActivityNarrativeWithOptions(
   refreshKey = 0,
 ): State {
   const { user } = useAuth();
-  const scope = `${activityId}:${lang}:${user?.uid ?? "anonymous"}`;
+  const session = captureActivityNarrativeSession();
+  const scope = `${activityId}:${lang}:${user?.uid ?? "anonymous"}:${session.key}`;
   const [stateScope, setStateScope] = useState(scope);
   const [state, setState] = useState<State>({ data: null, loading: false, error: null });
 
@@ -171,6 +177,7 @@ export function useActivityNarrativeWithOptions(
       inflight.set(key, promise);
       // 성공 → done 으로 승격, 실패 → inflight 비워 후속 마운트가 재시도 가능
       promise.then((data) => {
+        if (!session.isCurrent()) return;
         done.set(`${scope}:cache`, data);
         done.set(key, data);
       }).finally(() => {
@@ -181,16 +188,17 @@ export function useActivityNarrativeWithOptions(
     }
 
     promise
-      .then((data) => { if (!cancelled) setState({ data, loading: false, error: null }); })
+      .then((data) => { if (!cancelled && session.isCurrent()) setState({ data, loading: false, error: null }); })
       .catch((err: unknown) => {
-        if (cancelled) return;
+        if (cancelled || !session.isCurrent()) return;
         const msg = err instanceof Error ? err.message : String(err);
         logClientError("useActivityNarrative", msg, { activityId, lang });
-        setState((previous) => ({ data: previous.data, loading: false, error: msg }));
+        if (isActivityNarrativeAccessRevoked(err)) { invalidateActivityNarrativePeekCache(activityId, lang); done.delete(`${scope}:cache`); done.delete(key); }
+        setState((previous) => ({ data: isActivityNarrativeAccessRevoked(err) ? null : previous.data, accessRevoked: isActivityNarrativeAccessRevoked(err), loading: false, error: msg }));
       });
 
     return () => { cancelled = true; };
-  }, [activityId, enabled, lang, forceRefresh, refreshKey, scope]);
+  }, [activityId, enabled, lang, forceRefresh, refreshKey, scope, session]);
 
-  return stateScope === scope ? state : { data: null, loading: enabled, error: null };
+  return stateScope === scope && session.isCurrent() ? state : { data: null, loading: enabled, error: null };
 }

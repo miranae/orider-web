@@ -598,12 +598,14 @@ describe("activityNarrativeApi", () => {
     fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ hit: false })));
     const secondUser = peekActivityNarrative(request);
     releaseToken!("first-user-token");
-    await Promise.all([first, duplicate, english, other, social, secondUser]);
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    const results = await Promise.allSettled([first, duplicate, english, other, social, secondUser]);
+    expect(results.slice(0, 5).every((result) => result.status === "rejected" && result.reason.code === "auth/session-changed")).toBe(true);
+    expect(results[5].status).toBe("fulfilled");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls.filter(([, init]) => init.headers.Authorization === "Bearer other-user-token")).toHaveLength(1);
     // 완료된 요청은 다음 열람에 공유하지 않는다.
     await peekActivityNarrative(request);
-    expect(fetchMock).toHaveBeenCalledTimes(6);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it.each([401, 403, 429, 500])("peek HTTP %s는 재시도나 callable로 우회하지 않는다", async (status) => {
@@ -645,6 +647,32 @@ describe("activityNarrativeApi", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     release!();
     await first;
+  });
+
+  it("does not dispatch a callable after its AppCheck wait crosses an SDK session replacement", async () => {
+    mocks.runtime.aiApiBase = undefined;
+    let release!: () => void;
+    mocks.ensureAppCheckReady.mockReturnValueOnce(new Promise<void>((resolve) => { release = resolve; }));
+    const pending = generateActivityNarrative({ activityId: "owner", lang: "ko" });
+    const outcome = expect(pending).rejects.toMatchObject({ code: "auth/session-changed" });
+    await vi.waitFor(() => expect(mocks.ensureAppCheckReady).toHaveBeenCalledOnce());
+    mocks.auth.currentUser = { getIdToken: vi.fn().mockResolvedValue("replacement-token") };
+    release();
+    await outcome;
+    expect(mocks.callable).not.toHaveBeenCalled();
+  });
+
+  it("discards a REST response when the SDK session changes during the request", async () => {
+    let release!: (response: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((resolve) => { release = resolve; }));
+    vi.stubGlobal("fetch", fetchMock);
+    const pending = generateActivityNarrative({ activityId: "owner", lang: "ko" });
+    const outcome = expect(pending).rejects.toMatchObject({ code: "auth/session-changed" });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    mocks.auth.currentUser = { getIdToken: vi.fn().mockResolvedValue("replacement-token") };
+    release(jsonResponse({ summary: "old owner evidence" }));
+    await outcome;
+    expect(mocks.callable).not.toHaveBeenCalled();
   });
 
 });

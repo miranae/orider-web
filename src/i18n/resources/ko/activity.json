@@ -654,6 +654,47 @@
     "temp": {
       "device": "실측",
       "forecast": "예보"
+    },
+    "grounding": {
+      "title": "비교 근거",
+      "legacy": "이 분석에는 생성 당시의 비교 근거가 저장되어 있지 않습니다. 현재 기록으로 과거의 근거를 추정하지 않습니다.",
+      "intro": "분석을 만든 당시의 자료입니다. 원본을 열면 이후 수정된 내용이 보일 수 있습니다. 표시 시각은 KST입니다.",
+      "kind": {
+        "coach_history": "최근 기록 표본 비교",
+        "fitness_context": "활동 전 훈련 상태",
+        "personal_baseline": "평소 기록과 비교",
+        "segment_history": "구간 기록 비교"
+      },
+      "basis": {
+        "activity_relative": "이 활동의 시작 시각을 기준으로 조회했습니다. KST 달력 기간의 전체 집계와는 다릅니다.",
+        "generation_time": "분석을 생성한 시각을 기준으로 조회했습니다."
+      },
+      "window": "{{from}} ({{start}}) ~ {{to}} ({{end}})",
+      "included": "포함",
+      "excluded": "제외",
+      "comparisonWindow": "비교 범위 {{index}}:",
+      "counts": "조회 {{scanned}}건 · 선택 {{selected}}건",
+      "missingUnknown": "누락 자료 수는 확인되지 않았습니다.",
+      "missing": "누락 자료 {{count}}건",
+      "coverage": {
+        "sample": "선택된 표본을 비교했습니다. 해당 기간의 모든 기록을 뜻하지 않습니다.",
+        "complete_query": "이 조회 조건의 자료를 확인했습니다. 실제 모든 주행의 완전성을 뜻하지 않습니다.",
+        "unknown": "비교 자료의 완전성은 확인되지 않았습니다."
+      },
+      "limit": "조회 상한 {{count}}건",
+      "cap": "조회 상한에 도달했습니다. 추가 기록의 유무나 전체 범위는 확인되지 않았습니다.",
+      "sources": "생성 당시 원본 근거 {{count}}개",
+      "sourcesPartial": "원본 목록의 일부만 표시합니다.",
+      "sourceKind": {
+        "activity": "활동",
+        "metrics": "계산 지표",
+        "profile": "설정",
+        "fitness": "훈련 상태",
+        "segment_effort": "구간 기록"
+      },
+      "openSource": "원본 활동 보기",
+      "revision": "생성 당시 자료 버전: {{revision}}",
+      "revisionUnknown": "생성 당시 자료 버전 미확인"
     }
   },
   "card": {

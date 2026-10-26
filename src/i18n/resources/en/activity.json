@@ -654,6 +654,47 @@
     "temp": {
       "device": "measured",
       "forecast": "forecast"
+    },
+    "grounding": {
+      "title": "Comparison evidence",
+      "legacy": "Generation-time comparison evidence was not saved for this analysis. Current records are not used to reconstruct past evidence.",
+      "intro": "These inputs were used when the analysis was generated. Opening a source may show later changes. Times are shown in KST.",
+      "kind": {
+        "coach_history": "Recent activity sample",
+        "fitness_context": "Pre-activity training state",
+        "personal_baseline": "Personal baseline",
+        "segment_history": "Segment history"
+      },
+      "basis": {
+        "activity_relative": "Relative to this activity’s start time; this is not a complete KST calendar-period aggregate.",
+        "generation_time": "Relative to the time this analysis was generated."
+      },
+      "window": "{{from}} ({{start}}) – {{to}} ({{end}})",
+      "included": "included",
+      "excluded": "excluded",
+      "comparisonWindow": "Comparison window {{index}}:",
+      "counts": "Read {{scanned}} · Selected {{selected}}",
+      "missingUnknown": "The number of missing inputs is unknown.",
+      "missing": "Missing inputs: {{count}}",
+      "coverage": {
+        "sample": "A selected sample was compared, not every activity in this period.",
+        "complete_query": "The query scope was checked. This does not establish completeness of all physical rides.",
+        "unknown": "Completeness of the comparison inputs is unknown."
+      },
+      "limit": "Query limit: {{count}}",
+      "cap": "The query limit was reached. Additional records and full coverage are unconfirmed.",
+      "sources": "Generation-time source references: {{count}}",
+      "sourcesPartial": "Only part of the source list is shown.",
+      "sourceKind": {
+        "activity": "Activity",
+        "metrics": "Computed metrics",
+        "profile": "Settings",
+        "fitness": "Training state",
+        "segment_effort": "Segment effort"
+      },
+      "openSource": "Open source activity",
+      "revision": "Input revision at generation: {{revision}}",
+      "revisionUnknown": "Input revision at generation is unknown"
     }
   },
   "card": {

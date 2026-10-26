@@ -13,6 +13,7 @@
  */
 import { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { captureActivityNarrativeSession } from "../services/activityNarrativeSession";
 import { logClientError } from "../services/errorLogger";
 import { peekActivityNarrative } from "../services/activityNarrativeApi";
 import type { ActivityNarrative, NarrativeLang } from "./useActivityNarrative";
@@ -35,7 +36,8 @@ const peekKey = (activityId: string, lang: NarrativeLang, viewer: string) => `${
  */
 export function useActivityNarrativePeek(activityId: string | null, enabled: boolean, lang: NarrativeLang = "ko"): PeekState {
   const { user } = useAuth();
-  const scope = peekKey(activityId ?? "", lang, user?.uid ?? "anonymous");
+  const session = captureActivityNarrativeSession();
+  const scope = peekKey(activityId ?? "", lang, `${user?.uid ?? "anonymous"}:${session.key}`);
   const [stateScope, setStateScope] = useState(scope);
   const [state, setState] = useState<PeekState>({ data: null, loading: false, cacheMiss: false });
 
@@ -56,7 +58,7 @@ export function useActivityNarrativePeek(activityId: string | null, enabled: boo
 
     peekActivityNarrative({ activityId, cacheOnly: true, lang })
       .then((d) => {
-        if (cancelled) return;
+        if (cancelled || !session.isCurrent()) return;
         if (d.hit) {
           // hit: source 포함한 전체 payload 가 온다
           const narrative = d as unknown as ActivityNarrative;
@@ -68,16 +70,16 @@ export function useActivityNarrativePeek(activityId: string | null, enabled: boo
         }
       })
       .catch((error) => {
-        if (cancelled) return;
+        if (cancelled || !session.isCurrent()) return;
         logClientError("useActivityNarrativePeek", error, { lang });
         // peek 실패는 생성 트리거로 이어지지 않게 miss 처리한다.
         setState({ data: null, loading: false, cacheMiss: true });
       });
 
     return () => { cancelled = true; };
-  }, [activityId, enabled, lang, scope]);
+  }, [activityId, enabled, lang, scope, session]);
 
-  return stateScope === scope ? state : { data: null, loading: enabled, cacheMiss: false };
+  return stateScope === scope && session.isCurrent() ? state : { data: null, loading: enabled, cacheMiss: false };
 }
 
 /** 활동 peek 세션 캐시 무효화 — 분석 완료 후 AiRideAnalysisCard 가 호출해 갱신 유도.
