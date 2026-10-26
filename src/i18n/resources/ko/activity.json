@@ -539,8 +539,6 @@
     "checking": "확인 중…",
     "startBtn": "분석시작",
     "refreshDetailBtn": "상세 분석 다시 불러오기",
-    "regenerateShareSummaryBtn": "공유 문구를 위해 다시 분석",
-    "regenerateShareSummaryHint": "짧은 공유 문구를 생성하지 못했습니다. 다시 분석하면 공유 문구도 새로 생성합니다.",
     "refreshAnalysisBtn": "변경사항 반영해 다시 분석",
     "loginBtn": "로그인",
     "waitHint": "분석 대기 — 버튼을 눌러 AI 구간 분석을 시작하세요.",
@@ -1674,29 +1672,6 @@
     "phaseProvisional": "중간 요약의 게시 단계입니다. 상세 요약은 준비 중입니다.",
     "resultTarget": "게시 요청 대상 · Strava 활동 {{id}}",
     "statusTitle": "게시 상태"
-  },
-  "socialSummary": {
-    "retry": "공유요약 다시 불러오기",
-    "retrying": "공유요약 불러오는 중…",
-    "retryHint": "기존 코칭은 유지됩니다. 공유요약만 다시 불러올 수 있습니다.",
-    "retryError": "공유요약을 불러오지 못했습니다. 다시 시도해 주세요.",
-    "title": "공유용 요약",
-    "sports": {
-      "bike": "자전거",
-      "run": "러닝",
-      "swim": "수영"
-    },
-    "settled": "전날 정산 → 활동일 정산",
-    "pendingTitle": "전날 정산",
-    "ctl": "체력 · CTL",
-    "atl": "ATL · 피로",
-    "tsb": "폼 · TSB",
-    "dailyBasis": "같은 종목의 일별 정산값입니다. 활동일 값에는 그날의 모든 활동이 포함됩니다.",
-    "pendingBasis": "활동일 정산이 끝나면 같은 종목의 후속 값을 표시합니다.",
-    "private": "이 활동의 비공개 설정으로 피트니스 수치를 공유하지 않습니다.",
-    "copy": "공유 문구 복사",
-    "copied": "공유 문구를 복사했습니다.",
-    "error": "복사하지 못했습니다. 다시 시도해 주세요."
   },
   "growth": {
     "title": "활동 변화와 통계",

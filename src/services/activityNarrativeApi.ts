@@ -4,7 +4,7 @@ import { auth, ensureAppCheckReady, functions, getAppCheckToken } from "./fireba
 import { getRuntimeConfig } from "./runtimeConfig";
 import { logClientError } from "./errorLogger";
 import { track } from "./analytics";
-import type { ActivityNarrative, ActivitySocialSummary, NarrativeLang } from "../hooks/useActivityNarrative";
+import type { ActivityNarrative, NarrativeLang } from "../hooks/useActivityNarrative";
 
 export interface ActivityNarrativeGenerateRequest {
   activityId: string;
@@ -17,7 +17,6 @@ export interface ActivityNarrativePeekRequest {
   activityId: string;
   lang: NarrativeLang;
   cacheOnly: true;
-  socialSummaryOnly?: boolean;
   forceRefresh?: never;
 }
 
@@ -37,8 +36,7 @@ interface ActivityNarrativeErrorPayload {
   };
 }
 
-type ActivitySocialSummaryResponse = { socialSummary?: ActivitySocialSummary };
-type ActivityNarrativeResponse = ActivityNarrative | ActivityNarrativePeekResponse | ActivitySocialSummaryResponse;
+type ActivityNarrativeResponse = ActivityNarrative | ActivityNarrativePeekResponse;
 type CompatibilityFallbackReason =
   | "rest_not_configured"
   | "rest_route_unavailable"
@@ -449,7 +447,7 @@ async function requestActivityNarrativePeek<T extends ActivityNarrativeResponse>
       }
     });
   }
-  const key = JSON.stringify([configuredBaseUrl(), request.activityId, request.lang, !!request.socialSummaryOnly]);
+  const key = JSON.stringify([configuredBaseUrl(), request.activityId, request.lang]);
   const existing = pendingPeeks.get(key);
   if (existing) return existing as Promise<T>;
   const pending = requestActivityNarrative<T>(request);
@@ -459,9 +457,4 @@ async function requestActivityNarrativePeek<T extends ActivityNarrativeResponse>
   } finally {
     if (pendingPeeks.get(key) === pending) pendingPeeks.delete(key);
   }
-}
-
-/** AI를 재생성하지 않고 공유요약만 재조회한다. */
-export function retryActivitySocialSummary(activityId: string, lang: NarrativeLang): Promise<ActivitySocialSummaryResponse> {
-  return requestActivityNarrativePeek<ActivitySocialSummaryResponse>({ activityId, lang, cacheOnly: true, socialSummaryOnly: true });
 }

@@ -1,6 +1,5 @@
 import { Bot } from "lucide-react";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
-import ActivitySocialSummary from "./ActivitySocialSummary";
 /**
  * AI 라이딩 분석 카드 (활동 개요).
  *
@@ -450,8 +449,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   const generatedDate = Number.isFinite(data.generatedAt) && data.generatedAt > 0
     ? new Date(data.generatedAt) : null;
   const generatedAt = generatedDate && Number.isFinite(generatedDate.getTime()) ? generatedDate : null;
-  const needsShareRegeneration = isActivityOwner && data.shareSummary === null;
-  // 분석은 생성 당시의 스냅샷 — 안내는 상단의 소유자 버튼 하나뿐(배지 중복 제거), 본문·공유 문구·처방은 그대로 둔다.
+  // 분석은 생성 당시의 스냅샷 — 안내는 상단의 소유자 버튼 하나뿐(배지 중복 제거), 본문·처방은 그대로 둔다.
   // 서버 계약: null 은 "안내 없음". 필드 자체가 없는(구 서버) 응답만 stale 로 폴백한다.
   const reanalysis = data.reanalysisAvailable !== undefined ? data.reanalysisAvailable : (data.stale ? "inputs_changed" : null);
   const ownerReanalysis = isActivityOwner ? reanalysis : null;
@@ -470,10 +468,9 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
         {tempBadge && <Text variant="caption" tone="tertiary">{tempBadge}</Text>}
         {data.isVirtualPower && <Text variant="caption" tone="tertiary">{t("ai.virtualPower")}</Text>}
-        {isActivityOwner && (ownerReanalysis || needsShareRegeneration) && (
+        {ownerReanalysis && (
           <Button size="sm" variant="secondary" onClick={retryFullAnalysis} disabled={full.loading}>
-            {t(ownerReanalysis === "analyst_updated" ? "ai.reanalyzeWithNewAnalystBtn"
-              : ownerReanalysis === "inputs_changed" ? "ai.refreshAnalysisBtn" : "ai.regenerateShareSummaryBtn")}
+            {t(ownerReanalysis === "analyst_updated" ? "ai.reanalyzeWithNewAnalystBtn" : "ai.refreshAnalysisBtn")}
           </Button>
         )}
       </div>
@@ -511,15 +508,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         </div>
       )}
 
-      {/* 상세 AI 분석과 짧은 공유 문구는 각각의 내용을 유지한다. */}
       <Text variant="body" tone="primary" as="p">{data.summary}</Text>
-      <ActivitySocialSummary key={`${activityId}:${lang}:${user?.uid ?? "anonymous"}:${data.generatedAt}`}
-        activityId={activityId ?? undefined} lang={lang} summary={data.socialSummary} isActivityOwner={isActivityOwner} />
-      {!ownerReanalysis && needsShareRegeneration && (
-        <Text variant="caption" tone="tertiary" as="p" className="mt-2">
-          {t("ai.regenerateShareSummaryHint")}
-        </Text>
-      )}
 
       {/* 전체 플래그 */}
       {overall.flags.length > 0 && (
