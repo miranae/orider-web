@@ -144,7 +144,7 @@ describe("AiRideAnalysisCard", () => {
       narrativeApiMocks.peek.mockResolvedValue({ ...narrative([segment(0, 10, "Saved English coaching")]), generatedAt, stale: true });
       const { container } = renderWithProviders(<AiRideAnalysisCard activityId="english-saved-generation-date" enabled isActivityOwner />, { authenticated: true });
       expect(await screen.findByText("Saved English coaching")).toBeInTheDocument();
-      expect(screen.getByText("Activity data has changed")).toBeInTheDocument();
+      expect(screen.queryByText("Activity data has changed")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Reanalyze with latest data" })).toBeInTheDocument();
       expect(container).toHaveTextContent("· analyst test");
       expect(container.querySelector("time")).toHaveTextContent(new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(generatedAt));
@@ -334,9 +334,9 @@ describe("AiRideAnalysisCard", () => {
 
   describe("snapshot reanalysis notice", () => {
     const states = [
-      { name: "analyst_updated", extra: { reanalysisAvailable: "analyst_updated" as const, stale: false }, badge: "새 분석가로 다시 분석 가능", button: "새 분석가로 다시 분석" },
-      { name: "inputs_changed", extra: { reanalysisAvailable: "inputs_changed" as const, stale: true }, badge: "활동 데이터가 바뀌었어요", button: "변경사항 반영해 다시 분석" },
-      { name: "legacy stale fallback", extra: { stale: true }, badge: "활동 데이터가 바뀌었어요", button: "변경사항 반영해 다시 분석" },
+      { name: "analyst_updated", extra: { reanalysisAvailable: "analyst_updated" as const, stale: false }, badge: null, button: "새 분석가로 다시 분석" },
+      { name: "inputs_changed", extra: { reanalysisAvailable: "inputs_changed" as const, stale: true }, badge: null, button: "변경사항 반영해 다시 분석" },
+      { name: "legacy stale fallback", extra: { stale: true }, badge: null, button: "변경사항 반영해 다시 분석" },
       { name: "explicit null with stale (server says no notice)", extra: { stale: true, reanalysisAvailable: null }, badge: null, button: null },
       { name: "null", extra: { reanalysisAvailable: null, stale: false }, badge: null, button: null },
     ];

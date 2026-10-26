@@ -552,7 +552,6 @@
     "refreshFailedHint": "Reanalysis failed. Your saved analysis is preserved.",
     "staleHint": "Activity data has changed",
     "analystVersion": "analyst {{version}}",
-    "analystUpdatedBadge": "Reanalysis available with new analyst",
     "reanalyzeWithNewAnalystBtn": "Reanalyze with new analyst",
     "loginHint": "Sign in to use AI segment analysis.",
     "runPreview": {
