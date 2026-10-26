@@ -2760,6 +2760,9 @@
     }
   },
   "nativePowerV2": {
+    "savedResults": "Results calculated in this view",
+    "savedResult": "Calculation {{number}} · {{duration}}",
+    "previousResult": "Showing a previously completed result, not a calculation for the new input.",
     "title": "Maximum average power for your chosen duration",
     "scope": "See maximum average power over your chosen duration in this activity.",
     "duration": "Duration to compare (seconds)",

@@ -2760,6 +2760,9 @@
     }
   },
   "nativePowerV2": {
+    "savedResults": "이 화면에서 계산한 결과",
+    "savedResult": "계산 {{number}} · {{duration}}",
+    "previousResult": "이전에 완료한 결과를 표시하고 있습니다. 새 입력의 계산 결과는 아닙니다.",
     "title": "원하는 시간의 최대 평균 파워",
     "scope": "이 활동에서 선택한 시간 동안의 최대 평균 파워를 확인합니다.",
     "duration": "비교할 시간 (초)",
