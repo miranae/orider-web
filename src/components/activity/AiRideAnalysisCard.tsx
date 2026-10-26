@@ -298,7 +298,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   }
 
   // peek miss: 아직 분석 없음 → "분석시작" 버튼 또는 생성 중 스피너.
-  // 비로그인: AI 분석 CF 는 인증 필수라 호출하면 카드가 사라진다 → 버튼 대신 로그인 CTA.
+  // 소유자의 캐시가 없을 때만 명시적 생성 또는 기존 소유자 요약을 표시한다.
   if (peek.cacheMiss && !triggerFull && !full.data) {
     if (previewSummary) {
       return (
