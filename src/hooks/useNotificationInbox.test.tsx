@@ -62,3 +62,40 @@ it.each(["functions/permission-denied", "functions/unauthenticated"])("clears ro
   expect(result.current.items).toHaveLength(0);
   expect(result.current.failed).toBe(true);
 });
+
+it("coalesces focus bursts while the current inbox read is pending", async () => {
+  let resolve!: (value: unknown) => void;
+  state.list.mockReturnValue(new Promise(r => { resolve = r; }));
+  const { result } = renderHook(() => useNotificationInbox());
+  act(() => { for (let n = 0; n < 12; n += 1) window.dispatchEvent(new Event("focus")); });
+  expect(state.list).toHaveBeenCalledTimes(1);
+  await act(async () => resolve({ items: [{ id: "current" }], nextCursor: null }));
+  expect(result.current.items[0]?.id).toBe("current");
+});
+
+it("skips hidden polls and renews the generation once on visible plus focus", async () => {
+  vi.useFakeTimers();
+  const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+  try {
+    const { result } = renderHook(() => useNotificationInbox());
+    await act(async () => {});
+    let oldResolve!: (value: unknown) => void;
+    state.list.mockReturnValueOnce(new Promise(r => { oldResolve = r; }));
+    act(() => { void result.current.refresh(); });
+    visibility.mockReturnValue("hidden");
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+    expect(state.list).toHaveBeenCalledTimes(2);
+    expect(result.current.items).toEqual([]);
+    let freshResolve!: (value: unknown) => void;
+    state.list.mockReturnValueOnce(new Promise(r => { freshResolve = r; }));
+    visibility.mockReturnValue("visible");
+    act(() => { document.dispatchEvent(new Event("visibilitychange")); window.dispatchEvent(new Event("focus")); });
+    expect(state.list).toHaveBeenCalledTimes(3);
+    await act(async () => oldResolve({ items: [{ id: "stale" }], nextCursor: null }));
+    expect(result.current.items).toEqual([]);
+    expect(result.current.loading).toBe(true);
+    await act(async () => freshResolve({ items: [{ id: "fresh" }], nextCursor: null }));
+    expect(result.current.items[0]?.id).toBe("fresh");
+  } finally { visibility.mockRestore(); vi.useRealTimers(); }
+});

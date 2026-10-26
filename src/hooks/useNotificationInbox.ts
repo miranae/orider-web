@@ -10,13 +10,23 @@ export function useNotificationInbox() {
   const [state, setState] = useState<{ client: typeof client; uid: string; items: Notification[]; cursor: string | null } | null>(null);
   const [loading, setLoading] = useState(false); const [failed, setFailed] = useState(false);
   const generation = useRef(0); const activeClient = useRef(client); activeClient.current = client;
-  const refresh = useCallback(async () => {
+  const pendingRefresh = useRef<{ client: typeof client; generation: number; promise: Promise<void> } | null>(null);
+  const refresh = useCallback((): Promise<void> => {
+    const pending = pendingRefresh.current;
+    if (pending?.client === client && pending.generation === generation.current) return pending.promise;
     const request = ++generation.current;
-    if (!uid) { setState(null); setFailed(false); setLoading(false); return; }
+    if (!uid) { setState(null); setFailed(false); setLoading(false); return Promise.resolve(); }
     setLoading(true); setFailed(false);
+    const promise = (async () => {
     try { const page = await client.list(); if (request === generation.current && activeClient.current === client) setState({ client, uid, items: page.items, cursor: page.nextCursor }); }
     catch { if (request === generation.current) { setState(null); setFailed(true); } }
-    finally { if (request === generation.current) setLoading(false); }
+    finally {
+      if (request === generation.current) setLoading(false);
+      if (pendingRefresh.current?.generation === request && pendingRefresh.current.client === client) pendingRefresh.current = null;
+    }
+    })();
+    pendingRefresh.current = { client, generation: request, promise };
+    return promise;
   }, [client, uid]);
   useEffect(() => {
     setState(null); void refresh();
