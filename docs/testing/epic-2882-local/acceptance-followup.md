@@ -353,3 +353,33 @@ The final run used a fresh synthetic account and a separately produced sensor ac
 Neither timing set is a direct before/after comparison or evidence for a later producer
 artifact. Any subsequent activity-clock fix is validated separately with actual import,
 recalculation, SDK/UI checks rather than retroactively changing this benchmark's version.
+
+## Actual GPX stopped-interval clock correction
+
+A later two-file source audit found a confirmed producer defect: point-only GPX summaries
+stored elapsed time in ridingTimeMillis, and the native-moving fallback interpreted that
+alias as an authoritative timer. Backend product `9c3fd6bf` now marks only point-derived
+summaries with summary.ridingTimeBasis=elapsed. Explicit movingTimeMillis, supplied file
+timers, native recording semantics and power eligibility remain unchanged. The semantic
+input fingerprint observes clock-basis changes; ETL-derived movingTimeSec does not become
+a new provider timer. Ambiguous historical records are not bulk-reclassified.
+
+Main local source is now `ef6ad3f653a1`, artifact `a09b0b3feb93`. A new isolated synthetic
+owner actually uploaded GPX through REST201, waited the normal due interval and ran its
+real queued processor. Initial calculation and two subsequent calculations all returned
+600seconds elapsed,500seconds moving,100seconds stopped,100W average power and500seconds
+of power-zone occupancy. The original stream digest/updateTime and clock-basis metadata
+were unchanged.39 focused regressions plus Node22 build/lint/compat passed. Backend evidence
+is in docs/analysis/activity-metric-definition-evidence.md (`962af433`).
+
+Actual390px Chrome/SDK showed moving0:08:20, stopped0:01:40, elapsed0:10:00 and average100W;
+five observed Functions/REST responses returned200 with no page errors or overflow. External
+`r42-clock-basis/browser-results.json` and `mobile-analysis.png` record the final view.
+An earlier browser attempt began before processor readiness and timed out; that evidence
+is retained separately. Existing narrative-owner/private-history checks passed again on
+the new runtime, and the original generation-time evidence remained byte-for-byte equal.
+The preceding120-attempt benchmark remains evidence for artifactd7120dbc485f only.
+
+Review: <http://localhost:5174/ko/activity/Ydkib5o4A031FNYFXVTL?demoAccount=clockFinal&tab=analysis>.
+All accounts, files and runtime changes are local synthetic fixtures. Existing performance
+fixtures were preserved. There was no remote push, merge, deployment or issue update.
