@@ -12,16 +12,17 @@ export function ActivityAnalysisSummary({ presentation: p }: { presentation: Act
     <div className="activity-analysis-summary__reading">
       <Text as="h3" variant="bodySmall" tone="secondary">{t("analysisReading.summary")}</Text>
       {p.coachSentence && <Text as="p" variant="title"><GlossaryText>{p.coachSentence}</GlossaryText></Text>}
+      {(session.classificationReason || p.observedEffects?.length) && <Text as="p" variant="bodySmall" tone="secondary">{[session.classificationReason, ...(p.observedEffects ?? [])].filter(Boolean).join(" · ")}</Text>}
       <div className="activity-analysis-summary__tags">
         {session.character && <Chip variant="accent">{t(`overviewEvidence.characters.${session.character}`)}</Chip>}
         {p.availability?.power === "estimated" && <Chip>{t("overviewEvidence.powerEstimated")}</Chip>}
         {p.aboveUsualVolume && <Chip>{t("overviewSummary.aboveUsualVolume")}</Chip>}
       </div>
     </div>
-    <div className="activity-analysis-fact-cluster">
-      {session.load != null && <Stat label={t("detail.acceptedLoadLabel")} value={Math.round(session.load * 10) / 10} />}
-      {session.normalizedPowerW != null && <Stat label={<GlossaryText>NP</GlossaryText>} value={Math.round(session.normalizedPowerW * 10) / 10} unit="W" />}
-      {session.intensityFactor != null && <Stat label={<GlossaryText>IF</GlossaryText>} value={session.intensityFactor.toFixed(2)} />}
+    <div className="activity-analysis-summary__metrics">
+      {session.load != null && <Stat label={t("detail.acceptedLoadLabel")} value={Math.round(session.load * 10) / 10} description={t(`analysisReading.${session.loadSource === "time" ? "loadTimeMeaning" : session.loadSource === "trimp" ? "loadHrMeaning" : "loadMeaning"}`)} />}
+      {session.normalizedPowerW != null && <Stat label={<GlossaryText>NP</GlossaryText>} value={Math.round(session.normalizedPowerW * 10) / 10} unit="W" description={t("analysisReading.npMeaning")} />}
+      {session.intensityFactor != null && <Stat label={<GlossaryText>IF</GlossaryText>} value={session.intensityFactor.toFixed(2)} description={t("analysisReading.ifMeaning")} />}
     </div>
   </Card></GlossaryProvider>;
 }

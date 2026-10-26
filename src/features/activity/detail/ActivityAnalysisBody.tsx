@@ -10,7 +10,7 @@ import { Link } from "react-router-dom";
 import FuelSplitBar from "../../../components/FuelSplitBar";
 import { Button, Chip, Disclosure, Section, Stack, Stat, Text } from "../../../theme/components";
 import { zoneSurfaceStyle } from "../../../theme/charts/zoneSurface";
-import { FitnessShift, IntensityGauge, OverviewPowerCurve, PercentMeter, formatSpan, powerDurationSeconds } from "./ActivityOverviewCharts";
+import { FitnessShift, ZoneTimeBar, IntensityGauge, OverviewPowerCurve, PercentMeter, formatSpan, powerDurationSeconds } from "./ActivityOverviewCharts";
 
 interface Props {
   overview: ReturnType<typeof useActivityOverview>;
@@ -139,8 +139,6 @@ export default function ActivityAnalysisBody(props: Props) {
           {p.session.load != null && note(`${t("detail.acceptedLoadDescription")} ${p.session.loadKind === "tss" ? t("detail.acceptedLoadTssBasis") : p.session.loadSource === "time" ? t("detail.acceptedLoadTimeBasis") : p.session.loadSource === "trimp" ? t("detail.acceptedLoadHrBasis") : ""}`)}
         </Stack>}
         {props.summaryOutside && p && <>
-          {p.session.classificationReason && note(p.session.classificationReason)}
-          {!!p.observedEffects?.length && note(p.observedEffects.join(" · "))}
           {power && p.session.intensityFactor != null && <IntensityGauge value={p.session.intensityFactor} />}
           {p.session.load != null && note(`${t("detail.acceptedLoadDescription")} ${p.session.loadKind === "tss" ? t("detail.acceptedLoadTssBasis") : p.session.loadSource === "time" ? t("detail.acceptedLoadTimeBasis") : p.session.loadSource === "trimp" ? t("detail.acceptedLoadHrBasis") : ""}`)}
         </>}
@@ -170,7 +168,8 @@ export default function ActivityAnalysisBody(props: Props) {
           const showDelta = !!zone.deltaPercentagePoints?.some(value => Number.isFinite(value));
           return <section key={zone.kind} className="activity-analysis-zone" aria-label={label(zone.kind)}>
           <Text as="h3" variant="bodyMedium" weight={600}>{label(zone.kind)}</Text>
-          <div className="activity-analysis-table" role="region" tabIndex={0} aria-label={label(zone.kind)}><table>
+          <ZoneTimeBar zone={zone} heading={t("overviewSummary.thisActivity")} />
+          <Disclosure title={t("analysisReading.zoneEvidence")}><div className="activity-analysis-table" role="region" tabIndex={0} aria-label={label(zone.kind)}><table>
             <thead><tr>{[label("zone"), differentTimes ? t("detail.analysisTopics.summaryZoneTime") : label("duration"), ...(differentTimes ? [t("detail.analysisTopics.metricZoneTime")] : []), ...(showCurrent ? ["%"] : []), ...(showBaseline ? [label("baseline")] : []), ...(showDelta ? [label("change")] : []), ...(zone.kind === "power" && context?.zoneKj ? ["kJ"] : [])].map(name => <th scope="col" key={name}>{name}</th>)}</tr></thead>
             <tbody>{zone.seconds.map((seconds, index) => <tr key={index}>
               <th scope="row">Z{index + 1}</th><td title={num(seconds, " s")}>{span(seconds)}{!showCurrent && <span className="activity-analysis-zone-track" aria-hidden="true"><span style={{ width: `${totalZoneSeconds > 0 ? seconds / totalZoneSeconds * 100 : 0}%`, background: `var(--zone-${index + 1})`, ...(zone.kind === "power" ? zoneSurfaceStyle : {}) }} /></span>}</td>{differentTimes && <td title={num(rawZones?.[index]?.seconds, " s")}>{rawZones?.[index]?.seconds != null ? span(rawZones[index]!.seconds) : "—"}</td>}
@@ -178,7 +177,7 @@ export default function ActivityAnalysisBody(props: Props) {
               {showBaseline && <td>{num(zone.baselinePercentages?.[index], "%")}</td>}{showDelta && <td>{signed(zone.deltaPercentagePoints?.[index], "%p")}</td>}
               {zone.kind === "power" && context?.zoneKj && <td>{num(context.zoneKj[`z${index + 1}` as keyof typeof context.zoneKj])}</td>}
             </tr>)}</tbody>
-          </table></div>
+          </table></div></Disclosure>
           {zone.priorSampleCount != null && note(`${label("samples")} ${num(zone.priorSampleCount)}${zone.baselinePercentages ? ` · ${label(`baselineScope.${zone.baselineScope ?? "sameCharacter"}`)}` : ""}${zone.historyCompleteness ? ` · ${label(`completeness.${zone.historyCompleteness}`)}` : ""}${zone.provisional ? ` · ${label("zoneProvisional")}` : ""}`)}
         </section>; })}</div>
         {context?.maxHr != null && note(`${t("detail.analysisTopics.hrBasis")} ${num(context.maxHr, " bpm")}`)}

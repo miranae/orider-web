@@ -2804,6 +2804,19 @@
     "efficiency": "심박·페달링",
     "energy": "에너지",
     "terrain": "속도·지형",
-    "intro": "기록을 읽고, 비교하고, 필요한 근거까지 확인하세요."
+    "intro": "기록을 읽고, 비교하고, 필요한 근거까지 확인하세요.",
+    "loadMeaning": "시간과 강도를 반영한 이번 활동의 훈련량",
+    "npMeaning": "출력의 오르내림을 반영한 파워 · 단순 평균과 다릅니다",
+    "ifMeaning": "내 FTP 대비 강도 · 1.00이 FTP 기준입니다",
+    "exploration": "경로와 센서 기록 살펴보기",
+    "explorationHint": "지도를 펼쳐 시간·위치별 기록을 확인하고 구간을 선택할 수 있습니다.",
+    "comparisonMeaning": "이 비교를 읽는 방법",
+    "comparisonContext": "최고 기록과의 차이는 이번 활동에서 발휘한 출력의 차이입니다. 활동의 목적과 소요 시간이 다르므로, 낮은 비율만으로 훈련의 질이나 체력 저하를 판단하지 않습니다.",
+    "zoneEvidence": "시간·일량과 비교 근거",
+    "comparisonLower": "{{duration}} 최고 평균 파워는 최근 90일 최고보다 {{gap}} W 낮았습니다. 기준 기록의 {{fraction}}%입니다.",
+    "comparisonHigher": "{{duration}} 최고 평균 파워는 최근 90일 기준보다 {{gap}} W 높았습니다. 기준 기록의 {{fraction}}%입니다.",
+    "comparisonEqual": "{{duration}} 최고 평균 파워는 최근 90일 최고와 같았습니다.",
+    "loadTimeMeaning": "파워·심박 없이 이동 시간으로 추정한 훈련량",
+    "loadHrMeaning": "심박과 시간을 반영한 이번 활동의 훈련량"
   }
 }
