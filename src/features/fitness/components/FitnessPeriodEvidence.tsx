@@ -38,7 +38,7 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries }: { ownerUid
   const setRanges = (update: (ranges: TrainingPeriodControls["ranges"]) => TrainingPeriodControls["ranges"]) => setControls(v => ({ ...v, ranges: update(v.ranges) }));
   const [selection, setSelection] = useState<TrainingAnalysisPeriodsSelection | null>(null);
   const [invalid, setInvalid] = useState(false);
-  const available = trainingAnalysisPeriodsAvailable();
+  const available = trainingAnalysisPeriodsAvailable(discipline);
   const result = useTrainingAnalysisPeriods(ownerUid, selection, available);
   const submit = () => {
     setControls(value => value); // An explicit load wins over late session restoration.

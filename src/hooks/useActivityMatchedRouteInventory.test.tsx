@@ -61,3 +61,11 @@ it('drops a delayed prior-session response without resetting a fresh request',as
  expect(h.result.current.pages[0].members[0].activityId).not.toBe('stale');
  expect(h.result.current.status).toBe('complete');
 });
+
+it('reports an unconfigured backend as unavailable and discards collected pages', async () => {
+ mocks.load.mockResolvedValueOnce(routeInventoryPage({more:true})).mockRejectedValueOnce({code:'functions/failed-precondition',details:{reason:'route_backend_unavailable'}});
+ const h=renderHook(()=>useActivityMatchedRouteInventory('owner','anchor','bike','head'));
+ await act(async()=>h.result.current.start());await act(async()=>h.result.current.loadMore());
+ expect(h.result.current.status).toBe('unsupported');expect(h.result.current.pages).toEqual([]);
+ expect(mocks.load).toHaveBeenCalledTimes(2);
+});

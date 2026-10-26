@@ -1,3 +1,4 @@
+import { resetRuntimeConfigForTests } from "./runtimeConfig";
 import { compiledRouteIndexWire as compiledWire } from "./activityRouteIndexPage.compiled.fixture";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivityRouteIndexPageRequest, ActivityRouteIndexPageResponse } from "@shared/activity-route-index-page";
@@ -86,8 +87,8 @@ describe("route index page strict contract", () => {
   });
   it("calls only the explicit authenticated mode after AppCheck and checks account again", async () => {
     vi.useFakeTimers(); vi.setSystemTime(now);
-    const app = {}, auth = { app, currentUser: { uid: "owner", isAnonymous: false } }, ensure = vi.fn().mockResolvedValue(undefined);
-    const services = { auth, functions: { app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: ensure } as unknown as FirebaseServices;
+    const app = { options: { projectId: "miranae-orider-g1" } }, auth = { app, currentUser: { uid: "owner", isAnonymous: false } }, ensure = vi.fn().mockResolvedValue(undefined);
+    const services = { auth, functions: { region: "asia-northeast3", app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: ensure } as unknown as FirebaseServices;
     mocks.invoke.mockResolvedValue({ data: wire() });
     await loadActivityRouteIndexPage(services, "owner", request); expect(ensure).toHaveBeenCalledOnce(); expect(mocks.invoke).toHaveBeenCalledExactlyOnceWith(request);
     ensure.mockImplementation(async () => { auth.currentUser.uid = "other"; });
@@ -142,11 +143,13 @@ describe("actual compiled reader wire compatibility", () => {
 });
 
  it.each(["appcheck", "response"])("rejects same-UID SDK replacement at %s", async phase => {
-  const app = {}, auth = { app, currentUser: { uid: "owner", isAnonymous: false } };
+  const app = { options: { projectId: "miranae-orider-g1" } }, auth = { app, currentUser: { uid: "owner", isAnonymous: false } };
   const ensure = vi.fn().mockResolvedValue(undefined);
-  const sdk = { auth, functions: { app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: ensure } as unknown as FirebaseServices;
+  const sdk = { auth, functions: { region: "asia-northeast3", app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: ensure } as unknown as FirebaseServices;
   if (phase === "appcheck") ensure.mockImplementation(async () => { auth.currentUser = { ...auth.currentUser }; });
   else mocks.invoke.mockImplementation(async () => { auth.currentUser = { ...auth.currentUser }; return { data: {} }; });
   await expect(loadActivityRouteIndexPage(sdk, "owner", request)).rejects.toThrow("account_changed");
   expect(mocks.invoke).toHaveBeenCalledTimes(phase === "appcheck" ? 0 : 1);
  });
+
+beforeEach(() => resetRuntimeConfigForTests({ appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net" }));

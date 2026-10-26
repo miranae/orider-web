@@ -115,3 +115,13 @@ it('keeps observed policy on each explicitly requested page', async () => {
   act(() => window.dispatchEvent(new Event("orider:activity-content-changed")));
   expect(view.result.current.pages).toEqual([]); expect(view.result.current.status).toBe("invalidated");
  });
+
+it("reports an unconfigured backend as unavailable rather than invalidated", async () => {
+  mocks.load.mockResolvedValueOnce(page(true)).mockRejectedValueOnce({ code: "functions/failed-precondition", details: { reason: "route_backend_unavailable" } });
+  const hook = renderHook(() => useActivityMatchedRouteGroups("owner", "anchor", "bike", "head"));
+  await act(async () => hook.result.current.start());
+  await act(async () => hook.result.current.loadMore());
+  expect(hook.result.current.status).toBe("unsupported");
+  expect(hook.result.current.pages).toEqual([]);
+  expect(mocks.load).toHaveBeenCalledTimes(2);
+});

@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { compareObservedRoutes } from "@shared/observed-route-comparison";
 import { loadActivityRouteEvidence, validateRouteEvidenceResponse, validRouteComparison } from "./activityRouteEvidence";
 import { routeFixture, routeResponse, backendCanonicalWireFixture } from "./activityRouteEvidence.fixture";
-const mocks = vi.hoisted(() => ({ call: vi.fn(), config: { appEnvironment: "stage", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net" } }));
+const mocks = vi.hoisted(() => ({ call: vi.fn(), config: { appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net" } }));
 vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn(() => mocks.call) }));
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => mocks.config }));
 beforeEach(() => mocks.call.mockReset().mockResolvedValue({ data: routeResponse() }));
 describe("explicit owner route evidence", () => {
   it("calls only explicit route mode with AppCheck and the route revision name", async () => {
-    const app = {}, services = { auth: { app, currentUser: { uid: "owner", isAnonymous: false } }, functions: { app, customDomain: mocks.config.firebaseFunctionsBase }, ensureAppCheckReady: vi.fn() } as any;
+    const app = { options: { projectId: "miranae-orider-g1" } }, services = { auth: { app, currentUser: { uid: "owner", isAnonymous: false } }, functions: { region: "asia-northeast3", app, customDomain: mocks.config.firebaseFunctionsBase }, ensureAppCheckReady: vi.fn() } as any;
     await loadActivityRouteEvidence(services, "owner", "first", "a".repeat(64));
     expect(services.ensureAppCheckReady).toHaveBeenCalledTimes(1);
     expect(mocks.call).toHaveBeenCalledExactlyOnceWith({ mode: "route_evidence", activityId: "first", expectedRouteInputRevision: "a".repeat(64) });
@@ -83,7 +83,7 @@ describe("explicit owner route evidence", () => {
 
 it("adds canonical opt-in only explicitly and keeps default request/response identity", async () => {
   const { routeAverageResponse } = await import("./activityRouteEvidence.fixture");
-  const app={},services={auth:{app,currentUser:{uid:"owner",isAnonymous:false}},functions:{app,customDomain:mocks.config.firebaseFunctionsBase},ensureAppCheckReady:vi.fn()} as any;
+  const app={options:{projectId:"miranae-orider-g1"}},services={auth:{app,currentUser:{uid:"owner",isAnonymous:false}},functions:{region:'asia-northeast3',app,customDomain:mocks.config.firebaseFunctionsBase},ensureAppCheckReady:vi.fn()} as any;
   const original=routeResponse();expect(validateRouteEvidenceResponse(original,"first")).toBe(original);
   mocks.call.mockResolvedValueOnce({data:routeAverageResponse()});
   const value=await loadActivityRouteEvidence(services,"owner","first",undefined,{includeCanonicalAverage:true,startTime:1700000000000,discipline:"bike"});

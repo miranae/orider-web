@@ -14,7 +14,7 @@ export function useTrainingAnalysisPeriods(ownerUid: string | null | undefined, 
   const owner = !!user && !user.isAnonymous && user.uid === ownerUid;
   const effectiveSelection = selection?.request.discipline === "bike" ? { ...selection, request: { ...selection.request, includeCyclingDistanceObservations: true as const } } : selection;
   const valid = !!selection && validTrainingAnalysisPeriodsRequest(selection.request) && !!effectiveSelection && validTrainingAnalysisPeriodsRequest(effectiveSelection.request);
-  const enabled = callableEnabled && trainingAnalysisPeriodsAvailable();
+  const enabled = callableEnabled && trainingAnalysisPeriodsAvailable(selection?.request.discipline);
   const key = owner && valid && enabled ? JSON.stringify([ownerUid, effectiveSelection, attempt]) : null;
   const request = useMemo<TrainingAnalysisPeriodsRequest | null>(() => key ? JSON.parse(key)[1].request : null, [key]);
   const inflight = useRef<{ key: string; services: typeof services; promise: Promise<TrainingAnalysisPeriodsResponse> } | null>(null);

@@ -1,3 +1,4 @@
+import { resetRuntimeConfigForTests } from "./runtimeConfig";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { ActivityMatchedRouteGroupRequest, ActivityMatchedRouteGroupResponse } from "@shared/activity-matched-route-groups";
@@ -517,7 +518,7 @@ describe("compiled matched route wire", () => {
   });
 });
 describe("authenticated single manual callable", () => {
-  function services() { const app = {}; return { auth: { app, currentUser: { uid: "owner", isAnonymous: false } }, functions: { app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices; }
+  function services() { const app = { options: { projectId: "miranae-orider-g1" } }; return { auth: { app, currentUser: { uid: "owner", isAnonymous: false } }, functions: { region: "asia-northeast3", app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices; }
   it("uses only explicit mode and returned opaque cursor, without stream or raw reads", async () => {
     vi.spyOn(Date, "now").mockReturnValue(clock); const sdk = services(); mocks.call.mockResolvedValue({ data: compiled[0]!.first });
     await loadActivityMatchedRouteGroups(sdk, "owner", request); expect(mocks.call).toHaveBeenCalledExactlyOnceWith(request); expect(sdk.ensureAppCheckReady).toHaveBeenCalledOnce(); vi.restoreAllMocks();
@@ -546,11 +547,13 @@ it('binds observed-native policy to coverage and rejects rankings or default-pol
 });
 
  it.each(["appcheck", "response"])("rejects same-UID SDK replacement at %s", async phase => {
-  const app = {}, auth = { app, currentUser: { uid: "owner", isAnonymous: false } };
+  const app = { options: { projectId: "miranae-orider-g1" } }, auth = { app, currentUser: { uid: "owner", isAnonymous: false } };
   const ensure = vi.fn().mockResolvedValue(undefined);
-  const sdk = { auth, functions: { app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: ensure } as unknown as FirebaseServices;
+  const sdk = { auth, functions: { region: "asia-northeast3", app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: ensure } as unknown as FirebaseServices;
   if (phase === "appcheck") ensure.mockImplementation(async () => { auth.currentUser = { ...auth.currentUser }; });
   else mocks.call.mockImplementation(async () => { auth.currentUser = { ...auth.currentUser }; return { data: {} }; });
   await expect(loadActivityMatchedRouteGroups(sdk, "owner", request)).rejects.toThrow("account_changed");
   expect(mocks.call).toHaveBeenCalledTimes(phase === "appcheck" ? 0 : 1);
  });
+
+beforeEach(() => resetRuntimeConfigForTests({ appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net" }));

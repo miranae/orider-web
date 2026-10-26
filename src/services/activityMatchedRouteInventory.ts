@@ -2,7 +2,7 @@ import { httpsCallable } from 'firebase/functions';
 import type { ActivityMatchedRouteGroupRequest, ActivityMatchedRouteGroupResponse } from '@shared/activity-matched-route-groups';
 import type { FirebaseServices } from '../contexts/FirebaseServicesContext';
 import { observedRouteAvailable, validCanonicalAverage } from './activityRouteEvidence';
-import { localTrainingEmulatorAvailable, matchesLocalTrainingEmulator } from './localTrainingEmulator';
+import { matchesAnalysisCapability } from "./analysisCapability";
 export type ActivityMatchedRouteInventoryRequest = Omit<ActivityMatchedRouteGroupRequest, 'mode' | 'cursor'> & { mode: 'matched_route_inventory_page' };
 export type ActivityMatchedRouteInventoryResponse = ActivityMatchedRouteGroupResponse & { mode: 'matched_route_inventory_page'; inventory: NonNullable<ActivityMatchedRouteGroupResponse['inventory']> };
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -63,9 +63,12 @@ export async function loadActivityMatchedRouteInventory(services: FirebaseServic
  const current=()=>!!uid&&!!viewer&&!viewer.isAnonymous&&viewer.uid===uid&&services.auth===auth&&auth.app===app
   &&auth.currentUser===viewer&&services.functions===functions&&functions.app===app;
  if(!current())throw new Error('account_changed');
- if(!observedRouteAvailable()||services.functions.app!==services.auth.app||(localTrainingEmulatorAvailable()?!matchesLocalTrainingEmulator(services):services.functions.customDomain!=='https://asia-northeast3-orider-dev.cloudfunctions.net'))throw new Error('matched_route_inventory_unsupported');
+ if(!observedRouteAvailable() || !matchesAnalysisCapability(services, "routes"))throw new Error('matched_route_inventory_unsupported');
  if(!validActivityMatchedRouteInventoryRequest(request))throw new Error('invalid_matched_route_inventory_request');
- await services.ensureAppCheckReady();if(!current())throw new Error('account_changed');
+ await services.ensureAppCheckReady();
+  if (!current()) throw new Error("account_changed");
+  if (!matchesAnalysisCapability(services, "routes")) throw new Error("route_not_supported");
  const response=await httpsCallable<ActivityMatchedRouteInventoryRequest,unknown>(services.functions,'getActivityStreams')(request);
- if(!current())throw new Error('account_changed');return validateActivityMatchedRouteInventoryResponse(response.data,request);
+ if(!current())throw new Error('account_changed');if (!matchesAnalysisCapability(services, "routes")) throw new Error("route_not_supported");
+  return validateActivityMatchedRouteInventoryResponse(response.data,request);
 }

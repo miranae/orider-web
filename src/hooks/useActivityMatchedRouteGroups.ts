@@ -85,8 +85,9 @@ export function useActivityMatchedRouteGroups(ownerUid: string, activityId: stri
       if (!current()) return;
       const detail = error as { code?: string; message?: string; details?: { reason?: string } }, code = detail.code?.replace("functions/", "");
       const timeout = detail.message === "matched_route_group_expired" || detail.details?.reason === "snapshot_expired";
-      const invalidated = ["failed-precondition", "permission-denied", "unauthenticated"].includes(code ?? "") || ["account_changed", "matched_route_group_changed_input", "matched_route_group_continuity"].includes(detail.message ?? "");
-      const unsupported = ["invalid-argument", "unimplemented", "not-found"].includes(code ?? "") || ["invalid_matched_route_group_response", "matched_route_group_unsupported"].includes(detail.message ?? "");
+      const backendUnavailable = detail.details?.reason === "route_backend_unavailable";
+      const invalidated = !backendUnavailable && (["failed-precondition", "permission-denied", "unauthenticated"].includes(code ?? "") || ["account_changed", "matched_route_group_changed_input", "matched_route_group_continuity"].includes(detail.message ?? ""));
+      const unsupported = backendUnavailable || ["invalid-argument", "unimplemented", "not-found"].includes(code ?? "") || ["invalid_matched_route_group_response", "matched_route_group_unsupported"].includes(detail.message ?? "");
       const value: Session = { scope, generation: requestGeneration, pages: timeout || invalidated || unsupported ? [] : pages,
         status: timeout ? "expired" : invalidated ? "invalidated" : unsupported ? "unsupported" : "error" };
       session.current = value; setResult(value);

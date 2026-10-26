@@ -3,8 +3,7 @@ import { httpsCallable } from "firebase/functions";
 import type { ActivityCanonicalAverage, ActivityRouteEvidence, ActivityRouteEvidenceResponse, ObservedRouteComparison } from "@shared/activity-route-comparison";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { OBSERVED_ROUTE_POLICY_V1 } from "@shared/observed-route-comparison";
-import { localTrainingEmulatorAvailable, matchesLocalTrainingEmulator } from "./localTrainingEmulator";
-import { getRuntimeConfig } from "./runtimeConfig";
+import { analysisCapabilityAvailable, matchesAnalysisCapability } from "./analysisCapability";
 export const ROUTE_RESPONSE_MAX_BYTES = 4 * 1024 * 1024;
 const digest = (value: unknown): value is string => typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0;
@@ -14,8 +13,7 @@ const near = (a: number, b: number, terms = 1) => finite(a) && finite(b)
 const opaque = (value: unknown): value is string => typeof value === "string" && !!value.trim() && value.length <= 256;
 const record = (value: unknown): Record<string, unknown> | null => value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
 export function observedRouteAvailable() {
-  const config = getRuntimeConfig();
-  return localTrainingEmulatorAvailable() || config.appEnvironment === "stage" && config.firebaseFunctionsBase === "https://asia-northeast3-orider-dev.cloudfunctions.net";
+  return analysisCapabilityAvailable("routes");
 }
 // The optional channel uses the same canonical contract as the producer.
 export const ROUTE_CANONICAL_AVERAGE_VERSION = ACTIVITY_METRICS_VERSION;
@@ -71,14 +69,18 @@ export function validateRouteEvidenceResponse(value: unknown, activityId: string
   return value as ActivityRouteEvidenceResponse;
 }
 export async function loadActivityRouteEvidence(services: FirebaseServices, uid: string, activityId: string, expectedRouteInputRevision?: string, canonical?: RouteCanonicalAverageOption) {
-  const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
+  const { auth, functions } = services, app = auth.app, viewer = auth.currentUser;
+  const matches = () => !!uid && !!viewer && viewer.uid === uid && !viewer.isAnonymous && services.auth === auth
+    && auth.app === app && auth.currentUser === viewer && services.functions === functions && functions.app === app;
   if (!matches()) throw new Error("account_changed");
-  if (!observedRouteAvailable() || services.functions.app !== services.auth.app || (localTrainingEmulatorAvailable() ? !matchesLocalTrainingEmulator(services) : services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net")) throw new Error("route_not_supported");
+  if (!observedRouteAvailable() || !matchesAnalysisCapability(services, "routes")) throw new Error("route_not_supported");
   if (!opaque(activityId) || activityId.includes("/") || expectedRouteInputRevision !== undefined && !digest(expectedRouteInputRevision)) throw new Error("invalid_route_request");
   await services.ensureAppCheckReady();
+  if (!matchesAnalysisCapability(services, "routes")) throw new Error("route_not_supported");
   if (!matches()) throw new Error("account_changed");
   const response = await httpsCallable<{ activityId: string; mode: "route_evidence"; expectedRouteInputRevision?: string; includeCanonicalAverage?: true }, ActivityRouteEvidenceResponse>(services.functions, "getActivityStreams")({ activityId, mode: "route_evidence", ...(expectedRouteInputRevision ? { expectedRouteInputRevision } : {}), ...(canonical ? { includeCanonicalAverage: true as const } : {}) });
   if (!matches()) throw new Error("account_changed");
+  if (!matchesAnalysisCapability(services, "routes")) throw new Error("route_not_supported");
   return validateRouteEvidenceResponse(response.data, activityId, expectedRouteInputRevision, canonical);
 }
 /** Worker 결과의 출처와 수치 경계를 메인 스레드에서도 검사한다. 재계산하지 않는다. */

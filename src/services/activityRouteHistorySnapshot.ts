@@ -2,7 +2,7 @@ import { httpsCallable } from "firebase/functions";
 import type { RouteHistorySnapshotRequest, RouteHistorySnapshotResponse } from "@shared/activity-route-history-snapshot";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { observedRouteAvailable } from "./activityRouteEvidence";
-import { localTrainingEmulatorAvailable, matchesLocalTrainingEmulator } from "./localTrainingEmulator";
+import { matchesAnalysisCapability } from "./analysisCapability";
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 const count = (v: unknown): v is number => Number.isSafeInteger(v) && Number(v) >= 0;
 const id = (v: unknown): v is string => typeof v === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(v);
@@ -43,9 +43,11 @@ export async function loadRouteHistorySnapshot(services: FirebaseServices, uid: 
  const {auth,functions}=services, app=auth.app, viewer=auth.currentUser;
  const current=()=>!!viewer&&!viewer.isAnonymous&&viewer.uid===uid&&services.auth===auth&&auth.app===app&&auth.currentUser===viewer&&services.functions===functions&&functions.app===app;
  if(!current())throw Error("account_changed");
- if(!observedRouteAvailable() || (localTrainingEmulatorAvailable()?!matchesLocalTrainingEmulator(services):functions.customDomain!=="https://asia-northeast3-orider-dev.cloudfunctions.net"))throw Error("route_history_unsupported");
+ if(!observedRouteAvailable() || !matchesAnalysisCapability(services, "routes"))throw Error("route_history_unsupported");
  if(!id(request.anchorActivityId)||!["bike","run"].includes(request.discipline))throw Error("invalid_route_history_request");
- await services.ensureAppCheckReady();if(!current())throw Error("account_changed");
+ await services.ensureAppCheckReady();
+  if (!matchesAnalysisCapability(services, "routes")) throw new Error("route_not_supported");if(!current())throw Error("account_changed");
  const result=await httpsCallable<RouteHistorySnapshotRequest,unknown>(functions,"progressActivityRouteHistorySnapshot",{timeout:30000})(request);
- if(!current())throw Error("account_changed");return validateRouteHistorySnapshot(result.data,request,previous);
+ if(!current())throw Error("account_changed");if (!matchesAnalysisCapability(services, "routes")) throw new Error("route_not_supported");
+  return validateRouteHistorySnapshot(result.data,request,previous);
 }

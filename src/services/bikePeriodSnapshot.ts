@@ -1,7 +1,7 @@
 import { httpsCallable } from "firebase/functions";
 import type { BikePeriodSnapshotRequest, BikePeriodSnapshotResponse } from "@shared/types/bike-period-snapshot";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { matchesLocalTrainingEmulator } from "./localTrainingEmulator";
+import { matchesAnalysisCapability } from "./analysisCapability";
 import { validateBikeSnapshotPower } from "./bikeSnapshotPowerValidation";
 const count=(n:unknown):n is number=>Number.isSafeInteger(n)&&Number(n)>=0;
 const number=(n:unknown):n is number=>typeof n==="number"&&Number.isFinite(n)&&n>=0;
@@ -45,11 +45,11 @@ export function validateBikeSnapshot(value:unknown,request:BikePeriodSnapshotReq
 export async function loadBikeSnapshot(services:FirebaseServices,uid:string,request:BikePeriodSnapshotRequest,previous?:BikePeriodSnapshotResponse){
  const {auth,functions}=services,user=auth.currentUser,app=auth.app;
  const current=()=>!!user&&!user.isAnonymous&&user.uid===uid&&auth.currentUser===user&&services.auth===auth&&auth.app===app&&services.functions===functions&&functions.app===app;
- if(!current())throw Error("account_changed");if(!matchesLocalTrainingEmulator(services))throw Error("bike_snapshot_unavailable");
+ if(!current())throw Error("account_changed");if(!matchesAnalysisCapability(services,"bikePeriods"))throw Error("bike_snapshot_unavailable");
  const deadlineMs=130000;let expired=false,timer:ReturnType<typeof setTimeout>|undefined;
- const work=async()=>{await services.ensureAppCheckReady();if(expired)throw Error("bike_snapshot_timeout");if(!current())throw Error("account_changed");
+ const work=async()=>{await services.ensureAppCheckReady();if(!matchesAnalysisCapability(services,"bikePeriods"))throw Error("bike_snapshot_unavailable");if(expired)throw Error("bike_snapshot_timeout");if(!current())throw Error("account_changed");
   const response=await httpsCallable<BikePeriodSnapshotRequest,unknown>(functions,"progressBikeAnalysisPeriodSnapshot",{timeout:deadlineMs})(request);
-  if(expired)throw Error("bike_snapshot_timeout");if(!current())throw Error("account_changed");return validateBikeSnapshot(response.data,request,previous);};
+  if(expired)throw Error("bike_snapshot_timeout");if(!current())throw Error("account_changed");if(!matchesAnalysisCapability(services,"bikePeriods"))throw Error("bike_snapshot_unavailable");return validateBikeSnapshot(response.data,request,previous);};
  try{return await Promise.race([work(),new Promise<never>((_,reject)=>{timer=setTimeout(()=>{expired=true;reject(Error("bike_snapshot_timeout"));},deadlineMs);})]);}
  finally{if(timer!==undefined)clearTimeout(timer);}
 }

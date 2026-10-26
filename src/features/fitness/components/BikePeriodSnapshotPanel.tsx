@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { PowerCurvePeriod } from "@shared/types/power-curve-periods";
 import { useBikePeriodSnapshot } from "../../../hooks/useBikePeriodSnapshot";
-import { localTrainingEmulatorAvailable } from "../../../services/localTrainingEmulator";
+import { analysisCapabilityAvailable } from "../../../services/analysisCapability";
 import { useLocale } from "../../../contexts/LocaleContext";
 import { formatDistance, formatElev } from "../../../utils/units";
 import { formatElapsedBoundary } from "../../activity/detail/activityRangeSelection";
@@ -9,7 +9,7 @@ import { LocalizedLink } from "../../../components/LocalizedLink";
 import { Button, Stack, Text } from "../../../theme";
 import BikeSnapshotDensePower from "./BikeSnapshotDensePower";
 export default function BikePeriodSnapshotPanel(props:{ownerUid:string;period:PowerCurvePeriod}){
- if(!localTrainingEmulatorAvailable())return null;
+ if(!analysisCapabilityAvailable("bikePeriods"))return null;
  return <Panel key={`${props.ownerUid}:${props.period.fromInclusive}:${props.period.toExclusive}`} {...props}/>;
 }
 function Panel({ownerUid,period}:{ownerUid:string;period:PowerCurvePeriod}){

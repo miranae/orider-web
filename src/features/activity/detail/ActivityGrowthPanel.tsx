@@ -152,7 +152,7 @@ function Statistics({ activity }: { activity: Activity }) {
   const { t, i18n } = useTranslation("activity");
   const bucketId = useId();
   const discipline = getDiscipline(activity.type);
-  const canonicalEnabled = trainingAnalysisPeriodsAvailable() && (discipline === "bike" || discipline === "run" || discipline === "swim");
+  const canonicalEnabled = (discipline === "bike" || discipline === "run" || discipline === "swim") && trainingAnalysisPeriodsAvailable(discipline);
   const [requestedPeriod, setPeriod] = useState<StatisticsPeriod | "custom" | "year">("week");
   const period = requestedPeriod === "year" && !canonicalEnabled ? "month" : requestedPeriod;
   const [now] = useState(() => new Date());

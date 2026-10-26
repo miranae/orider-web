@@ -1,4 +1,4 @@
-import { localTrainingEmulatorAvailable, matchesLocalTrainingEmulator } from "./localTrainingEmulator";
+import { matchesAnalysisCapability } from "./analysisCapability";
 import { httpsCallable } from "firebase/functions";
 import { MATCHED_ROUTE_GROUP_LIMITS as limits, type ActivityMatchedRouteGroupRequest, type ActivityMatchedRouteGroupResponse, type MatchedRouteMetricSummary } from "@shared/activity-matched-route-groups";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -101,11 +101,14 @@ export async function loadActivityMatchedRouteGroups(services: FirebaseServices,
   const current = () => !!uid && !!viewer && viewer.uid === uid && !viewer.isAnonymous && services.auth === auth
     && auth.app === app && auth.currentUser === viewer && services.functions === functions && functions.app === app;
   if (!current()) throw new Error("account_changed");
-  if (!observedRouteAvailable() || services.functions.app !== services.auth.app || (localTrainingEmulatorAvailable() ? !matchesLocalTrainingEmulator(services) : services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net")) throw new Error("matched_route_group_unsupported");
+  if (!observedRouteAvailable() || !matchesAnalysisCapability(services, "routes")) throw new Error("matched_route_group_unsupported");
   if (!validActivityMatchedRouteGroupRequest(request)) throw new Error("invalid_matched_route_group_request");
-  await services.ensureAppCheckReady(); if (!current()) throw new Error("account_changed");
+  await services.ensureAppCheckReady();
+  if (!current()) throw new Error("account_changed");
+  if (!matchesAnalysisCapability(services, "routes")) throw new Error("route_not_supported");
   const response = await httpsCallable<ActivityMatchedRouteGroupRequest, unknown>(services.functions, "getActivityStreams")(request);
   if (!current()) throw new Error("account_changed");
+  if (!matchesAnalysisCapability(services, "routes")) throw new Error("route_not_supported");
   return validateActivityMatchedRouteGroupResponse(response.data, request);
 }
 /** 같은 조회 시점의 제한된 그룹만 수동 페이지로 연결한다. */

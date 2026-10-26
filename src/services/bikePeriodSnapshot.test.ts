@@ -3,7 +3,7 @@ import zones from "./__fixtures__/bike-snapshot-zones.json";
 import { validateBikeSnapshot, loadBikeSnapshot } from "./bikePeriodSnapshot";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { setCallableImplementation, setCallableResult } from "../__tests__/mocks/firebase";
-vi.mock("./localTrainingEmulator",()=>({matchesLocalTrainingEmulator:()=>true}));
+vi.mock("./localTrainingEmulator",()=>({localTrainingEmulatorAvailable:()=>true,matchesLocalTrainingEmulator:()=>true}));
 const request={action:"start" as const,period:actual.period};
 const services=()=>{const app={options:{projectId:"demo-test"}};return{auth:{app,currentUser:{uid:"owner",isAnonymous:false}},functions:{app},ensureAppCheckReady:vi.fn().mockResolvedValue(undefined)} as unknown as FirebaseServices;};
 beforeEach(()=>{vi.useFakeTimers();vi.setSystemTime(actual.asOf+60000);});afterEach(()=>vi.useRealTimers());

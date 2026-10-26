@@ -1,3 +1,4 @@
+import { resetRuntimeConfigForTests } from "./runtimeConfig";
 import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import type { FirebaseServices } from '../contexts/FirebaseServicesContext';
 import {routeInventoryPage,inventoryNow} from '../__tests__/fixtures/routeInventory';
@@ -8,7 +9,7 @@ vi.mock('./activityRouteEvidence',async original=>({...await original<typeof imp
 vi.mock('./localTrainingEmulator',()=>({localTrainingEmulatorAvailable:()=>false,matchesLocalTrainingEmulator:()=>false}));
 beforeEach(()=>{vi.spyOn(Date,'now').mockReturnValue(inventoryNow);transport.call.mockReset().mockResolvedValue({data:routeInventoryPage()});});
 afterEach(()=>vi.restoreAllMocks());
-function source(){const app={name:'stage'};return {auth:{app,currentUser:{uid:'owner',isAnonymous:false}},functions:{app,customDomain:'https://asia-northeast3-orider-dev.cloudfunctions.net'},ensureAppCheckReady:vi.fn().mockResolvedValue(undefined)} as unknown as FirebaseServices;}
+function source(){const app={name:'stage',options:{projectId:'miranae-orider-g1'}};return {auth:{app,currentUser:{uid:'owner',isAnonymous:false}},functions:{region:'asia-northeast3',app,customDomain:'https://asia-northeast3-orider-dev.cloudfunctions.net'},ensureAppCheckReady:vi.fn().mockResolvedValue(undefined)} as unknown as FirebaseServices;}
 const request={mode:'matched_route_inventory_page' as const,anchorActivityId:'anchor',discipline:'bike' as const,geometryPolicy:'observed_native' as const};
 it('accepts observational history counts without upgrading personal best coverage',()=>{
  const page=routeInventoryPage();
@@ -63,3 +64,5 @@ it('still returns the validated page for an unchanged SDK session',async()=>{
  await expect(loadActivityMatchedRouteInventory(source(),'owner',request)).resolves.toMatchObject({mode:'matched_route_inventory_page'});
  expect(transport.call).toHaveBeenCalledOnce();
 });
+
+beforeEach(() => resetRuntimeConfigForTests({ appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net" }));

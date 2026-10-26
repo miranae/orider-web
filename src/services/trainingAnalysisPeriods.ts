@@ -1,4 +1,5 @@
-import { localTrainingEmulatorAvailable, matchesLocalTrainingEmulator } from "./localTrainingEmulator";
+import { matchesLocalTrainingEmulator } from "./localTrainingEmulator";
+import { analysisCapabilityAvailable, matchesAnalysisCapability } from "./analysisCapability";
 import type { StageDerivedRunDistancePeriod } from "@shared/types/stage-run-distance-snapshot";
 import { validRunEffortStageOverlay, validStageTimeAdjustedEfforts, verifyRunTimeResponseDigests } from "./runEffortStagePreferences";
 import { normalizeCyclingDistanceAnalysis } from "../utils/cyclingDistancePeriods";
@@ -15,11 +16,9 @@ const count = (value: unknown): value is number => typeof value === "number" && 
 const nonnegative = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0;
 const near = (a: number, b: number) => Math.abs(a - b) <= Math.max(1, Math.abs(a), Math.abs(b)) * 1e-9;
 const id = (value: unknown): value is string => typeof value === "string" && !!value && value.length <= 512 && !value.includes("/");
-/** 검증된 stage compute 또는 격리된 로컬 demo emulator에서 명시적으로 켠다. */
-export function trainingAnalysisPeriodsAvailable() {
-  const config = getRuntimeConfig();
-  return localTrainingEmulatorAvailable() || config.trainingAnalysisPeriodsEnabled === true && config.appEnvironment === "stage"
-    && config.firebaseFunctionsBase === "https://asia-northeast3-orider-dev.cloudfunctions.net";
+/** 기존 기간 기능 플래그와 검증된 Firebase 전송 경계가 모두 맞아야 한다. */
+export function trainingAnalysisPeriodsAvailable(discipline: string = "bike") {
+  return analysisCapabilityAvailable("bikePeriods") && (discipline === "bike" || getRuntimeConfig().appEnvironment === "stage" && getRuntimeConfig().useEmulators !== true);
 }
 export function validTrainingAnalysisPeriodsRequest(request: TrainingAnalysisPeriodsRequest, now = Date.now()) {
   return !!request && ["bike", "run", "swim"].includes(request.discipline)
@@ -360,17 +359,20 @@ function validPeriodRunningPaceZones(pace: PeriodRunningPaceZones, period: Train
 }
 export async function loadTrainingAnalysisPeriods(services: FirebaseServices, uid: string, request: TrainingAnalysisPeriodsRequest) {
   if (!trainingAnalysisPeriodsAvailable()) throw new Error("api_unavailable");
-  const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
+  const { auth, functions } = services, app = auth.app, user = auth.currentUser;
+  const matches = () => !!uid && !!user && user.uid === uid && !user.isAnonymous && services.auth === auth
+    && auth.app === app && auth.currentUser === user && services.functions === functions && functions.app === app;
   if (!matches()) throw new Error("account_changed");
   const local = matchesLocalTrainingEmulator(services);
-  if (localTrainingEmulatorAvailable() ? !local : (services.functions.app !== services.auth.app
-    || services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net")) throw new Error("stage/callable-context-mismatch");
-  if (local && (request.discipline !== "bike" || Object.keys(request).some(key => /stage/iu.test(key)))) throw new Error("local/unsupported-analysis");
+  if (!matchesAnalysisCapability(services, "bikePeriods")) throw new Error("stage/callable-context-mismatch");
+  if ((local || getRuntimeConfig().appEnvironment !== "stage") && (request.discipline !== "bike" || Object.keys(request).some(key => /stage/iu.test(key)))) throw new Error("local/unsupported-analysis");
   if (!validTrainingAnalysisPeriodsRequest(request)) throw new Error("invalid_training_analysis_periods_request");
   await services.ensureAppCheckReady();
+  if (!matchesAnalysisCapability(services, "bikePeriods")) throw new Error("stage/callable-context-mismatch");
   if (!matches()) throw new Error("account_changed");
   const result = await httpsCallable<TrainingAnalysisPeriodsRequest, TrainingAnalysisPeriodsResponse>(services.functions, "getTrainingAnalysisPeriods")(request);
   if (!matches()) throw new Error("account_changed");
+  if (!matchesAnalysisCapability(services, "bikePeriods")) throw new Error("stage/callable-context-mismatch");
   const response = validateTrainingAnalysisPeriodsResponse(result.data, request);
   if (request.includeStageRunTimeCorrections) await verifyRunTimeResponseDigests(response);
   if (!matches()) throw new Error("account_changed");

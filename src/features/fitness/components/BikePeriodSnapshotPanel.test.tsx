@@ -1,3 +1,4 @@
+import { resetRuntimeConfigForTests } from "../../../services/runtimeConfig";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { BikePeriodSnapshotResponse } from "@shared/types/bike-period-snapshot";
@@ -7,12 +8,11 @@ import BikePeriodSnapshotPanel from "./BikePeriodSnapshotPanel";
 import { POWER_DURATION_GRID } from "../../../services/powerCurvePeriods";
 const mocks=vi.hoisted(()=>({snapshot:{data:null as BikePeriodSnapshotResponse|null,running:false,error:false,errorKind:undefined as string|undefined,canResume:false,start:vi.fn(),resume:vi.fn(),zones:vi.fn(),stop:vi.fn()}}));
 vi.mock("../../../hooks/useBikePeriodSnapshot",()=>({useBikePeriodSnapshot:()=>mocks.snapshot}));
-vi.mock("../../../services/localTrainingEmulator",()=>({localTrainingEmulatorAvailable:()=>true}));
 vi.mock("../../../contexts/LocaleContext",()=>({useLocale:()=>({units:"metric"})}));
 vi.mock("../../../hooks/usePeriodControls",async()=>{const {useState}=await import('react');return{usePeriodControls:(_:unknown,__:unknown,initial:()=>unknown)=>useState(initial)};});
 vi.mock("react-i18next",()=>({useTranslation:()=>({t:(key:string,p?:Record<string,unknown>)=>key+(p?JSON.stringify(p):""),i18n:{language:"ko"}})}));
 function mount(){return render(<MemoryRouter><BikePeriodSnapshotPanel ownerUid="owner" period={actual.period}/></MemoryRouter>);}
-beforeEach(()=>{mocks.snapshot.data=structuredClone(actual) as unknown as BikePeriodSnapshotResponse;mocks.snapshot.error=false;mocks.snapshot.errorKind=undefined;mocks.snapshot.canResume=true;});
+beforeEach(()=>{resetRuntimeConfigForTests({appEnvironment:"production",firebaseProjectId:"miranae-orider-g1",firebaseFunctionsRegion:"asia-northeast3",trainingAnalysisPeriodsEnabled:true});mocks.snapshot.data=structuredClone(actual) as unknown as BikePeriodSnapshotResponse;mocks.snapshot.error=false;mocks.snapshot.errorKind=undefined;mocks.snapshot.canResume=true;});
 it("distinguishes partial stored-weight coverage from complete W values and labels KST",()=>{mount();expect(screen.getByText("bikeSnapshot.weightPartial")).toBeInTheDocument();expect(screen.getByText(/^periodCurve.weightCoverage/)).toHaveTextContent('"missingWeightActivityCount":1001');expect(screen.getByText(/^bikeSnapshot.basis/)).toHaveTextContent('KST');});
 it("explains oversized identity groups without offering continuation",()=>{mocks.snapshot.data=null;mocks.snapshot.error=true;mocks.snapshot.errorKind="limit";mocks.snapshot.canResume=false;mount();expect(screen.getByRole('alert')).toHaveTextContent('bikeSnapshot.identityLimit');expect(screen.queryByRole('button',{name:'bikeSnapshot.resume'})).not.toBeInTheDocument();});
 it("supports the dense duration grid and independent W and W/kg source links",()=>{
@@ -25,3 +25,9 @@ it("supports the dense duration grid and independent W and W/kg source links",()
 });
 
 it("separates metric and coverage copy into block paragraphs",()=>{mount();expect(screen.getByText(/^bikeSnapshot.metrics.distanceM/).tagName).toBe("P");expect(screen.getAllByText(/^bikeSnapshot.coverage/)[0].tagName).toBe("P");expect(screen.getByText("bikeSnapshot.powerComplete").tagName).toBe("P");expect(screen.getByText("bikeSnapshot.weightPartial").tagName).toBe("P");});
+
+afterEach(()=>resetRuntimeConfigForTests({}));
+it("does not expose a production snapshot panel until the existing period flag is enabled",()=>{
+ resetRuntimeConfigForTests({appEnvironment:"production",firebaseProjectId:"miranae-orider-g1",firebaseFunctionsRegion:"asia-northeast3",trainingAnalysisPeriodsEnabled:false});
+ mount();expect(screen.queryByText("bikeSnapshot.title")).not.toBeInTheDocument();
+});

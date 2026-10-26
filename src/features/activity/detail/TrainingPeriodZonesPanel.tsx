@@ -30,7 +30,7 @@ function ZoneGroup({ group }: { group: PeriodHrZoneGroup | PeriodPowerZoneGroup 
 function ManualRunningPaceZones({ response, ownerUid }: { response: TrainingAnalysisPeriodsResponse; ownerUid: string }) {
   const { t, i18n } = useTranslation("activity");
   const [selection, setSelection] = useState<TrainingAnalysisPeriodsSelection | null>(null);
-  const enabled = trainingAnalysisPeriodsAvailable();
+  const enabled = trainingAnalysisPeriodsAvailable("run");
   const result = useTrainingAnalysisPeriods(ownerUid, selection, enabled);
   const date = (value: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(value);
   const readTime = (value: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(value);
