@@ -1,3 +1,4 @@
+import { activityVisualRangeStats } from "./activityVisualRangeStats";
 import { describe, expect, it } from "vitest";
 import { buildActivityAnalysisProjection, buildAlignedActivityChartChannels, buildSampledData, deriveStreamSensorSummary, getAvailableOverlays, buildSummaryStats, selectActivityPowerStream } from "./activityDetailDerived";
 import { withImportedObservationTime } from "./importedActivityObservations";
@@ -56,4 +57,19 @@ describe("imported point observations", () => {
     expect(deriveStreamSensorSummary(streams)).toMatchObject({ averagePower: 0, maxPower: 0, hasReliablePower: true });
     expect(getAvailableOverlays(buildSampledData(streams)).map(row => row.key)).toContain("power");
   });
+});
+
+it("does not bridge an imported missing second in visual ranges and preserves delayed session origin", () => {
+  const streams = { ...fixture(), time: [0, 1, 2], distance: [0, 1, 2], altitude: [1, 1, 1],
+    importedSensorObservationsV1: { ...fixture().importedSensorObservationsV1, timeMs: [0, 1000, 2000],
+      watts: [200, null, 200], heartrate: [150, null, 150], cadence: [80, null, 80] } };
+  const context = { activityStartTime: origin - 1000, explicitDurationSec: 3 };
+  const projection = buildActivityAnalysisProjection(streams, context)!;
+  expect(projection.power?.time).toEqual([0, 2]);
+  expect(projection.power?.durationsSec).toEqual([1, 0]);
+  expect(projection.power?.segmentStarts).toEqual([true, true]);
+  const axis = withImportedObservationTime(streams, context.activityStartTime, 3)!.time!;
+  expect(axis).toEqual([1, 2, 3]);
+  expect(activityVisualRangeStats(streams, context, axis, [0, 1, 2], [0, 2])?.overlays.power).toEqual({ avg: 200, max: 200 });
+  expect(activityVisualRangeStats(streams, context, axis, [0, 1, 2], [1, 2])?.overlays.power).toBeUndefined();
 });
