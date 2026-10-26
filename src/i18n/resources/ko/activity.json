@@ -2807,6 +2807,7 @@
       "vo2": "VO2max",
       "anaerobic": "무산소"
     },
-    "zoneComparison": "{{zone}} 비교 근거"
+    "zoneComparison": "{{zone}} 비교 근거",
+    "powerVo2Range": "FTP 105% 이상 120% 미만"
   }
 }

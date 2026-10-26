@@ -2807,6 +2807,7 @@
       "vo2": "VO2max",
       "anaerobic": "Anaerobic"
     },
-    "zoneComparison": "{{zone}} comparison"
+    "zoneComparison": "{{zone}} comparison",
+    "powerVo2Range": "105% FTP or above, below 120% FTP"
   }
 }
