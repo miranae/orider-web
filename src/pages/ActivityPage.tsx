@@ -1,4 +1,4 @@
-import { stravaRecordOf, formatStravaRecord } from "@shared/analysis/stravaRecord";
+import { stravaRecordOf } from "@shared/analysis/stravaRecord";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
 import { useMobile } from "../hooks/useMobile";
 import { ChevronDown, Menu, Trophy } from "lucide-react";
@@ -780,8 +780,7 @@ export default function ActivityPage() {
     ? overview.response.defaultMemo ?? null : null;
   const providerRecord = activity?.source === "strava" ? stravaRecordOf(activity) : null;
   const overviewMemo = providerRecord && !resolvedMemo?.authored
-    ? freshDefaultMemo && overview.response?.status === "available" && overview.response.presentation.stravaRecord
-      ? freshDefaultMemo : formatStravaRecord(providerRecord, stravaSummaryLang)
+    ? freshDefaultMemo ?? resolvedMemo?.memo ?? publishedContent?.memo ?? null
     : resolvedMemo?.memo ?? freshDefaultMemo ?? publishedContent?.memo ?? null;
 
   const hasStreams = sampledData.length > 0;
