@@ -1377,6 +1377,7 @@
     "pmcBounds": "Fitness bounds: day before {{start}} → closing {{end}}"
   },
   "bikeSnapshot": {
+    "historyLoading": "Loading saved results.",
     "loadHistory": "View saved period results",
     "moreHistory": "More saved results",
     "history": "Previous period results",

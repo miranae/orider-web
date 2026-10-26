@@ -1,13 +1,13 @@
 import { resetRuntimeConfigForTests } from "../../../services/runtimeConfig";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { BikePeriodSnapshotResponse } from "@shared/types/bike-period-snapshot";
 import actual from "../../../services/__fixtures__/bike-snapshot-1001.json";
 import { chooseDropdownAt } from "../fitnessControlTestUtils";
 import BikePeriodSnapshotPanel from "./BikePeriodSnapshotPanel";
 import { POWER_DURATION_GRID } from "../../../services/powerCurvePeriods";
-const mocks=vi.hoisted(()=>({snapshot:{data:null as BikePeriodSnapshotResponse|null,running:false,error:false,errorKind:undefined as string|undefined,canResume:false,start:vi.fn(),resume:vi.fn(),zones:vi.fn(),stop:vi.fn()}}));
-vi.mock("../../../hooks/useBikePeriodSnapshot",()=>({useBikePeriodSnapshot:()=>mocks.snapshot}));
+const mocks=vi.hoisted(()=>({read:vi.fn(),snapshot:{data:null as BikePeriodSnapshotResponse|null,running:false,error:false,errorKind:undefined as string|undefined,canResume:false,loadHistory:vi.fn(),start:vi.fn(),resume:vi.fn(),zones:vi.fn(),stop:vi.fn()}}));
+vi.mock("../../../hooks/useBikePeriodSnapshot",()=>({useBikePeriodSnapshot:(uid:unknown,period:unknown)=>{mocks.read(uid,period);return mocks.snapshot;}}));
 vi.mock("../../../contexts/LocaleContext",()=>({useLocale:()=>({units:"metric"})}));
 vi.mock("../../../hooks/usePeriodControls",async()=>{const {useState}=await import('react');return{usePeriodControls:(_:unknown,__:unknown,initial:()=>unknown)=>useState(initial)};});
 vi.mock("react-i18next",()=>({useTranslation:()=>({t:(key:string,p?:Record<string,unknown>)=>key+(p?JSON.stringify(p):""),i18n:{language:"ko"}})}));
@@ -30,4 +30,19 @@ afterEach(()=>resetRuntimeConfigForTests({}));
 it("does not expose a production snapshot panel until the existing period flag is enabled",()=>{
  resetRuntimeConfigForTests({appEnvironment:"production",firebaseProjectId:"miranae-orider-g1",firebaseFunctionsRegion:"asia-northeast3",trainingAnalysisPeriodsEnabled:false});
  mount();expect(screen.queryByText("bikeSnapshot.title")).not.toBeInTheDocument();
+});
+it("provides a folded history-only entry without starting or offering another calculation",()=>{
+ mocks.snapshot.data=null;mocks.snapshot.start.mockClear();mocks.snapshot.loadHistory.mockClear();
+ render(<MemoryRouter><BikePeriodSnapshotPanel ownerUid="owner" period={actual.period} historyOnly/></MemoryRouter>);
+ expect(screen.getByRole("button",{name:"bikeSnapshot.loadHistory",hidden:true})).toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:"bikeSnapshot.start",hidden:true})).not.toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:"bikeSnapshot.restart",hidden:true})).not.toBeInTheDocument();
+ expect(mocks.snapshot.start).not.toHaveBeenCalled();expect(mocks.snapshot.loadHistory).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole("button",{name:"bikeSnapshot.loadHistory",hidden:true}));expect(mocks.snapshot.loadHistory).toHaveBeenCalledOnce();
+});
+
+it("passes only the period boundaries when given a full aggregate response",()=>{
+ const period={...actual.period,coverage:{truncated:false},totals:{distanceM:600}};
+ render(<MemoryRouter><BikePeriodSnapshotPanel ownerUid="owner" period={period} historyOnly/></MemoryRouter>);
+ expect(mocks.read).toHaveBeenLastCalledWith("owner",actual.period);
 });

@@ -1377,6 +1377,7 @@
     "pmcBounds": "체력 비교 범위: {{start}} 시작 전날 → {{end}} 마감"
   },
   "bikeSnapshot": {
+    "historyLoading": "저장된 결과를 불러오는 중입니다.",
     "loadHistory": "저장된 기간 결과 보기",
     "moreHistory": "이전 결과 더 보기",
     "history": "이전 기간 조회 결과",
