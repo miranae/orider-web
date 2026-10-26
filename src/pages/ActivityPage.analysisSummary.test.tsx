@@ -69,10 +69,50 @@ describe("ActivityPage server summary presentation", () => {
     mocks.model!.overview.response = null;
     renderWithProviders(<ActivityPage />, { authenticated: false });
     expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
-    if (source === "strava") expect(within(screen.getByRole("region", { name: "활동 이야기" })).getByText(/Strava 원본/)).toBeInTheDocument();
-    else expect(within(screen.getByRole("region", { name: "활동 이야기" })).getByText(/▰ 피크 파워/).textContent).toBe("▰ 피크 파워 (W)\n 1s 10s\n938 767");
+    const story = within(screen.getByRole("region", { name: "활동 이야기" }));
+    expect(story.getByText(/▰ 피크 파워/).textContent).toBe("▰ 피크 파워 (W)\n 1s 10s\n938 767");
+    expect(story.queryByText(/Strava 원본/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(screen.queryByText(/▰ 피크 파워/)).not.toBeInTheDocument();
+  });
+
+  it.each(["pending", "error"] as const)("keeps verified Strava memos without a provider fallback while overview is %s", state => {
+    mocks.model!.activity!.source = "strava";
+    mocks.model!.overview.loading = state === "pending";
+    mocks.model!.overview.error = state === "error";
+    if (state === "pending") mocks.model!.activity = withStoredSummary(mocks.model!.activity!, "저장된 Orider 추가 분석");
+    renderWithProviders(<ActivityPage />, { authenticated: false });
+    const story = within(screen.getByRole("region", { name: "활동 이야기" }));
+    expect(story.queryByText(/Strava 원본/)).not.toBeInTheDocument();
+    if (state === "pending") expect(story.getByText("저장된 Orider 추가 분석")).toBeInTheDocument();
+    expect(mocks.requestStreams).not.toHaveBeenCalled();
+  });
+
+  it("prefers current Orider analysis to a stored generated Strava memo", () => {
+    mocks.model!.activity!.source = "strava";
+    mocks.model!.activity = withStoredSummary(mocks.model!.activity!, "이전 추가 분석");
+    mocks.model!.overview.response = { status: "available", activityId: "summary-only",
+      defaultMemo: "현재 Orider 추가 분석", presentation: { session: { load: 12 } } } as never;
+    renderWithProviders(<ActivityPage />, { authenticated: false });
+    const story = within(screen.getByRole("region", { name: "활동 이야기" }));
+    expect(story.getByText("현재 Orider 추가 분석")).toBeInTheDocument();
+    expect(story.queryByText("이전 추가 분석")).not.toBeInTheDocument();
+    expect(story.queryByText(/Strava 원본/)).not.toBeInTheDocument();
+  });
+
+  it("keeps authored Strava notes ahead of current Orider analysis", () => {
+    mocks.model!.activity!.source = "strava";
+    mocks.model!.activity = withStoredSummary(mocks.model!.activity!, "저장된 추가 분석");
+    mocks.model!.activity!.feedContentV1 = { version: 1,
+      sourceRevision: mocks.model!.activity!.defaultSummaryV1!.sourceRevision,
+      revision: "authored", memo: "직접 작성한 메모", memoTruncated: false, totalPhotoCount: 0, photos: [] };
+    mocks.model!.overview.response = { status: "available", activityId: "summary-only",
+      defaultMemo: "현재 Orider 추가 분석", presentation: { session: { load: 12 } } } as never;
+    renderWithProviders(<ActivityPage />, { authenticated: false });
+    const story = within(screen.getByRole("region", { name: "활동 이야기" }));
+    expect(story.getByText("직접 작성한 메모")).toBeInTheDocument();
+    expect(story.queryByText("현재 Orider 추가 분석")).not.toBeInTheDocument();
+    expect(story.queryByText("저장된 추가 분석")).not.toBeInTheDocument();
   });
 
   it.each([12, null])("러닝 GAP 카드 평균도 요약 스트립의 정본 값 %s를 전달한다", avgSpeedKph => {
