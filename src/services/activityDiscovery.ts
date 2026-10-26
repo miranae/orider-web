@@ -25,9 +25,21 @@ export function mapDiscoveryActivity(item: ActivityDiscoveryItem): DiscoveryActi
  return item.generatedSummary ? {...activity, defaultSummaryV1: {version:1,state:"ready",sourceRevision:activityFeedSourceRevision(activity),formatterVersion:item.generatedSummary.formatterVersion,inputDigest:item.generatedSummary.inputDigest,text:item.generatedSummary.text}} : activity;
 }
 const connected=new WeakSet<object>();
-export async function loadActivityDiscovery(services:FirebaseServices,request:ActivityDiscoveryRequest):Promise<Omit<ActivityDiscoveryResponse,'items'>&{items:DiscoveryActivity[]}>{
+type DiscoveryPage = Omit<ActivityDiscoveryResponse,'items'>&{items:DiscoveryActivity[]};
+export async function loadActivityDiscovery(services:FirebaseServices,request:ActivityDiscoveryRequest,signal?:AbortSignal):Promise<DiscoveryPage>{
+ let active=true, rejectAbort: (error: Error)=>void = () => {};
+ const abort = () => { active=false; rejectAbort(Error('request_aborted')); };
+ const aborted = new Promise<never>((_,reject)=>{rejectAbort=reject;});
+ const timer=setTimeout(abort,15000);
+ signal?.addEventListener('abort',abort,{once:true});
+ if(signal?.aborted)abort();
+ try { return await Promise.race([readActivityDiscovery(services,request,()=>{if(!active||signal?.aborted)throw Error('request_aborted');}),aborted]); }
+ finally {active=false;clearTimeout(timer);signal?.removeEventListener('abort',abort);}
+}
+async function readActivityDiscovery(services:FirebaseServices,request:ActivityDiscoveryRequest,assertActive:()=>void):Promise<DiscoveryPage>{
  const viewer=services.auth.currentUser;
- const assertCurrent=()=>{if(services.auth.currentUser!==viewer)throw Error('account_changed');};
+ const app=services.auth.app;
+ const assertCurrent=()=>{assertActive();if(services.auth.app!==app||services.auth.currentUser!==viewer)throw Error('account_changed');};
  assertCurrent();await services.ensureAppCheckReady();assertCurrent();
  const functions=getRuntimeConfig().appEnvironment==='stage'?services.functions:getFunctions(services.functions.app,'asia-northeast3');
  if(isEmulatorRuntime()&&!connected.has(functions)){connectFunctionsEmulator(functions,'localhost',Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT||5001));connected.add(functions);}

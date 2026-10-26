@@ -6,13 +6,13 @@ import WeeklyChart from "../WeeklyChart";
 import { Button, Select, Text } from "../../theme/components";
 import { athleteProfilePeriods, type AthletePeriod } from "./athleteProfilePeriods";
 
-export default function AthleteActivityChart({ activities, loadActivities = activities, selected, onSelect }: { activities: Activity[]; loadActivities?: Activity[]; selected: AthletePeriod | null; onSelect: (period: AthletePeriod | null) => void }) {
+export default function AthleteActivityChart({ activities, loadActivities = activities, selected, onSelect, rangeLimit }: { activities: Activity[]; loadActivities?: Activity[]; selected: AthletePeriod | null; onSelect: (period: AthletePeriod | null) => void; rangeLimit?: { start: number; end: number } }) {
   const { t, i18n } = useTranslation("athlete");
-  const years = useMemo(() => [...new Set([planCalendarDate(Date.now()).getUTCFullYear(), ...activities.filter(item => Number.isFinite(item.startTime) && item.startTime > 0).map(item => planCalendarDate(item.startTime).getUTCFullYear())])].sort((a, b) => b - a), [activities]);
-  const [year, setYear] = useState(planCalendarDate(Date.now()).getUTCFullYear());
+  const years = useMemo(() => rangeLimit ? Array.from({ length: planCalendarDate(rangeLimit.end - 1).getUTCFullYear() - planCalendarDate(rangeLimit.start).getUTCFullYear() + 1 }, (_, index) => planCalendarDate(rangeLimit.end - 1).getUTCFullYear() - index) : [...new Set([planCalendarDate(Date.now()).getUTCFullYear(), ...activities.filter(item => Number.isFinite(item.startTime) && item.startTime > 0).map(item => planCalendarDate(item.startTime).getUTCFullYear())])].sort((a, b) => b - a), [activities, rangeLimit]);
+  const [year, setYear] = useState(planCalendarDate(rangeLimit ? rangeLimit.end - 1 : Date.now()).getUTCFullYear());
   const [mode, setMode] = useState<"week" | "month">("month");
   const [attempt, setAttempt] = useState(0);
-  const periods = useMemo(() => athleteProfilePeriods(activities, year, mode, loadActivities).filter(period => period.range.start <= Date.now()), [activities, loadActivities, year, mode]);
+  const periods = useMemo(() => athleteProfilePeriods(activities, year, mode, loadActivities).filter(period => period.range.start <= Date.now() && (!rangeLimit || period.range.end > rangeLimit.start && period.range.start < rangeLimit.end)).map(period => rangeLimit ? { ...period, range: { ...period.range, start: Math.max(period.range.start, rangeLimit.start), end: Math.min(period.range.end, rangeLimit.end) } } : period), [activities, loadActivities, year, mode, rangeLimit]);
   const reset = () => { onSelect(null); setAttempt(value => value + 1); };
   return <section className="athlete-history-chart" aria-label={t("profile.history")}>
     <div className="athlete-section-heading"><h2>{t("profile.history")}</h2>

@@ -7,9 +7,9 @@ import { setDocData, setCollectionDocs, mockCollectionData } from "../__tests__/
 import { createMockProfile, createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
 
 vi.mock("../services/activityDiscovery", () => ({ loadActivityDiscovery: vi.fn(async (_services, request) => {
-  const rows = (mockCollectionData.get("activities") ?? []).filter(row => row.userId === request.targetUid && row.deletedAt == null && (row.visibility ?? "everyone") === "everyone");
+  const rows = (mockCollectionData.get("activities") ?? []).filter(row => row.userId === request.targetUid && row.deletedAt == null && (request.fromInclusive === undefined || row.startTime >= request.fromInclusive) && (request.toExclusive === undefined || row.startTime < request.toExclusive) && (row.visibility ?? "everyone") === "everyone");
   const offset = Number(request.cursor ?? 0), end = offset + (request.limit ?? 20);
-  return { items: rows.slice(offset, end), nextCursor: end < rows.length ? String(end) : null, exhausted: end >= rows.length };
+  return { expiresAt: Date.now() + 600000, items: rows.slice(offset, end), nextCursor: end < rows.length ? String(end) : null, exhausted: end >= rows.length };
 }) }));
 
 // Mock heavy components
@@ -61,7 +61,7 @@ describe("AthletePage", () => {
       { id: "sep", ...createMockActivity({ id: "sep", userId: "athlete-1", description: "September ride", startTime: new Date(2026, 8, 15).getTime(), endTime: new Date(2026, 8, 15, 2).getTime() }) },
       { id: "oct", ...createMockActivity({ id: "oct", userId: "athlete-1", description: "October ride", startTime: new Date(2026, 9, 15).getTime(), endTime: new Date(2026, 9, 15, 2).getTime() }) },
     ]);
-    renderWithProviders(<AthletePage />);
+    renderWithProviders(<AthletePage />, {authenticated: true, user: {uid: "athlete-1"}});
     await screen.findByRole("button", { name: "Select September" });
     fireEvent.click(screen.getByRole("button", { name: "Select September" }));
     await waitFor(() => expect(screen.getAllByTestId("H1-2-1")).toHaveLength(1));
@@ -77,6 +77,8 @@ describe("AthletePage", () => {
     setCollectionDocs("activities", rows);
     renderWithProviders(<AthletePage />);
     await screen.findByLabelText("종목");
+    fireEvent.click(await screen.findByRole("button", { name: "전체 공개 통계 이어 확인" }));
+    await waitFor(() => expect(screen.queryByRole("button", {name: "전체 공개 통계 이어 확인"})).not.toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("종목"), { target: { value: "run" } });
     expect(await screen.findByRole("link", { name: "Older run" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("종목"), { target: { value: "all" } });
@@ -338,8 +340,8 @@ it("retains distinct native references in the profile cover despite empty URL fi
 it('distinguishes bounded public inventory exhaustion from a retryable network failure',async()=>{
  setDocData('users_public/athlete-1',{nickname:'Public test rider',profilePublic:true});
  const original=vi.mocked(loadActivityDiscovery).getMockImplementation()!;let pages=0;
- vi.mocked(loadActivityDiscovery).mockImplementation(async(services,request)=>request.order==='id_asc'?{items:[],nextCursor:'ad1.'+(++pages),exhausted:false} as never:original(services,request));
- try{renderWithProviders(<AthletePage/>);await screen.findAllByText(/공개 기록 조회 한도에 도달해 전체 합계와 월별 차트를 확인하지 못했습니다/);expect(pages).toBe(10);expect(screen.queryByRole('button',{name:'다시 시도',exact:true})).not.toBeInTheDocument();}
+ vi.mocked(loadActivityDiscovery).mockImplementation(async(services,request)=>request.order==='id_asc'?{items:[],nextCursor:'ad1.'+(++pages),exhausted:false,expiresAt:Date.now()+600000} as never:original(services,request));
+ try{renderWithProviders(<AthletePage/>);for(let index=0;index<9;index++){fireEvent.click(await screen.findByRole('button',{name:'전체 공개 통계 이어 확인'}));}await screen.findAllByText(/공개 기록 조회 한도에 도달해 전체 합계와 월별 차트를 확인하지 못했습니다/);expect(pages).toBe(10);expect(screen.queryByRole('button',{name:'다시 시도',exact:true})).not.toBeInTheDocument();}
  finally{vi.mocked(loadActivityDiscovery).mockImplementation(original);}
 });
 

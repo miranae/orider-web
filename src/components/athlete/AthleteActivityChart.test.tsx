@@ -35,3 +35,9 @@ it("offers the KST year and forwards January's range at the UTC year boundary", 
     expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({start: Date.parse("2025-12-31T15:00:00Z"), end: Date.parse("2026-01-31T15:00:00Z")}));
   } finally { vi.useRealTimers(); }
 });
+it("does not represent months outside the queried range as zero and clips original selection", () => {
+ const onSelect=vi.fn(), start=Date.parse("2025-02-10T00:00:00+09:00"),end=Date.parse("2025-03-05T00:00:00+09:00");
+ renderWithProviders(<AthleteActivityChart activities={[]} selected={null} onSelect={onSelect} rangeLimit={{start,end}}/>);
+ expect(chart.mock.lastCall![0].data.map((row:WeeklyStat)=>row.week)).toEqual(["2025.02","2025.03"]);
+ fireEvent.click(screen.getByRole("button",{name:"Inspect period"})); expect(onSelect).toHaveBeenLastCalledWith(expect.objectContaining({start,end:Date.parse("2025-03-01T00:00:00+09:00")}));
+});

@@ -1,3 +1,5 @@
+import { useAthletePublicPeriod } from "../hooks/useAthletePublicPeriod";
+import AthletePublicPeriodExplorer from "../components/athlete/AthletePublicPeriodExplorer";
 import { loadActivityDiscovery } from "../services/activityDiscovery";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadSegmentMetadataPage } from "../services/segmentMetadata";
@@ -165,10 +167,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const profileReadIdentity = useRef({ userId, viewer: services.auth.currentUser });
   if (profileReadIdentity.current.userId !== userId || profileReadIdentity.current.viewer !== services.auth.currentUser) profileReadIdentity.current = { userId, viewer: services.auth.currentUser };
   const [lastActivityDoc, setLastActivityDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [chartActivities, setChartActivities] = useState<Activity[]>([]);
-  const [chartLoading, setChartLoading] = useState(true);
-  const [chartError, setChartError] = useState(false);
-  const [chartLimited, setChartLimited] = useState(false);
+  const [ownChartActivities, setChartActivities] = useState<Activity[]>([]);
+  const [ownChartLoading, setChartLoading] = useState(true);
+  const [ownChartError, setChartError] = useState(false);
+
   const [chartAttempt, setChartAttempt] = useState(0);
 
   // My segments
@@ -194,6 +196,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   // Friend state: 'none' | 'request_sent' | 'request_received' | 'friends'
   const [friendStatus, setFriendStatus] = useState<"none" | "request_sent" | "request_received" | "friends">("none");
+  const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && !profileLoading && (profileForPage?.profilePublic !== false || friendStatus === "friends"), true);
+  const chartActivities = isOwnProfile ? ownChartActivities : publicGlobal.items;
+  const chartLoading = isOwnProfile ? ownChartLoading : publicGlobal.status === "loading";
+  const chartError = isOwnProfile ? ownChartError : publicGlobal.status !== "complete";
+  const chartLimited = !isOwnProfile && publicGlobal.status === "limit";
+
   const [relationshipLoading, setRelationshipLoading] = useState(true);
   const [friendLoading, setFriendLoading] = useState(false);
   const autoInviteAttemptRef = useRef<string | null>(null);
@@ -297,9 +305,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   useEffect(() => {
     let cancelled = false;
     setChartActivities([]);
-    setChartError(false); setChartLimited(false);
+    setChartError(false);
     setChartLoading(true);
-    if (!userId || (profileLoading && !ownProfileFallback)) return;
+    if (!isOwnProfile || !userId || (profileLoading && !ownProfileFallback)) return;
     if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
       setChartLoading(false);
       return;
@@ -312,7 +320,6 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       .catch((err) => {
         if (cancelled) return;
         logClientError("AthletePage.loadChartActivities", err, { userId, isOwnProfile });
-        setChartLimited(err instanceof Error && err.message === "public_activity_inventory_incomplete");
         setChartError(true);
       })
       .finally(() => { if (!cancelled) setChartLoading(false); });
@@ -768,8 +775,11 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       </section>
 
       {!isOwnProfile && <Text as="p" tone="secondary">{t("publicDiscoveryScope")}</Text>}
-      {!chartLimited && <AthleteRecentSummary activities={acceptedChartActivities} loading={chartLoading} error={chartError} />}
-      {chartLimited && <Text as="p" role="status">{t("publicDiscoveryLimit")}</Text>}
+      {isOwnProfile && !chartLimited && <AthleteRecentSummary activities={acceptedChartActivities} loading={chartLoading} error={chartError} />}
+      {!isOwnProfile && <div>
+        <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : publicGlobal.status === "complete" ? "publicPeriod.globalComplete" : `publicPeriod.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>
+        {publicGlobal.status !== "loading" && <Button onClick={publicGlobal.status === "partial" || publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>{t(publicGlobal.status === "partial" ? "publicPeriod.globalMore" : publicGlobal.status === "error" ? "monthly.retry" : "publicPeriod.refresh")}</Button>}
+      </div>}
       </div>
       <div className="athlete-profile-layout">
       <aside className="athlete-profile-sidebar">
@@ -880,7 +890,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           {profileTab === "segments" && <section className="athlete-profile-section"><h2>{t("segments.othersTitle")}</h2>{mySegments.length ? <ul className="athlete-highlights">{mySegments.map(segment => <li key={segment.id}><Link to={`/segment/${segment.id}`}>{segment.name} · {(segment.distance / 1000).toFixed(2)} km</Link></li>)}</ul> : <p>{t("profile.noSegments")}</p>}</section>}
           {(profileTab === "overview" || profileTab === "activities") && <>
           <div className="athlete-section-heading"><label htmlFor="athlete-sport">{t("profile.sport")}</label><Select id="athlete-sport" value={sport} onChange={event => setSport(event.target.value)}>{["all", "bike", "run", "swim"].filter(isSportUiEnabled).map(value => <option key={value} value={value}>{t(`profile.sports.${value}`)}</option>)}</Select></div>
-          {chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p>{t(chartLimited ? "publicDiscoveryLimit" : "monthly.error")}</p>{!chartLimited && <Button onClick={() => setChartAttempt(attempt => attempt + 1)}>{t("monthly.retry")}</Button>}</div> : <AthleteActivityChart loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
+          {!isOwnProfile ? <AthletePublicPeriodExplorer key={userId} targetUid={userId!} /> : chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p>{t(chartLimited ? "publicDiscoveryLimit" : "monthly.error")}</p>{!chartLimited && <Button onClick={() => setChartAttempt(attempt => attempt + 1)}>{t("monthly.retry")}</Button>}</div> : <AthleteActivityChart loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
 
       {isOwnProfile && <div data-testid="P0-3"><RouteTabNav revealActive tabs={[
         { to: "/athlete/me", label: t("self.overview"), end: true },
@@ -903,6 +913,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </div>}
             </div>
 
+            {!isOwnProfile && !isSearchActive && (sport !== "all" || filterType !== "all") && publicGlobal.status !== "complete" && <div><Text as="p">{t("publicPeriod.filterPartial")}</Text>{publicGlobal.status === "partial" && <Button onClick={publicGlobal.more}>{t("publicPeriod.globalMore")}</Button>}</div>}
             {isSearchActive && <p className="athlete-section-note">{t("profile.searchScope")}</p>}
             {/* Search bar */}
             {!isOwnProfile && <div className="flex items-center gap-2">

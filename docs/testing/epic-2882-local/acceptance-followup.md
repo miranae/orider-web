@@ -227,3 +227,46 @@ totals. Candidate files are AthletePage, athleteMonthlyActivities, the profile
 chart/recent-summary components and their tests; a coherent complete public
 snapshot would additionally require a new server contract. No owner-private API
 reuse, automatic unbounded query or budget increase was introduced here.
+
+
+### Public profile explicit period continuation (2026-10-26)
+
+The preceding 200-record profile limitation now has a separate bounded period
+explorer. KST date inputs (at most one year) are URL state; original-activity
+navigation and browser return preserve dates and fetch fresh results, not cached
+activities/cursors. Each explicit action reads one public discovery page (20
+results, at most 50 candidate examinations plus lookahead). Empty intermediate
+pages remain incomplete. Only reaching this query's last page permits the period
+chart/recent-28-day summary; this is current-authorized seek enumeration, not a
+fixed snapshot or all-time completeness. Months outside the queried range are
+not presented as zero-activity months.
+
+Global public statistics retain their 200-result/ten-page budget, now with one
+initial page and explicit continuation rather than ten automatic calls. Complete
+21–200-record totals remain supported; partial global results never become full
+totals. Sport/source filters explicitly identify partial collected inputs. The
+owner profile and private R6 analysis contracts are unchanged.
+
+The first page fixes a 30-second authorization deadline. Further pages, loading,
+and 429 retries cannot extend it. Expiry or content-change invalidation removes
+collected rows and asks for a fresh query; narrow the date range if the volume
+cannot fit the budget. Hidden/account/same-UID SDK session changes discard rows
+and late responses; focus/return starts a fresh query. Cursor expiry/permission
+errors require restart. AppCheck plus transport has a 15-second deadline and an
+abort fence before dispatch; this does not claim cancellation of an already-sent
+Firebase HTTP request. No automatic retries or unlimited scanning are used.
+
+Node22 focused validation: five suites, 47 distinct tests passed, including an
+explicit eleven-page/201-record period traversal, 21-record global continuation,
+ten-page global cap, empty pages, 429, expired cursors, stale in-flight results,
+SDK replacement, readiness timeout/abort, URL period navigation and clipped chart
+ranges. Typecheck and scoped ESLint passed. These are focused gates, not a fresh
+full WEB suite. The 201-record test uses deterministic mocked transport; it does
+not establish arbitrarily large live completion under the quota/deadline.
+
+Actual existing synthetic local app (`ui-owner`, viewer account), Chrome390×844:
+October1–26 returned six collected records, rendered the limited-range chart,
+opened `ui-native-ride`, then browser-back restored both dates and fetched the
+period again. DOM viewport/document widths were both390px. No existing fixture
+or account was changed. This is actual app/SDK local read-only evidence, distinct
+from the deterministic large-page regression. No remote writes or deployment.

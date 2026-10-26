@@ -33,3 +33,18 @@ it('requires server anchor admission for co-rider discovery',async()=>{
 it('accepts an id inventory with a date window excluding undated rows',async()=>{
  const p={...page(),order:'id_asc',includesUndated:false};mocks.call.mockResolvedValue({data:p});await expect(loadActivityDiscovery(services,{scope:'athlete',targetUid:'owner',order:'id_asc',fromInclusive:1})).resolves.toMatchObject({includesUndated:false});
 });
+it('never dispatches after readiness resolves for an aborted request',async()=>{
+ let ready!:()=>void;mocks.ready.mockImplementation(()=>new Promise<void>(done=>{ready=done;}));
+ const controller=new AbortController(),pending=loadActivityDiscovery(services,{scope:'all'},controller.signal);
+ const rejected=expect(pending).rejects.toThrow('request_aborted');controller.abort();await rejected;ready();await Promise.resolve();expect(mocks.call).not.toHaveBeenCalled();
+});
+it('bounds readiness and rejects late dispatch at the total deadline',async()=>{
+ vi.useFakeTimers();try{let ready!:()=>void;mocks.ready.mockImplementation(()=>new Promise<void>(done=>{ready=done;}));
+ const pending=loadActivityDiscovery(services,{scope:'all'}),rejected=expect(pending).rejects.toThrow('request_aborted');
+ await vi.advanceTimersByTimeAsync(15000);await rejected;ready();await Promise.resolve();expect(mocks.call).not.toHaveBeenCalled();
+ }finally{vi.useRealTimers();}
+});
+it('rejects same-uid session replacement while awaiting AppCheck before dispatch',async()=>{
+ mocks.ready.mockImplementation(async()=>{(services.auth as {currentUser:unknown}).currentUser={...viewer};});
+ await expect(loadActivityDiscovery(services,{scope:'all'})).rejects.toThrow('account_changed');expect(mocks.call).not.toHaveBeenCalled();
+});
