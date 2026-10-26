@@ -1464,6 +1464,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         commentCount={publicAccess ? activity.commentCount : user ? activityComments.length : activity.commentCount}
         commentText={publicAccess ? publicAccess.session.text : commentText}
         setCommentText={publicAccess ? publicAccess.session.setText : setCommentText}
+        kudosBusy={publicAccess?.session.busy ?? false}
         submitting={publicAccess ? publicAccess.session.busy : submitting}
         editingCommentId={editingCommentId}
         setEditingCommentId={setEditingCommentId}
