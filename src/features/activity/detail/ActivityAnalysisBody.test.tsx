@@ -137,7 +137,7 @@ it("retains the prior-only fitness timestamp and form without manufacturing a po
 it("preserves the complete highlighted peak scene even outside inspector durations", () => {
   renderWithProviders(<ActivityAnalysisBody {...props({ ...rich, peakMoment: { durationSec: 90, avgPowerW: 371, avgSpeedKmh: 51, maxHr: 191, fromKm: 2, toKm: 3 } })} peakInspector={null} />);
   const records = topic("파워 기록과 최고 노력");
-  expect(records).toHaveTextContent("90 s");
+  expect(records).toHaveTextContent("1분 30초");
   expect(records).toHaveTextContent("371 W");
   expect(records).toHaveTextContent("51 km/h");
   expect(records).toHaveTextContent("191 bpm");
@@ -191,4 +191,12 @@ it("shows the recorded zone distribution first and reveals exact comparison evid
   fireEvent.click(power.getByText("시간·일량과 비교 근거"));
   expect(power.getByRole("table")).toBeVisible();
   expect(power.getByText("+5.6%p")).toBeVisible();
+});
+
+it("keeps fitness scope available behind an initially closed explanation", () => {
+  renderWithProviders(<ActivityAnalysisBody {...props({ ...rich, fitnessScope: "integrated" })} />);
+  const explanation = screen.getByText(/체력·피로·폼은 기록된/);
+  expect(explanation).not.toBeVisible();
+  fireEvent.click(screen.getByText("체력 지표의 범위와 계산 기준"));
+  expect(explanation).toBeVisible();
 });
