@@ -570,7 +570,7 @@ describe("ActivityPage", () => {
     expect(screen.getByText("0.94")).toBeInTheDocument();
     fireEvent.click(screen.getByText("시간별 수치와 기록 근거"));
     expect(within(summary).getByRole("row", { name: /5s 679/ })).toBeInTheDocument();
-    expect(within(summary).getAllByText("Z7").length).toBeGreaterThan(0);
+    expect(within(summary).getByRole("row", { name: /Z7.*1:40/ })).toBeInTheDocument();
     expect(screen.getByText("49.0 / 51.0")).toBeInTheDocument();
     expect(summary).toHaveTextContent("추정 파워 기준");
     expect(screen.queryByText("FTP 미설정")).not.toBeInTheDocument();

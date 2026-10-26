@@ -127,7 +127,7 @@ describe("ActivityPage presentation", () => {
     const summary = await screen.findByTestId("activity-analysis-domains");
     await screen.findByText("dev 정본 활동 개요");
     expect(within(summary).getByRole("img", { name: "강도 게이지 · IF 0.83 (FTP 1.00 기준)" })).toBeInTheDocument();
-    expect(summary.querySelector(".activity-analysis-zone-track")).toBeInTheDocument();
+    expect(within(summary).getByRole("row", { name: /Z1.*2:00/ })).toBeInTheDocument();
     expect(within(summary).getByRole("img", { name: "체력 · CTL 10.0 → 11.0" })).toBeInTheDocument();
     expect(within(summary).getByRole("img", { name: "피로 · ATL 12.0 → 15.0" })).toBeInTheDocument();
     expect(within(summary).getByRole("img", { name: "폼 · TSB -2.0 → -4.0" })).toBeInTheDocument();

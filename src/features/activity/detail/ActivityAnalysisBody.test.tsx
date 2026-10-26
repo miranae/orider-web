@@ -147,9 +147,8 @@ it("preserves the complete highlighted peak scene even outside inspector duratio
 it("keeps a legacy zone visual from its real seconds without inventing numeric percentages", () => {
   renderWithProviders(<ActivityAnalysisBody {...props({ ...rich, zones: [{ kind: "heartRate", seconds: [60, 30], priority: "primary" }] })} />);
   const intensity = topic("강도 분포와 고강도");
-  expect(intensity).toHaveTextContent("1분");
-  const fill = intensity.querySelector<HTMLElement>(".activity-analysis-zone-track > span")!;
-  expect(Number.parseFloat(fill.style.width)).toBeCloseTo(66.67, 1);
+  expect(within(intensity).getByRole("cell", { name: "1:00" })).toBeVisible();
+  expect(within(intensity).getByRole("cell", { name: "0:30" })).toBeVisible();
   expect(within(intensity).queryByRole("columnheader", { name: "%" })).not.toBeInTheDocument();
   expect(within(intensity).queryByRole("columnheader", { name: "평소" })).not.toBeInTheDocument();
 });
@@ -188,10 +187,9 @@ it("shows the recorded zone distribution first and reveals exact comparison evid
   renderWithProviders(<ActivityAnalysisBody {...props(rich)} />);
   const power = within(screen.getByRole("heading", { name: "파워", level: 3 }).closest("section")!);
   expect(power.getByRole("group", { name: /55.6%/ })).toBeVisible();
-  expect(power.getByText("시간·일량과 비교 근거").closest("details")).not.toHaveAttribute("open");
-  fireEvent.click(power.getByText("시간·일량과 비교 근거"));
-  expect(power.getByText("시간·일량과 비교 근거").closest("details")).toHaveAttribute("open");
-  expect(power.getByText("+5.6%p")).toBeVisible();
+  expect(power.queryByText("시간·일량과 비교 근거")).not.toBeInTheDocument();
+  fireEvent.click(power.getByRole("button", { name: "Z1 회복 비교 근거" }));
+  expect(screen.getByText(/\+5.6%p/)).toBeVisible();
 });
 
 it("keeps fitness scope available behind an initially closed explanation", () => {

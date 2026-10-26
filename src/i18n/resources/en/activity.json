@@ -2793,6 +2793,20 @@
     "fitnessBasis": "Fitness scope and calculation basis",
     "recordLower": "The best average power for {{duration}} was {{gap}} W below {{reference}}.",
     "recordHigher": "The best average power for {{duration}} was {{gap}} W above {{reference}}.",
-    "recordEqual": "The best average power for {{duration}} matched {{reference}}."
+    "recordEqual": "The best average power for {{duration}} matched {{reference}}.",
+    "seilerRange1": "Below 75% FTP · Z1–Z2 range",
+    "seilerRange2": "75% to below 100% FTP · Z3 and part of Z4",
+    "seilerRange3": "At least 100% FTP · part of Z4 through Z7",
+    "below83": "Below 83%",
+    "below83Range": "Below 83% FTP",
+    "ftpBands": "FTP intensity bands",
+    "ftpBasis": "FTP based",
+    "band": {
+      "sweetSpot": "Sweet spot",
+      "threshold": "Threshold",
+      "vo2": "VO2max",
+      "anaerobic": "Anaerobic"
+    },
+    "zoneComparison": "{{zone}} comparison"
   }
 }

@@ -2793,6 +2793,20 @@
     "fitnessBasis": "체력 지표의 범위와 계산 기준",
     "recordLower": "{{duration}} 최고 평균 파워는 {{reference}}보다 {{gap}} W 낮았습니다.",
     "recordHigher": "{{duration}} 최고 평균 파워는 {{reference}}보다 {{gap}} W 높았습니다.",
-    "recordEqual": "{{duration}} 최고 평균 파워는 {{reference}}와 같습니다."
+    "recordEqual": "{{duration}} 최고 평균 파워는 {{reference}}와 같습니다.",
+    "seilerRange1": "FTP 75% 미만 · Z1–Z2 범위",
+    "seilerRange2": "FTP 75% 이상 100% 미만 · Z3–Z4 일부",
+    "seilerRange3": "FTP 100% 이상 · Z4 일부–Z7",
+    "below83": "83% 미만",
+    "below83Range": "FTP 83% 미만",
+    "ftpBands": "FTP 기준 영역",
+    "ftpBasis": "FTP 기준",
+    "band": {
+      "sweetSpot": "스위트스폿",
+      "threshold": "역치",
+      "vo2": "VO2max",
+      "anaerobic": "무산소"
+    },
+    "zoneComparison": "{{zone}} 비교 근거"
   }
 }
