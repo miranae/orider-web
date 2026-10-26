@@ -1381,7 +1381,7 @@
     "loadHistory": "View saved period results",
     "moreHistory": "More saved results",
     "history": "Previous period results",
-    "latest": "Latest lookup",
+    "latest": "Return to base result",
     "previousResult": "Showing the previously completed period result until the new lookup succeeds.",
     "sourceChanged": "The current source analysis has changed. These saved values retain their displayed snapshot time; you can explicitly start a new lookup.",
     "identityLimit": "Too many records are linked as the same activity to check this period. Review the duplicate links.",
@@ -1412,6 +1412,8 @@
     "ftp": "FTP {{ftp}} W · {{source}}",
     "hr": "Heart-rate reference {{bpm}} bpm",
     "zones": "Show training zones",
-    "moreZones": "Show next training zones"
+    "moreZones": "Show next training zones",
+    "historyItem": "Result {{number}} · {{count}} activities",
+    "selected": "Selected"
   }
 }

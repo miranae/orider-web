@@ -20,3 +20,5 @@
 외부 근거: `saved-analysis-reanalysis/period-preservation/actual-two-runs.json`, `ui-after-reload.txt`, `ui-after-reload.png`. 검토 URL: `http://localhost:5174/ko/coach/analysis?demoAccount=reanalysis` → 기간·구간 비교와 분포 → 기간별 훈련 강도 → 기간 분석 불러오기 → 기간 1 저장 이력.
 
 이번 추가 변경은 3 suites/25 tests, tsc, scoped lint 통과입니다. 전체 10003 tests 등 통합 통과는 이전 a93eb7a2 경계이며 이 추가 변경의 전체 재실행을 뜻하지 않습니다. 두 run은 같은 원본을 사용해 수치는 같으며 asOf/runId만 다릅니다. 대량 1001건 성능은 기존 별도 근거이고 이번 소수 활동 QA에서 다시 주장하지 않습니다.
+
+동일 초에 생성된 두 이력도 최신순 목록 전체의 결과 순번과 ‘활동 n개’로 구분합니다. 실제 표시 중인 runId와 일치한 버튼만 DS neutral 선택 상태/aria-pressed/선택됨으로 표시합니다. 처음 오래된 run을 열면 내부 기준 결과가 되므로 ‘가장 최근’이라고 부르지 않고 ‘기준 결과로 돌아가기’로 안내합니다. 동일시각 식별·선택 회귀를 포함한 panel/hook 22 tests 및 타입/lint 통과, 실제 UI 결과2 선택 화면 `ui-selected-history.png` 확인. 추가 계산/데이터 변경 없음.
