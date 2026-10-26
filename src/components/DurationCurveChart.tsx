@@ -285,6 +285,8 @@ export default function DurationCurveChart({
     return {
       responsive: true,
       maintainAspectRatio: false,
+      // Selection and reference changes must keep the measured curve visible immediately.
+      animation: false,
       // 끝 점과 강조 링(반경 7px)이 들어갈 여유.
       layout: { padding: log ? { left: 10, right: 12, top: 10 } : 0 },
       interaction: { mode: "index", intersect: false },
