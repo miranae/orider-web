@@ -1,3 +1,4 @@
+import { importedObservations } from "./importedActivityObservations";
 import NativeOwnerRoutePreview from "./NativeOwnerRoutePreview";
 import { observedRouteAvailable } from "../../../services/activityRouteEvidence";
 import { useId, useState } from "react";
@@ -183,7 +184,9 @@ export function ActivityMediaPanel({
 
   // 실내 판정은 trainer 필드와 Virtual* 종목을 함께 본다 — "가상 라이딩" 고정 문구는 러닝·트레이너 라이딩에 틀렸다.
   const indoor = isIndoorActivity(activity);
-  const nativePreviewAvailable = !indoor && activity.source === "orider" && observedRouteAvailable();
+  const imported = streams ? importedObservations(streams, activity.startTime, summary.elapsedTimeMillis == null ? undefined : summary.elapsedTimeMillis / 1000) : null;
+  const confirmedNoGps = imported?.routeTimeMs?.length === 0;
+  const nativePreviewAvailable = !confirmedNoGps && !indoor && activity.source === "orider" && observedRouteAvailable();
   const lowerType = activity.type?.toLowerCase() ?? "";
   const indoorTitle = sport === "ride"
     ? t("page.indoorRide")
@@ -200,10 +203,10 @@ export function ActivityMediaPanel({
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>
-          {indoor ? indoorTitle : t(activity.source === "orider" ? "page.routePreviewUnavailable" : "page.noGps")}
+          {indoor ? indoorTitle : t(!confirmedNoGps && activity.source === "orider" ? "page.routePreviewUnavailable" : "page.noGps")}
         </p>
         <p className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-2)" }}>
-          {indoor ? t("page.indoorDesc") : t(nativePreviewAvailable ? "page.ownerRoutePreview.hint" : activity.source === "orider" ? "page.routePreviewUnavailableDesc" : "page.noGpsDesc")}
+          {indoor ? t("page.indoorDesc") : t(nativePreviewAvailable ? "page.ownerRoutePreview.hint" : !confirmedNoGps && activity.source === "orider" ? "page.routePreviewUnavailableDesc" : "page.noGpsDesc")}
         </p>
         {nativePreviewAvailable && <NativeOwnerRoutePreview activity={activity} t={t} />}
       </div>

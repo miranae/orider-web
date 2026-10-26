@@ -4,20 +4,20 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import enActivity from "../../../i18n/resources/en/activity.json";
 import { createMockActivity } from "../../../__tests__/fixtures/mockData";
-import type { Activity } from "@shared/types";
+import type { Activity, ActivityStreams } from "@shared/types";
 import { ActivityMediaPanel } from "./ActivityMediaPanel";
 import { getSportCategory } from "./activityDetailUtils";
 
 const mapProps = vi.hoisted(() => vi.fn());
 vi.mock("../../../components/RouteMap", () => ({ default: (props: unknown) => { mapProps(props); return <div data-testid="route-map" />; } }));
 
-function renderNoMap(overrides: Partial<Activity>, lng: "ko" | "en" = "ko") {
+function renderNoMap(overrides: Partial<Activity>, lng: "ko" | "en" = "ko", streams: ActivityStreams | null = null) {
   const activity = createMockActivity(overrides);
   const t = i18n.getFixedT(lng, "activity") as TFunction<"activity">;
   render(
     <ActivityMediaPanel
       activity={activity}
-      streams={null}
+      streams={streams}
       sport={getSportCategory(activity.type)}
       hasTrack={false}
       summary={activity.summary}
@@ -123,4 +123,16 @@ describe("ActivityMediaPanel no-map state", () => {
     renderNoMap({ type: "VirtualRide" }, "en");
     expect(screen.getByText("Indoor ride")).toBeInTheDocument();
   });
+});
+
+it.each([true,false])("only declares imported GPS absence when the loaded independent route contract validates: %s", valid => {
+  const startTime = 1792970000000;
+  const streams = { distance: [], time: [], latlng: [], importedSensorObservationsV1: {
+    version: 1, state: "available", source: "parsed_import_points", timeUnit: "relative_milliseconds",
+    originEpochMs: startTime, routeTimeMs: [], timeMs: valid ? [0,1000,2000] : [0,1000,1000],
+    watts: [200,0,200], heartrate: [150,150,150], cadence: [80,0,80] } };
+  renderNoMap({type:"Ride",source:"orider",startTime}, "ko",streams);
+  expect(screen.queryByText("GPS 데이터 없음") !== null).toBe(valid);
+  expect(screen.queryByText("경로 정보") !== null).toBe(!valid);
+  expect(screen.queryByText("실내 라이딩")).not.toBeInTheDocument();
 });
