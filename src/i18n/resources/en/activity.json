@@ -2850,6 +2850,7 @@
     "selectedStats": "Observed average and maximum within the selected range, separate from saved whole-activity metrics.",
     "segments": "Segments",
     "restore": "Restore full range",
+    "observedRangeStats": "Averages are weighted by sensor observation time within the selected elapsed interval. Average sensor speed can differ from the server’s distance divided by moving time.",
     "observedStats": "Average and maximum from observed raw samples. Values may differ from the saved activity summary.",
     "selection": "Selected range",
     "selectedStatsLabel": "Selected range statistics",
