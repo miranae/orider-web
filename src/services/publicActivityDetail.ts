@@ -1,17 +1,21 @@
+import { markRawPartStreams } from "./activityStreamSource";
+import { validatedRunEffortFacts } from "./personalDataApi";
 import { announceActivityContentChange } from "./activityContentChanged";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { ActivityFeedComment, ActivityFeedContent } from "@shared/types/activity-feed-content";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 
-/** Explicit public contract: never load Activity, streams, or owner metrics as a fallback. */
+/** Activity ACL-authorized detail; never fall back to direct private document reads. */
 export interface PublicActivityDetail {
   activity: {
     id: string; userId: string; nickname: string; profileImage: string | null;
-    description: string; type: string; startTime: number; kudosCount: number; commentCount: number;
+    description: string; type: string; startTime: number; endTime?: number; createdAt?: number; visibility?: "everyone" | "friends" | "followers" | "private"; source?: "orider" | "strava" | "health_connect" | "healthkit" | "unknown"; isVirtualPower?: boolean; activityRevision?: string; kudosCount: number; commentCount: number;
+    groupId?: string | null; groupRideId?: string | null; segmentEffortCount?: number;
     summary: Record<string, unknown>;
     effectiveFacts: { status: string; powerSource?: "measured" | "estimated" | "unknown" | null; metrics: Record<string, number | null> | null };
   };
+  metrics?: Record<string, unknown> | null;
   viewerHasKudos: boolean;
   nativeMemoRevision?: string | null;
   nativeCoverPhotoId?: string | null;
@@ -35,9 +39,13 @@ export function createPublicActivityClient(services: FirebaseServices) {
     if (services.auth.currentUser !== owner) throw new Error("account_changed");
   };
   async function call<T>(name: string, payload: object): Promise<T> {
+    let expired = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const execute = async () => {
     assertAccount();
-    if (!["getActivityPublicDetail", "getActivityPublicComments", "getActivityPublicPhotos"].includes(name) && (!uid || services.auth.currentUser?.isAnonymous)) throw new Error("sign_in_required");
+    if (!["getActivityPublicDetail", "getActivityPublicComments", "getActivityPublicPhotos", "getActivityPublicStreams"].includes(name) && (!uid || services.auth.currentUser?.isAnonymous)) throw new Error("sign_in_required");
     await services.ensureAppCheckReady();
+    if (expired) throw new Error("activity_request_timeout");
     assertAccount();
     const functions = getRuntimeConfig().appEnvironment === "stage" ? services.functions : getFunctions(services.functions.app, "asia-northeast3");
     if (isEmulatorRuntime() && !emulatorClients.has(functions)) {
@@ -47,13 +55,25 @@ export function createPublicActivityClient(services: FirebaseServices) {
     const result = await httpsCallable<object, T>(functions, name, { timeout: 10000 })(payload);
     assertAccount();
     if (["editActivityComment", "deleteActivityComment", "setActivityCommentHidden"].includes(name) && "activityId" in payload && typeof payload.activityId === "string") announceActivityContentChange(payload.activityId);
+    if (expired) throw new Error("activity_request_timeout");
     return result.data;
+    };
+    try { return await Promise.race([execute(), new Promise<never>((_, reject) => { timer = setTimeout(() => { expired = true; reject(new Error("activity_request_timeout")); }, 10_000); })]); }
+    finally { clearTimeout(timer); }
   }
   return {
     async load(activityId: string) {
       const data = await call<PublicActivityDetail>("getActivityPublicDetail", { activityId });
       if (data.activity?.id !== activityId || data.content?.activityId !== activityId || typeof data.viewerHasKudos !== "boolean") throw new Error("invalid_public_activity");
       return data;
+    },
+    async streams(activityId: string) {
+      const result = await call<{ state: string; activityId: string; streamInputRevision: string | null; sourceLayer: string | null; reason: string | null; streams: import("@shared/types").ActivityStreams | null; runningBestEffortsFacts?: import("@shared/types/running-best-efforts-facts").RunningBestEffortsFacts }>("getActivityPublicStreams", { activityId, includeRunEffortFacts: true });
+      if (result.activityId !== activityId || !["available", "pending", "unavailable", "changed_input"].includes(result.state)) throw new Error("invalid_activity_streams");
+      if (result.state !== "available") return result;
+      if (!result.streamInputRevision || !/^[a-f0-9]{64}$/.test(result.streamInputRevision) || !["raw_parts", "api_streams"].includes(result.sourceLayer ?? "") || !result.streams || Array.isArray(result.streams)) throw new Error("invalid_activity_streams");
+      const streams = result.sourceLayer === "raw_parts" ? markRawPartStreams(result.streams, result.streamInputRevision) : result.streams;
+      return { ...result, streams: { ...streams, runningBestEffortsFacts: validatedRunEffortFacts(result.runningBestEffortsFacts, result.streamInputRevision) ?? undefined } };
     },
     setNativeMemo: (activityId: string, memo: string, expectedMemoRevision: string) => call<{ status: "updated" | "unchanged"; memoRevision: string }>("setActivityNativeMemo", { activityId, memo, expectedMemoRevision }),
     photos: (activityId: string) => call<{ photos: NonNullable<PublicActivityDetail["content"]["photos"]>; truncated: boolean }>("getActivityPublicPhotos", { activityId }),

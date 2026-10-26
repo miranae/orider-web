@@ -68,7 +68,7 @@ export interface Activity {
     time: string; // "M:SS"
   }>;
   description: string;
-  visibility: 'everyone' | 'friends' | 'private';
+  visibility: 'everyone' | 'friends' | 'followers' | 'private';
   gpxPath: string | null;
   deletedAt?: number | null;
   source?: 'strava' | 'orider' | 'apple_health' | 'health_connect';
@@ -455,7 +455,7 @@ export interface MigrationState {
 }
 
 // ── User & Profile ───────────────────────────────────────────────────
-export type Visibility = 'everyone' | 'friends' | 'private';
+export type Visibility = 'everyone' | 'friends' | 'followers' | 'private';
 
 export interface UserStats {
   activityCount: number;
@@ -706,6 +706,8 @@ export interface BoardComment {
 
 // ── Streams ──────────────────────────────────────────────────────────
 export interface ActivityStreams {
+  /** Independent source-verified GPS clock; never indexed by sensor samples. */
+  activityRouteGeometryV1?: { version: 1; timingBasis: "elapsed"; timeOrigin: "activity_start" | "relative_to_first_gps_observation"; originEpochMs: number | null; time: number[]; latlng: [number, number][]; routeInputRevision: string };
   /** stage 응답에서 확인한 정본 facts sidecar. 원본 센서·GPS 값이 아니다. */
   runningBestEffortsFacts?: RunningBestEffortsFacts;
   userId: string;

@@ -159,6 +159,7 @@ interface AnalysisTabProps {
   activityId?: string | null;
   /** 소유자 여부 — CTL 기반 회복 시간 등 개인 컨텍스트에만 쓴다. 지표 읽기 권한은 활동 가시성이 정한다. */
   isOwner?: boolean;
+  completeActivityAccess?: boolean;
   /** 모델과 함께 렌더할 때 같은 metrics 문서를 다시 구독하지 않는다. */
   serverMetrics?: UseActivityMetricsState;
   /** 공개 분석의 지표는 overview presentation이 제공하고 허용된 그래프·랩만 유지한다. */
@@ -330,7 +331,7 @@ function WPrimeBalChart({ series, wPrimeMaxJ, idxMin }: { series: number[]; wPri
 }
 
 export default function AnalysisTab({
-  activityId, isOwner = false, serverMetrics: suppliedServerMetrics, canonicalPresentationAvailable = false, integratedPresentation, renderSections, overviewRecovery = null, startTime, streams, analysisSummary, summary, sport, isVirtualPower, virtualPowerParams,
+  activityId, isOwner = false, completeActivityAccess = false, serverMetrics: suppliedServerMetrics, canonicalPresentationAvailable = false, integratedPresentation, renderSections, overviewRecovery = null, startTime, streams, analysisSummary, summary, sport, isVirtualPower, virtualPowerParams,
   onSelectLap, canSelectLap, onSelectRunEffort, onSelectRunSplit, onViewRunSplitLocation, canViewRunSplitLocation,
   streamsSignInRequired = false, showStreamSignInPrompt = true, onSignIn,
   suppressServerPowerMetrics = false, suppressServerHeartRateMetrics = false, suppressServerCadenceMetrics = false,
@@ -529,7 +530,7 @@ export default function AnalysisTab({
       );
 
   if (sport === "run" && sm) {
-    return <div className="activity-analysis-content space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={isOwner ? streams.runningBestEffortsFacts : undefined} onSelectEffort={isOwner ? onSelectRunEffort : undefined} effortsReady={visibleServerMetrics.status === "ready"} metrics={sm as ActivityMetricsDoc} isOwner={isOwner} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={isOwner ? onSelectLap : undefined} canSelectLap={canSelectLap} />}</div>;
+    return <div className="activity-analysis-content space-y-6"><ServerMetricsBanner state={visibleServerMetrics} suppressPowerMetrics suppressHeartRateMetrics showStatusWithoutMetrics /><RunAnalysisPanel effortFacts={streams.runningBestEffortsFacts} onSelectEffort={onSelectRunEffort} effortsReady={visibleServerMetrics.status === "ready"} metrics={sm as ActivityMetricsDoc} isOwner={isOwner} summary={summary} suppressCadence={suppressServerCadenceMetrics} onSelectSplit={onSelectRunSplit} onViewSplitLocation={onViewRunSplitLocation} canViewSplitLocation={canViewRunSplitLocation} />{laps && laps.length > 0 && <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={onSelectLap} canSelectLap={canSelectLap} />}</div>;
   }
 
   const integratedPower = integratedPresentation?.session.discipline === "bike" && !suppressServerPowerMetrics ? integratedPresentation : undefined;
@@ -558,7 +559,7 @@ export default function AnalysisTab({
   }));
 
   // 공개 수치·존·파워곡선은 같은 서버 presentation에서 그린다. 기존 허용 그래프/랩은 보존한다.
-  if (!isOwner && canonicalPresentationAvailable) {
+  if (!isOwner && !completeActivityAccess && canonicalPresentationAvailable) {
     const publicSections: ActivityAnalysisSections = {
       dynamics: cyclingDynamicsSection,
       speedCurve: speedCurve.length > 0 ? <SpeedCurveChart points={speedCurve} /> : null,
@@ -1142,7 +1143,7 @@ export default function AnalysisTab({
         </div>
       )),
     laps: (laps && laps.length > 0 && (
-        <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={isOwner ? onSelectLap : undefined} canSelectLap={canSelectLap} />
+        <AnalysisLapTable laps={laps} ftp={ftp} sport={sport} onSelectLap={onSelectLap} canSelectLap={canSelectLap} />
       )),
     cadence: renderSections && (cadenceStats.max != null || cadenceStats.avg != null && summary?.averageCadence == null) ? <div className="activity-analysis-metric-grid grid grid-cols-2 gap-3">{summary?.averageCadence == null && <MetricCard hideUnavailable color="violet" label={t("analysis.metric.avgRpm")} value={cadenceStats.avg != null ? Math.round(cadenceStats.avg).toString() : null} unit="rpm" />}<MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="violet" label={t("analysis.metric.maxRpm")} value={cadenceStats.max != null ? Math.round(cadenceStats.max).toString() : null} unit="rpm" termId="cadence" tooltip={t("analysis.glossary.maxRpm")} /></div> : null,
     energyFacts: hasPower && (workKj != null || kjPerHr != null) ? <div className="activity-analysis-metric-grid grid grid-cols-2 gap-3">

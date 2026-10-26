@@ -13,6 +13,7 @@ it("keeps a missing photo retryable without revoking activity access", () => {
   mock.hook.mockReturnValue({ url: null, error: { code: "functions/not-found" }, retry: mock.retry });
   render(<NativeActivityPhotoImage nativePhoto={photo} retryable onAccessRevoked={revoke} alt="Ride photo" />);
   expect(screen.getByRole("status")).toBeInTheDocument();
+  expect(screen.getByRole("status").closest("[data-photo-state]")).toHaveAttribute("data-photo-state", "error");
   const retry = screen.getByRole("button", { name: "다시 시도" });
   expect(retry).toBeEnabled(); fireEvent.click(retry);
   expect(mock.retry).toHaveBeenCalledTimes(1); expect(revoke).not.toHaveBeenCalled();

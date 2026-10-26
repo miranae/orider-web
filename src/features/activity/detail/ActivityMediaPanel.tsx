@@ -1,3 +1,4 @@
+import { activityIndependentRoute } from "./activityIndependentRoute";
 import { importedObservations } from "./importedActivityObservations";
 import NativeOwnerRoutePreview from "./NativeOwnerRoutePreview";
 import { observedRouteAvailable } from "../../../services/activityRouteEvidence";
@@ -19,6 +20,7 @@ type StreamPhoto = {
 
 type ActivityMediaPanelProps = {
   activity: Activity;
+  allowOwnerPreview?: boolean;
   streams: ActivityStreams | null;
   sport: SportCategory;
   hasTrack: boolean;
@@ -35,6 +37,7 @@ type ActivityMediaPanelProps = {
 
 export function ActivityMediaPanel({
   activity,
+  allowOwnerPreview = true,
   streams,
   sport,
   hasTrack,
@@ -50,6 +53,7 @@ export function ActivityMediaPanel({
 }: ActivityMediaPanelProps) {
   const [mapExpanded, setMapExpanded] = useState(false);
   const mapId = useId();
+  const independentRoute = !streams?.latlng?.length ? activityIndependentRoute(streams) : null;
 
   if (hasTrack) {
     return (
@@ -57,14 +61,14 @@ export function ActivityMediaPanel({
         <div id={mapId} className="activity-detail-resizable-map">
           <RouteMap
             polyline={activity.thumbnailTrack}
-            latlng={streams?.latlng}
+            latlng={streams?.latlng?.length ? streams.latlng : independentRoute ?? undefined}
             height="activity-detail-route-map"
             interactive
             showRouteEndpoints
             routeLineWidth={3}
             navigationLabels={{ zoomIn: t("page.mapView.zoomIn"), zoomOut: t("page.mapView.zoomOut"), fitRoute: t("page.mapView.fitRoute") }}
-            markerPosition={markerPosition}
-            highlightRange={hoveredSegment ? {
+            markerPosition={independentRoute ? null : markerPosition}
+            highlightRange={independentRoute ? undefined : hoveredSegment ? {
               startIndex: hoveredSegment.startIndex,
               endIndex: hoveredSegment.endIndex,
             } : selectedRunRange}
@@ -76,8 +80,8 @@ export function ActivityMediaPanel({
                 .filter((p) => p.location)
                 .map((p) => ({ id: `upload-${p.id}`, url: p.url, nativePhoto: p.nativePhoto, location: p.location!, caption: null as string | null })),
             ]}
-            flyToRange={selectedSegmentRange}
-            flyToPosition={selectedSegmentRange ? undefined : flyToPosition}
+            flyToRange={independentRoute ? undefined : selectedSegmentRange}
+            flyToPosition={independentRoute || selectedSegmentRange ? undefined : flyToPosition}
             fallbackImageUrl={activity.mapImageUrl}
           />
           <MapResizeControls expanded={mapExpanded} controlsId={mapId}
@@ -186,7 +190,7 @@ export function ActivityMediaPanel({
   const indoor = isIndoorActivity(activity);
   const imported = streams ? importedObservations(streams, activity.startTime, summary.elapsedTimeMillis == null ? undefined : summary.elapsedTimeMillis / 1000) : null;
   const confirmedNoGps = imported?.routeTimeMs?.length === 0;
-  const nativePreviewAvailable = !confirmedNoGps && !indoor && activity.source === "orider" && observedRouteAvailable();
+  const nativePreviewAvailable = allowOwnerPreview && !confirmedNoGps && !indoor && activity.source === "orider" && observedRouteAvailable();
   const lowerType = activity.type?.toLowerCase() ?? "";
   const indoorTitle = sport === "ride"
     ? t("page.indoorRide")

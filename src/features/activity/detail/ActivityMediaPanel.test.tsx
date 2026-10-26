@@ -75,6 +75,21 @@ describe("ActivityMediaPanel no-map state", () => {
     expect(screen.getByTestId("route-map")).toBe(map);
   });
 
+  it("draws independent native geometry without binding sensor indices or hover positions", () => {
+    const activity = createMockActivity();
+    const route: [number, number][] = [[37, 127], [37.1, 127.1]];
+    const streams = { time: [0, 1, 2], watts: [100, 200, 300], activityRouteGeometryV1: {
+      version: 1, timingBasis: "elapsed", timeOrigin: "relative_to_first_gps_observation", originEpochMs: null,
+      routeInputRevision: "a".repeat(64), time: [0, 600], latlng: route,
+    } } as ActivityStreams;
+    render(<ActivityMediaPanel activity={activity} streams={streams} sport="ride" hasTrack summary={activity.summary}
+      markerPosition={[37, 127]} hoveredSegment={null} selectedRunRange={{ startIndex: 0, endIndex: 1 }}
+      selectedSegmentRange={{ startIndex: 1, endIndex: 2 }} photos={[]} uploadedPhotos={[]}
+      flyToPosition={[37, 127]} t={i18n.getFixedT("en", "activity") as TFunction<"activity">} />);
+    expect(mapProps.mock.lastCall?.[0]).toMatchObject({ latlng: route, markerPosition: null,
+      highlightRange: undefined, flyToRange: undefined, flyToPosition: undefined });
+  });
+
   it("does not offer a map size control when there is no GPS track", () => {
     renderNoMap({ type: "Run" });
     expect(screen.queryByRole("button", { name: "지도 크게 보기" })).not.toBeInTheDocument();

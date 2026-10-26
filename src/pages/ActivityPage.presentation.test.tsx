@@ -407,3 +407,21 @@ it("places one primary record summary before the mobile story while retaining ma
     expect(screen.getByTestId("D1-1")).toBeInTheDocument();
   } finally { media.mockRestore(); }
 });
+
+it("renders ACL-authorized visitors through the existing detail tabs and full sensor analysis", async () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn() })));
+  const activity = createMockActivity({ id: "authorized-full-detail", userId: "other-owner", description: "동일한 활동 상세", visibility: "followers", source: "orider" });
+  mockRoute.activityId = activity.id;
+  const detail = { activity: { ...activity, activityRevision: "revision-one", effectiveFacts: { status: "canonical", metrics: { distanceKm: 20 } } }, viewerHasKudos: false,
+    metrics: { schemaVersion: 3, status: "final", revisionId: "metrics-one", metrics: { version: ACTIVITY_METRICS_VERSION, discipline: "bike", avgPower: 160, avgHr: 150, contextSnapshot: { ftp: 250 } } },
+    mapPreview: { imageUrl: null, encodedPolyline: null }, content: { status: "ready", activityId: activity.id, comments: [], photos: [], memo: "같은 활동의 본문" } };
+  setCallableResult("getActivityPublicDetail", { data: detail });
+  setCallableResult("getActivityPublicStreams", { data: { activityId: activity.id, state: "available", streamInputRevision: "a".repeat(64), sourceLayer: "api_streams", streams: { time: [0, 1, 2], watts: [200, 0, 200], heartrate: [150, 150, 150], cadence: [80, 0, 80] } } });
+  setCallableResult("getActivityOverview", { data: { status: "available", activityId: activity.id, presentation: { coachSentence: "활동 단위 분석 유지", session: { discipline: "bike", load: 42 } } } });
+  renderWithProviders(<ActivityPage publicAccess={{ activityId: activity.id, retryKey: 0, initialDetail: detail as never, onReady: () => {}, onError: () => {} }} />, { authenticated: true, route: `/ko/activity/${activity.id}?tab=analysis` });
+  expect(await screen.findByTestId("activity-stats-primary")).toBeInTheDocument();
+  expect(screen.getAllByRole("tab").map(tab => tab.id)).toEqual(["activity-tab-overview", "activity-tab-analysis", "activity-tab-segments"]);
+  expect(await screen.findByText("활동 단위 분석 유지")).toBeInTheDocument();
+  expect(mockCallableInvocations.some(call => call.name === "getActivityPublicStreams")).toBe(true);
+  expect(screen.queryByRole("heading", { name: "요약 공유" })).not.toBeInTheDocument();
+});

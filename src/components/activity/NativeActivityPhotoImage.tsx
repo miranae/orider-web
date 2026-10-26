@@ -21,7 +21,7 @@ export function NativeActivityPhotoImage({ nativePhoto, onAccessRevoked, retryab
     // A removed/missing photo does not imply that the activity itself is inaccessible.
     if (error && typeof error === "object" && "code" in error && error.code === "functions/permission-denied") onAccessRevoked?.();
   }, [error, onAccessRevoked]);
-  return <span ref={anchor} style={{ display: "block", width: "100%", height: "100%", minHeight: "var(--space-8)" }}>
+  return <span ref={anchor} data-photo-state={error ? "error" : url ? "ready" : "pending"} style={{ display: "block", width: "100%", height: "100%", minHeight: "var(--space-8)" }}>
     {url ? <img {...props} src={url} /> : error ? <Text as="span" variant="caption" role="status">{t("publicDetail.photosFailed")}</Text> : <span role="status" aria-label={t("page.photoPreview")} />}
       {error != null && retryable && <Button size="sm" variant="outline" onClick={retry}>{t("page.retry")}</Button>}
   </span>;

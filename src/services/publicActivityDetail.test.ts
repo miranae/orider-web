@@ -76,3 +76,24 @@ it("rejects the old response after same-uid reauthentication", async () => {
   mocks.call.mockImplementation(async () => { Object.assign(source.auth, { currentUser: { uid: "viewer", isAnonymous: false } }); return { data: {} }; });
   await expect(createPublicActivityClient(source).load("a")).rejects.toThrow("account_changed");
 });
+
+it("reads full activity streams and preserves independent nullable sensor axes", async () => {
+  const streams = { time: [], latlng: [], importedSensorObservationsV1: { version: 1, timeMs: [0, 500, 1000], watts: [200, null, 0], routeTimeMs: [] } };
+  mocks.call.mockResolvedValue({ data: { activityId: "a", state: "available", streamInputRevision: "a".repeat(64), sourceLayer: "api_streams", streams } });
+  const result = await createPublicActivityClient(services(null)).streams("a");
+  expect(result.streams).toMatchObject(streams);
+  expect(mocks.call).toHaveBeenCalledWith({ activityId: "a", includeRunEffortFacts: true });
+});
+it("rejects full streams with missing source binding or a different activity", async () => {
+  mocks.call.mockResolvedValue({ data: { activityId: "a", state: "available", streams: { watts: [1] } } });
+  await expect(createPublicActivityClient(services("viewer")).streams("a")).rejects.toThrow("invalid_activity_streams");
+});
+it("does not dispatch streams after same-UID SDK session replacement during AppCheck", async () => {
+  const source = services("viewer");
+  let ready!: () => void;
+  mocks.ready.mockReturnValue(new Promise<void>(resolve => { ready = resolve; }));
+  const read = createPublicActivityClient(source).streams("a");
+  Object.assign(source.auth, { currentUser: { uid: "viewer", isAnonymous: false } }); ready();
+  await expect(read).rejects.toThrow("account_changed");
+  expect(mocks.call).not.toHaveBeenCalled();
+});

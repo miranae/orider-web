@@ -121,7 +121,7 @@ export default function ActivityRangeAnalysisPanel({ activityId, selection, spor
     binding.current.requestId = selection.selection?.requestId;
     binding.current.requestRevision = binding.current.revision;
   }
-  const analysis = useActivityRangeAnalysis({ activityId, ownerUid: selection.ownerUid, selection: locked ? null : selection.selection,
+  const analysis = useActivityRangeAnalysis({ activityId, ownerUid: selection.ownerUid, authorizedActivityAccess: selection.authorizedActivityAccess, selection: locked ? null : selection.selection,
     inputIdentity: selection.identity, expectedInputRevision: binding.current.requestRevision, callableEnabled, includePowerWindowInput: sport === "bike" || sport === "ride", includeElevation: true });
   if (analysis.response?.state === "changed_input") {
     binding.current.revision = undefined;

@@ -57,6 +57,7 @@ export interface ActivityAnalysisModel {
   serverMetrics: ReturnType<typeof useActivityMetrics>;
   overview: ReturnType<typeof useActivityOverview>;
   isActivityOwner: boolean;
+  authorizedActivityAccess?: boolean;
   sport: ReturnType<typeof getSportCategory>;
   streamSensorSummary: ReturnType<typeof deriveStreamSensorSummary>;
   displayedSummary: Activity["summary"] | null;
@@ -76,8 +77,16 @@ export interface ActivityAnalysisModel {
 }
 
 /** Analysis-only activity data model shared by the full page and embed surfaces. */
+export interface PublicActivityModelInput {
+  activity: Activity | null;
+  metrics: ReturnType<typeof useActivityMetrics>;
+  accessRevision?: string;
+  onAccessRevoked?: () => void;
+}
+
 export function useActivityAnalysisModel(
   activityId: string | undefined,
+  publicInput?: PublicActivityModelInput,
 ): ActivityAnalysisModel {
   const firebaseServices = useFirebaseServices();
   const { firestore } = firebaseServices;
@@ -85,7 +94,10 @@ export function useActivityAnalysisModel(
   const { user } = useAuth();
   const userId = user?.uid;
   const { getStreams } = useStrava();
-  const [activity, setActivity] = useState<Activity | null>(null);
+  const publicMode = publicInput !== undefined;
+  const [ownedActivity, setOwnedActivity] = useState<Activity | null>(null);
+  const activity = publicMode ? publicInput.activity : ownedActivity;
+  const setActivity = useCallback<Dispatch<SetStateAction<Activity | null>>>(value => { if (!publicMode) setOwnedActivity(value); }, [publicMode]);
   const [loadingActivity, setLoadingActivity] = useState(true);
   const [activityLoadError, setActivityLoadError] = useState<unknown>(null);
   const [activityReloadKey, setActivityReloadKey] = useState(0);
@@ -93,7 +105,7 @@ export function useActivityAnalysisModel(
   const [wattsOverride, setWattsOverride] = useState<ActivityPowerOverride | null>(null);
 
   useEffect(() => {
-    if (!activityId) return;
+    if (!activityId || publicMode) return;
 
     setActivity(null);
     setLoadingActivity(true);
@@ -151,25 +163,26 @@ export function useActivityAnalysisModel(
       cancelled = true;
       if (processingTimer !== undefined) window.clearTimeout(processingTimer);
     };
-  }, [activityId, activityReloadKey, firestore, userId]);
+  }, [activityId, activityReloadKey, firestore, userId, publicMode, setActivity]);
 
   const retryActivity = useCallback(() => {
     setActivityReloadKey((key) => key + 1);
   }, []);
 
-  const isActivityOwner = !!activity
+  const isActivityOwner = !publicMode && !!activity
     && activity.id === activityId
     && !!user
     && activity.userId === user.uid;
-  const serverMetrics = useActivityMetrics(activity?.id === activityId ? activityId ?? null : null, isActivityOwner);
+  const ownedMetrics = useActivityMetrics(!publicMode && activity?.id === activityId ? activityId ?? null : null, isActivityOwner);
+  const serverMetrics = publicMode ? publicInput.metrics : ownedMetrics;
   // 확정 소유자 요약이 오기 전에는 스트림을 요청하지 않는다. 과거 문서만 기존 경로로 폴백한다.
-  const serverAnalysisSummary = isActivityOwner
+  const serverAnalysisSummary = (isActivityOwner || publicMode)
     && serverMetrics.metrics?.inputPending !== true
     && serverMetrics.metrics?.inputCoverage !== "pending"
     && serverMetrics.metrics?.analysisSummary?.schemaVersion === 1
     ? serverMetrics.metrics.analysisSummary : null;
   const {
-    streams,
+    streams: ownedStreams,
     retryStreams,
     requestStreams,
     showStreamSpinner,
@@ -179,16 +192,21 @@ export function useActivityAnalysisModel(
   } = useActivityStreamsLoader({
     activityId,
     activity,
+    publicAccess: publicMode,
+    accessRevision: publicInput?.accessRevision,
+    onAccessRevoked: publicInput?.onAccessRevoked,
     userId: user?.uid,
     getStreams,
     t,
-    enabled: !!activity && (!isActivityOwner || (
+    enabled: !!activity && ((!isActivityOwner && !publicMode) || (
       serverMetrics.status !== "loading" && serverMetrics.status !== "disabled"
       && serverMetrics.metrics?.inputPending !== true
       && serverMetrics.metrics?.inputCoverage !== "pending"
       && !serverAnalysisSummary
     )),
   });
+
+  const streams = ownedStreams;
 
   const overviewActivity = activity as (Activity & Record<string, unknown>) | null;
   const overviewMetrics = serverMetrics.metrics as (NonNullable<typeof serverMetrics.metrics> & Record<string, unknown>) | null;
@@ -380,6 +398,7 @@ export function useActivityAnalysisModel(
     return {
       activityId: activityId ?? null,
       isOwner: isActivityOwner,
+      completeActivityAccess: publicMode,
       serverMetrics,
       canonicalPresentationAvailable: overview.response?.status === "available",
       overviewRecovery: overview.response?.status === "available" ? overview.response.presentation.recovery ?? null : null,
@@ -420,9 +439,9 @@ export function useActivityAnalysisModel(
   return {
     activity,
     setActivity,
-    loadingActivity,
-    activityLoadError,
-    activityProcessing,
+    loadingActivity: publicMode ? false : loadingActivity,
+    activityLoadError: publicMode ? null : activityLoadError,
+    activityProcessing: publicMode ? false : activityProcessing,
     retryActivity,
     streams,
     effectiveStreams,
@@ -435,6 +454,7 @@ export function useActivityAnalysisModel(
     serverMetrics,
     overview,
     isActivityOwner,
+    authorizedActivityAccess: publicMode,
     sport,
     streamSensorSummary,
     displayedSummary,

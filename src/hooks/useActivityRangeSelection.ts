@@ -21,7 +21,7 @@ export function useActivityRangeSelection(model: ActivityAnalysisModel, sampled:
     metricsRevision?.metricsRevision, metricsRevision?.inputDigest, metricsRevision?.etag, metricsRevision?.sourceLayer,
     metrics?.inputPending, metrics?.isVirtualPower, model.activePowerOverride?.sourceFingerprint,
     model.analysisTabProps?.suppressServerPowerMetrics, model.analysisTabProps?.suppressServerHeartRateMetrics]);
-  const owner = model.isActivityOwner && activity?.userId === user?.uid && !user?.isAnonymous;
+  const owner = model.authorizedActivityAccess === true || !!user && !user.isAnonymous && model.isActivityOwner && activity?.userId === user.uid;
   const durationSec = activity?.summary?.elapsedTimeMillis != null ? activity.summary.elapsedTimeMillis / 1000
     : metrics?.durationSec ?? 0;
   const movingSec = metrics?.movingTimeSec ?? (activity?.summary?.ridingTimeMillis != null ? activity.summary.ridingTimeMillis / 1000 : null);
@@ -73,7 +73,7 @@ export function useActivityRangeSelection(model: ActivityAnalysisModel, sampled:
       if (!sourceLocked) return;
       setSourceLock({ scope: sourceScope, source: model.streams, refreshing: true });
       await model.retryStreams();
-    }, identity, ownerUid: owner ? user?.uid : null, enabled: current.enabled, selection: current.selection,
+    }, identity, ownerUid: owner ? activity?.userId : null, authorizedActivityAccess: model.authorizedActivityAccess === true, enabled: current.enabled, selection: current.selection,
     xAxis: !distanceAvailable && sampledAxis ? "elapsed" as const : current.xAxis, distanceAvailable, durationSec, axis, sampledAxis, chartRange, routeRange,
     clippedBoundary: bounds?.clippedBoundary ?? false, locationUnavailable: !!current.selection && !routeRange,
     toggle: () => setState({ ...current, enabled: !current.enabled, selection: null }), clear: () => select(null), select, selectAndEnable: (range: ElapsedRange) => select(range, true),

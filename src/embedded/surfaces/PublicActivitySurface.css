@@ -13,5 +13,4 @@
 .public-activity-author > :first-child { flex-shrink: 0; }
 .public-activity-author-identity { min-width: 0; overflow-wrap: anywhere; }
 .public-activity-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 6rem), 1fr)); gap: var(--space-4); margin-bottom: var(--space-3); }
-.public-activity-surface--web .ds-section { border-top: var(--dim-divider-thickness) solid var(--line-soft); padding-top: var(--dim-section-gap); }
 .public-activity-safety:has(button) { border-top: var(--dim-divider-thickness) solid var(--line-soft); padding-top: var(--space-3); }

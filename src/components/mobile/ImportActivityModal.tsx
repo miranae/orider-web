@@ -36,7 +36,7 @@ function ImportActivitySession({ open, onClose, user, services }: ImportActivity
   const finish = () => { const target = completion?.activityId ? `/activity/${completion.activityId}` : "/athlete/me/activities"; setCompletion(null); reset(); onClose(); navigate(target); };
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
-  const [visibility, setVisibility] = useState<"everyone" | "friends" | "private">("everyone");
+  const [visibility, setVisibility] = useState<"everyone" | "friends" | "followers" | "private">("everyone");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const lifecycle = useRef({ active: true, request: null as AbortController | null });
@@ -220,7 +220,7 @@ function ImportActivitySession({ open, onClose, user, services }: ImportActivity
           <div style={{ marginBottom: 'var(--space-6)' }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("import.visibilitySection")}</Text>
             <div className="flex gap-2">
-              {([["everyone", t("import.visibilityEveryone")], ["friends", t("import.visibilityFriends")], ["private", t("import.visibilityPrivate")]] as const).map(([v, label]) => (
+              {([["everyone", t("import.visibilityEveryone")], ["friends", t("import.visibilityFriends")], ["followers", t("import.visibilityFollowers")], ["private", t("import.visibilityPrivate")]] as const).map(([v, label]) => (
                 <Button key={v} variant={visibility === v ? "secondary" : "outline"} aria-pressed={visibility === v} disabled={uploading} onClick={() => setVisibility(v)} className="flex-1">{label}</Button>
               ))}
             </div>

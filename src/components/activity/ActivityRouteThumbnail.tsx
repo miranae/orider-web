@@ -79,7 +79,7 @@ interface ActivityRouteThumbnailProps {
   userId: string;
   polyline: string;
   mapImageUrl?: string | null;
-  visibility: "everyone" | "friends" | "private";
+  visibility: "everyone" | "friends" | "followers" | "private";
   contentRevision?: number | null;
   contentSelectedRevision?: number | null;
   priority?: boolean;

@@ -3,7 +3,23 @@ import { MemoryRouter } from "react-router-dom";
 import type { ReactElement } from "react";
 import { act, cleanup, fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import PublicActivitySurface from "./PublicActivitySurface";
+import { usePublicActivitySession, type PublicActivitySessionOptions } from "../../hooks/usePublicActivitySession";
+import PublicActivitySafety from "./PublicActivitySafety";
+// Controller probe: rendering is separately covered by the existing ActivityPage tests.
+function PublicActivitySurface(props: PublicActivitySessionOptions) {
+  const session = usePublicActivitySession(props);
+  const { detail } = session;
+  if (session.removed) return <p tabIndex={-1} ref={node => node?.focus()}>{session.removed.action === "hide" ? "이 활동을 숨겼습니다." : "작성자를 차단했습니다."}</p>;
+  if (!detail || detail.activity.id !== props.activityId || session.loading || session.failed) return <button onClick={session.retry}>다시 시도</button>;
+  return <><h1>{detail.activity.description}</h1><p>{detail.content.memo}</p>
+    {session.mapFresh && session.verifiedMap?.value?.imageUrl && <img alt="라이딩 경로" src={session.verifiedMap.value.imageUrl} />}
+    <textarea value={session.text} onChange={event => session.setText(event.target.value)} />
+    <button disabled={session.busy} onClick={() => { void session.mutate("kudos"); }}>{detail.viewerHasKudos ? "좋아요 취소" : "좋아요"} · {detail.activity.kudosCount}</button>
+    <button disabled={session.busy} onClick={() => { void session.mutate("comment"); }}>등록</button>
+    {session.mutationError && <p role="alert">실패</p>}
+    {session.user?.uid !== detail.activity.userId && <PublicActivitySafety activityId={props.activityId} authorId={detail.activity.userId} client={session.client} onRemoved={session.remove} onAccessRevoked={session.revokeAccess} />}
+  </>;
+}
 import type { PublicActivityDetail } from "../../services/publicActivityDetail";
 
 vi.mock("../../services/analytics", () => ({ track: vi.fn() }));
@@ -22,77 +38,7 @@ const fixture = (): PublicActivityDetail => ({
 const props = { activityId: "native-ride", retryKey: 0, onReady: vi.fn(), onError: vi.fn() };
 afterEach(cleanup);
 beforeEach(() => { authState.uid = "viewer"; vi.clearAllMocks(); mocks.load.mockResolvedValue(fixture()); mocks.setKudos.mockResolvedValue({ enabled: true }); mocks.postComment.mockResolvedValue({ commentId: "new" }); });
-describe("public embedded activity", () => {
-  it.each([false, true])("keeps public identity, heading and secondary actions accessible in embedded=%s", async embedded => {
-    render(<PublicActivitySurface {...props} embedded={embedded} />);
-    const title = await screen.findByRole("heading", { level: 1, name: "한강 라이딩" });
-    expect(screen.getByRole("link", { name: "라이더" })).toHaveAttribute("href", "/ko/athlete/owner");
-    const controls = screen.getByRole("group", { name: "활동 관리" });
-    expect(title.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByRole("button", { name: "활동 신고", exact: true })).toBeEnabled();
-    expect(screen.getByRole("textbox")).toBeEnabled();
-  });
-
-  it("provides a clickable generic rider label for empty author names", async () => {
-    const data = fixture(); data.activity.nickname = " "; mocks.load.mockResolvedValue(data);
-    render(<PublicActivitySurface {...props} />);
-    expect(await screen.findByRole("link", { name: "라이더" })).toHaveAttribute("href", "/ko/athlete/owner");
-  });
-  it("keeps activity and reactions available when a static map fails", async () => {
-    const data = fixture();
-    data.mapPreview = { imageUrl: "https://maps.example.test/failed", encodedPolyline: null };
-    mocks.load.mockResolvedValue(data);
-    render(<PublicActivitySurface {...props} />);
-    fireEvent.error(await screen.findByRole("img", { name: "라이딩 경로" }));
-    expect(screen.getByText("경로 지도를 불러오지 못했습니다.")).toBeInTheDocument();
-    expect(screen.getByText("한강 라이딩")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "좋아요 · 2" })).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
-    expect(screen.getByRole("img", { name: "라이딩 경로" })).toHaveAttribute("src", data.mapPreview.imageUrl);
-    expect(mocks.load).toHaveBeenCalledTimes(1);
-  });
-  it.each([
-    ["estimated", "추정 파워입니다."], ["measured", "측정으로 표기된 파워입니다."], ["unknown", "측정 출처는 확인되지 않았습니다."],
-  ] as const)("labels canonical power provenance: %s", async (powerSource, label) => {
-    const data = fixture();
-    data.activity.effectiveFacts = { status: "canonical", powerSource, metrics: { avgPower: 0, np: 123 } };
-    mocks.load.mockResolvedValue(data);
-    render(<PublicActivitySurface {...props} />);
-    expect(await screen.findByText(label, { exact: false })).toBeInTheDocument();
-    expect(screen.getByText("0")).toBeInTheDocument();
-    expect(screen.getByText("123")).toBeInTheDocument();
-  });
-  it.each(["stale", "processing", "failed"])("does not relabel recorded or unready power as canonical: %s", async status => {
-    const data = fixture();
-    data.activity.summary.averagePower = 999;
-    data.activity.effectiveFacts = { status, powerSource: "estimated", metrics: { avgPower: 777 } };
-    mocks.load.mockResolvedValue(data);
-    render(<PublicActivitySurface {...props} />);
-    await screen.findByText("한강 라이딩");
-    expect(screen.queryByText("999")).not.toBeInTheDocument();
-    expect(screen.queryByText("777")).not.toBeInTheDocument();
-    expect(screen.queryByText("평균 파워")).not.toBeInTheDocument();
-  });
-
-  it("converts native recorded metres to kilometres when canonical facts are unavailable", async () => {
-    const data = fixture();
-    data.activity.summary.distance = 25000;
-    data.activity.effectiveFacts = { status: "unavailable", metrics: null };
-    mocks.load.mockResolvedValue(data);
-    render(<PublicActivitySurface {...props} />);
-    expect(await screen.findByText("25")).toBeInTheDocument();
-    expect(screen.queryByText("0.03")).not.toBeInTheDocument();
-  });
-  it("shows native public facts and canonical missing values without owner analysis", async () => {
-    render(<PublicActivitySurface {...props} />);
-    expect(await screen.findByText("한강 라이딩")).toBeInTheDocument();
-    expect(screen.getByText("44.8")).toBeInTheDocument();
-    expect(screen.getByText("—")).toBeInTheDocument();
-    expect(screen.queryByText("88")).not.toBeInTheDocument();
-    expect(screen.getByText("바람이 좋았어요")).toBeInTheDocument();
-    expect(props.onReady).toHaveBeenCalledTimes(1);
-    expect(track).toHaveBeenCalledWith("activity_detail_ready", expect.objectContaining({ outcome: "success", surface: "web_public_activity" }));
-  });
+describe("authorized activity session controller", () => {
   it("preserves comment text on failure and reads back after confirmed success", async () => {
     mocks.postComment.mockRejectedValueOnce(new Error("offline"));
     render(<PublicActivitySurface {...props} />);
