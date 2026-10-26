@@ -90,6 +90,15 @@ describe("ActivityPage server summary presentation", () => {
     expect(mocks.requestStreams).toHaveBeenCalledOnce();
   });
 
+  it("keeps overview summary without automatically fetching route and loads it only on explicit request", () => {
+    mocks.model!.activity!.thumbnailTrack = "";
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    expect(mocks.requestStreams).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "경로 확인" }));
+    expect(mocks.requestStreams).toHaveBeenCalledOnce();
+    expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("renders analysis with no downloaded streams or stream projection", () => {
     renderWithProviders(<ActivityPage />, { authenticated: true });
     expect(mocks.requestStreams).not.toHaveBeenCalled();

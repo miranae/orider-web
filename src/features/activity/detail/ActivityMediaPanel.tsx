@@ -6,7 +6,7 @@ import { useId, useState } from "react";
 import type { TFunction } from "i18next";
 import type { Activity, ActivityStreams } from "@shared/types";
 import RouteMap from "../../../components/RouteMap";
-import { Card, MapResizeControls } from "../../../theme/components";
+import { Button, Card, MapResizeControls, Stack, Text } from "../../../theme/components";
 import { formatDuration, type SegmentEffortData, type SportCategory } from "./activityDetailUtils";
 import type { UploadedPhoto } from "./activityDisplay";
 import { isIndoorActivity } from "../../../utils/indoorActivity";
@@ -24,6 +24,7 @@ type ActivityMediaPanelProps = {
   streams: ActivityStreams | null;
   sport: SportCategory;
   hasTrack: boolean;
+  routeLookup?: { state: "idle" | "loading" | "error"; onLoad: () => void };
   summary: Activity["summary"];
   markerPosition: [number, number] | null;
   hoveredSegment: SegmentEffortData | null;
@@ -41,6 +42,7 @@ export function ActivityMediaPanel({
   streams,
   sport,
   hasTrack,
+  routeLookup,
   summary,
   markerPosition,
   hoveredSegment,
@@ -190,6 +192,17 @@ export function ActivityMediaPanel({
   const indoor = isIndoorActivity(activity);
   const imported = streams ? importedObservations(streams, activity.startTime, summary.elapsedTimeMillis == null ? undefined : summary.elapsedTimeMillis / 1000) : null;
   const confirmedNoGps = imported?.routeTimeMs?.length === 0;
+  // A missing preview is not evidence that the original activity has no GPS.
+  // Explicit lookup reuses the ACL-bound loader without auto-reading full streams.
+  if (routeLookup && !indoor && !confirmedNoGps) {
+    return <Card><Stack gap="var(--space-3)">
+      <Text as="h3" variant="subtitle">{t("page.routePreviewUnavailable")}</Text>
+      <Text as="p" role="status" tone="secondary">{t(`page.routeLookup.${routeLookup.state}`)}</Text>
+      <Button variant="outline" loading={routeLookup.state === "loading"} disabled={routeLookup.state === "loading"} onClick={routeLookup.onLoad}>
+        {t(routeLookup.state === "error" ? "page.retry" : "page.routeLookup.load")}
+      </Button>
+    </Stack></Card>;
+  }
   const nativePreviewAvailable = allowOwnerPreview && !confirmedNoGps && !indoor && activity.source === "orider" && observedRouteAvailable();
   const lowerType = activity.type?.toLowerCase() ?? "";
   const indoorTitle = sport === "ride"

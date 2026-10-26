@@ -29,3 +29,25 @@ it("discards a late previous revision and revokes access on the current denied r
   await act(async () => resolve({ activityId: "a", state: "available", streams: { watts: [999] } }));
   expect(result.current.streams).toBeNull();
 });
+it("bounds explicit overview lookup and retry, then clears loaded geometry when access is denied", async () => {
+  const revoke = vi.fn();
+  let resolve!: (value: unknown) => void;
+  mocks.streams.mockReturnValueOnce(new Promise(yes => { resolve = yes; }));
+  const { result } = renderHook(() => useActivityStreamsLoader({ activityId: "a", activity, userId: "viewer", getStreams, t,
+    enabled: false, publicAccess: true, accessRevision: "saved-summary", onAccessRevoked: revoke }));
+  expect(mocks.streams).not.toHaveBeenCalled();
+  act(() => { result.current.requestStreams(); result.current.requestStreams(); });
+  expect(result.current.loadingStreams).toBe(true);
+  expect(mocks.streams).toHaveBeenCalledOnce();
+  await act(async () => resolve({ activityId: "a", state: "unavailable", streams: null }));
+  expect(result.current.loadingStreams).toBe(false);
+  expect(result.current.streamsError).toBeTruthy();
+  const loaded = { time: [0, 1], activityRouteGeometryV1: { version: 1, latlng: [[37, 127], [37.1, 127.1]], time: [0, 10] } };
+  mocks.streams.mockResolvedValueOnce({ activityId: "a", state: "available", streams: loaded });
+  await act(async () => { await result.current.retryStreams(); });
+  await waitFor(() => expect(result.current.streams).toEqual(loaded));
+  mocks.streams.mockRejectedValueOnce({ code: "functions/permission-denied" });
+  await act(async () => { await result.current.retryStreams(); });
+  expect(revoke).toHaveBeenCalledOnce();
+  expect(result.current.streams).toBeNull();
+});

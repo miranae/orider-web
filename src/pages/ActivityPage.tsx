@@ -1337,6 +1337,9 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         streams={streams}
         sport={sport}
         hasTrack={hasTrack}
+        routeLookup={!hasTrack && !streams && !selectedAnalysis && !streamsSignInRequired && sport !== "swim" && !isIndoorActivity(activity)
+          ? { state: loadingStreams || showStreamSpinner ? "loading" : streamsError ? "error" : "idle",
+            onLoad: () => { if (streamsError) void retryStreams(); else requestStreams(); } } : undefined}
         summary={s}
         markerPosition={markerPosition}
         hoveredSegment={activeTab === "analysis" && visualRange ? null : selectedMapSegment ?? hoveredSegment}

@@ -36,6 +36,36 @@ describe("ActivityMediaPanel no-map state", () => {
     i18n.addResourceBundle("en", "activity", enActivity, true, true);
   });
 
+  it("keeps an unrequested route distinct from missing GPS, retries explicitly, and displays independent geometry", async () => {
+    const user = userEvent.setup(), onLoad = vi.fn();
+    const activity = createMockActivity({ source: "orider", thumbnailTrack: "" });
+    const props = { activity, streams: null, sport: "ride" as const, hasTrack: false, summary: activity.summary,
+      markerPosition: null, hoveredSegment: null, photos: [], uploadedPhotos: [], flyToPosition: null,
+      t: i18n.getFixedT("en", "activity") as TFunction<"activity"> };
+    const view = render(<ActivityMediaPanel {...props} routeLookup={{ state: "idle", onLoad }} />);
+    expect(onLoad).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Check route" }));
+    expect(onLoad).toHaveBeenCalledOnce();
+    view.rerender(<ActivityMediaPanel {...props} routeLookup={{ state: "loading", onLoad }} />);
+    expect(screen.getByRole("button")).toBeDisabled();
+    view.rerender(<ActivityMediaPanel {...props} routeLookup={{ state: "error", onLoad }} />);
+    await user.click(screen.getByRole("button", { name: /retry/i }));
+    expect(onLoad).toHaveBeenCalledTimes(2);
+    const streams = { activityRouteGeometryV1: { version: 1, timingBasis: "elapsed", timeOrigin: "activity_start",
+      originEpochMs: activity.startTime, routeInputRevision: "a".repeat(64), time: [0, 10], latlng: [[37, 127], [37.1, 127.1]] } } as ActivityStreams;
+    view.rerender(<ActivityMediaPanel {...props} hasTrack streams={streams} />);
+    expect(screen.getByTestId("route-map")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Check route" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer route lookup for an indoor activity", () => {
+    const activity = createMockActivity({ type: "VirtualRide", trainer: true });
+    render(<ActivityMediaPanel activity={activity} streams={null} sport="ride" hasTrack={false} summary={activity.summary}
+      markerPosition={null} hoveredSegment={null} photos={[]} uploadedPhotos={[]} flyToPosition={null}
+      routeLookup={{ state: "idle", onLoad: vi.fn() }} t={i18n.getFixedT("en", "activity") as TFunction<"activity">} />);
+    expect(screen.queryByRole("button", { name: "Check route" })).not.toBeInTheDocument();
+  });
+
   it.each(["ko", "en"] as const)("toggles map size in %s without remounting or dropping location props", async lng => {
     const user = userEvent.setup();
     const activity = createMockActivity();

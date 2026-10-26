@@ -816,6 +816,12 @@
     "indoorRun": "Indoor run",
     "indoorRide": "Indoor ride",
     "indoorActivity": "Indoor activity",
+    "routeLookup": {
+      "idle": "The route has not been checked yet. Your saved analysis remains visible.",
+      "loading": "Checking the route…",
+      "error": "The route could not be checked. Please try again.",
+      "load": "Check route"
+    },
     "routePreviewUnavailable": "Route information",
     "routePreviewUnavailableDesc": "No map preview was provided. This does not establish whether the activity contains raw GPS.",
     "noGps": "No GPS data",

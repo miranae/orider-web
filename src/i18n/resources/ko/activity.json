@@ -816,6 +816,12 @@
     "indoorRun": "실내 러닝",
     "indoorRide": "실내 라이딩",
     "indoorActivity": "실내 활동",
+    "routeLookup": {
+      "idle": "아직 경로를 확인하지 않았습니다. 저장된 분석은 그대로 표시됩니다.",
+      "loading": "경로를 확인하고 있습니다.",
+      "error": "경로를 확인하지 못했습니다. 다시 시도해 주세요.",
+      "load": "경로 확인"
+    },
     "routePreviewUnavailable": "경로 정보",
     "routePreviewUnavailableDesc": "지도용 경로가 제공되지 않았습니다. 이 화면만으로 활동의 원시 GPS 유무를 판단할 수는 없습니다.",
     "noGps": "GPS 데이터 없음",
