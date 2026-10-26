@@ -66,7 +66,7 @@ describe("ActivityPage presentation", () => {
     setDocData(`activities/${mockRoute.activityId}`, createMockActivity({ id: mockRoute.activityId, userId: "another-owner" }) as unknown as Record<string, unknown>);
     setCallableResult("getActivityOverview", { data: { status: "available", activityId: mockRoute.activityId, presentation: { coachSentence: "공개 인사이트 유지", session: { discipline: "bike", load: 42 } } } });
     renderWithProviders(<ActivityPage />, { route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
-    expect(await within(await screen.findByTestId("activity-analysis-domains")).findByText("공개 인사이트 유지")).toBeInTheDocument();
+    expect(await screen.findByText("공개 인사이트 유지")).toBeInTheDocument();
     expect(screen.getAllByRole("tab").map(tab => tab.id)).toEqual(["activity-tab-overview", "activity-tab-analysis", "activity-tab-segments"]);
     expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("heading", { name: "요약 공유" })).not.toBeInTheDocument();
@@ -125,7 +125,7 @@ describe("ActivityPage presentation", () => {
     expect(screen.queryByRole("button", { name: "이 요약을 Strava에 게시" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     const summary = await screen.findByTestId("activity-analysis-domains");
-    await within(summary).findByText("dev 정본 활동 개요");
+    await screen.findByText("dev 정본 활동 개요");
     expect(within(summary).getByRole("img", { name: "강도 게이지 · IF 0.83 (FTP 1.00 기준)" })).toBeInTheDocument();
     expect(summary.querySelector(".activity-analysis-zone-track")).toBeInTheDocument();
     expect(within(summary).getByRole("img", { name: "체력 · CTL 10.0 → 11.0" })).toBeInTheDocument();
@@ -159,12 +159,12 @@ describe("ActivityPage presentation", () => {
     await screen.findByTestId("activity-stats-primary");
     expect(screen.queryByTestId("activity-load-provenance")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
-    await within(await screen.findByTestId("activity-analysis-domains")).findByText("부하 출처 테스트");
+    await screen.findByText("부하 출처 테스트");
     const training = screen.getByRole("heading", { name: "훈련 부하와 체력" }).closest("section")!;
     expect(within(training).getByText("분석 TSS")).toBeInTheDocument();
     expect(within(training).getAllByText("46").length).toBeGreaterThan(0);
-    if (load != null) expect(within(training).getAllByText(String(load)).length).toBeGreaterThan(0);
-    if (load === 220 || load === 46.4) expect(training).toHaveTextContent("반영 훈련 부하");
+    if (load != null) expect(screen.getAllByText(String(load)).length).toBeGreaterThan(0);
+    if (load === 220 || load === 46.4) expect(screen.getByText("반영 훈련 부하")).toBeVisible();
     if (stale) expect(training).toHaveTextContent("이전 버전의 분석값");
 
   });

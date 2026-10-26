@@ -486,7 +486,7 @@ describe("ActivityPage", () => {
       const rendered = renderWithProviders(<ActivityPage />, { authenticated: true });
       await screen.findByTestId("activity-stats-primary");
       fireEvent.click(screen.getByRole("tab", { name: "분석" }));
-      expect(await screen.findByRole("button", { name: "최고 노력 자세히 보기" })).toHaveAttribute("aria-expanded", "true");
+      fireEvent.click(await screen.findByRole("button", { name: "최고 노력 자세히 보기" }));
       await waitFor(() => expect(release).not.toBeNull());
       if (mode === "invalid") fireEvent.click(screen.getByRole("button", { name: "5분" }));
       fireEvent.click(screen.getByRole("button", { name: "차트·지도에서 구간 보기" }));
@@ -528,7 +528,7 @@ describe("ActivityPage", () => {
       presentation: { coachSentence: "내 지속출력이 돋보인 활동", session: { discipline: "bike", load: 42 }, recovery: { hours: 11 } },
     } });
     renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
-    expect(await within(await screen.findByTestId("activity-analysis-domains")).findByText("내 지속출력이 돋보인 활동")).toBeInTheDocument();
+    expect(await screen.findByText("내 지속출력이 돋보인 활동")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "훈련 부하와 체력" })).toBeInTheDocument();
     expect(screen.getByTestId("activity-analysis-domains").compareDocumentPosition(screen.getByTestId("strava-summary-publishing")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId("activity-analysis-domains")).toBeInTheDocument();
@@ -560,13 +560,13 @@ describe("ActivityPage", () => {
     renderWithProviders(<ActivityPage />, { authenticated: true, route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
     expect(await screen.findByText("49.0 / 51.0")).toBeInTheDocument();
     const summary = screen.getByTestId("activity-analysis-domains");
-    expect(await within(summary).findByText("306.9")).toBeInTheDocument();
+    expect(await screen.findByText("306.9")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "지난 활동과 비교" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "활동 통계" })).not.toBeInTheDocument();
-    expect(within(summary).getByText("164.9")).toBeInTheDocument();
-    expect(within(summary).getByText("164.9")).toBeInTheDocument();
-    expect(within(summary).getByText("0.94")).toBeInTheDocument();
-    expect(within(summary).getAllByText("679")).toHaveLength(2);
+    expect(screen.getByText("164.9")).toBeInTheDocument();
+    expect(screen.getByText("0.94")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("시간별 수치와 기록 근거"));
+    expect(within(summary).getByRole("row", { name: /5s 679/ })).toBeInTheDocument();
     expect(within(summary).getAllByText("Z7").length).toBeGreaterThan(0);
     expect(screen.getByText("49.0 / 51.0")).toBeInTheDocument();
     expect(summary).toHaveTextContent("추정 파워 기준");

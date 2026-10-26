@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'r
 import { createRoot } from 'react-dom/client';
 import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus, Search, SlidersHorizontal } from 'lucide-react';
 import {
-  Button, IconButton, ControlToolbar, ToolbarButton, DropdownSelect, MediaViewer, Checkbox, Card, Section, Select, Field, Input, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
+  Button, IconButton, ControlToolbar, ToolbarButton, DropdownSelect, MediaViewer, Checkbox, Card, Section, Disclosure, Select, Field, Input, DataTable, ComboChart, Text, ToggleControls, ToggleButton,
   Chip, ChartRangeControls, type ChartRangeMode, SegmentTimeline, ReferenceGauge, BeforeAfterPlot,
   type DataTableColumn,
   MapResizeControls, MapNavigation, MapControlButton, ChartLegend, ChartValue, ChartTooltip,
@@ -229,6 +229,9 @@ function ControlsCatalog() {
         </section>
 
         <section id="cards" className="catalog-section">
+          <Section title="요약과 상세" description="핵심 결과는 본문에, 표와 계산 근거는 같은 펼침 패턴에 둡니다.">
+            <Disclosure title="수치와 계산 기준" description="필요할 때 원본 수치와 비교 범위를 확인합니다."><Text as="p" variant="bodySmall">이번 활동 240 W · 최근 90일 최고 260 W. 비교 기준의 날짜와 출처는 상세 정보와 함께 표시합니다.</Text></Disclosure>
+          </Section>
           <div className="catalog-section-heading"><Text as="h2" variant="title">카드와 섹션</Text><Text as="p" variant="body" tone="tertiary">카드는 독립된 콘텐츠를, 섹션은 이어지는 정보의 순서와 위계를 만듭니다.</Text></div>
           <div className="catalog-card-grid">
             <div className="catalog-card-example"><div className="catalog-example-label"><Text variant="label">default · 독립 콘텐츠</Text><code>Card</code></div><Card title="강변 아침 라이딩" sub="생성한 예시"><div className="catalog-card-content"><Text variant="dataMedium">32.4 <Text variant="unit">km</Text></Text><Text as="p" variant="bodySmall" tone="tertiary">90분 · 평탄한 강변 왕복 코스</Text><Button variant="ghost" size="sm" aria-pressed={cardSelected} onClick={() => setCardSelected(!cardSelected)}>{cardSelected ? '선택 해제' : '활동 선택'}</Button><Text as="p" variant="caption" tone="tertiary" role="status">{cardSelected ? '이 활동을 선택했습니다.' : '활동을 선택하면 여기에 표시합니다.'}</Text></div></Card></div>
