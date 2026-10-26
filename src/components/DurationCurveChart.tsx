@@ -76,6 +76,7 @@ export interface DurationCurveChartProps {
   /** 캔버스 그룹의 역할 설명(예: "차트")과 보조 설명 요소 id. */
   roleDescription?: string;
   describedBy?: string;
+  onPointSelect?: (index: number) => void;
 }
 
 /** 사람이 읽기 좋은 눈금 간격(1·2·2.5·5 × 10ⁿ). y 눈금이 실제로 4~5개 나오게 한다. */
@@ -109,7 +110,7 @@ export default function DurationCurveChart({
   points, unit, fractionDigits = 0, color, datasetLabel,
   reference = null, peakLabel, emptyTitle, emptyDescription,
   comparison = null, tooltipFooter, annotations, ariaLabel, heightClassName = "h-[200px]", showLegend = false,
-  xTicks = "auto", xScale = "category", unitAxisTitle = false, referenceSolid = false, roleDescription, describedBy,
+  xTicks = "auto", xScale = "category", unitAxisTitle = false, referenceSolid = false, roleDescription, describedBy, onPointSelect,
 }: DurationCurveChartProps) {
   const { t } = useTranslation("dashboard");
   const { variant } = useOriderTheme();
@@ -252,6 +253,7 @@ export default function DurationCurveChart({
   const focusPoint = (index: number | null) => {
     const chart = chartRef.current;
     setActiveIndex(index);
+    if (index != null) onPointSelect?.(index);
     if (!chart) return;
     const active = index == null ? [] : chart.data.datasets
       .map((_, datasetIndex) => ({ datasetIndex, index }))
@@ -283,6 +285,8 @@ export default function DurationCurveChart({
     return {
       responsive: true,
       maintainAspectRatio: false,
+      // Selection and reference changes must keep the measured curve visible immediately.
+      animation: false,
       // 끝 점과 강조 링(반경 7px)이 들어갈 여유.
       layout: { padding: log ? { left: 10, right: 12, top: 10 } : 0 },
       interaction: { mode: "index", intersect: false },
@@ -315,7 +319,7 @@ export default function DurationCurveChart({
             color: textColor, font: { size: 12 }, autoSkip: false, maxRotation: 0,
             callback(this: { chart: { chartArea?: { width: number }; width: number } }, _value: string | number, index: number) {
               // 폭 구간마다 같은 라벨 세트를 쓴다 — 구간 하한 폭으로 계산해 폭이 조금 변해도 라벨이 깜빡이지 않는다.
-              const width = this.chart.chartArea?.width ?? this.chart.width;
+              const width = Math.min(this.chart.chartArea?.width ?? this.chart.width, Math.max(0, this.chart.width - 64));
               const bucket = [720, 480, 320, 0].find((lower) => width >= lower) ?? 0;
               const shown = visibleLogLabels(points.map((p) => p.durationSeconds), Math.max(bucket, 240));
               return shown.has(index) && points[index] ? formatDuration(points[index]!.durationSeconds) : "";
@@ -381,6 +385,10 @@ export default function DurationCurveChart({
         <Line ref={chartRef} data={data} options={options} plugins={[annotationPlugin]}
           role="group" aria-roledescription={roleDescription} aria-describedby={describedBy}
           aria-label={ariaLabel ?? datasetLabel} tabIndex={0}
+          onClick={event => {
+            const hit = chartRef.current?.getElementsAtEventForMode(event.nativeEvent, "index", { intersect: false }, false)[0];
+            if (hit) focusPoint(hit.index);
+          }}
           onKeyDown={onKeyDown} onBlur={() => focusPoint(null)} className="rounded-[var(--r-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]" />
       </div>
       <div className="sr-only" aria-live="polite">{liveText}</div>
