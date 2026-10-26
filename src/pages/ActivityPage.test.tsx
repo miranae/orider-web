@@ -842,7 +842,7 @@ describe("ActivityPage", () => {
     expect(screen.getAllByText("250").length).toBeGreaterThan(0);
     expect(screen.queryByText("444")).not.toBeInTheDocument();
     expect(screen.queryByText("333")).not.toBeInTheDocument();
-    expect(screen.queryByText("서버 분석")).not.toBeInTheDocument();
+    expect(screen.queryByText("활동 분석")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     await waitFor(() => expect(stats).toHaveTextContent("평균 파워250W"));
     const latestShareMetrics = () => {
@@ -1023,7 +1023,7 @@ describe("ActivityPage", () => {
     });
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     // 서버 분석 문서가 없을 때는 "스트림 없음" 이 아니라 "서버 분석 없음" — 모름을 없음으로 그리지 않는다(리뷰 A3)
-    expect(await screen.findByText(/서버 분석 데이터 없음/)).toBeInTheDocument();
+    expect(await screen.findByText(/분석 결과가 아직 없습니다/)).toBeInTheDocument();
     expect(screen.queryByText("파워 분석")).not.toBeInTheDocument();
     expect(screen.queryByText("심박 분석")).not.toBeInTheDocument();
   });

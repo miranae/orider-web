@@ -339,6 +339,8 @@ export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, f
   const peak = points.reduce((max, p) => Math.max(max, p.value), 0);
   const selectedIndex = Math.max(0, points.findIndex(point => point.durationSeconds === selectedDuration));
   const selected = points[selectedIndex];
+  const referenceValue = comparison?.values[selectedIndex];
+  const gap = selected && referenceValue != null ? Math.round(selected.value - referenceValue) : null;
   const ftp = ftpW != null && Number.isFinite(ftpW) && ftpW > 0 ? Math.round(ftpW) : null;
   return <div className="activity-overview-curve">
     <DurationCurveChart
@@ -355,6 +357,7 @@ export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, f
     {interactiveReading && selected && <>
       <label className="activity-benchmark-duration" htmlFor={`${listId}-duration`}><Text variant="bodySmall" tone="secondary">{t("benchmark.duration")}</Text><Select id={`${listId}-duration`} value={selected.durationSeconds} onChange={event => setSelectedDuration(Number(event.target.value))}>{points.map(point => <option key={point.durationSeconds} value={point.durationSeconds}>{duration(point.row.duration)}</option>)}</Select></label>
       <div className="activity-benchmark-values"><Stat compact label={t("overviewSummary.thisActivity")} value={one(selected.value)} unit="W" />{comparison && <Stat compact label={comparison.label} value={comparison.values[selectedIndex] != null ? one(comparison.values[selectedIndex]!) : "—"} unit={comparison.values[selectedIndex] != null ? "W" : undefined} />}</div>
+      {comparison && gap != null && <Text as="p" variant="bodySmall" tone="secondary">{t(`analysisReading.record${gap < 0 ? "Lower" : gap > 0 ? "Higher" : "Equal"}`, { duration: duration(selected.row.duration), reference: comparison.label, gap: Math.abs(gap) })}</Text>}
       {!!facts(selected.row).length && <Text as="p" variant="bodySmall" tone="secondary">{facts(selected.row).join(" · ")}</Text>}
     </>}
     {/* 캔버스를 못 읽는 보조기기용 — 같은 값의 목록. 화면에는 툴팁·라벨이 같은 일을 한다. */}
