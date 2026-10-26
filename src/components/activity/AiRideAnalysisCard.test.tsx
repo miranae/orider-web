@@ -379,7 +379,7 @@ it("selects saved narrative content and returns to the current result without ge
   const current = narrative([segment(0, 10, "현재 구간 코칭")]);
   const previous = { ...narrative([segment(0, 5, "당시 구간 코칭")]), summary: "당시 분석 요약", generatedAt: 2 };
   narrativeApiMocks.peek.mockResolvedValue(current);
-  narrativeApiMocks.history.mockResolvedValueOnce({ items: [{ revisionId: "a".repeat(64), generatedAt: 2, version: "old-v1" }], nextCursor: null, selected: null })
+  narrativeApiMocks.history.mockResolvedValueOnce({ items: [{ revisionId: "a".repeat(64), generatedAt: 1e100, version: "old-v1" }], nextCursor: null, selected: null })
     .mockResolvedValueOnce({ items: [], nextCursor: null, selected: { revisionId: "a".repeat(64), narrative: previous } });
   const before = narrativeApiMocks.generate.mock.calls.length;
   renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="history-content" enabled />);

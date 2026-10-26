@@ -35,6 +35,11 @@ function narrativeLangFrom(i18nLang: string | undefined): NarrativeLang {
   return i18nLang?.startsWith("en") ? "en" : "ko";
 }
 
+function savedNarrativeTime(value: number | null, lang: NarrativeLang): string {
+  if (value === null || !Number.isFinite(new Date(value).getTime())) return "—";
+  return new Intl.DateTimeFormat(lang === "en" ? "en-US" : "ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(value);
+}
+
 function zoneNum(zone: string | null): number {
   return zone ? Number(zone.replace("Z", "")) || 0 : 0;
 }
@@ -285,7 +290,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     {history.selected && <Text variant="caption" role="status">{t("ai.history.viewing")}</Text>}
     {history.failed && <Text variant="caption" tone="danger" role="alert">{t("ai.history.failed")}</Text>}
     {history.list?.items.map(row => <Button key={row.revisionId} size="sm" variant="outline" disabled={history.busy} onClick={() => { void history.load(row.revisionId); }}>
-      {t("ai.history.entry", { version: row.version ?? "—", time: row.generatedAt == null ? "—" : new Intl.DateTimeFormat(lang === "en" ? "en-US" : "ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(row.generatedAt) })}
+      {t("ai.history.entry", { version: row.version ?? "—", time: savedNarrativeTime(row.generatedAt, lang) })}
     </Button>)}
     {history.list?.items.length === 0 && <Text variant="caption">{t("ai.history.empty")}</Text>}
     {history.list?.nextCursor && <Button size="sm" variant="ghost" disabled={history.busy} onClick={() => { void history.load(undefined, history.list!.nextCursor!); }}>{t("ai.history.more")}</Button>}
