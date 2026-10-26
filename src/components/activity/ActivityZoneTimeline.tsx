@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { Text } from "../../theme/components";
 import ZoneTimeline from "../ZoneTimeline";
 import type { ActivityMetricsDoc } from "../../hooks/useActivityMetrics";
 import { resolveHrZone, resolvePowerZone } from "../../features/activity/detail/metricsPresentation";
@@ -11,9 +12,9 @@ interface ActivityZoneTimelineProps {
 /**
  * 존 타임라인 — 서버 `renderSeries` 를 그린다 (#2437).
  *
- * 이전엔 스트림에서 센서 축을 고르고 이동 마스크를 걸고 존을 다시 판정했다(`AnalysisTab` 의
- * 선택 로직과 중복). 축 선택·이동 필터·존 경계는 서버가 정했고, 여기는 축약 시계열에 색만
- * 입힌다. 값이 없으면 그리지 않는다 — 스트림에서 다시 만들지 않는다.
+ * 저장된 축약 값의 강도 변화를 표시한다. 원본 시간/moving mask가 없으므로
+ * 결측·휴식이 포함된 분모를 전체 시간에 균등 재배분하지 않는다.
+ * 완전 분모에서도 축약 시각화이며 정확한 구간별 존 체류 시간을 주장하지 않는다.
  */
 export function ActivityZoneTimeline({ metrics }: ActivityZoneTimelineProps) {
   const { t } = useTranslation("activity");
@@ -29,8 +30,14 @@ export function ActivityZoneTimeline({ metrics }: ActivityZoneTimelineProps) {
       values.forEach((v, i) => { if (typeof v === "number" && Number.isFinite(v)) { kept.push(v); time.push(i * step); } });
       return kept.length > 0 ? { values: kept, time, timing: { durationsSec: Array(kept.length).fill(step) } } : null;
     };
-    const hr = axisOf(render.axes.heartrate);
-    const power = axisOf(render.axes.watts);
+    // renderSeries has no per-point observation/moving clock. A partial zone
+    // denominator cannot be located by spreading samples over the whole ride.
+    const completeCoverage = (zones: number[] | undefined) => Array.isArray(zones) && zones.length > 0
+      && zones.every(value => Number.isFinite(value) && value >= 0)
+      && Number.isFinite(metrics.movingTimeSec) && metrics.movingTimeSec === totalSec
+      && Math.abs(zones.reduce((sum, value) => sum + value, 0) - totalSec) < 1e-6;
+    const hr = completeCoverage(metrics.hrZoneSec) ? axisOf(render.axes.heartrate) : null;
+    const power = completeCoverage(metrics.powerZoneSec) ? axisOf(render.axes.watts) : null;
     const ftp = metrics.contextSnapshot?.ftp;
     return [
       ...(hr && metrics.hrZoneBoundaries ? [{
@@ -43,6 +50,11 @@ export function ActivityZoneTimeline({ metrics }: ActivityZoneTimelineProps) {
       }] : []),
     ];
   }, [metrics, t]);
-  if (series.length === 0) return null;
-  return <ZoneTimeline series={series} movingDurationSec={metrics?.movingTimeSec} />;
+  const axes = metrics?.renderSeries?.axes;
+  const hasObservedAxis = [axes?.heartrate, axes?.watts].filter(values => values?.some(value => typeof value === "number" && Number.isFinite(value))).length;
+  if (hasObservedAxis === 0) return null;
+  return <>
+    {series.length > 0 && <ZoneTimeline series={series} movingDurationSec={metrics?.movingTimeSec} />}
+    {series.length < hasObservedAxis && <Text as="p" variant="bodySmall" tone="secondary">{t("analysis.zones.timelineCoverageUnavailable")}</Text>}
+  </>;
 }
