@@ -550,8 +550,10 @@
     "generatedAt": "분석 생성 시각",
     "refreshingHint": "최신 데이터로 다시 분석 중입니다. 저장된 분석을 계속 표시합니다.",
     "refreshFailedHint": "다시 분석하지 못했습니다. 저장된 분석은 유지됩니다.",
-    "staleHint": "재분석 필요",
-    "staleLoginHint": "재분석 필요",
+    "staleHint": "활동 데이터가 바뀌었어요",
+    "analystVersion": "분석가 {{version}}",
+    "analystUpdatedBadge": "새 분석가로 다시 분석 가능",
+    "reanalyzeWithNewAnalystBtn": "새 분석가로 다시 분석",
     "loginHint": "로그인하면 AI 구간 분석을 이용할 수 있어요.",
     "runPreview": {
       "pace": {
@@ -593,7 +595,8 @@
       "heat_late_ride": "후반 더위",
       "fast_start": "빠른 출발",
       "predominantly_high_intensity": "고강도 위주",
-      "late_power_fade": "후반 출력저하"
+      "late_power_fade": "후반 출력저하",
+      "stop_heavy": "정지 많음"
     },
     "effort": {
       "komRank": "KOM {{n}}위",
