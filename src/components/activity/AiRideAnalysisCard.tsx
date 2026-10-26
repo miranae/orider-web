@@ -11,7 +11,7 @@ import ActivitySocialSummary from "./ActivitySocialSummary";
  */
 import { useEffect, useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Card, Text, Button } from "../../theme/components";
+import { Card, Text, Button, Chip } from "../../theme/components";
 
 /** 구간당 메달(🏅/🏆) 기본 노출 상한 — 한 구간이 수십 개 세그먼트에 매칭되면 메달 벽이 생겨 가독성 저하. */
 const MEDAL_LIMIT = 5;
@@ -451,6 +451,11 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     ? new Date(data.generatedAt) : null;
   const generatedAt = generatedDate && Number.isFinite(generatedDate.getTime()) ? generatedDate : null;
   const needsShareRegeneration = isActivityOwner && data.shareSummary === null;
+  // 분석은 생성 당시의 스냅샷 — 안내는 소유자 배지·버튼뿐, 본문·공유 문구·처방은 그대로 둔다.
+  // 서버 계약: null 은 "안내 없음". 필드 자체가 없는(구 서버) 응답만 stale 로 폴백한다.
+  const reanalysis = data.reanalysisAvailable !== undefined ? data.reanalysisAvailable : (data.stale ? "inputs_changed" : null);
+  const ownerReanalysis = isActivityOwner ? reanalysis : null;
+  const analystVersion = data.narrativeVersion ? data.narrativeVersion.replace(/^rsn-/, "") : "";
   const coachedSegments = data.segments.filter((segment) => segment.narrative !== "");
   const tempBadge =
     overall.tempStartC != null && overall.tempEndC != null
@@ -465,20 +470,35 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
         {tempBadge && <Text variant="caption" tone="tertiary">{tempBadge}</Text>}
         {data.isVirtualPower && <Text variant="caption" tone="tertiary">{t("ai.virtualPower")}</Text>}
-        {user && (data.stale || needsShareRegeneration) && (
+        {isActivityOwner && (ownerReanalysis || needsShareRegeneration) && (
           <Button size="sm" variant="secondary" onClick={retryFullAnalysis} disabled={full.loading}>
-            {t(data.stale ? "ai.refreshAnalysisBtn" : "ai.regenerateShareSummaryBtn")}
+            {t(ownerReanalysis === "analyst_updated" ? "ai.reanalyzeWithNewAnalystBtn"
+              : ownerReanalysis === "inputs_changed" ? "ai.refreshAnalysisBtn" : "ai.regenerateShareSummaryBtn")}
           </Button>
         )}
       </div>
 
-      {generatedAt && (
-        <Text variant="caption" tone="tertiary" as="p" className="mb-3">
-          {t("ai.generatedAt")} {" "}
-          <time dateTime={generatedAt.toISOString()}>
-            {new Intl.DateTimeFormat(lang === "en" ? "en-US" : "ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(generatedAt)}
-          </time>
-        </Text>
+      {(generatedAt || analystVersion || ownerReanalysis) && (
+        <div className="flex items-center flex-wrap gap-2 mb-3">
+          {(generatedAt || analystVersion) && (
+            <Text variant="caption" tone="tertiary" as="p">
+              {generatedAt && (
+                <>
+                  {t("ai.generatedAt")} {" "}
+                  <time dateTime={generatedAt.toISOString()}>
+                    {new Intl.DateTimeFormat(lang === "en" ? "en-US" : "ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(generatedAt)}
+                  </time>
+                </>
+              )}
+              {analystVersion && <>{generatedAt ? " · " : ""}{t("ai.analystVersion", { version: analystVersion })}</>}
+            </Text>
+          )}
+          {ownerReanalysis && (
+            <Chip variant={ownerReanalysis === "analyst_updated" ? "accent" : "default"}>
+              {t(ownerReanalysis === "analyst_updated" ? "ai.analystUpdatedBadge" : "ai.staleHint")}
+            </Chip>
+          )}
+        </div>
       )}
       {triggerFull && full.loading && (
         <p role="status" className="mb-3 text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>
@@ -500,13 +520,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
       <Text variant="body" tone="primary" as="p">{data.summary}</Text>
       <ActivitySocialSummary key={`${activityId}:${lang}:${user?.uid ?? "anonymous"}:${data.generatedAt}`}
         activityId={activityId ?? undefined} lang={lang} summary={data.socialSummary} isActivityOwner={isActivityOwner} />
-      {data.stale && (
-        <Text variant="caption" tone="tertiary" as="p" className="mt-2">
-          {user ? t("ai.staleHint") : t("ai.staleLoginHint")}
-        </Text>
-      )}
-
-      {!data.stale && needsShareRegeneration && (
+      {!ownerReanalysis && needsShareRegeneration && (
         <Text variant="caption" tone="tertiary" as="p" className="mt-2">
           {t("ai.regenerateShareSummaryHint")}
         </Text>

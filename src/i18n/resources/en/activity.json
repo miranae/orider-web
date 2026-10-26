@@ -550,8 +550,10 @@
     "generatedAt": "Analysis generated",
     "refreshingHint": "Reanalyzing with the latest data. Your saved analysis remains visible.",
     "refreshFailedHint": "Reanalysis failed. Your saved analysis is preserved.",
-    "staleHint": "Reanalysis needed",
-    "staleLoginHint": "Reanalysis needed",
+    "staleHint": "Activity data has changed",
+    "analystVersion": "analyst {{version}}",
+    "analystUpdatedBadge": "Reanalysis available with new analyst",
+    "reanalyzeWithNewAnalystBtn": "Reanalyze with new analyst",
     "loginHint": "Sign in to use AI segment analysis.",
     "runPreview": {
       "pace": {
@@ -593,7 +595,8 @@
       "heat_late_ride": "Late-ride heat",
       "fast_start": "Fast start",
       "predominantly_high_intensity": "High intensity",
-      "late_power_fade": "Late power fade"
+      "late_power_fade": "Late power fade",
+      "stop_heavy": "Stop-heavy"
     },
     "effort": {
       "komRank": "KOM #{{n}}",
