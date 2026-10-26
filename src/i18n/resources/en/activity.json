@@ -2990,6 +2990,16 @@
     "rider": "Rider"
   },
   "routeHistory": {
+    "cancel": "Stop new query",
+    "loadHistory": "View saved comparisons",
+    "historyEntry": "Result {{index}} · {{time}} · {{count}} records checked",
+    "historyEmpty": "No saved comparisons.",
+    "moreHistory": "More saved results",
+    "savedEntry": "Select result from {{time}}",
+    "previousResult": "Showing a previously saved comparison while the new query is unfinished.",
+    "newProgress": "Checked {{count}} records in the new query.",
+    "savedTime": "Comparison saved at {{asOf}} KST",
+    "sourceChanged": "The source has changed or its current state could not be confirmed. Showing the saved result.",
     "title": "Check route times across saved history",
     "scope": "Check saved activities as of this request and compare elapsed times through the observed reference interval. Each action checks a bounded batch sequentially.",
     "start": "Start history check",

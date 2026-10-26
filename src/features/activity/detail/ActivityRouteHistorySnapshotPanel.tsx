@@ -8,6 +8,7 @@ import { Button, Stack, Text } from "../../../theme";
 export default function ActivityRouteHistorySnapshotPanel({activity,observedMetricsIdentity}:{activity:Activity;observedMetricsIdentity:string}){
  const {t,i18n}=useTranslation("activity"),location=useLocation(),sport=getDiscipline(activity.type);
  const query=useActivityRouteHistorySnapshot(activity.userId,activity.id,activity.deletedAt==null&&(sport==="bike"||sport==="run")?sport:null,JSON.stringify([(activity as Activity & { activityRevision?: string }).activityRevision,(activity as Activity & { sourceRevision?: string }).sourceRevision,(activity as Activity & { sourceContentDigest?: string }).sourceContentDigest,activity.contentRevision,activity.deletedAt,activity.startTime,activity.type,observedMetricsIdentity]));
+ const entries=[...(query.history?.items??[]),...(query.previousResults??[]).filter(item=>!query.history?.items.some(row=>row.runId===item.runId))].sort((a,b)=>b.asOf-a.asOf||b.runId.localeCompare(a.runId));
  const data=query.data,best=data?.state==="complete"?data.best:null;
  const date=(ms:number)=>new Intl.DateTimeFormat(i18n.language,{timeZone:"Asia/Seoul",dateStyle:"short",timeStyle:"short"}).format(ms);
  const elapsed=(sec:number)=>{const ticks=Math.round(sec*10);return `${Math.floor(ticks/36000)}:${String(Math.floor(ticks/600)%60).padStart(2,"0")}:${((ticks%600)/10).toFixed(1).padStart(4,"0")}`;};
@@ -16,12 +17,19 @@ export default function ActivityRouteHistorySnapshotPanel({activity,observedMetr
   <Text as="p">{t("routeHistory.scope")}</Text>
   <Stack direction="row" wrap gap="var(--space-2)"><Button variant="outline" disabled={query.running} onClick={()=>void query.start()}>{t(data?"routeHistory.restart":"routeHistory.start")}</Button>
    {query.canRecover&&<Button disabled={query.running} onClick={()=>void query.recover()}>{t("routeHistory.recover")}</Button>}
-   {data&&(data.state!=="complete"||query.status==="error")&&<Button disabled={query.running} loading={query.status==="loading"} onClick={()=>void query.advance()}>{t(query.status==="error"?"routeHistory.retry":"routeHistory.continue")}</Button>}
-   {(data||query.status==="loading")&&<Button variant="ghost" onClick={query.stop}>{t(data?.state==="complete"&&!query.running?"routeHistory.close":"routeHistory.stop")}</Button>}
+   {(query.canAdvance??(data&&(data.state!=="complete"||query.status==="error")))&&<Button disabled={query.running} loading={query.status==="loading"} onClick={()=>void query.advance()}>{t(query.status==="error"?"routeHistory.retry":"routeHistory.continue")}</Button>}
+   {(data||query.status==="loading")&&<Button variant="ghost" onClick={query.stop}>{t(data?.state==="complete"&&!query.running?"routeHistory.close":query.running?"routeHistory.cancel":"routeHistory.stop")}</Button>}
   </Stack>
+  <Button variant="ghost" disabled={query.running} onClick={()=>void query.loadHistory()}>{t("routeHistory.loadHistory")}</Button>
+  {entries.length>0&&<Stack direction="row" wrap gap="var(--space-2)">{entries.map((item,index)=><Button key={item.runId} variant="outline" aria-pressed={query.selectedRun===item.runId} disabled={query.running} onClick={()=>void query.openSaved(item.runId)}>{t("routeHistory.historyEntry",{index:index+1,time:date(item.asOf),count:item.scanned})}</Button>)}</Stack>}
+  {query.history?.items.length===0&&entries.length===0&&<Text>{t("routeHistory.historyEmpty")}</Text>}
+  {query.history?.nextCursor&&<Button disabled={query.running} onClick={()=>void query.loadHistory(true)}>{t("routeHistory.moreHistory")}</Button>}
+  {query.previousResult&&<Text role="note">{t("routeHistory.previousResult")}</Text>}
+  {query.running&&query.progress&&query.progress.runId!==data?.runId&&<Text>{t("routeHistory.newProgress",{count:query.progress.scanned})}</Text>}
   {query.status!=="idle"&&<Text role="status">{t(`routeHistory.status.${query.status==="ready"?(data?.state==="complete"?"complete":"paused"):query.status}`)}</Text>}
-  {data&&<><Text>{t("routeHistory.counts",{scanned:data.scanned,candidates:data.candidateCount,excluded:data.excluded,unresolved:data.unresolved})}</Text><Text variant="caption">{t("routeHistory.time",{asOf:date(data.asOf),expires:date(data.expiresAt)})}</Text>
+  {data&&<><Text>{t("routeHistory.counts",{scanned:data.scanned,candidates:data.candidateCount,excluded:data.excluded,unresolved:data.unresolved})}</Text><Text variant="caption">{t(data.retention==="saved_result"?"routeHistory.savedTime":"routeHistory.time",{asOf:date(data.asOf),expires:date(data.expiresAt)})}</Text>
    {(data.state!=="complete"||query.status==="ready")&&<Text>{t(data.state==="complete"?`routeHistory.best.${data.bestStatus}`:`routeHistory.phase.${data.state}`)}</Text>}</>}
+  {data?.currentSourceChanged&&<Text>{t("routeHistory.sourceChanged")}</Text>}
   {best&&best.bestElapsedSec!==null&&<><Text as="h4" weight={600}>{t("routeHistory.elapsed",{time:elapsed(best.bestElapsedSec)})}</Text><Text>{t("routeHistory.quality",{eligible:best.eligibleGroups,excluded:best.excludedGroups,ambiguous:best.ambiguousGroups,unavailable:best.unavailableGroups})}</Text><Text>{t("routeHistory.sources",{missing:best.states.missing,unsupported:best.states.unsupported,changed:best.states.changed})}</Text><ul>{best.bestActivityIds.map((id,index)=><li key={id}><LocalizedLink to={`/activity/${encodeURIComponent(id)}`} state={{routeInventoryReturn:{uid:activity.userId,pathname:location.pathname,search:location.search,hash:location.hash}}}>{t("routeHistory.source",{index:index+1})}</LocalizedLink></li>)}</ul>{best.tiesTruncated&&<Text>{t("routeHistory.ties",{count:best.tieCount,shown:best.bestActivityIds.length})}</Text>}</>}
   <Text variant="caption" tone="secondary">{t("routeHistory.limit")}</Text>
  </Stack></details></section>;

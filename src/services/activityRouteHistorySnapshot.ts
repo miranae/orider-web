@@ -1,9 +1,10 @@
 import { httpsCallable } from "firebase/functions";
-import type { RouteHistorySnapshotRequest, RouteHistorySnapshotResponse } from "@shared/activity-route-history-snapshot";
+import type { RouteHistorySnapshotRequest, RouteHistorySnapshotResponse, RouteHistorySavedRequest, RouteHistorySavedResponse } from "@shared/activity-route-history-snapshot";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { observedRouteAvailable } from "./activityRouteEvidence";
 import { matchesAnalysisCapability } from "./analysisCapability";
 const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+const timestamp=(v:unknown):v is number=>typeof v==="number"&&Number.isFinite(v)&&v>0&&v<=8640000000000000;
 const count = (v: unknown): v is number => Number.isSafeInteger(v) && Number(v) >= 0;
 const id = (v: unknown): v is string => typeof v === "string" && /^[A-Za-z0-9_-]{1,200}$/.test(v);
 export function validateRouteHistorySnapshot(value: unknown, request: RouteHistorySnapshotRequest, previous?: RouteHistorySnapshotResponse): RouteHistorySnapshotResponse {
@@ -11,12 +12,17 @@ export function validateRouteHistorySnapshot(value: unknown, request: RouteHisto
  if (!object(value)) fail();
  const r = value as unknown as RouteHistorySnapshotResponse;
  if (!/^[a-f0-9-]{36}$/.test(r.runId) || !count(r.version) || !["scanning","identity","reducing","complete","invalidated","expired"].includes(r.state)
-  || !Number.isFinite(r.asOf) || r.asOf <= 0 || r.asOf > Date.now() || r.expiresAt !== r.asOf + 50 * 60000
+  || !timestamp(r.asOf) || !timestamp(r.expiresAt)
+  || r.retention !== "saved_result" && (r.expiresAt < r.asOf || Math.abs(r.expiresAt-r.asOf-50*60000)>1)
   || r.scope !== "recorded_observations_at_snapshot" || r.physicalRideCompleteness !== "unknown"
   || ![r.scanned,r.excluded,r.unresolved,r.candidateCount].every(count)
   || !["in_progress","enumerated_at_read_time"].includes(r.wholeHistory)
   || !count(r.excluded+r.unresolved+r.candidateCount) || r.scanned!==r.excluded+r.unresolved+r.candidateCount
   || !["complete","expired"].includes(r.state)&&r.wholeHistory!=="in_progress") fail();
+ if (r.retention !== undefined && !["saved_result","temporary_checkpoint"].includes(r.retention)
+  || r.retention === "saved_result" && (r.state !== "complete" || r.resultFreshness !== "historical_as_of" || typeof r.currentSourceChanged !== "boolean")
+  || r.resultFreshness !== undefined && r.resultFreshness !== "historical_as_of"
+  || r.currentSourceChanged !== undefined && typeof r.currentSourceChanged !== "boolean") fail();
  if (request.action !== "start" && (r.runId !== request.runId || previous && (r.asOf !== previous.asOf || r.expiresAt !== previous.expiresAt || r.version < previous.version))) fail();
  if (r.state !== "complete") {
   if (r.best !== null || r.bestStatus !== (["expired","invalidated"].includes(r.state) ? "unavailable" : "pending")) fail();
@@ -50,4 +56,28 @@ export async function loadRouteHistorySnapshot(services: FirebaseServices, uid: 
  const result=await httpsCallable<RouteHistorySnapshotRequest,unknown>(functions,"progressActivityRouteHistorySnapshot",{timeout:30000})(request);
  if(!current())throw Error("account_changed");if (!matchesAnalysisCapability(services, "routes")) throw new Error("route_not_supported");
   return validateRouteHistorySnapshot(result.data,request,previous);
+}
+
+export function validateRouteHistorySaved(value:unknown):RouteHistorySavedResponse {
+ if(!object(value)||!Array.isArray(value.items)||value.items.length>20||!(value.nextCursor===null||typeof value.nextCursor==="string"&&value.nextCursor.length>0&&value.nextCursor.length<=256))throw Error("invalid_route_history_response");
+ const ids=new Set<string>();
+ for(const row of value.items){
+  if(!object(row)||typeof row.runId!=="string"||!/^[a-f0-9-]{36}$/.test(row.runId)||ids.has(row.runId)||!timestamp(row.asOf)||!count(row.scanned)||!count(row.candidateCount)||row.candidateCount>row.scanned)throw Error("invalid_route_history_response");
+  ids.add(row.runId);
+ }
+ return value as unknown as RouteHistorySavedResponse;
+}
+export async function loadRouteHistorySaved(services:FirebaseServices,uid:string,request:RouteHistorySavedRequest){
+ const {auth,functions}=services,app=auth.app,viewer=auth.currentUser;
+ const current=()=>!!viewer&&!viewer.isAnonymous&&viewer.uid===uid&&services.auth===auth&&auth.app===app&&auth.currentUser===viewer&&services.functions===functions&&functions.app===app;
+ if(!current())throw Error("account_changed");
+ if(!observedRouteAvailable()||!matchesAnalysisCapability(services,"routes"))throw Error("route_history_unsupported");
+ if(!id(request.anchorActivityId)||!["bike","run"].includes(request.discipline)||request.cursor!==undefined&&(!request.cursor.length||request.cursor.length>256))throw Error("invalid_route_history_request");
+ await services.ensureAppCheckReady();
+ if(!current())throw Error("account_changed");
+ if(!matchesAnalysisCapability(services,"routes"))throw Error("route_not_supported");
+ const result=await httpsCallable<RouteHistorySavedRequest,unknown>(functions,"getActivityRouteHistorySaved",{timeout:30000})(request);
+ if(!current())throw Error("account_changed");
+ if(!matchesAnalysisCapability(services,"routes"))throw Error("route_not_supported");
+ return validateRouteHistorySaved(result.data);
 }
