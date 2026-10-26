@@ -590,6 +590,7 @@
     "refreshDetailBtn": "Reload details",
     "regenerateShareSummaryBtn": "Reanalyze to generate share text",
     "regenerateShareSummaryHint": "The short share text could not be generated. Reanalyze to generate it again.",
+    "reanalyzeBtn": "Reanalyze",
     "refreshAnalysisBtn": "Reanalyze with latest data",
     "loginBtn": "Log in",
     "waitHint": "Awaiting analysis — press the button to start AI segment analysis.",

@@ -29,3 +29,27 @@ it("separates completed peek caches and saved selection between named apps with 
   expect(f.peek).toHaveBeenNthCalledWith(2, { activityId: "ride", cacheOnly: true, lang: "ko" }, b);
   expect(f.history).toHaveBeenCalledWith("ride", "ko", "old", undefined, a);
 });
+
+it("keeps revocation sticky through retry, temporary failure and clear until a successful authorized read", async () => {
+  f.services = named("revoked"); f.history.mockReset();
+  f.history.mockRejectedValueOnce(Object.assign(Error("denied"), { code: "permission-denied" }));
+  const hook = renderHook(() => useActivityNarrativeHistory("revoked-ride", "ko", true));
+  await act(async () => hook.result.current.load());
+  expect(hook.result.current.accessRevoked).toBe(true);
+  let reject!: (error: Error) => void;
+  f.history.mockImplementationOnce(() => new Promise((_resolve, fail) => { reject = fail; }));
+  let retry!: Promise<void>;
+  act(() => { retry = hook.result.current.load(); });
+  expect(hook.result.current.busy).toBe(true);
+  expect(hook.result.current.accessRevoked).toBe(true);
+  await act(async () => { reject(Error("offline")); await retry; });
+  expect(hook.result.current.accessRevoked).toBe(true);
+  act(() => hook.result.current.clear());
+  expect(hook.result.current.accessRevoked).toBe(true);
+  f.history.mockRejectedValueOnce(Object.assign(Error("still denied"), { code: "permission-denied" }));
+  await act(async () => hook.result.current.load());
+  expect(hook.result.current.accessRevoked).toBe(true);
+  f.history.mockResolvedValueOnce({ items: [], nextCursor: null, selected: null });
+  await act(async () => hook.result.current.load());
+  expect(hook.result.current.accessRevoked).toBe(false);
+});

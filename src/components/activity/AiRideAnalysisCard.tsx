@@ -497,9 +497,9 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
         {tempBadge && <Text variant="caption" tone="tertiary">{tempBadge}</Text>}
         {data.isVirtualPower && <Text variant="caption" tone="tertiary">{t("ai.virtualPower")}</Text>}
-        {user && !history.selected && (data.stale || needsShareRegeneration) && (
+        {isActivityOwner && user && !history.selected && (
           <Button size="sm" variant="secondary" onClick={retryFullAnalysis} disabled={full.loading}>
-            {t(data.stale ? "ai.refreshAnalysisBtn" : "ai.regenerateShareSummaryBtn")}
+            {t(data.stale ? "ai.refreshAnalysisBtn" : needsShareRegeneration ? "ai.regenerateShareSummaryBtn" : "ai.reanalyzeBtn")}
           </Button>
         )}
       </div>
@@ -512,12 +512,12 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
           </time>
         </Text>
       )}
-      {triggerFull && full.loading && (
+      {!history.selected && triggerFull && full.loading && (
         <p role="status" className="mb-3 text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>
           {t("ai.refreshingHint")}
         </p>
       )}
-      {error && (
+      {!history.selected && error && (
         <div className="mb-3">
           <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--color-error)" }}>
             {t("ai.refreshFailedHint")}
@@ -530,7 +530,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
 
       {/* 상세 AI 분석과 짧은 공유 문구는 각각의 내용을 유지한다. */}
       <Text variant="body" tone="primary" as="p">{data.summary}</Text>
-      <ActivitySocialSummary key={`${activityId}:${lang}:${user?.uid ?? "anonymous"}:${data.generatedAt}`}
+      <ActivitySocialSummary key={`${scope}:${data.generatedAt}`}
         activityId={activityId ?? undefined} lang={lang} summary={data.socialSummary} isActivityOwner={isActivityOwner && !history.selected} />
       {data.stale && (
         <Text variant="caption" tone="tertiary" as="p" className="mt-2">

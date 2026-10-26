@@ -14,7 +14,7 @@ export function useActivityNarrativeHistory(activityId: string | null, lang: Nar
   async function load(revisionId?: string, cursor?: string) {
     if (!enabled || !activityId || busy.current) return;
     const token = generation.current; busy.current = true;
-    setState({ ...current, busy: true, failed: false, accessRevoked: false });
+    setState({ ...current, busy: true, failed: false });
     try {
       const response = await loadActivityNarrativeHistory(activityId, lang, revisionId, cursor, services);
       if (token !== generation.current || !session.isCurrent()) return;
@@ -22,8 +22,8 @@ export function useActivityNarrativeHistory(activityId: string | null, lang: Nar
       setState({ scope, busy: false, failed: false, accessRevoked: false, selected: revisionId ? response.selected : current.selected,
         list: revisionId ? current.list : { ...response, items: cursor ? [...(current.list?.items ?? []), ...response.items] : response.items } });
     } catch (error) {
-      if (token === generation.current && session.isCurrent()) setState({ ...current, selected: isActivityNarrativeAccessRevoked(error) ? null : current.selected, list: isActivityNarrativeAccessRevoked(error) ? null : current.list, busy: false, failed: true, accessRevoked: isActivityNarrativeAccessRevoked(error) });
+      if (token === generation.current && session.isCurrent()) setState({ ...current, selected: isActivityNarrativeAccessRevoked(error) ? null : current.selected, list: isActivityNarrativeAccessRevoked(error) ? null : current.list, busy: false, failed: true, accessRevoked: current.accessRevoked || isActivityNarrativeAccessRevoked(error) });
     } finally { if (token === generation.current) busy.current = false; }
   }
-  return { ...current, load, clear: () => { generation.current++; busy.current = false; setState({ ...current, selected: null, busy: false, failed: false, accessRevoked: false }); } };
+  return { ...current, load, clear: () => { generation.current++; busy.current = false; setState({ ...current, selected: null, busy: false, failed: false }); } };
 }

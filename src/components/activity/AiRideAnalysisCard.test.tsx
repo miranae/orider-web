@@ -1,3 +1,4 @@
+import { FirebaseServicesProvider, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import * as runtimeConfig from "../../services/runtimeConfig";
 import i18n from "i18next";
 import enActivity from "../../i18n/resources/en/activity.json";
@@ -93,6 +94,29 @@ describe("AiRideAnalysisCard", () => {
       expect(narrativeApiMocks.peek).not.toHaveBeenCalled();
       expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
     } finally { runtime.mockRestore(); }
+  });
+
+  it("offers explicit reanalysis for a normal old result with a valid share summary and preserves it on input failure", async () => {
+    const saved = { ...narrative([segment(0, 10, "정상 이전 코칭")]), narrativeVersion: "old-v1", generatedAt: 123000, stale: false,
+      shareSummary: "기존 저장된 공유 문구" };
+    narrativeApiMocks.peek.mockResolvedValue(saved);
+    narrativeApiMocks.generate.mockRejectedValueOnce(Object.assign(Error("input not ready"), { code: "failed-precondition", details: { reason: "narrative_streams_not_ready" } }));
+    const { container } = renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="normal-old-explicit-refresh" enabled />);
+    const button = await screen.findByRole("button", { name: "다시 분석", exact: true });
+    expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
+    fireEvent.click(button);
+    await waitFor(() => expect(narrativeApiMocks.generate).toHaveBeenCalledExactlyOnceWith({ activityId: "normal-old-explicit-refresh", lang: "ko", forceRefresh: true }, expect.objectContaining({ auth: expect.anything() })));
+    expect(await screen.findByRole("alert")).toHaveTextContent("저장된 분석은 유지됩니다");
+    expect(screen.getByText("정상 이전 코칭")).toBeInTheDocument();
+    expect(container.querySelector("time")).toHaveAttribute("datetime", new Date(123000).toISOString());
+    narrativeApiMocks.history.mockResolvedValueOnce({ items: [{ revisionId: "a".repeat(64), generatedAt: 1000, version: "older-v0" }], nextCursor: null, selected: null })
+      .mockResolvedValueOnce({ items: [], nextCursor: null, selected: { revisionId: "a".repeat(64), narrative: { ...saved, summary: "선택한 과거 결과", generatedAt: 1000 } } });
+    fireEvent.click(screen.getByRole("button", { name: "이전 AI 분석 보기" }));
+    fireEvent.click(await screen.findByRole("button", { name: /older-v0/ }));
+    expect(await screen.findByText("선택한 과거 결과")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "다시 분석", exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "다시 시도", exact: true })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "현재 분석으로 돌아가기" })).toBeInTheDocument();
   });
 
   it("keeps a legacy saved analysis and its timestamp visible through refresh failure and retry", async () => {
@@ -200,6 +224,27 @@ describe("AiRideAnalysisCard", () => {
         ? (Number(retryAfter[1]) * 60 * 60 + Number(retryAfter[2]) * 60 + Number(retryAfter[3])) * 1_000
         : null;
     });
+  });
+
+  it("does not carry a recovered share summary across named sessions with the same UID and generation time", async () => {
+    function services(name: string): FirebaseServices {
+      const app = { name };
+      return { auth: { app, currentUser: { uid: "same-owner" } }, functions: { app } } as unknown as FirebaseServices;
+    }
+    const a = services("A"), b = services("B");
+    const saved = narrative([segment(0, 10, "같은 시각 코칭")]);
+    narrativeApiMocks.peek.mockResolvedValue(saved);
+    narrativeApiMocks.retrySummary.mockResolvedValue({ socialSummary: { narrative: "A 세션만 복구한 공유요약", achievements: [], shareText: "A" } });
+    const view = (value: FirebaseServices) => <FirebaseServicesProvider services={value}><AiRideAnalysisCard isActivityOwner activityId="named-share-scope" enabled /></FirebaseServicesProvider>;
+    const { rerender } = renderWithProviders(view(a));
+    await screen.findByText("같은 시각 코칭");
+    fireEvent.click(screen.getByRole("button", { name: "공유요약 다시 불러오기" }));
+    await screen.findByText("A 세션만 복구한 공유요약");
+    rerender(view(b));
+    await screen.findByText("같은 시각 코칭");
+    expect(screen.queryByText("A 세션만 복구한 공유요약")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "공유요약 다시 불러오기" })).toBeInTheDocument();
+    expect(narrativeApiMocks.retrySummary).toHaveBeenCalledTimes(1);
   });
 
   it("retries only a missing share summary and keeps coaching visible through failure and success", async () => {
