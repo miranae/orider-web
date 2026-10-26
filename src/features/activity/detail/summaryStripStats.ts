@@ -115,6 +115,6 @@ export function resolveSummaryStripStats(
     caloriesKcal: source(r.calories), avgHr: source(r.average_heartrate), maxHr: source(r.max_heartrate),
     avgCadence: source(r.average_cadence), avgPower: source(r.average_watts), maxPower: source(r.max_watts),
     // Weighted average power is displayed by its provider name, never as Orider NP.
-    np: EMPTY, movingTimeSec: source(r.moving_time),
+    np: EMPTY, elevationLossM: EMPTY, movingTimeSec: source(r.moving_time),
     pauseTimeSec: source(r.elapsed_time != null && r.moving_time != null ? Math.max(0, r.elapsed_time - r.moving_time) : null) };
 }

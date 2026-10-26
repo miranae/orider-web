@@ -1350,5 +1350,12 @@
   "sufficiency.delay.processing": "Analysis of your imported rides has not finished yet.",
   "sufficiency.delay.unknown": "The calculation result is delayed. A specific reason has not been provided yet.",
   "sufficiency.delay.requirementsMet": "All checked calculation requirements are met.",
-  "sufficiency.delay.checkedRequirements": "Requirements checked in the last calculation"
+  "sufficiency.delay.checkedRequirements": "Requirements checked in the last calculation",
+  "comparison.title": "Comparison periods",
+  "comparison.timezone": "Dates use Korea Standard Time (KST). Custom end dates are inclusive; today ends at the request time.",
+  "comparison.rollingNote": "The recent 56 days are a rolling 56 × 24-hour window ending at the request time. All history is also subject to the scan limit.",
+  "comparison.fourWeeks": "Last 4 weeks vs previous 4 weeks",
+  "comparison.yearToDate": "Year to date vs previous year",
+  "comparison.fourWeeksNote": "Compare the last 28 complete days, excluding today, with the preceding 28 days.",
+  "comparison.yearToDateNote": "Compare from January 1 to the same month, day and time in each year. February 29 maps to February 28 in the previous year."
 }

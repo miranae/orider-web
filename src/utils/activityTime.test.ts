@@ -157,3 +157,18 @@ describe("duration label provenance", () => {
     expect(durationLabelBasis({ elapsedTimeMillis: 0, startTime: 10, endTime: 10 }, false)).toBe("activityTime");
   });
 });
+
+describe("Strava whole-activity time and speed", () => {
+  it("keeps provider moving time even for a short stop and does not recompute provider speed", () => {
+    const stravaRecord = { version: 1 as const, moving_time: 3570, elapsed_time: 3600, average_speed: 25.6 / 3.6 };
+    const d = resolveDuration({ ridingTimeMillis: H * 3, movingTimeSec: 6000, pauseTimeSec: 4800, stravaRecord });
+    expect(d).toEqual({ displayMs: 3570000, usingMoving: true, elapsedMs: H, movingMs: 3570000, pauseMs: 30000 });
+    expect(resolveAvgSpeedKph(135361, d, 99, stravaRecord)).toBeCloseTo(25.6);
+  });
+  it("keeps missing provider time and speed unavailable instead of falling back to analysis", () => {
+    const stravaRecord = { version: 1 as const };
+    const d = resolveDuration({ ridingTimeMillis: H, startTime: 1, endTime: H + 1, movingTimeSec: 3000, stravaRecord });
+    expect(d.displayMs).toBeNaN(); expect(d.movingMs).toBeNull(); expect(d.pauseMs).toBeNull();
+    expect(resolveAvgSpeedKph(30000, d, 30, stravaRecord)).toBeNaN();
+  });
+});

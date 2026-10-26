@@ -48,7 +48,7 @@ export function useFormatFullDate() {
 
 export function useActivityUnitFormatters(units: Units) {
   return useMemo(() => ({
-    distVal: (m: number) => units === "imperial" ? (m / M_PER_MI).toFixed(1) : (m / 1000).toFixed(1),
+    distVal: (m: number, digits = 1) => units === "imperial" ? (m / M_PER_MI).toFixed(digits) : (m / 1000).toFixed(digits),
     distUnit: units === "imperial" ? "mi" : "km",
     speedVal: (kmh: number) => units === "imperial" ? (kmh * 1000 / M_PER_MI).toFixed(1) : kmh.toFixed(1),
     speedUnit: units === "imperial" ? "mph" : "km/h",

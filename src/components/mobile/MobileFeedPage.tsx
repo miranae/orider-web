@@ -1,3 +1,4 @@
+import { stravaRecordOf } from "@shared/analysis/stravaRecord";
 import SportIcon from "../common/SportIcon";
 import HomeActivitySportIcon from "../common/HomeActivitySportIcon";
 import { getHomeActivitySport } from "../../utils/homeActivitySport";
@@ -208,6 +209,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
   const device = activity.sourceMeta?.deviceModel?.trim();
   const region = activity.regionName?.trim();
   const s = activity.summary;
+  const sourceRecord = stravaRecordOf(activity);
   const { units } = useLocale();
   const { t: tActivity } = useTranslation("activity");
   const previewError = localFailure?.viewerId === (user?.uid ?? null) && localFailure.sourceRevision === sourceRevision
@@ -216,16 +218,18 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
       <Button variant="ghost" size="sm" onClick={() => setContentRetry(value => value + 1)}>{tActivity("card.contentRetry")}</Button>
     </div> : null;
 
-  const distance = formatDistance(s.distance, units);
+  const distanceM = sourceRecord ? sourceRecord.distance : s.distance;
+  const distance = distanceM == null ? "—" : formatDistance(distanceM, units, sourceRecord ? 2 : 1);
   // #236: 정지 큰 활동은 이동시간 우선 (상세·데스크톱 카드와 동일 정책 — resolveDuration 공유).
-  const sd = resolveDuration({ ...s, startTime: activity.startTime, endTime: activity.endTime });
-  const dur = formatDur(sd.displayMs);
-  const elev = formatElev(s.elevationGain, units);
+  const sd = resolveDuration({ ...s, stravaRecord: sourceRecord, startTime: activity.startTime, endTime: activity.endTime });
+  const dur = Number.isFinite(sd.displayMs) ? formatDur(sd.displayMs) : "—";
+  const elevationM = sourceRecord ? sourceRecord.total_elevation_gain : s.elevationGain;
+  const elev = elevationM == null ? "—" : formatElev(elevationM, units);
   // 평균 속도도 시간 기준과 일치 — 전환 시 거리/이동시간, 아니면 거리/경과 (#236 후속).
   const elapsedSpd = s.distance > 0 && s.ridingTimeMillis > 0
     ? (s.distance / 1000) / (s.ridingTimeMillis / 3600000)
     : 0;
-  const spdNum = resolveAvgSpeedKph(s.distance, sd, elapsedSpd);
+  const spdNum = resolveAvgSpeedKph(s.distance, sd, elapsedSpd, sourceRecord);
   const nickname = useActivityAuthor(activity).nickname ?? t("mobileFeed.defaultRider");
   const discipline = getDiscipline(activity.type);
   const activitySport = getHomeActivitySport(activity);
@@ -238,7 +242,8 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
   const spdImplausible = isImplausibleAvgSpeed(spdNum, discipline ?? undefined);
   const spd = spdNum > 0 && !spdImplausible ? formatSpeed(spdNum / 3.6, units, "bike") : "—";
   const pace = spdNum > 0 && !spdImplausible ? formatPace(3600 / spdNum, units) : "—";
-  const heartRate = s.averageHeartRate;
+  const heartRate = sourceRecord ? sourceRecord.average_heartrate : s.averageHeartRate;
+  const power = sourceRecord ? sourceRecord.average_watts : s.averagePower ?? activity.avgPower;
   const hasHr = heartRate != null && heartRate > 0 && !isImplausibleActivityHeartRate(heartRate);
   const showDataWarning = isImplausibleActivity({
     distanceM: s.distance,
@@ -316,8 +321,8 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
           ...(discipline !== "run" ? [{ label: t("mobileFeed.statSpeed"), value: spd }] : []),
           ...(hasHr ? [{ label: t("homeMetrics.avgHeartRate"), value: `${Math.round(heartRate)}bpm` }] : []),
           ...(discipline === "run" ? [{ label: t("mobileFeed.statElev"), value: elev }] : []),
-          ...(discipline === "run" && (s.averagePower ?? activity.avgPower ?? 0) > 0
-            ? [{ label: tActivity("stat.runningPower"), value: `${Math.round(s.averagePower ?? activity.avgPower ?? 0)}W` }] : []),
+          ...(discipline === "run" && (power ?? 0) > 0
+            ? [{ label: tActivity("stat.runningPower"), value: `${Math.round(power ?? 0)}W` }] : []),
         ].map(stat => {
           const measurement = /^(.*?)(km\/h|mph|bpm|ft|m|W)$/.exec(stat.value);
           return <span key={stat.label} className="mobile-feed-secondary-stat">

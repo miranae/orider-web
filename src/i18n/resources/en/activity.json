@@ -2774,6 +2774,7 @@
   "detail.keyRecords": "Key records",
   "sourceMetrics": {
     "sourceNotice": "Strava record · Orider calculations are identified in Analysis.",
-    "orider": "Orider analysis"
+    "orider": "Orider analysis",
+    "sensorSummary": "Strava source sensor summary"
   }
 }

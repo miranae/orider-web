@@ -2774,6 +2774,7 @@
   "detail.keyRecords": "핵심 기록",
   "sourceMetrics": {
     "sourceNotice": "Strava 원본 기준 · 자체 계산값은 분석에서 구분해 표시합니다.",
-    "orider": "Orider 분석"
+    "orider": "Orider 분석",
+    "sensorSummary": "Strava 원본 센서 요약"
   }
 }
