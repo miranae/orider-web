@@ -350,4 +350,18 @@ describe("AiRideAnalysisCard", () => {
     expect(screen.queryByText("전체 코칭 요약")).not.toBeInTheDocument();
   });
 
+  it("omits absent legacy metrics and uses saved segment boundaries for the timeline", async () => {
+    const saved = narrative([segment(0, 12.5, "legacy coaching")]);
+    const legacy = saved as unknown as { overall: Record<string, unknown>; segments: Record<string, unknown>[] };
+    delete legacy.overall.totalDistanceKm;
+    for (const key of ["avgSpeedKmh", "avgPowerW", "avgHr", "relWind"]) delete legacy.segments[0][key];
+    narrativeApiMocks.peek.mockResolvedValue(saved);
+    const { container } = renderWithProviders(<AiRideAnalysisCard isActivityOwner activityId="legacy-missing-metrics" enabled />);
+    await screen.findByText("legacy coaching");
+    expect(container.textContent).not.toMatch(/undefined|NaN|ai\.wind\./);
+    expect(screen.queryByText(/0W|HR0|0km\/h/)).not.toBeInTheDocument();
+    expect(screen.getByText("12.5km")).toBeInTheDocument();
+    expect(screen.getByTitle(/0–12.5km/)).toBeInTheDocument();
+  });
+
 });

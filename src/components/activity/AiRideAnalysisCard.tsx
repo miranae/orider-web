@@ -132,6 +132,8 @@ function PrescriptionBlock({ items, t }: { items: Prescription[]; t: (key: strin
   );
 }
 
+const finiteNonnegative = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0;
+
 function SegmentRow({ seg, sport, t }: { seg: NarrativeSegment; sport: AnalysisSport; t: (key: string, opts?: Record<string, unknown>) => string }) {
   const [showAllEfforts, setShowAllEfforts] = useState(false);
   // 메달이 상한을 넘으면 의미 있는 것부터 노출되도록 우선순위 정렬:
@@ -164,16 +166,15 @@ function SegmentRow({ seg, sport, t }: { seg: NarrativeSegment; sport: AnalysisS
           </span>
         )}
         <Text variant="caption" tone="tertiary" mono>
-          {sport === "run"
-            ? [
-                `${formatRunPace(seg.avgSpeedKmh)}/km`,
-                seg.avgPowerW > 0 ? `${seg.avgPowerW}W` : "",
-                `HR${seg.avgHr}`,
-                seg.avgCadence > 0 ? `${seg.avgCadence}spm` : "",
-                seg.avgTempC != null ? `${seg.avgTempC}°` : "",
-                t(`ai.wind.${seg.relWind}`),
-              ].filter(Boolean).join(" · ")
-            : `${seg.avgSpeedKmh}km/h · ${seg.avgPowerW}W · HR${seg.avgHr}${seg.avgTempC != null ? ` · ${seg.avgTempC}°` : ""} · ${t(`ai.wind.${seg.relWind}`)}`}
+          {[
+            finiteNonnegative(seg.avgSpeedKmh) && (sport !== "run" || seg.avgSpeedKmh > 0)
+              ? sport === "run" ? `${formatRunPace(seg.avgSpeedKmh)}/km` : `${seg.avgSpeedKmh}km/h` : "",
+            finiteNonnegative(seg.avgPowerW) ? `${seg.avgPowerW}W` : "",
+            finiteNonnegative(seg.avgHr) && seg.avgHr > 0 ? `HR${seg.avgHr}` : "",
+            sport === "run" && finiteNonnegative(seg.avgCadence) && seg.avgCadence > 0 ? `${seg.avgCadence}spm` : "",
+            typeof seg.avgTempC === "number" && Number.isFinite(seg.avgTempC) ? `${seg.avgTempC}°` : "",
+            ["head", "tail", "cross"].includes(seg.relWind) ? t(`ai.wind.${seg.relWind}`) : "",
+          ].filter(Boolean).join(" · ")}
         </Text>
       </div>
       {seg.flags.length > 0 && (
@@ -455,7 +456,11 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     overall.tempStartC != null && overall.tempEndC != null
       ? `🌡️ ${overall.tempStartC}→${overall.tempEndC}° (${overall.tempSource === "device" ? t("ai.temp.device") : t("ai.temp.forecast")})`
       : null;
-  const totalKm = overall.totalDistanceKm;
+  const validTimeline = data.segments.every((segment) => finiteNonnegative(segment.fromKm)
+    && finiteNonnegative(segment.toKm) && segment.toKm >= segment.fromKm);
+  const timelineStartKm = validTimeline ? Math.min(...data.segments.map((segment) => segment.fromKm)) : null;
+  const totalKm = finiteNonnegative(overall.totalDistanceKm) ? overall.totalDistanceKm
+    : validTimeline ? Math.max(...data.segments.map((segment) => segment.toKm)) : null;
 
   return (
     <Card>
@@ -520,8 +525,8 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         </div>
       )}
 
-      {/* 컴팩트 타임라인 바 (존 색, 거리 비례) */}
-      <div className="flex w-full mt-4 rounded-[var(--r-sm)] overflow-hidden" style={{ height: "10px" }}>
+      {/* 컴팩트 타임라인 바 (존 색, 거리 비례). 구버전 결손은 저장된 구간 경계만 사용한다. */}
+      {validTimeline && totalKm != null && <><div className="flex w-full mt-4 rounded-[var(--r-sm)] overflow-hidden" style={{ height: "10px" }}>
         {data.segments.map((s) => (
           <div
             key={`${s.fromKm}-${s.toKm}`}
@@ -531,9 +536,9 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         ))}
       </div>
       <div className="flex justify-between mt-1">
-        <Text variant="caption" tone="tertiary" mono>0km</Text>
+        <Text variant="caption" tone="tertiary" mono>{timelineStartKm}km</Text>
         <Text variant="caption" tone="tertiary" mono>{totalKm}km</Text>
-      </div>
+      </div></>}
 
       {/* 구간별 코칭 (접기/펼치기, 기본 펼침). 빈 내러티브 구간은 타임라인에만 유지. */}
       {coachedSegments.length > 0 && (
