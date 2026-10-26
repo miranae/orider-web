@@ -1921,7 +1921,10 @@
     "location": "Show window on chart and map",
     "loadingLocation": "Preparing window location",
     "noLocation": "This effort cannot be reliably aligned with the route, so location is unavailable.",
-    "chartLocation": "Show window on chart"
+    "chartLocation": "Show window on chart",
+    "twentyTitle": "Best 20-minute power",
+    "twentySelect": "Analyze this time interval",
+    "twentyMissing": "This earlier calculation has no saved time interval for the best effort."
   },
   "benchmark": {
     "title": "Compare with my recent 90-day best power",

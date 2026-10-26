@@ -1,3 +1,4 @@
+import type { PowerDurationCurve } from "./power-duration-curve";
 import type { RunningPaceZoneAnalysis } from "./training-analysis-periods";
 import type { RunDistanceKey } from "./personal-records";
 import type { ActivityAnalysisSummary } from "../analysis/activityAnalysisSummary";
@@ -59,6 +60,7 @@ export interface CyclingDynamicsMetrics {
 }
 
 export interface ActivityMetrics {
+  powerDurationCurve?: PowerDurationCurve;
   analysisSummary?: ActivityAnalysisSummary;
   // ── 기본 (Coggan)
   np: number | null;

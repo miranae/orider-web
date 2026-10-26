@@ -26,7 +26,7 @@ import { canonicalActivityChartMetrics, withStravaChartSummary, withCanonicalCha
 import { ActivityGrowthPanel } from "../features/activity/detail/ActivityGrowthPanel";
 import { ActivityPersonalBenchmark } from "../features/activity/detail/ActivityPersonalBenchmark";
 import ActivityPeakEffortInspector from "../features/activity/detail/ActivityPeakEffortInspector";
-import { resolvePeakEffortLocation, visiblePeakEfforts } from "../features/activity/detail/activityPeakEfforts";
+import { resolvePeakEffortLocation, twentyMinuteEffort, visiblePeakEfforts } from "../features/activity/detail/activityPeakEfforts";
 import type { RidePeakEffort } from "@shared/types/activity-metrics";
 import ActivityRangeAnalysisPanel, { ActivityRangeControls, ActivityChartAxisControls } from "../features/activity/detail/ActivityRangeAnalysisPanel";
 import { useActivityRangeSelection } from "../hooks/useActivityRangeSelection";
@@ -1488,10 +1488,18 @@ function ActivityPageContent({ publicAccess }: { publicAccess?: ActivityPublicAc
         suppliedPdcState={bikePdcState} defaultExpanded /> }        </> : null}
         peakInspector={<>
 
-      {visiblePeakEfforts(serverMetrics.metrics, isActivityOwner || !!publicAccess, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true).length > 0 && sport === "ride" && activity?.id && <ActivityPeakEffortInspector
+      {(visiblePeakEfforts(serverMetrics.metrics, isActivityOwner || !!publicAccess, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true).length > 0 || twentyMinuteEffort(serverMetrics.metrics, isActivityOwner || !!publicAccess, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true)) && sport === "ride" && activity?.id && <ActivityPeakEffortInspector
         activityId={activity.id} metrics={serverMetrics.metrics} isOwner={isActivityOwner || !!publicAccess}
         invalidated={activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true}
         suppressHeartRate={analysisTabProps?.suppressServerHeartRateMetrics} suppressCadence={analysisTabProps?.suppressServerCadenceMetrics}
+        onSelectTwentyMinute={range => {
+          if (!rangeSelection.ownerUid || rangeSelection.sourceLocked) return;
+          setPeakSelection({ activityId, peak: null });
+          rangeSelection.selectAndEnable(range);
+          setVisualState({ identity: visualIdentity, axis: "elapsed", range: null });
+          viewRunSplitLocation();
+          if (!streams) requestStreams();
+        }}
         defaultExpanded onLocate={locatePeak} locating={loadingStreams && selectedPeak != null}
         locationUnavailable={!!streams && selectedPeak != null && !peakLocation} /> }        </>}
         powerControls={isActivityOwner && (canRecalculateVirtualPowerPreview || activePowerOverride) ? <div className="activity-analysis-power-controls">

@@ -1921,7 +1921,10 @@
     "location": "차트·지도에서 구간 보기",
     "loadingLocation": "구간 위치 준비 중",
     "noLocation": "이 구간을 경로에 확실하게 연결할 수 없어 위치를 표시하지 않습니다.",
-    "chartLocation": "차트에서 구간 보기"
+    "chartLocation": "차트에서 구간 보기",
+    "twentyTitle": "20분 최고 출력",
+    "twentySelect": "같은 시간 구간 분석하기",
+    "twentyMissing": "이전 계산에는 최고 구간의 시각 근거가 없습니다."
   },
   "benchmark": {
     "title": "나의 최근 90일 최고 파워와 비교",

@@ -42,3 +42,17 @@ export function resolvePeakEffortLocation(peak: RidePeakEffort | null, axis: "ro
   return { chartRange, routeRange: validRoute ? { startIndex: raw![0], endIndex: raw![1] } : undefined,
     markerPosition: validRoute ? latlng![raw![1]]! : null };
 }
+
+/** The PDC supplies elapsed bounds, never GPS/sensor array indices. */
+export function twentyMinuteEffort(metrics: ActivityMetrics | null, allowed: boolean, invalidated = false) {
+  if (!allowed || invalidated || metrics?.discipline !== "bike" || metrics.isVirtualPower !== false
+    || metrics.inputPending || metrics.inputCoverage === "pending") return null;
+  const curve = metrics.powerDurationCurve;
+  if (curve?.state !== "available") return null;
+  const effort = curve.twentyMinuteEffort;
+  if (!effort || effort.durationSec !== 1200 || !Number.isFinite(effort.startOffsetSec) || effort.startOffsetSec < 0
+    || !Number.isFinite(effort.endOffsetSec) || effort.endOffsetSec - effort.startOffsetSec !== 1200
+    || !Number.isFinite(effort.avgPowerW) || effort.avgPowerW < 0
+    || curve.points.find(point => point.durationSeconds === 1200)?.maxAveragePowerW !== effort.avgPowerW) return null;
+  return effort;
+}
