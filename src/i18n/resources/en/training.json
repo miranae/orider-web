@@ -1317,7 +1317,11 @@
     "separateLink": "Period actual totals include unlinked activities. They use a different basis from saved plan links or candidates and do not confirm plan completion.",
     "compareGoal": "Compare the goal period",
     "representativeIncluded": "Representative record in the selected period calculation",
-    "representativeOriginal": "Original record shown; the load is counted once through its representative"
+    "representativeOriginal": "Original record shown; the load is counted once through its representative",
+    "calendarEvidence": "Comparison details",
+    "weekEvidence": "W{{week}} weekly load evidence",
+    "calendarPlanned": "Plan",
+    "calendarActual": "Actual"
   },
   "goalLoad": {
     "title": "Training load for the goal period",
