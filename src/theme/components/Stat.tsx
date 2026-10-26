@@ -12,6 +12,8 @@ export interface StatProps extends HTMLAttributes<HTMLDivElement> {
   /** 카드 배경/테두리 포함. */
   card?: boolean;
   compact?: boolean;
+  /** Narrow screens place the label beside its value, with explanation below. */
+  layout?: "stacked" | "responsive";
 }
 
 /**
@@ -28,12 +30,13 @@ export function Stat({
   description,
   card,
   compact,
+  layout = "stacked",
   className,
   ...rest
 }: StatProps) {
   return (
     <div
-      className={cn('ds-stat', card && 'ds-stat--card', compact && 'ds-stat--compact', className)}
+      className={cn('ds-stat', card && 'ds-stat--card', compact && 'ds-stat--compact', layout === 'responsive' && 'ds-stat--responsive', className)}
       {...rest}
     >
       <div className="ds-stat__label">{label}</div>

@@ -217,3 +217,13 @@
 .activity-detail-analysis-content .activity-overview-grid > * { order: 0; }
 .activity-detail-analysis-content .activity-overview-hero { grid-template-columns: repeat(2, minmax(0, 12rem)); justify-content: start; }
 .activity-detail-analysis-content .activity-overview-area--facts { margin-top: 0; padding-top: 0; border-top: 0; }
+
+/* Analysis keeps zone name, share and duration on the same baseline. */
+.activity-zone-reading-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--fs-sm); line-height: 1.5; font-variant-numeric: tabular-nums; }
+.activity-zone-reading-table th, .activity-zone-reading-table td { padding: var(--space-2) 0; border-bottom: 1px solid var(--line-soft); text-align: right; }
+.activity-zone-reading-table th:first-child { width: 46%; text-align: left; }
+.activity-zone-reading-table thead th { color: var(--ink-2); font-weight: 500; }
+.activity-zone-reading-table tbody th { font-weight: 500; color: var(--ink-1); }
+.activity-zone-reading-table td { color: var(--ink-0); white-space: nowrap; }
+.activity-zone-reading-name { display: flex; align-items: center; gap: var(--space-2); }
+.activity-zone-reading-name > span { flex-shrink: 0; }

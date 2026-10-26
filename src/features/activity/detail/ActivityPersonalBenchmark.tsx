@@ -1,3 +1,4 @@
+import { PowerReadingControls } from "./PowerReadingControls";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -28,14 +29,15 @@ function BenchmarkReading({ metrics, state }: { metrics: MetricsLike | null; sta
   const duration = (seconds: number) => i18n.language.startsWith("ko")
     ? seconds < 60 ? `${seconds}초` : seconds < 3600 ? `${seconds / 60}분` : `${seconds / 3600}시간`
     : seconds < 60 ? `${seconds}s` : seconds < 3600 ? `${seconds / 60}m` : `${seconds / 3600}h`;
-  if (state.status !== "ready") return <Text as="p" variant="bodySmall" tone="secondary">{t(`benchmark.${state.status}`)}</Text>;
+  if (state.status !== "ready") return <><PowerReadingControls /><Text as="p" variant="bodySmall" tone="secondary">{t(`benchmark.${state.status}`)}</Text></>;
   const benchmark = personalBenchmark(metrics, state.pdc);
-  if (benchmark.reason !== "ready") return <Text as="p" variant="bodySmall" tone="secondary">{t(`benchmark.${benchmark.reason}`)}</Text>;
+  if (benchmark.reason !== "ready") return <><PowerReadingControls /><Text as="p" variant="bodySmall" tone="secondary">{t(`benchmark.${benchmark.reason}`)}</Text></>;
   const { points, asOf } = benchmark;
   const selected = points.find(point => point.seconds === selectedDuration) ?? points[0]!;
   const gap = Math.round(selected.watts - selected.referenceWatts);
   const fraction = selected.watts / selected.referenceWatts * 100;
   return <div className="activity-benchmark-reading space-y-3">
+    <PowerReadingControls><label className="activity-benchmark-duration" htmlFor={id}><Text variant="bodySmall" tone="secondary">{t("benchmark.duration")}</Text><Select id={id} value={selected.seconds} onChange={event => setSelectedDuration(Number(event.target.value))}>{points.map(point => <option key={point.key} value={point.seconds}>{duration(point.seconds)}</option>)}</Select></label></PowerReadingControls>
     <Text as="p" variant="bodySmall" tone="secondary">{t("benchmark.scope", { date: new Date(asOf).toLocaleDateString(i18n.language) })}</Text>
     <ChartFrame variant="embedded">
       <DurationCurveChart points={points.map(point => ({ durationSeconds: point.seconds, value: point.watts }))}
@@ -44,7 +46,7 @@ function BenchmarkReading({ metrics, state }: { metrics: MetricsLike | null; sta
         showLegend xScale="log" unitAxisTitle heightClassName="h-48 sm:h-56" ariaLabel={t("benchmark.chart")}
         emptyTitle={t("benchmark.missing")} emptyDescription={t("benchmark.curveNote")}
         onPointSelect={index => setSelectedDuration(points[index]!.seconds)} />
-      <label className="activity-benchmark-duration" htmlFor={id}><Text variant="bodySmall" tone="secondary">{t("benchmark.duration")}</Text><Select id={id} value={selected.seconds} onChange={event => setSelectedDuration(Number(event.target.value))}>{points.map(point => <option key={point.key} value={point.seconds}>{duration(point.seconds)}</option>)}</Select></label>
+
       <div className="activity-benchmark-values"><Stat compact label={t("benchmark.current")} value={selected.watts.toFixed(0)} unit="W" /><Stat compact label={t("benchmark.reference")} value={selected.referenceWatts.toFixed(0)} unit="W" /></div>
       <Text as="p" variant="bodySmall" tone="secondary">{t(`analysisReading.comparison${gap < 0 ? "Lower" : gap > 0 ? "Higher" : "Equal"}`, { duration: duration(selected.seconds), gap: Math.abs(gap), fraction: fraction.toFixed(1) })}</Text>
       <LocalizedLink className="activity-benchmark-source" to={`/activity/${encodeURIComponent(selected.activityId)}`}>{t("benchmark.source", { date: selected.date })}</LocalizedLink>
