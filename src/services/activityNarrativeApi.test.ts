@@ -51,7 +51,6 @@ let {
   claimActivityNarrativeAppCheckThrottleRecovery,
   generateActivityNarrative,
   peekActivityNarrative,
-  retryActivitySocialSummary,
 } = await import("./activityNarrativeApi");
 
 const narrative = {
@@ -81,13 +80,6 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("activityNarrativeApi", () => {
-  it("requests only the share summary in read-only mode", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ socialSummary: { narrative: "recovered" } }));
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(retryActivitySocialSummary("ride", "ko")).resolves.toEqual({ socialSummary: { narrative: "recovered" } });
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ activityId: "ride", lang: "ko", cacheOnly: true, socialSummaryOnly: true });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
@@ -102,7 +94,6 @@ describe("activityNarrativeApi", () => {
       claimActivityNarrativeAppCheckThrottleRecovery,
       generateActivityNarrative,
       peekActivityNarrative,
-      retryActivitySocialSummary,
     } = await import("./activityNarrativeApi"));
     vi.restoreAllMocks();
     mocks.auth.currentUser = { getIdToken: vi.fn().mockResolvedValue("id-token") };
@@ -581,7 +572,7 @@ describe("activityNarrativeApi", () => {
     expect(mocks.callable).toHaveBeenCalledTimes(1);
   });
 
-  it("동시 peek은 공유하되 활동·언어·요약·인증별 요청은 분리한다", async () => {
+  it("동시 peek은 공유하되 활동·언어·인증별 요청은 분리한다", async () => {
     const fetchMock = vi.fn().mockImplementation(() => new Promise(() => {}));
     vi.stubGlobal("fetch", fetchMock);
     const request = { activityId: "same", lang: "ko", cacheOnly: true } as const;
@@ -592,18 +583,17 @@ describe("activityNarrativeApi", () => {
     const duplicate = peekActivityNarrative(request);
     const english = peekActivityNarrative({ ...request, lang: "en" });
     const other = peekActivityNarrative({ ...request, activityId: "other" });
-    const social = retryActivitySocialSummary("same", "ko");
-    await vi.waitFor(() => expect(mocks.auth.currentUser!.getIdToken).toHaveBeenCalledTimes(4));
+    await vi.waitFor(() => expect(mocks.auth.currentUser!.getIdToken).toHaveBeenCalledTimes(3));
     mocks.auth.currentUser = { getIdToken: vi.fn().mockResolvedValue("other-user-token") };
     fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ hit: false })));
     const secondUser = peekActivityNarrative(request);
     releaseToken!("first-user-token");
-    await Promise.all([first, duplicate, english, other, social, secondUser]);
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    await Promise.all([first, duplicate, english, other, secondUser]);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls.filter(([, init]) => init.headers.Authorization === "Bearer other-user-token")).toHaveLength(1);
     // 완료된 요청은 다음 열람에 공유하지 않는다.
     await peekActivityNarrative(request);
-    expect(fetchMock).toHaveBeenCalledTimes(6);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
   it.each([401, 403, 429, 500])("peek HTTP %s는 재시도나 callable로 우회하지 않는다", async (status) => {

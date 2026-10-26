@@ -60,33 +60,7 @@ export interface Prescription {
   detail: string;
 }
 
-export interface FitnessImpactValues { ctl: number; atl: number; tsb: number }
-
-export interface ActivitySocialSummary {
-  narrative: string;
-  achievements: Array<{ id: string; text: string }>;
-  fitnessImpact?: {
-    status: "available";
-    discipline: "bike" | "run" | "swim";
-    asOf: number;
-    timezone: "UTC";
-    before: FitnessImpactValues;
-    after: FitnessImpactValues;
-    delta: FitnessImpactValues;
-  } | {
-    status: "pending";
-    discipline: "bike" | "run" | "swim";
-    asOf: number;
-    timezone: "UTC";
-    before: FitnessImpactValues;
-  } | { status: "unavailable"; reason: string };
-  shareText: string;
-}
-
 export interface ActivityNarrative {
-  socialSummary?: ActivitySocialSummary;
-  /** 짧은 공유 문구 생성에 실패한 새 분석은 null. 구버전 캐시는 미포함. */
-  shareSummary?: string | null;
   narrativeVersion: string;
   generatedAt: number;
   isVirtualPower: boolean;

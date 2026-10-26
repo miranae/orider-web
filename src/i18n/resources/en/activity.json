@@ -539,8 +539,6 @@
     "checking": "Checking…",
     "startBtn": "Analyze",
     "refreshDetailBtn": "Reload details",
-    "regenerateShareSummaryBtn": "Reanalyze to generate share text",
-    "regenerateShareSummaryHint": "The short share text could not be generated. Reanalyze to generate it again.",
     "refreshAnalysisBtn": "Reanalyze with latest data",
     "loginBtn": "Log in",
     "waitHint": "Awaiting analysis — press the button to start AI segment analysis.",
@@ -1674,29 +1672,6 @@
     "phaseProvisional": "This is the interim summary publishing stage. The detailed summary is still being prepared.",
     "resultTarget": "Requested target · Strava activity {{id}}",
     "statusTitle": "Publishing status"
-  },
-  "socialSummary": {
-    "retry": "Reload share summary",
-    "retrying": "Loading share summary…",
-    "retryHint": "Your coaching stays available. Reload just the share summary.",
-    "retryError": "Could not load the share summary. Please try again.",
-    "title": "Share summary",
-    "sports": {
-      "bike": "Cycling",
-      "run": "Running",
-      "swim": "Swimming"
-    },
-    "settled": "Previous day close → activity day close",
-    "pendingTitle": "Previous day close",
-    "ctl": "CTL · Fitness",
-    "atl": "ATL · Fatigue",
-    "tsb": "TSB · Form",
-    "dailyBasis": "These are daily totals for the same sport. The activity day includes every activity on that day.",
-    "pendingBasis": "The same-sport activity day value appears after the day closes.",
-    "private": "Fitness values are not shared because of this activity's privacy settings.",
-    "copy": "Copy share text",
-    "copied": "Share text copied.",
-    "error": "Could not copy. Please try again."
   },
   "growth": {
     "title": "Activity changes and statistics",
