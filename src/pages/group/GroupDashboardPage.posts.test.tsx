@@ -29,7 +29,7 @@ vi.mock("../../hooks/useGroupPosts", () => ({
   createGroupPost: vi.fn(), updateGroupPost: vi.fn(),
 }));
 vi.mock("../../services/publicClubs", () => ({
-  getPublicClub: vi.fn(async () => ({ id: "group-1", name: "Public club preview", approval: "auto", sports: ["bike"] })),
+  getPublicClubPage: vi.fn(async () => ({ club: { id: "group-1", name: "Public club preview", approval: "auto", sports: ["bike"] }, schedule: null })),
   PublicClubUnavailable: class extends Error {},
 }));
 vi.mock("../../components/group/GroupSubNav", () => ({ default: () => null }));
