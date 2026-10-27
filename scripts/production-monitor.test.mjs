@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { classify, delayUntil, successfulDeploy, isFeedApiUrl, isAppCheckUrl } from './production-monitor-lib.mjs';
+import { classify, delayUntil, successfulDeploy, isFeedApiUrl, isAppCheckUrl, isCompletedListenerCancellation } from './production-monitor-lib.mjs';
 const healthy = { httpStatus: 200, rootVisible: true, cards: 3, cardContentVisible: true };
 test('rendered shell and HTTP 200 do not prove a feed', () => {
   assert.equal(classify({ ...healthy, cards: 0 }), 'feed_timeout');
@@ -48,4 +48,13 @@ test('App Check diagnostics do not conceal or fabricate the observed feed state'
   assert.equal(classify({ ...healthy, dependencyErrors: ['App Check 403'] }), 'healthy_cards');
   assert.equal(classify({ ...healthy, cards: 0, dependencyErrors: ['App Check 403'] }), 'feed_timeout');
   assert.equal(classify({ ...healthy, apiErrors: ['feed 403'], dependencyErrors: ['App Check 403'] }), 'api_error');
+});
+
+test('completed Firestore listener cancellation is distinct from an API transport failure', () => {
+  const url = 'https://firestore.googleapis.com/google.firestore.v1.Firestore/Listen/channel';
+  assert.equal(isCompletedListenerCancellation(url, 'net::ERR_ABORTED'), true);
+  assert.equal(isCompletedListenerCancellation(url, 'net::ERR_FAILED'), false);
+  assert.equal(isCompletedListenerCancellation('https://region-project.cloudfunctions.net/getActivityDiscovery', 'net::ERR_ABORTED'), false);
+  assert.equal(isCompletedListenerCancellation(url.replace('googleapis.com', 'googleapis.com.evil.test'), 'net::ERR_ABORTED'), false);
+  assert.equal(classify({ ...healthy, cards: 0 }), 'feed_timeout');
 });

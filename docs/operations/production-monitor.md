@@ -140,3 +140,8 @@ therefore start late. Checkout goes into a unique monitor-only subdirectory and
 does not clean or replace the backend deployment checkout. A monitor job can
 occupy that runner slot for setup, the remaining deadline wait and browser checks.
 The public hourly/web caller retains ubuntu-latest. No paid capacity is enabled.
+
+Firestore Listen `net::ERR_ABORTED` lifecycle cancellations remain in network
+evidence without becoming API errors. Real transport/HTTP failures still fail.
+A cancelled initial load cannot pass without real populated cards or a verified
+empty contract. Context cleanup occurs after the observation is frozen.

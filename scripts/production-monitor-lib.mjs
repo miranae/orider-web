@@ -34,3 +34,11 @@ export function isAppCheckUrl(value) {
   try { return ['firebaseappcheck.googleapis.com', 'content-firebaseappcheck.googleapis.com'].includes(new URL(value).hostname); }
   catch { return false; }
 }
+
+export function isCompletedListenerCancellation(value, failure) {
+  try {
+    const url = new URL(value);
+    return failure === 'net::ERR_ABORTED' && url.hostname === 'firestore.googleapis.com'
+      && url.pathname === '/google.firestore.v1.Firestore/Listen/channel';
+  } catch { return false; }
+}
