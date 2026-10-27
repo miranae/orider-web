@@ -47,7 +47,7 @@ function successfulFetch(overrides = {}) {
   };
 }
 
-test("manifest pins the eight deployed backend callable names", () => {
+test("manifest pins the backend callables required by the released web, including discovery", () => {
   assert.deepEqual(manifest.callables.map(({ name }) => name), [
     "setActivityKudos",
     "postActivityComment",
@@ -57,6 +57,7 @@ test("manifest pins the eight deployed backend callable names", () => {
     "setActivityHidden",
     "reportActivitySocialContent",
     "getActivitySocialFeed",
+    "getActivityDiscovery",
   ]);
 });
 
@@ -64,8 +65,28 @@ test("GEN_2 ACTIVE resources with callable auth rejection pass", async () => {
   const results = await verifySocialCallableContract({
     project, region, accessToken, manifest, fetchImpl: successfulFetch(),
   });
-  assert.equal(results.length, 8);
+  assert.equal(results.length, 9);
   assert.ok(results.every(({ state, endpoint }) => state === "ACTIVE" && endpoint === "unauthenticated"));
+});
+
+test("deployment fails when existing social functions are healthy but discovery is not deployed", async () => {
+  await assert.rejects(() => verifySocialCallableContract({
+    project, region, accessToken, manifest,
+    fetchImpl: successfulFetch({ resource: (name) => name === "getActivityDiscovery"
+      ? jsonResponse({}, 404) : jsonResponse(activeResource(name)) }),
+  }), /getActivityDiscovery: function resource is missing/);
+});
+
+test("a stale manifest cannot omit the feed dependency", () => {
+  assert.throws(() => validateSocialCallableConfig({
+    project, region, accessToken,
+    manifest: { ...manifest, callables: manifest.callables.slice(0, 8) },
+  }), /exactly 9 entries/);
+  assert.throws(() => validateSocialCallableConfig({
+    project, region, accessToken,
+    manifest: { ...manifest, callables: manifest.callables.map(entry => entry.name === "getActivityDiscovery"
+      ? { ...entry, name: "unrelatedCallable" } : entry) },
+  }), /must include getActivityDiscovery/);
 });
 
 test("missing, non-Gen2, inactive, and endpoint 404 states fail distinctly", async (t) => {

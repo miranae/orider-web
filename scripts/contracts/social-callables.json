@@ -8,6 +8,7 @@
     { "name": "setActivitySocialBlock", "capability": "blockActivityUser" },
     { "name": "setActivityHidden", "capability": "hideActivity" },
     { "name": "reportActivitySocialContent", "capability": "reportContent" },
-    { "name": "getActivitySocialFeed", "capability": "getFeed" }
+    { "name": "getActivitySocialFeed", "capability": "getFeed" },
+    { "name": "getActivityDiscovery", "capability": "discoverActivities" }
   ]
 }
