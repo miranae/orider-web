@@ -21,3 +21,11 @@ export function successfulDeploy(run, jobs, repo) {
   delayUntil(job.completed_at);
   return job.completed_at;
 }
+
+export function isFeedApiUrl(value) {
+  try {
+    const host = new URL(value).hostname;
+    return ['firestore.googleapis.com', 'firebaseappcheck.googleapis.com', 'content-firebaseappcheck.googleapis.com'].includes(host)
+      || host.endsWith('.cloudfunctions.net');
+  } catch { return false; }
+}

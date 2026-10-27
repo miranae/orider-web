@@ -3,7 +3,7 @@ import { mkdir, writeFile, rename } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { classify } from './production-monitor-lib.mjs';
+import { classify, isFeedApiUrl } from './production-monitor-lib.mjs';
 const base = process.env.PROD_SMOKE_BASE_URL || 'https://orider.co.kr';
 const out = resolve(process.env.MONITOR_RESULT_DIR || 'production-monitor-results');
 const startedAt = new Date().toISOString();
@@ -34,11 +34,11 @@ try {
     result.checks.push(check);
     const pending = [];
     page.on('pageerror', error => check.pageErrors.push({ category: category(error.message), digest: createHash('sha256').update(error.message).digest('hex') }));
-    page.on('console', msg => { if (msg.type() === 'error') { const kind = category(msg.text()); check.console.push({ type: 'error', category: kind, source: safeUrl(msg.location().url), codes: msg.text().match(/(?:appCheck\/[a-z-]+|(?:permission-denied|unauthenticated|unavailable|network-request-failed|recaptcha-error|fetch-status-error)|\b[45]\d{2}\b)/gi) || [], digest: createHash('sha256').update(msg.text()).digest('hex') }); if (kind === 'chunk') check.chunkErrors.push('console chunk failure'); if (kind === 'api' && (msg.location().url.startsWith(new URL(base).origin + '/') || /firestore\.googleapis\.com|cloudfunctions\.net|firebaseappcheck\.googleapis\.com/.test(msg.location().url))) check.apiErrors.push('console API failure'); } });
-    page.on('requestfailed', req => { const item = { url: safeUrl(req.url()), failure: req.failure()?.errorText, type: req.resourceType() }; check.network.push(item); if (req.resourceType() === 'script') check.chunkErrors.push(item); if (/firestore.googleapis.com|cloudfunctions.net|firebaseappcheck.googleapis.com/.test(req.url())) check.apiErrors.push(item); });
+    page.on('console', msg => { if (msg.type() === 'error') { const kind = category(msg.text()); check.console.push({ type: 'error', category: kind, source: safeUrl(msg.location().url), codes: msg.text().match(/(?:appCheck\/[a-z-]+|(?:permission-denied|unauthenticated|unavailable|network-request-failed|recaptcha-error|fetch-status-error)|\b[45]\d{2}\b)/gi) || [], digest: createHash('sha256').update(msg.text()).digest('hex') }); if (kind === 'chunk') check.chunkErrors.push('console chunk failure'); if (kind === 'api' && (msg.location().url.startsWith(new URL(base).origin + '/') || isFeedApiUrl(msg.location().url))) check.apiErrors.push('console API failure'); } });
+    page.on('requestfailed', req => { const item = { url: safeUrl(req.url()), failure: req.failure()?.errorText, type: req.resourceType() }; check.network.push(item); if (req.resourceType() === 'script') check.chunkErrors.push(item); if (isFeedApiUrl(req.url())) check.apiErrors.push(item); });
     page.on('response', response => {
       const url = response.url();
-      const api = /firestore.googleapis.com|cloudfunctions.net|firebaseappcheck.googleapis.com/.test(url);
+      const api = isFeedApiUrl(url);
       const script = response.request().resourceType() === 'script';
       if (api || script || response.status() >= 400) check.network.push({ url: safeUrl(url), status: response.status(), type: response.request().resourceType() });
       if (api && response.status() >= 400) check.apiErrors.push({ url: safeUrl(url), status: response.status() });
@@ -52,7 +52,7 @@ try {
     });
     try {
       if (result.simulation === 'chunk') await page.route('**/*.js', route => route.abort('failed'));
-      if (result.simulation === 'api') await page.route(/firestore.googleapis.com|cloudfunctions.net|firebaseappcheck.googleapis.com/, route => route.abort('failed'));
+      if (result.simulation === 'api') await page.route(url => isFeedApiUrl(url.href), route => route.abort('failed'));
       const html = await context.request.get(`${base}/${locale}/?monitor=${runId}`, { headers: { 'Cache-Control': 'no-cache' } });
       const entry = (await html.text()).match(/(?:src=["']\/?)(assets\/index-[^"']+\.js)/)?.[1];
       if (entry) { const asset = await context.request.get(`${base}/${entry}`); if (!asset.ok()) check.chunkErrors.push('live entry HTTP failure'); result.live.push({ locale, entry, status: asset.status(), sha256: createHash('sha256').update(await asset.body()).digest('hex'), observedAt: new Date().toISOString() }); }
