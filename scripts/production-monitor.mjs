@@ -3,7 +3,7 @@ import { mkdir, writeFile, rename } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { classify, isFeedApiUrl, isAppCheckUrl } from './production-monitor-lib.mjs';
+import { classify, isFeedApiUrl, isAppCheckUrl, isCompletedListenerCancellation } from './production-monitor-lib.mjs';
 const base = process.env.PROD_SMOKE_BASE_URL || 'https://orider.co.kr';
 const out = resolve(process.env.MONITOR_RESULT_DIR || 'production-monitor-results');
 const startedAt = new Date().toISOString();
@@ -33,10 +33,12 @@ try {
     const check = { locale, at: new Date().toISOString(), httpStatus: null, rootVisible: false, cards: 0, cardContentVisible: false, emptyVisible: false, verifiedEmpty: false, pageErrors: [], apiErrors: [], dependencyErrors: [], chunkErrors: [], console: [], network: [], feedAlert: false };
     result.checks.push(check);
     const pending = [];
-    page.on('pageerror', error => check.pageErrors.push({ category: category(error.message), digest: createHash('sha256').update(error.message).digest('hex') }));
-    page.on('console', msg => { if (msg.type() === 'error') { const kind = category(msg.text()); check.console.push({ type: 'error', category: kind, source: safeUrl(msg.location().url), codes: msg.text().match(/(?:appCheck\/[a-z-]+|(?:permission-denied|unauthenticated|unavailable|network-request-failed|recaptcha-error|fetch-status-error)|\b[45]\d{2}\b)/gi) || [], digest: createHash('sha256').update(msg.text()).digest('hex') }); if (kind === 'chunk') check.chunkErrors.push('console chunk failure'); if (kind === 'api' && (isAppCheckUrl(msg.location().url) || /appcheck|recaptcha/i.test(msg.text()))) check.dependencyErrors.push('App Check console diagnostic'); else if (kind === 'api' && (msg.location().url.startsWith(new URL(base).origin + '/') || isFeedApiUrl(msg.location().url))) check.apiErrors.push('console API failure'); } });
-    page.on('requestfailed', req => { const item = { url: safeUrl(req.url()), failure: req.failure()?.errorText, type: req.resourceType() }; check.network.push(item); if (req.resourceType() === 'script') check.chunkErrors.push(item); if (isFeedApiUrl(req.url())) check.apiErrors.push(item); if (isAppCheckUrl(req.url())) check.dependencyErrors.push(item); });
+    let collecting = true;
+    page.on('pageerror', error => { if (collecting) check.pageErrors.push({ category: category(error.message), digest: createHash('sha256').update(error.message).digest('hex') }); });
+    page.on('console', msg => { if (!collecting) return; if (msg.type() === 'error') { const kind = category(msg.text()); check.console.push({ type: 'error', category: kind, source: safeUrl(msg.location().url), codes: msg.text().match(/(?:appCheck\/[a-z-]+|(?:permission-denied|unauthenticated|unavailable|network-request-failed|recaptcha-error|fetch-status-error)|\b[45]\d{2}\b)/gi) || [], digest: createHash('sha256').update(msg.text()).digest('hex') }); if (kind === 'chunk') check.chunkErrors.push('console chunk failure'); if (kind === 'api' && (isAppCheckUrl(msg.location().url) || /appcheck|recaptcha/i.test(msg.text()))) check.dependencyErrors.push('App Check console diagnostic'); else if (kind === 'api' && (msg.location().url.startsWith(new URL(base).origin + '/') || isFeedApiUrl(msg.location().url))) check.apiErrors.push('console API failure'); } });
+    page.on('requestfailed', req => { if (!collecting) return; const item = { url: safeUrl(req.url()), failure: req.failure()?.errorText, type: req.resourceType() }; if (isCompletedListenerCancellation(req.url(), item.failure)) { check.network.push({ ...item, classification: 'listener_lifecycle_cancellation' }); return; } check.network.push(item); if (req.resourceType() === 'script') check.chunkErrors.push(item); if (isFeedApiUrl(req.url())) check.apiErrors.push(item); if (isAppCheckUrl(req.url())) check.dependencyErrors.push(item); });
     page.on('response', response => {
+      if (!collecting) return;
       const url = response.url();
       const api = isFeedApiUrl(url);
       const appCheck = isAppCheckUrl(url);
@@ -73,6 +75,7 @@ try {
       check.feedAlert = await page.locator('[role="alert"]').filter({ hasText: /활동|불러|Could not load|activities/i }).count() > 0;
       await Promise.allSettled(pending);
     } catch (error) { check.pageErrors.push({ category: 'navigation', message: error.name }); }
+    collecting = false; // Closing this isolated context must not change the completed observation.
     check.state = classify(check);
     // Mask rider cards before evidence capture. No private account is used.
     if (!check.state.startsWith('healthy')) await page.screenshot({ path: join(dir, `${locale}.png`), mask: [page.locator('.mobile-activity-card, .activity-card, article')], timeout: 10000 }).catch(() => {});
