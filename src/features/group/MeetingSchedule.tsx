@@ -9,21 +9,40 @@ const copy = {
   ko: { title: "네이버 카페 라이딩 일정", list: "목록", calendar: "달력", view: "일정 보기 방식", today: "오늘", previous: "이전 달", next: "다음 달", monthAll: "이달 전체", empty: "표시할 모임이 없어요.", timezone: "한국 시간 (KST)", partial: "최근 게시글 50개씩 확인한 일정입니다. 더 오래된 글은 카페에서 확인하세요.", status: { open: "모집 중", waitlist: "대기 접수", closed: "모집 마감", cancelled: "모임 취소", finished: "종료", live: "진행 중", departed: "출발 시각 지남" } },
   en: { title: "Naver cafe rides", list: "List", calendar: "Calendar", view: "Schedule view", today: "Today", previous: "Previous month", next: "Next month", monthAll: "Whole month", empty: "No meetings to show.", timezone: "Korea time (KST)", partial: "Schedules from the latest 50 posts per board. Check the cafe for older posts.", status: { open: "Open", waitlist: "Waitlist", closed: "Closed", cancelled: "Cancelled", finished: "Finished", live: "Live", departed: "Departure time passed" } },
 };
+type RideStyle = "dawn" | "spontaneous" | "tour" | "regular" | "race" | "commute" | "other";
+const styles: RideStyle[] = ["dawn", "spontaneous", "tour", "regular", "race", "commute", "other"];
+const styleLabels: Record<RideStyle, { ko: string; en: string }> = {
+  dawn: { ko: "새벽", en: "Dawn" }, spontaneous: { ko: "번개", en: "Spontaneous" },
+  tour: { ko: "투어", en: "Tour" }, regular: { ko: "정기", en: "Regular" },
+  race: { ko: "대회", en: "Race" }, commute: { ko: "출퇴근", en: "Commute" },
+  other: { ko: "기타", en: "Other" },
+};
+const styleIcons: Record<RideStyle, string> = { dawn: "🌅", spontaneous: "⚡", tour: "🗺️", regular: "🚴", race: "🏁", commute: "🏙️", other: "📍" };
+const styleColors: Record<RideStyle, "default" | "accent" | "success" | "warning"> = {
+  dawn: "warning", spontaneous: "accent", tour: "success", regular: "accent", race: "default", commute: "default", other: "default",
+};
+const boardStyles: Record<number, RideStyle> = { 38: "dawn", 4: "spontaneous", 10: "tour", 5: "regular", 40: "race" };
+function rideStyle(item: CafeScheduleEntry): RideStyle {
+  if (/출퇴근|출근|퇴근|자출/.test(item.title)) return "commute";
+  return boardStyles[item.boardId] ?? "other";
+}
 interface Props { schedule: ClubCafeSchedule; language: string }
 export default function MeetingSchedule({ schedule, language }: Props) {
   const c = copy[language.startsWith("en") ? "en" : "ko"];
   const locale = language.startsWith("en") ? "en-US" : "ko-KR";
   const today = meetingToday();
+  const korean = !language.startsWith("en");
+  const [style, setStyle] = useState<RideStyle | "all">("all");
   const [view, setView] = useState<"list" | "calendar">("list");
   const [month, setMonth] = useState(today.slice(0, 7));
   const [selected, setSelected] = useState<string | null>(null);
-  const grouped = groupCafeDates(schedule.entries);
+  const grouped = groupCafeDates(schedule.entries.filter(item => style === "all" || rideStyle(item) === style));
   const byDate = new Map(grouped);
   const dateLabel = (date: string, options: Intl.DateTimeFormatOptions) => new Date(`${date}T00:00:00+09:00`).toLocaleDateString(locale, { ...options, timeZone: "Asia/Seoul" });
   const visible = view === "list" ? grouped.filter(([date]) => date >= today) : grouped.filter(([date]) => selected ? date === selected : date.startsWith(month));
   const move = (offset: number) => { setMonth(shiftMonth(month, offset)); setSelected(null); };
   const meetingCard = (item: CafeScheduleEntry) => <Card key={item.id} padding="compact">
-    <div className="club-schedule__card-heading"><Text as="span" variant="label">{item.boardName}</Text>{(item.closed || item.cancelled) && <Chip variant={item.cancelled ? "danger" : "default"}>{item.cancelled ? c.status.cancelled : c.status.closed}</Chip>}</div>
+    <div className="club-schedule__card-heading"><div className="club-schedule__category"><Chip variant={styleColors[rideStyle(item)]} icon={<span aria-hidden="true">{styleIcons[rideStyle(item)]}</span>}>{rideStyle(item) === "commute" ? styleLabels.commute[korean ? "ko" : "en"] : item.boardName}</Chip>{rideStyle(item) === "commute" && <Text as="span" variant="caption" tone="secondary">{item.boardName}</Text>}</div>{(item.closed || item.cancelled) && <Chip variant={item.cancelled ? "danger" : "default"}>{item.cancelled ? c.status.cancelled : c.status.closed}</Chip>}</div>
     <a className="club-schedule__title" href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
     <Text as="p" variant="caption" tone="secondary">{item.author} · {language.startsWith("en") ? `Comments ${item.commentCount ?? "–"}` : `댓글 ${item.commentCount ?? "–"}`}</Text>
   </Card>;
@@ -36,6 +55,10 @@ export default function MeetingSchedule({ schedule, language }: Props) {
     </header>
     <Text as="p" variant="bodySmall" tone="secondary">{language.startsWith("en") ? "View details and sign up in the cafe." : "상세 안내와 참가 신청은 카페 원문에서 확인하세요."} <a href={schedule.cafeUrl} target="_blank" rel="noopener noreferrer">{language.startsWith("en") ? "Open cafe" : "카페 바로가기"}</a></Text>
     <Text as="p" variant="caption" tone="secondary">{language.startsWith("en") ? "Last synced" : "최근 동기화"} · {new Date(schedule.syncedAt).toLocaleString(locale, {timeZone: "Asia/Seoul"})}{Date.now() - schedule.syncedAt > 90 * 60 * 1000 ? (language.startsWith("en") ? " · Update delayed" : " · 업데이트 지연") : ""}</Text>
+    <ToggleControls className="club-schedule__filters" aria-label={korean ? "라이딩 스타일 필터" : "Ride style filter"}>
+      <ToggleButton selected={style === "all"} onClick={() => setStyle("all")}>{korean ? "전체" : "All"}</ToggleButton>
+      {styles.filter(value => value !== "other" || schedule.entries.some(item => rideStyle(item) === value)).map(value => <ToggleButton key={value} selected={style === value} onClick={() => setStyle(value)}><span aria-hidden="true">{styleIcons[value]} </span>{styleLabels[value][korean ? "ko" : "en"]}</ToggleButton>)}
+    </ToggleControls>
     {schedule.truncated && <Text as="p" variant="bodySmall" tone="secondary" role="status">{c.partial}</Text>}
     {view === "calendar" && <>
       <div className="club-schedule__heading"><Text as="h3" variant="subtitle" aria-live="polite">{dateLabel(`${month}-01`, { year: "numeric", month: "long" })}</Text><div className="club-schedule__navigation">
@@ -49,7 +72,7 @@ export default function MeetingSchedule({ schedule, language }: Props) {
           const dayMeetings = date ? byDate.get(date) ?? [] : [];
           return <div key={date ?? `blank-${index}`} className="club-schedule__day" data-today={date === today || undefined} data-selected={date === selected || undefined}>
             {date && <><Button variant={date === selected ? "primary" : "ghost"} size="sm" block aria-label={`${dateLabel(date, { month: "long", day: "numeric", weekday: "long" })}${dayMeetings.length ? ` · ${dayMeetings.length}${language.startsWith("en") ? " rides" : "개 일정"}` : ""}`} aria-pressed={date === selected} aria-current={date === today ? "date" : undefined} onClick={() => setSelected(date)}>{Number(date.slice(-2))}</Button>
-              {dayMeetings.length > 0 && <><span className="club-schedule__count">{dayMeetings.length}</span><div className="club-schedule__previews">{dayMeetings.slice(0, 2).map(item => <a key={item.id} href={item.url} target="_blank" rel="noopener noreferrer" title={item.title}>{item.title}</a>)}{dayMeetings.length > 2 && <Text as="span" variant="caption">+{dayMeetings.length - 2}</Text>}</div></>}
+              {dayMeetings.length > 0 && <><span className="club-schedule__count">{dayMeetings.length}</span><div className="club-schedule__previews">{dayMeetings.slice(0, 2).map(item => <a key={item.id} href={item.url} target="_blank" rel="noopener noreferrer" title={item.title}><span aria-hidden="true">{styleIcons[rideStyle(item)]} </span>{item.title}</a>)}{dayMeetings.length > 2 && <Text as="span" variant="caption">+{dayMeetings.length - 2}</Text>}</div></>}
             </>}
           </div>;
         })}
