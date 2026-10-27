@@ -1,9 +1,9 @@
 import { chromium } from 'playwright';
-import { mkdir, writeFile, rename } from 'node:fs/promises';
+import { mkdir, writeFile, rename, readFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { classify, isFeedApiUrl, isAppCheckUrl, isCompletedListenerCancellation } from './production-monitor-lib.mjs';
+import { classify, isFeedApiUrl, isAppCheckUrl, isCompletedListenerCancellation, assertDeploymentCheckpoint } from './production-monitor-lib.mjs';
 const base = process.env.PROD_SMOKE_BASE_URL || 'https://orider.co.kr';
 const out = resolve(process.env.MONITOR_RESULT_DIR || 'production-monitor-results');
 const startedAt = new Date().toISOString();
@@ -26,6 +26,9 @@ const safeUrl = value => { try { const u = new URL(value); return `${u.origin}${
 const category = text => /chunk|dynamically imported|module script/i.test(text) ? 'chunk' : /firestore|firebase|permission|unavailable|fetch|network|activity/i.test(text) ? 'api' : 'other';
 let browser;
 try {
+  if (process.env.MONITOR_SOURCE_EVIDENCE) {
+    result.deploymentSource = assertDeploymentCheckpoint(JSON.parse(await readFile(process.env.MONITOR_SOURCE_EVIDENCE, 'utf8')));
+  }
   browser = await chromium.launch({ headless: true, ...(process.env.MONITOR_CHROMIUM_PATH ? { executablePath: process.env.MONITOR_CHROMIUM_PATH } : {}) });
   for (const locale of ['ko', 'en']) {
     const context = await browser.newContext({ viewport: { width: 393, height: 851 }, locale, serviceWorkers: 'block' });

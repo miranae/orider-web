@@ -11,6 +11,15 @@ on:
       source_run:
         type: string
         default: ''
+      source_attempt:
+        type: string
+        default: ''
+      source_sha:
+        type: string
+        default: ''
+      source_conclusion:
+        type: string
+        default: ''
 permissions:
   contents: read
   actions: read
@@ -34,21 +43,28 @@ jobs:
           package-manager-cache: false
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
-      - name: Verify real deploy success and wait until success plus five minutes
+      - name: Resolve exact deployment attempt and wait until completion plus five minutes
+        id: source
         if: inputs.source_run != ''
         env:
           GH_TOKEN: ${{ github.token }}
           MONITOR_SOURCE_REPO: ${{ inputs.source_repo }}
           MONITOR_SOURCE_RUN: ${{ inputs.source_run }}
+          MONITOR_SOURCE_ATTEMPT: ${{ inputs.source_attempt }}
+          MONITOR_SOURCE_SHA: ${{ inputs.source_sha }}
+          MONITOR_SOURCE_CONCLUSION: ${{ inputs.source_conclusion }}
         shell: bash
         run: |
           set -euo pipefail
           node scripts/production-monitor-source.mjs | tee source-deployment.json
       - name: Read anonymous Korean and English live feeds
+        if: inputs.source_run == '' || steps.source.outputs.should_check == 'true'
         env:
-          MONITOR_TRIGGER: ${{ inputs.source_run != '' && 'production-deploy-plus-five-minutes' || github.event_name }}
+          MONITOR_SOURCE_EVIDENCE: ${{ inputs.source_run != '' && 'source-deployment.json' || '' }}
+          MONITOR_TRIGGER: ${{ inputs.source_run != '' && format('production-deploy-{0}-plus-five-minutes', steps.source.outputs.outcome) || github.event_name }}
         run: node scripts/production-monitor.mjs
       - name: Existing mobile viewport smoke
+        if: inputs.source_run == '' || steps.source.outputs.should_check == 'true'
         run: npx playwright test --config playwright.prod.config.ts
       - name: Store result and privacy-safe failure evidence
         if: always()

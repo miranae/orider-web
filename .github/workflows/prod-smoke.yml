@@ -10,12 +10,15 @@ permissions:
   contents: read
   actions: read
 concurrency:
-  group: production-monitor-${{ github.event_name }}-${{ github.event.workflow_run.id || 'periodic' }}
+  group: production-monitor-${{ github.event_name }}-${{ github.event.workflow_run.id || 'periodic' }}-${{ github.event.workflow_run.run_attempt || 'periodic' }}
   cancel-in-progress: false
 jobs:
   smoke:
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name != 'workflow_run' || contains(fromJSON('["success","failure","cancelled","timed_out"]'), github.event.workflow_run.conclusion)
     uses: ./.github/workflows/production-monitor-run.yml
     with:
       source_repo: ${{ github.event_name == 'workflow_run' && github.repository || '' }}
       source_run: ${{ github.event.workflow_run.id && format('{0}', github.event.workflow_run.id) || '' }}
+      source_attempt: ${{ github.event.workflow_run.run_attempt && format('{0}', github.event.workflow_run.run_attempt) || '' }}
+      source_sha: ${{ github.event.workflow_run.head_sha || '' }}
+      source_conclusion: ${{ github.event.workflow_run.conclusion || '' }}

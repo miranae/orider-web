@@ -1,15 +1,21 @@
 import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
 import { setTimeout as wait } from 'node:timers/promises';
-import { delayUntil, successfulDeploy } from './production-monitor-lib.mjs';
-// Only known production deploy workflows and their successful mutation jobs qualify.
+import { delayUntil, sourceAttemptPaths, deploymentObservation } from './production-monitor-lib.mjs';
 const repo = process.env.MONITOR_SOURCE_REPO;
 const id = process.env.MONITOR_SOURCE_RUN;
-if (!/^[\w-]+\/[\w.-]+$/.test(repo || '') || !/^[1-9]\d*$/.test(id || '')) throw Error('invalid source');
+const attempt = process.env.MONITOR_SOURCE_ATTEMPT;
+const expected = { id, attempt, sha: process.env.MONITOR_SOURCE_SHA, conclusion: process.env.MONITOR_SOURCE_CONCLUSION };
+const paths = sourceAttemptPaths(repo, id, attempt);
 const get = path => JSON.parse(execFileSync('gh', ['api', path], { encoding: 'utf8' }));
-const run = get(`/repos/${repo}/actions/runs/${id}`);
-const jobs = get(`/repos/${repo}/actions/runs/${id}/jobs?per_page=100`).jobs;
-const at = successfulDeploy(run, jobs, repo);
-console.log(JSON.stringify({ sourceRepository: repo, sourceRun: id, sourceSha: run.head_sha, successAt: at, dueAt: new Date(Date.parse(at) + 300000).toISOString() }));
-if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `success_at=${at}\n`);
-if (process.env.MONITOR_WAIT !== 'false') while (delayUntil(at) > 0) await wait(Math.min(30000, delayUntil(at)));
+// Never query the run's mutable latest attempt, including while a later rerun is active.
+const run = get(paths.run);
+const jobs = get(paths.jobs).jobs;
+const observation = deploymentObservation(run, jobs, repo, expected);
+const evidence = { sourceRepository: repo, sourceRun: id, sourceAttempt: Number(attempt), ...observation };
+console.log(JSON.stringify(evidence));
+if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,
+  `should_check=${observation.shouldCheck}\noutcome=${observation.outcome}\ncompleted_at=${observation.completedAt || ''}\n`);
+if (observation.shouldCheck && process.env.MONITOR_WAIT !== 'false') {
+  while (delayUntil(observation.completedAt) > 0) await wait(Math.min(30000, delayUntil(observation.completedAt)));
+}

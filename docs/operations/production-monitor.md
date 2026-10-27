@@ -77,22 +77,26 @@ runs are best effort and can be delayed. The schedule becomes active only when
 the workflow is on the default branch and Actions is enabled; a draft/dev merge
 alone is not activation and does not deploy Hosting.
 
-A successful production Hosting workflow triggers the same checker. The reusable
-workflow resolves the **deploy job's** successful `completed_at` through GitHub,
+A terminal production Hosting attempt can trigger the same checker. The reusable
+workflow resolves the exact terminal attempt's **deploy job** `completed_at` through GitHub,
 then waits until that timestamp plus 300 seconds, including setup time already
 elapsed. A late runner starts immediately and its actual observation time remains
-in the result. Only the known production workflow, a successful `v*` push and a
-successful deploy job qualify. A dev merge, stage/rehearsal run, skipped deploy or
-failed run is rejected. No code from the just-deployed commit is executed by
+in the result. Only known production tag/fast-deploy sources qualify. The event run ID,
+run_attempt, SHA and terminal conclusion must match the attempt-specific run and
+job records; latest-attempt endpoints are never used. A dev merge or stage run is
+rejected. A successful attempt with an entered apply step is checked. A failed,
+cancelled or timed-out attempt is also checked if a known production apply, cohort
+transition or retirement step actually started. Pre-apply failures and no-op
+attempts record shouldCheck=false and do not open browsers. Recovery steps which
+can succeed as an unarmed no-op are not standalone proof of apply. No code from the just-deployed commit is executed by
 `workflow_run`; the trusted monitor ref is used.
 
 The reusable workflow checks out an explicit reviewed checker-code SHA; callers
-cannot supply executable refs. Cache creation is disabled. The backend companion workflow listens to successful `Deploy` tag runs and
+cannot supply executable refs. Cache creation is disabled. The backend companion workflow listens to terminal `Deploy` tag attempts and
 `Production backend fast deploy` dispatches. Its immutable public-web workflow
 is pinned to a reviewed workflow commit; its checker-code checkout is separately
-pinned inside that workflow. It verifies the
-actual successful `Build & Deploy to Firebase` or `Execute bounded production plan`
-job and waits from that job's completion. It reads the live site in the same
+pinned inside that workflow. It verifies the exact `Build & Deploy to Firebase` or `Execute bounded production plan`
+attempt and qualifying step, then waits from that job's immutable completion. It reads the live site in the same
 repository job without a cross-repository dispatch credential. These checks can
 include backend changes beyond the home feed; there are no dev-merge triggers.
 Both PRs must be merged/promoted for their automatic triggers to exist. No live
@@ -145,3 +149,25 @@ Firestore Listen `net::ERR_ABORTED` lifecycle cancellations remain in network
 evidence without becoming API errors. Real transport/HTTP failures still fail.
 A cancelled initial load cannot pass without real populated cards or a verified
 empty contract. Context cleanup occurs after the observation is frozen.
+
+## Attempt-bound terminal deployment checks
+
+Callers pass the event's run ID, attempt, SHA and conclusion. The resolver reads
+`/actions/runs/ID/attempts/N` and its `/jobs`, rejects mixed identities or unfinished
+attempts, and freezes the deploy job's `completed_at` plus 300 seconds. A later
+rerun cannot move this checkpoint. The checker validates that proof is due and
+embeds it in `result.json` as `deploymentSource`, alongside the observed live
+bundle. Queue/setup may delay observation; five minutes is a lower bound.
+
+Terminal failure after entering a qualifying production apply/configuration step
+gets the same read-only feed check, even if existing rollback later ran. This does
+not implement or invoke rollback. A healthy feed after a failed source attempt
+means the observed feed is healthy; `sourceConclusion` still records the failed
+deployment. The current `getActivityDiscovery` ACTIVE inventory observation is
+separate from historical absence and does not prove normal data response contract.
+
+A pre-apply failure produces a source-deployment artifact with `shouldCheck=false`
+and no new feed result. The parent must preserve the prior actual observation's
+time instead of treating this skipped inspection as fresh health or a missing
+result infrastructure failure. Other source-resolution/install failures remain
+monitor infrastructure failures. Normal repeated feed checks stay silent.
