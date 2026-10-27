@@ -1,5 +1,4 @@
 import ClubCafeSchedulePanel from "../../features/group/ClubCafeSchedulePanel";
-import PublicClubPreview from "../../components/group/PublicClubPreview";
 import {
   listClubMeetings,
   type ClubMeetingListItem,
@@ -37,7 +36,7 @@ interface ClubEvent {
 export default function GroupEventsPage() {
   const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const {
     role,
     loading: roleLoading,
@@ -76,7 +75,7 @@ export default function GroupEventsPage() {
     setEventNextCursor(null);
     setLoading(true);
     setError(false);
-    if (!groupId || !user || user.isAnonymous || !role) {
+    if (!groupId) {
       setLoading(false);
       return;
     }
@@ -148,7 +147,7 @@ export default function GroupEventsPage() {
     return () => {
       cancelled = true;
     };
-  }, [groupId, accessKey, role, retry, status, eventCursor, user?.isAnonymous]);
+  }, [groupId, accessKey, role, retry, status, eventCursor]);
   useEffect(() => {
     let cancelled = false;
     setMeetings([]);
@@ -203,8 +202,6 @@ export default function GroupEventsPage() {
     }
   };
   const visibleMeetings = loadedMeetingScope === meetingScope ? meetings : [];
-  if (authLoading && !user) return <LoadingSkeleton kind="list" count={3} />;
-  if (!user || user.isAnonymous) return <PublicClubPreview groupId={groupId} />;
   if (groupLoading || roleLoading)
     return <LoadingSkeleton kind="list" count={3} />;
   if (groupError || roleError)
