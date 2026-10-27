@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getPublicCafeSchedule, getPublicClub, listPublicClubs, PublicClubUnavailable } from "./publicClubs";
+import { getPublicCafeSchedule, getPublicClub, getPublicClubPage, listPublicClubs, PublicClubUnavailable } from "./publicClubs";
 const config = vi.hoisted(() => ({ publicClubApiUrl: "https://clubs.example/publicClubs" }));
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => config }));
 const club = { id: "club", name: "Public club", description: "Introduction", approval: "auto", badge: "CL", sports: ["bike"], city: "용인" };
@@ -17,6 +17,35 @@ describe("public club HTTP boundary", () => {
     request.mockResolvedValueOnce(new Response(JSON.stringify({ club, schedule })));
     await expect(getPublicCafeSchedule("club-lara")).rejects.toThrow("Invalid public club identity");
     expect(await getPublicCafeSchedule("other")).toBeNull();
+  });
+  it("loads the LARA introduction and schedule in one request", async () => {
+    request.mockResolvedValueOnce(new Response(JSON.stringify({ club: { ...club, id: "club-lara" }, schedule: null })));
+    expect(await getPublicClubPage("club-lara")).toMatchObject({ club: { id: "club-lara" }, schedule: null });
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0][0].searchParams.get("schedule")).toBe("1");
+  });
+  it("coalesces concurrent readers without letting one cancellation abort another", async () => {
+    let finish!: (response: Response) => void;
+    request.mockReturnValueOnce(new Promise<Response>(resolve => { finish = resolve; }));
+    const controller = new AbortController();
+    const first = getPublicClubPage("club-lara", controller.signal);
+    const rejected = expect(first).rejects.toMatchObject({ name: "AbortError" });
+    const second = getPublicCafeSchedule("club-lara");
+    controller.abort();
+    finish(new Response(JSON.stringify({ club: { ...club, id: "club-lara" }, schedule: null })));
+    await rejected;
+    expect(await second).toBeNull();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.calls[0][1].signal.aborted).toBe(false);
+  });
+  it("rechecks visibility after a completed read and allows retry after failure", async () => {
+    request.mockResolvedValueOnce(new Response(JSON.stringify({ club })));
+    await getPublicClubPage("club");
+    request.mockResolvedValueOnce(new Response("{}", { status: 404 }));
+    await expect(getPublicClubPage("club")).rejects.toBeInstanceOf(PublicClubUnavailable);
+    request.mockResolvedValueOnce(new Response(JSON.stringify({ club })));
+    expect((await getPublicClubPage("club")).club.id).toBe("club");
+    expect(request).toHaveBeenCalledTimes(3);
   });
   it("uses a bounded anonymous no-store request and retains pagination", async () => {
     request.mockResolvedValue(new Response(JSON.stringify({ clubs: [club], nextCursor: "next" }), { status: 200 }));
