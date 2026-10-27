@@ -17,6 +17,5 @@ jobs:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     uses: ./.github/workflows/production-monitor-run.yml
     with:
-      monitor_ref: ${{ github.sha }}
       source_repo: ${{ github.event_name == 'workflow_run' && github.repository || '' }}
       source_run: ${{ github.event.workflow_run.id && format('{0}', github.event.workflow_run.id) || '' }}

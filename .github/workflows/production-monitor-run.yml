@@ -2,9 +2,6 @@ name: Run production monitor
 on:
   workflow_call:
     inputs:
-      monitor_ref:
-        type: string
-        required: true
       source_repo:
         type: string
         default: ''
@@ -22,7 +19,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           repository: miranae/orider-web
-          ref: ${{ inputs.monitor_ref }}
+          ref: 2914131abe72ce22e95a80e38443add1863ccddd # reviewed checker code; caller cannot select executable code
           persist-credentials: false
       - uses: actions/setup-node@v6
         with:

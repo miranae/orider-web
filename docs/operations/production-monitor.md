@@ -82,9 +82,11 @@ successful deploy job qualify. A dev merge, stage/rehearsal run, skipped deploy 
 failed run is rejected. No code from the just-deployed commit is executed by
 `workflow_run`; the trusted monitor ref is used.
 
-The backend companion workflow listens to successful `Deploy` tag runs and
+The reusable workflow checks out an explicit reviewed checker-code SHA; callers
+cannot supply executable refs. Cache creation is disabled. The backend companion workflow listens to successful `Deploy` tag runs and
 `Production backend fast deploy` dispatches. Its immutable public-web workflow
-and monitor-code refs are pinned to the reviewed monitor commit. It verifies the
+is pinned to a reviewed workflow commit; its checker-code checkout is separately
+pinned inside that workflow. It verifies the
 actual successful `Build & Deploy to Firebase` or `Execute bounded production plan`
 job and waits from that job's completion. It reads the live site in the same
 repository job without a cross-repository dispatch credential. These checks can
