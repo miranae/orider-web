@@ -1,0 +1,24 @@
+.club-schedule { display: grid; gap: var(--space-4); }
+.club-schedule__heading, .club-schedule__card-heading, .club-schedule__navigation, .club-schedule__date { display: flex; align-items: center; gap: var(--space-2); }
+.club-schedule__heading, .club-schedule__card-heading { justify-content: space-between; flex-wrap: wrap; }
+.club-schedule__title { display: block; font-size: var(--ft-subtitle-size); font-weight: var(--ft-subtitle-weight); margin-block: var(--space-2); overflow-wrap: anywhere; }
+.club-schedule__agenda, .club-schedule__meetings { display: grid; gap: var(--space-3); }
+.club-schedule__date-group { display: grid; gap: var(--space-3); }
+.club-schedule__date { padding-block: var(--space-2); }
+.club-schedule__calendar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--dim-divider-thickness); background: var(--line-soft); border: var(--dim-divider-thickness) solid var(--line-soft); border-radius: var(--r-md); overflow: hidden; }
+.club-schedule__weekday { text-align: center; background: var(--bg-1); padding-block: var(--space-2); }
+.club-schedule__day { min-width: 0; min-height: calc(var(--space-8) * 2); background: var(--bg-0); padding: var(--space-1); }
+.club-schedule__day[data-today] { box-shadow: inset 0 0 0 var(--space-0-5) var(--accent); }
+.club-schedule__day[data-selected] { background: var(--bg-1); }
+.club-schedule__previews { display: grid; gap: var(--space-1); padding: var(--space-1); }
+.club-schedule__previews a { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ft-caption-size); }
+.club-schedule__count { display: none; text-align: center; font-size: var(--ft-caption-size); color: var(--accent); }
+@media (max-width: 640px) {
+  .club-schedule__day { min-height: calc(var(--space-8) + var(--space-4)); padding: 0; }
+  .club-schedule__previews { display: none; }
+  .club-schedule__count { display: block; }
+}
+@media (min-width: 768px) {
+  .club-schedule__date-group { grid-template-columns: minmax(0, 1fr) minmax(0, 4fr); }
+  .club-schedule__date { align-self: start; flex-wrap: wrap; }
+}
