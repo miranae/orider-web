@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { classify, delayUntil, successfulDeploy, isFeedApiUrl } from './production-monitor-lib.mjs';
+import { classify, delayUntil, successfulDeploy, isFeedApiUrl, isAppCheckUrl } from './production-monitor-lib.mjs';
 const healthy = { httpStatus: 200, rootVisible: true, cards: 3, cardContentVisible: true };
 test('rendered shell and HTTP 200 do not prove a feed', () => {
   assert.equal(classify({ ...healthy, cards: 0 }), 'feed_timeout');
@@ -37,6 +37,15 @@ test('deploy source rejects dev merges, rehearsal, failed and skipped mutation j
 });
 
 test('API evidence uses exact hosts rather than hostname lookalikes', () => {
-  for (const url of ['https://firestore.googleapis.com/x', 'https://asia-northeast3-project.cloudfunctions.net/getActivityDiscovery', 'https://content-firebaseappcheck.googleapis.com/x']) assert.equal(isFeedApiUrl(url), true);
+  for (const url of ['https://firestore.googleapis.com/x', 'https://asia-northeast3-project.cloudfunctions.net/getActivityDiscovery']) assert.equal(isFeedApiUrl(url), true);
   for (const url of ['https://firestorexgoogleapis.com/x', 'https://firestore.googleapis.com.evil.test/x', 'https://evil.test/firestore.googleapis.com', 'https://evilcloudfunctions.net/x', 'invalid']) assert.equal(isFeedApiUrl(url), false);
+});
+
+test('App Check diagnostics do not conceal or fabricate the observed feed state', () => {
+  assert.equal(isAppCheckUrl('https://content-firebaseappcheck.googleapis.com/x'), true);
+  assert.equal(isAppCheckUrl('https://content-firebaseappcheck.googleapis.com.evil.test/x'), false);
+  assert.equal(isFeedApiUrl('https://content-firebaseappcheck.googleapis.com/x'), false);
+  assert.equal(classify({ ...healthy, dependencyErrors: ['App Check 403'] }), 'healthy_cards');
+  assert.equal(classify({ ...healthy, cards: 0, dependencyErrors: ['App Check 403'] }), 'feed_timeout');
+  assert.equal(classify({ ...healthy, apiErrors: ['feed 403'], dependencyErrors: ['App Check 403'] }), 'api_error');
 });

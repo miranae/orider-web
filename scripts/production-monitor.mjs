@@ -3,7 +3,7 @@ import { mkdir, writeFile, rename } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { classify, isFeedApiUrl } from './production-monitor-lib.mjs';
+import { classify, isFeedApiUrl, isAppCheckUrl } from './production-monitor-lib.mjs';
 const base = process.env.PROD_SMOKE_BASE_URL || 'https://orider.co.kr';
 const out = resolve(process.env.MONITOR_RESULT_DIR || 'production-monitor-results');
 const startedAt = new Date().toISOString();
@@ -30,17 +30,19 @@ try {
   for (const locale of ['ko', 'en']) {
     const context = await browser.newContext({ viewport: { width: 393, height: 851 }, locale, serviceWorkers: 'block' });
     const page = await context.newPage();
-    const check = { locale, at: new Date().toISOString(), httpStatus: null, rootVisible: false, cards: 0, cardContentVisible: false, emptyVisible: false, verifiedEmpty: false, pageErrors: [], apiErrors: [], chunkErrors: [], console: [], network: [], feedAlert: false };
+    const check = { locale, at: new Date().toISOString(), httpStatus: null, rootVisible: false, cards: 0, cardContentVisible: false, emptyVisible: false, verifiedEmpty: false, pageErrors: [], apiErrors: [], dependencyErrors: [], chunkErrors: [], console: [], network: [], feedAlert: false };
     result.checks.push(check);
     const pending = [];
     page.on('pageerror', error => check.pageErrors.push({ category: category(error.message), digest: createHash('sha256').update(error.message).digest('hex') }));
-    page.on('console', msg => { if (msg.type() === 'error') { const kind = category(msg.text()); check.console.push({ type: 'error', category: kind, source: safeUrl(msg.location().url), codes: msg.text().match(/(?:appCheck\/[a-z-]+|(?:permission-denied|unauthenticated|unavailable|network-request-failed|recaptcha-error|fetch-status-error)|\b[45]\d{2}\b)/gi) || [], digest: createHash('sha256').update(msg.text()).digest('hex') }); if (kind === 'chunk') check.chunkErrors.push('console chunk failure'); if (kind === 'api' && (msg.location().url.startsWith(new URL(base).origin + '/') || isFeedApiUrl(msg.location().url))) check.apiErrors.push('console API failure'); } });
-    page.on('requestfailed', req => { const item = { url: safeUrl(req.url()), failure: req.failure()?.errorText, type: req.resourceType() }; check.network.push(item); if (req.resourceType() === 'script') check.chunkErrors.push(item); if (isFeedApiUrl(req.url())) check.apiErrors.push(item); });
+    page.on('console', msg => { if (msg.type() === 'error') { const kind = category(msg.text()); check.console.push({ type: 'error', category: kind, source: safeUrl(msg.location().url), codes: msg.text().match(/(?:appCheck\/[a-z-]+|(?:permission-denied|unauthenticated|unavailable|network-request-failed|recaptcha-error|fetch-status-error)|\b[45]\d{2}\b)/gi) || [], digest: createHash('sha256').update(msg.text()).digest('hex') }); if (kind === 'chunk') check.chunkErrors.push('console chunk failure'); if (kind === 'api' && (isAppCheckUrl(msg.location().url) || /appcheck|recaptcha/i.test(msg.text()))) check.dependencyErrors.push('App Check console diagnostic'); else if (kind === 'api' && (msg.location().url.startsWith(new URL(base).origin + '/') || isFeedApiUrl(msg.location().url))) check.apiErrors.push('console API failure'); } });
+    page.on('requestfailed', req => { const item = { url: safeUrl(req.url()), failure: req.failure()?.errorText, type: req.resourceType() }; check.network.push(item); if (req.resourceType() === 'script') check.chunkErrors.push(item); if (isFeedApiUrl(req.url())) check.apiErrors.push(item); if (isAppCheckUrl(req.url())) check.dependencyErrors.push(item); });
     page.on('response', response => {
       const url = response.url();
       const api = isFeedApiUrl(url);
+      const appCheck = isAppCheckUrl(url);
       const script = response.request().resourceType() === 'script';
-      if (api || script || response.status() >= 400) check.network.push({ url: safeUrl(url), status: response.status(), type: response.request().resourceType() });
+      if (api || appCheck || script || response.status() >= 400) check.network.push({ url: safeUrl(url), status: response.status(), type: response.request().resourceType() });
+      if (appCheck && response.status() >= 400) check.dependencyErrors.push({ url: safeUrl(url), status: response.status() });
       if (api && response.status() >= 400) check.apiErrors.push({ url: safeUrl(url), status: response.status() });
       if (script && response.status() >= 400) check.chunkErrors.push({ url: safeUrl(url), status: response.status() });
       if (/getActivityDiscovery/.test(url) && response.ok()) pending.push(response.json().then(body => {
@@ -80,6 +82,7 @@ try {
 } catch (error) { result.runnerError = { name: error.name, message: 'Monitor infrastructure failure; see process stderr' }; console.error(error); }
 finally { await browser?.close(); }
 if (new Set(result.live.map(v => v.sha256)).size > 1) result.runnerError = { name: 'LiveVersionChanged', message: 'Live bundle changed during the two-locale check; rerun to obtain one consistent version' };
+result.dependencyStatus = result.checks.some(c => c.dependencyErrors.length) ? 'degraded' : 'healthy';
 result.completedAt = new Date().toISOString();
 result.status = result.checks.length === 2 && result.checks.every(c => c.state?.startsWith('healthy')) && !result.runnerError ? 'healthy' : 'failed';
 await writeFile(join(dir, 'result.json'), JSON.stringify(result, null, 2));
@@ -87,5 +90,5 @@ await writeFile(join(dir, 'result.json'), JSON.stringify(result, null, 2));
 const pointer = result.simulation ? 'latest-simulation.json' : 'latest.json';
 await writeFile(join(out, `${pointer}.${runId}.tmp`), JSON.stringify({ ...result, evidenceDirectory: dir }, null, 2));
 await rename(join(out, `${pointer}.${runId}.tmp`), join(out, pointer));
-console.log(JSON.stringify({ status: result.status, completedAt: result.completedAt, result: join(dir, 'result.json'), states: result.checks.map(c => `${c.locale}:${c.state}`) }));
+console.log(JSON.stringify({ status: result.status, dependencyStatus: result.dependencyStatus, completedAt: result.completedAt, result: join(dir, 'result.json'), states: result.checks.map(c => `${c.locale}:${c.state}`) }));
 process.exitCode = result.status === 'healthy' ? 0 : 1;

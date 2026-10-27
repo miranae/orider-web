@@ -21,7 +21,11 @@ Each result includes observed times, live entry asset and SHA-256, locale/card
 counts and classified status. These are observations of the served artifact,
 not the monitor checkout SHA. External reCAPTCHA-frame console diagnostics are retained
 but do not by themselves prove a feed API failure; actual App Check HTTP failures
-are classified as API errors. `runnerError` identifies monitor infrastructure
+are retained in `dependencyErrors` and `dependencyStatus=degraded`. They do not
+replace the observed feed state: a cloud bot can receive an App Check 403 while
+the anonymous public feed renders real cards. A blocked feed still fails via its
+request, error UI, invalid contract or timeout. No token, policy or request is
+overridden. `runnerError` identifies monitor infrastructure
 failure rather than asserting a site outage. `MONITOR_RESOLVE_HOSTING=true` optionally reads the
 Hosting release/version using the operator's existing gcloud identity; it creates
 no credential and persists no token. CI has no new cloud permission and identifies
@@ -128,3 +132,11 @@ permanent automatic target. Verify anonymous Korean and English cards afterward,
 then report recovery and evidence to the user. Do not redeploy the missing API,
 release incompatible web code, change App Check/rules, or add automatic rollback
 as a monitoring side effect. This PR adds no recovery mutation command.
+
+The backend caller uses the existing `[self-hosted, macOS, ARM64, g1-web]` runner
+because private-repository hosted jobs are billing-blocked. It waits for the
+existing runner queue without cancelling another job; the five-minute check can
+therefore start late. Checkout goes into a unique monitor-only subdirectory and
+does not clean or replace the backend deployment checkout. A monitor job can
+occupy that runner slot for setup, the remaining deadline wait and browser checks.
+The public hourly/web caller retains ubuntu-latest. No paid capacity is enabled.

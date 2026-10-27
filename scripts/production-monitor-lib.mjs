@@ -25,7 +25,12 @@ export function successfulDeploy(run, jobs, repo) {
 export function isFeedApiUrl(value) {
   try {
     const host = new URL(value).hostname;
-    return ['firestore.googleapis.com', 'firebaseappcheck.googleapis.com', 'content-firebaseappcheck.googleapis.com'].includes(host)
+    return host === 'firestore.googleapis.com'
       || host.endsWith('.cloudfunctions.net');
   } catch { return false; }
+}
+
+export function isAppCheckUrl(value) {
+  try { return ['firebaseappcheck.googleapis.com', 'content-firebaseappcheck.googleapis.com'].includes(new URL(value).hostname); }
+  catch { return false; }
 }

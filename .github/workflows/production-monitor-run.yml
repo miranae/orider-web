@@ -2,6 +2,9 @@ name: Run production monitor
 on:
   workflow_call:
     inputs:
+      runner_labels:
+        type: string
+        default: '["ubuntu-latest"]'
       source_repo:
         type: string
         default: ''
@@ -13,12 +16,16 @@ permissions:
   actions: read
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runner_labels) }}
+    defaults:
+      run:
+        working-directory: production-monitor-${{ github.run_id }}-${{ github.run_attempt }}
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
         with:
           repository: miranae/orider-web
+          path: production-monitor-${{ github.run_id }}-${{ github.run_attempt }}
           ref: 2914131abe72ce22e95a80e38443add1863ccddd # reviewed checker code; caller cannot select executable code
           persist-credentials: false
       - uses: actions/setup-node@v6
@@ -49,9 +56,9 @@ jobs:
         with:
           name: production-monitor-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            production-monitor-results/
-            source-deployment.json
-            test-results/
+            production-monitor-${{ github.run_id }}-${{ github.run_attempt }}/production-monitor-results/
+            production-monitor-${{ github.run_id }}-${{ github.run_attempt }}/source-deployment.json
+            production-monitor-${{ github.run_id }}-${{ github.run_attempt }}/test-results/
           retention-days: 14
           if-no-files-found: error
       - name: Failure signal for existing GitHub notifications and parent monitor
