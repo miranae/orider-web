@@ -34,4 +34,24 @@ describe("cafe ride schedule", () => {
     expect(screen.getByRole("button",{current:"date"})).toHaveAttribute("aria-pressed","true");
     expect(screen.queryByRole("link",{name:"라이딩 2"})).not.toBeInTheDocument();
   });
+  it("filters list and calendar by board style and commute titles without counting comments as riders", () => {
+    const rides: ClubCafeSchedule = { ...schedule, entries: [
+      entry("1", [today]),
+      { ...entry("2", [today]), boardId: 10, boardName: "투어라이딩" },
+      { ...entry("3", [today]), title: "퇴근 라이딩", boardId: 4 },
+    ] };
+    renderWithProviders(<MeetingSchedule schedule={rides} language="ko" />);
+    fireEvent.click(screen.getByRole("button", { name: "투어", exact: true }));
+    expect(screen.getByRole("link", { name: "라이딩 2" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "라이딩 1" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "달력", exact: true }));
+    expect(screen.getAllByRole("link", { name: "라이딩 2" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: "퇴근 라이딩" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "출퇴근", exact: true }));
+    expect(screen.getAllByRole("link", { name: "퇴근 라이딩" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: "라이딩 2" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "전체", exact: true }));
+    expect(screen.getAllByRole("link", { name: "라이딩 1" }).length).toBeGreaterThan(0);
+  });
+
 });
