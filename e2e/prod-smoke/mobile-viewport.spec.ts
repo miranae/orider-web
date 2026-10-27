@@ -64,10 +64,6 @@ for (const route of ROUTES) {
     await expect(page.locator("#root > *").first()).toBeVisible({ timeout: 15000 });
   });
 
-  test(`${route} — 공개 활동 목록이 실제로 표시된다`, async ({ page }) => {
-    await page.goto(route, { waitUntil: "domcontentloaded" });
-    // A rendered shell also passed during the missing-discovery outage. Require
-    // a real activity card, including when feed transport changes in a release.
-    await expect(page.locator(`a[href^="${route}activity/"]`).first()).toBeVisible({ timeout: 25000 });
-  });
+  // Feed cards, verified empty state, boot/API/chunk failures are covered by
+  // scripts/production-monitor.mjs in the same production workflow.
 }
