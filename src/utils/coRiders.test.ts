@@ -23,6 +23,18 @@ const nearRoute = "37.5000,127.0000;37.5010,127.0010;37.5020,127.0020;37.5030,12
 const farRoute = "35.1000,129.0000;35.1010,129.0010;35.1020,129.0020;35.1030,129.0030";
 
 describe("selectActualCoRiders", () => {
+  it.each(["orider_a", "strava_a"])("shows both matching recordings from %s", (baseId) => {
+    const common = { type: "Ride", startTime: 1_000_000, endTime: 1_600_000,
+      summary: createMockSummary({ distance: 2_000, ridingTimeMillis: 600_000 }) };
+    const base = confirmed(activity({ ...common, id: baseId, userId: "a" }), ["b"]);
+    const candidates = ["orider_b", "strava_b"].map(id =>
+      confirmed(activity({ ...common, id, userId: "b" }), ["a"]));
+    expect(selectActualCoRiders(base, candidates).map(row => row.id).sort())
+      .toEqual(["orider_b", "strava_b"]);
+    expect(selectActualCoRiders(base, candidates, { serverVerifiedAnchorId: base.id })
+      .map(row => row.id).sort()).toEqual(["orider_b", "strava_b"]);
+  });
+
   it("keeps only actual outdoor ride companions from a mixed groupRideId bucket", () => {
     const base = confirmed(activity({
       id: "strava_19213309217",
@@ -151,7 +163,7 @@ describe("selectActualCoRiders", () => {
     expect(selectActualCoRiders(base, candidates)).toEqual([]);
   });
 
-  it("keeps the best overlapping activity per rider", () => {
+  it("keeps every confirmed activity from the same rider", () => {
     const base = confirmed(activity({
       id: "strava_19215757019",
       userId: "main",
@@ -186,7 +198,7 @@ describe("selectActualCoRiders", () => {
       }), ["main"]),
     ];
 
-    expect(selectActualCoRiders(base, candidates).map((r) => r.id)).toEqual(["strava_19213518317"]);
+    expect(selectActualCoRiders(base, candidates).map((r) => r.id)).toEqual(["strava_19213518317", "strava_19213309217"]);
   });
 
   it("trusts synchronized confirmation instead of re-matching lossy thumbnail routes", () => {

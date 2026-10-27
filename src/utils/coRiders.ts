@@ -69,20 +69,11 @@ function coRiderRank(base: Activity, candidate: Activity): [number, number, numb
   ];
 }
 
-function isBetterCoRider(base: Activity, next: Activity, current: Activity): boolean {
-  const nextRank = coRiderRank(base, next);
-  const currentRank = coRiderRank(base, current);
-  if (nextRank[0] !== currentRank[0]) return nextRank[0] > currentRank[0];
-  if (nextRank[1] !== currentRank[1]) return nextRank[1] > currentRank[1];
-  if (nextRank[2] !== currentRank[2]) return nextRank[2] > currentRank[2];
-  return next.id < current.id;
-}
-
 /** serverVerifiedAnchorId is only supplied after the owner-anchor discovery contract verifies each returned peer. */
 export function selectActualCoRiders(base: Activity, candidates: Activity[], verified?: { serverVerifiedAnchorId: string }): Activity[] {
   const baseSport = getSportCategory(base.type);
   const baseVirtual = isVirtual(base);
-  const byUser = new Map<string, Activity>();
+  const matches: Activity[] = [];
 
   for (const candidate of candidates) {
     if (candidate.id === base.id) continue;
@@ -98,13 +89,10 @@ export function selectActualCoRiders(base: Activity, candidates: Activity[], ver
     if (activityDurationMs(candidate) < MIN_CANDIDATE_DURATION_MS) continue;
     if (!hasEnoughOverlap(base, candidate)) continue;
 
-    const current = byUser.get(candidate.userId);
-    if (!current || isBetterCoRider(base, candidate, current)) {
-      byUser.set(candidate.userId, candidate);
-    }
+    matches.push(candidate);
   }
 
-  return [...byUser.values()].sort((a, b) => {
+  return matches.sort((a, b) => {
     const [aOverlap, aDistance] = coRiderRank(base, a);
     const [bOverlap, bDistance] = coRiderRank(base, b);
     if (aOverlap !== bOverlap) return bOverlap - aOverlap;
