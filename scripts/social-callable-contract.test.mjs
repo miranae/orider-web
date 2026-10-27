@@ -58,6 +58,38 @@ test("manifest pins the backend callables required by the released web, includin
     "reportActivitySocialContent",
     "getActivitySocialFeed",
     "getActivityDiscovery",
+    "getActivityMapPrivacy",
+    "previewActivityMapPrivacy",
+    "setActivityMapPrivacy",
+    "getActivityNarrativeHistory",
+    "getActivityReanalysisState",
+    "getActivityAnalysisHistory",
+    "requestActivityReanalysis",
+    "progressActivityRouteHistorySnapshot",
+    "getActivityRouteHistorySaved",
+    "progressBikeAnalysisPeriodSnapshot",
+    "getBikeAnalysisPeriodHistory",
+    "resolveFriendInvite",
+    "getActivityPhotoData",
+    "uploadActivityPhoto",
+    "getActivityPublicDetail",
+    "setActivityCoverPhoto",
+    "getActivityPublicComments",
+    "getActivityPublicPhotos",
+    "getActivityPublicStreams",
+    "setActivityNativeMemo",
+    "getActivityPublicMaps",
+    "getSegmentLeaderboard",
+    "getMySegmentAttempts",
+    "reportSegmentRankingEligibility",
+    "getSegmentLocalLegend",
+    "progressSegmentLocalLegend",
+    "getPublicSegmentMetadata",
+    "getNotificationPreferences",
+    "setNotificationPreferences",
+    "getWebNotifications",
+    "markWebNotificationsRead",
+    "getActivityPublicComment",
   ]);
 });
 
@@ -65,7 +97,7 @@ test("GEN_2 ACTIVE resources with callable auth rejection pass", async () => {
   const results = await verifySocialCallableContract({
     project, region, accessToken, manifest, fetchImpl: successfulFetch(),
   });
-  assert.equal(results.length, 9);
+  assert.equal(results.length, 41);
   assert.ok(results.every(({ state, endpoint }) => state === "ACTIVE" && endpoint === "unauthenticated"));
 });
 
@@ -81,12 +113,22 @@ test("a stale manifest cannot omit the feed dependency", () => {
   assert.throws(() => validateSocialCallableConfig({
     project, region, accessToken,
     manifest: { ...manifest, callables: manifest.callables.slice(0, 8) },
-  }), /exactly 9 entries/);
+  }), /exactly 41 entries/);
   assert.throws(() => validateSocialCallableConfig({
     project, region, accessToken,
     manifest: { ...manifest, callables: manifest.callables.map(entry => entry.name === "getActivityDiscovery"
       ? { ...entry, name: "unrelatedCallable" } : entry) },
   }), /must include getActivityDiscovery/);
+});
+
+test("healthy social and discovery endpoints do not hide a missing native web dependency", async () => {
+  for (const dependency of ["getActivityPublicDetail", "getActivityPublicStreams", "getActivityPhotoData", "getActivityNarrativeHistory", "getPublicSegmentMetadata", "getWebNotifications", "getActivityPublicComment"]) {
+    await assert.rejects(() => verifySocialCallableContract({
+      project, region, accessToken, manifest,
+      fetchImpl: successfulFetch({ resource: name => name === dependency
+        ? jsonResponse({}, 404) : jsonResponse(activeResource(name)) }),
+    }), new RegExp(`${dependency}: function resource is missing`));
+  }
 });
 
 test("missing, non-Gen2, inactive, and endpoint 404 states fail distinctly", async (t) => {
