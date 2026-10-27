@@ -25,7 +25,7 @@ export default function MeetingSchedule({ schedule, language }: Props) {
   const meetingCard = (item: CafeScheduleEntry) => <Card key={item.id} padding="compact">
     <div className="club-schedule__card-heading"><Text as="span" variant="label">{item.boardName}</Text>{(item.closed || item.cancelled) && <Chip variant={item.cancelled ? "danger" : "default"}>{item.cancelled ? c.status.cancelled : c.status.closed}</Chip>}</div>
     <a className="club-schedule__title" href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
-    <Text as="p" variant="caption" tone="secondary">{item.author} · {language.startsWith("en") ? `Comments ${item.commentCount}` : `댓글 ${item.commentCount}`}</Text>
+    <Text as="p" variant="caption" tone="secondary">{item.author} · {language.startsWith("en") ? `Comments ${item.commentCount ?? "–"}` : `댓글 ${item.commentCount ?? "–"}`}</Text>
   </Card>;
   return <div className="club-schedule">
     <header className="club-schedule__heading"><div><Text as="h2" variant="title">{c.title}</Text><Text as="p" variant="caption" tone="secondary">{c.timezone}</Text></div>

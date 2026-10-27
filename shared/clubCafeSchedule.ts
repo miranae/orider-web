@@ -6,7 +6,7 @@ export interface CafeScheduleEntry {
   boardId: number;
   boardName: string;
   author: string;
-  commentCount: number;
+  commentCount: number | null;
   url: string;
   closed: boolean;
   cancelled: boolean;
