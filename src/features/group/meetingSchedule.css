@@ -1,6 +1,7 @@
 .club-schedule { display: grid; gap: var(--space-4); }
 .club-schedule__heading, .club-schedule__card-heading, .club-schedule__navigation, .club-schedule__date { display: flex; align-items: center; gap: var(--space-2); }
 .club-schedule__heading, .club-schedule__card-heading { justify-content: space-between; flex-wrap: wrap; }
+.club-schedule__filters, .club-schedule__category { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .club-schedule__title { display: block; font-size: var(--ft-subtitle-size); font-weight: var(--ft-subtitle-weight); margin-block: var(--space-2); overflow-wrap: anywhere; }
 .club-schedule__agenda, .club-schedule__meetings { display: grid; gap: var(--space-3); }
 .club-schedule__date-group { display: grid; gap: var(--space-3); }
