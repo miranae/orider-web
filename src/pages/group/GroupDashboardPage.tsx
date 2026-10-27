@@ -23,6 +23,7 @@ import { useGroup, useGroupMemberRole, useGroupMembers } from "../../hooks/useGr
 import { useGroupRideStats } from "../../hooks/useGroupRides";
 import { createGroupPost, updateGroupPost, useGroupPosts } from "../../hooks/useGroupPosts";
 import PublicClubPreview from "../../components/group/PublicClubPreview";
+import PublicCafeSchedulePanel from "../../features/group/PublicCafeSchedulePanel";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import RideCard from "../../components/group/RideCard";
 import Avatar from "../../components/Avatar";
@@ -195,6 +196,7 @@ export default function GroupDashboardPage() {
   if (!currentMemberRole) return <div data-testid="C1.preview" className="club-surface space-y-4">
     <Text as="h1" variant="pageTitle" data-testid="C1-0-1">{group.name}</Text><p data-testid="C1-2-1">{group.description}</p>{group.rules && <Card data-testid="C1-2"><h2>{t("dashboard.rules.title")}</h2><p data-testid="C1-2-2" className="whitespace-pre-wrap">{group.rules}</p></Card>}
     <p>{t("dashboard.previewHint")}</p>
+    {group.id === "club-lara" && <PublicCafeSchedulePanel groupId={group.id} language={i18n.language} />}
     {user && group.visibility === "public" && <button type="button" data-testid="C1-0-3" className={buttonClass({ variant: "primary" })} disabled={joining || joinPending} onClick={async () => {
       const uid = user.uid; const intent = editIntent.current; setJoining(true);
       try {

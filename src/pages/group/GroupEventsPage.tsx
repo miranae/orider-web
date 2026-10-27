@@ -1,3 +1,4 @@
+import ClubCafeSchedulePanel from "../../features/group/ClubCafeSchedulePanel";
 import {
   listClubMeetings,
   type ClubMeetingListItem,
@@ -252,6 +253,7 @@ export default function GroupEventsPage() {
           )}
         </div>
       </header>
+      <ClubCafeSchedulePanel groupId={group.id} language={i18n.language} />
       <section
         aria-label={
           i18n.language.startsWith("en") ? "Club meetings" : "클럽 모임"

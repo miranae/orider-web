@@ -40,7 +40,7 @@ const GroupMembersPage = lazyTimed("GroupMembersPage", () => import("./pages/gro
 const GroupInvitePage = lazyTimed("GroupInvitePage", () => import("./pages/group/GroupInvitePage"));
 const GroupWeekPage = lazyTimed("GroupWeekPage", () => import("./pages/group/GroupWeekPage"));
 const ClubMeetingPage = lazyTimed("ClubMeetingPage", () => import("./pages/group/ClubMeetingPage"));
-const GroupEventsPage = lazyTimed("GroupEventsPage", () => import("./pages/group/GroupEventsPage"));
+const GroupEventsPage = lazyTimed("GroupEventsPage", () => import("./pages/group/PublicGroupEventsEntry"));
 const GroupSettingsPage = lazyTimed("GroupSettingsPage", () => import("./pages/group/GroupSettingsPage"));
 const SegmentPage = lazyTimed("SegmentPage", () => import("./pages/SegmentPage"));
 const AthletePage = lazyTimed("AthletePage", () => import("./pages/AthletePage"));
