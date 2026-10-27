@@ -1,0 +1,66 @@
+name: Run production monitor
+on:
+  workflow_call:
+    inputs:
+      runner_labels:
+        type: string
+        default: '["ubuntu-latest"]'
+      source_repo:
+        type: string
+        default: ''
+      source_run:
+        type: string
+        default: ''
+permissions:
+  contents: read
+  actions: read
+jobs:
+  check:
+    runs-on: ${{ fromJSON(inputs.runner_labels) }}
+    defaults:
+      run:
+        working-directory: production-monitor-${{ github.run_id }}-${{ github.run_attempt }}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: miranae/orider-web
+          path: production-monitor-${{ github.run_id }}-${{ github.run_attempt }}
+          ref: c50ddeebf10ebff40b67b4c635b54308dad355b5 # reviewed checker code; caller cannot select executable code
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Verify real deploy success and wait until success plus five minutes
+        if: inputs.source_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MONITOR_SOURCE_REPO: ${{ inputs.source_repo }}
+          MONITOR_SOURCE_RUN: ${{ inputs.source_run }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/production-monitor-source.mjs | tee source-deployment.json
+      - name: Read anonymous Korean and English live feeds
+        env:
+          MONITOR_TRIGGER: ${{ inputs.source_run != '' && 'production-deploy-plus-five-minutes' || github.event_name }}
+        run: node scripts/production-monitor.mjs
+      - name: Existing mobile viewport smoke
+        run: npx playwright test --config playwright.prod.config.ts
+      - name: Store result and privacy-safe failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-monitor-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            production-monitor-${{ github.run_id }}-${{ github.run_attempt }}/production-monitor-results/
+            production-monitor-${{ github.run_id }}-${{ github.run_attempt }}/source-deployment.json
+            production-monitor-${{ github.run_id }}-${{ github.run_attempt }}/test-results/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Failure signal for existing GitHub notifications and parent monitor
+        if: failure()
+        run: echo '::error::Production monitor failed. Inspect result.json and evidence before following the verified Hosting recovery runbook.'

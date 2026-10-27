@@ -29,3 +29,7 @@ test-results/
 .firebase/
 firebase-debug.log
 firestore-debug.log
+
+# Local production monitor evidence (never commit rider/browser artifacts)
+production-monitor-results/
+source-deployment.json
