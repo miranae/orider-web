@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getPublicClub, listPublicClubs, PublicClubUnavailable } from "./publicClubs";
+import { getPublicCafeSchedule, getPublicClub, listPublicClubs, PublicClubUnavailable } from "./publicClubs";
 const config = vi.hoisted(() => ({ publicClubApiUrl: "https://clubs.example/publicClubs" }));
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => config }));
 const club = { id: "club", name: "Public club", description: "Introduction", approval: "auto", badge: "CL", sports: ["bike"], city: "용인" };
@@ -7,6 +7,17 @@ const request = vi.fn();
 beforeEach(() => { request.mockReset(); vi.stubGlobal("fetch", request); config.publicClubApiUrl = "https://clubs.example/publicClubs"; });
 afterEach(() => vi.unstubAllGlobals());
 describe("public club HTTP boundary", () => {
+  it("reads LARA's schedule without credentials and refuses a mismatched club", async () => {
+    const schedule = {source: "naver-cafe", cafeUrl: "https://cafe.naver.com/clublara", syncedAt: 1, entries: [], undatedCount: 0, truncated: false};
+    request.mockResolvedValueOnce(new Response(JSON.stringify({ club: { ...club, id: "club-lara" }, schedule })));
+    expect(await getPublicCafeSchedule("club-lara")).toEqual(schedule);
+    const [url, options] = request.mock.calls[0];
+    expect(url.searchParams.get("schedule")).toBe("1");
+    expect(options.credentials).toBe("omit");
+    request.mockResolvedValueOnce(new Response(JSON.stringify({ club, schedule })));
+    await expect(getPublicCafeSchedule("club-lara")).rejects.toThrow("Invalid public club identity");
+    expect(await getPublicCafeSchedule("other")).toBeNull();
+  });
   it("uses a bounded anonymous no-store request and retains pagination", async () => {
     request.mockResolvedValue(new Response(JSON.stringify({ clubs: [club], nextCursor: "next" }), { status: 200 }));
     const page = await listPublicClubs({ searchText: " Public ", city: "용인", discipline: "bike" }, null);

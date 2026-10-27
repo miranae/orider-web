@@ -1,5 +1,7 @@
 import type { Group } from "@shared/types";
 import { getRuntimeConfig } from "./runtimeConfig";
+import { parseCafeSchedule } from "./clubCafeSchedule";
+import type { ClubCafeSchedule } from "@shared/clubCafeSchedule";
 export type PublicClub = Pick<Group, "id" | "name" | "description" | "approval"> & Partial<Pick<Group, "badge" | "kind" | "sports" | "discipline" | "city">>;
 export interface PublicClubFilters { searchText?: string; city?: string; discipline?: string }
 export class PublicClubUnavailable extends Error {}
@@ -46,4 +48,11 @@ export async function getPublicClub(id: string, signal?: AbortSignal) {
   const club = parseClub(result.club);
   if (club.id !== id) throw new Error("Invalid public club identity");
   return club;
+}
+export async function getPublicCafeSchedule(id: string, signal?: AbortSignal): Promise<ClubCafeSchedule | null> {
+  if (id !== "club-lara") return null;
+  const result = await request(new URLSearchParams({ id, schedule: "1" }), signal);
+  const club = parseClub(result.club);
+  if (club.id !== id) throw new Error("Invalid public club identity");
+  return parseCafeSchedule(result.schedule as ClubCafeSchedule | null);
 }
