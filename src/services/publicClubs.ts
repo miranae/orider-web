@@ -1,5 +1,6 @@
 import type { Group } from "@shared/types";
 import { getRuntimeConfig } from "./runtimeConfig";
+import type { ClubCafeSchedule } from "@shared/clubCafeSchedule";
 export type PublicClub = Pick<Group, "id" | "name" | "description" | "approval"> & Partial<Pick<Group, "badge" | "kind" | "sports" | "discipline" | "city">>;
 export interface PublicClubFilters { searchText?: string; city?: string; discipline?: string }
 export class PublicClubUnavailable extends Error {}
@@ -46,4 +47,14 @@ export async function getPublicClub(id: string, signal?: AbortSignal) {
   const club = parseClub(result.club);
   if (club.id !== id) throw new Error("Invalid public club identity");
   return club;
+}
+export async function getPublicCafeSchedule(id: string, signal?: AbortSignal): Promise<ClubCafeSchedule | null> {
+  if (id !== "club-lara") return null;
+  const result = await request(new URLSearchParams({ id, schedule: "1" }), signal);
+  const club = parseClub(result.club);
+  if (club.id !== id) throw new Error("Invalid public club identity");
+  const s = result.schedule as ClubCafeSchedule | null;
+  if (s === null) return null;
+  if (!s || s.source !== "naver-cafe" || s.cafeUrl !== "https://cafe.naver.com/clublara" || !Number.isFinite(s.syncedAt) || !Array.isArray(s.entries) || s.entries.length > 250 || s.entries.some(e => !/^https:\/\/cafe\.naver\.com\/clublara\/\d+$/.test(e.url) || !Array.isArray(e.dates) || e.dates.some(d => !/^\d{4}-\d{2}-\d{2}$/.test(d)))) throw new Error("Invalid cafe schedule");
+  return s;
 }
