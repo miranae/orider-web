@@ -5,7 +5,7 @@ import { EmptyState, ErrorState, LoadingSkeleton } from "../redesign";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { Card, Text } from "../../theme/components";
 import ClubLoginGate from "./ClubLoginGate";
-import ClubCafeSchedulePanel from "../../features/group/ClubCafeSchedulePanel";
+import PublicCafeSchedulePanel from "../../features/group/PublicCafeSchedulePanel";
 export default function PublicClubPreview({ groupId }: { groupId: string | undefined }) {
   const { t, i18n } = useTranslation("group");
   const [club, setClub] = useState<PublicClub | null>(null);
@@ -34,7 +34,7 @@ export default function PublicClubPreview({ groupId }: { groupId: string | undef
       <Text as="p" tone="secondary">{(club.sports?.length ? club.sports : [club.discipline]).filter(Boolean).map(sport => t(`card.discipline.${sport}`)).join(" · ")}</Text>
       <Text as="p">{t(club.approval === "auto" ? "public.autoApproval" : "public.manualApproval")}</Text>
     </Card>}
-    {club?.id === "club-lara" && !loading && !error && <ClubCafeSchedulePanel groupId={club.id} language={i18n.language} publicAccess />}
+    {club?.id === "club-lara" && !loading && !error && <PublicCafeSchedulePanel groupId={club.id} language={i18n.language} />}
     <ClubLoginGate />
   </div>;
 }

@@ -5,7 +5,7 @@ import { getPublicClub, PublicClubUnavailable } from "../../services/publicClubs
 import PublicClubPreview from "./PublicClubPreview";
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: null, signIn: vi.fn() }) }));
 vi.mock("../../services/publicClubs", async original => ({ ...await original<typeof import("../../services/publicClubs")>(), getPublicClub: vi.fn() }));
-vi.mock("../../features/group/ClubCafeSchedulePanel", () => ({ default: ({ groupId, publicAccess }: { groupId: string; publicAccess: boolean }) => <div data-testid="public-cafe-schedule">{groupId}:{String(publicAccess)}</div> }));
+vi.mock("../../features/group/PublicCafeSchedulePanel", () => ({ default: ({ groupId }: { groupId: string }) => <div data-testid="public-cafe-schedule">{groupId}</div> }));
 const club = { id: "club", name: "공개 소개 fixture", description: "소개 문구", approval: "manual" as const, city: "용인", sports: ["bike" as const] };
 beforeEach(() => { vi.mocked(getPublicClub).mockReset().mockResolvedValue(club); });
 const page = () => render(<MemoryRouter><PublicClubPreview groupId="club" /></MemoryRouter>);
@@ -13,7 +13,7 @@ describe("anonymous public club introduction", () => {
   it("shows the public cafe schedule on the LARA preview", async () => {
     vi.mocked(getPublicClub).mockResolvedValueOnce({ ...club, id: "club-lara" });
     render(<MemoryRouter><PublicClubPreview groupId="club-lara" /></MemoryRouter>);
-    expect(await screen.findByTestId("public-cafe-schedule")).toHaveTextContent("club-lara:true");
+    expect(await screen.findByTestId("public-cafe-schedule")).toHaveTextContent("club-lara");
   });
   it("shows the approved introduction and login action without member-only navigation", async () => {
     page(); expect(await screen.findByRole("heading", { name: club.name })).toBeInTheDocument();
