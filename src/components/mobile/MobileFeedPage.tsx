@@ -1,3 +1,10 @@
+import { useJourneyReadiness } from "../../hooks/useJourneyReadiness";
+import { useLocation } from "react-router-dom";
+import { feedSessionKey, readFeedDepth, saveFeedDepth } from "../../services/feedNavigationDepth";
+import { compareActivityFeedOrder } from "../../utils/activityFeedOrder";
+import { NativeActivityPhotoImage } from "../activity/NativeActivityPhotoImage";
+import { seoulYearStartMs } from "../../utils/seoulWeek";
+import { withActivityPresentation } from "@shared/analysis/activityPresentation";
 import { stravaRecordOf } from "@shared/analysis/stravaRecord";
 import SportIcon from "../common/SportIcon";
 import HomeActivitySportIcon from "../common/HomeActivitySportIcon";
@@ -110,9 +117,9 @@ export function MobileRouteThumbnail({ activity, priority = false, content }: { 
   </div>;
   const photoTiles = photos.map((photo, index) => photo.kind === "video" && photo.videoUrl
     ? <ActivityFeedVideo key={photo.id} media={photo} expanded={expandedVideoId === photo.id} expandedOutlet={expandedOutlet} onExpansionChange={setExpandedVideoId} remainingCount={index === photos.length - 1 ? photoCount - photos.length : 0} />
-    : <Link key={photo.id} to={`/activity/${activity.id}?tab=overview`} className="mobile-feed-photo" aria-label={t("card.openPhoto", { index: index + 1, count: photoCount })}>
-    <img src={photo.url} alt={photo.caption ?? ""} loading="lazy" />
-    {index === photos.length - 1 && photoCount > photos.length && <span className="mobile-feed-photo-remaining">+{photoCount - photos.length}</span>}
+    : <Link key={photo.id} to={`/activity/${activity.id}?tab=overview`} className="mobile-feed-photo" aria-label={content?.totalPhotoCountExact === false ? t("publicDetail.openPhotoPreview", { index: index + 1 }) : t("card.openPhoto", { index: index + 1, count: photoCount })}>
+    {photo.nativePhoto ? <NativeActivityPhotoImage nativePhoto={photo.nativePhoto} alt={photo.caption ?? ""} loading="lazy" /> : <img src={photo.url} alt={photo.caption ?? ""} loading="lazy" />}
+    {index === photos.length - 1 && photoCount > photos.length && <span className="mobile-feed-photo-remaining">{content?.totalPhotoCountExact === false ? t("publicDetail.morePhotos") : `+${photoCount - photos.length}`}</span>}
   </Link>);
   return <div className={`mobile-feed-route${!hasMap ? " mobile-feed-route--photos-only" : ""}`}>
     {squareMap ? <div className={`mobile-feed-media mobile-feed-media--${photos.length}`}>{map}{photoTiles}</div> : <>
@@ -122,7 +129,7 @@ export function MobileRouteThumbnail({ activity, priority = false, content }: { 
     <div ref={setExpandedOutlet} className="mobile-feed-inline-video-slot" />
     {photoCount > 0 && photos.length === 0 && <div className="mobile-feed-photo-entry">
       <Link to={`/activity/${activity.id}?tab=overview`} className={buttonClass({ variant: "neutral", size: "sm" })}>
-        <Camera size={ICON_SIZE.md} aria-hidden="true" /> {t("page.photos")} {photoCount}
+        <Camera size={ICON_SIZE.md} aria-hidden="true" /> {t("page.photos")} {photoCount}{content?.totalPhotoCountExact === false ? "+" : ""}
       </Link>
     </div>}
   </div>;
@@ -154,7 +161,8 @@ function ActivityMemo({ memo, memoTruncated = false, activityId, generated = fal
 }
 
 /** 시안과 일치하는 컴팩트 모바일 활동 카드 */
-export function CompactActivityCard({ activity, priority = false }: { activity: Activity; priority?: boolean }) {
+export function CompactActivityCard({ activity: rawActivity, priority = false }: { activity: Activity; priority?: boolean }) {
+  const activity = withActivityPresentation(rawActivity);
   const { t, i18n } = useTranslation("dashboard");
   const services = useFirebaseServices();
   const { user } = useAuth();
@@ -219,17 +227,21 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
     </div> : null;
 
   const distanceM = sourceRecord ? sourceRecord.distance : s.distance;
-  const distance = distanceM == null ? "—" : formatDistance(distanceM, units, sourceRecord ? 2 : 1);
+  const knownDistance = Number.isFinite(distanceM) && distanceM != null && distanceM >= 0;
+  const distance = knownDistance ? formatDistance(distanceM!, units, sourceRecord ? 2 : 1) : "—";
   // #236: 정지 큰 활동은 이동시간 우선 (상세·데스크톱 카드와 동일 정책 — resolveDuration 공유).
   const sd = resolveDuration({ ...s, stravaRecord: sourceRecord, startTime: activity.startTime, endTime: activity.endTime });
-  const dur = Number.isFinite(sd.displayMs) ? formatDur(sd.displayMs) : "—";
+  const knownDuration = Number.isFinite(sd.displayMs) && sd.displayMs >= 0;
+  const dur = knownDuration ? formatDur(sd.displayMs) : "—";
   const elevationM = sourceRecord ? sourceRecord.total_elevation_gain : s.elevationGain;
-  const elev = elevationM == null ? "—" : formatElev(elevationM, units);
+  const elev = elevationM != null && Number.isFinite(elevationM) && elevationM >= 0 ? formatElev(elevationM, units) : "—";
   // 평균 속도도 시간 기준과 일치 — 전환 시 거리/이동시간, 아니면 거리/경과 (#236 후속).
-  const elapsedSpd = s.distance > 0 && s.ridingTimeMillis > 0
+  const elapsedSpd = knownDistance && Number.isFinite(s.ridingTimeMillis) && s.ridingTimeMillis > 0
     ? (s.distance / 1000) / (s.ridingTimeMillis / 3600000)
-    : 0;
-  const spdNum = resolveAvgSpeedKph(s.distance, sd, elapsedSpd, sourceRecord);
+    : Number.NaN;
+  const spdNum = knownDistance && knownDuration
+    ? distanceM === 0 && sd.displayMs > 0 ? 0 : resolveAvgSpeedKph(distanceM!, sd, elapsedSpd, sourceRecord)
+    : Number.NaN;
   const nickname = useActivityAuthor(activity).nickname ?? t("mobileFeed.defaultRider");
   const discipline = getDiscipline(activity.type);
   const activitySport = getHomeActivitySport(activity);
@@ -240,11 +252,13 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
     : t(getDisciplineLabelKey(discipline));
   // 비현실 속도(GPS noise/오등록) 가드 — 광고 유입자 첫인상 신뢰성 보호.
   const spdImplausible = isImplausibleAvgSpeed(spdNum, discipline ?? undefined);
-  const spd = spdNum > 0 && !spdImplausible ? formatSpeed(spdNum / 3.6, units, "bike") : "—";
+  const spd = Number.isFinite(spdNum) && spdNum >= 0 && !spdImplausible ? formatSpeed(spdNum / 3.6, units, "bike") : "—";
   const pace = spdNum > 0 && !spdImplausible ? formatPace(3600 / spdNum, units) : "—";
   const heartRate = sourceRecord ? sourceRecord.average_heartrate : s.averageHeartRate;
   const power = sourceRecord ? sourceRecord.average_watts : s.averagePower ?? activity.avgPower;
   const hasHr = heartRate != null && heartRate > 0 && !isImplausibleActivityHeartRate(heartRate);
+  const runningPower = power;
+  const hasRunningPower = runningPower != null && Number.isFinite(runningPower) && runningPower > 0;
   const showDataWarning = isImplausibleActivity({
     distanceM: s.distance,
     durationMs: s.ridingTimeMillis,
@@ -254,7 +268,7 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
   });
 
   return (
-    <article ref={cardRef} data-testid="H1-2-1" className="mobile-feed-card">
+    <article ref={cardRef} data-scroll-anchor={activity.id} data-testid="H1-2-1" className="mobile-feed-card">
       <Link
         to={`/activity/${activity.id}`}
         aria-label={activity.description || t("mobileFeed.defaultActivity")}
@@ -321,8 +335,8 @@ export function CompactActivityCard({ activity, priority = false }: { activity: 
           ...(discipline !== "run" ? [{ label: t("mobileFeed.statSpeed"), value: spd }] : []),
           ...(hasHr ? [{ label: t("homeMetrics.avgHeartRate"), value: `${Math.round(heartRate)}bpm` }] : []),
           ...(discipline === "run" ? [{ label: t("mobileFeed.statElev"), value: elev }] : []),
-          ...(discipline === "run" && (power ?? 0) > 0
-            ? [{ label: tActivity("stat.runningPower"), value: `${Math.round(power ?? 0)}W` }] : []),
+          ...(discipline === "run" && hasRunningPower
+            ? [{ label: tActivity("stat.runningPower"), value: `${Math.round(runningPower!)}W` }] : []),
         ].map(stat => {
           const measurement = /^(.*?)(km\/h|mph|bpm|ft|m|W)$/.exec(stat.value);
           return <span key={stat.label} className="mobile-feed-secondary-stat">
@@ -363,12 +377,15 @@ export default function MobileFeedPage({
   runningJourney,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const searchActive = activitySearch?.active ?? false;
   const sportFilter = controlledSportFilter ?? "all";
   const datePreset = controlledDatePreset ?? "all";
-  const [renderLimit, setRenderLimit] = useState(MOBILE_FEED_RENDER_INITIAL);
-  useEffect(() => { setRenderLimit(MOBILE_FEED_RENDER_INITIAL); }, [activitySearch?.searchedKeyword, sportFilter, datePreset, feedScope]);
+  const location = useLocation();
+  const renderKey = `${feedSessionKey(user)}:render:${location.key}:${location.search}:${activitySearch?.searchedKeyword ?? ""}:${sportFilter}:${datePreset}:${feedScope}`;
+  const [renderLimit, setRenderLimit] = useState(() => readFeedDepth(renderKey, MOBILE_FEED_RENDER_INITIAL));
+  useEffect(() => { setRenderLimit(readFeedDepth(renderKey, MOBILE_FEED_RENDER_INITIAL)); }, [renderKey]);
+  const extendRenderLimit = () => setRenderLimit(value => { const next = value + MOBILE_FEED_RENDER_STEP; saveFeedDepth(renderKey, next); return next; });
   const subscriptionIdSet = useMemo(() => new Set(subscriptionIds), [subscriptionIds]);
   const friendIdSet = useMemo(() => new Set(friendIds), [friendIds]);
   const signedIn = !!user && !user.isAnonymous;
@@ -382,12 +399,12 @@ export default function MobileFeedPage({
         merged.set(activity.id, activity);
       }
     }
-    return [...merged.values()].sort((a, b) => b.startTime - a.startTime);
+    return [...merged.values()].sort(compareActivityFeedOrder);
   })() : activities;
   const visibleActivities = sourceActivities.filter((a) => !isTrivialActivity(a));
   const filteredBySport = sportFilter === "all" ? visibleActivities : visibleActivities.filter(a => getDiscipline(a.type) === sportFilter);
   const filteredByScope = filteredBySport.filter((a) => {
-    if (effectiveFeedScope === "following") return a.userId === currentUserId || a.visibility === "everyone" && subscriptionIdSet.has(a.userId);
+    if (effectiveFeedScope === "following") return a.userId === currentUserId || subscriptionIdSet.has(a.userId);
     if (effectiveFeedScope === "friends") return a.userId === currentUserId || friendIdSet.has(a.userId);
     if (effectiveFeedScope === "self") return currentUserId != null && a.userId === currentUserId;
     return true;
@@ -395,12 +412,15 @@ export default function MobileFeedPage({
   const cutoff = datePreset === "all"
     ? 0
     : datePreset === "year"
-      ? new Date(new Date().getFullYear(), 0, 1).getTime()
+      ? seoulYearStartMs(Date.now())
       : Date.now() - (datePreset === "7d" ? 7 : datePreset === "30d" ? 30 : 90) * 86400000;
   const filteredByDate = cutoff > 0 ? filteredByScope.filter((a) => a.startTime >= cutoff) : filteredByScope;
   const filteredActivities = filteredByDate;
   const moreCandidates = !searchActive && effectiveFeedScope === "following" && hasMore;
   const renderedActivities = filteredActivities.slice(0, renderLimit);
+  const retryMeasurement = useJourneyReadiness("feed_first_content", "web_home_feed", "feed_initial", true,
+    renderKey, user, authLoading || (searchActive ? activitySearch!.loading : loading) ? null
+      : (searchActive ? activitySearch!.error : error) ? "error" : filteredActivities.length ? "success" : "empty");
   const hasHiddenLocalItems = filteredActivities.length > renderedActivities.length;
   const supportingCards = (
     <>
@@ -436,14 +456,14 @@ export default function MobileFeedPage({
         <div role="alert" style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: "var(--space-2)" }}>{t(activities.length > 0 ? "feed.partialError.title" : "feed.error.title")}</div>
           <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)", marginBottom: "var(--space-4)" }}>{t(activities.length > 0 ? "feed.partialError.description" : "feed.error.description")}</div>
-          {onRetry && <Button variant="primary" onClick={onRetry}>{t(activities.length > 0 ? "feed.partialError.retry" : "feed.error.retry")}</Button>}
+          {onRetry && <Button variant="primary" onClick={() => { retryMeasurement(); onRetry?.(); }}>{t(activities.length > 0 ? "feed.partialError.retry" : "feed.error.retry")}</Button>}
         </div>
       )}
 
       {searchActive && !activitySearch!.loading && activitySearch!.error && (
         <div role="alert" style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
           <div style={{ fontSize: "var(--fs-sm)", marginBottom: "var(--space-4)" }}>{t(filteredActivities.length > 0 ? "feed.partialError.title" : "feed.error.title")}</div>
-          <Button variant="primary" onClick={activitySearch!.retry}>{t("feed.error.retry")}</Button>
+          <Button variant="primary" onClick={() => { retryMeasurement(); activitySearch!.retry(); }}>{t("feed.error.retry")}</Button>
         </div>
       )}
 
@@ -467,9 +487,9 @@ export default function MobileFeedPage({
           <Button data-testid="H1-2-3" variant="secondary" size="lg"
             onClick={() => {
               if (hasHiddenLocalItems) {
-                setRenderLimit((value) => value + MOBILE_FEED_RENDER_STEP);
+                extendRenderLimit();
               } else if (searchActive) {
-                setRenderLimit((value) => value + MOBILE_FEED_RENDER_STEP);
+                extendRenderLimit();
                 activitySearch!.loadMoreServer();
               } else {
                 onLoadMore();

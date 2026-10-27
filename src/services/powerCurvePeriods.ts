@@ -60,7 +60,7 @@ export function validatePowerCurvePeriodsResponse(response: PowerCurvePeriodsRes
   });
   return response;
 }
-function validateDenseObservations(value: unknown, period: PowerCurvePeriodsResponse["periods"][number]) {
+export function validateDenseObservations(value: unknown, period: { fromInclusive: number; toExclusive: number; coverage: { truncated: boolean; candidateActivityCount: number } }) {
   const invalid = () => { throw new Error("invalid_power_curve_periods_response"); };
   const record = (input: unknown): Record<string, unknown> | null => input !== null && typeof input === "object" && !Array.isArray(input) ? input as Record<string, unknown> : null;
   const data = record(value);
@@ -146,7 +146,8 @@ function validateWeightNormalized(period: PowerCurvePeriodsResponse["periods"][n
   if (data.status !== (period.status === "partial" || excluded > 0 || dense?.partial ? "partial" : "complete")) invalid();
 }
 export async function loadPowerCurvePeriods(services: FirebaseServices, uid: string, request: PowerCurvePeriodsRequest) {
-  const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
+  const session = services.auth.currentUser;
+  const matches = () => !!uid && !!session && services.auth.currentUser === session && session.uid === uid && !session.isAnonymous;
   if (!matches()) throw new Error("account_changed");
   if (!validPowerCurvePeriodsRequest(request)) throw new Error("invalid_power_curve_periods_request");
   await services.ensureAppCheckReady();

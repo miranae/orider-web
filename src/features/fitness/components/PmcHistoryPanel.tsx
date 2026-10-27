@@ -257,7 +257,7 @@ export default function PmcHistoryPanel({ points, today, canonical, controlledRa
   const calculationStatuses = new Set(points.map((point) => point.calculationStatus).filter(Boolean));
   const sourceState = calculationStatuses.has("failed") ? "failed" : calculationStatuses.has("stale") ? "stale" : calculationStatuses.has("pending") ? "pending" : null;
   const sourceTone = sourceState === "failed" ? "danger" : sourceState === "stale" ? "warning" : sourceState === "pending" ? "progress" : null;
-  const sourceKey = sourceState ? `history.source.${sourceState}` : points.length && points.every(point => point.calculationStatus === "server") ? "history.canonical" : points.length && points.every(point => point.calculationStatus === "derived") ? "history.derived" : points.some(point => point.calculationStatus) ? "history.estimated" : "history.fallback";
+  const sourceKey = sourceState ? `history.source.${sourceState}` : calculationStatuses.has("missing") ? "history.missingPmc" : points.length && points.every(point => point.calculationStatus === "server") ? "history.canonical" : points.length && points.every(point => point.calculationStatus === "derived") ? "history.derived" : points.some(point => point.calculationStatus) ? "history.estimated" : "history.fallback";
   const hasChart = mode === "years"
     ? yearSeries.some((line) => line.buckets.some((bucket) => bucket.observedDays > 0))
     : history.buckets.some((bucket) => bucket.observedDays > 0);

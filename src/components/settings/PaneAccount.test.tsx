@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
 // 연결 카드는 자체 테스트(SocialLinksCard.test.tsx) — 여기선 계정 화면의 읽기·쓰기 계약만 본다.
 vi.mock("./ProfileBodyEditor", () => ({ ProfileBodyEditor: () => <section id="body-info">Body measurements</section> }));
 vi.mock("./SocialLinksCard", () => ({ SocialLinksCard: () => null }));
+// Preferences have their own account-generation/AppCheck/save regression suite.
+vi.mock("./NotificationPreferencesCard", () => ({ NotificationPreferencesCard: () => <section data-testid="notification-preferences">Notification preferences</section> }));
 vi.mock("./PaneAiCoach", () => ({ PaneAiCoach: () => <section data-testid="coach-consent">Consent</section> }));
 
 vi.mock("react-i18next", () => ({

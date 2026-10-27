@@ -1,5 +1,5 @@
 import { useLocation } from "react-router-dom";
-import { isPendingPlanWorkout, presentPlanDayRecord, planLoadFulfillment } from "./planRecordPresentation";
+import { isPendingPlanWorkout, presentPlanDayRecord } from "./planRecordPresentation";
 import { goalCountdown } from "../../../utils/goalCountdown";
 import PlanGoalLoadSummary from "./PlanGoalLoadSummary";
 import { goalLoadScope, summarizeStoredPlan } from "./planScope";
@@ -35,6 +35,7 @@ import { ICON_SIZE } from "../../../theme/tokens/icon";
 import { useAuth } from "../../../contexts/AuthContext";
 import { usePlanLoadComparison } from "./usePlanLoadComparison";
 import PlanDayLoadComparison, { type PlanCalendarLoads } from "./PlanDayLoadComparison";
+import PlanWeekLoadSummary from "./PlanWeekLoadSummary";
 import type { PlanLoadComparisonRow } from "./planLoadComparison";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -55,7 +56,7 @@ function useCompactPlanLayout(): boolean {
   return isMobile || isNarrow;
 }
 
-const PLAN_WEEK_GRID_COLUMNS = '80px repeat(7, minmax(72px, 1fr)) 100px';
+export const PLAN_WEEK_GRID_COLUMNS = '80px repeat(7, minmax(72px, 1fr)) 100px';
 const PLAN_CALENDAR_CARD_STYLE: CSSProperties = {
   padding: 0,
   overflowX: 'auto',
@@ -77,7 +78,7 @@ interface DayCellProps {
   loadState?: PlanCalendarLoads["loadState"];
 }
 
-function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFactor, currentTsb, goalDate, onClick, dayLoad, loadState }: DayCellProps) {
+export function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFactor, currentTsb, goalDate, onClick, dayLoad, loadState }: DayCellProps) {
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const weekdayName = buildDayNames(tCommon)[(planCalendarDate(day.date).getUTCDay() + 6) % 7] ?? '';
@@ -110,9 +111,12 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
   const downshift = !isPast && pendingWorkout && currentTsb != null
     ? evaluateRecoveryDownshift({ workoutKind: day.workout, tsb: currentTsb, daysUntil })
     : null;
-  const dailyLoad = !embedded && <PlanDayLoadComparison day={day} row={dayLoad} state={loadState} />;
-  const fulfillment = planLoadFulfillment(day, dayLoad, loadState === "ready");
-  const savedStatus = saved && (fulfillment ? t("loadComparison.fulfillment.executionFact", { state: t(`planRecords.state.${saved.outcome}`) }) : t(saved.outcome === "unconfirmed" || saved.outcome === "today" ? "loadComparison.calendarUnconfirmed" : `planRecords.state.${saved.outcome}`));
+  const dailyLoad = !embedded && <PlanDayLoadComparison compact day={day} row={dayLoad} state={loadState} evidence={saved && <>
+    {saved.linkage !== "confirmed" && (saved.linkage !== "none" || ["completed", "partial", "markedComplete"].includes(saved.outcome)) && <Text as="p" variant="caption" tone="secondary">{t(`planRecords.basis.${saved.linkage}`)}</Text>}
+    {saved.postponedToLocalDate && <Text as="p" variant="caption" tone="secondary">{t("planRecords.postponedDate", { date: saved.postponedToLocalDate })}</Text>}
+    {saved.activityLinks.map(link => <LocalizedLink key={link.id} data-testid="K4-5-5" to={`/activity/${encodeURIComponent(link.id)}`} onClick={event => event.stopPropagation()}>{t(link.kind === "candidate" ? "planRecords.viewCandidate" : "today.viewActivity")}</LocalizedLink>)}
+  </>} />;
+  const savedStatus = saved && t(saved.outcome === "unconfirmed" || saved.outcome === "today" ? "loadComparison.calendarUnconfirmed" : `planRecords.state.${saved.outcome}`);
 
   const dateControl = (content: ReactNode, style: CSSProperties) => onClick ? <button
     type="button" aria-label={t('page.dayDetails', { date: kstDayKey(day.date), workout: workoutLabel })}
@@ -131,13 +135,13 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
         aria-current={selected ? "date" : undefined}
         onClick={onClick}
         style={{
-          padding: '28px 8px 8px',
+          padding: 'var(--space-7) var(--space-2) var(--space-2)',
           borderRadius: "var(--r-sm)",
           minHeight: 82,
           cursor: 'pointer',
           background: 'var(--bg-2)',
           border: '1px solid var(--line-soft)',
-          opacity: 0.65,
+          opacity: embedded ? 0.65 : 1,
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
@@ -196,7 +200,7 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
       aria-current={selected ? "date" : undefined}
       data-testid={selected ? "K4-5-6" : "K4-5-1"} onClick={!isGoal ? onClick : undefined}
       style={{
-        padding: '28px 8px 8px',
+        padding: 'var(--space-7) var(--space-2) var(--space-2)',
         borderRadius: "var(--r-sm)",
         minHeight: 82,
         cursor: !isGoal ? 'pointer' : 'default',
@@ -204,7 +208,7 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
           ? 'color-mix(in oklch, var(--lime) 10%, var(--bg-2))'
           : 'var(--bg-2)',
         border: `1px solid ${isToday || selected ? 'var(--lime)' : 'var(--line-soft)'}`,
-        opacity: isRest && !(dayLoad?.actualTss && dayLoad.actualTss > 0) ? 0.65 : dimmed ? 0.85 : 1,
+        opacity: !embedded ? 1 : isRest && !(dayLoad?.actualTss && dayLoad.actualTss > 0) ? 0.65 : dimmed ? 0.85 : 1,
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
@@ -250,7 +254,7 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
       >
         <span onClick={event => event.stopPropagation()}><GlossaryText>{meta.label}</GlossaryText></span>
       </div>
-      {(effectiveDur > 0 || effectiveTSS > 0) && (
+      {(effectiveDur > 0 || effectiveTSS > 0 || !embedded) && (
         <div
           style={{
             fontSize: "var(--fs-base)",
@@ -261,6 +265,7 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
             display: 'flex',
             flexWrap: 'wrap',
             columnGap: 'var(--space-1)',
+            minHeight: !embedded ? 'calc(var(--fs-base) * 1.25)' : undefined,
           }}
         >
           {effectiveDur > 0 && <span style={{ whiteSpace: 'nowrap' }}>{effectiveDur} {t('mobile.minutesUnit')}</span>}
@@ -268,12 +273,7 @@ function DayCell({ embedded = false, selected, day, isToday, weekAdjustmentFacto
         </div>
       )}
       {dailyLoad}
-      {saved && <>
-        <Text as="p" variant="caption" tone="secondary">{savedStatus}</Text>
-        {saved.linkage !== "confirmed" && (saved.linkage !== "none" || ["completed", "partial", "markedComplete"].includes(saved.outcome)) && <Text as="p" variant="caption" tone="secondary">{t(`planRecords.basis.${saved.linkage}`)}</Text>}
-        {saved.postponedToLocalDate && <Text as="p" variant="caption" tone="secondary">{t("planRecords.postponedDate", {date: saved.postponedToLocalDate})}</Text>}
-        {saved.activityLinks.map(link => <LocalizedLink key={link.id} data-testid="K4-5-5" to={`/activity/${encodeURIComponent(link.id)}`} onClick={event => event.stopPropagation()}>{t(link.kind === "candidate" ? "planRecords.viewCandidate" : "today.viewActivity")}</LocalizedLink>)}
-      </>}
+      {saved && saved.outcome !== "rest" && <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{savedStatus}</Text>}
       {/* 자동 조정 칩 — week 단위 canonical factor 사용 (day별 ratio 누적 오차 회피) */}
       {isAdjusted && weekAdjustmentFactor != null && (
         <div style={{ position: 'absolute', bottom: 4, left: 6 }}>
@@ -417,7 +417,7 @@ interface PhaseBarProps {
   renderMobile?: (props: MobilePlanContentProps) => ReactNode;
 }
 
-function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }: PhaseBarProps) {
+export function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }: PhaseBarProps) {
   const { t } = useTranslation('training');
   // #365: base(기초 유산소 축적기) — 생성기가 아직 emit 하지 않을 수 있어 0건이면 자동 숨김.
   const baseCount   = weeks.filter((w) => w.phase === 'base').length;
@@ -450,7 +450,7 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
           flex: 1,
           minWidth: 160,
           display: 'flex',
-          height: 20,
+          minHeight: "var(--space-6)",
           borderRadius: "var(--r-sm)",
           overflow: 'hidden',
           gap: "var(--space-0-5)",
@@ -461,15 +461,15 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
             key={phase}
             style={{
               flex: count / total,
-              background: color,
-              opacity: 0.8,
+              background: `color-mix(in oklch, ${color} 18%, var(--bg-1))`,
+              borderBottom: `2px solid ${color}`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 'var(--space-1)',
               fontSize: "var(--ft-body-size)",
               fontFamily: 'inherit',
-              color: 'var(--primary-fg)',
+              color: 'var(--ink-1)',
               fontWeight: 600,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -482,7 +482,7 @@ function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAbandon }
       </div>
       {/* Action buttons inline with phase bar */}
       {(onIcsExport || onReroll || onGoalReset || onAbandon) && (
-        <div style={{ display: 'flex', gap: 'var(--space-2)', flexShrink: 0 }}>
+        <div className="plan-phase-actions">
         {goal && onIcsExport && (
           <Button variant="secondary" size="sm" data-testid="K4-3-2" onClick={onIcsExport}>
             {t('buttons.ics')}
@@ -1052,8 +1052,9 @@ export default function PlanPresentation({
                 const pc = phaseColor(wk.phase);
 
                 return (
+                  <div key={wk.id} className="plan-calendar-week">
+                  {!embedded && <PlanWeekLoadSummary week={wk} dayLoads={calendarLoadsByDate} state={calendarLoads.state} />}
                   <div
-                    key={wk.id}
                     style={{
                       display: 'grid',
                       gridTemplateColumns: PLAN_WEEK_GRID_COLUMNS,
@@ -1140,6 +1141,7 @@ export default function PlanPresentation({
                         <GlossaryText>TSS</GlossaryText>
                       </div>
                     </div>
+                  </div>
                   </div>
                 );
               })

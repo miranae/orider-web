@@ -34,7 +34,8 @@ export type StageActivityPowerDurationResponse =
   | { version: 1; mode: "stage_activity_duration"; activityId: string;
       state: StagePowerDurationKernelResult["state"]; reason: StagePowerDurationKernelResult["reason"];
       requestedDurationSeconds: number; result: StagePowerDurationKernelResult;
-      source: { activityStartEpochMs: number; activityIncarnation: string; baseMetricsRevision: string;
+      source: { historical?: true; calculationBasis?: "saved_interval_snapshot"; calculatorArtifactHash?: string;
+        activityStartEpochMs: number; activityIncarnation: string; baseMetricsRevision: string;
         snapshotRevision: string; sourceDigest: string;
         qualification: StageActivityPowerSource["qualification"]; manifestObjectIncarnationVerified: boolean;
         timingBasis: "stored_native_one_second_slot_policy"; originalClockVerified: false;

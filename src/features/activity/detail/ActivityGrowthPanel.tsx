@@ -1,3 +1,4 @@
+import { observedRouteAvailable } from "../../../services/activityRouteEvidence";
 import GlossaryProvider from "../../../components/common/GlossaryProvider";
 import GlossaryText from "../../../components/common/GlossaryText";
 import { disciplineOfType } from "@shared/sport/discipline";
@@ -62,7 +63,7 @@ function comparisonDuration(value: number | null, delta = false): string {
 }
 function Comparison({ activity, metrics, currentMetricsStatus, comparisonOnly }: Omit<ActivityGrowthPanelProps, "isOwner">) {
   const { t, i18n } = useTranslation("activity");
-  const stageRoutes = !comparisonOnly || getRuntimeConfig().appEnvironment === "stage";
+  const routesAvailable = !comparisonOnly || observedRouteAvailable();
   const { user } = useAuth();
   const { units } = useLocale();
   const distanceFactor = units === "imperial" ? 1 / 1.609344 : 1;
@@ -90,7 +91,7 @@ function Comparison({ activity, metrics, currentMetricsStatus, comparisonOnly }:
     : source?.isVirtualPower === false ? t("growth.measuredPower") : t("growth.powerUnknown");
   return <GlossaryProvider scopeKey={`activity-comparison:${activity.id}:${selectedId}`}><div className="space-y-4">
     <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.conditions")}</Text>
-    {stageRoutes && <Stack direction="row" wrap gap="var(--space-2)">
+    {routesAvailable && <Stack direction="row" wrap gap="var(--space-2)">
       <Button size="sm" variant={!routeOnly ? "secondary" : "ghost"} aria-pressed={!routeOnly} onClick={() => setRouteOnly(false)}>{t("growth.route.all")}</Button>
       <Button size="sm" variant={routeOnly ? "secondary" : "ghost"} aria-pressed={routeOnly} onClick={() => setRouteOnly(true)}>{t("growth.route.similar", { count: routes.candidates.length })}</Button>
     </Stack>}
@@ -112,13 +113,13 @@ function Comparison({ activity, metrics, currentMetricsStatus, comparisonOnly }:
     {history.error && <Button size="sm" onClick={history.retry}>{t("growth.retry")}</Button>}
     {!history.loading && !history.error && candidates.length === 0 && <Text as="p">{t("growth.noPrevious")}</Text>}
     {history.hasMore && <Button size="sm" variant="outline" loading={history.loadingMore} onClick={history.loadMore}>{t("growth.loadMore")}</Button>}
-    {stageRoutes && <ObservedRouteHistoryPanel anchor={activity} activities={candidates} observedMetricsIdentity={JSON.stringify([currentMetricsStatus, metrics?.computedAt, metrics?.version, metrics?.inputPending, metrics?.inputCoverage, metrics?.sourceLayer])} />}
+    {routesAvailable && <ObservedRouteHistoryPanel anchor={activity} activities={candidates} observedMetricsIdentity={JSON.stringify([currentMetricsStatus, metrics?.computedAt, metrics?.version, metrics?.inputPending, metrics?.inputCoverage, metrics?.sourceLayer])} />}
     {!selected && !history.loading && candidates.length > 0 && <div className="activity-comparison-empty">
       <Text as="h3" variant="title">{t("detail.compareEmptyTitle")}</Text>
       <Text as="p" variant="bodyMedium" tone="secondary">{t("detail.compareEmptyDescription")}</Text>
     </div>}
     {selected && <>
-      {stageRoutes && <ObservedRouteComparisonPanel current={activity} previous={selected} />}
+      {routesAvailable && <ObservedRouteComparisonPanel current={activity} previous={selected} />}
       <Text as="p" variant="bodyMedium" tone="secondary">{t("growth.route.context", { current: number(activity.summary?.pauseTimeSec ?? null, 0), previous: number(selected.summary?.pauseTimeSec ?? null, 0) })}</Text>
       <Button size="sm" variant="ghost" onClick={() => setSelectedId("")}>{t("growth.clear")}</Button>
       {baseline.status === "loading" && <Text as="p" role="status" aria-live="polite">{t("growth.loading")}</Text>}
@@ -151,7 +152,7 @@ function Statistics({ activity }: { activity: Activity }) {
   const { t, i18n } = useTranslation("activity");
   const bucketId = useId();
   const discipline = getDiscipline(activity.type);
-  const canonicalEnabled = trainingAnalysisPeriodsAvailable() && (discipline === "bike" || discipline === "run" || discipline === "swim");
+  const canonicalEnabled = (discipline === "bike" || discipline === "run" || discipline === "swim") && trainingAnalysisPeriodsAvailable(discipline);
   const [requestedPeriod, setPeriod] = useState<StatisticsPeriod | "custom" | "year">("week");
   const period = requestedPeriod === "year" && !canonicalEnabled ? "month" : requestedPeriod;
   const [now] = useState(() => new Date());
@@ -291,8 +292,8 @@ function GrowthSections(props: ActivityGrowthPanelProps) {
         <StageActivityPowerDurationPanel activity={props.activity} />
         {stageActivityPowerAvailable() && <NativePowerV2DurationPanel activity={props.activity} />}
       </>}
-      <ActivityRouteIndexHistoryPanel activity={props.activity} observedMetricsIdentity={JSON.stringify([props.currentMetricsStatus, props.metrics?.computedAt])} />
     </>}
+    {observedRouteAvailable() && <ActivityRouteIndexHistoryPanel activity={props.activity} observedMetricsIdentity={JSON.stringify([props.currentMetricsStatus, props.metrics?.computedAt])} />}
     <LocalizedLink to={`/coach/analysis?sport=${disciplineOfType(props.activity.type)}`}>{t("growth.analysisLink")}</LocalizedLink>
   </section>;
   const content = <Stack gap="var(--dim-section-gap)" className={props.embedded ? undefined : "activity-growth-content"}>

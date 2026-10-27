@@ -9,6 +9,9 @@ import {
   ComparisonChart, CHART_PRESENTATION, DEFAULT_THEME,
 } from '../theme';
 import { panChartRange } from '../theme/charts/chartViewport';
+import CoachPlanPreview from './CoachPlanPreview';
+import CoachConditionPreview from './CoachConditionPreview';
+import ActivityReadingLayoutPreview from './ActivityReadingLayoutPreview';
 import DurationCurvePreview from './DurationCurvePreview';
 import InfoTip from '../components/InfoTip';
 import SportIcon from '../components/common/SportIcon';
@@ -242,9 +245,12 @@ function ControlsCatalog() {
           </div>
           <div className="catalog-section-demo">
             <Section actionsLayout="responsive" title="훈련 요약" headingLevel={3} description={`${FIXTURE_SUMMARY_ROWS[sectionRecord]!.label} · 생성한 예시`} actions={<Button variant="ghost" size="sm" onClick={() => setSectionRecord(sectionRecord === 0 ? 1 : 0)}>다른 기록 보기</Button>}>
-              <div className="catalog-section-metrics"><Stat label="훈련 부하" value="120" description="시간과 강도를 반영한 활동의 훈련량 · 생성 예시" /><div><Text as="p" variant="caption" tone="tertiary">평균 파워</Text><Text variant="dataMedium">{FIXTURE_SUMMARY_ROWS[sectionRecord]!.power!.toFixed(0)} <Text variant="unit">W</Text></Text></div><div><Text as="p" variant="caption" tone="tertiary">평균 심박수</Text><Text variant="dataMedium">{FIXTURE_SUMMARY_ROWS[sectionRecord]!.hr!.toFixed(0)} <Text variant="unit">bpm</Text></Text></div><div><Text as="p" variant="caption" tone="tertiary">활동 시간</Text><Text variant="dataMedium">90 <Text variant="unit">분</Text></Text></div></div>
+              <div className="catalog-section-metrics"><Stat layout="responsive" label="훈련 부하" value="120" description="시간과 강도를 반영한 활동의 훈련량 · 생성 예시" /><div><Text as="p" variant="caption" tone="tertiary">평균 파워</Text><Text variant="dataMedium">{FIXTURE_SUMMARY_ROWS[sectionRecord]!.power!.toFixed(0)} <Text variant="unit">W</Text></Text></div><div><Text as="p" variant="caption" tone="tertiary">평균 심박수</Text><Text variant="dataMedium">{FIXTURE_SUMMARY_ROWS[sectionRecord]!.hr!.toFixed(0)} <Text variant="unit">bpm</Text></Text></div><div><Text as="p" variant="caption" tone="tertiary">활동 시간</Text><Text variant="dataMedium">90 <Text variant="unit">분</Text></Text></div></div>
             </Section>
           </div>
+          <Section title="코치 계획 읽기" description="주간 요약은 한 번, 날짜에는 계획과 실제 부하를 먼저 표시합니다. 생성 데이터입니다."><CoachPlanPreview /></Section>
+          <Section title="코치 컨디션 읽기" description="현재 상태, 계산 근거, 기간 변화와 활동 기여도를 실제 컴포넌트로 확인합니다. 생성 데이터입니다."><CoachConditionPreview /></Section>
+          <Section title="존별 시간 정렬" description="이름·비중·시간을 고정된 열로 비교합니다. 생성 데이터입니다."><ActivityReadingLayoutPreview /></Section>
           <Section title="시간별 최고 파워" description="공통 곡선 외형 · 생성 데이터. 실제 분석은 단위·기간·출처·선택을 기능에서 관리합니다."><DurationCurvePreview variant={theme} /></Section>
           <Text as="p" variant="bodySmall" tone="tertiary">Section은 제목·설명·관련 동작을 같은 기준선에 둡니다. 이어지는 표와 차트까지 매번 카드로 감싸지 않습니다. 소스: <code>src/theme/components/Card.tsx</code> · <code>Section.tsx</code>.</Text>
         </section>

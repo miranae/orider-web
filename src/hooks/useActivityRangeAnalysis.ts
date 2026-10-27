@@ -14,6 +14,7 @@ export interface ActivityRangeSelection {
 export interface ActivityRangeAnalysisOptions {
   activityId: string | undefined;
   ownerUid: string | null | undefined;
+  authorizedActivityAccess?: boolean;
   selection: ActivityRangeSelection | null;
   /** 활동·센서·개인정보 정본의 변경 식별자. 서버 opaque revision과 별개다. */
   inputIdentity: string;
@@ -24,49 +25,50 @@ export interface ActivityRangeAnalysisOptions {
   includeElevation?: boolean;
 }
 
-export function useActivityRangeAnalysis({ activityId, ownerUid, selection, inputIdentity, expectedInputRevision, callableEnabled = false, includePowerWindowInput = false, includeElevation = false }: ActivityRangeAnalysisOptions) {
+export function useActivityRangeAnalysis({ activityId, ownerUid, authorizedActivityAccess = false, selection, inputIdentity, expectedInputRevision, callableEnabled = false, includePowerWindowInput = false, includeElevation = false }: ActivityRangeAnalysisOptions) {
   const { user } = useAuth();
   const services = useFirebaseServices();
-  const uid = user?.uid;
+  const uid = user?.uid ?? null;
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => setAttempt(value => value + 1), []);
   const startOffsetSec = selection?.startOffsetSec, endOffsetSec = selection?.endOffsetSec, requestId = selection?.requestId;
   const request = activityId && selection ? { activityId, startOffsetSec: selection.startOffsetSec,
     endOffsetSec: selection.endOffsetSec, ...(expectedInputRevision ? { expectedInputRevision } : {}), ...(includePowerWindowInput ? { includePowerWindowInput: true } : {}), ...(includeElevation ? { includeElevation: true as const } : {}) } : null;
   const sdkUser = services.auth.currentUser;
-  const owner = !!uid && !!ownerUid && uid === ownerUid && !user?.isAnonymous && sdkUser?.uid === uid && !sdkUser.isAnonymous;
+  const owner = !!ownerUid && (authorizedActivityAccess || !!uid && uid === ownerUid && !user?.isAnonymous && !sdkUser?.isAnonymous) && (sdkUser?.uid ?? null) === uid;
   const valid = !!request && !!selection?.requestId && validRangeRequest(request);
   const allowed = owner && valid && callableEnabled;
   const key = allowed ? JSON.stringify([uid, activityId, selection?.requestId, selection?.startOffsetSec,
     selection?.endOffsetSec, inputIdentity, expectedInputRevision, includePowerWindowInput, includeElevation, attempt]) : null;
   const generationRef = useRef(0);
-  const identityRef = useRef({ key, services });
-  if (identityRef.current.key !== key || identityRef.current.services !== services) {
-    identityRef.current = { key, services };
+  const identityRef = useRef({ key, services, sdkUser });
+  if (identityRef.current.key !== key || identityRef.current.services !== services || identityRef.current.sdkUser !== sdkUser) {
+    identityRef.current = { key, services, sdkUser };
     generationRef.current += 1;
   }
   const [result, setResult] = useState<{ generation: number; key: string; services: typeof services; response: ActivityRangeAnalysisResponse | null; reason: string | null } | null>(null);
   useEffect(() => {
-    let authKey = `${services.auth.currentUser?.uid}:${services.auth.currentUser?.isAnonymous}`;
+    let observedUser = services.auth.currentUser;
+    let observedKey = `${observedUser?.uid}:${observedUser?.isAnonymous}`;
     return onAuthStateChanged(services.auth, sdkUser => {
-      const next = `${sdkUser?.uid}:${sdkUser?.isAnonymous}`;
-      if (next === authKey) return;
-      authKey = next; generationRef.current++; setResult(null);
+      const nextKey = `${sdkUser?.uid}:${sdkUser?.isAnonymous}`;
+      if (sdkUser === observedUser && nextKey === observedKey) return;
+      observedUser = sdkUser; observedKey = nextKey; generationRef.current++; setResult(null);
     });
   }, [services]);
   useEffect(() => {
-    if (!key || !uid || !activityId || startOffsetSec == null || endOffsetSec == null) return;
+    if (!key || !activityId || startOffsetSec == null || endOffsetSec == null) return;
     const generation = ++generationRef.current;
     let active = true;
     const payload = { activityId, startOffsetSec, endOffsetSec,
       ...(expectedInputRevision ? { expectedInputRevision } : {}), ...(includePowerWindowInput ? { includePowerWindowInput: true } : {}), ...(includeElevation ? { includeElevation: true as const } : {}) };
     void loadActivityRangeAnalysis(services, uid, payload)
-      .then(response => { if (active && generationRef.current === generation && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous) setResult({ generation, key, services, response, reason: null }); })
-      .catch(error => { if (active && generationRef.current === generation && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous) setResult({ generation, key, services, response: null,
+      .then(response => { if (active && generationRef.current === generation && services.auth.currentUser === sdkUser && (sdkUser?.uid ?? null) === uid) setResult({ generation, key, services, response, reason: null }); })
+      .catch(error => { if (active && generationRef.current === generation && services.auth.currentUser === sdkUser && (sdkUser?.uid ?? null) === uid) setResult({ generation, key, services, response: null,
         reason: typeof error === "object" && error !== null && "code" in error
           && /not-found|unimplemented/u.test(String(error.code)) ? "api_unavailable" : "request_failed" }); });
     return () => { active = false; generationRef.current += 1; };
-  }, [key, services, uid, activityId, requestId, startOffsetSec, endOffsetSec, expectedInputRevision, includePowerWindowInput, includeElevation]);
+  }, [key, services, sdkUser, uid, activityId, requestId, startOffsetSec, endOffsetSec, expectedInputRevision, includePowerWindowInput, includeElevation]);
   const current = key && result?.key === key && result.services === services && result.generation === generationRef.current ? result : null;
   const response = current?.response ?? null;
   const state = !owner || !selection ? "idle" : !valid || !callableEnabled ? "unavailable"

@@ -32,6 +32,7 @@ function formatDuration(ms: number): string {
 
 interface MobileLogPageProps {
   recentSummarySlot?: ReactNode;
+  periodReturnSlot?: ReactNode;
   activities: Activity[];
   representativeCandidates?: Activity[];
   ftp?: number;
@@ -72,7 +73,7 @@ function MobileLogSkeleton() {
   );
 }
 
-export default function MobileLogPage({ recentSummarySlot, activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, aggregateUnavailable = false, ftp, planState = "ready", onRetryPlan, plansByDate = {}, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
+export default function MobileLogPage({ recentSummarySlot, periodReturnSlot, activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, aggregateUnavailable = false, ftp, planState = "ready", onRetryPlan, plansByDate = {}, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
   const { t, i18n } = useTranslation("activity");
   const DAY_NAMES = (t("mobileLog.dayNames", { returnObjects: true }) as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const [importParams, setImportParams] = useSearchParams();
@@ -422,6 +423,7 @@ export default function MobileLogPage({ recentSummarySlot, activities, represent
             <Text as="p" variant="bodySmall" role={planState === "error" ? "alert" : "status"}>{t(planState === "error" ? "training:planRecords.error" : "training:planRecords.loading")}</Text>
             {planState === "error" && onRetryPlan && <Button variant="secondary" onClick={onRetryPlan}>{t("common:button.retry")}</Button>}
           </div>}
+          {periodReturnSlot}
           <PlanRecordEvidence date={selectedDay} plans={plansByDate[selectedDay] ?? []} />
               {visibleDayActs.map((a) => {
                 const disc = getDiscipline(a.type);

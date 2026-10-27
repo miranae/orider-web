@@ -9,7 +9,7 @@ import GlossaryText from "../../../components/common/GlossaryText";
 import { Link } from "react-router-dom";
 import FuelSplitBar from "../../../components/FuelSplitBar";
 import { Button, Chip, Disclosure, Section, Stack, Stat, Text } from "../../../theme/components";
-import { zoneSurfaceStyle } from "../../../theme/charts/zoneSurface";
+import { criticalDistribution, PowerZoneReadings } from "./PowerZoneReadings";
 import { FitnessShift, ZoneTimeBar, IntensityGauge, OverviewPowerCurve, PercentMeter, formatSpan, powerDurationSeconds } from "./ActivityOverviewCharts";
 
 interface Props {
@@ -162,30 +162,18 @@ export default function ActivityAnalysisBody(props: Props) {
       </Topic>
       <Topic id="intensity" title={t("detail.analysisTopics.intensity")} visible={zones.length > 0 || readable(raw.zones) || readable(raw.bands) || readable(raw.anaerobic) || !!effort && Object.values(effort).some(value => value != null)}>
         <div className="activity-analysis-zones">{zones.map(zone => {
-          const rawZones = zone.kind === "power" ? context?.powerZones : context?.hrZones;
-          const differentTimes = rawZones?.length === zone.seconds.length && rawZones.some((rawZone, index) => rawZone.seconds !== zone.seconds[index]);
-          const totalZoneSeconds = zone.seconds.reduce((sum, seconds) => sum + seconds, 0);
-          const showCurrent = !!zone.currentPercentages?.some(value => Number.isFinite(value));
-          const showBaseline = !!zone.baselinePercentages?.some(value => Number.isFinite(value));
-          const showDelta = !!zone.deltaPercentagePoints?.some(value => Number.isFinite(value));
+          const isPower = zone.kind === "power";
           return <section key={zone.kind} className="activity-analysis-zone" aria-label={label(zone.kind)}>
           <Text as="h3" variant="bodyMedium" weight={600}>{label(zone.kind)}</Text>
-          <ZoneTimeBar zone={zone} heading={t("overviewSummary.thisActivity")} />
-          <Disclosure title={t("analysisReading.zoneEvidence")}><div className="activity-analysis-table" role="region" tabIndex={0} aria-label={label(zone.kind)}><table>
-            <thead><tr>{[label("zone"), differentTimes ? t("detail.analysisTopics.summaryZoneTime") : label("duration"), ...(differentTimes ? [t("detail.analysisTopics.metricZoneTime")] : []), ...(showCurrent ? ["%"] : []), ...(showBaseline ? [label("baseline")] : []), ...(showDelta ? [label("change")] : []), ...(zone.kind === "power" && context?.zoneKj ? ["kJ"] : [])].map(name => <th scope="col" key={name}>{name}</th>)}</tr></thead>
-            <tbody>{zone.seconds.map((seconds, index) => <tr key={index}>
-              <th scope="row">Z{index + 1}</th><td title={num(seconds, " s")}>{span(seconds)}{!showCurrent && <span className="activity-analysis-zone-track" aria-hidden="true"><span style={{ width: `${totalZoneSeconds > 0 ? seconds / totalZoneSeconds * 100 : 0}%`, background: `var(--zone-${index + 1})`, ...(zone.kind === "power" ? zoneSurfaceStyle : {}) }} /></span>}</td>{differentTimes && <td title={num(rawZones?.[index]?.seconds, " s")}>{rawZones?.[index]?.seconds != null ? span(rawZones[index]!.seconds) : "—"}</td>}
-              {showCurrent && <td><div className="activity-analysis-zone-value"><span>{num(zone.currentPercentages?.[index], "%")}</span><span className="activity-analysis-zone-track" aria-hidden="true"><span style={{ width: `${Math.max(0, Math.min(100, zone.currentPercentages?.[index] ?? 0))}%`, background: `var(--zone-${index + 1})`, ...(zone.kind === "power" ? zoneSurfaceStyle : {}) }} /></span></div></td>}
-              {showBaseline && <td>{num(zone.baselinePercentages?.[index], "%")}</td>}{showDelta && <td>{signed(zone.deltaPercentagePoints?.[index], "%p")}</td>}
-              {zone.kind === "power" && context?.zoneKj && <td>{num(context.zoneKj[`z${index + 1}` as keyof typeof context.zoneKj])}</td>}
-            </tr>)}</tbody>
-          </table></div></Disclosure>
+          <ZoneTimeBar layout="rows" zone={zone} heading={t("overviewSummary.thisActivity")}
+            workKj={isPower && context?.zoneKj ? zone.seconds.map((_, i) => context.zoneKj?.[`z${i + 1}` as keyof typeof context.zoneKj]) : undefined}
+            afterStrip={isPower ? <PowerZoneReadings seiler={context?.seilerZones} bands={context?.criticalBands} powerSeconds={context?.powerZones?.map(row => row.seconds)} /> : undefined} />
           {zone.priorSampleCount != null && note(`${label("samples")} ${num(zone.priorSampleCount)}${zone.baselinePercentages ? ` · ${label(`baselineScope.${zone.baselineScope ?? "sameCharacter"}`)}` : ""}${zone.historyCompleteness ? ` · ${label(`completeness.${zone.historyCompleteness}`)}` : ""}${zone.provisional ? ` · ${label("zoneProvisional")}` : ""}`)}
         </section>; })}</div>
         {context?.maxHr != null && note(`${t("detail.analysisTopics.hrBasis")} ${num(context.maxHr, " bpm")}`)}
         {readable(raw.zones) && <Disclosure title={t("analysisReading.zoneDetails")}>{raw.zones}</Disclosure>}
         {personal(["highIntensityExposure"])}
-        {readable(raw.bands) && <Disclosure title={t("analysisReading.thresholdDetails")}>{raw.bands}</Disclosure>}
+        {(!zones.some(zone => zone.kind === "power") || !criticalDistribution(context?.criticalBands, context?.powerZones?.map(row => row.seconds))) && readable(raw.bands) && <Disclosure title={t("analysisReading.thresholdDetails")}>{raw.bands}</Disclosure>}
         {effort && facts([
           ...(effort.matchesCount != null ? [[copy("matches"), num(effort.matchesCount)]] as [string, ReactNode][] : []),
           ...(effort.matchesTotalSec != null ? [[label("matchesTotal"), span(effort.matchesTotalSec)]] as [string, ReactNode][] : []),
@@ -201,7 +189,7 @@ export default function ActivityAnalysisBody(props: Props) {
       <Topic id="records" title={t("detail.analysisTopics.records")} visible={curveRows.length > 0 || readable(raw.power) || readable(raw.powerCurve) || readable(benchmark) || readable(peakInspector) || !!p?.peakMoment || readable(props.powerControls)}>
         {props.powerControls}
         {extras(["평균 파워", "Average power"])}
-        {(curveRows.length > 0 || readable(raw.powerCurve) || readable(benchmark)) && <ActivityPowerComparison benchmark={benchmark}
+        {(curveRows.length > 0 || readable(raw.powerCurve) || readable(benchmark)) && <ActivityPowerComparison inlineControls={curveRows.length > 0} benchmark={benchmark}
           current={curveRows.length > 0 ? (<OverviewPowerCurve interactiveReading rows={curveRows} recordsEvaluated={records} comparableMedian={p?.comparisonMetadata?.historyCompleteness === "complete" && curveRows.some(row => row.deltaPct != null && Number.isFinite(row.deltaPct) && (row.medianWatts ?? 0) > 0 && (row.priorSampleCount ?? 0) >= 3)} ftpW={currentFtp} />) : raw.powerCurve}
           evidence={curveRows.length > 0 ? <>
           <div className="activity-analysis-table" role="region" tabIndex={0} aria-label={t("detail.analysisTopics.records")}><table>

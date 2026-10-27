@@ -1,3 +1,4 @@
+import { savedActivityMetrics } from "../services/savedActivityMetrics";
 /**
  * useActivityMetrics — Phase A 산출물 `activity_metrics/{activityId}` 구독.
  *
@@ -9,7 +10,7 @@
  *   - loading: 첫 read 응답 전
  *   - missing: doc 없음 (orider 활동만 보장. Strava import 가 streams 미생성한
  *     경우 트리거가 발화 안 함 → 없음)
- *   - stale: version 이 클라이언트 기대보다 낮음 (다음 streams write 시 자동 갱신)
+ *   - stale: 저장 결과의 version 이 클라이언트 기대보다 낮음 (기존 결과를 유지하며 재분석은 명시 요청)
  *   - ready: 사용 가능
  *
  * Firestore rules: `activity_metrics/{id}` 는 **활동 owner 만** read (contextSnapshot 에
@@ -85,7 +86,8 @@ export type UseActivityMetricsState =
   | { status: "disabled"; metrics: null }
   | { status: "missing"; metrics: null }
   /** 서버 doc 이 있으나 스키마 버전이 클라 기대보다 낮다. 값은 last-known-good 으로 그대로 쓰되
-   *  화면에는 "이전 분석" 표식을 붙인다 — 다음 streams write 때 서버가 재계산한다. */
+   *  화면에는 "이전 분석" 표식을 붙인다. 버전 차이만으로 재계산하지 않으며,
+   *  명시 재분석 요청 또는 실제 원본 변경에 따른 계산은 서버 정책을 따른다. */
   | { status: "stale"; metrics: ActivityMetricsDoc }
   | { status: "ready"; metrics: ActivityMetricsDoc };
 
@@ -195,15 +197,15 @@ export function useActivityMetrics(activityId: string | null, isOwner = true): U
           update({ status: raw.status === "pending" ? "loading" : "missing", metrics: null });
           return;
         }
+        const saved = savedActivityMetrics(raw);
         const data = isOwner
-          ? ((isLifecycleDocument && raw.metrics && typeof raw.metrics === "object" && !Array.isArray(raw.metrics)
-            ? raw.metrics : raw) as unknown as ActivityMetricsDoc)
+          ? saved.metrics!
           : fromPublicActivityMetrics(raw);
         // version 이 클라 기대보다 낮으면 stale — 값은 그대로 노출하되 호출자가 표식을 붙인다.
         // version 필드가 아예 없는 옛 문서는 0 으로 본다 — 모름을 최신으로 그리면 안 된다 (#2237).
         const version = typeof data.version === "number" && Number.isSafeInteger(data.version)
           && data.version >= 0 ? data.version : 0;
-        const isStale = (isOwner && isLifecycleDocument && raw.stale === true)
+        const isStale = saved.retained || (isOwner && isLifecycleDocument && raw.stale === true)
           || version < ACTIVITY_METRICS_VERSION;
         update({ status: isStale ? "stale" : "ready", metrics: data });
       },

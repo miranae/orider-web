@@ -25,7 +25,7 @@ vi.mock("../components/AnalysisTab", () => ({ default: (props: ComponentProps<ty
 }, AnalysisLapTable: (props: Record<string, unknown>) => { mocks.lapProps(props); return <div data-testid="summary-laps"><h3>랩 분석</h3>Laps</div>; } }));
 vi.mock("../components/RouteMap", () => ({ default: () => <div /> }));
 vi.mock("../components/ElevationChart", () => ({ default: () => <div /> }));
-vi.mock("../components/activity/AiRideAnalysisCard", () => ({ default: () => <div /> }));
+vi.mock("../components/activity/AiRideAnalysisCard", () => ({ default: () => <div data-testid="stored-ai-card" /> }));
 vi.mock("react-router-dom", async (importOriginal) => ({
   ...await importOriginal<typeof import("react-router-dom")>(),
   useParams: () => ({ activityId: "summary-only" }),
@@ -128,6 +128,15 @@ describe("ActivityPage server summary presentation", () => {
     expect(within(gapCard).getByText("5:37/km")).toBeInTheDocument();
     expect(mocks.model!.activity!.summary.averageSpeed).toBe(10);
     expect(mocks.requestStreams).toHaveBeenCalledOnce();
+  });
+
+  it("keeps overview summary without automatically fetching route and loads it only on explicit request", () => {
+    mocks.model!.activity!.thumbnailTrack = "";
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    expect(mocks.requestStreams).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "경로 확인" }));
+    expect(mocks.requestStreams).toHaveBeenCalledOnce();
+    expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("renders analysis with no downloaded streams or stream projection", () => {
@@ -283,4 +292,22 @@ it("does not add an empty technical card for a sensorless public activity withou
   Object.assign(mocks.model!.activity!.summary, { averageHeartRate: null, maxHeartRate: null, averagePower: null, maxPower: null, averageCadence: null, maxCadence: null });
   renderWithProviders(<ActivityPage />, { route: "/ko/activity/summary-only?tab=analysis" });
   expect(screen.queryByRole("heading", { name: "상세 지표와 근거" })).not.toBeInTheDocument();
+});
+
+it("does not label a GPS-less imported sensor chart as GPS", () => {
+  const raw = { distance: [], time: [], latlng: [], importedSensorObservationsV1: {
+    version: 1, state: "available", source: "parsed_import_points", timeUnit: "relative_milliseconds",
+    originEpochMs: mocks.model!.activity!.startTime, timeMs: [0,1000,2000], routeTimeMs: [],
+    watts: [200,0,200], heartrate: [150,150,150], cadence: [80,0,80] } };
+  mocks.model!.streams = raw;
+  mocks.model!.effectiveStreams = { ...raw, time: [0,1,2] };
+  renderWithProviders(<ActivityPage />, { authenticated: true });
+  expect(screen.queryByText("GPS", {exact:true})).not.toBeInTheDocument();
+});
+
+it("mounts saved AI reading even without optional preview, streams or analysisSummary",()=>{
+ mocks.model!.hasAnalysisStreams=false;mocks.model!.streams=null;mocks.model!.analysisTabProps=undefined;
+ delete mocks.model!.activity!.aiSummaryPreview;
+ renderWithProviders(<ActivityPage/>,{authenticated:true});
+ expect(screen.getByTestId("stored-ai-card")).toBeInTheDocument();
 });

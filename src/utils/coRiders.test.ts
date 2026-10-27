@@ -317,3 +317,13 @@ describe("selectActualCoRiders", () => {
     ]);
   });
 });
+
+it("accepts a server-verified owner anchor without exposing the stored peer list", () => {
+  const base = activity({ id: "base", userId: "owner", type: "Ride", startTime: 1000000, endTime: 4600000, summary: createMockSummary({ distance: 10000, ridingTimeMillis: 3600000 }) });
+  const peer = activity({ id: "peer", userId: "other", type: "Ride", startTime: 1000000, endTime: 4600000, summary: createMockSummary({ distance: 10000, ridingTimeMillis: 3600000 }) });
+  expect(selectActualCoRiders(base, [peer])).toEqual([]);
+  expect(selectActualCoRiders(base, [peer], { serverVerifiedAnchorId: "another" })).toEqual([]);
+  expect(selectActualCoRiders(base, [peer], { serverVerifiedAnchorId: "base" }).map(item => item.id)).toEqual(["peer"]);
+  expect(selectActualCoRiders(base, [{ ...peer, type: "Run" }], { serverVerifiedAnchorId: "base" })).toEqual([]);
+  expect(selectActualCoRiders(base, [{ ...peer, summary: { ...peer.summary, distance: NaN } }], { serverVerifiedAnchorId: "base" })).toEqual([]);
+});

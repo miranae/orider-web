@@ -500,3 +500,11 @@ semantic accent 16% 음영과 2px 양끝선을 그리며 취소·선택 완료 �
 처음 방문한 사용자를 위한 분석에서는 `Stat description`으로 수치의 단위·기준·의미를 함께 제공합니다. 파워 비교는 활동 목적과 최고 기록 비교의 한계를 설명하며 훈련 성패나 체력 저하로 단정하지 않습니다. 지도·센서 탐색은 핵심 분석 앞에서 기본 접힘이며, 펼침 버튼과 목차·최고 노력 위치 찾기로 다시 열 수 있습니다. 모바일과 데스크톱 모두 같은 데이터와 읽기 순서를 유지하고 공간만 조정합니다.
 
 시간별 파워·속도 곡선의 공통 외형은 `theme/charts/durationCurvePresentation.ts`가 소유합니다. 현재 계열은 얇은 실선과 옅은 면으로, 비교 계열은 점선으로 표시합니다. 세로 격자와 기본 점의 강조를 줄이고, 선택한 표본에는 툴팁을 유지합니다. 측정 지점 사이를 직선으로 연결하며 시간축·단위·결측·기록 판단은 기능 레이어가 관리합니다.
+
+활동 요약처럼 설명이 있는 수치는 `Stat layout="responsive"`를 사용하면 좁은 화면에서 라벨·수치를 같은 행에 두고 설명을 다음 행 전체 폭으로 읽을 수 있습니다. 페이지는 Stat 내부를 덮어쓰지 않고 수치 묶음의 열 수만 정합니다.
+
+`ToggleControls variant="axis" layout="field"`는 Input/Select 옆의 레이블이 있는 선택 항목에 사용한다. 외부 여백 없이 36px 높이로 정렬하며, 기본 차트 축 컨트롤의 32px 표시는 유지한다.
+
+`DistributionStrip` displays caller-supplied category weights as a single strip. Segment and legend triggers share hover/focus/tap explanations, with Escape/outside-tap dismissal. The title and right-aligned legend share one header row. `unlabelled` weights reserve passive strip space without a label or tooltip. Zero categories remain in the legend, missing categories should be omitted by the caller. The activity reading catalogue demonstrates Seiler and FTP distributions with synthetic data.
+
+Interactive `Card` consumers can pass `aria-pressed` for single-choice lists. The shared selected state uses an accent border and soft surface; keep the selected value and callbacks in the feature. The Coach condition catalogue demonstrates this with activity contribution selection.

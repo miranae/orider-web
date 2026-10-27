@@ -412,6 +412,19 @@ it("opens the desktop plan comparison without dropping the selected record conte
   expect(screen.getByTestId("record-url")).toHaveTextContent("calendarPage=3&range=90");
 });
 
+it.each(["rider", "other"])("keeps period return inside mobile day detail and scoped to owner %s", async uid => {
+  state.mobile = true;
+  const date = new Date(startTime + 9 * 3600000).toISOString().slice(0, 10);
+  render(<MemoryRouter initialEntries={[{ pathname: "/ko/athlete/me/activities", search: `?sport=bike&date=${date}&day=${date}&detail=record-day`, state: { fitnessPeriodReturn: { uid, pathname: "/ko/coach/analysis", search: "?sport=bike&detail=analysis-periods", hash: "" } } }]}><TrainingLogPage /></MemoryRouter>);
+  if (uid === "rider") {
+    const link = await screen.findByRole("link", { name: "기간 분석으로 돌아가기" });
+    expect(link.closest(".coach-detail")).not.toBeNull();
+    expect(link).toHaveAttribute("href", "/ko/coach/analysis?sport=bike&detail=analysis-periods");
+  } else {
+    await screen.findByRole("tab", { name: "활동" });
+    expect(screen.queryByRole("link", { name: "기간 분석으로 돌아가기" })).toBeNull();
+  }
+});
 
 it("keeps month date links on the calendar when the selected date has a plan, while explicit day selection opens details", async () => {
   const plans = new Map([["2026-10-01", [{ discipline: "bike" as const, workout: "rest" as const, plannedTSS: 0, plannedDurationMin: 0 }]]]);

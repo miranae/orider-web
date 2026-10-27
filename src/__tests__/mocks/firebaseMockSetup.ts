@@ -21,6 +21,7 @@ import {
 } from "./firebase";
 
 let authCurrentUserOverride: unknown | undefined;
+const sdkUsers = new WeakMap<object, object>();
 
 // ─── services/firebase.ts ─────────────────────────────────
 vi.mock("../../services/firebase", () => ({
@@ -28,10 +29,9 @@ vi.mock("../../services/firebase", () => ({
     get currentUser() {
       if (authCurrentUserOverride !== undefined) return authCurrentUserOverride;
       const user = getCurrentUser();
-      return user ? {
-        ...user,
-        getIdToken: vi.fn().mockResolvedValue("test-id-token"),
-      } : null;
+      if (!user) return null;
+      if (!sdkUsers.has(user)) sdkUsers.set(user, { ...user, getIdToken: vi.fn().mockResolvedValue("test-id-token") });
+      return sdkUsers.get(user);
     },
     set currentUser(value: unknown) {
       authCurrentUserOverride = value;

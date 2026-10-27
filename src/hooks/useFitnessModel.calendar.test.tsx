@@ -9,9 +9,14 @@ import { setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
 import { clearTrainingSurfaceCache } from "../embedded/trainingSurfaceCache";
 import { useFitnessModel } from "../hooks/useFitnessModel";
 import { FitnessView } from "../pages/FitnessPage";
-const mocks = vi.hoisted(() => ({user:{uid:"rider-a",isAnonymous:false},firestore:{},services:{firestore:{}},timeseries:null as FitnessTimeseriesDoc|null, canonicalOn: false, envelope: null as unknown, pendingFetch: null as Promise<unknown> | null, activityWindow: null as unknown, pdcSufficiency: null as unknown}));
+const mocks = vi.hoisted(() => ({user:{uid:"rider-a",isAnonymous:false,metadata:{creationTime:"2026-01-01"}},firestore:{},timeseries:null as FitnessTimeseriesDoc|null, canonicalOn: false, envelope: null as unknown, pendingFetch: null as Promise<unknown> | null, activityWindow: null as unknown, pdcSufficiency: null as unknown}));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, profile: null }) }));
-vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
+vi.mock("../contexts/FirebaseServicesContext", () => {
+  const app = {name:"fitness-test",options:{projectId:"demo-fitness-test"}};
+  const services = {firestore:mocks.firestore,auth:{app,get currentUser(){return mocks.user;}},functions:{app},
+    ensureAppCheckReady:vi.fn().mockResolvedValue(undefined),getAppCheckToken:vi.fn().mockResolvedValue(null)};
+  return {useFirebaseServices:()=>services};
+});
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: vi.fn() }) }));
 vi.mock("../hooks/useTrainingDecision", () => ({useTrainingDecision:()=>({enabled:false,envelope:null})}));
 vi.mock("../hooks/useFtpHistory", () => ({ useFtpHistory: () => ({ entries: [] }) }));
@@ -44,7 +49,7 @@ function seed(activities: Activity[]) {
   setCollectionDocs("activities", activities as unknown as Array<Record<string,unknown>&{id:string}>);
   for (const a of activities) setDocData(`activity_metrics/${a.id}`,{tss:100});
 }
-beforeEach(()=>{clearTrainingSurfaceCache();mocks.timeseries=null;mocks.activityWindow=null;mocks.pdcSufficiency=null;mocks.canonicalOn=false;mocks.pendingFetch=null;vi.mocked(getDoc).mockClear();vi.spyOn(Date,"now").mockReturnValue(fixedNow);});
+beforeEach(()=>{sessionStorage.clear();clearTrainingSurfaceCache();mocks.timeseries=null;mocks.activityWindow=null;mocks.pdcSufficiency=null;mocks.canonicalOn=false;mocks.pendingFetch=null;vi.mocked(getDoc).mockClear();vi.spyOn(Date,"now").mockReturnValue(fixedNow);});
 afterEach(()=>{cleanup();vi.restoreAllMocks();vi.useRealTimers();});
 
 

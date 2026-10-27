@@ -6,7 +6,7 @@ import InfoTip from "../components/InfoTip";
 import { GlossaryProvider } from "../components/common/GlossaryProvider";
 import { useState, useRef, useMemo, useEffect } from "react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { type Discipline } from "../utils/disciplineFilter";
 import { SectionHeader } from "../components/redesign";
@@ -202,6 +202,7 @@ function DashboardContent() {
     authLoading,
   );
   const [searchParams, setSearchParams] = useSearchParams();
+  const feedLocation = useLocation();
   const scopeParam = searchParams.get("scope");
   const dateParam = searchParams.get("date");
   const mobileDatePreset = dateParam === "all" || dateParam === "7d" || dateParam === "30d" || dateParam === "90d" || dateParam === "year" ? dateParam : dashboardPreferences.datePreset;
@@ -213,6 +214,7 @@ function DashboardContent() {
   const feedScope = requestedFeedScope === "following" && !ACTIVITY_SUBSCRIPTIONS_ENABLED ? "all" : requestedFeedScope;
   const subscriptions = useActivitySubscriptions(feedScope === "following");
   const { activities, loading: activitiesLoading, loadMore, hasMore, loadingMore, error: activitiesError, retry: retryActivities } = useActivities(feedScope, [...friendIds], {
+    navigationKey: `${feedLocation.key}:${feedLocation.search}`,
     enabled: feedScope !== "following" || subscriptions.ready,
     subscriptionIds: subscriptions.ids,
     subscriptionKey: subscriptions.key,
@@ -224,7 +226,7 @@ function DashboardContent() {
   // 꺼져 있으면(오늘의 기본값) 아래 KPI 는 useWeeklyStats 의 클라 집계를 그대로 그린다.
   const canonicalHome = useCanonicalHomeSummary(!isMobile);
   const canonicalFitness = useCanonicalFitnessSummary("homeSummary", !isMobile);
-  const searchState = useActivitySearch(friendIds, feedScope === "following" ? subscriptions : undefined);
+  const searchState = useActivitySearch(friendIds, feedScope === "following" ? subscriptions : undefined, `${feedLocation.key}:${feedLocation.search}`);
   const activitySearch = { ...searchState,
     loading: searchState.loading || feedScope === "following" && subscriptions.loading,
     error: searchState.error || feedScope === "following" && subscriptions.error,

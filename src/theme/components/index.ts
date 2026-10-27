@@ -78,3 +78,4 @@ export { ChartRangeControls, type ChartRangeControlsProps, type ChartRangeContro
 export { MediaViewer, type MediaViewerProps } from './MediaViewer';
 
 export { Disclosure, type DisclosureProps } from "./Disclosure";
+export { DistributionStrip, type DistributionItem } from './DistributionStrip';

@@ -65,20 +65,7 @@ vi.mock("../components/activity/StravaSummaryPublishing", () => ({
 // ActivityPage 의 분석 탭 임포트 체인(PowerCurveChart 등)이 chart.js 의
 // LogarithmicScale 을 register 하므로, 전역 chart.js mock(setup.ts)에 없는
 // 스케일/요소까지 포함해 이 파일 전용으로 보강한다. (setup.ts 는 수정 금지)
-vi.mock("chart.js", () => ({
-  Chart: { register: vi.fn() },
-  CategoryScale: class {},
-  LinearScale: class {},
-  LogarithmicScale: class {},
-  BarElement: class {},
-  LineElement: class {},
-  PointElement: class {},
-  ArcElement: class {},
-  Title: class {},
-  Tooltip: class {},
-  Legend: class {},
-  Filler: class {},
-}));
+vi.mock("chart.js", async () => (await import("../__tests__/fixtures/activityChartRegistryMock")).activityChartRegistryMock);
 
 const { mockRoute } = vi.hoisted(() => ({
   mockRoute: { activityId: "test-activity" },
@@ -132,6 +119,15 @@ describe("ActivityPage", () => {
   const socialSnapshotPaths = () => vi.mocked(onSnapshot).mock.calls
     .map(([ref]) => (ref as { path?: string }).path)
     .filter((path) => path?.endsWith("/kudos") || path?.endsWith("/comments"));
+
+  it("finishes routed detail only after the actual primary activity body is committed", async () => {
+    const finish = vi.fn();
+    setDocData("activities/test-activity", createMockActivity({ id: "test-activity", description: "준비 계측 활동" }) as unknown as Record<string, unknown>);
+    renderWithProviders(<ActivityPage detailMeasurement={finish} />, { authenticated: true });
+    expect(finish).not.toHaveBeenCalled();
+    await screen.findByRole("tab", { name: "분석" });
+    await waitFor(() => expect(finish).toHaveBeenCalledWith("success"));
+  });
 
   it("shows loading state initially", () => {
     renderWithProviders(<ActivityPage />);
@@ -570,7 +566,7 @@ describe("ActivityPage", () => {
     expect(screen.getByText("0.94")).toBeInTheDocument();
     fireEvent.click(screen.getByText("시간별 수치와 기록 근거"));
     expect(within(summary).getByRole("row", { name: /5s 679/ })).toBeInTheDocument();
-    expect(within(summary).getAllByText("Z7").length).toBeGreaterThan(0);
+    expect(within(summary).getByRole("row", { name: /Z7.*1:40/ })).toBeInTheDocument();
     expect(screen.getByText("49.0 / 51.0")).toBeInTheDocument();
     expect(summary).toHaveTextContent("추정 파워 기준");
     expect(screen.queryByText("FTP 미설정")).not.toBeInTheDocument();

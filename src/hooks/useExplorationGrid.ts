@@ -1,3 +1,4 @@
+import { auth } from "../services/firebase";
 import { useEffect, useState } from "react";
 import { logClientError } from "../services/errorLogger";
 import { fetchRecentActivityTracks } from "../services/activityTracks";
@@ -5,7 +6,7 @@ import { aggregateExplorationGridAsync, type ExplorationGridResult } from "../fe
 
 const EMPTY_RESULT: ExplorationGridResult = { tiles: [], tileCount: 0, maxSquare: 0 };
 
-let sessionCache: { uid: string; result: ExplorationGridResult } | null = null;
+let sessionCache: { owner: NonNullable<typeof auth.currentUser>; uid: string; result: ExplorationGridResult } | null = null;
 export function clearExplorationGridSessionCache(): void { sessionCache = null; }
 
 /**
@@ -14,12 +15,13 @@ export function clearExplorationGridSessionCache(): void { sessionCache = null; 
  * 오가며 토글해도 재계산하지 않는다.
  */
 export function useExplorationGrid(uid: string | null | undefined, enabled: boolean) {
-  const [owned, setOwned] = useState<{ uid: string; result: ExplorationGridResult } | null>(null);
+  const [owned, setOwned] = useState<{ owner: NonNullable<typeof auth.currentUser>; uid: string; result: ExplorationGridResult } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
+  const owner = auth.currentUser;
   useEffect(() => {
-    if (!uid || !enabled) {
+    if (!uid || !enabled || !owner || owner.uid !== uid || owner.isAnonymous) {
       setLoading(false);
       setError(false);
       if (!uid) {
@@ -28,7 +30,7 @@ export function useExplorationGrid(uid: string | null | undefined, enabled: bool
       }
       return;
     }
-    if (sessionCache?.uid === uid) {
+    if (sessionCache?.uid === uid && sessionCache.owner === owner) {
       setOwned(sessionCache);
       setLoading(false);
       return;
@@ -40,14 +42,14 @@ export function useExplorationGrid(uid: string | null | undefined, enabled: bool
     setLoading(true);
     setError(false);
     void fetchRecentActivityTracks(uid).then((tracks) => {
-      if (cancelled) return;
+      if (cancelled || auth.currentUser !== owner) return;
       return aggregateExplorationGridAsync(tracks, undefined, undefined, {
         signal: controller.signal,
-        isCancelled: () => cancelled,
+        isCancelled: () => cancelled || auth.currentUser !== owner,
       });
     }).then((next) => {
-      if (cancelled || !next) return;
-      sessionCache = { uid, result: next };
+      if (cancelled || auth.currentUser !== owner || !next) return;
+      sessionCache = { owner, uid, result: next };
       setOwned(sessionCache);
     }).catch((err) => {
       if (cancelled || (err instanceof DOMException && err.name === "AbortError")) return;
@@ -56,7 +58,7 @@ export function useExplorationGrid(uid: string | null | undefined, enabled: bool
       if (!cancelled) { setOwned(null); setError(true); }
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; controller.abort(); };
-  }, [enabled, uid]);
+  }, [enabled, uid, owner]);
 
-  return { result: owned && owned.uid === uid ? owned.result : EMPTY_RESULT, loading, error };
+  return { result: owned && owned.uid === uid && owned.owner === owner ? owned.result : EMPTY_RESULT, loading, error };
 }

@@ -1,3 +1,5 @@
+import { useLocation } from "react-router-dom";
+import { LocalizedLink } from "../../../components/LocalizedLink";
 import type { Activity } from "@shared/types";
 import { useTranslation } from "react-i18next";
 import { Button, Stack, Text } from "../../../theme";
@@ -7,6 +9,7 @@ import "./observed-route-comparison.css";
 export function ObservedRouteComparisonPanel({ current, previous }: { current: Activity; previous: Activity }) {
   const { t, i18n } = useTranslation("activity");
   const { units } = useLocale();
+  const location = useLocation();
   const comparison = useObservedRouteComparison(current, previous);
   const result = comparison.result;
   const distance = (meters: number) => `${(meters * (units === "imperial" ? 3.280839895 : 1)).toFixed(1)} ${units === "imperial" ? "ft" : "m"}`;
@@ -22,7 +25,7 @@ export function ObservedRouteComparisonPanel({ current, previous }: { current: A
     {result && result.state !== "unavailable" && <>
       <Text as="p" variant="bodyMedium" weight={600}>{t(`observedRoute.guidance.${result.shapeGuidance}`)}</Text>
       <Text as="p" variant="bodyMedium" tone="secondary">{t("observedRoute.limits")}</Text>
-      <Stack direction="row" wrap gap="var(--space-3)">{[current, previous].map((activity, index) => <a key={activity.id} className="activity-growth-source-link" href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(activity.id)}`}><Text variant="bodyMedium">{t(index ? "observedRoute.previous" : "observedRoute.current")} · {date(activity.startTime)}</Text></a>)}</Stack>
+      <Stack direction="row" wrap gap="var(--space-3)">{[current, previous].map((activity, index) => <LocalizedLink key={activity.id} className="activity-growth-source-link" to={`/activity/${encodeURIComponent(activity.id)}`} state={{ routeInventoryReturn: { uid: current.userId, pathname: location.pathname, search: location.search, hash: location.hash } }}><Text variant="bodyMedium">{t(index ? "observedRoute.previous" : "observedRoute.current")} · {date(activity.startTime)}</Text></LocalizedLink>)}</Stack>
       {best && <div className="observed-route-values"><div><Text as="p" variant="bodyMedium" tone="secondary">{t("observedRoute.mean")}</Text><Text variant="bodyMedium" mono>{distance(best.meanSeparationM)}</Text></div><div><Text as="p" variant="bodyMedium" tone="secondary">{t("observedRoute.p95")}</Text><Text variant="bodyMedium" mono>{distance(best.p95SeparationM)}</Text></div></div>}
       <Text as="p" variant="bodyMedium">{t(`observedRoute.direction.${result.direction}`)} · {t("observedRoute.lengthRatio", { percent: (result.lengthRatio * 100).toFixed(1) })}</Text>
       {result.limitations.includes("gaps") || result.limitations.includes("coverage_not_complete") ? <Text as="p" variant="bodyMedium" tone="secondary">{t("observedRoute.partial")}</Text> : null}

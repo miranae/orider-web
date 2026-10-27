@@ -30,7 +30,7 @@ function ZoneGroup({ group }: { group: PeriodHrZoneGroup | PeriodPowerZoneGroup 
 function ManualRunningPaceZones({ response, ownerUid }: { response: TrainingAnalysisPeriodsResponse; ownerUid: string }) {
   const { t, i18n } = useTranslation("activity");
   const [selection, setSelection] = useState<TrainingAnalysisPeriodsSelection | null>(null);
-  const enabled = trainingAnalysisPeriodsAvailable();
+  const enabled = trainingAnalysisPeriodsAvailable("run");
   const result = useTrainingAnalysisPeriods(ownerUid, selection, enabled);
   const date = (value: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(value);
   const readTime = (value: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(value);
@@ -68,7 +68,7 @@ export default function TrainingPeriodZonesPanel({ response, ownerUid }: { respo
   const paceOwner = !!ownerUid && user?.uid === ownerUid && !user.isAnonymous;
   const date = (time: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(time);
   if (!response) return null;
-  return <><CyclingDistancePeriodAnalysis response={response} /><BikeObservedPeriodRecordsPanel response={response} /><BikeObservedClimbRecordsPanel response={response} /><details className="activity-growth-evidence text-[length:var(--fs-md)]">
+  return <><Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.populationBasis")}</Text><CyclingDistancePeriodAnalysis response={response} /><BikeObservedPeriodRecordsPanel response={response} /><BikeObservedClimbRecordsPanel response={response} /><details className="activity-growth-evidence text-[length:var(--fs-md)]">
     <summary className="cursor-pointer py-3 font-semibold">{t("trainingPeriods.title")}</summary>
     <div className="space-y-4 pt-3">
       <Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.basis")}</Text>

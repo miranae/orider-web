@@ -1,3 +1,9 @@
+import BikePeriodSnapshotPanel from "./BikePeriodSnapshotPanel";
+import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
+import PeriodLoadEvidence from "./PeriodLoadEvidence";
+import { usePeriodControls } from "../../../hooks/usePeriodControls";
+import { validTrainingPeriodControls, type TrainingPeriodControls } from "./periodControls";
+import { localTrainingEmulatorAvailable } from "../../../services/localTrainingEmulator";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -14,25 +20,28 @@ import { formatElapsedBoundary } from "../../activity/detail/activityRangeSelect
 import { Button, Input, Text, ToggleControls, ToggleButton } from "../../../theme/components";
 
 type Sport = "bike" | "run" | "swim";
-export default function FitnessPeriodEvidence({ discipline, inline = false }: { discipline: Sport; inline?: boolean }) {
+export default function FitnessPeriodEvidence({ discipline, inline = false, timeseries = null }: { discipline: Sport; inline?: boolean; timeseries?: FitnessTimeseriesDoc | null }) {
   const { user } = useAuth();
-  if (getRuntimeConfig().appEnvironment !== "stage" || !user || user.isAnonymous) return null;
-  return <PeriodEvidence key={`${user.uid}:${discipline}`} ownerUid={user.uid} discipline={discipline} inline={inline} />;
+  if ((getRuntimeConfig().appEnvironment !== "stage" && !(discipline === "bike" && localTrainingEmulatorAvailable())) || !user || user.isAnonymous) return null;
+  return <PeriodEvidence key={`${user.uid}:${discipline}`} ownerUid={user.uid} discipline={discipline} inline={inline} timeseries={timeseries} />;
 }
-function PeriodEvidence({ ownerUid, discipline, inline }: { ownerUid: string; discipline: Sport; inline: boolean }) {
+function PeriodEvidence({ ownerUid, discipline, inline, timeseries }: { ownerUid: string; discipline: Sport; inline: boolean; timeseries: FitnessTimeseriesDoc | null }) {
   const { t } = useTranslation("fitness");
   const { t: activityT } = useTranslation("activity");
   const { units } = useLocale();
   const today = trainingCalendarDate(Date.now());
-  const [preset, setPreset] = useState<TrainingComparisonPreset | null>("fourWeeks");
-  const [ranges, setRanges] = useState(() => trainingComparisonPeriods("fourWeeks", Date.now()).map(period => ({
+  const [controls, setControls] = usePeriodControls<TrainingPeriodControls>(ownerUid, `training-${discipline}`, () => ({ preset: "fourWeeks", ranges: trainingComparisonPeriods("fourWeeks", Date.now()).map(period => ({
     from: trainingCalendarDate(period.fromInclusive), through: trainingCalendarDate(period.toExclusive - 1),
-  })));
+  })) }), validTrainingPeriodControls);
+  const { preset, ranges } = controls;
+  const setPreset = (preset: TrainingComparisonPreset | null) => setControls(v => ({ ...v, preset }));
+  const setRanges = (update: (ranges: TrainingPeriodControls["ranges"]) => TrainingPeriodControls["ranges"]) => setControls(v => ({ ...v, ranges: update(v.ranges) }));
   const [selection, setSelection] = useState<TrainingAnalysisPeriodsSelection | null>(null);
   const [invalid, setInvalid] = useState(false);
-  const available = trainingAnalysisPeriodsAvailable();
+  const available = trainingAnalysisPeriodsAvailable(discipline);
   const result = useTrainingAnalysisPeriods(ownerUid, selection, available);
   const submit = () => {
+    setControls(value => value); // An explicit load wins over late session restoration.
     const periods = preset ? trainingComparisonPeriods(preset, Date.now()) : ranges.map(range => trainingCalendarPeriod(range.from, range.through, Date.now()));
     if (periods.some(period => !period || period.fromInclusive >= period.toExclusive)) { setInvalid(true); return; }
     setInvalid(false);
@@ -66,7 +75,9 @@ function PeriodEvidence({ ownerUid, discipline, inline }: { ownerUid: string; di
         <Text as="h3" variant="subtitle">{t("periodCurve.period", { n: index + 1 })} · {trainingCalendarDate(period.fromInclusive)} – {trainingCalendarDate(period.toExclusive - 1)}</Text>
         <Text>{period.totals.distanceM.totalValue == null ? "—" : formatDistance(period.totals.distanceM.totalValue, units)} · {period.totals.movingTimeSec.totalValue == null ? "—" : formatElapsedBoundary(period.totals.movingTimeSec.totalValue)} · {period.totals.elevationGainM.totalValue == null ? "—" : formatElev(period.totals.elevationGainM.totalValue, units)}</Text>
         {period.coverage.truncated && <Text>{activityT("trainingPeriods.truncated")}</Text>}
+        {discipline === "bike" && <BikePeriodSnapshotPanel historyOnly={!period.coverage.truncated} ownerUid={ownerUid} period={period} />}
       </section>)}</div>
+      <PeriodLoadEvidence ownerUid={ownerUid} discipline={discipline} periods={result.response.periods} timeseries={timeseries} />
       <RunPeriodComparisonPanel response={result.response} />
       <TrainingPeriodZonesPanel response={result.response} ownerUid={ownerUid} />
       {discipline === "run" && <RunEffortStageManagementPanel ownerUid={ownerUid} appliedResponse={result.response} />}

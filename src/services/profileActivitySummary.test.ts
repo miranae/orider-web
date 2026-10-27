@@ -1,5 +1,6 @@
+import { auth } from "./firebase";
 import { getDocs, limit, where } from "firebase/firestore";
-import { simulateLogin, simulateLogout } from "../__tests__/mocks/firebase";
+import { simulateLogin as mockLogin, simulateLogout as mockLogout, getCurrentUser } from "../__tests__/mocks/firebase";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
 import { buildProfileActivitySummary, readOwnProfileActivitySummary } from "./profileActivitySummary";
 import { seoulWeekStartMs, WEEK_MS } from "../utils/seoulWeek";
@@ -56,3 +57,15 @@ it("rejects an offline cached snapshot rather than reporting a verified zero", a
   vi.mocked(getDocs).mockResolvedValue({ docs: [], metadata: { fromCache: true } } as never);
   await expect(readOwnProfileActivitySummary("offline-owner")).rejects.toThrow("server-confirmation-required");
 });
+
+it("does not reuse an earlier session cache after same-uid reauthentication", async () => {
+  simulateLogin({ uid: "same-owner" });
+  vi.mocked(getDocs).mockResolvedValue({ docs: [] } as never);
+  await readOwnProfileActivitySummary("same-owner");
+  simulateLogout(); simulateLogin({ uid: "same-owner" });
+  await readOwnProfileActivitySummary("same-owner");
+  expect(getDocs).toHaveBeenCalledTimes(4);
+});
+
+function simulateLogin(user: Parameters<typeof mockLogin>[0]) { mockLogin(user); auth.currentUser = getCurrentUser() as typeof auth.currentUser; }
+function simulateLogout() { mockLogout(); auth.currentUser = null; }

@@ -1,3 +1,4 @@
+import { announceActivityContentChange } from "./activityContentChanged";
 import { FirebaseError } from "firebase/app";
 import { httpsCallable } from "firebase/functions";
 import { ensureAppCheckReady, functions } from "./firebase";
@@ -54,7 +55,7 @@ export function createActivitySocialMutationClient(invoke: Invoke = invokeCallab
     editComment: (activityId: string, commentId: string, text: string) =>
       invoke<{ activityId: string; commentId: string; text: string }, { commentId: string; text: string }>(
         "editActivityComment", { activityId, commentId, text },
-      ),
+      ).then(result => { announceActivityContentChange(activityId); return result; }),
     reportComment: (activityId: string, commentId: string, note: string) =>
       invoke<{ activityId: string; commentId: string; reason: "other"; note: string }, { reportId: string; status: string; duplicate: boolean }>(
         "reportActivitySocialContent", { activityId, commentId, reason: "other", note },
@@ -62,11 +63,11 @@ export function createActivitySocialMutationClient(invoke: Invoke = invokeCallab
     setCommentHidden: (activityId: string, commentId: string, hidden: boolean) =>
       invoke<{ activityId: string; commentId: string; hidden: boolean }, { changed: boolean; restored: boolean }>(
         "setActivityCommentHidden", { activityId, commentId, hidden },
-      ),
+      ).then(result => { announceActivityContentChange(activityId); return result; }),
     deleteComment: (activityId: string, commentId: string) =>
       invoke<{ activityId: string; commentId: string }, { deleted: boolean }>(
         "deleteActivityComment", { activityId, commentId },
-      ),
+      ).then(result => { announceActivityContentChange(activityId); return result; }),
   };
 }
 

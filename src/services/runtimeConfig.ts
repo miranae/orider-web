@@ -22,6 +22,7 @@ export interface RuntimeConfig {
   aiApiBase?: string;
   /** 활동 구간·개인 구간 이력·기간 파워 API 배포와 검증 후 켜는 소비 스위치. 기본 꺼짐. */
   activityAnalysisExpansionEnabled?: boolean;
+  publicActivityDetailEnabled?: boolean;
   activitySubscriptionsEnabled?: boolean;
   activitySubscriptionsBackendReady?: boolean;
   /** Strava 미리보기·준비 API 배포 검증 후 명시적으로 켠다. 기본 꺼짐. */
@@ -96,6 +97,7 @@ function readBuildFallbackConfig(): RuntimeConfig {
     personalApiBase: import.meta.env.VITE_ORIDER_PERSONAL_API_BASE,
     aiApiBase: import.meta.env.VITE_ORIDER_AI_API_BASE,
     activityAnalysisExpansionEnabled: import.meta.env.VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED === "true",
+    publicActivityDetailEnabled: import.meta.env.VITE_PUBLIC_ACTIVITY_DETAIL_ENABLED === "true",
     activitySubscriptionsEnabled: import.meta.env.VITE_ACTIVITY_SUBSCRIPTIONS_ENABLED === "true",
     activitySubscriptionsBackendReady: import.meta.env.VITE_ACTIVITY_SUBSCRIPTIONS_BACKEND_READY === "true",
     stravaSummaryPreviewEnabled: false,
@@ -125,6 +127,9 @@ function readBuildFallbackConfig(): RuntimeConfig {
 
 function withoutEmptyValues(config: RuntimeConfig): RuntimeConfig {
   const normalized = { ...config };
+  if (Object.prototype.hasOwnProperty.call(normalized, "publicActivityDetailEnabled")) {
+    normalized.publicActivityDetailEnabled = normalized.publicActivityDetailEnabled === true;
+  }
   if (Object.prototype.hasOwnProperty.call(normalized, "activityAnalysisExpansionEnabled")) {
     normalized.activityAnalysisExpansionEnabled = normalized.activityAnalysisExpansionEnabled === true;
   }

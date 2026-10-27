@@ -1,8 +1,12 @@
+import { activityIndependentRoute } from "./activityIndependentRoute";
+import { importedObservations } from "./importedActivityObservations";
+import NativeOwnerRoutePreview from "./NativeOwnerRoutePreview";
+import { observedRouteAvailable } from "../../../services/activityRouteEvidence";
 import { useId, useState } from "react";
 import type { TFunction } from "i18next";
 import type { Activity, ActivityStreams } from "@shared/types";
 import RouteMap from "../../../components/RouteMap";
-import { Card, MapResizeControls } from "../../../theme/components";
+import { Button, Card, MapResizeControls, Stack, Text } from "../../../theme/components";
 import { formatDuration, type SegmentEffortData, type SportCategory } from "./activityDetailUtils";
 import type { UploadedPhoto } from "./activityDisplay";
 import { isIndoorActivity } from "../../../utils/indoorActivity";
@@ -16,9 +20,11 @@ type StreamPhoto = {
 
 type ActivityMediaPanelProps = {
   activity: Activity;
+  allowOwnerPreview?: boolean;
   streams: ActivityStreams | null;
   sport: SportCategory;
   hasTrack: boolean;
+  routeLookup?: { state: "idle" | "loading" | "error"; onLoad: () => void };
   summary: Activity["summary"];
   markerPosition: [number, number] | null;
   hoveredSegment: SegmentEffortData | null;
@@ -32,9 +38,11 @@ type ActivityMediaPanelProps = {
 
 export function ActivityMediaPanel({
   activity,
+  allowOwnerPreview = true,
   streams,
   sport,
   hasTrack,
+  routeLookup,
   summary,
   markerPosition,
   hoveredSegment,
@@ -47,6 +55,7 @@ export function ActivityMediaPanel({
 }: ActivityMediaPanelProps) {
   const [mapExpanded, setMapExpanded] = useState(false);
   const mapId = useId();
+  const independentRoute = !streams?.latlng?.length ? activityIndependentRoute(streams) : null;
 
   if (hasTrack) {
     return (
@@ -54,14 +63,14 @@ export function ActivityMediaPanel({
         <div id={mapId} className="activity-detail-resizable-map">
           <RouteMap
             polyline={activity.thumbnailTrack}
-            latlng={streams?.latlng}
+            latlng={streams?.latlng?.length ? streams.latlng : independentRoute ?? undefined}
             height="activity-detail-route-map"
             interactive
             showRouteEndpoints
             routeLineWidth={3}
             navigationLabels={{ zoomIn: t("page.mapView.zoomIn"), zoomOut: t("page.mapView.zoomOut"), fitRoute: t("page.mapView.fitRoute") }}
-            markerPosition={markerPosition}
-            highlightRange={hoveredSegment ? {
+            markerPosition={independentRoute ? null : markerPosition}
+            highlightRange={independentRoute ? undefined : hoveredSegment ? {
               startIndex: hoveredSegment.startIndex,
               endIndex: hoveredSegment.endIndex,
             } : selectedRunRange}
@@ -71,10 +80,10 @@ export function ActivityMediaPanel({
                 .map((p) => ({ id: String(p.id), url: p.url!, location: p.location!, caption: p.caption })),
               ...uploadedPhotos
                 .filter((p) => p.location)
-                .map((p) => ({ id: `upload-${p.id}`, url: p.url, location: p.location!, caption: null as string | null })),
+                .map((p) => ({ id: `upload-${p.id}`, url: p.url, nativePhoto: p.nativePhoto, location: p.location!, caption: null as string | null })),
             ]}
-            flyToRange={selectedSegmentRange}
-            flyToPosition={selectedSegmentRange ? undefined : flyToPosition}
+            flyToRange={independentRoute ? undefined : selectedSegmentRange}
+            flyToPosition={independentRoute || selectedSegmentRange ? undefined : flyToPosition}
             fallbackImageUrl={activity.mapImageUrl}
           />
           <MapResizeControls expanded={mapExpanded} controlsId={mapId}
@@ -181,6 +190,20 @@ export function ActivityMediaPanel({
 
   // 실내 판정은 trainer 필드와 Virtual* 종목을 함께 본다 — "가상 라이딩" 고정 문구는 러닝·트레이너 라이딩에 틀렸다.
   const indoor = isIndoorActivity(activity);
+  const imported = streams ? importedObservations(streams, activity.startTime, summary.elapsedTimeMillis == null ? undefined : summary.elapsedTimeMillis / 1000) : null;
+  const confirmedNoGps = imported?.routeTimeMs?.length === 0;
+  // A missing preview is not evidence that the original activity has no GPS.
+  // Explicit lookup reuses the ACL-bound loader without auto-reading full streams.
+  if (routeLookup && !indoor && !confirmedNoGps) {
+    return <Card><Stack gap="var(--space-3)">
+      <Text as="h3" variant="subtitle">{t("page.routePreviewUnavailable")}</Text>
+      <Text as="p" role="status" tone="secondary">{t(`page.routeLookup.${routeLookup.state}`)}</Text>
+      <Button variant="outline" loading={routeLookup.state === "loading"} disabled={routeLookup.state === "loading"} onClick={routeLookup.onLoad}>
+        {t(routeLookup.state === "error" ? "page.retry" : "page.routeLookup.load")}
+      </Button>
+    </Stack></Card>;
+  }
+  const nativePreviewAvailable = allowOwnerPreview && !confirmedNoGps && !indoor && activity.source === "orider" && observedRouteAvailable();
   const lowerType = activity.type?.toLowerCase() ?? "";
   const indoorTitle = sport === "ride"
     ? t("page.indoorRide")
@@ -195,13 +218,14 @@ export function ActivityMediaPanel({
           <path d="M12 8v1m0 6v1m-4-4h1m6 0h1" />
         </svg>
       </div>
-      <div>
+      <div className="min-w-0 flex-1">
         <p className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-1)" }}>
-          {indoor ? indoorTitle : t("page.noGps")}
+          {indoor ? indoorTitle : t(!confirmedNoGps && activity.source === "orider" ? "page.routePreviewUnavailable" : "page.noGps")}
         </p>
         <p className="text-[length:var(--fs-xs)] mt-0.5" style={{ color: "var(--ink-2)" }}>
-          {indoor ? t("page.indoorDesc") : t("page.noGpsDesc")}
+          {indoor ? t("page.indoorDesc") : t(nativePreviewAvailable ? "page.ownerRoutePreview.hint" : !confirmedNoGps && activity.source === "orider" ? "page.routePreviewUnavailableDesc" : "page.noGpsDesc")}
         </p>
+        {nativePreviewAvailable && <NativeOwnerRoutePreview activity={activity} t={t} />}
       </div>
     </Card>
   );

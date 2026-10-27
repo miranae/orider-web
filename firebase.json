@@ -59,6 +59,7 @@
       { "source": "/:lang/segment/:segmentId", "function": { "functionId": "seoPrerender", "region": "asia-northeast3" } },
       { "source": "/:lang/course/:courseId", "function": { "functionId": "seoPrerender", "region": "asia-northeast3" } },
       { "source": "/:lang/event/:eventId", "function": { "functionId": "seoPrerender", "region": "asia-northeast3" } },
+      { "source": "/:lang/club/:groupId", "function": { "functionId": "seoPrerender", "region": "asia-northeast3" } },
       { "source": "!/@(assets)/**", "destination": "/index.html" }
     ]
   },

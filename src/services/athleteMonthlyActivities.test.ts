@@ -1,3 +1,6 @@
+import { loadActivityDiscovery } from "./activityDiscovery";
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
+vi.mock("./activityDiscovery", () => ({ loadActivityDiscovery: vi.fn() }));
 import type { Activity } from "@shared/types";
 import { getDocs, query, where, startAfter } from "firebase/firestore";
 import { aggregateMonthlyActivities, loadAthleteChartActivities } from "./athleteMonthlyActivities";
@@ -32,18 +35,22 @@ describe("athlete monthly activities", () => {
     expect(rows[0]?.time).toBe(1);
   });
 
-  it("loads beyond 200 activities and keeps public/deletion constraints on every page", async () => {
-    const first = page(200);
-    vi.mocked(getDocs).mockResolvedValueOnce(first as never).mockResolvedValueOnce(page(1, 200) as never);
-    vi.mocked(where).mockClear();
-    const rows = await loadAthleteChartActivities("athlete", false, () => false);
-    expect(rows).toHaveLength(201);
-    expect(startAfter).toHaveBeenCalledWith(first.docs[199]);
-    expect(vi.mocked(where).mock.calls.filter(([field]) => field === "visibility")).toEqual([
-      ["visibility", "==", "everyone"], ["visibility", "==", "everyone"],
-    ]);
-    expect(vi.mocked(where).mock.calls.filter(([field]) => field === "deletedAt")).toHaveLength(2);
-    expect(aggregateMonthlyActivities(rows!, new Date(2021, 0, 2))[0]?.distance).toBe(1);
+  it("loads bounded public id-ordered pages including undated rows without raw reads", async () => {
+    const rows = [activity(0), activity(Date.UTC(2025, 0, 1))].map((v,i) => ({...v,id:String(i)}));
+    vi.mocked(loadActivityDiscovery).mockResolvedValueOnce({items: [],nextCursor:"ad1.next",exhausted:false} as never).mockResolvedValueOnce({items:rows,nextCursor:null,exhausted:true} as never);
+    vi.mocked(getDocs).mockClear();
+    const services = {} as FirebaseServices;
+    expect(await loadAthleteChartActivities("athlete", false, () => false, services)).toEqual(rows);
+    expect(getDocs).not.toHaveBeenCalled();
+    expect(loadActivityDiscovery).toHaveBeenLastCalledWith(services,{scope:"athlete",targetUid:"athlete",order:"id_asc",limit:20,cursor:"ad1.next"});
+  });
+  it("does not publish partial public totals after the ten-page budget", async () => {
+    let n=0;vi.mocked(loadActivityDiscovery).mockImplementation(async()=>({items:[],nextCursor:"ad1."+(++n),exhausted:false}) as never);
+    await expect(loadAthleteChartActivities("athlete",false,()=>false,{} as FirebaseServices)).rejects.toThrow("incomplete");expect(n).toBe(10);
+  });
+  it("rejects duplicate rows from changed current seek pages", async () => {
+    const item=activity(1);vi.mocked(loadActivityDiscovery).mockResolvedValueOnce({items:[item],nextCursor:"ad1.next",exhausted:false} as never).mockResolvedValueOnce({items:[item],nextCursor:null,exhausted:true} as never);
+    await expect(loadAthleteChartActivities("athlete",false,()=>false,{} as FirebaseServices)).rejects.toThrow("changed");
   });
 
   it("retains activities with absent or null summaries without changing measured totals", async () => {
@@ -123,4 +130,9 @@ it("거리 통계에서 제외한 Health도 확정 훈련 부하에는 남긴다
   const start = new Date(2026, 8, 2).getTime();
   const health = {...activity(start), source: "apple_health", statsCountable: false, summary: {...activity(start).summary, distance: 10000, tss: 30}} as Activity;
   expect(aggregateMonthlyActivities([health], new Date(2026, 8, 2))[0]).toMatchObject({rides: 0, distance: 0, tss: 30});
+});
+
+it("does not manufacture 1970 or upload-month statistics for undated public records", () => {
+ const undated={...activity(0),createdAt:Date.UTC(2026,0,1),discoveryFacts:{}};
+ expect(aggregateMonthlyActivities([undated],new Date(2026,0,1),true)).toEqual([]);
 });
