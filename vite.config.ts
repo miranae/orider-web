@@ -62,6 +62,8 @@ export default defineConfig(({ mode }) => {
               if (id.includes("/jszip/")) return "vendor-export";
               // Sanitization belongs to lazy editors and GPX importers; keep every security check intact.
               if (id.includes("/dompurify/")) return "vendor-sanitize";
+              // Preserve lazy feature schema validation without charging the initial feed.
+              if (id.includes("/zod/")) return "vendor-validation";
               return "vendor";
             }
           },
