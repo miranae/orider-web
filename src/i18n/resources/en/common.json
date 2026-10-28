@@ -530,5 +530,12 @@
   "notif.loginDestination": "Sign in to read this comment. You will return here after signing in.",
   "notif.signIn": "Sign in",
   "notif.targetUnavailable": "This comment was deleted, hidden, or is no longer accessible.",
-  "notif.refreshScope": "Notifications load in pages of 20. Every 30 seconds or on returning to this window, access is rechecked and the latest 20 are shown."
+  "notif.refreshScope": "Notifications load in pages of 20. Every 30 seconds or on returning to this window, access is rechecked and the latest 20 are shown.",
+  "coachPages": {
+    "condition": "Condition",
+    "today": "Today",
+    "analysis": "Analysis",
+    "plan": "Plan",
+    "goals": "Goals"
+  }
 }

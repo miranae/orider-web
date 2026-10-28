@@ -13,7 +13,6 @@ import {
   limit,
   getDocs,
 } from "firebase/firestore";
-import { firestore } from "../services/firebase";
 import { debugLog, logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
@@ -443,6 +442,7 @@ type WeeklyStatsOptions = {
 };
 
 export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Date()) {
+  const { firestore } = useFirebaseServices();
   const { user } = useAuth();
   const options = nowOrOptions instanceof Date ? null : nowOrOptions;
   const now = nowOrOptions instanceof Date ? nowOrOptions : (nowOrOptions.now ?? new Date());

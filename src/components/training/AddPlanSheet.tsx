@@ -3,7 +3,7 @@ import { planCalendarDate } from "@shared/training/planDate";
 import { useRef, useState, useMemo, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, runTransaction } from "firebase/firestore";
-import { firestore } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import { useTrainingDialog } from "./useTrainingDialog";
@@ -78,6 +78,7 @@ export default function AddPlanSheet({
   onUpdate,
   initialDayIndex,
 }: AddPlanSheetProps) {
+  const { firestore } = useFirebaseServices();
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const dialog = useDialog();

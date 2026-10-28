@@ -1,5 +1,6 @@
+import { useCoachConsentApi } from "../../hooks/useCoachApi";
 import { useEffect, useRef, useState } from "react";
-import { acceptCoachConsent, type CoachConsentPolicy } from "../../services/coachConsentClient";
+import { type CoachConsentPolicy } from "../../services/coachConsentClient";
 import { trackCoachConsent } from "./coachAnalytics";
 import { CoachConsentSheet } from "./CoachConsentSheet";
 
@@ -12,6 +13,7 @@ interface Props {
 
 /** #550 keeps draft/requestId in its own component state and resumes only from onConsented. */
 export function FirstUseCoachConsent({ open, policy, onConsented, onCancel }: Props) {
+  const { acceptCoachConsent } = useCoachConsentApi();
   const [savingCycle, setSavingCycle] = useState<number | null>(null);
   const [errorState, setErrorState] = useState<{ cycle: number; value: string } | null>(null);
   const mountedRef = useRef(true);

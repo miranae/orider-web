@@ -3,7 +3,7 @@ import GlossaryText from "../common/GlossaryText";
 import { useState, useMemo, useRef, useId } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { firestore } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import type { PlanDay, PlanWeek, WorkoutKind } from "@shared/types/goal";
@@ -149,6 +149,7 @@ export default function WorkoutEditModal({
   onClose,
   onUpdate,
 }: WorkoutEditModalProps) {
+  const { firestore } = useFirebaseServices();
   const { t } = useTranslation('training');
   const dialog = useDialog();
   const WORKOUT_META = useMemo(() => buildWorkoutMeta(t), [t]);

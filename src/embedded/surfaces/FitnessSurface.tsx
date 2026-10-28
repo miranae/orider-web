@@ -1,26 +1,34 @@
+import { CoachQuestionEntry } from "../../pages/coach/CoachQuestionEntry";
+import { isSportUiEnabled } from "../../config/sportFeatures";
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useTranslation } from "react-i18next";
 
 import EmbeddedSurfaceState from "./EmbeddedSurfaceState";
-import MobileFitnessPage from "../../components/mobile/MobileFitnessPage";
-import CanonicalFitnessNotice from "../../features/fitness/components/CanonicalFitnessNotice";
-import FitnessActivityWindowNotice from "../../features/fitness/components/FitnessActivityWindowNotice";
+import CoachConditionPage from "../../pages/coach/CoachConditionPage";
+import CoachTodayPage from "../../pages/coach/CoachTodayPage";
+import CoachAnalysisPage from "../../pages/coach/CoachAnalysisPage";
+import { CoachFitnessModelContext } from "../../pages/coach/CoachFitnessModelContext";
+import type { Run30StartMode } from "../../features/training/run30/run30Start";
 import { useFitnessModel } from "../../hooks/useFitnessModel";
 
 export interface FitnessSurfaceProps {
   onReady: (status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void;
   retryKey: number;
   active?: boolean;
+  startMode?: Run30StartMode;
 }
 
-export default function FitnessSurface({ onReady, retryKey, active = true }: FitnessSurfaceProps) {
-  const [searchParams] = useSearchParams();
-  const { t: tCommon } = useTranslation("common");
-  const model = useFitnessModel(searchParams.get("sport"), {
-    // This REST client still owns the normal web Auth/App Check singleton. The embedded
-    // surface uses the persisted PDC fallback until that client accepts injected services.
-    enableCoachRiderInsight: false,
+export default function FitnessSurface({ onReady, retryKey, active = true, startMode }: FitnessSurfaceProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get("sport");
+  const sport = requested === "run" || requested === "bike" || requested === "swim" && isSportUiEnabled(requested)
+    || requested === "tri" && searchParams.get("page") !== "today" ? requested : "bike";
+  useEffect(() => {
+    if (requested === null || requested === sport) return;
+    setSearchParams(current => { const next = new URLSearchParams(current); next.set("sport", sport); return next; }, { replace: true });
+  }, [requested, sport, setSearchParams]);
+  const model = useFitnessModel(sport, {
+    decisionId: searchParams.get("decisionId"),
     active,
   });
   const settledKeys = useRef(new Set<string>());
@@ -52,22 +60,12 @@ export default function FitnessSurface({ onReady, retryKey, active = true }: Fit
 
   return (
     <main className="orider-embedded-surface" data-testid="embedded-fitness">
-      {model.canonicalFitness && <CanonicalFitnessNotice state={model.canonicalFitness} t={model.t} />}
-      <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={model.t} />
-      <MobileFitnessPage
-        {...model.mobilePageProps}
-        embedded
-        sectionState={{
-          trend: !model.timeseriesLoaded
-            ? "loading"
-            : model.timeseriesError ? "error" : "ready",
-          derived: !model.derivedMetricsSettled
-            ? "loading"
-            : model.derivedMetricsError ? "error" : "ready",
-          onRetryTrend: model.retryLoad,
-          retryLabel: tCommon("button.retry"),
-        }}
-      />
+      {active && <CoachFitnessModelContext.Provider value={model}>
+        {searchParams.get("page") === "today" ? <CoachTodayPage startMode={startMode} />
+          : searchParams.get("page") === "analysis" ? <CoachAnalysisPage />
+          : <CoachConditionPage />}
+        <CoachQuestionEntry model={model} page={searchParams.get("page") === "today" ? "today" : searchParams.get("page") === "analysis" ? "analysis" : "condition"} />
+      </CoachFitnessModelContext.Provider>}
     </main>
   );
 }

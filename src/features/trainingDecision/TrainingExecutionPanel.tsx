@@ -1,3 +1,4 @@
+import * as defaultClient from "../../services/trainingExecutionClient";
 import DateField from "../../components/redesign/DateField";
 import { CalendarDays } from "lucide-react";
 import "../fitness/components/fitness-analysis-controls.css";
@@ -6,10 +7,9 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, DropdownSelect, Button, Text } from "../../theme/components";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
-import {
-  linkSessionExecutionActivity, listSessionExecutions, reserveSessionExecution, setSessionExecutionOutcome,
-  startSessionExecution, unlinkSessionExecutionActivity,
-} from "../../services/trainingExecutionClient";
+import { createTrainingExecutionClient } from "../../services/trainingExecutionClient";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { useMemo } from "react";
 import type { SessionExecutionLink } from "../../services/trainingExecutionContract";
 import type { TodayTrainingDecisionProjection, TrainingDecisionSession } from "../../services/trainingDecisionContract";
 import { logClientError } from "../../services/errorLogger";
@@ -36,6 +36,8 @@ function revisionOf(activity: Activity): string | null {
 function ExecutionSession({ decision, session, initialExecution, onChanged }: { decision: TodayTrainingDecisionProjection;
   session: TrainingDecisionSession; initialExecution: SessionExecutionLink | null; onChanged: () => void }) {
   const { t, i18n } = useTranslation("training");
+  const services = useFirebaseServices();
+  const { reserveSessionExecution, startSessionExecution, linkSessionExecutionActivity, setSessionExecutionOutcome, unlinkSessionExecutionActivity } = useMemo(() => services.scope === "embedded" ? createTrainingExecutionClient(services) : defaultClient, [services]);
   const [execution, setExecution] = useState<SessionExecutionLink | null>(initialExecution);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
@@ -269,6 +271,8 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
 
 function TrainingExecutionPanelBody({ decision, sessions, onChanged }: { decision: TodayTrainingDecisionProjection;
   sessions: TrainingDecisionSession[]; onChanged: () => void }) {
+  const services = useFirebaseServices();
+  const { listSessionExecutions } = useMemo(() => services.scope === "embedded" ? createTrainingExecutionClient(services) : defaultClient, [services]);
   const { t } = useTranslation("training");
   const [executions, setExecutions] = useState<SessionExecutionLink[]>([]);
   const [listState, setListState] = useState<"loading" | "ready" | "error">("loading");
