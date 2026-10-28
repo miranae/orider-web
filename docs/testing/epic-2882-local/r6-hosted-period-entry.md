@@ -51,3 +51,17 @@ Evidence: `/Users/kyoungnam/Documents/Codex/2026-10-28/r6-web-period-entry/full-
 After reviewing the preceding browser captures, the product period section now separates headings, dates, totals, partial-coverage text and stored-result controls with existing DS typography/Stack and spacing/border tokens. Training-load evidence and its log-date action use separate period groups (two columns on desktop, stacked on mobile). Existing DS metric toggles wrap so the custom-date choice stays visible at 390px. The fixture header is unchanged and not a product design claim.
 
 No query, snapshot, history selection, source value, coverage policy, endpoint, auth gate, auto-reanalysis or backfill behavior changes. Three focused suites / 20 tests, TypeScript, scoped ESLint and quality budget pass. Browser assertions at 390/1280 verify separate total/partial paragraphs, the custom-date action inside the viewport, no horizontal overflow, explicit period/history counts still 1 each, two training-log links, and no page/HTTP/external requests. Before PNGs remain `ui/period-*-before.png`; current PNGs are `ui/period-*.png` and `ui/load-*.png`. The 10,169-test full gate above remains evidence for the preceding product HEAD; it is not relabelled as a full test of this presentation follow-up.
+
+## 최신 누적 로컬 게이트 (2026-10-28)
+
+R6 시각 개선 `73dac49f`와 R7 초대 로그인 복구를 포함한 제품 HEAD
+`88fac4a3118f811467e3277ef24c447c46fa557a`에서 Node **22.23.4**, worker **2**로 검사했다.
+전체 Vitest **956 files / 10,172 tests PASS, 0 FAIL** (266.45초), `test:contracts`,
+`lint:budget`, `quality:budget`, `build:dev` 모두 exit 0이다. 검증 전후 HEAD 동일,
+tracked/untracked worktree 변경 없음. 이 문서 추가 커밋은 제품 코드를 바꾸지 않는다.
+
+증거: `/Users/kyoungnam/Documents/Codex/2026-10-28/web-final-88fac4a3/results.json` 및
+같은 디렉터리의 `vitest.log`, `contracts.log`, `lint.log`, `quality.log`, `build.log`.
+이전 단계의 수치/실패 증거는 그대로 보존했다. 공유 에뮬레이터·브라우저 fixture 반복·
+사용자 데이터/관계·분석 결과·백필·재계산·원격 push/PR/배포 변경은 없다.
+이 게이트는 실제 OAuth/호스팅/실기기/운영 수용 검증을 대체하지 않는다.
