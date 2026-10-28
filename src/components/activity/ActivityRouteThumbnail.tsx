@@ -111,7 +111,8 @@ export default function ActivityRouteThumbnail(props: ActivityRouteThumbnailProp
   return <div ref={host}>
     {map?.mapPreview.encodedPolyline ? <CanonicalActivityRouteThumbnail {...props}
       key={map.revision} polyline={map.mapPreview.encodedPolyline} mapImageUrl={map.mapPreview.imageUrl}
-      allowCapture={map.privacyEnabled === false} />
+      contentRevision={map.contentRevision} contentSelectedRevision={map.contentSelectedRevision}
+      allowCapture={map.privacyEnabled === false && map.contentRevision !== undefined && map.contentSelectedRevision !== undefined} />
       : resolvedWithoutRoute ? <Text as="div" variant="bodySmall" tone="secondary" role="status" style={{ padding: "var(--dim-item-gap)" }}>
         {t(failed ? "mapPrivacy.liveFailed" : "mapPrivacy.liveUnavailable")}
       </Text>

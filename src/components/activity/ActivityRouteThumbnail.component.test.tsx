@@ -4,7 +4,11 @@ import {
   mockCallableInvocations,
   setCallableImplementation,
 } from "../../__tests__/mocks/firebase";
-import { CanonicalActivityRouteThumbnail as ActivityRouteThumbnail } from "./ActivityRouteThumbnail";
+import PublicActivityRouteThumbnail, { CanonicalActivityRouteThumbnail as ActivityRouteThumbnail } from "./ActivityRouteThumbnail";
+import type { PublicActivityMap } from "../../services/publicActivityMaps";
+
+const liveMaps = vi.hoisted(() => ({ maps: {} as Record<string, PublicActivityMap | null>, failed: false }));
+vi.mock("../../hooks/usePublicActivityMaps", () => ({ usePublicActivityMaps: () => liveMaps }));
 
 const routeMapControl = vi.hoisted(() => ({
   delayNextCapture: false,
@@ -68,8 +72,38 @@ function installSuccessfulCoordinator() {
 
 describe("ActivityRouteThumbnail revision capture contract", () => {
   beforeEach(() => {
+    liveMaps.maps = {};
     routeMapControl.delayNextCapture = false;
     routeMapControl.delayedOnLoad = null;
+  });
+
+  it.each([{}, { contentRevision: 1, contentSelectedRevision: 1 }])("publishes with the live route head instead of missing/stale card revisions: %j", async cardRevisions => {
+    installSuccessfulCoordinator();
+    liveMaps.maps[baseProps.activityId] = {
+      activityId: baseProps.activityId, revision: "live-5-2", privacyEnabled: false,
+      contentRevision: 5, contentSelectedRevision: 2,
+      mapPreview: { encodedPolyline: baseProps.polyline, imageUrl: null },
+    };
+    renderWithProviders(<PublicActivityRouteThumbnail {...baseProps} {...cardRevisions} />,
+      { authenticated: true, user: { uid: baseProps.userId } });
+    await waitFor(() => expect(thumbnailInvocations()).toHaveLength(2));
+    for (const call of thumbnailInvocations()) {
+      expect(call.data).toMatchObject({ expectedHeadRevision: 5 });
+      expect((call.data as { expectedFileName: string }).expectedFileName).toContain(".r2.");
+    }
+  });
+
+  it("renders old-server live geometry without uploading with a guessed feed revision", async () => {
+    installSuccessfulCoordinator();
+    liveMaps.maps[baseProps.activityId] = {
+      activityId: baseProps.activityId, revision: "old-server", privacyEnabled: false,
+      mapPreview: { encodedPolyline: baseProps.polyline, imageUrl: null },
+    };
+    const { queryByTestId } = renderWithProviders(<PublicActivityRouteThumbnail {...baseProps} contentRevision={5} contentSelectedRevision={2} />,
+      { authenticated: true, user: { uid: baseProps.userId } });
+    await waitFor(() => expect(queryByTestId("route-map")).toBeInTheDocument());
+    expect(queryByTestId("capture-map")).not.toBeInTheDocument();
+    expect(thumbnailInvocations()).toEqual([]);
   });
 
   it("fits a live square route without publishing a square image under the wide canonical key", async () => {
