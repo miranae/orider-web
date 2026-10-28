@@ -2,7 +2,7 @@ import { withActivityMapDeadline } from "./activityMapDeadline";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
-export interface PublicActivityMap { activityId: string; revision: string; mapPreview: { encodedPolyline: string | null; imageUrl: string | null }; privacyEnabled?: boolean }
+export interface PublicActivityMap { activityId: string; revision: string; mapPreview: { encodedPolyline: string | null; imageUrl: string | null }; privacyEnabled?: boolean; contentRevision?: number | null; contentSelectedRevision?: number | null }
 type Pending = { resolve: (value: PublicActivityMap | null) => void; reject: (reason: unknown) => void };
 type Session = { viewer: FirebaseServices["auth"]["currentUser"]; requests: Map<string, Promise<PublicActivityMap | null>>; queue: Map<string, Pending[]>; scheduled: boolean };
 const sessions = new WeakMap<object, Session>(), connected = new WeakSet<object>();
@@ -35,6 +35,12 @@ export function loadPublicActivityMap(services: FirebaseServices, activityId: st
           if (!("unavailable" in item) && item.mapPreview.imageUrl) {
             const url = new URL(item.mapPreview.imageUrl);
             if (url.protocol !== "https:" || url.username || url.password) throw Error("invalid_public_maps");
+          }
+          if (!("unavailable" in item) && (item.contentRevision !== undefined || item.contentSelectedRevision !== undefined)) {
+            const head = item.contentRevision, selected = item.contentSelectedRevision;
+            const legacy = head === null && selected === null;
+            if (!legacy && (!Number.isSafeInteger(head) || !Number.isSafeInteger(selected)
+              || (head as number) < 0 || (selected as number) < 0 || (selected as number) > (head as number))) throw Error("invalid_public_maps");
           }
         }
         for (const [id, waiters] of batch) {
