@@ -1,3 +1,4 @@
+import "../i18n/legalResources";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { Card } from "../theme/components";
