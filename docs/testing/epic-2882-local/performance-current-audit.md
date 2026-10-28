@@ -72,3 +72,9 @@
 [정책 번역 분리 A/D](./r8-policy-translation-split-local.md): 기존 lazy 정책 페이지5개에서만 변경 없는 한국어/영어 legal bundle을 등록한다. 같은 합성seed·warm backend·HTTP1/gzip·200KB/s에서 A30→D30 고정순서로 첫 카드30/30씩 유지, p955987.6→5864.5ms, 초기 필수JS gzip758924→735387B(-23537B). 운영 개선율이 아니며2초 목표는 여전히 미달이다. 양쪽HTTP2040응답 관측오류0·전송실패0·pageerror0, Listen30씩검열. 원본20개hash/updateTime불변. 첫피드legal청크0, 실제약관/개인정보정책·오프라인언어전환PASS. 첫정책진입의추가24.39KB공유청크 비용을 별도 명시했다.
 
 제품85d95ea9 전체958suites/10,178tests PASS, contracts/lint budget/quality budget/build:dev 모두exit0(Node22/workers2), focused23/tscPASS. 공유서비스·분석결과 변경0, 원격push/배포/백필0.
+
+## 2026-10-29 lazy 소비자 전용 sanitizer 분리
+
+[DOMPurify 청크 후속](./r8-sanitizer-chunk-split-local.md): sanitizer 구현/설정/버전은 그대로, 기존 lazy 편집기·크리에이터·GPX에서만 필요한 모듈을 초기vendor에서 분리했다. 같은seed A/E각30회 ready30/30, 초기gzip735387→723662B(-11725B), p955858.4→5812.9ms. 45.5ms 차이는 고정순서 HTTP1/200KBps 합성 표본이며 운영 개선율이 아니다. 2초 목표 미달. 각2040responses 관측오류0/failed0/pageerror0,Listen30검열,원본20hash/updateTime불변. 첫피드 sanitizer0·실제편집기진입1회, 붙여넣기 script/onerror/javascriptURL제거 및 안전한strong/text유지PASS. 게시/업로드0.
+
+제품fe9a97e5 full958suites/10,178tests PASS,contracts/lint/quality/build:dev 모두0,기존보호회귀98PASS. 초기JS 전송하한은같은대역폭에서3.618초로남는다. 공유서비스/저장분석변경0,전용스택종료,remote push/deploy/backfill0.
