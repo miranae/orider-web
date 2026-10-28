@@ -56,3 +56,7 @@
 ## 2026-10-29 제품 청크/공개 자산 정합 후속
 
 [최종 독립 90표본](./r8-production-chunks-local.md): WEB88fac4a3 제품 vite.config manualChunks와 publicDir 직접 재사용. 첫 카드90/90, p95 desktop286ms/mobile246.2ms/slow6689.4ms. HTTP6938응답 오류0·전송실패0·pageerror0이며 Listen90은 right-censored다. 제품 변경0, 원본20개불변. HTTP1/gzip 및 demo bootstrap 차이는 남아 HTTP2/운영 성능 완료가 아니다. 중간 publicDir 누락90표본의 로고오류→logging429 166건도 별도 보존했다. 이전 측정/실패를 최종값으로 덮지 않는다.
+
+## 2026-10-29 데스크톱 전용 의존성 분리 A/B
+
+[제품 후보/측정 상세](./r8-deferred-desktop-strip-local.md): 모바일 coachClient 요청은 각30→0, 첫 카드90/90 유지, slow p95는6689.4→6368.0ms라는 제한된 로컬 관측이다. HTTP1/gzip/cache-disabled 조건이며 운영 개선율은 아니다. 관측 오류0과 Listen90 censored를 분리한다. 데스크톱 로고+95요청/+277123B는 원인 미확정이며 DOM 진단6회에서 재현되지 않았다는 이유로 제거하지 않는다. 최초full1FAIL을 보존하고 waitFor만 보정한0db346ef full10174PASS를 별도 기록한다.
