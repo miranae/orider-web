@@ -8,7 +8,7 @@ import GroupInvitePage from "./GroupInvitePage";
 import groupMessages from "../../i18n/resources/ko/group.json";
 
 const { navigate, showToast } = vi.hoisted(() => ({ navigate: vi.fn(), showToast: vi.fn() }));
-vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "qa-rider" }, loading: false }) }));
+vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: auth.currentUser, loading: false }) }));
 vi.mock("../../contexts/ToastContext", () => ({ useToast: () => ({ showToast }) }));
 vi.mock("../../hooks/useLocalizedNavigate", () => ({ useLocalizedNavigate: () => navigate }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
@@ -75,12 +75,12 @@ describe("group invite join App Check readiness", () => {
     await waitFor(() => expect(navigate).toHaveBeenCalledWith("/club/qa-recovered", { replace: true }));
     expect(mockCallableInvocations).toEqual([{ name: "joinGroupByCode", data: { inviteCode: "ABCD-EFGH" } }]);
   });
-  it.each(["unmount", "account-switch"] as const)("does not join an old intent after %s while readiness is pending", async (change) => {
+  it.each(["unmount", "account-switch", "same-uid-session"] as const)("does not join an old intent after %s while readiness is pending", async (change) => {
     let resolveReady!: () => void;
     vi.mocked(ensureAppCheckReady).mockReturnValue(new Promise<void>((resolve) => { resolveReady = resolve; }));
     const view = renderInvite();
     if (change === "unmount") view.unmount();
-    else Object.assign(auth, { currentUser: { uid: "other-account" } });
+    else Object.assign(auth, { currentUser: { uid: change === "same-uid-session" ? "qa-rider" : "other-account" } });
     await act(async () => { resolveReady(); });
     expect(httpsCallable).not.toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();

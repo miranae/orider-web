@@ -45,17 +45,18 @@ export default function GroupInvitePage() {
     return () => clearTimeout(timer);
   }, [retryAt]);
 
-  const uid = user?.uid;
   const isAnonymous = user?.isAnonymous === true;
   const inviteCode = normalizeGroupInviteCode(code);
   useEffect(() => {
     if (inviteCode) startJourneyMeasurement("share_open", "web_club_invite", "open")("success");
   }, [inviteCode]);
   useEffect(() => {
-    if (authLoading || !uid || isAnonymous || !inviteCode) return;
+    const sdkUser = auth.currentUser;
+    if (authLoading || !user || isAnonymous || !inviteCode || sdkUser?.uid !== user.uid || sdkUser.isAnonymous === true) return;
     const finish = startJourneyMeasurement("club_join", "web_club_invite", "join");
     let cancelled = false;
-    const current = () => !cancelled && auth.currentUser?.uid === uid && auth.currentUser.isAnonymous !== true;
+    // A same-UID sign-in can replace the SDK session while this join is pending.
+    const current = () => !cancelled && auth.currentUser === sdkUser && sdkUser.isAnonymous !== true;
     setProcessing(true);
     setJoinError(null);
     setRetryAt(0);
@@ -90,7 +91,7 @@ export default function GroupInvitePage() {
       })
       .finally(() => { if (current()) setProcessing(false); });
     return () => { cancelled = true; finish("cancelled"); };
-  }, [authLoading, inviteCode, navigate, showToast, t, uid, isAnonymous, attempt]);
+  }, [authLoading, inviteCode, navigate, showToast, t, user, isAnonymous, attempt]);
 
   if (authLoading) {
     return <InviteSpinner label={t("inviteLink.loading")} />;
