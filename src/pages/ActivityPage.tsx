@@ -1,3 +1,4 @@
+import { OwnerDetailReadFallback } from "../features/activity/detail/OwnerDetailReadFallback";
 import { useSavedActivityAnalysisSelection } from "../hooks/useSavedActivityAnalysisSelection";
 import { ActivityReanalysisControl } from "../features/activity/detail/ActivityReanalysisControl";
 import type { JourneyOutcome } from "../services/journeyMeasurement";
@@ -864,7 +865,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
 
   if (activityLoadError) {
     const isPermissionError = isPermissionDeniedError(activityLoadError);
-    return (
+    const errorView = (
       <div className="max-w-xl mx-auto py-16">
         <ErrorState
           title={isPermissionError ? tCommon("error.permission") : tCommon("error.title")}
@@ -873,6 +874,10 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         />
       </div>
     );
+    if (publicAccess || !activityId) return errorView;
+    return <OwnerDetailReadFallback activityId={activityId} error={activityLoadError} fallback={errorView}>
+      {initialDetail => <ActivityPage publicAccess={{ activityId, retryKey: 0, initialDetail, onReady: () => {}, onError: () => {} }} />}
+    </OwnerDetailReadFallback>;
   }
 
   if (activityProcessing) {
@@ -1331,7 +1336,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         <NativeActivityMemoEditor key={`${activity.id}:${user?.uid}`} activityId={activity.id}
           onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })} />}
       {isActivityOwner && activeTab === "overview" && <ActivityMapPrivacyControl activityId={activity.id} />}
-      {activeTab === "analysis" && <ActivityReanalysisControl canReanalyze={isActivityOwner} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
+      {activeTab === "analysis" && <ActivityReanalysisControl canReanalyze={isActivityOwner || (!!publicAccess && !!user && !user.isAnonymous && user.uid === activity.userId)} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
       {activeTab === "analysis" && <header className="activity-analysis-intro">
         <div><Text as="h2" variant="title">{t("detail.analysis.title")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("analysisReading.intro")}</Text></div>
         <nav aria-label={t("analysisReading.navigation")} className="activity-analysis-navigation">
