@@ -84,3 +84,11 @@
 [첫 카드 예산 감사](./r8-first-card-budget-audit.md): 제품75f12709 변경 없이 기존E30 그래프/워터폴을 분석했다. 초기JS723662B는200000B/s에서3.618초 하한이며2초 전체예산400000B보다323662B 크다. 첫카드 전 script/CSS/기타 응답 medians 합은약849942B. HTTP2는 스케줄링을 개선할 수 있지만 같은 전송량/대역폭 하한을 없애지 않는다.
 
 비피드 namespace5의 합성JSON gzip83301B 후보는84소비자 변경이 필요해 이번에는 구현보류/초안복원했다. 기존firstfeed 소비자교집합0이나 desktop TodayStrip training은별도유지필요. 제품소스clean,새빌드/측정/서비스실행0. 목표2초를자동완화하지않으며 실제hosted HTTP2/압축/캐시/기기/인증조건별 수용기준 검토는 사용자승인 및 별도측정이필요하다. 이전10178PASS는과거checkpoint이며새gate로주장하지않는다.
+
+## 2026-10-29 lazy schema 소비자 전용 Zod 분리
+
+[Zod 청크 A/F 후속](./r8-validation-chunk-split-local.md): 제품8826bfff는 manualChunks2줄만 변경하며 모든 schema/검증/ACL/저장분석 정책은 그대로다. 동일seed·HTTP1/gzip·200000B/s·390px·fixed A→F각30회 first-card30/30,초기JS gzip723662→702933B(-20729B),p955807.9→5700.7ms. 107.2ms 차이는 합성 고정순서 관측으로 운영 개선율이 아니며2초 목표 미달이다. JS-only 전송하한도3.515초다. 각2040응답 오류0/failed0/pageerror0,Listen30검열,원본20hash/updateTime불변.
+
+모바일 측정 전체창(첫카드 전/+2초) Zod청크0; 실제Settings진입1,정상값수용/잘못된값·추가키거부PASS. Desktop TodayStrip은정당한Zod소비자로단일smoke에서feed1을관측했고초기feed0기대실패를보존했다. Desktop첫카드대비요청시점·30회성능은미측정이며desktop비용0을주장하지않는다.
+
+8826bfff exact full958suites/10178testsPASS,contracts/lint/quality/build:dev(타입포함)모두0,Node22/workers2,시작·종료SHA동일/clean. 기존12suites127focusedPASS. ownstack종료/APP슬롯반환,제품/원본재계산·backfill0,원격push/PR/배포0. hostedHTTP2/실기기/미디어/owner분석성능은별도미검증이다.
