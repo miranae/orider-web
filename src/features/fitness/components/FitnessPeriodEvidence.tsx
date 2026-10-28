@@ -3,7 +3,6 @@ import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import PeriodLoadEvidence from "./PeriodLoadEvidence";
 import { usePeriodControls } from "../../../hooks/usePeriodControls";
 import { validTrainingPeriodControls, type TrainingPeriodControls } from "./periodControls";
-import { localTrainingEmulatorAvailable } from "../../../services/localTrainingEmulator";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -22,7 +21,7 @@ import { Button, Input, Text, ToggleControls, ToggleButton } from "../../../them
 type Sport = "bike" | "run" | "swim";
 export default function FitnessPeriodEvidence({ discipline, inline = false, timeseries = null }: { discipline: Sport; inline?: boolean; timeseries?: FitnessTimeseriesDoc | null }) {
   const { user } = useAuth();
-  if ((getRuntimeConfig().appEnvironment !== "stage" && !(discipline === "bike" && localTrainingEmulatorAvailable())) || !user || user.isAnonymous) return null;
+  if ((getRuntimeConfig().appEnvironment !== "stage" && !(discipline === "bike" && trainingAnalysisPeriodsAvailable(discipline))) || !user || user.isAnonymous) return null;
   return <PeriodEvidence key={`${user.uid}:${discipline}`} ownerUid={user.uid} discipline={discipline} inline={inline} timeseries={timeseries} />;
 }
 function PeriodEvidence({ ownerUid, discipline, inline, timeseries }: { ownerUid: string; discipline: Sport; inline: boolean; timeseries: FitnessTimeseriesDoc | null }) {
