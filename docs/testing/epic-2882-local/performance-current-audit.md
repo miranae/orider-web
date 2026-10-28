@@ -66,3 +66,9 @@
 [상세 증거](./r8-image-causality-and-lazy-vendors.md): 같은 seed 반복에서 desktop B 중복22/30·A4/30, DOM 재마운트0. 별도 정상-cache6회 추가전송0으로 측정 조건과 사용자 비용을 분리한다. Markdown/ZIP 의존성 분리 C slow30/30 ready, p95 5980.8ms, HTTP2040 관측오류0·전송실패0·pageerror0/Listen30검열, 새lazy청크첫피드0. 초기 필수 JS gzip758924B로 이 200KB/s 조건에서 전송 하한은 3.79초이며 2초 목표 미달·운영 HTTP2 미검증이다. 실제 게시물 GFM/설정 ZIP 다운로드 PASS. 저장 분석 history 오류 문구는 별도 DCO로 수정하고 선택 보존/명시 재시도를 유지했다.
 
 최종 제품 d4d07acb 전체957 suites/10,176 tests PASS, contracts/lint budget/quality budget/build:dev 모두 exit0(Node22/workers2). 제품 소스는 gate 중 고정됐고 결과 문서만 정리했다.
+
+## 2026-10-29 정책 페이지 번역 지연 적재 후속
+
+[정책 번역 분리 A/D](./r8-policy-translation-split-local.md): 기존 lazy 정책 페이지5개에서만 변경 없는 한국어/영어 legal bundle을 등록한다. 같은 합성seed·warm backend·HTTP1/gzip·200KB/s에서 A30→D30 고정순서로 첫 카드30/30씩 유지, p955987.6→5864.5ms, 초기 필수JS gzip758924→735387B(-23537B). 운영 개선율이 아니며2초 목표는 여전히 미달이다. 양쪽HTTP2040응답 관측오류0·전송실패0·pageerror0, Listen30씩검열. 원본20개hash/updateTime불변. 첫피드legal청크0, 실제약관/개인정보정책·오프라인언어전환PASS. 첫정책진입의추가24.39KB공유청크 비용을 별도 명시했다.
+
+제품85d95ea9 전체958suites/10,178tests PASS, contracts/lint budget/quality budget/build:dev 모두exit0(Node22/workers2), focused23/tscPASS. 공유서비스·분석결과 변경0, 원격push/배포/백필0.
