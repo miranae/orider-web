@@ -51,3 +51,8 @@
 [독립 측정 상세](./r8-cold-mobile-slow-local.md): 조건별 30회, 첫 카드 90/90 ready. navigation→ready p95 desktop276.1ms/mobile245.1ms/mobile slow6214.3ms. 이 결과는 텍스트 합성 카드·외부 optimized bootstrap·HTTP/1·warm emulator 조건이며 기존120회와 직접 개선율 비교하지 않습니다.
 
 데스크톱 각8건 ×30 = 요청실패240건(listMyRegisteredEvents30/logClientError210)을 모두 포함했습니다. scoped emulator export와 bootstrap 기본 region 불일치가 관측됐으며 운영 결함 단정은 하지 않습니다. HTTP 오류0은 관측된7569응답에 한정되고, Firestore Listen 장기연결90은 관측 종료시 pending으로 별도 보존했습니다. 전체 무오류 성공을 뜻하지 않습니다. slow의 약6.2초는 해당 외부 artifact JS 전송/후속모듈 대기가 대부분이며 제품 manualChunks/운영 HTTP2와 다른 조건이라 제품 성능 수정 근거로 사용하지 않았습니다. 원본20개 hash/updateTime 불변, 독립 runtime 종료, 앱 heavy 슬롯 반환. 실기기·운영·미디어 및 owner 분석 slow/cold 수용은 별도로 남습니다.
+
+
+## 2026-10-29 제품 청크/공개 자산 정합 후속
+
+[최종 독립 90표본](./r8-production-chunks-local.md): WEB88fac4a3 제품 vite.config manualChunks와 publicDir 직접 재사용. 첫 카드90/90, p95 desktop286ms/mobile246.2ms/slow6689.4ms. HTTP6938응답 오류0·전송실패0·pageerror0이며 Listen90은 right-censored다. 제품 변경0, 원본20개불변. HTTP1/gzip 및 demo bootstrap 차이는 남아 HTTP2/운영 성능 완료가 아니다. 중간 publicDir 누락90표본의 로고오류→logging429 166건도 별도 보존했다. 이전 측정/실패를 최종값으로 덮지 않는다.
