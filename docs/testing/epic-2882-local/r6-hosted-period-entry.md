@@ -45,3 +45,9 @@ At exact product HEAD `0c463c64ce958cb3f4cfa5ea871f6dc07e866be0`, Node 22.23.4:
 - The temporary fixture listener was stopped. No shared Auth/Firestore/HTTP/Storage process or data was changed. Storage 9409 recovery was outside this task.
 
 Evidence: `/Users/kyoungnam/Documents/Codex/2026-10-28/r6-web-period-entry/full-gate/results.json` and `ui/README.md`, `ui/ui-results.json`, `ui/period-1280.png`, `ui/period-390.png`. The earlier mock selector counter is preserved in `ui-initial-results.json`; the final counter uses the exact translated stored-history label. No production/device/reanalysis/backfill result is inferred from this fixture.
+
+## R6 visual hierarchy follow-up
+
+After reviewing the preceding browser captures, the product period section now separates headings, dates, totals, partial-coverage text and stored-result controls with existing DS typography/Stack and spacing/border tokens. Training-load evidence and its log-date action use separate period groups (two columns on desktop, stacked on mobile). Existing DS metric toggles wrap so the custom-date choice stays visible at 390px. The fixture header is unchanged and not a product design claim.
+
+No query, snapshot, history selection, source value, coverage policy, endpoint, auth gate, auto-reanalysis or backfill behavior changes. Three focused suites / 20 tests, TypeScript, scoped ESLint and quality budget pass. Browser assertions at 390/1280 verify separate total/partial paragraphs, the custom-date action inside the viewport, no horizontal overflow, explicit period/history counts still 1 each, two training-log links, and no page/HTTP/external requests. Before PNGs remain `ui/period-*-before.png`; current PNGs are `ui/period-*.png` and `ui/load-*.png`. The 10,169-test full gate above remains evidence for the preceding product HEAD; it is not relabelled as a full test of this presentation follow-up.

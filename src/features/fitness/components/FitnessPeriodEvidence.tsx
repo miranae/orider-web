@@ -1,3 +1,4 @@
+import "./fitness-period-evidence.css";
 import BikePeriodSnapshotPanel from "./BikePeriodSnapshotPanel";
 import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import PeriodLoadEvidence from "./PeriodLoadEvidence";
@@ -16,7 +17,7 @@ import TrainingPeriodZonesPanel from "../../activity/detail/TrainingPeriodZonesP
 import RunEffortStageManagementPanel from "../../activity/detail/RunEffortStageManagementPanel";
 import { formatDistance, formatElev } from "../../../utils/units";
 import { formatElapsedBoundary } from "../../activity/detail/activityRangeSelection";
-import { Button, Input, Text, ToggleControls, ToggleButton } from "../../../theme/components";
+import { Button, Input, Stack, Text, ToggleControls, ToggleButton } from "../../../theme/components";
 
 type Sport = "bike" | "run" | "swim";
 export default function FitnessPeriodEvidence({ discipline, inline = false, timeseries = null }: { discipline: Sport; inline?: boolean; timeseries?: FitnessTimeseriesDoc | null }) {
@@ -51,10 +52,11 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries }: { ownerUid
     } }));
   };
   const Container = inline ? "section" : "details";
-  return <Container data-testid="K5-5-2" className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3">
-    {inline ? <Text as="h3" variant="subtitle">{activityT("trainingPeriods.title")}</Text> : <summary className="cursor-pointer py-3">{activityT("trainingPeriods.title")}</summary>}
-    <Text as="p" variant="caption">{t("comparison.timezone")}</Text>
-    <ToggleControls variant="axis" aria-label={t("comparison.title")}>
+  return <Container data-testid="K5-5-2" className="fitness-period-evidence">
+    {inline ? <Text as="h3" variant="title">{activityT("trainingPeriods.title")}</Text> : <summary className="cursor-pointer py-3">{activityT("trainingPeriods.title")}</summary>}
+    <Stack gap="var(--space-4)">
+    <Text as="p" variant="caption" tone="secondary">{t("comparison.timezone")}</Text>
+    <ToggleControls variant="metric" aria-label={t("comparison.title")}>
       {(["fourWeeks", "yearToDate"] as const).map(value => <ToggleButton key={value} selected={preset === value} onClick={() => { setPreset(value); setSelection(null); setInvalid(false); }}>{t(`comparison.${value}`)}</ToggleButton>)}
       <ToggleButton selected={preset === null} onClick={() => { setPreset(null); setSelection(null); setInvalid(false); }}>{t("periodCurve.custom")}</ToggleButton>
     </ToggleControls>
@@ -63,23 +65,25 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries }: { ownerUid
       <legend>{t("periodCurve.period", { n: index + 1 })}</legend>
       {(["from", "through"] as const).map(field => <label className="block" key={field}>{t(`periodCurve.${field}`)}<Input type="date" value={range[field]} max={today} onChange={event => { setRanges(values => values.map((value, position) => position === index ? { ...value, [field]: event.target.value } : value)); setSelection(null); setInvalid(false); }} /></label>)}
     </fieldset>)}</div>}
-    <Button disabled={!available || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button>
+    <div><Button disabled={!available || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button></div>
     {!available && <Text role="status">{t("periodCurve.preparing")}</Text>}
     {invalid && <Text role="alert">{t("periodCurve.invalid")}</Text>}
     {result.state === "loading" && <Text role="status">{t("periodEvidence.loading")}</Text>}
     {result.state === "error" && <Button onClick={result.retry}>{t("canonical.retry")}</Button>}
-    {result.response && <>
+    {result.response && <Stack gap="var(--space-6)">
       <Text as="p" variant="caption">{activityT("growth.canonicalPeriodBasis")}</Text>
-      <div className="grid gap-3 sm:grid-cols-2">{result.response.periods.map((period, index) => <section key={index}>
-        <Text as="h3" variant="subtitle">{t("periodCurve.period", { n: index + 1 })} · {trainingCalendarDate(period.fromInclusive)} – {trainingCalendarDate(period.toExclusive - 1)}</Text>
-        <Text>{period.totals.distanceM.totalValue == null ? "—" : formatDistance(period.totals.distanceM.totalValue, units)} · {period.totals.movingTimeSec.totalValue == null ? "—" : formatElapsedBoundary(period.totals.movingTimeSec.totalValue)} · {period.totals.elevationGainM.totalValue == null ? "—" : formatElev(period.totals.elevationGainM.totalValue, units)}</Text>
-        {period.coverage.truncated && <Text>{activityT("trainingPeriods.truncated")}</Text>}
+      <div className="grid gap-3 sm:grid-cols-2">{result.response.periods.map((period, index) => <section key={index} className="fitness-period-summary">
+        <Text as="h4" variant="subtitle">{t("periodCurve.period", { n: index + 1 })}</Text>
+        <Text as="p" variant="caption" tone="secondary">{trainingCalendarDate(period.fromInclusive)} – {trainingCalendarDate(period.toExclusive - 1)}</Text>
+        <Text as="p" weight={600}>{period.totals.distanceM.totalValue == null ? "—" : formatDistance(period.totals.distanceM.totalValue, units)} · {period.totals.movingTimeSec.totalValue == null ? "—" : formatElapsedBoundary(period.totals.movingTimeSec.totalValue)} · {period.totals.elevationGainM.totalValue == null ? "—" : formatElev(period.totals.elevationGainM.totalValue, units)}</Text>
+        {period.coverage.truncated && <Text as="p" tone="secondary">{activityT("trainingPeriods.truncated")}</Text>}
         {discipline === "bike" && <BikePeriodSnapshotPanel historyOnly={!period.coverage.truncated} ownerUid={ownerUid} period={period} />}
       </section>)}</div>
       <PeriodLoadEvidence ownerUid={ownerUid} discipline={discipline} periods={result.response.periods} timeseries={timeseries} />
       <RunPeriodComparisonPanel response={result.response} />
       <TrainingPeriodZonesPanel response={result.response} ownerUid={ownerUid} />
       {discipline === "run" && <RunEffortStageManagementPanel ownerUid={ownerUid} appliedResponse={result.response} />}
-    </>}
+    </Stack>}
+    </Stack>
   </Container>;
 }
