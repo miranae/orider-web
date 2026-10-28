@@ -60,3 +60,9 @@
 ## 2026-10-29 데스크톱 전용 의존성 분리 A/B
 
 [제품 후보/측정 상세](./r8-deferred-desktop-strip-local.md): 모바일 coachClient 요청은 각30→0, 첫 카드90/90 유지, slow p95는6689.4→6368.0ms라는 제한된 로컬 관측이다. HTTP1/gzip/cache-disabled 조건이며 운영 개선율은 아니다. 관측 오류0과 Listen90 censored를 분리한다. 데스크톱 로고+95요청/+277123B는 원인 미확정이며 DOM 진단6회에서 재현되지 않았다는 이유로 제거하지 않는다. 최초full1FAIL을 보존하고 waitFor만 보정한0db346ef full10174PASS를 별도 기록한다.
+
+## 2026-10-29 이미지 인과 반복 / lazy vendor 후속
+
+[상세 증거](./r8-image-causality-and-lazy-vendors.md): 같은 seed 반복에서 desktop B 중복22/30·A4/30, DOM 재마운트0. 별도 정상-cache6회 추가전송0으로 측정 조건과 사용자 비용을 분리한다. Markdown/ZIP 의존성 분리 C slow30/30 ready, p95 5980.8ms, HTTP2040 관측오류0·전송실패0·pageerror0/Listen30검열, 새lazy청크첫피드0. 초기 필수 JS gzip758924B로 이 200KB/s 조건에서 전송 하한은 3.79초이며 2초 목표 미달·운영 HTTP2 미검증이다. 실제 게시물 GFM/설정 ZIP 다운로드 PASS. 저장 분석 history 오류 문구는 별도 DCO로 수정하고 선택 보존/명시 재시도를 유지했다.
+
+최종 제품 d4d07acb 전체957 suites/10,176 tests PASS, contracts/lint budget/quality budget/build:dev 모두 exit0(Node22/workers2). 제품 소스는 gate 중 고정됐고 결과 문서만 정리했다.

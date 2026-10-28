@@ -33,3 +33,7 @@ React19.2.4의 commitHostMount에서 img.src를 재설정하는 구현과 cache-
 - 원격 push/배포/백필/원본 재계산0. own 측정·진단 서비스 종료, 공유서비스 무변경.
 
 외부 근거: `/Users/kyoungnam/Documents/Codex/2026-10-28/r8-web-deferred-home-ab/`의 `README.md`, `results.json`, `ab-analysis.json`, `desktop-image-observation.json`, `desktop-image-timing.json`, `image-dom-diagnostic/desktop-image-dom*.json`, `full-gate/results.json`(첫실패), `full-gate-0db346ef/results.json`(후속), `ui/desktop-cold.png`, `ui/mobile-cold.png`, `ui/mobile-slow-cold.png`. 기존 A는 형제 `r8-web-production-chunks`에 보존한다.
+
+## 2026-10-29 동일 seed 반복과 정상 cache 후속
+
+[새 분모/원인 경계/청크 후속](./r8-image-causality-and-lazy-vendors.md)을 참조한다. 위 과거 증거는 변경하지 않는다. 새 동일 seed 반복에서 B 중복22/30, A4/30이며 DOM 제거0·script initiator의 같은 img src 설정 경계가 관측됐다. 반면 별도 정상 cache 6회는 추가 전송0이었다. 따라서 기존 cache-disabled 측정의 요청 증가는 실제 관측이지만 사용자 환경의 전송 비용 증가로 일반화하지 않는다. 추가 로고 제품 패치 없이, 객관적 Rollup 모듈 맵으로 확인한 lazy Markdown/ZIP 초기 포함만 분리했다.
