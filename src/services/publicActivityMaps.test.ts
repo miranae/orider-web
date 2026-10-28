@@ -20,6 +20,22 @@ it("has no raw fallback for unavailable or failed map responses", async () => {
  const s = services(); m.call.mockResolvedValueOnce({ data: { items: [{ activityId: "a", unavailable: true }] } }); expect(await loadPublicActivityMap(s, "a")).toBeNull();
  m.call.mockRejectedValueOnce(Error("offline")); await expect(loadPublicActivityMap(s, "a")).rejects.toThrow("offline");
 });
+it.each([
+ { contentRevision: 5, contentSelectedRevision: 2 },
+ { contentRevision: null, contentSelectedRevision: null },
+])("preserves snapshot-bound thumbnail revisions: %j", async revisions => {
+ const item = { ...row("a"), ...revisions };
+ m.call.mockResolvedValueOnce({ data: { items: [item] } });
+ await expect(loadPublicActivityMap(services(), "a")).resolves.toEqual(item);
+});
+it.each([
+ { contentRevision: 2 }, { contentSelectedRevision: 1 },
+ { contentRevision: 1, contentSelectedRevision: 2 },
+ { contentRevision: "2", contentSelectedRevision: 1 },
+])("rejects inconsistent live revision metadata: %j", async revisions => {
+ m.call.mockResolvedValueOnce({ data: { items: [{ ...row("a"), ...revisions }] } });
+ await expect(loadPublicActivityMap(services(), "a")).rejects.toThrow("invalid_public_maps");
+});
 it("does not coalesce different service contexts sharing one auth object", async () => {
  const a = services(), b = { ...a, functions: { ...a.functions } } as FirebaseServices;
  await Promise.all([loadPublicActivityMap(a, "a"), loadPublicActivityMap(b, "a")]); expect(m.call).toHaveBeenCalledTimes(2);

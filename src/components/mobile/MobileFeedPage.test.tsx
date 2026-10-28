@@ -20,6 +20,7 @@ vi.mock("../../services/analytics", () => ({ track: vi.fn() }));
 vi.mock("../../services/publicActivityMaps", () => ({ loadPublicActivityMap: vi.fn() }));
 beforeEach(() => {
   vi.mocked(loadPublicActivityMap).mockImplementation(async (_services, activityId) => ({ activityId, revision: "current", privacyEnabled: false,
+    contentRevision: null, contentSelectedRevision: null,
     mapPreview: { encodedPolyline: createMockActivity().thumbnailTrack!, imageUrl: "https://storage.googleapis.com/legacy/map.webp" } }));
 });
 
@@ -684,7 +685,7 @@ describe("MobileFeedPage", () => {
     const mapImageUrl = `https://firebasestorage.googleapis.com/v0/b/test/o/${objectPath}?alt=media`;
     expect(isCanonicalMapThumbnailUrl(mapImageUrl, activity.userId, fileName, "test")).toBe(true);
     activity.mapImageUrl = mapImageUrl;
-    vi.mocked(loadPublicActivityMap).mockResolvedValue({ activityId: activity.id, revision: "current", privacyEnabled: false, mapPreview: { encodedPolyline: activity.thumbnailTrack!, imageUrl: mapImageUrl } });
+    vi.mocked(loadPublicActivityMap).mockResolvedValue({ activityId: activity.id, revision: "current", privacyEnabled: false, contentRevision: null, contentSelectedRevision: null, mapPreview: { encodedPolyline: activity.thumbnailTrack!, imageUrl: mapImageUrl } });
 
     const { container } = renderWithProviders(
       <MobileFeedPage
