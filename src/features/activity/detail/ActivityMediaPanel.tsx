@@ -90,6 +90,12 @@ export function ActivityMediaPanel({
             expandLabel={t("page.mapView.expand")} collapseLabel={t("page.mapView.collapse")}
             onToggle={() => setMapExpanded(expanded => !expanded)} />
         </div>
+        {!hasTrack && routeLookup && <Card><Stack gap="var(--space-3)">
+          <Text as="p" role="status" tone="secondary">{t(`page.routeLookup.${routeLookup.state}`)}</Text>
+          <Button variant="outline" loading={routeLookup.state === "loading"} disabled={routeLookup.state === "loading"} onClick={routeLookup.onLoad}>
+            {t(routeLookup.state === "error" ? "page.retry" : "page.routeLookup.load")}
+          </Button>
+        </Stack></Card>}
       </div>
     );
   }

@@ -379,6 +379,12 @@ export default function RouteMap({
   }, [positions, onHighlightRangeChange, highlightRange]);
 
   if (positions.length === 0) {
+    if (fallbackImageUrl) {
+      return <RouteMapFallback positions={positions} imageUrl={fallbackImageUrl}
+        imageAlt={fallbackImageAlt ?? t("map.routeImageAlt")}
+        height={fallbackHeight ?? height} rounded={rounded}
+        title={t("map.unavailableTitle")} description={t("map.unavailableDescription")} />;
+    }
     return (
       <div className={`${height} ${rounded ? "rounded-[var(--r-lg)]" : ""} flex items-center justify-center text-[length:var(--fs-sm)]`} style={{ background: "var(--bg-1)", color: "var(--ink-3)" }}>
         {t("map.noRouteData")}
