@@ -81,3 +81,21 @@ tracked/untracked worktree 변경 없음. 이 문서 추가 커밋은 제품 코
 이전 단계의 수치/실패 증거는 그대로 보존했다. 공유 에뮬레이터·브라우저 fixture 반복·
 사용자 데이터/관계·분석 결과·백필·재계산·원격 push/PR/배포 변경은 없다.
 이 게이트는 실제 OAuth/호스팅/실기기/운영 수용 검증을 대체하지 않는다.
+
+## 독립 실제 SDK 브라우저 후속 (제품 88fac4a3)
+
+새 demo 프로젝트와 전용 Auth9339/Firestore8429/Functions5069/WEB5399에서 실제
+AppRoot·AuthProvider·공통 상세를 사용했다. 1280/390 각각 로그인 이후 가입200 →
+클럽/라이딩/활동 진입 → 좋아요200 및 Firestore 멤버십/좋아요 readback을 확인했다.
+Google popup은 외부 `apis.google.com` 차단으로 실패하여 로그인만 기존 `__e2eSignIn`의
+실제 Auth emulator SDK로 대체했다. 완전한 OAuth UI 여정 성공으로 표현하지 않는다.
+로컬 wrapper만 AppCheck attestation을 생략했고 실제 Auth/ACL 구현은 재사용했다.
+추가 owner-anchor discovery403은 각1회 관측되어 HTTP 전체 무오류도 주장하지 않는다.
+
+합성 seed의 legacy inviteCode/삭제필드 누락에 따른 초기 실패를 보존했다. 정정 뒤
+승인된 두 여정의 활동 payload/hash/updateTime은 동일했고 멤버십/좋아요는 원복했다.
+전용 listener 모두 종료 확인. 제품 수정·공유 서비스·기존 데이터·분석·원격 변경 없음.
+UI/HTTP 증거와 제한: `/Users/kyoungnam/Documents/Codex/2026-10-28/r7-isolated-journey/README.md`,
+`results.json`, `ui/journey-1280.json`, `ui/journey-390.json` 및 해당 PNG.
+이 합성 화면의 미제공 메모/경로 안내는 제한된 wrapper/fixture 범위이며 R7 전체 수용이나
+실기기·운영·OG/공유 정책 완료 증거로 대체하지 않는다.
