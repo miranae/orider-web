@@ -60,6 +60,8 @@ export default defineConfig(({ mode }) => {
               if (id.includes("react-markdown") || id.includes("remark") ||
                 /\/(?:micromark(?:-[^/]+)?|mdast-util-[^/]+|hast-util-[^/]+|unist-util-[^/]+|vfile(?:-message)?|unified|property-information)\//.test(id)) return "vendor-markdown";
               if (id.includes("/jszip/")) return "vendor-export";
+              // Sanitization belongs to lazy editors and GPX importers; keep every security check intact.
+              if (id.includes("/dompurify/")) return "vendor-sanitize";
               return "vendor";
             }
           },
