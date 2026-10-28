@@ -44,3 +44,10 @@
 소스 시작 `d2867e3c`, 종료 `676012a9`이며 샘플마다 SHA를 보존했습니다. 실행 중 변경은 R3 구독의 정확한 SDK session 검사, R6 기간 화면 KST 및 복귀 상태, 문서로 피드/단일 활동 분석 준비 컴포넌트를 직접 편집한 변경은 아니었습니다. HMR 간섭 1회를 별도로 보존했고 보충은 `676012a9` 시작/종료 동일입니다. 원본 activity/stream/metrics 시작·종료 hash가 모두 같았습니다. backend runtime은 `91bc5869dcfd`로 고정됐으며 뒤에 작성된 R6 PMC KST 서버 변경의 성능 근거로 사용하지 않습니다. 별도 UID producer 검증의 짧은 동시 부하는 `concurrent-work.json`에 기록했고 어떤 표본도 제외하지 않았습니다.
 
 근거: `performance-current/results.json`(원래 120회 전체), `supplement-results.json`(보충 1회), `audit-summary.json`(분모/간섭/비용 집계), `concurrent-work.json`, `run.mjs`, `supplement.mjs`. 로컬 UI 준비 성능의 제한된 기준은 확인했지만 운영/대표 모바일 네트워크/실기기/신규 분석 생성시간/전면 비용 수용 조건은 여전히 별도입니다. 새 제품 코드는 변경하지 않았습니다.
+
+
+## 2026-10-28 고정 cold/mobile/slow 후속 (WEB 88fac4a3, 로컬 #1344/R8 근거)
+
+[독립 측정 상세](./r8-cold-mobile-slow-local.md): 조건별 30회, 첫 카드 90/90 ready. navigation→ready p95 desktop276.1ms/mobile245.1ms/mobile slow6214.3ms. 이 결과는 텍스트 합성 카드·외부 optimized bootstrap·HTTP/1·warm emulator 조건이며 기존120회와 직접 개선율 비교하지 않습니다.
+
+데스크톱 각8건 ×30 = 요청실패240건(listMyRegisteredEvents30/logClientError210)을 모두 포함했습니다. scoped emulator export와 bootstrap 기본 region 불일치가 관측됐으며 운영 결함 단정은 하지 않습니다. HTTP 오류0은 관측된7569응답에 한정되고, Firestore Listen 장기연결90은 관측 종료시 pending으로 별도 보존했습니다. 전체 무오류 성공을 뜻하지 않습니다. slow의 약6.2초는 해당 외부 artifact JS 전송/후속모듈 대기가 대부분이며 제품 manualChunks/운영 HTTP2와 다른 조건이라 제품 성능 수정 근거로 사용하지 않았습니다. 원본20개 hash/updateTime 불변, 독립 runtime 종료, 앱 heavy 슬롯 반환. 실기기·운영·미디어 및 owner 분석 slow/cold 수용은 별도로 남습니다.
