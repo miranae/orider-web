@@ -1,9 +1,9 @@
 import { StrictMode } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const mocks = vi.hoisted(() => ({
   loading: false, params: new URLSearchParams(), complete: vi.fn(), signIn: vi.fn(),
-  navigate: vi.fn(), toast: vi.fn(), track: vi.fn(), consumeState: vi.fn(),
+  ownerUid: "target", start: vi.fn(), navigate: vi.fn(), toast: vi.fn(), track: vi.fn(), consumeState: vi.fn(),
 }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("react-router-dom", () => ({ useSearchParams: () => [mocks.params] }));
@@ -11,8 +11,8 @@ vi.mock("../hooks/useLocalizedNavigate", () => ({ useLocalizedNavigate: () => mo
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ loading: mocks.loading }) }));
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: mocks.toast }) }));
 vi.mock("firebase/auth", () => ({ signInWithCustomToken: mocks.signIn }));
-vi.mock("../services/firebase", () => ({ auth: { name: "auth" } }));
-vi.mock("../services/socialAuth", () => ({ completeSocialAuth: mocks.complete, consumeSocialAuthState: mocks.consumeState }));
+vi.mock("../services/firebase", () => ({ auth: { name: "auth", get currentUser() { return { uid: mocks.ownerUid }; } } }));
+vi.mock("../services/socialAuth", () => ({ startSocialAuth: mocks.start, completeSocialAuth: mocks.complete, consumeSocialAuthState: mocks.consumeState }));
 vi.mock("../services/analytics", () => ({ track: mocks.track }));
 vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 import SocialAuthCallbackPage, { socialAuthErrorKey } from "./SocialAuthCallbackPage";
@@ -37,7 +37,7 @@ describe("SocialAuthCallbackPage", () => {
   beforeEach(() => {
     mocks.loading = false;
     mocks.params = new URLSearchParams("code=provider-code&state=opaque-state");
-    mocks.complete.mockReset();
+    mocks.complete.mockReset(); mocks.start.mockReset().mockResolvedValue(undefined);
     mocks.consumeState.mockReset().mockReturnValue(true);
     mocks.signIn.mockReset().mockResolvedValue(undefined);
     mocks.navigate.mockReset();
@@ -63,7 +63,7 @@ describe("SocialAuthCallbackPage", () => {
     await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith("/activity/a?tab=analysis#laps", { replace: true }));
     expect(mocks.consumeState).toHaveBeenCalledExactlyOnceWith("opaque-state");
     expect(mocks.complete).toHaveBeenCalledExactlyOnceWith("provider-code", "opaque-state");
-    expect(mocks.signIn).toHaveBeenCalledWith({ name: "auth" }, "custom-token");
+    expect(mocks.signIn).toHaveBeenCalledWith(expect.objectContaining({ name: "auth" }), "custom-token");
     expect(mocks.track).toHaveBeenCalledWith("sign_up", { method: "naver" });
   });
 
@@ -102,7 +102,7 @@ describe("SocialAuthCallbackPage", () => {
     mocks.complete.mockResolvedValue({ mode: "login", provider: "strava", token: "custom-token", isNewUser: false, returnTo: "/", stravaSyncReauthRequired: true });
     render(<SocialAuthCallbackPage />);
     await waitFor(() => expect(mocks.navigate).toHaveBeenCalledWith("/", { replace: true }));
-    expect(mocks.signIn).toHaveBeenCalledWith({ name: "auth" }, "custom-token");
+    expect(mocks.signIn).toHaveBeenCalledWith(expect.objectContaining({ name: "auth" }), "custom-token");
     expect(mocks.toast).toHaveBeenCalledWith("socialCallback.stravaSyncReauth", "info");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -175,4 +175,44 @@ describe("SocialAuthCallbackPage", () => {
     expect(mocks.navigate).not.toHaveBeenCalled();
     expect(mocks.track).not.toHaveBeenCalled();
   });
+});
+
+
+describe("existing social account confirmation", () => {
+  beforeEach(() => {
+    mocks.ownerUid = "target"; mocks.loading = false; mocks.params = new URLSearchParams("code=code&state=state");
+    mocks.consumeState.mockReturnValue(true); mocks.start.mockReset().mockResolvedValue(undefined);
+    mocks.navigate.mockReset(); mocks.signIn.mockReset();
+    mocks.complete.mockRejectedValue({ code: "functions/already-exists", details: { reason: "social-account-connect-confirmation", provider: "naver", returnTo: "/settings/account" } });
+  });
+  it("waits for consent before starting another OAuth request bound to the current account", async () => {
+    render(<SocialAuthCallbackPage />);
+    const confirm = await screen.findByRole("button", { name: "socialCallback.connectExisting.confirm" });
+    expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.signIn).not.toHaveBeenCalled();
+    fireEvent.click(confirm);
+    await waitFor(() => expect(mocks.start).toHaveBeenCalledWith("naver", "link", "/settings/account", true));
+  });
+  it("cancels without changing accounts or starting OAuth", async () => {
+    render(<SocialAuthCallbackPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "socialCallback.connectExisting.cancel" }));
+    expect(mocks.start).not.toHaveBeenCalled();
+    expect(mocks.navigate).toHaveBeenCalledWith("/settings/account", { replace: true });
+  });
+  it("explains data conflicts without suggesting the accounts were linked", async () => {
+    mocks.complete.mockRejectedValue({ code: "functions/failed-precondition", details: { reason: "social-account-data-conflict" } });
+    render(<SocialAuthCallbackPage />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("socialCallback.error.accountDataConflict");
+    expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.navigate).not.toHaveBeenCalled();
+  });
+});
+
+it("does not move a login method if the active account changes on the confirmation screen", async () => {
+  mocks.loading = false; mocks.ownerUid = "target"; mocks.params = new URLSearchParams("code=code&state=state");
+  mocks.consumeState.mockReturnValue(true); mocks.start.mockReset();
+  mocks.complete.mockRejectedValue({ code: "functions/already-exists", details: { reason: "social-account-connect-confirmation", provider: "naver" } });
+  render(<SocialAuthCallbackPage />);
+  const button = await screen.findByRole("button", { name: "socialCallback.connectExisting.confirm" });
+  mocks.ownerUid = "other"; fireEvent.click(button);
+  expect(await screen.findByRole("alert")).toHaveTextContent("socialCallback.error.denied");
+  expect(mocks.start).not.toHaveBeenCalled(); mocks.ownerUid = "target";
 });

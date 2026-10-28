@@ -46,14 +46,14 @@ export function currentReturnTo(): string {
 }
 
 /** 동의 화면으로 이동. 성공 시 페이지를 떠나므로 resolve 되지 않는다. */
-export async function startSocialAuth(provider: SocialProvider, mode: SocialMode, returnTo = currentReturnTo()): Promise<void> {
+export async function startSocialAuth(provider: SocialProvider, mode: SocialMode, returnTo = currentReturnTo(), connectExisting = false): Promise<void> {
   try {
     await ensureAppCheckReady();
     const start = authCallable<
-      { provider: SocialProvider; mode: SocialMode; redirectUri: string; returnTo: string },
+      { provider: SocialProvider; mode: SocialMode; redirectUri: string; returnTo: string; connectExisting?: true },
       { authorizeUrl: string; state?: string }
     >("socialAuthStart");
-    const { data } = await start({ provider, mode, redirectUri: socialRedirectUri(), returnTo: socialAuthReturnTo(returnTo) });
+    const { data } = await start({ provider, mode, redirectUri: socialRedirectUri(), returnTo: socialAuthReturnTo(returnTo), ...(connectExisting ? { connectExisting: true as const } : {}) });
     const state = data.state ?? new URL(data.authorizeUrl).searchParams.get("state");
     if (!state) throw new Error("social-auth/missing-state");
     // 저장소를 사용할 수 없으면 이동하지 않는다. 콜백에서 브라우저 일치를 확인할 수 없기 때문이다.
