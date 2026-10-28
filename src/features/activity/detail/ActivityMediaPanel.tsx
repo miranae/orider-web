@@ -57,7 +57,7 @@ export function ActivityMediaPanel({
   const mapId = useId();
   const independentRoute = !streams?.latlng?.length ? activityIndependentRoute(streams) : null;
 
-  if (hasTrack) {
+  if (hasTrack || activity.mapImageUrl) {
     return (
       <div className="activity-detail-route-frame" data-map-expanded={mapExpanded}>
         <div id={mapId} className="activity-detail-resizable-map">

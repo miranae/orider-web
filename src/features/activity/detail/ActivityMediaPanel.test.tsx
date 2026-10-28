@@ -66,6 +66,15 @@ describe("ActivityMediaPanel no-map state", () => {
     expect(screen.queryByRole("button", { name: "Check route" })).not.toBeInTheDocument();
   });
 
+  it("shows an existing map image even when no route geometry is stored", () => {
+    const activity = createMockActivity({ thumbnailTrack: "", mapImageUrl: "https://example.test/route.png" });
+    render(<ActivityMediaPanel activity={activity} streams={null} sport="ride" hasTrack={false} summary={activity.summary}
+      markerPosition={null} hoveredSegment={null} photos={[]} uploadedPhotos={[]} flyToPosition={null}
+      t={i18n.getFixedT("en", "activity") as TFunction<"activity">} />);
+    expect(screen.getByTestId("route-map")).toBeVisible();
+    expect(mapProps.mock.lastCall?.[0]).toMatchObject({ fallbackImageUrl: activity.mapImageUrl });
+  });
+
   it.each(["ko", "en"] as const)("toggles map size in %s without remounting or dropping location props", async lng => {
     const user = userEvent.setup();
     const activity = createMockActivity();
