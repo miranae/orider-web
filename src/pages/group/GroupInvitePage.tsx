@@ -9,6 +9,7 @@ import { auth, ensureAppCheckReady, functions } from "../../services/firebase";
 import { appCheckFailureRecovery } from "../../services/appCheckFailureRecovery";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
+import { useInPlaceSignIn } from "../../hooks/useInPlaceSignIn";
 import { useToast } from "../../contexts/ToastContext";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { normalizeGroupInviteCode } from "../../features/group/groupInviteLink";
@@ -31,7 +32,8 @@ function InviteSpinner({ label }: { label: string }) {
 export default function GroupInvitePage() {
   const { code } = useParams<{ code: string }>();
   const { t } = useTranslation("group");
-  const { user, loading: authLoading, signIn } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { login, pending: loginPending, failed: loginFailed } = useInPlaceSignIn();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
@@ -127,13 +129,15 @@ export default function GroupInvitePage() {
           <p className="mb-6" style={{ color: "var(--ink-2)" }}>
             {t("inviteLink.loginPrompt")}
           </p>
+          {loginFailed && <Text role="alert">{t("common:auth.loginFailed")}</Text>}
           <Button variant="secondary"
-            onClick={signIn}
+            disabled={loginPending}
+            onClick={() => { void login(); }}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[var(--r-lg)] shadow-sm transition-colors border"
             style={{ background: "var(--bg-0)", borderColor: "var(--line-soft)" }}
           >
             <span className="font-medium" style={{ color: "var(--ink-1)" }}>
-              {t("inviteLink.signInGoogle")}
+              {t(loginPending ? "common:auth.loginLoading" : "inviteLink.signInGoogle")}
             </span>
           </Button>
         </div>

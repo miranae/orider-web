@@ -44,3 +44,26 @@ SDK 교체도 기존 요청을 dispatch할 수 있었다.
 외부 증거: `/Users/kyoungnam/Documents/Codex/2026-10-28/r7-web-club-return/`의
 `red.log`, `green-final.log`, `journey-focused.log`(최초 환경 실패), `journey-final.log`,
 `types-isolated.log`, `lint-isolated.log`, `public-reaction.log`, `results.json`.
+
+## 초대 로그인 대기·재시도 후속 (기준 73dac49f, 2026-10-28)
+
+#1345의 위 기존 연결은 유지한다. 초대 화면만 `signIn`을 직접 호출하여 대기 표시와
+중복 방지가 없었다. AuthProvider는 새 `signIn` 호출 때 기존 대기 promise를 취소한다.
+반면 기존 `ClubLoginGate`는 중복 실행 방지·취소·실패 처리가 이미 있었다.
+그 동작을 `useInPlaceSignIn`으로 추출해 두 화면에서 재사용했다. 초대 화면은 로그인 중
+버튼을 비활성화하고, 취소 뒤 같은 URL에서 다시 시작할 수 있다. 호출이 실패로 끝나면
+기존 공통 로그인 실패 문구로 재시도를 안내한다. Google 제공자의 실패는 기존 로그인
+대화상자 처리 범위이며 이 수정이 실제 OAuth 실패를 재현했다고 주장하지 않는다.
+
+- 초대 경로·query·hash 보존, 호출 실패 후 재시도, pending 중 중복 방지/취소 후 재시도:
+  수정 전 신규 3개 중 2 FAIL/1 PASS, 수정 후 기존 클럽·초대·AppCheck 포함 4 suites/32 PASS.
+- 신규 초대 로그인 검사는 Auth `signIn` promise를 제어하는 React/라우터 테스트다.
+  기존 초대/AuthProvider 테스트도 함께 통과했다. 실 OAuth·기기·운영 완주는 별도다.
+- 전체 TypeScript 및 변경 파일 ESLint 통과. 서버·ACL·가입/반응 mutation·분석 snapshot·
+  원본·관계·에뮬레이터 변경 및 자동 계산/백필 없음. 새 전체 suite 결과는 주장하지 않는다.
+- 증거: `/Users/kyoungnam/Documents/Codex/2026-10-28/r7-invite-login-recovery/`
+  `red.log`, `focused.log`, `types.log`, `lint.log`.
+
+클럽 게시물/라이딩 진입과 공통 상세/반응 연결은 위 기존 구현을 재사용한다. 카카오/OG의
+운영 캐시 철회, 설치 유무를 포함한 실기기 여정, 자체 구간 모집단·부정기록 정책의 운영
+수용은 이 좁은 로그인 회귀로 완료 처리하지 않는다.
