@@ -1,0 +1,180 @@
+{
+  "runId": "9029ccb3-39fe-4da5-913a-c66edcdd1cfa",
+  "version": 1205,
+  "state": "complete",
+  "asOf": 1792969310656.985,
+  "expiresAt": 1792972310656,
+  "period": {
+    "fromInclusive": 1672498800000,
+    "toExclusive": 1759071600000
+  },
+  "scope": "owner_canonical_records_at_snapshot",
+  "sourceFreshness": "checked_at_each_step_not_continuously_current",
+  "scanned": 1001,
+  "candidates": 1001,
+  "representatives": 1001,
+  "result": {
+    "totals": {
+      "distanceM": {
+        "observedValue": 1001000,
+        "totalValue": 1001000,
+        "knownActivityCount": 1001,
+        "missingActivityCount": 0,
+        "summaryFallbackCount": 0,
+        "sourceBasis": "canonical_metrics",
+        "sourceActivityIds": [
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0000",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0001",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0002",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0003",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0004",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0005",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0006",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0007",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0008",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0009",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0010",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0011",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0012",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0013",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0014",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0015",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0016",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0017",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0018",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0019"
+        ]
+      },
+      "movingTimeSec": {
+        "observedValue": 600600,
+        "totalValue": 600600,
+        "knownActivityCount": 1001,
+        "missingActivityCount": 0,
+        "summaryFallbackCount": 0,
+        "sourceBasis": "canonical_metrics",
+        "sourceActivityIds": [
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0000",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0001",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0002",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0003",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0004",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0005",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0006",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0007",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0008",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0009",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0010",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0011",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0012",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0013",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0014",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0015",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0016",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0017",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0018",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0019"
+        ]
+      },
+      "elevationGainM": {
+        "observedValue": 0,
+        "totalValue": 0,
+        "knownActivityCount": 1001,
+        "missingActivityCount": 0,
+        "summaryFallbackCount": 0,
+        "sourceBasis": "canonical_metrics",
+        "sourceActivityIds": [
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0000",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0001",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0002",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0003",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0004",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0005",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0006",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0007",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0008",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0009",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0010",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0011",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0012",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0013",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0014",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0015",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0016",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0017",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0018",
+          "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-0019"
+        ]
+      }
+    },
+    "heartRate": {
+      "candidateActivityCount": 1001,
+      "eligibleActivityCount": 0,
+      "missingSensorActivityCount": 1001,
+      "contextUnknownActivityCount": 0,
+      "observedSeconds": 0
+    },
+    "powerZones": {
+      "candidateActivityCount": 1001,
+      "eligibleActivityCount": 0,
+      "missingSensorActivityCount": 1001,
+      "contextUnknownActivityCount": 0,
+      "observedSeconds": 0
+    },
+    "sourceExamplesLimit": 20,
+    "pageSize": 20,
+    "power": {
+      "fromInclusive": 1672498800000,
+      "toExclusive": 1759071600000,
+      "status": "complete",
+      "points": [
+        {
+          "durationSeconds": 300,
+          "watts": 1100,
+          "sourceActivityId": "bike-period-5c3a52ea-a443-4912-8aa2-87e7247b72be-1000",
+          "startTime": 1758898800000,
+          "source": "orider_native",
+          "cohortEligible": true,
+          "metricsRevision": "1792969310:651519000"
+        }
+      ],
+      "coverage": {
+        "scannedActivityCount": 1001,
+        "candidateActivityCount": 1001,
+        "candidateCountKnown": true,
+        "includedActivityCount": 1001,
+        "pendingActivityCount": 0,
+        "missingActivityCount": 0,
+        "incompleteActivityCount": 0,
+        "ineligibleActivityCount": 0,
+        "skippedActivityCount": 0,
+        "truncated": false
+      },
+      "weightNormalized": {
+        "unit": "W/kg",
+        "basis": "calculation_profile_snapshot",
+        "status": "partial",
+        "coverage": {
+          "scannedActivityCount": 1001,
+          "candidateActivityCount": 1001,
+          "candidateCountKnown": true,
+          "includedActivityCount": 0,
+          "pendingActivityCount": 0,
+          "missingActivityCount": 0,
+          "incompleteActivityCount": 0,
+          "ineligibleActivityCount": 0,
+          "skippedActivityCount": 0,
+          "truncated": false
+        },
+        "weightCounts": {
+          "includedActivityCount": 0,
+          "missingWeightActivityCount": 1001,
+          "invalidWeightActivityCount": 0,
+          "incompatibleWeightActivityCount": 0
+        },
+        "points": []
+      }
+    }
+  },
+  "zoneGroups": [],
+  "nextZone": null
+}

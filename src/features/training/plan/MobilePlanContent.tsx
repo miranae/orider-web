@@ -1,4 +1,4 @@
-import { isPendingPlanWorkout, presentPlanDayRecord, planLoadFulfillment } from "./planRecordPresentation";
+import { isPendingPlanWorkout, presentPlanDayRecord } from "./planRecordPresentation";
 import CoachDetailSection from "../../fitness/components/CoachDetailSection";
 import { goalCountdown } from "../../../utils/goalCountdown";
 import { isSportUiEnabled } from "../../../config/sportFeatures";
@@ -15,10 +15,11 @@ import type { Discipline } from "../../../utils/disciplineFilter";
 import { getWorkoutDiscipline as _gwDiscipline } from "../../../utils/workoutDiscipline";
 import { effectivePlanTSS, sumEffectivePlanTSS } from "../../../utils/planTss";
 import AdjustedChip from "../../../components/training/AdjustedChip";
-import { Button, Card, Text } from "../../../theme/components";
+import { Button, Card, IconButton, Text } from "../../../theme/components";
 import { formatPlanGoalTitle } from "./planDisplay";
 import "./MobilePlanContent.css";
 import { ICON_SIZE } from "../../../theme/tokens/icon";
+import PlanWeekLoadSummary from "./PlanWeekLoadSummary";
 import PlanDayLoadComparison, { type PlanCalendarLoads } from "./PlanDayLoadComparison";
 
 /** rest → bike 폴백으로 Discipline 타입 보장 (색상/아이콘 표시용) */
@@ -232,12 +233,10 @@ export default function MobilePlanContent({
       {adaptationSlot}
 
       {/* Week navigation */}
-      <div data-testid="K4-5m-1" className="mobile-plan-week-navigation flex items-center justify-center" role="group" aria-label={t('mobile.weekHeading')} style={{ padding: "0 var(--space-4)", gap: 'var(--space-4)' }}>
-        <button type="button" onClick={onWeekPrev} disabled={!onWeekPrev || !canPrevWeek} aria-label={t('mobile.previousWeek')}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><ChevronLeft size={ICON_SIZE.lg} aria-hidden="true" /></button>
-        <div style={{ textAlign: "center", minWidth: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{weekLabel}</div>
-        <button type="button" onClick={onWeekNext} disabled={!onWeekNext || !canNextWeek} aria-label={t('mobile.nextWeek')}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-3)", fontSize: "var(--fs-lg)", minWidth: 44, minHeight: 44, display: "inline-flex", alignItems: "center", justifyContent: "center" }}><ChevronRight size={ICON_SIZE.lg} aria-hidden="true" /></button>
+      <div data-testid="K4-5m-1" className="mobile-plan-week-navigation" role="group" aria-label={t('mobile.weekHeading')}>
+        <IconButton icon={<ChevronLeft />} onClick={onWeekPrev} disabled={!onWeekPrev || !canPrevWeek} aria-label={t('mobile.previousWeek')} />
+        <Text variant="bodyMedium" weight={600}>{weekLabel}</Text>
+        <IconButton icon={<ChevronRight />} onClick={onWeekNext} disabled={!onWeekNext || !canNextWeek} aria-label={t('mobile.nextWeek')} />
       </div>
 
       {/* Weekly summary */}
@@ -281,6 +280,8 @@ export default function MobilePlanContent({
         );
       })()}
 
+      {!embedded && currentWeek && <PlanWeekLoadSummary week={currentWeek} dayLoads={dayLoads} state={loadState} />}
+
       {/* Weekly plan — vertical list */}
       <div className="flex items-center justify-between" style={{ padding: "var(--space-1) var(--space-4)" }}>
         <Text variant="eyebrow" className="mobile-plan-section-label">{t('mobile.weeklyPlan')}</Text>
@@ -307,9 +308,12 @@ export default function MobilePlanContent({
         const isPast = dayStr !== "" && dayStr < todayStr;
         const label = workoutLabel(day);
         const state = isDone ? "done" : isToday ? "today" : isRest ? "off" : isPast ? "past" : "planned";
-        const fulfillment = planLoadFulfillment(day, dayLoads?.get(dayStr), loadState === "ready");
-        const stateLabel = saved ? fulfillment ? t("loadComparison.fulfillment.executionFact", { state: t(`planRecords.state.${saved.outcome}`) }) : t(saved.outcome === "unconfirmed" || saved.outcome === "today" ? "loadComparison.calendarUnconfirmed" : `planRecords.state.${saved.outcome}`) : state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned');
+        const stateLabel = saved ? t(saved.outcome === "unconfirmed" || saved.outcome === "today" ? "loadComparison.calendarUnconfirmed" : `planRecords.state.${saved.outcome}`) : state === "done" ? t('mobile.stateDone') : state === "today" ? t('mobile.stateToday') : state === "past" ? t('mobile.statePast') : t('mobile.statePlanned');
 
+        const recordEvidence = <>
+                {saved && saved.linkage !== "confirmed" && (saved.linkage !== "none" || ["completed", "partial", "markedComplete"].includes(saved.outcome)) && <Text as="p" variant="caption" tone="secondary">{t(`planRecords.basis.${saved.linkage}`)}</Text>}
+                {saved?.postponedToLocalDate && <Text as="p" variant="caption" tone="secondary">{t("planRecords.postponedDate", {date: saved.postponedToLocalDate})}</Text>}
+        </>;
         const intensityColor = isRest ? "var(--ink-4)"
           : (day.workout === "z2Long" || day.workout === "tempo" || day.workout === "tempoRun") ? "var(--amber)"
           : (day.workout === "ftp" || day.workout === "vo2" || day.workout === "sim" || day.workout === "intervalRun" || day.workout === "intervalSwim") ? "var(--rose)"
@@ -336,13 +340,13 @@ export default function MobilePlanContent({
                   {saved && saved.outcome !== 'rest' && <Text variant="caption" tone="secondary">{stateLabel}</Text>}
                 </div>
               </div>
-              {!embedded && loadState && <PlanDayLoadComparison day={day} row={dayLoads?.get(dayStr)} state={loadState} />}
+              <div className="mobile-plan-rest-load">{!embedded && loadState && <PlanDayLoadComparison compact day={day} row={dayLoads?.get(dayStr)} state={loadState} evidence={recordEvidence} />}</div>
             </div>
           );
         }
 
         return (
-          <div key={i} className="flex items-center gap-3.5"
+          <div key={i} className="mobile-plan-day-row"
             data-plan-date={dayStr}
             aria-current={dayStr === selectedDate ? "date" : undefined}
             data-testid={dayStr === selectedDate ? "K4-5-6" : undefined}
@@ -392,11 +396,11 @@ export default function MobilePlanContent({
                 )}
               </div>
               <div style={{ fontSize: "var(--fs-sm)", fontWeight: 500, color: "var(--ink-0)", overflowWrap: "anywhere" }}>{label}</div>
-              {!embedded && loadState && <PlanDayLoadComparison day={day} row={dayLoads?.get(dayStr)} state={loadState} />}
+              {!embedded && loadState && <PlanDayLoadComparison compact day={day} row={dayLoads?.get(dayStr)} state={loadState} evidence={recordEvidence} />}
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: 1 }}>
                 {stateLabel}
-                {saved && saved.linkage !== "confirmed" && (saved.linkage !== "none" || ["completed", "partial", "markedComplete"].includes(saved.outcome)) && <Text as="p" variant="caption" tone="secondary">{t(`planRecords.basis.${saved.linkage}`)}</Text>}
-                {saved?.postponedToLocalDate && <Text as="p" variant="caption" tone="secondary">{t("planRecords.postponedDate", {date: saved.postponedToLocalDate})}</Text>}
+                {!loadState && recordEvidence}
+
               </div>
             </div>
             {state === "done" && <span style={{ color: "var(--lime)", fontSize: "var(--fs-base)" }}>✓</span>}

@@ -2,7 +2,14 @@ import { useState } from "react";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { RideStoryPhotoPicker } from "./RideStoryPhotoPicker";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
-import { mockSetDoc, setCollectionDocs } from "../../__tests__/mocks/firebase";
+import { setCollectionDocs } from "../../__tests__/mocks/firebase";
+
+const nativePhotos = vi.hoisted(() => ({ upload: vi.fn(), load: vi.fn() }));
+vi.mock("../../services/nativeActivityPhoto", async importOriginal => ({
+  ...await importOriginal<typeof import("../../services/nativeActivityPhoto")>(),
+  uploadNativeActivityPhoto: nativePhotos.upload, loadNativeActivityPhoto: nativePhotos.load,
+}));
+beforeEach(() => { nativePhotos.upload.mockReset().mockResolvedValue({}); nativePhotos.load.mockReset().mockResolvedValue(new Blob(["photo"], { type: "image/webp" })); });
 
 vi.mock("../../features/activity/detail/photoGps", () => ({
   extractGpsFromFile: vi.fn().mockResolvedValue(null),
@@ -89,14 +96,9 @@ describe("RideStoryPhotoPicker", () => {
 
     const uploadedPhoto = await screen.findByRole("button", { name: /남산 업힐 사진 1/ });
     expect(uploadedPhoto).toHaveAttribute("aria-pressed", "true");
-    expect(mockSetDoc).toHaveBeenCalledWith(
-      expect.objectContaining({ path: expect.stringMatching(/^activity_photos\/ride-2\/photos\//) }),
-      expect.objectContaining({
-        url: "https://mock-storage.example.com/file",
-        userId: "test-uid",
-        deletedAt: null,
-      }),
-    );
+    expect(nativePhotos.upload).toHaveBeenCalledWith(expect.anything(),
+      { activityId: "ride-2", photoId: expect.any(String) }, expect.any(Blob));
+    expect(nativePhotos.upload.mock.calls[0]![2]).toMatchObject({ type: "image/webp" });
   });
 });
 
@@ -182,4 +184,16 @@ it("shows an honest empty state when no server-eligible cycling activity exists"
   renderWithProviders(<RideStoryPhotoPicker open userId="test-uid" onClose={vi.fn()} onSent={vi.fn()} onFailed={vi.fn()} />, { authenticated: true });
   expect(await screen.findByText("최근 90일 안에 포스터로 만들 자전거 활동이 없습니다.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "선택한 사진으로 받기" })).toBeDisabled();
+});
+
+it.each(["permission-denied", "account_changed"])("does not select a photo when server upload rejects %s", async failure => {
+  setCollectionDocs("activities", [{id:"failed-ride",userId:"test-uid",name:"업로드 실패 확인",type:"Ride",startTime:Date.now()-86400000,summary:{}}]);
+  setCollectionDocs("activity_photos/failed-ride/photos", []);
+  nativePhotos.upload.mockRejectedValue(new Error(failure));
+  renderWithProviders(<RideStoryPhotoPicker open userId="test-uid" onClose={vi.fn()} onSent={vi.fn()} onFailed={vi.fn()} />, { authenticated:true });
+  await screen.findByText("업로드 실패 확인");
+  fireEvent.change(document.querySelector('input[type="file"]')!,{target:{files:[new File(["photo"],"ride.jpg",{type:"image/jpeg"})]}});
+  await screen.findByText("사진을 업로드하지 못했습니다.");
+  expect(nativePhotos.upload).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("button",{name:/업로드 실패 확인 사진 1/})).toBeNull();
 });

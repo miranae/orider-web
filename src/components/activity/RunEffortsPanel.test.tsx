@@ -69,12 +69,12 @@ describe("RunEffortsPanel", () => {
     expect(within(screen.getByRole("table")).getByText("6:26/mi")).toBeInTheDocument();
     locale.units = "metric";
   });
-  it.each(["pending", "partial", "stale", "different-discipline"])("withholds best efforts when canonical input is %s", kind => {
+  it.each(["pending", "partial", "different-discipline"])("withholds best efforts when canonical input is %s", kind => {
     const value = metrics();
     if (kind === "pending") value.inputPending = true;
     if (kind === "partial") value.inputCoverage = "partial";
     if (kind === "different-discipline") value.discipline = "bike";
-    render(<RunEffortsPanel metrics={value} ready={kind !== "stale"} />); open();
+    render(<RunEffortsPanel metrics={value} ready />); open();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
@@ -102,4 +102,16 @@ it.each(["changed_input", "unavailable", "mismatch", "outside", "foreign"])("wit
   if (state === "outside") value.facts[0]!.endOffsetSec = 4000;
   render(<RunEffortsPanel metrics={metrics()} ready facts={value} onSelectEffort={state === "foreign" ? undefined : vi.fn()} />); open();
   expect(screen.queryByRole("button")).not.toBeInTheDocument();
+});
+
+it("keeps an older saved curve and distance record visible without enabling current-source selection", () => {
+ const saved = metrics(); saved.version = 1;
+ saved.runMetrics!.paceCurve = [{ durationSec: 300, paceSecPerKm: 321 }];
+ const select = vi.fn();
+ render(<RunEffortsPanel metrics={saved} ready={false} previousAnalysis facts={facts} onSelectEffort={select} />); open();
+ expect(screen.getByText("5:21/km")).toBeInTheDocument();
+ expect(within(screen.getByRole("table")).getByText("20:00")).toBeInTheDocument();
+ expect(screen.queryByRole("button")).not.toBeInTheDocument();
+ expect(select).not.toHaveBeenCalled();
+ expect(saved.runMetrics!.paceCurve[0]!.paceSecPerKm).toBe(321);
 });

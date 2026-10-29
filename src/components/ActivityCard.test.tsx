@@ -1,3 +1,4 @@
+import { loadPublicActivityMap } from "../services/publicActivityMaps";
 import i18n from "i18next";
 import enActivity from "../i18n/resources/en/activity.json";
 import enCommon from "../i18n/resources/en/common.json";
@@ -8,6 +9,8 @@ import ActivityCard, { shouldReportMapCaptureError } from "./ActivityCard";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
 import { setCallableResult, setDocData } from "../__tests__/mocks/firebase";
+
+vi.mock("../services/publicActivityMaps", () => ({ loadPublicActivityMap: vi.fn(async () => null) }));
 
 // 실제 지도 SDK 대신 표시 지도와 숨겨진 캡처 지도를 구분한다.
 vi.mock("./RouteMap", () => ({
@@ -228,6 +231,7 @@ describe("ActivityCard", () => {
     const activity = createMockActivity({
       mapImageUrl: "https://storage.googleapis.com/legacy/map.webp",
     });
+    vi.mocked(loadPublicActivityMap).mockResolvedValue({ activityId: activity.id, revision: "current", privacyEnabled: false, mapPreview: { encodedPolyline: activity.thumbnailTrack!, imageUrl: activity.mapImageUrl! } });
     renderWithProviders(<ActivityCard activity={activity} />);
 
     await waitFor(() => {
@@ -283,4 +287,16 @@ it.each([false, true])("distinguishes confirmed elapsed time from an untyped pro
  it("shows the stored English region beside the device", () => {
   renderWithProviders(<ActivityCard activity={createMockActivity({ regionName: "Yeongdeungpo-gu, Seoul", sourceMeta: { deviceModel: "Garmin Edge 840" } })} homeLabels showMap={false} />);
   expect(screen.getByText("· Yeongdeungpo-gu, Seoul").parentElement).toHaveTextContent("Garmin Edge 840 · Yeongdeungpo-gu, Seoul");
+});
+
+it("keeps Strava source metrics consistent with detail despite stale calculated summary fields", () => {
+  const activity = createMockActivity({ source: "strava", stravaSummaryV1: { version: 1,
+    distance: 135361, moving_time: 19046, elapsed_time: 31351, average_speed: 25.6 / 3.6,
+    total_elevation_gain: 645, average_heartrate: 140.2, average_watts: 120.9,
+  } });
+  renderWithProviders(<ActivityCard activity={activity} />);
+  expect(screen.getByText("135.36km")).toBeInTheDocument();
+  expect(screen.getByText("25.6km/h")).toBeInTheDocument();
+  expect(screen.getByText("645m")).toBeInTheDocument();
+  expect(screen.queryByText(/NaN|Infinity/)).not.toBeInTheDocument();
 });

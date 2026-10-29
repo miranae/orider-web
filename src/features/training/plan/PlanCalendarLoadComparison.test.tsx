@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import type { PlanDay, PlanWeek } from "@shared/types/goal";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import type { PlanModel } from "../../../hooks/usePlanModel";
@@ -45,10 +45,10 @@ it("renders actual load directly in desktop normal, rest, skipped, goal and futu
   layout(false);
   renderWithProviders(<PlanPresentation model={model} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />, { authenticated: true });
   expect(screen.getByRole("group", { name: "2026-10-19 부하 비교" })).toHaveTextContent("달성 0% · 차이 -65 TSS");
-  expect(screen.getByRole("group", { name: "2026-10-20 부하 비교" })).toHaveTextContent("실제 118 TSS");
-  expect(screen.getByRole("group", { name: "2026-10-21 부하 비교" })).toHaveTextContent("실제 20 TSS");
+  expect(within(screen.getByRole("group", { name: "2026-10-20 부하 비교" })).getAllByRole("definition")[1]).toHaveTextContent("118 TSS");
+  expect(within(screen.getByRole("group", { name: "2026-10-21 부하 비교" })).getAllByRole("definition")[1]).toHaveTextContent("20 TSS");
   expect(screen.getByRole("group", { name: "2026-10-22 부하 비교" })).toHaveTextContent("달성 68% · 차이 -32 TSS");
-  expect(screen.getByRole("group", { name: "2026-10-26 부하 비교" })).toHaveTextContent("실제 예정");
+  expect(within(screen.getByRole("group", { name: "2026-10-26 부하 비교" })).getAllByRole("definition")[1]).toHaveTextContent("예정");
   await waitFor(() => expect(vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0]).toMatchObject({ range: { start: "2026-10-19", end: "2026-11-01" }, enabled: true }));
   expect(weeks[0].days.every(value => !value.completed)).toBe(true);
 });
@@ -60,16 +60,18 @@ it("passes the selected mobile week's comparison through the real MobilePlanPage
   expect(vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0].range).toEqual({ start: "2026-10-19", end: "2026-10-25" });
   view.rerender(<PlanPresentation model={model} mobileWeekOffset={1} onMobileWeekOffsetChange={vi.fn()} renderMobile={props => <MobilePlanPage {...props} />} />);
   expect(screen.queryByRole("group", { name: "2026-10-19 부하 비교" })).not.toBeInTheDocument();
-  expect(screen.getByRole("group", { name: "2026-10-26 부하 비교" })).toHaveTextContent("실제 예정 TSS");
+  expect(within(screen.getByRole("group", { name: "2026-10-26 부하 비교" })).getAllByRole("definition")[1]).toHaveTextContent("예정");
   expect(vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0].range).toEqual({ start: "2026-10-26", end: "2026-11-01" });
 });
 
 
 it.each([false, true])("shows weekly fulfillment and retains daily execution facts, mobile=%s", mobile => {
   layout(mobile);
-  loadFixture.days[0].fulfilledWeek = { weekNumber: 1, plannedTss: 255, actualTss: 300, estimated: false };
+  loadFixture.days.slice(0, 5).forEach(row => { row.fulfilledWeek = { weekNumber: 1, plannedTss: 255, actualTss: 300, estimated: false }; });
   renderWithProviders(<PlanPresentation model={model} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} renderMobile={props => <MobilePlanPage {...props} />} />, { authenticated: true });
-  expect(screen.getByRole("group", { name: "2026-10-19 부하 비교" })).toHaveTextContent("W1 주간 부하 목표로 충족");
-  expect(screen.getByText(/저장된 날짜별 실행 기록:/)).toBeInTheDocument();
+  expect(screen.getByRole("group", { name: "W1 주간 부하 근거" })).toHaveTextContent("W1 주간 부하 목표로 충족");
+  expect(screen.getAllByText("W1 주간 부하 목표로 충족")).toHaveLength(1);
+  expect(screen.getByRole("group", { name: "2026-10-19 부하 비교" })).not.toHaveTextContent("W1 주간 부하 목표로 충족");
+  expect(screen.getAllByText("계획 수행 미확정").length).toBeGreaterThan(0);
   expect(weeks[0].days[0].completed).toBe(false);
 });

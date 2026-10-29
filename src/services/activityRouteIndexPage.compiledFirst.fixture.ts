@@ -76,7 +76,7 @@ export const compiledFirstPages = [
             "state": "available",
             "reason": null,
             "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-            "version": 35,
+            "version": 41,
             "discipline": "bike",
             "startTime": 1791763100123,
             "computedAt": 1791763198123,

@@ -12,7 +12,7 @@ import type { UserProfile } from "@shared/types";
 interface ProviderOptions {
   route?: string;
   authenticated?: boolean;
-  user?: { uid?: string; displayName?: string; email?: string; photoURL?: string };
+  user?: { isAnonymous?: boolean; uid?: string; displayName?: string; email?: string; photoURL?: string };
   profile?: Partial<UserProfile> & Record<string, unknown>;
 }
 
@@ -24,6 +24,7 @@ export function renderWithProviders(
 
   if (authenticated) {
     const mockUser = {
+      ...(user?.isAnonymous !== undefined ? { isAnonymous: user.isAnonymous } : {}),
       uid: user?.uid ?? "test-uid",
       displayName: user?.displayName ?? "Test User",
       email: user?.email ?? "test@example.com",

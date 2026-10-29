@@ -100,7 +100,7 @@ describe("FitnessCoachBriefing", () => {
   });
 
   it("uses supplied condition status without repeating the fallback advice or dropping its basis", () => {
-    renderBriefing({ part: "condition", statusSlot: <h2>canonical status interpretation</h2>, metricsNoteSlot: <p>history sufficiency</p>, currentBasis: "canonical snapshot source", currentDate: "2026-08-29" });
+    renderBriefing({ part: "condition", showConditionChoices: false, statusSlot: <h2>canonical status interpretation</h2>, metricsNoteSlot: <p>history sufficiency</p>, currentBasis: "canonical snapshot source", currentDate: "2026-08-29" });
     expect(screen.getByRole("heading", { name: "canonical status interpretation" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: /회복을 흡수하는 날/ })).not.toBeInTheDocument();
     expect(screen.getByText("42.0")).toBeVisible();

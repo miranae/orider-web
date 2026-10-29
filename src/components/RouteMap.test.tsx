@@ -17,6 +17,8 @@ const mapProps = vi.hoisted(() => ({
   sources: [] as unknown[],
 }));
 
+vi.mock("./activity/NativeActivityPhotoImage", () => ({ NativeActivityPhotoImage: ({nativePhoto,alt}: {nativePhoto:{activityId:string;photoId:string};alt:string}) => <img src="blob:authorized" alt={alt} data-native-reference={`${nativePhoto.activityId}/${nativePhoto.photoId}`} /> }));
+
 vi.mock("../utils/mapbox", () => ({
   getMapboxToken: () => "test-token",
   MAP_STYLE: "mapbox://styles/mapbox/outdoors-v12",
@@ -56,8 +58,8 @@ vi.mock("react-map-gl/mapbox", () => ({
     mapProps.layers.set(id, paint);
     return null;
   },
-  Marker: ({ children }: { children: ReactNode }) => <>{children}</>,
-  Popup: ({ children }: { children: ReactNode }) => <>{children}</>,
+  Marker: ({ children, onClick }: { children: ReactNode; onClick?: (event: {originalEvent: MouseEvent}) => void }) => <div data-testid="map-marker" onClick={event => onClick?.({originalEvent:event.nativeEvent})}>{children}</div>,
+  Popup: ({ children }: { children: ReactNode }) => <div data-testid="map-popup">{children}</div>,
   useMap: () => ({ current: mapProps.api }),
 }));
 
@@ -259,4 +261,15 @@ describe("RouteMap", () => {
     expect(screen.getByText("경로 미리보기")).toBeInTheDocument();
     expect(screen.getByText("지도를 사용할 수 없어 경로 선만 표시합니다.")).toBeInTheDocument();
   });
+});
+
+it("passes native references to marker and popup, then drops a removed selected photo", () => {
+ const reference={activityId:"ride",photoId:"native"};
+ const photos=[{id:"photo",url:"",nativePhoto:reference,location:[37,127] as [number,number],caption:"Native marker"}];
+ const view=renderWithProviders(<RouteMap latlng={[[37,127],[37.01,127.01]]} photos={photos} />);
+ expect(screen.getByRole("img",{name:"Native marker"})).toHaveAttribute("data-native-reference","ride/native");
+ fireEvent.click(screen.getByTestId("map-marker"));
+ expect(screen.getByTestId("map-popup")).toBeInTheDocument(); expect(screen.getAllByRole("img",{name:"Native marker"})).toHaveLength(2);
+ view.rerender(<RouteMap latlng={[[37,127],[37.01,127.01]]} photos={[]} />);
+ expect(screen.queryByTestId("map-popup")).toBeNull(); expect(screen.queryByRole("img",{name:"Native marker"})).toBeNull();
 });

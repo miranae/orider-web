@@ -100,3 +100,12 @@
 .pmc-history__method-notes dt { font-size: var(--fs-sm); font-weight: 600; color: var(--ink-2); margin-bottom: var(--space-1); }
 .pmc-history__method-notes dd { font-size: var(--fs-sm); color: var(--ink-2); line-height: var(--lh-relaxed); margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 36rem) { .pmc-history__method-notes { grid-template-columns: minmax(0, 1fr); } }
+
+.pmc-history__chart-head { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding-block: var(--space-3); }
+.pmc-history__chart-head > :last-child { justify-self: end; }
+.pmc-history__evidence-grid dt { font-size: var(--fs-sm); }
+.pmc-history__method-notes dd { color: var(--ink-2); }
+@media (max-width: 64rem) {
+  .pmc-history__chart-head { grid-template-columns: minmax(0, 1fr); }
+  .pmc-history__chart-head > :last-child { justify-self: stretch; }
+}

@@ -479,6 +479,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
           <MobileFitnessPage
             {...model.mobilePageProps}
+            periodTimeseries={model.periodTimeseries}
             sectionState={{
               trend: error || model.timeseriesError ? "error" : loading || !timeseriesLoaded ? "loading" : "ready",
               derived: !model.derivedMetricsSettled ? "loading" : model.derivedMetricsError ? "error" : "ready",
@@ -1010,7 +1011,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
       {analysisSummarySlot && <AnchoredDetailsSection queryDetail id="analysis-activity-flow" title={t("analysis.categories.activity")} >{analysisSummarySlot}</AnchoredDetailsSection>}
       {discipline === "bike" && <AnchoredDetailsSection queryDetail id="analysis-model" title={t("analysis.categories.model")}>{bikeMetrics}{pacingCard}</AnchoredDetailsSection>}
       {discipline === "run" && <AnchoredDetailsSection queryDetail id="analysis-run-records" title={t("analysis.categories.records")}><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} /><MilestonesGrid achieved={milestones} />{!user.isAnonymous && getRuntimeConfig().appEnvironment === "stage" && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}</AnchoredDetailsSection>}
-      <AnchoredDetailsSection queryDetail id="analysis-periods" title={t("analysis.categories.periods")}>{periodPowerCard}{discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline />}{zoneDistributionCard}</AnchoredDetailsSection>
+      <AnchoredDetailsSection queryDetail id="analysis-periods" title={t("analysis.categories.periods")}>{periodPowerCard}{discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} />}{zoneDistributionCard}</AnchoredDetailsSection>
       {discipline === "bike" && <FtpDecisionSection title={t("condition.basis.title")} anchorEnabled collapsible>
         <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={!!zoneDistribution} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={ftpProgression} ftpHistory={ftpHistory} t={t} />
       </FtpDecisionSection>}
@@ -1233,7 +1234,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           {part !== "condition" && performanceCurves}
         </div>
 
-        {!embedded && part !== "condition" && discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline />}
+        {!embedded && part !== "condition" && discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} />}
 
         {part !== "condition" && zoneDistributionCard}
         </ConditionLoadSection></div>
@@ -1270,7 +1271,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           </FtpDecisionSection>
         )}
 
-        {part === "condition" && <section className="condition-method-section"><Text as="h2" variant="title">{t("condition.story.methodsTitle")}</Text><PmcHistoryMethodNotes canonical={model.hasCanonicalHistory} /></section>}
+        {part === "condition" && <section className="condition-method-section"><DetailsSection title={t("condition.story.methodsTitle")}><PmcHistoryMethodNotes canonical={model.hasCanonicalHistory} /></DetailsSection></section>}
         {!embedded && part === "condition" && thresholdsSlot}
 
       </div>

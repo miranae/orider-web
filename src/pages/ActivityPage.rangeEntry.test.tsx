@@ -166,6 +166,8 @@ describe("ActivityPage range selection entry points", () => {
     await waitFor(() => expect(performanceChartProps.mock.lastCall?.[0].onVisualRangeChange).toBeDefined());
     act(() => performanceChartProps.mock.lastCall![0].onVisualRangeChange([80, 95]));
     // #1302 회귀: 드래그 범위가 지속 구간 선택이 되어 뒤에 고른 최고 노력 하이라이트를 가렸다.
+    // 최고 노력 패널은 "자세히 보기"로 펼친 뒤에 위치 보기 버튼이 나온다.
+    fireEvent.click(await screen.findByRole("button", { name: "최고 노력 자세히 보기" }));
     fireEvent.click(await screen.findByRole("button", { name: "차트·지도에서 구간 보기" }));
     await waitFor(() => expect(routeMapProps.mock.lastCall?.[0].highlightRange).toEqual({ startIndex: 10, endIndex: 30 }));
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));

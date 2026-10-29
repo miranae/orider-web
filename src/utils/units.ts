@@ -5,13 +5,13 @@ const M_PER_MI = 1609.344;
 const M_PER_FT = 0.3048;
 const KG_PER_LB = 0.45359237;
 
-export function formatDistance(meters: number, units: Units): string {
+export function formatDistance(meters: number, units: Units, digits = 1): string {
   if (units === 'imperial') {
     const mi = meters / M_PER_MI;
-    return `${mi.toFixed(1)}mi`;
+    return `${mi.toFixed(digits)}mi`;
   }
   if (meters < 1000) return `${Math.round(meters)}m`;
-  return `${(meters / 1000).toFixed(1)}km`;
+  return `${(meters / 1000).toFixed(digits)}km`;
 }
 
 export function formatSpeed(mps: number, units: Units, _sport: Sport): string {

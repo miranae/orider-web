@@ -6,13 +6,18 @@ import { sumActivityTss } from "../utils/estimateTSS";
 describe("원본 월별 목록과 대표 부하의 기간 경계", () => {
   it("월 경계의 거리·시간·횟수·부하는 대표 날짜에만 둔다", () => {
     const native = { id: "native", userId: "fixture-owner", source: "orider", type: "Ride",
-      startTime: new Date(2026, 8, 30, 23, 59, 45).getTime(),
+      startTime: new Date("2026-09-30T23:59:45+09:00").getTime(),
       summary: { distance: 2000, ridingTimeMillis: 3600000, tss: 100 } } as Activity;
     const imported = { ...native, id: "strava_1", source: "strava", startTime: native.startTime + 30000 } as Activity;
     const input = [native, imported];
-    const rows = aggregateMonthlyActivities(input, new Date(2026, 9, 2));
+    const rows = aggregateMonthlyActivities(input, new Date("2026-10-02T00:00:00+09:00"));
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ week: "2026.10", rides: 1, distance: 2, tss: 100, tssEstimated: false });
     expect(rows.reduce((total, row) => total + (row.tss ?? 0), 0)).toBe(sumActivityTss(input).value);
   });
+});
+
+it("buckets raw timestamps by the same KST year and month as the profile filters", () => {
+  const rows = ["2025-12-31T14:59:59.999Z", "2025-12-31T15:00:00Z"].map((startTime, index) => ({id: String(index), startTime: Date.parse(startTime), summary: {distance: 1000, ridingTimeMillis: 600000}} as Activity));
+  expect(aggregateMonthlyActivities(rows, new Date("2025-12-31T15:30:00Z"), true).map(row => [row.week, row.rides, row.distance])).toEqual([["2025.12", 1, 1], ["2026.01", 1, 1]]);
 });

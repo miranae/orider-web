@@ -1,3 +1,5 @@
+import { Text } from "../../theme/components";
+import { usePublicActivityMaps } from "../../hooks/usePublicActivityMaps";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
@@ -72,11 +74,12 @@ function releaseCaptureSlot(token: symbol) {
 }
 
 interface ActivityRouteThumbnailProps {
+  allowCapture?: boolean;
   activityId: string;
   userId: string;
   polyline: string;
   mapImageUrl?: string | null;
-  visibility: "everyone" | "friends" | "private";
+  visibility: "everyone" | "friends" | "followers" | "private";
   contentRevision?: number | null;
   contentSelectedRevision?: number | null;
   priority?: boolean;
@@ -92,7 +95,33 @@ interface ActivityRouteThumbnailProps {
  * 로그인 여부와 무관하게 같은 RouteMap을 표시한다. 레거시는 기존 viewer 정책을 유지하고,
  * revision-managed 활동은 owner만 고정 해상도 WebP를 저장한다.
  */
-export default function ActivityRouteThumbnail({
+export default function ActivityRouteThumbnail(props: ActivityRouteThumbnailProps) {
+  const { t } = useTranslation("activity");
+  const host = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (!host.current) return;
+    if (typeof IntersectionObserver === "undefined") { setVisible(true); return; }
+    const observer = new IntersectionObserver(([entry]) => setVisible(!!entry?.isIntersecting), { rootMargin: "0px" });
+    observer.observe(host.current); return () => observer.disconnect();
+  }, []);
+  const { maps, failed } = usePublicActivityMaps([props.activityId], visible);
+  const map = maps[props.activityId];
+  const resolvedWithoutRoute = failed || Object.prototype.hasOwnProperty.call(maps, props.activityId);
+  return <div ref={host}>
+    {map?.mapPreview.encodedPolyline ? <CanonicalActivityRouteThumbnail {...props}
+      key={map.revision} polyline={map.mapPreview.encodedPolyline} mapImageUrl={map.mapPreview.imageUrl}
+      contentRevision={map.contentRevision} contentSelectedRevision={map.contentSelectedRevision}
+      allowCapture={map.privacyEnabled === false && map.contentRevision !== undefined && map.contentSelectedRevision !== undefined} />
+      : resolvedWithoutRoute ? <Text as="div" variant="bodySmall" tone="secondary" role="status" style={{ padding: "var(--dim-item-gap)" }}>
+        {t(failed ? "mapPrivacy.liveFailed" : "mapPrivacy.liveUnavailable")}
+      </Text>
+      : <div className={props.shape === "square" ? "aspect-square" : "aspect-[var(--feed-thumb-aspect)]"} aria-hidden="true"><MapThumbnailSkeleton /></div>}
+  </div>;
+}
+
+export function CanonicalActivityRouteThumbnail({
+  allowCapture = true,
   activityId,
   userId,
   polyline,
@@ -188,7 +217,7 @@ export default function ActivityRouteThumbnail({
   const mayCapture = revisionState.kind === "managed"
     ? user?.uid === userId
     : revisionState.kind === "legacy" && (visibility === "everyone" || !!user);
-  const needsCapture = shape !== "square" && mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
+  const needsCapture = allowCapture && shape !== "square" && mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
 
   useEffect(() => {
     const el = containerRef.current;

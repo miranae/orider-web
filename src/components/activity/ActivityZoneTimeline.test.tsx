@@ -6,7 +6,7 @@ import type { ActivityMetricsDoc } from "../../hooks/useActivityMetrics";
 
 /** 존 타임라인은 서버 `renderSeries` 를 그린다 — 스트림에서 존을 다시 판정하지 않는다 (#2437). */
 const metrics = (over: Partial<ActivityMetricsDoc>): ActivityMetricsDoc => ({
-  durationSec: 20, movingTimeSec: 20,
+  durationSec: 20, movingTimeSec: 20, powerZoneSec: [0,0,0,0,0,0,20], hrZoneSec: [20,0,0,0,0],
   contextSnapshot: { ftp: 300, maxHr: 190 },
   hrZoneBoundaries: null,
   renderSeries: { resolution: 2, axes: {} },
@@ -37,4 +37,19 @@ describe("ActivityZoneTimeline", () => {
     const { container } = renderWithProviders(<ActivityZoneTimeline metrics={metrics({ renderSeries: null })} />);
     expect(container).toBeEmptyDOMElement();
   });
+});
+
+it.each([
+  { movingTimeSec: 0, powerZoneSec: [0,0,0,0,0,0,0] },
+  { movingTimeSec: 600, powerZoneSec: [100,0,400,0,0,0,0] },
+  { movingTimeSec: 600, powerZoneSec: undefined },
+])("does not fabricate a complete timeline from missing or partial zone coverage %j", coverage => {
+  renderWithProviders(<ActivityZoneTimeline metrics={metrics({durationSec:600, ...coverage, renderSeries:{resolution:2,axes:{watts:[200,200]}}})} />);
+  expect(screen.queryByRole("region",{name:"존 타임라인"})).not.toBeInTheDocument();
+  expect(screen.getByText(/위치가 확인되지 않은 존 타임라인은/)).toBeInTheDocument();
+});
+
+it("does not mislabel absent FTP or HR boundaries as missing zone-time positions", () => {
+  const { container } = renderWithProviders(<ActivityZoneTimeline metrics={metrics({contextSnapshot: {} as ActivityMetricsDoc["contextSnapshot"], hrZoneBoundaries:null, renderSeries:{resolution:2,axes:{watts:[200,200],heartrate:[150,150]}}})} />);
+  expect(container).toBeEmptyDOMElement();
 });

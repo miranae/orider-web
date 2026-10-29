@@ -44,7 +44,7 @@ export default function ServerMetricsBanner({
   suppressHeartRateMetrics = false,
   showStatusWithoutMetrics = false,
 }: ServerMetricsBannerProps) {
-  const { t } = useTranslation("activity");
+  const { t, i18n } = useTranslation("activity");
 
   const WORKOUT_TYPE_LABEL: Record<string, string> = {
     recovery: t("serverMetrics.workoutType.recovery"),
@@ -117,7 +117,7 @@ export default function ServerMetricsBanner({
         {m.inputPending && <Chip variant="warning">{t("serverMetrics.provisionalChip")}</Chip>}
         {m.inputCoverage === "partial_terminal" && <Chip variant="warning">{t("serverMetrics.truncatedInputChip")}</Chip>}
         <Text size="xs" tone="tertiary">
-          {new Date(m.computedAt).toLocaleString("ko-KR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" })} · v{m.version}
+          {new Date(m.computedAt).toLocaleString(i18n?.language ?? "ko-KR", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" })}
         </Text>
       </Stack>
       {/* 셀별 라벨/값/힌트를 항상 세로 stack — <Text> 가 기본 span 이라 wrapper 없이 두면

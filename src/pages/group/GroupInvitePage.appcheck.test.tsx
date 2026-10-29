@@ -5,6 +5,7 @@ import { httpsCallable } from "firebase/functions";
 import { auth, ensureAppCheckReady } from "../../services/firebase";
 import { mockCallableInvocations, setCallableImplementation, setCallableResult } from "../../__tests__/mocks/firebase";
 import GroupInvitePage from "./GroupInvitePage";
+import groupMessages from "../../i18n/resources/ko/group.json";
 
 const { navigate, showToast } = vi.hoisted(() => ({ navigate: vi.fn(), showToast: vi.fn() }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "qa-rider" }, loading: false }) }));
@@ -44,26 +45,35 @@ describe("group invite join App Check readiness", () => {
     ["functions/not-found", "Invite unavailable", "유효하지 않거나 만료된 초대 코드입니다."],
     [undefined, "Invalid or expired invite code", "유효하지 않거나 만료된 초대 코드입니다."],
     [undefined, "Invalid invite code", "유효하지 않거나 만료된 초대 코드입니다."],
-    ["functions/permission-denied", "Not authorized", "가입에 실패했습니다."],
-    ["functions/permission-denied", "Invalid invite code", "가입에 실패했습니다."],
-    ["functions/unauthenticated", "Invalid or expired invite code", "가입에 실패했습니다."],
+    ["functions/permission-denied", "Not authorized", groupMessages["inviteLink.retryMessage"]],
+    ["functions/permission-denied", "Invalid invite code", groupMessages["inviteLink.retryMessage"]],
+    ["functions/unauthenticated", "Invalid or expired invite code", groupMessages["inviteLink.retryMessage"]],
     ["functions/invalid-argument", "유효한 초대 코드가 필요합니다.", "유효하지 않거나 만료된 초대 코드입니다."],
-    ["functions/invalid-argument", "Invalid request payload", "가입에 실패했습니다."],
-    ["functions/unauthenticated", "유효한 초대 코드가 필요합니다.", "가입에 실패했습니다."],
+    ["functions/invalid-argument", "Invalid request payload", groupMessages["inviteLink.retryMessage"]],
+    ["functions/unauthenticated", "유효한 초대 코드가 필요합니다.", groupMessages["inviteLink.retryMessage"]],
   ])("shows the correct invite-link error for %s / %s", async (code, message, expected) => {
     setCallableImplementation("joinGroupByCode", () => { throw Object.assign(new Error(message), { code }); });
     renderInvite();
-    await waitFor(() => expect(showToast).toHaveBeenCalledWith(expected, "error"));
-    expect(navigate).toHaveBeenCalledWith("/clubs", { replace: true });
-    expect(navigate).not.toHaveBeenCalledWith(expect.stringContaining("/club/qa"), expect.anything());
+    expect(await screen.findByRole("alert")).toHaveTextContent(expected);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalled();
+    const retry = screen.queryByRole("button", { name: groupMessages["inviteLink.retry"] });
+    if (expected === groupMessages["inviteLink.retryMessage"]) expect(retry).toBeEnabled();
+    else expect(retry).not.toBeInTheDocument();
   });
 
   it("shows join failure without sending a protected request when App Check cannot initialize", async () => {
     vi.mocked(ensureAppCheckReady).mockRejectedValue(new Error("app-check/token-timeout"));
     renderInvite();
-    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/clubs", { replace: true }));
-    expect(showToast).toHaveBeenCalledWith(expect.any(String), "error");
+    expect(await screen.findByRole("alert")).toHaveTextContent(groupMessages["inviteLink.retryMessage"]);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(showToast).not.toHaveBeenCalled();
     expect(httpsCallable).not.toHaveBeenCalled();
+    vi.mocked(ensureAppCheckReady).mockResolvedValue(undefined);
+    setCallableResult("joinGroupByCode", { data: { groupId: "qa-recovered" } });
+    fireEvent.click(screen.getByRole("button", { name: groupMessages["inviteLink.retry"] }));
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith("/club/qa-recovered", { replace: true }));
+    expect(mockCallableInvocations).toEqual([{ name: "joinGroupByCode", data: { inviteCode: "ABCD-EFGH" } }]);
   });
   it.each(["unmount", "account-switch"] as const)("does not join an old intent after %s while readiness is pending", async (change) => {
     let resolveReady!: () => void;

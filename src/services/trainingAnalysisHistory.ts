@@ -75,7 +75,7 @@ export function validateTrainingAnalysisHistoryResponse(value: unknown, request:
   return r;
 }
 export async function loadTrainingAnalysisHistory(services: FirebaseServices, uid: string, request: TrainingAnalysisHistoryRequest) {
-  if (!trainingAnalysisPeriodsAvailable()) throw new Error("api_unavailable");
+  if (!trainingAnalysisPeriodsAvailable("run")) throw new Error("api_unavailable");
   const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
   if (!matches()) throw new Error("account_changed");
   if (services.functions.app !== services.auth.app || services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("stage/callable-context-mismatch");

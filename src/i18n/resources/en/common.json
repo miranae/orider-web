@@ -518,6 +518,17 @@
     "unblock": "Unblock",
     "blockedDescription": "Only people you blocked. Unblocking does not restore friendships or subscriptions.",
     "actionFailed": "Could not update. Please try again.",
-    "managementNotReady": "Relationship management coming soon"
-  }
+    "managementNotReady": "Relationship management coming soon",
+    "signInRequired": "Sign in in the app to follow this rider."
+  },
+  "notif.loading": "Checking notifications…",
+  "notif.failed": "Could not verify notification status. Please retry.",
+  "notif.retry": "Retry",
+  "notif.more": "Load older notifications",
+  "notif.unavailable": "This notification was deleted or is no longer accessible.",
+  "notif.commentDestination": "Comment from notification",
+  "notif.loginDestination": "Sign in to read this comment. You will return here after signing in.",
+  "notif.signIn": "Sign in",
+  "notif.targetUnavailable": "This comment was deleted, hidden, or is no longer accessible.",
+  "notif.refreshScope": "Notifications load in pages of 20. Every 30 seconds or on returning to this window, access is rechecked and the latest 20 are shown."
 }

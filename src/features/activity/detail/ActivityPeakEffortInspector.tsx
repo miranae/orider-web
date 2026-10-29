@@ -5,7 +5,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import "./activity-personal-benchmark.css";
 import { Button, Text } from "../../../theme/components";
 import { useLocale } from "../../../contexts/LocaleContext";
-import { visiblePeakEfforts } from "./activityPeakEfforts";
+import { twentyMinuteEffort, visiblePeakEfforts } from "./activityPeakEfforts";
 import { ICON_SIZE } from "../../../theme/tokens/icon";
 
 interface Props {
@@ -14,6 +14,7 @@ interface Props {
   metrics: ActivityMetrics | null;
   isOwner: boolean;
   invalidated?: boolean;
+  onSelectTwentyMinute?: (range: { startOffsetSec: number; endOffsetSec: number }) => void;
   onLocate?: (peak: RidePeakEffort | null) => void;
   locating?: boolean;
   locationUnavailable?: boolean;
@@ -25,8 +26,9 @@ interface Props {
 /** 활동·사용자가 바뀌면 key 경계 안의 열림/선택 상태도 함께 폐기한다. */
 export default function ActivityPeakEffortInspector(props: Props) {
   const peaks = visiblePeakEfforts(props.metrics, props.isOwner, props.invalidated);
-  if (!peaks.length) return null;
-  return <PeakEffortContent key={`${props.activityId}:${props.metrics?.computedAt ?? ""}`} {...props} peaks={peaks} />;
+  const twenty = twentyMinuteEffort(props.metrics, props.isOwner, props.invalidated);
+  if (!peaks.length && !twenty) return null;
+  return <><TwentyMinuteEffort {...props} />{peaks.length > 0 && <PeakEffortContent key={`${props.activityId}:${props.metrics?.computedAt ?? ""}`} {...props} peaks={peaks} />}</>;
 }
 
 function PeakEffortContent({ defaultExpanded = false, metrics, peaks, onLocate, locating, locationUnavailable, chartOnly, suppressHeartRate, suppressCadence }: Props & { peaks: RidePeakEffort[] }) {
@@ -80,5 +82,18 @@ function PeakEffortContent({ defaultExpanded = false, metrics, peaks, onLocate, 
         {t(locating ? "peakInspector.loadingLocation" : chartOnly ? "peakInspector.chartLocation" : "peakInspector.location")}</Button>
         : <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-2)" }}>{t("peakInspector.noLocation")}</p>}
     </div>}
+  </section>;
+}
+
+function TwentyMinuteEffort(props: Props) {
+  const { t } = useTranslation("activity");
+  const effort = twentyMinuteEffort(props.metrics, props.isOwner, props.invalidated);
+  const knownValue = props.metrics?.mmp?.["20m"];
+  if (!effort && knownValue == null) return null;
+  return <section className="space-y-4" aria-label={t("peakInspector.twentyTitle")}>
+    <Text weight={600}>{t("peakInspector.twentyTitle")} · {Math.round(effort?.avgPowerW ?? knownValue!)} W</Text>
+    {effort ? <Button variant="outline" size="sm" disabled={!props.onSelectTwentyMinute || props.locating}
+      onClick={() => props.onSelectTwentyMinute?.({ startOffsetSec: effort.startOffsetSec, endOffsetSec: effort.endOffsetSec })}>
+      {t("peakInspector.twentySelect")}</Button> : <Text>{t("peakInspector.twentyMissing")}</Text>}
   </section>;
 }

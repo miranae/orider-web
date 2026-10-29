@@ -1,3 +1,5 @@
+import { track } from "../../services/analytics";
+import { loadPublicActivityMap } from "../../services/publicActivityMaps";
 import { useState } from "react";
 import { GlossaryProvider } from "../common/GlossaryProvider";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -7,12 +9,25 @@ import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { createMockActivity, createMockSummary } from "../../__tests__/fixtures/mockData";
 import { getCanonicalMapThumbnailFileName, isCanonicalMapThumbnailUrl } from "../activity/ActivityRouteThumbnail";
 import { useActivitySearch } from "../../hooks/useActivities";
-import { setCollectionDocs } from "../../__tests__/mocks/firebase";
-import { getDocs, startAfter, where } from "firebase/firestore";
+import { setCollectionDocs, mockCollectionData } from "../../__tests__/mocks/firebase";
+import { loadActivityDiscovery } from "../../services/activityDiscovery";
 import type { User } from "firebase/auth";
 import { AuthContextProvider } from "../../contexts/AuthContext";
 import { activityFeedSourceRevision } from "../../services/activityFeedContent";
 import { signInCancelledError } from "../../utils/signInCancelled";
+
+vi.mock("../../services/analytics", () => ({ track: vi.fn() }));
+vi.mock("../../services/publicActivityMaps", () => ({ loadPublicActivityMap: vi.fn() }));
+beforeEach(() => {
+  vi.mocked(loadPublicActivityMap).mockImplementation(async (_services, activityId) => ({ activityId, revision: "current", privacyEnabled: false,
+    contentRevision: null, contentSelectedRevision: null,
+    mapPreview: { encodedPolyline: createMockActivity().thumbnailTrack!, imageUrl: "https://storage.googleapis.com/legacy/map.webp" } }));
+});
+
+vi.mock("../../services/activityDiscovery", () => ({loadActivityDiscovery: vi.fn(async (_services, request) => {
+ const rows=mockCollectionData.get("activities")??[],offset=Number(request.cursor??0),end=offset+(request.limit??20);
+ return {items:rows.slice(offset,end),nextCursor:end<rows.length?String(end):null,exhausted:end>=rows.length};
+})}));
 
 vi.mock("../RouteMap", () => ({
   default: ({ interactive, fallbackImageUrl }: { interactive?: boolean; fallbackImageUrl?: string | null }) => (
@@ -37,6 +52,55 @@ async function searchFromMenu(keyword: string) {
 }
 
 describe("MobileFeedPage", () => {
+  it.each([undefined, null, NaN, -1])("renders unknown elevation without invented zero or NaN (%s)", elevationGain => {
+    const activity = createMockActivity({ source: "orider", summary: createMockSummary() });
+    Object.assign(activity.summary, { elevationGain });
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(view.container).not.toHaveTextContent("NaN");
+    expect(view.container).toHaveTextContent("—");
+  });
+  it.each([undefined, null, NaN, Infinity, -1])("does not invent distance, duration or speed for invalid metric inputs (%s)", missing => {
+    const activity = createMockActivity({ source: "orider", summary: createMockSummary() });
+    Object.assign(activity, { startTime: undefined, endTime: undefined });
+    Object.assign(activity.summary, { distance: missing, ridingTimeMillis: missing, elapsedTimeMillis: undefined, movingTimeSec: undefined, pauseTimeSec: undefined });
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(view.container).not.toHaveTextContent(/NaN|Infinity/);
+    const distance = screen.getByText("이동거리").parentElement!;
+    expect(distance).toHaveTextContent("—");
+    expect(view.container).not.toHaveTextContent(/0\.0\s*km\/h/);
+  });
+  it("preserves measured zero distance and elevation and zero speed over a known duration", () => {
+    const activity = createMockActivity({ source: "orider", summary: createMockSummary({ distance: 0, elevationGain: 0, ridingTimeMillis: 60000 }) });
+    Object.assign(activity, { endTime: undefined });
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(screen.getByText("이동거리").parentElement!).toHaveTextContent(/0\s*m/);
+    expect(view.container).toHaveTextContent(/0\.0\s*km\/h/);
+    expect(view.container).not.toHaveTextContent("NaN");
+  });
+  it.each([Infinity, NaN])("hides nonfinite running heart rate and power (%s)", invalid => {
+    const activity = createMockActivity({ type: "Run", summary: createMockSummary({ averageHeartRate: invalid, averagePower: invalid }) });
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(view.container).not.toHaveTextContent(/NaN|Infinity/);
+  });
+  it("uses revision-bound native display metrics like public and owner detail", () => {
+    const activity = { ...createMockActivity({ source: "orider", summary: createMockSummary({ distance: 6000, elevationGain: 12, ridingTimeMillis: 600000 }) }),
+      activityRevision: "current", contentSelectedRevision: 1,
+      activityPresentationV1: { version: 1 as const, metricsVersion: 3, computedAt: 1, activityRevision: "current", contentSelectedRevision: 1,
+        sensorOriginActivityId: "native", summary: { elevationGain: 10 }, thumbnailTrack: "", mapImageUrl: null } };
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(view.container).toHaveTextContent(/10\s*m/);
+    expect(view.container).not.toHaveTextContent(/12\s*m/);
+    view.rerender(<CompactActivityCard activity={{ ...activity, activityRevision: "changed" }} />);
+    expect(view.container).toHaveTextContent(/12\s*m/);
+  });
+  it("preserves provider summary semantics when the source is Strava", () => {
+    const activity = { ...createMockActivity({ source: "strava", summary: createMockSummary({ elevationGain: 12 }) }),
+      activityRevision: "current",
+      activityPresentationV1: { version: 1 as const, metricsVersion: 3, computedAt: 1, activityRevision: "current", contentSelectedRevision: null,
+        sensorOriginActivityId: "provider", summary: { elevationGain: 10 }, thumbnailTrack: "", mapImageUrl: null } };
+    const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+    expect(view.container).toHaveTextContent(/12\s*m/);
+  });
   it("consumes external search without duplicating query controls and follows its external reset", async () => {
     setCollectionDocs("activities", [{ id: "match", ...createMockActivity({ id: "match", description: "설레임 검색 결과" }) }]);
     function Feed() {
@@ -143,10 +207,10 @@ describe("MobileFeedPage", () => {
     expect(screen.getByText("최근 사이클")).toBeInTheDocument();
   });
 
-  it("includes this year's activities from local January 1 and excludes the previous year", () => {
-    const year = new Date().getFullYear();
-    const january = new Date(year, 0, 1, 12).getTime();
-    const december = new Date(year - 1, 11, 31, 12).getTime();
+  it("includes this year from January 1 KST and excludes the preceding millisecond", () => {
+    const year = new Date(Date.now() + 9 * 3600000).getUTCFullYear();
+    const january = Date.UTC(year, 0, 1) - 9 * 3600000;
+    const december = january - 1;
     const activities = [
       createMockActivity({ id: "january", description: "올해 첫 활동", startTime: january, endTime: january + 3600000 }),
       createMockActivity({ id: "december", description: "작년 마지막 활동", startTime: december, endTime: december + 3600000 }),
@@ -162,7 +226,7 @@ describe("MobileFeedPage", () => {
     setCollectionDocs("activities", [
       { id: "older-match", ...createMockActivity({ id: "older-match", description: "설레임 첫 라이딩" }) },
     ]);
-    const searchWhere = vi.mocked(where);
+    const searchWhere = vi.mocked(loadActivityDiscovery);
     searchWhere.mockClear();
 
     function SearchFeed() {
@@ -176,10 +240,27 @@ describe("MobileFeedPage", () => {
     await searchFromMenu("설레임");
 
     expect(await screen.findByText("설레임 첫 라이딩")).toBeInTheDocument();
-    expect(searchWhere).toHaveBeenCalledWith("keywords", "array-contains", "설레임");
+    expect(searchWhere).toHaveBeenCalledWith(expect.anything(),expect.objectContaining({keyword:"설레임",scope:"all"}));
     await act(async () => { externalSearch.reset(); });
     expect(screen.queryByText("설레임 첫 라이딩")).not.toBeInTheDocument();
   });
+  it("keeps server-authorized followers and friends activities from followed authors", async () => {
+    const activities = [
+      createMockActivity({ id: "follow-visible", userId: "target", visibility: "followers", description: "팔로워 허용 활동" }),
+      createMockActivity({ id: "friend-visible", userId: "target", visibility: "friends", description: "친구 허용 활동" }),
+      createMockActivity({ id: "not-followed", userId: "other", visibility: "everyone", description: "구독하지 않은 작성자" }),
+    ];
+    const view = renderWithProviders(<MobileFeedPage activities={activities} loading={false} hasMore={false} loadingMore={false}
+      onLoadMore={vi.fn()} feedScope="following" subscriptionIds={["target"]} />, { authenticated: true });
+    expect(await screen.findByText("팔로워 허용 활동")).toBeInTheDocument();
+    expect(screen.getByText("친구 허용 활동")).toBeInTheDocument();
+    expect(screen.queryByText("구독하지 않은 작성자")).not.toBeInTheDocument();
+    view.rerender(<MobileFeedPage activities={activities} loading={false} hasMore={false} loadingMore={false}
+      onLoadMore={vi.fn()} feedScope="following" subscriptionIds={[]} />);
+    expect(screen.queryByText("팔로워 허용 활동")).not.toBeInTheDocument();
+    expect(screen.queryByText("친구 허용 활동")).not.toBeInTheDocument();
+  });
+
   it("keeps the next-page action when all current subscription candidates were excluded", async () => {
     const user = userEvent.setup();
     const next = vi.fn();
@@ -211,9 +292,9 @@ describe("MobileFeedPage", () => {
       const activity = createMockActivity({ id: `ride-${index}`, description: `설레임 활동 ${index}`, startTime: 1_000_000 - index });
       return { id: activity.id, data: () => activity };
     });
-    const reads = vi.mocked(getDocs).mockClear();
-    reads.mockResolvedValueOnce({ docs: matches.slice(0, 20) } as Awaited<ReturnType<typeof getDocs>>)
-      .mockResolvedValueOnce({ docs: matches.slice(20, 40) } as Awaited<ReturnType<typeof getDocs>>);
+    const reads = vi.mocked(loadActivityDiscovery).mockClear();
+    reads.mockResolvedValueOnce({ items: matches.slice(0, 20).map(d=>d.data()),nextCursor:"20",exhausted:false } as never)
+      .mockResolvedValueOnce({ items: matches.slice(20, 40).map(d=>d.data()),nextCursor:"40",exhausted:false } as never);
 
     function SearchFeed() {
       const activitySearch = useActivitySearch(new Set());
@@ -254,7 +335,7 @@ describe("MobileFeedPage", () => {
     const user = userEvent.setup();
     const loaded = createMockActivity({ id: "loaded-match", description: "설레임 로드된 라이딩" });
     setCollectionDocs("activities", []);
-    const searchRead = vi.mocked(getDocs);
+    const searchRead = vi.mocked(loadActivityDiscovery);
     searchRead.mockClear().mockRejectedValueOnce(new Error("search unavailable"));
 
     function SearchFeed() {
@@ -281,9 +362,9 @@ describe("MobileFeedPage", () => {
       return { id: activity.id, data: () => activity };
     });
     const run = createMockActivity({ id: "later-run", type: "run", description: "설레임 나중 러닝", startTime: 1 });
-    vi.mocked(getDocs).mockResolvedValueOnce({ docs: firstPage } as Awaited<ReturnType<typeof getDocs>>)
-      .mockResolvedValueOnce({ docs: [{ id: run.id, data: () => run }] } as Awaited<ReturnType<typeof getDocs>>);
-    vi.mocked(startAfter).mockClear();
+    vi.mocked(loadActivityDiscovery).mockResolvedValueOnce({ items: firstPage.map(d=>d.data()),nextCursor:"20",exhausted:false } as never)
+      .mockResolvedValueOnce({ items: [run],nextCursor:null,exhausted:true } as never);
+
 
     function SearchFeed() {
       const activitySearch = useActivitySearch(new Set());
@@ -298,7 +379,7 @@ describe("MobileFeedPage", () => {
     await user.click(screen.getByRole("button", { name: "더 보기" }));
 
     expect(await screen.findByText("설레임 나중 러닝")).toBeInTheDocument();
-    expect(startAfter).toHaveBeenCalled();
+    expect(loadActivityDiscovery).toHaveBeenLastCalledWith(expect.anything(),expect.objectContaining({cursor:"20"}));
   });
 
 
@@ -552,7 +633,8 @@ describe("MobileFeedPage", () => {
     expect(container.querySelector(`img[src="${activity.mapImageUrl}"]`)).not.toBeInTheDocument();
   });
 
-  it("does not mount an anonymous capture map for a private activity", async () => {
+  it("does not render or capture a private activity when current map access is denied", async () => {
+    vi.mocked(loadPublicActivityMap).mockResolvedValue(null);
     const activity = createMockActivity({
       id: "private-thumbnail",
       visibility: "private",
@@ -570,7 +652,8 @@ describe("MobileFeedPage", () => {
       />,
     );
 
-    await waitFor(() => expect(screen.getAllByTestId("route-map")).toHaveLength(1));
+    await waitFor(() => expect(loadPublicActivityMap).toHaveBeenCalled());
+    expect(screen.queryByTestId("route-map")).not.toBeInTheDocument();
   });
 
   it("also mounts the hidden canonical capture map for the activity owner", async () => {
@@ -602,6 +685,7 @@ describe("MobileFeedPage", () => {
     const mapImageUrl = `https://firebasestorage.googleapis.com/v0/b/test/o/${objectPath}?alt=media`;
     expect(isCanonicalMapThumbnailUrl(mapImageUrl, activity.userId, fileName, "test")).toBe(true);
     activity.mapImageUrl = mapImageUrl;
+    vi.mocked(loadPublicActivityMap).mockResolvedValue({ activityId: activity.id, revision: "current", privacyEnabled: false, contentRevision: null, contentSelectedRevision: null, mapPreview: { encodedPolyline: activity.thumbnailTrack!, imageUrl: mapImageUrl } });
 
     const { container } = renderWithProviders(
       <MobileFeedPage
@@ -735,7 +819,7 @@ describe("published mobile feed body and photos", () => {
     expect(within(gallery).getByText("+9")).toBeVisible();
   });
 
-  it("shows actual memo and three photos under the map with the remaining count", () => {
+  it("shows actual memo and three photos under the map with the remaining count", async () => {
     const activity = createMockActivity({ photoCount: 10 });
     activity.feedContentV1 = { version: 1, sourceRevision: activityFeedSourceRevision(activity), revision: "r1", memo: "함께 달린 기록\n다음에도 함께해요", memoTruncated: false, totalPhotoCount: 10,
       photos: [0, 1, 2].map(id => ({ id: String(id), url: `https://example.com/${id}.jpg`, caption: `사진${id}` })) };
@@ -745,7 +829,7 @@ describe("published mobile feed body and photos", () => {
     expect(gallery.querySelectorAll("img")).toHaveLength(3);
     expect(screen.getByText("+7")).toBeVisible();
     expect(within(gallery as HTMLElement).getAllByRole("link")[0]).toHaveAttribute("href", `/ko/activity/${activity.id}?tab=overview`);
-    expect(gallery.previousElementSibling?.querySelector("[data-map-thumbnail-frame]")).toBeInTheDocument();
+    await waitFor(() => expect(gallery.previousElementSibling?.querySelector("[data-map-thumbnail-frame]")).toBeInTheDocument());
   });
   it("omits stale memo and photos after the activity publication revision changes", () => {
     const activity = createMockActivity({ contentRevision: 2, photoCount: 0 });
@@ -765,7 +849,7 @@ describe("attachment-confirmed feed media cases", () => {
     { map: true, count: 3, visible: 3, remaining: 0, shared: false },
     { map: true, count: 4, visible: 4, remaining: 0, shared: true },
     { map: true, count: 10, visible: 5, remaining: 5, shared: false },
-  ])("keeps map=$map/photos=$count media bounded and in the confirmed row groups", ({ map, count, visible, remaining, shared }) => {
+  ])("keeps map=$map/photos=$count media bounded and in the confirmed row groups", async ({ map, count, visible, remaining, shared }) => {
     const activity = createMockActivity({ thumbnailTrack: map ? "mock-polyline" : "", photoCount: count });
     const content = { version: 1 as const, sourceRevision: activityFeedSourceRevision(activity), revision: "cases", memo: null, memoTruncated: false, totalPhotoCount: count,
       photos: Array.from({ length: Math.min(count, 5) }, (_, id) => ({ id: String(id), url: `https://example.com/${id}.jpg`, caption: null })) };
@@ -774,11 +858,12 @@ describe("attachment-confirmed feed media cases", () => {
     expect(photoLinks).toHaveLength(visible);
     if (remaining) expect(screen.getByText(`+${remaining}`)).toBeVisible();
     else expect(screen.queryByText(/^\+/)).not.toBeInTheDocument();
+    if (map) await waitFor(() => expect(view.container.querySelector("[data-map-thumbnail-frame]")).toBeInTheDocument());
     const mapFrame = view.container.querySelector("[data-map-thumbnail-frame]");
     expect(!!mapFrame).toBe(map);
     if (mapFrame) {
-      const mapGroup = mapFrame.parentElement!;
-      expect(mapGroup.parentElement === photoLinks[0].parentElement).toBe(shared);
+      const sharedMedia = mapFrame.closest(".mobile-feed-media");
+      expect(sharedMedia !== null && sharedMedia === photoLinks[0].parentElement).toBe(shared);
       expect(mapFrame).toHaveClass(shared ? "aspect-square" : "aspect-[var(--feed-thumb-aspect)]");
     }
   });
@@ -798,4 +883,39 @@ it("keeps an inline video poster before the next photo without navigating or dow
   expect(video).not.toHaveAttribute("src");
   expect(gallery.children[1]).toHaveAttribute("href", `/ko/activity/${activity.id}?tab=overview`);
   expect(gallery.children[1].querySelector("img")).toHaveAttribute("src", "https://example.test/photo.jpg");
+});
+
+it("does not reuse a cached card map when current map access is unavailable", async () => {
+  vi.mocked(loadPublicActivityMap).mockResolvedValue(null);
+  const activity = createMockActivity({ mapImageUrl: "https://example.test/stale-map.webp" });
+  const view = renderWithProviders(<CompactActivityCard activity={activity} />);
+  await waitFor(() => expect(loadPublicActivityMap).toHaveBeenCalled());
+  expect(screen.queryByTestId("route-map")).not.toBeInTheDocument();
+  expect(view.container.querySelector('img[src="https://example.test/stale-map.webp"]')).not.toBeInTheDocument();
+});
+
+it("reports first committed home content only after loading and preserves error/retry attempts", async () => {
+  vi.mocked(track).mockClear();
+  const retry = vi.fn();
+  const props = { activities: [], loading: true, error: false, hasMore: false, loadingMore: false, onLoadMore: vi.fn(), onRetry: retry };
+  const view = renderWithProviders(<MobileFeedPage {...props} />);
+  expect(vi.mocked(track).mock.calls.filter(c => c[0] === "feed_first_content")).toHaveLength(0);
+  view.rerender(<MobileFeedPage {...props} loading={false} error />);
+  await waitFor(() => expect(track).toHaveBeenCalledWith("feed_first_content", expect.objectContaining({ outcome: "error" })));
+  fireEvent.click(screen.getByRole("button", { name: /다시/ }));
+  expect(retry).toHaveBeenCalledTimes(1);
+  view.rerender(<MobileFeedPage {...props} loading={false} />);
+  await waitFor(() => expect(track).toHaveBeenCalledWith("feed_first_content", expect.objectContaining({ outcome: "empty" })));
+});
+
+it("keeps Strava source metrics consistent with detail despite stale calculated summary fields", () => {
+  const activity = createMockActivity({ source: "strava", stravaSummaryV1: { version: 1,
+    distance: 135361, moving_time: 19046, elapsed_time: 31351, average_speed: 25.6 / 3.6,
+    total_elevation_gain: 645, average_heartrate: 140.2, average_watts: 120.9,
+  } });
+  renderWithProviders(<CompactActivityCard activity={activity} />);
+  expect(screen.getByRole("article")).toHaveTextContent(/135.36\s*km/);
+  expect(screen.getByRole("article")).toHaveTextContent(/25.6\s*km\/h/);
+  expect(screen.getByRole("article")).toHaveTextContent(/645\s*m/);
+  expect(screen.queryByText(/NaN|Infinity/)).not.toBeInTheDocument();
 });

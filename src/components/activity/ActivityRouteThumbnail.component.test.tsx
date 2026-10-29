@@ -4,7 +4,11 @@ import {
   mockCallableInvocations,
   setCallableImplementation,
 } from "../../__tests__/mocks/firebase";
-import ActivityRouteThumbnail from "./ActivityRouteThumbnail";
+import PublicActivityRouteThumbnail, { CanonicalActivityRouteThumbnail as ActivityRouteThumbnail } from "./ActivityRouteThumbnail";
+import type { PublicActivityMap } from "../../services/publicActivityMaps";
+
+const liveMaps = vi.hoisted(() => ({ maps: {} as Record<string, PublicActivityMap | null>, failed: false }));
+vi.mock("../../hooks/usePublicActivityMaps", () => ({ usePublicActivityMaps: () => liveMaps }));
 
 const routeMapControl = vi.hoisted(() => ({
   delayNextCapture: false,
@@ -68,8 +72,38 @@ function installSuccessfulCoordinator() {
 
 describe("ActivityRouteThumbnail revision capture contract", () => {
   beforeEach(() => {
+    liveMaps.maps = {};
     routeMapControl.delayNextCapture = false;
     routeMapControl.delayedOnLoad = null;
+  });
+
+  it.each([{}, { contentRevision: 1, contentSelectedRevision: 1 }])("publishes with the live route head instead of missing/stale card revisions: %j", async cardRevisions => {
+    installSuccessfulCoordinator();
+    liveMaps.maps[baseProps.activityId] = {
+      activityId: baseProps.activityId, revision: "live-5-2", privacyEnabled: false,
+      contentRevision: 5, contentSelectedRevision: 2,
+      mapPreview: { encodedPolyline: baseProps.polyline, imageUrl: null },
+    };
+    renderWithProviders(<PublicActivityRouteThumbnail {...baseProps} {...cardRevisions} />,
+      { authenticated: true, user: { uid: baseProps.userId } });
+    await waitFor(() => expect(thumbnailInvocations()).toHaveLength(2));
+    for (const call of thumbnailInvocations()) {
+      expect(call.data).toMatchObject({ expectedHeadRevision: 5 });
+      expect((call.data as { expectedFileName: string }).expectedFileName).toContain(".r2.");
+    }
+  });
+
+  it("renders old-server live geometry without uploading with a guessed feed revision", async () => {
+    installSuccessfulCoordinator();
+    liveMaps.maps[baseProps.activityId] = {
+      activityId: baseProps.activityId, revision: "old-server", privacyEnabled: false,
+      mapPreview: { encodedPolyline: baseProps.polyline, imageUrl: null },
+    };
+    const { queryByTestId } = renderWithProviders(<PublicActivityRouteThumbnail {...baseProps} contentRevision={5} contentSelectedRevision={2} />,
+      { authenticated: true, user: { uid: baseProps.userId } });
+    await waitFor(() => expect(queryByTestId("route-map")).toBeInTheDocument());
+    expect(queryByTestId("capture-map")).not.toBeInTheDocument();
+    expect(thumbnailInvocations()).toEqual([]);
   });
 
   it("fits a live square route without publishing a square image under the wide canonical key", async () => {
@@ -167,13 +201,16 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
   it("shows the live route after a stalled image request and accepts a late image load", async () => {
     const fileName = "activity-123.r1.route-v2-fcfef7dfc9b21144.webp";
     const mapImageUrl = `https://firebasestorage.googleapis.com/v0/b/test/o/${encodeURIComponent(`map_thumbnails/${baseProps.userId}/${fileName}`)}?alt=media`;
-    vi.useFakeTimers();
-    const { container, queryByTestId } = renderWithProviders(
-      <ActivityRouteThumbnail {...baseProps} mapImageUrl={mapImageUrl} contentRevision={3} contentSelectedRevision={1} priority />,
+    // Resolve the native crypto digest using real timers before measuring the image deadline.
+    // A single microtask does not guarantee crypto.subtle.digest has completed under suite load.
+    const { container, queryByTestId, rerender } = renderWithProviders(
+      <ActivityRouteThumbnail {...baseProps} contentRevision={3} contentSelectedRevision={1} priority />,
       { authenticated: false },
     );
+    await waitFor(() => expect(queryByTestId("route-map")).toBeInTheDocument());
+    vi.useFakeTimers();
     try {
-      await act(async () => { await Promise.resolve(); });
+      rerender(<ActivityRouteThumbnail {...baseProps} mapImageUrl={mapImageUrl} contentRevision={3} contentSelectedRevision={1} priority />);
       const image = container.querySelector<HTMLImageElement>(`img[src="${mapImageUrl}"]`);
       expect(image).toBeInTheDocument();
       act(() => { vi.advanceTimersByTime(7_999); });

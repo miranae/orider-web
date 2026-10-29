@@ -11,6 +11,19 @@ function fixture(): PowerCurvePeriodsResponse {
   return { version: 1, discipline: "bike", unit: "W", asOf: 20000, inputDigest: "a".repeat(64), periods: [period, { ...period, powerDurationObservations: { ...observation, points: [{ ...observation.points[0]!, maxAveragePowerW: 50 }] } }] };
 }
 describe("fixed-duration period observations", () => {
+  it("uses the KST period and source day across the UTC year boundary", () => {
+    const data = fixture(); data.periods = [data.periods[0]!];
+    const period = data.periods[0]!;
+    period.fromInclusive = Date.parse("2026-01-01T00:00:00+09:00");
+    period.toExclusive = Date.parse("2026-01-02T00:00:00+09:00");
+    period.powerDurationObservations!.points[0]!.startTime = Date.parse("2026-01-01T01:00:00+09:00");
+    const view = render(<MemoryRouter><PowerDurationPeriodsView response={data} /></MemoryRouter>);
+    expect(screen.getByText("2026-01-01 – 2026-01-01")).toBeInTheDocument();
+    expect(screen.getByRole("link")).toHaveTextContent("periodCurve.source 2026-01-01");
+    const details = view.container.querySelector("details")!; details.open = true; fireEvent(details, new Event("toggle"));
+    expect(screen.getByRole("table")).toHaveTextContent("2026-01-01 KST");
+    expect(screen.getByRole("table")).not.toHaveTextContent("2025-12-31");
+  });
   it("preserves zero W, count, source and partial comparison with positive power direction", () => {
     const view = render(<MemoryRouter><PowerDurationPeriodsView response={fixture()} /></MemoryRouter>);
     expect(screen.getByText("0 W · densePeriod.n 1")).toBeInTheDocument();
