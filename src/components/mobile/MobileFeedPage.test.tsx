@@ -419,6 +419,23 @@ describe("MobileFeedPage", () => {
     expect(screen.queryByText("라이딩 루틴")).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["the server says there is something outside the filter", true],
+    ["the unfiltered check is still unknown", null],
+  ] as const)("calls a server-filtered empty feed a no-match when %s, without app install prompts", (_case, hasUnfilteredActivity) => {
+    renderWithProviders(<MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false}
+      onLoadMore={vi.fn()} feedScope="self" sportFilter="swim" hasUnfilteredActivity={hasUnfilteredActivity} />, { authenticated: true });
+    expect(screen.getByText("조건에 맞는 활동이 없어요")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Google Play" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the first-activity prompt when the unfiltered check finds nothing at all", () => {
+    renderWithProviders(<MobileFeedPage activities={[]} loading={false} hasMore={false} loadingMore={false}
+      onLoadMore={vi.fn()} feedScope="self" sportFilter="bike" datePreset="30d" hasUnfilteredActivity={false} />, { authenticated: true });
+    expect(screen.getByText("아직 활동이 없어요")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Google Play" })).toBeInTheDocument();
+  });
+
   it("keeps the public feed visible for a guest even with a stale personal scope", async () => {
     const user = userEvent.setup();
     const activities = [
