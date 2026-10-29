@@ -65,3 +65,34 @@ it('settles a hanging initial request after a single bounded timeout retry',asyn
 it('restores search depth with fresh pages and no stored payloads',async()=>{
  const ids=Array.from({length:25},(_,i)=>String(i));state.read.mockImplementation(async(_s,req)=>{const offset=req.cursor?20:0;return page(ids.slice(offset,offset+20),offset===0?'ad1.more':null);});const first=renderHook(()=>useActivitySearch(new Set(),undefined,'restore-search'));act(()=>first.result.current.search('ride'));await waitFor(()=>expect(first.result.current.results).toHaveLength(20));act(()=>first.result.current.loadMore());await waitFor(()=>expect(first.result.current.results).toHaveLength(25));first.unmount();const second=renderHook(()=>useActivitySearch(new Set(),undefined,'restore-search'));act(()=>second.result.current.search('ride'));await waitFor(()=>expect(second.result.current.results).toHaveLength(25));expect(state.read).toHaveBeenCalledTimes(4);
 });
+it('sends sport and period filters to the server query and restarts the feed when they change',async()=>{
+ const {result,rerender}=renderHook(({sport})=>useActivities('all',[],{feedFilters:{sport,datePreset:'30d'}}),{initialProps:{sport:'run' as 'run'|'bike'|'all'}});
+ await waitFor(()=>expect(result.current.loading).toBe(false));
+ expect(state.read.mock.calls[0]![1]).toEqual({scope:'all',limit:3,discipline:'run',fromInclusive:expect.any(Number)});
+ const from=state.read.mock.calls[0]![1].fromInclusive as number;expect(Date.now()-from).toBeGreaterThanOrEqual(30*86400000);
+ rerender({sport:'bike'});await waitFor(()=>expect(state.read.mock.calls.some(([,req])=>req.discipline==='bike')).toBe(true));
+ rerender({sport:'all'});await waitFor(()=>expect(state.read.mock.calls.at(-1)![1]).not.toHaveProperty('discipline'));
+});
+it('falls back to an unfiltered read when an older server rejects the filter fields',async()=>{
+ state.read.mockRejectedValueOnce({code:'functions/invalid-argument'}).mockResolvedValueOnce(page(['a']));
+ const {result}=renderHook(()=>useActivities('all',[],{feedFilters:{sport:'bike'}}));
+ await waitFor(()=>expect(result.current.activities).toHaveLength(1));
+ expect(state.read.mock.calls[0]![1]).toMatchObject({discipline:'bike'});expect(state.read.mock.calls[1]![1]).toEqual({scope:'all',limit:3});
+});
+it('does not hide a real invalid-argument when no filter was sent',async()=>{
+ state.read.mockRejectedValue({code:'functions/invalid-argument'});
+ const {result}=renderHook(()=>useActivities());await waitFor(()=>expect(result.current.error).toBe(true),{timeout:3500});
+ expect(state.read.mock.calls.every(([,req])=>!('discipline' in req))).toBe(true);
+});
+it.each([[page(),false],[page(['other']),true],[page([],'ad1.unknown'),null]] as const)('probes once without filters when the filtered feed is empty (%#)',async(probe,expected)=>{
+ state.read.mockResolvedValueOnce(page()).mockResolvedValueOnce(probe);
+ const {result}=renderHook(()=>useActivities('self',[],{feedFilters:{sport:'swim'}}));
+ await waitFor(()=>expect(state.read).toHaveBeenCalledTimes(2));
+ expect(state.read.mock.calls[1]![1]).toEqual({scope:'self',limit:1});
+ await waitFor(()=>expect(result.current.hasUnfilteredActivity).toBe(expected));
+});
+it('does not probe without filters or when the filtered feed has rows',async()=>{
+ const a=renderHook(()=>useActivities());await waitFor(()=>expect(a.result.current.loading).toBe(false));expect(state.read).toHaveBeenCalledTimes(1);
+ state.read.mockReset().mockResolvedValueOnce(page(['run']));
+ const b=renderHook(()=>useActivities('self',[],{feedFilters:{sport:'run'}}));await waitFor(()=>expect(b.result.current.activities).toHaveLength(1));expect(state.read).toHaveBeenCalledTimes(1);
+});
