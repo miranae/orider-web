@@ -2,7 +2,7 @@
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, useSearchParams } from "react-router-dom";
 import { initializeApp } from "firebase/app";
-import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword } from "firebase/auth";
+import { getAuth, connectAuthEmulator, signInWithEmailAndPassword } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator, doc, setDoc } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 import { I18nextProvider } from "react-i18next";
@@ -36,7 +36,12 @@ const auth = getAuth(app), firestore = getFirestore(app), functions = getFunctio
 connectAuthEmulator(auth, "http://127.0.0.1:19199", { disableWarnings: true });
 connectFirestoreEmulator(firestore, "127.0.0.1", 18180);
 connectFunctionsEmulator(functions, "127.0.0.1", 15001);
-const { user } = await createUserWithEmailAndPassword(auth, `embedded-${crypto.randomUUID()}@example.invalid`, "local-fixture-only-password");
+const fixtureEmail = new URLSearchParams(window.location.search).get("fixtureEmail");
+if (!fixtureEmail?.endsWith("@example.invalid")) throw new Error("Synthetic emulator account required");
+await signInWithEmailAndPassword(auth, fixtureEmail, "local-fixture-only-password");
+const sessionUser = auth.currentUser;
+if (!sessionUser) throw new Error("Emulator authentication did not establish a session");
+const user = sessionUser;
 const now = Date.now(), today = planDayKey(now), start = Date.parse(`${today}T00:00:00+09:00`);
 const profile = { nickname: "로컬 검증", locale: "ko", units: "metric", timezone: "Asia/Seoul", ftp: 240, weightKg: 70, thresholdPace: 300, defaultVisibility: "private", createdAt: now - 90 * 86400000 } as unknown as UserProfile;
 await setDoc(doc(firestore, "users", user.uid), profile);

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 for (const width of [320, 393, 768]) {
-  test(`shared app coach at ${width}px keeps its owner through page navigation`, async ({ page }, info) => {
+  test(`shared app coach at ${width}px keeps its owner through page navigation`, async ({ page, request }, info) => {
     const errors: string[] = [];
     page.on("pageerror", error => errors.push(error.message));
     await page.setViewportSize({ width, height: 900 });
@@ -8,7 +8,12 @@ for (const width of [320, 393, 768]) {
       const url = new URL(route.request().url());
       return ["127.0.0.1", "localhost"].includes(url.hostname) ? route.continue() : route.abort();
     });
-    await page.goto("/ko/embed/fitness?sport=bike");
+    const email = `embedded-${crypto.randomUUID()}@example.invalid`;
+    const signup = await request.post("http://127.0.0.1:19199/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake-local-key", {
+      data: { email, password: "local-fixture-only-password", returnSecureToken: true },
+    });
+    expect(signup.ok()).toBe(true);
+    await page.goto(`/ko/embed/fitness?sport=bike&fixtureEmail=${encodeURIComponent(email)}`);
     await expect(page.getByTestId("embedded-fitness")).toBeVisible();
     const owner = await page.getByTestId("fixture-owner").textContent();
     for (const [label, target] of [["컨디션", "condition"], ["오늘", "today"], ["분석", "analysis"], ["계획", "plan"], ["목표", "goals"]]) {
