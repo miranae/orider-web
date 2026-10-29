@@ -63,6 +63,8 @@ interface MobileFeedPageProps {
   sportFilter?: SportFilter;
   datePreset?: DashboardDatePreset;
   runningJourney?: ReactNode;
+  /** 필터 결과가 비었을 때 필터 없이도 활동이 있는지(useActivities 의 확인 결과). false 일 때만 "아직 활동 없음". */
+  hasUnfilteredActivity?: boolean | null;
 }
 
 function formatDur(ms: number): string {
@@ -375,6 +377,7 @@ export default function MobileFeedPage({
   sportFilter: controlledSportFilter,
   datePreset: controlledDatePreset,
   runningJourney,
+  hasUnfilteredActivity = null,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
   const { user, loading: authLoading } = useAuth();
@@ -415,6 +418,10 @@ export default function MobileFeedPage({
       ? seoulYearStartMs(Date.now())
       : Date.now() - (datePreset === "7d" ? 7 : datePreset === "30d" ? 30 : 90) * 86400000;
   const filteredByDate = cutoff > 0 ? filteredByScope.filter((a) => a.startTime >= cutoff) : filteredByScope;
+  // 종목·기간은 서버가 쿼리로 거른다. 위 판정은 이전 서버로 내려간 경우의 안전망이라 결과가 같다.
+  // 빈 결과의 문구: 이미 받은 활동이 걸러졌거나, 필터 없이 활동이 있거나 있는지 모르면 "조건에 맞는 활동 없음".
+  const feedFiltersActive = sportFilter !== "all" || datePreset !== "all";
+  const showNoMatches = activities.length > 0 || feedFiltersActive && hasUnfilteredActivity !== false;
   const filteredActivities = filteredByDate;
   const moreCandidates = !searchActive && effectiveFeedScope === "following" && hasMore;
   const renderedActivities = filteredActivities.slice(0, renderLimit);
@@ -470,9 +477,9 @@ export default function MobileFeedPage({
       {!(searchActive ? activitySearch!.loading || activitySearch!.error : loading || error) && filteredActivities.length === 0 && (
         <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
           <div aria-hidden="true" style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>{sportFilter === "all" ? getDisciplineIcon(null) : <SportIcon sport={sportFilter} size={ICON_SIZE.xl} style={{ margin: "0 auto" }} />}</div>
-          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{(searchActive && activitySearch!.hasMoreServerResults || moreCandidates) ? t("feed.search.morePossibleTitle") : searchActive ? t("feed.search.emptyTitle") : activities.length > 0 ? t("feed.noMatches.title") : t("mobileFeed.emptyTitle")}</div>
-          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)" }}>{(searchActive && activitySearch!.hasMoreServerResults || moreCandidates) ? t("feed.search.morePossibleDescription") : searchActive ? t("feed.search.emptyDescription") : activities.length > 0 ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
-          {signedIn && !searchActive && !hasMore && activities.length === 0 && <div className="flex gap-3 mt-3"><a href={ORIDER_PLAY_STORE_URL}>Google Play</a><a href={ORIDER_APP_STORE_URL}>App Store</a><Link to="/athlete/me/activities?import=1">{t("todayStrip.importHistory")}</Link></div>}
+          <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{(searchActive && activitySearch!.hasMoreServerResults || moreCandidates) ? t("feed.search.morePossibleTitle") : searchActive ? t("feed.search.emptyTitle") : showNoMatches ? t("feed.noMatches.title") : t("mobileFeed.emptyTitle")}</div>
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)" }}>{(searchActive && activitySearch!.hasMoreServerResults || moreCandidates) ? t("feed.search.morePossibleDescription") : searchActive ? t("feed.search.emptyDescription") : showNoMatches ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
+          {signedIn && !searchActive && !hasMore && activities.length === 0 && !showNoMatches && <div className="flex gap-3 mt-3"><a href={ORIDER_PLAY_STORE_URL}>Google Play</a><a href={ORIDER_APP_STORE_URL}>App Store</a><Link to="/athlete/me/activities?import=1">{t("todayStrip.importHistory")}</Link></div>}
 
         </div>
       )}

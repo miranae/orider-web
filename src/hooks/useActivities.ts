@@ -118,8 +118,19 @@ const activityPageRequests = new Map<string, Promise<ActivityPage>>();
 
 function feedCursorRequestKey(cursor: FeedCursor | null): unknown { return cursor; }
 
+/** 홈 피드 필터. 서버(getActivityDiscovery)가 쿼리로 거른다 — 한 페이지가 다른 종목으로 차서 비는 일을 막는다. */
+export interface ActivityFeedFilters {
+  sport?: "all" | "bike" | "run" | "swim";
+  datePreset?: DatePreset;
+}
+
+function isInvalidArgumentError(error: unknown): boolean {
+  return (error as { code?: string })?.code?.replace("functions/", "") === "invalid-argument";
+}
+
 export interface UseActivitiesOptions {
   navigationKey?: string;
+  feedFilters?: ActivityFeedFilters;
   subscriptionIds?: readonly string[];
   subscriptionKey?: string;
   enabled?: boolean;
@@ -144,6 +155,11 @@ export function useActivities(
     ? [...new Set(options.subscriptionIds ?? [])].filter(id => id && id !== user.uid).sort().join("\u0000") : "";
   const subscriptionKey = scope === "following" ? options.subscriptionKey ?? "" : "";
   const sessionKey = feedSessionKey(user);
+  const filterDiscipline = options.feedFilters?.sport && options.feedFilters.sport !== "all" ? options.feedFilters.sport : undefined;
+  const filterDatePreset = options.feedFilters?.datePreset ?? "all";
+  // 기간 시작은 프리셋이 바뀔 때 한 번만 정한다 — 렌더마다 Date.now() 를 읽으면 요청 키가 흔들려 커서가 초기화된다.
+  const filterFromInclusive = useMemo(() => activityDateFrom(filterDatePreset) ?? undefined, [filterDatePreset]);
+  const feedFilterKey = JSON.stringify([filterDiscipline ?? null, filterFromInclusive ?? null]);
   const depthKey = options.navigationKey ? `${sessionKey}:${scope}:${options.navigationKey}` : undefined;
   const feedRequestKey = JSON.stringify([
     sessionKey, feedSessionKey(services),
@@ -153,6 +169,7 @@ export function useActivities(
     activeFriendIdsKey,
     subscriptionIdsKey,
     subscriptionKey,
+    feedFilterKey,
   ]);
   const feedRequestKeyRef = useRef(feedRequestKey);
   const feedRequestGenerationRef = useRef(0);
@@ -178,6 +195,8 @@ export function useActivities(
   const [hasMore, setHasMore] = useState(true);
   const [feedCursor, setFeedCursor] = useState<FeedCursor | null>(null);
   const [error, setError] = useState(false);
+  // 필터 결과가 비었을 때만 쓴다: 필터 없이도 활동이 하나도 없는지(true=있음, false=전혀 없음, null=모름).
+  const [hasUnfilteredActivity, setHasUnfilteredActivity] = useState<boolean | null>(null);
   const [retryGeneration, setRetryGeneration] = useState(0);
   const retry = useCallback(() => {
     feedRequestGenerationRef.current += 1;
@@ -188,9 +207,23 @@ export function useActivities(
     uid: string | null, cursor: FeedCursor | null, pageSize = FEED_PAGE_SIZE,
   ): Promise<ActivityPage> => {
     if ((scope === 'self' || scope === 'friends' || scope === 'following') && (!uid || user?.isAnonymous)) return { items: [], cursor: null, hasMore: false };
-    const page = await loadActivityDiscovery(services, { scope, limit: pageSize, ...(cursor ? { cursor } : {}) });
+    const base = { scope, limit: pageSize, ...(cursor ? { cursor } : {}) };
+    const filtered = { ...base, ...(filterDiscipline ? { discipline: filterDiscipline } : {}),
+      ...(filterFromInclusive !== undefined ? { fromInclusive: filterFromInclusive } : {}) };
+    let page;
+    try {
+      page = await loadActivityDiscovery(services, filtered);
+    } catch (error) {
+      // 필터를 모르는 이전 서버(배포 순서가 어긋난 경우)는 invalid-argument 로 거절한다. 그때는 필터 없이 받고
+      // 화면의 종목·기간 판정(MobileFeedPage)에 맡긴다 — 오늘까지의 동작과 같다.
+      if ((!filterDiscipline && filterFromInclusive === undefined) || !isInvalidArgumentError(error)) throw error;
+      logClientError("useActivities.feedFilter.rejected", error, { scope, discipline: filterDiscipline ?? null, hasDateFilter: filterFromInclusive !== undefined });
+      page = await loadActivityDiscovery(services, base);
+    }
+    debugLog("useActivities.page", { scope, discipline: filterDiscipline ?? null, hasDateFilter: filterFromInclusive !== undefined,
+      items: page.items.length, scanned: page.scannedCount, exhausted: page.exhausted });
     return { items: page.items, cursor: page.nextCursor, hasMore: !page.exhausted };
-  }, [services, scope, user?.isAnonymous]);
+  }, [services, scope, user?.isAnonymous, filterDiscipline, filterFromInclusive]);
 
   const fetchPage = useCallback((
     uid: string | null,
@@ -205,6 +238,7 @@ export function useActivities(
       activeFriendIdsKey,
       subscriptionIdsKey,
       subscriptionKey,
+      feedFilterKey,
       feedCursorRequestKey(cursor),
       pageSize,
     ]);
@@ -222,7 +256,7 @@ export function useActivities(
       // 원래 request의 rejection은 호출자가 처리한다. finally 파생 Promise만 흡수한다.
     });
     return request;
-  }, [activeFriendIdsKey, subscriptionIdsKey, subscriptionKey, fetchPageRequest, scope, sessionKey, services]);
+  }, [activeFriendIdsKey, subscriptionIdsKey, subscriptionKey, feedFilterKey, fetchPageRequest, scope, sessionKey, services]);
 
   // 초기 로드 + 유저 변경 시 리셋
   useEffect(() => {
@@ -276,8 +310,20 @@ export function useActivities(
       return null;
     };
 
+    // 필터 결과가 끝까지 비었으면 필터 없이 한 건만 확인해 "아직 활동 없음" 과 "조건에 맞는 활동 없음" 을 가른다.
+    const probeUnfilteredIfEmpty = async (count: number, more: boolean) => {
+      if (count > 0 || more || (!filterDiscipline && filterFromInclusive === undefined) || cancelled) return;
+      try {
+        const probe = await loadActivityDiscovery(services, { scope, limit: 1 });
+        if (!cancelled) setHasUnfilteredActivity(probe.items.length > 0 ? true : probe.exhausted ? false : null);
+      } catch (probeError) {
+        logClientError("useActivities.unfilteredProbe", probeError, { scope });
+      }
+    };
+
     const load = async () => {
       setLoading(true);
+      setHasUnfilteredActivity(null);
       setActivities([]);
       setFeedCursor(null);
       setHasMore(true);
@@ -324,7 +370,10 @@ export function useActivities(
         setHasMore(first.hasMore);
         setLoading(false);
 
-        if (!first.cursor || !first.hasMore) return;
+        if (!first.cursor || !first.hasMore) {
+          await probeUnfilteredIfEmpty(first.items.length, first.hasMore);
+          return;
+        }
 
         setLoadingMore(true);
         let rest: ActivityPage | null = null;
@@ -374,6 +423,7 @@ export function useActivities(
           setFeedCursor(replay.cursor);
           setHasMore(replay.hasMore);
         }
+        await probeUnfilteredIfEmpty(count, replay.hasMore);
 
       } finally {
         if (!cancelled) setLoading(false);
@@ -383,7 +433,7 @@ export function useActivities(
 
     load();
     return () => { cancelled = true; };
-  }, [enabled, authLoading, user, fetchPage, retryGeneration, feedRequestKey, depthKey]);
+  }, [enabled, authLoading, user, fetchPage, retryGeneration, feedRequestKey, depthKey, services, scope, filterDiscipline, filterFromInclusive]);
 
   const loadMore = useCallback(async () => {
     if (!enabled || !feedCursor || loadingMore) return;
@@ -425,6 +475,7 @@ export function useActivities(
   return {
     activities: loadedRequestKey === feedRequestKey ? activities.filter(safety.allows) : [],
     totalCount,
+    hasUnfilteredActivity: loadedRequestKey === feedRequestKey ? hasUnfilteredActivity : null,
     loading: loading || safety.loading,
     loadMore,
     hasMore,
@@ -689,7 +740,8 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   };
 }
 
-function getDateFrom(preset: DatePreset): number | null {
+/** 기간 프리셋의 시작 시각(ms). 피드 서버 요청과 화면 판정이 같은 값을 쓴다. */
+export function activityDateFrom(preset: DatePreset): number | null {
   if (preset === "all") return null;
   const now = new Date();
   switch (preset) {
@@ -770,7 +822,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
     setLoadingMore(false);
     setError(false);
 
-    const dateFrom = getDateFrom(datePreset);
+    const dateFrom = activityDateFrom(datePreset);
 
     fetchActivitySearchResults(services, searchedKeyword, user?.uid ?? null, dateFrom, undefined, subscriptionIds)
       .then(async (page) => {
@@ -826,7 +878,7 @@ export function useActivitySearch(friendIds: ReadonlySet<string>, subscriptions?
     const requestEpoch = searchEpoch.current;
     loadingMoreEpoch.current = requestEpoch;
     setLoadingMore(true);
-    fetchActivitySearchResults(services, searchedKeyword, user?.uid ?? null, getDateFrom(datePreset), currentSearchResultState.cursors, subscriptionIds)
+    fetchActivitySearchResults(services, searchedKeyword, user?.uid ?? null, activityDateFrom(datePreset), currentSearchResultState.cursors, subscriptionIds)
       .then((page) => {
         if (searchEpoch.current !== requestEpoch) return;
         saveFeedDepth(searchDepthKey, currentSearchResultState.results.length + page.results.length);
