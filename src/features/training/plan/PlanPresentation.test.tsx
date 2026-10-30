@@ -196,15 +196,13 @@ describe("PlanPresentation responsive layout", () => {
 
 });
 
-it.each([false, true])("재계획의 현재 가정값과 역사적 시작값은 한 번만 표시한다 (mobile=%s)", mobile => {
+it.each([false, true])("운동 계획 위에는 가정값 출처 안내를 표시하지 않는다 (mobile=%s)", mobile => {
   vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: mobile && query === "(max-width: 1023px)",
     media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
-  const sources = { ftpSource: "assumed", weightSource: "user" };
-  const scoped = { ...model, goal: { ...model.goal, assumedBaseline: false, snapshot: { ftpSource: "user", weightSource: "user" }, planInputSources: sources } } as unknown as PlanModel;
+  const sources = { ftpSource: "assumed", weightSource: "assumed" };
+  const scoped = { ...model, goal: { ...model.goal, assumedBaseline: true, snapshot: sources, planInputSources: sources } } as unknown as PlanModel;
   renderWithProviders(<PlanPresentation model={scoped} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} renderMobile={() => <div>plan</div>} />);
-  expect(screen.getAllByTestId("goal-input-source")).toHaveLength(1);
-  expect(screen.getByTestId("goal-input-source")).toHaveTextContent("가정값");
-  expect(screen.getByTestId("goal-input-source").querySelector("a")).toHaveAttribute("href", expect.stringContaining("#thresholds"));
+  expect(screen.queryByTestId("goal-input-source")).not.toBeInTheDocument();
 });
 
 it("exposes a native per-date workout detail control without nesting glossary buttons", async () => {

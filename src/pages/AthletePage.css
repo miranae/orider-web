@@ -73,6 +73,8 @@
 .athlete-photo-trigger:focus-visible { outline: var(--space-0-5) solid var(--accent); outline-offset: calc(var(--space-0-5) * -1); }
 .athlete-photo-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--space-1); }
 .athlete-photo-strip .athlete-photo-trigger { aspect-ratio: 1; }
+/* 사진이 없을 때 안내 문장이 6열 중 한 칸(1/6 폭)에 갇혀 글자마다 줄바꿈되지 않게 전체 폭을 쓴다. */
+.athlete-photo-strip > p { grid-column: 1 / -1; margin: 0; }
 .athlete-photo-strip img { width: 100%; height: 100%; object-fit: cover; }
 .athlete-photo-viewer > img { display: block; width: 100%; max-height: 60vh; object-fit: contain; }
 .athlete-photo-viewer-controls { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-4); }
@@ -122,4 +124,7 @@
   .athlete-recent-summary { padding-top: 0; }
   .athlete-recent-summary h2 { font-size: var(--fs-xl); font-weight: 700; color: var(--ink-0); }
   .athlete-profile-layout { padding: var(--space-6) 0 0; gap: var(--space-6); }
+  /* 홈 피드는 화면 폭 전체(모서리 0 + 8 회색 띠)지만, 프로필은 셸 거터 안의 카드 화면이라
+     위 프로필 카드와 같은 모서리·간격의 카드로 둔다. */
+  .athlete-profile .mobile-feed-card { border-bottom: 0; border-radius: var(--r-md); margin-bottom: var(--space-3); }
 }

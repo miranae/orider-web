@@ -550,17 +550,20 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
   return (
     <div data-testid={evidenceOnly ? "condition-tri-mobile-evidence" : "K1-8"}>
       {/* 헤더 — PageHeader 패턴 */}
-      {!evidenceOnly && <div className="site-shell tri-fitness__header">
-        <div className="tri-fitness__heading">
-          <Text as="div" variant="caption" style={{ marginBottom: 'var(--space-2)' }}>{t("triView.header.eyebrow")}</Text>
-          <Text as="h1" variant="pageTitle" data-testid="K1-0-1" style={{ marginBottom: "var(--space-1-5)" }}>
-            {t(condition ? "condition.header.title" : "triView.header.title")}
-          </Text>
-          <div style={{ color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
-            {t("triView.header.subtitle")}
+      {/* 헤더 — 사이클·러닝 화면과 같은 제목 줄(제목 + 오른쪽 끝 종목 전환). 통합을 골라도 전환 위치가 그대로다. */}
+      {!evidenceOnly && <div className={`site-shell fitness-page-header tri-fitness__header${condition ? " condition-page-header" : ""}`}>
+        <div className="fitness-page-header__title-row">
+          <div className="fitness-page-header__heading">
+            <Text as="h1" variant="pageTitle" data-testid="K1-0-1">
+              {t(condition ? "condition.header.title" : "triView.header.title")}
+            </Text>
+            <Text as="div" variant="caption" className="fitness-page-header__eyebrow">{t("triView.header.eyebrow")}</Text>
           </div>
+          <div><DisciplineTabs includeTri disabledKeys={["swim"]} /></div>
         </div>
-        <DisciplineTabs includeTri disabledKeys={["swim"]} />
+        <div className="fitness-page-header__subtitle">
+          {t("triView.header.subtitle")}
+        </div>
       </div>}
 
       <div className={evidenceOnly ? "tri-fitness__mobile-evidence" : "site-shell"} style={{ padding: evidenceOnly ? "var(--space-4)" : "var(--space-5) var(--space-6) var(--space-8)" }}>
