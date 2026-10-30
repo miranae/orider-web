@@ -109,6 +109,22 @@ it("lets later subscription changes override an optimistic state (cancel, then t
   expect(await within(row("rider-s")).findByRole("button", { name: "rider-s 친구 요청 수락" })).toBeInTheDocument();
 });
 
+it("does not resurrect an optimistic request after the subscription acknowledges it and the other side declines", async () => {
+  search.mockResolvedValue({ items: [person("d")], nextCursor: null });
+  const view = renderPage("/ko/explore/athletes?q=rider");
+  await screen.findByRole("link", { name: "rider-d" });
+  await userEvent.click(within(row("rider-d")).getByRole("button", { name: "rider-d님에게 친구 요청" }));
+  await waitFor(() => expect(send).toHaveBeenCalled());
+  // 구독이 보낸 요청을 반영
+  friendsState.sentRequests = [{ targetId: "d" }];
+  view.rerender(<><ExploreAthletesPage /><Location /></>);
+  expect(await within(row("rider-d")).findByRole("button", { name: "rider-d님에게 보낸 친구 요청 취소" })).toBeInTheDocument();
+  // 상대가 거절 → 구독이 none 으로 돌아오면 다시 요청할 수 있어야 한다
+  friendsState.sentRequests = [];
+  view.rerender(<><ExploreAthletesPage /><Location /></>);
+  expect(await within(row("rider-d")).findByRole("button", { name: "rider-d님에게 친구 요청" })).toBeInTheDocument();
+});
+
 it("rolls back the optimistic state and toasts when sending fails; accepts and cancels through the friends hook", async () => {
   send.mockRejectedValueOnce(new Error("permission-denied"));
   friendsState.requests = [{ requesterId: "r" }];

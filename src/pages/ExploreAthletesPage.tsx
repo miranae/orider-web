@@ -126,6 +126,20 @@ export default function ExploreAthletesPage() {
     const local = localStatus.get(id);
     return local && local.base === subscribed ? local.state : subscribed;
   };
+  // 구독이 기준값에서 한 번이라도 벗어나면(반영·다른 변경) 낙관적 값은 버린다 — 남겨 두면
+  // 보냄 → 상대 거절로 구독이 기준값(none)에 돌아왔을 때 옛 "요청됨"이 되살아난다.
+  useEffect(() => {
+    setLocalStatus(previous => {
+      let next: Map<string, { state: FriendState; base: FriendState }> | null = null;
+      for (const [id, local] of previous) {
+        const subscribed = friendIds.has(id) ? "friend" : receivedIds.has(id) ? "received" : sentIds.has(id) ? "sent" : "none";
+        if (subscribed === local.base) continue;
+        next ??= new Map(previous);
+        next.delete(id);
+      }
+      return next ?? previous;
+    });
+  }, [friendIds, receivedIds, sentIds]);
 
   const withPending = async (id: string, action: PendingAction, work: () => Promise<void>) => {
     if (pending.has(id)) return;
