@@ -11,7 +11,7 @@ import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import {
   collection, query, where, orderBy, getDocs, limit, startAfter,
-  doc, getDoc, setDoc,
+  doc, getDoc,
   type QueryDocumentSnapshot, type DocumentData,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -23,7 +23,7 @@ import { firestore, functions } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useDocument } from "../hooks/useFirestore";
 import { useMyGroups } from "../hooks/useGroup";
-import { cancelFriendRequest } from "../hooks/useFriends";
+import { cancelFriendRequest, sendFriendRequest } from "../hooks/useFriends";
 import { useAuth } from "../contexts/AuthContext";
 import { Activity as ActivityIcon, Route, Clock3, Mountain, Pencil, Share2, ArrowUpRight, Trash2 } from "lucide-react";
 import TabNav, { RouteTabNav } from "../components/TabNav";
@@ -534,12 +534,11 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     if (!currentUser || !userId || friendLoading) return false;
     setFriendLoading(true);
     try {
-      await setDoc(doc(firestore, "friend_requests", userId, "items", currentUser.uid), {
-        requesterId: currentUser.uid,
+      await sendFriendRequest({
+        uid: currentUser.uid,
         nickname: currentProfile?.nickname || currentUser.displayName || "",
         profileImage: currentProfile?.photoURL || currentUser.photoURL || null,
-        createdAt: Date.now(),
-      });
+      }, userId);
       setFriendStatus("request_sent");
       return true;
     } catch (err) {

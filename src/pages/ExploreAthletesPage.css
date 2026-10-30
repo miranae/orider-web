@@ -1,0 +1,19 @@
+.explore-people-form { display: flex; gap: var(--space-2); align-items: center; }
+.explore-people-input { flex: 1; min-width: 0; }
+.explore-people-guest { display: grid; justify-items: start; gap: var(--space-3); }
+.explore-people-list ul { margin: 0; padding: 0; list-style: none; }
+.explore-people-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+.explore-people-row + .explore-people-row { border-top: 1px solid var(--line-soft); }
+.explore-people-avatar { flex-shrink: 0; }
+.explore-people-text { display: grid; flex: 1; min-width: 0; gap: var(--space-1); }
+.explore-people-name { color: var(--ink-0); font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.explore-people-name:hover { text-decoration: underline; }
+.explore-people-code { display: inline-flex; align-items: center; gap: var(--space-1); }
+.explore-people-bio { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.explore-people-private { justify-self: start; padding: 0 var(--space-2); border: 1px solid var(--line-soft); border-radius: var(--r-lg); }
+.explore-people-action { flex-shrink: 0; margin-left: auto; }
+.explore-people-sent { display: inline-flex; align-items: center; gap: var(--space-2); }
+.explore-people-more { display: flex; justify-content: center; margin-top: var(--space-4); }
+.explore-people-stats.profile-social-stats { display: flex; flex-wrap: wrap; border-top: 1px solid var(--line-soft); }
+.explore-people-stats .profile-social-stat { flex: 1 1 0; min-width: 0; padding: var(--space-2) var(--space-1); min-height: 0; cursor: default; }
+.explore-people-latest { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); min-width: 0; }
