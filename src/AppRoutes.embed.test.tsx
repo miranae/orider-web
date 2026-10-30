@@ -21,6 +21,7 @@ import { AppRoutes, isEmbeddedRoutePath } from "./App";
 describe("embedded routes", () => {
   it.each([
     ["/ko/embed/activity/activity-1/analysis", "activity-analysis"],
+    ["/ko/embed/activity/activity-1/public", "activity-public"],
     ["/ko/embed/fitness?sport=run", "fitness"],
     ["/en/embed/plan?sport=swim", "plan"],
   ])("renders %s outside the general Layout", async (path, surfaceKind) => {
@@ -39,6 +40,7 @@ describe("embedded routes", () => {
 
   it.each([
     "/ko/embed/activity/activity-1/analysis",
+    "/ko/embed/activity/activity-1/public",
     "/ko/embed/fitness",
     "/en/embed/plan/",
   ])("recognizes embedded path %s", (path) => {

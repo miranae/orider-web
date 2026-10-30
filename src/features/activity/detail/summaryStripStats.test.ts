@@ -123,3 +123,31 @@ it("legacy의 관측된 0과 pending 요약 fallback을 구분한다", () => {
   expect(resolveSummaryStripStats({ status: "loading", metrics: null }, inputs).distanceM)
     .toEqual({ value: 18400, provisional: true });
 });
+
+it("uses Strava evidence consistently instead of calculated metrics and never labels an estimate as provider calories", () => {
+  const stravaRecord = { version: 1 as const, distance: 135361, moving_time: 19046, elapsed_time: 31351,
+    average_speed: 25.5852 / 3.6, max_speed: 60.408 / 3.6, total_elevation_gain: 645, average_watts: 120.9,
+    weighted_average_watts: 144, calories: 3086 };
+  const stats = resolveSummaryStripStats(ready({ maxSpeedKph: 54.2, elevationGainM: 638, elevationLossM: 537, caloriesKcal: 2279, np: 157.49 }), { ...inputs, stravaRecord });
+  expect(stats.maxSpeedKph.value).toBeCloseTo(60.408); expect(stats.elevationGainM.value).toBe(645);
+  expect(stats.avgPower.value).toBe(120.9); expect(stats.caloriesKcal.value).toBe(3086);
+  expect(stats.elevationLossM.value).toBeNull(); expect(stats.np.value).toBeNull(); expect(stats.pauseTimeSec.value).toBe(12305);
+  expect(resolveSummaryStripStats(ready(), { ...inputs, stravaRecord: { version: 1 } }).caloriesKcal.value).toBeNull();
+});
+
+it.each([null, undefined, 0])("미기록 TCX 거리와 명시된 0을 구분한다: %s", (distance) => {
+  const importedInputs = { ...inputs, summary: { ...summary, distance } as unknown as ActivitySummary };
+  expect(resolveSummaryStripStats({ status: "loading", metrics: null }, importedInputs).distanceM)
+    .toEqual({ value: distance === 0 ? 0 : null, provisional: distance === 0 });
+  expect(resolveSummaryStripStats(ready({ version: 41, distanceKm: 0, distanceSource: null }), importedInputs).distanceM)
+    .toEqual({ value: null, provisional: false });
+  if (distance === 0) {
+    expect(resolveSummaryStripStats(ready({ version: 41, distanceKm: 0, distanceSource: "recorded_summary" }), importedInputs).distanceM)
+      .toEqual({ value: 0, provisional: false });
+  }
+});
+
+it("never backfills any missing Strava summary field from analysis or local summaries", () => {
+  const stats = resolveSummaryStripStats(ready(), { ...inputs, stravaRecord: { version: 1 } });
+  expect(Object.values(stats).every(stat => stat.value === null && !stat.provisional)).toBe(true);
+});

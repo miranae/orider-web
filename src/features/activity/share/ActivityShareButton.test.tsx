@@ -178,3 +178,37 @@ describe("ActivityShareButton", () => {
     expect(captureMap).not.toHaveBeenCalled();
   });
 });
+
+describe("current public geometry for owner shares", () => {
+  it("uses server map instead of the raw image and rechecks before download", async () => {
+    const resolvePublicMap = vi.fn().mockResolvedValue({ encodedPolyline: null, imageUrl: null, revision: "r1" });
+    vi.mocked(cardModule.drawActivityShareCard).mockResolvedValue(document.createElement("canvas"));
+    vi.mocked(cardModule.canvasToPng).mockResolvedValue(new Blob(["png"]));
+    render(<ActivityShareButton {...props} card={{ ...card, backgroundImageUrl: "https://raw.test/map" }} routeTrack="raw" resolvePublicMap={resolvePublicMap} />);
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() => expect(cardModule.downloadShareCard).toHaveBeenCalledOnce());
+    expect(resolvePublicMap).toHaveBeenCalledTimes(2);
+    expect(captureMap).not.toHaveBeenCalled();
+    expect(cardModule.drawActivityShareCard).toHaveBeenCalledWith(expect.objectContaining({ includeRouteImage: false, backgroundImageUrl: undefined }), expect.any(AbortSignal));
+  });
+  it("does not download if policy changes while rendering", async () => {
+    const resolvePublicMap = vi.fn().mockResolvedValueOnce({ encodedPolyline: null, imageUrl: null, revision: "r1" }).mockResolvedValueOnce({ encodedPolyline: null, imageUrl: null, revision: "r2" });
+    vi.mocked(cardModule.drawActivityShareCard).mockResolvedValue(document.createElement("canvas"));
+    vi.mocked(cardModule.canvasToPng).mockResolvedValue(new Blob(["png"]));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: vi.fn().mockResolvedValue(undefined) }, configurable: true });
+    render(<ActivityShareButton {...props} resolvePublicMap={resolvePublicMap} />);
+    fireEvent.click(screen.getByRole("button"));
+    await waitFor(() => expect(resolvePublicMap).toHaveBeenCalledTimes(2));
+    expect(cardModule.downloadShareCard).not.toHaveBeenCalled();
+  });
+});
+it("rejects pending export and stale URL fallback after account context replacement", async () => {
+ let resolve!: (value: { encodedPolyline: null; imageUrl: null; revision: string }) => void;
+ const resolver = vi.fn(() => new Promise<{ encodedPolyline: null; imageUrl: null; revision: string }>(done => { resolve = done; }));
+ const clipboard = vi.fn(); Object.defineProperty(navigator, "clipboard", { value: { writeText: clipboard }, configurable: true });
+ const view = render(<ActivityShareButton {...props} shareContext={{ uid: "owner" }} resolvePublicMap={resolver} />);
+ fireEvent.click(screen.getByRole("button"));
+ view.rerender(<ActivityShareButton {...props} shareContext={{ uid: "owner" }} resolvePublicMap={resolver} />);
+ await act(async () => resolve({ encodedPolyline: null, imageUrl: null, revision: "r1" }));
+ expect(cardModule.downloadShareCard).not.toHaveBeenCalled(); expect(clipboard).not.toHaveBeenCalled(); expect(cardModule.drawActivityShareCard).not.toHaveBeenCalled();
+});

@@ -1161,6 +1161,7 @@ export function useFitnessModel(
     hasCanonicalTimeseries,
     hasCanonicalHistory,
     fitnessDateKeyBasis,
+    periodTimeseries: discipline === "tri" ? null : canonicalActive ? selectedApiTimeseries : timeseries,
     pmcHistoryPoints,
     fitnessData,
     dailyData,

@@ -1,3 +1,4 @@
+import { getVisibleEventPage } from "../../services/eventDiscovery";
 import "./ClubSurface.css";
 import { LockKeyhole, Users } from "lucide-react";
 import { isActiveEventRegistration } from "../../features/event/activeRegistration";
@@ -7,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
-import { collection, doc, getDoc, getDocs, query, where, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { collection, doc, getDoc, query, where, limit, onSnapshot } from "firebase/firestore";
 import { auth, ensureAppCheckReady, firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { isPermissionDeniedError } from "../../utils/firebaseErrors";
@@ -22,6 +23,7 @@ import { useGroup, useGroupMemberRole, useGroupMembers } from "../../hooks/useGr
 import { useGroupRideStats } from "../../hooks/useGroupRides";
 import { createGroupPost, updateGroupPost, useGroupPosts } from "../../hooks/useGroupPosts";
 import PublicClubPreview from "../../components/group/PublicClubPreview";
+import PublicCafeSchedulePanel from "../../features/group/PublicCafeSchedulePanel";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import RideCard from "../../components/group/RideCard";
 import Avatar from "../../components/Avatar";
@@ -39,9 +41,11 @@ interface UpcomingEvent {
 }
 
 export default function GroupDashboardPage() {
-  const { t, i18n } = useTranslation("group");
+  const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
-  const { user, loading: authLoading } = useAuth();
+  const { user: authUser, loading: authLoading } = useAuth();
+  // Anonymous Firebase sessions are visitors, not club members or join identities.
+  const user = authUser?.isAnonymous ? null : authUser;
   const dialog = useDialog();
   const [joining, setJoining] = useState(false);
   const [joinPending, setJoinPending] = useState(false);
@@ -81,6 +85,7 @@ export default function GroupDashboardPage() {
   // 다가오는 그룹 이벤트
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [upcomingError, setUpcomingError] = useState(false);
+  const [upcomingIncomplete, setUpcomingIncomplete] = useState(false);
   const [upcomingLoading, setUpcomingLoading] = useState(true);
   const [upcomingAttempt, setUpcomingAttempt] = useState(0);
   useEffect(() => {
@@ -88,19 +93,13 @@ export default function GroupDashboardPage() {
     let cancelled = false;
     setUpcomingEvents([]);
     setUpcomingError(false);
+    setUpcomingIncomplete(false);
     setUpcomingLoading(true);
     (async () => {
       try {
-        const snap = await getDocs(
-          query(
-            collection(firestore, "events"),
-            where("info.groupId", "==", groupId),
-            where("info.status", "in", ["OPEN", "LIVE"]),
-            ...(!currentMemberRole ? [where("info.visibility", "==", "PUBLIC")] : []),
-            orderBy("info.startTime", "asc"),
-            limit(3)
-          )
-        );
+        const snap = await getVisibleEventPage({ groupId, publicOnly: !currentMemberRole, statuses: ["OPEN", "LIVE"], limit: 3 });
+        if (cancelled) return;
+        setUpcomingIncomplete(Boolean(snap.nextCursor));
         const list: UpcomingEvent[] = await Promise.all(snap.docs.map(async (d) => {
           const data = d.data();
           const info = data.info ?? {};
@@ -197,6 +196,7 @@ export default function GroupDashboardPage() {
   if (!currentMemberRole) return <div data-testid="C1.preview" className="club-surface space-y-4">
     <Text as="h1" variant="pageTitle" data-testid="C1-0-1">{group.name}</Text><p data-testid="C1-2-1">{group.description}</p>{group.rules && <Card data-testid="C1-2"><h2>{t("dashboard.rules.title")}</h2><p data-testid="C1-2-2" className="whitespace-pre-wrap">{group.rules}</p></Card>}
     <p>{t("dashboard.previewHint")}</p>
+    {group.id === "club-lara" && <PublicCafeSchedulePanel groupId={group.id} language={i18n.language} />}
     {user && group.visibility === "public" && <button type="button" data-testid="C1-0-3" className={buttonClass({ variant: "primary" })} disabled={joining || joinPending} onClick={async () => {
       const uid = user.uid; const intent = editIntent.current; setJoining(true);
       try {
@@ -438,12 +438,13 @@ export default function GroupDashboardPage() {
       )}
 
       {/* 다가오는 이벤트 */}
-      {(upcomingEvents.length > 0 || upcomingLoading || upcomingError) && (
+      {(upcomingEvents.length > 0 || upcomingLoading || upcomingError || upcomingIncomplete) && (
         <Card data-testid="C1-4" padding="none" className="mb-5 p-4" style={{ borderRadius: "var(--r-lg)" }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="club-card-title" style={{ color: "var(--ink-1)" }}>{t("dashboard.upcomingEvents")}</h2>
             <Link data-testid="C1-4-1" to={`/club/${groupId}/events`} className="text-[length:var(--ft-body-size)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreEvents")}</Link>
           </div>
+          {upcomingIncomplete && !upcomingLoading && !upcomingError && <p role="status">{t("event:discovery.partial")}</p>}
           {upcomingLoading ? <LoadingSkeleton kind="list" count={2} /> : upcomingError ? <ErrorState title={t("error.eventsLoadFailed")} onRetry={()=>setUpcomingAttempt(value=>value+1)} compact /> : <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" style={{ listStyle: "none", margin: 0, padding: 0, gap: "var(--space-2)" }}>
             {upcomingEvents.map((e) => (
               <li key={e.id} className="flex items-center justify-between" style={{ padding: "10px 12px", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", gap: "var(--space-2)" }}>

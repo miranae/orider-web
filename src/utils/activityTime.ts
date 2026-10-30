@@ -1,7 +1,9 @@
+import type { StravaSummaryV1 } from "@shared/analysis/stravaRecord";
 /**
  * activityTime — 활동 "시간" 표시 정책 (#236).
  *
- * ridingTimeMillis 의미는 소스별로 다르다. orider 는 경과시간, Strava 는 이동시간에
+ * Strava 원본이 주어지면 이동시간과 평균속도를 그대로 사용하며 결측을 계산값으로 채우지 않는다.
+ * 그 외 소스의 ridingTimeMillis 의미는 소스별로 다르다. orider 는 경과시간, Strava 는 이동시간에
  * 가까우므로 startTime/endTime 이 있으면 그 차이를 총 경과시간으로 우선 사용한다.
  * 정지 시간이 큰 활동(예: 9h 57m / 3.3km)을 그대로 보여주면 "9시간 라이딩?" 오해.
  * activity_metrics 가 산출한 movingTimeSec/pauseTimeSec 가 있고 정지가 유의미(60s+)하면
@@ -32,12 +34,20 @@ export interface ResolvedDuration {
  */
 export function resolveDuration(src: {
   ridingTimeMillis: number;
+  stravaRecord?: StravaSummaryV1 | null;
   startTime?: number | null;
   endTime?: number | null;
   elapsedTimeMillis?: number | null;
   movingTimeSec?: number | null;
   pauseTimeSec?: number | null;
 }): ResolvedDuration {
+  if (src.stravaRecord) {
+    const r = src.stravaRecord;
+    const movingMs = r.moving_time == null ? null : r.moving_time * 1000;
+    const elapsedMs = r.elapsed_time == null ? NaN : r.elapsed_time * 1000;
+    return { displayMs: movingMs ?? elapsedMs, usingMoving: movingMs != null, movingMs, elapsedMs,
+      pauseMs: movingMs != null && Number.isFinite(elapsedMs) ? Math.max(0, elapsedMs - movingMs) : null };
+  }
   const activitySpanMs = src.startTime != null && src.endTime != null && src.endTime > src.startTime
     ? src.endTime - src.startTime
     : null;
@@ -67,7 +77,8 @@ export function resolveDuration(src: {
  * @param resolved resolveDuration 결과
  * @param fallbackKph 전환 안 했을 때 쓸 기존 평균 속도(km/h)
  */
-export function resolveAvgSpeedKph(distanceM: number, resolved: ResolvedDuration, fallbackKph: number): number {
+export function resolveAvgSpeedKph(distanceM: number, resolved: ResolvedDuration, fallbackKph: number, stravaRecord?: StravaSummaryV1 | null): number {
+  if (stravaRecord) return stravaRecord.average_speed == null ? NaN : stravaRecord.average_speed * 3.6;
   if (resolved.displayMs > 0 && distanceM > 0) {
     return (distanceM / 1000) / (resolved.displayMs / 3_600_000);
   }

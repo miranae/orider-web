@@ -1,18 +1,20 @@
+import { auth } from "../services/firebase";
 import { useEffect, useState } from "react";
 import { logClientError } from "../services/errorLogger";
 import { fetchRecentActivityTracks } from "../services/activityTracks";
 import { aggregatePersonalHeatmapAsync, type PersonalHeatPoint } from "../features/explore/personalHeatmap";
 
-let sessionCache: { uid: string; points: PersonalHeatPoint[] } | null = null;
+let sessionCache: { owner: NonNullable<typeof auth.currentUser>; uid: string; points: PersonalHeatPoint[] } | null = null;
 export function clearPersonalHeatmapSessionCache(): void { sessionCache = null; }
 
 export function usePersonalHeatmap(uid: string | null | undefined, enabled: boolean) {
-  const [ownedPoints, setOwnedPoints] = useState<{ uid: string; points: PersonalHeatPoint[] } | null>(null);
+  const [ownedPoints, setOwnedPoints] = useState<{ owner: NonNullable<typeof auth.currentUser>; uid: string; points: PersonalHeatPoint[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
+  const owner = auth.currentUser;
   useEffect(() => {
-    if (!uid || !enabled) {
+    if (!uid || !enabled || !owner || owner.uid !== uid || owner.isAnonymous) {
       setLoading(false);
       setError(false);
       if (!uid) {
@@ -21,7 +23,7 @@ export function usePersonalHeatmap(uid: string | null | undefined, enabled: bool
       }
       return;
     }
-    if (sessionCache?.uid === uid) {
+    if (sessionCache?.uid === uid && sessionCache.owner === owner) {
       setOwnedPoints(sessionCache);
       setLoading(false);
       return;
@@ -33,14 +35,14 @@ export function usePersonalHeatmap(uid: string | null | undefined, enabled: bool
     setLoading(true);
     setError(false);
     void fetchRecentActivityTracks(uid).then((tracks) => {
-      if (cancelled) return;
+      if (cancelled || auth.currentUser !== owner) return;
       return aggregatePersonalHeatmapAsync(tracks, undefined, undefined, {
         signal: controller.signal,
-        isCancelled: () => cancelled,
+        isCancelled: () => cancelled || auth.currentUser !== owner,
       });
     }).then((next) => {
-      if (cancelled || !next) return;
-      sessionCache = { uid, points: next };
+      if (cancelled || auth.currentUser !== owner || !next) return;
+      sessionCache = { owner, uid, points: next };
       setOwnedPoints(sessionCache);
     }).catch((err) => {
       if (cancelled || (err instanceof DOMException && err.name === "AbortError")) return;
@@ -49,7 +51,7 @@ export function usePersonalHeatmap(uid: string | null | undefined, enabled: bool
       if (!cancelled) { setOwnedPoints(null); setError(true); }
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; controller.abort(); };
-  }, [enabled, uid]);
+  }, [enabled, uid, owner]);
 
-  return { points: ownedPoints && ownedPoints.uid === uid ? ownedPoints.points : [], loading, error };
+  return { points: ownedPoints && ownedPoints.uid === uid && ownedPoints.owner === owner ? ownedPoints.points : [], loading, error };
 }

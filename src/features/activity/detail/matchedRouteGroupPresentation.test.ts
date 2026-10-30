@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ActivityMatchedRouteGroupMember, ActivityMatchedRouteGroupResponse } from "@shared/activity-matched-route-groups";
 import { matchedRouteAverage, matchedRoutePresentation } from "./matchedRouteGroupPresentation";
 const row = (speed: number | null, discipline: "bike" | "run" = "bike", index = 0): ActivityMatchedRouteGroupMember => ({ activityId: `record-${index}`, startTime: 1790000000000 + index * 86400000, year: 2026, isAnchor: index === 0, rankingEligible: speed !== null && speed > 0, rankingExclusionReason: null,
-  canonicalAverage: { state: "available", reason: null, metricsRevision: "a".repeat(64), version: 35, discipline, startTime: 1790000000000 + index * 86400000, computedAt: 1791000000000, avgSpeedKph: speed, inputCoverage: "complete", sourceLayer: "raw_parts" } });
+  canonicalAverage: { state: "available", reason: null, metricsRevision: "a".repeat(64), version: 41, discipline, startTime: 1790000000000 + index * 86400000, computedAt: 1791000000000, avgSpeedKph: speed, inputCoverage: "complete", sourceLayer: "raw_parts" } });
 const pages = (members: ActivityMatchedRouteGroupMember[]) => [{ members }] as ActivityMatchedRouteGroupResponse[];
 describe("member scalar presentation without an Activity or summary fallback", () => {
   it("uses exact reciprocal pace and imperial dimensions; bike zero and run zero differ", () => {

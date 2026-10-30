@@ -1,4 +1,5 @@
-import { screen, waitFor } from "@testing-library/react";
+import { getDoc } from "firebase/firestore";
+import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { getCurrentUser } from "../__tests__/mocks/firebase";
@@ -31,17 +32,33 @@ describe("SettingsPage", () => {
   });
 
   it("shows the authenticated profile, visibility choices and account actions", async () => {
-    renderWithProviders(<SettingsPage tab="account" />, {
-      authenticated: true,
-      user: { displayName: "라이더", email: "rider@test.com" },
-      profile: { nickname: "라이더", friendCode: "XYZ789" },
+    const originalGetDoc = vi.mocked(getDoc).getMockImplementation()!;
+    let releaseProfileRead!: () => void;
+    const profileReadReady = new Promise<void>(resolve => { releaseProfileRead = resolve; });
+    vi.mocked(getDoc).mockImplementation(async ref => {
+      if ((ref as unknown as { path: string }).path === "users/test-uid") await profileReadReady;
+      return originalGetDoc(ref);
     });
-    await screen.findByText("라이더");
-    for (const label of ["설정", "프로필", "계정 관리", "공개 범위", "모두에게 공개", "비공개", "XYZ789"]) {
-      expect(screen.getByText(label)).toBeInTheDocument();
+    try {
+      renderWithProviders(<SettingsPage tab="account" />, {
+        authenticated: true,
+        user: { displayName: "라이더", email: "rider@test.com" },
+        profile: { nickname: "라이더", friendCode: "XYZ789" },
+      });
+      // Auth displayName is ready before the independent friend-code document read.
+      await screen.findByText("라이더");
+      expect(screen.queryByText("XYZ789")).not.toBeInTheDocument();
+      await act(async () => { releaseProfileRead(); });
+      await screen.findByText("XYZ789");
+      for (const label of ["설정", "프로필", "계정 관리", "공개 범위", "모두에게 공개", "비공개", "XYZ789"]) {
+        expect(screen.getByText(label)).toBeInTheDocument();
+      }
+      expect(screen.getByRole("link", { name: "데이터 관리" })).toHaveAttribute("href", "/ko/settings/data");
+      expect(screen.queryByRole("button", { name: "모든 활동 데이터 삭제" })).not.toBeInTheDocument();
+    } finally {
+      releaseProfileRead();
+      vi.mocked(getDoc).mockImplementation(originalGetDoc);
     }
-    expect(screen.getByRole("link", { name: "데이터 관리" })).toHaveAttribute("href", "/ko/settings/data");
-    expect(screen.queryByRole("button", { name: "모든 활동 데이터 삭제" })).not.toBeInTheDocument();
   });
 
   it("shows Strava 연결하기 button when not connected", async () => {

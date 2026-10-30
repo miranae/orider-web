@@ -4,6 +4,7 @@ export interface ActivityDefaultSummaryV1 {
   formatterVersion: string;
   sourceRevision: string;
   inputDigest: string;
+  metricBasis?: string;
   state: 'pending' | 'processing' | 'ready' | 'failed';
   text?: { ko: string; en: string };
   generatedAt?: number;

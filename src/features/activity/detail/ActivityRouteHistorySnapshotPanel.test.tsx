@@ -1,0 +1,36 @@
+import {fireEvent,render,screen} from "@testing-library/react";
+import {MemoryRouter,Routes,Route,useLocation} from "react-router-dom";
+import {beforeEach,expect,it,vi} from "vitest";
+import type {Activity} from "@shared/types";
+import ActivityRouteHistorySnapshotPanel from "./ActivityRouteHistorySnapshotPanel";
+const mocks=vi.hoisted(()=>({query:{history:null as any,previousResults:[] as any[],selectedRun:null as string|null,loadHistory:vi.fn(),openSaved:vi.fn(),canRecover:false,recover:vi.fn(),available:true,status:"ready",data:null as any,start:vi.fn(),advance:vi.fn(),stop:vi.fn()}}));
+vi.mock("../../../hooks/useActivityRouteHistorySnapshot",()=>({useActivityRouteHistorySnapshot:()=>mocks.query}));
+vi.mock("react-i18next",()=>({useTranslation:()=>({t:(key:string,p?:Record<string,unknown>)=>key+(p?JSON.stringify(p):""),i18n:{language:"ko"}})}));
+const activity={id:"anchor",userId:"owner",type:"Ride",startTime:1000} as Activity;
+function Location(){const l=useLocation();return <div data-testid="location">{JSON.stringify(l)}</div>;}
+function mount(){return render(<MemoryRouter initialEntries={["/ko/activity/anchor?tab=compare"]}><Routes><Route path="/:lang/*" element={<><ActivityRouteHistorySnapshotPanel activity={activity} observedMetricsIdentity="head"/><Location/></>}/></Routes></MemoryRouter>);}
+beforeEach(()=>{mocks.query.history=null;mocks.query.previousResults=[];mocks.query.loadHistory.mockClear();mocks.query.openSaved.mockClear();mocks.query.canRecover=false;mocks.query.recover.mockClear();mocks.query.data=null;mocks.query.status="ready";mocks.query.start.mockClear();});
+it("keeps best hidden before complete and advances only on a user action",()=>{mocks.query.data={state:"scanning",scanned:2,candidateCount:1,excluded:0,unresolved:0,asOf:1000,expiresAt:3001000,best:{bestElapsedSec:600,bestActivityIds:["source"]}};mount();expect(screen.getByRole("status")).toHaveTextContent("routeHistory.status.paused");expect(screen.getByRole("button",{name:"routeHistory.stop"})).toBeInTheDocument();expect(screen.queryByText(/routeHistory.elapsed/)).not.toBeInTheDocument();expect(screen.queryByRole("link")).not.toBeInTheDocument();fireEvent.click(screen.getByRole("button",{name:"routeHistory.continue"}));expect(mocks.query.advance).toHaveBeenCalledOnce();});
+it("shows completed elapsed time, gaps and exact source return navigation",()=>{mocks.query.data={state:"complete",bestStatus:"observed_best_with_gaps",asOf:1000,expiresAt:3001000,scanned:5,candidateCount:3,excluded:1,unresolved:1,best:{bestElapsedSec:600.5,bestActivityIds:["source"],eligibleGroups:1,excludedGroups:0,ambiguousGroups:1,unavailableGroups:1,states:{missing:1,unsupported:0,changed:0},tiesTruncated:false}};mount();expect(screen.getByRole("status")).toHaveTextContent("routeHistory.status.complete");expect(screen.getByRole("button",{name:"routeHistory.close"})).toBeInTheDocument();expect(screen.getByText('routeHistory.elapsed{"time":"0:10:00.5"}')).toBeInTheDocument();expect(screen.getByText("routeHistory.best.observed_best_with_gaps")).toBeInTheDocument();fireEvent.click(screen.getByRole("link"));const l=JSON.parse(screen.getByTestId("location").textContent!);expect(l.pathname).toBe("/ko/activity/source");expect(l.state.routeInventoryReturn).toEqual({uid:"owner",pathname:"/ko/activity/anchor",search:"?tab=compare",hash:""});});
+it("offers a fresh start after expiry without retaining a winner",()=>{mocks.query.status="expired";mount();expect(screen.getByRole("status")).toHaveTextContent("routeHistory.status.expired");expect(screen.queryByRole("link")).not.toBeInTheDocument();fireEvent.click(screen.getByRole("button",{name:"routeHistory.start"}));expect(mocks.query.start).toHaveBeenCalledOnce();});
+
+it.each([[59.96,"0:01:00.0"],[3599.96,"1:00:00.0"]])("carries rounding across clock boundaries for %s",(seconds,expected)=>{mocks.query.data={state:"complete",bestStatus:"verified_recorded_best",asOf:1000,expiresAt:3001000,best:{bestElapsedSec:seconds,bestActivityIds:[],eligibleGroups:1,excludedGroups:0,ambiguousGroups:0,unavailableGroups:0,states:{missing:0,unsupported:0,changed:0},tiesTruncated:false}};mount();expect(screen.getByText(`routeHistory.elapsed{"time":"${expected}"}`)).toBeInTheDocument();});
+
+it("offers status retry after a completed winner loses network verification",()=>{mocks.query.status="error";mocks.query.data={state:"complete",bestStatus:"verified_recorded_best",asOf:1000,expiresAt:3001000,best:null};mount();expect(screen.getByRole("button",{name:"routeHistory.retry"})).toBeEnabled();expect(screen.queryByText("routeHistory.best.verified_recorded_best")).not.toBeInTheDocument();expect(screen.queryByRole("link")).not.toBeInTheDocument();});
+
+it("offers explicit checkpoint verification without displaying stored results",()=>{mocks.query.canRecover=true;mocks.query.status="idle";mount();expect(screen.queryByRole("link")).not.toBeInTheDocument();expect(mocks.query.recover).not.toHaveBeenCalled();fireEvent.click(screen.getByRole("button",{name:"routeHistory.recover"}));expect(mocks.query.recover).toHaveBeenCalledOnce();});
+
+it("lists saved comparisons without starting a new calculation and opens a chosen result",()=>{
+ mocks.query.history={items:[{runId:"old",asOf:1000,scanned:20}],nextCursor:"next"};mount();fireEvent.click(screen.getByRole("button",{name:"routeHistory.loadHistory"}));expect(mocks.query.loadHistory).toHaveBeenCalledWith();
+ fireEvent.click(screen.getByRole("button",{name:/routeHistory.historyEntry/}));expect(mocks.query.openSaved).toHaveBeenCalledWith("old");expect(mocks.query.start).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole("button",{name:"routeHistory.moreHistory"}));expect(mocks.query.loadHistory).toHaveBeenLastCalledWith(true);
+});
+
+it("distinguishes equal-time results and marks the selected saved result",()=>{
+ mocks.query.selectedRun=null;mocks.query.data={runId:"old",state:"complete",asOf:1000,expiresAt:3001000,best:null};mocks.query.status="error";mocks.query.history={items:[{runId:"old",asOf:1000,scanned:2},{runId:"new",asOf:1000,scanned:2}],nextCursor:null};mocks.query.previousResults=[{runId:"old",asOf:1000,scanned:2}];mount();
+ const buttons=screen.getAllByRole("button",{name:/routeHistory.historyEntry/});expect(buttons).toHaveLength(2);expect(buttons[0].textContent).not.toBe(buttons[1].textContent);expect(buttons.filter(button=>button.getAttribute("aria-pressed")==="true")).toHaveLength(1);expect(screen.getByRole("button",{name:/routeHistory.selected/})).toHaveAttribute("aria-pressed","true");
+});
+
+it("does not describe a loaded history list as an unfinished query",()=>{
+ mocks.query.history={items:[{runId:"saved",asOf:1000,scanned:2}],nextCursor:null};mocks.query.data=null;mocks.query.status="ready";mount();expect(screen.queryByRole("status")).not.toBeInTheDocument();expect(screen.getByRole("button",{name:/routeHistory.historyEntry/})).toBeEnabled();
+});

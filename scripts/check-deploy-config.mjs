@@ -50,6 +50,7 @@ const CRAWLER_REWRITES = [
   { source: "/:lang/segment/:segmentId", functionId: "seoPrerender" },
   { source: "/:lang/course/:courseId", functionId: "seoPrerender" },
   { source: "/:lang/event/:eventId", functionId: "seoPrerender" },
+  { source: "/:lang/club/:groupId", functionId: "seoPrerender" },
 ];
 
 function checkCrawlerRewrites(hosting, label, crawlerRewrites = CRAWLER_REWRITES) {

@@ -1,3 +1,4 @@
+vi.mock("./NativePowerV2DurationPanel", () => ({ default: () => <div data-testid="native-power-duration" /> }));
 vi.mock("./StagePowerDurationHistoryPanel", () => ({ default: (props: unknown) => { mocks.powerHistory(props); return <div data-testid="manual-period-power-history" />; } }));
 vi.mock("./StageActivityPowerDurationPanel", () => ({ default: (props: unknown) => { mocks.powerDuration(props); return <div data-testid="manual-whole-activity-power" />; } }));
 vi.mock("./RunEffortStageManagementPanel", () => ({ default: (props: unknown) => { mocks.effortTool(props); return <div data-testid="effort-choice-tool" />; } }));
@@ -71,8 +72,19 @@ describe("ActivityGrowthPanel", () => {
     expect(mocks.routeHistory).not.toHaveBeenCalled();
     expect(screen.getByRole("link", { name: /기간 분석은 코치/ })).toHaveAttribute("href", "/coach/analysis?sport=run");
   });
+  it("shows existing route tools in the ActivityPage comparisonOnly path with hosted capability, without Stage power tools", () => {
+    resetRuntimeConfigForTests({ appEnvironment: "production", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", activityAnalysisExpansionEnabled: true });
+    render(<ActivityGrowthPanel activity={activity} metrics={null} isOwner comparisonOnly />);
+    expect(screen.getAllByTestId("route-index-history-panel")).toHaveLength(1);
+    expect(screen.getByTestId("observed-route-history-panel")).toBeInTheDocument();
+    chooseComparison("previous");
+    expect(mocks.route).toHaveBeenLastCalledWith({ current: activity, previous });
+    expect(mocks.powerDuration).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("native-power-duration")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("manual-distance-panel")).not.toBeInTheDocument();
+  });
   it("Stage comparison retains its distance/route/arbitrary-power tools without period statistics", () => {
-    resetRuntimeConfigForTests({ appEnvironment: "stage" });
+    resetRuntimeConfigForTests({ appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net" });
     render(<ActivityGrowthPanel activity={{ ...activity, type: "Ride" }} metrics={null} isOwner comparisonOnly />);
     expect(screen.getByTestId("manual-bike-distance-panel")).toBeInTheDocument();
     expect(screen.getByTestId("route-index-history-panel")).toBeInTheDocument();

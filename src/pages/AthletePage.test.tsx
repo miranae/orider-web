@@ -2,16 +2,22 @@ import * as activityAcceptance from "../utils/estimateTSS";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import AthletePage from "./AthletePage";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
-import { orderBy } from "firebase/firestore";
-import { setDocData, setCollectionDocs } from "../__tests__/mocks/firebase";
+import { loadActivityDiscovery } from "../services/activityDiscovery";
+import { setDocData, setCollectionDocs, mockCollectionData } from "../__tests__/mocks/firebase";
 import { createMockProfile, createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
+
+vi.mock("../services/activityDiscovery", () => ({ loadActivityDiscovery: vi.fn(async (_services, request) => {
+  const rows = (mockCollectionData.get("activities") ?? []).filter(row => row.userId === request.targetUid && row.deletedAt == null && (request.fromInclusive === undefined || row.startTime >= request.fromInclusive) && (request.toExclusive === undefined || row.startTime < request.toExclusive) && (row.visibility ?? "everyone") === "everyone");
+  const offset = Number(request.cursor ?? 0), end = offset + (request.limit ?? 20);
+  return { expiresAt: Date.now() + 600000, items: rows.slice(offset, end), nextCursor: end < rows.length ? String(end) : null, exhausted: end >= rows.length };
+}) }));
 
 // Mock heavy components
 vi.mock("../components/RouteMap", () => ({
   default: () => <div data-testid="route-map">Map</div>,
 }));
 vi.mock("../components/WeeklyChart", () => ({
-  default: ({ onPeriodSelect }: { onPeriodSelect?: (period: string) => void }) => <div data-testid="weekly-chart"><button onClick={() => onPeriodSelect?.("2026.09")}>Select September</button></div>,
+  default: ({ onPeriodSelect, data }: { onPeriodSelect?: (period: string) => void; data?: Array<{tss?:number|null}> }) => <div data-testid="weekly-chart" data-known-load={data?.some(row=>typeof row.tss==="number"&&row.tss>0) ? "yes":"no"}><button onClick={() => onPeriodSelect?.("2026.09")}>Select September</button></div>,
 }));
 
 // Mock useParams
@@ -55,7 +61,7 @@ describe("AthletePage", () => {
       { id: "sep", ...createMockActivity({ id: "sep", userId: "athlete-1", description: "September ride", startTime: new Date(2026, 8, 15).getTime(), endTime: new Date(2026, 8, 15, 2).getTime() }) },
       { id: "oct", ...createMockActivity({ id: "oct", userId: "athlete-1", description: "October ride", startTime: new Date(2026, 9, 15).getTime(), endTime: new Date(2026, 9, 15, 2).getTime() }) },
     ]);
-    renderWithProviders(<AthletePage />);
+    renderWithProviders(<AthletePage />, {authenticated: true, user: {uid: "athlete-1"}});
     await screen.findByRole("button", { name: "Select September" });
     fireEvent.click(screen.getByRole("button", { name: "Select September" }));
     await waitFor(() => expect(screen.getAllByTestId("H1-2-1")).toHaveLength(1));
@@ -71,6 +77,8 @@ describe("AthletePage", () => {
     setCollectionDocs("activities", rows);
     renderWithProviders(<AthletePage />);
     await screen.findByLabelText("종목");
+    fireEvent.click(await screen.findByRole("button", { name: "전체 공개 통계 이어 확인" }));
+    await waitFor(() => expect(screen.queryByRole("button", {name: "전체 공개 통계 이어 확인"})).not.toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("종목"), { target: { value: "run" } });
     expect(await screen.findByRole("link", { name: "Older run" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("종목"), { target: { value: "all" } });
@@ -93,7 +101,7 @@ describe("AthletePage", () => {
   beforeEach(() => {
     const profile = createMockProfile({ nickname: "한강 라이더" });
     setDocData("users/athlete-1", { ...profile });
-    setDocData("users_public/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { profilePublic: true, ...profile });
   });
 
   it("shows profile nickname", async () => {
@@ -106,7 +114,7 @@ describe("AthletePage", () => {
   it("shows avatar for the athlete", async () => {
     const profile = createMockProfile({ nickname: "라이더", photoURL: "https://example.com/p.jpg" });
     setDocData("users/athlete-1", { ...profile });
-    setDocData("users_public/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { profilePublic: true, ...profile });
     renderWithProviders(<AthletePage />);
     await waitFor(() => {
       expect(screen.getByText("라이더")).toBeInTheDocument();
@@ -128,14 +136,14 @@ describe("AthletePage", () => {
     // 목록 순서는 업로드 시각(createdAt)이 아니라 실제 운동 시각 기준이어야 카드에 찍힌
     // 날짜와 순서가 맞는다. 더보기(startAfter)도 같은 정렬키를 전제로 한다.
     // (같은 페이지의 세그먼트 목록은 createdAt 정렬이라 여기서 단정하지 않는다.)
-    vi.mocked(orderBy).mockClear();
+    vi.mocked(loadActivityDiscovery).mockClear();
     setCollectionDocs("activities", [
       { id: "a1", ...createMockActivity({ userId: "athlete-1" }) },
     ]);
 
     renderWithProviders(<AthletePage />);
 
-    await waitFor(() => expect(orderBy).toHaveBeenCalledWith("startTime", "desc"));
+    await waitFor(() => expect(loadActivityDiscovery).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({scope:"athlete",targetUid:"athlete-1",limit:20})));
   });
 
   it("uses public activity aggregates for other athletes instead of private profile totals", async () => {
@@ -148,7 +156,7 @@ describe("AthletePage", () => {
         totalElevationGain: 2_101_586,
       },
     });
-    setDocData("users_public/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { profilePublic: true, ...profile });
     setCollectionDocs("activities", [
       {
         id: "public-1",
@@ -201,7 +209,7 @@ describe("AthletePage", () => {
         totalElevationGain: 999_000,
       },
     });
-    setDocData("users_public/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { profilePublic: true, ...profile });
     setCollectionDocs("activities", [
       {
         id: "own-1",
@@ -271,9 +279,24 @@ describe("AthletePage", () => {
     });
   });
 
+  it("treats profiles without a visibility setting as public", async () => {
+    const profile = createMockProfile({ nickname: "미설정 라이더" });
+    delete (profile as { profilePublic?: boolean }).profilePublic;
+    setDocData("users_public/athlete-1", { ...profile });
+
+    renderWithProviders(<AthletePage />, {
+      authenticated: true,
+      user: { uid: "current-user" },
+    });
+
+    // 스트라바처럼 프로필 기본 공개 — 미설정 사용자는 비공개 카드가 아니라 프로필을 보여 준다
+    expect(await screen.findByTestId("P0-0-1")).toHaveTextContent("미설정 라이더");
+    expect(screen.queryByText("비공개 프로필입니다")).not.toBeInTheDocument();
+  });
+
   it("restricts private profiles for non-friends", async () => {
     const profile = createMockProfile({ nickname: "비공개 라이더", profilePublic: false });
-    setDocData("users_public/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { profilePublic: true, ...profile });
     setCollectionDocs("friends/athlete-1/users", [
       { id: "friend-1", userId: "friend-1", nickname: "숨김 친구", profileImage: null },
     ]);
@@ -287,6 +310,8 @@ describe("AthletePage", () => {
       expect(screen.getByText("비공개 프로필입니다")).toBeInTheDocument();
     });
     expect(screen.queryByText("숨김 친구")).not.toBeInTheDocument();
+    // 사진·닉네임은 기본 공개 — 비공개 카드에도 누구인지 보인다
+    expect(screen.getByTestId("P0.private-identity")).toHaveTextContent("비공개 라이더");
     expect(screen.queryByText(/친구 \(/)).not.toBeInTheDocument();
   });
 
@@ -295,7 +320,7 @@ describe("AthletePage", () => {
       nickname: "요청 차단 라이더",
       friendRequestsAllowed: false,
     });
-    setDocData("users_public/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { profilePublic: true, ...profile });
 
     renderWithProviders(<AthletePage />, {
       authenticated: true,
@@ -317,4 +342,28 @@ describe("AthletePage", () => {
       expect(screen.getByText("한강 라이더")).toBeInTheDocument();
     });
   });
+});
+
+it("retains distinct native references in the profile cover despite empty URL fields", async () => {
+  const { activityFeedSourceRevision } = await import("../services/activityFeedContent");
+  const activity = createMockActivity({id:"native-photo-ride",userId:"athlete-1",source:"orider"});
+  setCollectionDocs("activities", [{...activity,feedContentV1:{version:1,revision:"photo-rev",sourceRevision:activityFeedSourceRevision(activity),memo:null,totalPhotoCount:2,comments:[],photos:[
+    {id:"one",url:"",caption:null,nativePhoto:{activityId:activity.id,photoId:"one"}},
+    {id:"two",url:"",caption:null,nativePhoto:{activityId:activity.id,photoId:"two"}},
+  ]}}]);
+  const view = renderWithProviders(<AthletePage />, {authenticated:true,user:{uid:"athlete-1"}});
+  await waitFor(() => expect(view.container.querySelectorAll(".athlete-cover .athlete-photo-trigger")).toHaveLength(2));
+});
+it('distinguishes bounded public inventory exhaustion from a retryable network failure',async()=>{
+ setDocData('users_public/athlete-1',{nickname:'Public test rider',profilePublic:true});
+ const original=vi.mocked(loadActivityDiscovery).getMockImplementation()!;let pages=0;
+ vi.mocked(loadActivityDiscovery).mockImplementation(async(services,request)=>request.order==='id_asc'?{items:[],nextCursor:'ad1.'+(++pages),exhausted:false,expiresAt:Date.now()+600000} as never:original(services,request));
+ try{renderWithProviders(<AthletePage/>);for(let index=0;index<9;index++){fireEvent.click(await screen.findByRole('button',{name:'전체 공개 통계 이어 확인'}));}await screen.findAllByText(/공개 기록 조회 한도에 도달해 전체 합계와 월별 차트를 확인하지 못했습니다/);expect(pages).toBe(10);expect(screen.queryByRole('button',{name:'다시 시도',exact:true})).not.toBeInTheDocument();}
+ finally{vi.mocked(loadActivityDiscovery).mockImplementation(original);}
+});
+
+it("never estimates public training load from observed duration", async()=>{
+ setDocData("users_public/athlete-1",{nickname:"Public rider",profilePublic:true});
+ setCollectionDocs("activities",[{...createMockActivity({id:"public-duration",userId:"athlete-1",startTime:Date.now()-86400000,summary:createMockSummary({ridingTimeMillis:3600000,tss:null,relativeEffort:null})})}]);
+ renderWithProviders(<AthletePage/>);await waitFor(()=>expect(screen.getByTestId("weekly-chart")).toHaveAttribute("data-known-load","no"));
 });

@@ -13,8 +13,8 @@ export default defineConfig({
 
   use: {
     baseURL: process.env.PROD_SMOKE_BASE_URL ?? 'https://orider.co.kr',
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    trace: 'off',
+    screenshot: 'off',
   },
 
   projects: [

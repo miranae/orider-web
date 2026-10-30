@@ -4,20 +4,20 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import enActivity from "../../../i18n/resources/en/activity.json";
 import { createMockActivity } from "../../../__tests__/fixtures/mockData";
-import type { Activity } from "@shared/types";
+import type { Activity, ActivityStreams } from "@shared/types";
 import { ActivityMediaPanel } from "./ActivityMediaPanel";
 import { getSportCategory } from "./activityDetailUtils";
 
 const mapProps = vi.hoisted(() => vi.fn());
 vi.mock("../../../components/RouteMap", () => ({ default: (props: unknown) => { mapProps(props); return <div data-testid="route-map" />; } }));
 
-function renderNoMap(overrides: Partial<Activity>, lng: "ko" | "en" = "ko") {
+function renderNoMap(overrides: Partial<Activity>, lng: "ko" | "en" = "ko", streams: ActivityStreams | null = null) {
   const activity = createMockActivity(overrides);
   const t = i18n.getFixedT(lng, "activity") as TFunction<"activity">;
   render(
     <ActivityMediaPanel
       activity={activity}
-      streams={null}
+      streams={streams}
       sport={getSportCategory(activity.type)}
       hasTrack={false}
       summary={activity.summary}
@@ -34,6 +34,36 @@ function renderNoMap(overrides: Partial<Activity>, lng: "ko" | "en" = "ko") {
 describe("ActivityMediaPanel no-map state", () => {
   beforeAll(() => {
     i18n.addResourceBundle("en", "activity", enActivity, true, true);
+  });
+
+  it("keeps an unrequested route distinct from missing GPS, retries explicitly, and displays independent geometry", async () => {
+    const user = userEvent.setup(), onLoad = vi.fn();
+    const activity = createMockActivity({ source: "orider", thumbnailTrack: "" });
+    const props = { activity, streams: null, sport: "ride" as const, hasTrack: false, summary: activity.summary,
+      markerPosition: null, hoveredSegment: null, photos: [], uploadedPhotos: [], flyToPosition: null,
+      t: i18n.getFixedT("en", "activity") as TFunction<"activity"> };
+    const view = render(<ActivityMediaPanel {...props} routeLookup={{ state: "idle", onLoad }} />);
+    expect(onLoad).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Check route" }));
+    expect(onLoad).toHaveBeenCalledOnce();
+    view.rerender(<ActivityMediaPanel {...props} routeLookup={{ state: "loading", onLoad }} />);
+    expect(screen.getByRole("button")).toBeDisabled();
+    view.rerender(<ActivityMediaPanel {...props} routeLookup={{ state: "error", onLoad }} />);
+    await user.click(screen.getByRole("button", { name: /retry/i }));
+    expect(onLoad).toHaveBeenCalledTimes(2);
+    const streams = { activityRouteGeometryV1: { version: 1, timingBasis: "elapsed", timeOrigin: "activity_start",
+      originEpochMs: activity.startTime, routeInputRevision: "a".repeat(64), time: [0, 10], latlng: [[37, 127], [37.1, 127.1]] } } as ActivityStreams;
+    view.rerender(<ActivityMediaPanel {...props} hasTrack streams={streams} />);
+    expect(screen.getByTestId("route-map")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Check route" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer route lookup for an indoor activity", () => {
+    const activity = createMockActivity({ type: "VirtualRide", trainer: true });
+    render(<ActivityMediaPanel activity={activity} streams={null} sport="ride" hasTrack={false} summary={activity.summary}
+      markerPosition={null} hoveredSegment={null} photos={[]} uploadedPhotos={[]} flyToPosition={null}
+      routeLookup={{ state: "idle", onLoad: vi.fn() }} t={i18n.getFixedT("en", "activity") as TFunction<"activity">} />);
+    expect(screen.queryByRole("button", { name: "Check route" })).not.toBeInTheDocument();
   });
 
   it.each(["ko", "en"] as const)("toggles map size in %s without remounting or dropping location props", async lng => {
@@ -75,6 +105,21 @@ describe("ActivityMediaPanel no-map state", () => {
     expect(screen.getByTestId("route-map")).toBe(map);
   });
 
+  it("draws independent native geometry without binding sensor indices or hover positions", () => {
+    const activity = createMockActivity();
+    const route: [number, number][] = [[37, 127], [37.1, 127.1]];
+    const streams = { time: [0, 1, 2], watts: [100, 200, 300], activityRouteGeometryV1: {
+      version: 1, timingBasis: "elapsed", timeOrigin: "relative_to_first_gps_observation", originEpochMs: null,
+      routeInputRevision: "a".repeat(64), time: [0, 600], latlng: route,
+    } } as ActivityStreams;
+    render(<ActivityMediaPanel activity={activity} streams={streams} sport="ride" hasTrack summary={activity.summary}
+      markerPosition={[37, 127]} hoveredSegment={null} selectedRunRange={{ startIndex: 0, endIndex: 1 }}
+      selectedSegmentRange={{ startIndex: 1, endIndex: 2 }} photos={[]} uploadedPhotos={[]}
+      flyToPosition={[37, 127]} t={i18n.getFixedT("en", "activity") as TFunction<"activity">} />);
+    expect(mapProps.mock.lastCall?.[0]).toMatchObject({ latlng: route, markerPosition: null,
+      highlightRange: undefined, flyToRange: undefined, flyToPosition: undefined });
+  });
+
   it("does not offer a map size control when there is no GPS track", () => {
     renderNoMap({ type: "Run" });
     expect(screen.queryByRole("button", { name: "지도 크게 보기" })).not.toBeInTheDocument();
@@ -102,6 +147,12 @@ describe("ActivityMediaPanel no-map state", () => {
     expect(screen.getByText("실내 활동")).toBeInTheDocument();
   });
 
+  it("does not infer absent GPS from a missing native map preview", () => {
+    renderNoMap({ type: "Ride", source: "orider" });
+    expect(screen.getByText("경로 정보")).toBeInTheDocument();
+    expect(screen.queryByText("GPS 데이터 없음")).not.toBeInTheDocument();
+  });
+
   it("keeps the no-GPS message for outdoor activities without a track", () => {
     renderNoMap({ type: "TrailRun" });
     expect(screen.getByText("GPS 데이터 없음")).toBeInTheDocument();
@@ -117,4 +168,16 @@ describe("ActivityMediaPanel no-map state", () => {
     renderNoMap({ type: "VirtualRide" }, "en");
     expect(screen.getByText("Indoor ride")).toBeInTheDocument();
   });
+});
+
+it.each([true,false])("only declares imported GPS absence when the loaded independent route contract validates: %s", valid => {
+  const startTime = 1792970000000;
+  const streams = { distance: [], time: [], latlng: [], importedSensorObservationsV1: {
+    version: 1, state: "available", source: "parsed_import_points", timeUnit: "relative_milliseconds",
+    originEpochMs: startTime, routeTimeMs: [], timeMs: valid ? [0,1000,2000] : [0,1000,1000],
+    watts: [200,0,200], heartrate: [150,150,150], cadence: [80,0,80] } };
+  renderNoMap({type:"Ride",source:"orider",startTime}, "ko",streams);
+  expect(screen.queryByText("GPS 데이터 없음") !== null).toBe(valid);
+  expect(screen.queryByText("경로 정보") !== null).toBe(!valid);
+  expect(screen.queryByText("실내 라이딩")).not.toBeInTheDocument();
 });

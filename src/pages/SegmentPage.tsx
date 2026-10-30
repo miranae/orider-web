@@ -1,6 +1,7 @@
-import InfoTip from "../components/InfoTip";
+import SegmentLocalLegend from "../features/segments/SegmentLocalLegend";
+import SegmentLeaderboard from "../features/segments/SegmentLeaderboard";
+import { loadMySegmentAttempts } from "../services/segmentLeaderboard";
 import { segmentMetric } from "../features/segments/segmentMetric";
-import { Crown } from "lucide-react";
 import SegmentSurface from "../features/segments/SegmentSurface";
 import SegmentClimbCategory from "../features/segments/SegmentClimbCategory";
 import GlossaryText from "../components/common/GlossaryText";
@@ -12,52 +13,24 @@ import { useTranslation } from "react-i18next";
 import { localeTag } from "../utils/localeDate";
 import TabNav from "../components/TabNav";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { collection, query, orderBy, where, getDocs, limit, addDoc, onSnapshot, doc, getDoc } from "firebase/firestore";
+import { collection, query, orderBy, where, getDocs, limit, addDoc, onSnapshot } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { firestore, storage } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
-import { useDocument } from "../hooks/useFirestore";
+import { useSegmentMetadata } from "../hooks/useSegmentMetadata";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
-import { useStrava } from "../hooks/useStrava";
 import { decodePolyline } from "../utils/polyline";
 import RouteMap from "../components/RouteMap";
-import Avatar from "../components/Avatar";
 import SegmentHistoryPanel from "../features/segments/SegmentHistoryPanel";
 import { segmentHistoryContext } from "../features/segments/segmentHistoryNavigation";
 import { Button, Card, Text, buttonClass } from "../theme/components";
 import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { isImplausibleAvgSpeed } from "../utils/activitySanity";
-import { ICON_SIZE } from "../theme/tokens/icon";
 
 /** 비현실 평속(80 km/h 초과 등)은 "—" 로 가린다. 세그먼트 기록은 bike 기준. */
 function formatEffortSpeed(avgKph: number): string {
   return isImplausibleAvgSpeed(avgKph, "bike") ? "— km/h" : `${avgKph.toFixed(1)} km/h`;
-}
-
-function segmentAverageSpeedKph(distanceMeters: number, elapsedTimeMs: number): number | null {
-  if (!Number.isFinite(distanceMeters) || distanceMeters <= 0 || !Number.isFinite(elapsedTimeMs) || elapsedTimeMs <= 0) {
-    return null;
-  }
-  return (distanceMeters * 3600) / elapsedTimeMs;
-}
-
-function formatSegmentAverageSpeed(distanceMeters: number, elapsedTimeMs: number): string {
-  const avgKph = segmentAverageSpeedKph(distanceMeters, elapsedTimeMs);
-  return avgKph == null ? "— km/h" : formatEffortSpeed(avgKph);
-}
-
-// rank 1 = amber, rank 2 = aqua, rank 3 = rose
-const RANK_STYLES = [
-  { bg: "color-mix(in oklch, var(--amber) 18%, var(--bg-2))", color: "var(--amber)", border: "color-mix(in oklch, var(--amber) 35%, transparent)" },
-  { bg: "color-mix(in oklch, var(--aqua) 18%, var(--bg-2))", color: "var(--aqua)", border: "color-mix(in oklch, var(--aqua) 35%, transparent)" },
-  { bg: "color-mix(in oklch, var(--rose) 18%, var(--bg-2))", color: "var(--rose)", border: "color-mix(in oklch, var(--rose) 35%, transparent)" },
-];
-
-function rankStyle(rank: number): React.CSSProperties {
-  const s = rank >= 1 && rank <= 3 ? RANK_STYLES[rank - 1] : undefined;
-  if (!s) return { background: "var(--bg-3)", color: "var(--ink-2)", border: "1px solid var(--line-soft)" };
-  return { background: s.bg, color: s.color, border: `1px solid ${s.border}` };
 }
 
 export function parseSegmentLatlng(value: string | null | undefined): [number, number][] | null {
@@ -105,25 +78,6 @@ interface SegmentData {
   }[];
 }
 
-/** Local Legend 스냅샷(#490) — segments/{id}/legend/current. */
-interface LegendStanding {
-  userId: string;
-  nickname: string | null;
-  profileImage: string | null;
-  effortCount: number;
-}
-interface LegendDoc {
-  leader: LegendStanding | null;
-  runnerUp: LegendStanding | null;
-  riderCount: number;
-  totalEfforts: number;
-  handoverCount: number;
-  windowDays: number;
-  computedAt: number;
-}
-/** 스냅샷 신선도 한도 — 주 1회 cron 기준 2주 미갱신이면 조용한 세그먼트로 보고 숨김. */
-const LEGEND_STALE_MS = 14 * 24 * 60 * 60 * 1000;
-
 const STATUS_BADGE_STYLES: Record<string, React.CSSProperties> = {
   pending: { background: "color-mix(in oklch, var(--amber) 14%, var(--bg-2))", color: "var(--amber)", border: "1px solid color-mix(in oklch, var(--amber) 30%, transparent)" },
   rejected: { background: "color-mix(in oklch, var(--rose) 14%, var(--bg-2))", color: "var(--rose)", border: "1px solid color-mix(in oklch, var(--rose) 30%, transparent)" },
@@ -155,15 +109,6 @@ const SEGMENT_TOAST_STYLE: React.CSSProperties = {
   color: "var(--ink-0)",
   border: "1px solid var(--line)",
   padding: "var(--space-2) var(--space-4)",
-};
-
-const SEGMENT_TABLE_HEADER_CELL_STYLE: React.CSSProperties = {
-  color: "var(--ink-3)",
-  padding: "var(--space-2) var(--space-4)",
-};
-
-const SEGMENT_TABLE_CELL_STYLE: React.CSSProperties = {
-  padding: "var(--space-3) var(--space-4)",
 };
 
 interface EffortData {
@@ -287,8 +232,7 @@ function SegmentDetailContent() {
   const { user, profile } = useAuth();
   const detailTab = requestedTab === "ranking" ? "ranking" : requestedTab === "mine" && user && !user.isAnonymous ? "mine" : "overview";
   const gapServices = useFirebaseServices();
-  const { getStreams } = useStrava();
-  const { data: segment, loading: segLoading } = useDocument<SegmentData>("segments", segmentId);
+  const { data: segment, loading: segLoading } = useSegmentMetadata<SegmentData>(segmentId);
 
   // Photo upload
   const [uploading, setUploading] = useState(false);
@@ -300,14 +244,9 @@ function SegmentDetailContent() {
   const [toast, setToast] = useState<string | null>(null);
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
 
-  const [efforts, setEfforts] = useState<EffortData[]>([]);
-  const [loadingEfforts, setLoadingEfforts] = useState(true);
-  const [myOutsideEffort, setMyOutsideEffort] = useState<EffortData | null>(null);
   const [resolvedLatlng, setResolvedLatlng] = useState<[number, number][] | null>(null);
-  const fetchedRef = useRef(false);
 
   useEffect(() => {
-    fetchedRef.current = false;
     setResolvedLatlng(null);
   }, [segmentId]);
 
@@ -406,108 +345,6 @@ function SegmentDetailContent() {
     }
   };
 
-  // Fetch efforts sorted by elapsedTime (leaderboard)
-  useEffect(() => {
-    if (!segmentId) return;
-
-    const fetchEfforts = async () => {
-      setLoadingEfforts(true);
-      try {
-        // 상위 200개 기록 조회
-        const q = query(
-          collection(firestore, `segment_efforts/${segmentId}/efforts`),
-          orderBy("elapsedTime", "asc"),
-          limit(200),
-        );
-        const snap = await getDocs(q);
-        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as EffortData);
-
-        // Deduplicate: keep best effort per user
-        const bestByUser = new Map<string, EffortData>();
-        for (const e of items) {
-          const existing = bestByUser.get(e.userId);
-          if (!existing || e.elapsedTime < existing.elapsedTime) {
-            bestByUser.set(e.userId, e);
-          }
-        }
-
-        // 현재 사용자의 기록이 상위 200개에 없으면 별도 조회
-        let myEffortOutsideTop = false;
-        if (user && !bestByUser.has(user.uid)) {
-          const myQ = query(
-            collection(firestore, `segment_efforts/${segmentId}/efforts`),
-            where("userId", "==", user.uid),
-            limit(10),
-          );
-          const mySnap = await getDocs(myQ);
-          if (!mySnap.empty) {
-            // 사용자의 최고 기록 찾기
-            let best: EffortData | null = null;
-            for (const d of mySnap.docs) {
-              const e = { id: d.id, ...d.data() } as EffortData;
-              if (!best || e.elapsedTime < best.elapsedTime) best = e;
-            }
-            if (best) {
-              bestByUser.set(user.uid, best);
-              myEffortOutsideTop = true;
-            }
-          }
-        }
-
-        const sorted = Array.from(bestByUser.values()).sort((a, b) => a.elapsedTime - b.elapsedTime);
-        // 200위 밖 사용자 기록은 리더보드에서 제외하고 별도 보관
-        if (myEffortOutsideTop && user) {
-          const myEntry = sorted.find((e) => e.userId === user.uid);
-          if (myEntry) {
-            setEfforts(sorted.filter((e) => e.userId !== user.uid));
-            setMyOutsideEffort(myEntry);
-            return;
-          }
-        }
-        setMyOutsideEffort(null);
-        setEfforts(sorted);
-      } catch (err) {
-        logClientError("SegmentPage.fetchEfforts", err, { segmentId });
-      } finally {
-        setLoadingEfforts(false);
-      }
-    };
-
-    fetchEfforts();
-  }, [segmentId, user]);
-
-  // Auto-resolve segment route: if segmentLatlng is missing, fetch activity streams to populate it
-  useEffect(() => {
-    if (cachedGapEntry || fetchedRef.current) return;
-    if (!segment || (segment.segmentLatlng && segment.segmentLatlng.length > 2)) return;
-    if (!user || !profile?.stravaConnected) return;
-    if (efforts.length === 0 || loadingEfforts) return;
-
-    // Find an effort with a strava activityId
-    const effort = efforts.find((e) => e.activityId?.startsWith("strava_"));
-    if (!effort) return;
-
-    const stravaId = parseInt(effort.activityId.replace("strava_", ""), 10);
-    if (!stravaId) return;
-
-    fetchedRef.current = true;
-    // getStreams triggers stravaGetActivityStreams which saves segmentLatlng as side-effect
-    getStreams(stravaId).then((data) => {
-      // Extract segment route from streams for immediate display
-      const streams = data as { latlng?: [number, number][]; segment_efforts?: { segment: { id: number }; startIndex: number; endIndex: number }[] };
-      if (!streams?.latlng || !streams?.segment_efforts) return;
-
-      const stravaSegId = segment.source === "strava" ? (segment as SegmentData & { stravaSegmentId?: number }).stravaSegmentId : null;
-      if (!stravaSegId) return;
-
-      const matchingEffort = streams.segment_efforts.find((e) => e.segment.id === stravaSegId);
-      if (!matchingEffort) return;
-
-      const slice = streams.latlng.slice(matchingEffort.startIndex, matchingEffort.endIndex + 1);
-      if (slice.length > 0) setResolvedLatlng(slice);
-    }).catch((err) => logClientError("SegmentPage.bg", err, {}));
-  }, [cachedGapEntry, segment, user, profile?.stravaConnected, efforts, loadingEfforts]);
-
   // 원본 이력은 사용자 요청 때 최대 50개만 읽는다. 현재 시도 선택은 패널에서 명시한다.
   const [historySeed, setHistorySeed] = useState<{ key: string; epoch: object; rows: EffortData[]; error: boolean } | null>(null);
   const [historyVisibility, setHistoryVisibility] = useState<{ key: string; open: boolean } | null>(null);
@@ -520,18 +357,15 @@ function SegmentDetailContent() {
     const uid = user.uid;
     void (async () => {
       try {
-        const snap = await getDocs(query(collection(firestore, `segment_efforts/${segmentId}/efforts`), where("userId", "==", uid), orderBy("startDate", "desc"), limit(50)));
-        const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }) as EffortData).filter(row => row.deletedAt == null && row.userId === uid && row.segmentId === segmentId && /^[A-Za-z0-9_-]{1,200}$/u.test(row.activityId) && Number.isFinite(row.elapsedTime) && row.elapsedTime > 0);
-        const sources = await Promise.all(rows.map(row => getDoc(doc(firestore, `activities/${row.activityId}`))));
-        const owned = rows.filter((_row, i) => sources[i]?.exists() && sources[i]?.data()?.userId === uid && sources[i]?.data()?.deletedAt == null);
-        if (active) setHistorySeed({ key: historySeedKey, epoch: historySeedEpoch, rows: owned, error: false });
+        const owned = await loadMySegmentAttempts(gapServices, uid, segmentId);
+        if (active) setHistorySeed({ key: historySeedKey, epoch: historySeedEpoch, rows: owned as EffortData[], error: false });
       } catch (err) {
         logClientError("SegmentPage.fetchMyEfforts", err, { segmentId });
         if (active) setHistorySeed({ key: historySeedKey, epoch: historySeedEpoch, rows: [], error: true });
       }
     })();
     return () => { active = false; };
-  }, [segmentId, user, showAllEfforts, historySeedKey, historySeedEpoch]);
+  }, [segmentId, user, showAllEfforts, historySeedKey, historySeedEpoch, gapServices]);
   const currentHistorySeed = historySeed?.key === historySeedKey && historySeed.epoch === historySeedEpoch ? historySeed : null;
 
   // Segment stats
@@ -539,11 +373,6 @@ function SegmentDetailContent() {
     () => (segment ? Math.max(0, segment.elevationHigh - segment.elevationLow) : 0),
     [segment],
   );
-
-  // 무결성(#494): 비현실 속도(GPS noise/차량 오등록) effort 는 리더보드/KOM 표시에서 제외 —
-  // 가짜로 빠른 기록이 #1·KOM 으로 보이지 않게. 서버 komRank 산정과 동일 룰.
-  const validEfforts = useMemo(() => efforts.filter((e) => !isImplausibleAvgSpeed(e.averageSpeed, "bike")), [efforts]);
-  const komEffort = validEfforts[0] ?? null;
 
   // 이 세그먼트를 쓰는 코스 — 역링크(#495). courses.segmentIds array-contains 쿼리.
   const [usedByCourses, setUsedByCourses] = useState<{ id: string; name: string; distance: number; elevationGain: number }[]>([]);
@@ -568,32 +397,7 @@ function SegmentDetailContent() {
     return () => { cancelled = true; };
   }, [segmentId]);
 
-  // Local Legend — 90일 최다완주 스냅샷 단일 doc 구독(#490). cron 미배포 시 null(빈 상태).
-  const { data: legend } = useDocument<LegendDoc>(
-    `segments/${segmentId}/legend`,
-    segmentId ? "current" : undefined,
-  );
-  // 스냅샷이 마지막 cron 이후 너무 오래됐으면(세그먼트가 조용해짐) 숨김.
-  const legendFresh =
-    !!legend?.leader &&
-    typeof legend.computedAt === "number" &&
-    Date.now() - legend.computedAt < LEGEND_STALE_MS;
-
-  const myBestEffort = useMemo(
-    () => {
-      if (!user) return null;
-      const inBoard = validEfforts.find((e) => e.userId === user.uid);
-      return inBoard ?? myOutsideEffort;
-    },
-    [validEfforts, user, myOutsideEffort],
-  );
-  const myRank = useMemo(() => {
-    if (!user) return 0;
-    const idx = validEfforts.findIndex((e) => e.userId === user.uid);
-    if (idx >= 0) return idx + 1;
-    if (myOutsideEffort) return -1; // 200위 밖 표시용
-    return 0;
-  }, [validEfforts, user, myOutsideEffort]);
+  const myBestEffort = currentHistorySeed?.rows.reduce<EffortData | null>((best, row) => !best || row.elapsedTime < best.elapsedTime ? row : best, null) ?? null;
 
   if (segLoading) {
     return (
@@ -819,28 +623,6 @@ function SegmentDetailContent() {
       </div>
       {/* KOM + My Best */}
       <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-4)" }}>
-        {/* KOM */}
-        {detailTab === "ranking" && <Card data-testid="D3-2">
-          <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}><GlossaryText>{t("kom.title")}</GlossaryText></Text>
-          {komEffort ? (
-            <div style={{ ...SEGMENT_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
-              <Avatar name={komEffort.nickname} imageUrl={komEffort.profileImage} size="md" userId={komEffort.userId} />
-              <div className="flex-1">
-                <Link to={`/athlete/${komEffort.userId}`} className="font-semibold text-[length:var(--ft-body-size)] hover:underline" style={{ color: "var(--ink-0)" }}>
-                  {komEffort.nickname}
-                </Link>
-                <Text as="div" variant="dataLarge" style={{ color: "var(--lime)", marginTop: "var(--space-1)" }}>{formatTime(komEffort.elapsedTime)}</Text>
-                <div className="flex flex-wrap gap-x-3 gap-y-1 text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-1)" }}>
-                  <span><GlossaryText>{t("kom.avgSpeed")}</GlossaryText> {formatEffortSpeed(komEffort.averageSpeed)}</span>
-                  {komEffort.averageWatts != null && <span><GlossaryText>{t("kom.power")}</GlossaryText> {komEffort.averageWatts} W</span>}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>{t("kom.noRecord")}</div>
-          )}
-        </Card>}
-
         {/* My Best */}
         {detailTab === "mine" && <Card data-testid="D3-3">
           <Text as="div" variant="eyebrow" style={{ marginBottom: "var(--space-2)" }}>{t("myRecord")}</Text>
@@ -848,14 +630,6 @@ function SegmentDetailContent() {
             <div>
               <div style={SEGMENT_INLINE_WRAP_STYLE}>
                 <Text as="div" variant="dataLarge" style={{ color: "var(--ink-0)" }}>{formatTime(myBestEffort.elapsedTime)}</Text>
-                {myRank !== 0 && (
-                  <span
-                    className="text-[length:var(--ft-body-size)] font-bold rounded-[var(--r-sm)]"
-                    style={{ ...(myRank > 0 && myRank <= 3 ? rankStyle(myRank) : { background: "var(--bg-3)", color: "var(--ink-2)", border: "1px solid var(--line-soft)" }), padding: "var(--space-1) var(--space-2)" }}
-                  >
-                    {myRank === -1 ? "200+" : `#${myRank}`}
-                  </span>
-                )}
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", marginTop: "var(--space-1)" }}>
                 <span><GlossaryText>{t("kom.avgSpeed")}</GlossaryText> {formatEffortSpeed(myBestEffort.averageSpeed)}</span>
@@ -874,32 +648,7 @@ function SegmentDetailContent() {
         </Card>}
       </div>
 
-      {/* Local Legend — 90일 최다완주(#490) */}
-      {detailTab === "ranking" && <Card>
-        <div className="flex items-baseline justify-between" style={{ marginBottom: "var(--space-2)" }}>
-          <Text as="div" variant="eyebrow"><Crown size={ICON_SIZE.md} aria-hidden="true" className="inline-block" /> <InfoTip title={t("legend.title")} content={t("legend.explanation")}>{t("legend.title")}</InfoTip></Text>
-          <span className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-4)" }}>{t("legend.subtitle")}</span>
-        </div>
-        {legendFresh && legend?.leader ? (
-          <div style={{ ...SEGMENT_INLINE_WRAP_STYLE, gap: "var(--space-3)" }}>
-            <Avatar name={legend.leader.nickname ?? ""} imageUrl={legend.leader.profileImage} size="md" userId={legend.leader.userId} />
-            <div className="flex-1">
-              <Link to={`/athlete/${legend.leader.userId}`} className="font-semibold text-[length:var(--ft-body-size)] hover:underline" style={{ color: "var(--ink-0)" }}>
-                {legend.leader.nickname || t("table.rider")}
-              </Link>
-              <Text as="div" variant="dataLarge" style={{ color: "var(--amber)", marginTop: "var(--space-1)" }}>
-                {t("legend.efforts", { count: legend.leader.effortCount })}
-              </Text>
-              <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
-                {t("legend.riders", { count: legend.riderCount })}
-                {legend.handoverCount > 0 && ` · ${t("legend.handover", { count: legend.handoverCount })}`}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>{t("legend.empty")}</div>
-        )}
-      </Card>}
+      {detailTab === "ranking" && segmentId && <SegmentLocalLegend key={`legend:${segmentId}:${user?.uid ?? ""}`} segmentId={segmentId} />}
 
       {/* 이 세그먼트를 쓰는 코스 — 역링크(#495) */}
       {detailTab === "overview" && usedByCourses.length > 0 && (
@@ -918,112 +667,10 @@ function SegmentDetailContent() {
         </Card>
       )}
 
-      {/* Leaderboard */}
-      {detailTab === "ranking" && <Card padding="none" className="overflow-hidden">
-        <div className="flex items-center justify-between" style={{ borderBottom: "1px solid var(--line-soft)", padding: "var(--space-3) var(--space-5)" }}>
-          <h2 className="font-semibold text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-0)" }}>
-            {t("stats.leaderboardCount", { count: validEfforts.length })}
-          </h2>
-        </div>
-
-        <p className="sm:hidden text-[length:var(--ft-body-size)] px-5 py-2 m-0" style={{color:"var(--ink-2)"}}>{t("table.scrollHint")}</p>
-        {loadingEfforts ? (
-          <div className="w-full">
-            <div className="flex" style={{ background: "var(--bg-2)", borderBottom: "1px solid var(--line-soft)", gap: "var(--space-4)", padding: "var(--space-2) var(--space-4)" }}>
-              <div className="h-3 rounded-[var(--r-sm)] w-8 animate-pulse" style={{ background: "var(--bg-3)" }} />
-              <div className="h-3 rounded-[var(--r-sm)] w-24 animate-pulse" style={{ background: "var(--bg-3)" }} />
-              <div className="flex-1" />
-              <div className="h-3 rounded-[var(--r-sm)] w-16 animate-pulse" style={{ background: "var(--bg-3)" }} />
-            </div>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex items-center" style={{ borderBottom: "1px solid var(--line-soft)", gap: "var(--space-4)", padding: "var(--space-3) var(--space-4)" }}>
-                <div className="h-4 rounded-[var(--r-sm)] w-6 animate-pulse" style={{ background: "var(--bg-3)" }} />
-                <div className="h-8 w-8 rounded-full animate-pulse" style={{ background: "var(--bg-3)" }} />
-                <div className="h-4 rounded-[var(--r-sm)] w-28 animate-pulse" style={{ background: "var(--bg-3)" }} />
-                <div className="flex-1" />
-                <div className="h-4 rounded-[var(--r-sm)] w-16 animate-pulse" style={{ background: "var(--bg-3)" }} />
-              </div>
-            ))}
-          </div>
-        ) : validEfforts.length === 0 ? (
-          <div className="text-center text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", paddingBlock: "var(--space-8)" }}>{t("empty.noRecords")}</div>
-        ) : (
-          <div className="max-h-[480px] overflow-auto" tabIndex={0} role="region" aria-label={t("leaderboard")}>
-          <table className="w-full text-[length:var(--ft-body-size)]" style={{minWidth:"40rem"}}>
-            <thead className="sticky top-0 z-10">
-              <tr style={{ background: "var(--bg-2)", borderBottom: "1px solid var(--line-soft)" }} className="text-[length:var(--ft-body-size)]">
-                <th className="text-left font-medium w-12" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.rank")}</th>
-                <th className="text-left font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.rider")}</th>
-                <th className="text-right font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.time")}</th>
-                <th className="text-right font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.segmentAvgSpeed")}</th>
-                <th className="text-right font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}><GlossaryText>{t("table.power")}</GlossaryText></th>
-                <th className="text-right font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}><GlossaryText>{t("table.heartrate")}</GlossaryText></th>
-                <th className="text-right font-medium" style={SEGMENT_TABLE_HEADER_CELL_STYLE}>{t("table.date")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {validEfforts.map((effort, i) => {
-                const isMe = user?.uid === effort.userId;
-                const rank = i + 1;
-                return (
-                  <tr
-                    key={effort.id}
-                    className="transition-colors"
-                    style={{
-                      borderBottom: "1px solid var(--line-soft)",
-                      background: isMe ? "color-mix(in oklch, var(--lime) 8%, var(--bg-1))" : undefined,
-                    }}
-                    onMouseEnter={(e) => { if (!isMe) (e.currentTarget as HTMLElement).style.background = "var(--bg-2)"; }}
-                    onMouseLeave={(e) => { if (!isMe) (e.currentTarget as HTMLElement).style.background = ""; }}
-                  >
-                    <td className="font-medium" style={SEGMENT_TABLE_CELL_STYLE}>
-                      {rank <= 3 ? (
-                        <span className="text-[length:var(--ft-body-size)] font-bold rounded-[var(--r-sm)]" style={{ ...rankStyle(rank), padding: "var(--space-1) var(--space-2)" }}>
-                          {rank}
-                        </span>
-                      ) : (
-                        <span style={{ color: "var(--ink-3)" }}>{rank}</span>
-                      )}
-                    </td>
-                    <td style={SEGMENT_TABLE_CELL_STYLE}>
-                      <div style={SEGMENT_INLINE_WRAP_STYLE}>
-                        <Avatar name={effort.nickname || "Rider"} imageUrl={effort.profileImage} size="sm" userId={effort.userId} />
-                        <Link
-                          to={`/athlete/${effort.userId}`}
-                          className="font-medium hover:underline"
-                          style={{ color: isMe ? "var(--lime)" : "var(--ink-1)" }}
-                        >
-                          {effort.nickname || "Rider"}
-                          {isMe && <span className="text-[length:var(--ft-body-size)] ml-1" style={{ color: "var(--ink-3)" }}>{t("table.me")}</span>}
-                        </Link>
-                      </div>
-                    </td>
-                    <td className="text-right font-mono font-semibold" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--ink-0)" }}>
-                      {formatTime(effort.elapsedTime)}
-                    </td>
-                    <td className="text-right" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--ink-2)" }}>
-                      {formatSegmentAverageSpeed(segment.distance, effort.elapsedTime)}
-                    </td>
-                    <td className="text-right" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--aqua)" }}>
-                      {Number.isFinite(effort.averageWatts) && effort.averageWatts != null ? `${segmentMetric(effort.averageWatts)} W` : "—"}
-                    </td>
-                    <td className="text-right" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--rose)" }}>
-                      {Number.isFinite(effort.averageHeartrate) && effort.averageHeartrate != null ? `${segmentMetric(effort.averageHeartrate)} bpm` : "—"}
-                    </td>
-                    <td className="text-right" style={{ ...SEGMENT_TABLE_CELL_STYLE, color: "var(--ink-3)" }}>
-                      {new Date(effort.startDate).toLocaleDateString(localeTag())}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
-        )}
-      </Card>}
+      {detailTab === "ranking" && segmentId && <SegmentLeaderboard key={`${segmentId}:${user?.uid ?? ""}`} segmentId={segmentId} />}
 
       {/* My History */}
-      {detailTab === "mine" && user && !user.isAnonymous && myBestEffort && (
+      {detailTab === "mine" && user && !user.isAnonymous && (
         <Card padding="none" className="overflow-hidden">
           <button
             onClick={() => setHistoryVisibility({ key: drilldownKey, open: !showAllEfforts })}

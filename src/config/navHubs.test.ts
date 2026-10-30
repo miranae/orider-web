@@ -81,7 +81,7 @@ describe("navHubs", () => {
 
   it("getHub 은 key 로 허브를 반환", () => {
     expect(getHub("coach").subs.map((s) => s.to)).toEqual(["/coach/condition", "/coach/plan", "/coach/goals", "/coach/analysis", "/coach/chat"]);
-    expect(getHub("explore").subs.map((s) => s.to)).toEqual(["/explore/courses", "/explore/segments", "/explore/events", "/explore/challenges", "/explore/recipes"]);
+    expect(getHub("explore").subs.map((s) => s.to)).toEqual(["/explore/courses", "/explore/segments", "/explore/events", "/explore/challenges", "/explore/athletes", "/explore/recipes"]);
     expect(getHub("community").subs).toHaveLength(0);
     expect(getHub("settings").subs.map((s) => s.to)).toEqual(["/athlete/me", "/settings/account"]);
     expect(getHub("home").subs).toHaveLength(0);

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   qaRequested: false,
+  auth: { currentUser: null as { uid: string; isAnonymous: boolean } | null },
   emulatorRuntime: false,
   qaValidate: vi.fn(),
   qaInitialRefresh: vi.fn(),
@@ -22,9 +23,11 @@ vi.mock("./stageQaAppCheck", () => ({
   hasStageQaAppCheckGrant: () => mocks.qaRequested,
   getStageQaAppCheckSession: () => ({ validate: mocks.qaValidate, forceInitialRefresh: mocks.qaInitialRefresh, provider: mocks.qaProvider }),
 }));
-vi.mock("firebase/app", () => ({ initializeApp: vi.fn(() => ({ name: "app" })) }));
+vi.mock("firebase/app", () => ({ initializeApp: vi.fn((config: Record<string, unknown>) => ({ name: "app", options: config })) }));
 vi.mock("firebase/auth", () => ({
-  getAuth: vi.fn(() => ({})),
+  getAuth: vi.fn(() => mocks.auth),
+  initializeAuth: vi.fn(() => mocks.auth),
+  inMemoryPersistence: { kind: "memory-auth" },
   GoogleAuthProvider: class {},
   connectAuthEmulator: vi.fn(),
   signInWithEmailAndPassword: vi.fn(),
@@ -32,6 +35,7 @@ vi.mock("firebase/auth", () => ({
 vi.mock("firebase/firestore", () => ({
   initializeFirestore: vi.fn(() => ({})),
   persistentLocalCache: vi.fn(() => ({})),
+  memoryLocalCache: vi.fn(() => ({ kind: "memory-firestore" })),
   persistentMultipleTabManager: vi.fn(() => ({})),
   connectFirestoreEmulator: vi.fn(),
 }));
@@ -72,6 +76,7 @@ describe("ensureAppCheckReady", () => {
     vi.stubEnv("VITE_FIRESTORE_FORCE_LONG_POLLING", undefined);
     vi.stubGlobal("location", { hostname: "127.0.0.1" });
     mocks.qaRequested = false;
+    mocks.auth.currentUser = null;
     mocks.emulatorRuntime = false;
     mocks.qaValidate.mockReset().mockResolvedValue(undefined);
     mocks.qaInitialRefresh.mockReset().mockReturnValueOnce(true).mockReturnValue(false);
@@ -85,6 +90,29 @@ describe("ensureAppCheckReady", () => {
       firebaseAppId: "test-app",
       appCheckRecaptchaSiteKey: "site-key",
     };
+  });
+
+  it("isolates explicit local demo sessions without using or migrating browser persistence", async () => {
+    mocks.emulatorRuntime = true; mocks.runtimeConfig.firebaseProjectId = "demo-isolated-review";
+    const authSdk = await import("firebase/auth"), firestoreSdk = await import("firebase/firestore");
+    vi.mocked(authSdk.getAuth).mockClear(); vi.mocked(firestoreSdk.persistentLocalCache).mockClear();
+    const firebase = await import("./firebase");
+    await firebase.initFirebase({ isolatedEmulatorSession: true });
+    expect(authSdk.initializeAuth).toHaveBeenLastCalledWith(expect.anything(), { persistence: authSdk.inMemoryPersistence });
+    expect(authSdk.getAuth).not.toHaveBeenCalled();
+    expect(firestoreSdk.persistentLocalCache).not.toHaveBeenCalled();
+    expect(firestoreSdk.initializeFirestore).toHaveBeenLastCalledWith(expect.anything(), { localCache: { kind: "memory-firestore" } });
+  });
+  it.each(["build", "origin", "project", "emulators"])("rejects isolated sessions before SDK initialization without the %s boundary", async boundary => {
+    mocks.emulatorRuntime = true; mocks.runtimeConfig.firebaseProjectId = "demo-isolated-review";
+    if (boundary === "build") vi.stubEnv("DEV", false);
+    if (boundary === "origin") vi.stubGlobal("location", { hostname: "example.com" });
+    if (boundary === "project") mocks.runtimeConfig.firebaseProjectId = "real-project";
+    if (boundary === "emulators") mocks.emulatorRuntime = false;
+    const { initializeApp } = await import("firebase/app"); vi.mocked(initializeApp).mockClear();
+    const firebase = await import("./firebase");
+    await expect(firebase.initFirebase({ isolatedEmulatorSession: true })).rejects.toThrow("isolated-session-requires-local-demo-emulators");
+    expect(initializeApp).not.toHaveBeenCalled();
   });
 
   it.each(["localhost", "127.0.0.1", "[::1]"])("uses opt-in Firestore long polling on Vite loopback %s", async hostname => {
@@ -185,6 +213,33 @@ describe("ensureAppCheckReady", () => {
     mocks.runtimeConfig.firebaseProjectId = "orider-dev";
     const firebase = await import("./firebase");
     await expect(firebase.initFirebase()).rejects.toThrow("stage/firebase-identity-mismatch");
+  });
+
+  it.each("abcdefghijkl".split(""))("skips only existing authenticated production QA UID %s", async letter => {
+    mocks.runtimeConfig.firebaseProjectId = "miranae-orider-g1";
+    mocks.auth.currentUser = { uid: `qa_beta_m4_20261024_${letter}`, isAnonymous: false };
+    const firebase = await loadFirebase();
+    await expect(firebase.ensureAppCheckReady()).resolves.toBeUndefined();
+    expect(mocks.getToken).not.toHaveBeenCalled();
+    expect(mocks.initializeAppCheck).not.toHaveBeenCalled();
+  });
+
+  it("requires App Check again immediately after switching away from QA", async () => {
+    mocks.runtimeConfig.firebaseProjectId = "miranae-orider-g1";
+    mocks.auth.currentUser = { uid: "qa_beta_m4_20261024_a", isAnonymous: false };
+    const firebase = await loadFirebase(); await firebase.ensureAppCheckReady();
+    mocks.auth.currentUser = { uid: "ordinary-member", isAnonymous: false };
+    mocks.getToken.mockRejectedValue({ code: "appCheck/initial-throttle" });
+    await expect(firebase.ensureAppCheckReady()).rejects.toMatchObject({ code: "appCheck/initial-throttle" });
+    expect(mocks.getToken).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([null, {uid:"qa_beta_m4_20261024_a", isAnonymous:true}, {uid:"qa_beta_m4_20261024_m", isAnonymous:false}, {uid:"ordinary-member", isAnonymous:false}])("does not bypass readiness for other sessions %j", async user => {
+    mocks.runtimeConfig.firebaseProjectId = "miranae-orider-g1";
+    mocks.auth.currentUser = user;
+    mocks.getToken.mockRejectedValue({ code: "appCheck/initial-throttle" });
+    const firebase = await loadFirebase();
+    await expect(firebase.ensureAppCheckReady()).rejects.toMatchObject({ code: "appCheck/initial-throttle" });
   });
 
   it("does not resolve until a token exists and shares concurrent readiness", async () => {

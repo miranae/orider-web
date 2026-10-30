@@ -8,7 +8,7 @@
  * (최대 2회) 일어나지만, 결과 캐시 덕에 토글을 반복해도 재조회하지 않는다.
  */
 import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
-import { firestore } from "./firebase";
+import { auth, firestore } from "./firebase";
 
 export const RECENT_ACTIVITY_TRACKS_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
 export const RECENT_ACTIVITY_TRACKS_DOCUMENT_CAP = 500;
@@ -18,6 +18,11 @@ export interface RecentActivityTrack {
 }
 
 export async function fetchRecentActivityTracks(uid: string): Promise<RecentActivityTrack[]> {
+  const owner = auth.currentUser;
+  const assertOwner = () => {
+    if (!owner || owner.uid !== uid || owner.isAnonymous || auth.currentUser !== owner) throw new Error("activity-tracks-owner-required");
+  };
+  assertOwner();
   const cutoff = Date.now() - RECENT_ACTIVITY_TRACKS_WINDOW_MS;
   const snapshot = await getDocs(query(
     collection(firestore, "activities"),
@@ -27,5 +32,7 @@ export async function fetchRecentActivityTracks(uid: string): Promise<RecentActi
     orderBy("startTime", "desc"),
     limit(RECENT_ACTIVITY_TRACKS_DOCUMENT_CAP),
   ));
-  return snapshot.docs.map((doc) => ({ thumbnailTrack: doc.data().thumbnailTrack as string | undefined }));
+  assertOwner();
+  if (snapshot.metadata?.fromCache || snapshot.metadata?.hasPendingWrites) throw new Error("activity-tracks-server-confirmation-required");
+  return snapshot.docs.filter(doc => doc.data().userId === uid).map(doc => ({ thumbnailTrack: doc.data().thumbnailTrack as string | undefined }));
 }

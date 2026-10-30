@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   clubMeetingAuthoring,
   createClubMeeting,
+  finishClubMeeting,
   updateClubMeeting,
   saveClubMeetingTeams,
 } from "./clubMeetings";
@@ -91,3 +92,5 @@ it("조편성 저장은 revision을 보내며 미설정 정원·조장은 undefi
     teams: [{ id: "team-1", name: "1조", memberIds: ["member"] }],
   });
 });
+
+it("모임 마무리는 서버 권한 검사에 ID와 revision만 전달한다", async()=>{api.call.mockResolvedValue({data:{success:true}});await finishClubMeeting("meeting",9);expect(api.ready).toHaveBeenCalled();expect(api.call).toHaveBeenLastCalledWith({eventId:"meeting",expectedRevision:9});});

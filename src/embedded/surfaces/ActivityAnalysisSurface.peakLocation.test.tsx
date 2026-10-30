@@ -10,6 +10,7 @@ vi.mock("../../features/activity/detail/ActivityPersonalBenchmark", () => ({ Act
 vi.mock("../../features/activity/detail/ActivityGrowthPanel", () => ({ ActivityGrowthPanel: () => null }));
 vi.mock("../../features/activity/detail/ActivityOverviewEvidence", () => ({ default: () => null }));
 vi.mock("../../features/activity/detail/ActivityDetailedCharts", () => ({ default: () => null }));
+vi.mock("../../components/activity/AiRideAnalysisCard", () => ({ default: () => null }));
 vi.mock("../../components/AnalysisTab", () => ({ default: () => null }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string, params?: Record<string, unknown>) => {
   let text: unknown = ko;
