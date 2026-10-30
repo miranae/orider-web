@@ -13,6 +13,8 @@ vi.mock("../../hooks/usePublicActivityMaps", () => ({ usePublicActivityMaps: () 
 const routeMapControl = vi.hoisted(() => ({
   delayNextCapture: false,
   delayedOnLoad: null as (() => void) | null,
+  liveCanvas: false,
+  liveMounts: 0,
 }));
 
 vi.mock("../RouteMap", async () => {
@@ -20,13 +22,19 @@ vi.mock("../RouteMap", async () => {
   return {
     default: function RouteMapMock({
       onLoad,
-      preserveDrawingBuffer,
+      pixelRatio,
     }: {
       onLoad?: () => void;
-      preserveDrawingBuffer?: boolean;
+      pixelRatio?: number;
     }) {
+      // 업로드 캡처 뷰포트만 pixelRatio 를 고정한다. 실시간 지도는 세션 스냅샷용으로만 onLoad 를 받는다.
+      const preserveDrawingBuffer = pixelRatio != null;
       React.useEffect(() => {
-        if (!preserveDrawingBuffer) return;
+        if (!preserveDrawingBuffer) {
+          routeMapControl.liveMounts += 1;
+          if (routeMapControl.liveCanvas) onLoad?.();
+          return;
+        }
         if (routeMapControl.delayNextCapture) {
           routeMapControl.delayNextCapture = false;
           routeMapControl.delayedOnLoad = onLoad ?? null;
@@ -36,7 +44,7 @@ vi.mock("../RouteMap", async () => {
       }, [onLoad, preserveDrawingBuffer]);
       return preserveDrawingBuffer
         ? <canvas data-testid="capture-map" width={2560} height={914} />
-        : <div data-testid="route-map" />;
+        : <div data-testid="route-map">{routeMapControl.liveCanvas && <canvas data-testid="live-canvas" />}</div>;
     },
   };
 });
@@ -75,6 +83,8 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
     liveMaps.maps = {};
     routeMapControl.delayNextCapture = false;
     routeMapControl.delayedOnLoad = null;
+    routeMapControl.liveCanvas = false;
+    routeMapControl.liveMounts = 0;
   });
 
   it.each([{}, { contentRevision: 1, contentSelectedRevision: 1 }])("publishes with the live route head instead of missing/stale card revisions: %j", async cardRevisions => {
@@ -376,5 +386,42 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
         .map(({ data }) => (data as { expectedHeadRevision?: number }).expectedHeadRevision);
       expect(finalizeHeads).toEqual([4]);
     });
+  });
+});
+
+describe("ActivityRouteThumbnail session route snapshot", () => {
+  beforeEach(() => {
+    routeMapControl.liveCanvas = true;
+    routeMapControl.liveMounts = 0;
+    let n = 0;
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function (callback: BlobCallback) { callback(new Blob(["x"], { type: "image/webp" })); });
+    vi.spyOn(URL, "createObjectURL").mockImplementation(() => `blob:snapshot-${++n}`);
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+  });
+  afterEach(() => { vi.restoreAllMocks(); routeMapControl.liveCanvas = false; });
+
+  it("draws the live map once per route revision and reuses the snapshot on remount", async () => {
+    const props = { ...baseProps, activityId: "snapshot-1", visibility: "private" as const, shape: "square" as const };
+    const first = renderWithProviders(<ActivityRouteThumbnail {...props} />);
+    await waitFor(() => expect(first.container.querySelector("img[src^='blob:snapshot-']")).toBeInTheDocument());
+    expect(first.queryByTestId("route-map")).not.toBeInTheDocument();
+    first.unmount();
+    const second = renderWithProviders(<ActivityRouteThumbnail {...props} />);
+    expect(second.container.querySelector("img[src^='blob:snapshot-']")).toBeInTheDocument();
+    expect(routeMapControl.liveMounts).toBe(1);
+    second.unmount();
+    const changed = renderWithProviders(<ActivityRouteThumbnail {...props} polyline="37.5,126.9;37.6,127.0" />);
+    await waitFor(() => expect(routeMapControl.liveMounts).toBe(2));
+    changed.unmount();
+  });
+
+  it("keeps the Mapbox map unmounted while the card is off screen", async () => {
+    routeMapControl.liveCanvas = false;
+    const props = { ...baseProps, activityId: "snapshot-2", visibility: "private" as const, shape: "square" as const };
+    const view = renderWithProviders(<ActivityRouteThumbnail {...props} onScreen={false} />);
+    await act(async () => {});
+    expect(view.queryByTestId("route-map")).not.toBeInTheDocument();
+    view.rerender(<ActivityRouteThumbnail {...props} onScreen />);
+    await waitFor(() => expect(view.queryByTestId("route-map")).toBeInTheDocument());
   });
 });

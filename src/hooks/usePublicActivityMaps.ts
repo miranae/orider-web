@@ -9,7 +9,8 @@ const EMPTY = { maps: {} as Record<string, PublicActivityMap | null>, failed: fa
  * 공개 지도는 신호가 바뀔 때만 다시 조회한다.
  * - activity_map_signals/{activityId}: 활동 공개 상태 변경
  * - activity_map_viewer_signals/{uid}: 로그인한 뷰어의 접근 관계(차단·구독·친구) 변경. 익명 요청은 관계와 무관하다.
- * 신호 구독이 모두 기준값을 받은 뒤 첫 조회를 해서, 그 사이의 변경을 놓치지 않는다. Offscreen callers must pass enabled=false.
+ * 신호 구독이 모두 기준값을 받은 뒤 첫 조회를 해서, 그 사이의 변경을 놓치지 않는다.
+ * enabled 동안 데이터와 구독을 유지한다. 화면 밖이어도 신호가 최신을 보장하므로 비울 필요가 없다.
  */
 export function usePublicActivityMaps(activityIds: string[], enabled = true) {
   const { user } = useAuth(), services = useFirebaseServices();
