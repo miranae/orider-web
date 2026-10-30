@@ -10,6 +10,7 @@ import { useDialog } from "../contexts/DialogContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { useFriends, sendFriendRequest } from "../hooks/useFriends";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
+import { getSportLabelKey } from "../utils/sportType";
 import Avatar from "../components/Avatar";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../components/redesign";
 import CoachSignInButton from "./coach/CoachSignInButton";
@@ -247,7 +248,7 @@ export default function ExploreAthletesPage() {
       {lastActivity && lastStart !== null && <span data-testid="E5-2-10" className="explore-people-latest">
         <Text as="span" variant="caption" tone="secondary">{commonT("profileSocial.latest")}</Text>
         <Link to={`/activity/${lastActivity.id}`} className="profile-latest-link">
-          <Text as="strong" variant="caption">{lastActivity.title?.trim() || commonT("label.ride")}</Text>
+          <Text as="strong" variant="caption">{lastActivity.title?.trim() || commonT(getSportLabelKey(lastActivity.type))}</Text>
           <span aria-hidden="true">·</span>
           <Text as="span" variant="caption" tone="secondary">{new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", timeZone: "Asia/Seoul" }).format(lastStart)}</Text>
         </Link>

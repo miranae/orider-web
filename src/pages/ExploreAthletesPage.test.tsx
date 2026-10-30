@@ -119,6 +119,7 @@ it("renders public details with the profile stat strip and recent activity link,
       lastActivity: { id: "act1", title: "아침 라이딩", startTime: Date.UTC(2026, 9, 25, 3) },
     } }),
     person("b", { profilePublic: true, details: { friendCount: 2, lastActivity: null } }),
+    person("c", { profilePublic: true, details: { lastActivity: { id: "act2", title: "", type: "Run", startTime: Date.UTC(2026, 9, 26, 3) } } }),
   ], nextCursor: null });
   renderPage("/ko/explore/athletes?q=rider");
   await screen.findByRole("link", { name: "rider-a" });
@@ -134,6 +135,9 @@ it("renders public details with the profile stat strip and recent activity link,
   expect(within(sparse).getByTestId("E5-2-9").children).toHaveLength(1);
   expect(within(sparse).getByLabelText("친구 2")).toBeInTheDocument();
   for (const id of ["E5-2-7", "E5-2-8", "E5-2-10", "E5-2-6"]) expect(within(sparse).queryByTestId(id)).not.toBeInTheDocument();
+
+  // 제목이 비면 ActivityCard 처럼 종목 라벨로 대체 — 러닝을 라이딩으로 표시하지 않는다
+  expect(within(row("rider-c")).getByRole("link", { name: /러닝/ })).toHaveAttribute("href", "/ko/activity/act2");
 });
 
 it("hides subscription stats when subscriptions are disabled", async () => {

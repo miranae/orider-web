@@ -13,7 +13,8 @@ export interface SearchUserDetails {
   subscriberCount?: number;
   friendCount?: number;
   /** startTime 은 epoch ms */
-  lastActivity?: { id: string; title: string; startTime: number } | null;
+  /** title 이 비면 type 의 종목 라벨로 대체한다 (ActivityCard 와 같은 규칙) */
+  lastActivity?: { id: string; title: string; type?: string | null; startTime: number } | null;
 }
 
 /** 서버 `searchUsers` 호출 계약 — 자기 자신·차단 사용자는 서버가 제외한다. 비공개 프로필도 기본 정보로 포함된다. */
