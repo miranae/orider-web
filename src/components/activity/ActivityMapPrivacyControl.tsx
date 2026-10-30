@@ -5,9 +5,9 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { createActivityMapPrivacyClient, type ActivityMapPrivacy } from "../../services/activityMapPrivacy";
 import { Button, Card, Field, Input, Stack, Text } from "../../theme/components";
 import RouteMap from "../RouteMap";
-import ActivityMapThumbnailResetControl from "./ActivityMapThumbnailResetControl";
+import ActivityMapThumbnailReplaceControl from "./ActivityMapThumbnailReplaceControl";
 
-export default function ActivityMapPrivacyControl({ activityId }: { activityId: string }) {
+export default function ActivityMapPrivacyControl({ activityId, thumbnail }: { activityId: string; thumbnail?: { polyline: string; contentRevision?: unknown; contentSelectedRevision?: unknown } }) {
   const { user } = useAuth(); const services = useFirebaseServices(); const { t } = useTranslation("activity");
   const client = useMemo(() => createActivityMapPrivacyClient(services), [services, user]);
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false);
@@ -59,8 +59,8 @@ export default function ActivityMapPrivacyControl({ activityId }: { activityId: 
         <Button variant="ghost" disabled={busy} onClick={() => { setOpen(false); setState(null); trigger.current?.focus(); }}>{t("kudosCard.cancel")}</Button>
       </Stack>
       <Text variant="caption">{t("mapPrivacy.limit")}</Text>
-      {/* 보호가 켜진 활동은 썸네일이 없어(imageUrl=null) 지우기 버튼도 숨는다. */}
-      {current.current.mapPreview.imageUrl && <ActivityMapThumbnailResetControl activityId={activityId} />}
+      {/* 보호가 켜진 활동은 썸네일이 없어(imageUrl=null) 다시 만들기 버튼도 숨는다. */}
+      {current.current.mapPreview.imageUrl && thumbnail?.polyline && <ActivityMapThumbnailReplaceControl activityId={activityId} {...thumbnail} />}
     </>}
     {error && <><Text role="alert">{t(`mapPrivacy.${error}`)}</Text><Button variant="secondary" onClick={() => void run("load")} disabled={busy}>{t("page.retry")}</Button></>}
     {saved && <Text role="status">{t("mapPrivacy.saved")}</Text>}

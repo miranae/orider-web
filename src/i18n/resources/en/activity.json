@@ -2935,11 +2935,11 @@
     "return": "Return to route history search"
   },
   "mapThumbnail": {
-    "explanation": "The feed map thumbnail is created on the screen of the first person who views this activity. If it looks wrong, clear it and it will be recreated for the next viewer.",
-    "reset": "Clear map thumbnail",
-    "confirm": "Clear the current thumbnail? It will be recreated the next time someone sees it in a feed.",
-    "done": "Cleared. It will be recreated for the next viewer.",
-    "failed": "Couldn't clear it. Please try again shortly."
+    "explanation": "The feed map thumbnail is created on the screen of the first person who views this activity. If it looks wrong, you can recreate it here.",
+    "replace": "Recreate map thumbnail",
+    "preview": "Recreated map thumbnail",
+    "done": "Replaced with the new thumbnail.",
+    "failed": "Couldn't recreate it. Please try again shortly."
   },
   "mapPrivacy": {
     "title": "Public map privacy",
