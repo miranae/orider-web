@@ -70,6 +70,10 @@
 
 .mobile-fitness-load-section { margin-block: var(--space-5); padding-block: var(--space-4); border-top: 1px solid var(--line-soft); }
 .mobile-fitness-load-section > h2 { padding-inline: var(--space-4); margin-bottom: var(--space-4); }
+.mobile-fitness-load-section__description { padding-inline: var(--space-4); }
+/* 섹션 이동 때 코드로 포커스만 옮기는 대상(tabIndex=-1) — 섹션 전체를 두르는 링은 그리지 않는다. */
+.condition-section-target:focus { outline: none; }
+.mobile-fitness-streak { margin: 0 var(--space-4) var(--space-3); }
 .mobile-fitness-page > .condition-section-nav { margin-inline: var(--space-4); }
 
 .mobile-fitness-page .fitness-coach--story { padding-inline: var(--space-4); }
@@ -97,9 +101,11 @@
 .mobile-fitness-page--web .mobile-fitness-mode-tabs,
 .mobile-fitness-page--web > .condition-section-nav,
 .mobile-fitness-page--web .condition-ftp-section,
-.mobile-fitness-page--web .condition-method-section { margin-inline: 0; }
+.mobile-fitness-page--web .condition-method-section,
+.mobile-fitness-page--web .mobile-fitness-streak { margin-inline: 0; }
 .mobile-fitness-page--web .mobile-fitness-page__title,
 .mobile-fitness-page--web .mobile-fitness-load-section > h2,
+.mobile-fitness-page--web .mobile-fitness-load-section__description,
 .mobile-fitness-page--web .mobile-fitness-riding-metrics__title,
 .mobile-fitness-page--web .fitness-coach--story { padding-inline: 0; }
 .mobile-fitness-page--web .fitness-coach--story .mobile-fitness-section,

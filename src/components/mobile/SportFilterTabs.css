@@ -1,3 +1,4 @@
-.sport-filter-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); padding: var(--space-3) var(--space-4); }
-.sport-filter-tabs > .ds-chip { min-width: 0; justify-content: center; }
-@media (max-width: 36rem) { .sport-filter-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* DisciplineTabs 와 같은 세그먼트: 한 줄, 폭 전체를 같은 칸으로 나눈다. 웹은 셸 거터가 좌우를 정한다. */
+.sport-filter-tabs { width: 100%; margin-block: var(--space-3); }
+/* 셸 거터가 없는 앱 임베드에서만 좌우 16 을 스스로 둔다. */
+.mobile-fitness-page--embedded .sport-filter-tabs { width: auto; margin-inline: var(--space-4); }

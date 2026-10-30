@@ -96,7 +96,12 @@ run_step() {
   grep -E "$pat" "$logf" | tail -40 || true
   [[ "$rc" -eq 0 ]] || { echo "  로그: $logf"; die "$desc 실패 — 머지 중단"; }
   rm -f "$logf"
+  GATE_STEPS+=("$desc")
 }
+# 머지 직전 PR 댓글(게이트 결과 기록)에 쓸 통과 단계와 생략·예외.
+GATE_STEPS=()
+GATE_NOTES=()
+REVIEW_RESULT_FILE=""
 
 json_field() {
   local json="$1" field="$2"
@@ -462,6 +467,7 @@ else
     # CI 가 이 head SHA 에서 이미 lint/quality/test/build 를 통과시켰다. 같은 것을 다시
     # 돌리지 않는다. 리뷰와 머지 직전 head 재확인은 그대로 남는다.
     log "Full 게이트 생략 — GitHub CI check 가 head ${HEAD_OID:0:12} 에서 이미 통과"
+    GATE_NOTES+=("로컬 Full 게이트 생략 — ci.yml 이 같은 head 에서 이미 통과")
   else
     [[ -d node_modules ]] || die "node_modules 없음 — 'npm ci' 후 재실행하세요."
 
@@ -492,6 +498,7 @@ else
       fi
     else
       log "Build 생략 (--skip-build)"
+      GATE_NOTES+=("Build 생략 (--skip-build)")
     fi
   fi
 fi
@@ -526,6 +533,8 @@ if [[ "$REVIEW_STARTED" == 1 ]]; then
         || log "[리뷰] 델타 시작점 기록 실패 — 다음 실행은 전체 범위로 봅니다."
     fi
     printf '  \033[1;32m리뷰 PASS (%s)\033[0m\n' "$provider"
+    REVIEW_RESULT_FILE="$(mktemp -t orider-merge-review-result)"
+    cp "$REVIEW_OUT" "$REVIEW_RESULT_FILE"
     rm -f "$REVIEW_OUT" "$REVIEW_LOG"
   else
     die "코드 리뷰 verdict 누락"
@@ -567,6 +576,29 @@ if [[ "$DO_MERGE" == 0 ]]; then
   log "--no-merge: 모든 게이트 통과. 머지는 수행하지 않음."
   exit 0
 fi
+
+# ── 게이트 결과를 PR 에 남긴다 ───────────────────────────────────────────────
+# 게이트·AI 리뷰는 로컬에서만 돈다. 누가 머지했든 GitHub 에서 확인할 수 있게 머지 직전에
+# 결과를 댓글로 남긴다. 남기지 못하면 머지하지 않는다(기록 없는 머지 금지).
+[[ "$REQUIRE_VISUAL_CHECK" == 0 ]] && GATE_NOTES+=("시각 증빙 게이트 생략 (--no-visual-check)")
+[[ "$WAIT_CHECKS" == 0 ]] && GATE_NOTES+=("GitHub 검사 완료 대기 생략 (--no-wait)")
+[[ -n "$TEST_SCOPE_EVIDENCE" ]] && GATE_NOTES+=("테스트 범위 지정: $TEST_SCOPE_EVIDENCE")
+GATE_REPORT="$(mktemp -t orider-merge-gate-report)"
+GATE_HEAD="$HEAD_OID" GATE_BASE="$BASE" GATE_BASE_SHA="$(git rev-parse "origin/$BASE")" GATE_TIER_NAME="$GATE_TIER" \
+  GATE_RUNNER="$(gh api user --jq .login 2>/dev/null || git config user.name || true)" \
+  GATE_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  GATE_STEPS="$(printf '%s\n' "${GATE_STEPS[@]+"${GATE_STEPS[@]}"}")" \
+  GATE_NOTES="$(printf '%s\n' "${GATE_NOTES[@]+"${GATE_NOTES[@]}"}")" \
+  GATE_SCRIPT_HASH="$(git hash-object scripts/merge-pr.sh)" \
+  GATE_BASE_SCRIPT_HASH="$(git rev-parse "origin/$BASE:scripts/merge-pr.sh" 2>/dev/null || true)" \
+  GATE_REVIEW_DECISION="$REVIEW_DECISION" GATE_MERGE_STATE="$MERGE_STATE" \
+  GATE_RUN_REVIEW="$RUN_REVIEW" GATE_REVIEW_MODE="$review_mode" GATE_REVIEW_RANGE="${REVIEW_RANGE_LABEL:-}" \
+  GATE_REVIEW_SCOPE="$([[ "$REVIEW_BLOCKERS_ONLY" == 1 ]] && echo blockers-only || echo all-findings)" \
+  GATE_REVIEW_FILE="$REVIEW_RESULT_FILE" \
+  node scripts/merge-gate-report.mjs >"$GATE_REPORT" || die "게이트 결과 기록 생성 실패 — 머지 중단"
+gh pr comment "$PR_NUM" --body-file "$GATE_REPORT" >/dev/null || die "게이트 결과 PR 댓글 실패 — 머지 중단"
+echo "  게이트 결과를 PR #$PR_NUM 댓글로 남겼습니다."
+rm -f "$GATE_REPORT" "$REVIEW_RESULT_FILE"
 
 log "PR #$PR_NUM squash merge"
 # Do not use `--delete-branch`: gh tries to fast-forward the local checkout to
