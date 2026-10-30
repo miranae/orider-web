@@ -16,6 +16,7 @@ it("asks for confirmation before clearing the map thumbnail", async () => {
   await waitFor(() => expect(resets()).toHaveLength(before + 1));
   expect(resets().at(-1)?.data).toEqual({ activityId: "a" });
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("지웠습니다"));
+  expect(screen.queryByRole("button", { name: "지도 썸네일 지우기" })).not.toBeInTheDocument();
 });
 
 it("reports a failure without hiding the button", async () => {
