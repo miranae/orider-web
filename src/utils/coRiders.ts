@@ -69,19 +69,11 @@ function coRiderRank(base: Activity, candidate: Activity): [number, number, numb
   ];
 }
 
-function isBetterCoRider(base: Activity, next: Activity, current: Activity): boolean {
-  const nextRank = coRiderRank(base, next);
-  const currentRank = coRiderRank(base, current);
-  if (nextRank[0] !== currentRank[0]) return nextRank[0] > currentRank[0];
-  if (nextRank[1] !== currentRank[1]) return nextRank[1] > currentRank[1];
-  if (nextRank[2] !== currentRank[2]) return nextRank[2] > currentRank[2];
-  return next.id < current.id;
-}
-
-export function selectActualCoRiders(base: Activity, candidates: Activity[]): Activity[] {
+/** serverVerifiedAnchorId is only supplied after the owner-anchor discovery contract verifies each returned peer. */
+export function selectActualCoRiders(base: Activity, candidates: Activity[], verified?: { serverVerifiedAnchorId: string }): Activity[] {
   const baseSport = getSportCategory(base.type);
   const baseVirtual = isVirtual(base);
-  const byUser = new Map<string, Activity>();
+  const matches: Activity[] = [];
 
   for (const candidate of candidates) {
     if (candidate.id === base.id) continue;
@@ -90,20 +82,17 @@ export function selectActualCoRiders(base: Activity, candidates: Activity[]): Ac
     // 타인의 원본 스트림은 클라이언트에서 읽을 수 없다. 썸네일 경로와 활동 시간대를
     // 각각 비교해 동승을 추정하지 않고, 백엔드가 같은 시각의 GPS 근접성을 검증해
     // 양쪽 활동에 저장한 직접 peer 관계만 표시한다.
-    if (!hasPersistedSynchronizedMatch(base, candidate)) continue;
+    if (verified?.serverVerifiedAnchorId !== base.id && !hasPersistedSynchronizedMatch(base, candidate)) continue;
     if (getSportCategory(candidate.type) !== baseSport) continue;
     if (isVirtual(candidate) !== baseVirtual) continue;
-    if ((candidate.summary.distance ?? 0) < MIN_CANDIDATE_DISTANCE_M) continue;
+    if (!Number.isFinite(candidate.summary.distance) || candidate.summary.distance < MIN_CANDIDATE_DISTANCE_M) continue;
     if (activityDurationMs(candidate) < MIN_CANDIDATE_DURATION_MS) continue;
     if (!hasEnoughOverlap(base, candidate)) continue;
 
-    const current = byUser.get(candidate.userId);
-    if (!current || isBetterCoRider(base, candidate, current)) {
-      byUser.set(candidate.userId, candidate);
-    }
+    matches.push(candidate);
   }
 
-  return [...byUser.values()].sort((a, b) => {
+  return matches.sort((a, b) => {
     const [aOverlap, aDistance] = coRiderRank(base, a);
     const [bOverlap, bDistance] = coRiderRank(base, b);
     if (aOverlap !== bOverlap) return bOverlap - aOverlap;

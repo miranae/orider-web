@@ -1,4 +1,5 @@
-import { screen, within } from "@testing-library/react";
+import { PowerReadingControls } from "./PowerReadingControls";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
@@ -8,7 +9,7 @@ import type { ActivityAnalysisSections } from "../../../components/AnalysisTab";
 
 const fixture = vi.hoisted(() => ({ raw: {} as ActivityAnalysisSections, calls: vi.fn(), curve: vi.fn() }));
 vi.mock("../../../components/AnalysisTab", () => ({ default: (props: { renderSections: (sections: ActivityAnalysisSections) => ReactNode }) => { fixture.calls(); return props.renderSections(fixture.raw); } }));
-vi.mock("./ActivityOverviewCharts", async original => ({ ...await original<typeof import("./ActivityOverviewCharts")>(), OverviewPowerCurve: (props: unknown) => { fixture.curve(props); return <div data-testid="power-curve" />; } }));
+vi.mock("./ActivityOverviewCharts", async original => ({ ...await original<typeof import("./ActivityOverviewCharts")>(), OverviewPowerCurve: (props: unknown) => { fixture.curve(props); return <><PowerReadingControls /><div data-testid="power-curve" /></>; } }));
 vi.mock("react-chartjs-2", () => ({ Line: () => <div data-testid="power-curve" /> }));
 
 const rich: ActivityOverviewPresentation = {
@@ -29,7 +30,7 @@ const props = (presentation?: ActivityOverviewPresentation) => ({
   analysisProps: {} as NonNullable<Parameters<typeof ActivityAnalysisBody>[0]["analysisProps"]>,
   isOwner: true, preview: false, ftpW: 220, totalCalories: 336, storedLoad: null,
   sharedStats: { averagePower: 170, averageCadence: 80, averageHeartRate: null, maxHeartRate: null },
-  timeline: <p>record timeline</p>, provenance: <p>different load source</p>, benchmark: <p>90-day reference</p>, peakInspector: <p>peak locator</p>, sensorFallback: null,
+  timeline: <p>record timeline</p>, provenance: <p>different load source</p>, benchmark: <><PowerReadingControls /><p>90-day reference</p></>, peakInspector: <p>peak locator</p>, sensorFallback: null,
 });
 const topic = (name: string) => screen.getByRole("heading", { name, level: 2 }).closest("section")!;
 beforeEach(() => { fixture.raw = {}; fixture.calls.mockClear(); fixture.curve.mockClear(); });
@@ -43,7 +44,12 @@ describe("activity analysis domain composition", () => {
     expect(screen.queryByRole("heading", { name: "상세 지표와 근거" })).not.toBeInTheDocument();
     expect(fixture.calls).toHaveBeenCalledTimes(1);
     expect(within(topic("훈련 부하와 체력")).getByText("stored TSS 43")).toBeInTheDocument();
-    expect(within(topic("파워 기록과 최고 노력")).getByText("90-day reference")).toBeInTheDocument();
+    expect(screen.queryByText("90-day reference")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "최근 90일" }));
+    expect(screen.queryByTestId("power-curve")).not.toBeInTheDocument();
+    expect(within(topic("파워 기록과 최고 노력")).getByText("90-day reference")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "역대 기록" }));
+    expect(screen.getByTestId("power-curve")).toBeVisible();
     expect(within(topic("파워 기록과 최고 노력")).getByText("peak locator")).toBeInTheDocument();
     expect(within(topic("회복·에너지")).getByText("FATMAX")).toBeInTheDocument();
   });
@@ -132,7 +138,7 @@ it("retains the prior-only fitness timestamp and form without manufacturing a po
 it("preserves the complete highlighted peak scene even outside inspector durations", () => {
   renderWithProviders(<ActivityAnalysisBody {...props({ ...rich, peakMoment: { durationSec: 90, avgPowerW: 371, avgSpeedKmh: 51, maxHr: 191, fromKm: 2, toKm: 3 } })} peakInspector={null} />);
   const records = topic("파워 기록과 최고 노력");
-  expect(records).toHaveTextContent("90 s");
+  expect(records).toHaveTextContent("1분 30초");
   expect(records).toHaveTextContent("371 W");
   expect(records).toHaveTextContent("51 km/h");
   expect(records).toHaveTextContent("191 bpm");
@@ -141,9 +147,8 @@ it("preserves the complete highlighted peak scene even outside inspector duratio
 it("keeps a legacy zone visual from its real seconds without inventing numeric percentages", () => {
   renderWithProviders(<ActivityAnalysisBody {...props({ ...rich, zones: [{ kind: "heartRate", seconds: [60, 30], priority: "primary" }] })} />);
   const intensity = topic("강도 분포와 고강도");
-  expect(intensity).toHaveTextContent("1분");
-  const fill = intensity.querySelector<HTMLElement>(".activity-analysis-zone-track > span")!;
-  expect(Number.parseFloat(fill.style.width)).toBeCloseTo(66.67, 1);
+  expect(within(intensity).getByRole("cell", { name: "1:00" })).toBeVisible();
+  expect(within(intensity).getByRole("cell", { name: "0:30" })).toBeVisible();
   expect(within(intensity).queryByRole("columnheader", { name: "%" })).not.toBeInTheDocument();
   expect(within(intensity).queryByRole("columnheader", { name: "평소" })).not.toBeInTheDocument();
 });
@@ -171,8 +176,26 @@ it("keeps public loading diagnostics private and offers recovery for transient o
   input.overview.loading = false;
   input.overview.response = { status: "unavailable", activityId: "fixture", reason: "metrics_unavailable" };
   rerender(<ActivityAnalysisBody {...input} isOwner analysisProps={null} />);
-  expect(screen.getByRole("button")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "평가 근거 다시 불러오기" })).toBeInTheDocument();
   input.overview.response = { status: "unavailable", activityId: "fixture", reason: "rollout_disabled" };
   rerender(<ActivityAnalysisBody {...input} isOwner analysisProps={null} />);
-  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "평가 근거 다시 불러오기" })).not.toBeInTheDocument();
+});
+
+
+it("shows the recorded zone distribution first and reveals exact comparison evidence on demand", () => {
+  renderWithProviders(<ActivityAnalysisBody {...props(rich)} />);
+  const power = within(screen.getByRole("heading", { name: "파워", level: 3 }).closest("section")!);
+  expect(power.getByRole("group", { name: /55.6%/ })).toBeVisible();
+  expect(power.queryByText("시간·일량과 비교 근거")).not.toBeInTheDocument();
+  fireEvent.click(power.getByRole("button", { name: "Z1 회복 비교 근거" }));
+  expect(screen.getByText(/\+5.6%p/)).toBeVisible();
+});
+
+it("keeps fitness scope available behind an initially closed explanation", () => {
+  renderWithProviders(<ActivityAnalysisBody {...props({ ...rich, fitnessScope: "integrated" })} />);
+  const explanation = screen.getByText(/체력·피로·폼은 기록된/);
+  expect(explanation).not.toBeVisible();
+  fireEvent.click(screen.getByText("체력 지표의 범위와 계산 기준"));
+  expect(explanation).toBeVisible();
 });

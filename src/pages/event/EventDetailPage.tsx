@@ -1,3 +1,4 @@
+import NextEventContinuation from "../../components/group/NextEventContinuation";
 import "../EventControls.css";
 import { Bell, CalendarDays, ChartNoAxesCombined, Image, Link2, Pencil, Play, Route, Send, Settings, Trophy, Users } from "lucide-react";
 import InfoTip from "../../components/InfoTip";
@@ -133,7 +134,7 @@ export default function EventDetailPage() {
   const [followLoading, setFollowLoading] = useState(true);
   const groupId = event?.groupId || undefined;
   const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
-  const { byGroup: nextEventLabels, eventByGroup: nextEvents } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
+  const { byGroup: nextEventLabels, eventByGroup: nextEvents, incompleteGroups = new Set<string>() } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -1086,6 +1087,7 @@ export default function EventDetailPage() {
             <Card padding="none" style={{ padding: "var(--space-4)", borderColor: "color-mix(in oklch, var(--aqua) 30%, var(--line-soft))" }}>
               <Text as="div" variant="eyebrow">{t("group.hostLabel")}</Text>
               <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: "var(--ink-0)", marginTop: "var(--space-1)" }}>{group?.name || t("group.fallbackName")}</div>
+              {incompleteGroups.has(activeGroupId) && <NextEventContinuation groupId={activeGroupId} />}
               {nextEventLabels.get(activeGroupId) && (
                 <div className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-2)" }}>
                   {t("group.nextEvent")}: {nextEventLabels.get(activeGroupId)}

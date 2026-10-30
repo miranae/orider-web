@@ -57,6 +57,7 @@ const config = {
   mapboxToken: readEnv("VITE_MAPBOX_TOKEN"),
   personalApiBase: readEnv("VITE_ORIDER_PERSONAL_API_BASE"),
   aiApiBase: readEnv("VITE_ORIDER_AI_API_BASE"),
+  publicActivityDetailEnabled: readBoolEnv("VITE_PUBLIC_ACTIVITY_DETAIL_ENABLED") ?? false,
   activityAnalysisExpansionEnabled: readBoolEnv("VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED") ?? false,
   activitySubscriptionsEnabled: readBoolEnv("VITE_ACTIVITY_SUBSCRIPTIONS_ENABLED") ?? false,
   activitySubscriptionsBackendReady: readBoolEnv("VITE_ACTIVITY_SUBSCRIPTIONS_BACKEND_READY") ?? false,

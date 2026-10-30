@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ActivityRouteIndexPageResponse } from "@shared/activity-route-index-page";
 import { routeIndexAverage, routeIndexHistory, type RouteIndexCandidate } from "./activityRouteIndexHistory";
 const row = (id: string, speed: number | null, startTime = 1790000000000, discipline: "run" | "bike" = "run"): RouteIndexCandidate => ({ activityId: id, startTime,
-  match: {} as RouteIndexCandidate["match"], canonicalAverage: { state: "available", reason: null, version: 35, metricsRevision: "a".repeat(64), discipline, startTime, computedAt: startTime + 1, avgSpeedKph: speed, inputCoverage: "complete", sourceLayer: "raw_parts" } });
+  match: {} as RouteIndexCandidate["match"], canonicalAverage: { state: "available", reason: null, version: 41, metricsRevision: "a".repeat(64), discipline, startTime, computedAt: startTime + 1, avgSpeedKph: speed, inputCoverage: "complete", sourceLayer: "raw_parts" } });
 const page = (rows: RouteIndexCandidate[]) => ({ candidates: rows, pageScannedCount: rows.length, geometryPrefilteredCount: 0, sourceValidatedCount: rows.length, omitted: [] }) as unknown as ActivityRouteIndexPageResponse;
 describe("received route candidate presentation", () => {
   it("uses canonical dimensions, respects imperial conversion and preserves null/bike zero/run gap", () => {

@@ -11,7 +11,7 @@ import { loadTrainingAnalysisPeriods, trainingAnalysisPeriodsAvailable, validTra
 const mocks = vi.hoisted(() => ({ call: vi.fn(), callable: vi.fn() }));
 vi.mock("firebase/functions", () => ({ httpsCallable: mocks.callable }));
 import { periodFixture, request, runningPeriodFixture, runningPacePeriodFixture, runningPaceAnalysisFixture, stageRunEffortFixture } from "./trainingAnalysisPeriods.fixture";
-const stage = { appEnvironment: "stage", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net", trainingAnalysisPeriodsEnabled: true };
+const stage = { appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net", trainingAnalysisPeriodsEnabled: true };
 beforeEach(() => { resetRuntimeConfigForTests(stage); mocks.call.mockReset().mockResolvedValue({ data: periodFixture() }); mocks.callable.mockReset().mockReturnValue(mocks.call); });
 describe("training period boundary", () => {
   it("requires explicit stage capability and exact compute origin", async () => {
@@ -22,11 +22,11 @@ describe("training period boundary", () => {
     expect(mocks.callable).not.toHaveBeenCalled();
   });
   it.each(["production-transport", "default-transport", "foreign-app"])("rejects %s before App Check or any network call", async kind => {
-    const app = {};
+    const app = { options: { projectId: "miranae-orider-g1" } };
     const services = { auth: { app, currentUser: { uid: "owner", isAnonymous: false } },
-      functions: { app: kind === "foreign-app" ? {} : app, customDomain: kind === "production-transport" ? "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net" : kind === "default-transport" ? undefined : stage.firebaseFunctionsBase },
+      functions: { region: "asia-northeast3", app: kind === "foreign-app" ? {} : app, customDomain: kind === "production-transport" ? "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net" : kind === "default-transport" ? undefined : stage.firebaseFunctionsBase },
       ensureAppCheckReady: vi.fn() } as unknown as FirebaseServices;
-    await expect(loadTrainingAnalysisPeriods(services, "owner", request)).rejects.toThrow("stage/callable-context-mismatch");
+    await expect(loadTrainingAnalysisPeriods(services, "owner", request)).rejects.toThrow(kind === "foreign-app" ? "account_changed" : "stage/callable-context-mismatch");
     expect(services.ensureAppCheckReady).not.toHaveBeenCalled();
     expect(mocks.callable).not.toHaveBeenCalled();
     expect(mocks.call).not.toHaveBeenCalled();
@@ -38,9 +38,9 @@ describe("training period boundary", () => {
     expect(validTrainingAnalysisPeriodsRequest(request, 9999)).toBe(false);
   });
   it("reads one callable and rejects account changes around App Check and response", async () => {
-    const app = {};
+    const app = { options: { projectId: "miranae-orider-g1" } };
     const auth = { app, currentUser: { uid: "owner", isAnonymous: false } };
-    const services = { auth, functions: { app, customDomain: stage.firebaseFunctionsBase }, ensureAppCheckReady: vi.fn(async () => {}) } as unknown as FirebaseServices;
+    const services = { auth, functions: { region: "asia-northeast3", app, customDomain: stage.firebaseFunctionsBase }, ensureAppCheckReady: vi.fn(async () => {}) } as unknown as FirebaseServices;
     await expect(loadTrainingAnalysisPeriods(services, "owner", request)).resolves.toEqual(periodFixture());
     expect(mocks.callable).toHaveBeenCalledWith(services.functions, "getTrainingAnalysisPeriods");
     expect(mocks.call).toHaveBeenCalledTimes(1);
@@ -162,8 +162,8 @@ describe("optional observed running distribution boundary", () => {
   });
   it("rejects a malformed optional payload through the callable error path with one request", async () => {
     const value = supplied(); value.periods[0]!.running!.evidence!.activities = {} as never;
-    const app = {};
-    const services = { auth: { app, currentUser: { uid: "owner", isAnonymous: false } }, functions: { app, customDomain: stage.firebaseFunctionsBase }, ensureAppCheckReady: vi.fn(async () => {}) } as unknown as FirebaseServices;
+    const app = { options: { projectId: "miranae-orider-g1" } };
+    const services = { auth: { app, currentUser: { uid: "owner", isAnonymous: false } }, functions: { region: "asia-northeast3", app, customDomain: stage.firebaseFunctionsBase }, ensureAppCheckReady: vi.fn(async () => {}) } as unknown as FirebaseServices;
     mocks.call.mockResolvedValueOnce({ data: value });
     await expect(loadTrainingAnalysisPeriods(services, "owner", requestFor(value))).rejects.toThrow("invalid_training_analysis_periods_response");
     expect(mocks.call).toHaveBeenCalledTimes(1);
@@ -389,8 +389,8 @@ it("parses actual compiled backend Stage wire after target filtering, including 
     const data = scenario.response as unknown as TrainingAnalysisPeriodsResponse;
     const request = scenario.request as unknown as Parameters<typeof validateTrainingAnalysisPeriodsResponse>[1];
     expect(validateTrainingAnalysisPeriodsResponse(data, request)).toBe(data);
-    const services = { auth: { currentUser: { uid: "owner", isAnonymous: false } }, functions: {}, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices;
-    Object.assign(services.functions, { app: services.auth.app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" });
+    const services = { auth: { app: { options: { projectId: "miranae-orider-g1" } }, currentUser: { uid: "owner", isAnonymous: false } }, functions: {}, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices;
+    Object.assign(services.functions, { region: "asia-northeast3", app: services.auth.app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" });
     mocks.call.mockResolvedValueOnce({ data });
     expect(await loadTrainingAnalysisPeriods(services, "owner", request)).toEqual(data);
     expect(mocks.call).toHaveBeenLastCalledWith(request);
@@ -547,8 +547,8 @@ it("accepts only the explicitly selected bound native alias absent from canonica
 
 it("rechecks the owner after asynchronous native time-source digest verification without further network reads", async () => {
   const fixture = timeWire.cases.find(value => value.mode === "canonical_available")!;
-  const app = {}, auth = { app, currentUser: { uid: "owner", isAnonymous: false } };
-  const services = { auth, functions: { app, customDomain: stage.firebaseFunctionsBase }, ensureAppCheckReady: vi.fn(async () => {}) } as unknown as FirebaseServices;
+  const app = { options: { projectId: "miranae-orider-g1" } }, auth = { app, currentUser: { uid: "owner", isAnonymous: false } };
+  const services = { auth, functions: { region: "asia-northeast3", app, customDomain: stage.firebaseFunctionsBase }, ensureAppCheckReady: vi.fn(async () => {}) } as unknown as FirebaseServices;
   let entered!: () => void, release!: () => void;
   const started = new Promise<void>(done => { entered = done; }), blocked = new Promise<void>(done => { release = done; });
   vi.stubGlobal("crypto", { subtle: { digest: async (algorithm: AlgorithmIdentifier, data: Parameters<typeof webcrypto.subtle.digest>[1]) => { entered(); await blocked; return webcrypto.subtle.digest(algorithm, data); } } });

@@ -1,4 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
+import type { ReactNode } from "react";
+import { fireEvent, render as renderUi, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
 import type { ActivityMatchedRouteGroupResponse } from "@shared/activity-matched-route-groups";
@@ -18,7 +20,7 @@ const activity = { id: "anchor", userId: "owner", type: "Ride", startTime: 17900
 function page(known = 3, discipline: "bike" | "run" = "bike"): ActivityMatchedRouteGroupResponse {
   const trend = { state: "insufficient", basis: "canonical_avg_speed_kph", count: 3, reason: "insufficient_distinct_dates" };
   return { groupToken: "group", members: Array.from({ length: 3 }, (_, index) => ({ activityId: index ? `ride-${index}` : "anchor", startTime: Date.UTC(index ? 2026 : 2025, 8, 1), year: index ? 2026 : 2025, isAnchor: !index,
-    canonicalAverage: index >= known ? { state: "pending", reason: "metrics_pending", metricsRevision: null } : { state: "available", reason: null, metricsRevision: "a".repeat(64), version: 35, discipline, startTime: Date.UTC(index ? 2026 : 2025, 8, 1), computedAt: Date.UTC(2026, 9, 1), avgSpeedKph: 6 + index * 6, inputCoverage: "complete", sourceLayer: "raw_parts" }, rankingEligible: index < known, rankingExclusionReason: index >= known ? "metric_unavailable" : null })),
+    canonicalAverage: index >= known ? { state: "pending", reason: "metrics_pending", metricsRevision: null } : { state: "available", reason: null, metricsRevision: "a".repeat(64), version: 41, discipline, startTime: Date.UTC(index ? 2026 : 2025, 8, 1), computedAt: Date.UTC(2026, 9, 1), avgSpeedKph: 6 + index * 6, inputCoverage: "complete", sourceLayer: "raw_parts" }, rankingEligible: index < known, rankingExclusionReason: index >= known ? "metric_unavailable" : null })),
     readTime: { seconds: 1791792000, nanoseconds: 0 }, nextCursor: "next", coverage: { indexCohort: "descriptor_capped", sourceValidation: "validation_capped" },
     summary: { memberCount: 6, knownMetricCount: known, rankEligibleCount: known, fastestActivityIds: ["ride-2"], trend, years: [{ year: 2026, memberCount: 4, knownMetricCount: 2, rankEligibleCount: 2, fastestActivityIds: ["ride-2"], trend }, { year: 2025, memberCount: 2, knownMetricCount: 1, rankEligibleCount: 1, fastestActivityIds: ["anchor"], trend }] } } as unknown as ActivityMatchedRouteGroupResponse;
 }
@@ -51,8 +53,8 @@ describe("bounded route group panel", () => {
   });
   it("forwards original head/metric identity and excludes deleted/public activity", () => {
     mocks.available = false; const view = render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="observed" />);
-    expect(view.container).toBeEmptyDOMElement(); expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", "bike", expect.stringContaining("observed"));
-    view.rerender(<ActivityMatchedRouteGroupPanel activity={{ ...activity, deletedAt: 1 }} observedMetricsIdentity="changed" />); expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", null, expect.stringContaining("changed"));
+    expect(view.container.querySelector("section")).toBeNull(); expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", "bike", expect.stringContaining("observed"), "complete");
+    view.rerender(<ActivityMatchedRouteGroupPanel activity={{ ...activity, deletedAt: 1 }} observedMetricsIdentity="changed" />); expect(mocks.hook).toHaveBeenLastCalledWith("owner", "anchor", null, expect.stringContaining("changed"), "complete");
   });
   it.each(["ko", "en"])("explains the verified early anchor partial-geometry exclusion in %s without calls", language => {
     const time = 1791792000000;
@@ -75,4 +77,44 @@ describe("bounded route group panel", () => {
     mocks.status = status; render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="head" />);
     expect(screen.getByText(ko.routeGroup.states[status as keyof typeof ko.routeGroup.states])).toBeInTheDocument(); expect(screen.getByRole("button", { name: ko.routeGroup.refresh })).toBeInTheDocument(); expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
+});
+
+it('requires native opt-in, suppresses comparison chart and fastest badges while keeping activity links', () => {
+  const view = render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="metrics" />);
+  fireEvent.click(screen.getByText(ko.routeGroup.title));
+  fireEvent.change(screen.getByLabelText(ko.routeGroup.mode), { target: { value: 'observed_native' } });
+  expect(mocks.start).not.toHaveBeenCalled();
+  expect(mocks.hook.mock.calls.at(-1)![4]).toBe('observed_native');
+  mocks.pages = [page()]; mocks.status = 'complete';
+  view.rerender(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="metrics" />);
+  expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  expect(screen.getByText(ko.routeGroup.observedScope)).toBeInTheDocument();
+  expect(screen.getAllByRole('link')).toHaveLength(3);
+  expect(screen.queryByText(new RegExp(ko.routeGroup.fastest))).not.toBeInTheDocument();
+  view.rerender(<ActivityMatchedRouteGroupPanel activity={{ ...activity, id: 'another' }} observedMetricsIdentity="metrics" />);
+  expect(mocks.hook.mock.calls.at(-1)![4]).toBe('complete');
+});
+
+function render(ui: ReactNode) { return renderUi(ui, { wrapper: ({ children }) => <MemoryRouter initialEntries={[`/${mocks.language}/activity/anchor?tab=compare`]}><Routes><Route path="/:lang/*" element={<>{children}<LocationEvidence /></>} /></Routes></MemoryRouter> }); }
+
+function LocationEvidence() { const location = useLocation(); return <output data-testid="route-location">{JSON.stringify({pathname:location.pathname,state:location.state})}</output>; }
+
+it("opens source through SPA with a validated return destination and no extra queries", () => {
+ mocks.pages = [page()]; mocks.status = "partial";
+ render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="metrics" />);
+ fireEvent.click(screen.getAllByRole("link")[1]!);
+ const location = JSON.parse(screen.getByTestId("route-location").textContent!);
+ expect(location.state.routeInventoryReturn).toEqual({uid:"owner",pathname:"/ko/activity/anchor",search:"?tab=compare",hash:""});
+ expect(mocks.start).not.toHaveBeenCalled(); expect(mocks.more).not.toHaveBeenCalled();
+});
+
+it("keeps a restored year clearable when a fresh result no longer includes it", () => {
+ mocks.pages = [page()]; mocks.status = "partial";
+ const view=render(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="metrics" />);
+ fireEvent.change(screen.getByLabelText(ko.routeGroup.year),{target:{value:"2025"}});
+ const fresh=page(); fresh.summary!.years=fresh.summary!.years.filter(value=>value.year===2026); fresh.members=fresh.members.filter(value=>value.year===2026); mocks.pages=[fresh];
+ view.rerender(<ActivityMatchedRouteGroupPanel activity={activity} observedMetricsIdentity="metrics" />);
+ expect(screen.getByLabelText(ko.routeGroup.year)).toHaveValue("2025");
+ fireEvent.change(screen.getByLabelText(ko.routeGroup.year),{target:{value:""}});
+ expect(screen.getAllByRole("link")).toHaveLength(2);
 });

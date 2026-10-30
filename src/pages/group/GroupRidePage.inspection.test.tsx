@@ -1,3 +1,4 @@
+import { mockCollectionData } from "../../__tests__/mocks/firebase";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -291,3 +292,7 @@ it("keeps exact range and formatted coverage accessible without adding visible c
   expect(await screen.findByRole("tooltip")).toHaveTextContent("관측 58:52");
   expect(panel).not.toHaveTextContent("3532.0");
 });
+
+vi.mock("../../services/activityDiscovery", () => ({ loadActivityDiscovery: vi.fn(async () => ({ items: mockCollectionData.get("activities") ?? [], nextCursor: null, scannedCount: 0, exhausted: true, totalCount: null })) }));
+
+vi.mock("../../components/RouteMap", async importOriginal => ({ ...await importOriginal<typeof import("../../components/RouteMap")>(), supportsWebGL: () => true }));

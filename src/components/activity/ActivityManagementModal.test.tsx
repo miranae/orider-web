@@ -17,6 +17,13 @@ describe("activity management dialog", () => {
     expect(screen.queryByText("세그먼트 만들기")).not.toBeInTheDocument();
   });
 
+  it("saves followers without changing it to mutual friends", async () => {
+    const props = input();
+    renderWithProviders(<ActivityManagementModal {...props} />);
+    fireEvent.click(screen.getByRole("radio", { name: "팔로워" }));
+    await waitFor(() => expect(props.onVisibilityChange).toHaveBeenCalledWith("followers"));
+  });
+
   it("keeps shared tools available to a viewer without owner controls", () => {
     renderWithProviders(<ActivityManagementModal {...input()} canManage={false} shareAction={<button>성과 카드 저장</button>} stravaActivityUrl="https://www.strava.com/activities/12345" />);
     expect(screen.getByRole("button", { name: "성과 카드 저장" })).toBeInTheDocument();

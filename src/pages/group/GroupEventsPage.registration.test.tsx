@@ -1,5 +1,6 @@
+import { installEventDiscoveryFixture } from "../../__tests__/fixtures/eventDiscovery";
 vi.mock("../../services/clubMeetings",()=>({listClubMeetings:vi.fn(async()=>({meetings:[],nextCursor:null}))}));
-import { getDoc, getDocs } from "firebase/firestore";
+import { getDoc } from "firebase/firestore";
 import { fireEvent, screen } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,7 +16,7 @@ function showPage() {
   renderWithProviders(<Routes><Route path="/:lang/club/:groupId/events" element={<GroupEventsPage />} /></Routes>, { route: "/ko/club/club/events", authenticated: true });
 }
 describe("club event registration actions", () => {
-  beforeEach(() => { roleState.error=null;roleState.retry.mockClear();setCollectionDocs("events", [{ id: "event-1", info: { name: "Club event", groupId: "club", status: "OPEN", startTime: Date.now() + 86400000 } }]); });
+  beforeEach(() => { installEventDiscoveryFixture(); roleState.error=null;roleState.retry.mockClear();setCollectionDocs("events", [{ id: "event-1", info: { name: "Club event", groupId: "club", status: "OPEN", startTime: Date.now() + 86400000 } }]); });
   it("shows membership lookup failure and retries it instead of redirecting as a nonmember",()=>{
     roleState.error=new Error("membership unavailable");showPage();
     expect(screen.getByText("클럽 정보를 불러오지 못했습니다.")).toBeInTheDocument();
@@ -27,10 +28,14 @@ describe("club event registration actions", () => {
     expect(await screen.findByRole("link",{name:"이벤트 보기"})).toHaveAttribute("href","/ko/event/event-1");
     expect(screen.queryByRole("link",{name:"참가 신청"})).not.toBeInTheDocument();
   });
-  it("does not let twenty club meeting envelopes hide legacy events",async()=>{
-    const envelope=(id:string,kind?:string)=>({id,data:()=>({info:{name:id,groupId:"club",kind,status:"OPEN",startTime:Date.now()+86400000}})});
-    vi.mocked(getDocs).mockResolvedValueOnce({docs:Array.from({length:20},(_,index)=>envelope(`meeting-${index}`,"CLUB_MEETING"))} as never).mockResolvedValueOnce({docs:[envelope("Legacy race")]} as never);
-    showPage();expect(await screen.findByRole("link",{name:"Legacy race"})).toBeInTheDocument();expect(screen.queryByRole("link",{name:"meeting-0"})).not.toBeInTheDocument();
+  it("keeps hidden club envelopes bounded until an explicit next page reveals legacy events",async()=>{
+    const envelope=(id:string,kind?:string)=>({id,info:{name:id,groupId:"club",kind,status:"OPEN",startTime:Date.now()+86400000}});
+    setCollectionDocs("events",[...Array.from({length:20},(_,index)=>envelope(`meeting-${index}`,"CLUB_MEETING")),envelope("Legacy race")]);
+    showPage();
+    const next=await screen.findByRole("button",{name:"다음",exact:true});
+    expect(screen.queryByRole("link",{name:"Legacy race"})).not.toBeInTheDocument();
+    fireEvent.click(next);
+    expect(await screen.findByRole("link",{name:"Legacy race"})).toBeInTheDocument();expect(screen.queryByRole("link",{name:"meeting-0"})).not.toBeInTheDocument();
   });
   it("names the empty state for the selected finished filter",async()=>{
     setCollectionDocs("events",[]);showPage();fireEvent.click(screen.getByRole("button",{name:"종료"}));

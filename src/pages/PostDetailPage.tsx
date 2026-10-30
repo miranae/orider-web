@@ -16,10 +16,11 @@ import { useToast } from '../contexts/ToastContext';
 import { useDialog } from '../contexts/DialogContext';
 import { setBoardAuthorBlocked, useBoardBlocks } from '../features/board/useBoardBlocks';
 import { BoardImage, isBoardStorageImage } from '../features/board/BoardImage';
-import ActivityCard from '../components/ActivityCard';
+import { useLinkedPublicActivity } from '../hooks/useLinkedPublicActivity';
+import { LocalizedLink as Link } from '../components/LocalizedLink';
 import { EmptyState, LoadingSkeleton } from '../components/redesign';
 import SafeImage from '../components/SafeImage';
-import type { BoardPost, BoardComment, Activity } from '@shared/types';
+import type { BoardPost, BoardComment } from '@shared/types';
 import { Button, Card, Chip } from "../theme/components";
 import { normalizeUserContentUrl } from "../utils/userContentUrl";
 import { ReportContentModal } from "../features/board/ReportContentModal";
@@ -58,7 +59,7 @@ const PostDetailPage: React.FC = () => {
   const { report, submitting: reportSubmitting } = useReportBoardContent();
   const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
   const { data: post, loading: postLoading, error: postError } = useDocument<BoardPost>('board_posts', postId);
-  const { data: linkedActivity } = useDocument<Activity>('activities', post?.activityId || undefined);
+  const linkedActivity = useLinkedPublicActivity(post?.activityId || undefined);
   const { data: comments, loading: commentsLoading, error: commentsError } = useCollection<BoardComment>(
     `board_posts/${postId}/comments`,
     [where('deletedAt', '==', null), orderBy('createdAt', 'asc')]
@@ -325,12 +326,15 @@ const PostDetailPage: React.FC = () => {
         )}
 
         {linkedActivity && (
-          // ActivityCard 가 자체 카드 서피스 — 래퍼 카드를 없애 3중 중첩 방지 (#401)
+          // 현재 공개 권한이 확인된 연결 활동만 표시합니다.
           <div className="mb-8">
             <div className="px-1 py-2 text-[length:var(--fs-xs)] font-bold text-[var(--lime)] flex items-center gap-1">
               <MapPin size={ICON_SIZE.sm} aria-hidden="true" /> {t('label.linkedActivity')}
             </div>
-            <ActivityCard activity={linkedActivity} />
+            <Link to={`/activity/${encodeURIComponent(linkedActivity.activity.id)}`} className="block rounded-[var(--r-lg)] border p-4">
+              <strong className="block">{linkedActivity.activity.description || t('label.linkedActivity')}</strong>
+              <span className="block text-[length:var(--fs-sm)]">{linkedActivity.activity.nickname}</span>
+            </Link>
           </div>
         )}
 

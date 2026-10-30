@@ -4,18 +4,16 @@ import { I18nextProvider } from "react-i18next";
 import koCommon from "../../i18n/resources/ko/common.json";
 import enCommon from "../../i18n/resources/en/common.json";
 import TopNav from "./TopNav";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Link, useLocation } from "react-router-dom";
 import type { User } from "firebase/auth";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
-import { searchPublicUserProfilesPage } from "../../services/publicProfiles";
 import MobileMenuSearch from "./MobileMenuSearch";
 import { AuthContextProvider, useAuth } from "../../contexts/AuthContext";
 import { readDashboardPreferences, updateDashboardPreferences, useDashboardPreferences } from "../../hooks/useDashboardPreferences";
 vi.mock("../../hooks/useGlobalSearch", () => ({ useGlobalSearch: () => ({ results: { activities: [], courses: [] } }) }));
-vi.mock("../../services/publicProfiles", () => ({ searchPublicUserProfilesPage: vi.fn() }));
-beforeEach(() => { sessionStorage.clear(); localStorage.clear(); vi.mocked(searchPublicUserProfilesPage).mockReset(); });
+beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
 function Location() { const location = useLocation(); return <output>{location.pathname}{location.search}</output>; }
 function MountedHomePreferences() {
   const { user, loading } = useAuth();
@@ -30,7 +28,7 @@ function ClosingMenuJourney() {
 
 it.each([
   ["activities", "/ko/?q=test&scope=all&date=all&sport=all"], ["clubs", "/ko/clubs?q=test"], ["courses", "/ko/explore/courses?q=test"],
-  ["segments", "/ko/explore/segments?q=test"], ["posts", "/ko/community/board?q=test"],
+  ["segments", "/ko/explore/segments?q=test"], ["posts", "/ko/community/board?q=test"], ["athletes", "/ko/explore/athletes?q=test"],
 ])("submits %s to its real localized search destination", async (category, path) => {
   const onNavigate = vi.fn();
   renderWithProviders(<><MobileMenuSearch onNavigate={onNavigate} /><Location /></>, { route: "/ko" });
@@ -39,26 +37,6 @@ it.each([
   await userEvent.click(screen.getByRole("button", { name: "검색하기" }));
   expect(onNavigate).toHaveBeenCalledOnce();
   expect(screen.getByRole("status").textContent).toBe(path);
-});
-
-it("searches real public athlete profiles and paginates before profile navigation", async () => {
-  const cursor = { id: "cursor" };
-  vi.mocked(searchPublicUserProfilesPage).mockResolvedValueOnce({ items: [{ id: "a", nickname: "moon", photoURL: "https://example.com/missing.png" }], cursor, hasMore: true } as never)
-    .mockResolvedValueOnce({ items: [{ id: "b", nickname: "moon2", photoURL: null }], cursor: null, hasMore: false });
-  const onNavigate = vi.fn();
-  renderWithProviders(<MobileMenuSearch onNavigate={onNavigate} />);
-  await userEvent.selectOptions(screen.getByLabelText("검색 대상"), "athletes");
-  await userEvent.type(screen.getByLabelText("검색어"), "moon");
-  await userEvent.click(screen.getByRole("button", { name: "검색하기" }));
-  expect(await screen.findByRole("link", { name: "moon" })).toHaveAttribute("href", "/ko/athlete/a");
-  fireEvent.error(screen.getByAltText(""));
-  expect(screen.queryByAltText("")).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "moon" })).toHaveTextContent("m");
-  expect(onNavigate).not.toHaveBeenCalled();
-  await userEvent.click(screen.getByRole("button", { name: "더 보기" }));
-  await waitFor(() => expect(searchPublicUserProfilesPage).toHaveBeenLastCalledWith("moon", cursor));
-  await userEvent.click(await screen.findByRole("link", { name: "moon2" }));
-  expect(onNavigate).toHaveBeenCalledOnce();
 });
 
 it.each([
@@ -107,16 +85,12 @@ it("restores applied activity filters and clears both query and filters explicit
   expect(screen.getByLabelText("종목")).toHaveValue("all");
 });
 
-it("exposes username exact matching and waits for submit before searching", async () => {
-  vi.mocked(searchPublicUserProfilesPage).mockResolvedValue({ items: [], cursor: null, hasMore: false });
-  renderWithProviders(<MobileMenuSearch onNavigate={vi.fn()} />);
-  await userEvent.selectOptions(screen.getByLabelText("검색 대상"), "athletes");
-  expect(screen.getByRole("option", { name: "사용자명" })).toBeInTheDocument();
-  await userEvent.selectOptions(screen.getByLabelText("사용자명 일치 방식"), "exact");
-  await userEvent.type(screen.getByLabelText("검색어"), "moon");
-  expect(searchPublicUserProfilesPage).not.toHaveBeenCalled();
-  await userEvent.click(screen.getByRole("button", { name: "검색하기" }));
-  await waitFor(() => expect(searchPublicUserProfilesPage).toHaveBeenCalledWith("moon", null, undefined, "exact"));
+it("restores the people query from the explore page and offers the shared search hint", async () => {
+  renderWithProviders(<MobileMenuSearch onNavigate={vi.fn()} />, { route: "/ko/explore/athletes?q=moon" });
+  expect(screen.getByLabelText("검색 대상")).toHaveValue("athletes");
+  expect(screen.getByRole("option", { name: "사람" })).toBeInTheDocument();
+  expect(screen.getByLabelText("검색어")).toHaveValue("moon");
+  expect(screen.getByText("이메일, 닉네임, 친구 코드로 찾을 수 있어요")).toBeInTheDocument();
 });
 
 it("uses the board's existing names for post search destinations", async () => {

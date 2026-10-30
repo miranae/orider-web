@@ -1,3 +1,4 @@
+import { flushSync } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ImageDown } from "lucide-react";
@@ -8,6 +9,8 @@ import { canvasToPng, downloadShareCard, drawActivityShareCard, type ActivitySha
 import { ActivityShareMapCapture, type ActivityShareMapCaptureHandle } from "./ActivityShareMapCapture";
 import { ICON_SIZE } from "../../../theme/tokens/icon";
 
+export interface PublicShareMap { encodedPolyline: string | null; imageUrl: string | null; revision: string }
+
 type Props = {
   compact?: boolean;
   menuItem?: boolean;
@@ -17,25 +20,31 @@ type Props = {
   activityId: string;
   visibility: string;
   routeTrack?: string | null;
+  resolvePublicMap?: () => Promise<PublicShareMap>;
+  shareContext?: object | null;
+  shareRevision?: string;
   onFeedback: (message: string) => void;
 };
 
-export function ActivityShareButton({ compact = false, menuItem = false, card, filename, url, activityId, visibility, routeTrack, onFeedback }: Props) {
+export function ActivityShareButton({ compact = false, menuItem = false, card, filename, url, activityId, visibility, routeTrack, resolvePublicMap, shareContext, shareRevision, onFeedback }: Props) {
   const { t } = useTranslation("activity");
   const [busy, setBusy] = useState(false);
+  const [verifiedMap, setVerifiedMap] = useState<PublicShareMap | null>(null);
   const lock = useRef(false);
   const generation = useRef(0);
   const mounted = useRef(true);
   const controller = useRef<AbortController | null>(null);
   const mapCapture = useRef<ActivityShareMapCaptureHandle>(null);
+  const scope = useRef({ activityId, visibility, shareContext, shareRevision });
+  if (scope.current.activityId !== activityId || scope.current.visibility !== visibility || scope.current.shareContext !== shareContext || scope.current.shareRevision !== shareRevision) scope.current = { activityId, visibility, shareContext, shareRevision };
   useEffect(() => {
-    mounted.current = true;
+    mounted.current = true; lock.current = false; setBusy(false); setVerifiedMap(null);
     return () => {
       mounted.current = false;
       generation.current += 1;
       controller.current?.abort();
     };
-  }, []);
+  }, [activityId, visibility, shareContext, shareRevision]);
 
   const context = { activityId, visibility };
 
@@ -44,25 +53,33 @@ export function ActivityShareButton({ compact = false, menuItem = false, card, f
     lock.current = true;
     setBusy(true);
     const currentGeneration = ++generation.current;
+    const currentScope = scope.current;
     controller.current?.abort();
     const abortController = new AbortController();
     controller.current = abortController;
     track("activity_share_attempt", context);
     try {
-      const routeCanvas = card.includeRouteImage
+      const publicMap = resolvePublicMap ? await resolvePublicMap() : null;
+      if (!mounted.current || currentGeneration !== generation.current || currentScope !== scope.current) return;
+      if (resolvePublicMap) flushSync(() => setVerifiedMap(publicMap));
+      const safeCard = resolvePublicMap ? { ...card, backgroundImageUrl: publicMap?.imageUrl ?? undefined,
+        includeRouteImage: !!(publicMap?.encodedPolyline || publicMap?.imageUrl) } : card;
+      const routeCanvas = safeCard.includeRouteImage
         ? await mapCapture.current?.capture(abortController.signal) ?? null
         : null;
-      if (!mounted.current || currentGeneration !== generation.current) return;
-      const canvas = await drawActivityShareCard({ ...card, routeCanvas }, abortController.signal);
-      if (!mounted.current || currentGeneration !== generation.current) return;
+      if (!mounted.current || currentGeneration !== generation.current || currentScope !== scope.current) return;
+      const canvas = await drawActivityShareCard({ ...safeCard, routeCanvas }, abortController.signal);
+      if (!mounted.current || currentGeneration !== generation.current || currentScope !== scope.current) return;
       const blob = await canvasToPng(canvas, abortController.signal);
-      if (!mounted.current || currentGeneration !== generation.current) return;
+      if (!mounted.current || currentGeneration !== generation.current || currentScope !== scope.current) return;
       if (!blob) throw new Error("canvas.toBlob returned null");
+      if (resolvePublicMap && JSON.stringify(await resolvePublicMap()) !== JSON.stringify(publicMap)) throw new Error("public_map_changed");
+      if (!mounted.current || currentGeneration !== generation.current || currentScope !== scope.current) return;
       downloadShareCard(blob, filename);
       track("activity_share_download", context);
       onFeedback(t("page.share.downloaded"));
     } catch (error) {
-      if (abortController.signal.aborted) return;
+      if (abortController.signal.aborted || currentScope !== scope.current) return;
       track("activity_share_fail", { ...context, stage: "generate" });
       logClientError("ActivityShareButton.generate", error, context);
       let clipboardTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -73,11 +90,11 @@ export function ActivityShareButton({ compact = false, menuItem = false, card, f
             clipboardTimeout = setTimeout(() => reject(new Error("clipboard timed out")), 3_000);
           }),
         ]);
-        if (!mounted.current || currentGeneration !== generation.current) return;
+        if (!mounted.current || currentGeneration !== generation.current || currentScope !== scope.current) return;
         track("activity_share_link", context);
         onFeedback(t("page.share.linkCopied"));
       } catch (clipboardError) {
-        if (!mounted.current || currentGeneration !== generation.current) return;
+        if (!mounted.current || currentGeneration !== generation.current || currentScope !== scope.current) return;
         track("activity_share_fail", { ...context, stage: "clipboard" });
         logClientError("ActivityShareButton.clipboard", clipboardError, context);
         onFeedback(t("page.share.failed"));
@@ -95,7 +112,7 @@ export function ActivityShareButton({ compact = false, menuItem = false, card, f
 
   return (
     <>
-      <ActivityShareMapCapture ref={mapCapture} enabled={card.includeRouteImage} track={routeTrack} />
+      <ActivityShareMapCapture ref={mapCapture} enabled={resolvePublicMap ? !!verifiedMap?.encodedPolyline : card.includeRouteImage} track={resolvePublicMap ? verifiedMap?.encodedPolyline : routeTrack} />
       <Button
         type="button"
         variant={menuItem ? "ghost" : "secondary"}

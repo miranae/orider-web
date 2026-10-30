@@ -46,3 +46,8 @@ export function seoulWeekRange(nowMs: number, weeksAgo: number): WeekRange {
 export function isWithin(ms: number, range: WeekRange): boolean {
   return ms >= range.startMs && ms < range.endMs;
 }
+
+/** Start of the calendar year containing ms, at January 1 00:00 KST. */
+export function seoulYearStartMs(ms: number): number {
+  return Date.UTC(new Date(ms + KST_OFFSET_MS).getUTCFullYear(), 0, 1) - KST_OFFSET_MS;
+}

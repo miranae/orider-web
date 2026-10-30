@@ -1,10 +1,11 @@
+import { installEventDiscoveryFixture } from "../../__tests__/fixtures/eventDiscovery";
 vi.mock("../../services/clubMeetings",()=>({listClubMeetings:vi.fn(async()=>({meetings:[],nextCursor:null}))}));
 import { Suspense } from "react";
 import { createInstance, type BackendModule } from "i18next";
 import { I18nextProvider } from "react-i18next";
 import { screen } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import koGroup from "../../i18n/resources/ko/group.json";
 import enGroup from "../../i18n/resources/en/group.json";
@@ -16,6 +17,8 @@ vi.mock("../../hooks/useGroup", () => ({
   useGroup: () => ({ group: { id: "club", name: "Club", creatorId: "owner", memberCount: 2 }, loading: false }),
   useGroupMemberRole: () => ({ role: "member", loading: false }),
 }));
+
+beforeEach(installEventDiscoveryFixture);
 
 describe("club event lazy translations", () => {
   it.each(["ko", "en"])("loads the event namespace on direct %s entry", async language => {

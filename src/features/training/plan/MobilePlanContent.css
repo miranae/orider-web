@@ -268,3 +268,7 @@
   .mobile-plan-goal-heading > button { align-self: flex-start; }
   .mobile-plan-goal-title { word-break: keep-all; }
 }
+
+.mobile-plan-week-navigation { display: grid; grid-template-columns: var(--dim-button-height) minmax(0, 1fr) var(--dim-button-height); align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); text-align: center; }
+.mobile-plan-day-row { display: grid; grid-template-columns: var(--space-8) var(--space-0-5) minmax(0, 1fr) auto; align-items: start; gap: var(--space-3); }
+.mobile-plan-rest-load { margin-inline-start: calc(var(--space-8) + var(--space-0-5) + var(--space-3) * 2); }

@@ -19,3 +19,6 @@
 .activity-overview-result-badge { color: var(--accent); font-size: var(--fs-sm); font-weight: 600; flex-shrink: 0; }
 .activity-overview-viewer-controls { justify-content: center; }
 @media (min-width: 60rem) { .activity-overview-social[data-has-results="true"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-7); } }
+
+/* Keep pending media stable; confirmed failures need only their readable status. */
+.activity-overview-photo:has([data-photo-state="error"]) { aspect-ratio: auto; align-self: start; padding: var(--space-3); }

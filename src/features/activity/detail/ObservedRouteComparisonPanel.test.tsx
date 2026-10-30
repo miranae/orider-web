@@ -1,4 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { fireEvent, render as testingRender, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Activity } from "@shared/types";
 import { compareObservedRoutes } from "@shared/observed-route-comparison";
@@ -8,6 +10,8 @@ const mocks = vi.hoisted(() => ({ state: { enabled: true, state: "idle", result:
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string, parameters?: Record<string, unknown>) => `${key}${parameters ? ` ${Object.values(parameters).join(" ")}` : ""}`, i18n: { language: mocks.language } }) }));
 vi.mock("../../../contexts/LocaleContext", () => ({ useLocale: () => ({ units: mocks.units }) }));
 vi.mock("../../../hooks/useObservedRouteComparison", () => ({ useObservedRouteComparison: () => mocks.state }));
+function LocationEvidence() { const location = useLocation(); return <div data-testid="location">{JSON.stringify(location)}</div>; }
+function render(node: ReactNode) { return testingRender(node, { wrapper: ({ children }) => <MemoryRouter initialEntries={[`/${mocks.language}/activity/first?tab=compare#route`]}><Routes><Route path="/:lang/*" element={<>{children}<LocationEvidence /></>} /></Routes></MemoryRouter> }); }
 const activity = (id: string) => ({ id, userId: "owner", type: "Run", startTime: 1000, summary: {} }) as Activity;
 beforeEach(() => { mocks.state = { enabled: true, state: "idle", result: null, compare: vi.fn() }; mocks.units = "metric"; mocks.language = "ko"; });
 describe("observed route comparison presentation", () => {
@@ -42,4 +46,13 @@ it.each(["ko", "en"])("labels actual selected GPS source links with KST start ti
   view.rerender(<ObservedRouteComparisonPanel current={{ ...current, startTime: NaN }} previous={previous} />);
   expect(screen.getByRole("link", { name: /observedRoute.current.*—/ })).toHaveAttribute("href", `/${language}/activity/first`);
   expect(mocks.state.compare).not.toHaveBeenCalled();
+});
+
+it("navigates within the router and carries the exact comparison return location", () => {
+  mocks.state.state = "available"; mocks.state.result = compareObservedRoutes(routeFixture(), routeFixture("second"));
+  render(<ObservedRouteComparisonPanel current={activity("first")} previous={activity("second")} />);
+  fireEvent.click(screen.getByRole("link", { name: /observedRoute.previous/ }));
+  const location = JSON.parse(screen.getByTestId("location").textContent!);
+  expect(location.pathname).toBe("/ko/activity/second");
+  expect(location.state.routeInventoryReturn).toEqual({ uid: "owner", pathname: "/ko/activity/first", search: "?tab=compare", hash: "#route" });
 });
