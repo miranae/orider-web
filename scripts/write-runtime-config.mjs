@@ -6,13 +6,25 @@
  * Per-environment public provider config lives in this non-hashed JSON file.
  */
 
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { checkIsolatedStageConfig } from "./lib/isolated-stage-config.mjs";
+import { publicClubEndpoint } from "./lib/public-club-deploy-config.mjs";
+import { productionDataConfig } from "./lib/production-data-config.mjs";
 
 const args = process.argv.slice(2);
 const outIndex = args.indexOf("--out");
 const outputPath = resolve(outIndex >= 0 ? args[outIndex + 1] : "dist/runtime-config.json");
+const sourceIndex = args.indexOf("--production-source");
+if (sourceIndex >= 0 && (!args[sourceIndex + 1] || args[sourceIndex + 1].startsWith("--"))) throw new Error("--production-source requires a snapshot file");
+const productionSource = sourceIndex >= 0 ? args[sourceIndex + 1] : process.env.PRODUCTION_RUNTIME_CONFIG_PATH;
+if (productionSource) {
+  const config = productionDataConfig(JSON.parse(readFileSync(resolve(productionSource), "utf8")));
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, `${JSON.stringify(config, null, 2)}\n`);
+  console.log(`[write-runtime-config] pinned production-data runtime ${outputPath}`);
+  process.exit(0);
+}
 
 function readEnv(name) {
   const value = process.env[name];
@@ -26,6 +38,8 @@ function readBoolEnv(name) {
 }
 
 const config = {
+  // 공개 API는 명시한 주소만 사용한다. 원본 Firestore나 운영 주소로 암묵 폴백하지 않는다.
+  publicClubApiUrl: publicClubEndpoint(readEnv("VITE_PUBLIC_CLUB_API_URL")),
   firebaseApiKey: readEnv("VITE_FIREBASE_API_KEY"),
   firebaseAuthDomain: readEnv("VITE_FIREBASE_AUTH_DOMAIN"),
   firebaseProjectId: readEnv("VITE_FIREBASE_PROJECT_ID"),
@@ -43,7 +57,10 @@ const config = {
   mapboxToken: readEnv("VITE_MAPBOX_TOKEN"),
   personalApiBase: readEnv("VITE_ORIDER_PERSONAL_API_BASE"),
   aiApiBase: readEnv("VITE_ORIDER_AI_API_BASE"),
+  publicActivityDetailEnabled: readBoolEnv("VITE_PUBLIC_ACTIVITY_DETAIL_ENABLED") ?? false,
   activityAnalysisExpansionEnabled: readBoolEnv("VITE_ACTIVITY_ANALYSIS_EXPANSION_ENABLED") ?? false,
+  activitySubscriptionsEnabled: readBoolEnv("VITE_ACTIVITY_SUBSCRIPTIONS_ENABLED") ?? false,
+  activitySubscriptionsBackendReady: readBoolEnv("VITE_ACTIVITY_SUBSCRIPTIONS_BACKEND_READY") ?? false,
   trainingAnalysisPeriodsEnabled: readBoolEnv("VITE_TRAINING_ANALYSIS_PERIODS_ENABLED") ?? false,
   coachPmcInsightEnabled: readBoolEnv("VITE_COACH_PMC_INSIGHT_ENABLED") ?? false,
   coachRiderInsightEnabled: readBoolEnv("VITE_COACH_RIDER_INSIGHT_ENABLED") ?? false,

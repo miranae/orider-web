@@ -1,3 +1,4 @@
+import type { StravaSummaryV1 } from "@shared/analysis/stravaRecord";
 import type { TFunction } from "i18next";
 import type React from "react";
 import type { ActivitySummary } from "@shared/types";
@@ -11,6 +12,7 @@ import type { StripStat, SummaryStripStats } from "./summaryStripStats";
 type ActivityStatsGridProps = {
   section?: "all" | "primary" | "secondary";
   summary: ActivitySummary;
+  stravaRecord?: StravaSummaryV1 | null;
   /**
    * 서버 `activity_metrics` 우선으로 결정된 표시값 (#885 §2). 서버가 null 이면 대시로 비우고,
    * 서버 문서를 아직 못 읽었으면 기기 요약값 + "기기 요약" 잠정 표식.
@@ -42,7 +44,7 @@ type ActivityStatsGridProps = {
 
 /** 보조 셀의 실제 표시 조건을 공유해 빈 통계 카드·펼침 버튼을 만들지 않는다. */
 export function hasSecondaryActivityStats({ summary, stats, sport, showElevation, runTrainingLoad }: Pick<ActivityStatsGridProps, "summary" | "stats" | "sport" | "showElevation" | "runTrainingLoad">): boolean {
-  return (["ride", "run", "swim"].includes(sport) && summary.maxSpeed > 0)
+  return (["ride", "run", "swim"].includes(sport) && stats.maxSpeedKph.value != null)
     || (showElevation && (stats.elevationGainM.value != null || stats.elevationLossM.value != null))
     || stats.avgHr.value != null
     || ((sport === "ride" || sport === "run") && stats.avgPower.value != null)
@@ -132,6 +134,7 @@ function Unit({ children }: { children: React.ReactNode }) {
 export function ActivityStatsGrid({
   section = "all",
   summary: s,
+  stravaRecord,
   stats,
   sport,
   runTrainingLoad,
@@ -153,6 +156,7 @@ export function ActivityStatsGrid({
   t,
 }: ActivityStatsGridProps) {
   const duration = resolveDuration({
+    stravaRecord,
     ridingTimeMillis: s.ridingTimeMillis,
     elapsedTimeMillis,
     movingTimeSec,
@@ -220,7 +224,7 @@ export function ActivityStatsGrid({
             label={t("stat.avgSpeed")}
             title={displayAvgImplausible
               ? t("stat.dataWarningRaw", { value: displayAvgKph.toFixed(1) })
-              : (duration.usingMoving && Number.isFinite(s.averageSpeed) ? t("stat.movingAvgTotal", { total: s.averageSpeed.toFixed(1) }) : undefined)}
+              : (!stravaRecord && duration.usingMoving && Number.isFinite(s.averageSpeed) ? t("stat.movingAvgTotal", { total: s.averageSpeed.toFixed(1) }) : undefined)}
             provisionalLabel={provisional(stats.avgSpeedKph)}
           >
             {displayAvgImplausible || stats.avgSpeedKph.value == null ? (
@@ -234,7 +238,7 @@ export function ActivityStatsGrid({
           </MetricCell>
         )}
 
-        {sport === "run" && s.averageSpeed > 0 && (
+        {sport === "run" && (s.averageSpeed > 0 || stats.avgSpeedKph.value != null) && (
           <MetricCell
             label={t("stat.avgPace")}
             title={avgSpeedImplausible ? t("stat.dataWarningRaw", { value: s.averageSpeed.toFixed(1) }) : undefined}
@@ -252,7 +256,7 @@ export function ActivityStatsGrid({
           </MetricCell>
         )}
 
-        {sport === "swim" && s.averageSpeed > 0 && (
+        {sport === "swim" && (s.averageSpeed > 0 || stats.avgSpeedKph.value != null) && (
           <MetricCell
             label={t("stat.avgPace")}
             title={avgSpeedImplausible ? t("stat.dataWarningRaw", { value: s.averageSpeed.toFixed(1) }) : undefined}
@@ -271,7 +275,7 @@ export function ActivityStatsGrid({
 
         </>}
         {section !== "primary" && <>
-        {sport === "ride" && s.maxSpeed > 0 && (
+        {sport === "ride" && (s.maxSpeed > 0 || stats.maxSpeedKph.value != null) && (
           <MetricCell
             label={t("stat.maxSpeed")}
             title={maxSpeedImplausible ? t("stat.dataWarningRaw", { value: s.maxSpeed.toFixed(1) }) : undefined}
@@ -288,7 +292,7 @@ export function ActivityStatsGrid({
           </MetricCell>
         )}
 
-        {sport === "run" && s.maxSpeed > 0 && (
+        {sport === "run" && (s.maxSpeed > 0 || stats.maxSpeedKph.value != null) && (
           <MetricCell
             label={t("stat.maxPace")}
             title={maxSpeedImplausible ? t("stat.dataWarningRaw", { value: s.maxSpeed.toFixed(1) }) : undefined}
@@ -305,7 +309,7 @@ export function ActivityStatsGrid({
           </MetricCell>
         )}
 
-        {sport === "swim" && s.maxSpeed > 0 && (
+        {sport === "swim" && (s.maxSpeed > 0 || stats.maxSpeedKph.value != null) && (
           <MetricCell
             label={t("stat.maxPace")}
             title={maxSpeedImplausible ? t("stat.dataWarningRaw", { value: s.maxSpeed.toFixed(1) }) : undefined}

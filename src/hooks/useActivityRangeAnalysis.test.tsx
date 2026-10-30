@@ -24,6 +24,13 @@ describe("owner lazy range analysis", () => {
     mocks.uid = "owner"; mocks.anonymous = true; rerender(options); expect(result.current.state).toBe("idle");
     expect(mocks.load).not.toHaveBeenCalled();
   });
+  it("allows an anonymous viewer only through explicit authorized activity access", async () => {
+    mocks.anonymous = true;
+    mocks.services.auth.currentUser = { uid: "owner", isAnonymous: true };
+    const { result } = renderHook(() => useActivityRangeAnalysis({ ...options, ownerUid: "activity-owner", authorizedActivityAccess: true }));
+    await waitFor(() => expect(result.current.state).toBe("available"));
+    expect(mocks.load).toHaveBeenCalledWith(mocks.services, "owner", expect.objectContaining({ activityId: "a" }));
+  });
   it("sends elapsed selection and opaque server revision only, without local identity or request ID", async () => {
     const { result } = renderHook(() => useActivityRangeAnalysis(options));
     await waitFor(() => expect(result.current.state).toBe("available"));
@@ -148,4 +155,19 @@ describe("stored elevation request privacy", () => {
     unmount(); expect(mocks.authListener).toBeNull();
     await act(async () => settle(response())); expect(mocks.load).toHaveBeenCalledOnce();
   });
+});
+
+it("uses the real viewer session for an authorized activity range, without impersonating its owner", async () => {
+  mocks.uid = "viewer"; mocks.services.auth.currentUser = { uid: "viewer", isAnonymous: false };
+  const { result } = renderHook(() => useActivityRangeAnalysis({ ...options, ownerUid: "owner", authorizedActivityAccess: true }));
+  await waitFor(() => expect(result.current.state).toBe("available"));
+  expect(mocks.load).toHaveBeenCalledWith(mocks.services, "viewer", expect.objectContaining({ activityId: "a" }));
+});
+it("discards an old same-UID SDK result before showing the replacement session's response", async () => {
+  let settle!: (value: ActivityRangeAnalysisResponse) => void;
+  mocks.load.mockReturnValueOnce(new Promise(resolve => { settle = resolve; })).mockResolvedValueOnce(response("a", "pending"));
+  const { result, rerender } = renderHook(() => useActivityRangeAnalysis(options));
+  mocks.services.auth.currentUser = { uid: "owner", isAnonymous: false }; rerender();
+  await waitFor(() => expect(result.current.state).toBe("pending"));
+  await act(async () => settle(response())); expect(result.current.metrics).toBeNull();
 });

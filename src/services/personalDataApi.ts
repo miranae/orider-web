@@ -5,6 +5,7 @@ import { getRuntimeConfig } from "./runtimeConfig";
 import type { RunningBestEffortsFacts } from "@shared/types/running-best-efforts-facts";
 import { RUN_DISTANCE_M } from "@shared/types/personal-records";
 import type { ActivityStreams } from "@shared/types";
+import { markRawPartStreams } from "./activityStreamSource";
 
 export type PersonalApiScope =
   | "profile:read"
@@ -117,20 +118,22 @@ export async function getActivityStreamsWithAuth(
     if (!data.streamInputRevision || !/^[a-f0-9]{64}$/.test(data.streamInputRevision)
       || !["raw_parts", "api_streams"].includes(data.sourceLayer ?? "") || !data.streams
       || typeof data.streams !== "object" || Array.isArray(data.streams)) throw new Error("INVALID_PERSONAL_API_RESPONSE");
+    const streams = data.sourceLayer === "raw_parts" ? markRawPartStreams(data.streams, data.streamInputRevision) : data.streams;
     if (options?.includeRunEffortFacts === true) {
       const facts = validatedRunEffortFacts(data.runningBestEffortsFacts, data.streamInputRevision);
-      return { ...data.streams, ...(facts ? { runningBestEffortsFacts: facts } : { runningBestEffortsFacts: undefined }) };
+      return { ...streams, ...(facts ? { runningBestEffortsFacts: facts } : { runningBestEffortsFacts: undefined }) };
     }
-    return data.streams;
+    return streams;
   }
-  const payload = await apiFetch<{ data?: ActivityStreams }>(
+  const payload = await apiFetch<{ data?: ActivityStreams; sourceLayer?: string; streamInputRevision?: string }>(
     authInstance,
     `/activities/${encodeURIComponent(activityId)}/streams`,
   );
   if (!payload.data || typeof payload.data !== "object") {
     throw new Error("INVALID_PERSONAL_API_RESPONSE");
   }
-  return payload.data;
+  return payload.sourceLayer === "raw_parts" && payload.streamInputRevision
+    ? markRawPartStreams(payload.data, payload.streamInputRevision) : payload.data;
 }
 
 /** 확인할 수 없는 위치를 버리고 원본 스트림 표시는 유지한다. */

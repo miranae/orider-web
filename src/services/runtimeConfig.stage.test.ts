@@ -5,6 +5,15 @@ const stage: RuntimeConfig = {
   firebaseStorageBucket: "miranae-orider-g1.firebasestorage.app", firebaseAppId: "1:289663940841:web:ba08cdae154286e6499878",
   firebaseMessagingSenderId: "289663940841", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net",
 };
+const productionData: RuntimeConfig = { ...stage, appEnvironment: "production", firebaseFunctionsBase: undefined,
+  personalApiBase: "https://orider.co.kr", aiApiBase: "https://orider-ai-api-h5zqzw3n4a-du.a.run.app" };
+it("uses the production data profile on development Hosting without allowing arbitrary identity or backend changes", () => {
+  expect(() => assertIsolatedStageRuntime(productionData, "orider-dev.web.app", "https://orider-dev.web.app")).not.toThrow();
+  for (const patch of [{ firebaseProjectId: "other" }, { firebaseFunctionsBase: stage.firebaseFunctionsBase }, { aiApiBase: "https://other.example" }, { personalApiBase: "https://orider-dev.web.app" }, { useEmulators: true }, { socialAuthFunctionsBase: "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net" }]) {
+    expect(() => assertIsolatedStageRuntime({ ...productionData, ...patch }, "orider-dev.web.app", "https://orider-dev.web.app")).toThrow("development/production-data-profile-mismatch");
+  }
+  expect(() => assertIsolatedStageRuntime(productionData, "orider-dev.web.app", "http://orider-dev.web.app")).toThrow();
+});
 describe("isolated stage Firebase identity", () => {
   it("requires the served runtime opt-in instead of retaining a compiled fallback after disable", () => {
     vi.stubEnv("VITE_SOCIAL_AUTH_FUNCTIONS_BASE", "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net");
@@ -34,7 +43,7 @@ describe("isolated stage Firebase identity", () => {
   });
   it("accepts shared production data with stage callable compute", () => expect(() => assertIsolatedStageRuntime(stage, "orider-dev.web.app")).not.toThrow());
   it.each([
-    { firebaseProjectId: "orider-dev" }, { appEnvironment: "production" }, { firebaseAuthDomain: "auth.orider.co.kr" },
+    { firebaseProjectId: "orider-dev" }, { firebaseAuthDomain: "auth.orider.co.kr" },
     { firebaseStorageBucket: "orider-dev.firebasestorage.app" }, { firebaseAppId: "another-app" }, { useEmulators: true },
   ])("blocks wrong Firebase identity before SDK initialization %j", overrides => {
     expect(() => assertIsolatedStageRuntime({ ...stage, ...overrides }, "orider-dev.web.app")).toThrow("stage/firebase-identity-mismatch");

@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
 // 연결 카드는 자체 테스트(SocialLinksCard.test.tsx) — 여기선 계정 화면의 읽기·쓰기 계약만 본다.
 vi.mock("./ProfileBodyEditor", () => ({ ProfileBodyEditor: () => <section id="body-info">Body measurements</section> }));
 vi.mock("./SocialLinksCard", () => ({ SocialLinksCard: () => null }));
+// Preferences have their own account-generation/AppCheck/save regression suite.
+vi.mock("./NotificationPreferencesCard", () => ({ NotificationPreferencesCard: () => <section data-testid="notification-preferences">Notification preferences</section> }));
 vi.mock("./PaneAiCoach", () => ({ PaneAiCoach: () => <section data-testid="coach-consent">Consent</section> }));
 
 vi.mock("react-i18next", () => ({
@@ -120,6 +122,16 @@ describe("PaneAccount nickname save", () => {
     expect(screen.getByTestId("coach-consent").compareDocumentPosition(screen.getByText("pane.account.cardManagement")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("link", { name: "pane.account.manageData" })).toHaveAttribute("href", "/ko/settings/data");
     expect(screen.getByRole("button", { name: "pane.account.deleteBtnLabel" })).toBeInTheDocument();
+  });
+
+  it("shows the public profile toggle on when the setting was never chosen, off only when explicitly disabled", () => {
+    // 스트라바처럼 프로필 기본 공개 — 서버 투영(profilePublic !== false)과 같은 기준
+    const view = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    expect(screen.getByRole("switch", { name: "privacy.profilePublicInline" })).toBeChecked();
+    view.unmount();
+    mocks.profile = { nickname: "Old Name", profilePublic: false };
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    expect(screen.getByRole("switch", { name: "privacy.profilePublicInline" })).not.toBeChecked();
   });
 
   it("opens deletion guidance without executing a destructive operation", () => {

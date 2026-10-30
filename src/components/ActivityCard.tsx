@@ -1,3 +1,5 @@
+import { stravaRecordOf } from "@shared/analysis/stravaRecord";
+import { withActivityPresentation } from "@shared/analysis/activityPresentation";
 import { Crown, Medal } from "lucide-react";
 import { localeTag } from "../utils/localeDate";
 import "./ActivityCard.css";
@@ -225,17 +227,23 @@ function IdentityDataChips({ pdc }: { pdc?: PdcDoc | null }) {
 }
 
 export default function ActivityCard({
-  activity,
+  activity: rawActivity,
   showMap = true,
   hideAuthor = false,
   priority = false,
   identityPdc = null,
   homeLabels = false,
 }: ActivityCardProps) {
+  const activity = withActivityPresentation(rawActivity);
   const { t } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
   const timeAgo = useTimeAgo();
   const s = activity.summary ?? EMPTY_ACTIVITY_SUMMARY;
+  const sourceRecord = stravaRecordOf(activity);
+  const distanceM = sourceRecord ? sourceRecord.distance : s.distance;
+  const elevationM = sourceRecord ? sourceRecord.total_elevation_gain : s.elevationGain;
+  const sourcePower = sourceRecord ? sourceRecord.average_watts : s.averagePower ?? activity.avgPower;
+  const sourceHr = sourceRecord ? sourceRecord.average_heartrate : s.averageHeartRate;
   const isRun = getDiscipline(activity.type) === "run";
   // 작성자는 프로필(users_public)이 정본이다 — 활동 문서의 nickname 은 업로드 시점 복제본이라
   // 앱 업로드분엔 아예 없고(#2444) 개명 후엔 옛 이름으로 남는다.
@@ -332,7 +340,7 @@ export default function ActivityCard({
               durationMs: s.ridingTimeMillis,
               avgKph: s.averageSpeed,
               maxKph: s.maxSpeed,
-              averageHeartRate: s.averageHeartRate,
+              averageHeartRate: sourceHr,
               // 타당성 임계값은 종목별이다 — 미지 종목이면 종목 기준 없이 판정한다.
               discipline: getDiscipline(activity.type) ?? undefined,
             }) && (
@@ -376,18 +384,18 @@ export default function ActivityCard({
          *  값이 라벨 아래로 내려가 가독성 향상 (모바일웹 스타일). 6개 stat → 3열 2행. */}
         <div className="activity-feed-card__stats min-w-0" style={{ borderColor: 'var(--line-soft)' }}>
           {isRun ? (() => {
-            const duration = resolveDuration({ ...s, startTime: activity.startTime, endTime: activity.endTime });
-            const speed = resolveAvgSpeedKph(s.distance, duration, s.averageSpeed);
-            const power = s.averagePower ?? activity.avgPower;
+            const duration = resolveDuration({ ...s, stravaRecord: sourceRecord, startTime: activity.startTime, endTime: activity.endTime });
+            const speed = resolveAvgSpeedKph(s.distance, duration, s.averageSpeed, sourceRecord);
+            const power = sourcePower;
             return <>
               <div className="grid grid-cols-3 gap-3" data-testid="run-card-primary">
-                <StatBlock label={t(homeLabels ? "dashboard:homeMetrics.distance" : "stat.distance")} value={formatDistance(s.distance, units)} />
+                <StatBlock label={t(homeLabels ? "dashboard:homeMetrics.distance" : "stat.distance")} value={distanceM == null ? "—" : formatDistance(distanceM, units, sourceRecord ? 2 : 1)} />
                 <StatBlock label={t("stat.avgPace")} value={speed > 0 && !isImplausibleAvgSpeed(speed, "run") ? formatPace(3600 / speed, units) : "—"} prominent />
-                <StatBlock label={t(homeLabels ? `dashboard:homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, duration.usingMoving)}` : "stat.time")} value={formatDuration(duration.displayMs)} />
+                <StatBlock label={t(homeLabels ? `dashboard:homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, duration.usingMoving)}` : "stat.time")} value={Number.isFinite(duration.displayMs) ? formatDuration(duration.displayMs) : "—"} />
               </div>
               <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[length:var(--fs-xs)]" style={{ color: 'var(--ink-2)' }} data-testid="run-card-secondary">
-                {s.averageHeartRate != null && s.averageHeartRate > 0 && !isImplausibleActivityHeartRate(s.averageHeartRate) && <span>{t(homeLabels ? "dashboard:homeMetrics.avgHeartRate" : "stat.avgHrShort")} · {s.averageHeartRate} <GlossaryText>{"bpm"}</GlossaryText></span>}
-                <span><GlossaryText>{t("stat.elevShort")}</GlossaryText> · {formatElev(s.elevationGain, units)}</span>
+                {sourceHr != null && sourceHr > 0 && !isImplausibleActivityHeartRate(sourceHr) && <span>{t(homeLabels ? "dashboard:homeMetrics.avgHeartRate" : "stat.avgHrShort")} · {Math.round(sourceHr)} <GlossaryText>{"bpm"}</GlossaryText></span>}
+                <span><GlossaryText>{t("stat.elevShort")}</GlossaryText> · {elevationM == null ? "—" : formatElev(elevationM, units)}</span>
                 {power != null && power > 0 && <span><GlossaryText>{t("stat.runningPower")}</GlossaryText> · {Math.round(power)} <GlossaryText>{"W"}</GlossaryText></span>}
               </div>
             </>;
@@ -395,44 +403,44 @@ export default function ActivityCard({
           <div
             className="grid gap-x-3 gap-y-2 text-[length:var(--fs-sm)] grid-cols-3"
           >
-            <StatBlock label={t(homeLabels ? "dashboard:homeMetrics.distance" : "stat.distance")} value={formatDistance(s.distance, units)} />
-            <StatBlock label={t("stat.elevShort")} value={formatElev(s.elevationGain, units)} />
+            <StatBlock label={t(homeLabels ? "dashboard:homeMetrics.distance" : "stat.distance")} value={distanceM == null ? "—" : formatDistance(distanceM, units, sourceRecord ? 2 : 1)} />
+            <StatBlock label={t("stat.elevShort")} value={elevationM == null ? "—" : formatElev(elevationM, units)} />
             {(() => {
               // #236: 정지 큰 활동은 이동시간 우선 표시 (상세 페이지와 동일 정책). 전환 시
               //  경과 시간은 hover title 로 부연 — 카드엔 "전체/정지" 풀 sub 넣을 공간이 없음.
-              const d = resolveDuration({ ...s, startTime: activity.startTime, endTime: activity.endTime });
+              const d = resolveDuration({ ...s, stravaRecord: sourceRecord, startTime: activity.startTime, endTime: activity.endTime });
               return (
                 <StatBlock
                   label={t(homeLabels ? `dashboard:homeMetrics.${durationLabelBasis({ ...s, startTime: activity.startTime, endTime: activity.endTime }, d.usingMoving)}` : "stat.time")}
-                  value={formatDuration(d.displayMs)}
-                  title={d.usingMoving ? t("stat.movingTimeTotalSimple", { elapsed: formatDuration(d.elapsedMs) }) : undefined}
+                  value={Number.isFinite(d.displayMs) ? formatDuration(d.displayMs) : "—"}
+                  title={d.usingMoving && Number.isFinite(d.elapsedMs) ? t("stat.movingTimeTotalSimple", { elapsed: formatDuration(d.elapsedMs) }) : undefined}
                 />
               );
             })()}
             {(() => {
               // #236 후속: 이동시간으로 전환된 활동은 평균 속도도 거리/이동시간 기준 (시간 표시와 일관).
               //  전환 시 경과 기준 원본값은 hover title 로 부연.
-              const sd = resolveDuration({ ...s, startTime: activity.startTime, endTime: activity.endTime });
-              const avgKph = resolveAvgSpeedKph(s.distance, sd, s.averageSpeed);
+              const sd = resolveDuration({ ...s, stravaRecord: sourceRecord, startTime: activity.startTime, endTime: activity.endTime });
+              const avgKph = resolveAvgSpeedKph(s.distance, sd, s.averageSpeed, sourceRecord);
               const implausible = isImplausibleAvgSpeed(avgKph, getDiscipline(activity.type) ?? undefined);
               return (
                 <StatBlock
                   label={t(isRun ? "stat.avgPace" : "stat.avgSpeed")}
-                  value={implausible || avgKph <= 0 ? "—" : isRun ? formatPace(3600 / avgKph, units) : formatSpeed(avgKph / 3.6, units, 'bike')}
+                  value={!Number.isFinite(avgKph) || implausible || avgKph <= 0 ? "—" : isRun ? formatPace(3600 / avgKph, units) : formatSpeed(avgKph / 3.6, units, 'bike')}
                   title={implausible
                     ? t("stat.dataWarningRaw", { value: avgKph.toFixed(1) })
-                    : (sd.usingMoving ? t("stat.movingAvgTotal", { total: s.averageSpeed.toFixed(1) }) : undefined)}
+                    : (!sourceRecord && sd.usingMoving ? t("stat.movingAvgTotal", { total: s.averageSpeed.toFixed(1) }) : undefined)}
                 />
               );
             })()}
             {/* 센서 미연결 (0 W / 0 bpm) 케이스는 stat 숨김 — 광고 유입자에게
              *  "데이터 없음" 인상보다 stat 카드가 일관성 있게 노출되는 게 낫다. */}
-            {s.averageHeartRate != null &&
-              s.averageHeartRate > 0 &&
-              !isImplausibleActivityHeartRate(s.averageHeartRate) && (
-              <StatBlock label={t(homeLabels ? "dashboard:homeMetrics.avgHeartRate" : "stat.avgHrShort")} value={`${s.averageHeartRate} bpm`} />
+            {sourceHr != null &&
+              sourceHr > 0 &&
+              !isImplausibleActivityHeartRate(sourceHr) && (
+              <StatBlock label={t(homeLabels ? "dashboard:homeMetrics.avgHeartRate" : "stat.avgHrShort")} value={`${Math.round(sourceHr)} bpm`} />
             )}            {(() => {
-              const pw = s.averagePower ?? activity.avgPower;
+              const pw = sourcePower;
               return pw != null && pw > 0 ? (
                 <StatBlock label={t(isRun ? "stat.runningPower" : homeLabels ? "dashboard:homeMetrics.avgPower" : "stat.powerShort")} value={`${Math.round(pw)} W`} />
               ) : null;

@@ -72,3 +72,40 @@ it.each(["functions/failed-precondition", "failed-precondition", "functions/unav
   expect(view.result.current.failureKind).toBe(code === "functions/failed-precondition" || code === "failed-precondition" ? "source_precondition" : "generic");
   expect(view.result.current.metadata).toBeNull(); expect(mocks.duration).not.toHaveBeenCalled(); expect(mocks.metadata).toHaveBeenCalledOnce();
 });
+
+it("preserves a completed calculation through new input, loading, source changes and network failures", async () => {
+  const view = renderHook(({ draft }) => useStageActivityPowerDuration(activity, draft), { initialProps: { draft: "2" } });
+  await act(async () => { await view.result.current.load(); });
+  await act(async () => { await view.result.current.calculate(); });
+  const saved = view.result.current.savedResponse;
+  expect(saved?.result?.state).toBe("available");
+  view.rerender({ draft: "3" });
+  expect(view.result.current.response).toBeNull(); expect(view.result.current.savedResponse).toEqual(saved);
+  mocks.duration.mockRejectedValueOnce({ code: "functions/failed-precondition" });
+  await act(async () => { await view.result.current.calculate(); });
+  expect(view.result.current.savedResponse).toEqual(saved);
+  mocks.metadata.mockRejectedValueOnce({ code: "functions/unavailable" });
+  await act(async () => { await view.result.current.load(); });
+  expect(view.result.current.savedResponse).toEqual(saved);
+  mocks.metadata.mockRejectedValueOnce({ code: "functions/permission-denied" });
+  await act(async () => { await view.result.current.load(); });
+  expect(view.result.current.savedResponse).toBeNull();
+});
+it("clears prior results on an exact SDK session replacement with the same UID", async () => {
+  const services = { auth: { currentUser: { uid: "owner" } } }; mocks.services = services;
+  const view = renderHook(() => useStageActivityPowerDuration(activity, "2"));
+  await act(async () => { await view.result.current.load(); });
+  await act(async () => { await view.result.current.calculate(); });
+  expect(view.result.current.savedResponse).not.toBeNull();
+  services.auth.currentUser = { uid: "owner" }; view.rerender();
+  expect(view.result.current.savedResponse).toBeNull();
+});
+it("allows selecting a previous successful input/result after a new success",async()=>{
+ const h=renderHook(({draft})=>useStageActivityPowerDuration(activity,draft),{initialProps:{draft:"2"}});
+ await act(async()=>h.result.current.load());await act(async()=>h.result.current.calculate());
+ const old=h.result.current.savedResponse;
+ h.rerender({draft:"3"});mocks.duration.mockResolvedValueOnce({...fixture[0]!.result,result:{...fixture[0]!.result.result,requestedDurationSeconds:3,maxAveragePowerW:999}});
+ await act(async()=>h.result.current.calculate());expect(h.result.current.savedResponse?.result?.requestedDurationSeconds).toBe(3);
+ act(()=>h.result.current.selectPrevious(0));expect(h.result.current.selectedResponse).toEqual(old);
+ act(()=>h.result.current.selectPrevious(null));expect(h.result.current.selectedResponse).toBeNull();expect(h.result.current.savedResponse?.result?.maxAveragePowerW).toBe(999);
+});

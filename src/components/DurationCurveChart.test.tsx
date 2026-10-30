@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { useTheme } from "../contexts/ThemeContext";
 import { useOriderTheme } from "../theme";
+import { durationCurveArea } from "../theme/charts/durationCurvePresentation";
 import PowerCurveChart from "./PowerCurveChart";
 import DurationCurveChart, { niceStep, visibleLogLabels } from "./DurationCurveChart";
 import SpeedCurveChart from "./SpeedCurveChart";
@@ -102,4 +103,14 @@ describe("DurationCurveChart log time axis", () => {
     expect(niceStep(160)).toBe(200);
     expect(niceStep(45)).toBe(50);
   });
+});
+
+
+it("keeps optional unresolved colors from aborting chart creation and fills valid theme colors", () => {
+  const addColorStop = vi.fn();
+  const gradient = { addColorStop };
+  const context = { chart: { ctx: { createLinearGradient: vi.fn(() => gradient) }, chartArea: { top: 10, bottom: 100 } } };
+  expect(durationCurveArea(context as any, "var(--missing-color)")).toBe("transparent");
+  expect(durationCurveArea(context as any, "#9988cc")).toBe(gradient);
+  expect(addColorStop).toHaveBeenCalledTimes(2);
 });

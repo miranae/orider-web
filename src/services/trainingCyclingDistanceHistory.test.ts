@@ -1,3 +1,4 @@
+import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { compiledBikeProvenanceWire } from "./activityBikeDistanceEvidence.fixture";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CyclingDistanceHistoryResponse, CyclingDistanceHistoryRequest } from "@shared/types/training-cycling-distance-history";
@@ -234,7 +235,7 @@ const wire = {
 } as CyclingDistanceHistoryResponse;
 const NOW=wire.readTime.seconds*1000;
 const request: CyclingDistanceHistoryRequest={mode:"cycling_distance_history_page",discipline:"bike",calendarBasis:"Asia/Seoul",rangeBasis:"calendar_year",year:2026};
-beforeEach(()=>{vi.restoreAllMocks();vi.spyOn(Date,"now").mockReturnValue(NOW); resetRuntimeConfigForTests({appEnvironment:"stage",firebaseFunctionsBase:"https://asia-northeast3-orider-dev.cloudfunctions.net",trainingAnalysisPeriodsEnabled:true});mocks.call.mockReset().mockResolvedValue({data:structuredClone(wire)});mocks.callable.mockReset().mockReturnValue(mocks.call);});
+beforeEach(()=>{vi.restoreAllMocks();vi.spyOn(Date,"now").mockReturnValue(NOW); resetRuntimeConfigForTests({appEnvironment:"stage",firebaseProjectId:"miranae-orider-g1",firebaseFunctionsRegion:"asia-northeast3",firebaseFunctionsBase:"https://asia-northeast3-orider-dev.cloudfunctions.net",trainingAnalysisPeriodsEnabled:true});mocks.call.mockReset().mockResolvedValue({data:structuredClone(wire)});mocks.callable.mockReset().mockReturnValue(mocks.call);});
 describe("strict actual cycling history wire contract",()=>{
  it("accepts actual backend response including unsupported and unavailable rows",()=>{expect(validateCyclingDistanceHistoryResponse(wire,request,NOW)).toEqual(neutralHistory(wire));});
  it.each([
@@ -693,12 +694,12 @@ describe("activity totals channel calculator 35 boundary", () => {
   const safe=validateCyclingDistanceHistoryResponse(r,opted,NOW);expect(safe.activities.find(row=>row.activityId==="native")!.activityTotals).toBeUndefined();expect(safe.activities.find(row=>row.activityId==="native")!.distanceObservations).toEqual(neutralHistory(r).activities.find(row=>row.activityId===native.activityId)!.distanceObservations);
   const legacy=structuredClone(r);for(const row of legacy.activities)delete row.activityTotals;expect(validateCyclingDistanceHistoryResponse(legacy,request,NOW)).toEqual(neutralHistory(legacy));
  });
- it("keeps v35 canonical totals and accepts its outdated summary under calculator v36", () => {
+ it("keeps v35 canonical totals and only accepts summaries older than the current calculator", () => {
   expect(validateCyclingDistanceHistoryResponse(totalsWire,opted,NOW)).toEqual(neutralHistory(totalsWire));
   const r=oldWire(), old=r.activities.find(row=>row.activityId==="outdated34")!;
   old.analysis.calculatorVersion=35;
   expect(validateCyclingDistanceHistoryResponse(r,opted,NOW)).toEqual(neutralHistory(r));
-  old.analysis.calculatorVersion=36;
+  old.analysis.calculatorVersion=ACTIVITY_METRICS_VERSION;
   expect(validateCyclingDistanceHistoryResponse(r,opted,NOW).activities.find(row=>row.activityId==="outdated34")!.activityTotals).toBeUndefined();
  });
  it("preserves nullable old-summary distance independently of observed zero gain", () => {
@@ -749,4 +750,10 @@ it.each([34, 35, 36])("preserves compatible ready history snapshots across calcu
   expect(validateCyclingDistanceHistoryResponse(data, request, NOW)).toEqual(neutralHistory(data));
   ready.analysis.calculatorVersion = 33;
   expect(() => validateCyclingDistanceHistoryResponse(data, request, NOW)).toThrow();
+});
+
+it("keeps the Stage cycling history mode closed when ordinary hosted bike periods are enabled", async () => {
+ resetRuntimeConfigForTests({appEnvironment:"production",firebaseProjectId:"miranae-orider-g1",firebaseFunctionsRegion:"asia-northeast3",trainingAnalysisPeriodsEnabled:true});
+ await expect(loadCyclingDistanceHistory({} as FirebaseServices,"owner",request)).rejects.toThrow("api_unavailable");
+ expect(mocks.callable).not.toHaveBeenCalled();
 });

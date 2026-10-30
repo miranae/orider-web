@@ -16,6 +16,7 @@
 #   --test-file <path>        Repeatable; scoped tests for JSX-child deletion only (feature→dev).
 #   --no-merge                Run gates only.
 #   --no-review               Skip local AI code review.
+#   --self-review-file <path>  Exact-input self review after both CLIs are unavailable.
 #   --blockers-only           Review only merge-blocking defects (default).
 #   --all-findings            Review BLOCKER, MAJOR, and MINOR findings.
 #   --no-visual-check         Skip the sticky/fixed screenshot-evidence gate.
@@ -37,6 +38,7 @@ DO_MERGE=1
 RUN_REVIEW=1
 REVIEW_BLOCKERS_ONLY=1
 REVIEW_RANGE_MODE=delta   # delta(기본)=마지막으로 PASS 한 head 이후만 · full=PR 전체
+SELF_REVIEW_FILE=""
 REVIEW_SINCE=""           # --review-since <ref> 로 명시 지정
 # Codex 입력 상한 1,048,576자. 프롬프트·메타데이터·스키마 몫을 뺀 보수적 상한.
 REVIEW_MAX_DIFF_BYTES=900000
@@ -58,6 +60,9 @@ while [[ $# -gt 0 ]]; do
       TEST_FILES+=("$2"); shift ;;
     --no-merge) DO_MERGE=0 ;;
     --no-review) RUN_REVIEW=0 ;;
+    --self-review-file)
+      [[ -n "${2:-}" && "${2:-}" != -* ]] || { echo "--self-review-file 경로가 필요합니다." >&2; exit 2; }
+      SELF_REVIEW_FILE="$(realpath "$2")"; shift ;;
     --blockers-only) REVIEW_BLOCKERS_ONLY=1 ;;
     --review-full) REVIEW_RANGE_MODE=full ;;
     --review-since) REVIEW_SINCE="${2:-}"; shift ;;
@@ -215,94 +220,9 @@ assert_trusted_review_input() {
   [[ "$resolved" == "$REVIEW_INPUT_DIR/"* ]] || die "trusted Codex input root 이탈: $path"
 }
 
-configure_codex_sandbox() {
-  [[ -x /usr/bin/sandbox-exec ]] || die "macOS sandbox-exec 없음 — Codex 리뷰 격리를 보장할 수 없어 머지 중단"
-  CODEX_COMMAND="$(command -v codex)" || die "Codex CLI 없음 — 코드 리뷰 게이트 실행 불가."
-  codex_candidate="$(realpath "$CODEX_COMMAND")" || die "Codex 실행 파일 경로 확인 실패"
-  if file "$codex_candidate" | grep -q 'Mach-O'; then
-    CODEX_BIN="$codex_candidate"
-  else
-    codex_package_dir="$(dirname "$codex_candidate")"
-    while [[ "$codex_package_dir" != "/" && "$(basename "$codex_package_dir")" != "@openai" ]]; do
-      codex_package_dir="$(dirname "$codex_package_dir")"
-    done
-    [[ "$(basename "$codex_package_dir")" == "@openai" ]] || die "native Codex package root 확인 실패"
-    CODEX_BIN=""
-    while IFS= read -r native_candidate; do
-      if file "$native_candidate" | grep -q 'Mach-O'; then CODEX_BIN="$native_candidate"; break; fi
-    done < <(find "$codex_package_dir" -type f -name codex -perm -111 2>/dev/null)
-    [[ -n "$CODEX_BIN" ]] || die "native Mach-O Codex 실행 파일 없음"
-    CODEX_BIN="$(realpath "$CODEX_BIN")"
-  fi
-  CODEX_RUNTIME_DIR="$(dirname "$CODEX_BIN")"
-  CODEX_AUTH_SOURCE="${CODEX_HOME:-$HOME/.codex}/auth.json"
-  [[ -r "$CODEX_AUTH_SOURCE" ]] || die "Codex 인증 파일 없음: ${CODEX_AUTH_SOURCE}"
-  SANDBOX_CODEX_HOME="$REVIEW_TMP/codex-home"
-  SANDBOX_HOME="$REVIEW_TMP/home"
-  SANDBOX_CWD="$REVIEW_TMP/cwd"
-  mkdir -p "$SANDBOX_CODEX_HOME" "$SANDBOX_HOME" "$SANDBOX_CWD"
-  cp "$CODEX_AUTH_SOURCE" "$SANDBOX_CODEX_HOME/auth.json"
-  chmod 600 "$SANDBOX_CODEX_HOME/auth.json"
-  CODEX_AUTH_FILE="$SANDBOX_CODEX_HOME/auth.json"
-  SANDBOX_PROFILE="$REVIEW_PARENT/codex-review.sb"
-  SANDBOX_CMD=(/usr/bin/sandbox-exec
-    -D "REVIEW_DIR=$REVIEW_DIR"
-    -D "REVIEW_TMP=$REVIEW_TMP"
-    -D "REVIEW_INPUT_DIR=$REVIEW_INPUT_DIR"
-    -D "REVIEW_OUT=$REVIEW_OUT"
-    -D "REVIEW_LOG=$REVIEW_LOG"
-    -D "CODEX_RUNTIME_DIR=$CODEX_RUNTIME_DIR"
-    -D "CODEX_BIN=$CODEX_BIN"
-    -D "CODEX_AUTH_FILE=$CODEX_AUTH_FILE"
-    -f "$SANDBOX_PROFILE")
-  PROBE_SANDBOX_CMD=(/usr/bin/sandbox-exec
-    -D "REVIEW_DIR=$REVIEW_DIR"
-    -D "REVIEW_TMP=$REVIEW_TMP"
-    -D "REVIEW_INPUT_DIR=$REVIEW_INPUT_DIR"
-    -D "REVIEW_OUT=$REVIEW_OUT"
-    -D "REVIEW_LOG=$REVIEW_LOG"
-    -D "CODEX_RUNTIME_DIR=/bin"
-    -D "CODEX_BIN=/bin/cat"
-    -D "CODEX_AUTH_FILE=$CODEX_AUTH_FILE"
-    -f "$SANDBOX_PROFILE")
-
-  "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIFF" >/dev/null \
-    || die "Codex sandbox가 리뷰 snapshot 읽기를 허용하지 않음"
-  if "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REVIEW_DIR/scripts/codex-review-external-link.fixture" >/dev/null 2>&1; then
-    die "Codex sandbox symlink 외부 읽기 차단 실패"
-  fi
-  if "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REVIEW_PARENT/external-sentinel" >/dev/null 2>&1; then
-    die "Codex sandbox 외부 sentinel 읽기 차단 실패"
-  fi
-  if [[ -e "$REPO_ROOT/.env" ]] && "${PROBE_SANDBOX_CMD[@]}" /bin/cat "$REPO_ROOT/.env" >/dev/null 2>&1; then
-    die "Codex sandbox 원본 저장소 .env 읽기 차단 실패"
-  fi
-  for denied_exec in /bin/sh /bin/zsh /usr/bin/env; do
-    if "${SANDBOX_CMD[@]}" "$denied_exec" -c true >/dev/null 2>&1; then
-      die "Codex sandbox 예상 밖 프로세스 실행 차단 실패: $denied_exec"
-    fi
-  done
-}
-
-start_codex_review() {
-  local timeout_s="${CODEX_REVIEW_TIMEOUT_SEC:-900}"
-  (cd "$SANDBOX_CWD" && /usr/bin/env -i \
-    HOME="$SANDBOX_HOME" CODEX_HOME="$SANDBOX_CODEX_HOME" TMPDIR="$REVIEW_TMP" PATH="/usr/bin:/bin" \
-    "${SANDBOX_CMD[@]}" "${REVIEW_CMD[@]}" <"$REVIEW_INPUT") >"$REVIEW_LOG" 2>&1 &
+start_ai_review() {
+  node "$REPO_ROOT/scripts/merge-review.mjs" "$REVIEW_REQUEST" >"$REVIEW_LOG" 2>&1 &
   REVIEW_PID=$!
-  (
-    sleep "$timeout_s" &
-    watchdog_sleep_pid=$!
-    trap 'kill "$watchdog_sleep_pid" 2>/dev/null || true' EXIT
-    trap 'exit 0' TERM INT
-    wait "$watchdog_sleep_pid" || exit 0
-    if kill -0 "$REVIEW_PID" 2>/dev/null; then
-      kill "$REVIEW_PID" 2>/dev/null || true
-      sleep 2
-      kill -9 "$REVIEW_PID" 2>/dev/null || true
-    fi
-  ) &
-  REVIEW_WATCHDOG=$!
   REVIEW_STARTED=1
 }
 # 게이트가 중간에 die 해도 백그라운드 Codex를 고아로 남기지 않는다.
@@ -310,7 +230,6 @@ cleanup_review() {
   # 주의: kill 의 인자가 빈값/0 이면 프로세스 그룹 전체가 죽는다 — 반드시 변수 존재를 확인.
   if [[ "${REVIEW_STARTED:-0}" == 1 ]]; then
     [[ -n "${REVIEW_PID:-}" ]] && { kill "$REVIEW_PID" 2>/dev/null || true; wait "$REVIEW_PID" 2>/dev/null || true; }
-    [[ -n "${REVIEW_WATCHDOG:-}" ]] && { kill "$REVIEW_WATCHDOG" 2>/dev/null || true; wait "$REVIEW_WATCHDOG" 2>/dev/null || true; }
   fi
   cleanup_review_workspace
   return 0
@@ -504,19 +423,18 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
   assert_trusted_review_input "$REVIEW_METADATA"
   assert_trusted_review_input "$REVIEW_INPUT"
   assert_trusted_review_input "$REVIEW_SCHEMA"
-  configure_codex_sandbox
-  # 외부 sandbox-exec가 실제 보안 경계다. 중첩 Seatbelt는 macOS가 forbidden-sandbox-reinit로 거부한다.
-  REVIEW_CMD=("$CODEX_BIN" exec --ignore-user-config --ephemeral --sandbox danger-full-access --skip-git-repo-check -C "$SANDBOX_CWD" \
-    --disable shell_tool --disable unified_exec --disable code_mode_host --disable multi_agent \
-    --disable browser_use --disable in_app_browser --disable computer_use --disable image_generation \
-    --disable apps --disable plugins --disable skill_search --disable skill_mcp_dependency_install \
-    --disable auth_elicitation --disable goals \
-    -c 'shell_environment_policy.inherit="none"' \
-    -c "model_reasoning_effort=\"$review_effort\"" \
-    --output-schema "$REVIEW_SCHEMA" \
-    -o "$REVIEW_OUT" -)
-  log "로컬 AI 코드리뷰 시작 (origin/$BASE...HEAD, mode=$review_mode) — 이후 게이트와 병렬"
-  start_codex_review
+  REVIEW_REQUEST="$REVIEW_INPUT_DIR/request.json"
+  REVIEW_EVIDENCE_DIR="$(git rev-parse --path-format=absolute --git-common-dir)/merge-reviews/pr-$PR_NUM/$HEAD_OID"
+  node - "$REVIEW_REQUEST" "$PR_NUM" "$HEAD_OID" "$(git rev-parse "origin/$BASE")" "$BASE" \
+    "$(git rev-parse "$REVIEW_FROM_REV")" "$REVIEW_BLOCKERS_ONLY" "$REVIEW_DIFF" "$REVIEW_INPUT" \
+    "$REVIEW_SCHEMA" "$REVIEW_DIR" "$REVIEW_TMP" "$REVIEW_INPUT_DIR" "$REVIEW_PARENT/codex-review.sb" \
+    "$REPO_ROOT" "$REVIEW_OUT" "$REVIEW_LOG" "$REVIEW_EVIDENCE_DIR" "$SELF_REVIEW_FILE" "$review_effort" <<'NODE'
+const fs = require('node:fs');
+const [path, pr, head, base, baseRef, reviewFrom, blockers, diff, input, schema, workspace, runtime, inputDir, profile, repo, output, log, evidenceDir, selfReviewFile, effort] = process.argv.slice(2);
+fs.writeFileSync(path, JSON.stringify({ pr: Number(pr), head, base, baseRef, reviewFrom, scope: blockers === '1' ? 'blockers-only' : 'all-findings', diff, input, schema, workspace, runtime, inputDir, profile, repo, output, log, evidenceDir, selfReviewFile, effort }), { mode: 0o600 });
+NODE
+  log "로컬 코드리뷰 시작: Codex → Claude → 자체 리뷰 (mode=$review_mode) — 이후 게이트와 병렬"
+  start_ai_review
 fi
 
 
@@ -588,61 +506,29 @@ fi
 
 # ── AI 리뷰 join (병렬 시작분 결과 처리) ─────────────────────────────────────
 if [[ "$REVIEW_STARTED" == 1 ]]; then
-  log "로컬 AI 코드리뷰 결과 대기 (mode=$review_mode)"
+  log "로컬 코드리뷰 결과 대기 (mode=$review_mode)"
   review_rc=0
   wait "$REVIEW_PID" || review_rc=$?
-  kill "$REVIEW_WATCHDOG" 2>/dev/null || true
-  wait "$REVIEW_WATCHDOG" 2>/dev/null || true
   REVIEW_STARTED=0
+  cat "$REVIEW_LOG"
   cleanup_review_workspace
-  if [[ "$review_rc" -ne 0 ]]; then
-    [[ ! -s "$REVIEW_OUT" ]] || sed 's/^/  │ /' "$REVIEW_OUT"
-    [[ ! -s "$REVIEW_LOG" ]] || { echo "  Codex 실행 로그:"; tail -80 "$REVIEW_LOG" | sed 's/^/  │ /'; }
-    echo "  리뷰 답변: $REVIEW_OUT"
-    echo "  실행 로그: $REVIEW_LOG"
-    die "Codex 코드 리뷰 실행 실패 또는 시간 초과 (exit=$review_rc, timeout=${CODEX_REVIEW_TIMEOUT_SEC:-900}s)"
-  fi
-  REVIEW_FINDINGS="$(mktemp -t orider-merge-review-findings)"
-  REVIEW_PARSE_LOG="$(mktemp -t orider-merge-review-parse)"
-  verdict=""
-  if ! verdict="$(node - "$REVIEW_OUT" "$REVIEW_FINDINGS" <<'NODE' 2>"$REVIEW_PARSE_LOG"
-const fs = require('node:fs');
-const [inputPath, findingsPath] = process.argv.slice(2);
-const fail = (message) => { console.error(message); process.exit(1); };
-let value;
-try {
-  value = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
-} catch (error) {
-  fail(`JSON parse failed: ${error.message}`);
-}
-if (value === null || Array.isArray(value) || typeof value !== 'object') fail('review output must be an object');
-const keys = Object.keys(value).sort();
-if (keys.length !== 2 || keys[0] !== 'findings' || keys[1] !== 'verdict') fail('review output must contain only findings and verdict');
-if (typeof value.findings !== 'string') fail('findings must be a string');
-if (value.verdict !== 'PASS' && value.verdict !== 'BLOCK') fail('verdict must be PASS or BLOCK');
-fs.writeFileSync(findingsPath, value.findings);
-process.stdout.write(value.verdict);
-NODE
-  )"; then
-    sed 's/^/  │ /' "$REVIEW_OUT" || true
-    sed 's/^/  │ /' "$REVIEW_PARSE_LOG" || true
-    echo "  리뷰 답변: $REVIEW_OUT"
-    echo "  JSON 검증 로그: $REVIEW_PARSE_LOG"
-    die "Codex 코드 리뷰 구조화 출력 JSON 검증 실패"
-  fi
+  [[ "$review_rc" -eq 0 ]] || die "코드 리뷰 실행 또는 격리/자체 리뷰 검증 실패 — 머지 중단"
+  verdict="$(json_field "$(cat "$REVIEW_OUT")" state)"
+  provider="$(json_field "$(cat "$REVIEW_OUT")" provider)"
   if [[ "$verdict" == "BLOCK" ]]; then
-    sed 's/^/  │ /' "$REVIEW_FINDINGS"
-    echo "  리뷰 로그: $REVIEW_OUT"
-    die "코드 리뷰 BLOCK — 머지 중단"
+    die "코드 리뷰 BLOCK — 머지 중단 (provider=$provider, evidence=$REVIEW_EVIDENCE_DIR)"
+  elif [[ "$verdict" == "needs-self-review" ]]; then
+    die "자체 리뷰 대기 — 머지 중단 (evidence=$REVIEW_EVIDENCE_DIR)"
   elif [[ "$verdict" == "PASS" ]]; then
-    # 다음 실행의 델타 시작점. PASS 한 head 만 기록한다 — BLOCK 은 기록하지 않는다.
-    git update-ref "${REVIEW_STATE_REF_PREFIX}${PR_NUM}" "$HEAD_OID" 2>/dev/null \
-      || log "[리뷰] 델타 시작점 기록 실패(무해) — 다음 실행은 전체 범위로 봅니다."
-    tail -60 "$REVIEW_FINDINGS" | sed 's/^/  │ /' || true
-    printf '  \033[1;32m리뷰 PASS\033[0m\n'
-    rm -f "$REVIEW_OUT" "$REVIEW_LOG" "$REVIEW_FINDINGS" "$REVIEW_PARSE_LOG"
+    # 자체 리뷰를 독립 리뷰의 증분 시작점으로 사용하지 않는다.
+    if [[ "$provider" != "self" ]]; then
+      git update-ref "${REVIEW_STATE_REF_PREFIX}${PR_NUM}" "$HEAD_OID" 2>/dev/null \
+        || log "[리뷰] 델타 시작점 기록 실패 — 다음 실행은 전체 범위로 봅니다."
+    fi
+    printf '  \033[1;32m리뷰 PASS (%s)\033[0m\n' "$provider"
+    rm -f "$REVIEW_OUT" "$REVIEW_LOG"
   else
-    die "Codex 코드 리뷰 verdict 누락"
+    die "코드 리뷰 verdict 누락"
   fi
 else
   [[ "$RUN_REVIEW" == 0 ]] && log "로컬 AI 코드리뷰 생략 (--no-review)" || log "문서 전용 변경 — 로컬 AI 코드리뷰 생략"
@@ -688,36 +574,15 @@ log "PR #$PR_NUM squash merge"
 # that branch. Delete the remote ref through the API after a successful merge.
 gh pr merge "$PR_NUM" --squash --match-head-commit "$HEAD_OID" || die "gh pr merge 실패 (충돌/보호 규칙/head SHA 상태 확인)"
 
-# squash 승격은 main에 새 커밋을 만들기 때문에 dev와 ancestry가 갈라진다. 승격 직후
-# main을 dev에 되병합해 다음 승격 PR이 이미 배포된 변경을 다시 표시하지 않게 한다.
-# fetch 후 origin/dev를 먼저 병합하므로 승격 도중 dev에 추가된 커밋도 잃지 않는다.
-# push race는 최신 origin/dev를 다시 병합한 뒤 일반 push로 제한 재시도한다(강제 push 금지).
+# Preserve linear protected dev history through a reviewed topic PR, never a direct merge push.
 sync_main_back_to_dev() {
-  local attempt max_attempts=3
-  for attempt in $(seq 1 "$max_attempts"); do
-    log "승격 후 main→dev 동기화 ($attempt/$max_attempts)"
-    git fetch origin main dev --quiet \
-      || die "main 승격은 완료됐지만 origin/main·origin/dev fetch에 실패했습니다. dev에서 origin/dev와 origin/main을 병합해 push하세요."
-
-    if ! git merge origin/dev --no-edit --quiet; then
-      git merge --abort >/dev/null 2>&1 || true
-      die "main 승격은 완료됐지만 최신 origin/dev 병합이 충돌했습니다. dev에서 origin/dev를 병합한 뒤 origin/main을 병합·push하세요."
-    fi
-    if ! git merge origin/main --no-edit --quiet; then
-      git merge --abort >/dev/null 2>&1 || true
-      die "main 승격은 완료됐지만 origin/main→dev 동기화가 충돌했습니다. dev에서 origin/main을 병합·push하세요."
-    fi
-
-    if git push --quiet origin HEAD:dev; then
-      echo "  dev 동기화 완료: $(git rev-parse --short=12 HEAD)"
-      return 0
-    fi
-    warn "동시 dev 갱신으로 push 실패 — 최신 origin/dev 병합 후 재시도"
-  done
-  die "main 승격은 완료됐지만 dev 동기화 push가 $max_attempts회 실패했습니다. dev에서 origin/dev와 origin/main을 병합한 뒤 일반 push로 복구하세요."
+  local production_commit
+  production_commit="$(gh pr view "$PR_NUM" --json mergeCommit -q '.mergeCommit.oid')"
+  [[ "$production_commit" =~ ^[0-9a-f]{40}$ ]] || die "production squash SHA 확인 실패"
+  node scripts/sync-main-to-dev.mjs "$production_commit" \
+    || die "main 병합은 완료됐습니다. 위 backport PR을 공식 게이트로 병합한 뒤 출력된 sync 재개 명령을 실행하세요."
 }
 
-# dev 승격뿐 아니라 hotfix→main 도 동기화 — hotfix 변경이 dev에 없으면 다음 승격에서 유실된다.
 if [[ "$BASE" == "main" ]]; then
   sync_main_back_to_dev
 fi

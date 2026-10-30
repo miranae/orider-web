@@ -80,8 +80,12 @@ describe("coachHistoryClient", () => {
       error: { code: "rollout_ineligible", retryable: false, fallbackAvailable: false },
       retry: { mode: "none", providerCallAllowed: false, retryable: false, reasonCode: "rollout_ineligible" },
       execution: { graphVersion: "p2-v1", started: false } };
-    expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [{ ...p2Turn, response: unavailable }] },
-      nextCursor: null } })).toThrow("INVALID_COACH_HISTORY_RESPONSE");
+    expect(parseCoachThread({ data: { thread: { ...summary, turns: [p1Turn, { ...p2Turn, response: unavailable }] },
+      nextCursor: null } }).thread.turns[1]).toMatchObject({ question: p2Turn.question, sessionRevision: 75,
+      response: { capabilityVersion: "p2", outcome: "unavailable", error: { code: "rollout_ineligible" } } });
+    expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [{ ...p2Turn,
+      response: { ...unavailable, requestId: olderTurnId } }] }, nextCursor: null } }))
+      .toThrow("INVALID_COACH_HISTORY_RESPONSE");
   });
 
   it("parses the closed per-turn response format and rejects unknown values", () => {
@@ -94,6 +98,22 @@ describe("coachHistoryClient", () => {
     expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [{ ...turn, sessionRevision: undefined }] }, nextCursor: null } }))
       .toThrow("INVALID_COACH_HISTORY_RESPONSE");
     expect(() => parseCoachThreadPage({ data: { threads: [{ ...summary, revision: undefined }], nextCursor: null } }))
+      .toThrow("INVALID_COACH_HISTORY_RESPONSE");
+  });
+
+  it.each(["p1", "p2"])("restores %s failure receipts without inventing quota or provider usage", (capabilityVersion) => {
+    const failure = { apiVersion: "v2", capabilityVersion, schemaVersion: "coach-history-failure-v1", requestId: turnId,
+      outcome: "failed", error: { code: "internal", httpStatus: 500, retryable: true, fallbackAvailable: false },
+      execution: { asOf: "2026-07-19T02:00:00Z" } };
+    const turn = { turnId, requestId: turnId, question: "이번 주 운동량은?", createdAt: "2026-07-19T02:00:00Z",
+      response: failure, sessionRevision: 75 };
+    const envelope = { data: { thread: { ...summary, turns: [turn] }, nextCursor: null } };
+    const restored = parseCoachThread(envelope).thread.turns[0]!.response;
+    expect(restored).toEqual(failure);
+    expect(restored).not.toHaveProperty("quota");
+    expect(restored).not.toHaveProperty("budget");
+    expect(() => parseCoachThread({ data: { thread: { ...summary, turns: [{ ...turn,
+      response: { ...failure, error: { ...failure.error, code: "unsafe error message" } } }] }, nextCursor: null } }))
       .toThrow("INVALID_COACH_HISTORY_RESPONSE");
   });
 

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 const root = process.cwd();
-const detailSources = ["/:lang/activity/:activityId", "/:lang/segment/:segmentId", "/:lang/course/:courseId", "/:lang/event/:eventId"];
+const detailSources = ["/:lang/activity/:activityId", "/:lang/segment/:segmentId", "/:lang/course/:courseId", "/:lang/event/:eventId", "/:lang/club/:groupId"];
 const readConfig = (file) => JSON.parse(readFileSync(join(root, file), "utf8"));
 function run(mutate = () => {}) {
   const fixture = mkdtempSync(join(tmpdir(), "orider-deploy-config-"));
@@ -71,13 +71,13 @@ test("rejects adding server rewrites to isolated stage", () => {
   assert.match(result.stderr, /isolated stage must have no server rewrites/);
 });
 
-test("stage CSP rejects the exact production AI source expression", () => {
+test("development CSP requires the production AI source expression", () => {
   const result = run(({ stage }) => {
     const csp = stage.hosting.headers.find(rule => rule.source === "**").headers.find(header => header.key.toLowerCase() === "content-security-policy");
-    csp.value = csp.value.replace("connect-src ", "connect-src https://orider-ai-api-h5zqzw3n4a-du.a.run.app ");
+    csp.value = csp.value.replace("https://orider-ai-api-h5zqzw3n4a-du.a.run.app", "");
   });
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /must not allow production service origins/);
+  assert.match(result.stderr, /production data AI origin/);
 });
 test("stage CSP does not mistake a production URL embedded in another source path for its origin", () => {
   const result = run(({ stage }) => {
@@ -87,13 +87,13 @@ test("stage CSP does not mistake a production URL embedded in another source pat
   assert.equal(result.status, 0, result.stderr);
 });
 
-test("Stage CSP includes only the exact analysis and canonical Auth Functions hosts", () => {
-  for (const replacement of ["", "https://*.cloudfunctions.net", "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net:8443"]) {
+test("development CSP preserves the production Cloud Functions policy", () => {
+  for (const replacement of ["", "https:", "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net:8443"]) {
     const result = run(({ stage }) => {
       const csp = stage.hosting.headers.find(rule => rule.source === "**").headers.find(header => header.key.toLowerCase() === "content-security-policy");
-      csp.value = csp.value.replace("https://asia-northeast3-miranae-orider-g1.cloudfunctions.net", replacement);
+      csp.value = csp.value.replace("https://*.cloudfunctions.net", replacement);
     });
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /only reviewed exact Cloud Functions origins/);
+    assert.match(result.stderr, /preserve production CSP directive connect-src/);
   }
 });

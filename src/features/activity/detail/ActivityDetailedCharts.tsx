@@ -11,7 +11,7 @@ import { Button } from "../../../theme/components";
 import ActivityPerformanceCharts from "./ActivityPerformanceCharts";
 import { ActivityAnalysisSignInCard, StreamUnavailableCard } from "./ActivityDetailStates";
 import { buildChartOverlays, buildSampledData, buildSummaryStats, selectChartOverlay } from "./activityDetailDerived";
-import { getPerformanceOverlays } from "./activityPerformancePresentation";
+import { canonicalActivityChartMetrics, withCanonicalChartSummary, getPerformanceOverlays } from "./activityPerformancePresentation";
 
 /** 원시 스트림은 사용자가 상세 차트를 열 때만 기존 로더에 요청한다. */
 export default function ActivityDetailedCharts({ model, highlightedPeak = null, onClearHighlightedPeak, onSignIn }: { model: ActivityAnalysisModel; highlightedPeak?: RidePeakEffort | null; onClearHighlightedPeak?: () => void; onSignIn?: () => void }) {
@@ -32,6 +32,7 @@ export default function ActivityDetailedCharts({ model, highlightedPeak = null, 
   const available = useMemo(() => getPerformanceOverlays(sampled, model.sport, units, cadenceUnit, t("analysis.run.cadenceUnit")),
     [sampled, model.sport, units, cadenceUnit, t]);
   const selected = activeOverlays ?? new Set(available.map(cfg => cfg.key));
+  const canonicalMetrics = canonicalActivityChartMetrics(model.activity, model.serverMetrics.metrics, !!model.activePowerOverride);
   const hasElevation = !!model.effectiveStreams?.altitude?.some(value => value != null && Number.isFinite(value));
   const overlays = buildChartOverlays(available, selected, sampled, label => label === "power" && model.streamSensorSummary?.powerSource
     ? t(model.streamSensorSummary?.powerSource === "watts_calc" || model.streamSensorSummary?.powerSource === "virtualPowerOverride"
@@ -59,7 +60,7 @@ export default function ActivityDetailedCharts({ model, highlightedPeak = null, 
       )}
       {opened && !model.streamsSignInRequired && sampled.length > 0 && <ActivityPerformanceCharts
         rawStreams={model.effectiveStreams} sensorSelectionContext={model.sensorSelectionContext}
-        rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
+        selectedElapsedRange={rangeSelection.selection} rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
         elevData={sampled.map(point => ({ distance: point.distance, elevation: point.altitude }))}
         availableOverlays={available} activeOverlays={selected} focusedOverlayKey={focusedOverlayKey}
         toggleOverlay={key => {
@@ -67,13 +68,14 @@ export default function ActivityDetailedCharts({ model, highlightedPeak = null, 
           setActiveOverlays(next.activeOverlays); setFocusedOverlayKey(next.focusedOverlayKey);
         }}
         chartOverlays={overlays} hoverPoint={hoverIndex == null ? null : sampled[hoverIndex] ?? null}
-        summaryStats={buildSummaryStats(model.effectiveStreams, model.streamSensorSummary)}
+        canonicalSummary={canonicalMetrics != null}
+        summaryStats={withCanonicalChartSummary(buildSummaryStats(model.effectiveStreams, model.streamSensorSummary), canonicalMetrics)}
         sport={model.sport} recordedRunCadenceUnit={cadenceUnit} hasElevation={hasElevation}
         chartHighlightRange={rangeSelection.selection ? rangeSelection.chartRange : resolvePeakEffortLocation(highlightedPeak, model.serverMetrics.metrics?.peakEfforts?.indexAxis, model.streams, sampled)?.chartRange}
         onHoverIndex={setHoverIndex} metrics={model.serverMetrics?.metrics} powerSource={model.streamSensorSummary?.powerSource}
         elapsedAxisSec={rangeSelection.sampledAxis ?? undefined} xAxis={rangeSelection.xAxis}
-        rangeControls={<ActivityRangeControls selection={rangeSelection} />}
-        rangeAnalysis={<ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activityId} sport={model.sport} selection={rangeSelection} previewActive={model.activePowerOverride != null} />}
+        rangeControls={<ActivityRangeControls selection={rangeSelection} showToggle part="toolbar" />}
+        rangeAnalysis={<><ActivityRangeControls selection={rangeSelection} part="details" /><ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={rangeSelection.analysisActivityId ?? activityId} sport={model.sport} selection={rangeSelection} previewActive={model.activePowerOverride != null} /></>}
         range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampled.length - 1]}
         onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis ? rangeSelection.selectChart : undefined}
       />}

@@ -13,25 +13,34 @@ import PowerDurationWindowsPanel from "./PowerDurationWindowsPanel";
 
 interface Props { activityId: string; selection: ActivityRangeSelectionModel; sport: string; callableEnabled?: boolean; previewActive?: boolean }
 
-export function ActivityChartAxisControls({ axis, elapsedAvailable, onChange, compact = false }: { axis: "distance" | "elapsed"; elapsedAvailable: boolean; onChange: (axis: "distance" | "elapsed") => void; compact?: boolean }) {
+export function ActivityChartAxisControls({ axis, elapsedAvailable, distanceAvailable = true, onChange, compact = false }: { axis: "distance" | "elapsed"; elapsedAvailable: boolean; distanceAvailable?: boolean; onChange: (axis: "distance" | "elapsed") => void; compact?: boolean }) {
   const { t } = useTranslation("activity");
   return <ToggleControls variant="axis" density={compact ? "compact" : "default"} aria-label={t("rangeAnalysis.controls")}>
-    <ToggleButton aria-label={t("rangeAnalysis.distanceAxis")} selected={axis === "distance"} onClick={() => onChange("distance")}>{t(compact ? "analysisChart.distanceShort" : "rangeAnalysis.distanceAxis")}</ToggleButton>
+    <ToggleButton aria-label={t("rangeAnalysis.distanceAxis")} disabled={!distanceAvailable} selected={axis === "distance"} onClick={() => onChange("distance")}>{t(compact ? "analysisChart.distanceShort" : "rangeAnalysis.distanceAxis")}</ToggleButton>
     <ToggleButton aria-label={t("rangeAnalysis.elapsedAxis")} disabled={!elapsedAvailable} selected={axis === "elapsed"} onClick={() => onChange("elapsed")}>{t(compact ? "analysisChart.elapsedShort" : "rangeAnalysis.elapsedAxis")}</ToggleButton>
   </ToggleControls>;
 }
 
-export function ActivityRangeControls({ selection, showAxis = true }: { selection: ActivityRangeSelectionModel; showAxis?: boolean }) {
+/**
+ * `toolbar` 는 그래프 사이의 버튼 줄만, `details` 는 선택 중 펼쳐지는 시간 입력·안내만 그린다.
+ * 그래프 사이 높이가 선택 모드에 따라 바뀌지 않도록 펼쳐지는 부분은 그래프 아래에 둔다.
+ */
+/**
+ * `showToggle` — 드래그로 구간 분석을 열 수 없는 화면(임베디드 상세 차트: 확대 없는 기존 차트)만 시작·종료 버튼을 둔다.
+ * 분석 탭은 그래프에서 고른 범위가 곧 구간 분석을 연다(ActivityPage).
+ */
+export function ActivityRangeControls({ selection, showAxis = true, showToggle = false, part = "all" }: { selection: ActivityRangeSelectionModel; showAxis?: boolean; showToggle?: boolean; part?: "all" | "toolbar" | "details" }) {
   const { t } = useTranslation("activity");
   if (!selection.ownerUid) return null;
+  if ((part === "details" || (part === "toolbar" && !showAxis && !showToggle)) && !selection.enabled) return null;
   return <section className="activity-range-controls space-y-3" aria-label={t("rangeAnalysis.controls")}>
-    <Stack direction="row" wrap align="center" gap="var(--space-2)">
-      {showAxis && <ActivityChartAxisControls axis={selection.xAxis} elapsedAvailable={!!selection.sampledAxis} onChange={selection.setXAxis} />}
-      <Button size="sm" variant="secondary" aria-pressed={selection.enabled} onClick={selection.toggle}>{t(selection.enabled ? "rangeAnalysis.endSelection" : "rangeAnalysis.select")}</Button>
-    </Stack>
-    {selection.enabled && (Number.isFinite(selection.durationSec) && selection.durationSec > 0 ? <RangeTimeControls key={`${selection.identity}:${selection.selection?.requestId ?? "none"}`} selection={selection} />
+    {part !== "details" && (showAxis || showToggle) && <Stack direction="row" wrap align="center" gap="var(--space-2)">
+      {showAxis && <ActivityChartAxisControls axis={selection.xAxis} distanceAvailable={selection.distanceAvailable} elapsedAvailable={!!selection.sampledAxis} onChange={selection.setXAxis} />}
+      {showToggle && <Button size="sm" variant="secondary" aria-pressed={selection.enabled} onClick={selection.toggle}>{t(selection.enabled ? "rangeAnalysis.endSelection" : "rangeAnalysis.select")}</Button>}
+    </Stack>}
+    {part !== "toolbar" && selection.enabled && (Number.isFinite(selection.durationSec) && selection.durationSec > 0 ? <RangeTimeControls key={`${selection.identity}:${selection.selection?.requestId ?? "none"}`} selection={selection} />
       : <Text as="p" variant="bodyMedium" tone="secondary">{t("rangeAnalysis.unknownAxis")}</Text>)}
-    {selection.enabled && selection.selection && <Text as="p" variant="bodyMedium" mono>{t("rangeAnalysis.boundaryLegend", { start: formatElapsedBoundary(selection.selection.startOffsetSec), end: formatElapsedBoundary(selection.selection.endOffsetSec) })}</Text>}
+    {part !== "toolbar" && selection.enabled && selection.selection && <Text as="p" variant="bodyMedium" mono>{t("rangeAnalysis.boundaryLegend", { start: formatElapsedBoundary(selection.selection.startOffsetSec), end: formatElapsedBoundary(selection.selection.endOffsetSec) })}</Text>}
   </section>;
 }
 
@@ -112,7 +121,7 @@ export default function ActivityRangeAnalysisPanel({ activityId, selection, spor
     binding.current.requestId = selection.selection?.requestId;
     binding.current.requestRevision = binding.current.revision;
   }
-  const analysis = useActivityRangeAnalysis({ activityId, ownerUid: selection.ownerUid, selection: locked ? null : selection.selection,
+  const analysis = useActivityRangeAnalysis({ activityId, ownerUid: selection.ownerUid, authorizedActivityAccess: selection.authorizedActivityAccess, selection: locked ? null : selection.selection,
     inputIdentity: selection.identity, expectedInputRevision: binding.current.requestRevision, callableEnabled, includePowerWindowInput: sport === "bike" || sport === "ride", includeElevation: true });
   if (analysis.response?.state === "changed_input") {
     binding.current.revision = undefined;

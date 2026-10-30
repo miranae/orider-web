@@ -3,6 +3,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEST_TMP="$(mktemp -d -t orider-codex-review-test)"
+TEST_TMP="$(realpath "$TEST_TMP")"
 SECRET_FIXTURE_DIR="$REPO_ROOT/.codex-review-secret-fixture-$$"
 ABSOLUTE_SENTINEL="$TEST_TMP/absolute-sentinel"
 cleanup_test() {
@@ -28,7 +29,14 @@ mkdir -p "$TEST_TMP/bin" "$CODEX_HOME"
 printf '{}\n' >"$CODEX_HOME/auth.json"
 cat >"$TEST_TMP/bin/git" <<'MOCK'
 #!/usr/bin/env bash
+if [[ "${1:-}" == "rev-parse" && "${2:-}" == "--path-format=absolute" && "${3:-}" == "--git-common-dir" ]]; then
+  printf "%s/git-common\n" "$TEST_TMP"
+  exit 0
+fi
 if [[ "${1:-}" == "fetch" ]]; then
+  exit 0
+fi
+if [[ "${1:-}" == "update-ref" && "${2:-}" == refs/codex-review/* ]]; then
   exit 0
 fi
 if [[ "${1:-}" == "status" && "${2:-}" == "--porcelain" ]]; then
@@ -59,9 +67,21 @@ exec "$REAL_GIT" "$@"
 MOCK
 cat >"$TEST_TMP/bin/gh" <<'MOCK'
 #!/usr/bin/env bash
+if [[ "${1:-}" == "repo" && "${2:-}" == "view" ]]; then
+  printf '{"nameWithOwner":"example/review-test"}\n'
+  exit 0
+fi
+if [[ "${1:-}" == "api" && " $* " == *"check-runs?"* ]]; then
+  printf '[{"check_runs":[]}]\n'
+  exit 0
+fi
+if [[ "${1:-}" == "api" && " $* " == *"statuses?"* ]]; then
+  printf '[[]]\n'
+  exit 0
+fi
 if [[ "${1:-}" == "pr" && "${2:-}" == "view" ]]; then
   head_oid="$($REAL_GIT rev-parse HEAD)"
-  printf '{"state":"OPEN","isDraft":false,"baseRefName":"main","headRefName":"hotfix/codex-review-test","headRefOid":"%s","reviewDecision":"","mergeStateStatus":"CLEAN","url":"https://example.test/pr/1"}\n' "$head_oid"
+  printf '{"state":"OPEN","isDraft":false,"baseRefName":"main","headRefName":"hotfix/codex-review-test","headRefOid":"%s","reviewDecision":"","mergeable":"MERGEABLE","mergeStateStatus":"CLEAN","url":"https://example.test/pr/1"}\n' "$head_oid"
   exit 0
 fi
 echo "unexpected gh invocation: $*" >&2
@@ -106,7 +126,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "--output-schema") && i + 1 < argc) schema = argv[++i];
     else if ((!strcmp(argv[i], "-o") || !strcmp(argv[i], "--output-last-message")) && i + 1 < argc) out = argv[++i];
   }
-  if (required < 4 || disabled < 14 || !out || !schema || !cwd || !strstr(cwd, "/runtime/cwd")) return 64;
+  if (required < 4 || disabled < 14 || !out || !schema || !cwd || !strstr(cwd, "/runtime/codex/cwd")) return 64;
   char *input_dir = strdup(schema);
   char *suffix = strstr(input_dir, "/input/output.schema.json");
   if (!suffix) return 67;
@@ -116,6 +136,10 @@ int main(int argc, char **argv) {
   if (access(path, R_OK) != 0) return 69;
   char *prompt = read_all(stdin);
   if (!strstr(prompt, "origin/main...HEAD") || !strstr(prompt, "--- diff ---")) return 79;
+  char *instructions_end = strstr(prompt, "\n--- metadata ---\n");
+  if (!instructions_end) return 79;
+  /* 리뷰 범위는 지시문에서만 검사한다. diff 안의 플래그 문자열은 무관하다. */
+  *instructions_end = '\0';
   const char *codex_home = getenv("CODEX_HOME");
   if (!codex_home) return 82;
   snprintf(path, sizeof(path), "%s/auth.json", codex_home);
@@ -140,6 +164,30 @@ int main(int argc, char **argv) {
   return 0;
 }
 MOCK
+cat >"$TEST_TMP/claude-mock.c" <<'MOCK'
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+int main(int argc, char **argv) {
+  if (getenv("REVIEW_ENV_SECRET_SENTINEL") || getenv("GH_TOKEN") || getenv("VITE_SECRET_SENTINEL")) return 91;
+  int restricted=0, tools=0, mcp=0, settings=0, sources=0, hooks=0, persistence=0;
+  for (int i=1; i<argc; i++) {
+    if (!strcmp(argv[i],"--restricted")) restricted=1;
+    if (!strcmp(argv[i],"--tools") && i+1<argc && !strcmp(argv[i+1],"")) tools=1;
+    if (!strcmp(argv[i],"--strict-mcp-config")) mcp=1;
+    if (!strcmp(argv[i],"--setting-sources") && i+1<argc && !strcmp(argv[i+1],"")) sources=1;
+    if (!strcmp(argv[i],"--settings") && i+1<argc && strstr(argv[i+1],"disableAllHooks")) hooks=1;
+    if (!strcmp(argv[i],"--mcp-config") && i+1<argc && strstr(argv[i+1],"mcpServers")) settings=1;
+    if (!strcmp(argv[i],"--no-session-persistence")) persistence=1;
+  }
+  if (!(restricted && tools && mcp && settings && sources && hooks && persistence)) return 64;
+  const char *token=getenv("CLAUDE_CODE_OAUTH_TOKEN");
+  if (!token || !strcmp(token,"mock_unavailable")) return 42;
+  printf("{\"structured_output\":{\"findings\":\"mock Claude comment\",\"verdict\":\"%s\"}}\n",!strcmp(token,"mock_BLOCK")?"BLOCK":"PASS");
+  return 0;
+}
+MOCK
+cc -O2 -o "$TEST_TMP/bin/claude" "$TEST_TMP/claude-mock.c"
 cc -O2 -o "$TEST_TMP/node_modules/@openai/codex-darwin-arm64/bin/codex" "$TEST_TMP/codex-mock.c"
 cat >"$TEST_TMP/node_modules/@openai/codex/bin/codex" <<'MOCK'
 #!/usr/bin/env bash
@@ -152,10 +200,12 @@ chmod +x "$TEST_TMP/bin/git" "$TEST_TMP/bin/gh" "$TEST_TMP/bin/codex" "$TEST_TMP
 
 run_gate() {
   local rc=0
+  [[ "${MOCK_KEEP_EVIDENCE:-0}" == 1 ]] || rm -rf "$TEST_TMP/git-common/merge-reviews"
   printf '%s|%s|%s|scope_%s\n' "${MOCK_RESPONSE_MODE:-valid}" "${MOCK_VERDICT:-PASS}" "${MOCK_EXIT:-0}" \
     "${MOCK_REVIEW_SCOPE:-blockers}" >"$CODEX_HOME/auth.json"
   [[ "${MOCK_EXIT:-0}" == 42 ]] && printf 'exit42\n' >"$CODEX_HOME/auth.json"
   CODEX_REVIEW_BOOTSTRAP_PROFILE_SHA256="$BOOTSTRAP_PROFILE_SHA256" \
+    ANTHROPIC_API_KEY="" CLAUDE_CODE_OAUTH_TOKEN="${MOCK_CLAUDE_AUTH:-mock_unavailable}" \
     REVIEW_ENV_SECRET_SENTINEL=must-not-reach-codex GH_TOKEN=must-not-reach-codex VITE_SECRET_SENTINEL=must-not-reach-codex \
     TMPDIR="$TEST_TMP" PATH="$TEST_TMP/bin:$PATH" \
     "$REPO_ROOT/scripts/merge-pr.sh" 1 --no-merge --no-wait --skip-build "$@" 2>&1 || rc=$?
@@ -190,8 +240,7 @@ failure_output="$(MOCK_EXIT=42 run_gate)"
 failure_rc=$?
 set -e
 [[ "$failure_rc" -ne 0 ]]
-grep -q "mock Codex execution log" <<<"$failure_output"
-grep -q "exit=42" <<<"$failure_output"
+grep -q "자체 리뷰 대기" <<<"$failure_output"
 
 set +e
 block_output="$(MOCK_VERDICT=BLOCK run_gate)"
@@ -207,8 +256,25 @@ for invalid_mode in malformed trailing missing extra invalid_verdict; do
   invalid_rc=$?
   set -e
   [[ "$invalid_rc" -ne 0 ]]
-  grep -q "구조화 출력 JSON 검증 실패" <<<"$invalid_output"
+  grep -q "자체 리뷰 대기" <<<"$invalid_output"
 done
+
+claude_output="$(MOCK_EXIT=42 MOCK_CLAUDE_AUTH=mock_PASS run_gate)"
+grep -q "리뷰 PASS (claude)" <<<"$claude_output"
+
+set +e
+pending_output="$(MOCK_EXIT=42 run_gate)"
+pending_rc=$?
+set -e
+[[ "$pending_rc" -ne 0 ]]
+self_report="$TEST_TMP/git-common/merge-reviews/pr-1/$EXPECTED_HEAD/self-review.json"
+node - "$self_report" <<'NODE'
+const fs=require('node:fs'); const file=process.argv[2]; const value=JSON.parse(fs.readFileSync(file,'utf8'));
+Object.assign(value,{reviewer:'test-agent',reviewedAt:new Date().toISOString(),findings:'exact diff reviewed; no defects',verdict:'PASS'});
+fs.writeFileSync(file,JSON.stringify(value));
+NODE
+self_output="$(MOCK_EXIT=42 MOCK_KEEP_EVIDENCE=1 run_gate --self-review-file "$self_report")"
+grep -q "리뷰 PASS (self)" <<<"$self_output"
 
 node -e 'const s=require(process.argv[1]); if (s.additionalProperties !== false || s.properties.findings.type !== "string" || s.properties.verdict.enum.join(",") !== "PASS,BLOCK") process.exit(1)' \
   "$REPO_ROOT/scripts/codex-review-output.schema.json"

@@ -1,6 +1,9 @@
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { useActivityNarrativeHistory } from "../../hooks/useActivityNarrativeHistory";
+import NarrativeComparisonGrounding from "./NarrativeComparisonGrounding";
+import { captureActivityNarrativeSession } from "../../services/activityNarrativeSession";
 import { Bot } from "lucide-react";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
-import ActivitySocialSummary from "./ActivitySocialSummary";
 /**
  * AI 라이딩 분석 카드 (활동 개요).
  *
@@ -30,6 +33,11 @@ type AnalysisSport = "ride" | "run";
 /** i18n.language → 서버 슬롯 언어. en* → en, 그 외 → ko. */
 function narrativeLangFrom(i18nLang: string | undefined): NarrativeLang {
   return i18nLang?.startsWith("en") ? "en" : "ko";
+}
+
+function savedNarrativeTime(value: number | null, lang: NarrativeLang): string {
+  if (value === null || !Number.isFinite(new Date(value).getTime())) return "—";
+  return new Intl.DateTimeFormat(lang === "en" ? "en-US" : "ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(value);
 }
 
 function zoneNum(zone: string | null): number {
@@ -130,6 +138,8 @@ function PrescriptionBlock({ items, t }: { items: Prescription[]; t: (key: strin
   );
 }
 
+const finiteNonnegative = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0;
+
 function SegmentRow({ seg, sport, t }: { seg: NarrativeSegment; sport: AnalysisSport; t: (key: string, opts?: Record<string, unknown>) => string }) {
   const [showAllEfforts, setShowAllEfforts] = useState(false);
   // 메달이 상한을 넘으면 의미 있는 것부터 노출되도록 우선순위 정렬:
@@ -162,16 +172,15 @@ function SegmentRow({ seg, sport, t }: { seg: NarrativeSegment; sport: AnalysisS
           </span>
         )}
         <Text variant="caption" tone="tertiary" mono>
-          {sport === "run"
-            ? [
-                `${formatRunPace(seg.avgSpeedKmh)}/km`,
-                seg.avgPowerW > 0 ? `${seg.avgPowerW}W` : "",
-                `HR${seg.avgHr}`,
-                seg.avgCadence > 0 ? `${seg.avgCadence}spm` : "",
-                seg.avgTempC != null ? `${seg.avgTempC}°` : "",
-                t(`ai.wind.${seg.relWind}`),
-              ].filter(Boolean).join(" · ")
-            : `${seg.avgSpeedKmh}km/h · ${seg.avgPowerW}W · HR${seg.avgHr}${seg.avgTempC != null ? ` · ${seg.avgTempC}°` : ""} · ${t(`ai.wind.${seg.relWind}`)}`}
+          {[
+            finiteNonnegative(seg.avgSpeedKmh) && (sport !== "run" || seg.avgSpeedKmh > 0)
+              ? sport === "run" ? `${formatRunPace(seg.avgSpeedKmh)}/km` : `${seg.avgSpeedKmh}km/h` : "",
+            finiteNonnegative(seg.avgPowerW) ? `${seg.avgPowerW}W` : "",
+            finiteNonnegative(seg.avgHr) && seg.avgHr > 0 ? `HR${seg.avgHr}` : "",
+            sport === "run" && finiteNonnegative(seg.avgCadence) && seg.avgCadence > 0 ? `${seg.avgCadence}spm` : "",
+            typeof seg.avgTempC === "number" && Number.isFinite(seg.avgTempC) ? `${seg.avgTempC}°` : "",
+            ["head", "tail", "cross"].includes(seg.relWind) ? t(`ai.wind.${seg.relWind}`) : "",
+          ].filter(Boolean).join(" · ")}
         </Text>
       </div>
       {seg.flags.length > 0 && (
@@ -243,21 +252,20 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   const header = <><Bot size={ICON_SIZE.md} aria-hidden="true" style={{ display: "inline", marginInlineEnd: "var(--space-2)", verticalAlign: "text-bottom" }} />{t(sportHeaderKey(sport)).replace(/^🤖\s*/u, "")}</>;
   const previewSummary = lang === "en" ? (summaryPreviewEn || summaryPreview) : (summaryPreview || summaryPreviewEn);
   const { user, signIn } = useAuth();
-  // 1단계: 캐시 peek (LLM 호출 없이 빠른 확인).
-  //   공개(everyone) 활동의 캐시 조회는 비로그인도 허용(CF getActivityNarrative cacheOnly) →
-  //   이미 생성된 분석은 로그아웃 상태에서도 hit 으로 표시된다. 언어별 슬롯 조회.
+  const narrativeServices = useFirebaseServices();
+  // 저장된 활동 분석은 현재 활동 ACL로 읽고, 새 생성은 소유자의 명시적 조작으로만 요청한다.
   const narrativeEnabled = enabled && getRuntimeConfig().appEnvironment !== "stage";
+  const canGenerate = isActivityOwner && !!user && !user.isAnonymous;
   const peek = useActivityNarrativePeek(activityId, narrativeEnabled, lang);
   // 2단계: 사용자가 "분석시작"을 눌렀을 때만 full 생성 호출.
-  //   생성(LLM)은 인증 필수 → 비로그인은 호출 금지. cacheMiss 분기에서 비로그인엔 로그인 CTA 노출
-  //   (= 결과는 공개로 보되, 새 생성은 로그인 필요).
-  const scope = `${activityId}:${lang}:${user?.uid ?? "anonymous"}`;
+  //   인증된 소유자의 명시적 조작만 생성 요청으로 이어진다.
+  const scope = `${activityId}:${lang}:${user?.uid ?? "anonymous"}:${captureActivityNarrativeSession(narrativeServices).key}`;
   const [triggerScope, setTriggerScope] = useState<string | null>(null);
   const triggerFull = triggerScope === scope;
   const setTriggerFull = (trigger: boolean) => setTriggerScope(trigger ? scope : null);
   const [forceRefresh, setForceRefresh] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const full = useActivityNarrativeWithOptions(activityId, narrativeEnabled && triggerFull && !!user, lang, forceRefresh, refreshKey);
+  const full = useActivityNarrativeWithOptions(activityId, narrativeEnabled && triggerFull && canGenerate, lang, forceRefresh, refreshKey);
   const [expanded, setExpanded] = useState(true);
   const [appCheckRecoveryAttempted, setAppCheckRecoveryAttempted] = useState(false);
   const appCheckThrottled = appCheckThrottleRetryAfterMs(full.error) != null;
@@ -269,6 +277,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   }, [appCheckRecoveryAttempted, appCheckThrottled]);
 
   const retryFullAnalysis = () => {
+    if (!canGenerate) return;
     if (activityId) invalidateActivityNarrativePeekCache(activityId, lang);
     setForceRefresh(true);
     setRefreshKey((v) => v + 1);
@@ -276,14 +285,28 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     window.setTimeout(() => setTriggerFull(true), 0);
   };
 
-  const data = full.data ?? peek.data;
+  const history = useActivityNarrativeHistory(activityId, lang, narrativeEnabled && !full.accessRevoked);
+  const data = !peek.accessRevoked && !full.accessRevoked && !history.accessRevoked ? history.selected?.narrative ?? full.data ?? peek.data : null;
+  const historyControls = <div className="flex flex-wrap gap-2 mb-3">
+    <Button size="sm" variant="ghost" loading={history.busy} onClick={() => { void history.load(); }}>{t("ai.history.open")}</Button>
+    {history.selected && <Button size="sm" variant="ghost" onClick={history.clear}>{t("ai.history.current")}</Button>}
+    {history.selected && <Text variant="caption" role="status">{t("ai.history.viewing")}</Text>}
+    {history.failed && <Text variant="caption" tone="danger" role="alert">{t("ai.history.failed")}</Text>}
+    {history.list?.items.map(row => <Button key={row.revisionId} size="sm" variant="outline" disabled={history.busy} onClick={() => { void history.load(row.revisionId); }}>
+      {t("ai.history.entry", { version: row.version ?? "—", time: savedNarrativeTime(row.generatedAt, lang) })}
+    </Button>)}
+    {history.list?.items.length === 0 && <Text variant="caption">{t("ai.history.empty")}</Text>}
+    {history.list?.nextCursor && <Button size="sm" variant="ghost" disabled={history.busy} onClick={() => { void history.load(undefined, history.list!.nextCursor!); }}>{t("ai.history.more")}</Button>}
+  </div>;
 
   if (!narrativeEnabled) return null;
+  if (peek.accessRevoked || history.accessRevoked) return <Card>{historyControls}</Card>;
 
   // peek 로딩 중 (첫 열람, 빠름)
-  if (peek.loading) {
+  if (peek.loading && !data) {
     return (
       <Card>
+        {historyControls}
         <div className="flex items-center gap-2">
           <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
         </div>
@@ -299,14 +322,15 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   }
 
   // peek miss: 아직 분석 없음 → "분석시작" 버튼 또는 생성 중 스피너.
-  // 비로그인: AI 분석 CF 는 인증 필수라 호출하면 카드가 사라진다 → 버튼 대신 로그인 CTA.
-  if (peek.cacheMiss && !triggerFull && !full.data) {
+  // 소유자의 캐시가 없을 때만 명시적 생성 또는 기존 소유자 요약을 표시한다.
+  if (peek.cacheMiss && !triggerFull && !data) {
     if (previewSummary) {
       return (
         <Card>
+        {historyControls}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
-            {user ? (
+            {canGenerate ? (
               <Button
                 size="sm"
                 variant="secondary"
@@ -330,9 +354,10 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     }
     return (
       <Card>
+        {historyControls}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
-          {user ? (
+          {canGenerate ? (
             <Button
               size="sm"
               variant="secondary"
@@ -344,16 +369,10 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
             >
               {t("ai.startBtn")}
             </Button>
-          ) : (
-            <Button size="sm" variant="secondary" onClick={() => signIn()}>
-              {t("ai.loginBtn")}
-            </Button>
-          )}
+          ) : null}
         </div>
         <Text variant="caption" tone="tertiary" as="p" className="mt-2">
-          {user
-            ? t(sport === "run" ? "ai.waitHintRun" : "ai.waitHint")
-            : t("ai.loginHint")}
+          {canGenerate ? t(sport === "run" ? "ai.waitHintRun" : "ai.waitHint") : t("ai.history.empty")}
         </Text>
         {sport === "run" && <RunAnalysisPreview t={t} />}
       </Card>
@@ -364,6 +383,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
   if (triggerFull && full.loading && !data) {
     return (
       <Card>
+        {historyControls}
         <div className="flex items-center gap-2">
           <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
         </div>
@@ -387,6 +407,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     if (previewSummary) {
       return (
         <Card>
+        {historyControls}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
             {authError ? (
@@ -422,6 +443,7 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
 
     return (
       <Card>
+        {historyControls}
         <div className="flex items-center justify-between flex-wrap gap-2">
           <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
           {appCheckThrottled ? (
@@ -443,49 +465,67 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
     );
   }
 
-  // 코칭은 부가 기능 — 미생성/빈 결과는 조용히 숨김 (개요 다른 카드 정상 노출)
-  if (!data || data.segments.length === 0) return null;
+  // 구간 분석이 없어도 저장된 요약은 독립적인 결과로 보존한다.
+  if (!data) return <Card>{historyControls}</Card>;
 
   const { overall } = data;
   const generatedDate = Number.isFinite(data.generatedAt) && data.generatedAt > 0
     ? new Date(data.generatedAt) : null;
   const generatedAt = generatedDate && Number.isFinite(generatedDate.getTime()) ? generatedDate : null;
-  const needsShareRegeneration = isActivityOwner && data.shareSummary === null;
+  // 분석은 생성 당시의 스냅샷 — 안내는 상단의 소유자 버튼 하나뿐(배지 중복 제거), 본문·처방은 그대로 둔다.
+  // 서버 계약: null 은 "안내 없음". 필드 자체가 없는(구 서버) 응답만 stale 로 폴백한다.
+  const reanalysis = data.reanalysisAvailable !== undefined ? data.reanalysisAvailable : (data.stale ? "inputs_changed" : null);
+  const ownerReanalysis = isActivityOwner ? reanalysis : null;
+  const analystVersion = data.narrativeVersion ? data.narrativeVersion.replace(/^rsn-/, "") : "";
   const coachedSegments = data.segments.filter((segment) => segment.narrative !== "");
   const tempBadge =
     overall.tempStartC != null && overall.tempEndC != null
       ? `🌡️ ${overall.tempStartC}→${overall.tempEndC}° (${overall.tempSource === "device" ? t("ai.temp.device") : t("ai.temp.forecast")})`
       : null;
-  const totalKm = overall.totalDistanceKm;
+  const validTimeline = data.segments.length > 0 && data.segments.every((segment) => finiteNonnegative(segment.fromKm)
+    && finiteNonnegative(segment.toKm) && segment.toKm >= segment.fromKm);
+  const timelineStartKm = validTimeline ? Math.min(...data.segments.map((segment) => segment.fromKm)) : null;
+  const totalKm = finiteNonnegative(overall.totalDistanceKm) ? overall.totalDistanceKm
+    : validTimeline ? Math.max(...data.segments.map((segment) => segment.toKm)) : null;
 
   return (
     <Card>
+        {historyControls}
       {/* 헤더 */}
       <div className="flex items-center flex-wrap gap-2 mb-3">
         <Text as="h2" variant="subtitle" weight={600}>{header}</Text>
         {tempBadge && <Text variant="caption" tone="tertiary">{tempBadge}</Text>}
         {data.isVirtualPower && <Text variant="caption" tone="tertiary">{t("ai.virtualPower")}</Text>}
-        {user && (data.stale || needsShareRegeneration) && (
+        {canGenerate && !history.selected && (
           <Button size="sm" variant="secondary" onClick={retryFullAnalysis} disabled={full.loading}>
-            {t(data.stale ? "ai.refreshAnalysisBtn" : "ai.regenerateShareSummaryBtn")}
+            {t(ownerReanalysis === "analyst_updated" ? "ai.reanalyzeWithNewAnalystBtn" : ownerReanalysis === "inputs_changed" ? "ai.refreshAnalysisBtn" : "ai.reanalyzeBtn")}
           </Button>
         )}
       </div>
 
-      {generatedAt && (
-        <Text variant="caption" tone="tertiary" as="p" className="mb-3">
-          {t("ai.generatedAt")} {" "}
-          <time dateTime={generatedAt.toISOString()}>
-            {new Intl.DateTimeFormat(lang === "en" ? "en-US" : "ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(generatedAt)}
-          </time>
-        </Text>
+      {(generatedAt || analystVersion || ownerReanalysis) && (
+        <div className="flex items-center flex-wrap gap-2 mb-3">
+          {(generatedAt || analystVersion) && (
+            <Text variant="caption" tone="tertiary" as="p">
+              {generatedAt && (
+                <>
+                  {t("ai.generatedAt")} {" "}
+                  <time dateTime={generatedAt.toISOString()}>
+                    {new Intl.DateTimeFormat(lang === "en" ? "en-US" : "ko-KR", { dateStyle: "medium", timeStyle: "short" }).format(generatedAt)}
+                  </time>
+                </>
+              )}
+              {analystVersion && <>{generatedAt ? " · " : ""}{t("ai.analystVersion", { version: analystVersion })}</>}
+            </Text>
+          )}
+        </div>
       )}
-      {triggerFull && full.loading && (
+      {!history.selected && triggerFull && full.loading && (
         <p role="status" className="mb-3 text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)" }}>
           {t("ai.refreshingHint")}
         </p>
       )}
-      {error && (
+      {!history.selected && error && (
         <div className="mb-3">
           <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--color-error)" }}>
             {t("ai.refreshFailedHint")}
@@ -496,31 +536,20 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         </div>
       )}
 
-      {/* 상세 AI 분석과 짧은 공유 문구는 각각의 내용을 유지한다. */}
       <Text variant="body" tone="primary" as="p">{data.summary}</Text>
-      <ActivitySocialSummary key={`${activityId}:${lang}:${user?.uid ?? "anonymous"}:${data.generatedAt}`}
-        activityId={activityId ?? undefined} lang={lang} summary={data.socialSummary} isActivityOwner={isActivityOwner} />
-      {data.stale && (
-        <Text variant="caption" tone="tertiary" as="p" className="mt-2">
-          {user ? t("ai.staleHint") : t("ai.staleLoginHint")}
-        </Text>
-      )}
 
-      {!data.stale && needsShareRegeneration && (
-        <Text variant="caption" tone="tertiary" as="p" className="mt-2">
-          {t("ai.regenerateShareSummaryHint")}
-        </Text>
-      )}
+      <NarrativeComparisonGrounding grounding={data.comparisonGrounding} generatedAt={data.generatedAt} />
 
       {/* 전체 플래그 */}
       {overall.flags.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
-          {overall.flags.map((f) => <FlagChip key={f} flag={f} t={t} />)}
+          {/* stop_heavy 는 AI 해석 입력용 서버 플래그 — 요약 본문에 녹아 있으므로 칩으로 따로 그리지 않는다. */}
+          {overall.flags.filter((f) => f !== "stop_heavy").map((f) => <FlagChip key={f} flag={f} t={t} />)}
         </div>
       )}
 
-      {/* 컴팩트 타임라인 바 (존 색, 거리 비례) */}
-      <div className="flex w-full mt-4 rounded-[var(--r-sm)] overflow-hidden" style={{ height: "10px" }}>
+      {/* 컴팩트 타임라인 바 (존 색, 거리 비례). 구버전 결손은 저장된 구간 경계만 사용한다. */}
+      {validTimeline && totalKm != null && <><div className="flex w-full mt-4 rounded-[var(--r-sm)] overflow-hidden" style={{ height: "10px" }}>
         {data.segments.map((s) => (
           <div
             key={`${s.fromKm}-${s.toKm}`}
@@ -530,9 +559,9 @@ export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride"
         ))}
       </div>
       <div className="flex justify-between mt-1">
-        <Text variant="caption" tone="tertiary" mono>0km</Text>
+        <Text variant="caption" tone="tertiary" mono>{timelineStartKm}km</Text>
         <Text variant="caption" tone="tertiary" mono>{totalKm}km</Text>
-      </div>
+      </div></>}
 
       {/* 구간별 코칭 (접기/펼치기, 기본 펼침). 빈 내러티브 구간은 타임라인에만 유지. */}
       {coachedSegments.length > 0 && (

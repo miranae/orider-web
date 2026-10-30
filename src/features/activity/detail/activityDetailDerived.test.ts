@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { markRawPartStreams } from "../../../services/activityStreamSource";
+import { rawPartChartStreams } from "../../../__tests__/fixtures/rawPartChartStreams";
 
 import {
   buildChartOverlays,
@@ -23,6 +25,58 @@ function withSparseSlot(values: number[], missingIndex: number): number[] {
 }
 
 describe("activityDetailDerived", () => {
+  it("shows measured raw-part HR/cadence and preserves every observed altitude without accepting null-filled legacy channels", () => {
+    const raw = rawPartChartStreams();
+    raw.heartrate![26] = 0;
+    expect(getAvailableOverlays(buildSampledData(raw)).map(cfg => cfg.key)).toEqual(["speed"]);
+    const marked = markRawPartStreams(raw, "a".repeat(64));
+    const points = buildSampledData(marked);
+    expect(getAvailableOverlays(points).map(cfg => cfg.key)).toEqual(["speed", "hr", "cadence"]);
+    raw.altitude!.forEach((value, index) => {
+      if (value != null) expect(points.some(point => point.sourceIndex === index && point.altitude === value)).toBe(true);
+    });
+    const gap = points.find(point => point.sourceIndex === 23)!;
+    expect(gap.heartRate).toBeNull();
+    expect(points.find(point => point.sourceIndex === 26)?.cadence).toBe(0);
+    expect(points.find(point => point.sourceIndex === 26)?.heartRate).toBeNull();
+    expect(buildSummaryStats(marked, null)?.overlays.hr?.max).toBe(139);
+    expect(buildSummaryStats(marked, null)?.overlays.cadence?.max).toBe(80);
+  });
+
+  it("renders trusted raw-part power gaps without accepting malformed or unmarked legacy power", () => {
+    const raw = rawPartChartStreams();
+    raw.watts = raw.time!.map((_, i) => i % 23 === 0 ? null : i === 600 ? 0 : 100) as number[];
+    expect(getAvailableOverlays(buildSampledData(raw)).map(cfg => cfg.key)).not.toContain("power");
+    const marked = markRawPartStreams(raw, "a".repeat(64));
+    const points = buildSampledData(marked);
+    expect(getAvailableOverlays(points).map(cfg => cfg.key)).toContain("power");
+    expect(points.find(point => point.sourceIndex === 23)?.power).toBeNull();
+    expect(points.find(point => point.sourceIndex === 600)?.power).toBe(0);
+    expect(buildSummaryStats(marked, null)?.overlays.power?.avg).toBeCloseTo(57300 / 574);
+    expect(buildSummaryStats(marked, null)?.overlays.power?.max).toBe(100);
+    for (const bad of [-1, undefined, Number.NaN]) {
+      const invalid = {...raw, watts:[...raw.watts!]}; invalid.watts[1] = bad as number;
+      expect(getAvailableOverlays(buildSampledData(markRawPartStreams(invalid, "a".repeat(64)))).map(cfg => cfg.key)).not.toContain("power");
+    }
+    const preview = {...marked, watts:raw.time!.map(()=>250)};
+    const context = buildActivitySensorSelectionContext({ridingTimeMillis:600_000,elapsedTimeMillis:600_000}, undefined,
+      {source:"virtualPowerOverride", time:raw.time!});
+    expect(buildSampledData(preview, context).filter(point=>point.power!=null).every(point=>point.power===250)).toBe(true);
+  });
+
+  it("rejects malformed raw-part sensor values and clocks rather than relaxing legacy validation", () => {
+    for (const value of [-1, NaN, undefined]) {
+      const streams = rawPartChartStreams();
+      streams.heartrate![1] = value as number;
+      streams.cadence![1] = value as number;
+      expect(getAvailableOverlays(buildSampledData(markRawPartStreams(streams, "a".repeat(64)))).map(cfg => cfg.key)).toEqual(["speed"]);
+    }
+    const streams = rawPartChartStreams();
+    streams.time![10] = 11;
+    expect(getAvailableOverlays(buildSampledData(markRawPartStreams(streams, "a".repeat(64)))).map(cfg => cfg.key)).toEqual(["speed"]);
+    expect(() => markRawPartStreams(streams, "bad-revision")).toThrow("INVALID_PERSONAL_API_RESPONSE");
+  });
+
   it("preserves exact source indices when downsampling duplicate distances and sensor extrema", () => {
     const count = 1200;
     const distance = Array.from({ length: count }, (_, index) => Math.floor(index / 10) * 50);
@@ -1638,4 +1692,11 @@ describe("activityDetailDerived", () => {
     expect(overlays).toHaveLength(1);
     expect(overlays[0]).toMatchObject({ label: "overlay.speed (km/h)", yAxisID: "ySpeed" });
   });
+});
+
+it("calculates whole-activity speed from distance and moving time without copying provider averages", () => {
+  const streams = { velocity_smooth: [5, 5, 5, 20] } as never;
+  const summary = buildSummaryStats(streams, null, { distanceM: 18000, movingTimeSec: 1800 });
+  expect(summary?.overlays.speed).toEqual({ avg: 36, max: 72 });
+  expect(buildSummaryStats(streams, null, { distanceM: 18000, movingTimeSec: null })?.overlays.speed?.avg).toBeNaN();
 });

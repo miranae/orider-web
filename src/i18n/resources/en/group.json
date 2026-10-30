@@ -1,4 +1,13 @@
 {
+  "inviteLink.retry": "Retry joining",
+  "inviteLink.retryMessage": "Could not join the club. Your invite link is preserved. Check your connection and try again.",
+  "public.loginTitle": "Sign in to join a club",
+  "public.directoryHint": "Explore club introductions and locations before joining.",
+  "error.publicLoadFailed": "Could not load public clubs. Please try again.",
+  "empty.publicUnavailable": "This club introduction is currently unavailable",
+  "public.noDescription": "The club introduction is being prepared.",
+  "public.autoApproval": "Sign in and join to become a member immediately.",
+  "public.manualApproval": "Sign in to request membership. An organizer will review your request.",
   "title": "Clubs",
   "myGroups": "My Clubs",
   "createTitle": "New Club",
@@ -83,6 +92,7 @@
   "error.rideStatsRetry": "Please try again shortly.",
   "error.approveFailed": "Failed to approve. Backend function may not be deployed.",
   "error.loginRequired": "Login required to access clubs",
+  "error.loginRequiredDesc": "Sign in to request membership and take part in club activities. You will return to this page after signing in.",
   "error.creatorOnly": "Login required",
   "error.saveFailed": "Save failed",
   "error.deleteFailed": "Delete failed",
@@ -589,5 +599,14 @@
   "ridePage.chart.additionalRecords": "+{{count}} selected records",
   "ridePage.chart.panRange": "Pan",
   "ridePage.chart.panHint": "Drag to pan, or use arrow keys on Pan. Y axes stay fixed to all records.",
-  "ridePage.chart.panUnavailable": "Select a range to enable panning."
+  "ridePage.chart.panUnavailable": "Select a range to enable panning.",
+  "events.discoveryIncomplete": "More events may be available.",
+  "events.continueDiscovery": "Continue in the event list",
+  "error.joinVerificationWait": "Browser verification is temporarily limited, so your join request was not sent. Wait about {{count}} min before trying again. You do not need to re-enter the invite code.",
+  "error.joinVerificationFailed": "Browser verification could not finish, so your join request was not sent. Check your network and browser settings, then try again later.",
+  "ridePage.discoveryScope": "Compare public and your own activities retrieved so far. Each page reflects access and data at the time it was read.",
+  "ridePage.discoveryMore": "Load more activities",
+  "ridePage.discoveryLoading": "Loading…",
+  "ridePage.discoveryLimited": "This view reached its query limit. These records do not establish the total participant count.",
+  "ridePage.discoveryRefresh": "Refresh activities"
 }

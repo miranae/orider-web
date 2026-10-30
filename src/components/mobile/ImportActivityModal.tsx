@@ -1,7 +1,9 @@
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { useTrainingDialog } from "../training/useTrainingDialog";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { onAuthStateChanged, type User } from "firebase/auth";
+import { useFirebaseServices, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { X, Upload, CheckCircle } from "lucide-react";
@@ -10,25 +12,53 @@ import { useToast } from "../../contexts/ToastContext";
 import { Button, Card, Text, Input, buttonClass } from "../../theme/components";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import { getRuntimeConfig } from "../../services/runtimeConfig";
 
 interface ImportActivityModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-export default function ImportActivityModal({ open, onClose }: ImportActivityModalProps) {
-
-  const { t } = useTranslation("activity");
+let nextImportSession = 0;
+export default function ImportActivityModal(props: ImportActivityModalProps) {
   const { user } = useAuth();
+  const services = useFirebaseServices();
+  const session = useMemo(() => ++nextImportSession, [user, services, services.auth, services.auth.app, props.open]);
+  if (!props.open) return null;
+  return <ImportActivitySession key={session} {...props} user={user} services={services} />;
+}
+
+function ImportActivitySession({ open, onClose, user, services }: ImportActivityModalProps & { user: User | null; services: FirebaseServices }) {
+  const { t } = useTranslation("activity");
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [completion, setCompletion] = useState<{ activityId?: string } | null>(null);
   const finish = () => { const target = completion?.activityId ? `/activity/${completion.activityId}` : "/athlete/me/activities"; setCompletion(null); reset(); onClose(); navigate(target); };
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
-  const [visibility, setVisibility] = useState<"everyone" | "friends" | "private">("everyone");
+  const [visibility, setVisibility] = useState<"everyone" | "friends" | "followers" | "private">("everyone");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const lifecycle = useRef({ active: true, request: null as AbortController | null });
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const auth = services.auth;
+  const app = auth.app;
+  const current = () => lifecycle.current.active && services.auth === auth && auth.app === app
+    && user !== null && !user.isAnonymous && auth.currentUser === user;
+  useEffect(() => {
+    const scope = lifecycle.current;
+    scope.active = true;
+    const stop = onAuthStateChanged(auth, next => {
+      if (scope.active && next !== user) {
+        scope.active = false;
+        scope.request?.abort();
+        setFile(null); setName(""); setCompletion(null); setUploading(false);
+        closeRef.current();
+      }
+    });
+    return () => { scope.active = false; scope.request?.abort(); stop(); };
+  }, [auth, user]);
 
   if (!open) return null;
   if (completion) return <ImportDialogShell key="completion" title={t("import.successDone")} onClose={finish}><Card className="m-4"><Text as="h2" variant="subtitle">{t("import.successDone")}</Text><div className="flex gap-3 mt-4"><Button onClick={finish}>{t("import.viewResult")}</Button><Link to="/coach/condition" className={buttonClass({variant: "secondary"})} onClick={() => { setCompletion(null); reset(); onClose(); }}>{t("import.viewCoach")}</Link></div></Card></ImportDialogShell>;
@@ -38,7 +68,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
   const isZip = fileExt === "zip";
 
   const handleSubmit = async () => {
-    if (!file || !user || !isValidExt) return;
+    if (!file || !user || !isValidExt || !current() || lifecycle.current.request) return;
 
     // 클라이언트 측 파일 크기 검사 (S3)
     const maxSize = isZip ? 100 * 1024 * 1024 : 10 * 1024 * 1024;
@@ -47,27 +77,36 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
       return;
     }
 
+    const request = new AbortController();
+    lifecycle.current.request = request;
+    const active = () => current() && lifecycle.current.request === request && !request.signal.aborted;
     setUploading(true);
     try {
       const token = await user.getIdToken();
+      if (!active()) return;
       const formData = new FormData();
       formData.append("file", file);
       if (name.trim()) formData.append("name", name.trim());
       formData.append("visibility", visibility);
 
       const endpoint = isZip ? "/api/v1/import/batch" : "/api/v1/import/activity";
-      const res = await fetch(endpoint, {
+      const base = (getRuntimeConfig().personalApiBase || "").replace(/\/$/, "");
+      const res = await fetch(`${base}${endpoint}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
+        signal: request.signal,
       });
 
+      if (!active()) return;
       if (!res.ok) {
         const err = await res.json().catch(() => null);
+        if (!active()) return;
         throw new Error(err?.message || t("import.errImportFailed", { status: res.status }));
       }
 
       const { data } = await res.json();
+      if (!active()) return;
       if (isZip) {
         const parts: string[] = [];
         if (data.created > 0) parts.push(t("import.successCreated", { count: data.created }));
@@ -84,9 +123,11 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
         setCompletion({ activityId: data.activityId });
       }
     } catch (e) {
+      if (!active()) return;
       showToast(e instanceof Error ? e.message : t("import.errImportFailedSimple"));
     } finally {
-      setUploading(false);
+      if (active()) setUploading(false);
+      if (lifecycle.current.request === request) lifecycle.current.request = null;
     }
   };
 
@@ -179,7 +220,7 @@ export default function ImportActivityModal({ open, onClose }: ImportActivityMod
           <div style={{ marginBottom: 'var(--space-6)' }}>
             <Text as="div" variant="eyebrow" style={{ marginBottom: 'var(--space-2)' }}>{t("import.visibilitySection")}</Text>
             <div className="flex gap-2">
-              {([["everyone", t("import.visibilityEveryone")], ["friends", t("import.visibilityFriends")], ["private", t("import.visibilityPrivate")]] as const).map(([v, label]) => (
+              {([["everyone", t("import.visibilityEveryone")], ["friends", t("import.visibilityFriends")], ["followers", t("import.visibilityFollowers")], ["private", t("import.visibilityPrivate")]] as const).map(([v, label]) => (
                 <Button key={v} variant={visibility === v ? "secondary" : "outline"} aria-pressed={visibility === v} disabled={uploading} onClick={() => setVisibility(v)} className="flex-1">{label}</Button>
               ))}
             </div>

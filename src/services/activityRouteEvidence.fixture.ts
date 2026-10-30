@@ -1,3 +1,4 @@
+import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import type { ActivityRouteEvidence, ActivityRouteEvidenceResponse } from "@shared/activity-route-comparison";
 export function routeFixture(activityId = "first", reverse = false): ActivityRouteEvidence {
   return { activityId, routeInputRevision: "a".repeat(64), routeFingerprint: "b".repeat(64), sourceLayer: "raw_parts", sourceSchemaVersion: "native-v1", accuracy: "unknown", timingBasis: "elapsed", timeOrigin: "relative_to_first_gps_observation", originEpochMs: 1700000000000, coverage: "unknown", points: Array.from({ length: 101 }, (_, index) => ({ lat: 37, lon: 127 + (reverse ? 100 - index : index) * 0.0001, elapsedSec: index })) };
@@ -7,7 +8,7 @@ export function routeResponse(activityId = "first"): ActivityRouteEvidenceRespon
 }
 /** 단일 활동별 확정 평균의 합성 스냅샷. GPS 입력과 지표 revision을 공유하지 않는다. */
 export function routeAverageResponse(activityId = "first", startTime = 1700000000000, discipline: "bike" | "run" = "bike", speed: number | null = 12): ActivityRouteEvidenceResponse {
-  return { ...routeResponse(activityId), canonicalAverage: { state: "available", reason: null, metricsRevision: "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc", version: 35, discipline, startTime, computedAt: startTime + 3600000, avgSpeedKph: speed, inputCoverage: "complete", sourceLayer: "raw_parts" } };
+  return { ...routeResponse(activityId), canonicalAverage: { state: "available", reason: null, metricsRevision: "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc", version: ACTIVITY_METRICS_VERSION, discipline, startTime, computedAt: startTime + 3600000, avgSpeedKph: speed, inputCoverage: "complete", sourceLayer: "raw_parts" } };
 }
 
 /** 실제 reader의 합성 출력을 그대로 고정한다. 운영 데이터·실행 시 외부 파일 의존은 없다. */
@@ -56,7 +57,7 @@ export const backendCanonicalWireFixture = {
           "state": "available",
           "reason": null,
           "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-          "version": 35,
+          "version": 41,
           "discipline": "bike",
           "startTime": 1789999970000,
           "computedAt": 1790000010000,
@@ -103,7 +104,7 @@ export const backendCanonicalWireFixture = {
           "state": "available",
           "reason": null,
           "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-          "version": 35,
+          "version": 41,
           "discipline": "bike",
           "startTime": 1789999970000,
           "computedAt": 1790000010000,
@@ -150,7 +151,7 @@ export const backendCanonicalWireFixture = {
           "state": "available",
           "reason": null,
           "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-          "version": 35,
+          "version": 41,
           "discipline": "bike",
           "startTime": 1789999970000,
           "computedAt": 1790000010000,
@@ -277,7 +278,7 @@ export const backendCanonicalWireFixture = {
           "state": "available",
           "reason": null,
           "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-          "version": 35,
+          "version": 41,
           "discipline": "run",
           "startTime": 1789999970000,
           "computedAt": 1790000010000,
@@ -324,7 +325,7 @@ export const backendCanonicalWireFixture = {
           "state": "available",
           "reason": null,
           "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-          "version": 35,
+          "version": 41,
           "discipline": "run",
           "startTime": 1789999970000,
           "computedAt": 1790000010000,
@@ -371,7 +372,7 @@ export const backendCanonicalWireFixture = {
           "state": "available",
           "reason": null,
           "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-          "version": 35,
+          "version": 41,
           "discipline": "run",
           "startTime": 1789999970000,
           "computedAt": 1790000010000,
@@ -463,3 +464,20 @@ export const backendCanonicalWireFixture = {
     }
   ]
 } as const;
+
+/** Current-version synthetic contract derived from archived wire; NOT a new compiled producer capture.
+ * Only canonical available.version is adapted. Archived bytes/provenance and all zero/null/geometry values stay untouched.
+ */
+export function currentCanonicalContractFixture<T>(archived: T): T {
+  const copy = structuredClone(archived);
+  function visit(value: unknown): void {
+    if (!value || typeof value !== "object") return;
+    const record = value as Record<string, unknown>;
+    if (record.state === "available" && typeof record.version === "number" && "avgSpeedKph" in record && "metricsRevision" in record) {
+      record.version = ACTIVITY_METRICS_VERSION;
+    }
+    for (const child of Object.values(record)) visit(child);
+  }
+  visit(copy);
+  return copy;
+}

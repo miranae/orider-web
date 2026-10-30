@@ -6,7 +6,7 @@ import { resetRuntimeConfigForTests } from "./runtimeConfig";
 import { loadTrainingAnalysisHistory, validateTrainingAnalysisHistoryResponse, validTrainingAnalysisHistoryRequest, validHistoryDocumentId } from "./trainingAnalysisHistory";
 const mocks = vi.hoisted(() => ({ callable: vi.fn(), call: vi.fn() }));
 vi.mock("firebase/functions", () => ({ httpsCallable: mocks.callable }));
-const stage = { appEnvironment: "stage", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net", trainingAnalysisPeriodsEnabled: true };
+const stage = { appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net", trainingAnalysisPeriodsEnabled: true };
 beforeEach(() => { vi.restoreAllMocks(); vi.spyOn(Date, "now").mockReturnValue(historyNow); resetRuntimeConfigForTests(stage); mocks.call.mockReset().mockResolvedValue({ data: historyPage() }); mocks.callable.mockReset().mockReturnValue(mocks.call); });
 describe("manual annual history contract", () => {
   it("accepts first null-cursor and a fixed sequential snapshot including empty run pages", () => {
@@ -117,4 +117,10 @@ it.each([34, 35, 36])("preserves compatible ready history snapshots across calcu
   expect(validateTrainingAnalysisHistoryResponse(data, historyRequest, historyNow)).toEqual(data);
   data.activities[0]!.analysis.calculatorVersion = 33;
   expect(() => validateTrainingAnalysisHistoryResponse(data, historyRequest, historyNow)).toThrow();
+});
+
+it("does not treat the production bike capability as Stage running history permission", async () => {
+ resetRuntimeConfigForTests({...stage,appEnvironment:"production",firebaseFunctionsBase:undefined});
+ await expect(loadTrainingAnalysisHistory({} as FirebaseServices,"owner",historyRequest)).rejects.toThrow("api_unavailable");
+ expect(mocks.callable).not.toHaveBeenCalled();
 });

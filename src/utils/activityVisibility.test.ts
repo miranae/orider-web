@@ -3,12 +3,11 @@ import { ACTIVITY_VISIBILITY_VALUES, normalizeActivityVisibility } from "./activ
 
 describe("activityVisibility", () => {
   it("uses the shared canonical activity visibility values", () => {
-    expect(ACTIVITY_VISIBILITY_VALUES).toEqual(["everyone", "friends", "private"]);
-    expect(ACTIVITY_VISIBILITY_VALUES).not.toContain("followers");
+    expect(ACTIVITY_VISIBILITY_VALUES).toEqual(["everyone", "friends", "followers", "private"]);
   });
 
-  it("normalizes legacy followers to friends", () => {
-    expect(normalizeActivityVisibility("followers")).toBe("friends");
+  it("preserves followers separately from mutual friends", () => {
+    expect(normalizeActivityVisibility("followers")).toBe("followers");
     expect(normalizeActivityVisibility("friends")).toBe("friends");
     expect(normalizeActivityVisibility("unknown", "private")).toBe("private");
   });

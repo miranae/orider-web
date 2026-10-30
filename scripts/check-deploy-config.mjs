@@ -50,6 +50,7 @@ const CRAWLER_REWRITES = [
   { source: "/:lang/segment/:segmentId", functionId: "seoPrerender" },
   { source: "/:lang/course/:courseId", functionId: "seoPrerender" },
   { source: "/:lang/event/:eventId", functionId: "seoPrerender" },
+  { source: "/:lang/club/:groupId", functionId: "seoPrerender" },
 ];
 
 function checkCrawlerRewrites(hosting, label, crawlerRewrites = CRAWLER_REWRITES) {
@@ -124,18 +125,18 @@ function checkHostingConfig(hosting, label, aiApiOrigin, stage = false) {
     if (!stage) {
       requireIncludes(connectSrc, "https://auth.orider.co.kr", `${label} Content-Security-Policy connect-src`);
       requireIncludes(connectSrc, aiApiOrigin, `${label} Content-Security-Policy connect-src`);
-    } else if (connectSrc.split(/\s+/).some(source => source === PROD_AI_API_ORIGIN)) {
-      fail(`${label} must not allow production service origins`);
+    } else {
+      requireIncludes(connectSrc, "https://orider.co.kr", `${label} production data REST origin`);
+      requireIncludes(connectSrc, PROD_AI_API_ORIGIN, `${label} production data AI origin`);
     }
     if (stage) {
-      const sources = connectSrc.split(/\s+/);
-      const allowed = ["https://asia-northeast3-orider-dev.cloudfunctions.net", "https://asia-northeast3-miranae-orider-g1.cloudfunctions.net"];
-      const unreviewed = sources.some(source => {
-        if (["*", "https:", "http:"].includes(source)) return true;
-        try { return new URL(source).hostname.endsWith(".cloudfunctions.net") && !allowed.includes(source); }
-        catch { return false; }
-      });
-      if (!allowed.every(origin => sources.includes(origin)) || unreviewed) fail(`${label} must allow only reviewed exact Cloud Functions origins`);
+      const productionCsp = firebaseConfig.hosting.headers.find(rule => rule.source === "**").headers.find(header => header.key.toLowerCase() === "content-security-policy").value;
+      const directives = new Map(csp.split(";").map(value => value.trim().split(/\s+/)).filter(parts => parts[0]).map(([name, ...sources]) => [name, new Set(sources)]));
+      for (const directive of productionCsp.split(";").map(value => value.trim().split(/\s+/)).filter(parts => parts[0])) {
+        const [name, ...sources] = directive;
+        if (!directives.has(name) || !sources.every(source => directives.get(name).has(source))) fail(`${label} must preserve production CSP directive ${name}`);
+      }
+      if (connectSrc.split(/\s+/).some(source => ["*", "https:", "http:"].includes(source))) fail(`${label} must not broaden production connect-src`);
     }
   }
 
@@ -271,23 +272,11 @@ if (deployWorkflow.includes("deploy-stage.yml") || deployWorkflow.includes("gh r
 }
 
 const stageDeployWorkflow = readFileSync(".github/workflows/deploy-stage.yml", "utf8");
-for (const name of ["TOKEN", "SNAPSHOT", "AI"]) {
-  requireIncludes(stageDeployWorkflow, `VITE_COACH_RIDE_PLAN_${name}_ENABLED: \${{ vars.STAGE_VITE_COACH_RIDE_PLAN_${name}_ENABLED }}`,
-    "deploy-stage.yml env");
-}
-requireIncludes(stageDeployWorkflow,
-  "VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED: ${{ vars.STAGE_VITE_COACH_RIDE_PLAN_RESPOND_V2_ENABLED }}",
-  "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow,
-  "VITE_TRAINING_DECISION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_DECISION_ENABLED }}",
-  "deploy-stage.yml env");
-checkCanonicalRuntimeEnv(stageDeployWorkflow, "deploy-stage.yml", "STAGE_");
-requireIncludes(stageDeployWorkflow,
-  "VITE_TRAINING_EXECUTION_ENABLED: ${{ vars.STAGE_VITE_TRAINING_EXECUTION_ENABLED }}",
-  "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow,
-  "VITE_RIDER_WORKOUT_DELIVERY_ENABLED: ${{ vars.STAGE_VITE_RIDER_WORKOUT_DELIVERY_ENABLED }}",
-  "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "VITE_MODE: production", "deploy-stage.yml production data profile");
+requireIncludes(stageDeployWorkflow, "PRODUCTION_RUNTIME_CONFIG_PATH:", "deploy-stage.yml pinned runtime path");
+requireIncludes(stageDeployWorkflow, "node scripts/prepare-production-data-runtime.mjs", "deploy-stage.yml production runtime and CORS gate");
+requireBefore(stageDeployWorkflow, "node scripts/prepare-production-data-runtime.mjs", "npm ci", "deploy-stage.yml production runtime pinning");
+requireBefore(stageDeployWorkflow, "node scripts/prepare-production-data-runtime.mjs", "node scripts/check-canonical-deploy-env.mjs", "deploy-stage.yml canonical runtime source");
 requireIncludes(stageDeployWorkflow, "branches:", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "- dev", "deploy-stage.yml trigger");
 requireIncludes(stageDeployWorkflow, "environment: stage", "deploy-stage.yml job");
@@ -299,47 +288,11 @@ requireIncludes(stageDeployWorkflow, "npm run write:runtime-config", "deploy-sta
 requireIncludes(stageDeployWorkflow, "vars.STAGE_FIREBASE_PROJECT_ID", "deploy-stage.yml deploy command");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_WORKLOAD_IDENTITY_PROVIDER", "deploy-stage.yml auth");
 requireIncludes(stageDeployWorkflow, "vars.STAGE_GCP_SERVICE_ACCOUNT", "deploy-stage.yml auth");
-requireIncludes(stageDeployWorkflow, "id: deploy-auth", "deploy-stage.yml restored deploy auth");
-requireIncludes(stageDeployWorkflow, "steps.deploy-auth.outputs.access_token", "deploy-stage.yml restored deploy credential");
-requireBefore(stageDeployWorkflow, "id: deploy-auth", "firebase deploy \\", "deploy-stage.yml restored deploy auth");
-requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_FIREBASE_API_KEY", "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_AUTH_DOMAIN", "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_PROJECT_ID", "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_FIREBASE_MESSAGING_SENDER_ID", "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_FIREBASE_APP_ID", "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_STRAVA_CLIENT_ID", "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_STRAVA_REDIRECT_URI", "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_APPCHECK_RECAPTCHA_SITE_KEY", "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow, "secrets.STAGE_VITE_MAPBOX_TOKEN", "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_ORIDER_AI_API_BASE", "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_COACH_PMC_INSIGHT_ENABLED", "deploy-stage.yml env");
-requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_COACH_RIDER_INSIGHT_ENABLED", "deploy-stage.yml env");
+requireIncludes(stageDeployWorkflow, "steps.auth.outputs.access_token", "deploy-stage.yml Hosting credential");
 requireIncludes(stageDeployWorkflow, "orider-dev.web.app", "deploy-stage.yml verification");
-requireIncludes(stageDeployWorkflow, "node scripts/verify-stage-analysis-callables.mjs", "deploy-stage.yml backend contract gate");
-requireIncludes(stageDeployWorkflow, "vars.STAGE_FIREBASE_PROJECT_ID", "deploy-stage.yml backend contract project");
-requireIncludes(stageDeployWorkflow, "vars.STAGE_VITE_FIREBASE_FUNCTIONS_REGION", "deploy-stage.yml backend contract region");
-requireIncludes(stageDeployWorkflow, "SOCIAL_CALLABLES_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}", "deploy-stage.yml backend contract credential");
-requireBefore(stageDeployWorkflow, "node scripts/verify-stage-analysis-callables.mjs", "firebase deploy \\", "deploy-stage.yml backend contract gate");
-
-const forbiddenStageFallbacks = [
-  "secrets.VITE_FIREBASE_API_KEY",
-  "vars.VITE_FIREBASE_AUTH_DOMAIN",
-  "vars.VITE_FIREBASE_PROJECT_ID",
-  "secrets.VITE_FIREBASE_MESSAGING_SENDER_ID",
-  "secrets.VITE_FIREBASE_APP_ID",
-  "secrets.VITE_STRAVA_CLIENT_ID",
-  "vars.VITE_STRAVA_REDIRECT_URI",
-  "secrets.VITE_APPCHECK_RECAPTCHA_SITE_KEY",
-  "vars.VITE_ORIDER_AI_API_BASE",
-  "vars.FIREBASE_PROJECT_ID",
-  "vars.GCP_WORKLOAD_IDENTITY_PROVIDER",
-  "vars.GCP_SERVICE_ACCOUNT",
-];
-
-for (const forbidden of forbiddenStageFallbacks) {
-  if (stageDeployWorkflow.includes(forbidden)) {
-    fail(`deploy-stage.yml must use STAGE_* values only; remove ${forbidden}`);
-  }
+requireIncludes(stageDeployWorkflow, 'cmp -s dist/runtime-config.json "$RUNNER_TEMP/live-runtime-config.json"', "deploy-stage.yml live runtime snapshot verification");
+if (stageDeployWorkflow.includes("STAGE_VITE_") || stageDeployWorkflow.includes("verify-stage-analysis-callables.mjs")) {
+  fail("deploy-stage.yml must use the pinned production runtime instead of independent stage data/feature settings");
 }
 
 if (process.exitCode) process.exit(process.exitCode);

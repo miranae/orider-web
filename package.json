@@ -38,9 +38,12 @@
     "check:canonical-contract": "node scripts/check-canonical-contract.mjs",
     "test:merge-pr-review-range": "node --test scripts/merge-pr-review-range.test.mjs",
     "test:vitest": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
-    "test:contracts": "npm run test:production-hosting-evidence && npm run test:merge-gate-ci-reuse && npm run test:social-callable-contract && npm run test:runtime-config-writer && npm run test:canonical-deploy-env && npm run test:deploy-config && npm run test:dco && npm run test:merge-pr-review-range && npm run test:script-tests-wired && npm run test:quality-alert-count && npm run check:canonical-contract && npm run test:test-script-forwarding && npm run test:merge-check-policy",
+    "test:contracts": "npm run test:production-hosting-evidence && npm run test:merge-gate-ci-reuse && npm run test:social-callable-contract && npm run test:runtime-config-writer && npm run test:canonical-deploy-env && npm run test:deploy-config && npm run test:dco && npm run test:merge-pr-review-range && npm run test:script-tests-wired && npm run test:quality-alert-count && npm run check:canonical-contract && npm run test:test-script-forwarding && npm run test:merge-check-policy && npm run test:merge-review && npm run test:linear-backport && npm run test:production-monitor",
     "test:test-script-forwarding": "node --test scripts/test-script-forwarding.test.mjs",
-    "test:merge-check-policy": "node --test scripts/merge-check-policy.test.mjs"
+    "test:merge-check-policy": "node --test scripts/merge-check-policy.test.mjs",
+    "test:merge-review": "node --test scripts/merge-review.test.mjs",
+    "test:linear-backport": "node --test scripts/sync-main-to-dev.test.mjs",
+    "test:production-monitor": "node --test scripts/production-monitor.test.mjs"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.2.8",
@@ -49,7 +52,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-query": "^5.99.2",
     "chart.js": "^4.4.0",
-    "dompurify": "^3.4.0",
+    "dompurify": "^3.4.17",
     "file-saver": "^2.0.5",
     "firebase": "^12.16.0",
     "hls.js": "^1.7.3",

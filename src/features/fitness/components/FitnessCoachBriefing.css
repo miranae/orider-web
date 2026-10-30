@@ -127,3 +127,43 @@
 
 @media (max-width: 24rem) {
 }
+
+/* Current condition and its provenance use both columns at reading widths. */
+.fitness-coach__story-hero > :only-child { grid-column: 1 / -1; }
+.fitness-coach__story-evidence { min-width: 0; border-inline-start: 1px solid var(--line-soft); padding-inline-start: var(--space-5); }
+.load-quality-evidence { display: grid; gap: var(--space-3); }
+.load-quality-evidence > h3, .load-quality-evidence > p { margin: 0; }
+.load-quality-evidence > p { color: var(--ink-2); line-height: var(--lh-relaxed); }
+.load-quality-evidence .sufficiency-inline-requirements { line-height: var(--lh-relaxed); }
+.fitness-coach--story .fitness-coach__summary-copy { max-width: none; }
+.fitness-coach--story .fitness-coach__current-metrics { padding-top: var(--space-3); }
+.fitness-coach--story .fitness-coach__summary-meta { line-height: var(--lh-relaxed); }
+.fitness-coach__impact-detail { min-width: 0; }
+.fitness-coach--story .fitness-coach__impact-card { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+.fitness-coach--story .fitness-coach__impact-card > p { margin: 0 !important; line-height: var(--lh-relaxed); }
+.fitness-coach--story .fitness-coach__activity-selector { margin: 0; padding: 0; border: 0; }
+.fitness-coach--story .fitness-coach__impact-heading { display: grid; gap: var(--space-3); }
+.fitness-coach--story .fitness-coach__recent-impact { font-size: var(--fs-sm); }
+@media (min-width: 64rem) {
+  .fitness-coach--story .fitness-coach__impact-card { grid-template-columns: minmax(16rem, 0.8fr) minmax(0, 1.8fr); gap: var(--space-5); }
+  .fitness-coach--story .fitness-coach__impact-card > p { grid-column: 1 / -1; }
+  .fitness-coach--story .fitness-coach__activity-selector { border-inline-end: 1px solid var(--line-soft); padding-inline-end: var(--space-5); }
+  .fitness-coach--story .fitness-coach__recent-grid { grid-template-columns: minmax(0, 1fr); max-height: 32rem; overflow-y: auto; }
+}
+@media (max-width: 52rem) {
+  .fitness-coach__story-evidence { border-inline-start: 0; border-top: 1px solid var(--line-soft); padding-inline-start: 0; padding-top: var(--space-4); }
+}
+
+.fitness-coach__story-hero--overview { grid-template-columns: minmax(0, 1fr); }
+.fitness-coach__story-hero--overview .fitness-coach__story-evidence { border-inline-start: 0; padding-inline-start: 0; border-top: 1px solid var(--line-soft); padding-top: var(--space-4); }
+@media (min-width: 52.0625rem) {
+  .fitness-coach__story-hero--overview > .condition-section-target { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); column-gap: var(--space-7); row-gap: var(--space-2); grid-template-rows: auto auto 1fr; align-items: start; }
+  .fitness-coach__story-hero--overview .fitness-coach__summary { display: contents; }
+  .fitness-coach__story-hero--overview .fitness-coach__summary-copy { grid-column: 1; grid-row: 1 / span 3; }
+  .fitness-coach__story-hero--overview .fitness-coach__current-metrics { grid-column: 2; padding-top: 0; }
+  .fitness-coach__story-hero--overview .fitness-coach__story-primary-action, .fitness-coach__story-hero--overview .fitness-coach__summary-meta { grid-column: 2; }
+  .fitness-coach__story-hero--overview .load-quality-evidence { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-2) var(--space-6); }
+  .fitness-coach__story-hero--overview .load-quality-evidence > h3 { grid-column: 1; }
+  .fitness-coach__story-hero--overview .load-quality-evidence > p { grid-column: 1; }
+  .fitness-coach__story-hero--overview .load-quality-evidence > details { grid-column: 2; grid-row: 1 / span 2; }
+}

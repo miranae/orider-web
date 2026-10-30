@@ -109,3 +109,11 @@ it("returns qualified measured metadata and scalar objects byte-identically with
     expect(meta.source).not.toHaveProperty("powerSource"); expect(value.result).not.toHaveProperty("powerSource");
   }
 });
+it("accepts explicitly labeled historical interval evidence without changing its source bindings",()=>{
+ const historical=structuredClone(metadata);Object.assign(historical.source!,{historical:true,calculationBasis:"saved_interval_snapshot",calculatorArtifactHash:"a".repeat(64)});
+ expect(validateStagePowerMetadata(historical,"a",historical.activityStartEpochMs)).toBe(historical);
+ const response=structuredClone(result);Object.assign(response.source!,{historical:true,calculationBasis:"saved_interval_snapshot",calculatorArtifactHash:"a".repeat(64)});
+ expect(validateStagePowerDuration(response,stagePowerDurationRequest(historical,2),historical)).toBe(response);
+ Object.assign(response.source!,{snapshotRevision:"b".repeat(64)});expect(()=>validateStagePowerDuration(response,stagePowerDurationRequest(historical,2),historical)).toThrow();
+ Object.assign(historical.source!,{calculatorArtifactHash:"invalid"});expect(()=>validateStagePowerMetadata(historical,"a",historical.activityStartEpochMs)).toThrow();
+});

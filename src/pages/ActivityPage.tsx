@@ -1,3 +1,22 @@
+import { useSavedActivityAnalysisSelection } from "../hooks/useSavedActivityAnalysisSelection";
+import { ActivityReanalysisControl } from "../features/activity/detail/ActivityReanalysisControl";
+import type { JourneyOutcome } from "../services/journeyMeasurement";
+import { useJourneyReadiness, ownerAnalysisOutcome } from "../hooks/useJourneyReadiness";
+import { activityIndependentRoute } from "../features/activity/detail/activityIndependentRoute";
+import { isPublicActivityAccessError } from "../services/publicActivityDetail";
+import { useAuthorizedActivityComments } from "../features/activity/detail/useAuthorizedActivityComments";
+import { ActivityPublicAccess, type ActivityPublicAccessState } from "../features/activity/detail/ActivityPublicAccess";
+import type { PublicActivitySessionOptions } from "../hooks/usePublicActivitySession";
+import { createActivityMapPrivacyClient } from "../services/activityMapPrivacy";
+import ActivityMapPrivacyControl from "../components/activity/ActivityMapPrivacyControl";
+import { loadActivityDiscovery } from "../services/activityDiscovery";
+import RouteInventoryReturn from "../features/activity/detail/RouteInventoryReturn";
+import { announceActivityContentChange } from "../services/activityContentChanged";
+import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
+import { stravaRecordOf } from "@shared/analysis/stravaRecord";
+import { useActivityAuthor } from "../hooks/useActivityAuthor";
 import { useMobile } from "../hooks/useMobile";
 import { ChevronDown, Menu, Trophy } from "lucide-react";
 import SportIcon from "../components/common/SportIcon";
@@ -6,11 +25,13 @@ import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } fr
 import { useParams, useSearchParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
+import { elapsedRangeFromChartSelection } from "../features/activity/detail/activityRangeSelection";
+import { canonicalActivityChartMetrics, withStravaChartSummary, withCanonicalChartSummary, getPerformanceOverlays } from "../features/activity/detail/activityPerformancePresentation";
 import { ActivityGrowthPanel } from "../features/activity/detail/ActivityGrowthPanel";
+import { ActivityAnalysisSummary } from "../features/activity/detail/ActivityAnalysisSummary";
 import { ActivityPersonalBenchmark } from "../features/activity/detail/ActivityPersonalBenchmark";
 import ActivityPeakEffortInspector from "../features/activity/detail/ActivityPeakEffortInspector";
-import { resolvePeakEffortLocation, visiblePeakEfforts } from "../features/activity/detail/activityPeakEfforts";
+import { resolvePeakEffortLocation, twentyMinuteEffort, visiblePeakEfforts } from "../features/activity/detail/activityPeakEfforts";
 import type { RidePeakEffort } from "@shared/types/activity-metrics";
 import ActivityRangeAnalysisPanel, { ActivityRangeControls, ActivityChartAxisControls } from "../features/activity/detail/ActivityRangeAnalysisPanel";
 import { useActivityRangeSelection } from "../hooks/useActivityRangeSelection";
@@ -24,7 +45,7 @@ import "./activity/activity-detail-page.css";
 import AnalysisTab, { AnalysisLapTable } from "../components/AnalysisTab";
 import ActivityAnalysisBody from "../features/activity/detail/ActivityAnalysisBody";
 import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
-import ActivityOverviewSocial, { type OverviewAchievement } from "../features/activity/detail/ActivityOverviewSocial";
+import ActivityOverviewSocial, { type OverviewAchievement, type OverviewPhoto } from "../features/activity/detail/ActivityOverviewSocial";
 import { activityFeedSourceRevision, boundedFeedContent, resolveActivityMemo } from "../services/activityFeedContent";
 import ActivityOverviewSummary from "../features/activity/detail/ActivityOverviewSummary";
 import LapTable from "../components/LapTable";
@@ -38,11 +59,10 @@ import { useLocale } from "../contexts/LocaleContext";
 import { formatDistance, formatSpeed } from "../utils/units";
 import { resolveDuration, resolveAvgSpeedKph } from "../utils/activityTime";
 import {
-  doc, setDoc, updateDoc,
-  collection, query, where, getDocs, orderBy, onSnapshot,
+  doc, updateDoc,
+  collection, query, where, orderBy, onSnapshot,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { firestore, storage } from "../services/firebase";
+import { firestore } from "../services/firebase";
 import { activitySocialErrorMessageKey, activitySocialMutations } from "../services/activitySocialMutations";
 import { track, trackActivationStep } from "../services/analytics";
 import type { Activity, Visibility } from "@shared/types";
@@ -94,17 +114,23 @@ import { ActivityFtpDecisionCard } from "../features/activity/detail/ActivityFtp
 import { fitnessDateKeyFor } from "@shared/training/dateKey";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
-export default function ActivityPage() {
+export default function ActivityPage({ publicAccess, detailMeasurement, detailRetry }: { publicAccess?: PublicActivitySessionOptions; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void } = {}) {
+  return publicAccess ? <ActivityPublicAccess {...publicAccess}>{access => <ActivityPageContent publicAccess={access} detailMeasurement={access.session.detailMeasurement} />}</ActivityPublicAccess> : <ActivityPageContent detailMeasurement={detailMeasurement} detailRetry={detailRetry} />;
+}
+function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: { publicAccess?: ActivityPublicAccessState; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void }) {
   const { t, i18n } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
   const timeAgo = useTimeAgo();
   const formatFullDate = useFormatFullDate();
-  const { activityId } = useParams<{ activityId: string }>();
+  const { activityId: routeActivityId } = useParams<{ activityId: string }>();
+  const activityId = publicAccess?.model.activity?.id ?? routeActivityId;
   const { user, profile, loading: authLoading, signIn } = useAuth();
   const { units, locale } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
   const dialog = useDialog();
+  const [explorationMounted, setExplorationMounted] = useState(false);
+  const [analysisExploreOpen, setAnalysisExploreOpen] = useState(false);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [coRiders, setCoRiders] = useState<Activity[]>([]);
   const [coRiderIdentity, setCoRiderIdentity] = useState("");
@@ -128,7 +154,10 @@ export default function ActivityPage() {
   const [showAllSegments, setShowAllSegments] = useState(false);
   const [activeOverlays, setActiveOverlays] = useState<Set<string> | null>(null);
   const [focusedOverlayKey, setFocusedOverlayKey] = useState<string | null>(null);
-  const analysisModel = useActivityAnalysisModel(activityId);
+  const [nativeMemoOverride, setNativeMemoOverride] = useState<{ activityId: string; memo: string } | null>(null);
+  const { selected: selectedAnalysis, select: selectSavedAnalysis } = useSavedActivityAnalysisSelection(activityId);
+  const analysisModel = useActivityAnalysisModel(activityId, publicAccess?.model, selectedAnalysis);
+  const authorizedComments = useAuthorizedActivityComments(publicAccess);
   const {
     activity,
     setActivity,
@@ -151,8 +180,8 @@ export default function ActivityPage() {
     streamSensorSummary,
     displayedSummary: selectedSummary,
     avgPowerValue,
-    normalizedPowerValue,
     hasStreamPowerCandidate,
+    normalizedPowerValue,
     hasAnalysisStreams,
     sensorSelectionContext,
     analysisTabProps,
@@ -175,7 +204,25 @@ export default function ActivityPage() {
   const bikePdc = bikePdcState.pdc;
   // Inline description editing
   // Photo upload/delete
+  const photoServices = useFirebaseServices();
   const uploadedPhotoIdentity = `${activityId ?? ""}:${user?.uid ?? "guest"}`;
+  const [publicPhotosBusy, setPublicPhotosBusy] = useState(false);
+  const [publicPhotosError, setPublicPhotosError] = useState<string | null>(null);
+  const publicPhotoGeneration = useRef(0);
+  useEffect(() => () => { publicPhotoGeneration.current++; }, [publicAccess?.session.client, activityId]);
+  const loadPublicPhotos = async () => {
+    if (!publicAccess || !activityId || publicPhotosBusy) return;
+    const generation = publicPhotoGeneration.current;
+    setPublicPhotosBusy(true); setPublicPhotosError(null);
+    try {
+      const page = await publicAccess.session.client.photos(activityId);
+      if (generation !== publicPhotoGeneration.current) return;
+      publicAccess.session.setDetail(current => current ? { ...current, content: { ...current.content, photos: page.photos }, uploadedPhotosTruncated: page.truncated } : current);
+    } catch (error) {
+      if (generation !== publicPhotoGeneration.current) return;
+      if (isPublicActivityAccessError(error)) publicAccess.session.revokeAccess(); else setPublicPhotosError(t("publicDetail.photosFailed"));
+    } finally { if (generation === publicPhotoGeneration.current) setPublicPhotosBusy(false); }
+  };
   const [uploadedPhotoState, setUploadedPhotoState] = useState<{ identity: string; photos: UploadedPhoto[] } | null>(null);
   const uploadedPhotos = uploadedPhotoState?.identity === uploadedPhotoIdentity ? uploadedPhotoState.photos : [];
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -204,6 +251,16 @@ export default function ActivityPage() {
   const requestedTab = searchParams.get("tab") ?? "overview";
   const activeTab = requestedTab === "insights" ? "analysis" : requestedTab === "splits" || requestedTab === "laps" ? "segments"
     : ["overview", "analysis", "segments"].includes(requestedTab) || (requestedTab === "compare" && isActivityOwner) ? requestedTab : "overview";
+  const restartAnalysisMeasurement = useJourneyReadiness("analysis_ready", "web_owner_activity", "activity_analysis",
+    !publicAccess && !!user && !user.isAnonymous && activeTab === "analysis", activityId ?? "", user,
+    ownerAnalysisOutcome({ activityLoading: loadingActivity || authLoading, activityReady: !!activity && activity.id === activityId && isActivityOwner,
+      error: !!activityLoadError || !!streamsError || overview.error, processing: !!activityProcessing,
+      metricsStatus: serverMetrics.status, inputPending: serverMetrics.metrics?.inputPending, inputCoverage: serverMetrics.metrics?.inputCoverage,
+      overviewLoading: overview.loading, overviewStatus: overview.response?.status,
+      streamsLoading: loadingStreams, streamsResolved: !!streams,
+      noSensor: !!streamSensorSummary && !streamSensorSummary.hasPowerStream && !streamSensorSummary.hasHeartRateStream && !streamSensorSummary.hasCadenceStream && streamSensorSummary.rejections.length === 0,
+    }));
+  useEffect(() => { if (activity && (activeTab !== "analysis" || sport !== "ride" || analysisExploreOpen)) setExplorationMounted(true); }, [activity, activeTab, sport, analysisExploreOpen]);
   useLayoutEffect(() => {
     const list = activityNavigationRef.current?.querySelector<HTMLElement>('[role="tablist"]');
     if (!list) return;
@@ -248,10 +305,11 @@ export default function ActivityPage() {
     setPeakSelection({ activityId, peak: null });
   }, [activityId, user?.uid, isActivityOwner, serverMetrics.metrics?.computedAt, activePowerOverride]);
   const selectedPeak = peakSelection.activityId === activityId
-    && visiblePeakEfforts(serverMetrics.metrics, isActivityOwner, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true)
+    && visiblePeakEfforts(serverMetrics.metrics, isActivityOwner || !!publicAccess, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true)
       .some(peak => peak.durationSec === peakSelection.peak?.durationSec && peak.startOffsetSec === peakSelection.peak?.startOffsetSec && peak.avgPowerW === peakSelection.peak?.avgPowerW)
     ? peakSelection.peak : null;
   const runLocationAnchor = useRef<HTMLDivElement>(null);
+  const analysisRangeAnchor = useRef<HTMLDivElement>(null);
   const segmentMapScope = `${activityId}:${user?.uid}`;
   const selectedMapSegment = activeTab === "segments" && segmentMapSelection?.scope === segmentMapScope ? segmentMapSelection.effort : null;
   useEffect(() => {
@@ -314,17 +372,11 @@ export default function ActivityPage() {
 
     let cancelled = false;
     const identity = currentCoRiderIdentity;
-    const q = query(
-      collection(firestore, "activities"),
-      where("groupRideId", "==", activity.groupRideId),
-      where("deletedAt", "==", null),
-      where("visibility", "==", "everyone"),
-    );
-    getDocs(q).then((snap) => {
-      const candidates = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }) as Activity)
-        .filter((a) => a.visibility === "everyone");
-      if (!cancelled) { setCoRiders(selectActualCoRiders(activity, candidates)); setCoRiderIdentity(identity); }
+    loadActivityDiscovery(photoServices, { scope: "groupRide", rideId: activity.groupRideId, anchorActivityId: activity.id, limit: 20 }).then(page => {
+      if (!cancelled) {
+        setCoRiders(selectActualCoRiders(activity, page.items, { serverVerifiedAnchorId: activity.id }));
+        setCoRiderIdentity(identity);
+      }
     }).catch((err) => {
       if (cancelled) return;
       if (isPermissionDeniedError(err)) {
@@ -334,11 +386,11 @@ export default function ActivityPage() {
       logClientError("ActivityPage.bg", err, {});
     });
     return () => { cancelled = true; };
-  }, [activity?.groupRideId, activity?.id, currentCoRiderIdentity]);
+  }, [activity?.groupRideId, activity?.id, currentCoRiderIdentity, photoServices, user]);
 
   // Real-time kudos subscription
   useEffect(() => {
-    if (authLoading) return;
+    if (publicAccess || authLoading) return;
     if (!user || !activityId) {
       setKudosList([]);
       setKudosLoaded(false);
@@ -358,11 +410,11 @@ export default function ActivityPage() {
       setKudosLoaded(false);
       logClientError("ActivityPage.kudos", err, { path: `activities/${activityId}/kudos` });
     });
-  }, [activityId, authLoading, user]);
+  }, [activityId, authLoading, user, publicAccess]);
 
   // Real-time comments subscription (exclude soft-deleted)
   useEffect(() => {
-    if (authLoading) return;
+    if (publicAccess || authLoading) return;
     if (!user || !activityId) {
       setCommentsList([]);
       return;
@@ -380,7 +432,7 @@ export default function ActivityPage() {
       logClientError("ActivityPage.comments", err, { path: `activities/${activityId}/comments` });
     });
 
-  }, [activityId, authLoading, user]);
+  }, [activityId, authLoading, user, publicAccess]);
 
   useEffect(() => {
     setHiddenComments([]);
@@ -391,7 +443,7 @@ export default function ActivityPage() {
   }, [activityId, authLoading, user?.uid, isActivityOwner]);
 
   async function handleReportComment(commentId: string) {
-    const comment = commentsList.find(comment => comment.id === commentId);
+    const comment = (publicAccess ? authorizedComments.rows : commentsList).find(comment => comment.id === commentId);
     if (!user || !activityId || !comment || comment.userId === user.uid || moderationBusy) return;
     const note = await dialog.prompt(t("kudosCard.reportReason"), { multiline: true });
     if (!note?.trim() || moderationContext.current !== moderationScope) return;
@@ -410,6 +462,7 @@ export default function ActivityPage() {
   }
 
   const handleToggleKudos = async () => {
+    if (publicAccess) { await publicAccess.session.mutate("kudos"); return; }
     if (!user || !activityId || !profile) return;
     const fallbackLiked = !kudosTouched
       && (!kudosLoaded || kudosList.length === 0)
@@ -442,6 +495,7 @@ export default function ActivityPage() {
 
   const submittingRef = useRef(false);
   const handleSubmitComment = async () => {
+    if (publicAccess) { await publicAccess.session.mutate("comment"); return; }
     if (!user || !activityId || !profile || !commentText.trim() || submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
@@ -466,6 +520,7 @@ export default function ActivityPage() {
   };
 
   const handleDeleteComment = async (commentId: string) => {
+    if (publicAccess) { await authorizedComments.mutate("delete", commentId); return; }
     if (!activityId) return;
     const previous = commentsList;
     setCommentsList((list) => list.filter((comment) => comment.id !== commentId));
@@ -479,6 +534,7 @@ export default function ActivityPage() {
   };
 
   const handleSaveEditComment = async () => {
+    if (publicAccess && editingCommentId) { await authorizedComments.mutate("edit", editingCommentId, editingText.trim()); setEditingCommentId(null); return; }
     if (!activityId || !editingCommentId || !editingText.trim()) return;
     const commentId = editingCommentId;
     const text = editingText.trim();
@@ -496,27 +552,30 @@ export default function ActivityPage() {
   };
 
   const handleDeleteActivity = async () => {
-    if (!activityId || !user || user.uid !== activity?.userId) return;
+    if (!activityId || !user || !isActivityOwner) return;
     if (!(await dialog.confirm(t("page.deleteConfirm"), { destructive: true }))) return;
     const deletedAt = Date.now();
     await updateDoc(doc(firestore, "activities", activityId), { deletedAt });
+    announceActivityContentChange(activityId);
     setActivity({ ...activity, deletedAt } as Activity);
     showToast(t("page.deleteToast"), "info");
   };
 
   const handleRestoreActivity = async () => {
-    if (!activityId || !user || user.uid !== activity?.userId) return;
+    if (!activityId || !user || !isActivityOwner) return;
     await updateDoc(doc(firestore, "activities", activityId), { deletedAt: null });
+    announceActivityContentChange(activityId);
     setActivity({ ...activity, deletedAt: null } as Activity);
     showToast(t("page.restoreToast"));
   };
 
   const handleVisibilityChange = async (visibility: Visibility) => {
-    if (!activity || !user || user.uid !== activity.userId || activity.visibility === visibility) return;
+    if (!activity || !user || !isActivityOwner || activity.visibility === visibility) return;
     const previous = activity.visibility;
     setActivity({ ...activity, visibility });
     try {
       await updateDoc(doc(firestore, "activities", activity.id), { visibility });
+      announceActivityContentChange(activity.id);
       showToast(t("page.visibilityToast"));
     } catch (err) {
       setActivity({ ...activity, visibility: previous });
@@ -527,7 +586,7 @@ export default function ActivityPage() {
 
   // Load uploaded photos from activity_photos/{activityId} (exclude soft-deleted)
   useEffect(() => {
-    if (!activityId) return;
+    if (!activityId || publicAccess) return;
     let active = true;
     const identity = uploadedPhotoIdentity;
     const photosRef = query(
@@ -536,7 +595,7 @@ export default function ActivityPage() {
       orderBy("createdAt", "asc"),
     );
     const unsubscribe = onSnapshot(photosRef, (snap) => {
-      if (active) setUploadedPhotoState({ identity, photos: snap.docs.map((d) => ({ id: d.id, ...d.data() } as UploadedPhoto)) });
+      if (active) setUploadedPhotoState({ identity, photos: snap.docs.map((d) => ({ ...d.data(), id: d.id, url: "", nativePhoto: { activityId, photoId: d.id } } as UploadedPhoto)) });
     }, (err) => {
       if (!active) return;
       setUploadedPhotoState(null);
@@ -582,18 +641,7 @@ export default function ActivityPage() {
         return;
       }
       const photoId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const storagePath = `activity_photos/${user.uid}/${activityId}/${photoId}.webp`;
-      const storageRef = ref(storage, storagePath);
-      await uploadBytes(storageRef, blob, { contentType: "image/webp" });
-      const url = await getDownloadURL(storageRef);
-      await setDoc(doc(firestore, "activity_photos", activityId, "photos", photoId), {
-        storagePath,
-        url,
-        userId: user.uid,
-        createdAt: Date.now(),
-        deletedAt: null,
-        ...(location ? { location } : {}),
-      });
+      await uploadNativeActivityPhoto(photoServices, { activityId, photoId }, blob, location);
       showToast(t("page.photoToast.uploaded"));
     } catch {
       showToast(t("page.photoToast.uploadFailed"));
@@ -630,43 +678,63 @@ export default function ActivityPage() {
   const visualSource = useRef({ streams, generation: 0 });
   if (visualSource.current.streams !== streams) visualSource.current = { streams, generation: visualSource.current.generation + 1 };
   const visualIdentity = `${rangeSelection.identity}:${visualSource.current.generation}`;
-  const visualAxis = visualState.identity === visualIdentity && rangeSelection.sampledAxis ? visualState.axis : "distance";
+  const visualAxis = !rangeSelection.distanceAvailable && rangeSelection.sampledAxis ? "elapsed" : visualState.identity === visualIdentity && rangeSelection.sampledAxis ? visualState.axis : "distance";
   const visualRange = visualState.identity === visualIdentity ? visualState.range : null;
   useLayoutEffect(() => { setHoverIndex(null); }, [visualIdentity, visualAxis]);
-  // 명시적인 서버 구간 분석을 시작하면 별도의 임시 확대를 먼저 종료한다.
+  // 구간 분석 버튼 없이, 소유자가 그래프에서 고른 범위가 곧 서버 구간 분석 범위다.
+  // 시간 입력·랩으로 범위를 바꾸면 확대 범위도 그 범위로 맞춘다.
+  const selectionStart = rangeSelection.enabled ? rangeSelection.chartRange?.[0] : undefined;
+  const selectionEnd = rangeSelection.enabled ? rangeSelection.chartRange?.[1] : undefined;
+  const hadSelection = useRef(false);
+  const rangeEnabled = rangeSelection.enabled, toggleRange = rangeSelection.toggle;
   useLayoutEffect(() => {
-    if (!rangeSelection.enabled) return;
-    setVisualState(previous => ({ ...previous, range: null }));
-    setHoverIndex(null);
-  }, [rangeSelection.enabled, visualIdentity]);
+    const had = hadSelection.current;
+    hadSelection.current = selectionStart !== undefined && selectionEnd !== undefined;
+    // 범위를 지우면(시간 입력의 지우기 등) 확대도 함께 푼다.
+    if (selectionStart === undefined || selectionEnd === undefined) {
+      // 지운 뒤에도 구간 모드에 갇히지 않게 구간 분석도 끝낸다 — 다시 드래그하면 새로 열린다.
+      if (had) { setVisualState(previous => previous.range ? { ...previous, range: null } : previous); if (rangeEnabled) toggleRange(); }
+      return;
+    }
+    setVisualState(previous => previous.identity === visualIdentity && previous.range?.[0] === selectionStart && previous.range?.[1] === selectionEnd
+      ? previous : { identity: visualIdentity, axis: visualAxis, range: [selectionStart, selectionEnd] });
+  }, [selectionStart, selectionEnd, visualIdentity, visualAxis, rangeEnabled, toggleRange]);
   const setVisualRange = (range: [number, number] | null) => {
     if (range && (!Number.isInteger(range[0]) || !Number.isInteger(range[1]) || range[0] < 0 || range[1] <= range[0] || range[1] >= sampledData.length)) return;
     setVisualState({ identity: visualIdentity, axis: visualAxis, range });
     setHoverIndex(range?.[1] ?? null);
+    if (!rangeSelection.ownerUid) return;
+    const elapsed = range && rangeSelection.axis ? elapsedRangeFromChartSelection(rangeSelection.axis, sourceIndices, range) : null;
+    if (elapsed) rangeSelection.selectAndEnable(elapsed);
+    else if (!range && rangeSelection.enabled) rangeSelection.toggle();
   };
   const visualRouteRange = useMemo(() => {
     if (!visualRange || !streams?.latlng) return null;
-    const startIndex = sampledData[visualRange[0]]?.sourceIndex;
-    const endIndex = sampledData[visualRange[1]]?.sourceIndex;
+    if (sampledData.some(point => point.routeSourceIndex !== undefined)) return rangeSelection.routeRange ?? null;
+    const startIndex = sampledData[visualRange[0]]?.routeSourceIndex === null ? undefined : sampledData[visualRange[0]]?.routeSourceIndex ?? sampledData[visualRange[0]]?.sourceIndex;
+    const endIndex = sampledData[visualRange[1]]?.routeSourceIndex === null ? undefined : sampledData[visualRange[1]]?.routeSourceIndex ?? sampledData[visualRange[1]]?.sourceIndex;
     if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex) || startIndex! < 0 || endIndex! <= startIndex! || endIndex! >= streams.latlng.length) return null;
     if (!streams.latlng.slice(startIndex, endIndex! + 1).every(point => point?.length === 2 && point.every(Number.isFinite) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180)) return null;
     return { startIndex: startIndex!, endIndex: endIndex! };
-  }, [visualRange, sampledData, streams]);
+  }, [visualRange, sampledData, streams, rangeSelection.routeRange]);
   const recordedRunCadenceUnit = serverMetrics.metrics?.cadenceUnit ?? (activity?.source === "strava" ? "strides_per_minute" : activity?.source === "orider" ? "spm" : null);
   const availableOverlays = useMemo(() => getPerformanceOverlays(
     sampledData, sport, units, recordedRunCadenceUnit, t("analysis.run.cadenceUnit"),
   ), [sampledData, sport, units, recordedRunCadenceUnit, t]);
-  const summaryStats = useMemo(
-    () => buildSummaryStats(effectiveStreams, streamSensorSummary),
-    [effectiveStreams, streamSensorSummary],
-  );
+  const canonicalSummaryMetrics = selectedAnalysis ? null : canonicalActivityChartMetrics(activity, serverMetrics.metrics, !!activePowerOverride);
+  const summaryStats = useMemo(() => withStravaChartSummary(withCanonicalChartSummary(
+    buildSummaryStats(effectiveStreams, streamSensorSummary, { distanceM: activity?.summary?.distance,
+      movingTimeSec: serverMetrics.metrics?.movingTimeSec ?? activity?.summary?.movingTimeSec
+        ?? (activity?.source === "strava" ? activity.summary.ridingTimeMillis / 1000 : null) }), canonicalSummaryMetrics,
+  ), activity, !!activePowerOverride), [effectiveStreams, streamSensorSummary, canonicalSummaryMetrics, activity, activePowerOverride, serverMetrics.metrics]);
   const { location: runSplitLocation, onSelectSplit: selectRunSplit } = useRunSplitLocation(activityId, activity?.id, sport === "run", streams, sampledData, resolveObservedDistanceKm(serverMetrics.metrics ?? {}, activity?.summary?.distance));
   const peakLocation = useMemo(() => resolvePeakEffortLocation(selectedPeak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData),
     [selectedPeak, serverMetrics.metrics, streams, sampledData]);
   const locatePeak = useCallback((peak: RidePeakEffort | null) => {
     pendingPeakLocation.current = null;
     setPeakSelection({ activityId, peak });
-    if (!peak) return;
+    if (!peak || selectedAnalysis) return;
+    setAnalysisExploreOpen(true);
     if (!streams) {
       pendingPeakLocation.current = { activityId, uid: user?.uid, peak };
       requestStreams();
@@ -676,7 +744,7 @@ export default function ActivityPage() {
   useEffect(() => {
     const pending = pendingPeakLocation.current;
     if (!pending) return;
-    if (pending.activityId !== activityId || pending.uid !== user?.uid || !isActivityOwner
+    if (pending.activityId !== activityId || pending.uid !== user?.uid || (!isActivityOwner && !publicAccess)
       || pending.peak !== selectedPeak || streamsError) {
       pendingPeakLocation.current = null;
       return;
@@ -690,7 +758,7 @@ export default function ActivityPage() {
   const [unlinkedLapIdentity, setUnlinkedLapIdentity] = useState<string | null>(null);
   const pendingLap = useRef<{ identity: string; lap: RecordedLap } | null>(null);
   if (pendingLap.current?.identity !== rangeSelection.identity) pendingLap.current = null;
-  const canSelectLap = (lap: RecordedLap) => !!rangeSelection.ownerUid && activity?.id === activityId
+  const canSelectLap = (lap: RecordedLap) => !selectedAnalysis && !!rangeSelection.ownerUid && activity?.id === activityId
     && !rangeSelection.sourceLocked && (!loadingStreams || !streams) && (streams
       ? !!resolveRecordedLapRange(lap, lapContext, streams.time, streams.laps)
       : !!recordedLapElapsedRange(lap, lapContext));
@@ -730,9 +798,9 @@ export default function ActivityPage() {
   const segmentEfforts = useMemo(() => getSegmentEfforts(streams), [streams]);
   const chartSegments = useMemo(() => segmentEfforts.flatMap(effort => {
     if (!Number.isInteger(effort.startIndex) || !Number.isInteger(effort.endIndex) || effort.startIndex < 0 || effort.endIndex <= effort.startIndex || effort.endIndex >= (streams?.distance?.length ?? 0)) return [];
-    const startIndex = sampledData.findIndex(point => (point.sourceIndex ?? -1) >= effort.startIndex);
+    const startIndex = sampledData.findIndex(point => (point.routeSourceIndex === null ? -1 : point.routeSourceIndex ?? point.sourceIndex ?? -1) >= effort.startIndex);
     let endIndex = sampledData.length - 1;
-    while (endIndex >= 0 && (sampledData[endIndex]?.sourceIndex ?? Infinity) > effort.endIndex) endIndex--;
+    while (endIndex >= 0 && (sampledData[endIndex]?.routeSourceIndex === null ? Infinity : sampledData[endIndex]?.routeSourceIndex ?? sampledData[endIndex]?.sourceIndex ?? Infinity) > effort.endIndex) endIndex--;
     return startIndex >= 0 && endIndex > startIndex ? [{ id: String(effort.id), name: effort.name, startIndex, endIndex,
       summary: [Number.isFinite(effort.distance) && effort.distance > 0 ? formatDistance(effort.distance, units) : null,
         Number.isFinite(effort.elapsedTime) && effort.elapsedTime > 0 ? formatTime(effort.elapsedTime) : null].filter(Boolean).join(" · "),
@@ -751,16 +819,34 @@ export default function ActivityPage() {
     [hoveredSegment, streams, runSplitLocation, peakLocation, rangeSelection.selection, rangeSelection.chartRange],
   );
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
+  const author = useActivityAuthor(publicAccess ? { userId: "", nickname: activity?.nickname, profileImage: activity?.profileImage } : activity ?? { userId: "" });
   const sourceRevision = activity ? activityFeedSourceRevision(activity) : null;
   const publishedContent = activity?.feedContentV1?.sourceRevision === sourceRevision ? boundedFeedContent(activity.feedContentV1) : null;
   const resolvedMemo = activity ? resolveActivityMemo(activity, stravaSummaryLang) : null;
-  const overviewMemo = resolvedMemo?.memo ?? (publishedContent?.memo?.trim() ? publishedContent.memo
-    : overview.response?.status === "available" && overview.response.activityId === activity?.id ? overview.response.defaultMemo ?? null : null);
+  const freshDefaultMemo = overview.response?.status === "available" && overview.response.activityId === activity?.id
+    ? overview.response.defaultMemo ?? null : null;
+  const providerRecord = activity?.source === "strava" ? stravaRecordOf(activity) : null;
+  const overviewMemo = providerRecord && !resolvedMemo?.authored
+    ? freshDefaultMemo ?? resolvedMemo?.memo ?? publishedContent?.memo ?? null
+    : resolvedMemo?.memo ?? freshDefaultMemo ?? publishedContent?.memo ?? null;
 
   const hasStreams = sampledData.length > 0;
-  const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, user?.uid, activityId, user?.isAnonymous === true);
+  const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, publicAccess ? null : user?.uid, activityId, user?.isAnonymous === true);
   const runGapSecPerKm = serverMetrics.metrics?.runMetrics?.splitTimeStatus === "native_timer_mismatch"
     ? null : serverMetrics.metrics?.runMetrics?.gapAvgSec ?? null;
+
+  // Detail readiness means committed primary activity content, not lazy analysis/media completion.
+  const detailOutcome: JourneyOutcome | null = loadingActivity ? null : activityLoadError ? "error"
+    : activityProcessing ? "pending" : !activity?.summary ? "unavailable"
+    : activity.deletedAt ? "access_denied" : publicAccess && !publicAccess.session.mapFresh ? null : "success";
+  useEffect(() => {
+    if (!detailMeasurement || !detailOutcome) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => {
+      if (document.visibilityState !== "hidden") detailMeasurement(detailOutcome);
+    }); });
+    return () => { cancelAnimationFrame(first); cancelAnimationFrame(second); };
+  }, [detailMeasurement, detailOutcome]);
 
   if (loadingActivity) {
     return (
@@ -783,7 +869,7 @@ export default function ActivityPage() {
         <ErrorState
           title={isPermissionError ? tCommon("error.permission") : tCommon("error.title")}
           description={isPermissionError ? t("card.noActivity") : tCommon("error.description")}
-          onRetry={retryActivity}
+          onRetry={() => { restartAnalysisMeasurement(); if (detailRetry) detailRetry(); else retryActivity(); }}
         />
       </div>
     );
@@ -795,7 +881,7 @@ export default function ActivityPage() {
         title={t("card.processingActivity")}
         description={t("card.processingActivityDesc")}
         retryLabel={t("page.retry")}
-        onRetry={retryActivity}
+        onRetry={() => { restartAnalysisMeasurement(); if (detailRetry) detailRetry(); else retryActivity(); }}
       />
     );
   }
@@ -813,7 +899,7 @@ export default function ActivityPage() {
   if ((activity as Activity & { deletedAt?: number | null }).deletedAt) {
     return (
       <DeletedActivityState
-        canRestore={user?.uid === activity.userId}
+        canRestore={isActivityOwner}
         deletedLabel={t("card.deletedActivity")}
         restoreLabel={t("page.restore")}
         backHomeLabel={t("card.backHome")}
@@ -823,7 +909,12 @@ export default function ActivityPage() {
   }
 
   const s = activity.summary;
-  const displayedSummary = selectedSummary ?? s;
+  const latestMetrics = serverMetrics.status === "ready" || serverMetrics.status === "stale" ? serverMetrics.metrics : null;
+  const hasCanonicalSensorPresentation = canonicalSummaryMetrics != null;
+  const powerNeedsPreview = activePowerOverride != null || hasStreamPowerCandidate && !hasCanonicalSensorPresentation;
+  const displayedSummary = { ...(hasCanonicalSensorPresentation ? s : selectedSummary ?? s),
+    ...(!selectedAnalysis && activity.source === "strava" ? { tss: null, normalizedPower: null, swolf: null } : {}),
+    ...(activity.source !== "strava" && latestMetrics && !powerNeedsPreview && latestMetrics.tss !== undefined ? { tss: latestMetrics.tss } : {}) };
   const activityDate = Number.isFinite(activity.startTime) && Number.isFinite(new Date(activity.startTime).getTime())
     ? fitnessDateKeyFor(activity.startTime, fitnessTimeseries?.loadSnapshot?.dateKeyBasis)
     : null;
@@ -838,16 +929,16 @@ export default function ActivityPage() {
   };
   // Until streams and activity_metrics share a revision fingerprint, any raw power candidate
   // makes saved/server NP and TSS provenance unprovable. Keep trusted stream avg/max only.
-  const activityTss = sport === "run" ? serverMetrics.metrics?.streamTrimpTss ?? null : hasStreamPowerCandidate
+  const activityTss = sport === "run" ? serverMetrics.metrics?.streamTrimpTss ?? null : powerNeedsPreview
     ? null
-    : serverMetrics.metrics?.tss ?? s.tss;
-  const activityNp = sport !== "ride" || hasStreamPowerCandidate
+    : serverMetrics.metrics?.tss ?? (providerRecord ? null : s.tss);
+  const activityNp = sport !== "ride" || powerNeedsPreview
     ? null
-    : serverMetrics.metrics?.np ?? normalizedPowerValue;
+    : serverMetrics.metrics?.np ?? (providerRecord ? null : normalizedPowerValue);
 
   const sharePerformanceMetrics = [
-    shareMetric(t(sport === "run" ? "analysis.run.hrLoad" : "page.share.tss"), activityTss),
-    shareMetric(activityNp != null ? t("page.share.normalizedPower") : t(sport === "run" ? "stat.runningPower" : "stat.avgPower"), activityNp ?? avgPowerValue, "W"),
+    shareMetric(`${activity.source === "strava" ? "Orider " : ""}${t(sport === "run" ? "analysis.run.hrLoad" : "page.share.tss")}`, activityTss),
+    shareMetric(`${activity.source === "strava" ? "Orider " : ""}${t(activityNp != null ? "page.share.normalizedPower" : sport === "run" ? "stat.runningPower" : "stat.avgPower")}`, activityNp ?? (providerRecord && !activePowerOverride ? latestMetrics?.avgPower : avgPowerValue), "W"),
     shareMetric("CTL", fitnessAtActivity?.ctl),
     shareMetric("ATL", fitnessAtActivity?.atl),
     shareMetric("TSB", fitnessAtActivity?.tsb, undefined, true),
@@ -856,27 +947,28 @@ export default function ActivityPage() {
   const isStrava = (activity as Activity & { source?: string }).source === "strava";
   const stravaActivityId = getStravaActivityId(activity);
   const stravaActivityUrl = stravaActivityId ? `https://www.strava.com/activities/${stravaActivityId}` : null;
-  const activityNickname = activity.nickname?.trim() || (isActivityOwner ? profile?.nickname?.trim() || user?.displayName?.trim() : null) || tCommon("label.rider");
-  const activityProfileImage = activity.profileImage || (user?.uid === activity.userId ? profile?.photoURL ?? user?.photoURL ?? null : null);
+  const activityNickname = author.nickname?.trim() || (isActivityOwner ? profile?.nickname?.trim() || user?.displayName?.trim() : null) || tCommon("label.rider");
+  const activityProfileImage = author.profileImage || (user?.uid === activity.userId ? profile?.photoURL ?? user?.photoURL ?? null : null);
   const hasAnalysisRoute = !!streams?.latlng?.length;
-  const hasTrack = !!(activity.thumbnailTrack || hasAnalysisRoute);
+  const hasTrack = !!(activity.thumbnailTrack || hasAnalysisRoute || activityIndependentRoute(streams));
   const canCreateFromOwnRoute = isActivityOwner && hasAnalysisRoute && sport !== "swim";
   const canRegisterPublicRoute = !!user && !isActivityOwner && activity.visibility === "everyone" && hasTrack && sport !== "swim";
   const canRideActivityRoute = (isActivityOwner || activity.visibility === "everyone") && sport === "ride" && hasTrack;
-  const hasAiSummaryPreview = !!(activity.aiSummaryPreview || activity.aiSummaryPreview_en);
-  const canShowAiAnalysis = (sport === "ride" || sport === "run") && (hasAnalysisStreams || hasAiSummaryPreview);
+  const canShowAiAnalysis = sport === "ride" || sport === "run";
   const showElevation = sport === "ride" || sport === "run";
 
   // activitySanity 가드 — 비현실 속도 노출 차단용. sport "ride" → discipline "bike".
   const discipline = sport === "ride" ? "bike" : sport === "run" ? "run" : "swim";
-  const avgSpeedImplausible = isImplausibleAvgSpeed(s.averageSpeed, discipline);
-  const maxSpeedImplausible = isImplausibleMaxSpeed(s.maxSpeed, discipline);
+  const avgSpeedImplausible = isImplausibleAvgSpeed(providerRecord ? (providerRecord.average_speed ?? NaN) * 3.6 : s.averageSpeed, discipline);
+  const maxSpeedImplausible = isImplausibleMaxSpeed(providerRecord ? (providerRecord.max_speed ?? NaN) * 3.6 : s.maxSpeed, discipline);
   // 서버 activity_metrics 가 이동/정지 시간의 정본. 활동 문서의 movingTimeSec/pauseTimeSec 는
   // 같은 문서를 비정규화한 미러라 폴백으로 안전하다. Strava 의 ridingTimeMillis 는 이동시간
   // 성격이므로 총 경과시간은 start/end 차이로 확정한다.
-  const movingTimeSec = serverMetrics.metrics?.movingTimeSec ?? s.movingTimeSec;
-  const pauseTimeSec = serverMetrics.metrics?.pauseTimeSec ?? s.pauseTimeSec;
+  const movingTimeSec = providerRecord ? providerRecord.moving_time : serverMetrics.metrics?.movingTimeSec ?? s.movingTimeSec;
+  const pauseTimeSec = providerRecord ? (providerRecord.elapsed_time != null && providerRecord.moving_time != null
+    ? Math.max(0, providerRecord.elapsed_time - providerRecord.moving_time) : null) : serverMetrics.metrics?.pauseTimeSec ?? s.pauseTimeSec;
   const speedDur = resolveDuration({
+    stravaRecord: providerRecord,
     ridingTimeMillis: s.ridingTimeMillis,
     elapsedTimeMillis: s.elapsedTimeMillis,
     startTime: activity.startTime,
@@ -884,19 +976,20 @@ export default function ActivityPage() {
     movingTimeSec,
     pauseTimeSec,
   });
-  const fallbackAvgKph = resolveAvgSpeedKph(s.distance, speedDur, s.averageSpeed);
+  const fallbackAvgKph = resolveAvgSpeedKph(s.distance, speedDur, s.averageSpeed, providerRecord);
   // 요약 스트립도 AnalysisTab 과 같은 서버 정본을 쓴다 — 한 화면에서 값이 갈리지 않도록 (#885 §2).
   const rawStripStats = resolveSummaryStripStats(serverMetrics, {
     summary: displayedSummary,
+    stravaRecord: providerRecord,
     avgPowerValue,
     avgSpeedFallbackKph: fallbackAvgKph,
     normalizedPowerValue,
-    hasStreamPowerCandidate,
+    hasStreamPowerCandidate: powerNeedsPreview,
   });
   const runCadenceUnit = recordedRunCadenceUnit;
   const stripStats = sport === "run" ? {
     ...rawStripStats,
-    avgCadence: { ...rawStripStats.avgCadence, value: runningCadenceSpm(rawStripStats.avgCadence.value, runCadenceUnit) },
+    avgCadence: { ...rawStripStats.avgCadence, value: runningCadenceSpm(rawStripStats.avgCadence.value, providerRecord ? "strides_per_minute" : runCadenceUnit) },
   } : rawStripStats;
   const displayAvgKph = stripStats.avgSpeedKph.value ?? fallbackAvgKph;
   const displayAvgImplausible = isImplausibleAvgSpeed(displayAvgKph, discipline);
@@ -911,18 +1004,18 @@ export default function ActivityPage() {
 
   const hoverPoint = hoverIndex != null ? sampledData[hoverIndex] ?? null : null;
 
-  const activityComments = commentsList;
+  const activityComments = publicAccess ? authorizedComments.rows : commentsList;
   const fallbackKudos = activity.recentKudos ?? [];
   const shouldUseFallbackKudos = !kudosTouched && (!kudosLoaded || (kudosList.length === 0 && fallbackKudos.length > 0));
   const activityKudos = shouldUseFallbackKudos ? fallbackKudos : kudosList;
-  const displayLiked = shouldUseFallbackKudos
+  const displayLiked = publicAccess ? publicAccess.session.detail?.viewerHasKudos === true : shouldUseFallbackKudos
     ? !!user && fallbackKudos.some((k) => k.userId === user.uid)
     : liked;
 
   // Top results: efforts with PR or KOM achievements
   const topResults = segmentEfforts.filter(
     (e) => (e.prRank != null && e.prRank >= 1 && e.prRank <= 3) || (e.komRank != null && e.komRank >= 1 && e.komRank <= 10),
-  );
+  ).sort((a, b) => (a.prRank ?? 100) - (b.prRank ?? 100));
   const streamUnavailableMessage = loadingStreams || showStreamSpinner
     ? t("page.loadingGps")
     : streamsError ?? t("page.streamsMissing");
@@ -989,13 +1082,14 @@ export default function ActivityPage() {
     && analysisLoad != null && Number.isFinite(analysisLoad) && Math.round(acceptedLoad * 10) / 10 !== Math.round(analysisLoad);
 
   const secondaryStatsAvailable = hasSecondaryActivityStats({ summary: displayedSummary, stats: stripStats, sport,
-    showElevation, runTrainingLoad: serverMetrics.metrics?.streamTrimpTss ?? null });
+    showElevation, runTrainingLoad: providerRecord ? null : serverMetrics.metrics?.streamTrimpTss ?? null });
 
   const keyStatsStrip = (section: "primary" | "secondary") => (
       <ActivityStatsGrid
         section={section}
-        runTrainingLoad={serverMetrics.metrics?.streamTrimpTss ?? null}
+        runTrainingLoad={providerRecord ? null : serverMetrics.metrics?.streamTrimpTss ?? null}
         summary={displayedSummary}
+        stravaRecord={providerRecord}
         stats={stripStats}
         sport={sport}
         interpretationContext={runDetail.interpretationContext}
@@ -1007,7 +1101,7 @@ export default function ActivityPage() {
         avgSpeedImplausible={avgSpeedImplausible}
         maxSpeedImplausible={maxSpeedImplausible}
         showElevation={showElevation}
-        distVal={distVal}
+        distVal={m => distVal(m, providerRecord ? 2 : 1)}
         distUnit={distUnit}
         speedVal={speedVal}
         speedUnit={speedUnit}
@@ -1019,6 +1113,7 @@ export default function ActivityPage() {
 
   const summarySection = (
         <div className="activity-detail-summary" hidden={activeTab === "analysis"}>
+          {providerRecord && <Text as="p" variant="caption" tone="secondary">{t("sourceMetrics.sourceNotice")}</Text>}
           <Card padding="none" className="activity-detail-primary-stats">{keyStatsStrip("primary")}</Card>
           {secondaryStatsAvailable && <details className="activity-detail-secondary-stats" open={wideStats || secondaryStatsOpen} onToggle={(event) => {
             if (!wideStats) setSecondaryStatsOpen(event.currentTarget.open);
@@ -1029,11 +1124,18 @@ export default function ActivityPage() {
         </div>
   );
 
-  const overviewPhotos = [
-    ...(photos.length ? photos.filter(photo => photo.url).map(photo => ({ ...photo, url: photo.url!, id: `strava-${photo.id}` }))
+  const overviewPhotoCandidates: OverviewPhoto[] = [
+    ...(isActivityOwner && activity.source === "orider" && uploadedPhotoState?.identity === uploadedPhotoIdentity ? [] : photos.length ? photos.filter(photo => photo.url).map(photo => ({ ...photo, url: photo.url!, id: `strava-${photo.id}` }))
       : (publishedContent?.photos ?? []).map(photo => ({ ...photo, id: `strava-${photo.id}` }))),
     ...uploadedPhotos.map(photo => ({ ...photo, id: `upload-${photo.id}`, uploadId: photo.id, ownerId: photo.userId })),
   ];
+  // Owner uploads carry deletion/location controls; prefer them over the same published preview.
+  const overviewPhotos = [...new Map(overviewPhotoCandidates.map(photo => [
+    photo.nativePhoto ? `native:${photo.nativePhoto.activityId}:${photo.nativePhoto.photoId}` : photo.id, photo,
+  ])).values()];
+  // The server stamps ownership on the selection; deleted/foreign photos cannot become the cover.
+  const coverSelection = (activity as typeof activity & { nativeCoverPhotoV1?: { userId?: string; photoId?: string | null } }).nativeCoverPhotoV1;
+  const coverPhotoId = coverSelection?.userId === activity.userId ? coverSelection.photoId : null;
   const overviewAchievements: OverviewAchievement[] = topResults.length ? topResults.map(effort => ({
     id: String(effort.id), segmentId: String(effort.segment.id), effortId: effort.id,
     name: effort.name, badge: effort.prRank ? effort.prRank === 1 ? "PR" : effort.prRank === 2 ? "2nd" : "3rd" : `KOM ${effort.komRank}`,
@@ -1042,6 +1144,7 @@ export default function ActivityPage() {
 
   return (
     <div className="site-shell activity-detail">
+      <RouteInventoryReturn ownerUid={activity.userId} />
       {/* 1. Header (제목) */}
       <Card className="activity-detail-header">
         <div className="activity-detail-identity">
@@ -1078,7 +1181,7 @@ export default function ActivityPage() {
                   <span style={{ color: 'var(--ink-3)' }}>· {tCommon("sport.indoor")}</span>
                 )}
               </span>
-              {hasStreams && (
+              {hasAnalysisRoute && (
                 <span className="text-[length:var(--fs-xs)] px-1.5 py-0.5 rounded-[var(--r-sm)] font-medium" style={{ background: 'color-mix(in srgb, var(--lime) 15%, transparent)', color: 'var(--lime)' }}>GPS</span>
               )}
               {(avgSpeedImplausible || displayAvgImplausible || maxSpeedImplausible) && (
@@ -1096,7 +1199,7 @@ export default function ActivityPage() {
                 onBlur={handleSaveDescription}
                 onKeyDown={e => { if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); handleSaveDescription(); } if (e.key === "Escape") setEditingDescription(false); }}
                 autoFocus className="ds-text ds-text--page-title bg-transparent outline-none w-full" style={{ borderBottom: "2px solid var(--lime)" }} />
-            ) : user?.uid === activity.userId ? (
+            ) : isActivityOwner ? (
               <button type="button" className="group block max-w-full text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lime)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-0)]"
                 onClick={() => { setDescriptionText(activity.description || ""); setEditingDescription(true); }} aria-label={t("page.editTitleAria")}>
                 <Text as="h1" variant="pageTitle">{activity.description || tCommon(getSportLabelKey(activity.type))}
@@ -1134,17 +1237,17 @@ export default function ActivityPage() {
                 athlete: activityNickname,
                 sport: tCommon(getSportLabelKey(activity.type)),
                 date: formatFullDate(activity.startTime),
-                distance: Number.isFinite(s.distance) ? `${distVal(s.distance)} ${distUnit}` : "—",
-                duration: Number.isFinite(s.ridingTimeMillis) ? formatDuration(s.ridingTimeMillis) : "—",
-                elevation: Number.isFinite(s.elevationGain) ? `${elevVal(s.elevationGain)} ${elevUnit}` : "—",
+                distance: stripStats.distanceM.value != null ? `${distVal(stripStats.distanceM.value, providerRecord ? 2 : 1)} ${distUnit}` : "—",
+                duration: Number.isFinite(speedDur.displayMs) ? formatDuration(speedDur.displayMs) : "—",
+                elevation: stripStats.elevationGainM.value != null ? `${elevVal(stripStats.elevationGainM.value)} ${elevUnit}` : "—",
                 distanceLabel: t("stat.distance"),
-                durationLabel: t("stat.time"),
+                durationLabel: t(speedDur.usingMoving ? "stat.movingTime" : "stat.elapsedTime"),
                 elevationLabel: t("stat.elev"),
                 elevationProfileLabel: t("page.share.elevationProfile"),
                 performanceLabel: t("page.share.performanceLabel"),
                 footer: t("page.share.footer"),
-                backgroundImageUrl: activity.mapImageUrl,
-                includeRouteImage: activity.visibility === "everyone",
+                backgroundImageUrl: undefined,
+                includeRouteImage: false,
                 performanceMetrics: sharePerformanceMetrics,
                 elevationProfile: streams?.altitude?.length && streams.altitude.length >= 2 ? elevData : [],
                 weather: activity.weather,
@@ -1153,7 +1256,21 @@ export default function ActivityPage() {
               url={window.location.href}
               activityId={activity.id}
               visibility={activity.visibility}
-              routeTrack={activity.visibility === "everyone" ? activity.thumbnailTrack : null}
+              shareContext={user} shareRevision={sourceRevision ?? undefined}
+              resolvePublicMap={async () => {
+                const viewer = user;
+                if (photoServices.auth.currentUser !== viewer) throw new Error("account_changed");
+                if (publicAccess) {
+                  const fresh = await publicAccess.session.client.load(activity.id);
+                  const map = fresh.activity.visibility === "everyone" ? fresh.mapPreview : null;
+                  return { encodedPolyline: map?.encodedPolyline ?? null, imageUrl: map?.imageUrl ?? null, revision: JSON.stringify([fresh.activity.activityRevision, map]) };
+                }
+                const detail = await createActivityMapPrivacyClient(photoServices).load(activity.id);
+                if (photoServices.auth.currentUser !== viewer) throw new Error("account_changed");
+                const map = detail.visibility === "everyone" ? detail.mapPreview : null;
+                return { encodedPolyline: map?.encodedPolyline ?? null, imageUrl: map?.imageUrl ?? null,
+                  revision: JSON.stringify([detail.activityId, detail.revision, detail.visibility, map]) };
+              }}
               onFeedback={showToast}
             />
             {activity.visibility !== "everyone" && (
@@ -1190,7 +1307,7 @@ export default function ActivityPage() {
             selected={activeTab === id} aria-controls="activity-tab-panel" tabIndex={activeTab === id ? 0 : -1}
             onClick={() => { pendingPeakLocation.current = null; pendingLap.current = null; setActiveTab(id); }}>
             {t(`tab.${id}`)}
-            {id === "segments" && segmentEfforts.length > 0 && <span className="activity-detail-tab-count">{segmentEfforts.length}</span>}
+            {id === "segments" && (segmentEfforts.length || activity.segmentEffortCount) > 0 && <span className="activity-detail-tab-count" aria-hidden="true">{segmentEfforts.length || activity.segmentEffortCount}</span>}
           </ToggleButton>)}
         </ToggleControls>
       </div>
@@ -1198,28 +1315,52 @@ export default function ActivityPage() {
         <Text as="h2" variant="subtitle">{t("detail.keyRecords")}</Text>{summarySection}
       </section>}
       {activeTab === "overview" && <ActivityOverviewSocial key={`${activity.id}:${user?.uid ?? "guest"}:${sourceRevision}`} activityId={activity.id} prioritizeResults={mobileReading}
-        memo={overviewMemo} memoMono={resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
+        memo={nativeMemoOverride?.activityId === activity.id ? nativeMemoOverride.memo : overviewMemo} memoGeneratedAt={nativeMemoOverride?.activityId !== activity.id && !providerRecord && resolvedMemo?.authored === false ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={nativeMemoOverride?.activityId !== activity.id && resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
         photosKnown={!!streams || !!publishedContent || typeof activity.photoCount === "number"} memoTruncated={publishedContent?.memoTruncated} photos={overviewPhotos}
-        totalPhotos={Math.max(photos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0) + uploadedPhotos.length}
+        totalPhotos={activity.source === "orider"
+          ? Math.max(overviewPhotos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0)
+          : Math.max(photos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0) + uploadedPhotos.length}
         companions={visibleCoRiders} achievements={overviewAchievements}
- owner={isActivityOwner} viewerId={user?.uid} uploading={photoUploading} canUpload={uploadedPhotos.length < MAX_PHOTOS}
-        loadingPhotos={loadingStreams || showStreamSpinner} photoError={streamsError} canLoadPhotos={!streamsSignInRequired}
-        onSignIn={() => { void signIn(); }} onLoadPhotos={() => { if (streamsError) void retryStreams(); else requestStreams(); }} onUpload={() => photoInputRef.current?.click()}
+ coverPhotoId={activity.source === "orider" ? coverPhotoId : null} canChooseCover={activity.source === "orider"} owner={isActivityOwner} viewerId={user?.uid} uploading={photoUploading} canUpload={uploadedPhotos.length < MAX_PHOTOS}
+        loadingPhotos={publicAccess ? publicPhotosBusy : loadingStreams || showStreamSpinner} photoError={publicAccess ? publicPhotosError : (activity.photoCount ?? 0) > overviewPhotos.length ? streamsError : null} canLoadPhotos={!streamsSignInRequired}
+        onSignIn={() => { void signIn(); }} onLoadPhotos={() => { if (publicAccess) { void loadPublicPhotos(); return; } if (streamsError) void retryStreams(); else requestStreams(); }} onUpload={() => photoInputRef.current?.click()}
         onDelete={id => { const photo = uploadedPhotos.find(item => item.id === id); if (photo) void handleDeletePhoto(photo); }}
         onLocate={location => { setFlyToPosition(null); setTimeout(() => setFlyToPosition(location), 10); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
         onShowResults={() => setActiveTab("segments")} />}
-      <div className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
+      {activeTab === "overview" && isActivityOwner && activity.source === "orider" && getRuntimeConfig().publicActivityDetailEnabled === true &&
+        <NativeActivityMemoEditor key={`${activity.id}:${user?.uid}`} activityId={activity.id}
+          onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })} />}
+      {isActivityOwner && activeTab === "overview" && <ActivityMapPrivacyControl activityId={activity.id} />}
+      {activeTab === "analysis" && <ActivityReanalysisControl canReanalyze={isActivityOwner} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
+      {activeTab === "analysis" && <header className="activity-analysis-intro">
+        <div><Text as="h2" variant="title">{t("detail.analysis.title")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("analysisReading.intro")}</Text></div>
+        <nav aria-label={t("analysisReading.navigation")} className="activity-analysis-navigation">
+          <a href="#activity-tab-panel">{t("detail.analysisTopics.training")}</a>
+          {sport === "ride" && overview.response?.status === "available" && <>
+            {!!overview.response.presentation.zones?.length && <a href="#analysis-topic-intensity">{t("analysisReading.intensity")}</a>}
+            {!!overview.response.presentation.powerFingerprint?.length && <a href="#analysis-topic-records">{t("analysisReading.power")}</a>}
+          </>}
+          <a href="#activity-route-map" onClick={() => setAnalysisExploreOpen(true)}>{t("analysisReading.explore")}</a>
+        </nav>
+      </header>}
+      {activeTab === "analysis" && sport === "ride" && overview.enabled && !overview.loading && overview.response?.status === "available" && <ActivityAnalysisSummary presentation={overview.response.presentation} />}
+      {activeTab === "analysis" && sport === "ride" && <div className="activity-analysis-exploration-toggle"><Button variant="outline" aria-expanded={analysisExploreOpen} aria-controls="activity-analysis-exploration" onClick={() => setAnalysisExploreOpen(value => !value)}>{t("analysisReading.exploration")}<ChevronDown size={ICON_SIZE.md} aria-hidden="true" /></Button><Text as="p" variant="caption" tone="tertiary">{t("analysisReading.explorationHint")}</Text></div>}
+      <div id="activity-analysis-exploration" hidden={activeTab === "analysis" && sport === "ride" && !analysisExploreOpen} className="activity-detail-hero" data-analysis={activeTab === "analysis"} data-testid="activity-detail-hero">
       {/* ── 지도 또는 인도어 배너 / 수영 풀 시각화 ── */}
       <div id="activity-route-map" className="activity-detail-map" data-testid="D1-1" ref={runLocationAnchor} tabIndex={hasTrack ? -1 : undefined} role={hasTrack ? "region" : undefined} aria-label={hasTrack ? t("segments.mapRegion") : undefined}>
       {selectedMapSegment && <div className="activity-detail-segment-map-selection">
         <p role="status">{t("segments.selectedOnMap", { name: selectedMapSegment.name })}</p>
         <Button variant="outline" size="sm" onClick={returnToSegment}>{t("segments.returnToSegment")}</Button>
       </div>}
-      <ActivityMediaPanel
+      {(activeTab !== "analysis" || sport !== "ride" || analysisExploreOpen || explorationMounted) && <ActivityMediaPanel
+        allowOwnerPreview={!publicAccess}
         activity={activity}
         streams={streams}
         sport={sport}
         hasTrack={hasTrack}
+        routeLookup={activeTab === "overview" && !hasTrack && !streams && !selectedAnalysis && !streamsSignInRequired && sport !== "swim" && !isIndoorActivity(activity)
+          ? { state: loadingStreams || showStreamSpinner ? "loading" : streamsError ? "error" : "idle",
+            onLoad: () => { if (streamsError) void retryStreams(); else requestStreams(); } } : undefined}
         summary={s}
         markerPosition={markerPosition}
         hoveredSegment={activeTab === "analysis" && visualRange ? null : selectedMapSegment ?? hoveredSegment}
@@ -1229,7 +1370,7 @@ export default function ActivityPage() {
         uploadedPhotos={uploadedPhotos}
         flyToPosition={flyToPosition}
         t={t}
-      />
+      />}
       </div>
 
       {activeTab === "analysis" && <div className="activity-detail-chart-workspace" aria-label={t("detail.chartsTitle")}>
@@ -1255,25 +1396,24 @@ export default function ActivityPage() {
         </Card>
       )}
       {showElevation && elevData.length > 0 && (
-        <ActivityPerformanceCharts embedded analysisStyle
+        <div ref={analysisRangeAnchor} tabIndex={-1} role="region" aria-label={t("detail.chartsTitle")}><ActivityPerformanceCharts embedded analysisStyle canonicalSummary={!!providerRecord || hasCanonicalSensorPresentation} sourceLabel={providerRecord && !activePowerOverride ? "Strava" : undefined} powerPreview={activePowerOverride != null}
           chartIdentity={visualIdentity} rawStreams={effectiveStreams} sensorSelectionContext={sensorSelectionContext}
-          rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
+          selectedElapsedRange={rangeSelection.selection} rawElapsedAxis={rangeSelection.axis} sourceIndices={sourceIndices}
           visualRange={visualRange} onVisualRangeChange={setVisualRange} hoverIndex={hoverIndex} segments={chartSegments}
           hasElevation={!!effectiveStreams?.altitude?.some(value => value != null && Number.isFinite(value))}
           elevData={elevData} availableOverlays={availableOverlays} activeOverlays={activeOverlays ?? new Set(availableOverlays.map(item => item.key))}
           focusedOverlayKey={focusedOverlayKey} toggleOverlay={toggleOverlay} chartOverlays={chartOverlays}
           hoverPoint={hoverPoint} summaryStats={summaryStats} sport={sport} recordedRunCadenceUnit={recordedRunCadenceUnit}
           elapsedAxisSec={rangeSelection.sampledAxis ?? undefined} xAxis={visualAxis}
-          axisControls={<ActivityChartAxisControls compact axis={visualAxis} elapsedAvailable={!!rangeSelection.sampledAxis} onChange={axis => {
+          axisControls={<ActivityChartAxisControls compact axis={visualAxis} distanceAvailable={rangeSelection.distanceAvailable} elapsedAvailable={!!rangeSelection.sampledAxis} onChange={axis => {
             setVisualState({ identity: visualIdentity, axis, range: visualRange }); setHoverIndex(null);
           }} />}
-          rangeControls={<ActivityRangeControls selection={rangeSelection} showAxis={false} />}
-          rangeAnalysis={activity?.id ? <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /> : null}
+          rangeAnalysis={activity?.id ? <><ActivityRangeControls selection={rangeSelection} showAxis={false} part="details" /><ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={rangeSelection.analysisActivityId ?? activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /></> : null}
           range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampledData.length - 1]}
-          onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis ? rangeSelection.selectChart : undefined}
+          onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis && rangeSelection.selection && !visualRange ? rangeSelection.selectChart : undefined}
           onHoverIndex={handleElevHover} chartHighlightRange={chartHighlightRange}
           metrics={serverMetrics.metrics} powerSource={streamSensorSummary?.powerSource}
-        />
+        /></div>
       )}
 
       {/* Streams error */}
@@ -1282,7 +1422,7 @@ export default function ActivityPage() {
           <div className="text-center text-[length:var(--fs-sm)]" style={{ color: 'var(--ink-2)' }}>
             <p>{streamsError}</p>
             <button
-              onClick={() => { void retryStreams(); }}
+              onClick={() => { restartAnalysisMeasurement(); void retryStreams(); }}
               className="mt-2 font-medium hover:underline" style={{ color: 'var(--lime)' }}
             >
               {t("page.retry")}
@@ -1298,7 +1438,7 @@ export default function ActivityPage() {
 
       </div>
       <div id="activity-tab-panel" role="tabpanel" aria-labelledby={`activity-tab-${activeTab}`} tabIndex={0} className="activity-detail-panel">
-      {activeTab !== "overview" && <div className="activity-detail-section-heading">
+      {activeTab !== "overview" && activeTab !== "analysis" && <div className="activity-detail-section-heading">
         <div><Text as="h2" variant="title">{t(`detail.${activeTab}.title`)}</Text>
           <Text as="p" variant="bodyMedium" tone="secondary">{t(`detail.${activeTab}.description`)}</Text></div>
       </div>}
@@ -1317,14 +1457,18 @@ export default function ActivityPage() {
             {sport === "swim" ? t("page.swim.setAnalysis") : t("page.lapAnalysis")}
           </h3>}
           {analysisTabProps?.analysisSummary ? (
-            <AnalysisLapTable laps={analysisTabProps.analysisSummary.laps} ftp={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} sport={sport} onSelectLap={rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} />
-          ) : streams?.laps ? sport === "run" ? <AnalysisLapTable laps={streams.laps} ftp={null} sport={sport} onSelectLap={rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} /> : <LapTable laps={streams.laps} onSelectLap={rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} /> : null}
+            <AnalysisLapTable laps={analysisTabProps.analysisSummary.laps} ftp={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} sport={sport} onSelectLap={!selectedAnalysis && rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} />
+          ) : streams?.laps ? sport === "run" ? <AnalysisLapTable laps={streams.laps} ftp={null} sport={sport} onSelectLap={!selectedAnalysis && rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} /> : <LapTable laps={streams.laps} onSelectLap={!selectedAnalysis && rangeSelection.ownerUid ? selectLap : undefined} canSelectLap={canSelectLap} /> : null}
         </Card>
       )}
 
       <Modal open={showExport} onClose={() => setShowExport(false)} title={t("tab.export")} maxWidth="max-w-3xl">
         <div>
-        {streams ? <ExportTab activity={activity} streams={streams} /> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} /> : <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
+        {streams ? <ExportTab activity={activity} streams={streams} resolveCurrentStreams={publicAccess ? async () => {
+          const result = await publicAccess.session.client.streams(activity.id);
+          if (result.state !== "available" || !result.streams) throw new Error("STREAMS_MISSING");
+          return result.streams;
+        } : undefined} /> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} /> : <StreamUnavailableCard title={t("page.exportUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />}
         </div>
       </Modal>
       <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
@@ -1333,17 +1477,18 @@ export default function ActivityPage() {
       {activeTab === "overview" && <div data-testid="D1-2" className="space-y-6">
 
       {/* ── 6. 좋아요 & 댓글 ── */}
-      <section data-testid="D1-6"><KudosCommentsCard
+      <section data-testid="D1-6">{publicAccess?.session.mutationError && <Text role="alert">{t("publicDetail.commentsFailed")}</Text>}<KudosCommentsCard
         user={user}
         profile={profile}
         liked={displayLiked}
         kudos={activityKudos}
-        kudosCount={user ? activityKudos.length : activity.kudosCount}
+        kudosCount={publicAccess ? activity.kudosCount : user ? activityKudos.length : activity.kudosCount}
         comments={activityComments}
-        commentCount={user ? activityComments.length : activity.commentCount}
-        commentText={commentText}
-        setCommentText={setCommentText}
-        submitting={submitting}
+        commentCount={publicAccess ? activity.commentCount : user ? activityComments.length : activity.commentCount}
+        commentText={publicAccess ? publicAccess.session.text : commentText}
+        setCommentText={publicAccess ? publicAccess.session.setText : setCommentText}
+        kudosBusy={publicAccess?.session.busy ?? false}
+        submitting={publicAccess ? publicAccess.session.busy : submitting}
         editingCommentId={editingCommentId}
         setEditingCommentId={setEditingCommentId}
         editingText={editingText}
@@ -1359,7 +1504,7 @@ export default function ActivityPage() {
         onReportComment={handleReportComment}
         onSetCommentHidden={handleSetCommentHidden}
         formatTimeAgo={timeAgo}
-      /></section>
+      />{publicAccess && (authorizedComments.canLoad || authorizedComments.failed) && <Button disabled={authorizedComments.busy} onClick={() => { void authorizedComments.load(); }}>{t(authorizedComments.failed ? "page.retry" : "publicDetail.moreComments")}</Button>}</section>
 
       {/* AI 활동 분석 — 실외는 경로, 실내/가상은 파워·심박·거리 스트림으로 분석 가능. */}
       {canShowAiAnalysis && (
@@ -1377,14 +1522,15 @@ export default function ActivityPage() {
 
       <div className="activity-detail-analysis-content space-y-6" data-testid="activity-analysis-content" hidden={activeTab !== "analysis"}>
       {activeTab === "analysis" && <>
+
       {/* 러닝 인트로 — 기록 갱신 축하 + 쉬운 말 해석 요약 (§3.4a, §1) */}
       <RunActivityIntro detail={runDetail} activityId={activityId} gapSecPerKm={runGapSecPerKm} />
 
-      {sport === "ride" ? <ActivityAnalysisBody
+      {sport === "ride" ? <ActivityAnalysisBody summaryOutside
         overview={overview} isOwner={isActivityOwner} preview={activePowerOverride != null}
-        ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} totalCalories={stripStats.caloriesKcal.value}
+        ftpW={serverMetrics.metrics?.contextSnapshot?.ftp ?? null} totalCalories={providerRecord ? latestMetrics?.caloriesKcal ?? null : stripStats.caloriesKcal.value}
         storedLoad={(isActivityOwner || overview.response?.status !== "available" || differentLoadValues) && !activePowerOverride && !analysisTabProps?.suppressServerPowerMetrics && (serverMetrics.status === "ready" || serverMetrics.status === "stale") ? serverMetrics.metrics?.tss ?? null : null}
-        sharedStats={{ averagePower: stripStats.avgPower.value, averageCadence: stripStats.avgCadence.value, averageHeartRate: stripStats.avgHr.value, maxHeartRate: stripStats.maxHr.value }}
+        sharedStats={providerRecord ? { averagePower: latestMetrics?.avgPower ?? null, averageCadence: latestMetrics?.avgCadence ?? null, averageHeartRate: latestMetrics?.avgHr ?? null, maxHeartRate: latestMetrics?.maxHr ?? null } : { averagePower: stripStats.avgPower.value, averageCadence: stripStats.avgCadence.value, averageHeartRate: stripStats.avgHr.value, maxHeartRate: stripStats.maxHr.value }}
         analysisProps={analysisTabProps ? { ...analysisTabProps, onSignIn: () => { void signIn(); } } : null}
         timeline={null}
         provenance={differentLoadValues ? <Text as="p" variant="caption" tone="secondary">{t("detail.loadValuesDescription")}{serverMetrics.status === "stale" ? ` · ${t("detail.previousAnalysisValue")}` : ""}</Text> : null}
@@ -1392,14 +1538,26 @@ export default function ActivityPage() {
       {activeTab === "analysis" && activity?.id && <ActivityPersonalBenchmark activityId={activity.id}
         ownerUid={isActivityOwner ? user?.uid : null} sport={shareDiscipline ?? "other"}
         metrics={activePowerOverride || analysisTabProps?.suppressServerPowerMetrics ? null : serverMetrics.metrics}
-        suppliedPdcState={bikePdcState} defaultExpanded /> }        </> : null}
+        suppliedPdcState={bikePdcState} embedded /> }        </> : null}
         peakInspector={<>
 
-      {visiblePeakEfforts(serverMetrics.metrics, isActivityOwner, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true).length > 0 && sport === "ride" && activity?.id && <ActivityPeakEffortInspector
-        activityId={activity.id} metrics={serverMetrics.metrics} isOwner={isActivityOwner}
+      {(visiblePeakEfforts(serverMetrics.metrics, isActivityOwner || !!publicAccess, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true).length > 0 || twentyMinuteEffort(serverMetrics.metrics, isActivityOwner || !!publicAccess, activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true)) && sport === "ride" && activity?.id && <ActivityPeakEffortInspector
+        activityId={activity.id} metrics={serverMetrics.metrics} isOwner={isActivityOwner || !!publicAccess}
         invalidated={activePowerOverride != null || analysisTabProps?.suppressServerPowerMetrics === true}
         suppressHeartRate={analysisTabProps?.suppressServerHeartRateMetrics} suppressCadence={analysisTabProps?.suppressServerCadenceMetrics}
-        defaultExpanded onLocate={locatePeak} locating={loadingStreams && selectedPeak != null}
+        onSelectTwentyMinute={selectedAnalysis ? undefined : range => {
+          if (!rangeSelection.ownerUid || rangeSelection.sourceLocked) return;
+          setPeakSelection({ activityId, peak: null });
+          setAnalysisExploreOpen(true);
+          rangeSelection.selectAndEnable(range);
+          setVisualState({ identity: visualIdentity, axis: "elapsed", range: null });
+          requestAnimationFrame(() => {
+            analysisRangeAnchor.current?.focus({ preventScroll: true });
+            analysisRangeAnchor.current?.scrollIntoView?.({ behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" });
+          });
+          if (!streams) requestStreams();
+        }}
+        onLocate={selectedAnalysis ? undefined : locatePeak} locating={loadingStreams && selectedPeak != null}
         locationUnavailable={!!streams && selectedPeak != null && !peakLocation} /> }        </>}
         powerControls={isActivityOwner && (canRecalculateVirtualPowerPreview || activePowerOverride) ? <div className="activity-analysis-power-controls">
           <Text as="h3" variant="bodyMedium" weight={600}>{t("page.vp.heading")}</Text>
@@ -1412,7 +1570,7 @@ export default function ActivityPage() {
       {activeTab === "analysis" && summarySensorMetrics.length > 0 && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
         <div className="space-y-4">
           <SummarySensorFallbackCard
-            title={t("page.summarySensorTitle")}
+            title={t(providerRecord ? "sourceMetrics.sensorSummary" : "page.summarySensorTitle")}
             description={t(streamsSignInRequired ? "page.summarySensorSignInDesc" : "page.summarySensorDesc")}
             metrics={summarySensorMetrics}
           />
@@ -1440,13 +1598,13 @@ export default function ActivityPage() {
           avgSpeedKph={stripStats.avgSpeedKph.value}
           hrLoad={serverMetrics.metrics?.streamTrimpTss ?? null}
           gapSecPerKm={runGapSecPerKm}
-          summary={s}
+          summary={displayedSummary}
           activity={activity}
           metricsWeather={serverMetrics.metrics?.weather}
           metricsStatus={serverMetrics.status}
         />
       )}
-      {sport === "swim" && <SwimRightCards summary={s} streams={streams} />}
+      {sport === "swim" && <SwimRightCards summary={displayedSummary} streams={streams} />}
       </div>
       )}
 
@@ -1462,7 +1620,7 @@ export default function ActivityPage() {
       {activeTab === "analysis" && sport !== "run" && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (
         <div className="space-y-4">
           <SummarySensorFallbackCard
-            title={t("page.summarySensorTitle")}
+            title={t(providerRecord ? "sourceMetrics.sensorSummary" : "page.summarySensorTitle")}
             description={t(streamsSignInRequired ? "page.summarySensorSignInDesc" : "page.summarySensorDesc")}
             metrics={summarySensorMetrics}
           />
@@ -1495,16 +1653,16 @@ export default function ActivityPage() {
         streams={streams ?? { userId: activity.userId, time: [], distance: [] }}
         summary={displayedSummary}
         canonicalPresentationAvailable={overview.response?.status === "available"}
-        onSelectRunEffort={getRuntimeConfig().appEnvironment === "stage" && getRuntimeConfig().activityAnalysisExpansionEnabled === true && rangeSelection.enabled && !rangeSelection.sourceLocked ? rangeSelection.select : undefined}
-        onSelectLap={rangeSelection.ownerUid ? selectLap : undefined}
+        onSelectRunEffort={!selectedAnalysis && getRuntimeConfig().appEnvironment === "stage" && getRuntimeConfig().activityAnalysisExpansionEnabled === true && rangeSelection.enabled && !rangeSelection.sourceLocked ? rangeSelection.select : undefined}
+        onSelectLap={!selectedAnalysis && rangeSelection.ownerUid ? selectLap : undefined}
         canSelectLap={canSelectLap}
-        onSelectRunSplit={selectRunSplit}
-        onViewRunSplitLocation={viewRunSplitLocation}
+        onSelectRunSplit={selectedAnalysis ? undefined : selectRunSplit}
+        onViewRunSplitLocation={selectedAnalysis ? undefined : viewRunSplitLocation}
         canViewRunSplitLocation={!!runSplitLocation?.routeRange && !!runSplitLocation.chartRange}
       />}
-      {activeTab === "analysis" && sport === "run" && isActivityOwner && activity?.id && !(showElevation && elevData.length > 0) && <div className="space-y-4">
+      {activeTab === "analysis" && !selectedAnalysis && sport === "run" && (isActivityOwner || publicAccess) && activity?.id && !(showElevation && elevData.length > 0) && <div className="space-y-4">
         <ActivityRangeControls selection={rangeSelection} />
-        <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} />
+        <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={rangeSelection.analysisActivityId ?? activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} />
       </div>}
       {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} supplemental />}
 

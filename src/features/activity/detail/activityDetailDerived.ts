@@ -1,6 +1,9 @@
+import { hasImportedObservations, importedObservations, importedSeries, importedChannelStats, withImportedObservationTime, withoutImportedObservations } from "./importedActivityObservations";
+import { averageActivitySpeedKph, observedMaxSpeedKph } from "@shared/analysis/activitySpeed";
 import type { OverlayDataset } from "../../../components/ElevationChart";
 import type { ActivityStreams, ActivitySummary } from "@shared/types";
 import type { VirtualPowerParams } from "../../../utils/virtualPower";
+import { isRawPartStreams } from "../../../services/activityStreamSource";
 
 import {
   explicitAxisRejectionReason,
@@ -59,8 +62,8 @@ export interface StreamSensorSummary {
   maxPower: number | null;
   hasReliablePower: boolean;
   hasRejectedPowerStream: boolean;
-  heartRateSource: "sensorStreamsV1" | "heartrate" | null;
-  powerSource: "sensorStreamsV1" | "virtualPowerOverride" | "watts" | "watts_calc" | null;
+  heartRateSource: "sensorStreamsV1" | "importedSensorObservationsV1" | "heartrate" | null;
+  powerSource: "sensorStreamsV1" | "importedSensorObservationsV1" | "virtualPowerOverride" | "watts" | "watts_calc" | null;
   rejections: SensorRejectionDiagnostic[];
 }
 
@@ -97,7 +100,7 @@ export type SensorRejectionReason =
 
 export interface SensorRejectionDiagnostic {
   channel: "power" | "heart_rate" | "cadence";
-  source: "sensorStreamsV1" | "virtualPowerOverride" | "legacy";
+  source: "importedSensorObservationsV1" | "sensorStreamsV1" | "virtualPowerOverride" | "legacy";
   reason: SensorRejectionReason;
   axisLength?: number;
   channelLength?: number;
@@ -663,6 +666,11 @@ export function selectActivityPowerStream(
   if (!streams) return { source: null, values: null, finiteValues: [], hasCandidate: false };
 
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
+  if (hasImportedObservations(streams) && !context.powerOverride) {
+    const values = importedObservations(streams, context.activityStartTime, context.explicitDurationSec)?.watts ?? null;
+    const finiteValues = (values ?? []).filter((v): v is number => v != null);
+    return { source: finiteValues.length ? "importedSensorObservationsV1" : null, values, finiteValues, hasCandidate: true };
+  }
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const rawLegacyWatts = (streams as unknown as Record<string, unknown>).watts;
   const rawLegacyCalculatedWatts = (streams as unknown as Record<string, unknown>).watts_calc;
@@ -895,6 +903,11 @@ export function selectActivityHeartRateStream(
   if (!streams) return { source: null, values: null, positiveValues: [], hasRejectedMeasurement: false };
 
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
+  if (hasImportedObservations(streams)) {
+    const values = importedObservations(streams, context.activityStartTime, context.explicitDurationSec)?.heartrate ?? null;
+    const positiveValues = (values ?? []).filter((v): v is number => v != null);
+    return { source: positiveValues.length ? "importedSensorObservationsV1" : null, values, positiveValues, hasRejectedMeasurement: positiveValues.length === 0 };
+  }
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const invalidVersionHeartRate = invalidVersionExplicitChannel(streams, "heartrate");
   if (invalidVersionHeartRate) {
@@ -1036,6 +1049,20 @@ export function deriveStreamSensorSummary(
   if (!streams) return null;
 
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
+  if (hasImportedObservations(streams)) {
+    const hr = importedChannelStats(streams, "heartrate", context.activityStartTime, context.explicitDurationSec);
+    const overrideSummary = context.powerOverride ? deriveStreamSensorSummary(withoutImportedObservations(streams), context) : null;
+    const power = context.powerOverride ? overrideSummary?.hasReliablePower ? { average: overrideSummary.averagePower, maximum: overrideSummary.maxPower } : null
+      : importedChannelStats(streams, "watts", context.activityStartTime, context.explicitDurationSec);
+    const cadence = importedChannelStats(streams, "cadence", context.activityStartTime, context.explicitDurationSec);
+    return { hasHeartRateStream: !!hr, hasRejectedHeartRateStream: !hr,
+      hasCadenceStream: !!cadence, hasRejectedCadenceStream: !cadence,
+      hasPowerStream: !!power, hasRejectedPowerStream: !power, hasReliablePower: !!power,
+      averageHeartRate: hr?.average ?? null, maxHeartRate: hr?.maximum ?? null,
+      averagePower: power?.average ?? null, maxPower: power?.maximum ?? null,
+      averageCadence: cadence?.average ?? null, maxCadence: cadence?.maximum ?? null,
+      heartRateSource: hr ? "importedSensorObservationsV1" : null, powerSource: power ? context.powerOverride ? overrideSummary?.powerSource ?? null : "importedSensorObservationsV1" : null, rejections: [] };
+  }
   const selectedHeartRate = selectActivityHeartRateStream(streams, context);
   const heartRate = selectedHeartRate.positiveValues;
   const legacyHeartRate = selectedHeartRate.source === "heartrate"
@@ -1247,6 +1274,12 @@ export function buildActivityAnalysisProjection(
   if (!streams) return null;
 
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
+  if (hasImportedObservations(streams)) {
+    const exact = withImportedObservationTime(streams, context.activityStartTime, context.explicitDurationSec)!;
+    return { streams: { ...exact, heartrate: undefined, watts: undefined, watts_calc: undefined, cadence: undefined },
+      heartRate: importedSeries(streams, "heartrate", context.activityStartTime, context.explicitDurationSec),
+      power: context.powerOverride ? buildActivityAnalysisProjection(withoutImportedObservations(exact), context)?.power : importedSeries(streams, "watts", context.activityStartTime, context.explicitDurationSec) };
+  }
   const explicit = streams.sensorStreamsV1?.version === 1 ? streams.sensorStreamsV1 : null;
   const selectedPower = selectActivityPowerStream(streams, context);
   const selectedHeartRate = selectActivityHeartRateStream(streams, context);
@@ -1405,9 +1438,27 @@ export function buildActivityAnalysisProjection(
   };
 }
 
+/** raw_parts 응답의 센서 값은 route와 같은 1초 격자를 쓰며, 미관측 칸은 null이다. */
+function rawPartChartChannel(streams: ActivityStreams, channel: "heartrate" | "cadence" | "watts"): Array<number | null> | undefined {
+  if (!isRawPartStreams(streams)) return undefined;
+  const time = streams.time;
+  const values = streams[channel] as unknown;
+  if (!Array.isArray(time) || !time.length || time.length !== streams.distance?.length
+    || !hasDenseArraySlots(time) || !time.every((value, index) => value === index)
+    || !Array.isArray(values) || values.length !== time.length
+    || !hasValidExplicitSensorChannelValues(values)) return undefined;
+  return values as Array<number | null>;
+}
+
 /** The exact trusted full-resolution channels used by the activity chart sampler. */
-export function buildAlignedActivityChartChannels(streams: ActivityStreams, contextOrDuration?: ActivitySensorSelectionContext | number, activityStartTime?: number) {
+export function buildAlignedActivityChartChannels(streams: ActivityStreams, contextOrDuration?: ActivitySensorSelectionContext | number, activityStartTime?: number): { chartHeartRate: Array<number | null> | undefined; chartPower: Array<number | null> | undefined; alignedCadence: Array<number | null> | undefined } {
   const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
+  if (hasImportedObservations(streams)) {
+    const block = importedObservations(streams, context.activityStartTime, context.explicitDurationSec);
+    return { chartHeartRate: block?.heartrate,
+      chartPower: context.powerOverride ? buildAlignedActivityChartChannels(withoutImportedObservations(streams), context).chartPower : block?.watts,
+      alignedCadence: block?.cadence };
+  }
   const len = streams.distance?.length ?? 0;
   const selectedPower = selectActivityPowerStream(streams, context);
   const selectedHeartRate = selectActivityHeartRateStream(streams, context);
@@ -1420,14 +1471,14 @@ export function buildAlignedActivityChartChannels(streams: ActivityStreams, cont
   const chartHeartRateValues = selectedHeartRate.values?.map((value) => (
     typeof value === "number" && value > 0 ? value : null
   ));
-  const chartHeartRate = alignSensorChannelForChart(
+  const chartHeartRate = rawPartChartChannel(streams, "heartrate")?.map(value => value != null && value > 0 ? value : null) ?? alignSensorChannelForChart(
     chartHeartRateValues,
     selectedHeartRate.source === "sensorStreamsV1" ? "explicit" : "legacy",
     streams,
     context,
     len,
   );
-  const chartPower = alignSensorChannelForChart(
+  const chartPower = (context.powerOverride ? undefined : rawPartChartChannel(streams, "watts")) ?? alignSensorChannelForChart(
     selectedPower.values,
     selectedPower.source === "sensorStreamsV1"
       ? "explicit"
@@ -1436,7 +1487,7 @@ export function buildAlignedActivityChartChannels(streams: ActivityStreams, cont
     context,
     len,
   );
-  const alignedCadence = alignSensorChannelForChart(chartCadence, "legacy", streams, context, len);
+  const alignedCadence = rawPartChartChannel(streams, "cadence") ?? alignSensorChannelForChart(chartCadence, "legacy", streams, context, len);
   return { chartHeartRate, chartPower, alignedCadence };
 }
 
@@ -1447,15 +1498,25 @@ export function buildSampledData(
 ): SampledPoint[] {
   if (!streams?.distance) return [];
   const dist = streams.distance;
-  const len = dist.length;
+  const context = normalizeSelectionContext(contextOrDuration, activityStartTime);
+  const imported = hasImportedObservations(streams) ? importedObservations(streams, context.activityStartTime, context.explicitDurationSec) : null;
+  const len = imported?.timeMs.length ?? dist.length;
+  const routeByTime = imported?.routeTimeMs ? new Map(imported.routeTimeMs.map((time, index) => [time, index])) : null;
+  const routeIndex = (index: number) => routeByTime ? routeByTime.get(imported!.timeMs[index]!) : index;
   const interval = Math.max(1, Math.floor(len / 300));
   const { chartHeartRate, chartPower, alignedCadence } = buildAlignedActivityChartChannels(streams, contextOrDuration, activityStartTime);
   const selectedIndexes = new Set<number>();
   for (let i = 0; i < len; i += interval) selectedIndexes.add(i);
   if (len > 0) selectedIndexes.add(len - 1);
+  // 1초 격자 사이의 GPS 고도 관측을 간격 샘플링으로 잃지 않는다.
+  if (isRawPartStreams(streams)) streams.altitude?.forEach((value, index) => {
+    if (index < len && value != null && Number.isFinite(value)) selectedIndexes.add(index);
+  });
+  const chartRouteChannel = (values: readonly (number | null)[] | undefined) => routeByTime && values
+    ? Array.from({ length: len }, (_, index) => { const route = routeIndex(index); return route == null ? null : values[route] ?? null; }) : values;
   const chartChannels: Array<readonly (number | null)[] | undefined> = [
-    streams.altitude,
-    streams.velocity_smooth,
+    chartRouteChannel(streams.altitude),
+    chartRouteChannel(streams.velocity_smooth),
     chartHeartRate,
     chartPower,
     alignedCadence,
@@ -1483,15 +1544,17 @@ export function buildSampledData(
   }
   const points: SampledPoint[] = [];
   for (const i of [...selectedIndexes].sort((a, b) => a - b)) {
+    const route = routeIndex(i);
     points.push({
       sourceIndex: i,
-      latlng: streams.latlng?.[i] as [number, number] ?? null,
-      distance: dist[i] ?? 0,
-      altitude: (streams.altitude as number[] | undefined)?.[i] ?? 0,
-      speed: (streams.velocity_smooth?.[i] ?? 0) * 3.6,
+      routeSourceIndex: routeByTime ? route ?? null : undefined,
+      latlng: route == null ? null : streams.latlng?.[route] as [number, number] ?? null,
+      distance: route == null ? NaN : dist[route] ?? (imported || isRawPartStreams(streams) ? NaN : 0),
+      altitude: route == null ? NaN : streams.altitude?.[route] ?? (imported ? NaN : 0),
+      speed: route == null ? NaN : (streams.velocity_smooth?.[route] ?? (imported ? NaN : 0)) * 3.6,
       heartRate: chartHeartRate ? chartHeartRate[i] ?? null : null,
       power: chartPower ? chartPower[i] ?? null : null,
-      cadence: alignedCadence?.[i] ?? 0,
+      cadence: alignedCadence?.[i] ?? (hasImportedObservations(streams) ? NaN : 0),
     });
   }
   return points;
@@ -1499,19 +1562,26 @@ export function buildSampledData(
 
 export function getAvailableOverlays(sampledData: SampledPoint[]): OverlayConfig[] {
   if (sampledData.length === 0) return [];
-  return OVERLAY_CONFIGS.filter((cfg) => sampledData.some((d) => (cfg.getValue(d) ?? 0) > 0));
+  return OVERLAY_CONFIGS.filter((cfg) => sampledData.some((d) => {
+    const value = cfg.getValue(d);
+    return value != null && Number.isFinite(value) && (cfg.key === "power" ? value >= 0 : value > 0);
+  }));
 }
 
 export function buildSummaryStats(
   streams: ActivityStreams | null,
   sensorSummary: StreamSensorSummary | null,
+  speedContext?: { distanceM?: number | null; movingTimeSec?: number | null },
 ): { minElev: number; maxElev: number; overlays: Record<string, { avg: number; max: number }> } | null {
   const altitude = (runtimeArray<unknown>(streams?.altitude) ?? []).filter(
     (value): value is number => typeof value === "number" && Number.isFinite(value),
   );
   const stats: Record<string, { avg: number; max: number }> = {};
   const speed = positiveValues(streams?.velocity_smooth).map((value) => value * 3.6);
-  if (speed.length > 0) stats.speed = { avg: average(speed), max: maximum(speed) };
+  if (speed.length > 0) stats.speed = {
+    avg: speedContext ? averageActivitySpeedKph(speedContext.distanceM, speedContext.movingTimeSec) ?? NaN : average(speed),
+    max: observedMaxSpeedKph(runtimeArray<number>(streams?.velocity_smooth)) ?? NaN,
+  };
   if (sensorSummary?.averageHeartRate != null && sensorSummary.maxHeartRate != null) {
     stats.hr = { avg: sensorSummary.averageHeartRate, max: sensorSummary.maxHeartRate };
   }
@@ -1520,6 +1590,14 @@ export function buildSummaryStats(
   }
   if (sensorSummary?.averageCadence != null && sensorSummary.maxCadence != null) {
     stats.cadence = { avg: sensorSummary.averageCadence, max: sensorSummary.maxCadence };
+  }
+  // 차트의 관측값 통계만 보완한다. 저장된 서버 분석/센서 신뢰 판정은 바꾸지 않는다.
+  if (streams && isRawPartStreams(streams)) {
+    for (const [key, channel] of [["hr", "heartrate"], ["cadence", "cadence"], ["power", "watts"]] as const) {
+      const raw = rawPartChartChannel(streams, channel);
+      const values = key === "power" ? (raw ?? []).filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value >= 0) : positiveValues(raw);
+      if (values.length) stats[key] = { avg: average(values), max: maximum(values) };
+    }
   }
   if (altitude.length === 0 && Object.keys(stats).length === 0) return null;
   const minElev = altitude.length > 0
@@ -1564,7 +1642,7 @@ export function buildChartOverlays(
     .map((cfg) => ({
       key: cfg.key,
       label: `${labelFor(cfg.label)} (${cfg.unit})`,
-      data: sampledData.map((d) => cfg.getValue(d)),
+      data: sampledData.map((d) => { const value = cfg.getValue(d); return value != null && Number.isFinite(value) ? value : null; }),
       color: resolveCssColor(cfg.color),
       yAxisID: cfg.yAxisID,
       unit: cfg.unit,
