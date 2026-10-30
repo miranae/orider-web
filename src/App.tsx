@@ -70,6 +70,7 @@ const CoursePage = lazyTimed("CoursePage", () => import("./pages/CoursePage"));
 const CreateCoursePage = lazyTimed("CreateCoursePage", () => import("./pages/CreateCoursePage"));
 const CourseEditPage = lazyTimed("CourseEditPage", () => import("./pages/course/CourseEditPage"));
 const ChallengesPage = lazyTimed("ChallengesPage", () => import("./pages/ChallengesPage"));
+const ExploreAthletesPage = lazyTimed("ExploreAthletesPage", () => import("./pages/ExploreAthletesPage"));
 const EventsPage = lazyTimed("EventsPage", () => import("./pages/EventsPage"));
 const EventCreatePage = lazyTimed("EventCreatePage", () => import("./pages/EventCreatePage"));
 const EventOrganizerPage = lazyTimed("EventOrganizerPage", () => import("./pages/EventOrganizerPage"));
@@ -174,6 +175,7 @@ export function AppRoutes() {
           <Route path="explore/events" element={<EventsPage />} />
           <Route path="explore/events/organize" element={<EventOrganizerPage />} />
           <Route path="explore/challenges" element={<ChallengesPage />} />
+          <Route path="explore/athletes" element={<ExploreAthletesPage />} />
           <Route path="explore/clubs" element={<LegacyRedirect to="/clubs" />} />
           <Route path="course/create" element={<CreateCoursePage />} />
           <Route path="course/:courseId/edit" element={<CourseEditPage />} />
