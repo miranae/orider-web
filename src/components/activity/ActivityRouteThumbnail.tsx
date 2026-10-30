@@ -603,10 +603,23 @@ export function isCanonicalMapThumbnailUrl(
     const pathMatch = parsed.pathname.match(/^\/v0\/b\/([^/]+)\/o\/(.+)$/);
     if (!pathMatch || decodeURIComponent(pathMatch[1]!) !== storageBucket) return false;
     const objectPath = decodeURIComponent(pathMatch[2]!);
-    return objectPath === `map_thumbnails/${userId}/${canonicalFileName}`;
+    const prefix = `map_thumbnails/${userId}/`;
+    if (!objectPath.startsWith(prefix)) return false;
+    const fileName = objectPath.slice(prefix.length);
+    return fileName === canonicalFileName || isOwnerReplacementFileName(fileName, canonicalFileName);
   } catch {
     return false;
   }
+}
+
+/** 주인이 다시 만든 썸네일은 정본 이름에 `.g<12 hex>` 를 끼운 고유 이름을 쓴다(서버 replaceActivityMapThumbnail 과 같은 규칙). */
+function isOwnerReplacementFileName(fileName: string, canonicalFileName: string): boolean {
+  const marker = `.${MAP_THUMBNAIL_RENDER_VERSION}-`;
+  const at = canonicalFileName.lastIndexOf(marker);
+  if (at < 0) return false;
+  const stem = canonicalFileName.slice(0, at), tail = canonicalFileName.slice(at);
+  if (!fileName.startsWith(`${stem}.g`) || !fileName.endsWith(tail)) return false;
+  return /^[0-9a-f]{12}$/.test(fileName.slice(stem.length + 2, fileName.length - tail.length));
 }
 
 interface CanonicalMapThumbnailCrop {

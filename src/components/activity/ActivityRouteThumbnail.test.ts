@@ -87,6 +87,17 @@ describe("canonical activity map thumbnails", () => {
     expect(isCanonicalMapThumbnailUrl(url, userId, fileName, storageBucket)).toBe(false);
   });
 
+  it("accepts the owner's replacement name for the same canonical file only", () => {
+    const marker = ".route-v2-";
+    const at = fileName.lastIndexOf(marker);
+    const replaced = `${fileName.slice(0, at)}.g0123456789ab${fileName.slice(at)}`;
+    const url = (name: string) => `https://firebasestorage.googleapis.com/v0/b/orider/o/${encodeURIComponent(`map_thumbnails/${userId}/${name}`)}?alt=media`;
+    expect(isCanonicalMapThumbnailUrl(url(replaced), userId, fileName, storageBucket)).toBe(true);
+    expect(isCanonicalMapThumbnailUrl(url(`${fileName.slice(0, at)}.gXYZ${fileName.slice(at)}`), userId, fileName, storageBucket)).toBe(false);
+    expect(isCanonicalMapThumbnailUrl(url(`${fileName.slice(0, at)}.g0123456789ab.route-v2-deadbeefdeadbeef.webp`), userId, fileName, storageBucket)).toBe(false);
+    expect(isCanonicalMapThumbnailUrl(`https://firebasestorage.googleapis.com/v0/b/orider/o/${encodeURIComponent(`map_thumbnails/another-owner/${replaced}`)}`, userId, fileName, storageBucket)).toBe(false);
+  });
+
   it("rejects missing URL values", () => {
     expect(isCanonicalMapThumbnailUrl(null, userId, fileName, storageBucket)).toBe(false);
     expect(isCanonicalMapThumbnailUrl(undefined, userId, fileName, storageBucket)).toBe(false);
