@@ -107,8 +107,7 @@ export default function MobilePlanPage({
       onWeekNext={onWeekNext}
       onEditWorkout={onEditWorkout}
       chromeSlot={(
-        <div className="flex items-center sticky top-0 z-10"
-          style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
+        <div className="mobile-plan-chrome flex items-center">
           <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t('mobile.headerTitle')}</span>
           <div style={{ flex: 1 }} />
           {(goalId || (!goalTitle && !currentWeek)) && isSportUiEnabled(goalSport ?? "bike") && <Button type="button" variant="ghost" size="sm"
@@ -116,7 +115,7 @@ export default function MobilePlanPage({
         </div>
       )}
       adaptationSlot={goalId && adaptationFlag ? (
-        <div style={{ padding: "0 16px" }}>
+        <div className="mobile-plan-adaptation">
           <AdaptationBanner goalId={goalId} flag={adaptationFlag} onChange={onPlanUpdate ?? (() => undefined)} />
         </div>
       ) : undefined}
