@@ -14,9 +14,10 @@ vi.mock("../services/publicActivityMaps", () => ({ loadPublicActivityMap: vi.fn(
 
 // 실제 지도 SDK 대신 표시 지도와 숨겨진 캡처 지도를 구분한다.
 vi.mock("./RouteMap", () => ({
-  default: ({ interactive, fallbackImageUrl, preserveDrawingBuffer }: { interactive?: boolean; fallbackImageUrl?: string | null; preserveDrawingBuffer?: boolean }) => (
+  // 업로드 캡처 뷰포트만 pixelRatio 를 고정한다(실시간 지도도 세션 스냅샷용 preserveDrawingBuffer 를 쓴다).
+  default: ({ interactive, fallbackImageUrl, pixelRatio }: { interactive?: boolean; fallbackImageUrl?: string | null; pixelRatio?: number }) => (
     <div
-      data-testid={preserveDrawingBuffer ? "capture-map" : "route-map"}
+      data-testid={pixelRatio != null ? "capture-map" : "route-map"}
       data-interactive={String(interactive)}
       data-fallback-image-url={fallbackImageUrl ?? ""}
     >
