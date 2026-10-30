@@ -2930,6 +2930,13 @@
     "lifetime": "Rows reflect each page read; earlier pages are not continuously rechecked. In-app edits/deletes, account changes, or 30-minute expiry clear the list. Refresh for changes outside this app. Returning from a source restores controls only; start a new read.",
     "return": "Return to route history search"
   },
+  "mapThumbnail": {
+    "explanation": "The feed map thumbnail is created on the screen of the first person who views this activity. If it looks wrong, clear it and it will be recreated for the next viewer.",
+    "reset": "Clear map thumbnail",
+    "confirm": "Clear the current thumbnail? It will be recreated the next time someone sees it in a feed.",
+    "done": "Cleared. It will be recreated for the next viewer.",
+    "failed": "Couldn't clear it. Please try again shortly."
+  },
   "mapPrivacy": {
     "title": "Public map privacy",
     "current": "Saved settings: start radius {{startMeters}}m · finish radius {{endMeters}}m",
