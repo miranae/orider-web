@@ -3,7 +3,7 @@ import "./ExploreAthletesPage.css";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Copy, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { useDialog } from "../contexts/DialogContext";
@@ -18,7 +18,6 @@ import { Button, Card, Input, Text } from "../theme/components";
 import { ICON_SIZE } from "../theme/tokens/icon";
 import { formatDistance } from "../utils/units";
 import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../config/activitySubscriptions";
-import "../components/profile/ProfileSocialStats.css";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
 import {
@@ -211,53 +210,57 @@ export default function ExploreAthletesPage() {
       onClick={() => void handleSend(item)}>{t("search.action.request")}</Button>;
   };
 
-  const copyCode = (code: string) => {
-    void Promise.resolve(navigator.clipboard?.writeText(code))
-      .then(() => showToast(t("copied")))
-      .catch(() => showToast(t("onboarding.shareFailed"), "error"));
-  };
-
   const countValue = (value: number | undefined) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
-  const renderDetails = (item: SearchUserItem) => {
-    if (!item.profilePublic || !item.details) {
-      return item.profilePublic ? null : <Text data-testid="E5-2-6" variant="caption" tone="tertiary" className="explore-people-private">{t("search.privateProfile")}</Text>;
-    }
-    const { bio, primaryDiscipline, totalDistance, lastActivity } = item.details;
+  const locale = i18n.language.startsWith("ko") ? "ko-KR" : "en-US";
+  // 누적 거리는 정수 + 천 단위 구분(8,412km) — 목록 한 줄 요약용
+  const formatTotalDistance = (meters: number) => {
+    const text = formatDistance(meters, units, 0);
+    const match = /^(\d+)(\D+)$/.exec(text);
+    return match ? `${Number(match[1]).toLocaleString(locale)}${match[2]}` : text;
+  };
+  const renderBio = (item: SearchUserItem) => {
+    const bio = item.profilePublic ? item.details?.bio?.trim() : undefined;
+    return bio ? <Text data-testid="E5-2-7" as="span" variant="caption" tone="secondary" className="explore-people-bio">{bio}</Text> : null;
+  };
+  const renderSummary = (item: SearchUserItem) => {
+    const details = item.profilePublic ? item.details : undefined;
     const meta: string[] = [];
-    if (primaryDiscipline) meta.push(commonT(`discipline.${primaryDiscipline}`));
-    if (typeof totalDistance === "number" && Number.isFinite(totalDistance) && totalDistance > 0) meta.push(formatDistance(totalDistance, units, 0));
+    if (details?.primaryDiscipline) meta.push(commonT(`discipline.${details.primaryDiscipline}`));
+    if (typeof details?.totalDistance === "number" && Number.isFinite(details.totalDistance) && details.totalDistance > 0) meta.push(formatTotalDistance(details.totalDistance));
     // 내 프로필 요약(ProfileSocialStats)과 같은 순서·명칭. 구독 수치는 구독 기능이 켜졌을 때만.
-    const stats = ([
+    const stats = details ? ([
       ...(ACTIVITY_SUBSCRIPTIONS_ENABLED ? [
-        ["subscriptions", commonT("activitySubscriptions.subscriptions"), countValue(item.details.subscriptionCount)],
-        ["subscribers", commonT("activitySubscriptions.subscribers"), countValue(item.details.subscriberCount)],
+        ["subscriptions", commonT("activitySubscriptions.subscriptions"), countValue(details.subscriptionCount)],
+        ["subscribers", commonT("activitySubscriptions.subscribers"), countValue(details.subscriberCount)],
       ] : []),
-      ["friends", commonT("activitySubscriptions.friends"), countValue(item.details.friendCount)],
-      ["activities", commonT("profileSocial.activities"), countValue(item.details.activityCount)],
-    ] as [string, string, number | undefined][]).filter((stat): stat is [string, string, number] => stat[2] !== undefined);
-    const locale = i18n.language.startsWith("ko") ? "ko-KR" : "en-US";
-    const lastStart = lastActivity && Number.isFinite(lastActivity.startTime) ? lastActivity.startTime : null;
+      ["friends", commonT("activitySubscriptions.friends"), countValue(details.friendCount)],
+      ["activities", commonT("profileSocial.activities"), countValue(details.activityCount)],
+    ] as [string, string, number | undefined][]).filter((stat): stat is [string, string, number] => stat[2] !== undefined) : [];
     return <>
-      {bio?.trim() && <Text data-testid="E5-2-7" as="span" variant="caption" tone="secondary" className="explore-people-bio">{bio.trim()}</Text>}
-      {meta.length > 0 && <Text data-testid="E5-2-8" as="span" variant="caption" tone="secondary">{meta.join(" · ")}</Text>}
-      {stats.length > 0 && <span data-testid="E5-2-9" className="profile-social-stats explore-people-stats">
-        {stats.map(([key, label, value]) => <span key={key} className="profile-social-stat" aria-label={`${label} ${value.toLocaleString()}`}>
-          <span>{label}</span><Text as="strong" variant="num">{value.toLocaleString()}</Text>
+      <span className="explore-people-meta">
+        {item.friendCode && <span data-testid="E5-2-5" className="explore-people-code">{item.friendCode}</span>}
+        {meta.length > 0 && <span data-testid="E5-2-8">{meta.join(" · ")}</span>}
+      </span>
+      {stats.length > 0 && <span data-testid="E5-2-9" className="explore-people-stats">
+        {stats.map(([key, label, value]) => <span key={key} aria-label={`${label} ${value.toLocaleString(locale)}`}>
+          {label} <strong>{value.toLocaleString(locale)}</strong>
         </span>)}
       </span>}
-      {lastActivity && lastStart !== null && <span data-testid="E5-2-10" className="explore-people-latest">
-        <Text as="span" variant="caption" tone="secondary">{commonT("profileSocial.latest")}</Text>
-        <Link to={`/activity/${lastActivity.id}`} className="profile-latest-link">
-          <Text as="strong" variant="caption">{lastActivity.title?.trim() || commonT(getSportLabelKey(lastActivity.type))}</Text>
-          <span aria-hidden="true">·</span>
-          <Text as="span" variant="caption" tone="secondary">{new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", timeZone: "Asia/Seoul" }).format(lastStart)}</Text>
-        </Link>
-      </span>}
     </>;
+  };
+  const renderLatest = (item: SearchUserItem) => {
+    const lastActivity = item.profilePublic ? item.details?.lastActivity : null;
+    if (!lastActivity || !Number.isFinite(lastActivity.startTime)) return null;
+    return <span data-testid="E5-2-10" className="explore-people-latest">
+      <span className="explore-people-latest-label">{commonT("profileSocial.latest")}</span>
+      <Link to={`/activity/${lastActivity.id}`} className="explore-people-latest-link">{lastActivity.title?.trim() || commonT(getSportLabelKey(lastActivity.type))}</Link>
+      <span className="explore-people-latest-date">· {new Intl.DateTimeFormat(locale, { month: "short", day: "numeric", timeZone: "Asia/Seoul" }).format(lastActivity.startTime)}</span>
+    </span>;
   };
 
   return <div className="explore-challenges-surface space-y-6">
     {heading}
+    <div className="explore-people-search">
     <form data-testid="E5-1" role="search" aria-label={t("search.label")} className="explore-people-form" onSubmit={onSubmit}>
       <Input data-testid="E5-1-1" type="search" value={draft} maxLength={USER_SEARCH_MAX_LENGTH}
         aria-label={t("search.label")} aria-describedby="explore-people-hint" placeholder={t("search.placeholder")}
@@ -267,12 +270,13 @@ export default function ExploreAthletesPage() {
       </Button>
     </form>
     <Text data-testid="E5-1-3" id="explore-people-hint" as="p" variant="caption" tone="secondary">{t("search.hint")}</Text>
+    </div>
 
     {search && <section data-testid="E5-2" aria-label={t("search.resultsLabel")} aria-live="polite" aria-busy={search.status === "loading"}>
       {search.status === "loading" ? <div data-testid="E5.loading"><LoadingSkeleton kind="list" count={3} /></div>
         : search.status === "error" ? <div data-testid="E5.error">
           <ErrorState compact title={commonT("error.title")} description={t(`search.error.${search.error ?? "failed"}`)}
-            onRetry={search.error === "invalid" || search.error === "unauthenticated" ? undefined : () => void runSearch(search.query)} />
+            onRetry={search.error === "invalid" || search.error === "unauthenticated" || search.error === "rateLimited" ? undefined : () => void runSearch(search.query)} />
         </div>
           : search.items.length === 0 ? <div data-testid="E5.empty"><EmptyState compact title={t("search.empty")} description={t("search.emptyHint")} /></div>
             : <Card padding="none" className="explore-people-list">
@@ -282,13 +286,13 @@ export default function ExploreAthletesPage() {
                     <Avatar name={item.nickname || t("defaultNickname")} imageUrl={item.photoURL} size="md" />
                   </Link>
                   <span className="explore-people-text">
-                    <Link to={`/athlete/${item.id}`} className="explore-people-name">{item.nickname || t("defaultNickname")}</Link>
-                    {item.friendCode && <span className="explore-people-code">
-                      <Text variant="caption" tone="tertiary" mono>{item.friendCode}</Text>
-                      <Button data-testid="E5-2-5" variant="ghost" size="sm" iconOnly aria-label={t("search.copyCodeNamed", { name: item.nickname || t("defaultNickname") })}
-                        onClick={() => copyCode(item.friendCode!)}><Copy size={ICON_SIZE.sm} aria-hidden="true" /></Button>
-                    </span>}
-                    {renderDetails(item)}
+                    <span className="explore-people-name-line">
+                      <Link to={`/athlete/${item.id}`} className="explore-people-name">{item.nickname || t("defaultNickname")}</Link>
+                      {!item.profilePublic && <span data-testid="E5-2-6" className="explore-people-private">{t("search.privateProfile")}</span>}
+                    </span>
+                    {renderBio(item)}
+                    {renderSummary(item)}
+                    {renderLatest(item)}
                   </span>
                   <span className="explore-people-action">{renderAction(item)}</span>
                 </li>)}

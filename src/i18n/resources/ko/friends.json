@@ -75,7 +75,6 @@
   "search.emptyHint": "이메일이나 친구 코드를 정확히 입력해 보세요.",
   "search.more": "더 보기",
   "search.privateProfile": "비공개 프로필",
-  "search.copyCodeNamed": "{{name}}님의 친구 코드 복사",
   "search.action.friend": "친구",
   "search.action.sent": "요청됨",
   "search.action.request": "친구 요청",

@@ -310,6 +310,8 @@ describe("AthletePage", () => {
       expect(screen.getByText("비공개 프로필입니다")).toBeInTheDocument();
     });
     expect(screen.queryByText("숨김 친구")).not.toBeInTheDocument();
+    // 사진·닉네임은 기본 공개 — 비공개 카드에도 누구인지 보인다
+    expect(screen.getByTestId("P0.private-identity")).toHaveTextContent("비공개 라이더");
     expect(screen.queryByText(/친구 \(/)).not.toBeInTheDocument();
   });
 

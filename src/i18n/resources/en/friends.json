@@ -75,7 +75,6 @@
   "search.emptyHint": "Try the exact email address or friend code.",
   "search.more": "Load more",
   "search.privateProfile": "Private profile",
-  "search.copyCodeNamed": "Copy {{name}}'s friend code",
   "search.action.friend": "Friends",
   "search.action.sent": "Requested",
   "search.action.request": "Add friend",

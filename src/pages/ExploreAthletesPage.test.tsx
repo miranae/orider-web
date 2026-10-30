@@ -125,7 +125,7 @@ it("renders public details with the profile stat strip and recent activity link,
   await screen.findByRole("link", { name: "rider-a" });
   const full = row("rider-a");
   expect(within(full).getByTestId("E5-2-7")).toHaveTextContent("주말엔 남산");
-  expect(within(full).getByTestId("E5-2-8")).toHaveTextContent("사이클 · 1234km");
+  expect(within(full).getByTestId("E5-2-8")).toHaveTextContent("사이클 · 1,234km");
   const stats = within(full).getByTestId("E5-2-9");
   for (const label of ["구독 중 3", "구독자 4", "친구 5", "활동 6"]) expect(within(stats).getByLabelText(label)).toBeInTheDocument();
   expect(within(full).getByRole("link", { name: /아침 라이딩/ })).toHaveAttribute("href", "/ko/activity/act1");
