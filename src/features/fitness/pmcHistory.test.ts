@@ -312,3 +312,10 @@ describe('현대 PMC 입력 증거 검증', () => {
     expect(describePmcHistory(doc.points, [doc])[0]).toMatchObject({ctl: 10, loadStatus: 'unconfirmed', calculationStatus: 'estimated'});
   });
 });
+
+it('keeps missing PMC distinct from confirmed zero loads when aggregating a week', () => {
+  const missing: PmcHistoryPoint = { date: '2026-09-05', dailyLoad: 0, ctl: null, atl: null, tsb: null, loadStatus: 'final', calculationStatus: 'missing' };
+  const saved: PmcHistoryPoint = { ...point('2026-09-06'), loadStatus: 'final', calculationStatus: 'server' };
+  const bucket = buildPmcHistory([missing, saved], 180, saved.date).buckets.at(-1)!;
+  expect(bucket).toMatchObject({ calculationStatus: 'missing', totalLoad: 30, observedDays: 1, loadFinalDays: 2, ctl: 10 });
+});

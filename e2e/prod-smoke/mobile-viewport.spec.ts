@@ -63,4 +63,7 @@ for (const route of ROUTES) {
     expect(response?.status()).toBe(200);
     await expect(page.locator("#root > *").first()).toBeVisible({ timeout: 15000 });
   });
+
+  // Feed cards, verified empty state, boot/API/chunk failures are covered by
+  // scripts/production-monitor.mjs in the same production workflow.
 }

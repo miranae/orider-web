@@ -1,4 +1,8 @@
-import { getAvailableOverlays } from "./activityDetailDerived";
+import { stravaRecordOf } from "@shared/analysis/stravaRecord";
+import type { Activity } from "@shared/types";
+import type { ActivityMetrics } from "@shared/types/activity-metrics";
+import { activitySensorOrigin } from "./activitySensorOrigin";
+import { buildSummaryStats, getAvailableOverlays } from "./activityDetailDerived";
 import type { SampledPoint } from "./activityDetailUtils";
 import { runningCadenceSpm } from "../../../utils/runningCadence";
 import { formatPace, type Units } from "../../../utils/units";
@@ -22,4 +26,39 @@ export function getPerformanceOverlays(
     };
     return cfg;
   });
+}
+
+
+export function canonicalActivityChartMetrics(activity: Activity | null, metrics: Partial<ActivityMetrics> | null | undefined, overridden = false) {
+  const p = activity?.activityPresentationV1;
+  return !overridden && activitySensorOrigin(activity) != null && metrics?.version != null && metrics.version >= 41
+    && p?.metricsVersion === metrics.version && p.computedAt === metrics.computedAt ? metrics : null;
+}
+
+/** A privacy-reduced maximum must not discard an available canonical average. */
+export function withCanonicalChartSummary(observed: ReturnType<typeof buildSummaryStats>, metrics: Partial<ActivityMetrics> | null) {
+  if (!observed || !metrics) return observed;
+  const overlays = { ...observed.overlays };
+  for (const [key, avg, max] of [["speed", metrics.avgSpeedKph, metrics.maxSpeedKph],
+    ["power", metrics.avgPower, metrics.maxPower], ["hr", metrics.avgHr, metrics.maxHr],
+    ["cadence", metrics.avgCadence, metrics.maxCadence]] as const) {
+    const previous = overlays[key];
+    if (!previous) continue;
+    overlays[key] = { avg: typeof avg === "number" && Number.isFinite(avg) ? avg : previous.avg,
+      max: typeof max === "number" && Number.isFinite(max) ? max : previous.max };
+  }
+  return { ...observed, overlays };
+}
+
+/** Full-activity headers share the source summary with the overview. Range selections retain observed statistics. */
+export function withStravaChartSummary(observed: ReturnType<typeof buildSummaryStats>, activity: Activity | null, powerPreview = false) {
+  const r = stravaRecordOf(activity);
+  if (!r || !observed) return observed;
+  const overlays = { ...observed.overlays };
+  for (const [key, avg, max] of [["speed", r.average_speed == null ? null : r.average_speed * 3.6, r.max_speed == null ? null : r.max_speed * 3.6],
+    ["power", r.average_watts, r.max_watts], ["hr", r.average_heartrate, r.max_heartrate], ["cadence", r.average_cadence, r.max_cadence]] as const) {
+    if (key === "power" && powerPreview) continue;
+    if (overlays[key] || avg != null || max != null) overlays[key] = { avg: avg ?? NaN, max: max ?? NaN };
+  }
+  return { ...observed, overlays };
 }

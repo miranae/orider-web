@@ -3,8 +3,8 @@ html, body, #root { margin: 0; min-width: 0; min-height: 100%; }
 * { box-sizing: border-box; }
 body { font-family: var(--font-sans); }
 .controls-catalog { min-height: 100vh; background: var(--bg-0); color: var(--ink-1); line-height: 1.5; }
-.controls-catalog a { color: var(--accent-text, var(--accent-dark)); text-decoration: none; }
-.controls-catalog a:hover { text-decoration: underline; }
+:where(.controls-catalog) a { color: var(--accent-text, var(--accent-dark)); text-decoration: none; }
+:where(.controls-catalog) a:hover { text-decoration: underline; }
 .controls-catalog a:focus-visible, .catalog-chart-interaction:focus-visible, .catalog-table-scroll:focus-visible { outline: var(--space-0-5) solid var(--accent); outline-offset: var(--space-1); border-radius: var(--r-sm); }
 .catalog-skip { position: absolute; left: var(--space-4); top: -5rem; z-index: 5; padding: var(--space-3); background: var(--bg-1); }
 .catalog-skip:focus { top: var(--space-3); }

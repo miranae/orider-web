@@ -1,3 +1,4 @@
+import { appCheckFailureRecovery } from "../../services/appCheckFailureRecovery";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -110,6 +111,40 @@ describe("GroupsPage join results", () => {
     expect(await screen.findByText(expected!)).toBeInTheDocument();
     expect(screen.queryByText("group destination")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "가입" })).toBeEnabled();
+  });
+
+  it.each(["appCheck/initial-throttle", "appCheck/throttled"])("honors provider cooldown without sending or automatically retrying a join (%s)", async code => {
+    vi.mocked(ensureAppCheckReady).mockRejectedValue(Object.assign(new Error("provider private detail"), {
+      code, customData: { time: "00m:01s" },
+    }));
+    renderPage();
+    fireEvent.change(screen.getByPlaceholderText("초대 코드 입력"), { target: { value: "ABCD1234" } });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "가입" })); });
+    expect(screen.getByRole("alert")).toHaveTextContent("가입 신청을 보내지 못했습니다");
+    expect(screen.queryByText("provider private detail")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "가입" })).toBeDisabled();
+    expect(screen.getByPlaceholderText("초대 코드 입력")).toHaveValue("ABCD1234");
+    fireEvent.click(screen.getByRole("button", { name: "가입" }));
+    const callsAfterClick = vi.mocked(ensureAppCheckReady).mock.calls.length;
+    await waitFor(() => expect(screen.getByRole("button", { name: "가입" })).toBeEnabled(), { timeout: 2000 });
+    expect(vi.mocked(ensureAppCheckReady).mock.calls.length).toBe(callsAfterClick);
+    expect(httpsCallable).not.toHaveBeenCalledWith(expect.anything(), "joinGroupByCode");
+  });
+
+  it("explains failed verification without treating it as an invalid invite or sending a join", async () => {
+    vi.mocked(ensureAppCheckReady).mockRejectedValue(new Error("app-check/token-timeout"));
+    renderPage();
+    fireEvent.change(screen.getByPlaceholderText("초대 코드 입력"), { target: { value: "ABCD1234" } });
+    fireEvent.click(screen.getByRole("button", { name: "가입" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("브라우저 보안 확인을 완료하지 못해");
+    expect(httpsCallable).not.toHaveBeenCalledWith(expect.anything(), "joinGroupByCode");
+  });
+
+  it("classifies SDK day durations and rejects unrelated or malformed errors without exposing provider data", () => {
+    expect(appCheckFailureRecovery({ code: "appCheck/initial-throttle", customData: { time: "01d:00m:00s" } })).toEqual({ throttled: true, waitMs: 86400000 });
+    expect(appCheckFailureRecovery({ code: "appCheck/throttled", message: "Attempts allowed again after 20h:58m:47s (appCheck/throttled)." })).toEqual({ throttled: true, waitMs: 75527000 });
+    expect(appCheckFailureRecovery({ code: "appCheck/throttled", customData: { time: "malformed" } })).toEqual({ throttled: true, waitMs: null });
+    expect(appCheckFailureRecovery({ code: "functions/permission-denied" })).toBeNull();
   });
 
   it("shows discovery first with its no-club guidance when no clubs are joined", () => {

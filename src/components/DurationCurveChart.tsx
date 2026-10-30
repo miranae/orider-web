@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Line } from "react-chartjs-2";
-import type { ChartOptions, Plugin } from "chart.js";
+import type { ChartOptions, Plugin, ScriptableContext } from "chart.js";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,6 +12,7 @@ import {
   Filler,
   Tooltip,
 } from "chart.js";
+import { DURATION_CURVE_PRESENTATION as CURVE, durationCurveArea } from "../theme/charts/durationCurvePresentation";
 import { formatNum } from "../utils/units";
 import { useOriderTheme } from "../theme";
 import { resolveCssColor } from "../utils/cssColor";
@@ -76,6 +77,7 @@ export interface DurationCurveChartProps {
   /** 캔버스 그룹의 역할 설명(예: "차트")과 보조 설명 요소 id. */
   roleDescription?: string;
   describedBy?: string;
+  onPointSelect?: (index: number) => void;
 }
 
 /** 사람이 읽기 좋은 눈금 간격(1·2·2.5·5 × 10ⁿ). y 눈금이 실제로 4~5개 나오게 한다. */
@@ -109,7 +111,7 @@ export default function DurationCurveChart({
   points, unit, fractionDigits = 0, color, datasetLabel,
   reference = null, peakLabel, emptyTitle, emptyDescription,
   comparison = null, tooltipFooter, annotations, ariaLabel, heightClassName = "h-[200px]", showLegend = false,
-  xTicks = "auto", xScale = "category", unitAxisTitle = false, referenceSolid = false, roleDescription, describedBy,
+  xTicks = "auto", xScale = "category", unitAxisTitle = false, referenceSolid = false, roleDescription, describedBy, onPointSelect,
 }: DurationCurveChartProps) {
   const { t } = useTranslation("dashboard");
   const { variant } = useOriderTheme();
@@ -139,11 +141,15 @@ export default function DurationCurveChart({
         label: datasetLabel,
         data: xy(points.map((p) => p.value)),
         borderColor: seriesColor,
-        backgroundColor: "transparent",
-        borderWidth: 2,
-        pointRadius: 4,
+        backgroundColor: (context: ScriptableContext<"line">) => durationCurveArea(context, seriesColor),
+        borderWidth: CURVE.lineWidth,
+        borderCapStyle: "round" as const,
+        borderJoinStyle: "round" as const,
+        pointRadius: CURVE.pointRadius,
+        pointHoverRadius: CURVE.hoverRadius,
+        pointBorderWidth: 0,
         pointBackgroundColor: seriesColor,
-        fill: false,
+        fill: "origin" as const,
         // 창 사이 값은 측정하지 않았다 — 곡선 보간은 없는 값을 그린다.
         tension: 0,
         // 양 끝 점(1초·가장 긴 창)이 플롯 테두리에서 반쪽 잘리지 않게 한다(여유는 layout.padding).
@@ -154,9 +160,10 @@ export default function DurationCurveChart({
         data: xy(comparison.values),
         borderColor: comparisonColor,
         backgroundColor: comparisonColor,
-        borderWidth: 1.5,
+        borderWidth: CURVE.referenceWidth,
         borderDash: [5, 4],
-        pointRadius: 2,
+        pointRadius: 0,
+        pointHoverRadius: CURVE.hoverRadius,
         pointBackgroundColor: comparisonColor,
         fill: false,
         tension: 0,
@@ -252,6 +259,7 @@ export default function DurationCurveChart({
   const focusPoint = (index: number | null) => {
     const chart = chartRef.current;
     setActiveIndex(index);
+    if (index != null) onPointSelect?.(index);
     if (!chart) return;
     const active = index == null ? [] : chart.data.datasets
       .map((_, datasetIndex) => ({ datasetIndex, index }))
@@ -283,6 +291,8 @@ export default function DurationCurveChart({
     return {
       responsive: true,
       maintainAspectRatio: false,
+      // Selection and reference changes must keep the measured curve visible immediately.
+      animation: false,
       // 끝 점과 강조 링(반경 7px)이 들어갈 여유.
       layout: { padding: log ? { left: 10, right: 12, top: 10 } : 0 },
       interaction: { mode: "index", intersect: false },
@@ -315,13 +325,14 @@ export default function DurationCurveChart({
             color: textColor, font: { size: 12 }, autoSkip: false, maxRotation: 0,
             callback(this: { chart: { chartArea?: { width: number }; width: number } }, _value: string | number, index: number) {
               // 폭 구간마다 같은 라벨 세트를 쓴다 — 구간 하한 폭으로 계산해 폭이 조금 변해도 라벨이 깜빡이지 않는다.
-              const width = this.chart.chartArea?.width ?? this.chart.width;
+              const width = Math.min(this.chart.chartArea?.width ?? this.chart.width, Math.max(0, this.chart.width - 64));
               const bucket = [720, 480, 320, 0].find((lower) => width >= lower) ?? 0;
               const shown = visibleLogLabels(points.map((p) => p.durationSeconds), Math.max(bucket, 240));
               return shown.has(index) && points[index] ? formatDuration(points[index]!.durationSeconds) : "";
             },
           },
-          grid: { color: gridColor },
+          grid: { color: gridColor, drawOnChartArea: false, drawTicks: false },
+          border: { display: false },
         } : {
           display: true,
           ticks: xTicks === "all" ? {
@@ -334,7 +345,8 @@ export default function DurationCurveChart({
               return show ? this.getLabelForValue(Number(value)) : "";
             },
           } : { color: textColor, font: { size: 12 }, autoSkip: true, maxTicksLimit: 6 },
-          grid: { color: gridColor },
+          grid: { color: gridColor, drawOnChartArea: false, drawTicks: false },
+          border: { display: false },
         },
         y: {
           display: true,
@@ -342,7 +354,8 @@ export default function DurationCurveChart({
           title: unitAxisTitle ? { display: true, text: unit, color: textColor, font: { size: 12 } } : { display: false },
           ...(yStep ? { max: yStep * Math.ceil(yMax / yStep) } : {}),
           ticks: { color: textColor, font: { size: 12 }, maxTicksLimit: 6, ...(yStep ? { stepSize: yStep } : {}), callback: (v) => unitAxisTitle ? `${v}` : `${v}${unit}` },
-          grid: { color: gridColor },
+          grid: { color: gridColor, drawTicks: false },
+          border: { display: false },
         },
       },
     };
@@ -381,6 +394,10 @@ export default function DurationCurveChart({
         <Line ref={chartRef} data={data} options={options} plugins={[annotationPlugin]}
           role="group" aria-roledescription={roleDescription} aria-describedby={describedBy}
           aria-label={ariaLabel ?? datasetLabel} tabIndex={0}
+          onClick={event => {
+            const hit = chartRef.current?.getElementsAtEventForMode(event.nativeEvent, "index", { intersect: false }, false)[0];
+            if (hit) focusPoint(hit.index);
+          }}
           onKeyDown={onKeyDown} onBlur={() => focusPoint(null)} className="rounded-[var(--r-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)]" />
       </div>
       <div className="sr-only" aria-live="polite">{liveText}</div>

@@ -80,8 +80,10 @@ export interface SegmentEffortData {
 }
 
 export interface SampledPoint {
-  /** 표시 표본이 가리키는 원시 route 인덱스. 거리·시간으로 역산하지 않는다. */
+  /** 표시 표본의 축 인덱스. 독립 imported 센서는 센서 축을 사용한다. */
   sourceIndex?: number;
+  /** 독립 센서 축의 정확한 GPS 대응. null이면 해당 시각에 GPS 관측이 없다. */
+  routeSourceIndex?: number | null;
   latlng: [number, number] | null;
   distance: number;
   altitude: number;

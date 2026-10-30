@@ -1,7 +1,7 @@
 /**
  * 활동 1개의 트레이닝 부하(TSS 척도) 추정 — 정본(canonical, pure).
  *
- * 클라(web/src/utils/fitnessMetrics.ts)와 서버(functions/src/training/activity-load.ts)가
+ * 클라(orider-web src/utils/fitnessMetrics.ts)와 서버(functions/src/training/activity-load.ts)가
  * **동일한 폴백 체인·상수**를 쓰도록 하는 단일 진실원. 과거 두 구현의 시간 factor 가
  * 65/80/50(클라) vs 42/60/40(서버)로 갈라져 같은 활동의 부하가 화면과 저장 PMC 에서
  * 달랐다(2026-06 감사). 본 모듈로 수렴.
@@ -31,6 +31,22 @@ export const TIME_FACTORS: Record<LoadDiscipline, number> = { bike: 42, run: 60,
  * 클라도 가능하면 getDiscipline 으로 종목을 넘겨 이 기본값 의존을 피할 것.
  */
 export const DEFAULT_TIME_FACTOR = 50;
+
+/** Recover a legacy riding-millis zero from moving seconds without reclassifying
+ * seconds-only summaries whose final metrics supply the presentation evidence. */
+export function activityDurationMillis(summary: Record<string, unknown>): number {
+  for (const value of [summary.ridingTimeMillis, summary.movingTimeMillis]) {
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) return value;
+  }
+  const seconds = summary.movingTimeSec;
+  if (summary.ridingTimeMillis === 0) {
+    return typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0
+      && Number.isFinite(seconds * 1000) ? seconds * 1000 : 0;
+  }
+  if (summary.movingTimeMillis === 0) return 0;
+  const elapsed = summary.elapsedTimeMillis;
+  return typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed > 0 ? elapsed : 0;
+}
 
 /** #1391: 0km 대 테스트·쓰레기 기록 판정 상수 — 부하/집계 산입 차단 기준. */
 export const NEGLIGIBLE_DISTANCE_M = 500;

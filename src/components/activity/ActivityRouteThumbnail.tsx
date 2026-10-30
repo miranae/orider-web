@@ -1,3 +1,5 @@
+import { Text } from "../../theme/components";
+import { usePublicActivityMaps } from "../../hooks/usePublicActivityMaps";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
@@ -72,11 +74,12 @@ function releaseCaptureSlot(token: symbol) {
 }
 
 interface ActivityRouteThumbnailProps {
+  allowCapture?: boolean;
   activityId: string;
   userId: string;
   polyline: string;
   mapImageUrl?: string | null;
-  visibility: "everyone" | "friends" | "private";
+  visibility: "everyone" | "friends" | "followers" | "private";
   contentRevision?: number | null;
   contentSelectedRevision?: number | null;
   priority?: boolean;
@@ -85,14 +88,80 @@ interface ActivityRouteThumbnailProps {
   mobileFullBleed?: boolean;
   /** Square display uses a live fitted route and never publishes a different canonical thumbnail. */
   shape?: "wide" | "square";
+  /** false 면 화면 밖이다. 데이터는 유지하고 Mapbox 지도만 내린다(WebGL 컨텍스트 반환). */
+  onScreen?: boolean;
+}
+
+const ROUTE_SNAPSHOT_LIMIT = 50;
+let routeSnapshotOwner: string | null = null;
+const routeSnapshots = new Map<string, string>();
+
+/**
+ * 실시간 지도를 한 번 그린 결과를 세션 메모리(blob URL)에 둔다. 키는 검증된 공개 경로·revision 이라
+ * 공개 상태가 바뀌면 다른 키가 되어 다시 그린다. 계정이 바뀌면 전부 버린다.
+ */
+function readRouteSnapshot(owner: string, key: string): string | null {
+  if (routeSnapshotOwner !== owner) return null;
+  const url = routeSnapshots.get(key);
+  if (!url) return null;
+  routeSnapshots.delete(key); routeSnapshots.set(key, url);
+  return url;
+}
+
+function storeRouteSnapshot(owner: string, activityId: string, key: string, url: string) {
+  if (routeSnapshotOwner !== owner) {
+    routeSnapshots.forEach(stale => URL.revokeObjectURL(stale));
+    routeSnapshots.clear();
+    routeSnapshotOwner = owner;
+  }
+  for (const [existingKey, existingUrl] of routeSnapshots) {
+    if (existingKey.startsWith(`${activityId}:`) && existingKey !== key) { URL.revokeObjectURL(existingUrl); routeSnapshots.delete(existingKey); }
+  }
+  routeSnapshots.set(key, url);
+  while (routeSnapshots.size > ROUTE_SNAPSHOT_LIMIT) {
+    const [oldestKey, oldestUrl] = routeSnapshots.entries().next().value as [string, string];
+    URL.revokeObjectURL(oldestUrl); routeSnapshots.delete(oldestKey);
+  }
 }
 
 /**
  * 현재 경로와 렌더 버전으로 만든 canonical 캡처만 이미지로 재사용한다. 그 외에는
- * 로그인 여부와 무관하게 같은 RouteMap을 표시한다. 레거시는 기존 viewer 정책을 유지하고,
- * revision-managed 활동은 owner만 고정 해상도 WebP를 저장한다.
+ * 로그인 여부와 무관하게 같은 RouteMap을 표시한다. 활동을 볼 수 있는 첫 viewer가
+ * 고정 해상도 WebP를 저장하고, 잘못된 이미지는 주인이 지운다.
  */
-export default function ActivityRouteThumbnail({
+export default function ActivityRouteThumbnail(props: ActivityRouteThumbnailProps) {
+  const { t } = useTranslation("activity");
+  const host = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    if (!host.current) return;
+    if (typeof IntersectionObserver === "undefined") { setVisible(true); setSeen(true); return; }
+    const observer = new IntersectionObserver(([entry]) => {
+      const intersecting = !!entry?.isIntersecting;
+      setVisible(intersecting);
+      if (intersecting) setSeen(true);
+    }, { rootMargin: "0px" });
+    observer.observe(host.current); return () => observer.disconnect();
+  }, []);
+  // 한 번 화면에 들어온 카드는 피드에 있는 동안 데이터·신호 구독을 유지한다. 다시 들어올 때 재조회하지 않는다.
+  const { maps, failed } = usePublicActivityMaps([props.activityId], seen);
+  const map = maps[props.activityId];
+  const resolvedWithoutRoute = failed || Object.prototype.hasOwnProperty.call(maps, props.activityId);
+  return <div ref={host}>
+    {map?.mapPreview.encodedPolyline ? <CanonicalActivityRouteThumbnail {...props} onScreen={visible}
+      key={map.revision} polyline={map.mapPreview.encodedPolyline} mapImageUrl={map.mapPreview.imageUrl}
+      contentRevision={map.contentRevision} contentSelectedRevision={map.contentSelectedRevision}
+      allowCapture={map.privacyEnabled === false && map.contentRevision !== undefined && map.contentSelectedRevision !== undefined} />
+      : resolvedWithoutRoute ? <Text as="div" variant="bodySmall" tone="secondary" role="status" style={{ padding: "var(--dim-item-gap)" }}>
+        {t(failed ? "mapPrivacy.liveFailed" : "mapPrivacy.liveUnavailable")}
+      </Text>
+      : <div className={props.shape === "square" ? "aspect-square" : "aspect-[var(--feed-thumb-aspect)]"} aria-hidden="true"><MapThumbnailSkeleton /></div>}
+  </div>;
+}
+
+export function CanonicalActivityRouteThumbnail({
+  allowCapture = true,
   activityId,
   userId,
   polyline,
@@ -104,6 +173,7 @@ export default function ActivityRouteThumbnail({
   layout = "desktop",
   mobileFullBleed = true,
   shape = "wide",
+  onScreen = true,
 }: ActivityRouteThumbnailProps) {
   const { t } = useTranslation("activity");
   const { user } = useAuth();
@@ -130,6 +200,25 @@ export default function ActivityRouteThumbnail({
     : revisionState.kind;
 
   const keyIdentity = `${activityId}:${polyline}:${revisionIdentity}`;
+  const snapshotOwner = user?.uid ?? "anonymous";
+  const liveHost = useRef<HTMLDivElement>(null);
+  const [snapshotUrl, setSnapshotUrl] = useState<string | null>(() => readRouteSnapshot(snapshotOwner, keyIdentity));
+  useEffect(() => { setSnapshotUrl(readRouteSnapshot(snapshotOwner, keyIdentity)); }, [snapshotOwner, keyIdentity]);
+  const handleLiveMapLoad = useCallback(() => {
+    const canvas = liveHost.current?.querySelector("canvas");
+    if (!canvas) return;
+    try {
+      canvas.toBlob(blob => {
+        if (!blob || !mounted.current) return;
+        const url = URL.createObjectURL(blob);
+        storeRouteSnapshot(snapshotOwner, activityId, keyIdentity, url);
+        // 스냅샷으로 바꿔 Mapbox 지도(WebGL)를 바로 내린다.
+        setSnapshotUrl(url);
+      }, "image/webp", 0.85);
+    } catch (error) {
+      logClientError("ActivityRouteThumbnail.routeSnapshot", error, { activityId });
+    }
+  }, [activityId, keyIdentity, snapshotOwner]);
   const canonicalKey = derivedKey?.activityId === activityId
     && derivedKey.sourcePolyline === polyline
     && derivedKey.revisionIdentity === revisionIdentity
@@ -183,12 +272,10 @@ export default function ActivityRouteThumbnail({
     captured.current = false;
   }, [canonicalFileName, canonicalVersion, revisionIdentity, user?.uid]);
 
-  // Revision-managed 썸네일은 owner만 발행한다. 레거시는 기존 공개/인증 viewer 동작을 유지하고,
+  // 활동을 볼 수 있는 누구나 첫 썸네일을 발행한다(잘못된 이미지는 주인이 지운다).
   // 실제 접근 권한은 prepare/finalize callable이 최신 서버 상태로 최종 강제한다.
-  const mayCapture = revisionState.kind === "managed"
-    ? user?.uid === userId
-    : revisionState.kind === "legacy" && (visibility === "everyone" || !!user);
-  const needsCapture = shape !== "square" && mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
+  const mayCapture = revisionState.kind !== "invalid" && (visibility === "everyone" || !!user);
+  const needsCapture = allowCapture && shape !== "square" && mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -305,19 +392,25 @@ export default function ActivityRouteThumbnail({
 
   let content;
   const placeholder = <MapThumbnailSkeleton />;
-  const liveRoute = visible && resolvedKeyIdentity === keyIdentity ? (
-    <Suspense fallback={placeholder}>
-      <RouteMap
-        key={`${canonicalFileName}:${canonicalVersion}:live`}
-        polyline={polyline}
-        height="w-full h-full"
-        fitPadding={16}
-        interactive={false}
-        rounded={false}
-        loadingPlaceholder={placeholder}
-        fallbackImageUrl={mapImageUrl === failedImageUrl ? null : mapImageUrl}
-      />
-    </Suspense>
+  const liveRoute = snapshotUrl ? (
+    <img src={snapshotUrl} alt={isMobile ? "" : t("card.routeMapAlt")} className="w-full h-full object-cover" />
+  ) : visible && onScreen && resolvedKeyIdentity === keyIdentity ? (
+    <div ref={liveHost} className="w-full h-full">
+      <Suspense fallback={placeholder}>
+        <RouteMap
+          key={`${canonicalFileName}:${canonicalVersion}:live`}
+          polyline={polyline}
+          height="w-full h-full"
+          fitPadding={16}
+          interactive={false}
+          rounded={false}
+          preserveDrawingBuffer
+          onLoad={handleLiveMapLoad}
+          loadingPlaceholder={placeholder}
+          fallbackImageUrl={mapImageUrl === failedImageUrl ? null : mapImageUrl}
+        />
+      </Suspense>
+    </div>
   ) : placeholder;
   if (shape === "square") {
     content = liveRoute;

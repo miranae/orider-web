@@ -195,13 +195,9 @@ export async function loadSegmentDetail(
     throw error;
   });
   await segmentReadiness;
-  const { doc, getDocFromServer } = await import("firebase/firestore");
-  const document = await getDocFromServer(
-    doc(services.firestore, "segments", choice.id),
-  );
-  return document.exists()
-    ? enrichSegmentChoice(choice, document.data())
-    : null;
+  const { loadSegmentMetadata } = await import("../../services/segmentMetadata");
+  const [data] = await loadSegmentMetadata([choice.id]);
+  return data ? enrichSegmentChoice(choice, data) : null;
 }
 export async function loadSegmentCatalog(): Promise<SegmentChoice[]> {
   const url = new URL(segmentTileUrl("overview.json"), window.location.origin);

@@ -1,3 +1,5 @@
+import { currentCanonicalContractFixture } from "./activityRouteEvidence.fixture";
+import { resetRuntimeConfigForTests } from "./runtimeConfig";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { ActivityMatchedRouteGroupRequest, ActivityMatchedRouteGroupResponse } from "@shared/activity-matched-route-groups";
@@ -7,7 +9,7 @@ vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn(() => mocks.call) })
 vi.mock("./activityRouteEvidence", async importOriginal => ({ ...(await importOriginal<typeof import("./activityRouteEvidence")>()), observedRouteAvailable: () => mocks.available }));
 // Actual compiled reader output from synthetic SDK only; no owner/runtime evidence.
 // source artifact SHA256: b51e5310242da9faa48f9e04846f91984945bdda3608529d830ee9b9f8cf59ff
-const compiled = [
+const archivedCompiled = [
   {
     "count": 3,
     "archive": false,
@@ -56,7 +58,7 @@ const compiled = [
             "state": "available",
             "reason": null,
             "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-            "version": 35,
+            "version": 41,
             "discipline": "bike",
             "startTime": 1791504000000,
             "computedAt": 1791763199000,
@@ -76,7 +78,7 @@ const compiled = [
             "state": "available",
             "reason": null,
             "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-            "version": 35,
+            "version": 41,
             "discipline": "bike",
             "startTime": 1791590400000,
             "computedAt": 1791763199000,
@@ -96,7 +98,7 @@ const compiled = [
             "state": "available",
             "reason": null,
             "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-            "version": 35,
+            "version": 41,
             "discipline": "bike",
             "startTime": 1791676800000,
             "computedAt": 1791763199000,
@@ -205,7 +207,7 @@ const compiled = [
             "state": "available",
             "reason": null,
             "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-            "version": 35,
+            "version": 41,
             "discipline": "bike",
             "startTime": 1789862400000,
             "computedAt": 1791763199000,
@@ -225,7 +227,7 @@ const compiled = [
             "state": "available",
             "reason": null,
             "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-            "version": 35,
+            "version": 41,
             "discipline": "bike",
             "startTime": 1789948800000,
             "computedAt": 1791763199000,
@@ -245,7 +247,7 @@ const compiled = [
             "state": "available",
             "reason": null,
             "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-            "version": 35,
+            "version": 41,
             "discipline": "bike",
             "startTime": 1790035200000,
             "computedAt": 1791763199000,
@@ -265,7 +267,7 @@ const compiled = [
             "state": "available",
             "reason": null,
             "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-            "version": 35,
+            "version": 41,
             "discipline": "bike",
             "startTime": 1790121600000,
             "computedAt": 1791763199000,
@@ -285,7 +287,7 @@ const compiled = [
             "state": "available",
             "reason": null,
             "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-            "version": 35,
+            "version": 41,
             "discipline": "bike",
             "startTime": 1790208000000,
             "computedAt": 1791763199000,
@@ -389,7 +391,7 @@ const compiled = [
             "state": "available",
             "reason": null,
             "metricsRevision": "c37d55bce8d5f8938077a753d11eda0848b8af33a1f520780e816deddf3e2bcc",
-            "version": 35,
+            "version": 41,
             "discipline": "bike",
             "startTime": 1790294400000,
             "computedAt": 1791763199000,
@@ -450,12 +452,13 @@ const compiled = [
     }
   }
 ] as unknown as Array<{ count: number; archive: boolean; first: ActivityMatchedRouteGroupResponse; next: ActivityMatchedRouteGroupResponse | null }>;
+const compiled = currentCanonicalContractFixture(archivedCompiled);
 const request: ActivityMatchedRouteGroupRequest = { mode: "matched_route_group_page", anchorActivityId: "anchor", discipline: "bike" };
 const clock = compiled[0]!.first.readTime.seconds * 1000 + 1000;
 const clone = <T,>(value: T): T => structuredClone(value);
 beforeEach(() => { mocks.available = true; mocks.call.mockReset(); });
-describe("compiled matched route wire", () => {
-  it.each(compiled)("accepts compiled $count cohort / archive $archive without rewriting values", fixture => {
+describe("current-version synthetic matched route contract derived from archived wire", () => {
+  it.each(compiled)("accepts synthetic current-version $count cohort / archive $archive without rewriting values", fixture => {
     const response = validateActivityMatchedRouteGroupResponse(fixture.first, request, clock);
     expect(response).toBe(fixture.first); validateMatchedRouteGroupAppend([], response);
     if (fixture.next) {
@@ -517,7 +520,7 @@ describe("compiled matched route wire", () => {
   });
 });
 describe("authenticated single manual callable", () => {
-  function services() { const app = {}; return { auth: { app, currentUser: { uid: "owner", isAnonymous: false } }, functions: { app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices; }
+  function services() { const app = { options: { projectId: "miranae-orider-g1" } }; return { auth: { app, currentUser: { uid: "owner", isAnonymous: false } }, functions: { region: "asia-northeast3", app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices; }
   it("uses only explicit mode and returned opaque cursor, without stream or raw reads", async () => {
     vi.spyOn(Date, "now").mockReturnValue(clock); const sdk = services(); mocks.call.mockResolvedValue({ data: compiled[0]!.first });
     await loadActivityMatchedRouteGroups(sdk, "owner", request); expect(mocks.call).toHaveBeenCalledExactlyOnceWith(request); expect(sdk.ensureAppCheckReady).toHaveBeenCalledOnce(); vi.restoreAllMocks();
@@ -527,4 +530,36 @@ describe("authenticated single manual callable", () => {
     (sdk.ensureAppCheckReady as ReturnType<typeof vi.fn>).mockImplementation(async () => { Object.assign(sdk.auth.currentUser!, { uid: "other" }); });
     await expect(loadActivityMatchedRouteGroups(sdk, "owner", request)).rejects.toThrow("account_changed"); expect(mocks.call).not.toHaveBeenCalled();
   });
+});
+
+it('binds observed-native policy to coverage and rejects rankings or default-policy substitution', () => {
+  const wire = clone(compiled[0]!.first);
+  wire.scope.groupPolicy = 'observed-native-complete-link-v1';
+  wire.coverage.geometry = 'observed_gap_free_coverage_unproven';
+  for (const row of wire.members) { row.rankingEligible = false; row.rankingExclusionReason = 'observed_geometry_only'; }
+  for (const stats of [wire.summary!, ...wire.summary!.years]) {
+    stats.rankEligibleCount = 0; stats.fastestActivityIds = [];
+    stats.trend = { state: 'insufficient', basis: 'canonical_avg_speed_kph', count: 0, reason: 'insufficient_distinct_dates' };
+  }
+  const observed = { ...request, geometryPolicy: 'observed_native' as const };
+  expect(validateActivityMatchedRouteGroupResponse(wire, observed, clock)).toBe(wire);
+  expect(() => validateActivityMatchedRouteGroupResponse(wire, request, clock)).toThrow();
+  wire.members[0]!.rankingEligible = true;
+  expect(() => validateActivityMatchedRouteGroupResponse(wire, observed, clock)).toThrow();
+});
+
+ it.each(["appcheck", "response"])("rejects same-UID SDK replacement at %s", async phase => {
+  const app = { options: { projectId: "miranae-orider-g1" } }, auth = { app, currentUser: { uid: "owner", isAnonymous: false } };
+  const ensure = vi.fn().mockResolvedValue(undefined);
+  const sdk = { auth, functions: { region: "asia-northeast3", app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" }, ensureAppCheckReady: ensure } as unknown as FirebaseServices;
+  if (phase === "appcheck") ensure.mockImplementation(async () => { auth.currentUser = { ...auth.currentUser }; });
+  else mocks.call.mockImplementation(async () => { auth.currentUser = { ...auth.currentUser }; return { data: {} }; });
+  await expect(loadActivityMatchedRouteGroups(sdk, "owner", request)).rejects.toThrow("account_changed");
+  expect(mocks.call).toHaveBeenCalledTimes(phase === "appcheck" ? 0 : 1);
+ });
+
+beforeEach(() => resetRuntimeConfigForTests({ appEnvironment: "stage", firebaseProjectId: "miranae-orider-g1", firebaseFunctionsRegion: "asia-northeast3", firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net" }));
+
+it("rejects obsolete available canonical members without rewriting the archived group wire", () => {
+ expect(() => validateActivityMatchedRouteGroupResponse(archivedCompiled[0]!.first, request, clock)).toThrow("invalid_matched_route_group_response");
 });

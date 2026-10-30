@@ -1,13 +1,15 @@
+import { uploadNativeActivityPhoto, type NativePhotoReference } from "../../services/nativeActivityPhoto";
+import { NativeActivityPhotoImage } from "../activity/NativeActivityPhotoImage";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import "./RideStoryPhotoPicker.css";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { collection, doc, getDocs, limit as firestoreLimit, orderBy, query, setDoc, where } from "firebase/firestore";
+import { collection, getDocs, limit as firestoreLimit, orderBy, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { CloudUpload, Loader2, MapPinned, Send } from "lucide-react";
 import { matchesDiscipline } from "@shared/sport/discipline";
 import { useToast } from "../../contexts/ToastContext";
-import { firestore, functions, storage } from "../../services/firebase";
+import { firestore, functions } from "../../services/firebase";
 import { resizeImageToWebp } from "../../features/activity/detail/imageResize";
 import { Button, Chip } from "../../theme/components";
 import Modal from "../Modal";
@@ -18,6 +20,7 @@ import { ICON_SIZE } from "../../theme/tokens/icon";
 interface RideStoryPhotoOption {
   id: string;
   url: string;
+  nativePhoto: NativePhotoReference;
 }
 
 interface RideStoryActivityOption {
@@ -139,8 +142,7 @@ async function loadOptions(userId: string, language: string, sportLabel: (type: 
     )).catch(() => null);
     const photos = photoSnap?.docs
       .map((photoDoc) => {
-        const url = safeString((photoDoc.data() as Record<string, unknown>).url);
-        return url ? { id: photoDoc.id, url } : null;
+        return { id: photoDoc.id, url: "", nativePhoto: { activityId: activityDoc.id, photoId: photoDoc.id } };
       })
       .filter((photo): photo is RideStoryPhotoOption => Boolean(photo)) ?? [];
     const date = activityDateLabel(safeNumber(data.startTime), language);
@@ -171,6 +173,7 @@ async function loadOptions(userId: string, language: string, sportLabel: (type: 
 export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, onPreview }: RideStoryPhotoPickerProps) {
   const { t, i18n } = useTranslation("common");
   const { showToast } = useToast();
+  const photoServices = useFirebaseServices();
   const copy = copyFor(i18n.language);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
@@ -222,18 +225,8 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
         return;
       }
       const photoId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const storagePath = `activity_photos/${userId}/${activity.id}/${photoId}.webp`;
-      const storageRef = ref(storage, storagePath);
-      await uploadBytes(storageRef, blob, { contentType: "image/webp" });
-      const url = await getDownloadURL(storageRef);
-      await setDoc(doc(firestore, "activity_photos", activity.id, "photos", photoId), {
-        storagePath,
-        url,
-        userId,
-        createdAt: Date.now(),
-        deletedAt: null,
-      });
-      const nextPhoto = { id: photoId, url };
+      await uploadNativeActivityPhoto(photoServices, { activityId: activity.id, photoId }, blob);
+      const nextPhoto = { id: photoId, url: "", nativePhoto: { activityId: activity.id, photoId } };
       setOptions((prev) => prev.map((item) => (
         item.id === activity.id ? { ...item, photos: [...item.photos, nextPhoto] } : item
       )));
@@ -409,7 +402,7 @@ function RideStoryActivityRow({
                   className="aspect-square overflow-hidden rounded-[var(--r-md)] border-2"
                   style={{ borderColor: selected ? "var(--lime)" : "var(--line-soft)", background: "var(--bg-1)" }}
                 >
-                  <img src={photo.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  <NativeActivityPhotoImage nativePhoto={photo.nativePhoto} alt="" className="h-full w-full object-cover" loading="lazy" />
                 </button>
               );
             })}

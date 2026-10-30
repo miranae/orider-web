@@ -1,3 +1,6 @@
+import { savedActivitySummary } from "../services/savedActivityMetrics";
+import { withImportedObservationTime } from "../features/activity/detail/importedActivityObservations";
+import { canonicalActivityChartMetrics } from "../features/activity/detail/activityPerformancePresentation";
 import { withActivityPresentation } from "@shared/analysis/activityPresentation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentProps, Dispatch, SetStateAction } from "react";
@@ -55,6 +58,7 @@ export interface ActivityAnalysisModel {
   serverMetrics: ReturnType<typeof useActivityMetrics>;
   overview: ReturnType<typeof useActivityOverview>;
   isActivityOwner: boolean;
+  authorizedActivityAccess?: boolean;
   sport: ReturnType<typeof getSportCategory>;
   streamSensorSummary: ReturnType<typeof deriveStreamSensorSummary>;
   displayedSummary: Activity["summary"] | null;
@@ -74,8 +78,17 @@ export interface ActivityAnalysisModel {
 }
 
 /** Analysis-only activity data model shared by the full page and embed surfaces. */
+export interface PublicActivityModelInput {
+  activity: Activity | null;
+  metrics: ReturnType<typeof useActivityMetrics>;
+  accessRevision?: string;
+  onAccessRevoked?: () => void;
+}
+
 export function useActivityAnalysisModel(
   activityId: string | undefined,
+  publicInput?: PublicActivityModelInput,
+  savedAnalysis?: import("../services/activityReanalysis").SavedActivityAnalysis,
 ): ActivityAnalysisModel {
   const firebaseServices = useFirebaseServices();
   const { firestore } = firebaseServices;
@@ -83,7 +96,10 @@ export function useActivityAnalysisModel(
   const { user } = useAuth();
   const userId = user?.uid;
   const { getStreams } = useStrava();
-  const [activity, setActivity] = useState<Activity | null>(null);
+  const publicMode = publicInput !== undefined;
+  const [ownedActivity, setOwnedActivity] = useState<Activity | null>(null);
+  const activity = publicMode ? publicInput.activity : ownedActivity;
+  const setActivity = useCallback<Dispatch<SetStateAction<Activity | null>>>(value => { if (!publicMode) setOwnedActivity(value); }, [publicMode]);
   const [loadingActivity, setLoadingActivity] = useState(true);
   const [activityLoadError, setActivityLoadError] = useState<unknown>(null);
   const [activityReloadKey, setActivityReloadKey] = useState(0);
@@ -91,7 +107,7 @@ export function useActivityAnalysisModel(
   const [wattsOverride, setWattsOverride] = useState<ActivityPowerOverride | null>(null);
 
   useEffect(() => {
-    if (!activityId) return;
+    if (!activityId || publicMode) return;
 
     setActivity(null);
     setLoadingActivity(true);
@@ -149,25 +165,28 @@ export function useActivityAnalysisModel(
       cancelled = true;
       if (processingTimer !== undefined) window.clearTimeout(processingTimer);
     };
-  }, [activityId, activityReloadKey, firestore, userId]);
+  }, [activityId, activityReloadKey, firestore, userId, publicMode, setActivity]);
 
   const retryActivity = useCallback(() => {
     setActivityReloadKey((key) => key + 1);
   }, []);
 
-  const isActivityOwner = !!activity
+  const isActivityOwner = !publicMode && !!activity
     && activity.id === activityId
     && !!user
     && activity.userId === user.uid;
-  const serverMetrics = useActivityMetrics(activity?.id === activityId ? activityId ?? null : null, isActivityOwner);
+  const ownedMetrics = useActivityMetrics(!publicMode && activity?.id === activityId ? activityId ?? null : null, isActivityOwner);
+  const canReadSavedAnalysis = !!activity && activity.id === activityId;
+  const serverMetrics = savedAnalysis && canReadSavedAnalysis ? { status: "stale" as const, metrics: savedAnalysis.metrics } : publicMode ? publicInput.metrics : ownedMetrics;
+  const showingSavedAnalysis = !!savedAnalysis && canReadSavedAnalysis;
   // 확정 소유자 요약이 오기 전에는 스트림을 요청하지 않는다. 과거 문서만 기존 경로로 폴백한다.
-  const serverAnalysisSummary = isActivityOwner
+  const serverAnalysisSummary = (isActivityOwner || publicMode)
     && serverMetrics.metrics?.inputPending !== true
     && serverMetrics.metrics?.inputCoverage !== "pending"
     && serverMetrics.metrics?.analysisSummary?.schemaVersion === 1
     ? serverMetrics.metrics.analysisSummary : null;
   const {
-    streams,
+    streams: ownedStreams,
     retryStreams,
     requestStreams,
     showStreamSpinner,
@@ -177,10 +196,13 @@ export function useActivityAnalysisModel(
   } = useActivityStreamsLoader({
     activityId,
     activity,
+    publicAccess: publicMode,
+    accessRevision: publicInput?.accessRevision,
+    onAccessRevoked: publicInput?.onAccessRevoked,
     userId: user?.uid,
     getStreams,
     t,
-    enabled: !!activity && (!isActivityOwner || (
+    enabled: !showingSavedAnalysis && !!activity && ((!isActivityOwner && !publicMode) || (
       serverMetrics.status !== "loading" && serverMetrics.status !== "disabled"
       && serverMetrics.metrics?.inputPending !== true
       && serverMetrics.metrics?.inputCoverage !== "pending"
@@ -188,11 +210,13 @@ export function useActivityAnalysisModel(
     )),
   });
 
+  const streams = showingSavedAnalysis ? null : ownedStreams;
+
   const overviewActivity = activity as (Activity & Record<string, unknown>) | null;
   const overviewMetrics = serverMetrics.metrics as (NonNullable<typeof serverMetrics.metrics> & Record<string, unknown>) | null;
   // 메트릭 생성 시각이 그대로여도 개인정보·출처·선택 revision 변경은 캐시를 무효화한다.
   // 활동 문서와 첫 메트릭 판정이 도착한 뒤 요청해 초기 revision 변경에 따른 중복 호출을 막는다.
-  const overview = useActivityOverview(activityId, !!activity && activity.id === activityId && serverMetrics.status !== "loading", JSON.stringify([
+  const overview = useActivityOverview(activityId, !showingSavedAnalysis && !!activity && activity.id === activityId && serverMetrics.status !== "loading", JSON.stringify([
     serverMetrics.status, overviewMetrics?.version, overviewMetrics?.computedAt,
     overviewMetrics?.metricsRevision, overviewMetrics?.inputDigest, overviewMetrics?.etag,
     overviewMetrics?.inputPending, overviewMetrics?.sourceLayer, overviewMetrics?.isVirtualPower,
@@ -227,23 +251,24 @@ export function useActivityAnalysisModel(
     activityBike?.virtualPower.enabled ? activityBike.virtualPower : null,
   );
   const effectiveStreams = useMemo(() => {
-    if (!streams || !activePowerOverride) return streams;
-    return { ...streams, watts: activePowerOverride.values };
-  }, [activePowerOverride, streams]);
+    const exact = withImportedObservationTime(streams, activity?.startTime, activity?.summary?.elapsedTimeMillis == null ? undefined : activity.summary.elapsedTimeMillis / 1000);
+    if (!exact || !activePowerOverride) return exact;
+    return { ...exact, watts: activePowerOverride.values };
+  }, [activePowerOverride, streams, activity?.startTime, activity?.summary?.elapsedTimeMillis]);
   const powerOverrideProvenance = useMemo(() => activePowerOverride
     ? { source: activePowerOverride.source, time: activePowerOverride.time }
     : undefined, [activePowerOverride]);
   const selectionSummary = useMemo(
-    () => withSynthesizedElapsedTime(activity?.summary, activity?.startTime, activity?.endTime),
-    [activity?.endTime, activity?.startTime, activity?.summary],
+    () => showingSavedAnalysis ? undefined : withSynthesizedElapsedTime(activity?.summary, activity?.startTime, activity?.endTime),
+    [activity?.endTime, activity?.startTime, activity?.summary, showingSavedAnalysis],
   );
   const sensorSelectionContext = useMemo(
     () => buildActivitySensorSelectionContext(
       selectionSummary,
-      activity?.startTime,
+      showingSavedAnalysis ? undefined : activity?.startTime,
       powerOverrideProvenance,
     ),
-    [activity?.startTime, powerOverrideProvenance, selectionSummary],
+    [activity?.startTime, powerOverrideProvenance, selectionSummary, showingSavedAnalysis],
   );
   const streamSensorSummary = useMemo(
     () => serverAnalysisSummary && !activePowerOverride
@@ -283,7 +308,10 @@ export function useActivityAnalysisModel(
     || (effectiveStreams.distance?.length ?? 0) > 0
     || (effectiveStreams.laps?.length ?? 0) > 0
   );
+  const canonicalSummary = canonicalActivityChartMetrics(activity, serverMetrics.metrics, !!activePowerOverride) != null;
   const displayedSummary = useMemo(() => {
+    if (showingSavedAnalysis && serverMetrics.metrics) return savedActivitySummary(serverMetrics.metrics);
+    if (canonicalSummary) return activity?.summary ?? null;
     const summary = activity?.summary;
     if (summary && serverAnalysisSummary && !activePowerOverride) {
       return { ...summary, ...serverAnalysisSummary.correctedAverages };
@@ -312,14 +340,14 @@ export function useActivityAnalysisModel(
       normalizedPower: hasStreamPowerCandidate ? null : summary.normalizedPower,
       tss: hasStreamPowerCandidate ? null : summary.tss,
     };
-  }, [activePowerOverride, activity?.summary, effectiveStreams, hasStreamCadenceCandidate, hasStreamPowerCandidate, serverAnalysisSummary, streamSensorSummary]);
+  }, [showingSavedAnalysis, serverMetrics.metrics, canonicalSummary, activePowerOverride, activity?.summary, effectiveStreams, hasStreamCadenceCandidate, hasStreamPowerCandidate, serverAnalysisSummary, streamSensorSummary]);
 
-  const avgPowerValue = serverAnalysisSummary && !activePowerOverride
+  const avgPowerValue = (showingSavedAnalysis || canonicalSummary || serverAnalysisSummary) && !activePowerOverride
     ? displayedSummary?.averagePower ?? null
     : effectiveStreams && hasStreamPowerCandidate
     ? streamSensorSummary?.averagePower ?? null
     : activity?.summary.averagePower ?? activity?.avgPower ?? null;
-  const normalizedPowerValue = serverAnalysisSummary && !activePowerOverride
+  const normalizedPowerValue = (showingSavedAnalysis || canonicalSummary || serverAnalysisSummary) && !activePowerOverride
     ? displayedSummary?.normalizedPower ?? null
     : effectiveStreams && hasStreamPowerCandidate
     ? null
@@ -375,6 +403,7 @@ export function useActivityAnalysisModel(
     return {
       activityId: activityId ?? null,
       isOwner: isActivityOwner,
+      completeActivityAccess: publicMode,
       serverMetrics,
       canonicalPresentationAvailable: overview.response?.status === "available",
       overviewRecovery: overview.response?.status === "available" ? overview.response.presentation.recovery ?? null : null,
@@ -387,11 +416,12 @@ export function useActivityAnalysisModel(
       suppressServerPowerMetrics,
       suppressServerHeartRateMetrics,
       suppressServerCadenceMetrics,
-      isVirtualPower: activity.isVirtualPower || activePowerOverride != null,
-      virtualPowerParams: activePowerOverride?.params ?? activity.virtualPowerParams,
+      isVirtualPower: showingSavedAnalysis ? serverMetrics.metrics?.isVirtualPower === true : activity.isVirtualPower || activePowerOverride != null,
+      virtualPowerParams: showingSavedAnalysis ? undefined : activePowerOverride?.params ?? activity.virtualPowerParams,
     };
   }, [
     overview.response,
+    showingSavedAnalysis,
     activePowerOverride,
     activity,
     activityId,
@@ -415,9 +445,9 @@ export function useActivityAnalysisModel(
   return {
     activity,
     setActivity,
-    loadingActivity,
-    activityLoadError,
-    activityProcessing,
+    loadingActivity: publicMode ? false : loadingActivity,
+    activityLoadError: publicMode ? null : activityLoadError,
+    activityProcessing: publicMode || showingSavedAnalysis ? false : activityProcessing,
     retryActivity,
     streams,
     effectiveStreams,
@@ -425,11 +455,12 @@ export function useActivityAnalysisModel(
     showStreamSpinner,
     streamsError,
     streamsSignInRequired,
-    retryStreams,
-    requestStreams,
+    retryStreams: showingSavedAnalysis ? async () => {} : retryStreams,
+    requestStreams: showingSavedAnalysis ? () => {} : requestStreams,
     serverMetrics,
     overview,
     isActivityOwner,
+    authorizedActivityAccess: publicMode,
     sport,
     streamSensorSummary,
     displayedSummary,
@@ -442,7 +473,7 @@ export function useActivityAnalysisModel(
     analysisProjection,
     sensorSelectionContext,
     analysisTabProps,
-    canRecalculateVirtualPowerPreview: isRide
+    canRecalculateVirtualPowerPreview: !showingSavedAnalysis && isRide
       && isActivityOwner
       && activityBike?.virtualPower.enabled === true,
     recalculateVirtualPowerPreview,

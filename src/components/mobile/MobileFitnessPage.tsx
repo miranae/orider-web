@@ -1,3 +1,4 @@
+import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import CriticalPaceCurve from "../charts/CriticalPaceCurve";
 import type { CurvePeriods, RunPacePoint } from "../../features/fitness/fitnessCurveDocuments";
 import ConditionSectionNav from "../../features/fitness/components/ConditionSectionNav";
@@ -653,6 +654,7 @@ export default function MobileFitnessPage({
   powerCurvePeriodsEnabled = false,
   pmcHistoryPoints,
   pmcHistoryCanonical = false,
+  periodTimeseries = null,
   fitnessDateKeyBasis,
   coachSlot = null,
   thresholdsSlot = null,
@@ -689,6 +691,7 @@ export default function MobileFitnessPage({
   /** 표시 범위를 확장해도 활동 상세 조회는 늘리지 않는 전체 일별 이력. */
   pmcHistoryPoints?: readonly PmcHistoryPoint[];
   pmcHistoryCanonical?: boolean;
+  periodTimeseries?: FitnessTimeseriesDoc | null;
   /** 정본 loadSnapshot.dateKeyBasis — PMC 이력의 오늘 키. 없으면 UTC. */
   fitnessDateKeyBasis?: FitnessDateKeyBasis;
   /** 단일 종목에서 활동 영향과 오늘 선택을 먼저 보여주는 공용 코치 브리핑. */
@@ -935,7 +938,7 @@ export default function MobileFitnessPage({
 
           {!mobileAnalysis && data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
 
-          {mobileAnalysis && data.discipline !== "tri" ? <CoachDetailSection id="analysis-periods" title={t("activity:trainingPeriods.title")}><FitnessPeriodEvidence discipline={data.discipline} inline />{bikePeriodZoneContent}</CoachDetailSection> : !(part === "condition" && isBike) && bikePeriodZoneContent}
+          {mobileAnalysis && data.discipline !== "tri" ? <CoachDetailSection id="analysis-periods" title={t("activity:trainingPeriods.title")}><FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} />{bikePeriodZoneContent}</CoachDetailSection> : !(part === "condition" && isBike) && bikePeriodZoneContent}
 
           {/* 존 정의 */}
           {sectionState.derived === "ready" && showZones && (embedded || data.zones.some(zone => zone.rangeLabel || zone.percentLabel)) && (

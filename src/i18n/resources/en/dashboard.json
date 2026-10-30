@@ -113,7 +113,7 @@
     "title": "{{count}}-week streak",
     "maintained": "{{count}} ride(s) this week · streak maintained",
     "needOne": "1 ride to keep this week · one weekend ride keeps it alive",
-    "score": "90d"
+    "score": "90-day consistency"
   },
   "sidebar": {
     "runWeekly": {

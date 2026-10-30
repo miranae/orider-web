@@ -65,3 +65,14 @@ it("does not add an unverified measurement label to the qualified metadata chann
   expect(screen.queryByText("저장된 파워값으로 계산 · 측정 출처 미확인")).not.toBeInTheDocument();
   expect(screen.getByText(/센서의 원래 집계 구간/)).toBeInTheDocument();
 });
+it("keeps the prior duration and value visible while a new attempt is loading or fails", () => {
+  const savedResponse = fixture[0]!.result;
+  mocks.hook.mockReturnValue({ ...state(), savedResponse, busy: true });
+  const view = renderWithProviders(<Panel activity={activity} />);
+  const value = screen.getByText(/ W · 0:02$/);
+  expect(value).toBeInTheDocument();
+  expect(screen.getAllByRole("status").length).toBeGreaterThan(0);
+  mocks.hook.mockReturnValue({ ...state(), savedResponse, error: true, failureKind: "generic" });
+  view.rerender(<Panel activity={activity} />);
+  expect(value).toBeInTheDocument(); expect(screen.getByRole("alert")).toBeInTheDocument();
+});

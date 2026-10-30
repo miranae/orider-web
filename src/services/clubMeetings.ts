@@ -5,6 +5,12 @@ export type ClubMeeting = Meeting & { kindName?: string };
 export interface ClubMeetingSnapshot {
   eventId: string;
   groupId: string;
+  rideStatus?: "OPEN" | "LIVE" | "FINISHED" | "CANCELLED";
+  completion?: {
+    state: "ready" | "processing";
+    summary: {totalParticipants: number; finishedCount: number; pendingCount: number; dnfCount: number} | null;
+    own?: {status: string; verified: boolean; durationMs: number | null};
+  };
   revision: number;
   isHost: boolean;
   meeting: ClubMeeting;
@@ -182,3 +188,7 @@ export const saveClubMeetingTeams = (request: {
     "saveClubMeetingTeams",
     JSON.parse(JSON.stringify(request)) as typeof request,
   );
+
+/** 호스트 권한과 최신 revision은 서버가 확인한다. 개인 주행 시작/종료를 대신하지 않는다. */
+export const finishClubMeeting = (eventId: string, expectedRevision: number) =>
+  call<{eventId: string; expectedRevision: number}, {success: true}>("finishClubMeeting", {eventId, expectedRevision});

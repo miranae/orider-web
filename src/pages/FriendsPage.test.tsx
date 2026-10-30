@@ -54,6 +54,13 @@ describe("FriendsPage", () => {
     expect(screen.getByTestId("P3-3")).toHaveAttribute("id", "friend-invite");
   });
 
+  it("links to the people search from the header", async () => {
+    renderWithProviders(<FriendsPage />, { authenticated: true });
+    const find = await screen.findByRole("link", { name: "사람 찾기" });
+    expect(find).toHaveAttribute("data-testid", "P3-0-3");
+    expect(find.getAttribute("href")).toMatch(/\/explore\/athletes$/);
+  });
+
   it("shows friend code input", async () => {
     renderWithProviders(<FriendsPage />, { authenticated: true });
     await waitFor(() => {

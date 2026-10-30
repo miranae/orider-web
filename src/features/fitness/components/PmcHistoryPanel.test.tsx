@@ -17,6 +17,15 @@ const points = [point("2023-09-06"), point("2025-09-06", 30), point("2026-09-05"
 const renderPanel = (data = points) => renderWithProviders(<PmcHistoryPanel points={data} today="2026-09-06" canonical />);
 
 describe("PmcHistoryPanel", () => {
+  it("keeps final zero load distinct from missing PMC in the source and selected readout", () => {
+    const data: PmcHistoryPoint[] = [{ date: "2026-09-06", dailyLoad: 0, ctl: null, atl: null, tsb: null, loadStatus: "final", calculationStatus: "missing" }];
+    renderWithProviders(<PmcHistoryPanel points={data} today="2026-09-06" canonical controlledRange="all" controlledMode="trend" />);
+    expect(screen.getByTestId("K1-2-8")).toHaveTextContent("일부 날짜에 저장된 PMC 계산이 없습니다.");
+    expect(screen.getByTestId("K1-2-7")).toHaveTextContent("계산 없음");
+    expect(screen.getByTestId("K1-2-7")).toHaveTextContent("0.0");
+    expect(screen.queryByText("추정 계산", { exact: false })).not.toBeInTheDocument();
+  });
+
   it("never represents an unconfirmed load as known zero while preserving confirmed zero", () => {
     const data: PmcHistoryPoint = { ...point("2026-09-06", 40, 0), loadStatus: "unconfirmed", calculationStatus: "estimated" };
     const view = renderPanel([data]);

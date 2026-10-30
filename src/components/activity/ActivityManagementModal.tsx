@@ -26,7 +26,7 @@ export default function ActivityManagementModal({ open, canManage, shareAction, 
   const name = useId();
   const [saving, setSaving] = useState(false);
   const options = [
-    { value: "everyone", icon: Globe }, { value: "friends", icon: Users }, { value: "private", icon: Lock },
+    { value: "everyone", icon: Globe }, { value: "friends", icon: Users }, { value: "followers", icon: Users }, { value: "private", icon: Lock },
   ] as const;
   return <Modal open={open} onClose={onClose} title={t("page.management.title")} maxWidth="max-w-sm" busy={saving} portalClassName="activity-management-dialog">
     <div className="activity-management-content">

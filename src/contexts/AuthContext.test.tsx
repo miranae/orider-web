@@ -1,3 +1,4 @@
+import { ensureAppCheckReady } from "../services/firebase";
 import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -45,6 +46,45 @@ function renderAuth() {
 describe("AuthContext", () => {
   beforeEach(() => {
     setCallableResult("ensureUserProfile", { data: {} });
+  });
+
+  it.each(["appCheck/initial-throttle", "appCheck/throttled"])("does not retry profile attestation during provider throttle (%s)", async code => {
+    vi.useFakeTimers();
+    vi.mocked(ensureAppCheckReady).mockReset().mockRejectedValue({ code, customData: { time: "01d:00m:00s" } });
+    setDocData("users/throttled-qa", createMockProfile({ nickname: "Existing QA" }) as unknown as Record<string, unknown>);
+    try {
+      simulateLogout();
+      renderAuth();
+      await act(async () => { simulateLogin({ uid: "throttled-qa" }); });
+      const initialCalls = vi.mocked(ensureAppCheckReady).mock.calls.length;
+      expect(initialCalls).toBeGreaterThan(0);
+      await act(async () => { vi.advanceTimersByTime(4000); });
+      expect(vi.mocked(ensureAppCheckReady).mock.calls.length).toBe(initialCalls);
+      expect(mockCallableInvocations.filter(({ name }) => name === "ensureUserProfile")).toHaveLength(0);
+      expect(screen.getByTestId("profile")).toHaveTextContent("Existing QA");
+    } finally {
+      vi.useRealTimers();
+      vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
+    }
+  });
+
+  it.each(["account", "unmount"])("drops stale profile provisioning after deferred attestation on %s", async outcome => {
+    simulateLogout();
+    let resolveReady!: () => void;
+    vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined).mockReturnValueOnce(new Promise<void>(resolve => { resolveReady = resolve; }));
+    const view = renderAuth();
+    try {
+      await act(async () => { simulateLogin({ uid: "old-attestation-owner" }); });
+      if (outcome === "unmount") view.unmount();
+      else await act(async () => { simulateLogin({ uid: "new-attestation-owner" }); });
+      const callsBeforeOldReady = mockCallableInvocations.filter(({ name }) => name === "ensureUserProfile").length;
+      expect(callsBeforeOldReady).toBe(outcome === "account" ? 1 : 0);
+      await act(async () => { resolveReady(); });
+      expect(mockCallableInvocations.filter(({ name }) => name === "ensureUserProfile")).toHaveLength(callsBeforeOldReady);
+    } finally {
+      view.unmount();
+      vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
+    }
   });
 
   it("stage keeps the shared profile without calling profile provisioning", async () => {

@@ -6,6 +6,7 @@ import ClubMeetingPage from "./ClubMeetingPage";
 import { newClubMeeting } from "../../features/club-preparation/meetingCopy";
 import {
   clubMeetingAttendance,
+  finishClubMeeting,
   createClubMeeting,
   updateClubMeeting,
   type ClubMeetingSnapshot,
@@ -59,6 +60,7 @@ vi.mock("../../services/clubMeetings", () => ({
   clubMeetingAttendance: vi.fn(async () => ({ status: "none" })),
   setClubMeetingRecruitment: vi.fn(),
   cancelClubMeeting: vi.fn(),
+  finishClubMeeting: vi.fn(async () => ({success: true})),
   publishClubMeetingNotice: vi.fn(),
   confirmClubMeetingNotice: vi.fn(),
 }));
@@ -164,5 +166,39 @@ describe("실제 인증 회원의 클럽 모임 동선", () => {
       await screen.findByText("현재 활동 중인 클럽 회원만 이용할 수 있어요."),
     ).toBeInTheDocument();
     expect(control.form).toBeNull();
+  });
+});
+
+describe("클럽 모임 마무리와 개인 결과", () => {
+  function fixture(isHost: boolean, completed = false) {
+    control.data = {eventId:"event",groupId:"club",revision:7,isHost,rideStatus:completed?"FINISHED":"OPEN",meeting:{...newClubMeeting(),id:"event",hostId:isHost?"test-uid":"host",registrations:[registration]},members:[{id:"test-uid",name:"테스트 회원"}],...(completed?{completion:{state:"ready" as const,summary:{totalParticipants:6,finishedCount:5,pendingCount:1,dnfCount:0},own:{status:"FINISHED",verified:true,durationMs:125000}}}:{})};
+  }
+  it("주최자의 확인 뒤만 최신 revision으로 마무리하며 중복 클릭을 막는다", async () => {
+    fixture(true);let release!:()=>void;
+    vi.mocked(finishClubMeeting).mockImplementationOnce(()=>new Promise(resolve=>{release=()=>resolve({success:true});}));
+    show("detail");fireEvent.click(await screen.findByRole("button",{name:"모임 마무리"}));
+    expect(finishClubMeeting).not.toHaveBeenCalled();
+    const confirm=screen.getByRole("button",{name:"마무리 확정"});fireEvent.click(confirm);fireEvent.click(confirm);
+    expect(finishClubMeeting).toHaveBeenCalledTimes(1);expect(finishClubMeeting).toHaveBeenCalledWith("event",7);release();
+    await waitFor(()=>expect(control.reload).toHaveBeenCalled());
+  });
+  it("참가자에게 마무리 조작을 제공하지 않고 자기 결과와 대기 수를 구분한다", async () => {
+    fixture(false,true);show("detail");
+    expect(await screen.findByText("모임 결과")).toBeInTheDocument();
+    expect(screen.getByText(/완료 5명 · 확인 대기 1명/)).toBeInTheDocument();
+    expect(screen.getByText(/내 기록 · 결과 확인 완료 · 2:05/)).toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:"모임 마무리"})).not.toBeInTheDocument();
+    expect(screen.queryByRole("button",{name:"참석 신청"})).not.toBeInTheDocument();
+  });
+  it.each(["REGISTERED", "CHECKED_IN", "PAID"])("미시작 참가 상태 %s는 기록 없음으로 표시한다", async status => {
+    fixture(false,true);control.data!.completion={state:"ready",summary:null,own:{status,verified:false,durationMs:null}};show("detail");
+    expect(await screen.findByText(/내 기록 · 기록 없음/)).toBeInTheDocument();
+    expect(screen.queryByText(/내 기록 · 결과 확인 대기/)).not.toBeInTheDocument();
+  });
+  it("집계 전이나 자기 미확인 기록을 성공으로 표시하지 않는다", async () => {
+    fixture(false,true);control.data!.completion={state:"processing",summary:null,own:{status:"FINISHED",verified:false,durationMs:null}};show("detail");
+    expect(await screen.findByText(/모임 요약을 집계 중/)).toBeInTheDocument();
+    expect(screen.getByText(/내 기록 · 결과 확인 대기/)).toBeInTheDocument();
+    expect(screen.queryByText(/결과 확인 완료/)).not.toBeInTheDocument();
   });
 });

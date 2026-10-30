@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../../config/activitySubscriptions";
@@ -14,39 +16,51 @@ function failureOf(error: unknown): Failure {
   return code.includes("permission-denied") || code.includes("not-found") ? "forbidden" : "unavailable";
 }
 
-export default function ActivitySubscriptionButton({ targetUid }: { targetUid: string | undefined }) {
-  const { user } = useAuth();
+export default function ActivitySubscriptionButton({ targetUid, services }: { targetUid: string | undefined; services?: FirebaseServices }) {
+  const { user: contextUser } = useAuth();
+  const user = services ? services.auth.currentUser : contextUser;
   const { t } = useTranslation("common");
   const uid = user && !user.isAnonymous ? user.uid : null;
-  const key = `${uid}:${targetUid}`;
-  const latestKey = useRef(key);
+  const key = useMemo(() => ({ user, targetUid, services }), [user, targetUid, services]);
+  const latestKey = useRef<typeof key | null>(key);
   latestKey.current = key;
-  const [state, setState] = useState<{ key: string; subscribed?: boolean; failure?: Failure; pending?: boolean } | null>(null);
+  const [state, setState] = useState<{ key: typeof key; subscribed?: boolean; failure?: Failure; pending?: boolean } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const epoch = useRef(0);
   useEffect(() => {
-    if (!ACTIVITY_SUBSCRIPTIONS_ENABLED || !uid || !targetUid || uid === targetUid) return;
+    if (document.hidden || !ACTIVITY_SUBSCRIPTIONS_ENABLED || !uid || !targetUid || uid === targetUid) return;
     latestKey.current = key;
     let active = true;
-    void getActivitySubscriptionSummary(uid, targetUid).then(summary => {
-      if (active) setState({ key, subscribed: summary.subscribed });
+    const request = ++epoch.current;
+    void (services ? getActivitySubscriptionSummary(uid, targetUid, services) : getActivitySubscriptionSummary(uid, targetUid)).then(summary => {
+      if (active && request === epoch.current && !document.hidden && (!services || services.auth.currentUser === user)) setState({ key, subscribed: summary.subscribed });
     }).catch(error => {
-      if (!active) return;
+      if (!active || request !== epoch.current || document.hidden || services && services.auth.currentUser !== user) return;
       if (!isSubscriptionsNotDeployed(error)) logClientError("profile.subscriptionState", error, {});
       setState({ key, failure: failureOf(error) });
     });
-    return () => { active = false; latestKey.current = ""; };
-  }, [uid, targetUid, key, attempt]);
+    return () => { active = false; latestKey.current = null; };
+  }, [uid, targetUid, key, attempt, services, user]);
+  useEffect(() => {
+    if (!services) return;
+    const reset = () => { epoch.current++; latestKey.current = null; setState(null); if (!document.hidden) setAttempt(n => n + 1); };
+    const off = onAuthStateChanged(services.auth, () => { if (services.auth.currentUser !== user) reset(); });
+    document.addEventListener("visibilitychange", reset);
+    return () => { off(); document.removeEventListener("visibilitychange", reset); };
+  }, [services, user]);
+  if (ACTIVITY_SUBSCRIPTIONS_ENABLED && services && !uid) return <p>{t("activitySubscriptions.signInRequired")}</p>;
   if (!ACTIVITY_SUBSCRIPTIONS_ENABLED || !uid || !targetUid || uid === targetUid) return null;
   const current = state?.key === key ? state : null;
   const change = async () => {
-    if (!current || current.failure || current.pending || current.subscribed == null) return;
+    if (document.hidden || services && services.auth.currentUser !== user || !current || current.failure || current.pending || current.subscribed == null) return;
     const desired = !current.subscribed;
+    const request = epoch.current;
     setState({ ...current, pending: true });
     try {
-      const response = await setActivitySubscription(uid, targetUid, desired);
-      if (latestKey.current === key) setState({ key, subscribed: response.subscribed });
+      const response = await (services ? setActivitySubscription(uid, targetUid, desired, services) : setActivitySubscription(uid, targetUid, desired));
+      if (request === epoch.current && !document.hidden && latestKey.current === key && (!services || services.auth.currentUser === user)) setState({ key, subscribed: response.subscribed });
     } catch (error) {
-      if (latestKey.current !== key) return;
+      if (request !== epoch.current || document.hidden || latestKey.current !== key || services && services.auth.currentUser !== user) return;
       if (!isSubscriptionsNotDeployed(error)) logClientError("profile.subscriptionChange", error, {});
       setState({ key, subscribed: current.subscribed, failure: failureOf(error) });
     }

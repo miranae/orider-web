@@ -1,0 +1,18 @@
+.ds-distribution { position: relative; min-width: 0; }
+.ds-distribution__track { display: flex; gap: var(--space-0-5); align-items: stretch; min-height: var(--dim-button-height); }
+.ds-distribution button { appearance: none; border: 0; padding: 0; background: transparent; color: var(--ink-1); font: inherit; cursor: pointer; }
+.ds-distribution button:focus-visible { outline: var(--space-0-5) solid var(--accent); outline-offset: var(--space-0-5); }
+.ds-distribution__segment { display: flex; align-items: center; flex-basis: 0; min-width: 0; }
+.ds-distribution__segment > span { display: block; width: 100%; height: var(--space-5); }
+.ds-distribution__header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.ds-distribution__header > :first-child { flex-shrink: 0; }
+.ds-distribution__legend { display: flex; justify-content: safe flex-end; flex-wrap: nowrap; min-width: 0; overflow-x: auto; gap: 0 var(--space-2); margin-left: auto; text-align: right; }
+.ds-distribution__legend button { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--dim-button-height); font-size: var(--fs-xs); flex-shrink: 0; }
+.ds-distribution__dot { width: var(--space-2); height: var(--space-2); border-radius: 50%; flex-shrink: 0; }
+.ds-distribution__tooltip { position: absolute; z-index: 5; left: 0; bottom: calc(100% + var(--space-1)); width: min(100%, 22rem); pointer-events: none; }
+
+@media (max-width: 480px) {
+  .ds-distribution__header { gap: var(--space-1); }
+  .ds-distribution__legend { gap: 0 var(--space-1); }
+  .ds-distribution__legend button { gap: var(--space-0-5); white-space: nowrap; }
+}
