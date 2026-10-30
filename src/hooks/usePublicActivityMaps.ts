@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadPublicActivityMap, type PublicActivityMap } from "../services/publicActivityMaps";
 import { logClientError } from "../services/errorLogger";
+const RETRY_DELAYS_MS = [5_000, 20_000, 60_000];
 const EMPTY = { maps: {} as Record<string, PublicActivityMap | null>, failed: false };
 /**
  * 공개 지도는 신호가 바뀔 때만 다시 조회한다.
@@ -25,14 +26,25 @@ export function usePublicActivityMaps(activityIds: string[], enabled = true) {
     // 계정·대상이 바뀐 결과만 즉시 비운다. 같은 대상의 재조회는 응답이 올 때까지 기존 지도를 유지한다.
     setState(previous => previous?.context === context ? previous : null);
     const ids = key.split("|");
+    // 조회 중에 신호가 오면 서비스가 진행 중인 같은 요청을 돌려주므로, 끝난 뒤 한 번 더 조회한다.
+    let loading = false, again = false, failures = 0, retryTimer: ReturnType<typeof setTimeout> | undefined;
     const refresh = () => {
+      if (loading) { again = true; return; }
+      clearTimeout(retryTimer); loading = true; again = false;
       const request = ++generation.current;
       void Promise.all(ids.map(async id => [id, await loadPublicActivityMap(services, id)] as const)).then(entries => {
         if (stopped || request !== generation.current || services.auth.currentUser !== sdkUser) return;
+        failures = 0;
         const maps = Object.fromEntries(entries);
         // revision 은 공개 범위·지도·콘텐츠 버전 해시라 같으면 표시할 내용도 같다. 같은 객체를 유지해 썸네일을 다시 그리지 않는다.
         setState(previous => previous?.context === context && !previous.failed && sameMapRevisions(previous.maps, maps) ? previous : { context, maps, failed: false });
-      }).catch(() => { if (!stopped && request === generation.current) setState({ context, maps: {}, failed: true }); });
+      }).catch(error => {
+        if (stopped || request !== generation.current) return;
+        setState({ context, maps: {}, failed: true });
+        // 일시 실패는 신호가 다시 오지 않으면 복구되지 않으므로 몇 번만 늦춰 다시 시도한다.
+        if (failures < RETRY_DELAYS_MS.length) retryTimer = setTimeout(refresh, RETRY_DELAYS_MS[failures++]);
+        else logClientError("usePublicActivityMaps.load", error, { activityIds: key });
+      }).finally(() => { if (request !== generation.current) return; loading = false; if (again && !stopped) refresh(); });
     };
     const signals: { key: string; path: readonly [string, string]; activityId?: string }[] = ids.map(id => ({ key: `activity:${id}`, path: ["activity_map_signals", id], activityId: id }));
     const viewerUid = sdkUser && !sdkUser.isAnonymous ? sdkUser.uid : null;
@@ -52,7 +64,7 @@ export function usePublicActivityMaps(activityIds: string[], enabled = true) {
       logClientError("usePublicActivityMaps.signal", error, { signal: signal.path[0], activityId: signal.activityId });
       if (!seen.has(signal.key)) observe(signal.key, -1);
     }));
-    return () => { stopped = true; generation.current++; unsubscribes.forEach(unsubscribe => unsubscribe()); };
+    return () => { stopped = true; generation.current++; clearTimeout(retryTimer); unsubscribes.forEach(unsubscribe => unsubscribe()); };
   }, [context, key, enabled, services, sdkUser]);
   return enabled && state?.context === context ? state : EMPTY;
 }

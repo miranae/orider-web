@@ -80,3 +80,34 @@ it("an anonymous viewer does not subscribe to a relationship signal", () => {
   renderHook(() => usePublicActivityMaps(["a"]));
   expect(m.listeners.map(l => l.path)).toEqual(["activity_map_signals/a"]);
 });
+it("reloads once more after an in-flight load when a signal arrives meanwhile", async () => {
+  let done!: (value: unknown) => void; m.load.mockImplementationOnce(() => new Promise(resolve => { done = resolve; }));
+  const { result } = renderHook(() => usePublicActivityMaps(["a"]));
+  signal("a", 1); expect(m.load).toHaveBeenCalledOnce();
+  signal("a", 2); signal("a", 3); expect(m.load).toHaveBeenCalledOnce();
+  const fresh = { ...map, revision: "r2" }; m.load.mockResolvedValue(fresh);
+  await act(async () => done(map));
+  await waitFor(() => expect(result.current.maps.a).toEqual(fresh)); expect(m.load).toHaveBeenCalledTimes(2);
+});
+it("retries a failed load a few times without a new signal", async () => {
+  vi.useFakeTimers();
+  m.load.mockRejectedValue(Error("timeout"));
+  const view = renderHook(() => usePublicActivityMaps(["a"]));
+  try {
+    signal("a", 1); await act(async () => {}); expect(view.result.current.failed).toBe(true);
+    m.load.mockResolvedValue(map);
+    await act(async () => { vi.advanceTimersByTime(5_000); }); await act(async () => {});
+    expect(m.load).toHaveBeenCalledTimes(2); expect(view.result.current.maps.a).toEqual(map);
+    await act(async () => { vi.advanceTimersByTime(10 * 60_000); }); expect(m.load).toHaveBeenCalledTimes(2);
+  } finally { view.unmount(); vi.useRealTimers(); }
+});
+it("stops retrying after the bounded attempts", async () => {
+  vi.useFakeTimers();
+  m.load.mockRejectedValue(Error("down"));
+  const view = renderHook(() => usePublicActivityMaps(["a"]));
+  try {
+    signal("a", 1); await act(async () => {});
+    for (const ms of [5_000, 20_000, 60_000, 10 * 60_000]) { await act(async () => { vi.advanceTimersByTime(ms); }); await act(async () => {}); }
+    expect(m.load).toHaveBeenCalledTimes(4);
+  } finally { view.unmount(); vi.useRealTimers(); }
+});
