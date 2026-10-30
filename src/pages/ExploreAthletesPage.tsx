@@ -51,7 +51,8 @@ export default function ExploreAthletesPage() {
   const [draft, setDraft] = useState(urlQuery);
   const [search, setSearch] = useState<SearchState | null>(null);
   const [pending, setPending] = useState<ReadonlyMap<string, PendingAction>>(() => new Map());
-  const [localStatus, setLocalStatus] = useState<ReadonlyMap<string, FriendState>>(() => new Map());
+  // 낙관적 상태는 걸 당시의 구독 상태(base)와 함께 둔다 — 구독이 바뀌면(확인·상대 행동) 구독 쪽을 따른다
+  const [localStatus, setLocalStatus] = useState<ReadonlyMap<string, { state: FriendState; base: FriendState }>>(() => new Map());
   const epoch = useRef(0);
   const signedIn = !!user && !user.isAnonymous;
 
@@ -115,12 +116,15 @@ export default function ExploreAthletesPage() {
   const friendIds = useMemo(() => new Set(friends.map(friend => friend.userId)), [friends]);
   const receivedIds = useMemo(() => new Set(requests.map(request => request.requesterId)), [requests]);
   const sentIds = useMemo(() => new Set(sentRequests.map(request => request.targetId)), [sentRequests]);
-  const friendState = (id: string): FriendState => {
+  const subscribedState = (id: string): FriendState => {
     if (friendIds.has(id)) return "friend";
-    const local = localStatus.get(id);
-    if (local) return local;
     if (receivedIds.has(id)) return "received";
     return sentIds.has(id) ? "sent" : "none";
+  };
+  const friendState = (id: string): FriendState => {
+    const subscribed = subscribedState(id);
+    const local = localStatus.get(id);
+    return local && local.base === subscribed ? local.state : subscribed;
   };
 
   const withPending = async (id: string, action: PendingAction, work: () => Promise<void>) => {
@@ -131,13 +135,12 @@ export default function ExploreAthletesPage() {
   };
   const setLocal = (id: string, state: FriendState | null) => setLocalStatus(previous => {
     const next = new Map(previous);
-    if (state) next.set(id, state); else next.delete(id);
+    if (state) next.set(id, { state, base: subscribedState(id) }); else next.delete(id);
     return next;
   });
 
   const handleSend = (item: SearchUserItem) => withPending(item.id, "send", async () => {
     if (!user) return;
-    const before = localStatus.get(item.id) ?? null;
     setLocal(item.id, "sent");
     try {
       await sendFriendRequest({
@@ -148,7 +151,7 @@ export default function ExploreAthletesPage() {
       track("friend_request_send", { via: "explore_search", matched_by: item.matchedBy });
       showToast(t("search.toast.sent", { nickname: item.nickname || t("defaultNickname") }));
     } catch (error) {
-      setLocal(item.id, before);
+      setLocal(item.id, null);
       logClientError("ExploreAthletesPage.sendFriendRequest", error, { targetUserId: item.id });
       showToast(t("search.toast.sendFailed"), "error");
     }

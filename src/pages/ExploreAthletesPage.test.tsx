@@ -95,6 +95,20 @@ it("sends a request to a private profile optimistically and shows the badge inst
   expect(await screen.findByText("rider-p님에게 친구 요청을 보냈어요")).toBeInTheDocument();
 });
 
+it("lets later subscription changes override an optimistic state (cancel, then the other side requests)", async () => {
+  friendsState.sentRequests = [{ targetId: "s" }];
+  search.mockResolvedValue({ items: [person("s")], nextCursor: null });
+  const view = renderPage("/ko/explore/athletes?q=rider");
+  await screen.findByRole("link", { name: "rider-s" });
+  await userEvent.click(within(row("rider-s")).getByRole("button", { name: "rider-s님에게 보낸 친구 요청 취소" }));
+  expect(await within(row("rider-s")).findByRole("button", { name: "rider-s님에게 친구 요청" })).toBeInTheDocument();
+  // 구독이 취소를 반영한 뒤 상대가 나에게 요청을 보냄 → 낙관적 "none" 이 아니라 수락이 보여야 한다
+  friendsState.sentRequests = [];
+  friendsState.requests = [{ requesterId: "s" }];
+  view.rerender(<><ExploreAthletesPage /><Location /></>);
+  expect(await within(row("rider-s")).findByRole("button", { name: "rider-s 친구 요청 수락" })).toBeInTheDocument();
+});
+
 it("rolls back the optimistic state and toasts when sending fails; accepts and cancels through the friends hook", async () => {
   send.mockRejectedValueOnce(new Error("permission-denied"));
   friendsState.requests = [{ requesterId: "r" }];
