@@ -1,7 +1,7 @@
 .mobile-fitness-toolbar { display: flex; align-items: center; gap: var(--space-2); min-width: 0; margin: var(--space-2) var(--space-4) var(--space-4); }
 .mobile-fitness-toolbar__sports { position: relative; flex: 1; min-width: 0; }
-.mobile-fitness-mode-toggle { flex: 0 0 auto; min-width: 3.75rem; min-height: 44px; margin-inline-end: var(--space-4); padding: var(--space-2); border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--bg-2); color: var(--ink-2); font-size: var(--fs-xs); font-weight: 700; cursor: pointer; }
-.mobile-fitness-mode-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mobile-fitness-toolbar .discipline-tabs { display: grid; width: 100%; margin: 0; }
+.mobile-fitness-mode-tabs { margin: 0 var(--space-4) var(--space-3); }
 .mobile-fitness-status { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-width: 0; }
 .mobile-fitness-status__label { min-width: 0; }
 .mobile-fitness-status__value { flex: none; color: var(--ink-0); font-family: var(--font-mono); font-size: var(--fs-2xl); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
@@ -25,7 +25,6 @@
 }
 
 @media (max-width: 36rem) {
-  .mobile-fitness-mode-toggle { font-size: var(--fs-base); }
 
   .mobile-fitness-pmc .pmc-history__source {
     white-space: nowrap;
@@ -38,12 +37,10 @@
 }
 
 /* At compact app widths the sport tabs retain their labels rather than clipping. */
-.mobile-fitness-page--embedded .mobile-fitness-toolbar { flex-wrap: wrap; }
-.mobile-fitness-page--embedded .mobile-fitness-toolbar__sports { flex-basis: 100%; overflow-x: auto; }
-.mobile-fitness-page--embedded .mobile-fitness-mode-toggle { margin-inline-start: auto; }
+.mobile-fitness-page--embedded .mobile-fitness-toolbar__sports { flex-basis: 100%; }
+.mobile-fitness-page--embedded .mobile-fitness-mode-tabs { margin-inline: 0; }
 .mobile-fitness-page--embedded .mobile-fitness-section { margin-inline: 0 !important; border: 1px solid var(--line-soft); border-radius: var(--r-lg); padding: var(--space-4) !important; }
 .mobile-fitness-page--embedded section { border-radius: var(--r-lg); }
-.mobile-fitness-page--embedded .mobile-fitness-toolbar { padding: var(--space-2); border: 1px solid var(--line-soft); border-radius: var(--r-lg); }
 .mobile-fitness-provenance { margin-block: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-lg); background: var(--bg-1); overflow: hidden; }
 .mobile-fitness-provenance > summary { padding: var(--space-4); color: var(--ink-2); font-size: var(--fs-md); font-weight: 600; cursor: pointer; }
 .mobile-fitness-page--embedded .mobile-fitness-performance { border: 1px solid var(--line-soft) !important; padding: var(--space-4) !important; }
@@ -101,6 +98,7 @@
 /* 웹은 Layout 셸의 거터를 그대로 사용한다. 임베드의 섹션 여백은 별도 유지한다. */
 .mobile-fitness-page--web { min-width: 0; }
 .mobile-fitness-page--web .mobile-fitness-toolbar,
+.mobile-fitness-page--web .mobile-fitness-mode-tabs,
 .mobile-fitness-page--web > .condition-section-nav,
 .mobile-fitness-page--web .condition-ftp-section,
 .mobile-fitness-page--web .condition-method-section,

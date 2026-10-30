@@ -53,6 +53,9 @@
   .pmc-history__value-strip strong { flex-basis: 100%; }
 }
 
+@media (hover: none) and (pointer: coarse), (max-width: 767px) {
+}
+
 /* 제목·출처와 범례·기간을 분리해 차트가 먼저 읽히게 한다. */
 .pmc-history__chart-head { gap: var(--space-2); }
 .pmc-history__source { font-size: var(--fs-xs); line-height: 1.4; }

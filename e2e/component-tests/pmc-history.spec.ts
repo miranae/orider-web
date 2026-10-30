@@ -45,21 +45,12 @@ for(const width of [320,393,768,1440]) for(const lang of ["ko","en"]) {
     await page.goto(`/e2e/fixtures/pmc-history.html?lang=${lang}`);
     await page.evaluate(() => document.fonts.ready);
     const panel=page.locator(".pmc-history");
-    const previous=panel.getByRole("button",{ name: lang==="ko"? "이전 구간":"Previous period",exact: true });
-    const next=panel.getByRole("button",{ name: lang==="ko"? "다음 구간":"Next period",exact: true });
-    const today=panel.getByRole("button",{ name: lang==="ko"? "오늘":"Today",exact: true });
-    const boxes=await Promise.all([previous,next,today].map(control => control.boundingBox()));
-    expect(Math.max(...boxes.map(box => box!.y))-Math.min(...boxes.map(box => box!.y))).toBeLessThan(1);
-    expect(Math.max(...boxes.map(box => box!.height))-Math.min(...boxes.map(box => box!.height))).toBeLessThan(1);
-    const selected=panel.getByRole("combobox");
-    const selection=(await selected.boundingBox())!;
-    if(width>700) expect(Math.abs(selection.y-boxes[0]!.y)).toBeLessThan(1);
-    else expect(selection.y+selection.height).toBeLessThanOrEqual(boxes[0]!.y);
+    // 선택 구간은 그래프로만 고른다(날짜 드롭다운·이전·다음·오늘/최신 구간 버튼 없음).
+    await expect(panel.getByRole("combobox")).toHaveCount(0);
+    for(const name of lang==="ko"? ["이전 구간","다음 구간","오늘","최신 구간"]:["Previous period","Next period","Today","Latest period"]) await expect(panel.getByRole("button",{ name,exact: true })).toHaveCount(0);
     await panel.getByRole("button",{ name: lang==="ko"? "3년":"3 years",exact: true }).click();
-    await selected.click();
-    await expect(page.getByRole("option")).toHaveCount(36);
-    expect((await page.getByRole("listbox").boundingBox())!.height).toBeLessThanOrEqual(321);
-    await page.keyboard.press("End"); await page.keyboard.press("Enter");
+    await expect(panel.getByRole("slider").first()).toHaveAttribute("aria-valuemax","36");
+    await panel.getByRole("slider").first().focus(); await page.keyboard.press("End");
     const chart=panel.getByRole("slider").first();
     await chart.focus(); await page.keyboard.press("ArrowLeft");
     await expect(chart).toHaveAttribute("aria-valuenow","35");
