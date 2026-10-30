@@ -29,8 +29,11 @@ function reviewSection(review, { runReview, reviewMode, rangeLabel, scope }) {
 
 export function renderGateReport(input) {
   const steps = lines(input.steps), notes = lines(input.notes);
-  let review = null;
-  if (input.reviewJson) { try { review = JSON.parse(input.reviewJson); } catch { review = null; } }
+  // 리뷰 기록이 있는데 읽지 못하면 "결과 없음" 으로 넘기지 않는다 — 기록이 깨진 채 머지되지 않게 실패한다.
+  const review = input.reviewJson ? JSON.parse(input.reviewJson) : null;
+  if (review !== null && (typeof review !== "object" || typeof review.state !== "string" || typeof review.provider !== "string")) {
+    throw new Error("리뷰 기록 형식이 올바르지 않습니다");
+  }
   const scriptLine = input.scriptHash && input.scriptHash === input.baseScriptHash
     ? `\`origin/${input.base}\` 판과 동일 (\`${input.scriptHash.slice(0, 12)}\`)`
     : `**origin/${input.base} 판과 다름** (실행 \`${String(input.scriptHash).slice(0, 12)}\`, 기준 \`${String(input.baseScriptHash || "없음").slice(0, 12)}\`)`;
