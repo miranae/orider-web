@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
+import { setCallableResult } from "../__tests__/mocks/firebase";
 import DashboardPage from "./DashboardPage";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
 
@@ -11,6 +12,11 @@ vi.mock("../utils/yearRecapSeason", () => ({ isYearRecapSeason: () => false }));
 describe("Strava empty-state settings links", () => {
 
   it("keeps the home Strava connection in guidance and the existing-record import in the empty feed", async () => {
+    setCallableResult("getActivityDiscovery", { data: {
+      items: [], nextCursor: null, exhausted: true, scannedCount: 0, totalCount: null,
+      expiresAt: Date.now() + 600_000, order: "startTime_desc", includesUndated: false,
+      consistency: "current_authorized_seek_pages",
+    } });
     const { container } = renderWithProviders(createElement(DashboardPage), {
       route: "/ko/", authenticated: true, profile: { stravaConnected: false, onboardingStep: "done" },
     });

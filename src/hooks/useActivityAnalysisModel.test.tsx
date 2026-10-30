@@ -163,6 +163,50 @@ describe("useActivityAnalysisModel", () => {
     ref as unknown as { path: string }
   ).path.startsWith("activity_streams/"));
 
+  it("retains the producer-confirmed saved summary while the next source revision is pending", async () => {
+    const activity = makeActivity("preserved-pending-summary"); seedActivity(activity);
+    setDocData(`activity_metrics/${activity.id}`, { version: 1, analysisSummary, inputPending: true, inputCoverage: "pending", savedInputCoverage: "complete", avgHr: 150 });
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id));
+    await waitFor(() => expect(result.current.analysisTabProps?.analysisSummary).toEqual(analysisSummary));
+    expect(result.current.serverMetrics.status).toBe("stale");
+    expect(result.current.serverMetrics.metrics?.inputCoverage).toBe("complete");
+    expect(streamReads()).toHaveLength(0);
+  });
+
+  it("selects historical metrics and saved summary without reading today's raw streams", async () => {
+    const activity = makeActivity("saved-analysis-selection");
+    activity.summary.averageHeartRate = 199; activity.summary.ridingTimeMillis = 999_000;
+    seedActivity(activity);
+    setDocData(`activity_metrics/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, avgHr: 180, analysisSummary });
+    const oldSummary = structuredClone(analysisSummary); oldSummary.correctedAverages.averageHeartRate = 123; oldSummary.caloriesFallbackKcal = 17.4;
+    const selected = { revisionId: "a".repeat(64), metrics: { version: 1, avgHr: 123, durationSec: 120, movingTimeSec: 100, analysisSummary: oldSummary } as never };
+    const { result, rerender } = renderHook(({ saved }) => useActivityAnalysisModel(activity.id, undefined, saved), { initialProps: { saved: selected as typeof selected | undefined } });
+    await waitFor(() => expect(result.current.serverMetrics.metrics?.avgHr).toBe(123));
+    expect(result.current.analysisTabProps?.analysisSummary?.correctedAverages.averageHeartRate).toBe(123);
+    expect(result.current.analysisTabProps?.summary).toMatchObject({ averageHeartRate: 123, ridingTimeMillis: 120_000, movingTimeSec: 100, distance: null });
+    render(<AnalysisTab {...result.current.analysisTabProps!} />);
+    expect(screen.getByText("17")).toBeInTheDocument();
+    expect(screen.queryByText("42")).not.toBeInTheDocument();
+
+    expect(result.current.overview.enabled).toBe(false);
+    await act(async () => { result.current.requestStreams(); });
+    expect(streamReads()).toHaveLength(0); expect(result.current.streams).toBeNull();
+    rerender({ saved: undefined });
+    await waitFor(() => expect(result.current.serverMetrics.metrics?.avgHr).toBe(180));
+  });
+
+  it.each([null,{uid:"visitor"}])("uses selected public history without current stream/overview mixing for %j",async viewer=>{
+    mocks.user=viewer;const activity=makeActivity("public-saved-selection");
+    const selected={revisionId:"a".repeat(64),metrics:{version:1,avgHr:123,durationSec:120,movingTimeSec:100,analysisSummary:{...analysisSummary,correctedAverages:{...analysisSummary.correctedAverages,averageHeartRate:123}}} as never};
+    const input={activity,metrics:{status:"ready" as const,metrics:{version:ACTIVITY_METRICS_VERSION,avgHr:180} as never},accessRevision:"current",onAccessRevoked:vi.fn()};
+    const {result,rerender}=renderHook(({saved})=>useActivityAnalysisModel(activity.id,input,saved),{initialProps:{saved:selected as typeof selected|undefined}});
+    await waitFor(()=>expect(result.current.serverMetrics.metrics?.avgHr).toBe(123));
+    expect(result.current.isActivityOwner).toBe(false);expect(result.current.overview.enabled).toBe(false);
+    expect(result.current.streams).toBeNull();expect(result.current.analysisTabProps?.summary.averageHeartRate).toBe(123);
+    act(()=>result.current.requestStreams());expect(mocks.getStreams).not.toHaveBeenCalled();
+    rerender({saved:undefined});expect(result.current.serverMetrics.metrics?.avgHr).toBe(180);
+  });
+
   it("loads embedded detail streams once after the chart CTA and keeps summary entry at zero", async () => {
     const activity = makeActivity("orider_chart_cta");
     seedActivity(activity);

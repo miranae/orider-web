@@ -4,9 +4,10 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CoachHistoryPage from "./CoachHistoryPage";
 import type { CoachConsentPolicy } from "../services/coachConsentClient";
+import { auth } from "../services/firebase";
 
 const mocks = vi.hoisted(() => ({
-  list: vi.fn(), detail: vi.fn(), more: vi.fn(), remove: vi.fn(), removeAll: vi.fn(), status: vi.fn(), policy: vi.fn(),
+  list: vi.fn(), detail: vi.fn(), more: vi.fn(), ask: vi.fn(), remove: vi.fn(), removeAll: vi.fn(), status: vi.fn(), policy: vi.fn(),
   navigate: vi.fn(), confirm: vi.fn(), signIn: vi.fn(), logError: vi.fn(), user: { uid: "u1" } as { uid: string } | null,
   consentCallbacks: [] as Array<{ onCancel: () => void; onConsented: (saved: CoachConsentPolicy) => void }>,
 }));
@@ -21,7 +22,8 @@ vi.mock("../services/coachHistoryClient", () => ({
   deleteAllCoachThreads: (...args: unknown[]) => mocks.removeAll(...args),
   isCoachHistoryTransportError: (error: unknown) => error instanceof Error && error.name === "CoachHistoryTransportError",
 }));
-vi.mock("../services/coachClient", () => ({ getCoachStatus: () => mocks.status(), getCoachProgressPlannerCapabilities: async () => ({ apiVersions: [] }) }));
+vi.mock("../services/coachClient", async (original) => ({ ...await original(), getCoachStatus: () => mocks.status(),
+  askCoachV2: (...args: unknown[]) => mocks.ask(...args), getCoachProgressPlannerCapabilities: async () => ({ apiVersions: [] }) }));
 vi.mock("../services/coachConsentClient", () => ({ getCoachConsentPolicy: () => mocks.policy() }));
 vi.mock("../services/errorLogger", () => ({ logClientError: mocks.logError }));
 vi.mock("../features/coach/CoachAnswerDocument", () => ({ CoachAnswerDocumentView: ({ response }: { response: { requestId: string } }) => <div>answer {response.requestId}</div> }));
@@ -138,6 +140,31 @@ describe("CoachHistoryPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "이번 주 운동량 대화 삭제" }));
     await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith(threadId));
     expect(mocks.confirm).toHaveBeenCalledWith(expect.stringContaining("복구할 수 없습니다"), expect.objectContaining({ destructive: true }));
+  });
+
+  it("refreshes the list after a refused new question without reloading the page", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(requestId);
+    auth.currentUser = { uid: "u1" } as typeof auth.currentUser;
+    const refused = { ...summary, threadId: requestId, title: "거절된 새 질문", turnCount: 1, revision: 1 };
+    const initialList = deferred<{ threads: (typeof summary)[]; nextCursor: null }>();
+    mocks.list.mockReturnValueOnce(initialList.promise)
+      .mockResolvedValue({ threads: [refused], nextCursor: null });
+    mocks.ask.mockResolvedValue({ ...response, apiVersion: "v2", capabilityVersion: "p1",
+      schemaVersion: "coach-response-envelope-v1", quota: { limit: 3, remaining: 3, consumed: false },
+      retry: { mode: "none", previousTurnConsumed: false, providerCallAllowed: false, retryable: false } });
+    setup();
+    await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(1));
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치에게 물어보기" }));
+    const input = await screen.findByLabelText("내 운동에 대한 질문");
+    fireEvent.change(input, { target: { value: refused.title } });
+    await userEvent.click(screen.getByRole("button", { name: "질문하기" }));
+    await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(2));
+    await userEvent.click(screen.getByRole("button", { name: "AI 코치 닫기" }));
+    expect(await screen.findByRole("link", { name: /거절된 새 질문/ }))
+      .toHaveAttribute("href", `/ko/coach/chat/${requestId}?sport=bike`);
+    await act(async () => initialList.resolve({ threads: [], nextCursor: null }));
+    expect(screen.getByRole("link", { name: /거절된 새 질문/ })).toBeInTheDocument();
+    auth.currentUser = null;
   });
 
   it("reuses the stored answer and posts a follow-up with the selected thread context", async () => {
@@ -328,6 +355,53 @@ describe("CoachHistoryPage", () => {
     setup(`/ko/coach/chat/${threadId}`);
     expect(await screen.findByText(`answer ${requestId}`)).toBeInTheDocument();
     expect(screen.queryByText("현재 지원하지 않는 질문입니다")).not.toBeInTheDocument();
+  });
+
+  it("restores an unavailable P2 question and lets the user ask again in its saved thread", async () => {
+    const followUpId = "323e4567-e89b-42d3-a456-426614174002";
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(followUpId);
+    const question = "내 마지막 운동 기록을 코칭해줘.";
+    const originalPage = { thread: { ...summary, turns: [{ turnId: requestId, requestId, question,
+      createdAt: "2026-07-19T02:00:00Z", sessionRevision: 2,
+      response: { requestId, capabilityVersion: "p2", outcome: "unavailable",
+        error: { code: "rollout_ineligible" }, quota: { consumed: false } } }] }, nextCursor: null };
+    mocks.detail.mockReset().mockResolvedValueOnce(originalPage).mockResolvedValueOnce({ thread: {
+      ...summary, turnCount: 3, revision: 3, turns: [...originalPage.thread.turns, {
+        turnId: followUpId, requestId: followUpId, question, createdAt: "2026-07-19T03:00:00Z",
+        response: { ...response, requestId: followUpId, outcome: "answer" }, sessionRevision: 3,
+      }],
+    }, nextCursor: null });
+    mocks.more.mockResolvedValue({ ...response, requestId: followUpId, outcome: "answer", httpOk: true });
+
+    setup(`/ko/coach/chat/${threadId}`);
+    const savedQuestion = await screen.findByRole("region", { name: "대화 2 · 나" });
+    expect(savedQuestion).toHaveTextContent(question);
+    expect(screen.getByRole("region", { name: "대화 2 · O·RIDER 코치" }))
+      .toHaveTextContent("현재 계정에는 이 코칭 경로가 열려 있지 않습니다.");
+    const composer = screen.getByLabelText("이 대화에서 이어 묻기");
+    await waitFor(() => expect(composer).toBeEnabled());
+    fireEvent.change(composer, { target: { value: question } });
+    await userEvent.click(screen.getByRole("button", { name: "이어 묻기" }));
+    expect(await screen.findByText(`answer ${followUpId}`)).toBeInTheDocument();
+    expect(mocks.more).toHaveBeenCalledWith(threadId, expect.objectContaining({
+      question, expectedSessionRevision: 2, requestId: followUpId,
+    }));
+    expect(savedQuestion).toHaveTextContent(question);
+    expect(composer).toHaveValue("");
+  });
+
+  it("shows an interrupted request receipt with its question and keeps follow-up available", async () => {
+    mocks.detail.mockResolvedValue({ thread: { ...summary, turns: [{ turnId: requestId, requestId,
+      question: "실패한 질문도 다시 확인해줘", createdAt: "2026-07-19T02:00:00Z", sessionRevision: 2,
+      response: { apiVersion: "v2", capabilityVersion: "p2", schemaVersion: "coach-history-failure-v1", requestId,
+        outcome: "failed", error: { code: "internal", httpStatus: 500, retryable: true, fallbackAvailable: false },
+        execution: { asOf: "2026-07-19T02:00:00Z" } } }] }, nextCursor: null });
+    setup(`/ko/coach/chat/${threadId}`);
+    expect(await screen.findByText("실패한 질문도 다시 확인해줘")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "대화 2 · O·RIDER 코치" }))
+      .toHaveTextContent("답변을 완성하지 못했습니다.");
+    expect(screen.queryByText(`answer ${requestId}`)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("이 대화에서 이어 묻기")).toBeEnabled());
   });
 
   it("labels each saved turn with chronology and explicit speaker identity", async () => {

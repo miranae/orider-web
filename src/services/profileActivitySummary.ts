@@ -24,12 +24,14 @@ export function buildProfileActivitySummary(latestRows: Activity[], recentRows: 
     ...profileWeeklyStreak(valid(bounded).map(activity => activity.startTime), coveredSince, now) };
 }
 type Summary = ReturnType<typeof buildProfileActivitySummary>;
-let cached: { uid: string; expires: number; promise: Promise<Summary> } | null = null;
+let cached: { owner: NonNullable<typeof auth.currentUser>; uid: string; expires: number; promise: Promise<Summary> } | null = null;
 
 export async function readOwnProfileActivitySummary(uid: string) {
   assertOwner(uid);
+  const owner = auth.currentUser!;
+  const assertSession = () => { assertOwner(uid); if (auth.currentUser !== owner) throw new Error("profile-activity-owner-required"); };
   const now = Date.now();
-  if (!cached || cached.uid !== uid || cached.expires <= now) {
+  if (!cached || cached.owner !== owner || cached.uid !== uid || cached.expires <= now) {
     const own = [where("userId", "==", uid), where("deletedAt", "==", null)];
     // 피드 필터와 분리한 제한 조회. 계정별 2분 캐시 하나와 진행 중 요청을 공유한다.
     const promise = Promise.all([
@@ -37,15 +39,15 @@ export async function readOwnProfileActivitySummary(uid: string) {
       getDocs(query(collection(firestore, "activities"), ...own, where("startTime", ">=", seoulWeekStartMs(now) - 51 * WEEK_MS),
         orderBy("startTime", "desc"), limit(401))),
     ]).then(([latest, recent]) => {
-      assertOwner(uid);
-      if (latest.metadata?.fromCache || recent.metadata?.fromCache) throw new Error("profile-activity-server-confirmation-required");
+      assertSession();
+      if (latest.metadata?.fromCache || recent.metadata?.fromCache || latest.metadata?.hasPendingWrites || recent.metadata?.hasPendingWrites) throw new Error("profile-activity-server-confirmation-required");
       const rows = (docs: typeof latest.docs) => docs.map(row => ({ ...row.data(), id: row.id }) as Activity).filter(activity => activity.userId === uid);
       return buildProfileActivitySummary(rows(latest.docs), rows(recent.docs), now);
     });
-    cached = { uid, expires: now + 120000, promise };
+    cached = { owner, uid, expires: now + 120000, promise };
     void promise.catch(() => { if (cached?.promise === promise) cached = null; });
   }
   const summary = await cached.promise;
-  assertOwner(uid);
+  assertSession();
   return summary;
 }

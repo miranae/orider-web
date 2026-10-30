@@ -1,7 +1,7 @@
+import { installEventDiscoveryFixture } from "../__tests__/fixtures/eventDiscovery";
 import { renderHook, waitFor } from "@testing-library/react";
-import { getDocs, orderBy, where } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { setCollectionDocs } from "../__tests__/mocks/firebase";
+import { setCollectionDocs, setCallableImplementation, mockCallableInvocations } from "../__tests__/mocks/firebase";
 import { logClientError } from "../services/errorLogger";
 import { formatNextLabel, isEligibleNextEvent, useGroupNextEvents } from "./useGroupNextEvents";
 
@@ -9,9 +9,7 @@ vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 
 describe("group next events", () => {
   beforeEach(() => {
-    vi.mocked(getDocs).mockClear();
-    vi.mocked(where).mockClear();
-    vi.mocked(orderBy).mockClear();
+    installEventDiscoveryFixture();
     vi.mocked(logClientError).mockClear();
     setCollectionDocs("events", []);
   });
@@ -22,7 +20,7 @@ describe("group next events", () => {
     expect(formatNextLabel(timestamp, "저녁 라이딩", "ko-KR")).toContain("화");
   });
 
-  it("uses one equality-only privacy query per group and filters status client-side", async () => {
+  it("requests public server-authorized discovery per group", async () => {
     setCollectionDocs("events", [
       { id: "later", info: { groupId: "g1", visibility: "PUBLIC", status: "OPEN", startTime: 200, name: "Later" } },
       { id: "next", info: { groupId: "g1", visibility: "PUBLIC", status: "LIVE", startTime: 100, name: "Next" } },
@@ -34,17 +32,15 @@ describe("group next events", () => {
     const { result } = renderHook(() => useGroupNextEvents(["g1", "g2"], undefined, true));
     await waitFor(() => expect(result.current.eventByGroup.get("g1")?.id).toBe("next"));
 
-    expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(2);
-    expect(vi.mocked(where)).toHaveBeenCalledWith("info.groupId", "==", "g1");
-    expect(vi.mocked(where)).toHaveBeenCalledWith("info.groupId", "==", "g2");
-    expect(vi.mocked(where)).toHaveBeenCalledTimes(4);
-    expect(vi.mocked(where)).not.toHaveBeenCalledWith("info.status", "in", ["OPEN", "LIVE"]);
-    expect(vi.mocked(orderBy)).not.toHaveBeenCalled();
+    expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes").map(call=>call.data)).toEqual([
+      {groupId:"g1",publicOnly:true,statuses:["OPEN","LIVE"],limit:250},
+      {groupId:"g2",publicOnly:true,statuses:["OPEN","LIVE"],limit:250},
+    ]);
     expect(result.current.eventByGroup.get("g1")?.id).toBe("next");
     expect(result.current.eventByGroup.has("g2")).toBe(false);
   });
 
-  it("preserves the chunked member query when public-only mode is off", async () => {
+  it("requests member-authorized discovery when public-only mode is off", async () => {
     setCollectionDocs("events", [
       { id: "group-event", info: { groupId: "g1", visibility: "GROUP", status: "OPEN", startTime: 100, name: "Members" } },
     ]);
@@ -52,16 +48,12 @@ describe("group next events", () => {
     const { result } = renderHook(() => useGroupNextEvents(["g1"], undefined, false));
     await waitFor(() => expect(result.current.eventByGroup.get("g1")?.id).toBe("group-event"));
 
-    expect(vi.mocked(getDocs)).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(where)).toHaveBeenCalledWith("info.groupId", "in", ["g1"]);
-    expect(vi.mocked(where)).toHaveBeenCalledWith("info.status", "in", ["OPEN", "LIVE"]);
-    expect(vi.mocked(where)).not.toHaveBeenCalledWith("info.visibility", "==", "PUBLIC");
-    expect(vi.mocked(orderBy)).toHaveBeenCalledWith("info.startTime", "asc");
+    expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes").map(call=>call.data)).toEqual([{groupId:"g1",publicOnly:false,statuses:["OPEN","LIVE"],limit:250}]);
     expect(result.current.eventByGroup.get("g1")?.id).toBe("group-event");
   });
 
   it("observes query failures and clears stale results", async () => {
-    vi.mocked(getDocs).mockRejectedValueOnce(new Error("permission denied"));
+    setCallableImplementation("listVisibleEventEnvelopes",()=>{throw new Error("permission denied");});
     const { result } = renderHook(() => useGroupNextEvents(["g1"], undefined, true));
     await waitFor(() => expect(vi.mocked(logClientError)).toHaveBeenCalled());
 
@@ -83,7 +75,7 @@ describe("group next events", () => {
     );
     await waitFor(() => expect(result.current.eventByGroup.get("g1")?.id).toBe("event-b"));
 
-    vi.mocked(getDocs).mockImplementationOnce(() => new Promise(() => {}));
+    setCallableImplementation("listVisibleEventEnvelopes",()=>new Promise(()=>{}));
     rerender({ excludeEventId: "event-b" });
 
     await waitFor(() => expect(result.current.eventByGroup.size).toBe(0));
@@ -98,5 +90,43 @@ describe("group next events", () => {
     expect(isEligibleNextEvent({ visibility: "PUBLIC", deletedAt: null }, true)).toBe(true);
     expect(isEligibleNextEvent({}, true)).toBe(false);
     expect(isEligibleNextEvent({ visibility: "GROUP" }, false)).toBe(true);
+    expect(isEligibleNextEvent({ visibility:"GROUP" },true,true)).toBe(true);
+    expect(isEligibleNextEvent({},true,true)).toBe(true);
+    expect(isEligibleNextEvent({ visibility:"PRIVATE" },true,true)).toBe(false);
+    expect(isEligibleNextEvent({ visibility:"PUBLIC",kind:"CLUB_MEETING" },true,true)).toBe(false);
+  });
+});
+
+
+describe("bounded next-event discovery continuation", () => {
+  beforeEach(() => installEventDiscoveryFixture());
+
+  it("reports an empty private scan window as incomplete without automatic requests", async () => {
+    setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [], nextCursor: "~ed1_" + "a".repeat(48) } }));
+    const { result } = renderHook(() => useGroupNextEvents(["g1"], undefined, true));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.incompleteGroups.has("g1")).toBe(true);
+    expect(result.current.eventByGroup.size).toBe(0);
+    expect(mockCallableInvocations.filter(call => call.name === "listVisibleEventEnvelopes")).toHaveLength(1);
+  });
+
+  it("offers continuation when the first page contains only the excluded event", async () => {
+    setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [{ id: "current", data: { info: { groupId: "g1", visibility: "PUBLIC", status: "OPEN", startTime: 100 } } }], nextCursor: "current" } }));
+    const { result } = renderHook(() => useGroupNextEvents(["g1"], "current", true));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.incompleteGroups.has("g1")).toBe(true);
+    expect(result.current.eventByGroup.size).toBe(0);
+  });
+
+  it("clears incomplete state on group changes and does not mark a resolved next event incomplete", async () => {
+    setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [], nextCursor: "~ed1_" + "b".repeat(48) } }));
+    const { result, rerender } = renderHook(({ groups }) => useGroupNextEvents(groups, undefined, true), { initialProps: { groups: ["g1"] } });
+    await waitFor(() => expect(result.current.incompleteGroups.has("g1")).toBe(true));
+    setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [{ id: "next", data: { info: { groupId: "g2", visibility: "PUBLIC", status: "OPEN", startTime: 100 } } }], nextCursor: "next" } }));
+    rerender({ groups: ["g2"] });
+    await waitFor(() => expect(result.current.eventByGroup.get("g2")?.id).toBe("next"));
+    expect(result.current.incompleteGroups.size).toBe(0);
+    rerender({ groups: [] });
+    expect(result.current.incompleteGroups.size).toBe(0);
   });
 });

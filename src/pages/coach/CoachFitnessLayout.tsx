@@ -13,6 +13,7 @@ export default function CoachFitnessLayout() {
   const [params] = useSearchParams();
   const location = useLocation();
   const today = location.pathname.endsWith("/today");
+  const condition = location.pathname.endsWith("/condition");
   const requestedSport = params.get("sport");
   const sport = requestedSport === "run" || requestedSport === "bike" || requestedSport === "swim" && isSportUiEnabled(requestedSport) || requestedSport === "tri" && !today
     ? requestedSport : "bike";
@@ -22,5 +23,5 @@ export default function CoachFitnessLayout() {
     next.set("sport", "bike");
     return <Navigate replace to={{ pathname: location.pathname, search: `?${next}`, hash: location.hash }} />;
   }
-  return <><Outlet context={model} />{!location.pathname.endsWith("/chat") && <div data-testid="K6-F" className="coach-question-launcher fixed bottom-20 right-4"><div data-testid={today ? "K2-5" : undefined}><div data-testid={today ? "K2-5-2" : undefined}><CoachQuestionLauncher user={user} discipline={model.discipline === "tri" ? "bike" : model.discipline} onSignIn={() => void signIn()} triggerBlock={false} triggerLabel={t("goalHub.askCoach")} /></div></div></div>}</>;
+  return <><Outlet context={model} />{!location.pathname.endsWith("/chat") && <div data-testid="K6-F" className={condition ? "site-shell coach-question-launcher coach-question-launcher--condition" : "coach-question-launcher fixed bottom-20 right-4"}><div data-testid={today ? "K2-5" : undefined}><div data-testid={today ? "K2-5-2" : undefined}><CoachQuestionLauncher user={user} discipline={model.discipline === "tri" ? "bike" : model.discipline} onSignIn={() => void signIn()} triggerBlock={false} triggerLabel={t("goalHub.askCoach")} /></div></div></div>}</>;
 }

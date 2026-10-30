@@ -139,7 +139,7 @@ describe("PlanPresentation responsive layout", () => {
     renderWithProviders(<PlanPresentation model={desktopModel} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
     expect(screen.queryByText("108.0km")).not.toBeInTheDocument();
     expect(screen.getByText("240 분")).toBeInTheDocument();
-    expect(screen.getByText(/계획 180 · 실제/)).toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: /부하 비교$/ })).getAllByRole("definition")[0]).toHaveTextContent("180 TSS");
   });
 
   it("omits unsupported fitness forecasts and empty course metrics for a time-based running goal", () => {
@@ -188,7 +188,9 @@ describe("PlanPresentation responsive layout", () => {
     const date = Date.now();
     const adjusted = {...model, weeks: [{id: "week-01", weekNumber: 1, phase: "build", startDate: date, plannedTSS: 100, days: [{date, dayOfWeek: 0, workout: "z2", plannedTSS: 100, adjustedTSS: 85, actualTSS: actual, actualActivityId: "saved-ride", matchMethod: "explicit-start", matchConfidence: "exact", completed: true, plannedDurationMin: 60}]}]} as unknown as PlanModel;
     renderWithProviders(<PlanPresentation model={adjusted} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
-    expect(screen.getByText("계획 85 · 실제 미확인 TSS")).toBeInTheDocument();
+    const values = within(screen.getByRole("group", { name: /부하 비교$/ })).getAllByRole("definition");
+    expect(values[0]).toHaveTextContent("85 TSS");
+    expect(values[1]).toHaveTextContent("미확인");
     expect(screen.getByText("달성 — · 차이 — TSS")).toBeInTheDocument();
   });
 
@@ -303,6 +305,7 @@ it("desktop day cells distinguish saved partial, manual completion, probable lin
   expect(screen.getByText("완료 표시 · 연결 근거 확인 필요")).toBeInTheDocument();
   expect(screen.getByText("추정 연결 후보 · 확인 필요")).toBeInTheDocument();
   expect(screen.getByText("연기로 기록됨")).toBeInTheDocument();
+  screen.getAllByText("비교 근거").forEach(summary => fireEvent.click(summary.closest("summary")!));
   expect(screen.getByRole("link",{name:"연결 후보 활동 보기"})).toHaveAttribute("href",expect.stringContaining("/activity/candidate"));
   expect(screen.queryByText("100%")).not.toBeInTheDocument();
   expect(screen.queryByLabelText("미완료")).not.toBeInTheDocument();

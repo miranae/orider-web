@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityMetrics, RidePeakEffort } from "@shared/types/activity-metrics";
-import { resolvePeakEffortLocation, visiblePeakEfforts } from "./activityPeakEfforts";
+import { resolvePeakEffortLocation, twentyMinuteEffort, visiblePeakEfforts } from "./activityPeakEfforts";
 
 const peak = { durationSec: 60, startIndex: 987, endIndex: 1047, startOffsetSec: 100,
   fromKm: 0.1, toKm: 0.3, avgPowerW: 250, maxPowerW: 400, avgHr: null, maxHr: null,
@@ -34,5 +34,18 @@ describe("canonical peak efforts", () => {
     expect(resolvePeakEffortLocation(peak, "route", { distance: [0, 100, 200, 300], latlng: [[37, 127], [37, 127], [NaN, 127], [37, 127]] }, sampled))
       .toEqual({ chartRange: [1, 3], routeRange: undefined, markerPosition: null });
     expect(resolvePeakEffortLocation({ ...peak, fromKm: 0, toKm: 0 }, "route", null, sampled)).toBeNull();
+  });
+});
+
+describe("20 minute elapsed winner", () => {
+  const winner = { durationSec: 1200 as const, startOffsetSec: 23.5, endOffsetSec: 1223.5, avgPowerW: 186.835 };
+  const current = { ...metrics, powerDurationCurve: { state: "available", points: [{ durationSeconds: 1200, maxAveragePowerW: 186.835 }], twentyMinuteEffort: winner } } as ActivityMetrics;
+  it("uses exact saved elapsed bounds without requiring matching GPS indices", () => expect(twentyMinuteEffort(current, true)).toEqual(winner));
+  it("never invents an interval for legacy, stale, denied or mismatched PDC", () => {
+    expect(twentyMinuteEffort(metrics, true)).toBeNull();
+    expect(twentyMinuteEffort(current, false)).toBeNull();
+    expect(twentyMinuteEffort(current, true, true)).toBeNull();
+    expect(twentyMinuteEffort({ ...current, inputPending: true }, true)).toBeNull();
+    expect(twentyMinuteEffort({ ...current, powerDurationCurve: { ...current.powerDurationCurve, points: [] } } as ActivityMetrics, true)).toBeNull();
   });
 });

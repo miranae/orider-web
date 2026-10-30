@@ -1,3 +1,6 @@
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import type { ActivityNarrativeGrounding } from "@shared/activity-narrative-grounding";
+import { invalidateActivityNarrativePeekCache } from "./useActivityNarrativePeek";
 /**
  * 활동 구간 내러티브 (AI 라이딩 분석) — REST 우선 호출 + 캐시 활용 hook.
  *
@@ -9,6 +12,7 @@
  */
 import { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { captureActivityNarrativeSession, isActivityNarrativeAccessRevoked } from "../services/activityNarrativeSession";
 import { logClientError } from "../services/errorLogger";
 import { generateActivityNarrative } from "../services/activityNarrativeApi";
 
@@ -60,39 +64,20 @@ export interface Prescription {
   detail: string;
 }
 
-export interface FitnessImpactValues { ctl: number; atl: number; tsb: number }
-
-export interface ActivitySocialSummary {
-  narrative: string;
-  achievements: Array<{ id: string; text: string }>;
-  fitnessImpact?: {
-    status: "available";
-    discipline: "bike" | "run" | "swim";
-    asOf: number;
-    timezone: "UTC";
-    before: FitnessImpactValues;
-    after: FitnessImpactValues;
-    delta: FitnessImpactValues;
-  } | {
-    status: "pending";
-    discipline: "bike" | "run" | "swim";
-    asOf: number;
-    timezone: "UTC";
-    before: FitnessImpactValues;
-  } | { status: "unavailable"; reason: string };
-  shareText: string;
-}
-
 export interface ActivityNarrative {
-  socialSummary?: ActivitySocialSummary;
-  /** 짧은 공유 문구 생성에 실패한 새 분석은 null. 구버전 캐시는 미포함. */
-  shareSummary?: string | null;
+  comparisonGrounding?: ActivityNarrativeGrounding | null;
   narrativeVersion: string;
   generatedAt: number;
   isVirtualPower: boolean;
   summary: string;
   /** 서버 입력 fingerprint가 현재 활동/메트릭/프로필과 달라 기존 분석을 표시 중인 상태. */
   stale?: boolean;
+  /**
+   * 다시 분석 안내 (소유자 배지·버튼용, 어떤 내용도 가리지 않는다).
+   * analyst_updated = 분석가 판이 바뀜, inputs_changed = 활동 데이터가 바뀜(stale 과 같은 뜻).
+   * 구버전 서버는 미포함 → stale 로 폴백.
+   */
+  reanalysisAvailable?: "analyst_updated" | "inputs_changed" | null;
   /** 코치 처방 (rsn-v10+). 구버전 캐시는 미포함 → 옵셔널. */
   prescriptions?: Prescription[];
   overall: {
@@ -112,6 +97,7 @@ export interface ActivityNarrative {
 }
 
 interface State {
+  accessRevoked?: boolean;
   data: ActivityNarrative | null;
   loading: boolean;
   error: string | null;
@@ -142,7 +128,9 @@ export function useActivityNarrativeWithOptions(
   refreshKey = 0,
 ): State {
   const { user } = useAuth();
-  const scope = `${activityId}:${lang}:${user?.uid ?? "anonymous"}`;
+  const services = useFirebaseServices();
+  const session = captureActivityNarrativeSession(services);
+  const scope = `${activityId}:${lang}:${user?.uid ?? "anonymous"}:${session.key}`;
   const [stateScope, setStateScope] = useState(scope);
   const [state, setState] = useState<State>({ data: null, loading: false, error: null });
 
@@ -167,10 +155,11 @@ export function useActivityNarrativeWithOptions(
         activityId,
         lang,
         ...(forceRefresh ? { forceRefresh: true } : {}),
-      });
+      }, services);
       inflight.set(key, promise);
       // 성공 → done 으로 승격, 실패 → inflight 비워 후속 마운트가 재시도 가능
       promise.then((data) => {
+        if (!session.isCurrent()) return;
         done.set(`${scope}:cache`, data);
         done.set(key, data);
       }).finally(() => {
@@ -181,16 +170,17 @@ export function useActivityNarrativeWithOptions(
     }
 
     promise
-      .then((data) => { if (!cancelled) setState({ data, loading: false, error: null }); })
+      .then((data) => { if (!cancelled && session.isCurrent()) setState({ data, loading: false, error: null }); })
       .catch((err: unknown) => {
-        if (cancelled) return;
+        if (cancelled || !session.isCurrent()) return;
         const msg = err instanceof Error ? err.message : String(err);
         logClientError("useActivityNarrative", msg, { activityId, lang });
-        setState((previous) => ({ data: previous.data, loading: false, error: msg }));
+        if (isActivityNarrativeAccessRevoked(err)) { invalidateActivityNarrativePeekCache(activityId, lang); done.delete(`${scope}:cache`); done.delete(key); }
+        setState((previous) => ({ data: isActivityNarrativeAccessRevoked(err) ? null : previous.data, accessRevoked: isActivityNarrativeAccessRevoked(err), loading: false, error: msg }));
       });
 
     return () => { cancelled = true; };
-  }, [activityId, enabled, lang, forceRefresh, refreshKey, scope]);
+  }, [activityId, enabled, lang, forceRefresh, refreshKey, scope, session, services]);
 
-  return stateScope === scope ? state : { data: null, loading: enabled, error: null };
+  return stateScope === scope && session.isCurrent() ? state : { data: null, loading: enabled, error: null };
 }

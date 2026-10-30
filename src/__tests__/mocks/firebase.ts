@@ -8,6 +8,7 @@ import { vi } from "vitest";
 type AuthCallback = (user: MockUser | null) => void;
 
 export interface MockUser {
+  isAnonymous?: boolean;
   uid: string;
   displayName: string | null;
   email: string | null;
@@ -19,6 +20,7 @@ const _authListeners: Set<AuthCallback> = new Set();
 
 export function simulateLogin(user?: Partial<MockUser>) {
   _currentUser = {
+    ...(user?.isAnonymous !== undefined ? { isAnonymous: user.isAnonymous } : {}),
     uid: user?.uid ?? "test-uid",
     displayName: user?.displayName ?? "Test User",
     email: user?.email ?? "test@example.com",

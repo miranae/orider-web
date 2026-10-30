@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import type { Activity } from "@shared/types";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import ActivitySocialFooter from "./ActivitySocialFooter";
@@ -42,6 +42,30 @@ const activity = {
 describe("ActivitySocialFooter callable mutations", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it("refreshes exact viewer membership on return and sends removal instead of another add", async () => {
+    mocks.setKudos.mockResolvedValue({ enabled: false });
+    const { rerender } = renderWithProviders(<ActivitySocialFooter activity={{ ...activity, kudosCount: 0, viewerHasKudos: false }} presentation="feed" />);
+    rerender(<ActivitySocialFooter activity={{ ...activity, kudosCount: 1, viewerHasKudos: true }} presentation="feed" />);
+    const button = screen.getByRole("button", { name: "좋아요" });
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(button);
+    expect(mocks.setKudos).toHaveBeenCalledWith("a1", false);
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("좋아요 0")).toBeVisible();
+  });
+  it("prefers canonical false over a stale avatar and ignores a prior activity rejection", async () => {
+    let reject!: (reason: unknown) => void;
+    mocks.setKudos.mockReturnValueOnce(new Promise((_resolve, fail) => { reject = fail; }));
+    const { rerender } = renderWithProviders(<ActivitySocialFooter activity={{ ...activity, viewerHasKudos: false, recentKudos: [{ userId: "viewer", nickname: "Viewer", profileImage: null }] }} presentation="feed" />);
+    expect(screen.getByRole("button", { name: "좋아요" })).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByRole("button", { name: "좋아요" }));
+    rerender(<ActivitySocialFooter activity={{ ...activity, id: "next", kudosCount: 7, viewerHasKudos: true }} presentation="feed" />);
+    await act(async () => reject(new Error("late")));
+    expect(screen.getByText("좋아요 7")).toBeVisible();
+    expect(screen.getByRole("button", { name: "좋아요" })).toHaveAttribute("aria-pressed", "true");
+    expect(mocks.showToast).not.toHaveBeenCalled();
+  });
   it("keeps feed totals and pressed state consistent when a kudos write fails", async () => {
     mocks.setKudos.mockRejectedValueOnce(new Error("blocked"));
     renderWithProviders(<ActivitySocialFooter activity={activity} presentation="feed" />);

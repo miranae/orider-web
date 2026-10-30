@@ -12,9 +12,9 @@ export interface PmcHistoryPoint extends Omit<FitnessPoint, 'ctl' | 'atl' | 'tsb
   atl: number | null
   tsb: number | null
   loadStatus?: 'final' | 'snapshot' | 'unconfirmed'
-  calculationStatus?: 'server' | 'derived' | 'estimated' | 'pending' | 'failed' | 'stale'
+  calculationStatus?: 'server' | 'derived' | 'estimated' | 'pending' | 'failed' | 'stale' | 'missing'
 }
-const calculationPriority: NonNullable<PmcHistoryPoint['calculationStatus']>[] = ['failed', 'stale', 'pending', 'estimated', 'derived', 'server']
+const calculationPriority: NonNullable<PmcHistoryPoint['calculationStatus']>[] = ['failed', 'stale', 'pending', 'missing', 'estimated', 'derived', 'server']
 
 export function hasFitnessLoadLifecycle(source: FitnessTimeseriesDoc | null): boolean {
   const load = source?.loadSnapshot

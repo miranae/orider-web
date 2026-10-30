@@ -1,8 +1,10 @@
+import InfoTip from "../../../components/InfoTip";
+import { PowerReadingControls } from "./PowerReadingControls";
 import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import GlossaryText from "../../../components/common/GlossaryText";
 import DurationCurveChart from "../../../components/DurationCurveChart";
-import { BeforeAfterPlot, ReferenceGauge, Text } from "../../../theme/components";
+import { BeforeAfterPlot, ReferenceGauge, Select, Stat, Text } from "../../../theme/components";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
 import { HR_ZONE_LABELS, POWER_ZONE_LABELS } from "./metricsPresentation";
 import "./activity-overview-charts.css";
@@ -182,7 +184,7 @@ function ZoneStrip({ weights, className, label, labelled = false, items, sheen =
   </div>;
 }
 
-export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }: { zone: Zone; highPercent?: number; baselineHighPercent?: number; heading: ReactNode }) {
+export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading, afterStrip, workKj, layout = "compact" }: { afterStrip?: ReactNode; workKj?: readonly (number | undefined)[]; layout?: "compact" | "rows"; zone: Zone; highPercent?: number; baselineHighPercent?: number; heading: ReactNode }) {
   const { t } = useTranslation(["activity", "fitness"]);
   const labels = zone.kind === "power" ? POWER_ZONE_LABELS : HR_ZONE_LABELS;
   const pcts = zone.currentPercentages?.length === zone.seconds.length ? zone.currentPercentages : undefined;
@@ -190,7 +192,7 @@ export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }:
   const baseline = zone.baselinePercentages?.length === zone.seconds.length && (zone.priorSampleCount ?? 0) > 0 ? zone.baselinePercentages : undefined;
   const describe = (values: number[] | undefined) => zone.seconds.map((sec, i) => `Z${i + 1} ${values ? `${one(values[i]!)}%` : clock(sec)}`).join(", ");
   const name = (i: number) => `Z${i + 1}${labels[i] ? ` ${t(labels[i]!.nameKey)}` : ""}`;
-  const items = zone.seconds.map((sec, i) => ({ label: name(i), detail: [clock(sec), pcts ? `${one(pcts[i]!)}%` : null].filter(Boolean).join(" · ") }));
+  const items = zone.seconds.map((sec, i) => ({ label: name(i), detail: [clock(sec), pcts ? `${one(pcts[i]!)}%` : null, zone.kind === "power" && i === 4 ? t("analysisReading.powerVo2Range") : null].filter(Boolean).join(" · ") }));
   // 0% 존은 범례 한 줄로 접는다 — 빈 칸이 같은 무게로 자리를 차지하지 않게.
   const shown = zone.seconds.flatMap((sec, i) => (pcts ? pcts[i]! > 0 : sec > 0) ? [i] : []);
   const empty = zone.seconds.flatMap((sec, i) => (pcts ? pcts[i]! > 0 : sec > 0) ? [] : [i]);
@@ -203,11 +205,19 @@ export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }:
       </span>}
     </div>
     <ZoneStrip sheen={zone.kind === "power"} weights={weights} labelled items={items} label={`${t("overviewSummary.zoneBarLabel")}: ${describe(pcts)}`} />
+    {afterStrip}
     {baseline && <div className="activity-overview-zones__baseline">
       <ZoneStrip sheen={zone.kind === "power"} weights={baseline} className="activity-overview-zones__strip--baseline" label={`${t("overviewSummary.zoneBaselineAria")}: ${describe(baseline)}`} />
       <Text variant="caption" tone="tertiary">{t(zone.baselineScope === "discipline" ? "overviewSummary.zoneBaselineDiscipline" : "overviewSummary.zoneBaseline", { count: zone.priorSampleCount })}
         {baselineHighPercent != null && <> · <GlossaryText>{t("overviewSummary.usualHigh", { pct: one(baselineHighPercent) })}</GlossaryText></>}</Text>
     </div>}
+    {layout === "rows" ? <table className={`activity-zone-reading-table ${workKj ? "activity-zone-reading-table--work" : ""}`} aria-label={t("overviewSummary.zoneBarLabel")}>
+      <thead><tr><th scope="col">{t("overviewEvidence.zone")}</th>{pcts && <th scope="col">%</th>}<th scope="col">{t("overviewEvidence.duration")}</th>{workKj && <th scope="col">kJ</th>}</tr></thead>
+      <tbody>{zone.seconds.map((seconds, i) => <tr key={i}>
+        <th scope="row"><span className="activity-zone-reading-name"><span aria-hidden="true" className={`activity-overview-swatch activity-overview-zone--${i + 1}`} />{name(i)}</span></th>
+        {pcts && <td>{baseline ? <InfoTip tone="inherit" title={name(i)} label={t("analysisReading.zoneComparison", { zone: name(i) })} content={[t("overviewSummary.usualPct", { pct: one(baseline[i]!) }), zone.deltaPercentagePoints?.[i] != null ? `${t("overviewEvidence.change")} ${zone.deltaPercentagePoints[i]! > 0 ? "+" : ""}${one(zone.deltaPercentagePoints[i]!)}%p` : null].filter(Boolean).join(" · ")}>{`${one(pcts[i]!)}%`}</InfoTip> : `${one(pcts[i]!)}%`}</td>}<td>{clock(seconds)}</td>{workKj && <td>{workKj[i] != null && Number.isFinite(workKj[i]) ? one(workKj[i]!) : "—"}</td>}
+      </tr>)}</tbody>
+    </table> : <>
     <ul className="activity-overview-zones__legend" style={cssVar({ "--rows": Math.ceil(shown.length / 2) })}>
       {shown.map((i) => <li key={i}>
         <span aria-hidden="true" className={`activity-overview-swatch activity-overview-zone--${i + 1}`} />
@@ -219,7 +229,8 @@ export function ZoneTimeBar({ zone, highPercent, baselineHighPercent, heading }:
         </span>}
       </li>)}
     </ul>
-    {empty.length > 0 && <p className="activity-overview-zones__empty"><MixedValue value={t("overviewSummary.zonesEmpty", { zones: empty.map(name).join(", ") })} /></p>}
+    </>}
+    {layout !== "rows" && empty.length > 0 && <p className="activity-overview-zones__empty"><MixedValue value={t("overviewSummary.zonesEmpty", { zones: empty.map(name).join(", ") })} /></p>}
   </div>;
 }
 
@@ -305,9 +316,10 @@ export function powerComparisonBasis(rows: PowerRow[], recordsEvaluated: boolean
   return null;
 }
 
-export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, ftpW }: { rows: PowerRow[]; recordsEvaluated: boolean; comparableMedian: boolean; ftpW?: number | null }) {
+export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, ftpW, interactiveReading = false }: { rows: PowerRow[]; recordsEvaluated: boolean; comparableMedian: boolean; ftpW?: number | null; interactiveReading?: boolean }) {
   const { t, i18n } = useTranslation(["activity", "dashboard"]);
   const listId = useId();
+  const [selectedDuration, setSelectedDuration] = useState(300);
   const label = (key: string) => t(`overviewEvidence.${key}`);
   const points = rows.flatMap((row) => {
     const seconds = powerDurationSeconds(row.duration);
@@ -336,11 +348,17 @@ export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, f
     ...(recordsEvaluated && row.recordAchievement ? [label(`records.${row.recordAchievement}`)] : []),
   ];
   const peak = points.reduce((max, p) => Math.max(max, p.value), 0);
+  const selectedIndex = Math.max(0, points.findIndex(point => point.durationSeconds === selectedDuration));
+  const selected = points[selectedIndex];
+  const referenceValue = comparison?.values[selectedIndex];
+  const gap = selected && referenceValue != null ? Math.round(selected.value - referenceValue) : null;
   const ftp = ftpW != null && Number.isFinite(ftpW) && ftpW > 0 ? Math.round(ftpW) : null;
   return <div className="activity-overview-curve">
+    {interactiveReading && selected && <PowerReadingControls><label className="activity-benchmark-duration" htmlFor={`${listId}-duration`}><Text variant="bodySmall" tone="secondary">{t("benchmark.duration")}</Text><Select id={`${listId}-duration`} value={selected.durationSeconds} onChange={event => setSelectedDuration(Number(event.target.value))}>{points.map(point => <option key={point.durationSeconds} value={point.durationSeconds}>{duration(point.row.duration)}</option>)}</Select></label></PowerReadingControls>}
     <DurationCurveChart
       points={points.map(({ durationSeconds, value }) => ({ durationSeconds, value }))}
       unit="W" color="var(--chart-power)" datasetLabel={t("overviewSummary.thisActivity")}
+      onPointSelect={interactiveReading ? index => setSelectedDuration(points[index]!.durationSeconds) : undefined}
       comparison={comparison} tooltipFooter={(index) => points[index] ? facts(points[index]!.row) : []} annotations={annotations} showLegend
       reference={ftp ? { value: ftp, label: `FTP ${ftp} W` } : null} referenceSolid
       xScale="log" unitAxisTitle heightClassName="h-48 sm:h-56"
@@ -348,6 +366,12 @@ export function OverviewPowerCurve({ rows, recordsEvaluated, comparableMedian, f
       ariaLabel={t("overviewSummary.curveAria", { peak: Math.round(peak) })}
       emptyTitle={t("dashboard:charts.powerCurve.emptyTitle")} emptyDescription={t("dashboard:charts.powerCurve.emptyDescription")}
     />
+    {interactiveReading && selected && <>
+
+      <div className="activity-benchmark-values"><Stat compact label={t("overviewSummary.thisActivity")} value={one(selected.value)} unit="W" />{comparison && <Stat compact label={comparison.label} value={comparison.values[selectedIndex] != null ? one(comparison.values[selectedIndex]!) : "—"} unit={comparison.values[selectedIndex] != null ? "W" : undefined} />}</div>
+      {comparison && gap != null && <Text as="p" variant="bodySmall" tone="secondary">{t(`analysisReading.record${gap < 0 ? "Lower" : gap > 0 ? "Higher" : "Equal"}`, { duration: duration(selected.row.duration), reference: comparison.label, gap: Math.abs(gap) })}</Text>}
+      {!!facts(selected.row).length && <Text as="p" variant="bodySmall" tone="secondary">{facts(selected.row).join(" · ")}</Text>}
+    </>}
     {/* 캔버스를 못 읽는 보조기기용 — 같은 값의 목록. 화면에는 툴팁·라벨이 같은 일을 한다. */}
     <ul id={listId} className="sr-only">
       {points.map(({ row }, index) => <li key={row.duration}>

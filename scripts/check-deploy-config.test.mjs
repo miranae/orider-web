@@ -6,7 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 const root = process.cwd();
-const detailSources = ["/:lang/activity/:activityId", "/:lang/segment/:segmentId", "/:lang/course/:courseId", "/:lang/event/:eventId"];
+const detailSources = ["/:lang/activity/:activityId", "/:lang/segment/:segmentId", "/:lang/course/:courseId", "/:lang/event/:eventId", "/:lang/club/:groupId"];
 const readConfig = (file) => JSON.parse(readFileSync(join(root, file), "utf8"));
 function run(mutate = () => {}) {
   const fixture = mkdtempSync(join(tmpdir(), "orider-deploy-config-"));

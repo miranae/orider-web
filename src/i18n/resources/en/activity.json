@@ -1,4 +1,49 @@
 {
+  "nativeMemo": {
+    "edit": "Write or edit ride description",
+    "label": "Ride description",
+    "reload": "Replace draft with latest description",
+    "failed": "Could not load or save the description. Your draft is preserved.",
+    "conflict": "The description changed elsewhere. Your draft is preserved. Load the latest description before editing again.",
+    "saved": "Description saved. Feed updates may take a moment."
+  },
+  "publicDetail": {
+    "mapImageFailed": "The route map could not be loaded.",
+    "mapImageFailedHint": "Try again. Activity details and comments are still available.",
+    "power": "Power",
+    "averagePower": "Average power",
+    "normalizedPower": "Normalized power (NP)",
+    "powerSource": {
+      "measured": "Power identified as measured.",
+      "estimated": "Estimated power. Interpret separately from power meter measurements.",
+      "unknown": "Stored power values. Measurement provenance is unconfirmed."
+    },
+    "photosFailed": "Could not load more photos. Please try again.",
+    "morePhotos": "More photos",
+    "openPhotoPreview": "Open photo {{index}} preview",
+    "moreComments": "Load more comments",
+    "commentsRestart": "Reload from the beginning",
+    "commentsFailed": "Could not load the next comments. Current comments are preserved.",
+    "commentsComplete": "All currently accessible comments are loaded.",
+    "confirmDelete": "Confirm deletion",
+    "accessDenied": "This activity is unavailable. It may have been deleted or its visibility or access may have changed.",
+    "route": "Ride route",
+    "mapLoading": "Loading route.",
+    "routePreview": "Public route preview. Raw GPS streams are not displayed.",
+    "photoPreview": "Showing a preview of photos.",
+    "title": "Public activity",
+    "summary": "Ride summary",
+    "distance": "Distance",
+    "duration": "Recorded time",
+    "minutes": "min",
+    "elevation": "Elevation gain",
+    "calculated": "Activity facts verified by the server.",
+    "recorded": "Recorded summary. Analysis results are not yet verified.",
+    "pending": "Photos and description are being prepared.",
+    "commentPreview": "Showing a preview of comments.",
+    "mutationFailed": "Could not save your reaction. Review your text and try again.",
+    "posted": "Comment posted."
+  },
   "cyclingEffortPreference": {
     "restoreAvailable": "The existing excluded selection can be restored.",
     "legacyUnsupported": "This older analysis format does not allow checking the record time for this distance.",
@@ -66,6 +111,10 @@
     "calculate": "Calculate selected records"
   },
   "stagePowerDuration": {
+    "history": "Previous calculations",
+    "latest": "Latest calculation",
+    "previous": "Previous calculation {{count}}",
+    "previousResult": "Showing a previously completed calculation separately from the new calculation.",
     "storedOrigin": "Calculated from stored power values · measurement origin unverified",
     "sourceUnavailable": "Stored power data is missing or verification criteria changed. Choose another activity or check again.",
     "current": "Current activity · {{date}}",
@@ -374,7 +423,7 @@
     "noWarning": "No warning",
     "private": "Private metrics",
     "modelNote": "Recovery, fuel and W′ are measurement-based models, not direct physiological measurements.",
-    "qualityNote": "Measured values are used when approved values are unavailable.",
+    "qualityNote": "Recorded sensor values are used unless you have confirmed a value.",
     "peakPower": "Peak {{value}} W",
     "ftpMissing": "Activity-time canonical FTP unavailable",
     "sports": {
@@ -539,19 +588,17 @@
     "checking": "Checking…",
     "startBtn": "Analyze",
     "refreshDetailBtn": "Reload details",
-    "regenerateShareSummaryBtn": "Reanalyze to generate share text",
-    "regenerateShareSummaryHint": "The short share text could not be generated. Reanalyze to generate it again.",
+    "reanalyzeBtn": "Reanalyze",
     "refreshAnalysisBtn": "Reanalyze with latest data",
     "loginBtn": "Log in",
     "waitHint": "Awaiting analysis — press the button to start AI segment analysis.",
     "waitHintRun": "Awaiting analysis — press the button to start AI run segment coaching.",
-    "previewOnlyHint": "Showing the saved AI summary. Detailed segment cache is missing or has not synced yet.",
-    "previewAuthHint": "Showing the saved AI summary. Check your sign-in state to reload detailed segment analysis.",
+    "previewOnlyHint": "Analysis saved at the time of generation.",
+    "previewAuthHint": "Analysis saved at the time of generation. Sign in to load the details.",
     "generatedAt": "Analysis generated",
     "refreshingHint": "Reanalyzing with the latest data. Your saved analysis remains visible.",
     "refreshFailedHint": "Reanalysis failed. Your saved analysis is preserved.",
-    "staleHint": "This analysis was written using the data available when it was generated. Data has since changed; you can reanalyze with the latest data.",
-    "staleLoginHint": "This analysis was written using the data available when it was generated. Sign in to reanalyze with the latest data.",
+    "staleHint": "Activity data has changed",
     "loginHint": "Sign in to use AI segment analysis.",
     "runPreview": {
       "pace": {
@@ -609,7 +656,59 @@
     "temp": {
       "device": "measured",
       "forecast": "forecast"
-    }
+    },
+    "grounding": {
+      "title": "Comparison evidence",
+      "legacy": "Generation-time comparison evidence was not saved for this analysis. Current records are not used to reconstruct past evidence.",
+      "intro": "These inputs were used when the analysis was generated. Opening a source may show later changes. Times are shown in KST.",
+      "kind": {
+        "coach_history": "Recent activity sample",
+        "fitness_context": "Pre-activity training state",
+        "personal_baseline": "Personal baseline",
+        "segment_history": "Segment history"
+      },
+      "basis": {
+        "activity_relative": "Relative to this activity’s start time; this is not a complete KST calendar-period aggregate.",
+        "generation_time": "Relative to the time this analysis was generated."
+      },
+      "window": "{{from}} ({{start}}) – {{to}} ({{end}})",
+      "included": "included",
+      "excluded": "excluded",
+      "comparisonWindow": "Comparison window {{index}}:",
+      "counts": "Read {{scanned}} · Selected {{selected}}",
+      "missingUnknown": "The number of missing inputs is unknown.",
+      "missing": "Missing inputs: {{count}}",
+      "coverage": {
+        "sample": "A selected sample was compared, not every activity in this period.",
+        "complete_query": "The query scope was checked. This does not establish completeness of all physical rides.",
+        "unknown": "Completeness of the comparison inputs is unknown."
+      },
+      "limit": "Query limit: {{count}}",
+      "cap": "The query limit was reached. Additional records and full coverage are unconfirmed.",
+      "sources": "Generation-time source references: {{count}}",
+      "sourcesPartial": "Only part of the source list is shown.",
+      "sourceKind": {
+        "activity": "Activity",
+        "metrics": "Computed metrics",
+        "profile": "Settings",
+        "fitness": "Training state",
+        "segment_effort": "Segment effort"
+      },
+      "openSource": "Open source activity",
+      "revision": "Input revision at generation: {{revision}}",
+      "revisionUnknown": "Input revision at generation is unknown"
+    },
+    "history": {
+      "open": "Previous AI analyses",
+      "current": "Return to current analysis",
+      "viewing": "Viewing a saved AI analysis.",
+      "failed": "Could not load the previous analysis. The displayed result is kept.",
+      "entry": "{{time}} · {{version}}",
+      "empty": "No previous AI analyses saved.",
+      "more": "More previous analyses"
+    },
+    "analystVersion": "analyst {{version}}",
+    "reanalyzeWithNewAnalystBtn": "Reanalyze with new analyst"
   },
   "card": {
     "noActivity": "Activity not found.",
@@ -710,11 +809,20 @@
     "visibility": {
       "everyone": "Public",
       "friends": "Friends",
+      "followers": "Followers",
       "private": "Private"
     },
     "indoorRun": "Indoor run",
     "indoorRide": "Indoor ride",
     "indoorActivity": "Indoor activity",
+    "routeLookup": {
+      "idle": "The route has not been checked yet. Your saved analysis remains visible.",
+      "loading": "Checking the route…",
+      "error": "The route could not be checked. Please try again.",
+      "load": "Check route"
+    },
+    "routePreviewUnavailable": "Route information",
+    "routePreviewUnavailableDesc": "No map preview was provided. This does not establish whether the activity contains raw GPS.",
     "noGps": "No GPS data",
     "noGpsDesc": "No route data was recorded for this activity",
     "indoorDesc": "This activity was recorded indoors, so there is no route to map",
@@ -814,6 +922,14 @@
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out",
       "fitRoute": "Show entire route"
+    },
+    "ownerRoutePreview": {
+      "hint": "View the route when recorded GPS is available.",
+      "load": "Show recorded route",
+      "retry": "Retry route preview",
+      "scope": "Preview of recorded GPS. Complete route coverage and location accuracy are unconfirmed.",
+      "empty": "No displayable GPS section was found in this record.",
+      "error": "Could not load the route. Please try again."
     }
   },
   "overlay": {
@@ -901,7 +1017,7 @@
       "ifDesc": "FTP {{ftp}}W",
       "ifDescDefault": "FTP {{ftp}}W (default)",
       "work": "Work",
-      "workDesc": "Work",
+      "workDesc": "Energy delivered through the pedals",
       "kjPerHour": "kJ/hr",
       "kjPerHourDesc": "Intensity",
       "trimpDesc": "HR-based load",
@@ -932,7 +1048,7 @@
       "hrDrift": "HR Drift",
       "hrDriftDesc": "Back vs front half avg",
       "ef": "EF",
-      "efDesc": "NP ÷ avgHR",
+      "efDesc": "Normalized power ÷ average heart rate",
       "decoupling": "Decoupling",
       "decouplingDesc": "Aerobic durability (Pw:Hr)",
       "distance": "Distance",
@@ -1047,7 +1163,8 @@
       "power": "Power Zones",
       "powerKj": "Work per zone (kJ)",
       "timelineTitle": "Zone timeline",
-      "timelineDesc": "Heart-rate and power intensity in workout-time order. Pauses do not add zone time.",
+      "timelineCoverageUnavailable": "Zone timelines with unknown time positions are not shown. See the saved time totals for each zone below.",
+      "timelineDesc": "Heart-rate and power intensity from a condensed series. See the saved analysis below for zone time totals.",
       "timelineDuration": "Workout time {{duration}}",
       "timelineSeconds": "{{count}} sec",
       "timelineMinutes": "{{count}} min",
@@ -1340,7 +1457,8 @@
     "viewCoach": "View in Coach →",
     "close": "Close",
     "removeFile": "Remove selected file",
-    "chooseFile": "Choose file"
+    "chooseFile": "Choose file",
+    "visibilityFollowers": "Followers"
   },
   "edit": {
     "eyebrow": "Edit Activity",
@@ -1491,8 +1609,8 @@
     "swimLoadHigh": "High intensity"
   },
   "serverMetrics": {
-    "missing": "No server analysis data — only activities uploaded directly via orider are auto-computed.",
-    "chip": "Server analysis",
+    "missing": "Analysis is not available yet. Directly uploaded activities are analyzed automatically.",
+    "chip": "Activity analysis",
     "workoutTypeLabel": "Type",
     "confidenceHint": "{{pct}}% confidence",
     "movingTimeLabel": "Analyzed moving time",
@@ -1510,9 +1628,9 @@
       "racePace": "Mixed hard efforts"
     },
     "provisionalChip": "Provisional · upload in progress",
-    "staleChip": "From an earlier analysis · awaiting recompute",
-    "truncatedInputChip": "From truncated input",
-    "paused": "Server analysis display is paused."
+    "staleChip": "Previously saved analysis",
+    "truncatedInputChip": "Based on a partial recording",
+    "paused": "Analysis is temporarily unavailable. Your activity is preserved."
   },
   "vp": {
     "badge": "Virtual Power",
@@ -1674,30 +1792,6 @@
     "resultTarget": "Requested target · Strava activity {{id}}",
     "statusTitle": "Publishing status"
   },
-  "socialSummary": {
-    "retry": "Reload share summary",
-    "retrying": "Loading share summary…",
-    "retryHint": "Your coaching stays available. Reload just the share summary.",
-    "retryError": "Could not load the share summary. Please try again.",
-    "title": "Share summary",
-    "sports": {
-      "bike": "Cycling",
-      "run": "Running",
-      "swim": "Swimming"
-    },
-    "settled": "Previous day close → activity day close",
-    "pendingTitle": "Previous day close",
-    "ctl": "CTL · Fitness",
-    "atl": "ATL · Fatigue",
-    "tsb": "TSB · Form",
-    "dailyBasis": "These are daily totals for the same sport. The activity day includes every activity on that day.",
-    "pendingBasis": "The same-sport activity day value appears after the day closes.",
-    "unavailable": "The activity day has not closed yet, or fitness data is unavailable.",
-    "private": "Fitness values are not shared because of this activity's privacy settings.",
-    "copy": "Copy share text",
-    "copied": "Share text copied.",
-    "error": "Could not copy. Please try again."
-  },
   "growth": {
     "title": "Activity changes and statistics",
     "compare": "Compare a previous activity",
@@ -1822,7 +1916,10 @@
     "location": "Show window on chart and map",
     "loadingLocation": "Preparing window location",
     "noLocation": "This effort cannot be reliably aligned with the route, so location is unavailable.",
-    "chartLocation": "Show window on chart"
+    "chartLocation": "Show window on chart",
+    "twentyTitle": "Best 20-minute power",
+    "twentySelect": "Analyze this time interval",
+    "twentyMissing": "This earlier calculation has no saved time interval for the best effort."
   },
   "benchmark": {
     "title": "Compare with my recent 90-day best power",
@@ -2582,9 +2679,15 @@
     "exclusions": {
       "metric_unavailable": "Excluded from average comparison · analysis unavailable",
       "partial_terminal": "Excluded from average comparison · partial samples",
-      "null_or_zero_speed": "Excluded from average comparison · no positive average"
+      "null_or_zero_speed": "Excluded from average comparison · no positive average",
+      "observed_geometry_only": "Whole-route coverage unconfirmed · excluded from rankings"
     },
-    "partialGeometry": "This activity has only partial route data, so it was excluded from whole-route group comparison. Existing GPS comparison remains available."
+    "partialGeometry": "This activity has only partial route data, so it was excluded from whole-route group comparison. Existing GPS comparison remains available.",
+    "observedTitle": "Activities with similar observed routes",
+    "mode": "Route matching basis",
+    "completeMode": "Activities with complete route coverage",
+    "observedScope": "Only recorded GPS sections are compared. Whole-ride route coverage is unconfirmed. Records, trends and fitness improvements are not compared.",
+    "observedCounts": "{{loaded}} of {{total}} observed-route activities shown · {{known}} individual averages available"
   },
   "cyclingSnapshotPreference": {
     "basisLabel": "Record basis",
@@ -2643,6 +2746,9 @@
     }
   },
   "nativePowerV2": {
+    "savedResults": "Results calculated in this view",
+    "savedResult": "Calculation {{number}} · {{duration}}",
+    "previousResult": "Showing a previously completed result, not a calculation for the new input.",
     "title": "Maximum average power for your chosen duration",
     "scope": "See maximum average power over your chosen duration in this activity.",
     "duration": "Duration to compare (seconds)",
@@ -2692,7 +2798,7 @@
     "analysisMetricSource": "Detailed analysis displays the stored analysis metrics for this activity.",
     "loadingData": "Loading detailed recordings…",
     "acceptedLoadLabel": "Applied training load",
-    "acceptedLoadDescription": "The server load used for fitness and fatigue calculations.",
+    "acceptedLoadDescription": "This activity’s load contributes to fitness and fatigue calculations.",
     "acceptedLoadTssBasis": "TSS basis",
     "acceptedLoadTimeBasis": "Estimated from time",
     "acceptedLoadHrBasis": "Heart-rate basis",
@@ -2742,11 +2848,14 @@
     "selectedStats": "Observed average and maximum within the selected range, separate from saved whole-activity metrics.",
     "segments": "Segments",
     "restore": "Restore full range",
+    "observedRangeStats": "Averages are weighted by sensor observation time within the selected elapsed interval. Average sensor speed can differ from the server’s distance divided by moving time.",
     "observedStats": "Average and maximum from observed raw samples. Values may differ from the saved activity summary.",
     "selection": "Selected range",
     "selectedStatsLabel": "Selected range statistics",
     "distanceShort": "Distance",
-    "elapsedShort": "Time"
+    "elapsedShort": "Time",
+    "canonicalMaximum": "Analysis maximum",
+    "canonicalAverage": "Analysis average"
   },
   "overviewSocial": {
     "title": "Activity story",
@@ -2766,7 +2875,232 @@
     "allResults": "View all",
     "noResults": "No highlights to display.",
     "previousPhoto": "Previous photo",
-    "nextPhoto": "Next photo"
+    "nextPhoto": "Next photo",
+    "memoSnapshot": "Summary generated on {{date}}. Current analysis may differ."
   },
-  "detail.keyRecords": "Key records"
+  "detail.keyRecords": "Key records",
+  "sourceMetrics": {
+    "sourceNotice": "Strava record · Orider calculations are identified in Analysis.",
+    "orider": "Orider analysis",
+    "sensorSummary": "Strava source sensor summary"
+  },
+  "trainingPeriods.populationBasis": "Distance, time and training zones scan up to 200 records per period and count one representative of explicitly linked copies. Their activity counts and eligible records may differ from power curves.",
+  "publicSafety": {
+    "actions": "Activity controls",
+    "report": "Report activity",
+    "hide": "Hide activity",
+    "block": "Block author",
+    "reportConfirm": "Tell us what needs review. Reporting does not hide the activity.",
+    "hideConfirm": "Hide this activity from your feed and close its details.",
+    "blockConfirm": "Block this author and remove follows in both directions. These activity details will close.",
+    "note": "Report details (optional)",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "failed": "Could not complete this action. Your details were kept; please retry.",
+    "reported": "Report submitted.",
+    "hideDone": "Activity hidden.",
+    "blockDone": "Author blocked.",
+    "home": "Back to feed"
+  },
+  "coverPhoto": {
+    "current": "Current cover photo",
+    "select": "Set as cover photo",
+    "clear": "Clear cover selection",
+    "failed": "Could not confirm the cover selection. Reload before choosing again.",
+    "saved": "Cover photo selection saved."
+  },
+  "routeInventory": {
+    "history": {
+      "scanning": "Checking stored activity history",
+      "traversed": "Stored activity traversal finished",
+      "invalidated": "Activities changed; another check is needed",
+      "counts": "{{scanned}} activities inspected · {{indexed}} found in the stored route comparison index · {{missing}} not found in that index",
+      "scope": "This account-wide inspection covers all years and sports, independently of the selected filters. Last inspected: {{date}}. Missing index entries do not mean source routes are absent. This is not a single fixed snapshot of all history. Capture completeness is unproven for {{unknown}} activities, overlapping the counts above. Existing route data does not establish current source validation or a personal best."
+    },
+    "finished": "This stored-index exploration has finished.",
+    "title": "Explore records with shapes similar to this activity",
+    "scope": "Inspect up to five stored route index entries per request. Each record is compared individually with the anchor. These observations do not establish complete history, the same road, or a personal best.",
+    "year": "Search year (KST; leave blank for all years)",
+    "allYears": "All years",
+    "invalidYear": "Enter a year from 1970 through this year, or leave blank.",
+    "find": "Start route history search",
+    "counts": "{{pages}} pages · {{scanned}} index entries inspected · {{count}} similar records",
+    "snapshot": "Fixed snapshot date: {{date}}",
+    "emptyMore": "No matching record for this year so far. More index pages remain available to inspect.",
+    "empty": "No matching record was found in the inspected index.",
+    "openSource": "Open source activity",
+    "more": "Inspect the next five index entries",
+    "exhausted": "End of the stored index at this snapshot. This does not prove that missing or unindexed source history has been covered.",
+    "lifetime": "Rows reflect each page read; earlier pages are not continuously rechecked. In-app edits/deletes, account changes, or 30-minute expiry clear the list. Refresh for changes outside this app. Returning from a source restores controls only; start a new read.",
+    "return": "Return to route history search"
+  },
+  "mapThumbnail": {
+    "explanation": "The feed map thumbnail is created on the screen of the first person who views this activity. If it looks wrong, clear it and it will be recreated for the next viewer.",
+    "reset": "Clear map thumbnail",
+    "confirm": "Clear the current thumbnail? It will be recreated the next time someone sees it in a feed.",
+    "done": "Cleared. It will be recreated for the next viewer.",
+    "failed": "Couldn't clear it. Please try again shortly."
+  },
+  "mapPrivacy": {
+    "title": "Public map privacy",
+    "current": "Saved settings: start radius {{startMeters}}m · finish radius {{endMeters}}m",
+    "explanation": "Hide a 0–5,000m radius around the start and finish, including return visits. Public maps show only the longest safe section. Your original analysis stays intact.",
+    "start": "Start protection radius (m)",
+    "end": "Finish protection radius (m)",
+    "unsaved": "Unsaved preview — not applied to the public map yet.",
+    "published": "Map under the current visibility setting",
+    "no_gps": "Route GPS is unavailable, so a safe section cannot be calculated. Saving a protection radius hides the entire public map.",
+    "hidden": "No section remains outside the protection areas. The public map is hidden.",
+    "changed_source": "The original route changed. The public map is hidden until you preview and save again.",
+    "preview": "Preview changes",
+    "save": "Save these settings",
+    "limit": "Previously downloaded or shared images cannot be recalled. Photos may reveal locations.",
+    "failed": "Could not verify the settings. Reload and try again.",
+    "conflict": "The settings or route changed elsewhere. Reload the latest state.",
+    "saved": "Public map privacy settings saved.",
+    "visibility": {
+      "everyone": "Map shown on this public activity",
+      "friends": "Map shared with friends",
+      "followers": "Map visible to people who follow you",
+      "private": "Private activity — not shown to other people."
+    },
+    "liveFailed": "The current public map could not be verified. Return to this view to retry.",
+    "liveUnavailable": "No currently verified public route.",
+    "revocationPending": "Access removal for the previous map image is incomplete. The public map is hidden. Preview and save again."
+  },
+  "embeddedProfile": {
+    "back": "Back",
+    "unsupported": "This destination is unavailable in this screen.",
+    "title": "Public profile",
+    "scope": "Only currently accessible public activities are shown.",
+    "loading": "Loading…",
+    "unavailable": "Profile activities are currently unavailable.",
+    "empty": "No public activities to show.",
+    "more": "Load more",
+    "rider": "Rider"
+  },
+  "routeHistory": {
+    "selected": "Selected",
+    "cancel": "Stop new query",
+    "loadHistory": "View saved comparisons",
+    "historyEntry": "Result {{index}} · {{time}} · {{count}} records checked",
+    "historyEmpty": "No saved comparisons.",
+    "moreHistory": "More saved results",
+    "savedEntry": "Select result from {{time}}",
+    "previousResult": "Showing a previously saved comparison while the new query is unfinished.",
+    "newProgress": "Checked {{count}} records in the new query.",
+    "savedTime": "Comparison saved at {{asOf}} KST",
+    "sourceChanged": "The source has changed or its current state could not be confirmed. Showing the saved result.",
+    "title": "Check route times across saved history",
+    "scope": "Check saved activities as of this request and compare elapsed times through the observed reference interval. Each action checks a bounded batch sequentially.",
+    "start": "Start history check",
+    "restart": "Start a new check",
+    "continue": "Check next records",
+    "retry": "Check progress again",
+    "stop": "Stop and clear results",
+    "counts": "{{scanned}} activities checked · {{candidates}} candidates · {{excluded}} excluded · {{unresolved}} processing unresolved",
+    "time": "As of {{asOf}} KST · continue until {{expires}} KST",
+    "elapsed": "Shortest verified elapsed time {{time}}",
+    "quality": "{{eligible}} eligible groups · {{excluded}} different-route or direction exclusions · {{ambiguous}} ambiguous · {{unavailable}} unavailable",
+    "source": "Open source activity {{index}}",
+    "ties": "Showing {{shown}} of {{count}} tied records.",
+    "limit": "Comparison uses GPS intervals saved at the request time. Missing records or later changes may not be reflected.",
+    "phase": {
+      "scanning": "Checking activities. No best time is shown yet.",
+      "identity": "Checking overlapping activity records.",
+      "reducing": "Comparing elapsed times in the checked records."
+    },
+    "status": {
+      "loading": "Checking records sequentially.",
+      "error": "The request result could not be confirmed. Check progress again.",
+      "expired": "This check has expired. Start again.",
+      "invalidated": "The account or an activity changed. Results were cleared. Start again.",
+      "stopped": "Cleared the displayed result.",
+      "hidden": "The result needs to be checked again.",
+      "complete": "History check complete.",
+      "paused": "More records remain. Continue to check them."
+    },
+    "best": {
+      "unavailable": "No comparable elapsed time was found in this check.",
+      "observed_best_with_gaps": "Some records remain unresolved or unavailable. The time below is the shortest among the verified records.",
+      "verified_recorded_best": "The comparison set saved at the request time has been checked."
+    },
+    "sources": "{{missing}} sources unavailable · {{unsupported}} unsupported · {{changed}} changed",
+    "close": "Close result",
+    "recover": "Check previous progress"
+  },
+  "reanalysis": {
+    "title": "Saved and new analysis",
+    "keepSaved": "Your saved analysis remains available. You can choose to analyze again with the new version.",
+    "versions": "Saved version {{saved}} · Latest version {{latest}}",
+    "check": "Check analysis status",
+    "start": "Analyze with new version",
+    "queued": "Analysis requested. Saved results remain available until completion.",
+    "completed": "New analysis completed.",
+    "failed": "Could not confirm the request. Saved analysis is unchanged. Retrying uses the same request.",
+    "viewingSaved": "Viewing saved analysis. Ranges are not recalculated from current source data.",
+    "history": "View previous analysis",
+    "current": "Return to current analysis",
+    "savedVersion": "Version {{version}} · {{time}}",
+    "noHistory": "No previous analysis is stored.",
+    "more": "Load more"
+  },
+  "analysisReading": {
+    "powerTitle": "Best power by duration",
+    "powerDescription": "Your highest sustained average at each duration, not the average for the whole ride.",
+    "compareWith": "Power comparison basis",
+    "records": "All-time records",
+    "recent": "Last 90 days",
+    "powerDetails": "Duration values and record evidence",
+    "powerDetailsDescription": "W/kg · % FTP · all-time best · previous best",
+    "powerMetrics": "Output characteristics",
+    "loadDetails": "Load metrics and calculation basis",
+    "zoneDetails": "Alternative intensity classification",
+    "thresholdDetails": "Time in threshold bands",
+    "anaerobicDetails": "Critical power and anaerobic reserve",
+    "pedalingDetails": "Pedaling pattern details",
+    "metabolismDetails": "Energy metabolism estimates",
+    "climbDetails": "Individual climb details",
+    "navigation": "Analysis navigation",
+    "explore": "Explore charts",
+    "summary": "Training summary",
+    "intensity": "Intensity",
+    "power": "Power records",
+    "efficiency": "Heart rate & pedaling",
+    "energy": "Energy",
+    "terrain": "Speed & terrain",
+    "intro": "Read your ride, compare your performance, and explore the evidence.",
+    "loadMeaning": "Training demand from this activity’s duration and intensity",
+    "npMeaning": "Power adjusted for fluctuations · distinct from average power",
+    "ifMeaning": "Intensity relative to your FTP · 1.00 is the FTP reference",
+    "exploration": "Explore the route and sensor recordings",
+    "explorationHint": "Open the map to inspect time and location, or select a section.",
+    "comparisonMeaning": "How to read this comparison",
+    "comparisonContext": "The gap describes the power produced during this activity. Purpose and duration differ between rides, so a lower percentage alone does not establish poorer training or declining fitness.",
+    "zoneEvidence": "Time, work and comparison evidence",
+    "comparisonLower": "Your best {{duration}} average was {{gap}} W below the 90-day best, or {{fraction}}% of that reference.",
+    "comparisonHigher": "Your best {{duration}} average was {{gap}} W above the 90-day reference, or {{fraction}}% of that reference.",
+    "comparisonEqual": "Your best {{duration}} average matched the 90-day best.",
+    "loadTimeMeaning": "Estimated from moving time without power or heart rate",
+    "loadHrMeaning": "Training demand from heart rate and duration",
+    "fitnessBasis": "Fitness scope and calculation basis",
+    "recordLower": "The best average power for {{duration}} was {{gap}} W below {{reference}}.",
+    "recordHigher": "The best average power for {{duration}} was {{gap}} W above {{reference}}.",
+    "recordEqual": "The best average power for {{duration}} matched {{reference}}.",
+    "seilerRange1": "Below 75% FTP · Z1–Z2 range",
+    "seilerRange2": "75% to below 100% FTP · Z3 and part of Z4",
+    "seilerRange3": "At least 100% FTP · part of Z4 through Z7",
+    "below83": "Below 83%",
+    "below83Range": "Below 83% FTP",
+    "ftpBands": "FTP intensity bands",
+    "ftpBasis": "FTP based",
+    "band": {
+      "sweetSpot": "Sweet spot",
+      "threshold": "Threshold",
+      "vo2": "VO2max",
+      "anaerobic": "Anaerobic"
+    },
+    "zoneComparison": "{{zone}} comparison",
+    "powerVo2Range": "105% FTP or above, below 120% FTP"
+  }
 }

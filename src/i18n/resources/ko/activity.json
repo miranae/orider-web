@@ -1,4 +1,49 @@
 {
+  "nativeMemo": {
+    "edit": "라이딩 본문 작성·수정",
+    "label": "라이딩 본문",
+    "reload": "최신 본문으로 작성 내용 교체",
+    "failed": "본문을 저장하거나 불러오지 못했습니다. 작성 내용은 유지됩니다.",
+    "conflict": "다른 곳에서 본문이 변경되었습니다. 작성 내용은 유지됩니다. 최신 본문을 불러온 뒤 다시 수정해 주세요.",
+    "saved": "본문을 저장했습니다. 피드 반영에는 잠시 걸릴 수 있습니다."
+  },
+  "publicDetail": {
+    "mapImageFailed": "경로 지도를 불러오지 못했습니다.",
+    "mapImageFailedHint": "다시 시도해 주세요. 활동 기록과 댓글은 계속 볼 수 있습니다.",
+    "power": "파워",
+    "averagePower": "평균 파워",
+    "normalizedPower": "정규화 파워 (NP)",
+    "powerSource": {
+      "measured": "측정으로 표기된 파워입니다.",
+      "estimated": "추정 파워입니다. 파워미터 측정값과 구분해서 확인하세요.",
+      "unknown": "저장된 파워값입니다. 측정 출처는 확인되지 않았습니다."
+    },
+    "photosFailed": "사진을 더 불러오지 못했습니다. 다시 시도해 주세요.",
+    "morePhotos": "추가 사진",
+    "openPhotoPreview": "사진 {{index}} 미리보기 열기",
+    "moreComments": "댓글 더 보기",
+    "commentsRestart": "처음부터 다시 불러오기",
+    "commentsFailed": "다음 댓글을 불러오지 못했습니다. 현재 댓글은 유지됩니다.",
+    "commentsComplete": "현재 볼 수 있는 댓글을 모두 불러왔습니다.",
+    "confirmDelete": "삭제 확인",
+    "accessDenied": "활동을 볼 수 없습니다. 삭제되었거나 공개 범위 또는 접근 권한이 변경되었을 수 있습니다.",
+    "route": "라이딩 경로",
+    "mapLoading": "경로를 불러오고 있습니다.",
+    "routePreview": "공개 경로 미리보기입니다. 원본 GPS 스트림은 표시하지 않습니다.",
+    "photoPreview": "일부 사진 미리보기입니다.",
+    "title": "공개 활동",
+    "summary": "라이딩 기록",
+    "distance": "거리",
+    "duration": "기록 시간",
+    "minutes": "분",
+    "elevation": "획득 고도",
+    "calculated": "서버에서 확인한 활동 기록입니다.",
+    "recorded": "저장된 원본 기록입니다. 분석 결과는 아직 확인되지 않았습니다.",
+    "pending": "사진과 본문을 준비하고 있습니다.",
+    "commentPreview": "일부 댓글 미리보기입니다.",
+    "mutationFailed": "반응을 저장하지 못했습니다. 입력한 내용을 확인하고 다시 시도해 주세요.",
+    "posted": "댓글을 등록했습니다."
+  },
   "cyclingEffortPreference": {
     "restoreAvailable": "기존 제외 선택을 복원할 수 있습니다.",
     "legacyUnsupported": "이전 분석 형식이라 이 거리의 기록시간을 확인할 수 없습니다.",
@@ -66,6 +111,10 @@
     "calculate": "선택한 기록 계산"
   },
   "stagePowerDuration": {
+    "history": "이전 계산 결과",
+    "latest": "가장 최근 계산",
+    "previous": "이전 계산 {{count}}",
+    "previousResult": "이전에 완료한 계산 결과입니다. 새 계산과 구분하여 표시합니다.",
     "storedOrigin": "저장된 파워값으로 계산 · 측정 출처 미확인",
     "sourceUnavailable": "저장된 파워 데이터가 없거나 확인 기준이 바뀌었습니다. 다른 활동을 선택하거나 새로 확인하세요.",
     "current": "현재 활동 · {{date}}",
@@ -374,7 +423,7 @@
     "noWarning": "경고 없음",
     "private": "비공개 지표",
     "modelNote": "회복·연료·W′는 계측값을 바탕으로 한 모델이며 직접 측정한 생리값은 아닙니다.",
-    "qualityNote": "승인값이 없으면 계측값을 사용합니다.",
+    "qualityNote": "직접 확인한 값이 없으면 기록된 센서 값을 사용합니다.",
     "peakPower": "최대 {{value}} W",
     "ftpMissing": "활동 당시 FTP 정본 없음",
     "sports": {
@@ -539,19 +588,17 @@
     "checking": "확인 중…",
     "startBtn": "분석시작",
     "refreshDetailBtn": "상세 분석 다시 불러오기",
-    "regenerateShareSummaryBtn": "공유 문구를 위해 다시 분석",
-    "regenerateShareSummaryHint": "짧은 공유 문구를 생성하지 못했습니다. 다시 분석하면 공유 문구도 새로 생성합니다.",
+    "reanalyzeBtn": "다시 분석",
     "refreshAnalysisBtn": "변경사항 반영해 다시 분석",
     "loginBtn": "로그인",
     "waitHint": "분석 대기 — 버튼을 눌러 AI 구간 분석을 시작하세요.",
     "waitHintRun": "분석 대기 — 버튼을 눌러 AI 러닝 구간 코칭을 시작하세요.",
-    "previewOnlyHint": "저장된 AI 요약을 표시 중입니다. 상세 구간 캐시가 없거나 아직 동기화되지 않았어요.",
-    "previewAuthHint": "저장된 AI 요약을 표시 중입니다. 상세 구간 분석을 다시 불러오려면 로그인 상태를 확인해 주세요.",
+    "previewOnlyHint": "생성 당시의 분석입니다.",
+    "previewAuthHint": "생성 당시의 분석입니다. 상세 분석을 불러오려면 로그인해 주세요.",
     "generatedAt": "분석 생성 시각",
     "refreshingHint": "최신 데이터로 다시 분석 중입니다. 저장된 분석을 계속 표시합니다.",
     "refreshFailedHint": "다시 분석하지 못했습니다. 저장된 분석은 유지됩니다.",
-    "staleHint": "생성 당시의 데이터를 기준으로 작성한 분석입니다. 이후 데이터가 변경되어 최신 기준으로 다시 분석할 수 있습니다.",
-    "staleLoginHint": "생성 당시의 데이터를 기준으로 작성한 분석입니다. 최신 기준으로 다시 분석하려면 로그인해 주세요.",
+    "staleHint": "활동 데이터가 바뀌었어요",
     "loginHint": "로그인하면 AI 구간 분석을 이용할 수 있어요.",
     "runPreview": {
       "pace": {
@@ -609,7 +656,59 @@
     "temp": {
       "device": "실측",
       "forecast": "예보"
-    }
+    },
+    "grounding": {
+      "title": "비교 근거",
+      "legacy": "이 분석에는 생성 당시의 비교 근거가 저장되어 있지 않습니다. 현재 기록으로 과거의 근거를 추정하지 않습니다.",
+      "intro": "분석을 만든 당시의 자료입니다. 원본을 열면 이후 수정된 내용이 보일 수 있습니다. 표시 시각은 KST입니다.",
+      "kind": {
+        "coach_history": "최근 기록 표본 비교",
+        "fitness_context": "활동 전 훈련 상태",
+        "personal_baseline": "평소 기록과 비교",
+        "segment_history": "구간 기록 비교"
+      },
+      "basis": {
+        "activity_relative": "이 활동의 시작 시각을 기준으로 조회했습니다. KST 달력 기간의 전체 집계와는 다릅니다.",
+        "generation_time": "분석을 생성한 시각을 기준으로 조회했습니다."
+      },
+      "window": "{{from}} ({{start}}) ~ {{to}} ({{end}})",
+      "included": "포함",
+      "excluded": "제외",
+      "comparisonWindow": "비교 범위 {{index}}:",
+      "counts": "조회 {{scanned}}건 · 선택 {{selected}}건",
+      "missingUnknown": "누락 자료 수는 확인되지 않았습니다.",
+      "missing": "누락 자료 {{count}}건",
+      "coverage": {
+        "sample": "선택된 표본을 비교했습니다. 해당 기간의 모든 기록을 뜻하지 않습니다.",
+        "complete_query": "이 조회 조건의 자료를 확인했습니다. 실제 모든 주행의 완전성을 뜻하지 않습니다.",
+        "unknown": "비교 자료의 완전성은 확인되지 않았습니다."
+      },
+      "limit": "조회 상한 {{count}}건",
+      "cap": "조회 상한에 도달했습니다. 추가 기록의 유무나 전체 범위는 확인되지 않았습니다.",
+      "sources": "생성 당시 원본 근거 {{count}}개",
+      "sourcesPartial": "원본 목록의 일부만 표시합니다.",
+      "sourceKind": {
+        "activity": "활동",
+        "metrics": "계산 지표",
+        "profile": "설정",
+        "fitness": "훈련 상태",
+        "segment_effort": "구간 기록"
+      },
+      "openSource": "원본 활동 보기",
+      "revision": "생성 당시 자료 버전: {{revision}}",
+      "revisionUnknown": "생성 당시 자료 버전 미확인"
+    },
+    "history": {
+      "open": "이전 AI 분석 보기",
+      "current": "현재 분석으로 돌아가기",
+      "viewing": "저장된 이전 AI 분석을 보고 있습니다.",
+      "failed": "이전 분석을 불러오지 못했습니다. 표시 중인 결과는 유지됩니다.",
+      "entry": "{{time}} · {{version}}",
+      "empty": "저장된 이전 AI 분석이 없습니다.",
+      "more": "이전 분석 더 보기"
+    },
+    "analystVersion": "분석가 {{version}}",
+    "reanalyzeWithNewAnalystBtn": "새 분석가로 다시 분석"
   },
   "card": {
     "noActivity": "활동을 찾을 수 없습니다.",
@@ -710,11 +809,20 @@
     "visibility": {
       "everyone": "전체 공개",
       "friends": "친구",
+      "followers": "팔로워",
       "private": "비공개"
     },
     "indoorRun": "실내 러닝",
     "indoorRide": "실내 라이딩",
     "indoorActivity": "실내 활동",
+    "routeLookup": {
+      "idle": "아직 경로를 확인하지 않았습니다. 저장된 분석은 그대로 표시됩니다.",
+      "loading": "경로를 확인하고 있습니다.",
+      "error": "경로를 확인하지 못했습니다. 다시 시도해 주세요.",
+      "load": "경로 확인"
+    },
+    "routePreviewUnavailable": "경로 정보",
+    "routePreviewUnavailableDesc": "지도용 경로가 제공되지 않았습니다. 이 화면만으로 활동의 원시 GPS 유무를 판단할 수는 없습니다.",
     "noGps": "GPS 데이터 없음",
     "noGpsDesc": "이 활동에는 경로 데이터가 기록되지 않았습니다",
     "indoorDesc": "실내에서 기록한 활동이라 지도에 표시할 경로가 없습니다",
@@ -814,6 +922,14 @@
       "zoomIn": "지도 확대",
       "zoomOut": "지도 축소",
       "fitRoute": "전체 경로 보기"
+    },
+    "ownerRoutePreview": {
+      "hint": "기록된 GPS가 있으면 경로를 확인할 수 있습니다.",
+      "load": "기록된 경로 보기",
+      "retry": "경로 다시 확인",
+      "scope": "기록된 GPS 경로의 미리보기입니다. 전체 경로 수집 여부와 위치 정확도는 확인되지 않았습니다.",
+      "empty": "이 기록에서 표시할 GPS 구간을 찾지 못했습니다.",
+      "error": "경로를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요."
     }
   },
   "overlay": {
@@ -901,7 +1017,7 @@
       "ifDesc": "FTP {{ftp}}W",
       "ifDescDefault": "FTP {{ftp}}W (기본)",
       "work": "일량",
-      "workDesc": "Work",
+      "workDesc": "페달에 전달한 에너지",
       "kjPerHour": "kJ/시간",
       "kjPerHourDesc": "강도 지표",
       "trimpDesc": "HR 기반 부하",
@@ -932,7 +1048,7 @@
       "hrDrift": "HR 드리프트",
       "hrDriftDesc": "후반 vs 전반 평균",
       "ef": "EF",
-      "efDesc": "NP ÷ avgHR",
+      "efDesc": "정규화 파워 ÷ 평균 심박",
       "decoupling": "디커플링",
       "decouplingDesc": "유산소 내구성 (Pw:Hr)",
       "distance": "이동거리",
@@ -1047,7 +1163,8 @@
       "power": "파워 존",
       "powerKj": "존별 일량 (kJ)",
       "timelineTitle": "존 타임라인",
-      "timelineDesc": "운동 시간 순서로 본 심박·파워 강도 구간입니다. 휴식 시간은 존 체류 시간에 더하지 않습니다.",
+      "timelineCoverageUnavailable": "위치가 확인되지 않은 존 타임라인은 표시하지 않습니다. 아래의 저장된 존별 시간 합계를 확인해 주세요.",
+      "timelineDesc": "축약 시계열로 본 심박·파워 강도 변화입니다. 정확한 존별 시간 합계는 아래 저장된 분석을 확인해 주세요.",
       "timelineDuration": "운동 시간 {{duration}}",
       "timelineSeconds": "{{count}}초",
       "timelineMinutes": "{{count}}분",
@@ -1340,7 +1457,8 @@
     "viewCoach": "코치에서 보기 →",
     "close": "닫기",
     "removeFile": "선택 파일 지우기",
-    "chooseFile": "파일 선택"
+    "chooseFile": "파일 선택",
+    "visibilityFollowers": "팔로워"
   },
   "edit": {
     "eyebrow": "활동 수정",
@@ -1491,8 +1609,8 @@
     "swimLoadHigh": "고강도"
   },
   "serverMetrics": {
-    "missing": "서버 분석 데이터 없음 — orider 직접 업로드 활동만 자동 계산됩니다.",
-    "chip": "서버 분석",
+    "missing": "분석 결과가 아직 없습니다. 직접 업로드한 활동은 자동으로 분석됩니다.",
+    "chip": "활동 분석",
     "workoutTypeLabel": "유형",
     "confidenceHint": "신뢰도 {{pct}}%",
     "movingTimeLabel": "분석상 이동시간",
@@ -1510,9 +1628,9 @@
       "racePace": "고강도 혼합"
     },
     "provisionalChip": "잠정값 · 업로드 반영 중",
-    "staleChip": "이전 분석 기준 · 재계산 대기",
-    "truncatedInputChip": "잘린 입력 기준",
-    "paused": "서버 분석 표시를 일시 중단했습니다."
+    "staleChip": "저장된 이전 분석",
+    "truncatedInputChip": "일부 기록으로 분석",
+    "paused": "분석 결과 표시를 잠시 중단했습니다. 기록은 보존됩니다."
   },
   "vp": {
     "badge": "가상 파워",
@@ -1674,30 +1792,6 @@
     "resultTarget": "게시 요청 대상 · Strava 활동 {{id}}",
     "statusTitle": "게시 상태"
   },
-  "socialSummary": {
-    "retry": "공유요약 다시 불러오기",
-    "retrying": "공유요약 불러오는 중…",
-    "retryHint": "기존 코칭은 유지됩니다. 공유요약만 다시 불러올 수 있습니다.",
-    "retryError": "공유요약을 불러오지 못했습니다. 다시 시도해 주세요.",
-    "title": "공유용 요약",
-    "sports": {
-      "bike": "자전거",
-      "run": "러닝",
-      "swim": "수영"
-    },
-    "settled": "전날 정산 → 활동일 정산",
-    "pendingTitle": "전날 정산",
-    "ctl": "체력 · CTL",
-    "atl": "ATL · 피로",
-    "tsb": "폼 · TSB",
-    "dailyBasis": "같은 종목의 일별 정산값입니다. 활동일 값에는 그날의 모든 활동이 포함됩니다.",
-    "pendingBasis": "활동일 정산이 끝나면 같은 종목의 후속 값을 표시합니다.",
-    "unavailable": "활동일 정산이 끝나지 않았거나 피트니스 데이터가 부족합니다.",
-    "private": "이 활동의 비공개 설정으로 피트니스 수치를 공유하지 않습니다.",
-    "copy": "공유 문구 복사",
-    "copied": "공유 문구를 복사했습니다.",
-    "error": "복사하지 못했습니다. 다시 시도해 주세요."
-  },
   "growth": {
     "title": "활동 변화와 통계",
     "compare": "지난 활동과 비교",
@@ -1822,7 +1916,10 @@
     "location": "차트·지도에서 구간 보기",
     "loadingLocation": "구간 위치 준비 중",
     "noLocation": "이 구간을 경로에 확실하게 연결할 수 없어 위치를 표시하지 않습니다.",
-    "chartLocation": "차트에서 구간 보기"
+    "chartLocation": "차트에서 구간 보기",
+    "twentyTitle": "20분 최고 출력",
+    "twentySelect": "같은 시간 구간 분석하기",
+    "twentyMissing": "이전 계산에는 최고 구간의 시각 근거가 없습니다."
   },
   "benchmark": {
     "title": "나의 최근 90일 최고 파워와 비교",
@@ -2582,9 +2679,15 @@
     "exclusions": {
       "metric_unavailable": "평균 비교에서 제외 · 분석 미확인",
       "partial_terminal": "평균 비교에서 제외 · 일부 표본 분석",
-      "null_or_zero_speed": "평균 비교에서 제외 · 양수 평균 미확인"
+      "null_or_zero_speed": "평균 비교에서 제외 · 양수 평균 미확인",
+      "observed_geometry_only": "전체 경로 미확인 · 순위 제외"
     },
-    "partialGeometry": "이 활동의 경로 데이터가 일부만 있어 전체 경로 그룹 비교에서 제외했습니다. 기존 GPS 비교는 계속 사용할 수 있습니다."
+    "partialGeometry": "이 활동의 경로 데이터가 일부만 있어 전체 경로 그룹 비교에서 제외했습니다. 기존 GPS 비교는 계속 사용할 수 있습니다.",
+    "observedTitle": "관측된 경로가 비슷한 활동",
+    "mode": "경로 탐색 기준",
+    "completeMode": "전체 경로가 확인된 활동",
+    "observedScope": "기록된 GPS 구간만 비교합니다. 전체 주행 경로의 수집 여부는 확인되지 않았습니다. 최고 기록·추세·체력 향상을 비교하지 않습니다.",
+    "observedCounts": "관측 경로 그룹 {{total}}개 중 {{loaded}}개 표시 · 개별 평균 {{known}}개 확인"
   },
   "cyclingSnapshotPreference": {
     "basisLabel": "기록 기준",
@@ -2643,6 +2746,9 @@
     }
   },
   "nativePowerV2": {
+    "savedResults": "이 화면에서 계산한 결과",
+    "savedResult": "계산 {{number}} · {{duration}}",
+    "previousResult": "이전에 완료한 결과를 표시하고 있습니다. 새 입력의 계산 결과는 아닙니다.",
     "title": "원하는 시간의 최대 평균 파워",
     "scope": "이 활동에서 선택한 시간 동안의 최대 평균 파워를 확인합니다.",
     "duration": "비교할 시간 (초)",
@@ -2692,7 +2798,7 @@
     "analysisMetricSource": "세부 분석은 이 활동의 저장된 분석 지표를 표시해요.",
     "loadingData": "상세 기록을 불러오는 중…",
     "acceptedLoadLabel": "반영 훈련 부하",
-    "acceptedLoadDescription": "체력·피로 계산에 반영한 서버 부하예요.",
+    "acceptedLoadDescription": "체력·피로 계산에 반영한 이번 활동의 부하입니다.",
     "acceptedLoadTssBasis": "TSS 기준",
     "acceptedLoadTimeBasis": "시간 기반 추정",
     "acceptedLoadHrBasis": "심박 기반",
@@ -2742,11 +2848,14 @@
     "selectedStats": "선택 구간의 관측 평균·최고입니다. 저장된 전체 활동 지표와 구분됩니다.",
     "segments": "세그먼트",
     "restore": "전체 범위 복원",
+    "observedRangeStats": "선택한 경과시간 범위의 센서 관측 시간을 가중한 평균입니다. 속도 센서 평균은 서버의 거리÷이동시간 평균 속도와 다를 수 있습니다.",
     "observedStats": "관측된 원시 표본의 평균·최고입니다. 저장된 활동 요약 지표와 다를 수 있습니다.",
     "selection": "선택 구간",
     "selectedStatsLabel": "선택 구간 통계",
     "distanceShort": "거리",
-    "elapsedShort": "시간"
+    "elapsedShort": "시간",
+    "canonicalMaximum": "분석 최고",
+    "canonicalAverage": "분석 평균"
   },
   "overviewSocial": {
     "title": "활동 이야기",
@@ -2766,7 +2875,232 @@
     "allResults": "전체 보기",
     "noResults": "표시할 주요 성과가 없어요.",
     "previousPhoto": "이전 사진",
-    "nextPhoto": "다음 사진"
+    "nextPhoto": "다음 사진",
+    "memoSnapshot": "{{date}}에 생성된 요약입니다. 현재 분석과 다를 수 있어요."
   },
-  "detail.keyRecords": "핵심 기록"
+  "detail.keyRecords": "핵심 기록",
+  "sourceMetrics": {
+    "sourceNotice": "Strava 원본 기준 · 자체 계산값은 분석에서 구분해 표시합니다.",
+    "orider": "Orider 분석",
+    "sensorSummary": "Strava 원본 센서 요약"
+  },
+  "trainingPeriods.populationBasis": "거리·시간·훈련 존은 기간별 최대 200개 기록을 조회하고, 같은 활동으로 명시적으로 연결된 기록 중 대표 하나를 집계합니다. 파워 곡선의 비교 대상과 활동 수가 다를 수 있습니다.",
+  "publicSafety": {
+    "actions": "활동 관리",
+    "report": "활동 신고",
+    "hide": "활동 숨기기",
+    "block": "작성자 차단",
+    "reportConfirm": "검토가 필요한 내용을 알려주세요. 신고만으로 활동이 숨겨지지는 않습니다.",
+    "hideConfirm": "내 피드에서 이 활동을 숨기고 현재 상세를 닫습니다.",
+    "blockConfirm": "이 작성자를 차단하고 서로의 팔로우를 해제합니다. 현재 활동 상세도 닫습니다.",
+    "note": "신고 내용 (선택)",
+    "cancel": "취소",
+    "confirm": "확인",
+    "failed": "처리하지 못했습니다. 내용을 유지했으니 다시 시도해 주세요.",
+    "reported": "신고를 접수했습니다.",
+    "hideDone": "이 활동을 숨겼습니다.",
+    "blockDone": "작성자를 차단했습니다.",
+    "home": "피드로 돌아가기"
+  },
+  "coverPhoto": {
+    "current": "현재 대표사진",
+    "select": "대표사진으로 선택",
+    "clear": "대표사진 선택 해제",
+    "failed": "대표사진 설정을 확인하지 못했습니다. 다시 불러온 뒤 선택해 주세요.",
+    "saved": "대표사진 설정을 저장했습니다."
+  },
+  "routeInventory": {
+    "history": {
+      "scanning": "전체 저장 기록 확인 중",
+      "traversed": "저장 기록 순회를 마쳤습니다",
+      "invalidated": "기록이 변경되어 다시 확인이 필요합니다",
+      "counts": "확인한 활동 {{scanned}}개 · 저장된 경로 비교 목록에 있음 {{indexed}}개 · 목록에서 찾지 못함 {{missing}}개",
+      "scope": "선택한 연도·종목과 무관한 계정 전체 활동의 점검입니다. 마지막 점검: {{date}}. 목록에서 찾지 못해도 원본 경로가 없다는 뜻은 아닙니다. 기록 전체가 같은 시점에 고정된 결과는 아니며, 기록 완전성이 확인되지 않은 {{unknown}}개는 위 수와 중복됩니다. 경로 자료가 있어도 최신 원본 검증이나 개인 최고 확인을 뜻하지 않습니다."
+    },
+    "finished": "이번 저장 인덱스 탐색을 마쳤습니다.",
+    "title": "기준 활동과 경로가 유사한 기록 탐색",
+    "scope": "저장된 경로 인덱스를 한 번에 최대 5개씩 확인합니다. 각 기록은 기준 활동과 개별 비교한 관측 결과이며, 전체 기록·같은 도로·개인 최고를 증명하지 않습니다.",
+    "year": "탐색 연도 (KST, 비워두면 모든 연도)",
+    "allYears": "모든 연도",
+    "invalidYear": "1970년부터 올해까지의 연도를 입력하거나 비워 주세요.",
+    "find": "경로 이력 탐색 시작",
+    "counts": "{{pages}}페이지 · 인덱스 {{scanned}}개 확인 · 유사 기록 {{count}}개",
+    "snapshot": "고정 조회 기준: {{date}}",
+    "emptyMore": "지금까지 선택 연도에 맞는 유사 기록이 없습니다. 다음 인덱스 페이지를 더 확인할 수 있습니다.",
+    "empty": "읽은 인덱스에서 선택 조건에 맞는 유사 기록을 찾지 못했습니다.",
+    "openSource": "원본 활동 보기",
+    "more": "다음 인덱스 5개 확인",
+    "exhausted": "이 조회 시점의 저장 인덱스 끝입니다. 미생성·누락 원본까지 전체 이력이 확인된 것은 아닙니다.",
+    "lifetime": "목록은 각 페이지를 읽은 시점의 결과입니다. 이전 페이지를 계속 재검증하지 않습니다. 앱 내 활동 수정·삭제, 계정 변경 또는 30분 만료 시 비우며, 앱 밖 변경은 새로고침으로 다시 확인하세요. 원본에서 돌아오면 조건만 복원되며 조회는 다시 시작합니다.",
+    "return": "경로 이력 탐색으로 돌아가기"
+  },
+  "mapThumbnail": {
+    "explanation": "피드의 지도 썸네일은 이 활동을 처음 본 사람의 화면에서 만들어집니다. 이상하게 보이면 지워 주세요. 다음에 보는 사람의 화면에서 다시 만들어집니다.",
+    "reset": "지도 썸네일 지우기",
+    "confirm": "지금 썸네일을 지울까요? 다음에 누군가 피드에서 볼 때 다시 만들어집니다.",
+    "done": "지웠습니다. 다음에 보는 사람의 화면에서 다시 만들어집니다.",
+    "failed": "지우지 못했습니다. 잠시 뒤 다시 시도해 주세요."
+  },
+  "mapPrivacy": {
+    "title": "공개 지도 보호 설정",
+    "current": "현재 설정: 시작 반경 {{startMeters}}m · 종료 반경 {{endMeters}}m",
+    "explanation": "시작·종료 지점을 중심으로 0~5,000m 반경을 가립니다. 다시 지나는 구간도 숨기며, 공개 지도에는 가장 긴 안전 구간만 표시합니다. 내 원본 분석은 유지됩니다.",
+    "start": "시작 지점 보호 반경 (m)",
+    "end": "종료 지점 보호 반경 (m)",
+    "unsaved": "저장 전 미리보기 — 아직 공개 지도에 적용되지 않았습니다.",
+    "published": "현재 공개 범위에 적용된 지도",
+    "no_gps": "경로 GPS가 없어 안전 구간을 계산하지 못했습니다. 보호 반경을 저장하면 공개 지도 전체를 숨깁니다.",
+    "hidden": "보호 반경 밖에 표시할 구간이 없어 공개 지도를 숨깁니다.",
+    "changed_source": "원본 경로가 변경되어 공개 지도를 숨겼습니다. 다시 미리보고 저장해주세요.",
+    "preview": "변경 미리보기",
+    "save": "이 설정 저장",
+    "limit": "이미 저장·공유한 이미지는 회수되지 않으며, 사진에는 위치가 드러날 수 있습니다.",
+    "failed": "설정을 확인하지 못했습니다. 다시 불러와주세요.",
+    "conflict": "다른 곳에서 설정이나 원본이 바뀌었습니다. 최신 상태를 다시 불러와주세요.",
+    "saved": "공개 지도 보호 설정을 저장했습니다.",
+    "visibility": {
+      "everyone": "전체 공개 활동에 표시되는 지도",
+      "friends": "친구에게 공개되는 지도",
+      "followers": "나를 팔로우하는 사람에게 공개되는 지도",
+      "private": "비공개 활동 — 다른 사람에게 표시되지 않습니다."
+    },
+    "liveFailed": "현재 공개 지도를 확인하지 못했습니다. 다시 화면으로 돌아오면 재시도합니다.",
+    "liveUnavailable": "현재 확인된 공개 경로가 없습니다.",
+    "revocationPending": "이전 지도 이미지의 접근 차단을 완료하지 못했습니다. 공개 지도는 숨겨져 있습니다. 다시 미리보고 저장해주세요."
+  },
+  "embeddedProfile": {
+    "back": "돌아가기",
+    "unsupported": "이 화면에서 지원하지 않는 이동입니다.",
+    "title": "공개 프로필",
+    "scope": "현재 공개가 허용된 활동만 표시합니다.",
+    "loading": "불러오는 중…",
+    "unavailable": "현재 프로필 활동을 확인할 수 없습니다.",
+    "empty": "표시할 공개 활동이 없습니다.",
+    "more": "더 보기",
+    "rider": "라이더"
+  },
+  "routeHistory": {
+    "selected": "선택됨",
+    "cancel": "새 조회 중단",
+    "loadHistory": "저장된 비교 결과 보기",
+    "historyEntry": "결과 {{index}} · {{time}} · 확인한 기록 {{count}}개",
+    "historyEmpty": "저장된 비교 결과가 없습니다.",
+    "moreHistory": "이전 결과 더 보기",
+    "savedEntry": "{{time}} 결과 선택",
+    "previousResult": "이전에 저장된 비교 결과입니다. 새 조회가 끝나기 전까지 그대로 표시합니다.",
+    "newProgress": "새 조회에서 {{count}}개 기록을 확인했습니다.",
+    "savedTime": "{{asOf}} KST에 저장된 비교 결과",
+    "sourceChanged": "현재 원본과 달라졌거나 현재 원본 상태를 확인할 수 없습니다. 당시 저장된 결과를 표시합니다.",
+    "title": "저장된 이력의 경로 기록 확인",
+    "scope": "조회 시점에 저장된 내 활동을 확인하고, 기준 경로의 관측 구간을 통과한 경과시간을 비교합니다. 한 번에 일부 기록을 순서대로 확인합니다.",
+    "start": "이력 확인 시작",
+    "restart": "새로 확인하기",
+    "continue": "다음 기록 확인",
+    "retry": "진행 상태 다시 확인",
+    "stop": "중단하고 결과 지우기",
+    "counts": "활동 {{scanned}}개 확인 · 비교 후보 {{candidates}}개 · 제외 {{excluded}}개 · 처리 미확정 {{unresolved}}개",
+    "time": "조회 기준 {{asOf}} KST · {{expires}} KST까지 이어서 확인 가능",
+    "elapsed": "확인된 가장 짧은 경과시간 {{time}}",
+    "quality": "비교 가능한 기록 묶음 {{eligible}}개 · 다른 경로·방향 등 제외 {{excluded}}개 · 구분 불확실 {{ambiguous}}개 · 비교 불가 {{unavailable}}개",
+    "source": "기록 {{index}}의 원활동 보기",
+    "ties": "같은 시간 기록 {{count}}개 중 {{shown}}개를 표시합니다.",
+    "limit": "조회 시점에 저장된 GPS 구간을 기준으로 비교합니다. 누락된 기록이나 이후 변경은 반영되지 않을 수 있습니다.",
+    "phase": {
+      "scanning": "활동을 확인 중입니다. 아직 최고 기록을 표시하지 않습니다.",
+      "identity": "겹치는 활동 기록을 확인 중입니다.",
+      "reducing": "확인한 활동의 경과시간을 비교 중입니다."
+    },
+    "status": {
+      "loading": "기록을 순서대로 확인하고 있습니다.",
+      "error": "요청 결과를 확인하지 못했습니다. 진행 상태를 다시 확인해 주세요.",
+      "expired": "조회 가능 시간이 지났습니다. 새로 시작해 주세요.",
+      "invalidated": "계정 또는 활동이 바뀌어 결과를 지웠습니다. 새로 확인해 주세요.",
+      "stopped": "화면의 결과를 지웠습니다.",
+      "hidden": "결과를 다시 확인해야 합니다.",
+      "complete": "이력 확인을 마쳤습니다.",
+      "paused": "아직 확인할 기록이 남아 있습니다. 이어서 확인해 주세요."
+    },
+    "best": {
+      "unavailable": "이 조회에서 비교 가능한 경과시간을 찾지 못했습니다.",
+      "observed_best_with_gaps": "미확인·비교 불가 기록이 남아 있습니다. 아래는 확인한 기록 중 가장 짧은 시간입니다.",
+      "verified_recorded_best": "조회 시점에 저장되어 있던 비교 대상의 확인을 마쳤습니다."
+    },
+    "sources": "원본 확인 불가 {{missing}}개 · 지원하지 않는 원본 {{unsupported}}개 · 변경된 원본 {{changed}}개",
+    "close": "결과 닫기",
+    "recover": "이전 진행 확인"
+  },
+  "reanalysis": {
+    "title": "저장된 분석과 새 분석",
+    "keepSaved": "저장된 분석은 그대로 볼 수 있습니다. 원할 때 새 버전으로 다시 분석할 수 있습니다.",
+    "versions": "저장 버전 {{saved}} · 최신 버전 {{latest}}",
+    "check": "분석 상태 확인",
+    "start": "새 버전으로 다시 분석",
+    "queued": "분석 요청을 접수했습니다. 완료 전까지 저장된 분석을 유지합니다.",
+    "completed": "새 분석이 완료되었습니다.",
+    "failed": "요청 상태를 확인하지 못했습니다. 저장된 분석은 유지됩니다. 재시도는 같은 요청으로 처리됩니다.",
+    "viewingSaved": "이전에 저장한 분석을 보고 있습니다. 현재 원본으로 구간을 다시 계산하지 않습니다.",
+    "history": "이전 분석 보기",
+    "current": "현재 분석으로 돌아가기",
+    "savedVersion": "버전 {{version}} · {{time}}",
+    "noHistory": "보관된 이전 분석이 없습니다.",
+    "more": "더 보기"
+  },
+  "analysisReading": {
+    "powerTitle": "시간별 최고 파워",
+    "powerDescription": "각 시간 동안 가장 높게 유지한 평균 출력입니다. 전체 라이딩의 평균 파워와는 다릅니다.",
+    "compareWith": "파워 비교 기준",
+    "records": "역대 기록",
+    "recent": "최근 90일",
+    "powerDetails": "시간별 수치와 기록 근거",
+    "powerDetailsDescription": "W/kg · FTP 대비 · 역대 최고 · 활동 전 최고",
+    "powerMetrics": "출력 특성 자세히 보기",
+    "loadDetails": "부하의 상세 지표와 계산 기준",
+    "zoneDetails": "다른 강도 분류로 보기",
+    "thresholdDetails": "역치 영역별 체류 시간",
+    "anaerobicDetails": "임계 파워와 무산소 여력",
+    "pedalingDetails": "페달링 패턴 자세히 보기",
+    "metabolismDetails": "에너지 대사 추정 자세히 보기",
+    "climbDetails": "오르막별 상세 기록",
+    "navigation": "분석 바로가기",
+    "explore": "차트 탐색",
+    "summary": "훈련 요약",
+    "intensity": "강도 분포",
+    "power": "파워 기록",
+    "efficiency": "심박·페달링",
+    "energy": "에너지",
+    "terrain": "속도·지형",
+    "intro": "기록을 읽고, 비교하고, 필요한 근거까지 확인하세요.",
+    "loadMeaning": "시간과 강도를 반영한 이번 활동의 훈련량",
+    "npMeaning": "출력의 오르내림을 반영한 파워 · 단순 평균과 다릅니다",
+    "ifMeaning": "내 FTP 대비 강도 · 1.00이 FTP 기준입니다",
+    "exploration": "경로와 센서 기록 살펴보기",
+    "explorationHint": "지도를 펼쳐 시간·위치별 기록을 확인하고 구간을 선택할 수 있습니다.",
+    "comparisonMeaning": "이 비교를 읽는 방법",
+    "comparisonContext": "최고 기록과의 차이는 이번 활동에서 발휘한 출력의 차이입니다. 활동의 목적과 소요 시간이 다르므로, 낮은 비율만으로 훈련의 질이나 체력 저하를 판단하지 않습니다.",
+    "zoneEvidence": "시간·일량과 비교 근거",
+    "comparisonLower": "{{duration}} 최고 평균 파워는 최근 90일 최고보다 {{gap}} W 낮았습니다. 기준 기록의 {{fraction}}%입니다.",
+    "comparisonHigher": "{{duration}} 최고 평균 파워는 최근 90일 기준보다 {{gap}} W 높았습니다. 기준 기록의 {{fraction}}%입니다.",
+    "comparisonEqual": "{{duration}} 최고 평균 파워는 최근 90일 최고와 같았습니다.",
+    "loadTimeMeaning": "파워·심박 없이 이동 시간으로 추정한 훈련량",
+    "loadHrMeaning": "심박과 시간을 반영한 이번 활동의 훈련량",
+    "fitnessBasis": "체력 지표의 범위와 계산 기준",
+    "recordLower": "{{duration}} 최고 평균 파워는 {{reference}}보다 {{gap}} W 낮았습니다.",
+    "recordHigher": "{{duration}} 최고 평균 파워는 {{reference}}보다 {{gap}} W 높았습니다.",
+    "recordEqual": "{{duration}} 최고 평균 파워는 {{reference}}와 같습니다.",
+    "seilerRange1": "FTP 75% 미만 · Z1–Z2 범위",
+    "seilerRange2": "FTP 75% 이상 100% 미만 · Z3–Z4 일부",
+    "seilerRange3": "FTP 100% 이상 · Z4 일부–Z7",
+    "below83": "83% 미만",
+    "below83Range": "FTP 83% 미만",
+    "ftpBands": "FTP 기준 영역",
+    "ftpBasis": "FTP 기준",
+    "band": {
+      "sweetSpot": "스위트스폿",
+      "threshold": "역치",
+      "vo2": "VO2max",
+      "anaerobic": "무산소"
+    },
+    "zoneComparison": "{{zone}} 비교 근거",
+    "powerVo2Range": "FTP 105% 이상 120% 미만"
+  }
 }

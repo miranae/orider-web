@@ -14,6 +14,22 @@ export async function cancelFriendRequest(uid: string, targetId: string): Promis
   catch (error) { logClientError("useFriends.cancelRequest", error, { targetId }); throw error; }
 }
 
+export interface FriendRequester {
+  uid: string;
+  nickname: string;
+  profileImage: string | null;
+}
+
+/** friend_requests/{target}/items/{me} 쓰기 — 프로필 페이지·사람 검색이 같은 경로를 쓴다. 로깅은 호출부 책임. */
+export async function sendFriendRequest(requester: FriendRequester, targetId: string): Promise<void> {
+  await setDoc(doc(firestore, "friend_requests", targetId, "items", requester.uid), {
+    requesterId: requester.uid,
+    nickname: requester.nickname,
+    profileImage: requester.profileImage,
+    createdAt: Date.now(),
+  });
+}
+
 function toMillis(value: unknown): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (value instanceof Date || typeof value === "string") {
@@ -193,12 +209,11 @@ export function useFriends() {
     if (!user || actionLoading) return;
     setActionLoading(true);
     try {
-      await setDoc(doc(firestore, "friend_requests", targetUserId, "items", user.uid), {
-        requesterId: user.uid,
+      await sendFriendRequest({
+        uid: user.uid,
         nickname: profile?.nickname || user.displayName || "",
         profileImage: profile?.photoURL || user.photoURL || null,
-        createdAt: Date.now(),
-      });
+      }, targetUserId);
       track("friend_request_send");
     } finally {
       setActionLoading(false);

@@ -1,6 +1,7 @@
 export type ActivityOverviewBand = "lower" | "usual" | "higher";
 
 export interface ActivityOverviewPresentation {
+  stravaRecord?: import("../analysis/stravaRecord").StravaSummaryV1;
   /**
    * 판정 한 줄. 근거(임계값·존·부하)가 있어 규칙 하나가 걸렸을 때만 있다.
    * 없으면 **줄을 비운다** — "오늘의 라이딩이었어요" 같은 내용 없는 문장을 만들지 않는다(2026-09-21).
@@ -46,6 +47,8 @@ export interface ActivityOverviewPresentation {
     segmentName?: string; segmentPr?: boolean };
   session: {
     discipline: "bike" | "run" | "swim" | "other";
+    /** 보행 종목은 러닝 기록 및 사이클 부하 판정과 분리한다. */
+    activityKind?: "walk" | "hike";
     character?: "recovery" | "endurance" | "tempo" | "threshold" | "highIntensity"
       | "interval" | "race" | "mixed" | "polarized" | "racePace";
     movingSec?: number;
@@ -61,6 +64,17 @@ export interface ActivityOverviewPresentation {
     elevationGainM?: number;
     caloriesKcal?: number;
     classificationReason?: string;
+  };
+  /** 보행 스트림의 경과시간 구간 분석. 이동 페이스 또는 러닝 PR이 아니다. */
+  pedestrianAnalysis?: {
+    elapsedSec?: number; nonMovingSec?: number;
+    stream?: { sampleCount: number; elapsedSec: number; distanceKm: number;
+      gaps: Array<{ atKm: number; seconds: number }>; gapSeconds: number;
+      splits: Array<{ fromKm: number; toKm: number; elapsedSec: number; gapSec?: number }> };
+    history?: { windowDays: number; count: number; complete: boolean;
+      medianDistanceKm?: number; medianMovingSec?: number; medianPaceSecPerKm?: number;
+      distanceRank?: number; durationRank?: number };
+    elevationSuspect?: boolean;
   };
   personal?: Array<{ axis: string; personalIndex: number; band: ActivityOverviewBand; sampleCount: number }>;
   comparisonMetadata?: { windowDays: number; character: string; priorSampleCount: number;
@@ -94,11 +108,16 @@ export interface ActivityOverviewPresentation {
     previousBestPct?: number }>;
   runRecordAchievements?: Array<{ distance: string; valueSec: number; competitionRank: number;
     recordAchievement: "first" | "new" | "tie" }>;
+  /** 정본 러닝 스플릿의 이동시간 기준 구간 지표. 타이머 불일치가 있으면 비운다. */
+  /** 시간별 최고 평균 페이스. 관측된 연속 구간 기준이며 러닝 PR과는 별개다. */
+  paceFingerprint?: Array<{ durationSec: number; paceSecPerKm: number }>;
+  runningWork?: { fastestKm: { km: number; paceSec: number }; slowestKm: { km: number; paceSec: number };
+    firstHalfPaceSec: number; secondHalfPaceSec: number; halfDeltaSec: number };
   thresholdWork?: { matchesCount?: number; matchesTotalSec?: number; longestZ4PlusSec?: number;
     anaerobicSec?: number; wPrimeDepletionPct?: number; wPrimeRemainingPct?: number;
     /** FTP 초과분으로 한 일(kJ) — "무산소 운동량". 옛 지표 문서엔 없다. */ aboveFtpKj?: number };
   /** `fatGrams` = 지방 연소 kcal ÷ 9. 서버 지표(substrate.fatGrams)에서 그대로 온다 — 화면·게시가 따로 나누지 않는다. */
-  energy?: { totalKcal: number; fatKcal?: number; carbKcal?: number; fatPct?: number; carbPct?: number; fatGrams?: number };
+  energy?: { totalKcal: number; fatKcal?: number; carbKcal?: number; fatPct?: number; carbPct?: number; fatGrams?: number; carbGrams?: number; basis?: "heart_rate_zones" };
   sportDetails?: Array<{ label: string; value: string; priority: "primary" | "secondary" }>;
   qualityNote?: boolean;
   /**

@@ -1,7 +1,8 @@
+import { isApprovedQaAppCheckUser } from "./qaAppCheckIdentity";
 import { getStageQaAppCheckSession, hasStageQaAppCheckGrant } from "./stageQaAppCheck";
 import { initializeApp, type FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, connectAuthEmulator, signInWithEmailAndPassword, type Auth } from "firebase/auth";
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, type Firestore } from "firebase/firestore";
+import { getAuth, initializeAuth, inMemoryPersistence, GoogleAuthProvider, connectAuthEmulator, signInWithEmailAndPassword, type Auth } from "firebase/auth";
+import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, type Firestore } from "firebase/firestore";
 import { getStorage, connectStorageEmulator, type FirebaseStorage } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator, type Functions } from "firebase/functions";
 import {
@@ -42,9 +43,17 @@ function withAppCheckTimeout<T>(promise: Promise<T>): Promise<T> {
 }
 
 /** main.tsx에서 렌더링 전 호출. Hosting site별 runtime-config.json 기반 config 사용. */
-export async function initFirebase() {
+export async function initFirebase(options: { isolatedEmulatorSession?: boolean } = {}) {
   const runtimeConfig = getRuntimeConfig();
   assertIsolatedStageRuntime(runtimeConfig);
+  // Explicit local review sessions must not change the account or Firestore primary
+  // connection of another already-open tab. Normal app persistence stays unchanged.
+  const isolated = options.isolatedEmulatorSession === true;
+  if (isolated && !(import.meta.env.DEV && isEmulatorRuntime()
+    && ["localhost", "127.0.0.1", "[::1]"].includes(globalThis.location?.hostname)
+    && /^demo-[a-z0-9-]+$/.test(runtimeConfig.firebaseProjectId ?? ""))) {
+    throw new Error("firebase/isolated-session-requires-local-demo-emulators");
+  }
   const config = {
     apiKey: runtimeConfig.firebaseApiKey,
     authDomain: runtimeConfig.firebaseAuthDomain,
@@ -67,9 +76,9 @@ export async function initFirebase() {
   }
 
   app = initializeApp(config);
-  _auth = getAuth(app);
+  _auth = isolated ? initializeAuth(app, { persistence: inMemoryPersistence }) : getAuth(app);
   _firestore = initializeFirestore(app, {
-    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    localCache: isolated ? memoryLocalCache() : persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
     // 로컬 브라우저의 스트리밍 프록시 문제에만 명시적으로 사용한다. 배포 기본값은 유지한다.
     ...(import.meta.env.DEV && import.meta.env.VITE_FIRESTORE_FORCE_LONG_POLLING === "true"
       && ["localhost", "127.0.0.1", "[::1]"].includes(globalThis.location?.hostname)
@@ -108,6 +117,9 @@ export function getFirebaseApp(): FirebaseApp | undefined {
  * 이 promise 를 await 해서 enforceAppCheck 보안 경로를 유지한다.
  */
 function ensureAppCheckReadyUnchecked(forceRefresh = false): Promise<void> {
+  // Only the existing authenticated QA identities skip the client readiness gate.
+  // The server independently verifies Auth UID and all resource permissions.
+  if (isApprovedQaAppCheckUser(_auth?.currentUser, app?.options.projectId)) return Promise.resolve();
   if (isEmulatorRuntime()) return Promise.resolve();
   if (forceRefresh && appCheckRefreshPromise) return appCheckRefreshPromise;
   if (!forceRefresh && appCheckPromise) return appCheckPromise;

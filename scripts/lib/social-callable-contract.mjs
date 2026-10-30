@@ -15,12 +15,15 @@ export function validateSocialCallableConfig({ project, region, accessToken, man
   if (manifest?.schemaVersion !== 1 || !Array.isArray(manifest.callables)) {
     throw new Error("social callable contract manifest is invalid");
   }
-  if (manifest.callables.length !== 8) {
-    throw new Error(`social callable contract must contain exactly 8 entries; got ${manifest.callables.length}`);
+  if (manifest.callables.length !== 41) {
+    throw new Error(`social callable contract must contain exactly 41 entries; got ${manifest.callables.length}`);
   }
   const names = manifest.callables.map((entry) => entry?.name);
   if (names.some((name) => !FUNCTION_NAME_PATTERN.test(name ?? "")) || new Set(names).size !== names.length) {
     throw new Error("social callable contract contains an invalid or duplicate function name");
+  }
+  if (!names.includes("getActivityDiscovery")) {
+    throw new Error("social callable contract must include getActivityDiscovery for the public feed");
   }
 }
 
