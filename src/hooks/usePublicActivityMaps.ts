@@ -6,7 +6,9 @@ import { loadPublicActivityMap, type PublicActivityMap } from "../services/publi
 import { logClientError } from "../services/errorLogger";
 const EMPTY = { maps: {} as Record<string, PublicActivityMap | null>, failed: false };
 /**
- * 공개 지도는 활동 공개 상태 변경 신호(activity_map_signals/{activityId})가 바뀔 때만 다시 조회한다.
+ * 공개 지도는 신호가 바뀔 때만 다시 조회한다.
+ * - activity_map_signals/{activityId}: 활동 공개 상태 변경
+ * - activity_map_viewer_signals/{uid}: 로그인한 뷰어의 접근 관계(차단·구독·친구) 변경. 익명 요청은 관계와 무관하다.
  * 신호 구독이 모두 기준값을 받은 뒤 첫 조회를 해서, 그 사이의 변경을 놓치지 않는다. Offscreen callers must pass enabled=false.
  */
 export function usePublicActivityMaps(activityIds: string[], enabled = true) {
@@ -31,20 +33,23 @@ export function usePublicActivityMaps(activityIds: string[], enabled = true) {
         setState(previous => previous?.context === context && !previous.failed && sameMapRevisions(previous.maps, maps) ? previous : { context, maps, failed: false });
       }).catch(() => { if (!stopped && request === generation.current) setState({ context, maps: {}, failed: true }); });
     };
+    const signals: { key: string; path: readonly [string, string]; activityId?: string }[] = ids.map(id => ({ key: `activity:${id}`, path: ["activity_map_signals", id], activityId: id }));
+    const viewerUid = sdkUser && !sdkUser.isAnonymous ? sdkUser.uid : null;
+    if (viewerUid) signals.push({ key: "viewer", path: ["activity_map_viewer_signals", viewerUid] });
     const seen = new Map<string, number>();
-    const observe = (id: string, seq: number) => {
-      const baselineReady = seen.size === ids.length;
-      const changed = seen.has(id) && seen.get(id) !== seq;
-      seen.set(id, seq);
-      if (changed || (!baselineReady && seen.size === ids.length)) refresh();
+    const observe = (signalKey: string, seq: number) => {
+      const baselineReady = seen.size === signals.length;
+      const changed = seen.has(signalKey) && seen.get(signalKey) !== seq;
+      seen.set(signalKey, seq);
+      if (changed || (!baselineReady && seen.size === signals.length)) refresh();
     };
-    const unsubscribes = ids.map(id => onSnapshot(doc(services.firestore, "activity_map_signals", id), snapshot => {
+    const unsubscribes = signals.map(signal => onSnapshot(doc(services.firestore, ...signal.path), snapshot => {
       const seq = snapshot.data()?.seq;
-      observe(id, typeof seq === "number" ? seq : 0);
+      observe(signal.key, typeof seq === "number" ? seq : 0);
     }, error => {
       // 신호를 못 받아도 첫 조회는 한다. 이후 변경은 다음 마운트 때 반영된다.
-      logClientError("usePublicActivityMaps.signal", error, { activityId: id });
-      if (!seen.has(id)) observe(id, -1);
+      logClientError("usePublicActivityMaps.signal", error, { signal: signal.path[0], activityId: signal.activityId });
+      if (!seen.has(signal.key)) observe(signal.key, -1);
     }));
     return () => { stopped = true; generation.current++; unsubscribes.forEach(unsubscribe => unsubscribe()); };
   }, [context, key, enabled, services, sdkUser]);

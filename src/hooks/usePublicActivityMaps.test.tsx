@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { usePublicActivityMaps } from "./usePublicActivityMaps";
 type Listener = { path: string; next: (snapshot: { data: () => { seq?: number } | undefined }) => void; error: (error: Error) => void; unsubscribe: ReturnType<typeof vi.fn> };
-const m = vi.hoisted(() => ({ user: { uid: "owner" }, services: { auth: { currentUser: {} }, firestore: {} }, load: vi.fn(), listeners: [] as Listener[] }));
+const m = vi.hoisted(() => ({ user: { uid: "owner" } as { uid: string; isAnonymous?: boolean }, services: { auth: { currentUser: {} as unknown }, firestore: {} }, load: vi.fn(), listeners: [] as Listener[] }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: m.user }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => m.services }));
 vi.mock("../services/publicActivityMaps", () => ({ loadPublicActivityMap: (...args: unknown[]) => m.load(...args) }));
@@ -13,8 +13,10 @@ vi.mock("firebase/firestore", () => ({
   },
 }));
 const map = { activityId: "a", revision: "r1", mapPreview: { encodedPolyline: "safe", imageUrl: null } };
-const signal = (id: string, seq?: number) => act(() => { m.listeners.filter(l => l.path === `activity_map_signals/${id}` && !l.unsubscribe.mock.calls.length).forEach(l => l.next({ data: () => seq === undefined ? undefined : { seq } })); });
-beforeEach(() => { vi.clearAllMocks(); m.listeners = []; m.user = { uid: "owner" }; m.services.auth.currentUser = m.user; m.load.mockResolvedValue(map); });
+const signalAt = (path: string, seq?: number) => act(() => { m.listeners.filter(l => l.path === path && !l.unsubscribe.mock.calls.length).forEach(l => l.next({ data: () => seq === undefined ? undefined : { seq } })); });
+const signal = (id: string, seq?: number) => signalAt(`activity_map_signals/${id}`, seq);
+const viewerSignal = (seq?: number) => signalAt("activity_map_viewer_signals/owner", seq);
+beforeEach(() => { vi.clearAllMocks(); m.listeners = []; m.user = { uid: "owner", isAnonymous: true }; m.services.auth.currentUser = m.user; m.load.mockResolvedValue(map); });
 
 it("loads once every signal has a baseline and never polls", async () => {
   vi.useFakeTimers();
@@ -63,5 +65,18 @@ it("clears offscreen maps, unsubscribes, and drops a late response", async () =>
 it("same UID identity replacement clears already verified geometry", async () => {
   const { result, rerender } = renderHook(() => usePublicActivityMaps(["a"]));
   signal("a", 1); await waitFor(() => expect(result.current.maps.a).toEqual(map));
-  m.load.mockImplementation(() => new Promise(() => {})); m.user = { uid: "owner" }; m.services.auth.currentUser = m.user; rerender(); expect(result.current.maps).toEqual({});
+  m.load.mockImplementation(() => new Promise(() => {})); m.user = { uid: "owner", isAnonymous: true }; m.services.auth.currentUser = m.user; rerender(); expect(result.current.maps).toEqual({});
+});
+it("a signed-in viewer also waits for and reloads on its relationship signal", async () => {
+  m.user = { uid: "owner", isAnonymous: false }; m.services.auth.currentUser = m.user;
+  const { result } = renderHook(() => usePublicActivityMaps(["a"]));
+  signal("a", 1); await act(async () => {}); expect(m.load).not.toHaveBeenCalled();
+  viewerSignal(); await waitFor(() => expect(result.current.maps.a).toEqual(map));
+  const before = result.current; m.load.mockResolvedValue({ ...map });
+  viewerSignal(1); await waitFor(() => expect(m.load).toHaveBeenCalledTimes(2)); await act(async () => {});
+  expect(result.current).toBe(before);
+});
+it("an anonymous viewer does not subscribe to a relationship signal", () => {
+  renderHook(() => usePublicActivityMaps(["a"]));
+  expect(m.listeners.map(l => l.path)).toEqual(["activity_map_signals/a"]);
 });
