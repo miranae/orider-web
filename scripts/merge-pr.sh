@@ -592,10 +592,28 @@ if [[ "$MERGE_STATE" != "CLEAN" && "$MERGE_STATE" != "UNSTABLE" ]]; then
   die "GitHub mergeStateStatus=$MERGE_STATE — 머지 중단"
 fi
 
-if [[ -n "$INVARIANTS_CHANGED" && "$PR_AUTHOR_ADMIN" != 1 && "$REVIEW_DECISION" != "APPROVED" ]]; then
-  die "제품 원칙(문서·검사)을 바꾸는 PR 입니다 — 저장소 관리자의 GitHub 승인(APPROVED) 후 머지하세요. reviewDecision=${REVIEW_DECISION:-none}"
+# 승인자도 관리자여야 하고, 그 승인은 지금 머지할 head 에 대한 것이어야 한다(승인 뒤 커밋 추가 차단).
+# 리뷰어별 최신 리뷰(COMMENTED 제외)만 본다 — 나중에 변경 요청으로 바꾼 승인은 무효.
+admin_approver_for_head() {
+  local approver
+  for approver in $(gh api --paginate "repos/{owner}/{repo}/pulls/$PR_NUM/reviews" \
+      --jq '.[] | select(.state != "COMMENTED") | [.user.login, .state, .commit_id] | @tsv' \
+      | awk -F'\t' '{ latest[$1] = $2 "\t" $3 } END { for (u in latest) print u "\t" latest[u] }' \
+      | awk -F'\t' -v head="$HEAD_OID" '$2 == "APPROVED" && $3 == head { print $1 }'); do
+    [[ "$(gh api "repos/{owner}/{repo}/collaborators/$approver/permission" --jq .permission 2>/dev/null || true)" == "admin" ]] \
+      && { echo "$approver"; return 0; }
+  done
+  return 0
+}
+if [[ -n "$INVARIANTS_CHANGED" ]]; then
+  INVARIANTS_APPROVER=""
+  if [[ "$PR_AUTHOR_ADMIN" != 1 ]]; then
+    INVARIANTS_APPROVER="$(admin_approver_for_head)"
+    [[ -n "$INVARIANTS_APPROVER" ]] \
+      || die "제품 원칙(문서·검사)을 바꾸는 PR 입니다 — 저장소 관리자가 head ${HEAD_OID:0:8} 을 GitHub 에서 승인한 뒤 머지하세요."
+  fi
+  GATE_NOTES+=("제품 원칙 변경 포함 (관리자 작성=$PR_AUTHOR_ADMIN, 관리자 승인=${INVARIANTS_APPROVER:-해당 없음})")
 fi
-[[ -n "$INVARIANTS_CHANGED" ]] && GATE_NOTES+=("제품 원칙 변경 포함 (관리자 작성=$PR_AUTHOR_ADMIN, reviewDecision=${REVIEW_DECISION:-none})")
 
 if [[ "$DO_MERGE" == 0 ]]; then
   log "--no-merge: 모든 게이트 통과. 머지는 수행하지 않음."

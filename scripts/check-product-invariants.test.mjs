@@ -50,7 +50,34 @@ test("merge-pr.sh reviews against the base copy and requires admin approval for 
   for (const path of ["docs/product-invariants.md", "scripts/check-product-invariants.mjs", "scripts/check-product-invariants.test.mjs"]) {
     assert.match(path, new RegExp(pat, "u"), `${path} changes need approval`);
   }
-  const guard = script.indexOf('die "제품 원칙(문서·검사)을 바꾸는 PR');
+  const guard = script.indexOf('|| die "제품 원칙(문서·검사)을 바꾸는 PR');
   assert.ok(guard > 0 && guard < script.indexOf('if [[ "$DO_MERGE" == 0 ]]'), "the approval check runs before --no-merge exits and before merging");
   assert.ok(guard > script.lastIndexOf('REVIEW_DECISION="$(json_field "$META" reviewDecision)"'), "the approval check uses the final metadata");
+});
+
+test("the principle-change approval must come from an admin on the exact head", () => {
+  const script = readFileSync("scripts/merge-pr.sh", "utf8");
+  const body = script.slice(script.indexOf("admin_approver_for_head() {"), script.indexOf("if [[ -n \"$INVARIANTS_CHANGED\" ]]; then\n  INVARIANTS_APPROVER"));
+  assert.match(body, /select\(\.state != "COMMENTED"\)/u, "only each reviewer's latest decisive review counts");
+  assert.match(body, /\$3 == head/u, "the approval must be for the current head commit");
+  assert.match(body, /collaborators\/\$approver\/permission/u, "the approver, not just the author, must be an admin");
+});
+
+test("admin_approver_for_head picks only an admin's latest approval on the head", () => {
+  const script = readFileSync("scripts/merge-pr.sh", "utf8");
+  const fn = script.slice(script.indexOf("admin_approver_for_head() {"), script.indexOf("\nif [[ -n \"$INVARIANTS_CHANGED\" ]]; then\n  INVARIANTS_APPROVER"));
+  const reviews = [
+    ["writer", "APPROVED", "H"], ["owner", "APPROVED", "OLD"], ["owner", "COMMENTED", "H"],
+    ["late", "APPROVED", "H"], ["late", "CHANGES_REQUESTED", "H"],
+  ].map(r => r.join("\t")).join("\n");
+  const runWith = (extra) => execFileSync("bash", ["-c", `set -euo pipefail
+gh() {
+  if [[ "$1" == api && "$2" == --paginate ]]; then printf '%s\\n' "$REVIEWS"; return 0; fi
+  case "$2" in *collaborators/owner/*) echo admin ;; *collaborators/late/*) echo admin ;; *) echo write ;; esac
+}
+PR_NUM=1 HEAD_OID=H
+${fn}
+admin_approver_for_head`], { encoding: "utf8", env: { ...process.env, REVIEWS: reviews + extra } }).trim();
+  assert.equal(runWith(""), "", "a writer's approval, a stale admin approval, and a withdrawn approval do not count");
+  assert.equal(runWith("\nowner\tAPPROVED\tH"), "owner");
 });
