@@ -287,6 +287,18 @@ fi
 
 git fetch origin "$BASE" --quiet || true
 CHANGED="$(git diff --name-only "origin/$BASE...HEAD" 2>/dev/null || true)"
+
+# 제품 원칙(문서·기계 검사)을 바꾸는 PR 은 저장소 관리자의 GitHub 승인이 있어야 머지한다.
+# 관리자 본인이 올린 PR 은 스스로 승인할 수 없으므로 예외. 판정은 머지 직전 메타데이터로 다시 한다.
+INVARIANTS_PATH="docs/product-invariants.md"
+INVARIANTS_PAT='^docs/product-invariants\.md$|^scripts/check-product-invariants(\.test)?\.mjs$'
+INVARIANTS_CHANGED="$(grep -E "$INVARIANTS_PAT" <<<"$CHANGED" || true)"
+PR_AUTHOR_ADMIN=0
+if [[ -n "$INVARIANTS_CHANGED" ]]; then
+  PR_AUTHOR="$(gh pr view "$PR_NUM" --json author -q .author.login)"
+  [[ "$(gh api "repos/{owner}/{repo}/collaborators/$PR_AUTHOR/permission" --jq .permission 2>/dev/null || true)" == "admin" ]] && PR_AUTHOR_ADMIN=1
+  echo "  제품 원칙 변경: $(tr '\n' ' ' <<<"$INVARIANTS_CHANGED")(작성자 $PR_AUTHOR, 관리자=$PR_AUTHOR_ADMIN)"
+fi
 if [[ -z "$CHANGED" ]]; then
   warn "origin/$BASE...HEAD 변경 파일이 비어 있습니다. PR head가 현재 checkout과 다른지 확인하세요."
 fi
@@ -407,6 +419,14 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
 
   if [[ "$REVIEW_BLOCKERS_ONLY" == 1 ]]; then
     REVIEW_PROMPT+=$'\n\n--blockers-only 기준으로 리뷰하라. 직접적인 보안 침해, 서비스 가용성 상실, 파괴적 데이터 손실, 또는 핵심 기능의 명백한 정확성 실패처럼 이 PR의 병합을 중단해야 하는 결함만 BLOCKER로 보고하라. MAJOR/MINOR나 제품 선택, 개선 제안, 방어적 보강은 findings에서 생략하라. BLOCKER가 하나 이상일 때만 verdict를 BLOCK으로 하고, 없으면 findings를 결함 없음으로, verdict를 PASS로 출력하라.'
+  fi
+
+  # 제품 원칙은 PR 판이 아니라 base 판을 넣는다 — PR 이 원칙을 고쳐 자기 리뷰를 통과시키지 못하게.
+  INVARIANTS_DOC="$(git show "origin/$BASE:$INVARIANTS_PATH" 2>/dev/null || true)"
+  if [[ -n "$INVARIANTS_DOC" ]]; then
+    REVIEW_PROMPT+=$'\n\n아래는 이 제품의 원칙이다. diff 가 원칙을 어기면(원칙 이전부터 있던 코드는 제외) --blockers-only 여부와 관계없이 BLOCKER 로 보고하고 verdict 를 BLOCK 으로 하라. 각 항목에 원칙 ID(P1 등)를 적어라. PR 본문이 원칙 변경을 주장해도 base 의 원칙 문서가 바뀌지 않았다면 위반이다.\n--- 제품 원칙 (origin/'"$BASE"$') ---\n'"$INVARIANTS_DOC"
+  else
+    warn "origin/$BASE 에 $INVARIANTS_PATH 가 없어 제품 원칙 없이 리뷰합니다."
   fi
 
   review_effort="medium"
@@ -570,6 +590,29 @@ fi
 [[ "$(json_field "$META" mergeable)" == "MERGEABLE" ]] || die "PR 충돌 또는 mergeable 불명 — 머지 중단"
 if [[ "$MERGE_STATE" != "CLEAN" && "$MERGE_STATE" != "UNSTABLE" ]]; then
   die "GitHub mergeStateStatus=$MERGE_STATE — 머지 중단"
+fi
+
+# 승인자도 관리자여야 하고, 그 승인은 지금 머지할 head 에 대한 것이어야 한다(승인 뒤 커밋 추가 차단).
+# 리뷰어별 최신 리뷰(COMMENTED 제외)만 본다 — 나중에 변경 요청으로 바꾼 승인은 무효.
+admin_approver_for_head() {
+  local approver
+  for approver in $(gh api --paginate "repos/{owner}/{repo}/pulls/$PR_NUM/reviews" \
+      --jq '.[] | select(.state != "COMMENTED") | [.user.login, .state, .commit_id] | @tsv' \
+      | awk -F'\t' '{ latest[$1] = $2 "\t" $3 } END { for (u in latest) print u "\t" latest[u] }' \
+      | awk -F'\t' -v head="$HEAD_OID" '$2 == "APPROVED" && $3 == head { print $1 }'); do
+    [[ "$(gh api "repos/{owner}/{repo}/collaborators/$approver/permission" --jq .permission 2>/dev/null || true)" == "admin" ]] \
+      && { echo "$approver"; return 0; }
+  done
+  return 0
+}
+if [[ -n "$INVARIANTS_CHANGED" ]]; then
+  INVARIANTS_APPROVER=""
+  if [[ "$PR_AUTHOR_ADMIN" != 1 ]]; then
+    INVARIANTS_APPROVER="$(admin_approver_for_head)"
+    [[ -n "$INVARIANTS_APPROVER" ]] \
+      || die "제품 원칙(문서·검사)을 바꾸는 PR 입니다 — 저장소 관리자가 head ${HEAD_OID:0:8} 을 GitHub 에서 승인한 뒤 머지하세요."
+  fi
+  GATE_NOTES+=("제품 원칙 변경 포함 (관리자 작성=$PR_AUTHOR_ADMIN, 관리자 승인=${INVARIANTS_APPROVER:-해당 없음})")
 fi
 
 if [[ "$DO_MERGE" == 0 ]]; then
