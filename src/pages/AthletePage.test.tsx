@@ -101,7 +101,7 @@ describe("AthletePage", () => {
   beforeEach(() => {
     const profile = createMockProfile({ nickname: "한강 라이더" });
     setDocData("users/athlete-1", { ...profile });
-    setDocData("users_public/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { profilePublic: true, ...profile });
   });
 
   it("shows profile nickname", async () => {
@@ -114,7 +114,7 @@ describe("AthletePage", () => {
   it("shows avatar for the athlete", async () => {
     const profile = createMockProfile({ nickname: "라이더", photoURL: "https://example.com/p.jpg" });
     setDocData("users/athlete-1", { ...profile });
-    setDocData("users_public/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { profilePublic: true, ...profile });
     renderWithProviders(<AthletePage />);
     await waitFor(() => {
       expect(screen.getByText("라이더")).toBeInTheDocument();
@@ -156,7 +156,7 @@ describe("AthletePage", () => {
         totalElevationGain: 2_101_586,
       },
     });
-    setDocData("users_public/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { profilePublic: true, ...profile });
     setCollectionDocs("activities", [
       {
         id: "public-1",
@@ -209,7 +209,7 @@ describe("AthletePage", () => {
         totalElevationGain: 999_000,
       },
     });
-    setDocData("users_public/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { profilePublic: true, ...profile });
     setCollectionDocs("activities", [
       {
         id: "own-1",
@@ -279,9 +279,24 @@ describe("AthletePage", () => {
     });
   });
 
+  it("treats profiles without a visibility setting as private", async () => {
+    const profile = createMockProfile({ nickname: "미설정 라이더" });
+    delete (profile as { profilePublic?: boolean }).profilePublic;
+    setDocData("users_public/athlete-1", { ...profile });
+
+    renderWithProviders(<AthletePage />, {
+      authenticated: true,
+      user: { uid: "current-user" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("비공개 프로필입니다")).toBeInTheDocument();
+    });
+  });
+
   it("restricts private profiles for non-friends", async () => {
     const profile = createMockProfile({ nickname: "비공개 라이더", profilePublic: false });
-    setDocData("users_public/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { profilePublic: true, ...profile });
     setCollectionDocs("friends/athlete-1/users", [
       { id: "friend-1", userId: "friend-1", nickname: "숨김 친구", profileImage: null },
     ]);
@@ -303,7 +318,7 @@ describe("AthletePage", () => {
       nickname: "요청 차단 라이더",
       friendRequestsAllowed: false,
     });
-    setDocData("users_public/athlete-1", { ...profile });
+    setDocData("users_public/athlete-1", { profilePublic: true, ...profile });
 
     renderWithProviders(<AthletePage />, {
       authenticated: true,
