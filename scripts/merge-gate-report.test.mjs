@@ -63,3 +63,11 @@ test("merge-pr.sh posts the report before merging and refuses to merge without i
   assert.match(script, /GATE_STEPS\+=\("\$desc"\)/, "every passed run_step is recorded");
   assert.match(script, /cp "\$REVIEW_OUT" "\$REVIEW_RESULT_FILE"/, "the review result survives until the report");
 });
+
+test("a review record that cannot be read fails the report instead of showing no result", () => {
+  const input = { head: "a".repeat(40), base: "dev", baseSha: "b".repeat(40), tier: "t", runner: "r", at: "t", steps: "", notes: "",
+    scriptHash: "c", baseScriptHash: "c", reviewDecision: "", mergeState: "CLEAN", runReview: true, reviewMode: "full", rangeLabel: "", scope: "blockers-only" };
+  assert.throws(() => renderGateReport({ ...input, reviewJson: "{broken" }));
+  assert.throws(() => renderGateReport({ ...input, reviewJson: "[]" }), /리뷰 기록 형식/u);
+  assert.match(renderGateReport({ ...input, reviewJson: "" }), /AI 리뷰: \*\*결과 없음\*\*/u);
+});
