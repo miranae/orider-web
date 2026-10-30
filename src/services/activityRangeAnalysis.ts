@@ -100,9 +100,10 @@ export function validateRangeResponse(response: ActivityRangeAnalysisResponse, r
   return response;
 }
 
-/** 소유자용 read-only callable. 결과 캐시와 클라이언트 지표 계산은 만들지 않는다. */
-export async function loadActivityRangeAnalysis(services: FirebaseServices, uid: string, request: ActivityRangeAnalysisRequest): Promise<ActivityRangeAnalysisResponse> {
-  const ownerMatches = () => !!uid && services.auth.currentUser?.uid === uid;
+/** 활동 접근권한을 서버에서 확인하는 read-only callable. 결과 캐시와 클라이언트 지표 계산은 만들지 않는다. */
+export async function loadActivityRangeAnalysis(services: FirebaseServices, uid: string | null, request: ActivityRangeAnalysisRequest): Promise<ActivityRangeAnalysisResponse> {
+  const viewer = services.auth.currentUser;
+  const ownerMatches = () => (viewer?.uid ?? null) === uid && services.auth.currentUser === viewer;
   if (!ownerMatches()) throw new Error("account_changed");
   if (!validRangeRequest(request)) throw new Error("invalid_range_selection");
   await services.ensureAppCheckReady();

@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useActivityNarrative, useActivityNarrativeWithOptions } from "./useActivityNarrative";
+import { auth } from "../services/firebase";
 import { useActivityNarrativePeek } from "./useActivityNarrativePeek";
 
 const mocks = vi.hoisted(() => ({ uid: "owner", generate: vi.fn(), peek: vi.fn() }));
@@ -52,4 +53,46 @@ describe("activity narrative viewer isolation", () => {
     await waitFor(() => expect(result.current.data?.summary).toBe("public"));
     expect(mocks.peek).toHaveBeenCalledTimes(2);
   });
+  it.each(["full", "peek"])("discards late %s evidence and does not reuse it for a replacement SDK session with the same UID", async (mode) => {
+    const api = mode === "full" ? mocks.generate : mocks.peek;
+    let release!: (value: unknown) => void;
+    api.mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+    const { result, rerender, unmount } = renderHook(() => mode === "full"
+      ? useActivityNarrative(`same-sdk-${mode}`, true)
+      : useActivityNarrativePeek(`same-sdk-${mode}`, true));
+    await waitFor(() => expect(api).toHaveBeenCalledOnce());
+    const original = auth.currentUser;
+    Object.defineProperty(auth, "currentUser", { configurable: true, writable: true, value: { ...original, uid: "owner" } });
+    api.mockResolvedValueOnce({ hit: true, summary: "replacement evidence" });
+    rerender();
+    expect(result.current.data).toBeNull();
+    await waitFor(() => expect(result.current.data?.summary).toBe("replacement evidence"));
+    await act(async () => release({ hit: true, summary: "old private evidence" }));
+    expect(result.current.data?.summary).toBe("replacement evidence");
+    unmount();
+    Object.defineProperty(auth, "currentUser", { configurable: true, writable: true, value: original });
+  });
+
+  it("removes saved owner evidence when refreshing reports revoked access", async () => {
+    mocks.generate.mockResolvedValueOnce({ summary: "old owner facts" });
+    const { result, rerender } = renderHook(({ refresh }) => useActivityNarrativeWithOptions("revoked-grounding", true, "ko", refresh > 0, refresh), { initialProps: { refresh: 0 } });
+    await waitFor(() => expect(result.current.data?.summary).toBe("old owner facts"));
+    mocks.generate.mockRejectedValueOnce(Object.assign(new Error("denied"), { code: "functions/permission-denied" }));
+    rerender({ refresh: 1 });
+    await waitFor(() => expect(result.current.error).toBe("denied"));
+    expect(result.current.data).toBeNull();
+  });
+
+  it.each(["narrative_streams_not_ready", "narrative_generation_inputs_changed"])("preserves saved text and timestamp when explicit generation fails with %s", async reason => {
+    mocks.generate.mockResolvedValueOnce({ summary: "saved generation", generatedAt: 123 });
+    const { result, rerender } = renderHook(({ refresh }) => useActivityNarrativeWithOptions(`typed-${reason}`, true, "ko", refresh > 0, refresh), { initialProps: { refresh: 0 } });
+    await waitFor(() => expect(result.current.data?.summary).toBe("saved generation"));
+    mocks.generate.mockRejectedValueOnce(Object.assign(Error("input unavailable"), { code: "functions/failed-precondition", details: { reason } }));
+    rerender({ refresh: 1 });
+    await waitFor(() => expect(result.current.error).toBe("input unavailable"));
+    expect(result.current.data?.generatedAt).toBe(123);
+    expect(result.current.data?.summary).toBe("saved generation");
+    expect(result.current.accessRevoked).toBe(false);
+  });
+
 });

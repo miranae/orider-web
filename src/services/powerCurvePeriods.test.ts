@@ -34,6 +34,14 @@ describe("powerCurvePeriods contract", () => {
     expect(validatePowerCurvePeriodsResponse(data, request)).toBe(data);
     expect(() => new Date(data.asOf).toISOString()).not.toThrow();
   });
+  it.each(["appCheck", "response"])("rejects a replacement SDK session with the same uid during %s", async phase => {
+    const auth = { currentUser: { uid: "owner", isAnonymous: false } };
+    const replace = () => { auth.currentUser = { uid: "owner", isAnonymous: false }; };
+    const services = { auth, functions: {}, ensureAppCheckReady: vi.fn(async () => { if (phase === "appCheck") replace(); }) } as any;
+    if (phase === "response") mocks.call.mockImplementationOnce(async () => { replace(); return { data: response() }; });
+    await expect(loadPowerCurvePeriods(services, "owner", request)).rejects.toThrow("account_changed");
+    expect(mocks.call).toHaveBeenCalledTimes(phase === "appCheck" ? 0 : 1);
+  });
   it("enforces current owner and App Check before calling, and catches an account switch during request", async () => {
     const auth = { currentUser: { uid: "owner", isAnonymous: false } };
     const services = { auth, functions: {}, ensureAppCheckReady: vi.fn() } as any;

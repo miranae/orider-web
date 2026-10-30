@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "generatedAt": 1800000000000,
+  "blocks": [
+    {
+      "kind": "fitness_context",
+      "basis": "activity_relative",
+      "window": {
+        "fromMs": 1653120000000,
+        "toMs": 1800000000000,
+        "fromInclusive": false,
+        "toExclusive": true
+      },
+      "comparisonWindows": [],
+      "scanLimit": null,
+      "scannedCount": 3,
+      "selectedCount": 3,
+      "missingCount": 0,
+      "capReached": false,
+      "coverage": "complete_query",
+      "sources": [
+        {
+          "kind": "activity",
+          "activityId": "prior-0",
+          "revision": "d7c6d8d56704459225cd12f4c7d449b2763e0693a665073aa949a90f11514fbd"
+        },
+        {
+          "kind": "activity",
+          "activityId": "prior-1",
+          "revision": "1c62fd270f8272960bd7e87319123da180a8be0b592a399d29f46a9d92877823"
+        },
+        {
+          "kind": "activity",
+          "activityId": "prior-2",
+          "revision": "83d7961a412c6562b4205fb5b0521fa5f500f5f1b25c103df226d0c3271b4122"
+        },
+        {
+          "kind": "profile",
+          "activityId": null,
+          "revision": null
+        }
+      ],
+      "sourceCount": 4,
+      "sourcesTruncated": false,
+      "sourceSetDigest": "bb5323ee981ba118f25331fa72c10b4132a7cd0eb44183fa55e6755505a87eab"
+    },
+    {
+      "kind": "coach_history",
+      "basis": "activity_relative",
+      "window": {
+        "fromMs": 1792224000000,
+        "toMs": 1800000000000,
+        "fromInclusive": false,
+        "toExclusive": true
+      },
+      "comparisonWindows": [
+        {
+          "fromMs": 1797580800000,
+          "toMs": 1800000000000,
+          "fromInclusive": true,
+          "toExclusive": true
+        },
+        {
+          "fromMs": 1795161600000,
+          "toMs": 1797580800000,
+          "fromInclusive": true,
+          "toExclusive": true
+        }
+      ],
+      "scanLimit": 24,
+      "scannedCount": 3,
+      "selectedCount": 3,
+      "missingCount": 0,
+      "capReached": false,
+      "coverage": "sample",
+      "sources": [
+        {
+          "kind": "activity",
+          "activityId": "prior-0",
+          "revision": "d7c6d8d56704459225cd12f4c7d449b2763e0693a665073aa949a90f11514fbd"
+        },
+        {
+          "kind": "activity",
+          "activityId": "prior-1",
+          "revision": "1c62fd270f8272960bd7e87319123da180a8be0b592a399d29f46a9d92877823"
+        },
+        {
+          "kind": "activity",
+          "activityId": "prior-2",
+          "revision": "83d7961a412c6562b4205fb5b0521fa5f500f5f1b25c103df226d0c3271b4122"
+        },
+        {
+          "kind": "metrics",
+          "activityId": "prior-0",
+          "revision": null
+        },
+        {
+          "kind": "metrics",
+          "activityId": "prior-1",
+          "revision": null
+        },
+        {
+          "kind": "metrics",
+          "activityId": "prior-2",
+          "revision": null
+        }
+      ],
+      "sourceCount": 6,
+      "sourcesTruncated": false,
+      "sourceSetDigest": "f6d60d1d3d61bca5ababf875b5e453097454e916f737c6679690ffbcea29f551"
+    }
+  ]
+}

@@ -23,6 +23,18 @@ const nearRoute = "37.5000,127.0000;37.5010,127.0010;37.5020,127.0020;37.5030,12
 const farRoute = "35.1000,129.0000;35.1010,129.0010;35.1020,129.0020;35.1030,129.0030";
 
 describe("selectActualCoRiders", () => {
+  it.each(["orider_a", "strava_a"])("shows both matching recordings from %s", (baseId) => {
+    const common = { type: "Ride", startTime: 1_000_000, endTime: 1_600_000,
+      summary: createMockSummary({ distance: 2_000, ridingTimeMillis: 600_000 }) };
+    const base = confirmed(activity({ ...common, id: baseId, userId: "a" }), ["b"]);
+    const candidates = ["orider_b", "strava_b"].map(id =>
+      confirmed(activity({ ...common, id, userId: "b" }), ["a"]));
+    expect(selectActualCoRiders(base, candidates).map(row => row.id).sort())
+      .toEqual(["orider_b", "strava_b"]);
+    expect(selectActualCoRiders(base, candidates, { serverVerifiedAnchorId: base.id })
+      .map(row => row.id).sort()).toEqual(["orider_b", "strava_b"]);
+  });
+
   it("keeps only actual outdoor ride companions from a mixed groupRideId bucket", () => {
     const base = confirmed(activity({
       id: "strava_19213309217",
@@ -151,7 +163,7 @@ describe("selectActualCoRiders", () => {
     expect(selectActualCoRiders(base, candidates)).toEqual([]);
   });
 
-  it("keeps the best overlapping activity per rider", () => {
+  it("keeps every confirmed activity from the same rider", () => {
     const base = confirmed(activity({
       id: "strava_19215757019",
       userId: "main",
@@ -186,7 +198,7 @@ describe("selectActualCoRiders", () => {
       }), ["main"]),
     ];
 
-    expect(selectActualCoRiders(base, candidates).map((r) => r.id)).toEqual(["strava_19213518317"]);
+    expect(selectActualCoRiders(base, candidates).map((r) => r.id)).toEqual(["strava_19213518317", "strava_19213309217"]);
   });
 
   it("trusts synchronized confirmation instead of re-matching lossy thumbnail routes", () => {
@@ -316,4 +328,14 @@ describe("selectActualCoRiders", () => {
       "reciprocal",
     ]);
   });
+});
+
+it("accepts a server-verified owner anchor without exposing the stored peer list", () => {
+  const base = activity({ id: "base", userId: "owner", type: "Ride", startTime: 1000000, endTime: 4600000, summary: createMockSummary({ distance: 10000, ridingTimeMillis: 3600000 }) });
+  const peer = activity({ id: "peer", userId: "other", type: "Ride", startTime: 1000000, endTime: 4600000, summary: createMockSummary({ distance: 10000, ridingTimeMillis: 3600000 }) });
+  expect(selectActualCoRiders(base, [peer])).toEqual([]);
+  expect(selectActualCoRiders(base, [peer], { serverVerifiedAnchorId: "another" })).toEqual([]);
+  expect(selectActualCoRiders(base, [peer], { serverVerifiedAnchorId: "base" }).map(item => item.id)).toEqual(["peer"]);
+  expect(selectActualCoRiders(base, [{ ...peer, type: "Run" }], { serverVerifiedAnchorId: "base" })).toEqual([]);
+  expect(selectActualCoRiders(base, [{ ...peer, summary: { ...peer.summary, distance: NaN } }], { serverVerifiedAnchorId: "base" })).toEqual([]);
 });

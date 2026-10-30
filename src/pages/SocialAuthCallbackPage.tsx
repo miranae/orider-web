@@ -8,16 +8,17 @@ import { useToast } from "../contexts/ToastContext";
 import { auth } from "../services/firebase";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
-import { completeSocialAuth, consumeSocialAuthState } from "../services/socialAuth";
+import { completeSocialAuth, consumeSocialAuthState, startSocialAuth, type SocialProvider } from "../services/socialAuth";
 import { Button } from "../theme/components";
 import { stravaSignupGuidancePath } from "../utils/stravaSignup";
 import { socialAuthReturnTo } from "../utils/socialAuthReturnTo";
 
-type Step = "working" | "error";
+type Step = "working" | "error" | "confirm-link";
 
 /** 서버 HttpsError 코드 → 안내 문구 키. 서버 메시지는 한국어 전용이라 화면 문구는 여기서 고른다. */
 export function socialAuthErrorKey(code: string | undefined, reason?: string): string {
   if (code === "functions/failed-precondition" && reason === "social-account-recovery-required") return "socialCallback.error.accountRecovery";
+  if (reason === "social-account-data-conflict") return "socialCallback.error.accountDataConflict";
   if (reason === "strava-existing-account-link-required") return "socialCallback.error.existingStravaAccount";
   if (reason === "strava-owner-conflict") return "socialCallback.error.alreadyLinked";
   if (reason === "strava-sync-reauth-required") return "socialCallback.error.stravaSyncReauth";
@@ -45,6 +46,26 @@ export default function SocialAuthCallbackPage() {
   const [step, setStep] = useState<Step>("working");
   const [errorKey, setErrorKey] = useState("socialCallback.error.generic");
   const startedRef = useRef(false);
+  const [connectProvider, setConnectProvider] = useState<SocialProvider | null>(null);
+  const connectOwnerRef = useRef<string | null>(null);
+  const [connectReturnTo, setConnectReturnTo] = useState("/settings/account");
+
+  const connectExisting = async () => {
+    if (!connectProvider) return;
+    if (!connectOwnerRef.current || auth.currentUser?.uid !== connectOwnerRef.current) {
+      setErrorKey("socialCallback.error.denied");
+      setStep("error");
+      return;
+    }
+    setStep("working");
+    try {
+      await startSocialAuth(connectProvider, "link", connectReturnTo, true);
+    } catch (error) {
+      logClientError("SocialAuthCallbackPage.connectExisting", error);
+      setErrorKey("socialCallback.error.generic");
+      setStep("error");
+    }
+  };
 
   useEffect(() => {
     // 계정 연결은 서버가 현재 로그인 사용자를 확인하므로 세션 복원이 끝난 뒤에 교환한다.
@@ -82,7 +103,15 @@ export default function SocialAuthCallbackPage() {
         navigate(target, { replace: true });
       } catch (err) {
         logClientError("SocialAuthCallbackPage.complete", err);
-        const error = err as { code?: string; details?: { reason?: string } };
+        const error = err as { code?: string; details?: { reason?: string; provider?: string; returnTo?: string } };
+        if (error.code === "functions/already-exists" && error.details?.reason === "social-account-connect-confirmation"
+          && (error.details.provider === "naver" || error.details.provider === "kakao")) {
+          connectOwnerRef.current = auth.currentUser?.uid ?? null;
+          setConnectProvider(error.details.provider);
+          setConnectReturnTo(socialAuthReturnTo(error.details.returnTo ?? "/settings/account"));
+          setStep("confirm-link");
+          return;
+        }
         setErrorKey(socialAuthErrorKey(error?.code, error?.details?.reason));
         setStep("error");
       }
@@ -96,6 +125,13 @@ export default function SocialAuthCallbackPage() {
           <>
             <div className="w-8 h-8 mx-auto border-3 border-[var(--lime)] border-t-transparent rounded-full animate-spin" />
             <p className="text-[var(--ink-2)]">{t("socialCallback.working")}</p>
+          </>
+        ) : step === "confirm-link" ? (
+          <>
+            <h2 className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">{t("socialCallback.connectExisting.title")}</h2>
+            <p className="text-[var(--ink-2)]">{t("socialCallback.connectExisting.description")}</p>
+            <Button variant="primary" onClick={() => { void connectExisting(); }}>{t("socialCallback.connectExisting.confirm")}</Button>
+            <Button variant="secondary" onClick={() => navigate(connectReturnTo, { replace: true })}>{t("socialCallback.connectExisting.cancel")}</Button>
           </>
         ) : (
           <>

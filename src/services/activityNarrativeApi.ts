@@ -1,10 +1,12 @@
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, ensureAppCheckReady, functions, getAppCheckToken } from "./firebase";
+import { auth } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 import { logClientError } from "./errorLogger";
 import { track } from "./analytics";
-import type { ActivityNarrative, ActivitySocialSummary, NarrativeLang } from "../hooks/useActivityNarrative";
+import { captureActivityNarrativeSession, type ActivityNarrativeServices } from "./activityNarrativeSession";
+type NarrativeSession = ReturnType<typeof captureActivityNarrativeSession>;
+import type { ActivityNarrative, NarrativeLang } from "../hooks/useActivityNarrative";
 
 export interface ActivityNarrativeGenerateRequest {
   activityId: string;
@@ -17,7 +19,6 @@ export interface ActivityNarrativePeekRequest {
   activityId: string;
   lang: NarrativeLang;
   cacheOnly: true;
-  socialSummaryOnly?: boolean;
   forceRefresh?: never;
 }
 
@@ -37,8 +38,7 @@ interface ActivityNarrativeErrorPayload {
   };
 }
 
-type ActivitySocialSummaryResponse = { socialSummary?: ActivitySocialSummary };
-type ActivityNarrativeResponse = ActivityNarrative | ActivityNarrativePeekResponse | ActivitySocialSummaryResponse;
+type ActivityNarrativeResponse = ActivityNarrative | ActivityNarrativePeekResponse;
 type CompatibilityFallbackReason =
   | "rest_not_configured"
   | "rest_route_unavailable"
@@ -51,12 +51,10 @@ const REST_NETWORK_RETRY_DELAY_MS = 400;
 // 도달 불가한 REST 호스트를 매 화면에서 두 번씩 재시도하지 않는다. 만료 후 다시 탐색한다.
 const REST_PEEK_NETWORK_COOLDOWN_MS = 60_000;
 const peekNetworkCooldowns = new Map<string, number>();
-let peekViewer: typeof auth.currentUser | undefined;
-let peekAuthSubscribed = false;
-const pendingPeeks = new Map<string, Promise<ActivityNarrativeResponse>>();
+const peekStates = new WeakMap<object, { viewer: typeof auth.currentUser | undefined; pending: Map<string, Promise<ActivityNarrativeResponse>> }>();
 const APP_CHECK_THROTTLE_FALLBACK_MS = 5 * 60_000;
 export const ACTIVITY_NARRATIVE_APP_CHECK_THROTTLE_RECOVERY_KEY = "activity-narrative-app-check-throttle-recovery";
-let authReadyPromise: Promise<void> | null = null;
+const authReadyPromises = new WeakMap<object, Promise<void>>();
 
 /** App Check가 403 뒤 토큰 발급을 멈춘 동안에는 재시도를 숨긴다. */
 export function appCheckThrottleRetryAfterMs(error: unknown): number | null {
@@ -124,23 +122,25 @@ function endpoint(path: string): string {
   return `${base}${path}`;
 }
 
-function waitForNarrativeAuthReady(): Promise<void> {
-  if (auth?.currentUser) return Promise.resolve();
-  if (authReadyPromise) return authReadyPromise;
+function waitForNarrativeAuthReady(currentAuth = auth): Promise<void> {
+  if (currentAuth?.currentUser) return Promise.resolve();
+  const existing = authReadyPromises.get(currentAuth);
+  if (existing) return existing;
 
-  authReadyPromise = new Promise<void>((resolve, reject) => {
+  const pending = new Promise<void>((resolve, reject) => {
     const subscription: { unsubscribe?: () => void } = {};
     const release = () => {
       resolve();
       // Firebase는 비동기 통지하지만 테스트 mock은 동기 통지할 수 있어 할당 뒤 해제한다.
       queueMicrotask(() => subscription.unsubscribe?.());
     };
-    subscription.unsubscribe = onAuthStateChanged(auth, release, reject);
+    subscription.unsubscribe = onAuthStateChanged(currentAuth, release, reject);
   }).catch((error) => {
-    authReadyPromise = null;
+    authReadyPromises.delete(currentAuth);
     throw error;
   });
-  return authReadyPromise;
+  authReadyPromises.set(currentAuth, pending);
+  return pending;
 }
 
 function operation(request: ActivityNarrativeRequest): "peek" | "generate" {
@@ -164,12 +164,15 @@ function observeTransport(
 
 export async function fetchActivityNarrativeRest<T extends ActivityNarrativeResponse>(
   request: ActivityNarrativeRequest,
+  session?: NarrativeSession,
 ): Promise<T> {
   // 구형 Hosting 산출물처럼 runtime-config에 AI base가 없으면 인증/App Check 작업 전에
   // 명시적인 compatibility fallback으로 분기할 수 있어야 한다.
   const url = endpoint("/v1/activity-narrative");
-  await waitForNarrativeAuthReady();
-  const user = auth?.currentUser;
+  await waitForNarrativeAuthReady(session?.services.auth);
+  session ??= captureActivityNarrativeSession();
+  session.assertCurrent();
+  const user = session.services.auth?.currentUser;
   if (!user) {
     throw new ActivityNarrativeRestError("Firebase user is not signed in.", {
       code: "rest-unauthenticated",
@@ -178,9 +181,10 @@ export async function fetchActivityNarrativeRest<T extends ActivityNarrativeResp
 
   const [idToken, appCheckToken] = await Promise.all([
     user.getIdToken(),
-    getAppCheckToken(),
+    session.services.getAppCheckToken(),
   ]);
 
+  session.assertCurrent();
   let response: Response;
   try {
     response = await fetch(url, {
@@ -199,6 +203,7 @@ export async function fetchActivityNarrativeRest<T extends ActivityNarrativeResp
     );
   }
 
+  session.assertCurrent();
   if (!response.ok) {
     let payload: ActivityNarrativeErrorPayload | null = null;
     try {
@@ -220,7 +225,9 @@ export async function fetchActivityNarrativeRest<T extends ActivityNarrativeResp
     );
   }
 
-  return response.json() as Promise<T>;
+  const payload = await response.json() as T;
+  session.assertCurrent();
+  return payload;
 }
 
 /** fetch가 읽을 수 있는 HTTP 응답을 받지 못한 실패(회선·CORS 등). */
@@ -248,25 +255,28 @@ function restCompatibilityFallbackReason(
 async function callActivityNarrativeCallable<T extends ActivityNarrativeResponse>(
   request: ActivityNarrativeRequest,
   fallbackReason: CompatibilityFallbackReason,
+  session: NarrativeSession,
 ): Promise<T> {
   // getActivityNarrative 는 enforceAppCheck 이라 App Check 초기화 전에 호출하면 SDK 가 토큰을
   // 아예 붙이지 않아 핸들러 진입 전 플랫폼이 영문 "Unauthenticated" 로 거부한다. main.tsx 의
   // warmup 은 LCP 보호를 위해 2.5s 지연되므로, 다른 callable 호출부와 동일하게 호출 직전에
   // 준비를 await 한다. (2026-08-05 익명 peek 오류: uid=null 방문자에게서만 재현)
   // 준비 실패는 원인 그대로 전파하고, 토큰 없는 네트워크 요청은 보내지 않는다.
-  await ensureAppCheckReady().catch((error) => {
+  await session.services.ensureAppCheckReady().catch((error) => {
     logClientError("activityNarrativeApi.appCheckReady", error, {
       operation: operation(request),
       lang: request.lang,
       fallbackReason,
-      signedIn: !!auth?.currentUser,
+      signedIn: !!session.services.auth?.currentUser,
     });
     observeTransport(request, "callable", "error", fallbackReason);
     throw error;
   });
-  const fn = httpsCallable<ActivityNarrativeRequest, T>(functions, "getActivityNarrative");
+  session.assertCurrent();
+  const fn = httpsCallable<ActivityNarrativeRequest, T>(session.services.functions, "getActivityNarrative");
   try {
     const response = await fn(request);
+    session.assertCurrent();
     observeTransport(request, "callable", "success", fallbackReason);
     return response.data;
   } catch (error) {
@@ -282,13 +292,14 @@ async function callActivityNarrativeCallable<T extends ActivityNarrativeResponse
  */
 async function probeGeneratedNarrative(
   request: ActivityNarrativeGenerateRequest,
+  session: NarrativeSession,
 ): Promise<ActivityNarrative | null> {
   try {
     const probe = await fetchActivityNarrativeRest<ActivityNarrativePeekResponse>({
       activityId: request.activityId,
       lang: request.lang,
       cacheOnly: true,
-    });
+    }, session);
     if (probe.hit !== true) return null;
     const { hit: _hit, ...narrative } = probe;
     return narrative;
@@ -326,6 +337,7 @@ async function probeGeneratedNarrative(
 async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse>(
   request: ActivityNarrativeRequest,
   error: unknown,
+  session: NarrativeSession,
 ): Promise<T> {
   // 생성 오류는 추적한다. 읽기 복구 성공은 transport 관측만 남기고 최종 실패는 호출부로 전파한다.
   if (request.cacheOnly !== true) logClientError("activityNarrativeApi.restNetworkRecovery", error, {
@@ -343,7 +355,7 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
     await sleep(REST_NETWORK_RETRY_DELAY_MS);
     let generated: ActivityNarrative | null;
     try {
-      generated = await probeGeneratedNarrative(request);
+      generated = await probeGeneratedNarrative(request, session);
     } catch (probeError) {
       observeTransport(request, "rest", "error");
       throw probeError;
@@ -359,7 +371,7 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
   const failedBase = configuredBaseUrl();
   await sleep(REST_NETWORK_RETRY_DELAY_MS);
   try {
-    const retried = await fetchActivityNarrativeRest<T>(request);
+    const retried = await fetchActivityNarrativeRest<T>(request, session);
     observeTransport(request, "rest", "success");
     return retried;
   } catch (retryError) {
@@ -369,7 +381,7 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
         observeTransport(request, "rest", "error");
         throw retryError;
       }
-      return callActivityNarrativeCallable<T>(request, fallbackReason);
+      return callActivityNarrativeCallable<T>(request, fallbackReason, session);
     }
   }
   // base 별로만 격리하며 토큰·활동·사용자 식별자는 보관하거나 진단에 보내지 않는다.
@@ -384,84 +396,78 @@ async function recoverFromRestNetworkFailure<T extends ActivityNarrativeResponse
     }
     peekNetworkCooldowns.set(base, Date.now() + REST_PEEK_NETWORK_COOLDOWN_MS);
   }
-  return callActivityNarrativeCallable<T>(request, "rest_network_unreachable");
+  return callActivityNarrativeCallable<T>(request, "rest_network_unreachable", session);
 }
 
 async function requestActivityNarrative<T extends ActivityNarrativeResponse>(
   request: ActivityNarrativeRequest,
+  services?: ActivityNarrativeServices,
 ): Promise<T> {
   if (activityNarrativeApiEnabled()) {
-    await waitForNarrativeAuthReady();
+    await waitForNarrativeAuthReady(services?.auth);
   }
-  // #1636 완료 전 REST 인증기는 익명 요청을 받지 않는다. 공개 활동 cacheOnly의 기존
-  // 익명 읽기 계약만 한 릴리스 호환 callable로 유지하고, 생성 요청은 우회하지 않는다.
-  if (!auth?.currentUser && request.cacheOnly === true) {
-    return callActivityNarrativeCallable<T>(request, "anonymous_peek");
+  const session = captureActivityNarrativeSession(services);
+  // 비로그인 저장 결과 읽기는 현재 활동 ACL을 검사하는 callable을 사용한다.
+  // 생성 요청은 이 읽기 전용 경로로 우회하지 않는다.
+  if (!session.services.auth?.currentUser && request.cacheOnly === true) {
+    return callActivityNarrativeCallable<T>(request, "anonymous_peek", session);
   }
 
   const base = configuredBaseUrl();
   if (request.cacheOnly === true && base && (peekNetworkCooldowns.get(base) ?? 0) > Date.now()) {
-    return callActivityNarrativeCallable<T>(request, "rest_network_cooldown");
+    return callActivityNarrativeCallable<T>(request, "rest_network_cooldown", session);
   }
 
   try {
-    const response = await fetchActivityNarrativeRest<T>(request);
+    const response = await fetchActivityNarrativeRest<T>(request, session);
     observeTransport(request, "rest", "success");
     return response;
   } catch (error) {
-    if (isRestNetworkError(error)) return recoverFromRestNetworkFailure<T>(request, error);
+    session.assertCurrent();
+    if (isRestNetworkError(error)) return recoverFromRestNetworkFailure<T>(request, error, session);
     const fallbackReason = restCompatibilityFallbackReason(error);
     if (!fallbackReason) {
       observeTransport(request, "rest", "error");
       throw error;
     }
-    return callActivityNarrativeCallable<T>(request, fallbackReason);
+    return callActivityNarrativeCallable<T>(request, fallbackReason, session);
   }
 }
 
 export function generateActivityNarrative(
   request: ActivityNarrativeGenerateRequest,
+  services?: ActivityNarrativeServices,
 ): Promise<ActivityNarrative> {
-  return requestActivityNarrative<ActivityNarrative>(request);
+  return requestActivityNarrative<ActivityNarrative>(request, services);
 }
 
 export function peekActivityNarrative(
   request: ActivityNarrativePeekRequest,
+  services?: ActivityNarrativeServices,
 ): Promise<ActivityNarrativePeekResponse> {
-  return requestActivityNarrativePeek<ActivityNarrativePeekResponse>(request);
+  return requestActivityNarrativePeek<ActivityNarrativePeekResponse>(request, services);
 }
 
 /** 진행 중인 읽기만 공유한다. 인증 객체가 바뀌면 이전 사용자의 요청과 즉시 분리한다. */
-async function requestActivityNarrativePeek<T extends ActivityNarrativeResponse>(request: ActivityNarrativePeekRequest): Promise<T> {
-  if (activityNarrativeApiEnabled()) await waitForNarrativeAuthReady();
-  const viewer = auth?.currentUser;
-  if (peekViewer !== viewer) {
-    peekViewer = viewer;
-    pendingPeeks.clear();
-  }
-  if (!peekAuthSubscribed) {
-    peekAuthSubscribed = true;
-    onAuthStateChanged(auth, (user) => {
-      // 요청 사이에 로그아웃 후 같은 계정으로 돌아와도 이전 세션 요청은 공유하지 않는다.
-      if (peekViewer !== user) {
-        peekViewer = user;
-        pendingPeeks.clear();
-      }
+async function requestActivityNarrativePeek<T extends ActivityNarrativeResponse>(request: ActivityNarrativePeekRequest, services?: ActivityNarrativeServices): Promise<T> {
+  if (activityNarrativeApiEnabled()) await waitForNarrativeAuthReady(services?.auth);
+  const session = captureActivityNarrativeSession(services);
+  session.assertCurrent();
+  const currentAuth = session.services.auth, viewer = currentAuth?.currentUser;
+  let state = peekStates.get(currentAuth);
+  if (!state) {
+    state = { viewer, pending: new Map() }; peekStates.set(currentAuth, state);
+    const tracked = state;
+    onAuthStateChanged(currentAuth, user => {
+      if (tracked.viewer !== user) { tracked.viewer = user; tracked.pending.clear(); }
     });
   }
-  const key = JSON.stringify([configuredBaseUrl(), request.activityId, request.lang, !!request.socialSummaryOnly]);
-  const existing = pendingPeeks.get(key);
+  if (state.viewer !== viewer) { state.viewer = viewer; state.pending.clear(); }
+  const key = JSON.stringify([session.key, configuredBaseUrl(), request.activityId, request.lang]);
+  const existing = state.pending.get(key);
   if (existing) return existing as Promise<T>;
-  const pending = requestActivityNarrative<T>(request);
-  pendingPeeks.set(key, pending);
-  try {
-    return await pending;
-  } finally {
-    if (pendingPeeks.get(key) === pending) pendingPeeks.delete(key);
-  }
-}
-
-/** AI를 재생성하지 않고 공유요약만 재조회한다. */
-export function retryActivitySocialSummary(activityId: string, lang: NarrativeLang): Promise<ActivitySocialSummaryResponse> {
-  return requestActivityNarrativePeek<ActivitySocialSummaryResponse>({ activityId, lang, cacheOnly: true, socialSummaryOnly: true });
+  const pending = requestActivityNarrative<T>(request, services);
+  state.pending.set(key, pending);
+  try { return await pending; }
+  finally { if (state.pending.get(key) === pending) state.pending.delete(key); }
 }

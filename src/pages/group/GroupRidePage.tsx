@@ -1,3 +1,5 @@
+import { usePublicActivityMaps } from "../../hooks/usePublicActivityMaps";
+import { useGroupRideActivities } from "../../hooks/useGroupRideActivities";
 import { X, LocateFixed } from "lucide-react";
 import { groupRideMapRange } from "./groupRideMapRange";
 import SportIcon from "../../components/common/SportIcon";
@@ -8,7 +10,7 @@ import { localeTag } from "../../utils/localeDate";
 import { getDiscipline } from "../../utils/disciplineFilter";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import {
-  collection, query, where, getDocs, doc, getDoc,
+  doc, getDoc,
 } from "firebase/firestore";
 import { auth, ensureAppCheckReady, firestore, functions } from "../../services/firebase";
 import { debugLog, logClientError } from "../../services/errorLogger";
@@ -26,7 +28,8 @@ import Map, { Source, Layer, Marker } from "react-map-gl/mapbox";
 import type { LngLatBoundsLike } from "mapbox-gl";
 import { getMapboxToken, MAP_STYLE, applyKoreaCyclingStyle } from "../../utils/mapbox";
 import { decodeTrack } from "../../utils/polyline";
-import { getBounds } from "../../components/RouteMap";
+import { getBounds, RouteMapFallback, supportsWebGL } from "../../components/RouteMap";
+import { ErrorBoundary } from "../../components/ErrorBoundary";
 
 import GroupRidePerformanceChart, { type GroupRideOverlay } from "./GroupRidePerformanceChart";
 import InfoTip from "../../components/InfoTip";
@@ -47,6 +50,8 @@ import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export default function GroupRidePage() {
   const mapboxToken = getMapboxToken();
+  const [webglSupported] = useState(supportsWebGL);
+  const [mapFailed, setMapFailed] = useState(false);
   const { t } = useTranslation(["group", "common"]);
   const { groupId, rideId } = useParams();
   const { user } = useAuth();
@@ -54,9 +59,7 @@ export default function GroupRidePage() {
   const { variant, theme } = useOriderTheme();
   const darkMapCasing = variant === theme.scheme.dark;
   const riderColors = getComparisonSeriesColors(darkMapCasing ? "dark" : "light");
-  const [loading, setLoading] = useState(true);
-  const [loadedActivities, setActivities] = useState<Activity[]>([]);
-  const [loadedActivityContext, setLoadedActivityContext] = useState<{ rideId: string; userId: string | undefined } | null>(null);
+  const { context: loadedActivityContext, activities: loadedActivities, loading, loadingMore, error: loadError, hasMore, limited, loadMore, refresh } = useGroupRideActivities(rideId, user);
   const [riderNames, setRiderNames] = useState<globalThis.Map<string, string>>(new globalThis.Map());
   const activities = useMemo(() => loadedActivities.map((activity, index) => ({
     ...activity,
@@ -90,9 +93,9 @@ export default function GroupRidePage() {
   const [streamErrors, setStreamErrors] = useState<Set<string>>(new Set());
   const [pendingStreams, setPendingStreams] = useState<Set<string>>(new Set());
   const [streamRetry, setStreamRetry] = useState(0);
-  const [loadError, setLoadError] = useState(false);
-  const [retry, setRetry] = useState(0);
-  const [visibleRiders, setVisibleRiders] = useState<Set<string>>(new Set());
+  const [hiddenRiders, setHiddenRiders] = useState<{ context: typeof loadedActivityContext; ids: Set<string> } | null>(null);
+  const visibleRiders = useMemo(() => new Set(loadedActivities.filter(activity => hiddenRiders?.context !== loadedActivityContext || !hiddenRiders.ids.has(activity.id)).map(activity => activity.id)), [loadedActivities, loadedActivityContext, hiddenRiders]);
+const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(activity => activity.userId !== user?.uid && visibleRiders.has(activity.id)).map(activity => activity.id));
   const [chartAxis, setChartAxis] = useState<"distance" | "time">("distance");
   const [selectedViewport, setSelectedViewport] = useState<{ axis: "distance" | "time"; start: number; end: number } | null>(null);
   const [fullViewport, setFullViewport] = useState<{ axis: "distance" | "time"; start: number; end: number } | null>(null);
@@ -111,72 +114,11 @@ export default function GroupRidePage() {
   const runningPowerOnly = activities.length > 0 && activities.every(activity => getDiscipline(activity.type) === "run");
   const mixedPowerSports = activities.some(activity => getDiscipline(activity.type) === "run") && !runningPowerOnly;
 
-  // Fetch activities for this group ride
-  // groupRideId는 시간 겹침 기반 자동 매칭 — 그룹 멤버 여부와 무관.
-  // 사전 그룹 + 현장 동행을 함께 표시하는 것이 의도된 동작.
   useEffect(() => {
-    if (!rideId) return;
-    let cancelled = false;
     requestedStreams.current.clear();
-    setStreams({});
-    setStreamErrors(new Set());
-    setPendingStreams(new Set());
-    setActivities([]);
-    setSelectedViewport(null);
-    setFullViewport(null);
-    setLoadedActivityContext(null);
-    setVisibleRiders(new Set());
-    setLoading(true);
-    setLoadError(false);
-
-    const everyoneQuery = query(
-      collection(firestore, "activities"),
-      where("groupRideId", "==", rideId),
-      where("deletedAt", "==", null),
-      where("visibility", "==", "everyone"),
-    );
-
-    const fetchActivities = async () => {
-      try {
-        const everyoneSnap = await getDocs(everyoneQuery);
-        if (cancelled) return;
-        const acts = everyoneSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() }) as Activity)
-          .filter((a) => a.summary != null);
-
-        if (user) {
-          const myQuery = query(
-            collection(firestore, "activities"),
-            where("groupRideId", "==", rideId),
-            where("userId", "==", user.uid),
-          );
-          const mySnap = await getDocs(myQuery);
-          if (cancelled) return;
-          mySnap.docs.forEach((d) => {
-            const a = { id: d.id, ...d.data() } as Activity;
-            if (!a.deletedAt && a.summary != null && !acts.some((e) => e.id === a.id)) {
-              acts.push(a);
-            }
-          });
-        }
-
-        setActivities(acts);
-        setLoadedActivityContext({ rideId, userId: user?.uid });
-        setVisibleRiders(new Set(acts.map((a) => a.id)));
-      } catch (err) {
-        if (!cancelled) {
-          logClientError("GroupRidePage.fetchActivities", err, { rideId });
-          setLoadError(true);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    fetchActivities();
-    return () => { cancelled = true; };
-  }, [rideId, user?.uid, retry]);
-
+    setStreams({}); setStreamErrors(new Set()); setPendingStreams(new Set());
+    setSelectedViewport(null); setFullViewport(null);
+  }, [rideId, user, loadedActivityContext]);
   // 공개 이름 보강은 요약/스트림 로드와 분리해 프로필 장애가 기록을 가리지 않게 한다.
   useEffect(() => {
     let cancelled = false;
@@ -192,13 +134,16 @@ export default function GroupRidePage() {
 
   // 스트림은 같은 조회 컨텍스트의 활동만 사용한다. 로그인 전 기록을 새 계정으로 요청하지 않는다.
   useEffect(() => {
-    if (loadedActivityContext?.rideId !== rideId || loadedActivityContext?.userId !== user?.uid) return;
     let cancelled = false;
-    const isCurrent = () => !cancelled && auth.currentUser?.uid === user?.uid;
+    const requestOwner = auth.currentUser;
+    const started = new Set<string>();
+    const isCurrent = () => !cancelled && auth.currentUser === requestOwner;
     loadedActivities.forEach(async (a) => {
       if (requestedStreams.current.has(a.id)) return;
       requestedStreams.current.add(a.id);
-      if (a.source !== "orider" && !(a.source === "strava" && a.stravaActivityId)) return;
+      started.add(a.id);
+      started.add(a.id);
+      if (a.source !== "orider" && a.source !== "strava") return;
       setPendingStreams(previous => new Set(previous).add(a.id));
       try {
         if (a.source === "strava" && a.stravaActivityId) {
@@ -209,6 +154,9 @@ export default function GroupRidePage() {
           if (isCurrent() && result.data) {
             setStreams((prev) => ({ ...prev, [a.id]: result.data as unknown as ActivityStreams }));
           }
+        } else if (a.source === "strava") {
+          const viaApi = await getActivityStreams(a.id);
+          if (isCurrent()) setStreams(prev => ({ ...prev, [a.id]: viaApi }));
         } else if (a.source === "orider") {
           // Orider 활동은 activity_streams/{activityId}에서 직접 읽는다. 직접 읽기가
           // 거부되면 활동 공개 범위와 접근 권한을 검증하는 인증 스트림 API로 받는다.
@@ -242,20 +190,20 @@ export default function GroupRidePage() {
           logClientError("GroupRidePage.loadStream", err, { activityId: a.id, rideId });
         }
       } finally {
+        started.delete(a.id);
         if (isCurrent()) setPendingStreams(previous => {
           const next = new Set(previous); next.delete(a.id); return next;
         });
       }
     });
-    return () => { cancelled = true; };
-  }, [loadedActivities, loadedActivityContext, rideId, streamRetry, user?.uid]);
+    return () => { cancelled = true; started.forEach(id => requestedStreams.current.delete(id)); };
+  }, [loadedActivities, rideId, streamRetry, user, loadedActivityContext]);
 
   const toggleRider = (activityId: string) => {
-    setVisibleRiders((prev) => {
-      const next = new Set(prev);
-      if (next.has(activityId)) next.delete(activityId);
-      else next.add(activityId);
-      return next;
+    setHiddenRiders(previous => {
+      const next = new Set(previous?.context === loadedActivityContext ? previous.ids : []);
+      if (next.has(activityId)) next.delete(activityId); else next.add(activityId);
+      return { context: loadedActivityContext, ids: next };
     });
   };
 
@@ -294,19 +242,22 @@ export default function GroupRidePage() {
       let positions: [number, number][] = [];
 
       const s = streams[a.id];
-      if (s?.latlng && s.latlng.length > 0) {
+      if (a.userId === user?.uid && s?.latlng && s.latlng.length > 0) {
         positions = s.latlng;
-      } else if (a.thumbnailTrack) {
+      } else if (a.userId === user?.uid && a.thumbnailTrack) {
         positions = decodeTrack(a.thumbnailTrack) as [number, number][];
+      } else if (currentPublicMaps[a.id]?.mapPreview.encodedPolyline) {
+        positions = decodeTrack(currentPublicMaps[a.id]!.mapPreview.encodedPolyline!) as [number, number][];
       }
 
       if (positions.length === 0) return null;
 
-      const geojson = groupRideMapRange({ latlng: positions }, clockAxes.get(a.id));
+      // A simplified/privacy-clipped preview has no correspondence to raw sensor indices.
+      const geojson = groupRideMapRange({ latlng: positions }, a.userId === user?.uid && s?.latlng?.length ? clockAxes.get(a.id) : null);
 
       return { id: a.id, geojson, color, positions };
     }).filter(Boolean) as { id: string; geojson: GeoJSON.Feature<GeoJSON.MultiLineString>; color: string; positions: [number, number][] }[];
-  }, [activities, streams, clockAxes, activityColors]);
+  }, [activities, streams, clockAxes, activityColors, currentPublicMaps, user]);
 
   // Bounds from ALL routes (stable — does not change on rider toggle)
   const mapBounds = useMemo((): LngLatBoundsLike | null => {
@@ -337,6 +288,15 @@ export default function GroupRidePage() {
       end: chartAxis === "time" ? clockOrigin + highlightedRange.end * 60_000 : highlightedRange.end * 1000,
     }),
   })) : [], [highlightedRange, visibleRouteGeoJSONs, streams, clockAxes, clockOrigin, chartAxis]);
+
+  const fallbackSegments = visibleRouteGeoJSONs.flatMap(route => route.geojson.geometry.coordinates);
+  const fallbackPositions: [number, number][] = [], fallbackStarts: number[] = [];
+  for (const segment of fallbackSegments) {
+    fallbackStarts.push(fallbackPositions.length);
+    fallbackPositions.push(...segment.map(([lng, lat]) => [lat!, lng!] as [number, number]));
+  }
+  const mapFallback = <RouteMapFallback positions={fallbackPositions} segmentStarts={fallbackStarts} height="h-full" rounded
+    imageAlt={t("common:map.routeImageAlt")} title={t("common:map.unavailableTitle")} description={t("common:map.unavailableDescription")} />;
 
   const clockZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const displayLocale = localeTag();
@@ -502,8 +462,8 @@ export default function GroupRidePage() {
 
   const hoverMarkerPosition = useMemo((): [number, number] | null => {
     const base = inspectedRiders.find(row => row.activity.id === elevationChartData?.baseActivityId);
-    return base && base.selectedIndex >= 0 ? streams[base.activity.id]?.latlng?.[base.selectedIndex] ?? null : null;
-  }, [inspectedRiders, elevationChartData, streams]);
+    return base && base.activity.userId === user?.uid && base.selectedIndex >= 0 ? streams[base.activity.id]?.latlng?.[base.selectedIndex] ?? null : null;
+  }, [inspectedRiders, elevationChartData, streams, user]);
 
   const averageViewport = selectedViewport?.axis === chartAxis ? selectedViewport : fullViewport?.axis === chartAxis ? fullViewport : null;
   const intervalReports = useMemo(() => new globalThis.Map(visibleActivities.map(activity => [activity.id, averageViewport ? observedRideRange(streams[activity.id], clockAxes.get(activity.id), {
@@ -536,11 +496,11 @@ export default function GroupRidePage() {
     );
   }
 
-  if (loadError) {
-    return <ErrorState title={t("error.loadFailed")} onRetry={() => setRetry(value => value + 1)} />;
+  if (loadError && activities.length === 0) {
+    return <ErrorState title={t("error.loadFailed")} onRetry={refresh} />;
   }
 
-  if (activities.length === 0) {
+  if (activities.length === 0 && !hasMore) {
     return (
       <div className="max-w-xl mx-auto py-16">
         <EmptyState
@@ -553,7 +513,7 @@ export default function GroupRidePage() {
   }
 
   const date = new Date(Math.min(...activities.map((a) => a.startTime)));
-  const dateStr = date.toLocaleDateString(localeTag(), { year: "numeric", month: "long", day: "numeric", weekday: "short" });
+  const dateStr = activities.length ? date.toLocaleDateString(localeTag(), { year: "numeric", month: "long", day: "numeric", weekday: "short" }) : "";
   type InspectionRow = (typeof inspectedRiders)[number];
   const comparisonRows: InspectionRow[] = activities.map(activity => inspectedRiders.find(row => row.activity.id === activity.id) ?? { activity, values: [], selectedIndex: -1, sampleTime: undefined });
   const recordLegend = <ChartLegend marker="dot" align="end" aria-label={t("ridePage.selectionTitle")} items={[
@@ -590,6 +550,11 @@ export default function GroupRidePage() {
       <p className="text-[length:var(--ft-body-medium-size)] mb-2" style={{ color: "var(--ink-2)" }}>{t("ridePage.activityParticipants", { activities: activities.length, participants: riderActivityCounts.size })}</p>
       <p className="club-record-scope" data-testid="club-ride-detail-scope">{t("ridePage.detailScope")}</p>
 
+      <p>{t("ridePage.discoveryScope")}</p>
+      {loadError && <p role="alert">{t("error.loadFailed")}</p>}
+      {hasMore && <Button variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>{t(loadingMore ? "ridePage.discoveryLoading" : "ridePage.discoveryMore")}</Button>}
+      {limited && <p>{t("ridePage.discoveryLimited")}</p>}
+      <Button variant="ghost" disabled={loading || loadingMore} onClick={refresh}>{t("ridePage.discoveryRefresh")}</Button>
       {pendingStreams.size > 0 && <p role="status">{t("rides.streamLoading")}</p>}
       {streamErrors.size > 0 && <Card className="mb-4">
         <p role="alert">{t("rides.streamFailed")}</p>
@@ -615,8 +580,9 @@ export default function GroupRidePage() {
           {/* 루트 맵 - 전체 참가자 경로 표시 (항상 렌더링, 바운드만 필요) */}
           {mapBounds && (
             <div ref={mapFrameRef} id={mapId} data-testid="C2R-1" className="club-ride-map" data-map-expanded={mapExpanded}>
-              <Map
+              {!mapboxToken || !webglSupported || mapFailed ? mapFallback : <ErrorBoundary fallback={() => mapFallback} onError={() => setMapFailed(true)}><Map
                 ref={mapRef}
+                onError={() => setMapFailed(true)}
                 mapboxAccessToken={mapboxToken}
                 mapStyle={MAP_STYLE}
                 initialViewState={{ bounds: mapBounds, fitBoundsOptions: { padding: 30 } }}
@@ -684,9 +650,9 @@ export default function GroupRidePage() {
                     />
                   </Marker>
                 )}
-              </Map>
+              </Map></ErrorBoundary>}
               <MapResizeControls expanded={mapExpanded} controlsId={mapId} expandLabel={t("ridePage.map.expand")} collapseLabel={t("ridePage.map.collapse")} onToggle={() => setMapExpanded(value => !value)} />
-              <MapNavigation orientation="horizontal"><MapControlButton aria-label={t("ridePage.map.fit")} onClick={() => mapRef.current?.fitBounds(mapBounds, { padding: 30 })}><LocateFixed size={ICON_SIZE.md} />{t("ridePage.map.fit")}</MapControlButton></MapNavigation>
+              <MapNavigation orientation="horizontal"><MapControlButton disabled={!mapboxToken || !webglSupported || mapFailed} aria-label={t("ridePage.map.fit")} onClick={() => mapRef.current?.fitBounds(mapBounds, { padding: 30 })}><LocateFixed size={ICON_SIZE.md} />{t("ridePage.map.fit")}</MapControlButton></MapNavigation>
             </div>
           )}
 

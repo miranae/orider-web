@@ -1,9 +1,14 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render as testingRender, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { onSnapshot } from "firebase/firestore";
 import type { PdcDoc } from "@shared/types/pdc";
 import parity from "../../coach/__fixtures__/rider-insight-parity.json";
+import type { ReactElement, ReactNode } from "react";
+import { ThemeProvider } from "../../../contexts/ThemeContext";
+import { OriderThemeProvider } from "../../../theme";
 import { ActivityPersonalBenchmark } from "./ActivityPersonalBenchmark";
+const render = (ui: ReactElement) => testingRender(ui, { wrapper: ({ children }: { children: ReactNode }) => <ThemeProvider><OriderThemeProvider>{children}</OriderThemeProvider></ThemeProvider> });
+vi.mock("react-chartjs-2", () => ({ Line: ({ ref: _ref, data: _data, options: _options, plugins: _plugins, ...props }: any) => <div {...props} /> }));
 const mocks = vi.hoisted(() => ({ uid: "owner", project: "a", callback: null as null | ((snap: any) => void), unsub: vi.fn() }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: mocks.uid } }) }));
 vi.mock("../../../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => ({ firestore: projects[mocks.project] }) }));
@@ -31,18 +36,18 @@ describe("ActivityPersonalBenchmark", () => {
   it("reuses a supplied canonical state without another listener", () => {
     render(<ActivityPersonalBenchmark {...props} suppliedPdcState={{ status: "ready", pdc: reference() }} />);
     open(); expect(onSnapshot).not.toHaveBeenCalled();
-    expect(screen.getByRole("img", { name: "benchmark.chart" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "benchmark.chart" })).toBeInTheDocument();
   });
   it("supports duration selection by native control and graph, with exact reference source", () => {
     const pdc = reference();
-    const r = render(<ActivityPersonalBenchmark {...props} suppliedPdcState={{ status: "ready", pdc }} />);
+    render(<ActivityPersonalBenchmark {...props} suppliedPdcState={{ status: "ready", pdc }} />);
     open();
     expect(screen.getByText("280")).toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute("href", `/activity/${encodeURIComponent(pdc.mmpAll["5m"]!.activityId)}`);
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "60" } });
     expect(screen.getByText("350")).toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveTextContent(pdc.mmpAll["1m"]!.date);
-    fireEvent.click(r.container.querySelector('rect[data-duration="300"]')!);
+    fireEvent.keyDown(screen.getByRole("group", { name: "benchmark.chart" }), { key: "End" });
     expect(screen.getByRole("combobox")).toHaveValue("300");
     expect(screen.getByText("benchmark.timingShort")).toBeVisible();
     expect(screen.getByText("benchmark.timingNote")).not.toBeVisible();

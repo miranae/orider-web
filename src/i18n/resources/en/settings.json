@@ -145,7 +145,12 @@
   },
   "training": {
     "otherSports": "Other sport thresholds",
-    "settingsSport": {"bike": "Cycling", "run": "Running", "swim": "Swimming", "tri": "Combined · shared heart rate"},
+    "settingsSport": {
+      "bike": "Cycling",
+      "run": "Running",
+      "swim": "Swimming",
+      "tri": "Combined · shared heart rate"
+    },
     "loadFailed": "Could not load your thresholds.",
     "deviceStatus": "View device synchronization →",
     "sport": {
@@ -1098,5 +1103,19 @@
     "error": "Unable to load accumulated distance.",
     "unavailable": "Accumulated distance unavailable",
     "stale": "Previous aggregate"
+  },
+  "notificationPreferences": {
+    "title": "Notification settings",
+    "inboxHint": "Turning off push keeps your notification inbox.",
+    "push": "General push notifications",
+    "pushHint": "Applies to kudos, comments and general activity notifications. Emergency and some club or event alerts are separate. Browser permissions are unchanged.",
+    "kudos": "Kudos push",
+    "comment": "Comment and reply push",
+    "weeklyDigestEmail": "Weekly activity summary email",
+    "emailHint": "Sent to your account email only when you opt in. Off by default and independent of push settings.",
+    "loading": "Loading notification settings…",
+    "saving": "Saving…",
+    "failed": "Could not load or save settings. Check the displayed values and try again.",
+    "retry": "Reload settings"
   }
 }

@@ -1,3 +1,6 @@
+import { planCalendarDate } from "@shared/training/planDate";
+import { loadActivityDiscovery } from "./activityDiscovery";
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { collection, getDocs, limit, query, startAfter, where, type DocumentData, type QueryDocumentSnapshot } from "firebase/firestore";
 import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
@@ -11,8 +14,27 @@ export async function loadAthleteChartActivities(
   userId: string,
   isOwnProfile: boolean,
   cancelled: () => boolean,
+  services?: FirebaseServices,
 ): Promise<Activity[] | null> {
   const activities: Activity[] = [];
+  if (!isOwnProfile) {
+    if (!services) throw new Error("public_activity_services_required");
+    let cursor: string | undefined;
+    const ids = new Set<string>();
+    for (let pageNumber = 0; pageNumber < 10 && !cancelled(); pageNumber++) {
+      const page = await loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, order: "id_asc", limit: 20, ...(cursor ? { cursor } : {}) });
+      if (cancelled()) return null;
+      for (const activity of page.items) {
+        if (ids.has(activity.id)) throw new Error("public_activity_inventory_changed");
+        ids.add(activity.id); activities.push(activity);
+      }
+      if (page.exhausted) return activities;
+      if (!page.nextCursor || page.nextCursor === cursor) throw new Error("public_activity_inventory_changed");
+      cursor = page.nextCursor;
+    }
+    if (cancelled()) return null;
+    throw new Error("public_activity_inventory_incomplete");
+  }
   let cursor: QueryDocumentSnapshot<DocumentData> | undefined;
   while (!cancelled()) {
     // 기본 문서 ID 정렬: startTime이 없는 레거시 문서도 누락하지 않는다.
@@ -38,20 +60,22 @@ export function aggregateMonthlyActivities(activities: Activity[], now = new Dat
   const months = new Map<number, WeeklyStat>();
   const membersByMonth = new Map<number, Activity[]>();
   for (const activity of alreadyAccepted ? activities : acceptedTrainingActivities(activities)) {
-    const date = new Date(activity.startTime);
-    const month = date.getFullYear() * 12 + date.getMonth();
+    if (!Number.isFinite(activity.startTime) || activity.startTime <= 0) continue;
+    const date = planCalendarDate(activity.startTime);
+    const month = date.getUTCFullYear() * 12 + date.getUTCMonth();
     const members = membersByMonth.get(month) ?? [];
     members.push(activity); membersByMonth.set(month, members);
     if (!months.has(month)) months.set(month, emptyMonth(month));
   }
   // 조회된 동일 입력셋에서 먼저 대표를 고른다. 기간 경계의 쌍둥이를 두 달에 세지 않는다.
   for (const activity of alreadyAccepted ? activities : acceptedStatsActivities(activities)) {
+    if ("discoveryFacts" in activity && (!Number.isFinite(activity.startTime) || activity.startTime <= 0)) continue;
     const timestamp = Number.isFinite(activity.startTime) && activity.startTime > 0
       ? activity.startTime : activity.createdAt;
-    const date = new Date(timestamp);
+    const date = planCalendarDate(timestamp);
     const summary = activity.summary ?? {};
-    if (!Number.isFinite(date.getTime())) continue;
-    const month = date.getFullYear() * 12 + date.getMonth();
+    if (!Number.isFinite(date.getTime()) || timestamp <= 0) continue;
+    const month = date.getUTCFullYear() * 12 + date.getUTCMonth();
     const row = months.get(month) ?? emptyMonth(month);
     row.distance += Number.isFinite(summary.distance) ? summary.distance / 1000 : 0;
     const duration = resolveDuration(summary).displayMs;
@@ -70,7 +94,7 @@ export function aggregateMonthlyActivities(activities: Activity[], now = new Dat
   }
   if (months.size === 0) return [];
   const first = Math.min(...months.keys());
-  const last = Math.max(...months.keys(), now.getFullYear() * 12 + now.getMonth());
+  const last = Math.max(...months.keys(), planCalendarDate(now.getTime()).getUTCFullYear() * 12 + planCalendarDate(now.getTime()).getUTCMonth());
   return Array.from({ length: last - first + 1 }, (_, i) => months.get(first + i) ?? emptyMonth(first + i));
 }
 

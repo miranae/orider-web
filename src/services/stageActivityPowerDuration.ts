@@ -18,8 +18,9 @@ export function stageActivityPowerAvailable() {
   return config.appEnvironment === "stage" && config.firebaseFunctionsBase === ENDPOINT;
 }
 function validSource(source: StageActivityPowerSourceMetadataResponse["source"]): boolean {
+  const historical = !!source && Object.prototype.hasOwnProperty.call(source, "historical");
   const hasStoredOrigin = !!source && Object.prototype.hasOwnProperty.call(source, "powerSource");
-  return !!source && (!hasStoredOrigin || source.powerSource === "stored_native_watts_unverified") && keys(source, ["activityStartEpochMs", "activityIncarnation", "baseMetricsRevision", "snapshotRevision", "sourceDigest", "qualification", "manifestObjectIncarnationVerified", "timingBasis", "originalClockVerified", "sensorBucketOriginVerified", "quality", "collectionCompleteness", ...(hasStoredOrigin ? ["powerSource"] : [])])
+  return !!source && (!historical || source.historical === true && source.calculationBasis === "saved_interval_snapshot" && digest(source.calculatorArtifactHash)) && (!hasStoredOrigin || source.powerSource === "stored_native_watts_unverified") && keys(source, ["activityStartEpochMs", "activityIncarnation", "baseMetricsRevision", "snapshotRevision", "sourceDigest", "qualification", "manifestObjectIncarnationVerified", "timingBasis", "originalClockVerified", "sensorBucketOriginVerified", "quality", "collectionCompleteness", ...(hasStoredOrigin ? ["powerSource"] : []), ...(historical ? ["historical", "calculationBasis", "calculatorArtifactHash"] : [])])
     && timestamp(source.activityStartEpochMs) && revision(source.activityIncarnation) && revision(source.baseMetricsRevision)
     && digest(source.snapshotRevision) && digest(source.sourceDigest)
     && ["native_manifest_and_gcs_token_pinned", "legacy_manifest_revision_and_gcs_token_pinned"].includes(source.qualification)
@@ -61,7 +62,7 @@ export function validateStagePowerDuration(value: StageActivityPowerDurationResp
   }
   const result = value.result;
   const hasStoredOrigin = Object.prototype.hasOwnProperty.call(result, "powerSource");
-  if (!validSource(value.source) || !metadata.source || !Object.keys(metadata.source).every(key => value.source![key as keyof NonNullable<typeof value.source>] === metadata.source![key as keyof NonNullable<typeof metadata.source>])
+  if (!validSource(value.source) || !metadata.source || !Object.keys(metadata.source).filter(key => !["historical", "calculationBasis", "calculatorArtifactHash"].includes(key)).every(key => value.source![key as keyof NonNullable<typeof value.source>] === metadata.source![key as keyof NonNullable<typeof metadata.source>])
     || Object.prototype.hasOwnProperty.call(value.source ?? {}, "powerSource") !== Object.prototype.hasOwnProperty.call(metadata.source ?? {}, "powerSource")
     || hasStoredOrigin !== Object.prototype.hasOwnProperty.call(value.source ?? {}, "powerSource")
     || hasStoredOrigin && result.powerSource !== "stored_native_watts_unverified"

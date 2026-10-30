@@ -28,3 +28,15 @@ it("preserves weekly hours in a shared data tooltip instead of the browser title
   fireEvent.mouseLeave(week);
   expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 });
+
+it("keeps the KST day label and tooltip when UTC is still the previous year", () => {
+  vi.useFakeTimers(); vi.setSystemTime(new Date("2025-12-31T15:30:00Z"));
+  try {
+    renderWithProviders(<AthleteRecentSummary activities={[createMockActivity({startTime: Date.parse("2025-12-31T15:10:00Z")})]} loading={false} error={false} />);
+    const today = screen.getAllByRole("button")[27]!;
+    expect(today.getAttribute("aria-label")).toContain("2026");
+    fireEvent.focus(today);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("2026");
+    expect(screen.getByText("한국 시간(KST) 기준")).toBeInTheDocument();
+  } finally { vi.useRealTimers(); }
+});

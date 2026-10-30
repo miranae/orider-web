@@ -235,7 +235,7 @@ const wire = {
 } as CyclingDistanceHistoryResponse;
 const NOW=wire.readTime.seconds*1000;
 const request: CyclingDistanceHistoryRequest={mode:"cycling_distance_history_page",discipline:"bike",calendarBasis:"Asia/Seoul",rangeBasis:"calendar_year",year:2026};
-beforeEach(()=>{vi.restoreAllMocks();vi.spyOn(Date,"now").mockReturnValue(NOW); resetRuntimeConfigForTests({appEnvironment:"stage",firebaseFunctionsBase:"https://asia-northeast3-orider-dev.cloudfunctions.net",trainingAnalysisPeriodsEnabled:true});mocks.call.mockReset().mockResolvedValue({data:structuredClone(wire)});mocks.callable.mockReset().mockReturnValue(mocks.call);});
+beforeEach(()=>{vi.restoreAllMocks();vi.spyOn(Date,"now").mockReturnValue(NOW); resetRuntimeConfigForTests({appEnvironment:"stage",firebaseProjectId:"miranae-orider-g1",firebaseFunctionsRegion:"asia-northeast3",firebaseFunctionsBase:"https://asia-northeast3-orider-dev.cloudfunctions.net",trainingAnalysisPeriodsEnabled:true});mocks.call.mockReset().mockResolvedValue({data:structuredClone(wire)});mocks.callable.mockReset().mockReturnValue(mocks.call);});
 describe("strict actual cycling history wire contract",()=>{
  it("accepts actual backend response including unsupported and unavailable rows",()=>{expect(validateCyclingDistanceHistoryResponse(wire,request,NOW)).toEqual(neutralHistory(wire));});
  it.each([
@@ -750,4 +750,10 @@ it.each([34, 35, 36])("preserves compatible ready history snapshots across calcu
   expect(validateCyclingDistanceHistoryResponse(data, request, NOW)).toEqual(neutralHistory(data));
   ready.analysis.calculatorVersion = 33;
   expect(() => validateCyclingDistanceHistoryResponse(data, request, NOW)).toThrow();
+});
+
+it("keeps the Stage cycling history mode closed when ordinary hosted bike periods are enabled", async () => {
+ resetRuntimeConfigForTests({appEnvironment:"production",firebaseProjectId:"miranae-orider-g1",firebaseFunctionsRegion:"asia-northeast3",trainingAnalysisPeriodsEnabled:true});
+ await expect(loadCyclingDistanceHistory({} as FirebaseServices,"owner",request)).rejects.toThrow("api_unavailable");
+ expect(mocks.callable).not.toHaveBeenCalled();
 });

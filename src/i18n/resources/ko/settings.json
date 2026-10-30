@@ -145,7 +145,12 @@
   },
   "training": {
     "otherSports": "다른 종목 기준",
-    "settingsSport": {"bike": "사이클", "run": "러닝", "swim": "수영", "tri": "통합 · 공통 심박"},
+    "settingsSport": {
+      "bike": "사이클",
+      "run": "러닝",
+      "swim": "수영",
+      "tri": "통합 · 공통 심박"
+    },
     "loadFailed": "기준값을 불러오지 못했습니다.",
     "deviceStatus": "기기 반영 상태 보기 →",
     "sport": {
@@ -1098,5 +1103,19 @@
     "error": "누적 거리를 불러오지 못했습니다.",
     "unavailable": "누적 거리 확인 불가",
     "stale": "이전 집계"
+  },
+  "notificationPreferences": {
+    "title": "알림 설정",
+    "inboxHint": "푸시를 꺼도 받은 알림 목록은 유지됩니다.",
+    "push": "일반 푸시 알림",
+    "pushHint": "좋아요·댓글 등 일반 활동 알림에 적용됩니다. 긴급 알림과 일부 클럽·대회 알림은 별도이며 브라우저 권한은 바뀌지 않습니다.",
+    "kudos": "좋아요 푸시",
+    "comment": "댓글·답글 푸시",
+    "weeklyDigestEmail": "주간 활동 요약 이메일",
+    "emailHint": "직접 켠 경우에만 계정 이메일로 주간 요약을 보냅니다. 기본값은 꺼짐이며 푸시 설정과 별개입니다.",
+    "loading": "알림 설정을 불러오는 중입니다.",
+    "saving": "저장 중입니다.",
+    "failed": "설정을 저장하거나 불러오지 못했습니다. 현재 표시된 설정을 확인하고 다시 시도해 주세요.",
+    "retry": "다시 불러오기"
   }
 }

@@ -1,3 +1,4 @@
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 /**
  * 활동 AI 분석 캐시 peek — LLM 호출 없이 캐시 여부만 빠르게 확인.
  *
@@ -13,11 +14,13 @@
  */
 import { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { captureActivityNarrativeSession, isActivityNarrativeAccessRevoked } from "../services/activityNarrativeSession";
 import { logClientError } from "../services/errorLogger";
 import { peekActivityNarrative } from "../services/activityNarrativeApi";
 import type { ActivityNarrative, NarrativeLang } from "./useActivityNarrative";
 
 interface PeekState {
+  accessRevoked?: boolean;
   data: ActivityNarrative | null;
   loading: boolean;
   /** true = 서버에 캐시 없음. false = 아직 로딩 중이거나 hit. */
@@ -35,7 +38,9 @@ const peekKey = (activityId: string, lang: NarrativeLang, viewer: string) => `${
  */
 export function useActivityNarrativePeek(activityId: string | null, enabled: boolean, lang: NarrativeLang = "ko"): PeekState {
   const { user } = useAuth();
-  const scope = peekKey(activityId ?? "", lang, user?.uid ?? "anonymous");
+  const services = useFirebaseServices();
+  const session = captureActivityNarrativeSession(services);
+  const scope = peekKey(activityId ?? "", lang, `${user?.uid ?? "anonymous"}:${session.key}`);
   const [stateScope, setStateScope] = useState(scope);
   const [state, setState] = useState<PeekState>({ data: null, loading: false, cacheMiss: false });
 
@@ -54,9 +59,9 @@ export function useActivityNarrativePeek(activityId: string | null, enabled: boo
     let cancelled = false;
     setState({ data: null, loading: true, cacheMiss: false });
 
-    peekActivityNarrative({ activityId, cacheOnly: true, lang })
+    peekActivityNarrative({ activityId, cacheOnly: true, lang }, services)
       .then((d) => {
-        if (cancelled) return;
+        if (cancelled || !session.isCurrent()) return;
         if (d.hit) {
           // hit: source 포함한 전체 payload 가 온다
           const narrative = d as unknown as ActivityNarrative;
@@ -68,16 +73,16 @@ export function useActivityNarrativePeek(activityId: string | null, enabled: boo
         }
       })
       .catch((error) => {
-        if (cancelled) return;
+        if (cancelled || !session.isCurrent()) return;
         logClientError("useActivityNarrativePeek", error, { lang });
         // peek 실패는 생성 트리거로 이어지지 않게 miss 처리한다.
-        setState({ data: null, loading: false, cacheMiss: true });
+        setState({ data: null, loading: false, cacheMiss: true, accessRevoked: isActivityNarrativeAccessRevoked(error) });
       });
 
     return () => { cancelled = true; };
-  }, [activityId, enabled, lang, scope]);
+  }, [activityId, enabled, lang, scope, session, services]);
 
-  return stateScope === scope ? state : { data: null, loading: enabled, cacheMiss: false };
+  return stateScope === scope && session.isCurrent() ? state : { data: null, loading: enabled, cacheMiss: false };
 }
 
 /** 활동 peek 세션 캐시 무효화 — 분석 완료 후 AiRideAnalysisCard 가 호출해 갱신 유도.
