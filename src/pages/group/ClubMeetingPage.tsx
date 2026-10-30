@@ -34,6 +34,7 @@ import { meetingErrorMessage } from "../../features/club-preparation/meetingMess
 import type { State } from "../../features/club-preparation/domain";
 import {
   cancelClubMeeting,
+  finishClubMeeting,
   clubMeetingAttendance,
   confirmClubMeetingNotice,
   createClubMeeting,
@@ -275,6 +276,8 @@ function ServerMeetingDetail({
   const [noticeTitle, setNoticeTitle] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [confirmingFinish, setConfirmingFinish] = useState(false);
+  useEffect(() => setConfirmingFinish(false), [uid, data.eventId]);
   const [travel, setTravel] = useState({
     joinId: current?.joinId ?? "",
     outbound: current?.outbound ?? "",
@@ -324,7 +327,8 @@ function ServerMeetingDetail({
   )
     .slice(0, 180)
     .join("");
-  const live = meeting.status !== "cancelled";
+  const completed = data.rideStatus === "FINISHED";
+  const live = meeting.status !== "cancelled" && !completed;
   const busy = pending || !!error;
   const joined = meeting.registrations.filter(
     (item) => item.status === "joined",
@@ -349,7 +353,7 @@ function ServerMeetingDetail({
         <div className="cp-actions">
           <Chip>{state.kinds[0]!.name}</Chip>
           <Chip>
-            {!live
+            {completed ? text("모임 마무리 완료", "Meeting completed") : !live
               ? text("모임 취소", "Cancelled")
               : meeting.recruitment === "closed"
                 ? text("신규 접수 마감", "Registration closed")
@@ -424,7 +428,7 @@ function ServerMeetingDetail({
           <Card className="cp-attendance-panel">
             <h2>{text("내 참석", "My attendance")}</h2>
             <p>
-              {!live
+              {completed ? text("마무리된 모임입니다. 아래에서 내 결과를 확인하세요.", "This meeting has ended. Check your result below.") : !live
                 ? text("취소된 모임입니다.", "This meeting was cancelled.")
                 : current?.status === "joined"
                   ? text("참석 신청 완료", "Attending")
@@ -580,6 +584,23 @@ function ServerMeetingDetail({
           />
         </div>
       </div>
+      {completed && data.completion && (
+        <Card id="meeting-results">
+          <h2>{text("모임 결과", "Meeting results")}</h2>
+          <div aria-live="polite">
+            {data.completion.summary ? <p>{text(
+              `완료 ${data.completion.summary.finishedCount}명 · 확인 대기 ${data.completion.summary.pendingCount}명 · 중도 종료 ${data.completion.summary.dnfCount}명 / 전체 ${data.completion.summary.totalParticipants}명`,
+              `Finished ${data.completion.summary.finishedCount} · Pending ${data.completion.summary.pendingCount} · DNF ${data.completion.summary.dnfCount} / Total ${data.completion.summary.totalParticipants}`,
+            )}</p> : <p>{text("모임 요약을 집계 중입니다. 개인 기록은 보존됩니다.", "The meeting summary is processing. Individual recordings are preserved.")}</p>}
+            {data.completion.own && <p>{text("내 기록", "My recording")} · {data.completion.own.verified
+              ? text("결과 확인 완료", "Result verified")
+              : ["REGISTERED", "CHECKED_IN", "PAID"].includes(data.completion.own.status) ? text("기록 없음", "No recording") : text("결과 확인 대기", "Result pending")}
+              {data.completion.own.verified && data.completion.own.durationMs != null && <> · {Math.floor(data.completion.own.durationMs / 60000)}:{String(Math.floor(data.completion.own.durationMs / 1000) % 60).padStart(2, "0")}</>}
+            </p>}
+          </div>
+          <Button loading={busy} onClick={() => void run(async () => {})}>{text("결과 새로고침", "Refresh results")}</Button>
+        </Card>
+      )}
       {data.isHost && (
         <Card
           id="meeting-host-tools"
@@ -587,10 +608,16 @@ function ServerMeetingDetail({
         >
           <h2>{text("모임 운영", "Manage meeting")}</h2>
           <div className="cp-actions">
+            {live && <Button disabled={busy} onClick={() => setConfirmingFinish(true)}>{text("모임 마무리", "Finish meeting")}</Button>}
             <Button disabled={busy} onClick={onCopy}>
               {text("복사해 새 모임", "Copy to a new meeting")}
             </Button>
           </div>
+          {live && confirmingFinish && <div role="group" aria-label={text("모임 마무리 확인", "Confirm meeting completion")}>
+            <p>{text("모임을 마무리하면 신규 참가와 위치·심박 공유가 끝납니다. 각자의 기록은 삭제되지 않으며 업로드가 남은 기록은 확인 대기로 표시됩니다.", "Finishing closes new participation and location/heart-rate sharing. Individual recordings are preserved; outstanding uploads remain pending.")}</p>
+            <Button loading={busy} onClick={() => void run(() => finishClubMeeting(data.eventId, data.revision))}>{text("마무리 확정", "Confirm finish")}</Button>
+            <Button disabled={busy} onClick={() => setConfirmingFinish(false)}>{text("돌아가기", "Go back")}</Button>
+          </div>}
           {live && (
             <Field
               label={text("모집 상태", "Registration")}
@@ -644,9 +671,9 @@ function ServerMeetingDetail({
         meeting={meeting}
         members={data.members}
         uid={uid}
-        isHost={data.isHost}
+        isHost={data.isHost && live}
         revision={data.revision}
-        disabled={busy}
+        disabled={busy || !live}
         english={en}
         onReload={reload}
         onSave={async (teams, expectedRevision) => {

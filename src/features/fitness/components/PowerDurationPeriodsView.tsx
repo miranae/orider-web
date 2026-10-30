@@ -3,14 +3,17 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PowerCurvePeriodsResponse, WeightNormalizedDurationPoint, WeightNormalizedDurationObservations } from "@shared/types/power-curve-periods";
 import { ChartFrame, DropdownSelect, Text } from "../../../theme";
+import { trainingCalendarDate } from "../../../services/trainingComparisonCalendar";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import "./power-duration-periods.css";
 
 /** 서버 관측 격자만 표시하며 기존 11개 곡선과 비교하지 않는다. */
-export function PowerDurationPeriodsView({ response, unit = "W" }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg" }) {
+export function PowerDurationPeriodsView({ response, unit = "W", selectedDuration, onDurationChange }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg"; selectedDuration?: number; onDurationChange?: (duration: number) => void }) {
   const { t } = useTranslation("fitness");
   const id = useId();
-  const [duration, setDuration] = useState(300);
+  const [localDuration, setLocalDuration] = useState(300);
+  const duration = selectedDuration ?? localDuration;
+  const setDuration = (next: number) => { setLocalDuration(next); onDurationChange?.(next); };
   const [detailsOpen, setDetailsOpen] = useState(false);
   const normalized = unit === "W/kg";
   const observations = response.periods.map(period => normalized ? period.weightNormalized?.powerDurationObservations : period.powerDurationObservations);
@@ -32,7 +35,7 @@ export function PowerDurationPeriodsView({ response, unit = "W" }: { response: P
   const high = Math.max(normalized ? 0.01 : 100, ...points.map(power));
   const x = (seconds: number) => 45 + Math.log(seconds) / Math.log(86400) * 295;
   const y = (watts: number) => 142 - watts / high * 105;
-  const date = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  const date = trainingCalendarDate;
   return <section className="fitness-analysis-controls dense-period-power" aria-label={t("densePeriod.title")}>
     <Text as="h4" variant="bodyMedium" weight={600}>{t("densePeriod.title")}</Text>
     <Text as="p" variant="bodyMedium" tone="secondary">{t("densePeriod.scope")}</Text>
@@ -54,7 +57,7 @@ export function PowerDurationPeriodsView({ response, unit = "W" }: { response: P
       {detailsOpen && response.periods.length > 1 && durations.length > 0 && <Text as="p" variant="bodyMedium" tone="secondary" className="dense-period-scroll-hint">{t("densePeriod.scrollHint")}</Text>}
       {detailsOpen && <div className="dense-period-table-scroll"><table className="dense-period-table"><thead><tr><th>{t("periodCurve.duration")}</th>{response.periods.map((_, index) => <th key={index}>{t("periodCurve.period", { n: index + 1 })}</th>)}</tr></thead><tbody>{durations.map(seconds => <tr key={seconds}><th scope="row">{durationLabel(seconds)}</th>{observations.map((value, index) => {
         const point = value?.points.find(item => item.durationSeconds === seconds);
-        return <td key={index}>{point ? <>{displayPower(point)} {unit} · {t("densePeriod.n", { count: point.observedActivityCount })}{normalized && "weightKg" in point && <Text as="p" variant="bodyMedium">{t("periodCurve.weightWinner", { watts: point.maxAveragePowerW, kg: point.weightKg })}</Text>}<LocalizedLink className="dense-period-source" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}>{date(point.startTime)} UTC</LocalizedLink></> : "—"}</td>;
+        return <td key={index}>{point ? <>{displayPower(point)} {unit} · {t("densePeriod.n", { count: point.observedActivityCount })}{normalized && "weightKg" in point && <Text as="p" variant="bodyMedium">{t("periodCurve.weightWinner", { watts: point.maxAveragePowerW, kg: point.weightKg })}</Text>}<LocalizedLink className="dense-period-source" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}>{date(point.startTime)} KST</LocalizedLink></> : "—"}</td>;
       })}</tr>)}</tbody></table></div>}
     </div></details>
   </section>;

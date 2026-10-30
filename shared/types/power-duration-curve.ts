@@ -15,6 +15,8 @@ export type PowerDurationCurve = PowerDurationCurveBase & (
     measuredSeconds: number;
     longestContinuousSeconds: number;
     inputPointCount: number;
+    /** Exact 20-minute winner on the activity elapsed axis; absent on legacy artifacts. */
+    twentyMinuteEffort?: { durationSec: 1200; startOffsetSec: number; endOffsetSec: number; avgPowerW: number };
     points: Array<{ durationSeconds: number; maxAveragePowerW: number }>;
   }
   | {

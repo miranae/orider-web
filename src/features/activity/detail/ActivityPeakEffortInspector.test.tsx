@@ -58,3 +58,14 @@ describe("ActivityPeakEffortInspector", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });
+
+it("selects the saved 20-minute elapsed interval only on explicit action", () => {
+  const select = vi.fn();
+  const withWinner = { ...metrics, powerDurationCurve: { state: "available", points: [{ durationSeconds: 1200, maxAveragePowerW: 186.835 }], twentyMinuteEffort: { durationSec: 1200, startOffsetSec: 23.5, endOffsetSec: 1223.5, avgPowerW: 186.835 } } } as ActivityMetrics;
+  const view = render(<ActivityPeakEffortInspector activityId="a" metrics={withWinner} isOwner onSelectTwentyMinute={select} />);
+  expect(select).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "같은 시간 구간 분석하기" }));
+  expect(select).toHaveBeenCalledWith({ startOffsetSec: 23.5, endOffsetSec: 1223.5 });
+  view.rerender(<ActivityPeakEffortInspector activityId="a" metrics={withWinner} isOwner invalidated onSelectTwentyMinute={select} />);
+  expect(screen.queryByRole("button", { name: "같은 시간 구간 분석하기" })).not.toBeInTheDocument();
+});

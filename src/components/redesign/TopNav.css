@@ -69,26 +69,6 @@
   line-height: var(--space-6);
   cursor: pointer;
 }
-.mobile-athlete-avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  background: var(--bg-3);
-  color: var(--ink-1);
-  font-weight: 600;
-  width: var(--space-8);
-  height: var(--space-8);
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.mobile-athlete-avatar img {
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  object-fit: cover;
-}
 .mobile-menu-control {
   height: var(--space-8);
   min-height: var(--space-8);
@@ -182,4 +162,17 @@
 @media (min-width: 48rem) {
   .top-nav { height: calc(var(--space-8) + var(--space-1)); }
   .mobile-navigation { top: calc(var(--space-8) + var(--space-1)); }
+}
+
+.top-nav-profile-menu { position: absolute; top: calc(var(--dim-button-height) + var(--space-0-5)); right: 0; width: 12.5rem; }
+/* Browser zoom can leave less than a phone's usual CSS width. Keep every
+   navigation action reachable without shrinking its touch target. */
+@media (max-width: 20rem) {
+  .top-nav { flex-wrap: wrap; height: auto; row-gap: 0; }
+  .top-nav > a { flex-basis: 100%; }
+  .top-nav-spacer { display: none; }
+  .top-nav-actions { flex: 1; }
+  .mobile-menu-trigger { flex-shrink: 0; }
+  .mobile-navigation { top: calc(var(--dim-button-height) * 2); }
+  .top-nav-profile-menu { position: fixed; top: calc(var(--dim-button-height) * 2); inset-inline: var(--site-shell-gutter); width: auto; max-height: calc(100dvh - var(--dim-button-height) * 2); overflow-y: auto; }
 }

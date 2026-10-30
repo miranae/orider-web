@@ -4,9 +4,13 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import Layout from "./Layout";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
-import { setCollectionDocs } from "../__tests__/mocks/firebase";
+import { setCollectionDocs, mockCollectionData, getCurrentUser } from "../__tests__/mocks/firebase";
 import { createMockNotification } from "../__tests__/fixtures/mockData";
 vi.mock("../assets/icon.svg", () => ({ default: "/icon.svg" }));
+vi.mock("../services/webNotifications", () => ({ createWebNotificationClient: () => ({
+  list: async () => { await Promise.resolve(); return { items: mockCollectionData.get(`notifications/${getCurrentUser()?.uid}/items`) ?? [], nextCursor: null }; },
+  markRead: async (ids: string[]) => ({ ids }),
+}) }));
 function NotificationRouteTrace() { const location = useLocation(); return <output data-testid="notification-route">{location.pathname}</output>; }
 
 describe("friend acceptance notification navigation", () => {

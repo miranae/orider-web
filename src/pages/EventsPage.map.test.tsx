@@ -1,8 +1,9 @@
+import { getDoc } from "firebase/firestore";
+import { installEventDiscoveryFixture } from "../__tests__/fixtures/eventDiscovery";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
-import { setCollectionDocs } from "../__tests__/mocks/firebase";
-import { getDocs } from "firebase/firestore";
+import { setCollectionDocs, setCallableImplementation, mockCallableInvocations } from "../__tests__/mocks/firebase";
 import eventStrings from "../i18n/resources/ko/event.json";
 import EventsPage from "./EventsPage";
 
@@ -21,10 +22,56 @@ vi.mock("react-map-gl/mapbox", async () => {
 });
 const gpx = (lat: number, lng: number) => `<gpx><trk><trkseg><trkpt lat="${lat}" lon="${lng}"/><trkpt lat="${lat + 0.01}" lon="${lng + 0.01}"/></trkseg></trk></gpx>`;
 
-beforeEach(() => { fitBounds.mockClear(); mapClick.mockClear(); });
+beforeEach(() => { installEventDiscoveryFixture(); fitBounds.mockClear(); mapClick.mockClear(); });
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe("event map camera intent", () => {
+  it("stops on rejected continuation and restarts from the first page only after Retry", async () => {
+    const token="~ed1_"+"e".repeat(48);
+    setCallableImplementation("listVisibleEventEnvelopes",input=>{
+      if((input as {cursor?:string}).cursor)throw new Error("Unavailable cursor");
+      return {data:{rows:[],nextCursor:token}};
+    });
+    renderWithProviders(<EventsPage/>,{route:"/ko/explore/events"});
+    fireEvent.click(await screen.findByRole("button",{name:eventStrings["message.next"],exact:true}));
+    await screen.findByText(eventStrings["dashboard.errorLoadEvent"]);
+    expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button",{name:/다시|retry/i}));
+    await screen.findByRole("button",{name:eventStrings["message.next"],exact:true});
+    const calls=mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes");
+    expect(calls).toHaveLength(3);expect(calls[2].data).not.toHaveProperty("cursor");
+  });
+
+  it("does not continue or hydrate course data when a pending discovery response arrives after navigation", async () => {
+    let finish!:(value:unknown)=>void;
+    setCallableImplementation("listVisibleEventEnvelopes",()=>new Promise(resolve=>{finish=resolve;}));
+    const view=renderWithProviders(<EventsPage/>,{route:"/ko/explore/events"});
+    await waitFor(()=>expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes")).toHaveLength(1));
+    view.unmount();vi.mocked(getDoc).mockClear();
+    await act(async()=>finish({data:{rows:[{id:"late",data:{info:{status:"OPEN",visibility:"PUBLIC",courseIds:["no-read-after-navigation"]}}}],nextCursor:"~ed1_"+"d".repeat(48)}}));
+    expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes")).toHaveLength(1);
+    expect(getDoc).not.toHaveBeenCalled();
+  });
+
+  it("keeps an incomplete private window bounded until Next and then shows public, legacy and GROUP rows", async () => {
+    const token="~ed1_"+"c".repeat(48);
+    setCallableImplementation("listVisibleEventEnvelopes", input => {
+      const request=input as {cursor?:string};
+      return {data:request.cursor ? {rows:[
+        {id:"prefix-public",data:{info:{name:"Public after private prefix",status:"OPEN",visibility:"PUBLIC",startTime:Date.now()+60_000}}},
+        {id:"prefix-legacy",data:{info:{name:"Legacy after private prefix",status:"OPEN",startTime:Date.now()+60_000}}},
+        {id:"prefix-group",data:{info:{name:"GROUP after private prefix",status:"OPEN",visibility:"GROUP",startTime:Date.now()+60_000}}},
+      ],nextCursor:null} : {rows:[],nextCursor:token}};
+    });
+    renderWithProviders(<EventsPage/>,{route:"/ko/explore/events"});
+    const next=await screen.findByRole("button",{name:eventStrings["message.next"],exact:true});
+    expect(screen.queryByText(eventStrings["empty.noEvents"])).not.toBeInTheDocument();
+    expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes")).toHaveLength(1);
+    fireEvent.click(next);
+    for(const name of ["Public after private prefix","Legacy after private prefix","GROUP after private prefix"])expect(await screen.findByText(name,{exact:true})).toBeInTheDocument();
+    expect(mockCallableInvocations.filter(call=>call.name==="listVisibleEventEnvelopes")).toHaveLength(2);
+  });
+
   it("fits late URL GPX data and explicit filters while preserving the camera during ordinary renders", async () => {
     let finishGpx!: (response: Response) => void;
     vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(resolve => { finishGpx = resolve; })));
@@ -32,12 +79,6 @@ describe("event map camera intent", () => {
       { id: "late", info: { name: "Late route", status: "FINISHED", type: "TOUR", visibility: "PUBLIC", region: "서울", startTime: 1000, courseGpx: "https://example.test/late.gpx" } },
       { id: "ready", info: { name: "Ready route", status: "FINISHED", type: "GRANFONDO", visibility: "PUBLIC", region: "부산", startTime: 2000, courseGpx: gpx(35, 129) } },
     ]);
-    const getDocsMock = vi.mocked(getDocs);
-    const getSnapshot = getDocsMock.getMockImplementation()!;
-    getDocsMock.mockImplementation(async (...args) => {
-      const snapshot = await getSnapshot(...args);
-      return { ...snapshot, forEach: (callback: (document: unknown) => void) => snapshot.docs.forEach(callback) } as typeof snapshot;
-    });
     const view = renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
     fireEvent.click(await screen.findByRole("button", { name: eventStrings["view.map"], exact: true }));
     await screen.findByTestId("map-stub");
@@ -59,12 +100,6 @@ describe("event map camera intent", () => {
     const date = new Date();
     date.setDate(15);
     setCollectionDocs("events", [{ id: "calendar-event", info: { name, status: "FINISHED", type: "TOUR", visibility: "PUBLIC", startTime: date.getTime() } }]);
-    const getDocsMock = vi.mocked(getDocs);
-    const getSnapshot = getDocsMock.getMockImplementation()!;
-    getDocsMock.mockImplementation(async (...args) => {
-      const snapshot = await getSnapshot(...args);
-      return { ...snapshot, forEach: (callback: (document: unknown) => void) => snapshot.docs.forEach(callback) } as typeof snapshot;
-    });
     renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
     fireEvent.click(await screen.findByRole("button", { name: eventStrings["view.calendar"], exact: true }));
     const calendar = await screen.findByTestId("E3-3");
@@ -84,12 +119,6 @@ describe("event map camera intent", () => {
     const previousMonth = new Date();
     previousMonth.setMonth(previousMonth.getMonth() - 1);
     setCollectionDocs("events", [{ id: "previous", info: { name: "Previous month event", status: "FINISHED", type: "TOUR", visibility: "PUBLIC", startTime: previousMonth.getTime() } }]);
-    const getDocsMock = vi.mocked(getDocs);
-    const getSnapshot = getDocsMock.getMockImplementation()!;
-    getDocsMock.mockImplementation(async (...args) => {
-      const snapshot = await getSnapshot(...args);
-      return { ...snapshot, forEach: (callback: (document: unknown) => void) => snapshot.docs.forEach(callback) } as typeof snapshot;
-    });
     renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
     fireEvent.click(await screen.findByRole("button", { name: eventStrings["view.calendar"], exact: true }));
     expect(await screen.findByText(eventStrings["view.noMonthEvents"])).toBeInTheDocument();
@@ -101,12 +130,6 @@ describe("event map camera intent", () => {
       { id: "first", info: { name: "First marker", status: "FINISHED", type: "TOUR", visibility: "PUBLIC", startTime: 1000, courseGpx: gpx(35, 129) } },
       { id: "second", info: { name: "Second marker", status: "FINISHED", type: "TOUR", visibility: "PUBLIC", startTime: 2000, courseGpx: gpx(37.5, 127) } },
     ]);
-    const getDocsMock = vi.mocked(getDocs);
-    const getSnapshot = getDocsMock.getMockImplementation()!;
-    getDocsMock.mockImplementation(async (...args) => {
-      const snapshot = await getSnapshot(...args);
-      return { ...snapshot, forEach: (callback: (document: unknown) => void) => snapshot.docs.forEach(callback) } as typeof snapshot;
-    });
     renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
     fireEvent.click(await screen.findByRole("button", { name: eventStrings["view.map"], exact: true }));
     fireEvent.click(await screen.findByRole("button", { name: "First marker" }));

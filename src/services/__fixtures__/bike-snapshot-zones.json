@@ -1,0 +1,261 @@
+{
+  "runId": "cccde457-6b57-4d99-b6ed-e2eb21c37b1e",
+  "version": 63,
+  "state": "complete",
+  "asOf": 1792969310592.268,
+  "expiresAt": 1792972310592,
+  "period": {
+    "fromInclusive": 1735657200000,
+    "toExclusive": 1735743600000
+  },
+  "scope": "owner_canonical_records_at_snapshot",
+  "sourceFreshness": "checked_at_each_step_not_continuously_current",
+  "scanned": 51,
+  "candidates": 51,
+  "representatives": 49,
+  "result": {
+    "totals": {
+      "distanceM": {
+        "observedValue": 49000,
+        "totalValue": 49000,
+        "knownActivityCount": 49,
+        "missingActivityCount": 0,
+        "summaryFallbackCount": 0,
+        "sourceBasis": "canonical_metrics",
+        "sourceActivityIds": [
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0000",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0001",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0002",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0003",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0004",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0005",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0006",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0007",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0008",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0009",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0010",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0011",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0012",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0013",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0014",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0015",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0016",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0017",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0018",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0019"
+        ]
+      },
+      "movingTimeSec": {
+        "observedValue": 29400,
+        "totalValue": 29400,
+        "knownActivityCount": 49,
+        "missingActivityCount": 0,
+        "summaryFallbackCount": 0,
+        "sourceBasis": "canonical_metrics",
+        "sourceActivityIds": [
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0000",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0001",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0002",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0003",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0004",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0005",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0006",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0007",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0008",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0009",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0010",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0011",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0012",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0013",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0014",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0015",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0016",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0017",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0018",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0019"
+        ]
+      },
+      "elevationGainM": {
+        "observedValue": 0,
+        "totalValue": 0,
+        "knownActivityCount": 49,
+        "missingActivityCount": 0,
+        "summaryFallbackCount": 0,
+        "sourceBasis": "canonical_metrics",
+        "sourceActivityIds": [
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0000",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0001",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0002",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0003",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0004",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0005",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0006",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0007",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0008",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0009",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0010",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0011",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0012",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0013",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0014",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0015",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0016",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0017",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0018",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0019"
+        ]
+      }
+    },
+    "heartRate": {
+      "candidateActivityCount": 49,
+      "eligibleActivityCount": 0,
+      "missingSensorActivityCount": 49,
+      "contextUnknownActivityCount": 0,
+      "observedSeconds": 0
+    },
+    "powerZones": {
+      "candidateActivityCount": 49,
+      "eligibleActivityCount": 49,
+      "missingSensorActivityCount": 0,
+      "contextUnknownActivityCount": 0,
+      "observedSeconds": 343
+    },
+    "sourceExamplesLimit": 20,
+    "pageSize": 20,
+    "power": {
+      "fromInclusive": 1735657200000,
+      "toExclusive": 1735743600000,
+      "status": "complete",
+      "points": [
+        {
+          "durationSeconds": 300,
+          "watts": 150,
+          "sourceActivityId": "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0050",
+          "startTime": 1735657250000,
+          "source": "orider_native",
+          "cohortEligible": true,
+          "metricsRevision": "1792969310:577174000"
+        }
+      ],
+      "coverage": {
+        "scannedActivityCount": 51,
+        "candidateActivityCount": 51,
+        "candidateCountKnown": true,
+        "includedActivityCount": 51,
+        "pendingActivityCount": 0,
+        "missingActivityCount": 0,
+        "incompleteActivityCount": 0,
+        "ineligibleActivityCount": 0,
+        "skippedActivityCount": 0,
+        "truncated": false
+      },
+      "weightNormalized": {
+        "unit": "W/kg",
+        "basis": "calculation_profile_snapshot",
+        "status": "partial",
+        "coverage": {
+          "scannedActivityCount": 51,
+          "candidateActivityCount": 51,
+          "candidateCountKnown": true,
+          "includedActivityCount": 0,
+          "pendingActivityCount": 0,
+          "missingActivityCount": 0,
+          "incompleteActivityCount": 0,
+          "ineligibleActivityCount": 0,
+          "skippedActivityCount": 0,
+          "truncated": false
+        },
+        "weightCounts": {
+          "includedActivityCount": 0,
+          "missingWeightActivityCount": 51,
+          "invalidWeightActivityCount": 0,
+          "incompatibleWeightActivityCount": 0
+        },
+        "points": []
+      }
+    }
+  },
+  "zoneGroups": [
+    {
+      "id": "c2b98c11dc4d9698f39208fa5c067d624fcd00cef7d91a477b04d6e9cb26fdae",
+      "kind": "power",
+      "group": {
+        "ftp": 220,
+        "powerSource": "measured",
+        "seconds": [
+          25,
+          25,
+          25,
+          25,
+          25,
+          25,
+          25
+        ],
+        "observedSeconds": 175,
+        "activityIds": [
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0001",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0003",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0005",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0007",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0009",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0011",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0013",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0015",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0017",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0019",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0021",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0023",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0025",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0027",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0029",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0031",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0033",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0035",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0037",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0039"
+        ]
+      }
+    },
+    {
+      "id": "d5fc82957aa33f88835194d1bffc0b8270bc8689d31578440532b119e5c00887",
+      "kind": "power",
+      "group": {
+        "ftp": 200,
+        "powerSource": "measured",
+        "seconds": [
+          24,
+          24,
+          24,
+          24,
+          24,
+          24,
+          24
+        ],
+        "observedSeconds": 168,
+        "activityIds": [
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0000",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0002",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0004",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0006",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0008",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0010",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0012",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0014",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0016",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0018",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0020",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0022",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0024",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0028",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0030",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0032",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0034",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0036",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0038",
+          "bike-identity-692897d9-1e3c-4d3b-8329-9c66ae09ec67-0040"
+        ]
+      }
+    }
+  ],
+  "nextZone": null
+}

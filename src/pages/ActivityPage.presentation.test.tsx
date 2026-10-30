@@ -25,20 +25,7 @@ vi.mock("../components/activity/AiRideAnalysisCard", () => ({ default: () => <di
 vi.mock("../services/stravaSummaryPreview", () => ({ requestStravaSummaryPreview: stravaPreview, isLocalStravaSummaryPreview: () => false }));
 vi.mock("../hooks/useFitnessTimeseries", () => ({ useFitnessTimeseries: () => ({ timeseries: null, loaded: true }) }));
 vi.mock("../hooks/usePdc", () => ({ usePdc: () => ({ status: "missing", pdc: null }) }));
-vi.mock("chart.js", () => ({
-  Chart: { register: vi.fn() },
-  CategoryScale: class {},
-  LinearScale: class {},
-  LogarithmicScale: class {},
-  BarElement: class {},
-  LineElement: class {},
-  PointElement: class {},
-  ArcElement: class {},
-  Title: class {},
-  Tooltip: class {},
-  Legend: class {},
-  Filler: class {},
-}));
+vi.mock("chart.js", async () => (await import("../__tests__/fixtures/activityChartRegistryMock")).activityChartRegistryMock);
 
 function renderWithProviders(ui: ReactElement, options: Parameters<typeof renderProviders>[1] = {}) {
   return renderProviders(<Routes><Route path="/ko/activity/:activityId" element={ui} /></Routes>, {
@@ -66,7 +53,7 @@ describe("ActivityPage presentation", () => {
     setDocData(`activities/${mockRoute.activityId}`, createMockActivity({ id: mockRoute.activityId, userId: "another-owner" }) as unknown as Record<string, unknown>);
     setCallableResult("getActivityOverview", { data: { status: "available", activityId: mockRoute.activityId, presentation: { coachSentence: "공개 인사이트 유지", session: { discipline: "bike", load: 42 } } } });
     renderWithProviders(<ActivityPage />, { route: `/ko/activity/${mockRoute.activityId}?tab=insights` });
-    expect(await within(await screen.findByTestId("activity-analysis-domains")).findByText("공개 인사이트 유지")).toBeInTheDocument();
+    expect(await screen.findByText("공개 인사이트 유지")).toBeInTheDocument();
     expect(screen.getAllByRole("tab").map(tab => tab.id)).toEqual(["activity-tab-overview", "activity-tab-analysis", "activity-tab-segments"]);
     expect(screen.getByRole("tab", { name: "분석" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("heading", { name: "요약 공유" })).not.toBeInTheDocument();
@@ -125,9 +112,9 @@ describe("ActivityPage presentation", () => {
     expect(screen.queryByRole("button", { name: "이 요약을 Strava에 게시" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     const summary = await screen.findByTestId("activity-analysis-domains");
-    await within(summary).findByText("dev 정본 활동 개요");
+    await screen.findByText("dev 정본 활동 개요");
     expect(within(summary).getByRole("img", { name: "강도 게이지 · IF 0.83 (FTP 1.00 기준)" })).toBeInTheDocument();
-    expect(summary.querySelector(".activity-analysis-zone-track")).toBeInTheDocument();
+    expect(within(summary).getByRole("row", { name: /Z1.*2:00/ })).toBeInTheDocument();
     expect(within(summary).getByRole("img", { name: "체력 · CTL 10.0 → 11.0" })).toBeInTheDocument();
     expect(within(summary).getByRole("img", { name: "피로 · ATL 12.0 → 15.0" })).toBeInTheDocument();
     expect(within(summary).getByRole("img", { name: "폼 · TSB -2.0 → -4.0" })).toBeInTheDocument();
@@ -159,12 +146,12 @@ describe("ActivityPage presentation", () => {
     await screen.findByTestId("activity-stats-primary");
     expect(screen.queryByTestId("activity-load-provenance")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
-    await within(await screen.findByTestId("activity-analysis-domains")).findByText("부하 출처 테스트");
+    await screen.findByText("부하 출처 테스트");
     const training = screen.getByRole("heading", { name: "훈련 부하와 체력" }).closest("section")!;
     expect(within(training).getByText("분석 TSS")).toBeInTheDocument();
     expect(within(training).getAllByText("46").length).toBeGreaterThan(0);
-    if (load != null) expect(within(training).getAllByText(String(load)).length).toBeGreaterThan(0);
-    if (load === 220 || load === 46.4) expect(training).toHaveTextContent("반영 훈련 부하");
+    if (load != null) expect(screen.getAllByText(String(load)).length).toBeGreaterThan(0);
+    if (load === 220 || load === 46.4) expect(screen.getByText("반영 훈련 부하")).toBeVisible();
     if (stale) expect(training).toHaveTextContent("이전 버전의 분석값");
 
   });
@@ -406,4 +393,22 @@ it("places one primary record summary before the mobile story while retaining ma
     expect(stats.compareDocumentPosition(story) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId("D1-1")).toBeInTheDocument();
   } finally { media.mockRestore(); }
+});
+
+it("renders ACL-authorized visitors through the existing detail tabs and full sensor analysis", async () => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn() })));
+  const activity = createMockActivity({ id: "authorized-full-detail", userId: "other-owner", description: "동일한 활동 상세", visibility: "followers", source: "orider" });
+  mockRoute.activityId = activity.id;
+  const detail = { activity: { ...activity, activityRevision: "revision-one", effectiveFacts: { status: "canonical", metrics: { distanceKm: 20 } } }, viewerHasKudos: false,
+    metrics: { schemaVersion: 3, status: "final", revisionId: "metrics-one", metrics: { version: ACTIVITY_METRICS_VERSION, discipline: "bike", avgPower: 160, avgHr: 150, contextSnapshot: { ftp: 250 } } },
+    mapPreview: { imageUrl: null, encodedPolyline: null }, content: { status: "ready", activityId: activity.id, comments: [], photos: [], memo: "같은 활동의 본문" } };
+  setCallableResult("getActivityPublicDetail", { data: detail });
+  setCallableResult("getActivityPublicStreams", { data: { activityId: activity.id, state: "available", streamInputRevision: "a".repeat(64), sourceLayer: "api_streams", streams: { time: [0, 1, 2], watts: [200, 0, 200], heartrate: [150, 150, 150], cadence: [80, 0, 80] } } });
+  setCallableResult("getActivityOverview", { data: { status: "available", activityId: activity.id, presentation: { coachSentence: "활동 단위 분석 유지", session: { discipline: "bike", load: 42 } } } });
+  renderWithProviders(<ActivityPage publicAccess={{ activityId: activity.id, retryKey: 0, initialDetail: detail as never, onReady: () => {}, onError: () => {} }} />, { authenticated: true, route: `/ko/activity/${activity.id}?tab=analysis` });
+  expect(await screen.findByTestId("activity-stats-primary")).toBeInTheDocument();
+  expect(screen.getAllByRole("tab").map(tab => tab.id)).toEqual(["activity-tab-overview", "activity-tab-analysis", "activity-tab-segments"]);
+  expect(await screen.findByText("활동 단위 분석 유지")).toBeInTheDocument();
+  expect(mockCallableInvocations.some(call => call.name === "getActivityPublicStreams")).toBe(true);
+  expect(screen.queryByRole("heading", { name: "요약 공유" })).not.toBeInTheDocument();
 });

@@ -1693,3 +1693,10 @@ describe("activityDetailDerived", () => {
     expect(overlays[0]).toMatchObject({ label: "overlay.speed (km/h)", yAxisID: "ySpeed" });
   });
 });
+
+it("calculates whole-activity speed from distance and moving time without copying provider averages", () => {
+  const streams = { velocity_smooth: [5, 5, 5, 20] } as never;
+  const summary = buildSummaryStats(streams, null, { distanceM: 18000, movingTimeSec: 1800 });
+  expect(summary?.overlays.speed).toEqual({ avg: 36, max: 72 });
+  expect(buildSummaryStats(streams, null, { distanceM: 18000, movingTimeSec: null })?.overlays.speed?.avg).toBeNaN();
+});

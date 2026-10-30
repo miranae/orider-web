@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import type { Notification } from "@shared/types";
@@ -9,11 +10,12 @@ interface NotifSheetProps {
   open: boolean;
   onClose: () => void;
   notifications: Notification[];
+  notificationStatus?: ReactNode;
   onMarkAllRead: () => void;
   onNotificationClick: (notification: Notification) => void;
 }
 
-export default function NotifSheet({ open, onClose, notifications, onMarkAllRead, onNotificationClick }: NotifSheetProps) {
+export default function NotifSheet({ open, onClose, notifications, onMarkAllRead, onNotificationClick, notificationStatus }: NotifSheetProps) {
   const { t } = useTranslation("common");
   useBodyScrollLock(open);
 
@@ -54,7 +56,8 @@ export default function NotifSheet({ open, onClose, notifications, onMarkAllRead
             </button>
           </div>
         </div>
-        {notifications.length === 0 && (
+        {notificationStatus}
+        {notifications.length === 0 && !notificationStatus && (
           <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)", fontSize: "var(--fs-sm)" }}>
             {t("label.noNotifications")}
           </div>
@@ -86,7 +89,7 @@ export default function NotifSheet({ open, onClose, notifications, onMarkAllRead
             />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-1)", lineHeight: 1.4 }}>
-                {n.message || t("notif.fromUser", { fromNickname: n.fromNickname })}
+                {n.access === "unavailable" || n.type === "unavailable" ? t("notif.unavailable") : n.message || t("notif.fromUser", { fromNickname: n.fromNickname })}
               </div>
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)", marginTop: "var(--space-1)" }}>
                 {n.createdAt ? timeAgo(n.createdAt, t) : ""}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Heart, MessageCircle } from "lucide-react";
 import { Button, Textarea } from "../../theme/components";
@@ -16,6 +16,7 @@ import { logClientError } from "../../services/errorLogger";
 import { getDiscipline } from "../../utils/disciplineFilter";
 import { useHydratedSocialProfiles } from "./useHydratedSocialProfiles";
 import { activitySocialErrorMessageKey, activitySocialMutations } from "../../services/activitySocialMutations";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 /**
@@ -23,8 +24,8 @@ import { ICON_SIZE } from "../../theme/tokens/icon";
  *
  * 데스크톱 ActivityCard 와 모바일 CompactActivityCard 가 공유. 좋아요 아바타는 활동 doc 에
  * 비정규화된 `recentKudos` 를 그대로 쓰므로 카드당 추가 Firestore read 가 없다(read 0).
- * "내가 눌렀는지" 상태는 recentKudos 에 내 uid 가 있는지로 무비용 추정 — 상위 N 밖이면
- * 하트가 빈 채로 보일 수 있으나 토글은 정상 동작(낙관적 업데이트). 정확한 상태는 상세에서.
+ * discovery가 제공하는 현재 viewerHasKudos를 우선 사용합니다.
+ * 필드가 없는 기존 owner 기록에서만 recentKudos를 호환용으로 사용합니다.
  */
 export default function ActivitySocialFooter({ activity, presentation = "default", commentsPreview = [] }: { activity: Activity; presentation?: "default" | "feed"; commentsPreview?: readonly CommentItem[] }) {
   const { t } = useTranslation("activity");
@@ -32,8 +33,11 @@ export default function ActivitySocialFooter({ activity, presentation = "default
   const { user, profile } = useAuth();
   const { showToast } = useToast();
 
+  const services = useFirebaseServices();
+  const sdkUser = services.auth.currentUser;
   const initialRecent = activity.recentKudos ?? [];
-  const [liked, setLiked] = useState(() => !!user && initialRecent.some((k) => k.userId === user.uid));
+  const canonicalLiked = activity.viewerHasKudos ?? (!!user && initialRecent.some((k) => k.userId === user.uid));
+  const [liked, setLiked] = useState(canonicalLiked);
   const [localKudos, setLocalKudos] = useState(activity.kudosCount ?? 0);
   const [recent, setRecent] = useState(initialRecent);
   const hydratedRecent = useHydratedSocialProfiles(recent, "ActivitySocialFooter.recentKudos");
@@ -45,6 +49,18 @@ export default function ActivitySocialFooter({ activity, presentation = "default
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [localComments, setLocalComments] = useState(activity.commentCount ?? 0);
 
+  const scope = JSON.stringify([activity.id, user?.uid, canonicalLiked, activity.kudosCount, activity.commentCount]);
+  const identity = useRef({ scope, sdkUser, generation: 0 });
+  const pendingKudos = useRef(false);
+  const [kudosBusy, setKudosBusy] = useState(false);
+  if (identity.current.scope !== scope || identity.current.sdkUser !== sdkUser) {
+    identity.current = { scope, sdkUser, generation: identity.current.generation + 1 };
+    pendingKudos.current = false;
+    setLiked(canonicalLiked); setLocalKudos(activity.kudosCount ?? 0); setRecent(initialRecent);
+    setLocalComments(activity.commentCount ?? 0); setCommentText(""); setCommentSubmitting(false); setKudosBusy(false);
+  }
+  useEffect(() => () => { identity.current.generation++; }, []);
+
   // 좋아요 토글 — canonical callable write (recentKudos·kudosCount 는 서버 트리거가 갱신).
   // 카드에선 낙관적으로 카운트/아바타만 즉시 반영. 비로그인은 무동작.
   // write 실패 시 낙관적 변경을 롤백해 UI 가 실제 Firestore 상태와 어긋나지 않게 하고(좋아요
@@ -52,7 +68,10 @@ export default function ActivitySocialFooter({ activity, presentation = "default
   const handleToggleKudos = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!user || !profile) return;
+    if (!user || !profile || pendingKudos.current) return;
+    const generation = identity.current.generation;
+    const current = () => identity.current.generation === generation && services.auth.currentUser === sdkUser;
+    pendingKudos.current = true; setKudosBusy(true);
     const wasLiked = liked;
     // 롤백용 스냅샷 — 실패 시 이 값으로 복구.
     const prev = { liked, localKudos, recent };
@@ -78,11 +97,13 @@ export default function ActivitySocialFooter({ activity, presentation = "default
     }
     try {
       await activitySocialMutations.setKudos(activity.id, !wasLiked);
+      if (!current()) return;
       if (!wasLiked) {
         showToast(t("card.kudosToast"));
         trackActivationStep(user.uid, "first_kudos", { activity_id: activity.id });
       }
     } catch (err) {
+      if (!current()) return;
       // 롤백 — 낙관적 변경을 되돌려 실제 상태와 일치시킴.
       setLiked(prev.liked);
       setLocalKudos(prev.localKudos);
@@ -92,7 +113,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
         action: wasLiked ? "off" : "on",
       });
       showToast(t(activitySocialErrorMessageKey(err)), "error");
-    }
+    } finally { if (current()) { pendingKudos.current = false; setKudosBusy(false); } }
   };
 
   // 댓글 버튼 — 카드 안 입력칸을 토글(상세 이동 없이 바로 입력). 비로그인도 펼침은 되나
@@ -142,11 +163,11 @@ export default function ActivitySocialFooter({ activity, presentation = "default
         </div>}
         {/* 좋아요 토글 + 카운트 */}
         {/* HIG 피드 동작: 배경 없는 22 아이콘, 터치 44. */}
-        {feed ? <button type="button" className="activity-social-feed-action" onClick={handleToggleKudos} disabled={!user}
+        {feed ? <button type="button" className="activity-social-feed-action" onClick={handleToggleKudos} disabled={!user || kudosBusy}
           aria-label={t("card.kudosShort")} aria-pressed={liked}><Heart size={ICON_SIZE.lg} fill={liked ? "currentColor" : "none"} aria-hidden="true" /></button> :         <button
           type="button"
           onClick={handleToggleKudos}
-          disabled={!user}
+          disabled={!user || kudosBusy}
           className="flex items-center justify-center gap-1.5 transition-opacity disabled:opacity-50"
           style={{ color: liked ? "var(--lime)" : "var(--ink-3)", background: "none", border: "none", cursor: user ? "pointer" : "default", minHeight: 44, minWidth: 44, padding: "0 var(--space-2)", margin: "-6px calc(var(--space-2) * -1)" }}
           aria-label={t("card.kudosShort")}

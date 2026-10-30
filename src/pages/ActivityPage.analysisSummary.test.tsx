@@ -25,7 +25,7 @@ vi.mock("../components/AnalysisTab", () => ({ default: (props: ComponentProps<ty
 }, AnalysisLapTable: (props: Record<string, unknown>) => { mocks.lapProps(props); return <div data-testid="summary-laps"><h3>랩 분석</h3>Laps</div>; } }));
 vi.mock("../components/RouteMap", () => ({ default: () => <div /> }));
 vi.mock("../components/ElevationChart", () => ({ default: () => <div /> }));
-vi.mock("../components/activity/AiRideAnalysisCard", () => ({ default: () => <div /> }));
+vi.mock("../components/activity/AiRideAnalysisCard", () => ({ default: () => <div data-testid="stored-ai-card" /> }));
 vi.mock("react-router-dom", async (importOriginal) => ({
   ...await importOriginal<typeof import("react-router-dom")>(),
   useParams: () => ({ activityId: "summary-only" }),
@@ -69,9 +69,50 @@ describe("ActivityPage server summary presentation", () => {
     mocks.model!.overview.response = null;
     renderWithProviders(<ActivityPage />, { authenticated: false });
     expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
-    expect(within(screen.getByRole("region", { name: "활동 이야기" })).getByText(/▰ 피크 파워/).textContent).toBe("▰ 피크 파워 (W)\n 1s 10s\n938 767");
+    const story = within(screen.getByRole("region", { name: "활동 이야기" }));
+    expect(story.getByText(/▰ 피크 파워/).textContent).toBe("▰ 피크 파워 (W)\n 1s 10s\n938 767");
+    expect(story.queryByText(/Strava 원본/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(screen.queryByText(/▰ 피크 파워/)).not.toBeInTheDocument();
+  });
+
+  it.each(["pending", "error"] as const)("keeps verified Strava memos without a provider fallback while overview is %s", state => {
+    mocks.model!.activity!.source = "strava";
+    mocks.model!.overview.loading = state === "pending";
+    mocks.model!.overview.error = state === "error";
+    if (state === "pending") mocks.model!.activity = withStoredSummary(mocks.model!.activity!, "저장된 Orider 추가 분석");
+    renderWithProviders(<ActivityPage />, { authenticated: false });
+    const story = within(screen.getByRole("region", { name: "활동 이야기" }));
+    expect(story.queryByText(/Strava 원본/)).not.toBeInTheDocument();
+    if (state === "pending") expect(story.getByText("저장된 Orider 추가 분석")).toBeInTheDocument();
+    expect(mocks.requestStreams).not.toHaveBeenCalled();
+  });
+
+  it("prefers current Orider analysis to a stored generated Strava memo", () => {
+    mocks.model!.activity!.source = "strava";
+    mocks.model!.activity = withStoredSummary(mocks.model!.activity!, "이전 추가 분석");
+    mocks.model!.overview.response = { status: "available", activityId: "summary-only",
+      defaultMemo: "현재 Orider 추가 분석", presentation: { session: { load: 12 } } } as never;
+    renderWithProviders(<ActivityPage />, { authenticated: false });
+    const story = within(screen.getByRole("region", { name: "활동 이야기" }));
+    expect(story.getByText("현재 Orider 추가 분석")).toBeInTheDocument();
+    expect(story.queryByText("이전 추가 분석")).not.toBeInTheDocument();
+    expect(story.queryByText(/Strava 원본/)).not.toBeInTheDocument();
+  });
+
+  it("keeps authored Strava notes ahead of current Orider analysis", () => {
+    mocks.model!.activity!.source = "strava";
+    mocks.model!.activity = withStoredSummary(mocks.model!.activity!, "저장된 추가 분석");
+    mocks.model!.activity!.feedContentV1 = { version: 1,
+      sourceRevision: mocks.model!.activity!.defaultSummaryV1!.sourceRevision,
+      revision: "authored", memo: "직접 작성한 메모", memoTruncated: false, totalPhotoCount: 0, photos: [] };
+    mocks.model!.overview.response = { status: "available", activityId: "summary-only",
+      defaultMemo: "현재 Orider 추가 분석", presentation: { session: { load: 12 } } } as never;
+    renderWithProviders(<ActivityPage />, { authenticated: false });
+    const story = within(screen.getByRole("region", { name: "활동 이야기" }));
+    expect(story.getByText("직접 작성한 메모")).toBeInTheDocument();
+    expect(story.queryByText("현재 Orider 추가 분석")).not.toBeInTheDocument();
+    expect(story.queryByText("저장된 추가 분석")).not.toBeInTheDocument();
   });
 
   it.each([12, null])("러닝 GAP 카드 평균도 요약 스트립의 정본 값 %s를 전달한다", avgSpeedKph => {
@@ -87,6 +128,15 @@ describe("ActivityPage server summary presentation", () => {
     expect(within(gapCard).getByText("5:37/km")).toBeInTheDocument();
     expect(mocks.model!.activity!.summary.averageSpeed).toBe(10);
     expect(mocks.requestStreams).toHaveBeenCalledOnce();
+  });
+
+  it("keeps overview summary without automatically fetching route and loads it only on explicit request", () => {
+    mocks.model!.activity!.thumbnailTrack = "";
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    expect(mocks.requestStreams).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "경로 확인" }));
+    expect(mocks.requestStreams).toHaveBeenCalledOnce();
+    expect(screen.getByRole("tab", { name: "개요" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("renders analysis with no downloaded streams or stream projection", () => {
@@ -225,6 +275,7 @@ describe("ActivityPage server summary presentation", () => {
     fireEvent.click(screen.getByRole("tab", { name: "개요" }));
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
     expect(mocks.requestStreams).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "경로와 센서 기록 살펴보기" }));
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
     expect(mocks.model!.retryStreams).toHaveBeenCalledOnce();
   });
@@ -241,4 +292,22 @@ it("does not add an empty technical card for a sensorless public activity withou
   Object.assign(mocks.model!.activity!.summary, { averageHeartRate: null, maxHeartRate: null, averagePower: null, maxPower: null, averageCadence: null, maxCadence: null });
   renderWithProviders(<ActivityPage />, { route: "/ko/activity/summary-only?tab=analysis" });
   expect(screen.queryByRole("heading", { name: "상세 지표와 근거" })).not.toBeInTheDocument();
+});
+
+it("does not label a GPS-less imported sensor chart as GPS", () => {
+  const raw = { distance: [], time: [], latlng: [], importedSensorObservationsV1: {
+    version: 1, state: "available", source: "parsed_import_points", timeUnit: "relative_milliseconds",
+    originEpochMs: mocks.model!.activity!.startTime, timeMs: [0,1000,2000], routeTimeMs: [],
+    watts: [200,0,200], heartrate: [150,150,150], cadence: [80,0,80] } };
+  mocks.model!.streams = raw;
+  mocks.model!.effectiveStreams = { ...raw, time: [0,1,2] };
+  renderWithProviders(<ActivityPage />, { authenticated: true });
+  expect(screen.queryByText("GPS", {exact:true})).not.toBeInTheDocument();
+});
+
+it("mounts saved AI reading even without optional preview, streams or analysisSummary",()=>{
+ mocks.model!.hasAnalysisStreams=false;mocks.model!.streams=null;mocks.model!.analysisTabProps=undefined;
+ delete mocks.model!.activity!.aiSummaryPreview;
+ renderWithProviders(<ActivityPage/>,{authenticated:true});
+ expect(screen.getByTestId("stored-ai-card")).toBeInTheDocument();
 });

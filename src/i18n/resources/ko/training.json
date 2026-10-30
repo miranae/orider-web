@@ -1317,7 +1317,11 @@
     "separateLink": "기간 실제 합계에는 미연결 활동도 포함됩니다. 개별 계획의 연결·후보 저장값과는 다른 기준이며, 기간 합계로 계획 완료를 판단하지 않습니다.",
     "compareGoal": "목표기간으로 비교",
     "representativeIncluded": "선택한 기간 집계의 대표 기록",
-    "representativeOriginal": "원본 기록 표시 · 부하 집계는 대표 기록으로 한 번만 반영"
+    "representativeOriginal": "원본 기록 표시 · 부하 집계는 대표 기록으로 한 번만 반영",
+    "calendarEvidence": "비교 근거",
+    "weekEvidence": "W{{week}} 주간 부하 근거",
+    "calendarPlanned": "계획",
+    "calendarActual": "실제"
   },
   "goalLoad": {
     "title": "목표기간 훈련 부하",

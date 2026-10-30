@@ -1,4 +1,35 @@
 {
+  "publicGlobal": {
+  "loading": "Checking records for all public statistics.",
+  "partial": "All public statistics: {{count}} records collected. More pages remain, so complete totals are withheld.",
+  "complete": "Reached the last page of the public-statistics query ({{count}} records collected). Changes during the query may not be reflected.",
+  "error": "The public-statistics request failed. {{count}} collected records are temporarily retained. Please retry.",
+  "restart": "Public-statistics access or query conditions changed, or expired. Start again.",
+  "stale": "The public-statistics check is old or records changed. Check current records again or use the date-range explorer below."
+},
+  "publicPeriod": {
+  "filterPartial": "Filters apply only to collected records. Earlier records still need checking; an empty result does not mean no matching activities exist.",
+  "globalComplete": "Reached the last page of the public-statistics query ({{count}} records collected). Changes during the query may not be reflected.",
+  "globalMore": "Continue checking all public statistics",
+  "title": "Explore public records by date",
+  "basis": "Dates use KST. Select up to one year. Each request checks up to 20 records. Records and access can change between pages; this is not an all-time snapshot.",
+  "from": "Start date",
+  "to": "End date",
+  "apply": "Check selected dates",
+  "invalid": "Choose valid dates within one year.",
+  "loading": "Checking public records for these dates.",
+  "partial": "{{count}} records collected. More pages remain; totals and charts are withheld.",
+  "complete": "Reached the last page of this query ({{count}} records collected). Charts reflect only records found within the selected dates.",
+  "error": "The request failed. {{count}} collected records were retained. Please retry shortly.",
+  "restart": "Access or query conditions changed, or the query expired. Please start again.",
+  "stale": "The last check is old or a record changed. Your dates were kept. Check current public records again. If there are many records, narrow the start and end dates above.",
+  "more": "Check next page",
+  "refresh": "Check current records again",
+  "records": "Collected public activities",
+  "activity": "View original activity"
+},
+  "publicDiscoveryLimit": "The public-record scan reached its limit, so complete totals and monthly charts are unavailable. This is not a connection error. Continue browsing individual records with Load more below.",
+  "publicDiscoveryScope": "Statistics describe public records checked with current access, up to 200 activities. Totals are withheld when the scan is incomplete. Undated records are excluded from monthly charts; private sensors and training load are not provided.",
   "notFound": "User not found.",
   "stats.activities": "Activities",
   "stats.publicActivities": "Public activities",
@@ -73,6 +104,7 @@
   "recent.time": "Activity time",
   "dateLocale": "en-US",
   "profile": {
+    "calendarBasis": "Calendar dates use Korea Standard Time (KST)",
     "recentPhotos": "Activity photos",
     "openPhoto": "Open activity photos",
     "last28Days": "Last 28 days",

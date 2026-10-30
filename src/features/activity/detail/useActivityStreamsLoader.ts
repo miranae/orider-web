@@ -1,3 +1,4 @@
+import { isPublicActivityAccessError, createPublicActivityClient } from "../../../services/publicActivityDetail";
 import { activitySensorOrigin } from "./activitySensorOrigin";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
@@ -31,6 +32,9 @@ interface UseActivityStreamsLoaderArgs {
   getStreams: (stravaId: number) => Promise<unknown>;
   t: (key: string) => string;
   enabled?: boolean;
+  publicAccess?: boolean;
+  accessRevision?: unknown;
+  onAccessRevoked?: () => void;
 }
 
 export function usesCanonicalActivityStreams(
@@ -103,21 +107,26 @@ export function useActivityStreamsLoader({
   getStreams,
   t,
   enabled = true,
+  publicAccess = false,
+  accessRevision,
+  onAccessRevoked,
 }: UseActivityStreamsLoaderArgs) {
-  const { auth, firestore, functions, ensureAppCheckReady } = useFirebaseServices();
+  const firebaseServices = useFirebaseServices();
+  const { auth, firestore, functions, ensureAppCheckReady } = firebaseServices;
+  const sdkUser = auth.currentUser;
   const services = useMemo(() => ({ auth, firestore, functions, ensureAppCheckReady }), [auth, firestore, functions, ensureAppCheckReady]);
   const [streams, setStreams] = useState<ActivityStreams | null>(null);
   const [showStreamSpinner, setShowStreamSpinner] = useState(false);
   const [streamsError, setStreamsError] = useState<string | null>(null);
   const [loadingStreams, setLoadingStreams] = useState(false);
 
-  const scope = useMemo(() => ({ activityId, userId, auth, firestore }), [activityId, userId, auth, firestore]);
+  const scope = useMemo(() => ({ activityId, userId, auth, firestore, sdkUser, publicAccess, accessRevision }), [activityId, userId, auth, firestore, sdkUser, publicAccess, accessRevision]);
   const [loadedScope, setLoadedScope] = useState(scope);
   const [requestedScope, setRequestedScope] = useState<typeof scope | null>(null);
   const requestStreams = useCallback(() => { setRequestedScope(scope); }, [scope]);
   const shouldLoad = enabled || requestedScope === scope;
   // stage reader는 인증이 필수다. 공개 요약을 결측 스트림으로 오해하지 않도록 별도 상태를 보존한다.
-  const streamsSignInRequired = !userId && (getRuntimeConfig().appEnvironment === "stage"
+  const streamsSignInRequired = !publicAccess && !userId && (getRuntimeConfig().appEnvironment === "stage"
     || !!activity?.activityPresentationV1);
   const [retryKey, setRetryKey] = useState(0);
   const retryStreams = useCallback(async () => { setRequestedScope(scope); setRetryKey(key => key + 1); }, [scope]);
@@ -130,6 +139,18 @@ export function useActivityStreamsLoader({
     setLoadingStreams(false);
     setShowStreamSpinner(false);
     if (!shouldLoad || !activity || activity.id !== activityId || streamsSignInRequired) return;
+
+    if (publicAccess) {
+      setLoadingStreams(true);
+      const timer = setTimeout(() => { if (active) setShowStreamSpinner(true); }, 500);
+      void createPublicActivityClient(firebaseServices).streams(activityId!).then(result => {
+        if (!active || auth.currentUser !== sdkUser) return;
+        if (result.activityId !== activityId || result.state !== "available" || !result.streams) throw Error("STREAMS_MISSING");
+        setStreams(result.streams);
+      }).catch(error => { if (active) { if (isPublicActivityAccessError(error)) onAccessRevoked?.(); setStreamsError(t("page.streamsMissing")); } })
+        .finally(() => { clearTimeout(timer); if (active) { setLoadingStreams(false); setShowStreamSpinner(false); } });
+      return () => { active = false; clearTimeout(timer); };
+    }
 
     const source = (activity as Activity & { source?: string }).source;
     const stravaId = getStravaActivityId(activity);
@@ -190,7 +211,7 @@ export function useActivityStreamsLoader({
       setLoadingStreams(false);
     });
     return () => { active = false; clearTimeout(timer); };
-  }, [activity, activityId, auth, firestore, getStreams, retryKey, scope, services, shouldLoad, streamsSignInRequired, t, userId]);
+  }, [publicAccess ? null : activity, activityId, auth, firestore, getStreams, retryKey, scope, services, shouldLoad, streamsSignInRequired, t, userId, publicAccess, firebaseServices, sdkUser]);
 
   return {
     streams: loadedScope === scope ? streams : null,

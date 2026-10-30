@@ -1,30 +1,36 @@
-import { getDoc, getDocs } from "firebase/firestore";
+import { installEventDiscoveryFixture } from "../../__tests__/fixtures/eventDiscovery";
+import { getDoc } from "firebase/firestore";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { auth, ensureAppCheckReady } from "../../services/firebase";
 import { createGroupPost, updateGroupPost } from "../../hooks/useGroupPosts";
-import { setCollectionDocs, setDocData } from "../../__tests__/mocks/firebase";
+import { setCollectionDocs, setDocData, setCallableImplementation, mockCallableInvocations } from "../../__tests__/mocks/firebase";
 import GroupDashboardPage from "./GroupDashboardPage";
+import { useGroup, useGroupMemberRole } from "../../hooks/useGroup";
 
 const state = vi.hoisted(() => ({
-  roleError: null as Error | null, retryRole: vi.fn(),
+  isAnonymous: false, signIn: vi.fn(), roleError: null as Error | null, retryRole: vi.fn(),
   aggregate: null as { lifetimeDistance: number; lifetimeRideCount: number; longestRideDistance: number } | null,
   ridesLoading: false, ridesError: null as string | null, retryRides: vi.fn(),
   visibility: "public", uid: "owner", role: "leader" as string | null, creatorId: "owner", authorId: "owner",
   showToast: vi.fn(), posts: [{ id: "post-1", content: "Original announcement", authorId: "owner", authorName: "Original author", kind: "announcement", createdAt: 1 }],
 }));
-vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: state.uid } }) }));
+vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: state.uid, isAnonymous: state.isAnonymous }, loading: false, signIn: state.signIn }) }));
 vi.mock("../../contexts/ToastContext", () => ({ useToast: () => ({ showToast: state.showToast }) }));
 vi.mock("../../hooks/useGroup", () => ({
-  useGroup: () => ({ group: { id: "group-1", creatorId: state.creatorId, name: "QA group", description: "Private introduction", rules: "Private rules", visibility: state.visibility, memberCount: 2 }, loading: false }),
-  useGroupMemberRole: () => ({ role: state.role, error: state.roleError, retry: state.retryRole }),
+  useGroup: vi.fn(() => ({ group: { id: "group-1", creatorId: state.creatorId, name: "QA group", description: "Private introduction", rules: "Private rules", visibility: state.visibility, memberCount: 2 }, loading: false })),
+  useGroupMemberRole: vi.fn(() => ({ role: state.role, error: state.roleError, retry: state.retryRole })),
   useGroupMembers: () => ({ members: [], loading: false }),
 }));
 vi.mock("../../hooks/useGroupRides", () => ({ useGroupRideStats: () => ({ rides: [], loading: state.ridesLoading, error: state.ridesError, retry: state.retryRides, aggregate: state.aggregate }) }));
 vi.mock("../../hooks/useGroupPosts", () => ({
   useGroupPosts: () => ({ posts: state.posts.map((post) => ({ ...post, authorId: state.authorId })), loading: false }),
   createGroupPost: vi.fn(), updateGroupPost: vi.fn(),
+}));
+vi.mock("../../services/publicClubs", () => ({
+  getPublicClubPage: vi.fn(async () => ({ club: { id: "group-1", name: "Public club preview", approval: "auto", sports: ["bike"] }, schedule: null })),
+  PublicClubUnavailable: class extends Error {},
 }));
 vi.mock("../../components/group/GroupSubNav", () => ({ default: () => null }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
@@ -34,6 +40,8 @@ function edit() {
   return screen.getByRole("textbox", { name: "게시글 내용 수정" });
 }
 beforeEach(() => {
+  installEventDiscoveryFixture();
+  state.isAnonymous = false; state.signIn.mockReset().mockResolvedValue(undefined);
   state.roleError = null; state.retryRole.mockReset();
   state.aggregate = null;
   state.ridesLoading = false; state.ridesError = null; state.retryRides.mockReset();
@@ -45,6 +53,25 @@ beforeEach(() => {
   Object.assign(auth, { currentUser: { uid: "owner" } });
 });
 describe("group post editing", () => {
+  it("keeps anonymous shared-link visitors on the public login path and resumes member access after real sign-in", async () => {
+    state.isAnonymous = true;
+    state.roleError = new Error("a guest must not reach the member error branch");
+    const view = render(<Page />);
+    expect(await screen.findByText("Public club preview")).toBeInTheDocument();
+    expect(useGroup).toHaveBeenLastCalledWith(undefined, ":leader");
+    expect(useGroupMemberRole).toHaveBeenLastCalledWith("group-1", undefined);
+    expect(screen.queryByTestId("C1-0-3")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("C1-3-1")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+    await waitFor(() => expect(state.signIn).toHaveBeenCalledTimes(1));
+    expect(mockCallableInvocations.some(call => call.name === "joinGroupPublic")).toBe(false);
+    state.isAnonymous = false; state.roleError = null;
+    view.rerender(<Page />);
+    await waitFor(() => expect(screen.getByTestId("C1-3-1")).toBeInTheDocument());
+    expect(useGroupMemberRole).toHaveBeenLastCalledWith("group-1", "owner");
+    expect(screen.queryByTestId("public-club-preview")).not.toBeInTheDocument();
+  });
+
 
   it("identifies distance sums and explains the maximum combined group ride", async () => {
     state.aggregate = { lifetimeDistance: 522000, lifetimeRideCount: 3, longestRideDistance: 306600 };
@@ -88,7 +115,7 @@ describe("group post editing", () => {
     expect(screen.getByTestId("C1-3-1")).toHaveValue("New draft");
   });
   it("shows a recoverable upcoming-events error instead of silently dropping the section",async()=>{
-    vi.mocked(getDocs).mockRejectedValueOnce(new Error("events offline"));render(<Page/>);
+    setCallableImplementation("listVisibleEventEnvelopes",()=>{throw new Error("events offline");});render(<Page/>);
     expect(await screen.findByText("다가오는 이벤트를 불러오지 못했습니다.")).toBeInTheDocument();
     fireEvent.click(within(screen.getByTestId("C1-4")).getByRole("button",{name:/다시/}));
     await waitFor(()=>expect(screen.queryByText("다가오는 이벤트를 불러오지 못했습니다.")).not.toBeInTheDocument());
@@ -121,7 +148,7 @@ describe("group post editing", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "취소", exact: true }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(state.showToast).not.toHaveBeenCalled();
-    expect(ensureAppCheckReady).not.toHaveBeenCalled();
+    expect(mockCallableInvocations.some(call=>call.name==="reportGroupPost")).toBe(false);
   });
   it("does not expose a private club introduction or rules to a nonmember", () => {
     state.role = null; state.visibility = "private";
@@ -228,7 +255,7 @@ describe("club statistics failure isolation", () => {
   it.each(["loading", "unavailable", "error"])("keeps independent club content while statistics are %s", async statsState => {
     state.ridesLoading = statsState === "loading";
     state.ridesError = statsState === "loading" ? null : statsState;
-    setCollectionDocs("events", [{ id: "event-survives", info: { name: "Independent upcoming event", status: "OPEN", startTime: Date.now() + 86400000 } }]);
+    setCollectionDocs("events", [{ id: "event-survives", info: { name: "Independent upcoming event", groupId: "group-1", status: "OPEN", startTime: Date.now() + 86400000 } }]);
     render(<Page />);
     expect(screen.getByText("Private introduction")).toBeInTheDocument();
     expect(screen.getByText("Private rules")).toBeInTheDocument();

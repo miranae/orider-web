@@ -12,7 +12,7 @@ import { analysisCoordinates, analysisDomain, analysisPlotPoints, analysisObserv
 import type { ElevationChartProps } from "./ElevationChart";
 import "../theme/charts/analysisTimeline.css";
 
-export interface AnalysisLaneLabel { label: string; maximum: string; average?: string; current: string; unit: string; formatScale?: (value: number) => string }
+export interface AnalysisLaneLabel { maximumLabel?: string; averageLabel?: ReactNode; label: string; maximum: string; average?: string; current: string; unit: string; formatScale?: (value: number) => string }
 export interface AnalysisChartPresentation {
   /** raw_parts 고도 관측의 실제 경과 시각. 모든 값은 차트의 표본 인덱스와 대응한다. */
   elevationObservationTimeSec?: readonly number[];
@@ -27,6 +27,8 @@ export interface AnalysisChartPresentation {
   canonicalRange?: [number, number];
   hoverIndex?: number | null;
   visualRange?: [number, number] | null;
+  /** Exact elapsed viewport; sample handles remain only interaction anchors. */
+  elapsedViewport?: { startOffsetSec: number; endOffsetSec: number } | null;
   onVisualRangeChange?: (range: [number, number] | null) => void;
   axisControls?: ReactNode;
   controls?: ReactNode;
@@ -43,8 +45,11 @@ export default function ElevationChartAnalysis({ data, overlays = [], elapsedAxi
   const coordinate = analysisCoordinates(data, elapsedAxisSec, xAxis === "elapsed", units === "imperial");
   const axis = coordinate.values;
   const selected = orderedChartRange(p.visualRange, data.length);
-  const domain = analysisDomain(axis, selected);
   const fullDomain = analysisDomain(axis);
+  const exact = p.elapsedViewport;
+  const domain: [number, number] = coordinate.elapsed && exact && Number.isFinite(exact.startOffsetSec) && Number.isFinite(exact.endOffsetSec)
+    && exact.startOffsetSec / 60 >= fullDomain[0] && exact.endOffsetSec / 60 <= fullDomain[1] && exact.endOffsetSec > exact.startOffsetSec
+    ? [exact.startOffsetSec / 60, exact.endOffsetSec / 60] : analysisDomain(axis, selected);
   const timelineRef = useRef<HTMLDivElement>(null);
   const [plotWidth, setPlotWidth] = useState(0);
   useEffect(() => {
@@ -121,7 +126,7 @@ export default function ElevationChartAnalysis({ data, overlays = [], elapsedAxi
     }
     ctx.restore();
   } }).current;
-  const label = (value: AnalysisLaneLabel) => <div className="analysis-timeline-label"><Text variant="bodySmall" weight={600}>{value.label}</Text><Text variant="caption" tone="tertiary">{p.maximumLabel} {value.maximum}</Text>{value.average !== undefined && <Text variant="caption" tone="tertiary">{p.averageLabel} {value.average}</Text>}</div>;
+  const label = (value: AnalysisLaneLabel) => <div className="analysis-timeline-label"><Text variant="bodySmall" weight={600}>{value.label}</Text><Text variant="caption" tone="tertiary">{value.maximumLabel ?? p.maximumLabel} {value.maximum}</Text>{value.average !== undefined && <Text variant="caption" tone="tertiary">{value.averageLabel ?? p.averageLabel} {value.average}</Text>}</div>;
   const options = (overview: boolean) => ({ responsive: true, maintainAspectRatio: false, animation: false as const, parsing: false as const,
     layout: { padding: 0 }, events: [], plugins: { legend: { display: false }, tooltip: { enabled: false } },
     scales: { x: { type: "linear" as const, min: (overview ? fullDomain : domain)[0], max: (overview ? fullDomain : domain)[1], display: false },

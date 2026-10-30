@@ -3,7 +3,7 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Activity } from "@shared/types";
 import { useStageActivityPowerDuration } from "../../../hooks/useStageActivityPowerDuration";
-import { Button, Input, Text } from "../../../theme";
+import { Button, Input, Select, Text } from "../../../theme";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { formatElapsedBoundary } from "./activityRangeSelection";
 export default function StageActivityPowerDurationPanel({ activity, scopeKey = "" }: { activity: Activity; scopeKey?: string }) {
@@ -11,7 +11,8 @@ export default function StageActivityPowerDurationPanel({ activity, scopeKey = "
   const [draft, setDraft] = useState("17");
   const tool = useStageActivityPowerDuration(activity, draft, scopeKey);
   if (!tool.available) return null;
-  const result = tool.response?.result;
+  const displayedResponse = tool.selectedResponse ?? (tool.response?.result?.state === "available" ? tool.response : tool.savedResponse);
+  const result = displayedResponse?.result;
   return <details className="activity-growth-evidence text-[length:var(--fs-md)]">
     <summary className="cursor-pointer py-3 font-semibold">{t("stagePowerDuration.title")}</summary>
     <div className="space-y-3 pt-3">
@@ -31,7 +32,9 @@ export default function StageActivityPowerDurationPanel({ activity, scopeKey = "
         {tool.metadata.maxIntegerDurationSeconds === 0 && <Text as="p" variant="bodyMedium">{t("stagePowerDuration.noWindow")}</Text>}
       </>}
       {tool.response?.state === "unavailable" && <Text as="p" variant="bodyMedium">{t(tool.reloadRequired ? "stagePowerDuration.changed" : "stagePowerDuration.noWindow")}</Text>}
+      {(tool.previousResponses?.length ?? 0) > 0 && <label>{t("stagePowerDuration.history")}<Select value={tool.selectedIndex ?? "current"} onChange={event => tool.selectPrevious(event.target.value === "current" ? null : Number(event.target.value))}><option value="current">{t("stagePowerDuration.latest")}</option>{tool.previousResponses.map((old, index) => <option key={index} value={index}>{t("stagePowerDuration.previous", { count: index + 1 })} · {old.result?.requestedDurationSeconds}s</option>)}</Select></label>}
       {result?.state === "available" && <section className="space-y-2" aria-label={t("stagePowerDuration.result")}>
+        {displayedResponse !== tool.response && <Text as="p" role="status">{t("stagePowerDuration.previousResult")}</Text>}
         <Text as="p" variant="dataMedium" weight={600}>{new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 2 }).format(result.maxAveragePowerW)} W · {formatElapsedBoundary(result.requestedDurationSeconds)}</Text>
         {result.powerSource === "stored_native_watts_unverified" && <Text as="p" variant="bodyMedium" tone="secondary">{t("stagePowerDuration.storedOrigin")}</Text>}
         <Text as="p" variant="bodyMedium">{t("stagePowerDuration.window", { start: formatElapsedBoundary(result.windowStartElapsedSec), end: formatElapsedBoundary(result.windowEndElapsedSec) })}</Text>
@@ -40,9 +43,9 @@ export default function StageActivityPowerDurationPanel({ activity, scopeKey = "
           <Text as="p" variant="bodyMedium" tone="secondary">{t("stagePowerDuration.slots")}</Text>
           <Text as="p" variant="bodyMedium" tone="secondary">{t("stagePowerDuration.unknown")}</Text>
           <Text as="p" variant="bodyMedium" tone="secondary">{t("stagePowerDuration.separate")}</Text>
-          {tool.response?.source?.qualification === "legacy_manifest_revision_and_gcs_token_pinned" && <Text as="p" variant="bodyMedium" tone="secondary">{t("stagePowerDuration.legacy")}</Text>}
+          {displayedResponse?.source?.qualification === "legacy_manifest_revision_and_gcs_token_pinned" && <Text as="p" variant="bodyMedium" tone="secondary">{t("stagePowerDuration.legacy")}</Text>}
         </details>
-        <PowerEffortPreferencePanel ownerUid={activity.userId} mode="stage_power_effort_adjusted_v1" activityIds={[activity.id]} periods={[]} durationSeconds={result.requestedDurationSeconds} scopeKey={JSON.stringify([scopeKey, tool.response?.source])}/>
+        <PowerEffortPreferencePanel ownerUid={activity.userId} mode="stage_power_effort_adjusted_v1" activityIds={[activity.id]} periods={[]} durationSeconds={result.requestedDurationSeconds} scopeKey={JSON.stringify([scopeKey, displayedResponse?.source])}/>
       </section>}
     </div>
   </details>;

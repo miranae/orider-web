@@ -9,19 +9,19 @@ import { Button, ChartFrame, Select, Stat, Text } from "../../theme";
 import { formatPace } from "../../utils/units";
 
 /** 확정 서버 값만 표시한다. 속도에서 거리별 최고 기록이나 위치를 추정하지 않는다. */
-export default function RunEffortsPanel({ metrics, ready, facts, onSelectEffort, isOwner = false }: { metrics: ActivityMetricsDoc; ready: boolean; isOwner?: boolean; facts?: RunningBestEffortsFacts; onSelectEffort?: (range: { startOffsetSec: number; endOffsetSec: number }) => void }) {
+export default function RunEffortsPanel({ metrics, ready, previousAnalysis = false, facts, onSelectEffort, isOwner = false }: { metrics: ActivityMetricsDoc; ready: boolean; previousAnalysis?: boolean; isOwner?: boolean; facts?: RunningBestEffortsFacts; onSelectEffort?: (range: { startOffsetSec: number; endOffsetSec: number }) => void }) {
   const { t } = useTranslation("activity");
   const { units } = useLocale();
   const id = useId();
   const [duration, setDuration] = useState(300);
-  const settled = ready && metrics.discipline === "run" && metrics.inputPending !== true && metrics.inputCoverage === "complete";
+  const settled = (ready || previousAnalysis) && metrics.discipline === "run" && metrics.inputPending !== true && metrics.inputCoverage === "complete";
   const curve = settled ? runningPaceCurve(metrics) : { sourceBasis: null, points: [] };
   const points = curve.points;
   const records = settled ? RUN_DISTANCES.flatMap(key => {
     const seconds = metrics.runMetrics?.distanceRecords?.[key];
     return typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0 ? [{ key, seconds }] : [];
   }) : [];
-  const anchorFor = (key: keyof typeof RUN_DISTANCE_M, seconds: number) => settled && onSelectEffort && facts?.state === "available" ? facts.facts.find(fact => fact.distance === key && fact.elapsedSec === seconds && fact.endOffsetSec <= metrics.durationSec && fact.startOffsetSec >= 0) : undefined;
+  const anchorFor = (key: keyof typeof RUN_DISTANCE_M, seconds: number) => ready && settled && onSelectEffort && facts?.state === "available" ? facts.facts.find(fact => fact.distance === key && fact.elapsedSec === seconds && fact.endOffsetSec <= metrics.durationSec && fact.startOffsetSec >= 0) : undefined;
   const hasAnchors = records.some(record => !!anchorFor(record.key, record.seconds));
   const selected = points.find(point => point.durationSeconds === duration) ?? points[0];
   const pace = (seconds: number) => formatPace(seconds, units);
@@ -37,6 +37,7 @@ export default function RunEffortsPanel({ metrics, ready, facts, onSelectEffort,
   return <details className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3" data-testid="run-efforts">
     <summary className="cursor-pointer font-semibold text-[length:var(--fs-md)] py-3" style={{ minHeight: "var(--space-8)" }}>{t("runEfforts.title")}</summary>
     <div className="space-y-4 pt-3">
+      {previousAnalysis && <Text as="p" variant="bodySmall" tone="secondary">{t("detail.previousAnalysisValue")}</Text>}
       {!settled ? <Text as="p" variant="bodySmall" tone="secondary">{t("runEfforts.pending")}</Text> : <>
         <ChartFrame variant="embedded" header={<Text as="h3" variant="subtitle">{t("runEfforts.curveTitle")}</Text>}>
           {selected ? <div className="space-y-3">
