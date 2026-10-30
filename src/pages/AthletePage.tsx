@@ -196,7 +196,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   // Friend state: 'none' | 'request_sent' | 'request_received' | 'friends'
   const [friendStatus, setFriendStatus] = useState<"none" | "request_sent" | "request_received" | "friends">("none");
-  const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && !profileLoading && (profileForPage?.profilePublic === true || friendStatus === "friends"), true);
+  const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && !profileLoading && (profileForPage?.profilePublic !== false || friendStatus === "friends"), true);
   const chartActivities = isOwnProfile ? ownChartActivities : publicGlobal.items;
   const chartLoading = isOwnProfile ? ownChartLoading : publicGlobal.status === "loading";
   const chartError = isOwnProfile ? ownChartError : publicGlobal.status !== "complete";
@@ -249,7 +249,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   useEffect(() => {
     if (!userId) return;
     if (profileLoading && !ownProfileFallback) return;
-    if (profileForPage?.profilePublic !== true && !isOwnProfile && friendStatus !== "friends") {
+    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
       setActivitiesLoading(false);
       setDisplayActivities([]);
       setLastActivityDoc(null);
@@ -308,7 +308,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     setChartError(false);
     setChartLoading(true);
     if (!isOwnProfile || !userId || (profileLoading && !ownProfileFallback)) return;
-    if (profileForPage?.profilePublic !== true && !isOwnProfile && friendStatus !== "friends") {
+    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
       setChartLoading(false);
       return;
     }
@@ -337,7 +337,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   useEffect(() => {
     if (!searchQuery || !userId) return;
     if (profileLoading && !ownProfileFallback) return;
-    if (profileForPage?.profilePublic !== true && !isOwnProfile && friendStatus !== "friends") {
+    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
       setSearchResults([]);
       setSearchLoading(false);
       return;
@@ -398,7 +398,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const handleLoadMoreActivities = async () => {
     if (!userId || (!lastActivityDoc && !publicActivityCursor) || loadingMore) return;
     if (profileLoading && !ownProfileFallback) return;
-    if (profileForPage?.profilePublic !== true && !isOwnProfile && friendStatus !== "friends") return;
+    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") return;
     setLoadingMore(true);
     const identity = profileReadIdentity.current;
     try {
@@ -434,7 +434,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   useEffect(() => {
     if (!userId) return;
     if (profileLoading && !ownProfileFallback) return;
-    if (profileForPage?.profilePublic !== true && !isOwnProfile && friendStatus !== "friends") {
+    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
       setMySegments([]); setSegmentsMore(false); setSegmentCursor(null);
       return;
     }
@@ -615,8 +615,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   const nickname = profileForPage?.nickname;
   const photoURL = profileForPage?.photoURL ?? null;
-  // 세부 정보는 공개를 직접 켠 사용자만 — 미설정은 비공개(설정 화면·서버 투영과 같은 기준)
-  const canViewProfile = isOwnProfile || profileForPage?.profilePublic === true || friendStatus === "friends";
+  // 프로필은 기본 공개 — 공개를 직접 끈 사용자만 비공개(설정 화면·서버 투영과 같은 기준)
+  const canViewProfile = isOwnProfile || profileForPage?.profilePublic !== false || friendStatus === "friends";
   const canViewFriends = isOwnProfile;
   const canSendFriendRequest = profileForPage?.friendRequestsAllowed !== false;
   const activities = displayActivities.map((a) =>
@@ -675,7 +675,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     );
   }
 
-  if (profileForPage?.profilePublic !== true && !canViewProfile && relationshipLoading) {
+  if (profileForPage?.profilePublic === false && !canViewProfile && relationshipLoading) {
     return (
       <div className="space-y-6">
         <Card padding="none" className="rounded-[var(--r-lg)] p-8 text-center text-[var(--ink-3)]">

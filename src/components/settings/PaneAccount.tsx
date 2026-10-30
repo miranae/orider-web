@@ -51,7 +51,7 @@ export function PaneAccount() {
 
   const [bio, setBio] = useState(profile?.bio ?? "");
   const [bioSaving, setBioSaving] = useState(false);
-  const [profilePublic, setProfilePublic] = useState(profile?.profilePublic ?? false);
+  const [profilePublic, setProfilePublic] = useState(profile?.profilePublic ?? true);
   const [leaderboardOptIn, setLeaderboardOptIn] = useState(profile?.leaderboardOptIn ?? false);
   const [friendRequestsAllowed, setFriendRequestsAllowed] = useState(
     profile?.friendRequestsAllowed ?? true,
@@ -67,7 +67,7 @@ export function PaneAccount() {
 
   useEffect(() => {
     setBio(profile?.bio ?? "");
-    setProfilePublic(profile?.profilePublic ?? false);
+    setProfilePublic(profile?.profilePublic ?? true);
     setLeaderboardOptIn(profile?.leaderboardOptIn ?? false);
     setFriendRequestsAllowed(profile?.friendRequestsAllowed ?? true);
   }, [

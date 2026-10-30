@@ -279,7 +279,7 @@ describe("AthletePage", () => {
     });
   });
 
-  it("treats profiles without a visibility setting as private", async () => {
+  it("treats profiles without a visibility setting as public", async () => {
     const profile = createMockProfile({ nickname: "미설정 라이더" });
     delete (profile as { profilePublic?: boolean }).profilePublic;
     setDocData("users_public/athlete-1", { ...profile });
@@ -289,9 +289,9 @@ describe("AthletePage", () => {
       user: { uid: "current-user" },
     });
 
-    await waitFor(() => {
-      expect(screen.getByText("비공개 프로필입니다")).toBeInTheDocument();
-    });
+    // 스트라바처럼 프로필 기본 공개 — 미설정 사용자는 비공개 카드가 아니라 프로필을 보여 준다
+    expect(await screen.findByTestId("P0-0-1")).toHaveTextContent("미설정 라이더");
+    expect(screen.queryByText("비공개 프로필입니다")).not.toBeInTheDocument();
   });
 
   it("restricts private profiles for non-friends", async () => {

@@ -124,6 +124,16 @@ describe("PaneAccount nickname save", () => {
     expect(screen.getByRole("button", { name: "pane.account.deleteBtnLabel" })).toBeInTheDocument();
   });
 
+  it("shows the public profile toggle on when the setting was never chosen, off only when explicitly disabled", () => {
+    // 스트라바처럼 프로필 기본 공개 — 서버 투영(profilePublic !== false)과 같은 기준
+    const view = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    expect(screen.getByRole("switch", { name: "privacy.profilePublicInline" })).toBeChecked();
+    view.unmount();
+    mocks.profile = { nickname: "Old Name", profilePublic: false };
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    expect(screen.getByRole("switch", { name: "privacy.profilePublicInline" })).not.toBeChecked();
+  });
+
   it("opens deletion guidance without executing a destructive operation", () => {
     render(<MemoryRouter><PaneAccount /></MemoryRouter>);
     fireEvent.click(screen.getByRole("button", { name: "pane.account.deleteBtnLabel" }));
