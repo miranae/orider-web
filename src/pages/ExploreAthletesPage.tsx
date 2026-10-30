@@ -182,7 +182,7 @@ export default function ExploreAthletesPage() {
       {heading}
       <div data-testid="E5.guest" className="explore-people-guest">
         <Text as="p" tone="secondary">{t("search.loginRequired")}</Text>
-        <CoachSignInButton />
+        <CoachSignInButton label={t("search.loginAction")} />
       </div>
     </div>;
   }

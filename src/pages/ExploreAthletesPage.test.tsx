@@ -42,6 +42,8 @@ beforeEach(() => {
 it("asks guests and anonymous users to sign in without searching", async () => {
   renderPage("/ko/explore/athletes?q=moon", { authenticated: false });
   expect(await screen.findByTestId("E5.guest")).toHaveTextContent("사람을 찾으려면 로그인이 필요해요.");
+  // 코치 화면 문구(기록을 저장하려면 로그인)가 아니라 사람 찾기 맥락의 행동 문구
+  expect(screen.getByRole("button", { name: "로그인하고 사람 찾기" })).toBeInTheDocument();
   renderPage("/ko/explore/athletes?q=moon", { authenticated: true, user: { isAnonymous: true } });
   expect(screen.queryByRole("search")).not.toBeInTheDocument();
   expect(search).not.toHaveBeenCalled();
