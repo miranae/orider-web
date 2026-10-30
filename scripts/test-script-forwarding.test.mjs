@@ -26,6 +26,7 @@ const contracts = [
   'scripts/test-script-forwarding.test.mjs',
   'scripts/merge-check-policy.test.mjs',
   'scripts/merge-review.test.mjs',
+  'scripts/merge-gate-report.test.mjs',
   'scripts/sync-main-to-dev.test.mjs',
   'scripts/production-monitor.test.mjs',
 ];
