@@ -11,7 +11,7 @@ import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import {
   collection, query, where, orderBy, getDocs, limit, startAfter,
-  doc, getDoc, setDoc,
+  doc, getDoc,
   type QueryDocumentSnapshot, type DocumentData,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -23,7 +23,7 @@ import { firestore, functions } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useDocument } from "../hooks/useFirestore";
 import { useMyGroups } from "../hooks/useGroup";
-import { cancelFriendRequest } from "../hooks/useFriends";
+import { cancelFriendRequest, sendFriendRequest } from "../hooks/useFriends";
 import { useAuth } from "../contexts/AuthContext";
 import { Activity as ActivityIcon, Route, Clock3, Mountain, Pencil, Share2, ArrowUpRight, Trash2 } from "lucide-react";
 import TabNav, { RouteTabNav } from "../components/TabNav";
@@ -534,12 +534,11 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     if (!currentUser || !userId || friendLoading) return false;
     setFriendLoading(true);
     try {
-      await setDoc(doc(firestore, "friend_requests", userId, "items", currentUser.uid), {
-        requesterId: currentUser.uid,
+      await sendFriendRequest({
+        uid: currentUser.uid,
         nickname: currentProfile?.nickname || currentUser.displayName || "",
         profileImage: currentProfile?.photoURL || currentUser.photoURL || null,
-        createdAt: Date.now(),
-      });
+      }, userId);
       setFriendStatus("request_sent");
       return true;
     } catch (err) {
@@ -616,6 +615,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   const nickname = profileForPage?.nickname;
   const photoURL = profileForPage?.photoURL ?? null;
+  // 프로필은 기본 공개 — 공개를 직접 끈 사용자만 비공개(설정 화면·서버 투영과 같은 기준)
   const canViewProfile = isOwnProfile || profileForPage?.profilePublic !== false || friendStatus === "friends";
   const canViewFriends = isOwnProfile;
   const canSendFriendRequest = profileForPage?.friendRequestsAllowed !== false;
@@ -697,20 +697,41 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     return (
       <div data-testid="P0.private" className="space-y-6">
         <Card padding="none" className="rounded-[var(--r-lg)] p-8 text-center">
+          {/* 사진·닉네임은 기본 공개 — 누구의 프로필인지는 보여 준다 */}
+          {nickname && <div data-testid="P0.private-identity" className="mb-4 flex flex-col items-center gap-2">
+            {photoURL ? <SafeImage src={photoURL} alt={nickname} fallbackLabel={nickname} className="athlete-identity__photo" referrerPolicy="no-referrer" /> : <Avatar name={nickname} size="lg" />}
+            <h1 className="text-[length:var(--fs-xl)] font-bold text-[var(--ink-0)]">{nickname}</h1>
+          </div>}
           <div className="text-[length:var(--fs-lg)] font-semibold text-[var(--ink-0)]">
             {t("privacy.privateTitle")}
           </div>
           <div className="mt-2 text-[length:var(--fs-sm)] text-[var(--ink-3)]">
             {t("privacy.privateDesc")}
           </div>
-          {currentUser && canSendFriendRequest && friendStatus === "none" && (
-            <Button
-              onClick={handleSendFriendRequest}
-              disabled={friendLoading}
-              className={`mt-5 ${friendLoading ? 'cursor-wait' : ''}`}
-            >
-              {friendLoading ? t("friend.requesting") : t("friend.request")}
-            </Button>
+          {currentUser && (
+            <div className="mt-5 flex justify-center gap-2">
+              {friendStatus === "none" && canSendFriendRequest && (
+                <Button
+                  onClick={handleSendFriendRequest}
+                  disabled={friendLoading}
+                  className={friendLoading ? 'cursor-wait' : undefined}
+                >
+                  {friendLoading ? t("friend.requesting") : t("friend.request")}
+                </Button>
+              )}
+              {friendStatus === "request_sent" && (
+                <Button variant="secondary" onClick={handleCancelRequest} disabled={friendLoading}>{friendLoading ? t("friend.cancelling") : t("friend.cancelRequest")}</Button>
+              )}
+              {friendStatus === "request_received" && (
+                <Button
+                  onClick={handleAcceptRequest}
+                  disabled={friendLoading}
+                  className={friendLoading ? 'cursor-wait' : undefined}
+                >
+                  {friendLoading ? t("friend.accepting") : t("friend.accept")}
+                </Button>
+              )}
+            </div>
           )}
         </Card>
       </div>
