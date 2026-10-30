@@ -4,6 +4,7 @@ const m = vi.hoisted(() => ({ user: { uid: "owner" }, services: {}, load: vi.fn(
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: m.user }) }));
 vi.mock("../../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => m.services }));
 vi.mock("../../services/activityMapPrivacy", () => ({ createActivityMapPrivacyClient: () => ({ load: m.load, preview: m.preview, save: m.save }) }));
+vi.mock("./ActivityMapThumbnailResetControl", () => ({ default: () => <button>지도 썸네일 지우기</button> }));
 vi.mock("../RouteMap", () => ({ default: ({ polyline }: { polyline: string }) => <div data-testid="safe-map">{polyline}</div> }));
 const current = { activityId: "a", revision: "r1", revocationPending: false, visibility: "everyone", settings: { startMeters: 0, endMeters: 0 }, mapPreview: { encodedPolyline: "current", imageUrl: null }, state: "available", policy: "endpoint_radius_longest_safe_section_v1" };
 beforeEach(() => { vi.clearAllMocks(); m.user = { uid: "owner" }; m.load.mockResolvedValue(current); m.preview.mockResolvedValue({ ...current, mapPreview: { encodedPolyline: "preview", imageUrl: null } }); m.save.mockResolvedValue({ ...current, revision: "r2", settings: { startMeters: 250, endMeters: 0 } }); });
@@ -35,4 +36,12 @@ it("cancel returns keyboard focus to the opening control", async () => {
  await waitFor(() => expect(screen.getByLabelText("시작 지점 보호 반경 (m)")).toHaveFocus());
  fireEvent.click(screen.getByRole("button", { name: "취소" }));
  expect(screen.getByRole("button", { name: "공개 지도 보호 설정" })).toHaveFocus(); expect(screen.queryByTestId("safe-map")).toBeNull();
+});
+it("offers the thumbnail reset only when a published thumbnail exists", async () => {
+ const { unmount } = render(<ActivityMapPrivacyControl activityId="a" />); await open();
+ expect(screen.queryByRole("button", { name: "지도 썸네일 지우기" })).not.toBeInTheDocument(); unmount();
+ m.load.mockResolvedValue({ ...current, mapPreview: { encodedPolyline: "current", imageUrl: "https://example.com/a.webp" } });
+ render(<ActivityMapPrivacyControl activityId="a" />);
+ expect(screen.queryByRole("button", { name: "지도 썸네일 지우기" })).not.toBeInTheDocument();
+ await open(); expect(screen.getByRole("button", { name: "지도 썸네일 지우기" })).toBeInTheDocument();
 });
