@@ -574,27 +574,33 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   // 페이지 헤더 — PageHeader 패턴. const 로 추출해 loading/error/empty/정상 4상태가
   // 동일 헤더를 공유한다. 콜드 진입 시 차트 데이터가 도착하기 전에도 헤더(h1)가 즉시
   // 페인트돼 LCP 요소가 늦게 뜨는 차트가 아닌 정적 헤더로 고정 → LCP 꼬리 제거.
+  const eyebrowLine = (
+    <Text as="div" variant="caption" className="fitness-page-header__eyebrow">
+      <span>{t("header.eyebrow", { date: formatMonthDay(i18n.language) })}</span>
+      {(revalidating || justRecomputed) && <span data-testid="K1-0-4"><RevalidatingIndicator
+        visible={revalidating || justRecomputed}
+        mode={revalidating ? "updating" : "success"}
+      /></span>}
+    </Text>
+  );
   const pageHeader = (
-    <div data-testid={part === "analysis" ? "K5-0" : "K1-0"} className={part === "condition" ? "site-shell condition-page-header" : "site-shell"} style={{ padding: "var(--space-4) var(--space-6) var(--space-3)", borderBottom: "1px solid var(--line-soft)", display: "flex", alignItems: "flex-end", gap: 'var(--space-6)' }}>
-      <div style={{ flex: 1 }}>
-        <Text as="div" variant="caption" style={{ marginBottom: 'var(--space-2)', display: "flex", alignItems: "center", gap: 'var(--space-3)' }}>
-          <span>{t("header.eyebrow", { date: formatMonthDay(i18n.language) })}</span>
-          {(revalidating || justRecomputed) && <span data-testid="K1-0-4"><RevalidatingIndicator
-            visible={revalidating || justRecomputed}
-            mode={revalidating ? "updating" : "success"}
-          /></span>}
-        </Text>
-        <Text data-testid={part === "analysis" ? "K5-0-1" : "K1-0-1"} as="h1" variant="pageTitle" style={{ marginBottom: "var(--space-1-5)" }}>
-          {t(part === "analysis" ? "analysis.header.title" : part === "condition" ? "condition.header.title" : "header.title")}
-        </Text>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-1) var(--space-3)", color: "var(--ink-2)", fontSize: "var(--fs-sm)" }}>
-          <span>{subtitle}</span>
-          {goalForecast && <Link to={`/coach/plan?sport=${discipline}`} aria-label={t("header.subtitle.goalShort", goalForecast)} style={{ color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}>
-            {t("header.subtitle.goalShort", goalForecast)} →
-          </Link>}
+    <div data-testid={part === "analysis" ? "K5-0" : "K1-0"} className={part === "condition" ? "site-shell fitness-page-header condition-page-header" : "site-shell fitness-page-header"}>
+      {/* 제목 줄: 제목·날짜 + 종목 전환(오른쪽 끝). 부제·기간 선택은 아래 줄 — 다른 코치 화면과 같은 규칙·같은 높이. */}
+      <div className="fitness-page-header__title-row">
+        <div className="fitness-page-header__heading">
+          <Text data-testid={part === "analysis" ? "K5-0-1" : "K1-0-1"} as="h1" variant="pageTitle">
+            {t(part === "analysis" ? "analysis.header.title" : part === "condition" ? "condition.header.title" : "header.title")}
+          </Text>
+          {eyebrowLine}
         </div>
+        <div data-testid={part === "analysis" ? "K5-0-2" : "K1-0-2"}><DisciplineTabs includeTri disabledKeys={part === "condition" || part === "analysis" ? ["swim"] : []} /></div>
       </div>
-      <div data-testid={part === "analysis" ? "K5-0-2" : "K1-0-2"}><DisciplineTabs includeTri disabledKeys={part === "condition" || part === "analysis" ? ["swim"] : []} /></div>
+      <div className="fitness-page-header__subtitle">
+        <span>{subtitle}</span>
+        {goalForecast && <Link to={`/coach/plan?sport=${discipline}`} aria-label={t("header.subtitle.goalShort", goalForecast)} style={{ color: "var(--accent)", fontWeight: 600, whiteSpace: "nowrap" }}>
+          {t("header.subtitle.goalShort", goalForecast)} →
+        </Link>}
+      </div>
       {periodControls}
     </div>
   );
