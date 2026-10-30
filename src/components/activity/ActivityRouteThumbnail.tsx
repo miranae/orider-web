@@ -126,8 +126,8 @@ function storeRouteSnapshot(owner: string, activityId: string, key: string, url:
 
 /**
  * 현재 경로와 렌더 버전으로 만든 canonical 캡처만 이미지로 재사용한다. 그 외에는
- * 로그인 여부와 무관하게 같은 RouteMap을 표시한다. 레거시는 기존 viewer 정책을 유지하고,
- * revision-managed 활동은 owner만 고정 해상도 WebP를 저장한다.
+ * 로그인 여부와 무관하게 같은 RouteMap을 표시한다. 활동을 볼 수 있는 첫 viewer가
+ * 고정 해상도 WebP를 저장하고, 잘못된 이미지는 주인이 지운다.
  */
 export default function ActivityRouteThumbnail(props: ActivityRouteThumbnailProps) {
   const { t } = useTranslation("activity");
@@ -272,11 +272,9 @@ export function CanonicalActivityRouteThumbnail({
     captured.current = false;
   }, [canonicalFileName, canonicalVersion, revisionIdentity, user?.uid]);
 
-  // Revision-managed 썸네일은 owner만 발행한다. 레거시는 기존 공개/인증 viewer 동작을 유지하고,
+  // 활동을 볼 수 있는 누구나 첫 썸네일을 발행한다(잘못된 이미지는 주인이 지운다).
   // 실제 접근 권한은 prepare/finalize callable이 최신 서버 상태로 최종 강제한다.
-  const mayCapture = revisionState.kind === "managed"
-    ? user?.uid === userId
-    : revisionState.kind === "legacy" && (visibility === "everyone" || !!user);
+  const mayCapture = revisionState.kind !== "invalid" && (visibility === "everyone" || !!user);
   const needsCapture = allowCapture && shape !== "square" && mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
 
   useEffect(() => {

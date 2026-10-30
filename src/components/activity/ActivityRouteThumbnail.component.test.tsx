@@ -188,7 +188,8 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
     expect(nextImage).toHaveStyle({ opacity: "1" });
   });
 
-  it("shows the live route when a canonical image fails to load", async () => {
+  it("shows the live route and recaptures when a canonical image fails to load", async () => {
+    installSuccessfulCoordinator();
     const fileName = "activity-123.r1.route-v2-fcfef7dfc9b21144.webp";
     const mapImageUrl = `https://firebasestorage.googleapis.com/v0/b/test/o/${encodeURIComponent(`map_thumbnails/${baseProps.userId}/${fileName}`)}?alt=media`;
     const { container, queryByTestId } = renderWithProviders(
@@ -205,7 +206,8 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
 
     await waitFor(() => expect(queryByTestId("route-map")).toBeInTheDocument());
     expect(container.querySelector(`img[src="${mapImageUrl}"]`)).not.toBeInTheDocument();
-    expect(thumbnailInvocations()).toEqual([]);
+    // 주인이 지워 404 가 된 이미지는 다음 뷰어가 다시 캡처해 채운다.
+    await waitFor(() => expect(thumbnailInvocations()).toHaveLength(2));
   });
 
   it("shows the live route after a stalled image request and accepts a late image load", async () => {
@@ -274,10 +276,10 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
   it.each([
     { label: "signed-out viewer", authenticated: false, uid: undefined },
     { label: "authenticated non-owner", authenticated: true, uid: "viewer-789" },
-  ])("does not call the managed coordinator for a $label", async ({ authenticated, uid }) => {
+  ])("lets a $label publish the first managed thumbnail", async ({ authenticated, uid }) => {
     installSuccessfulCoordinator();
 
-    const { queryByTestId } = renderWithProviders(
+    renderWithProviders(
       <ActivityRouteThumbnail
         {...baseProps}
         contentRevision={3}
@@ -286,9 +288,9 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
       { authenticated, user: uid ? { uid } : undefined },
     );
 
-    await waitFor(() => expect(queryByTestId("route-map")).toBeInTheDocument());
-    expect(queryByTestId("capture-map")).not.toBeInTheDocument();
-    expect(thumbnailInvocations()).toEqual([]);
+    // 누구나 첫 캡처를 올리고, 잘못된 이미지는 주인이 지운다(서버가 접근 권한을 최종 판정).
+    await waitFor(() => expect(thumbnailInvocations()).toHaveLength(2));
+    expect(thumbnailInvocations()[0]?.data).toMatchObject({ activityId: baseProps.activityId, expectedHeadRevision: 3 });
   });
 
   it.each([

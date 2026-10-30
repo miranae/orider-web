@@ -9,6 +9,7 @@ import { ActivityPublicAccess, type ActivityPublicAccessState } from "../feature
 import type { PublicActivitySessionOptions } from "../hooks/usePublicActivitySession";
 import { createActivityMapPrivacyClient } from "../services/activityMapPrivacy";
 import ActivityMapPrivacyControl from "../components/activity/ActivityMapPrivacyControl";
+import ActivityMapThumbnailResetControl from "../components/activity/ActivityMapThumbnailResetControl";
 import { loadActivityDiscovery } from "../services/activityDiscovery";
 import RouteInventoryReturn from "../features/activity/detail/RouteInventoryReturn";
 import { announceActivityContentChange } from "../services/activityContentChanged";
@@ -1331,6 +1332,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         <NativeActivityMemoEditor key={`${activity.id}:${user?.uid}`} activityId={activity.id}
           onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })} />}
       {isActivityOwner && activeTab === "overview" && <ActivityMapPrivacyControl activityId={activity.id} />}
+      {isActivityOwner && activeTab === "overview" && <ActivityMapThumbnailResetControl activityId={activity.id} />}
       {activeTab === "analysis" && <ActivityReanalysisControl canReanalyze={isActivityOwner} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
       {activeTab === "analysis" && <header className="activity-analysis-intro">
         <div><Text as="h2" variant="title">{t("detail.analysis.title")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("analysisReading.intro")}</Text></div>
