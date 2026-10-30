@@ -27,6 +27,8 @@ const contracts = [
   'scripts/merge-check-policy.test.mjs',
   'scripts/merge-review.test.mjs',
   'scripts/merge-gate-report.test.mjs',
+  'scripts/check-product-invariants.mjs',
+  'scripts/check-product-invariants.test.mjs',
   'scripts/sync-main-to-dev.test.mjs',
   'scripts/production-monitor.test.mjs',
 ];
@@ -44,7 +46,7 @@ const { spawnSync } = require('node:child_process');
 const name = require('node:path').basename(process.argv[1]);
 const args = process.argv.slice(2);
 // npm itself still runs normally; only the leaf tools are recorded/stubbed.
-if (name === 'node' && !args.includes('--test') && !args.some(arg => arg === 'scripts/check-canonical-contract.mjs')) {
+if (name === 'node' && !args.includes('--test') && !args.some(arg => arg === 'scripts/check-canonical-contract.mjs' || arg === 'scripts/check-product-invariants.mjs')) {
   const result = spawnSync(process.execPath, args, { stdio: 'inherit', env: process.env });
   process.exit(result.status ?? 1);
 }
