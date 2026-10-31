@@ -46,4 +46,3 @@ vi.mock("react-router-dom", async importOriginal => ({ ...await importOriginal<t
       expect(mockCallableInvocations.filter(call => /requestActivityReanalysis|refreshActivity/.test(call.name))).toHaveLength(0);
     } finally { vi.mocked(getDoc).mockImplementation(original); Object.assign(auth, { currentUser: undefined }); }
   });
-
