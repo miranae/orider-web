@@ -480,7 +480,7 @@ export default function EventsPage() {
   }
 
   return (
-    <div className="event-controls-surface explore-events-surface site-shell space-y-4" style={{ padding: "0 24px 40px" }}>
+    <div className="event-controls-surface explore-events-surface space-y-4" style={{ paddingBottom: 40 }}>
       {isMobile ? (
         <header className="event-mobile-heading">
           <div>

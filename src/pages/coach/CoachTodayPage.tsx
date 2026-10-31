@@ -17,7 +17,7 @@ import { buildRun30ViewModel, run30DateLabel, run30StatusLabel, run30StatusTone,
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/appStoreLinks";
 import Run30WorkoutOutline from "../../features/training/run30/Run30WorkoutOutline";
 import { Button, Card, Chip, Text, buttonClass } from "../../theme/components";
-import { useCoachFitnessModel } from "./CoachFitnessLayout";
+import { useCoachFitnessModel } from "./CoachFitnessModelContext";
 
 const WEB_START_MODE: Run30StartMode = { kind: "web" };
 export function RunningToday({ state, allowStart = false, startMode = WEB_START_MODE }: {
@@ -58,7 +58,7 @@ export function canUseTodayHelpers(state: TodayTrainingDecisionState, now: numbe
     && Number.isFinite(state.decision.scheduledProjectionValidUntil) && state.decision.scheduledProjectionValidUntil > now;
 }
 
-export default function CoachTodayPage() {
+export default function CoachTodayPage({ startMode }: { startMode?: Run30StartMode } = {}) {
   const model = useCoachFitnessModel();
   const { t, user, discipline, currentPoint, i18n } = model;
   const sport = discipline === "tri" ? "bike" : discipline;
@@ -71,7 +71,7 @@ export default function CoachTodayPage() {
   const pending = newest && !covered.has(newest.id) ? newest : null;
   const dayLoad = pending && model.hasCanonicalTimeseries ? activityDayLoad(pending, model.fitnessData, model.fitnessDateKeyBasis) : null;
   const loading = model.loading || !model.timeseriesLoaded;
-  return <div className="site-shell fitness-reading" style={{ padding: "var(--space-5) var(--space-4)" }}>
+  return <div className="site-shell fitness-reading" style={{ padding: "0 var(--space-4) var(--space-5)" }}>
     {header}
     <PlanRecordNavigation />
     <TodayTrainingDecisionSource user={user} discipline={sport}>{state => {
@@ -97,7 +97,7 @@ export default function CoachTodayPage() {
           {state.unavailableReason === "disabled" && <Text as="p" variant="caption" tone="secondary">{t("today.decisionUnavailable")}</Text>}
           <Link to={`/coach/plan?sport=${sport}`}>{t("today.planLink")}</Link>
         </div>
-        {sport === "run" && <RunningToday state={running} allowStart={canUseTodayHelpers(state, Date.now(), sport)} />}
+        {sport === "run" && <RunningToday state={running} startMode={startMode} allowStart={canUseTodayHelpers(state, Date.now(), sport)} />}
       </>;
     }}</TodayTrainingDecisionSource>
   </div>;

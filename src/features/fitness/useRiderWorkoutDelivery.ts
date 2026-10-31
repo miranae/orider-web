@@ -1,8 +1,8 @@
+import * as defaultClient from "../../services/riderWorkoutDeliveryClient";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  classifyRiderWorkoutDeliveryError, createRiderWorkoutDelivery, subscribeRiderWorkoutDelivery,
-  subscribeRiderWorkoutDevices, subscribeRiderWorkoutDeviceState, type RiderWorkoutDeliveryErrorKind,
-} from "../../services/riderWorkoutDeliveryClient";
+import { classifyRiderWorkoutDeliveryError, createRiderWorkoutDeliveryClient, type RiderWorkoutDeliveryErrorKind } from "../../services/riderWorkoutDeliveryClient";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { useMemo } from "react";
 import {
   canAdvanceRiderWorkoutDeliveryState, canCreateAfterDelivery, deliveryPresentationState,
   type RiderWorkoutDelivery, type RiderWorkoutDeviceRegistration, type RiderWorkoutDeviceState, type RiderWorkoutType,
@@ -16,6 +16,8 @@ function requestId(): string {
 }
 
 export function useRiderWorkoutDelivery(uid: string | null, workoutType: RiderWorkoutType) {
+  const services = useFirebaseServices();
+  const { createRiderWorkoutDelivery, subscribeRiderWorkoutDelivery, subscribeRiderWorkoutDevices, subscribeRiderWorkoutDeviceState } = useMemo(() => services.scope === "embedded" ? createRiderWorkoutDeliveryClient(services) : defaultClient, [services]);
   const [devices, setDevices] = useState<RiderWorkoutDeviceRegistration[]>([]);
   const [devicesLoading, setDevicesLoading] = useState(Boolean(uid));
   const [devicesError, setDevicesError] = useState<Error | null>(null);

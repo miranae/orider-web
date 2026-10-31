@@ -212,9 +212,18 @@ function DashboardContent() {
   const friendIds = useMemo(() => new Set(friends.map((friend) => friend.userId)), [friends]);
   const requestedFeedScope: ActivityFeedScope = user && !user.isAnonymous ? (scopeParam === "all" || scopeParam === "friends" || scopeParam === "self" || scopeParam === "following" ? scopeParam : dashboardPreferences.feedScope) : "all";
   const feedScope = requestedFeedScope === "following" && !ACTIVITY_SUBSCRIPTIONS_ENABLED ? "all" : requestedFeedScope;
+  const sportParam = searchParams.get("sport");
+  const parsedDiscipline = normalizeDashboardDiscipline(sportParam);
+  const requestedDiscipline = sportParam === "all" ? "tri" : parsedDiscipline === "swim" ? "bike" : parsedDiscipline;
+  const requestedSportFilter = sportParam === "all" || parsedDiscipline === "tri" ? "all" : parsedDiscipline ?? dashboardPreferences.sportFilter;
+  const mobileSportFilter = isSportUiEnabled(requestedSportFilter) ? requestedSportFilter : "all";
+  const discipline: Discipline = isMobile ? (mobileSportFilter === "all" ? "tri" : mobileSportFilter) : requestedDiscipline ?? "bike";
+  // 피드 종목: 모바일은 저장된 필터, 데스크톱은 종목 탭(전체 탭은 필터 없음). 서버 쿼리와 화면 판정이 같은 값을 쓴다.
+  const feedSportFilter = isMobile ? mobileSportFilter : discipline === "tri" ? "all" : discipline;
   const subscriptions = useActivitySubscriptions(feedScope === "following");
-  const { activities, loading: activitiesLoading, loadMore, hasMore, loadingMore, error: activitiesError, retry: retryActivities } = useActivities(feedScope, [...friendIds], {
+  const { activities, loading: activitiesLoading, loadMore, hasMore, loadingMore, error: activitiesError, retry: retryActivities, hasUnfilteredActivity } = useActivities(feedScope, [...friendIds], {
     navigationKey: `${feedLocation.key}:${feedLocation.search}`,
+    feedFilters: { sport: feedSportFilter, datePreset: mobileDatePreset },
     enabled: feedScope !== "following" || subscriptions.ready,
     subscriptionIds: subscriptions.ids,
     subscriptionKey: subscriptions.key,
@@ -239,12 +248,6 @@ function DashboardContent() {
     if (queryParam) searchActivities(queryParam, mobileDatePreset);
     else resetActivitySearch();
   }, [queryParam, mobileDatePreset, searchActivities, resetActivitySearch]);
-  const sportParam = searchParams.get("sport");
-  const parsedDiscipline = normalizeDashboardDiscipline(sportParam);
-  const requestedDiscipline = sportParam === "all" ? "tri" : parsedDiscipline === "swim" ? "bike" : parsedDiscipline;
-  const requestedSportFilter = sportParam === "all" || parsedDiscipline === "tri" ? "all" : parsedDiscipline ?? dashboardPreferences.sportFilter;
-  const mobileSportFilter = isSportUiEnabled(requestedSportFilter) ? requestedSportFilter : "all";
-  const discipline: Discipline = isMobile ? (mobileSportFilter === "all" ? "tri" : mobileSportFilter) : requestedDiscipline ?? "bike";
   const selectedDiscipline = isMobile ? mobileSportFilter : discipline;
   const runStats = useWeeklyStats({
     enabled: !isMobile,
@@ -559,8 +562,9 @@ function DashboardContent() {
     subscriptionIds={subscriptions.ids}
     unavailableMessage={feedScope === "following" && subscriptions.unavailable ? t("feed.subscriptionsUnavailable") : undefined}
     feedScope={feedScope}
-    sportFilter={isMobile ? mobileSportFilter : discipline === "tri" ? "all" : discipline}
+    sportFilter={feedSportFilter}
     datePreset={mobileDatePreset}
+    hasUnfilteredActivity={hasUnfilteredActivity}
   />;
   if (isMobile) return activityFeed;
 

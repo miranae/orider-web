@@ -46,3 +46,15 @@ describe("acceptBikeThresholdDecision", () => {
     });
   });
 });
+
+it("uses the embedded callable and App Check provider for app FTP acceptance", async () => {
+  const embeddedFunctions = { app: { name: "orider-embedded" } };
+  const ready = vi.fn().mockResolvedValue(undefined);
+  await acceptBikeThresholdDecision("embedded-owner", {
+    decisionId: "embedded-decision",
+    expectedRevisions: { ftp: "ftp-r2", pdc: "pdc-r2", impactPreview: "impact-r2" },
+  } as Parameters<typeof acceptBikeThresholdDecision>[1], { functions: embeddedFunctions as never, ensureAppCheckReady: ready });
+  expect(ready).toHaveBeenCalledOnce();
+  expect(httpsCallable).toHaveBeenCalledWith(embeddedFunctions, "acceptBikeThresholdDecision");
+  expect(mocks.callable).toHaveBeenLastCalledWith(expect.objectContaining({ expectedUid: "embedded-owner", expectedFtpRevision: "ftp-r2" }));
+});

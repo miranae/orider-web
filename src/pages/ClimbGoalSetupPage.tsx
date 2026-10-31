@@ -11,11 +11,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLocalizedNavigate as useNavigate } from '../hooks/useLocalizedNavigate';
 import PermissionGate from '../components/redesign/states/PermissionGate';
 import { Button, Card, Field, Input, Text } from '../theme/components';
-import { functions } from '../services/firebase';
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { buildClimbGoalRequest, climbGoalDateBounds } from '../features/training/climbGoal';
 import { ICON_SIZE } from '../theme/tokens/icon';
 
 export default function ClimbGoalSetupPage({ embedded = false }: { embedded?: boolean }) {
+  const { functions } = useFirebaseServices();
   const { t } = useTranslation('training');
   const { user, loading: authLoading, signIn } = useAuth();
   const navigate = useNavigate();

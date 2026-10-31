@@ -51,12 +51,15 @@
 .condition-load-section .condition-load-evidence > .condition-period-change { grid-column: 1 / -1; }
 .condition-load-section .condition-load-evidence > div { margin-bottom: 0 !important; }
 
-.condition-page-header { padding-block: var(--space-3) !important; }
-.condition-page-header > div:first-child { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-1) var(--space-3); align-items: baseline; }
-.condition-page-header > div:first-child > :first-child { grid-row: 1; grid-column: 2; margin: 0 !important; }
-/* 제목 크기는 pageTitle(34 Bold) 그대로 — 다른 페이지와 같은 크기 */
-.condition-page-header h1 { grid-row: 1; grid-column: 1; margin: 0 !important; }
-.condition-page-header > div:first-child > :last-child { grid-column: 1 / -1; }
+/* 데스크톱 컨디션·분석 머리 — 제목 줄(제목 + 오른쪽 끝 종목 전환) 아래에 부제·기간 선택. */
+/* 위 여백 0: 다른 코치 머리(.coach-page-header)와 제목 높이를 맞춘다. */
+.fitness-page-header { display: grid; gap: var(--space-1-5); padding: 0 var(--space-6) var(--space-3); border-bottom: 1px solid var(--line-soft); }
+.fitness-page-header__eyebrow { display: flex; align-items: center; gap: var(--space-3); }
+.fitness-page-header__title-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); }
+.fitness-page-header__heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-1) var(--space-3); flex: 1 1 auto; min-width: 0; }
+.fitness-page-header__heading h1 { margin: 0; }
+.fitness-page-header__title-row > div:has(> [role="tablist"]) { margin-inline-start: auto; max-width: 100%; }
+.fitness-page-header__subtitle { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); color: var(--ink-2); font-size: var(--fs-sm); }
 
 .condition-performance-evidence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }
 .condition-performance-evidence-grid > * { min-width: 0; margin-top: 0 !important; }

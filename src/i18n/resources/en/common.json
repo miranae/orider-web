@@ -208,7 +208,8 @@
     "equipment": "Equipment",
     "developerDocs": "Developer Docs",
     "challenges": "Challenges",
-    "records": "Records"
+    "records": "Records",
+    "people": "People"
   },
   "about": {
     "title": "Ride records that lead to the next choice",
@@ -296,26 +297,19 @@
       "placeholder": "Search",
       "submit": "Search",
       "activities": "Activities",
-      "athletes": "Users",
+      "athletes": "People",
       "clubs": "Clubs",
       "courses": "Courses",
       "segments": "Segments",
       "posts": "Posts",
-      "athletesHint": "Search public usernames (nicknames) by their beginning. Case-sensitive.",
+      "athletesHint": "Find people by email, nickname or friend code",
       "clubsHint": "Search public clubs by the beginning of a name. Case-sensitive.",
-      "loading": "Searching…",
-      "failed": "Unable to load search results.",
-      "retry": "Retry",
-      "empty": "No results found.",
-      "more": "Load more",
-      "athletesExactHint": "Search public usernames (nicknames) that exactly match your input. Case-sensitive.",
       "filters": "Search conditions: {{count}}",
       "clear": "Clear search conditions",
       "scope": "Activity scope",
       "following": "Subscribed",
       "date": "Date",
       "sport": "Sport",
-      "match": "Username match",
       "city": "Public club city (exact match)",
       "surface": "Surface",
       "difficulty": "Difficulty",
@@ -334,8 +328,6 @@
       "run": "Running",
       "swim": "Swimming",
       "tri": "Triathlon",
-      "prefix": "Starts with",
-      "exact": "Exact match",
       "paved": "Paved",
       "gravel": "Gravel",
       "mixed": "Mixed",
@@ -530,5 +522,12 @@
   "notif.loginDestination": "Sign in to read this comment. You will return here after signing in.",
   "notif.signIn": "Sign in",
   "notif.targetUnavailable": "This comment was deleted, hidden, or is no longer accessible.",
-  "notif.refreshScope": "Notifications load in pages of 20. Every 30 seconds or on returning to this window, access is rechecked and the latest 20 are shown."
+  "notif.refreshScope": "Notifications load in pages of 20. Every 30 seconds or on returning to this window, access is rechecked and the latest 20 are shown.",
+  "coachPages": {
+    "condition": "Condition",
+    "today": "Today",
+    "analysis": "Analysis",
+    "plan": "Plan",
+    "goals": "Goals"
+  }
 }

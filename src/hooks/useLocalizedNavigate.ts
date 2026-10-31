@@ -1,4 +1,6 @@
 import { useCallback, useRef } from 'react';
+import { useEmbeddedNavigation } from '../embedded/EmbeddedNavigationContext';
+import { embeddedCoachDestination } from '../embedded/coachNavigation';
 import { useNavigate, useParams, useLocation, type NavigateOptions } from 'react-router-dom';
 import { isDetailRoute, resolveDetailHub } from "../config/navHubs";
 import { stripLangPrefix, SUPPORTED_LANGS } from '../i18n/detector';
@@ -16,6 +18,9 @@ function hasLangPrefix(path: string) {
 
 export function useLocalizedPath(to: string): string {
   const { lang } = useParams();
+  const location = useLocation();
+  const embedded = embeddedCoachDestination(location.pathname, to);
+  if (embedded) return embedded;
   if (isAbsolute(to)) return to;
   const norm = to.startsWith('/') ? to : '/' + to;
   if (hasLangPrefix(norm)) return norm;
@@ -26,21 +31,26 @@ export function useLocalizedNavigate() {
   const navigate = useNavigate();
   const location = useLocation();
   const { lang } = useParams();
-  const current = useRef({ navigate, location, lang });
-  current.current = { navigate, location, lang };
+  const hostNavigate = useEmbeddedNavigation();
+  const current = useRef({ navigate, location, lang, hostNavigate });
+  current.current = { navigate, location, lang, hostNavigate };
   return useCallback(
     (to: string | number, opts?: NavigateOptions) => {
-      const { navigate, location, lang } = current.current;
+      const { navigate, location, lang, hostNavigate } = current.current;
       if (typeof to === 'number') {
         navigate(to);
         return;
       }
       if (isAbsolute(to)) {
+        if (hostNavigate) { hostNavigate(to); return; }
         window.location.href = to;
         return;
       }
+      const embedded = embeddedCoachDestination(location.pathname, to);
+      if (embedded) { navigate(embedded, opts); return; }
       const norm = to.startsWith('/') ? to : '/' + to;
       const target = hasLangPrefix(norm) ? norm : `/${lang ?? 'ko'}${norm}`;
+      if (hostNavigate && target.split(/[?#]/)[0] !== location.pathname) { hostNavigate(target); return; }
       const hub = resolveDetailHub(stripLangPrefix(location.pathname), location.state);
       const inferState = isDetailRoute(stripLangPrefix(norm.split(/[?#]/)[0]!));
       const state = inferState && (opts?.state === undefined || (opts.state !== null && typeof opts.state === "object"))

@@ -137,6 +137,7 @@ describe("mobile web analysis evidence", () => {
     expect(screen.queryByText("페달링 실측 근거")).not.toBeInTheDocument();
     expect(container.querySelector(".mobile-fitness-riding-metrics")).toBeNull();
     expect(screen.queryByRole("button", { name: "분석" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "분석" })).not.toBeInTheDocument();
   });
   it.each([false, true])("keeps moved period controls collapsed until opened with enabled=%s while waiting for an explicit query", enabled => {
     const before = mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods").length;

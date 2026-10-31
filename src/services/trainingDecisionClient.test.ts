@@ -77,3 +77,30 @@ describe("trainingDecisionClient", () => {
     });
   });
 });
+
+describe("named-app decision credentials", () => {
+  it("uses the authorized app tokens even when the normal web is signed in as another user", async () => {
+    mocks.currentUid = "normal-web-owner";
+    const token = vi.fn().mockResolvedValue("embedded-id-token");
+    const appCheck = vi.fn().mockResolvedValue("embedded-app-check");
+    const auth = { currentUser: { uid: "embedded-owner", getIdToken: token } };
+    const { createTrainingDecisionClient } = await import("./trainingDecisionClient");
+    const client = createTrainingDecisionClient({ auth: auth as never, getAppCheckToken: appCheck });
+    const request = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(trainingDecisionEnvelope())));
+    await client.getTodayTrainingDecision("embedded-owner", "bike");
+    expect(request).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ headers: expect.objectContaining({
+      Authorization: "Bearer embedded-id-token", "X-Firebase-AppCheck": "embedded-app-check",
+    }) }));
+    expect(token).toHaveBeenCalledOnce();
+  });
+  it("discards a result if the authorized app owner changes while the request is pending", async () => {
+    const auth = { currentUser: { uid: "embedded-owner", getIdToken: vi.fn().mockResolvedValue("embedded-id-token") } };
+    const { createTrainingDecisionClient } = await import("./trainingDecisionClient");
+    const client = createTrainingDecisionClient({ auth: auth as never, getAppCheckToken: async () => null });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      auth.currentUser = { uid: "next-owner", getIdToken: vi.fn() };
+      return new Response(JSON.stringify(trainingDecisionEnvelope()));
+    });
+    await expect(client.getTodayTrainingDecision("embedded-owner", "bike")).rejects.toMatchObject({ code: "AUTH_IDENTITY_CHANGED" });
+  });
+});

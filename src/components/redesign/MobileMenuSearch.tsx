@@ -1,19 +1,17 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate } from "../../hooks/useLocalizedNavigate";
-import { LocalizedLink } from "../LocalizedLink";
 import { Button, Input, Select } from "../../theme/components";
 import koBoard from "../../i18n/resources/ko/board.json";
 import enBoard from "../../i18n/resources/en/board.json";
 import { isSportUiEnabled } from "../../config/sportFeatures";
 import { useAuth } from "../../contexts/AuthContext";
 import { parseDashboardPreferences, readDashboardPreferences, updateDashboardPreferences } from "../../hooks/useDashboardPreferences";
-import { searchPublicUserProfilesPage, type PublicUserProfile } from "../../services/publicProfiles";
 
 const destinations = {
-  activities: "/", athletes: null, clubs: "/clubs", courses: "/explore/courses",
+  activities: "/", athletes: "/explore/athletes", clubs: "/clubs", courses: "/explore/courses",
   segments: "/explore/segments", posts: "/community/board",
 } as const;
 type SearchCategory = keyof typeof destinations;
@@ -30,7 +28,7 @@ import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const defaults: Record<SearchCategory, Record<string, string>> = {
   activities: { q: "", scope: "all", date: "all", sport: "all" },
-  athletes: { q: "", match: "prefix" },
+  athletes: { q: "" },
   clubs: { q: "", sport: "ALL", city: "" },
   courses: { q: "", surface: "", difficulty: "", mine: "0" },
   segments: { q: "", sport: "bike", cat: "all" },
@@ -44,7 +42,7 @@ const fields: Record<SearchCategory, SearchField[]> = {
     { key: "date", label: "date", options: [["all", "all"], ["7d", "7d"], ["30d", "30d"], ["90d", "90d"], ["year", "year"]] },
     { key: "sport", label: "sport", options: [["all", "all"], ...sports] },
   ],
-  athletes: [{ key: "match", label: "match", options: [["prefix", "prefix"], ["exact", "exact"]] }],
+  athletes: [],
   clubs: [{ key: "sport", label: "sport", options: [["ALL", "all"], ...sports, ["tri", "tri"]] }, { key: "city", label: "city" }],
   courses: [
     { key: "surface", label: "surface", options: [["", "all"], ["paved", "paved"], ["gravel", "gravel"], ["mixed", "mixed"]] },
@@ -60,6 +58,7 @@ const fields: Record<SearchCategory, SearchField[]> = {
 function routeCategory(path: string): SearchCategory | null {
   if (/\/explore\/courses$/.test(path)) return "courses";
   if (/\/explore\/segments$/.test(path)) return "segments";
+  if (/\/explore\/athletes$/.test(path)) return "athletes";
   if (/\/clubs$/.test(path)) return "clubs";
   if (/\/community\/board$/.test(path)) return "posts";
   if (/^\/(ko|en)\/?$/.test(path) || path === "/") return "activities";
@@ -114,10 +113,6 @@ export default function MobileMenuSearch({ onNavigate }: { onNavigate: () => voi
   const query = draft.q ?? "";
   const updateDraft = (key: string, value: string) => {
     setDrafts(previous => ({ ...previous, [category]: { ...previous[category], [key]: value } }));
-    if (category === "athletes") {
-      epoch.current += 1;
-      setProfiles([]); setPage(null); setSearched(""); setLoading(false); setFailed(false);
-    }
   };
   const activeCount = Object.entries(draft).filter(([key, value]) => key === "q" ? value.trim() : value !== defaults[category][key]).length;
   const applyDestination = (values: Record<string, string>) => {
@@ -147,59 +142,24 @@ export default function MobileMenuSearch({ onNavigate }: { onNavigate: () => voi
     onNavigate();
     navigate(`${destinations[category]}${params.size ? `?${params}` : ""}`);
   };
-  const [profiles, setProfiles] = useState<PublicUserProfile[]>([]);
-  const [failedPhotos, setFailedPhotos] = useState<ReadonlySet<string>>(() => new Set());
-  const [page, setPage] = useState<Awaited<ReturnType<typeof searchPublicUserProfilesPage>> | null>(null);
-  const [searched, setSearched] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const epoch = useRef(0);
-
-  const searchAthletes = async (keyword: string, more = false) => {
-    const request = ++epoch.current;
-    setLoading(true);
-    setFailed(false);
-    if (!more) { setProfiles([]); setPage(null); setSearched(keyword); }
-    try {
-      const result = draft.match === "exact"
-        ? await searchPublicUserProfilesPage(keyword, more ? page?.cursor : null, undefined, "exact")
-        : await searchPublicUserProfilesPage(keyword, more ? page?.cursor : null);
-      if (request !== epoch.current) return;
-      setProfiles(previous => more ? [...previous, ...result.items] : result.items);
-      setPage(result);
-    } catch {
-      if (request === epoch.current) setFailed(true);
-    } finally {
-      if (request === epoch.current) setLoading(false);
-    }
-  };
-
   return <div className="mobile-menu-search">
     <form role="search" aria-label={t("topnav.menuSearch.label")} onSubmit={event => {
       event.preventDefault();
-      const keyword = query.trim();
-      if (category === "athletes") { if (keyword) void searchAthletes(keyword); return; }
       applyDestination(draft);
     }}>
-      <Select className="mobile-menu-control" aria-label={t("topnav.menuSearch.category")} value={category} onChange={event => {
-        epoch.current += 1;
-        setCategory(event.target.value as SearchCategory);
-        setProfiles([]); setPage(null); setSearched(""); setLoading(false); setFailed(false);
-      }}>
+      <Select className="mobile-menu-control" aria-label={t("topnav.menuSearch.category")} value={category} onChange={event => setCategory(event.target.value as SearchCategory)}>
         {(Object.keys(destinations) as SearchCategory[]).map(key => <option key={key} value={key}>{t(`topnav.menuSearch.${key}`)}</option>)}
       </Select>
       <Input className="mobile-menu-control" type="search" aria-label={t("topnav.menuSearch.keyword")} placeholder={t("topnav.menuSearch.placeholder")}
-        value={query} onChange={event => updateDraft("q", event.target.value)} required={category === "athletes"} />
-      <Button type="submit" size="lg" iconOnly variant="ghost" aria-label={t("topnav.menuSearch.submit")} disabled={(category === "athletes" && !query.trim()) || loading}><Search size={ICON_SIZE.lg} /></Button>
+        value={query} onChange={event => updateDraft("q", event.target.value)} />
+      <Button type="submit" size="lg" iconOnly variant="ghost" aria-label={t("topnav.menuSearch.submit")}><Search size={ICON_SIZE.lg} /></Button>
     </form>
     <fieldset className="mobile-menu-filter-section" aria-label={t("topnav.menuSearch.filters", { count: activeCount })}>
       <legend><span className="mobile-menu-filter-header">
         <span>{t("topnav.menuSearch.filters", { count: activeCount })}</span>
         <Button variant="ghost" size="sm" onClick={() => {
-          epoch.current += 1;
           setDrafts(previous => ({ ...previous, [category]: { ...defaults[category] } }));
-          setProfiles([]); setPage(null); setSearched(""); setLoading(false); setFailed(false);
-          if (category !== "athletes") applyDestination(defaults[category]);
+          applyDestination(defaults[category]);
         }}>{t("topnav.menuSearch.clear")}</Button>
       </span></legend>
       <div className="mobile-menu-filters">
@@ -211,20 +171,6 @@ export default function MobileMenuSearch({ onNavigate }: { onNavigate: () => voi
         </label>)}
       </div>
     </fieldset>
-    {(category === "athletes" || category === "clubs") && <p className="mobile-search-hint">{t(`topnav.menuSearch.${category === "athletes" && draft.match === "exact" ? "athletesExactHint" : `${category}Hint`}`)}</p>}
-    {category === "athletes" && searched && <div aria-live="polite" className="mobile-athlete-results">
-      {profiles.map(profile => <LocalizedLink key={profile.id} to={`/athlete/${profile.id}`} onClick={onNavigate} className="mobile-navigation-link">
-        <span className="mobile-athlete-avatar" aria-hidden="true">
-          {profile.photoURL && !failedPhotos.has(profile.id) ? <img src={profile.photoURL} alt="" onError={() => {
-            setFailedPhotos(previous => new Set(previous).add(profile.id));
-          }} /> : profile.nickname.slice(0, 1)}
-        </span><span>{profile.nickname}</span>
-      </LocalizedLink>)}
-      {loading ? <p role="status">{t("topnav.menuSearch.loading")}</p> : failed ? <>
-        <p role="alert">{t("topnav.menuSearch.failed")}</p>
-        <Button variant="secondary" onClick={() => void searchAthletes(searched, profiles.length > 0)}>{t("topnav.menuSearch.retry")}</Button>
-      </> : profiles.length === 0 ? <p>{t("topnav.menuSearch.empty")}</p> : null}
-      {!loading && !failed && page?.hasMore && <Button variant="secondary" onClick={() => void searchAthletes(searched, true)}>{t("topnav.menuSearch.more")}</Button>}
-    </div>}
+    {(category === "athletes" || category === "clubs") && <p className="mobile-search-hint">{t(`topnav.menuSearch.${category}Hint`)}</p>}
   </div>;
 }
