@@ -20,7 +20,7 @@ const stage: RuntimeConfig = {
   firebaseMessagingSenderId: "289663940841", firebaseFunctionsRegion: "asia-northeast3",
   firebaseFunctionsBase: "https://asia-northeast3-orider-dev.cloudfunctions.net",
 };
-const names = ["socialAuthStart", "socialAuthComplete", "socialAuthListLinks", "socialAuthUnlink", "ensureUserProfile"] as const;
+const names = ["socialAuthStart", "socialAuthComplete", "socialAuthListLinks", "socialAuthUnlink", "connectExistingGoogleAccount", "ensureUserProfile"] as const;
 
 beforeEach(() => {
   mocks.config = { appEnvironment: "production" };

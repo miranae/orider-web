@@ -192,6 +192,12 @@ describe("existing social account confirmation", () => {
     fireEvent.click(confirm);
     await waitFor(() => expect(mocks.start).toHaveBeenCalledWith("naver", "link", "/settings/account", true));
   });
+  it("offers the same confirmation for an empty Strava signup and restarts Strava linking with consent", async () => {
+    mocks.complete.mockRejectedValue({ code: "functions/already-exists", details: { reason: "social-account-connect-confirmation", provider: "strava", returnTo: "/settings/account" } });
+    render(<SocialAuthCallbackPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "socialCallback.connectExisting.confirm" }));
+    await waitFor(() => expect(mocks.start).toHaveBeenCalledWith("strava", "link", "/settings/account", true));
+  });
   it("cancels without changing accounts or starting OAuth", async () => {
     render(<SocialAuthCallbackPage />);
     fireEvent.click(await screen.findByRole("button", { name: "socialCallback.connectExisting.cancel" }));

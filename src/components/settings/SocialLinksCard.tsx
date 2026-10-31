@@ -5,12 +5,14 @@ import { useToast } from "../../contexts/ToastContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { logClientError } from "../../services/errorLogger";
 import { listSocialLinks, SOCIAL_PROVIDERS, startSocialAuth, unlinkSocial, type SocialProvider } from "../../services/socialAuth";
+import { hasGoogleLogin, linkGoogleToCurrentUser } from "../../services/googleLink";
 import { Button } from "../../theme/components";
 import { LocalizedLink } from "../LocalizedLink";
-import { KakaoLogo, NaverLogo } from "../auth/SignInDialog";
+import { GoogleLogo, KakaoLogo, NaverLogo } from "../auth/SignInDialog";
 import { InlineRow, SettingsCard } from "./_primitives";
 
 const LOGO: Partial<Record<SocialProvider, () => React.ReactElement>> = { naver: NaverLogo, kakao: KakaoLogo };
+const GOOGLE_CANCELLED = new Set(["auth/popup-closed-by-user", "auth/cancelled-popup-request", "auth/user-cancelled"]);
 
 /**
  * 네이버·카카오·Strava 계정 연결 (S1-4-1). 서비스마다 회원번호가 달라 같은 사람인지 자동으로 알 수 없으므로,
@@ -26,7 +28,9 @@ export function SocialLinksCard() {
   ownerRef.current = ownerUid;
   const [linked, setLinked] = useState<{ uid: string; providers: Set<SocialProvider> } | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [pending, setPending] = useState<SocialProvider | null>(null);
+  const [pending, setPending] = useState<SocialProvider | "google" | null>(null);
+  // linkWithCredential 뒤 reload 는 같은 User 객체를 바꾸므로 화면 갱신용으로 연결 결과를 따로 둔다.
+  const [googleLinkedUid, setGoogleLinkedUid] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!ownerUid) return;
@@ -61,6 +65,30 @@ export function SocialLinksCard() {
     }
   };
 
+  const handleGoogleLink = async () => {
+    setPending("google");
+    try {
+      const result = await linkGoogleToCurrentUser(() => dialog.confirm(t("pane.account.googleConnectExisting.description"), {
+        title: t("pane.account.googleConnectExisting.title"), confirmLabel: t("pane.account.googleConnectExisting.confirm"),
+      }));
+      if (ownerRef.current !== ownerUid) return;
+      if (result !== "cancelled") {
+        setGoogleLinkedUid(ownerUid);
+        showToast(t("pane.account.googleLinked"), "success");
+      }
+    } catch (err) {
+      if (ownerRef.current !== ownerUid) return;
+      const error = err as { code?: string; details?: { reason?: string } };
+      if (GOOGLE_CANCELLED.has(error.code ?? "")) return;
+      logClientError("SocialLinksCard.googleLink", err, { code: error.code ?? null, reason: error.details?.reason ?? null });
+      const key = error.details?.reason === "social-account-data-conflict" ? "pane.account.googleConnectDataConflict"
+        : error.details?.reason === "google-already-linked" ? "pane.account.googleAlreadyLinked" : "pane.account.googleLinkFailed";
+      showToast(t(key), "error");
+    } finally {
+      if (ownerRef.current === ownerUid) setPending(null);
+    }
+  };
+
   const handleUnlink = async (provider: SocialProvider) => {
     if (!(await dialog.confirm(t(provider === "strava" ? "pane.account.stravaUnlinkConfirm" : "pane.account.socialUnlinkConfirm", { provider: t(`pane.account.social.${provider}`) }), { destructive: true }))) return;
     if (ownerRef.current !== ownerUid) return;
@@ -84,6 +112,20 @@ export function SocialLinksCard() {
   return (
     <SettingsCard data-testid="S1-4-1" title={t("pane.account.cardSocial")} dense>
       {loadFailed && <p role="alert" style={{ color: "var(--rose)", margin: 0 }}>{t("pane.account.socialLoadFailed")}</p>}
+      {(() => {
+        const googleLinked = hasGoogleLogin(user) || googleLinkedUid === ownerUid;
+        return (
+          <InlineRow data-testid="S1-4-1-google"
+            label={<span className="inline-flex items-center gap-2"><GoogleLogo />{t("pane.account.social.google")}</span>}
+            hint={t(googleLinked ? "pane.account.socialLinked" : "pane.account.socialNotLinked")}>
+            {googleLinked ? null : (
+              <Button variant="secondary" loading={pending === "google"} disabled={pending !== null} onClick={() => { void handleGoogleLink(); }}>
+                {t("pane.account.socialLinkBtn")}
+              </Button>
+            )}
+          </InlineRow>
+        );
+      })()}
       {SOCIAL_PROVIDERS.map((provider) => {
         const Logo = LOGO[provider];
         const isLinked = linked?.uid === ownerUid && linked.providers.has(provider);

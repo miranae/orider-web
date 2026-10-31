@@ -393,7 +393,8 @@
       "social": {
         "naver": "네이버",
         "kakao": "카카오",
-        "strava": "Strava"
+        "strava": "Strava",
+        "google": "Google"
       },
       "socialLinked": "연결됨 — 이 서비스로도 이 계정에 로그인할 수 있습니다.",
       "socialNotLinked": "연결하면 다음부터 이 서비스로 이 계정에 로그인됩니다.",
@@ -407,7 +408,16 @@
       "stravaLoginHint": "공개 프로필 읽기 권한으로 로그인하며 활동 동기화는 별도입니다. 권한 변경 시 동기화에 재동의가 필요할 수 있습니다.",
       "stravaUnlinkConfirm": "Strava 로그인 연결을 해제할까요? 이 앱의 Strava 인증을 해제하므로 활동 동기화가 연결된 경우 먼저 설정에서 해제해야 합니다. 다른 로그인 방법을 확보하세요.",
       "stravaSyncActive": "활동 동기화가 연결되어 있습니다. 다른 로그인 방법을 확보한 뒤 설정 > 연결된 앱에서 Strava를 해제하세요.",
-      "stravaSyncSettings": "활동 동기화 설정"
+      "stravaSyncSettings": "활동 동기화 설정",
+      "googleLinked": "Google 로그인을 연결했습니다.",
+      "googleLinkFailed": "Google 로그인을 연결하지 못했습니다. 다시 시도해 주세요.",
+      "googleAlreadyLinked": "이미 다른 Google 계정이 연결되어 있습니다.",
+      "googleConnectDataConflict": "이 Google 계정으로 만든 별도 계정에 기록이나 연결된 서비스가 있어 자동으로 연결하지 못했습니다. 기존 로그인 방법으로 이용하시고, 계정 통합은 고객지원에 문의해주세요.",
+      "googleConnectExisting": {
+        "title": "기존 O-Rider 계정에 연결할까요?",
+        "description": "이 Google 계정으로 별도의 O-Rider 계정이 만들어져 있습니다. 현재 계정에 연결하면 다음부터 Google로 로그인해도 같은 프로필과 기존 활동을 사용할 수 있고, 별도 계정은 닫힙니다. 별도 계정에 기록이나 연결된 서비스가 있으면 자동 연결하지 않습니다.",
+        "confirm": "현재 계정에 연결하기"
+      }
     },
     "app": {
       "cardLocaleUnits": "언어 및 단위",

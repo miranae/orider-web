@@ -1,7 +1,7 @@
 import { isApprovedQaAppCheckUser } from "./qaAppCheckIdentity";
 import { getStageQaAppCheckSession, hasStageQaAppCheckGrant } from "./stageQaAppCheck";
-import { initializeApp, type FirebaseApp } from "firebase/app";
-import { getAuth, initializeAuth, inMemoryPersistence, GoogleAuthProvider, connectAuthEmulator, signInWithEmailAndPassword, type Auth } from "firebase/auth";
+import { deleteApp, initializeApp, type FirebaseApp } from "firebase/app";
+import { getAuth, initializeAuth, inMemoryPersistence, GoogleAuthProvider, connectAuthEmulator, signInWithEmailAndPassword, signOut, type Auth } from "firebase/auth";
 import { initializeFirestore, memoryLocalCache, persistentLocalCache, persistentMultipleTabManager, connectFirestoreEmulator, type Firestore } from "firebase/firestore";
 import { getStorage, connectStorageEmulator, type FirebaseStorage } from "firebase/storage";
 import { getFunctions, connectFunctionsEmulator, type Functions } from "firebase/functions";
@@ -104,6 +104,30 @@ export async function initFirebase(options: { isolatedEmulatorSession?: boolean 
 
 export { _auth as auth, _firestore as firestore, _storage as storage, _functions as functions };
 export const googleProvider = new GoogleAuthProvider();
+
+let isolatedAuthSeq = 0;
+/**
+ * 현재 로그인 세션을 건드리지 않는 일회용 Auth. 메모리에만 세션을 두고, 끝나면 로그아웃 후 앱을 지운다.
+ * 다른 계정의 소유를 증명할 ID 토큰을 받을 때만 쓴다.
+ */
+export async function withIsolatedAuth<T>(work: (isolated: Auth) => Promise<T>): Promise<T> {
+  if (!app) throw new Error("firebase/not-initialized");
+  isolatedAuthSeq += 1;
+  const secondary = initializeApp(app.options, `google-connect-${isolatedAuthSeq}`);
+  try {
+    const isolated = initializeAuth(secondary, { persistence: inMemoryPersistence });
+    if (isEmulatorRuntime()) {
+      connectAuthEmulator(isolated, `http://localhost:${import.meta.env.VITE_AUTH_EMULATOR_PORT || '9099'}`, { disableWarnings: true });
+    }
+    try {
+      return await work(isolated);
+    } finally {
+      await signOut(isolated);
+    }
+  } finally {
+    await deleteApp(secondary);
+  }
+}
 
 /** 초기화된 FirebaseApp 반환 (initFirebase 전이면 undefined). analytics 지연 init 용. */
 export function getFirebaseApp(): FirebaseApp | undefined {
