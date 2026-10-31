@@ -45,6 +45,8 @@ it("clears a rendered result on same-UID SDK replacement and on focus",async()=>
  mocks.load.mockResolvedValueOnce(complete);
  const view=renderWithProviders(<SegmentLocalLegendProgress segmentId="s"/>);
  fireEvent.click(screen.getByRole("button",{name:"더 많은 기록 확인"}));await screen.findByText(/라이더 A/);
+ // 결과가 보여도 focus 리스너는 그 다음 effect 에서 붙는다. 부하가 크면 그 전에 focus 를 쏴 놓쳤으므로 effect 를 먼저 비운다.
+ await act(async()=>{});
  act(()=>window.dispatchEvent(new Event("focus")));expect(screen.queryByText(/라이더 A/)).not.toBeInTheDocument();
  mocks.load.mockResolvedValueOnce({...base,state:"ready"}).mockResolvedValueOnce(complete);
  fireEvent.click(screen.getByRole("button",{name:"상태 확인하고 계속"}));await screen.findByText(/라이더 A/);
