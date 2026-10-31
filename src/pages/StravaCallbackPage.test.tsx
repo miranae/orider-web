@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   showToast: vi.fn(),
   activityDocs: [] as Array<Record<string, unknown>>,
+  startSocialAuth: vi.fn(),
+  currentUid: "u1" as string | null,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -34,6 +36,11 @@ vi.mock("firebase/firestore", () => ({
 
 vi.mock("../services/firebase", () => ({
   firestore: {},
+  auth: { get currentUser() { return mocks.currentUid ? { uid: mocks.currentUid } : null; } },
+}));
+
+vi.mock("../services/socialAuth", () => ({
+  startSocialAuth: (...args: unknown[]) => mocks.startSocialAuth(...args),
 }));
 
 vi.mock("../services/errorLogger", () => ({
@@ -220,6 +227,31 @@ describe("StravaCallbackPage", () => {
     await screen.findByText("stravaCallback.step.done");
     expect(sessionStorage.getItem("strava_write_activities")).toBeNull();
     expect(mocks.exchangeCode).toHaveBeenCalledWith("write-code");
+  });
+
+  it("routes an empty Strava signup owner to the Strava sign-in connect-existing flow after confirmation", async () => {
+    sessionStorage.setItem("strava_state", "nonce");
+    mocks.currentUid = "u1";
+    mocks.startSocialAuth.mockReset().mockResolvedValue(undefined);
+    mocks.exchangeCode.mockRejectedValue({ code: "functions/already-exists", details: { reason: "social-account-connect-confirmation", provider: "strava" } });
+    render(<MemoryRouter initialEntries={["/strava/callback?code=code-1&state=nonce"]}><StravaCallbackPage /></MemoryRouter>);
+    const confirm = await screen.findByRole("button", { name: "socialCallback.connectExisting.confirm" });
+    expect(mocks.startSocialAuth).not.toHaveBeenCalled();
+    fireEvent.click(confirm);
+    await waitFor(() => expect(mocks.startSocialAuth).toHaveBeenCalledWith("strava", "link", "/settings/connections", true));
+  });
+
+  it("does not start the connect-existing flow if the signed-in account changed", async () => {
+    sessionStorage.setItem("strava_state", "nonce");
+    mocks.startSocialAuth.mockReset();
+    mocks.exchangeCode.mockRejectedValue({ code: "functions/already-exists", details: { reason: "social-account-connect-confirmation" } });
+    render(<MemoryRouter initialEntries={["/strava/callback?code=code-1&state=nonce"]}><StravaCallbackPage /></MemoryRouter>);
+    const confirm = await screen.findByRole("button", { name: "socialCallback.connectExisting.confirm" });
+    mocks.currentUid = "other";
+    fireEvent.click(confirm);
+    expect(await screen.findByText("socialCallback.error.denied")).toBeInTheDocument();
+    expect(mocks.startSocialAuth).not.toHaveBeenCalled();
+    mocks.currentUid = "u1";
   });
 
   it("offers a direct path to Strava connection settings on callback failure", async () => {
