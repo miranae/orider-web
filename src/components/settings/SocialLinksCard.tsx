@@ -77,10 +77,12 @@ export function SocialLinksCard() {
         showToast(t("pane.account.googleLinked"), "success");
       }
     } catch (err) {
-      if (ownerRef.current !== ownerUid) return;
       const error = err as { code?: string; details?: { reason?: string } };
       if (GOOGLE_CANCELLED.has(error.code ?? "")) return;
-      logClientError("SocialLinksCard.googleLink", err, { code: error.code ?? null, reason: error.details?.reason ?? null });
+      // 계정이 바뀌었어도 인증·callable 실패는 기록한다. 화면 갱신만 생략한다.
+      const accountChanged = ownerRef.current !== ownerUid;
+      logClientError("SocialLinksCard.googleLink", err, { code: error.code ?? null, reason: error.details?.reason ?? null, accountChanged });
+      if (accountChanged) return;
       const key = error.details?.reason === "social-account-data-conflict" ? "pane.account.googleConnectDataConflict"
         : error.details?.reason === "google-already-linked" ? "pane.account.googleAlreadyLinked" : "pane.account.googleLinkFailed";
       showToast(t(key), "error");
