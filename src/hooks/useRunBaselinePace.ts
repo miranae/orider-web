@@ -10,7 +10,7 @@
  */
 import { useEffect, useState } from "react";
 import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError, debugLog } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
@@ -45,6 +45,7 @@ export interface RunBaseline {
  * @param activityStartTime 활동 직전까지의 4주 창. 100문서 한도에 도달하면 비교를 생략한다.
  */
 export function useRunBaselinePace(excludeActivityId?: string, enabled = true, activityStartTime?: number | null, activityType?: string | null): RunBaseline {
+  const { firestore } = useFirebaseServices();
   const { user } = useAuth();
   const comparisonType = getRunComparisonType(activityType);
   const requestKey = `${user?.uid ?? ""}:${enabled}:${excludeActivityId ?? ""}:${activityStartTime ?? ""}:${comparisonType ?? ""}`;

@@ -859,7 +859,7 @@ export default function MobileFitnessPage({
               ftpHistory={data.ftpHistory}
               // 임베드 표면은 FTP 결정을 쓰기(수락)하지 않는다 — 결정을 넘기지 않으면
               // 패널이 렌더되지 않아 액션 자체가 노출되지 않는다.
-              ftpDecision={embedded ? null : ftpDecision}
+              ftpDecision={ftpDecision}
               ftpReceipt={ftpReceipt}
               ftpDeviceReceipts={ftpDeviceReceipts}
               decisionBusy={decisionBusy}

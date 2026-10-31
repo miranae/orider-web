@@ -1,3 +1,4 @@
+import { embeddedCoachDestination, embeddedCoachPage } from "../embedded/coachNavigation";
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, NavLink, matchPath, useParams, useLocation, type NavLinkProps } from "react-router-dom";
@@ -98,7 +99,8 @@ interface RouteTabNavProps {
 
 export function RouteTabNav({ tabs, state, revealActive = true }: RouteTabNavProps) {
   const { lang } = useParams();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const embeddedPage = embeddedCoachPage(new URLSearchParams(search).get("page")) ?? (pathname.endsWith("/plan") ? "plan" : "condition");
   const { t } = useTranslation("common");
   const scrollerRef = useRef<HTMLDivElement>(null);
   const cancelRevealRef = useRef(() => {});
@@ -168,9 +170,14 @@ export function RouteTabNav({ tabs, state, revealActive = true }: RouteTabNavPro
       }}>‹</button>
       <div ref={scrollerRef} className="route-tab-nav__scroller flex overflow-x-auto">
       {tabs.map((tab) => {
+        const embeddedTo = embeddedCoachDestination(pathname, localizeTo(tab.to, lang));
         const aliasActive = tab.activePaths?.some(path => matchPath({ path: localizeTo(path, lang), end: false }, pathname)) ?? false;
         const className = (active: boolean) => `flex-shrink-0 whitespace-nowrap min-h-[44px] flex items-center rounded-t-[var(--r-sm)] px-2.5 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-[3px] transition-colors ${tabFocusClass} ${active ? "" : "border-transparent hover:border-[var(--line)]"}`;
         const style = (active: boolean) => active ? { borderColor: "var(--lime)", color: "var(--lime)" } : { color: "var(--ink-2)" };
+        if (embeddedTo) {
+          const active = new URL(embeddedTo, "https://embedded.invalid").searchParams.get("page") === embeddedPage;
+          return <Link key={tab.to} data-testid={tab.specId} to={embeddedTo} state={state} aria-current={active ? "page" : undefined} className={className(active)} style={style(active)}>{tab.label}</Link>;
+        }
         // NavLink는 자체 목적지 일치 여부로 aria-current를 결정하므로 별칭은 실제 Link로 표현한다.
         return aliasActive ? (
           <Link key={tab.to} data-testid={tab.specId} to={localizeTo(tab.to, lang)} state={state} aria-current="page" className={className(true)} style={style(true)}>{tab.label}</Link>

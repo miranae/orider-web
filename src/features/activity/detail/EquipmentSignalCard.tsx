@@ -3,7 +3,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Card, Text } from "../../../theme/components";
-import { ensureAppCheckReady, firestore, functions } from "../../../services/firebase";
+import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../../services/errorLogger";
 
 const ACTION_CODES = [
@@ -144,6 +144,7 @@ export function EquipmentSignalCard({
   ownerId: string;
   viewerId: string | null;
 }) {
+  const { ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const { t } = useTranslation("activity");
   const [reloadKey, setReloadKey] = useState(0);
   const [state, setState] = useState<LoadState>({ kind: "loading" });

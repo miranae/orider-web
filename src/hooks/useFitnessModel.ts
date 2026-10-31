@@ -245,7 +245,8 @@ export function useFitnessModel(
   const canonicalFitness = useCanonicalFitnessSummary("fitnessSummary", subscriptionActive);
   const canonicalPending = canonicalFitness.rolloutState === "pending";
   const canonicalActive = canonicalFitness.rolloutState === "on";
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
   const { entries: ftpHistory } = useFtpHistory(user?.uid, subscriptionActive);
   const { showToast } = useToast();
   const discipline = resolveFitnessDiscipline(sportParam);
@@ -361,7 +362,7 @@ export function useFitnessModel(
     if (!user || !bikeFtpDecision || decisionBusy) return;
     setDecisionBusy(true);
     try {
-      await acceptBikeThresholdDecision(user.uid, bikeFtpDecision);
+      await acceptBikeThresholdDecision(user.uid, bikeFtpDecision, services);
       showToast(t("ftpDecision.accepted"));
     } catch (acceptError) {
       logClientError("useFitnessModel.acceptBikeThresholdDecision", acceptError, {

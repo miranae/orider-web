@@ -1,11 +1,20 @@
+import { useFirebaseServices, type FirebaseServices } from "../contexts/FirebaseServicesContext";
+import { createTrainingDecisionClient } from "../services/trainingDecisionClient";
+import { loadTodayTrainingDecision as loadDefaultTodayTrainingDecision, createTodayTrainingDecisionGuard } from "../services/todayTrainingDecisionGuard";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { currentTrainingRecommendation, type TodayTrainingDecisionProjection } from "../services/trainingDecisionContract";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { logClientError } from "../services/errorLogger";
 import {
-  loadTodayTrainingDecision,
   TodayTrainingDecisionCooldownError,
 } from "../services/todayTrainingDecisionGuard";
+
+const serviceGuards = new WeakMap<FirebaseServices, ReturnType<typeof createTodayTrainingDecisionGuard>>();
+function guardFor(services: FirebaseServices) {
+  let guard = serviceGuards.get(services);
+  if (!guard) { guard = createTodayTrainingDecisionGuard(createTrainingDecisionClient(services)); serviceGuards.set(services, guard); }
+  return guard;
+}
 
 export interface TodayTrainingDecisionState {
   decision: TodayTrainingDecisionProjection | null;
@@ -26,6 +35,8 @@ export function nextTrainingDecisionExpiry(decision: TodayTrainingDecisionProjec
 
 export function useTodayTrainingDecision(uid: string | null | undefined,
   discipline: "bike" | "run" | "swim"): TodayTrainingDecisionState {
+  const services = useFirebaseServices();
+  const loadTodayTrainingDecision = services.scope === "embedded" ? guardFor(services).loadTodayTrainingDecision : loadDefaultTodayTrainingDecision;
   const generation = useRef(0);
   const manualRefresh = useRef(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -77,7 +88,7 @@ export function useTodayTrainingDecision(uid: string | null | undefined,
       controller.abort();
       if (expiryTimer !== null) clearTimeout(expiryTimer);
     };
-  }, [uid, discipline, refreshKey]);
+  }, [uid, discipline, refreshKey, loadTodayTrainingDecision]);
 
   const refresh = useCallback(() => {
     manualRefresh.current = true;

@@ -13,7 +13,6 @@ import { loadActivityDiscovery } from "../services/activityDiscovery";
 import RouteInventoryReturn from "../features/activity/detail/RouteInventoryReturn";
 import { announceActivityContentChange } from "../services/activityContentChanged";
 import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
-import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
 import { stravaRecordOf } from "@shared/analysis/stravaRecord";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
@@ -62,7 +61,7 @@ import {
   doc, updateDoc,
   collection, query, where, orderBy, onSnapshot,
 } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { activitySocialErrorMessageKey, activitySocialMutations } from "../services/activitySocialMutations";
 import { track, trackActivationStep } from "../services/analytics";
 import type { Activity, Visibility } from "@shared/types";
@@ -118,6 +117,7 @@ export default function ActivityPage({ publicAccess, detailMeasurement, detailRe
   return publicAccess ? <ActivityPublicAccess {...publicAccess}>{access => <ActivityPageContent publicAccess={access} detailMeasurement={access.session.detailMeasurement} />}</ActivityPublicAccess> : <ActivityPageContent detailMeasurement={detailMeasurement} detailRetry={detailRetry} />;
 }
 function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: { publicAccess?: ActivityPublicAccessState; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void }) {
+  const { firestore } = useFirebaseServices();
   const { t, i18n } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
   const timeAgo = useTimeAgo();

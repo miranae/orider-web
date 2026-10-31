@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({ auth: { user: null as null | { isAnonymous: bo
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ ...mocks.auth, signIn: mocks.signIn }) }));
 vi.mock("../hooks/useLocalizedNavigate", () => ({ useLocalizedNavigate: () => vi.fn() }));
-vi.mock("../services/firebase", () => ({ functions: {} }));
+vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => ({ functions: {} }) }));
 vi.mock("firebase/functions", () => ({ httpsCallable: mocks.callable }));
 vi.mock("../components/LocalizedLink", () => ({ LocalizedLink: ({ to, children }: { to: string; children: React.ReactNode }) => <a href={to}>{children}</a> }));
 beforeEach(() => { vi.clearAllMocks(); mocks.auth = { user: null, loading: true }; });
