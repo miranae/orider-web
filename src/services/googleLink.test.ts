@@ -6,14 +6,12 @@ const mocks = vi.hoisted(() => {
     user, current: user as { uid: string } | null,
     linkWithPopup: vi.fn(), linkWithCredential: vi.fn(), signInWithCredential: vi.fn(), credentialFromError: vi.fn(),
     callable: vi.fn(), callableFactory: vi.fn(), isolatedAuth: { name: "isolated" }, isolatedUsed: vi.fn(), appCheck: vi.fn(),
-    unlink: vi.fn(), reauth: vi.fn(),
     order: [] as string[],
   };
 });
 vi.mock("firebase/auth", () => ({
   GoogleAuthProvider: { credentialFromError: mocks.credentialFromError },
   linkWithPopup: mocks.linkWithPopup, linkWithCredential: mocks.linkWithCredential, signInWithCredential: mocks.signInWithCredential,
-  unlink: mocks.unlink, reauthenticateWithPopup: mocks.reauth,
 }));
 vi.mock("./firebase", () => ({
   auth: { get currentUser() { return mocks.current; } },
@@ -30,7 +28,7 @@ const inUse = { code: "auth/credential-already-in-use" };
 beforeEach(() => {
   mocks.current = mocks.user; mocks.order = [];
   for (const fn of [mocks.linkWithPopup, mocks.linkWithCredential, mocks.signInWithCredential, mocks.credentialFromError, mocks.callable,
-    mocks.callableFactory, mocks.isolatedUsed, mocks.appCheck, mocks.user.reload, mocks.unlink, mocks.reauth]) fn.mockReset();
+    mocks.callableFactory, mocks.isolatedUsed, mocks.appCheck, mocks.user.reload]) fn.mockReset();
   mocks.linkWithPopup.mockRejectedValue(inUse);
   mocks.credentialFromError.mockReturnValue(credential);
   mocks.signInWithCredential.mockImplementation(async () => { mocks.order.push("isolated-sign-in"); return { user: { getIdToken: async () => "source-id-token" } }; });
@@ -99,22 +97,21 @@ describe("canUnlinkGoogle", () => {
 });
 
 describe("unlinkGoogleFromCurrentUser", () => {
-  it("unlinks google.com and reloads the user", async () => {
-    await unlinkGoogleFromCurrentUser();
-    expect(mocks.unlink).toHaveBeenCalledWith(mocks.user, "google.com");
-    expect(mocks.reauth).not.toHaveBeenCalled();
+  it("asks the server to unlink and reloads the user", async () => {
+    mocks.callable.mockResolvedValueOnce({ data: { unlinked: true } });
+    await expect(unlinkGoogleFromCurrentUser()).resolves.toBe(true);
+    expect(mocks.callableFactory).toHaveBeenCalledWith("unlinkGoogleLogin");
+    expect(mocks.appCheck).toHaveBeenCalled();
     expect(mocks.user.reload).toHaveBeenCalled();
   });
-  it("reauthenticates once when a recent login is required, then retries", async () => {
-    mocks.unlink.mockRejectedValueOnce({ code: "auth/requires-recent-login" }).mockResolvedValueOnce(undefined);
-    await unlinkGoogleFromCurrentUser();
-    expect(mocks.reauth).toHaveBeenCalledTimes(1);
-    expect(mocks.unlink).toHaveBeenCalledTimes(2);
+  it("surfaces the server's last-sign-in-method refusal without reloading", async () => {
+    mocks.callable.mockRejectedValueOnce({ code: "functions/failed-precondition", details: { reason: "last-login-method" } });
+    await expect(unlinkGoogleFromCurrentUser()).rejects.toMatchObject({ details: { reason: "last-login-method" } });
+    expect(mocks.user.reload).not.toHaveBeenCalled();
   });
-  it("does not retry on other errors", async () => {
-    mocks.unlink.mockRejectedValue({ code: "auth/no-such-provider" });
-    await expect(unlinkGoogleFromCurrentUser()).rejects.toMatchObject({ code: "auth/no-such-provider" });
-    expect(mocks.reauth).not.toHaveBeenCalled();
+  it("does not reload a different account that signed in meanwhile", async () => {
+    mocks.callable.mockImplementationOnce(async () => { mocks.current = { uid: "other" }; return { data: { unlinked: true } }; });
+    await expect(unlinkGoogleFromCurrentUser()).rejects.toThrow("auth/user-changed");
     expect(mocks.user.reload).not.toHaveBeenCalled();
   });
 });

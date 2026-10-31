@@ -117,7 +117,8 @@ export function SocialLinksCard() {
       const accountChanged = ownerRef.current !== ownerUid;
       logClientError("SocialLinksCard.googleUnlink", err, { code: error.code ?? null, accountChanged });
       if (accountChanged) return;
-      showToast(t("pane.account.socialUnlinkFailed"), "error");
+      const reason = (err as { details?: { reason?: string } }).details?.reason;
+      showToast(t(reason === "last-login-method" ? "pane.account.socialUnlinkLast" : "pane.account.socialUnlinkFailed"), "error");
     } finally {
       if (ownerRef.current === ownerUid) setPending(null);
     }

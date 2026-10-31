@@ -27,7 +27,7 @@ import { SocialLinksCard } from "./SocialLinksCard";
 describe("SocialLinksCard", () => {
   beforeEach(() => {
     mocks.user = { uid: "u1", isAnonymous: false, providerData: [] };
-    mocks.linkGoogle.mockReset().mockResolvedValue("linked"); mocks.unlinkGoogle.mockReset().mockResolvedValue(undefined); mocks.logError.mockReset();
+    mocks.linkGoogle.mockReset().mockResolvedValue("linked"); mocks.unlinkGoogle.mockReset().mockResolvedValue(true); mocks.logError.mockReset();
     mocks.list.mockReset().mockResolvedValue([{ provider: "naver", linkedAt: 1 }]);
     mocks.unlink.mockReset().mockResolvedValue(true);
     mocks.start.mockReset().mockResolvedValue(undefined);
@@ -124,6 +124,15 @@ describe("SocialLinksCard", () => {
     await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error"));
     expect(mocks.confirm).not.toHaveBeenCalled();
     expect(mocks.unlinkGoogle).not.toHaveBeenCalled();
+  });
+
+  it("shows the last-method guidance when the server refuses the unlink", async () => {
+    mocks.user = { uid: "u1", isAnonymous: false, providerData: [{ providerId: "google.com" }] };
+    mocks.unlinkGoogle.mockRejectedValue({ code: "functions/failed-precondition", details: { reason: "last-login-method" } });
+    render(<SocialLinksCard />, { wrapper: MemoryRouter });
+    await waitFor(() => expect(within(screen.getByTestId("S1-4-1-naver")).getByRole("button", { name: "pane.account.socialUnlinkBtn" })).toBeInTheDocument());
+    fireEvent.click(within(screen.getByTestId("S1-4-1-google")).getByRole("button", { name: "pane.account.socialUnlinkBtn" }));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error"));
   });
 
   it("logs and reports a failed Google unlink", async () => {
