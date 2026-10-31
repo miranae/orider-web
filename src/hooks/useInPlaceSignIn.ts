@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { isSignInCancelled } from "../utils/signInCancelled";
+import { logClientError } from "../services/errorLogger";
 
 /** Keep the current destination while the existing authentication dialog completes. */
 export function useInPlaceSignIn() {
@@ -16,7 +17,11 @@ export function useInPlaceSignIn() {
     try {
       await signIn();
     } catch (error) {
-      if (!isSignInCancelled(error)) setFailed(true);
+      // A user-cancelled dialog is expected; every other failure must reach operations logging.
+      if (!isSignInCancelled(error)) {
+        setFailed(true);
+        logClientError("useInPlaceSignIn.signIn", error);
+      }
     } finally {
       busy.current = false;
       setPending(false);

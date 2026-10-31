@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { createActivityReanalysisClient, type SavedActivityAnalysis, type ActivityAnalysisHistory, type ActivityReanalysisState } from "../../../services/activityReanalysis";
 import { Button, Stack, Text } from "../../../theme/components";
+import { logClientError } from "../../../services/errorLogger";
 
 /** This control never edits or clears displayed metrics; publication remains server-owned. */
 export function ActivityReanalysisControl({ activityId, selectedRevision, onSelect, canReanalyze = true, onAccessRevoked }: { canReanalyze?: boolean; onAccessRevoked?: () => void; activityId: string; selectedRevision?: string; onSelect: (value: SavedActivityAnalysis | null) => void }) {
@@ -36,7 +37,9 @@ function ReanalysisSession({ activityId, client, selectedRevision, onSelect, can
       setStored({ client, activityId, data }); setResult(data.lastRequest?.status === "completed" ? "completed" : data.pending ? "queued" : null);
       if (data.lastRequest?.status === "completed") request.current = null;
       if (data.lastRequest?.status === "failed" || data.lastRequest?.status === "superseded") { request.current = null; setFailed("request"); }
-    } catch { if (token === generation.current) setFailed("request"); }
+    } catch (error) {
+      if (token === generation.current) { setFailed("request"); logClientError("ActivityReanalysisControl.load", error, { activityId }); }
+    }
     finally { if (token === generation.current) { pending.current = false; setBusy(false); } }
   };
   const submit = async () => {
@@ -46,7 +49,9 @@ function ReanalysisSession({ activityId, client, selectedRevision, onSelect, can
     try {
       const response = await client.request(activityId, request.current.id, request.current.revision);
       if (token === generation.current) { setResult(response.status); setStored(current => current ? { ...current, data: { ...current.data, canReanalyze: false, pending: response.status === "queued" } } : null); }
-    } catch { if (token === generation.current) setFailed("request"); }
+    } catch (error) {
+      if (token === generation.current) { setFailed("request"); logClientError("ActivityReanalysisControl.request", error, { activityId }); }
+    }
     finally { if (token === generation.current) { pending.current = false; setBusy(false); } }
   };
   const readHistory = async (revisionId?: string, cursor?: string) => {
@@ -61,6 +66,7 @@ function ReanalysisSession({ activityId, client, selectedRevision, onSelect, can
       if (token === generation.current) {
         setFailed("history");
         const code = typeof error === "object" && error !== null && "code" in error ? String(error.code).replace(/^functions\//, "") : "";
+        logClientError("ActivityReanalysisControl.history", error, { activityId, revisionId: revisionId ?? null, paged: !!cursor });
         if (["permission-denied", "unauthenticated", "not-found", "failed-precondition"].includes(code)) { setHistory(null); onSelect(null); onAccessRevoked?.(); }
       }
     }
