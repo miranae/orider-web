@@ -91,7 +91,8 @@ export default function GuestValuePreview({ kind, lang }: GuestValuePreviewProps
   }
 
   return (
-    <div className="site-shell" style={{ padding: "48px 20px 64px" }}>
+    // 좌우는 페이지 셸 거터만 쓴다 — 목표·분석 탭과 같은 정렬선.
+    <div className="site-shell" style={{ paddingBlock: "48px 64px" }}>
       <Card padding="none" style={{ padding: "var(--space-6)", display: "grid", gap: "var(--space-5)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-4)", flexWrap: "wrap", alignItems: "flex-start" }}>
           <div style={{ maxWidth: 640 }}>
