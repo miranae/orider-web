@@ -71,7 +71,7 @@ export default function CoachTodayPage({ startMode }: { startMode?: Run30StartMo
   const pending = newest && !covered.has(newest.id) ? newest : null;
   const dayLoad = pending && model.hasCanonicalTimeseries ? activityDayLoad(pending, model.fitnessData, model.fitnessDateKeyBasis) : null;
   const loading = model.loading || !model.timeseriesLoaded;
-  return <div className="site-shell fitness-reading" style={{ padding: "var(--space-5) var(--space-4)" }}>
+  return <div className="site-shell fitness-reading" style={{ padding: "0 var(--space-4) var(--space-5)" }}>
     {header}
     <PlanRecordNavigation />
     <TodayTrainingDecisionSource user={user} discipline={sport}>{state => {

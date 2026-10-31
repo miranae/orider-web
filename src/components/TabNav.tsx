@@ -19,7 +19,7 @@ function localizeTo(to: string, lang: string | undefined): string {
 }
 
 interface TabNavProps {
-  tabs: { id: string; label: string; count?: number; specId?: string }[];
+  tabs: { id: string; label: string; count?: number; specId?: string; disabled?: boolean; title?: string }[];
   activeTab: string;
   onChange: (id: string) => void;
   /** `segmented` — 상위 하위탭(밑줄) 아래 2단계 탭. HIG 세그먼트 컨트롤 모양으로 단계를 구분한다. */
@@ -62,13 +62,15 @@ export default function TabNav({ tabs, activeTab, onChange, appearance = "underl
           type="button"
           role="tab"
           aria-selected={activeTab === tab.id}
-          onClick={() => onChange(tab.id)}
+          aria-disabled={tab.disabled || undefined}
+          title={tab.title}
+          onClick={() => { if (!tab.disabled) onChange(tab.id); }}
           className={`flex-shrink-0 whitespace-nowrap min-h-[44px] flex items-center rounded-t-[var(--r-sm)] px-2.5 py-2.5 text-[length:var(--fs-sm)] font-medium border-b-[3px] transition-colors ${tabFocusClass} ${
             activeTab === tab.id
               ? ""
-              : "border-transparent hover:border-[var(--line)]"
+              : tab.disabled ? "border-transparent cursor-default" : "border-transparent hover:border-[var(--line)]"
           }`}
-          style={activeTab === tab.id ? { borderColor: "var(--lime)", color: "var(--lime)" } : { color: "var(--ink-2)" }}
+          style={activeTab === tab.id ? { borderColor: "var(--lime)", color: "var(--lime)" } : tab.disabled ? { color: "var(--ink-4)", opacity: 0.45 } : { color: "var(--ink-2)" }}
         >
           {tab.label}
           {tab.count != null && (

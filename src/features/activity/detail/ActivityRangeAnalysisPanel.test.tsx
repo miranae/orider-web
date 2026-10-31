@@ -154,7 +154,9 @@ describe("canonical elapsed range reading", () => {
   });
   it("requires ordered elapsed input before applying, and hides controls for a non-owner", () => {
     const { rerender } = renderWithProviders(<ActivityRangeControls selection={selection} />);
-    expect(screen.getByText("시작 20:00 / 끝 25:00")).toBeTruthy();
+    // 시작·끝 중복 표시("시작 … / 끝 …")는 없앴다 — 값은 입력 칸에만 있다.
+    expect(screen.queryByText("시작 20:00 / 끝 25:00")).toBeNull();
+    expect(screen.getByLabelText("시작 시간")).toHaveValue("20:00");
     const inputs = [screen.getByLabelText("시작 시간"), screen.getByLabelText("끝 시간")];
     fireEvent.change(inputs[0]!, { target: { value: "25:00" } });
     fireEvent.change(inputs[1]!, { target: { value: "20:00" } });
