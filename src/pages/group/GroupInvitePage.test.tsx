@@ -70,6 +70,25 @@ describe("GroupInvitePage", () => {
     expect(screen.queryByText("group destination")).not.toBeInTheDocument();
   });
 
+  it.each(["success", "failure"] as const)("discards a prior SDK session's %s and resumes the same invite after same-UID sign-in", async outcome => {
+    const requests: Array<{ resolve: (value: unknown) => void; reject: (error: unknown) => void }> = [];
+    setCallableImplementation("joinGroupByCode", () => new Promise((resolve, reject) => { requests.push({ resolve, reject }); }));
+    renderInvite();
+    await waitFor(() => expect(requests).toHaveLength(1));
+    act(() => simulateLogin({ uid: "test-uid", isAnonymous: false }));
+    await act(async () => {
+      if (outcome === "success") requests[0]!.resolve({ data: { groupId: "old-group", status: "active" } });
+      else requests[0]!.reject(Object.assign(new Error("old session denied"), { code: "functions/permission-denied" }));
+    });
+    expect(screen.queryByText("group destination")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await waitFor(() => expect(requests).toHaveLength(2));
+    await act(async () => requests[1]!.resolve({ data: { groupId: "current-group", status: "active" } }));
+    expect(await screen.findByText("group destination")).toBeInTheDocument();
+    expect(mockCallableInvocations.filter(call => call.name === "joinGroupByCode").map(call => call.data))
+      .toEqual([{ inviteCode: "ABCD1234" }, { inviteCode: "ABCD1234" }]);
+  });
+
   it("leaves expired invitations visible with an explicit exit", async () => {
     setCallableImplementation("joinGroupByCode", () => { throw Object.assign(new Error("expired"), { code: "functions/not-found" }); });
     renderInvite();

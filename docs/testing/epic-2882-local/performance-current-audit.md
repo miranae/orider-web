@@ -44,3 +44,51 @@
 소스 시작 `d2867e3c`, 종료 `676012a9`이며 샘플마다 SHA를 보존했습니다. 실행 중 변경은 R3 구독의 정확한 SDK session 검사, R6 기간 화면 KST 및 복귀 상태, 문서로 피드/단일 활동 분석 준비 컴포넌트를 직접 편집한 변경은 아니었습니다. HMR 간섭 1회를 별도로 보존했고 보충은 `676012a9` 시작/종료 동일입니다. 원본 activity/stream/metrics 시작·종료 hash가 모두 같았습니다. backend runtime은 `91bc5869dcfd`로 고정됐으며 뒤에 작성된 R6 PMC KST 서버 변경의 성능 근거로 사용하지 않습니다. 별도 UID producer 검증의 짧은 동시 부하는 `concurrent-work.json`에 기록했고 어떤 표본도 제외하지 않았습니다.
 
 근거: `performance-current/results.json`(원래 120회 전체), `supplement-results.json`(보충 1회), `audit-summary.json`(분모/간섭/비용 집계), `concurrent-work.json`, `run.mjs`, `supplement.mjs`. 로컬 UI 준비 성능의 제한된 기준은 확인했지만 운영/대표 모바일 네트워크/실기기/신규 분석 생성시간/전면 비용 수용 조건은 여전히 별도입니다. 새 제품 코드는 변경하지 않았습니다.
+
+
+## 2026-10-28 고정 cold/mobile/slow 후속 (WEB 88fac4a3, 로컬 #1344/R8 근거)
+
+[독립 측정 상세](./r8-cold-mobile-slow-local.md): 조건별 30회, 첫 카드 90/90 ready. navigation→ready p95 desktop276.1ms/mobile245.1ms/mobile slow6214.3ms. 이 결과는 텍스트 합성 카드·외부 optimized bootstrap·HTTP/1·warm emulator 조건이며 기존120회와 직접 개선율 비교하지 않습니다.
+
+데스크톱 각8건 ×30 = 요청실패240건(listMyRegisteredEvents30/logClientError210)을 모두 포함했습니다. scoped emulator export와 bootstrap 기본 region 불일치가 관측됐으며 운영 결함 단정은 하지 않습니다. HTTP 오류0은 관측된7569응답에 한정되고, Firestore Listen 장기연결90은 관측 종료시 pending으로 별도 보존했습니다. 전체 무오류 성공을 뜻하지 않습니다. slow의 약6.2초는 해당 외부 artifact JS 전송/후속모듈 대기가 대부분이며 제품 manualChunks/운영 HTTP2와 다른 조건이라 제품 성능 수정 근거로 사용하지 않았습니다. 원본20개 hash/updateTime 불변, 독립 runtime 종료, 앱 heavy 슬롯 반환. 실기기·운영·미디어 및 owner 분석 slow/cold 수용은 별도로 남습니다.
+
+
+## 2026-10-29 제품 청크/공개 자산 정합 후속
+
+[최종 독립 90표본](./r8-production-chunks-local.md): WEB88fac4a3 제품 vite.config manualChunks와 publicDir 직접 재사용. 첫 카드90/90, p95 desktop286ms/mobile246.2ms/slow6689.4ms. HTTP6938응답 오류0·전송실패0·pageerror0이며 Listen90은 right-censored다. 제품 변경0, 원본20개불변. HTTP1/gzip 및 demo bootstrap 차이는 남아 HTTP2/운영 성능 완료가 아니다. 중간 publicDir 누락90표본의 로고오류→logging429 166건도 별도 보존했다. 이전 측정/실패를 최종값으로 덮지 않는다.
+
+## 2026-10-29 데스크톱 전용 의존성 분리 A/B
+
+[제품 후보/측정 상세](./r8-deferred-desktop-strip-local.md): 모바일 coachClient 요청은 각30→0, 첫 카드90/90 유지, slow p95는6689.4→6368.0ms라는 제한된 로컬 관측이다. HTTP1/gzip/cache-disabled 조건이며 운영 개선율은 아니다. 관측 오류0과 Listen90 censored를 분리한다. 데스크톱 로고+95요청/+277123B는 원인 미확정이며 DOM 진단6회에서 재현되지 않았다는 이유로 제거하지 않는다. 최초full1FAIL을 보존하고 waitFor만 보정한0db346ef full10174PASS를 별도 기록한다.
+
+## 2026-10-29 이미지 인과 반복 / lazy vendor 후속
+
+[상세 증거](./r8-image-causality-and-lazy-vendors.md): 같은 seed 반복에서 desktop B 중복22/30·A4/30, DOM 재마운트0. 별도 정상-cache6회 추가전송0으로 측정 조건과 사용자 비용을 분리한다. Markdown/ZIP 의존성 분리 C slow30/30 ready, p95 5980.8ms, HTTP2040 관측오류0·전송실패0·pageerror0/Listen30검열, 새lazy청크첫피드0. 초기 필수 JS gzip758924B로 이 200KB/s 조건에서 전송 하한은 3.79초이며 2초 목표 미달·운영 HTTP2 미검증이다. 실제 게시물 GFM/설정 ZIP 다운로드 PASS. 저장 분석 history 오류 문구는 별도 DCO로 수정하고 선택 보존/명시 재시도를 유지했다.
+
+최종 제품 d4d07acb 전체957 suites/10,176 tests PASS, contracts/lint budget/quality budget/build:dev 모두 exit0(Node22/workers2). 제품 소스는 gate 중 고정됐고 결과 문서만 정리했다.
+
+## 2026-10-29 정책 페이지 번역 지연 적재 후속
+
+[정책 번역 분리 A/D](./r8-policy-translation-split-local.md): 기존 lazy 정책 페이지5개에서만 변경 없는 한국어/영어 legal bundle을 등록한다. 같은 합성seed·warm backend·HTTP1/gzip·200KB/s에서 A30→D30 고정순서로 첫 카드30/30씩 유지, p955987.6→5864.5ms, 초기 필수JS gzip758924→735387B(-23537B). 운영 개선율이 아니며2초 목표는 여전히 미달이다. 양쪽HTTP2040응답 관측오류0·전송실패0·pageerror0, Listen30씩검열. 원본20개hash/updateTime불변. 첫피드legal청크0, 실제약관/개인정보정책·오프라인언어전환PASS. 첫정책진입의추가24.39KB공유청크 비용을 별도 명시했다.
+
+제품85d95ea9 전체958suites/10,178tests PASS, contracts/lint budget/quality budget/build:dev 모두exit0(Node22/workers2), focused23/tscPASS. 공유서비스·분석결과 변경0, 원격push/배포/백필0.
+
+## 2026-10-29 lazy 소비자 전용 sanitizer 분리
+
+[DOMPurify 청크 후속](./r8-sanitizer-chunk-split-local.md): sanitizer 구현/설정/버전은 그대로, 기존 lazy 편집기·크리에이터·GPX에서만 필요한 모듈을 초기vendor에서 분리했다. 같은seed A/E각30회 ready30/30, 초기gzip735387→723662B(-11725B), p955858.4→5812.9ms. 45.5ms 차이는 고정순서 HTTP1/200KBps 합성 표본이며 운영 개선율이 아니다. 2초 목표 미달. 각2040responses 관측오류0/failed0/pageerror0,Listen30검열,원본20hash/updateTime불변. 첫피드 sanitizer0·실제편집기진입1회, 붙여넣기 script/onerror/javascriptURL제거 및 안전한strong/text유지PASS. 게시/업로드0.
+
+제품fe9a97e5 full958suites/10,178tests PASS,contracts/lint/quality/build:dev 모두0,기존보호회귀98PASS. 초기JS 전송하한은같은대역폭에서3.618초로남는다. 공유서비스/저장분석변경0,전용스택종료,remote push/deploy/backfill0.
+
+## 2026-10-29 초기 전송 예산 읽기 감사
+
+[첫 카드 예산 감사](./r8-first-card-budget-audit.md): 제품75f12709 변경 없이 기존E30 그래프/워터폴을 분석했다. 초기JS723662B는200000B/s에서3.618초 하한이며2초 전체예산400000B보다323662B 크다. 첫카드 전 script/CSS/기타 응답 medians 합은약849942B. HTTP2는 스케줄링을 개선할 수 있지만 같은 전송량/대역폭 하한을 없애지 않는다.
+
+비피드 namespace5의 합성JSON gzip83301B 후보는84소비자 변경이 필요해 이번에는 구현보류/초안복원했다. 기존firstfeed 소비자교집합0이나 desktop TodayStrip training은별도유지필요. 제품소스clean,새빌드/측정/서비스실행0. 목표2초를자동완화하지않으며 실제hosted HTTP2/압축/캐시/기기/인증조건별 수용기준 검토는 사용자승인 및 별도측정이필요하다. 이전10178PASS는과거checkpoint이며새gate로주장하지않는다.
+
+## 2026-10-29 lazy schema 소비자 전용 Zod 분리
+
+[Zod 청크 A/F 후속](./r8-validation-chunk-split-local.md): 제품8826bfff는 manualChunks2줄만 변경하며 모든 schema/검증/ACL/저장분석 정책은 그대로다. 동일seed·HTTP1/gzip·200000B/s·390px·fixed A→F각30회 first-card30/30,초기JS gzip723662→702933B(-20729B),p955807.9→5700.7ms. 107.2ms 차이는 합성 고정순서 관측으로 운영 개선율이 아니며2초 목표 미달이다. JS-only 전송하한도3.515초다. 각2040응답 오류0/failed0/pageerror0,Listen30검열,원본20hash/updateTime불변.
+
+모바일 측정 전체창(첫카드 전/+2초) Zod청크0; 실제Settings진입1,정상값수용/잘못된값·추가키거부PASS. Desktop TodayStrip은정당한Zod소비자로단일smoke에서feed1을관측했고초기feed0기대실패를보존했다. Desktop첫카드대비요청시점·30회성능은미측정이며desktop비용0을주장하지않는다.
+
+8826bfff exact full958suites/10178testsPASS,contracts/lint/quality/build:dev(타입포함)모두0,Node22/workers2,시작·종료SHA동일/clean. 기존12suites127focusedPASS. ownstack종료/APP슬롯반환,제품/원본재계산·backfill0,원격push/PR/배포0. hostedHTTP2/실기기/미디어/owner분석성능은별도미검증이다.

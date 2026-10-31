@@ -42,6 +42,7 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
   const [posted, setPosted] = useState(false);
   const generation = useRef(0);
   const settledGeneration = useRef(0);
+  const verifiedAt = useRef<number | null>(null);
   const detailMeasurement = useRef<ReturnType<typeof startJourneyMeasurement> | null>(null);
   const socialMeasurement = useRef<ReturnType<typeof startJourneyMeasurement> | null>(null);
   const inFlight = useRef(false);
@@ -64,7 +65,7 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
     void load.then(data => {
       if (generation.current !== request) return;
       settledGeneration.current = request;
-      acceptedSession.current = session;
+      acceptedSession.current = session; verifiedAt.current = Date.now();
       setDetail(data); setVerifiedMap({ client, activityId, value: data.mapPreview }); setMapFresh(document.visibilityState !== "hidden"); setLoading(false); callbacks.current.onReady();
     }).catch(error => {
       if (generation.current !== request) return;
@@ -85,23 +86,31 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
     if (loading || failed || !hasDetail) return;
     let alive = true, sequence = 0, refreshing = false;
     const visible = () => document.visibilityState !== "hidden";
-    const refresh = async () => {
-      setMapFresh(false);
+    const refresh = async (fromFocus = false) => {
+      // Focusing an already visible WK document can be part of the tap itself.
+      // Keep only this session's recently verified content until that read settles;
+      // backgrounding, periodic checks and an expired verification still mask at once.
+      const age = verifiedAt.current === null ? Infinity : Date.now() - verifiedAt.current;
+      const preserveVerified = fromFocus && visible() && age >= 0 && age < 30_000
+        && acceptedSession.current === session && services.auth.currentUser === session.viewer;
+      if (!preserveVerified) setMapFresh(false);
       if (!visible() || refreshing) return;
       refreshing = true;
       const request = ++sequence, ownerGeneration = generation.current;
       let timeout: ReturnType<typeof setTimeout> | undefined;
       try {
-        const fresh = await Promise.race([client.load(activityId), new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("public_map_refresh_timeout")), 10_000); })]);
+        const fresh = await Promise.race([client.load(activityId), new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("public_map_refresh_timeout")), preserveVerified ? Math.min(10_000, 30_000 - age) : 10_000); })]);
         if (!alive || request !== sequence || ownerGeneration !== generation.current || !visible()) return;
         setDetail(current => current ? { ...fresh, ...(inFlight.current ? {
           viewerHasKudos: current.viewerHasKudos,
           activity: { ...fresh.activity, kudosCount: current.activity.kudosCount, commentCount: current.activity.commentCount },
         } : {}) } : current);
+        verifiedAt.current = Date.now();
         setVerifiedMap({ client, activityId, value: fresh.mapPreview }); setMapFresh(true);
       } catch (reason) {
         if (!alive || request !== sequence || ownerGeneration !== generation.current) return;
         if (accessWasLost(reason)) revokeAccess();
+        setMapFresh(false);
         // Network failures retain text/drafts, but never restore the old public geometry.
       } finally { clearTimeout(timeout); if (request === sequence) refreshing = false; }
     };
@@ -109,13 +118,13 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
       if (document.visibilityState === "hidden") { sequence++; refreshing = false; setMapFresh(false); }
       else void refresh();
     };
-    const focus = () => { void refresh(); };
+    const focus = () => { void refresh(true); };
     const timer = window.setInterval(() => { void refresh(); }, 30_000);
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("focus", focus);
     return () => { alive = false; sequence++; window.clearInterval(timer); document.removeEventListener("visibilitychange", visibility); window.removeEventListener("focus", focus); };
   // Revalidation must not restart its cadence after its own DTO update.
-  }, [activityId, client, loading, failed, revokeAccess, hasDetail, setDetail]);
+  }, [activityId, client, loading, failed, revokeAccess, hasDetail, setDetail, services, session]);
 
   const mutate = useCallback(async (action: "kudos" | "comment") => {
     if (!user || user.isAnonymous || !detail || inFlight.current || (action === "comment" && !text.trim())) return;

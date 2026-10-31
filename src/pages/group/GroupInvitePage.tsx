@@ -9,6 +9,7 @@ import { auth, ensureAppCheckReady, functions } from "../../services/firebase";
 import { appCheckFailureRecovery } from "../../services/appCheckFailureRecovery";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
+import { useInPlaceSignIn } from "../../hooks/useInPlaceSignIn";
 import { useToast } from "../../contexts/ToastContext";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { normalizeGroupInviteCode } from "../../features/group/groupInviteLink";
@@ -31,7 +32,8 @@ function InviteSpinner({ label }: { label: string }) {
 export default function GroupInvitePage() {
   const { code } = useParams<{ code: string }>();
   const { t } = useTranslation("group");
-  const { user, loading: authLoading, signIn } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { login, pending: loginPending, failed: loginFailed } = useInPlaceSignIn();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [processing, setProcessing] = useState(false);
@@ -45,17 +47,18 @@ export default function GroupInvitePage() {
     return () => clearTimeout(timer);
   }, [retryAt]);
 
-  const uid = user?.uid;
   const isAnonymous = user?.isAnonymous === true;
   const inviteCode = normalizeGroupInviteCode(code);
   useEffect(() => {
     if (inviteCode) startJourneyMeasurement("share_open", "web_club_invite", "open")("success");
   }, [inviteCode]);
   useEffect(() => {
-    if (authLoading || !uid || isAnonymous || !inviteCode) return;
+    const sdkUser = auth.currentUser;
+    if (authLoading || !user || isAnonymous || !inviteCode || sdkUser?.uid !== user.uid || sdkUser.isAnonymous === true) return;
     const finish = startJourneyMeasurement("club_join", "web_club_invite", "join");
     let cancelled = false;
-    const current = () => !cancelled && auth.currentUser?.uid === uid && auth.currentUser.isAnonymous !== true;
+    // A same-UID sign-in can replace the SDK session while this join is pending.
+    const current = () => !cancelled && auth.currentUser === sdkUser && sdkUser.isAnonymous !== true;
     setProcessing(true);
     setJoinError(null);
     setRetryAt(0);
@@ -90,7 +93,7 @@ export default function GroupInvitePage() {
       })
       .finally(() => { if (current()) setProcessing(false); });
     return () => { cancelled = true; finish("cancelled"); };
-  }, [authLoading, inviteCode, navigate, showToast, t, uid, isAnonymous, attempt]);
+  }, [authLoading, inviteCode, navigate, showToast, t, user, isAnonymous, attempt]);
 
   if (authLoading) {
     return <InviteSpinner label={t("inviteLink.loading")} />;
@@ -126,13 +129,15 @@ export default function GroupInvitePage() {
           <p className="mb-6" style={{ color: "var(--ink-2)" }}>
             {t("inviteLink.loginPrompt")}
           </p>
+          {loginFailed && <Text role="alert">{t("common:auth.loginFailed")}</Text>}
           <Button variant="secondary"
-            onClick={signIn}
+            disabled={loginPending}
+            onClick={() => { void login(); }}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-[var(--r-lg)] shadow-sm transition-colors border"
             style={{ background: "var(--bg-0)", borderColor: "var(--line-soft)" }}
           >
             <span className="font-medium" style={{ color: "var(--ink-1)" }}>
-              {t("inviteLink.signInGoogle")}
+              {t(loginPending ? "common:auth.loginLoading" : "inviteLink.signInGoogle")}
             </span>
           </Button>
         </div>

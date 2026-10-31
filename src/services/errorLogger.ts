@@ -1,3 +1,4 @@
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { captureError } from "./sentry";
 import { getRuntimeConfig } from "./runtimeConfig";
 import { httpsCallable, type HttpsCallable } from "firebase/functions";
@@ -52,7 +53,8 @@ function getLogClientErrorFn(): HttpsCallable<unknown, unknown> | null {
 export function logClientError(
   source: string,
   error: unknown,
-  context?: Record<string, unknown>
+  context?: Record<string, unknown>,
+  services?: Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady">,
 ) {
   const message = error instanceof Error ? error.message : String(error);
   if (shouldSuppressClientError(source, message)) return;
@@ -69,10 +71,12 @@ export function logClientError(
   // error_logs에도 기록 (백업). functions 미초기화 시 skip, 동기/비동기 실패 모두 흡수.
   const stack = error instanceof Error ? error.stack : undefined;
 
+  const user = services?.auth.currentUser;
   void (async () => {
     try {
-      await ensureAppCheckReady();
-      const fn = getLogClientErrorFn();
+      await (services?.ensureAppCheckReady ?? ensureAppCheckReady)();
+      if (services && services.auth.currentUser !== user) return;
+      const fn = services ? httpsCallable(services.functions, "logClientError") : getLogClientErrorFn();
       if (!fn) return; // initFirebase 전 — 서버 로깅 skip (Sentry 큐로 충분)
       await fn({ source, message, stack, context });
     } catch {

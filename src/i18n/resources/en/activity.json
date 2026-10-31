@@ -3035,6 +3035,7 @@
     "completed": "New analysis completed.",
     "failed": "Could not confirm the request. Saved analysis is unchanged. Retrying uses the same request.",
     "viewingSaved": "Viewing saved analysis. Ranges are not recalculated from current source data.",
+    "historyFailed": "Previous analyses could not be loaded. Select View previous analyses to try again.",
     "history": "View previous analysis",
     "current": "Return to current analysis",
     "savedVersion": "Version {{version}} · {{time}}",

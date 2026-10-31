@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useTranslation } from "react-i18next";
@@ -144,46 +145,79 @@ export function EquipmentSignalCard({
   ownerId: string;
   viewerId: string | null;
 }) {
-  const { ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const { t } = useTranslation("activity");
+  const services = useFirebaseServices();
+  const user = services.auth.currentUser;
+  const scope = useMemo(() => ({ services, user, activityId, ownerId, viewerId }),
+    [services, user, activityId, ownerId, viewerId]);
+  const currentScope = useRef(scope);
+  currentScope.current = scope;
+  const alive = useRef(false);
+  const isCurrent = () => alive.current && currentScope.current === scope && services.auth.currentUser === user;
   const [reloadKey, setReloadKey] = useState(0);
-  const [state, setState] = useState<LoadState>({ kind: "loading" });
+  const [loaded, setLoaded] = useState<{ scope: typeof scope; state: LoadState }>({ scope, state: { kind: "loading" } });
+  const state: LoadState = loaded.scope === scope ? loaded.state : { kind: "loading" };
+  const setState = (state: LoadState) => setLoaded({ scope, state });
   const [dismissing, setDismissing] = useState(false);
   const [dismissError, setDismissError] = useState(false);
-  const isOwner = viewerId !== null && viewerId === ownerId;
+  const isOwner = viewerId !== null && viewerId === ownerId && user?.uid === ownerId && !user.isAnonymous;
 
   useEffect(() => {
+    const { services, user, activityId, ownerId } = scope;
+    const setState = (state: LoadState) => setLoaded({ scope, state });
+    alive.current = true;
+    let active = true;
+    const current = () => active && currentScope.current === scope && services.auth.currentUser === user;
+    setDismissing(false);
+    setDismissError(false);
     if (!isOwner) {
       setState({ kind: "missing" });
-      return;
+      return () => { active = false; alive.current = false; };
     }
     setState({ kind: "loading" });
-    return onSnapshot(
-      doc(firestore, "equipment_signal_exposures", activityId),
-      (snapshot) => {
-        if (!snapshot.exists()) {
-          setState({ kind: "missing" });
-          return;
-        }
-        const classified = classifyProjection(snapshot.data(), { activityId, ownerId });
-        if (classified.kind === "missing") {
-          setState({ kind: "missing" });
-          return;
-        }
-        if (classified.kind === "error") {
+    const stopAuth = onAuthStateChanged(services.auth, () => {
+      if (!active || currentScope.current !== scope) return;
+      if (services.auth.currentUser === user) return;
+      active = false;
+      setState({ kind: "missing" });
+    });
+    let stopSnapshot = () => {};
+    try {
+      stopSnapshot = onSnapshot(
+        doc(services.firestore, "equipment_signal_exposures", activityId),
+        (snapshot) => {
+          if (!current()) return;
+          if (!snapshot.exists()) {
+            setState({ kind: "missing" });
+            return;
+          }
+          const classified = classifyProjection(snapshot.data(), { activityId, ownerId });
+          if (classified.kind === "missing") {
+            setState({ kind: "missing" });
+            return;
+          }
+          if (classified.kind === "error") {
+            setState({ kind: "error" });
+            logClientError("EquipmentSignalCard.invalidProjection", new Error("invalid owner projection"), { activityId }, services);
+            return;
+          }
+          setDismissError(false);
+          setState(classified);
+        },
+        (error) => {
+          if (!current()) return;
           setState({ kind: "error" });
-          logClientError("EquipmentSignalCard.invalidProjection", new Error("invalid owner projection"), { activityId });
-          return;
-        }
-        setDismissError(false);
-        setState(classified);
-      },
-      (error) => {
+          logClientError("EquipmentSignalCard.load", error, { activityId }, services);
+        },
+      );
+    } catch (error) {
+      if (current()) {
         setState({ kind: "error" });
-        logClientError("EquipmentSignalCard.load", error, { activityId });
-      },
-    );
-  }, [activityId, isOwner, ownerId, reloadKey]);
+        logClientError("EquipmentSignalCard.load", error, { activityId }, services);
+      }
+    }
+    return () => { active = false; alive.current = false; stopSnapshot(); stopAuth(); };
+  }, [scope, isOwner, reloadKey]);
 
   if (!isOwner || state.kind === "missing") return null;
   if (state.kind === "loading") {
@@ -208,21 +242,24 @@ export function EquipmentSignalCard({
   const { projection } = state;
   const guidanceKey = `equipment.guidance.${projection.actionCode}`;
   const dismiss = async () => {
+    if (!isCurrent() || dismissing) return;
     setDismissing(true);
     setDismissError(false);
     try {
-      await ensureAppCheckReady();
+      await services.ensureAppCheckReady();
+      if (!isCurrent()) return;
       const callable = httpsCallable<{ activityId: string; signalId: string }, { result: string }>(
-        functions,
+        services.functions,
         "dismissEquipmentSignalCallable",
       );
       await callable({ activityId, signalId: projection.signalId });
-      setState({ kind: "missing" });
+      if (isCurrent()) setState({ kind: "missing" });
     } catch (error) {
+      if (!isCurrent()) return;
       setDismissError(true);
-      logClientError("EquipmentSignalCard.dismiss", error, { activityId, signalId: projection.signalId });
+      logClientError("EquipmentSignalCard.dismiss", error, { activityId, signalId: projection.signalId }, services);
     } finally {
-      setDismissing(false);
+      if (isCurrent()) setDismissing(false);
     }
   };
 

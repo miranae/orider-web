@@ -4,6 +4,7 @@ import { RUN_DISTANCES } from "@shared/types/personal-records";
 import type { TrainingAnalysisHistoryRequest, TrainingAnalysisHistoryResponse, TrainingAnalysisHistoryCursor } from "@shared/types/training-analysis-history";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { trainingAnalysisPeriodsAvailable } from "./trainingAnalysisPeriods";
+import { getRuntimeConfig } from "./runtimeConfig";
 import { getDiscipline } from "../utils/disciplineFilter";
 
 // 이 history wire는 v34부터 유효하다. 최신 계산 버전 상승으로 이미 확정된 snapshot을 거부하지 않는다.
@@ -75,7 +76,9 @@ export function validateTrainingAnalysisHistoryResponse(value: unknown, request:
   return r;
 }
 export async function loadTrainingAnalysisHistory(services: FirebaseServices, uid: string, request: TrainingAnalysisHistoryRequest) {
-  if (!trainingAnalysisPeriodsAvailable("run")) throw new Error("api_unavailable");
+  // Running history remains a Stage-only API even though hosted period analysis now serves run.
+  const config = getRuntimeConfig();
+  if (config.appEnvironment !== "stage" || config.useEmulators === true || !trainingAnalysisPeriodsAvailable("run")) throw new Error("api_unavailable");
   const matches = () => !!uid && services.auth.currentUser?.uid === uid && !services.auth.currentUser.isAnonymous;
   if (!matches()) throw new Error("account_changed");
   if (services.functions.app !== services.auth.app || services.functions.customDomain !== "https://asia-northeast3-orider-dev.cloudfunctions.net") throw new Error("stage/callable-context-mismatch");
