@@ -34,24 +34,21 @@ export function captureStravaSummary(input: unknown): StravaSummaryV1 {
 export function stravaRecordOf(activity: unknown): StravaSummaryV1 | null {
   const a = record(activity);
   if (a.source !== 'strava') return null;
-  const redact = (value: StravaSummaryV1): StravaSummaryV1 => ({ ...value,
-    ...(a.hidePower === true ? { average_watts: null, max_watts: null, weighted_average_watts: null, kilojoules: null } : {}),
-    ...(a.hideHr === true ? { average_heartrate: null, max_heartrate: null, suffer_score: null } : {}),
-  });
+  // 공개 범위는 visibility 하나다(docs/product-invariants.md P1) — 폐지된 지표 숨김 값이 남아 있어도 가리지 않는다.
   const raw = record(a.stravaSummaryV1);
-  if (raw.version === 1) return redact(captureStravaSummary(raw));
+  if (raw.version === 1) return captureStravaSummary(raw);
   // Legacy import fields retained the provider summary. Calories/TSS were estimates: never relabel them.
   const s = record(a.summary);
   const moving = number(s.ridingTimeMillis);
   const start = number(a.startTime), end = number(a.endTime);
-  return redact(captureStravaSummary({ distance: s.distance, moving_time: moving == null ? null : moving / 1000,
+  return captureStravaSummary({ distance: s.distance, moving_time: moving == null ? null : moving / 1000,
     elapsed_time: start != null && end != null && end >= start ? (end - start) / 1000 : null,
     average_speed: number(s.averageSpeed) == null ? null : (s.averageSpeed as number) / 3.6,
     max_speed: number(s.maxSpeed) == null ? null : (s.maxSpeed as number) / 3.6,
     total_elevation_gain: s.elevationGain, average_watts: s.averagePower, max_watts: s.maxPower,
     weighted_average_watts: s.normalizedPower, average_heartrate: s.averageHeartRate,
     max_heartrate: s.maxHeartRate, average_cadence: s.averageCadence, max_cadence: s.maxCadence,
-    calories: s.caloriesSource === 'provider' ? s.calories : null, suffer_score: s.relativeEffort }));
+    calories: s.caloriesSource === 'provider' ? s.calories : null, suffer_score: s.relativeEffort });
 }
 /** Source-only text is also the safe placeholder while current analysis is loading. */
 export function formatStravaRecord(record: StravaSummaryV1, lang: 'ko' | 'en'): string {
