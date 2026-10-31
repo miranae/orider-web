@@ -614,6 +614,8 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 
 /* Field layout aligns segmented choices with native Input/Select controls. */
 .ds-toggle-controls--field { margin: 0; }
+/* 화면 전환 줄 — 글자 폭만큼이면 한쪽에 붙는다. 부모 폭을 균등 칸으로 채운다. */
+.ds-toggle-controls--stretch { display: grid; width: 100%; grid-auto-columns: minmax(0, 1fr); }
 .ds-toggle-controls--axis.ds-toggle-controls--field { min-height: 36px; }
 .ds-toggle-controls--axis.ds-toggle-controls--field .ds-toggle-button { height: 32px; min-height: 32px; }
 
