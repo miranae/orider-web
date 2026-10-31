@@ -20,7 +20,7 @@ vi.mock("./firebase", () => ({
   withIsolatedAuth: async (work: (auth: unknown) => Promise<unknown>) => { mocks.isolatedUsed(); return work(mocks.isolatedAuth); },
 }));
 vi.mock("./authCallables", () => ({ authCallable: (name: string) => { mocks.callableFactory(name); return mocks.callable; } }));
-import { linkGoogleToCurrentUser } from "./googleLink";
+import { canUnlinkGoogle, linkGoogleToCurrentUser, unlinkGoogleFromCurrentUser } from "./googleLink";
 
 const credential = { providerId: "google.com", idToken: "google-id-token" };
 const inUse = { code: "auth/credential-already-in-use" };
@@ -81,5 +81,37 @@ describe("linkGoogleToCurrentUser", () => {
     mocks.linkWithPopup.mockRejectedValue({ code: "auth/popup-closed-by-user" });
     await expect(linkGoogleToCurrentUser(async () => true)).rejects.toMatchObject({ code: "auth/popup-closed-by-user" });
     expect(mocks.callable).not.toHaveBeenCalled();
+  });
+});
+
+describe("canUnlinkGoogle", () => {
+  const google = { providerId: "google.com" };
+  it("allows unlinking only when another sign-in method remains", () => {
+    expect(canUnlinkGoogle({ providerData: [google] } as never, 0)).toBe(false);
+    expect(canUnlinkGoogle({ providerData: [google] } as never, 1)).toBe(true);
+    expect(canUnlinkGoogle({ providerData: [google, { providerId: "password" }] } as never, 0)).toBe(true);
+  });
+  it("blocks while the linked social methods are unknown", () => {
+    expect(canUnlinkGoogle({ providerData: [google, { providerId: "password" }] } as never, null)).toBe(false);
+  });
+});
+
+describe("unlinkGoogleFromCurrentUser", () => {
+  it("asks the server to unlink and reloads the user", async () => {
+    mocks.callable.mockResolvedValueOnce({ data: { unlinked: true } });
+    await expect(unlinkGoogleFromCurrentUser()).resolves.toBe(true);
+    expect(mocks.callableFactory).toHaveBeenCalledWith("unlinkGoogleLogin");
+    expect(mocks.appCheck).toHaveBeenCalled();
+    expect(mocks.user.reload).toHaveBeenCalled();
+  });
+  it("surfaces the server's last-sign-in-method refusal without reloading", async () => {
+    mocks.callable.mockRejectedValueOnce({ code: "functions/failed-precondition", details: { reason: "last-login-method" } });
+    await expect(unlinkGoogleFromCurrentUser()).rejects.toMatchObject({ details: { reason: "last-login-method" } });
+    expect(mocks.user.reload).not.toHaveBeenCalled();
+  });
+  it("does not reload a different account that signed in meanwhile", async () => {
+    mocks.callable.mockImplementationOnce(async () => { mocks.current = { uid: "other" }; return { data: { unlinked: true } }; });
+    await expect(unlinkGoogleFromCurrentUser()).rejects.toThrow("auth/user-changed");
+    expect(mocks.user.reload).not.toHaveBeenCalled();
   });
 });

@@ -411,6 +411,7 @@
       "stravaSyncSettings": "활동 동기화 설정",
       "googleLinked": "Google 로그인을 연결했습니다.",
       "googleLinkFailed": "Google 로그인을 연결하지 못했습니다. 다시 시도해 주세요.",
+      "googleUnlinked": "Google 로그인 연결을 해제했습니다.",
       "googleAlreadyLinked": "이미 다른 Google 계정이 연결되어 있습니다.",
       "googleConnectDataConflict": "이 Google 계정으로 만든 별도 계정에 기록이나 연결된 서비스가 있어 자동으로 연결하지 못했습니다. 기존 로그인 방법으로 이용하시고, 계정 통합은 고객지원에 문의해주세요.",
       "googleConnectExisting": {
