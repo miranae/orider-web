@@ -11,7 +11,7 @@ import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNaviga
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { httpsCallable } from "firebase/functions";
 import { doc, getDoc } from "firebase/firestore";
-import { firestore, functions } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { useCourses } from "../hooks/useCourses";
@@ -438,10 +438,11 @@ function WizardFooter({ step, canNext, submitting, onPrev, onNext, onStart }: Wi
 
 export default function GoalSetupPage() {
   const location = useLocation();
-  return /\/coach\/goals$/.test(location.pathname) ? <GoalHub wizard={<GoalWizard embedded />} /> : <GoalWizard />;
+  return (/\/coach\/goals$/.test(location.pathname) || new URLSearchParams(location.search).get("page") === "goals") ? <GoalHub wizard={<GoalWizard embedded />} /> : <GoalWizard />;
 }
 
 function GoalWizard({ embedded = false }: { embedded?: boolean }) {
+  const { firestore, functions } = useFirebaseServices();
   const { t } = useTranslation('training');
   const { t: tCommon } = useTranslation('common');
   const { user, loading: authLoading, signIn } = useAuth();

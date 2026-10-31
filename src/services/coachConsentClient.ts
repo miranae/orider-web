@@ -1,3 +1,4 @@
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { auth, getAppCheckToken } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 
@@ -141,41 +142,52 @@ function parsePolicy(input: unknown): CoachConsentPolicy {
   };
 }
 
-async function request(path: string, init?: RequestInit): Promise<CoachConsentPolicy> {
-  const idToken = await auth.currentUser?.getIdToken();
-  if (!idToken) throw new Error("SIGN_IN_REQUIRED");
-  const appCheckToken = await getAppCheckToken();
-  const url = endpoint(path);
-  const response = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${idToken}`,
-      ...(appCheckToken ? { "X-Firebase-AppCheck": appCheckToken } : {}),
-      ...init?.headers,
-    },
-  }).catch((error: unknown) => {
-    // 읽기 실패만 명시적으로 구분한다. 동의 변경 요청의 오류/재시도 계약은 유지한다.
-    if (!init?.method || init.method === "GET") throw new Error("COACH_CONSENT_NETWORK_ERROR");
-    throw error;
-  });
-  const payload: unknown = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const body = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
-    const error = body.error && typeof body.error === "object" ? body.error as Record<string, unknown> : {};
-    throw new Error(typeof error.code === "string" ? error.code : `HTTP_${response.status}`);
+export function createCoachConsentClient(services: Pick<FirebaseServices, "auth" | "getAppCheckToken">) {
+  const { auth, getAppCheckToken } = services;
+  async function request(path: string, init?: RequestInit): Promise<CoachConsentPolicy> {
+    const user = auth.currentUser;
+    const idToken = await user?.getIdToken();
+    if (!idToken) throw new Error("SIGN_IN_REQUIRED");
+    const appCheckToken = await getAppCheckToken();
+    if (auth.currentUser?.uid !== user?.uid) throw new Error("AUTH_IDENTITY_CHANGED");
+    const url = endpoint(path);
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+        ...(appCheckToken ? { "X-Firebase-AppCheck": appCheckToken } : {}),
+        ...init?.headers,
+      },
+    }).catch((error: unknown) => {
+      // 읽기 실패만 명시적으로 구분한다. 동의 변경 요청의 오류/재시도 계약은 유지한다.
+      if (!init?.method || init.method === "GET") throw new Error("COACH_CONSENT_NETWORK_ERROR");
+      throw error;
+    });
+    const payload: unknown = await response.json().catch(() => ({}));
+    if (auth.currentUser?.uid !== user?.uid) throw new Error("AUTH_IDENTITY_CHANGED");
+    if (!response.ok) {
+      const body = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+      const error = body.error && typeof body.error === "object" ? body.error as Record<string, unknown> : {};
+      throw new Error(typeof error.code === "string" ? error.code : `HTTP_${response.status}`);
+    }
+    return parsePolicy(payload);
   }
-  return parsePolicy(payload);
-}
 
-export function getCoachConsentPolicy(): Promise<CoachConsentPolicy> {
-  return request("/consent-policy");
-}
+  function getCoachConsentPolicy(): Promise<CoachConsentPolicy> {
+    return request("/consent-policy");
+  }
 
-export function acceptCoachConsent(policyVersion: string): Promise<CoachConsentPolicy> {
-  return request("/consent", { method: "PUT", body: JSON.stringify({ policyVersion }) });
-}
+  function acceptCoachConsent(policyVersion: string): Promise<CoachConsentPolicy> {
+    return request("/consent", { method: "PUT", body: JSON.stringify({ policyVersion }) });
+  }
 
-export function revokeCoachConsent(): Promise<CoachConsentPolicy> {
-  return request("/consent", { method: "DELETE" });
+  function revokeCoachConsent(): Promise<CoachConsentPolicy> {
+    return request("/consent", { method: "DELETE" });
+  }
+
+  return { getCoachConsentPolicy, acceptCoachConsent, revokeCoachConsent };
 }
+export const getCoachConsentPolicy: ReturnType<typeof createCoachConsentClient>["getCoachConsentPolicy"] = (...args) => createCoachConsentClient({ auth, getAppCheckToken }).getCoachConsentPolicy(...args);
+export const acceptCoachConsent: ReturnType<typeof createCoachConsentClient>["acceptCoachConsent"] = (...args) => createCoachConsentClient({ auth, getAppCheckToken }).acceptCoachConsent(...args);
+export const revokeCoachConsent: ReturnType<typeof createCoachConsentClient>["revokeCoachConsent"] = (...args) => createCoachConsentClient({ auth, getAppCheckToken }).revokeCoachConsent(...args);

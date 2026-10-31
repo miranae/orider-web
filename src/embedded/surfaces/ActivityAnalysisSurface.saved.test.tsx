@@ -58,7 +58,7 @@ it("preserves a selected old version after failed history read, source retry and
   const p = props(); const view = render(<ActivityAnalysisSurface {...p} />);
   await selectPrevious(); f.history.mockRejectedValueOnce(Error("offline"));
   fireEvent.click(screen.getByText("reanalysis.history"));
-  await screen.findByText("reanalysis.failed");
+  await screen.findByText("reanalysis.historyFailed");
   f.failStreams = true;
   view.rerender(<ActivityAnalysisSurface {...p} retryKey={1} />);
   expect(screen.getByText("stored power 111")).toBeInTheDocument();

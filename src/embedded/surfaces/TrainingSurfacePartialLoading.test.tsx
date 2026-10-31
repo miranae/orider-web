@@ -16,24 +16,16 @@ vi.mock("../../hooks/usePlanModel", () => ({
   usePlanModel: () => mocks.planModel,
 }));
 
-vi.mock("../../components/mobile/MobileFitnessPage", () => ({
-  default: ({ sectionState }: {
-    sectionState: {
-      trend: string;
-      derived: string;
-      onRetryTrend?: () => void;
-      retryLabel?: string;
-    };
-  }) => (
-    <div>
-      <span>trend {sectionState.trend}</span>
-      <span>derived {sectionState.derived}</span>
-      {sectionState.trend === "error" && sectionState.onRetryTrend && (
-        <button type="button" onClick={sectionState.onRetryTrend}>{sectionState.retryLabel}</button>
-      )}
-    </div>
-  ),
+vi.mock("../../pages/coach/CoachQuestionEntry", () => ({ CoachQuestionEntry: () => null }));
+vi.mock("../../pages/coach/CoachConditionPage", () => ({
+  default: () => <div>
+    <span>trend {mocks.fitnessModel.timeseriesError ? "error" : mocks.fitnessModel.timeseriesLoaded ? "ready" : "loading"}</span>
+    <span>derived {!mocks.fitnessModel.derivedMetricsSettled ? "loading" : mocks.fitnessModel.derivedMetricsError ? "error" : "ready"}</span>
+    {mocks.fitnessModel.timeseriesError && <button onClick={mocks.fitnessModel.retryLoad as () => void}>다시 시도</button>}
+  </div>,
 }));
+vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner", isAnonymous: false }, profile: {} }) }));
+vi.mock("../../features/trainingDecision/TodayTrainingDecisionCard", () => ({ default: () => null }));
 
 vi.mock("../../features/training/plan/PlanPresentation", () => ({
   default: () => <div>plan presentation</div>,
@@ -77,6 +69,9 @@ describe("training embedded surface partial loading", () => {
       retryLoad: vi.fn(),
     };
     mocks.planModel = {
+      weeks: [],
+      isTodayCell: () => false,
+      goalMatchesDiscipline: true,
       goal: null,
       goalLoading: true,
       planLoading: true,

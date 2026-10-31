@@ -249,7 +249,7 @@ it("does not expose report/hide/block controls for the activity owner", async ()
   expect(screen.queryByRole("button", { name: "작성자 차단" })).not.toBeInTheDocument();
 });
 
-it("removes old geometry on focus and keeps it hidden after a temporary network failure", async () => {
+it("removes old geometry after a failed focus check and keeps it hidden until a successful read", async () => {
   const data = fixture(); data.mapPreview = { imageUrl: "https://maps.example.test/old", encodedPolyline: null };
   mocks.load.mockResolvedValueOnce(data).mockRejectedValueOnce(new Error("offline"));
   render(<PublicActivitySurface {...props} />);

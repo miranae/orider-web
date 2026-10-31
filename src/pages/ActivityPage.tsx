@@ -1,3 +1,4 @@
+import { OwnerDetailReadFallback } from "../features/activity/detail/OwnerDetailReadFallback";
 import { useSavedActivityAnalysisSelection } from "../hooks/useSavedActivityAnalysisSelection";
 import { ActivityReanalysisControl } from "../features/activity/detail/ActivityReanalysisControl";
 import type { JourneyOutcome } from "../services/journeyMeasurement";
@@ -13,7 +14,6 @@ import { loadActivityDiscovery } from "../services/activityDiscovery";
 import RouteInventoryReturn from "../features/activity/detail/RouteInventoryReturn";
 import { announceActivityContentChange } from "../services/activityContentChanged";
 import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
-import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
 import { stravaRecordOf } from "@shared/analysis/stravaRecord";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
@@ -62,7 +62,7 @@ import {
   doc, updateDoc,
   collection, query, where, orderBy, onSnapshot,
 } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { activitySocialErrorMessageKey, activitySocialMutations } from "../services/activitySocialMutations";
 import { track, trackActivationStep } from "../services/analytics";
 import type { Activity, Visibility } from "@shared/types";
@@ -118,6 +118,7 @@ export default function ActivityPage({ publicAccess, detailMeasurement, detailRe
   return publicAccess ? <ActivityPublicAccess {...publicAccess}>{access => <ActivityPageContent publicAccess={access} detailMeasurement={access.session.detailMeasurement} />}</ActivityPublicAccess> : <ActivityPageContent detailMeasurement={detailMeasurement} detailRetry={detailRetry} />;
 }
 function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: { publicAccess?: ActivityPublicAccessState; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void }) {
+  const { firestore } = useFirebaseServices();
   const { t, i18n } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
   const timeAgo = useTimeAgo();
@@ -699,14 +700,23 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     setVisualState(previous => previous.identity === visualIdentity && previous.range?.[0] === selectionStart && previous.range?.[1] === selectionEnd
       ? previous : { identity: visualIdentity, axis: visualAxis, range: [selectionStart, selectionEnd] });
   }, [selectionStart, selectionEnd, visualIdentity, visualAxis, rangeEnabled, toggleRange]);
+  // 드래그로 만든 구간 선택인지 기억한다. 최고 노력·스플릿 위치를 새로 고르면 그 하이라이트가
+  // 이전 드래그 범위에 가려지지 않게 드래그 선택을 푼다(#1302 이전 동작). 랩·시간 입력 선택은 유지한다.
+  const dragSelection = useRef<{ startOffsetSec: number; endOffsetSec: number } | null>(null);
   const setVisualRange = (range: [number, number] | null) => {
     if (range && (!Number.isInteger(range[0]) || !Number.isInteger(range[1]) || range[0] < 0 || range[1] <= range[0] || range[1] >= sampledData.length)) return;
     setVisualState({ identity: visualIdentity, axis: visualAxis, range });
     setHoverIndex(range?.[1] ?? null);
+    dragSelection.current = null;
     if (!rangeSelection.ownerUid) return;
     const elapsed = range && rangeSelection.axis ? elapsedRangeFromChartSelection(rangeSelection.axis, sourceIndices, range) : null;
-    if (elapsed) rangeSelection.selectAndEnable(elapsed);
+    if (elapsed) { rangeSelection.selectAndEnable(elapsed); dragSelection.current = elapsed; }
     else if (!range && rangeSelection.enabled) rangeSelection.toggle();
+  };
+  const releaseDragSelection = useRef(() => {});
+  releaseDragSelection.current = () => {
+    const dragged = dragSelection.current, current = rangeSelection.selection;
+    if (visualRange && dragged && current && current.startOffsetSec === dragged.startOffsetSec && current.endOffsetSec === dragged.endOffsetSec) setVisualRange(null);
   };
   const visualRouteRange = useMemo(() => {
     if (!visualRange || !streams?.latlng) return null;
@@ -728,12 +738,16 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         ?? (activity?.source === "strava" ? activity.summary.ridingTimeMillis / 1000 : null) }), canonicalSummaryMetrics,
   ), activity, !!activePowerOverride), [effectiveStreams, streamSensorSummary, canonicalSummaryMetrics, activity, activePowerOverride, serverMetrics.metrics]);
   const { location: runSplitLocation, onSelectSplit: selectRunSplit } = useRunSplitLocation(activityId, activity?.id, sport === "run", streams, sampledData, resolveObservedDistanceKm(serverMetrics.metrics ?? {}, activity?.summary?.distance));
+  // 스플릿 선택은 프로필이 마운트·탭 전환 때도 자동으로 부르므로 드래그를 풀지 않는다.
+  // 사용자가 "구간 위치 보기"를 눌렀을 때만 이전 드래그 범위를 풀어 스플릿 하이라이트를 보인다.
+  const onViewRunSplitLocation = useCallback(() => { releaseDragSelection.current(); viewRunSplitLocation(); }, [viewRunSplitLocation]);
   const peakLocation = useMemo(() => resolvePeakEffortLocation(selectedPeak, serverMetrics.metrics?.peakEfforts?.indexAxis, streams, sampledData),
     [selectedPeak, serverMetrics.metrics, streams, sampledData]);
   const locatePeak = useCallback((peak: RidePeakEffort | null) => {
     pendingPeakLocation.current = null;
     setPeakSelection({ activityId, peak });
     if (!peak || selectedAnalysis) return;
+    releaseDragSelection.current();
     setAnalysisExploreOpen(true);
     if (!streams) {
       pendingPeakLocation.current = { activityId, uid: user?.uid, peak };
@@ -864,7 +878,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
 
   if (activityLoadError) {
     const isPermissionError = isPermissionDeniedError(activityLoadError);
-    return (
+    const errorView = (
       <div className="max-w-xl mx-auto py-16">
         <ErrorState
           title={isPermissionError ? tCommon("error.permission") : tCommon("error.title")}
@@ -873,6 +887,10 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         />
       </div>
     );
+    if (publicAccess || !activityId) return errorView;
+    return <OwnerDetailReadFallback activityId={activityId} error={activityLoadError} fallback={errorView}>
+      {initialDetail => <ActivityPage publicAccess={{ activityId, retryKey: 0, initialDetail, onReady: () => {}, onError: () => {} }} />}
+    </OwnerDetailReadFallback>;
   }
 
   if (activityProcessing) {
@@ -1331,7 +1349,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         <NativeActivityMemoEditor key={`${activity.id}:${user?.uid}`} activityId={activity.id}
           onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })} />}
       {isActivityOwner && activeTab === "overview" && <ActivityMapPrivacyControl activityId={activity.id} />}
-      {activeTab === "analysis" && <ActivityReanalysisControl canReanalyze={isActivityOwner} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
+      {activeTab === "analysis" && <ActivityReanalysisControl canReanalyze={isActivityOwner || (!!publicAccess && !!user && !user.isAnonymous && user.uid === activity.userId)} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
       {activeTab === "analysis" && <header className="activity-analysis-intro">
         <div><Text as="h2" variant="title">{t("detail.analysis.title")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("analysisReading.intro")}</Text></div>
         <nav aria-label={t("analysisReading.navigation")} className="activity-analysis-navigation">
@@ -1408,7 +1426,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
           axisControls={<ActivityChartAxisControls compact axis={visualAxis} distanceAvailable={rangeSelection.distanceAvailable} elapsedAvailable={!!rangeSelection.sampledAxis} onChange={axis => {
             setVisualState({ identity: visualIdentity, axis, range: visualRange }); setHoverIndex(null);
           }} />}
-          rangeAnalysis={activity?.id ? <><ActivityRangeControls selection={rangeSelection} showAxis={false} part="details" /><ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={rangeSelection.analysisActivityId ?? activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /></> : null}
+          rangeAnalysis={activity?.id ? <>{/* 그래프가 있는 분석 탭은 구간 시작·끝을 그래프에만 표시한다 — 시간 입력 칸은 두지 않는다(드래그로 선택). */}<ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={rangeSelection.analysisActivityId ?? activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} /></> : null}
           range={rangeSelection.selection ? rangeSelection.chartRange : [0, sampledData.length - 1]}
           onRangeChange={rangeSelection.enabled && rangeSelection.sampledAxis && rangeSelection.selection && !visualRange ? rangeSelection.selectChart : undefined}
           onHoverIndex={handleElevHover} chartHighlightRange={chartHighlightRange}
@@ -1657,11 +1675,12 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         onSelectLap={!selectedAnalysis && rangeSelection.ownerUid ? selectLap : undefined}
         canSelectLap={canSelectLap}
         onSelectRunSplit={selectedAnalysis ? undefined : selectRunSplit}
-        onViewRunSplitLocation={selectedAnalysis ? undefined : viewRunSplitLocation}
+        onViewRunSplitLocation={selectedAnalysis ? undefined : onViewRunSplitLocation}
         canViewRunSplitLocation={!!runSplitLocation?.routeRange && !!runSplitLocation.chartRange}
       />}
       {activeTab === "analysis" && !selectedAnalysis && sport === "run" && (isActivityOwner || publicAccess) && activity?.id && !(showElevation && elevData.length > 0) && <div className="space-y-4">
-        <ActivityRangeControls selection={rangeSelection} />
+        {/* 차트가 없는 달리기(거리 스트림 없음)는 드래그할 그래프가 없어 시작 버튼으로만 구간 분석을 연다. */}
+        <ActivityRangeControls selection={rangeSelection} showToggle />
         <ActivityRangeAnalysisPanel callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} activityId={rangeSelection.analysisActivityId ?? activity.id} sport={sport} selection={rangeSelection} previewActive={activePowerOverride != null} />
       </div>}
       {activeTab === "analysis" && <ActivityOverviewEvidence overview={overview} preview={activePowerOverride != null} isOwner={isActivityOwner} supplemental />}

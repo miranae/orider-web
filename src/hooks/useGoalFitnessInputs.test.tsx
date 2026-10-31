@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 const state = vi.hoisted(() => ({ call: vi.fn(), profile: {} }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "u" }, profile: state.profile }) }));
 vi.mock("firebase/functions", () => ({ httpsCallable: () => state.call }));
-vi.mock("../services/firebase", () => ({ functions: {} }));
+vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => ({ functions: {} }) }));
 vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 import { goalFitnessInputsSchema, useGoalFitnessInputs } from "./useGoalFitnessInputs";
 const inputs = { ftp: 210, weightKg: 70, thresholdPace: 275, css: 108,

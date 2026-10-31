@@ -1,6 +1,7 @@
+import { useCoachApi } from "./useCoachApi";
 import { useEffect, useRef, useState } from "react";
 import {
-  getCoachPmcInsight, isCoachClientError, type CoachDiscipline,
+  isCoachClientError, type CoachDiscipline,
 } from "../services/coachClient";
 import { logClientError } from "../services/errorLogger";
 import type { CoachPmcInsight } from "../services/coachPmcInsightContract";
@@ -18,6 +19,7 @@ export function useCoachPmcInsight(
   discipline: CoachDiscipline,
   enabled: boolean,
 ): CoachPmcInsightState {
+  const { getCoachPmcInsight } = useCoachApi();
   const key = `${uid ?? "signed-out"}:${discipline}:${enabled ? "on" : "off"}`;
   const generationRef = useRef(0);
   const [state, setState] = useState<InternalState>({ key, insight: null, loading: enabled && Boolean(uid), unavailable: false });
@@ -47,7 +49,7 @@ export function useCoachPmcInsight(
       },
     );
     return () => { if (generationRef.current === generation) generationRef.current += 1; };
-  }, [discipline, enabled, key, uid]);
+  }, [discipline, enabled, key, uid, getCoachPmcInsight]);
 
   if (state.key !== key) return { insight: null, loading: enabled && Boolean(uid), unavailable: false };
   return { insight: state.insight, loading: state.loading, unavailable: state.unavailable };

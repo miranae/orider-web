@@ -70,6 +70,12 @@ describe("RouteMap", () => {
     mapProps.sources.length = 0;
   });
 
+  it("renders a saved map image without route positions", () => {
+    renderWithProviders(<RouteMap fallbackImageUrl="https://example.test/route.png" />);
+    expect(screen.getByRole("img")).toHaveAttribute("src", "https://example.test/route.png");
+    expect(screen.queryByText("No route data")).not.toBeInTheDocument();
+  });
+
   it("keeps multipart routes and crossing highlights separate in the map and fallback", () => {
     renderWithProviders(<RouteMap routeParts={[[[37,127],[37.01,127]],[[38,128],[38.01,128]]]} highlightRange={{startIndex:0,endIndex:3}}/>);
     const sources=mapProps.sources as {geometry?:{type:string;coordinates:unknown}}[];

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -340,6 +340,24 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       requestId: undefined,
     });
     expect(bridge.sent.some((message) => message.type === "telemetry.event")).toBe(false);
+  });
+
+  it("keeps coach navigation within the accepted session and follows the native tab on reselection", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness?sport=bike", "fitness");
+    await act(async () => { bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 })); });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    await screen.findByTestId("fitness-surface");
+    const handoffs = mocks.consumeHandoff.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: /^(계획|Plan|coachPages.plan)$/ }));
+    await screen.findByTestId("plan-surface");
+    fireEvent.click(screen.getByRole("button", { name: /^(분석|Analysis|coachPages.analysis)$/ }));
+    await screen.findByTestId("fitness-surface");
+    expect(mocks.consumeHandoff).toHaveBeenCalledTimes(handoffs);
+    expect(bridge.sent.some(message => message.type === "navigation.openNative")).toBe(false);
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "plan" }, "native-plan")));
+    await screen.findByTestId("plan-surface");
+    expect(mocks.consumeHandoff).toHaveBeenCalledTimes(handoffs);
   });
 
   it.each([

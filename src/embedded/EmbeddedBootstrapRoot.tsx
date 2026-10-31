@@ -1,3 +1,9 @@
+import { useNavigate, useLocation } from "react-router-dom";
+import { DialogProvider } from "../contexts/DialogContext";
+import { ToastProvider } from "../contexts/ToastContext";
+import { EmbeddedNavigationContext } from "./EmbeddedNavigationContext";
+import { EmbeddedCoachNavigation } from "./EmbeddedCoachNavigation";
+import { embeddedCoachDestination, embeddedCoachPage } from "./coachNavigation";
 import { embeddedCommentId } from "./commentTarget";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -46,6 +52,7 @@ import {
   type TrainingSurfaceKind,
 } from "./surfaceSelection";
 import "./embedded.css";
+import "../pages/coach/CoachSurface.css";
 import {
   createRunStartChannel,
   parseRunStartResult,
@@ -323,6 +330,9 @@ function AuthorizedSurface({
   trainingSurfaceVisible: boolean;
 }) {
   const [embeddedParams] = useSearchParams();
+  const coachPage = embeddedCoachPage(embeddedParams.get("page"));
+  const displayedTrainingSurface = coachPage === "plan" || coachPage === "goals" ? "plan"
+    : coachPage ? "fitness" : mountedTrainingSurface;
   const embeddedTarget = embeddedCommentId(embeddedParams);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -433,11 +443,18 @@ function AuthorizedSurface({
     );
   }
 
+  const navigateWithHost = (destination: string) => {
+    const url = new URL(destination, window.location.origin);
+    if (url.origin === window.location.origin) bridge.send("navigation.openNative", { path: `${url.pathname}${url.search}${url.hash}` });
+    else if (url.protocol === "https:" || url.protocol === "http:") bridge.send("navigation.openExternal", { url: url.toString() });
+  };
   const surface = (
     <FirebaseServicesProvider services={services}>
       <AuthContextProvider value={authValue}>
         <QueryClientProvider client={queryClient}>
           <LocaleProvider userId={null} profile={{ ...profile, locale: session.locale }}>
+            <ToastProvider><DialogProvider><EmbeddedNavigationContext.Provider value={navigateWithHost}>
+            {trainingSurface && <EmbeddedCoachNavigation defaultPage={mountedTrainingSurface === "plan" ? "plan" : "condition"} selectionKey={surfaceMountKey} />}
             <Suspense fallback={(
               <div className="orider-embedded-status" role="status" aria-label="Loading surface">
                 <div className="orider-embedded-status__pulse" />
@@ -454,14 +471,15 @@ function AuthorizedSurface({
                   onReady={() => bridge.send("surface.ready", { activityId })}
                   onError={(code) => bridge.send("surface.error", { code })}
                 />
-              ) : mountedTrainingSurface === "fitness" ? (
+              ) : displayedTrainingSurface === "fitness" ? (
                 <FitnessSurface
                   key={`${surfaceMountKey}:${retryKey}`}
                   retryKey={retryKey}
                   active={subscriptionsActive}
+                  startMode={session.hostCapabilities.includes(RUN_START_SCHEDULED_CAPABILITY) ? { kind: "host", starter: runStartChannel } : { kind: "host-unsupported" }}
                   onReady={trainingReady}
                 />
-              ) : mountedTrainingSurface === "plan" ? (
+              ) : displayedTrainingSurface === "plan" ? (
                 <PlanSurface
                   key={`${surfaceMountKey}:${retryKey}`}
                   retryKey={retryKey}
@@ -474,6 +492,7 @@ function AuthorizedSurface({
                 />
               ) : null}
             </Suspense>
+          </EmbeddedNavigationContext.Provider></DialogProvider></ToastProvider>
           </LocaleProvider>
         </QueryClientProvider>
       </AuthContextProvider>
@@ -488,7 +507,7 @@ function AuthorizedSurface({
     return (
       // 비활성 동안에는 모델과 화면을 유지하고 리스너만 멈춘다.
       <section
-        className="orider-embedded-shell"
+        className="orider-embedded-shell site-shell site-shell--padded py-6 coach-surface"
         aria-labelledby="orider-training-surface-title"
         hidden={!trainingSurfaceVisible}
       >
@@ -571,7 +590,7 @@ export default function EmbeddedBootstrapRoot({
   }), [embedded.auth, embedded.functions]);
   const [firestore, setFirestore] = useState(() => embedded.firestore);
   const services = useMemo<FirebaseServices>(
-    () => ({ ...controlServices, firestore }),
+    () => ({ ...controlServices, firestore, scope: "embedded" }),
     [controlServices, firestore],
   );
   // 로그아웃·계정 변경 뒤 이전 계정 데이터를 버리는 요청. 표면이 언마운트된(리스너가 닫힌)
@@ -675,6 +694,8 @@ export default function EmbeddedBootstrapRoot({
     }
   }, [safeSend]);
 
+  const navigate = useNavigate();
+  const location = useLocation();
   const handleNavigation = useCallback((event: MouseEvent<HTMLDivElement>) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -688,15 +709,21 @@ export default function EmbeddedBootstrapRoot({
       event.preventDefault();
       return;
     }
+    if (destination.origin === window.location.origin && destination.pathname === location.pathname) return;
     event.preventDefault();
     if (destination.origin === window.location.origin) {
+      const internal = embeddedCoachDestination(location.pathname, `${destination.pathname}${destination.search}${destination.hash}`);
+      if (internal || destination.pathname === location.pathname) {
+        navigate(internal ?? `${destination.pathname}${destination.search}${destination.hash}`);
+        return;
+      }
       safeSend("navigation.openNative", {
         path: `${destination.pathname}${destination.search}${destination.hash}`,
       });
     } else if (destination.protocol === "https:" || destination.protocol === "http:") {
       safeSend("navigation.openExternal", { url: destination.toString() });
     }
-  }, [safeSend]);
+  }, [safeSend, navigate, location.pathname]);
 
   useEffect(() => {
     const handleMessage = (message: HostBridgeEnvelope) => {

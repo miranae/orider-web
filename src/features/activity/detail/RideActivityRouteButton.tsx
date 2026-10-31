@@ -9,7 +9,7 @@ import { isSignInCancelled } from "../../../utils/signInCancelled";
 import { useToast } from "../../../contexts/ToastContext";
 import { track } from "../../../services/analytics";
 import { logClientError } from "../../../services/errorLogger";
-import { firestore, functions } from "../../../services/firebase";
+import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { Button } from "../../../theme/components";
 
 type RideRouteStatus = "idle" | "creating" | "sending" | "sent";
@@ -62,6 +62,7 @@ export function RideActivityRouteButton({
   sport: "ride" | "run" | "swim" | "other";
   action?: "ride" | "register";
 }) {
+  const { firestore, functions } = useFirebaseServices();
   const { t } = useTranslation("activity");
   const { user, signIn } = useAuth();
   const { showToast } = useToast();

@@ -97,3 +97,19 @@ it("does not dispatch streams after same-UID SDK session replacement during AppC
   await expect(read).rejects.toThrow("account_changed");
   expect(mocks.call).not.toHaveBeenCalled();
 });
+
+it("bounds fallback AppCheck waiting and prevents late callable dispatch", async () => {
+ vi.useFakeTimers(); let ready!: () => void; mocks.ready.mockReturnValue(new Promise<void>(resolve => { ready = resolve; }));
+ try {
+  const promise = createPublicActivityClient(services("owner"), { timeoutMs: 3000 }).load("a");
+  const assertion = expect(promise).rejects.toThrow("activity_request_timeout");
+  await vi.advanceTimersByTimeAsync(3000); await assertion; ready(); await Promise.resolve();
+  expect(mocks.call).not.toHaveBeenCalled();
+ } finally { vi.useRealTimers(); }
+});
+it("aborts fallback before AppCheck finishes without late dispatch", async () => {
+ let ready!: () => void; mocks.ready.mockReturnValue(new Promise<void>(resolve => { ready = resolve; }));
+ const controller = new AbortController(); const promise = createPublicActivityClient(services("owner"), { timeoutMs: 3000, signal: controller.signal }).load("a");
+ controller.abort(); await expect(promise).rejects.toThrow("activity_request_aborted"); ready(); await Promise.resolve();
+ expect(mocks.call).not.toHaveBeenCalled();
+});

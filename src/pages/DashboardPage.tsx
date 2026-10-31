@@ -44,7 +44,7 @@ import { useCanonicalFitnessSummary } from "../hooks/useCanonicalFitnessSummary"
 import { canonicalKpiPresentation, canonicalKpiSource, canonicalWeekTotals } from "../features/home/canonicalKpiSource";
 import { useDashboardPreferences } from "../hooks/useDashboardPreferences";
 import { selectStoredDashboardFitness } from "../features/home/storedDashboardFitness";
-import HomeTodayStrip from "../components/dashboard/HomeTodayStrip";
+import HomeTodayStrip from "../components/dashboard/DeferredHomeTodayStrip";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
 import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../config/activitySubscriptions";
 import { useActivitySubscriptions } from "../hooks/useActivitySubscriptions";

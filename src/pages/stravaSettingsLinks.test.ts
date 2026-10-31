@@ -1,5 +1,5 @@
 import { createElement } from "react";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setCallableResult } from "../__tests__/mocks/firebase";
@@ -25,6 +25,7 @@ describe("Strava empty-state settings links", () => {
     expect(importLink).toHaveAccessibleName("기존 기록 가져오기");
     expect(importLink).toBeVisible();
     expect(importLink).toHaveAttribute("href", "/ko/athlete/me/activities?import=1");
+    await waitFor(() => expect(container.querySelector('[data-home-slot="guidance"]')).not.toBeNull());
     const guidance = container.querySelector('[data-home-slot="guidance"]');
     expect(guidance).not.toBeNull();
     expect(within(guidance as HTMLElement).getByRole("link", { name: "Strava 연결" })).toHaveAttribute("href", "/ko/settings/connections");

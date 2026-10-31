@@ -1,6 +1,6 @@
 import { withActivityPresentation } from "@shared/analysis/activityPresentation";
 import PublicActivitySafety from "../../../embedded/surfaces/PublicActivitySafety";
-import { useMemo, useRef, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import type { Activity, ActivitySummary } from "@shared/types";
 import { ACTIVITY_METRICS_VERSION } from "@shared/types/activity-metrics";
 import { useTranslation } from "react-i18next";
@@ -28,6 +28,29 @@ export function ActivityPublicAccess(props: PublicActivitySessionOptions & { chi
  if (key.current.identity !== identity) key.current = { identity, generation: key.current.generation + 1 };
  return <ActivityPublicAccessSession key={key.current.generation} {...props} />;
 }
+// Preserve the last authorized layout while hiding all stale content. Collapsing
+// it during periodic ACL checks clamps the browser's scroll position.
+function RevalidationBoundary({ fresh, children, fallback }: { fresh: boolean; children: ReactNode; fallback: ReactNode }) {
+ const content = useRef<HTMLDivElement>(null);
+ const height = useRef(0);
+ useLayoutEffect(() => {
+   if (!fresh || !content.current) return;
+   const element = content.current;
+   const measure = () => { height.current = element.getBoundingClientRect().height; };
+   measure();
+   if (typeof ResizeObserver === "undefined") return;
+   const observer = new ResizeObserver(measure);
+   observer.observe(element);
+   return () => observer.disconnect();
+ }, [fresh]);
+ return <div style={{ position: "relative" }}>
+   <div ref={content} inert={!fresh} aria-hidden={!fresh || undefined}
+     style={fresh ? undefined : { height: height.current || undefined, overflow: "hidden", opacity: 0, pointerEvents: "none", visibility: "hidden" }}>
+     {children}
+   </div>
+   {!fresh && <div style={{ position: "absolute", inset: 0 }}>{fallback}</div>}
+ </div>;
+}
 function ActivityPublicAccessSession({ children, ...options }: PublicActivitySessionOptions & { children: (access: ActivityPublicAccessState) => ReactNode }) {
  const session = usePublicActivitySession(options);
  const { t } = useTranslation("activity");
@@ -46,5 +69,5 @@ function ActivityPublicAccessSession({ children, ...options }: PublicActivitySes
  }, [detail, mapFresh, verifiedMap, client]);
  if (session.removed?.scope === session.safetyScope) return <div className="site-shell"><Text role="status" tabIndex={-1} ref={node => node?.focus()}>{t(`publicSafety.${session.removed.action}Done`)}</Text><LocalizedLink to="/">{t("publicSafety.home")}</LocalizedLink></div>;
  if (session.loading || session.failed || !detail) return <EmbeddedSurfaceState title={t("publicDetail.title")} loading={session.loading} message={session.accessDenied ? t("publicDetail.accessDenied") : undefined} onRetry={session.retry} />;
- return <><div hidden={!session.mapFresh}>{children({ session, model })}{session.user && !session.user.isAnonymous && session.user.uid !== detail.activity.userId && <section className="site-shell" aria-label={t("publicSafety.actions")}><PublicActivitySafety activityId={detail.activity.id} authorId={detail.activity.userId} client={session.client} onRemoved={session.remove} onAccessRevoked={session.revokeAccess} /></section>}</div>{!session.mapFresh && <EmbeddedSurfaceState title={t("publicDetail.title")} message={t("publicDetail.mapLoading")} onRetry={session.retry} />}</>;
+ return <RevalidationBoundary fresh={session.mapFresh} fallback={<EmbeddedSurfaceState title={t("publicDetail.title")} message={t("publicDetail.mapLoading")} onRetry={session.retry} />}>{children({ session, model })}{session.user && !session.user.isAnonymous && session.user.uid !== detail.activity.userId && <section className="site-shell" aria-label={t("publicSafety.actions")}><PublicActivitySafety activityId={detail.activity.id} authorId={detail.activity.userId} client={session.client} onRemoved={session.remove} onAccessRevoked={session.revokeAccess} /></section>}</RevalidationBoundary>;
 }

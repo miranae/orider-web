@@ -26,7 +26,7 @@ import PlanPresentation from "../features/training/plan/PlanPresentation";
 import Run30EnrollCard from "../features/training/run30/Run30EnrollCard";
 import Run30ProgramView from "../features/training/run30/Run30ProgramView";
 import type { Run30StartMode } from "../features/training/run30/run30Start";
-import { useRun30Program } from "../features/training/run30/useRun30Program";
+import { useRun30Program, type Run30ProgramState } from "../features/training/run30/useRun30Program";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import { ErrorState } from "../components/redesign";
 import TodayTrainingDecisionCard from "../features/trainingDecision/TodayTrainingDecisionCard";
@@ -46,6 +46,19 @@ import { downloadICS, generateICS } from "../utils/icsExport";
 const WEB_START_MODE: Run30StartMode = { kind: "web" };
 
 export default function PlanPage() {
+  const [params] = useSearchParams();
+  const requested = params.get("sport");
+  const model = usePlanModel(requested === "run" || requested === "swim" && isSportUiEnabled(requested) ? requested : "bike");
+  const { user } = useAuth();
+  const run30 = useRun30Program(model.discipline === "run" && user != null);
+  return <PlanView model={model} run30={run30} />;
+}
+
+export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
+  model: ReturnType<typeof usePlanModel>;
+  run30: Run30ProgramState;
+  startMode?: Run30StartMode;
+}) {
   const { t, i18n } = useTranslation("training");
   const { t: tActivity } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
@@ -59,7 +72,6 @@ export default function PlanPage() {
   const location = useLocation();
   const requestedSport = searchParams.get("sport");
   const planSport = requestedSport === "run" || requestedSport === "swim" && isSportUiEnabled(requestedSport) ? requestedSport : "bike";
-  const model = usePlanModel(planSport);
   useEffect(() => {
     if (requestedSport == null || requestedSport === planSport) return;
     const next = new URLSearchParams(searchParams);
@@ -67,7 +79,6 @@ export default function PlanPage() {
     navigate(`${location.pathname}?${next}${location.hash}`, { replace: true, state: location.state });
   }, [requestedSport, planSport, searchParams, navigate, location.pathname, location.hash]);
   const { discipline, goal, weeks, loading, loadError } = model;
-  const run30 = useRun30Program(discipline === "run" && user != null);
   // 서버 관리 프로그램 목표는 계획 직접 쓰기(편집·추가·재생성·재설정·적응 적용)를 규칙이 거부한다.
   const serverManagedPlan = goal?.runProgram != null;
   const [mobileWeekOffset, setMobileWeekOffset] = useState(0);
@@ -248,10 +259,10 @@ export default function PlanPage() {
     );
     if (run30Program) {
       return shell(
-        <Run30ProgramView api={run30.api} program={run30Program} onRefresh={refreshAfterProgramChange} startMode={WEB_START_MODE} />,
+        <Run30ProgramView api={run30.api} program={run30Program} onRefresh={refreshAfterProgramChange} startMode={startMode} />,
       );
     }
-    if (run30.status === "loading") {
+    if (run30.status === "loading" && !(model.cacheHit && goal)) {
       return shell(<p role="status" style={{ color: "var(--ink-3)" }}>{tCommon("button.loading")}</p>);
     }
     if (run30.status === "error" && !goal && !loading) {

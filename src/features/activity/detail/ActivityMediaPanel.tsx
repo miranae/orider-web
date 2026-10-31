@@ -57,7 +57,7 @@ export function ActivityMediaPanel({
   const mapId = useId();
   const independentRoute = !streams?.latlng?.length ? activityIndependentRoute(streams) : null;
 
-  if (hasTrack) {
+  if (hasTrack || activity.mapImageUrl) {
     return (
       <div className="activity-detail-route-frame" data-map-expanded={mapExpanded}>
         <div id={mapId} className="activity-detail-resizable-map">
@@ -90,6 +90,12 @@ export function ActivityMediaPanel({
             expandLabel={t("page.mapView.expand")} collapseLabel={t("page.mapView.collapse")}
             onToggle={() => setMapExpanded(expanded => !expanded)} />
         </div>
+        {!hasTrack && routeLookup && <Card><Stack gap="var(--space-3)">
+          <Text as="p" role="status" tone="secondary">{t(`page.routeLookup.${routeLookup.state}`)}</Text>
+          <Button variant="outline" loading={routeLookup.state === "loading"} disabled={routeLookup.state === "loading"} onClick={routeLookup.onLoad}>
+            {t(routeLookup.state === "error" ? "page.retry" : "page.routeLookup.load")}
+          </Button>
+        </Stack></Card>}
       </div>
     );
   }

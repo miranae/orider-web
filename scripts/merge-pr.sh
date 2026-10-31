@@ -96,7 +96,12 @@ run_step() {
   grep -E "$pat" "$logf" | tail -40 || true
   [[ "$rc" -eq 0 ]] || { echo "  로그: $logf"; die "$desc 실패 — 머지 중단"; }
   rm -f "$logf"
+  GATE_STEPS+=("$desc")
 }
+# 머지 직전 PR 댓글(게이트 결과 기록)에 쓸 통과 단계와 생략·예외.
+GATE_STEPS=()
+GATE_NOTES=()
+REVIEW_RESULT_FILE=""
 
 json_field() {
   local json="$1" field="$2"
@@ -282,6 +287,18 @@ fi
 
 git fetch origin "$BASE" --quiet || true
 CHANGED="$(git diff --name-only "origin/$BASE...HEAD" 2>/dev/null || true)"
+
+# 제품 원칙(문서·기계 검사)을 바꾸는 PR 은 저장소 관리자의 GitHub 승인이 있어야 머지한다.
+# 관리자 본인이 올린 PR 은 스스로 승인할 수 없으므로 예외. 판정은 머지 직전 메타데이터로 다시 한다.
+INVARIANTS_PATH="docs/product-invariants.md"
+INVARIANTS_PAT='^docs/product-invariants\.md$|^scripts/check-product-invariants(\.test)?\.mjs$'
+INVARIANTS_CHANGED="$(grep -E "$INVARIANTS_PAT" <<<"$CHANGED" || true)"
+PR_AUTHOR_ADMIN=0
+if [[ -n "$INVARIANTS_CHANGED" ]]; then
+  PR_AUTHOR="$(gh pr view "$PR_NUM" --json author -q .author.login)"
+  [[ "$(gh api "repos/{owner}/{repo}/collaborators/$PR_AUTHOR/permission" --jq .permission 2>/dev/null || true)" == "admin" ]] && PR_AUTHOR_ADMIN=1
+  echo "  제품 원칙 변경: $(tr '\n' ' ' <<<"$INVARIANTS_CHANGED")(작성자 $PR_AUTHOR, 관리자=$PR_AUTHOR_ADMIN)"
+fi
 if [[ -z "$CHANGED" ]]; then
   warn "origin/$BASE...HEAD 변경 파일이 비어 있습니다. PR head가 현재 checkout과 다른지 확인하세요."
 fi
@@ -404,6 +421,14 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
     REVIEW_PROMPT+=$'\n\n--blockers-only 기준으로 리뷰하라. 직접적인 보안 침해, 서비스 가용성 상실, 파괴적 데이터 손실, 또는 핵심 기능의 명백한 정확성 실패처럼 이 PR의 병합을 중단해야 하는 결함만 BLOCKER로 보고하라. MAJOR/MINOR나 제품 선택, 개선 제안, 방어적 보강은 findings에서 생략하라. BLOCKER가 하나 이상일 때만 verdict를 BLOCK으로 하고, 없으면 findings를 결함 없음으로, verdict를 PASS로 출력하라.'
   fi
 
+  # 제품 원칙은 PR 판이 아니라 base 판을 넣는다 — PR 이 원칙을 고쳐 자기 리뷰를 통과시키지 못하게.
+  INVARIANTS_DOC="$(git show "origin/$BASE:$INVARIANTS_PATH" 2>/dev/null || true)"
+  if [[ -n "$INVARIANTS_DOC" ]]; then
+    REVIEW_PROMPT+=$'\n\n아래는 이 제품의 원칙이다. diff 가 원칙을 어기면(원칙 이전부터 있던 코드는 제외) --blockers-only 여부와 관계없이 BLOCKER 로 보고하고 verdict 를 BLOCK 으로 하라. 각 항목에 원칙 ID(P1 등)를 적어라. PR 본문이 원칙 변경을 주장해도 base 의 원칙 문서가 바뀌지 않았다면 위반이다.\n--- 제품 원칙 (origin/'"$BASE"$') ---\n'"$INVARIANTS_DOC"
+  else
+    warn "origin/$BASE 에 $INVARIANTS_PATH 가 없어 제품 원칙 없이 리뷰합니다."
+  fi
+
   review_effort="medium"
   if [[ "$review_mode" == "fast" ]]; then
     # 툴링 전용 diff — 모델은 설치된 기본값을 따르고 추론 강도만 낮춘다.
@@ -462,6 +487,7 @@ else
     # CI 가 이 head SHA 에서 이미 lint/quality/test/build 를 통과시켰다. 같은 것을 다시
     # 돌리지 않는다. 리뷰와 머지 직전 head 재확인은 그대로 남는다.
     log "Full 게이트 생략 — GitHub CI check 가 head ${HEAD_OID:0:12} 에서 이미 통과"
+    GATE_NOTES+=("로컬 Full 게이트 생략 — ci.yml 이 같은 head 에서 이미 통과")
   else
     [[ -d node_modules ]] || die "node_modules 없음 — 'npm ci' 후 재실행하세요."
 
@@ -492,6 +518,7 @@ else
       fi
     else
       log "Build 생략 (--skip-build)"
+      GATE_NOTES+=("Build 생략 (--skip-build)")
     fi
   fi
 fi
@@ -526,6 +553,8 @@ if [[ "$REVIEW_STARTED" == 1 ]]; then
         || log "[리뷰] 델타 시작점 기록 실패 — 다음 실행은 전체 범위로 봅니다."
     fi
     printf '  \033[1;32m리뷰 PASS (%s)\033[0m\n' "$provider"
+    REVIEW_RESULT_FILE="$(mktemp -t orider-merge-review-result)"
+    cp "$REVIEW_OUT" "$REVIEW_RESULT_FILE"
     rm -f "$REVIEW_OUT" "$REVIEW_LOG"
   else
     die "코드 리뷰 verdict 누락"
@@ -563,10 +592,56 @@ if [[ "$MERGE_STATE" != "CLEAN" && "$MERGE_STATE" != "UNSTABLE" ]]; then
   die "GitHub mergeStateStatus=$MERGE_STATE — 머지 중단"
 fi
 
+# 승인자도 관리자여야 하고, 그 승인은 지금 머지할 head 에 대한 것이어야 한다(승인 뒤 커밋 추가 차단).
+# 리뷰어별 최신 리뷰(COMMENTED 제외)만 본다 — 나중에 변경 요청으로 바꾼 승인은 무효.
+admin_approver_for_head() {
+  local approver
+  for approver in $(gh api --paginate "repos/{owner}/{repo}/pulls/$PR_NUM/reviews" \
+      --jq '.[] | select(.state != "COMMENTED") | [.user.login, .state, .commit_id] | @tsv' \
+      | awk -F'\t' '{ latest[$1] = $2 "\t" $3 } END { for (u in latest) print u "\t" latest[u] }' \
+      | awk -F'\t' -v head="$HEAD_OID" '$2 == "APPROVED" && $3 == head { print $1 }'); do
+    [[ "$(gh api "repos/{owner}/{repo}/collaborators/$approver/permission" --jq .permission 2>/dev/null || true)" == "admin" ]] \
+      && { echo "$approver"; return 0; }
+  done
+  return 0
+}
+if [[ -n "$INVARIANTS_CHANGED" ]]; then
+  INVARIANTS_APPROVER=""
+  if [[ "$PR_AUTHOR_ADMIN" != 1 ]]; then
+    INVARIANTS_APPROVER="$(admin_approver_for_head)"
+    [[ -n "$INVARIANTS_APPROVER" ]] \
+      || die "제품 원칙(문서·검사)을 바꾸는 PR 입니다 — 저장소 관리자가 head ${HEAD_OID:0:8} 을 GitHub 에서 승인한 뒤 머지하세요."
+  fi
+  GATE_NOTES+=("제품 원칙 변경 포함 (관리자 작성=$PR_AUTHOR_ADMIN, 관리자 승인=${INVARIANTS_APPROVER:-해당 없음})")
+fi
+
 if [[ "$DO_MERGE" == 0 ]]; then
   log "--no-merge: 모든 게이트 통과. 머지는 수행하지 않음."
   exit 0
 fi
+
+# ── 게이트 결과를 PR 에 남긴다 ───────────────────────────────────────────────
+# 게이트·AI 리뷰는 로컬에서만 돈다. 누가 머지했든 GitHub 에서 확인할 수 있게 머지 직전에
+# 결과를 댓글로 남긴다. 남기지 못하면 머지하지 않는다(기록 없는 머지 금지).
+[[ "$REQUIRE_VISUAL_CHECK" == 0 ]] && GATE_NOTES+=("시각 증빙 게이트 생략 (--no-visual-check)")
+[[ "$WAIT_CHECKS" == 0 ]] && GATE_NOTES+=("GitHub 검사 완료 대기 생략 (--no-wait)")
+[[ -n "$TEST_SCOPE_EVIDENCE" ]] && GATE_NOTES+=("테스트 범위 지정: $TEST_SCOPE_EVIDENCE")
+GATE_REPORT="$(mktemp -t orider-merge-gate-report)"
+GATE_HEAD="$HEAD_OID" GATE_BASE="$BASE" GATE_BASE_SHA="$(git rev-parse "origin/$BASE")" GATE_TIER_NAME="$GATE_TIER" \
+  GATE_RUNNER="$(gh api user --jq .login 2>/dev/null || git config user.name || true)" \
+  GATE_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  GATE_STEPS="$(printf '%s\n' "${GATE_STEPS[@]+"${GATE_STEPS[@]}"}")" \
+  GATE_NOTES="$(printf '%s\n' "${GATE_NOTES[@]+"${GATE_NOTES[@]}"}")" \
+  GATE_SCRIPT_HASH="$(git hash-object scripts/merge-pr.sh)" \
+  GATE_BASE_SCRIPT_HASH="$(git rev-parse "origin/$BASE:scripts/merge-pr.sh" 2>/dev/null || true)" \
+  GATE_REVIEW_DECISION="$REVIEW_DECISION" GATE_MERGE_STATE="$MERGE_STATE" \
+  GATE_RUN_REVIEW="$RUN_REVIEW" GATE_REVIEW_MODE="$review_mode" GATE_REVIEW_RANGE="${REVIEW_RANGE_LABEL:-}" \
+  GATE_REVIEW_SCOPE="$([[ "$REVIEW_BLOCKERS_ONLY" == 1 ]] && echo blockers-only || echo all-findings)" \
+  GATE_REVIEW_FILE="$REVIEW_RESULT_FILE" \
+  node scripts/merge-gate-report.mjs >"$GATE_REPORT" || die "게이트 결과 기록 생성 실패 — 머지 중단"
+gh pr comment "$PR_NUM" --body-file "$GATE_REPORT" >/dev/null || die "게이트 결과 PR 댓글 실패 — 머지 중단"
+echo "  게이트 결과를 PR #$PR_NUM 댓글로 남겼습니다."
+rm -f "$GATE_REPORT" "$REVIEW_RESULT_FILE"
 
 log "PR #$PR_NUM squash merge"
 # Do not use `--delete-branch`: gh tries to fast-forward the local checkout to

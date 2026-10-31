@@ -56,7 +56,14 @@ export default defineConfig(({ mode }) => {
               if (id.includes("mapbox-gl") || id.includes("react-map-gl")) return "vendor-mapbox";
               if (id.includes("chart.js") || id.includes("react-chartjs-2")) return "vendor-charts";
               if (id.includes("@sentry")) return "vendor-sentry";
-              if (id.includes("react-markdown") || id.includes("remark")) return "vendor-markdown";
+              // Markdown's parser/AST dependencies must follow its lazy page, not the initial vendor.
+              if (id.includes("react-markdown") || id.includes("remark") ||
+                /\/(?:micromark(?:-[^/]+)?|mdast-util-[^/]+|hast-util-[^/]+|unist-util-[^/]+|vfile(?:-message)?|unified|property-information)\//.test(id)) return "vendor-markdown";
+              if (id.includes("/jszip/")) return "vendor-export";
+              // Sanitization belongs to lazy editors and GPX importers; keep every security check intact.
+              if (id.includes("/dompurify/")) return "vendor-sanitize";
+              // Preserve lazy feature schema validation without charging the initial feed.
+              if (id.includes("/zod/")) return "vendor-validation";
               return "vendor";
             }
           },

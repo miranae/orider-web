@@ -32,7 +32,8 @@ export interface PublicCommentsPage {
 }
 
 const emulatorClients = new WeakSet<object>();
-export function createPublicActivityClient(services: FirebaseServices) {
+export function createPublicActivityClient(services: FirebaseServices, options: { timeoutMs?: number; signal?: AbortSignal } = {}) {
+  const timeoutMs = Math.min(10000, Math.max(1, options.timeoutMs ?? 10000));
   const owner = services.auth.currentUser;
   const uid = owner?.uid ?? null;
   const assertAccount = () => {
@@ -41,7 +42,9 @@ export function createPublicActivityClient(services: FirebaseServices) {
   async function call<T>(name: string, payload: object): Promise<T> {
     let expired = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let onAbort: (() => void) | undefined;
     const execute = async () => {
+    if (options.signal?.aborted) throw new Error("activity_request_aborted");
     assertAccount();
     if (!["getActivityPublicDetail", "getActivityPublicComments", "getActivityPublicPhotos", "getActivityPublicStreams"].includes(name) && (!uid || services.auth.currentUser?.isAnonymous)) throw new Error("sign_in_required");
     await services.ensureAppCheckReady();
@@ -52,14 +55,18 @@ export function createPublicActivityClient(services: FirebaseServices) {
       connectFunctionsEmulator(functions, "localhost", Number(import.meta.env.VITE_FUNCTIONS_EMULATOR_PORT || 5001));
       emulatorClients.add(functions);
     }
-    const result = await httpsCallable<object, T>(functions, name, { timeout: 10000 })(payload);
+    const result = await httpsCallable<object, T>(functions, name, { timeout: timeoutMs })(payload);
     assertAccount();
     if (["editActivityComment", "deleteActivityComment", "setActivityCommentHidden"].includes(name) && "activityId" in payload && typeof payload.activityId === "string") announceActivityContentChange(payload.activityId);
     if (expired) throw new Error("activity_request_timeout");
     return result.data;
     };
-    try { return await Promise.race([execute(), new Promise<never>((_, reject) => { timer = setTimeout(() => { expired = true; reject(new Error("activity_request_timeout")); }, 10_000); })]); }
-    finally { clearTimeout(timer); }
+    try { return await Promise.race([execute(), new Promise<never>((_, reject) => { timer = setTimeout(() => { expired = true; reject(new Error("activity_request_timeout")); }, timeoutMs);
+      onAbort = () => { expired = true; reject(new Error("activity_request_aborted")); };
+      options.signal?.addEventListener("abort", onAbort, { once: true });
+      if (options.signal?.aborted) onAbort();
+    })]); }
+    finally { clearTimeout(timer); if (onAbort) options.signal?.removeEventListener("abort", onAbort); }
   }
   return {
     async load(activityId: string) {
