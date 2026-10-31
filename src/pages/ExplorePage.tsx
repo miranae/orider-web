@@ -908,8 +908,9 @@ function ExploreSegmentsContent() {
 
           {/* 목록 */}
           <div data-testid="E2-2" className="flex-1 lg:flex-[1] lg:max-w-md overflow-y-auto border-t lg:border-t-0 lg:border-l border-[var(--line-soft)] bg-[var(--bg-0)]">
-            {/* 모바일: 좌우 패딩 제거해 카드를 화면 전폭으로. lg에서는 p-3 유지 */}
-            <div data-testid={listTab === "bounds" ? undefined : "E2-3"} className={isMobile ? "pt-3 pb-3" : "p-3"}>
+            {/* 목록이 지도 아래로 쌓이는 lg 미만은 좌우 패딩 없이 페이지 정렬선(이벤트·챌린지와 같은 폭)에 맞춘다.
+                lg 옆 칸은 구분선과만 띄우고 오른쪽 끝은 정렬선에 붙인다. */}
+            <div data-testid={listTab === "bounds" ? undefined : "E2-3"} className="py-3 lg:pl-3">
               <div className="flex flex-wrap gap-2 mb-3">{(["bounds", "notable", "challenged"] as const).map((tab) => <Button key={tab} variant={listTab === tab ? "primary" : "secondary"} size="sm" className={listTab === tab ? "font-bold" : undefined} aria-pressed={listTab === tab} onClick={() => setListTab(tab)}>{t(`explore.listTab.${tab}`)}</Button>)}</div>
               {listTab === "challenged" ? <LeaderboardPage search={searchQuery} discipline={discipline} category={category} /> : <>
               {/* 선택된 세그먼트 상세 패널 */}
