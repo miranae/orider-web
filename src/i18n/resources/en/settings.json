@@ -393,7 +393,8 @@
       "social": {
         "naver": "Naver",
         "kakao": "Kakao",
-        "strava": "Strava"
+        "strava": "Strava",
+        "google": "Google"
       },
       "socialLinked": "Linked — you can also sign in to this account with it.",
       "socialNotLinked": "Link it to sign in to this account with this service.",
@@ -407,7 +408,16 @@
       "stravaLoginHint": "Sign-in uses public profile read access; activity sync is separate and may need reauthorization after permission changes.",
       "stravaUnlinkConfirm": "Unlink Strava sign-in? This revokes Strava authorization for this app. If activity sync is connected, disconnect it in settings first and ensure you have another sign-in method.",
       "stravaSyncActive": "Activity sync is connected. Ensure you have another sign-in method, then disconnect Strava in Settings > Connected apps.",
-      "stravaSyncSettings": "Activity sync settings"
+      "stravaSyncSettings": "Activity sync settings",
+      "googleLinked": "Google sign-in linked.",
+      "googleLinkFailed": "Couldn't link Google sign-in. Please try again.",
+      "googleAlreadyLinked": "A different Google account is already linked.",
+      "googleConnectDataConflict": "The separate account created with this Google account has records or connected services, so it can't be connected automatically. Keep using your existing sign-in method and contact support to merge accounts.",
+      "googleConnectExisting": {
+        "title": "Connect to your existing O-Rider account?",
+        "description": "This Google account has a separate O-Rider account. Connect it to your current account to use the same profile and existing activities when you sign in with Google; the separate account will be closed. Automatic connection is unavailable if the separate account has records or connected services.",
+        "confirm": "Connect to current account"
+      }
     },
     "app": {
       "cardLocaleUnits": "Language & Units",
