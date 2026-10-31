@@ -387,7 +387,7 @@ describe("desktop day record pagination",()=>{
     expect(screen.getAllByRole("button",{name:/^기록 /})).toHaveLength(2);
     fireEvent.click(screen.getByRole("button",{name:"외 998건 보기"}));
     expect(screen.getByRole("button",{name:/^기록 0001 /})).toBeInTheDocument();
-  }, 15000);
+  }, 60_000); // 50페이지 순회 — 단독 2.5초, 머지 게이트 부하에서 15초를 넘긴 적이 있다.
   it("restores the last page after opening an individual activity and going back, preserving other URL context",async()=>{
     render(<MemoryRouter initialEntries={[`/ko/athlete/me/activities?sport=bike&date=${dayKey}&calendarDay=${dayKey}&calendarPage=50&keep=1`]}><HistoryProbe/>{cell(rows(1000))}</MemoryRouter>);
     fireEvent.click(screen.getByRole("button",{name:/^기록 1000 /}));

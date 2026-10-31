@@ -5,6 +5,8 @@ import type { Activity } from "@shared/types";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import MobileLogPage from "./MobileLogPage";
 vi.mock("./ImportActivityModal", () => ({ default: () => null }));
+// 1000건 렌더 + 페이지 이동이라 단독 1초 안팎이지만, 머지 게이트가 수천 개 테스트와 같이 돌 때 기본 5초를 넘긴다.
+vi.setConfig({ testTimeout: 60_000 });
 const records = (count: number): Activity[] => Array.from({ length: count }, (_, i) => ({ id: `record-${i}`, type: "Ride", description: `Ride record-${i}`, startTime: Date.parse("2026-09-03T09:00:00+09:00") + i * 1000, summary: { distance: 10000, ridingTimeMillis: 3600000 } }) as Activity);
 function Probe() { const loc = useLocation(); const nav = useNavigate(); return <><output data-testid="url">{loc.pathname}{loc.search}</output><button onClick={() => nav(-1)}>Browser Back</button><button onClick={() => nav(1)}>Browser Forward</button></>; }
 function App({ activities, loading = false, onChangeMonth = vi.fn() }: { activities: Activity[]; loading?: boolean; onChangeMonth?: (delta: number) => void }) { return <><Probe /><Routes><Route path="/ko/athlete/me/activities" element={<MobileLogPage activities={activities} loading={loading} year={2026} month={8} onChangeMonth={onChangeMonth} />} /><Route path="/ko/activity/:id" element={<h1>Activity details</h1>} /></Routes></>; }
