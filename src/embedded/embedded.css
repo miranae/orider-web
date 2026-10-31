@@ -30,6 +30,10 @@
   padding: var(--space-2) 0 var(--space-4);
 }
 
+/* 앱 셸(.orider-embedded-root.site-shell--padded)이 좌우 거터를 이미 준다. 표면이 또 주면 계획을 뺀
+   컨디션·오늘·분석·목표만 좌우가 두 배로 들어가 좁아진다(계획만 위 규칙으로 0 이었다). */
+.site-shell--padded > .orider-embedded-surface { padding-inline: 0; }
+
 .orider-embedded-surface--plan .embedded-plan-presentation {
   padding-inline: var(--space-4);
 }
