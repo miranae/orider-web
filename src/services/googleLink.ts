@@ -1,4 +1,4 @@
-import { GoogleAuthProvider, linkWithCredential, linkWithPopup, signInWithCredential, type AuthCredential, type User } from "firebase/auth";
+import { GoogleAuthProvider, linkWithCredential, linkWithPopup, reauthenticateWithPopup, signInWithCredential, unlink, type AuthCredential, type User } from "firebase/auth";
 import { auth, ensureAppCheckReady, googleProvider, withIsolatedAuth } from "./firebase";
 import { authCallable } from "./authCallables";
 
@@ -42,4 +42,30 @@ export async function linkGoogleToCurrentUser(confirmConnectExisting: () => Prom
   await linkWithCredential(user, googleCredential);
   await user.reload();
   return "connected";
+}
+
+/**
+ * Google 을 떼도 이 계정에 로그인할 수단이 남는가.
+ * 서버 `socialAuthUnlink` 의 "마지막 로그인 수단" 규칙과 같다: Firebase 고유 로그인(이메일 등)이나
+ * 연결된 소셜 로그인(네이버·카카오·Strava)이 하나라도 남아야 한다. 연결 목록을 모르면(null) 막는다.
+ */
+export function canUnlinkGoogle(user: Pick<User, "providerData">, linkedSocialCount: number | null): boolean {
+  if (linkedSocialCount === null) return false;
+  const others = user.providerData.filter((info) => info.providerId !== GOOGLE_PROVIDER_ID).length;
+  return others > 0 || linkedSocialCount > 0;
+}
+
+/** 현재 계정에서 Google 로그인을 뗀다. 최근 로그인이 필요하면 Google 로 한 번 재인증한 뒤 다시 시도한다. */
+export async function unlinkGoogleFromCurrentUser(): Promise<void> {
+  const user = auth.currentUser;
+  if (!user || user.isAnonymous) throw new Error("auth/no-current-user");
+  try {
+    await unlink(user, GOOGLE_PROVIDER_ID);
+  } catch (error) {
+    if ((error as { code?: string }).code !== "auth/requires-recent-login") throw error;
+    await reauthenticateWithPopup(user, googleProvider);
+    if (auth.currentUser?.uid !== user.uid) throw new Error("auth/user-changed");
+    await unlink(user, GOOGLE_PROVIDER_ID);
+  }
+  await user.reload();
 }

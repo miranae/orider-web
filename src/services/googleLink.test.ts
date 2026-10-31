@@ -6,12 +6,14 @@ const mocks = vi.hoisted(() => {
     user, current: user as { uid: string } | null,
     linkWithPopup: vi.fn(), linkWithCredential: vi.fn(), signInWithCredential: vi.fn(), credentialFromError: vi.fn(),
     callable: vi.fn(), callableFactory: vi.fn(), isolatedAuth: { name: "isolated" }, isolatedUsed: vi.fn(), appCheck: vi.fn(),
+    unlink: vi.fn(), reauth: vi.fn(),
     order: [] as string[],
   };
 });
 vi.mock("firebase/auth", () => ({
   GoogleAuthProvider: { credentialFromError: mocks.credentialFromError },
   linkWithPopup: mocks.linkWithPopup, linkWithCredential: mocks.linkWithCredential, signInWithCredential: mocks.signInWithCredential,
+  unlink: mocks.unlink, reauthenticateWithPopup: mocks.reauth,
 }));
 vi.mock("./firebase", () => ({
   auth: { get currentUser() { return mocks.current; } },
@@ -20,7 +22,7 @@ vi.mock("./firebase", () => ({
   withIsolatedAuth: async (work: (auth: unknown) => Promise<unknown>) => { mocks.isolatedUsed(); return work(mocks.isolatedAuth); },
 }));
 vi.mock("./authCallables", () => ({ authCallable: (name: string) => { mocks.callableFactory(name); return mocks.callable; } }));
-import { linkGoogleToCurrentUser } from "./googleLink";
+import { canUnlinkGoogle, linkGoogleToCurrentUser, unlinkGoogleFromCurrentUser } from "./googleLink";
 
 const credential = { providerId: "google.com", idToken: "google-id-token" };
 const inUse = { code: "auth/credential-already-in-use" };
@@ -28,7 +30,7 @@ const inUse = { code: "auth/credential-already-in-use" };
 beforeEach(() => {
   mocks.current = mocks.user; mocks.order = [];
   for (const fn of [mocks.linkWithPopup, mocks.linkWithCredential, mocks.signInWithCredential, mocks.credentialFromError, mocks.callable,
-    mocks.callableFactory, mocks.isolatedUsed, mocks.appCheck, mocks.user.reload]) fn.mockReset();
+    mocks.callableFactory, mocks.isolatedUsed, mocks.appCheck, mocks.user.reload, mocks.unlink, mocks.reauth]) fn.mockReset();
   mocks.linkWithPopup.mockRejectedValue(inUse);
   mocks.credentialFromError.mockReturnValue(credential);
   mocks.signInWithCredential.mockImplementation(async () => { mocks.order.push("isolated-sign-in"); return { user: { getIdToken: async () => "source-id-token" } }; });
@@ -81,5 +83,38 @@ describe("linkGoogleToCurrentUser", () => {
     mocks.linkWithPopup.mockRejectedValue({ code: "auth/popup-closed-by-user" });
     await expect(linkGoogleToCurrentUser(async () => true)).rejects.toMatchObject({ code: "auth/popup-closed-by-user" });
     expect(mocks.callable).not.toHaveBeenCalled();
+  });
+});
+
+describe("canUnlinkGoogle", () => {
+  const google = { providerId: "google.com" };
+  it("allows unlinking only when another sign-in method remains", () => {
+    expect(canUnlinkGoogle({ providerData: [google] } as never, 0)).toBe(false);
+    expect(canUnlinkGoogle({ providerData: [google] } as never, 1)).toBe(true);
+    expect(canUnlinkGoogle({ providerData: [google, { providerId: "password" }] } as never, 0)).toBe(true);
+  });
+  it("blocks while the linked social methods are unknown", () => {
+    expect(canUnlinkGoogle({ providerData: [google, { providerId: "password" }] } as never, null)).toBe(false);
+  });
+});
+
+describe("unlinkGoogleFromCurrentUser", () => {
+  it("unlinks google.com and reloads the user", async () => {
+    await unlinkGoogleFromCurrentUser();
+    expect(mocks.unlink).toHaveBeenCalledWith(mocks.user, "google.com");
+    expect(mocks.reauth).not.toHaveBeenCalled();
+    expect(mocks.user.reload).toHaveBeenCalled();
+  });
+  it("reauthenticates once when a recent login is required, then retries", async () => {
+    mocks.unlink.mockRejectedValueOnce({ code: "auth/requires-recent-login" }).mockResolvedValueOnce(undefined);
+    await unlinkGoogleFromCurrentUser();
+    expect(mocks.reauth).toHaveBeenCalledTimes(1);
+    expect(mocks.unlink).toHaveBeenCalledTimes(2);
+  });
+  it("does not retry on other errors", async () => {
+    mocks.unlink.mockRejectedValue({ code: "auth/no-such-provider" });
+    await expect(unlinkGoogleFromCurrentUser()).rejects.toMatchObject({ code: "auth/no-such-provider" });
+    expect(mocks.reauth).not.toHaveBeenCalled();
+    expect(mocks.user.reload).not.toHaveBeenCalled();
   });
 });
