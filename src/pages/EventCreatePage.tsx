@@ -698,7 +698,7 @@ export default function EventCreatePage() {
                   </div>
                 ) : (
                   <div>
-                    <div className="flex" style={{ gap: 'var(--space-2)', marginBottom: "var(--space-2)" }}>
+                    <div className="flex flex-wrap" style={{ gap: 'var(--space-2)', marginBottom: "var(--space-2)" }}>
                       <Button
                         type="button" variant="secondary" size="sm"
                         style={{ background: "var(--bg-3)", color: "var(--ink-0)" }}
@@ -750,7 +750,6 @@ export default function EventCreatePage() {
                             padding: "var(--space-0-5)",
                           }}
                         >
-                          {hasMoreCourses && <Button variant="secondary" disabled={loadingMoreCourses} onClick={loadMoreCourses}>{t("common:button.more")}</Button>}
                           {availableCourses
                             .filter((c) => !data.courseIds.includes(c.id))
                             .filter((c) => {
@@ -769,6 +768,11 @@ export default function EventCreatePage() {
                                 }}
                                 className="flex items-center"
                                 style={{
+                                  // 코스 이름·거리 두 줄이 들어가므로 버튼 고정 높이·한 줄 규칙을 풀고, 스크롤 목록 안에서 줄어들지 않게 한다
+                                  height: "auto",
+                                  flexShrink: 0,
+                                  justifyContent: "flex-start",
+                                  whiteSpace: "normal",
                                   padding: "10px 12px",
                                   textAlign: "left",
                                   borderRadius: "var(--r-sm)",
@@ -794,11 +798,12 @@ export default function EventCreatePage() {
                                   </div>
                                   <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)", fontFamily: "var(--font-mono)", fontSize: "var(--ft-body-size)" }}>
                                     {c.regions && c.regions.length > 0 ? `${c.regions.slice(0, 2).join(", ")} · ` : ""}
-                                    {(c.distance / 1000).toFixed(1)} km · ↑{Math.round(c.elevationGain).toLocaleString()} m
+                                    <span style={{ whiteSpace: "nowrap" }}>{(c.distance / 1000).toFixed(1)} km</span> · <span style={{ whiteSpace: "nowrap" }}>↑{Math.round(c.elevationGain).toLocaleString()} m</span>
                                   </div>
                                 </div>
                               </Button>
                             ))}
+                          {hasMoreCourses && <Button variant="secondary" disabled={loadingMoreCourses} onClick={loadMoreCourses} style={{ flexShrink: 0 }}>{t("common:button.more")}</Button>}
                         </div>
                       </>
                     )}
