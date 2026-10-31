@@ -15,11 +15,8 @@ export const RULES = [
     id: "P1",
     title: "공개 범위는 visibility 하나 — 지표 숨김(hideHr·hidePower) 필드를 쓰지 않는다",
     pattern: /\bhide(?:Hr|Power)\b/u,
-    allow: {
-      // 2026-10-13 폐지 이전 코드. Strava 원본 기록 가리기·네이티브 파워 캐시 키.
-      "shared/analysis/stravaRecord.ts": "폐지 이전 Strava 기록 가리기",
-      "src/hooks/useNativePowerV2Duration.ts": "폐지 이전 캐시 식별자",
-    },
+    // 2026-10-31 남은 사용처(Strava 기록 가리기·캐시 키)를 정리했다 — 허용 없음.
+    allow: {},
   },
   {
     id: "P4",

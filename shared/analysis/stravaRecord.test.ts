@@ -22,10 +22,11 @@ describe("Strava source evidence", () => {
   });
 });
 
-it("does not restore hidden heart rate or power from a provider snapshot", () => {
-  const r = stravaRecordOf({ source: "strava", hideHr: true, hidePower: true, stravaSummaryV1: {
+it("ignores leftover per-metric hiding fields because visibility is the only privacy control (P1)", () => {
+  const legacy = { source: "strava", hideHr: true, hidePower: true, stravaSummaryV1: {
     version: 1, average_watts: 200, weighted_average_watts: 220, kilojoules: 1000,
-    average_heartrate: 140, max_heartrate: 180, suffer_score: 200, distance: 30000 } });
-  expect(r?.average_watts).toBeNull(); expect(r?.average_heartrate).toBeNull(); expect(r?.kilojoules).toBeNull();
+    average_heartrate: 140, max_heartrate: 180, suffer_score: 200, distance: 30000 } };
+  const r = stravaRecordOf(legacy);
+  expect(r?.average_watts).toBe(200); expect(r?.average_heartrate).toBe(140); expect(r?.kilojoules).toBe(1000);
   expect(r?.distance).toBe(30000);
 });
