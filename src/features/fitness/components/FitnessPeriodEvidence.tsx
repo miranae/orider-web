@@ -22,7 +22,7 @@ import { Button, Input, Stack, Text, ToggleControls, ToggleButton } from "../../
 type Sport = "bike" | "run" | "swim";
 export default function FitnessPeriodEvidence({ discipline, inline = false, timeseries = null }: { discipline: Sport; inline?: boolean; timeseries?: FitnessTimeseriesDoc | null }) {
   const { user } = useAuth();
-  if ((getRuntimeConfig().appEnvironment !== "stage" && !(discipline === "bike" && trainingAnalysisPeriodsAvailable(discipline))) || !user || user.isAnonymous) return null;
+  if ((getRuntimeConfig().appEnvironment !== "stage" && !((discipline === "bike" || discipline === "run") && trainingAnalysisPeriodsAvailable(discipline))) || !user || user.isAnonymous) return null;
   return <PeriodEvidence key={`${user.uid}:${discipline}`} ownerUid={user.uid} discipline={discipline} inline={inline} timeseries={timeseries} />;
 }
 function PeriodEvidence({ ownerUid, discipline, inline, timeseries }: { ownerUid: string; discipline: Sport; inline: boolean; timeseries: FitnessTimeseriesDoc | null }) {

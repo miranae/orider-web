@@ -26,10 +26,15 @@ describe("period evidence capability boundary", () => {
     });
     expect(selection.request.periods).toHaveLength(2);
   });
-  it.each(["run", "swim"] as const)("does not expose Stage-only %s in hosted production", discipline => {
-    renderWithProviders(<FitnessPeriodEvidence discipline={discipline} />, { authenticated: true });
+  it("does not expose Stage-only swim in hosted production", () => {
+    renderWithProviders(<FitnessPeriodEvidence discipline="swim" />, { authenticated: true });
     expect(screen.queryByTestId("K5-5-2")).not.toBeInTheDocument();
     expect(mocks.hook).not.toHaveBeenCalled();
+  });
+  it("exposes hosted run period analysis equally with bike", () => {
+    renderWithProviders(<FitnessPeriodEvidence discipline="run" />, { authenticated: true });
+    expect(screen.getByTestId("K5-5-2")).toBeInTheDocument();
+    expect(mocks.hook).toHaveBeenCalled();
   });
   it("does not mount the owner period hook for a signed-out visitor", () => {
     renderWithProviders(<FitnessPeriodEvidence discipline="bike" />, { authenticated: false });
