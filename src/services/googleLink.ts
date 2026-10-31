@@ -43,3 +43,29 @@ export async function linkGoogleToCurrentUser(confirmConnectExisting: () => Prom
   await user.reload();
   return "connected";
 }
+
+/**
+ * Google 을 떼도 이 계정에 로그인할 수단이 남는가.
+ * 서버 `socialAuthUnlink` 의 "마지막 로그인 수단" 규칙과 같다: Firebase 고유 로그인(이메일 등)이나
+ * 연결된 소셜 로그인(네이버·카카오·Strava)이 하나라도 남아야 한다. 연결 목록을 모르면(null) 막는다.
+ */
+export function canUnlinkGoogle(user: Pick<User, "providerData">, linkedSocialCount: number | null): boolean {
+  if (linkedSocialCount === null) return false;
+  const others = user.providerData.filter((info) => info.providerId !== GOOGLE_PROVIDER_ID).length;
+  return others > 0 || linkedSocialCount > 0;
+}
+
+/**
+ * 현재 계정에서 Google 로그인을 뗀다. "마지막 로그인 수단" 규칙은 서버 `unlinkGoogleLogin` 이
+ * 소셜 해제와 같은 계정 lease 안에서 강제한다(프론트 검사는 안내용). 서버가 Auth 사용자를 바꾸므로
+ * 끝나면 현재 User 를 다시 읽는다.
+ */
+export async function unlinkGoogleFromCurrentUser(): Promise<boolean> {
+  const user = auth.currentUser;
+  if (!user || user.isAnonymous) throw new Error("auth/no-current-user");
+  await ensureAppCheckReady();
+  const result = await authCallable<void, { unlinked: boolean }>("unlinkGoogleLogin")();
+  if (auth.currentUser?.uid !== user.uid) throw new Error("auth/user-changed");
+  await user.reload();
+  return result.data.unlinked;
+}

@@ -411,6 +411,7 @@
       "stravaSyncSettings": "Activity sync settings",
       "googleLinked": "Google sign-in linked.",
       "googleLinkFailed": "Couldn't link Google sign-in. Please try again.",
+      "googleUnlinked": "Google sign-in unlinked.",
       "googleAlreadyLinked": "A different Google account is already linked.",
       "googleConnectDataConflict": "The separate account created with this Google account has records or connected services, so it can't be connected automatically. Keep using your existing sign-in method and contact support to merge accounts.",
       "googleConnectExisting": {
