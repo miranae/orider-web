@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockCallableInvocations, setCallableResult } from "../../__tests__/mocks/firebase";
 import { httpsCallable } from "firebase/functions";
-import { ensureAppCheckReady } from "../../services/firebase";
+import { ensureAppCheckReady, functions } from "../../services/firebase";
 import { getGroupInviteCode, regenerateGroupInviteCode } from "./groupInviteAdmin";
 
 beforeEach(() => {
@@ -19,7 +19,7 @@ describe.each([
     setCallableResult(name, { data: result });
     let resolveReady!: () => void;
     vi.mocked(ensureAppCheckReady).mockReturnValue(new Promise<void>((resolve) => { resolveReady = resolve; }));
-    const pending = invoke("qa-group");
+    const pending = invoke("qa-group", { functions, ensureAppCheckReady });
     expect(ensureAppCheckReady).toHaveBeenCalledOnce();
     expect(httpsCallable).not.toHaveBeenCalled();
     resolveReady();
@@ -31,7 +31,7 @@ describe.each([
   it("does not send an unauthenticated callable when token readiness fails", async () => {
     const error = new Error("app-check/token-timeout");
     vi.mocked(ensureAppCheckReady).mockRejectedValue(error);
-    await expect(invoke("qa-group")).rejects.toBe(error);
+    await expect(invoke("qa-group", { functions, ensureAppCheckReady })).rejects.toBe(error);
     expect(httpsCallable).not.toHaveBeenCalled();
   });
 });

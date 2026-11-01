@@ -37,7 +37,8 @@ vi.mock("../../services/firebase", () => ({
       authCurrentUserOverride = value;
     },
   },
-  firestore: {},
+  // 소비처는 주입된 서비스(useFirebaseServices)의 firestore.app 으로 Storage 버킷을 읽는다.
+  firestore: { app: { options: { storageBucket: "test" } } },
   storage: { app: { options: { storageBucket: "test" } } },
   functions: {},
   googleProvider: {},

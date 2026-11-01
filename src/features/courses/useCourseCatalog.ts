@@ -11,7 +11,8 @@ import {
   type QueryConstraint,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
-import { firestore } from "../../services/firebase";
+import type { Firestore } from "firebase/firestore";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import type { SortMode } from "./courseCatalog";
 import {
@@ -43,6 +44,8 @@ export function useCourseCatalog(sortMode: SortMode = "latest", creatorId?: stri
   const polylineCache = useRef<Map<string, LatLngTuple[]>>(new Map());
   const polylineValueCache = useRef<Map<string, string>>(new Map());
 
+  // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
+  const { firestore } = useFirebaseServices();
   const fetchPage = useCallback(async (reset: boolean) => {
     if (reset) {
       setLoading(true);
@@ -93,7 +96,7 @@ export function useCourseCatalog(sortMode: SortMode = "latest", creatorId?: stri
         loadingMoreRef.current = false;
       }
     }
-  }, [sortMode, creatorId, pageSize]);
+  }, [firestore, sortMode, creatorId, pageSize]);
 
   useEffect(() => {
     if (enabled) void fetchPage(true);
@@ -113,6 +116,7 @@ export function useCourseCatalog(sortMode: SortMode = "latest", creatorId?: stri
 }
 
 export async function searchVisibleCoursesPage(
+  firestore: Firestore,
   searchText: string,
   maxCount = SEARCH_LIMIT,
   polylineCache: Map<string, LatLngTuple[]> = new Map(),

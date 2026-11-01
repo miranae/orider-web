@@ -4,7 +4,7 @@ import "../../pages/group/ClubSurface.css";
 import { useState, useMemo } from "react";
 import { collection, doc, writeBatch } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
-import { auth, firestore } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
@@ -43,6 +43,8 @@ const inputStyle: React.CSSProperties = {
 
 export default function CreateGroupModal({ open, onClose, onCreated }: CreateGroupModalProps) {
   const { user } = useAuth();
+  const services = useFirebaseServices();
+  const { auth, firestore } = services;
   const { t } = useTranslation("group");
   const dialog = useDialog();
   const [step, setStep] = useState(0);
@@ -152,7 +154,7 @@ export default function CreateGroupModal({ open, onClose, onCreated }: CreateGro
 
       // 그룹 생성 성공은 초대 코드 발급 실패와 분리한다. 상세에서 발급을 재시도할 수 있다.
       try {
-        await getGroupInviteCode(groupId);
+        await getGroupInviteCode(groupId, services);
       } catch (err) {
         logClientError("CreateGroupModal.inviteCode", err, { groupId });
         if (auth.currentUser?.uid === user.uid) {

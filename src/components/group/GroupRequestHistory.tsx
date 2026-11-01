@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useTranslation } from "react-i18next";
-import { auth, ensureAppCheckReady, firestore, functions } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useDialog } from "../../contexts/DialogContext";
 import { getPublicUserProfiles } from "../../services/publicProfiles";
 import { Button, Card } from "../../theme/components";
@@ -13,6 +13,7 @@ interface RequestRow { id: string; userId: string; groupId: string; name: string
 export default function GroupRequestHistory({ userId, groupId, sectionId }: { userId?: string; groupId?: string; sectionId?: string }) {
   const { t, i18n } = useTranslation("group");
   const dialog = useDialog();
+  const { auth, ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const [rows, setRows] = useState<RequestRow[]>([]);
   const [error, setError] = useState(false);
   const [actionErrors, setActionErrors] = useState<Record<string, boolean>>({});
@@ -38,7 +39,7 @@ export default function GroupRequestHistory({ userId, groupId, sectionId }: { us
       }).catch(err => { logClientError("GroupRequestHistory.profiles", err); });
     }, err => { if (intent.current === scope) { setError(true); setRows([]); } logClientError("GroupRequestHistory.read", err); });
     return () => { intent.current += 1; unsubscribe(); };
-  }, [userId, groupId]);
+  }, [userId, groupId, firestore]);
   if (!rows.length && !error) return null;
   const history = <Card data-testid={groupId ? "C7-1-2" : "C0-1-3"} className="space-y-3"><details><summary>{t("requests.history")}</summary>{error ? <p role="alert">{t("error.loadFailed")}</p> : rows.map(row => <div key={row.id} className="space-y-2"><div className="flex items-center justify-between gap-3"><span>{row.name} · {t(`requests.${row.status}`)} · {row.requestedAt ? new Date(row.requestedAt).toLocaleString(i18n.language) : "–"}{row.resolvedAt ? ` → ${new Date(row.resolvedAt).toLocaleString(i18n.language)}` : ""}</span>{!groupId && row.status === "pending" && <Button data-testid="C0-1-3-cancel" size="sm" disabled={busy !== null} onClick={async () => {
     if (!userId || busy || auth.currentUser?.uid !== userId) return;

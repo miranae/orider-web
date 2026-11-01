@@ -1,3 +1,4 @@
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { SEARCH_PAGE_SIZE, usePagedSearch } from "../hooks/usePagedSearch";
 import "../features/courses/course-review.css";
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -50,17 +51,19 @@ const COURSES_FILTER_GROUP_STYLE: React.CSSProperties = {
 const DISTANCE_FILTER_MAX_KM = 200;
 const ELEVATION_FILTER_MAX_M = 3000;
 
-export default function CoursesPage() {
+/** `embedded`: 앱 탐색 임베드는 웹 경로(/explore/courses)가 아니어도 항상 보이는 화면이다. */
+export default function CoursesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const mapboxToken = getMapboxToken();
   const { t } = useTranslation("course");
   const { user } = useAuth();
+  const { firestore } = useFirebaseServices();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryParam = searchParams.get("q")?.trim() ?? "";
   const surfaceParam = searchParams.get("surface") ?? "";
   const difficultyParam = searchParams.get("difficulty") ?? "";
-  const isVisible = stripLangPrefix(location.pathname) === "/explore/courses";
+  const isVisible = embedded || stripLangPrefix(location.pathname) === "/explore/courses";
   const [hasRendered, setHasRendered] = useState(isVisible);
 
   useEffect(() => {
@@ -126,7 +129,7 @@ export default function CoursesPage() {
   const serverSearch = usePagedSearch(
     searchQuery.trim() ? JSON.stringify([searchQuery.trim(), mineOnly, user?.uid]) : null,
     (cursor: import("firebase/firestore").QueryDocumentSnapshot<import("firebase/firestore").DocumentData> | null) =>
-      searchVisibleCoursesPage(searchQuery, SEARCH_PAGE_SIZE, searchPolylineCache.current, searchPolylineValueCache.current, mineOnly ? user?.uid : undefined, cursor),
+      searchVisibleCoursesPage(firestore, searchQuery, SEARCH_PAGE_SIZE, searchPolylineCache.current, searchPolylineValueCache.current, mineOnly ? user?.uid : undefined, cursor),
   );
   const { items: serverSearchCourses, loading: serverSearchLoading, error: serverSearchError } = serverSearch;
 

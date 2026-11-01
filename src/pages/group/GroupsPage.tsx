@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { httpsCallable } from "firebase/functions";
-import { auth, ensureAppCheckReady, functions } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useMyGroups, usePublicGroups } from "../../hooks/useGroup";
@@ -43,6 +43,8 @@ export default function GroupsPage() {
     return () => { joinIntent.current += 1; };
   }, [uid]);
   const { showToast } = useToast();
+  // 임베드(앱 클럽 탭)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
+  const { auth, ensureAppCheckReady, functions } = useFirebaseServices();
   const { groups: myGroups, loading: myLoading, error: myGroupsError, retry: retryMyGroups } = useMyGroups(user?.uid);
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCreate, setShowCreate] = useState(() => searchParams.get("new") === "1");

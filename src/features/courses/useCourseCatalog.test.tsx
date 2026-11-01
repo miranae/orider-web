@@ -7,9 +7,10 @@ vi.mock("firebase/firestore", () => ({
   orderBy: (...args: unknown[]) => ({ orderBy: args }),
   limit: (count: number) => ({ limit: count }), startAfter: (cursor: unknown) => ({ cursor }),
 }));
-vi.mock("../../services/firebase", () => ({ firestore: {} }));
+vi.mock("../../services/firebase", () => ({ ensureAppCheckReady: vi.fn(), getAppCheckToken: vi.fn(), auth: {}, functions: {}, storage: {}, firestore: {} }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
 import { searchVisibleCoursesByName, searchVisibleCoursesPage, useCourseCatalog } from "./useCourseCatalog";
+const db = {} as Parameters<typeof searchVisibleCoursesPage>[0];
 const doc = (id: string, data: Record<string, unknown>) => ({ id, data: () => data });
 describe("owner course queries", () => {
   beforeEach(() => { vi.clearAllMocks(); mocks.getDocs.mockResolvedValue({ docs: [] }); });
@@ -21,20 +22,20 @@ describe("owner course queries", () => {
     expect(result.current.courses.map((course) => course.id)).toEqual(["visible"]);
   });
   it("search combines the owner constraint with the prefix query", async () => {
-    await searchVisibleCoursesByName("Ride", 80, new Map(), new Map(), "uid-b");
+    await searchVisibleCoursesByName(db, "Ride", 80, new Map(), new Map(), "uid-b");
     expect(mocks.where).toHaveBeenCalledWith("creatorId", "==", "uid-b");
     expect(mocks.where).toHaveBeenCalledWith("name", ">=", "Ride");
   });
   it("caps an oversized search request at 20 and continues after the last raw document", async () => {
     const docs = Array.from({ length: 20 }, (_, index) => doc(String(index), { name: "Ride", ...(index === 19 ? { hidden: true } : {}) }));
     mocks.getDocs.mockResolvedValueOnce({ docs });
-    const first = await searchVisibleCoursesPage("Ride", 1000);
+    const first = await searchVisibleCoursesPage(db, "Ride", 1000);
     expect(first.items).toHaveLength(19);
     expect(first.hasMore).toBe(true);
     expect(first.cursor).toBe(docs[19]);
     expect(mocks.query.mock.calls[0]).toContainEqual({ limit: 20 });
     mocks.getDocs.mockResolvedValueOnce({ docs: [doc("last", { name: "Ride" })] });
-    const next = await searchVisibleCoursesPage("Ride", 20, new Map(), new Map(), undefined, first.cursor);
+    const next = await searchVisibleCoursesPage(db, "Ride", 20, new Map(), new Map(), undefined, first.cursor);
     expect(mocks.query.mock.calls[1]).toContainEqual({ cursor: docs[19] });
     expect(next.items.map(item => item.id)).toEqual(["last"]);
     expect(next.hasMore).toBe(false);
@@ -51,7 +52,7 @@ describe("owner course queries", () => {
     expect(result.current.hasMore).toBe(false);
   });
   it("does not constrain guest/public search to an owner", async () => {
-    await searchVisibleCoursesByName("Ride");
+    await searchVisibleCoursesByName(db, "Ride");
     expect(mocks.where.mock.calls.some(([field]) => field === "creatorId")).toBe(false);
   });
 });

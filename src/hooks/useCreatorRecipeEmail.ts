@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { creatorRecipeErrorDetails, creatorRecipeErrorFeedback } from "../utils/creatorRecipeErrors";
-import { functions } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 
 export interface CreatorEmailQuota {
   limit: number;
@@ -50,6 +50,7 @@ export function useCreatorRecipeEmail({
   showToast,
   signIn,
 }: UseCreatorRecipeEmailParams) {
+  const { functions } = useFirebaseServices();
   const [emailSendingId, setEmailSendingId] = useState<string | null>(null);
   const [emailSentItemIds, setEmailSentItemIds] = useState<Set<string>>(() => new Set());
   const [emailFailedItemIds, setEmailFailedItemIds] = useState<Set<string>>(() => new Set());
@@ -75,7 +76,7 @@ export function useCreatorRecipeEmail({
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [functions, user]);
 
   useEffect(() => {
     if (!emailQuota) return;

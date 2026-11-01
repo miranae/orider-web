@@ -340,18 +340,19 @@ const moduleCache = {
   loading: false,
 };
 
-export default function ExplorePage() {
-  return <SegmentSurface><ExploreSegmentsContent /></SegmentSurface>;
+/** `embedded`: 앱 탐색 임베드는 웹 경로(/explore/segments)가 아니어도 항상 보이는 화면이다. */
+export default function ExplorePage({ embedded = false }: { embedded?: boolean } = {}) {
+  return <SegmentSurface><ExploreSegmentsContent embedded={embedded} /></SegmentSurface>;
 }
 
-function ExploreSegmentsContent() {
+function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
   const mapboxToken = getMapboxToken();
   const [mapFailed, setMapFailed] = useState(false);
   const { t } = useTranslation("segment");
   const navigate = useNavigate();
   const isMobile = useMobile();
   const location = useLocation();
-  const isVisible = stripLangPrefix(location.pathname) === "/explore/segments";
+  const isVisible = embedded || stripLangPrefix(location.pathname) === "/explore/segments";
   const [hasRendered, setHasRendered] = useState(isVisible);
 
   const CATEGORIES: { id: Category; label: string; icon: typeof MapIcon }[] = [
