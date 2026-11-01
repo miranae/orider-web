@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { coachRoute } from "../utils/coachRoute";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Bot, Clock3, History, Trash2, UserRound } from "lucide-react";
+import { ArrowLeft, ChartLine, Clock3, History, Trash2, UserRound } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useDialog } from "../contexts/DialogContext";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
@@ -375,12 +375,12 @@ export default function CoachHistoryPage() {
 
   if (!user) return <section className="coach-history-page coach-history-page--signed-out">
     <header data-testid="K6-0" className="coach-history-page__header">
-      <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><Bot size={ICON_SIZE.md} aria-hidden /> {t("history.eyebrow")}</Text>
+      <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><ChartLine size={ICON_SIZE.md} aria-hidden /> {t("history.eyebrow")}</Text>
         <Text data-testid="K6-0-1" className="coach-history-page__title" as="h1" variant="pageTitle">{t("history.entryTitle")}</Text>
         <Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.entryDescription")}</Text></div>
       {launcher}
     </header>
-    <Card className="coach-history-entry"><Bot aria-hidden /><Text as="h2" variant="subtitle">{t("history.signInTitle")}</Text>
+    <Card className="coach-history-entry"><ChartLine aria-hidden /><Text as="h2" variant="subtitle">{t("history.signInTitle")}</Text>
       <Text as="p" variant="bodySmall" tone="secondary">{t("history.signInRequired")}</Text></Card>
   </section>;
   if (stateUid !== uid) return <section className="coach-history-page"><Card role="status">{t("history.loading")}</Card></section>;
@@ -443,7 +443,7 @@ export default function CoachHistoryPage() {
                 <Card variant="inset" className="coach-thread-turn__question"><Text as="p" variant="body">{turn.question}</Text></Card>
               </section>
               <section className="coach-thread-message coach-thread-message--coach" aria-label={`${turnLabel} · ${t("history.coachName")}`}>
-                <div className="coach-thread-message__identity"><span className="coach-thread-message__avatar" aria-hidden><Bot size={ICON_SIZE.md} /></span>
+                <div className="coach-thread-message__identity"><span className="coach-thread-message__avatar" aria-hidden><ChartLine size={ICON_SIZE.md} /></span>
                   <Text as="h4" variant="label">{t("history.coachName")}</Text></div>
                 <div className={`coach-thread-turn__answer${turn.response.outcome !== "answer" && !hasStoredAnswer(turn.response) ? " coach-thread-turn__answer--terminal" : ""}`}>{turn.response.schemaVersion !== "coach-history-failure-v1" && <CoachAnswerDocumentView response={turn.response}
                   locale={i18n.language} onAction={answerAction} historical />}
