@@ -168,7 +168,7 @@ describe("group post editing", () => {
     expect(edit()).toHaveValue("Original announcement");
     fireEvent.change(screen.getByRole("textbox", { name: "게시글 내용 수정" }), { target: { value: "Updated announcement" } });
     fireEvent.click(screen.getByRole("button", { name: "수정 저장" }));
-    await waitFor(() => expect(updateGroupPost).toHaveBeenCalledWith({ groupId: "group-1", postId: "post-1", content: "Updated announcement" }));
+    await waitFor(() => expect(updateGroupPost).toHaveBeenCalledWith({ groupId: "group-1", postId: "post-1", content: "Updated announcement" }, expect.anything()));
     expect(state.showToast).toHaveBeenCalledWith("게시글을 수정했습니다.");
     expect(screen.queryByRole("textbox", { name: "게시글 내용 수정" })).not.toBeInTheDocument();
     expect(screen.getByText("Original author")).toBeInTheDocument();
@@ -227,7 +227,7 @@ describe("group post editing", () => {
     fireEvent.click(screen.getByRole("button", { name: "수정 저장" }));
     expect(updateGroupPost).not.toHaveBeenCalled();
     await act(async () => ready());
-    expect(updateGroupPost).toHaveBeenCalledWith({ groupId: "group-1", postId: "post-1", content: "Original announcement" });
+    expect(updateGroupPost).toHaveBeenCalledWith({ groupId: "group-1", postId: "post-1", content: "Original announcement" }, expect.anything());
     expect(state.showToast).toHaveBeenCalledWith("게시글을 수정했습니다.");
   });
   it("fails closed when App Check readiness rejects", async () => {

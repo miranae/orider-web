@@ -45,6 +45,23 @@ vi.mock("./surfaces/ClubsSurface", () => hubSurfaceMock("clubs-surface"));
 vi.mock("./surfaces/ExploreSurface", () => hubSurfaceMock("explore-surface"));
 vi.mock("./surfaces/SearchSurface", () => hubSurfaceMock("search-surface"));
 
+// 클럽 상세는 실제 ClubDetailSurface(하위 라우팅)를 쓰고 웹 클럽 화면만 가볍게 바꾼다.
+function clubPageMock(name: string) {
+  return {
+    default: () => (
+      <div data-testid={`club-page-${name}`}>
+        <a href="/ko/club/club-1/members">members</a>
+        <a href="/ko/club/club-1">club home</a>
+        <a href="/ko/club/club-2">other club</a>
+        <a href="/ko/athlete/user-9">athlete</a>
+      </div>
+    ),
+  };
+}
+vi.mock("../pages/group/GroupDashboardPage", () => clubPageMock("dashboard"));
+vi.mock("../pages/group/GroupMembersPage", () => clubPageMock("members"));
+vi.mock("../pages/group/GroupWeekPage", () => clubPageMock("week"));
+
 import EmbeddedBootstrapRoot, { type EmbeddedSurfaceKind } from "./EmbeddedBootstrapRoot";
 import { isEmbeddedRoutePath } from "../App";
 
@@ -94,13 +111,24 @@ describe("app tab hub embeds", () => {
     mocks.consumeHandoff.mockClear();
   });
 
-  it("routes the three hub embeds outside the standard web shell", () => {
+  it("routes the hub embeds and club detail outside the standard web shell", () => {
     for (const hub of ["clubs", "explore", "search"]) {
       expect(isEmbeddedRoutePath(`/ko/embed/${hub}`)).toBe(true);
       expect(isEmbeddedRoutePath(`/en/embed/${hub}/`)).toBe(true);
     }
-    expect(isEmbeddedRoutePath("/ko/embed/clubs/extra")).toBe(false);
+    expect(isEmbeddedRoutePath("/ko/embed/clubs/club-1")).toBe(true);
+    expect(isEmbeddedRoutePath("/en/embed/clubs/club-1/meetings/m-1/edit")).toBe(true);
+    expect(isEmbeddedRoutePath("/ko/embed/explore/extra")).toBe(false);
+    expect(isEmbeddedRoutePath("/ko/club/club-1")).toBe(false);
     expect(isEmbeddedRoutePath("/ko/clubs")).toBe(false);
+  });
+
+  it("advertises the club detail embed so the app only opens it in-app on a web that has the route", async () => {
+    const bridge = createFakeBridge();
+    renderHub(bridge, "clubs");
+    await waitFor(() => expect(bridge.sent.some(item => item.type === "bootstrap.ready")).toBe(true));
+    const ready = bridge.sent.find(item => item.type === "bootstrap.ready");
+    expect((ready?.payload as { capabilities: string[] }).capabilities).toContain("club-detail-embed-v1");
   });
 
   it.each(["clubs", "explore", "search"] as const)("opens the signed-in %s surface with the existing handoff and reports readiness", async (kind) => {
@@ -159,6 +187,35 @@ describe("app tab hub embeds", () => {
     await screen.findByTestId("explore-surface");
     act(() => bridge.emit(message("host.surfaceSelected", { surface: "fitness" }, "select-1")));
     expect(bridge.sent).toContainEqual({ type: "surface.error", payload: { code: "invalid_host_state" }, requestId: "select-1" });
+  });
+
+  it("opens a public club detail as a guest and keeps the club's own sub pages inside the embed", async () => {
+    mocks.state.currentUser = null;
+    simulateLogin(null);
+    const bridge = createFakeBridge();
+    render(
+      <MemoryRouter initialEntries={["/ko/embed/clubs/club-1"]}>
+        <Routes>
+          <Route path="/:lang/embed/clubs/:groupId/*" element={<EmbeddedBootstrapRoot bridgeFactory={() => bridge} surfaceKind="club-detail" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await authorize(bridge, { contractVersion: 1 });
+    act(() => bridge.emit(message("host.sessionAccepted", accepted)));
+    expect(await screen.findByTestId("club-page-dashboard")).toBeInTheDocument();
+    await waitFor(() => expect(bridge.sent).toContainEqual({ type: "surface.ready", payload: { surface: "club-detail" }, requestId: undefined }));
+
+    fireEvent.click(screen.getByRole("link", { name: "members" }));
+    expect(await screen.findByTestId("club-page-members")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("link", { name: "club home" }));
+    expect(await screen.findByTestId("club-page-dashboard")).toBeInTheDocument();
+    expect(bridge.sent.some(item => item.type === "navigation.openNative")).toBe(false);
+
+    // 다른 클럽·상세 밖 경로는 앱이 정한다(다른 클럽은 앱이 새 상세로 push).
+    fireEvent.click(screen.getByRole("link", { name: "other club" }));
+    expect(bridge.sent).toContainEqual({ type: "navigation.openNative", payload: { path: "/ko/club/club-2" }, requestId: undefined });
+    fireEvent.click(screen.getByRole("link", { name: "athlete" }));
+    expect(bridge.sent).toContainEqual({ type: "navigation.openNative", payload: { path: "/ko/athlete/user-9" }, requestId: undefined });
   });
 
   it("hands detail and other-hub links to the app, keeps explore list links in the WebView, and opens external links outside", async () => {
