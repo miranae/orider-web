@@ -13,7 +13,7 @@ describe("RunEmptyState — 미연결", () => {
 
   it("최근 기록이 없는 상태를 평생 기록 부재로 단정하지 않는다", () => {
     render(<RunEmptyState stravaConnected={false} />);
-    expect(screen.getByRole("heading")).toHaveTextContent("최근 러닝 기록이 없어요");
+    expect(screen.getByRole("heading", { name: "최근 러닝 기록이 없어요" })).toHaveTextContent("최근 러닝 기록이 없어요");
   });
 
   it("연결 CTA 를 누르면 Strava 연결을 시작하고 전환을 계측한다", () => {
@@ -39,7 +39,7 @@ describe("RunEmptyState — 연결됨", () => {
 
   it("이미 연결됐어도 러닝 파일을 가져올 수 있다", () => {
     render(<RunEmptyState stravaConnected />);
-    expect(screen.getByRole("heading")).toHaveTextContent("최근 러닝 기록이 없어요");
+    expect(screen.getByRole("heading", { name: "최근 러닝 기록이 없어요" })).toHaveTextContent("최근 러닝 기록이 없어요");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "러닝 기록 가져오기" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run&import=1");
   });

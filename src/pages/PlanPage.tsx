@@ -1,4 +1,7 @@
+import { startSport } from "../features/training/start/firstWorkout";
 import { isSportUiEnabled } from "../config/sportFeatures";
+import FirstWorkoutGate from "../features/training/start/FirstWorkoutGate";
+import { StartEntry } from "../features/training/start/StartJourney";
 import PlanComparisonReturn from "../features/training/plan/PlanComparisonReturn";
 import PlanRecordNavigation from "../features/training/plan/PlanRecordNavigation";
 import PlanLoadComparison from "../features/training/plan/PlanLoadComparisonPanel";
@@ -46,6 +49,12 @@ import { downloadICS, generateICS } from "../utils/icsExport";
 const WEB_START_MODE: Run30StartMode = { kind: "web" };
 
 export default function PlanPage() {
+  const [params] = useSearchParams();
+  const sport = startSport(params.get("sport") ?? "bike");
+  return sport ? <FirstWorkoutGate sport={sport}><PlanContent /></FirstWorkoutGate> : <PlanContent />;
+}
+
+function PlanContent() {
   const { t, i18n } = useTranslation("training");
   const { t: tActivity } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
@@ -210,7 +219,7 @@ export default function PlanPage() {
   );
 
   if (!user) {
-    return <GuestValuePreview kind="plan" lang={i18n.language} />;
+    return <><div className="site-shell"><StartEntry sport={discipline === "run" ? "run" : "bike"} /></div><GuestValuePreview kind="plan" lang={i18n.language} sport={discipline === "run" ? "run" : "bike"} /></>;
   }
 
   const visibleDays = weeks[visibleWeekIndex]?.days ?? [];
@@ -218,7 +227,7 @@ export default function PlanPage() {
   const recordDate = selectedDate && (!model.goalMatchesDiscipline || visibleDays.some(day => planDayKey(day.date) === selectedDate))
     ? selectedDate : planDayKey(visibleDays[0]?.date ?? Date.now());
   const loadComparison = model.goalMatchesDiscipline && goal && weeks.length > 0 && !loading && !loadError && model.freshLoaded !== false && !user.isAnonymous ? <div className="site-shell"><PlanLoadComparison key={selectionOwner} uid={user.uid} discipline={discipline} weeks={weeks} selectedDate={targetDate ?? undefined} ftp={profile?.ftp} /></div> : null;
-  const goalLink = <><PlanComparisonReturn /><header data-testid="K4-0" className="site-shell coach-page-header"><Text data-testid="K4-0-1" as="h1" variant="pageTitle">{t("mobile.weeklyPlan")}</Text><div data-testid="K4-0-2"><DisciplineTabs value={discipline} disabledKeys={["swim"]} /></div>{goal && <LocalizedLink data-testid="K4-2-4" to={`/coach/goals?sport=${discipline}`}>{t("goalHub.title")} →</LocalizedLink>}</header><PlanRecordNavigation date={recordDate} />{loadComparison}{model.goalMatchesDiscipline && weeks.length > 0 && (mobileWeekOffset !== 0 || targetDate) && <Button variant="ghost" onClick={() => {
+  const goalLink = <>{!goal && !loading && !loadError && model.freshLoaded && <div className="site-shell"><StartEntry sport={discipline === "run" ? "run" : "bike"} /></div>}<PlanComparisonReturn /><header data-testid="K4-0" className="site-shell coach-page-header"><Text data-testid="K4-0-1" as="h1" variant="pageTitle">{t("mobile.weeklyPlan")}</Text><div data-testid="K4-0-2"><DisciplineTabs value={discipline} disabledKeys={["swim"]} /></div>{goal && <LocalizedLink data-testid="K4-2-4" to={`/coach/goals?sport=${discipline}`}>{t("goalHub.title")} →</LocalizedLink>}</header><PlanRecordNavigation date={recordDate} />{loadComparison}{model.goalMatchesDiscipline && weeks.length > 0 && (mobileWeekOffset !== 0 || targetDate) && <Button variant="ghost" onClick={() => {
     setMobileWeekOffset(0);
     const next = new URLSearchParams(searchParams);
     ["date", "weekId", "dayIndex", "detail"].forEach(key => next.delete(key));

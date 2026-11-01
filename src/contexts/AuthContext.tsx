@@ -29,6 +29,7 @@ import { authCallable } from "../services/authCallables";
 import { auth, ensureAppCheckReady, firestore, googleProvider } from "../services/firebase";
 import { track } from "../services/analytics";
 import { getRuntimeConfig } from "../services/runtimeConfig";
+import { firstWorkoutLocalAvailable } from "../features/training/start/firstWorkoutClient";
 import { logClientError } from "../services/errorLogger";
 import type { UserProfile } from "@shared/types";
 import { SignInDialog } from "../components/auth/SignInDialog";
@@ -113,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profileOwnerRef.current = nextUid;
       setUser(firebaseUser);
       setProfileLoading(Boolean(firebaseUser));
-      if (firebaseUser && (getRuntimeConfig().appEnvironment !== "stage" || getRuntimeConfig().socialAuthFunctionsBase)) {
+      if (firebaseUser && !firstWorkoutLocalAvailable() && (getRuntimeConfig().appEnvironment !== "stage" || getRuntimeConfig().socialAuthFunctionsBase)) {
         // 프로필 생성 — 3회 지수 백오프 retry
         try {
           const { data: ensuredProfile } = await callWithRetry(async () => {
@@ -196,6 +197,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(() => {
+    if (import.meta.env.DEV && import.meta.env.VITE_FIRST_WORKOUT_LOCAL_PREVIEW === "true") {
+      return import("../dev/onboardingLocalLogin").then(module => module.signInOnboardingReview());
+    }
     const pending = new Promise<void>((resolve, reject) => {
       pendingSignInRef.current?.reject(signInCancelledError());
       pendingSignInRef.current = { resolve, reject };
@@ -230,6 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    if (firstWorkoutLocalAvailable()) sessionStorage.removeItem("orider.local-onboarding.signed-in");
     await signOut(auth);
     setProfile(null);
     track("logout");

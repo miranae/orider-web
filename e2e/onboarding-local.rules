@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Synthetic local review only. Writes go through the authenticated local server.
+    match /{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

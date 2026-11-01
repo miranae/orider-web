@@ -1,4 +1,7 @@
+import { startSport } from "../../features/training/start/firstWorkout";
 import PlanRecordNavigation from "../../features/training/plan/PlanRecordNavigation";
+import { useSearchParams } from "react-router-dom";
+import FirstWorkoutGate from "../../features/training/start/FirstWorkoutGate";
 import { useRun30Start, type Run30StartMode } from "../../features/training/run30/run30Start";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
@@ -59,6 +62,12 @@ export function canUseTodayHelpers(state: TodayTrainingDecisionState, now: numbe
 }
 
 export default function CoachTodayPage() {
+  const [params] = useSearchParams();
+  const sport = startSport(params.get("sport") ?? "bike");
+  return sport ? <FirstWorkoutGate sport={sport}><CoachTodayContent /></FirstWorkoutGate> : <CoachTodayContent />;
+}
+
+function CoachTodayContent() {
   const model = useCoachFitnessModel();
   const { t, user, discipline, currentPoint, i18n } = model;
   const sport = discipline === "tri" ? "bike" : discipline;

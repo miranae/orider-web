@@ -1,4 +1,5 @@
 import PlanGoalLoadSummary from "../features/training/plan/PlanGoalLoadSummary";
+import StartJourney, { StartEntry } from "../features/training/start/StartJourney";
 import { goalLoadScope } from "../features/training/plan/planScope";
 import { usePlanLoadComparison } from "../features/training/plan/usePlanLoadComparison";
 import { useAuth } from "../contexts/AuthContext";
@@ -70,6 +71,8 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
   };
   const choose = (kind: "event" | "climb") => { if (goalReady) setChoice({ sport: discipline, kind }); };
   const selected = choice?.sport === discipline ? choice.kind : null;
+  if (params.has("start")) return <StartJourney sport={discipline === "run" ? "run" : "bike"} activeGoal={!!goal} activeGoalSport={goal?.discipline === "run" ? "run" : "bike"} checking={!!user && !goalReady && !model.loadError} loadError={!!model.loadError} />;
+  if (!user || user.isAnonymous) return <StartJourney sport={discipline === "run" ? "run" : "bike"} activeGoal={false} />;
   return <div className="site-shell">
     <header className="coach-page-header" data-testid="K3-0"><Text as="h1" variant="pageTitle" data-testid="K3-0-1">{t("goalHub.title")}</Text><div data-testid="K3-0-2"><DisciplineTabs value={discipline} disabledKeys={["swim"]} /></div></header>
     {!user || user.isAnonymous ? <Card data-testid="K3-2-5"><Text>{t("goals.loginRequiredDescription")}</Text><CoachSignInButton /></Card> : <>
@@ -92,6 +95,7 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
         {error && <Text role="alert">{t("errors.abandonError")}</Text>}
       </Card>}
       <div ref={types} data-testid="K3-2"><Text as="h2" variant="title">{t(goal ? "goalHub.other" : "goalHub.new")}</Text>
+        {!goal && goalReady && <StartEntry sport={discipline === "run" ? "run" : "bike"} />}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-3)", marginTop: "var(--space-3)" }}>
         <Button data-testid={discipline === "bike" ? "K3-2-1" : discipline === "run" ? "K3-2-3" : "K3-2-4"} disabled={!goalReady} onClick={() => choose("event")}>{t(`goalHub.types.${discipline}`)}</Button>
         {discipline === "bike" && <Button data-testid="K3-2-2" disabled={!goalReady} onClick={() => choose("climb")}>{t("climbGoal.title")}</Button>}

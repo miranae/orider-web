@@ -1333,5 +1333,128 @@
     "remaining": "목표일까지 남은 기간 {{count}}주",
     "calendar": "달력에는 목표기간 밖의 저장 계획도 표시합니다.",
     "expiredBadge": "목표일 경과"
+  },
+  "start": {
+    "hero": {
+      "bike": "첫 라이딩도, 다음 목표도 내 페이스로",
+      "run": "첫 달리기도, 다음 목표도 내 페이스로"
+    },
+    "heroDescription": "기록이 없어도 괜찮아요. 운동을 고르고, 내 일정에 맞춰 차근차근 시작해요.",
+    "getStarted": "내 운동 시작하기",
+    "eyebrow": "O·RIDER · 함께 시작해요",
+    "title": "어떤 운동으로 시작할까요?",
+    "description": "처음이어도, 다시 시작해도 괜찮아요. 지금 나에게 맞는 방법을 골라보세요.",
+    "sportLabel": "운동 종목",
+    "sports": {
+      "bike": "사이클",
+      "run": "러닝"
+    },
+    "progressLabel": "운동 시작 단계",
+    "steps": {
+      "choose": "시작 방법",
+      "workout": "운동 선택",
+      "preview": "준비하기"
+    },
+    "localNotice": "로컬 체험 화면입니다. 운동 구성은 검토용 예시이며 실제 훈련 처방이 아닙니다. 로그인 버튼은 가상 체험 계정으로 연결되고, 저장 내용은 로컬에만 남습니다.",
+    "beginTitle": "운동을 시작하고 싶어요",
+    "beginDescription": "기록이나 전문 센서 없이도 시작 방법을 찾을 수 있어요.",
+    "beginAction": "운동 골라보기",
+    "importTitle": "기존 기록을 가져올게요",
+    "importDescription": "이미 쌓아온 기록을 모으고, 내 운동의 흐름을 살펴보세요.",
+    "importAction": "기록 가져오기",
+    "browseTitle": "먼저 둘러볼게요",
+    "browseDescription": "다른 사람들의 운동과 오라이더의 기록 화면을 구경해 보세요.",
+    "browseAction": "공개 활동 둘러보기",
+    "experienceTitle": "{{sport}}, 얼마나 해보셨나요?",
+    "experienceDescription": "추천을 위한 질문이에요. 건너뛰거나 나중에 바꿔도 괜찮아요.",
+    "experienceLabel": "해당 종목 경험",
+    "experience": {
+      "new": "처음이에요",
+      "sometimes": "가끔 해요",
+      "regular": "꾸준히 해요",
+      "skip": "건너뛰기"
+    },
+    "oneTimeBadge": "목표 없이 가볍게",
+    "oneTimeTitle": "일단 한 번 운동하기",
+    "oneTimeDescription": "코스나 대회일을 정하지 않고, 한 번의 운동부터 준비해요.",
+    "previewAction": "첫 운동 미리보기",
+    "planTitle": "목표를 정하고 계획하기",
+    "planDescription": {
+      "bike": "달려보고 싶은 코스와 목표를 정하면, 기존 훈련 계획으로 이어갈 수 있어요.",
+      "run": "걷기부터 시작하는 입문 과정 또는 거리·대회 목표를 선택할 수 있어요."
+    },
+    "runProgram": "30분 달리기 입문 보기",
+    "goalAction": {
+      "bike": "코스·완주 목표 선택",
+      "run": "거리·대회 목표 선택"
+    },
+    "requirements": {
+      "bike": "자전거와 헬멧, 휴대전화를 준비해 주세요. 워치와 파워미터는 필수가 아니에요.",
+      "run": "편한 운동화와 휴대전화를 준비해 주세요. 워치는 필수가 아니에요."
+    },
+    "previewTitle": "첫 운동을 미리 만나보세요",
+    "previewBadge": "운동 구성 미리보기",
+    "workoutTitle": {
+      "bike": "편안하게 시작하는 첫 라이딩",
+      "run": "걷기부터 시작하는 첫 러닝"
+    },
+    "workoutDescription": "수치보다 운동의 순서를 먼저 살펴보세요.",
+    "minutes": "분",
+    "blockMinutes": "{{minutes}}분",
+    "blocks": {
+      "bike": [
+        "자전거와 주변을 확인하며 준비하기",
+        "편안한 움직임으로 라이딩 살펴보기",
+        "천천히 마무리하기"
+      ],
+      "run": [
+        "편하게 걸으며 준비하기",
+        "걷기와 가벼운 달리기 살펴보기",
+        "걸으며 마무리하기"
+      ]
+    },
+    "contentNotice": "위 시간과 구성은 화면 검토용 예시입니다. 실제 제공 전 운동 콘텐츠 검토와 사용자 검증이 필요합니다.",
+    "prepareTitle": "내 일정에 맞게 준비해요",
+    "dateLabel": "운동할 날짜",
+    "executionDescription": "웹에서 내용을 확인한 뒤, 평소 쓰는 앱이나 기기로 운동을 기록해 주세요. 기록은 Strava 연결 또는 파일 가져오기로 모을 수 있어요. 외부 기록 앱의 가입이나 권한 설정이 필요할 수 있어요.",
+    "saveDescription": "저장하면 내 계획과 오늘 운동에서 다시 볼 수 있어요. 저장만으로 운동이 시작되거나 완료되지는 않아요.",
+    "signInSave": "로그인하고 이어가기",
+    "saveAction": "이 운동을 내 계획에 저장",
+    "importExplanation": "파일로 기록을 가져오거나 설정에서 Strava 활동을 연결할 수 있어요. Strava 로그인과 활동 기록 연결은 별도입니다.",
+    "stravaSettings": "Strava 연결 설정 열기",
+    "importOptional": "기록 연결은 선택이에요. 기록 없이 운동 계획부터 시작해도 괜찮아요.",
+    "back": "이전 단계",
+    "backHome": "홈으로 돌아가기",
+    "footer": "목표 → 계획 → 오늘 운동 → 나의 기록",
+    "activeGoal": "진행 중인 계획이 있어요",
+    "activeGoalDescription": "지금의 계획을 먼저 확인해 주세요. 새로운 시작이 기존 목표를 바꾸지는 않아요.",
+    "openPlan": "현재 계획 보기",
+    "goalLoadError": "기존 목표를 확인하지 못했어요. 새로고침한 뒤 다시 시도해 주세요.",
+    "unavailable": "이 운동의 저장 기능은 아직 준비 중이에요. 기존 목표와 계획을 먼저 살펴보세요.",
+    "loading": "내 운동을 확인하고 있어요…",
+    "retry": "다시 확인하기",
+    "yourPlan": "나의 계획",
+    "firstWorkoutReady": "첫 운동이 준비됐어요",
+    "readyDescription": "계획에서 일정을 확인하고, 운동 후 기록을 이어주세요.",
+    "missed": "일정을 다시 골라주세요",
+    "scheduled": "예정된 운동",
+    "noAutoCompletion": "예정일이 지나도 자동으로 완료되지 않아요. 실제 운동 기록의 수신·연결은 별도로 확인합니다.",
+    "changeFailed": "변경하지 못했어요. 다시 확인하기로 최신 일정을 불러온 뒤 시도해 주세요.",
+    "confirmDate": "날짜 변경 저장",
+    "changeDate": "날짜 바꾸기",
+    "cancelWorkout": "예약 취소",
+    "importAfter": "운동 후 기록 가져오기",
+    "nextTitle": "다음 운동도 같은 곳에서",
+    "nextDescription": "이번 운동을 마친 뒤 기록을 돌아보고, 다음 운동이나 목표를 준비해 보세요.",
+    "existingGoals": "목표와 계획 살펴보기",
+    "errors": {
+      "request-failed": "저장하지 못했어요. 선택한 내용은 그대로예요. 잠시 후 다시 시도해 주세요.",
+      "active-workout": "이미 예약된 운동이 있어요. 계획에서 확인해 주세요.",
+      "active-goal": "진행 중인 계획이 있어 새 운동을 추가하지 않았어요.",
+      "stale": "일정이 바뀌었어요. 현재 계획을 다시 확인해 주세요.",
+      "unauthenticated": "로그인 상태를 다시 확인해 주세요.",
+      "session-changed": "계정이 변경됐어요. 현재 계정으로 다시 확인해 주세요.",
+      "other-workout": "다른 종목에 예약된 운동이 있어요. 해당 종목의 계획을 먼저 확인해 주세요."
+    }
   }
 }

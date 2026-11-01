@@ -1,4 +1,5 @@
 import WeeklyTssBars from "../components/dashboard/WeeklyTrainingLoadBars";
+import { StartEntry } from "../features/training/start/StartJourney";
 export { default as WeeklyTssBars } from "../components/dashboard/WeeklyTrainingLoadBars";
 export type { WeeklyTssBar } from "../components/dashboard/WeeklyTrainingLoadBars";
 import GlossaryText from "../components/common/GlossaryText";
@@ -29,8 +30,6 @@ import Avatar from "../components/Avatar";
 import ProfileSocialStats from "../components/profile/ProfileSocialStats";
 import { ChevronRight } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { isSignInCancelled } from "../utils/signInCancelled";
-import { useToast } from "../contexts/ToastContext";
 import { useLocale } from "../contexts/LocaleContext";
 import { formatTrainingLoad } from "../utils/trainingLoadDisplay";
 import { formatDistance } from "../utils/units";
@@ -50,7 +49,7 @@ import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../config/activitySubscriptions"
 import { useActivitySubscriptions } from "../hooks/useActivitySubscriptions";
 import { useMobile } from "../hooks/useMobile";
 import { isSportUiEnabled } from "../config/sportFeatures";
-import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
+import { Card, Chip, Text, buttonClass } from "../theme/components";
 import type { Activity } from "@shared/types";
 import "./DashboardPage.css";
 import { ICON_SIZE } from "../theme/tokens/icon";
@@ -183,20 +182,7 @@ export default function DashboardPage() {
 
 function DashboardContent() {
   const { t, i18n } = useTranslation("dashboard");
-  const { user, profile, loading: authLoading, signIn } = useAuth();
-  const { showToast } = useToast();
-  const [signInPending, setSignInPending] = useState(false);
-  const handleGuestSignIn = async () => {
-    if (signInPending) return;
-    setSignInPending(true);
-    try {
-      await signIn();
-    } catch (err) {
-      if (!isSignInCancelled(err)) showToast(t("header.signInFailed"), "error");
-    } finally {
-      setSignInPending(false);
-    }
-  };
+  const { user, profile, loading: authLoading } = useAuth();
   const { preferences: dashboardPreferences } = useDashboardPreferences(
     user?.uid ?? null,
     authLoading,
@@ -562,7 +548,7 @@ function DashboardContent() {
     sportFilter={isMobile ? mobileSportFilter : discipline === "tri" ? "all" : discipline}
     datePreset={mobileDatePreset}
   />;
-  if (isMobile) return activityFeed;
+  if (isMobile) return <>{!authLoading && !user && <div className="site-shell"><StartEntry sport={mobileSportFilter === "run" ? "run" : "bike"} /></div>}{activityFeed}</>;
 
   return <div className="desktop-dashboard">
     <div className="desktop-dashboard-layout">
@@ -572,17 +558,11 @@ function DashboardContent() {
       params.set("sport", next === "tri" ? "all" : next);
       return params;
     })} /></div></div>
-        <Card className="desktop-dashboard-identity">
-          {user && !user.isAnonymous ? <>
+        {user && !user.isAnonymous ? <Card className="desktop-dashboard-identity">
             <Link to="/athlete/me" className="desktop-dashboard-profile"><Avatar name={userName} imageUrl={profile?.photoURL || user.photoURL} size="xl" /><Text as="h2" variant="subtitle" weight={600}>{userName}</Text></Link>
             <ProfileSocialStats />
             <Link to={`/athlete/me/activities?sport=${canonicalHome.enabled || discipline === "tri" ? "all" : discipline}`} className="desktop-dashboard-profile-link"><span>{t("todayStrip.week")}</span><ChevronRight size={ICON_SIZE.md} aria-hidden="true" /></Link>
-          </> : <>
-            <Text as="h2" variant="subtitle" weight={600}>{t("header.anonTitle")}</Text>
-            <Text as="p" variant="bodySmall" tone="secondary">{t("header.anonSubtitle")}</Text>
-            <Button variant="primary" size="sm" onClick={() => { void handleGuestSignIn(); }} loading={signInPending}>{t("header.anonCta")}</Button>
-          </>}
-        </Card>
+        </Card> : <StartEntry compact sport={discipline === "run" ? "run" : "bike"} />}
         {user && <Card className="desktop-dashboard-week">
           <SectionHeader title={t(canonicalHome.enabled ? "kpi.weekGroup" : isRunTab ? "kpi.runWeekGroup" : "kpi.weekGroup")} />
           <dl className="dashboard-kpi-week">{KPI.map(stat => <div key={stat.label}>

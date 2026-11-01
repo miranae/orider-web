@@ -10,6 +10,7 @@ type PreviewKind = "fitness" | "plan" | "log";
 interface GuestValuePreviewProps {
   kind: PreviewKind;
   lang?: string;
+  sport?: "bike" | "run";
 }
 
 const FITNESS_POINTS = [
@@ -69,8 +70,14 @@ function copy(kind: PreviewKind, lang?: string) {
   };
 }
 
-export default function GuestValuePreview({ kind, lang }: GuestValuePreviewProps) {
+export default function GuestValuePreview({ kind, lang, sport = "bike" }: GuestValuePreviewProps) {
   const c = copy(kind, lang);
+  const planDays = sport === "run" ? [
+    { label: "Mon", titleKo: "걷기·달리기", titleEn: "Walk and run", tss: 15 },
+    { label: "Tue", titleKo: "휴식", titleEn: "Rest", tss: 0 },
+    { label: "Thu", titleKo: "걷기·달리기", titleEn: "Walk and run", tss: 15 },
+    { label: "Sat", titleKo: "편한 달리기", titleEn: "Easy run", tss: 20 },
+  ] : PLAN_DAYS;
   const isFitness = kind === "fitness";
   const isPlan = kind === "plan";
   const { signIn } = useAuth();
@@ -121,7 +128,7 @@ export default function GuestValuePreview({ kind, lang }: GuestValuePreviewProps
           </div>
         ) : isPlan ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 120px), 1fr))", gap: "var(--space-3)" }}>
-            {PLAN_DAYS.map((d) => (
+            {planDays.map((d) => (
               <div key={d.label} style={{ border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", padding: "var(--space-4)", background: "var(--bg-2)" }}>
                 <Text as="div" variant="eyebrow">{d.label}</Text>
                 <div style={{ marginTop: "var(--space-2)", fontWeight: 700, color: "var(--ink-0)" }}>{(lang ?? "ko").startsWith("ko") ? d.titleKo : d.titleEn}</div>

@@ -46,16 +46,16 @@ describe("goal hub", () => {
     expect(screen.queryByRole("tab", { name: /수영/ })).not.toBeInTheDocument();
     expect(state.goal.runProgram).toEqual({ week: 1 });
   });
-  it("requires sign-in for anonymous identities before type selection", () => {
+  it("lets anonymous visitors explore before creating a goal", () => {
     state.user = { uid: "anonymous", isAnonymous: true };
     renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />);
-    expect(screen.getByTestId("K3-2-5")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "운동 골라보기" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "대회·코스 완주" })).not.toBeInTheDocument();
   });
-  it("keeps guests out of the type picker and wizard", () => {
+  it("shows guests the shared starting paths without opening the wizard", () => {
     state.user = null;
     renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />);
-    expect(screen.getByTestId("K3-2-5")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "운동 골라보기" })).toBeInTheDocument();
     expect(screen.queryByTestId("K3-2")).not.toBeInTheDocument();
   });
 });

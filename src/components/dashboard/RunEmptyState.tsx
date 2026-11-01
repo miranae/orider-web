@@ -1,4 +1,5 @@
 import GlossaryText from "../common/GlossaryText";
+import { StartEntry } from "../../features/training/start/StartJourney";
 /**
  * 러닝 데이터 없는 상태 — 첫 동기화 여정 (설계 문서 §3.0).
  *
@@ -45,6 +46,7 @@ export default function RunEmptyState({ stravaConnected }: RunEmptyStateProps) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      <StartEntry compact sport="run" />
       <div style={{ textAlign: "center", padding: "var(--space-6) var(--space-3) var(--space-2)" }}>
         <RunIcon size={ICON_SIZE.xl} aria-hidden="true" style={{ color: "var(--ink-3)", margin: "0 auto" }} />
         {/* 한국어는 어절 단위로 끊어야 읽힌다 — keep-all 없이는 좁은 폭에서 단어 중간이 갈린다. */}

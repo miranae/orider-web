@@ -155,14 +155,20 @@ const initializeEntry = isEmbeddedEntry
       await initEmbeddedFirebase();
     })
   : loadRuntimeConfig()
-      .then(() => initFirebase())
+      .then(() => initFirebase({ isolatedEmulatorSession: import.meta.env.DEV && import.meta.env.VITE_FIRST_WORKOUT_LOCAL_PREVIEW === "true" }))
   // 앱 → 웹 로그인 인계: #handoff= 일회용 코드(옛 ?handoff=도 수신)가 있으면
   // AuthProvider 마운트 전에 custom token 로그인까지 끝낸다(코드 없으면 즉시 통과).
       .then(() => consumeAppHandoffCode())
   // 관리자 위임 로그인: #impersonateToken= fragment 가 있으면 마운트 전에 그 사용자로
   // 로그인한다(토큰 없으면 즉시 통과). admin.orider.co.kr 의 지원 접근 페이지와 CLI 가
   // 이 형식으로 링크를 만든다 — 쿼리스트링 형식은 유출 때문에 거부한다.
-      .then(() => applyImpersonationTokenFromUrl(auth));
+      .then(() => applyImpersonationTokenFromUrl(auth))
+      .then(async () => {
+        if (import.meta.env.DEV && import.meta.env.VITE_FIRST_WORKOUT_LOCAL_PREVIEW === "true") {
+          const { restoreOnboardingReview } = await import("./dev/onboardingLocalLogin");
+          await restoreOnboardingReview();
+        }
+      });
 
 initializeEntry
   .then(() => mountApp(isEmbeddedEntry))

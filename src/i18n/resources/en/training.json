@@ -1333,5 +1333,128 @@
     "remaining": "{{count}} weeks remaining to the goal date",
     "calendar": "The calendar also shows stored plans outside the goal period.",
     "expiredBadge": "Goal date passed"
+  },
+  "start": {
+    "hero": {
+      "bike": "Your first ride. Your next goal. Your pace.",
+      "run": "Your first run. Your next goal. Your pace."
+    },
+    "heroDescription": "Choose a workout and fit it into your week, even without past records.",
+    "getStarted": "Find my starting point",
+    "eyebrow": "O·RIDER · Start together",
+    "title": "How would you like to start?",
+    "description": "New to exercise or coming back? Choose what works for you.",
+    "sportLabel": "Sport",
+    "sports": {
+      "bike": "Cycling",
+      "run": "Running"
+    },
+    "progressLabel": "Getting started",
+    "steps": {
+      "choose": "Choose a path",
+      "workout": "Pick a workout",
+      "preview": "Get ready"
+    },
+    "localNotice": "Local review only. Workout content is a provisional example, not a training prescription. Sign-in uses a synthetic demo account and saves only to local emulators.",
+    "beginTitle": "I want to start exercising",
+    "beginDescription": "Find a starting point without past records or specialist sensors.",
+    "beginAction": "Explore workouts",
+    "importTitle": "Bring my existing records",
+    "importDescription": "Bring your activities together and explore your progress.",
+    "importAction": "Import activities",
+    "browseTitle": "Let me look around",
+    "browseDescription": "Explore public activities before deciding.",
+    "browseAction": "Browse public activities",
+    "experienceTitle": "How familiar are you with {{sport}}?",
+    "experienceDescription": "This only helps with suggestions. You can skip or change it.",
+    "experienceLabel": "Experience in this sport",
+    "experience": {
+      "new": "New to this",
+      "sometimes": "Occasionally",
+      "regular": "Regularly",
+      "skip": "Skip"
+    },
+    "oneTimeBadge": "No goal needed",
+    "oneTimeTitle": "Try one workout",
+    "oneTimeDescription": "Prepare one session without choosing a route or race date.",
+    "previewAction": "Preview first workout",
+    "planTitle": "Set a goal and make a plan",
+    "planDescription": {
+      "bike": "Choose a route or event goal and use the existing training plan.",
+      "run": "Choose the walk-to-run introduction or an existing distance or event goal."
+    },
+    "runProgram": "Explore the 30-minute running program",
+    "goalAction": {
+      "bike": "Choose a route goal",
+      "run": "Choose a distance or event goal"
+    },
+    "requirements": {
+      "bike": "Bring a bicycle, helmet and phone. A watch or power meter is optional.",
+      "run": "Bring comfortable shoes and a phone. A watch is optional."
+    },
+    "previewTitle": "Meet your first workout",
+    "previewBadge": "Workout preview",
+    "workoutTitle": {
+      "bike": "An easy introduction to cycling",
+      "run": "Start running with walking"
+    },
+    "workoutDescription": "Explore the sequence before the numbers.",
+    "minutes": "min",
+    "blockMinutes": "{{minutes}} min",
+    "blocks": {
+      "bike": [
+        "Check your bicycle and surroundings",
+        "Explore comfortable riding",
+        "Slow down and finish"
+      ],
+      "run": [
+        "Start with comfortable walking",
+        "Explore walking and easy running",
+        "Walk to finish"
+      ]
+    },
+    "contentNotice": "Times and content are examples for local review. Content review and user validation are required before release.",
+    "prepareTitle": "Fit it into your schedule",
+    "dateLabel": "Workout date",
+    "executionDescription": "Review the workout here and record with an app or device you use. Bring records back through Strava or file import. An external app may require sign-up or permissions.",
+    "saveDescription": "Return to your plan or today’s workout after saving. Saving does not start or complete a workout.",
+    "signInSave": "Sign in to continue",
+    "saveAction": "Save to my plan",
+    "importExplanation": "Import a file or connect Strava activities in settings. Strava sign-in and activity authorization are separate.",
+    "stravaSettings": "Open Strava connection settings",
+    "importOptional": "Connecting records is optional. You can start with a plan.",
+    "back": "Back",
+    "backHome": "Back to home",
+    "footer": "Goal → Plan → Today’s workout → My records",
+    "activeGoal": "You have an active plan",
+    "activeGoalDescription": "Review your current plan first. Starting here will not replace your goal.",
+    "openPlan": "View current plan",
+    "goalLoadError": "Could not check existing goals. Refresh and try again.",
+    "unavailable": "Workout saving is not available yet. Explore existing goals and plans.",
+    "loading": "Checking your workout…",
+    "retry": "Check again",
+    "yourPlan": "My plan",
+    "firstWorkoutReady": "Your first workout is ready",
+    "readyDescription": "Check your schedule and return with your activity record.",
+    "missed": "Choose a new date",
+    "scheduled": "Scheduled workout",
+    "noAutoCompletion": "Passing the scheduled date does not complete a workout. Activity receipt and matching are checked separately.",
+    "changeFailed": "Could not update. Check again to load the latest schedule and retry.",
+    "confirmDate": "Save new date",
+    "changeDate": "Change date",
+    "cancelWorkout": "Cancel reservation",
+    "importAfter": "Import after your workout",
+    "nextTitle": "Your next workout belongs here too",
+    "nextDescription": "Review your record, then prepare your next workout or goal.",
+    "existingGoals": "Explore goals and plans",
+    "errors": {
+      "request-failed": "Could not save. Your choices are preserved. Please retry.",
+      "active-workout": "You already have a workout. Check your plan.",
+      "active-goal": "An active plan exists. No workout was added.",
+      "stale": "The schedule changed. Check the current plan.",
+      "unauthenticated": "Please check your sign-in.",
+      "session-changed": "The account changed. Please check again.",
+      "other-workout": "Another sport has a scheduled workout. Check that plan first."
+    }
   }
 }

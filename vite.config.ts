@@ -7,6 +7,7 @@ import { visualizer } from "rollup-plugin-visualizer";
 import path from "path";
 import { realpathSync } from "node:fs";
 import { copyLocales } from "./scripts/copy-locales";
+import { localOnboardingServer } from "./scripts/local-onboarding-server";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
@@ -64,6 +65,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
+      localOnboardingServer(process.env.VITE_FIRST_WORKOUT_LOCAL_PREVIEW === "true"),
       {
         name: "club-public-segment-catalog",
         apply: "serve" as const,
