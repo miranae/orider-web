@@ -4,20 +4,21 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { auth, ensureAppCheckReady } from "../../services/firebase";
 import { createGroupPost, updateGroupPost } from "../../hooks/useGroupPosts";
-import { setCollectionDocs, setDocData } from "../../__tests__/mocks/firebase";
+import { setCollectionDocs, setDocData, setCallableResult, mockCallableInvocations } from "../../__tests__/mocks/firebase";
 import GroupDashboardPage from "./GroupDashboardPage";
 
 const state = vi.hoisted(() => ({
+  authenticated: true, groupError: null as Error | null, signIn: vi.fn(),
   roleError: null as Error | null, retryRole: vi.fn(),
   aggregate: null as { lifetimeDistance: number; lifetimeRideCount: number; longestRideDistance: number } | null,
   ridesLoading: false, ridesError: null as string | null, retryRides: vi.fn(),
   visibility: "public", uid: "owner", role: "leader" as string | null, creatorId: "owner", authorId: "owner",
   showToast: vi.fn(), posts: [{ id: "post-1", content: "Original announcement", authorId: "owner", authorName: "Original author", kind: "announcement", createdAt: 1 }],
 }));
-vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: state.uid } }) }));
+vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: state.authenticated ? { uid: state.uid } : null, loading: false, signIn: state.signIn }) }));
 vi.mock("../../contexts/ToastContext", () => ({ useToast: () => ({ showToast: state.showToast }) }));
 vi.mock("../../hooks/useGroup", () => ({
-  useGroup: () => ({ group: { id: "group-1", creatorId: state.creatorId, name: "QA group", description: "Private introduction", rules: "Private rules", visibility: state.visibility, memberCount: 2 }, loading: false }),
+  useGroup: () => ({ group: { id: "group-1", creatorId: state.creatorId, name: "QA group", description: "Private introduction", rules: "Private rules", visibility: state.visibility, memberCount: 2 }, loading: false, error: state.groupError }),
   useGroupMemberRole: () => ({ role: state.role, error: state.roleError, retry: state.retryRole }),
   useGroupMembers: () => ({ members: [], loading: false }),
 }));
@@ -34,6 +35,7 @@ function edit() {
   return screen.getByRole("textbox", { name: "게시글 내용 수정" });
 }
 beforeEach(() => {
+  state.authenticated = true; state.groupError = null; state.signIn.mockReset().mockResolvedValue(undefined);
   state.roleError = null; state.retryRole.mockReset();
   state.aggregate = null;
   state.ridesLoading = false; state.ridesError = null; state.retryRides.mockReset();
@@ -44,6 +46,46 @@ beforeEach(() => {
   vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
   Object.assign(auth, { currentUser: { uid: "owner" } });
 });
+describe("club discovery to first participation fixtures", () => {
+  it("asks an anonymous visitor to sign in without claiming that the club is private", async () => {
+    state.authenticated = false; state.role = null;
+    state.groupError = Object.assign(new Error("denied"), { code: "permission-denied" });
+    vi.mocked(getDocs).mockClear();
+    render(<Page />);
+    expect(screen.getByText("로그인하고 클럽에 참여하세요")).toBeInTheDocument();
+    expect(screen.queryByText("비공개 클럽입니다")).not.toBeInTheDocument();
+    expect(screen.queryByText("Private introduction")).not.toBeInTheDocument();
+    expect(getDocs).not.toHaveBeenCalled();
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "로그인", exact: true })));
+    expect(state.signIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains the access restriction for an authenticated denied request", () => {
+    state.role = null;
+    state.groupError = Object.assign(new Error("denied"), { code: "permission-denied" });
+    render(<Page />);
+    expect(screen.getByText("클럽 접근 권한을 확인할 수 없어요")).toBeInTheDocument();
+    expect(screen.queryByText("비공개 클럽입니다")).not.toBeInTheDocument();
+    expect(screen.queryByText("Private introduction")).not.toBeInTheDocument();
+  });
+
+  it.each(["active", "pending"])("moves a %s join fixture to its first event only after active membership", async status => {
+    state.role = null;
+    mockCallableInvocations.length = 0;
+    setCallableResult("joinGroupPublic", { data: { success: true, status } });
+    setCollectionDocs("events", [{ id: "first-event", info: { name: "첫 참여 fixture", groupId: "group-1", status: "OPEN", visibility: "PUBLIC", startTime: Date.now() + 86400000 } }]);
+    const view = render(<Page />);
+    fireEvent.click(screen.getByTestId("C1-0-3"));
+    await waitFor(() => expect(mockCallableInvocations).toContainEqual({ name: "joinGroupPublic", data: { groupId: "group-1" } }));
+    if (status === "pending") expect(await screen.findByRole("button", { name: "승인 대기" })).toBeDisabled();
+    expect(screen.queryByRole("link", { name: "참가 신청" })).not.toBeInTheDocument();
+    state.role = "member";
+    view.rerender(<Page />);
+    expect(await screen.findByRole("link", { name: "참가 신청" })).toHaveAttribute("href", "/ko/event/first-event/register");
+    expect(screen.queryByTestId("C1-0-3")).not.toBeInTheDocument();
+  });
+});
+
 describe("group post editing", () => {
 
   it("identifies distance sums and explains the maximum combined group ride", async () => {

@@ -68,6 +68,9 @@ describe.each([
     expect(constructedRegistrations()).toHaveLength(1);
     expect(registrations()[0].data).toMatchObject({ eventId: "qa-new-event", profile: { name: "QA Rider" } });
     expect(await screen.findByText("QA-NEW-001")).toBeInTheDocument();
+    expect(screen.getByText(/참가 신청이 저장되었습니다\./)).toBeInTheDocument();
+    expect(screen.getByText(/이벤트 상세에서 신청 상태와 다음 참여 안내를 확인해 주세요\./)).toBeInTheDocument();
+    expect(screen.queryByText("신청 확인 메일이 발송되었습니다.")).not.toBeInTheDocument();
   });
 
   it("sends nothing on token failure and allows one new normal attempt", async () => {

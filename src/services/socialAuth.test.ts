@@ -21,6 +21,11 @@ describe("socialAuth helpers", () => {
     expect(currentReturnTo()).toBe("/");
   });
 
+  it("preserves a club campaign destination through the social login handoff", () => {
+    window.history.replaceState(null, "", "/ko/club/qa?source=ad#intro");
+    expect(currentReturnTo()).toBe("/club/qa?source=ad#intro");
+  });
+
   it("uses a language-free callback path on the current origin", () => {
     expect(socialRedirectUri()).toBe(`${window.location.origin}${SOCIAL_CALLBACK_PATH}`);
     expect(SOCIAL_CALLBACK_PATH).toBe("/auth/social/callback");

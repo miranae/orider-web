@@ -543,11 +543,9 @@ export default function EventRegisterPage() {
           {t("message.registrationComplete")}
         </h1>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)", marginBottom: "var(--space-7)" }}>
-          {(event.fee ?? 0) > 0
-            ? t("register.donePaymentDesc")
-            : t("register.doneConfirmDesc")}
+          {t("register.receivedDesc", "Your registration has been saved.")}
           <br />
-          {t("register.doneBibNotice")}
+          {t("register.followUpInEvent", "Check the event details for your registration status and the next steps.")}
         </div>
         <Card padding="none" style={{ padding: 'var(--space-5)', textAlign: "left", marginBottom: 'var(--space-5)' }}>
           <div className="flex items-center justify-between" style={{ marginBottom: 'var(--space-2)', fontSize: "var(--fs-xs)" }}>

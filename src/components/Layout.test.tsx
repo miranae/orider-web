@@ -106,6 +106,8 @@ describe("Layout", () => {
     expect(buildOnboardingRedirectTarget("/ko/group/abc", "?tab=rides", "#today"))
       .toBe("/onboarding?returnTo=%2Fgroup%2Fabc%3Ftab%3Drides%23today");
     expect(buildOnboardingRedirectTarget("/ko")).toBe("/onboarding");
+    expect(buildOnboardingRedirectTarget("/ko/club/qa", "?source=ad", "#intro"))
+      .toBe("/onboarding?returnTo=%2Fclub%2Fqa%3Fsource%3Dad%23intro");
   });
 
   it("calls signIn when login button is clicked", async () => {

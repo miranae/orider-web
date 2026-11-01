@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { mockUpdateDoc } from "../__tests__/mocks/firebase";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import OnboardingPage from "./OnboardingPage";
-import { useLocation } from "react-router-dom";
+import { Route, Routes, useLocation } from "react-router-dom";
 import { stravaSignupGuidancePath } from "../utils/stravaSignup";
 import { goalCreatedPath } from "../utils/internalReturnPath";
 
@@ -24,6 +24,14 @@ describe("OnboardingPage", () => {
     renderWithProviders(<OnboardingPage />, { authenticated: false, route: "/ko/onboarding" });
     expect(screen.getByText("로그인이 필요합니다")).toBeInTheDocument();
     expect(screen.queryByText("친구 초대하고 시작")).not.toBeInTheDocument();
+  });
+  it("returns an onboarded club visitor to the original club, campaign query and anchor", async () => {
+    renderWithProviders(<><Routes><Route path="/ko/onboarding" element={<OnboardingPage />} /><Route path="/ko/club/:groupId" element={<div>Club destination</div>} /></Routes><LocationProbe /></>, {
+      route: "/ko/onboarding?returnTo=%2Fclub%2Fqa%3Fsource%3Dad%23intro",
+      authenticated: true,
+      profile: { onboardingStep: "done" },
+    });
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/ko/club/qa?source=ad#intro"));
   });
   it("resumes from the saved onboarding step instead of restarting", async () => {
     renderWithProviders(<OnboardingPage />, {

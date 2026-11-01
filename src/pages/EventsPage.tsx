@@ -10,7 +10,7 @@ import { collection, doc, getDoc, getDocs, query, where } from "firebase/firesto
 import { firestore } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
-import { EmptyState, LoadingSkeleton, PageHeader } from "../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton, PageHeader } from "../components/redesign";
 import { decodeTrack, encodePolyline } from "../utils/polyline";
 import { getMapboxToken } from "../utils/mapbox";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
@@ -242,6 +242,8 @@ export default function EventsPage() {
   const [courseThumbs, setCourseThumbs] = useState<Record<string, string>>({});
   const [myEventIds, setMyEventIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [statusFilter, setStatusFilter] = useState<"ALL" | EventStatus>("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [regionFilter, setRegionFilter] = useState<string>("ALL");
@@ -258,6 +260,10 @@ export default function EventsPage() {
   }, []);
 
   useEffect(() => {
+    setLoading(true);
+    setLoadError(false);
+    setEvents([]);
+    setMyEventIds(new Set());
     (async () => {
       try {
         const eventsQuery = query(
@@ -266,6 +272,7 @@ export default function EventsPage() {
           where("info.visibility", "==", "PUBLIC"),
         );
         const snap = await getDocs(eventsQuery);
+        if (snap.metadata?.fromCache === true) throw new Error("Public events could not be confirmed with the server");
         const list: EventInfo[] = [];
         snap.forEach((doc) => {
           const d = doc.data();
@@ -376,12 +383,13 @@ export default function EventsPage() {
           }
         }
       } catch (err) {
+        setLoadError(true);
         logClientError("EventsPage.loadEvents", err);
       } finally {
         setLoading(false);
       }
     })();
-  }, [user]);
+  }, [user, loadAttempt]);
 
   const filtered = useMemo(() => {
     return events
@@ -464,6 +472,8 @@ export default function EventsPage() {
       </div>
     );
   }
+
+  if (loadError) return <div className="site-shell py-4"><ErrorState title={t("error.discoveryLoadFailed")} onRetry={() => setLoadAttempt(value => value + 1)} /></div>;
 
   return (
     <div className="event-controls-surface explore-events-surface site-shell space-y-4" style={{ padding: "0 24px 40px" }}>

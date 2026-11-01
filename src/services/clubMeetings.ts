@@ -5,6 +5,7 @@ export type ClubMeeting = Meeting & { kindName?: string };
 export interface ClubMeetingSnapshot {
   eventId: string;
   groupId: string;
+  rideStatus?: "OPEN" | "LIVE" | "FINISHED" | "CANCELLED";
   revision: number;
   isHost: boolean;
   meeting: ClubMeeting;
@@ -157,6 +158,9 @@ export const setClubMeetingRecruitment = (
   eventId: string,
   mode: "open" | "waitlist" | "closed",
 ) => call("setClubMeetingRecruitment", { eventId, mode });
+
+export const startClubMeetingRide = (eventId: string) =>
+  call<{ eventId: string }, { eventId: string; status: "LIVE" }>("startClubMeetingRide", { eventId });
 export const cancelClubMeeting = (eventId: string, reason: string) =>
   call("cancelClubMeeting", { eventId, reason });
 export const clubMeetingAttendance = (

@@ -1,4 +1,5 @@
 {
+  "error.discoveryLoadFailed": "Could not load events. Please try again.",
   "title": "Events",
   "createTitle": "Create Event",
   "editTitle": "Edit Event",
@@ -784,5 +785,7 @@
   "liveView.heartRate": "Heart rate",
   "liveView.lastCheckpoint": "Latest checkpoint",
   "liveView.durationUnit": "h:mm:ss",
-  "dashboard.trackingEnded": "Live location tracking has ended because this event is closed."
+  "dashboard.trackingEnded": "Live location tracking has ended because this event is closed.",
+  "register.receivedDesc": "Your registration has been saved.",
+  "register.followUpInEvent": "Check the event details for your registration status and the next steps."
 }

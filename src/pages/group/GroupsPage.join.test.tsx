@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockCallableInvocations, setCallableImplementation, setCallableResult, setCollectionDocs, simulateLogin } from "../../__tests__/mocks/firebase";
@@ -45,6 +45,18 @@ describe("GroupsPage join results", () => {
     Object.assign(auth, { currentUser: { uid: "test-uid" } });
     publicGroups.splice(0); myGroups.splice(0); membershipState.error = null;
     usePublicGroupsMock.mockClear();
+  });
+
+  it("keeps joined public clubs discoverable without offering another join", () => {
+    const own = { id: "own", name: "공개 운영 클럽", discipline: "bike", visibility: "public", memberCount: 1 };
+    myGroups.push(own, { id: "private", name: "비공개 운영 클럽", visibility: "private" });
+    publicGroups.push(own, { id: "other", name: "다른 공개 클럽", visibility: "public" });
+    renderPage();
+    expect(screen.getAllByRole("heading", { name: "공개 운영 클럽", exact: true })).toHaveLength(2);
+    expect(screen.queryByText("공개 클럽이 없습니다")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "가입 신청" })).toHaveLength(1);
+    expect(screen.getAllByRole("heading", { name: "비공개 운영 클럽", exact: true })).toHaveLength(1);
+    expect(within(screen.getByTestId("C0-1")).getByText("비공개 운영 클럽")).toBeInTheDocument();
   });
 
   it("renders membership error state in my clubs without treating the error payload as a DOM child", () => {

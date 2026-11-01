@@ -39,6 +39,7 @@ import {
   createClubMeeting,
   publishClubMeetingNotice,
   setClubMeetingRecruitment,
+  startClubMeetingRide,
   saveClubMeetingTeams,
   updateClubMeeting,
   type ClubMeetingSnapshot,
@@ -587,10 +588,19 @@ function ServerMeetingDetail({
         >
           <h2>{text("모임 운영", "Manage meeting")}</h2>
           <div className="cp-actions">
+            {data.rideStatus === "OPEN" && (
+              <Button disabled={busy} onClick={() => void run(() => startClubMeetingRide(data.eventId))}>
+                {text("이 모임의 단체주행 시작", "Start this meeting's group ride")}
+              </Button>
+            )}
             <Button disabled={busy} onClick={onCopy}>
               {text("복사해 새 모임", "Copy to a new meeting")}
             </Button>
           </div>
+          {data.rideStatus === "LIVE" && (
+            <p className="cp-muted">{text("단체주행 중입니다. 앱 준비 화면에서 이 모임을 선택하고 START를 누르세요.",
+              "The group ride is live. Select this meeting on the app's ready screen and press START.")}</p>
+          )}
           {live && (
             <Field
               label={text("모집 상태", "Registration")}

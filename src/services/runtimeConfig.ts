@@ -1,4 +1,6 @@
 export interface RuntimeConfig {
+  /** 공개 API 배포 검증 후 설정. 원본 Firestore로 폴백하지 않는다. */
+  publicClubApiUrl?: string;
   firebaseApiKey?: string;
   firebaseAuthDomain?: string;
   firebaseProjectId?: string;
@@ -76,6 +78,7 @@ function readBuildFallbackConfig(): RuntimeConfig {
   }
 
   return {
+    publicClubApiUrl: import.meta.env.VITE_PUBLIC_CLUB_API_URL,
     firebaseApiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     firebaseAuthDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
     firebaseProjectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,

@@ -8,6 +8,7 @@ import {
   clubMeetingAttendance,
   createClubMeeting,
   updateClubMeeting,
+  startClubMeetingRide,
   type ClubMeetingSnapshot,
 } from "../../services/clubMeetings";
 const control = vi.hoisted(() => ({
@@ -58,6 +59,7 @@ vi.mock("../../services/clubMeetings", () => ({
   updateClubMeeting: vi.fn(async () => ({ revision: 4 })),
   clubMeetingAttendance: vi.fn(async () => ({ status: "none" })),
   setClubMeetingRecruitment: vi.fn(),
+  startClubMeetingRide: vi.fn(async (eventId: string) => ({ eventId, status: "LIVE" })),
   cancelClubMeeting: vi.fn(),
   publishClubMeetingNotice: vi.fn(),
   confirmClubMeetingNotice: vi.fn(),
@@ -101,6 +103,17 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 describe("실제 인증 회원의 클럽 모임 동선", () => {
+  it("주최자는 현재 모임 ID 그대로 단체주행을 시작한다", async () => {
+    control.data = {
+      eventId: "meeting-kept", groupId: "club", revision: 1, isHost: true,
+      rideStatus: "OPEN", members: [],
+      meeting: { ...newClubMeeting(), id: "meeting-kept", hostId: "test-uid" },
+    };
+    show("detail");
+    fireEvent.click(await screen.findByRole("button", { name: "이 모임의 단체주행 시작" }));
+    await waitFor(() => expect(startClubMeetingRide).toHaveBeenCalledWith("meeting-kept"));
+    await waitFor(() => expect(control.reload).toHaveBeenCalled());
+  });
   it("일반 회원도 역할 선택 없이 생성하고 서버가 부여한 ID로 이동한다", async () => {
     show("new");
     await screen.findByRole("button", { name: "서버 저장" });

@@ -1,4 +1,5 @@
 {
+  "error.discoveryLoadFailed": "이벤트를 불러오지 못했어요. 다시 시도해 주세요.",
   "title": "이벤트",
   "createTitle": "이벤트 생성",
   "editTitle": "이벤트 수정",
@@ -780,5 +781,7 @@
   "liveView.heartRate": "운동심박수",
   "liveView.lastCheckpoint": "최근 통과지점",
   "liveView.durationUnit": "시:분:초",
-  "dashboard.trackingEnded": "종료된 이벤트로 실시간 위치 제공이 끝났습니다."
+  "dashboard.trackingEnded": "종료된 이벤트로 실시간 위치 제공이 끝났습니다.",
+  "register.receivedDesc": "참가 신청이 저장되었습니다.",
+  "register.followUpInEvent": "이벤트 상세에서 신청 상태와 다음 참여 안내를 확인해 주세요."
 }
