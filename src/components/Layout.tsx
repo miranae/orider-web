@@ -1,5 +1,5 @@
 import { useNotificationInbox } from "../hooks/useNotificationInbox";
-import { NotificationInboxStatus } from "./notifications/NotificationInboxStatus";
+import { NotificationInboxMore, NotificationInboxStatus } from "./notifications/NotificationInboxStatus";
 import { useMainScrollPosition } from "../hooks/useMainScrollPosition";
 import { Suspense, useState, useEffect, useRef } from "react";
 import GlossaryProvider from "./common/GlossaryProvider";
@@ -152,8 +152,9 @@ export default function Layout() {
     if (target) navigate(target);
     if (!notification.read) void inbox.markRead([notification.id]);
   };
-  const notificationStatus = <NotificationInboxStatus empty={!notifications.length} loading={inbox.loading} failed={inbox.failed} hasMore={inbox.hasMore}
-    onRetry={() => void inbox.refresh()} onMore={() => void inbox.more()} />;
+  const notificationStatus = <NotificationInboxStatus empty={!notifications.length} loading={inbox.loading} failed={inbox.failed}
+    onRetry={() => void inbox.refresh()} />;
+  const notificationFooter = <NotificationInboxMore hasMore={inbox.hasMore} loading={inbox.loading} onMore={() => void inbox.more()} />;
 
   return (
     <div className="flex flex-col" style={{ height: "100dvh", background: 'var(--bg-0)', color: 'var(--ink-1)' }}>
@@ -161,6 +162,7 @@ export default function Layout() {
         active={activeNav}
         notifications={notifications}
         notificationStatus={notificationStatus}
+        notificationFooter={notificationFooter}
         unreadCount={unreadCount}
         friendRequestCount={friendRequestCount}
         onMarkAllRead={handleMarkAllRead}
@@ -216,6 +218,7 @@ export default function Layout() {
             onClose={() => setNotifOpen(false)}
             notifications={notifications}
             notificationStatus={notificationStatus}
+            notificationFooter={notificationFooter}
             onMarkAllRead={handleMarkAllRead}
             onNotificationClick={(notification) => { void handleNotificationClick(notification); }}
           />
