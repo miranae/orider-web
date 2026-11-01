@@ -538,7 +538,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         uid: currentUser.uid,
         nickname: currentProfile?.nickname || currentUser.displayName || "",
         profileImage: currentProfile?.photoURL || currentUser.photoURL || null,
-      }, userId);
+      }, userId, services.firestore);
       setFriendStatus("request_sent");
       return true;
     } catch (err) {
@@ -554,7 +554,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     if (!await dialog.confirm(t("friends:cancelConfirm"))) return;
     setFriendLoading(true);
     try {
-      await cancelFriendRequest(currentUser.uid, userId);
+      await cancelFriendRequest(currentUser.uid, userId, services.firestore);
       setFriendStatus("none");
     } catch (err) {
       logClientError("AthletePage.handleCancelRequest", err, { targetUserId: userId });

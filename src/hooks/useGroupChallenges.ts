@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { collection, doc, getDoc, limit, onSnapshot, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import type { Group } from "@shared/types";
-import { firestore, functions } from "../services/firebase";
+import type { Functions } from "firebase/functions";
+// 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 
 export interface GroupChallengeStanding {
@@ -74,23 +76,24 @@ export function currentKstMonthKey(now = Date.now()): string {
   return new Date(now + 9 * 60 * 60 * 1_000).toISOString().slice(0, 7);
 }
 
-export async function createGroupChallenge(input: { groupId: string; name: string }): Promise<string> {
+export async function createGroupChallenge(input: { groupId: string; name: string }, functions: Functions): Promise<string> {
   const fn = httpsCallable<typeof input, { challengeId: string }>(functions, "createGroupChallenge");
   const { data } = await fn({ groupId: input.groupId, name: input.name.trim() });
   return data.challengeId;
 }
 
-export async function joinGroupChallenge(input: { challengeId: string; groupId: string }): Promise<void> {
+export async function joinGroupChallenge(input: { challengeId: string; groupId: string }, functions: Functions): Promise<void> {
   const fn = httpsCallable<typeof input, { success: true }>(functions, "joinGroupChallenge");
   await fn(input);
 }
 
-export async function getGroupChallengeStandings(challengeId: string): Promise<StandingsResponse> {
+export async function getGroupChallengeStandings(challengeId: string, functions: Functions): Promise<StandingsResponse> {
   const fn = httpsCallable<{ challengeId: string }, StandingsResponse>(functions, "getGroupChallengeStandings");
   return (await fn({ challengeId })).data;
 }
 
 export function useManagedGroups(userId: string | undefined, groups: Group[]) {
+  const { firestore } = useFirebaseServices();
   const [managedGroups, setManagedGroups] = useState<Group[]>([]);
 
   useEffect(() => {
@@ -114,12 +117,13 @@ export function useManagedGroups(userId: string | undefined, groups: Group[]) {
       logClientError("useManagedGroups", err, { userId });
     });
     return () => { cancelled = true; };
-  }, [groups, userId]);
+  }, [firestore, groups, userId]);
 
   return managedGroups;
 }
 
 export function useGroupChallenges() {
+  const { firestore, functions } = useFirebaseServices();
   const [challenges, setChallenges] = useState<GroupChallenge[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -141,7 +145,7 @@ export function useGroupChallenges() {
         const currentDocs = snapshot.docs.filter((challengeDoc) => challengeDoc.data().monthKey === currentMonth);
         void Promise.all(currentDocs.map(async (challengeDoc) => {
           const raw = challengeDoc.data();
-          const standings = await getGroupChallengeStandings(challengeDoc.id);
+          const standings = await getGroupChallengeStandings(challengeDoc.id, functions);
           return {
             id: challengeDoc.id,
             name: standings.name,
@@ -173,7 +177,7 @@ export function useGroupChallenges() {
       },
     );
     return () => { cancelled = true; epoch += 1; unsubscribe(); };
-  }, [attempt]);
+  }, [firestore, functions, attempt]);
 
   return { challenges, loading, error, retry };
 }

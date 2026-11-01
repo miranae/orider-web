@@ -36,8 +36,8 @@ while (stack.length > 0) {
   seen.add(file);
   const source = readFileSync(file, "utf8");
   const specs = [
-    ...source.matchAll(/from\s+"([^"]+)"/g),
-    ...source.matchAll(/import\("([^"]+)"\)/g),
+    ...source.matchAll(/from\s+["']([^"']+)["']/g),
+    ...source.matchAll(/import\(["']([^"']+)["']\)/g),
   ].map((m) => m[1]);
   for (const spec of specs) {
     const resolved = resolve(file, spec);

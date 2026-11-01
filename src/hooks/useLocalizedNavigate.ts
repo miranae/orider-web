@@ -1,6 +1,6 @@
 import { useCallback, useRef } from 'react';
 import { useEmbeddedNavigation } from '../embedded/EmbeddedNavigationContext';
-import { embeddedCoachDestination } from '../embedded/coachNavigation';
+import { embeddedInternalDestination } from '../embedded/hubNavigation';
 import { useNavigate, useParams, useLocation, type NavigateOptions } from 'react-router-dom';
 import { isDetailRoute, resolveDetailHub } from "../config/navHubs";
 import { stripLangPrefix, SUPPORTED_LANGS } from '../i18n/detector';
@@ -19,7 +19,7 @@ function hasLangPrefix(path: string) {
 export function useLocalizedPath(to: string): string {
   const { lang } = useParams();
   const location = useLocation();
-  const embedded = embeddedCoachDestination(location.pathname, to);
+  const embedded = embeddedInternalDestination(location.pathname, to);
   if (embedded) return embedded;
   if (isAbsolute(to)) return to;
   const norm = to.startsWith('/') ? to : '/' + to;
@@ -46,7 +46,7 @@ export function useLocalizedNavigate() {
         window.location.href = to;
         return;
       }
-      const embedded = embeddedCoachDestination(location.pathname, to);
+      const embedded = embeddedInternalDestination(location.pathname, to);
       if (embedded) { navigate(embedded, opts); return; }
       const norm = to.startsWith('/') ? to : '/' + to;
       const target = hasLangPrefix(norm) ? norm : `/${lang ?? 'ko'}${norm}`;

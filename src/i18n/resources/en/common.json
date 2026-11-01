@@ -447,6 +447,7 @@
     }
   },
   "embeddedStatus": {
+    "hubLoading": "Loading content.",
     "cached": "Showing previously saved information.",
     "loading": "Loading activity and training data.",
     "unavailable": "Unable to connect right now. Check your connection and try again."

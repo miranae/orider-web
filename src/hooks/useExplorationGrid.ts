@@ -1,4 +1,5 @@
-import { auth } from "../services/firebase";
+import type { User } from "firebase/auth";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useEffect, useState } from "react";
 import { logClientError } from "../services/errorLogger";
 import { fetchRecentActivityTracks } from "../services/activityTracks";
@@ -6,7 +7,7 @@ import { aggregateExplorationGridAsync, type ExplorationGridResult } from "../fe
 
 const EMPTY_RESULT: ExplorationGridResult = { tiles: [], tileCount: 0, maxSquare: 0 };
 
-let sessionCache: { owner: NonNullable<typeof auth.currentUser>; uid: string; result: ExplorationGridResult } | null = null;
+let sessionCache: { owner: User; uid: string; result: ExplorationGridResult } | null = null;
 export function clearExplorationGridSessionCache(): void { sessionCache = null; }
 
 /**
@@ -15,7 +16,9 @@ export function clearExplorationGridSessionCache(): void { sessionCache = null; 
  * 오가며 토글해도 재계산하지 않는다.
  */
 export function useExplorationGrid(uid: string | null | undefined, enabled: boolean) {
-  const [owned, setOwned] = useState<{ owner: NonNullable<typeof auth.currentUser>; uid: string; result: ExplorationGridResult } | null>(null);
+  // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 auth(#847).
+  const { auth } = useFirebaseServices();
+  const [owned, setOwned] = useState<{ owner: User; uid: string; result: ExplorationGridResult } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
@@ -58,7 +61,7 @@ export function useExplorationGrid(uid: string | null | undefined, enabled: bool
       if (!cancelled) { setOwned(null); setError(true); }
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; controller.abort(); };
-  }, [enabled, uid, owner]);
+  }, [auth, enabled, uid, owner]);
 
   return { result: owned && owned.uid === uid && owned.owner === owner ? owned.result : EMPTY_RESULT, loading, error };
 }

@@ -1,3 +1,4 @@
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import React, { useState } from 'react';
 import { EyeOff, FileText, Trash2, MapPin, Heart, MessageCircle, Flag, Ban } from 'lucide-react';
 import { useLocation, useParams } from "react-router-dom";
@@ -53,6 +54,7 @@ const PostDetailPage: React.FC = () => {
   const { t, i18n } = useTranslation("board");
   const [commentText, setCommentText] = useState('');
   const { user } = useAuth();
+  const firebaseServices = useFirebaseServices();
   const { showToast } = useToast();
   const dialog = useDialog();
   const { deletePost, deleting: postDeleting } = useDeletePost();
@@ -134,7 +136,7 @@ const PostDetailPage: React.FC = () => {
     if (!user || !post || user.uid === post.userId) return;
     if (!(await dialog.confirm(t("block.confirm", { nickname: post.nickname }), { destructive: true }))) return;
     try {
-      await setBoardAuthorBlocked(post.userId, true);
+      await setBoardAuthorBlocked(post.userId, true, firebaseServices.functions);
       showToast(t("block.done", { nickname: post.nickname }));
       navigate(boardReturnTo, { replace: true });
     } catch {

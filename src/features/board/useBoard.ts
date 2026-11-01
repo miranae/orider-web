@@ -19,7 +19,8 @@ import {
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useTranslation } from "react-i18next";
-import { firestore, functions } from "../../services/firebase";
+// 임베드(앱 탐색 탭 게시판)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useAuth } from "../../contexts/AuthContext";
 import type { BoardPost, BoardType } from "@shared/types";
 import { logClientError } from "../../services/errorLogger";
@@ -30,13 +31,14 @@ import type { BoardReportPayload } from "./reportPayload";
  * 전체 태그 목록 훅 (board_meta/tags 문서)
  */
 export function useBoardMeta() {
+  const { firestore } = useFirebaseServices();
   const [tags, setTags] = useState<{ name: string; count: number }[]>([]);
 
   useEffect(() => {
     getDoc(doc(firestore, "board_meta", "tags")).then(snap => {
       if (snap.exists()) setTags(snap.data().tags || []);
     }).catch((err) => { logClientError("board:meta", err); });
-  }, []);
+  }, [firestore]);
 
   return { tags };
 }
@@ -47,6 +49,7 @@ export function useBoardMeta() {
  */
 export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?: string, keyword?: string, excludeTags: string[] = [], initialPage = 1, ownerOnly = false) {
   const { user } = useAuth();
+  const { firestore, functions } = useFirebaseServices();
   // 쿼리는 "로그인 여부"에만 의존(비로그인=공개글만). user 객체는 auth init 중 레퍼런스가
   // 여러 번 바뀌어 effect 를 중복 발사(count 쿼리 N회)시키므로, 안정적인 uid 문자열을 dep 로 쓴다.
   const uid = user?.uid ?? null;
@@ -202,7 +205,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
       fetchPage();
       return () => { cancelled = true; };
     }
-  }, [boardType, pageSize, tag, keyword, excludeKey, refreshKey, page, uid, ownerOnly, pagedSearch]);
+  }, [firestore, boardType, pageSize, tag, keyword, excludeKey, refreshKey, page, uid, ownerOnly, pagedSearch]);
 
   const goToPage = (p: number) => {
     if (p >= 1 && p <= totalPages) setPage(p);
@@ -216,6 +219,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
 
 export function useMyInquiryPosts(limitCount = 100) {
   const { user } = useAuth();
+  const { firestore } = useFirebaseServices();
   const uid = user?.uid ?? null;
   const [posts, setPosts] = useState<BoardPost[]>([]);
   const [loadedUid, setLoadedUid] = useState<string | null>(null);
@@ -265,7 +269,7 @@ export function useMyInquiryPosts(limitCount = 100) {
       });
 
     return () => { cancelled = true; };
-  }, [limitCount, refreshKey, uid]);
+  }, [firestore, limitCount, refreshKey, uid]);
 
   return { posts: uid === loadedUid ? posts : [], loading: loading || (uid !== null && uid !== loadedUid), error: uid === loadedUid ? error : null, refresh };
 }
@@ -273,6 +277,7 @@ export function useMyInquiryPosts(limitCount = 100) {
 export function useReportBoardContent() {
   const { t } = useTranslation("board");
   const { user } = useAuth();
+  const { functions } = useFirebaseServices();
   const [submitting, setSubmitting] = useState(false);
 
   const report = async (payload: BoardReportPayload): Promise<{ reportId?: string; status?: string }> => {
@@ -299,6 +304,7 @@ export function useReportBoardContent() {
 export function useCreatePost() {
   const { t } = useTranslation("board");
   const { user, profile } = useAuth();
+  const { firestore } = useFirebaseServices();
   const [submitting, setSubmitting] = useState(false);
 
   const createPost = async (data: {
@@ -356,6 +362,7 @@ export function useCreatePost() {
  * 게시글 삭제(soft delete)를 위한 훅
  */
 export function useDeletePost() {
+  const { firestore } = useFirebaseServices();
   const [deleting, setDeleting] = useState(false);
 
   const deletePost = async (postId: string) => {
@@ -375,6 +382,7 @@ export function useDeletePost() {
  * 게시글 복구(soft delete 취소)를 위한 훅
  */
 export function useRestorePost() {
+  const { firestore } = useFirebaseServices();
   const [restoring, setRestoring] = useState(false);
 
   const restorePost = async (postId: string) => {

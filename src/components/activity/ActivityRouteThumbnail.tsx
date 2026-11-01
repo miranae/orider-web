@@ -4,7 +4,9 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
 import { useAuth } from "../../contexts/AuthContext";
-import { ensureAppCheckReady, functions, storage } from "../../services/firebase";
+import { useFirebaseServices, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
+
+type CallableServices = Pick<FirebaseServices, "functions" | "ensureAppCheckReady">;
 import { logClientError } from "../../services/errorLogger";
 import { lazyWithRetry as lazy } from "../../utils/lazyWithRetry";
 import { LocalizedLink as Link } from "../LocalizedLink";
@@ -177,6 +179,8 @@ export function CanonicalActivityRouteThumbnail({
 }: ActivityRouteThumbnailProps) {
   const { t } = useTranslation("activity");
   const { user } = useAuth();
+  // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 서비스(#847).
+  const services = useFirebaseServices();
   const containerRef = useRef<HTMLDivElement>(null);
   const captureRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -232,7 +236,7 @@ export function CanonicalActivityRouteThumbnail({
     imageUrl,
     userId,
     canonicalFileName,
-    storage.app.options.storageBucket,
+    services.firestore.app.options.storageBucket,
   ) && imageUrl !== failedImageUrl ? imageUrl : null;
   const imageLoaded = !!canonicalImageUrl && loadedImageUrl === canonicalImageUrl;
   const setImageRef = useCallback((image: HTMLImageElement | null) => {
@@ -348,6 +352,7 @@ export function CanonicalActivityRouteThumbnail({
         ? revisionState.headRevision
         : undefined;
       const prepared = await prepareActivityMapThumbnailUpload(
+        services,
         activityId,
         canonicalFileName,
         expectedHeadRevision,
@@ -363,6 +368,7 @@ export function CanonicalActivityRouteThumbnail({
       if (!mounted.current) return;
       phase = "finalize";
       const finalized = await finalizeActivityMapThumbnailUpload(
+        services,
         activityId,
         canonicalFileName,
         imageBase64,
@@ -698,6 +704,7 @@ export async function createCanonicalMapThumbnailBlob(output: HTMLCanvasElement)
 }
 
 async function prepareActivityMapThumbnailUpload(
+  services: CallableServices,
   activityId: string,
   expectedFileName: string,
   expectedHeadRevision?: number,
@@ -705,7 +712,7 @@ async function prepareActivityMapThumbnailUpload(
   return invokeMapThumbnailCoordinator<
     { activityId: string; expectedFileName: string; expectedHeadRevision?: number },
     { expectedFileName: string; expectedHeadRevision?: number }
-  >("prepareActivityMapThumbnailUpload", {
+  >(services, "prepareActivityMapThumbnailUpload", {
     activityId,
     expectedFileName,
     ...(expectedHeadRevision != null ? { expectedHeadRevision } : {}),
@@ -713,6 +720,7 @@ async function prepareActivityMapThumbnailUpload(
 }
 
 async function finalizeActivityMapThumbnailUpload(
+  services: CallableServices,
   activityId: string,
   expectedFileName: string,
   imageBase64: string,
@@ -721,7 +729,7 @@ async function finalizeActivityMapThumbnailUpload(
   const data = await invokeMapThumbnailCoordinator<
     { activityId: string; expectedFileName: string; imageBase64: string; expectedHeadRevision?: number },
     { mapImageUrl: string }
-  >("finalizeActivityMapThumbnailUpload", {
+  >(services, "finalizeActivityMapThumbnailUpload", {
     activityId,
     expectedFileName,
     imageBase64,
@@ -749,14 +757,15 @@ export async function blobToBase64(blob: Blob): Promise<string> {
 }
 
 async function invokeMapThumbnailCoordinator<TInput, TOutput>(
+  services: CallableServices,
   name: "prepareActivityMapThumbnailUpload" | "finalizeActivityMapThumbnailUpload",
   payload: TInput,
 ): Promise<TOutput> {
   return invokeMapThumbnailCoordinatorWithRetry(
     async (forceRefresh) => {
       // enforceAppCheck callable과 auth 직후 캡처가 경쟁하지 않도록 token 준비를 직접 보장한다.
-      await ensureAppCheckReady(forceRefresh);
-      const callable = httpsCallable<TInput, TOutput>(functions, name);
+      await services.ensureAppCheckReady(forceRefresh);
+      const callable = httpsCallable<TInput, TOutput>(services.functions, name);
       return (await callable(payload)).data;
     },
   );

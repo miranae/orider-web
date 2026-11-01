@@ -116,6 +116,9 @@ export function AppRoutes() {
         <Route path="embed/activity/:activityId/analysis" element={<EmbeddedBootstrapRoot surfaceKind="activity-analysis" />} />
         <Route path="embed/fitness" element={<EmbeddedBootstrapRoot surfaceKind="fitness" />} />
         <Route path="embed/plan" element={<EmbeddedBootstrapRoot surfaceKind="plan" />} />
+        <Route path="embed/clubs" element={<EmbeddedBootstrapRoot surfaceKind="clubs" />} />
+        <Route path="embed/explore" element={<EmbeddedBootstrapRoot surfaceKind="explore" />} />
+        <Route path="embed/search" element={<EmbeddedBootstrapRoot surfaceKind="search" />} />
         <Route element={<Layout />}>
           <Route index element={null} />
           <Route path="activity/:activityId" element={<ActivityPage />} />
@@ -383,7 +386,7 @@ function StandardApp() {
 }
 
 export function isEmbeddedRoutePath(pathname: string): boolean {
-  return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/(?:analysis|public)|fitness|plan)\/?$/.test(pathname);
+  return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/(?:analysis|public)|fitness|plan|clubs|explore|search)\/?$/.test(pathname);
 }
 
 export default function App() {

@@ -44,7 +44,7 @@ import {
   type CreatorRecipeIcon,
   type CreatorRecipeKind,
 } from "../data/creatorRecipes";
-import { functions } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useLocalizedNavigate } from "../hooks/useLocalizedNavigate";
 import { formatCreatorEmailQuotaLabel, useCreatorRecipeEmail } from "../hooks/useCreatorRecipeEmail";
 import { assertIsolatedStageRuntime, getRuntimeConfig, type RuntimeConfig } from "../services/runtimeConfig";
@@ -522,12 +522,15 @@ function diaryFailureMessage(error: unknown, language: string, fallback: string)
   }
 }
 
-export default function CreatorHubPage() {
+export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 탐색 임베드는 경로 대신 쿼리로 섹션을 넘긴다. */ section?: string | null } = {}) {
   const { i18n } = useTranslation();
   const { t: loadT } = useTranslation("dashboard");
   const { user, signIn } = useAuth();
   const { showToast } = useToast();
-  const { section: sectionParam } = useParams<{ section?: string }>();
+  // 임베드(앱 탐색 탭)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
+  const { functions } = useFirebaseServices();
+  const { section: routeSection } = useParams<{ section?: string }>();
+  const sectionParam = sectionOverride ?? routeSection;
   const navigate = useLocalizedNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { weeklyStats } = useWeeklyStats();

@@ -3,8 +3,8 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { BoardImage } from './BoardImage';
 const mocks = vi.hoisted(() => ({ uid: 'owner', getBlob: vi.fn(), ref: vi.fn((_storage, path) => path) }));
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.uid ? { uid: mocks.uid } : null }) }));
-vi.mock('../../services/firebase', () => ({ storage: {} }));
-vi.mock('firebase/storage', () => ({ getBlob: mocks.getBlob, ref: mocks.ref }));
+vi.mock('../../services/firebase', () => ({ ensureAppCheckReady: vi.fn(), getAppCheckToken: vi.fn(), auth: {}, firestore: {}, functions: {}, storage: {} }));
+vi.mock('firebase/storage', () => ({ getBlob: mocks.getBlob, ref: mocks.ref, getStorage: vi.fn(() => ({})) }));
 beforeEach(() => {
   mocks.uid = 'owner';
   mocks.getBlob.mockReset().mockResolvedValue(new Blob(['image']));

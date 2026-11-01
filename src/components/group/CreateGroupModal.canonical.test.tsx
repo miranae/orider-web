@@ -75,7 +75,7 @@ describe("canonical invite creation stages", () => {
     expect(set).toHaveBeenCalledTimes(3);
     expect(set.mock.calls[0][1]).not.toHaveProperty("inviteCode");
     expect(set.mock.calls[1][1]).toMatchObject({ userId: "creator", role: "leader" });
-    expect(getGroupInviteCode).toHaveBeenCalledWith(onCreated.mock.calls[0][0]);
+    expect(getGroupInviteCode).toHaveBeenCalledWith(onCreated.mock.calls[0][0], expect.anything());
     expect(alert).toHaveBeenCalledWith(groupStrings["invite.createdNotReady"]);
   });
 });
