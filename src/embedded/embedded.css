@@ -32,7 +32,10 @@
 
 /* 앱 셸(.orider-embedded-root.site-shell--padded)이 좌우 거터를 이미 준다. 표면이 또 주면 계획을 뺀
    컨디션·오늘·분석·목표만 좌우가 두 배로 들어가 좁아진다(계획만 위 규칙으로 0 이었다). */
-.site-shell--padded > .orider-embedded-surface { padding-inline: 0; }
+/* 위 여백도 계획(--space-2)에 맞춘다 — 상단 탭과 제목 사이가 탭마다 달라 보였다. */
+.site-shell--padded > .orider-embedded-surface { padding-inline: 0; padding-top: var(--space-2); }
+/* 컨디션·오늘·분석의 읽기 영역이 웹 모바일 위 여백(--space-1)을 또 더해 계획·목표보다 4px 내려가 있었다. */
+.site-shell--padded > .orider-embedded-surface .fitness-reading { padding-top: 0 !important; }
 
 .orider-embedded-surface--plan .embedded-plan-presentation {
   padding-inline: var(--space-4);

@@ -16,6 +16,8 @@ for (const width of [320, 393, 768]) {
     await page.goto(`/ko/embed/fitness?sport=bike&fixtureEmail=${encodeURIComponent(email)}`);
     await expect(page.getByTestId("embedded-fitness")).toBeVisible();
     const owner = await page.getByTestId("fixture-owner").textContent();
+    // 상단 탭 아래 → 화면 제목 간격. 다섯 탭이 같아야 한다(계획만 붙어 보이던 회귀).
+    const titleGaps: Record<string, number> = {};
     for (const [label, target] of [["컨디션", "condition"], ["오늘", "today"], ["분석", "analysis"], ["계획", "plan"], ["목표", "goals"]]) {
       await page.getByRole("navigation").getByRole("button", { name: label, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`page=${target}`));
@@ -26,8 +28,14 @@ for (const width of [320, 393, 768]) {
       if (target === "today") await expect(page.getByTestId("K2-0")).toBeVisible();
       if (target === "analysis") await expect(page.getByTestId("K5-0-1")).toBeVisible();
       if (target === "condition") await expect(page.getByTestId("K1-0-1")).toBeVisible();
+      titleGaps[target] = await page.evaluate(() => {
+        const nav = document.querySelector("nav")!.getBoundingClientRect().bottom;
+        const main = [...document.querySelectorAll<HTMLElement>("main.orider-embedded-surface")].find(m => m.offsetParent)!;
+        return Math.round(main.querySelector("h1")!.getBoundingClientRect().top - nav);
+      });
       await page.screenshot({ path: info.outputPath(`${target}-${width}.png`), animations: "disabled" });
     }
+    expect(new Set(Object.values(titleGaps)).size, JSON.stringify(titleGaps)).toBe(1);
     await page.goBack();
     await expect(page).toHaveURL(/page=plan/);
     await expect(page.getByTestId("fixture-owner")).toHaveText(owner!);
