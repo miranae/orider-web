@@ -1,0 +1,24 @@
+.home-brand-intro { display: grid; gap: var(--space-3); }
+.home-brand-intro-copy { display: grid; gap: var(--space-1-5); min-width: 0; }
+.home-brand-intro-slogan {
+  margin: 0;
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: var(--ink-0);
+  text-wrap: balance;
+}
+.home-brand-intro-tagline { margin: 0; color: var(--accent-text); }
+
+/* 데스크톱 왼쪽 카드: 기존 카드처럼 가운데 정렬 */
+.home-brand-intro--card { justify-items: center; text-align: center; }
+
+/* 모바일 피드 맨 위 */
+.home-brand-intro--banner {
+  padding: var(--space-5) var(--space-4);
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--accent-soft-bg);
+  justify-items: start;
+}
+.home-brand-intro--banner .home-brand-intro-slogan { font-size: var(--fs-3xl); }
