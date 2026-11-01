@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+// 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 
 export const MONTHLY_CHALLENGE_TIERS = [300, 500, 1000] as const;
@@ -45,6 +46,7 @@ function isTier(value: unknown): value is MonthlyChallengeTier {
 
 export function useMonthlyChallenge(uid: string | null | undefined, now = Date.now()) {
   const window = useMemo(() => kstMonthWindow(now), [now]);
+  const { firestore } = useFirebaseServices();
   const [participation, setParticipation] = useState<MonthlyChallengeParticipation | null>(null);
   const [distanceState, setDistanceState] = useState<{ owner: string; meters: number } | null>(null);
   const owner = `${uid}:${window.monthKey}`;
@@ -128,7 +130,7 @@ export function useMonthlyChallenge(uid: string | null | undefined, now = Date.n
       },
     );
     return () => { active = false; unsubscribeParticipation(); unsubscribeActivities(); unsubscribeOwner(); };
-  }, [uid, window.monthKey, owner]);
+  }, [firestore, uid, window.monthKey, owner]);
 
   const join = useCallback(async (tierKm: MonthlyChallengeTier) => {
     if (!uid || joining) return;
@@ -140,7 +142,7 @@ export function useMonthlyChallenge(uid: string | null | undefined, now = Date.n
     } finally {
       setJoining(false);
     }
-  }, [joining, uid, window.monthKey]);
+  }, [firestore, joining, uid, window.monthKey]);
 
   return {
     monthKey: window.monthKey,

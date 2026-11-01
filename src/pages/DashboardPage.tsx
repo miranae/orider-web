@@ -46,11 +46,12 @@ import { useDashboardPreferences } from "../hooks/useDashboardPreferences";
 import { selectStoredDashboardFitness } from "../features/home/storedDashboardFitness";
 import HomeTodayStrip from "../components/dashboard/DeferredHomeTodayStrip";
 import MobileFeedPage from "../components/mobile/MobileFeedPage";
+import { HomeBrandIntro } from "../components/dashboard/HomeBrandIntro";
 import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../config/activitySubscriptions";
 import { useActivitySubscriptions } from "../hooks/useActivitySubscriptions";
 import { useMobile } from "../hooks/useMobile";
 import { isSportUiEnabled } from "../config/sportFeatures";
-import { Button, Card, Chip, Text, buttonClass } from "../theme/components";
+import { Card, Chip, Text, buttonClass } from "../theme/components";
 import type { Activity } from "@shared/types";
 import "./DashboardPage.css";
 import { ICON_SIZE } from "../theme/tokens/icon";
@@ -547,6 +548,7 @@ function DashboardContent() {
   /> : null;
 
   const activityFeed = <MobileFeedPage
+    anonIntro={isMobile ? <HomeBrandIntro layout="banner" onStart={() => { void handleGuestSignIn(); }} starting={signInPending} /> : undefined}
     activitySearch={activitySearch}
     runningJourney={isMobile ? runningJourney : undefined}
     activities={activities}
@@ -582,9 +584,7 @@ function DashboardContent() {
             <ProfileSocialStats />
             <Link to={`/athlete/me/activities?sport=${canonicalHome.enabled || discipline === "tri" ? "all" : discipline}`} className="desktop-dashboard-profile-link"><span>{t("todayStrip.week")}</span><ChevronRight size={ICON_SIZE.md} aria-hidden="true" /></Link>
           </> : <>
-            <Text as="h2" variant="subtitle" weight={600}>{t("header.anonTitle")}</Text>
-            <Text as="p" variant="bodySmall" tone="secondary">{t("header.anonSubtitle")}</Text>
-            <Button variant="primary" size="sm" onClick={() => { void handleGuestSignIn(); }} loading={signInPending}>{t("header.anonCta")}</Button>
+            <HomeBrandIntro layout="card" onStart={() => { void handleGuestSignIn(); }} starting={signInPending} />
           </>}
         </Card>
         {user && <Card className="desktop-dashboard-week">

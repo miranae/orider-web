@@ -9,7 +9,7 @@ import { httpsCallable } from "firebase/functions";
 import { CloudUpload, Loader2, MapPinned, Send } from "lucide-react";
 import { matchesDiscipline } from "@shared/sport/discipline";
 import { useToast } from "../../contexts/ToastContext";
-import { firestore, functions } from "../../services/firebase";
+import type { Firestore } from "firebase/firestore";
 import { resizeImageToWebp } from "../../features/activity/detail/imageResize";
 import { Button, Chip } from "../../theme/components";
 import Modal from "../Modal";
@@ -112,7 +112,7 @@ function formatDuration(minutes: number, ko: boolean) {
   return ko ? `${h}시간 ${m}분` : `${h} h ${m} min`;
 }
 
-async function loadOptions(userId: string, language: string, sportLabel: (type: string) => string): Promise<RideStoryActivityOption[]> {
+async function loadOptions(firestore: Firestore, userId: string, language: string, sportLabel: (type: string) => string): Promise<RideStoryActivityOption[]> {
   const activitiesRef = collection(firestore, "activities");
   const now = Date.now();
   const since = now - 90 * 24 * 60 * 60 * 1000;
@@ -189,7 +189,7 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
     setError(null);
     setOptions([]);
     setSelection(null);
-    void loadOptions(userId, i18n.language, type => t(getSportLabelKey(type)))
+    void loadOptions(photoServices.firestore, userId, i18n.language, type => t(getSportLabelKey(type)))
       .then((nextOptions) => {
         if (!active) return;
         setOptions(nextOptions);
@@ -203,7 +203,7 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [copy.loadFailed, open, showToast, userId, i18n.language, t]);
+  }, [copy.loadFailed, open, showToast, userId, i18n.language, t, photoServices.firestore]);
 
   if (!open) return null;
 
@@ -246,7 +246,7 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
       const fn = httpsCallable<
         { recipeId: string; lang: string; activityId: string; photoId: string | null },
         { sent: boolean; recipeId: string; email: string }
-      >(functions, "sendCreatorRecipeEmail", { timeout: 60_000 });
+      >(photoServices.functions, "sendCreatorRecipeEmail", { timeout: 60_000 });
       const result = await fn({ recipeId: "ride-story", lang: i18n.language.startsWith("en") ? "en" : "ko", ...selection });
       if (!result.data.sent) throw new Error("creator/email-not-sent");
       showToast(copy.sent);

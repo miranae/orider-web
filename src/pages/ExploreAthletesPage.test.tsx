@@ -90,7 +90,7 @@ it("sends a request to a private profile optimistically and shows the badge inst
   expect(within(item).getByText("CODEp")).toBeInTheDocument();
   expect(within(item).queryByTestId("E5-2-9")).not.toBeInTheDocument();
   await userEvent.click(within(item).getByRole("button", { name: "rider-p님에게 친구 요청" }));
-  await waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ uid: "test-uid" }), "p"));
+  await waitFor(() => expect(send).toHaveBeenCalledWith(expect.objectContaining({ uid: "test-uid" }), "p", expect.anything()));
   expect(within(item).getByText("요청됨")).toBeInTheDocument();
   expect(await screen.findByText("rider-p님에게 친구 요청을 보냈어요")).toBeInTheDocument();
 });

@@ -30,7 +30,7 @@ it("keeps Join and Joining in the same standard DS size and preserves the select
     expect(busy).toHaveClass("ds-btn", "ds-btn--md");
     expect(busy).toBeDisabled();
     fireEvent.click(busy);
-    expect(mocks.join).toHaveBeenCalledExactlyOnceWith({ challengeId: "league", groupId: "club" });
+    expect(mocks.join).toHaveBeenCalledExactlyOnceWith({ challengeId: "league", groupId: "club" }, expect.anything());
     await act(async () => complete());
     await waitFor(() => expect(screen.getByRole("button", { name: "Join", exact: true })).toBeEnabled());
     expect(select).toHaveTextContent(mocks.groups[0].name);

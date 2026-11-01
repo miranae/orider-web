@@ -1,14 +1,17 @@
-import { auth } from "../services/firebase";
+import type { User } from "firebase/auth";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useEffect, useState } from "react";
 import { logClientError } from "../services/errorLogger";
 import { fetchRecentActivityTracks } from "../services/activityTracks";
 import { aggregatePersonalHeatmapAsync, type PersonalHeatPoint } from "../features/explore/personalHeatmap";
 
-let sessionCache: { owner: NonNullable<typeof auth.currentUser>; uid: string; points: PersonalHeatPoint[] } | null = null;
+let sessionCache: { owner: User; uid: string; points: PersonalHeatPoint[] } | null = null;
 export function clearPersonalHeatmapSessionCache(): void { sessionCache = null; }
 
 export function usePersonalHeatmap(uid: string | null | undefined, enabled: boolean) {
-  const [ownedPoints, setOwnedPoints] = useState<{ owner: NonNullable<typeof auth.currentUser>; uid: string; points: PersonalHeatPoint[] } | null>(null);
+  // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 auth(#847).
+  const { auth } = useFirebaseServices();
+  const [ownedPoints, setOwnedPoints] = useState<{ owner: User; uid: string; points: PersonalHeatPoint[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
@@ -51,7 +54,7 @@ export function usePersonalHeatmap(uid: string | null | undefined, enabled: bool
       if (!cancelled) { setOwnedPoints(null); setError(true); }
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; controller.abort(); };
-  }, [enabled, uid, owner]);
+  }, [auth, enabled, uid, owner]);
 
   return { points: ownedPoints && ownedPoints.uid === uid && ownedPoints.owner === owner ? ownedPoints.points : [], loading, error };
 }

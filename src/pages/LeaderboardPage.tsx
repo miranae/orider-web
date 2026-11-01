@@ -4,7 +4,7 @@ import { useMemo, useState, useRef } from "react";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { useTranslation } from "react-i18next";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { EmptyState, LoadingSkeleton } from "../components/redesign";
@@ -32,6 +32,8 @@ interface UserPrInfo {
 }
 
 export default function LeaderboardPage({ search = "", discipline = "bike", category = "all" }: { search?: string; discipline?: string; category?: "all" | "climb" | "flat" }) {
+  // 임베드(앱 탐색 탭)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
+  const { firestore } = useFirebaseServices();
   const { user } = useAuth();
   const { t, i18n } = useTranslation("segment");
   const [myBest, setMyBest] = useState<Map<string, number>>(new Map());

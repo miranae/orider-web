@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
-import { ensureAppCheckReady, functions } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { Button, Stack, Text } from "../../theme/components";
 import { invokeMapThumbnailCoordinatorWithRetry } from "./ActivityRouteThumbnail";
@@ -13,6 +13,7 @@ import { invokeMapThumbnailCoordinatorWithRetry } from "./ActivityRouteThumbnail
  */
 export default function ActivityMapThumbnailResetControl({ activityId }: { activityId: string }) {
   const { t } = useTranslation("activity");
+  const { ensureAppCheckReady, functions } = useFirebaseServices();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<"done" | "failed" | null>(null);

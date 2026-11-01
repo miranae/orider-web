@@ -3,14 +3,15 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { onSnapshot } from 'firebase/firestore';
 import { setCollectionDocs } from '../../__tests__/mocks/firebase';
 import { setBoardAuthorBlocked, useBoardBlocks } from './useBoardBlocks';
+import { functions } from '../../services/firebase';
 const mocks = vi.hoisted(() => ({ uid: 'owner', call: vi.fn(), getFunctions: vi.fn(() => ({})) }));
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: mocks.uid ? { uid: mocks.uid } : null }) }));
-vi.mock('../../services/firebase', () => ({ firestore: {}, functions: { app: { name: 'test' } } }));
+vi.mock('../../services/firebase', () => ({ ensureAppCheckReady: vi.fn(), getAppCheckToken: vi.fn(), auth: {}, storage: {}, firestore: {}, functions: { app: { name: 'test' } } }));
 vi.mock('firebase/functions', () => ({ getFunctions: mocks.getFunctions, httpsCallable: vi.fn(() => mocks.call), connectFunctionsEmulator: vi.fn() }));
 beforeEach(() => { mocks.uid = 'owner'; mocks.call.mockReset().mockResolvedValue({ data: {} }); });
 it('uses canonical regional server block mutation for both block and undo', async () => {
-  await setBoardAuthorBlocked('target', true);
-  await setBoardAuthorBlocked('target', false);
+  await setBoardAuthorBlocked('target', true, functions);
+  await setBoardAuthorBlocked('target', false, functions);
   expect(mocks.getFunctions).toHaveBeenCalledWith(expect.anything(), 'asia-northeast3');
   expect(mocks.call.mock.calls).toEqual([[{ targetUid: 'target', blocked: true }], [{ targetUid: 'target', blocked: false }]]);
 });
