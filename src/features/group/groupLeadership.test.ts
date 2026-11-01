@@ -1,3 +1,4 @@
+import type { Functions } from "firebase/functions";
 import { beforeEach, describe, expect, it } from "vitest";
 import { mockCallableInvocations, setCallableResult } from "../../__tests__/mocks/firebase";
 import { transferGroupLeadership } from "./groupLeadership";
@@ -11,7 +12,7 @@ describe("transferGroupLeadership", () => {
       groupId: "group-1",
       targetUserId: "member-1",
       leaveAfterTransfer: true,
-    })).resolves.toEqual({ success: true, leftGroup: true });
+    }, {} as Functions)).resolves.toEqual({ success: true, leftGroup: true });
     expect(mockCallableInvocations).toEqual([{
       name: "transferGroupLeadership",
       data: { groupId: "group-1", targetUserId: "member-1", leaveAfterTransfer: true },
@@ -23,6 +24,6 @@ describe("transferGroupLeadership", () => {
     await expect(transferGroupLeadership({
       groupId: "group-1",
       targetUserId: "member-1",
-    })).rejects.toThrow("invalid-transfer-group-leadership-response");
+    }, {} as Functions)).rejects.toThrow("invalid-transfer-group-leadership-response");
   });
 });

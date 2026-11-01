@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  embeddedClubDetailDestination,
   embeddedExplorePage,
   embeddedHubDestination,
   embeddedInternalDestination,
@@ -64,5 +65,29 @@ describe("search embed results", () => {
     expect(searchResultForDestination("/ko/?q=ride&scope=all")).toBeNull();
     expect(searchResultForDestination("/ko/course/abc")).toBeNull();
     expect(searchResultForDestination("https://other.invalid/clubs")).toBeNull();
+  });
+});
+
+describe("club detail embed destinations", () => {
+  it.each(["ko", "en"])("keeps the same club's %s detail and sub pages inside the club detail embed", lang => {
+    const current = `/${lang}/embed/clubs/club-1/rides`;
+    expect(embeddedClubDetailDestination(current, `/${lang}/club/club-1`)).toBe(`/${lang}/embed/clubs/club-1`);
+    expect(embeddedClubDetailDestination(current, "/club/club-1/members?sort=role#top")).toBe(`/${lang}/embed/clubs/club-1/members?sort=role#top`);
+    expect(embeddedClubDetailDestination(current, "/club/club-1/meetings/m-1/edit")).toBe(`/${lang}/embed/clubs/club-1/meetings/m-1/edit`);
+    expect(embeddedClubDetailDestination(current, "/club/club-1/rides/r-1/")).toBe(`/${lang}/embed/clubs/club-1/rides/r-1`);
+    // LocalizedLink 가 이미 임베드 경로로 바꾼 href 도 그대로 임베드 안에서 연다.
+    expect(embeddedClubDetailDestination(current, `/${lang}/embed/clubs/club-1/week`)).toBe(`/${lang}/embed/clubs/club-1/week`);
+    expect(embeddedInternalDestination(current, "/club/club-1/events")).toBe(`/${lang}/embed/clubs/club-1/events`);
+  });
+
+  it("leaves other clubs, unknown club pages, other routes and non-detail embeds to the app", () => {
+    const current = "/ko/embed/clubs/club-1";
+    expect(embeddedClubDetailDestination(current, "/ko/club/club-2")).toBeNull();
+    expect(embeddedClubDetailDestination(current, "/ko/club/club-1/unknown")).toBeNull();
+    expect(embeddedClubDetailDestination(current, "/ko/club/join/abc")).toBeNull();
+    expect(embeddedClubDetailDestination(current, "/ko/athlete/user-1")).toBeNull();
+    expect(embeddedClubDetailDestination(current, "https://other.invalid/ko/club/club-1")).toBeNull();
+    expect(embeddedClubDetailDestination("/ko/embed/clubs", "/ko/club/club-1")).toBeNull();
+    expect(embeddedClubDetailDestination("/ko/club/club-1", "/ko/club/club-1/members")).toBeNull();
   });
 });
