@@ -2,7 +2,9 @@ name: DCO
 
 on:
   pull_request:
-    branches: [main]
+    # dev 에서도 검사한다. main 에서만 보면 서명 없는 커밋이 dev 에 쌓였다가
+    # 승격 PR 에서야 드러나, 이력 재작성 없이 작성자 보정 커밋만으로 풀어야 한다.
+    branches: [main, dev]
 
 permissions:
   contents: read

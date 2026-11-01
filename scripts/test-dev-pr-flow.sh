@@ -57,10 +57,13 @@ if grep -Eq 'git (merge origin/main|push[^#]*HEAD:dev)|--admin|--force' scripts/
 fi
 node --test scripts/sync-main-to-dev.test.mjs || fail 'linear backport behavior tests failed'
 
-for workflow in ci.yml dco.yml pr-gate.yml main-promote-guard.yml; do
+for workflow in ci.yml pr-gate.yml main-promote-guard.yml; do
   assert_contains ".github/workflows/$workflow" 'branches: \[main\]' \
     "$workflow must run only for PRs targeting main"
 done
+# DCO is cheap and must catch unsigned commits before they reach shared dev history.
+assert_contains .github/workflows/dco.yml 'branches: \[main, dev\]' \
+  'DCO must run for PRs targeting both main and dev'
 
 assert_contains .github/workflows/dco.yml 'git rebase -i origin/\$base_ref' \
   'DCO repair guidance must use the PR actual base branch'
