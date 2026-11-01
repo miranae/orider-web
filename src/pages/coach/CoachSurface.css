@@ -11,6 +11,11 @@
 .coach-surface .coach-page-header > h1 { order: 0; }
 .coach-surface .coach-page-header > div:has(> [role="tablist"]) { order: 1; margin-inline-start: auto; }
 .coach-surface .coach-page-header > :not(h1):not(div:has(> [role="tablist"])) { order: 2; flex-basis: 100%; }
+/* 전환이 제목 줄에 함께 있을 때(36rem 초과) 세그먼트 자체의 위아래 16 이 제목 줄을 키워 제목이 12 내려갔다.
+   제목 줄에서는 0 — 하위 탭 → 제목 간격을 다른 화면과 같은 16 으로. 모바일(전환이 아래 줄)은 그대로. */
+@media (min-width: 36.0625rem) {
+  .coach-surface .coach-page-header > div:has(> [role="tablist"]) .discipline-tabs { margin-block: 0; }
+}
 .coach-surface .fitness-reading { padding-inline: 0 !important; }
 /* 데스크톱 컨디션·분석은 안쪽 site-shell 이 좌우 24 를 또 줘서 다른 코치 화면보다 들어가 있었다. 셸 거터만 쓴다. */
 .coach-surface .fitness-reading .site-shell { padding-inline: 0 !important; }
