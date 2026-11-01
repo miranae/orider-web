@@ -590,6 +590,8 @@ export default function EventsPage() {
                   border: "none",
                   color: active ? "var(--ink-0)" : "var(--ink-3)",
                   borderBottom: active ? "2px solid var(--lime)" : "2px solid transparent",
+                  // 하단 보더가 표시선이므로 버튼 기본 모서리 반경을 없앤다 — 남으면 선이 호로 휘어 거의 안 보인다.
+                  borderRadius: 0,
                   marginBottom: -1,
                   cursor: "pointer",
                 }}
