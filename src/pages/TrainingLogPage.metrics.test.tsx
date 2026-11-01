@@ -15,6 +15,11 @@ vi.mock("../components/mobile/ImportActivityModal", () => ({ default: () => null
 vi.mock("../components/activity/RecentActivitySummary", () => ({ default: function Summary({ sport }: { sport: string }) { useEffect(() => { state.recentRead(); }, []); return <section data-testid="rolling-summary">Rolling summary · {sport}</section>; } }));
 
 // 훈련 달력의 날짜 경계는 실행 머신의 시간대와 무관하게 KST 계약을 따른다.
+// 아래 기록은 이번 달 1일 12시~다음 날에 놓인다. 1일 정오 전에 돌면 아직 미래라 화면이 달성 판정을 하지 않아
+// 테스트가 시간 초과로 깨졌다(11/1 00시). 시계만 이번 달 15일 정오(KST)로 고정한다 — 타이머는 실제 그대로.
+const realNow = planCalendarDate(Date.now());
+vi.useFakeTimers({ toFake: ["Date"] });
+vi.setSystemTime(planMonthBounds(realNow.getUTCFullYear(), realNow.getUTCMonth()).start + 14 * 86400000 + 12 * 3600000);
 const now = planCalendarDate(Date.now());
 const startTime = planMonthBounds(now.getUTCFullYear(), now.getUTCMonth()).start + 12 * 3600000;
 const summaries = [

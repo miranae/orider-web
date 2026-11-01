@@ -527,7 +527,7 @@ export default function EventCreatePage() {
 
   return (
     <GlossaryProvider scopeKey="event-editor">
-    <div className="event-controls-surface explore-editor-surface event-create-surface" style={{ maxWidth: 1160, margin: "0 auto", padding: "var(--space-5) var(--space-6)" }}>
+    <div className="event-controls-surface explore-editor-surface event-create-surface" style={{ paddingBlock: "var(--space-5)" }}>
       {/* Breadcrumb */}
       <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--ft-body-size)", color: "var(--ink-3)", marginBottom: 'var(--space-4)' }}>
         <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
