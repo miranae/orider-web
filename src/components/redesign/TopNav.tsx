@@ -26,6 +26,7 @@ interface TopNavProps {
   active: HubKey;
   notifications?: Notification[];
   notificationStatus?: ReactNode;
+  notificationFooter?: ReactNode;
   onNotificationsOpen?: () => void;
   unreadCount?: number;
   friendRequestCount?: number;
@@ -34,7 +35,7 @@ interface TopNavProps {
   onMobileNotifClick?: () => void;
 }
 
-export default function TopNav({ active, notifications = [], unreadCount = 0, friendRequestCount = 0, onMarkAllRead, onNotificationClick, onMobileNotifClick, notificationStatus, onNotificationsOpen }: TopNavProps) {
+export default function TopNav({ active, notifications = [], unreadCount = 0, friendRequestCount = 0, onMarkAllRead, onNotificationClick, onMobileNotifClick, notificationStatus, notificationFooter, onNotificationsOpen }: TopNavProps) {
   const { t } = useTranslation('common');
   const { user, profile, signIn, logout } = useAuth();
   const { showToast } = useToast();
@@ -422,6 +423,7 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
                           </button>
                         ))
                       )}
+                      {notificationFooter}
                     </div>
                   </div>
                 )}

@@ -1,14 +1,28 @@
 import { useTranslation } from "react-i18next";
 import { Button, Stack, Text } from "../../theme/components";
-export function NotificationInboxStatus({ loading, failed, hasMore, empty, onRetry, onMore }: {
-  empty: boolean; loading: boolean; failed: boolean; hasMore: boolean; onRetry: () => void; onMore: () => void;
+
+// 목록 위: 첫 불러오기·빈 상태·실패만. 30초 백그라운드 갱신 중엔 목록을 그대로 두고 문구를 띄우지 않는다.
+export function NotificationInboxStatus({ loading, failed, empty, onRetry }: {
+  empty: boolean; loading: boolean; failed: boolean; onRetry: () => void;
 }) {
   const { t } = useTranslation("common");
-  return <Stack gap="var(--space-2)">
-    {!empty && <Text variant="caption">{t("notif.refreshScope")}</Text>}
-    {empty && !loading && !failed && <Text>{t("label.noNotifications")}</Text>}
-    {loading && <Text role="status">{t("notif.loading")}</Text>}
-    {failed && <><Text role="alert">{t("notif.failed")}</Text><Button variant="outline" onClick={onRetry}>{t("notif.retry")}</Button></>}
-    {hasMore && <Button variant="ghost" disabled={loading} onClick={onMore}>{t("notif.more")}</Button>}
-  </Stack>;
+  const showEmpty = empty && !loading && !failed;
+  const showLoading = empty && loading;
+  if (!showEmpty && !showLoading && !failed) return null;
+  return <div style={{ padding: "var(--space-4)", textAlign: showEmpty || showLoading ? "center" : undefined }}>
+    <Stack gap="var(--space-2)">
+      {showEmpty && <Text tone="tertiary">{t("label.noNotifications")}</Text>}
+      {showLoading && <Text role="status" tone="tertiary">{t("notif.loading")}</Text>}
+      {failed && <><Text role="alert">{t("notif.failed")}</Text><Button variant="outline" onClick={onRetry}>{t("notif.retry")}</Button></>}
+    </Stack>
+  </div>;
+}
+
+// 목록 아래: 이전 알림 더 보기
+export function NotificationInboxMore({ hasMore, loading, onMore }: { hasMore: boolean; loading: boolean; onMore: () => void }) {
+  const { t } = useTranslation("common");
+  if (!hasMore) return null;
+  return <div style={{ padding: "var(--space-2) var(--space-4)" }}>
+    <Button variant="ghost" block disabled={loading} onClick={onMore}>{t("notif.more")}</Button>
+  </div>;
 }
