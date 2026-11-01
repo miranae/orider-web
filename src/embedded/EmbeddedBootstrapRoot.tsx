@@ -471,7 +471,8 @@ function AuthorizedSurface({
 
   // 호스트 전송이 없을 때(브라우저 직접 열기) 던지는 오류가 표면 오류 경계로 번지지 않게 한다.
   const sendSafely = (type: "surface.ready" | "surface.error", payload: unknown) => {
-    try { bridge.send(type, payload); } catch { /* 호스트 연결 상태는 민감 정보가 아니다 — 기록하지 않는다. */ }
+    // 전송 실패로 화면이 멈추지 않게 삼키되, 호스트 통신 유실은 기록한다(payload 는 남기지 않는다).
+    try { bridge.send(type, payload); } catch (err) { logClientError("embedded.hubBridgeSend", err, { type, surface: surfaceKind }); }
   };
   const hubReady = () => sendSafely("surface.ready", { surface: surfaceKind });
   const hubError = (code: string) => sendSafely("surface.error", { code });
