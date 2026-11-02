@@ -57,6 +57,18 @@ export function useCanonicalHomeSummary(active = true): CanonicalHomeSummaryStat
   // 요청과 A→B→A 전환을 걸러내지 못한다.
   const generation = useRef(0);
 
+  const [readRetry, setReadRetry] = useState(0);
+  const retryNeeded = useRef(false);
+  retryNeeded.current = state.display === "error" || state.display === "value_with_stale_hint";
+  useEffect(() => {
+    if (!active || !enabled || !user) return;
+    const reconnect = () => { if (retryNeeded.current) setReadRetry(value => value + 1); };
+    const resume = () => { if (document.visibilityState === "visible") reconnect(); };
+    window.addEventListener("online", reconnect);
+    document.addEventListener("visibilitychange", resume);
+    return () => { window.removeEventListener("online", reconnect); document.removeEventListener("visibilitychange", resume); };
+  }, [active, enabled, user]);
+
   const load = useCallback(async (uid: string, myGeneration: number) => {
     const envelope = await fetchCanonicalHomeSummary();
     if (generation.current !== myGeneration) return;
@@ -90,7 +102,7 @@ export function useCanonicalHomeSummary(active = true): CanonicalHomeSummaryStat
     generation.current += 1;
     const myGeneration = generation.current;
     // 계정이 바뀌면 이전 계정의 값을 즉시 버린다 — 남겨 두면 남의 기록이 보인다.
-    lastGood.current = null;
+    if (stateOwner.current !== user?.uid) lastGood.current = null;
     stateOwner.current = user?.uid ?? null;
     if (!enabled || !user) {
       setState(DISABLED);
@@ -100,7 +112,7 @@ export function useCanonicalHomeSummary(active = true): CanonicalHomeSummaryStat
     // 클라 집계로 돌아갔다가 서버 값으로 튀지 않게 한다.
     setState({ enabled: true, totals: null, display: null, computedAt: null });
     void load(user.uid, myGeneration);
-  }, [user, load, enabled]);
+  }, [user, load, enabled, readRetry]);
 
   if (!consumerEnabled) return DISABLED;
   if (pending || enabled && (!state.enabled || stateOwner.current !== user?.uid)) {

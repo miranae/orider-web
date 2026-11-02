@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CANONICAL_SCHEMA_VERSION, type CanonicalEnvelope } from "@shared/types/canonical";
 
@@ -62,6 +62,13 @@ describe("useCanonicalHomeSummary", () => {
     mocks.rolloutLoading = false;
   });
 
+  it("recovers a failed summary read on reconnect", async () => {
+    mocks.fetch.mockResolvedValueOnce(envelope({ status: "failed" })).mockResolvedValueOnce(withTotals());
+    const { result } = renderHook(() => useCanonicalHomeSummary());
+    await waitFor(() => expect(result.current.display).toBe("error"));
+    act(() => window.dispatchEvent(new Event("online")));
+    await waitFor(() => expect(result.current.totals).toEqual(totals));
+  });
   it("active=false prevents reads, reenables safely and drops previous owner values", async () => {
     mocks.fetch.mockResolvedValueOnce(withTotals());
     const { result, rerender } = renderHook(({ active }) => useCanonicalHomeSummary(active), { initialProps: { active: false } });
