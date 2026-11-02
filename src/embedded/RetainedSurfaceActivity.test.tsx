@@ -44,3 +44,38 @@ it("문서가 hidden이면 호스트 foreground만으로 효과를 재개하지 
   act(() => document.dispatchEvent(new Event("visibilitychange")));
   expect(mount).toHaveBeenCalledTimes(1);
 });
+
+function setScrollY(y: number) {
+  Object.defineProperty(window, "scrollY", { configurable: true, value: y });
+  window.dispatchEvent(new Event("scroll"));
+}
+
+it("코치 탭을 떠났다 돌아오면 숨기기 전 스크롤 위치로 되돌린다", () => {
+  const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const view = render(<RetainedSurfaceActivity foreground contentVisible><span>content</span></RetainedSurfaceActivity>);
+  setScrollY(640);
+  view.rerender(<RetainedSurfaceActivity foreground contentVisible={false}><span>content</span></RetainedSurfaceActivity>);
+  // 숨기며 문서가 줄어 생긴 위치 0 은 기록하지 않는다.
+  setScrollY(0);
+  view.rerender(<RetainedSurfaceActivity foreground contentVisible><span>content</span></RetainedSurfaceActivity>);
+  expect(scrollTo).toHaveBeenCalledWith(0, 640);
+});
+
+it("호스트가 앱을 백그라운드로 보냈다 돌아와도 스크롤 위치를 되돌린다", () => {
+  const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const view = render(<RetainedSurfaceActivity foreground><span>content</span></RetainedSurfaceActivity>);
+  setScrollY(300);
+  view.rerender(<RetainedSurfaceActivity foreground={false}><span>content</span></RetainedSurfaceActivity>);
+  setScrollY(0);
+  view.rerender(<RetainedSurfaceActivity foreground><span>content</span></RetainedSurfaceActivity>);
+  expect(scrollTo).toHaveBeenCalledWith(0, 300);
+});
+
+it("스크롤하지 않았으면 다시 보일 때 위치를 건드리지 않는다", () => {
+  const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  setScrollY(0);
+  const view = render(<RetainedSurfaceActivity foreground contentVisible><span>content</span></RetainedSurfaceActivity>);
+  view.rerender(<RetainedSurfaceActivity foreground contentVisible={false}><span>content</span></RetainedSurfaceActivity>);
+  view.rerender(<RetainedSurfaceActivity foreground contentVisible><span>content</span></RetainedSurfaceActivity>);
+  expect(scrollTo).not.toHaveBeenCalled();
+});

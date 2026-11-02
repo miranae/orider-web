@@ -1173,7 +1173,8 @@ export default function EmbeddedBootstrapRoot({
       onClickCapture={handleNavigation}
     >
       {session && (!isActivitySurfaceKind(surfaceKind) || activityId) ? (
-        <RetainedSurfaceActivity foreground={hostForeground}>
+        <RetainedSurfaceActivity foreground={hostForeground}
+          contentVisible={isStandaloneSurfaceKind(surfaceKind) || selectedTrainingSurface !== null}>
         <AuthorizedSurface
           key={services.auth.currentUser?.uid ?? "signed-out"}
           activityId={activityId}
