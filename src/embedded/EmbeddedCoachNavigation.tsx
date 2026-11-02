@@ -2,12 +2,12 @@ import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ToggleButton, ToggleControls } from "../theme/components";
-import { COACH_PAGES, embeddedCoachPage, type EmbeddedCoachPage } from "./coachNavigation";
+import { COACH_PAGES, coachTabForPage, embeddedCoachPage, type EmbeddedCoachPage } from "./coachNavigation";
 
 export function EmbeddedCoachNavigation({ defaultPage, selectionKey }: { defaultPage: EmbeddedCoachPage; selectionKey: number }) {
   const [params, setParams] = useSearchParams();
   const { t } = useTranslation("common");
-  const selected = embeddedCoachPage(params.get("page")) ?? defaultPage;
+  const selected = coachTabForPage(embeddedCoachPage(params.get("page")) ?? defaultPage);
   const previousSelection = useRef(selectionKey);
   useEffect(() => {
     if (previousSelection.current === selectionKey) return;
