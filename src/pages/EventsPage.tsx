@@ -8,7 +8,7 @@ import { localeTag } from "../utils/localeDate";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { doc, getDoc } from "firebase/firestore";
 import { getPublicEvents } from "../services/eventDiscovery";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { EmptyState, ErrorState, LoadingSkeleton, PageHeader } from "../components/redesign";
@@ -238,6 +238,8 @@ export default function EventsPage() {
   const STATUS_TABS = STATUS_TAB_KEYS.map(({ k, labelKey }) => ({ k, label: t(labelKey) }));
   const TYPE_FILTERS = TYPE_FILTER_KEYS.map(({ k, labelKey, icon }) => ({ k, label: t(labelKey), icon }));
   const { user, loading: authLoading } = useAuth();
+  // 임베드(앱 탐색 탭)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
+  const { firestore } = useFirebaseServices();
   const [events, setEvents] = useState<EventInfo[]>([]);
   const [coursePolylines, setCoursePolylines] = useState<Record<string, string>>({});
   const [courseThumbs, setCourseThumbs] = useState<Record<string, string>>({});
@@ -395,7 +397,7 @@ export default function EventsPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user, pageCursor, pageAttempt]);
+  }, [firestore, user, pageCursor, pageAttempt]);
 
   const filtered = useMemo(() => {
     return events
@@ -588,6 +590,8 @@ export default function EventsPage() {
                   border: "none",
                   color: active ? "var(--ink-0)" : "var(--ink-3)",
                   borderBottom: active ? "2px solid var(--lime)" : "2px solid transparent",
+                  // 하단 보더가 표시선이므로 버튼 기본 모서리 반경을 없앤다 — 남으면 선이 호로 휘어 거의 안 보인다.
+                  borderRadius: 0,
                   marginBottom: -1,
                   cursor: "pointer",
                 }}

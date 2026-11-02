@@ -2,6 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { onSnapshot } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockCallableInvocations, setCallableResult, setCollectionDocs } from "../__tests__/mocks/firebase";
+import type { Functions } from "firebase/functions";
 import { createGroupPost, updateGroupPost, normalizeGroupPostContent, useGroupPosts } from "./useGroupPosts";
 
 describe("normalizeGroupPostContent", () => {
@@ -22,7 +23,7 @@ describe("createGroupPost", () => {
   });
 
   it("delegates identity, role enforcement, and timestamps to the server", async () => {
-    await createGroupPost({ groupId: "group-1", content: "  공지  ", kind: "announcement" });
+    await createGroupPost({ groupId: "group-1", content: "  공지  ", kind: "announcement" }, {} as Functions);
     expect(mockCallableInvocations).toContainEqual({
       name: "createGroupPost",
       data: { groupId: "group-1", content: "공지", kind: "announcement" },
@@ -48,7 +49,7 @@ it("resubscribes denied posts after membership approval", async () => {
 it("updates only normalized content with the existing group/post identity", async () => {
   mockCallableInvocations.length = 0;
   setCallableResult("updateGroupPost", { data: { success: true } });
-  await updateGroupPost({ groupId: "group-1", postId: "post-1", content: "  Edited content  " });
+  await updateGroupPost({ groupId: "group-1", postId: "post-1", content: "  Edited content  " }, {} as Functions);
   expect(mockCallableInvocations).toEqual([{
     name: "updateGroupPost", data: { groupId: "group-1", postId: "post-1", content: "Edited content" },
   }]);

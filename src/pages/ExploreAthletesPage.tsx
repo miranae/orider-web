@@ -1,3 +1,4 @@
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import "./ExploreReview.css";
 import "./ExploreAthletesPage.css";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -40,6 +41,7 @@ interface SearchState {
 /** 탐색 > 사람 (E5): 이메일·닉네임·친구 코드로 사용자를 찾는다. 검색어 없이 목록을 조회하지 않는다. */
 export default function ExploreAthletesPage() {
   const { user, profile, loading: authLoading } = useAuth();
+  const { firestore } = useFirebaseServices();
   const { t } = useTranslation("friends");
   const { t: commonT, i18n } = useTranslation("common");
   const { units } = useLocale();
@@ -161,7 +163,7 @@ export default function ExploreAthletesPage() {
         uid: user.uid,
         nickname: profile?.nickname || user.displayName || "",
         profileImage: profile?.photoURL || user.photoURL || null,
-      }, item.id);
+      }, item.id, firestore);
       track("friend_request_send", { via: "explore_search", matched_by: item.matchedBy });
       showToast(t("search.toast.sent", { nickname: item.nickname || t("defaultNickname") }));
     } catch (error) {

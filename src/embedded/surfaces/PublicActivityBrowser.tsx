@@ -25,8 +25,11 @@ export default function PublicActivityBrowser(props: Props) {
   const identity = useRef({ services, viewer, activityId: props.activityId });
   const current = identity.current.services === services && identity.current.viewer === viewer && identity.current.activityId === props.activityId;
   useEffect(() => {
-    identity.current = { services, viewer, activityId: props.activityId };
-    setHistory([]); setUnsupported(false);
+    if (identity.current.services !== services || identity.current.viewer !== viewer || identity.current.activityId !== props.activityId) {
+      identity.current = { services, viewer, activityId: props.activityId };
+      setHistory([]); setUnsupported(false);
+      visitedChild.current = false;
+    }
     return onAuthStateChanged(services.auth, () => {
       if (services.auth.currentUser !== viewer) { setHistory([]); setUnsupported(false); setGeneration(n => n + 1); }
     });

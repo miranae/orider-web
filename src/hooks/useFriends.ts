@@ -3,13 +3,15 @@ import {
   collection, doc, getDoc, onSnapshot, deleteDoc, setDoc,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { firestore, functions } from "../services/firebase";
+import type { Firestore } from "firebase/firestore";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useAuth } from "../contexts/AuthContext";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
 import type { FriendRelation, FriendRequest } from "@shared/types";
 
-export async function cancelFriendRequest(uid: string, targetId: string): Promise<void> {
+/** `firestore` 는 호출부의 useFirebaseServices() 인스턴스 — 임베드는 별도 Firebase app 이다(#847). */
+export async function cancelFriendRequest(uid: string, targetId: string, firestore: Firestore): Promise<void> {
   try { await deleteDoc(doc(firestore, "friend_requests", targetId, "items", uid)); }
   catch (error) { logClientError("useFriends.cancelRequest", error, { targetId }); throw error; }
 }
@@ -21,7 +23,7 @@ export interface FriendRequester {
 }
 
 /** friend_requests/{target}/items/{me} 쓰기 — 프로필 페이지·사람 검색이 같은 경로를 쓴다. 로깅은 호출부 책임. */
-export async function sendFriendRequest(requester: FriendRequester, targetId: string): Promise<void> {
+export async function sendFriendRequest(requester: FriendRequester, targetId: string, firestore: Firestore): Promise<void> {
   await setDoc(doc(firestore, "friend_requests", targetId, "items", requester.uid), {
     requesterId: requester.uid,
     nickname: requester.nickname,
@@ -51,6 +53,7 @@ function toMillis(value: unknown): number {
 
 export function useFriends() {
   const { user, profile } = useAuth();
+  const { firestore, functions } = useFirebaseServices();
   const [friends, setFriends] = useState<FriendRelation[]>([]);
   const [sentRequests, setSentRequests] = useState<{ targetId: string; nickname: string; profileImage: string | null; createdAt: number }[]>([]);
   const [readError, setReadError] = useState<unknown>(null);
@@ -89,7 +92,7 @@ export function useFriends() {
       },
       (error) => { setReadError(error); setLoading(false); },
     );
-  }, [user]);
+  }, [user, firestore, functions]);
 
   // Real-time friend requests subscription
   useEffect(() => {
@@ -114,7 +117,7 @@ export function useFriends() {
       },
       (error) => { setReadError(error); },
     );
-  }, [user]);
+  }, [user, firestore, functions]);
 
   useEffect(() => {
     setSentRequests([]); setReadError(null);
@@ -125,12 +128,12 @@ export function useFriends() {
         return { targetId: doc.id, nickname: data.targetNickname ?? "", profileImage: data.targetPhotoURL ?? null, createdAt: toMillis(data.createdAt) };
       }));
     }, error => { setSentRequests([]); setReadError(error); logClientError("useFriends.sentRequests", error); });
-  }, [user?.uid]);
+  }, [user?.uid, firestore, functions]);
 
   const cancelRequest = useCallback(async (targetId: string) => {
     if (!user) return;
-    await cancelFriendRequest(user.uid, targetId);
-  }, [user?.uid]);
+    await cancelFriendRequest(user.uid, targetId, firestore);
+  }, [user?.uid, firestore, functions]);
 
   // Fetch friend code from Firestore
   useEffect(() => {
@@ -151,7 +154,7 @@ export function useFriends() {
     })
       .finally(() => { if (!cancelled) setFriendCodeLoadingUid((current) => current === uid ? null : current); });
     return () => { cancelled = true; };
-  }, [user?.uid]);
+  }, [user?.uid, firestore, functions]);
 
   const currentUid = user?.uid ?? null;
   const friendCode = currentUid && friendCodeState?.uid === currentUid ? friendCodeState.code : null;
@@ -175,7 +178,7 @@ export function useFriends() {
     } finally {
       setActionLoading(false);
     }
-  }, [user, actionLoading]);
+  }, [user, actionLoading, firestore, functions]);
 
   const acceptRequest = useCallback(async (requesterId: string) => {
     if (!user || pendingAcceptsRef.current.has(requesterId)) return;
@@ -187,13 +190,13 @@ export function useFriends() {
     } finally {
       pendingAcceptsRef.current.delete(requesterId);
     }
-  }, [user]);
+  }, [user, firestore, functions]);
 
   const declineRequest = useCallback(async (requesterId: string) => {
     if (!user) return;
     await deleteDoc(doc(firestore, "friend_requests", user.uid, "items", requesterId));
     track("friend_request_decline");
-  }, [user]);
+  }, [user, firestore, functions]);
 
   const removeFriend = useCallback(async (friendId: string) => {
     if (!user) return;
@@ -203,7 +206,7 @@ export function useFriends() {
     );
     await fn({ friendId });
     track("friend_remove");
-  }, [user]);
+  }, [user, firestore, functions]);
 
   const sendRequest = useCallback(async (targetUserId: string) => {
     if (!user || actionLoading) return;
@@ -213,12 +216,12 @@ export function useFriends() {
         uid: user.uid,
         nickname: profile?.nickname || user.displayName || "",
         profileImage: profile?.photoURL || user.photoURL || null,
-      }, targetUserId);
+      }, targetUserId, firestore);
       track("friend_request_send");
     } finally {
       setActionLoading(false);
     }
-  }, [user, profile, actionLoading]);
+  }, [user, profile, actionLoading, firestore, functions]);
 
   return {
     friends,

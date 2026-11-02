@@ -46,6 +46,8 @@ const MOBILE_FEED_RENDER_INITIAL = 20;
 type SportFilter = DashboardSportFilter;
 
 interface MobileFeedPageProps {
+  /** 비로그인 방문자에게만 피드 맨 위에 보이는 브랜드 소개. */
+  anonIntro?: ReactNode;
   activities: Activity[];
   loading: boolean;
   error?: boolean;
@@ -378,6 +380,7 @@ export default function MobileFeedPage({
   datePreset: controlledDatePreset,
   runningJourney,
   hasUnfilteredActivity = null,
+  anonIntro,
 }: MobileFeedPageProps) {
   const { t } = useTranslation("dashboard");
   const { user, loading: authLoading } = useAuth();
@@ -449,6 +452,7 @@ export default function MobileFeedPage({
     <div className="dashboard-home" data-testid="H1-2" style={{ overscrollBehavior: "contain" }}>
       <Text as="h1" className="sr-only">{t("mobileFeed.homeTitle")}</Text>
       <Text as="h2" className="sr-only">{t(signedIn ? "mobileFeed.feedTitle" : "mobileFeed.publicTitle")}</Text>
+      {!authLoading && !signedIn && anonIntro}
 
       {signedIn && sportFilter === "run" && runningJourney && (
         <div data-testid="mobile-owner-running-journey" className="space-y-3">{runningJourney}</div>

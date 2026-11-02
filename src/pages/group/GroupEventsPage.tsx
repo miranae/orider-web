@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { doc, getDoc } from "firebase/firestore";
 import { getVisibleEventPage } from "../../services/eventDiscovery";
 import { groupCalendarUrl } from "../../features/group/groupCalendar";
-import { firestore } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { normalizeStartTime } from "../../utils/event-time";
 import { useAuth } from "../../contexts/AuthContext";
 import { useGroup, useGroupMemberRole } from "../../hooks/useGroup";
@@ -34,6 +34,7 @@ interface ClubEvent {
   myRsvp: boolean | null;
 }
 export default function GroupEventsPage() {
+  const { firestore } = useFirebaseServices();
   const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
   const { user } = useAuth();

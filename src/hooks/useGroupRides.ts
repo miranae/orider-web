@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { httpsCallable } from "firebase/functions";
-import { auth, ensureAppCheckReady, functions } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useAuth } from "../contexts/AuthContext";
 import { logClientError } from "../services/errorLogger";
 
@@ -79,6 +79,7 @@ export function normalizeGroupRideAggregate(value: unknown): GroupRideAggregate 
 }
 
 export function useGroupRideStats(groupId: string | undefined, accessKey?: string) {
+  const { auth, ensureAppCheckReady, functions } = useFirebaseServices();
   const { user } = useAuth();
   const uid = user?.uid;
   const [rides, setRides] = useState<GroupRideSummary[]>([]);
@@ -122,7 +123,7 @@ export function useGroupRideStats(groupId: string | undefined, accessKey?: strin
     } finally {
       if (isCurrent()) setLoadingMore(false);
     }
-  }, [groupId, loadingMore, nextCursor, uid]);
+  }, [auth, ensureAppCheckReady, functions, groupId, loadingMore, nextCursor, uid]);
 
   useEffect(() => {
     generation.current += 1;
@@ -186,7 +187,7 @@ export function useGroupRideStats(groupId: string | undefined, accessKey?: strin
       cancelled = true;
       generation.current += 1;
     };
-  }, [groupId, retryKey, uid, accessKey]);
+  }, [auth, ensureAppCheckReady, functions, groupId, retryKey, uid, accessKey]);
 
   return { rides, memberStats, aggregate, weeklyStats, memberWeekStats, loading, loadingMore, error, loadMoreError, retry, hasMore: nextCursor !== null, loadMore };
 }

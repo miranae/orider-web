@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
-import { httpsCallable } from "firebase/functions";
-import { firestore, functions } from "../services/firebase";
+import { httpsCallable, type Functions } from "firebase/functions";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 
 export interface GroupPost {
@@ -29,6 +29,7 @@ function toMillis(value: unknown): number {
 }
 
 export function useGroupPosts(groupId: string | undefined, accessKey?: string) {
+  const { firestore } = useFirebaseServices();
   const [posts, setPosts] = useState<GroupPost[]>([]);
   const [error, setError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
@@ -65,7 +66,7 @@ export function useGroupPosts(groupId: string | undefined, accessKey?: string) {
         setLoading(false);
       },
     );
-  }, [groupId, accessKey]);
+  }, [firestore, groupId, accessKey]);
 
   return { posts, loading, error };
 }
@@ -74,7 +75,7 @@ export async function createGroupPost(input: {
   groupId: string;
   content: string;
   kind: "announcement" | "post";
-}): Promise<void> {
+}, functions: Functions): Promise<void> {
   const fn = httpsCallable<
     { groupId: string; content: string; kind: "announcement" | "post" },
     { postId: string }
@@ -86,7 +87,7 @@ export async function updateGroupPost(input: {
   groupId: string;
   postId: string;
   content: string;
-}): Promise<void> {
+}, functions: Functions): Promise<void> {
   const fn = httpsCallable<
     { groupId: string; postId: string; content: string },
     { success: boolean }

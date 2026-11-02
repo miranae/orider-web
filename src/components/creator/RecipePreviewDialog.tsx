@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import DOMPurify from "dompurify";
 import { creatorRecipeErrorFeedback, type CreatorRecipeErrorFeedback } from "../../utils/creatorRecipeErrors";
-import { functions } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { Button } from "../../theme/components";
 import { RecipeShareCard, type RecipePublicCard } from "./RecipeShareCard";
 
@@ -19,6 +19,7 @@ export function RecipePreviewDialog({ request, language, ownerId, onClose, onSen
   request: RecipePreviewRequest; language: string; ownerId: string; onClose: () => void; onSent: () => void;
 }) {
   const ko = language.startsWith("ko");
+  const { functions } = useFirebaseServices();
   const dialog = useRef<HTMLDialogElement>(null);
   const [result, setResult] = useState<RecipePreviewResult | null>(null);
   const [error, setError] = useState<CreatorRecipeErrorFeedback | null>(null);
@@ -50,7 +51,7 @@ export function RecipePreviewDialog({ request, language, ownerId, onClose, onSen
       .then(({ data }) => { if (active) setResult(data); })
       .catch((failure) => { if (active) { setRetryNow(Date.now()); setError(creatorRecipeErrorFeedback(failure, language) ?? genericError()); } });
     return () => { active = false; };
-  }, [request, ko, language, ownerId, attempt, includePhoto]);
+  }, [request, ko, language, ownerId, attempt, includePhoto, functions]);
   const savePrivate = () => {
     if (!result) return;
     const url = URL.createObjectURL(new Blob([privateRecipeDocument(result.html)], { type: "text/html;charset=utf-8" }));

@@ -1,3 +1,4 @@
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { localeTag } from "../../utils/localeDate";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -24,6 +25,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const { functions } = useFirebaseServices();
 
   useEffect(() => {
     if (!managedGroups.some((group) => group.id === groupId)) setGroupId(managedGroups[0]?.id ?? "");
@@ -33,7 +35,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
     if (!groupId || name.trim().length < 2 || submitting) return;
     setSubmitting(true);
     try {
-      await createGroupChallenge({ groupId, name });
+      await createGroupChallenge({ groupId, name }, functions);
       setName("");
       showToast(t("challenges.createSuccess"));
     } catch (err) {
@@ -48,7 +50,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
     if (!groupId || joiningId) return;
     setJoiningId(challengeId);
     try {
-      await joinGroupChallenge({ challengeId, groupId });
+      await joinGroupChallenge({ challengeId, groupId }, functions);
       showToast(t("challenges.joinSuccess"));
     } catch (err) {
       logClientError("GroupChallengesPanel.join", err, { groupId, challengeId });
