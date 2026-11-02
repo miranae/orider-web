@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation, useSearchParams } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useSearchParams, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EmbeddedNavigationContext } from "../EmbeddedNavigationContext";
 
@@ -40,7 +40,8 @@ import SearchSurface from "./SearchSurface";
 
 function Location() {
   const location = useLocation();
-  return <output data-testid="location">{`${location.pathname}${location.search}`}</output>;
+  const navigate = useNavigate();
+  return <><output data-testid="location">{`${location.pathname}${location.search}`}</output><button onClick={() => navigate(-1)}>history back</button></>;
 }
 
 function renderSurface(element: React.ReactNode, path: string, hostNavigate = vi.fn()) {
@@ -70,17 +71,26 @@ describe("explore embed", () => {
 
   it("opens the requested page, switches tabs without keeping the previous filters and keeps the board when it paginates", async () => {
     renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?page=athletes&q=kim");
-    expect(await screen.findByTestId("page-athletes")).toHaveAttribute("data-query", "page=athletes&q=kim");
+    expect(await screen.findByTestId("page-athletes")).toHaveAttribute("data-query", "q=kim&tab=athletes");
 
     fireEvent.click(screen.getByRole("button", { name: "게시판" }));
     expect(await screen.findByTestId("page-board")).toBeInTheDocument();
-    expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?page=board");
+    expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?tab=board");
 
     // 게시판은 `page` 를 페이지 번호로 다시 쓴다 — 서브탭은 게시판에 머문다.
     fireEvent.click(screen.getByRole("button", { name: "next page" }));
-    expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?page=2");
+    expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?tab=board&page=2");
     expect(screen.getByTestId("page-board")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "게시판" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("fresh mount and Back restore board pagination independently of the hub tab", async () => {
+    renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?tab=board&page=2");
+    expect(await screen.findByTestId("page-board")).toHaveAttribute("data-query", "tab=board&page=2");
+    fireEvent.click(screen.getByRole("button", { name: "사람" }));
+    expect(await screen.findByTestId("page-athletes")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "history back" }));
+    expect(await screen.findByTestId("page-board")).toHaveAttribute("data-query", "tab=board&page=2");
   });
 
   it("passes the creator section from the query", async () => {

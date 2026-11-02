@@ -503,12 +503,24 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
   const recent7DayDiscipline = options?.recent7DayDiscipline ?? discipline;
 
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [readRetry, setReadRetry] = useState(0);
   const seoulNow = new Date(now.getTime() + 9 * 3600000);
   const year = discipline === "run" ? seoulNow.getUTCFullYear() : now.getFullYear();
   const month = discipline === "run" ? seoulNow.getUTCMonth() : now.getMonth();
   const statsKey = user ? `${user.uid}:${year}-${month}:${discipline ?? "all"}` : null;
   const [monthlyDistanceState, setMonthlyDistanceState] = useState<{ key: string; distance: number } | null>(null);
   const [coverage, setCoverage] = useState<{ key: string; status: "ready" | "partial" | "error"; recent7DayStatus: "ready" | "partial" | "error" } | null>(null);
+
+  const retryNeeded = useRef(false);
+  retryNeeded.current = coverage?.key !== statsKey || coverage.recent7DayStatus !== "ready";
+  useEffect(() => {
+    if (!enabled || !user) return;
+    const reconnect = () => { if (retryNeeded.current) setReadRetry(value => value + 1); };
+    const resume = () => { if (document.visibilityState === "visible") reconnect(); };
+    window.addEventListener("online", reconnect);
+    document.addEventListener("visibilitychange", resume);
+    return () => { window.removeEventListener("online", reconnect); document.removeEventListener("visibilitychange", resume); };
+  }, [enabled, user]);
 
   useEffect(() => {
     if (!user || !enabled) {
@@ -620,7 +632,7 @@ export function useWeeklyStats(nowOrOptions: Date | WeeklyStatsOptions = new Dat
 
     load();
     return () => { cancelled = true; };
-  }, [user, year, month, includeMonthlyDistance, discipline, enabled]);
+  }, [user, year, month, includeMonthlyDistance, discipline, enabled, readRetry]);
 
   const emptyWeeks: WeeklyStat[] = [];
   const emptyThisWeek = { rides: 0, distance: 0, time: 0, elevation: 0 };

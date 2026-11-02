@@ -3,8 +3,10 @@ export function delayUntil(successAt, now = Date.now()) {
   if (!Number.isFinite(at) || at > now) throw Error('invalid successful deployment timestamp');
   return Math.max(0, at + 300000 - now);
 }
-export function classify({ httpStatus, rootVisible, cards, cardContentVisible, emptyVisible, verifiedEmpty, pageErrors = [], apiErrors = [], chunkErrors = [], feedAlert = false }) {
+export function classify({ httpStatus, rootVisible, cards, cardContentVisible, emptyVisible, verifiedEmpty, pageErrors = [], apiErrors = [], chunkErrors = [], dependencyErrors = [], feedAlert = false }) {
   if (pageErrors.length || chunkErrors.length) return 'boot_or_chunk_error';
+  if (httpStatus === 200 && rootVisible && !apiErrors.length && dependencyErrors.some(error => error && typeof error === "object"
+      && [401, 403].includes(error.status) && isAppCheckUrl(error.url)) && cards === 0 && feedAlert) return 'app_check_blocked';
   if (apiErrors.length || feedAlert) return 'api_error';
   if (httpStatus !== 200 || !rootVisible) return 'boot_error';
   if (cards > 0 && cardContentVisible === true) return 'healthy_cards';

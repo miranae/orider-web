@@ -46,8 +46,8 @@ export function embeddedHubDestination(currentPath: string, destination: string)
   }
   const explore = explorePageForWebPath(path);
   if (!explore) return null;
-  // 게시판의 `page` 는 페이지 번호라 서브탭 값으로 덮어쓴다(번호는 첫 페이지로 돌아간다).
-  target.searchParams.set("page", explore.page);
+  // 서브탭은 목록 페이지 번호와 별도 저장한다.
+  target.searchParams.set("tab", explore.page);
   if (explore.section) target.searchParams.set("section", explore.section);
   else target.searchParams.delete("section");
   return `${embedPath}?${target.searchParams}${target.hash}`;
