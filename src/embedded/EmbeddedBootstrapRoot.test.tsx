@@ -291,6 +291,20 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     delete window.__ORIDER_TRAINING_CACHE_SCOPE__;
   });
 
+  it("host.lifecycle는 표면 효과를 정지하고 잘못된 상태는 적용하지 않는다", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge);
+    await act(async () => bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 })));
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    expect(await screen.findByTestId("analysis-surface")).toBeVisible();
+    act(() => bridge.emit(hostMessage("host.lifecycle", { state: "background" })));
+    expect(screen.getByTestId("analysis-surface")).not.toBeVisible();
+    act(() => bridge.emit(hostMessage("host.lifecycle", { state: "invalid" })));
+    expect(screen.getByTestId("analysis-surface")).not.toBeVisible();
+    act(() => bridge.emit(hostMessage("host.lifecycle", { state: "foreground" })));
+    expect(await screen.findByTestId("analysis-surface")).toBeVisible();
+  });
+
   it("mounts no profile listener, React Query provider, or surface hook before sessionAccepted", async () => {
     const bridge = createFakeBridge();
     renderBootstrap(bridge);
@@ -304,6 +318,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
           "surface-selection-request-id-v1",
           "run-start-scheduled-v1",
           "club-detail-embed-v1",
+          "host.lifecycle",
         ],
       },
       requestId: undefined,

@@ -1,3 +1,4 @@
+import { RetainedSurfaceActivity } from "./RetainedSurfaceActivity";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DialogProvider } from "../contexts/DialogContext";
 import { ToastProvider } from "../contexts/ToastContext";
@@ -584,6 +585,7 @@ export default function EmbeddedBootstrapRoot({
   }));
   const [session, setSession] = useState<AcceptedSession | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [hostForeground, setHostForeground] = useState(true);
   const initialTrainingSurface = surfaceKind === "fitness" || surfaceKind === "plan"
     ? surfaceKind
     : null;
@@ -1039,6 +1041,8 @@ export default function EmbeddedBootstrapRoot({
       if (message.type === "host.lifecycle") {
         if (!isLifecyclePayload(message.payload)) {
           safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
+        } else {
+          setHostForeground((message.payload as { state: string }).state === "foreground");
         }
         return;
       }
@@ -1106,6 +1110,7 @@ export default function EmbeddedBootstrapRoot({
         SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
         RUN_START_SCHEDULED_CAPABILITY,
         CLUB_DETAIL_EMBED_CAPABILITY,
+        "host.lifecycle",
       ],
     });
     return () => {
@@ -1168,6 +1173,7 @@ export default function EmbeddedBootstrapRoot({
       onClickCapture={handleNavigation}
     >
       {session && (!isActivitySurfaceKind(surfaceKind) || activityId) ? (
+        <RetainedSurfaceActivity foreground={hostForeground}>
         <AuthorizedSurface
           key={services.auth.currentUser?.uid ?? "signed-out"}
           activityId={activityId}
@@ -1185,6 +1191,7 @@ export default function EmbeddedBootstrapRoot({
           surfaceKind={surfaceKind}
           trainingSurfaceVisible={selectedTrainingSurface !== null}
         />
+        </RetainedSurfaceActivity>
       ) : (
         <div className="orider-embedded-status" role="status" aria-label="Waiting for host authorization">
           <div className="orider-embedded-status__pulse" />
