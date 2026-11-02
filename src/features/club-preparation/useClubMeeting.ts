@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  getClubMeetingSnapshot,
   type ClubMeetingSnapshot,
 } from "../../services/clubMeetings";
+import { useClubMeetingsApi } from "./useClubMeetingsApi";
 export function useClubMeeting(
   eventId: string | undefined,
   uid: string | undefined,
   groupId: string | undefined,
 ) {
+  const { getClubMeetingSnapshot } = useClubMeetingsApi();
   const scope = `${uid ?? ""}/${groupId ?? ""}/${eventId ?? ""}`;
   const requestGeneration = useRef(0);
   const current = useRef(scope);
@@ -40,7 +41,7 @@ export function useClubMeeting(
         }));
       throw error;
     }
-  }, [scope, uid, groupId, eventId]);
+  }, [scope, uid, groupId, eventId, getClubMeetingSnapshot]);
   useEffect(() => {
     setState({ scope, data: null, loading: true, error: null });
     if (!uid || !groupId || !eventId) {

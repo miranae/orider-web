@@ -1,6 +1,6 @@
+import { useClubMeetingsApi } from "../../features/club-preparation/useClubMeetingsApi";
 import ClubCafeSchedulePanel from "../../features/group/ClubCafeSchedulePanel";
 import {
-  listClubMeetings,
   type ClubMeetingListItem,
 } from "../../services/clubMeetings";
 import { isActiveEventRegistration } from "../../features/event/activeRegistration";
@@ -34,7 +34,9 @@ interface ClubEvent {
   myRsvp: boolean | null;
 }
 export default function GroupEventsPage() {
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
+  const { listClubMeetings } = useClubMeetingsApi();
   const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
   const { user } = useAuth();
@@ -81,7 +83,7 @@ export default function GroupEventsPage() {
       return;
     }
     (async () => {
-      const page = await getVisibleEventPage({ groupId, publicOnly: !role, statuses: status === "all" ? ["OPEN", "LIVE"] : [status], descending: status === "FINISHED", limit: 20, ...(eventCursor ? { cursor: eventCursor } : {}) });
+      const page = await getVisibleEventPage({ groupId, publicOnly: !role, statuses: status === "all" ? ["OPEN", "LIVE"] : [status], descending: status === "FINISHED", limit: 20, ...(eventCursor ? { cursor: eventCursor } : {}) }, services);
       if (!cancelled) setEventNextCursor(page.nextCursor);
       return page.docs.filter(item => {
         const info = item.data().info ?? {};
@@ -148,7 +150,7 @@ export default function GroupEventsPage() {
     return () => {
       cancelled = true;
     };
-  }, [groupId, accessKey, role, retry, status, eventCursor]);
+  }, [groupId, accessKey, role, retry, status, eventCursor, services]);
   useEffect(() => {
     let cancelled = false;
     setMeetings([]);
@@ -177,7 +179,7 @@ export default function GroupEventsPage() {
     return () => {
       cancelled = true;
     };
-  }, [groupId, user, role, retry, meetingScope]);
+  }, [groupId, user, role, retry, meetingScope, listClubMeetings]);
   const loadMoreMeetings = async () => {
     if (!groupId || !nextCursor || loadingMoreRef.current) return;
     loadingMoreRef.current = true;

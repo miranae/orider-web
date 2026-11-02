@@ -1,5 +1,5 @@
 import { installEventDiscoveryFixture } from "../../__tests__/fixtures/eventDiscovery";
-vi.mock("../../services/clubMeetings",()=>({listClubMeetings:vi.fn(async()=>({meetings:[],nextCursor:null}))}));
+vi.mock("../../services/clubMeetings",()=>{ const api = {listClubMeetings:vi.fn(async()=>({meetings:[],nextCursor:null}))}; return { ...api, createClubMeetingsApi: () => api }; });
 import { Suspense } from "react";
 import { createInstance, type BackendModule } from "i18next";
 import { I18nextProvider } from "react-i18next";
