@@ -721,7 +721,7 @@ export default function EventsPage() {
         .explore-events-surface [data-testid="E3-4"] .mapboxgl-popup-content { font-family: inherit; font-size: var(--ft-body-size); line-height: var(--ft-body-line-height); padding: var(--space-4) var(--space-7) var(--space-4) var(--space-4); border-radius: var(--r-md); }
         .explore-events-surface [data-testid="E3-4"] .mapboxgl-popup-close-button { width: var(--space-6); height: var(--space-6); padding: 0; display: grid; place-items: center; font: inherit; color: var(--ink-2); border-radius: var(--r-sm); }
         .event-calendar-agenda, .event-calendar-count { display: none; }
-        .event-mobile-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding-block: var(--space-2); }
+        .event-mobile-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); padding-block: 0 var(--space-2); }
         .event-mobile-heading h1 { margin: 0; }
         .event-mobile-heading p { margin: var(--space-1) 0 0; color: var(--ink-2); font-size: var(--fs-xs); }
         .event-mobile-heading a { flex-shrink: 0; }

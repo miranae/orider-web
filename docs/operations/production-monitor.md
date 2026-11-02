@@ -171,3 +171,21 @@ and no new feed result. The parent must preserve the prior actual observation's
 time instead of treating this skipped inspection as fresh health or a missing
 result infrastructure failure. Other source-resolution/install failures remain
 monitor infrastructure failures. Normal repeated feed checks stay silent.
+
+## App Check blocked automation
+
+`app_check_blocked` means the feed displayed an error with no cards and the
+checker observed App Check rejection without an independent feed API error.
+It is a failed observation, not a healthy feed or proof that normal user access
+is broken. Keep the failed result and its dependency diagnostics. Compare the
+same live bundle in an ordinary anonymous browser in both locales; record only
+card counts, alert/error presence and bundle hash. Do not inject debug tokens,
+relax App Check, export account sessions or automatically roll back Hosting on
+this signal alone. Real API errors retain `api_error` precedence.
+
+The viewport check still runs after a failed feed check (unless cancelled or the
+source was rejected before apply), preserving an independent diagnostic. The
+job remains failed. Checker source is deliberately pinned: after this patch is
+reviewed and committed, the reviewed checker SHA and backend workflow reference
+must be advanced through their normal PR process before CI can use the new
+classification. No workflow or scheduled monitor is enabled by this patch.
