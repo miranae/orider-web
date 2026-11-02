@@ -1,5 +1,6 @@
 import { httpsCallable } from "firebase/functions";
 import { ensureAppCheckReady, functions } from "./firebase";
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { Meeting, MeetingTeam } from "../features/club-preparation/domain";
 export type ClubMeeting = Meeting & { kindName?: string };
 export interface ClubMeetingSnapshot {
@@ -22,14 +23,6 @@ export type ClubMeetingListItem = ClubMeetingSnapshot & {
 };
 export type MeetingAttendanceAction =
   "join" | "cancel" | "leave-waitlist" | "accept-offer" | "travel";
-async function call<Request, Response>(
-  name: string,
-  request: Request,
-): Promise<Response> {
-  await ensureAppCheckReady();
-  return (await httpsCallable<Request, Response>(functions, name)(request))
-    .data;
-}
 /** 참가자·권한·현재 모집 상태는 서버가 결정한다. 작성 필드만 보낸다. */
 export function clubMeetingAuthoring(meeting: ClubMeeting) {
   const {
@@ -110,7 +103,19 @@ export function clubMeetingAuthoring(meeting: ClubMeeting) {
     throw new Error("club-meeting/payload-limit");
   return authoring;
 }
-export const createClubMeeting = (
+type MeetingServices = Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady">;
+export function createClubMeetingsApi(services?: MeetingServices) {
+  async function call<Request, Response>(name: string, request: Request): Promise<Response> {
+    const provider = services ?? { functions, ensureAppCheckReady };
+    const viewer = services?.auth.currentUser;
+    const current = () => !services || services.auth.currentUser === viewer;
+    await provider.ensureAppCheckReady();
+    if (!current()) throw new Error("account_changed");
+    const response = await httpsCallable<Request, Response>(provider.functions, name)(request);
+    if (!current()) throw new Error("account_changed");
+    return response.data;
+  }
+const createClubMeeting = (
   groupId: string,
   meeting: ClubMeeting,
   requestId: string,
@@ -127,7 +132,7 @@ export const createClubMeeting = (
     meeting: clubMeetingAuthoring(meeting),
     requestId,
   });
-export const updateClubMeeting = (
+const updateClubMeeting = (
   eventId: string,
   meeting: ClubMeeting,
   expectedRevision: number,
@@ -144,11 +149,11 @@ export const updateClubMeeting = (
     meeting: clubMeetingAuthoring(meeting),
     expectedRevision,
   });
-export const getClubMeetingSnapshot = (eventId: string) =>
+const getClubMeetingSnapshot = (eventId: string) =>
   call<{ eventId: string }, ClubMeetingSnapshot>("getClubMeetingSnapshot", {
     eventId,
   });
-export const listClubMeetings = (groupId: string, cursor?: string) =>
+const listClubMeetings = (groupId: string, cursor?: string) =>
   call<
     { groupId: string; cursor?: string },
     { meetings: ClubMeetingListItem[]; nextCursor: string | null }
@@ -159,27 +164,27 @@ export const listClubMeetings = (groupId: string, cursor?: string) =>
       return result;
     },
   );
-export const setClubMeetingRecruitment = (
+const setClubMeetingRecruitment = (
   eventId: string,
   mode: "open" | "waitlist" | "closed",
 ) => call("setClubMeetingRecruitment", { eventId, mode });
-export const cancelClubMeeting = (eventId: string, reason: string) =>
+const cancelClubMeeting = (eventId: string, reason: string) =>
   call("cancelClubMeeting", { eventId, reason });
-export const clubMeetingAttendance = (
+const clubMeetingAttendance = (
   eventId: string,
   action: MeetingAttendanceAction,
   travel?: { joinId?: string; outbound?: string; inbound?: string },
 ) => call("clubMeetingAttendance", { eventId, action, ...travel });
-export const publishClubMeetingNotice = (
+const publishClubMeetingNotice = (
   eventId: string,
   title: string,
   body: string,
 ) => call("publishClubMeetingNotice", { eventId, title, body });
-export const confirmClubMeetingNotice = (eventId: string, noticeId: string) =>
+const confirmClubMeetingNotice = (eventId: string, noticeId: string) =>
   call("confirmClubMeetingNotice", { eventId, noticeId });
 
 /** 조편성은 최신 참석 명단과 revision을 서버에서 검증한 뒤 저장한다. */
-export const saveClubMeetingTeams = (request: {
+const saveClubMeetingTeams = (request: {
   eventId: string;
   expectedRevision: number;
   teams: MeetingTeam[];
@@ -190,5 +195,11 @@ export const saveClubMeetingTeams = (request: {
   );
 
 /** 호스트 권한과 최신 revision은 서버가 확인한다. 개인 주행 시작/종료를 대신하지 않는다. */
-export const finishClubMeeting = (eventId: string, expectedRevision: number) =>
+const finishClubMeeting = (eventId: string, expectedRevision: number) =>
   call<{eventId: string; expectedRevision: number}, {success: true}>("finishClubMeeting", {eventId, expectedRevision});
+
+return { createClubMeeting, updateClubMeeting, getClubMeetingSnapshot, listClubMeetings, setClubMeetingRecruitment, cancelClubMeeting, clubMeetingAttendance, publishClubMeetingNotice, confirmClubMeetingNotice, saveClubMeetingTeams, finishClubMeeting };
+}
+
+// Resolve live default bindings when a request starts, after Firebase initialization.
+export const { createClubMeeting, updateClubMeeting, getClubMeetingSnapshot, listClubMeetings, setClubMeetingRecruitment, cancelClubMeeting, clubMeetingAttendance, publishClubMeetingNotice, confirmClubMeetingNotice, saveClubMeetingTeams, finishClubMeeting } = createClubMeetingsApi();

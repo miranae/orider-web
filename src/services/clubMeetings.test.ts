@@ -1,11 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  createClubMeetingsApi,
   clubMeetingAuthoring,
   createClubMeeting,
   finishClubMeeting,
   updateClubMeeting,
   saveClubMeetingTeams,
 } from "./clubMeetings";
+import { httpsCallable } from "firebase/functions";
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { newClubMeeting } from "../features/club-preparation/meetingCopy";
 const api = vi.hoisted(() => ({ call: vi.fn(), ready: vi.fn() }));
 vi.mock("firebase/functions", () => ({ httpsCallable: vi.fn(() => api.call) }));
@@ -94,3 +97,31 @@ it("조편성 저장은 revision을 보내며 미설정 정원·조장은 undefi
 });
 
 it("모임 마무리는 서버 권한 검사에 ID와 revision만 전달한다", async()=>{api.call.mockResolvedValue({data:{success:true}});await finishClubMeeting("meeting",9);expect(api.ready).toHaveBeenCalled();expect(api.call).toHaveBeenLastCalledWith({eventId:"meeting",expectedRevision:9});});
+
+
+it("uses the injected meeting transport for reads and writes without default readiness", async () => {
+  const app = {};
+  const services = { auth: { app, currentUser: { uid: "embedded" } }, functions: { app }, ensureAppCheckReady: vi.fn() } as unknown as FirebaseServices;
+  const meetings = createClubMeetingsApi(services);
+  api.call.mockResolvedValue({ data: { meetings: [], nextCursor: null } });
+  const before = api.ready.mock.calls.length;
+  await meetings.listClubMeetings("club");
+  await meetings.getClubMeetingSnapshot("meeting");
+  await meetings.clubMeetingAttendance("meeting", "join");
+  expect(services.ensureAppCheckReady).toHaveBeenCalledTimes(3);
+  expect(api.ready.mock.calls.length).toBe(before);
+  for (const name of ["listClubMeetings", "getClubMeetingSnapshot", "clubMeetingAttendance"]) expect(httpsCallable).toHaveBeenCalledWith(services.functions, name);
+});
+
+it("does not send a meeting write after the embedded session changes during attestation", async () => {
+  const services = { auth: { currentUser: { uid: "first" } }, functions: {}, ensureAppCheckReady: vi.fn(async () => { (services.auth as unknown as { currentUser: unknown }).currentUser = { uid: "second" }; }) } as unknown as FirebaseServices;
+  const before = api.call.mock.calls.length;
+  await expect(createClubMeetingsApi(services).clubMeetingAttendance("meeting", "join")).rejects.toThrow("account_changed");
+  expect(api.call.mock.calls.length).toBe(before);
+});
+
+it("rejects a late meeting response when the embedded account changes", async () => {
+  const services = { auth: { currentUser: { uid: "first" } }, functions: {}, ensureAppCheckReady: vi.fn() } as unknown as FirebaseServices;
+  api.call.mockImplementationOnce(async () => { (services.auth as unknown as { currentUser: unknown }).currentUser = { uid: "second" }; return { data: {} }; });
+  await expect(createClubMeetingsApi(services).getClubMeetingSnapshot("meeting")).rejects.toThrow("account_changed");
+});

@@ -6,10 +6,12 @@ import {
   getClubMeetingSnapshot,
   type ClubMeetingSnapshot,
 } from "../../services/clubMeetings";
+import { FirebaseServicesProvider, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { createClubMeetingsApi } from "../../services/clubMeetings";
 import { newClubMeeting } from "./meetingCopy";
-vi.mock("../../services/clubMeetings", () => ({
+vi.mock("../../services/clubMeetings", () => { const api = {
   getClubMeetingSnapshot: vi.fn(),
-}));
+}; return { ...api, createClubMeetingsApi: vi.fn(() => api) }; });
 const snapshot = (revision: number): ClubMeetingSnapshot => ({
   eventId: "event",
   groupId: "club",
@@ -73,4 +75,13 @@ describe("서버 모임 읽기 상태", () => {
     await act(async () => first(snapshot(1)));
     expect(result.current.data?.revision).toBe(2);
   });
+});
+
+
+it("binds the meeting polling hook to the injected embedded services", async () => {
+  const services = { auth: { currentUser: { uid: "user" } }, functions: {}, firestore: {}, ensureAppCheckReady: vi.fn() } as unknown as FirebaseServices;
+  vi.mocked(getClubMeetingSnapshot).mockResolvedValue(snapshot(3));
+  const { result } = renderHook(() => useClubMeeting("event", "user", "club"), { wrapper: ({ children }) => <FirebaseServicesProvider services={services}>{children}</FirebaseServicesProvider> });
+  await waitFor(() => expect(result.current.data?.revision).toBe(3));
+  expect(createClubMeetingsApi).toHaveBeenCalledWith(services);
 });
