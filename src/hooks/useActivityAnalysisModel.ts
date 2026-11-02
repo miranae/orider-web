@@ -106,14 +106,23 @@ export function useActivityAnalysisModel(
   const [activityProcessing, setActivityProcessing] = useState(false);
   const [wattsOverride, setWattsOverride] = useState<ActivityPowerOverride | null>(null);
 
+  const loadIdentity = useRef<unknown[]>([]);
+  const loadedIdentity = useRef<unknown[]>([]);
   useEffect(() => {
     if (!activityId || publicMode) return;
 
-    setActivity(null);
-    setLoadingActivity(true);
-    setWattsOverride(null);
-    setActivityLoadError(null);
-    setActivityProcessing(false);
+    const identity = [activityId, activityReloadKey, firestore, userId, publicMode];
+    const changed = identity.some((value, index) => value !== loadIdentity.current[index]);
+    loadIdentity.current = identity;
+    // Activity 재연결은 같은 화면의 상태를 유지한다. 계정·활동 변경과 명시적 재시도만 초기화한다.
+    if (!changed && identity.every((value, index) => value === loadedIdentity.current[index])) return;
+    if (changed) {
+      setActivity(null);
+      setLoadingActivity(true);
+      setWattsOverride(null);
+      setActivityLoadError(null);
+      setActivityProcessing(false);
+    }
 
     let cancelled = false;
     let processingTimer: number | undefined;
@@ -144,6 +153,7 @@ export function useActivityAnalysisModel(
             }
             return;
           }
+          loadedIdentity.current = identity;
           setActivityProcessing(false);
           // 누락된 선택 요약이 정상 경로/센서/개요의 조회까지 막지 않는다. 수치 0은 만들지 않는다.
           setActivity(withActivityPresentation({ id: snap.id, ...data, summary: usableSummary ? data.summary : {} } as Activity));
@@ -354,7 +364,13 @@ export function useActivityAnalysisModel(
     : activity?.summary.normalizedPower ?? activity?.weightedAvgPower ?? null;
 
   const [previewRequested, setPreviewRequested] = useState(false);
-  useEffect(() => { setPreviewRequested(false); }, [activityId, userId]);
+  const previewIdentity = useRef([activityId, userId]);
+  useEffect(() => {
+    if (previewIdentity.current[0] !== activityId || previewIdentity.current[1] !== userId) {
+      previewIdentity.current = [activityId, userId];
+      setPreviewRequested(false);
+    }
+  }, [activityId, userId]);
   const recalculateVirtualPowerPreview = useCallback(() => {
     // 이 활동의 자전거를 모르면 다시 계산하지 않는다 — 추측한 파워는 데이터가 아니다.
     if (!activityId || !isActivityOwner || !activityBike) return;

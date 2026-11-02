@@ -1,3 +1,4 @@
+import { Activity as ReactActivity } from "react";
 import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { collection, getDoc, onSnapshot } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -111,6 +112,21 @@ function seedActivity(activity: Activity, activityStreams: ActivityStreams = str
 }
 
 describe("useActivityAnalysisModel", () => {
+  it("retains loaded analysis and child selections when Activity effects reconnect", async () => {
+    const activity = makeActivity("orider_resume");
+    seedActivity(activity);
+    function Surface() {
+      const model = useActivityAnalysisModel(activity.id);
+      return model.loadingActivity || !model.activity ? <span>loading</span> : <input aria-label="analysis selection" defaultValue="initial" />;
+    }
+    const view = render(<ReactActivity mode="visible"><Surface /></ReactActivity>);
+    const selection = await screen.findByRole("textbox", { name: "analysis selection" });
+    fireEvent.change(selection, { target: { value: "selected" } });
+    view.rerender(<ReactActivity mode="hidden"><Surface /></ReactActivity>);
+    view.rerender(<ReactActivity mode="visible"><Surface /></ReactActivity>);
+    expect(await screen.findByRole("textbox", { name: "analysis selection" })).toHaveValue("selected");
+    expect(screen.queryByText("loading")).not.toBeInTheDocument();
+  });
   beforeEach(() => {
     mocks.user = { uid: "owner" };
     mocks.getStreams.mockReset();

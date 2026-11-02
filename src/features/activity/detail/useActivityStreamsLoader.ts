@@ -1,6 +1,6 @@
 import { isPublicActivityAccessError, createPublicActivityClient } from "../../../services/publicActivityDetail";
 import { activitySensorOrigin } from "./activitySensorOrigin";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 
 import { disciplineOfType } from "@shared/sport/discipline";
@@ -131,7 +131,14 @@ export function useActivityStreamsLoader({
   const [retryKey, setRetryKey] = useState(0);
   const retryStreams = useCallback(async () => { setRequestedScope(scope); setRetryKey(key => key + 1); }, [scope]);
 
+  const lastLoad = useRef<unknown[]>([]);
+  const retainedStreams = useRef(streams);
+  retainedStreams.current = streams;
   useEffect(() => {
+    const inputs = [publicAccess ? null : activity, activityId, auth, firestore, getStreams, retryKey, scope, services, shouldLoad, streamsSignInRequired, t, userId, publicAccess, firebaseServices, sdkUser];
+    const unchanged = inputs.every((value, index) => value === lastLoad.current[index]);
+    lastLoad.current = inputs;
+    if (unchanged && retainedStreams.current) return;
     let active = true;
     setLoadedScope(scope);
     setStreams(null);
