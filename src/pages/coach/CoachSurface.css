@@ -37,7 +37,8 @@
 
 @media (max-width: 36rem) {
  .coach-surface .coach-page-header > div:has(> [role="tablist"]) { width: 100%; }
-
+ /* 종목 전환이 제목 아래 줄로 내려가면 세그먼트 위 여백(16)을 빼 컨디션·분석처럼 제목에 붙인다. */
+ .coach-surface .coach-page-header > div:has(> [role="tablist"]) > [role="tablist"] { margin-top: 0; }
 }
 
 /* 코치 포털은 body 직속이므로 페이지 스코프와 같은 대비를 명시한다. */
@@ -76,9 +77,10 @@
  gap: var(--space-2);
 }
 
-/* 모바일 HIG 간격 — 하위탭·제목·종목 전환·카드 사이를 20 으로 맞춘다(세그먼트 자체 위아래 16 + 4) */
+/* 모바일 HIG 간격 — 하위탭·제목·종목 전환·카드 사이를 20 으로 맞춘다(세그먼트 자체 위아래 16 + 4).
+   컨디션·분석 제목은 위 여백 없이 주간 플랜·목표 제목과 같은 높이에서 시작한다. */
 @media (max-width: 47.99rem) {
-  .coach-surface .fitness-reading { padding-top: var(--space-1) !important; }
+  .coach-surface .fitness-reading { padding-top: 0 !important; }
   .coach-surface .coach-page-header { row-gap: var(--space-1); }
 }
 

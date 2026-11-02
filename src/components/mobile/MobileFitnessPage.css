@@ -115,7 +115,7 @@
   border-radius: var(--r-md);
 }
 @media (max-width: 47.99rem) {
-  .mobile-fitness-page__title { padding: var(--space-1) var(--space-4) 0; }
+  .mobile-fitness-page__title { padding: 0 var(--space-4); }
   .mobile-fitness-toolbar { margin-top: var(--space-1); margin-bottom: var(--space-1); }
 }
 
