@@ -73,7 +73,8 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
   return <div className="site-shell">
     <header className="coach-page-header" data-testid="K3-0"><Text as="h1" variant="pageTitle" data-testid="K3-0-1">{t("goalHub.title")}</Text><div data-testid="K3-0-2"><DisciplineTabs value={discipline} disabledKeys={["swim"]} /></div></header>
     {!user || user.isAnonymous ? <Card data-testid="K3-2-5"><Text>{t("goals.loginRequiredDescription")}</Text><CoachSignInButton /></Card> : <>
-      {!model.loadError && !goalReady && <Text role="status">{t("climbGoal.loading")}</Text>}
+      {/* 캐시로 목표 카드를 먼저 그렸으면 위에 로딩 줄을 끼워 카드를 밀었다 당기지 않는다(진입 때 화면이 깜박였다). */}
+      {!model.loadError && !goalReady && !goal && <Text role="status">{t("climbGoal.loading")}</Text>}
       {model.loadError != null && <div role="alert"><Text as="p">{t("goalHub.readError")}</Text><Button onClick={model.retryLoad}>{t("goalHub.retry")}</Button></div>}
       {goal && <Card data-testid="K3-1">
         {model.cacheHit && model.freshLoaded === false && <Text as="p">{t("embeddedStatus.cached", { ns: "common" })}</Text>}

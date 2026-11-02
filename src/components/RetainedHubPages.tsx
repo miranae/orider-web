@@ -1,6 +1,7 @@
 import { useRef, useState, type HTMLAttributes, type ReactNode } from "react";
 import { UNSAFE_LocationContext as LocationContext, useLocation, useNavigationType, type Location } from "react-router-dom";
 import { isDetailRoute, PRIMARY_HUBS, type HubKey } from "../config/navHubs";
+import { isHubReturnState } from "../services/hubReturn";
 
 /**
  * 기본 허브(홈·코치·클럽·탐색·게시판) 화면을 브라우저 탭처럼 살려 둔다. 다른 탭으로 가면 지우지 않고 보이지만
@@ -25,7 +26,14 @@ export function RetainedHubPages({ path, hub, owner, children }: {
     pagesOwner.current = owner;
   }
   const retained = !isDetailRoute(path) && PRIMARY_HUBS.some(primary => primary.key === hub);
-  if (retained) pages.current.set(hub, { location, node: children });
+  if (retained) {
+    // 탭으로 같은 화면에 돌아온 이동은 새 방문이 아니다 — 새 location(key)을 주면 피드처럼 location.key 로
+    // 다시 그리는 화면이 데이터를 다시 불러오는 것처럼 보인다. 보던 location 을 그대로 준다.
+    const previous = pages.current.get(hub)?.location;
+    const revisit = previous && isHubReturnState(location.state) && previous.pathname === location.pathname
+      && previous.search === location.search && previous.hash === location.hash;
+    pages.current.set(hub, { location: revisit ? previous : location, node: children });
+  }
   return <>
     {[...pages.current].map(([key, page]) => (
       <div key={`${owner ?? ""}:${key}`} data-hub-page={key} hidden={!(retained && key === hub)}>
