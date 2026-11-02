@@ -187,7 +187,7 @@ export default function Layout() {
               </Suspense>
             </div>
           ) : (
-            <EnteringShell className={`site-shell site-shell--padded py-6${path.startsWith("/coach/") ? " coach-surface" : ""}`} data-page-shell="content">
+            <EnteringShell className={`site-shell site-shell--padded py-6${path.startsWith("/coach/") || path === "/athlete/me/activities" ? " coach-surface" : ""}`} data-page-shell="content">
               {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} />}
               <Suspense fallback={<div style={{ height: 200 }} />}>
                 {path === "/explore/segments" && <ExplorePage />}

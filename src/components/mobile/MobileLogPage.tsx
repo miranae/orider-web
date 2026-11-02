@@ -33,6 +33,8 @@ function formatDuration(ms: number): string {
 interface MobileLogPageProps {
   recentSummarySlot?: ReactNode;
   periodReturnSlot?: ReactNode;
+  /** false 면 종목 필터를 그리지 않는다(부모가 같은 필터를 위에 둘 때). */
+  showSportFilter?: boolean;
   activities: Activity[];
   representativeCandidates?: Activity[];
   ftp?: number;
@@ -73,7 +75,7 @@ function MobileLogSkeleton() {
   );
 }
 
-export default function MobileLogPage({ recentSummarySlot, periodReturnSlot, activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, aggregateUnavailable = false, ftp, planState = "ready", onRetryPlan, plansByDate = {}, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
+export default function MobileLogPage({ showSportFilter = true, recentSummarySlot, periodReturnSlot, activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, aggregateUnavailable = false, ftp, planState = "ready", onRetryPlan, plansByDate = {}, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
   const { t, i18n } = useTranslation("activity");
   const DAY_NAMES = (t("mobileLog.dayNames", { returnObjects: true }) as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const [importParams, setImportParams] = useSearchParams();
@@ -241,8 +243,8 @@ export default function MobileLogPage({ recentSummarySlot, periodReturnSlot, act
         <Button data-testid="P1-0-2" variant="secondary" onClick={() => setImportOpen(true)} aria-label={t("mobileLog.importAria")} leadingIcon={<Upload size={ICON_SIZE.md} aria-hidden="true" />}>{t("mobileLog.importBtn")}</Button>
       </div>
 
-      {/* 종목 필터 */}
-      <SportFilterTabs value={sportFilter} onChange={setSportFilter} />
+      {/* 종목 필터 — 웹 계획/기록은 같은 필터를 하위 탭 위 머리에 두므로 여기서는 숨긴다. */}
+      {showSportFilter && <SportFilterTabs value={sportFilter} onChange={setSportFilter} />}
 
       {loading && <MobileLogSkeleton />}
 

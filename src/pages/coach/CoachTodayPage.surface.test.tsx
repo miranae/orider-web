@@ -38,7 +38,9 @@ describe("today read-only chooser versus guarded writes", () => {
     const conditionLinks = screen.getAllByRole("link", { name: /coach.metric.tsb/ });
     expect(conditionLinks).toHaveLength(1);
     expect(conditionLinks[0]).toHaveAttribute("href", "/coach/condition?sport=bike");
-    expect(conditionLinks[0].closest("header")).not.toBeNull();
+    // 현재 상태는 머리가 아니라 계획/기록 하위 탭 아래 본문 첫 줄이다(세 탭의 머리 규칙을 같게).
+    expect(conditionLinks[0].closest("header")).toBeNull();
+    expect(screen.getByTestId("K2-0").compareDocumentPosition(conditionLinks[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
   it("keeps chooser first on lookup failure with the retry error card after it", () => {
     mocks.state.unavailableReason = "error"; renderToday();

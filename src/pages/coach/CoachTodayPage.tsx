@@ -63,7 +63,9 @@ export default function CoachTodayPage({ startMode }: { startMode?: Run30StartMo
   const { t, user, discipline, currentPoint, i18n } = model;
   const sport = discipline === "tri" ? "bike" : discipline;
   const running = useRun30Program(sport === "run");
-  const header = <header className="coach-page-header" data-testid="K2-0"><Text as="h1" data-testid="K2-0-1" variant="pageTitle">{t("today.header.title")}</Text><div data-testid="K2-0-2"><DisciplineTabs value={sport} disabledKeys={["swim"]} /></div>{currentPoint && <div className="coach-current-state"><GlossaryText>{t("coach.metric.tsb")}</GlossaryText><Link data-testid="K2-0-3" aria-label={`${t("coach.metric.tsb")} ${currentPoint.tsb.toFixed(1)}`} to={`/coach/condition?sport=${sport}`}><strong>{currentPoint.tsb.toFixed(1)}</strong></Link></div>}</header>;
+  const header = <header className="coach-page-header" data-testid="K2-0"><Text as="h1" data-testid="K2-0-1" variant="pageTitle">{t("today.header.title")}</Text><div data-testid="K2-0-2"><DisciplineTabs value={sport} disabledKeys={["swim"]} /></div></header>;
+  // 계획/기록 세 탭(오늘 훈련·훈련 계획·활동 기록)은 제목+종목 → 하위 탭 → 본문 순서를 지킨다. 현재 상태는 하위 탭 아래 본문 첫 줄.
+  const currentState = currentPoint && <div className="coach-current-state" style={{ marginBottom: "var(--space-4)" }}><GlossaryText>{t("coach.metric.tsb")}</GlossaryText><Link data-testid="K2-0-3" aria-label={`${t("coach.metric.tsb")} ${currentPoint.tsb.toFixed(1)}`} to={`/coach/condition?sport=${sport}`}><strong>{currentPoint.tsb.toFixed(1)}</strong></Link></div>;
   if (!user) return <div className="site-shell">{header}<EmptyState title={t("today.guest")}  /><CoachSignInButton /></div>;
   const impacts = model.hasCanonicalTimeseries ? deriveActivityImpacts(model.fitnessData, model.disciplineActivities, { limit: 6, dateKeyBasis: model.fitnessDateKeyBasis }) : [];
   const covered = activityIdsCoveredByImpacts(model.disciplineActivities, impacts);
@@ -74,6 +76,7 @@ export default function CoachTodayPage({ startMode }: { startMode?: Run30StartMo
   return <div className="site-shell fitness-reading" style={{ padding: "0 var(--space-4) var(--space-5)" }}>
     {header}
     <PlanRecordNavigation />
+    {currentState}
     <TodayTrainingDecisionSource user={user} discipline={sport}>{state => {
       const hasScheduled = Boolean(state.decision?.scheduledSessions.length);
       const healthBlocked = state.decision != null && state.decision.healthGate.state !== "clear";

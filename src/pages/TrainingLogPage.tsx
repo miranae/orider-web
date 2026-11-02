@@ -21,12 +21,13 @@ import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
 import { useMobile } from "../hooks/useMobile";
 import MobileLogPage from "../components/mobile/MobileLogPage";
+import SportFilterTabs from "../components/mobile/SportFilterTabs";
 import RecentActivitySummary from "../components/activity/RecentActivitySummary";
 import ImportActivityModal from "../components/mobile/ImportActivityModal";
 import { getDiscipline } from "../utils/disciplineFilter";
 import { acceptedPhysicalActivities, estimateActivityTss, sumAcceptedActivityTss } from "../utils/estimateTSS";
 import { planDayKey, planCalendarDate, planMonthBounds } from "@shared/training/planDate";
-import { buttonClass, Button, Card, Text, ToggleControls, ToggleButton } from "../theme/components";
+import { buttonClass, Button, Card, Text } from "../theme/components";
 import { ErrorState } from "../components/redesign";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
 import { ICON_SIZE } from "../theme/tokens/icon";
@@ -497,6 +498,8 @@ export default function TrainingLogPage() {
   const setSportFilter = (sport: string) => {
     const next = new URLSearchParams(importParams);
     next.set("sport", sport);
+    // 종목이 바뀌면 이전 종목의 목록 페이지 위치는 맞지 않는다(모바일 목록 필터에 있던 규칙).
+    next.delete("page"); next.delete("pageMonth"); next.delete("dayPage");
     setImportParams(next, { replace: true });
   };
 
@@ -661,7 +664,9 @@ export default function TrainingLogPage() {
   const fitnessReturn = comparisonState?.fitnessPeriodReturn;
   const safeFitnessReturn = fitnessReturn?.uid === user?.uid && typeof fitnessReturn?.pathname === "string" && /^\/(?:ko\/|en\/)?coach\/(?:analysis|condition)$/.test(fitnessReturn.pathname) && typeof fitnessReturn.search === "string" && typeof fitnessReturn.hash === "string" ? fitnessReturn : null;
   const fitnessPeriodReturnLink = safeFitnessReturn && <LocalizedLink to={safeFitnessReturn}>{t("fitness:periodLoad.return")}</LocalizedLink>;
+  // 계획/기록 세 탭은 같은 머리(제목 + 종목 전환)를 하위 탭 위에 둔다 — 이 탭만 머리가 사라져 탭을 오갈 때 위가 흔들렸다.
   const planRecordHeader = <>{!(isMobile || isNarrowLayout) && fitnessPeriodReturnLink}<PlanPeriodReturn />
+    <header data-testid="P1-H" className="coach-page-header"><Text as="h1" variant="pageTitle">{t("page.logTitle")}</Text><div><SportFilterTabs value={sportFilter} onChange={setSportFilter} /></div></header>
     <PlanRecordNavigation date={recordDate} />
     <div style={{ marginBottom: "var(--space-3)" }}>
       <Text as="p" variant="caption" tone="secondary" role={planOverlay.state === "error" ? "alert" : planOverlay.state === "loading" ? "status" : undefined}>{t(planOverlay.state === "error" ? "planRecords.error" : planOverlay.state === "loading" ? "planRecords.loading" : planOverlay.plans.size ? "planRecords.scope" : "planRecords.empty")}</Text>
@@ -687,6 +692,7 @@ export default function TrainingLogPage() {
       {planRecordHeader}
       {representativeState.error && <ErrorState title={tCommon("error.title")} onRetry={representativeState.retry} compact />}
       <MobileLogPage
+        showSportFilter={false}
         periodReturnSlot={fitnessPeriodReturnLink}
         recentSummarySlot={isMobile && !user.isAnonymous ? <RecentActivitySummary key={user.uid} sport={sportFilter} /> : undefined}
         plannedDates={[...visiblePlans.keys()]}
@@ -708,18 +714,16 @@ export default function TrainingLogPage() {
   }
 
   return (
+    <>
+    {/* 머리는 다른 계획/기록 탭과 같은 자리(셸 정렬선)에 두고, 기록 본문만 좁은 가운데 폭으로 읽는다. */}
+    {planRecordHeader}
     <div className="training-log-page">
-      {planRecordHeader}
 
       {/* ── 헤더 ───────────────────────────────────────────────── */}
       <header data-testid="P1-1" className="training-log-header">
         <div className="training-log-heading">
-          <Text as="h1" variant="title" style={{ margin: 0 }}>{t("page.logTitle")}</Text>
           <Text as="span" variant="caption" tone="secondary">{t("page.logActivities", { count: kpi.count })}</Text>
         </div>
-        <ToggleControls aria-label={tCommon("discipline.selectAria")}>
-          {["all", "bike", "run", "swim"].filter(isSportUiEnabled).map(sport => <ToggleButton key={sport} selected={sportFilter === sport} onClick={() => setSportFilter(sport)}>{tCommon(sport === "all" ? "label.all" : `sportFilter.${sport}`)}</ToggleButton>)}
-        </ToggleControls>
         <div className="training-log-notes">
           <Text as="p" variant="caption" tone="secondary">{t("log.recordBasis")}</Text>
           {kpi.tssEstimated && <Text as="p" variant="caption" tone="secondary">{t("log.estimateBasis")}</Text>}
@@ -928,5 +932,6 @@ export default function TrainingLogPage() {
       </div>
       <ImportActivityModal open={importOpen} onClose={closeImport} />
     </div>
+    </>
   );
 }
