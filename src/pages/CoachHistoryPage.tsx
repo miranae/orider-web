@@ -375,8 +375,7 @@ export default function CoachHistoryPage() {
 
   if (!user) return <section className="coach-history-page coach-history-page--signed-out">
     <header data-testid="K6-0" className="coach-history-page__header">
-      <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><ChartLine size={ICON_SIZE.md} aria-hidden /> {t("history.eyebrow")}</Text>
-        <Text data-testid="K6-0-1" className="coach-history-page__title" as="h1" variant="pageTitle">{t("history.entryTitle")}</Text>
+      <div><Text data-testid="K6-0-1" className="coach-history-page__title" as="h1" variant="pageTitle">{t("history.entryTitle")}</Text>
         <Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.entryDescription")}</Text></div>
       {launcher}
     </header>
@@ -387,8 +386,7 @@ export default function CoachHistoryPage() {
 
   return <section className={`coach-history-page${threadId ? " has-selection" : ""}`}>
     <header data-testid="K6-0" className="coach-history-page__header">
-      <div><Text className="coach-history-page__eyebrow" as="p" variant="eyebrow" tone="accent"><History size={ICON_SIZE.md} aria-hidden /> {t("history.eyebrow")}</Text>
-        <Text data-testid="K6-0-1" className="coach-history-page__title" as="h1" variant="pageTitle">{t("history.title")}</Text><Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.description")}</Text></div>
+      <div><Text data-testid="K6-0-1" className="coach-history-page__title" as="h1" variant="pageTitle">{t("history.title")}</Text><Text className="coach-history-page__description" as="p" variant="bodySmall" tone="secondary">{t("history.description")}</Text></div>
       <div className="coach-history-page__actions">{launcher}
         {threads.length > 0 && <Button data-testid="K6-0-4" className="coach-history-page__delete-all" variant="ghost" size="sm"
           disabled={deleting || submitting} onClick={() => void removeAll()}>{t("history.deleteAll")}</Button>}</div>

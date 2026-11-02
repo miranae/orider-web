@@ -59,6 +59,8 @@
 .fitness-page-header__heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-1) var(--space-3); flex: 1 1 auto; min-width: 0; }
 .fitness-page-header__heading h1 { margin: 0; }
 .fitness-page-header__title-row > div:has(> [role="tablist"]) { margin-inline-start: auto; max-width: 100%; }
+/* 제목 줄 안의 전환은 위아래 여백 0 — 제목을 하위 탭 아래 16 에 둔다(코치 머리와 같은 규칙). */
+.fitness-page-header__title-row .discipline-tabs { margin-block: 0; }
 .fitness-page-header__subtitle { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); color: var(--ink-2); font-size: var(--fs-sm); }
 
 .condition-performance-evidence-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); align-items: start; }

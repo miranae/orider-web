@@ -834,16 +834,19 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
       </dialog>}
 
       <section className="grid gap-4">
+        {/* 제목은 다른 탐색 화면처럼 카드 밖, 하위 탭 바로 아래(셸 여백 16)에 둔다. */}
+        {section === "overview" && <header>
+          <Text as="h1" variant="pageTitle" data-testid="E6-0" className="max-w-4xl">{copy.headline}</Text>
+          <p className="mt-2 max-w-4xl text-[length:var(--fs-base)] leading-7" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.subtitle}</GlossaryText></p>
+        </header>}
         <div className="min-w-0 rounded-[var(--r-lg)] border p-6 md:p-8" style={{ background: "var(--bg-1)", borderColor: "var(--line)" }}>
           {section === "overview" ? (
           <>
-          <div className="mb-3 inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--ft-body-size)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--lime)" }}>
+          <div className="inline-flex items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-[length:var(--ft-body-size)] font-semibold" style={{ background: "var(--bg-2)", color: "var(--lime)" }}>
             <Sparkles size={ICON_SIZE.sm} />
             {copy.eyebrow}
           </div>
-          <Text as="h1" variant="pageTitle" data-testid="E6-0" className="mt-2 max-w-4xl">{copy.headline}</Text>
-          <p className="mt-3 max-w-4xl text-[length:var(--fs-base)] leading-7" style={{ color: "var(--ink-3)" }}><GlossaryText>{copy.subtitle}</GlossaryText></p>
-          <div className="mt-6 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
+          <div className="mt-4 grid gap-2 min-[420px]:flex min-[420px]:flex-wrap">
             <Button className={recipeActionClass} size="sm" variant="secondary" onClick={handleGenerateDiary} loading={generating || policyLoading}>
               <Bot size={ICON_SIZE.sm} />
               {user ? (generating ? copy.actions.generating : copy.actions.generate) : copy.actions.loginNeeded}
