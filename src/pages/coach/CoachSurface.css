@@ -2,7 +2,8 @@
 .coach-surface {
  min-width: 0; color: var(--ink-1);
 }
-.coach-surface .coach-page-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); margin-bottom: var(--space-5); }
+/* 머리 아래 → 본문 16: 분석처럼 종목 전환 아래가 16 이 되게(데스크톱은 전환 줄 높이에 4 가 더해져 12). */
+.coach-surface .coach-page-header { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); margin-bottom: var(--space-3); }
 .coach-page-header h1 { flex: 1 1 auto; margin: 0; }
 .coach-page-header > div:has(> [role="tablist"]) { width: fit-content; max-width: 100%; }
 .coach-page-header > a { display: inline-flex; align-items: baseline; gap: var(--space-2); color: var(--ink-1); }
@@ -37,8 +38,10 @@
 
 @media (max-width: 36rem) {
  .coach-surface .coach-page-header > div:has(> [role="tablist"]) { width: 100%; }
- /* 종목 전환이 제목 아래 줄로 내려가면 세그먼트 위 여백(16)을 빼 컨디션·분석처럼 제목에 붙인다. */
- .coach-surface .coach-page-header > div:has(> [role="tablist"]) > [role="tablist"] { margin-top: 0; }
+ /* 종목 전환이 제목 아래 줄로 내려가면 세그먼트 위아래 여백(16)을 빼 컨디션·분석처럼 제목에 붙이고,
+    아래는 머리 여백 16 하나만 둔다(세그먼트 16 + 머리 20 이 겹쳐 계획·목표만 36 이었다). */
+ .coach-surface .coach-page-header > div:has(> [role="tablist"]) > [role="tablist"] { margin-block: 0; }
+ .coach-surface .coach-page-header { margin-bottom: var(--space-4); }
 }
 
 /* 코치 포털은 body 직속이므로 페이지 스코프와 같은 대비를 명시한다. */

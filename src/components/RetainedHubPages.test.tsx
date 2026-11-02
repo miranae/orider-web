@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { expect, it } from "vitest";
 import { getActiveHub } from "../config/navHubs";
-import { RetainedHubPages } from "./RetainedHubPages";
+import { RetainedHubPages, retainedScreenKey } from "./RetainedHubPages";
 import { HUB_RETURN_STATE } from "../services/hubReturn";
 
 function Page({ name }: { name: string }) {
@@ -78,4 +78,30 @@ it("탭으로 같은 화면에 돌아오면 새 방문(location.key)으로 보�
   fireEvent.click(screen.getByText("Coach tab"));
   fireEvent.click(screen.getByText("Home link"));
   expect(screen.getByText(/^key:/).textContent).not.toBe(first);
+});
+
+it("코치 컨디션·오늘·분석은 한 화면으로, 계획·목표는 따로 살려 둔다", () => {
+  expect(retainedScreenKey("/coach/condition")).toBe(retainedScreenKey("/coach/analysis"));
+  expect(retainedScreenKey("/coach/today")).toBe("/coach/fitness");
+  expect(retainedScreenKey("/coach/plan")).toBe("/coach/plan");
+  expect(retainedScreenKey("/coach/goals")).toBe("/coach/goals");
+});
+
+it("같은 허브의 다른 하위 화면에 다녀와도 먼저 본 하위 화면의 상태를 그대로 보여 준다", () => {
+  function SubShell() {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const path = location.pathname;
+    return <>
+      <button onClick={() => navigate("/coach/plan")}>Plan</button>
+      <button onClick={() => navigate("/coach/analysis")}>Analysis</button>
+      <RetainedHubPages path={path} hub={getActiveHub(path)} owner="u1">{path === "/coach/plan" ? <Page name="plan" /> : <Page name="fitness" />}</RetainedHubPages>
+    </>;
+  }
+  render(<MemoryRouter initialEntries={["/coach/condition"]}><SubShell /></MemoryRouter>);
+  fireEvent.click(screen.getByText("fitness:0"));
+  fireEvent.click(screen.getByText("Plan"));
+  expect(screen.getByText("fitness:1")).not.toBeVisible();
+  fireEvent.click(screen.getByText("Analysis"));
+  expect(screen.getByText("fitness:1")).toBeVisible();
 });
