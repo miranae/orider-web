@@ -1,0 +1,8 @@
+{
+  "viewport": "390x844",
+  "fixture": "synthetic; real component; RouteMap load withheld; no remote writes",
+  "overflow": false,
+  "hidden": "0",
+  "after": true,
+  "errors": []
+}
