@@ -35,7 +35,7 @@ jobs:
         with:
           repository: miranae/orider-web
           path: production-monitor-${{ github.run_id }}-${{ github.run_attempt }}
-          ref: fdf607876053e16bd37a5e51a9b6fbe376841eee # reviewed checker code; caller cannot select executable code
+          ref: 945e2bfdb9bec744930a9e1f31eab63911f485be # reviewed checker code; caller cannot select executable code
           persist-credentials: false
       - uses: actions/setup-node@v6
         with:
@@ -64,7 +64,7 @@ jobs:
           MONITOR_TRIGGER: ${{ inputs.source_run != '' && format('production-deploy-{0}-plus-five-minutes', steps.source.outputs.outcome) || github.event_name }}
         run: node scripts/production-monitor.mjs
       - name: Existing mobile viewport smoke
-        if: inputs.source_run == '' || steps.source.outputs.should_check == 'true'
+        if: ${{ !cancelled() && (inputs.source_run == '' || steps.source.outputs.should_check == 'true') }}
         run: npx playwright test --config playwright.prod.config.ts
       - name: Store result and privacy-safe failure evidence
         if: always()

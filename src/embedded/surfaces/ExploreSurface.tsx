@@ -1,4 +1,4 @@
-import { lazy, useEffect, useState } from "react";
+import { lazy, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { EmbeddedExploreNavigation } from "../EmbeddedExploreNavigation";
@@ -30,21 +30,24 @@ export function ExplorePageContent({ page, section }: { page: EmbeddedExplorePag
   return <Page />;
 }
 
-/**
- * 앱 탐색 탭: `?page=` 서브탭 + 웹 탐색 허브 페이지.
- * 선택한 서브탭은 상태로 들고 있는다 — 게시판이 `page` 를 페이지 번호로 다시 쓰거나 지워도
- * 서브탭이 바뀌지 않게 하고, URL 의 `page` 가 유효한 서브탭 값으로 바뀔 때만 따라간다.
- */
+/** 탐색 선택은 tab, 각 목록의 페이지 번호는 page로 독립해 이력·새로고침을 보존한다. */
 export default function ExploreSurface(props: HubSurfaceProps) {
   const { t } = useTranslation("common");
   const [params, setParams] = useSearchParams();
-  const requested = embeddedExplorePage(params.get("page"));
-  const [selected, setSelected] = useState<EmbeddedExplorePage>(requested ?? DEFAULT_EXPLORE_PAGE);
-  useEffect(() => { if (requested) setSelected(requested); }, [requested]);
+  const legacy = embeddedExplorePage(params.get("page"));
+  const requested = embeddedExplorePage(params.get("hubPage"));
+  const selected = requested ?? legacy ?? DEFAULT_EXPLORE_PAGE;
+  useEffect(() => {
+    // 기존 앱의 ?page=board 링크도 계속 받되, 목록이 page를 쓰기 전에 정규화한다.
+    if (!requested && legacy) {
+      const next = new URLSearchParams(params);
+      next.set("hubPage", legacy);
+      next.delete("page");
+      setParams(next, { replace: true });
+    }
+  }, [params, setParams, legacy, requested]);
   const select = (page: EmbeddedExplorePage) => {
-    setSelected(page);
-    // 서브탭을 바꾸면 이전 화면의 검색·필터 조건은 버린다(웹 허브 서브탭 이동과 같다).
-    setParams(new URLSearchParams({ page }));
+    setParams(new URLSearchParams({ hubPage: page }));
   };
   return (
     <HubSurfaceFrame {...props} title={t("nav.explore")} testId="embedded-explore"

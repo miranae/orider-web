@@ -57,6 +57,22 @@ function strictWrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe("useWeeklyStats", () => {
+  it("retries a failed weekly read when connectivity returns without treating it as empty", async () => {
+    simulateLogin({ uid: "user-1" });
+    const now = new Date(2026, 9, 7, 15, 45);
+    setCollectionDocs("activities", [createMockActivity({ id: "recovered", userId: "user-1", startTime: now.getTime() - 1000,
+      summary: createMockSummary({ distance: 12000 }) })]);
+    vi.mocked(getDocs).mockRejectedValueOnce(new Error("unavailable"));
+    const { result } = renderHook(() => useWeeklyStats({ now }), { wrapper });
+    await waitFor(() => expect(result.current.recent7DayCoverage).toBe("error"));
+    act(() => window.dispatchEvent(new Event("online")));
+    await waitFor(() => expect(result.current.recent7DayCoverage).toBe("ready"));
+    expect(result.current.thisWeek.distance).toBe(12000);
+    const calls = vi.mocked(getDocs).mock.calls.length;
+    act(() => window.dispatchEvent(new Event("online")));
+    expect(getDocs).toHaveBeenCalledTimes(calls);
+  });
+
   it("disabled weekly statistics do not read and reenable for the current owner", async () => {
     simulateLogin({ uid: "user-1" });
     const now = new Date(2026, 9, 7, 15, 45);

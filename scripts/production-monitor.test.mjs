@@ -136,3 +136,19 @@ test('checker source evidence cannot start an early or unbound deployment observ
   assert.throws(() => assertDeploymentCheckpoint({ ...result, sourceAttempt: undefined }, due));
   assert.throws(() => assertDeploymentCheckpoint({ ...result, shouldCheck: false }, due));
 });
+
+test('blocked App Check is an explicit failed dependency state, not a healthy or feed API verdict', () => {
+  assert.equal(classify({ ...healthy, cards: 0, cardContentVisible: false, feedAlert: true,
+    dependencyErrors: [{url: "https://content-firebaseappcheck.googleapis.com/v1/projects/fixture", status: 403}], apiErrors: [] }), 'app_check_blocked');
+  assert.equal(classify({ ...healthy, feedAlert: true, dependencyErrors: [{url: "https://content-firebaseappcheck.googleapis.com/v1/projects/fixture", status: 403}],
+    apiErrors: ['real feed API failure'] }), 'api_error');
+});
+
+test('console and network diagnostics alone do not prove App Check rejection', () => {
+  const failed = { ...healthy, cards: 0, cardContentVisible: false, feedAlert: true };
+  for (const evidence of ['App Check console diagnostic', {failure: 'net::ERR_FAILED'},
+    {url: 'https://content-firebaseappcheck.googleapis.com/x', status: 500},
+    {url: 'https://content-firebaseappcheck.googleapis.com.evil.test/x', status: 403}]) {
+    assert.equal(classify({...failed, dependencyErrors: [evidence]}), 'api_error');
+  }
+});

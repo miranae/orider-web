@@ -21,11 +21,11 @@ describe("app explore tab sub-pages", () => {
 describe("hub embed destinations", () => {
   it.each(["ko", "en"])("keeps %s explore list links inside the explore embed with their filters", lang => {
     expect(embeddedHubDestination(`/${lang}/embed/explore`, `/${lang}/explore/events?type=race#list`))
-      .toBe(`/${lang}/embed/explore?type=race&page=events#list`);
+      .toBe(`/${lang}/embed/explore?type=race&hubPage=events#list`);
     expect(embeddedHubDestination(`/${lang}/embed/explore`, "/community/board?type=inquiry&page=3"))
-      .toBe(`/${lang}/embed/explore?type=inquiry&page=board`);
+      .toBe(`/${lang}/embed/explore?type=inquiry&page=3&hubPage=board`);
     expect(embeddedHubDestination(`/${lang}/embed/explore`, "/explore/recipes/recipes"))
-      .toBe(`/${lang}/embed/explore?page=recipes&section=recipes`);
+      .toBe(`/${lang}/embed/explore?hubPage=recipes&section=recipes`);
   });
 
   it("keeps club list links in the clubs embed", () => {
@@ -44,7 +44,7 @@ describe("hub embed destinations", () => {
 
   it("combines coach and hub destinations", () => {
     expect(embeddedInternalDestination("/ko/embed/plan", "/coach/analysis")).toBe("/ko/embed/plan?page=analysis");
-    expect(embeddedInternalDestination("/ko/embed/explore", "/explore/athletes?q=kim")).toBe("/ko/embed/explore?q=kim&page=athletes");
+    expect(embeddedInternalDestination("/ko/embed/explore", "/explore/athletes?q=kim")).toBe("/ko/embed/explore?q=kim&hubPage=athletes");
     expect(embeddedInternalDestination("/ko/embed/explore", "/coach/analysis")).toBeNull();
   });
 });
