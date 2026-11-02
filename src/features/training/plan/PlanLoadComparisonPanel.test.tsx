@@ -34,6 +34,17 @@ function mount() {
 }
 const requestedRange = () => vi.mocked(usePlanLoadComparison).mock.calls.at(-1)?.[0].range;
 
+it("keeps previous, reference date and next in one fixed-column stepper so they never overlap on phones", () => {
+  // 한 줄 flex 에서는 iOS 날짜 칸이 넓어지면 화살표와 겹쳤다(2026-11-03) — 세 요소를 같은 격자 칸에 둔다.
+  mount();
+  const previous = screen.getByRole("button", { name: "이전 기간" });
+  const stepper = previous.parentElement!;
+  expect(stepper).toHaveClass("plan-load-comparison__stepper");
+  expect(stepper.children).toHaveLength(3);
+  expect(stepper.lastElementChild).toBe(screen.getByRole("button", { name: "다음 기간" }));
+  expect(stepper.querySelector('input[type="date"]')).not.toBeNull();
+});
+
 it("compares day, Monday-based week, calendar month and selected date ranges", () => {
   mount();
   expect(requestedRange()).toEqual({ start: "2026-10-19", end: "2026-10-25" });
