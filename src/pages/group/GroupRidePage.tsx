@@ -15,7 +15,7 @@ import {
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { debugLog, logClientError } from "../../services/errorLogger";
 import { getPublicUserProfiles } from "../../services/publicProfiles";
-import { getActivityStreams } from "../../services/personalDataApi";
+import { getActivityStreamsWithAuth } from "../../services/personalDataApi";
 import { isPermissionDeniedError } from "../../utils/firebaseErrors";
 import { httpsCallable } from "firebase/functions";
 import { useAuth } from "../../contexts/AuthContext";
@@ -156,7 +156,7 @@ const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(acti
             setStreams((prev) => ({ ...prev, [a.id]: result.data as unknown as ActivityStreams }));
           }
         } else if (a.source === "strava") {
-          const viaApi = await getActivityStreams(a.id);
+          const viaApi = await getActivityStreamsWithAuth(auth, a.id, { functions, ensureAppCheckReady });
           if (isCurrent()) setStreams(prev => ({ ...prev, [a.id]: viaApi }));
         } else if (a.source === "orider") {
           // Orider 활동은 activity_streams/{activityId}에서 직접 읽는다. 직접 읽기가
@@ -167,7 +167,7 @@ const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(acti
           } catch (readErr) {
             if (!isPermissionDeniedError(readErr)) throw readErr;
             debugLog("groupRide.streams.direct_read_denied_api_fallback", { activityId: a.id, rideId });
-            const viaApi = await getActivityStreams(a.id);
+            const viaApi = await getActivityStreamsWithAuth(auth, a.id, { functions, ensureAppCheckReady });
             if (isCurrent()) setStreams((prev) => ({ ...prev, [a.id]: viaApi }));
             return;
           }
@@ -175,7 +175,7 @@ const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(acti
           if (!streamSnap.exists()) throw new Error("STREAMS_MISSING");
           const data = streamSnap.data();
           if (data.storage === "gcs" && typeof data.gcsPath === "string") {
-            const viaApi = await getActivityStreams(a.id);
+            const viaApi = await getActivityStreamsWithAuth(auth, a.id, { functions, ensureAppCheckReady });
             if (isCurrent()) setStreams((prev) => ({ ...prev, [a.id]: viaApi }));
           } else if (typeof data.json === "string") {
             setStreams((prev) => ({ ...prev, [a.id]: JSON.parse(data.json) as ActivityStreams }));
