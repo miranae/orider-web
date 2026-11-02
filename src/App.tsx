@@ -117,6 +117,8 @@ export function AppRoutes() {
         <Route path="embed/fitness" element={<EmbeddedBootstrapRoot surfaceKind="fitness" />} />
         <Route path="embed/plan" element={<EmbeddedBootstrapRoot surfaceKind="plan" />} />
         <Route path="embed/clubs" element={<EmbeddedBootstrapRoot surfaceKind="clubs" />} />
+        {/* 클럽 상세와 하위 화면(rides·members·meetings …)은 한 임베드 세션 안에서 이동한다. */}
+        <Route path="embed/clubs/:groupId/*" element={<EmbeddedBootstrapRoot surfaceKind="club-detail" />} />
         <Route path="embed/explore" element={<EmbeddedBootstrapRoot surfaceKind="explore" />} />
         <Route path="embed/search" element={<EmbeddedBootstrapRoot surfaceKind="search" />} />
         <Route element={<Layout />}>
@@ -386,7 +388,8 @@ function StandardApp() {
 }
 
 export function isEmbeddedRoutePath(pathname: string): boolean {
-  return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/(?:analysis|public)|fitness|plan|clubs|explore|search)\/?$/.test(pathname);
+  return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/(?:analysis|public)|fitness|plan|clubs|explore|search)\/?$/.test(pathname)
+    || /^\/[^/]+\/embed\/clubs\/[^/]+(?:\/.*)?$/.test(pathname);
 }
 
 export default function App() {

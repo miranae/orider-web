@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { auth } from "../services/firebase";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { getGroupInviteCode, regenerateGroupInviteCode, type GroupInviteAdminResult } from "../features/group/groupInviteAdmin";
@@ -7,6 +6,7 @@ import { normalizeGroupInviteCode } from "../features/group/groupInviteLink";
 
 export function useGroupInviteCode(groupId: string | undefined, userId: string | undefined) {
   const services = useFirebaseServices();
+  const { auth } = services;
   const applyIssuedRef = useRef<((result: GroupInviteAdminResult) => void) | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState({ groupId, userId, code: "", status: "loading", expiresAt: 0, details: null as GroupInviteAdminResult | null });
