@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { collection, doc, getDoc, query, where, limit, onSnapshot } from "firebase/firestore";
-import { auth, ensureAppCheckReady, firestore } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { isPermissionDeniedError } from "../../utils/firebaseErrors";
 import { useAuth } from "../../contexts/AuthContext";
@@ -17,7 +17,6 @@ import { useDialog } from "../../contexts/DialogContext";
 import type { JoinGroupPublicResult } from "../../features/group/groupJoinResult";
 import { canManageGroup } from "../../features/group/groupPermissions";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../../services/firebase";
 import { useToast } from "../../contexts/ToastContext";
 import { useGroup, useGroupMemberRole, useGroupMembers } from "../../hooks/useGroup";
 import { useGroupRideStats } from "../../hooks/useGroupRides";
@@ -41,6 +40,7 @@ interface UpcomingEvent {
 }
 
 export default function GroupDashboardPage() {
+  const { auth, ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
   const { user: authUser, loading: authLoading } = useAuth();
@@ -221,7 +221,7 @@ export default function GroupDashboardPage() {
     if (!current()) return;
     setPosting(true);
     try {
-      await createGroupPost({groupId, content: submitted, kind: canManage ? "announcement" : "post"});
+      await createGroupPost({groupId, content: submitted, kind: canManage ? "announcement" : "post"}, functions);
       if (!current()) return;
       setPostContent(draft => draft === submitted ? "" : draft);
       showToast(t("dashboard.posts.success"));
@@ -242,7 +242,7 @@ export default function GroupDashboardPage() {
     try {
       await ensureAppCheckReady();
       if (editIntent.current !== intent || auth.currentUser?.uid !== uid) return;
-      await updateGroupPost({ groupId, postId: post.id, content: editingContent });
+      await updateGroupPost({ groupId, postId: post.id, content: editingContent }, functions);
       if (editIntent.current !== intent || auth.currentUser?.uid !== uid) return;
       setEditingPostId(null);
       setEditingContent("");

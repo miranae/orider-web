@@ -1,10 +1,11 @@
+import { RetainedSurfaceActivity } from "./RetainedSurfaceActivity";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DialogProvider } from "../contexts/DialogContext";
 import { ToastProvider } from "../contexts/ToastContext";
 import { EmbeddedNavigationContext } from "./EmbeddedNavigationContext";
 import { EmbeddedCoachNavigation } from "./EmbeddedCoachNavigation";
 import { embeddedCoachPage } from "./coachNavigation";
-import { embeddedInternalDestination } from "./hubNavigation";
+import { CLUB_DETAIL_EMBED_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
 import { embeddedCommentId } from "./commentTarget";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -74,6 +75,7 @@ const PlanSurface = lazy(loadPlanSurface);
 const ClubsSurface = lazy(() => import("./surfaces/ClubsSurface"));
 const ExploreSurface = lazy(() => import("./surfaces/ExploreSurface"));
 const SearchSurface = lazy(() => import("./surfaces/SearchSurface"));
+const ClubDetailSurface = lazy(() => import("./surfaces/ClubDetailSurface"));
 
 const CONTRACT_VERSION = 1 as const;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/;
@@ -156,15 +158,18 @@ interface EmbeddedBootstrapRootProps {
 }
 
 export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "fitness" | "plan" | EmbeddedHubSurfaceKind;
-/** 앱 클럽·탐색 탭과 검색 화면. 공개 목록이라 로그인 인계 없이(게스트) 열려도 보인다. */
-export type EmbeddedHubSurfaceKind = "clubs" | "explore" | "search";
+/**
+ * 앱 클럽·탐색 탭과 검색 화면, 클럽 상세. 공개 목록·공개 클럽 미리보기라 로그인 인계 없이(게스트)
+ * 열려도 보인다(웹 클럽 상세도 비로그인이면 PublicClubPreview 다).
+ */
+export type EmbeddedHubSurfaceKind = "clubs" | "explore" | "search" | "club-detail";
 
 function isActivitySurfaceKind(kind: EmbeddedSurfaceKind): kind is "activity-analysis" | "activity-public" {
   return kind === "activity-analysis" || kind === "activity-public";
 }
 
 export function isHubSurfaceKind(kind: EmbeddedSurfaceKind): kind is EmbeddedHubSurfaceKind {
-  return kind === "clubs" || kind === "explore" || kind === "search";
+  return kind === "clubs" || kind === "explore" || kind === "search" || kind === "club-detail";
 }
 
 /** host.surfaceSelected·트레이닝 캐시를 쓰지 않는 단일 표면(활동·허브). */
@@ -499,6 +504,8 @@ function AuthorizedSurface({
                 <ExploreSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "search" ? (
                 <SearchSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
+              ) : surfaceKind === "club-detail" ? (
+                <ClubDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "activity-public" && activityId ? (
                 <PublicActivitySurface embedded activityId={activityId} commentId={embeddedTarget} retryKey={retryKey}
                   onReady={() => bridge.send("surface.ready", { activityId })}
@@ -578,6 +585,7 @@ export default function EmbeddedBootstrapRoot({
   }));
   const [session, setSession] = useState<AcceptedSession | null>(null);
   const [retryKey, setRetryKey] = useState(0);
+  const [hostForeground, setHostForeground] = useState(true);
   const initialTrainingSurface = surfaceKind === "fitness" || surfaceKind === "plan"
     ? surfaceKind
     : null;
@@ -1033,6 +1041,8 @@ export default function EmbeddedBootstrapRoot({
       if (message.type === "host.lifecycle") {
         if (!isLifecyclePayload(message.payload)) {
           safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
+        } else {
+          setHostForeground((message.payload as { state: string }).state === "foreground");
         }
         return;
       }
@@ -1099,6 +1109,8 @@ export default function EmbeddedBootstrapRoot({
         RETAINED_SURFACE_SELECTION_CAPABILITY,
         SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
         RUN_START_SCHEDULED_CAPABILITY,
+        CLUB_DETAIL_EMBED_CAPABILITY,
+        "host.lifecycle",
       ],
     });
     return () => {
@@ -1161,6 +1173,8 @@ export default function EmbeddedBootstrapRoot({
       onClickCapture={handleNavigation}
     >
       {session && (!isActivitySurfaceKind(surfaceKind) || activityId) ? (
+        <RetainedSurfaceActivity foreground={hostForeground}
+          contentVisible={isStandaloneSurfaceKind(surfaceKind) || selectedTrainingSurface !== null}>
         <AuthorizedSurface
           key={services.auth.currentUser?.uid ?? "signed-out"}
           activityId={activityId}
@@ -1178,6 +1192,7 @@ export default function EmbeddedBootstrapRoot({
           surfaceKind={surfaceKind}
           trainingSurfaceVisible={selectedTrainingSurface !== null}
         />
+        </RetainedSurfaceActivity>
       ) : (
         <div className="orider-embedded-status" role="status" aria-label="Waiting for host authorization">
           <div className="orider-embedded-status__pulse" />

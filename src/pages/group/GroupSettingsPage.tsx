@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { doc, updateDoc } from "firebase/firestore";
-import { auth, firestore } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
@@ -22,6 +22,7 @@ import { Button, Card, Switch, Text, Input, Textarea } from "../../theme/compone
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export default function GroupSettingsPage() {
+  const { auth, firestore } = useFirebaseServices();
   const { t } = useTranslation("group");
   const { groupId } = useParams();
   const { user } = useAuth();

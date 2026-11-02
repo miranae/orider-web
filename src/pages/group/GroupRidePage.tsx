@@ -12,7 +12,7 @@ import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import {
   doc, getDoc,
 } from "firebase/firestore";
-import { auth, ensureAppCheckReady, firestore, functions } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { debugLog, logClientError } from "../../services/errorLogger";
 import { getPublicUserProfiles } from "../../services/publicProfiles";
 import { getActivityStreams } from "../../services/personalDataApi";
@@ -49,6 +49,7 @@ import { ICON_SIZE } from "../../theme/tokens/icon";
 
 
 export default function GroupRidePage() {
+  const { auth, ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const mapboxToken = getMapboxToken();
   const [webglSupported] = useState(supportsWebGL);
   const [mapFailed, setMapFailed] = useState(false);

@@ -3,7 +3,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
-import { auth, ensureAppCheckReady, functions } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { searchPublicUserProfilesPage, type PublicUserProfile } from "../../services/publicProfiles";
 import Avatar from "../Avatar";
@@ -25,6 +25,7 @@ interface SearchResult {
 }
 
 export default function InviteMemberModal({ open, onClose, groupId, inviteCode, inviteStatus, onRetry }: InviteMemberModalProps) {
+  const { auth, ensureAppCheckReady, functions } = useFirebaseServices();
   const { user } = useAuth();
   const uid = user?.uid;
   const searchId = useId();

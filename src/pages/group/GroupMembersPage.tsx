@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { collection, getDocs, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { auth, ensureAppCheckReady, firestore, functions } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDialog } from "../../contexts/DialogContext";
@@ -46,6 +46,7 @@ interface InvitationDoc {
 }
 
 export default function GroupMembersPage({ management = false }: { management?: boolean }) {
+  const { auth, ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const { t, i18n } = useTranslation("group");
   const { groupId } = useParams();
   const [searchParams] = useSearchParams();
@@ -309,7 +310,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
     setRoleBusyId(targetUserId);
     try {
       // #379: 서버(CF)가 creator 권한·대상 유효성·updatedAt 을 강제 — 직접 쓰기 제거.
-      await setGroupMemberRole({ groupId, userId: targetUserId, role: nextRole });
+      await setGroupMemberRole({ groupId, userId: targetUserId, role: nextRole }, functions);
       if (!current()) return;
       showToast(t(nextRole === "co-leader" ? "members.promoteSuccess" : "members.demoteSuccess", { name }));
     } catch (err) {
@@ -342,7 +343,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
         groupId,
         targetUserId: target.id,
         leaveAfterTransfer,
-      });
+      }, functions);
       if (!current()) return;
       showToast(t(result.leftGroup
         ? "members.leadership.transferAndLeaveSuccess"
