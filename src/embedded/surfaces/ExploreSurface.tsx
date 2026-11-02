@@ -35,19 +35,19 @@ export default function ExploreSurface(props: HubSurfaceProps) {
   const { t } = useTranslation("common");
   const [params, setParams] = useSearchParams();
   const legacy = embeddedExplorePage(params.get("page"));
-  const requested = embeddedExplorePage(params.get("tab"));
+  const requested = embeddedExplorePage(params.get("hubPage"));
   const selected = requested ?? legacy ?? DEFAULT_EXPLORE_PAGE;
   useEffect(() => {
     // 기존 앱의 ?page=board 링크도 계속 받되, 목록이 page를 쓰기 전에 정규화한다.
     if (!requested && legacy) {
       const next = new URLSearchParams(params);
-      next.set("tab", legacy);
+      next.set("hubPage", legacy);
       next.delete("page");
       setParams(next, { replace: true });
     }
   }, [params, setParams, legacy, requested]);
   const select = (page: EmbeddedExplorePage) => {
-    setParams(new URLSearchParams({ tab: page }));
+    setParams(new URLSearchParams({ hubPage: page }));
   };
   return (
     <HubSurfaceFrame {...props} title={t("nav.explore")} testId="embedded-explore"

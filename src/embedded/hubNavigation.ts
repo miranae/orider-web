@@ -47,7 +47,7 @@ export function embeddedHubDestination(currentPath: string, destination: string)
   const explore = explorePageForWebPath(path);
   if (!explore) return null;
   // 서브탭은 목록 페이지 번호와 별도 저장한다.
-  target.searchParams.set("tab", explore.page);
+  target.searchParams.set("hubPage", explore.page);
   if (explore.section) target.searchParams.set("section", explore.section);
   else target.searchParams.delete("section");
   return `${embedPath}?${target.searchParams}${target.hash}`;

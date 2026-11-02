@@ -9,6 +9,7 @@ function listPage(name: string) {
       const [params, setParams] = useSearchParams();
       return <div data-testid={`page-${name}`} data-query={params.toString()} data-section={section ?? ""}>
         <button type="button" onClick={() => setParams(current => { const next = new URLSearchParams(current); next.set("page", "2"); return next; })}>next page</button>
+        {name === "recipes" && <button type="button" onClick={() => setParams(current => { const next = new URLSearchParams(current); next.delete("tab"); return next; })}>Featured tab</button>}
       </div>;
     },
   };
@@ -71,26 +72,33 @@ describe("explore embed", () => {
 
   it("opens the requested page, switches tabs without keeping the previous filters and keeps the board when it paginates", async () => {
     renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?page=athletes&q=kim");
-    expect(await screen.findByTestId("page-athletes")).toHaveAttribute("data-query", "q=kim&tab=athletes");
+    expect(await screen.findByTestId("page-athletes")).toHaveAttribute("data-query", "q=kim&hubPage=athletes");
 
     fireEvent.click(screen.getByRole("button", { name: "게시판" }));
     expect(await screen.findByTestId("page-board")).toBeInTheDocument();
-    expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?tab=board");
+    expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?hubPage=board");
 
     // 게시판은 `page` 를 페이지 번호로 다시 쓴다 — 서브탭은 게시판에 머문다.
     fireEvent.click(screen.getByRole("button", { name: "next page" }));
-    expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?tab=board&page=2");
+    expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?hubPage=board&page=2");
     expect(screen.getByTestId("page-board")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "게시판" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("fresh mount and Back restore board pagination independently of the hub tab", async () => {
-    renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?tab=board&page=2");
-    expect(await screen.findByTestId("page-board")).toHaveAttribute("data-query", "tab=board&page=2");
+    renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?hubPage=board&page=2");
+    expect(await screen.findByTestId("page-board")).toHaveAttribute("data-query", "hubPage=board&page=2");
     fireEvent.click(screen.getByRole("button", { name: "사람" }));
     expect(await screen.findByTestId("page-athletes")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "history back" }));
-    expect(await screen.findByTestId("page-board")).toHaveAttribute("data-query", "tab=board&page=2");
+    expect(await screen.findByTestId("page-board")).toHaveAttribute("data-query", "hubPage=board&page=2");
+  });
+
+  it("keeps the outer selection when Creator Hub selects Featured and clears its own tab", async () => {
+    renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?page=recipes&section=recipes&tab=saved");
+    expect(await screen.findByTestId("page-recipes")).toHaveAttribute("data-query", "section=recipes&tab=saved&hubPage=recipes");
+    fireEvent.click(screen.getByRole("button", { name: "Featured tab" }));
+    expect(await screen.findByTestId("page-recipes")).toHaveAttribute("data-query", "section=recipes&hubPage=recipes");
   });
 
   it("passes the creator section from the query", async () => {
