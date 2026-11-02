@@ -276,6 +276,10 @@ assert_local_head_matches_pr "게이트 시작"
 # 코드 기준으로 돌고 CI 재실행도 병렬로 진행돼, 게이트 전부 통과 후 BEHIND 로 죽어
 # 수동 갱신+전체 재실행하던 낭비(#227 사례)가 없어진다.
 if [[ "$MERGE_STATE" == "BEHIND" ]]; then
+  # A promotion head is a long-lived branch: update it only through a reviewed PR.
+  case "$HEADREF" in
+    main|dev) die "보호 통합 브랜치는 자동 push하지 않습니다. 정상 동기화 PR 또는 main 기반 hotfix PR을 사용하세요." ;;
+  esac
   log "base 전진 감지(BEHIND) — origin/$BASE 자동 머지 후 푸시"
   git fetch origin "$BASE" --quiet || true
   git merge "origin/$BASE" --no-edit --quiet \
