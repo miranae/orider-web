@@ -33,8 +33,9 @@ it.each(cases)("prevents %s dispatch after same-UID SDK-user replacement",async(
  const s=sdk();s.ensureAppCheckReady=vi.fn(async()=>{Object.assign(s.auth,{currentUser:{uid:"owner",isAnonymous:false}});});await expect(load(s)).rejects.toThrow("account_changed");expect(spies.call).not.toHaveBeenCalled();
 });
 it("does not enable Stage run overlays through the production bike capability",async()=>{
- expect(trainingAnalysisPeriodsAvailable("bike")).toBe(true); expect(trainingAnalysisPeriodsAvailable("run")).toBe(false); expect(trainingAnalysisPeriodsAvailable("swim")).toBe(false);
- for(const request of [{discipline:"run",periods:[period]}, {discipline:"bike",periods:[period],includeStageRunTimeCorrections:true}]) await expect(loadTrainingAnalysisPeriods(sdk(),"owner",request as never)).rejects.toThrow("local/unsupported-analysis");
+ // Bike and run are equal production disciplines; swim and every Stage-only overlay stay closed.
+ expect(trainingAnalysisPeriodsAvailable("bike")).toBe(true); expect(trainingAnalysisPeriodsAvailable("run")).toBe(true); expect(trainingAnalysisPeriodsAvailable("swim")).toBe(false);
+ for(const request of [{discipline:"swim",periods:[period]}, {discipline:"bike",periods:[period],includeStageRunTimeCorrections:true}, {discipline:"run",periods:[period],includeStageRunTimeCorrections:true}]) await expect(loadTrainingAnalysisPeriods(sdk(),"owner",request as never)).rejects.toThrow("local/unsupported-analysis");
  expect(spies.call).not.toHaveBeenCalled();
 });
 

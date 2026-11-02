@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   presentationProps: null as null | Record<string, unknown>,
 }));
 
+vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner", isAnonymous: false }, profile: {} }) }));
+vi.mock("../../features/trainingDecision/TodayTrainingDecisionCard", () => ({ default: () => null }));
+
 vi.mock("../../hooks/usePlanModel", () => ({
   usePlanModel: () => mocks.planModel,
 }));
@@ -42,6 +45,8 @@ const loadedPlan = {
   discipline: "run",
   goal: null,
   weeks: [],
+  isTodayCell: () => false,
+  goalMatchesDiscipline: true,
   goalLoading: false,
   planLoading: false,
   goalError: null,
@@ -178,7 +183,8 @@ describe("PlanSurface Run30 mode", () => {
     const onReady = vi.fn();
     render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
     expect(screen.getByTestId("plan-presentation")).toBeInTheDocument();
-    expect(mocks.presentationProps?.decisionSlot).toBeUndefined();
+    expect(screen.queryByTestId("run30-enroll-intro")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("run30-enroll-offer")).not.toBeInTheDocument();
     await waitFor(() => expect(onReady).toHaveBeenCalledWith("fresh"));
   });
 });

@@ -47,3 +47,16 @@ it("clears a selected snapshot on explicit history access denial",async()=>{
  render(<ActivityReanalysisControl activityId="a" canReanalyze={false} selectedRevision={hash} onSelect={select} onAccessRevoked={revoked}/>);
  fireEvent.click(screen.getByText("이전 분석 보기"));await waitFor(()=>expect(select).toHaveBeenCalledWith(null));expect(revoked).toHaveBeenCalledTimes(1);
 });
+
+it("explains history failure and retries only the list while preserving the selected result", async () => {
+ const select=vi.fn();m.history.mockReset().mockRejectedValueOnce(Error("offline")).mockResolvedValueOnce({items:[{revisionId:hash,calculatorVersion:1,calculatedAt:null}],nextCursor:null,selected:null});
+ render(<ActivityReanalysisControl activityId="a" selectedRevision={hash} onSelect={select}/>);
+ fireEvent.click(screen.getByText("이전 분석 보기"));
+ expect(await screen.findByRole("alert")).toHaveTextContent("이전 분석을 불러오지 못했습니다");
+ expect(screen.getByRole("alert")).not.toHaveTextContent("요청 상태");
+ expect(screen.getByText("현재 분석으로 돌아가기")).toBeInTheDocument();
+ expect(select).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByText("이전 분석 보기"));
+ await screen.findByText("버전 1 · —");expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+ expect(m.history).toHaveBeenCalledTimes(2);expect(m.load).not.toHaveBeenCalled();expect(m.request).not.toHaveBeenCalled();expect(select).not.toHaveBeenCalled();
+});

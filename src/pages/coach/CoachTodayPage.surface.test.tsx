@@ -12,7 +12,7 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => k
 vi.mock("../../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ riderWorkoutDeliveryEnabled: false }) }));
 vi.mock("../../components/LocalizedLink", () => ({ LocalizedLink: ({ to, children, ...props }: { to: string; children: React.ReactNode; "aria-label"?: string }) => <a href={to} {...props}>{children}</a> }));
 vi.mock("../../components/redesign/DisciplineTabs", () => ({ default: () => <div>sport tabs</div> }));
-vi.mock("./CoachFitnessLayout", () => ({ useCoachFitnessModel: () => ({ t: (key: string) => key,
+vi.mock("./CoachFitnessModelContext", () => ({ useCoachFitnessModel: () => ({ t: (key: string) => key,
   user: { uid: "owner" }, discipline: mocks.sport, currentPoint: mocks.point, i18n: { language: "ko" },
   hasCanonicalTimeseries: mocks.canonical, fitnessData: [], disciplineActivities: [], loading: false, timeseriesLoaded: true, error: null,
 }) }));

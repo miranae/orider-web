@@ -1,10 +1,11 @@
 import { collection, onSnapshot } from "firebase/firestore";
 import { useCallback, useEffect, useState } from "react";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 
 interface State { uid: string; hidden: Set<string>; blocked: Set<string>; ready: boolean; error: boolean }
 /** Owner-only preference collections. Cached lists alone cannot establish the current safety boundary. */
 export function useActivitySafety(uid: string | null, enabled = true) {
+  const { firestore } = useFirebaseServices();
   const [state, setState] = useState<State | null>(null);
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => setAttempt(value => value + 1), []);

@@ -1,5 +1,5 @@
 import { collection, query, where, getDocs, orderBy, limit, startAfter, type QueryDocumentSnapshot, type DocumentData } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useAuth } from "../contexts/AuthContext";
 import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { SEARCH_PAGE_SIZE, usePagedSearch } from "./usePagedSearch";
@@ -10,6 +10,7 @@ export interface UseCoursesOptions { enabled?: boolean }
 type Cursor = Array<{ last: QueryDocumentSnapshot<DocumentData> | null; exhausted: boolean }>;
 
 export function useCourses(options: UseCoursesOptions = {}) {
+  const { firestore } = useFirebaseServices();
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   const page = usePagedSearch(options.enabled === false ? null : JSON.stringify([uid, cacheVersion]), async (cursor: Cursor | null) => {

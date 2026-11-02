@@ -40,7 +40,7 @@ function main() {
   const errors = [];
   // BE/WEB는 같은 accepted-load와 modern PMC 증거 순수 계약을 사용한다.
   for (const [file, expected] of [
-    ['analysis/stravaRecord.ts', 'fee21dad9c66d4955808a22ed992c9d3035b99b2f5e55e533fbc08dd8ca659a7'],
+    ['analysis/stravaRecord.ts', '0b26b416efba6d87ac2db3615339d159faf44ce618e326685422e4196575c57d'],
     ['analysis/activityPresentation.ts', '3a28b2083c8cdee47597c8e948a26c64a7bfc53018d6af589553a01d65efce29'],
     ['training/activityStatsEligibility.ts', 'ca4ca327765cf7d3841e92168775a87f97c786ee009301b99206d52af943b581'],
     ['training/physicalRideEvidence.fixture.json', '9af4d9021447b1049b37f82dec9edc51216f07437b1f6830a15c1b179afaf93f'],

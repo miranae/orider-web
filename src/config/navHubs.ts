@@ -1,4 +1,4 @@
-import { Home, Bot, Map, Users, MessageSquare, Settings, type LucideIcon } from "lucide-react";
+import { Home, ChartLine, Map, Users, MessageSquare, Settings, type LucideIcon } from "lucide-react";
 
 /** 메뉴 IA 단일 진실원: 데스크톱·모바일의 기본 허브와 설정 유틸리티. */
 export type HubKey = "home" | "coach" | "club" | "explore" | "community" | "settings";
@@ -34,7 +34,7 @@ export const HUBS: Hub[] = [
   {
     key: "coach",
     labelKey: "nav.coach",
-    icon: Bot,
+    icon: ChartLine,
     to: "/coach/condition",
     subs: [
       { labelKey: "nav.fitness", to: "/coach/condition" },

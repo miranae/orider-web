@@ -1,3 +1,4 @@
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { httpsCallable } from "firebase/functions";
 
 import type { BikeThresholdDecisionV2 } from "@shared/types/threshold";
@@ -18,10 +19,12 @@ export interface AcceptBikeThresholdDecisionResponse {
 export async function acceptBikeThresholdDecision(
   expectedUid: string,
   decision: BikeThresholdDecisionV2,
+  services?: Pick<FirebaseServices, "functions" | "ensureAppCheckReady">,
 ): Promise<AcceptBikeThresholdDecisionResponse> {
-  await ensureAppCheckReady();
+  const client = services ?? { functions, ensureAppCheckReady };
+  await client.ensureAppCheckReady();
   const callable = httpsCallable<unknown, AcceptBikeThresholdDecisionResponse>(
-    functions,
+    client.functions,
     "acceptBikeThresholdDecision",
   );
   const response = await callable({

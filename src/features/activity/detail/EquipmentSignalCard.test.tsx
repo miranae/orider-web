@@ -1,4 +1,8 @@
-import { screen, waitFor } from "@testing-library/react";
+import { doc, onSnapshot } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import { onAuthStateChanged } from "firebase/auth";
+import { FirebaseServicesProvider, type FirebaseServices } from "../../../contexts/FirebaseServicesContext";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import {
@@ -189,5 +193,99 @@ describe("EquipmentSignalCard", () => {
     await user.click(await screen.findByRole("button", { name: "확인했어요 · 숨기기" }));
     expect(await screen.findByText("권고를 숨기지 못했습니다. 다시 시도해 주세요.")).toHaveAttribute("role", "alert");
     expect(screen.getByText("브레이크 간섭을 점검해 보세요")).toBeInTheDocument();
+  });
+});
+
+
+describe("EquipmentSignalCard named SDK lifecycle", () => {
+  type Snapshot = { exists: () => boolean; data: () => unknown };
+  let listeners: Array<{ next: (snapshot: Snapshot) => void; fail: (error: Error) => void; stop: ReturnType<typeof vi.fn> }>;
+  let authChanges: Array<() => void>;
+  const named = (name: string) => {
+    const app = { name };
+    return { auth: { app, currentUser: { uid: "test-uid", isAnonymous: false } },
+      firestore: { app }, functions: { app }, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined),
+      getAppCheckToken: vi.fn().mockResolvedValue(null) } as unknown as FirebaseServices;
+  };
+  const tree = (services: FirebaseServices, activityId = "ride-1", viewerId = "test-uid") =>
+    <FirebaseServicesProvider services={services}><EquipmentSignalCard activityId={activityId} ownerId="test-uid" viewerId={viewerId} /></FirebaseServicesProvider>;
+  const emit = (index: number, value: unknown = projection) => act(() => listeners[index].next({ exists: () => true, data: () => value }));
+  beforeEach(() => {
+    listeners = []; authChanges = [];
+    vi.mocked(onSnapshot).mockImplementation(((...args: unknown[]) => {
+      const stop = vi.fn();
+      listeners.push({ next: args[1] as (s: Snapshot) => void, fail: args[2] as (e: Error) => void, stop });
+      return stop;
+    }) as typeof onSnapshot);
+    vi.mocked(onAuthStateChanged).mockImplementation(((_auth: unknown, next: () => void) => {
+      authChanges.push(next); return vi.fn();
+    }) as typeof onAuthStateChanged);
+  });
+  afterEach(() => { vi.mocked(onSnapshot).mockReset(); vi.mocked(onAuthStateChanged).mockReset(); });
+
+  it("uses the injected Firestore, Functions and AppCheck for owner reads and dismissal", async () => {
+    const services = named("embedded-owner");
+    const view = render(tree(services));
+    expect(doc).toHaveBeenCalledWith(services.firestore, "equipment_signal_exposures", "ride-1");
+    emit(0);
+    await userEvent.click(screen.getByRole("button", { name: "확인했어요 · 숨기기" }));
+    expect(services.ensureAppCheckReady).toHaveBeenCalledTimes(1);
+    expect(httpsCallable).toHaveBeenCalledWith(services.functions, "dismissEquipmentSignalCallable");
+    await waitFor(() => expect(screen.queryByRole("region")).not.toBeInTheDocument());
+    view.unmount(); expect(listeners[0].stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not read owner evidence when the SDK user is not the prop owner", () => {
+    const services = named("wrong-owner");
+    Object.assign(services.auth.currentUser!, { uid: "another" });
+    render(tree(services)); expect(listeners).toHaveLength(0);
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+  });
+
+  it("blocks a pending AppCheck dismissal after same-UID named SDK replacement", async () => {
+    const a = named("a"), b = named("b");
+    let ready!: () => void;
+    vi.mocked(a.ensureAppCheckReady).mockImplementation(() => new Promise<void>(resolve => { ready = resolve; }));
+    const view = render(tree(a)); emit(0);
+    await userEvent.click(screen.getByRole("button", { name: "확인했어요 · 숨기기" }));
+    view.rerender(tree(b));
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+    emit(1);
+    a.auth.currentUser = null;
+    act(() => authChanges[0]());
+    await act(async () => { ready(); });
+    expect(httpsCallable).not.toHaveBeenCalledWith(a.functions, "dismissEquipmentSignalCallable");
+    expect(screen.getByRole("region")).toBeInTheDocument();
+    expect(listeners[0].stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores stale snapshot and callable results after activity change and cleanup", async () => {
+    const services = named("owner"); let finish!: (value: unknown) => void;
+    setCallableImplementation("dismissEquipmentSignalCallable", () => new Promise(resolve => { finish = resolve; }));
+    const view = render(tree(services)); emit(0);
+    await userEvent.click(screen.getByRole("button", { name: "확인했어요 · 숨기기" }));
+    view.rerender(tree(services, "ride-2"));
+    emit(1, { ...projection, activityId: "ride-2", evidence: projection.evidence.map(e => ({ ...e, sourceActivityId: "ride-2" })) });
+    emit(0);
+    await act(async () => { finish({ data: { result: "dismissed" } }); });
+    expect(screen.getByRole("region")).toBeInTheDocument();
+    view.unmount(); emit(1); expect(listeners[1].stop).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+  });
+
+  it("removes owner evidence on exact-user replacement before stale callbacks return", () => {
+    const services = named("owner"); render(tree(services)); emit(0);
+    services.auth.currentUser = { ...services.auth.currentUser! };
+    act(() => authChanges[0]()); emit(0);
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+  });
+
+  it("contains synchronous subscription errors and logs with the named SDK", async () => {
+    const services = named("owner");
+    vi.mocked(onSnapshot).mockImplementationOnce(() => { throw new Error("unavailable"); });
+    render(<><p>Stored analysis remains</p>{tree(services)}</>);
+    expect(screen.getByText("Stored analysis remains")).toBeInTheDocument();
+    expect(screen.getByText("점검 권고를 불러오지 못했습니다")).toBeInTheDocument();
+    await waitFor(() => expect(httpsCallable).toHaveBeenCalledWith(services.functions, "logClientError"));
   });
 });

@@ -6,6 +6,44 @@
   padding: var(--space-3);
 }
 
+/* 앱 임베드의 상단 막대: 화면 폭 전체, 스크롤해도 위에 붙는다. */
+.mobile-plan-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 52px;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--bg-1);
+}
+.mobile-plan-week-navigation,
+.mobile-plan-adaptation { padding-inline: var(--space-4); }
+.mobile-plan-week-header { padding: var(--space-1) var(--space-4); }
+
+/* 앱 임베드는 셸 거터가 없어 위 좌우 16 을 스스로 가진다. 웹 코치 화면은 셸 거터 안에 들어오므로
+   좌우를 비워 카드·목록·헤더 막대가 모두 셸 정렬선(다른 카드와 같은 선)에 닿게 한다. */
+.coach-surface .mobile-plan-goal,
+.coach-surface .mobile-plan-next,
+.coach-surface .mobile-plan-week-summary { margin-inline: 0; }
+.coach-surface .mobile-plan-week-navigation,
+.coach-surface .mobile-plan-adaptation,
+.coach-surface .mobile-plan-week-header { padding-inline: 0; }
+/* 웹에서는 사이트 헤더·하위 탭이 이미 있으므로 앱용 막대를 섹션 제목 줄로 둔다(각진 흰 막대 X). */
+.coach-surface .mobile-plan-chrome {
+  position: static;
+  height: auto;
+  min-height: var(--dim-button-height);
+  padding-inline: 0;
+  border-bottom: 0;
+  background: transparent;
+}
+/* 오늘·선택 행 강조는 카드와 같은 모서리로. 구분선은 강조 칸과 겹치지 않게 숨긴다. */
+.coach-surface .mobile-plan-day[data-highlight] {
+  border-radius: var(--r-md);
+  border-bottom-color: transparent;
+}
+
 .mobile-plan-section-label {
   margin: 0 0 var(--space-1);
   color: var(--ink-3);

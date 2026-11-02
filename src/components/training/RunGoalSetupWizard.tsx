@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { httpsCallable } from 'firebase/functions';
-import { functions } from '../../services/firebase';
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from '../../services/errorLogger';
 import { FEAS_COLORS, FEAS_LABEL_KEYS } from './constants';
 import type { FeasibilityLabel } from '@shared/types/goal';
@@ -69,6 +69,7 @@ interface RunGoalSetupWizardProps {
 }
 
 export default function RunGoalSetupWizard({ Stepper }: RunGoalSetupWizardProps) {
+  const { functions } = useFirebaseServices();
   const { t } = useTranslation('training');
 
   const navigate = useNavigate();

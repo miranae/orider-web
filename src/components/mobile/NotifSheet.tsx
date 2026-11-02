@@ -11,11 +11,12 @@ interface NotifSheetProps {
   onClose: () => void;
   notifications: Notification[];
   notificationStatus?: ReactNode;
+  notificationFooter?: ReactNode;
   onMarkAllRead: () => void;
   onNotificationClick: (notification: Notification) => void;
 }
 
-export default function NotifSheet({ open, onClose, notifications, onMarkAllRead, onNotificationClick, notificationStatus }: NotifSheetProps) {
+export default function NotifSheet({ open, onClose, notifications, onMarkAllRead, onNotificationClick, notificationStatus, notificationFooter }: NotifSheetProps) {
   const { t } = useTranslation("common");
   useBodyScrollLock(open);
 
@@ -97,6 +98,7 @@ export default function NotifSheet({ open, onClose, notifications, onMarkAllRead
             </div>
           </button>
         ))}
+        {notificationFooter}
       </div>
     </div>
   );

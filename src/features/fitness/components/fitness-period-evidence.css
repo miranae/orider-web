@@ -1,0 +1,29 @@
+/* Period controls and saved evidence use existing design tokens; no DS overrides. */
+.fitness-period-evidence {
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-lg);
+}
+.fitness-period-evidence > h3,
+.fitness-period-evidence > summary { margin-bottom: var(--space-4); }
+.fitness-period-summary,
+.fitness-period-load {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.fitness-period-summary {
+  padding: var(--space-4);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-md);
+}
+.fitness-period-load-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+.fitness-period-log-date { display: grid; gap: var(--space-2); }
+@media (min-width: 40rem) {
+  .fitness-period-load-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockCallableInvocations, setCallableResult, setCallableImplementation, setCollectionDocs } from "../__tests__/mocks/firebase";
+import { functions } from "../services/firebase";
 import { useGroupChallenges, createGroupChallenge, currentKstMonthKey, getGroupChallengeProgress, getGroupChallengeStandings, getVisibleChallengeStandings, joinGroupChallenge } from "./useGroupChallenges";
 
 describe("group challenge callable contracts", () => {
@@ -10,7 +11,7 @@ describe("group challenge callable contracts", () => {
 
   it("creates a league for the selected managed group", async () => {
     setCallableResult("createGroupChallenge", { data: { challengeId: "challenge-1" } });
-    await expect(createGroupChallenge({ groupId: "group-1", name: "  7월 거리 리그  " })).resolves.toBe("challenge-1");
+    await expect(createGroupChallenge({ groupId: "group-1", name: "  7월 거리 리그  " }, functions)).resolves.toBe("challenge-1");
     expect(mockCallableInvocations).toContainEqual({
       name: "createGroupChallenge",
       data: { groupId: "group-1", name: "7월 거리 리그" },
@@ -19,7 +20,7 @@ describe("group challenge callable contracts", () => {
 
   it("joins with the exact challenge and managed group ids", async () => {
     setCallableResult("joinGroupChallenge", { data: { success: true } });
-    await joinGroupChallenge({ challengeId: "challenge-1", groupId: "group-2" });
+    await joinGroupChallenge({ challengeId: "challenge-1", groupId: "group-2" }, functions);
     expect(mockCallableInvocations).toContainEqual({
       name: "joinGroupChallenge",
       data: { challengeId: "challenge-1", groupId: "group-2" },
@@ -32,7 +33,7 @@ describe("group challenge callable contracts", () => {
       standings: [{ rank: 1, groupId: "group-1", name: "A", badge: null, distanceKm: 100, goalKm: 200 }],
       computedAt: 123,
     } });
-    await expect(getGroupChallengeStandings("challenge-1")).resolves.toEqual(expect.objectContaining({ metric: "distance_km" }));
+    await expect(getGroupChallengeStandings("challenge-1", functions)).resolves.toEqual(expect.objectContaining({ metric: "distance_km" }));
     expect(mockCallableInvocations).toContainEqual({
       name: "getGroupChallengeStandings",
       data: { challengeId: "challenge-1" },

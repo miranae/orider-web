@@ -15,6 +15,11 @@ vi.mock("../components/mobile/ImportActivityModal", () => ({ default: () => null
 vi.mock("../components/activity/RecentActivitySummary", () => ({ default: function Summary({ sport }: { sport: string }) { useEffect(() => { state.recentRead(); }, []); return <section data-testid="rolling-summary">Rolling summary · {sport}</section>; } }));
 
 // 훈련 달력의 날짜 경계는 실행 머신의 시간대와 무관하게 KST 계약을 따른다.
+// 아래 기록은 이번 달 1일 12시~다음 날에 놓인다. 1일 정오 전에 돌면 아직 미래라 화면이 달성 판정을 하지 않아
+// 테스트가 시간 초과로 깨졌다(11/1 00시). 시계만 이번 달 15일 정오(KST)로 고정한다 — 타이머는 실제 그대로.
+const realNow = planCalendarDate(Date.now());
+vi.useFakeTimers({ toFake: ["Date"] });
+vi.setSystemTime(planMonthBounds(realNow.getUTCFullYear(), realNow.getUTCMonth()).start + 14 * 86400000 + 12 * 3600000);
 const now = planCalendarDate(Date.now());
 const startTime = planMonthBounds(now.getUTCFullYear(), now.getUTCMonth()).start + 12 * 3600000;
 const summaries = [
@@ -387,7 +392,7 @@ describe("desktop day record pagination",()=>{
     expect(screen.getAllByRole("button",{name:/^기록 /})).toHaveLength(2);
     fireEvent.click(screen.getByRole("button",{name:"외 998건 보기"}));
     expect(screen.getByRole("button",{name:/^기록 0001 /})).toBeInTheDocument();
-  }, 15000);
+  }, 60_000); // 50페이지 순회 — 단독 2.5초, 머지 게이트 부하에서 15초를 넘긴 적이 있다.
   it("restores the last page after opening an individual activity and going back, preserving other URL context",async()=>{
     render(<MemoryRouter initialEntries={[`/ko/athlete/me/activities?sport=bike&date=${dayKey}&calendarDay=${dayKey}&calendarPage=50&keep=1`]}><HistoryProbe/>{cell(rows(1000))}</MemoryRouter>);
     fireEvent.click(screen.getByRole("button",{name:/^기록 1000 /}));

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { useEffect, useState } from "react";
 import { httpsCallable } from "firebase/functions";
-import { functions } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useAuth } from "../contexts/AuthContext";
 import { logClientError } from "../services/errorLogger";
 
@@ -18,6 +18,7 @@ const experienceInputs: GoalFitnessInputs = { ftp: 200, weightKg: 70, thresholdP
 
 /** 3종목 미리보기가 서버 목표 생성과 동일한 출처·대체 체인을 사용한다. */
 export function useGoalFitnessInputs() {
+  const { functions } = useFirebaseServices();
   const { user, profile } = useAuth();
   const [result, setResult] = useState<{ uid: string; inputs: GoalFitnessInputs } | null>(null);
   useEffect(() => {

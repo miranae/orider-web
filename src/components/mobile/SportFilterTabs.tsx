@@ -1,9 +1,7 @@
 import { isSportUiEnabled } from "../../config/sportFeatures";
 import "./SportFilterTabs.css";
-import SportIcon from "../common/SportIcon";
-import { Chip } from "../../theme/components";
+import { ToggleControls, ToggleButton } from "../../theme/components";
 import { useTranslation } from "react-i18next";
-import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface SportFilterTabsProps {
   value: string;
@@ -19,18 +17,19 @@ const TABS = [
   { key: "swim", labelKey: "sportFilter.swim" },
 ] as const;
 
+/** 종목 필터 — DisciplineTabs 와 같은 HIG 세그먼트(한 줄, 텍스트 전용)로 그린다. */
 export default function SportFilterTabs({ value, onChange, allLabelKey = "label.all" }: SportFilterTabsProps) {
   const { t } = useTranslation("common");
   return (
-    <div className="sport-filter-tabs" role="group" aria-label={t("discipline.selectAria")}>
+    <ToggleControls variant="axis" className="sport-filter-tabs" aria-label={t("discipline.selectAria")}>
       {TABS.filter(tab => isSportUiEnabled(tab.key)).map((f) => {
         const active = (isSportUiEnabled(value) ? value : "all") === f.key;
         return (
-          <Chip key={f.key} selectable selected={active} icon={f.key === "all" ? undefined : <SportIcon sport={f.key} size={ICON_SIZE.md} />} onClick={() => onChange(f.key)}>
-            {t(f.key === "all" ? allLabelKey : f.labelKey).replace(/^[🚴🏃🏊]\uFE0F?\s*/u, "")}
-          </Chip>
+          <ToggleButton key={f.key} selected={active} onClick={() => onChange(f.key)}>
+            {t(f.key === "all" ? allLabelKey : f.labelKey).replace(/^[🚴🏃🏊]️?\s*/u, "")}
+          </ToggleButton>
         );
       })}
-    </div>
+    </ToggleControls>
   );
 }

@@ -447,6 +447,7 @@
     }
   },
   "embeddedStatus": {
+    "hubLoading": "내용을 불러오고 있어요.",
     "cached": "저장된 이전 정보를 표시하고 있습니다.",
     "loading": "기록과 훈련 데이터를 불러오고 있어요.",
     "unavailable": "잠시 연결할 수 없어요. 연결 상태를 확인한 후 다시 시도해 주세요."
@@ -522,5 +523,11 @@
   "notif.loginDestination": "알림의 댓글을 확인하려면 로그인해 주세요. 로그인 후 이 위치로 돌아옵니다.",
   "notif.signIn": "로그인",
   "notif.targetUnavailable": "댓글이 삭제·숨김 처리되었거나 접근 권한이 변경되어 확인할 수 없습니다.",
-  "notif.refreshScope": "최근 알림을 20개씩 표시합니다. 30초마다 또는 창으로 돌아오면 현재 권한을 확인하고 최신 20개로 갱신합니다."
+  "coachPages": {
+    "condition": "컨디션",
+    "today": "오늘",
+    "analysis": "분석",
+    "plan": "계획",
+    "goals": "목표"
+  }
 }

@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "types": ["node", "vite/client", "geojson"] },
+  "include": ["embedded-coach.config.ts", "embedded-coach.vite.config.ts", "fixtures/embedded-coach.tsx", "component-tests/embedded-coach.spec.ts"],
+  "exclude": ["../src/**/*.test.ts", "../src/**/*.test.tsx"]
+}

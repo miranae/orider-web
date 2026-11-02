@@ -5,7 +5,7 @@ import CoachConditionPage from "./CoachConditionPage";
 
 const state = vi.hoisted(() => ({ mobile: false, discipline: "bike", loading: false }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner", isAnonymous: false } }) }));
-vi.mock("./CoachFitnessLayout", () => ({ useCoachFitnessModel: () => ({
+vi.mock("./CoachFitnessModelContext", () => ({ useCoachFitnessModel: () => ({
   isMobile: state.mobile, discipline: state.discipline, loading: state.loading,
   activities: [], fitnessData: [], currentPoint: null,
 }) }));

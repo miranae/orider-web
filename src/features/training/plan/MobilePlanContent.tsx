@@ -283,7 +283,7 @@ export default function MobilePlanContent({
       {!embedded && currentWeek && <PlanWeekLoadSummary week={currentWeek} dayLoads={dayLoads} state={loadState} />}
 
       {/* Weekly plan — vertical list */}
-      <div className="flex items-center justify-between" style={{ padding: "var(--space-1) var(--space-4)" }}>
+      <div className="mobile-plan-week-header flex items-center justify-between">
         <Text variant="eyebrow" className="mobile-plan-section-label">{t('mobile.weeklyPlan')}</Text>
         {onEditWorkout && editTargetIdx >= 0 && (
           <Button type="button" variant="ghost" size="sm" onClick={() => openEditFor(editTargetIdx)}>{t('mobile.edit')}</Button>
@@ -346,8 +346,9 @@ export default function MobilePlanContent({
         }
 
         return (
-          <div key={i} className="mobile-plan-day-row"
+          <div key={i} className="mobile-plan-day mobile-plan-day-row"
             data-plan-date={dayStr}
+            data-highlight={isToday || dayStr === selectedDate ? "" : undefined}
             aria-current={dayStr === selectedDate ? "date" : undefined}
             data-testid={dayStr === selectedDate ? "K4-5-6" : undefined}
             role={onEditWorkout ? "button" : undefined}

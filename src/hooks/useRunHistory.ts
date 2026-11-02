@@ -12,7 +12,7 @@
  */
 import { useEffect, useState } from "react";
 import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError, debugLog } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
@@ -31,6 +31,7 @@ export interface RunHistory {
  * @param enabled 러닝 탭이 아닐 때는 쿼리하지 않는다 — 자전거 사용자에게 불필요한 읽기 비용.
  */
 export function useRunHistory(weeks: number, enabled = true): RunHistory {
+  const { firestore } = useFirebaseServices();
   const { user } = useAuth();
   const [state, setState] = useState<RunHistory & { ownerUid: string | null }>({ runs: [], loading: true, available: false, ownerUid: null });
 

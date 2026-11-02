@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { doc, updateDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { firestore, functions } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import type { AdaptationFlag } from "@shared/types/goal";
@@ -35,6 +35,7 @@ const STYLES: Record<"warn" | "critical", { bg: string; border: string; ink: str
 };
 
 export default function AdaptationBanner({ goalId, flag, onChange }: Props) {
+  const { firestore, functions } = useFirebaseServices();
   const { t } = useTranslation("training");
   const dialog = useDialog();
   const [busy, setBusy] = useState(false);

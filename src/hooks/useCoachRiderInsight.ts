@@ -1,5 +1,6 @@
+import { useCoachApi } from "./useCoachApi";
 import { useEffect, useRef, useState } from "react";
-import { getCoachRiderInsight, isCoachClientError } from "../services/coachClient";
+import { isCoachClientError } from "../services/coachClient";
 import { logClientError } from "../services/errorLogger";
 import type { CoachRiderInsight } from "../services/coachRiderInsightContract";
 
@@ -12,6 +13,7 @@ export interface CoachRiderInsightState {
 interface InternalState extends CoachRiderInsightState { key: string }
 
 export function useCoachRiderInsight(uid: string | undefined, enabled: boolean): CoachRiderInsightState {
+  const { getCoachRiderInsight } = useCoachApi();
   const key = `${uid ?? "signed-out"}:${enabled ? "on" : "off"}`;
   const generationRef = useRef(0);
   const [state, setState] = useState<InternalState>({ key, insight: null, loading: enabled && Boolean(uid), unavailable: false });
@@ -36,7 +38,7 @@ export function useCoachRiderInsight(uid: string | undefined, enabled: boolean):
       },
     );
     return () => { if (generationRef.current === generation) generationRef.current += 1; };
-  }, [enabled, key, uid]);
+  }, [enabled, key, uid, getCoachRiderInsight]);
   if (state.key !== key) return { insight: null, loading: enabled && Boolean(uid), unavailable: false };
   return { insight: state.insight, loading: state.loading, unavailable: state.unavailable };
 }

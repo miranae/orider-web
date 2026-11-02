@@ -24,6 +24,9 @@ describe("embedded routes", () => {
     ["/ko/embed/activity/activity-1/public", "activity-public"],
     ["/ko/embed/fitness?sport=run", "fitness"],
     ["/en/embed/plan?sport=swim", "plan"],
+    ["/ko/embed/clubs", "clubs"],
+    ["/ko/embed/clubs/club-1", "club-detail"],
+    ["/en/embed/clubs/club-1/members", "club-detail"],
   ])("renders %s outside the general Layout", async (path, surfaceKind) => {
     render(
       <MemoryRouter initialEntries={[path]}>

@@ -1,7 +1,7 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { httpsCallable } from "firebase/functions";
-import { ensureAppCheckReady, functions } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { lazyWithRetry as lazy } from "../../utils/lazyWithRetry";
 import { Button, Stack, Text } from "../../theme/components";
@@ -32,6 +32,7 @@ interface Props {
  */
 export default function ActivityMapThumbnailReplaceControl({ activityId, polyline, contentRevision, contentSelectedRevision }: Props) {
   const { t } = useTranslation("activity");
+  const { ensureAppCheckReady, functions } = useFirebaseServices();
   const [capturing, setCapturing] = useState(false);
   const [result, setResult] = useState<{ kind: "done"; mapImageUrl: string } | { kind: "failed" } | null>(null);
   const captureRef = useRef<HTMLDivElement>(null);
@@ -76,7 +77,7 @@ export default function ActivityMapThumbnailReplaceControl({ activityId, polylin
     } catch (error) {
       fail(error, phase);
     }
-  }, [activityId, fail, revision]);
+  }, [activityId, ensureAppCheckReady, fail, functions, revision]);
 
   function start() {
     handled.current = false;

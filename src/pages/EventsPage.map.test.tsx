@@ -116,8 +116,9 @@ describe("event map camera intent", () => {
   });
 
   it("distinguishes an empty selected month from the overall filtered events", async () => {
-    const previousMonth = new Date();
-    previousMonth.setMonth(previousMonth.getMonth() - 1);
+    // 지난달 15일. 31일에 setMonth(-1) 하면 없는 날짜(9/31 등)가 이번 달 1일로 넘어가 테스트가 깨진다.
+    const now = new Date();
+    const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15);
     setCollectionDocs("events", [{ id: "previous", info: { name: "Previous month event", status: "FINISHED", type: "TOUR", visibility: "PUBLIC", startTime: previousMonth.getTime() } }]);
     renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
     fireEvent.click(await screen.findByRole("button", { name: eventStrings["view.calendar"], exact: true }));

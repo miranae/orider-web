@@ -1,3 +1,5 @@
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
+import { httpsCallable } from "firebase/functions";
 import * as runtimeConfig from "./runtimeConfig";
 import { captureError } from "./sentry";
 import { mockCallableInvocations } from "../__tests__/mocks/firebase";
@@ -79,4 +81,18 @@ describe("logClientError", () => {
     expect(warnSpy).toHaveBeenCalledOnce();
     warnSpy.mockRestore();
   });
+});
+
+
+it("uses injected logging transport and drops a stale SDK user after AppCheck", async () => {
+  let ready!: () => void;
+  const services = { auth: { currentUser: { uid: "owner" } }, functions: { app: { name: "named" } },
+    ensureAppCheckReady: vi.fn(() => new Promise<void>(resolve => { ready = resolve; })) } as unknown as FirebaseServices;
+  logClientError("named.pending", new Error("pending"), {}, services);
+  services.auth.currentUser = { ...services.auth.currentUser! };
+  ready(); await Promise.resolve(); await Promise.resolve();
+  expect(httpsCallable).not.toHaveBeenCalledWith(services.functions, "logClientError");
+  vi.mocked(services.ensureAppCheckReady).mockResolvedValue(undefined);
+  logClientError("named.current", new Error("current"), {}, services);
+  await vi.waitFor(() => expect(httpsCallable).toHaveBeenCalledWith(services.functions, "logClientError"));
 });

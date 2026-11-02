@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync, symlink
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { IsolationError, parseReview, reviewBinding, reviewWithFallback, runChild, validateSelfReview } from "./merge-review.mjs";
+import { IsolationError, claudeJsonSchema, parseReview, reviewBinding, reviewWithFallback, runChild, validateSelfReview } from "./merge-review.mjs";
 
 function fixture(t) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "merge-review-")));
@@ -129,4 +129,11 @@ test("timeout kills the provider process group and its child", async () => {
   // 종료된 자식도 OS가 회수할 때까지 잠시 zombie 상태로 보일 수 있다.
   const check = await runChild("/bin/ps", ["-o", "stat=", "-p", String(pid)], { timeoutMs: 1000 });
   assert.ok(!check.stdout.trim() || check.stdout.trim().startsWith("Z"), check.stdout);
+});
+
+test("Claude schema drops only the draft 2020-12 declaration the CLI rejects", () => {
+  const source = readFileSync(new URL("./codex-review-output.schema.json", import.meta.url), "utf8");
+  const { $schema, ...rest } = JSON.parse(source);
+  assert.ok($schema);
+  assert.deepEqual(JSON.parse(claudeJsonSchema(source)), rest);
 });

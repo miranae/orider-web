@@ -1,12 +1,10 @@
+import { useCoachApi } from "../../hooks/useCoachApi";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Chip, Text } from "../../theme/components";
 import {
-  confirmCoachProgressProposal, createCoachProgressProposal, getCoachProgressPlannerCapabilities,
-  getCoachProgressProposalRecovery, isCoachClientError, rollbackCoachProgressProposal,
-  submitCoachPrescriptionCheckIn,
-} from "../../services/coachClient";
+  isCoachClientError, } from "../../services/coachClient";
 import { logClientError } from "../../services/errorLogger";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import type {
@@ -104,6 +102,7 @@ function ProposalReview({ prescription, locale, sourceRequestId, capabilities, o
   prescription: CoachPrescriptionDTO; locale: string; sourceRequestId: string;
   capabilities: CoachProgressPlannerCapabilities; onReanalyze: Props["onReanalyze"];
   onQuestionSelect?: Props["onQuestionSelect"] }) {
+  const { confirmCoachProgressProposal, createCoachProgressProposal, getCoachProgressProposalRecovery, rollbackCoachProgressProposal } = useCoachApi();
   const { t } = useTranslation("coach");
   const eligible = prescription.nextDays.filter((item) => ["rest", "recovery", "modified_workout"].includes(item.action));
   const [selectedDates, setSelectedDates] = useState<string[]>(eligible.map((item) => item.localDate));
@@ -383,6 +382,7 @@ export function CoachPrescription(props: Props) {
 }
 
 function CoachPrescriptionSession({ initial, parentRequestId, locale, onReanalyze, onQuestionSelect, readOnly = false }: Props) {
+  const { getCoachProgressPlannerCapabilities, submitCoachPrescriptionCheckIn } = useCoachApi();
   const { t } = useTranslation("coach");
   const [prescription, setPrescription] = useState(initial);
   const [answers, setAnswers] = useState<Answers>({});

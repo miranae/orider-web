@@ -105,7 +105,7 @@ export default function SocialAuthCallbackPage() {
         logClientError("SocialAuthCallbackPage.complete", err);
         const error = err as { code?: string; details?: { reason?: string; provider?: string; returnTo?: string } };
         if (error.code === "functions/already-exists" && error.details?.reason === "social-account-connect-confirmation"
-          && (error.details.provider === "naver" || error.details.provider === "kakao")) {
+          && (error.details.provider === "naver" || error.details.provider === "kakao" || error.details.provider === "strava")) {
           connectOwnerRef.current = auth.currentUser?.uid ?? null;
           setConnectProvider(error.details.provider);
           setConnectReturnTo(socialAuthReturnTo(error.details.returnTo ?? "/settings/account"));

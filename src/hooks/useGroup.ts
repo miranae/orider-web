@@ -3,7 +3,8 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import {
   doc, collection, query, onSnapshot, getDoc, getDocs, where, orderBy, startAfter, limit as firestoreLimit, type QueryDocumentSnapshot, type DocumentData,
 } from "firebase/firestore";
-import { auth, firestore } from "../services/firebase";
+// 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { getPublicUserProfile, type PublicUserProfile } from "../services/publicProfiles";
 import type { Group, GroupMember, GroupMemberRole } from "@shared/types";
@@ -15,6 +16,7 @@ export interface GroupMemberWithProfile extends GroupMember {
 
 // 그룹 메타데이터 실시간 구독
 export function useGroup(groupId: string | undefined, accessKey?: string) {
+  const { firestore } = useFirebaseServices();
   const [group, setGroup] = useState<Group | null>(null);
   const [inactive, setInactive] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -63,13 +65,14 @@ export function useGroup(groupId: string | undefined, accessKey?: string) {
       setInactive(false);
       setLoading(false);
     });
-  }, [groupId, accessKey, attempt]);
+  }, [firestore, groupId, accessKey, attempt]);
 
   return { group, loading, error, inactive, retry };
 }
 
 /** Subscribe only to the signed-in user's membership document for role gates. */
 export function useGroupMemberRole(groupId: string | undefined, userId: string | undefined, creatorId?: string) {
+  const { firestore } = useFirebaseServices();
   const [role, setRole] = useState<GroupMemberRole | null>(null);
   const [loading, setLoading] = useState(!!groupId && !!userId);
 
@@ -112,13 +115,14 @@ export function useGroupMemberRole(groupId: string | undefined, userId: string |
       setLoading(false);
     });
     return () => { cancelled = true; unsubscribe(); };
-  }, [groupId, userId, creatorId, attempt]);
+  }, [firestore, groupId, userId, creatorId, attempt]);
 
   return { role, loading, error, retry };
 }
 
 // 그룹 멤버 목록 + 프로필 조회
 export function useGroupMembers(groupId: string | undefined, maxCount?: number, accessKey?: string) {
+  const { auth, firestore } = useFirebaseServices();
   const [members, setMembers] = useState<GroupMemberWithProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -159,12 +163,13 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number, 
       setError(reason); setLoading(false);
     });
     return () => { cancelled = true; unsub(); };
-  }, [groupId, maxCount, accessKey, uid, scope, attempt]);
+  }, [firestore, groupId, maxCount, accessKey, uid, scope, attempt]);
   return { members, loading, error, retry: () => setAttempt(value => value + 1) };
 }
 
 // 내 그룹 목록: 빠른 조회 인덱스, 사용자 현재 그룹, creator 관계를 함께 조회한다.
 export function useMyGroups(userId: string | undefined) {
+  const { firestore } = useFirebaseServices();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -271,7 +276,7 @@ export function useMyGroups(userId: string | undefined) {
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [userId, reloadKey]);
+  }, [firestore, userId, reloadKey]);
 
   return { groups, loading, error, retry: () => setReloadKey((key) => key + 1) };
 }
@@ -279,6 +284,7 @@ export function useMyGroups(userId: string | undefined) {
 // 공개 그룹 검색
 export function usePublicGroups(options: { searchText?: string; discipline?: "ALL" | "bike" | "run" | "swim" | "tri"; city?: string; maxCount?: number; enabled?: boolean } = {}) {
   const { searchText = "", discipline = "ALL", city = "", maxCount = SEARCH_PAGE_SIZE, enabled = true } = options;
+  const { firestore } = useFirebaseServices();
   const count = Math.min(maxCount, SEARCH_PAGE_SIZE);
   const page = usePagedSearch(enabled ? JSON.stringify([searchText, discipline, city, count]) : null, async (cursor: QueryDocumentSnapshot<DocumentData> | null) => {
     const trimmed = searchText.trim();

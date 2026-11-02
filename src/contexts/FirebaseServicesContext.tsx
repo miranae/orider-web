@@ -15,6 +15,8 @@ import {
 } from "../services/firebase";
 
 export interface FirebaseServices {
+  /** Isolated app session: HTTP/callable clients must use these credentials too. */
+  scope?: "embedded";
   auth: Auth;
   firestore: Firestore;
   functions: Functions;

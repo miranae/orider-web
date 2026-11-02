@@ -1,0 +1,9 @@
+# Temporary owner detail read recovery
+
+When the initial activity Firestore read reports `unavailable` or `deadline-exceeded` (including Firestore-prefixed codes), the existing ActivityPage error boundary attempts one read through `getActivityPublicDetail`. The recovery client has a 3-second deadline including App Check and exact SDK user binding. It accepts only the currently signed-in non-anonymous owner's activity. Permission-denied, not-found, unauthenticated, unknown errors and successful missing-document reads do not trigger recovery.
+
+The response enters the existing ActivityPage public-access presentation and its visibility/focus/current-access revalidation lifecycle. Saved metrics are passed unchanged through its existing adapter; there is no recalculation, archive mutation, backfill or new calculation engine. The existing explicit reanalysis control remains available only when the current authenticated viewer is the response owner; its server state/CAS/owner authorization is unchanged. Other owner editing UI is not enabled by this read recovery. The original error/retry remains when recovery fails or ownership cannot be confirmed. Activity/account/SDK changes invalidate the pending result.
+
+The normal client deadline remains 10 seconds. Recovery uses the existing callable client with optional timeout/AbortSignal. Cancellation prevents dispatch after delayed App Check and suppresses late responses; Firebase callable HTTP already dispatched cannot be physically cancelled by this wrapper and is bounded by the SDK timeout. The required current-access lifecycle is not replaced by a cached permission assertion.
+
+This is a local resilience change, not a claim that an observed production Firestore connectivity incident is resolved. No production flags, runtime, account or activity data were modified. Compilation uses synthetic demo configuration; no Firebase/LLM request is made by the tests/build.

@@ -1,12 +1,4 @@
-.tri-fitness__header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-3);
-  padding: var(--space-5) var(--space-6) var(--space-4);
-  border-bottom: 1px solid var(--line-soft);
-}
-
-.tri-fitness__heading { min-width: 0; }
+/* 머리 모양·여백은 사이클·러닝과 같은 .fitness-page-header 를 그대로 쓴다(FitnessPage.css). */
 
 .tri-fitness__primary {
   display: grid;

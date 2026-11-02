@@ -1,5 +1,4 @@
-import { httpsCallable } from "firebase/functions";
-import { functions } from "../../services/firebase";
+import { httpsCallable, type Functions } from "firebase/functions";
 
 export interface TransferGroupLeadershipInput {
   groupId: string;
@@ -14,6 +13,7 @@ export interface TransferGroupLeadershipResult {
 
 export async function transferGroupLeadership(
   input: TransferGroupLeadershipInput,
+  functions: Functions,
 ): Promise<TransferGroupLeadershipResult> {
   const fn = httpsCallable<TransferGroupLeadershipInput, TransferGroupLeadershipResult>(
     functions,
@@ -33,7 +33,7 @@ export interface SetGroupMemberRoleInput {
 }
 
 /** #379: 역할 변경을 직접 Firestore 쓰기 대신 CF로 — 서버가 creator 권한·대상 유효성을 강제한다. */
-export async function setGroupMemberRole(input: SetGroupMemberRoleInput): Promise<void> {
+export async function setGroupMemberRole(input: SetGroupMemberRoleInput, functions: Functions): Promise<void> {
   const fn = httpsCallable<SetGroupMemberRoleInput, { success: true }>(
     functions,
     "setGroupMemberRole",

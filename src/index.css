@@ -163,6 +163,10 @@ a:active,
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* 페이지 이동 때 스크린리더 위치를 옮기려고 main 에 코드로 포커스를 준다(useMainScrollPosition).
+   tabIndex=-1 이라 Tab 으로는 닿지 않으므로 링을 그리지 않는다 — 그리면 본문 전체에 테두리가 남는다. */
+.site-main:focus { outline: none; }
+
 /* 키보드 포커스 링 — 마우스 포커스에는 표시되지 않고 Tab/화살표 키에만 노출 */
 :where(button, a, [role="tab"], [role="button"], input, textarea, select):focus-visible {
   outline: 2px solid var(--lime);

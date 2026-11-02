@@ -1,3 +1,5 @@
+import { useCoachConsentApi } from "../../hooks/useCoachApi";
+import { useCoachApi } from "../../hooks/useCoachApi";
 import { coachRoute } from "../../utils/coachRoute";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -8,7 +10,7 @@ import { Alert, Button, Card, Chip, Text, Textarea } from "../../theme/component
 import { useDialog } from "../../contexts/DialogContext";
 import { useLocalizedNavigate } from "../../hooks/useLocalizedNavigate";
 import {
-  askCoachP2, askCoachV2, CoachClientError, getCoachProgressPlannerCapabilities, getCoachStatus, isCoachClientError,
+  CoachClientError, isCoachClientError,
   type CoachActionCode, type CoachDiscipline,
   type CoachQuota, type CoachResponse, type CoachRetryMode,
 } from "../../services/coachClient";
@@ -22,9 +24,9 @@ import {
   type CoachRidePlanContext,
   type CoachV2Request, type CoachV2Response,
 } from "../../services/coachV2Contract";
-import { getCoachConsentPolicy, type CoachConsentPolicy } from "../../services/coachConsentClient";
+import { type CoachConsentPolicy } from "../../services/coachConsentClient";
 import { isCoachRidePlanRespondToken } from "../../services/coachRidePlanContract";
-import { auth } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
 import { reportCoachReadError, type CoachReadErrorKind } from "../../services/coachReadError";
@@ -120,6 +122,9 @@ function clarificationQuestion(question: string, promptKey: string, optionId: st
 export function CoachQuestionLauncher({ user, discipline, onSignIn, triggerBlock = true, showPmcInsight = false,
   ridePlanSelection = null, progressPlannerSelection = null, presetQuestion = null, presetIntent = "free",
   triggerLabel, onRequestSettled }: Props) {
+  const { getCoachConsentPolicy } = useCoachConsentApi();
+  const { askCoachP2, askCoachV2, getCoachProgressPlannerCapabilities, getCoachStatus } = useCoachApi();
+  const { auth } = useFirebaseServices();
   const { t, i18n } = useTranslation("coach");
   const dialog = useDialog();
   const navigate = useLocalizedNavigate();

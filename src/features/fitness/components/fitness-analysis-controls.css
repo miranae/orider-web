@@ -5,5 +5,4 @@
 @media (max-width: 30rem) {
 }
 
-.fitness-analysis-controls .pmc-history__navigation,
 .fitness-analysis-controls .training-execution-actions__row { align-items: end; flex-wrap: wrap; }

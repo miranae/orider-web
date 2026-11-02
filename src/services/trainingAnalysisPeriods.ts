@@ -1,4 +1,4 @@
-import { matchesLocalTrainingEmulator } from "./localTrainingEmulator";
+import { localTrainingEmulatorAvailable, matchesLocalTrainingEmulator } from "./localTrainingEmulator";
 import { analysisCapabilityAvailable, matchesAnalysisCapability } from "./analysisCapability";
 import type { StageDerivedRunDistancePeriod } from "@shared/types/stage-run-distance-snapshot";
 import { validRunEffortStageOverlay, validStageTimeAdjustedEfforts, verifyRunTimeResponseDigests } from "./runEffortStagePreferences";
@@ -18,7 +18,11 @@ const near = (a: number, b: number) => Math.abs(a - b) <= Math.max(1, Math.abs(a
 const id = (value: unknown): value is string => typeof value === "string" && !!value && value.length <= 512 && !value.includes("/");
 /** 기존 기간 기능 플래그와 검증된 Firebase 전송 경계가 모두 맞아야 한다. */
 export function trainingAnalysisPeriodsAvailable(discipline: string = "bike") {
-  return analysisCapabilityAvailable("bikePeriods") && (discipline === "bike" || getRuntimeConfig().appEnvironment === "stage" && getRuntimeConfig().useEmulators !== true);
+  // Riding and running are equal hosted production features; swim stays stage-only until verified.
+  // The local emulator harness remains bike-only (see the loader boundary below).
+  return analysisCapabilityAvailable("bikePeriods") && (discipline === "bike"
+    || discipline === "run" && !localTrainingEmulatorAvailable()
+    || getRuntimeConfig().appEnvironment === "stage" && getRuntimeConfig().useEmulators !== true);
 }
 export function validTrainingAnalysisPeriodsRequest(request: TrainingAnalysisPeriodsRequest, now = Date.now()) {
   return !!request && ["bike", "run", "swim"].includes(request.discipline)
@@ -365,7 +369,9 @@ export async function loadTrainingAnalysisPeriods(services: FirebaseServices, ui
   if (!matches()) throw new Error("account_changed");
   const local = matchesLocalTrainingEmulator(services);
   if (!matchesAnalysisCapability(services, "bikePeriods")) throw new Error("stage/callable-context-mismatch");
-  if ((local || getRuntimeConfig().appEnvironment !== "stage") && (request.discipline !== "bike" || Object.keys(request).some(key => /stage/iu.test(key)))) throw new Error("local/unsupported-analysis");
+  // Outside Stage only the production disciplines are allowed, and Stage-only overlays never are.
+  // The local emulator harness stays bike-only; hosted production also serves run.
+  if ((local || getRuntimeConfig().appEnvironment !== "stage") && ((request.discipline !== "bike" && (local || request.discipline !== "run")) || Object.keys(request).some(key => /stage/iu.test(key)))) throw new Error("local/unsupported-analysis");
   if (!validTrainingAnalysisPeriodsRequest(request)) throw new Error("invalid_training_analysis_periods_request");
   await services.ensureAppCheckReady();
   if (!matchesAnalysisCapability(services, "bikePeriods")) throw new Error("stage/callable-context-mismatch");

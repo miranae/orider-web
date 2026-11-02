@@ -8,7 +8,8 @@
     "runCountUnit": " activities",
     "subtitleRecent": "You logged ",
     "defaultName": "Rider",
-    "anonTitle": "Keep your riding history longer and go deeper",
+    "slogan": "Ride Your Time.",
+    "sloganTagline": "",
     "anonSubtitle": "Bring scattered activity records together safely, then turn them into training load, courses, segments, and AI coaching.",
     "anonCta": "Get started",
     "signingIn": "Signing in…",
@@ -414,6 +415,7 @@
       "viewDetails": "View today's decision and action",
       "viewSafetyDetails": "Review the stop reason"
     },
+    "analysisNeedsSport": "Pick cycling or running to see analysis",
     "tabOverview": "Overview",
     "tabZones": "Power Zones",
     "tabAnalysis": "Analysis",

@@ -1,3 +1,10 @@
+import { useNavigate, useLocation } from "react-router-dom";
+import { DialogProvider } from "../contexts/DialogContext";
+import { ToastProvider } from "../contexts/ToastContext";
+import { EmbeddedNavigationContext } from "./EmbeddedNavigationContext";
+import { EmbeddedCoachNavigation } from "./EmbeddedCoachNavigation";
+import { embeddedCoachPage } from "./coachNavigation";
+import { CLUB_DETAIL_EMBED_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
 import { embeddedCommentId } from "./commentTarget";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -46,6 +53,7 @@ import {
   type TrainingSurfaceKind,
 } from "./surfaceSelection";
 import "./embedded.css";
+import "../pages/coach/CoachSurface.css";
 import {
   createRunStartChannel,
   parseRunStartResult,
@@ -63,6 +71,10 @@ const loadFitnessSurface = () => import("./surfaces/FitnessSurface");
 const loadPlanSurface = () => import("./surfaces/PlanSurface");
 const FitnessSurface = lazy(loadFitnessSurface);
 const PlanSurface = lazy(loadPlanSurface);
+const ClubsSurface = lazy(() => import("./surfaces/ClubsSurface"));
+const ExploreSurface = lazy(() => import("./surfaces/ExploreSurface"));
+const SearchSurface = lazy(() => import("./surfaces/SearchSurface"));
+const ClubDetailSurface = lazy(() => import("./surfaces/ClubDetailSurface"));
 
 const CONTRACT_VERSION = 1 as const;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/;
@@ -144,7 +156,25 @@ interface EmbeddedBootstrapRootProps {
   surfaceKind?: EmbeddedSurfaceKind;
 }
 
-export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "fitness" | "plan";
+export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "fitness" | "plan" | EmbeddedHubSurfaceKind;
+/**
+ * 앱 클럽·탐색 탭과 검색 화면, 클럽 상세. 공개 목록·공개 클럽 미리보기라 로그인 인계 없이(게스트)
+ * 열려도 보인다(웹 클럽 상세도 비로그인이면 PublicClubPreview 다).
+ */
+export type EmbeddedHubSurfaceKind = "clubs" | "explore" | "search" | "club-detail";
+
+function isActivitySurfaceKind(kind: EmbeddedSurfaceKind): kind is "activity-analysis" | "activity-public" {
+  return kind === "activity-analysis" || kind === "activity-public";
+}
+
+export function isHubSurfaceKind(kind: EmbeddedSurfaceKind): kind is EmbeddedHubSurfaceKind {
+  return kind === "clubs" || kind === "explore" || kind === "search" || kind === "club-detail";
+}
+
+/** host.surfaceSelected·트레이닝 캐시를 쓰지 않는 단일 표면(활동·허브). */
+function isStandaloneSurfaceKind(kind: EmbeddedSurfaceKind): boolean {
+  return isActivitySurfaceKind(kind) || isHubSurfaceKind(kind);
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -155,11 +185,16 @@ function hasOnlyKeys(value: Record<string, unknown>, allowed: readonly string[])
   return Object.keys(value).every((key) => keys.has(key));
 }
 
-function parseAuthorizePayload(payload: unknown): { expectedUid: string } | null {
+/**
+ * `expectedUid` 가 없거나 null 이면 게스트 승인 요청이다 — 허브 표면(`allowGuest`)만 받는다.
+ * 기존 표면은 지금처럼 비어 있지 않은 uid 를 요구한다.
+ */
+function parseAuthorizePayload(payload: unknown, allowGuest = false): { expectedUid: string | null } | null {
   if (!isRecord(payload) || !hasOnlyKeys(payload, ["expectedUid", "contractVersion"])) return null;
+  if (payload.contractVersion !== CONTRACT_VERSION) return null;
+  if (allowGuest && (payload.expectedUid === undefined || payload.expectedUid === null)) return { expectedUid: null };
   if (
-    payload.contractVersion !== CONTRACT_VERSION
-    || typeof payload.expectedUid !== "string"
+    typeof payload.expectedUid !== "string"
     || payload.expectedUid.length === 0
     || payload.expectedUid.length > 128
   ) return null;
@@ -323,9 +358,14 @@ function AuthorizedSurface({
   trainingSurfaceVisible: boolean;
 }) {
   const [embeddedParams] = useSearchParams();
+  const coachPage = embeddedCoachPage(embeddedParams.get("page"));
+  const displayedTrainingSurface = mountedTrainingSurface === null ? null
+    : coachPage === "plan" || coachPage === "goals" ? "plan"
+    : coachPage ? "fitness" : mountedTrainingSurface;
   const embeddedTarget = embeddedCommentId(embeddedParams);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
+  // 게스트(허브 표면)는 읽을 프로필이 없다 — 기다리면 표면이 영원히 열리지 않는다.
+  const [profileLoading, setProfileLoading] = useState(() => services.auth.currentUser !== null);
   const shellStatusRef = useRef<HTMLParagraphElement>(null);
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: { queries: { staleTime: 5 * 60 * 1000, retry: 1 } },
@@ -361,7 +401,7 @@ function AuthorizedSurface({
         bridge.send(
           "surface.error",
           { code: "profile_load_failed" },
-          (surfaceKind === "activity-analysis" || surfaceKind === "activity-public") ? undefined : selectionRequestIdRef.current,
+          isStandaloneSurfaceKind(surfaceKind) ? undefined : selectionRequestIdRef.current,
         );
       },
     );
@@ -433,17 +473,39 @@ function AuthorizedSurface({
     );
   }
 
+  // 호스트 전송이 없을 때(브라우저 직접 열기) 던지는 오류가 표면 오류 경계로 번지지 않게 한다.
+  const sendSafely = (type: "surface.ready" | "surface.error", payload: unknown) => {
+    // 전송 실패로 화면이 멈추지 않게 삼키되, 호스트 통신 유실은 기록한다(payload 는 남기지 않는다).
+    try { bridge.send(type, payload); } catch (err) { logClientError("embedded.hubBridgeSend", err, { type, surface: surfaceKind }); }
+  };
+  const hubReady = () => sendSafely("surface.ready", { surface: surfaceKind });
+  const hubError = (code: string) => sendSafely("surface.error", { code });
+  const navigateWithHost = (destination: string) => {
+    const url = new URL(destination, window.location.origin);
+    if (url.origin === window.location.origin) bridge.send("navigation.openNative", { path: `${url.pathname}${url.search}${url.hash}` });
+    else if (url.protocol === "https:" || url.protocol === "http:") bridge.send("navigation.openExternal", { url: url.toString() });
+  };
   const surface = (
     <FirebaseServicesProvider services={services}>
       <AuthContextProvider value={authValue}>
         <QueryClientProvider client={queryClient}>
           <LocaleProvider userId={null} profile={{ ...profile, locale: session.locale }}>
+            <ToastProvider><DialogProvider><EmbeddedNavigationContext.Provider value={navigateWithHost}>
+            {trainingSurface && <EmbeddedCoachNavigation defaultPage={mountedTrainingSurface === "plan" ? "plan" : "condition"} selectionKey={surfaceMountKey} />}
             <Suspense fallback={(
               <div className="orider-embedded-status" role="status" aria-label="Loading surface">
                 <div className="orider-embedded-status__pulse" />
               </div>
             )}>
-              {surfaceKind === "activity-public" && activityId ? (
+              {surfaceKind === "clubs" ? (
+                <ClubsSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
+              ) : surfaceKind === "explore" ? (
+                <ExploreSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
+              ) : surfaceKind === "search" ? (
+                <SearchSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
+              ) : surfaceKind === "club-detail" ? (
+                <ClubDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
+              ) : surfaceKind === "activity-public" && activityId ? (
                 <PublicActivitySurface embedded activityId={activityId} commentId={embeddedTarget} retryKey={retryKey}
                   onReady={() => bridge.send("surface.ready", { activityId })}
                   onError={(code) => bridge.send("surface.error", { code })} />
@@ -454,14 +516,15 @@ function AuthorizedSurface({
                   onReady={() => bridge.send("surface.ready", { activityId })}
                   onError={(code) => bridge.send("surface.error", { code })}
                 />
-              ) : mountedTrainingSurface === "fitness" ? (
+              ) : displayedTrainingSurface === "fitness" ? (
                 <FitnessSurface
                   key={`${surfaceMountKey}:${retryKey}`}
                   retryKey={retryKey}
                   active={subscriptionsActive}
+                  startMode={session.hostCapabilities.includes(RUN_START_SCHEDULED_CAPABILITY) ? { kind: "host", starter: runStartChannel } : { kind: "host-unsupported" }}
                   onReady={trainingReady}
                 />
-              ) : mountedTrainingSurface === "plan" ? (
+              ) : displayedTrainingSurface === "plan" ? (
                 <PlanSurface
                   key={`${surfaceMountKey}:${retryKey}`}
                   retryKey={retryKey}
@@ -474,6 +537,7 @@ function AuthorizedSurface({
                 />
               ) : null}
             </Suspense>
+          </EmbeddedNavigationContext.Provider></DialogProvider></ToastProvider>
           </LocaleProvider>
         </QueryClientProvider>
       </AuthContextProvider>
@@ -488,7 +552,7 @@ function AuthorizedSurface({
     return (
       // 비활성 동안에는 모델과 화면을 유지하고 리스너만 멈춘다.
       <section
-        className="orider-embedded-shell"
+        className="orider-embedded-shell site-shell site-shell--padded py-6 coach-surface"
         aria-labelledby="orider-training-surface-title"
         hidden={!trainingSurfaceVisible}
       >
@@ -554,6 +618,8 @@ export default function EmbeddedBootstrapRoot({
     setSurfaceSelection(next);
   }, []);
   const authorizedUid = useRef<string | null>(null);
+  /** 허브 표면이 로그인 없이(게스트) 승인됐는지. */
+  const guestAuthorized = useRef(false);
   const acceptedUid = useRef<string | null>(null);
   const sessionAccepted = useRef(false);
   const selectionGeneration = useRef(0);
@@ -571,7 +637,7 @@ export default function EmbeddedBootstrapRoot({
   }), [embedded.auth, embedded.functions]);
   const [firestore, setFirestore] = useState(() => embedded.firestore);
   const services = useMemo<FirebaseServices>(
-    () => ({ ...controlServices, firestore }),
+    () => ({ ...controlServices, firestore, scope: "embedded" }),
     [controlServices, firestore],
   );
   // 로그아웃·계정 변경 뒤 이전 계정 데이터를 버리는 요청. 표면이 언마운트된(리스너가 닫힌)
@@ -675,6 +741,8 @@ export default function EmbeddedBootstrapRoot({
     }
   }, [safeSend]);
 
+  const navigate = useNavigate();
+  const location = useLocation();
   const handleNavigation = useCallback((event: MouseEvent<HTMLDivElement>) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -688,20 +756,26 @@ export default function EmbeddedBootstrapRoot({
       event.preventDefault();
       return;
     }
+    if (destination.origin === window.location.origin && destination.pathname === location.pathname) return;
     event.preventDefault();
     if (destination.origin === window.location.origin) {
+      const internal = embeddedInternalDestination(location.pathname, `${destination.pathname}${destination.search}${destination.hash}`);
+      if (internal || destination.pathname === location.pathname) {
+        navigate(internal ?? `${destination.pathname}${destination.search}${destination.hash}`);
+        return;
+      }
       safeSend("navigation.openNative", {
         path: `${destination.pathname}${destination.search}${destination.hash}`,
       });
     } else if (destination.protocol === "https:" || destination.protocol === "http:") {
       safeSend("navigation.openExternal", { url: destination.toString() });
     }
-  }, [safeSend]);
+  }, [safeSend, navigate, location.pathname]);
 
   useEffect(() => {
     const handleMessage = (message: HostBridgeEnvelope) => {
       if (message.type === "host.authorize") {
-        const authorization = parseAuthorizePayload(message.payload);
+        const authorization = parseAuthorizePayload(message.payload, isHubSurfaceKind(surfaceKind));
         if (!authorization) {
           safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
           return;
@@ -709,6 +783,7 @@ export default function EmbeddedBootstrapRoot({
         const attempt = authorizationAttempt.current + 1;
         authorizationAttempt.current = attempt;
         authorizedUid.current = null;
+        guestAuthorized.current = false;
         acceptedUid.current = null;
         sessionAccepted.current = false;
         selectionGeneration.current += 1;
@@ -722,7 +797,10 @@ export default function EmbeddedBootstrapRoot({
         }).then(() => controlServices.auth.authStateReady()).then(() => {
           if (authorizationAttempt.current !== attempt) return;
           const uid = controlServices.auth.currentUser?.uid ?? null;
-          authorizedUid.current = uid === authorization.expectedUid ? uid : null;
+          authorizedUid.current = uid !== null && uid === authorization.expectedUid ? uid : null;
+          // 허브 표면은 로그인 인계가 없거나 실패해도(웹 세션 없음) 공개 목록을 게스트로 연다.
+          // 다른 계정으로 로그인된 상태(uid 불일치)는 지금처럼 거절한다.
+          guestAuthorized.current = isHubSurfaceKind(surfaceKind) && uid === null;
           if (authorizedUid.current === null || controlServices.auth.currentUser?.isAnonymous === true) {
             clearTrainingSurfaceCache();
             // 이전 계정의 Firestore 문서도 다음 승인까지 메모리에 두지 않는다(표면은 위에서 내렸다).
@@ -742,6 +820,27 @@ export default function EmbeddedBootstrapRoot({
         const currentUid = controlServices.auth.currentUser?.uid ?? null;
         if (!accepted) {
           safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
+          return;
+        }
+        if (guestAuthorized.current && currentUid === null) {
+          if (rootRef.current) applyHostContract(rootRef.current, accepted);
+          acceptedUid.current = null;
+          sessionAccepted.current = true;
+          selectionGeneration.current += 1;
+          activeSelectionRequestId.current = undefined;
+          surfaceLoadingFlow.current = null;
+          const attempt = authorizationAttempt.current;
+          // 이전 계정의 Firestore 캐시가 남아 있으면 게스트 표면 전에 버린다.
+          void isolateEmbeddedAccount(null).then(() => {
+            if (authorizationAttempt.current !== attempt || !sessionAccepted.current) return;
+            setFirestore(getEmbeddedFirestore());
+            setSession(accepted);
+          }, (err: unknown) => {
+            logClientError("embedded.accountIsolation.accept", err, { phase: "guest", waited: true, uid: null });
+            if (authorizationAttempt.current !== attempt) return;
+            sessionAccepted.current = false;
+            safeSend("surface.error", { code: "surface_load_failed" }, message.requestId);
+          });
           return;
         }
         if (!authorizedUid.current || authorizedUid.current !== currentUid) {
@@ -838,7 +937,7 @@ export default function EmbeddedBootstrapRoot({
           return;
         }
         if (
-          (surfaceKind === "activity-analysis" || surfaceKind === "activity-public")
+          isStandaloneSurfaceKind(surfaceKind)
           || !sessionAccepted.current
           || !acceptedUid.current
           || controlServices.auth.currentUser?.uid !== acceptedUid.current
@@ -1006,6 +1105,7 @@ export default function EmbeddedBootstrapRoot({
         RETAINED_SURFACE_SELECTION_CAPABILITY,
         SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
         RUN_START_SCHEDULED_CAPABILITY,
+        CLUB_DETAIL_EMBED_CAPABILITY,
       ],
     });
     return () => {
@@ -1016,7 +1116,7 @@ export default function EmbeddedBootstrapRoot({
     };
   }, [bridge, commitSurfaceSelection, controlServices, initialTrainingSurface, runStartChannel, safeSend, surfaceKind]);
 
-  const selectedTrainingSurface = (surfaceKind === "activity-analysis" || surfaceKind === "activity-public")
+  const selectedTrainingSurface = isStandaloneSurfaceKind(surfaceKind)
     ? null
     : surfaceSelection.surface;
   const trainingShellReady = useCallback(() => {
@@ -1037,7 +1137,7 @@ export default function EmbeddedBootstrapRoot({
     // 응답은 커밋된 props 가 아니라 최신 선택에 보낸다. 재선택 메시지와 커밋 사이에 준비가
     // 도착하면 재선택 시점엔 lastReady 가 없어 대신 응답도 없으므로, 여기서 새 requestId 에 보낸다.
     const latest = latestSelection.current;
-    if ((surfaceKind === "activity-analysis" || surfaceKind === "activity-public") || !latest.surface || latest.mountKey !== mounted.mountKey) return;
+    if (isStandaloneSurfaceKind(surfaceKind) || !latest.surface || latest.mountKey !== mounted.mountKey) return;
     handleTrainingSurfaceReady(
       latest.surface,
       latest.generation,
@@ -1067,12 +1167,12 @@ export default function EmbeddedBootstrapRoot({
       data-testid="embedded-bootstrap-root"
       onClickCapture={handleNavigation}
     >
-      {session && ((surfaceKind !== "activity-analysis" && surfaceKind !== "activity-public") || activityId) ? (
+      {session && (!isActivitySurfaceKind(surfaceKind) || activityId) ? (
         <AuthorizedSurface
           key={services.auth.currentUser?.uid ?? "signed-out"}
           activityId={activityId}
           bridge={bridge}
-          mountedTrainingSurface={(surfaceKind === "activity-analysis" || surfaceKind === "activity-public") ? null : surfaceSelection.mounted}
+          mountedTrainingSurface={isStandaloneSurfaceKind(surfaceKind) ? null : surfaceSelection.mounted}
           onTrainingShellReady={trainingShellReady}
           onTrainingSurfaceReady={trainingSurfaceReady}
           planBackgroundRefreshKey={planBackgroundRefreshKey}

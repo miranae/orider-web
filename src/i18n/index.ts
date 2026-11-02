@@ -10,13 +10,13 @@ import { pathDetector, SUPPORTED_LANGS } from './detector';
 // 막혀 LCP 의 렌더지연(~2.7s)을 키웠다. 정적 import → resources 로 묶으면 동기 사용 가능
 // → Suspense 블록·10 왕복 제거. 나머지 on-demand ns(board/course/event 등)는 그대로
 // HttpBackend 가 라우트 진입 시 lazy fetch (partialBundledLanguages).
+// legal은 정책 페이지의 lazy JS와 함께 로드/동기 등록해 별도 JSON 왕복을 만들지 않는다.
 import koCommon from './resources/ko/common.json';
 import koAuth from './resources/ko/auth.json';
 import koDashboard from './resources/ko/dashboard.json';
 import koActivity from './resources/ko/activity.json';
 import koSettings from './resources/ko/settings.json';
 import koMigration from './resources/ko/migration.json';
-import koLegal from './resources/ko/legal.json';
 import koTraining from './resources/ko/training.json';
 import koFitness from './resources/ko/fitness.json';
 import koLab from './resources/ko/lab.json';
@@ -28,7 +28,6 @@ import enDashboard from './resources/en/dashboard.json';
 import enActivity from './resources/en/activity.json';
 import enSettings from './resources/en/settings.json';
 import enMigration from './resources/en/migration.json';
-import enLegal from './resources/en/legal.json';
 import enTraining from './resources/en/training.json';
 import enFitness from './resources/en/fitness.json';
 import enLab from './resources/en/lab.json';
@@ -45,7 +44,6 @@ export const NAMESPACES = [
   'activity',
   'settings',
   'migration',
-  'legal',
   'training',
   'fitness',
   'lab',
@@ -62,7 +60,6 @@ const resources: Resource = {
     activity: koActivity,
     settings: koSettings,
     migration: koMigration,
-    legal: koLegal,
     training: koTraining,
     fitness: koFitness,
     lab: koLab,
@@ -76,7 +73,6 @@ const resources: Resource = {
     activity: enActivity,
     settings: enSettings,
     migration: enMigration,
-    legal: enLegal,
     training: enTraining,
     fitness: enFitness,
     lab: enLab,

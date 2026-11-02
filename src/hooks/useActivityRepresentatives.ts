@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { collection, doc, limit, onSnapshot, query, where, type Firestore, type DocumentSnapshot, type QuerySnapshot } from "firebase/firestore";
 import type { Activity } from "@shared/types";
-import { firestore as defaultFirestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { acceptedPhysicalActivities } from "../utils/estimateTSS";
 
 export const MAX_MISSING_REPRESENTATIVES = 30;
@@ -47,7 +47,9 @@ export function withActivityRepresentatives(rows: readonly Activity[], represent
 /** 현재 월만 구독한다. 비활성 월은 즉시 해제하고 uid별 최대 50그룹의 캐시만 보존한다.
  * 그룹 증거는 직접 대표와 겹치지 않을 때만 조회하며, flag 자체를 집계 제외 근거로 쓰지 않는다.
  */
-export function useActivityRepresentatives(rows: readonly Activity[], uid: string | null | undefined, knownRows: readonly Activity[] = rows, firestore: Firestore = defaultFirestore, requireServerConfirmation = false) {
+export function useActivityRepresentatives(rows: readonly Activity[], uid: string | null | undefined, knownRows: readonly Activity[] = rows, injectedFirestore?: Firestore, requireServerConfirmation = false) {
+  const services = useFirebaseServices();
+  const firestore = injectedFirestore ?? services.firestore;
   const [state, setState] = useState<{ uid: typeof uid; cache: Map<string, CacheEntry>; active: Map<string, symbol> }>({ uid, cache: new Map(), active: new Map() });
   const subscriptions = useRef(new Map<string, () => void>());
   const pendingGroups = useRef(new Set<string>());

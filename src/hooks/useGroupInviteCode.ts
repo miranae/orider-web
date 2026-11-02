@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { auth } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { getGroupInviteCode, regenerateGroupInviteCode, type GroupInviteAdminResult } from "../features/group/groupInviteAdmin";
 import { normalizeGroupInviteCode } from "../features/group/groupInviteLink";
 
 export function useGroupInviteCode(groupId: string | undefined, userId: string | undefined) {
+  const services = useFirebaseServices();
+  const { auth } = services;
   const applyIssuedRef = useRef<((result: GroupInviteAdminResult) => void) | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState({ groupId, userId, code: "", status: "loading", expiresAt: 0, details: null as GroupInviteAdminResult | null });
@@ -35,7 +37,7 @@ export function useGroupInviteCode(groupId: string | undefined, userId: string |
       };
       applyIssuedRef.current = applyIssued;
       const loadVersion = issuedVersion;
-      void getGroupInviteCode(groupId).then((result) => {
+      void getGroupInviteCode(groupId, services).then((result) => {
         if (!current() || loadVersion !== issuedVersion) return;
         applyIssued(result);
       }).catch((err: unknown) => {
@@ -46,7 +48,7 @@ export function useGroupInviteCode(groupId: string | undefined, userId: string |
       });
     }
     return () => { cancelled = true; applyIssuedRef.current = null; clearTimeout(expiry); };
-  }, [groupId, userId, attempt]);
+  }, [groupId, userId, attempt, services]);
   const matching = state.groupId === groupId && state.userId === userId && auth.currentUser?.uid === userId;
   return {
     code: matching && state.expiresAt > Date.now() ? state.code : "",
@@ -55,7 +57,7 @@ export function useGroupInviteCode(groupId: string | undefined, userId: string |
     regenerate: async () => {
       const applyIssued = applyIssuedRef.current;
       if (!groupId || !userId || !applyIssued || auth.currentUser?.uid !== userId) return false;
-      const result = await regenerateGroupInviteCode(groupId);
+      const result = await regenerateGroupInviteCode(groupId, services);
       if (applyIssuedRef.current !== applyIssued || auth.currentUser?.uid !== userId) return false;
       applyIssued(result);
       return true;

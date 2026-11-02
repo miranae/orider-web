@@ -1,3 +1,4 @@
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { ensureAppCheckReady, firestore, functions } from "./firebase";
@@ -49,76 +50,85 @@ export function classifyRiderWorkoutDeliveryError(error: unknown): RiderWorkoutD
   return "unknown";
 }
 
-export function subscribeRiderWorkoutDevices(
-  uid: string,
-  onChange: (devices: RiderWorkoutDeviceRegistration[]) => void,
-  onError: (error: Error) => void,
-): () => void {
-  const ref = query(
-    collection(firestore, "users", uid, "deviceRegistrations"),
-    where("status", "==", "active"),
-  );
-  return onSnapshot(ref, (snapshot) => {
-    onChange(snapshot.docs.flatMap((item) => {
-      const device = parseRiderWorkoutDeviceRegistration(item.id, item.data());
-      return device ? [device] : [];
-    }).sort((left, right) => right.lastSeenAtMillis - left.lastSeenAtMillis));
-  }, onError);
-}
+export function createRiderWorkoutDeliveryClient(services: Pick<FirebaseServices, "firestore" | "functions" | "ensureAppCheckReady">) {
+  const { firestore, functions, ensureAppCheckReady } = services;
+  function subscribeRiderWorkoutDevices(
+    uid: string,
+    onChange: (devices: RiderWorkoutDeviceRegistration[]) => void,
+    onError: (error: Error) => void,
+  ): () => void {
+    const ref = query(
+      collection(firestore, "users", uid, "deviceRegistrations"),
+      where("status", "==", "active"),
+    );
+    return onSnapshot(ref, (snapshot) => {
+      onChange(snapshot.docs.flatMap((item) => {
+        const device = parseRiderWorkoutDeviceRegistration(item.id, item.data());
+        return device ? [device] : [];
+      }).sort((left, right) => right.lastSeenAtMillis - left.lastSeenAtMillis));
+    }, onError);
+  }
 
-export async function createRiderWorkoutDelivery(
-  request: CreateRiderWorkoutDeliveryRequest,
-): Promise<CreateRiderWorkoutDeliveryResponse> {
-  await ensureAppCheckReady();
-  const callable = httpsCallable<CreateRiderWorkoutDeliveryRequest, unknown>(functions, "createRiderWorkoutDelivery");
-  const response = await callable(request);
-  return createRiderWorkoutDeliveryResponseSchema.parse(response.data);
-}
+  async function createRiderWorkoutDelivery(
+    request: CreateRiderWorkoutDeliveryRequest,
+  ): Promise<CreateRiderWorkoutDeliveryResponse> {
+    await ensureAppCheckReady();
+    const callable = httpsCallable<CreateRiderWorkoutDeliveryRequest, unknown>(functions, "createRiderWorkoutDelivery");
+    const response = await callable(request);
+    return createRiderWorkoutDeliveryResponseSchema.parse(response.data);
+  }
 
-export function subscribeRiderWorkoutDelivery(
-  uid: string,
-  deliveryId: string,
-  onChange: (delivery: RiderWorkoutDelivery | null) => void,
-  onError: (error: Error) => void,
-): () => void {
-  return onSnapshot(
-    doc(firestore, "users", uid, "riderWorkoutDeliveries", deliveryId),
-    (snapshot) => {
-      if (!snapshot.exists()) {
-        onChange(null);
-        return;
-      }
-      const delivery = parseRiderWorkoutDelivery(snapshot.data());
-      if (!delivery) {
-        onError(new Error("Rider workout delivery contract mismatch"));
-        return;
-      }
-      onChange(delivery);
-    },
-    onError,
-  );
-}
+  function subscribeRiderWorkoutDelivery(
+    uid: string,
+    deliveryId: string,
+    onChange: (delivery: RiderWorkoutDelivery | null) => void,
+    onError: (error: Error) => void,
+  ): () => void {
+    return onSnapshot(
+      doc(firestore, "users", uid, "riderWorkoutDeliveries", deliveryId),
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          onChange(null);
+          return;
+        }
+        const delivery = parseRiderWorkoutDelivery(snapshot.data());
+        if (!delivery) {
+          onError(new Error("Rider workout delivery contract mismatch"));
+          return;
+        }
+        onChange(delivery);
+      },
+      onError,
+    );
+  }
 
-export function subscribeRiderWorkoutDeviceState(
-  uid: string,
-  deviceId: string,
-  onChange: (state: RiderWorkoutDeviceState | null) => void,
-  onError: (error: Error) => void,
-): () => void {
-  return onSnapshot(
-    doc(firestore, "users", uid, "riderWorkoutDeviceState", deviceId),
-    (snapshot) => {
-      if (!snapshot.exists()) {
-        onChange(null);
-        return;
-      }
-      const state = parseRiderWorkoutDeviceState(snapshot.data());
-      if (!state || state.deviceId !== deviceId) {
-        onError(new Error("Rider workout device state contract mismatch"));
-        return;
-      }
-      onChange(state);
-    },
-    onError,
-  );
+  function subscribeRiderWorkoutDeviceState(
+    uid: string,
+    deviceId: string,
+    onChange: (state: RiderWorkoutDeviceState | null) => void,
+    onError: (error: Error) => void,
+  ): () => void {
+    return onSnapshot(
+      doc(firestore, "users", uid, "riderWorkoutDeviceState", deviceId),
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          onChange(null);
+          return;
+        }
+        const state = parseRiderWorkoutDeviceState(snapshot.data());
+        if (!state || state.deviceId !== deviceId) {
+          onError(new Error("Rider workout device state contract mismatch"));
+          return;
+        }
+        onChange(state);
+      },
+      onError,
+    );
+  }
+
+  return { subscribeRiderWorkoutDevices, createRiderWorkoutDelivery, subscribeRiderWorkoutDelivery, subscribeRiderWorkoutDeviceState };
 }
+export const subscribeRiderWorkoutDevices: ReturnType<typeof createRiderWorkoutDeliveryClient>["subscribeRiderWorkoutDevices"] = (...args) => createRiderWorkoutDeliveryClient({ firestore, functions, ensureAppCheckReady }).subscribeRiderWorkoutDevices(...args);
+export const createRiderWorkoutDelivery: ReturnType<typeof createRiderWorkoutDeliveryClient>["createRiderWorkoutDelivery"] = (...args) => createRiderWorkoutDeliveryClient({ firestore, functions, ensureAppCheckReady }).createRiderWorkoutDelivery(...args);
+export const subscribeRiderWorkoutDelivery: ReturnType<typeof createRiderWorkoutDeliveryClient>["subscribeRiderWorkoutDelivery"] = (...args) => createRiderWorkoutDeliveryClient({ firestore, functions, ensureAppCheckReady }).subscribeRiderWorkoutDelivery(...args);
+export const subscribeRiderWorkoutDeviceState: ReturnType<typeof createRiderWorkoutDeliveryClient>["subscribeRiderWorkoutDeviceState"] = (...args) => createRiderWorkoutDeliveryClient({ firestore, functions, ensureAppCheckReady }).subscribeRiderWorkoutDeviceState(...args);

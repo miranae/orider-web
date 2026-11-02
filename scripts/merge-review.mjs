@@ -203,6 +203,12 @@ function probeIsolation(request, bin, authFile, output, env, cwd) {
   }
 }
 
+/** Claude CLI 는 draft 2020-12 `$schema` 선언을 몰라 시작 전에 종료한다. 선언만 빼고 넘긴다(Codex 입력은 그대로). */
+export function claudeJsonSchema(text) {
+  const { $schema, ...schema } = JSON.parse(text);
+  return JSON.stringify(schema);
+}
+
 export async function providerReview(name, request) {
   if (!executable("/usr/bin/sandbox-exec")) return { code: null, reason: "sandbox_unavailable", stdout: "" };
   const bin = findNative(name);
@@ -225,7 +231,7 @@ export async function providerReview(name, request) {
     if (!credential) return { code: null, reason: "auth_unavailable", stdout: "" };
     Object.assign(env, credential, { CLAUDE_CONFIG_DIR: home, CLAUDE_CODE_TMPDIR: join(home, "tmp"), CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1" });
     writeFileSync(authFile, "{}", { mode: 0o600 });
-    args = ["--print", "--restricted", "--tools", "", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--setting-sources", "", "--settings", '{"disableAllHooks":true,"enableAllProjectMcpServers":false}', "--disable-slash-commands", "--no-session-persistence", "--output-format", "json", "--json-schema", readFileSync(request.schema, "utf8")];
+    args = ["--print", "--restricted", "--tools", "", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--setting-sources", "", "--settings", '{"disableAllHooks":true,"enableAllProjectMcpServers":false}', "--disable-slash-commands", "--no-session-persistence", "--output-format", "json", "--json-schema", claudeJsonSchema(readFileSync(request.schema, "utf8"))];
   }
   probeIsolation(request, bin, authFile, output, env, cwd);
   const rawTimeout = Number(process.env[`${name.toUpperCase()}_REVIEW_TIMEOUT_SEC`] ?? 900);

@@ -53,9 +53,10 @@ beforeEach(async () => { await i18n.changeLanguage("ko"); vi.clearAllMocks(); st
 afterEach(cleanup);
 
 describe("owner running dashboard journey parity", () => {
-  it("keeps communities below schedules without duplicating the global app installation footer", () => {
+  it("keeps communities below schedules without duplicating the global app installation footer", async () => {
     state.mobile = false;
     show();
+    await screen.findByText("내 일정");
     const sidebar = screen.getAllByRole("complementary")[1]!;
     const communityTitle = within(sidebar).getByText("한국 자전거 커뮤니티");
     expect(communityTitle.closest("details")).toBeNull();
@@ -79,7 +80,7 @@ describe("owner running dashboard journey parity", () => {
     state.mobile = false;
     state.sportFilter = "bike";
     show(`/${lang}?sport=bike`);
-    const summary = screen.getByLabelText(lang === "ko" ? "주간 거리와 훈련 부하 요약" : "Weekly distance and training load summary");
+    const summary = await screen.findByLabelText(lang === "ko" ? "주간 거리와 훈련 부하 요약" : "Weekly distance and training load summary");
     const periods = within(summary).getAllByRole("definition");
     expect(periods).toHaveLength(3);
     expect(periods.map(period => period.children[0]?.lastChild?.textContent)).toEqual([loads.length === 4 ? "15" : "20", "40", "0"]);
@@ -157,20 +158,20 @@ describe("owner running dashboard journey parity", () => {
     expect(useUserFitness).toHaveBeenCalledWith(false);
     expect(useRunRecords).toHaveBeenCalledWith(false);
   });
-  it("places desktop cross-sport context in the sidebar below running history rather than before primary activity", () => {
+  it("places desktop cross-sport context in the sidebar below running history rather than before primary activity", async () => {
     state.mobile = false;
     state.runs = [{} as Activity];
     show("/ko?sport=run");
     const sidebar = screen.getAllByRole("complementary")[1]!;
-    const cross = within(sidebar).getByText("run-cross-load");
+    const cross = await within(sidebar).findByText("run-cross-load");
     expect(screen.getByTestId("dashboard-running-journey")).not.toHaveTextContent("run-cross-load");
     expect(screen.getByTestId("run-monthly-distance").compareDocumentPosition(cross) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
-  it("renders the desktop running weekly distances as bars with distance-only summaries", () => {
+  it("renders the desktop running weekly distances as bars with distance-only summaries", async () => {
     state.mobile = false;
     state.weeklyLoad = [100, null, null];
     show("/ko?sport=run");
-    const chart = screen.getByTestId("run-weekly-activity");
+    const chart = await screen.findByTestId("run-weekly-activity");
     expect(within(chart).getAllByTestId("weekly-distance-bar")).toHaveLength(3);
     expect(within(chart).getByTestId("weekly-zero-marker")).toHaveAttribute("data-current-week", "true");
     expect(within(chart).getByText("20.0km")).toBeInTheDocument();
@@ -180,7 +181,7 @@ describe("owner running dashboard journey parity", () => {
     expect(chart).not.toHaveTextContent("TSS");
     expect(within(chart).queryByRole("button", { name: /활동별 TSS/ })).not.toBeInTheDocument();
   });
-  it("preserves desktop URL-run behavior even when the mobile preference is bike", () => {
+  it("preserves desktop URL-run behavior even when the mobile preference is bike", async () => {
     state.mobile = false;
     state.sportFilter = "bike";
     state.feedScope = "all";
@@ -190,7 +191,7 @@ describe("owner running dashboard journey parity", () => {
     expect(screen.queryByRole("heading", { name: "훈련 상태" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("H2-3-1")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "월간 운동일지" })).toHaveAttribute("href", "/ko/athlete/me/activities?sport=run");
-    expect(screen.getByTestId("H2-1-1")).toHaveTextContent("역치 페이스");
+    expect(await screen.findByTestId("H2-1-1")).toHaveTextContent("역치 페이스");
     expect(screen.getByTestId("run-weekly-activity")).toBeInTheDocument();
     expect(screen.getByTestId("run-monthly-distance")).toBeInTheDocument();
     expect(state.weeklyRequest).toHaveBeenCalledWith(expect.objectContaining({ includeMonthlyDistance: true }));

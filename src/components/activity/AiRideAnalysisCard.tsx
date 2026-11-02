@@ -2,7 +2,7 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useActivityNarrativeHistory } from "../../hooks/useActivityNarrativeHistory";
 import NarrativeComparisonGrounding from "./NarrativeComparisonGrounding";
 import { captureActivityNarrativeSession } from "../../services/activityNarrativeSession";
-import { Bot } from "lucide-react";
+import { ChartLine } from "lucide-react";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 /**
  * AI 라이딩 분석 카드 (활동 개요).
@@ -249,7 +249,7 @@ interface Props {
 export default function AiRideAnalysisCard({ activityId, enabled, sport = "ride", summaryPreview, summaryPreviewEn, isActivityOwner = false }: Props) {
   const { t, i18n } = useTranslation("activity");
   const lang = narrativeLangFrom(i18n.language);
-  const header = <><Bot size={ICON_SIZE.md} aria-hidden="true" style={{ display: "inline", marginInlineEnd: "var(--space-2)", verticalAlign: "text-bottom" }} />{t(sportHeaderKey(sport)).replace(/^🤖\s*/u, "")}</>;
+  const header = <><ChartLine size={ICON_SIZE.md} aria-hidden="true" style={{ display: "inline", marginInlineEnd: "var(--space-2)", verticalAlign: "text-bottom" }} />{t(sportHeaderKey(sport)).replace(/^🤖\s*/u, "")}</>;
   const previewSummary = lang === "en" ? (summaryPreviewEn || summaryPreview) : (summaryPreview || summaryPreviewEn);
   const { user, signIn } = useAuth();
   const narrativeServices = useFirebaseServices();

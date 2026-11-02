@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 
 import EmbeddedSurfaceState from "./EmbeddedSurfaceState";
-import PlanPresentation from "../../features/training/plan/PlanPresentation";
-import Run30EnrollCard from "../../features/training/run30/Run30EnrollCard";
-import Run30ProgramView from "../../features/training/run30/Run30ProgramView";
+import { PlanView } from "../../pages/PlanPage";
+import GoalSetupPage from "../../pages/GoalSetupPage";
 import type { Run30StartMode } from "../../features/training/run30/run30Start";
 import { useRun30Program } from "../../features/training/run30/useRun30Program";
 import { usePlanModel } from "../../hooks/usePlanModel";
@@ -38,7 +37,6 @@ export default function PlanSurface({
   const model = usePlanModel(searchParams.get("sport"), active);
   const run30Enabled = model.discipline === "run";
   const run30 = useRun30Program(run30Enabled, active);
-  const [mobileWeekOffset, setMobileWeekOffset] = useState(0);
   const settledKeys = useRef(new Set<string>());
   const startMode = useMemo<Run30StartMode>(() => scheduledRunStarter
     ? { kind: "host", starter: scheduledRunStarter }
@@ -99,27 +97,18 @@ export default function PlanSurface({
     run30.retry();
   }, [model, run30]);
 
-  const refreshAll = useCallback(async () => {
-    await run30.refresh();
-    model.retryLoad();
-  }, [model, run30]);
-
   const cachedNotice = (run30.cacheHit || (model.cacheHit && !model.freshLoaded))
     ? <p role="status" className="orider-embedded-page-title">{tCommon("embeddedStatus.cached")}</p> : null;
 
-  if (run30Program) {
-    return (
-      <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
-        {cachedNotice}
-        <Run30ProgramView
-          api={run30.api}
-          program={run30Program}
-          onRefresh={refreshAll}
-          startMode={startMode}
-        />
-      </main>
-    );
+  if (searchParams.get("page") === "goals") {
+    return <main className="orider-embedded-surface" data-testid="embedded-goals">{active && <GoalSetupPage />}</main>;
   }
+
+  const sharedContent = <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
+    {cachedNotice}
+    {active && <PlanView model={model} run30={run30} startMode={startMode} />}
+  </main>;
+  if (run30Program) return sharedContent;
 
   if ((model.goalLoading || !run30Settled) && !canShowPlanCache) {
     return (
@@ -141,16 +130,7 @@ export default function PlanSurface({
     );
   }
 
-  // 활성 러닝 목표가 없으면 일반 빈 화면 대신 입문 프로그램 등록을 보여 준다.
-  if (run30Enabled && (!model.goal || model.goal.discipline !== "run")) {
-    return (
-      <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
-        {cachedNotice}
-        <h1 className="orider-embedded-page-title">{t("page.embeddedTitle")}</h1>
-        <Run30EnrollCard api={run30.api} variant="intro" onEnrolled={refreshAll} />
-      </main>
-    );
-  }
+  if (run30Enabled && (!model.goal || model.goal.discipline !== "run")) return sharedContent;
 
   if (model.goal && model.planLoading) {
     return (
@@ -178,21 +158,5 @@ export default function PlanSurface({
     );
   }
 
-  // 다른 러닝 목표가 활성이면 기존 계획을 유지하고 입문 프로그램 전환만 제안한다.
-  const run30Offer = run30Enabled && run30Settled && model.goal?.discipline === "run" && !model.goal.runProgram
-    ? <Run30EnrollCard api={run30.api} variant="offer" onEnrolled={refreshAll} />
-    : undefined;
-
-  return (
-    <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
-      {cachedNotice}
-      <PlanPresentation
-        model={model}
-        embedded
-        decisionSlot={run30Offer}
-        mobileWeekOffset={mobileWeekOffset}
-        onMobileWeekOffsetChange={setMobileWeekOffset}
-      />
-    </main>
-  );
+  return sharedContent;
 }

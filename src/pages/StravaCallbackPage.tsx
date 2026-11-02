@@ -10,11 +10,13 @@ import { useToast } from "../contexts/ToastContext";
 import { firestore } from "../services/firebase";
 import { track } from "../services/analytics";
 import { logClientError } from "../services/errorLogger";
+import { startSocialAuth } from "../services/socialAuth";
+import { auth } from "../services/firebase";
 import { buildOriderSharePayload, shareOrCopy } from "../features/share/oriderShareText";
 import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
 import { stravaSignupGuidancePath } from "../utils/stravaSignup";
 
-type Step = "verifying" | "exchanging" | "done" | "error";
+type Step = "verifying" | "exchanging" | "done" | "error" | "confirm-link";
 
 const AUTH_RESTORE_TIMEOUT_MS = 5000;
 const SETTINGS_CONNECTIONS_PATH = "/settings/connections";
@@ -85,6 +87,24 @@ export default function StravaCallbackPage() {
   const [continuePath, setContinuePath] = useState(SETTINGS_CONNECTIONS_PATH);
   const [shared, setShared] = useState(false);
   const exchangeStartedRef = useRef(false);
+  const connectOwnerRef = useRef<string | null>(null);
+
+  /** 빈 Strava 가입 계정이 이 Strava를 갖고 있으면 Strava 로그인 연결(connectExisting)로 옮긴 뒤 활동 연동을 다시 시작한다. */
+  const connectExistingStrava = async () => {
+    if (!connectOwnerRef.current || auth.currentUser?.uid !== connectOwnerRef.current) {
+      setStep("error");
+      setErrorMsg(t("socialCallback.error.denied"));
+      return;
+    }
+    setStep("exchanging");
+    try {
+      await startSocialAuth("strava", "link", SETTINGS_CONNECTIONS_PATH, true);
+    } catch (error) {
+      logClientError("StravaCallbackPage.connectExisting", error);
+      setStep("error");
+      setErrorMsg(t("stravaCallback.error.exchangeFailed"));
+    }
+  };
 
   const retryStravaConnection = () => {
     const returnTo = sessionStorage.getItem("strava_return_to") || SETTINGS_CONNECTIONS_PATH;
@@ -169,7 +189,14 @@ export default function StravaCallbackPage() {
             fitnessCurveReady: false,
           });
         }
-      } catch {
+      } catch (err) {
+        const error = err as { code?: string; details?: { reason?: string } };
+        if (error.code === "functions/already-exists" && error.details?.reason === "social-account-connect-confirmation") {
+          track("strava_connect", { result: "connect_existing" });
+          connectOwnerRef.current = user.uid;
+          setStep("confirm-link");
+          return;
+        }
         track("strava_connect", { result: "fail" });
         setStep("error");
         setErrorMsg(t("stravaCallback.error.exchangeFailed"));
@@ -215,6 +242,7 @@ export default function StravaCallbackPage() {
           {step === "exchanging" && t("stravaCallback.step.exchanging")}
           {step === "done" && t("stravaCallback.step.done")}
           {step === "error" && t("stravaCallback.step.error")}
+          {step === "confirm-link" && t("socialCallback.connectExisting.title")}
         </h2>
 
         <p className="text-[length:var(--fs-sm)] text-[var(--ink-3)]">
@@ -222,7 +250,25 @@ export default function StravaCallbackPage() {
           {step === "exchanging" && t("stravaCallback.desc.exchanging")}
           {step === "done" && t("stravaCallback.desc.done")}
           {step === "error" && errorMsg}
+          {step === "confirm-link" && t("socialCallback.connectExisting.description")}
         </p>
+
+        {step === "confirm-link" && (
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+            <button
+              onClick={() => { void connectExistingStrava(); }}
+              className="px-4 py-2 bg-[var(--lime)] text-[var(--bg-0)] text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] hover:opacity-90"
+            >
+              {t("socialCallback.connectExisting.confirm")}
+            </button>
+            <button
+              onClick={() => navigate(SETTINGS_CONNECTIONS_PATH, { replace: true })}
+              className="px-4 py-2 border border-[var(--line-soft)] text-[var(--ink-1)] text-[length:var(--fs-sm)] font-medium rounded-[var(--r-lg)] hover:bg-[var(--bg-1)]"
+            >
+              {t("socialCallback.connectExisting.cancel")}
+            </button>
+          </div>
+        )}
 
         {step === "done" && (
           <div className="space-y-4 text-left">
@@ -305,7 +351,7 @@ export default function StravaCallbackPage() {
         )}
 
         {/* Progress bar */}
-        {step !== "error" && step !== "done" && (
+        {step !== "error" && step !== "done" && step !== "confirm-link" && (
           <div className="w-full bg-[var(--bg-2)] rounded-full h-1.5">
             <div
               className="bg-[var(--lime)] h-1.5 rounded-full transition-all duration-500"

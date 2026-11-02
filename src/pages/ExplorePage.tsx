@@ -340,18 +340,19 @@ const moduleCache = {
   loading: false,
 };
 
-export default function ExplorePage() {
-  return <SegmentSurface><ExploreSegmentsContent /></SegmentSurface>;
+/** `embedded`: 앱 탐색 임베드는 웹 경로(/explore/segments)가 아니어도 항상 보이는 화면이다. */
+export default function ExplorePage({ embedded = false }: { embedded?: boolean } = {}) {
+  return <SegmentSurface><ExploreSegmentsContent embedded={embedded} /></SegmentSurface>;
 }
 
-function ExploreSegmentsContent() {
+function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
   const mapboxToken = getMapboxToken();
   const [mapFailed, setMapFailed] = useState(false);
   const { t } = useTranslation("segment");
   const navigate = useNavigate();
   const isMobile = useMobile();
   const location = useLocation();
-  const isVisible = stripLangPrefix(location.pathname) === "/explore/segments";
+  const isVisible = embedded || stripLangPrefix(location.pathname) === "/explore/segments";
   const [hasRendered, setHasRendered] = useState(isVisible);
 
   const CATEGORIES: { id: Category; label: string; icon: typeof MapIcon }[] = [
@@ -699,9 +700,9 @@ function ExploreSegmentsContent() {
 
   if (!loading && overviewError) {
     return (
-      <div className="flex flex-col -mx-4 -my-6 lg:h-[calc(100dvh-56px)]">
-        <div className="flex-shrink-0 px-4 pb-4 space-y-4 bg-[var(--bg-1)] border-b border-[var(--line-soft)]">
-          <div className="flex items-center justify-between pt-3 md:pt-6">
+      <div className="flex flex-col -mb-6 lg:h-[calc(100dvh-56px)]">
+        <div className="flex-shrink-0 pb-4 space-y-4 border-b border-[var(--line-soft)]">
+          <div className="flex items-center justify-between">
             <Text as="h1" variant="pageTitle" data-testid="E2-0">{t("title")}</Text>
           </div>
         </div>
@@ -719,10 +720,10 @@ function ExploreSegmentsContent() {
   return (
     // 모바일: 고정 높이 없이 자연 스크롤(짧은 지도 + 목록이 아래로 흐름) — 지도가 화면을 다 덮어
     // 순위/기록을 못 보던 문제 해결. 데스크톱(lg)만 풀 높이 분할 화면 유지.
-    <div className="flex flex-col -mx-4 -my-6 lg:h-[calc(100dvh-56px)]">
+    <div className="flex flex-col -mb-6 lg:h-[calc(100dvh-56px)]">
       {/* 컨트롤 바 */}
-      <div className="flex-shrink-0 px-4 pb-4 space-y-4 bg-[var(--bg-1)] border-b border-[var(--line-soft)]">
-        <div className="flex items-center justify-between pt-3 md:pt-6">
+      <div className="flex-shrink-0 pb-4 space-y-4 border-b border-[var(--line-soft)]">
+        <div className="flex items-center justify-between">
           <div className="min-w-0">
             <Text as="h1" variant="pageTitle"><GlossaryText>{t("title")}</GlossaryText></Text>
             <p className="text-[var(--ink-2)] text-[length:var(--ft-body-size)] mt-1">
@@ -908,8 +909,9 @@ function ExploreSegmentsContent() {
 
           {/* 목록 */}
           <div data-testid="E2-2" className="flex-1 lg:flex-[1] lg:max-w-md overflow-y-auto border-t lg:border-t-0 lg:border-l border-[var(--line-soft)] bg-[var(--bg-0)]">
-            {/* 모바일: 좌우 패딩 제거해 카드를 화면 전폭으로. lg에서는 p-3 유지 */}
-            <div data-testid={listTab === "bounds" ? undefined : "E2-3"} className={isMobile ? "pt-3 pb-3" : "p-3"}>
+            {/* 목록이 지도 아래로 쌓이는 lg 미만은 좌우 패딩 없이 페이지 정렬선(이벤트·챌린지와 같은 폭)에 맞춘다.
+                lg 옆 칸은 구분선과만 띄우고 오른쪽 끝은 정렬선에 붙인다. */}
+            <div data-testid={listTab === "bounds" ? undefined : "E2-3"} className="py-3 lg:pl-3">
               <div className="flex flex-wrap gap-2 mb-3">{(["bounds", "notable", "challenged"] as const).map((tab) => <Button key={tab} variant={listTab === tab ? "primary" : "secondary"} size="sm" className={listTab === tab ? "font-bold" : undefined} aria-pressed={listTab === tab} onClick={() => setListTab(tab)}>{t(`explore.listTab.${tab}`)}</Button>)}</div>
               {listTab === "challenged" ? <LeaderboardPage search={searchQuery} discipline={discipline} category={category} /> : <>
               {/* 선택된 세그먼트 상세 패널 */}
