@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { embeddedCoachDestination } from "./coachNavigation";
+import { coachTabForPage, embeddedCoachDestination, embeddedCoachPage } from "./coachNavigation";
 
 describe("authorized coach navigation", () => {
   it.each(["ko", "en"])("keeps %s coach destinations inside the existing app session", lang => {
@@ -13,6 +13,15 @@ describe("authorized coach navigation", () => {
     const params = new URL(destination!, "https://local.invalid").searchParams;
     expect(params.get("page")).toBe("goals");
     expect(params.get("returnTo")).toBe("/coach/plan?sport=run");
+  });
+  it("opens the today tab's records link inside the coach embed instead of the web", () => {
+    // 오늘 탭 "활동 기록·수행 확인" — 앱 밖 웹으로 보내지 않는다(2026-11-03).
+    expect(embeddedCoachDestination("/ko/embed/fitness", "/ko/athlete/me/activities?sport=all"))
+      .toBe("/ko/embed/fitness?sport=all&page=records");
+    expect(embeddedCoachPage("records")).toBe("records");
+    expect(coachTabForPage("records")).toBe("today");
+    expect(coachTabForPage("plan")).toBe("plan");
+    expect(embeddedCoachPage("unknown")).toBeNull();
   });
   it("leaves ordinary web, native activity and external destinations to their existing owners", () => {
     expect(embeddedCoachDestination("/ko/coach/plan", "/coach/analysis")).toBeNull();
