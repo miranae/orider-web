@@ -1124,6 +1124,9 @@ export default function EmbeddedBootstrapRoot({
   const selectedTrainingSurface = isStandaloneSurfaceKind(surfaceKind)
     ? null
     : surfaceSelection.surface;
+  // 코치는 표면(피트니스·계획) 안에서 하위 페이지(?page)와 종목(?sport, 통합 포함)을 바꾼다 — 화면마다 스크롤을 따로 기억한다.
+  const scrollParams = new URLSearchParams(location.search);
+  const surfaceScrollKey = `${surfaceSelection.mountKey}:${scrollParams.get("page") ?? ""}:${scrollParams.get("sport") ?? ""}`;
   const trainingShellReady = useCallback(() => {
     if (!selectedTrainingSurface) return;
     handleTrainingShellReady(selectedTrainingSurface, surfaceSelection.generation);
@@ -1174,7 +1177,8 @@ export default function EmbeddedBootstrapRoot({
     >
       {session && (!isActivitySurfaceKind(surfaceKind) || activityId) ? (
         <RetainedSurfaceActivity foreground={hostForeground}
-          contentVisible={isStandaloneSurfaceKind(surfaceKind) || selectedTrainingSurface !== null}>
+          contentVisible={isStandaloneSurfaceKind(surfaceKind) || selectedTrainingSurface !== null}
+          scrollKey={surfaceScrollKey}>
         <AuthorizedSurface
           key={services.auth.currentUser?.uid ?? "signed-out"}
           activityId={activityId}

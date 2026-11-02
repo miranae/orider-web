@@ -376,6 +376,32 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     expect(mocks.consumeHandoff).toHaveBeenCalledTimes(handoffs);
   });
 
+  it("코치 하위 페이지·종목별 스크롤 위치를 따로 기억해 탭을 떠났다 돌아오면 보던 화면의 위치로 되돌린다", async () => {
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    const scrollY = (y: number) => {
+      Object.defineProperty(window, "scrollY", { configurable: true, value: y });
+      window.dispatchEvent(new Event("scroll"));
+    };
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/fitness?sport=tri&page=condition", "fitness");
+    await act(async () => { bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 })); });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    await screen.findByTestId("fitness-surface");
+    scrollY(700);
+    fireEvent.click(screen.getByRole("button", { name: /^(분석|Analysis|coachPages.analysis)$/ }));
+    await screen.findByTestId("fitness-surface");
+    expect(scrollTo).not.toHaveBeenCalled();
+    scrollY(200);
+    // 앱 코치 탭을 떠났다(null) 같은 표면으로 돌아오면 떠날 때 보던 분석의 위치로 되돌린다.
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: null })));
+    scrollY(0);
+    act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "reselect")));
+    expect(scrollTo).toHaveBeenLastCalledWith(0, 200);
+    // 컨디션으로 돌아가면 컨디션(통합)에서 보던 위치로 옮긴다.
+    fireEvent.click(screen.getByRole("button", { name: /^(컨디션|Condition|coachPages.condition)$/ }));
+    await waitFor(() => expect(scrollTo).toHaveBeenLastCalledWith(0, 700));
+  });
+
   it.each([
     ["fitness", "/ko/embed/fitness?sport=run", "fitnessSurfaceMounts", "fitness-surface"],
     ["plan", "/ko/embed/plan?sport=swim", "planSurfaceMounts", "plan-surface"],
