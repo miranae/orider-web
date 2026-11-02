@@ -1,3 +1,4 @@
+import { Activity } from "react";
 import { embeddedCommentId } from "../commentTarget";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +14,17 @@ const props = { activityId: "original", retryKey: 0, embedded: true, onReady: vi
 beforeEach(() => { mocks.services = { auth: { currentUser: { uid: "viewer" } } }; mocks.listeners = []; mocks.load.mockReset().mockResolvedValue({ items: [row], nextCursor: null }); });
 afterEach(cleanup);
 describe("embedded public profile navigation", () => {
+  it("retains the visited activity and back stack after effect reconnection", async () => {
+    const view = render(<Activity mode="visible"><PublicActivityBrowser {...props} /></Activity>);
+    fireEvent.click(screen.getByRole("link", { name: "author" }));
+    await screen.findByText("Public Rider");
+    fireEvent.click(screen.getByRole("button", { name: "Public Ride" }));
+    view.rerender(<Activity mode="hidden"><PublicActivityBrowser {...props} /></Activity>);
+    view.rerender(<Activity mode="visible"><PublicActivityBrowser {...props} /></Activity>);
+    expect(await screen.findByText("detail:public-ride")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "돌아가기" }));
+    await screen.findByText("Public Rider");
+  });
   it("binds the notification target only to the initial activity and re-mounts it on return", async () => {
     render(<PublicActivityBrowser {...props} commentId="outside-preview" />);
     expect(screen.getByText("target:original:outside-preview")).toBeInTheDocument();
