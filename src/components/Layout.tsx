@@ -24,6 +24,7 @@ import { TopNav } from "./redesign";
 import MobileTabBar from "./mobile/MobileTabBar";
 import HubSubNav from "./HubSubNav";
 import { resolveDetailHub, isHubSubRoute } from "../config/navHubs";
+import { rememberHubLocation } from "../services/hubReturn";
 import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
 import { recordRouteRedirect } from "../services/routeLoopTelemetry";
 // 네비 IA는 5개 기본 허브와 설정 유틸리티 허브를 config/navHubs.ts 에서 공유한다.
@@ -107,6 +108,9 @@ export default function Layout() {
   const activeNav = resolveDetailHub(path, location.state);
   const mainRef = useRef<HTMLElement>(null);
   useMainScrollPosition(mainRef, user);
+  useEffect(() => {
+    rememberHubLocation(user?.uid ?? null, path, location.search, location.state);
+  }, [user?.uid, path, location.search, location.state]);
   const [friendRequestCount, setFriendRequestCount] = useState(0);
 
   // 온보딩 리다이렉트: step이 설정됐지만 "done"이 아닌 신규 유저

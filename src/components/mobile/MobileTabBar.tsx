@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PRIMARY_HUBS, type HubKey } from "../../config/navHubs";
+import { HUB_RETURN_STATE, hubReturnTarget } from "../../services/hubReturn";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 import "./MobileTabBar.css";
 
@@ -54,7 +55,8 @@ export default function MobileTabBar({
           return (
             <Link
               key={key}
-              to={localized(to)}
+              to={localized(isActive ? to : hubReturnTarget(key, to))}
+              state={isActive ? undefined : HUB_RETURN_STATE}
               aria-current={isActive ? "page" : undefined}
               className={`mobile-tab-bar-item ${mobileTabFocusClass}`}
             >

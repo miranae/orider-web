@@ -12,6 +12,7 @@ import { LanguageToggle } from "../i18n/LanguageToggle";
 import type { Notification } from "@shared/types";
 import { Button } from "../../theme/components";
 import { PRIMARY_HUBS, type HubKey } from "../../config/navHubs";
+import { HUB_RETURN_STATE, hubReturnTarget } from "../../services/hubReturn";
 import MobileMenuSearch from "./MobileMenuSearch";
 import "./TopNav.css";
 import { timeAgo } from "../../utils/timeAgo";
@@ -244,7 +245,8 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
             return (
               <Link
                 key={key}
-                to={to}
+                to={isActive ? to : hubReturnTarget(key, to)}
+                state={isActive ? undefined : HUB_RETURN_STATE}
                 aria-current={isActive ? 'page' : undefined}
                 className={navFocusClass}
                 style={{
