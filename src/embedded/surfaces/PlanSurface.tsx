@@ -33,7 +33,6 @@ export default function PlanSurface({
 }: PlanSurfaceProps) {
   const [searchParams] = useSearchParams();
   const { t } = useTranslation("training");
-  const { t: tCommon } = useTranslation("common");
   const model = usePlanModel(searchParams.get("sport"), active);
   const run30Enabled = model.discipline === "run";
   const run30 = useRun30Program(run30Enabled, active);
@@ -97,15 +96,13 @@ export default function PlanSurface({
     run30.retry();
   }, [model, run30]);
 
-  const cachedNotice = (run30.cacheHit || (model.cacheHit && !model.freshLoaded))
-    ? <p role="status" className="orider-embedded-page-title">{tCommon("embeddedStatus.cached")}</p> : null;
 
   if (searchParams.get("page") === "goals") {
     return <main className="orider-embedded-surface" data-testid="embedded-goals">{active && <GoalSetupPage />}</main>;
   }
 
   const sharedContent = <main className="orider-embedded-surface orider-embedded-surface--plan" data-testid="embedded-plan">
-    {cachedNotice}
+    {/* 캐시로 먼저 그린 뒤 최신 값으로 조용히 바꾼다 — "저장된 이전 정보" 안내는 앱 계획 탭에서 띄우지 않는다(2026-11-03). */}
     {active && <PlanView model={model} run30={run30} startMode={startMode} />}
   </main>;
   if (run30Program) return sharedContent;
