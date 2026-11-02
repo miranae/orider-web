@@ -6,14 +6,16 @@ import enGroup from "../../i18n/resources/en/group.json";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setCollectionDocs, setDocData, setCallableImplementation, mockCallableInvocations, simulateLogout, simulateLogin, getCurrentUser } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
-import { ensureAppCheckReady } from "../../services/firebase";
+import { auth, firestore, functions, ensureAppCheckReady, getAppCheckToken } from "../../services/firebase";
+import { FirebaseServicesProvider } from "../../contexts/FirebaseServicesContext";
+import { getDoc } from "firebase/firestore";
 import GroupRidePage from "./GroupRidePage";
 import { useTheme } from "../../contexts/ThemeContext";
 import { FUNCTIONAL_COLORS } from "../../theme/generated";
 import { getComparisonSeriesColors } from "../../theme/charts/comparisonSeriesColors";
 
 const { comparison, elevation, publicProfiles, streamsApi } = vi.hoisted(() => ({ comparison: vi.fn(), elevation: vi.fn(), publicProfiles: vi.fn(), streamsApi: vi.fn() }));
-vi.mock("../../services/personalDataApi", () => ({ getActivityStreams: streamsApi }));
+vi.mock("../../services/personalDataApi", () => ({ getActivityStreams: streamsApi, getActivityStreamsWithAuth: streamsApi }));
 vi.mock("../../services/publicActivityMaps", () => ({ loadPublicActivityMap: vi.fn(async (_services: unknown, id: string) => {
   const a = (mockCollectionData.get("activities") ?? []).find(item => item.id === id);
   const encodedPolyline = a?.thumbnailTrack ?? (["first", "second"].includes(id) ? "37,127;38,128" : null);
@@ -261,10 +263,23 @@ describe("club ride metric presentation", () => {
     elevation.mockClear();
     renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
     await waitFor(() => expect(elevation.mock.lastCall?.[0].data).toEqual([{ distance: 0, elevation: 0 }, { distance: 1000, elevation: 20 }]));
-    expect(streamsApi).toHaveBeenCalledExactlyOnceWith("gcs");
+    expect(streamsApi).toHaveBeenCalledExactlyOnceWith(auth, "gcs", { functions, ensureAppCheckReady });
     expect(screen.queryByRole("button", { name: "운동파워" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "운동심박수" })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it.each(["gcs", "denied", "strava"])("uses the embedded session for %s API streams", async branch => {
+    const embeddedAuth = { ...auth, currentUser: { ...getCurrentUser(), uid: "embedded-fixture" } };
+    const services = { auth: embeddedAuth, firestore, functions, ensureAppCheckReady, getAppCheckToken };
+    setCollectionDocs("activities", [{ ...activity("embedded", null, null), source: branch === "strava" ? "strava" : "orider" }]);
+    setDocData("activity_streams/embedded", { storage: "gcs", gcsPath: "fixture/streams.json" });
+    if (branch === "denied") vi.mocked(getDoc).mockRejectedValueOnce(Object.assign(new Error("fixture denied"), { code: "permission-denied" }));
+    streamsApi.mockResolvedValue({ distance: [0, 1000], altitude: [0, 20] });
+    elevation.mockClear();
+    renderWithProviders(<FirebaseServicesProvider services={services}><Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes></FirebaseServicesProvider>, { route: "/ko/club/club/rides/ride", authenticated: true });
+    await waitFor(() => expect(elevation.mock.lastCall?.[0].data).toEqual([{ distance: 0, elevation: 0 }, { distance: 1000, elevation: 20 }]));
+    expect(streamsApi).toHaveBeenCalledExactlyOnceWith(embeddedAuth, "embedded", { functions, ensureAppCheckReady });
+    expect(embeddedAuth).not.toBe(auth);
   });
   it("surfaces GCS API failures and retries through the same API", async () => {
     setCollectionDocs("activities", [{ ...activity("gcs", null, null), source: "orider" }]);
@@ -419,7 +434,7 @@ it("loads authorized stored provider streams by public activity identity without
   streamsApi.mockResolvedValue({ distance: [0, 1000], altitude: [10, 20] });
   renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
   expect(await screen.findByTestId("C2R-2")).toBeInTheDocument();
-  expect(streamsApi).toHaveBeenCalledWith("provider-record");
+  expect(streamsApi).toHaveBeenCalledWith(auth, "provider-record", { functions, ensureAppCheckReady });
   expect(mockCallableInvocations.some(call => call.name === "stravaGetActivityStreams")).toBe(false);
 });
 
@@ -429,7 +444,7 @@ it("renders a safe preview independently of unrelated same-length sensor clocks"
   const epoch = 1792105200000;
   streamsApi.mockResolvedValue({ time: [epoch, epoch + 1000, epoch + 2000], distance: [0, 10, 20], altitude: [10, 11, 12] });
   renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides/:rideId" element={<GroupRidePage />} /></Routes>, { route: "/ko/club/club/rides/ride", authenticated: true });
-  await waitFor(() => expect(streamsApi).toHaveBeenCalledWith("preview"));
+  await waitFor(() => expect(streamsApi).toHaveBeenCalledWith(auth, "preview", { functions, ensureAppCheckReady }));
   await waitFor(() => expect(elevation.mock.lastCall?.[0].data).toHaveLength(3));
   await screen.findByTestId("C2R-2");
   await waitFor(() => {

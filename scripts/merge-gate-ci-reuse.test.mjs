@@ -196,3 +196,23 @@ test("명시적 파일은 Vitest에 전달하고 기존 changed 및 계약 게�
   assert.match(feature, /npm run test:contracts/);
   assert.ok(feature.indexOf('"${TEST_FILES[@]}"') < feature.indexOf('--passWithNoTests'));
 });
+
+
+test("behind promotion heads stop before fetch, merge or push", () => {
+  const guard = script.split('if [[ "$MERGE_STATE" == "BEHIND" ]]; then')[1]?.split('  log ')[0];
+  assert.ok(guard);
+  for (const head of ["main", "dev", "fix/topic"]) {
+    const root = mkdtempSync(join(tmpdir(), "protected-head-"));
+    const output = join(root, "result");
+    try {
+      try {
+        execFileSync("bash", ["-c", `HEADREF="$TARGET_HEAD"; die() { exit 17; }; ${guard} printf reached > "$RESULT"`], { env: { ...process.env, TARGET_HEAD: head, RESULT: output } });
+        assert.equal(head, "fix/topic");
+        assert.equal(readFileSync(output, "utf8"), "reached");
+      } catch (error) {
+        assert.notEqual(head, "fix/topic");
+        assert.equal(error.status, 17);
+      }
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  }
+});
