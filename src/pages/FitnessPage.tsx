@@ -7,6 +7,7 @@ import { FitnessEvidenceTrend } from "../features/fitness/components/FitnessEvid
 import FitnessPedalingEvidence from "../features/fitness/components/FitnessPedalingEvidence";
 import GlossaryText from "../components/common/GlossaryText";
 import GlossaryProvider from "../components/common/GlossaryProvider";
+import TabNav from "../components/TabNav";
 import FitnessPeriodEvidence from "../features/fitness/components/FitnessPeriodEvidence";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
 import RunningRaceEstimatesPanel from "../features/fitness/RunningRaceEstimatesPanel";
@@ -72,7 +73,7 @@ import type { TodayTrainingDecisionState } from "../hooks/useTodayTrainingDecisi
 import { useFitnessModel, type FitnessModel } from "../hooks/useFitnessModel";
 import CanonicalFitnessNotice from "../features/fitness/components/CanonicalFitnessNotice";
 import FitnessActivityWindowNotice from "../features/fitness/components/FitnessActivityWindowNotice";
-import { Button, Card, Chip, Text, Section, ToggleControls, ToggleButton, buttonClass } from "../theme/components";
+import { Card, Chip, Text, Section, ToggleControls, ToggleButton, buttonClass } from "../theme/components";
 import { getDisciplineColor } from "../utils/disciplineFilter";
 import { toLocalDate } from "../utils/dateUtils";
 import { fitnessTodayKey } from "@shared/training/dateKey";
@@ -180,8 +181,9 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     asOf={weeklyStats.asOf} dateBasis={weeklyStats.dateBasis} ready={weeklyStats.insightReady} t={t} /> : null;
   const currentSource = t(model.canonicalFitness.enabled && model.canonicalFitness.values ? "coach.currentSource.summary" : hasCanonicalTimeseries ? "coach.currentSource.history" : "coach.currentSource.estimated");
   const currentBasis = currentPoint ? t("coach.currentBasis", { date: currentPoint.date, source: part === "condition" && discipline === "tri" ? t("condition.combinedSource") : currentSource }) : undefined;
-  const periodControls = !embedded && part === "analysis" ? <div data-testid={part === "analysis" ? "K5-0-3" : "K1-0-3"} role="group" aria-label={t("history.range")} className="flex flex-wrap gap-2">
-    {([30, 90, 180, 365] as const).map(days => <Button key={days} size="sm" variant={range === days ? "outline" : "ghost"} aria-pressed={range === days} onClick={() => changePageRange(days)}>{t(`range.${days}`)}</Button>)}
+  // 기간 선택은 계획/기록 하위 탭(오늘 훈련·훈련 계획·활동 기록)과 같은 밑줄 탭으로 그린다.
+  const periodControls = !embedded && part === "analysis" ? <div data-testid="K5-0-3" aria-label={t("history.range")} className="fitness-period-tabs">
+    <TabNav tabs={([30, 90, 180, 365] as const).map(days => ({ id: String(days), label: t(`range.${days}`) }))} activeTab={String(range)} onChange={id => changePageRange(Number(id) as typeof range)} />
   </div> : null;
   const changeHistoryRange = (nextRange: PmcRange) => {
     if (typeof nextRange === "number") {
@@ -593,7 +595,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           </Text>
           {eyebrowLine}
         </div>
-        <div data-testid={part === "analysis" ? "K5-0-2" : "K1-0-2"}><DisciplineTabs includeTri disabledKeys={part === "condition" || part === "analysis" ? ["swim"] : []} /></div>
+        <div data-testid={part === "analysis" ? "K5-0-2" : "K1-0-2"}><DisciplineTabs includeTri={part !== "analysis"} disabledKeys={part === "condition" || part === "analysis" ? ["swim"] : []} /></div>
       </div>
       <div className="fitness-page-header__subtitle">
         <span>{subtitle}</span>

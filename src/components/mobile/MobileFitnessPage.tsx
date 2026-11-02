@@ -1022,7 +1022,7 @@ export default function MobileFitnessPage({
         <div data-testid={part === "analysis" ? "K5-0-2" : part === "condition" ? "K1-0-2" : undefined} className="mobile-fitness-toolbar__sports">
           {/* 종목은 한 줄 균등 세그먼트. 수영은 sportFeatures 플래그가 켜지면 같은 줄에 자동으로 더해진다. */}
           {part === "condition" || part === "analysis"
-            ? <DisciplineTabs includeTri disabledKeys={["swim"]} value={data.discipline} onChange={value => setSportSegment(value === "tri" ? "all" : value)} />
+            ? <DisciplineTabs includeTri={part !== "analysis"} disabledKeys={["swim"]} value={data.discipline} onChange={value => setSportSegment(value === "tri" ? "all" : value)} />
             : <DisciplineTabs includeTri value={data.discipline} onChange={value => setSportSegment(value === "tri" ? "all" : value)} />}
         </div>
       </div>
@@ -1036,9 +1036,7 @@ export default function MobileFitnessPage({
 
 
       {!embedded && part === "analysis" ? <div className="mobile-analysis-period">
-        <Text as="p" variant="label">{t("fitness:history.range")}</Text>{periodSlot}
-        <Text as="p" variant="caption" tone="secondary">{t("mobileFitness.periodScope")}</Text>
-        <LocalizedLink to={`/coach/condition?sport=${data.discipline}`}>{t("mobileFitness.conditionLink")} →</LocalizedLink>
+        {periodSlot}
       </div> : periodSlot}
       {activeTab === "overview" && (
         <div style={{ paddingTop: "var(--space-2)" }}>

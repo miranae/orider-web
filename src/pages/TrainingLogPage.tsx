@@ -668,10 +668,11 @@ export default function TrainingLogPage() {
   const planRecordHeader = <>{!(isMobile || isNarrowLayout) && fitnessPeriodReturnLink}<PlanPeriodReturn />
     <header data-testid="P1-H" className="coach-page-header"><Text as="h1" variant="pageTitle">{t("page.logTitle")}</Text><div><SportFilterTabs value={sportFilter} onChange={setSportFilter} /></div></header>
     <PlanRecordNavigation date={recordDate} />
-    <div style={{ marginBottom: "var(--space-3)" }}>
-      <Text as="p" variant="caption" tone="secondary" role={planOverlay.state === "error" ? "alert" : planOverlay.state === "loading" ? "status" : undefined}>{t(planOverlay.state === "error" ? "planRecords.error" : planOverlay.state === "loading" ? "planRecords.loading" : planOverlay.plans.size ? "planRecords.scope" : "planRecords.empty")}</Text>
+    {/* 계획이 있으면 안내 문구 없이 기록을 바로 보인다. 오류·확인 중·계획 없음만 알린다. */}
+    {(planOverlay.state !== "ready" || !planOverlay.plans.size) && <div style={{ marginBottom: "var(--space-3)" }}>
+      <Text as="p" variant="caption" tone="secondary" role={planOverlay.state === "error" ? "alert" : planOverlay.state === "loading" ? "status" : undefined}>{t(planOverlay.state === "error" ? "planRecords.error" : planOverlay.state === "loading" ? "planRecords.loading" : "planRecords.empty")}</Text>
       {planOverlay.state === "error" && <Button variant="secondary" size="sm" onClick={planOverlay.retry}>{tCommon("button.retry")}</Button>}
-    </div>
+    </div>}
   </>;
 
   if (!user) {

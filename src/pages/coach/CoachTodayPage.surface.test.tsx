@@ -35,12 +35,8 @@ describe("today read-only chooser versus guarded writes", () => {
     expect(screen.getByTestId("chooser")).toHaveAttribute("data-delivery", "false");
     expect(screen.queryByTestId("decision")).not.toBeInTheDocument();
     expect(screen.getByText("today.decisionUnavailable")).toBeInTheDocument();
-    const conditionLinks = screen.getAllByRole("link", { name: /coach.metric.tsb/ });
-    expect(conditionLinks).toHaveLength(1);
-    expect(conditionLinks[0]).toHaveAttribute("href", "/coach/condition?sport=bike");
-    // 현재 상태는 머리가 아니라 계획/기록 하위 탭 아래 본문 첫 줄이다(세 탭의 머리 규칙을 같게).
-    expect(conditionLinks[0].closest("header")).toBeNull();
-    expect(screen.getByTestId("K2-0").compareDocumentPosition(conditionLinks[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // 오늘 훈련은 회복 상태(TSB) 줄을 두지 않는다 — 컨디션 탭이 같은 값을 보여 준다.
+    expect(screen.queryByRole("link", { name: /coach.metric.tsb/ })).not.toBeInTheDocument();
   });
   it("keeps chooser first on lookup failure with the retry error card after it", () => {
     mocks.state.unavailableReason = "error"; renderToday();
