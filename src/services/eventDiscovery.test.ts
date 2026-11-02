@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { httpsCallable } from "firebase/functions";
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getDocs } from "firebase/firestore";
 import { mockCallableInvocations, setCallableImplementation, setCallableResult } from "../__tests__/mocks/firebase";
 import { ensureAppCheckReady } from "./firebase";
@@ -85,4 +87,15 @@ describe("authorized event discovery adapter", () => {
     await expect(getVisibleEventPage({ groupId: "club", publicOnly: false })).rejects.toThrow("permission-denied");
     expect(getDocs).not.toHaveBeenCalled();
   });
+});
+
+
+it("uses embedded callable services for member-only discovery and rejects late account changes", async () => {
+  const services = { auth: { currentUser: { uid: "embedded" } }, functions: {}, ensureAppCheckReady: vi.fn() } as unknown as FirebaseServices;
+  setCallableResult("listVisibleEventEnvelopes", { data: { rows: [], nextCursor: null } });
+  await getVisibleEventPage({ groupId: "club", publicOnly: false }, services);
+  expect(services.ensureAppCheckReady).toHaveBeenCalledOnce();
+  expect(httpsCallable).toHaveBeenCalledWith(services.functions, "listVisibleEventEnvelopes");
+  setCallableImplementation("listVisibleEventEnvelopes", () => { (services.auth as unknown as { currentUser: unknown }).currentUser = { uid: "other" }; return { data: { rows: [], nextCursor: null } }; });
+  await expect(getVisibleEventPage({ groupId: "club", publicOnly: false }, services)).rejects.toThrow("account_changed");
 });

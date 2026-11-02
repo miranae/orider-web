@@ -1,5 +1,5 @@
 import { installEventDiscoveryFixture } from "../../__tests__/fixtures/eventDiscovery";
-vi.mock("../../services/clubMeetings",()=>({listClubMeetings:vi.fn(async()=>({meetings:[],nextCursor:null}))}));
+vi.mock("../../services/clubMeetings",()=>{ const api = {listClubMeetings:vi.fn(async()=>({meetings:[],nextCursor:null}))}; return { ...api, createClubMeetingsApi: () => api }; });
 import { getDoc } from "firebase/firestore";
 import { fireEvent, screen } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
