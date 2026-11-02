@@ -553,7 +553,7 @@ function AuthorizedSurface({
     return (
       // 비활성 동안에는 모델과 화면을 유지하고 리스너만 멈춘다.
       <section
-        className="orider-embedded-shell site-shell site-shell--padded py-6 coach-surface"
+        className="orider-embedded-shell site-shell site-shell--padded pt-3 pb-6 coach-surface"
         aria-labelledby="orider-training-surface-title"
         hidden={!trainingSurfaceVisible}
       >
