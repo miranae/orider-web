@@ -33,17 +33,9 @@ import {
 import { meetingErrorMessage } from "../../features/club-preparation/meetingMessages";
 import type { State } from "../../features/club-preparation/domain";
 import {
-  cancelClubMeeting,
-  finishClubMeeting,
-  clubMeetingAttendance,
-  confirmClubMeetingNotice,
-  createClubMeeting,
-  publishClubMeetingNotice,
-  setClubMeetingRecruitment,
-  saveClubMeetingTeams,
-  updateClubMeeting,
   type ClubMeetingSnapshot,
 } from "../../services/clubMeetings";
+import { useClubMeetingsApi } from "../../features/club-preparation/useClubMeetingsApi";
 import "../../features/club-preparation/clubPreparation.css";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
@@ -52,6 +44,7 @@ export default function ClubMeetingPage({
 }: {
   mode?: "new" | "detail" | "edit";
 }) {
+  const { createClubMeeting, updateClubMeeting } = useClubMeetingsApi();
   const { groupId, meetingId } = useParams();
   const [search] = useSearchParams();
   const { user, loading: authLoading, signIn } = useAuth();
@@ -266,6 +259,7 @@ function ServerMeetingDetail({
   onEdit: () => void;
   onCopy: () => void;
 }) {
+  const { setClubMeetingRecruitment, cancelClubMeeting, clubMeetingAttendance, publishClubMeetingNotice, confirmClubMeetingNotice, saveClubMeetingTeams, finishClubMeeting } = useClubMeetingsApi();
   const text = (ko: string, english: string) => (en ? english : ko);
   const meeting = data.meeting;
   const current = meeting.registrations.find((item) => item.memberId === uid);

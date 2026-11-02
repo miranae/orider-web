@@ -54,7 +54,7 @@ vi.mock("../../features/club-preparation/CoursePreview", () => ({
   CourseSummary: () => null,
 }));
 vi.mock("../../components/group/GroupSubNav", () => ({ default: () => null }));
-vi.mock("../../services/clubMeetings", () => ({
+vi.mock("../../services/clubMeetings", () => { const api = {
   createClubMeeting: vi.fn(async () => ({ eventId: "created" })),
   updateClubMeeting: vi.fn(async () => ({ revision: 4 })),
   clubMeetingAttendance: vi.fn(async () => ({ status: "none" })),
@@ -63,7 +63,7 @@ vi.mock("../../services/clubMeetings", () => ({
   finishClubMeeting: vi.fn(async () => ({success: true})),
   publishClubMeetingNotice: vi.fn(),
   confirmClubMeetingNotice: vi.fn(),
-}));
+}; return { ...api, createClubMeetingsApi: () => api }; });
 const registration = {
   memberId: "test-uid",
   status: "joined" as const,
