@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
-import { expect, it } from "vitest";
+import { useEffect, useState } from "react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { expect, it, vi } from "vitest";
 import { getActiveHub } from "../config/navHubs";
 import { RetainedHubPages, retainedScreenKey } from "./RetainedHubPages";
 import { HUB_RETURN_STATE } from "../services/hubReturn";
@@ -104,4 +104,44 @@ it("같은 허브의 다른 하위 화면에 다녀와도 먼저 본 하위 화�
   expect(screen.getByText("fitness:1")).not.toBeVisible();
   fireEvent.click(screen.getByText("Analysis"));
   expect(screen.getByText("fitness:1")).toBeVisible();
+});
+
+function CourseSearch() {
+  const [params, setParams] = useSearchParams();
+  const [value, setValue] = useState(params.get("q") ?? "");
+  const query = params.get("q") ?? "";
+  // CoursesPage 와 같은 250ms 검색 디바운스 — 숨긴 뒤에도 타이머는 살아 있다.
+  useEffect(() => {
+    if (value.trim() === query) return;
+    const timer = setTimeout(() => setParams({ q: value.trim() }, { replace: true }), 250);
+    return () => clearTimeout(timer);
+  }, [value, query, setParams]);
+  return <input aria-label="course search" value={value} onChange={event => setValue(event.target.value)} />;
+}
+function SearchShell() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const path = location.pathname;
+  const page = path.startsWith("/explore/") ? <CourseSearch /> : <Page name="coach" />;
+  return <>
+    <button onClick={() => navigate("/coach/condition")}>Coach tab</button>
+    <button onClick={() => navigate("/explore/courses")}>Explore tab</button>
+    <p data-testid="router-location">{location.pathname}{location.search}</p>
+    <RetainedHubPages path={path} hub={getActiveHub(path)} owner="u1">{page}</RetainedHubPages>
+  </>;
+}
+
+it("숨긴 화면의 늦은 검색 디바운스가 사용자가 고른 탭을 되돌리지 않고, 돌아오면 검색 상태를 반영한다(#1461)", () => {
+  vi.useFakeTimers();
+  try {
+    render(<MemoryRouter initialEntries={["/explore/courses"]}><SearchShell /></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText("course search"), { target: { value: "seoul" } });
+    fireEvent.click(screen.getByText("Coach tab"));
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(screen.getByTestId("router-location")).toHaveTextContent("/coach/condition");
+    fireEvent.click(screen.getByText("Explore tab"));
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(screen.getByTestId("router-location")).toHaveTextContent("/explore/courses?q=seoul");
+    expect(screen.getByLabelText("course search")).toHaveValue("seoul");
+  } finally { vi.useRealTimers(); }
 });
