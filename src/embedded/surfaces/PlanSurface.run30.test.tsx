@@ -141,6 +141,15 @@ describe("PlanSurface Run30 mode", () => {
     await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
   });
 
+  it("reports a failed goal query even when no fresh snapshot was produced", async () => {
+    const error = new Error("plan/load-timeout");
+    mocks.planModel = { ...loadedPlan, discipline: "bike", goalError: error, loadError: error, freshLoaded: false };
+    const onReady = vi.fn();
+    render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
+    await waitFor(() => expect(onReady).toHaveBeenCalledWith("error"));
+    expect(onReady).not.toHaveBeenCalledWith("fresh");
+  });
+
   it("reports error with retry when the program lookup fails", async () => {
     mocks.run30 = { ...mocks.run30, status: "error", error: new Error("x") };
     const onReady = vi.fn();

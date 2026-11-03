@@ -57,7 +57,7 @@ export default function PlanSurface({
       }
     }
     // 프로그램이 있으면 일반 계획 로딩과 무관하게 화면이 완성된다.
-    const planSettled = run30Program !== null ? !run30.cacheHit : (model.freshLoaded && !model.loading && !run30.cacheHit);
+    const planSettled = run30Program !== null ? !run30.cacheHit : ((model.freshLoaded || Boolean(model.loadError)) && !model.loading && !run30.cacheHit);
     if (!planSettled) return;
     const status = run30Failed || (run30Program === null && model.loadError) ? "error" : "fresh";
     const key = `${retryKey}:${status}`;
