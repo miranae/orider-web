@@ -365,9 +365,9 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
     await screen.findByTestId("fitness-surface");
     const handoffs = mocks.consumeHandoff.mock.calls.length;
-    fireEvent.click(screen.getByRole("button", { name: /^(계획|Plan|coachPages.plan)$/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /^(계획|Plan|coachPages.plan)$/ }));
     await screen.findByTestId("plan-surface");
-    fireEvent.click(screen.getByRole("button", { name: /^(분석|Analysis|coachPages.analysis)$/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /^(분석|Analysis|coachPages.analysis)$/ }));
     await screen.findByTestId("fitness-surface");
     expect(mocks.consumeHandoff).toHaveBeenCalledTimes(handoffs);
     expect(bridge.sent.some(message => message.type === "navigation.openNative")).toBe(false);
@@ -388,7 +388,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
     await screen.findByTestId("fitness-surface");
     scrollY(700);
-    fireEvent.click(screen.getByRole("button", { name: /^(분석|Analysis|coachPages.analysis)$/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /^(분석|Analysis|coachPages.analysis)$/ }));
     await screen.findByTestId("fitness-surface");
     expect(scrollTo).not.toHaveBeenCalled();
     scrollY(200);
@@ -398,7 +398,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     act(() => bridge.emit(hostMessage("host.surfaceSelected", { surface: "fitness" }, "reselect")));
     expect(scrollTo).toHaveBeenLastCalledWith(0, 200);
     // 컨디션으로 돌아가면 컨디션(통합)에서 보던 위치로 옮긴다.
-    fireEvent.click(screen.getByRole("button", { name: /^(컨디션|Condition|coachPages.condition)$/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /^(컨디션|Condition|coachPages.condition)$/ }));
     await waitFor(() => expect(scrollTo).toHaveBeenLastCalledWith(0, 700));
   });
 
