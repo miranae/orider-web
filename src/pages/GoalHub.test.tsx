@@ -1,15 +1,32 @@
 import i18n from "i18next";
 import enTraining from "../i18n/resources/en/training.json";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { updateDoc } from "firebase/firestore";
+import { PLAN_GOAL_CHANGED } from "../embedded/planGoalChanges";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import { setDocData } from "../__tests__/mocks/firebase";
 import GoalHub from "./GoalHub";
 const state = vi.hoisted(() => ({ goal: null as null | Record<string, unknown>, sport: "bike", loading: false, loadError: null as Error | null, freshLoaded: true, user: { uid: "owner" } as { uid: string; isAnonymous?: boolean } | null }));
+vi.mock("../contexts/DialogContext", () => ({ useDialog: () => ({confirm:async()=>true}) }));
 vi.mock("../hooks/usePlanModel", () => ({ usePlanModel: () => ({ user: state.user, goal: state.goal, discipline: state.sport, loading: state.loading, loadError: state.loadError, freshLoaded: state.freshLoaded, goalMatchesDiscipline: true, progress: 12, weeks: [], daysLeft: 30, goalDate: new Date("2026-12-01"), retryLoad: vi.fn() }) }));
 vi.mock("./ClimbGoalSetupPage", () => ({ default: () => <div>climb form</div> }));
 beforeEach(() => { window.matchMedia = vi.fn().mockImplementation(query => ({ matches: false, media: query, onchange: null, addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() })); state.loading = false; state.loadError = null; state.freshLoaded = true; state.goal = null; state.sport = "bike"; state.user = { uid: "owner" }; });
 describe("goal hub", () => {
+  it.each([true,false])("announces an authoritative abandonment only after a successful write: %s", async success => {
+    state.goal = {id:"goal-old",title:"Old goal",discipline:"bike",userId:"owner"};
+    const changed = vi.fn();window.addEventListener(PLAN_GOAL_CHANGED, changed);
+    vi.mocked(updateDoc).mockClear();
+    if (success) vi.mocked(updateDoc).mockResolvedValueOnce(undefined);
+    else vi.mocked(updateDoc).mockRejectedValueOnce(new Error("denied"));
+    try {
+      renderWithProviders(<GoalHub wizard={<div>wizard</div>} />, {route:"/ko/coach/goals?sport=bike"});
+      fireEvent.click(screen.getByTestId("K3-1-5"));
+      await waitFor(() => expect(updateDoc).toHaveBeenCalled());
+      if (success) await waitFor(() => expect(changed).toHaveBeenCalledOnce());
+      else { await screen.findByRole("alert");expect(changed).not.toHaveBeenCalled(); }
+    } finally { window.removeEventListener(PLAN_GOAL_CHANGED, changed); }
+  });
   it("shows the existing goal before type selection and opens the wizard only after choosing", () => {
     state.goal = { id: "g", title: "Winter course", courseName: "Course", eventType: "completion" };
     renderWithProviders(<GoalHub wizard={<div>event wizard</div>} />, { route: "/ko/coach/goals?sport=bike" });

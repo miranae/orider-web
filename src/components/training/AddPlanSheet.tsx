@@ -7,7 +7,7 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
 import { useTrainingDialog } from "./useTrainingDialog";
-import { createPortal } from "react-dom";
+import { TrainingDialogPortal } from "./TrainingDialogPortal";
 import GlossaryText from "../common/GlossaryText";
 import SportIcon from "../common/SportIcon";
 import { Button, Text } from "../../theme/components";
@@ -198,7 +198,7 @@ export default function AddPlanSheet({
     if (shouldClose) closeIfIdle();
   };
 
-  return createPortal(
+  return <TrainingDialogPortal>
     <>
       {/* Backdrop */}
       <div
@@ -393,6 +393,6 @@ export default function AddPlanSheet({
           )}
         </div>
       </div>
-    </>, document.body
-  );
+    </>
+  </TrainingDialogPortal>;
 }

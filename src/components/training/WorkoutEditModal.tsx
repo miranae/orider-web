@@ -114,7 +114,7 @@ const SELECTABLE_KINDS: WorkoutKind[] = [
 ];
 
 import { useTrainingDialog } from "./useTrainingDialog";
-import { createPortal } from "react-dom";
+import { TrainingDialogPortal } from "./TrainingDialogPortal";
 import { KINDS_BY_DISCIPLINE } from "../../utils/workoutDiscipline";
 import { Button, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
@@ -372,7 +372,7 @@ export default function WorkoutEditModal({
 
   // ── Render ─────────────────────────────────────────────────────────
 
-  return createPortal(
+  return <TrainingDialogPortal>
     <>
       <div data-dialog-initial-focus data-testid="K4-6-7" onClick={closeIfIdle} className="bg-black/50" style={{ position: 'fixed', inset: 0, zIndex: 117 }} />
       <div className="coach-training-dialog" ref={modalRef} role="dialog" tabIndex={-1} data-testid="K4-6" aria-modal="true" aria-busy={loading} aria-label={meta.label}
@@ -602,6 +602,6 @@ export default function WorkoutEditModal({
           </div>
         )}
       </div>
-    </>, document.body
-  );
+    </>
+  </TrainingDialogPortal>;
 }

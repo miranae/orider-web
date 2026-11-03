@@ -1,4 +1,4 @@
-import { createPortal } from "react-dom";
+import { TrainingDialogPortal } from "../training/TrainingDialogPortal";
 import type { ReactNode } from "react";
 import { useTrainingDialog } from "../training/useTrainingDialog";
 import { useState, useRef, useEffect, useMemo } from "react";
@@ -239,5 +239,5 @@ function ImportActivitySession({ open, onClose, user, services }: ImportActivity
 
 function ImportDialogShell({ title, onClose, busy = false, children }: {title: string; onClose: () => void; busy?: boolean; children: ReactNode}) {
   const ref = useTrainingDialog(onClose, busy);
-  return createPortal(<div ref={ref} tabIndex={-1} className="fixed inset-0 z-[200] flex flex-col justify-end" data-testid="P1-3" role="dialog" aria-modal="true" aria-label={title}>{children}</div>, document.body);
+  return <TrainingDialogPortal><div ref={ref} tabIndex={-1} className="fixed inset-0 z-[200] flex flex-col justify-end" data-testid="P1-3" role="dialog" aria-modal="true" aria-label={title}>{children}</div></TrainingDialogPortal>;
 }

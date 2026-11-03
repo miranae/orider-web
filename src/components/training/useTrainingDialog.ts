@@ -1,10 +1,13 @@
 import { useEffect, useRef } from "react";
 import { useBodyScrollLock } from "../../hooks/useBodyScrollLock";
+import { useRetainedPageVisible } from "../../contexts/RetainedPageContext";
 
 const FOCUSABLE = 'summary, button:not([disabled]), a[href], input:not([disabled]):not([hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** 훈련 편집창 공통 키보드 동작. 저장 경고창이 열리면 상위 창의 트랩은 양보한다. */
 export function useTrainingDialog<T extends HTMLElement = HTMLDivElement>(onClose: () => void, busy: boolean, active = true) {
+  const visible = useRetainedPageVisible();
+  active = active && visible;
   const ref = useRef<T>(null);
   const latest = useRef({ onClose, busy });
   useEffect(() => { latest.current = { onClose, busy }; });
