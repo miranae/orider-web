@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlanDay } from '@shared/types/goal';
 import { GlossaryProvider } from "../common/GlossaryProvider";
 import AddPlanSheet from './AddPlanSheet';
+import { RetainedPageContext } from "../../contexts/RetainedPageContext";
 
 const mocks = vi.hoisted(() => ({ transaction: vi.fn(), update: vi.fn(), alert: vi.fn(), date: 1000000 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
@@ -10,6 +11,15 @@ vi.mock('../../contexts/DialogContext', () => ({ useDialog: () => ({ alert: mock
 vi.mock('firebase/firestore', () => ({ doc: vi.fn(() => ({ id: 'week' })), runTransaction: mocks.transaction }));
 const day: PlanDay = { date: 1000000, dayOfWeek: 0, workout: 'rest', plannedTSS: 0, plannedDurationMin: 0, completed: false, skipped: false };
 function show() { return render(<AddPlanSheet goalId="g" weekId="w" days={[day]} initialDayIndex={0} onClose={vi.fn()} onUpdate={vi.fn()} />); }
+it("hides a retained add-plan sheet and releases its body lock when inactive", () => {
+  const previous = document.body.style.position;
+  const modal = <AddPlanSheet goalId="g" weekId="w" days={[day]} initialDayIndex={0} onClose={vi.fn()} onUpdate={vi.fn()} />;
+  const view = render(<RetainedPageContext.Provider value>{modal}</RetainedPageContext.Provider>);
+  expect(screen.getByRole("dialog")).toBeVisible();
+  view.rerender(<RetainedPageContext.Provider value={false}>{modal}</RetainedPageContext.Provider>);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(document.body.style.position).toBe(previous);
+});
 beforeEach(() => {
   mocks.date = day.date; mocks.transaction.mockReset(); mocks.update.mockReset(); mocks.alert.mockReset();
   mocks.transaction.mockImplementation(async (_db, callback) => callback({
