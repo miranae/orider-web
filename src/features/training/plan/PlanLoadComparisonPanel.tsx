@@ -97,9 +97,9 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
           <Field label={t("loadComparison.endDate")} htmlFor={`${id}-end`}><Input id={`${id}-end`} type="date" value={custom.end} min={custom.start || undefined} invalid={!valid} onChange={event => update({ loadEnd: event.target.value })} /></Field>
         </> : <div className="plan-load-comparison__stepper">
           {/* 이전 | 기준일 | 다음 을 칸으로 나눈다 — 한 줄 flex 에서는 iOS 날짜 칸이 글자에 맞춰 넓어지면 화살표와 겹쳤다. */}
-          <Button variant="ghost" onClick={() => shift(-1)} aria-label={t("loadComparison.previous")}>←</Button>
+          <Button variant="ghost" iconOnly onClick={() => shift(-1)} aria-label={t("loadComparison.previous")}>←</Button>
           <Field label={t("loadComparison.referenceDate")} htmlFor={`${id}-date`}><Input id={`${id}-date`} type="date" value={date} invalid={!valid} onChange={event => setDate(event.target.value)} /></Field>
-          <Button variant="ghost" onClick={() => shift(1)} aria-label={t("loadComparison.next")}>→</Button>
+          <Button variant="ghost" iconOnly onClick={() => shift(1)} aria-label={t("loadComparison.next")}>→</Button>
         </div>}
         {valid && <Text variant="bodySmall" tone="tertiary">{range.start} – {range.end}</Text>}
       </div>
