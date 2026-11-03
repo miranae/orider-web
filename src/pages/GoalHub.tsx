@@ -10,6 +10,7 @@ import InfoTip from "../components/InfoTip";
 import GlossaryText from "../components/common/GlossaryText";
 import { GoalSourceNotice } from "../components/training/GoalInputNotice";
 import type { FitnessProjection } from "@shared/types/goal";
+import { notifyPlanGoalChanged } from "../embedded/planGoalChanges";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -65,6 +66,7 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
     if (!goal || goal.runProgram || !await dialog.confirm(t("confirmations.abandonConfirm"), { destructive: true })) return;
     try {
       await updateDoc(doc(firestore, "goals", goal.id), { status: "abandoned", updatedAt: Date.now() });
+      if (user) notifyPlanGoalChanged(user.uid, discipline, i18n.resolvedLanguage ?? i18n.language);
       navigate("/");
     } catch { setError(true); }
   };
