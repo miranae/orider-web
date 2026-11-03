@@ -90,12 +90,13 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
   const [importOpen, setImportOpen] = useState(importParams.get("import") === "1");
   useEffect(() => { if (importParams.get("import") === "1") setImportOpen(true); }, [importParams]);
   const closeImport = () => { setImportOpen(false); const next = new URLSearchParams(importParams); next.delete("import"); setImportParams(next, { replace: true }); };
+  const listPageParam = location.pathname.includes("/embed/") ? "recordPage" : "page";
   const requestedSport = importParams.get("sport");
   const sportFilter = requestedSport && isSportUiEnabled(requestedSport) && (requestedSport === "bike" || requestedSport === "run" || requestedSport === "swim") ? requestedSport : "all";
   const setSportFilter = (sport: string) => {
     const next = new URLSearchParams(importParams);
     next.set("sport", sport);
-    next.delete("page"); next.delete("pageMonth"); next.delete("dayPage");
+    next.delete(listPageParam); next.delete("pageMonth"); next.delete("dayPage");
     setImportParams(next, { replace: true });
   };
   const monthScope = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -103,12 +104,12 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
   const setSearch = (value: string) => {
     const next = new URLSearchParams(importParams);
     if (value) next.set("q", value); else next.delete("q");
-    next.delete("page"); next.delete("pageMonth");
+    next.delete(listPageParam); next.delete("pageMonth");
     setImportParams(next, { replace: true, preventScrollReset: true });
   };
   const setPage = (page: number, day = false) => {
     const next = new URLSearchParams(importParams);
-    next.set(day ? "dayPage" : "page", String(page));
+    next.set(day ? "dayPage" : listPageParam, String(page));
     if (!day) next.set("pageMonth", monthScope);
     setImportParams(next, { replace: day, state: location.state, preventScrollReset: true });
   };
@@ -192,7 +193,7 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
   const recentActs = [...monthActs].sort((a, b) => b.startTime - a.startTime);
   const query = searchQuery.trim().toLocaleLowerCase(i18n.language);
   const matchingActs = query ? recentActs.filter(activity => `${activity.description ?? ""} ${activity.id} ${planDayKey(activity.startTime)}`.toLocaleLowerCase(i18n.language).includes(query)) : recentActs;
-  const requestedPage = importParams.get("pageMonth") === monthScope ? Number(importParams.get("page")) : 1;
+  const requestedPage = importParams.get("pageMonth") === monthScope ? Number(importParams.get(listPageParam)) : 1;
   const pageCount = Math.max(1, Math.ceil(matchingActs.length / 20));
   const page = Math.min(Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1, pageCount);
   const visibleRecentActs = matchingActs.slice((page - 1) * 20, page * 20);
