@@ -1,9 +1,11 @@
-export const COACH_PAGES = ["condition", "today", "analysis", "plan", "goals"] as const;
+/** 앱 코치 상단 탭 — 웹 코치 상단 탭(컨디션·계획/기록·목표·분석)과 같은 구성·순서(2026-11-03). */
+export const COACH_PAGES = ["condition", "plan", "goals", "analysis"] as const;
 /**
- * 상단 코치 탭에는 없고 다른 탭 안에서 여는 하위 페이지 → 상단에서 강조할 탭.
- * 오늘 탭의 "활동 기록·수행 확인"(`/athlete/me/activities`)을 앱 밖 웹으로 보내지 않고 코치 임베드 안에서 연다(2026-11-03).
+ * 상단 탭에는 없고 다른 탭 안에서 여는 하위 페이지 → 상단에서 강조할 탭.
+ * 오늘·활동 기록은 웹처럼 "계획/기록" 안의 하위 탭(오늘 훈련·훈련 계획·활동 기록·수행 확인)으로만 고른다 — 상단에도
+ * 오늘·계획을 따로 두면 같은 화면이 상단·하위에 겹쳐 보였다. 활동 기록(`/athlete/me/activities`)도 코치 임베드 안에서 연다.
  */
-export const COACH_SUBPAGES = { records: "today" } as const;
+export const COACH_SUBPAGES = { today: "plan", records: "plan" } as const;
 export type EmbeddedCoachPage = typeof COACH_PAGES[number] | keyof typeof COACH_SUBPAGES;
 
 export function embeddedCoachPage(value: string | null): EmbeddedCoachPage | null {
