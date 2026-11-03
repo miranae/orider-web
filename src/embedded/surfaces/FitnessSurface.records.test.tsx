@@ -10,6 +10,7 @@ vi.mock("../../hooks/useFitnessModel", () => ({
 }));
 vi.mock("../../pages/coach/CoachQuestionEntry", () => ({ CoachQuestionEntry: () => null }));
 vi.mock("../../pages/coach/CoachConditionPage", () => ({ default: () => <div>condition page</div> }));
+vi.mock("../../pages/coach/CoachAnalysisPage", () => ({ default: () => <div>analysis page</div> }));
 vi.mock("../../pages/coach/CoachTodayPage", () => ({ default: () => <div>today page</div> }));
 vi.mock("../../pages/TrainingLogPage", () => ({ default: () => <div>training log page</div> }));
 
@@ -20,6 +21,14 @@ function Search() {
 }
 
 describe("coach records subpage in the embed", () => {
+  it("normalizes integrated condition to a supported sport on analysis entry", async () => {
+    render(<MemoryRouter initialEntries={["/ko/embed/fitness?sport=tri&page=analysis"]}>
+      <FitnessSurface onReady={vi.fn()} retryKey={0} /><Search />
+    </MemoryRouter>);
+    expect(await screen.findByText("analysis page")).toBeInTheDocument();
+    expect(screen.getByTestId("search")).toHaveTextContent("sport=bike");
+    expect(screen.getByTestId("search")).toHaveTextContent("page=analysis");
+  });
   // 오늘 탭의 "활동 기록·수행 확인" 은 앱 밖 웹이 아니라 코치 임베드 안에서 그린다(2026-11-03).
   it("renders the training log inside the fitness surface and keeps the activity sport filter", async () => {
     render(<MemoryRouter initialEntries={["/ko/embed/fitness?sport=all&page=records"]}>
