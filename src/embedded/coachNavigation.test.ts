@@ -19,7 +19,9 @@ describe("authorized coach navigation", () => {
     expect(embeddedCoachDestination("/ko/embed/fitness", "/ko/athlete/me/activities?sport=all"))
       .toBe("/ko/embed/fitness?sport=all&page=records");
     expect(embeddedCoachPage("records")).toBe("records");
-    expect(coachTabForPage("records")).toBe("today");
+    expect(coachTabForPage("records")).toBe("plan");
+    expect(coachTabForPage("today")).toBe("plan");
+    expect(embeddedCoachPage("today")).toBe("today");
     expect(coachTabForPage("plan")).toBe("plan");
     expect(embeddedCoachPage("unknown")).toBeNull();
   });

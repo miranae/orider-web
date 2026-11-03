@@ -365,7 +365,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
     await screen.findByTestId("fitness-surface");
     const handoffs = mocks.consumeHandoff.mock.calls.length;
-    fireEvent.click(screen.getByRole("tab", { name: /^(계획|Plan|coachPages.plan)$/ }));
+    fireEvent.click(screen.getByRole("tab", { name: /^(계획\/기록|Plan \/ records|nav.planRecords)$/ }));
     await screen.findByTestId("plan-surface");
     fireEvent.click(screen.getByRole("tab", { name: /^(분석|Analysis|coachPages.analysis)$/ }));
     await screen.findByTestId("fitness-surface");

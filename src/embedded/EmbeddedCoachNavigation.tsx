@@ -16,7 +16,7 @@ export function EmbeddedCoachNavigation({ defaultPage, selectionKey }: { default
   }, [selectionKey, setParams]);
   // 웹 코치 상단 탭과 같은 밑줄 탭(2026-11-03) — 알약형 토글보다 웹과 같은 모양을 앱에서도 쓴다.
   return <nav className="site-shell embedded-coach-nav" aria-label={t("nav.coach")}>
-    <TabNav tabs={COACH_PAGES.map(page => ({ id: page, label: t(`coachPages.${page}`) }))} activeTab={selected} onChange={page => {
+    <TabNav tabs={COACH_PAGES.map(page => ({ id: page, label: page === "plan" ? t("nav.planRecords") : t(`coachPages.${page}`) }))} activeTab={selected} onChange={page => {
       setParams(current => { const next = new URLSearchParams(); const sport = current.get("sport"); if (sport) next.set("sport", sport); next.set("page", page); return next; });
     }} />
   </nav>;
