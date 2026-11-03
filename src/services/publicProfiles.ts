@@ -45,8 +45,8 @@ function toPublicUserProfile(id: string, data: DocumentData): PublicUserProfile 
   };
 }
 
-export async function getPublicUserProfile(userId: string): Promise<PublicUserProfile | null> {
-  const snap = await getDoc(doc(firestore, "users_public", userId));
+export async function getPublicUserProfile(userId: string, database = firestore): Promise<PublicUserProfile | null> {
+  const snap = await getDoc(doc(database, "users_public", userId));
   return snap.exists() ? toPublicUserProfile(snap.id, snap.data()) : null;
 }
 

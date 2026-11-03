@@ -15,7 +15,7 @@ import { useLocation, useSearchParams } from "react-router-dom";
 import GlossaryText from "../components/common/GlossaryText";
 import { Upload } from "lucide-react";
 import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
@@ -394,6 +394,7 @@ function MiniBarChart({ values, labels, unit = "" }: MiniBarChartProps) {
 // ── Main Page ─────────────────────────────────────────────────────────
 
 export default function TrainingLogPage() {
+  const { firestore } = useFirebaseServices();
   const { state: comparisonState } = useLocation();
   const { t, i18n } = useTranslation("training");
   const { t: tCommon } = useTranslation("common");

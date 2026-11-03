@@ -1,3 +1,4 @@
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { httpsCallable } from "firebase/functions";
 import { ensureAppCheckReady, functions } from "./firebase";
 
@@ -44,8 +45,9 @@ interface PublicParticipantsResponse {
   counters: { totalRegistered: number; byCategory: Record<string, number> };
 }
 
-export async function getEventPublicParticipants(eventId: string): Promise<PublicParticipantsResponse> {
-  await ensureAppCheckReady();
-  const result = await httpsCallable<{ eventId: string }, PublicParticipantsResponse>(functions, "getEventPublicParticipants")({ eventId });
+export async function getEventPublicParticipants(eventId: string, services?: Pick<FirebaseServices, "functions" | "ensureAppCheckReady">): Promise<PublicParticipantsResponse> {
+  const provider = services ?? { functions, ensureAppCheckReady };
+  await provider.ensureAppCheckReady();
+  const result = await httpsCallable<{ eventId: string }, PublicParticipantsResponse>(provider.functions, "getEventPublicParticipants")({ eventId });
   return result.data;
 }
