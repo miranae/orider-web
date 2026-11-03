@@ -345,7 +345,7 @@ export default function EventDetailPage() {
             hostIds,
             creatorName,
             groupId: info.groupId || "",
-            maxParticipants: info.settings?.maxParticipants || info.maxParticipants || 0,
+            maxParticipants: info.settings?.maxParticipants ?? info.maxParticipants ?? 0,
             courseGpx: info.courseGpx || "",
             courses: info.courses || [],
             courseIds: info.courseIds || [],
@@ -659,7 +659,7 @@ export default function EventDetailPage() {
     { label: t("detail.metric.distance"), value: distanceM == null ? "—" : (distanceM / 1000).toFixed(1), unit: "km", explanation: t(courseData ? "detail.metric.distanceGpx" : "detail.metric.distanceLinked") },
     { label: t("detail.metric.elevationGain"), value: gainM == null ? "—" : Math.round(gainM).toString(), unit: "m", explanation: t("detail.metric.elevationGainHelp") },
     { label: t("detail.metric.maxElevation"), value: typeof highM === "number" && Number.isFinite(highM) ? Math.round(highM).toString() : "—", unit: "m", explanation: t("detail.metric.maxElevationHelp") },
-    { label: t("detail.metric.participants"), value: participantCount == null ? "—" : event.maxParticipants ? `${participantCount}/${event.maxParticipants}` : `${participantCount}`, unit: t("detail.unit.person") },
+    { label: t("detail.metric.participants"), value: participantCount == null ? "—" : event.maxParticipants ? `${participantCount}/${event.maxParticipants}` : `${participantCount} / ${t("capacity.unlimited")}`, unit: t("detail.unit.person") },
     { label: t("detail.metric.fillRate"), value: fillPct == null ? "—" : fillPct.toString(), unit: "%" },
   ];
   const hasDetailedBody = courses.length > 1 || (courseData != null && elevationData.length > 0)
@@ -1116,7 +1116,7 @@ export default function EventDetailPage() {
               {event.maxParticipants ? (
                 <Text variant="unit" style={{ color: "var(--ink-3)" }}>/ {event.maxParticipants}{t("detail.unit.person")}</Text>
               ) : (
-                <Text variant="unit" style={{ color: "var(--ink-3)" }}>{t("detail.unit.person")}</Text>
+                <Text variant="unit" style={{ color: "var(--ink-3)" }}>{t("detail.unit.person")} / {t("capacity.unlimited")}</Text>
               )}
             </div>
             {fillPct != null && event.maxParticipants && (
