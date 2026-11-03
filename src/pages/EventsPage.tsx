@@ -298,7 +298,7 @@ export default function EventsPage() {
             followerCount: typeof d.counters?.followerCount === "number" ? d.counters.followerCount : undefined,
             difficulty: (["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"] as const).includes(info.difficulty) ? info.difficulty : undefined,
             registered: registeredEventCount(d.counters?.totalRegistered),
-            maxParticipants: info.settings?.maxParticipants || info.maxParticipants,
+            maxParticipants: info.settings?.maxParticipants ?? info.maxParticipants,
             distance: typeof info.distance === "number" ? info.distance / 1000 : undefined,
             elevationGain: typeof info.elevationGain === "number" ? info.elevationGain : undefined,
             courseId: Array.isArray(info.courseIds) && info.courseIds.length > 0 ? info.courseIds[0] : undefined,
@@ -1116,7 +1116,7 @@ function EventCard({
                 <Users size={ICON_SIZE.sm} aria-hidden="true" />
                 <span style={{ fontFamily: "var(--font-mono)" }}>
                   {event.registered ?? "—"}
-                  <span style={{ color: "var(--ink-3)" }}>/{event.maxParticipants}</span>
+                  <span style={{ color: "var(--ink-3)" }}>/{event.maxParticipants === 0 ? t("capacity.unlimited") : event.maxParticipants}</span>
                 </span>
               </div>
             )}
