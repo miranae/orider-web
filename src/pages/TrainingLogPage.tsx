@@ -501,7 +501,7 @@ export default function TrainingLogPage() {
     next.set("sport", sport);
     // 종목이 바뀌면 이전 종목의 목록 페이지 위치는 맞지 않는다(모바일 목록 필터에 있던 규칙).
     if (!pathname.includes("/embed/") || next.get("page") !== "records") next.delete("page");
-    next.delete("pageMonth"); next.delete("dayPage");
+    next.delete("recordPage"); next.delete("pageMonth"); next.delete("dayPage");
     setImportParams(next, { replace: true });
   };
 
