@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => {
     logClientError: vi.fn(),
     surfaceReadyCallbacks: {
       activityAnalysis: null as (() => void) | null,
+      activityCompare: null as { onReady: () => void; onError: (code: string) => void } | null,
       fitness: null as ((status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void) | null,
       plan: null as ((status?: "cached" | "fresh" | "error") => void) | null,
     },
@@ -118,6 +119,13 @@ vi.mock("./surfaces/ActivityAnalysisSurface", () => ({
     mocks.surfaceHookMounts();
     mocks.surfaceReadyCallbacks.activityAnalysis = onReady;
     return <div data-testid="analysis-surface" />;
+  },
+}));
+
+vi.mock("./surfaces/ActivityCompareSurface", () => ({
+  default: ({ activityId, onReady, onError }: { activityId: string; onReady: () => void; onError: (code: string) => void }) => {
+    mocks.surfaceReadyCallbacks.activityCompare = { onReady, onError };
+    return <div data-testid="compare-surface" data-activity-id={activityId} />;
   },
 }));
 
@@ -213,7 +221,9 @@ function renderBootstrap(
         <Route
           path={surfaceKind === "activity-analysis"
             ? "/:lang/embed/activity/:activityId/analysis"
-            : "*"}
+            : surfaceKind === "activity-compare"
+              ? "/:lang/embed/activity/:activityId/compare"
+              : "*"}
           element={(
             <EmbeddedBootstrapRoot
               bridgeFactory={() => bridge}
@@ -243,6 +253,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     mocks.planSurfaceMounts.mockClear();
     mocks.surfaceLifecycle.mockClear();
     mocks.surfaceReadyCallbacks.activityAnalysis = null;
+    mocks.surfaceReadyCallbacks.activityCompare = null;
     mocks.surfaceReadyCallbacks.fitness = null;
     mocks.surfaceReadyCallbacks.plan = null;
     mocks.consumeHandoff.mockClear();
@@ -356,6 +367,20 @@ describe("EmbeddedBootstrapRoot session gate", () => {
       requestId: undefined,
     });
     expect(bridge.sent.some((message) => message.type === "telemetry.event")).toBe(false);
+  });
+
+  it("mounts the compare surface for the activity and relays its ready and error signals", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge, "/ko/embed/activity/activity-1/compare", "activity-compare");
+    await act(async () => { bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 })); });
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+
+    expect(await screen.findByTestId("compare-surface")).toHaveAttribute("data-activity-id", "activity-1");
+    expect(screen.queryByTestId("analysis-surface")).not.toBeInTheDocument();
+    act(() => mocks.surfaceReadyCallbacks.activityCompare?.onReady());
+    expect(bridge.sent).toContainEqual({ type: "surface.ready", payload: { activityId: "activity-1" }, requestId: undefined });
+    act(() => mocks.surfaceReadyCallbacks.activityCompare?.onError("activity_not_found"));
+    expect(bridge.sent).toContainEqual({ type: "surface.error", payload: { code: "activity_not_found" }, requestId: undefined });
   });
 
   it("keeps coach navigation within the accepted session and follows the native tab on reselection", async () => {

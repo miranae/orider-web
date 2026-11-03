@@ -179,6 +179,20 @@ describe("useActivityAnalysisModel", () => {
     ref as unknown as { path: string }
   ).path.startsWith("activity_streams/"));
 
+  it("reads only the activity and metrics when analysis data is off", async () => {
+    const activity = makeActivity("orider_compare_only");
+    seedActivity(activity);
+    setDocData(`activity_metrics/${activity.id}`, { version: ACTIVITY_METRICS_VERSION, computedAt: 1, avgHr: 150 });
+    const before = streamReads().length;
+    const { result } = renderHook(() => useActivityAnalysisModel(activity.id, undefined, undefined, { analysisData: false }));
+    await waitFor(() => expect(result.current.serverMetrics.status).toBe("ready"));
+    expect(result.current.isActivityOwner).toBe(true);
+    expect(result.current.overview.enabled).toBe(false);
+    expect(streamReads()).toHaveLength(before);
+    expect(mocks.getStreams).not.toHaveBeenCalled();
+    expect(result.current.streams).toBeNull();
+  });
+
   it("retains the producer-confirmed saved summary while the next source revision is pending", async () => {
     const activity = makeActivity("preserved-pending-summary"); seedActivity(activity);
     setDocData(`activity_metrics/${activity.id}`, { version: 1, analysisSummary, inputPending: true, inputCoverage: "pending", savedInputCoverage: "complete", avgHr: 150 });

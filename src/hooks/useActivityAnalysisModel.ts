@@ -85,11 +85,21 @@ export interface PublicActivityModelInput {
   onAccessRevoked?: () => void;
 }
 
+export interface ActivityAnalysisModelOptions {
+  /**
+   * false 면 활동 문서·서버 메트릭만 읽고 스트림·개요 조회는 자동으로 시작하지 않는다.
+   * 비교 임베드처럼 스트림이 필요 없는 표면이 무거운 조회를 피할 때 쓴다. 기본 true.
+   */
+  analysisData?: boolean;
+}
+
 export function useActivityAnalysisModel(
   activityId: string | undefined,
   publicInput?: PublicActivityModelInput,
   savedAnalysis?: import("../services/activityReanalysis").SavedActivityAnalysis,
+  options?: ActivityAnalysisModelOptions,
 ): ActivityAnalysisModel {
+  const analysisData = options?.analysisData !== false;
   const firebaseServices = useFirebaseServices();
   const { firestore } = firebaseServices;
   const { t } = useTranslation("activity");
@@ -212,7 +222,7 @@ export function useActivityAnalysisModel(
     userId: user?.uid,
     getStreams,
     t,
-    enabled: !showingSavedAnalysis && !!activity && ((!isActivityOwner && !publicMode) || (
+    enabled: analysisData && !showingSavedAnalysis && !!activity && ((!isActivityOwner && !publicMode) || (
       serverMetrics.status !== "loading" && serverMetrics.status !== "disabled"
       && serverMetrics.metrics?.inputPending !== true
       && serverMetrics.metrics?.inputCoverage !== "pending"
@@ -226,7 +236,7 @@ export function useActivityAnalysisModel(
   const overviewMetrics = serverMetrics.metrics as (NonNullable<typeof serverMetrics.metrics> & Record<string, unknown>) | null;
   // 메트릭 생성 시각이 그대로여도 개인정보·출처·선택 revision 변경은 캐시를 무효화한다.
   // 활동 문서와 첫 메트릭 판정이 도착한 뒤 요청해 초기 revision 변경에 따른 중복 호출을 막는다.
-  const overview = useActivityOverview(activityId, !showingSavedAnalysis && !!activity && activity.id === activityId && serverMetrics.status !== "loading", JSON.stringify([
+  const overview = useActivityOverview(activityId, analysisData && !showingSavedAnalysis && !!activity && activity.id === activityId && serverMetrics.status !== "loading", JSON.stringify([
     serverMetrics.status, overviewMetrics?.version, overviewMetrics?.computedAt,
     overviewMetrics?.metricsRevision, overviewMetrics?.inputDigest, overviewMetrics?.etag,
     overviewMetrics?.inputPending, overviewMetrics?.sourceLayer, overviewMetrics?.isVirtualPower,

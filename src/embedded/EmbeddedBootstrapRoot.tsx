@@ -68,6 +68,7 @@ import {
 
 const PublicActivitySurface = lazy(() => import("./surfaces/PublicActivityBrowser"));
 const ActivityAnalysisSurface = lazy(() => import("./surfaces/ActivityAnalysisSurface"));
+const ActivityCompareSurface = lazy(() => import("./surfaces/ActivityCompareSurface"));
 const loadFitnessSurface = () => import("./surfaces/FitnessSurface");
 const loadPlanSurface = () => import("./surfaces/PlanSurface");
 const FitnessSurface = lazy(loadFitnessSurface);
@@ -158,15 +159,15 @@ interface EmbeddedBootstrapRootProps {
   surfaceKind?: EmbeddedSurfaceKind;
 }
 
-export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "event-detail" | "fitness" | "plan" | EmbeddedHubSurfaceKind;
+export type EmbeddedSurfaceKind = "activity-analysis" | "activity-compare" | "activity-public" | "event-detail" | "fitness" | "plan" | EmbeddedHubSurfaceKind;
 /**
  * 앱 클럽·탐색 탭과 검색 화면, 클럽 상세. 공개 목록·공개 클럽 미리보기라 로그인 인계 없이(게스트)
  * 열려도 보인다(웹 클럽 상세도 비로그인이면 PublicClubPreview 다).
  */
 export type EmbeddedHubSurfaceKind = "clubs" | "explore" | "search" | "club-detail";
 
-function isActivitySurfaceKind(kind: EmbeddedSurfaceKind): kind is "activity-analysis" | "activity-public" {
-  return kind === "activity-analysis" || kind === "activity-public";
+function isActivitySurfaceKind(kind: EmbeddedSurfaceKind): kind is "activity-analysis" | "activity-compare" | "activity-public" {
+  return kind === "activity-analysis" || kind === "activity-compare" || kind === "activity-public";
 }
 
 export function isHubSurfaceKind(kind: EmbeddedSurfaceKind): kind is EmbeddedHubSurfaceKind {
@@ -515,6 +516,13 @@ function AuthorizedSurface({
                   onError={(code) => bridge.send("surface.error", { code })} />
               ) : surfaceKind === "activity-analysis" && activityId ? (
                 <ActivityAnalysisSurface
+                  activityId={activityId}
+                  retryKey={retryKey}
+                  onReady={() => bridge.send("surface.ready", { activityId })}
+                  onError={(code) => bridge.send("surface.error", { code })}
+                />
+              ) : surfaceKind === "activity-compare" && activityId ? (
+                <ActivityCompareSurface
                   activityId={activityId}
                   retryKey={retryKey}
                   onReady={() => bridge.send("surface.ready", { activityId })}

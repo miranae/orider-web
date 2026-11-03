@@ -21,6 +21,7 @@ import { AppRoutes, isEmbeddedRoutePath } from "./App";
 describe("embedded routes", () => {
   it.each([
     ["/ko/embed/activity/activity-1/analysis", "activity-analysis"],
+    ["/ko/embed/activity/activity-1/compare", "activity-compare"],
     ["/ko/embed/activity/activity-1/public", "activity-public"],
     ["/ko/embed/fitness?sport=run", "fitness"],
     ["/en/embed/plan?sport=swim", "plan"],
@@ -47,6 +48,7 @@ describe("embedded routes", () => {
     "/ko/embed/event/event-1",
     "/en/embed/event/event-1/host/participants",
     "/ko/embed/activity/activity-1/analysis",
+    "/ko/embed/activity/activity-1/compare",
     "/ko/embed/activity/activity-1/public",
     "/ko/embed/fitness",
     "/en/embed/plan/",
