@@ -34,3 +34,13 @@ it.each([
 ])("normalizes public participant timestamps without dropping subsecond precision %#", (input, expected) => {
   expect(publicParticipantTimestampMs(input)).toBe(expected);
 });
+
+it("임베드 명시 서비스로만 공개 참가자를 읽는다", async () => {
+  const isolatedFunctions = {} as typeof mocks.functions;
+  const ready = vi.fn().mockResolvedValue(undefined);
+  mocks.callable.mockResolvedValue({ data: { participants: [] } });
+  await getEventPublicParticipants("event-1", { functions: isolatedFunctions as never, ensureAppCheckReady: ready });
+  expect(ready).toHaveBeenCalledOnce();
+  expect(mocks.ready).not.toHaveBeenCalled();
+  expect(httpsCallable).toHaveBeenCalledWith(isolatedFunctions, "getEventPublicParticipants");
+});

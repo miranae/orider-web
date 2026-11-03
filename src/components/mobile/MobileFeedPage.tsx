@@ -148,7 +148,8 @@ function ActivityMemo({ memo, memoTruncated = false, activityId, generated = fal
     if (expanded) return;
     const paragraph = paragraphRef.current;
     if (!paragraph) return;
-    const measure = () => setOverflowing(paragraph.scrollHeight > paragraph.clientHeight);
+    // 탭을 떠나 화면을 숨긴 동안(hidden)은 높이가 0 이라 넘침을 잴 수 없다 — 잰 값을 그대로 둔다.
+    const measure = () => { if (!paragraph.closest("[hidden]")) setOverflowing(paragraph.scrollHeight > paragraph.clientHeight); };
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(measure);

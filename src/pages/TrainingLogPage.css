@@ -26,3 +26,6 @@
   .training-log-page { padding-inline: var(--space-4); }
   .training-log-metric { padding-inline: var(--space-3); }
 }
+
+/* 코치 계획/기록 안에서는 머리(제목·종목·하위 탭)가 셸 위에 있으므로 본문 위 여백을 두지 않는다. */
+.coach-surface .training-log-page { padding-top: 0; }

@@ -783,5 +783,9 @@
   "dashboard.trackingEnded": "종료된 이벤트로 실시간 위치 제공이 끝났습니다.",
   "discovery.partial": "현재 페이지의 결과입니다. 다음 페이지가 있으면 이어서 확인해 주세요.",
   "discovery.first": "처음 페이지",
-  "discovery.emptyPage": "이 페이지에 표시할 이벤트가 없습니다."
+  "discovery.emptyPage": "이 페이지에 표시할 이벤트가 없습니다.",
+  "capacity.unlimited": "무제한",
+  "capacity.limited": "인원 지정",
+  "capacity.totalUnlimited": "전체 정원: 무제한",
+  "capacity.editUnlimitedSummary": "RIDER {{filled}}명 · 정원 무제한 · {{date}} {{time}}"
 }

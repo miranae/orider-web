@@ -1,12 +1,14 @@
 import { CoachQuestionEntry } from "../../pages/coach/CoachQuestionEntry";
 import { isSportUiEnabled } from "../../config/sportFeatures";
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import EmbeddedSurfaceState from "./EmbeddedSurfaceState";
 import CoachConditionPage from "../../pages/coach/CoachConditionPage";
 import CoachTodayPage from "../../pages/coach/CoachTodayPage";
 import CoachAnalysisPage from "../../pages/coach/CoachAnalysisPage";
+// 오늘 탭의 "활동 기록·수행 확인" — 코치 임베드 안에서 연다(무거운 기록 화면이라 필요할 때만 불러온다).
+const TrainingLogPage = lazy(() => import("../../pages/TrainingLogPage"));
 import { CoachFitnessModelContext } from "../../pages/coach/CoachFitnessModelContext";
 import type { Run30StartMode } from "../../features/training/run30/run30Start";
 import { useFitnessModel } from "../../hooks/useFitnessModel";
@@ -22,11 +24,13 @@ export default function FitnessSurface({ onReady, retryKey, active = true, start
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get("sport");
   const sport = requested === "run" || requested === "bike" || requested === "swim" && isSportUiEnabled(requested)
-    || requested === "tri" && searchParams.get("page") !== "today" ? requested : "bike";
+    || requested === "tri" && !["today", "analysis"].includes(searchParams.get("page") ?? "") ? requested : "bike";
+  // 기록 화면의 종목은 활동 필터(전체·종목)라 코치 부하 종목으로 바꾸지 않는다.
+  const recordsPage = searchParams.get("page") === "records";
   useEffect(() => {
-    if (requested === null || requested === sport) return;
+    if (recordsPage || requested === null || requested === sport) return;
     setSearchParams(current => { const next = new URLSearchParams(current); next.set("sport", sport); return next; }, { replace: true });
-  }, [requested, sport, setSearchParams]);
+  }, [recordsPage, requested, sport, setSearchParams]);
   const model = useFitnessModel(sport, {
     decisionId: searchParams.get("decisionId"),
     active,
@@ -61,10 +65,11 @@ export default function FitnessSurface({ onReady, retryKey, active = true, start
   return (
     <main className="orider-embedded-surface" data-testid="embedded-fitness">
       {active && <CoachFitnessModelContext.Provider value={model}>
-        {searchParams.get("page") === "today" ? <CoachTodayPage startMode={startMode} />
+        {recordsPage ? <Suspense fallback={null}><TrainingLogPage /></Suspense>
+          : searchParams.get("page") === "today" ? <CoachTodayPage startMode={startMode} />
           : searchParams.get("page") === "analysis" ? <CoachAnalysisPage />
           : <CoachConditionPage />}
-        <CoachQuestionEntry model={model} page={searchParams.get("page") === "today" ? "today" : searchParams.get("page") === "analysis" ? "analysis" : "condition"} />
+        <CoachQuestionEntry model={model} page={searchParams.get("page") === "today" || recordsPage ? "today" : searchParams.get("page") === "analysis" ? "analysis" : "condition"} />
       </CoachFitnessModelContext.Provider>}
     </main>
   );

@@ -24,6 +24,8 @@ describe("embedded routes", () => {
     ["/ko/embed/activity/activity-1/public", "activity-public"],
     ["/ko/embed/fitness?sport=run", "fitness"],
     ["/en/embed/plan?sport=swim", "plan"],
+    ["/ko/embed/event/event-1", "event-detail"],
+    ["/en/embed/event/event-1/results", "event-detail"],
     ["/ko/embed/clubs", "clubs"],
     ["/ko/embed/clubs/club-1", "club-detail"],
     ["/en/embed/clubs/club-1/members", "club-detail"],
@@ -42,6 +44,8 @@ describe("embedded routes", () => {
   });
 
   it.each([
+    "/ko/embed/event/event-1",
+    "/en/embed/event/event-1/host/participants",
     "/ko/embed/activity/activity-1/analysis",
     "/ko/embed/activity/activity-1/public",
     "/ko/embed/fitness",

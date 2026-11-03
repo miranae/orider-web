@@ -12,7 +12,7 @@ import { doc, getDoc, getDocs, collection, onSnapshot } from "firebase/firestore
 import { loadPrivateSnapshotWithRetry } from "./privateSnapshotPages";
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, firestore as db, functions, getAppCheckToken } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
@@ -147,6 +147,8 @@ function formatHHMM(ts: number | null | undefined): string {
 }
 
 export default function EventDashboardPage() {
+  const services = useFirebaseServices();
+  const { auth, firestore: db, functions, getAppCheckToken } = services;
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const { user, loading: authLoading, signIn } = useAuth();
@@ -240,6 +242,7 @@ export default function EventDashboardPage() {
 }
 
 function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permissions: ReturnType<typeof eventPermissions>; onStart: () => void; operatorBusy: boolean }) {
+  const { auth, firestore: db, functions, getAppCheckToken } = useFirebaseServices();
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();

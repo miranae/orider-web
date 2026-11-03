@@ -95,11 +95,12 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
         {period === "range" ? <>
           <Field label={t("loadComparison.startDate")} htmlFor={`${id}-start`}><Input id={`${id}-start`} type="date" value={custom.start} max={custom.end || undefined} invalid={!valid} onChange={event => update({ loadStart: event.target.value })} /></Field>
           <Field label={t("loadComparison.endDate")} htmlFor={`${id}-end`}><Input id={`${id}-end`} type="date" value={custom.end} min={custom.start || undefined} invalid={!valid} onChange={event => update({ loadEnd: event.target.value })} /></Field>
-        </> : <>
-          <Button variant="ghost" onClick={() => shift(-1)} aria-label={t("loadComparison.previous")}>←</Button>
+        </> : <div className="plan-load-comparison__stepper">
+          {/* 이전 | 기준일 | 다음 을 칸으로 나눈다 — 한 줄 flex 에서는 iOS 날짜 칸이 글자에 맞춰 넓어지면 화살표와 겹쳤다. */}
+          <Button variant="ghost" iconOnly onClick={() => shift(-1)} aria-label={t("loadComparison.previous")}>←</Button>
           <Field label={t("loadComparison.referenceDate")} htmlFor={`${id}-date`}><Input id={`${id}-date`} type="date" value={date} invalid={!valid} onChange={event => setDate(event.target.value)} /></Field>
-          <Button variant="ghost" onClick={() => shift(1)} aria-label={t("loadComparison.next")}>→</Button>
-        </>}
+          <Button variant="ghost" iconOnly onClick={() => shift(1)} aria-label={t("loadComparison.next")}>→</Button>
+        </div>}
         {valid && <Text variant="bodySmall" tone="tertiary">{range.start} – {range.end}</Text>}
       </div>
       {!valid || result.state === "invalid" ? <Text as="p" role="alert" tone="danger">{t("loadComparison.invalidRange")}</Text> : result.state === "error" ? <div role="alert" className="plan-load-comparison__notice"><Text>{t("loadComparison.error")}</Text><Button variant="secondary" onClick={result.retry}>{t("loadComparison.retry")}</Button></div> : <>

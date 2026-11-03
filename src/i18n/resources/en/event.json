@@ -787,5 +787,9 @@
   "dashboard.trackingEnded": "Live location tracking has ended because this event is closed.",
   "discovery.partial": "Results are for the current page. Continue to the next page when available.",
   "discovery.first": "First page",
-  "discovery.emptyPage": "No events to display on this page."
+  "discovery.emptyPage": "No events to display on this page.",
+  "capacity.unlimited": "Unlimited",
+  "capacity.limited": "Limited",
+  "capacity.totalUnlimited": "Total capacity: Unlimited",
+  "capacity.editUnlimitedSummary": "RIDER {{filled}} · Unlimited capacity · {{date}} {{time}}"
 }

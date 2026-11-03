@@ -89,10 +89,10 @@ describe("운동 기록의 부분 요약", () => {
     render(<MemoryRouter initialEntries={["/?sport=run"]}><QueryNavigation /><TrainingLogPage /></MemoryRouter>);
     await waitFor(() => expectMetric("이동거리", "5.0"));
     expect(state.recentRead).not.toHaveBeenCalled();
-    expect(within(screen.getByTestId("P1-1")).getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
+    expect(within(screen.getByTestId("P1-H")).getByRole("button", { name: /러닝/ })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByText("Change sport query", { selector: "button" }));
     await waitFor(() => expectMetric("이동거리", "20.0"));
-    expect(within(screen.getByTestId("P1-1")).getByRole("button", { name: /사이클/ })).toHaveAttribute("aria-pressed", "true");
+    expect(within(screen.getByTestId("P1-H")).getByRole("button", { name: /사이클/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("데스크톱 합계와 캘린더에서 누락·비유한 측정값만 제외하고 활동 수와 TSS는 보존한다", async () => {
@@ -356,11 +356,21 @@ it.each([false, true])("preserves a selected day through month navigation, histo
 it.each(["all", "tri", ""])("keeps the all-records filter, query and plan destination consistent sport=%s", async sport => {
   vi.mocked(getDocs).mockReset().mockResolvedValue({ docs: [], empty: true } as never);
   render(<MemoryRouter initialEntries={[`/ko/athlete/me/activities${sport ? `?sport=${sport}` : ""}`]}><HistoryProbe /><TrainingLogPage /></MemoryRouter>);
-  await waitFor(() => expect(within(screen.getByTestId("P1-1")).getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "true"));
+  await waitFor(() => expect(within(screen.getByTestId("P1-H")).getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "true"));
   if (sport) expect(screen.getByTestId("record-url")).toHaveTextContent("sport=all");
   expect(screen.getByRole("link", { name: "훈련 계획" }).getAttribute("href")).toContain("sport=bike");
 });
 
+
+it("keeps the embedded records destination when changing the activity sport", async () => {
+  vi.mocked(getDocs).mockReset().mockResolvedValue({ docs: [], empty: true } as never);
+  render(<MemoryRouter initialEntries={["/ko/embed/fitness?page=records&sport=all&pageMonth=2&dayPage=3"]}><HistoryProbe /><TrainingLogPage /></MemoryRouter>);
+  fireEvent.click(within(screen.getByTestId("P1-H")).getByRole("button", { name: "사이클" }));
+  await waitFor(() => expect(screen.getByTestId("record-url")).toHaveTextContent("sport=bike"));
+  expect(screen.getByTestId("record-url")).toHaveTextContent("page=records");
+  expect(screen.getByTestId("record-url")).not.toHaveTextContent("pageMonth");
+  expect(screen.getByTestId("record-url")).not.toHaveTextContent("dayPage");
+});
 
 describe("desktop day record pagination",()=>{
   const dayKey=new Date(startTime+9*3600000).toISOString().slice(0,10);

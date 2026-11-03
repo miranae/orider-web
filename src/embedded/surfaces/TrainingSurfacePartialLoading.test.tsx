@@ -174,7 +174,8 @@ describe("training embedded surface partial loading", () => {
     render(wrapper(<PlanSurface onReady={onReady} retryKey={0} />));
 
     expect(screen.getByText("plan presentation")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("저장된 이전 정보를 표시하고 있습니다.");
+    // 캐시 안내 문구는 띄우지 않는다 — 캐시 값을 그대로 보여 주고 최신 값이 오면 바꾼다.
+    expect(screen.queryByText("저장된 이전 정보를 표시하고 있습니다.")).not.toBeInTheDocument();
     await waitFor(() => expect(onReady).toHaveBeenCalledWith("cached"));
   });
 

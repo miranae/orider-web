@@ -12,7 +12,7 @@ import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { firestore, functions } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { getPublicUserProfile } from "../../services/publicProfiles";
 import { useAuth } from "../../contexts/AuthContext";
@@ -156,6 +156,8 @@ function ageFromBirth(birth: string): number | null {
 }
 
 export default function EventParticipantsPage() {
+  const services = useFirebaseServices();
+  const { firestore, functions } = services;
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { user, signIn } = useAuth();
@@ -236,7 +238,7 @@ export default function EventParticipantsPage() {
       await Promise.all(
         userIds.map(async (uid) => {
           try {
-            const profile = await getPublicUserProfile(uid);
+            const profile = await getPublicUserProfile(uid, services.firestore);
             userMap.set(uid, {
               nickname: profile?.nickname || t("participantsView.defaultRider"),
               team: profile?.team || "—",

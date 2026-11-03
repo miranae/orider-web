@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { useMainScrollPosition } from "./useMainScrollPosition";
+import { HUB_RETURN_STATE } from "../services/hubReturn";
 function Fixture() {
   const ref = useRef<HTMLElement>(null);
   const navigate = useNavigate();
@@ -84,4 +85,39 @@ it("keeps the same feed card offset while late content changes and stops on user
     cardTop = 700; act(() => resized()); expect(main.scrollTop).toBe(800);
     fireEvent.wheel(main); cardTop = 900; act(() => resized()); expect(main.scrollTop).toBe(800);
   } finally { bounds.mockRestore(); vi.unstubAllGlobals(); }
+});
+
+function HubFixture() {
+  const ref = useRef<HTMLElement>(null);
+  const navigate = useNavigate();
+  useMainScrollPosition(ref);
+  const back = (to: string) => navigate(to, { state: HUB_RETURN_STATE });
+  return <>
+    <button onClick={() => navigate("?sport=tri", { replace: true })}>Tri</button>
+    <button onClick={() => navigate("?sport=bike", { replace: true })}>Bike</button>
+    <button onClick={() => navigate("/")}>Home</button>
+    <button onClick={() => back("/coach/condition?sport=tri")}>Coach tri tab</button>
+    <button onClick={() => back("/coach/condition?sport=bike")}>Coach bike tab</button>
+    <button onClick={() => navigate("/coach/condition?sport=tri")}>Coach link</button>
+    <main tabIndex={-1} ref={ref} />
+  </>;
+}
+it("탭으로 돌아오면 그 화면 URL(종목 포함)에서 마지막으로 보던 위치로 되돌리고 일반 이동은 맨 위로 연다", () => {
+  render(<MemoryRouter initialEntries={["/coach/condition?sport=bike"]}><HubFixture /></MemoryRouter>);
+  const main = screen.getByRole("main");
+  main.scrollTop = 500; fireEvent.scroll(main);
+  fireEvent.click(screen.getByText("Tri"));
+  main.scrollTop = 200; fireEvent.scroll(main);
+  fireEvent.click(screen.getByText("Home"));
+  expect(main.scrollTop).toBe(0);
+  fireEvent.click(screen.getByText("Coach tri tab"));
+  expect(main.scrollTop).toBe(200);
+  fireEvent.pointerDown(main);
+  fireEvent.click(screen.getByText("Home"));
+  fireEvent.click(screen.getByText("Coach bike tab"));
+  expect(main.scrollTop).toBe(500);
+  fireEvent.pointerDown(main);
+  fireEvent.click(screen.getByText("Home"));
+  fireEvent.click(screen.getByText("Coach link"));
+  expect(main.scrollTop).toBe(0);
 });

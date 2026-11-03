@@ -1,9 +1,10 @@
+import { FirebaseServicesProvider } from "../../contexts/FirebaseServicesContext";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { httpsCallable } from "firebase/functions";
 import i18n from "i18next";
-import { getDoc, getDocs } from "firebase/firestore";
+import { doc, getDoc, getDocs } from "firebase/firestore";
 import { mockDocData, mockCollectionData, simulateLogin as mockLogin, simulateLogout as mockLogout, getCurrentUser, setCallableImplementation } from "../../__tests__/mocks/firebase";
 import eventStrings from "../../i18n/resources/ko/event.json";
 import termStrings from "../../i18n/resources/ko/termGlossary.json";
@@ -80,6 +81,17 @@ beforeEach(() => {
 });
 
 describe("event participant privacy boundaries", () => {
+  it("이벤트 상세는 임베드로 주입한 Firestore와 callable 서비스를 사용한다", async () => {
+    const isolatedDatabase = { isolated: true };
+    const isolatedFunctions = { isolated: true };
+    const services = { auth, firestore: isolatedDatabase as never, functions: isolatedFunctions as never,
+      ensureAppCheckReady: vi.fn().mockResolvedValue(undefined), getAppCheckToken: vi.fn().mockResolvedValue("token") };
+    show(<FirebaseServicesProvider services={services}><EventDetailPage /></FirebaseServicesProvider>);
+    await screen.findAllByText("Event");
+    expect(doc).toHaveBeenCalledWith(isolatedDatabase, "events", "ev");
+    await waitFor(() => expect(getEventPublicParticipants).toHaveBeenCalledWith("ev", services));
+  });
+
   it("uses the single linked course summary without a blank cover or invented category", async () => {
     const event = mockDocData.get("events/ev")!;
     mockDocData.set("events/ev", { ...event, info: { ...(event.info as object), type: "GRANFONDO", courseIds: ["course-1"] } });
@@ -265,7 +277,7 @@ describe("event participant privacy boundaries", () => {
     simulateLogout();
     show(<EventResultsPage />);
     await screen.findAllByText("Public rider");
-    expect(getEventPublicParticipants).toHaveBeenCalledWith("ev");
+    expect(getEventPublicParticipants).toHaveBeenCalledWith("ev", expect.objectContaining({ auth, firestore: expect.anything() }));
     expect(getDocs).not.toHaveBeenCalled();
   });
 
@@ -325,7 +337,7 @@ describe("event participant privacy boundaries", () => {
     expect(vi.mocked(getDoc).mock.calls.some(([ref]) => ref.path === "events/ev/participants/actor")).toBe(true);
     expect(vi.mocked(getDocs).mock.calls.every(([q]) => collectionPath(q) !== "events/ev/participants")).toBe(true);
     fireEvent.click(button);
-    await waitFor(() => expect(cancelEventRegistration).toHaveBeenCalledWith("ev"));
+    await waitFor(() => expect(cancelEventRegistration).toHaveBeenCalledWith("ev", expect.objectContaining({ auth, firestore: expect.anything() })));
     await waitFor(() => expect(screen.queryByRole("button", { name: eventStrings["detail.button.cancelRegistration"] })).toBeNull());
   });
 
@@ -344,7 +356,7 @@ describe("event participant privacy boundaries", () => {
     expect(screen.queryByText("9999")).toBeNull();
     expect(vi.mocked(getDoc).mock.calls.every(([ref]) => !ref.path.startsWith("users/"))).toBe(true);
     expect(getDocs).not.toHaveBeenCalled();
-    expect(getEventPublicParticipants).toHaveBeenCalledWith("ev");
+    expect(getEventPublicParticipants).toHaveBeenCalledWith("ev", expect.objectContaining({ auth, firestore: expect.anything() }));
   });
 
   it("keeps six v2 unverified riders pending without a podium, duration, or completion share", async () => {
@@ -366,7 +378,7 @@ describe("event participant privacy boundaries", () => {
     expect(screen.queryByLabelText(eventStrings["shareCard.completion"])).toBeNull();
     expect(screen.queryByText("0:00:01")).toBeNull();
     expect(getDocs).not.toHaveBeenCalled();
-    expect(getEventPublicParticipants).toHaveBeenCalledWith("ev");
+    expect(getEventPublicParticipants).toHaveBeenCalledWith("ev", expect.objectContaining({ auth, firestore: expect.anything() }));
   });
 
   it("keeps six v2 RIDING riders pending if a finished event has not verified their rides", async () => {
@@ -642,7 +654,7 @@ describe("event participant privacy boundaries", () => {
     mockDocData.set("events/ev2/participants/actor", { role: "RIDER", status: "REGISTERED" });
     show(<EventDetailPage />);
     fireEvent.click(await screen.findByRole("button", { name: eventStrings["detail.button.cancelRegistration"] }));
-    await waitFor(() => expect(cancelEventRegistration).toHaveBeenCalledWith("ev"));
+    await waitFor(() => expect(cancelEventRegistration).toHaveBeenCalledWith("ev", expect.objectContaining({ auth, firestore: expect.anything() })));
     await act(async () => navigateRoute("/ko/event/ev2"));
     await screen.findAllByText("Second event");
     await act(async () => finish());
@@ -665,7 +677,7 @@ describe("event participant privacy boundaries", () => {
     expect(screen.queryByText("Event")).toBeNull();
     expect(screen.getAllByText("Second event").length).toBeGreaterThan(0);
     expect(getDocs).not.toHaveBeenCalled();
-    expect(getEventPublicParticipants).toHaveBeenCalledWith("ev2");
+    expect(getEventPublicParticipants).toHaveBeenCalledWith("ev2", expect.objectContaining({ auth, firestore: expect.anything() }));
   });
 
 });

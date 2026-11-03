@@ -119,7 +119,8 @@
   .mobile-fitness-toolbar { margin-top: var(--space-1); margin-bottom: var(--space-1); }
 }
 
-.mobile-analysis-period { display: grid; gap: var(--space-2); margin-block: var(--space-4); }
+/* 기간 버튼만 둔다(제목·안내 문구 제거) — 위아래도 종목 전환·본문과 붙여 8. */
+.mobile-analysis-period { display: grid; gap: var(--space-2); margin-block: var(--space-2); }
 
 .mobile-condition-destinations { display: grid; gap: var(--space-2); margin-block: var(--space-4); }
 .mobile-condition-destinations > a { display: flex; align-items: center; min-height: var(--dim-button-height); color: var(--accent); }

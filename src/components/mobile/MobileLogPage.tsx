@@ -33,6 +33,8 @@ function formatDuration(ms: number): string {
 interface MobileLogPageProps {
   recentSummarySlot?: ReactNode;
   periodReturnSlot?: ReactNode;
+  /** false 면 종목 필터를 그리지 않는다(부모가 같은 필터를 위에 둘 때). */
+  showSportFilter?: boolean;
   activities: Activity[];
   representativeCandidates?: Activity[];
   ftp?: number;
@@ -73,7 +75,7 @@ function MobileLogSkeleton() {
   );
 }
 
-export default function MobileLogPage({ recentSummarySlot, periodReturnSlot, activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, aggregateUnavailable = false, ftp, planState = "ready", onRetryPlan, plansByDate = {}, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
+export default function MobileLogPage({ showSportFilter = true, recentSummarySlot, periodReturnSlot, activities, representativeCandidates = activities, year, month, onChangeMonth, loading = false, aggregateUnavailable = false, ftp, planState = "ready", onRetryPlan, plansByDate = {}, plannedSports = {}, plannedDates = [] }: MobileLogPageProps) {
   const { t, i18n } = useTranslation("activity");
   const DAY_NAMES = (t("mobileLog.dayNames", { returnObjects: true }) as string[]) ?? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const [importParams, setImportParams] = useSearchParams();
@@ -88,12 +90,13 @@ export default function MobileLogPage({ recentSummarySlot, periodReturnSlot, act
   const [importOpen, setImportOpen] = useState(importParams.get("import") === "1");
   useEffect(() => { if (importParams.get("import") === "1") setImportOpen(true); }, [importParams]);
   const closeImport = () => { setImportOpen(false); const next = new URLSearchParams(importParams); next.delete("import"); setImportParams(next, { replace: true }); };
+  const listPageParam = location.pathname.includes("/embed/") ? "recordPage" : "page";
   const requestedSport = importParams.get("sport");
   const sportFilter = requestedSport && isSportUiEnabled(requestedSport) && (requestedSport === "bike" || requestedSport === "run" || requestedSport === "swim") ? requestedSport : "all";
   const setSportFilter = (sport: string) => {
     const next = new URLSearchParams(importParams);
     next.set("sport", sport);
-    next.delete("page"); next.delete("pageMonth"); next.delete("dayPage");
+    next.delete(listPageParam); next.delete("pageMonth"); next.delete("dayPage");
     setImportParams(next, { replace: true });
   };
   const monthScope = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -101,12 +104,12 @@ export default function MobileLogPage({ recentSummarySlot, periodReturnSlot, act
   const setSearch = (value: string) => {
     const next = new URLSearchParams(importParams);
     if (value) next.set("q", value); else next.delete("q");
-    next.delete("page"); next.delete("pageMonth");
+    next.delete(listPageParam); next.delete("pageMonth");
     setImportParams(next, { replace: true, preventScrollReset: true });
   };
   const setPage = (page: number, day = false) => {
     const next = new URLSearchParams(importParams);
-    next.set(day ? "dayPage" : "page", String(page));
+    next.set(day ? "dayPage" : listPageParam, String(page));
     if (!day) next.set("pageMonth", monthScope);
     setImportParams(next, { replace: day, state: location.state, preventScrollReset: true });
   };
@@ -190,7 +193,7 @@ export default function MobileLogPage({ recentSummarySlot, periodReturnSlot, act
   const recentActs = [...monthActs].sort((a, b) => b.startTime - a.startTime);
   const query = searchQuery.trim().toLocaleLowerCase(i18n.language);
   const matchingActs = query ? recentActs.filter(activity => `${activity.description ?? ""} ${activity.id} ${planDayKey(activity.startTime)}`.toLocaleLowerCase(i18n.language).includes(query)) : recentActs;
-  const requestedPage = importParams.get("pageMonth") === monthScope ? Number(importParams.get("page")) : 1;
+  const requestedPage = importParams.get("pageMonth") === monthScope ? Number(importParams.get(listPageParam)) : 1;
   const pageCount = Math.max(1, Math.ceil(matchingActs.length / 20));
   const page = Math.min(Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1, pageCount);
   const visibleRecentActs = matchingActs.slice((page - 1) * 20, page * 20);
@@ -241,8 +244,8 @@ export default function MobileLogPage({ recentSummarySlot, periodReturnSlot, act
         <Button data-testid="P1-0-2" variant="secondary" onClick={() => setImportOpen(true)} aria-label={t("mobileLog.importAria")} leadingIcon={<Upload size={ICON_SIZE.md} aria-hidden="true" />}>{t("mobileLog.importBtn")}</Button>
       </div>
 
-      {/* 종목 필터 */}
-      <SportFilterTabs value={sportFilter} onChange={setSportFilter} />
+      {/* 종목 필터 — 웹 계획/기록은 같은 필터를 하위 탭 위 머리에 두므로 여기서는 숨긴다. */}
+      {showSportFilter && <SportFilterTabs value={sportFilter} onChange={setSportFilter} />}
 
       {loading && <MobileLogSkeleton />}
 

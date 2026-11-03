@@ -113,3 +113,17 @@ it("does not apply another month's page index to the selected month", () => {
   expect(rows()).toHaveLength(20);
   expect(screen.getByRole("navigation", { name: "활동 기록 페이지" })).toHaveTextContent("1–20");
 });
+
+ it("keeps the embedded records route across list paging, search and sport changes", () => {
+   renderWithProviders(<><Probe /><MobileLogPage activities={records(41)} loading={false} year={2026} month={8} onChangeMonth={vi.fn()} /></>, { route: "/ko/embed/fitness?page=records&sport=bike&view=activities" });
+   fireEvent.click(screen.getByRole("button", { name: "다음 기록" }));
+   expect(screen.getByTestId("url")).toHaveTextContent("page=records");
+   expect(screen.getByTestId("url")).toHaveTextContent("recordPage=2");
+   expect(screen.getByRole("navigation", { name: "활동 기록 페이지" })).toHaveTextContent("21–40");
+   fireEvent.change(screen.getByRole("searchbox"), { target: { value: "record-40" } });
+   expect(rows()).toHaveLength(1);
+   expect(screen.getByTestId("url")).toHaveTextContent("page=records");
+   expect(screen.getByTestId("url")).not.toHaveTextContent("recordPage");
+   fireEvent.click(screen.getByRole("button", { name: "전체" }));
+   expect(screen.getByTestId("url")).toHaveTextContent("page=records");
+ });

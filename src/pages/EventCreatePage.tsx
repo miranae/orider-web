@@ -1,3 +1,5 @@
+import { EventCapacityField } from "../features/event/form/EventCapacityField";
+import { eventCategoryCapacity } from "../features/event/form/eventFormUtils";
 import "./EventControls.css";
 import GlossaryProvider from "../components/common/GlossaryProvider";
 import GlossaryText from "../components/common/GlossaryText";
@@ -239,7 +241,7 @@ export default function EventCreatePage() {
   const valid1 = data.name.trim().length >= 2 && data.hostName.trim().length > 0 && data.hostPhone.trim().length > 0;
   const valid2 = data.courseIds.length > 0 && data.date.length > 0 && data.startTime.length > 0 && data.meetLocation.trim().length > 0;
   const validRegistrationWindow = data.openAt.length > 0 && data.closeAt.length > 0 && new Date(data.closeAt).getTime() > new Date(data.openAt).getTime();
-  const valid3 = data.categories.every((c) => c.label.trim().length > 0 && Number(c.slots) > 0) && validRegistrationWindow;
+  const valid3 = data.categories.every((c) => c.label.trim().length > 0 && Number.isSafeInteger(c.slots) && c.slots >= 0) && validRegistrationWindow;
 
   const groupContext = `${user?.uid}:${requestedGroupId}`;
   const groupContextReady = !requestedGroupId || (!loadingGroups && groupsLoadedFor === user?.uid
@@ -281,13 +283,13 @@ export default function EventCreatePage() {
         ? new Date(`${data.date}T${data.startTime}:00${KST_OFFSET}`).getTime()
         : Date.now();
 
-      const totalSlots = data.categories.reduce((s, c) => s + Number(c.slots || 0), 0);
+      const totalSlots = eventCategoryCapacity(data.categories);
 
       const payload: Record<string, unknown> = {
         name: data.name.trim(),
         type: data.type,
         startTime: startTimestamp,
-        maxParticipants: totalSlots > 0 ? totalSlots : data.maxParticipants,
+        maxParticipants: totalSlots,
         visibility: data.visibility,
         description: data.description.trim() || undefined,
         hostName: data.hostName.trim() || undefined,
@@ -520,7 +522,7 @@ export default function EventCreatePage() {
     );
   }
 
-  const totalSlots = data.categories.reduce((s, c) => s + Number(c.slots || 0), 0);
+  const totalSlots = eventCategoryCapacity(data.categories);
   const typeLabel = TYPE_OPTIONS.find((o) => o.value === data.type)?.label ?? "–";
   const visLabel = VISIBILITY_OPTIONS.find((v) => v.value === data.visibility)?.label ?? "–";
   const firstCourse = selectedCourses[0];
@@ -991,14 +993,8 @@ export default function EventCreatePage() {
                       </div>
                       <div className="event-create-category-field">
                         <label htmlFor={`category-${c.id}-capacity`}>{t("create.categoryCapacity")}</label>
-                        <Input
-                          id={`category-${c.id}-capacity`}
-                          type="number"
-                          value={c.slots}
-                          onChange={(e) => updateCategory(c.id, { slots: Number(e.target.value) || 0 })}
-                          placeholder={t("create.ph.slots")}
-                          style={{ ...fieldStyle, fontFamily: "var(--font-mono)" }}
-                        />
+                        <EventCapacityField id={`category-${c.id}-capacity`} value={c.slots}
+                          onChange={(slots) => updateCategory(c.id, { slots })} />
                       </div>
                       <div className="event-create-category-field">
                         <label htmlFor={`category-${c.id}-requirements`}>{t("create.categoryRequirements")}</label>
@@ -1047,7 +1043,7 @@ export default function EventCreatePage() {
                   </Button>
                 </div>
                 <div className="flex justify-between" style={{ marginTop: 'var(--space-2)', fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
-                  <span>{t("create.totalSlots", { count: totalSlots })}</span>
+                  <span>{totalSlots === 0 ? t("capacity.totalUnlimited") : t("create.totalSlots", { count: totalSlots })}</span>
                   <span>{t("create.categoryCount", { count: data.categories.length })}</span>
                 </div>
               </Field>
@@ -1281,7 +1277,7 @@ export default function EventCreatePage() {
               [t("create.sum.course"), firstCourse?.name || t("create.notSelected")],
               [t("create.sum.distance"), firstCourse ? `${(firstCourse.distance / 1000).toFixed(1)} km` : "–"],
               [t("create.sum.elevation"), firstCourse ? `↑ ${Math.round(firstCourse.elevationGain).toLocaleString()} m` : "–"],
-              [t("create.sum.slots"), totalSlots ? t("create.members", { count: totalSlots }) : "–"],
+              [t("create.sum.slots"), totalSlots ? t("create.members", { count: totalSlots }) : t("capacity.unlimited")],
               [t("create.sum.categories"), t("create.itemCount", { count: data.categories.length })],
               [t("create.sum.fee"), data.feeType === "FREE" ? t("feeType.free") : data.fee ? `₩ ${Number(data.fee).toLocaleString(localeTag())}` : "–"],
             ].map(([k, v], index) => (

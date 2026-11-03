@@ -1,3 +1,5 @@
+import { EventCapacityField } from "../../features/event/form/EventCapacityField";
+import { eventCategoryCapacity } from "../../features/event/form/eventFormUtils";
 import "../EventControls.css";
 import GlossaryProvider from "../../components/common/GlossaryProvider";
 import GlossaryText from "../../components/common/GlossaryText";
@@ -13,7 +15,7 @@ import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { canonicalEventCapacityCounts, participantEventCapacityCounts, unknownEventCapacityCounts, type EventCapacityCounts } from "../../features/event/eventCapacityCounts";
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, firestore, functions, getAppCheckToken } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
@@ -86,6 +88,8 @@ const VISIBILITY_DEFS: Array<{ value: Visibility; labelKey: string }> = [
 ];
 
 export default function EventEditPage() {
+  const services = useFirebaseServices();
+  const { auth, firestore, functions, getAppCheckToken } = services;
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
@@ -194,7 +198,7 @@ export default function EventEditPage() {
             filled: counts.byCategory[c.id] ?? null,
             req: c.req ?? "",
           }))
-        : [{ id: "c1", label: t("create.defaultCategory"), slots: info.settings?.maxParticipants || 50, filled: null, req: "" }];
+        : [{ id: "c1", label: t("create.defaultCategory"), slots: info.settings?.maxParticipants ?? 50, filled: null, req: "" }];
 
       const form: FormData = {
         name: info.name || "",
@@ -306,7 +310,7 @@ export default function EventEditPage() {
 
   const totalFilled = capacityCounts.total;
   const totalSlots = useMemo(
-    () => (data?.categories ?? []).reduce((s, c) => s + Number(c.slots || 0), 0),
+    () => eventCategoryCapacity(data?.categories ?? []),
     [data]
   );
 
@@ -550,7 +554,7 @@ export default function EventEditPage() {
               {data.name}
             </h1>
             <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", marginTop: 'var(--space-1)' }}>
-              {t("edit.capacitySummary", { filled: totalFilled ?? "—", total: totalSlots, date: data.date, time: data.startTime })}
+              {t(totalSlots === 0 ? "capacity.editUnlimitedSummary" : "edit.capacitySummary", { filled: totalFilled ?? "—", total: totalSlots === 0 ? t("capacity.unlimited") : totalSlots, date: data.date, time: data.startTime })}
             </div>
           </div>
           <div className="flex flex-wrap" style={{ gap: 'var(--space-2)' }}>
@@ -859,12 +863,8 @@ export default function EventEditPage() {
                           placeholder={t("create.ph.category")}
                           style={fieldStyle}
                         />
-                        <Input
-                          type="number"
-                          value={c.slots}
-                          onChange={(e) => updateCategory(c.id, { slots: Number(e.target.value) || 0 })}
-                          style={{ ...fieldStyle, fontFamily: "var(--font-mono)" }}
-                        />
+                        <EventCapacityField id={`category-${c.id}-capacity`} value={c.slots}
+                          onChange={(slots) => updateCategory(c.id, { slots })} />
                         <Input
                           type="text"
                           value={c.req}
@@ -905,7 +905,7 @@ export default function EventEditPage() {
                           />
                         </div>
                         <span style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
-                          {c.filled ?? "—"}/{c.slots} ({pct === null ? "—" : `${pct}%`})
+                          {c.filled ?? "—"}/{c.slots === 0 ? t("capacity.unlimited") : c.slots} ({pct === null ? "—" : `${pct}%`})
                         </span>
                       </div>
                     </div>

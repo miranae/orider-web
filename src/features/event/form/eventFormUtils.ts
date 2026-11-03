@@ -68,3 +68,9 @@ export function createEventSeriesId(now = Date.now(), random = Math.random()): s
   const entropy = Math.floor(random * Number.MAX_SAFE_INTEGER).toString(36);
   return `web_${now.toString(36)}_${entropy}`;
 }
+
+/** An unlimited category makes the whole event unlimited. */
+export function eventCategoryCapacity(categories: ReadonlyArray<{ slots: number }>): number {
+  return categories.some((category) => category.slots === 0)
+    ? 0 : categories.reduce((total, category) => total + category.slots, 0);
+}
