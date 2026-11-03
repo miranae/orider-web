@@ -25,6 +25,7 @@ import {
 } from "../embedded/trainingSurfaceCache";
 
 import { invalidatePlanSnapshot, planSnapshotKey, readPlanSnapshot, writePlanSnapshot, type PlanSnapshot } from "../embedded/planSnapshotCache";
+import { PLAN_GOAL_CHANGED } from "../embedded/planGoalChanges";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -270,6 +271,15 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
   const retryLoad = useCallback(() => {
     setReloadKey((key) => key + 1);
   }, []);
+
+  useEffect(() => {
+    const changed = (event: Event) => {
+      const detail = (event as CustomEvent<{ uid?: string; sport?: string }>).detail;
+      if (user && detail?.uid === user.uid && detail.sport === discipline) retryLoad();
+    };
+    window.addEventListener(PLAN_GOAL_CHANGED, changed);
+    return () => window.removeEventListener(PLAN_GOAL_CHANGED, changed);
+  }, [user, discipline, retryLoad]);
 
   const refreshPlanWeeks = useCallback(async (force = true) => {
     if (!user) return;

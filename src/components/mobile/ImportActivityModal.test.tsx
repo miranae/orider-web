@@ -1,5 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
+import { RetainedHubPages } from "../RetainedHubPages";
+import { getActiveHub } from "../../config/navHubs";
 import ImportActivityModal from "./ImportActivityModal";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 
@@ -25,6 +27,27 @@ beforeEach(() => {
   mocks.services = { auth: { currentUser: mocks.user, app: { name: "test" } } };
 });
 afterEach(() => { vi.unstubAllGlobals(); resetRuntimeConfigForTests(); });
+
+it("suspends the retained owner's portalled upload and scroll lock until returning", () => {
+  function Shell() {
+    const { pathname } = useLocation(); const navigate = useNavigate();
+    return <><button onClick={() => navigate("/")}>Leave owner</button><button onClick={() => navigate("/athlete/me/activities")}>Return owner</button>
+      <RetainedHubPages path={pathname} hub={getActiveHub(pathname)} owner="test">{pathname === "/" ? <p>Home owner</p> : <ImportActivityModal open onClose={vi.fn()} />}</RetainedHubPages></>;
+  }
+  const previousPosition = document.body.style.position;
+  render(<MemoryRouter initialEntries={["/athlete/me/activities"]}><Shell /></MemoryRouter>);
+  expect(screen.getByRole("dialog")).toBeVisible();
+  fireEvent.change(screen.getByRole("textbox", {name:"활동 이름"}), {target:{value:"Retained draft"}});
+  fireEvent.click(screen.getByText("Leave owner"));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(document.body.style.position).toBe(previousPosition);
+  screen.getByText("Leave owner").focus();
+  expect(screen.getByText("Leave owner")).toHaveFocus();
+  fireEvent.click(screen.getByText("Return owner"));
+  expect(screen.getByRole("dialog")).toBeVisible();
+  expect(screen.getByRole("textbox", {name:"활동 이름"})).toHaveValue("Retained draft");
+  expect(screen.getByRole("button", {name:"닫기"})).toHaveFocus();
+});
 
 it("portals upload above its caller, traps focus, and closes safely with Escape", () => {
   const close = vi.fn();

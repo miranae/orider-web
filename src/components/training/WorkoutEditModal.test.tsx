@@ -5,6 +5,7 @@ import type { PlanDay } from "@shared/types/goal";
 import { usesEffectiveExecutionPrescription } from "@shared/training/effectiveExecutionPrescription";
 import { GlossaryProvider } from "../common/GlossaryProvider";
 import WorkoutEditModal from "./WorkoutEditModal";
+import { RetainedPageContext } from "../../contexts/RetainedPageContext";
 
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock("../../contexts/DialogContext", () => ({ useDialog: () => ({ alert: vi.fn() }) }));
@@ -17,6 +18,18 @@ function show(day: PlanDay, weekAdjustmentReason?: string) {
 }
 beforeEach(() => { vi.mocked(updateDoc).mockClear(); vi.mocked(getDoc).mockReset(); });
 afterEach(cleanup);
+
+it("hides a retained workout editor and releases its body lock when its page is inactive", () => {
+  const previous = document.body.style.position;
+  const modal = <WorkoutEditModal day={original} weekId="week-01" dayIndex={0} goalId="goal" goalDiscipline="bike" onClose={vi.fn()} onUpdate={vi.fn()} />;
+  const view = render(<RetainedPageContext.Provider value>{modal}</RetainedPageContext.Provider>);
+  expect(screen.getByRole("dialog")).toBeVisible();
+  view.rerender(<RetainedPageContext.Provider value={false}>{modal}</RetainedPageContext.Provider>);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(document.body.style.position).toBe(previous);
+  view.rerender(<RetainedPageContext.Provider value>{modal}</RetainedPageContext.Provider>);
+  expect(screen.getByRole("dialog")).toBeVisible();
+});
 
 describe("강도 교체와 원본 임포트", () => {
   it("원본 구간은 보존하되 교체 처방에서는 원본 이름을 현재 운동으로 표시하지 않는다", () => {
