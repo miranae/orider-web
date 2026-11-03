@@ -1,3 +1,4 @@
+import { publicEventUrl } from "../../features/event/share/publicEventUrl";
 import NextEventContinuation from "../../components/group/NextEventContinuation";
 import "../EventControls.css";
 import { Bell, CalendarDays, ChartNoAxesCombined, Image, Link2, Pencil, Play, Route, Send, Settings, Trophy, Users } from "lucide-react";
@@ -280,7 +281,7 @@ export default function EventDetailPage() {
         startTime: event.startTime,
         durationMs: event.cutoffMs,
         location: event.meetLocation || event.region,
-        url: window.location.href,
+        url: publicEventUrl(window.location.href, eventId ?? ""),
       });
       downloadIcsFile(icsFileName(event.name), ics);
     } catch (err) {
@@ -729,7 +730,7 @@ export default function EventDetailPage() {
                 <Button
                   type="button" variant="secondary" size="sm"
                   onClick={async () => {
-                    const payload = buildOriderSharePayload({ title: event.name, body: event.name, url: window.location.href, language: i18n.language });
+                    const payload = buildOriderSharePayload({ title: event.name, body: event.name, url: publicEventUrl(window.location.href, eventId ?? ""), language: i18n.language });
                     const result = await shareOrCopy(payload);
                     if (result === "copied") showToast(t("detail.toast.linkCopied"));
                     else if (result === "failed") {

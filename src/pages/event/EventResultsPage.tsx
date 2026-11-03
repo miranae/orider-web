@@ -1,3 +1,4 @@
+import { publicEventUrl } from "../../features/event/share/publicEventUrl";
 import NextEventContinuation from "../../components/group/NextEventContinuation";
 import "../EventControls.css";
 import { Download, Flag, Hourglass, Image, Link2, LockKeyhole, Trophy } from "lucide-react";
@@ -159,7 +160,7 @@ export default function EventResultsPage() {
 
   const shareResults = async () => {
     if (!eventHead) return;
-    const payload = buildOriderSharePayload({ title: eventHead.name, body: eventHead.name, url: window.location.href, language: i18n.language });
+    const payload = buildOriderSharePayload({ title: eventHead.name, body: eventHead.name, url: publicEventUrl(window.location.href, eventId ?? "", true), language: i18n.language });
     const result = await shareOrCopy(payload);
     if (result === "copied") await dialog.alert(t("resultsView.linkCopied"), { variant: "success" });
     else if (result === "failed") {

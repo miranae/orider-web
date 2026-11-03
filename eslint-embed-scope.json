@@ -346,6 +346,7 @@
   "src/features/event/register/eventRegistrationUtils.ts",
   "src/features/event/resultVerification.ts",
   "src/features/event/share/eventShareCard.ts",
+  "src/features/event/share/publicEventUrl.ts",
   "src/features/event/viewerPresence.ts",
   "src/features/explore/explorationGrid.ts",
   "src/features/explore/personalHeatmap.ts",
