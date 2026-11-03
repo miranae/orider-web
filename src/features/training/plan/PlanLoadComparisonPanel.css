@@ -25,11 +25,6 @@
   width: 100%;
   max-width: 420px;
 }
-.plan-load-comparison__stepper > .ds-btn {
-  min-width: 0;
-  width: var(--dim-button-height, 44px);
-  padding-inline: 0;
-}
 .plan-load-comparison__stepper > * { min-width: 0; }
 .plan-load-comparison__stepper .ds-input {
   min-width: 0;
