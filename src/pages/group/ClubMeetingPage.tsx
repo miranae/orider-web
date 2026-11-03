@@ -391,6 +391,16 @@ function ServerMeetingDetail({
           </span>
         </div>
         <CourseSummary meeting={meeting} />
+        {live && current?.status === "joined" && (meeting.courseTrack?.points.length ?? 0) >= 2 && (meeting.courseTrack?.segmentStarts?.length ?? 0) <= 1 && (
+          <Card>
+            <h2>{text("실내에서 함께 타기", "Ride together indoors")}</h2>
+            <ol>
+              <li>{text("앱의 주행 준비 화면에서 이 모임을 선택하세요.", "Select this meeting on the app’s ride preparation screen.")}</li>
+              <li>{text("실내 자전거와 트레이너를 연결하고 약속한 시간에 시작하세요. 모임 코스가 자동으로 적용됩니다.", "Connect your indoor bike and trainer, then start at the agreed time. The meeting course is applied automatically.")}</li>
+              <li>{text("모임 지도에서 서로의 진행을 확인하며 달리세요. 실내 참가자는 ‘실내’로 표시됩니다.", "Follow each other’s progress on the meeting map. Indoor riders are labelled ‘Indoor’.")}</li>
+            </ol>
+          </Card>
+        )}
         {data.isHost && (
           <nav
             className="cp-hero-tools"
