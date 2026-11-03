@@ -75,6 +75,7 @@ const PlanSurface = lazy(loadPlanSurface);
 const ClubsSurface = lazy(() => import("./surfaces/ClubsSurface"));
 const ExploreSurface = lazy(() => import("./surfaces/ExploreSurface"));
 const SearchSurface = lazy(() => import("./surfaces/SearchSurface"));
+const EventDetailSurface = lazy(() => import("./surfaces/EventDetailSurface"));
 const ClubDetailSurface = lazy(() => import("./surfaces/ClubDetailSurface"));
 
 const CONTRACT_VERSION = 1 as const;
@@ -157,7 +158,7 @@ interface EmbeddedBootstrapRootProps {
   surfaceKind?: EmbeddedSurfaceKind;
 }
 
-export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "fitness" | "plan" | EmbeddedHubSurfaceKind;
+export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "event-detail" | "fitness" | "plan" | EmbeddedHubSurfaceKind;
 /**
  * 앱 클럽·탐색 탭과 검색 화면, 클럽 상세. 공개 목록·공개 클럽 미리보기라 로그인 인계 없이(게스트)
  * 열려도 보인다(웹 클럽 상세도 비로그인이면 PublicClubPreview 다).
@@ -174,7 +175,7 @@ export function isHubSurfaceKind(kind: EmbeddedSurfaceKind): kind is EmbeddedHub
 
 /** host.surfaceSelected·트레이닝 캐시를 쓰지 않는 단일 표면(활동·허브). */
 function isStandaloneSurfaceKind(kind: EmbeddedSurfaceKind): boolean {
-  return isActivitySurfaceKind(kind) || isHubSurfaceKind(kind);
+  return isActivitySurfaceKind(kind) || isHubSurfaceKind(kind) || kind === "event-detail";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -504,6 +505,8 @@ function AuthorizedSurface({
                 <ExploreSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "search" ? (
                 <SearchSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
+              ) : surfaceKind === "event-detail" ? (
+                <EventDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "club-detail" ? (
                 <ClubDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "activity-public" && activityId ? (

@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { doc, getDoc, collection, getDocs, type DocumentData } from "firebase/firestore";
-import { auth, firestore as db } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { getEventPublicParticipants, publicParticipantTimestampMs } from "../../services/eventPublicParticipants";
 import { logClientError } from "../../services/errorLogger";
 import { isEventHost } from "../../features/event/eventHost";
@@ -136,6 +136,8 @@ function CategoryChip({ category }: { category: string }) {
 }
 
 export default function EventResultsPage() {
+  const services = useFirebaseServices();
+  const { auth, firestore: db } = services;
   const { t, i18n } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
@@ -232,13 +234,13 @@ export default function EventResultsPage() {
         }
         const participantDocs = privateAccess
           ? (await getDocs(collection(db, `events/${eventId}/participants`))).docs
-          : (await getEventPublicParticipants(eventId)).participants.map((participant) => ({
+          : (await getEventPublicParticipants(eventId, services)).participants.map((participant) => ({
             id: participant.userId, data: () => ({ ...participant }),
           }));
         const userNameMap: Record<string, string> = {};
         if (privateAccess) await Promise.all(participantDocs.map(async (pDoc) => {
           try {
-            userNameMap[pDoc.id] = (await getPublicUserProfile(pDoc.id))?.nickname ?? "";
+            userNameMap[pDoc.id] = (await getPublicUserProfile(pDoc.id, services.firestore))?.nickname ?? "";
           } catch { userNameMap[pDoc.id] = ""; }
         }));
         if (cancelled || auth.currentUser?.uid !== owner || (privateAccess && owner !== user?.uid)) return;

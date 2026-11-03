@@ -15,7 +15,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
-import { auth, firestore, functions, getAppCheckToken, ensureAppCheckReady } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { getEventPublicParticipants, publicParticipantTimestampMs } from "../../services/eventPublicParticipants";
 import { logClientError } from "../../services/errorLogger";
 import { getPublicUserProfile } from "../../services/publicProfiles";
@@ -87,6 +87,8 @@ export function shouldShowHostGroupCard(
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function EventDetailPage() {
+  const services = useFirebaseServices();
+  const { auth, firestore, functions, getAppCheckToken, ensureAppCheckReady } = services;
   const { t, i18n } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
@@ -243,7 +245,7 @@ export default function EventDetailPage() {
         destructive: true,
         confirmLabel: t("detail.button.cancelRegistration"),
       })) || !isCurrent()) return;
-      await cancelEventRegistration(eventId);
+      await cancelEventRegistration(eventId, services);
       if (!isCurrent()) return;
       setIsParticipant(false);
       setCanCancelRegistration(false);
@@ -327,7 +329,7 @@ export default function EventDetailPage() {
           let creatorName = "";
           if (creatorId) {
             try {
-              const creator = await getPublicUserProfile(creatorId);
+              const creator = await getPublicUserProfile(creatorId, services.firestore);
               creatorName = creator?.nickname ?? "";
             } catch {
               creatorName = "";
@@ -404,7 +406,7 @@ export default function EventDetailPage() {
         if (m && m[1]) {
           try {
             const path = decodeURIComponent(m[1]);
-            fetchUrl = await getDownloadURL(ref(getStorage(), path));
+            fetchUrl = await getDownloadURL(ref(getStorage(auth.app), path));
           } catch {
             // SDK 실패 시 원본 URL로 폴백
             fetchUrl = url;
@@ -462,7 +464,7 @@ export default function EventDetailPage() {
     const owner = auth.currentUser?.uid;
     (async () => {
       try {
-        const { participants } = await getEventPublicParticipants(eventId);
+        const { participants } = await getEventPublicParticipants(eventId, services);
         const recent = participants.map((data): RecentParticipant => {
           const joinedAt = publicParticipantTimestampMs(data.joinedAt) ?? 0;
           return { uid: data.userId, nickname: data.displayName || t("detail.defaultNickname"),
@@ -471,7 +473,7 @@ export default function EventDetailPage() {
         if (cancelled || auth.currentUser?.uid !== owner) return;
         const items = await Promise.all(recent.map(async (participant) => {
           try {
-            const profile = await getPublicUserProfile(participant.uid);
+            const profile = await getPublicUserProfile(participant.uid, services.firestore);
             return { ...participant, nickname: profile?.nickname ?? participant.nickname };
           } catch { return participant; }
         }));

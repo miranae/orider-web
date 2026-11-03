@@ -91,3 +91,21 @@ describe("club detail embed destinations", () => {
     expect(embeddedClubDetailDestination("/ko/club/club-1", "/ko/club/club-1/members")).toBeNull();
   });
 });
+
+
+describe("이벤트 상세 임베드 이동", () => {
+  it.each(["ko", "en"])("%s 이벤트 하위 화면은 같은 웹뷰 안에서 연다", lang => {
+    const current = `/${lang}/embed/event/event-1`;
+    for (const section of ["", "/register", "/results", "/host", "/host/edit", "/host/participants"]) {
+      expect(embeddedInternalDestination(current, `/event/event-1${section}?a=1#top`))
+        .toBe(`${current}${section}?a=1#top`);
+    }
+    expect(embeddedInternalDestination(current, `${current}/meeting/group-1/event-1`)).toBe(`${current}/meeting/group-1/event-1`);
+    expect(embeddedInternalDestination(current, `${current}/meeting/group-1/event-2`)).toBeNull();
+    expect(embeddedInternalDestination(current, "/club/group-1/meetings/event-1")).toBe(`${current}/meeting/group-1/event-1`);
+    expect(embeddedInternalDestination(current, `${current}/results`)).toBe(`${current}/results`);
+    for (const path of ["/event/event-2", "/event/event-1/unknown", "https://other.invalid/event/event-1", "/club/club-1"]) {
+      expect(embeddedInternalDestination(current, path)).toBeNull();
+    }
+  });
+});

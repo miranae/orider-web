@@ -15,7 +15,7 @@ import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { canonicalEventCapacityCounts, participantEventCapacityCounts, unknownEventCapacityCounts, type EventCapacityCounts } from "../../features/event/eventCapacityCounts";
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, firestore, functions, getAppCheckToken } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
@@ -88,6 +88,8 @@ const VISIBILITY_DEFS: Array<{ value: Visibility; labelKey: string }> = [
 ];
 
 export default function EventEditPage() {
+  const services = useFirebaseServices();
+  const { auth, firestore, functions, getAppCheckToken } = services;
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
