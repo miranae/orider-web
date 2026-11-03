@@ -19,8 +19,11 @@ it("selects unlimited without showing a numeric zero and allows a custom positiv
   expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("combobox"));
   fireEvent.click(screen.getByRole("option", { name: "인원 지정" }));
+  fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "" } });
+  expect(screen.getByRole("spinbutton")).toHaveValue(null);
   fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "73" } });
   expect(changed).toHaveBeenLastCalledWith(73);
   fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "-1" } });
+  fireEvent.blur(screen.getByRole("spinbutton"));
   expect(screen.getByRole("spinbutton")).toHaveValue(73);
 });
