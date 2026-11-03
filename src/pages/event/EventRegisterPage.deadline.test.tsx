@@ -1,6 +1,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { getDoc } from "firebase/firestore";
 import { setDocData } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import EventRegisterPage from "./EventRegisterPage";
@@ -13,6 +14,24 @@ function renderRegistration(closeAt: unknown, status = "OPEN", authenticated = t
 }
 
 describe("event registration Firestore deadline", () => {
+  it.each([
+    { capacity: 0, slots: 1, count: 2, disabled: false },
+    { capacity: 1, slots: 0, count: 1, disabled: true },
+  ])("uses authoritative capacity before legacy slots at the registration gate: %j", async ({capacity,slots,count,disabled}) => {
+    setDocData("events/capacity", { info: { name: "Capacity fixture",status:"OPEN",type:"TOUR",feeType:"FREE",startTime:Date.now()+86400000,
+      settings:{maxParticipants:0},maxParticipants:1,categories:[{id:"road",name:"Legacy category",capacity,slots}] },
+      counters:{capacitySchemaVersion:1,totalRegistered:count,byCategory:{road:count},byRsvp:{going:0,maybe:0,declined:0,unresponded:count}} });
+    const read = vi.mocked(getDoc).getMockImplementation()!;
+    vi.mocked(getDoc).mockImplementation(async (...args) => {
+      const snapshot = await read(...args);
+      return args[0].path === "events/capacity" ? { ...snapshot, metadata: { fromCache: false, hasPendingWrites: false } } : snapshot;
+    });
+    try {
+      renderWithProviders(<Routes><Route path="/ko/event/:eventId/register" element={<EventRegisterPage />} /></Routes>,{route:"/ko/event/capacity/register",authenticated:true});
+      const option=await screen.findByRole("radio",{name:/Legacy category/});
+      if(disabled) expect(option).toBeDisabled(); else expect(option).toBeEnabled();
+    } finally { vi.mocked(getDoc).mockImplementation(read); }
+  });
   it("renders a future Timestamp deadline without rendering its raw object", async () => {
     renderRegistration({ seconds: Math.floor((Date.now() + 43_200_000) / 1000), nanoseconds: 0 });
     expect((await screen.findAllByText("Deadline fixture")).length).toBeGreaterThan(0);
