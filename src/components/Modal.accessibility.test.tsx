@@ -4,8 +4,22 @@ import tokens from '../../design-tokens/orider.tokens.json';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import Modal from './Modal';
+import { RetainedPageContext } from '../contexts/RetainedPageContext';
 
 describe('shared modal keyboard access', () => {
+  it('keeps an existing generic portal modal locked and keyboard accessible under a hidden retained owner', () => {
+    const close = vi.fn();
+    const modal = <Modal open onClose={close} title="Existing club dialog"><input aria-label="Club name" /></Modal>;
+    const view = render(<><button>Outside owner</button><RetainedPageContext.Provider value><div>{modal}</div></RetainedPageContext.Provider></>);
+    view.rerender(<><button>Outside owner</button><RetainedPageContext.Provider value={false}><div hidden>{modal}</div></RetainedPageContext.Provider></>);
+    expect(screen.getByRole('dialog', {name:'Existing club dialog'})).toBeVisible();
+    expect(document.body.style.position).toBe('fixed');
+    expect(document.body.style.overflow).toBe('hidden');
+    screen.getByRole('button', {name:'Outside owner'}).focus();
+    expect(screen.getByRole('button', {name:'닫기'})).toHaveFocus();
+    fireEvent.keyDown(document, {key:'Escape'});
+    expect(close).toHaveBeenCalledOnce();
+  });
   it('names the dialog, contains focus, closes once on Escape, and restores the opener', () => {
     const close = vi.fn();
     function Fixture() {

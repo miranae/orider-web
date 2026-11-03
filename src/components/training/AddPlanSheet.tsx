@@ -6,7 +6,7 @@ import { doc, runTransaction } from "firebase/firestore";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
-import { useTrainingDialog } from "./useTrainingDialog";
+import { useRetainedTrainingDialog } from "./useRetainedTrainingDialog";
 import { TrainingDialogPortal } from "./TrainingDialogPortal";
 import GlossaryText from "../common/GlossaryText";
 import SportIcon from "../common/SportIcon";
@@ -97,7 +97,7 @@ export default function AddPlanSheet({
   const [selectedDay, setSelectedDay] = useState<number>(initialDayIndex ?? -1);
   const [loading, setLoading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<WorkoutTemplate | null>(null);
-  const modalRef = useTrainingDialog(onClose, loading);
+  const modalRef = useRetainedTrainingDialog(onClose, loading);
   const titleId = useId();
   const closeIfIdle = () => { if (!loading) onClose(); };
   const [dragY, setDragY] = useState(0);

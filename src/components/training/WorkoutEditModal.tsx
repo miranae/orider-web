@@ -113,7 +113,7 @@ const SELECTABLE_KINDS: WorkoutKind[] = [
   'kickSwim', 'enduranceSwim', 'cssSwim', 'racepaceSwim', 'sprintSwim', 'owSwim', 'brickSwim',
 ];
 
-import { useTrainingDialog } from "./useTrainingDialog";
+import { useRetainedTrainingDialog } from "./useRetainedTrainingDialog";
 import { TrainingDialogPortal } from "./TrainingDialogPortal";
 import { KINDS_BY_DISCIPLINE } from "../../utils/workoutDiscipline";
 import { Button, Text } from "../../theme/components";
@@ -156,7 +156,7 @@ export default function WorkoutEditModal({
   const [loading, setLoading] = useState(false);
   const [showKindPicker, setShowKindPicker] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const modalRef = useTrainingDialog(onClose, loading);
+  const modalRef = useRetainedTrainingDialog(onClose, loading);
   const titleId = useId();
   const closeIfIdle = () => { if (!loading) onClose(); };
   // Firestore rules 가 거부하는 쓰기를 UI 에서 먼저 막는다 — 러닝 목표, 또는 서버가 활동 연결·
