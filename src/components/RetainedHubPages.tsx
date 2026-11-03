@@ -1,5 +1,5 @@
-import { useRef, useState, type HTMLAttributes, type ReactNode } from "react";
-import { UNSAFE_LocationContext as LocationContext, useLocation, useNavigationType, type Location } from "react-router-dom";
+import { useContext, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from "react";
+import { UNSAFE_LocationContext as LocationContext, UNSAFE_NavigationContext as NavigationContext, useLocation, useNavigationType, type Location } from "react-router-dom";
 import { isDetailRoute, PRIMARY_HUBS, type HubKey } from "../config/navHubs";
 import { isHubReturnState } from "../services/hubReturn";
 
@@ -16,6 +16,24 @@ import { isHubReturnState } from "../services/hubReturn";
  */
 const MAX_RETAINED = 8;
 
+/**
+ * 숨긴 화면의 이동을 막는 navigator. 숨긴 화면의 효과·타이머는 살려 두므로, 늦게 실행된 `navigate`·`setSearchParams`
+ * (예: 코스 검색 250ms 디바운스)가 전역 라우터를 움직여 사용자가 고른 탭을 숨긴 화면으로 되돌렸다(#1461).
+ * 화면이 다시 보이면 실제 navigator 로 돌아가므로, 그 화면의 효과가 다시 돌며 보존한 검색 상태를 URL 에 반영한다.
+ */
+function useInertNavigation() {
+  const navigation = useContext(NavigationContext);
+  return useMemo(() => ({
+    ...navigation,
+    navigator: {
+      ...navigation.navigator,
+      push: () => {},
+      replace: () => {},
+      go: () => {},
+    },
+  }), [navigation]);
+}
+
 /** 같은 레이아웃·데이터를 공유하는 경로는 한 화면으로 묶는다. */
 export function retainedScreenKey(path: string): string {
   return /^\/coach\/(?:condition|today|analysis)$/.test(path) ? "/coach/fitness" : path;
@@ -29,6 +47,8 @@ export function RetainedHubPages({ path, hub, owner, children }: {
 }) {
   const location = useLocation();
   const navigationType = useNavigationType();
+  const navigation = useContext(NavigationContext);
+  const inertNavigation = useInertNavigation();
   const pages = useRef(new Map<string, { location: Location; node: ReactNode }>());
   const pagesOwner = useRef(owner);
   if (pagesOwner.current !== owner) {
@@ -49,11 +69,14 @@ export function RetainedHubPages({ path, hub, owner, children }: {
     while (pages.current.size > MAX_RETAINED) pages.current.delete(pages.current.keys().next().value!);
   }
   return <>
-    {[...pages.current].sort(([a], [b]) => a.localeCompare(b)).map(([key, page]) => (
-      <div key={`${owner ?? ""}:${key}`} data-hub-page={key} hidden={!(retained && key === current)}>
-        <LocationContext.Provider value={{ location: page.location, navigationType }}>{page.node}</LocationContext.Provider>
-      </div>
-    ))}
+    {[...pages.current].sort(([a], [b]) => a.localeCompare(b)).map(([key, page]) => {
+      const visible = retained && key === current;
+      return <div key={`${owner ?? ""}:${key}`} data-hub-page={key} hidden={!visible}>
+        <NavigationContext.Provider value={visible ? navigation : inertNavigation}>
+          <LocationContext.Provider value={{ location: page.location, navigationType }}>{page.node}</LocationContext.Provider>
+        </NavigationContext.Provider>
+      </div>;
+    })}
     {!retained && children}
   </>;
 }
