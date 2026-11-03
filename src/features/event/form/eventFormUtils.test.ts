@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEventSeriesId, joinDtLocal, joinStartTimeKst, shiftDtLocalByWeeks, splitDtLocal, splitStartTime } from "./eventFormUtils";
+import { eventCategoryCapacity, createEventSeriesId, joinDtLocal, joinStartTimeKst, shiftDtLocalByWeeks, splitDtLocal, splitStartTime } from "./eventFormUtils";
 
 describe("eventFormUtils start time", () => {
   it("splits event startTime in KST, independent of browser local timezone", () => {
@@ -44,5 +44,15 @@ describe("createEventSeriesId", () => {
     expect(first).toBe(createEventSeriesId(1_750_000_000_000, 0.25));
     expect(first).toMatch(/^web_[a-z0-9]+_[a-z0-9]+$/);
     expect(first.length).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("eventCategoryCapacity", () => {
+  it("sums finite categories", () => {
+    expect(eventCategoryCapacity([{ slots: 10 }, { slots: 20 }])).toBe(30);
+  });
+  it("keeps an unlimited category unlimited even alongside finite categories", () => {
+    expect(eventCategoryCapacity([{ slots: 0 }])).toBe(0);
+    expect(eventCategoryCapacity([{ slots: 10 }, { slots: 0 }])).toBe(0);
   });
 });
