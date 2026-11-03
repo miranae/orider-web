@@ -2,7 +2,6 @@ import PlanRecordNavigation from "../../features/training/plan/PlanRecordNavigat
 import { useRun30Start, type Run30StartMode } from "../../features/training/run30/run30Start";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
-import GlossaryText from "../../components/common/GlossaryText";
 import CoachSignInButton from "./CoachSignInButton";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
@@ -63,7 +62,7 @@ export default function CoachTodayPage({ startMode }: { startMode?: Run30StartMo
   const { t, user, discipline, currentPoint, i18n } = model;
   const sport = discipline === "tri" ? "bike" : discipline;
   const running = useRun30Program(sport === "run");
-  const header = <header className="coach-page-header" data-testid="K2-0"><Text as="h1" data-testid="K2-0-1" variant="pageTitle">{t("today.header.title")}</Text><div data-testid="K2-0-2"><DisciplineTabs value={sport} disabledKeys={["swim"]} /></div>{currentPoint && <div className="coach-current-state"><GlossaryText>{t("coach.metric.tsb")}</GlossaryText><Link data-testid="K2-0-3" aria-label={`${t("coach.metric.tsb")} ${currentPoint.tsb.toFixed(1)}`} to={`/coach/condition?sport=${sport}`}><strong>{currentPoint.tsb.toFixed(1)}</strong></Link></div>}</header>;
+  const header = <header className="coach-page-header" data-testid="K2-0"><Text as="h1" data-testid="K2-0-1" variant="pageTitle">{t("today.header.title")}</Text><div data-testid="K2-0-2"><DisciplineTabs value={sport} disabledKeys={["swim"]} /></div></header>;
   if (!user) return <div className="site-shell">{header}<EmptyState title={t("today.guest")}  /><CoachSignInButton /></div>;
   const impacts = model.hasCanonicalTimeseries ? deriveActivityImpacts(model.fitnessData, model.disciplineActivities, { limit: 6, dateKeyBasis: model.fitnessDateKeyBasis }) : [];
   const covered = activityIdsCoveredByImpacts(model.disciplineActivities, impacts);

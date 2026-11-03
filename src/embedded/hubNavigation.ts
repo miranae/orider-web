@@ -80,11 +80,30 @@ export function embeddedClubDetailDestination(currentPath: string, destination: 
   return `/${current[1]}/embed/clubs/${current[2]}${section.replace(/\/$/, "")}${target.search}${target.hash}`;
 }
 
+/** 같은 이벤트의 상세·등록·결과·관리 화면은 앱을 벗어나지 않는다. */
+export function embeddedEventDetailDestination(currentPath: string, destination: string): string | null {
+  const current = /^\/(ko|en)\/embed\/event\/([A-Za-z0-9_-]{1,128})(?:\/.*)?$/.exec(currentPath);
+  if (!current) return null;
+  const target = new URL(destination, "https://embedded.invalid");
+  if (target.origin !== "https://embedded.invalid") return null;
+  const path = target.pathname.replace(/^\/(ko|en)(?=\/)/, "");
+  const meeting = /^\/club\/([A-Za-z0-9_-]{1,128})\/meetings\/([A-Za-z0-9_-]{1,128})$/.exec(path);
+  if (meeting && meeting[2] === current[2]) return `/${current[1]}/embed/event/${current[2]}/meeting/${meeting[1]}/${meeting[2]}${target.search}${target.hash}`;
+  const event = /^\/(?:event|embed\/event)\/([^/]+)(.*)$/.exec(path);
+  const section = event?.[2] ?? "";
+  const meetingSection = /^\/meeting\/[A-Za-z0-9_-]{1,128}\/([A-Za-z0-9_-]{1,128})$/.exec(section);
+  const knownSection = /^(?:\/(?:register|results|host(?:\/(?:edit|participants))?))?\/?$/.test(section)
+    || meetingSection?.[1] === current[2];
+  if (!event || event[1] !== current[2] || !knownSection) return null;
+  return `/${current[1]}/embed/event/${current[2]}${section.replace(/\/$/, "")}${target.search}${target.hash}`;
+}
+
 /** 코치·허브 임베드가 자기 WebView 안에서 처리하는 목적지. 없으면 null(앱으로 넘김). */
 export function embeddedInternalDestination(currentPath: string, destination: string): string | null {
   return embeddedCoachDestination(currentPath, destination)
     ?? embeddedHubDestination(currentPath, destination)
-    ?? embeddedClubDetailDestination(currentPath, destination);
+    ?? embeddedClubDetailDestination(currentPath, destination)
+    ?? embeddedEventDetailDestination(currentPath, destination);
 }
 
 /** 검색 임베드가 폼 아래에 그리는 결과 목록. 활동(웹 홈 피드)은 없다 — 앱으로 넘긴다. */

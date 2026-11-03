@@ -1,12 +1,18 @@
 import { feedSessionKey } from "../services/feedNavigationDepth";
+import { isHubReturnState } from "../services/hubReturn";
 import { useLayoutEffect, useRef, type RefObject } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
 
-/** Layout의 내부 스크롤을 경로 이동·방문 이력·명시적 앵커에 맞춘다. */
+/**
+ * Layout의 내부 스크롤을 경로 이동·방문 이력·명시적 앵커에 맞춘다.
+ * 뒤로 가기는 방문 이력(location.key)의 위치로, 다른 허브에서 탭으로 돌아온 이동(HUB_RETURN_STATE)은
+ * 그 화면 URL(경로+쿼리 — 코치 ?sport 종목별로 따로)에서 마지막으로 보던 위치로 되돌린다.
+ */
 export function useMainScrollPosition(mainRef: RefObject<HTMLElement | null>, identity?: object | null) {
   const location = useLocation();
   const navigationType = useNavigationType();
   const positions = useRef(new Map<string, { top: number; anchor?: string; offset?: number }>());
+  const screenPositions = useRef(new Map<string, { top: number; anchor?: string; offset?: number }>());
   const previousIdentity = useRef(identity);
   const previousPath = useRef<string | null>(null);
   useLayoutEffect(() => {
@@ -17,7 +23,10 @@ export function useMainScrollPosition(mainRef: RefObject<HTMLElement | null>, id
     const changedPage = previousPath.current !== location.pathname;
     previousPath.current = location.pathname;
     const positionKey = `${feedSessionKey(identity)}:${location.key}`;
-    const saved = !changedAccount && navigationType === "POP" ? positions.current.get(positionKey) : undefined;
+    const screenKey = `${feedSessionKey(identity)}:${location.pathname}${location.search}`;
+    const saved = changedAccount ? undefined
+      : navigationType === "POP" ? positions.current.get(positionKey)
+        : isHubReturnState(location.state) ? screenPositions.current.get(screenKey) : undefined;
     const desired = changedAccount ? 0 : saved?.top ?? (changedPage ? 0 : main.scrollTop);
     let targetId = "";
     try { targetId = decodeURIComponent(location.hash.slice(1)); } catch { /* 잘못된 앵커는 일반 경로처럼 처리한다. */ }
@@ -55,8 +64,12 @@ export function useMainScrollPosition(mainRef: RefObject<HTMLElement | null>, id
       if (pending && !anchorResolved) return;
       const top = main.getBoundingClientRect().top;
       const anchor = Array.from(main.querySelectorAll<HTMLElement>("[data-scroll-anchor]")).find(element => element.getBoundingClientRect().bottom > top);
-      positions.current.set(positionKey, { top: main.scrollTop, ...(anchor ? { anchor: anchor.dataset.scrollAnchor, offset: anchor.getBoundingClientRect().top - top } : {}) });
-      if (positions.current.size > 50) positions.current.delete(positions.current.keys().next().value!);
+      const position = { top: main.scrollTop, ...(anchor ? { anchor: anchor.dataset.scrollAnchor, offset: anchor.getBoundingClientRect().top - top } : {}) };
+      for (const [store, key] of [[positions.current, positionKey], [screenPositions.current, screenKey]] as const) {
+        store.delete(key);
+        store.set(key, position);
+        if (store.size > 50) store.delete(store.keys().next().value!);
+      }
     };
     const restoreDeadline = saved?.anchor ? window.setTimeout(finish, 10000) : undefined;
     // 느린 복원이 사용자의 새 스크롤·키보드 조작과 경쟁하지 않게 한다.
@@ -69,5 +82,5 @@ export function useMainScrollPosition(mainRef: RefObject<HTMLElement | null>, id
       main.removeEventListener("scroll", save);
       for (const event of ["wheel", "pointerdown", "keydown"]) main.removeEventListener(event, takeOver);
     };
-  }, [location.key, location.pathname, location.hash, navigationType, mainRef, identity]);
+  }, [location.key, location.pathname, location.search, location.hash, location.state, navigationType, mainRef, identity]);
 }

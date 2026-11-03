@@ -75,6 +75,7 @@ const PlanSurface = lazy(loadPlanSurface);
 const ClubsSurface = lazy(() => import("./surfaces/ClubsSurface"));
 const ExploreSurface = lazy(() => import("./surfaces/ExploreSurface"));
 const SearchSurface = lazy(() => import("./surfaces/SearchSurface"));
+const EventDetailSurface = lazy(() => import("./surfaces/EventDetailSurface"));
 const ClubDetailSurface = lazy(() => import("./surfaces/ClubDetailSurface"));
 
 const CONTRACT_VERSION = 1 as const;
@@ -157,7 +158,7 @@ interface EmbeddedBootstrapRootProps {
   surfaceKind?: EmbeddedSurfaceKind;
 }
 
-export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "fitness" | "plan" | EmbeddedHubSurfaceKind;
+export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "event-detail" | "fitness" | "plan" | EmbeddedHubSurfaceKind;
 /**
  * 앱 클럽·탐색 탭과 검색 화면, 클럽 상세. 공개 목록·공개 클럽 미리보기라 로그인 인계 없이(게스트)
  * 열려도 보인다(웹 클럽 상세도 비로그인이면 PublicClubPreview 다).
@@ -174,7 +175,7 @@ export function isHubSurfaceKind(kind: EmbeddedSurfaceKind): kind is EmbeddedHub
 
 /** host.surfaceSelected·트레이닝 캐시를 쓰지 않는 단일 표면(활동·허브). */
 function isStandaloneSurfaceKind(kind: EmbeddedSurfaceKind): boolean {
-  return isActivitySurfaceKind(kind) || isHubSurfaceKind(kind);
+  return isActivitySurfaceKind(kind) || isHubSurfaceKind(kind) || kind === "event-detail";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -504,6 +505,8 @@ function AuthorizedSurface({
                 <ExploreSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "search" ? (
                 <SearchSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
+              ) : surfaceKind === "event-detail" ? (
+                <EventDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "club-detail" ? (
                 <ClubDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "activity-public" && activityId ? (
@@ -553,7 +556,7 @@ function AuthorizedSurface({
     return (
       // 비활성 동안에는 모델과 화면을 유지하고 리스너만 멈춘다.
       <section
-        className="orider-embedded-shell site-shell site-shell--padded py-6 coach-surface"
+        className="orider-embedded-shell site-shell site-shell--padded pt-3 pb-6 coach-surface"
         aria-labelledby="orider-training-surface-title"
         hidden={!trainingSurfaceVisible}
       >
@@ -1124,6 +1127,9 @@ export default function EmbeddedBootstrapRoot({
   const selectedTrainingSurface = isStandaloneSurfaceKind(surfaceKind)
     ? null
     : surfaceSelection.surface;
+  // 코치는 표면(피트니스·계획) 안에서 하위 페이지(?page)와 종목(?sport, 통합 포함)을 바꾼다 — 화면마다 스크롤을 따로 기억한다.
+  const scrollParams = new URLSearchParams(location.search);
+  const surfaceScrollKey = `${surfaceSelection.mountKey}:${scrollParams.get("page") ?? ""}:${scrollParams.get("sport") ?? ""}`;
   const trainingShellReady = useCallback(() => {
     if (!selectedTrainingSurface) return;
     handleTrainingShellReady(selectedTrainingSurface, surfaceSelection.generation);
@@ -1174,7 +1180,8 @@ export default function EmbeddedBootstrapRoot({
     >
       {session && (!isActivitySurfaceKind(surfaceKind) || activityId) ? (
         <RetainedSurfaceActivity foreground={hostForeground}
-          contentVisible={isStandaloneSurfaceKind(surfaceKind) || selectedTrainingSurface !== null}>
+          contentVisible={isStandaloneSurfaceKind(surfaceKind) || selectedTrainingSurface !== null}
+          scrollKey={surfaceScrollKey}>
         <AuthorizedSurface
           key={services.auth.currentUser?.uid ?? "signed-out"}
           activityId={activityId}

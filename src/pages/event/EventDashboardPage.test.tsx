@@ -21,7 +21,7 @@ vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: translate }) }));
 vi.mock("../../hooks/useLocalizedNavigate", () => ({ useLocalizedNavigate: () => vi.fn() }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "host-1" }, loading: false }) }));
 vi.mock("../../contexts/DialogContext", () => ({ useDialog: () => ({ confirm: vi.fn(), alert: vi.fn() }) }));
-vi.mock("../../services/firebase", () => ({ auth: firebaseAuth, firestore: {}, functions: {}, getAppCheckToken: vi.fn() }));
+vi.mock("../../services/firebase", () => ({ auth: firebaseAuth, firestore: {}, functions: {}, getAppCheckToken: vi.fn(), ensureAppCheckReady: vi.fn() }));
 vi.mock("firebase/auth", () => ({ onAuthStateChanged: (_auth: unknown, callback: (user: { uid: string } | null) => void) => {
   listeners.authChanged = callback;
   return () => { listeners.authChanged = null; };

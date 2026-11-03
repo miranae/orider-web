@@ -5,7 +5,7 @@ import { Suspense, useState, useEffect, useRef } from "react";
 import GlossaryProvider from "./common/GlossaryProvider";
 import "../pages/coach/CoachSurface.css";
 import FooterNavigation from "./FooterNavigation";
-import { Outlet, useLocation } from "react-router-dom";
+import { useLocation, useOutlet } from "react-router-dom";
 import { lazyWithRetry as lazy } from "../utils/lazyWithRetry";
 import { stripLangPrefix } from "../i18n/detector";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -24,6 +24,8 @@ import { TopNav } from "./redesign";
 import MobileTabBar from "./mobile/MobileTabBar";
 import HubSubNav from "./HubSubNav";
 import { resolveDetailHub, isHubSubRoute } from "../config/navHubs";
+import { rememberHubLocation } from "../services/hubReturn";
+import { EnteringShell, RetainedHubPages } from "./RetainedHubPages";
 import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
 import { recordRouteRedirect } from "../services/routeLoopTelemetry";
 // 네비 IA는 5개 기본 허브와 설정 유틸리티 허브를 config/navHubs.ts 에서 공유한다.
@@ -106,7 +108,11 @@ export default function Layout() {
   const path = stripLangPrefix(location.pathname);
   const activeNav = resolveDetailHub(path, location.state);
   const mainRef = useRef<HTMLElement>(null);
+  const outlet = useOutlet();
   useMainScrollPosition(mainRef, user);
+  useEffect(() => {
+    rememberHubLocation(user?.uid ?? null, path, location.search, location.state);
+  }, [user?.uid, path, location.search, location.state]);
   const [friendRequestCount, setFriendRequestCount] = useState(0);
 
   // 온보딩 리다이렉트: step이 설정됐지만 "done"이 아닌 신규 유저
@@ -171,30 +177,27 @@ export default function Layout() {
         onNotificationsOpen={() => void inbox.refresh()}
       />
 
-      {/* 대시보드: 데스크톱/모바일 모두 페이지 전체 스크롤 (워크아웃·KPI 포함) */}
-      {path === "/" && (
-        <main ref={mainRef} tabIndex={-1} className="site-main flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
-          <div className="site-shell md:px-6 md:py-6" data-page-shell="home">
-            <Suspense fallback={<DashboardShell />}>
-              <DashboardPage />
-            </Suspense>
-          </div>
-        </main>
-      )}
-
-      {/* 다른 페이지: main 영역 내부 스크롤 */}
-      {path !== "/" && (
-        <main ref={mainRef} tabIndex={-1} className="site-main flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
-          <div className={`site-shell site-shell--padded py-6 animate-page-in${path.startsWith("/coach/") ? " coach-surface" : ""}`} data-page-shell="content">
-            {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} />}
-            <Suspense fallback={<div style={{ height: 200 }} />}>
-              {path === "/explore/segments" && <ExplorePage />}
-              {path === "/explore/courses" && <CoursesPage />}
-            </Suspense>
-            {(path.startsWith("/coach/") || path === "/clubs" || path.startsWith("/club/")) ? <GlossaryProvider scopeKey={`${location.pathname}${location.search}`}><Outlet /></GlossaryProvider> : <Outlet />}
-          </div>
-        </main>
-      )}
+      {/* 홈은 대시보드 셸, 다른 페이지는 콘텐츠 셸. 기본 허브 화면은 탭을 오가는 동안 살려 둔다. */}
+      <main ref={mainRef} tabIndex={-1} className="site-main flex-1 overflow-x-hidden overflow-y-auto relative z-0 pb-[calc(54px+env(safe-area-inset-bottom,0px))] lg:pb-0">
+        <RetainedHubPages path={path} hub={activeNav} owner={user?.uid ?? null}>
+          {path === "/" ? (
+            <div className="site-shell md:px-6 md:py-6" data-page-shell="home">
+              <Suspense fallback={<DashboardShell />}>
+                <DashboardPage />
+              </Suspense>
+            </div>
+          ) : (
+            <EnteringShell className={`site-shell site-shell--padded py-6${path.startsWith("/coach/") || path === "/athlete/me/activities" ? " coach-surface" : ""}`} data-page-shell="content">
+              {isHubSubRoute(path) && <HubSubNav hubKey={activeNav} />}
+              <Suspense fallback={<div style={{ height: 200 }} />}>
+                {path === "/explore/segments" && <ExplorePage />}
+                {path === "/explore/courses" && <CoursesPage />}
+              </Suspense>
+              {(path.startsWith("/coach/") || path === "/clubs" || path.startsWith("/club/")) ? <GlossaryProvider scopeKey={`${location.pathname}${location.search}`}>{outlet}</GlossaryProvider> : outlet}
+            </EnteringShell>
+          )}
+        </RetainedHubPages>
+      </main>
 
       {/* Common desktop footer; mobile legal links remain in the utility menu. */}
       <footer data-testid={path === "/" ? "H-F" : undefined}

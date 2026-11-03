@@ -9,8 +9,10 @@ export default function CoachFitnessLayout() {
   const [params] = useSearchParams();
   const location = useLocation();
   const today = location.pathname.endsWith("/today");
+  // 오늘·분석은 종목별 화면이라 통합(tri)이 없다 — 통합으로 들어오면 사이클로 바꾼다.
+  const perSport = today || location.pathname.endsWith("/analysis");
   const requestedSport = params.get("sport");
-  const sport = requestedSport === "run" || requestedSport === "bike" || requestedSport === "swim" && isSportUiEnabled(requestedSport) || requestedSport === "tri" && !today
+  const sport = requestedSport === "run" || requestedSport === "bike" || requestedSport === "swim" && isSportUiEnabled(requestedSport) || requestedSport === "tri" && !perSport
     ? requestedSport : "bike";
   const model = useFitnessModel(sport, { decisionId: params.get("decisionId") });
   if (requestedSport != null && requestedSport !== sport) {

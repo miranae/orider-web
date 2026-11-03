@@ -1,10 +1,10 @@
 import { isSportUiEnabled } from "../config/sportFeatures";
 import PlanComparisonReturn from "../features/training/plan/PlanComparisonReturn";
-import PlanRecordNavigation from "../features/training/plan/PlanRecordNavigation";
+import PlanRecordNavigation, { isPlanRecordTabState } from "../features/training/plan/PlanRecordNavigation";
 import PlanLoadComparison from "../features/training/plan/PlanLoadComparisonPanel";
 import { Button, Text } from "../theme/components";
 import { planDayKey } from "@shared/training/planDate";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams, useLocation } from "react-router-dom";
 import { doc, updateDoc } from "firebase/firestore";
@@ -92,11 +92,21 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
     const current = today >= 0 ? today : future >= 0 ? future : Math.max(0, weeks.length - 1);
     setMobileWeekOffset(target - current);
   }, [targetDate, weeks, loading, model.isTodayCell, searchParams]);
+  // 날짜 딥링크는 그날 카드를 한 번만 화면 가운데로 옮긴다. 계획/기록 하위 탭 이동은 날짜 맥락만 들고 오고,
+  // 종목 전환은 같은 날짜로 다시 그릴 뿐이라 스크롤하지 않는다 — 탭·종목을 바꿀 때마다 화면이 아래로 내려갔다.
+  const scrolledPlanDate = useRef<string | null>(null);
+  const arrivedByPlanRecordTab = isPlanRecordTabState(location.state);
   useEffect(() => {
-    if (!targetDate || !/^\d{4}-\d{2}-\d{2}$/.test(targetDate) || loading) return;
-    const frame = requestAnimationFrame(() => document.querySelector(`[data-plan-date="${targetDate}"]`)?.scrollIntoView?.({ block: "center", behavior: "smooth" }));
+    if (!targetDate || !/^\d{4}-\d{2}-\d{2}$/.test(targetDate) || loading || scrolledPlanDate.current === targetDate) return;
+    if (arrivedByPlanRecordTab) { scrolledPlanDate.current = targetDate; return; }
+    const frame = requestAnimationFrame(() => {
+      const day = document.querySelector(`[data-plan-date="${targetDate}"]`);
+      if (!day) return;
+      day.scrollIntoView?.({ block: "center", behavior: "smooth" });
+      scrolledPlanDate.current = targetDate;
+    });
     return () => cancelAnimationFrame(frame);
-  }, [targetDate, loading, mobileWeekOffset, weeks]);
+  }, [targetDate, loading, mobileWeekOffset, weeks, arrivedByPlanRecordTab]);
   const [selectedDay, setSelectedDay] = useState<{
     owner: string;
     goalId: string;

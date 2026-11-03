@@ -35,10 +35,8 @@ describe("today read-only chooser versus guarded writes", () => {
     expect(screen.getByTestId("chooser")).toHaveAttribute("data-delivery", "false");
     expect(screen.queryByTestId("decision")).not.toBeInTheDocument();
     expect(screen.getByText("today.decisionUnavailable")).toBeInTheDocument();
-    const conditionLinks = screen.getAllByRole("link", { name: /coach.metric.tsb/ });
-    expect(conditionLinks).toHaveLength(1);
-    expect(conditionLinks[0]).toHaveAttribute("href", "/coach/condition?sport=bike");
-    expect(conditionLinks[0].closest("header")).not.toBeNull();
+    // 오늘 훈련은 회복 상태(TSB) 줄을 두지 않는다 — 컨디션 탭이 같은 값을 보여 준다.
+    expect(screen.queryByRole("link", { name: /coach.metric.tsb/ })).not.toBeInTheDocument();
   });
   it("keeps chooser first on lookup failure with the retry error card after it", () => {
     mocks.state.unavailableReason = "error"; renderToday();

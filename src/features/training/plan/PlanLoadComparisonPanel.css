@@ -16,6 +16,28 @@
   margin-block: var(--space-3) var(--space-4);
   align-items: end;
 }
+/* 이전 | 기준일 | 다음 — 화살표는 고정 칸, 날짜는 남는 폭(같은 화면의 주 이동 줄과 같은 격자). */
+.plan-load-comparison__stepper {
+  display: grid;
+  grid-template-columns: var(--dim-button-height, 44px) minmax(0, 1fr) var(--dim-button-height, 44px);
+  align-items: end;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 420px;
+}
+.plan-load-comparison__stepper > .ds-btn {
+  min-width: 0;
+  width: var(--dim-button-height, 44px);
+  padding-inline: 0;
+}
+.plan-load-comparison__stepper > * { min-width: 0; }
+.plan-load-comparison__stepper .ds-input {
+  min-width: 0;
+  max-width: 100%;
+  text-align: center;
+}
+/* iOS 날짜 칸은 값 글자를 별도 상자로 그린다 — 칸 폭을 넘지 않게 가운데 정렬로 맞춘다. */
+.plan-load-comparison__stepper .ds-input::-webkit-date-and-time-value { text-align: center; }
 .plan-load-comparison__metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -12,7 +12,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { canonicalEventCapacityCounts, unknownEventCapacityCounts, type EventCapacityCounts } from "../../features/event/eventCapacityCounts";
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, firestore, functions, getAppCheckToken } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
@@ -168,6 +168,8 @@ function fmtDateTime(ts: number) {
 }
 
 export default function EventRegisterPage() {
+  const services = useFirebaseServices();
+  const { auth, firestore, functions, getAppCheckToken } = services;
   const { t } = useTranslation("event");
   const { t: tCommon } = useTranslation("common");
   const { eventId } = useParams<{ eventId: string }>();

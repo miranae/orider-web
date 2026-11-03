@@ -21,7 +21,7 @@ export default function HubSubNav({ hubKey }: { hubKey: HubKey }) {
   const coachSport = sport === "run" || sport === "tri" || sport === "swim" && isSportUiEnabled(sport) ? sport : "bike";
   const coachQuery = (to: string) => {
     if (hubKey !== "coach") return "";
-    const next = new URLSearchParams({ sport: (to === "/coach/plan" || to === "/coach/goals") && coachSport === "tri" ? "bike" : coachSport });
+    const next = new URLSearchParams({ sport: (to === "/coach/plan" || to === "/coach/goals" || to === "/coach/analysis") && coachSport === "tri" ? "bike" : coachSport });
     const date = new URLSearchParams(search).get("day") ?? new URLSearchParams(search).get("date");
     if (to === "/coach/plan" && date) next.set("date", date);
     return `?${next}`;

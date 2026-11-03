@@ -66,12 +66,12 @@ describe("EventCreatePage recurring series", () => {
     fireEvent.click(await screen.findByRole("button", { name: "유료", exact: true }));
     fireEvent.change(screen.getByPlaceholderText("75000"), { target: { value: "15000" } });
     fireEvent.change(screen.getByLabelText("카테고리명"), { target: { value: "Long category name" } });
-    fireEvent.change(screen.getByLabelText("참가정원"), { target: { value: "25" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "참가정원" }), { target: { value: "25" } });
     fireEvent.change(screen.getByLabelText("참가요건 (선택)"), { target: { value: "An optional requirement" } });
     fireEvent.click(screen.getByRole("button", { name: /^← 이전/ }));
     fireEvent.click(screen.getByRole("button", { name: /^다음/ }));
     expect(await screen.findByLabelText("카테고리명")).toHaveValue("Long category name");
-    expect(screen.getByLabelText("참가정원")).toHaveValue(25);
+    expect(screen.getByRole("spinbutton", { name: "참가정원" })).toHaveValue(25);
     expect(screen.getByLabelText("참가요건 (선택)")).toHaveValue("An optional requirement");
     expect(screen.getByRole("spinbutton", { name: "참가비 (원)" })).toHaveValue(15000);
     expect(screen.getByRole("spinbutton", { name: "여유 시간 (분)" })).toHaveValue(30);
@@ -100,6 +100,11 @@ describe("EventCreatePage recurring series", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^다음/ }));
 
+    // Unlimited must survive validation, serialization and all repeat occurrences.
+    fireEvent.click(screen.getByRole("combobox", { name: "참가정원" }));
+    fireEvent.click(screen.getByRole("option", { name: "무제한" }));
+    expect(screen.getByText("전체 정원: 무제한")).toBeInTheDocument();
+
     // Step 2 — registration window (times default to 00:00 once a date is picked)
     await openAndPickDatePreset("모집 시작 날짜", "오늘");
     await openAndPickDatePreset("모집 마감 날짜", "+1개월");
@@ -121,6 +126,7 @@ describe("EventCreatePage recurring series", () => {
 
     for (const call of createCalls) {
       const payload = call.data as { groupId?: string; createGroup?: unknown; seriesId?: string };
+      expect(call.data).toMatchObject({ maxParticipants: 0, categories: [expect.objectContaining({ capacity: 0 })] });
       expect(payload.groupId).toBe("group-1");
       expect(payload.createGroup).toBeUndefined();
       expect(payload.seriesId).toBe((createCalls[0]!.data as { seriesId: string }).seriesId);

@@ -79,3 +79,39 @@ it("스크롤하지 않았으면 다시 보일 때 위치를 건드리지 않는
   view.rerender(<RetainedSurfaceActivity foreground contentVisible><span>content</span></RetainedSurfaceActivity>);
   expect(scrollTo).not.toHaveBeenCalled();
 });
+
+it("종목(통합·사이클)마다 스크롤 위치를 따로 기억해 돌아올 때 보던 종목의 위치로 되돌린다", () => {
+  const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const surface = (visible: boolean, key: string) =>
+    <RetainedSurfaceActivity foreground contentVisible={visible} scrollKey={key}><span>content</span></RetainedSurfaceActivity>;
+  const view = render(surface(true, "fitness:condition:bike"));
+  setScrollY(900);
+  // 통합으로 바꾸면 처음 보는 화면이라 위치를 건드리지 않고, 이후 스크롤은 통합에 기록된다.
+  view.rerender(surface(true, "fitness:condition:tri"));
+  expect(scrollTo).not.toHaveBeenCalled();
+  setScrollY(300);
+  // 사이클로 돌아가면 사이클에서 보던 위치로, 다시 통합으로 가면 통합의 위치로 옮긴다.
+  view.rerender(surface(true, "fitness:condition:bike"));
+  expect(scrollTo).toHaveBeenLastCalledWith(0, 900);
+  setScrollY(900);
+  view.rerender(surface(true, "fitness:condition:tri"));
+  expect(scrollTo).toHaveBeenLastCalledWith(0, 300);
+  setScrollY(300);
+  // 통합을 보던 중 코치 탭을 떠났다 돌아오면 사이클이 아니라 통합의 위치로 되돌린다.
+  view.rerender(surface(false, "fitness:condition:tri"));
+  setScrollY(0);
+  view.rerender(surface(true, "fitness:condition:tri"));
+  expect(scrollTo).toHaveBeenLastCalledWith(0, 300);
+});
+
+it("보이는 채로 맨 위에서 보던 종목으로 돌아가면 맨 위로 되돌린다", () => {
+  const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  const surface = (key: string) =>
+    <RetainedSurfaceActivity foreground contentVisible scrollKey={key}><span>content</span></RetainedSurfaceActivity>;
+  const view = render(surface("fitness:analysis:tri"));
+  setScrollY(0);
+  view.rerender(surface("fitness:analysis:run"));
+  setScrollY(500);
+  view.rerender(surface("fitness:analysis:tri"));
+  expect(scrollTo).toHaveBeenLastCalledWith(0, 0);
+});
