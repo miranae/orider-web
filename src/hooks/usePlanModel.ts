@@ -141,6 +141,7 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
     }
 
     let cancelled = false;
+    let loadTimeout: ReturnType<typeof setTimeout> | undefined;
     const cacheKey = { uid: user.uid, surface: "plan" as const, sport: discipline, locale };
     const cacheEnabled = prepareTrainingSurfaceCacheOwner(user.uid, user.isAnonymous === true);
     const snapshotKey = planSnapshotKey(user.uid, discipline, locale);
@@ -160,6 +161,17 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
       setPlanError(null);
       if (snapshot?.fresh && !forced) return;
       if (forced) invalidatePlanSnapshot(snapshotKey);
+      // Firestore의 오프라인 재시도는 끝나지 않을 수 있다. 캐시는 보존하고 재시도 가능한 오류로 확정한다.
+      loadTimeout = setTimeout(() => {
+        if (cancelled) return;
+        cancelled = true;
+        const error = new Error("plan/load-timeout");
+        setGoalError(error);
+        setGoalLoading(false);
+        setPlanLoading(false);
+        setFreshLoaded(false);
+        logClientError("PlanPage.loadTimeout", error, { discipline });
+      }, 20_000);
       try {
         const nextGoal = await readPreferredActiveGoal(firestore, user.uid, discipline);
         if (cancelled) return;
@@ -218,12 +230,15 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
         setPlanLoading(false);
         setFreshLoaded(false);
         logClientError("PlanPage.goalLoad", error, { discipline });
+      } finally {
+        clearTimeout(loadTimeout);
       }
     };
 
     void load();
     return () => {
       cancelled = true;
+      clearTimeout(loadTimeout);
       refreshGenerationRef.current.value += 1;
     };
   }, [discipline, firestore, locale, modelKey, reloadKey, user]);
