@@ -282,7 +282,7 @@ export default function EventRegisterPage() {
         fee: typeof info.entryFee === "number" ? info.entryFee : register.fee,
         feeType: info.feeType || register.feeType,
         categories: categoriesRaw,
-        maxParticipants: info.settings?.maxParticipants || info.maxParticipants || 0,
+        maxParticipants: info.settings?.maxParticipants ?? info.maxParticipants ?? 0,
         distance: typeof info.distance === "number" ? info.distance : undefined,
         insuranceFee: typeof info.insuranceFee === "number" ? info.insuranceFee : undefined,
       });
@@ -617,7 +617,7 @@ export default function EventRegisterPage() {
           {currentStep?.key === "category" && (
             <div role="radiogroup" aria-label={t("message.selectCategory")} className="flex flex-col" style={{ gap: "var(--space-2)" }}>
               {event.categories.map((c) => {
-                const slots = c.slots ?? c.capacity ?? 0;
+                const slots = c.capacity ?? c.slots ?? 0;
                 const filled = capacityCounts.byCategory[c.id] ?? null;
                 const pct = filled !== null && slots > 0 ? Math.min(100, Math.round((filled / slots) * 100)) : null;
                 const full = filled !== null && slots > 0 && filled >= slots;
