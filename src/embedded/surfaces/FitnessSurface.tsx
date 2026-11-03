@@ -24,7 +24,7 @@ export default function FitnessSurface({ onReady, retryKey, active = true, start
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get("sport");
   const sport = requested === "run" || requested === "bike" || requested === "swim" && isSportUiEnabled(requested)
-    || requested === "tri" && searchParams.get("page") !== "today" ? requested : "bike";
+    || requested === "tri" && !["today", "analysis"].includes(searchParams.get("page") ?? "") ? requested : "bike";
   // 기록 화면의 종목은 활동 필터(전체·종목)라 코치 부하 종목으로 바꾸지 않는다.
   const recordsPage = searchParams.get("page") === "records";
   useEffect(() => {

@@ -362,6 +362,16 @@ it.each(["all", "tri", ""])("keeps the all-records filter, query and plan destin
 });
 
 
+it("keeps the embedded records destination when changing the activity sport", async () => {
+  vi.mocked(getDocs).mockReset().mockResolvedValue({ docs: [], empty: true } as never);
+  render(<MemoryRouter initialEntries={["/ko/embed/fitness?page=records&sport=all&pageMonth=2&dayPage=3"]}><HistoryProbe /><TrainingLogPage /></MemoryRouter>);
+  fireEvent.click(within(screen.getByTestId("P1-H")).getByRole("button", { name: "사이클" }));
+  await waitFor(() => expect(screen.getByTestId("record-url")).toHaveTextContent("sport=bike"));
+  expect(screen.getByTestId("record-url")).toHaveTextContent("page=records");
+  expect(screen.getByTestId("record-url")).not.toHaveTextContent("pageMonth");
+  expect(screen.getByTestId("record-url")).not.toHaveTextContent("dayPage");
+});
+
 describe("desktop day record pagination",()=>{
   const dayKey=new Date(startTime+9*3600000).toISOString().slice(0,10);
   const rows=(count:number)=>Array.from({length:count},(_,index)=>({id:`dense-${index+1}`,userId:"rider",type:"Ride",description:`기록 ${String(index+1).padStart(4,"0")}`,startTime:startTime+index*1000,summary:{distance:0,ridingTimeMillis:0,tss:0}} as Activity));

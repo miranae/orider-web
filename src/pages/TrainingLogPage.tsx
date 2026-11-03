@@ -395,7 +395,7 @@ function MiniBarChart({ values, labels, unit = "" }: MiniBarChartProps) {
 
 export default function TrainingLogPage() {
   const { firestore } = useFirebaseServices();
-  const { state: comparisonState } = useLocation();
+  const { state: comparisonState, pathname } = useLocation();
   const { t, i18n } = useTranslation("training");
   const { t: tCommon } = useTranslation("common");
   const { user, profile } = useAuth();
@@ -500,7 +500,8 @@ export default function TrainingLogPage() {
     const next = new URLSearchParams(importParams);
     next.set("sport", sport);
     // 종목이 바뀌면 이전 종목의 목록 페이지 위치는 맞지 않는다(모바일 목록 필터에 있던 규칙).
-    next.delete("page"); next.delete("pageMonth"); next.delete("dayPage");
+    if (!pathname.includes("/embed/") || next.get("page") !== "records") next.delete("page");
+    next.delete("pageMonth"); next.delete("dayPage");
     setImportParams(next, { replace: true });
   };
 
