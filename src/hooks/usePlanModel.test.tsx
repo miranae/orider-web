@@ -77,6 +77,29 @@ describe("usePlanModel", () => {
     expect(normalizePlanSport(input)).toBe(expected);
   });
 
+  it("settles a stalled query as an error and ignores its late result before retrying", async () => {
+    vi.useFakeTimers();
+    const getDocsMock = vi.mocked(getDocs);
+    let finish: ((value: unknown) => void) | undefined;
+    getDocsMock.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }) as never);
+    const hook = renderHook(() => usePlanModel("bike"), { wrapper });
+    expect(hook.result.current.loading).toBe(true);
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+    expect(hook.result.current.loading).toBe(false);
+    expect(hook.result.current.loadError).toEqual(new Error("plan/load-timeout"));
+    await act(async () => {
+      finish?.({ empty: false, docs: [{ id: "late-private-goal", data: () => ({ discipline: "bike" }) }] });
+    });
+    expect(hook.result.current.goal).toBeNull();
+    expect(hook.result.current.loadError).toBeTruthy();
+    setCollectionDocs("goals", []);
+    await act(async () => { hook.result.current.retryLoad(); });
+    expect(hook.result.current.loading).toBe(false);
+    expect(hook.result.current.loadError).toBeNull();
+    expect(hook.result.current.freshLoaded).toBe(true);
+    hook.unmount();
+  });
+
   it("assembles the active goal, plan weeks, and progress with injected Firestore", async () => {
     const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
     setCollectionDocs("goals", [{
