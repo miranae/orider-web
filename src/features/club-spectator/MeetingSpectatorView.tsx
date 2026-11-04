@@ -6,15 +6,16 @@ import { liveRiders, staleRider } from "./presentation";
 import type { MeetingSpectatorSnapshot } from "./types";
 import "./spectator.css";
 
-export default function MeetingSpectatorView({snapshot, now, receivedAt, en}: {snapshot: MeetingSpectatorSnapshot; now: number; receivedAt: number; en: boolean}) {
+export default function MeetingSpectatorView({snapshot, now, receivedAt, en, selectedUid, onSelectParticipant}: {selectedUid?: string | null; onSelectParticipant?: (uid: string | null) => void; snapshot: MeetingSpectatorSnapshot; now: number; receivedAt: number; en: boolean}) {
   const text = (ko: string, english: string) => en ? english : ko;
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
+  const [localSelected, setLocalSelected] = useState<string | null>(null);
+  const selected = selectedUid === undefined ? localSelected : selectedUid;
+  const setSelected = (uid: string | null) => { setLocalSelected(uid); onSelectParticipant?.(uid); };
   const [followed, setFollowed] = useState<string[]>([]);
   const [followingOnly, setFollowingOnly] = useState(false);
   const [mapRevision, setMapRevision] = useState(0);
   const riders = liveRiders(snapshot, now);
-  const leader = riders.find(r => r.progressM !== null);
   const reference = riders.find(r => r.uid === selected);
   const visible = riders.filter(r => (!followingOnly || followed.includes(r.uid)) && `${r.displayName} ${r.uid}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const courseLatlngs = useMemo(() => snapshot.course ? [snapshot.course.points.map(p => [p.lat, p.lon] as [number, number])] : [], [snapshot.course]);
@@ -22,7 +23,7 @@ export default function MeetingSpectatorView({snapshot, now, receivedAt, en}: {s
     speed: r.speedMps === null ? 0 : r.speedMps * 3.6, distance: r.progressM ?? 0, status: r.status,
     bib: null, category: null, rank: null, overallRank: null, lastCp: null, geohash: null}));
   const finished = snapshot.status === "FINISHED" || snapshot.status === "CANCELLED";
-  const gap = (progress: number | null, baseline: number | null | undefined) => progress === null || baseline == null ? "—" : `${baseline - progress >= 0 ? "+" : "−"}${Math.abs(baseline - progress).toFixed(0)} m`;
+  const gap = (meters: number | null) => meters === null ? "—" : `${meters >= 0 ? "+" : "−"}${Math.abs(meters).toFixed(0)} m`;
   const statusLabel = (status: string) => ({RIDING: text("주행 중", "Riding"), STOPPED: text("정지", "Stopped"), LOST_SIGNAL: text("수신 지연", "Signal delayed"), FINISHED: text("주행 완료", "Finished"), DNF: text("중도 종료", "DNF")})[status] ?? status;
   return <div className="club-live-stack">
     <header className="club-live-heading"><div><p>{text("클럽 모임 관전", "Club meeting spectator")}</p><h1>{snapshot.title}</h1></div>
@@ -42,8 +43,8 @@ export default function MeetingSpectatorView({snapshot, now, receivedAt, en}: {s
           <div className="club-live-heading"><Button variant="secondary" aria-pressed={selected === r.uid} onClick={() => setSelected(selected === r.uid ? null : r.uid)}>{r.displayName}</Button><span>{statusLabel(r.status)}</span><Button size="sm" variant="secondary" aria-label={`${r.displayName} ${text("팔로우", "follow")}`} aria-pressed={followed.includes(r.uid)} onClick={() => setFollowed(ids => ids.includes(r.uid) ? ids.filter(id => id !== r.uid) : [...ids, r.uid])}>{followed.includes(r.uid) ? text("팔로우 중", "Following") : text("팔로우", "Follow")}</Button></div>
           <dl className="club-live-metrics">
             <div><dt>{text("코스 위치", "Course position")}</dt><dd>{r.progressM === null ? "—" : `${(r.progressM / 1000).toFixed(2)} km`}</dd></div>
-            <div><dt>{text("선두 격차", "Gap to front")}</dt><dd>{gap(r.progressM, leader?.progressM)}</dd></div>
-            <div><dt>{text("선택 선수 격차", "Gap to selected")}</dt><dd>{gap(r.progressM, reference?.progressM)}</dd></div>
+            <div><dt>{text("선두 격차", "Gap to front")}</dt><dd>{gap(r.gapToLeaderM)}</dd></div>
+            <div><dt>{text("선택 선수 격차", "Gap to selected")}</dt><dd>{gap(snapshot.selectedUid === selected ? r.gapToSelectedM : null)}</dd></div>
             <div><dt>{text("속도", "Speed")}</dt><dd>{r.speedMps === null ? "—" : `${(r.speedMps * 3.6).toFixed(1)} km/h`}</dd></div>
             <div><dt>{text("파워", "Power")}</dt><dd>{r.powerWatts === null ? "—" : `${r.powerWatts} W`}</dd></div>
           </dl><p className="club-live-muted">{text("위치 수신", "Position sample")} · {Math.max(0, Math.floor((now - r.sampledAtMs) / 1000))}{text("초 전", "s ago")}</p>

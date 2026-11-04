@@ -59,9 +59,27 @@ it("주기 조회 없이 변경 신호로 새 값을 읽고 구독 권한 오류
   const {result} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
   await waitFor(() => expect(result.current.data).toBeTruthy());
   expect(onSnapshot).toHaveBeenCalledTimes(4);
-  act(() => control.signals.find(s => s.path.endsWith("spectator_signals/latest"))!.next());
-  await waitFor(() => expect(control.request).toHaveBeenCalledTimes(2));
+  vi.useFakeTimers();
+  for (let i = 0; i < 20; i++) act(() => control.signals.find(s => s.path.endsWith("spectator_signals/latest"))!.next());
+  await act(async () => { await vi.advanceTimersByTimeAsync(5001); });
+  expect(control.request).toHaveBeenCalledTimes(2);
+  await act(async () => { await vi.advanceTimersByTimeAsync(15000); });
+  expect(control.request).toHaveBeenCalledTimes(2);
+  vi.useRealTimers();
   act(() => control.signals[0].error(new Error("permission-denied")));
   expect(result.current.data).toBeNull();
   expect(control.signals.every(s => s.stop.mock.calls.length === 1)).toBe(true);
+});
+
+it("선택 변경은 서버에 전달하되 기존 목록을 숨기거나 팔로우를 초기화하지 않는다", async () => {
+  let finish!: (response: unknown) => void;
+  control.request.mockResolvedValueOnce({data: data()}).mockImplementationOnce(() => new Promise(resolve => {finish = resolve;}));
+  const {result, rerender} = renderHook(({selectedUid}) => useMeetingSpectator("club", "meeting", "member", selectedUid), {initialProps: {selectedUid: null as string | null}});
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  rerender({selectedUid: "rider-two"});
+  await waitFor(() => expect(control.request).toHaveBeenCalledTimes(2));
+  expect(result.current.data?.locations).toHaveLength(3);
+  expect(control.request).toHaveBeenLastCalledWith({eventId: "meeting", selectedUid: "rider-two"});
+  await act(async () => finish({data: {...data(), selectedUid: "rider-two"}}));
+  expect(result.current.data?.selectedUid).toBe("rider-two");
 });

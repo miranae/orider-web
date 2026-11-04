@@ -15,6 +15,10 @@ export interface SpectatorRider {
   speedMps: number | null;
   powerWatts: number | null;
   powerExpiresAtMs: number | null;
+  gapToLeaderM: number | null;
+  leaderGapExpiresAtMs: number | null;
+  gapToSelectedM: number | null;
+  selectedGapExpiresAtMs: number | null;
   status: "RIDING" | "STOPPED" | "LOST_SIGNAL" | "FINISHED" | "DNF";
 }
 export interface MeetingSpectatorSnapshot {
@@ -23,6 +27,7 @@ export interface MeetingSpectatorSnapshot {
   title: string;
   status: "OPEN" | "LIVE" | "FINISHED" | "CANCELLED";
   serverNowMs: number;
+  selectedUid: string | null;
   course: SpectatorCourse | null;
   locations: SpectatorRider[];
 }
