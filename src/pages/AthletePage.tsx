@@ -25,7 +25,7 @@ import { useDocument } from "../hooks/useFirestore";
 import { useMyGroups } from "../hooks/useGroup";
 import { cancelFriendRequest, sendFriendRequest } from "../hooks/useFriends";
 import { useAuth } from "../contexts/AuthContext";
-import { Activity as ActivityIcon, Route, Clock3, Mountain, Pencil, Share2, ArrowUpRight, Trash2 } from "lucide-react";
+import { Activity as ActivityIcon, Route, Clock3, Mountain, Search, Pencil, Share2, ArrowUpRight, Trash2 } from "lucide-react";
 import TabNav, { RouteTabNav } from "../components/TabNav";
 import "./AthletePage.css";
 import { CompactActivityCard } from "../components/mobile/MobileFeedPage";
@@ -939,9 +939,6 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             {/* Search bar */}
             {!isOwnProfile && <div className="flex items-center gap-2">
               <div className="relative flex-1">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--ink-3)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
                 <Input
                   aria-label={t("activities.search")}
                   type="text"
@@ -949,7 +946,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) handleSearch(); }}
-                  className="w-full athlete-activity-search"
+                  leadingIcon={<Search />}
+                  textAlign="end"
                 />
               </div>
               <Button

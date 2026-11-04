@@ -510,3 +510,5 @@ semantic accent 16% 음영과 2px 양끝선을 그리며 취소·선택 완료 �
 `DistributionStrip` displays caller-supplied category weights as a single strip. Segment and legend triggers share hover/focus/tap explanations, with Escape/outside-tap dismissal. The title and right-aligned legend share one header row. `unlabelled` weights reserve passive strip space without a label or tooltip. Zero categories remain in the legend, missing categories should be omitted by the caller. The activity reading catalogue demonstrates Seiler and FTP distributions with synthetic data.
 
 Interactive `Card` consumers can pass `aria-pressed` for single-choice lists. The shared selected state uses an accent border and soft surface; keep the selected value and callbacks in the feature. The Coach condition catalogue demonstrates this with activity contribution selection.
+
+`Input`의 `leadingIcon`은 장식용 왼쪽 아이콘과 입력 여백을 함께 제공합니다. `textAlign="end"`로 안내 문구와 입력 글자를 오른쪽에 정렬할 수 있으며, `endAction`과 함께 사용할 수 있습니다.

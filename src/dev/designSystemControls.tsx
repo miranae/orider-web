@@ -287,6 +287,7 @@ function ControlsCatalog() {
           <div className="catalog-example-row"><div className="catalog-example-note"><Text as="h3" variant="subtitle">입력 내 실행</Text><Text as="p" variant="bodySmall">입력 오른쪽의 버튼이나 Enter로 같은 검색을 실행합니다.</Text><code>Input · endAction</code></div>
             <form onSubmit={event => { event.preventDefault(); setMessage('입력 검색 예시를 실행했습니다. 실제 데이터는 조회하지 않습니다.'); }}><Input aria-label="예시 검색어" name="query" placeholder="검색어" enterKeyHint="search" endAction={<IconButton type="submit" aria-label="예시 검색 실행" icon={<Search />} />} /></form>
           </div>
+          <div className="catalog-example-row"><div className="catalog-example-note"><Text as="h3" variant="subtitle">오른쪽 정렬 검색</Text><Text as="p" variant="bodySmall">돋보기 공간을 확보하고 안내 문구와 검색어를 오른쪽에 정렬합니다.</Text><code>Input · leadingIcon · textAlign</code></div><Input aria-label="오른쪽 정렬 검색 예시" placeholder="활동 검색… (Enter)" leadingIcon={<Search />} textAlign="end" /></div>
           <div className="catalog-example-row"><div className="catalog-example-note"><Text as="h3" variant="subtitle">필터 선택</Text><Text as="p" variant="bodySmall">중립 표면과 작은 좌우 여백을 사용하고, 기기의 기본 선택 목록을 엽니다. 모바일 터치 높이와 입력 글자 크기는 유지합니다.</Text><code>Select · filter</code></div>
             <Field htmlFor="catalog-filter-sport" label="종목"><Select id="catalog-filter-sport" variant="filter" value={filterSport} onChange={event => setFilterSport(event.target.value)}><option value="all">전체</option><option value="bike">사이클</option><option value="run">러닝</option><option value="swim">수영</option></Select></Field>
           </div>
