@@ -31,8 +31,8 @@ export default function GroupWeekPage() {
   const { members } = useGroupMembers(role ? groupId : undefined, undefined, accessKey);
   const { weeklyStats, memberWeekStats, loading, error, retry } = useGroupRideStats(role ? groupId : undefined, accessKey);
   const [metric, setMetric] = useState<Metric>("distance");
-  if (groupLoading || roleLoading || loading) return <LoadingSkeleton kind="list" count={5} />;
-  if (groupError || roleError || error) return <ErrorState title={t("error.loadFailed")} onRetry={groupError ? groupRetry : roleError ? roleRetry : retry} />;
+  if (groupLoading || roleLoading) return <LoadingSkeleton kind="list" count={5} />;
+  if (groupError || roleError) return <ErrorState title={t("error.loadFailed")} onRetry={groupError ? groupRetry : roleRetry} />;
   if (!group) return <EmptyState title={t("empty.groupNotFound")} />;
   if (!role) return <Navigate to=".." relative="path" replace />;
   const { monday, sunday } = groupWeekRange();
@@ -42,6 +42,7 @@ export default function GroupWeekPage() {
   const max = rows[0]?.[1][metric] ?? 0;
   return <div className="space-y-4">
     <GroupSubNav group={group} isCreator={canManageGroup(group, user?.uid, role)} />
+    {loading ? <LoadingSkeleton kind="list" count={5} /> : error ? <ErrorState title={t("error.loadFailed")} onRetry={retry} /> : <>
     <header data-testid="C5-0"><h2 data-testid="C5-0-1">{t("subNav.week")} · {monday.toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" })} – {sunday.toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" })}</h2>
     <p data-testid="C5-0-3">{t("week.source")}</p></header>
     <section data-testid="C5-1">{weeklyStats ? <div data-testid="C5-1-1" className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -50,5 +51,6 @@ export default function GroupWeekPage() {
     <section data-testid="C5-2"><div className="flex flex-wrap gap-2">{(["distance", "time", "elevation"] as const).map(key => <Button data-testid="C5-2-1" key={key} size="sm" variant={key === metric ? "primary" : "secondary"} aria-pressed={key === metric} onClick={() => setMetric(key)}>{t(`week.metricLabels.${key}`)}</Button>)}</div>
     {!weeklyStats || weeklyStats.activeMembers === 0 ? <div data-testid="C5-2-3"><EmptyState title={t("week.empty")} /></div> : rows.map(([uid, stats]) => <Card key={uid} className="space-y-2"><Link data-testid="C5-2-2" to={`/athlete/${uid}`}>{members.find(member => member.id === uid)?.profile?.nickname ?? t("week.memberFallback")}{uid === user?.uid ? ` ${t("dashboard.meIndicator")}` : ""}</Link><p className="font-mono text-[length:var(--ft-body-medium-size)]">{fmt(stats[metric], metric)}</p><progress value={stats[metric]} max={max || 1} aria-label={`${members.find(member => member.id === uid)?.profile?.nickname ?? t("week.memberFallback")} · ${t(`week.metricLabels.${metric}`)}`} className="club-week-progress" /></Card>)}
     </section>
+    </>}
   </div>;
 }

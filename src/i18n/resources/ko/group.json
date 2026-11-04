@@ -303,7 +303,7 @@
   "settings.regenerateCodeSuccess": "새 초대 링크를 만들었습니다.",
   "settings.regenerateCodeFailed": "초대 코드를 재생성하지 못했습니다.",
   "settings.toggles.postEvents": "이벤트 캘린더 구독",
-  "settings.toggles.postEventsDesc": "클럽 이벤트를 개인 캘린더에 자동 동기화",
+  "settings.toggles.postEventsDesc": "클럽의 캘린더 구독 제공 여부를 설정합니다. 개인 캘린더에는 구독 링크를 직접 추가해주세요.",
   "settings.toggles.membersPost": "멤버 글쓰기",
   "settings.toggles.membersPostDesc": "리더 외 멤버도 클럽 피드에 글 작성 가능",
   "settings.toggles.showInDirectory": "검색 노출",
@@ -610,5 +610,6 @@
   "events.listLabel": "모임 및 대회",
   "events.kind.meeting": "모임",
   "events.kind.race": "대회",
-  "events.empty.CANCELLED": "취소된 이벤트가 없어요"
+  "events.empty.CANCELLED": "취소된 이벤트가 없어요",
+  "dashboard.viewMeeting": "모임 보기"
 }
