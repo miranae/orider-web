@@ -5,6 +5,7 @@ import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 import ExploreAthletesPage from "./ExploreAthletesPage";
 import { searchUsers, type SearchUserItem } from "../services/userSearch";
 import { sendFriendRequest } from "../hooks/useFriends";
+import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 
 const flags = vi.hoisted(() => ({ subscriptions: true }));
 const friendsState = vi.hoisted(() => ({
@@ -58,7 +59,7 @@ it("stays idle until submit, then searches and syncs the query to the URL", asyn
   expect(search).not.toHaveBeenCalled();
   expect(screen.queryByTestId("E5-2")).not.toBeInTheDocument();
   await userEvent.keyboard("{Enter}");
-  await waitFor(() => expect(search).toHaveBeenCalledWith("moon@example.com"));
+  await waitFor(() => expect(search).toHaveBeenCalledWith("moon@example.com", null, expect.anything()));
   expect(screen.getByTestId("location")).toHaveTextContent("?q=moon%40example.com");
   expect(await screen.findByTestId("E5.empty")).toHaveTextContent("찾는 사람이 없어요");
 });
@@ -70,7 +71,7 @@ it("runs the URL query on load and derives each row's friend action", async () =
   search.mockResolvedValue({ items: [person("f"), person("s"), person("r"), person("n"), person("d", { friendRequestsAllowed: false })], nextCursor: null });
   renderPage("/ko/explore/athletes?q=rider");
   await screen.findByRole("link", { name: "rider-f" });
-  expect(search).toHaveBeenCalledWith("rider");
+  expect(search).toHaveBeenCalledWith("rider", null, expect.anything());
   expect(screen.getByTestId("E5-1-1")).toHaveValue("rider");
   expect(within(row("rider-f")).getByRole("button", { name: "친구" })).toBeDisabled();
   expect(within(row("rider-s")).getByText("요청됨")).toBeInTheDocument();
@@ -186,7 +187,7 @@ it("appends the next page with the server cursor", async () => {
   renderPage("/ko/explore/athletes?q=rider");
   await userEvent.click(await screen.findByTestId("E5-2-4"));
   expect(await screen.findByRole("link", { name: "rider-b" })).toBeInTheDocument();
-  expect(search).toHaveBeenLastCalledWith("rider", "c1");
+  expect(search).toHaveBeenLastCalledWith("rider", "c1", expect.anything());
   expect(screen.getByRole("link", { name: "rider-a" })).toBeInTheDocument();
   expect(screen.queryByTestId("E5-2-4")).not.toBeInTheDocument();
 });
@@ -210,4 +211,14 @@ it("toasts a rate-limit failure while loading more and keeps existing rows", asy
   expect(await screen.findByText("검색을 너무 자주 했어요. 잠시 후 다시 시도해 주세요.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "rider-a" })).toBeInTheDocument();
   expect(screen.getByTestId("E5-2-4")).toBeEnabled();
+});
+
+it("searches through the injected embedded Firebase session for every page (#1485)", async () => {
+  const services = { auth: { currentUser: { uid: "embedded" } }, functions: {}, firestore: {}, ensureAppCheckReady: vi.fn() } as unknown as FirebaseServices;
+  search.mockResolvedValueOnce({ items: [person("a")], nextCursor: "c1" }).mockResolvedValueOnce({ items: [person("b")], nextCursor: null });
+  renderWithProviders(<FirebaseServicesProvider services={services}><ExploreAthletesPage /></FirebaseServicesProvider>, { route: "/ko/explore/athletes?q=rider", authenticated: true });
+  await waitFor(() => expect(search).toHaveBeenCalledWith("rider", null, services));
+  await userEvent.click(await screen.findByTestId("E5-2-4"));
+  expect(await screen.findByRole("link", { name: "rider-b" })).toBeInTheDocument();
+  expect(search).toHaveBeenLastCalledWith("rider", "c1", services);
 });

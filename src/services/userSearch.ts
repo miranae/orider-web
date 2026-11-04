@@ -1,6 +1,6 @@
 import { httpsCallable } from "firebase/functions";
-import { functions } from "./firebase";
 import { logClientError } from "./errorLogger";
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 
 /** 공개 프로필일 때만 서버가 채우는 상세 정보 */
 export interface SearchUserDetails {
@@ -47,10 +47,20 @@ export function userSearchErrorKind(error: unknown): UserSearchErrorKind {
   return "failed";
 }
 
-export async function searchUsers(query: string, cursor: string | null = null): Promise<SearchUsersResult> {
+type SearchServices = Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady">;
+
+/**
+ * 화면의 `useFirebaseServices()` 를 받아 호출한다 — 임베드(앱 탐색 탭)는 기본 Firebase 를 초기화하지
+ * 않으므로 싱글턴 functions 로 부르면 실패한다(#1485). 서버가 App Check 를 강제하므로 먼저 준비한다.
+ */
+export async function searchUsers(query: string, cursor: string | null, services: SearchServices): Promise<SearchUsersResult> {
   try {
-    const call = httpsCallable<{ query: string; cursor: string | null }, Partial<SearchUsersResult> | null>(functions, "searchUsers");
+    const viewer = services.auth.currentUser;
+    await services.ensureAppCheckReady();
+    if (services.auth.currentUser !== viewer) throw new Error("account_changed");
+    const call = httpsCallable<{ query: string; cursor: string | null }, Partial<SearchUsersResult> | null>(services.functions, "searchUsers");
     const { data } = await call({ query, cursor });
+    if (services.auth.currentUser !== viewer) throw new Error("account_changed");
     return {
       items: Array.isArray(data?.items) ? data.items : [],
       nextCursor: typeof data?.nextCursor === "string" && data.nextCursor ? data.nextCursor : null,
