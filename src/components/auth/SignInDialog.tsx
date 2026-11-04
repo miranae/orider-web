@@ -1,3 +1,4 @@
+import { DiscordLogo } from "./DiscordLogo";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Modal from "../Modal";
@@ -103,8 +104,8 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
           onClick={() => { void handleSocial("strava"); }}>
           <img src="/btn_strava_connect_orange.svg" alt="" className="h-12 w-auto" />
         </button>
-        <Button data-testid="A1-1-5" variant="outline" size="lg" block
-          loading={pending === "discord"} disabled={pending !== null}
+        <Button data-testid="A1-1-5" variant="discord" size="lg" block
+          leadingIcon={<DiscordLogo />} loading={pending === "discord"} disabled={pending !== null}
           onClick={() => { void handleSocial("discord"); }}>
           {t("signIn.discord")}
         </Button>
