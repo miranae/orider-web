@@ -8,6 +8,7 @@
   "stale": "The public-statistics check is old or records changed. Check current records again or use the date-range explorer below."
 },
   "publicPeriod": {
+  "about": "About these statistics",
   "filterPartial": "Filters apply only to collected records. Earlier records still need checking; an empty result does not mean no matching activities exist.",
   "globalComplete": "Reached the last page of the public-statistics query ({{count}} records collected). Changes during the query may not be reflected.",
   "globalMore": "Continue checking all public statistics",

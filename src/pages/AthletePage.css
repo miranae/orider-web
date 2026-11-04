@@ -128,3 +128,16 @@
      위 프로필 카드와 같은 모서리·간격의 카드로 둔다. */
   .athlete-profile .mobile-feed-card { border-bottom: 0; border-radius: var(--r-md); margin-bottom: var(--space-3); }
 }
+
+.athlete-period-form { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3); margin: var(--space-4) 0; }
+.athlete-period-form label { display: grid; gap: var(--space-2); min-width: 0; flex: 1 1 auto; font-size: var(--fs-sm); color: var(--ink-2); }
+.athlete-period-form input { width: 100%; min-width: 0; }
+.athlete-query-status { display: grid; justify-items: start; gap: var(--space-3); padding: var(--space-4); margin: var(--space-3) 0; background: var(--bg-2); border-radius: var(--r-md); font-size: var(--fs-sm); color: var(--ink-2); }
+.athlete-query-status p { margin: 0; }
+.athlete-query-help { font-size: var(--fs-xs); color: var(--ink-3); margin: var(--space-3) 0; }
+.athlete-query-help summary, .athlete-period-records summary { cursor: pointer; }
+.athlete-query-help p { margin-top: var(--space-2); }
+.athlete-period-records { margin-top: var(--space-4); font-size: var(--fs-sm); }
+.athlete-period-records ul { list-style: none; padding: 0; margin: var(--space-3) 0 0; max-height: calc(var(--space-8) * 10); overflow-y: auto; }
+.athlete-period-records a { display: block; padding: var(--space-3) var(--space-2); border-bottom: 1px solid var(--line-soft); overflow-wrap: anywhere; }
+.athlete-period-records summary:focus-visible, .athlete-query-help summary:focus-visible { outline: var(--space-0-5) solid var(--accent); outline-offset: var(--space-1); }

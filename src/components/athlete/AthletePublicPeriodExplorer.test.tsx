@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { createMockActivity } from "../../__tests__/fixtures/mockData";
 import AthletePublicPeriodExplorer from "./AthletePublicPeriodExplorer";
@@ -13,11 +13,14 @@ it("keeps empty intermediate pages explicitly incomplete and allows one more pag
  expect(screen.queryByText("completed-period-chart")).not.toBeInTheDocument();
  fireEvent.click(screen.getByRole("button",{name:"다음 페이지 확인"})); expect(state.more).toHaveBeenCalledOnce();
 });
-it("shows a completed period and original link without claiming all-time totals",()=>{
+it("shows a completed period and original link without claiming all-time totals",async ()=>{
  state.status="complete";state.items=[createMockActivity({id:"public-record",description:"확인한 원본 활동"})];
  renderWithProviders(<AthletePublicPeriodExplorer targetUid="owner"/>, {route:"/ko/athlete/owner?profileFrom=2026-01-01&profileTo=2026-01-31"});
  expect(screen.getByRole("status")).toHaveTextContent("현재 조회의 마지막 페이지");
  expect(screen.getByText("completed-period-chart")).toBeInTheDocument();
+ expect(screen.queryByRole("link",{name:/원본 활동 보기/})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByText("현재 수집한 공개 활동 · 1"));
+ await waitFor(() => expect(screen.getByRole("link",{name:"원본 활동 보기 · 확인한 원본 활동"})).toBeInTheDocument());
  expect(screen.getByRole("link",{name:"원본 활동 보기 · 확인한 원본 활동"})).toHaveAttribute("href","/ko/activity/public-record");
  expect(screen.getByLabelText("시작일")).toHaveValue("2026-01-01");
 });
@@ -28,4 +31,16 @@ it("synchronizes edited date fields after URL navigation and keeps original acti
  fireEvent.change(screen.getByLabelText("시작일"),{target:{value:"2026-01-02"}});
  fireEvent.click(screen.getByRole("button",{name:"Another period"}));
  expect(screen.getByLabelText("시작일")).toHaveValue("2025-02-01"); expect(screen.getByLabelText("종료일")).toHaveValue("2025-02-28");
+});
+
+it("keeps forty collected links collapsed until requested and allows closing them", async () => {
+ state.items = Array.from({ length: 40 }, (_, index) => createMockActivity({ id: `record-${index}`, description: `활동 ${index}` }));
+ renderWithProviders(<AthletePublicPeriodExplorer targetUid="owner"/>);
+ expect(screen.queryAllByRole("link")).toHaveLength(0);
+ const toggle = screen.getByText("현재 수집한 공개 활동 · 40");
+ fireEvent.click(toggle);
+ await waitFor(() => expect(screen.getAllByRole("link")).toHaveLength(40));
+ fireEvent.click(toggle);
+ await waitFor(() => expect(screen.queryAllByRole("link")).toHaveLength(0));
+ expect(screen.queryByText("completed-period-chart")).not.toBeInTheDocument();
 });

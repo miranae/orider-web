@@ -17,6 +17,8 @@ export default function AthletePublicPeriodExplorer({ targetUid }: { targetUid: 
   const [draftFrom, setFrom] = useState(from), [draftTo, setTo] = useState(to), [selected, setSelected] = useState<AthletePeriod | null>(null);
   const query = useAthletePublicPeriod(targetUid, from, to);
   const accepted = acceptedStatsActivities(query.items);
+  const [recordsOpen, setRecordsOpen] = useState(false);
+  useEffect(() => { setRecordsOpen(false); }, [from, to, targetUid, query.generation]);
   useEffect(() => { setFrom(from); setTo(to); setSelected(null); }, [from, to, targetUid]);
   useEffect(() => { setSelected(null); }, [query.generation]);
   const choose = (start: string, end: string) => {
@@ -26,21 +28,21 @@ export default function AthletePublicPeriodExplorer({ targetUid }: { targetUid: 
   };
   return <section aria-label={t("publicPeriod.title")} className="athlete-profile-section">
     <h2>{t("publicPeriod.title")}</h2>
-    <Text as="p">{t("publicPeriod.basis")}</Text>
-    <form onSubmit={event => { event.preventDefault(); if (publicPeriodBounds(draftFrom, draftTo)) choose(draftFrom, draftTo); }}>
+    <details className="athlete-query-help"><summary>{t("publicPeriod.about")}</summary><Text as="p">{t("publicPeriod.basis")}</Text></details>
+    <form className="athlete-period-form" onSubmit={event => { event.preventDefault(); if (publicPeriodBounds(draftFrom, draftTo)) choose(draftFrom, draftTo); }}>
       <label>{t("publicPeriod.from")}<Input type="date" value={draftFrom} onChange={event => setFrom(event.target.value)} /></label>
       <label>{t("publicPeriod.to")}<Input type="date" value={draftTo} onChange={event => setTo(event.target.value)} /></label>
       <Button type="submit" disabled={!publicPeriodBounds(draftFrom, draftTo)}>{t("publicPeriod.apply")}</Button>
       <Button type="button" variant="ghost" onClick={() => choose(defaultFrom, defaultTo)}>{t("profile.last28Days")}</Button>
     </form>
-    <Text as="p" role="status">{!query.valid ? t("publicPeriod.invalid") : t(`publicPeriod.${query.status}`, { count: query.items.length })}</Text>
-    {query.status !== "loading" && query.valid && <Button onClick={query.status === "partial" || query.status === "error" ? query.more : query.refresh}>{t(query.status === "partial" ? "publicPeriod.more" : query.status === "error" ? "monthly.retry" : "publicPeriod.refresh")}</Button>}
+    <div className="athlete-query-status"><Text as="p" role="status">{!query.valid ? t("publicPeriod.invalid") : t(`publicPeriod.${query.status}`, { count: query.items.length })}</Text>
+    {query.status !== "loading" && query.valid && <Button onClick={query.status === "partial" || query.status === "error" ? query.more : query.refresh}>{t(query.status === "partial" ? "publicPeriod.more" : query.status === "error" ? "monthly.retry" : "publicPeriod.refresh")}</Button>}</div>
     {query.status === "complete" && <>
       {from === defaultFrom && to === defaultTo && <AthleteRecentSummary activities={accepted} loading={false} error={false} />}
       <AthleteActivityChart key={`${from}|${to}`} rangeLimit={publicPeriodBounds(from, to)!} activities={accepted} loadActivities={[]} selected={selected} onSelect={setSelected} />
     </>}
-    {!!query.items.length && <ul aria-label={t("publicPeriod.records")}>
+    {!!query.items.length && <details className="athlete-period-records" open={recordsOpen} onToggle={event => setRecordsOpen(event.currentTarget.open)}><summary>{t("publicPeriod.records")} · {query.items.length}</summary>{recordsOpen && <ul aria-label={t("publicPeriod.records")}>
       {query.items.filter(item => !selected || item.startTime >= selected.start && item.startTime < selected.end).map(item => <li key={item.id}><LocalizedLink to={`/activity/${encodeURIComponent(item.id)}`} state={{ returnTo: location.pathname + location.search }}>{t("publicPeriod.activity")} · {item.description || item.type}</LocalizedLink></li>)}
-    </ul>}
+    </ul>}</details>}
   </section>;
 }
