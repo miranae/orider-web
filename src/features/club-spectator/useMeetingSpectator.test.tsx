@@ -135,3 +135,17 @@ it("복귀 때 친구 설정만 복원하고 새 회원 확인 실패 시 위치
   await waitFor(() => expect(next.result.current.live.error).toBeTruthy());
   expect(next.result.current.live.data).toBeNull();
 });
+
+it("API만 성공하고 변경 구독이 계속 실패해도 자동 복구가 무한 조회가 되지 않는다", async () => {
+  control.request.mockResolvedValue({data: data()});
+  const {result} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  vi.useFakeTimers();
+  for (const delay of [1000, 2000, 4000]) {
+    act(() => control.signals.at(-1)!.error({code: "unavailable"}));
+    await act(async () => { await vi.advanceTimersByTimeAsync(delay); });
+  }
+  act(() => control.signals.at(-1)!.error({code: "unavailable"}));
+  await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+  expect(control.request).toHaveBeenCalledTimes(4);
+});

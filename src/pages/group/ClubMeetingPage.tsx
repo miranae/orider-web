@@ -391,7 +391,7 @@ function ServerMeetingDetail({
           </span>
         </div>
         <CourseSummary meeting={meeting} />
-        {meeting.courseTrack && <Link className={buttonClass({variant: "secondary", size: "sm"})} to={`/club/${data.groupId}/meetings/${data.eventId}/live`}>{text(completed ? "모임 관전·결과" : "모임 관전", completed ? "Spectator & results" : "Watch meeting")}</Link>}
+        {meeting.status !== "cancelled" && <Link className={buttonClass({variant: "secondary", size: "sm"})} to={`/club/${data.groupId}/meetings/${data.eventId}/live`}>{text(completed ? "모임 관전·결과" : meeting.courseTrack ? "가상주행 관전" : "가상주행 관전 대기실", completed ? "Spectator & results" : meeting.courseTrack ? "Watch virtual ride" : "Virtual ride spectator lobby")}</Link>}
         {data.isHost && (
           <nav
             className="cp-hero-tools"

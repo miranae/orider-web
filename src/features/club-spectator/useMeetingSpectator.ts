@@ -22,11 +22,12 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     let lastReadAt = 0, recoveryAttempts = 0;
     let recovery: ReturnType<typeof setTimeout> | undefined;
     let stops: (() => void)[] = [];
+    const readySubscriptions = new Set<string>();
     let scheduled: ReturnType<typeof setTimeout> | undefined;
     const viewer = services.auth.currentUser;
     const current = () => !disposed && services.auth.currentUser === viewer && viewer?.uid === uid;
     const clear = (error: unknown = null) => setState({scope, data: null, receivedAt: 0, loading: false, error});
-    const stop = () => { stops.forEach(unsubscribe => unsubscribe()); stops = []; clearTimeout(scheduled); scheduled = undefined; clearTimeout(recovery); recovery = undefined; };
+    const stop = () => { stops.forEach(unsubscribe => unsubscribe()); stops = []; readySubscriptions.clear(); clearTimeout(scheduled); scheduled = undefined; clearTimeout(recovery); recovery = undefined; };
     setState(old => old.scope === scope && old.data ? {...old, error: null} : {scope, data: null, receivedAt: 0, loading: !!uid, error: null});
     if (!uid || !groupId || !eventId || !viewer || viewer.uid !== uid) return;
     const fail = (error: unknown) => {
@@ -58,7 +59,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         if (selectedRef.current !== requestedUid) { queued = true; return; }
         const data = result.data;
         if (data.eventId !== eventId || data.groupId !== groupId || data.selectedUid !== requestedUid || !Number.isFinite(data.serverNowMs) || !Array.isArray(data.locations)) throw new Error("invalid_spectator_response");
-        recoveryAttempts = 0;
+        if (readySubscriptions.size === 4) recoveryAttempts = 0;
         setState(old => ({scope, data: retainNewerSamples(old.scope === scope ? old.data : null, data), receivedAt: Date.now(), loading: false, error: null}));
       } catch (error) {
         if (current() && ticket === generation) fail(error);
@@ -94,7 +95,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         ];
         for (const {path, sensitive} of paths) {
           if (blocked || ticket !== generation) break;
-          const unsubscribe = onSnapshot(doc(services.firestore, path), () => signal(sensitive), fail);
+          const unsubscribe = onSnapshot(doc(services.firestore, path), () => { readySubscriptions.add(path); signal(sensitive); }, fail);
           if (blocked || ticket !== generation) unsubscribe(); else stops.push(unsubscribe);
         }
         void load();
