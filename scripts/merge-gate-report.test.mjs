@@ -55,7 +55,7 @@ test("the CLI reads the review result file and environment", () => {
 test("merge-pr.sh posts the report before merging and refuses to merge without it", () => {
   const script = readFileSync("scripts/merge-pr.sh", "utf8");
   const comment = script.indexOf('gh pr comment "$PR_NUM" --body-file "$GATE_REPORT"');
-  const merge = script.indexOf('gh pr merge "$PR_NUM" --squash');
+  const merge = script.indexOf('gh pr merge "$PR_NUM"');
   const noMerge = script.indexOf('log "--no-merge: 모든 게이트 통과');
   assert.ok(comment > 0 && merge > comment && comment > noMerge, "the report is posted after the --no-merge exit and right before the merge");
   assert.match(script, /gh pr comment "\$PR_NUM" --body-file "\$GATE_REPORT" >\/dev\/null \|\| die /);
