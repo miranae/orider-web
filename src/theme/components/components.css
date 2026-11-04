@@ -75,11 +75,7 @@
 .ds-btn--block { width: 100%; height: auto; min-height: var(--dim-button-height); padding-block: var(--space-3); white-space: normal; }
 .ds-btn--block .ds-btn__label { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .ds-btn--icon-only { padding: 0; aspect-ratio: 1; min-width: calc(var(--space-7) + var(--space-3)); min-height: calc(var(--space-7) + var(--space-3)); width: max(var(--dim-button-height), calc(var(--space-7) + var(--space-3))); }
-.ds-btn--icon-only/* Provider identity stays in the shared control, including hover and loading states. */
-.ds-btn--discord { background: var(--discord); color: var(--discord-ink); }
-.ds-btn--discord:hover:not(:disabled) { background: var(--discord-hover); }
-.ds-btn--discord .ds-btn__icon { font-size: var(--dim-icon-s); }
-.ds-btn--sm { width: calc(var(--space-7) + var(--space-3)); }
+.ds-btn--icon-only.ds-btn--sm { width: calc(var(--space-7) + var(--space-3)); }
 .ds-btn--icon-only.ds-btn--lg { width: var(--space-8); }
 
 .ds-btn__icon { display: inline-flex; align-items: center; }
