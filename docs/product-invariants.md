@@ -61,3 +61,9 @@ AI 분석 등 저장된 분석 결과는 데이터나 분석기 판이 바뀌어
 ### P12. 부작용이 있는 새 코드는 실패를 남긴다
 외부 호출·Firebase IO·캐시 갱신처럼 부작용이 있는 새 코드는 실패를 `logClientError` 등으로 기록합니다. 빈 `catch {}` 로 삼키지 않습니다.
 *New side-effecting code must log failures (e.g. `logClientError`); no silent catches.*
+
+## 화면 문구 (Copy)
+
+### P13. 주행 화면에 내부 처리 상태를 설명하지 않는다
+주행 화면(주행 중·주행 대기)에는 라이더가 그 자리에서 할 수 있는 일이 없는 내부 처리 상태 설명 문구를 표시하지 않습니다. 동기화·연결·저장·업로드·공유·결과 연결의 진행이나 미완료 안내(「…이 완료되지 않았어요」, 「동기화 중」, 「나중에 연결돼요」 등)가 여기에 해당합니다. 처리는 화면 밖에서 조용히 끝내고, 결과는 주행이 끝난 뒤 필요한 화면에서 보여 줍니다. 꼭 알려야 할 때는 오류나 라이더의 조치가 필요한 상황만, 할 일을 제시하는 짧은 문구(「다시 연결」 등)로 씁니다. 사람이든 AI 코딩 도구든 새 상태를 만들 때 설명 문구를 함께 붙이지 않습니다. 주행 화면은 앱(orider-g1-app)이 그리고 그 저장소가 기계로 검사합니다. 웹·서버는 앱 주행 화면에 내려보내는 안내·알림 문구에 같은 원칙을 적용합니다.
+*No internal processing/status explanations (sync, connection, upload, sharing, result linking, pending/incomplete) on the ride screen; show only errors that need rider action, phrased as the action.*
