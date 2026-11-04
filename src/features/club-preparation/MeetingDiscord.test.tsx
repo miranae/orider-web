@@ -3,14 +3,17 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import MeetingDiscord from "./MeetingDiscord";
 import type { MeetingDiscordView } from "../../services/clubMeetings";
-const api = vi.hoisted(() => ({getClubMeetingDiscord:vi.fn(),openClubMeetingDiscord:vi.fn(),closeClubMeetingDiscord:vi.fn()}));
+const api = vi.hoisted(() => ({signals:[] as (()=>void)[],getClubMeetingDiscord:vi.fn(),openClubMeetingDiscord:vi.fn(),closeClubMeetingDiscord:vi.fn()}));
 vi.mock("./useClubMeetingsApi",()=>({useClubMeetingsApi:()=>api}));
 vi.mock("../../services/errorLogger",()=>({logClientError:vi.fn()}));
 vi.mock("../../components/LocalizedLink",()=>({LocalizedLink:({to,children,...props}:any)=><a href={to} {...props}>{children}</a>}));
+vi.mock("firebase/firestore",()=>({doc:(_db:unknown,path:string)=>path,onSnapshot:(_ref:unknown,next:()=>void)=>{api.signals.push(next);return vi.fn();}}));
+const services={firestore:{},ensureAppCheckReady:async()=>{}};
+vi.mock("../../contexts/FirebaseServicesContext",()=>({useFirebaseServices:()=>services}));
 const view=(extra:Partial<MeetingDiscordView>={}):MeetingDiscordView=>({available:true,isHost:true,linked:true,state:"none",inviteUrl:null,channelUrl:null,serverInviteUrl:"https://discord.gg/server",expiresAt:null,...extra});
 const ready=view({state:"ready",inviteUrl:"https://discord.gg/meeting"});
-const show=(extra={})=>render(<MemoryRouter><MeetingDiscord eventId="meeting" uid="host" en={false} {...extra}/></MemoryRouter>);
-beforeEach(()=>{vi.resetAllMocks();api.getClubMeetingDiscord.mockResolvedValue(view());api.openClubMeetingDiscord.mockResolvedValue(ready);api.closeClubMeetingDiscord.mockResolvedValue(view({state:"closed"}));});
+const show=(extra={})=>render(<MemoryRouter><MeetingDiscord eventId="meeting" groupId="club" uid="host" en={false} {...extra}/></MemoryRouter>);
+beforeEach(()=>{vi.resetAllMocks();api.signals=[];api.getClubMeetingDiscord.mockResolvedValue(view());api.openClubMeetingDiscord.mockResolvedValue(ready);api.closeClubMeetingDiscord.mockResolvedValue(view({state:"closed"}));});
 describe("meeting public Discord voice",()=>{
  it("lets a host open the room and confirm closing before ending calls",async()=>{
   show();fireEvent.click(await screen.findByRole("button",{name:"음성 채널 열기"}));
@@ -36,11 +39,15 @@ describe("meeting public Discord voice",()=>{
  it("ignores focus reloads during a mutation so an old snapshot cannot replace the room",async()=>{
   let release!:(value:MeetingDiscordView)=>void;api.openClubMeetingDiscord.mockImplementation(()=>new Promise(resolve=>{release=resolve;}));show();fireEvent.click(await screen.findByRole("button",{name:"음성 채널 열기"}));
   fireEvent.focus(window);expect(api.getClubMeetingDiscord).toHaveBeenCalledTimes(1);
-  await act(async()=>release(ready));await screen.findByRole("link",{name:"디스코드에서 함께하기"});
+  api.getClubMeetingDiscord.mockResolvedValue(ready);await act(async()=>release(ready));await screen.findByRole("link",{name:"디스코드에서 함께하기"});
+ });
+ it("refreshes from a server signal without periodic polling",async()=>{
+  show();await screen.findByRole("button",{name:"음성 채널 열기"});api.getClubMeetingDiscord.mockResolvedValue(ready);
+  await act(async()=>api.signals[0]!());await screen.findByRole("link",{name:"디스코드에서 함께하기"});
  });
  it("discards an old account's response after the scope changes",async()=>{
   let release!:(value:MeetingDiscordView)=>void;api.getClubMeetingDiscord.mockImplementationOnce(()=>new Promise(resolve=>{release=resolve;}));
-  const ui=show();ui.rerender(<MemoryRouter><MeetingDiscord eventId="other" uid="viewer" en={false}/></MemoryRouter>);
+  const ui=show();ui.rerender(<MemoryRouter><MeetingDiscord eventId="other" groupId="club" uid="viewer" en={false}/></MemoryRouter>);
   await screen.findByRole("button",{name:"음성 채널 열기"});await act(async()=>release(ready));expect(screen.queryByRole("link",{name:"디스코드에서 함께하기"})).toBeNull();
  });
 });

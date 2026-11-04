@@ -727,7 +727,7 @@ function ServerMeetingDetail({
           </details>
         </Card>
       )}
-      <MeetingDiscord key={`${uid}/${data.eventId}`} eventId={data.eventId} uid={uid} en={en} ended={!live} />
+      <MeetingDiscord key={`${uid}/${data.eventId}`} eventId={data.eventId} groupId={data.groupId} uid={uid} en={en} ended={!live} />
       <Card className="cp-preparation-panel">
         <h2>{text("집결과 준비", "Meeting and preparation")}</h2>
         {meeting.joins.map((join) => (
