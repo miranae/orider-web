@@ -9,6 +9,7 @@ export interface ClubMeetingSnapshot {
   rideStatus?: "OPEN" | "LIVE" | "FINISHED" | "CANCELLED";
   completion?: {
     state: "ready" | "processing";
+    riders?: {uid: string; displayName: string; status: "FINISHED" | "DNF" | "RESULT_PENDING" | "NO_RECORDING"; durationMs: number | null}[];
     summary: {totalParticipants: number; finishedCount: number; pendingCount: number; dnfCount: number} | null;
     own?: {status: string; verified: boolean; durationMs: number | null};
   };

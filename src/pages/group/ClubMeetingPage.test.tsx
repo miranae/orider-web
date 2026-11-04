@@ -201,4 +201,18 @@ describe("클럽 모임 마무리와 개인 결과", () => {
     expect(screen.getByText(/내 기록 · 결과 확인 대기/)).toBeInTheDocument();
     expect(screen.queryByText(/결과 확인 완료/)).not.toBeInTheDocument();
   });
+  it("같은 모임의 친구별 기록 확인 상태를 구분하고 대기 시간을 기록으로 표시하지 않는다", async () => {
+    fixture(false, true);
+    control.data!.completion!.riders = [
+      {uid: "friend", displayName: "함께 탄 친구", status: "FINISHED", durationMs: 125000},
+      {uid: "pending", displayName: "업로드 중 친구", status: "RESULT_PENDING", durationMs: null},
+      {uid: "waiting", displayName: "미시작 친구", status: "NO_RECORDING", durationMs: null},
+    ];
+    show("detail");
+    const list = await screen.findByRole("list", {name: "이 모임의 참가자 기록"});
+    expect(list).toHaveTextContent("함께 탄 친구 · 결과 확인 완료 · 2:05");
+    expect(list).toHaveTextContent("업로드 중 친구 · 기록 확인 대기");
+    expect(list).toHaveTextContent("미시작 친구 · 기록 없음");
+  });
+
 });
