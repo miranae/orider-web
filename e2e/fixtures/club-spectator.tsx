@@ -1,5 +1,6 @@
 // 합성 코스·계정만 사용한다. Firebase 읽기나 주행 참가/위치 게시를 수행하지 않는다.
 import { useSpectatorPreferences } from "../../src/features/club-spectator/preferences";
+import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import i18next from "i18next";
@@ -21,7 +22,9 @@ const now = Date.now();
 const snapshot = spectatorFixture(now);
 if (params.get("state") === "finished") { snapshot.status = "FINISHED"; snapshot.course = null; snapshot.locations = []; }
 function Journey() {
+  const [clock, setClock] = useState(now);
+  useEffect(() => { const timer = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(timer); }, []);
   const preferences = useSpectatorPreferences("synthetic-viewer", snapshot.groupId, snapshot.eventId);
-  return <MeetingSpectatorView snapshot={snapshot} now={now} receivedAt={now} en={en} preferences={preferences.value} onPreferencesChange={preferences.update} />;
+  return <MeetingSpectatorView snapshot={snapshot} now={clock} receivedAt={now} en={en} preferences={preferences.value} onPreferencesChange={preferences.update} />;
 }
 createRoot(document.getElementById("root")!).render(<I18nextProvider i18n={i18next}><BrowserRouter><ThemeProvider><OriderThemeProvider><main className="site-shell club-live-page"><Journey /></main></OriderThemeProvider></ThemeProvider></BrowserRouter></I18nextProvider>);
