@@ -949,7 +949,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) handleSearch(); }}
-                  className="w-full pl-9"
+                  className="w-full athlete-activity-search"
                 />
               </div>
               <Button

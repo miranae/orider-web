@@ -134,3 +134,5 @@
 .athlete-period-form input { width: 100%; min-width: 0; }
 .athlete-query-status { display: grid; justify-items: start; gap: var(--space-3); padding: var(--space-4); margin: var(--space-3) 0; background: var(--bg-2); border-radius: var(--r-md); font-size: var(--fs-sm); color: var(--ink-2); }
 .athlete-query-status p { margin: 0; }
+
+.athlete-activity-search.ds-input { text-align: right; padding-left: calc(var(--space-6) + var(--space-3)); }
