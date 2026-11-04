@@ -1,3 +1,4 @@
+import MeetingDiscord from "../../features/club-preparation/MeetingDiscord";
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, MapPin, Users } from "lucide-react";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -734,6 +735,7 @@ function ServerMeetingDetail({
           </details>
         </Card>
       )}
+      <MeetingDiscord key={`${uid}/${data.eventId}`} eventId={data.eventId} groupId={data.groupId} uid={uid} en={en} ended={!live} />
       <Card className="cp-preparation-panel">
         <h2>{text("집결과 준비", "Meeting and preparation")}</h2>
         {meeting.joins.map((join) => (
