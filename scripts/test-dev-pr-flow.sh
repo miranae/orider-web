@@ -42,8 +42,30 @@ assert_contains scripts/merge-pr.sh 'Full 게이트: 전체 Unit tests' \
   'promotion and non-dev bases must retain full test gate'
 assert_contains scripts/merge-pr.sh 'Full 게이트: Build' \
   'promotion and non-dev bases must retain full build gate'
-assert_contains scripts/merge-pr.sh 'gh pr merge.*--squash' \
-  'promotion must use squash because main requires linear history'
+# Execute the actual merge-method block with side effects stubbed. The spelling of
+# the final gh invocation must not determine whether the policy passes.
+merge_block="$(sed -n '/^merge_method="--squash"$/,/^gh pr merge /p' scripts/merge-pr.sh)"
+[[ -n "$merge_block" ]] || fail 'merge method block missing'
+run_merge_policy() {
+  BASE="$1" HEADREF="$2" VALIDATION_RC="$3" MERGE_BLOCK="$merge_block" bash <<'BASH'
+set -euo pipefail
+PR_NUM=1; HEAD_OID=fixture
+ git() { return 0; }
+ node() { return "$VALIDATION_RC"; }
+ gh() { printf '%s\n' "$*"; }
+ die() { exit 1; }
+eval "$MERGE_BLOCK"
+BASH
+}
+[[ "$(run_merge_policy main dev 0)" == 'pr merge 1 --squash --match-head-commit fixture' ]] \
+  || fail 'ordinary promotions must use squash'
+[[ "$(run_merge_policy dev fix/topic 0)" == 'pr merge 1 --squash --match-head-commit fixture' ]] \
+  || fail 'ordinary feature PRs must use squash'
+[[ "$(run_merge_policy dev sync/promotion-fixture 0)" == 'pr merge 1 --merge --match-head-commit fixture' ]] \
+  || fail 'validated ancestry sync must use merge'
+if run_merge_policy dev sync/promotion-fixture 1; then
+  fail 'invalid ancestry must stop before gh merge'
+fi
 assert_contains scripts/merge-pr.sh 'HEADREF.*!= "dev"' \
   'merge cleanup must preserve the dev integration branch'
 assert_contains scripts/merge-pr.sh 'sync_main_back_to_dev' \
