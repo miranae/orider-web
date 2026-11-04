@@ -77,8 +77,8 @@ describe("AthletePage", () => {
     setCollectionDocs("activities", rows);
     renderWithProviders(<AthletePage />);
     await screen.findByLabelText("종목");
-    fireEvent.click(await screen.findByRole("button", { name: "전체 공개 통계 이어 확인" }));
-    await waitFor(() => expect(screen.queryByRole("button", {name: "전체 공개 통계 이어 확인"})).not.toBeInTheDocument());
+    fireEvent.click(await screen.findByRole("button", { name: "통계 불러오기" }));
+    await waitFor(() => expect(screen.queryByRole("button", {name: "통계 불러오기"})).not.toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("종목"), { target: { value: "run" } });
     expect(await screen.findByRole("link", { name: "Older run" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("종목"), { target: { value: "all" } });
@@ -358,7 +358,7 @@ it('distinguishes bounded public inventory exhaustion from a retryable network f
  setDocData('users_public/athlete-1',{nickname:'Public test rider',profilePublic:true});
  const original=vi.mocked(loadActivityDiscovery).getMockImplementation()!;let pages=0;
  vi.mocked(loadActivityDiscovery).mockImplementation(async(services,request)=>request.order==='id_asc'?{items:[],nextCursor:'ad1.'+(++pages),exhausted:false,expiresAt:Date.now()+600000} as never:original(services,request));
- try{renderWithProviders(<AthletePage/>);for(let index=0;index<9;index++){fireEvent.click(await screen.findByRole('button',{name:'전체 공개 통계 이어 확인'}));}await screen.findAllByText(/공개 기록 조회 한도에 도달해 전체 합계와 월별 차트를 확인하지 못했습니다/);expect(pages).toBe(10);expect(screen.queryByRole('button',{name:'다시 시도',exact:true})).not.toBeInTheDocument();}
+ try{renderWithProviders(<AthletePage/>);for(let index=0;index<9;index++){fireEvent.click(await screen.findByRole('button',{name:'통계 불러오기'}));}await screen.findAllByText(/전체 통계를 불러올 수 없습니다/);expect(pages).toBe(10);expect(screen.queryByRole('button',{name:'다시 시도',exact:true})).not.toBeInTheDocument();}
  finally{vi.mocked(loadActivityDiscovery).mockImplementation(original);}
 });
 
