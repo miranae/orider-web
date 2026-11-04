@@ -19,7 +19,7 @@ vi.mock("../../services/googleLink", () => ({
     count !== null && (user.providerData.some((info) => info.providerId !== "google.com") || count > 0),
 }));
 vi.mock("../../services/socialAuth", () => ({
-  SOCIAL_PROVIDERS: ["naver", "kakao", "strava"],
+  SOCIAL_PROVIDERS: ["naver", "kakao", "strava", "discord"],
   listSocialLinks: mocks.list, unlinkSocial: mocks.unlink, startSocialAuth: mocks.start,
 }));
 import { SocialLinksCard } from "./SocialLinksCard";
@@ -42,6 +42,14 @@ describe("SocialLinksCard", () => {
     await waitFor(() => expect(linkBtn).not.toBeDisabled());
     fireEvent.click(linkBtn);
     expect(mocks.start).toHaveBeenCalledWith("kakao", "link", "/settings/account");
+  });
+
+  it("links Discord to the signed-in account", async () => {
+    render(<SocialLinksCard />, { wrapper: MemoryRouter });
+    const button = within(screen.getByTestId("S1-4-1-discord")).getByRole("button", { name: "pane.account.socialLinkBtn" });
+    await waitFor(() => expect(button).not.toBeDisabled());
+    fireEvent.click(button);
+    expect(mocks.start).toHaveBeenCalledWith("discord", "link", "/settings/account");
   });
 
   it("explains when the last sign-in method cannot be unlinked", async () => {

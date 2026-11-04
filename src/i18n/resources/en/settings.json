@@ -391,6 +391,7 @@
       "cardManagement": "Account management",
       "cardSocial": "Sign-in connections",
       "social": {
+        "discord": "Discord",
         "naver": "Naver",
         "kakao": "Kakao",
         "strava": "Strava",
