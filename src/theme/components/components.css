@@ -35,6 +35,10 @@
 .ds-btn--outline:hover:not(:disabled) { background: var(--accent-soft-bg); border-color: var(--accent); }
 .ds-btn--danger { background: var(--control-danger-fill); color: var(--control-danger-fg); }
 .ds-btn--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--control-danger-fill) 92%, var(--ink-0)); }
+/* Provider identity stays in the shared control, including hover and loading states. */
+.ds-btn--discord { background: var(--discord); color: var(--discord-ink); }
+.ds-btn--discord:hover:not(:disabled) { background: var(--discord-hover); }
+.ds-btn--discord .ds-btn__icon { font-size: var(--dim-icon-s); }
 .ds-btn--sm { height: var(--space-7); padding: 0 var(--space-3); font-size: var(--ft-body-small-size); gap: var(--space-1); }
 .ds-btn--lg { height: var(--space-8); padding: 0 var(--space-5); font-size: var(--ft-body-large-size); }
 @media (prefers-reduced-motion: reduce) { .ds-btn { transition: none; } .ds-btn:active:not(:disabled) { transform: none; } }

@@ -1,3 +1,4 @@
+import { DiscordLogo } from '../components/auth/DiscordLogo';
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus, Search, SlidersHorizontal } from 'lucide-react';
@@ -262,6 +263,12 @@ function ControlsCatalog() {
               <div><Text as="h3" variant="subtitle">{variant.name}</Text><Text as="p" variant="bodySmall" tone="tertiary">{variant.usage}</Text><code>{variant.id}</code></div>
               <Button variant={variant.id} onClick={() => setMessage(`${variant.label} · 예시 동작을 실행했습니다.`)}>{variant.label}</Button>
             </div>)}
+          </div>
+          <div className="catalog-button-row">
+            <div><Text as="h3" variant="subtitle">디스코드 로그인</Text><Text as="p" variant="bodySmall" tone="tertiary">제공자 로고와 Blurple · 연결 상태는 공통 버튼 동작을 따릅니다.</Text><code>discord</code></div>
+            <Button variant="discord" leadingIcon={<DiscordLogo />} onClick={() => setMessage('디스코드 로그인 버튼 예시입니다. 실제 로그인은 실행하지 않습니다.')}>디스코드로 계속하기</Button>
+            <Button variant="discord" leadingIcon={<DiscordLogo />} disabled>디스코드로 계속하기</Button>
+            <Button variant="discord" leadingIcon={<DiscordLogo />} loading>디스코드로 계속하기</Button>
           </div>
           <div className="catalog-size-row"><Text variant="label">크기</Text><Button size="sm" onClick={() => setMessage('작은 크기 · 콘텐츠 옆 도구입니다.')}>작게</Button><Button size="md" onClick={() => setMessage('기본 크기 · 일반 동작입니다.')}>기본</Button><Button size="lg" onClick={() => setMessage('큰 크기 · 넉넉한 조작 영역을 제공합니다.')}>크게</Button><Text variant="bodySmall" tone="tertiary">인접한 대안은 같은 크기 · 위계는 variant로 구분</Text></div>
           <div className="catalog-size-row"><Text variant="label">보조 필터 도구</Text><IconButton size="compact" icon={<SlidersHorizontal />} aria-label="필터 예시" onClick={() => setMessage('필터 예시를 열었습니다.')} /><IconButton size="compact" indicator icon={<SlidersHorizontal />} aria-label="필터 예시: 러닝 적용됨" onClick={() => setMessage('러닝 필터가 적용된 예시입니다.')} /><Text variant="bodySmall" tone="tertiary">36px 표면 · 18px 아이콘 · 44px 터치 영역 · 적용 상태 점</Text></div>
