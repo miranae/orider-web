@@ -303,7 +303,7 @@
   "settings.regenerateCodeSuccess": "New invite link created.",
   "settings.regenerateCodeFailed": "Failed to regenerate invite code.",
   "settings.toggles.postEvents": "Subscribe to Event Calendar",
-  "settings.toggles.postEventsDesc": "Automatically sync club events to personal calendar",
+  "settings.toggles.postEventsDesc": "Enable the club calendar subscription link. Add this link to your personal calendar to subscribe.",
   "settings.toggles.membersPost": "Member Posts",
   "settings.toggles.membersPostDesc": "Allow non-leader members to post to club feed",
   "settings.toggles.showInDirectory": "Show in Search",
@@ -612,5 +612,7 @@
   "events.listLabel": "Meetings and races",
   "events.kind.meeting": "Meeting",
   "events.kind.race": "Race",
-  "events.empty.CANCELLED": "No cancelled events"
+  "events.empty.CANCELLED": "No cancelled events",
+  "dashboard.viewMeeting": "View meeting",
+  "week.loadFailed": "Could not load weekly statistics"
 }
