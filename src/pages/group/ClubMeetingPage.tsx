@@ -391,6 +391,7 @@ function ServerMeetingDetail({
           </span>
         </div>
         <CourseSummary meeting={meeting} />
+        {meeting.courseTrack && <Link className={buttonClass({variant: "secondary", size: "sm"})} to={`/club/${data.groupId}/meetings/${data.eventId}/live`}>{text(completed ? "모임 관전·결과" : "모임 관전", completed ? "Spectator & results" : "Watch meeting")}</Link>}
         {data.isHost && (
           <nav
             className="cp-hero-tools"

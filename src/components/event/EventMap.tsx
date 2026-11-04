@@ -1,3 +1,4 @@
+import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
 import { useState } from "react";
@@ -46,6 +47,7 @@ const LANE_STYLE: Record<WaypointLane, { color: string; emoji: string }> = {
 };
 
 interface EventMapProps {
+  followSelected?: boolean;
   locations: LocationData[];
   selectedUid: string | null;
   onSelectParticipant: (uid: string | null) => void;
@@ -109,21 +111,26 @@ function toGeoJSONCollection(locations: LocationData[], selectedUid: string | nu
 function FlyToSelected({
   locations,
   selectedUid,
+  followSelected,
 }: {
+  followSelected: boolean;
   locations: LocationData[];
   selectedUid: string | null;
 }) {
   const { current: map } = useMap();
-  const prevUid = useRef<string | null>(null);
+  const previousTarget = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!map || !selectedUid || selectedUid === prevUid.current) return;
+    if (!selectedUid) { previousTarget.current = null; return; }
+    if (!map) return;
     const loc = locations.find((l) => l.uid === selectedUid);
+    const target = loc ? (followSelected ? `${selectedUid}/${loc.lat}/${loc.lng}` : selectedUid) : null;
+    if (target === previousTarget.current) return;
     if (loc) {
       map.flyTo({ center: [loc.lng, loc.lat], zoom: 14, duration: 800 });
     }
-    prevUid.current = selectedUid;
-  }, [map, selectedUid, locations]);
+    previousTarget.current = target;
+  }, [map, selectedUid, locations, followSelected]);
 
   return null;
 }
@@ -222,6 +229,7 @@ export default function EventMap({
   checkpoints = [],
   waypoints = [],
   fitToCourse = true,
+  followSelected = false,
 }: EventMapProps) {
   const mapboxToken = getMapboxToken();
   const { t } = useTranslation("event");
@@ -439,7 +447,7 @@ export default function EventMap({
         </Popup>
       )}
 
-      <FlyToSelected locations={locations} selectedUid={selectedUid} />
+      <FlyToSelected locations={locations} selectedUid={selectedUid} followSelected={followSelected} />
     </Map>
   );
 }

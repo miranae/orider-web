@@ -73,6 +73,7 @@ describe("club detail embed destinations", () => {
     const current = `/${lang}/embed/clubs/club-1/rides`;
     expect(embeddedClubDetailDestination(current, `/${lang}/club/club-1`)).toBe(`/${lang}/embed/clubs/club-1`);
     expect(embeddedClubDetailDestination(current, "/club/club-1/members?sort=role#top")).toBe(`/${lang}/embed/clubs/club-1/members?sort=role#top`);
+    expect(embeddedClubDetailDestination(current, "/club/club-1/meetings/m-1/live")).toBe(`/${lang}/embed/clubs/club-1/meetings/m-1/live`);
     expect(embeddedClubDetailDestination(current, "/club/club-1/meetings/m-1/edit")).toBe(`/${lang}/embed/clubs/club-1/meetings/m-1/edit`);
     expect(embeddedClubDetailDestination(current, "/club/club-1/rides/r-1/")).toBe(`/${lang}/embed/clubs/club-1/rides/r-1`);
     // LocalizedLink 가 이미 임베드 경로로 바꾼 href 도 그대로 임베드 안에서 연다.
@@ -102,6 +103,7 @@ describe("이벤트 상세 임베드 이동", () => {
     }
     expect(embeddedInternalDestination(current, `${current}/meeting/group-1/event-1`)).toBe(`${current}/meeting/group-1/event-1`);
     expect(embeddedInternalDestination(current, `${current}/meeting/group-1/event-2`)).toBeNull();
+    expect(embeddedInternalDestination(current, "/club/group-1/meetings/event-1/live")).toBe(`${current}/meeting/group-1/event-1/live`);
     expect(embeddedInternalDestination(current, "/club/group-1/meetings/event-1")).toBe(`${current}/meeting/group-1/event-1`);
     expect(embeddedInternalDestination(current, `${current}/results`)).toBe(`${current}/results`);
     for (const path of ["/event/event-2", "/event/event-1/unknown", "https://other.invalid/event/event-1", "/club/club-1"]) {

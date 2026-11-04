@@ -61,7 +61,7 @@ export function embeddedHubDestination(currentPath: string, destination: string)
 export const CLUB_DETAIL_EMBED_CAPABILITY = "club-detail-embed-v1";
 
 /** 클럽 상세 임베드가 자기 안에서 그리는 하위 경로(App.tsx `club/:groupId/...` 와 같은 이름). */
-const CLUB_DETAIL_SECTION = /^(?:\/(?:rides(?:\/[^/]+)?|week|leaderboard|events|members|settings|meetings\/(?:new|[^/]+(?:\/edit)?)))?\/?$/;
+const CLUB_DETAIL_SECTION = /^(?:\/(?:rides(?:\/[^/]+)?|week|leaderboard|events|members|settings|meetings\/(?:new|[^/]+(?:\/(?:edit|live))?)))?\/?$/;
 
 /**
  * 클럽 상세 임베드(`/{lang}/embed/clubs/{groupId}`) 안에서 **같은 클럽**의 상세·하위 화면으로
@@ -87,11 +87,11 @@ export function embeddedEventDetailDestination(currentPath: string, destination:
   const target = new URL(destination, "https://embedded.invalid");
   if (target.origin !== "https://embedded.invalid") return null;
   const path = target.pathname.replace(/^\/(ko|en)(?=\/)/, "");
-  const meeting = /^\/club\/([A-Za-z0-9_-]{1,128})\/meetings\/([A-Za-z0-9_-]{1,128})$/.exec(path);
-  if (meeting && meeting[2] === current[2]) return `/${current[1]}/embed/event/${current[2]}/meeting/${meeting[1]}/${meeting[2]}${target.search}${target.hash}`;
+  const meeting = /^\/club\/([A-Za-z0-9_-]{1,128})\/meetings\/([A-Za-z0-9_-]{1,128})(\/live)?$/.exec(path);
+  if (meeting && meeting[2] === current[2]) return `/${current[1]}/embed/event/${current[2]}/meeting/${meeting[1]}/${meeting[2]}${meeting[3] ?? ""}${target.search}${target.hash}`;
   const event = /^\/(?:event|embed\/event)\/([^/]+)(.*)$/.exec(path);
   const section = event?.[2] ?? "";
-  const meetingSection = /^\/meeting\/[A-Za-z0-9_-]{1,128}\/([A-Za-z0-9_-]{1,128})$/.exec(section);
+  const meetingSection = /^\/meeting\/[A-Za-z0-9_-]{1,128}\/([A-Za-z0-9_-]{1,128})(?:\/live)?$/.exec(section);
   const knownSection = /^(?:\/(?:register|results|host(?:\/(?:edit|participants))?))?\/?$/.test(section)
     || meetingSection?.[1] === current[2];
   if (!event || event[1] !== current[2] || !knownSection) return null;
