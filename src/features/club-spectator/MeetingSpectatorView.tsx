@@ -20,6 +20,7 @@ export default function MeetingSpectatorView({snapshot, now, receivedAt, en, sel
   const visible = riders.filter(r => (!followingOnly || followed.includes(r.uid)) && `${r.displayName} ${r.uid}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const courseLatlngs = useMemo(() => snapshot.course ? [snapshot.course.points.map(p => [p.lat, p.lon] as [number, number])] : [], [snapshot.course]);
   const locations: LocationData[] = riders.map(r => ({uid: r.uid, lat: r.lat, lng: r.lng, displayName: r.displayName,
+    speedAvailable: r.speedMps !== null, distanceAvailable: r.progressM !== null,
     speed: r.speedMps === null ? 0 : r.speedMps * 3.6, distance: r.progressM ?? 0, status: r.status,
     bib: null, category: null, rank: null, overallRank: null, lastCp: null, geohash: null}));
   const finished = snapshot.status === "FINISHED" || snapshot.status === "CANCELLED";
