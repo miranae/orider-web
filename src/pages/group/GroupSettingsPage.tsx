@@ -221,7 +221,7 @@ export default function GroupSettingsPage() {
 
   return (
     <div className="club-surface club-settings">
-      <GroupSubNav group={group} isCreator={canManage} showDescription={false} />
+      <GroupSubNav group={group} isCreator={canManage} />
       <div className="club-settings-grid">
         <div className="club-settings-main">
         {/* 프로필 */}

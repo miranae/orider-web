@@ -277,7 +277,7 @@ export default function GroupDashboardPage() {
           }}>{t("dashboard.posts.reportSubmit")}</button>
         </div>
       </Modal>
-      <GroupSubNav group={group} isCreator={canManage} showDescription={false} />
+      <GroupSubNav group={group} isCreator={canManage} />
 
       {/* Hero 영역 */}
       <Card padding="none" className="club-identity mb-5" style={{ borderRadius: "var(--r-lg)", padding: "var(--space-4)" }}>
@@ -298,9 +298,6 @@ export default function GroupDashboardPage() {
 
           </div>
         </div>
-        {group.description && (
-          <details data-testid="C1-2-1" className="mt-3"><summary>{t("dashboard.aboutClub")}</summary><p className="whitespace-pre-wrap">{group.description}</p></details>
-        )}
       </Card>
 
       {group.rules?.trim() && (
