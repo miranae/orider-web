@@ -703,7 +703,7 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
       <div className="flex flex-col -mb-6 lg:h-[calc(100dvh-56px)]">
         <div className="flex-shrink-0 pb-4 space-y-4 border-b border-[var(--line-soft)]">
           <div className="flex items-center justify-between">
-            <Text as="h1" variant="pageTitle" data-testid="E2-0">{t("title")}</Text>
+            <Text as="h1" variant="pageTitle" data-testid="E2-0" className="explore-page-title">{t("title")}</Text>
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center p-6">
@@ -725,7 +725,7 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
       <div className="flex-shrink-0 pb-4 space-y-4 border-b border-[var(--line-soft)]">
         <div className="flex items-center justify-between">
           <div className="min-w-0">
-            <Text as="h1" variant="pageTitle"><GlossaryText>{t("title")}</GlossaryText></Text>
+            <Text as="h1" variant="pageTitle" className="explore-page-title"><GlossaryText>{t("title")}</GlossaryText></Text>
             <p className="text-[var(--ink-2)] text-[length:var(--ft-body-size)] mt-1">
               {t("subtitle")}
             </p>

@@ -194,7 +194,7 @@ export default function ExploreAthletesPage() {
     }
   });
 
-  const heading = <Text data-testid="E5-0" as="h1" variant="pageTitle">{commonT("nav.people")}</Text>;
+  const heading = <Text data-testid="E5-0" as="h1" variant="pageTitle" className="explore-page-title">{commonT("nav.people")}</Text>;
   if (authLoading) return <div className="explore-challenges-surface space-y-6">{heading}</div>;
   if (!signedIn) {
     return <div className="explore-challenges-surface space-y-6">

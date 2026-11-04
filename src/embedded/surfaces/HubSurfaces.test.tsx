@@ -1,5 +1,7 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation, useSearchParams, useNavigate } from "react-router-dom";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EmbeddedNavigationContext } from "../EmbeddedNavigationContext";
 
@@ -65,8 +67,13 @@ describe("explore embed", () => {
   it("defaults to courses, renders the sub-tabs in hub order and reports readiness once content mounts", async () => {
     renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore");
     expect(await screen.findByTestId("page-courses")).toBeInTheDocument();
-    const tabs = screen.getAllByRole("button").filter(button => button.hasAttribute("aria-pressed")).map(button => button.textContent);
-    expect(tabs).toEqual(["코스", "세그먼트", "이벤트", "챌린지", "사람", "기록 활용", "게시판"]);
+    // 앱 코치 상단 탭과 같은 밑줄 탭(TabNav) — 알약형 토글(aria-pressed)이 아니다.
+    const nav = screen.getByRole("navigation", { name: "탐색" });
+    expect(within(nav).getByRole("tablist")).toBeInTheDocument();
+    expect(within(nav).getAllByRole("tab").map(tab => tab.textContent)).toEqual(["코스", "세그먼트", "이벤트", "챌린지", "사람", "기록 활용", "게시판"]);
+    expect(within(nav).getByRole("tab", { name: "코스" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryAllByRole("button").filter(button => button.hasAttribute("aria-pressed"))).toEqual([]);
+    expect(screen.getByTestId("embedded-explore")).toHaveClass("orider-embedded-explore");
     expect(props.onReady).toHaveBeenCalledTimes(1);
   });
 
@@ -74,7 +81,7 @@ describe("explore embed", () => {
     renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?page=athletes&q=kim");
     expect(await screen.findByTestId("page-athletes")).toHaveAttribute("data-query", "q=kim&hubPage=athletes");
 
-    fireEvent.click(screen.getByRole("button", { name: "게시판" }));
+    fireEvent.click(screen.getByRole("tab", { name: "게시판" }));
     expect(await screen.findByTestId("page-board")).toBeInTheDocument();
     expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?hubPage=board");
 
@@ -82,16 +89,35 @@ describe("explore embed", () => {
     fireEvent.click(screen.getByRole("button", { name: "next page" }));
     expect(screen.getByTestId("location")).toHaveTextContent("/ko/embed/explore?hubPage=board&page=2");
     expect(screen.getByTestId("page-board")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "게시판" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("tab", { name: "게시판" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("fresh mount and Back restore board pagination independently of the hub tab", async () => {
     renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?hubPage=board&page=2");
     expect(await screen.findByTestId("page-board")).toHaveAttribute("data-query", "hubPage=board&page=2");
-    fireEvent.click(screen.getByRole("button", { name: "사람" }));
+    fireEvent.click(screen.getByRole("tab", { name: "사람" }));
     expect(await screen.findByTestId("page-athletes")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "history back" }));
     expect(await screen.findByTestId("page-board")).toHaveAttribute("data-query", "hubPage=board&page=2");
+  });
+
+  it("scrolls only the tab row so a later selected tab stays visible", async () => {
+    const rect = (left: number, width: number) => ({ left, right: left + width, width, top: 0, bottom: 44, height: 44, x: left, y: 0, toJSON: () => ({}) }) as DOMRect;
+    const spy = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.getAttribute("role") === "tablist") return rect(0, 300);
+      if (this.getAttribute("role") === "tab" && this.textContent === "게시판") return rect(420 - this.parentElement!.scrollLeft, 60);
+      return rect(0, 0);
+    });
+    const windowScroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    try {
+      renderSurface(<ExploreSurface {...props} />, "/ko/embed/explore?hubPage=board");
+      expect(await screen.findByTestId("page-board")).toBeInTheDocument();
+      expect(screen.getByRole("tablist").scrollLeft).toBe(180);
+      expect(windowScroll).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+      windowScroll.mockRestore();
+    }
   });
 
   it("keeps the outer selection when Creator Hub selects Featured and clears its own tab", async () => {
@@ -99,6 +125,14 @@ describe("explore embed", () => {
     expect(await screen.findByTestId("page-recipes")).toHaveAttribute("data-query", "section=recipes&tab=saved&hubPage=recipes");
     fireEvent.click(screen.getByRole("button", { name: "Featured tab" }));
     expect(await screen.findByTestId("page-recipes")).toHaveAttribute("data-query", "section=recipes&hubPage=recipes");
+  });
+
+  it("hides only the explore page titles that repeat the top tab, like the coach embed", () => {
+    // 코치(#1460)와 같은 시각 숨김 — 탐색 임베드 범위에서만, 검색 임베드·웹 사이트는 제목을 그대로 보인다.
+    const embeddedCss = readFileSync(resolve(import.meta.dirname, "../embedded.css"), "utf8");
+    const rule = /\.orider-embedded-explore :is\(\.explore-page-title, \[data-testid="E3-0"\] h1\) \{[^}]*clip-path: inset\(50%\);/;
+    expect(embeddedCss).toMatch(rule);
+    expect(embeddedCss).not.toMatch(/(^|[\s,])\.explore-page-title\s*\{/m);
   });
 
   it("passes the creator section from the query", async () => {

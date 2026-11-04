@@ -25,16 +25,18 @@ function ReadyOnMount({ onReady }: { onReady: () => void }) {
  * 클럽·탐색·검색 임베드 공통 틀. 기존 웹 페이지를 그대로 그리고, 청크 로드·렌더 실패는
  * `surface.error`(surface_load_failed)로 알린 뒤 재시도 카드를 보여 준다.
  */
-export default function HubSurfaceFrame({ title, testId, header, retryKey, onReady, onError, children }: HubSurfaceProps & {
+export default function HubSurfaceFrame({ title, testId, className, header, retryKey, onReady, onError, children }: HubSurfaceProps & {
   title: string;
   testId: string;
+  /** 표면별 스타일 범위를 잡는 추가 클래스. */
+  className?: string;
   /** 오류·로딩과 무관하게 항상 보이는 상단(서브탭·검색 폼). */
   header?: ReactNode;
   children: ReactNode;
 }) {
   const { t } = useTranslation("common");
   return (
-    <main className="orider-embedded-surface orider-embedded-hub" data-testid={testId}>
+    <main className={`orider-embedded-surface orider-embedded-hub${className ? ` ${className}` : ""}`} data-testid={testId}>
       {header}
       <ErrorBoundary
         key={retryKey}
