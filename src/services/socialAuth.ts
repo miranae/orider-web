@@ -10,10 +10,10 @@ import { socialAuthReturnTo } from "../utils/socialAuthReturnTo";
  * OAuth code 를 교환하고 custom token 을 준다. 동의 화면은 전체 페이지 이동이라
  * 돌아올 경로(returnTo)는 서버 state 에 실어 보낸다.
  */
-export type SocialProvider = "naver" | "kakao" | "strava";
+export type SocialProvider = "naver" | "kakao" | "strava" | "discord";
 export type SocialMode = "login" | "link" | "reauth";
 
-export const SOCIAL_PROVIDERS: readonly SocialProvider[] = ["naver", "kakao", "strava"];
+export const SOCIAL_PROVIDERS: readonly SocialProvider[] = ["naver", "kakao", "strava", "discord"];
 /** 언어 접두 없는 경로 — LocaleRedirect 가 쿼리를 보존해 /:lang/auth/social/callback 으로 보낸다. */
 export const SOCIAL_CALLBACK_PATH = "/auth/social/callback";
 const pendingStateKey = "orider.social-auth.state.v1";

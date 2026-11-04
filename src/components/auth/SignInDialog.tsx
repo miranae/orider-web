@@ -102,6 +102,11 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
           onClick={() => { void handleSocial("strava"); }}>
           <img src="/btn_strava_connect_orange.svg" alt="" className="h-12 w-auto" />
         </button>
+        <button data-testid="A1-1-5" type="button" className={`${BUTTON_CLASS} border`} disabled={pending !== null}
+          style={{ background: "var(--bg-0)", borderColor: "var(--line-soft)", color: "var(--ink-1)" }}
+          onClick={() => { void handleSocial("discord"); }}>
+          {t("signIn.discord")}
+        </button>
         {error && <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)", margin: 0 }}>{error}</p>}
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>{t("signIn.separateAccountHint")}</p>
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>
