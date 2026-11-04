@@ -55,6 +55,7 @@ vi.mock("../../features/club-preparation/CoursePreview", () => ({
 }));
 vi.mock("../../components/group/GroupSubNav", () => ({ default: () => null }));
 vi.mock("../../services/clubMeetings", () => { const api = {
+  getClubMeetingDiscord: vi.fn(async () => ({available:false})),
   createClubMeeting: vi.fn(async () => ({ eventId: "created" })),
   updateClubMeeting: vi.fn(async () => ({ revision: 4 })),
   clubMeetingAttendance: vi.fn(async () => ({ status: "none" })),
