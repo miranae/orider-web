@@ -32,7 +32,6 @@ vi.mock("../../services/publicClubs", () => ({
   getPublicClubPage: vi.fn(async () => ({ club: { id: "group-1", name: "Public club preview", approval: "auto", sports: ["bike"] }, schedule: null })),
   PublicClubUnavailable: class extends Error {},
 }));
-vi.mock("../../components/group/GroupSubNav", () => ({ default: () => null }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
 function Page() { return <MemoryRouter initialEntries={["/group/group-1"]}><Routes><Route path="/group/:groupId" element={<GroupDashboardPage />} /></Routes></MemoryRouter>; }
 function edit() {
