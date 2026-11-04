@@ -43,7 +43,8 @@ describe("social sign-in choices", () => {
   it.each([
     ["naver", "네이버로 계속하기"],
     ["kakao", "카카오로 계속하기"],
-    ["strava", "Strava로 계속하기", "디스코드로 계속하기"],
+    ["strava", "Strava로 계속하기"],
+    ["discord", "디스코드로 계속하기"],
   ])("starts the existing %s login and prevents concurrent provider requests", (provider, name) => {
     mocks.start.mockImplementation(() => new Promise<void>(() => {}));
     showDialog();
@@ -59,7 +60,8 @@ describe("social sign-in choices", () => {
   it.each([
     ["naver", "네이버로 계속하기"],
     ["kakao", "카카오로 계속하기"],
-    ["strava", "Strava로 계속하기", "디스코드로 계속하기"],
+    ["strava", "Strava로 계속하기"],
+    ["discord", "디스코드로 계속하기"],
   ])("restores %s login after a failure and permits retry", async (provider, name) => {
     mocks.start.mockRejectedValueOnce(new Error("unavailable")).mockImplementationOnce(() => new Promise<void>(() => {}));
     showDialog();
