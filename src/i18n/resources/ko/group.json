@@ -611,5 +611,6 @@
   "events.kind.meeting": "모임",
   "events.kind.race": "대회",
   "events.empty.CANCELLED": "취소된 이벤트가 없어요",
-  "dashboard.viewMeeting": "모임 보기"
+  "dashboard.viewMeeting": "모임 보기",
+  "week.loadFailed": "주간 집계를 불러오지 못했어요"
 }

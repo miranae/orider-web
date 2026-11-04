@@ -613,5 +613,6 @@
   "events.kind.meeting": "Meeting",
   "events.kind.race": "Race",
   "events.empty.CANCELLED": "No cancelled events",
-  "dashboard.viewMeeting": "View meeting"
+  "dashboard.viewMeeting": "View meeting",
+  "week.loadFailed": "Could not load weekly statistics"
 }

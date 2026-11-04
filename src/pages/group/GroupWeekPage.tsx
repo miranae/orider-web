@@ -42,7 +42,7 @@ export default function GroupWeekPage() {
   const max = rows[0]?.[1][metric] ?? 0;
   return <div className="space-y-4">
     <GroupSubNav group={group} isCreator={canManageGroup(group, user?.uid, role)} />
-    {loading ? <LoadingSkeleton kind="list" count={5} /> : error ? <ErrorState title={t("error.loadFailed")} onRetry={retry} /> : <>
+    {loading ? <LoadingSkeleton kind="list" count={5} /> : error ? <ErrorState title={t("week.loadFailed")} onRetry={retry} /> : <>
     <header data-testid="C5-0"><h2 data-testid="C5-0-1">{t("subNav.week")} · {monday.toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" })} – {sunday.toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" })}</h2>
     <p data-testid="C5-0-3">{t("week.source")}</p></header>
     <section data-testid="C5-1">{weeklyStats ? <div data-testid="C5-1-1" className="grid grid-cols-2 md:grid-cols-5 gap-3">
