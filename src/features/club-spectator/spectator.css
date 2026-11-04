@@ -14,7 +14,7 @@
 .club-live-heading h2 { font-size: var(--fs-lg); font-weight: 600; }
 
 .club-live-workspace { display: grid; gap: var(--space-4); align-items: start; }
-.club-live-stage { position: sticky; top: var(--space-3); z-index: 1; display: grid; gap: var(--space-2); background: var(--surface); }
+.club-live-stage { position: sticky; top: var(--space-3); z-index: 1; display: grid; gap: var(--space-2); background: var(--bg-0); }
 .club-live-stage .club-live-map { height: 26vh; min-height: 10rem; }
 .club-live-stage .club-live-metrics { margin-block: var(--space-2); }
 @media (min-width: 64rem) {

@@ -24,7 +24,7 @@ export default function ClubMeetingLivePage() {
     <Link to={`/club/${groupId}/meetings/${meetingId}`}>← {en ? "Meeting" : "모임 상세"}</Link>
     {live.loading && <LoadingSkeleton kind="list" count={3} />}
     {live.error != null && !live.data && <ErrorState title={en ? "Could not load live positions. Check your membership and connection." : "관전 정보를 불러오지 못했어요. 회원 자격과 연결 상태를 확인해주세요."} onRetry={live.reload} />}
-    {live.error != null && live.data && <p role="status">{en ? "Reconnecting… Positions may be delayed." : "다시 연결하고 있어요. 위치 수신이 지연될 수 있어요."} <Button variant="secondary" onClick={live.reload}>{en ? "Retry" : "다시 시도"}</Button></p>}
+    {live.error != null && live.data && <p role="status">{en ? "Connection interrupted. Showing the last received positions." : "연결이 불안정해요. 마지막으로 받은 위치를 표시하고 있어요."} <Button variant="secondary" onClick={live.reload}>{en ? "Retry" : "다시 시도"}</Button></p>}
     {live.data && <MeetingSpectatorView key={`${user.uid}/${meetingId}`} snapshot={live.data} preferences={preferences.value} onPreferencesChange={preferences.update} now={live.data.serverNowMs + Math.max(0, now - live.receivedAt)} receivedAt={live.receivedAt} en={en} />}
   </main>;
 }
