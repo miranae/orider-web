@@ -21,10 +21,10 @@ describe("social sign-in choices", () => {
   it("shows all providers and starts the existing Google flow", () => {
     const google = vi.fn().mockResolvedValue(undefined);
     const button = showDialog(google);
-    for (const name of ["네이버로 계속하기", "카카오로 계속하기", "Strava로 계속하기"]) {
+    for (const name of ["네이버로 계속하기", "카카오로 계속하기", "Strava로 계속하기", "디스코드로 계속하기"]) {
       expect(screen.getByRole("button", { name })).toBeVisible();
     }
-    for (const id of ["A1-1-2", "A1-1-3", "A1-1-4"]) expect(screen.getByTestId(id)).toBeInTheDocument();
+    for (const id of ["A1-1-2", "A1-1-3", "A1-1-4", "A1-1-5"]) expect(screen.getByTestId(id)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "이용약관" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "개인정보처리방침" })).toBeInTheDocument();
     fireEvent.click(button);
@@ -35,7 +35,7 @@ describe("social sign-in choices", () => {
   it.each([undefined, "production", "stage", "development", "test"])("shows all providers regardless of runtime environment: %s", appEnvironment => {
     resetRuntimeConfigForTests({ appEnvironment });
     showDialog();
-    for (const name of ["Google로 계속하기", "네이버로 계속하기", "카카오로 계속하기", "Strava로 계속하기"]) {
+    for (const name of ["Google로 계속하기", "네이버로 계속하기", "카카오로 계속하기", "Strava로 계속하기", "디스코드로 계속하기"]) {
       expect(screen.getByRole("button", { name })).toBeVisible();
     }
   });
@@ -44,13 +44,14 @@ describe("social sign-in choices", () => {
     ["naver", "네이버로 계속하기"],
     ["kakao", "카카오로 계속하기"],
     ["strava", "Strava로 계속하기"],
+    ["discord", "디스코드로 계속하기"],
   ])("starts the existing %s login and prevents concurrent provider requests", (provider, name) => {
     mocks.start.mockImplementation(() => new Promise<void>(() => {}));
     showDialog();
     const button = screen.getByRole("button", { name });
     fireEvent.click(button);
     expect(mocks.start).toHaveBeenCalledExactlyOnceWith(provider, "login");
-    for (const id of ["A1-1-1", "A1-1-2", "A1-1-3", "A1-1-4"]) expect(screen.getByTestId(id)).toBeDisabled();
+    for (const id of ["A1-1-1", "A1-1-2", "A1-1-3", "A1-1-4", "A1-1-5"]) expect(screen.getByTestId(id)).toBeDisabled();
     fireEvent.click(button);
     fireEvent.click(screen.getByRole("button", { name: "Google로 계속하기" }));
     expect(mocks.start).toHaveBeenCalledOnce();
@@ -60,13 +61,14 @@ describe("social sign-in choices", () => {
     ["naver", "네이버로 계속하기"],
     ["kakao", "카카오로 계속하기"],
     ["strava", "Strava로 계속하기"],
+    ["discord", "디스코드로 계속하기"],
   ])("restores %s login after a failure and permits retry", async (provider, name) => {
     mocks.start.mockRejectedValueOnce(new Error("unavailable")).mockImplementationOnce(() => new Promise<void>(() => {}));
     showDialog();
     const button = screen.getByRole("button", { name });
     fireEvent.click(button);
     expect(await screen.findByRole("alert")).toHaveTextContent("로그인에 실패했습니다");
-    for (const id of ["A1-1-1", "A1-1-2", "A1-1-3", "A1-1-4"]) expect(screen.getByTestId(id)).toBeEnabled();
+    for (const id of ["A1-1-1", "A1-1-2", "A1-1-3", "A1-1-4", "A1-1-5"]) expect(screen.getByTestId(id)).toBeEnabled();
     fireEvent.click(button);
     expect(mocks.start).toHaveBeenNthCalledWith(2, provider, "login");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -97,7 +99,7 @@ describe("social sign-in choices", () => {
     const button = showDialog(google);
     fireEvent.click(button);
     expect(button).toBeDisabled();
-    for (const id of ["A1-1-2", "A1-1-3", "A1-1-4"]) expect(screen.getByTestId(id)).toBeDisabled();
+    for (const id of ["A1-1-2", "A1-1-3", "A1-1-4", "A1-1-5"]) expect(screen.getByTestId(id)).toBeDisabled();
     fireEvent.click(button);
     expect(google).toHaveBeenCalledOnce();
     finish();
