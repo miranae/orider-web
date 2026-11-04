@@ -240,7 +240,8 @@ export default function EventsPage() {
   const TYPE_FILTERS = TYPE_FILTER_KEYS.map(({ k, labelKey, icon }) => ({ k, label: t(labelKey), icon }));
   const { user, loading: authLoading } = useAuth();
   // 임베드(앱 탐색 탭)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
   const [events, setEvents] = useState<EventInfo[]>([]);
   const [coursePolylines, setCoursePolylines] = useState<Record<string, string>>({});
   const [courseThumbs, setCourseThumbs] = useState<Record<string, string>>({});
@@ -273,7 +274,7 @@ export default function EventsPage() {
     setNextCursor(null);
     (async () => {
       try {
-        const snap = await getPublicEvents([...PUBLIC_EVENT_STATUSES], pageCursor);
+        const snap = await getPublicEvents([...PUBLIC_EVENT_STATUSES], pageCursor, services);
         if (cancelled) return;
         setNextCursor(snap.nextCursor);
         const list: EventInfo[] = [];
@@ -398,7 +399,7 @@ export default function EventsPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [firestore, user, pageCursor, pageAttempt]);
+  }, [firestore, services, user, pageCursor, pageAttempt]);
 
   const filtered = useMemo(() => {
     return events

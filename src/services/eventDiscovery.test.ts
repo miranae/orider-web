@@ -3,8 +3,11 @@ import { httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getDocs } from "firebase/firestore";
 import { mockCallableInvocations, setCallableImplementation, setCallableResult } from "../__tests__/mocks/firebase";
-import { ensureAppCheckReady } from "./firebase";
+import { auth, ensureAppCheckReady, functions } from "./firebase";
 import { getPublicEvents, getVisibleEventPage } from "./eventDiscovery";
+
+// 일반 웹 화면이 useFirebaseServices() 로 받는 기본 싱글턴 묶음과 같은 형태.
+const webServices = () => ({ auth, functions, ensureAppCheckReady }) as unknown as FirebaseServices;
 
 describe("authorized event discovery adapter", () => {
   beforeEach(() => { vi.mocked(getDocs).mockClear(); });
@@ -24,10 +27,10 @@ describe("authorized event discovery adapter", () => {
       const request = value as { cursor?: string };
       return { data: { rows: [{ id: request.cursor ? "second" : "first", data: { info: { visibility: "PUBLIC" } } }], nextCursor: request.cursor ? null : "first" } };
     });
-    const result = await getPublicEvents(["OPEN", "LIVE", "FINISHED"]);
+    const result = await getPublicEvents(["OPEN", "LIVE", "FINISHED"], undefined, webServices());
     expect(result.docs.map(doc => doc.id)).toEqual(["first"]);
     expect(mockCallableInvocations.filter(call => call.name === "listVisibleEventEnvelopes")).toHaveLength(1);
-    const second = await getPublicEvents(["OPEN", "LIVE", "FINISHED"], result.nextCursor!);
+    const second = await getPublicEvents(["OPEN", "LIVE", "FINISHED"], result.nextCursor!, webServices());
     expect(second.docs.map(doc => doc.id)).toEqual(["second"]);
     expect(mockCallableInvocations.filter(call => call.name === "listVisibleEventEnvelopes").map(call => call.data)).toEqual([
       { publicOnly: true, statuses: ["OPEN", "LIVE", "FINISHED"], limit: 250 },
@@ -45,10 +48,10 @@ describe("authorized event discovery adapter", () => {
         { id: "group", data: { info: { visibility: "GROUP" } } },
       ], nextCursor: null } };
     });
-    const first = await getPublicEvents(["OPEN", "LIVE"]);
+    const first = await getPublicEvents(["OPEN", "LIVE"], undefined, webServices());
     expect(first.docs).toEqual([]);expect(first.nextCursor).toBe(token);
     expect(mockCallableInvocations.filter(call => call.name === "listVisibleEventEnvelopes")).toHaveLength(1);
-    const result = await getPublicEvents(["OPEN", "LIVE"], first.nextCursor!);
+    const result = await getPublicEvents(["OPEN", "LIVE"], first.nextCursor!, webServices());
     expect(result.docs.map(doc => doc.id)).toEqual(["public", "legacy", "group"]);
     expect(mockCallableInvocations.filter(call => call.name === "listVisibleEventEnvelopes").map(call => call.data)).toEqual([
       { publicOnly: true, statuses: ["OPEN", "LIVE"], limit: 250 },
@@ -98,4 +101,16 @@ it("uses embedded callable services for member-only discovery and rejects late a
   expect(httpsCallable).toHaveBeenCalledWith(services.functions, "listVisibleEventEnvelopes");
   setCallableImplementation("listVisibleEventEnvelopes", () => { (services.auth as unknown as { currentUser: unknown }).currentUser = { uid: "other" }; return { data: { rows: [], nextCursor: null } }; });
   await expect(getVisibleEventPage({ groupId: "club", publicOnly: false }, services)).rejects.toThrow("account_changed");
+});
+
+it("calls public discovery through the injected embedded session instead of the uninitialized web app (#1485)", async () => {
+  const services = { auth: { currentUser: { uid: "embedded" } }, functions: { embedded: true }, ensureAppCheckReady: vi.fn() } as unknown as FirebaseServices;
+  const defaultReadiness = vi.mocked(ensureAppCheckReady).mock.calls.length;
+  setCallableResult("listVisibleEventEnvelopes", { data: { rows: [{ id: "public", data: { info: { visibility: "PUBLIC" } } }], nextCursor: null } });
+  const page = await getPublicEvents(["OPEN", "LIVE"], undefined, services);
+  expect(page.docs.map(doc => doc.id)).toEqual(["public"]);
+  expect(services.ensureAppCheckReady).toHaveBeenCalledOnce();
+  expect(vi.mocked(ensureAppCheckReady).mock.calls.length).toBe(defaultReadiness);
+  expect(httpsCallable).toHaveBeenLastCalledWith(services.functions, "listVisibleEventEnvelopes");
+  expect(mockCallableInvocations.at(-1)).toEqual({ name: "listVisibleEventEnvelopes", data: { publicOnly: true, statuses: ["OPEN", "LIVE"], limit: 250 } });
 });
