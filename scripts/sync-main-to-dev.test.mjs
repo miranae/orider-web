@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { command, prepareBackport, cleanup, validateExistingBackport } from './sync-main-to-dev.mjs';
+import { command, prepareBackport, cleanup, validateExistingBackport, assertPromotionAncestry } from './sync-main-to-dev.mjs';
 
 function fixture(t) {
   const repo = mkdtempSync(join(tmpdir(), 'backport-test-'));
@@ -74,4 +74,21 @@ test('resume rejects changed topic content even when its source trailer is retai
   command(p.work,'git',['commit','-am','changed topic','-m',`Production-Commit: ${source}`]);
   const changed=command(p.work,'git',['rev-parse','HEAD']).stdout.trim();
   assert.throws(()=>validateExistingBackport(repo,source,changed),/delta differs/);
+});
+
+
+test('ancestry synchronization preserves both protected parents without changing product files', t => {
+  const {repo,git,source}=fixture(t);
+  git('cherry-pick',source); const base=git('rev-parse','HEAD'); git('update-ref','refs/remotes/origin/dev',base);
+  git('merge','--no-ff','--no-commit',source); // A cherry-pick is not an ancestor link.
+  git('commit','--signoff','-m','sync ancestry','-m',`Production-Commit: ${source}`);
+  const head=git('rev-parse','HEAD'),branch=`sync/promotion-${source.slice(0,12)}`;
+  assert.equal(assertPromotionAncestry(repo,base,head,source,branch).method,'merge');
+  assert.throws(()=>assertPromotionAncestry(repo,base,head,source,'other'),/branch/);
+  assert.throws(()=>assertPromotionAncestry(repo,base,base,source,branch),/parents/);
+  writeFileSync(join(repo,'other.txt'),'changed source\n'); git('add','.');
+  git('commit','--amend','--no-edit');
+  assert.throws(()=>assertPromotionAncestry(repo,base,git('rev-parse','HEAD'),source,branch),/preserve the dev tree/);
+  git('update-ref','refs/remotes/origin/main',base);
+  assert.throws(()=>assertPromotionAncestry(repo,base,head,source,branch),/advanced/);
 });
