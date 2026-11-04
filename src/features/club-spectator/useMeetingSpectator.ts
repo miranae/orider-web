@@ -26,7 +26,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     let scheduled: ReturnType<typeof setTimeout> | undefined;
     const viewer = services.auth.currentUser;
     const current = () => !disposed && services.auth.currentUser === viewer && viewer?.uid === uid;
-    const clear = (error: unknown = null) => setState({scope, data: null, receivedAt: 0, loading: false, error});
+    const clear = (error: unknown = null, loading = false) => setState({scope, data: null, receivedAt: 0, loading, error});
     const stop = () => { stops.forEach(unsubscribe => unsubscribe()); stops = []; readySubscriptions.clear(); clearTimeout(scheduled); scheduled = undefined; clearTimeout(recovery); recovery = undefined; };
     setState(old => old.scope === scope && old.data ? {...old, error: null} : {scope, data: null, receivedAt: 0, loading: !!uid, error: null});
     if (!uid || !groupId || !eventId || !viewer || viewer.uid !== uid) return;
@@ -70,7 +70,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     };
     const signal = (sensitive = false) => {
       if (!current() || document.hidden || blocked) return;
-      if (sensitive) { generation++; clear(); }
+      if (sensitive) { generation++; clear(null, true); }
       // 변경 신호가 계속 와도 타이머를 미루지 않는다. 최대 5초 창에서 한 번만 재조회한다.
       if (scheduled === undefined) scheduled = setTimeout(() => {
         scheduled = undefined;
@@ -104,7 +104,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
     };
     refreshSelection.current = () => { lastReadAt = 0; void load(); };
     void start();
-    const visible = () => { recoveryAttempts = 0; lastReadAt = 0; generation++; queued = false; stop(); clear(); if (!document.hidden && !blocked) void start(); };
+    const visible = () => { recoveryAttempts = 0; lastReadAt = 0; generation++; queued = false; stop(); clear(null, !document.hidden && !blocked); if (!document.hidden && !blocked) void start(); };
     const focus = () => { if (!document.hidden && !blocked) { recoveryAttempts = 0; if (!stops.length) void start(); else void load(); } };
     document.addEventListener("visibilitychange", visible);
     window.addEventListener("focus", focus);
