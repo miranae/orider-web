@@ -1,5 +1,5 @@
 import { SEARCH_PAGE_SIZE, usePagedSearch } from "../../hooks/usePagedSearch";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import {
   collection,
   query,
@@ -43,6 +43,19 @@ export function useBoardMeta() {
   return { tags };
 }
 
+const boardMutationListeners = new Set<() => void>();
+let boardMutationRevision = 0;
+const getBoardMutationRevision = () => boardMutationRevision;
+const subscribeBoardMutations = (listener: () => void) => {
+  boardMutationListeners.add(listener);
+  return () => { boardMutationListeners.delete(listener); };
+};
+function notifyBoardMutation() {
+  boardMutationRevision += 1;
+  for (const listener of boardMutationListeners) listener();
+}
+const useBoardMutationRevision = () => useSyncExternalStore(subscribeBoardMutations, getBoardMutationRevision, getBoardMutationRevision);
+
 /**
  * 페이지 기반 게시글 목록 훅
  * keyword가 있으면 Cloud Function 검색, 없으면 Firestore 페이지 쿼리
@@ -65,10 +78,11 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
   const [page, setPage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
+  const mutationRevision = useBoardMutationRevision();
 
   const pagedSearch = !ownerOnly && (!!keyword?.trim() || boardType === "archive");
   type SearchCursor = { createdAt: number; id: string };
-  const searchPages = usePagedSearch(pagedSearch ? JSON.stringify([boardType, keyword, tag, excludeKey, refreshKey, uid]) : null,
+  const searchPages = usePagedSearch(pagedSearch ? JSON.stringify([boardType, keyword, tag, excludeKey, refreshKey, mutationRevision, uid]) : null,
     async (cursor: SearchCursor | null) => {
       const search = httpsCallable<Record<string, unknown>, { posts: BoardPost[]; hasMore: boolean; nextCursor: SearchCursor | null }>(functions, "searchBoardPosts");
       const { data } = await search({ keyword: keyword?.trim(), boardType, tag, publicOnly: true, excludeTags, pageOnly: true, limitCount: SEARCH_PAGE_SIZE, pageCursor: cursor });
@@ -87,7 +101,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
   const refresh = () => { setRefreshKey((k) => k + 1); setPage(1); };
 
   // 필터 변경 시 1페이지로 리셋 (실제 값 변경만 감지, strict mode 안전)
-  const filterKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, ownerOnly, uid]);
+  const filterKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, mutationRevision, ownerOnly, uid]);
   const [loadedFilterKey, setLoadedFilterKey] = useState<string | null>(null);
   useEffect(() => {
     // URL이 필터와 페이지의 정본이다. 뒤로가기와 상세 화면 복귀도 같은 페이지를 읽는다.
@@ -135,7 +149,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
         // 총 개수(페이지네이션 "N개" 라벨용)는 글 렌더에 불필요 → 비차단으로 발사한다.
         // 목록 쿼리가 count 왕복을 기다리지 않아 콘텐츠가 더 빨리 뜬다(전: count→목록 순차 2왕복).
         // count 실패는 라벨에만 영향이라 무시.
-        const countKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, ownerOnly, ownerOnly ? uid : uid ? "1" : "0"]);
+        const countKey = JSON.stringify([boardType, tag, keyword, excludeKey, refreshKey, mutationRevision, ownerOnly, ownerOnly ? uid : uid ? "1" : "0"]);
         const cachedCount = countCacheRef.current.get(countKey);
         if (cachedCount !== undefined) {
           // 같은 필터 — 캐시된 총개수 사용, 네트워크 count 생략(중복 발사 제거).
@@ -205,7 +219,7 @@ export function useBoardPosts(boardType: BoardType | 'all', pageSize = 20, tag?:
       fetchPage();
       return () => { cancelled = true; };
     }
-  }, [firestore, boardType, pageSize, tag, keyword, excludeKey, refreshKey, page, uid, ownerOnly, pagedSearch]);
+  }, [firestore, boardType, pageSize, tag, keyword, excludeKey, refreshKey, mutationRevision, page, uid, ownerOnly, pagedSearch]);
 
   const goToPage = (p: number) => {
     if (p >= 1 && p <= totalPages) setPage(p);
@@ -226,6 +240,7 @@ export function useMyInquiryPosts(limitCount = 100) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const mutationRevision = useBoardMutationRevision();
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
@@ -269,7 +284,7 @@ export function useMyInquiryPosts(limitCount = 100) {
       });
 
     return () => { cancelled = true; };
-  }, [firestore, limitCount, refreshKey, uid]);
+  }, [firestore, limitCount, refreshKey, mutationRevision, uid]);
 
   return { posts: uid === loadedUid ? posts : [], loading: loading || (uid !== null && uid !== loadedUid), error: uid === loadedUid ? error : null, refresh };
 }
@@ -346,9 +361,11 @@ export function useCreatePost() {
 
       if (postId) {
         await setDoc(doc(firestore, "board_posts", postId), postData);
+        notifyBoardMutation();
         return postId;
       }
       const docRef = await addDoc(collection(firestore, "board_posts"), postData);
+      notifyBoardMutation();
       return docRef.id;
     } finally {
       setSubmitting(false);
@@ -370,6 +387,7 @@ export function useDeletePost() {
     try {
       const postRef = doc(firestore, "board_posts", postId);
       await updateDoc(postRef, { deletedAt: Date.now() });
+      notifyBoardMutation();
     } finally {
       setDeleting(false);
     }
@@ -390,6 +408,7 @@ export function useRestorePost() {
     try {
       const postRef = doc(firestore, "board_posts", postId);
       await updateDoc(postRef, { deletedAt: null });
+      notifyBoardMutation();
     } finally {
       setRestoring(false);
     }

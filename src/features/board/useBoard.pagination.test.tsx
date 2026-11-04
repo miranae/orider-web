@@ -1,8 +1,8 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { getDocs, startAfter, where, orderBy, setDoc } from 'firebase/firestore';
+import { getDocs, startAfter, where, orderBy, setDoc, updateDoc } from 'firebase/firestore';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockCallableInvocations, setCallableImplementation, setCollectionDocs } from '../../__tests__/mocks/firebase';
-import { useBoardPosts, useMyInquiryPosts, useCreatePost } from './useBoard';
+import { useBoardPosts, useMyInquiryPosts, useCreatePost, useDeletePost } from './useBoard';
 
 const auth = vi.hoisted(() => ({ user: { uid: 'first-user' } as { uid: string } | null }));
 vi.mock('../../contexts/AuthContext', () => ({ useAuth: () => auth }));
@@ -112,3 +112,43 @@ describe('board URL pagination', () => {
   expect(id).toBe('preallocated');
   expect(setDoc).toHaveBeenCalledWith(expect.objectContaining({ path: 'board_posts/preallocated' }), expect.objectContaining({ userId: 'first-user', isPrivate: true }));
  });
+
+
+describe('retained board mutation refresh', () => {
+  it('refreshes mounted posts and inquiry lists after create and delete while preserving the page', async () => {
+    setCollectionDocs('board_posts', [{...searchPosts[0]!, boardType:'inquiry', deletedAt:null}]);
+    const { result } = renderHook(() => ({
+      list: useBoardPosts('all', 2, undefined, undefined, [], 2),
+      inquiries: useMyInquiryPosts(), create: useCreatePost(), remove: useDeletePost(),
+    }));
+    await waitFor(() => expect(result.current.list.posts).toHaveLength(1));
+    await waitFor(() => expect(result.current.inquiries.posts).toHaveLength(1));
+    setCollectionDocs('board_posts', [...searchPosts.slice(0,2).map(post=>({...post,boardType:'inquiry',deletedAt:null}))]);
+    await act(async () => { await result.current.create.createPost({boardType:'inquiry',title:'New',content:'Body'},'new'); });
+    await waitFor(() => expect(result.current.list.posts).toHaveLength(2));
+    await waitFor(() => expect(result.current.inquiries.posts).toHaveLength(2));
+    expect(result.current.list.page).toBe(2);
+    setCollectionDocs('board_posts', []);
+    await act(async () => { await result.current.remove.deletePost('post-0'); });
+    await waitFor(() => expect(result.current.list.posts).toEqual([]));
+    await waitFor(() => expect(result.current.inquiries.posts).toEqual([]));
+    expect(result.current.list.page).toBe(2);
+  });
+  it('invalidates an existing search cursor after a successful post mutation', async () => {
+    const { result } = renderHook(() => ({list:useBoardPosts('archive'),remove:useDeletePost()}));
+    await waitFor(() => expect(result.current.list.posts[0]?.id).toBe('post-0'));
+    setCallableImplementation('searchBoardPosts',()=>({data:{posts:[{...searchPosts[1]!,title:'Current'}],hasMore:false,nextCursor:null}}));
+    await act(async () => { await result.current.remove.deletePost('post-0'); });
+    await waitFor(() => expect(result.current.list.posts.map(post=>post.id)).toEqual(['post-1']));
+  });
+  it('keeps the current list when the mutation fails', async () => {
+    setCollectionDocs('board_posts',searchPosts);
+    const { result } = renderHook(() => ({list:useBoardPosts('all'),remove:useDeletePost()}));
+    await waitFor(() => expect(result.current.list.posts).toHaveLength(7));
+    const reads=vi.mocked(getDocs).mock.calls.length;
+    vi.mocked(updateDoc).mockRejectedValueOnce(new Error('unavailable'));
+    await act(async () => { await expect(result.current.remove.deletePost('post-0')).rejects.toThrow('unavailable'); });
+    expect(vi.mocked(getDocs).mock.calls.length).toBe(reads);
+    expect(result.current.list.posts).toHaveLength(7);
+  });
+});
