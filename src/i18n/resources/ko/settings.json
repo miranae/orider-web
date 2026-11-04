@@ -391,6 +391,7 @@
       "cardManagement": "계정 관리",
       "cardSocial": "로그인 연결",
       "social": {
+        "discord": "디스코드",
         "naver": "네이버",
         "kakao": "카카오",
         "strava": "Strava",
