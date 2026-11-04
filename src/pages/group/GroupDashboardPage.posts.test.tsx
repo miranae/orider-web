@@ -32,7 +32,6 @@ vi.mock("../../services/publicClubs", () => ({
   getPublicClubPage: vi.fn(async () => ({ club: { id: "group-1", name: "Public club preview", approval: "auto", sports: ["bike"] }, schedule: null })),
   PublicClubUnavailable: class extends Error {},
 }));
-vi.mock("../../components/group/GroupSubNav", () => ({ default: () => null }));
 vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
 function Page() { return <MemoryRouter initialEntries={["/group/group-1"]}><Routes><Route path="/group/:groupId" element={<GroupDashboardPage />} /></Routes></MemoryRouter>; }
 function edit() {
@@ -94,6 +93,15 @@ describe("group post editing", () => {
       expect(trigger).toHaveAccessibleDescription(tooltip!.textContent!);
       await act(async () => { trigger.blur(); });
     }
+  });
+  it("uses the real meeting title and meeting attendance route for upcoming club meetings",async()=>{
+    setCollectionDocs("events",[{id:"meeting-real",info:{name:"동호회 모임",kind:"CLUB_MEETING",status:"OPEN",groupId:"group-1",startTime:Date.now()+86400000}}]);
+    setCallableImplementation("getClubMeetingSnapshot",()=>({data:{eventId:"meeting-real",groupId:"group-1",meeting:{title:"아침 그룹 라이딩"}}}));
+    render(<Page />);
+    expect(await screen.findByText("아침 그룹 라이딩")).toBeInTheDocument();
+    expect(screen.getByRole("link",{name:/아침 그룹 라이딩/})).toHaveAttribute("href","/ko/club/group-1/meetings/meeting-real");
+    expect(screen.getByRole("link",{name:"모임 보기"})).toHaveAttribute("href","/ko/club/group-1/meetings/meeting-real");
+    expect(screen.queryByRole("link",{name:"참가 신청"})).not.toBeInTheDocument();
   });
   it("clears a composer on account change and ignores old account completion",async()=>{
     let finish!:()=>void;vi.mocked(createGroupPost).mockImplementationOnce(()=>new Promise<void>(resolve=>{finish=resolve;}));

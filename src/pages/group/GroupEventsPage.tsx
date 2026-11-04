@@ -22,17 +22,10 @@ import {
   ErrorState,
   LoadingSkeleton,
 } from "../../components/redesign";
-import { Button, Card, buttonClass } from "../../theme/components";
+import { UnifiedClubEventList, type ClubEvent } from "../../features/group/UnifiedClubEventList";
+import { Button, buttonClass } from "../../theme/components";
 import { logClientError } from "../../services/errorLogger";
 
-interface ClubEvent {
-  id: string;
-  name: string;
-  status: string;
-  startTime: number;
-  registered: number | null;
-  myRsvp: boolean | null;
-}
 export default function GroupEventsPage() {
   const services = useFirebaseServices();
   const { firestore } = services;
@@ -53,7 +46,7 @@ export default function GroupEventsPage() {
     error: groupError,
     retry: retryGroup,
   } = useGroup(groupId, accessKey);
-  const meetingScope = `${user?.uid ?? ""}:${groupId ?? ""}`;
+  const meetingScope = `${user?.uid ?? ""}:${groupId ?? ""}:${role ?? ""}`;
   const currentMeetingScope = useRef(meetingScope);
   currentMeetingScope.current = meetingScope;
   const [loadedMeetingScope, setLoadedMeetingScope] = useState("");
@@ -63,6 +56,7 @@ export default function GroupEventsPage() {
   const [meetings, setMeetings] = useState<ClubMeetingListItem[]>([]);
   const [meetingError, setMeetingError] = useState(false);
   const [meetingLoading, setMeetingLoading] = useState(true);
+  const [loadedEventScope, setLoadedEventScope] = useState("");
   const [events, setEvents] = useState<ClubEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -83,7 +77,7 @@ export default function GroupEventsPage() {
       return;
     }
     (async () => {
-      const page = await getVisibleEventPage({ groupId, publicOnly: !role, statuses: status === "all" ? ["OPEN", "LIVE"] : [status], descending: status === "FINISHED", limit: 20, ...(eventCursor ? { cursor: eventCursor } : {}) }, services);
+      const page = await getVisibleEventPage({ groupId, publicOnly: !role, statuses: status === "all" ? ["OPEN", "LIVE", "FINISHED", "CANCELLED"] : [status], descending: status === "FINISHED" || status === "CANCELLED", limit: 20, ...(eventCursor ? { cursor: eventCursor } : {}) }, services);
       if (!cancelled) setEventNextCursor(page.nextCursor);
       return page.docs.filter(item => {
         const info = item.data().info ?? {};
@@ -137,8 +131,10 @@ export default function GroupEventsPage() {
             };
           }),
         );
-        if (!cancelled)
+        if (!cancelled) {
           setEvents(rows.filter((row): row is ClubEvent => row !== null));
+          setLoadedEventScope(eventScope);
+        }
       })
       .catch((err) => {
         logClientError("GroupEventsPage.load", err, { groupId });
@@ -150,7 +146,7 @@ export default function GroupEventsPage() {
     return () => {
       cancelled = true;
     };
-  }, [groupId, accessKey, role, retry, status, eventCursor, services]);
+  }, [groupId, accessKey, role, retry, status, eventCursor, services, eventScope]);
   useEffect(() => {
     let cancelled = false;
     setMeetings([]);
@@ -218,11 +214,7 @@ export default function GroupEventsPage() {
   const manager = canManageGroup(group, user?.uid, role);
   if (!role) return <Navigate to=".." relative="path" replace />;
   const calendarUrl = groupCalendarUrl(group);
-  const visibleEvents = events.filter((event) =>
-    status === "all"
-      ? ["OPEN", "LIVE"].includes(event.status)
-      : event.status === status,
-  );
+
   return (
     <div data-testid="C3" className="space-y-4">
       <header data-testid="C3-0">
@@ -257,64 +249,8 @@ export default function GroupEventsPage() {
         </div>
       </header>
       <ClubCafeSchedulePanel groupId={group.id} language={i18n.language} />
-      <section
-        aria-label={
-          i18n.language.startsWith("en") ? "Club meetings" : "클럽 모임"
-        }
-        className="space-y-3"
-      >
-        {meetingLoading ? (
-          <LoadingSkeleton kind="list" count={2} />
-        ) : meetingError ? (
-          <ErrorState
-            title={
-              i18n.language.startsWith("en")
-                ? "Could not load club meetings"
-                : "클럽 모임을 불러오지 못했어요."
-            }
-            onRetry={() => setRetry((value) => value + 1)}
-          />
-        ) : visibleMeetings.length === 0 ? (
-          <p>
-            {i18n.language.startsWith("en")
-              ? "No club meetings yet. Any active member can create one."
-              : "아직 모임이 없어요. 활동 중인 클럽 회원 누구나 만들 수 있어요."}
-          </p>
-        ) : (
-          visibleMeetings.map((item) => (
-            <Card key={item.eventId}>
-              <Link to={`/club/${group.id}/meetings/${item.eventId}`}>
-                <strong>{item.meeting.title}</strong>
-              </Link>
-              {item.rideStatus === "LIVE" && <strong role="status">{i18n.language.startsWith("en") ? "Riding now" : "지금 주행 중"}</strong>}
-              {item.meeting.status !== "cancelled" && item.rideStatus !== "FINISHED" && <Link to={`/club/${group.id}/meetings/${item.eventId}/live`}>{i18n.language.startsWith("en") ? "Watch virtual ride" : "가상주행 관전"}</Link>}
-              <p>
-                {item.meeting.date} {item.meeting.time} · {item.meeting.place}
-              </p>
-              <p>
-                {item.meeting.status === "cancelled"
-                  ? i18n.language.startsWith("en")
-                    ? "Cancelled"
-                    : "모임 취소"
-                  : `${item.participantCount}/${item.meeting.capacity} ${i18n.language.startsWith("en") ? "attending" : "참석"} · ${item.waitingCount} ${i18n.language.startsWith("en") ? "waiting" : "대기"}`}
-              </p>
-            </Card>
-          ))
-        )}
-        {loadedMeetingScope === meetingScope && nextCursor && !meetingError && (
-          <Button
-            loading={loadingMore}
-            disabled={loadingMore}
-            onClick={() => void loadMoreMeetings()}
-          >
-            {i18n.language.startsWith("en")
-              ? "Load more meetings"
-              : "모임 더 보기"}
-          </Button>
-        )}
-      </section>
       <div className="flex flex-wrap gap-2">
-        {["all", "OPEN", "LIVE", "FINISHED"].map((value) => (
+        {["all", "OPEN", "LIVE", "FINISHED", "CANCELLED"].map((value) => (
           <Button
             key={value}
             size="sm"
@@ -328,66 +264,14 @@ export default function GroupEventsPage() {
           </Button>
         ))}
       </div>
-      <section data-testid={status === "FINISHED" ? "C3-2" : "C3-1"}>
-        {loading ? (
-          <LoadingSkeleton kind="list" count={3} />
-        ) : error ? (
-          <ErrorState
-            title={t("error.loadFailed")}
-            onRetry={() => { setEventPage({ scope: eventScope }); setRetry((value) => value + 1); }}
-          />
-        ) : visibleEvents.length === 0 ? (
-          <div data-testid="C3-1-3">
-            <EmptyState
-              title={eventNextCursor || eventCursor ? t("event:discovery.emptyPage") : t(`events.empty.${status}`)}
-              actions={[
-                { label: t("dashboard.moreEvents"), href: "/explore/events" },
-              ]}
-            />
-          </div>
-        ) : (
-          visibleEvents.map((event) => (
-            <Card
-              data-testid={event.status === "FINISHED" ? "C3-2-1" : "C3-1-1"}
-              key={event.id}
-            >
-              <Link to={`/event/${event.id}`}>{event.name}</Link>
-              <p>
-                {event.startTime
-                  ? new Date(event.startTime).toLocaleString(i18n.language)
-                  : "–"}{" "}
-                · {t(`event:status.${event.status.toLowerCase()}`)}
-                {event.registered !== null
-                  ? ` · ${t("dashboard.eventParticipants", { count: event.registered })}`
-                  : ""}
-              </p>
-              {event.status === "OPEN" && (
-                <Link
-                  data-testid="C3-1-2"
-                  to={
-                    event.myRsvp === null || event.myRsvp
-                      ? `/event/${event.id}`
-                      : `/event/${event.id}/register`
-                  }
-                >
-                  {t(
-                    event.myRsvp === null
-                      ? "events.viewDetails"
-                      : event.myRsvp
-                        ? "dashboard.eventAction.manageRsvp"
-                        : "dashboard.eventAction.rsvp",
-                  )}
-                </Link>
-              )}
-              {event.status === "FINISHED" && (
-                <Link to={`/event/${event.id}/results`}>
-                  {t("events.results")}
-                </Link>
-              )}
-            </Card>
-          ))
-        )}
-      </section>
+      <UnifiedClubEventList groupId={group.id} meetings={visibleMeetings} events={loadedEventScope === eventScope ? events : []} status={status}
+        loading={loading || meetingLoading} error={error || meetingError}
+        hasMore={!!(eventNextCursor || eventCursor || nextCursor)} onRetry={() => { setEventPage({ scope: eventScope }); setRetry(value => value + 1); }} />
+      {loadedMeetingScope === meetingScope && nextCursor && !meetingError && (
+        <Button loading={loadingMore} disabled={loadingMore} onClick={() => void loadMoreMeetings()}>
+          {i18n.language.startsWith("en") ? "Load more meetings" : "모임 더 보기"}
+        </Button>
+      )}
       {!loading && !error && (eventNextCursor || eventCursor) && <div>
         <p role="status">{t("event:discovery.partial")}</p>
         {eventCursor && <Button variant="secondary" onClick={() => setEventPage({ scope: eventScope })}>{t("event:discovery.first")}</Button>}

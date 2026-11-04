@@ -45,10 +45,12 @@ describe("GroupSubNav", () => {
     expect(screen.getByRole("link",{name:"이벤트"})).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link",{name:"멤버"})).toHaveAttribute("aria-current","page");
   });
-  it("keeps a single club heading and can defer its description to the dashboard", () => {
-    renderWithProviders(<Routes><Route path="/:lang/club/:groupId" element={<GroupSubNav group={group} isCreator={false} showDescription={false} />} /></Routes>, { route: "/ko/club/group-1" });
-    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    expect(screen.queryByText(group.description!)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "공유" })).toBeInTheDocument();
+  it.each(["", "/events", "/members", "/rides", "/week", "/settings", "/meetings/meeting-1"])("keeps club identity identical on %s", (page) => {
+    renderWithProviders(<Routes><Route path="/:lang/club/:groupId/*" element={<GroupSubNav group={group} isCreator />} /></Routes>, {route:`/ko/club/group-1${page}`});
+    expect(screen.getAllByRole("heading", {level:1})).toHaveLength(1);
+    expect(screen.getByRole("heading", {level:1})).toHaveTextContent(group.name);
+    expect(screen.getByText(group.description!)).toBeInTheDocument();
+    expect(screen.getByText("멤버 3명")).toBeInTheDocument();
+    expect(screen.getByRole("button", {name:"공유"})).toBeInTheDocument();
   });
 });

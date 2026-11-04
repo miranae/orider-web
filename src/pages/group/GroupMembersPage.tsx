@@ -188,12 +188,12 @@ export default function GroupMembersPage({ management = false }: { management?: 
   const filteredMembers = useMemo(() => {
     const q = search.trim().toLowerCase();
     return members.filter((m) => {
-      const role = (m.role as string) ?? "member";
+      const role = (m.role as string) ?? (group?.creatorId === m.id ? "leader" : "member");
       if (roleFilter !== "all" && role !== roleFilter) return false;
       if (q && !(m.profile?.nickname ?? "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [members, search, roleFilter]);
+  }, [members, search, roleFilter, group?.creatorId]);
 
   const selectableMemberIds = useMemo(
     () => filteredMembers.filter((m) => m.id !== user?.uid).map((m) => m.id),
