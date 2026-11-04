@@ -28,6 +28,7 @@ export interface MeetingSpectatorSnapshot {
   status: "OPEN" | "LIVE" | "FINISHED" | "CANCELLED";
   serverNowMs: number;
   selectedUid: string | null;
+  participants?: {uid: string; displayName: string; status: string}[];
   course: SpectatorCourse | null;
   locations: SpectatorRider[];
 }

@@ -27,6 +27,7 @@ export const RULES = [
       "src/embedded/trainingSurfaceCache.ts": "", "src/features/board/postDraft.ts": "",
       "src/features/club-preparation/domain.ts": "", "src/features/club-preparation/meetingCopy.ts": "",
       "src/features/club-preparation/meetingDrafts.ts": "", "src/hooks/useActiveBikeProfile.ts": "",
+      "src/features/club-spectator/preferences.ts": "uid/groupId/eventId로 나눈 관전 설정만 저장; 위치·코스 본문 제외, 계정/모임 전환 회귀 테스트",
       "src/hooks/useDashboardPreferences.ts": "", "src/hooks/useDefaultSport.ts": "", "src/hooks/useFirstSyncCelebration.ts": "",
       "src/i18n/detector.ts": "계정 무관(언어)", "src/i18n/index.ts": "계정 무관(언어)", "src/pages/event/EventLivePage.tsx": "",
       "src/services/analytics.ts": "", "src/services/impersonation.ts": "", "src/theme/OriderThemeProvider.tsx": "계정 무관(테마)",

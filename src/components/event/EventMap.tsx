@@ -50,6 +50,8 @@ const LANE_STYLE: Record<WaypointLane, { color: string; emoji: string }> = {
 
 interface EventMapProps {
   followSelected?: boolean;
+  /** Closing a popup keeps the watched rider and camera selected. */
+  preserveSelectionOnPopupClose?: boolean;
   locations: LocationData[];
   selectedUid: string | null;
   onSelectParticipant: (uid: string | null) => void;
@@ -232,10 +234,13 @@ export default function EventMap({
   waypoints = [],
   fitToCourse = true,
   followSelected = false,
+  preserveSelectionOnPopupClose = false,
 }: EventMapProps) {
   const mapboxToken = getMapboxToken();
   const { t } = useTranslation("event");
   const [popupInfo, setPopupInfo] = useState<LocationData | null>(null);
+  const [dismissedUid, setDismissedUid] = useState<string | null>(null);
+  const previousPopupSelection = useRef(selectedUid);
 
   const getStatusLabel = (status: string): string => {
     const key = normalizeStatusKey(status);
@@ -254,21 +259,25 @@ export default function EventMap({
 
   const handleMarkerClick = useCallback(
     (loc: LocationData) => {
-      onSelectParticipant(loc.uid === selectedUid ? null : loc.uid);
-      setPopupInfo(loc.uid === selectedUid ? null : loc);
+      setDismissedUid(null);
+      onSelectParticipant(preserveSelectionOnPopupClose ? loc.uid : loc.uid === selectedUid ? null : loc.uid);
+      setPopupInfo(preserveSelectionOnPopupClose ? loc : loc.uid === selectedUid ? null : loc);
     },
-    [selectedUid, onSelectParticipant]
+    [selectedUid, onSelectParticipant, preserveSelectionOnPopupClose]
   );
 
   // Sync popup with selectedUid changes from table
   useEffect(() => {
-    if (!selectedUid) {
+    const changed = previousPopupSelection.current !== selectedUid;
+    previousPopupSelection.current = selectedUid;
+    if (changed) setDismissedUid(null);
+    if (!selectedUid || (preserveSelectionOnPopupClose && !changed && dismissedUid === selectedUid)) {
       setPopupInfo(null);
       return;
     }
     const loc = locations.find((l) => l.uid === selectedUid);
     setPopupInfo(loc ?? null);
-  }, [selectedUid, locations]);
+  }, [selectedUid, locations, dismissedUid, preserveSelectionOnPopupClose]);
 
   return (
     <Map
@@ -424,7 +433,8 @@ export default function EventMap({
           anchor="bottom"
           onClose={() => {
             setPopupInfo(null);
-            onSelectParticipant(null);
+            if (preserveSelectionOnPopupClose) setDismissedUid(selectedUid);
+            else onSelectParticipant(null);
           }}
           closeOnClick={false}
           maxWidth="200px"
