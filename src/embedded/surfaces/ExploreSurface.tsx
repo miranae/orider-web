@@ -50,7 +50,7 @@ export default function ExploreSurface(props: HubSurfaceProps) {
     setParams(new URLSearchParams({ hubPage: page }));
   };
   return (
-    <HubSurfaceFrame {...props} title={t("nav.explore")} testId="embedded-explore"
+    <HubSurfaceFrame {...props} title={t("nav.explore")} testId="embedded-explore" className="orider-embedded-explore"
       header={<EmbeddedExploreNavigation selected={selected} onSelect={select} />}>
       <ExplorePageContent key={selected} page={selected} section={selected === "recipes" ? params.get("section") : null} />
     </HubSurfaceFrame>

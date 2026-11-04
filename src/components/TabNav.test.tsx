@@ -23,6 +23,13 @@ describe("TabNav", () => {
     expect(inactive.className).toContain("focus-visible:outline");
   });
 
+  it("names the tab row when an aria-label is given (underline and segmented)", () => {
+    const { rerender } = render(<TabNav aria-label="진행 상태" tabs={tabs} activeTab="overview" onChange={() => {}} />);
+    expect(screen.getByRole("tablist", { name: "진행 상태" })).toBeInTheDocument();
+    rerender(<TabNav aria-label="진행 상태" appearance="segmented" tabs={tabs} activeTab="overview" onChange={() => {}} />);
+    expect(screen.getByRole("tablist", { name: "진행 상태" })).toBeInTheDocument();
+  });
+
   it("calls onChange with tab id when clicked", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

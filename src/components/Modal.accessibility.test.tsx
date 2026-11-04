@@ -7,16 +7,21 @@ import Modal from './Modal';
 import { RetainedPageContext } from '../contexts/RetainedPageContext';
 
 describe('shared modal keyboard access', () => {
-  it('keeps an existing generic portal modal locked and keyboard accessible under a hidden retained owner', () => {
+  it('suspends a retained owner modal and its effects until the page is visible again', () => {
     const close = vi.fn();
     const modal = <Modal open onClose={close} title="Existing club dialog"><input aria-label="Club name" /></Modal>;
     const view = render(<><button>Outside owner</button><RetainedPageContext.Provider value><div>{modal}</div></RetainedPageContext.Provider></>);
     view.rerender(<><button>Outside owner</button><RetainedPageContext.Provider value={false}><div hidden>{modal}</div></RetainedPageContext.Provider></>);
-    expect(screen.getByRole('dialog', {name:'Existing club dialog'})).toBeVisible();
-    expect(document.body.style.position).toBe('fixed');
-    expect(document.body.style.overflow).toBe('hidden');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(document.body.style.position).not.toBe('fixed');
+    expect(document.body.style.overflow).not.toBe('hidden');
     screen.getByRole('button', {name:'Outside owner'}).focus();
-    expect(screen.getByRole('button', {name:'닫기'})).toHaveFocus();
+    expect(screen.getByRole('button', {name:'Outside owner'})).toHaveFocus();
+    fireEvent.keyDown(document, {key:'Escape'});
+    expect(close).not.toHaveBeenCalled();
+    view.rerender(<><button>Outside owner</button><RetainedPageContext.Provider value><div>{modal}</div></RetainedPageContext.Provider></>);
+    expect(screen.getByRole('dialog', {name:'Existing club dialog'})).toBeVisible();
+    expect(document.body.style.overflow).toBe('hidden');
     fireEvent.keyDown(document, {key:'Escape'});
     expect(close).toHaveBeenCalledOnce();
   });

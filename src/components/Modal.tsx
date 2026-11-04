@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { useRetainedPageVisible } from "../contexts/RetainedPageContext";
 import { createPortal } from "react-dom";
 import { useTrainingDialog } from "./training/useTrainingDialog";
 import { useTranslation } from "react-i18next";
@@ -21,7 +22,8 @@ interface ModalProps {
 }
 
 export default function Modal({ open, onClose, title, children, maxWidth = "max-w-md", portalClassName, busy = false, layer }: ModalProps) {
-  if (!open) return null;
+  const visible = useRetainedPageVisible();
+  if (!open || !visible) return null;
   const overlay = <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: layer ?? "var(--layer-modal)" }}>
     <div className="absolute inset-0 bg-black/50" onClick={() => { if (!busy) onClose(); }} />
     <AccessibleModalPanel onClose={onClose} title={title} maxWidth={maxWidth} busy={busy}>{children}</AccessibleModalPanel>

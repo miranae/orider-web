@@ -151,3 +151,23 @@ describe("event map camera intent", () => {
   });
 
 });
+
+describe("event status tabs", () => {
+  it("uses the same underline tabs as the coach and explore rows and filters by status", async () => {
+    setCollectionDocs("events", [
+      { id: "open", info: { name: "Open ride", status: "OPEN", type: "TOUR", visibility: "PUBLIC", startTime: Date.now() + 86_400_000 } },
+      { id: "done", info: { name: "Finished ride", status: "FINISHED", type: "TOUR", visibility: "PUBLIC", startTime: 1000 } },
+    ]);
+    renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
+    expect(await screen.findByText("Open ride", { exact: true })).toBeInTheDocument();
+    const tablist = screen.getByRole("tablist", { name: eventStrings["filter.statusLabel"] });
+    expect(within(tablist).getAllByRole("tab").map(tab => tab.textContent)).toEqual([
+      eventStrings["filter.all"], eventStrings["status.open"], eventStrings["status.live"], eventStrings["status.finished"],
+    ]);
+    expect(within(tablist).getByRole("tab", { name: eventStrings["filter.all"] })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(within(tablist).getByRole("tab", { name: eventStrings["status.finished"] }));
+    expect(within(tablist).getByRole("tab", { name: eventStrings["status.finished"] })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByText("Finished ride", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("Open ride", { exact: true })).not.toBeInTheDocument();
+  });
+});

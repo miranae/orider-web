@@ -272,7 +272,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
       <div className="flex-shrink-0" style={COURSES_CONTROL_STACK_STYLE}>
         <div className="course-catalog-head">
           <div className="min-w-0">
-            <Text data-testid="E1-0" as="h1" variant="pageTitle">{t("title")}</Text>
+            <Text data-testid="E1-0" as="h1" variant="pageTitle" className="explore-page-title">{t("title")}</Text>
             <p className="text-[length:var(--fs-sm)]" style={{ color: "var(--ink-3)", marginTop: "var(--space-1)" }}>
               {t("subtitle")}
             </p>

@@ -1,3 +1,4 @@
+import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useRef, useCallback, useMemo } from "react";
 import Map, { Source, Layer, Marker, Popup, useMap } from "react-map-gl/mapbox";
 import { useState } from "react";
@@ -6,6 +7,8 @@ import { getMapboxToken, MAP_STYLE, DEFAULT_VIEW, applyKoreaCyclingStyle } from 
 import { decodePolyline } from "../../utils/polyline";
 
 export interface LocationData {
+  speedAvailable?: boolean;
+  distanceAvailable?: boolean;
   uid: string;
   lat: number;
   lng: number;
@@ -46,6 +49,9 @@ const LANE_STYLE: Record<WaypointLane, { color: string; emoji: string }> = {
 };
 
 interface EventMapProps {
+  followSelected?: boolean;
+  /** Closing a popup keeps the watched rider and camera selected. */
+  preserveSelectionOnPopupClose?: boolean;
   locations: LocationData[];
   selectedUid: string | null;
   onSelectParticipant: (uid: string | null) => void;
@@ -109,21 +115,26 @@ function toGeoJSONCollection(locations: LocationData[], selectedUid: string | nu
 function FlyToSelected({
   locations,
   selectedUid,
+  followSelected,
 }: {
+  followSelected: boolean;
   locations: LocationData[];
   selectedUid: string | null;
 }) {
   const { current: map } = useMap();
-  const prevUid = useRef<string | null>(null);
+  const previousTarget = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!map || !selectedUid || selectedUid === prevUid.current) return;
+    if (!selectedUid) { previousTarget.current = null; return; }
+    if (!map) return;
     const loc = locations.find((l) => l.uid === selectedUid);
+    const target = loc ? (followSelected ? `${selectedUid}/${loc.lat}/${loc.lng}` : selectedUid) : null;
+    if (target === previousTarget.current) return;
     if (loc) {
       map.flyTo({ center: [loc.lng, loc.lat], zoom: 14, duration: 800 });
     }
-    prevUid.current = selectedUid;
-  }, [map, selectedUid, locations]);
+    previousTarget.current = target;
+  }, [map, selectedUid, locations, followSelected]);
 
   return null;
 }
@@ -222,10 +233,14 @@ export default function EventMap({
   checkpoints = [],
   waypoints = [],
   fitToCourse = true,
+  followSelected = false,
+  preserveSelectionOnPopupClose = false,
 }: EventMapProps) {
   const mapboxToken = getMapboxToken();
   const { t } = useTranslation("event");
   const [popupInfo, setPopupInfo] = useState<LocationData | null>(null);
+  const [dismissedUid, setDismissedUid] = useState<string | null>(null);
+  const previousPopupSelection = useRef(selectedUid);
 
   const getStatusLabel = (status: string): string => {
     const key = normalizeStatusKey(status);
@@ -244,21 +259,25 @@ export default function EventMap({
 
   const handleMarkerClick = useCallback(
     (loc: LocationData) => {
-      onSelectParticipant(loc.uid === selectedUid ? null : loc.uid);
-      setPopupInfo(loc.uid === selectedUid ? null : loc);
+      setDismissedUid(null);
+      onSelectParticipant(preserveSelectionOnPopupClose ? loc.uid : loc.uid === selectedUid ? null : loc.uid);
+      setPopupInfo(preserveSelectionOnPopupClose ? loc : loc.uid === selectedUid ? null : loc);
     },
-    [selectedUid, onSelectParticipant]
+    [selectedUid, onSelectParticipant, preserveSelectionOnPopupClose]
   );
 
   // Sync popup with selectedUid changes from table
   useEffect(() => {
-    if (!selectedUid) {
+    const changed = previousPopupSelection.current !== selectedUid;
+    previousPopupSelection.current = selectedUid;
+    if (changed) setDismissedUid(null);
+    if (!selectedUid || (preserveSelectionOnPopupClose && !changed && dismissedUid === selectedUid)) {
       setPopupInfo(null);
       return;
     }
     const loc = locations.find((l) => l.uid === selectedUid);
     setPopupInfo(loc ?? null);
-  }, [selectedUid, locations]);
+  }, [selectedUid, locations, dismissedUid, preserveSelectionOnPopupClose]);
 
   return (
     <Map
@@ -414,7 +433,8 @@ export default function EventMap({
           anchor="bottom"
           onClose={() => {
             setPopupInfo(null);
-            onSelectParticipant(null);
+            if (preserveSelectionOnPopupClose) setDismissedUid(selectedUid);
+            else onSelectParticipant(null);
           }}
           closeOnClick={false}
           maxWidth="200px"
@@ -430,8 +450,8 @@ export default function EventMap({
             <div>
               {t("liveView.statusLabel")}: {getStatusLabel(popupInfo.status)}
             </div>
-            <div>{(popupInfo.speed ?? 0).toFixed(1)} km/h</div>
-            <div>{((popupInfo.distance ?? 0) / 1000).toFixed(1)} km</div>
+            <div>{popupInfo.speedAvailable === false ? "—" : `${(popupInfo.speed ?? 0).toFixed(1)} km/h`}</div>
+            <div>{popupInfo.distanceAvailable === false ? "—" : `${((popupInfo.distance ?? 0) / 1000).toFixed(1)} km`}</div>
             {popupInfo.overallRank != null && (
               <div>{t("dashboard.alert.overallRank", { rank: popupInfo.overallRank })}</div>
             )}
@@ -439,7 +459,7 @@ export default function EventMap({
         </Popup>
       )}
 
-      <FlyToSelected locations={locations} selectedUid={selectedUid} />
+      <FlyToSelected locations={locations} selectedUid={selectedUid} followSelected={followSelected} />
     </Map>
   );
 }

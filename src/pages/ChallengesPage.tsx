@@ -13,7 +13,7 @@ export default function ChallengesPage() {
   const { user } = useAuth();
   const { groups, loading, error, retry } = useMyGroups(user?.uid);
   return <div className="explore-challenges-surface space-y-6">
-    <Text data-testid="E4-0" as="h1" variant="pageTitle">{t("nav.challenges")}</Text>
+    <Text data-testid="E4-0" as="h1" variant="pageTitle" className="explore-page-title">{t("nav.challenges")}</Text>
     {!user ? <div data-testid="E4-1-3"><CoachSignInButton /></div> : <>
       <ChallengeFeed part="monthly" />
       {loading ? <LoadingSkeleton kind="list" count={2} /> : error ? <ErrorState title={t("error.generic")} onRetry={retry} /> : <GroupChallengesPanel userId={user.uid} groups={groups} />}

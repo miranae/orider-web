@@ -24,9 +24,11 @@ interface TabNavProps {
   onChange: (id: string) => void;
   /** `segmented` — 상위 하위탭(밑줄) 아래 2단계 탭. HIG 세그먼트 컨트롤 모양으로 단계를 구분한다. */
   appearance?: "underline" | "segmented";
+  /** 탭 줄 이름(화면 읽기). 둘레에 이름 붙은 nav 가 없을 때 준다. */
+  "aria-label"?: string;
 }
 
-export default function TabNav({ tabs, activeTab, onChange, appearance = "underline" }: TabNavProps) {
+export default function TabNav({ tabs, activeTab, onChange, appearance = "underline", "aria-label": ariaLabel }: TabNavProps) {
   if (appearance === "segmented") {
     // 탭 패턴 — 선택된 탭만 Tab 순서에 두고 화살표·Home·End 로 이동
     const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -44,7 +46,7 @@ export default function TabNav({ tabs, activeTab, onChange, appearance = "underl
       event.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')[next]?.focus();
     };
     return (
-      <ToggleControls variant="axis" role="tablist" className="tab-nav--segmented" onKeyDown={moveFocus}>
+      <ToggleControls variant="axis" role="tablist" aria-label={ariaLabel} className="tab-nav--segmented" onKeyDown={moveFocus}>
         {tabs.map((tab) => (
           <ToggleButton key={tab.id} data-testid={tab.specId} role="tab" tabIndex={activeTab === tab.id ? 0 : -1} selected={activeTab === tab.id} onClick={() => onChange(tab.id)}>
             {tab.label}{tab.count != null && ` (${tab.count})`}
@@ -54,7 +56,7 @@ export default function TabNav({ tabs, activeTab, onChange, appearance = "underl
     );
   }
   return (
-    <div className="flex border-b overflow-x-auto" role="tablist" style={{ borderColor: "var(--line-soft)" }}>
+    <div className="flex border-b overflow-x-auto" role="tablist" aria-label={ariaLabel} style={{ borderColor: "var(--line-soft)" }}>
       {tabs.map((tab) => (
         <button
           key={tab.id}

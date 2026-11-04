@@ -286,6 +286,8 @@ export default function GroupEventsPage() {
               <Link to={`/club/${group.id}/meetings/${item.eventId}`}>
                 <strong>{item.meeting.title}</strong>
               </Link>
+              {item.rideStatus === "LIVE" && <strong role="status">{i18n.language.startsWith("en") ? "Riding now" : "지금 주행 중"}</strong>}
+              {item.meeting.status !== "cancelled" && item.rideStatus !== "FINISHED" && <Link to={`/club/${group.id}/meetings/${item.eventId}/live`}>{i18n.language.startsWith("en") ? "Watch virtual ride" : "가상주행 관전"}</Link>}
               <p>
                 {item.meeting.date} {item.meeting.time} · {item.meeting.place}
               </p>
