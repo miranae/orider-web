@@ -1,0 +1,14 @@
+.club-live-page { padding-block: var(--space-4); }
+.club-live-stack { display: grid; gap: var(--space-4); margin-top: var(--space-4); }
+.club-live-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.club-live-muted { color: var(--ink-2); font-size: var(--ft-body-small-size); }
+.club-live-map { height: 50vh; min-height: 18rem; margin-top: var(--space-3); overflow: hidden; border-radius: var(--r-md); }
+.club-live-riders { list-style: none; padding: 0; display: grid; gap: var(--space-3); }
+.club-live-riders > li { border: 1px solid var(--line-soft); border-radius: var(--r-md); padding: var(--space-3); }
+.club-live-riders > .club-live-selected { border-color: var(--lime); }
+.club-live-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: var(--space-3); margin-block: var(--space-3); }
+.club-live-metrics dt { color: var(--ink-2); font-size: var(--ft-body-small-size); }
+.club-live-metrics dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+.club-live-heading h1 { font-size: var(--fs-xl); font-weight: 600; line-height: 1.3; }
+.club-live-heading h2 { font-size: var(--fs-lg); font-weight: 600; }

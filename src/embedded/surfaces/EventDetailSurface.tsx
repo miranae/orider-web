@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { GlossaryProvider } from "../../components/common/GlossaryProvider";
 import HubSurfaceFrame, { type HubSurfaceProps } from "./HubSurfaceFrame";
 
+const ClubMeetingLivePage = lazy(() => import("../../pages/group/ClubMeetingLivePage"));
 const ClubMeetingPage = lazy(() => import("../../pages/group/ClubMeetingPage"));
 const EventDetailPage = lazy(() => import("../../pages/event/EventDetailPage"));
 const EventRegisterPage = lazy(() => import("../../pages/event/EventRegisterPage"));
@@ -25,6 +26,7 @@ export default function EventDetailSurface(props: HubSurfaceProps) {
       <GlossaryProvider>
         <Routes>
           <Route index element={<EventDetailPage />} />
+          <Route path="meeting/:groupId/:meetingId/live" element={<ClubMeetingLivePage />} />
           <Route path="meeting/:groupId/:meetingId" element={<ClubMeetingPage />} />
           <Route path="register" element={<EventRegisterPage />} />
           <Route path="results" element={<EventResultsPage />} />
