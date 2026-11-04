@@ -513,7 +513,7 @@
   "invite.linkLoadFailed": "Could not load the invite link.",
   "invite.historyLoadFailed": "Could not load sent invitations.",
   "error.membersLoadFailed": "Could not load club members.",
-  "events.empty.all": "No upcoming events",
+  "events.empty.all": "No meetings or races yet",
   "events.empty.OPEN": "No events open for registration",
   "events.empty.LIVE": "No events in progress",
   "events.empty.FINISHED": "No completed events",
@@ -608,5 +608,9 @@
   "ridePage.discoveryMore": "Load more activities",
   "ridePage.discoveryLoading": "Loading…",
   "ridePage.discoveryLimited": "This view reached its query limit. These records do not establish the total participant count.",
-  "ridePage.discoveryRefresh": "Refresh activities"
+  "ridePage.discoveryRefresh": "Refresh activities",
+  "events.listLabel": "Meetings and races",
+  "events.kind.meeting": "Meeting",
+  "events.kind.race": "Race",
+  "events.empty.CANCELLED": "No cancelled events"
 }

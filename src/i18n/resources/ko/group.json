@@ -511,7 +511,7 @@
   "invite.linkLoadFailed": "초대 링크를 불러오지 못했습니다.",
   "invite.historyLoadFailed": "보낸 초대 내역을 불러오지 못했습니다.",
   "error.membersLoadFailed": "멤버 목록을 불러오지 못했습니다.",
-  "events.empty.all": "예정된 이벤트가 없어요",
+  "events.empty.all": "등록된 모임이나 대회가 없어요",
   "events.empty.OPEN": "모집 중인 이벤트가 없어요",
   "events.empty.LIVE": "진행 중인 이벤트가 없어요",
   "events.empty.FINISHED": "종료된 이벤트가 없어요",
@@ -606,5 +606,9 @@
   "ridePage.discoveryMore": "활동 더 불러오기",
   "ridePage.discoveryLoading": "불러오는 중…",
   "ridePage.discoveryLimited": "이번 화면의 조회 한도에 도달했습니다. 전체 참가자 수를 뜻하지 않습니다.",
-  "ridePage.discoveryRefresh": "활동 새로 조회"
+  "ridePage.discoveryRefresh": "활동 새로 조회",
+  "events.listLabel": "모임 및 대회",
+  "events.kind.meeting": "모임",
+  "events.kind.race": "대회",
+  "events.empty.CANCELLED": "취소된 이벤트가 없어요"
 }
