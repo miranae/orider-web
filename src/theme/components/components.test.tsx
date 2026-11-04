@@ -74,9 +74,11 @@ describe('Input + Field', () => {
       event.preventDefault();
       expect(new FormData(event.currentTarget).get('query')).toBe('ride');
     });
-    render(<form onSubmit={onSubmit}><Input ref={ref} name="query" aria-label="Search" defaultValue="ride" endAction={<IconButton type="submit" aria-label="Run search" icon={<svg />} />} /></form>);
+    render(<form onSubmit={onSubmit}><Input ref={ref} name="query" aria-label="Search" defaultValue="ride" leadingIcon={<svg />} textAlign="end" endAction={<IconButton type="submit" aria-label="Run search" icon={<svg />} />} /></form>);
     expect(ref.current).toBe(screen.getByRole('textbox', { name: 'Search' }));
     expect(ref.current).not.toHaveAttribute('endAction');
+    expect(ref.current).not.toHaveAttribute('leadingIcon');
+    expect(ref.current).not.toHaveAttribute('textAlign');
     await user.click(screen.getByRole('button', { name: 'Run search' }));
     await user.click(ref.current!);
     await user.keyboard('{Enter}');
