@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
+import { useSpectatorPreferences } from "./preferences";
 import { useMeetingSpectator } from "./useMeetingSpectator";
 import { spectatorFixture } from "./fixtures";
 const control = vi.hoisted(() => ({request: vi.fn(), signals: [] as {path: string; next: () => void; error: (error: unknown) => void; stop: ReturnType<typeof vi.fn>}[], services: {auth: {currentUser: {uid: "member"} as {uid: string} | null}, functions: {}, firestore: {}, ensureAppCheckReady: vi.fn(async () => {})}}));
@@ -82,4 +83,55 @@ it("선택 변경은 서버에 전달하되 기존 목록을 숨기거나 팔로
   expect(control.request).toHaveBeenLastCalledWith({eventId: "meeting", selectedUid: "rider-two"});
   await act(async () => finish({data: {...data(), selectedUid: "rider-two"}}));
   expect(result.current.data?.selectedUid).toBe("rider-two");
+});
+
+it("일시 장애는 위치를 지우지 않고 최대 세 번 복구하며 권한 오류는 즉시 차단한다", async () => {
+  control.request.mockResolvedValueOnce({data: data()});
+  const {result} = renderHook(() => useMeetingSpectator("club", "meeting", "member"));
+  await waitFor(() => expect(result.current.data).toBeTruthy());
+  vi.useFakeTimers();
+  control.request.mockRejectedValue({code: "functions/unavailable"});
+  await act(async () => { window.dispatchEvent(new Event("focus")); });
+  expect(result.current.data).toBeTruthy();
+  expect(result.current.error).toBeTruthy();
+  await act(async () => { await vi.advanceTimersByTimeAsync(7001); });
+  expect(control.request).toHaveBeenCalledTimes(5);
+  await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+  expect(control.request).toHaveBeenCalledTimes(5);
+  control.request.mockResolvedValue({data: data()});
+  await act(async () => { window.dispatchEvent(new Event("online")); });
+  expect(result.current.error).toBeNull();
+  act(() => control.signals.at(-1)!.error({code: "permission-denied"}));
+  expect(result.current.data).toBeNull();
+  await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+  expect(control.request).toHaveBeenCalledTimes(6);
+});
+
+it("복귀 때 친구 설정만 복원하고 새 회원 확인 실패 시 위치를 표시하지 않는다", async () => {
+  localStorage.clear();
+  control.request.mockImplementation(async ({selectedUid}: {selectedUid: string | null}) => ({data: {...data(), selectedUid}}));
+  const first = renderHook(() => {
+    const preferences = useSpectatorPreferences("member", "club", "meeting");
+    return {preferences, live: useMeetingSpectator("club", "meeting", "member", preferences.value.selectedUid)};
+  });
+  await waitFor(() => expect(first.result.current.live.data).toBeTruthy());
+  act(() => first.result.current.preferences.update({selectedUid: "rider-two", followed: ["rider-two"], search: "나래", followingOnly: true, mapMode: "rider"}));
+  await waitFor(() => expect(first.result.current.live.data?.selectedUid).toBe("rider-two"));
+  Object.defineProperty(document, "hidden", {configurable: true, value: true});
+  act(() => document.dispatchEvent(new Event("visibilitychange")));
+  expect(first.result.current.live.data).toBeNull();
+  expect(first.result.current.preferences.value.search).toBe("나래");
+  Object.defineProperty(document, "hidden", {configurable: true, value: false});
+  act(() => document.dispatchEvent(new Event("visibilitychange")));
+  await waitFor(() => expect(first.result.current.live.data?.selectedUid).toBe("rider-two"));
+  first.unmount();
+  control.request.mockRejectedValue({code: "functions/permission-denied"});
+  const next = renderHook(() => {
+    const preferences = useSpectatorPreferences("member", "club", "meeting");
+    return {preferences, live: useMeetingSpectator("club", "meeting", "member", preferences.value.selectedUid)};
+  });
+  expect(next.result.current.preferences.value.selectedUid).toBe("rider-two");
+  expect(next.result.current.live.data).toBeNull();
+  await waitFor(() => expect(next.result.current.live.error).toBeTruthy());
+  expect(next.result.current.live.data).toBeNull();
 });

@@ -19,18 +19,28 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
   const [state, setState] = useState<State>({scope, data: null, receivedAt: 0, loading: true, error: null});
   useEffect(() => {
     let disposed = false, inFlight = false, queued = false, blocked = false, generation = 0;
-    let lastReadAt = 0;
+    let lastReadAt = 0, recoveryAttempts = 0;
+    let recovery: ReturnType<typeof setTimeout> | undefined;
     let stops: (() => void)[] = [];
     let scheduled: ReturnType<typeof setTimeout> | undefined;
     const viewer = services.auth.currentUser;
     const current = () => !disposed && services.auth.currentUser === viewer && viewer?.uid === uid;
     const clear = (error: unknown = null) => setState({scope, data: null, receivedAt: 0, loading: false, error});
-    const stop = () => { stops.forEach(unsubscribe => unsubscribe()); stops = []; clearTimeout(scheduled); scheduled = undefined; };
+    const stop = () => { stops.forEach(unsubscribe => unsubscribe()); stops = []; clearTimeout(scheduled); scheduled = undefined; clearTimeout(recovery); recovery = undefined; };
     setState(old => old.scope === scope && old.data ? {...old, error: null} : {scope, data: null, receivedAt: 0, loading: !!uid, error: null});
     if (!uid || !groupId || !eventId || !viewer || viewer.uid !== uid) return;
     const fail = (error: unknown) => {
       if (!current()) return;
-      generation++; blocked = true; queued = false; stop(); clear(error);
+      const code = error && typeof error === "object" && "code" in error ? String(error.code).replace(/^(functions|firestore)\//, "") : "";
+      const temporary = ["unavailable", "deadline-exceeded", "internal", "network-request-failed"].includes(code);
+      generation++; queued = false; stop();
+      if (temporary) {
+        setState(old => old.scope === scope ? {...old, loading: false, error} : {scope, data: null, receivedAt: 0, loading: false, error});
+        // Failure-driven, bounded recovery; live updates still come exclusively from change signals.
+        if (recoveryAttempts < 3 && !document.hidden) {
+          recovery = setTimeout(() => { recovery = undefined; void start(); }, 1000 * 2 ** recoveryAttempts++);
+        }
+      } else { blocked = true; clear(error); }
       logClientError("ClubMeetingSpectator.read", error, {eventId});
     };
     const load = async () => {
@@ -48,6 +58,7 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         if (selectedRef.current !== requestedUid) { queued = true; return; }
         const data = result.data;
         if (data.eventId !== eventId || data.groupId !== groupId || data.selectedUid !== requestedUid || !Number.isFinite(data.serverNowMs) || !Array.isArray(data.locations)) throw new Error("invalid_spectator_response");
+        recoveryAttempts = 0;
         setState(old => ({scope, data: retainNewerSamples(old.scope === scope ? old.data : null, data), receivedAt: Date.now(), loading: false, error: null}));
       } catch (error) {
         if (current() && ticket === generation) fail(error);
@@ -65,7 +76,11 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
         void load();
       }, Math.max(100, 5000 - (Date.now() - lastReadAt)));
     };
+    let starting: number | null = null;
     const start = async () => {
+      if (starting === generation || stops.length) return;
+      clearTimeout(recovery); recovery = undefined;
+      starting = generation;
       const ticket = generation;
       try {
         await services.ensureAppCheckReady();
@@ -78,17 +93,18 @@ export function useMeetingSpectator(groupId: string | undefined, eventId: string
           {path: `groups/${groupId}/members/${uid}`, sensitive: true},
         ];
         for (const {path, sensitive} of paths) {
-          if (blocked) break;
+          if (blocked || ticket !== generation) break;
           const unsubscribe = onSnapshot(doc(services.firestore, path), () => signal(sensitive), fail);
-          if (blocked) unsubscribe(); else stops.push(unsubscribe);
+          if (blocked || ticket !== generation) unsubscribe(); else stops.push(unsubscribe);
         }
         void load();
-      } catch (error) { fail(error); }
+      } catch (error) { if (ticket === generation) fail(error); }
+      finally { if (starting === ticket) starting = null; }
     };
     refreshSelection.current = () => { lastReadAt = 0; void load(); };
     void start();
-    const visible = () => { lastReadAt = 0; generation++; queued = false; stop(); clear(); if (!document.hidden && !blocked) void start(); };
-    const focus = () => { if (!document.hidden) void load(); };
+    const visible = () => { recoveryAttempts = 0; lastReadAt = 0; generation++; queued = false; stop(); clear(); if (!document.hidden && !blocked) void start(); };
+    const focus = () => { if (!document.hidden && !blocked) { recoveryAttempts = 0; if (!stops.length) void start(); else void load(); } };
     document.addEventListener("visibilitychange", visible);
     window.addEventListener("focus", focus);
     window.addEventListener("online", focus);
