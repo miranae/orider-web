@@ -13,7 +13,7 @@ src/theme/
 ├── OriderTheme.ts             테마 인터페이스
 ├── OriderThemeProvider.tsx    <html> CSS 변수 주입
 └── components/                ← 여기. 모든 UI 프리미티브
-    ├── Button.tsx             6 variant × 3 size × loading / icon / block
+    ├── Button.tsx             7 variant × 3 size × loading / icon / block
     ├── Card.tsx               default/flat/inset/bare
     ├── Chip.tsx               default/accent/success/warning/danger
     ├── Input.tsx              Input / Textarea / Select / Field
@@ -58,6 +58,8 @@ import { Button, Card, Stat, Stack, Chip, Text } from '@/theme';
 | `ghost` | 낮은 위계의 도구·탐색 행동 |
 | `outline` | 외곽선으로 구분·강조할 행동 |
 | `danger` | 삭제처럼 파괴적인 행동 |
+
+`discord`는 디스코드 로그인용 Blurple 버튼입니다. `leadingIcon={<DiscordLogo />}`와 함께 사용하며, `loading`·`disabled`·포커스는 공통 버튼 상태를 따릅니다.
 
 선택된 지표·축 상태는 `ToggleButton selected`로 표현한다. 연속된 도구 묶음은
 `ControlToolbar` 안의 `ToolbarButton`을 사용한다. 선택 상태나 툴바 모양을 만들기 위해

@@ -1,3 +1,4 @@
+import { DiscordLogo } from "../auth/DiscordLogo";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -8,7 +9,7 @@ import { listSocialLinks, SOCIAL_PROVIDERS, startSocialAuth, unlinkSocial, type 
 import { canUnlinkGoogle, hasGoogleLogin, linkGoogleToCurrentUser, unlinkGoogleFromCurrentUser } from "../../services/googleLink";
 import { Button } from "../../theme/components";
 import { LocalizedLink } from "../LocalizedLink";
-import { DiscordLogo, GoogleLogo, KakaoLogo, NaverLogo } from "../auth/SignInDialog";
+import { GoogleLogo, KakaoLogo, NaverLogo } from "../auth/SignInDialog";
 import { InlineRow, SettingsCard } from "./_primitives";
 
 const LOGO: Partial<Record<SocialProvider, () => React.ReactElement>> = { naver: NaverLogo, kakao: KakaoLogo, discord: DiscordLogo };
