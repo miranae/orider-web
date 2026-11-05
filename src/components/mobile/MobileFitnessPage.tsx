@@ -1095,7 +1095,7 @@ export default function MobileFitnessPage({
           {part === "condition" && data.discipline !== "tri" && <Text as="p" variant="bodySmall" tone="secondary" className="mobile-fitness-load-section__description">{t("fitness:condition.load.description")}</Text>}
           {part === "condition" && data.discipline !== "tri" && periodEvidenceSlot && <SectionCard>{periodEvidenceSlot}</SectionCard>}
           {!embedded && part === "condition" && conditionSupplementSlot}
-          {(part === "condition" || data.discipline === "bike") && consistencyStreak && (
+          {(part === "condition" && data.discipline !== "tri" || data.discipline === "bike") && consistencyStreak && (
             <div className="mobile-fitness-streak">
               <ConsistencyStreakCard summary={consistencyStreak} compact allSports={part === "condition"} />
             </div>
