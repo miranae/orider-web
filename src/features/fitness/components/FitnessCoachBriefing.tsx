@@ -295,10 +295,11 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
       </Card> : part !== "today" && !mobilePriority ? currentSummary : null}
       {part === "condition" && evidenceNavSlot}
 
-      <div className="fitness-coach__first-view">
+      {/* 추이·결정 어느 쪽도 없으면(오늘 훈련) 빈 묶음의 아래 여백이 첫 카드를 16 밀었다 — 그리지 않는다. */}
+      {(trendSlot || decisionSlot) && <div className="fitness-coach__first-view">
         {trendSlot && <div className="fitness-coach__trend">{trendSlot}</div>}
         <div className="fitness-coach__today" id="fitness-coach-today">{decisionSlot}</div>
-      </div>
+      </div>}
 
       {part === "condition" && weekChangeSlot && <div className="fitness-coach__period-evidence">{weekChangeSlot}</div>}
       {part === "condition" ? activityImpact : part === "all" ? <DetailsSection title={t("coach.range.detailsTitle")}>
