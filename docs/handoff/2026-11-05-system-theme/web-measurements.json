@@ -1,0 +1,15 @@
+{
+  "light": {
+    "theme": "light",
+    "bg": "rgb(245, 245, 247)",
+    "font": "16px",
+    "height": 844
+  },
+  "dark": {
+    "theme": "dark",
+    "bg": "rgb(0, 0, 0)",
+    "font": "16px",
+    "height": 844
+  },
+  "elementsWithIdenticalGeometry": 311
+}
