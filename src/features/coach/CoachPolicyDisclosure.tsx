@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { LocalizedLink } from "../../components/LocalizedLink";
-import type { CoachConsentPolicy, CoachDataCategory } from "../../services/coachConsentClient";
+import type { CoachDataCategory } from "../../services/coachConsentClient";
+import type { PublicCoachPolicy } from "./publicCoachPolicy";
 import { Card, Text } from "../../theme/components";
 
 const categoryKeys: Record<CoachDataCategory, string> = {
@@ -21,7 +22,7 @@ function PolicyLink({ href, children }: { href: string; children: React.ReactNod
   return <a href={href} target="_blank" rel="noreferrer">{children}</a>;
 }
 
-function FullPolicyDisclosure({ policy, stale }: { policy: CoachConsentPolicy; stale: boolean }) {
+function FullPolicyDisclosure({ policy, stale }: { policy: PublicCoachPolicy; stale: boolean }) {
   const { t } = useTranslation("settings");
   const categoryList = (items: CoachDataCategory[]) => (
     <ul>{items.map((category) => <li key={category}>{t(categoryKeys[category])}</li>)}</ul>
@@ -55,7 +56,7 @@ function FullPolicyDisclosure({ policy, stale }: { policy: CoachConsentPolicy; s
 }
 
 export function CoachPolicyDisclosure({ policy, stale = false, mode = "full" }: {
-  policy: CoachConsentPolicy;
+  policy: PublicCoachPolicy;
   stale?: boolean;
   mode?: "full" | "compact";
 }) {

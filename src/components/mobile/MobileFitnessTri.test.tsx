@@ -254,7 +254,7 @@ describe("MobileFitnessPage tri", () => {
     const { container } = renderWithProviders(<MobileFitnessPage data={previewData} todayDecisionState={decisionState({ decision })} />);
     expect(container.querySelector("[data-mobile-fitness-decision]")).toHaveAttribute("data-mobile-fitness-decision", "scheduled");
     expect(container.querySelector("[data-mobile-fitness-decision]")).toHaveTextContent("현재 실행안: 템포 · 60분");
-    expect(container.querySelector("[data-mobile-fitness-decision]")).toHaveTextContent("오늘 처방이 아직 준비되지 않았어요");
+    expect(container.querySelector("[data-mobile-fitness-decision]")).toHaveTextContent("새 운동 권고는 아직 준비되지 않았어요");
     expect(container.querySelector("[data-mobile-fitness-decision]")).not.toHaveTextContent("조정 권고:");
   });
 

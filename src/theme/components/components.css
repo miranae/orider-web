@@ -72,6 +72,7 @@
   transform: translate(-50%, -50%);
 }
 
+.ds-btn--align-start { justify-content: flex-start; text-align: start; }
 .ds-btn--block { width: 100%; height: auto; min-height: var(--dim-button-height); padding-block: var(--space-3); white-space: normal; }
 .ds-btn--block .ds-btn__label { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .ds-btn--icon-only { padding: 0; aspect-ratio: 1; min-width: calc(var(--space-7) + var(--space-3)); min-height: calc(var(--space-7) + var(--space-3)); width: max(var(--dim-button-height), calc(var(--space-7) + var(--space-3))); }

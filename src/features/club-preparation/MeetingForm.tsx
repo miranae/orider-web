@@ -327,7 +327,6 @@ export default function MeetingForm({
           if (!reading && !saving) setPreview(true);
         }}
       >
-        {actions("top")}
         <CoursePreparation
           meeting={completeDraft()}
           onChange={(next) => {

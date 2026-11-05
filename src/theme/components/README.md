@@ -59,6 +59,8 @@ import { Button, Card, Stat, Stack, Chip, Text } from '@/theme';
 | `outline` | 외곽선으로 구분·강조할 행동 |
 | `danger` | 삭제처럼 파괴적인 행동 |
 
+`block align="start"`는 긴 목록 항목 버튼의 전체 폭, 줄바꿈과 시작 정렬을 함께 제공합니다. 페이지 CSS로 버튼의 정렬·줄바꿈을 덮어쓰지 않습니다.
+
 `discord`는 디스코드 로그인용 Blurple 버튼입니다. `leadingIcon={<DiscordLogo />}`와 함께 사용하며, `loading`·`disabled`·포커스는 공통 버튼 상태를 따릅니다.
 
 선택된 지표·축 상태는 `ToggleButton selected`로 표현한다. 연속된 도구 묶음은

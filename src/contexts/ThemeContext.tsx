@@ -14,6 +14,7 @@ export type ResolvedTheme = "light" | "dark";
 
 const STORAGE_KEY = "orider.theme";
 const THEME_CHANGE_EVENT = "orider:themechange";
+export const HOST_THEME_CHANGE_EVENT = "orider:hostthemechange";
 
 function readStoredPreference(): ThemePreference {
   if (typeof window === "undefined") return "system";
@@ -29,14 +30,11 @@ function getSystemTheme(): ResolvedTheme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-function applyResolvedToHtml(theme: ThemePreference, resolved: ResolvedTheme) {
+function applyResolvedToHtml(resolved: ResolvedTheme) {
   if (typeof document === "undefined") return;
   const html = document.documentElement;
-  if (theme === "system") {
-    html.removeAttribute("data-theme");
-  } else {
-    html.setAttribute("data-theme", theme);
-  }
+  html.setAttribute("data-theme", resolved);
+  html.style.colorScheme = resolved;
   // 차트 등 비-React 코드가 즉시 재계산할 수 있도록 이벤트 발행
   window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: { resolved } }));
 }
@@ -49,11 +47,28 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
+export function ThemeProvider({ children, forceDark = false, hostControlled = false }: {
+  children: ReactNode;
+  forceDark?: boolean;
+  hostControlled?: boolean;
+}) {
   const [theme, setThemeState] = useState<ThemePreference>(() => readStoredPreference());
   const [systemTheme, setSystemTheme] = useState<ResolvedTheme>(() => getSystemTheme());
 
-  const resolvedTheme: ResolvedTheme = theme === "system" ? systemTheme : theme;
+  const [hostTheme, setHostTheme] = useState<ResolvedTheme | null>(null);
+  // 앱 임베드는 브라우저 저장 설정보다 승인된 호스트의 화면 정책을 우선한다.
+  useEffect(() => {
+    setHostTheme(null);
+    if (!hostControlled) return;
+    const onHostTheme = (event: Event) => {
+      const mode: unknown = (event as CustomEvent).detail?.mode;
+      if (mode === "light" || mode === "dark") setHostTheme(mode);
+    };
+    window.addEventListener(HOST_THEME_CHANGE_EVENT, onHostTheme);
+    return () => window.removeEventListener(HOST_THEME_CHANGE_EVENT, onHostTheme);
+  }, [hostControlled]);
+  const resolvedTheme: ResolvedTheme = forceDark ? "dark"
+    : hostControlled && hostTheme ? hostTheme : theme === "system" ? systemTheme : theme;
 
   // OS 변경 감지
   useEffect(() => {
@@ -70,7 +85,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (lastResolvedRef.current !== resolvedTheme) {
       lastResolvedRef.current = resolvedTheme;
     }
-    applyResolvedToHtml(theme, resolvedTheme);
+    applyResolvedToHtml(resolvedTheme);
   }, [theme, resolvedTheme]);
 
   const setTheme = useCallback((next: ThemePreference) => {

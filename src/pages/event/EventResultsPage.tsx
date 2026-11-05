@@ -1,3 +1,4 @@
+import { withReadDeadline } from "../../utils/withReadDeadline";
 import { publicEventUrl } from "../../features/event/share/publicEventUrl";
 import NextEventContinuation from "../../components/group/NextEventContinuation";
 import "../EventControls.css";
@@ -184,7 +185,7 @@ export default function EventResultsPage() {
       setLoadError(null);
       setPrivateResultsUnavailable(false);
       try {
-        const eventDoc = await getDoc(doc(db, `events/${eventId}`));
+        const eventDoc = await withReadDeadline(getDoc(doc(db, `events/${eventId}`)), t("readTimeout"));
         if (cancelled || auth.currentUser?.uid !== owner) return;
         if (!eventDoc.exists()) {
           setLoadError(t("empty.noResults"));
@@ -203,14 +204,14 @@ export default function EventResultsPage() {
         const courseIds: string[] = Array.isArray(info.courseIds) ? info.courseIds : [];
         if ((distanceKm == null || elevationGain == null) && courseIds[0]) {
           try {
-            const cs = await getDoc(doc(db, "courses", courseIds[0]));
+            const cs = await withReadDeadline(getDoc(doc(db, "courses", courseIds[0])), t("readTimeout"));
             if (cs.exists()) {
               const cd = cs.data();
               if (distanceKm == null && typeof cd.distance === "number") distanceKm = cd.distance / 1000;
               if (elevationGain == null && typeof cd.elevationGain === "number") elevationGain = cd.elevationGain;
             }
-          } catch {
-            // ignore
+          } catch (error) {
+            logClientError("EventResultsPage.loadCourse", error, { eventId });
           }
         }
 
@@ -226,7 +227,7 @@ export default function EventResultsPage() {
         });
 
         // 공개 결과는 허용된 projection만 읽는다. 주최자/admin의 비공개 관리 경로는 유지한다.
-        const admin = user ? (await user.getIdTokenResult()).claims.admin === true : false;
+        const admin = user ? (await withReadDeadline(user.getIdTokenResult(), t("readTimeout"))).claims.admin === true : false;
         const privateAccess = isEventHost(user?.uid, info) || admin;
         if (cancelled || auth.currentUser?.uid !== owner || (privateAccess && owner !== user?.uid)) return;
         if (!privateAccess && info.type === "GROUP_RIDE") {
@@ -234,17 +235,20 @@ export default function EventResultsPage() {
           return;
         }
         const participantDocs = privateAccess
-          ? (await getDocs(collection(db, `events/${eventId}/participants`))).docs
-          : (await getEventPublicParticipants(eventId, services)).participants.map((participant) => ({
+          ? (await withReadDeadline(getDocs(collection(db, `events/${eventId}/participants`)), t("readTimeout"))).docs
+          : (await withReadDeadline(getEventPublicParticipants(eventId, services), t("readTimeout"))).participants.map((participant) => ({
             id: participant.userId, data: () => ({ ...participant }),
           }));
         const userNameMap: Record<string, string> = {};
+        const profileErrors: unknown[] = [];
         if (privateAccess) await Promise.all(participantDocs.map(async (pDoc) => {
           try {
-            userNameMap[pDoc.id] = (await getPublicUserProfile(pDoc.id, services.firestore))?.nickname ?? "";
-          } catch { userNameMap[pDoc.id] = ""; }
+            userNameMap[pDoc.id] = (await withReadDeadline(getPublicUserProfile(pDoc.id, services.firestore), t("readTimeout")))?.nickname ?? "";
+          } catch (error) { profileErrors.push(error); userNameMap[pDoc.id] = ""; }
         }));
         if (cancelled || auth.currentUser?.uid !== owner || (privateAccess && owner !== user?.uid)) return;
+
+        if (profileErrors.length > 0) logClientError("EventResultsPage.loadPublicProfiles", profileErrors[0], { eventId, failureCount: profileErrors.length });
 
         const eventStartMs = typeof startMs === "number" ? startMs : null;
         const entries: ResultEntry[] = participantDocs.map((pDoc) => {

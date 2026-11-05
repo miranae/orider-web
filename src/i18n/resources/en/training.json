@@ -946,7 +946,7 @@
       "reason": {
         "feature_disabled": "Today's plan is not enabled yet",
         "no_active_goal": "No active goal, so no plan could be built",
-        "prescription_not_ready": "Today's prescription is not ready yet",
+        "prescription_not_ready": "A new workout recommendation is not ready yet.",
         "ambiguous_active_goal": "Multiple active goals, so no single baseline could be chosen",
         "consent_required": "AI coach consent is required",
         "canonical_load_unavailable": "Recent training load is unavailable",

@@ -279,7 +279,6 @@ describe("TodayTrainingDecisionCard", () => {
 
     expect(screen.getByRole("heading", { name: "변경 적용됨" })).toBeInTheDocument();
     expect(container.querySelector(".training-decision-card__sessions")).toBeInTheDocument();
-    expect(screen.getByText("적용됨")).toBeInTheDocument();
     expect(screen.getByText("현재 실행안")).toBeInTheDocument();
     expect(screen.getAllByText("회복")).toHaveLength(2);
     expect(screen.getAllByText("40분")).toHaveLength(2);

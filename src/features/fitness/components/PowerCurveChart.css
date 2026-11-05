@@ -34,3 +34,5 @@
 }
 
 .power-curve-evidence__values[data-stable] .power-curve-evidence__source { height: 3.5rem; overflow-y: auto; }
+
+.power-curve-source-date { display: inline-block; white-space: nowrap; }

@@ -23,7 +23,7 @@ it.each([false, true])("shows goal-period actual load and expiry on the goal tab
   expect(summary).toHaveTextContent("2026-08-17 ~ 2026-10-18");
   expect(summary).toHaveTextContent("250TSS"); expect(summary).toHaveTextContent("400TSS");
   expect(summary).toHaveTextContent("160%"); expect(summary).toHaveTextContent("+150TSS");
-  expect(screen.getByTestId("K3-1-1")).toHaveTextContent("목표일 경과");
+  expect(screen.getByTestId("K3-1-1")).toHaveTextContent("D+5");
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   expect(usePlanLoadComparison).toHaveBeenLastCalledWith(expect.objectContaining({ uid: "owner", enabled: true, range: { start: "2026-08-17", end: "2026-10-18" } }));
   expect(goal.status).toBe("active");

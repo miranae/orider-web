@@ -1,3 +1,5 @@
+import { usesLiveDarkAppearance } from "../theme/appearancePolicy";
+import { HOST_THEME_CHANGE_EVENT } from "../contexts/ThemeContext";
 import { RetainedSurfaceActivity } from "./RetainedSurfaceActivity";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DialogProvider } from "../contexts/DialogContext";
@@ -292,10 +294,13 @@ function applyThemeTokensInline(mode: "light" | "dark"): void {
   }
 }
 
-function applyHostContract(root: HTMLElement, session: AcceptedSession): void {
-  document.documentElement.setAttribute("data-theme", session.theme.mode);
-  applyThemeTokensInline(session.theme.mode);
-  const fallback = session.theme.mode === "dark"
+function applyHostContract(root: HTMLElement, session: AcceptedSession, liveDark: boolean): HostTheme["mode"] {
+  const theme: HostTheme = liveDark ? { mode: "dark" } : session.theme;
+  document.documentElement.setAttribute("data-theme", theme.mode);
+  document.documentElement.style.colorScheme = theme.mode;
+  applyThemeTokensInline(theme.mode);
+  window.dispatchEvent(new CustomEvent(HOST_THEME_CHANGE_EVENT, { detail: { mode: theme.mode } }));
+  const fallback = theme.mode === "dark"
     ? {
       bg: "oklch(0.13 0.007 250)",
       surface: "oklch(0.18 0.008 250)",
@@ -315,7 +320,7 @@ function applyHostContract(root: HTMLElement, session: AcceptedSession): void {
   // 라이트 토큰을 읽었다(iOS 시뮬레이터 실측: attr=dark 인데 --bg-0 은 light).
   // 값은 src/theme/generated.css 의 :root / :root[data-theme="dark"] 와 동일하게 유지한다.
   const defaults = fallback;
-  const colors = { ...defaults, ...session.theme.colors };
+  const colors = { ...defaults, ...theme.colors };
   root.style.setProperty("--orider-host-bg", colors.bg);
   root.style.setProperty("--orider-host-surface", colors.surface);
   root.style.setProperty("--orider-host-text-primary", colors.textPrimary);
@@ -323,6 +328,7 @@ function applyHostContract(root: HTMLElement, session: AcceptedSession): void {
   root.style.setProperty("--orider-host-accent", colors.accent);
   root.style.setProperty("--orider-host-safe-top", `${session.safeInsets.top}px`);
   root.style.setProperty("--orider-host-safe-bottom", `${session.safeInsets.bottom}px`);
+  return theme.mode;
 }
 
 function AuthorizedSurface({
@@ -581,12 +587,22 @@ export default function EmbeddedBootstrapRoot({
   surfaceKind = "activity-analysis",
 }: EmbeddedBootstrapRootProps) {
   const { activityId } = useParams();
+  const location = useLocation();
+  const liveDark = usesLiveDarkAppearance(location.pathname);
+  const liveDarkRef = useRef(liveDark);
+  liveDarkRef.current = liveDark;
   const rootRef = useRef<HTMLDivElement>(null);
   const [bridge] = useState(bridgeFactory);
   const [runStartChannel] = useState(() => createRunStartChannel({
     send: (payload, requestId) => bridge.send("run.startScheduled", payload, requestId),
   }));
   const [session, setSession] = useState<AcceptedSession | null>(null);
+  useEffect(() => {
+    if (session && rootRef.current) {
+      const resolved = applyHostContract(rootRef.current, session, liveDark);
+      window.dispatchEvent(new CustomEvent("orider:themechange", { detail: { resolved } }));
+    }
+  }, [session, liveDark]);
   const [retryKey, setRetryKey] = useState(0);
   const [hostForeground, setHostForeground] = useState(true);
   const initialTrainingSurface = surfaceKind === "fitness" || surfaceKind === "plan"
@@ -747,7 +763,6 @@ export default function EmbeddedBootstrapRoot({
   }, [safeSend]);
 
   const navigate = useNavigate();
-  const location = useLocation();
   const handleNavigation = useCallback((event: MouseEvent<HTMLDivElement>) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -828,7 +843,7 @@ export default function EmbeddedBootstrapRoot({
           return;
         }
         if (guestAuthorized.current && currentUid === null) {
-          if (rootRef.current) applyHostContract(rootRef.current, accepted);
+          if (rootRef.current) applyHostContract(rootRef.current, accepted, liveDarkRef.current);
           acceptedUid.current = null;
           sessionAccepted.current = true;
           selectionGeneration.current += 1;
@@ -857,7 +872,7 @@ export default function EmbeddedBootstrapRoot({
           return;
         }
         prepareTrainingSurfaceCacheOwner(currentUid, controlServices.auth.currentUser?.isAnonymous === true);
-        if (rootRef.current) applyHostContract(rootRef.current, accepted);
+        if (rootRef.current) applyHostContract(rootRef.current, accepted, liveDarkRef.current);
         acceptedUid.current = currentUid;
         sessionAccepted.current = true;
         const generation = selectionGeneration.current + 1;
@@ -1041,6 +1056,16 @@ export default function EmbeddedBootstrapRoot({
         return;
       }
 
+      if (message.type === "host.themeChanged") {
+        const theme = parseHostTheme(message.payload);
+        if (!theme || !sessionAccepted.current) {
+          safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
+          return;
+        }
+        setSession((previous) => previous ? { ...previous, theme } : previous);
+        return;
+      }
+
       if (message.type === "host.lifecycle") {
         if (!isLifecyclePayload(message.payload)) {
           safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
@@ -1114,6 +1139,7 @@ export default function EmbeddedBootstrapRoot({
         RUN_START_SCHEDULED_CAPABILITY,
         CLUB_DETAIL_EMBED_CAPABILITY,
         "host.lifecycle",
+        "host.themeChanged",
       ],
     });
     return () => {

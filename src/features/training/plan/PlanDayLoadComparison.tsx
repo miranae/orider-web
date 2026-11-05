@@ -26,9 +26,10 @@ export default function PlanDayLoadComparison({ day, row, state, compact = false
   const number = (value: number | null | undefined, signed = false) => value == null || !Number.isFinite(value) ? "—" : new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1, signDisplay: signed ? "exceptZero" : "auto" }).format(value);
   const known = state === "ready" && row?.actualTss != null;
   const actual = future ? t("loadComparison.upcoming") : state === "loading" ? t("loadComparison.calendarLoading") : known ? number(row.actualTss) : t("loadComparison.calendarUnknown");
+  const quietRest = compact && day.workout === "rest" && planned === 0 && (future || known && row.actualTss === 0 && !row.estimated);
   const fulfillment = planLoadFulfillment(day, row, state === "ready");
   return <div className={`plan-day-load-comparison${compact ? " plan-day-load-comparison--compact" : ""}`} role="group" aria-label={t("loadComparison.calendarLabel", { date })}>
-    {compact ? <dl className="plan-day-load-values">
+    {compact && !quietRest ? <dl className="plan-day-load-values">
       <div><dt>{t("loadComparison.calendarPlanned")}</dt><dd>{number(planned)} <small>TSS</small></dd></div>
       <div><dt>{t("loadComparison.calendarActual")}</dt><dd>{actual}{known && !future && <small> TSS</small>}</dd></div>
       {known && row.estimated && <Text as="p" variant="caption" tone="secondary">{t("page.tssEstimated")}</Text>}
