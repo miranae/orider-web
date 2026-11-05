@@ -297,7 +297,7 @@ it("retains the server power-curve lock even when raw points are present", () =>
 });
 
 
-it("keeps condition focused on current state and load with links to analysis and settings", () => {
+it("keeps condition focused on current state and load without analysis and settings links", () => {
   renderWithProviders(<MobileFitnessPage data={data} part="condition" ridingEvidenceSlot={<p>activity details</p>} powerCurveEvidenceSlot={<p>comparison</p>} />);
   expect(document.getElementById("condition-current")).toBeVisible();
   expect(screen.queryByRole("navigation", { name: /컨디션/ })).not.toBeInTheDocument();
@@ -308,8 +308,8 @@ it("keeps condition focused on current state and load with links to analysis and
   expect(screen.queryByTestId("K5-5-1")).not.toBeInTheDocument();
   expect(screen.queryByTestId("K5-5-2")).not.toBeInTheDocument();
   expect(document.getElementById("ftp-decision")).toBeNull();
-  expect(screen.getByRole("link", { name: /수행 지표·기록 비교는 분석에서/ })).toHaveAttribute("href", "/ko/coach/analysis?sport=bike");
-  expect(screen.getByRole("link", { name: /훈련 기준 설정/ })).toHaveAttribute("href", "/ko/settings/training?sport=bike");
+  expect(screen.queryByRole("link", { name: /수행 지표·기록 비교는 분석에서/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /훈련 기준 설정/ })).not.toBeInTheDocument();
 });
 
 

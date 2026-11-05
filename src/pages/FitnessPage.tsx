@@ -28,7 +28,7 @@ import ConsistencyStreakCard from "../components/training/ConsistencyStreakCard"
 import CriticalPaceCurve from "../components/charts/CriticalPaceCurve";
 import CSSCurve from "../components/charts/CSSCurve";
 import FitnessChart from "../components/FitnessChart";
-import PmcHistoryPanel, { PmcHistoryMethodNotes } from "../features/fitness/components/PmcHistoryPanel";
+import PmcHistoryPanel from "../features/fitness/components/PmcHistoryPanel";
 import type { PmcRange } from "../features/fitness/pmcHistory";
 import { FitnessZoneDistributions } from "../features/fitness/components/FitnessZoneDistributions";
 import FitnessPdcProfile from "../features/fitness/components/FitnessPdcProfile";
@@ -471,7 +471,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           discipline={discipline}
           userId={user.uid}
           mobilePriority
-          statusSlot={part === "condition" ? <><Text as="p" variant="eyebrow">{t("condition.current.title")}</Text>{currentStatusSlot}</> : null}
+          statusSlot={part === "condition" ? currentStatusSlot : null}
           decisionSlot={part === "all" ? <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" decisionState={decisionState} /> : null}
         />
       ) : null;
@@ -1069,12 +1069,12 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             userId={user.uid}
             decisionSlot={part === "all" ? <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" /> : null}
             evidenceNavSlot={conditionNavigation}
-            statusSlot={currentStatusSlot && <><Text as="p" variant="eyebrow">{t("condition.current.title")}</Text>{currentStatusSlot}</>}
+            statusSlot={currentStatusSlot}
             trendSlot={part === "condition" ? <section id="condition-trend" tabIndex={-1} className="condition-trend-region condition-section-target" aria-label={t("condition.chart.region")}>
               <ToggleControls variant="axis" aria-label={t("condition.chart.view")}>
                 {(["trend", "years", "activities"] as const).map(view => <ToggleButton key={view} selected={chartView === view} onClick={() => setChartView(view)}>{t(view === "activities" ? "condition.chart.activities" : `history.mode.${view}`)}</ToggleButton>)}
               </ToggleControls>
-              <div hidden={chartView === "activities"}><PmcHistoryPanel suppressMethodNotes
+              <div hidden={chartView === "activities"}><PmcHistoryPanel suppressMethodNotes quietSource={part === "condition"} hideLoadFacts={part === "condition"}
               controlledMode={chartView === "years" ? "years" : "trend"} hideModeControls
               key={`${user.uid}-${discipline}`}
               points={model.pmcHistoryPoints}
@@ -1144,10 +1144,11 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             컴포넌트. 시안 검토 결과 단일 뷰 (bike/run/swim) 에선 불필요로 결정.
             복구 필요 시 git history 참조: commit 5d00cf2 이전. */}
 
-        <div data-testid={part === "condition" ? "K1-7" : "K5-2"}><ConditionLoadSection condition={part === "condition"} title={t(part === "condition" ? "condition.load.title" : "conclusion.trainingDetailToggle")} description={t("condition.load.description")} defaultOpen={part === "analysis"}>
-        {part !== "analysis" && (activeGoal?.adaptationFlag || consistencyStreak || currentPoint) && (
+        <div data-testid={part === "condition" ? "K1-7" : "K5-2"}><ConditionLoadSection condition={part === "condition"} title={t(part === "condition" ? "condition.load.title" : "conclusion.trainingDetailToggle")} defaultOpen={part === "analysis"}>
+        {part !== "analysis" && (activeGoal?.adaptationFlag || part !== "condition" && (consistencyStreak || currentPoint)) && (
           <div data-testid="K1-4" className="condition-load-evidence">
-            {weekChangeSlot}
+            {/* 컨디션은 최근 7일 변화 요약·운동 루틴·주간 해석 없이 계획 적응 경고만 둔다. */}
+            {part !== "condition" && weekChangeSlot}
             {part === "all" && currentStatusSlot && <Card>{currentStatusSlot}</Card>}
             {/* Plan 적응 한 줄 요약 — warn/critical 일 때만 노출. 클릭 시 /coach/plan 으로 이동. */}
             {activeGoal?.adaptationFlag && (
@@ -1158,15 +1159,15 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
               />
             )}
 
-            {consistencyStreak && (
+            {part !== "condition" && consistencyStreak && (
               <div style={{ marginBottom: 'var(--space-4)' }}>
-                <ConsistencyStreakCard summary={consistencyStreak} allSports={part === "condition"} />
+                <ConsistencyStreakCard summary={consistencyStreak} />
               </div>
             )}
 
-            {currentPoint && (
+            {part !== "condition" && currentPoint && (
               <FitnessWeeklyInsight
-                includeLoadSummary={part !== "condition"}
+                includeLoadSummary
                 ctlDelta={ctlDelta}
                 ctl={ctl}
                 atl={atl}
@@ -1221,8 +1222,8 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
               <div>
                 <Text as="div" variant="caption" style={{ marginBottom: "var(--space-1)" }}>{t(weeklyStats.storedSummary ? "weekly.storedSummaryTitle" : "daily.weekTSS")}</Text>
                 <div><Text variant="dataMedium">{weeklyStats.thisWeekUnknownCount && !weeklyStats.hasKnownThisWeekLoad ? "–" : weeklyStats.thisWeekTSS ?? "–"}</Text></div>
-                <Text variant="bodyMedium">{t(`hub.weekly.basis.${weeklyStats.dateBasis}`, { date: weeklyStats.asOf })}</Text>
-                {weeklyStats.partial && <Text variant="bodyMedium">{t("weekly.partial")}</Text>}
+                {part !== "condition" && <Text variant="bodyMedium">{t(`hub.weekly.basis.${weeklyStats.dateBasis}`, { date: weeklyStats.asOf })}</Text>}
+                {weeklyStats.partial && part !== "condition" && <Text variant="bodyMedium">{t("weekly.partial")}</Text>}
                 {weeklyStats.thisWeekUnknownCount > 0 && <Text variant="caption">{trainingT("log.loadPartial", { count: weeklyStats.thisWeekUnknownCount })}</Text>}
               </div>
               <div>
@@ -1279,7 +1280,6 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           </FtpDecisionSection>
         )}
 
-        {part === "condition" && <section className="condition-method-section"><DetailsSection title={t("condition.story.methodsTitle")}><PmcHistoryMethodNotes canonical={model.hasCanonicalHistory} /></DetailsSection></section>}
         {!embedded && part === "condition" && thresholdsSlot}
 
       </div>
@@ -1295,8 +1295,9 @@ export default function FitnessPage() {
   return <FitnessView model={model} />;
 }
 
-function ConditionLoadSection({ condition, title, description, defaultOpen, children }: { condition: boolean; title: string; description: string; defaultOpen: boolean; children: ReactNode }) {
-  return condition ? <Section id="condition-load" tabIndex={-1} className="condition-load-section condition-section-target" title={title} description={description}>{children}</Section> : <DetailsSection title={title} defaultOpen={defaultOpen}>{children}</DetailsSection>;
+function ConditionLoadSection({ condition, title, defaultOpen, children }: { condition: boolean; title: string; defaultOpen: boolean; children: ReactNode }) {
+  // 컨디션은 제목·설명 없이 부하 카드만 이어 둔다(섹션 이동 대상 id 는 유지).
+  return condition ? <div id="condition-load" tabIndex={-1} className="condition-load-section condition-section-target">{children}</div> : <DetailsSection title={title} defaultOpen={defaultOpen}>{children}</DetailsSection>;
 }
 
 function ConditionMetricSection({ condition, title, children }: { condition: boolean; title: string; children: ReactNode }) {

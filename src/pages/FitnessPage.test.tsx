@@ -147,7 +147,7 @@ describe("FitnessPage", () => {
     if (mobile) {
       expect(screen.getByTestId("mobile-fitness-props")).toHaveAttribute("data-has-projection", "false");
     } else {
-      expect(screen.getByTestId("K1-4-3")).toBeVisible();
+      expect(screen.queryByTestId("K1-4-3")).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "운동·계획" }));
       expect(screen.queryByText(/실적 · 계획 기반 예측/)).not.toBeInTheDocument();
     }
@@ -984,7 +984,9 @@ describe("FitnessPage", () => {
       setDocData("users/test-uid/fitness/pdc_bike", emptyPdc());
       setCollectionDocs("activities", [{ id: "scope-activity", userId: "test-uid", type: sport === "bike" ? "Ride" : "Run", startTime: Date.now(), deletedAt: null, summary: { distance: 5000 } }]);
       renderWithProviders(<ConditionFixture sport={sport} />, { authenticated: true, route: `/ko/coach/condition?sport=${sport}` });
-      await screen.findByTestId("K1-4-2");
+      await waitFor(() => expect(document.getElementById("condition-load")).not.toBeNull(), { timeout: 4000 });
+      // 컨디션은 운동 루틴 카드를 두지 않는다.
+      expect(screen.queryByTestId("K1-4-2")).not.toBeInTheDocument();
       expect(document.getElementById("condition-metrics")).toBeNull();
       expect(screen.queryByRole("heading", { name: "러닝 원본 기록 · 출처 확인" })).not.toBeInTheDocument();
       expect(screen.queryByTestId("K5-2-2")).not.toBeInTheDocument();

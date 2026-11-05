@@ -30,7 +30,7 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
 import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerCurvePeriodsPanel";
-import PmcHistoryPanel, { PmcHistoryMethodNotes } from "../../features/fitness/components/PmcHistoryPanel";
+import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
 import { fitnessTodayKey, type FitnessDateKeyBasis } from "@shared/training/dateKey";
 import FtpDecisionSection from "../../features/fitness/components/FtpDecisionSection";
 import { qualifiedRunRecords, needsRunAnalysisReadiness } from "../../features/fitness/runAnalysisReadiness";
@@ -665,7 +665,6 @@ export default function MobileFitnessPage({
   conditionSupplementSlot = null,
   currentBasis,
   currentStatusSlot = null,
-  periodEvidenceSlot = null,
   ridingEvidenceSlot = null,
   powerCurveEvidenceSlot = null,
   runningRecordsSlot = null,
@@ -736,8 +735,8 @@ export default function MobileFitnessPage({
   // FitnessPage 가 discipline 별 데이터(PMC/존/임계값/최근활동/파워커브)를 재계산해
   // props 로 다시 흘려준다. URL 동기화 없이 로컬 state 만 바꾸면 데이터가 안 바뀌어
   // "탭 눌러도 화면이 그대로" 회귀가 발생한다.
-  // 통합 컨디션은 요약 숫자·기준일 같은 보조 문구 없이 값과 차트만 둔다.
-  const triCondition = part === "condition" && data.discipline === "tri";
+  // 컨디션은 요약 숫자·기준일 같은 보조 문구 없이 값과 차트만 둔다.
+  const triCondition = part === "condition";
   const [searchParams, setSearchParams] = useSearchParams();
   const setSportSegment = (v: string) => {
     const next = new URLSearchParams(searchParams);
@@ -1002,7 +1001,7 @@ export default function MobileFitnessPage({
                 </ToggleControls>}
                 {pmcHistoryPoints && (
                   <div className="mobile-fitness-pmc" hidden={part === "condition" && chartView === "activities"}>
-                    <PmcHistoryPanel suppressMethodNotes={part === "condition"} quietSource={part === "condition" && data.discipline === "tri"} hideLoadFacts={part === "condition" && data.discipline === "tri"} controlledMode={part === "condition" ? chartView === "years" ? "years" : "trend" : undefined} hideModeControls={part === "condition"} key={data.discipline} points={pmcHistoryPoints} today={fitnessTodayKey(Date.now(), fitnessDateKeyBasis)} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" rangeChoices={data.discipline === "tri" ? [42, 90, 180, 365, "3y", "all"] : [30, 90, 180, 365, "3y", "all"]} />
+                    <PmcHistoryPanel suppressMethodNotes={part === "condition"} quietSource={part === "condition"} hideLoadFacts={part === "condition"} controlledMode={part === "condition" ? chartView === "years" ? "years" : "trend" : undefined} hideModeControls={part === "condition"} key={data.discipline} points={pmcHistoryPoints} today={fitnessTodayKey(Date.now(), fitnessDateKeyBasis)} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" rangeChoices={data.discipline === "tri" ? [42, 90, 180, 365, "3y", "all"] : [30, 90, 180, 365, "3y", "all"]} />
                   </div>
                 )}
                 <div className="mobile-fitness-daily-details" hidden={part === "condition" && Boolean(pmcHistoryPoints) && chartView !== "activities"}>
@@ -1050,7 +1049,7 @@ export default function MobileFitnessPage({
             </div>
           ) : <SectionCard specId={part === "condition" ? "K1-1" : undefined} ariaLabel={data.discipline === "tri" ? t("mobileFitness.integrated.title") : t("mobileFitness.currentStatusTitle")} compact>
             {part === "condition" ? <>
-              {currentStatusSlot && <><Text as="h2" variant="title" style={{ margin: "0 0 var(--space-3)" }}>{t("fitness:condition.current.title")}</Text>{currentStatusSlot}</>}
+              {currentStatusSlot}
               <div data-mobile-fitness-status className="mobile-fitness-current-metrics">
                 {(["ctl", "atl", "tsb"] as const).map(metric => <div key={metric}>
                   <Text as="div" variant="caption"><GlossaryText>{t(`fitness:${metric}`)}</GlossaryText></Text>
@@ -1092,14 +1091,11 @@ export default function MobileFitnessPage({
           {part === "condition" && goalSummarySlot}
 
           <section id={part === "condition" ? "condition-load" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? `mobile-fitness-load-section condition-section-target${data.discipline === "tri" ? " mobile-fitness-load-section--last" : ""}` : undefined}>
-          {/* 통합은 제목·설명·최근 7일 요약 없이 꾸준함·주별·일별 부하 카드만 이어 보인다. */}
-          {part === "condition" && data.discipline !== "tri" && <Text as="h2" variant="title">{t("fitness:condition.load.title")}</Text>}
-          {part === "condition" && data.discipline !== "tri" && <Text as="p" variant="bodySmall" tone="secondary" className="mobile-fitness-load-section__description">{t("fitness:condition.load.description")}</Text>}
-          {part === "condition" && data.discipline !== "tri" && periodEvidenceSlot && <SectionCard>{periodEvidenceSlot}</SectionCard>}
+          {/* 컨디션은 제목·설명·최근 7일 요약·운동 루틴 없이 주별·일별 부하 카드만 이어 보인다. */}
           {!embedded && part === "condition" && conditionSupplementSlot}
-          {(part === "condition" && data.discipline !== "tri" || data.discipline === "bike") && consistencyStreak && (
+          {part !== "condition" && data.discipline === "bike" && consistencyStreak && (
             <div className="mobile-fitness-streak">
-              <ConsistencyStreakCard summary={consistencyStreak} compact allSports={part === "condition"} />
+              <ConsistencyStreakCard summary={consistencyStreak} compact />
             </div>
           )}
 
@@ -1113,7 +1109,7 @@ export default function MobileFitnessPage({
             <SectionCard specId="K1-7-2" readableSub title={t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummaryTitle" : "fitness:weekly.title")} sub={triCondition ? undefined : t(data.weeklyLoadStoredSummary ? "fitness:weekly.storedSummary" : "fitness:weekly.sub", { thisWeek: data.thisWeekUnknownCount && !data.hasKnownThisWeekLoad ? "–" : data.thisWeekTSS ?? "–", avg: data.loadUnknownCount && !data.hasKnownWeeklyLoad ? "–" : data.avgWeekTSS ?? "–", restDays: data.restDays ?? "–" })}>
               {!data.weeklyLoadStoredSummary && <WeeklyTssBars compact={!embedded} values={data.weeklyTSS} color={weeklyLoadColor} t={t} />}
               <div className="mobile-weekly-load__notes">
-                {data.weeklyLoadPartial && <Text as="p" variant="bodyMedium">{t("fitness:weekly.partial")}</Text>}
+                {data.weeklyLoadPartial && !triCondition && <Text as="p" variant="bodyMedium">{t("fitness:weekly.partial")}</Text>}
                 {!triCondition && <Text as="p" variant="bodyMedium">{t(`fitness:hub.weekly.basis.${data.weeklyLoadDateBasis ?? "local"}`, { date: data.weeklyLoadAsOf ?? "–" })}</Text>}
                 {!!data.loadUnknownCount && <Text as="p" variant="caption">{trainingT("log.loadPartial", { count: data.loadUnknownCount })}</Text>}
               </div>
@@ -1128,11 +1124,7 @@ export default function MobileFitnessPage({
 
 
           {!mobileCondition && bikeThresholdSection}
-          {mobileCondition && data.discipline !== "tri" && <div className="mobile-condition-destinations">
-            <LocalizedLink to={`/coach/analysis?sport=${data.discipline}`}>{t("mobileFitness.analysisDestination")} →</LocalizedLink>
-            <LocalizedLink to={`/settings/training?sport=${data.discipline}`}>{t("fitness:condition.settings.title")} →</LocalizedLink>
-          </div>}
-          {part === "condition" && data.discipline !== "tri" && (mobileCondition ? <CoachDetailSection id="condition-methods" title={t("fitness:condition.story.methodsTitle")}><PmcHistoryMethodNotes canonical={pmcHistoryCanonical} /></CoachDetailSection> : <section className="condition-method-section"><Text as="h2" variant="title">{t("fitness:condition.story.methodsTitle")}</Text><PmcHistoryMethodNotes canonical={pmcHistoryCanonical} /></section>)}
+          {/* 컨디션은 분석·훈련 기준 이동 링크와 계산 근거 안내를 두지 않는다. */}
           {!embedded && (mobileCondition && thresholdsSlot ? <CoachDetailSection id="thresholds" title={t("fitness:condition.settings.title")}>{thresholdsSlot}</CoachDetailSection> : thresholdsSlot)}
 
           {embedded && data.discipline !== "tri" && (

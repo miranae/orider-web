@@ -162,14 +162,11 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
     <div id={part === "condition" ? "condition-activities" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "fitness-coach__activity-section condition-section-target" : "fitness-coach__primary-grid"}>
       <Card data-testid={part === "condition" ? "K1-3" : undefined} className="fitness-coach__impact-card" padding="none" style={{ padding: "var(--space-5)" }}>
         {part === "all" && weekChangeSlot}
-        {part === "condition" && <>
-          <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}>{t("condition.story.activityBasis")}</Text>
-          {recentActivities}
-        </>}
+        {part === "condition" && recentActivities}
         <div className="fitness-coach__impact-detail">
         <div className="fitness-coach__impact-heading">
           <div>
-            <Text as="div" variant="eyebrow">{t("coach.impact.eyebrow")}</Text>
+            {part !== "condition" && <Text as="div" variant="eyebrow">{t("coach.impact.eyebrow")}</Text>}
             <Text as="h3" variant="subtitle" style={{ margin: "var(--space-2) 0 var(--space-1)" }}>
               {selected ? activityLabel(selected, locale, t) : selectedPending ? pendingActivityLabel(selectedPending, locale, t) : canonicalAvailable ? t("coach.impact.empty") : t("coach.impact.unavailable")}
             </Text>
@@ -186,11 +183,11 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
           <MetricDelta label={t("coach.metric.atl")} value={delta?.atl ?? null} color="var(--rose)" />
           <MetricDelta label={t("coach.metric.tsb")} value={delta?.tsb ?? null} color="var(--amber)" />
         </div>
-        <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-3) 0 0" }}>
+        {(part !== "condition" || selectedPending) && <Text as="p" variant="caption" tone="tertiary" style={{ margin: "var(--space-3) 0 0" }}>
           {selectedPending ? pendingDescription : mode === "marginal" ? t(selected?.confidence === "activity-tss" ? "coach.impact.activityTssHelp" : "coach.impact.marginalHelp") : t("coach.impact.actualHelp")}
-        </Text>
-        {stimulus && (
-          <div data-testid={part === "condition" ? "K1-3-3" : undefined} className="fitness-coach__stimulus">
+        </Text>}
+        {stimulus && part !== "condition" && (
+          <div className="fitness-coach__stimulus">
             <div>
               <Text as="div" variant="eyebrow">{t("coach.stimulus.eyebrow")}</Text>
               <Text as="div" variant="bodyMedium" style={{ marginTop: "var(--space-2)" }}>{t(`coach.stimulus.type.${stimulus.workoutType}`)}</Text>
@@ -277,12 +274,13 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
           </div>
         </div>
         {part === "condition" && <div className="fitness-coach__story-primary-action"><LocalizedLink className={buttonClass({ variant: "primary", block: true })} data-testid="K1-1-3" to={`/coach/today?sport=${discipline}`}>{t("today.header.title")} →</LocalizedLink></div>}
-        {currentBasis && <div className="fitness-coach__summary-meta">
-          {part !== "condition" && (currentDate ? <Text variant="caption" tone="secondary">{t("coach.currentAsOf", { date: new Date(`${currentDate}T00:00:00.000Z`).toLocaleDateString(locale, { month: "short", day: "numeric", timeZone: "UTC" }) })}</Text>
-            : <Text variant="caption" tone="secondary">{currentBasis}</Text>)}
-          {(currentDate || part === "condition") && (part === "condition" ? <Text as="p" variant="caption" tone="tertiary" style={{ margin: 0 }}>{currentBasis}</Text> : <details className="fitness-coach__summary-source"><summary>{t("coach.currentBasisDetails")}</summary><Text as="p" variant="caption" tone="tertiary">{currentBasis}</Text></details>)}
+        {/* 컨디션은 기준일·계산 출처 줄을 두지 않는다. */}
+        {currentBasis && part !== "condition" && <div className="fitness-coach__summary-meta">
+          {currentDate ? <Text variant="caption" tone="secondary">{t("coach.currentAsOf", { date: new Date(`${currentDate}T00:00:00.000Z`).toLocaleDateString(locale, { month: "short", day: "numeric", timeZone: "UTC" }) })}</Text>
+            : <Text variant="caption" tone="secondary">{currentBasis}</Text>}
+          {currentDate && <details className="fitness-coach__summary-source"><summary>{t("coach.currentBasisDetails")}</summary><Text as="p" variant="caption" tone="tertiary">{currentBasis}</Text></details>}
         </div>}
-        {metricsNoteSlot && (part !== "condition" || showConditionChoices) && <div className="fitness-coach__summary-evidence">{metricsNoteSlot}</div>}
+        {metricsNoteSlot && part !== "condition" && <div className="fitness-coach__summary-evidence">{metricsNoteSlot}</div>}
 
       </SummarySurface>
   );
@@ -291,13 +289,11 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
     <section aria-labelledby={mobilePriority || (part === "condition" && statusSlot) ? undefined : "fitness-coach-title"} className={`fitness-coach${mobilePriority ? " fitness-coach--mobile-priority" : ""}${part === "condition" ? " fitness-coach--story" : ""}`}>
       {part === "condition" ? <Card className={`fitness-coach__story-hero${!showConditionChoices ? " fitness-coach__story-hero--overview" : ""}`}>
         {currentSummary}
-        {!showConditionChoices && metricsNoteSlot && <aside className="fitness-coach__story-evidence">{metricsNoteSlot}</aside>}
         {showConditionChoices && <div className="fitness-coach__story-choice">
           {trainingChoiceCard}
         </div>}
       </Card> : part !== "today" && !mobilePriority ? currentSummary : null}
       {part === "condition" && evidenceNavSlot}
-      {part === "condition" && <div className="fitness-coach__evidence-heading"><Text as="h2" variant="title">{t("condition.story.evidenceTitle")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("condition.story.evidenceBody")}</Text></div>}
 
       <div className="fitness-coach__first-view">
         {trendSlot && <div className="fitness-coach__trend">{trendSlot}</div>}

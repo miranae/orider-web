@@ -384,8 +384,8 @@ describe("충분도는 수치와 동일한 canonical 통로와 실제 모바일 
   seed([]);const h=renderHook(()=>useFitnessModel("bike",options));
   await waitFor(()=>expect(h.result.current.loadSufficiency?.digest).toBe(sufficiency.digest));
   render(<MemoryRouter><FitnessView model={h.result.current} part="condition" embedded /></MemoryRouter>);
-  expect(screen.getByTestId("K1-1-1-briefing-sufficiency-inline")).toHaveTextContent("낮은 근거");
-  expect(screen.getByTestId("K1-1-1-briefing-sufficiency-inline-action")).toHaveTextContent("지금처럼 기록을 이어가 주세요");
+  // 컨디션 요약에는 기록·계산 상태 안내를 두지 않는다. 낮은 근거는 추이 카드의 충분도 블록이 알린다.
+  expect(screen.queryByTestId("K1-1-1-briefing-sufficiency-inline")).not.toBeInTheDocument();
   expect(screen.getByTestId("K1-2-sufficiency")).toBeInTheDocument();
  });
  it("실제 모바일 라이더 능력 수치 옆에 가정값과 확인 행동을 함께 둔다", async()=>{
