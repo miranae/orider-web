@@ -529,5 +529,10 @@
     "analysis": "Analysis",
     "plan": "Plan",
     "goals": "Goals"
+  },
+  "challengeGuest": {
+    "title": "Choose your distance goal this month",
+    "body": "Track a monthly distance goal and join a distance league with your club.",
+    "example": "For example: 300, 500 or 1,000 km in a month. Sign in to use your own activities."
   }
 }

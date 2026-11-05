@@ -32,7 +32,7 @@ function ProposalPanel({ decision, recommendationVisible, refresh }: {
         {t(`decision.proposal.state.${controller.state}`, { defaultValue: t("decision.proposal.state.loading") })}
       </Chip>
     </div>
-    <Text as="p" variant="caption" tone="secondary">{t("decision.proposal.body")}</Text>
+    {canApplyRecommendation && hasAdjustments && (controller.state === "pending" || controller.state === "idle" && decision.capabilities.proposal === "available") && <Text as="p" variant="caption" tone="secondary">{t("decision.proposal.body")}</Text>}
     {canApplyRecommendation && controller.proposal?.changes.map((change) => <article key={`${change.weekId}:${change.dayIndex}`} data-testid="K2-2-5" className="training-decision-proposal__change"
       data-current-day={change.localDate === decision.localDate ? "true" : undefined}>
       <time dateTime={change.localDate}>{new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${change.localDate}T00:00:00Z`))}</time>
@@ -161,10 +161,7 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
   return <Card data-testid={surface === "today" ? "K2-2" : surface === "plan" ? "K4-4" : undefined} className={`training-decision-card training-decision-card--${surface}`} data-decision-id={tupleId}
     data-facts-id={decision.recommendationSource?.factsId ?? ""} data-plan-revision={decision.planSource?.planRevision ?? ""}>
     <header data-testid={surface === "today" ? "K2-2-2" : undefined} className="training-decision-card__header">
-      <div><Text as="span" variant="bodyMedium">{t("decision.eyebrow")}</Text><Text as="h2" variant="title">{t(`decision.status.${statusKey}`)}</Text></div>
-      <Chip variant={decision.healthGate.state === "stop" ? "danger" : applied ? "accent" : "default"}>
-        {t(recommendationPending ? "decision.mode.not-applied" : `decision.mode.${displayScheduledOnly ? "scheduled-only" : decision.mode}`)}
-      </Chip>
+      <div><Text as="h2" variant="title">{t(`decision.status.${statusKey}`)}</Text></div>
     </header>
     {decision.healthGate.state === "stop" && <Alert data-testid={surface === "today" ? "K2-2-3" : undefined} variant="danger" title={t("decision.healthStop")} />}
     {!scheduled && <Text as="p" variant="body" tone="secondary">{t("decision.noScheduled")}</Text>}
@@ -188,7 +185,6 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
       {tssDelta === null ? t("decision.deltaDurationOnly", { duration: signed(durationDelta) })
         : t("decision.delta", { duration: signed(durationDelta), tss: signed(tssDelta) })}
     </Text>}
-    <Text as="p" variant="caption" tone="secondary">{t("decision.sourceTuple", { classification: decision.loadAdjustment?.classification ?? decision.prescription.status, phase: decision.plan?.phase ?? "unknown" })}</Text>
     {reasonCodes.length > 0 && <section className="training-decision-card__reasons"
       aria-label={t(recommendedAdjustment ? "decision.reasonTitle" : "decision.reasonTitlePlain")}>
       <Text as="span" variant="caption" tone="secondary">

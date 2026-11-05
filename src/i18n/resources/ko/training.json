@@ -946,7 +946,7 @@
       "reason": {
         "feature_disabled": "오늘의 계획 기능이 아직 켜지지 않았어요",
         "no_active_goal": "진행 중인 목표가 없어 계획을 만들지 못했어요",
-        "prescription_not_ready": "오늘 처방이 아직 준비되지 않았어요",
+        "prescription_not_ready": "새 운동 권고는 아직 준비되지 않았어요.",
         "ambiguous_active_goal": "진행 중인 목표가 여러 개라 기준을 정하지 못했어요",
         "consent_required": "AI 코치 이용 동의가 필요해요",
         "canonical_load_unavailable": "최근 훈련 부하를 확인하지 못했어요",

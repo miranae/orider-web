@@ -466,7 +466,7 @@ export default function EventParticipantsPage() {
     <div data-testid="O1-2" className="event-controls-surface explore-editor-surface">
       {/* 헤더 */}
       <div className="site-shell" style={{ padding: "var(--space-5) var(--space-6) var(--space-4)" }}>
-        <div className="flex items-center" style={{ gap: 'var(--space-2)', fontSize: "var(--ft-body-size)", color: "var(--ink-3)", marginBottom: 'var(--space-3)' }}>
+        <nav className="event-participants-breadcrumb" aria-label={t("participantsTitle")}>
           <Link to="/explore/events" style={{ color: "var(--ink-3)" }}>{t("title")}</Link>
           <span style={{ color: "var(--ink-4)" }}>›</span>
           <Link to={`/event/${eventId}`} style={{ color: "var(--ink-3)" }} className="truncate">
@@ -474,7 +474,7 @@ export default function EventParticipantsPage() {
           </Link>
           <span style={{ color: "var(--ink-4)" }}>›</span>
           <span style={{ color: "var(--ink-2)" }}>{t("participantsTitle")}</span>
-        </div>
+        </nav>
 
         <div className="flex items-end justify-between flex-wrap" style={{ gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
           <div>
@@ -544,7 +544,7 @@ export default function EventParticipantsPage() {
         {/* 배번 부여 알림 */}
         {stats.noBib > 0 && (
           <div
-            className="flex items-center flex-wrap"
+            className="event-participants-bib-notice"
             style={{
               padding: "var(--space-3) var(--space-4)",
               background: "color-mix(in oklch, var(--amber) 6%, var(--bg-2))",
@@ -555,7 +555,7 @@ export default function EventParticipantsPage() {
             }}
           >
             <span aria-hidden="true" style={{ color: "var(--amber)", flexShrink: 0 }}><CircleAlert size={ICON_SIZE.sm} /></span>
-            <div style={{ flex: 1, fontSize: "var(--ft-body-size)", color: "var(--ink-1)" }}>
+            <div className="event-participants-bib-copy" style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-1)" }}>
               {t("participantsView.noBibWarning", { count: stats.noBib })}
             </div>
             <Button

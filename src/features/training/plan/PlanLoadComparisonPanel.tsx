@@ -119,9 +119,11 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
           {result.state === "ready" && summary && summary.unknownCount > 0 && <Text as="p" variant="bodySmall" tone="warning" role="status">{t("loadComparison.unknownLoads", { count: summary.unknownCount })}</Text>}
           {summary?.estimated && <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.estimated")}</Text>}
           {ongoing && <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.ongoing", { date: today })}</Text>}
-          <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.basis")}</Text>
           <Text as="p" variant="bodySmall">{t("loadComparison.meaning")}</Text>
-          <Text as="p" variant="caption" tone="secondary">{t("loadComparison.loadSource")}</Text>
+          <details><summary>{t("loadComparison.calendarEvidence")}</summary>
+            <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.basis")}</Text>
+            <Text as="p" variant="caption" tone="secondary">{t("loadComparison.loadSource")}</Text>
+          </details>
           {ready && result.days.length === 1 && dayLink(result.days[0]!.date)}
         </div>
         {ready && result.days.length > 1 && <details className="plan-load-comparison__details" open={params.get("loadDetails") === "open"} onToggle={event => { const value = event.currentTarget.open ? "open" : "closed"; if (value !== (params.get("loadDetails") ?? "closed")) update({ loadDetails: value }); }}>

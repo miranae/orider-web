@@ -1,3 +1,4 @@
+import SignInRequired from "../components/SignInRequired";
 import { isSportUiEnabled } from "../config/sportFeatures";
 import { useMemo, useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -76,9 +77,7 @@ export default function YearRecapPage() {
 
   if (!user) {
     return (
-      <div data-testid="P2.guest" style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center", color: "var(--ink-4)" }}>
-        <Text tone="tertiary">{t("loginRequired")}</Text>
-      </div>
+      <div data-testid="P2.guest"><SignInRequired description={t("loginRequired")} /></div>
     );
   }
 

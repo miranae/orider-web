@@ -1,3 +1,4 @@
+import SignInRequired from "../components/SignInRequired";
 import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft } from "lucide-react";
@@ -57,9 +58,7 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
 
   if (!user || tab === "training" && user.isAnonymous) {
     return (
-      <div data-testid={tab === "gear" ? "P4.guest" : "S.guest"} className="text-center py-12" style={{ color: "var(--ink-2)" }}>
-        {t("loginRequired")}
-      </div>
+      <div data-testid={tab === "gear" ? "P4.guest" : "S.guest"}><SignInRequired description={t("loginRequired")} /></div>
     );
   }
   if (!tab) return <MobileSettingsPage />;

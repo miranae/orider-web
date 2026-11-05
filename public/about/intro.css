@@ -591,3 +591,11 @@ footer a {
     word-break: keep-all;
   }
 }
+
+@media (max-width: 640px) {
+  .chapter-nav { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .chapter-nav .nav-title { position: static; transform: none; white-space: normal; text-align: right; }
+  .chapter-nav .nav-right { grid-column: 1 / -1; text-align: right; white-space: normal; }
+}
+.screenshot-original { display: block; }
+.screenshot-original:focus-visible { outline: 2px solid var(--brand); }
