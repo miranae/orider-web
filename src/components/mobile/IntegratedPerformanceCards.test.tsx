@@ -38,8 +38,11 @@ describe("IntegratedLoadCard", () => {
     expect(screen.getByText("+4.0")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /현재 체력 종목 기여도: 사이클 30.0, 71퍼센트/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /최근 28일 부하 포커스: 기초 유산소 40.0, 40퍼센트/ })).toBeInTheDocument();
-    expect(screen.getByText("주요 부하 · 기초 유산소")).toBeInTheDocument();
-    expect(screen.getByText("분류 커버리지 90% · 신뢰도 높음")).toBeInTheDocument();
+    // 요약 문구·분류 칩·주요 부하·커버리지·계산 근거는 화면에 두지 않는다(값과 막대만).
+    for (const removed of ["통합 훈련 요약", "장기 훈련 부하", "단기 훈련 부하", "주요 부하 · 기초 유산소", "분류 커버리지 90% · 신뢰도 높음", "계산 방법과 해석 근거"]) {
+      expect(screen.queryByText(removed)).not.toBeInTheDocument();
+    }
+    expect(screen.queryByText(/분류 90%/)).not.toBeInTheDocument();
     expect(screen.queryByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).not.toBeInTheDocument();
   });
 
@@ -59,20 +62,6 @@ describe("IntegratedLoadCard", () => {
     expect(screen.getByText("40.0 · 40%")).toBeVisible();
   });
 
-  it("keeps methodology closed until the accessible details control is opened", async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<IntegratedLoadCard combined={{
-      ctl: 42, atl: 38, tsb: 4, contributions: [],
-    }} focus={focus} />);
-
-    const toggle = screen.getByRole("button", { name: "계산 방법과 해석 근거", exact:true });
-    expect(toggle).toBeInTheDocument();
-    expect(screen.queryByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).not.toBeInTheDocument();
-
-    await user.click(toggle!);
-    expect(screen.getByText(/파워 부하 60.0 · 심박 부하 30.0 · 미분류 10.0/)).toBeVisible();
-    expect(screen.getByText(/서버에서 계산한 CTL/)).toBeVisible();
-  });
 
   it("keeps authoritative totals visible while marking unavailable canonical focus", () => {
     renderWithProviders(<IntegratedLoadCard combined={{
@@ -107,7 +96,6 @@ describe("IntegratedLoadCard", () => {
 
     expect(screen.getByRole("img", { name: /종목별 체력 기여 데이터 없음/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /최근 28일 부하 포커스: 분류된 부하 없음/ })).toBeInTheDocument();
-    expect(screen.getByText("분류 0% · 없음")).toBeInTheDocument();
     expect(screen.queryByText("CTL 0.0 · 0%")).not.toBeInTheDocument();
     expect(screen.getAllByText("—")).toHaveLength(2);
     expect(screen.getAllByText("0.0 · 0%")).toHaveLength(4);

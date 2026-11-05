@@ -95,7 +95,8 @@ describe("MobileFitnessPage tri", () => {
     const data = { ...previewData, discipline: "tri" as const, combinedLoad: { ctl: 12, atl: 10, tsb: 2, contributions: [] },
       pmcProjection: [{ date: Date.parse("2026-07-15T00:00:00Z"), ctl: 13, atl: 11, tsb: 2 }] };
     const { container } = renderWithProviders(<MobileFitnessPage data={data} part="condition" currentBasis="통합 현재값 기준일 · 2026-07-14" pmcHistoryPoints={[]} />);
-    expect(screen.getByText("통합 현재값 기준일 · 2026-07-14")).toBeVisible();
+    // 통합 카드 아래 기준일·출처 설명 줄은 두지 않는다.
+    expect(screen.queryByText("통합 현재값 기준일 · 2026-07-14")).not.toBeInTheDocument();
     const detail = container.querySelector(".mobile-fitness-daily-details")!;
     expect(detail).not.toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "운동·계획" }));
@@ -220,7 +221,7 @@ describe("MobileFitnessPage tri", () => {
     ["error", true, decisionState({ decision: null, unavailableReason: "error" }), "오늘 계획을 불러오지 못했습니다"],
     ["unavailable", true, decisionState({ decision: null }), "오늘 계획을 확인할 수 없습니다"],
     ["health-stop", true, decisionState({ decision: { ...baseDecision, healthGate: { ...baseDecision.healthGate, state: "stop" } } }), "운동 중단 사유를 먼저 확인하세요"],
-    ["no-scheduled", true, decisionState({ decision: { ...baseDecision, scheduledSessions: [], effectiveSessions: [], representativeSessionId: null } }), "오늘 예정된 세션이 없습니다"],
+    ["no-scheduled", true, decisionState({ decision: { ...baseDecision, scheduledSessions: [], effectiveSessions: [], representativeSessionId: null } }), "오늘 예정된 워크아웃이 없어요"],
     ["applied", true, decisionState({ decision: { ...baseDecision, receipt: { status: "applied" } as NonNullable<typeof baseDecision.receipt> } }), "변경 적용됨"],
   ] as const)("shows the authoritative %s today state in the first-fold preview", (stateKey, signedIn, state, copy) => {
     const { container } = renderWithProviders(<MobileFitnessPage data={previewData} todayDecisionSignedIn={signedIn} todayDecisionState={state} coachSlot={<div id="fitness-coach-today">상세 결정</div>} />);

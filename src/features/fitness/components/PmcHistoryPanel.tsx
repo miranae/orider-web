@@ -26,6 +26,10 @@ interface PmcHistoryPanelProps {
   hideModeControls?: boolean;
   /** 긴 공통 계산 설명을 하단의 열린 근거 구간에서 제공하는 화면. */
   suppressMethodNotes?: boolean;
+  /** 기본 출처 문구(예: "추정 계산 포함 이력")를 숨긴다. 반영 대기·지연·실패 상태는 그대로 알린다. */
+  quietSource?: boolean;
+  /** 선택 구간의 훈련 부하·운동부하 반영·PMC 계산·계산 일수 표를 숨긴다. */
+  hideLoadFacts?: boolean;
 }
 
 type YearSeries = { label: string; buckets: PmcBucket[]; dash?: string };
@@ -211,7 +215,7 @@ export function PmcHistoryMethodNotes({ canonical }: { canonical: boolean }) {
   );
 }
 
-export default function PmcHistoryPanel({ points, today, canonical, controlledRange, onControlledRangeChange, rangeChoices = RANGES, ctlColor = PMC_LINE_PALETTE.ctl.color, sourceLabel, variant = "card", controlledMode, onControlledModeChange, hideModeControls = false, suppressMethodNotes = false }: PmcHistoryPanelProps) {
+export default function PmcHistoryPanel({ points, today, canonical, controlledRange, onControlledRangeChange, rangeChoices = RANGES, ctlColor = PMC_LINE_PALETTE.ctl.color, sourceLabel, variant = "card", controlledMode, onControlledModeChange, hideModeControls = false, suppressMethodNotes = false, quietSource = false, hideLoadFacts = false }: PmcHistoryPanelProps) {
   const { t, i18n } = useTranslation("fitness");
   const headingId = useId();
   const [localRange, setLocalRange] = useState<PmcRange>(90);
@@ -273,10 +277,11 @@ export default function PmcHistoryPanel({ points, today, canonical, controlledRa
   }, [hoverBucket]);
   const legendItems = yearSeries.map((line) => ({ label: line.label, color: ctlColor, dasharray: line.dash, seriesId: `${line.label}-ctl`, strokeWidth: PMC_LINE_PALETTE.ctl.strokeWidth, strokeLinecap: PMC_LINE_PALETTE.ctl.linecap }));
 
-  return <ChartFrame data-testid="K1-2" as="section" variant={variant} className="fitness-analysis-controls pmc-history" aria-labelledby={headingId} header={<ChartHeader title={<h2 id={headingId}>{t(mode === "years" ? "history.mode.years" : "history.chart.title")}</h2>} actions={<span role={sourceState ? "status" : undefined} aria-live={sourceState ? "polite" : undefined} className={`pmc-history__source${sourceTone ? ` pmc-history__source--${sourceTone}` : ""}`} data-testid="K1-2-8" data-source-state={sourceState ?? "default"}>{sourceLabel ?? t(sourceKey)}</span>} />}>
+  return <ChartFrame data-testid="K1-2" as="section" variant={variant} className="fitness-analysis-controls pmc-history" aria-labelledby={headingId} header={<ChartHeader title={<h2 id={headingId}>{t(mode === "years" ? "history.mode.years" : "history.chart.title")}</h2>} actions={quietSource && !sourceState ? undefined : <span role={sourceState ? "status" : undefined} aria-live={sourceState ? "polite" : undefined} className={`pmc-history__source${sourceTone ? ` pmc-history__source--${sourceTone}` : ""}`} data-testid="K1-2-8" data-source-state={sourceState ?? "default"}>{sourceLabel ?? t(sourceKey)}</span>} />}>
     {(!hideModeControls || mode === "years") && <div className="pmc-history__controls">{!hideModeControls && <ToggleControls variant="axis" data-testid="K1-2-2" aria-label={t("history.mode")}>{(["trend", "years"] as const).map((value) => <ToggleButton key={value} selected={mode === value} onClick={() => setMode(value)}>{t(`history.mode.${value}`)}</ToggleButton>)}</ToggleControls>}{mode === "years" && <ToggleControls variant="metric" aria-label={t("history.years")}>{history.availableYears.map((year) => <ToggleButton showCheck key={year} selected={years.includes(year)} onClick={() => setYearChoice(years.includes(year) ? years.filter((value) => value !== year) : [...years, year].sort((a, b) => b - a))}>{year}</ToggleButton>)}</ToggleControls>}</div>}
     <div className="pmc-history__chart-head"><ChartLegend items={mode === "years" ? legendItems : [{ label: <GlossaryText>{t("ctl")}</GlossaryText>, color: ctlColor, seriesId: "ctl", strokeWidth: PMC_LINE_PALETTE.ctl.strokeWidth, strokeLinecap: PMC_LINE_PALETTE.ctl.linecap }, { label: <GlossaryText>{t("atl")}</GlossaryText>, color: PMC_LINE_PALETTE.atl.color, seriesId: "atl", dasharray: PMC_LINE_PALETTE.atl.dasharray, strokeWidth: PMC_LINE_PALETTE.atl.strokeWidth, strokeLinecap: PMC_LINE_PALETTE.atl.linecap }, { label: <GlossaryText>{t("tsb")}</GlossaryText>, color: PMC_LINE_PALETTE.tsb.color, seriesId: "tsb", dasharray: PMC_LINE_PALETTE.tsb.dasharray, strokeWidth: PMC_LINE_PALETTE.tsb.strokeWidth, strokeLinecap: PMC_LINE_PALETTE.tsb.linecap }]} />
-      {mode === "trend" && <ToggleControls variant="axis" aria-label={t("history.range")} data-testid="K1-2-1"><span className="pmc-history__unit">{t(`history.unit.${unit}`)}</span>{rangeChoices.map((value) => <ToggleButton key={value} selected={range === value} onClick={() => controlledRange == null ? setLocalRange(value) : onControlledRangeChange?.(value)}>{t(`history.range.${value}`)}</ToggleButton>)}</ToggleControls>}
+      {/* 기간 선택은 좁은 화면에서도 가로 스크롤 없이 한 줄을 균등하게 채운다(스크롤되면 글자가 칸 가운데에서 어긋났다). */}
+      {mode === "trend" && <ToggleControls variant="axis" density="compact" stretch aria-label={t("history.range")} data-testid="K1-2-1"><span className="pmc-history__unit">{t(`history.unit.${unit}`)}</span>{rangeChoices.map((value) => <ToggleButton key={value} selected={range === value} onClick={() => controlledRange == null ? setLocalRange(value) : onControlledRangeChange?.(value)}>{t(`history.range.${value}`)}</ToggleButton>)}</ToggleControls>}
 
     </div>
     {!hasChart ? <p role="status" className="pmc-history__empty">{t(years.length === 0 && mode === "years" ? "history.selectYear" : "history.empty")}</p>
@@ -287,12 +292,12 @@ export default function PmcHistoryPanel({ points, today, canonical, controlledRa
       <div className="pmc-history__evidence">{selected.map(({ label, bucket }) => <div key={label} className="pmc-history__evidence-period">
         {mode === "years" && <strong>{label} · {bucket.startDate} – {bucket.endDate}</strong>}
         {mode === "years" && <div role="group" aria-label={`${label} · ${selectionLabel} · ${t("history.mean")}`} className="pmc-history__values pmc-history__year-metrics">{(["ctl", "atl", "tsb"] as const).map(metric => <span key={metric} data-pmc-metric={metric} style={{ borderInlineStartColor: metric === "ctl" ? ctlColor : PMC_LINE_PALETTE[metric].color }}><ChartValue primary={formatValue(bucket[metric])} secondary={<GlossaryText>{t(metric)}</GlossaryText>} /></span>)}</div>}
-        <dl className="pmc-history__evidence-grid">
+        {!hideLoadFacts && <dl className="pmc-history__evidence-grid">
           <div><dt>{t("chartDetail.load")}</dt><dd>{bucket.loadStatus === "unconfirmed" ? "—" : formatValue(bucket.totalLoad)}</dd></div>
           <div><dt><InfoTip title={t("history.loadStatus")} content={t("history.statusNote")}>{t("history.loadStatus")}</InfoTip></dt><dd>{t(`history.load.${bucket.loadStatus}`)} · {bucket.loadSnapshotDays}/{bucket.expectedDays} {t("history.days")}</dd></div>
           <div><dt>{t("history.pmcStatus")}</dt><dd>{t(`history.pmc.${bucket.calculationStatus}`)}</dd></div>
           <div><dt><InfoTip title={t("history.coverage")} content={t("history.coverageNote")}>{t("history.coverage")}</InfoTip></dt><dd>{bucket.observedDays === 0 ? t("history.missing") : `${bucket.observedDays}/${bucket.expectedDays} ${t("history.days")}${bucket.partial ? ` · ${t("history.partial")}` : ""}`}</dd></div>
-        </dl>
+        </dl>}
       </div>)}</div>
       {!suppressMethodNotes && <PmcHistoryMethodNotes canonical={canonical} />}
     </section>

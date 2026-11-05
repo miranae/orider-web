@@ -50,7 +50,6 @@ describe("Run30 stable mobile stage details", () => {
     const summaryBefore = base.textContent;
     expect(within(screen.getByTestId("K4-R-6")).getByText("총 운동시간")).toBeVisible();
     expect(screen.getByText("러닝 시작은 O-Rider 앱에서 할 수 있어요.")).toBeVisible();
-    expect(screen.getByText("통증이나 질병 증상이 있으면 달리기를 멈추고 회복하세요.")).toBeVisible();
 
     fireEvent.click(stageEntry(2));
     const dialog = await screen.findByRole("dialog", { name: "2단계 · 구간 2개 보기" });

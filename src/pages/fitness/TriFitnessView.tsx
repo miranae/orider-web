@@ -406,7 +406,6 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
       </div>
       {hover && (
         <div id={tooltipId} role="status" className="tri-fitness__chart-readout">
-          <p>{t("triView.chart.dailyBasis")}</p>
           <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-2)", marginBottom: "var(--space-0-5)" }}>{hover.date}</div>
           {([
             [`${t("discipline.bike")} · bTSS`, hover.bike, BIKE_COLOR],
@@ -426,7 +425,6 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
           </div>
         </div>
       )}
-      <p className="tri-fitness__chart-hint">{t("triView.chart.interactionHint")}</p>
     </div>
   );
 }
@@ -566,7 +564,7 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
         </div>
       </div>}
 
-      <div className={evidenceOnly ? "tri-fitness__mobile-evidence" : "site-shell"} style={{ padding: evidenceOnly ? "var(--space-4)" : "var(--space-5) var(--space-6) var(--space-8)" }}>
+      <div className={evidenceOnly ? "tri-fitness__mobile-evidence" : "site-shell"} style={{ padding: evidenceOnly ? 0 : condition ? "var(--space-5) var(--space-6) 0" : "var(--space-5) var(--space-6) var(--space-8)" }}>
 
       {!evidenceOnly && loading && !combinedLoad && <Text as="p" role="status">{t("condition.current.loading")}</Text>}
       {!evidenceOnly && (historySlot || combinedLoad) && <div data-testid="K1-8-1" className="tri-fitness__primary">
@@ -584,7 +582,7 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
       {!condition && <div data-testid="K1-8-2"><DetailsSection title={t("history.disciplineDetails")} defaultOpen={!historySlot}>{disciplineEvidence}</DetailsSection></div>}
 
       {/* 일별 운동 부하 — 현재 기여도는 상단 IntegratedLoadCard 한 곳에만 표시한다. */}
-      <div id={condition && !evidenceOnly ? "condition-load" : undefined} className="condition-section-target" tabIndex={condition && !evidenceOnly ? -1 : undefined} style={{ marginTop: 'var(--space-5)' }}>
+      <div id={condition && !evidenceOnly ? "condition-load" : undefined} className="condition-section-target" tabIndex={condition && !evidenceOnly ? -1 : undefined} style={{ marginTop: evidenceOnly ? 'var(--space-3)' : 'var(--space-5)' }}>
         {/* 일별 운동 부하 */}
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <div style={{ marginBottom: "var(--space-3)" }}>
@@ -640,11 +638,9 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
 
       {/* 종목별 드릴다운 카드 */}
       <div id={condition && !evidenceOnly ? "condition-metrics" : undefined} className="condition-section-target" tabIndex={condition && !evidenceOnly ? -1 : undefined} style={{ marginTop: 'var(--space-5)' }}>
-        {condition && <div data-testid="K1-8-2"><section aria-label={t("history.disciplineDetails")}>{disciplineEvidence}</section></div>}
+        {/* 컨디션은 3종목 스택 PMC·계산 방식 없이 종목별 피트니스 카드만 둔다(위 컨디션 변화 차트가 추이를 맡는다). */}
         <div style={{ display: "flex", alignItems: "baseline", marginBottom: 'var(--space-3)' }}>
           <h3 style={{ margin: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("discipline.summary.title")}</h3>
-          <span style={{ flex: 1 }} />
-          <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>{t("triView.disciplineCards.hint")}</span>
         </div>
         <div className="tri-fitness__sport-cards">
           <PerDisciplineCard label={t("triView.cycling")} color={DISCIPLINE_CHART_COLORS.bike} ctl={bikeSpark} dates={sparkDates.bike} delta={bikeSpark.length >= 2 ? bikeSpark[bikeSpark.length - 1]! - bikeSpark[bikeSpark.length - 2]! : null} tss={weeklyEvidence.bike.display} dist="—" unit="km" lastSess={bikeSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=bike" />

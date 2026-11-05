@@ -205,7 +205,6 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
     {surface !== "plan" && !suppressExecution && <TrainingExecutionPanel decision={decision} sessions={executableSessions} onChanged={refresh} />}
     <footer className="training-decision-card__actions">
       {surface === "plan" && <LocalizedLink data-testid="K4-4-2" to={`/coach/today?sport=${discipline}`}>{t("decision.changeInToday")}</LocalizedLink>}
-      {surface === "today" && <LocalizedLink data-testid="K2-2-9" to={`/coach/plan?sport=${discipline}&date=${decision.localDate}`}>{t("decision.viewInPlan")}</LocalizedLink>}
       {surface !== "plan" && recommendationVisible && decision.capabilities.explain === "available" && decision.recommendationSource
         && <div data-testid="K2-5-1"><CoachQuestionLauncher user={user} discipline={discipline} onSignIn={onSignIn}
         triggerBlock={false} triggerLabel={t("decision.askCoach")} progressPlannerSelection={{ question: t("decision.coachQuestion"),

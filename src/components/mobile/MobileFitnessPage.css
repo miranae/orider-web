@@ -78,7 +78,10 @@
 
 .mobile-fitness-page .fitness-coach--story { padding-inline: var(--space-4); }
 .mobile-fitness-page .fitness-coach--story .mobile-fitness-section { margin-inline: calc(-1 * var(--space-4)) !important; }
-.mobile-fitness-load-section { margin-top: var(--space-8); padding-top: var(--space-6); }
+/* 경계선 위아래를 같게(24) — 위만 48 이라 앞 블록과 경계선 사이가 유독 벌어져 보였다. */
+.mobile-fitness-load-section { margin-top: var(--space-6); padding-top: var(--space-6); }
+/* 통합은 이 섹션이 마지막 블록이라 아래 여백은 다음 요소("코치에게 묻기")가 정한다. */
+.mobile-fitness-load-section--last { margin-bottom: 0; padding-bottom: 0; }
 .mobile-fitness-load-section > h2,
 .mobile-fitness-riding-metrics__title { font-size: var(--fs-2xl); line-height: var(--lh-tight); }
 .mobile-fitness-page .condition-method-section { margin-inline: var(--space-4); }

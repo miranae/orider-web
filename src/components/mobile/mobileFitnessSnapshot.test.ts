@@ -58,8 +58,7 @@ describe("mobile fitness decision hierarchy", () => {
     expect(container.querySelector(".mobile-fitness-performance__ftp")).toBeNull();
   });
 
-  it("keeps integrated load visible and its calculation evidence in a closed disclosure", async () => {
-    const user = userEvent.setup();
+  it("keeps integrated load visible without the calculation-evidence control", () => {
     renderWithProviders(createElement(IntegratedLoadCard, {
       combined: { ctl: 40, atl: 45, tsb: -5, contributions: [{ discipline: "bike", ctl: 40 }] },
       focus: { windowDays: 28, totalLoad: 100, buckets: { baseAerobic: 100, highAerobic: 0, highIntensity: 0, unclassified: 0 },
@@ -67,12 +66,6 @@ describe("mobile fitness decision hierarchy", () => {
         activityCount: 5, coveragePct: 100, confidence: "high", hasAnaerobicBikeDetail: false },
     }));
     expect(screen.getByText("40.0")).toBeVisible();
-    const help = screen.getByRole("button", { name: "계산 방법과 해석 근거", exact:true });
-    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
-    await user.click(help);
-    expect(screen.getByRole("tooltip")).toHaveTextContent("사이클·러닝·수영을 합쳐 서버에서 계산한 CTL · ATL · TSB");
-    await user.keyboard("{Escape}");
-    expect(help).toHaveFocus();
-    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "계산 방법과 해석 근거", exact: true })).not.toBeInTheDocument();
   });
 });

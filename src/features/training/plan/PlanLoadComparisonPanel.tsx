@@ -4,7 +4,6 @@ import { useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { PlanWeek } from "@shared/types/goal";
 import { planCalendarDate, planDayKey } from "@shared/training/planDate";
-import InfoTip from "../../../components/InfoTip";
 import { Button, Card, Field, Input, Stat, Text, ToggleButton, ToggleControls } from "../../../theme/components";
 import { usePlanPeriodComparison } from "./usePlanPeriodComparison";
 import { getPlanLoadRangeBounds, type PlanLoadRange } from "./planLoadComparison";
@@ -70,7 +69,6 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
   const ready = valid && (result.state === "ready" || result.state === "incomplete");
   const summary = ready ? result.summary : null;
   const future = valid && range.start > today;
-  const ongoing = valid && range.start <= today && range.end >= today;
   const changePeriod = (next: Period) => {
     update({ loadPeriod: next, ...(next === "range" ? { loadStart: range.start, loadEnd: range.end } : {}) });
   };
@@ -87,7 +85,7 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
     <Card>
       <div className="plan-load-comparison__heading">
         <Text as="h2" variant="title" id={`${id}-title`}>{t("loadComparison.title")}</Text>
-        <ToggleControls aria-label={t("loadComparison.period")}>
+        <ToggleControls aria-label={t("loadComparison.period")} style={{ marginBottom: 0 }}>
           {(["day", "week", "month", "range"] as const).map(value => <ToggleButton key={value} selected={period === value} onClick={() => changePeriod(value)}>{t(`loadComparison.${value}`)}</ToggleButton>)}
         </ToggleControls>
       </div>
@@ -98,7 +96,7 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
         </> : <div className="plan-load-comparison__stepper">
           {/* 이전 | 기준일 | 다음 을 칸으로 나눈다 — 한 줄 flex 에서는 iOS 날짜 칸이 글자에 맞춰 넓어지면 화살표와 겹쳤다. */}
           <Button variant="ghost" iconOnly onClick={() => shift(-1)} aria-label={t("loadComparison.previous")}>←</Button>
-          <Field label={t("loadComparison.referenceDate")} htmlFor={`${id}-date`}><Input id={`${id}-date`} type="date" value={date} invalid={!valid} onChange={event => setDate(event.target.value)} /></Field>
+          <Input id={`${id}-date`} aria-label={t("loadComparison.referenceDate")} type="date" value={date} invalid={!valid} onChange={event => setDate(event.target.value)} />
           <Button variant="ghost" iconOnly onClick={() => shift(1)} aria-label={t("loadComparison.next")}>→</Button>
         </div>}
         {valid && <Text variant="bodySmall" tone="tertiary">{range.start} – {range.end}</Text>}
@@ -109,33 +107,16 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
           <Stat compact role="group" aria-label={t("loadComparison.planned")} label={t("loadComparison.planned")} value={number(summary?.plannedTss)} unit="TSS" />
           <Stat compact role="group" aria-label={t("loadComparison.actual")} label={t("loadComparison.actual")} value={future ? t("loadComparison.upcoming") : number(summary?.actualTss)} unit={future ? undefined : "TSS"} />
           <Stat compact role="group" aria-label={t("loadComparison.difference")} label={t("loadComparison.difference")} value={number(summary?.deltaTss, true)} unit="TSS" />
-          <Stat compact role="group" aria-label={t("loadComparison.attainment")} label={<InfoTip label={t("loadComparison.attainment")} title={t("loadComparison.attainment")} content={t("loadComparison.formula")}>{t("loadComparison.attainment")}</InfoTip>} value={number(summary?.ratioPct)} unit={summary?.ratioPct == null ? undefined : "%"} />
+          <Stat compact role="group" aria-label={t("loadComparison.attainment")} label={t("loadComparison.attainment")} value={number(summary?.ratioPct)} unit={summary?.ratioPct == null ? undefined : "%"} />
         </div>
         <div className="plan-load-comparison__notes">
           {result.parentWeeksPending && <div className="plan-load-comparison__notice"><Text as="p" variant="bodySmall" role="status">{t("loadComparison.parentWeekPending")}</Text><Button variant="secondary" onClick={result.retryParentWeeks}>{t("loadComparison.retry")}</Button></div>}
-          {summary?.plannedDayCount === 0 && <Text as="p" variant="bodySmall">{t("loadComparison.planUnset")}</Text>}
-          {summary?.plannedTss === 0 && <Text as="p" variant="bodySmall">{t("loadComparison.noPlan")}</Text>}
           {result.state === "incomplete" && <div className="plan-load-comparison__notice"><Text as="p" variant="bodySmall" tone="warning" role="status">{t("loadComparison.incomplete")}</Text><Button variant="secondary" onClick={result.retry}>{t("loadComparison.retry")}</Button></div>}
           {result.state === "ready" && summary && summary.unknownCount > 0 && <Text as="p" variant="bodySmall" tone="warning" role="status">{t("loadComparison.unknownLoads", { count: summary.unknownCount })}</Text>}
           {summary?.estimated && <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.estimated")}</Text>}
-          {ongoing && <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.ongoing", { date: today })}</Text>}
-          <Text as="p" variant="bodySmall">{t("loadComparison.meaning")}</Text>
-          <details><summary>{t("loadComparison.calendarEvidence")}</summary>
-            <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.basis")}</Text>
-            <Text as="p" variant="caption" tone="secondary">{t("loadComparison.loadSource")}</Text>
-          </details>
           {ready && result.days.length === 1 && dayLink(result.days[0]!.date)}
         </div>
-        {ready && result.days.length > 1 && <details className="plan-load-comparison__details" open={params.get("loadDetails") === "open"} onToggle={event => { const value = event.currentTarget.open ? "open" : "closed"; if (value !== (params.get("loadDetails") ?? "closed")) update({ loadDetails: value }); }}>
-          <summary>{t("loadComparison.dailyDetails")}</summary>
-          <div className="plan-load-comparison__table-scroll" tabIndex={0} role="region" aria-label={t("loadComparison.dailyDetails")}>
-            <table className="plan-load-comparison__table">
-              <caption>{t("loadComparison.tableCaption")}</caption>
-              <thead><tr><th scope="col">{t("loadComparison.date")}</th><th scope="col">{t("loadComparison.planned")}</th><th scope="col">{t("loadComparison.actual")}</th><th scope="col">{t("loadComparison.difference")}</th><th scope="col">{t("loadComparison.attainment")}</th></tr></thead>
-              <tbody>{result.days.map(row => <tr key={row.date}><th scope="row">{dayLink(row.date)}</th><td>{number(row.plannedTss)}</td><td>{row.future ? t("loadComparison.upcoming") : <>{number(row.actualTss)}{row.estimated && <span aria-label={t("loadComparison.estimated")}> *</span>}</>}</td><td>{number(row.deltaTss, true)}</td><td>{row.ratioPct == null ? "—" : `${number(row.ratioPct)}%`}</td></tr>)}</tbody>
-            </table>
-          </div>
-        </details>}
+        {/* 계획 대비 기록은 합계·차이·달성률만 둔다. 기간 설명·비교 근거·일별 비교 표는 두지 않는다. */}
       </>}
     </Card>
   </section>;

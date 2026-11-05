@@ -123,7 +123,6 @@ export default function PowerCurveChart({
       </div>
       <div className="power-curve-evidence__values" data-stable={stableSelection || undefined}>{[selected, previousSelected].map((point, index) => <div key={index} className="space-y-2"><Stat compact label={t(index ? "period.previous" : "period.recent")} value={point ? point.maxPower.toFixed(0) : "—"} unit={point ? "W" : undefined} /><div className="power-curve-evidence__source">{point?.sourceActivityId && point.startTime != null ? <LocalizedLink className="underline power-curve-source-link" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}><Text variant="bodySmall">{t("powerCurve.sourceLabel")} <time className="power-curve-source-date">{new Date(point.startTime).toLocaleDateString()}</time></Text></LocalizedLink> : stableSelection ? <Text variant="caption" tone="secondary">{t("powerCurve.sourceUnavailable")}</Text> : null}</div></div>)}</div>
     </div>}
-    <Text as="p" className="power-curve-evidence__note" variant="caption" tone="tertiary">{t("powerCurve.windowNote")}</Text>
     </div>
   );
 }

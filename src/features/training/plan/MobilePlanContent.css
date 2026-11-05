@@ -26,6 +26,10 @@
 .coach-surface .mobile-plan-goal,
 .coach-surface .mobile-plan-next,
 .coach-surface .mobile-plan-week-summary { margin-inline: 0; }
+/* 운동 계획 제목 줄과 첫 카드 사이를 좁힌다(위 2) — 카드끼리는 아래 여백 8 이 그대로 간격이 된다. */
+.coach-surface .mobile-plan-goal,
+.coach-surface .mobile-plan-next,
+.coach-surface .mobile-plan-week-summary { margin-top: var(--space-0-5); }
 .coach-surface .mobile-plan-week-navigation,
 .coach-surface .mobile-plan-adaptation,
 .coach-surface .mobile-plan-week-header { padding-inline: 0; }
@@ -33,7 +37,8 @@
 .coach-surface .mobile-plan-chrome {
   position: static;
   height: auto;
-  min-height: var(--dim-button-height);
+  /* 섹션 제목 줄은 내용 높이만 — 44 최소 높이가 제목 위아래를 넓혀 카드와 멀어 보였다. */
+  min-height: 0;
   padding-inline: 0;
   border-bottom: 0;
   background: transparent;
@@ -272,3 +277,6 @@
 .mobile-plan-week-navigation { display: grid; grid-template-columns: var(--dim-button-height) minmax(0, 1fr) var(--dim-button-height); align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); text-align: center; }
 .mobile-plan-day-row { display: grid; grid-template-columns: var(--space-8) var(--space-0-5) minmax(0, 1fr) auto; align-items: start; gap: var(--space-3); }
 .mobile-plan-rest-load { margin-inline-start: calc(var(--space-8) + var(--space-0-5) + var(--space-3) * 2); }
+
+/* 계획 조정 카드가 그릴 내용이 없으면(조정 없음) 감싼 상자의 위아래 패딩만 남아 다음 블록을 24 밀었다. */
+.plan-decision-slot:empty { display: none; }

@@ -728,7 +728,6 @@ export default function TrainingLogPage() {
           <Text as="span" variant="caption" tone="secondary">{t("page.logActivities", { count: kpi.count })}</Text>
         </div>
         <div className="training-log-notes">
-          <Text as="p" variant="caption" tone="secondary">{t("log.recordBasis")}</Text>
           {kpi.tssEstimated && <Text as="p" variant="caption" tone="secondary">{t("log.estimateBasis")}</Text>}
         </div>
         <div data-testid="P1-1-1" className="training-log-metrics">
