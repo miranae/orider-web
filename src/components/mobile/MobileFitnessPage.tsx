@@ -7,7 +7,6 @@ import type { NativePowerLoadedActivity } from "../../features/fitness/component
 import { FitnessEvidenceTrend } from "../../features/fitness/components/FitnessEvidenceTrend";
 import GlossaryText from "../common/GlossaryText";
 import DisciplineTabs from "../redesign/DisciplineTabs";
-import FitnessPeriodEvidence from "../../features/fitness/components/FitnessPeriodEvidence";
 import { LocalizedLink } from "../LocalizedLink";
 import type { MonthlyCyclingVo2maxPoint } from "../../features/fitness/deriveMonthlyCyclingVo2maxTrend";
 import { computeOutdoorPacingGuide, type GapEntry } from "@shared/training/expectedPower";
@@ -654,14 +653,12 @@ export default function MobileFitnessPage({
   powerCurvePeriodsEnabled = false,
   pmcHistoryPoints,
   pmcHistoryCanonical = false,
-  periodTimeseries = null,
   fitnessDateKeyBasis,
   coachSlot = null,
   thresholdsSlot = null,
   hasThresholdSettings = Boolean(thresholdsSlot),
   goalSummarySlot = null,
   periodSlot = null,
-  analysisSummarySlot = null,
   conditionSupplementSlot = null,
   currentBasis,
   currentStatusSlot = null,
@@ -889,8 +886,8 @@ export default function MobileFitnessPage({
           {mobileAnalysis && hasRunCurve && runCurveContent}
           {mobileAnalysis && <div id={isBike ? "analysis-comparison" : undefined}>{bikePowerCurveContent}</div>}
           {mobileAnalysis && <SufficiencyGroup summaryOnly sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="analysis-readiness-summary" />}
-          {mobileAnalysis && analysisSummarySlot && <CoachDetailSection id="analysis-activity-flow" title={t("mobileFitness.activityFlow")}>{analysisSummarySlot}</CoachDetailSection>}
-          {mobileAnalysis && isBike ? <CoachDetailSection id="analysis-model" title={t("mobileFitness.modelDetails")}>{modelContent}</CoachDetailSection> : modelContent}
+          {/* 분석은 파워 커브 비교만 둔다 — 활동량·추정 지표·기간별 강도·FTP 판단·데이터 근거 섹션은 두지 않는다. */}
+          {!(mobileAnalysis && isBike) && modelContent}
           {/* 임계값 카드 */}
           {sectionState.derived === "ready" && data.threshold && !isBike && (
             <SectionCard>
@@ -939,7 +936,8 @@ export default function MobileFitnessPage({
 
           {!mobileAnalysis && data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
 
-          {mobileAnalysis && data.discipline !== "tri" ? <CoachDetailSection id="analysis-periods" title={t("activity:trainingPeriods.title")}><FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} />{bikePeriodZoneContent}</CoachDetailSection> : !(part === "condition" && isBike) && bikePeriodZoneContent}
+          {!(mobileAnalysis && data.discipline !== "tri") && !(part === "condition" && isBike) && bikePeriodZoneContent}
+
 
           {/* 존 정의 */}
           {sectionState.derived === "ready" && showZones && (embedded || data.zones.some(zone => zone.rangeLabel || zone.percentLabel)) && (
@@ -966,8 +964,6 @@ export default function MobileFitnessPage({
               <GlossaryText>{t("mobileFitness.analysisInsufficient")}</GlossaryText>
             </div>
           )}
-          {mobileAnalysis && bikeThresholdSection}
-          {mobileAnalysis && isSufficiencyGrouped(...mobileAnalysisSets) && <CoachDetailSection id="analysis-evidence" title={t("mobileFitness.modelEvidence")}><SufficiencyGroup inline sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="K5-sufficiency-group" /></CoachDetailSection>}
         </div>
   );
 

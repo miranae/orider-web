@@ -16,7 +16,7 @@ describe("Fitness PowerCurveChart", () => {
     chooseDropdown(screen.getByRole("combobox"), "duration.sec 1");
     expect(screen.getByText("900")).toBeInTheDocument(); expect(screen.getByText("—")).toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute("href", "/activity/sprint");
-    expect(screen.getByText("powerCurve.windowNote")).toBeInTheDocument();
+    expect(screen.queryByText("powerCurve.windowNote")).not.toBeInTheDocument();
     const explanation = screen.getByRole("button", { name: "duration.sec 1 · powerCurve.tooltip.current" });
     expect(explanation).toHaveTextContent("powerCurve.valuesInfo");
     expect(explanation.closest("label")).toBeNull();

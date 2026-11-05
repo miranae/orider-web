@@ -1050,28 +1050,7 @@ describe("FitnessPage", () => {
       expect(screen.getByTestId("K1-2-sufficiency-action").getAttribute("href")).toContain("/settings/connections");
     });
 
-    it("분석이 VO2max와 두 기간 파워 비교 및 존의 대표 위치가 된다", async () => {
-      viewport.isMobile = false;
-      setDocData("users/test-uid/fitness/pdc_bike", parity.persistedPdc);
-      setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride", startTime: Date.now(), deletedAt: null, summary: { distance: 20_000, ridingTimeMillis: 3_600_000 } }]);
-      renderWithProviders(<AnalysisFixture />, { authenticated: true, route: "/ko/coach/analysis?sport=bike" });
-      expect(await screen.findByText("~56")).toBeInTheDocument();
-      expect(screen.getByRole("region", { name: "라이더 타입 · 역량과 성향" }).closest("#analysis-model")).not.toBeNull();
-      expect(document.getElementById("analysis-comparison")).toHaveTextContent("파워 커브");
-      expect(screen.queryByTestId("K5-2-2")).not.toBeInTheDocument();
-      expect(document.getElementById("analysis-periods")?.querySelector(".fitness-zone-evidence")).not.toBeNull();
-      expect(screen.getByRole("region", { name: "기간별 실측 파워 비교" }).closest("#analysis-periods")).not.toBeNull();
-      expect(screen.getByRole("button", { name: "기간 분석 불러오기" })).toBeDisabled();
-      expect(screen.queryByRole("combobox", { name: "분석할 라이딩" })).not.toBeInTheDocument();
-    });
 
-    it("분석은 VO2max 결측을 수치로 채우지 않고 정의와 단위를 보존한다", async () => {
-      viewport.isMobile = false;
-      setCollectionDocs("activities", [{ id: "bike-1", userId: "test-uid", type: "Ride", startTime: Date.now(), deletedAt: null, summary: { distance: 20_000 } }]);
-      renderWithProviders(<AnalysisFixture />, { authenticated: true, route: "/ko/coach/analysis?sport=bike" });
-      expect(await screen.findByText("PDC 기반 VO2max 추정")).toBeInTheDocument();
-      expect(screen.getAllByText("ml/kg/min").length).toBeGreaterThan(0);
-    });
 
     it("분석 러닝에서 기록 보드와 마일스톤을 보존하고 축하 쓰기는 활성화하지 않는다", async () => {
       viewport.isMobile = false;

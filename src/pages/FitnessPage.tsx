@@ -1016,14 +1016,8 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           : <Card><Text as="h2" variant="subtitle">{t("criticalPace.title")}</Text><Text as="p" variant="caption" tone="secondary">{t("criticalPace.periodNote")}</Text><CriticalPaceCurve stableSelection recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} /></Card>}
       </section>
       <SufficiencyGroup summaryOnly sets={analysisSets} testId="analysis-readiness-summary" />
-      {analysisSummarySlot && <AnchoredDetailsSection queryDetail id="analysis-activity-flow" title={t("analysis.categories.activity")} >{analysisSummarySlot}</AnchoredDetailsSection>}
-      {discipline === "bike" && <AnchoredDetailsSection queryDetail id="analysis-model" title={t("analysis.categories.model")}>{bikeMetrics}{pacingCard}</AnchoredDetailsSection>}
       {discipline === "run" && <AnchoredDetailsSection queryDetail id="analysis-run-records" title={t("analysis.categories.records")}><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} /><MilestonesGrid achieved={milestones} />{!user.isAnonymous && getRuntimeConfig().appEnvironment === "stage" && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}</AnchoredDetailsSection>}
-      <AnchoredDetailsSection queryDetail id="analysis-periods" title={t("analysis.categories.periods")}>{periodPowerCard}{discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} />}{zoneDistributionCard}</AnchoredDetailsSection>
-      {discipline === "bike" && <FtpDecisionSection title={t("condition.basis.title")} anchorEnabled collapsible>
-        <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={!!zoneDistribution} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={ftpProgression} ftpHistory={ftpHistory} t={t} />
-      </FtpDecisionSection>}
-      {isSufficiencyGrouped(...analysisSets) && <AnchoredDetailsSection queryDetail id="analysis-evidence" title={t("analysis.categories.evidence")}><SufficiencyGroup inline sets={analysisSets} testId="K5-sufficiency-group" /></AnchoredDetailsSection>}
+      {/* 분석은 파워 커브 비교만 둔다 — 활동량·추정 지표·기간별 강도·FTP 판단·데이터 근거 섹션은 두지 않는다. */}
     </div>
   </div>;
 
