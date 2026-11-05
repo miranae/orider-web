@@ -15,7 +15,7 @@ Issue: https://github.com/miranae/orider-web/issues/1515
 | 7 | No speculative footer-spacing patch. Prior full-bottom iPhone evidence excluded this as a confirmed overlap defect. General-login/small-screen combinations remain verification work. |
 | 8 | Calculator changes from two fixed-minimum columns to a single mobile column; inputs shrink within fields, with one field per row below 384px. Changing speed from 28 to 20 updates estimated power from 304 to 185 W. |
 | 9 | **Not activated.** Live runtime `publicActivityDetailEnabled=false`; production `getActivityPublicDetail` is ACTIVE (updated 2026-11-04). The existing rollout document explicitly requires two-account/media/map/privacy validation before enabling. No ACL broadening or owner-document fallback for other users. Follow `public-activity-detail-rollout.md`, WEB #1344 / BE #3373. |
-| 10 | Long segment names wrap and align left inside their button instead of being centered/truncated at both ends. |
+| 10 | Long segment names use shared `Button block align="start"`, wrapping and aligning at the start instead of being centered/truncated at both ends. The presentation lives in shared CSS, so direct segment visits do not depend on another lazy page loading a stylesheet. |
 | 11 | App/web introduction headers use two rows on narrow screens and shorter Korean titles. |
 | 12 | Screenshot examples link to the original-size asset with an explicit enlargement hint. This adds readable original access; it does not claim new mobile-specific example images. |
 | 13 | App/web pages keep one feature table and direct destinations; remove repeated role/aspirational feature lists and development-history prose. The introduction home retains its separate sport/community workflow. |
@@ -34,7 +34,7 @@ Issue: https://github.com/miranae/orider-web/issues/1515
 
 ## Verification evidence
 
-- Node 22: full Vitest run, 986 suites / 10,453 tests passed; repository script contracts passed. Lint and quality budgets passed. Production build passed with the already deployed public AI API URL supplied only to the command (the shared `.env` lacks it).
+- Node 22: full Vitest run, 986 suites / 10,454 tests passed; repository script contracts passed. Lint and quality budgets passed. Production build passed with the already deployed public AI API URL supplied only to the command (the shared `.env` lacks it).
 - An iPhone 18 Pro Max / iOS 27.0 Safari screenshot proves calculator inputs are visible above results on the local implementation. Device Hub subsequently returned intermittent window/AX errors, so the remaining screenshots are **desktop browser responsive checks**, not additional Safari or Galaxy evidence.
 - Responsive checks: 375×812 and 411×891; login 667×375. Menu focus stays on Close, calculator input changes update results, guest login opens the modal, modal wheel-scroll exposes all providers/legal links and returns to Close, public policy renders without sign-in, introduction title and original-image link remain visible.
 - The two `synthetic-*` screenshots use the actual MeetingForm with fake local data plus a small reproduction of the participant header markup using the production CSS. They establish layout only, not event authorization, host APIs, production data or the outer app/WebView navigation shell.
@@ -46,6 +46,10 @@ Issue: https://github.com/miranae/orider-web/issues/1515
 ![Landscape login scrolled to legal links](../evidence/1515/responsive-landscape-login-scrolled.png)
 ![Synthetic participant and meeting layout](../evidence/1515/synthetic-411-participants-meeting.png)
 ![Synthetic date field above the action area](../evidence/1515/synthetic-375-meeting-date.png)
+
+The shared long-label button was also checked in the real catalogue at 375px: computed start alignment and normal wrapping, 351px width / 70.2px height, no horizontal overflow. Shared controls and Explore tests: 13 suites / 76 tests passed.
+
+![Shared multiline button](../evidence/1515/responsive-375-shared-button.png)
 
 Other public screenshots are under `docs/evidence/1515/`.
 
