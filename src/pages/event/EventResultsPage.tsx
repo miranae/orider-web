@@ -210,8 +210,8 @@ export default function EventResultsPage() {
               if (distanceKm == null && typeof cd.distance === "number") distanceKm = cd.distance / 1000;
               if (elevationGain == null && typeof cd.elevationGain === "number") elevationGain = cd.elevationGain;
             }
-          } catch {
-            // ignore
+          } catch (error) {
+            logClientError("EventResultsPage.loadCourse", error, { eventId });
           }
         }
 
@@ -240,12 +240,15 @@ export default function EventResultsPage() {
             id: participant.userId, data: () => ({ ...participant }),
           }));
         const userNameMap: Record<string, string> = {};
+        const profileErrors: unknown[] = [];
         if (privateAccess) await Promise.all(participantDocs.map(async (pDoc) => {
           try {
             userNameMap[pDoc.id] = (await withReadDeadline(getPublicUserProfile(pDoc.id, services.firestore), t("readTimeout")))?.nickname ?? "";
-          } catch { userNameMap[pDoc.id] = ""; }
+          } catch (error) { profileErrors.push(error); userNameMap[pDoc.id] = ""; }
         }));
         if (cancelled || auth.currentUser?.uid !== owner || (privateAccess && owner !== user?.uid)) return;
+
+        if (profileErrors.length > 0) logClientError("EventResultsPage.loadPublicProfiles", profileErrors[0], { eventId, failureCount: profileErrors.length });
 
         const eventStartMs = typeof startMs === "number" ? startMs : null;
         const entries: ResultEntry[] = participantDocs.map((pDoc) => {

@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { getDoc } from "firebase/firestore";
+import { logClientError } from "../../services/errorLogger";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import { displayRankFor, shouldShowResultsGroupCta, type ResultEntry } from "./EventResultsPage";
 import EventResultsPage from "./EventResultsPage";
 import { isVerifiedEventFinisher } from "../../features/event/resultVerification";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { setDocData } from "../../__tests__/mocks/firebase";
+
+vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
 
 vi.mock("../../services/eventPublicParticipants", async (original) => ({
   ...await original<typeof import("../../services/eventPublicParticipants")>(),
@@ -130,6 +133,26 @@ it("replaces a pending event read with a connection error instead of an endless 
     await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
     expect(screen.getByText("정보를 불러오는 데 시간이 오래 걸립니다. 연결을 확인한 뒤 다시 시도해 주세요.")).toBeVisible();
     expect(screen.getByRole("button", { name: /다시/ })).toBeEnabled();
+  } finally {
+    read.mockImplementation(original);
+    vi.useRealTimers();
+  }
+});
+
+
+it("keeps results available and reports an optional course read that times out", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  setDocData("events/first", { info: { name: "Finished optional course", status: "FINISHED", type: "TOUR", courseIds: ["slow"] } });
+  const read = vi.mocked(getDoc);
+  const original = read.getMockImplementation()!;
+  read.mockImplementation(ref => ref.path === "courses/slow"
+    ? new Promise<Awaited<ReturnType<typeof getDoc>>>(() => undefined)
+    : original(ref));
+  try {
+    renderWithProviders(<ResultsWithNavigation />, { route: "/ko/event/first/results" });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(screen.getByRole("heading", { name: "Finished optional course" })).toBeVisible();
+    expect(logClientError).toHaveBeenCalledWith("EventResultsPage.loadCourse", expect.any(Error), { eventId: "first" });
   } finally {
     read.mockImplementation(original);
     vi.useRealTimers();
