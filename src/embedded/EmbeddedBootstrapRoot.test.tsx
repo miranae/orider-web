@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useEffect } from "react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { simulateLogin } from "../__tests__/mocks/firebase";
 import i18n from "../i18n";
+import { HOST_THEME_CHANGE_EVENT } from "../contexts/ThemeContext";
 
 import type { EmbeddedBridge, HostBridgeEnvelope, WebMessageType } from "./bridge";
 import {
@@ -310,6 +311,55 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     act(() => bridge.emit(hostMessage("host.themeChanged", { mode: "dark" })));
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(screen.getByTestId("analysis-surface")).toBe(surface);
+  });
+
+  it.each([false, true])("reapplies scoped host colors when entering and leaving live (startsLive=%s)", async startsLive => {
+    const detailPath = "/ko/embed/clubs/club-1/meetings/meeting-1";
+    const livePath = `${detailPath}/live`;
+    const bridge = createFakeBridge();
+    function Navigation() {
+      const navigate = useNavigate();
+      return <><button onClick={() => navigate(livePath)}>Enter live</button><button onClick={() => navigate(detailPath)}>Leave live</button></>;
+    }
+    const hostEvents: string[] = [];
+    const themeEvents: string[] = [];
+    const onHostTheme = (event: Event) => hostEvents.push((event as CustomEvent).detail.mode);
+    const onTheme = (event: Event) => themeEvents.push((event as CustomEvent).detail.resolved);
+    window.addEventListener(HOST_THEME_CHANGE_EVENT, onHostTheme);
+    window.addEventListener("orider:themechange", onTheme);
+    try {
+      const { container } = render(<MemoryRouter initialEntries={[startsLive ? livePath : detailPath]}>
+        <Navigation /><Routes><Route path="*" element={<EmbeddedBootstrapRoot bridgeFactory={() => bridge} surfaceKind="fitness" />} /></Routes>
+      </MemoryRouter>);
+      await act(async () => bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 })));
+      const lightColors = { bg: "#ffffff", surface: "#eeeeee", textPrimary: "#111111", textSecondary: "#333333", accent: "#008888" };
+      act(() => bridge.emit(hostMessage("host.sessionAccepted", { ...acceptedPayload(), theme: { mode: "light", colors: lightColors } })));
+      const surface = await screen.findByTestId("fitness-surface");
+      const root = container.querySelector<HTMLElement>(".orider-embedded-root")!;
+      const mounts = mocks.surfaceLifecycle.mock.calls.length;
+      const handoffs = mocks.consumeHandoff.mock.calls.length;
+      if (!startsLive) expect(root.style.getPropertyValue("--orider-host-bg")).toBe(lightColors.bg);
+      fireEvent.click(screen.getByRole("button", { name: "Enter live" }));
+      expect(document.documentElement.dataset.theme).toBe("dark");
+      expect(root.style.getPropertyValue("--orider-host-bg")).not.toBe(lightColors.bg);
+      expect(hostEvents.at(-1)).toBe("dark");
+      expect(themeEvents.at(-1)).toBe("dark");
+      // A live host update retains its preference for the next non-live route.
+      act(() => bridge.emit(hostMessage("host.themeChanged", { mode: "light", colors: lightColors })));
+      expect(document.documentElement.dataset.theme).toBe("dark");
+      fireEvent.click(screen.getByRole("button", { name: "Leave live" }));
+      expect(document.documentElement.dataset.theme).toBe("light");
+      expect(root.style.getPropertyValue("--orider-host-bg")).toBe(lightColors.bg);
+      expect(root.style.getPropertyValue("--orider-host-text-primary")).toBe(lightColors.textPrimary);
+      expect(hostEvents.at(-1)).toBe("light");
+      expect(themeEvents.at(-1)).toBe("light");
+      expect(screen.getByTestId("fitness-surface")).toBe(surface);
+      expect(mocks.surfaceLifecycle.mock.calls).toHaveLength(mounts);
+      expect(mocks.consumeHandoff).toHaveBeenCalledTimes(handoffs);
+    } finally {
+      window.removeEventListener(HOST_THEME_CHANGE_EVENT, onHostTheme);
+      window.removeEventListener("orider:themechange", onTheme);
+    }
   });
 
   it("host.lifecycle는 표면 효과를 정지하고 잘못된 상태는 적용하지 않는다", async () => {
