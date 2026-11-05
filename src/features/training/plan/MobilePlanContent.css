@@ -26,6 +26,10 @@
 .coach-surface .mobile-plan-goal,
 .coach-surface .mobile-plan-next,
 .coach-surface .mobile-plan-week-summary { margin-inline: 0; }
+/* 운동 계획 제목 줄과 첫 카드 사이를 좁힌다(위 2) — 카드끼리는 아래 여백 8 이 그대로 간격이 된다. */
+.coach-surface .mobile-plan-goal,
+.coach-surface .mobile-plan-next,
+.coach-surface .mobile-plan-week-summary { margin-top: var(--space-0-5); }
 .coach-surface .mobile-plan-week-navigation,
 .coach-surface .mobile-plan-adaptation,
 .coach-surface .mobile-plan-week-header { padding-inline: 0; }
