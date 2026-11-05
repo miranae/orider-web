@@ -406,7 +406,6 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
       </div>
       {hover && (
         <div id={tooltipId} role="status" className="tri-fitness__chart-readout">
-          <p>{t("triView.chart.dailyBasis")}</p>
           <div style={{ fontSize: "var(--fs-xs)", fontFamily: "var(--font-mono)", color: "var(--ink-2)", marginBottom: "var(--space-0-5)" }}>{hover.date}</div>
           {([
             [`${t("discipline.bike")} · bTSS`, hover.bike, BIKE_COLOR],
@@ -426,7 +425,6 @@ function DailyLoadChart({ data }: { data: DailyBarEntry[] }) {
           </div>
         </div>
       )}
-      <p className="tri-fitness__chart-hint">{t("triView.chart.interactionHint")}</p>
     </div>
   );
 }
@@ -640,7 +638,7 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
 
       {/* 종목별 드릴다운 카드 */}
       <div id={condition && !evidenceOnly ? "condition-metrics" : undefined} className="condition-section-target" tabIndex={condition && !evidenceOnly ? -1 : undefined} style={{ marginTop: 'var(--space-5)' }}>
-        {condition && <div data-testid="K1-8-2"><section aria-label={t("history.disciplineDetails")}>{disciplineEvidence}</section></div>}
+        {/* 컨디션은 3종목 스택 PMC·계산 방식 없이 종목별 피트니스 카드만 둔다(위 컨디션 변화 차트가 추이를 맡는다). */}
         <div style={{ display: "flex", alignItems: "baseline", marginBottom: 'var(--space-3)' }}>
           <h3 style={{ margin: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("discipline.summary.title")}</h3>
           <span style={{ flex: 1 }} />
