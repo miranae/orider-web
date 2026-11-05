@@ -62,8 +62,8 @@ it("retains attainment above 100% and displays the signed TSS difference", () =>
   mount();
   expect(screen.getByRole("group", { name: "달성률" })).toHaveTextContent("130%");
   expect(screen.getByText("+30", { exact: true })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "달성률", exact: true }));
-  expect(screen.getByText(/100%를 넘을 수 있습니다/)).toBeInTheDocument();
+  // 달성률은 다른 수치와 같은 일반 제목이다(설명 버튼 없음).
+  expect(screen.queryByRole("button", { name: "달성률", exact: true })).not.toBeInTheDocument();
   // 기간 진행 안내·의미 설명·일별 비교 표는 두지 않는다.
   expect(screen.queryByText(/2026-10-23 현재까지/)).not.toBeInTheDocument();
   expect(screen.queryByText("일별 비교 보기")).not.toBeInTheDocument();
@@ -80,7 +80,7 @@ it("blocks invalid or overlong ranges instead of starting an activity query", ()
 it("distinguishes a zero-TSS plan from unknown actual load and exposes retry after failure", () => {
   fixture.result = { ...fixture.result, summary: { ...fixture.result.summary, plannedTss: 0, ratioPct: null } };
   const view = mount();
-  expect(screen.getByText(/계획된 TSS가 없어/)).toBeInTheDocument();
+  expect(screen.queryByText(/계획된 TSS가 없어/)).not.toBeInTheDocument();
   fixture.result = { ...fixture.result, state: "incomplete", summary: { ...fixture.result.summary, actualTss: null, deltaTss: null, unknownCount: 1 } };
   view.rerender(<PlanLoadComparison uid="owner" discipline="bike" weeks={[]} />);
   expect(screen.getByRole("status")).toHaveTextContent("확정할 수 없습니다");

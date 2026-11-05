@@ -12,15 +12,16 @@
 .plan-load-comparison__heading {
   justify-content: space-between;
 }
+/* 이전·날짜·다음과 기간 문자가 한 줄 가운데에 맞도록 — 기준일 제목을 빼고 가운데 정렬한다. */
 .plan-load-comparison__controls {
   margin-block: var(--space-3) var(--space-4);
-  align-items: end;
+  align-items: center;
 }
 /* 이전 | 기준일 | 다음 — 화살표는 고정 칸, 날짜는 남는 폭(같은 화면의 주 이동 줄과 같은 격자). */
 .plan-load-comparison__stepper {
   display: grid;
   grid-template-columns: var(--dim-button-height, 44px) minmax(0, 1fr) var(--dim-button-height, 44px);
-  align-items: end;
+  align-items: center;
   gap: var(--space-3);
   width: 100%;
   max-width: 420px;

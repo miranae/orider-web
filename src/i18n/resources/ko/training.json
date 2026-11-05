@@ -1101,8 +1101,8 @@
     "remaining": "{{count}}단계 남음",
     "refresh": "새로고침",
     "decision": {
-      "maintain": "다음 운동 계획 유지 · {{reason}}",
-      "hold": "다음 운동 보류 · {{reason}}",
+      "maintain": "다음 운동 계획 유지",
+      "hold": "다음 운동 보류",
       "basisFeedback": "근거: 내 러닝 피드백. 계획 변경은 직접 확인 후 진행합니다.",
       "basisRecord": "근거: 운동 기록. 계획 변경은 직접 확인 후 진행합니다."
     },

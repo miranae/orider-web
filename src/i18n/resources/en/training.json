@@ -1101,8 +1101,8 @@
     "remaining": "{{count}} stages left",
     "refresh": "Refresh",
     "decision": {
-      "maintain": "Next workout as planned · {{reason}}",
-      "hold": "Next workout on hold · {{reason}}",
+      "maintain": "Next workout as planned",
+      "hold": "Next workout on hold",
       "basisFeedback": "Based on your run feedback. Plan changes only happen after you confirm them.",
       "basisRecord": "Based on your workout records. Plan changes only happen after you confirm them."
     },
