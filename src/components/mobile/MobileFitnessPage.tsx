@@ -1089,7 +1089,7 @@ export default function MobileFitnessPage({
 
           {part === "condition" && goalSummarySlot}
 
-          <section id={part === "condition" ? "condition-load" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "mobile-fitness-load-section condition-section-target" : undefined}>
+          <section id={part === "condition" ? "condition-load" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? `mobile-fitness-load-section condition-section-target${data.discipline === "tri" ? " mobile-fitness-load-section--last" : ""}` : undefined}>
           {/* 통합은 제목·설명·최근 7일 요약 없이 꾸준함·주별·일별 부하 카드만 이어 보인다. */}
           {part === "condition" && data.discipline !== "tri" && <Text as="h2" variant="title">{t("fitness:condition.load.title")}</Text>}
           {part === "condition" && data.discipline !== "tri" && <Text as="p" variant="bodySmall" tone="secondary" className="mobile-fitness-load-section__description">{t("fitness:condition.load.description")}</Text>}
@@ -1126,7 +1126,7 @@ export default function MobileFitnessPage({
 
 
           {!mobileCondition && bikeThresholdSection}
-          {mobileCondition && <div className="mobile-condition-destinations">
+          {mobileCondition && data.discipline !== "tri" && <div className="mobile-condition-destinations">
             <LocalizedLink to={`/coach/analysis?sport=${data.discipline}`}>{t("mobileFitness.analysisDestination")} →</LocalizedLink>
             <LocalizedLink to={`/settings/training?sport=${data.discipline}`}>{t("fitness:condition.settings.title")} →</LocalizedLink>
           </div>}

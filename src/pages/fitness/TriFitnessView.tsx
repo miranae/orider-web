@@ -564,7 +564,7 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
         </div>
       </div>}
 
-      <div className={evidenceOnly ? "tri-fitness__mobile-evidence" : "site-shell"} style={{ padding: evidenceOnly ? 0 : "var(--space-5) var(--space-6) var(--space-8)" }}>
+      <div className={evidenceOnly ? "tri-fitness__mobile-evidence" : "site-shell"} style={{ padding: evidenceOnly ? 0 : condition ? "var(--space-5) var(--space-6) 0" : "var(--space-5) var(--space-6) var(--space-8)" }}>
 
       {!evidenceOnly && loading && !combinedLoad && <Text as="p" role="status">{t("condition.current.loading")}</Text>}
       {!evidenceOnly && (historySlot || combinedLoad) && <div data-testid="K1-8-1" className="tri-fitness__primary">
