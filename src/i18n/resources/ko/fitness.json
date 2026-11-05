@@ -295,7 +295,7 @@
   "coach.delivery.prepareAfterCooldown": "잠시 후 새 요청 준비",
   "coach.delivery.bundleTitle": "기기로 보낼 운동",
   "coach.delivery.bundleMeta": "FTP {{ftp}} W 기준 · 목표 {{tss}} TSS",
-  "coach.delivery.serverAuthority": "운동 단계와 파워 범위는 기기가 운동을 받은 뒤 확인할 수 있습니다.",
+  "coach.delivery.serverAuthority": "전송할 운동 단계와 목표 파워입니다. 기기 수신 여부는 전송 상태를 확인하세요.",
   "coach.delivery.step.WU": "워밍업",
   "coach.delivery.step.Z1": "회복 Z1",
   "coach.delivery.step.Z2": "지구력 Z2",

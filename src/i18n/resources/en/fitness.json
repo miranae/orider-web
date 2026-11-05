@@ -295,7 +295,7 @@
   "coach.delivery.prepareAfterCooldown": "Prepare a new request after waiting",
   "coach.delivery.bundleTitle": "Workout to send",
   "coach.delivery.bundleMeta": "Based on FTP {{ftp}} W · target {{tss}} TSS",
-  "coach.delivery.serverAuthority": "Workout steps and power targets are confirmed after the device receives the workout.",
+  "coach.delivery.serverAuthority": "These are workout steps and target power to send. Check delivery status for device receipt.",
   "coach.delivery.step.WU": "Warm-up",
   "coach.delivery.step.Z1": "Recovery Z1",
   "coach.delivery.step.Z2": "Endurance Z2",
