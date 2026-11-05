@@ -628,7 +628,8 @@ export default function PlanPresentation({
   const calendarLoads = usePlanLoadComparison({ uid: user?.uid, discipline, weeks, range: calendarRange, ftp: profile?.ftp,
     enabled: !embedded && !!goal && goalMatchesDiscipline && !loading && !loadError && model.freshLoaded !== false });
   const calendarLoadsByDate = useMemo(() => new Map(calendarLoads.days.map(day => [day.date, day])), [calendarLoads.days]);
-  const calendarLoadNotice = !embedded && <div style={{ marginBottom: "var(--space-3)" }}>
+  // 알릴 상태(오류·미확정·잘못된 기간)가 있을 때만 그린다 — 빈 상자의 아래 여백이 다음 블록을 밀었다.
+  const calendarLoadNotice = !embedded && ["error", "incomplete", "invalid"].includes(calendarLoads.state) && <div style={{ marginBottom: "var(--space-3)" }}>
     {["error", "incomplete", "invalid"].includes(calendarLoads.state) && <div role="status"><Text as="p" variant="bodySmall" tone="warning">{t(calendarLoads.state === "invalid" ? "loadComparison.invalidRange" : "loadComparison.incomplete")}</Text><Button variant="secondary" size="sm" onClick={calendarLoads.retry}>{t("loadComparison.retry")}</Button></div>}
   </div>;
   if (!loading && loadError) {
@@ -728,7 +729,7 @@ export default function PlanPresentation({
       <>
         {scopeNotice}
         {calendarLoadNotice}
-        {decisionSlot && <div style={{ padding: "var(--space-3) var(--space-4)" }}>{decisionSlot}</div>}
+        {decisionSlot && <div className="plan-decision-slot" style={{ padding: "var(--space-3) var(--space-4)" }}>{decisionSlot}</div>}
         {renderMobile ? renderMobile(mobileProps) : <MobilePlanContent {...mobileProps} />}
       </>
     );
