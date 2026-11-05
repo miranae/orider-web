@@ -62,7 +62,9 @@ Project `miranae-orider-g1`, 2026-11-05 15:20 KST. All six documents initially h
 | `zxjM8qj1cbfZWhaIKki7` | 테스트 라이딩 2026-09-22 | FINISHED |
 | `FBbUXxxHyOCJBBsPfRYi` | ORider QA M4 20261024 라이딩 2026-11-03 | LIVE |
 
-This is public-discovery cleanup, not a false assertion that the QA ride has finished. Existing private-event discovery exclusion is covered by `EventsPage.publicFilter.test.ts`. Both production login states still need a fresh list check; do not equate a document readback with that UI evidence.
+This is public-discovery cleanup, not a false assertion that the QA ride has finished. Existing private-event discovery exclusion is covered by `EventsPage.publicFilter.test.ts`. Production guest browser readback subsequently rendered 92 event links and none of the six exact IDs; live count was 0. Other test-named events remain outside this exact repair scope. Authenticated list verification is still pending; do not equate the document readback with that UI evidence.
+
+![Production guest list after exact QA cleanup](../evidence/1515/production-guest-qa-cleanup.png)
 
 ## Remaining release verification
 
