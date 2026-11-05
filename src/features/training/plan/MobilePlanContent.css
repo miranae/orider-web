@@ -33,7 +33,8 @@
 .coach-surface .mobile-plan-chrome {
   position: static;
   height: auto;
-  min-height: var(--dim-button-height);
+  /* 섹션 제목 줄은 내용 높이만 — 44 최소 높이가 제목 위아래를 넓혀 카드와 멀어 보였다. */
+  min-height: 0;
   padding-inline: 0;
   border-bottom: 0;
   background: transparent;
