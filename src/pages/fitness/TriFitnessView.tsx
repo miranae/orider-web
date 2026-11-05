@@ -641,8 +641,6 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
         {/* 컨디션은 3종목 스택 PMC·계산 방식 없이 종목별 피트니스 카드만 둔다(위 컨디션 변화 차트가 추이를 맡는다). */}
         <div style={{ display: "flex", alignItems: "baseline", marginBottom: 'var(--space-3)' }}>
           <h3 style={{ margin: 0, fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)" }}>{t("discipline.summary.title")}</h3>
-          <span style={{ flex: 1 }} />
-          <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-4)" }}>{t("triView.disciplineCards.hint")}</span>
         </div>
         <div className="tri-fitness__sport-cards">
           <PerDisciplineCard label={t("triView.cycling")} color={DISCIPLINE_CHART_COLORS.bike} ctl={bikeSpark} dates={sparkDates.bike} delta={bikeSpark.length >= 2 ? bikeSpark[bikeSpark.length - 1]! - bikeSpark[bikeSpark.length - 2]! : null} tss={weeklyEvidence.bike.display} dist="—" unit="km" lastSess={bikeSpark.length > 0 ? t("triView.liveData") : t("daily.empty")} href="/coach/condition?sport=bike" />

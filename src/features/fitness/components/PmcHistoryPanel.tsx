@@ -28,6 +28,8 @@ interface PmcHistoryPanelProps {
   suppressMethodNotes?: boolean;
   /** 기본 출처 문구(예: "추정 계산 포함 이력")를 숨긴다. 반영 대기·지연·실패 상태는 그대로 알린다. */
   quietSource?: boolean;
+  /** 선택 구간의 훈련 부하·운동부하 반영·PMC 계산·계산 일수 표를 숨긴다. */
+  hideLoadFacts?: boolean;
 }
 
 type YearSeries = { label: string; buckets: PmcBucket[]; dash?: string };
@@ -213,7 +215,7 @@ export function PmcHistoryMethodNotes({ canonical }: { canonical: boolean }) {
   );
 }
 
-export default function PmcHistoryPanel({ points, today, canonical, controlledRange, onControlledRangeChange, rangeChoices = RANGES, ctlColor = PMC_LINE_PALETTE.ctl.color, sourceLabel, variant = "card", controlledMode, onControlledModeChange, hideModeControls = false, suppressMethodNotes = false, quietSource = false }: PmcHistoryPanelProps) {
+export default function PmcHistoryPanel({ points, today, canonical, controlledRange, onControlledRangeChange, rangeChoices = RANGES, ctlColor = PMC_LINE_PALETTE.ctl.color, sourceLabel, variant = "card", controlledMode, onControlledModeChange, hideModeControls = false, suppressMethodNotes = false, quietSource = false, hideLoadFacts = false }: PmcHistoryPanelProps) {
   const { t, i18n } = useTranslation("fitness");
   const headingId = useId();
   const [localRange, setLocalRange] = useState<PmcRange>(90);
@@ -289,12 +291,12 @@ export default function PmcHistoryPanel({ points, today, canonical, controlledRa
       <div className="pmc-history__evidence">{selected.map(({ label, bucket }) => <div key={label} className="pmc-history__evidence-period">
         {mode === "years" && <strong>{label} · {bucket.startDate} – {bucket.endDate}</strong>}
         {mode === "years" && <div role="group" aria-label={`${label} · ${selectionLabel} · ${t("history.mean")}`} className="pmc-history__values pmc-history__year-metrics">{(["ctl", "atl", "tsb"] as const).map(metric => <span key={metric} data-pmc-metric={metric} style={{ borderInlineStartColor: metric === "ctl" ? ctlColor : PMC_LINE_PALETTE[metric].color }}><ChartValue primary={formatValue(bucket[metric])} secondary={<GlossaryText>{t(metric)}</GlossaryText>} /></span>)}</div>}
-        <dl className="pmc-history__evidence-grid">
+        {!hideLoadFacts && <dl className="pmc-history__evidence-grid">
           <div><dt>{t("chartDetail.load")}</dt><dd>{bucket.loadStatus === "unconfirmed" ? "—" : formatValue(bucket.totalLoad)}</dd></div>
           <div><dt><InfoTip title={t("history.loadStatus")} content={t("history.statusNote")}>{t("history.loadStatus")}</InfoTip></dt><dd>{t(`history.load.${bucket.loadStatus}`)} · {bucket.loadSnapshotDays}/{bucket.expectedDays} {t("history.days")}</dd></div>
           <div><dt>{t("history.pmcStatus")}</dt><dd>{t(`history.pmc.${bucket.calculationStatus}`)}</dd></div>
           <div><dt><InfoTip title={t("history.coverage")} content={t("history.coverageNote")}>{t("history.coverage")}</InfoTip></dt><dd>{bucket.observedDays === 0 ? t("history.missing") : `${bucket.observedDays}/${bucket.expectedDays} ${t("history.days")}${bucket.partial ? ` · ${t("history.partial")}` : ""}`}</dd></div>
-        </dl>
+        </dl>}
       </div>)}</div>
       {!suppressMethodNotes && <PmcHistoryMethodNotes canonical={canonical} />}
     </section>
