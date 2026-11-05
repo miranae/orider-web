@@ -294,8 +294,8 @@ function applyThemeTokensInline(mode: "light" | "dark"): void {
   }
 }
 
-function applyHostContract(root: HTMLElement, session: AcceptedSession): void {
-  const theme: HostTheme = usesLiveDarkAppearance(window.location.pathname) ? { mode: "dark" } : session.theme;
+function applyHostContract(root: HTMLElement, session: AcceptedSession, liveDark: boolean): HostTheme["mode"] {
+  const theme: HostTheme = liveDark ? { mode: "dark" } : session.theme;
   document.documentElement.setAttribute("data-theme", theme.mode);
   document.documentElement.style.colorScheme = theme.mode;
   applyThemeTokensInline(theme.mode);
@@ -328,6 +328,7 @@ function applyHostContract(root: HTMLElement, session: AcceptedSession): void {
   root.style.setProperty("--orider-host-accent", colors.accent);
   root.style.setProperty("--orider-host-safe-top", `${session.safeInsets.top}px`);
   root.style.setProperty("--orider-host-safe-bottom", `${session.safeInsets.bottom}px`);
+  return theme.mode;
 }
 
 function AuthorizedSurface({
@@ -586,6 +587,10 @@ export default function EmbeddedBootstrapRoot({
   surfaceKind = "activity-analysis",
 }: EmbeddedBootstrapRootProps) {
   const { activityId } = useParams();
+  const location = useLocation();
+  const liveDark = usesLiveDarkAppearance(location.pathname);
+  const liveDarkRef = useRef(liveDark);
+  liveDarkRef.current = liveDark;
   const rootRef = useRef<HTMLDivElement>(null);
   const [bridge] = useState(bridgeFactory);
   const [runStartChannel] = useState(() => createRunStartChannel({
@@ -594,10 +599,10 @@ export default function EmbeddedBootstrapRoot({
   const [session, setSession] = useState<AcceptedSession | null>(null);
   useEffect(() => {
     if (session && rootRef.current) {
-      applyHostContract(rootRef.current, session);
-      window.dispatchEvent(new CustomEvent("orider:themechange", { detail: { resolved: session.theme.mode } }));
+      const resolved = applyHostContract(rootRef.current, session, liveDark);
+      window.dispatchEvent(new CustomEvent("orider:themechange", { detail: { resolved } }));
     }
-  }, [session]);
+  }, [session, liveDark]);
   const [retryKey, setRetryKey] = useState(0);
   const [hostForeground, setHostForeground] = useState(true);
   const initialTrainingSurface = surfaceKind === "fitness" || surfaceKind === "plan"
@@ -758,7 +763,6 @@ export default function EmbeddedBootstrapRoot({
   }, [safeSend]);
 
   const navigate = useNavigate();
-  const location = useLocation();
   const handleNavigation = useCallback((event: MouseEvent<HTMLDivElement>) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -839,7 +843,7 @@ export default function EmbeddedBootstrapRoot({
           return;
         }
         if (guestAuthorized.current && currentUid === null) {
-          if (rootRef.current) applyHostContract(rootRef.current, accepted);
+          if (rootRef.current) applyHostContract(rootRef.current, accepted, liveDarkRef.current);
           acceptedUid.current = null;
           sessionAccepted.current = true;
           selectionGeneration.current += 1;
@@ -868,7 +872,7 @@ export default function EmbeddedBootstrapRoot({
           return;
         }
         prepareTrainingSurfaceCacheOwner(currentUid, controlServices.auth.currentUser?.isAnonymous === true);
-        if (rootRef.current) applyHostContract(rootRef.current, accepted);
+        if (rootRef.current) applyHostContract(rootRef.current, accepted, liveDarkRef.current);
         acceptedUid.current = currentUid;
         sessionAccepted.current = true;
         const generation = selectionGeneration.current + 1;
