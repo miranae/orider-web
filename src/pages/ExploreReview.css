@@ -36,3 +36,5 @@
 .event-advanced-filters[open] .event-filter-chevron { transform: rotate(180deg); }
 
 .explore-editor-surface, .explore-events-surface { --fs-xs: var(--ft-body-size); --fs-sm: var(--ft-body-size); }
+
+.segment-name-button { display: block; white-space: normal; overflow-wrap: anywhere; text-align: left; }

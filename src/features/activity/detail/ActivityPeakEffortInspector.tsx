@@ -94,6 +94,6 @@ function TwentyMinuteEffort(props: Props) {
     <Text weight={600}>{t("peakInspector.twentyTitle")} · {Math.round(effort?.avgPowerW ?? knownValue!)} W</Text>
     {effort ? <Button variant="outline" size="sm" disabled={!props.onSelectTwentyMinute || props.locating}
       onClick={() => props.onSelectTwentyMinute?.({ startOffsetSec: effort.startOffsetSec, endOffsetSec: effort.endOffsetSec })}>
-      {t("peakInspector.twentySelect")}</Button> : <Text>{t("peakInspector.twentyMissing")}</Text>}
+      {t("peakInspector.twentySelect")}</Button> : <Text as="p">{t("peakInspector.twentyMissing")}</Text>}
   </section>;
 }

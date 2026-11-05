@@ -1,3 +1,4 @@
+import { withReadDeadline } from "../../utils/withReadDeadline";
 import { Field, fieldStyle } from "../../features/event/form/eventFormControls";
 import "../EventControls.css";
 import { CalendarDays, Clock3 } from "lucide-react";
@@ -257,7 +258,7 @@ export default function EventRegisterPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const snap = await getDoc(doc(firestore, "events", eventId));
+      const snap = await withReadDeadline(getDoc(doc(firestore, "events", eventId)), t("readTimeout"));
       if (generation !== loadGeneration.current) return;
       if (!snap.exists()) {
         setEvent(null);
@@ -297,7 +298,7 @@ export default function EventRegisterPage() {
       if (user) {
         try {
           const context = { uid: user.uid, eventId, generation: participantGeneration.current };
-          const participantSnap = await getDoc(doc(firestore, "events", eventId, "participants", user.uid));
+          const participantSnap = await withReadDeadline(getDoc(doc(firestore, "events", eventId, "participants", user.uid)), t("readTimeout"));
           if (!participantMounted.current || generation !== loadGeneration.current
             || context.generation !== participantGeneration.current || auth.currentUser?.uid !== context.uid
             || participantContext.current.uid !== context.uid || participantContext.current.eventId !== context.eventId) return;
@@ -325,6 +326,7 @@ export default function EventRegisterPage() {
       }
     } catch (err) {
       logClientError("EventRegisterPage.loadEvent", err, { eventId });
+      if (generation !== loadGeneration.current) return;
       setLoadError(err instanceof Error ? err.message : t("register.errLoad"));
     } finally {
       if (generation === loadGeneration.current) setLoading(false);

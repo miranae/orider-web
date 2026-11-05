@@ -1083,8 +1083,8 @@ const MemoSegmentCard = memo(function SegmentCard({ segment, isHovered, isSelect
     >
       <div className="flex items-center gap-2">
         <SegmentClimbCategory category={segment.climbCategory} />
-        <h3 className="font-semibold text-[length:var(--ft-body-size)] truncate flex-1" style={{ color: "var(--ink-0)" }}>
-          <button type="button" className={buttonClass({ variant: "ghost", className: "w-full truncate text-left rounded-[var(--r-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--lime)]" })} aria-pressed={isSelected}
+        <h3 className="font-semibold text-[length:var(--ft-body-size)] min-w-0 flex-1" style={{ color: "var(--ink-0)" }}>
+          <button type="button" className={buttonClass({ variant: "ghost", className: "segment-name-button w-full text-left rounded-[var(--r-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--lime)]" })} aria-pressed={isSelected}
             onClick={event => { event.stopPropagation(); onSelect(segment.id); }}>{segment.name}</button>
         </h3>
       </div>

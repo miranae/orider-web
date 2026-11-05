@@ -94,7 +94,7 @@ export default function CoachTodayPage({ startMode }: { startMode?: Run30StartMo
         {hasScheduled && chooser}
         <div className="coach-today-plan-handoff" style={{ display: "grid", gap: "var(--space-2)", marginBlock: "var(--space-4)" }}>
           {state.unavailableReason === "disabled" && <Text as="p" variant="caption" tone="secondary">{t("today.decisionUnavailable")}</Text>}
-          <Link to={`/coach/plan?sport=${sport}`}>{t("today.planLink")}</Link>
+          {!hasScheduled && <Link to={`/coach/plan?sport=${sport}`}>{t("today.planLink")}</Link>}
         </div>
         {sport === "run" && <RunningToday state={running} startMode={startMode} allowStart={canUseTodayHelpers(state, Date.now(), sport)} />}
       </>;

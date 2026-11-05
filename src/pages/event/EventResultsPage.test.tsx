@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen } from "@testing-library/react";
+import { getDoc } from "firebase/firestore";
 import { Route, Routes, useNavigate } from "react-router-dom";
 import { displayRankFor, shouldShowResultsGroupCta, type ResultEntry } from "./EventResultsPage";
 import EventResultsPage from "./EventResultsPage";
@@ -114,4 +115,23 @@ describe("EventResultsPage CSV notice", () => {
     fireEvent.click(nextCsvButton);
     expect(screen.getByRole("status")).toHaveTextContent("CSV 내보내기는 추후 지원됩니다.");
   });
+});
+
+
+it("replaces a pending event read with a connection error instead of an endless skeleton", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  const read = vi.mocked(getDoc);
+  const original = read.getMockImplementation()!;
+  read.mockImplementation(ref => ref.path === "events/first"
+    ? new Promise<Awaited<ReturnType<typeof getDoc>>>(() => undefined)
+    : original(ref));
+  try {
+    renderWithProviders(<ResultsWithNavigation />, { route: "/ko/event/first/results" });
+    await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
+    expect(screen.getByText("정보를 불러오는 데 시간이 오래 걸립니다. 연결을 확인한 뒤 다시 시도해 주세요.")).toBeVisible();
+    expect(screen.getByRole("button", { name: /다시/ })).toBeEnabled();
+  } finally {
+    read.mockImplementation(original);
+    vi.useRealTimers();
+  }
 });

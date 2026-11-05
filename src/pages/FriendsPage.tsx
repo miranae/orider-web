@@ -1,3 +1,4 @@
+import SignInRequired from "../components/SignInRequired";
 import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../config/activitySubscriptions";
 import RelationshipManagementList, { type RelationshipView } from "../components/profile/RelationshipManagementList";
 import "../components/profile/ProfileSocialStats.css";
@@ -48,9 +49,7 @@ export default function FriendsPage() {
 
   if (!user) {
     return (
-      <div className="text-center py-12 text-[var(--ink-3)]" data-testid="P3.guest">
-        {t("loginRequired")}
-      </div>
+      <div data-testid="P3.guest"><SignInRequired description={t("loginRequired")} /></div>
     );
   }
 
