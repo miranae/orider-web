@@ -291,6 +291,27 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     delete window.__ORIDER_TRAINING_CACHE_SCOPE__;
   });
 
+  it("테마만 바꾸면 인증과 표면 마운트를 유지한다", async () => {
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge);
+    act(() => bridge.emit(hostMessage("host.themeChanged", { mode: "light" })));
+    expect(screen.queryByTestId("analysis-surface")).not.toBeInTheDocument();
+    await act(async () => bridge.emit(hostMessage("host.authorize", { expectedUid: "owner-1", contractVersion: 1 })));
+    act(() => bridge.emit(hostMessage("host.sessionAccepted", acceptedPayload())));
+    const surface = await screen.findByTestId("analysis-surface");
+    const mounts = mocks.surfaceLifecycle.mock.calls.length;
+    act(() => bridge.emit(hostMessage("host.themeChanged", { mode: "light" })));
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(document.documentElement.style.colorScheme).toBe("light");
+    expect(screen.getByTestId("analysis-surface")).toBe(surface);
+    expect(mocks.surfaceLifecycle.mock.calls).toHaveLength(mounts);
+    act(() => bridge.emit(hostMessage("host.themeChanged", { mode: "invalid" })));
+    expect(document.documentElement.dataset.theme).toBe("light");
+    act(() => bridge.emit(hostMessage("host.themeChanged", { mode: "dark" })));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(screen.getByTestId("analysis-surface")).toBe(surface);
+  });
+
   it("host.lifecycle는 표면 효과를 정지하고 잘못된 상태는 적용하지 않는다", async () => {
     const bridge = createFakeBridge();
     renderBootstrap(bridge);
@@ -319,6 +340,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
           "run-start-scheduled-v1",
           "club-detail-embed-v1",
           "host.lifecycle",
+          "host.themeChanged",
         ],
       },
       requestId: undefined,
