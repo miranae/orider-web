@@ -566,7 +566,7 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
         </div>
       </div>}
 
-      <div className={evidenceOnly ? "tri-fitness__mobile-evidence" : "site-shell"} style={{ padding: evidenceOnly ? "var(--space-4)" : "var(--space-5) var(--space-6) var(--space-8)" }}>
+      <div className={evidenceOnly ? "tri-fitness__mobile-evidence" : "site-shell"} style={{ padding: evidenceOnly ? 0 : "var(--space-5) var(--space-6) var(--space-8)" }}>
 
       {!evidenceOnly && loading && !combinedLoad && <Text as="p" role="status">{t("condition.current.loading")}</Text>}
       {!evidenceOnly && (historySlot || combinedLoad) && <div data-testid="K1-8-1" className="tri-fitness__primary">
@@ -584,7 +584,7 @@ export default function TriFitnessView({ condition = false, evidenceOnly = false
       {!condition && <div data-testid="K1-8-2"><DetailsSection title={t("history.disciplineDetails")} defaultOpen={!historySlot}>{disciplineEvidence}</DetailsSection></div>}
 
       {/* 일별 운동 부하 — 현재 기여도는 상단 IntegratedLoadCard 한 곳에만 표시한다. */}
-      <div id={condition && !evidenceOnly ? "condition-load" : undefined} className="condition-section-target" tabIndex={condition && !evidenceOnly ? -1 : undefined} style={{ marginTop: 'var(--space-5)' }}>
+      <div id={condition && !evidenceOnly ? "condition-load" : undefined} className="condition-section-target" tabIndex={condition && !evidenceOnly ? -1 : undefined} style={{ marginTop: evidenceOnly ? 'var(--space-3)' : 'var(--space-5)' }}>
         {/* 일별 운동 부하 */}
         <Card padding="none" style={{ padding: 'var(--space-5)' }}>
           <div style={{ marginBottom: "var(--space-3)" }}>

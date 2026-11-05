@@ -441,7 +441,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           loadFocus={integratedLoadFocus}
           thresholdsSlot={thresholdsSlot}
           hasThresholdSettings={hasThresholdSettings}
-          historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={fitnessTodayKey(Date.now(), model.fitnessDateKeyBasis)} canonical={model.hasCanonicalHistory} controlledRange={historyRange} onControlledRangeChange={changeHistoryRange} rangeChoices={[42, 90, 180, 365, "3y", "all"]} />}
+          historySlot={<PmcHistoryPanel key={`${user.uid}-${discipline}`} points={model.pmcHistoryPoints} today={fitnessTodayKey(Date.now(), model.fitnessDateKeyBasis)} canonical={model.hasCanonicalHistory} controlledRange={historyRange} onControlledRangeChange={changeHistoryRange} rangeChoices={[42, 90, 180, 365, "3y", "all"]} suppressMethodNotes={part === "condition"} quietSource={part === "condition"} />}
         />
       </div>
     );

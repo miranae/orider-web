@@ -95,7 +95,8 @@ describe("MobileFitnessPage tri", () => {
     const data = { ...previewData, discipline: "tri" as const, combinedLoad: { ctl: 12, atl: 10, tsb: 2, contributions: [] },
       pmcProjection: [{ date: Date.parse("2026-07-15T00:00:00Z"), ctl: 13, atl: 11, tsb: 2 }] };
     const { container } = renderWithProviders(<MobileFitnessPage data={data} part="condition" currentBasis="통합 현재값 기준일 · 2026-07-14" pmcHistoryPoints={[]} />);
-    expect(screen.getByText("통합 현재값 기준일 · 2026-07-14")).toBeVisible();
+    // 통합 카드 아래 기준일·출처 설명 줄은 두지 않는다.
+    expect(screen.queryByText("통합 현재값 기준일 · 2026-07-14")).not.toBeInTheDocument();
     const detail = container.querySelector(".mobile-fitness-daily-details")!;
     expect(detail).not.toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "운동·계획" }));

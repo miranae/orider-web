@@ -1000,7 +1000,7 @@ export default function MobileFitnessPage({
                 </ToggleControls>}
                 {pmcHistoryPoints && (
                   <div className="mobile-fitness-pmc" hidden={part === "condition" && chartView === "activities"}>
-                    <PmcHistoryPanel suppressMethodNotes={part === "condition" && data.discipline !== "tri"} controlledMode={part === "condition" ? chartView === "years" ? "years" : "trend" : undefined} hideModeControls={part === "condition"} key={data.discipline} points={pmcHistoryPoints} today={fitnessTodayKey(Date.now(), fitnessDateKeyBasis)} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" rangeChoices={data.discipline === "tri" ? [42, 90, 180, 365, "3y", "all"] : [30, 90, 180, 365, "3y", "all"]} />
+                    <PmcHistoryPanel suppressMethodNotes={part === "condition"} quietSource={part === "condition" && data.discipline === "tri"} controlledMode={part === "condition" ? chartView === "years" ? "years" : "trend" : undefined} hideModeControls={part === "condition"} key={data.discipline} points={pmcHistoryPoints} today={fitnessTodayKey(Date.now(), fitnessDateKeyBasis)} canonical={pmcHistoryCanonical} ctlColor={pmcCtlColor} variant="embedded" rangeChoices={data.discipline === "tri" ? [42, 90, 180, 365, "3y", "all"] : [30, 90, 180, 365, "3y", "all"]} />
                   </div>
                 )}
                 <div className="mobile-fitness-daily-details" hidden={part === "condition" && Boolean(pmcHistoryPoints) && chartView !== "activities"}>
@@ -1044,7 +1044,6 @@ export default function MobileFitnessPage({
           {!conditionStory && <section id={part === "condition" ? "condition-current" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "condition-section-target" : undefined}>
           {part === "condition" && data.discipline === "tri" && data.combinedLoad ? (
             <div className="mobile-fitness-integrated-current"><IntegratedLoadCard condition={part === "condition"} combined={data.combinedLoad} focus={data.loadFocus} />
-              {currentBasis && <Text as="p" variant="caption" tone="secondary">{currentBasis}</Text>}
               {loadSet && loadForm && <SufficiencyInline set={loadSet} block={loadForm} testId="K1-1-1-sufficiency-inline" />}
             </div>
           ) : <SectionCard specId={part === "condition" ? "K1-1" : undefined} ariaLabel={data.discipline === "tri" ? t("mobileFitness.integrated.title") : t("mobileFitness.currentStatusTitle")} compact>
@@ -1091,9 +1090,10 @@ export default function MobileFitnessPage({
           {part === "condition" && goalSummarySlot}
 
           <section id={part === "condition" ? "condition-load" : undefined} tabIndex={part === "condition" ? -1 : undefined} className={part === "condition" ? "mobile-fitness-load-section condition-section-target" : undefined}>
-          {part === "condition" && <Text as="h2" variant="title">{t("fitness:condition.load.title")}</Text>}
-          {part === "condition" && <Text as="p" variant="bodySmall" tone="secondary" className="mobile-fitness-load-section__description">{t("fitness:condition.load.description")}</Text>}
-          {part === "condition" && periodEvidenceSlot && <SectionCard>{periodEvidenceSlot}</SectionCard>}
+          {/* 통합은 제목·설명·최근 7일 요약 없이 꾸준함·주별·일별 부하 카드만 이어 보인다. */}
+          {part === "condition" && data.discipline !== "tri" && <Text as="h2" variant="title">{t("fitness:condition.load.title")}</Text>}
+          {part === "condition" && data.discipline !== "tri" && <Text as="p" variant="bodySmall" tone="secondary" className="mobile-fitness-load-section__description">{t("fitness:condition.load.description")}</Text>}
+          {part === "condition" && data.discipline !== "tri" && periodEvidenceSlot && <SectionCard>{periodEvidenceSlot}</SectionCard>}
           {!embedded && part === "condition" && conditionSupplementSlot}
           {(part === "condition" || data.discipline === "bike") && consistencyStreak && (
             <div className="mobile-fitness-streak">
@@ -1118,9 +1118,9 @@ export default function MobileFitnessPage({
             </SectionCard>
           )}
 
+          {/* 통합 일별 부하·종목 근거는 위 카드들과 같은 간격·폭으로 이어 둔다(섹션 밖에 두면 여백이 겹쳐 벌어지고 좁아졌다). */}
+          {part === "condition" && data.discipline === "tri" && triEvidenceSlot && <div id="condition-metrics" tabIndex={-1} className="condition-section-target">{triEvidenceSlot}</div>}
           </section>
-
-          {part === "condition" && data.discipline === "tri" && triEvidenceSlot && <section id="condition-metrics" tabIndex={-1} className="condition-section-target">{triEvidenceSlot}</section>}
 
           {part === "condition" && data.discipline !== "tri" && !mobileCondition && analysisContent}
 
