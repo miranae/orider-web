@@ -70,7 +70,6 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
   const ready = valid && (result.state === "ready" || result.state === "incomplete");
   const summary = ready ? result.summary : null;
   const future = valid && range.start > today;
-  const ongoing = valid && range.start <= today && range.end >= today;
   const changePeriod = (next: Period) => {
     update({ loadPeriod: next, ...(next === "range" ? { loadStart: range.start, loadEnd: range.end } : {}) });
   };
@@ -113,29 +112,13 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
         </div>
         <div className="plan-load-comparison__notes">
           {result.parentWeeksPending && <div className="plan-load-comparison__notice"><Text as="p" variant="bodySmall" role="status">{t("loadComparison.parentWeekPending")}</Text><Button variant="secondary" onClick={result.retryParentWeeks}>{t("loadComparison.retry")}</Button></div>}
-          {summary?.plannedDayCount === 0 && <Text as="p" variant="bodySmall">{t("loadComparison.planUnset")}</Text>}
           {summary?.plannedTss === 0 && <Text as="p" variant="bodySmall">{t("loadComparison.noPlan")}</Text>}
           {result.state === "incomplete" && <div className="plan-load-comparison__notice"><Text as="p" variant="bodySmall" tone="warning" role="status">{t("loadComparison.incomplete")}</Text><Button variant="secondary" onClick={result.retry}>{t("loadComparison.retry")}</Button></div>}
           {result.state === "ready" && summary && summary.unknownCount > 0 && <Text as="p" variant="bodySmall" tone="warning" role="status">{t("loadComparison.unknownLoads", { count: summary.unknownCount })}</Text>}
           {summary?.estimated && <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.estimated")}</Text>}
-          {ongoing && <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.ongoing", { date: today })}</Text>}
-          <Text as="p" variant="bodySmall">{t("loadComparison.meaning")}</Text>
-          <details><summary>{t("loadComparison.calendarEvidence")}</summary>
-            <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.basis")}</Text>
-            <Text as="p" variant="caption" tone="secondary">{t("loadComparison.loadSource")}</Text>
-          </details>
           {ready && result.days.length === 1 && dayLink(result.days[0]!.date)}
         </div>
-        {ready && result.days.length > 1 && <details className="plan-load-comparison__details" open={params.get("loadDetails") === "open"} onToggle={event => { const value = event.currentTarget.open ? "open" : "closed"; if (value !== (params.get("loadDetails") ?? "closed")) update({ loadDetails: value }); }}>
-          <summary>{t("loadComparison.dailyDetails")}</summary>
-          <div className="plan-load-comparison__table-scroll" tabIndex={0} role="region" aria-label={t("loadComparison.dailyDetails")}>
-            <table className="plan-load-comparison__table">
-              <caption>{t("loadComparison.tableCaption")}</caption>
-              <thead><tr><th scope="col">{t("loadComparison.date")}</th><th scope="col">{t("loadComparison.planned")}</th><th scope="col">{t("loadComparison.actual")}</th><th scope="col">{t("loadComparison.difference")}</th><th scope="col">{t("loadComparison.attainment")}</th></tr></thead>
-              <tbody>{result.days.map(row => <tr key={row.date}><th scope="row">{dayLink(row.date)}</th><td>{number(row.plannedTss)}</td><td>{row.future ? t("loadComparison.upcoming") : <>{number(row.actualTss)}{row.estimated && <span aria-label={t("loadComparison.estimated")}> *</span>}</>}</td><td>{number(row.deltaTss, true)}</td><td>{row.ratioPct == null ? "—" : `${number(row.ratioPct)}%`}</td></tr>)}</tbody>
-            </table>
-          </div>
-        </details>}
+        {/* 계획 대비 기록은 합계·차이·달성률만 둔다. 기간 설명·비교 근거·일별 비교 표는 두지 않는다. */}
       </>}
     </Card>
   </section>;

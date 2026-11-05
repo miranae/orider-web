@@ -292,7 +292,7 @@ describe("coach screen ownership", () => {
     fireEvent.click(screen.getByRole("radio", { name: /회복/ }));
     expect(document.querySelector(".fitness-coach__forecast")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /전송/ })).not.toBeInTheDocument();
-    expect(screen.getByText(/계획 세션과 별도로/)).toBeInTheDocument();
+    expect(screen.queryByText(/계획 세션과 별도로/)).not.toBeInTheDocument();
   });
   it("today keeps choices and removes the condition briefing and impact details", () => {
     renderBriefing({ part: "today", decisionSlot: null });

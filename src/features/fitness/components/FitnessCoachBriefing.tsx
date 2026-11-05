@@ -214,7 +214,7 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
         <ChoiceSurface data-testid={part === "today" ? "K2-1" : undefined} className="fitness-coach__choice-card">
           <Text as="div" variant="eyebrow">{t("coach.choice.eyebrow")}</Text>
           <Text data-testid={part === "today" && choiceTitle ? "K2-1-5" : undefined} as={part === "today" ? "h2" : "h3"} variant={part === "today" ? "title" : "subtitle"} style={{ margin: "var(--space-2) 0" }}>{choiceTitle ?? t(part === "condition" ? "condition.story.decisionTitle" : "coach.choice.title")}</Text>
-          {canonicalAvailable && <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}><GlossaryText>{t(part === "today" ? "today.genericWorkoutBasis" : "coach.choice.body")}</GlossaryText></Text>}
+          {canonicalAvailable && part !== "today" && <Text as="p" variant="bodySmall" tone="secondary" style={{ margin: "0 0 var(--space-4)" }}><GlossaryText>{t("coach.choice.body")}</GlossaryText></Text>}
           {!canonicalAvailable && <Text as="p" variant="caption" tone="secondary">{t("today.forecastUnavailable")}</Text>}
           <fieldset className="fitness-coach__choices" disabled={awaitingAggregate || deliveryBusy}>
             <legend className="fitness-coach__sr-only">{t("coach.choice.legend")}</legend>

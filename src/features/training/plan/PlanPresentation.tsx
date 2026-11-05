@@ -511,55 +511,6 @@ export function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAb
   );
 }
 
-// ── Legend ────────────────────────────────────────────────────────────
-
-function Legend() {
-  const { t } = useTranslation('training');
-  const items: Array<[string, string]> = [
-    [t('legend.z1Recovery'), 'var(--ink-4)'],
-    [t('legend.z2Endurance'), 'var(--aqua)'],
-    [t('legend.z3Tempo'), 'var(--amber)'],
-    [t('legend.z4Threshold'), 'var(--rose)'],
-    [t('legend.z5VO2'), 'var(--rose)'],
-    [t('legend.simGoal'), 'var(--lime)'],
-  ];
-
-  return (
-    <div data-testid="K4-5-3"
-      style={{
-        display: 'flex',
-        gap: 'var(--space-4)',
-        marginTop: "var(--space-3)",
-        padding: '12px 14px',
-        fontSize: "var(--fs-xs)",
-        background: 'var(--bg-1)',
-        border: '1px solid var(--line-soft)',
-        borderRadius: "var(--r-md)",
-        flexWrap: 'wrap',
-        alignItems: 'center',
-      }}
-    >
-      {items.map(([label, color]) => (
-        <div key={label} style={{ display: 'flex', alignItems: 'center', gap: "var(--space-1-5)" }}>
-          <span
-            style={{
-              width: 3,
-              height: 12,
-              background: color,
-              borderRadius: "var(--r-xs)",
-              display: 'inline-block',
-            }}
-          />
-          <span style={{ color: 'var(--ink-2)' }}><GlossaryText>{label}</GlossaryText></span>
-        </div>
-      ))}
-      <span style={{ marginLeft: 'auto', color: 'var(--ink-3)' }}>
-        {t('legend.note')}
-      </span>
-    </div>
-  );
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────
 
 export interface PlanPresentationProps {
@@ -678,7 +629,6 @@ export default function PlanPresentation({
     enabled: !embedded && !!goal && goalMatchesDiscipline && !loading && !loadError && model.freshLoaded !== false });
   const calendarLoadsByDate = useMemo(() => new Map(calendarLoads.days.map(day => [day.date, day])), [calendarLoads.days]);
   const calendarLoadNotice = !embedded && <div style={{ marginBottom: "var(--space-3)" }}>
-    <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.calendarBasis")}</Text>
     {["error", "incomplete", "invalid"].includes(calendarLoads.state) && <div role="status"><Text as="p" variant="bodySmall" tone="warning">{t(calendarLoads.state === "invalid" ? "loadComparison.invalidRange" : "loadComparison.incomplete")}</Text><Button variant="secondary" size="sm" onClick={calendarLoads.retry}>{t("loadComparison.retry")}</Button></div>}
   </div>;
   if (!loading && loadError) {
@@ -1147,7 +1097,6 @@ export default function PlanPresentation({
         )}
 
         {/* Legend */}
-        {!loading && <Legend />}
 
       </div>
 

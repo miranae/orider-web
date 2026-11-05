@@ -288,7 +288,6 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
             <span><GlossaryText>{t("mobileLog.glanceTss")}</GlossaryText>{monthTotals.load.estimated && <sup aria-hidden="true">*</sup>}</span>
             <strong>{aggregateUnavailable ? "–" : monthTotals.load.value ?? "–"}</strong>
           </div>
-          <div className="mobile-log__glance-note">{t("mobileLog.recordBasis")}</div>
           {!aggregateUnavailable && monthTotals.load.unknownCount > 0 && <div className="mobile-log__glance-note">{t("mobileLog.loadPartial", { count: monthTotals.load.unknownCount })}</div>}
           {!aggregateUnavailable && monthTotals.load.estimated && <div className="mobile-log__glance-note">* {t("stat.tssEstimatedIncluded")} {t("mobileLog.estimateBasis")}</div>}
         </div>

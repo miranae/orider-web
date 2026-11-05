@@ -38,9 +38,10 @@ describe("today read-only chooser versus guarded writes", () => {
     // 오늘 훈련은 회복 상태(TSB) 줄을 두지 않는다 — 컨디션 탭이 같은 값을 보여 준다.
     expect(screen.queryByRole("link", { name: /coach.metric.tsb/ })).not.toBeInTheDocument();
   });
-  it("keeps chooser first on lookup failure with the retry error card after it", () => {
+  it("keeps the chooser on lookup failure without an error card", () => {
     mocks.state.unavailableReason = "error"; renderToday();
-    expect(screen.getByTestId("chooser").compareDocumentPosition(screen.getByTestId("decision")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByTestId("chooser")).toBeInTheDocument();
+    expect(screen.queryByTestId("decision")).not.toBeInTheDocument();
   });
   it("keeps choice available without inventing a fitness forecast when no data exists", () => {
     mocks.point = null; mocks.canonical = false; renderToday();

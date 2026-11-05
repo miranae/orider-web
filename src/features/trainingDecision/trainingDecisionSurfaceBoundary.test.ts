@@ -65,7 +65,8 @@ describe("training decision surface boundary", () => {
     expect(today).toHaveTextContent("계획 변경 검토");
     expect(today).toHaveTextContent("Execution");
     expect(today).toHaveTextContent("Coach");
-    expect(today.querySelector("a")).toHaveAttribute("href", expect.stringContaining("/coach/plan?sport=bike&date="));
+    // 오늘 카드는 "계획에서 보기" 이동 링크를 두지 않는다.
+    expect(today.querySelector('a[href*="/coach/plan"]')).toBeNull();
   });
 
   it.each([false, true])("keeps one run execution owner when suppression is %s", (suppressExecution) => {

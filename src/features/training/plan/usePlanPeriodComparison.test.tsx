@@ -137,7 +137,7 @@ it("does not retain bike fulfillment when discipline changes on the same stored 
 
 it("shows an independent parent error, carries pending evidence on early navigation, and preserves period return", async () => {
   vi.mocked(getDocs).mockRejectedValueOnce(new Error("parent unavailable")).mockResolvedValueOnce(page([ride("selected", "2026-10-10", 30)]));
-  const origin = "/ko/coach/plan?sport=bike&loadPeriod=range&loadStart=2026-10-09&loadEnd=2026-10-11&loadDetails=open";
+  const origin = "/ko/coach/plan?sport=bike&loadPeriod=range&loadStart=2026-10-10&loadEnd=2026-10-10";
   render(<MemoryRouter initialEntries={[origin]}><Routes>
     <Route path="/ko/coach/plan" element={<PlanLoadComparison uid="owner" discipline="bike" weeks={[week]} />} />
     <Route path="/ko/athlete/me/activities" element={<PlanRecordEvidence date="2026-10-10" plans={[{ discipline: "bike", workout: "z2", plannedTSS: 20, plannedDurationMin: 30 }]} />} />
