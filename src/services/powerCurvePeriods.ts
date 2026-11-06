@@ -1,5 +1,5 @@
 import { httpsCallable } from "firebase/functions";
-import { cachedPeriodRequest } from "./periodRequestCache";
+import { cachedPeriodRequest, periodCacheScope } from "./periodRequestCache";
 import type { PowerCurvePeriodsRequest, PowerCurvePeriodsResponse } from "@shared/types/power-curve-periods";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 const DURATIONS = new Set([1, 5, 10, 30, 60, 120, 300, 600, 1200, 1800, 3600]);
@@ -152,7 +152,9 @@ export function loadPowerCurvePeriods(services: FirebaseServices, uid: string, r
   const owner = () => { const user = services?.auth?.currentUser; return !!uid && !!user && user.uid === uid && !user.isAnonymous; };
   // 본인 세션이 아니면 캐시를 쓰지 않고 원래 경계 검사가 오류를 낸다.
   if (!owner()) return requestPowerCurvePeriods(services, uid, request);
-  return cachedPeriodRequest(services, "powerCurvePeriods", uid, request, () => requestPowerCurvePeriods(services, uid, request))
+  return cachedPeriodRequest({ scope: periodCacheScope(services), name: "powerCurvePeriods", uid, request,
+    load: () => requestPowerCurvePeriods(services, uid, request),
+    validate: value => validatePowerCurvePeriodsResponse(value as PowerCurvePeriodsResponse, request) })
     .then(response => { if (!owner()) throw new Error("account_changed"); return response; });
 }
 async function requestPowerCurvePeriods(services: FirebaseServices, uid: string, request: PowerCurvePeriodsRequest) {

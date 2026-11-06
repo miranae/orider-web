@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { clearPeriodRequestCache } from "./periodRequestCache";
+import { clearPeriodRequestMemory } from "./periodRequestCache";
 import type { PowerCurvePeriodsResponse } from "@shared/types/power-curve-periods";
 import { loadPowerCurvePeriods, utcPowerCurvePeriod, validatePowerCurvePeriodsResponse, validPowerCurvePeriodsRequest } from "./powerCurvePeriods";
 const mocks = vi.hoisted(() => ({ call: vi.fn() }));
@@ -52,7 +52,7 @@ describe("powerCurvePeriods contract", () => {
     await expect(loadPowerCurvePeriods(services, "owner", request)).rejects.toThrow("account_changed");
     auth.currentUser.uid = "owner";
     // 같은 요청은 재사용되므로 요청 중 계정 전환은 새 호출로 검사한다.
-    clearPeriodRequestCache();
+    clearPeriodRequestMemory();
     mocks.call.mockImplementationOnce(async () => { auth.currentUser.uid = "other"; return { data: response() }; });
     await expect(loadPowerCurvePeriods(services, "owner", request)).rejects.toThrow("account_changed");
   });
