@@ -70,6 +70,15 @@ This is public-discovery cleanup, not a false assertion that the QA ride has fin
 
 ![Production guest list after exact QA cleanup](../evidence/1515/production-guest-qa-cleanup.png)
 
+## Production follow-up — 2026-11-06 KST
+
+The main promotion #1517 and Hosting deployment (`v2026.11.05-1743`, main `eff58f60de2cdc42f03d853cdc2fa084f6d1c3ac`) preceded this follow-up. These are desktop browser responsive checks against production through Computer Use, not physical Galaxy or iPhone acceptance:
+
+- Existing normal Chrome login, 375×812: the originally reported finished event's participant and results pages completed loading. Edit showed the ended-event editing lock; registration showed that recruitment was unavailable. The original infinite-loading symptom was not reproduced. This does not identify the original cause or establish OPEN-event behavior.
+- Separate signed-out in-app browser, 375×812: the feed rendered cards, maps and photos. Opening login retained focus on Close. At 667×375, keyboard Tab navigation exposed Discord and the legal links, and Escape closed the modal. These checks do not establish touch scrolling or physical-device rotation.
+- No authenticated data was written. Six follow-up screenshots remain local under `_tmp/mobile-web-followup-20261106/`; they are not committed or uploaded because they may include private account/ride details.
+- `publicActivityDetailEnabled` remains false. Deployed Functions and ready indexes are prerequisites only; two-account App Check/ACL, media/map privacy, streams/export consistency and latency acceptance remain outstanding. The updated [public detail rollout guide](public-activity-detail-rollout.md) describes the current shared-page/streams implementation.
+
 ## Remaining release verification
 
-Keep #1515 open until the public-detail rollout decision, original event-loading reproduction, production post-deploy login/guest checks, iPhone touch/rotation checks and Galaxy real-device recheck are recorded. A dev merge is not a production deployment. No release tag or hosting deployment is included here.
+Keep #1515 open until the public-detail rollout decision, original event-loading investigation including OPEN-event behavior, remaining production login/guest combinations, iPhone touch/rotation checks and Galaxy real-device recheck are recorded. The responsive follow-up above covers only its stated states. A dev merge is not a production deployment. This documentation-only follow-up creates no new release tag or Hosting deployment; #1517 was already deployed as recorded above.
