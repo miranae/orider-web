@@ -791,5 +791,6 @@
   "capacity.unlimited": "Unlimited",
   "capacity.limited": "Limited",
   "capacity.totalUnlimited": "Total capacity: Unlimited",
-  "capacity.editUnlimitedSummary": "RIDER {{filled}} · Unlimited capacity · {{date}} {{time}}"
+  "capacity.editUnlimitedSummary": "RIDER {{filled}} · Unlimited capacity · {{date}} {{time}}",
+  "readTimeout": "Loading is taking longer than expected. Check your connection and try again."
 }

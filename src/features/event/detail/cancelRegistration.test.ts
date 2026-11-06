@@ -107,3 +107,17 @@ describe("cancelEventRegistration", () => {
     expect(unsubscribe).toHaveBeenCalledTimes(1);
   });
 });
+
+it("임베드 참가 취소는 기본 앱 세션 대신 주입한 세션과 토큰을 사용한다", async () => {
+  const isolatedAuth = { currentUser: { uid: "embedded-owner" } };
+  const isolatedFunctions = {};
+  const token = vi.fn().mockResolvedValue("embedded-token");
+  vi.mocked(onAuthStateChanged).mockImplementationOnce((_auth, callback) => {
+    if (typeof callback === "function") callback(isolatedAuth.currentUser as User);
+    return () => {};
+  });
+  setCallableResult("cancelRegistration", { data: { success: true } });
+  await cancelEventRegistration("event-1", { auth: isolatedAuth as never, functions: isolatedFunctions as never, getAppCheckToken: token });
+  expect(token).toHaveBeenCalledOnce();
+  expect(httpsCallable).toHaveBeenLastCalledWith(isolatedFunctions, "cancelRegistration");
+});

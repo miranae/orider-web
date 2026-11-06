@@ -128,3 +128,9 @@
      위 프로필 카드와 같은 모서리·간격의 카드로 둔다. */
   .athlete-profile .mobile-feed-card { border-bottom: 0; border-radius: var(--r-md); margin-bottom: var(--space-3); }
 }
+
+.athlete-period-form { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3); margin: var(--space-4) 0; }
+.athlete-period-form label { display: grid; gap: var(--space-2); min-width: 0; flex: 1 1 auto; font-size: var(--fs-sm); color: var(--ink-2); }
+.athlete-period-form input { width: 100%; min-width: 0; }
+.athlete-query-status { display: grid; justify-items: start; gap: var(--space-3); padding: var(--space-4); margin: var(--space-3) 0; background: var(--bg-2); border-radius: var(--r-md); font-size: var(--fs-sm); color: var(--ink-2); }
+.athlete-query-status p { margin: 0; }

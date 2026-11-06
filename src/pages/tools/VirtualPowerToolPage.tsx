@@ -1,3 +1,4 @@
+import "./VirtualPowerToolPage.css";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Zap } from "lucide-react";
@@ -72,9 +73,9 @@ export default function VirtualPowerToolPage() {
       </div>
       <p style={{ maxWidth: 720, color: "var(--ink-3)", fontSize: "var(--fs-sm)", lineHeight: 1.7, marginBottom: "var(--space-6)" }}>{labels.desc}</p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 360px)", gap: "var(--space-5)" }}>
+      <div className="virtual-power-layout">
         <Card padding="none" style={{ padding: "var(--space-5)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(160px, 1fr))", gap: "var(--space-4)" }}>
+          <div className="virtual-power-fields">
             {fields.map((field) => (
               <label key={field.label} style={{ display: "grid", gap: "var(--space-1-5)" }}>
                 <Text as="span" variant="eyebrow">{field.label}</Text>

@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockCallableInvocations, mockUpdateDoc, setCallableResult, setCollectionDocs, simulateLogin } from "../../__tests__/mocks/firebase";
@@ -55,6 +55,15 @@ describe("GroupMembersPage", () => {
     ]);
   });
 
+  it("keeps a legacy creator in the leader role filter",async()=>{
+    mockMembers.push({id:"test-uid",status:"active",profile:{nickname:"Legacy Owner"}},{id:"member",role:"member",status:"active",profile:{nickname:"Regular Member"}});
+    renderWithProviders(<Routes><Route path="/:lang/club/:groupId/members" element={<GroupMembersPage />} /></Routes>,{route:"/ko/club/group-1/members",authenticated:true});
+    fireEvent.click(screen.getByRole("combobox",{name:"모든 역할"}));
+    fireEvent.click(screen.getByRole("option",{name:"리더",exact:true}));
+    const table=within(screen.getByRole("region",{name:"멤버 관리"}));
+    expect(table.getByText("Legacy Owner")).toBeInTheDocument();
+    expect(table.queryByText("Regular Member")).not.toBeInTheDocument();
+  });
   it("does not repeat the club breadcrumb inside member management and labels scrollable actions", () => {
     mockMembers.push({ id: "test-uid", role: "leader", status: "active", profile: { nickname: "Owner" } });
     renderWithProviders(<Routes><Route path="/ko/club/:groupId/settings" element={<GroupMembersPage management />} /></Routes>, {route: "/ko/club/group-1/settings",authenticated:true});

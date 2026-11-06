@@ -109,7 +109,7 @@ describe("실제 서버 저장을 기다리는 작성 초안", () => {
       expect(screen.getByLabelText("Meeting title")).toHaveValue("원래 모임");
       expect(
         screen.getAllByRole("button", { name: "Preview invitation" }),
-      ).toHaveLength(2);
+      ).toHaveLength(1);
     } finally {
       await i18n.changeLanguage("ko");
     }

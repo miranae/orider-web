@@ -39,6 +39,7 @@ const GroupRidePage = lazyTimed("GroupRidePage", () => import("./pages/group/Gro
 const GroupMembersPage = lazyTimed("GroupMembersPage", () => import("./pages/group/GroupMembersPage"));
 const GroupInvitePage = lazyTimed("GroupInvitePage", () => import("./pages/group/GroupInvitePage"));
 const GroupWeekPage = lazyTimed("GroupWeekPage", () => import("./pages/group/GroupWeekPage"));
+const ClubMeetingLivePage = lazyTimed("ClubMeetingLivePage", () => import("./pages/group/ClubMeetingLivePage"));
 const ClubMeetingPage = lazyTimed("ClubMeetingPage", () => import("./pages/group/ClubMeetingPage"));
 const GroupEventsPage = lazyTimed("GroupEventsPage", () => import("./pages/group/PublicGroupEventsEntry"));
 const GroupSettingsPage = lazyTimed("GroupSettingsPage", () => import("./pages/group/GroupSettingsPage"));
@@ -119,7 +120,10 @@ export function AppRoutes() {
         <Route path="embed/clubs" element={<EmbeddedBootstrapRoot surfaceKind="clubs" />} />
         {/* 클럽 상세와 하위 화면(rides·members·meetings …)은 한 임베드 세션 안에서 이동한다. */}
         <Route path="embed/clubs/:groupId/*" element={<EmbeddedBootstrapRoot surfaceKind="club-detail" />} />
+        {/* 코스 상세(#3235) — 탐색 목록에서 연 `/course/:id` 를 앱이 이 임베드로 바꿔 연다. */}
+        <Route path="embed/courses/:courseId/*" element={<EmbeddedBootstrapRoot surfaceKind="course-detail" />} />
         <Route path="embed/explore" element={<EmbeddedBootstrapRoot surfaceKind="explore" />} />
+        <Route path="embed/event/:eventId/*" element={<EmbeddedBootstrapRoot surfaceKind="event-detail" />} />
         <Route path="embed/search" element={<EmbeddedBootstrapRoot surfaceKind="search" />} />
         <Route element={<Layout />}>
           <Route index element={null} />
@@ -165,6 +169,7 @@ export function AppRoutes() {
           <Route path="club/:groupId/week" element={<GroupWeekPage />} />
           <Route path="club/:groupId/meetings/new" element={<ClubMeetingPage mode="new" />} />
           <Route path="club/:groupId/meetings/:meetingId/edit" element={<ClubMeetingPage mode="edit" />} />
+          <Route path="club/:groupId/meetings/:meetingId/live" element={<ClubMeetingLivePage />} />
           <Route path="club/:groupId/meetings/:meetingId" element={<ClubMeetingPage />} />
           <Route path="club/:groupId/events" element={<GroupEventsPage />} />
           <Route path="club/:groupId/leaderboard" element={<LegacyRedirect to="/club/:groupId/week" />} />
@@ -389,7 +394,7 @@ function StandardApp() {
 
 export function isEmbeddedRoutePath(pathname: string): boolean {
   return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/(?:analysis|public)|fitness|plan|clubs|explore|search)\/?$/.test(pathname)
-    || /^\/[^/]+\/embed\/clubs\/[^/]+(?:\/.*)?$/.test(pathname);
+    || /^\/[^/]+\/embed\/(?:clubs|courses|event)\/[^/]+(?:\/.*)?$/.test(pathname);
 }
 
 export default function App() {

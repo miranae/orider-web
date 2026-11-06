@@ -279,12 +279,10 @@ export default function Run30ProgramView({ api, program, onRefresh, startMode, t
         <Progress value={viewModel.progress} size="sm" aria-label={t("run30.progressLabel")} />
         {decision && (
           <>
+            {/* 결정만 짧게 — 이유·근거 부연은 두지 않는다. */}
             <p className={cn("run30-decision", hold && "run30-warning")} data-decision={decision.status}>
-              {t(hold ? "run30.decision.hold" : "run30.decision.maintain", { reason: decision.reason })}
+              {t(hold ? "run30.decision.hold" : "run30.decision.maintain")}
             </p>
-            <Text as="p" variant="caption" tone="tertiary">
-              {t(decision.provenance === "owner_feedback_v1" ? "run30.decision.basisFeedback" : "run30.decision.basisRecord")}
-            </Text>
           </>
         )}
       </section>
@@ -293,10 +291,6 @@ export default function Run30ProgramView({ api, program, onRefresh, startMode, t
 
       <div data-testid="K4-R-8"><Run30StageList viewModel={viewModel} stableDetails={stableDetails} /></div>
 
-      <section className="run30-card run30-safety" aria-labelledby="run30-safety-title">
-        <h3 id="run30-safety-title" className="run30-section-title">{t("run30.safety.title")}</h3>
-        <p className="run30-safety-text">{program.safetyGuidance}</p>
-      </section>
 
       <ChangeDialog change={change} />
     </div>

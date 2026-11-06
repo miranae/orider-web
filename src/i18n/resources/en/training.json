@@ -928,7 +928,7 @@
     "viewInPlan": "View in plan →",
     "eyebrow": "Today's plan",
     "loading": "Checking today's plan…",
-    "noScheduled": "No session is scheduled for today.",
+    "noScheduled": "No workout is scheduled for today.",
     "scheduled": "Original plan",
     "recommended": "Recommended adjustment",
     "recommendedPending": "Recommended adjustment · not applied",
@@ -946,7 +946,7 @@
       "reason": {
         "feature_disabled": "Today's plan is not enabled yet",
         "no_active_goal": "No active goal, so no plan could be built",
-        "prescription_not_ready": "Today's prescription is not ready yet",
+        "prescription_not_ready": "A new workout recommendation is not ready yet.",
         "ambiguous_active_goal": "Multiple active goals, so no single baseline could be chosen",
         "consent_required": "AI coach consent is required",
         "canonical_load_unavailable": "Recent training load is unavailable",
@@ -1101,8 +1101,8 @@
     "remaining": "{{count}} stages left",
     "refresh": "Refresh",
     "decision": {
-      "maintain": "Next workout as planned · {{reason}}",
-      "hold": "Next workout on hold · {{reason}}",
+      "maintain": "Next workout as planned",
+      "hold": "Next workout on hold",
       "basisFeedback": "Based on your run feedback. Plan changes only happen after you confirm them.",
       "basisRecord": "Based on your workout records. Plan changes only happen after you confirm them."
     },

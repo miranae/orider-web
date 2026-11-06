@@ -60,8 +60,15 @@ export function embeddedHubDestination(currentPath: string, destination: string)
  */
 export const CLUB_DETAIL_EMBED_CAPABILITY = "club-detail-embed-v1";
 
+/**
+ * 이 웹이 코스 상세 임베드(`embed/courses/:courseId`)를 제공한다는 표시(`bootstrap.ready.capabilities`).
+ * 탐색 목록은 계속 `/course/{id}` 로 `navigation.openNative` 를 보내고, 앱은 이 값이 있을 때만 그 경로를
+ * 코스 상세 임베드로 연다 — 라우트가 없는 웹이 운영 중일 때 앱이 먼저 배포돼도 404 가 나지 않는다.
+ */
+export const COURSE_DETAIL_EMBED_CAPABILITY = "course-detail-embed-v1";
+
 /** 클럽 상세 임베드가 자기 안에서 그리는 하위 경로(App.tsx `club/:groupId/...` 와 같은 이름). */
-const CLUB_DETAIL_SECTION = /^(?:\/(?:rides(?:\/[^/]+)?|week|leaderboard|events|members|settings|meetings\/(?:new|[^/]+(?:\/edit)?)))?\/?$/;
+const CLUB_DETAIL_SECTION = /^(?:\/(?:rides(?:\/[^/]+)?|week|leaderboard|events|members|settings|meetings\/(?:new|[^/]+(?:\/(?:edit|live))?)))?\/?$/;
 
 /**
  * 클럽 상세 임베드(`/{lang}/embed/clubs/{groupId}`) 안에서 **같은 클럽**의 상세·하위 화면으로
@@ -80,11 +87,47 @@ export function embeddedClubDetailDestination(currentPath: string, destination: 
   return `/${current[1]}/embed/clubs/${current[2]}${section.replace(/\/$/, "")}${target.search}${target.hash}`;
 }
 
+/**
+ * 코스 상세 임베드(`/{lang}/embed/courses/{courseId}`) 안에서 **같은 코스** 상세(`/course/{id}`,
+ * 탭 쿼리 포함)로 가는 링크는 임베드 안에 둔다. 다른 코스·편집(`/course/{id}/edit`)·상세 밖 경로는
+ * null — `navigation.openNative` 로 앱에 넘긴다(다른 코스는 앱이 새 상세로 push).
+ */
+export function embeddedCourseDetailDestination(currentPath: string, destination: string): string | null {
+  const current = /^\/(ko|en)\/embed\/courses\/([^/]+)\/?$/.exec(currentPath);
+  if (!current) return null;
+  const target = new URL(destination, "https://embedded.invalid");
+  if (target.origin !== "https://embedded.invalid") return null;
+  const path = target.pathname.replace(/^\/(ko|en)(?=\/)/, "");
+  const course = /^\/(?:course|embed\/courses)\/([^/]+)\/?$/.exec(path);
+  if (!course || course[1] !== current[2]) return null;
+  return `/${current[1]}/embed/courses/${current[2]}${target.search}${target.hash}`;
+}
+
+/** 같은 이벤트의 상세·등록·결과·관리 화면은 앱을 벗어나지 않는다. */
+export function embeddedEventDetailDestination(currentPath: string, destination: string): string | null {
+  const current = /^\/(ko|en)\/embed\/event\/([A-Za-z0-9_-]{1,128})(?:\/.*)?$/.exec(currentPath);
+  if (!current) return null;
+  const target = new URL(destination, "https://embedded.invalid");
+  if (target.origin !== "https://embedded.invalid") return null;
+  const path = target.pathname.replace(/^\/(ko|en)(?=\/)/, "");
+  const meeting = /^\/club\/([A-Za-z0-9_-]{1,128})\/meetings\/([A-Za-z0-9_-]{1,128})(\/live)?$/.exec(path);
+  if (meeting && meeting[2] === current[2]) return `/${current[1]}/embed/event/${current[2]}/meeting/${meeting[1]}/${meeting[2]}${meeting[3] ?? ""}${target.search}${target.hash}`;
+  const event = /^\/(?:event|embed\/event)\/([^/]+)(.*)$/.exec(path);
+  const section = event?.[2] ?? "";
+  const meetingSection = /^\/meeting\/[A-Za-z0-9_-]{1,128}\/([A-Za-z0-9_-]{1,128})(?:\/live)?$/.exec(section);
+  const knownSection = /^(?:\/(?:register|results|host(?:\/(?:edit|participants))?))?\/?$/.test(section)
+    || meetingSection?.[1] === current[2];
+  if (!event || event[1] !== current[2] || !knownSection) return null;
+  return `/${current[1]}/embed/event/${current[2]}${section.replace(/\/$/, "")}${target.search}${target.hash}`;
+}
+
 /** 코치·허브 임베드가 자기 WebView 안에서 처리하는 목적지. 없으면 null(앱으로 넘김). */
 export function embeddedInternalDestination(currentPath: string, destination: string): string | null {
   return embeddedCoachDestination(currentPath, destination)
     ?? embeddedHubDestination(currentPath, destination)
-    ?? embeddedClubDetailDestination(currentPath, destination);
+    ?? embeddedClubDetailDestination(currentPath, destination)
+    ?? embeddedCourseDetailDestination(currentPath, destination)
+    ?? embeddedEventDetailDestination(currentPath, destination);
 }
 
 /** 검색 임베드가 폼 아래에 그리는 결과 목록. 활동(웹 홈 피드)은 없다 — 앱으로 넘긴다. */

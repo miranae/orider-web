@@ -2,6 +2,7 @@ import { useContext, useMemo, useRef, useState, type HTMLAttributes, type ReactN
 import { UNSAFE_LocationContext as LocationContext, UNSAFE_NavigationContext as NavigationContext, useLocation, useNavigationType, type Location } from "react-router-dom";
 import { isDetailRoute, PRIMARY_HUBS, type HubKey } from "../config/navHubs";
 import { isHubReturnState } from "../services/hubReturn";
+import { RetainedPageContext } from "../contexts/RetainedPageContext";
 
 /**
  * 기본 허브(홈·코치·클럽·탐색·게시판) 화면을 브라우저 탭처럼 살려 둔다. 다른 탭으로 가면 지우지 않고 보이지만
@@ -73,7 +74,7 @@ export function RetainedHubPages({ path, hub, owner, children }: {
       const visible = retained && key === current;
       return <div key={`${owner ?? ""}:${key}`} data-hub-page={key} hidden={!visible}>
         <NavigationContext.Provider value={visible ? navigation : inertNavigation}>
-          <LocationContext.Provider value={{ location: page.location, navigationType }}>{page.node}</LocationContext.Provider>
+          <RetainedPageContext.Provider value={visible}><LocationContext.Provider value={{ location: page.location, navigationType }}>{page.node}</LocationContext.Provider></RetainedPageContext.Provider>
         </NavigationContext.Provider>
       </div>;
     })}

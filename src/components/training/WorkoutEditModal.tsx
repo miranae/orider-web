@@ -113,8 +113,8 @@ const SELECTABLE_KINDS: WorkoutKind[] = [
   'kickSwim', 'enduranceSwim', 'cssSwim', 'racepaceSwim', 'sprintSwim', 'owSwim', 'brickSwim',
 ];
 
-import { useTrainingDialog } from "./useTrainingDialog";
-import { createPortal } from "react-dom";
+import { useRetainedTrainingDialog } from "./useRetainedTrainingDialog";
+import { TrainingDialogPortal } from "./TrainingDialogPortal";
 import { KINDS_BY_DISCIPLINE } from "../../utils/workoutDiscipline";
 import { Button, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
@@ -156,7 +156,7 @@ export default function WorkoutEditModal({
   const [loading, setLoading] = useState(false);
   const [showKindPicker, setShowKindPicker] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const modalRef = useTrainingDialog(onClose, loading);
+  const modalRef = useRetainedTrainingDialog(onClose, loading);
   const titleId = useId();
   const closeIfIdle = () => { if (!loading) onClose(); };
   // Firestore rules 가 거부하는 쓰기를 UI 에서 먼저 막는다 — 러닝 목표, 또는 서버가 활동 연결·
@@ -372,7 +372,7 @@ export default function WorkoutEditModal({
 
   // ── Render ─────────────────────────────────────────────────────────
 
-  return createPortal(
+  return <TrainingDialogPortal>
     <>
       <div data-dialog-initial-focus data-testid="K4-6-7" onClick={closeIfIdle} className="bg-black/50" style={{ position: 'fixed', inset: 0, zIndex: 117 }} />
       <div className="coach-training-dialog" ref={modalRef} role="dialog" tabIndex={-1} data-testid="K4-6" aria-modal="true" aria-busy={loading} aria-label={meta.label}
@@ -602,6 +602,6 @@ export default function WorkoutEditModal({
           </div>
         )}
       </div>
-    </>, document.body
-  );
+    </>
+  </TrainingDialogPortal>;
 }

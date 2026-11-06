@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { canonicalDisplayFor, type CanonicalDisplay } from "@shared/types/canonicalDisplay";
 import { useCanonicalSurfaceEnabled } from "./useCanonicalRollout";
 import { fetchCourseAnalysis, type CourseAnalysisEnvelope } from "../services/courseAnalysisReader";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 
 export interface CourseAnalysisState {
   envelope: CourseAnalysisEnvelope | null;
@@ -31,6 +32,7 @@ export function useCourseAnalysis(courseId: string | null | undefined): CourseAn
   // 빌드 플래그 AND 서버 전환 판정. 런타임 설정·서버 판정 모두 늦게 도착할 수 있으므로
   // 값을 deps 에 넣어 도착 시 재구독한다.
   const enabled = useCanonicalSurfaceEnabled("course");
+  const { firestore } = useFirebaseServices();
 
   useEffect(() => {
     if (!courseId || !enabled) {
@@ -38,11 +40,11 @@ export function useCourseAnalysis(courseId: string | null | undefined): CourseAn
       return;
     }
     let active = true;
-    void fetchCourseAnalysis(courseId).then((next) => {
+    void fetchCourseAnalysis(courseId, firestore).then((next) => {
       if (active) setEnvelope(next);
     });
     return () => { active = false; };
-  }, [courseId, enabled]);
+  }, [courseId, enabled, firestore]);
 
   return {
     envelope,

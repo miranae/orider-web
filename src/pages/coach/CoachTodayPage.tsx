@@ -88,14 +88,18 @@ export default function CoachTodayPage({ startMode }: { startMode?: Run30StartMo
       </> : null;
       const decision = <TodayTrainingDecisionCard user={user} discipline={sport} surface="today" decisionState={state}
         suppressExecution={sport === "run" && (running.status !== "ready" || Boolean(running.program?.next))} />;
+      // 서버가 오늘 세션 없이 응답하면(활성 목표 없음 plan=null 또는 오늘 세션 없음 scheduledSessions=[])
+      // "오늘의 계획" 아래 예정 없음을 알리고 간단 운동 선택을 이어 둔다. 조회 실패 카드·계획 이동 링크는 두지 않는다.
+      const noScheduledToday = state.decision != null && !hasScheduled && !healthBlocked;
       return <>
-        {hasScheduled || healthBlocked ? decision : chooser}
-        {!hasScheduled && !healthBlocked && (state.loading || state.unavailableReason === "error") && decision}
-        {hasScheduled && chooser}
-        <div className="coach-today-plan-handoff" style={{ display: "grid", gap: "var(--space-2)", marginBlock: "var(--space-4)" }}>
-          {state.unavailableReason === "disabled" && <Text as="p" variant="caption" tone="secondary">{t("today.decisionUnavailable")}</Text>}
-          <Link to={`/coach/plan?sport=${sport}`}>{t("today.planLink")}</Link>
-        </div>
+        {hasScheduled || healthBlocked ? decision : noScheduledToday ? <Card data-testid="K2-2" className="training-decision-card" data-today-plan="none">
+          <Text as="span" variant="bodyMedium">{t("training:decision.eyebrow")}</Text>
+          <Text as="p" variant="body" tone="secondary" style={{ margin: 0 }}>{t("training:decision.noScheduled")}</Text>
+        </Card> : state.loading ? decision : null}
+        {!healthBlocked && chooser}
+        {state.unavailableReason === "disabled" && <div className="coach-today-plan-handoff" style={{ marginBlock: "var(--space-4)" }}>
+          <Text as="p" variant="caption" tone="secondary">{t("today.decisionUnavailable")}</Text>
+        </div>}
         {sport === "run" && <RunningToday state={running} startMode={startMode} allowStart={canUseTodayHelpers(state, Date.now(), sport)} />}
       </>;
     }}</TodayTrainingDecisionSource>

@@ -11,10 +11,9 @@ import type { Group } from "@shared/types";
 interface GroupSubNavProps {
   group: Group;
   isCreator: boolean;
-  showDescription?: boolean;
 }
 
-export default function GroupSubNav({ group, isCreator, showDescription = true }: GroupSubNavProps) {
+export default function GroupSubNav({ group, isCreator }: GroupSubNavProps) {
   const { showToast } = useToast();
   const { t } = useTranslation("group");
   const { groupId, lang } = useParams();
@@ -47,7 +46,7 @@ export default function GroupSubNav({ group, isCreator, showDescription = true }
       <div className="club-subnav-header">
         <div>
           <Text as="h1" variant="pageTitle" data-testid="C1-0-1">{group.name}</Text>
-          {showDescription && group.description && (
+          {group.description && (
             <Text as="p" variant="body" tone="secondary" className="mt-1">{group.description}</Text>
           )}
           <Text as="p" variant="body" tone="secondary" className="mt-1">

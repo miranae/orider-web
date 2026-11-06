@@ -6,8 +6,8 @@ import { doc, runTransaction } from "firebase/firestore";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
-import { useTrainingDialog } from "./useTrainingDialog";
-import { createPortal } from "react-dom";
+import { useRetainedTrainingDialog } from "./useRetainedTrainingDialog";
+import { TrainingDialogPortal } from "./TrainingDialogPortal";
 import GlossaryText from "../common/GlossaryText";
 import SportIcon from "../common/SportIcon";
 import { Button, Text } from "../../theme/components";
@@ -97,7 +97,7 @@ export default function AddPlanSheet({
   const [selectedDay, setSelectedDay] = useState<number>(initialDayIndex ?? -1);
   const [loading, setLoading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<WorkoutTemplate | null>(null);
-  const modalRef = useTrainingDialog(onClose, loading);
+  const modalRef = useRetainedTrainingDialog(onClose, loading);
   const titleId = useId();
   const closeIfIdle = () => { if (!loading) onClose(); };
   const [dragY, setDragY] = useState(0);
@@ -198,7 +198,7 @@ export default function AddPlanSheet({
     if (shouldClose) closeIfIdle();
   };
 
-  return createPortal(
+  return <TrainingDialogPortal>
     <>
       {/* Backdrop */}
       <div
@@ -393,6 +393,6 @@ export default function AddPlanSheet({
           )}
         </div>
       </div>
-    </>, document.body
-  );
+    </>
+  </TrainingDialogPortal>;
 }

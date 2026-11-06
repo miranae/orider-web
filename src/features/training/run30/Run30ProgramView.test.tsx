@@ -51,9 +51,10 @@ describe("Run30ProgramView header", () => {
     expect(screen.getByRole("heading", { level: 2, name: "30분 달리기 입문" })).toBeInTheDocument();
     expect(screen.getByText(/2\/24 단계 완료/)).toBeInTheDocument();
     expect(screen.getByRole("progressbar", { name: "프로그램 진행률" })).toHaveAttribute("aria-valuenow", "8");
-    const decision = screen.getByText("다음 운동 보류 · 이전 기록을 먼저 확인하세요.");
+    // 결정만 짧게 — 이유·근거 부연은 두지 않는다.
+    const decision = screen.getByText("다음 운동 보류");
     expect(decision).toHaveClass("run30-warning");
-    expect(screen.getByText(/근거: 내 러닝 피드백/)).toBeInTheDocument();
+    expect(screen.queryByText(/근거: 내 러닝 피드백/)).not.toBeInTheDocument();
   });
 });
 
@@ -267,8 +268,8 @@ describe("Run30ProgramView stage list", () => {
     expect(within(stage5).getAllByText("5분").length).toBeGreaterThan(0);
   });
 
-  it("shows the safety guidance footer", () => {
+  it("does not repeat the safety guidance footer under the stage list", () => {
     renderView();
-    expect(within(screen.getByRole("region", { name: "안전 안내" })).getByText(/통증이나 질병 증상이 있으면/)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "안전 안내" })).not.toBeInTheDocument();
   });
 });

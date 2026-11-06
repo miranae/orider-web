@@ -294,7 +294,9 @@ describe("TriFitnessView parity", () => {
     value.run.fitness = [];
     value.swim.fitness = [];
     renderWithProviders(<TriFitnessView condition range={90} onRangeChange={vi.fn()} breakdown={value} timeline={buildTriFitnessTimeline(value)} combinedLoad={null} loadFocus={null} historySlot={<div>history</div>} />);
-    expect(screen.getByRole("region", { name: "종목별 체력 추이" }).closest("details")).toBeNull();
+    // 컨디션은 3종목 스택 PMC·계산 방식을 두지 않는다(위 컨디션 변화 차트가 추이를 맡는다).
+    expect(screen.queryByRole("region", { name: "종목별 체력 추이" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "퍼포먼스 관리 차트 · 3종목 스택" })).not.toBeInTheDocument();
     const chart = screen.getByRole("group", { name: "일별 운동 부하" });
     fireEvent.focus(chart);
     expect(within(chart).getByRole("status")).toHaveTextContent("2026-09-02");
@@ -308,7 +310,7 @@ describe("TriFitnessView parity", () => {
     const value = breakdown({ bike: 20 });
     value.run.fitness = [];
     value.swim.fitness = [];
-    renderWithProviders(<TriFitnessView condition range={90} onRangeChange={vi.fn()} breakdown={value} timeline={buildTriFitnessTimeline(value)} combinedLoad={null} loadFocus={null} />);
+    renderWithProviders(<TriFitnessView range={90} onRangeChange={vi.fn()} breakdown={value} timeline={buildTriFitnessTimeline(value)} combinedLoad={null} loadFocus={null} />);
     const chart = screen.getByRole("group", { name: "퍼포먼스 관리 차트 · 3종목 스택" });
     expect(chart.querySelector("svg text")).toBeNull();
     expect(chart.querySelector(".tri-fitness__date-axis")).toHaveTextContent("9");

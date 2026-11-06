@@ -125,3 +125,12 @@ it("rejects a late meeting response when the embedded account changes", async ()
   api.call.mockImplementationOnce(async () => { (services.auth as unknown as { currentUser: unknown }).currentUser = { uid: "second" }; return { data: {} }; });
   await expect(createClubMeetingsApi(services).getClubMeetingSnapshot("meeting")).rejects.toThrow("account_changed");
 });
+
+it("uses the current scoped transport for Discord reads, opening and closing", async () => {
+  const app = {};const services = {auth:{app,currentUser:{uid:"host"}},functions:{app},ensureAppCheckReady:vi.fn()} as unknown as FirebaseServices;
+  const meetings=createClubMeetingsApi(services);api.call.mockResolvedValue({data:{state:"ready"}});
+  await meetings.getClubMeetingDiscord("meeting");await meetings.openClubMeetingDiscord("meeting");await meetings.closeClubMeetingDiscord("meeting");
+  expect(services.ensureAppCheckReady).toHaveBeenCalledTimes(3);
+  for(const name of ["getClubMeetingDiscord","openClubMeetingDiscord","closeClubMeetingDiscord"])expect(httpsCallable).toHaveBeenCalledWith(services.functions,name);
+  expect(api.call).toHaveBeenLastCalledWith({eventId:"meeting"});
+});

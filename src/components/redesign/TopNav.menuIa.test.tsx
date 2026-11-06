@@ -64,6 +64,7 @@ describe("menu IA v2", () => {
     const avatar = await screen.findByRole("button", { name: "더보기" });
     await user.click(avatar);
     expect(avatar).toHaveAttribute("aria-expanded", "true");
+    expect(avatar).toHaveFocus();
     expect(screen.queryByRole("link", { name: "내 프로필" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "프로필" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "오라이더 소개" })).toHaveAttribute("href", "/ko/about");

@@ -214,7 +214,7 @@ const BoardPage: React.FC = () => {
         {/* 제목과 주요 동작은 모든 화면에서 같은 순서로 표시한다. */}
         <div className="board-list-header">
           <div>
-            <Text as="h1" variant="pageTitle" data-testid="M2-0">{t("page.communityTitle")}</Text>
+            <Text as="h1" variant="pageTitle" data-testid="M2-0" className="explore-page-title">{t("page.communityTitle")}</Text>
             <p className="text-[var(--ink-2)] text-[length:var(--fs-sm)] mt-1">
               {t("page.communitySubtitle")}
             </p>

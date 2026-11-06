@@ -58,7 +58,27 @@ export function validateExistingBackport(repo, sourceCommit, topicCommit) {
   if (normalized(git('diff', '--binary', `${sourceCommit}^`, sourceCommit)) !== normalized(git('diff', '--binary', `${topicCommit}^`, topicCommit))) throw new Error('Existing topic delta differs from the exact production change');
 }
 
+/** Only a reviewed, tree-identical merge of the exact protected main may preserve ancestry. */
+export function assertPromotionAncestry(repo, base, head, production, branch) {
+  if (![base,head,production].every(value => /^[a-f0-9]{40}$/.test(value))) throw new Error('Exact ancestry SHAs required');
+  if (branch !== `sync/promotion-${production.slice(0,12)}`) throw new Error('Unexpected ancestry branch');
+  const git = (...args) => command(repo,'git',args).stdout.trim();
+  if (git('rev-parse','origin/main') !== production || git('rev-parse','origin/dev') !== base) throw new Error('Protected branch advanced');
+  const parents = git('rev-list','--parents','-n','1',head).split(' ').slice(1);
+  if (parents.length !== 2 || parents[0] !== base || parents[1] !== production) throw new Error('Exact dev/main merge parents required');
+  if (git('rev-parse',`${head}^{tree}`) !== git('rev-parse',`${base}^{tree}`)) throw new Error('Ancestry synchronization must preserve the dev tree');
+  const trailers = git('show','-s','--format=%B',head).split('\n').filter(line => line.startsWith('Production-Commit: '));
+  if (trailers.length !== 1 || trailers[0] !== `Production-Commit: ${production}`) throw new Error('Exact production trailer required');
+  return {method:'merge', production, base, head};
+}
+
 function main() {
+  if (process.argv[2] === '--assert-ancestry') {
+    if (process.argv.length !== 7) throw new Error('Expected base/head/main/branch ancestry arguments');
+    const repo = command(process.cwd(),'git',['rev-parse','--show-toplevel']).stdout.trim();
+    assertPromotionAncestry(repo,...process.argv.slice(3));
+    console.log('Verified tree-identical main ancestry synchronization'); return;
+  }
   const sourceCommit = process.argv[2];
   const repo = command(process.cwd(), 'git', ['rev-parse', '--show-toplevel']).stdout.trim();
   command(repo, 'git', ['fetch', 'origin', 'main', 'dev', '--quiet']);

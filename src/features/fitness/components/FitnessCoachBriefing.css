@@ -102,7 +102,8 @@
 /* Condition reads as a decision, followed by its evidence. Other coach surfaces keep their layout. */
 .fitness-coach__story-hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--space-6); margin-bottom: var(--space-7); }
 /* HIG 가이드: 게이지와 CTL/ATL/TSB 사이 구분선 없음, 카드 내부 간격 12 */
-.fitness-coach--story .fitness-coach__summary { display: grid; gap: var(--space-3); }
+/* 한 열이 내용 폭(상태 이름)으로 줄지 않게 카드 폭을 채운다 — 게이지·라벨이 반쪽만 쓰던 문제. */
+.fitness-coach--story .fitness-coach__summary { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
 .fitness-coach__story-choice { min-width: 0; padding-inline-start: var(--space-6); border-inline-start: 1px solid var(--line-soft); }
 .fitness-coach--story .fitness-coach__summary-evidence { padding: 0; background: transparent; }
 .fitness-coach--story .fitness-coach__summary-evidence > div { display: flex; flex-wrap: wrap; gap: var(--space-2); }

@@ -186,7 +186,12 @@ export default function TopNav({ active, notifications = [], unreadCount = 0, fr
     if (mobileOpen) {
       window.addEventListener("popstate", handlePopState);
       document.addEventListener("keydown", handleKey);
-      mobilePanelRef.current?.querySelector<HTMLInputElement>('input')?.focus();
+      // Avoid opening the software keyboard when a mobile visitor opens navigation.
+      if (window.matchMedia("(min-width: 1024px)").matches) {
+        mobilePanelRef.current?.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
+      } else {
+        mobileTriggerRef.current?.focus({ preventScroll: true });
+      }
     }
     document.body.style.overflow = mobileOpen ? 'hidden' : '';
     return () => {

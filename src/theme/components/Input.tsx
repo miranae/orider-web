@@ -14,20 +14,23 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   mono?: boolean;
   /** Trailing action inside the input surface; provide an accessible button label. */
   endAction?: ReactNode;
+  /** Decorative leading icon; the shared control reserves its space. */
+  leadingIcon?: ReactNode;
+  textAlign?: 'start' | 'end';
 }
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { invalid, mono, endAction, className, 'aria-invalid': ariaInvalid, ...rest },
+  { invalid, mono, endAction, leadingIcon, textAlign = 'start', className, 'aria-invalid': ariaInvalid, ...rest },
   ref,
 ) {
   const input = (
     <input
       ref={ref}
       aria-invalid={ariaInvalid ?? (invalid ? true : undefined)}
-      className={cn('ds-input', invalid && 'ds-input--invalid', mono && 'ds-input--mono', endAction != null && 'ds-input--with-action', className)}
+      className={cn('ds-input', invalid && 'ds-input--invalid', mono && 'ds-input--mono', leadingIcon != null && 'ds-input--with-leading-icon', textAlign === 'end' && 'ds-input--align-end', endAction != null && 'ds-input--with-action', className)}
       {...rest}
     />
   );
-  return endAction == null ? input : <span className="ds-input-action">{input}<span className="ds-input-action__end">{endAction}</span></span>;
+  return endAction == null && leadingIcon == null ? input : <span className="ds-input-action">{leadingIcon != null && <span className="ds-input-action__start" aria-hidden="true">{leadingIcon}</span>}{input}{endAction != null && <span className="ds-input-action__end">{endAction}</span>}</span>;
 });
 
 /* ===== Textarea ===== */

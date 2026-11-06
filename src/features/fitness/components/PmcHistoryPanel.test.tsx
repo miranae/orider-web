@@ -48,7 +48,7 @@ describe("PmcHistoryPanel", () => {
     vi.stubGlobal("ResizeObserver", NarrowResizeObserver);
     try {
       const { container } = renderPanel();
-      const tsb = screen.getByRole("slider", { name: "회복 상태 · 독립 축" });
+      const tsb = screen.getByRole("slider", { name: "회복 상태" });
       expect(tsb).toHaveTextContent("09-06");
       expect(tsb).not.toHaveTextContent("2026-09-06");
       expect(tsb.getAttribute("aria-valuetext")).toContain("2026-09-06");
@@ -151,7 +151,7 @@ describe("PmcHistoryPanel", () => {
     const choices = [42, 90, 180, 365, "3y", "all"] as const;
     const view = renderWithProviders(<PmcHistoryPanel points={points} today="2026-09-06" canonical controlledRange={42} onControlledRangeChange={onControlledRangeChange} rangeChoices={choices} />);
     expect(screen.getByText("일별")).toBeInTheDocument();
-    expect(screen.getByRole("slider", { name: "회복 상태 · 독립 축" })).toHaveAttribute("aria-valuemax", "42");
+    expect(screen.getByRole("slider", { name: "회복 상태" })).toHaveAttribute("aria-valuemax", "42");
     expect(screen.getByRole("button", { name: "90일" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "6주" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "1년" }));
@@ -267,7 +267,7 @@ describe("PmcHistoryPanel", () => {
     expect(screen.getByRole("img")).toBeInTheDocument();
     expect(container.querySelectorAll("[data-pmc-series]")).toHaveLength(3);
     expect(container.querySelector('svg[role="img"] [data-pmc-series="tsb"]')).not.toBeInTheDocument();
-    expect(screen.getByRole("slider", { name: "회복 상태 · 독립 축" })).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "회복 상태" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "연도별 비교" }));
     expect(screen.getByRole("slider")).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
@@ -281,7 +281,7 @@ describe("PmcHistoryPanel", () => {
     ];
     const { container } = renderPanel(data);
     const main = screen.getByRole("img");
-    const tsb = screen.getByRole("slider", { name: "회복 상태 · 독립 축" });
+    const tsb = screen.getByRole("slider", { name: "회복 상태" });
     expect(tsb).toHaveAttribute("viewBox", "0 0 800 112");
     expect(container.querySelector('[data-tsb-zero-axis="true"]')).toHaveAttribute("y1", "48");
     expect(container.querySelector('[data-pmc-series="tsb"]')?.getAttribute("d")?.match(/M/g)).toHaveLength(2);

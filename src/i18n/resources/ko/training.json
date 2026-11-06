@@ -928,7 +928,7 @@
     "viewInPlan": "계획에서 보기 →",
     "eyebrow": "오늘의 계획",
     "loading": "오늘 계획을 확인하는 중…",
-    "noScheduled": "오늘 예정된 세션이 없습니다.",
+    "noScheduled": "오늘 예정된 워크아웃이 없어요.",
     "scheduled": "원래 계획",
     "recommended": "조정 권고",
     "recommendedPending": "조정 권고 · 아직 미적용",
@@ -946,7 +946,7 @@
       "reason": {
         "feature_disabled": "오늘의 계획 기능이 아직 켜지지 않았어요",
         "no_active_goal": "진행 중인 목표가 없어 계획을 만들지 못했어요",
-        "prescription_not_ready": "오늘 처방이 아직 준비되지 않았어요",
+        "prescription_not_ready": "새 운동 권고는 아직 준비되지 않았어요.",
         "ambiguous_active_goal": "진행 중인 목표가 여러 개라 기준을 정하지 못했어요",
         "consent_required": "AI 코치 이용 동의가 필요해요",
         "canonical_load_unavailable": "최근 훈련 부하를 확인하지 못했어요",
@@ -1101,8 +1101,8 @@
     "remaining": "{{count}}단계 남음",
     "refresh": "새로고침",
     "decision": {
-      "maintain": "다음 운동 계획 유지 · {{reason}}",
-      "hold": "다음 운동 보류 · {{reason}}",
+      "maintain": "다음 운동 계획 유지",
+      "hold": "다음 운동 보류",
       "basisFeedback": "근거: 내 러닝 피드백. 계획 변경은 직접 확인 후 진행합니다.",
       "basisRecord": "근거: 운동 기록. 계획 변경은 직접 확인 후 진행합니다."
     },

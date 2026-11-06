@@ -1,3 +1,4 @@
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useEffect, useState } from "react";
 import { getVisibleEventPage } from "../services/eventDiscovery";
 import { logClientError } from "../services/errorLogger";
@@ -43,6 +44,7 @@ export function isEligibleNextEvent(info: Record<string, unknown>, publicOnly: b
  * One bounded discovery request per group; unfinished groups offer the full paginated list.
  */
 export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, publicOnly = false) {
+  const services = useFirebaseServices();
   const { t, i18n } = useTranslation("group");
   const [byGroup, setByGroup] = useState<Map<string, string>>(new Map());
   const [eventByGroup, setEventByGroup] = useState<Map<string, NextEventInfo>>(new Map());
@@ -64,7 +66,7 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
       try {
         const map = new Map<string, NextEventInfo>();
         const uniqueGroupIds = [...new Set(groupIds)];
-        const snapshots = await Promise.all(uniqueGroupIds.map(groupId => getVisibleEventPage({ groupId, publicOnly, statuses: ["OPEN", "LIVE"], limit: 250 })));
+        const snapshots = await Promise.all(uniqueGroupIds.map(groupId => getVisibleEventPage({ groupId, publicOnly, statuses: ["OPEN", "LIVE"], limit: 250 }, services)));
 
         snapshots.forEach((snap) => {
           snap.docs.forEach((doc) => {
@@ -101,7 +103,7 @@ export function useGroupNextEvents(groupIds: string[], excludeEventId?: string, 
     return () => {
       cancelled = true;
     };
-  }, [excludeEventId, groupIds.join("|"), i18n.language, publicOnly, t]);
+  }, [excludeEventId, groupIds.join("|"), i18n.language, publicOnly, t, services]);
 
   return { byGroup, eventByGroup, incompleteGroups, loading };
 }

@@ -1,3 +1,4 @@
+import { withReadDeadline } from "../../utils/withReadDeadline";
 import { Field, fieldStyle } from "../../features/event/form/eventFormControls";
 import "../EventControls.css";
 import { CalendarDays, Clock3 } from "lucide-react";
@@ -12,7 +13,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { canonicalEventCapacityCounts, unknownEventCapacityCounts, type EventCapacityCounts } from "../../features/event/eventCapacityCounts";
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, firestore, functions, getAppCheckToken } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
@@ -168,6 +169,8 @@ function fmtDateTime(ts: number) {
 }
 
 export default function EventRegisterPage() {
+  const services = useFirebaseServices();
+  const { auth, firestore, functions, getAppCheckToken } = services;
   const { t } = useTranslation("event");
   const { t: tCommon } = useTranslation("common");
   const { eventId } = useParams<{ eventId: string }>();
@@ -255,7 +258,7 @@ export default function EventRegisterPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const snap = await getDoc(doc(firestore, "events", eventId));
+      const snap = await withReadDeadline(getDoc(doc(firestore, "events", eventId)), t("readTimeout"));
       if (generation !== loadGeneration.current) return;
       if (!snap.exists()) {
         setEvent(null);
@@ -280,7 +283,7 @@ export default function EventRegisterPage() {
         fee: typeof info.entryFee === "number" ? info.entryFee : register.fee,
         feeType: info.feeType || register.feeType,
         categories: categoriesRaw,
-        maxParticipants: info.settings?.maxParticipants || info.maxParticipants || 0,
+        maxParticipants: info.settings?.maxParticipants ?? info.maxParticipants ?? 0,
         distance: typeof info.distance === "number" ? info.distance : undefined,
         insuranceFee: typeof info.insuranceFee === "number" ? info.insuranceFee : undefined,
       });
@@ -295,7 +298,7 @@ export default function EventRegisterPage() {
       if (user) {
         try {
           const context = { uid: user.uid, eventId, generation: participantGeneration.current };
-          const participantSnap = await getDoc(doc(firestore, "events", eventId, "participants", user.uid));
+          const participantSnap = await withReadDeadline(getDoc(doc(firestore, "events", eventId, "participants", user.uid)), t("readTimeout"));
           if (!participantMounted.current || generation !== loadGeneration.current
             || context.generation !== participantGeneration.current || auth.currentUser?.uid !== context.uid
             || participantContext.current.uid !== context.uid || participantContext.current.eventId !== context.eventId) return;
@@ -323,6 +326,7 @@ export default function EventRegisterPage() {
       }
     } catch (err) {
       logClientError("EventRegisterPage.loadEvent", err, { eventId });
+      if (generation !== loadGeneration.current) return;
       setLoadError(err instanceof Error ? err.message : t("register.errLoad"));
     } finally {
       if (generation === loadGeneration.current) setLoading(false);
@@ -615,7 +619,7 @@ export default function EventRegisterPage() {
           {currentStep?.key === "category" && (
             <div role="radiogroup" aria-label={t("message.selectCategory")} className="flex flex-col" style={{ gap: "var(--space-2)" }}>
               {event.categories.map((c) => {
-                const slots = c.slots ?? c.capacity ?? 0;
+                const slots = c.capacity ?? c.slots ?? 0;
                 const filled = capacityCounts.byCategory[c.id] ?? null;
                 const pct = filled !== null && slots > 0 ? Math.min(100, Math.round((filled / slots) * 100)) : null;
                 const full = filled !== null && slots > 0 && filled >= slots;

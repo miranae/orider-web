@@ -1,6 +1,8 @@
+import { DiscordLogo } from "./DiscordLogo";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import Modal from "../Modal";
+import { Button } from "../../theme/components";
 import { LocalizedLink } from "../LocalizedLink";
 import { startSocialAuth, type SocialProvider } from "../../services/socialAuth";
 
@@ -102,6 +104,11 @@ export function SignInDialog({ open, onClose, onGoogle }: SignInDialogProps) {
           onClick={() => { void handleSocial("strava"); }}>
           <img src="/btn_strava_connect_orange.svg" alt="" className="h-12 w-auto" />
         </button>
+        <Button data-testid="A1-1-5" variant="discord" size="lg" block
+          leadingIcon={<DiscordLogo />} loading={pending === "discord"} disabled={pending !== null}
+          onClick={() => { void handleSocial("discord"); }}>
+          {t("signIn.discord")}
+        </Button>
         {error && <p role="alert" className="text-[length:var(--fs-sm)]" style={{ color: "var(--rose)", margin: 0 }}>{error}</p>}
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>{t("signIn.separateAccountHint")}</p>
         <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)", margin: 0 }}>

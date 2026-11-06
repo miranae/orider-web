@@ -1,3 +1,5 @@
+import { usesLiveDarkAppearance } from "../theme/appearancePolicy";
+import { HOST_THEME_CHANGE_EVENT } from "../contexts/ThemeContext";
 import { RetainedSurfaceActivity } from "./RetainedSurfaceActivity";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DialogProvider } from "../contexts/DialogContext";
@@ -5,7 +7,7 @@ import { ToastProvider } from "../contexts/ToastContext";
 import { EmbeddedNavigationContext } from "./EmbeddedNavigationContext";
 import { EmbeddedCoachNavigation } from "./EmbeddedCoachNavigation";
 import { embeddedCoachPage } from "./coachNavigation";
-import { CLUB_DETAIL_EMBED_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
+import { CLUB_DETAIL_EMBED_CAPABILITY, COURSE_DETAIL_EMBED_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
 import { embeddedCommentId } from "./commentTarget";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -75,7 +77,9 @@ const PlanSurface = lazy(loadPlanSurface);
 const ClubsSurface = lazy(() => import("./surfaces/ClubsSurface"));
 const ExploreSurface = lazy(() => import("./surfaces/ExploreSurface"));
 const SearchSurface = lazy(() => import("./surfaces/SearchSurface"));
+const EventDetailSurface = lazy(() => import("./surfaces/EventDetailSurface"));
 const ClubDetailSurface = lazy(() => import("./surfaces/ClubDetailSurface"));
+const CourseDetailSurface = lazy(() => import("./surfaces/CourseDetailSurface"));
 
 const CONTRACT_VERSION = 1 as const;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/;
@@ -157,24 +161,24 @@ interface EmbeddedBootstrapRootProps {
   surfaceKind?: EmbeddedSurfaceKind;
 }
 
-export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "fitness" | "plan" | EmbeddedHubSurfaceKind;
+export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "event-detail" | "fitness" | "plan" | EmbeddedHubSurfaceKind;
 /**
- * 앱 클럽·탐색 탭과 검색 화면, 클럽 상세. 공개 목록·공개 클럽 미리보기라 로그인 인계 없이(게스트)
- * 열려도 보인다(웹 클럽 상세도 비로그인이면 PublicClubPreview 다).
+ * 앱 클럽·탐색 탭과 검색 화면, 클럽·코스 상세. 공개 목록·공개 클럽 미리보기·공개 코스라 로그인 인계
+ * 없이(게스트) 열려도 보인다(웹 클럽 상세도 비로그인이면 PublicClubPreview 다).
  */
-export type EmbeddedHubSurfaceKind = "clubs" | "explore" | "search" | "club-detail";
+export type EmbeddedHubSurfaceKind = "clubs" | "explore" | "search" | "club-detail" | "course-detail";
 
 function isActivitySurfaceKind(kind: EmbeddedSurfaceKind): kind is "activity-analysis" | "activity-public" {
   return kind === "activity-analysis" || kind === "activity-public";
 }
 
 export function isHubSurfaceKind(kind: EmbeddedSurfaceKind): kind is EmbeddedHubSurfaceKind {
-  return kind === "clubs" || kind === "explore" || kind === "search" || kind === "club-detail";
+  return kind === "clubs" || kind === "explore" || kind === "search" || kind === "club-detail" || kind === "course-detail";
 }
 
 /** host.surfaceSelected·트레이닝 캐시를 쓰지 않는 단일 표면(활동·허브). */
 function isStandaloneSurfaceKind(kind: EmbeddedSurfaceKind): boolean {
-  return isActivitySurfaceKind(kind) || isHubSurfaceKind(kind);
+  return isActivitySurfaceKind(kind) || isHubSurfaceKind(kind) || kind === "event-detail";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -291,10 +295,13 @@ function applyThemeTokensInline(mode: "light" | "dark"): void {
   }
 }
 
-function applyHostContract(root: HTMLElement, session: AcceptedSession): void {
-  document.documentElement.setAttribute("data-theme", session.theme.mode);
-  applyThemeTokensInline(session.theme.mode);
-  const fallback = session.theme.mode === "dark"
+function applyHostContract(root: HTMLElement, session: AcceptedSession, liveDark: boolean): HostTheme["mode"] {
+  const theme: HostTheme = liveDark ? { mode: "dark" } : session.theme;
+  document.documentElement.setAttribute("data-theme", theme.mode);
+  document.documentElement.style.colorScheme = theme.mode;
+  applyThemeTokensInline(theme.mode);
+  window.dispatchEvent(new CustomEvent(HOST_THEME_CHANGE_EVENT, { detail: { mode: theme.mode } }));
+  const fallback = theme.mode === "dark"
     ? {
       bg: "oklch(0.13 0.007 250)",
       surface: "oklch(0.18 0.008 250)",
@@ -314,7 +321,7 @@ function applyHostContract(root: HTMLElement, session: AcceptedSession): void {
   // 라이트 토큰을 읽었다(iOS 시뮬레이터 실측: attr=dark 인데 --bg-0 은 light).
   // 값은 src/theme/generated.css 의 :root / :root[data-theme="dark"] 와 동일하게 유지한다.
   const defaults = fallback;
-  const colors = { ...defaults, ...session.theme.colors };
+  const colors = { ...defaults, ...theme.colors };
   root.style.setProperty("--orider-host-bg", colors.bg);
   root.style.setProperty("--orider-host-surface", colors.surface);
   root.style.setProperty("--orider-host-text-primary", colors.textPrimary);
@@ -322,6 +329,7 @@ function applyHostContract(root: HTMLElement, session: AcceptedSession): void {
   root.style.setProperty("--orider-host-accent", colors.accent);
   root.style.setProperty("--orider-host-safe-top", `${session.safeInsets.top}px`);
   root.style.setProperty("--orider-host-safe-bottom", `${session.safeInsets.bottom}px`);
+  return theme.mode;
 }
 
 function AuthorizedSurface({
@@ -504,8 +512,12 @@ function AuthorizedSurface({
                 <ExploreSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "search" ? (
                 <SearchSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
+              ) : surfaceKind === "event-detail" ? (
+                <EventDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "club-detail" ? (
                 <ClubDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
+              ) : surfaceKind === "course-detail" ? (
+                <CourseDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "activity-public" && activityId ? (
                 <PublicActivitySurface embedded activityId={activityId} commentId={embeddedTarget} retryKey={retryKey}
                   onReady={() => bridge.send("surface.ready", { activityId })}
@@ -578,12 +590,22 @@ export default function EmbeddedBootstrapRoot({
   surfaceKind = "activity-analysis",
 }: EmbeddedBootstrapRootProps) {
   const { activityId } = useParams();
+  const location = useLocation();
+  const liveDark = usesLiveDarkAppearance(location.pathname);
+  const liveDarkRef = useRef(liveDark);
+  liveDarkRef.current = liveDark;
   const rootRef = useRef<HTMLDivElement>(null);
   const [bridge] = useState(bridgeFactory);
   const [runStartChannel] = useState(() => createRunStartChannel({
     send: (payload, requestId) => bridge.send("run.startScheduled", payload, requestId),
   }));
   const [session, setSession] = useState<AcceptedSession | null>(null);
+  useEffect(() => {
+    if (session && rootRef.current) {
+      const resolved = applyHostContract(rootRef.current, session, liveDark);
+      window.dispatchEvent(new CustomEvent("orider:themechange", { detail: { resolved } }));
+    }
+  }, [session, liveDark]);
   const [retryKey, setRetryKey] = useState(0);
   const [hostForeground, setHostForeground] = useState(true);
   const initialTrainingSurface = surfaceKind === "fitness" || surfaceKind === "plan"
@@ -744,7 +766,6 @@ export default function EmbeddedBootstrapRoot({
   }, [safeSend]);
 
   const navigate = useNavigate();
-  const location = useLocation();
   const handleNavigation = useCallback((event: MouseEvent<HTMLDivElement>) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -825,7 +846,7 @@ export default function EmbeddedBootstrapRoot({
           return;
         }
         if (guestAuthorized.current && currentUid === null) {
-          if (rootRef.current) applyHostContract(rootRef.current, accepted);
+          if (rootRef.current) applyHostContract(rootRef.current, accepted, liveDarkRef.current);
           acceptedUid.current = null;
           sessionAccepted.current = true;
           selectionGeneration.current += 1;
@@ -854,7 +875,7 @@ export default function EmbeddedBootstrapRoot({
           return;
         }
         prepareTrainingSurfaceCacheOwner(currentUid, controlServices.auth.currentUser?.isAnonymous === true);
-        if (rootRef.current) applyHostContract(rootRef.current, accepted);
+        if (rootRef.current) applyHostContract(rootRef.current, accepted, liveDarkRef.current);
         acceptedUid.current = currentUid;
         sessionAccepted.current = true;
         const generation = selectionGeneration.current + 1;
@@ -1038,6 +1059,16 @@ export default function EmbeddedBootstrapRoot({
         return;
       }
 
+      if (message.type === "host.themeChanged") {
+        const theme = parseHostTheme(message.payload);
+        if (!theme || !sessionAccepted.current) {
+          safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
+          return;
+        }
+        setSession((previous) => previous ? { ...previous, theme } : previous);
+        return;
+      }
+
       if (message.type === "host.lifecycle") {
         if (!isLifecyclePayload(message.payload)) {
           safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
@@ -1110,7 +1141,9 @@ export default function EmbeddedBootstrapRoot({
         SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
         RUN_START_SCHEDULED_CAPABILITY,
         CLUB_DETAIL_EMBED_CAPABILITY,
+        COURSE_DETAIL_EMBED_CAPABILITY,
         "host.lifecycle",
+        "host.themeChanged",
       ],
     });
     return () => {

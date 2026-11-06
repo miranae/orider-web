@@ -1,3 +1,4 @@
+import { DiscordLogo } from '../components/auth/DiscordLogo';
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ArrowDown, ArrowUp, ArrowUpRight, Check, Crosshair, Minus, Plus, Search, SlidersHorizontal } from 'lucide-react';
@@ -263,6 +264,12 @@ function ControlsCatalog() {
               <Button variant={variant.id} onClick={() => setMessage(`${variant.label} · 예시 동작을 실행했습니다.`)}>{variant.label}</Button>
             </div>)}
           </div>
+          <div className="catalog-button-row">
+            <div><Text as="h3" variant="subtitle">디스코드 로그인</Text><Text as="p" variant="bodySmall" tone="tertiary">제공자 로고와 Blurple · 연결 상태는 공통 버튼 동작을 따릅니다.</Text><code>discord</code></div>
+            <Button variant="discord" leadingIcon={<DiscordLogo />} onClick={() => setMessage('디스코드 로그인 버튼 예시입니다. 실제 로그인은 실행하지 않습니다.')}>디스코드로 계속하기</Button>
+            <Button variant="discord" leadingIcon={<DiscordLogo />} disabled>디스코드로 계속하기</Button>
+            <Button variant="discord" leadingIcon={<DiscordLogo />} loading>디스코드로 계속하기</Button>
+          </div>
           <div className="catalog-size-row"><Text variant="label">크기</Text><Button size="sm" onClick={() => setMessage('작은 크기 · 콘텐츠 옆 도구입니다.')}>작게</Button><Button size="md" onClick={() => setMessage('기본 크기 · 일반 동작입니다.')}>기본</Button><Button size="lg" onClick={() => setMessage('큰 크기 · 넉넉한 조작 영역을 제공합니다.')}>크게</Button><Text variant="bodySmall" tone="tertiary">인접한 대안은 같은 크기 · 위계는 variant로 구분</Text></div>
           <div className="catalog-size-row"><Text variant="label">보조 필터 도구</Text><IconButton size="compact" icon={<SlidersHorizontal />} aria-label="필터 예시" onClick={() => setMessage('필터 예시를 열었습니다.')} /><IconButton size="compact" indicator icon={<SlidersHorizontal />} aria-label="필터 예시: 러닝 적용됨" onClick={() => setMessage('러닝 필터가 적용된 예시입니다.')} /><Text variant="bodySmall" tone="tertiary">36px 표면 · 18px 아이콘 · 44px 터치 영역 · 적용 상태 점</Text></div>
           <p className="catalog-feedback" role="status">{message}</p>
@@ -280,6 +287,7 @@ function ControlsCatalog() {
           <div className="catalog-example-row"><div className="catalog-example-note"><Text as="h3" variant="subtitle">입력 내 실행</Text><Text as="p" variant="bodySmall">입력 오른쪽의 버튼이나 Enter로 같은 검색을 실행합니다.</Text><code>Input · endAction</code></div>
             <form onSubmit={event => { event.preventDefault(); setMessage('입력 검색 예시를 실행했습니다. 실제 데이터는 조회하지 않습니다.'); }}><Input aria-label="예시 검색어" name="query" placeholder="검색어" enterKeyHint="search" endAction={<IconButton type="submit" aria-label="예시 검색 실행" icon={<Search />} />} /></form>
           </div>
+          <div className="catalog-example-row"><div className="catalog-example-note"><Text as="h3" variant="subtitle">오른쪽 정렬 검색</Text><Text as="p" variant="bodySmall">돋보기 공간을 확보하고 안내 문구와 검색어를 오른쪽에 정렬합니다.</Text><code>Input · leadingIcon · textAlign</code></div><Input aria-label="오른쪽 정렬 검색 예시" placeholder="활동 검색… (Enter)" leadingIcon={<Search />} textAlign="end" /></div>
           <div className="catalog-example-row"><div className="catalog-example-note"><Text as="h3" variant="subtitle">필터 선택</Text><Text as="p" variant="bodySmall">중립 표면과 작은 좌우 여백을 사용하고, 기기의 기본 선택 목록을 엽니다. 모바일 터치 높이와 입력 글자 크기는 유지합니다.</Text><code>Select · filter</code></div>
             <Field htmlFor="catalog-filter-sport" label="종목"><Select id="catalog-filter-sport" variant="filter" value={filterSport} onChange={event => setFilterSport(event.target.value)}><option value="all">전체</option><option value="bike">사이클</option><option value="run">러닝</option><option value="swim">수영</option></Select></Field>
           </div>
@@ -433,7 +441,7 @@ function ControlsCatalog() {
           <div className="catalog-state-grid">
             <div className="catalog-state-example"><Text as="h3" variant="subtitle">기본 · 비활성 · 진행 중</Text><div className="catalog-inline-controls"><IconButton icon={<Plus />} aria-label="예시 항목 추가" onClick={() => setMessage('예시 항목을 추가했습니다.')} /><Button disabled>권한 없음</Button><Button loading={loading} onClick={() => { setSaveStatus('저장 중… · 예시'); setLoading(true); }}>{loading ? '저장 중…' : '예시 저장'}</Button><Button loading>불러오는 중…</Button></div><Text as="p" variant="bodySmall" tone="tertiary">진행 중에는 중복 실행을 막습니다. 위의 예시 저장은 1초 후 완료됩니다.</Text><p className="catalog-local-status" role="status">{saveStatus}</p></div>
             <div className="catalog-state-example"><Text as="h3" variant="subtitle">켜짐 · 꺼짐 · 선택 불가</Text><ToggleControls aria-label="토글 상태 예시"><ToggleButton selected={stateSelected} showCheck onClick={() => setStateSelected(!stateSelected)}>실시간 위치</ToggleButton><ToggleButton selected={notifications} showCheck onClick={() => setNotifications(!notifications)}>구간 알림</ToggleButton><ToggleButton selected={false} showCheck disabled>공유 불가</ToggleButton></ToggleControls><Text as="p" variant="bodySmall" tone="tertiary">색 외에 체크와 눌림 상태로 선택을 구분합니다.</Text></div>
-            <div className="catalog-state-example"><Text as="h3" variant="subtitle">긴 문구</Text><Button block leadingIcon={<Check />} onClick={() => setMessage('긴 문구 버튼을 실행했습니다.')}>선택한 활동의 변경 사항을 저장하고 돌아가기</Button><Text as="p" variant="bodySmall" tone="tertiary">좁은 폭과 큰 글자에서도 의미를 생략하지 않습니다.</Text></div>
+            <div className="catalog-state-example"><Text as="h3" variant="subtitle">긴 문구</Text><Button block align="start" leadingIcon={<Check />} onClick={() => setMessage('긴 문구 버튼을 실행했습니다.')}>선택한 활동의 변경 사항을 저장하고 돌아가기</Button><Text as="p" variant="bodySmall" tone="tertiary">좁은 폭과 큰 글자에서도 의미를 생략하지 않습니다.</Text></div>
             <div className="catalog-state-example"><Text as="h3" variant="subtitle">키보드 포커스</Text><Text as="p" variant="bodySmall">Tab으로 이동하고 Enter·Space로 실행합니다. 차트 탐색 영역에서는 ←·→, Home·End로 선택 지점을 이동합니다. 포커스 테두리는 색 테마와 무관하게 유지됩니다.</Text></div>
           </div>
         </section>

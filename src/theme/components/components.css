@@ -35,6 +35,10 @@
 .ds-btn--outline:hover:not(:disabled) { background: var(--accent-soft-bg); border-color: var(--accent); }
 .ds-btn--danger { background: var(--control-danger-fill); color: var(--control-danger-fg); }
 .ds-btn--danger:hover:not(:disabled) { background: color-mix(in srgb, var(--control-danger-fill) 92%, var(--ink-0)); }
+/* Provider identity stays in the shared control, including hover and loading states. */
+.ds-btn--discord { background: var(--discord); color: var(--discord-ink); }
+.ds-btn--discord:hover:not(:disabled) { background: var(--discord-hover); }
+.ds-btn--discord .ds-btn__icon { font-size: var(--dim-icon-s); }
 .ds-btn--sm { height: var(--space-7); padding: 0 var(--space-3); font-size: var(--ft-body-small-size); gap: var(--space-1); }
 .ds-btn--lg { height: var(--space-8); padding: 0 var(--space-5); font-size: var(--ft-body-large-size); }
 @media (prefers-reduced-motion: reduce) { .ds-btn { transition: none; } .ds-btn:active:not(:disabled) { transform: none; } }
@@ -68,6 +72,7 @@
   transform: translate(-50%, -50%);
 }
 
+.ds-btn--align-start { justify-content: flex-start; text-align: start; }
 .ds-btn--block { width: 100%; height: auto; min-height: var(--dim-button-height); padding-block: var(--space-3); white-space: normal; }
 .ds-btn--block .ds-btn__label { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .ds-btn--icon-only { padding: 0; aspect-ratio: 1; min-width: calc(var(--space-7) + var(--space-3)); min-height: calc(var(--space-7) + var(--space-3)); width: max(var(--dim-button-height), calc(var(--space-7) + var(--space-3))); }
@@ -221,6 +226,10 @@
 /* Reserve trailing space without changing the native input/ref contract. */
 .ds-input-action { display: block; position: relative; min-width: 0; width: 100%; }
 .ds-input--with-action { min-height: calc(var(--space-7) + var(--space-4)); padding-right: calc(var(--space-7) + var(--space-5)); }
+.ds-input--with-leading-icon { padding-inline-start: calc(var(--space-6) + var(--space-3)); }
+.ds-input--align-end { text-align: end; }
+.ds-input-action__start { position: absolute; inset-inline-start: var(--space-3); top: 50%; transform: translateY(-50%); display: flex; color: var(--ink-3); pointer-events: none; }
+.ds-input-action__start > svg { width: var(--space-4); height: var(--space-4); }
 .ds-input-action__end { position: absolute; right: var(--space-0-5); top: 50%; transform: translateY(-50%); display: flex; }
 .ds-input:focus { border-color: var(--accent); }
 .ds-input:disabled { opacity: .6; cursor: not-allowed; }
@@ -599,11 +608,16 @@ select.ds-select--filter[aria-invalid="true"] { border-color: var(--color-error)
 .ds-btn.ds-toggle-button:focus-visible { outline: var(--space-0-5) solid var(--accent); outline-offset: var(--space-0-5); }
 .ds-toggle-button__check { color: var(--accent-text); width: calc(var(--dim-icon-s) - var(--space-0-5)); height: calc(var(--dim-icon-s) - var(--space-0-5)); flex-shrink: 0; }
 .ds-toggle-note { color: var(--ink-2); font-size: var(--ft-body-small-size); margin-inline-start: var(--space-2); }
-.ds-toggle-controls--axis { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(max-content, 1fr); max-width: 100%; overflow-x: auto; scrollbar-width: none; gap: var(--space-0-5); padding: var(--space-0-5); margin-block: var(--space-4); background: var(--control-fill); border-radius: 9px; }
+/* 가로 넘침만 스크롤한다. overflow-x:auto 는 세로도 auto 로 만들어, 버튼 터치 영역(::after 44)이 32 높이 트랙을
+   넘으면 탭 안이 위아래로 스크롤됐다 — 세로는 숨긴다. */
+.ds-toggle-controls--axis { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(max-content, 1fr); max-width: 100%; overflow-x: auto; overflow-y: hidden; overscroll-behavior: contain; scrollbar-width: none; gap: var(--space-0-5); padding: var(--space-0-5); margin-block: var(--space-4); background: var(--control-fill); border-radius: 9px; }
 .activity-analysis-controls > .ds-toggle-controls { margin-block: 0; }
 .ds-toggle-controls--axis.ds-toggle-controls--compact { margin: 0; }
 .ds-toggle-controls--axis.ds-toggle-controls--compact .ds-toggle-button { padding-inline: var(--space-1); }
 .ds-toggle-controls--axis::-webkit-scrollbar { display: none; }
+/* 세그먼트 안에서는 터치 영역 확장(::after 44)을 버튼 크기로 묶는다 — 32 트랙을 넘친 6px 이 세로 스크롤을 만들었다.
+   트랙 전체가 이미 이어진 터치 면이라 칸 사이 빈 곳 없이 누를 수 있다. */
+.ds-toggle-controls--axis .ds-btn:not(:disabled):not(.ds-btn--dense)::after { width: 100%; height: 100%; }
 .ds-toggle-controls--axis .ds-btn__label { min-width: 0; }
 /* HIG 세그먼트 컨트롤: 32 높이(안쪽 28), 13, 항목 모서리 7, 한 줄. 터치 영역은 .ds-btn::after 가 44 로 확장. */
 .ds-toggle-controls--axis .ds-toggle-button { height: 28px; min-height: 28px; min-width: 0; padding: 0 var(--space-3); border-radius: 7px; font-size: var(--fs-xs); font-weight: var(--ft-body-weight); line-height: 1.2; color: var(--ink-2); background: transparent; border-color: transparent; white-space: nowrap; }

@@ -7,6 +7,7 @@ import { DialogProvider } from "./contexts/DialogContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ToastProvider } from "./contexts/ToastContext";
 import { OriderThemeProvider } from "./theme";
+import { usesLiveDarkAppearance } from "./theme/appearancePolicy";
 
 /** Keeps the normal web provider tree completely absent on embedded routes. */
 export default function AppRoot() {
@@ -14,7 +15,7 @@ export default function AppRoot() {
   const embedded = isEmbeddedRoutePath(location.pathname);
 
   return (
-    <ThemeProvider>
+    <ThemeProvider forceDark={usesLiveDarkAppearance(location.pathname)} hostControlled={embedded}>
       <OriderThemeProvider>
         {embedded ? (
           <App />

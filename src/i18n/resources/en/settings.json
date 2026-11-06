@@ -391,6 +391,7 @@
       "cardManagement": "Account management",
       "cardSocial": "Sign-in connections",
       "social": {
+        "discord": "Discord",
         "naver": "Naver",
         "kakao": "Kakao",
         "strava": "Strava",
@@ -728,8 +729,8 @@
     "sportSwim": "Swimming",
     "sportOther": "Other",
     "primarySourceTitle": "Primary source by sport",
-    "primarySourceDesc": "When the same workout exists in two sources, choose which to show in your feed by sport.\n\"Auto\" uses the first connected source.",
-    "primarySourceAuto": "Auto (first connected source)",
+    "primarySourceDesc": "When the same workout exists in multiple sources, choose which to show in your feed by sport. Auto uses the first connected source.",
+    "primarySourceAuto": "Auto",
     "primarySourceChanged": "{{sport}} primary source set to {{provider}}",
     "primarySourceAutoChanged": "{{sport}} primary source set to auto",
     "primarySourceSaveFailed": "Save failed. Please try again.",

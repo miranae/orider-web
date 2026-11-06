@@ -27,7 +27,7 @@ import {
   doc,
   getDoc,
 } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { useAuth } from "../contexts/AuthContext";
 import { useGear } from "../hooks/useGear";
@@ -108,6 +108,8 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
   const { user, profile } = useAuth();
   const uid = user?.uid ?? null;
   const [searchParams] = useSearchParams();
+  // 코스 상세 임베드(#3235)에서도 그려진다 — 싱글턴 대신 주입된 인스턴스(#847).
+  const { firestore } = useFirebaseServices();
 
   // ── 코스 목록 (내 코스) + URL courseId 직접 로드 ──────────────────────
   const [courses, setCourses] = useState<CourseLite[]>([]);
@@ -138,7 +140,7 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
       );
     });
     return () => unsub();
-  }, [uid, embedded]);
+  }, [firestore, uid, embedded]);
 
   // URL ?courseId= 우선 — 내 코스 아니어도 직접 로드해 옵션에 추가.
   const urlCourseId = presetCourseId ?? searchParams.get("courseId");
@@ -177,7 +179,7 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
     return () => {
       cancelled = true;
     };
-  }, [urlCourseId, courses]);
+  }, [firestore, urlCourseId, courses]);
 
   const selectedCourse = useMemo(
     () => courses.find((c) => c.id === selectedId) ?? null,

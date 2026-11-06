@@ -13,7 +13,7 @@ src/theme/
 ├── OriderTheme.ts             테마 인터페이스
 ├── OriderThemeProvider.tsx    <html> CSS 변수 주입
 └── components/                ← 여기. 모든 UI 프리미티브
-    ├── Button.tsx             6 variant × 3 size × loading / icon / block
+    ├── Button.tsx             7 variant × 3 size × loading / icon / block
     ├── Card.tsx               default/flat/inset/bare
     ├── Chip.tsx               default/accent/success/warning/danger
     ├── Input.tsx              Input / Textarea / Select / Field
@@ -58,6 +58,10 @@ import { Button, Card, Stat, Stack, Chip, Text } from '@/theme';
 | `ghost` | 낮은 위계의 도구·탐색 행동 |
 | `outline` | 외곽선으로 구분·강조할 행동 |
 | `danger` | 삭제처럼 파괴적인 행동 |
+
+`block align="start"`는 긴 목록 항목 버튼의 전체 폭, 줄바꿈과 시작 정렬을 함께 제공합니다. 페이지 CSS로 버튼의 정렬·줄바꿈을 덮어쓰지 않습니다.
+
+`discord`는 디스코드 로그인용 Blurple 버튼입니다. `leadingIcon={<DiscordLogo />}`와 함께 사용하며, `loading`·`disabled`·포커스는 공통 버튼 상태를 따릅니다.
 
 선택된 지표·축 상태는 `ToggleButton selected`로 표현한다. 연속된 도구 묶음은
 `ControlToolbar` 안의 `ToolbarButton`을 사용한다. 선택 상태나 툴바 모양을 만들기 위해
@@ -508,3 +512,5 @@ semantic accent 16% 음영과 2px 양끝선을 그리며 취소·선택 완료 �
 `DistributionStrip` displays caller-supplied category weights as a single strip. Segment and legend triggers share hover/focus/tap explanations, with Escape/outside-tap dismissal. The title and right-aligned legend share one header row. `unlabelled` weights reserve passive strip space without a label or tooltip. Zero categories remain in the legend, missing categories should be omitted by the caller. The activity reading catalogue demonstrates Seiler and FTP distributions with synthetic data.
 
 Interactive `Card` consumers can pass `aria-pressed` for single-choice lists. The shared selected state uses an accent border and soft surface; keep the selected value and callbacks in the feature. The Coach condition catalogue demonstrates this with activity contribution selection.
+
+`Input`의 `leadingIcon`은 장식용 왼쪽 아이콘과 입력 여백을 함께 제공합니다. `textAlign="end"`로 안내 문구와 입력 글자를 오른쪽에 정렬할 수 있으며, `endAction`과 함께 사용할 수 있습니다.

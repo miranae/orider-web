@@ -1,3 +1,4 @@
+import { withReadDeadline } from "../../utils/withReadDeadline";
 import { EventCapacityField } from "../../features/event/form/EventCapacityField";
 import { eventCategoryCapacity } from "../../features/event/form/eventFormUtils";
 import "../EventControls.css";
@@ -15,7 +16,7 @@ import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { canonicalEventCapacityCounts, participantEventCapacityCounts, unknownEventCapacityCounts, type EventCapacityCounts } from "../../features/event/eventCapacityCounts";
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth, firestore, functions, getAppCheckToken } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { isEmulatorRuntime } from "../../services/runtimeConfig";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
@@ -88,6 +89,8 @@ const VISIBILITY_DEFS: Array<{ value: Visibility; labelKey: string }> = [
 ];
 
 export default function EventEditPage() {
+  const services = useFirebaseServices();
+  const { auth, firestore, functions, getAppCheckToken } = services;
   const { t } = useTranslation("event");
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
@@ -156,7 +159,7 @@ export default function EventEditPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      const snap = await getDoc(doc(firestore, "events", eventId));
+      const snap = await withReadDeadline(getDoc(doc(firestore, "events", eventId)), t("readTimeout"));
       if (generation !== loadGeneration.current) return;
       if (!snap.exists()) {
         setEvent(null);
@@ -176,7 +179,7 @@ export default function EventEditPage() {
         counts = canonicalEventCapacityCounts(d.counters, categoryIds) ?? counts;
         if (counts.source === "unknown" && !!user && (info.creatorId === user.uid || (Array.isArray(info.hostIds) && info.hostIds.includes(user.uid)))) {
           try {
-            const partsSnap = await getDocs(collection(firestore, `events/${eventId}/participants`));
+            const partsSnap = await withReadDeadline(getDocs(collection(firestore, `events/${eventId}/participants`)), t("readTimeout"));
             if (partsSnap.metadata && !partsSnap.metadata.fromCache && !partsSnap.metadata.hasPendingWrites) {
               counts = participantEventCapacityCounts(categoryIds, partsSnap.docs.map(p => p.data()));
             }
@@ -235,7 +238,7 @@ export default function EventEditPage() {
       const firstCourseId: string | undefined = Array.isArray(info.courseIds) ? info.courseIds[0] : undefined;
       if (firstCourseId) {
         try {
-          const cs = await getDoc(doc(firestore, "courses", firstCourseId));
+          const cs = await withReadDeadline(getDoc(doc(firestore, "courses", firstCourseId)), t("readTimeout"));
           if (cs.exists()) {
             const cd = cs.data();
             setCourse({
@@ -252,6 +255,7 @@ export default function EventEditPage() {
       }
     } catch (err) {
       logClientError("EventEditPage.loadEvent", err, { eventId });
+      if (generation !== loadGeneration.current) return;
       setLoadError(err instanceof Error ? err.message : t("edit.errLoad"));
     } finally {
       if (generation === loadGeneration.current) setLoading(false);

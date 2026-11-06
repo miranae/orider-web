@@ -14,12 +14,14 @@ import {
   deleteDoc,
   doc,
 } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { Gear } from "@shared/types";
 
 export type GearInput = Omit<Gear, "id" | "createdAt" | "updatedAt">;
 
 export function useGear(uid: string | null) {
+  // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
+  const { firestore } = useFirebaseServices();
   const [snapshot, setSnapshot] = useState<{ uid: string | null; items: Gear[]; loading: boolean }>({
     uid: null,
     items: [],
@@ -50,7 +52,7 @@ export function useGear(uid: string | null) {
       },
     );
     return () => unsub();
-  }, [uid]);
+  }, [firestore, uid]);
 
   async function addGear(input: GearInput): Promise<string> {
     if (!uid) throw new Error("로그인 필요");

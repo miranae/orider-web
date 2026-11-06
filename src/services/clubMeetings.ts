@@ -2,6 +2,16 @@ import { httpsCallable } from "firebase/functions";
 import { ensureAppCheckReady, functions } from "./firebase";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import type { Meeting, MeetingTeam } from "../features/club-preparation/domain";
+export interface MeetingDiscordView {
+  available: boolean;
+  isHost: boolean;
+  linked: boolean;
+  state: "none" | "preparing" | "ready" | "closing" | "closed";
+  inviteUrl: string | null;
+  channelUrl: string | null;
+  serverInviteUrl: string | null;
+  expiresAt: number | null;
+}
 export type ClubMeeting = Meeting & { kindName?: string };
 export interface ClubMeetingSnapshot {
   eventId: string;
@@ -9,6 +19,7 @@ export interface ClubMeetingSnapshot {
   rideStatus?: "OPEN" | "LIVE" | "FINISHED" | "CANCELLED";
   completion?: {
     state: "ready" | "processing";
+    riders?: {uid: string; displayName: string; status: "FINISHED" | "DNF" | "RESULT_PENDING" | "NO_RECORDING"; durationMs: number | null}[];
     summary: {totalParticipants: number; finishedCount: number; pendingCount: number; dnfCount: number} | null;
     own?: {status: string; verified: boolean; durationMs: number | null};
   };
@@ -198,7 +209,10 @@ const saveClubMeetingTeams = (request: {
 const finishClubMeeting = (eventId: string, expectedRevision: number) =>
   call<{eventId: string; expectedRevision: number}, {success: true}>("finishClubMeeting", {eventId, expectedRevision});
 
-return { createClubMeeting, updateClubMeeting, getClubMeetingSnapshot, listClubMeetings, setClubMeetingRecruitment, cancelClubMeeting, clubMeetingAttendance, publishClubMeetingNotice, confirmClubMeetingNotice, saveClubMeetingTeams, finishClubMeeting };
+const getClubMeetingDiscord = (eventId: string) => call<{eventId: string}, MeetingDiscordView>("getClubMeetingDiscord", {eventId});
+const openClubMeetingDiscord = (eventId: string) => call<{eventId: string}, MeetingDiscordView>("openClubMeetingDiscord", {eventId});
+const closeClubMeetingDiscord = (eventId: string) => call<{eventId: string}, MeetingDiscordView>("closeClubMeetingDiscord", {eventId});
+return { getClubMeetingDiscord, openClubMeetingDiscord, closeClubMeetingDiscord, createClubMeeting, updateClubMeeting, getClubMeetingSnapshot, listClubMeetings, setClubMeetingRecruitment, cancelClubMeeting, clubMeetingAttendance, publishClubMeetingNotice, confirmClubMeetingNotice, saveClubMeetingTeams, finishClubMeeting };
 }
 
 // Resolve live default bindings when a request starts, after Firebase initialization.

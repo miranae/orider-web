@@ -12,7 +12,7 @@ import { cn } from './cn';
  * <Button variant="ghost" leadingIcon={<Icon/>}>설정</Button>
  * <Button loading>업로드 중</Button>
  */
-export type ButtonVariant = 'primary' | 'secondary' | 'neutral' | 'ghost' | 'outline' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'neutral' | 'ghost' | 'outline' | 'danger' | 'discord';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'type'> {
@@ -22,6 +22,8 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
   loading?: boolean;
   /** 전체 폭 점유. */
   block?: boolean;
+  /** 긴 레이블의 정렬 — block과 함께 쓰면 줄바꿈도 유지한다. */
+  align?: 'center' | 'start';
   /** 아이콘 only — 정사각 padding. */
   iconOnly?: boolean;
   /** 44px 히트 오버레이 옵트아웃 — 버튼이 44px 미만 간격으로 밀집한 툴바/그룹에서 사용 (#401). */
@@ -41,14 +43,15 @@ export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement
  * @example
  * <Link to="/x" className={buttonClass({ variant: 'primary', size: 'sm' })}>이동</Link>
  */
-export function buttonClass(opts: { variant?: ButtonVariant; size?: ButtonSize; iconOnly?: boolean; block?: boolean; className?: string } = {}): string {
-  const { variant = 'secondary', size = 'md', iconOnly, block, className } = opts;
+export function buttonClass(opts: { variant?: ButtonVariant; size?: ButtonSize; iconOnly?: boolean; block?: boolean; align?: 'center' | 'start'; className?: string } = {}): string {
+  const { variant = 'secondary', size = 'md', iconOnly, block, align, className } = opts;
   return [
     'ds-btn',
     `ds-btn--${variant}`,
     `ds-btn--${size}`,
     iconOnly && 'ds-btn--icon-only',
     block && 'ds-btn--block',
+    align === 'start' && 'ds-btn--align-start',
     className,
   ].filter(Boolean).join(' ');
 }
@@ -59,6 +62,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     size = 'md',
     loading,
     block,
+    align,
     iconOnly,
     dense,
     leadingIcon,
@@ -83,6 +87,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         `ds-btn--${variant}`,
         `ds-btn--${size}`,
         block && 'ds-btn--block',
+        align === 'start' && 'ds-btn--align-start',
         iconOnly && 'ds-btn--icon-only',
         dense && 'ds-btn--dense',
         loading && 'ds-btn--loading',

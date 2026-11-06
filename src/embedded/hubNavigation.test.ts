@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   embeddedClubDetailDestination,
+  embeddedCourseDetailDestination,
   embeddedExplorePage,
   embeddedHubDestination,
   embeddedInternalDestination,
@@ -73,6 +74,7 @@ describe("club detail embed destinations", () => {
     const current = `/${lang}/embed/clubs/club-1/rides`;
     expect(embeddedClubDetailDestination(current, `/${lang}/club/club-1`)).toBe(`/${lang}/embed/clubs/club-1`);
     expect(embeddedClubDetailDestination(current, "/club/club-1/members?sort=role#top")).toBe(`/${lang}/embed/clubs/club-1/members?sort=role#top`);
+    expect(embeddedClubDetailDestination(current, "/club/club-1/meetings/m-1/live")).toBe(`/${lang}/embed/clubs/club-1/meetings/m-1/live`);
     expect(embeddedClubDetailDestination(current, "/club/club-1/meetings/m-1/edit")).toBe(`/${lang}/embed/clubs/club-1/meetings/m-1/edit`);
     expect(embeddedClubDetailDestination(current, "/club/club-1/rides/r-1/")).toBe(`/${lang}/embed/clubs/club-1/rides/r-1`);
     // LocalizedLink 가 이미 임베드 경로로 바꾼 href 도 그대로 임베드 안에서 연다.
@@ -89,5 +91,45 @@ describe("club detail embed destinations", () => {
     expect(embeddedClubDetailDestination(current, "https://other.invalid/ko/club/club-1")).toBeNull();
     expect(embeddedClubDetailDestination("/ko/embed/clubs", "/ko/club/club-1")).toBeNull();
     expect(embeddedClubDetailDestination("/ko/club/club-1", "/ko/club/club-1/members")).toBeNull();
+  });
+});
+
+describe("코스 상세 임베드 이동", () => {
+  it.each(["ko", "en"])("%s 같은 코스 상세(탭 쿼리 포함)는 코스 상세 임베드 안에서 연다", lang => {
+    const current = `/${lang}/embed/courses/course-1`;
+    expect(embeddedCourseDetailDestination(current, `/${lang}/course/course-1`)).toBe(`/${lang}/embed/courses/course-1`);
+    expect(embeddedCourseDetailDestination(current, "/course/course-1?tab=prepare#plan")).toBe(`/${lang}/embed/courses/course-1?tab=prepare#plan`);
+    expect(embeddedCourseDetailDestination(current, `/${lang}/embed/courses/course-1/`)).toBe(`/${lang}/embed/courses/course-1`);
+    expect(embeddedInternalDestination(current, "/course/course-1")).toBe(`/${lang}/embed/courses/course-1`);
+  });
+
+  it("다른 코스·편집·상세 밖 경로·다른 임베드는 앱에 넘긴다", () => {
+    const current = "/ko/embed/courses/course-1";
+    expect(embeddedCourseDetailDestination(current, "/ko/course/course-2")).toBeNull();
+    expect(embeddedCourseDetailDestination(current, "/ko/course/course-1/edit")).toBeNull();
+    expect(embeddedCourseDetailDestination(current, "/ko/segment/s-1")).toBeNull();
+    expect(embeddedCourseDetailDestination(current, "https://other.invalid/ko/course/course-1")).toBeNull();
+    expect(embeddedInternalDestination(current, "/ko/athlete/user-1")).toBeNull();
+    // 탐색 목록의 코스 링크는 계속 앱으로 간다 — 앱이 capability 를 보고 코스 상세 임베드로 연다.
+    expect(embeddedInternalDestination("/ko/embed/explore", "/ko/course/course-1")).toBeNull();
+    expect(embeddedCourseDetailDestination("/ko/course/course-1", "/ko/course/course-1")).toBeNull();
+  });
+});
+
+describe("이벤트 상세 임베드 이동", () => {
+  it.each(["ko", "en"])("%s 이벤트 하위 화면은 같은 웹뷰 안에서 연다", lang => {
+    const current = `/${lang}/embed/event/event-1`;
+    for (const section of ["", "/register", "/results", "/host", "/host/edit", "/host/participants"]) {
+      expect(embeddedInternalDestination(current, `/event/event-1${section}?a=1#top`))
+        .toBe(`${current}${section}?a=1#top`);
+    }
+    expect(embeddedInternalDestination(current, `${current}/meeting/group-1/event-1`)).toBe(`${current}/meeting/group-1/event-1`);
+    expect(embeddedInternalDestination(current, `${current}/meeting/group-1/event-2`)).toBeNull();
+    expect(embeddedInternalDestination(current, "/club/group-1/meetings/event-1/live")).toBe(`${current}/meeting/group-1/event-1/live`);
+    expect(embeddedInternalDestination(current, "/club/group-1/meetings/event-1")).toBe(`${current}/meeting/group-1/event-1`);
+    expect(embeddedInternalDestination(current, `${current}/results`)).toBe(`${current}/results`);
+    for (const path of ["/event/event-2", "/event/event-1/unknown", "https://other.invalid/event/event-1", "/club/club-1"]) {
+      expect(embeddedInternalDestination(current, path)).toBeNull();
+    }
   });
 });

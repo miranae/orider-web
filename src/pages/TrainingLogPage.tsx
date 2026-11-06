@@ -15,7 +15,7 @@ import { useLocation, useSearchParams } from "react-router-dom";
 import GlossaryText from "../components/common/GlossaryText";
 import { Upload } from "lucide-react";
 import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import type { Activity } from "@shared/types";
@@ -394,7 +394,8 @@ function MiniBarChart({ values, labels, unit = "" }: MiniBarChartProps) {
 // ── Main Page ─────────────────────────────────────────────────────────
 
 export default function TrainingLogPage() {
-  const { state: comparisonState } = useLocation();
+  const { firestore } = useFirebaseServices();
+  const { state: comparisonState, pathname } = useLocation();
   const { t, i18n } = useTranslation("training");
   const { t: tCommon } = useTranslation("common");
   const { user, profile } = useAuth();
@@ -499,7 +500,8 @@ export default function TrainingLogPage() {
     const next = new URLSearchParams(importParams);
     next.set("sport", sport);
     // 종목이 바뀌면 이전 종목의 목록 페이지 위치는 맞지 않는다(모바일 목록 필터에 있던 규칙).
-    next.delete("page"); next.delete("pageMonth"); next.delete("dayPage");
+    if (!pathname.includes("/embed/") || next.get("page") !== "records") next.delete("page");
+    next.delete("recordPage"); next.delete("pageMonth"); next.delete("dayPage");
     setImportParams(next, { replace: true });
   };
 
@@ -726,7 +728,6 @@ export default function TrainingLogPage() {
           <Text as="span" variant="caption" tone="secondary">{t("page.logActivities", { count: kpi.count })}</Text>
         </div>
         <div className="training-log-notes">
-          <Text as="p" variant="caption" tone="secondary">{t("log.recordBasis")}</Text>
           {kpi.tssEstimated && <Text as="p" variant="caption" tone="secondary">{t("log.estimateBasis")}</Text>}
         </div>
         <div data-testid="P1-1-1" className="training-log-metrics">

@@ -151,3 +151,44 @@ describe("event map camera intent", () => {
   });
 
 });
+
+describe("event status tabs", () => {
+  it("uses the same underline tabs as the coach and explore rows and filters by status", async () => {
+    setCollectionDocs("events", [
+      { id: "open", info: { name: "Open ride", status: "OPEN", type: "TOUR", visibility: "PUBLIC", startTime: Date.now() + 86_400_000 } },
+      { id: "done", info: { name: "Finished ride", status: "FINISHED", type: "TOUR", visibility: "PUBLIC", startTime: 1000 } },
+    ]);
+    renderWithProviders(<EventsPage />, { route: "/ko/explore/events" });
+    expect(await screen.findByText("Open ride", { exact: true })).toBeInTheDocument();
+    const tablist = screen.getByRole("tablist", { name: eventStrings["filter.statusLabel"] });
+    expect(within(tablist).getAllByRole("tab").map(tab => tab.textContent)).toEqual([
+      eventStrings["filter.all"], eventStrings["status.open"], eventStrings["status.live"], eventStrings["status.finished"],
+    ]);
+    expect(within(tablist).getByRole("tab", { name: eventStrings["filter.all"] })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(within(tablist).getByRole("tab", { name: eventStrings["status.finished"] }));
+    expect(within(tablist).getByRole("tab", { name: eventStrings["status.finished"] })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByText("Finished ride", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("Open ride", { exact: true })).not.toBeInTheDocument();
+  });
+});
+
+describe("앱 임베드 탐색 이벤트 (#1485)", () => {
+  it("기본 웹 Firebase 가 초기화되지 않은 임베드에서도 주입된 세션으로 목록을 불러온다", async () => {
+    const { httpsCallable } = await import("firebase/functions");
+    const { ensureAppCheckReady } = await import("../services/firebase");
+    const { FirebaseServicesProvider } = await import("../contexts/FirebaseServicesContext");
+    // 임베드 진입은 initFirebase() 를 부르지 않는다 — 기본 App Check 준비는 실패한다.
+    vi.mocked(ensureAppCheckReady).mockRejectedValue(new Error("app-check/firebase-not-initialized"));
+    try {
+      const services = { scope: "embedded", auth: { currentUser: null }, firestore: {}, functions: { embedded: true }, ensureAppCheckReady: vi.fn(async () => undefined), getAppCheckToken: vi.fn(async () => null) } as unknown as import("../contexts/FirebaseServicesContext").FirebaseServices;
+      setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [{ id: "open-ride", data: { info: { name: "임베드 공개 라이드", status: "OPEN", visibility: "PUBLIC", startTime: Date.now() + 86_400_000 } } }], nextCursor: null } }));
+      renderWithProviders(<FirebaseServicesProvider services={services}><EventsPage /></FirebaseServicesProvider>, { route: "/ko/embed/explore/events" });
+      expect((await screen.findAllByText("임베드 공개 라이드")).length).toBeGreaterThan(0);
+      expect(screen.queryByText(eventStrings["dashboard.errorLoadEvent"])).not.toBeInTheDocument();
+      expect(services.ensureAppCheckReady).toHaveBeenCalled();
+      expect(httpsCallable).toHaveBeenCalledWith(services.functions, "listVisibleEventEnvelopes");
+    } finally {
+      vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
+    }
+  });
+});

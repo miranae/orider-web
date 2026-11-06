@@ -1,3 +1,4 @@
+import { DiscordLogo } from "../auth/DiscordLogo";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -11,7 +12,7 @@ import { LocalizedLink } from "../LocalizedLink";
 import { GoogleLogo, KakaoLogo, NaverLogo } from "../auth/SignInDialog";
 import { InlineRow, SettingsCard } from "./_primitives";
 
-const LOGO: Partial<Record<SocialProvider, () => React.ReactElement>> = { naver: NaverLogo, kakao: KakaoLogo };
+const LOGO: Partial<Record<SocialProvider, () => React.ReactElement>> = { naver: NaverLogo, kakao: KakaoLogo, discord: DiscordLogo };
 const GOOGLE_CANCELLED = new Set(["auth/popup-closed-by-user", "auth/cancelled-popup-request", "auth/user-cancelled"]);
 
 /**

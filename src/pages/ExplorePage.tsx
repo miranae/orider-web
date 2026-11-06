@@ -337,7 +337,7 @@ const moduleCache = {
   segments: [] as SegmentData[],
   regionPolylines: new Map<string, Map<string, LatLngTuple[]>>(), // gh3 -> (segId -> points)
   loadedRegions: new Set<string>(),
-  loading: false,
+  overviewRequest: null as Promise<TileOverview> | null,
 };
 
 /** `embedded`: 앱 탐색 임베드는 웹 경로(/explore/segments)가 아니어도 항상 보이는 화면이다. */
@@ -366,7 +366,7 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
   }, [isVisible]);
 
   const [allSegments, setAllSegments] = useState<SegmentData[]>(moduleCache.segments);
-  const [loading, setLoading] = useState(moduleCache.segments.length === 0);
+  const [loading, setLoading] = useState(!moduleCache.overview);
   const [overviewError, setOverviewError] = useState<unknown>(null);
   const [overviewReloadKey, setOverviewReloadKey] = useState(0);
   const [category, setCategory] = useState<Category>("all");
@@ -423,55 +423,57 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
 
   // overview.json 로드 (최초 1회)
   useEffect(() => {
-    if (moduleCache.overview && moduleCache.segments.length > 0) {
-      setAllSegments(moduleCache.segments);
-      setOverviewError(null);
-      setLoading(false);
-      return;
+    // 인증 복원으로 허브가 재마운트돼도 진행 중인 공용 요청의 결과를 각 화면이 받는다.
+    if (!moduleCache.overview && !moduleCache.overviewRequest) {
+      moduleCache.overviewRequest = fetchStaticJson<TileOverview>(segmentTileUrl(`overview.json?v=${Date.now()}`))
+        .then((data) => {
+          moduleCache.segments = data.segments.map(s => ({
+            id: s.id,
+            name: s.name,
+            distance: s.distance,
+            averageGrade: s.averageGrade,
+            maximumGrade: s.maximumGrade,
+            elevationHigh: s.elevationHigh,
+            elevationLow: s.elevationLow,
+            climbCategory: s.climbCategory,
+            discipline: s.discipline ?? s.sport ?? "bike",
+            city: s.city,
+            state: s.state,
+            startLatlng: s.startLatlng,
+            polyline: null,
+            segmentLatlng: null,
+            endLatlng: null,
+          }));
+          moduleCache.overview = data;
+          return data;
+        })
+        .catch(err => {
+          logClientError("ExplorePage.loadSegmentOverview", err);
+          throw err;
+        })
+        .finally(() => { moduleCache.overviewRequest = null; });
     }
-    if (moduleCache.loading) return;
-    moduleCache.loading = true;
+    let active = true;
     setOverviewError(null);
-
-    fetchStaticJson<TileOverview>(segmentTileUrl(`overview.json?v=${Date.now()}`))
-      .then((data: TileOverview) => {
-        moduleCache.overview = data;
-        // Populate polylineCache with simplified lines from overview
+    setLoading(!moduleCache.overview);
+    const overview = moduleCache.overview ? Promise.resolve(moduleCache.overview) : moduleCache.overviewRequest!;
+    overview
+      .then((data) => {
+        if (!active) return;
+        // 재진입한 화면의 지도 캐시에도 단순화된 경로를 복원한다.
         const pc = polylineCache.current;
         for (const s of data.segments) {
-          if (s.sl && s.sl.length >= 2) {
-            pc.set(s.id, s.sl as LatLngTuple[]);
-          }
+          if (s.sl && s.sl.length >= 2) pc.set(s.id, s.sl as LatLngTuple[]);
         }
-        moduleCache.segments = data.segments.map(s => ({
-          id: s.id,
-          name: s.name,
-          distance: s.distance,
-          averageGrade: s.averageGrade,
-          maximumGrade: s.maximumGrade,
-          elevationHigh: s.elevationHigh,
-          elevationLow: s.elevationLow,
-          climbCategory: s.climbCategory,
-          discipline: s.discipline ?? s.sport ?? "bike",
-          city: s.city,
-          state: s.state,
-          startLatlng: s.startLatlng,
-          polyline: null,
-          segmentLatlng: null,
-          endLatlng: null,
-        }));
-        setAllSegments(moduleCache.segments);
+        setAllSegments([...moduleCache.segments]);
         setLoading(false);
       })
       .catch(err => {
-        logClientError("ExplorePage.loadSegmentOverview", err);
+        if (!active) return;
         setOverviewError(err);
         setLoading(false);
-      })
-      .finally(() => {
-        moduleCache.loading = false;
       });
-     
+    return () => { active = false; };
   }, [overviewReloadKey]);
 
   // 지역 폴리라인 lazy 로드 (zoom >= 10)
@@ -703,7 +705,7 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
       <div className="flex flex-col -mb-6 lg:h-[calc(100dvh-56px)]">
         <div className="flex-shrink-0 pb-4 space-y-4 border-b border-[var(--line-soft)]">
           <div className="flex items-center justify-between">
-            <Text as="h1" variant="pageTitle" data-testid="E2-0">{t("title")}</Text>
+            <Text as="h1" variant="pageTitle" data-testid="E2-0" className="explore-page-title">{t("title")}</Text>
           </div>
         </div>
         <div className="flex-1 flex items-center justify-center p-6">
@@ -725,7 +727,7 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
       <div className="flex-shrink-0 pb-4 space-y-4 border-b border-[var(--line-soft)]">
         <div className="flex items-center justify-between">
           <div className="min-w-0">
-            <Text as="h1" variant="pageTitle"><GlossaryText>{t("title")}</GlossaryText></Text>
+            <Text as="h1" variant="pageTitle" className="explore-page-title"><GlossaryText>{t("title")}</GlossaryText></Text>
             <p className="text-[var(--ink-2)] text-[length:var(--ft-body-size)] mt-1">
               {t("subtitle")}
             </p>
@@ -1083,9 +1085,9 @@ const MemoSegmentCard = memo(function SegmentCard({ segment, isHovered, isSelect
     >
       <div className="flex items-center gap-2">
         <SegmentClimbCategory category={segment.climbCategory} />
-        <h3 className="font-semibold text-[length:var(--ft-body-size)] truncate flex-1" style={{ color: "var(--ink-0)" }}>
-          <button type="button" className={buttonClass({ variant: "ghost", className: "w-full truncate text-left rounded-[var(--r-sm)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--lime)]" })} aria-pressed={isSelected}
-            onClick={event => { event.stopPropagation(); onSelect(segment.id); }}>{segment.name}</button>
+        <h3 className="font-semibold text-[length:var(--ft-body-size)] min-w-0 flex-1" style={{ color: "var(--ink-0)" }}>
+          <Button variant="ghost" block align="start" aria-pressed={isSelected}
+            onClick={event => { event.stopPropagation(); onSelect(segment.id); }}>{segment.name}</Button>
         </h3>
       </div>
       {regionLabel && (

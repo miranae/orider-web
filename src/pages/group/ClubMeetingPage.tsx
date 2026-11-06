@@ -1,3 +1,4 @@
+import MeetingDiscord from "../../features/club-preparation/MeetingDiscord";
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, MapPin, Users } from "lucide-react";
 import { useParams, useSearchParams } from "react-router-dom";
@@ -401,6 +402,7 @@ function ServerMeetingDetail({
             </ol>
           </Card>
         )}
+        {meeting.status !== "cancelled" && <Link className={buttonClass({variant: "secondary", size: "sm"})} to={`/club/${data.groupId}/meetings/${data.eventId}/live`}>{text(completed ? "모임 관전·결과" : meeting.courseTrack ? "가상주행 관전" : "가상주행 관전 대기실", completed ? "Spectator & results" : meeting.courseTrack ? "Watch virtual ride" : "Virtual ride spectator lobby")}</Link>}
         {data.isHost && (
           <nav
             className="cp-hero-tools"
@@ -602,6 +604,14 @@ function ServerMeetingDetail({
               {data.completion.own.verified && data.completion.own.durationMs != null && <> · {Math.floor(data.completion.own.durationMs / 60000)}:{String(Math.floor(data.completion.own.durationMs / 1000) % 60).padStart(2, "0")}</>}
             </p>}
           </div>
+          {data.completion.riders && <ul aria-label={text("이 모임의 참가자 기록", "This meeting's rider results")}>
+            {data.completion.riders.map(rider => <li key={rider.uid}>
+              <strong>{rider.displayName}</strong>{" · "}{text(
+                rider.status === "FINISHED" ? "결과 확인 완료" : rider.status === "DNF" ? "중도 종료" : rider.status === "NO_RECORDING" ? "기록 없음" : "기록 확인 대기",
+                rider.status === "FINISHED" ? "Verified" : rider.status === "DNF" ? "DNF" : rider.status === "NO_RECORDING" ? "No recording" : "Result pending")}
+              {rider.status === "FINISHED" && rider.durationMs != null && <> · {Math.floor(rider.durationMs / 60000)}:{String(Math.floor(rider.durationMs / 1000) % 60).padStart(2, "0")}</>}
+            </li>)}
+          </ul>}
           <Button loading={busy} onClick={() => void run(async () => {})}>{text("결과 새로고침", "Refresh results")}</Button>
         </Card>
       )}
@@ -735,6 +745,7 @@ function ServerMeetingDetail({
           </details>
         </Card>
       )}
+      <MeetingDiscord key={`${uid}/${data.eventId}`} eventId={data.eventId} groupId={data.groupId} uid={uid} en={en} ended={!live} />
       <Card className="cp-preparation-panel">
         <h2>{text("집결과 준비", "Meeting and preparation")}</h2>
         {meeting.joins.map((join) => (

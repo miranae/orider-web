@@ -2,7 +2,7 @@ import { isSportUiEnabled } from "../../config/sportFeatures";
 import InfoTip from "../InfoTip";
 import { useTranslation } from "react-i18next";
 import "./IntegratedLoadCard.css";
-import { Card, Chip, Section, Stat, Text, SegmentTimeline } from "../../theme/components";
+import { Card, Section, Stat, Text, SegmentTimeline } from "../../theme/components";
 import type { LoadFocusBucket, LoadFocusResult } from "../../features/fitness/multisportPerformance";
 import { DISCIPLINE_CHART_COLORS, LOAD_FOCUS_COLORS } from "../../features/fitness/chartPalette";
 
@@ -70,14 +70,6 @@ export default function IntegratedLoadCard({
 
   const focusLoads = Object.fromEntries(BUCKETS.map(({ key }) => [key, safeLoad(focus?.buckets?.[key])])) as Record<LoadFocusBucket, number>;
   const focusTotal = BUCKETS.reduce((sum, { key }) => sum + focusLoads[key], 0);
-  const dominantBucket = focusTotal > 0
-    ? BUCKETS.reduce((dominant, current) => focusLoads[current.key] > focusLoads[dominant.key] ? current : dominant)
-    : null;
-  const coverage = typeof focus?.coveragePct === "number" && Number.isFinite(focus.coveragePct)
-    ? Math.min(100, Math.max(0, focus.coveragePct))
-    : 0;
-  const confidenceKey = focus && ["high", "medium", "low", "none"].includes(focus.confidence) ? focus.confidence : "none";
-  const confidence = t(`mobileFitness.integrated.confidence.${confidenceKey}`);
   const windowDays = focus && Number.isFinite(focus.windowDays) && focus.windowDays > 0 ? Math.round(focus.windowDays) : 28;
   const contributionAria = contributionTotal > 0
     ? DISCIPLINES.filter(isSportUiEnabled).map((discipline) => !knownContributions.has(discipline) ? `${t(`mobileFitness.integrated.discipline.${discipline}`)} —` : t("mobileFitness.integrated.barPart", {
@@ -94,23 +86,15 @@ export default function IntegratedLoadCard({
     })).join(", ")
     : t("mobileFitness.integrated.noFocusData");
 
-  const focusEvidence = focus ? [
-    t(condition ? "mobileFitness.integrated.conditionSource" : "mobileFitness.integrated.authoritativeSource"),
-    t("mobileFitness.integrated.focusBasis"),
-    t("mobileFitness.integrated.sources", { power: displayNumber(safeLoad(focus.sourceLoad?.power)), hr: displayNumber(safeLoad(focus.sourceLoad?.heartRate)), unclassified: displayNumber(safeLoad(focus.sourceLoad?.unclassified)) }),
-    t(focus.hasAnaerobicBikeDetail ? "mobileFitness.integrated.anaerobicBikeDetail" : "mobileFitness.integrated.hrHighIntensityNote"),
-  ].join(" ") : "";
-
   return (
-    <Section actionsLayout="responsive" title={t("mobileFitness.integrated.title")} description={t("mobileFitness.integrated.eyebrow")} actions={focus ? <Chip>{t("mobileFitness.integrated.coverageChip", { pct: Math.round(coverage), confidence })}</Chip> : undefined} aria-label={t("mobileFitness.integrated.cardAria")} aria-labelledby="" className={condition ? "integrated-load--condition" : undefined}>
+    <Section actionsLayout="responsive" title={t("mobileFitness.integrated.title")} aria-label={t("mobileFitness.integrated.cardAria")} aria-labelledby="" className={condition ? "integrated-load--condition" : undefined}>
       <div className="integrated-load__metrics">
-        <div><Stat label={t("mobileFitness.integrated.ctlLabel")} value={displayNumber(ctl)} /><Text as="p" variant="bodySmall" tone="secondary">{t("mobileFitness.integrated.ctlHint")}</Text></div>
-        {(["atl", "tsb"] as const).map(key => { const value = key === "atl" ? atl : tsb; return <div key={key}><Stat compact label={t(`mobileFitness.integrated.${key}Label`)} value={`${key === "tsb" && value >= 0 ? "+" : ""}${displayNumber(value)}`} /><Text as="p" variant="bodySmall" tone="secondary">{t(`mobileFitness.integrated.${key}Hint`)}</Text></div>; })}
+        <div><Stat label={t("mobileFitness.integrated.ctlLabel")} value={displayNumber(ctl)} /></div>
+        {(["atl", "tsb"] as const).map(key => { const value = key === "atl" ? atl : tsb; return <div key={key}><Stat compact label={t(`mobileFitness.integrated.${key}Label`)} value={`${key === "tsb" && value >= 0 ? "+" : ""}${displayNumber(value)}`} /></div>; })}
       </div>
       <div className={condition ? "integrated-load__story-evidence" : undefined}>
       <div style={{ marginTop: "var(--space-4)" }}>
         <Text as="h3" variant="subtitle">{t("mobileFitness.integrated.contributionTitle")}</Text>
-        <p style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", lineHeight: "var(--lh-relaxed)" }}>{t("mobileFitness.integrated.contributionBasis")}</p>
         <SegmentTimeline presentation="distribution" aria-label={t("mobileFitness.integrated.contributionBarAria", { values: contributionAria })} rows={[{ id: "contribution", label: t("mobileFitness.integrated.contributionTitle"), buckets: DISCIPLINES.map(discipline => ({ id: discipline, label: `${isSportUiEnabled(discipline) ? t(`mobileFitness.integrated.discipline.${discipline}`) : t("common:discipline.other")} · ${knownContributions.has(discipline) ? t("mobileFitness.integrated.contributionValue", { value: displayNumber(disciplineLoads[discipline]), pct: Math.round(percentage(disciplineLoads[discipline], contributionTotal)) }) : "—"}`, weight: disciplineLoads[discipline], segments: [{ weight: 1, color: isSportUiEnabled(discipline) ? DISCIPLINE_COLORS[discipline] : "var(--line-soft)" }] })) }]} />
         <div style={{ display: "grid", gridTemplateColumns: `repeat(${DISCIPLINES.filter(isSportUiEnabled).length}, minmax(0, 1fr))`, gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
           {DISCIPLINES.filter(isSportUiEnabled).map((discipline) => (
@@ -141,14 +125,7 @@ export default function IntegratedLoadCard({
           </>
         ) : (
           <>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-2)", alignItems: "baseline", flexWrap: "wrap" }}>
-          <Text as="h3" variant="subtitle">{t("mobileFitness.integrated.focusTitle", { days: windowDays })}</Text>
-          <span style={{ color: "var(--ink-2)", fontSize: "var(--fs-xs)", fontWeight: 600 }}>
-            {dominantBucket
-              ? t("mobileFitness.integrated.dominant", { label: t(`mobileFitness.integrated.bucket.${dominantBucket.key}`) })
-              : t("mobileFitness.integrated.noFocusData")}
-          </span>
-        </div>
+        <Text as="h3" variant="subtitle">{t("mobileFitness.integrated.focusTitle", { days: windowDays })}</Text>
         <SegmentTimeline presentation="distribution" aria-label={t("mobileFitness.integrated.focusBarAria", { days: windowDays, values: focusAria })} rows={[{ id: "focus", label: t("mobileFitness.integrated.focusTitle", { days: windowDays }), buckets: BUCKETS.map(({key,color}) => ({ id: key, label: `${t(`mobileFitness.integrated.bucket.${key}`)} · ${displayNumber(focusLoads[key])} TSS · ${Math.round(percentage(focusLoads[key],focusTotal))}%`, weight: focusLoads[key], segments: [{ weight: 1, color }] })) }]} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-2) var(--space-3)", marginTop: "var(--space-2)" }}>
           {BUCKETS.map(({ key, color }) => (
@@ -163,17 +140,11 @@ export default function IntegratedLoadCard({
             </Card>
           ))}
         </div>
-        <div style={{ color: "var(--ink-3)", fontSize: "var(--fs-xs)", marginTop: "var(--space-3)" }}>
-          {t("mobileFitness.integrated.coverage", { pct: Math.round(coverage), confidence })}
-        </div>
           </>
         )}
       </div>
 
       </div>
-      {focus && <section className="integrated-load__evidence" aria-label={t("mobileFitness.integrated.detailsToggle")}>
-        <Text as="h3" variant="subtitle">{t("mobileFitness.integrated.detailsToggle")} <InfoTip label={t("mobileFitness.integrated.detailsToggle")} title={t("mobileFitness.integrated.detailsToggle")} content={focusEvidence} /></Text>
-      </section>}
 
 
     </Section>

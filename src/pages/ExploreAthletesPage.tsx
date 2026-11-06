@@ -41,7 +41,8 @@ interface SearchState {
 /** 탐색 > 사람 (E5): 이메일·닉네임·친구 코드로 사용자를 찾는다. 검색어 없이 목록을 조회하지 않는다. */
 export default function ExploreAthletesPage() {
   const { user, profile, loading: authLoading } = useAuth();
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
   const { t } = useTranslation("friends");
   const { t: commonT, i18n } = useTranslation("common");
   const { units } = useLocale();
@@ -62,14 +63,14 @@ export default function ExploreAthletesPage() {
     const request = ++epoch.current;
     setSearch({ query, status: "loading", items: [], nextCursor: null, error: null, loadingMore: false });
     try {
-      const result = await searchUsers(query);
+      const result = await searchUsers(query, null, services);
       if (request !== epoch.current) return;
       setSearch({ query, status: "done", items: result.items, nextCursor: result.nextCursor, error: null, loadingMore: false });
     } catch (error) {
       if (request !== epoch.current) return;
       setSearch({ query, status: "error", items: [], nextCursor: null, error: userSearchErrorKind(error), loadingMore: false });
     }
-  }, []);
+  }, [services]);
 
   // URL(?q=)이 검색의 정본 — 새로고침·뒤로 가기에서도 같은 결과를 다시 그린다.
   useEffect(() => {
@@ -88,7 +89,7 @@ export default function ExploreAthletesPage() {
     const { query, nextCursor } = search;
     setSearch(previous => previous && { ...previous, loadingMore: true });
     try {
-      const result = await searchUsers(query, nextCursor);
+      const result = await searchUsers(query, nextCursor, services);
       if (request !== epoch.current) return;
       setSearch(previous => previous && {
         ...previous,
@@ -194,7 +195,7 @@ export default function ExploreAthletesPage() {
     }
   });
 
-  const heading = <Text data-testid="E5-0" as="h1" variant="pageTitle">{commonT("nav.people")}</Text>;
+  const heading = <Text data-testid="E5-0" as="h1" variant="pageTitle" className="explore-page-title">{commonT("nav.people")}</Text>;
   if (authLoading) return <div className="explore-challenges-surface space-y-6">{heading}</div>;
   if (!signedIn) {
     return <div className="explore-challenges-surface space-y-6">

@@ -651,7 +651,14 @@ log "PR #$PR_NUM squash merge"
 # Do not use `--delete-branch`: gh tries to fast-forward the local checkout to
 # the base branch after server-side merge and can fail when another worktree owns
 # that branch. Delete the remote ref through the API after a successful merge.
-gh pr merge "$PR_NUM" --squash --match-head-commit "$HEAD_OID" || die "gh pr merge 실패 (충돌/보호 규칙/head SHA 상태 확인)"
+merge_method="--squash"
+if [[ "$BASE" == "dev" && "$HEADREF" == sync/promotion-* ]]; then
+  git fetch origin refs/heads/main:refs/remotes/origin/main refs/heads/dev:refs/remotes/origin/dev --quiet
+  node scripts/sync-main-to-dev.mjs --assert-ancestry "$(git rev-parse origin/dev)" "$HEAD_OID" "$(git rev-parse origin/main)" "$HEADREF" \
+    || die "검증된 이력 전용 동기화가 아닙니다. dev 트리/부모/운영 출처를 확인하세요."
+  merge_method="--merge"
+fi
+gh pr merge "$PR_NUM" "$merge_method" --match-head-commit "$HEAD_OID" || die "gh pr merge 실패 (충돌/보호 규칙/head SHA 상태 확인)"
 
 # Preserve linear protected dev history through a reviewed topic PR, never a direct merge push.
 sync_main_back_to_dev() {

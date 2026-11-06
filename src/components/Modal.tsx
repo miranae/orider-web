@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { useRetainedPageVisible } from "../contexts/RetainedPageContext";
 import { createPortal } from "react-dom";
 import { useTrainingDialog } from "./training/useTrainingDialog";
 import { useTranslation } from "react-i18next";
@@ -21,7 +22,8 @@ interface ModalProps {
 }
 
 export default function Modal({ open, onClose, title, children, maxWidth = "max-w-md", portalClassName, busy = false, layer }: ModalProps) {
-  if (!open) return null;
+  const visible = useRetainedPageVisible();
+  if (!open || !visible) return null;
   const overlay = <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: layer ?? "var(--layer-modal)" }}>
     <div className="absolute inset-0 bg-black/50" onClick={() => { if (!busy) onClose(); }} />
     <AccessibleModalPanel onClose={onClose} title={title} maxWidth={maxWidth} busy={busy}>{children}</AccessibleModalPanel>
@@ -35,7 +37,7 @@ function AccessibleModalPanel({ onClose, title, maxWidth, children, busy }: Pick
   const { t } = useTranslation("common");
   return <Card ref={ref} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-busy={busy || undefined} tabIndex={-1}
     padding="none" className={`club-surface club-dialog relative w-full ${maxWidth} mx-4 p-6!`}
-    style={{ background: "var(--bg-1)", maxHeight: "min(90vh, 720px)", overflowY: "auto", overscrollBehavior: "contain", boxShadow: "var(--shadow-lg)" }}>
+    style={{ background: "var(--bg-1)", maxHeight: "min(calc(100dvh - var(--space-8)), 720px)", overflowY: "auto", overscrollBehavior: "contain", boxShadow: "var(--shadow-lg)" }}>
     <div className="flex items-center justify-between gap-3 mb-4">
       <h2 id={titleId} className="club-card-title" style={{color:"var(--ink-0)",margin:0}}>{title}</h2>
       <Button data-dialog-initial-focus type="button" variant="ghost" size="sm" aria-label={t("button.close")} disabled={busy} onClick={onClose}><X size={ICON_SIZE.md} aria-hidden="true" /></Button>

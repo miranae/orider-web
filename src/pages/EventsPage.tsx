@@ -21,6 +21,7 @@ import MapGL, { Marker, Popup, type MapRef } from "react-map-gl/mapbox";
 import { MAP_STYLE, DEFAULT_VIEW } from "../utils/mapbox";
 import { buildMonthCells, firstPolylinePoint } from "../features/event/discovery/eventViews";
 import { ICON_SIZE } from "../theme/tokens/icon";
+import TabNav from "../components/TabNav";
 
 type EventStatus = "OPEN" | "LIVE" | "FINISHED" | "CANCELLED" | "DRAFT" | "UNKNOWN";
 type DisplayEventStatus = EventStatus | "PAST";
@@ -239,7 +240,8 @@ export default function EventsPage() {
   const TYPE_FILTERS = TYPE_FILTER_KEYS.map(({ k, labelKey, icon }) => ({ k, label: t(labelKey), icon }));
   const { user, loading: authLoading } = useAuth();
   // 임베드(앱 탐색 탭)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
   const [events, setEvents] = useState<EventInfo[]>([]);
   const [coursePolylines, setCoursePolylines] = useState<Record<string, string>>({});
   const [courseThumbs, setCourseThumbs] = useState<Record<string, string>>({});
@@ -272,7 +274,7 @@ export default function EventsPage() {
     setNextCursor(null);
     (async () => {
       try {
-        const snap = await getPublicEvents([...PUBLIC_EVENT_STATUSES], pageCursor);
+        const snap = await getPublicEvents([...PUBLIC_EVENT_STATUSES], pageCursor, services);
         if (cancelled) return;
         setNextCursor(snap.nextCursor);
         const list: EventInfo[] = [];
@@ -298,7 +300,7 @@ export default function EventsPage() {
             followerCount: typeof d.counters?.followerCount === "number" ? d.counters.followerCount : undefined,
             difficulty: (["BEGINNER", "INTERMEDIATE", "ADVANCED", "EXPERT"] as const).includes(info.difficulty) ? info.difficulty : undefined,
             registered: registeredEventCount(d.counters?.totalRegistered),
-            maxParticipants: info.settings?.maxParticipants || info.maxParticipants,
+            maxParticipants: info.settings?.maxParticipants ?? info.maxParticipants,
             distance: typeof info.distance === "number" ? info.distance / 1000 : undefined,
             elevationGain: typeof info.elevationGain === "number" ? info.elevationGain : undefined,
             courseId: Array.isArray(info.courseIds) && info.courseIds.length > 0 ? info.courseIds[0] : undefined,
@@ -397,7 +399,7 @@ export default function EventsPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [firestore, user, pageCursor, pageAttempt]);
+  }, [firestore, services, user, pageCursor, pageAttempt]);
 
   const filtered = useMemo(() => {
     return events
@@ -486,7 +488,7 @@ export default function EventsPage() {
       {isMobile ? (
         <header className="event-mobile-heading">
           <div>
-            <Text as="h1" variant="pageTitle">{t("title")}</Text>
+            <Text as="h1" variant="pageTitle" className="explore-page-title">{t("title")}</Text>
             <p>{t("page.subtitleMobile")}</p>
           </div>
           {user && (
@@ -572,34 +574,10 @@ export default function EventsPage() {
 
       {/* 필터 행 */}
       <div className="event-filter-toolbar">
-        {/* 상태 탭 — lime 하단 보더 */}
-        <div className="event-status-filters" role="group" aria-label={t("filter.statusLabel")}>
-          {STATUS_TABS.map((t) => {
-            const active = statusFilter === t.k;
-            return (
-              <Button variant="ghost"
-                key={t.k}
-                type="button"
-                onClick={() => setStatusFilter(t.k)}
-                aria-pressed={active}
-                style={{
-                  padding: "6px 12px 10px",
-                  fontSize: "var(--ft-body-size)",
-                  fontWeight: 500,
-                  background: "transparent",
-                  border: "none",
-                  color: active ? "var(--ink-0)" : "var(--ink-3)",
-                  borderBottom: active ? "2px solid var(--lime)" : "2px solid transparent",
-                  // 하단 보더가 표시선이므로 버튼 기본 모서리 반경을 없앤다 — 남으면 선이 호로 휘어 거의 안 보인다.
-                  borderRadius: 0,
-                  marginBottom: -1,
-                  cursor: "pointer",
-                }}
-              >
-                {t.label}
-              </Button>
-            );
-          })}
+        {/* 상태 탭 — 코치·탐색 상단 탭과 같은 밑줄 탭(TabNav, 2026-11-04) */}
+        <div className="event-status-filters">
+          <TabNav aria-label={t("filter.statusLabel")} tabs={STATUS_TABS.map(tab => ({ id: tab.k, label: tab.label }))} activeTab={statusFilter}
+            onChange={id => setStatusFilter(id as "ALL" | EventStatus)} />
         </div>
 
         <details className="event-advanced-filters">
@@ -727,8 +705,7 @@ export default function EventsPage() {
         .event-mobile-heading a { flex-shrink: 0; }
         .event-filter-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding-top: var(--space-1); }
         .event-card__title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow: hidden; line-height: 1.35; }
-        .event-status-filters { display: flex; flex-wrap: wrap; gap: var(--space-0-5); border-bottom: 1px solid var(--line-soft); }
-        .event-status-filters > button { flex-shrink: 0; }
+        .event-status-filters { min-width: 0; }
         .event-advanced-filters { position: relative; margin-left: auto; }
         .event-advanced-filters[open] { flex-basis: 100%; order: 1; }
         .event-advanced-filters summary { display: flex; align-items: center; gap: var(--space-1); min-height: 40px; padding: 0 var(--space-2); border: 1px solid var(--line-soft); border-radius: var(--r-md); color: var(--ink-1); font-size: var(--fs-xs); cursor: pointer; list-style: none; }
@@ -749,8 +726,6 @@ export default function EventsPage() {
           .event-summary > div { padding: var(--space-2) !important; gap: var(--space-1) !important; }
           .event-summary__sub { display: none; }
           .event-filter-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); }
-          .event-status-filters { min-width: 0; }
-          .event-status-filters button { padding-inline: var(--space-2) !important; }
           .event-advanced-filters { margin-left: 0; }
           .event-advanced-filters[open] { grid-column: 1 / -1; }
           .event-advanced-filters__body select { width: 100%; }
@@ -1116,7 +1091,7 @@ function EventCard({
                 <Users size={ICON_SIZE.sm} aria-hidden="true" />
                 <span style={{ fontFamily: "var(--font-mono)" }}>
                   {event.registered ?? "—"}
-                  <span style={{ color: "var(--ink-3)" }}>/{event.maxParticipants}</span>
+                  <span style={{ color: "var(--ink-3)" }}>/{event.maxParticipants === 0 ? t("capacity.unlimited") : event.maxParticipants}</span>
                 </span>
               </div>
             )}

@@ -9,16 +9,16 @@ vi.mock("./AthleteActivityChart",()=>({default:()=> <div>completed-period-chart<
 beforeEach(()=>{state.status="partial";state.items=[];vi.clearAllMocks();});
 it("keeps empty intermediate pages explicitly incomplete and allows one more page",()=>{
  renderWithProviders(<AthletePublicPeriodExplorer targetUid="owner"/>);
- expect(screen.getByRole("status")).toHaveTextContent("아직 확인할 페이지");
+ expect(screen.getByRole("status")).toHaveTextContent("통계를 보려면 기록을 더 불러와 주세요.");
  expect(screen.queryByText("completed-period-chart")).not.toBeInTheDocument();
- fireEvent.click(screen.getByRole("button",{name:"다음 페이지 확인"})); expect(state.more).toHaveBeenCalledOnce();
+ fireEvent.click(screen.getByRole("button",{name:"더 불러오기"})); expect(state.more).toHaveBeenCalledOnce();
 });
-it("shows a completed period and original link without claiming all-time totals",()=>{
+it("shows a completed chart without duplicate links or completion explanations",()=>{
  state.status="complete";state.items=[createMockActivity({id:"public-record",description:"확인한 원본 활동"})];
  renderWithProviders(<AthletePublicPeriodExplorer targetUid="owner"/>, {route:"/ko/athlete/owner?profileFrom=2026-01-01&profileTo=2026-01-31"});
- expect(screen.getByRole("status")).toHaveTextContent("현재 조회의 마지막 페이지");
+ expect(screen.queryByRole("status")).not.toBeInTheDocument();
  expect(screen.getByText("completed-period-chart")).toBeInTheDocument();
- expect(screen.getByRole("link",{name:"원본 활동 보기 · 확인한 원본 활동"})).toHaveAttribute("href","/ko/activity/public-record");
+ expect(screen.queryByRole("link")).not.toBeInTheDocument();
  expect(screen.getByLabelText("시작일")).toHaveValue("2026-01-01");
 });
 
@@ -28,4 +28,13 @@ it("synchronizes edited date fields after URL navigation and keeps original acti
  fireEvent.change(screen.getByLabelText("시작일"),{target:{value:"2026-01-02"}});
  fireEvent.click(screen.getByRole("button",{name:"Another period"}));
  expect(screen.getByLabelText("시작일")).toHaveValue("2025-02-01"); expect(screen.getByLabelText("종료일")).toHaveValue("2025-02-28");
+});
+
+it("does not duplicate forty collected activities or show technical explanations", () => {
+ state.items = Array.from({ length: 40 }, (_, index) => createMockActivity({ id: `record-${index}` }));
+ renderWithProviders(<AthletePublicPeriodExplorer targetUid="owner"/>);
+ expect(screen.queryAllByRole("link")).toHaveLength(0);
+ expect(screen.queryByText("통계 안내")).not.toBeInTheDocument();
+ expect(screen.queryByText(/합계와 차트|수집|원본 활동/)).not.toBeInTheDocument();
+ expect(screen.queryByText("completed-period-chart")).not.toBeInTheDocument();
 });

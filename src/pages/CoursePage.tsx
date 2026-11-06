@@ -25,9 +25,9 @@ import {
   where,
   onSnapshot,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
-import { firestore, functions, storage } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError } from "../services/errorLogger";
 import { useDocument } from "../hooks/useFirestore";
 import { useAuth } from "../contexts/AuthContext";
@@ -356,8 +356,10 @@ export default function CoursePage() {
   const setDetailTab = (tab: string) => { const next = new URLSearchParams(detailParams); if (tab === "overview") next.delete("tab"); else next.set("tab", tab); setDetailParams(next, { replace: true, state: detailLocation.state }); };
   const { courseId } = useParams<{ courseId: string }>();
   const { user, profile, profileLoading, loading: authLoading, signIn } = useAuth();
+  // 코스 상세 임베드(#3235)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
+  const { firestore, functions } = useFirebaseServices();
   const navigate = useNavigate();
-  const { data: course, loading: courseLoading } = useDocument<CourseData>("courses", courseId);
+  const { data: course, loading: courseLoading } = useDocument<CourseData>("courses", courseId, true);
   // 획득고도 정본(#887). 전환이 꺼져 있으면 envelope 은 null 이고 코스 문서 값이 그대로 남는다.
   const courseAnalysis = useCourseAnalysis(courseId);
   const courseAnalysisNote = courseAnalysis.envelope ? courseAnalysisNoteKey(courseAnalysis.display) : null;
@@ -606,7 +608,7 @@ export default function CoursePage() {
       setUserPhotos(items);
     });
     return unsub;
-  }, [courseId]);
+  }, [firestore, courseId]);
 
   // Photo upload handler
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -663,7 +665,7 @@ export default function CoursePage() {
       // Upload to Storage
       const photoId = crypto.randomUUID();
       const storagePath = `course_photos/${user.uid}/${courseId}/${photoId}.webp`;
-      const storageRef = ref(storage, storagePath);
+      const storageRef = ref(getStorage(firestore.app), storagePath);
       await uploadBytes(storageRef, blob, { contentType: "image/webp" });
       const url = await getDownloadURL(storageRef);
 
@@ -695,7 +697,7 @@ export default function CoursePage() {
     getDoc(doc(firestore, "courses", courseId, "likes", user.uid)).then((snap) => {
       setLiked(snap.exists());
     });
-  }, [courseId, user]);
+  }, [firestore, courseId, user]);
 
   // 조회수 증가 (1회, 서버사이드 — 로그인 사용자만)
   // 코스 상세 조회 — 격상 효과(액션 전환율·공유 발생률)의 분모. 코스가 실제로 그려진

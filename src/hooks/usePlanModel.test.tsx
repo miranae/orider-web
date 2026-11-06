@@ -8,6 +8,7 @@ import { setCollectionDocs } from "../__tests__/mocks/firebase";
 import { resetRuntimeConfigForTests } from "../services/runtimeConfig";
 import { normalizePlanSport, usePlanModel } from "./usePlanModel";
 import { planSnapshotKey, readPlanSnapshot } from "../embedded/planSnapshotCache";
+import { notifyPlanGoalChanged } from "../embedded/planGoalChanges";
 import * as trainingSurfaceCache from "../embedded/trainingSurfaceCache";
 import {
   clearTrainingSurfaceCache,
@@ -52,6 +53,23 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 describe("usePlanModel", () => {
+  it.each([undefined, "12345678-1234-1234-1234-123456789abc"])("refreshes only the matching retained model after an authoritative goal mutation with scope %s", async scope => {
+    if (scope) window.__ORIDER_TRAINING_CACHE_SCOPE__ = scope;
+    else delete window.__ORIDER_TRAINING_CACHE_SCOPE__;
+    setCollectionDocs("goals", [{id:"goal-retained",userId:"owner",discipline:"bike",status:"active",eventDate:Date.now()+86400000}]);
+    setCollectionDocs("goals/goal-retained/plan", []);
+    const hook = renderHook(() => usePlanModel("bike"), {wrapper});
+    await waitFor(() => expect(hook.result.current.goal?.id).toBe("goal-retained"), {timeout:500});
+    const reads = vi.mocked(getDocs).mock.calls.length;
+    act(() => notifyPlanGoalChanged("other", "bike", "ko"));
+    act(() => notifyPlanGoalChanged("owner", "run", "ko"));
+    expect(vi.mocked(getDocs).mock.calls.length).toBe(reads);
+    setCollectionDocs("goals", []);
+    act(() => notifyPlanGoalChanged("owner", "bike", "ko"));
+    await waitFor(() => expect(hook.result.current.goal).toBeNull(), {timeout:500});
+    if (scope) expect(readPlanSnapshot(planSnapshotKey("owner","bike","ko"))?.data).toMatchObject({goal:null});
+    hook.unmount();
+  });
   afterEach(() => { delete window.__ORIDER_TRAINING_CACHE_SCOPE__; vi.useRealTimers(); vi.restoreAllMocks(); });
   beforeEach(() => {
     clearTrainingSurfaceCache();

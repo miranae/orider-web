@@ -25,7 +25,7 @@ import { useDocument } from "../hooks/useFirestore";
 import { useMyGroups } from "../hooks/useGroup";
 import { cancelFriendRequest, sendFriendRequest } from "../hooks/useFriends";
 import { useAuth } from "../contexts/AuthContext";
-import { Activity as ActivityIcon, Route, Clock3, Mountain, Pencil, Share2, ArrowUpRight, Trash2 } from "lucide-react";
+import { Activity as ActivityIcon, Route, Clock3, Mountain, Search, Pencil, Share2, ArrowUpRight, Trash2 } from "lucide-react";
 import TabNav, { RouteTabNav } from "../components/TabNav";
 import "./AthletePage.css";
 import { CompactActivityCard } from "../components/mobile/MobileFeedPage";
@@ -795,12 +795,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         )}
       </section>
 
-      {!isOwnProfile && <Text as="p" tone="secondary">{t("publicDiscoveryScope")}</Text>}
       {isOwnProfile && !chartLimited && <AthleteRecentSummary activities={acceptedChartActivities} loading={chartLoading} error={chartError} />}
-      {!isOwnProfile && <div>
-        <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : `publicGlobal.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>
-        {publicGlobal.status !== "loading" && <Button onClick={publicGlobal.status === "partial" || publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>{t(publicGlobal.status === "partial" ? "publicPeriod.globalMore" : publicGlobal.status === "error" ? "monthly.retry" : "publicPeriod.refresh")}</Button>}
-      </div>}
+
       </div>
       <div className="athlete-profile-layout">
       <aside className="athlete-profile-sidebar">
@@ -814,6 +810,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             { label: t("stats.elevation"), value: statsReady && acceptedChartActivities.every(a => Number.isFinite(a.summary?.elevationGain)) ? <span>{Math.round(stats.elevation).toLocaleString(i18n.language)} <small>m</small></span> : "—", Icon: Mountain },
           ].map(({label, value, Icon}) => <div key={label} className="athlete-stat"><span className="athlete-stat__label"><Icon size={ICON_SIZE.md} aria-hidden="true" />{label}</span><strong className="athlete-stat__value">{value}</strong></div>)}
         </div>
+      {!isOwnProfile && <div className="athlete-query-status">
+        {publicGlobal.status !== "complete" && <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : `publicGlobal.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>}
+        {publicGlobal.status !== "loading" && <Button onClick={publicGlobal.status === "partial" || publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>{t(publicGlobal.status === "partial" ? "publicPeriod.globalMore" : publicGlobal.status === "error" ? "monthly.retry" : "publicPeriod.refresh")}</Button>}
+      </div>}
         <Text as="p" variant="caption" tone="secondary" className="mt-2">{t(isOwnProfile ? "stats.scopeOwn" : "stats.scopePublic")}</Text>
       </section>
           {isOwnProfile && <section><h2 className="athlete-sidebar-title">{t("profile.clubs")}</h2>{groupsLoading ? <p role="status">{t("activities.loading")}</p> : groupsError ? <div role="alert"><p>{t("profile.clubsError")}</p><Button variant="ghost" onClick={retryGroups}>{t("monthly.retry")}</Button></div> : <div className="athlete-clubs">{ownGroups.map(group => <Link key={group.id} to={`/club/${group.id}`}><span className="athlete-club-badge">{group.badge || group.name.slice(0, 3)}</span><span>{group.name}</span></Link>)}{!ownGroups.length && <Link to="/clubs">{t("profile.findClubs")}</Link>}</div>}</section>}
@@ -939,9 +939,6 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             {/* Search bar */}
             {!isOwnProfile && <div className="flex items-center gap-2">
               <div className="relative flex-1">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--ink-3)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
                 <Input
                   aria-label={t("activities.search")}
                   type="text"
@@ -949,7 +946,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) handleSearch(); }}
-                  className="w-full pl-9"
+                  leadingIcon={<Search />}
+                  textAlign="end"
                 />
               </div>
               <Button

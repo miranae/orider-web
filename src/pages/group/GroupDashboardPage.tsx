@@ -1,3 +1,4 @@
+import { useClubMeetingsApi } from "../../features/club-preparation/useClubMeetingsApi";
 import { getVisibleEventPage } from "../../services/eventDiscovery";
 import "./ClubSurface.css";
 import { LockKeyhole, Users } from "lucide-react";
@@ -31,6 +32,7 @@ import { DropdownSelect, Button, Card, Chip, Text, buttonClass, Textarea } from 
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface UpcomingEvent {
+  meeting: boolean;
   id: string;
   name: string;
   startTime: number;
@@ -40,6 +42,7 @@ interface UpcomingEvent {
 }
 
 export default function GroupDashboardPage() {
+  const { getClubMeetingSnapshot } = useClubMeetingsApi();
   const { auth, ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
@@ -107,8 +110,14 @@ export default function GroupDashboardPage() {
             typeof info.startTime === "number" ? info.startTime :
             info.startTime?._seconds ? info.startTime._seconds * 1000 :
             info.startTime?.seconds ? info.startTime.seconds * 1000 : 0;
+          const meeting = info.kind === "CLUB_MEETING";
+          let name = info.name ?? t("dashboard.fallbackEventName");
+          if (meeting) {
+            const snapshot = await getClubMeetingSnapshot(d.id);
+            name = snapshot.meeting.title;
+          }
           let myRsvp: boolean | null = null;
-          if (user?.uid && currentMemberRole) {
+          if (!meeting && user?.uid && currentMemberRole) {
             try {
               const participant = await getDoc(doc(firestore, "events", d.id, "participants", user.uid));
               myRsvp = participant.exists() && isActiveEventRegistration(participant.data()?.status);
@@ -118,7 +127,7 @@ export default function GroupDashboardPage() {
           }
           return {
             id: d.id,
-            name: info.name ?? t("dashboard.fallbackEventName"),
+            name, meeting,
             startTime,
             status: info.status ?? "UNKNOWN",
             participantCount: typeof data.counters?.totalRegistered === "number" ? data.counters.totalRegistered : null,
@@ -132,7 +141,7 @@ export default function GroupDashboardPage() {
       } finally { if (!cancelled) setUpcomingLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [groupId, t, user?.uid, accessKey, upcomingAttempt]);
+  }, [groupId, t, user?.uid, accessKey, upcomingAttempt, getClubMeetingSnapshot]);
 
   if (!user && !authLoading) return <PublicClubPreview groupId={groupId} />;
 
@@ -277,7 +286,7 @@ export default function GroupDashboardPage() {
           }}>{t("dashboard.posts.reportSubmit")}</button>
         </div>
       </Modal>
-      <GroupSubNav group={group} isCreator={canManage} showDescription={false} />
+      <GroupSubNav group={group} isCreator={canManage} />
 
       {/* Hero 영역 */}
       <Card padding="none" className="club-identity mb-5" style={{ borderRadius: "var(--r-lg)", padding: "var(--space-4)" }}>
@@ -298,9 +307,6 @@ export default function GroupDashboardPage() {
 
           </div>
         </div>
-        {group.description && (
-          <details data-testid="C1-2-1" className="mt-3"><summary>{t("dashboard.aboutClub")}</summary><p className="whitespace-pre-wrap">{group.description}</p></details>
-        )}
       </Card>
 
       {group.rules?.trim() && (
@@ -448,7 +454,7 @@ export default function GroupDashboardPage() {
           {upcomingLoading ? <LoadingSkeleton kind="list" count={2} /> : upcomingError ? <ErrorState title={t("error.eventsLoadFailed")} onRetry={()=>setUpcomingAttempt(value=>value+1)} compact /> : <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" style={{ listStyle: "none", margin: 0, padding: 0, gap: "var(--space-2)" }}>
             {upcomingEvents.map((e) => (
               <li key={e.id} className="flex items-center justify-between" style={{ padding: "10px 12px", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)", gap: "var(--space-2)" }}>
-                <Link to={`/event/${e.id}`} className="min-w-0 flex-1">
+                <Link to={e.meeting ? `/club/${groupId}/meetings/${e.id}` : `/event/${e.id}`} className="min-w-0 flex-1">
                   <div className="min-w-0">
                     <div className="text-[length:var(--ft-body-size)] font-semibold truncate" style={{ color: "var(--ink-0)" }}>{e.name}</div>
                     <div className="text-[length:var(--ft-body-size)] mt-0.5" style={{ color: "var(--ink-3)" }}>
@@ -460,11 +466,11 @@ export default function GroupDashboardPage() {
                 <div className="flex items-center" style={{ gap: "var(--space-1)" }}>
                   {e.status === "OPEN" && (
                     <Link
-                      to={e.myRsvp === null || e.myRsvp ? `/event/${e.id}` : `/event/${e.id}/register`}
+                      to={e.meeting ? `/club/${groupId}/meetings/${e.id}` : e.myRsvp === null || e.myRsvp ? `/event/${e.id}` : `/event/${e.id}/register`}
                       className={buttonClass({ variant: e.myRsvp ? "secondary" : "primary", size: "sm" })}
                       style={{ whiteSpace: "nowrap" }}
                     >
-                      {e.myRsvp === null ? t("events.viewDetails") : e.myRsvp ? t("dashboard.eventAction.manageRsvp") : t("dashboard.eventAction.rsvp")}
+                      {e.meeting ? t("dashboard.viewMeeting") : e.myRsvp === null ? t("events.viewDetails") : e.myRsvp ? t("dashboard.eventAction.manageRsvp") : t("dashboard.eventAction.rsvp")}
                     </Link>
                   )}
                   {e.status === "LIVE" && <Chip style={{ color: "var(--lime)", fontSize: "var(--ft-body-size)", whiteSpace: "nowrap" }}>{t("dashboard.eventStatus.live")}</Chip>}

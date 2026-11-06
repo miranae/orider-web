@@ -409,25 +409,6 @@ export default function MobilePlanContent({
         );
       })}
 
-      {/* 운동 강도 범례: 일정 다음에 두어 첫 화면의 행동 흐름을 방해하지 않는다. */}
-      <details className="mobile-plan-intensity-legend">
-        <summary>{t('mobile.intensityLegend')}</summary>
-        <div className="mobile-plan-intensity-items">
-          {[
-            { label: t('legend.z1Recovery'), color: "var(--ink-4)" },
-            { label: t('legend.z2Endurance'), color: "var(--aqua)" },
-            { label: t('legend.z3Tempo'), color: "var(--amber)" },
-            { label: t('legend.z4Threshold'), color: "var(--lime)" },
-            { label: t('legend.z5VO2'), color: "var(--rose)" },
-            { label: t('legend.longSim'), color: "var(--aqua)" },
-          ].map(({ label, color }) => (
-            <span key={label}>
-              <i style={{ background: color }} />
-              <GlossaryText>{label}</GlossaryText>
-            </span>
-          ))}
-        </div>
-      </details>
 
 
 
