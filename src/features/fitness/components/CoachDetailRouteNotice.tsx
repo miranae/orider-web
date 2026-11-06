@@ -10,8 +10,8 @@ export default function CoachDetailRouteNotice({ discipline }: { discipline: str
   const params = new URLSearchParams(location.search);
   const detail = params.get("detail");
   if (!detail || detail === "closed") return null;
-  const allowed = ["analysis-comparison", "analysis-periods", "analysis-interpretation", "analysis-evidence",
-    ...(discipline === "bike" ? ["analysis-model", "ftp-decision"] : discipline === "run" ? ["analysis-run-records"] : [])];
+  const allowed = ["analysis-comparison", "analysis-periods",
+    ...(discipline === "bike" ? ["ftp-decision"] : [])];
   if (allowed.includes(detail)) return null;
   const next = new URLSearchParams(params); next.delete("detail");
   return <Card className="site-shell"><Text as="p" variant="bodySmall" role="status">{t("analysis.detailUnavailable")}</Text><LocalizedLink replace className={buttonClass({ variant: "secondary", size: "sm" })} to={{ pathname: location.pathname, search: next.toString(), hash: "" }}>{t("analysis.backToCurrent")}</LocalizedLink></Card>;

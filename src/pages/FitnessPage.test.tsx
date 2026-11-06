@@ -1052,13 +1052,13 @@ describe("FitnessPage", () => {
 
 
 
-    it("분석 러닝에서 기록 보드와 마일스톤을 보존하고 축하 쓰기는 활성화하지 않는다", async () => {
+    it("분석 러닝에는 거리 기록·출처와 마일스톤 상세를 두지 않는다", async () => {
       viewport.isMobile = false;
       setCollectionDocs("activities", [{ id: "run-1", userId: "test-uid", type: "Run", startTime: Date.now(), deletedAt: null, summary: { distance: 5_000 } }]);
       renderWithProviders(<AnalysisFixture sport="run" />, { authenticated: true, route: "/ko/coach/analysis?sport=run" });
-      expect(await screen.findByRole("heading", { name: "러닝 원본 기록 · 출처 확인" })).toBeInTheDocument();
-      expect(screen.getByTestId("K5-4-2")).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
-      expect(screen.getByText("마일스톤").closest("#analysis-run-records")).not.toBeNull();
+      expect(await screen.findByRole("heading", { name: "수행 능력 변화" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "러닝 원본 기록 · 출처 확인" })).not.toBeInTheDocument();
+      expect(document.getElementById("analysis-run-records")).toBeNull();
       expect(screen.queryByRole("navigation", { name: "구간 바로가기" })).not.toBeInTheDocument();
     });
 

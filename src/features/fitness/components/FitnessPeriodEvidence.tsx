@@ -81,13 +81,13 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
   return <Container data-testid="K5-5-2" className="fitness-period-evidence">
     {inline ? <Text as="h3" variant="title">{activityT("trainingPeriods.title")}</Text> : <summary className="cursor-pointer py-3">{activityT("trainingPeriods.title")}</summary>}
     <Stack gap="var(--space-4)">
-    <Text as="p" variant="caption" tone="secondary">{t("comparison.timezone")}</Text>
+    {loadSignal === undefined && <Text as="p" variant="caption" tone="secondary">{t("comparison.timezone")}</Text>}
     <ToggleControls variant="metric" aria-label={t("comparison.title")}>
       {windowDays != null ? <ToggleButton selected={windowMode} onClick={() => { setFollowWindow(true); setSelection(null); setInvalid(false); }}>{t("comparison.window", { days: windowDays })}</ToggleButton>
         : (["fourWeeks", "yearToDate"] as const).map(value => <ToggleButton key={value} selected={preset === value} onClick={() => { setPreset(value); setSelection(null); setInvalid(false); }}>{t(`comparison.${value}`)}</ToggleButton>)}
       <ToggleButton selected={windowDays != null ? !windowMode : preset === null} onClick={() => { setFollowWindow(false); setPreset(null); setSelection(null); setInvalid(false); }}>{t("periodCurve.custom")}</ToggleButton>
     </ToggleControls>
-    {windowMode ? <Text as="p" variant="caption">{t("comparison.windowNote", { days: windowDays })}</Text> : preset && <Text as="p" variant="caption">{t(`comparison.${preset}Note`)}</Text>}
+    {windowMode ? loadSignal === undefined && <Text as="p" variant="caption">{t("comparison.windowNote", { days: windowDays })}</Text> : preset && <Text as="p" variant="caption">{t(`comparison.${preset}Note`)}</Text>}
     {!windowMode && !preset && <div className="grid gap-3 sm:grid-cols-2">{ranges.map((range, index) => <fieldset key={index} disabled={result.state === "loading"}>
       <legend>{t("periodCurve.period", { n: index + 1 })}</legend>
       {(["from", "through"] as const).map(field => <label className="block" key={field}>{t(`periodCurve.${field}`)}<Input type="date" value={range[field]} max={today} onChange={event => { setRanges(values => values.map((value, position) => position === index ? { ...value, [field]: event.target.value } : value)); setSelection(null); setInvalid(false); }} /></label>)}

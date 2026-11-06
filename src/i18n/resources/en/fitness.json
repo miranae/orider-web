@@ -1,8 +1,5 @@
 {
   "powerCurve.sourceUnavailable": "The originating activity link is unavailable.",
-  "analysis.categories.model": "Model estimates and evidence",
-  "analysis.categories.records": "Distance records, sources and milestones",
-  "analysis.categories.evidence": "Data behind the metrics",
   "activitySummary.monthRun": "Running this month",
   "activitySummary.monthAll": "This month · all activities",
   "activitySummary.monthComparison": "{{percent}}% of your usual monthly equivalent",
@@ -1418,7 +1415,5 @@
   "analysis.groups.performanceNote": "Compares your best efforts across two periods of the same length.",
   "analysis.groups.composition": "Training composition by period",
   "analysis.groups.compositionNote": "Compares volume and heart-rate, power and pace zone distribution between the two periods.",
-  "analysis.groups.interpretation": "Interpretation and evidence",
-  "analysis.groups.interpretationNote": "Check your training baseline and the data each metric used or is missing.",
   "analysis.loadNote": "Loads performance and training composition for the last {{days}} days vs the previous {{days}} days (or the periods you chose)."
 }

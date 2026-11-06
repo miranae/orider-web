@@ -21,7 +21,8 @@ import { NativePowerTwelvePersonalPanel } from "./NativePowerTwelvePersonalPanel
 import type { NativePowerLoadedActivity } from "./NativePowerTwelvePersonalView";
 import { PowerSkillsObservedView } from "./PowerSkillsObservedView";
 import { ICON_SIZE } from "../../../theme/tokens/icon";
-export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, onDurationChange }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg"; selectedDuration?: number; onDurationChange?: (duration: number) => void }) {
+/** [concise] 는 코치 분석용 — 곡선과 지속시간별 값만 두고 기간별 포함 기록·조회 기준·고정 지속시간 관측 파워는 뺀다. */
+export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, onDurationChange, concise = false }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg"; selectedDuration?: number; onDurationChange?: (duration: number) => void; concise?: boolean }) {
   const { t } = useTranslation("fitness");
   const id = useId();
   const durationLabel = makeDurationLabel(t);
@@ -41,8 +42,8 @@ export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, 
   const x = (seconds: number) => 56 + Math.log(seconds) / Math.log(3600) * 280;
   const y = (watts: number) => 146 - watts / high * 118;
   return <div className="fitness-analysis-controls period-curve-analysis space-y-4">
-    <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.populationBasis")}</Text>
-    {normalized && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
+    {!concise && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.populationBasis")}</Text>}
+    {!concise && normalized && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
     {normalized && response.periods.some(period => !period.weightNormalized) && <Text as="p" variant="bodyMedium" role="status">{t("periodCurve.weightUnsupported")}</Text>}
     <ChartFrame variant="embedded">
       <div className="period-curve-legend">{periods.map((period, index) => <Text key={index} variant="bodyMedium" tone={index ? "secondary" : "primary"}><span className={index ? "period-curve-line period-curve-line--second" : "period-curve-line"} />{rangeLabels[index]} · {t(normalized && !period.weightNormalized ? "periodCurve.weightUnsupported" : period.status === "complete" ? "periodCurve.complete" : "periodCurve.partial")}</Text>)}</div>
@@ -66,6 +67,7 @@ export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, 
         })}</div>
       </> : <Text as="p" variant="bodyMedium" tone="secondary">{t(normalized ? "periodCurve.weightEmpty" : "periodCurve.empty")}</Text>}
     </ChartFrame>
+    {!concise && <>
     {periods.map((period, index) => normalized && !period.weightNormalized ? <Text key={index} as="p" variant="bodyMedium" tone="secondary">{rangeLabels[index]} · {t("periodCurve.weightUnsupported")}</Text> : <div key={index} className="space-y-2"><Text as="h4" variant="bodyMedium" weight={600}>{rangeLabels[index]}</Text><Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.included", { count: period.coverage.includedActivityCount })}{period.status === "partial" ? ` · ${t("periodCurve.partial")}` : ""}</Text>{period.status === "partial" && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.partialNote")}</Text>}{normalized && period.weightNormalized && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightCoverage", { ...period.weightNormalized.weightCounts })}</Text>}</div>)}
     <details className="period-curve-details"><summary>{t("periodCurve.details")}</summary><div className="space-y-4">
       <Text as="p" variant="bodyMedium" tone="tertiary">{t("periodCurve.asOf", { date: new Date(response.asOf).toISOString().replace("T", " ").slice(0, 19) })}</Text>
@@ -76,6 +78,7 @@ export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, 
       <Text as="p" variant="bodyMedium" tone="tertiary">{t(normalized ? "periodCurve.weightPointNote" : "periodCurve.pointNote")}</Text>
     </div></details>
     {(normalized ? response.periods.some(period => period.weightNormalized?.powerDurationObservations !== undefined) : periods.some(period => period.powerDurationObservations !== undefined)) && <PowerDurationPeriodsView response={response} unit={unit} selectedDuration={duration} onDurationChange={setDuration} />}
+    </>}
   </div>;
 }
 function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSignal }: { ownerUid: string; callableEnabled: boolean; embedded: boolean; windowDays?: number; loadSignal?: number }) {
@@ -113,6 +116,8 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSign
     if (loadedWindow.current === null) { loadedWindow.current = windowDays!; return; }
     if (loadedWindow.current !== windowDays) { loadedWindow.current = windowDays!; submitRef.current(); }
   }, [windowDays, windowMode, selection]);
+  // 코치 분석(공용 불러오기 버튼)은 설명 문구를 줄인 간결한 표시를 쓴다.
+  const concise = loadSignal !== undefined;
   // 페이지 공용 불러오기 버튼(loadSignal)이 있으면 그 신호로 불러온다.
   const lastSignal = useRef(loadSignal);
   useEffect(() => {
@@ -121,9 +126,9 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSign
   }, [loadSignal, callableEnabled]);
   return <section className="fitness-analysis-controls period-curve-tool space-y-4" aria-label={t("periodCurve.title")}>
     {!embedded && <Text as="h3" variant="title">{t("periodCurve.title")}</Text>}
-    <Text as="p" variant="bodyMedium" tone="secondary">{t(skillsMode ? "comparison.rollingNote" : "comparison.timezone")}</Text>
+    {!(concise && !skillsMode) && <Text as="p" variant="bodyMedium" tone="secondary">{t(skillsMode ? "comparison.rollingNote" : "comparison.timezone")}</Text>}
 
-    {unit === "W/kg" && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
+    {!concise && unit === "W/kg" && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
     <ToggleControls variant="axis" aria-label={t("periodCurve.title")}><ToggleButton selected={!skillsMode} onClick={() => { setSkillsMode(false); setSelection(null); setInvalid(false); }}>{t("powerSkills.freePeriods")}</ToggleButton><ToggleButton selected={skillsMode} onClick={() => { setSkillsMode(true); setSelection(null); setInvalid(false); }}>{t("powerSkills.preset")}</ToggleButton></ToggleControls>
     {skillsMode && <Text as="p" variant="bodyMedium" tone="secondary">{t("powerSkills.requestNote")}</Text>}
     <div className="period-curve-controls">
@@ -133,15 +138,15 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSign
         : (["fourWeeks", "yearToDate"] as const).map(preset => <ToggleButton key={preset} selected={comparison === preset} onClick={() => { setComparison(preset); setSelection(null); setInvalid(false); }}>{t(`comparison.${preset}`)}</ToggleButton>)}
       <ToggleButton selected={windowDays != null ? !windowMode : comparison === null} onClick={() => { setFollowWindow(false); setComparison(null); setSelection(null); setInvalid(false); }}>{t("periodCurve.custom")}</ToggleButton>
     </ToggleControls>}
-    {windowMode ? <Text as="p" variant="bodyMedium" tone="secondary">{t("comparison.windowNote", { days: windowDays })}</Text> : !skillsMode && comparison && <Text as="p" variant="bodyMedium" tone="secondary">{t(`comparison.${comparison}Note`)}</Text>}
+    {windowMode ? !concise && <Text as="p" variant="bodyMedium" tone="secondary">{t("comparison.windowNote", { days: windowDays })}</Text> : !skillsMode && comparison && <Text as="p" variant="bodyMedium" tone="secondary">{t(`comparison.${comparison}Note`)}</Text>}
     {!skillsMode && !windowMode && !comparison && <div className="period-curve-form">{drafts.map((draft, index) => <div key={index} className="space-y-3"><label className="space-y-2 block" htmlFor={`${id}-${index}`}><Text as="span" variant="bodyMedium">{t("periodCurve.period", { n: index + 1 })}</Text><DropdownSelect id={`${id}-${index}`} label={t("periodCurve.period", { n: index + 1 })} value={String(draft.preset)} onChange={next => update(index, { preset: next as Draft["preset"] })} options={[{ value: String("year"), label: t("periodCurve.year") }, { value: String("all"), label: t("periodCurve.all") }, { value: String("custom"), label: t("periodCurve.custom") }]} /></label>{draft.preset === "custom" && <div className="period-curve-dates">{(["from", "through"] as const).map(field => <div key={field} className="fitness-date-control"><label htmlFor={`${id}-${index}-${field}`}><Text as="span" variant="bodyMedium">{t(`periodCurve.${field}`)}</Text></label><DateField id={`${id}-${index}-${field}`} portal icon={<CalendarDays size={ICON_SIZE.md} aria-hidden="true" />} max={today} value={draft[field]} onChange={next => update(index, { [field]: next })} /></div>)}</div>}</div>)}</div>}
-    <div className="period-curve-actions">{!skillsMode && !comparison && <Button variant="ghost" size="sm" onClick={() => { setDrafts(values => values.length === 1 ? [...values, makeDraft()] : values.slice(0, 1)); setSelection(null); }}>{t(drafts.length === 1 ? "periodCurve.add" : "periodCurve.remove")}</Button>}{loadSignal === undefined && <Button size="lg" loading={result.state === "loading"} disabled={!callableEnabled || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button>}</div>
+    <div className="period-curve-actions">{!skillsMode && !windowMode && !comparison && <Button variant="ghost" size="sm" onClick={() => { setDrafts(values => values.length === 1 ? [...values, makeDraft()] : values.slice(0, 1)); setSelection(null); }}>{t(drafts.length === 1 ? "periodCurve.add" : "periodCurve.remove")}</Button>}{loadSignal === undefined && <Button size="lg" loading={result.state === "loading"} disabled={!callableEnabled || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button>}</div>
     </div>
     {!callableEnabled && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.preparing")}</Text>}
     {invalid && <Text as="p" variant="bodyMedium" role="alert">{t("periodCurve.invalid")}</Text>}
     {result.state === "loading" && <Text as="p" variant="bodyMedium">{t("periodCurve.loading")}</Text>}
     {result.state === "error" && <Text as="p" variant="bodyMedium" role="alert">{t("periodCurve.error")}</Text>}
-    {result.response && (skillsMode ? <PowerSkillsObservedView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} /> : <PowerCurvePeriodsView selectedDuration={controls.duration} onDurationChange={duration => setControls(v => ({ ...v, duration }))} key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} />)}
+    {result.response && (skillsMode ? <PowerSkillsObservedView key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} /> : <PowerCurvePeriodsView concise={concise} selectedDuration={controls.duration} onDurationChange={duration => setControls(v => ({ ...v, duration }))} key={JSON.stringify(selection)} response={result.response} unit={selection?.request.includeWeightNormalized ? "W/kg" : "W"} />)}
     {result.response?.periods.map(p => <BikePeriodSnapshotPanel historyOnly={!p.coverage.truncated} key={`${p.fromInclusive}:${p.toExclusive}`} ownerUid={ownerUid} period={p} />)}
     {result.response && stageActivityPowerAvailable() && <PowerEffortPreferencePanel ownerUid={ownerUid} mode="stage_power_effort_adjusted_canonical" activityIds={[...new Set(result.response.periods.flatMap(p=>[...p.points.map(v=>v.sourceActivityId),...(p.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[])]))].slice(0,20)} periods={result.response.periods.map((p,i)=>({id:`period_${i}`,fromInclusiveMs:p.fromInclusive,toExclusiveMs:p.toExclusive}))} scopeKey={JSON.stringify([selection,result.response.inputDigest])}/>}
   </section>;

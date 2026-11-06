@@ -849,12 +849,13 @@ export default function MobileFitnessPage({
           {(part === "analysis" || part === "condition") && !(mobileAnalysis && data.discipline === "run") && !runReadiness && !(part === "condition" && data.discipline === "run" && !embedded && runningRecordsSlot && data.runEvidence.thresholdPaceSec == null) && <SportPerformanceCard compact={!embedded} discipline={data.discipline} cycling={data.cyclingAbility} run={!embedded && data.discipline === "run" ? { ...data.runEvidence, records: [], unverifiedRecords: [] } : data.runEvidence} swim={data.swimEvidence} />}
           {(part === "analysis" || part === "condition") && isBike && data.cyclingAbility && riderSet && riderBlock && <SufficiencyInline set={riderSet} block={riderBlock} testId="K5-1-1-sufficiency-inline" />}
           {(part === "analysis" || part === "condition") && !embedded && data.discipline === "run" && !(runningRecordsSlot && !runReadiness && qualifiedRunRecords(data.runEvidence).length === 0) && <RunRecordsSummary evidence={data.runEvidence} readiness={runReadiness} sourceBoard={Boolean(runningRecordsSlot)} />}
-          {(part === "condition" || mobileAnalysis) && (mobileAnalysis && (runningRecordsSlot || data.discipline === "run" && runningRaceEstimatesOwnerUid) ? <CoachDetailSection id="analysis-run-records" title={t("mobileFitness.runRecordSources")}>{runningRecordsSlot}{data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}</CoachDetailSection> : runningRecordsSlot)}
+          {/* 웹 분석은 "거리 기록·출처와 마일스톤" 상세를 두지 않는다. */}
+          {part === "condition" && runningRecordsSlot}
           {(part === "analysis" || part === "condition") && !embedded && isBike && sectionState.derived === "ready" && <MobileCyclingEvidence condition={part === "condition" || mobileAnalysis} data={data} />}
   </>);
 
   const bikeThresholdSection = data.discipline === "bike" && !mobileCondition ? (
-            <FtpDecisionSection title={t(part === "condition" || mobileAnalysis ? "fitness:condition.basis.title" : "fitness:conclusion.performanceDetailToggle")} anchorEnabled={(part === "condition" || part === "analysis") && !embedded} compact={!embedded} preserveExpanded>
+            <FtpDecisionSection title={t(part === "condition" || mobileAnalysis ? "fitness:condition.basis.title" : "fitness:conclusion.performanceDetailToggle")} anchorEnabled={(part === "condition" || part === "analysis") && !embedded} compact={!embedded} preserveExpanded requestedOnly={mobileAnalysis}>
             <BikePerformanceSummaryCard
               part={mobileAnalysis ? "condition" : part}
               compact={!embedded}
@@ -1002,9 +1003,10 @@ export default function MobileFitnessPage({
           {showPeriodLoad && <AnalysisPeriodLoadBar windowDays={periodWindowDays!} onLoad={onPeriodLoad!} />}
           <AnalysisGroup id="analysis-comparison" title={t("fitness:analysis.groups.performance")} description={t("fitness:analysis.groups.performanceNote")}>
             {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods inline windowDays={periodWindowDays} loadSignal={periodLoadSignal} nativeActivities={nativePowerActivities} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
-            {isBike && <CoachDetailSection id="analysis-model" title={t("mobileFitness.modelDetails")}>{modelContent}</CoachDetailSection>}
             {runCurveContent}
             {!isBike && modelContent}
+            {thresholdCard}
+            {thresholdMissingCard}
           </AnalysisGroup>
           <AnalysisGroup id="analysis-periods" title={t("fitness:analysis.groups.composition")} description={t("fitness:analysis.groups.compositionNote")}>
             {data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} windowDays={periodWindowDays} loadSignal={periodLoadSignal} />}
@@ -1013,15 +1015,11 @@ export default function MobileFitnessPage({
             {zoneDefsCard}
             {hrZonesMissingCard}
           </AnalysisGroup>
-          <AnalysisGroup id="analysis-interpretation" title={t("fitness:analysis.groups.interpretation")} description={t("fitness:analysis.groups.interpretationNote")}>
-            <SufficiencyGroup summaryOnly sets={definedAnalysisSets} testId="analysis-readiness-summary" />
-            {bikeThresholdSection}
-            {thresholdCard}
-            {thresholdMissingCard}
-            {sufficiencyCards}
-            {analysisInsufficientNote}
-            {isSufficiencyGrouped(...mobileAnalysisSets) && <CoachDetailSection id="analysis-evidence" title={t("mobileFitness.modelEvidence")}><SufficiencyGroup inline sets={definedAnalysisSets} testId="K5-sufficiency-group" /></CoachDetailSection>}
-          </AnalysisGroup>
+          {/* 해석과 근거 묶음은 두지 않는다. 데이터 준비 상태만 남기고, FTP 판단은 제안 링크로 들어올 때만 연다. */}
+          <SufficiencyGroup summaryOnly sets={definedAnalysisSets} testId="analysis-readiness-summary" />
+          {sufficiencyCards}
+          {analysisInsufficientNote}
+          {bikeThresholdSection}
         </div>) : null;
 
   const conditionStory = part === "condition" && data.discipline !== "tri" && isValidElement(coachSlot);

@@ -1,8 +1,5 @@
 {
   "powerCurve.sourceUnavailable": "원본 활동 연결을 확인할 수 없습니다.",
-  "analysis.categories.model": "추정 지표와 산출 근거",
-  "analysis.categories.records": "거리 기록·출처와 마일스톤",
-  "analysis.categories.evidence": "지표별 데이터 근거",
   "activitySummary.monthRun": "이번 달 러닝 흐름",
   "activitySummary.monthAll": "이번 달 활동 · 전체 종목",
   "activitySummary.monthComparison": "평소 월간 환산 거리 대비 {{percent}}%",
@@ -1418,7 +1415,5 @@
   "analysis.groups.performanceNote": "같은 길이의 두 기간에서 낸 최고 기록을 비교합니다.",
   "analysis.groups.composition": "기간별 훈련 구성",
   "analysis.groups.compositionNote": "두 기간의 운동량과 심박·파워·페이스 구간 분포를 비교합니다.",
-  "analysis.groups.interpretation": "해석과 근거",
-  "analysis.groups.interpretationNote": "훈련 기준과 지표마다 쓴 데이터, 빠진 데이터를 확인합니다.",
   "analysis.loadNote": "최근 {{days}}일과 이전 {{days}}일(또는 직접 고른 기간)의 수행 능력과 훈련 구성을 함께 불러옵니다."
 }
