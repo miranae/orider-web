@@ -3,6 +3,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
 
+const { logClientError } = vi.hoisted(() => ({ logClientError: vi.fn() }));
+vi.mock("../services/errorLogger", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../services/errorLogger")>(),
+  logClientError,
+}));
+
 // ExplorePage는 더 이상 Firestore `segments` 컬렉션을 구독하지 않고
 // 서버가 생성한 타일 overview.json 을 fetch 로 읽어 module-level 캐시에 채운다.
 // 따라서 세그먼트 데이터는 fetch 모킹으로 주입한다.
@@ -79,6 +85,7 @@ describe("ExplorePage", () => {
   beforeEach(() => {
     // 세그먼트 없음(empty) 기본값. 개별 테스트에서 필요 시 재설정.
     mockOverviewFetch([]);
+    logClientError.mockClear();
   });
 
   it.each(["segments", "empty"] as const)("finishes a shared %s overview after auth ownership remounts the retained page", async (result) => {
@@ -112,6 +119,23 @@ describe("ExplorePage", () => {
     }
   });
 
+  it("logs a shared overview failure once after all owner-page subscribers unmount", async () => {
+    let rejectFetch!: (error: Error) => void;
+    global.fetch = vi.fn(() => new Promise<Response>((_resolve, reject) => { rejectFetch = reject; }));
+    const ExplorePage = await loadExplorePage();
+    const { RetainedHubPages } = await import("../components/RetainedHubPages");
+    function RetainedSegments({ owner }: { owner: string | null }) {
+      return <RetainedHubPages path="/explore/segments" hub="explore" owner={owner}><ExplorePage /></RetainedHubPages>;
+    }
+    const view = renderWithProviders(<RetainedSegments owner={null} />, { route: "/explore/segments" });
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    view.rerender(<RetainedSegments owner="restored-user" />);
+    view.unmount();
+    const error = new Error("overview failed after navigation");
+    await act(async () => { rejectFetch(error); });
+    expect(logClientError).toHaveBeenCalledExactlyOnceWith("ExplorePage.loadSegmentOverview", error);
+  });
+
   it("shows the pending overview failure to the replacement owner and lets it retry", async () => {
     let rejectFetch!: (error: Error) => void;
     const fetchMock = vi.fn(() => new Promise<Response>((_resolve, reject) => { rejectFetch = reject; }));
@@ -126,6 +150,7 @@ describe("ExplorePage", () => {
     view.rerender(<RetainedSegments owner="restored-user" />);
     await act(async () => { rejectFetch(new Error("overview unavailable")); });
     const retry = screen.getByRole("button", { name: "다시 시도" });
+    expect(logClientError).toHaveBeenCalledTimes(1);
     fetchMock.mockResolvedValueOnce({ ok: true, headers: { get: () => "application/json" }, json: async () => ({ v: 2, count: 1, segments: [SEG_CLIMB] }) } as Response);
     fireEvent.click(retry);
     expect(await screen.findByRole("button", { name: SEG_CLIMB.name, exact: true })).toBeVisible();

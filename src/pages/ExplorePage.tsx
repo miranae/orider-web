@@ -447,6 +447,10 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
           moduleCache.overview = data;
           return data;
         })
+        .catch(err => {
+          logClientError("ExplorePage.loadSegmentOverview", err);
+          throw err;
+        })
         .finally(() => { moduleCache.overviewRequest = null; });
     }
     let active = true;
@@ -466,7 +470,6 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
       })
       .catch(err => {
         if (!active) return;
-        logClientError("ExplorePage.loadSegmentOverview", err);
         setOverviewError(err);
         setLoading(false);
       });
