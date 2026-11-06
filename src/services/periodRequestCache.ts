@@ -1,4 +1,5 @@
 import { trainingCalendarDate } from "./trainingComparisonCalendar";
+import { logClientError } from "./errorLogger";
 
 /**
  * 기간 분석(getPowerCurvePeriods·getTrainingAnalysisPeriods)은 사용자당 시간당 12회·10초 2회로 제한되고, 결과는
@@ -43,30 +44,33 @@ function database(): Promise<IDBDatabase | null> {
       const open = indexedDB.open(DB_NAME, 1);
       open.onupgradeneeded = () => { if (!open.result.objectStoreNames.contains(STORE)) open.result.createObjectStore(STORE, { keyPath: "key" }); };
       open.onsuccess = () => resolve(open.result);
-      open.onerror = () => resolve(null);
-      open.onblocked = () => resolve(null);
-    } catch { resolve(null); }
+      // 저장소를 못 열면 서버 응답만 쓴다(캐시 없이 동작). 실패는 기록한다.
+      open.onerror = () => { logClientError("periodRequestCache.open", open.error, { db: DB_NAME }); resolve(null); };
+      open.onblocked = () => { logClientError("periodRequestCache.open", new Error("indexeddb_open_blocked"), { db: DB_NAME }); resolve(null); };
+    } catch (error) { logClientError("periodRequestCache.open", error, { db: DB_NAME }); resolve(null); }
   });
   return dbPromise;
 }
-async function transact<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T> | void): Promise<T | null> {
+async function transact<T>(operation: "read" | "write" | "clear", mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T> | void): Promise<T | null> {
   const db = await database();
   if (!db) return null;
   return new Promise(resolve => {
+    // 조회·저장·삭제가 실패해도 화면은 서버 응답으로 계속 동작한다. 실패 맥락은 기록한다.
+    const fail = (error: unknown) => { logClientError("periodRequestCache.transaction", error, { operation, mode }); resolve(null); };
     try {
       const tx = db.transaction(STORE, mode), request = run(tx.objectStore(STORE));
       tx.oncomplete = () => resolve(request ? request.result : null);
-      tx.onerror = () => resolve(null);
-      tx.onabort = () => resolve(null);
-    } catch { resolve(null); }
+      tx.onerror = () => fail(tx.error ?? new Error("indexeddb_transaction_error"));
+      tx.onabort = () => fail(tx.error ?? new Error("indexeddb_transaction_aborted"));
+    } catch (error) { fail(error); }
   });
 }
 async function readStored(key: string): Promise<Stored | null> {
-  const value = await transact<Stored | undefined>("readonly", store => store.get(key) as IDBRequest<Stored | undefined>);
+  const value = await transact<Stored | undefined>("read", "readonly", store => store.get(key) as IDBRequest<Stored | undefined>);
   return value && typeof value === "object" && value.key === key && value.schema === SCHEMA ? value : null;
 }
 async function writeStored(entry: Stored, now: number) {
-  await transact("readwrite", store => {
+  await transact("write", "readwrite", store => {
     store.put(entry);
     // 날짜가 지났거나 오래된 항목을 지우고, 너무 많으면 오래된 것부터 지운다.
     const all = store.getAll() as IDBRequest<Stored[]>;
@@ -96,7 +100,10 @@ export function cachedPeriodRequest<T>(options: { scope: string; name: string; u
   const promise = (async () => {
     const stored = await readStored(key);
     if (stored && stored.uid === uid && fresh(stored, now)) {
-      try { return validate(stored.value); } catch { /* 저장 값이 지금 계약과 다르면 서버에서 다시 받는다 */ }
+      try { return validate(stored.value); } catch (error) {
+        // 저장 값이 지금 응답 계약과 다르면(앱 업데이트 등) 버리고 서버에서 다시 받는다.
+        logClientError("periodRequestCache.staleShape", error, { name });
+      }
     }
     const value = await load();
     void writeStored({ key, uid, schema: SCHEMA, day, storedAt: now, includesToday, value }, now);
@@ -112,7 +119,7 @@ export function cachedPeriodRequest<T>(options: { scope: string; name: string; u
 /** 로그아웃에서 메모리와 기기 저장을 모두 비운다. */
 export async function clearPeriodRequestCache() {
   memory.clear();
-  await transact("readwrite", store => { store.clear(); });
+  await transact("clear", "readwrite", store => { store.clear(); });
 }
 /** 테스트 사이에 메모리 캐시를 비운다(jsdom 에는 IndexedDB 가 없다). */
 export function clearPeriodRequestMemory() { memory.clear(); }
