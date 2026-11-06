@@ -21,7 +21,7 @@ import { NativePowerTwelvePersonalPanel } from "./NativePowerTwelvePersonalPanel
 import type { NativePowerLoadedActivity } from "./NativePowerTwelvePersonalView";
 import { PowerSkillsObservedView } from "./PowerSkillsObservedView";
 import { ICON_SIZE } from "../../../theme/tokens/icon";
-/** [concise] 는 코치 분석용 — 곡선과 지속시간별 값만 두고 기간별 포함 기록·조회 기준·고정 지속시간 관측 파워는 뺀다. */
+/** [concise] 는 코치 분석용 — 곡선과 지속시간별 값, 지속시간별 관측 파워 차트만 두고 기간별 포함 기록·조회 기준과 설명 문구는 뺀다. */
 export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, onDurationChange, concise = false }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg"; selectedDuration?: number; onDurationChange?: (duration: number) => void; concise?: boolean }) {
   const { t } = useTranslation("fitness");
   const id = useId();
@@ -77,8 +77,8 @@ export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, 
       })}
       <Text as="p" variant="bodyMedium" tone="tertiary">{t(normalized ? "periodCurve.weightPointNote" : "periodCurve.pointNote")}</Text>
     </div></details>
-    {(normalized ? response.periods.some(period => period.weightNormalized?.powerDurationObservations !== undefined) : periods.some(period => period.powerDurationObservations !== undefined)) && <PowerDurationPeriodsView response={response} unit={unit} selectedDuration={duration} onDurationChange={setDuration} />}
     </>}
+    {(normalized ? response.periods.some(period => period.weightNormalized?.powerDurationObservations !== undefined) : periods.some(period => period.powerDurationObservations !== undefined)) && <PowerDurationPeriodsView concise={concise} response={response} unit={unit} selectedDuration={duration} onDurationChange={setDuration} />}
   </div>;
 }
 function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSignal }: { ownerUid: string; callableEnabled: boolean; embedded: boolean; windowDays?: number; loadSignal?: number }) {
