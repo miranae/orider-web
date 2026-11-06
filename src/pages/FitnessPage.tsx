@@ -16,6 +16,7 @@ import { getRuntimeConfig } from "../services/runtimeConfig";
 import "./FitnessPage.css";
 import { PowerCurvePeriodsPanel } from "../features/fitness/components/PowerCurvePeriodsPanel";
 import { useState, type ReactNode } from "react";
+import type { PowerCurvePeriod } from "@shared/types/power-curve-periods";
 import { useTranslation } from "react-i18next";
 import { useTrainingDecision } from "../hooks/useTrainingDecision";
 import { useSearchParams } from "react-router-dom";
@@ -111,6 +112,8 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
   // 분석의 두 기간 비교(파워 커브·기간별 훈련 구성)를 한 버튼으로 함께 불러온다.
   const [periodLoadSignal, setPeriodLoadSignal] = useState(0);
+  // 사이클 분석의 "기간별 훈련 구성"은 위 파워 비교가 불러온 기간을 그대로 쓴다.
+  const [analysisPeriods, setAnalysisPeriods] = useState<PowerCurvePeriod[] | null>(null);
   // Form 구간 정본(#886). 전환이 꺼져 있으면 envelope 은 null 이고 카드는 기존 로컬 표시로 남는다.
   const trainingDecision = useTrainingDecision(
     model.discipline === "tri" ? null : model.user?.uid ?? null,
@@ -486,6 +489,8 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           <MobileFitnessPage
             periodWindowDays={!embedded && part === "analysis" ? range : undefined}
             periodLoadSignal={!embedded && part === "analysis" ? periodLoadSignal : undefined}
+            analysisPeriods={!embedded && part === "analysis" && discipline === "bike" ? analysisPeriods : undefined}
+            onAnalysisPeriodsChange={!embedded && part === "analysis" && discipline === "bike" ? setAnalysisPeriods : undefined}
             onPeriodLoad={!embedded && part === "analysis" && (discipline === "bike" || fitnessPeriodEvidenceVisible(discipline, user)) ? () => setPeriodLoadSignal(value => value + 1) : undefined}
             {...model.mobilePageProps}
             periodTimeseries={model.periodTimeseries}
@@ -869,7 +874,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
 
   </>;
 
-  const periodPowerCard = discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel windowDays={!embedded && part === "analysis" ? range : undefined} loadSignal={!embedded && part === "analysis" ? periodLoadSignal : undefined} nativeActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>;
+  const periodPowerCard = discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel windowDays={!embedded && part === "analysis" ? range : undefined} loadSignal={!embedded && part === "analysis" ? periodLoadSignal : undefined} onPeriodsChange={!embedded && part === "analysis" ? setAnalysisPeriods : undefined} nativeActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>;
 
   const performanceCurves = <>
           {part !== "condition" && periodPowerCard}
@@ -1025,7 +1030,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {discipline === "run" && <Card><Text as="h3" variant="subtitle">{t("criticalPace.title")}</Text><Text as="p" variant="caption" tone="secondary">{t("criticalPace.periodNote")}</Text><CriticalPaceCurve stableSelection recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} /></Card>}
       </AnalysisGroup>
       <AnalysisGroup id="analysis-periods" title={t("analysis.groups.composition")} description={t("analysis.groups.compositionNote")}>
-        {discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} windowDays={range} loadSignal={periodLoadSignal} />}
+        {discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} windowDays={range} loadSignal={periodLoadSignal} periods={discipline === "bike" ? analysisPeriods : undefined} />}
         {zoneDistributionCard}
       </AnalysisGroup>
       {/* 해석과 근거 묶음은 두지 않는다. 데이터 준비 상태만 남기고, FTP 판단은 제안 링크(#ftp-decision·decisionId)로 들어올 때만 연다. */}

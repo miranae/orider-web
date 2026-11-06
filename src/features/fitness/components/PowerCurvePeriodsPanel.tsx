@@ -81,7 +81,7 @@ export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, 
     {(normalized ? response.periods.some(period => period.weightNormalized?.powerDurationObservations !== undefined) : periods.some(period => period.powerDurationObservations !== undefined)) && <PowerDurationPeriodsView concise={concise} response={response} unit={unit} selectedDuration={duration} onDurationChange={setDuration} />}
   </div>;
 }
-function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSignal }: { ownerUid: string; callableEnabled: boolean; embedded: boolean; windowDays?: number; loadSignal?: number }) {
+function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSignal, onPeriodsChange }: { ownerUid: string; callableEnabled: boolean; embedded: boolean; windowDays?: number; loadSignal?: number; onPeriodsChange?: (periods: PowerCurvePeriod[]) => void }) {
   const { t } = useTranslation("fitness");
   const id = useId();
   const today = trainingCalendarDate(Date.now());
@@ -106,6 +106,8 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSign
       : draft.preset === "year" ? { fromInclusive: Date.parse(`${trainingCalendarDate(now).slice(0, 4)}-01-01T00:00:00+09:00`), toExclusive: now }
       : trainingCalendarPeriod(draft.from, draft.through, now));
     if (periods.some(period => !period || period.fromInclusive >= period.toExclusive)) { setInvalid(true); setSelection(null); return; }
+    // 아래 "기간별 훈련 구성"이 같은 기간을 쓰도록 알린다(능력 모음 비교는 위 기간 선택 창을 넘긴다).
+    if (!skillsMode) onPeriodsChange?.(periods as PowerCurvePeriod[]); else if (windowDays != null) onPeriodsChange?.(trainingWindowPeriods(windowDays, now));
     setInvalid(false); setSelection(current => ({ request: { unit: "W", periods: periods as PowerCurvePeriod[], ...(unit === "W/kg" ? { includeWeightNormalized: true } : {}) }, requestId: (current?.requestId ?? 0) + 1 }));
   };
   // 한 번 불러온 뒤 위 기간이 바뀌면 새 기간으로 다시 불러온다.
@@ -122,8 +124,9 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSign
   const lastSignal = useRef(loadSignal);
   useEffect(() => {
     if (loadSignal === undefined || loadSignal === lastSignal.current) return;
-    lastSignal.current = loadSignal; if (callableEnabled) submitRef.current();
-  }, [loadSignal, callableEnabled]);
+    // 호출이 꺼져 있어도 기간은 계산해 아래 훈련 구성에 넘긴다(요청 훅이 호출 여부를 막는다).
+    lastSignal.current = loadSignal; submitRef.current();
+  }, [loadSignal]);
   return <section className="fitness-analysis-controls period-curve-tool space-y-4" aria-label={t("periodCurve.title")}>
     {!embedded && <Text as="h3" variant="title">{t("periodCurve.title")}</Text>}
     {!(concise && !skillsMode) && <Text as="p" variant="bodyMedium" tone="secondary">{t(skillsMode ? "comparison.rollingNote" : "comparison.timezone")}</Text>}
@@ -151,8 +154,8 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSign
     {result.response && stageActivityPowerAvailable() && <PowerEffortPreferencePanel ownerUid={ownerUid} mode="stage_power_effort_adjusted_canonical" activityIds={[...new Set(result.response.periods.flatMap(p=>[...p.points.map(v=>v.sourceActivityId),...(p.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[])]))].slice(0,20)} periods={result.response.periods.map((p,i)=>({id:`period_${i}`,fromInclusiveMs:p.fromInclusive,toExclusiveMs:p.toExclusive}))} scopeKey={JSON.stringify([selection,result.response.inputDigest])}/>}
   </section>;
 }
-export function PowerCurvePeriodsPanel({ ownerUid, callableEnabled = false, embedded = false, nativeActivities = [], windowDays, loadSignal }: { nativeActivities?: readonly NativePowerLoadedActivity[]; ownerUid: string | null | undefined; callableEnabled?: boolean; embedded?: boolean; windowDays?: number; loadSignal?: number }) {
+export function PowerCurvePeriodsPanel({ ownerUid, callableEnabled = false, embedded = false, nativeActivities = [], windowDays, loadSignal, onPeriodsChange }: { nativeActivities?: readonly NativePowerLoadedActivity[]; ownerUid: string | null | undefined; callableEnabled?: boolean; embedded?: boolean; windowDays?: number; loadSignal?: number; onPeriodsChange?: (periods: PowerCurvePeriod[]) => void }) {
   const { user } = useAuth();
   if (!ownerUid || !user || user.isAnonymous || user.uid !== ownerUid) return null;
-  return <div data-testid="K5-5"><PeriodsForm key={ownerUid} ownerUid={ownerUid} callableEnabled={callableEnabled} embedded={embedded} windowDays={windowDays} loadSignal={loadSignal} />{stageActivityPowerAvailable() && <NativePowerTwelvePersonalPanel key={`native-${ownerUid}`} ownerUid={ownerUid} activities={nativeActivities} enabled={callableEnabled} />}</div>;
+  return <div data-testid="K5-5"><PeriodsForm key={ownerUid} ownerUid={ownerUid} callableEnabled={callableEnabled} embedded={embedded} windowDays={windowDays} loadSignal={loadSignal} onPeriodsChange={onPeriodsChange} />{stageActivityPowerAvailable() && <NativePowerTwelvePersonalPanel key={`native-${ownerUid}`} ownerUid={ownerUid} activities={nativeActivities} enabled={callableEnabled} />}</div>;
 }

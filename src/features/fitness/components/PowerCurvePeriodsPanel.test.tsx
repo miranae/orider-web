@@ -34,6 +34,15 @@ describe("PowerCurvePeriodsPanel", () => {
     fireEvent.click(view.container.querySelector('[data-duration="300"]')!);
     expect(screen.getByRole("combobox")).toHaveTextContent("duration.min 5");
   });
+  it("hands the periods it loads to the training composition below on the shared load signal", () => {
+    const onPeriodsChange = vi.fn();
+    const view = render(<PowerCurvePeriodsPanel ownerUid="owner" windowDays={90} loadSignal={0} onPeriodsChange={onPeriodsChange} />);
+    expect(onPeriodsChange).not.toHaveBeenCalled();
+    view.rerender(<PowerCurvePeriodsPanel ownerUid="owner" windowDays={90} loadSignal={1} onPeriodsChange={onPeriodsChange} />);
+    const periods = onPeriodsChange.mock.lastCall![0] as { fromInclusive: number; toExclusive: number }[];
+    expect(periods.map(period => Math.round((period.toExclusive - period.fromInclusive) / 86400000))).toEqual([90, 90]);
+    expect(mocks.hook.mock.lastCall![1].request.periods).toEqual(periods);
+  });
   it("follows the analysis window: compares the last N days with the previous N days and reloads when the window changes", () => {
     const view = render(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled windowDays={90} />);
     expect(screen.getByText("comparison.window 90")).toBeInTheDocument();

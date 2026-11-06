@@ -29,6 +29,7 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
 import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerCurvePeriodsPanel";
+import type { PowerCurvePeriod } from "@shared/types/power-curve-periods";
 import FitnessPeriodEvidence from "../../features/fitness/components/FitnessPeriodEvidence";
 import { AnalysisGroup, AnalysisPeriodLoadBar } from "../../features/fitness/components/AnalysisGroup";
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
@@ -568,13 +569,13 @@ function TodayDecisionPreview({ state, signedIn, hasDetails }: {
 }
 
 /** 기간 읽기 인증과 열기 상태는 실제 사이클 상세 도구에서만 구독한다. */
-function MobilePowerCurvePeriods({ ownerUid, enabled, inline = false, nativeActivities = [], windowDays, loadSignal }: { ownerUid: string; enabled: boolean; inline?: boolean; nativeActivities?: readonly NativePowerLoadedActivity[]; windowDays?: number; loadSignal?: number }) {
+function MobilePowerCurvePeriods({ ownerUid, enabled, inline = false, nativeActivities = [], windowDays, loadSignal, onPeriodsChange }: { ownerUid: string; enabled: boolean; inline?: boolean; nativeActivities?: readonly NativePowerLoadedActivity[]; windowDays?: number; loadSignal?: number; onPeriodsChange?: (periods: PowerCurvePeriod[]) => void }) {
   const { t } = useTranslation("fitness");
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   if (!user || user.isAnonymous || user.uid !== ownerUid) return null;
   if (inline) return <section data-testid="K5-5-1" className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3">
-    <PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} nativeActivities={nativeActivities} windowDays={windowDays} loadSignal={loadSignal} />
+    <PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} nativeActivities={nativeActivities} windowDays={windowDays} loadSignal={loadSignal} onPeriodsChange={onPeriodsChange} />
   </section>;
   return <details data-testid="K5-5-1" className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3" onToggle={event => { if (event.currentTarget.open) setMounted(true); }}>
     <summary className="cursor-pointer py-3"><Text variant="label">{t("periodCurve.title")}</Text></summary>
@@ -672,6 +673,8 @@ export default function MobileFitnessPage({
   periodTimeseries = null,
   periodLoadSignal,
   onPeriodLoad,
+  analysisPeriods,
+  onAnalysisPeriodsChange,
   nativePowerActivities = [],
   todayDecisionState,
   todayDecisionSignedIn = true,
@@ -705,6 +708,9 @@ export default function MobileFitnessPage({
   /** 웹 분석 공용 "불러오기" — 값이 바뀌면 두 기간 비교 패널이 함께 불러온다. */
   periodLoadSignal?: number;
   onPeriodLoad?: () => void;
+  /** 사이클 분석: 위 파워 비교가 불러온 기간 — 아래 "기간별 훈련 구성"이 같은 기간으로 불러온다. */
+  analysisPeriods?: PowerCurvePeriod[] | null;
+  onAnalysisPeriodsChange?: (periods: PowerCurvePeriod[]) => void;
   conditionSupplementSlot?: ReactNode;
   currentBasis?: string;
   currentStatusSlot?: ReactNode;
@@ -1002,14 +1008,14 @@ export default function MobileFitnessPage({
           {sectionState.derived === "error" && <div role="alert" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>{t("mobileFitness.derivedError")}</div>}
           {showPeriodLoad && <AnalysisPeriodLoadBar windowDays={periodWindowDays!} onLoad={onPeriodLoad!} />}
           <AnalysisGroup id="analysis-comparison" title={t("fitness:analysis.groups.performance")} description={t("fitness:analysis.groups.performanceNote")}>
-            {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods inline windowDays={periodWindowDays} loadSignal={periodLoadSignal} nativeActivities={nativePowerActivities} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
+            {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods inline windowDays={periodWindowDays} loadSignal={periodLoadSignal} onPeriodsChange={onAnalysisPeriodsChange} nativeActivities={nativePowerActivities} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
             {runCurveContent}
             {!isBike && modelContent}
             {thresholdCard}
             {thresholdMissingCard}
           </AnalysisGroup>
           <AnalysisGroup id="analysis-periods" title={t("fitness:analysis.groups.composition")} description={t("fitness:analysis.groups.compositionNote")}>
-            {data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} windowDays={periodWindowDays} loadSignal={periodLoadSignal} />}
+            {data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} windowDays={periodWindowDays} loadSignal={periodLoadSignal} periods={isBike && powerCurvePeriodsOwnerUid ? analysisPeriods : undefined} />}
             {sectionState.derived === "ready" && data.zoneEvidence && <FitnessZoneDistributions compact evidence={data.zoneEvidence} />}
             {legacyZonesCard}
             {zoneDefsCard}

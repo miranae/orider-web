@@ -35,6 +35,20 @@ describe("period evidence capability boundary", () => {
     expect(periods).toHaveLength(2);
     expect(periods.map(period => Math.round((period.toExclusive - period.fromInclusive) / 86400000))).toEqual([30, 30]);
   });
+  it("follows the periods the power comparison above loaded instead of its own period controls", () => {
+    const view = renderWithProviders(<FitnessPeriodEvidence discipline="bike" inline windowDays={30} loadSignal={0} periods={null} />, { authenticated: true });
+    expect(screen.queryByRole("group", { name: "비교 기간" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /최근 30일/ })).not.toBeInTheDocument();
+    expect(mocks.hook).toHaveBeenLastCalledWith("test-uid", null, true);
+    const periods = [{ fromInclusive: 1_000, toExclusive: 2_000 }, { fromInclusive: 0, toExclusive: 1_000 }];
+    view.rerender(<FitnessPeriodEvidence discipline="bike" inline windowDays={30} loadSignal={1} periods={periods} />);
+    expect(mocks.hook.mock.lastCall![1].request.periods).toEqual(periods);
+    const calls = mocks.hook.mock.calls.filter(call => call[1] != null).length;
+    view.rerender(<FitnessPeriodEvidence discipline="bike" inline windowDays={30} loadSignal={2} periods={periods} />);
+    // 공용 버튼 신호만으로는 자체 기간으로 다시 부르지 않는다 — 위 비교가 새 기간을 넘길 때만 부른다.
+    expect(mocks.hook.mock.lastCall![1].request.periods).toEqual(periods);
+    expect(mocks.hook.mock.calls.filter(call => call[1] != null).length).toBeGreaterThanOrEqual(calls);
+  });
   it("does not expose Stage-only swim in hosted production", () => {
     renderWithProviders(<FitnessPeriodEvidence discipline="swim" />, { authenticated: true });
     expect(screen.queryByTestId("K5-5-2")).not.toBeInTheDocument();
