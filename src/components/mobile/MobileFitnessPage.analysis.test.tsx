@@ -81,6 +81,25 @@ describe("mobile web analysis evidence", () => {
     expect(current).toHaveTextContent("피트니스 추이를 불러오는 중…");
     expect(current).not.toHaveTextContent("아직 계산할 기록이 없어요");
   });
+  it("places the optional activity summary before detailed analysis without leaking it to embedded views", () => {
+    const view = renderWithProviders(<MobileFitnessPage data={data} part="analysis" analysisSummarySlot={<div>monthly summary</div>} />);
+    expect(screen.getByText("monthly summary")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /활동량과 주간 흐름/ }).compareDocumentPosition(screen.getByRole("button", { name: /기간별 훈련 강도/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    view.rerender(<MobileFitnessPage data={data} part="analysis" embedded analysisSummarySlot={<div>monthly summary</div>} />);
+    expect(screen.queryByText("monthly summary")).not.toBeInTheDocument();
+  });
+
+  it.each([false, true])("keeps moved period controls collapsed until opened with enabled=%s while waiting for an explicit query", enabled => {
+    const before = mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods").length;
+    renderWithProviders(<MobileFitnessPage data={data} part="analysis" powerCurvePeriodsOwnerUid="test-uid" powerCurvePeriodsEnabled={enabled} />, { authenticated: true });
+    expect(screen.queryByRole("button", { name: "기간 분석 불러오기" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /기간별 훈련 강도/ }));
+    const load = screen.getByRole("button", { name: "기간 분석 불러오기" });
+    expect(load).toBeVisible();
+    expect(load).toHaveProperty("disabled", !enabled);
+    expect(mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods")).toHaveLength(before);
+  });
+
   it.each(["bike", "run"] as const)("keeps cycling PDC requirements scoped on %s", discipline => {
     const pdcSufficiency = sufficiencySet([
       sufficiencyBlock(),
@@ -228,11 +247,12 @@ it("prioritizes available pace changes over the source-only distance record list
   expect(sources).toBeVisible();
 });
 
-it("analysis keeps the power curve without activity, model, period, FTP and evidence sections", () => {
+it("analysis keeps the power curve, activity flow and periods without model, FTP and evidence sections", () => {
   renderWithProviders(<MobileFitnessPage data={data} part="analysis" analysisSummarySlot={<p>activity summary</p>} />);
-  for (const title of ["활동량과 주간 흐름", "추정 지표와 산출 근거", "기간별 훈련 강도", "훈련 기준 — FTP 판단", "지표별 데이터 근거"]) {
+  for (const title of ["추정 지표와 산출 근거", "훈련 기준 — FTP 판단", "지표별 데이터 근거"]) {
     expect(screen.queryByText(title)).not.toBeInTheDocument();
   }
-  expect(screen.queryByText("activity summary")).not.toBeInTheDocument();
+  expect(screen.getByText("활동량과 주간 흐름")).toBeInTheDocument();
+  expect(screen.getByText("기간별 훈련 강도")).toBeInTheDocument();
   expect(document.getElementById("analysis-comparison")).toBeInTheDocument();
 });

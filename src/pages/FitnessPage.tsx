@@ -1017,7 +1017,9 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
       </section>
       <SufficiencyGroup summaryOnly sets={analysisSets} testId="analysis-readiness-summary" />
       {discipline === "run" && <AnchoredDetailsSection queryDetail id="analysis-run-records" title={t("analysis.categories.records")}><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} /><MilestonesGrid achieved={milestones} />{!user.isAnonymous && getRuntimeConfig().appEnvironment === "stage" && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}</AnchoredDetailsSection>}
-      {/* 분석은 파워 커브 비교만 둔다 — 활동량·추정 지표·기간별 강도·FTP 판단·데이터 근거 섹션은 두지 않는다. */}
+      {/* 분석은 파워 커브 비교와 활동량·주간 흐름, 기간별 훈련 강도(상단 기간 선택이 바꾼다)를 둔다. 추정 지표·FTP 판단·데이터 근거는 두지 않는다. */}
+      {analysisSummarySlot && <AnchoredDetailsSection queryDetail id="analysis-activity-flow" title={t("analysis.categories.activity")} >{analysisSummarySlot}</AnchoredDetailsSection>}
+      <AnchoredDetailsSection queryDetail id="analysis-periods" title={t("analysis.categories.periods")}>{periodPowerCard}{discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} />}{zoneDistributionCard}</AnchoredDetailsSection>
     </div>
   </div>;
 

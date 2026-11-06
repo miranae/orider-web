@@ -29,6 +29,7 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
 import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerCurvePeriodsPanel";
+import FitnessPeriodEvidence from "../../features/fitness/components/FitnessPeriodEvidence";
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
 import { fitnessTodayKey, type FitnessDateKeyBasis } from "@shared/training/dateKey";
 import FtpDecisionSection from "../../features/fitness/components/FtpDecisionSection";
@@ -666,6 +667,8 @@ export default function MobileFitnessPage({
   powerCurveEvidenceSlot = null,
   runningRecordsSlot = null,
   triEvidenceSlot = null,
+  periodTimeseries = null,
+  analysisSummarySlot = null,
   nativePowerActivities = [],
   todayDecisionState,
   todayDecisionSignedIn = true,
@@ -886,7 +889,8 @@ export default function MobileFitnessPage({
           {mobileAnalysis && hasRunCurve && runCurveContent}
           {mobileAnalysis && <div id={isBike ? "analysis-comparison" : undefined}>{bikePowerCurveContent}</div>}
           {mobileAnalysis && <SufficiencyGroup summaryOnly sets={mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null)} testId="analysis-readiness-summary" />}
-          {/* 분석은 파워 커브 비교만 둔다 — 활동량·추정 지표·기간별 강도·FTP 판단·데이터 근거 섹션은 두지 않는다. */}
+          {/* 분석은 파워 커브 비교와 활동량·주간 흐름, 기간별 훈련 강도(상단 기간 선택이 바꾼다)를 둔다. 추정 지표·FTP 판단·데이터 근거는 두지 않는다. */}
+          {mobileAnalysis && analysisSummarySlot && <CoachDetailSection id="analysis-activity-flow" title={t("mobileFitness.activityFlow")}>{analysisSummarySlot}</CoachDetailSection>}
           {!(mobileAnalysis && isBike) && modelContent}
           {/* 임계값 카드 */}
           {sectionState.derived === "ready" && data.threshold && !isBike && (
@@ -936,7 +940,7 @@ export default function MobileFitnessPage({
 
           {!mobileAnalysis && data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
 
-          {!(mobileAnalysis && data.discipline !== "tri") && !(part === "condition" && isBike) && bikePeriodZoneContent}
+          {mobileAnalysis && data.discipline !== "tri" ? <CoachDetailSection id="analysis-periods" title={t("activity:trainingPeriods.title")}><FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} />{bikePeriodZoneContent}</CoachDetailSection> : !(part === "condition" && isBike) && bikePeriodZoneContent}
 
 
           {/* 존 정의 */}
