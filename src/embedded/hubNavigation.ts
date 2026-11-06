@@ -60,6 +60,13 @@ export function embeddedHubDestination(currentPath: string, destination: string)
  */
 export const CLUB_DETAIL_EMBED_CAPABILITY = "club-detail-embed-v1";
 
+/**
+ * 이 웹이 코스 상세 임베드(`embed/courses/:courseId`)를 제공한다는 표시(`bootstrap.ready.capabilities`).
+ * 탐색 목록은 계속 `/course/{id}` 로 `navigation.openNative` 를 보내고, 앱은 이 값이 있을 때만 그 경로를
+ * 코스 상세 임베드로 연다 — 라우트가 없는 웹이 운영 중일 때 앱이 먼저 배포돼도 404 가 나지 않는다.
+ */
+export const COURSE_DETAIL_EMBED_CAPABILITY = "course-detail-embed-v1";
+
 /** 클럽 상세 임베드가 자기 안에서 그리는 하위 경로(App.tsx `club/:groupId/...` 와 같은 이름). */
 const CLUB_DETAIL_SECTION = /^(?:\/(?:rides(?:\/[^/]+)?|week|leaderboard|events|members|settings|meetings\/(?:new|[^/]+(?:\/(?:edit|live))?)))?\/?$/;
 
@@ -78,6 +85,22 @@ export function embeddedClubDetailDestination(currentPath: string, destination: 
   const section = club?.[2] ?? "";
   if (!club || club[1] !== current[2] || !CLUB_DETAIL_SECTION.test(section)) return null;
   return `/${current[1]}/embed/clubs/${current[2]}${section.replace(/\/$/, "")}${target.search}${target.hash}`;
+}
+
+/**
+ * 코스 상세 임베드(`/{lang}/embed/courses/{courseId}`) 안에서 **같은 코스** 상세(`/course/{id}`,
+ * 탭 쿼리 포함)로 가는 링크는 임베드 안에 둔다. 다른 코스·편집(`/course/{id}/edit`)·상세 밖 경로는
+ * null — `navigation.openNative` 로 앱에 넘긴다(다른 코스는 앱이 새 상세로 push).
+ */
+export function embeddedCourseDetailDestination(currentPath: string, destination: string): string | null {
+  const current = /^\/(ko|en)\/embed\/courses\/([^/]+)\/?$/.exec(currentPath);
+  if (!current) return null;
+  const target = new URL(destination, "https://embedded.invalid");
+  if (target.origin !== "https://embedded.invalid") return null;
+  const path = target.pathname.replace(/^\/(ko|en)(?=\/)/, "");
+  const course = /^\/(?:course|embed\/courses)\/([^/]+)\/?$/.exec(path);
+  if (!course || course[1] !== current[2]) return null;
+  return `/${current[1]}/embed/courses/${current[2]}${target.search}${target.hash}`;
 }
 
 /** 같은 이벤트의 상세·등록·결과·관리 화면은 앱을 벗어나지 않는다. */
@@ -103,6 +126,7 @@ export function embeddedInternalDestination(currentPath: string, destination: st
   return embeddedCoachDestination(currentPath, destination)
     ?? embeddedHubDestination(currentPath, destination)
     ?? embeddedClubDetailDestination(currentPath, destination)
+    ?? embeddedCourseDetailDestination(currentPath, destination)
     ?? embeddedEventDetailDestination(currentPath, destination);
 }
 

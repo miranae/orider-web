@@ -22,6 +22,7 @@ import type { CourseData, LatLngTuple } from "../features/courses/courseSnapshot
 import ChallengeFeed from "../components/discover/ChallengeFeed";
 import CourseSegmentSearch from "../components/discover/CourseSegmentSearch";
 import { searchVisibleCoursesPage, useCourseCatalog } from "../features/courses/useCourseCatalog";
+import type { CourseListCursor } from "../features/courses/courseListRest";
 
 const COURSES_CONTROL_STACK_STYLE: React.CSSProperties = {
   display: "flex",
@@ -56,7 +57,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
   const mapboxToken = getMapboxToken();
   const { t } = useTranslation("course");
   const { user } = useAuth();
-  const { firestore } = useFirebaseServices();
+  const { firestore, auth, getAppCheckToken } = useFirebaseServices();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -128,8 +129,8 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
 
   const serverSearch = usePagedSearch(
     searchQuery.trim() ? JSON.stringify([searchQuery.trim(), mineOnly, user?.uid]) : null,
-    (cursor: import("firebase/firestore").QueryDocumentSnapshot<import("firebase/firestore").DocumentData> | null) =>
-      searchVisibleCoursesPage(firestore, searchQuery, SEARCH_PAGE_SIZE, searchPolylineCache.current, searchPolylineValueCache.current, mineOnly ? user?.uid : undefined, cursor),
+    (cursor: CourseListCursor | null) =>
+      searchVisibleCoursesPage({ firestore, auth, getAppCheckToken }, searchQuery, SEARCH_PAGE_SIZE, searchPolylineCache.current, searchPolylineValueCache.current, mineOnly ? user?.uid : undefined, cursor),
   );
   const { items: serverSearchCourses, loading: serverSearchLoading, error: serverSearchError } = serverSearch;
 

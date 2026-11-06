@@ -1,18 +1,20 @@
 import { useMemo, useState, useEffect } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
   query,
   where,
   orderBy,
   limit,
-  getDocs,
   doc,
   getDoc,
   onSnapshot,
   type QueryConstraint,
   type DocumentData,
 } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import { subscribeCourseDetail } from "../features/courses/courseDetailAsset";
+
 
 function stableStringify(value: unknown, seen = new WeakSet<object>()): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -37,11 +39,15 @@ function serializeQueryConstraints(constraints: QueryConstraint[]): string {
  */
 export function useDocument<T = DocumentData>(
   collectionPath: string,
-  docId: string | undefined
+  docId: string | undefined,
+  courseTrackAssets = false
 ) {
+  const services = useFirebaseServices();
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
+  const { firestore } = services;
 
   useEffect(() => {
     if (!docId) {
@@ -49,7 +55,17 @@ export function useDocument<T = DocumentData>(
       return;
     }
 
-    const docRef = doc(firestore, collectionPath, docId);
+    if (collectionPath === "courses" && courseTrackAssets) {
+      let stopCourse: (() => void) | undefined;
+      const stopAuth = onAuthStateChanged(services.auth, () => {
+        stopCourse?.();
+        setData(null); setError(null); setLoading(true);
+        stopCourse = subscribeCourseDetail(services, docId, (value) => { setData(value as T | null); setError(null); setLoading(false); },
+          (failure) => { setError(failure); setLoading(false); });
+      });
+      return () => { stopAuth(); stopCourse?.(); };
+    }
+    const docRef = doc(services.firestore, collectionPath, docId);
     const unsubscribe = onSnapshot(
       docRef,
       (snap) => {
@@ -67,7 +83,8 @@ export function useDocument<T = DocumentData>(
     );
 
     return unsubscribe;
-  }, [collectionPath, docId]);
+  }, [firestore, collectionPath, docId, services, courseTrackAssets]);
+
 
   return { data, loading, error };
 }
@@ -84,6 +101,7 @@ export function useCollection<T = DocumentData>(
   const [error, setError] = useState<Error | null>(null);
   const constraintsKey = serializeQueryConstraints(constraints);
   const stableConstraints = useMemo(() => constraints, [constraintsKey]);
+  const { firestore } = useFirebaseServices();
 
   useEffect(() => {
     const q = query(collection(firestore, collectionPath), ...stableConstraints);
@@ -104,21 +122,9 @@ export function useCollection<T = DocumentData>(
 
     return unsubscribe;
      
-  }, [collectionPath, stableConstraints]);
+  }, [firestore, collectionPath, stableConstraints]);
 
   return { data, loading, error };
-}
-
-/**
- * Firestore 일회성 쿼리
- */
-export async function queryDocuments<T = DocumentData>(
-  collectionPath: string,
-  constraints: QueryConstraint[] = []
-): Promise<T[]> {
-  const q = query(collection(firestore, collectionPath), ...constraints);
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T);
 }
 
 export { where, orderBy, limit, collection, doc, getDoc };
