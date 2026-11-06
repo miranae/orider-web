@@ -26,6 +26,15 @@ describe("period evidence capability boundary", () => {
     });
     expect(selection.request.periods).toHaveLength(2);
   });
+  it("hides its own load button under a shared page load and reads the window periods only when signalled", () => {
+    const view = renderWithProviders(<FitnessPeriodEvidence discipline="bike" inline windowDays={30} loadSignal={0} />, { authenticated: true });
+    expect(screen.queryByRole("button", { name: "기간 분석 불러오기" })).not.toBeInTheDocument();
+    expect(mocks.hook).toHaveBeenLastCalledWith("test-uid", null, true);
+    view.rerender(<FitnessPeriodEvidence discipline="bike" inline windowDays={30} loadSignal={1} />);
+    const periods = mocks.hook.mock.lastCall![1].request.periods as { fromInclusive: number; toExclusive: number }[];
+    expect(periods).toHaveLength(2);
+    expect(periods.map(period => Math.round((period.toExclusive - period.fromInclusive) / 86400000))).toEqual([30, 30]);
+  });
   it("does not expose Stage-only swim in hosted production", () => {
     renderWithProviders(<FitnessPeriodEvidence discipline="swim" />, { authenticated: true });
     expect(screen.queryByTestId("K5-5-2")).not.toBeInTheDocument();

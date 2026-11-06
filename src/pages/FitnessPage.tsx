@@ -8,7 +8,8 @@ import FitnessPedalingEvidence from "../features/fitness/components/FitnessPedal
 import GlossaryText from "../components/common/GlossaryText";
 import GlossaryProvider from "../components/common/GlossaryProvider";
 import TabNav from "../components/TabNav";
-import FitnessPeriodEvidence from "../features/fitness/components/FitnessPeriodEvidence";
+import FitnessPeriodEvidence, { fitnessPeriodEvidenceVisible } from "../features/fitness/components/FitnessPeriodEvidence";
+import { AnalysisGroup, AnalysisPeriodLoadBar } from "../features/fitness/components/AnalysisGroup";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
 import RunningRaceEstimatesPanel from "../features/fitness/RunningRaceEstimatesPanel";
 import { getRuntimeConfig } from "../services/runtimeConfig";
@@ -87,7 +88,6 @@ export interface FitnessViewProps {
   part?: "all" | "condition" | "analysis";
   model: FitnessModel;
   thresholdsSlot?: ReactNode;
-  analysisSummarySlot?: ReactNode;
   conditionSupplementSlot?: ReactNode;
   hasThresholdSettings?: boolean;
 }
@@ -107,9 +107,11 @@ export function FitnessView({ thresholdsSlot, ...props }: FitnessViewProps) {
   </GlossaryProvider>;
 }
 
-function FitnessViewContent({ embedded = false, part = "all", model, thresholdsSlot, analysisSummarySlot, conditionSupplementSlot, hasThresholdSettings = Boolean(thresholdsSlot) }: FitnessViewProps) {
+function FitnessViewContent({ embedded = false, part = "all", model, thresholdsSlot, conditionSupplementSlot, hasThresholdSettings = Boolean(thresholdsSlot) }: FitnessViewProps) {
   const [chartView, setChartView] = useState<"trend" | "years" | "activities">("trend");
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  // 분석의 두 기간 비교(파워 커브·기간별 훈련 구성)를 한 버튼으로 함께 불러온다.
+  const [periodLoadSignal, setPeriodLoadSignal] = useState(0);
   // Form 구간 정본(#886). 전환이 꺼져 있으면 envelope 은 null 이고 카드는 기존 로컬 표시로 남는다.
   const trainingDecision = useTrainingDecision(
     model.discipline === "tri" ? null : model.user?.uid ?? null,
@@ -484,6 +486,8 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
           <MobileFitnessPage
             periodWindowDays={!embedded && part === "analysis" ? range : undefined}
+            periodLoadSignal={!embedded && part === "analysis" ? periodLoadSignal : undefined}
+            onPeriodLoad={!embedded && part === "analysis" && (discipline === "bike" || fitnessPeriodEvidenceVisible(discipline, user)) ? () => setPeriodLoadSignal(value => value + 1) : undefined}
             {...model.mobilePageProps}
             periodTimeseries={model.periodTimeseries}
             sectionState={{
@@ -492,11 +496,10 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             }}
             nativePowerActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))}
             triEvidenceSlot={part === "condition" && discipline === "tri" ? <TriFitnessView evidenceOnly condition range={range} selectedHistoryRange={historyRange} onRangeChange={changePageRange} breakdown={triFitnessBreakdown} timeline={triFitnessTimeline} combinedLoad={combinedLoad} loadFocus={integratedLoadFocus} /> : null}
-            powerCurveEvidenceSlot={(part === "condition" || part === "analysis") && discipline === "bike" ? <BikePowerCurveEvidence compact={!embedded} current={currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} /> : null}
+            powerCurveEvidenceSlot={part === "condition" && discipline === "bike" ? <BikePowerCurveEvidence compact={!embedded} current={currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} /> : null}
             runPaceCurve={runPaceCurve}
             runningRecordsSlot={(part === "condition" || part === "analysis") && discipline === "run" ? <><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} footer={qualifiedRunRecords(model.runEvidence).length === 0 && !needsRunAnalysisReadiness(model.runEvidence, !!model.mobilePageProps.data.threshold, model.mobilePageProps.data.zones.length > 0) ? <RunRecordsSummary evidence={model.runEvidence} sourceBoard /> : undefined} /><MilestonesGrid achieved={milestones} /></> : null}
             periodSlot={periodControls}
-            analysisSummarySlot={analysisSummarySlot}
             conditionSupplementSlot={conditionSupplementSlot}
             currentBasis={currentBasis}
             currentStatusSlot={currentStatusSlot}
@@ -867,7 +870,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
 
   </>;
 
-  const periodPowerCard = discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel windowDays={!embedded && part === "analysis" ? range : undefined} nativeActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>;
+  const periodPowerCard = discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel windowDays={!embedded && part === "analysis" ? range : undefined} loadSignal={!embedded && part === "analysis" ? periodLoadSignal : undefined} nativeActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>;
 
   const performanceCurves = <>
           {part !== "condition" && periodPowerCard}
@@ -1014,16 +1017,27 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     <div className="site-shell" style={bodyPad}>
       <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
       <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
-      {discipline === "run" && <RunRecordsSummary evidence={model.runEvidence} readiness={runReadiness} />}
-      <section id="analysis-comparison" className="condition-section-target" tabIndex={-1}>
-        {discipline === "bike" ? <BikePowerCurveEvidence compact current={curveBlock && needsSufficiencyCard(activityWindowSufficiency!, curveBlock) ? [] : currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} emptyContent={activityWindowSufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(activityWindowSufficiency, curveBlock) ? <SufficiencyCard set={activityWindowSufficiency} block={curveBlock} testId="K5-2-1-sufficiency" /> : undefined} />
-          : <Card><Text as="h2" variant="subtitle">{t("criticalPace.title")}</Text><Text as="p" variant="caption" tone="secondary">{t("criticalPace.periodNote")}</Text><CriticalPaceCurve stableSelection recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} /></Card>}
-      </section>
-      <SufficiencyGroup summaryOnly sets={analysisSets} testId="analysis-readiness-summary" />
-      {discipline === "run" && <AnchoredDetailsSection queryDetail id="analysis-run-records" title={t("analysis.categories.records")}><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} /><MilestonesGrid achieved={milestones} />{!user.isAnonymous && getRuntimeConfig().appEnvironment === "stage" && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}</AnchoredDetailsSection>}
-      {/* 분석은 파워 커브 비교와 활동량·주간 흐름, 기간별 훈련 강도(상단 기간 선택이 바꾼다)를 둔다. 추정 지표·FTP 판단·데이터 근거는 두지 않는다. */}
-      {analysisSummarySlot && <AnchoredDetailsSection queryDetail id="analysis-activity-flow" title={t("analysis.categories.activity")} >{analysisSummarySlot}</AnchoredDetailsSection>}
-      <AnchoredDetailsSection queryDetail id="analysis-periods" title={t("analysis.categories.periods")}>{periodPowerCard}{discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} windowDays={range} />}{zoneDistributionCard}</AnchoredDetailsSection>
+      {/* 분석 = 선택한 기간 동안 무엇이 바뀌었나. 수행 능력 변화 → 기간별 훈련 구성 → 해석과 근거 순서로 읽는다.
+          두 기간 비교는 서버 호출이라 공용 버튼으로만 불러온다(위 기간 선택이 기본 비교 기간을 정한다). */}
+      {(discipline === "bike" || fitnessPeriodEvidenceVisible(discipline, user)) && <AnalysisPeriodLoadBar windowDays={range} onLoad={() => setPeriodLoadSignal(value => value + 1)} />}
+      <AnalysisGroup id="analysis-comparison" title={t("analysis.groups.performance")} description={t("analysis.groups.performanceNote")}>
+        {discipline === "bike" && periodPowerCard}
+        {discipline === "bike" && <AnchoredDetailsSection queryDetail id="analysis-model" title={t("analysis.categories.model")}>{bikeMetrics}{pacingCard}</AnchoredDetailsSection>}
+        {discipline === "run" && <RunRecordsSummary evidence={model.runEvidence} readiness={runReadiness} />}
+        {discipline === "run" && <Card><Text as="h3" variant="subtitle">{t("criticalPace.title")}</Text><Text as="p" variant="caption" tone="secondary">{t("criticalPace.periodNote")}</Text><CriticalPaceCurve stableSelection recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} /></Card>}
+        {discipline === "run" && <AnchoredDetailsSection queryDetail id="analysis-run-records" title={t("analysis.categories.records")}><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} /><MilestonesGrid achieved={milestones} />{!user.isAnonymous && getRuntimeConfig().appEnvironment === "stage" && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}</AnchoredDetailsSection>}
+      </AnalysisGroup>
+      <AnalysisGroup id="analysis-periods" title={t("analysis.groups.composition")} description={t("analysis.groups.compositionNote")}>
+        {discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} windowDays={range} loadSignal={periodLoadSignal} />}
+        {zoneDistributionCard}
+      </AnalysisGroup>
+      <AnalysisGroup id="analysis-interpretation" title={t("analysis.groups.interpretation")} description={t("analysis.groups.interpretationNote")}>
+        <SufficiencyGroup summaryOnly sets={analysisSets} testId="analysis-readiness-summary" />
+        {discipline === "bike" && <FtpDecisionSection title={t("condition.basis.title")} anchorEnabled collapsible>
+          <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={!!zoneDistribution} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={ftpProgression} ftpHistory={ftpHistory} t={t} />
+        </FtpDecisionSection>}
+        {isSufficiencyGrouped(...analysisSets) && <AnchoredDetailsSection queryDetail id="analysis-evidence" title={t("analysis.categories.evidence")}><SufficiencyGroup inline sets={analysisSets} testId="K5-sufficiency-group" /></AnchoredDetailsSection>}
+      </AnalysisGroup>
     </div>
   </div>;
 

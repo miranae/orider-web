@@ -78,7 +78,7 @@ export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, 
     {(normalized ? response.periods.some(period => period.weightNormalized?.powerDurationObservations !== undefined) : periods.some(period => period.powerDurationObservations !== undefined)) && <PowerDurationPeriodsView response={response} unit={unit} selectedDuration={duration} onDurationChange={setDuration} />}
   </div>;
 }
-function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays }: { ownerUid: string; callableEnabled: boolean; embedded: boolean; windowDays?: number }) {
+function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSignal }: { ownerUid: string; callableEnabled: boolean; embedded: boolean; windowDays?: number; loadSignal?: number }) {
   const { t } = useTranslation("fitness");
   const id = useId();
   const today = trainingCalendarDate(Date.now());
@@ -113,6 +113,12 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays }: { owne
     if (loadedWindow.current === null) { loadedWindow.current = windowDays!; return; }
     if (loadedWindow.current !== windowDays) { loadedWindow.current = windowDays!; submitRef.current(); }
   }, [windowDays, windowMode, selection]);
+  // 페이지 공용 불러오기 버튼(loadSignal)이 있으면 그 신호로 불러온다.
+  const lastSignal = useRef(loadSignal);
+  useEffect(() => {
+    if (loadSignal === undefined || loadSignal === lastSignal.current) return;
+    lastSignal.current = loadSignal; if (callableEnabled) submitRef.current();
+  }, [loadSignal, callableEnabled]);
   return <section className="fitness-analysis-controls period-curve-tool space-y-4" aria-label={t("periodCurve.title")}>
     {!embedded && <Text as="h3" variant="title">{t("periodCurve.title")}</Text>}
     <Text as="p" variant="bodyMedium" tone="secondary">{t(skillsMode ? "comparison.rollingNote" : "comparison.timezone")}</Text>
@@ -129,7 +135,7 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays }: { owne
     </ToggleControls>}
     {windowMode ? <Text as="p" variant="bodyMedium" tone="secondary">{t("comparison.windowNote", { days: windowDays })}</Text> : !skillsMode && comparison && <Text as="p" variant="bodyMedium" tone="secondary">{t(`comparison.${comparison}Note`)}</Text>}
     {!skillsMode && !windowMode && !comparison && <div className="period-curve-form">{drafts.map((draft, index) => <div key={index} className="space-y-3"><label className="space-y-2 block" htmlFor={`${id}-${index}`}><Text as="span" variant="bodyMedium">{t("periodCurve.period", { n: index + 1 })}</Text><DropdownSelect id={`${id}-${index}`} label={t("periodCurve.period", { n: index + 1 })} value={String(draft.preset)} onChange={next => update(index, { preset: next as Draft["preset"] })} options={[{ value: String("year"), label: t("periodCurve.year") }, { value: String("all"), label: t("periodCurve.all") }, { value: String("custom"), label: t("periodCurve.custom") }]} /></label>{draft.preset === "custom" && <div className="period-curve-dates">{(["from", "through"] as const).map(field => <div key={field} className="fitness-date-control"><label htmlFor={`${id}-${index}-${field}`}><Text as="span" variant="bodyMedium">{t(`periodCurve.${field}`)}</Text></label><DateField id={`${id}-${index}-${field}`} portal icon={<CalendarDays size={ICON_SIZE.md} aria-hidden="true" />} max={today} value={draft[field]} onChange={next => update(index, { [field]: next })} /></div>)}</div>}</div>)}</div>}
-    <div className="period-curve-actions">{!skillsMode && !comparison && <Button variant="ghost" size="sm" onClick={() => { setDrafts(values => values.length === 1 ? [...values, makeDraft()] : values.slice(0, 1)); setSelection(null); }}>{t(drafts.length === 1 ? "periodCurve.add" : "periodCurve.remove")}</Button>}<Button size="lg" loading={result.state === "loading"} disabled={!callableEnabled || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button></div>
+    <div className="period-curve-actions">{!skillsMode && !comparison && <Button variant="ghost" size="sm" onClick={() => { setDrafts(values => values.length === 1 ? [...values, makeDraft()] : values.slice(0, 1)); setSelection(null); }}>{t(drafts.length === 1 ? "periodCurve.add" : "periodCurve.remove")}</Button>}{loadSignal === undefined && <Button size="lg" loading={result.state === "loading"} disabled={!callableEnabled || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button>}</div>
     </div>
     {!callableEnabled && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.preparing")}</Text>}
     {invalid && <Text as="p" variant="bodyMedium" role="alert">{t("periodCurve.invalid")}</Text>}
@@ -140,8 +146,8 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays }: { owne
     {result.response && stageActivityPowerAvailable() && <PowerEffortPreferencePanel ownerUid={ownerUid} mode="stage_power_effort_adjusted_canonical" activityIds={[...new Set(result.response.periods.flatMap(p=>[...p.points.map(v=>v.sourceActivityId),...(p.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[])]))].slice(0,20)} periods={result.response.periods.map((p,i)=>({id:`period_${i}`,fromInclusiveMs:p.fromInclusive,toExclusiveMs:p.toExclusive}))} scopeKey={JSON.stringify([selection,result.response.inputDigest])}/>}
   </section>;
 }
-export function PowerCurvePeriodsPanel({ ownerUid, callableEnabled = false, embedded = false, nativeActivities = [], windowDays }: { nativeActivities?: readonly NativePowerLoadedActivity[]; ownerUid: string | null | undefined; callableEnabled?: boolean; embedded?: boolean; windowDays?: number }) {
+export function PowerCurvePeriodsPanel({ ownerUid, callableEnabled = false, embedded = false, nativeActivities = [], windowDays, loadSignal }: { nativeActivities?: readonly NativePowerLoadedActivity[]; ownerUid: string | null | undefined; callableEnabled?: boolean; embedded?: boolean; windowDays?: number; loadSignal?: number }) {
   const { user } = useAuth();
   if (!ownerUid || !user || user.isAnonymous || user.uid !== ownerUid) return null;
-  return <div data-testid="K5-5"><PeriodsForm key={ownerUid} ownerUid={ownerUid} callableEnabled={callableEnabled} embedded={embedded} windowDays={windowDays} />{stageActivityPowerAvailable() && <NativePowerTwelvePersonalPanel key={`native-${ownerUid}`} ownerUid={ownerUid} activities={nativeActivities} enabled={callableEnabled} />}</div>;
+  return <div data-testid="K5-5"><PeriodsForm key={ownerUid} ownerUid={ownerUid} callableEnabled={callableEnabled} embedded={embedded} windowDays={windowDays} loadSignal={loadSignal} />{stageActivityPowerAvailable() && <NativePowerTwelvePersonalPanel key={`native-${ownerUid}`} ownerUid={ownerUid} activities={nativeActivities} enabled={callableEnabled} />}</div>;
 }

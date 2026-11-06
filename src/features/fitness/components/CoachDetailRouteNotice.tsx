@@ -10,7 +10,7 @@ export default function CoachDetailRouteNotice({ discipline }: { discipline: str
   const params = new URLSearchParams(location.search);
   const detail = params.get("detail");
   if (!detail || detail === "closed") return null;
-  const allowed = ["analysis-periods", "analysis-activity-flow", "analysis-evidence",
+  const allowed = ["analysis-comparison", "analysis-periods", "analysis-interpretation", "analysis-evidence",
     ...(discipline === "bike" ? ["analysis-model", "ftp-decision"] : discipline === "run" ? ["analysis-run-records"] : [])];
   if (allowed.includes(detail)) return null;
   const next = new URLSearchParams(params); next.delete("detail");

@@ -4,7 +4,7 @@ import RunRecordsSummary from "../../features/fitness/components/RunRecordsSumma
 import { sufficiencyBlock, sufficiencySet } from "../../features/sufficiency/__fixtures__";
 import { mockCallableInvocations } from "../../__tests__/mocks/firebase";
 import GlossaryProvider from "../common/GlossaryProvider";
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { BikeThresholdDecisionV2 } from "@shared/types/threshold";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
@@ -81,23 +81,32 @@ describe("mobile web analysis evidence", () => {
     expect(current).toHaveTextContent("피트니스 추이를 불러오는 중…");
     expect(current).not.toHaveTextContent("아직 계산할 기록이 없어요");
   });
-  it("places the optional activity summary before detailed analysis without leaking it to embedded views", () => {
-    const view = renderWithProviders(<MobileFitnessPage data={data} part="analysis" analysisSummarySlot={<div>monthly summary</div>} />);
-    expect(screen.getByText("monthly summary")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /활동량과 주간 흐름/ }).compareDocumentPosition(screen.getByRole("button", { name: /기간별 훈련 강도/ })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    view.rerender(<MobileFitnessPage data={data} part="analysis" embedded analysisSummarySlot={<div>monthly summary</div>} />);
-    expect(screen.queryByText("monthly summary")).not.toBeInTheDocument();
+  it("orders web analysis as performance change, training composition, then interpretation without activity flow", () => {
+    const view = renderWithProviders(<MobileFitnessPage data={data} part="analysis" />);
+    const headings = screen.getAllByRole("heading", { level: 2 }).map(node => node.textContent);
+    expect(headings.indexOf("수행 능력 변화")).toBeGreaterThanOrEqual(0);
+    expect(headings.indexOf("수행 능력 변화")).toBeLessThan(headings.indexOf("기간별 훈련 구성"));
+    expect(headings.indexOf("기간별 훈련 구성")).toBeLessThan(headings.indexOf("해석과 근거"));
+    expect(screen.queryByText("활동량과 주간 흐름")).not.toBeInTheDocument();
+    view.rerender(<MobileFitnessPage data={data} part="analysis" embedded />);
+    expect(screen.queryByRole("heading", { name: "수행 능력 변화" })).not.toBeInTheDocument();
   });
 
-  it.each([false, true])("keeps moved period controls collapsed until opened with enabled=%s while waiting for an explicit query", enabled => {
-    const before = mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods").length;
-    renderWithProviders(<MobileFitnessPage data={data} part="analysis" powerCurvePeriodsOwnerUid="test-uid" powerCurvePeriodsEnabled={enabled} />, { authenticated: true });
-    expect(screen.queryByRole("button", { name: "기간 분석 불러오기" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /기간별 훈련 강도/ }));
+  it.each([false, true])("shows period comparisons inline behind one shared load with enabled=%s", async enabled => {
+    const calls = () => mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods").length;
+    const before = calls();
+    const onPeriodLoad = vi.fn();
+    const props = { data, part: "analysis" as const, powerCurvePeriodsOwnerUid: "test-uid", powerCurvePeriodsEnabled: enabled, periodWindowDays: 90, onPeriodLoad };
+    const view = renderWithProviders(<MobileFitnessPage {...props} periodLoadSignal={0} />, { authenticated: true });
+    // 두 패널의 자체 버튼은 숨기고 공용 버튼 하나만 둔다. 누르기 전에는 서버를 부르지 않는다.
     const load = screen.getByRole("button", { name: "기간 분석 불러오기" });
-    expect(load).toBeVisible();
-    expect(load).toHaveProperty("disabled", !enabled);
-    expect(mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods")).toHaveLength(before);
+    expect(screen.getAllByRole("button", { name: "기간 분석 불러오기" })).toHaveLength(1);
+    expect(screen.getByTestId("K5-5-1")).toBeVisible();
+    expect(calls()).toBe(before);
+    fireEvent.click(load);
+    expect(onPeriodLoad).toHaveBeenCalledTimes(1);
+    view.rerender(<MobileFitnessPage {...props} periodLoadSignal={1} />);
+    await waitFor(() => expect(calls()).toBe(before + (enabled ? 1 : 0)));
   });
 
   it.each(["bike", "run"] as const)("keeps cycling PDC requirements scoped on %s", discipline => {
@@ -108,9 +117,14 @@ describe("mobile web analysis evidence", () => {
       sufficiencyBlock({ featureId: "ftp_estimate", viewId: "current" }),
     ]);
     renderWithProviders(<MobileFitnessPage data={{ ...data, discipline, pdcSufficiency }} consistencyStreak={{ streakWeeks: 2, activeDays90d: 4, activeWeeks90d: 2, score90d: 10, thisWeekCount: 1, needsThisWeek: 0 }} part="analysis" />);
-    // 분석은 "지표별 데이터 근거" 묶음을 두지 않는다(어느 종목이든).
-    expect(screen.queryByTestId("K5-sufficiency-group")).not.toBeInTheDocument();
-    if (discipline === "run") expect(screen.getByTestId("K5-4")).toBeVisible();
+    if (discipline === "bike") {
+      fireEvent.click(screen.getByRole("button", { name: /지표별 데이터 근거/ }));
+      expect(screen.getByTestId("K5-sufficiency-group-power_model-cp_w_prime")).toBeVisible();
+      expect(screen.getByTestId("K5-sufficiency-group-ftp_estimate-current")).toBeVisible();
+    } else {
+      expect(screen.queryByTestId("K5-sufficiency-group")).not.toBeInTheDocument();
+      expect(screen.getByTestId("K5-4")).toBeVisible();
+    }
   });
 
 
@@ -205,7 +219,6 @@ it("keeps the integrated contribution proportions when swimming controls are hid
 
 it("does not label the whole mobile analysis insufficient when a permitted recorded curve is visible", () => {
   renderWithProviders(<MobileFitnessPage data={{ ...data, powerCurve: [{ durationSeconds: 5, maxPower: 500 }, { durationSeconds: 1200, maxPower: 200 }] }} part="analysis" />);
-  expect(screen.getByRole("img", { name: /파워 커브 · 최근 28일/ })).toBeVisible();
   expect(screen.queryByText("분석할 데이터가 아직 충분하지 않아요.")).not.toBeInTheDocument();
 });
 
@@ -247,12 +260,19 @@ it("prioritizes available pace changes over the source-only distance record list
   expect(sources).toBeVisible();
 });
 
-it("analysis keeps the power curve, activity flow and periods without model, FTP and evidence sections", () => {
-  renderWithProviders(<MobileFitnessPage data={data} part="analysis" analysisSummarySlot={<p>activity summary</p>} />);
-  for (const title of ["추정 지표와 산출 근거", "훈련 기준 — FTP 판단", "지표별 데이터 근거"]) {
-    expect(screen.queryByText(title)).not.toBeInTheDocument();
-  }
-  expect(screen.getByText("활동량과 주간 흐름")).toBeInTheDocument();
-  expect(screen.getByText("기간별 훈련 강도")).toBeInTheDocument();
-  expect(document.getElementById("analysis-comparison")).toBeInTheDocument();
+it("groups the restored model, FTP and evidence sections under the three analysis headings", () => {
+  const pdcSufficiency = sufficiencySet([
+    sufficiencyBlock(),
+    sufficiencyBlock({ featureId: "power_model", viewId: "cp_w_prime" }),
+    sufficiencyBlock({ featureId: "rider_profile", viewId: "profile" }),
+    sufficiencyBlock({ featureId: "ftp_estimate", viewId: "current" }),
+  ]);
+  renderWithProviders(<MobileFitnessPage data={{ ...data, pdcSufficiency }} part="analysis" />);
+  const performance = document.getElementById("analysis-comparison")!;
+  const interpretation = document.getElementById("analysis-interpretation")!;
+  expect(within(performance).getByRole("button", { name: /추정 지표와 산출 근거/ })).toBeInTheDocument();
+  expect(within(interpretation).getAllByText(/훈련 기준 — FTP 판단/).length).toBeGreaterThan(0);
+  expect(within(interpretation).getByRole("button", { name: /지표별 데이터 근거/ })).toBeInTheDocument();
+  expect(document.getElementById("analysis-periods")).toHaveTextContent("기간별 훈련 구성");
+  expect(screen.queryByText("활동량과 주간 흐름")).not.toBeInTheDocument();
 });
