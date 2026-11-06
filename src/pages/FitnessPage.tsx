@@ -8,13 +8,16 @@ import FitnessPedalingEvidence from "../features/fitness/components/FitnessPedal
 import GlossaryText from "../components/common/GlossaryText";
 import GlossaryProvider from "../components/common/GlossaryProvider";
 import TabNav from "../components/TabNav";
-import FitnessPeriodEvidence from "../features/fitness/components/FitnessPeriodEvidence";
+import FitnessPeriodEvidence, { fitnessPeriodEvidenceVisible } from "../features/fitness/components/FitnessPeriodEvidence";
+import { AnalysisGroup, AnalysisPeriodLoadBar, AnalysisRunRecordsLink } from "../features/fitness/components/AnalysisGroup";
+import { ConciseExplanationsContext } from "../features/fitness/conciseExplanations";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
 import RunningRaceEstimatesPanel from "../features/fitness/RunningRaceEstimatesPanel";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import "./FitnessPage.css";
 import { PowerCurvePeriodsPanel } from "../features/fitness/components/PowerCurvePeriodsPanel";
 import { useState, type ReactNode } from "react";
+import type { PowerCurvePeriod } from "@shared/types/power-curve-periods";
 import { useTranslation } from "react-i18next";
 import { useTrainingDecision } from "../hooks/useTrainingDecision";
 import { useSearchParams } from "react-router-dom";
@@ -42,7 +45,6 @@ import MobileFitnessPage from "../components/mobile/MobileFitnessPage";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../components/redesign";
 import DetailsSection from "../components/redesign/DetailsSection";
-import AnchoredDetailsSection from "../components/redesign/AnchoredDetailsSection";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
 import FtpDecisionSection from "../features/fitness/components/FtpDecisionSection";
@@ -87,7 +89,6 @@ export interface FitnessViewProps {
   part?: "all" | "condition" | "analysis";
   model: FitnessModel;
   thresholdsSlot?: ReactNode;
-  analysisSummarySlot?: ReactNode;
   conditionSupplementSlot?: ReactNode;
   hasThresholdSettings?: boolean;
 }
@@ -107,9 +108,15 @@ export function FitnessView({ thresholdsSlot, ...props }: FitnessViewProps) {
   </GlossaryProvider>;
 }
 
-function FitnessViewContent({ embedded = false, part = "all", model, thresholdsSlot, analysisSummarySlot, conditionSupplementSlot, hasThresholdSettings = Boolean(thresholdsSlot) }: FitnessViewProps) {
+function FitnessViewContent({ embedded = false, part = "all", model, thresholdsSlot, conditionSupplementSlot, hasThresholdSettings = Boolean(thresholdsSlot) }: FitnessViewProps) {
   const [chartView, setChartView] = useState<"trend" | "years" | "activities">("trend");
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(null);
+  // 분석의 두 기간 비교(파워 커브·기간별 훈련 구성)를 한 버튼으로 함께 불러온다.
+  const [periodLoadSignal, setPeriodLoadSignal] = useState(0);
+  // 사이클 분석의 "기간별 훈련 구성"은 위 파워 비교가 불러온 기간을 그대로 쓴다.
+  const [analysisPeriods, setAnalysisPeriods] = useState<PowerCurvePeriod[] | null>(null);
+  // 기간 파워 비교는 이 플래그가 켜진 환경에서만 조회된다. 꺼져 있으면 분석은 기존 28일 파워 커브를 보여준다.
+  const periodPowerEnabled = getRuntimeConfig().activityAnalysisExpansionEnabled === true;
   // Form 구간 정본(#886). 전환이 꺼져 있으면 envelope 은 null 이고 카드는 기존 로컬 표시로 남는다.
   const trainingDecision = useTrainingDecision(
     model.discipline === "tri" ? null : model.user?.uid ?? null,
@@ -364,7 +371,10 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   </FtpDecisionSection> : null;
 
 
-  if (!hasSufficiency && renderMobile && (loading || !timeseriesLoaded)) {
+  // 웹 분석은 기간을 바꿀 때 활동을 다시 읽는 동안에도 화면을 유지한다 — 로딩 골격으로 바꾸면 분석이 새로
+  // 마운트돼 펼친 섹션이 닫히고 불러온 기간 비교가 사라졌다(분석 내용은 이 조회에 기대지 않는다).
+  const keepAnalysisMounted = !embedded && part === "analysis";
+  if (!hasSufficiency && renderMobile && !keepAnalysisMounted && (loading || !timeseriesLoaded)) {
     return (
       <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         <LoadingSkeleton kind="chart" />
@@ -480,6 +490,12 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
           <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
           <MobileFitnessPage
+            periodWindowDays={!embedded && part === "analysis" ? range : undefined}
+            periodLoadSignal={!embedded && part === "analysis" ? periodLoadSignal : undefined}
+            analysisPeriods={!embedded && part === "analysis" && discipline === "bike" ? analysisPeriods : undefined}
+            onAnalysisPeriodsChange={!embedded && part === "analysis" && discipline === "bike" ? setAnalysisPeriods : undefined}
+            periodZonesFromServer={!embedded && part === "analysis" && fitnessPeriodEvidenceVisible(discipline, user)}
+            onPeriodLoad={!embedded && part === "analysis" && (discipline === "bike" && periodPowerEnabled || fitnessPeriodEvidenceVisible(discipline, user)) ? () => setPeriodLoadSignal(value => value + 1) : undefined}
             {...model.mobilePageProps}
             periodTimeseries={model.periodTimeseries}
             sectionState={{
@@ -488,11 +504,10 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
             }}
             nativePowerActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))}
             triEvidenceSlot={part === "condition" && discipline === "tri" ? <TriFitnessView evidenceOnly condition range={range} selectedHistoryRange={historyRange} onRangeChange={changePageRange} breakdown={triFitnessBreakdown} timeline={triFitnessTimeline} combinedLoad={combinedLoad} loadFocus={integratedLoadFocus} /> : null}
-            powerCurveEvidenceSlot={(part === "condition" || part === "analysis") && discipline === "bike" ? <BikePowerCurveEvidence compact={!embedded} current={currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} /> : null}
+            powerCurveEvidenceSlot={(part === "condition" || !embedded && part === "analysis" && !periodPowerEnabled) && discipline === "bike" ? <BikePowerCurveEvidence compact={!embedded} current={currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} /> : null}
             runPaceCurve={runPaceCurve}
-            runningRecordsSlot={(part === "condition" || part === "analysis") && discipline === "run" ? <><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} footer={qualifiedRunRecords(model.runEvidence).length === 0 && !needsRunAnalysisReadiness(model.runEvidence, !!model.mobilePageProps.data.threshold, model.mobilePageProps.data.zones.length > 0) ? <RunRecordsSummary evidence={model.runEvidence} sourceBoard /> : undefined} /><MilestonesGrid achieved={milestones} /></> : null}
+            runningRecordsSlot={part === "condition" && discipline === "run" ? <><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} footer={qualifiedRunRecords(model.runEvidence).length === 0 && !needsRunAnalysisReadiness(model.runEvidence, !!model.mobilePageProps.data.threshold, model.mobilePageProps.data.zones.length > 0) ? <RunRecordsSummary evidence={model.runEvidence} sourceBoard /> : undefined} /><MilestonesGrid achieved={milestones} /></> : null}
             periodSlot={periodControls}
-            analysisSummarySlot={analysisSummarySlot}
             conditionSupplementSlot={conditionSupplementSlot}
             currentBasis={currentBasis}
             currentStatusSlot={currentStatusSlot}
@@ -614,7 +629,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   // 콜드 CTL)으로 한 번 그렸다가 정본으로 스왑하며 곡선/KPI 가 튀는 깜빡임 방지(리뷰 #340).
   // doc 부재/미인증은 훅이 loaded=true 를 즉시 세팅하므로 추가 대기 없음. (이 지점은 이미
   // tri·미인증 early-return 뒤라 discipline 은 bike/run/swim, user 는 truthy 로 좁혀져 있다.)
-  if (!hasSufficiency && (loading || !timeseriesLoaded)) {
+  if (!hasSufficiency && !keepAnalysisMounted && (loading || !timeseriesLoaded)) {
     return (
       <div className="fitness-reading">
         {pageHeader}
@@ -863,7 +878,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
 
   </>;
 
-  const periodPowerCard = discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel nativeActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>;
+  const periodPowerCard = discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel windowDays={!embedded && part === "analysis" ? range : undefined} loadSignal={!embedded && part === "analysis" ? periodLoadSignal : undefined} onPeriodsChange={!embedded && part === "analysis" ? setAnalysisPeriods : undefined} nativeActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>;
 
   const performanceCurves = <>
           {part !== "condition" && periodPowerCard}
@@ -1005,21 +1020,35 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
 
   // Web analysis owns performance changes and their supporting tools on every viewport.
   // The condition surface keeps load/recovery; embedded presentations retain their contract below.
-  if (!embedded && part === "analysis") return <div className="fitness-reading">
+  if (!embedded && part === "analysis") return <ConciseExplanationsContext.Provider value><div className="fitness-reading">
     {pageHeader}
     <div className="site-shell" style={bodyPad}>
       <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
       <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
-      {discipline === "run" && <RunRecordsSummary evidence={model.runEvidence} readiness={runReadiness} />}
-      <section id="analysis-comparison" className="condition-section-target" tabIndex={-1}>
-        {discipline === "bike" ? <BikePowerCurveEvidence compact current={curveBlock && needsSufficiencyCard(activityWindowSufficiency!, curveBlock) ? [] : currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} emptyContent={activityWindowSufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(activityWindowSufficiency, curveBlock) ? <SufficiencyCard set={activityWindowSufficiency} block={curveBlock} testId="K5-2-1-sufficiency" /> : undefined} />
-          : <Card><Text as="h2" variant="subtitle">{t("criticalPace.title")}</Text><Text as="p" variant="caption" tone="secondary">{t("criticalPace.periodNote")}</Text><CriticalPaceCurve stableSelection recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} /></Card>}
-      </section>
+      {/* 분석 = 선택한 기간 동안 무엇이 바뀌었나. 수행 능력 변화 → 기간별 훈련 구성 → 해석과 근거 순서로 읽는다.
+          두 기간 비교는 서버 호출이라 공용 버튼으로만 불러온다(위 기간 선택이 기본 비교 기간을 정한다). */}
+      {(discipline === "bike" && periodPowerEnabled || fitnessPeriodEvidenceVisible(discipline, user)) && <AnalysisPeriodLoadBar windowDays={range} onLoad={() => setPeriodLoadSignal(value => value + 1)} />}
+      <AnalysisGroup id="analysis-comparison" title={t("analysis.groups.performance")}>
+        {discipline === "bike" && (periodPowerEnabled ? periodPowerCard
+          : <BikePowerCurveEvidence compact current={curveBlock && needsSufficiencyCard(activityWindowSufficiency!, curveBlock) ? [] : currentPowerCurve?.points ?? []} previous={prevPowerCurve?.points ?? []} expected={expectedCurvePoints} emptyContent={activityWindowSufficiency && !isSufficiencyGrouped(...analysisSets) && needsSufficiencyCard(activityWindowSufficiency, curveBlock) ? <SufficiencyCard set={activityWindowSufficiency} block={curveBlock} testId="K5-2-1-sufficiency" /> : undefined} />)}
+        {discipline === "run" && <RunRecordsSummary evidence={model.runEvidence} readiness={runReadiness} />}
+        {discipline === "run" && <AnalysisRunRecordsLink />}
+        {/* 러닝 레이스 예측(스테이지)은 거리 기록 상세를 뺀 뒤에도 분석에 남긴다(P9). */}
+        {discipline === "run" && !user.isAnonymous && getRuntimeConfig().appEnvironment === "stage" && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}
+        {discipline === "run" && <Card><Text as="h3" variant="subtitle">{t("criticalPace.title")}</Text><CriticalPaceCurve stableSelection recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} /></Card>}
+      </AnalysisGroup>
+      <AnalysisGroup id="analysis-periods" title={t("analysis.groups.composition")}>
+        {discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} windowDays={range} loadSignal={periodLoadSignal} periods={discipline === "bike" && periodPowerEnabled ? analysisPeriods : undefined} />}
+        {/* 기간별 심박·파워 존은 위 기간과 같은 서버 기간 통계로 보여준다. 고정 30일 카드는 그 통계를 못 쓸 때만 둔다. */}
+        {!fitnessPeriodEvidenceVisible(discipline, user) && zoneDistributionCard}
+      </AnalysisGroup>
+      {/* 해석과 근거 묶음은 두지 않는다. 데이터 준비 상태만 남기고, FTP 판단은 제안 링크(#ftp-decision·decisionId)로 들어올 때만 연다. */}
       <SufficiencyGroup summaryOnly sets={analysisSets} testId="analysis-readiness-summary" />
-      {discipline === "run" && <AnchoredDetailsSection queryDetail id="analysis-run-records" title={t("analysis.categories.records")}><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} /><MilestonesGrid achieved={milestones} />{!user.isAnonymous && getRuntimeConfig().appEnvironment === "stage" && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}</AnchoredDetailsSection>}
-      {/* 분석은 파워 커브 비교만 둔다 — 활동량·추정 지표·기간별 강도·FTP 판단·데이터 근거 섹션은 두지 않는다. */}
+      {discipline === "bike" && <FtpDecisionSection title={t("condition.basis.title")} anchorEnabled collapsible requestedOnly>
+        <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={!!zoneDistribution} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={ftpProgression} ftpHistory={ftpHistory} t={t} />
+      </FtpDecisionSection>}
     </div>
-  </div>;
+  </div></ConciseExplanationsContext.Provider>;
 
   const conditionNavigation = embedded && part === "condition" ? <ConditionSectionNav sections={[
     ...(currentPoint ? [{ id: "condition-current", label: t("condition.current.title") }, { id: "condition-trend", label: t("condition.chart.region") }, { id: "condition-activities", label: t("coach.recent.title") }] : []),

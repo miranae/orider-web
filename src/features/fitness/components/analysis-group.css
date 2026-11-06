@@ -1,0 +1,5 @@
+.analysis-group { display: grid; gap: var(--space-4); margin-block: var(--space-6); }
+.analysis-group__header { display: grid; gap: var(--space-1); }
+.analysis-group__body { display: grid; gap: var(--space-4); min-width: 0; }
+.analysis-period-load { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--line-soft); border-radius: var(--r-lg); }
+.analysis-period-load > p { flex: 1 1 16rem; margin: 0; }

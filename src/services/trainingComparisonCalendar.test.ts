@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { trainingCalendarDate, trainingCalendarPeriod, trainingComparisonPeriods } from "./trainingComparisonCalendar";
+import { trainingCalendarDate, trainingCalendarPeriod, trainingComparisonPeriods, trainingWindowPeriods } from "./trainingComparisonCalendar";
 const ms = Date.parse;
 describe("KST training comparison calendar", () => {
   it("keeps dates across UTC midnight and the Korean year boundary", () => {
@@ -24,5 +24,14 @@ describe("KST training comparison calendar", () => {
     expect(trainingCalendarPeriod("2026-10-26", "2026-10-26", now)?.toExclusive).toBe(now);
     for (const [from, through] of [["2026-02-30", "2026-03-01"], ["2026-10-27", "2026-10-27"], ["2026-10-25", "2026-10-24"]])
       expect(trainingCalendarPeriod(from!, through!, now)).toBeNull();
+  });
+  it("compares the selected analysis window with the immediately preceding window of the same length", () => {
+    for (const days of [30, 90, 180, 365]) {
+      const [a, b] = trainingWindowPeriods(days, ms("2026-10-25T16:10:00Z"));
+      expect(a!.toExclusive).toBe(ms("2026-10-25T15:00:00Z"));
+      expect(a!.toExclusive - a!.fromInclusive).toBe(days * 86400000);
+      expect(b!.toExclusive).toBe(a!.fromInclusive);
+      expect(b!.toExclusive - b!.fromInclusive).toBe(days * 86400000);
+    }
   });
 });

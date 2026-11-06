@@ -1,4 +1,5 @@
 import "./fitness-period-evidence.css";
+import { useConciseExplanations } from "../conciseExplanations";
 import { useState } from 'react';
 import type { FitnessTimeseriesDoc } from '@shared/types/fitness-timeseries';
 import { useLocation } from 'react-router-dom';
@@ -12,10 +13,11 @@ export default function PeriodLoadEvidence({ ownerUid, discipline, periods, time
   ownerUid: string; discipline: 'bike' | 'run' | 'swim'; periods: readonly { fromInclusive: number; toExclusive: number }[]; timeseries: FitnessTimeseriesDoc | null;
 }) {
   const { t } = useTranslation('fitness');
+  const concise = useConciseExplanations();
   const location = useLocation();
   return <section className="fitness-period-load">
     <Text as="h3" variant="subtitle">{t('periodLoad.title')}</Text>
-    <Text as="p" variant="caption" tone="secondary">{t('periodLoad.basis')}</Text>
+    {!concise && <Text as="p" variant="caption" tone="secondary">{t('periodLoad.basis')}</Text>}
     <div className="fitness-period-load-grid">{periods.map((period, index) => {
       const evidence = periodLoadEvidence(timeseries?.discipline === discipline ? timeseries : null, period.fromInclusive, period.toExclusive);
       return <section className="fitness-period-summary" key={`${period.fromInclusive}:${period.toExclusive}`}>
@@ -24,8 +26,8 @@ export default function PeriodLoadEvidence({ ownerUid, discipline, periods, time
         <Text as="p">{t('periodLoad.total', { value: evidence.total == null ? '—' : evidence.total.toLocaleString(undefined, { maximumFractionDigits: 1 }) })}</Text>
         {evidence.observedTotal != null && <Text as="p">{t('periodLoad.completed', { start: evidence.start, end: evidence.observedEnd, value: evidence.observedTotal.toLocaleString(undefined, { maximumFractionDigits: 1 }) })}</Text>}
         {evidence.reason && <Text as="p" role="status" tone="secondary">{t(`periodLoad.${evidence.reason}`)}</Text>}
-        {evidence.asOf != null && <Text as="p" variant="caption">{t('periodLoad.asOf', { date: new Date(evidence.asOf).toLocaleString(undefined, { timeZone: 'Asia/Seoul' }) })}</Text>}
-        {evidence.observedEnd && <Text as="p" variant="caption">{t('periodLoad.pmcBounds', { start: evidence.start, end: evidence.observedEnd })}</Text>}
+        {!concise && evidence.asOf != null && <Text as="p" variant="caption">{t('periodLoad.asOf', { date: new Date(evidence.asOf).toLocaleString(undefined, { timeZone: 'Asia/Seoul' }) })}</Text>}
+        {!concise && evidence.observedEnd && <Text as="p" variant="caption">{t('periodLoad.pmcBounds', { start: evidence.start, end: evidence.observedEnd })}</Text>}
         <Text as="p">{(['ctl', 'atl', 'tsb'] as const).map(metric => `${metric.toUpperCase()} ${evidence.before?.[metric]?.toFixed(1) ?? '—'} → ${evidence.after?.[metric]?.toFixed(1) ?? '—'}`).join(' · ')}</Text>
         {evidence.points.length > 0 && <details><summary>{t('periodLoad.trend')}</summary><PmcHistoryPanel points={evidence.points} today={evidence.observedEnd ?? evidence.end} canonical controlledRange="all" rangeChoices={['all']} controlledMode="trend" hideModeControls /></details>}
         <PeriodLogLink key={`${evidence.start}:${evidence.end}`} start={evidence.start} end={evidence.end} discipline={discipline} returnTo={{ uid: ownerUid, pathname: location.pathname, search: location.search, hash: location.hash }} />

@@ -1,4 +1,5 @@
 import { webcrypto } from "node:crypto";
+import { clearPeriodRequestMemory } from "./periodRequestCache";
 import timeWire from "./stageRunTimeCorrections.fixture.json";
 import type { TrainingAnalysisPeriodsRequest } from "@shared/types/training-analysis-periods";
 import { compiledBikeProvenanceWire } from "./activityBikeDistanceEvidence.fixture";
@@ -47,6 +48,8 @@ describe("training period boundary", () => {
     auth.currentUser.uid = "other";
     await expect(loadTrainingAnalysisPeriods(services, "owner", request)).rejects.toThrow("account_changed");
     auth.currentUser.uid = "owner";
+    // 같은 요청은 재사용되므로 요청 중 계정 전환은 새 호출로 검사한다.
+    clearPeriodRequestMemory();
     mocks.call.mockImplementationOnce(async () => { auth.currentUser.uid = "other"; return { data: periodFixture() }; });
     await expect(loadTrainingAnalysisPeriods(services, "owner", request)).rejects.toThrow("account_changed");
   });
@@ -392,6 +395,7 @@ it("parses actual compiled backend Stage wire after target filtering, including 
     const services = { auth: { app: { options: { projectId: "miranae-orider-g1" } }, currentUser: { uid: "owner", isAnonymous: false } }, functions: {}, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined) } as unknown as FirebaseServices;
     Object.assign(services.functions, { region: "asia-northeast3", app: services.auth.app, customDomain: "https://asia-northeast3-orider-dev.cloudfunctions.net" });
     mocks.call.mockResolvedValueOnce({ data });
+    clearPeriodRequestMemory(); // 시나리오마다 같은 요청에 다른 응답을 준다.
     expect(await loadTrainingAnalysisPeriods(services, "owner", request)).toEqual(data);
     expect(mocks.call).toHaveBeenLastCalledWith(request);
     const running = data.periods[0]!.running!;

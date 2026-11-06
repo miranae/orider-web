@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { useConciseExplanations } from "../conciseExplanations";
 import { useTranslation } from "react-i18next";
 import type { TrainingAnalysisPeriodsResponse } from "@shared/types/training-analysis-periods";
 import { Button, Text } from "../../../theme";
@@ -7,20 +8,21 @@ import { formatDistance, formatElev } from "../../../utils/units";
 import "./bike-observed-climb-records.css";
 function ClimbRecords({ response }: { response: TrainingAnalysisPeriodsResponse }) {
   const { t, i18n } = useTranslation("fitness"), { units } = useLocale();
+  const concise = useConciseExplanations();
   const id = useId();
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const date = (time: number) => new Date(time).toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" });
   return <details className="bike-observed-climbs">
     <summary><Text variant="bodyMedium" weight={600}>{t("bikeObservedClimbs.title")}</Text></summary>
     <div className="bike-observed-climbs-content">
-      <Text as="p" variant="bodyMedium" tone="secondary">{t("bikeObservedClimbs.scope")}</Text>
+      {!concise && <Text as="p" variant="bodyMedium" tone="secondary">{t("bikeObservedClimbs.scope")}</Text>}
       <div className="bike-observed-climbs-periods">{response.periods.map((period, index) => {
         const observed = period.cyclingClimbObservations, listId = `${id}-${index}`;
         return <section key={`${period.fromInclusive}:${period.toExclusive}:${index}`} className="space-y-3" aria-label={t("bikeObservedClimbs.period", { period: index + 1 })}>
           <Text as="h4" variant="bodyMedium" weight={600}>{date(period.fromInclusive)} – {date(period.toExclusive - 1)}</Text>
           {!observed ? <Text as="p" variant="bodyMedium" tone="secondary">{t("bikeObservedClimbs.unknown")}</Text> : <>
-            <Text as="p" variant="bodyMedium" tone="secondary">{t("bikeObservedClimbs.count", { total: observed.candidateActivityCount, observed: observed.observedActivityCount, empty: observed.noObservedActivityCount, unsupported: observed.unsupportedActivityCount, unavailable: observed.unavailableActivityCount })}</Text>
-            {observed.truncated && <Text as="p" variant="bodyMedium" tone="secondary">{t("bikeObservedClimbs.truncated")}</Text>}
+            {!concise && <Text as="p" variant="bodyMedium" tone="secondary">{t("bikeObservedClimbs.count", { total: observed.candidateActivityCount, observed: observed.observedActivityCount, empty: observed.noObservedActivityCount, unsupported: observed.unsupportedActivityCount, unavailable: observed.unavailableActivityCount })}</Text>}
+            {!concise && observed.truncated && <Text as="p" variant="bodyMedium" tone="secondary">{t("bikeObservedClimbs.truncated")}</Text>}
             {observed.sources.length ? <ol id={listId} className="bike-observed-climbs-list">{observed.sources.slice(0, expanded[index] ? 5 : 3).map(source => <li key={source.sourceActivityId}>
               <Text as="p" variant="bodyMedium" mono weight={600}>{t("bikeObservedClimbs.gain", { value: formatElev(source.elevationGainM, units) })}</Text>
               <Text as="p" variant="bodyMedium" mono>{t("bikeObservedClimbs.extent", { start: formatDistance(source.startKm * 1000, units), end: formatDistance(source.endKm * 1000, units) })}</Text>
@@ -32,7 +34,7 @@ function ClimbRecords({ response }: { response: TrainingAnalysisPeriodsResponse 
           </>}
         </section>;
       })}</div>
-      {response.periods.some(period => (period.cyclingClimbObservations?.sources.length ?? 0) > 0) && <Text as="p" variant="bodyMedium" tone="secondary">{t("bikeObservedClimbs.quality")}</Text>}
+      {!concise && response.periods.some(period => (period.cyclingClimbObservations?.sources.length ?? 0) > 0) && <Text as="p" variant="bodyMedium" tone="secondary">{t("bikeObservedClimbs.quality")}</Text>}
     </div>
   </details>;
 }
