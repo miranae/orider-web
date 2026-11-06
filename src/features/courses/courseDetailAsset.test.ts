@@ -14,7 +14,14 @@ const fields = (revision: string) => ({ fields: {
     schemaVersion: { integerValue: "1" }, trackVersion: { stringValue: revision }, storagePath: { stringValue: `course-tracks/course/${revision}.json` }, byteLength: { integerValue: String(body.length) },
   } } },
 } });
-beforeEach(() => { vi.stubGlobal("crypto", webcrypto); vi.stubGlobal("caches", undefined); sdk.onSnapshot.mockReturnValue(vi.fn()); });
+beforeEach(() => {
+  vi.stubGlobal("crypto", webcrypto); vi.stubGlobal("caches", undefined);
+  sdk.doc.mockImplementation((_db, ...path: string[]) => path.join("/"));
+  sdk.onSnapshot.mockImplementation((path, next) => {
+    if (String(path).endsWith("cache_metadata/current")) queueMicrotask(() => next({ exists: () => true }));
+    return vi.fn();
+  });
+});
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 describe("코스 상세 정적 트랙", () => {
   it("상세 메타데이터가 원본 트랙과 고도를 제외한다", () => {
@@ -36,16 +43,19 @@ describe("코스 상세 정적 트랙", () => {
     const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(fields(revision))))
       .mockResolvedValueOnce(new Response(body)).mockResolvedValue(new Response(JSON.stringify(fields(revision))));
     vi.stubGlobal("fetch", fetcher);
-    vi.useFakeTimers();
+    let changed: (() => void) | undefined;
+    sdk.onSnapshot.mockImplementation((_path, next) => {
+      changed = () => next({ exists: () => true }); queueMicrotask(changed); return vi.fn();
+    });
     const onData = vi.fn(); const onError = vi.fn();
     const stop = subscribeCourseDetail(services(), "course", onData, onError);
     await vi.waitFor(() => expect(onData).toHaveBeenCalledTimes(1));
     expect(onData.mock.calls[0][0]).toMatchObject({ id: "course", elevationProfile: [{ d: 0, e: 1 }] });
-    await vi.advanceTimersByTimeAsync(30_000);
+    changed?.();
     await vi.waitFor(() => expect(onData).toHaveBeenCalledTimes(2));
     expect(fetcher).toHaveBeenCalledTimes(3);
-    expect(sdk.getDoc).not.toHaveBeenCalled(); expect(sdk.onSnapshot).not.toHaveBeenCalled(); expect(onError).not.toHaveBeenCalled();
-    stop(); await vi.advanceTimersByTimeAsync(60_000); expect(fetcher).toHaveBeenCalledTimes(3);
+    expect(sdk.getDoc).not.toHaveBeenCalled(); expect(sdk.onSnapshot).toHaveBeenCalledTimes(1); expect(onError).not.toHaveBeenCalled();
+    stop(); changed?.(); await Promise.resolve(); expect(fetcher).toHaveBeenCalledTimes(3);
   });
   it("웹뷰 재생성 뒤에도 검증된 공개 파일을 디스크 캐시에서 재사용한다", async () => {
     const revision = await hash(body);
@@ -67,12 +77,27 @@ describe("코스 상세 정적 트랙", () => {
     expect(fetcher).toHaveBeenCalledTimes(3);
     expect(responses.size).toBe(1);
   });
+  it("App Check가 필요한 응답에만 토큰으로 한 번 재시도한다", async () => {
+    const revision = await hash(body); const service = services();
+    vi.mocked(service.getAppCheckToken).mockResolvedValue("app-check-token");
+    const fetcher = vi.fn().mockResolvedValueOnce(new Response("", { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(fields(revision)))).mockResolvedValueOnce(new Response(body));
+    vi.stubGlobal("fetch", fetcher);
+    const onData = vi.fn(); const stop = subscribeCourseDetail(service, "course", onData, vi.fn());
+    await vi.waitFor(() => expect(onData).toHaveBeenCalledTimes(1)); stop();
+    expect(service.getAppCheckToken).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[1][1].headers["X-Firebase-AppCheck"]).toBe("app-check-token");
+  });
   it("백필하지 않은 문서는 기존 실시간 조회로 열고 종료 시 해제한다", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ fields: { name: { stringValue: "기존 코스" } } }))));
-    const unsubscribe = vi.fn(); sdk.onSnapshot.mockReturnValue(unsubscribe);
+    const unsubscribe = vi.fn();
+    sdk.onSnapshot.mockImplementation((path, next) => {
+      if (String(path).endsWith("cache_metadata/current")) queueMicrotask(() => next({ exists: () => false }));
+      return unsubscribe;
+    });
     const stop = subscribeCourseDetail(services(), "course", vi.fn(), vi.fn());
-    await vi.waitFor(() => expect(sdk.onSnapshot).toHaveBeenCalledTimes(1));
-    stop(); expect(unsubscribe).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(sdk.onSnapshot).toHaveBeenCalledTimes(2));
+    stop(); expect(unsubscribe).toHaveBeenCalledTimes(2);
   });
   it("손상 파일은 재사용하지 않고 호환 문서를 읽는다", async () => {
     const revision = await hash(body);

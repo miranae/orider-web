@@ -60,39 +60,56 @@ async function checkedPayload(response: Response, version: string): Promise<Docu
   }
   return value;
 }
-async function trackPayload(url: string, version: string, services: FirebaseServices, signal: AbortSignal): Promise<DocumentData> {
-  // 캐시는 공개 파일만 보관한다. 재사용 전에 호출자가 현재 코스 메타데이터의 접근 권한을 확인한다.
-  const cache = typeof caches === "undefined" ? null : await caches.open(CACHE_NAME).catch(() => null);
-  const existing = await cache?.match(url).catch(() => undefined);
-  if (existing) {
-    try { return await checkedPayload(existing, version); }
-    catch { await cache?.delete(url).catch(() => false); }
-  }
+async function cacheIO<T>(stage: string, fallback: T, operation: () => Promise<T>): Promise<T> {
+  try { return await operation(); }
+  catch (error) { logClientError("CourseDetail.cacheIO", error, { stage }); return fallback; }
+}
+async function courseFetch(url: string, services: FirebaseServices, signal: AbortSignal, metadata = false): Promise<Response> {
   const headers: Record<string, string> = {};
   const token = await services.auth.currentUser?.getIdToken();
   if (token) headers.Authorization = `Bearer ${token}`;
-  const appCheck = await services.getAppCheckToken();
-  if (appCheck) headers["X-Firebase-AppCheck"] = appCheck;
-  const response = await fetch(url, { headers, signal });
+  let response = await fetch(url, { headers, signal, ...(metadata ? { cache: "no-store" as const } : {}) });
+  if (response.status === 401 || response.status === 403) {
+    const appCheck = await services.getAppCheckToken();
+    if (appCheck) {
+      headers["X-Firebase-AppCheck"] = appCheck;
+      response = await fetch(url, { headers, signal, ...(metadata ? { cache: "no-store" as const } : {}) });
+    }
+  }
+  return response;
+}
+async function trackPayload(url: string, version: string, services: FirebaseServices, signal: AbortSignal): Promise<DocumentData> {
+  // 공개 파일만 저장한다. 호출자는 현재 메타데이터의 접근 권한을 먼저 확인한다.
+  const cache = typeof caches === "undefined" ? null : await cacheIO("open", null as Cache | null, () => caches.open(CACHE_NAME));
+  const existing = cache ? await cacheIO("read", undefined as Response | undefined, () => cache.match(url)) : undefined;
+  if (existing) {
+    try { return await checkedPayload(existing, version); }
+    catch (error) {
+      logClientError("CourseDetail.cacheValidation", error, { version });
+      if (cache) await cacheIO("delete_corrupt", false, () => cache.delete(url));
+    }
+  }
+  const response = await courseFetch(url, services, signal);
   const value = await checkedPayload(response.clone(), version);
   if (cache && !signal.aborted) {
-    await cache.put(url, response).catch(() => undefined);
-    const keys = await cache.keys().catch(() => []);
-    for (const key of keys.slice(0, Math.max(0, keys.length - MAX_CACHE_ENTRIES))) await cache.delete(key).catch(() => false);
+    await cacheIO("write", undefined, () => cache.put(url, response));
+    const keys = await cacheIO("list", [] as readonly Request[], () => cache.keys());
+    for (const key of keys.slice(0, Math.max(0, keys.length - MAX_CACHE_ENTRIES))) await cacheIO("prune", false, () => cache.delete(key));
   }
   return value;
 }
 
-/** 파일 포인터가 있는 신규 코스는 메타데이터만 갱신한다. 기존 코스는 SDK 실시간 경로를 유지한다. */
+/** 작은 서버 변경 신호를 구독하고 메타데이터만 다시 읽는다. 기존 코스는 SDK 구독으로 호환한다. */
 export function subscribeCourseDetail(services: FirebaseServices, id: string,
   onData: (data: DocumentData | null) => void, onError: (error: Error) => void): () => void {
-  const controller = new AbortController();
   const user = services.auth.currentUser;
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let disposed = false;
+  let generation = 0;
+  let request: AbortController | undefined;
   let lastVersion: string | undefined;
   let lastTrack: DocumentData | undefined;
   let legacyStop: (() => void) | undefined;
-  const current = () => !controller.signal.aborted && services.auth.currentUser === user;
+  const current = () => !disposed && services.auth.currentUser === user;
   const legacy = () => {
     if (!current() || legacyStop) return;
     legacyStop = onSnapshot(doc(services.firestore, "courses", id), (snapshot) => {
@@ -101,14 +118,13 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
   };
   const refresh = async () => {
     if (!current()) return;
+    const ticket = ++generation;
+    request?.abort(); request = new AbortController();
+    const signal = request.signal;
+    const active = () => current() && ticket === generation;
     try {
-      const headers: Record<string, string> = {};
-      const token = await user?.getIdToken();
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const appCheck = await services.getAppCheckToken();
-      if (appCheck) headers["X-Firebase-AppCheck"] = appCheck;
-      const response = await fetch(courseMetadataUrl(services.firestore, id), { headers, signal: controller.signal, cache: "no-store" });
-      if (!current()) return;
+      const response = await courseFetch(courseMetadataUrl(services.firestore, id), services, signal, true);
+      if (!active()) return;
       if (response.status === 404) { onData(null); return; }
       if (!response.ok) throw new Error(`코스 메타데이터 조회 실패 (${response.status})`);
       const wire = await response.json() as { fields?: Record<string, Value> };
@@ -119,34 +135,35 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
       let track: DocumentData;
       try {
         const version = String(metadata.trackVersion);
-        track = lastVersion === version && lastTrack ? lastTrack : await trackPayload(url, version, services, controller.signal);
+        track = lastVersion === version && lastTrack ? lastTrack : await trackPayload(url, version, services, signal);
         lastVersion = version; lastTrack = track;
-      }
-      catch (error) {
-        if (!current()) return;
+      } catch (error) {
+        if (!active()) return;
         logClientError("CourseDetail.assetFallback", error, { courseId: id });
-        // 게시 지연·브라우저 캐시 API 미지원에서도 현재 코스는 열리게 한다.
         const snapshot = await getDoc(doc(services.firestore, "courses", id));
-        if (!current()) return;
+        if (!active()) return;
         if (!snapshot.exists()) { onData(null); return; }
         const latest = snapshot.data();
         if (latest.deletedAt != null || latest.hidden === true) { onData(null); return; }
         if (!Array.isArray(latest.elevationProfile)) throw error;
-        onData({ ...latest, id });
-        timer = setTimeout(() => void refresh(), 30_000);
-        return;
+        onData({ ...latest, id }); return;
       }
-      if (current()) {
-        onData({ ...metadata, elevationProfile: track.elevationProfile, altitudeSemantics: track.altitudeSemantics, id });
-        timer = setTimeout(() => { if (document.visibilityState === "visible") void refresh(); else timer = setTimeout(() => void refresh(), 30_000); }, 30_000);
-      }
+      if (active()) onData({ ...metadata, elevationProfile: track.elevationProfile, altitudeSemantics: track.altitudeSemantics, id });
     } catch (error) {
-      if (current()) {
-        onData(null); onError(error instanceof Error ? error : new Error(String(error)));
-        timer = setTimeout(() => void refresh(), 30_000);
-      }
+      if (active()) { onData(null); onError(error instanceof Error ? error : new Error(String(error))); }
     }
   };
-  void refresh();
-  return () => { controller.abort(); if (timer) clearTimeout(timer); legacyStop?.(); };
+  const signalStop = onSnapshot(doc(services.firestore, "courses", id, "cache_metadata", "current"), (snapshot) => {
+    if (!current()) return;
+    if (!snapshot.exists()) {
+      ++generation; request?.abort(); legacy(); return;
+    }
+    legacyStop?.(); legacyStop = undefined;
+    void refresh();
+  }, (error) => {
+    if (!current()) return;
+    logClientError("CourseDetail.signalFallback", error, { courseId: id });
+    onData(null); ++generation; request?.abort(); legacy();
+  });
+  return () => { disposed = true; ++generation; request?.abort(); legacyStop?.(); signalStop(); };
 }
