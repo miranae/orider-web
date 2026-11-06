@@ -81,6 +81,57 @@ describe("ExplorePage", () => {
     mockOverviewFetch([]);
   });
 
+  it.each(["segments", "empty"] as const)("finishes a shared %s overview after auth ownership remounts the retained page", async (result) => {
+    let resolveFetch!: (response: Response) => void;
+    global.fetch = vi.fn(() => new Promise<Response>((resolve) => { resolveFetch = resolve; }));
+    const ExplorePage = await loadExplorePage();
+    const { RetainedHubPages } = await import("../components/RetainedHubPages");
+    function RetainedSegments({ owner }: { owner: string | null }) {
+      return <RetainedHubPages path="/explore/segments" hub="explore" owner={owner}><ExplorePage /></RetainedHubPages>;
+    }
+    const view = renderWithProviders(<RetainedSegments owner={null} />, { route: "/explore/segments" });
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    // Layout의 인증 복원과 같은 owner 변경으로, 공용 조회가 진행 중인 비로그인 화면을 교체한다.
+    view.rerender(<RetainedSegments owner="restored-user" />);
+    const segments = result === "segments" ? [SEG_CLIMB] : [];
+    await act(async () => {
+      resolveFetch({ ok: true, headers: { get: () => "application/json" }, json: async () => ({ v: 2, count: segments.length, segments }) } as Response);
+    });
+    if (result === "segments") {
+      expect(screen.getByRole("button", { name: SEG_CLIMB.name, exact: true })).toBeVisible();
+    } else {
+      expect(screen.getByText(/^세그먼트가 없습니다\./)).toBeVisible();
+    }
+    expect(fetch).toHaveBeenCalledTimes(1);
+    view.rerender(<RetainedSegments owner="another-user" />);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    if (result === "segments") {
+      expect(screen.getByRole("button", { name: SEG_CLIMB.name, exact: true })).toBeVisible();
+    } else {
+      expect(screen.getByText(/^세그먼트가 없습니다\./)).toBeVisible();
+    }
+  });
+
+  it("shows the pending overview failure to the replacement owner and lets it retry", async () => {
+    let rejectFetch!: (error: Error) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((_resolve, reject) => { rejectFetch = reject; }));
+    global.fetch = fetchMock;
+    const ExplorePage = await loadExplorePage();
+    const { RetainedHubPages } = await import("../components/RetainedHubPages");
+    function RetainedSegments({ owner }: { owner: string | null }) {
+      return <RetainedHubPages path="/explore/segments" hub="explore" owner={owner}><ExplorePage /></RetainedHubPages>;
+    }
+    const view = renderWithProviders(<RetainedSegments owner={null} />, { route: "/explore/segments" });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    view.rerender(<RetainedSegments owner="restored-user" />);
+    await act(async () => { rejectFetch(new Error("overview unavailable")); });
+    const retry = screen.getByRole("button", { name: "다시 시도" });
+    fetchMock.mockResolvedValueOnce({ ok: true, headers: { get: () => "application/json" }, json: async () => ({ v: 2, count: 1, segments: [SEG_CLIMB] }) } as Response);
+    fireEvent.click(retry);
+    expect(await screen.findByRole("button", { name: SEG_CLIMB.name, exact: true })).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("applies menu sport and terrain to actual results and preserves them through serialization and history", async () => {
     mockOverviewFetch([SEG_CLIMB, SEG_FLAT, { ...SEG_FLAT, id: "run", name: "러닝 평지", discipline: "run" }]);
     const ExplorePage = await loadExplorePage();
