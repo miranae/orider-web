@@ -5,14 +5,13 @@ import {
   where,
   orderBy,
   limit,
-  getDocs,
   doc,
   getDoc,
   onSnapshot,
   type QueryConstraint,
   type DocumentData,
 } from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 
 function stableStringify(value: unknown, seen = new WeakSet<object>()): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -42,6 +41,8 @@ export function useDocument<T = DocumentData>(
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
+  const { firestore } = useFirebaseServices();
 
   useEffect(() => {
     if (!docId) {
@@ -67,7 +68,7 @@ export function useDocument<T = DocumentData>(
     );
 
     return unsubscribe;
-  }, [collectionPath, docId]);
+  }, [firestore, collectionPath, docId]);
 
   return { data, loading, error };
 }
@@ -84,6 +85,7 @@ export function useCollection<T = DocumentData>(
   const [error, setError] = useState<Error | null>(null);
   const constraintsKey = serializeQueryConstraints(constraints);
   const stableConstraints = useMemo(() => constraints, [constraintsKey]);
+  const { firestore } = useFirebaseServices();
 
   useEffect(() => {
     const q = query(collection(firestore, collectionPath), ...stableConstraints);
@@ -104,21 +106,9 @@ export function useCollection<T = DocumentData>(
 
     return unsubscribe;
      
-  }, [collectionPath, stableConstraints]);
+  }, [firestore, collectionPath, stableConstraints]);
 
   return { data, loading, error };
-}
-
-/**
- * Firestore 일회성 쿼리
- */
-export async function queryDocuments<T = DocumentData>(
-  collectionPath: string,
-  constraints: QueryConstraint[] = []
-): Promise<T[]> {
-  const q = query(collection(firestore, collectionPath), ...constraints);
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T);
 }
 
 export { where, orderBy, limit, collection, doc, getDoc };

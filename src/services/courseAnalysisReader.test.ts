@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+import type { Firestore } from "firebase/firestore";
 import { fetchCourseAnalysis } from "./courseAnalysisReader";
+
+const db = {} as Firestore;
 
 const getDoc = vi.hoisted(() => vi.fn());
 vi.mock("firebase/firestore", () => ({ doc: vi.fn(() => ({})), getDoc }));
@@ -32,7 +35,7 @@ describe("fetchCourseAnalysis", () => {
   it("읽기 실패는 failed 봉투다 — 던지지 않는다", async () => {
     getDoc.mockReset();
     getDoc.mockImplementation(() => { throw new Error("permission-denied"); });
-    const envelope = await fetchCourseAnalysis("c1");
+    const envelope = await fetchCourseAnalysis("c1", db);
     expect(envelope.status).toBe("failed");
     expect(envelope.error?.code).toBe("read_failed");
   });
@@ -40,7 +43,7 @@ describe("fetchCourseAnalysis", () => {
   it("canonical 문서를 봉투로 옮긴다", async () => {
     getDoc.mockReset();
     getDoc.mockResolvedValue(snapshot(analysis));
-    const envelope = await fetchCourseAnalysis("c1");
+    const envelope = await fetchCourseAnalysis("c1", db);
     expect(envelope.status).toBe("canonical");
     expect(envelope.data).toEqual({
       routeDigest: "digest-1", distanceM: 42_000, elevationGainM: 512,
@@ -51,7 +54,7 @@ describe("fetchCourseAnalysis", () => {
   it("stale 도 값을 그대로 준다", async () => {
     getDoc.mockReset();
     getDoc.mockResolvedValue(snapshot({ ...analysis, status: "stale" }));
-    const envelope = await fetchCourseAnalysis("c1");
+    const envelope = await fetchCourseAnalysis("c1", db);
     expect(envelope.status).toBe("stale");
     expect(envelope.data?.elevationGainM).toBe(512);
   });
@@ -59,7 +62,7 @@ describe("fetchCourseAnalysis", () => {
   it("문서가 없으면 0 이 아니라 unavailable", async () => {
     getDoc.mockReset();
     getDoc.mockResolvedValue(snapshot(null));
-    const envelope = await fetchCourseAnalysis("c1");
+    const envelope = await fetchCourseAnalysis("c1", db);
     expect(envelope.status).toBe("unavailable");
     expect(envelope.data).toBeNull();
   });
@@ -67,7 +70,7 @@ describe("fetchCourseAnalysis", () => {
   it("값이 아직 없으면 processing 이고 숫자를 지어내지 않는다", async () => {
     getDoc.mockReset();
     getDoc.mockResolvedValue(snapshot({ ...analysis, status: "processing", data: null }));
-    const envelope = await fetchCourseAnalysis("c1");
+    const envelope = await fetchCourseAnalysis("c1", db);
     expect(envelope.status).toBe("processing");
     expect(envelope.data).toBeNull();
   });
@@ -75,14 +78,14 @@ describe("fetchCourseAnalysis", () => {
   it("모르는 난이도 밴드는 null 로 두고 값은 살린다", async () => {
     getDoc.mockReset();
     getDoc.mockResolvedValue(snapshot({ ...analysis, data: { ...analysis.data, difficultyBand: "brutal" } }));
-    const envelope = await fetchCourseAnalysis("c1");
+    const envelope = await fetchCourseAnalysis("c1", db);
     expect(envelope.data?.difficultyBand).toBeNull();
     expect(envelope.data?.elevationGainM).toBe(512);
   });
 
   it("코스 id 가 없으면 읽지 않는다", async () => {
     getDoc.mockReset();
-    expect((await fetchCourseAnalysis("")).status).toBe("unavailable");
+    expect((await fetchCourseAnalysis("", db)).status).toBe("unavailable");
     expect(getDoc).not.toHaveBeenCalled();
   });
 });

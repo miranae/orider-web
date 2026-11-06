@@ -129,7 +129,7 @@ describe("판정 전에는 아무것도 읽지 않는다", () => {
     resetRuntimeConfigForTests({ canonicalRolloutEnabled: true, canonicalCourseEnabled: true });
     setCallableResult("getCanonicalRollout", { data: { surfaces: { course: true } } });
     renderHook(() => useCourseAnalysis("course-1"), { wrapper: signedIn });
-    await waitFor(() => expect(vi.mocked(fetchCourseAnalysis)).toHaveBeenCalledWith("course-1"));
+    await waitFor(() => expect(vi.mocked(fetchCourseAnalysis)).toHaveBeenCalledWith("course-1", expect.anything()));
   });
 
   it("게이트 계층이 꺼져 있으면 오늘과 똑같다 — 판정을 기다리지 않고 바로 읽는다", async () => {
@@ -219,7 +219,7 @@ describe("계정이 바뀌면 판정도 다시 받는다", () => {
       ({ id }: { id: string }) => useCourseAnalysis(id),
       { wrapper: signedInAs, initialProps: { id: "course-1" } },
     );
-    await waitFor(() => expect(vi.mocked(fetchCourseAnalysis)).toHaveBeenCalledWith("course-1"));
+    await waitFor(() => expect(vi.mocked(fetchCourseAnalysis)).toHaveBeenCalledWith("course-1", expect.anything()));
 
     vi.mocked(fetchCourseAnalysis).mockClear();
     let releaseVerdict: (() => void) | null = null;
@@ -234,6 +234,6 @@ describe("계정이 바뀌면 판정도 다시 받는다", () => {
 
     // 판정이 도착하면 막힌 채로 남지 않는다.
     await act(async () => { releaseVerdict!(); await Promise.resolve(); });
-    await waitFor(() => expect(vi.mocked(fetchCourseAnalysis)).toHaveBeenCalledWith("course-2"));
+    await waitFor(() => expect(vi.mocked(fetchCourseAnalysis)).toHaveBeenCalledWith("course-2", expect.anything()));
   });
 });

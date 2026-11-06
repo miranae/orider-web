@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   embeddedClubDetailDestination,
+  embeddedCourseDetailDestination,
   embeddedExplorePage,
   embeddedHubDestination,
   embeddedInternalDestination,
@@ -93,6 +94,27 @@ describe("club detail embed destinations", () => {
   });
 });
 
+describe("코스 상세 임베드 이동", () => {
+  it.each(["ko", "en"])("%s 같은 코스 상세(탭 쿼리 포함)는 코스 상세 임베드 안에서 연다", lang => {
+    const current = `/${lang}/embed/courses/course-1`;
+    expect(embeddedCourseDetailDestination(current, `/${lang}/course/course-1`)).toBe(`/${lang}/embed/courses/course-1`);
+    expect(embeddedCourseDetailDestination(current, "/course/course-1?tab=prepare#plan")).toBe(`/${lang}/embed/courses/course-1?tab=prepare#plan`);
+    expect(embeddedCourseDetailDestination(current, `/${lang}/embed/courses/course-1/`)).toBe(`/${lang}/embed/courses/course-1`);
+    expect(embeddedInternalDestination(current, "/course/course-1")).toBe(`/${lang}/embed/courses/course-1`);
+  });
+
+  it("다른 코스·편집·상세 밖 경로·다른 임베드는 앱에 넘긴다", () => {
+    const current = "/ko/embed/courses/course-1";
+    expect(embeddedCourseDetailDestination(current, "/ko/course/course-2")).toBeNull();
+    expect(embeddedCourseDetailDestination(current, "/ko/course/course-1/edit")).toBeNull();
+    expect(embeddedCourseDetailDestination(current, "/ko/segment/s-1")).toBeNull();
+    expect(embeddedCourseDetailDestination(current, "https://other.invalid/ko/course/course-1")).toBeNull();
+    expect(embeddedInternalDestination(current, "/ko/athlete/user-1")).toBeNull();
+    // 탐색 목록의 코스 링크는 계속 앱으로 간다 — 앱이 capability 를 보고 코스 상세 임베드로 연다.
+    expect(embeddedInternalDestination("/ko/embed/explore", "/ko/course/course-1")).toBeNull();
+    expect(embeddedCourseDetailDestination("/ko/course/course-1", "/ko/course/course-1")).toBeNull();
+  });
+});
 
 describe("이벤트 상세 임베드 이동", () => {
   it.each(["ko", "en"])("%s 이벤트 하위 화면은 같은 웹뷰 안에서 연다", lang => {
