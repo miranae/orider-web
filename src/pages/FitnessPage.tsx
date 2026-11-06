@@ -9,7 +9,7 @@ import GlossaryText from "../components/common/GlossaryText";
 import GlossaryProvider from "../components/common/GlossaryProvider";
 import TabNav from "../components/TabNav";
 import FitnessPeriodEvidence, { fitnessPeriodEvidenceVisible } from "../features/fitness/components/FitnessPeriodEvidence";
-import { AnalysisGroup, AnalysisPeriodLoadBar } from "../features/fitness/components/AnalysisGroup";
+import { AnalysisGroup, AnalysisPeriodLoadBar, AnalysisRunRecordsLink } from "../features/fitness/components/AnalysisGroup";
 import { ConciseExplanationsContext } from "../features/fitness/conciseExplanations";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
 import RunningRaceEstimatesPanel from "../features/fitness/RunningRaceEstimatesPanel";
@@ -1029,6 +1029,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
       <AnalysisGroup id="analysis-comparison" title={t("analysis.groups.performance")}>
         {discipline === "bike" && periodPowerCard}
         {discipline === "run" && <RunRecordsSummary evidence={model.runEvidence} readiness={runReadiness} />}
+        {discipline === "run" && <AnalysisRunRecordsLink />}
         {discipline === "run" && <Card><Text as="h3" variant="subtitle">{t("criticalPace.title")}</Text><CriticalPaceCurve stableSelection recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} /></Card>}
       </AnalysisGroup>
       <AnalysisGroup id="analysis-periods" title={t("analysis.groups.composition")}>

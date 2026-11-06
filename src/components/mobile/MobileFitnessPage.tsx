@@ -31,7 +31,7 @@ import type { PmcHistoryPoint } from "../../features/fitness/pmcHistory";
 import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerCurvePeriodsPanel";
 import type { PowerCurvePeriod } from "@shared/types/power-curve-periods";
 import FitnessPeriodEvidence from "../../features/fitness/components/FitnessPeriodEvidence";
-import { AnalysisGroup, AnalysisPeriodLoadBar } from "../../features/fitness/components/AnalysisGroup";
+import { AnalysisGroup, AnalysisPeriodLoadBar, AnalysisRunRecordsLink } from "../../features/fitness/components/AnalysisGroup";
 import { ConciseExplanationsContext } from "../../features/fitness/conciseExplanations";
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
 import { fitnessTodayKey, type FitnessDateKeyBasis } from "@shared/training/dateKey";
@@ -1015,6 +1015,7 @@ export default function MobileFitnessPage({
             {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods inline windowDays={periodWindowDays} loadSignal={periodLoadSignal} onPeriodsChange={onAnalysisPeriodsChange} nativeActivities={nativePowerActivities} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
             {runCurveContent}
             {!isBike && modelContent}
+            {data.discipline === "run" && <AnalysisRunRecordsLink />}
             {thresholdCard}
             {thresholdMissingCard}
           </AnalysisGroup>

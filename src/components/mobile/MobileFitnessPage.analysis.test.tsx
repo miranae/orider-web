@@ -130,6 +130,8 @@ describe("mobile web analysis evidence", () => {
     expect(within(screen.getByTestId("K5-4")).getByRole("link")).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
     expect(screen.queryByRole("button", { name: /거리 기록·출처와 마일스톤/ })).not.toBeInTheDocument();
     expect(screen.queryByText("달성한 러닝 마일스톤")).not.toBeInTheDocument();
+    // 상세 섹션 대신 기록 페이지로 바로 가는 길은 남긴다(P9).
+    expect(screen.getByRole("link", { name: "거리 기록·출처와 마일스톤 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
     expect(document.getElementById("condition-metrics")).toBeNull();
 
   });

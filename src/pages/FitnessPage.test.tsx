@@ -1059,6 +1059,7 @@ describe("FitnessPage", () => {
       expect(await screen.findByRole("heading", { name: "수행 능력 변화" })).toBeInTheDocument();
       expect(screen.queryByRole("heading", { name: "러닝 원본 기록 · 출처 확인" })).not.toBeInTheDocument();
       expect(document.getElementById("analysis-run-records")).toBeNull();
+      expect(screen.getByRole("link", { name: "거리 기록·출처와 마일스톤 보기 →" })).toHaveAttribute("href", "/ko/athlete/me/records?sport=run");
       expect(screen.queryByRole("navigation", { name: "구간 바로가기" })).not.toBeInTheDocument();
     });
 

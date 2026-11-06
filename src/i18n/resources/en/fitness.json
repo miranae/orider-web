@@ -1413,5 +1413,6 @@
   "powerCurve.sourceLabel": "Source activity",
   "analysis.groups.performance": "Performance change",
   "analysis.groups.composition": "Training composition by period",
-  "analysis.loadNote": "Loads performance and training composition for the last {{days}} days vs the previous {{days}} days (or the periods you chose)."
+  "analysis.loadNote": "Loads performance and training composition for the last {{days}} days vs the previous {{days}} days (or the periods you chose).",
+  "analysis.runRecordsLink": "Distance records, sources and milestones →"
 }

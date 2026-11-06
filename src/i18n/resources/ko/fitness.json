@@ -1413,5 +1413,6 @@
   "powerCurve.sourceLabel": "기준 활동",
   "analysis.groups.performance": "수행 능력 변화",
   "analysis.groups.composition": "기간별 훈련 구성",
-  "analysis.loadNote": "최근 {{days}}일과 이전 {{days}}일(또는 직접 고른 기간)의 수행 능력과 훈련 구성을 함께 불러옵니다."
+  "analysis.loadNote": "최근 {{days}}일과 이전 {{days}}일(또는 직접 고른 기간)의 수행 능력과 훈련 구성을 함께 불러옵니다.",
+  "analysis.runRecordsLink": "거리 기록·출처와 마일스톤 보기 →"
 }
