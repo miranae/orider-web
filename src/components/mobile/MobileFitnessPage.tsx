@@ -1018,6 +1018,8 @@ export default function MobileFitnessPage({
             {runCurveContent}
             {!isBike && modelContent}
             {data.discipline === "run" && <AnalysisRunRecordsLink />}
+            {/* 러닝 레이스 예측(스테이지)은 거리 기록 상세를 뺀 뒤에도 분석에 남긴다(P9). */}
+            {data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
             {thresholdCard}
             {thresholdMissingCard}
           </AnalysisGroup>

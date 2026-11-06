@@ -11,6 +11,8 @@ import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import FitnessCoachBriefing from "../../features/fitness/components/FitnessCoachBriefing";
 import MobileFitnessPage, { type MobileFitnessData } from "./MobileFitnessPage";
 vi.mock("./SportPerformanceCard", () => ({ default: () => null }));
+// 레이스 예측은 스테이지 전용이라 여기서는 배치만 본다.
+vi.mock("../../features/fitness/RunningRaceEstimatesPanel", () => ({ default: () => <div data-testid="K5-6" /> }));
 function expandDetails() {
   for (const details of document.querySelectorAll("details")) {
     details.open = true;
@@ -209,6 +211,11 @@ it("keeps the integrated contribution proportions when swimming controls are hid
   const remainder = within(contribution).getByRole("img", { name: "기타 · CTL 40.0 · 40%" });
   expect([bike, run, remainder].map(bucket => Number((bucket as HTMLElement).style.flexGrow))).toEqual([30, 30, 40]);
   expect(within(contribution).queryByRole("img", { name: /수영/ })).not.toBeInTheDocument();
+});
+
+it("keeps the stage running race estimates in running analysis", () => {
+  renderWithProviders(<MobileFitnessPage data={{ ...data, discipline: "run" }} part="analysis" runningRaceEstimatesOwnerUid="test-uid" />, { authenticated: true });
+  expect(within(document.getElementById("analysis-comparison")!).getByTestId("K5-6")).toBeInTheDocument();
 });
 
 it("hides the fixed 30-day zone cards when period zones come from the server period comparison", () => {
