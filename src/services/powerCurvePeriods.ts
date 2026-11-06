@@ -1,4 +1,5 @@
 import { httpsCallable } from "firebase/functions";
+import { cachedPeriodRequest } from "./periodRequestCache";
 import type { PowerCurvePeriodsRequest, PowerCurvePeriodsResponse } from "@shared/types/power-curve-periods";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 const DURATIONS = new Set([1, 5, 10, 30, 60, 120, 300, 600, 1200, 1800, 3600]);
@@ -145,7 +146,16 @@ function validateWeightNormalized(period: PowerCurvePeriodsResponse["periods"][n
   const excluded = period.coverage.includedActivityCount - data.weightCounts.includedActivityCount;
   if (data.status !== (period.status === "partial" || excluded > 0 || dense?.partial ? "partial" : "complete")) invalid();
 }
-export async function loadPowerCurvePeriods(services: FirebaseServices, uid: string, request: PowerCurvePeriodsRequest) {
+/** 같은 사용자·요청은 잠시 응답을 재사용한다(호출 한도 보호, periodRequestCache 참조). */
+export function loadPowerCurvePeriods(services: FirebaseServices, uid: string, request: PowerCurvePeriodsRequest) {
+  // 재사용한 응답도 지금 로그인한 본인에게만 돌려준다(계정이 바뀌면 거절).
+  const owner = () => { const user = services?.auth?.currentUser; return !!uid && !!user && user.uid === uid && !user.isAnonymous; };
+  // 본인 세션이 아니면 캐시를 쓰지 않고 원래 경계 검사가 오류를 낸다.
+  if (!owner()) return requestPowerCurvePeriods(services, uid, request);
+  return cachedPeriodRequest(services, "powerCurvePeriods", uid, request, () => requestPowerCurvePeriods(services, uid, request))
+    .then(response => { if (!owner()) throw new Error("account_changed"); return response; });
+}
+async function requestPowerCurvePeriods(services: FirebaseServices, uid: string, request: PowerCurvePeriodsRequest) {
   const session = services.auth.currentUser;
   const matches = () => !!uid && !!session && services.auth.currentUser === session && session.uid === uid && !session.isAnonymous;
   if (!matches()) throw new Error("account_changed");

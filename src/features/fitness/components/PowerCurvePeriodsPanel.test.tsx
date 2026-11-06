@@ -43,7 +43,7 @@ describe("PowerCurvePeriodsPanel", () => {
     expect(periods.map(period => Math.round((period.toExclusive - period.fromInclusive) / 86400000))).toEqual([90, 90]);
     expect(mocks.hook.mock.lastCall![1].request.periods).toEqual(periods);
   });
-  it("follows the analysis window: compares the last N days with the previous N days and reloads when the window changes", () => {
+  it("follows the analysis window: compares the last N days with the previous N days and reloads when the window changes", async () => {
     const view = render(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled windowDays={90} />);
     expect(screen.getByText("comparison.window 90")).toBeInTheDocument();
     expect(mocks.hook.mock.lastCall?.[1]).toBeNull();
@@ -51,9 +51,15 @@ describe("PowerCurvePeriodsPanel", () => {
     const [recent, previous] = mocks.hook.mock.lastCall![1].request.periods;
     expect(recent.toExclusive - recent.fromInclusive).toBe(90 * 86400000);
     expect(previous.toExclusive).toBe(recent.fromInclusive);
+    // 탭을 연달아 바꾸면 마지막 기간 하나만 부른다(180일은 건너뛰고 30일만).
+    const before = mocks.hook.mock.calls.filter(call => call[1] != null).map(call => JSON.stringify(call[1])).length;
+    view.rerender(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled windowDays={180} />);
     view.rerender(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled windowDays={30} />);
-    const [nextRecent] = mocks.hook.mock.lastCall![1].request.periods;
-    expect(nextRecent.toExclusive - nextRecent.fromInclusive).toBe(30 * 86400000);
+    expect(mocks.hook.mock.lastCall![1].request.periods[0].toExclusive - mocks.hook.mock.lastCall![1].request.periods[0].fromInclusive).toBe(90 * 86400000);
+    await waitFor(() => expect(mocks.hook.mock.lastCall![1].request.periods[0].toExclusive - mocks.hook.mock.lastCall![1].request.periods[0].fromInclusive).toBe(30 * 86400000));
+    const requested = new Set(mocks.hook.mock.calls.filter(call => call[1] != null).map(call => JSON.stringify(call[1].request.periods)));
+    expect([...requested].some(periods => JSON.parse(periods)[0].toExclusive - JSON.parse(periods)[0].fromInclusive === 180 * 86400000)).toBe(false);
+    expect(before).toBeGreaterThan(0);
     expect(screen.getByText("comparison.window 30")).toBeInTheDocument();
   });
   it("keeps API disabled by default and bounds comparison to two periods", () => {

@@ -1,4 +1,5 @@
 import BikePeriodSnapshotPanel from "./BikePeriodSnapshotPanel";
+import { WINDOW_RELOAD_DELAY_MS } from "../../../services/periodRequestCache";
 import { useConciseExplanations } from "../conciseExplanations";
 import { usePeriodControls } from "../../../hooks/usePeriodControls";
 import { validPowerPeriodControls, type PowerPeriodControls, type PeriodDraft as Draft } from "./periodControls";
@@ -118,7 +119,10 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSign
   useEffect(() => {
     if (!windowMode || selection === null) return;
     if (loadedWindow.current === null) { loadedWindow.current = windowDays!; return; }
-    if (loadedWindow.current !== windowDays) { loadedWindow.current = windowDays!; submitRef.current(); }
+    if (loadedWindow.current === windowDays) return;
+    // 탭을 연달아 누르면 마지막 기간만 부른다(기간 분석 호출 한도 보호).
+    const timer = setTimeout(() => { loadedWindow.current = windowDays!; submitRef.current(); }, WINDOW_RELOAD_DELAY_MS);
+    return () => clearTimeout(timer);
   }, [windowDays, windowMode, selection]);
   // 코치 분석(공용 불러오기 버튼)은 설명 문구를 줄인 간결한 표시를 쓴다.
   const concise = loadSignal !== undefined;

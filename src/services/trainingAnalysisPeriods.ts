@@ -1,4 +1,5 @@
 import { localTrainingEmulatorAvailable, matchesLocalTrainingEmulator } from "./localTrainingEmulator";
+import { cachedPeriodRequest } from "./periodRequestCache";
 import { analysisCapabilityAvailable, matchesAnalysisCapability } from "./analysisCapability";
 import type { StageDerivedRunDistancePeriod } from "@shared/types/stage-run-distance-snapshot";
 import { validRunEffortStageOverlay, validStageTimeAdjustedEfforts, verifyRunTimeResponseDigests } from "./runEffortStagePreferences";
@@ -361,7 +362,16 @@ function validPeriodRunningPaceZones(pace: PeriodRunningPaceZones, period: Train
   }
   return seen.size === pace.eligibleActivityCount;
 }
-export async function loadTrainingAnalysisPeriods(services: FirebaseServices, uid: string, request: TrainingAnalysisPeriodsRequest) {
+/** 같은 사용자·요청은 잠시 응답을 재사용한다(호출 한도 보호, periodRequestCache 참조). */
+export function loadTrainingAnalysisPeriods(services: FirebaseServices, uid: string, request: TrainingAnalysisPeriodsRequest) {
+  // 재사용한 응답도 지금 로그인한 본인에게만 돌려준다(계정이 바뀌면 거절).
+  const owner = () => { const user = services?.auth?.currentUser; return !!uid && !!user && user.uid === uid && !user.isAnonymous; };
+  // 본인 세션이 아니면 캐시를 쓰지 않고 원래 경계 검사가 오류를 낸다.
+  if (!owner()) return requestTrainingAnalysisPeriods(services, uid, request);
+  return cachedPeriodRequest(services, "trainingAnalysisPeriods", uid, request, () => requestTrainingAnalysisPeriods(services, uid, request))
+    .then(response => { if (!owner()) throw new Error("account_changed"); return response; });
+}
+async function requestTrainingAnalysisPeriods(services: FirebaseServices, uid: string, request: TrainingAnalysisPeriodsRequest) {
   if (!trainingAnalysisPeriodsAvailable()) throw new Error("api_unavailable");
   const { auth, functions } = services, app = auth.app, user = auth.currentUser;
   const matches = () => !!uid && !!user && user.uid === uid && !user.isAnonymous && services.auth === auth

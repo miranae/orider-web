@@ -3,6 +3,7 @@ import { configure } from "@testing-library/react";
 import "./mocks/firebaseMockSetup";
 import "./mocks/i18nTestSetup";
 import { clearActivityDerivedDocumentCache } from "../features/fitness/activityDerivedDocumentCache";
+import { clearPeriodRequestCache } from "../services/periodRequestCache";
 
 // findBy*/waitFor 기본 대기는 1초라, 무거운 페이지(ActivityPage 등)를 렌더하는 테스트가
 // 러너 부하에 따라 "Unable to find role=..." 로 간헐 실패한다 — 실행마다 케이스가 바뀌어
@@ -11,7 +12,7 @@ import { clearActivityDerivedDocumentCache } from "../features/fitness/activityD
 configure({ asyncUtilTimeout: 5_000 });
 
 // 활동 파생 문서 캐시는 모듈 단위라 같은 파일의 테스트끼리 공유된다 — 테스트마다 비운다.
-beforeEach(() => clearActivityDerivedDocumentCache());
+beforeEach(() => { clearActivityDerivedDocumentCache(); clearPeriodRequestCache(); });
 
 // matchMedia mock (for dark mode, responsive)
 Object.defineProperty(window, "matchMedia", {

@@ -1,4 +1,5 @@
 import { webcrypto } from "node:crypto";
+import { clearPeriodRequestCache } from "./periodRequestCache";
 import timeWire from "./stageRunTimeCorrections.fixture.json";
 import type { TrainingAnalysisPeriodsRequest } from "@shared/types/training-analysis-periods";
 import { compiledBikeProvenanceWire } from "./activityBikeDistanceEvidence.fixture";
@@ -47,6 +48,8 @@ describe("training period boundary", () => {
     auth.currentUser.uid = "other";
     await expect(loadTrainingAnalysisPeriods(services, "owner", request)).rejects.toThrow("account_changed");
     auth.currentUser.uid = "owner";
+    // 같은 요청은 재사용되므로 요청 중 계정 전환은 새 호출로 검사한다.
+    clearPeriodRequestCache();
     mocks.call.mockImplementationOnce(async () => { auth.currentUser.uid = "other"; return { data: periodFixture() }; });
     await expect(loadTrainingAnalysisPeriods(services, "owner", request)).rejects.toThrow("account_changed");
   });
