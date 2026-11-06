@@ -359,7 +359,7 @@ export default function CoursePage() {
   // 코스 상세 임베드(#3235)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
   const { firestore, functions } = useFirebaseServices();
   const navigate = useNavigate();
-  const { data: course, loading: courseLoading } = useDocument<CourseData>("courses", courseId);
+  const { data: course, loading: courseLoading } = useDocument<CourseData>("courses", courseId, true);
   // 획득고도 정본(#887). 전환이 꺼져 있으면 envelope 은 null 이고 코스 문서 값이 그대로 남는다.
   const courseAnalysis = useCourseAnalysis(courseId);
   const courseAnalysisNote = courseAnalysis.envelope ? courseAnalysisNoteKey(courseAnalysis.display) : null;

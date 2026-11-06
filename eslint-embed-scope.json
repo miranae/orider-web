@@ -342,6 +342,7 @@
   "src/features/courses/CourseStageProfile.tsx",
   "src/features/courses/CoursesMap.tsx",
   "src/features/courses/courseCatalog.ts",
+  "src/features/courses/courseDetailAsset.ts",
   "src/features/courses/courseListRest.ts",
   "src/features/courses/courseSnapshot.ts",
   "src/features/courses/courseTags.ts",

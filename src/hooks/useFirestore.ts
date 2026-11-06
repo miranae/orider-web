@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
   query,
@@ -12,6 +13,8 @@ import {
   type DocumentData,
 } from "firebase/firestore";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import { subscribeCourseDetail } from "../features/courses/courseDetailAsset";
+
 
 function stableStringify(value: unknown, seen = new WeakSet<object>()): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
@@ -36,13 +39,15 @@ function serializeQueryConstraints(constraints: QueryConstraint[]): string {
  */
 export function useDocument<T = DocumentData>(
   collectionPath: string,
-  docId: string | undefined
+  docId: string | undefined,
+  courseTrackAssets = false
 ) {
+  const services = useFirebaseServices();
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
-  const { firestore } = useFirebaseServices();
+  const { firestore } = services;
 
   useEffect(() => {
     if (!docId) {
@@ -50,7 +55,17 @@ export function useDocument<T = DocumentData>(
       return;
     }
 
-    const docRef = doc(firestore, collectionPath, docId);
+    if (collectionPath === "courses" && courseTrackAssets) {
+      let stopCourse: (() => void) | undefined;
+      const stopAuth = onAuthStateChanged(services.auth, () => {
+        stopCourse?.();
+        setData(null); setError(null); setLoading(true);
+        stopCourse = subscribeCourseDetail(services, docId, (value) => { setData(value as T | null); setError(null); setLoading(false); },
+          (failure) => { setError(failure); setLoading(false); });
+      });
+      return () => { stopAuth(); stopCourse?.(); };
+    }
+    const docRef = doc(services.firestore, collectionPath, docId);
     const unsubscribe = onSnapshot(
       docRef,
       (snap) => {
@@ -68,7 +83,8 @@ export function useDocument<T = DocumentData>(
     );
 
     return unsubscribe;
-  }, [firestore, collectionPath, docId]);
+  }, [firestore, collectionPath, docId, services, courseTrackAssets]);
+
 
   return { data, loading, error };
 }
