@@ -92,21 +92,27 @@ describe("mobile web analysis evidence", () => {
     expect(screen.queryByRole("heading", { name: "수행 능력 변화" })).not.toBeInTheDocument();
   });
 
-  it.each([false, true])("shows period comparisons inline behind one shared load with enabled=%s", async enabled => {
+  it("shows the period power comparison inline behind one shared load", async () => {
     const calls = () => mockCallableInvocations.filter(call => call.name === "getPowerCurvePeriods").length;
     const before = calls();
     const onPeriodLoad = vi.fn();
-    const props = { data, part: "analysis" as const, powerCurvePeriodsOwnerUid: "test-uid", powerCurvePeriodsEnabled: enabled, periodWindowDays: 90, onPeriodLoad };
+    const props = { data, part: "analysis" as const, powerCurvePeriodsOwnerUid: "test-uid", powerCurvePeriodsEnabled: true, periodWindowDays: 90, onPeriodLoad, powerCurveEvidenceSlot: <p>28-day curve</p> };
     const view = renderWithProviders(<MobileFitnessPage {...props} periodLoadSignal={0} />, { authenticated: true });
     // 두 패널의 자체 버튼은 숨기고 공용 버튼 하나만 둔다. 누르기 전에는 서버를 부르지 않는다.
     const load = screen.getByRole("button", { name: "기간 분석 불러오기" });
     expect(screen.getAllByRole("button", { name: "기간 분석 불러오기" })).toHaveLength(1);
     expect(screen.getByTestId("K5-5-1")).toBeVisible();
+    expect(screen.queryByText("28-day curve")).not.toBeInTheDocument();
     expect(calls()).toBe(before);
     fireEvent.click(load);
     expect(onPeriodLoad).toHaveBeenCalledTimes(1);
     view.rerender(<MobileFitnessPage {...props} periodLoadSignal={1} />);
-    await waitFor(() => expect(calls()).toBe(before + (enabled ? 1 : 0)));
+    await waitFor(() => expect(calls()).toBe(before + 1));
+  });
+  it("keeps the 28-day power curve when the period power comparison is not available", () => {
+    renderWithProviders(<MobileFitnessPage data={data} part="analysis" powerCurvePeriodsOwnerUid="test-uid" powerCurvePeriodsEnabled={false} powerCurveEvidenceSlot={<p>28-day curve</p>} />, { authenticated: true });
+    expect(screen.getByText("28-day curve")).toBeVisible();
+    expect(screen.queryByTestId("K5-5-1")).not.toBeInTheDocument();
   });
 
   it.each(["bike", "run"] as const)("keeps cycling PDC requirements scoped on %s", discipline => {

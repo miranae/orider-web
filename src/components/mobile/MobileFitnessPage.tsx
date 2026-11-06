@@ -1012,7 +1012,9 @@ export default function MobileFitnessPage({
           {sectionState.derived === "error" && <div role="alert" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>{t("mobileFitness.derivedError")}</div>}
           {showPeriodLoad && <AnalysisPeriodLoadBar windowDays={periodWindowDays!} onLoad={onPeriodLoad!} />}
           <AnalysisGroup id="analysis-comparison" title={t("fitness:analysis.groups.performance")}>
-            {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods inline windowDays={periodWindowDays} loadSignal={periodLoadSignal} onPeriodsChange={onAnalysisPeriodsChange} nativeActivities={nativePowerActivities} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
+            {/* 기간 파워 비교를 조회할 수 없는 환경에서는 기존 28일 파워 커브를 보여준다. */}
+            {isBike && !(powerCurvePeriodsOwnerUid && powerCurvePeriodsEnabled) && bikePowerCurveContent}
+            {isBike && powerCurvePeriodsOwnerUid && powerCurvePeriodsEnabled && <MobilePowerCurvePeriods inline windowDays={periodWindowDays} loadSignal={periodLoadSignal} onPeriodsChange={onAnalysisPeriodsChange} nativeActivities={nativePowerActivities} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
             {runCurveContent}
             {!isBike && modelContent}
             {data.discipline === "run" && <AnalysisRunRecordsLink />}
@@ -1020,7 +1022,7 @@ export default function MobileFitnessPage({
             {thresholdMissingCard}
           </AnalysisGroup>
           <AnalysisGroup id="analysis-periods" title={t("fitness:analysis.groups.composition")}>
-            {data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} windowDays={periodWindowDays} loadSignal={periodLoadSignal} periods={isBike && powerCurvePeriodsOwnerUid ? analysisPeriods : undefined} />}
+            {data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} windowDays={periodWindowDays} loadSignal={periodLoadSignal} periods={isBike && powerCurvePeriodsOwnerUid && powerCurvePeriodsEnabled ? analysisPeriods : undefined} />}
             {!periodZonesFromServer && sectionState.derived === "ready" && data.zoneEvidence && <FitnessZoneDistributions compact evidence={data.zoneEvidence} />}
             {!periodZonesFromServer && legacyZonesCard}
             {zoneDefsCard}
