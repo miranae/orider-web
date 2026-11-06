@@ -5,14 +5,14 @@ import "./fitness-analysis-controls.css";
 import { CalendarDays } from "lucide-react";
 import DateField from "../../../components/redesign/DateField";
 import { PowerEffortPreferencePanel } from "./PowerEffortPreferencePanel";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PowerCurvePeriod, PowerCurvePeriodsResponse, PeriodPowerPoint, WeightNormalizedPowerPoint } from "@shared/types/power-curve-periods";
 import { Button, ToggleControls, ToggleButton, ChartFrame, DropdownSelect, Stat, Text } from "../../../theme";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { useAuth } from "../../../contexts/AuthContext";
 import { usePowerCurvePeriods, type PowerCurvePeriodsSelection } from "../../../hooks/usePowerCurvePeriods";
-import { trainingCalendarDate, trainingCalendarPeriod, trainingComparisonPeriods, type TrainingComparisonPreset } from "../../../services/trainingComparisonCalendar";
+import { trainingCalendarDate, trainingCalendarPeriod, trainingComparisonPeriods, trainingWindowPeriods, type TrainingComparisonPreset } from "../../../services/trainingComparisonCalendar";
 import { makeDurationLabel } from "../fitnessPageUtils";
 import "./power-curve-periods.css";
 import { PowerDurationPeriodsView } from "./PowerDurationPeriodsView";
@@ -78,7 +78,7 @@ export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, 
     {(normalized ? response.periods.some(period => period.weightNormalized?.powerDurationObservations !== undefined) : periods.some(period => period.powerDurationObservations !== undefined)) && <PowerDurationPeriodsView response={response} unit={unit} selectedDuration={duration} onDurationChange={setDuration} />}
   </div>;
 }
-function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string; callableEnabled: boolean; embedded: boolean }) {
+function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays }: { ownerUid: string; callableEnabled: boolean; embedded: boolean; windowDays?: number }) {
   const { t } = useTranslation("fitness");
   const id = useId();
   const today = trainingCalendarDate(Date.now());
@@ -93,15 +93,26 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
   const [invalid, setInvalid] = useState(false);
   const result = usePowerCurvePeriods(ownerUid, selection, callableEnabled);
   const update = (index: number, patch: Partial<Draft>) => { setComparison(null); setDrafts(values => values.map((value, i) => index === i ? { ...value, ...patch } : value)); setSelection(null); setInvalid(false); };
+  // 위 기간 선택을 따르는 비교(기본). 직접 지정을 고르면 끈다.
+  const [followWindow, setFollowWindow] = useState(windowDays != null);
+  const windowMode = windowDays != null && followWindow && !skillsMode;
   const submit = () => {
     setControls(value => value); // An explicit load wins over late session restoration.
     const now = Date.now();
-    const periods = skillsMode ? [{ fromInclusive: Math.max(0, now - 56 * 86400000), toExclusive: now }, { fromInclusive: 0, toExclusive: now }] : comparison ? trainingComparisonPeriods(comparison, now) : drafts.map(draft => draft.preset === "all" ? { fromInclusive: 0, toExclusive: now }
+    const periods = windowMode ? trainingWindowPeriods(windowDays!, now) : skillsMode ? [{ fromInclusive: Math.max(0, now - 56 * 86400000), toExclusive: now }, { fromInclusive: 0, toExclusive: now }] : comparison ? trainingComparisonPeriods(comparison, now) : drafts.map(draft => draft.preset === "all" ? { fromInclusive: 0, toExclusive: now }
       : draft.preset === "year" ? { fromInclusive: Date.parse(`${trainingCalendarDate(now).slice(0, 4)}-01-01T00:00:00+09:00`), toExclusive: now }
       : trainingCalendarPeriod(draft.from, draft.through, now));
     if (periods.some(period => !period || period.fromInclusive >= period.toExclusive)) { setInvalid(true); setSelection(null); return; }
     setInvalid(false); setSelection(current => ({ request: { unit: "W", periods: periods as PowerCurvePeriod[], ...(unit === "W/kg" ? { includeWeightNormalized: true } : {}) }, requestId: (current?.requestId ?? 0) + 1 }));
   };
+  // 한 번 불러온 뒤 위 기간이 바뀌면 새 기간으로 다시 불러온다.
+  const submitRef = useRef(submit); submitRef.current = submit;
+  const loadedWindow = useRef<number | null>(null);
+  useEffect(() => {
+    if (!windowMode || selection === null) return;
+    if (loadedWindow.current === null) { loadedWindow.current = windowDays!; return; }
+    if (loadedWindow.current !== windowDays) { loadedWindow.current = windowDays!; submitRef.current(); }
+  }, [windowDays, windowMode, selection]);
   return <section className="fitness-analysis-controls period-curve-tool space-y-4" aria-label={t("periodCurve.title")}>
     {!embedded && <Text as="h3" variant="title">{t("periodCurve.title")}</Text>}
     <Text as="p" variant="bodyMedium" tone="secondary">{t(skillsMode ? "comparison.rollingNote" : "comparison.timezone")}</Text>
@@ -112,11 +123,12 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
     <div className="period-curve-controls">
     <label className="period-curve-unit space-y-2 block" htmlFor={`${id}-unit`}><Text as="span" variant="bodyMedium">{t("periodCurve.unit")}</Text><DropdownSelect id={`${id}-unit`} label={t("periodCurve.unit")} value={String(unit)} onChange={next => { setUnit(next === "W/kg" ? "W/kg" : "W"); setSelection(null); setInvalid(false); }} options={[{ value: String("W"), label: "W" }, { value: String("W/kg"), label: "W/kg" }]} /></label>
     {!skillsMode && <ToggleControls variant="axis" aria-label={t("comparison.title")}>
-      {(["fourWeeks", "yearToDate"] as const).map(preset => <ToggleButton key={preset} selected={comparison === preset} onClick={() => { setComparison(preset); setSelection(null); setInvalid(false); }}>{t(`comparison.${preset}`)}</ToggleButton>)}
-      <ToggleButton selected={comparison === null} onClick={() => { setComparison(null); setSelection(null); setInvalid(false); }}>{t("periodCurve.custom")}</ToggleButton>
+      {windowDays != null ? <ToggleButton selected={windowMode} onClick={() => { setFollowWindow(true); setSelection(null); setInvalid(false); }}>{t("comparison.window", { days: windowDays })}</ToggleButton>
+        : (["fourWeeks", "yearToDate"] as const).map(preset => <ToggleButton key={preset} selected={comparison === preset} onClick={() => { setComparison(preset); setSelection(null); setInvalid(false); }}>{t(`comparison.${preset}`)}</ToggleButton>)}
+      <ToggleButton selected={windowDays != null ? !windowMode : comparison === null} onClick={() => { setFollowWindow(false); setComparison(null); setSelection(null); setInvalid(false); }}>{t("periodCurve.custom")}</ToggleButton>
     </ToggleControls>}
-    {!skillsMode && comparison && <Text as="p" variant="bodyMedium" tone="secondary">{t(`comparison.${comparison}Note`)}</Text>}
-    {!skillsMode && !comparison && <div className="period-curve-form">{drafts.map((draft, index) => <div key={index} className="space-y-3"><label className="space-y-2 block" htmlFor={`${id}-${index}`}><Text as="span" variant="bodyMedium">{t("periodCurve.period", { n: index + 1 })}</Text><DropdownSelect id={`${id}-${index}`} label={t("periodCurve.period", { n: index + 1 })} value={String(draft.preset)} onChange={next => update(index, { preset: next as Draft["preset"] })} options={[{ value: String("year"), label: t("periodCurve.year") }, { value: String("all"), label: t("periodCurve.all") }, { value: String("custom"), label: t("periodCurve.custom") }]} /></label>{draft.preset === "custom" && <div className="period-curve-dates">{(["from", "through"] as const).map(field => <div key={field} className="fitness-date-control"><label htmlFor={`${id}-${index}-${field}`}><Text as="span" variant="bodyMedium">{t(`periodCurve.${field}`)}</Text></label><DateField id={`${id}-${index}-${field}`} portal icon={<CalendarDays size={ICON_SIZE.md} aria-hidden="true" />} max={today} value={draft[field]} onChange={next => update(index, { [field]: next })} /></div>)}</div>}</div>)}</div>}
+    {windowMode ? <Text as="p" variant="bodyMedium" tone="secondary">{t("comparison.windowNote", { days: windowDays })}</Text> : !skillsMode && comparison && <Text as="p" variant="bodyMedium" tone="secondary">{t(`comparison.${comparison}Note`)}</Text>}
+    {!skillsMode && !windowMode && !comparison && <div className="period-curve-form">{drafts.map((draft, index) => <div key={index} className="space-y-3"><label className="space-y-2 block" htmlFor={`${id}-${index}`}><Text as="span" variant="bodyMedium">{t("periodCurve.period", { n: index + 1 })}</Text><DropdownSelect id={`${id}-${index}`} label={t("periodCurve.period", { n: index + 1 })} value={String(draft.preset)} onChange={next => update(index, { preset: next as Draft["preset"] })} options={[{ value: String("year"), label: t("periodCurve.year") }, { value: String("all"), label: t("periodCurve.all") }, { value: String("custom"), label: t("periodCurve.custom") }]} /></label>{draft.preset === "custom" && <div className="period-curve-dates">{(["from", "through"] as const).map(field => <div key={field} className="fitness-date-control"><label htmlFor={`${id}-${index}-${field}`}><Text as="span" variant="bodyMedium">{t(`periodCurve.${field}`)}</Text></label><DateField id={`${id}-${index}-${field}`} portal icon={<CalendarDays size={ICON_SIZE.md} aria-hidden="true" />} max={today} value={draft[field]} onChange={next => update(index, { [field]: next })} /></div>)}</div>}</div>)}</div>}
     <div className="period-curve-actions">{!skillsMode && !comparison && <Button variant="ghost" size="sm" onClick={() => { setDrafts(values => values.length === 1 ? [...values, makeDraft()] : values.slice(0, 1)); setSelection(null); }}>{t(drafts.length === 1 ? "periodCurve.add" : "periodCurve.remove")}</Button>}<Button size="lg" loading={result.state === "loading"} disabled={!callableEnabled || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button></div>
     </div>
     {!callableEnabled && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.preparing")}</Text>}
@@ -128,8 +140,8 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded }: { ownerUid: string
     {result.response && stageActivityPowerAvailable() && <PowerEffortPreferencePanel ownerUid={ownerUid} mode="stage_power_effort_adjusted_canonical" activityIds={[...new Set(result.response.periods.flatMap(p=>[...p.points.map(v=>v.sourceActivityId),...(p.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.points.map(v=>v.sourceActivityId)??[]),...(p.weightNormalized?.powerDurationObservations?.points.map(v=>v.sourceActivityId)??[])]))].slice(0,20)} periods={result.response.periods.map((p,i)=>({id:`period_${i}`,fromInclusiveMs:p.fromInclusive,toExclusiveMs:p.toExclusive}))} scopeKey={JSON.stringify([selection,result.response.inputDigest])}/>}
   </section>;
 }
-export function PowerCurvePeriodsPanel({ ownerUid, callableEnabled = false, embedded = false, nativeActivities = [] }: { nativeActivities?: readonly NativePowerLoadedActivity[]; ownerUid: string | null | undefined; callableEnabled?: boolean; embedded?: boolean }) {
+export function PowerCurvePeriodsPanel({ ownerUid, callableEnabled = false, embedded = false, nativeActivities = [], windowDays }: { nativeActivities?: readonly NativePowerLoadedActivity[]; ownerUid: string | null | undefined; callableEnabled?: boolean; embedded?: boolean; windowDays?: number }) {
   const { user } = useAuth();
   if (!ownerUid || !user || user.isAnonymous || user.uid !== ownerUid) return null;
-  return <div data-testid="K5-5"><PeriodsForm key={ownerUid} ownerUid={ownerUid} callableEnabled={callableEnabled} embedded={embedded} />{stageActivityPowerAvailable() && <NativePowerTwelvePersonalPanel key={`native-${ownerUid}`} ownerUid={ownerUid} activities={nativeActivities} enabled={callableEnabled} />}</div>;
+  return <div data-testid="K5-5"><PeriodsForm key={ownerUid} ownerUid={ownerUid} callableEnabled={callableEnabled} embedded={embedded} windowDays={windowDays} />{stageActivityPowerAvailable() && <NativePowerTwelvePersonalPanel key={`native-${ownerUid}`} ownerUid={ownerUid} activities={nativeActivities} enabled={callableEnabled} />}</div>;
 }

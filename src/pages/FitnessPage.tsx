@@ -364,7 +364,10 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   </FtpDecisionSection> : null;
 
 
-  if (!hasSufficiency && renderMobile && (loading || !timeseriesLoaded)) {
+  // 웹 분석은 기간을 바꿀 때 활동을 다시 읽는 동안에도 화면을 유지한다 — 로딩 골격으로 바꾸면 분석이 새로
+  // 마운트돼 펼친 섹션이 닫히고 불러온 기간 비교가 사라졌다(분석 내용은 이 조회에 기대지 않는다).
+  const keepAnalysisMounted = !embedded && part === "analysis";
+  if (!hasSufficiency && renderMobile && !keepAnalysisMounted && (loading || !timeseriesLoaded)) {
     return (
       <div className="fitness-reading" style={{ padding: "20px 16px 40px" }}>
         <LoadingSkeleton kind="chart" />
@@ -480,6 +483,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
           <FitnessActivityWindowNotice incomplete={model.activityWindowIncomplete} t={t} />
           <MobileFitnessPage
+            periodWindowDays={!embedded && part === "analysis" ? range : undefined}
             {...model.mobilePageProps}
             periodTimeseries={model.periodTimeseries}
             sectionState={{
@@ -614,7 +618,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   // 콜드 CTL)으로 한 번 그렸다가 정본으로 스왑하며 곡선/KPI 가 튀는 깜빡임 방지(리뷰 #340).
   // doc 부재/미인증은 훅이 loaded=true 를 즉시 세팅하므로 추가 대기 없음. (이 지점은 이미
   // tri·미인증 early-return 뒤라 discipline 은 bike/run/swim, user 는 truthy 로 좁혀져 있다.)
-  if (!hasSufficiency && (loading || !timeseriesLoaded)) {
+  if (!hasSufficiency && !keepAnalysisMounted && (loading || !timeseriesLoaded)) {
     return (
       <div className="fitness-reading">
         {pageHeader}
@@ -863,7 +867,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
 
   </>;
 
-  const periodPowerCard = discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel nativeActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>;
+  const periodPowerCard = discipline === "bike" && <Card padding="none" style={{ padding: "var(--space-5)" }}><PowerCurvePeriodsPanel windowDays={!embedded && part === "analysis" ? range : undefined} nativeActivities={disciplineActivities.filter(activity => activity.userId === user.uid && activity.source === "orider").map(activity => ({ activityId: activity.id, title: new Date(activity.startTime).toLocaleDateString(i18n.language), headBinding: JSON.stringify([activity.id, activity.startTime, activity.endTime, activity.contentRevision, activity.contentSelectedRevision]) }))} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} ownerUid={user.uid} /></Card>;
 
   const performanceCurves = <>
           {part !== "condition" && periodPowerCard}
@@ -1019,7 +1023,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
       {discipline === "run" && <AnchoredDetailsSection queryDetail id="analysis-run-records" title={t("analysis.categories.records")}><RunRecordsBoard run={runRecords} title={t("condition.metrics.runSourcesTitle")} additionalUnverified={!!model.runEvidence.unverifiedRecords?.length} /><MilestonesGrid achieved={milestones} />{!user.isAnonymous && getRuntimeConfig().appEnvironment === "stage" && <RunningRaceEstimatesPanel key={user.uid} ownerUid={user.uid} />}</AnchoredDetailsSection>}
       {/* 분석은 파워 커브 비교와 활동량·주간 흐름, 기간별 훈련 강도(상단 기간 선택이 바꾼다)를 둔다. 추정 지표·FTP 판단·데이터 근거는 두지 않는다. */}
       {analysisSummarySlot && <AnchoredDetailsSection queryDetail id="analysis-activity-flow" title={t("analysis.categories.activity")} >{analysisSummarySlot}</AnchoredDetailsSection>}
-      <AnchoredDetailsSection queryDetail id="analysis-periods" title={t("analysis.categories.periods")}>{periodPowerCard}{discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} />}{zoneDistributionCard}</AnchoredDetailsSection>
+      <AnchoredDetailsSection queryDetail id="analysis-periods" title={t("analysis.categories.periods")}>{periodPowerCard}{discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} windowDays={range} />}{zoneDistributionCard}</AnchoredDetailsSection>
     </div>
   </div>;
 

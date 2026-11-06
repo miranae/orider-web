@@ -34,6 +34,19 @@ describe("PowerCurvePeriodsPanel", () => {
     fireEvent.click(view.container.querySelector('[data-duration="300"]')!);
     expect(screen.getByRole("combobox")).toHaveTextContent("duration.min 5");
   });
+  it("follows the analysis window: compares the last N days with the previous N days and reloads when the window changes", () => {
+    const view = render(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled windowDays={90} />);
+    expect(screen.getByText("comparison.window 90")).toBeInTheDocument();
+    expect(mocks.hook.mock.lastCall?.[1]).toBeNull();
+    fireEvent.click(screen.getByText("periodCurve.load"));
+    const [recent, previous] = mocks.hook.mock.lastCall![1].request.periods;
+    expect(recent.toExclusive - recent.fromInclusive).toBe(90 * 86400000);
+    expect(previous.toExclusive).toBe(recent.fromInclusive);
+    view.rerender(<PowerCurvePeriodsPanel ownerUid="owner" callableEnabled windowDays={30} />);
+    const [nextRecent] = mocks.hook.mock.lastCall![1].request.periods;
+    expect(nextRecent.toExclusive - nextRecent.fromInclusive).toBe(30 * 86400000);
+    expect(screen.getByText("comparison.window 30")).toBeInTheDocument();
+  });
   it("keeps API disabled by default and bounds comparison to two periods", () => {
     render(<PowerCurvePeriodsPanel ownerUid="owner" />);
     expect(mocks.hook).toHaveBeenLastCalledWith("owner", null, false);

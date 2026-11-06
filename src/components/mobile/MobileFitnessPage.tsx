@@ -567,17 +567,17 @@ function TodayDecisionPreview({ state, signedIn, hasDetails }: {
 }
 
 /** 기간 읽기 인증과 열기 상태는 실제 사이클 상세 도구에서만 구독한다. */
-function MobilePowerCurvePeriods({ ownerUid, enabled, inline = false, nativeActivities = [] }: { ownerUid: string; enabled: boolean; inline?: boolean; nativeActivities?: readonly NativePowerLoadedActivity[] }) {
+function MobilePowerCurvePeriods({ ownerUid, enabled, inline = false, nativeActivities = [], windowDays }: { ownerUid: string; enabled: boolean; inline?: boolean; nativeActivities?: readonly NativePowerLoadedActivity[]; windowDays?: number }) {
   const { t } = useTranslation("fitness");
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   if (!user || user.isAnonymous || user.uid !== ownerUid) return null;
   if (inline) return <section data-testid="K5-5-1" className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3">
-    <PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} nativeActivities={nativeActivities} />
+    <PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} nativeActivities={nativeActivities} windowDays={windowDays} />
   </section>;
   return <details data-testid="K5-5-1" className="rounded-[var(--r-lg)] border border-[var(--line-soft)] p-3" onToggle={event => { if (event.currentTarget.open) setMounted(true); }}>
     <summary className="cursor-pointer py-3"><Text variant="label">{t("periodCurve.title")}</Text></summary>
-    {mounted && <div className="pt-3"><PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} nativeActivities={nativeActivities} embedded /></div>}
+    {mounted && <div className="pt-3"><PowerCurvePeriodsPanel ownerUid={ownerUid} callableEnabled={enabled} nativeActivities={nativeActivities} windowDays={windowDays} embedded /></div>}
   </details>;
 }
 
@@ -667,6 +667,7 @@ export default function MobileFitnessPage({
   powerCurveEvidenceSlot = null,
   runningRecordsSlot = null,
   triEvidenceSlot = null,
+  periodWindowDays,
   periodTimeseries = null,
   analysisSummarySlot = null,
   nativePowerActivities = [],
@@ -708,6 +709,8 @@ export default function MobileFitnessPage({
   powerCurveEvidenceSlot?: ReactNode;
   runningRecordsSlot?: ReactNode;
   triEvidenceSlot?: ReactNode;
+  /** 분석 상단 기간 선택(일). 기간별 훈련 강도의 기본 비교가 최근 N일 ↔ 이전 N일이 된다. */
+  periodWindowDays?: number;
   nativePowerActivities?: readonly NativePowerLoadedActivity[];
   /** 오늘 결정 상세와 공유하는 단일 서버 판정 상태. 모바일 소스가 한 번만 조회한다. */
   todayDecisionState?: TodayTrainingDecisionState;
@@ -823,7 +826,7 @@ export default function MobileFitnessPage({
 
   </>);
   const bikePeriodZoneContent = (<>
-          {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods nativeActivities={nativePowerActivities} inline={part === "condition" && embedded || part === "analysis" && !embedded} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
+          {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods windowDays={periodWindowDays} nativeActivities={nativePowerActivities} inline={part === "condition" && embedded || part === "analysis" && !embedded} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
 
           {/* 두 종목 부하 근거를 파워 우선 선택으로 숨기지 않는다. */}
           {sectionState.derived === "ready" && (part === "condition" || part === "analysis" && !embedded) && data.zoneEvidence && <FitnessZoneDistributions compact={part === "analysis" && !embedded} evidence={data.zoneEvidence} />}
@@ -940,7 +943,7 @@ export default function MobileFitnessPage({
 
           {!mobileAnalysis && data.discipline === "run" && runningRaceEstimatesOwnerUid && <RunningRaceEstimatesPanel key={runningRaceEstimatesOwnerUid} ownerUid={runningRaceEstimatesOwnerUid} />}
 
-          {mobileAnalysis && data.discipline !== "tri" ? <CoachDetailSection id="analysis-periods" title={t("activity:trainingPeriods.title")}><FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} />{bikePeriodZoneContent}</CoachDetailSection> : !(part === "condition" && isBike) && bikePeriodZoneContent}
+          {mobileAnalysis && data.discipline !== "tri" ? <CoachDetailSection id="analysis-periods" title={t("activity:trainingPeriods.title")}><FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} windowDays={periodWindowDays} />{bikePeriodZoneContent}</CoachDetailSection> : !(part === "condition" && isBike) && bikePeriodZoneContent}
 
 
           {/* 존 정의 */}

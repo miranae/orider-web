@@ -1350,6 +1350,8 @@
   "comparison.title": "비교 기간",
   "comparison.timezone": "한국 시간(KST) 기준입니다. 직접 선택한 종료 날짜를 포함하며 오늘은 요청 시각까지 조회합니다.",
   "comparison.rollingNote": "최근 56일은 요청 시각부터 56 × 24시간 전까지의 이동 기간입니다. 전체 이력도 조회 상한이 적용됩니다.",
+  "comparison.window": "최근 {{days}}일 ↔ 이전 {{days}}일",
+  "comparison.windowNote": "오늘을 제외한 완료된 {{days}}일과 바로 이전 {{days}}일을 비교합니다. 위 기간 선택을 따릅니다.",
   "comparison.fourWeeks": "최근 4주 ↔ 이전 4주",
   "comparison.yearToDate": "올해 ↔ 전년 동기간",
   "comparison.fourWeeksNote": "오늘을 제외한 완료된 28일과 바로 이전 28일을 비교합니다.",
