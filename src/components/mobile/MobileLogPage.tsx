@@ -236,10 +236,7 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
       {/* Header */}
       <div className="flex items-center sticky top-0 z-10"
         style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
-        <div className="flex flex-col">
-          <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t("mobileLog.headerTitle")}</span>
-          <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }}>{monthLabel}</span>
-        </div>
+        {/* 제목·월은 위 머리(운동 기록)와 아래 달력이 이미 보여 준다 — 가져오기 버튼만 오른쪽에 둔다. */}
         <div style={{ flex: 1 }} />
         <Button data-testid="P1-0-2" variant="secondary" onClick={() => setImportOpen(true)} aria-label={t("mobileLog.importAria")} leadingIcon={<Upload size={ICON_SIZE.md} aria-hidden="true" />}>{t("mobileLog.importBtn")}</Button>
       </div>
@@ -288,7 +285,6 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
             <span><GlossaryText>{t("mobileLog.glanceTss")}</GlossaryText>{monthTotals.load.estimated && <sup aria-hidden="true">*</sup>}</span>
             <strong>{aggregateUnavailable ? "–" : monthTotals.load.value ?? "–"}</strong>
           </div>
-          <div className="mobile-log__glance-note">{t("mobileLog.recordBasis")}</div>
           {!aggregateUnavailable && monthTotals.load.unknownCount > 0 && <div className="mobile-log__glance-note">{t("mobileLog.loadPartial", { count: monthTotals.load.unknownCount })}</div>}
           {!aggregateUnavailable && monthTotals.load.estimated && <div className="mobile-log__glance-note">* {t("stat.tssEstimatedIncluded")} {t("mobileLog.estimateBasis")}</div>}
         </div>

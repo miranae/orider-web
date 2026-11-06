@@ -7,7 +7,7 @@ import { ToastProvider } from "../contexts/ToastContext";
 import { EmbeddedNavigationContext } from "./EmbeddedNavigationContext";
 import { EmbeddedCoachNavigation } from "./EmbeddedCoachNavigation";
 import { embeddedCoachPage } from "./coachNavigation";
-import { CLUB_DETAIL_EMBED_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
+import { CLUB_DETAIL_EMBED_CAPABILITY, COURSE_DETAIL_EMBED_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
 import { embeddedCommentId } from "./commentTarget";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -79,6 +79,7 @@ const ExploreSurface = lazy(() => import("./surfaces/ExploreSurface"));
 const SearchSurface = lazy(() => import("./surfaces/SearchSurface"));
 const EventDetailSurface = lazy(() => import("./surfaces/EventDetailSurface"));
 const ClubDetailSurface = lazy(() => import("./surfaces/ClubDetailSurface"));
+const CourseDetailSurface = lazy(() => import("./surfaces/CourseDetailSurface"));
 
 const CONTRACT_VERSION = 1 as const;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/;
@@ -162,17 +163,17 @@ interface EmbeddedBootstrapRootProps {
 
 export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "event-detail" | "fitness" | "plan" | EmbeddedHubSurfaceKind;
 /**
- * 앱 클럽·탐색 탭과 검색 화면, 클럽 상세. 공개 목록·공개 클럽 미리보기라 로그인 인계 없이(게스트)
- * 열려도 보인다(웹 클럽 상세도 비로그인이면 PublicClubPreview 다).
+ * 앱 클럽·탐색 탭과 검색 화면, 클럽·코스 상세. 공개 목록·공개 클럽 미리보기·공개 코스라 로그인 인계
+ * 없이(게스트) 열려도 보인다(웹 클럽 상세도 비로그인이면 PublicClubPreview 다).
  */
-export type EmbeddedHubSurfaceKind = "clubs" | "explore" | "search" | "club-detail";
+export type EmbeddedHubSurfaceKind = "clubs" | "explore" | "search" | "club-detail" | "course-detail";
 
 function isActivitySurfaceKind(kind: EmbeddedSurfaceKind): kind is "activity-analysis" | "activity-public" {
   return kind === "activity-analysis" || kind === "activity-public";
 }
 
 export function isHubSurfaceKind(kind: EmbeddedSurfaceKind): kind is EmbeddedHubSurfaceKind {
-  return kind === "clubs" || kind === "explore" || kind === "search" || kind === "club-detail";
+  return kind === "clubs" || kind === "explore" || kind === "search" || kind === "club-detail" || kind === "course-detail";
 }
 
 /** host.surfaceSelected·트레이닝 캐시를 쓰지 않는 단일 표면(활동·허브). */
@@ -515,6 +516,8 @@ function AuthorizedSurface({
                 <EventDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "club-detail" ? (
                 <ClubDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
+              ) : surfaceKind === "course-detail" ? (
+                <CourseDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "activity-public" && activityId ? (
                 <PublicActivitySurface embedded activityId={activityId} commentId={embeddedTarget} retryKey={retryKey}
                   onReady={() => bridge.send("surface.ready", { activityId })}
@@ -1138,6 +1141,7 @@ export default function EmbeddedBootstrapRoot({
         SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
         RUN_START_SCHEDULED_CAPABILITY,
         CLUB_DETAIL_EMBED_CAPABILITY,
+        COURSE_DETAIL_EMBED_CAPABILITY,
         "host.lifecycle",
         "host.themeChanged",
       ],

@@ -1,17 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  collection,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  startAfter,
-  where,
-  type DocumentData,
-  type QueryConstraint,
-  type QueryDocumentSnapshot,
-} from "firebase/firestore";
-import type { Firestore } from "firebase/firestore";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import type { SortMode } from "./courseCatalog";
@@ -21,6 +8,7 @@ import {
   type LatLngTuple,
 } from "./courseSnapshot";
 import { isVisibleCourseDocData } from "./courseVisibility";
+import { runCourseListQuery, type CourseListCursor, type CourseListServices } from "./courseListRest";
 
 import { SEARCH_PAGE_SIZE } from "../../hooks/usePagedSearch";
 
@@ -37,7 +25,7 @@ export function useCourseCatalog(sortMode: SortMode = "latest", creatorId?: stri
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [hasMore, setHasMore] = useState(true);
-  const cursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const cursorRef = useRef<CourseListCursor | null>(null);
   const loadingMoreRef = useRef(false);
   const hasMoreRef = useRef(true);
   const requestIdRef = useRef(0);
@@ -45,7 +33,7 @@ export function useCourseCatalog(sortMode: SortMode = "latest", creatorId?: stri
   const polylineValueCache = useRef<Map<string, string>>(new Map());
 
   // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
-  const { firestore } = useFirebaseServices();
+  const { firestore, auth, getAppCheckToken } = useFirebaseServices();
   const fetchPage = useCallback(async (reset: boolean) => {
     if (reset) {
       setLoading(true);
@@ -64,22 +52,20 @@ export function useCourseCatalog(sortMode: SortMode = "latest", creatorId?: stri
     const requestId = ++requestIdRef.current;
 
     try {
-      const constraints: QueryConstraint[] = [
-        orderBy(orderFieldForSort(sortMode), "desc"),
-        limit(Math.min(pageSize, SEARCH_PAGE_SIZE)),
-      ];
-      if (creatorId) constraints.unshift(where("creatorId", "==", creatorId));
-      if (!reset && cursorRef.current) {
-        constraints.splice(creatorId ? 2 : 1, 0, startAfter(cursorRef.current));
-      }
-      const snapshot = await getDocs(query(collection(firestore, "courses"), ...constraints));
+      const pageLimit = Math.min(pageSize, SEARCH_PAGE_SIZE);
+      // 목록에 필요한 필드만 받는다(#3235) — 전체 문서는 trackPoints 때문에 페이지당 수십 MB 다.
+      const page = await runCourseListQuery({ firestore, auth, getAppCheckToken }, {
+        orderField: orderFieldForSort(sortMode),
+        direction: "DESCENDING",
+        limit: pageLimit,
+        creatorId,
+        cursor: reset ? null : cursorRef.current,
+      });
       if (requestId !== requestIdRef.current) return;
-      const docs = snapshot.docs
-        .map((doc) => ({ id: doc.id, data: doc.data() }))
-        .filter((item) => isVisibleCourseDocData(item.data));
+      const docs = page.docs.filter((item) => isVisibleCourseDocData(item.data));
       const nextCourses = replaceCourseSnapshotDocs(docs, polylineCache.current, polylineValueCache.current);
-      cursorRef.current = snapshot.docs[snapshot.docs.length - 1] ?? cursorRef.current;
-      const nextHasMore = snapshot.docs.length === Math.min(pageSize, SEARCH_PAGE_SIZE);
+      cursorRef.current = page.cursor ?? cursorRef.current;
+      const nextHasMore = page.rawCount === pageLimit;
       hasMoreRef.current = nextHasMore;
       setHasMore(nextHasMore);
       setCourses((prev) => reset ? nextCourses : [...prev, ...nextCourses]);
@@ -96,7 +82,7 @@ export function useCourseCatalog(sortMode: SortMode = "latest", creatorId?: stri
         loadingMoreRef.current = false;
       }
     }
-  }, [firestore, sortMode, creatorId, pageSize]);
+  }, [firestore, auth, getAppCheckToken, sortMode, creatorId, pageSize]);
 
   useEffect(() => {
     if (enabled) void fetchPage(true);
@@ -116,34 +102,33 @@ export function useCourseCatalog(sortMode: SortMode = "latest", creatorId?: stri
 }
 
 export async function searchVisibleCoursesPage(
-  firestore: Firestore,
+  services: CourseListServices,
   searchText: string,
   maxCount = SEARCH_LIMIT,
   polylineCache: Map<string, LatLngTuple[]> = new Map(),
   polylineValueCache: Map<string, string> = new Map(),
   creatorId?: string,
-  cursor: QueryDocumentSnapshot<DocumentData> | null = null,
-): Promise<{ items: CourseData[]; cursor: QueryDocumentSnapshot<DocumentData> | null; hasMore: boolean }> {
+  cursor: CourseListCursor | null = null,
+): Promise<{ items: CourseData[]; cursor: CourseListCursor | null; hasMore: boolean }> {
   const text = searchText.trim();
   if (!text) return { items: [], cursor: null, hasMore: false };
 
-  const snapshot = await getDocs(query(
-    collection(firestore, "courses"),
-    ...(creatorId ? [where("creatorId", "==", creatorId)] : []),
-    where("name", ">=", text),
-    where("name", "<=", `${text}\uf8ff`),
-    orderBy("name"),
-    ...(cursor ? [startAfter(cursor)] : []),
-    limit(Math.min(maxCount, SEARCH_PAGE_SIZE)),
-  ));
+  const pageLimit = Math.min(maxCount, SEARCH_PAGE_SIZE);
+  const page = await runCourseListQuery(services, {
+    orderField: "name",
+    direction: "ASCENDING",
+    limit: pageLimit,
+    creatorId,
+    namePrefix: text,
+    cursor,
+  });
 
   const normalized = text.toLowerCase();
-  const docs = snapshot.docs
-    .map((doc) => ({ id: doc.id, data: doc.data() }))
+  const docs = page.docs
     .filter((item) => isVisibleCourseDocData(item.data))
     .filter((item) => String(item.data.name ?? "").toLowerCase().includes(normalized));
 
-  return { items: replaceCourseSnapshotDocs(docs, polylineCache, polylineValueCache), cursor: snapshot.docs[snapshot.docs.length - 1] ?? null, hasMore: snapshot.docs.length === Math.min(maxCount, SEARCH_PAGE_SIZE) };
+  return { items: replaceCourseSnapshotDocs(docs, polylineCache, polylineValueCache), cursor: page.cursor, hasMore: page.rawCount === pageLimit };
 }
 
 export async function searchVisibleCoursesByName(...args: Parameters<typeof searchVisibleCoursesPage>): Promise<CourseData[]> {

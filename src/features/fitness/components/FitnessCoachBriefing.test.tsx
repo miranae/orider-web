@@ -85,7 +85,8 @@ describe("FitnessCoachBriefing", () => {
     const selector = screen.getByTestId("K1-3-1");
     expect(result).toContainElement(selector);
     expect(result.closest("details")).toBeNull();
-    expect(within(result).getByText(/통증이나 질병 신호가 있으면 쉬세요/)).toBeVisible();
+    // 컨디션은 활동 기여도 안내 문구를 두지 않는다.
+    expect(within(result).queryByText(/통증이나 질병 신호가 있으면 쉬세요/)).not.toBeInTheDocument();
     expect(within(selector).getByRole("button", { name: /8월 29일/ })).toHaveTextContent("CTL +4.7");
     expect(within(selector).getByRole("button", { name: /8월 28일/ })).toHaveTextContent("CTL +2.0");
     expect(within(result).getByText("+4.7")).toBeVisible();
@@ -99,18 +100,17 @@ describe("FitnessCoachBriefing", () => {
     expect(screen.queryByText("계획·안전 근거 확인")).not.toBeInTheDocument();
   });
 
-  it("uses supplied condition status without repeating the fallback advice or dropping its basis", () => {
+  it("uses supplied condition status without the fallback advice, basis line or sufficiency note", () => {
     renderBriefing({ part: "condition", showConditionChoices: false, statusSlot: <h2>canonical status interpretation</h2>, metricsNoteSlot: <p>history sufficiency</p>, currentBasis: "canonical snapshot source", currentDate: "2026-08-29" });
     expect(screen.getByRole("heading", { name: "canonical status interpretation" })).toBeVisible();
     expect(screen.queryByRole("heading", { name: /회복을 흡수하는 날/ })).not.toBeInTheDocument();
     expect(screen.getByText("42.0")).toBeVisible();
-    expect(screen.getByText("history sufficiency")).toBeVisible();
+    // 컨디션은 기준일·출처 줄과 기록·계산 상태 안내를 두지 않는다.
+    expect(screen.queryByText("history sufficiency")).not.toBeInTheDocument();
+    expect(screen.queryByText("canonical snapshot source")).not.toBeInTheDocument();
     const action = screen.getByTestId("K1-1-3");
     expect(screen.getByTestId("K1-1-1").compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(action.compareDocumentPosition(screen.getByText("canonical snapshot source")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(action.compareDocumentPosition(screen.getByText("history sufficiency")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByTestId("K1-1-3")).toHaveLength(1);
-    expect(screen.getByText("canonical snapshot source")).toBeInTheDocument();
     expect(screen.getByTestId("K1-1-3")).toHaveAttribute("href", "/ko/coach/today?sport=bike");
   });
 
@@ -127,7 +127,7 @@ describe("FitnessCoachBriefing", () => {
 
   it("names the snapshot date and source independently from the chart's pending history", () => {
     renderBriefing({ part: "condition", currentBasis: "2026-10-15 기준 · 현재 컨디션 요약", current: { ctl: 49.4, atl: 38.1, tsb: 11.3 }, trendSlot: <p>2026-10-16 · PMC 반영 대기</p> });
-    expect(screen.getByText("2026-10-15 기준 · 현재 컨디션 요약")).toBeInTheDocument();
+    expect(screen.queryByText("2026-10-15 기준 · 현재 컨디션 요약")).not.toBeInTheDocument();
     expect(screen.getByText("2026-10-16 · PMC 반영 대기")).toBeInTheDocument();
     expect(screen.getByText("49.4")).toBeInTheDocument();
     expect(screen.getByText("+11.3")).toBeInTheDocument();
@@ -283,7 +283,7 @@ describe("coach screen ownership", () => {
     fireEvent.click(screen.getByRole("radio", { name: /회복/ }));
     expect(screen.getByRole("radio", { name: /회복/ })).toBeChecked();
     expect(screen.queryByRole("button", { name: /전송|휴식으로 정하기/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "이 상태가 만들어진 흐름" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "이 상태가 만들어진 흐름" })).not.toBeInTheDocument();
     expect(screen.queryByText("decision slot")).not.toBeInTheDocument();
   });
   it("a read-only today forecast stays interactive while delivery is unavailable", () => {
@@ -292,7 +292,7 @@ describe("coach screen ownership", () => {
     fireEvent.click(screen.getByRole("radio", { name: /회복/ }));
     expect(document.querySelector(".fitness-coach__forecast")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /전송/ })).not.toBeInTheDocument();
-    expect(screen.getByText(/계획 세션과 별도로/)).toBeInTheDocument();
+    expect(screen.queryByText(/계획 세션과 별도로/)).not.toBeInTheDocument();
   });
   it("today keeps choices and removes the condition briefing and impact details", () => {
     renderBriefing({ part: "today", decisionSlot: null });
@@ -304,14 +304,10 @@ describe("coach screen ownership", () => {
 });
 
 
-it('keeps calculation provenance visible with its date and sufficiency information', () => {
+it('condition drops the calculation provenance line and sufficiency note', () => {
   renderBriefing({ part: 'condition', currentDate: '2026-10-16', currentBasis: '2026-10-16 기준 · 저장된 일별 계산값',
-    metricsNoteSlot: <div><span>낮은 근거</span><span>일부 부하는 운동 시간으로 추정했어요.</span><span data-testid="briefing-test-remaining">남은 요건 1개</span><a data-testid="briefing-test-action" href="/settings/connections">운동 기록 가져오기</a></div> });
-  expect(screen.queryByText('10월 16일 기준')).not.toBeInTheDocument();
-  const source = screen.getByText('2026-10-16 기준 · 저장된 일별 계산값');
-  expect(source).toBeVisible();
-  expect(screen.getByText('남은 요건 1개')).toBeVisible();
-  expect(screen.getByRole('link', { name: '운동 기록 가져오기' })).toHaveAttribute('href', '/settings/connections');
-  expect(source).toBeVisible();
+    metricsNoteSlot: <div><span>낮은 근거</span><a data-testid="briefing-test-action" href="/settings/connections">운동 기록 가져오기</a></div> });
+  expect(screen.queryByText('2026-10-16 기준 · 저장된 일별 계산값')).not.toBeInTheDocument();
+  expect(screen.queryByText('낮은 근거')).not.toBeInTheDocument();
   expect(screen.getByTestId('K1-1-3')).toHaveAttribute('href', '/ko/coach/today?sport=bike');
 });

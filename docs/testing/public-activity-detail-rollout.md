@@ -1,22 +1,25 @@
-# Public activity detail: first vertical slice
+# Public activity detail: rollout and acceptance
 
 Parent: miranae/orider-g1-app#2882; WEB #1344; BE miranae/orider-g1-web#3373.
 
 ## Scope and rollout
 
-`publicActivityDetailEnabled` defaults to **false**. With the flag absent/false, `/[lang]/activity/[id]` retains the existing full ActivityPage and does not call the new API. Only an explicit runtime boolean true (or local `VITE_PUBLIC_ACTIVITY_DETAIL_ENABLED=true`) enables public preflight. Do not enable production as part of this PR: the new callable and field contract must be deployed and verified first.
+`publicActivityDetailEnabled` defaults to **false**. With the flag absent/false, `/[lang]/activity/[id]` retains the existing full ActivityPage without public preflight. Its owner-only transient-read recovery can still call the public API; this is not a guest/non-owner fallback. Only an explicit runtime boolean true (or local `VITE_PUBLIC_ACTIVITY_DETAIL_ENABLED=true`) enables public preflight. Keep production disabled until the deployed callable contracts and the real-account acceptance checks below are verified. A disabled gate does not resolve guest/non-owner permission failures on the legacy route.
 
-When enabled, a public DTO determines ownership before any owner analysis hook mounts. Owners retain ActivityPage. If the new API is unavailable, an authenticated viewer can use an owner-only Firestore query (document ID + current user ID) to prove ownership; only that verified owner can fall back. Other users fail closed. Account/activity changes discard late responses.
+When enabled, a public DTO determines ownership before any owner analysis hook mounts. Owners retain ActivityPage. On a transient API failure (not an access-denied/not-found/failed-precondition or unauthenticated response), an authenticated nonanonymous viewer can use a server-confirmed owner-only Firestore query (document ID + current user ID) to prove ownership; only that verified owner can fall back. Other users fail closed. Account/activity changes discard late responses.
+
+`PublicActivitySurface` now renders the shared `ActivityPage` through its `publicAccess` adapter, rather than a separate reduced detail layout. Public mode uses the server-authorized detail/metrics DTO and public streams; it does not mount the owner activity/metrics reads. Shared presentation is not evidence that owner-only data is accessible.
 
 The standalone embedded route `/[lang]/embed/activity/[id]/public` reuses the same UI and isolated Firebase handoff. Native app integration remains deferred. The existing analysis embed also retries the canonical overview on host retry and does not show a contradictory unavailable message when canonical evidence has loaded.
 
 ## Contract and semantics
 
-- `getActivityPublicDetail`, `setActivityKudos`, `postActivityComment`: asia-northeast3; stage uses its configured callable base. Use the injected Firebase app, never singleton auth for embedded calls.
-- No activity streams, private metrics, profile threshold values, or thumbnail-generation writes in the new public surface.
+- `getActivityPublicDetail`, `getActivityPublicComments`, `getActivityPublicPhotos`, `getActivityPublicStreams`, and the existing social mutations use asia-northeast3; stage uses its configured callable base. Use the injected Firebase app and App Check readiness, never singleton auth for embedded calls.
+- Public mode can request streams through `getActivityPublicStreams` for the shared detail/analysis presentation. It must not fall back to direct owner-only Firestore or private stream reads. The public DTO, metrics and stream responses remain separate server-authorized contracts; do not describe this surface as stream-free.
+- Backend `assertActivityPublicAccess` admits `everyone`, mutual `friends`, or an active viewer-to-owner `followers` subscription, while other visibility values require ownership. It also checks activity deletion, owner deletion/merge fences, both block directions, and the signed-in viewer's hidden-activity record. Each public read/mutation must retain its applicable permission checks; successful initial detail loading is not a lasting access grant.
 - `effectiveFacts.status=canonical` provides display metrics. Explicit canonical null remains missing (`—`). Other states show the recorded summary with a source note; this does not declare analysis ready.
 - `summary.distance` is **metres** (divide by 1000 for km). `effectiveFacts.metrics.distanceKm` is km. Raw `ridingTimeMillis` is milliseconds; effective `durationSec` is seconds. Display time is recorded duration, not relabelled moving time.
-- Optional `mapPreview.imageUrl/encodedPolyline` supplies the server-admitted bounded public map preview. RouteMap renders it without loading raw GPS or writing a thumbnail.
+- Public maps are independently loaded through `getActivityPublicMaps` and bound to the current account/client and fresh privacy/content revision. `ActivityPublicAccess` supplies the admitted `imageUrl/encodedPolyline` to the shared page and hides stale content during revalidation. Public streams are a separate read, so actual map privacy and exported/analysis data must be checked together; a visible preview alone does not prove privacy acceptance.
 - Photos remain bounded previews. `uploadedPhotosTruncated` explicitly labels photo truncation; `totalPhotoCountExact=false` is a scan lower bound and feed cards say “more photos”, not an invented exact remainder. Comments start from the detail preview and continue through server-authorized opaque cursors (20 scanned rows per page); an empty visible page can still have another cursor.
 - Comment limit is 500 characters. The same draft retains `clientRequestId` across failed/uncertain retries; successful submission clears it. Reactions serialize concurrent taps and re-read the permission-checked projection. A failed permission readback removes displayed data. Comment input survives mutation failure.
 - Anonymous visitors can read permitted public detail; reaction controls require a signed-in, nonanonymous user. Access-denied/not-found is distinguished from transient network failure.
@@ -25,16 +28,20 @@ The standalone embedded route `/[lang]/embed/activity/[id]/public` reuses the sa
 
 - Component and service tests cover source units, canonical missing values, owner/public route separation, gate disabled behavior, owner-only fallback, account change races, retry idempotency, reaction serialization, comment preservation, and permission readback.
 - Local browser evidence uses synthetic public DTOs and the actual surface component. It proves rendering and interaction behavior, not production authorization or native app delivery.
-- Backend authorization/serialization tests are tracked separately in BE #3373. This PR does not deploy or merge either repository.
+- Backend authorization/serialization tests are tracked separately in BE #3373. Function ACTIVE status and READY indexes prove deployment prerequisites, not successful App Check, account ACLs, media permissions or device acceptance. Deployment evidence and outstanding mobile checks are tracked in WEB #1515.
 
 ## Remaining work before enabling by default
 
 1. Real-account gallery and route privacy validation. The new explicit native gallery request now returns up to twenty admitted active photos; provider galleries remain unchanged behind the disabled rollout gate. Owner moderation remains on the existing owner ActivityPage; public viewers can edit/delete their own comments and report other comments.
-2. Real two-account feed→public detail→reaction→owner analysis validation against the deployed candidate API, including private/friends/blocks/deletion.
-3. Map privacy/preview coverage and photo permissions with actual own-source activities; cold/warm latency measurement.
+2. Guest and real two-account feed→public detail→reaction/comment readback→owner analysis validation against the deployed candidate API. Include everyone/friends/followers/private, subscription changes, both block directions, hidden activities, deletion/fences and account switches; access loss must remove previously displayed content. Use approved QA activities for mutations.
+3. Map privacy enabled/disabled, preview/stream/export consistency and native/provider photo permissions with actual own-source activities. Exercise background→foreground revalidation, measure cold/warm latency, and capture Samsung Internet and Chrome on the Galaxy plus iPhone Safari touch/rotation. Responsive desktop captures do not replace device evidence.
 4. Runtime rollout/rollback evidence. Keep the gate off until the richer existing public experience is preserved and acceptance criteria are satisfied.
 
-## Synthetic browser evidence
+After acceptance, set the production Environment variable `VITE_PUBLIC_ACTIVITY_DETAIL_ENABLED=true` and use the existing `v*` tag Hosting workflow (`scripts/release-tag.sh`); the workflow already forwards it to `write-runtime-config.mjs`. Verify the live runtime boolean, deployed bundle and device journeys. Roll back by setting the variable to false and deploying through the same workflow, or restoring the previous Hosting release. Reload pages when verifying either direction because runtime config is read at startup.
+
+## Historical synthetic browser evidence (first slice)
+
+These earlier fixture captures describe the first slice, not acceptance of the current shared-page/streams implementation.
 
 390 px Korean mobile viewport, Strava-unconnected own-source-shaped DTO fixture:
 

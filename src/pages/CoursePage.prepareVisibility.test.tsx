@@ -1,7 +1,15 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-vi.mock("firebase/auth", () => ({ getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }) }));
+vi.mock("firebase/auth", () => ({
+  getIdTokenResult: vi.fn().mockResolvedValue({ claims: {} }),
+  onAuthStateChanged: (_auth: unknown, callback: () => void) => { callback(); return () => {}; },
+}));
+vi.mock("../features/courses/courseDetailAsset", async () => {
+  const { doc, onSnapshot } = await import("firebase/firestore");
+  return { subscribeCourseDetail: (services: { firestore: Parameters<typeof doc>[0] }, id: string, onData: (value: unknown) => void, onError: (error: Error) => void) =>
+    onSnapshot(doc(services.firestore, "courses", id), (snapshot) => onData(snapshot.exists() ? { id, ...snapshot.data() } : null), onError) };
+});
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner" }, profile: { weightKg: 70, ftp: 250 }, loading: false, profileLoading: false, signIn: vi.fn() }) }));
 import { setDocData, mockDocData, setCallableImplementation } from "../__tests__/mocks/firebase";
 vi.mock("react-router-dom", async (importOriginal) => ({ ...(await importOriginal<typeof import("react-router-dom")>()), useParams: () => ({ courseId: "course-climb", lang: "ko" }) }));

@@ -95,3 +95,5 @@
 
 /* Condition charts keep the full reading area clear of floating actions. */
 .coach-question-launcher--condition { display: flex; justify-content: flex-end; padding-block: var(--space-5); }
+/* 코치 컨디션: 마지막 블록과 "코치에게 묻기" 사이를 카드 사이 간격(16)과 같게 — 위 여백·패딩이 겹쳐 40~68 이었다. */
+.coach-surface .coach-question-launcher--condition { margin-top: var(--space-4); padding-top: 0; }

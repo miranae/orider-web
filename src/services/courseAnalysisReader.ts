@@ -13,13 +13,12 @@
  *
  * 이 함수는 **던지지 않는다.** 실패는 봉투 상태로 내려간다.
  */
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, type Firestore } from "firebase/firestore";
 
 import {
   CANONICAL_SCHEMA_VERSION, CANONICAL_STATUSES,
   type CanonicalEnvelope, type CanonicalStatus,
 } from "@shared/types/canonical";
-import { firestore } from "./firebase";
 import { debugLog, logClientError } from "./errorLogger";
 import { knownEnumValue } from "./trainingDecisionCanonicalContract";
 
@@ -58,7 +57,8 @@ function num(value: unknown): number | null {
 }
 
 /** 문서 하나를 읽어 봉투로 만든다. 문서가 없으면 0 이 아니라 `unavailable` 이다. */
-export async function fetchCourseAnalysis(courseId: string): Promise<CourseAnalysisEnvelope> {
+/** `firestore` 는 호출 화면이 주입받은 인스턴스다 — 임베드는 싱글턴이 없다(#847). */
+export async function fetchCourseAnalysis(courseId: string, firestore: Firestore): Promise<CourseAnalysisEnvelope> {
   if (!courseId) return emptyEnvelope("unavailable");
   let raw: Record<string, unknown> | null;
   try {

@@ -928,7 +928,7 @@
     "viewInPlan": "계획에서 보기 →",
     "eyebrow": "오늘의 계획",
     "loading": "오늘 계획을 확인하는 중…",
-    "noScheduled": "오늘 예정된 세션이 없습니다.",
+    "noScheduled": "오늘 예정된 워크아웃이 없어요.",
     "scheduled": "원래 계획",
     "recommended": "조정 권고",
     "recommendedPending": "조정 권고 · 아직 미적용",
@@ -1101,8 +1101,8 @@
     "remaining": "{{count}}단계 남음",
     "refresh": "새로고침",
     "decision": {
-      "maintain": "다음 운동 계획 유지 · {{reason}}",
-      "hold": "다음 운동 보류 · {{reason}}",
+      "maintain": "다음 운동 계획 유지",
+      "hold": "다음 운동 보류",
       "basisFeedback": "근거: 내 러닝 피드백. 계획 변경은 직접 확인 후 진행합니다.",
       "basisRecord": "근거: 운동 기록. 계획 변경은 직접 확인 후 진행합니다."
     },

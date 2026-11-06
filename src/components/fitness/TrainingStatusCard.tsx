@@ -142,24 +142,30 @@ export default function TrainingStatusCard({
     ? `trainingStatus.${band.key}.adviceRamp`
     : `trainingStatus.${band.key}.advice`;
 
-  return (
-    <Surface data-testid="K1-4-4" className={`fitness-current-status${presentation === "story" ? " fitness-current-status--story" : ""}`}>
-      <MetricExplainerTrigger
-        metric="tsb"
-        scope="global"
-        sport={sport}
-        context={{ tsb, ctl, atl, ctlRampPerWeek, formBandKey: serverBandKey }}
-      >
+  const statusHeading = (
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-3)" }}>
           {presentation === "story" ? <Text as="h2" variant="title" className="fitness-current-status__headline">{t(`trainingStatus.${band.key}.label`)}</Text> : <Chip variant={TONE_CHIP[band.tone]} dot style={{ flexShrink: 0, fontWeight: 600 }}>
             {t(`trainingStatus.${band.key}.label`)}
           </Chip>}
           {stale && <Chip variant="default" style={{ flexShrink: 0 }}>{t("trainingStatus.staleChip")}</Chip>}
-          <Text as="p" variant={presentation === "story" ? "body" : "bodySmall"} className="fitness-current-status__advice" tone="secondary" style={{ margin: 0 }}>
+          {/* 컨디션(story)은 상태 이름과 값만 둔다 — 조언 문장은 오늘 탭이 맡는다. */}
+          {presentation !== "story" && <Text as="p" variant="bodySmall" className="fitness-current-status__advice" tone="secondary" style={{ margin: 0 }}>
             {t(adviceKey)}
-          </Text>
+          </Text>}
         </div>
-      </MetricExplainerTrigger>
+  );
+
+  return (
+    <Surface data-testid="K1-4-4" className={`fitness-current-status${presentation === "story" ? " fitness-current-status--story" : ""}`}>
+      {/* 컨디션(story)은 설명 마크(?) 없이 상태 이름만 둔다. */}
+      {presentation === "story" ? statusHeading : <MetricExplainerTrigger
+        metric="tsb"
+        scope="global"
+        sport={sport}
+        context={{ tsb, ctl, atl, ctlRampPerWeek, formBandKey: serverBandKey }}
+      >
+        {statusHeading}
+      </MetricExplainerTrigger>}
 
       <ReferenceGauge value={band.index + 0.5} domain={[0, FORM_BAND_KEYS.length]} bands={FORM_BAND_KEYS.map((_, index) => ({ from: index, to: index + 1, active: index === band.index, color: toneColor }))} ticks={[]} aria-label={`${t(`trainingStatus.${band.key}.label`)} (${band.index + 1}/${FORM_BAND_KEYS.length})`} />
       <div className="fitness-state-labels">
