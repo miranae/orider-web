@@ -203,6 +203,15 @@ it("keeps the integrated contribution proportions when swimming controls are hid
   expect(within(contribution).queryByRole("img", { name: /수영/ })).not.toBeInTheDocument();
 });
 
+it("hides the fixed 30-day zone cards when period zones come from the server period comparison", () => {
+  const zoneEvidence = { windowDays: 30, startTime: 0, endTime: 1, hr: { counts: [10, 10, 10, 10, 10], total: 50, recordCount: 1, missingCount: 0, boundaries: null }, power: { counts: null, total: 0, recordCount: 0, missingCount: 0 } };
+  const view = renderWithProviders(<MobileFitnessPage data={{ ...data, zoneEvidence }} part="analysis" />);
+  expect(within(document.getElementById("analysis-periods")!).getAllByText(/30/).length).toBeGreaterThan(0);
+  view.unmount();
+  renderWithProviders(<MobileFitnessPage data={{ ...data, zoneEvidence }} part="analysis" periodZonesFromServer />);
+  expect(within(document.getElementById("analysis-periods")!).queryByText(/30/)).not.toBeInTheDocument();
+});
+
 it("does not label the whole mobile analysis insufficient when a permitted recorded curve is visible", () => {
   renderWithProviders(<MobileFitnessPage data={{ ...data, powerCurve: [{ durationSeconds: 5, maxPower: 500 }, { durationSeconds: 1200, maxPower: 200 }] }} part="analysis" />);
   expect(screen.queryByText("분석할 데이터가 아직 충분하지 않아요.")).not.toBeInTheDocument();

@@ -62,14 +62,16 @@ function ManualRunningPaceZones({ response, ownerUid }: { response: TrainingAnal
   </section>;
 }
 /** 부모의 기간 통계 응답을 표시한다. 이 컴포넌트는 추가 요청을 만들지 않는다. */
-export default function TrainingPeriodZonesPanel({ response, ownerUid }: { response: TrainingAnalysisPeriodsResponse | null; ownerUid?: string }) {
+/** [zonesOpen] 는 코치 분석용 — 기간별 심박·파워 존을 접지 않고 바로 보여준다. */
+export default function TrainingPeriodZonesPanel({ response, ownerUid, zonesOpen = false }: { response: TrainingAnalysisPeriodsResponse | null; ownerUid?: string; zonesOpen?: boolean }) {
   const { t, i18n } = useTranslation("activity");
   const { user } = useAuth();
   const paceOwner = !!ownerUid && user?.uid === ownerUid && !user.isAnonymous;
   const date = (time: number) => new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(time);
   if (!response) return null;
-  return <><Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.populationBasis")}</Text><CyclingDistancePeriodAnalysis response={response} /><BikeObservedPeriodRecordsPanel response={response} /><BikeObservedClimbRecordsPanel response={response} /><details className="activity-growth-evidence text-[length:var(--fs-md)]">
-    <summary className="cursor-pointer py-3 font-semibold">{t("trainingPeriods.title")}</summary>
+  const Zones = zonesOpen ? "section" : "details";
+  return <><Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.populationBasis")}</Text><CyclingDistancePeriodAnalysis response={response} /><BikeObservedPeriodRecordsPanel response={response} /><BikeObservedClimbRecordsPanel response={response} /><Zones className="activity-growth-evidence text-[length:var(--fs-md)]">
+    {zonesOpen ? <Text as="h3" variant="subtitle" className="py-3">{t("trainingPeriods.title")}</Text> : <summary className="cursor-pointer py-3 font-semibold">{t("trainingPeriods.title")}</summary>}
     <div className="space-y-4 pt-3">
       <Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.basis")}</Text>
       {response.periods.map((period, index) => <section key={`${period.fromInclusive}:${period.toExclusive}:${index}`} className="space-y-4" aria-label={t("trainingPeriods.period", { count: index + 1 })}>
@@ -88,5 +90,5 @@ export default function TrainingPeriodZonesPanel({ response, ownerUid }: { respo
       </section>)}
       {response.discipline === "run" && (paceOwner ? <ManualRunningPaceZones key={JSON.stringify([ownerUid, response.discipline, response.periods.map(period => [period.fromInclusive, period.toExclusive])])} response={response} ownerUid={ownerUid!} /> : <Text as="p" variant="bodyMedium" tone="secondary">{t("trainingPeriods.paceUnavailable")}</Text>)}
     </div>
-  </details></>;
+  </Zones></>;
 }

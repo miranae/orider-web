@@ -11,6 +11,12 @@ vi.mock("../../../services/trainingAnalysisPeriods", async original => ({ ...awa
 beforeEach(() => { mocks.enabled = true; mocks.hook.mockReset().mockReturnValue({ state: "idle", response: null }); });
 
 describe("period zones display", () => {
+  it("shows the period heart-rate and power zones open for the coach analysis", () => {
+    const { container } = renderWithProviders(<TrainingPeriodZonesPanel response={periodFixture()} zonesOpen />);
+    expect(screen.getByRole("region", { name: "심박 존" })).toBeVisible();
+    expect(screen.getByRole("region", { name: "파워 존" })).toBeVisible();
+    expect(container.querySelector("details.activity-growth-evidence")).toBeNull();
+  });
   it("keeps recorded thresholds and measured/virtual groups separate, with observed denominators", () => {
     const response = periodFixture();
     response.periods[0]!.zones.power.groups.push({ ftp: 250, powerSource: "virtual", seconds: [0, 40, 0, 0, 0, 0, 0], observedSeconds: 40, activityIds: ["b"] });

@@ -123,7 +123,7 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
       </section>)}</div>
       <PeriodLoadEvidence ownerUid={ownerUid} discipline={discipline} periods={result.response.periods} timeseries={timeseries} />
       <RunPeriodComparisonPanel response={result.response} />
-      <TrainingPeriodZonesPanel response={result.response} ownerUid={ownerUid} />
+      <TrainingPeriodZonesPanel response={result.response} ownerUid={ownerUid} zonesOpen={loadSignal !== undefined || syncMode} />
       {discipline === "run" && <RunEffortStageManagementPanel ownerUid={ownerUid} appliedResponse={result.response} />}
     </Stack>}
     </Stack>

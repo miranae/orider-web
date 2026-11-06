@@ -675,6 +675,7 @@ export default function MobileFitnessPage({
   onPeriodLoad,
   analysisPeriods,
   onAnalysisPeriodsChange,
+  periodZonesFromServer = false,
   nativePowerActivities = [],
   todayDecisionState,
   todayDecisionSignedIn = true,
@@ -711,6 +712,8 @@ export default function MobileFitnessPage({
   /** 사이클 분석: 위 파워 비교가 불러온 기간 — 아래 "기간별 훈련 구성"이 같은 기간으로 불러온다. */
   analysisPeriods?: PowerCurvePeriod[] | null;
   onAnalysisPeriodsChange?: (periods: PowerCurvePeriod[]) => void;
+  /** 기간별 심박·파워 존을 서버 기간 통계(위 기간과 연동)로 보여줄 때 고정 30일 분포 카드를 숨긴다. */
+  periodZonesFromServer?: boolean;
   conditionSupplementSlot?: ReactNode;
   currentBasis?: string;
   currentStatusSlot?: ReactNode;
@@ -1016,8 +1019,8 @@ export default function MobileFitnessPage({
           </AnalysisGroup>
           <AnalysisGroup id="analysis-periods" title={t("fitness:analysis.groups.composition")} description={t("fitness:analysis.groups.compositionNote")}>
             {data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} windowDays={periodWindowDays} loadSignal={periodLoadSignal} periods={isBike && powerCurvePeriodsOwnerUid ? analysisPeriods : undefined} />}
-            {sectionState.derived === "ready" && data.zoneEvidence && <FitnessZoneDistributions compact evidence={data.zoneEvidence} />}
-            {legacyZonesCard}
+            {!periodZonesFromServer && sectionState.derived === "ready" && data.zoneEvidence && <FitnessZoneDistributions compact evidence={data.zoneEvidence} />}
+            {!periodZonesFromServer && legacyZonesCard}
             {zoneDefsCard}
             {hrZonesMissingCard}
           </AnalysisGroup>
