@@ -32,6 +32,7 @@ import { PowerCurvePeriodsPanel } from "../../features/fitness/components/PowerC
 import type { PowerCurvePeriod } from "@shared/types/power-curve-periods";
 import FitnessPeriodEvidence from "../../features/fitness/components/FitnessPeriodEvidence";
 import { AnalysisGroup, AnalysisPeriodLoadBar } from "../../features/fitness/components/AnalysisGroup";
+import { ConciseExplanationsContext } from "../../features/fitness/conciseExplanations";
 import PmcHistoryPanel from "../../features/fitness/components/PmcHistoryPanel";
 import { fitnessTodayKey, type FitnessDateKeyBasis } from "@shared/training/dateKey";
 import FtpDecisionSection from "../../features/fitness/components/FtpDecisionSection";
@@ -1006,18 +1007,18 @@ export default function MobileFitnessPage({
   const definedAnalysisSets = mobileAnalysisSets.filter((set): set is NonNullable<typeof set> => set != null);
   // 페이지가 두 기간 비교 패널을 그릴 수 있을 때만 onPeriodLoad 를 넘긴다.
   const showPeriodLoad = onPeriodLoad != null && periodWindowDays != null;
-  const webAnalysisContent = mobileAnalysis ? (<div style={{ paddingTop: 14 }}>
+  const webAnalysisContent = mobileAnalysis ? (<ConciseExplanationsContext.Provider value><div style={{ paddingTop: 14 }}>
           {sectionState.derived === "loading" && <div role="status" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>{t("mobileFitness.derivedLoading")}</div>}
           {sectionState.derived === "error" && <div role="alert" style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center" }}>{t("mobileFitness.derivedError")}</div>}
           {showPeriodLoad && <AnalysisPeriodLoadBar windowDays={periodWindowDays!} onLoad={onPeriodLoad!} />}
-          <AnalysisGroup id="analysis-comparison" title={t("fitness:analysis.groups.performance")} description={t("fitness:analysis.groups.performanceNote")}>
+          <AnalysisGroup id="analysis-comparison" title={t("fitness:analysis.groups.performance")}>
             {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods inline windowDays={periodWindowDays} loadSignal={periodLoadSignal} onPeriodsChange={onAnalysisPeriodsChange} nativeActivities={nativePowerActivities} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
             {runCurveContent}
             {!isBike && modelContent}
             {thresholdCard}
             {thresholdMissingCard}
           </AnalysisGroup>
-          <AnalysisGroup id="analysis-periods" title={t("fitness:analysis.groups.composition")} description={t("fitness:analysis.groups.compositionNote")}>
+          <AnalysisGroup id="analysis-periods" title={t("fitness:analysis.groups.composition")}>
             {data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} windowDays={periodWindowDays} loadSignal={periodLoadSignal} periods={isBike && powerCurvePeriodsOwnerUid ? analysisPeriods : undefined} />}
             {!periodZonesFromServer && sectionState.derived === "ready" && data.zoneEvidence && <FitnessZoneDistributions compact evidence={data.zoneEvidence} />}
             {!periodZonesFromServer && legacyZonesCard}
@@ -1029,7 +1030,7 @@ export default function MobileFitnessPage({
           {sufficiencyCards}
           {analysisInsufficientNote}
           {bikeThresholdSection}
-        </div>) : null;
+        </div></ConciseExplanationsContext.Provider>) : null;
 
   const conditionStory = part === "condition" && data.discipline !== "tri" && isValidElement(coachSlot);
   const conditionNavigation = embedded ? (<ConditionSectionNav sections={[

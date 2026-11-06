@@ -1,4 +1,5 @@
 import BikePeriodSnapshotPanel from "./BikePeriodSnapshotPanel";
+import { useConciseExplanations } from "../conciseExplanations";
 import { usePeriodControls } from "../../../hooks/usePeriodControls";
 import { validPowerPeriodControls, type PowerPeriodControls, type PeriodDraft as Draft } from "./periodControls";
 import "./fitness-analysis-controls.css";
@@ -22,8 +23,9 @@ import type { NativePowerLoadedActivity } from "./NativePowerTwelvePersonalView"
 import { PowerSkillsObservedView } from "./PowerSkillsObservedView";
 import { ICON_SIZE } from "../../../theme/tokens/icon";
 /** [concise] 는 코치 분석용 — 곡선과 지속시간별 값, 지속시간별 관측 파워 차트만 두고 기간별 포함 기록·조회 기준과 설명 문구는 뺀다. */
-export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, onDurationChange, concise = false }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg"; selectedDuration?: number; onDurationChange?: (duration: number) => void; concise?: boolean }) {
+export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, onDurationChange, concise: conciseProp = false }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg"; selectedDuration?: number; onDurationChange?: (duration: number) => void; concise?: boolean }) {
   const { t } = useTranslation("fitness");
+  const concise = useConciseExplanations() || conciseProp;
   const id = useId();
   const durationLabel = makeDurationLabel(t);
   const [localDuration, setLocalDuration] = useState(300);
@@ -46,7 +48,7 @@ export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, 
     {!concise && normalized && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
     {normalized && response.periods.some(period => !period.weightNormalized) && <Text as="p" variant="bodyMedium" role="status">{t("periodCurve.weightUnsupported")}</Text>}
     <ChartFrame variant="embedded">
-      <div className="period-curve-legend">{periods.map((period, index) => <Text key={index} variant="bodyMedium" tone={index ? "secondary" : "primary"}><span className={index ? "period-curve-line period-curve-line--second" : "period-curve-line"} />{rangeLabels[index]} · {t(normalized && !period.weightNormalized ? "periodCurve.weightUnsupported" : period.status === "complete" ? "periodCurve.complete" : "periodCurve.partial")}</Text>)}</div>
+      <div className="period-curve-legend">{periods.map((period, index) => <Text key={index} variant="bodyMedium" tone={index ? "secondary" : "primary"}><span className={index ? "period-curve-line period-curve-line--second" : "period-curve-line"} />{rangeLabels[index]}{!concise && <> · {t(normalized && !period.weightNormalized ? "periodCurve.weightUnsupported" : period.status === "complete" ? "periodCurve.complete" : "periodCurve.partial")}</>}</Text>)}</div>
       {allPoints.length ? <>
         <svg viewBox="0 0 360 180" className="period-curve-chart" role="img" aria-label={normalized ? `${t("periodCurve.chart")} · W/kg` : t("periodCurve.chart")}>
           {[0, 0.5, 1].map(fraction => <g key={fraction}><line x1={56} x2={336} y1={28 + fraction * 118} y2={28 + fraction * 118} stroke="var(--grid-soft)" /><text x={48} y={33 + fraction * 118} textAnchor="end" fill="var(--chart-grid-label)">{normalized ? (high * (1 - fraction)).toFixed(high >= 1 ? 1 : 3) : Math.round(high * (1 - fraction))}</text></g>)}
@@ -63,7 +65,7 @@ export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, 
         <label className="period-curve-duration" htmlFor={id}><Text variant="bodyMedium" tone="secondary">{t("periodCurve.duration")}</Text><DropdownSelect id={id} label={t("periodCurve.duration")} value={String(selected)} onChange={next => setDuration(Number(next))} options={durations.map((seconds) => ({ value: String(seconds), label: durationLabel(seconds) }))} /></label>
         <div className="period-curve-values">{periods.map((period, index) => {
           const point = period.points.find(item => item.durationSeconds === selected);
-          return <div key={index} className="space-y-2"><Stat compact label={rangeLabels[index]} value={point ? normalized && power(point) > 0 && power(point) < 0.01 ? "<0.01" : power(point).toFixed(normalized ? 2 : 1) : "—"} unit={point ? unit : undefined} />{point && <><LocalizedLink className="period-curve-source" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}>{t("periodCurve.source", { date: trainingCalendarDate(point.startTime) })}</LocalizedLink><Text as="p" variant="bodyMedium" tone="tertiary">{t(`periodCurve.source.${point.source}`)}</Text>{normalized && "weightKg" in point && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightWinner", { watts: point.watts, kg: point.weightKg })}</Text>}</>}</div>;
+          return <div key={index} className="space-y-2"><Stat compact label={rangeLabels[index]} value={point ? normalized && power(point) > 0 && power(point) < 0.01 ? "<0.01" : power(point).toFixed(normalized ? 2 : 1) : "—"} unit={point ? unit : undefined} />{point && <><LocalizedLink className="period-curve-source" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}>{t("periodCurve.source", { date: trainingCalendarDate(point.startTime) })}</LocalizedLink>{!concise && <Text as="p" variant="bodyMedium" tone="tertiary">{t(`periodCurve.source.${point.source}`)}</Text>}{normalized && "weightKg" in point && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightWinner", { watts: point.watts, kg: point.weightKg })}</Text>}</>}</div>;
         })}</div>
       </> : <Text as="p" variant="bodyMedium" tone="secondary">{t(normalized ? "periodCurve.weightEmpty" : "periodCurve.empty")}</Text>}
     </ChartFrame>
@@ -129,11 +131,11 @@ function PeriodsForm({ ownerUid, callableEnabled, embedded, windowDays, loadSign
   }, [loadSignal]);
   return <section className="fitness-analysis-controls period-curve-tool space-y-4" aria-label={t("periodCurve.title")}>
     {!embedded && <Text as="h3" variant="title">{t("periodCurve.title")}</Text>}
-    {!(concise && !skillsMode) && <Text as="p" variant="bodyMedium" tone="secondary">{t(skillsMode ? "comparison.rollingNote" : "comparison.timezone")}</Text>}
+    {!concise && <Text as="p" variant="bodyMedium" tone="secondary">{t(skillsMode ? "comparison.rollingNote" : "comparison.timezone")}</Text>}
 
     {!concise && unit === "W/kg" && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
     <ToggleControls variant="axis" aria-label={t("periodCurve.title")}><ToggleButton selected={!skillsMode} onClick={() => { setSkillsMode(false); setSelection(null); setInvalid(false); }}>{t("powerSkills.freePeriods")}</ToggleButton><ToggleButton selected={skillsMode} onClick={() => { setSkillsMode(true); setSelection(null); setInvalid(false); }}>{t("powerSkills.preset")}</ToggleButton></ToggleControls>
-    {skillsMode && <Text as="p" variant="bodyMedium" tone="secondary">{t("powerSkills.requestNote")}</Text>}
+    {!concise && skillsMode && <Text as="p" variant="bodyMedium" tone="secondary">{t("powerSkills.requestNote")}</Text>}
     <div className="period-curve-controls">
     <label className="period-curve-unit space-y-2 block" htmlFor={`${id}-unit`}><Text as="span" variant="bodyMedium">{t("periodCurve.unit")}</Text><DropdownSelect id={`${id}-unit`} label={t("periodCurve.unit")} value={String(unit)} onChange={next => { setUnit(next === "W/kg" ? "W/kg" : "W"); setSelection(null); setInvalid(false); }} options={[{ value: String("W"), label: "W" }, { value: String("W/kg"), label: "W/kg" }]} /></label>
     {!skillsMode && <ToggleControls variant="axis" aria-label={t("comparison.title")}>

@@ -1412,8 +1412,6 @@
   "sufficiency.loadQuality.details": "Data quality and evidence",
   "powerCurve.sourceLabel": "Source activity",
   "analysis.groups.performance": "Performance change",
-  "analysis.groups.performanceNote": "Compares your best efforts across two periods of the same length.",
   "analysis.groups.composition": "Training composition by period",
-  "analysis.groups.compositionNote": "Compares volume and heart-rate, power and pace zone distribution between the two periods.",
   "analysis.loadNote": "Loads performance and training composition for the last {{days}} days vs the previous {{days}} days (or the periods you chose)."
 }

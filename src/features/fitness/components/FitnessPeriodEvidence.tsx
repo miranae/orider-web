@@ -1,4 +1,5 @@
 import "./fitness-period-evidence.css";
+import { useConciseExplanations } from "../conciseExplanations";
 import BikePeriodSnapshotPanel from "./BikePeriodSnapshotPanel";
 import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import type { PowerCurvePeriod } from "@shared/types/power-curve-periods";
@@ -40,6 +41,7 @@ export default function FitnessPeriodEvidence({ discipline, inline = false, time
 function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, loadSignal, syncedPeriods }: { ownerUid: string; discipline: Sport; inline: boolean; timeseries: FitnessTimeseriesDoc | null; windowDays?: number; loadSignal?: number; syncedPeriods?: readonly PowerCurvePeriod[] | null }) {
   const { t } = useTranslation("fitness");
   const { t: activityT } = useTranslation("activity");
+  const concise = useConciseExplanations();
   const { units } = useLocale();
   const today = trainingCalendarDate(Date.now());
   const [controls, setControls] = usePeriodControls<TrainingPeriodControls>(ownerUid, `training-${discipline}`, () => ({ preset: "fourWeeks", ranges: trainingComparisonPeriods("fourWeeks", Date.now()).map(period => ({
@@ -113,12 +115,12 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, 
     {result.state === "loading" && <Text role="status">{t("periodEvidence.loading")}</Text>}
     {result.state === "error" && <Button onClick={result.retry}>{t("canonical.retry")}</Button>}
     {result.response && <Stack gap="var(--space-6)">
-      <Text as="p" variant="caption">{activityT("growth.canonicalPeriodBasis")}</Text>
+      {!concise && <Text as="p" variant="caption">{activityT("growth.canonicalPeriodBasis")}</Text>}
       <div className="grid gap-3 sm:grid-cols-2">{result.response.periods.map((period, index) => <section key={index} className="fitness-period-summary">
         <Text as="h4" variant="subtitle">{t("periodCurve.period", { n: index + 1 })}</Text>
         <Text as="p" variant="caption" tone="secondary">{trainingCalendarDate(period.fromInclusive)} – {trainingCalendarDate(period.toExclusive - 1)}</Text>
         <Text as="p" weight={600}>{period.totals.distanceM.totalValue == null ? "—" : formatDistance(period.totals.distanceM.totalValue, units)} · {period.totals.movingTimeSec.totalValue == null ? "—" : formatElapsedBoundary(period.totals.movingTimeSec.totalValue)} · {period.totals.elevationGainM.totalValue == null ? "—" : formatElev(period.totals.elevationGainM.totalValue, units)}</Text>
-        {period.coverage.truncated && <Text as="p" tone="secondary">{activityT("trainingPeriods.truncated")}</Text>}
+        {!concise && period.coverage.truncated && <Text as="p" tone="secondary">{activityT("trainingPeriods.truncated")}</Text>}
         {discipline === "bike" && <BikePeriodSnapshotPanel historyOnly={!period.coverage.truncated} ownerUid={ownerUid} period={period} />}
       </section>)}</div>
       <PeriodLoadEvidence ownerUid={ownerUid} discipline={discipline} periods={result.response.periods} timeseries={timeseries} />

@@ -10,6 +10,7 @@ import GlossaryProvider from "../components/common/GlossaryProvider";
 import TabNav from "../components/TabNav";
 import FitnessPeriodEvidence, { fitnessPeriodEvidenceVisible } from "../features/fitness/components/FitnessPeriodEvidence";
 import { AnalysisGroup, AnalysisPeriodLoadBar } from "../features/fitness/components/AnalysisGroup";
+import { ConciseExplanationsContext } from "../features/fitness/conciseExplanations";
 import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../constants/appStoreLinks";
 import RunningRaceEstimatesPanel from "../features/fitness/RunningRaceEstimatesPanel";
 import { getRuntimeConfig } from "../services/runtimeConfig";
@@ -1017,7 +1018,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
 
   // Web analysis owns performance changes and their supporting tools on every viewport.
   // The condition surface keeps load/recovery; embedded presentations retain their contract below.
-  if (!embedded && part === "analysis") return <div className="fitness-reading">
+  if (!embedded && part === "analysis") return <ConciseExplanationsContext.Provider value><div className="fitness-reading">
     {pageHeader}
     <div className="site-shell" style={bodyPad}>
       <CanonicalFitnessNotice state={model.canonicalFitness} t={t} />
@@ -1025,12 +1026,12 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
       {/* 분석 = 선택한 기간 동안 무엇이 바뀌었나. 수행 능력 변화 → 기간별 훈련 구성 → 해석과 근거 순서로 읽는다.
           두 기간 비교는 서버 호출이라 공용 버튼으로만 불러온다(위 기간 선택이 기본 비교 기간을 정한다). */}
       {(discipline === "bike" || fitnessPeriodEvidenceVisible(discipline, user)) && <AnalysisPeriodLoadBar windowDays={range} onLoad={() => setPeriodLoadSignal(value => value + 1)} />}
-      <AnalysisGroup id="analysis-comparison" title={t("analysis.groups.performance")} description={t("analysis.groups.performanceNote")}>
+      <AnalysisGroup id="analysis-comparison" title={t("analysis.groups.performance")}>
         {discipline === "bike" && periodPowerCard}
         {discipline === "run" && <RunRecordsSummary evidence={model.runEvidence} readiness={runReadiness} />}
-        {discipline === "run" && <Card><Text as="h3" variant="subtitle">{t("criticalPace.title")}</Text><Text as="p" variant="caption" tone="secondary">{t("criticalPace.periodNote")}</Text><CriticalPaceCurve stableSelection recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} /></Card>}
+        {discipline === "run" && <Card><Text as="h3" variant="subtitle">{t("criticalPace.title")}</Text><CriticalPaceCurve stableSelection recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} /></Card>}
       </AnalysisGroup>
-      <AnalysisGroup id="analysis-periods" title={t("analysis.groups.composition")} description={t("analysis.groups.compositionNote")}>
+      <AnalysisGroup id="analysis-periods" title={t("analysis.groups.composition")}>
         {discipline !== "tri" && <FitnessPeriodEvidence discipline={discipline} inline timeseries={model.periodTimeseries} windowDays={range} loadSignal={periodLoadSignal} periods={discipline === "bike" ? analysisPeriods : undefined} />}
         {/* 기간별 심박·파워 존은 위 기간과 같은 서버 기간 통계로 보여준다. 고정 30일 카드는 그 통계를 못 쓸 때만 둔다. */}
         {!fitnessPeriodEvidenceVisible(discipline, user) && zoneDistributionCard}
@@ -1041,7 +1042,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={!!zoneDistribution} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={ftpProgression} ftpHistory={ftpHistory} t={t} />
       </FtpDecisionSection>}
     </div>
-  </div>;
+  </div></ConciseExplanationsContext.Provider>;
 
   const conditionNavigation = embedded && part === "condition" ? <ConditionSectionNav sections={[
     ...(currentPoint ? [{ id: "condition-current", label: t("condition.current.title") }, { id: "condition-trend", label: t("condition.chart.region") }, { id: "condition-activities", label: t("coach.recent.title") }] : []),

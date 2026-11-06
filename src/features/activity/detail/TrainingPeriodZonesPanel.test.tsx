@@ -4,6 +4,7 @@ import { getCurrentUser } from "../../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import { periodFixture, runningPeriodFixture, runningPacePeriodFixture } from "../../../services/trainingAnalysisPeriods.fixture";
 import TrainingPeriodZonesPanel from "./TrainingPeriodZonesPanel";
+import { ConciseExplanationsContext } from "../../fitness/conciseExplanations";
 
 const mocks = vi.hoisted(() => ({ hook: vi.fn(), enabled: true }));
 vi.mock("../../../hooks/useTrainingAnalysisPeriods", () => ({ useTrainingAnalysisPeriods: (...args: unknown[]) => mocks.hook(...args) }));
@@ -11,6 +12,11 @@ vi.mock("../../../services/trainingAnalysisPeriods", async original => ({ ...awa
 beforeEach(() => { mocks.enabled = true; mocks.hook.mockReset().mockReturnValue({ state: "idle", response: null }); });
 
 describe("period zones display", () => {
+  it("drops method and coverage notes inside the coach analysis", () => {
+    renderWithProviders(<ConciseExplanationsContext.Provider value><TrainingPeriodZonesPanel response={periodFixture()} zonesOpen /></ConciseExplanationsContext.Provider>);
+    expect(screen.getByRole("region", { name: "심박 존" })).toBeVisible();
+    expect(screen.queryByText(/최대 200개 기록/)).not.toBeInTheDocument();
+  });
   it("shows the period heart-rate and power zones open for the coach analysis", () => {
     const { container } = renderWithProviders(<TrainingPeriodZonesPanel response={periodFixture()} zonesOpen />);
     expect(screen.getByRole("region", { name: "심박 존" })).toBeVisible();

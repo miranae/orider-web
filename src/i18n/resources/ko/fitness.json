@@ -1412,8 +1412,6 @@
   "sufficiency.loadQuality.details": "데이터 품질과 근거",
   "powerCurve.sourceLabel": "기준 활동",
   "analysis.groups.performance": "수행 능력 변화",
-  "analysis.groups.performanceNote": "같은 길이의 두 기간에서 낸 최고 기록을 비교합니다.",
   "analysis.groups.composition": "기간별 훈련 구성",
-  "analysis.groups.compositionNote": "두 기간의 운동량과 심박·파워·페이스 구간 분포를 비교합니다.",
   "analysis.loadNote": "최근 {{days}}일과 이전 {{days}}일(또는 직접 고른 기간)의 수행 능력과 훈련 구성을 함께 불러옵니다."
 }
