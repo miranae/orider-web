@@ -1,5 +1,6 @@
 import { Bytes, GeoPoint, Timestamp, type Firestore } from "firebase/firestore";
 import type { Auth } from "firebase/auth";
+import { logClientError } from "../../services/errorLogger";
 
 /**
  * 코스 목록 전용 경량 조회(#3235).
@@ -10,7 +11,7 @@ import type { Auth } from "firebase/auth";
  *
  * 필드 출처 — `courseFromSnapshotData`(courseSnapshot.ts) 가 읽는 CourseData 필드 전부와
  * `isVisibleCourseDocData`(courseVisibility.ts) 가 보는 `deletedAt`·`hidden`.
- * 상세 화면(CoursePage)은 자기 문서를 SDK 로 따로 읽어 전체 데이터를 받는다.
+ * 상세 화면(CoursePage)은 변경 신호와 경량 메타데이터 및 불변 트랙을 별도로 읽는다.
  */
 export const COURSE_LIST_FIELDS = [
   "name",
@@ -211,7 +212,10 @@ export async function runCourseListQuery(
 
   let response = await postRunQuery(url, body, headers, fetchImpl);
   if ((response.status === 401 || response.status === 403) && services.getAppCheckToken) {
-    const appCheckToken = await services.getAppCheckToken().catch(() => null);
+    const appCheckToken = await services.getAppCheckToken().catch((error) => {
+      logClientError("CourseList.appCheck", error, { stage: "token" });
+      return null;
+    });
     if (appCheckToken) response = await postRunQuery(url, body, { ...headers, "X-Firebase-AppCheck": appCheckToken }, fetchImpl);
   }
   if (!response.ok) {

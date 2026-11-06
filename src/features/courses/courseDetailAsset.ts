@@ -114,7 +114,9 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
     if (!current() || legacyStop) return;
     legacyStop = onSnapshot(doc(services.firestore, "courses", id), (snapshot) => {
       if (current()) onData(snapshot.exists() ? { ...snapshot.data(), id } : null);
-    }, (error) => { if (current()) { onData(null); onError(error); } });
+    }, (error) => {
+      if (current()) { logClientError("CourseDetail.legacyRead", error, { courseId: id }); onData(null); onError(error); }
+    });
   };
   const refresh = async () => {
     if (!current()) return;
@@ -150,7 +152,10 @@ export function subscribeCourseDetail(services: FirebaseServices, id: string,
       }
       if (active()) onData({ ...metadata, elevationProfile: track.elevationProfile, altitudeSemantics: track.altitudeSemantics, id });
     } catch (error) {
-      if (active()) { onData(null); onError(error instanceof Error ? error : new Error(String(error))); }
+      if (active()) {
+        logClientError("CourseDetail.metadataRead", error, { courseId: id });
+        onData(null); onError(error instanceof Error ? error : new Error(String(error)));
+      }
     }
   };
   const signalStop = onSnapshot(doc(services.firestore, "courses", id, "cache_metadata", "current"), (snapshot) => {
