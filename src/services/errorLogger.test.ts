@@ -2,11 +2,13 @@ import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { httpsCallable } from "firebase/functions";
 import * as runtimeConfig from "./runtimeConfig";
 import { captureError } from "./sentry";
+import * as sentry from "./sentry";
 import { mockCallableInvocations } from "../__tests__/mocks/firebase";
 import { __resetClientErrorDedupeForTests, logClientError } from "./errorLogger";
 import { ensureAppCheckReady } from "./firebase";
 
-vi.mock("./sentry", () => ({ captureError: vi.fn() }));
+// Global cache setup already imports the logger, so spy on its existing binding.
+vi.spyOn(sentry, "captureError").mockImplementation(() => undefined);
 
 describe("logClientError", () => {
   beforeEach(() => {
