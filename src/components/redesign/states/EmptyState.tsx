@@ -26,7 +26,7 @@ export default function EmptyState({ icon, title, description, actions, compact 
       {icon != null && (
         <div
           aria-hidden="true"
-          style={{ fontSize: compact ? "var(--fs-2xl)" : 32, marginBottom: "var(--space-3)", color: "var(--ink-3)" }}
+          style={{ fontSize: compact ? "var(--fs-2xl)" : "var(--fs-3xl)", marginBottom: "var(--space-3)", color: "var(--ink-3)" }}
         >
           {icon}
         </div>

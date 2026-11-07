@@ -24,7 +24,7 @@ export default function PermissionGate({
   const pad = compact ? "var(--space-6)" : "var(--space-8)";
   return (
     <Card padding="none" role="status" style={{ padding: pad, textAlign: "center" }}>
-      <div aria-hidden="true" style={{ fontSize: compact ? "var(--fs-2xl)" : 32, marginBottom: "var(--space-3)", color: "var(--ink-3)" }}>
+      <div aria-hidden="true" style={{ fontSize: compact ? "var(--fs-2xl)" : "var(--fs-3xl)", marginBottom: "var(--space-3)", color: "var(--ink-3)" }}>
         🔒
       </div>
       <div style={{ fontSize: compact ? "var(--fs-md)" : "var(--fs-lg)", fontWeight: 600, color: "var(--ink-0)", marginBottom: resolvedDescription ? "var(--space-2)" : 0 }}>

@@ -26,9 +26,9 @@ export default function PrivacyPage() {
   const stravaLinkLabel = t("privacy.stravaPrivacyLink");
 
   return (
-    <div className="max-w-2xl mx-auto pb-20 space-y-8">
+    <div className="max-w-2xl mx-auto pb-20 space-y-4">
       <div>
-        <h1 className="text-[length:var(--fs-2xl)] font-bold tracking-tight text-[var(--ink-0)]">{t("privacy.title")}</h1>
+        <h1 className="text-[length:var(--fs-3xl)] font-bold tracking-tight text-[var(--ink-0)]">{t("privacy.title")}</h1>
         <p className="text-[length:var(--fs-sm)] text-[var(--ink-2)] mt-1">{t("privacy.lastUpdated")}</p>
       </div>
 
@@ -91,7 +91,7 @@ export default function PrivacyPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="p-5 sm:p-6">
-      <h2 className="text-[length:var(--fs-sm)] font-bold text-[var(--ink-0)] mb-3">{title}</h2>
+      <h2 className="text-[length:var(--fs-md)] font-bold text-[var(--ink-0)] mb-3">{title}</h2>
       <div className="text-[length:var(--fs-sm)] text-[var(--ink-2)] leading-relaxed">
         {children}
       </div>

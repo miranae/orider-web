@@ -16,7 +16,7 @@ export default function PageHeader({ eyebrow, title, subtitle, right, "data-test
       style={{
         borderBottom: '1px solid var(--line-soft)',
         paddingBottom: 'var(--space-4)',
-        marginBottom: 'var(--space-6)',
+        marginBottom: 'var(--space-4)',
       }}
     >
       {/* 왼쪽: eyebrow + 타이틀 + 서브타이틀 */}
