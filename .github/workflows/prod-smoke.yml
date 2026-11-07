@@ -1,7 +1,5 @@
 name: Production smoke (mobile viewport)
 on:
-  schedule:
-    - cron: '17 * * * *'
   workflow_run:
     workflows: ["Deploy (Hosting → production)"]
     types: [completed]
