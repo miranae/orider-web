@@ -159,3 +159,5 @@
 }
 
 .club-surface [role="tab"] { min-height: var(--dim-button-height); }
+/* 내 클럽 묶음: 제목·필터·목록·가입 신청 기록 사이와 아래 "클럽 찾기"까지 16. 신청 기록이 있으면 "클럽 찾기"가 붙어 있었다. */
+.club-my-section { display: grid; gap: var(--space-4); margin-bottom: var(--space-4); min-width: 0; }

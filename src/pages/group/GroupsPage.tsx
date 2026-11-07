@@ -183,26 +183,26 @@ export default function GroupsPage() {
     }
   };
 
-  const myClubSection = <section data-testid="C0-1">
+  const myClubSection = <section data-testid="C0-1" className="club-my-section">
       {myGroups.length > 0 && <>
-        <Text as="h2" variant="title" className="mb-4">{t("myGroups")}</Text>
-        {showMyFilters && <div data-testid="C0-1-1" className="club-my-filters mb-4">
+        <Text as="h2" variant="title">{t("myGroups")}</Text>
+        {showMyFilters && <div data-testid="C0-1-1" className="club-my-filters">
           <label>{t("list.mySportLabel")}<DropdownSelect label={t("list.mySportLabel")} value={myDisciplineFilter} onChange={value => setMyDisciplineFilter(value as typeof myDisciplineFilter)} options={["ALL", "bike", "run", "swim", "tri"].filter(isSportUiEnabled).map(sport => ({ value: sport, label: t(sport === "ALL" ? "filter.all" : `filter.${sport}`) }))} /></label>
           <label>{t("list.mySearchLabel")}<Input type="search" value={mySearch} onChange={event => setMySearch(event.target.value)} aria-label={t("list.mySearchLabel")} placeholder={t("search.groupName")} className="ds-input" /></label>
         </div>}
       </>}
 
-      {Boolean(myGroupsError) && myGroups.length > 0 && <div className="mb-4"><ErrorState title={t("error.loadFailed")} onRetry={retryMyGroups} compact /></div>}
+      {Boolean(myGroupsError) && myGroups.length > 0 && <div><ErrorState title={t("error.loadFailed")} onRetry={retryMyGroups} compact /></div>}
       {Boolean(myGroupsError) && myGroups.length === 0 ? (
-        <div className="mb-8">
+        <div>
           <ErrorState title={t("error.loadFailed")} onRetry={retryMyGroups} compact />
         </div>
       ) : myLoading ? (
-        <div className="mb-8">
+        <div>
           <LoadingSkeleton kind="list" count={3} />
         </div>
       ) : myGroups.length === 0 ? null : filteredMyGroups.length === 0 ? (
-        <div className="mb-8">
+        <div>
           <EmptyState
             icon={<Users size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />}
             title={t("list.noGroupsFiltered")}
@@ -211,7 +211,7 @@ export default function GroupsPage() {
           />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredMyGroups.map((g) => (
             <div key={g.id}><GroupCard group={g} showMyRole nextEvent={nextEventLabels.get(g.id)} />{incompleteGroups.has(g.id) && <NextEventContinuation groupId={g.id} />}</div>
           ))}
