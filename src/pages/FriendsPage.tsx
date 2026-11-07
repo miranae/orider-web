@@ -124,9 +124,9 @@ export default function FriendsPage() {
   };
 
   return (
-    <div data-testid="P3-0" className="max-w-2xl mx-auto space-y-6">
+    <div data-testid="P3-0" className="max-w-2xl mx-auto space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-[length:var(--fs-2xl)] font-bold text-[var(--ink-0)]">{t("title")}</h1>
+        <h1 className="text-[length:var(--fs-3xl)] font-bold text-[var(--ink-0)]">{t("title")}</h1>
         {view === "friends" && <div className="flex gap-2">
           <Link data-testid="P3-0-3" to="/explore/athletes" className={buttonClass({ variant: "secondary", size: "md" })}>{t("findPeople")}</Link>
           <a data-testid="P3-0-2" href="#friend-invite" className={buttonClass({ variant: "secondary", size: "md" })}>{t("inviteButton")}</a>
