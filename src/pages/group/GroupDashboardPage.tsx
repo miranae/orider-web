@@ -289,7 +289,7 @@ export default function GroupDashboardPage() {
       <GroupSubNav group={group} isCreator={canManage} />
 
       {/* Hero 영역 */}
-      <Card padding="none" className="club-identity mb-5" style={{ borderRadius: "var(--r-lg)", padding: "var(--space-4)" }}>
+      <Card padding="none" className="club-identity mb-4" style={{ borderRadius: "var(--r-lg)", padding: "var(--space-4)" }}>
         <div className="club-identity-main">
           <div style={{
             width: "calc(var(--space-6) * 2)", height: "calc(var(--space-6) * 2)", borderRadius: "var(--r-xl)", background: "var(--bg-2)",
@@ -310,7 +310,7 @@ export default function GroupDashboardPage() {
       </Card>
 
       {group.rules?.trim() && (
-        <Card padding="none" className="mb-5" style={{ borderRadius: "var(--r-lg)", padding: "var(--space-4)" }}>
+        <Card padding="none" className="mb-4" style={{ borderRadius: "var(--r-lg)", padding: "var(--space-4)" }}>
           <h2 className="club-card-title" style={{ color: "var(--ink-1)", marginBottom: "var(--space-2)" }}>
             {t("dashboard.rules.title")}
           </h2>
@@ -320,7 +320,7 @@ export default function GroupDashboardPage() {
         </Card>
       )}
 
-      <Card data-testid="C1-3" padding="none" className="mb-5" style={{ borderRadius: "var(--r-lg)", padding: "var(--space-4)" }}>
+      <Card data-testid="C1-3" padding="none" className="mb-4" style={{ borderRadius: "var(--r-lg)", padding: "var(--space-4)" }}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="club-card-title" style={{ color: "var(--ink-1)" }}>{t("dashboard.posts.title")}</h2>
           <Text as="span" variant="body">{t("dashboard.posts.latest")}</Text>
@@ -409,12 +409,12 @@ export default function GroupDashboardPage() {
       </Card>
 
       {ridesLoading ? <LoadingSkeleton kind="list" count={1} /> : ridesError ? (
-        <Card className="club-news-stats-error mb-5" role="alert" padding="card"><div>
+        <Card className="club-news-stats-error mb-4" role="alert" padding="card"><div>
           <Text as="p" variant="bodyMedium">{t(ridesError === "unavailable" ? "error.rideStatsUnavailable" : "error.rideStatsLoadFailed")}</Text>
           <Text as="p" variant="body" tone="secondary">{t("error.rideStatsRetry")}</Text>
         </div><Button variant="secondary" size="sm" onClick={retryRides}>{t("invite.retry")}</Button></Card>
       ) : aggregate && (
-        <Card data-testid="C1-1" padding="none" className="mb-5" style={{ borderRadius: "var(--r-lg)", padding: "var(--space-4)" }}>
+        <Card data-testid="C1-1" padding="none" className="mb-4" style={{ borderRadius: "var(--r-lg)", padding: "var(--space-4)" }}>
           <div data-testid="C1-1-1" className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: "var(--space-3)" }}>
             <div>
               <Text as="div" variant="body"><InfoTip title={t("dashboard.identity.lifetimeDistance")} content={t("dashboard.identity.distanceHelp")} label={t("dashboard.identity.lifetimeDistance")}>{t("dashboard.identity.lifetimeDistance")}</InfoTip></Text>
@@ -445,7 +445,7 @@ export default function GroupDashboardPage() {
 
       {/* 다가오는 이벤트 */}
       {(upcomingEvents.length > 0 || upcomingLoading || upcomingError || upcomingIncomplete) && (
-        <Card data-testid="C1-4" padding="none" className="mb-5 p-4" style={{ borderRadius: "var(--r-lg)" }}>
+        <Card data-testid="C1-4" padding="none" className="mb-4 p-4" style={{ borderRadius: "var(--r-lg)" }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="club-card-title" style={{ color: "var(--ink-1)" }}>{t("dashboard.upcomingEvents")}</h2>
             <Link data-testid="C1-4-1" to={`/club/${groupId}/events`} className="text-[length:var(--ft-body-size)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreEvents")}</Link>
@@ -485,7 +485,7 @@ export default function GroupDashboardPage() {
         {/* 멤버 랭킹 */}
         <div className="flex-1 min-w-0">
           {/* 최근 그룹 라이드 */}
-          {!ridesError && (group.sports ?? [group.discipline ?? "bike"]).includes("bike") && <div className="mt-5">
+          {!ridesError && (group.sports ?? [group.discipline ?? "bike"]).includes("bike") && <div className="mt-4">
             <div data-testid="C1-4-2" className="flex items-center justify-between mb-3">
               <h2 className="club-card-title" style={{ color: "var(--ink-1)" }}>{t("dashboard.recentRides")}</h2>
               <Link to={`/club/${groupId}/rides`} className="text-[length:var(--ft-body-size)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreRides")}</Link>

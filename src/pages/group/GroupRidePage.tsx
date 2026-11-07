@@ -665,7 +665,7 @@ const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(acti
             {(["distance", "time"] as const).map(axis => <ToggleButton key={axis} selected={chartAxis === axis} onClick={() => { setChartAxis(axis); setSelectedViewport(null); setFullViewport(null); setHoverCoordinate(null); dismissedCoordinate.current = null; dismissedInspectionIndex.current = null; setHoverIndex(null); setInspectionIndex(null); }}>{t(axis === "time" ? "ridePage.chart.timeMode" : "ridePage.chart.distanceMode")}</ToggleButton>)}
           </ToggleControls>
           {/* 고도 & 성능 차트 */}
-            <Card data-testid={elevationChartData ? "C2R-2" : undefined} className="mb-8">
+            <Card data-testid={elevationChartData ? "C2R-2" : undefined} className="mb-4">
               <ChartHeader size="compact" className="mb-3" title={<Text as="h2" variant="subtitle">{t("ridePage.elevationAndPerf")}</Text>} />
 
               <p className="club-ride-section-note">{t(chartAxis === "time" ? "ridePage.chart.timeCoverage" : "ridePage.chart.coverage", { selected: visibleActivities.length, count: elevationChartData?.records.length ?? 0 })}</p>
@@ -739,7 +739,7 @@ const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(acti
 
       </div>
           {ridePhotos.length > 0 && (
-            <Card className="mb-8">
+            <Card className="mb-4">
               <Section title={t("ridePage.photos.title")} actions={<Text variant="bodySmall" tone="tertiary">{t("ridePage.photos.count", { count: ridePhotos.length })}</Text>}>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {ridePhotos.map((photo, index) => (
