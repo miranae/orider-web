@@ -605,8 +605,8 @@ export default function PlanPresentation({
     : isPendingPlanWorkout(day, { date: kstDayKey(day.date), today: todayKey });
   const remainingSessions = weeks.reduce((total, week) => total + week.days.filter(pendingWorkout).length, 0);
   const planScope = summarizeStoredPlan(weeks, goalDate, Date.now(), { legacy: embedded });
-  const hasPlansAfterGoal = !!goalDate && weeks.some(week => week.days.some(day => kstDayKey(day.date) > kstDayKey(goalDate.getTime())));
-  const scopeNotice = (embedded ? goalDate && planScope.afterGoal > 0 : hasPlansAfterGoal) ? <Text data-testid="plan-scope-notice" as="p" variant="bodySmall" tone="secondary" style={{ padding: "var(--space-3) var(--space-4)" }}>{embedded ? t("scope.summary", planScope) : t("goalLoad.calendar")}</Text> : null;
+  // 웹 달력은 "목표기간 밖의 저장 계획도 표시합니다" 안내를 두지 않는다(목표일 이후 운동은 달력 행에 그대로 보인다).
+  const scopeNotice = embedded && goalDate && planScope.afterGoal > 0 ? <Text data-testid="plan-scope-notice" as="p" variant="bodySmall" tone="secondary" style={{ padding: "var(--space-3) var(--space-4)" }}>{t("scope.summary", planScope)}</Text> : null;
   const nextAction = weeks.slice(currentWeekIndex).flatMap((week) => week.days.map((day, dayIndex) => ({ day, weekId: week.id, dayIndex })))
     .find(({ day }) => kstDayKey(day.date) >= todayKey && pendingWorkout(day));
   const nextActionLabel = nextAction ? buildWorkoutMeta(t)[nextAction.day.workout]?.label ?? nextAction.day.workout : null;
