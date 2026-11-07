@@ -230,13 +230,13 @@ export function PaneHealthSources() {
   return (
     <div data-testid="S2-2-1" style={{ display: "flex", flexDirection: "column", gap: 'var(--space-4)' }}>
       <section style={{ display: "flex", flexDirection: "column", gap: 'var(--space-2)' }}>
-        <h2 style={{ fontSize: "var(--fs-lg)", fontWeight: 600 }}>{t("healthSources.title")}</h2>
+        <h2 style={{ fontSize: "var(--fs-xl)", fontWeight: 700 }}>{t("healthSources.title")}</h2>
         <p style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)" }}>
           {t("healthSources.desc")}
         </p>
       </section>
 
-      <section style={{ display: "flex", flexDirection: "column", gap: 'var(--space-2)' }}>
+      <section style={{ display: "flex", flexDirection: "column", gap: 'var(--space-4)' }}>
         {(Object.keys(PROVIDER_META) as ProviderId[]).map((p) => (
           <ProviderCard key={p} providerId={p} conn={connections[p]} />
         ))}
@@ -247,7 +247,7 @@ export function PaneHealthSources() {
           style={{ padding: 'var(--space-4)', display: "flex", flexDirection: "column", gap: 'var(--space-3)' }}
         >
           <div>
-            <h3 style={{ fontSize: "var(--fs-sm)", fontWeight: 600 }}>{t("healthSources.primarySourceTitle")}</h3>
+            <h3 style={{ fontSize: "var(--fs-md)", fontWeight: 600 }}>{t("healthSources.primarySourceTitle")}</h3>
             <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", marginTop: 'var(--space-1)' }}>
               {t("healthSources.primarySourceDesc")}
             </p>
@@ -270,7 +270,7 @@ export function PaneHealthSources() {
         style={{ padding: 'var(--space-4)', display: "flex", flexDirection: "column", gap: 'var(--space-3)' }}
       >
         <div>
-          <h3 style={{ fontSize: "var(--fs-sm)", fontWeight: 600 }}>{t("healthSources.retentionTitle")}</h3>
+          <h3 style={{ fontSize: "var(--fs-md)", fontWeight: 600 }}>{t("healthSources.retentionTitle")}</h3>
           <p style={{ fontSize: "var(--fs-xs)", color: "var(--ink-2)", marginTop: 'var(--space-1)' }}>
             {t("healthSources.retentionDesc")}
           </p>

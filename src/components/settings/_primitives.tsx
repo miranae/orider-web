@@ -35,7 +35,7 @@ interface SettingsCardProps {
  */
 export function SettingsCard({ title, action, children, dense, danger, "data-testid": testId }: SettingsCardProps) {
   return (
-    <Card padding={dense ? "compact" : "card"} className="settings-card" data-testid={testId} title={title} actions={action} data-danger={danger || undefined} style={{ marginBottom: "var(--space-5)" }}>
+    <Card padding={dense ? "compact" : "card"} className="settings-card" data-testid={testId} title={title} actions={action} data-danger={danger || undefined} style={{ marginBottom: "var(--space-4)" }}>
       {children}
     </Card>
   );
@@ -154,7 +154,7 @@ export function StatGrid({ items }: { items: StatItem[] }) {
     <Card
       padding="none"
       style={{
-        marginBottom: 'var(--space-5)',
+        marginBottom: 'var(--space-4)',
         overflow: "hidden",
         display: "grid",
         gridTemplateColumns: `repeat(${items.length}, 1fr)`,
