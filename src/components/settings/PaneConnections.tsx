@@ -279,7 +279,8 @@ export function PaneConnections() {
           </InlineRow>
         </SettingsCard>
       )}
-      <Link data-testid="S2-3-1" to="/settings/device">{t("nav.deviceLabel")} →</Link>
+      {/* 아래 "헬스 데이터 소스" 제목이 3px 로 붙어 있었다 — 블록 간격 16 */}
+      <Link data-testid="S2-3-1" to="/settings/device" style={{ display: "inline-block", marginBottom: "var(--space-4)" }}>{t("nav.deviceLabel")} →</Link>
     </>
   );
 }
