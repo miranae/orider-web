@@ -108,7 +108,7 @@ export default function MobilePlanPage({
       onEditWorkout={onEditWorkout}
       chromeSlot={(
         <div className="mobile-plan-chrome flex items-center">
-          <span style={{ fontSize: "var(--fs-base)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t('mobile.headerTitle')}</span>
+          <span className="mobile-plan-chrome__title" style={{ fontSize: "var(--mobile-plan-title-size, var(--fs-base))", lineHeight: "var(--mobile-plan-title-line-height, normal)", fontWeight: 700, color: "var(--ink-0)", letterSpacing: "-0.02em" }}>{t('mobile.headerTitle')}</span>
           <div style={{ flex: 1 }} />
           {(goalId || (!goalTitle && !currentWeek)) && isSportUiEnabled(goalSport ?? "bike") && <Button type="button" variant="ghost" size="sm"
             onClick={() => currentWeek && goalId ? setAddSheetOwner(currentSheetOwner) : navigate(`/goal-setup?sport=${goalSport === "run" || goalSport === "swim" ? goalSport : "bike"}`)}>{t('mobile.addAction')}</Button>}
