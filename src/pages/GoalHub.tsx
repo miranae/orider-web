@@ -83,7 +83,7 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
         <GoalSourceNotice goal={goal} discipline={discipline} />
         <div data-testid="K3-1-1"><Text as="h2" variant="title" style={{ overflowWrap: "anywhere" }}>{mobile ? title.name : rawTitle}</Text>
           {mobile && title.meta && <><Text as="p" variant="bodySmall" tone="secondary">{title.meta}</Text><InfoTip activation="click" title={t("goalHub.originalTitle")} label={t("goalHub.originalTitle")} content={rawTitle}>{t("goalHub.originalTitle")}</InfoTip></>}<Text>{t(`goalHub.goalType.${goal.runProgram ? "program" : goal.goalType === "climb" ? "climb" : goal.eventType === "completion" ? "completion" : goal.eventType === "time" ? "time" : "race"}`)} · {displayDate?.toLocaleDateString(i18n.resolvedLanguage ?? i18n.language, { timeZone: "Asia/Seoul" })} · {goalCountdown(targetMs)}</Text><Text>{goal.targetDurationMin ? t("goalHub.minutes", { value: goal.targetDurationMin }) : null}{goal.target?.climbDurationMin ? <GlossaryText>{`${t("goalHub.minutes", { value: goal.target.climbDurationMin })} · ${goal.target.targetWkg ?? "—"} W/kg`}</GlossaryText> : null}</Text></div>
-        <div data-testid="K3-1-2" style={{ marginBlock: "var(--space-4)" }}>
+        <div data-testid="K3-1-2" style={{ marginBlock: "var(--goal-load-margin, var(--space-4))" }}>
           {goalReady && model.goalMatchesDiscipline ? <PlanGoalLoadSummary scope={scope} load={load} /> : <Text>—</Text>}
           {goalDay && <Text>{t("goalHub.goalDayEstimate")} · <GlossaryText>{`CTL ${goalDay.ctl.toFixed(1)} · TSB ${goalDay.tsb.toFixed(1)}`}</GlossaryText></Text>}
         </div>

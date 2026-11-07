@@ -908,7 +908,7 @@ export default function PlanPresentation({
         {decisionSlot && <div style={{ marginBottom: "var(--space-4)" }}>{decisionSlot}</div>}
 
         {!loading && nextAction && (
-          <Card padding="compact" style={{ marginBottom: 'var(--space-3)', borderColor: 'var(--lime)', background: 'color-mix(in oklch, var(--lime) 5%, var(--bg-1))' }}>
+          <Card padding="compact" style={{ marginBottom: 'var(--coach-block-gap, var(--space-3))', borderColor: 'var(--lime)', background: 'color-mix(in oklch, var(--lime) 5%, var(--bg-1))' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
               <Text as="div" variant="bodyMedium" style={{ color: 'var(--ink-1)' }}>{goalDate && kstDayKey(nextAction.day.date) > kstDayKey(goalDate.getTime()) ? t('scope.nextAfterGoal') : kstDayKey(nextAction.day.date) === todayKey ? t('mobile.todayNext') : t('mobile.weekNext')}</Text>
               <strong style={{ color: 'var(--ink-0)', fontSize: 'var(--fs-md)' }}><GlossaryText>{nextActionLabel}</GlossaryText></strong>
