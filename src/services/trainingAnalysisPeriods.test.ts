@@ -397,6 +397,12 @@ it("parses actual compiled backend Stage wire after target filtering, including 
     mocks.call.mockResolvedValueOnce({ data });
     clearPeriodRequestMemory(); // 시나리오마다 같은 요청에 다른 응답을 준다.
     expect(await loadTrainingAnalysisPeriods(services, "owner", request)).toEqual(data);
+    // Editor refreshes must reach the server again after a preference mutation.
+    const refreshed = structuredClone(data);
+    mocks.call.mockResolvedValueOnce({ data: refreshed });
+    const callsBeforeRefresh = mocks.call.mock.calls.length;
+    expect(await loadTrainingAnalysisPeriods(services, "owner", request)).toBe(refreshed);
+    expect(mocks.call).toHaveBeenCalledTimes(callsBeforeRefresh + 1);
     expect(mocks.call).toHaveBeenLastCalledWith(request);
     const running = data.periods[0]!.running!;
     const expanded = running.expandedDistanceAnalysis!.distances.find(row => row.distance === "5km")!;

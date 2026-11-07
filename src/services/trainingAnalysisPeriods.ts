@@ -364,6 +364,8 @@ function validPeriodRunningPaceZones(pace: PeriodRunningPaceZones, period: Train
 }
 /** 같은 사용자·요청은 잠시 응답을 재사용한다(호출 한도 보호, periodRequestCache 참조). */
 export function loadTrainingAnalysisPeriods(services: FirebaseServices, uid: string, request: TrainingAnalysisPeriodsRequest) {
+  // The Stage editor reloads this same request to confirm saved preference revisions.
+  if (request.includeStageRunEffortPreferences) return requestTrainingAnalysisPeriods(services, uid, request);
   // 재사용한 응답도 지금 로그인한 본인에게만 돌려준다(계정이 바뀌면 거절).
   const owner = () => { const user = services?.auth?.currentUser; return !!uid && !!user && user.uid === uid && !user.isAnonymous; };
   // 본인 세션이 아니면 캐시를 쓰지 않고 원래 경계 검사가 오류를 낸다.
