@@ -10,8 +10,9 @@
 .coach-surface .condition-goal-summary { margin-top: var(--coach-block-gap); }
 .coach-surface :is(.condition-load-section, .mobile-fitness-load-section) { margin-block: var(--coach-block-gap); }
 .coach-surface :is(.mobile-plan-goal, .mobile-plan-next) { margin-bottom: var(--coach-block-gap); }
-/* 묶음은 아래 여백만 둔다 — 위아래에 다 두면 여백이 겹치지 않는 데스크톱 배치에서 머리 아래가 32 가 됐다. */
-.coach-surface .analysis-group { margin-block: 0 var(--coach-block-gap); }
+.coach-surface .analysis-group { margin-block: var(--coach-block-gap); }
+/* 묶음이 감싼 영역의 첫 요소면 위 여백을 빼 — 데스크톱은 머리 아래 여백과 겹치지 않아 32 가 됐다. */
+.coach-surface .analysis-group:first-child { margin-top: 0; }
 .coach-surface .analysis-period-load { margin-bottom: var(--coach-block-gap); }
 /* 계획/기록 모바일 "운동 계획" 제목만 16 이라 같은 화면의 다른 섹션 제목(계획 대비 기록 22)과 달랐다. 섹션 제목 크기에 맞춘다. */
 .coach-surface .mobile-plan-content { --mobile-plan-title-size: var(--ft-title-size, 22px); --mobile-plan-title-line-height: var(--ft-title-line-height, 1.3); }
