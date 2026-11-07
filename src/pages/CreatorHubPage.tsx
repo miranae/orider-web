@@ -815,7 +815,7 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
 
   return (
     <GlossaryProvider scopeKey={`record-tools:${section}`}>
-    <div className="event-controls-surface explore-records-surface space-y-8">
+    <div className="event-controls-surface explore-records-surface space-y-4">
       {diaryPolicy && <dialog ref={consentDialogRef} className="fixed inset-0 m-auto w-full max-w-xl bg-transparent p-4 backdrop:bg-black/55" aria-labelledby="creator-ai-consent-title" onCancel={() => setDiaryPolicy(null)}>
         <div className="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-[var(--r-lg)] border p-6" style={{ background: "var(--bg-1)", borderColor: "var(--line)", color: "var(--ink-2)" }}>
           <h2 id="creator-ai-consent-title" className="text-[length:var(--fs-lg)] font-semibold" style={{ color: "var(--ink-0)" }}>{i18n.language.startsWith("ko") ? "AI 라이딩 일기 생성 동의" : "Consent to AI ride diary generation"}</h2>

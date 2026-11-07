@@ -62,7 +62,7 @@ export default function VirtualPowerToolPage() {
 
   return (
     <div className="site-shell" style={{ padding: "32px 20px 64px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-5)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
         <span style={{ width: 44, height: 44, borderRadius: "var(--r-md)", background: "color-mix(in oklch, var(--lime) 16%, var(--bg-2))", display: "grid", placeItems: "center", color: "var(--lime)" }}>
           <Zap size={ICON_SIZE.lg} />
         </span>
@@ -71,7 +71,7 @@ export default function VirtualPowerToolPage() {
           <Text as="h1" variant="pageTitle" style={{ margin: 0 }}>{labels.title}</Text>
         </div>
       </div>
-      <p style={{ maxWidth: 720, color: "var(--ink-3)", fontSize: "var(--fs-sm)", lineHeight: 1.7, marginBottom: "var(--space-6)" }}>{labels.desc}</p>
+      <p style={{ maxWidth: 720, color: "var(--ink-3)", fontSize: "var(--fs-sm)", lineHeight: 1.7, marginBottom: "var(--space-4)" }}>{labels.desc}</p>
 
       <div className="virtual-power-layout">
         <Card padding="none" style={{ padding: "var(--space-5)" }}>

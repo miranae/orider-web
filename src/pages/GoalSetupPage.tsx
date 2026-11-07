@@ -96,7 +96,7 @@ function Stepper({ current, steps }: StepperProps) {
         background: "var(--bg-1)",
         border: "1px solid var(--line-soft)",
         borderRadius: "var(--r-lg)",
-        marginBottom: 'var(--space-6)',
+        marginBottom: 'var(--space-4)',
       }}
     >
       <style>{`
@@ -571,7 +571,7 @@ function GoalWizard({ embedded = false }: { embedded?: boolean }) {
   return (
     <div style={{ maxWidth: 1080, margin: "0 auto", padding: embedded ? "var(--space-4) 0 var(--space-6)" : "0 0 var(--space-12)" }}>
       {/* 공통 헤더 */}
-      <div style={{ marginBottom: 'var(--space-6)', paddingTop: 28 }}>
+      <div style={{ marginBottom: 'var(--space-4)', paddingTop: 28 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 'var(--space-3)', marginBottom: "var(--space-1-5)", flexWrap: "wrap" }}>
           <Text as="div" variant="eyebrow">{eyebrowLabel}</Text>
           {!embedded && <DisciplineTabs disabledKeys={["swim"]} />}
