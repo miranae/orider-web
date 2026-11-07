@@ -627,7 +627,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
             </Card></>
           )}
           {isCreator && (
-            <Card data-testid="C7-3" padding="none" className="mt-5 mb-4" style={{ padding: "var(--space-4)" }}>
+            <Card data-testid="C7-3" padding="none" className="mt-4 mb-4" style={{ padding: "var(--space-4)" }}>
               <details ref={leadershipRef} id="club-leadership" className="club-leadership-details" tabIndex={-1} open={leadershipOpen} onToggle={event=>setLeadershipOpen(event.currentTarget.open)}>
                 <summary>{t("members.leadership.title")}</summary><div className="mt-4">
               <p className="text-[length:var(--ft-body-size)] mt-1 mb-3" style={{ color: "var(--ink-3)" }}>

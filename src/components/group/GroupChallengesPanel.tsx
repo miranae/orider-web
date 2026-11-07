@@ -61,7 +61,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
   };
 
   return (
-    <section data-testid="E4-2" className="mb-8" aria-labelledby="group-challenges-title">
+    <section data-testid="E4-2" className="mb-4" aria-labelledby="group-challenges-title">
       <div className="flex items-end justify-between mb-3" style={{ gap: "var(--space-3)" }}>
         <div>
           <h2 id="group-challenges-title" className="text-[length:var(--fs-lg)] font-bold" style={{ color: "var(--ink-0)" }}>{t("challenges.title")}</h2>
