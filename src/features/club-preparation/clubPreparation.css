@@ -245,7 +245,7 @@
 /* 모임에서는 클럽의 맥락을 짧게 유지하고 모집 내용을 먼저 읽는다. */
 .cp-product>.club-subnav { margin-bottom:0; }
 .cp-product>.club-subnav>nav { margin-bottom:var(--space-2); }
-.cp-product .club-subnav-header { margin-bottom:var(--space-3); gap:var(--space-2) var(--space-4); }
+.cp-product .club-subnav-header { margin-bottom:var(--space-4); gap:var(--space-2) var(--space-4); }
 .cp-product .club-subnav [data-testid="C1-0-1"] { font-size:var(--ft-title-size); line-height:var(--ft-title-line-height); }
 @media(max-width:36rem) {
   .cp-product { gap:var(--space-4); }

@@ -61,7 +61,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
   };
 
   return (
-    <section data-testid="E4-2" className="mb-8" aria-labelledby="group-challenges-title">
+    <section data-testid="E4-2" className="mb-4" aria-labelledby="group-challenges-title">
       <div className="flex items-end justify-between mb-3" style={{ gap: "var(--space-3)" }}>
         <div>
           <h2 id="group-challenges-title" className="text-[length:var(--fs-lg)] font-bold" style={{ color: "var(--ink-0)" }}>{t("challenges.title")}</h2>
@@ -70,7 +70,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
       </div>
 
       {managedGroups.length > 0 && (
-        <Card padding="compact" className="mb-3">
+        <Card padding="compact" className="mb-4">
           <div className="flex items-end flex-wrap" style={{ gap: "var(--space-2)" }}>
             <div className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", minWidth: 0, maxWidth: "100%" }}>
               <span className="block mb-1">{t("challenges.managedGroup")}</span>

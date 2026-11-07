@@ -820,7 +820,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           {/* Friends List */}
           {canViewFriends && <Card data-testid="P0-4" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--line-soft)] flex items-center justify-between">
-              <h3 className="text-[length:var(--fs-sm)] font-semibold text-[var(--ink-0)]">{t("friends.title", { count: friendCount })}</h3>
+              <h3 className="text-[length:var(--fs-md)] font-semibold text-[var(--ink-0)]">{t("friends.title", { count: friendCount })}</h3>
               <Link to="/athlete/me/friends" className="text-[length:var(--fs-xs)] text-[var(--lime)] hover:opacity-80 font-medium">
                 {t("friends.viewAll")}
               </Link>
@@ -869,7 +869,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           {mySegments.length > 0 && (
             <Card data-testid="P0-5" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
               <div className="px-4 py-3 border-b border-[var(--line-soft)]">
-                <h3 className="text-[length:var(--fs-sm)] font-semibold text-[var(--ink-0)]">
+                <h3 className="text-[length:var(--fs-md)] font-semibold text-[var(--ink-0)]">
                   {t("segments.titleWithCount", {
                     label: isMe ? t("segments.mineTitle") : t("segments.othersTitle"),
                     count: mySegments.length,
@@ -921,7 +921,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
           <div data-testid="P0-2-1" className="pb-4 border-b border-[var(--line-soft)] space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">
+              <h2 className="text-[length:var(--fs-xl)] font-bold text-[var(--ink-0)]">
                 {t("activities.title")}
                 {isSearchActive && (
                   <span className="ml-2 text-[length:var(--fs-sm)] font-normal text-[var(--lime)]">{t("activities.searchResultCount", { count: filteredActivities.length })}</span>

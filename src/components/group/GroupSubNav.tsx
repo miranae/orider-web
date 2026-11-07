@@ -34,7 +34,7 @@ export default function GroupSubNav({ group, isCreator }: GroupSubNavProps) {
   ];
 
   return (
-    <div data-testid="C1-0" className="club-surface club-subnav mb-6">
+    <div data-testid="C1-0" className="club-surface club-subnav mb-4">
       <nav
         aria-label={t("subNav.contextLabel")}
         className="flex flex-wrap items-center mb-3 text-[length:var(--ft-body-size)]"

@@ -72,7 +72,7 @@
 .activity-detail { display: flex; flex-direction: column; gap: var(--space-4); }
 .activity-detail-header h1 { font-size: var(--fs-xl); font-weight: 700; line-height: 1.3; letter-spacing: normal; }
 .activity-detail-navigation { position: sticky; top: 0; z-index: 20; }
-.activity-detail-hero { display: grid; gap: var(--space-3); min-width: 0; }
+.activity-detail-hero { display: grid; gap: var(--space-4); min-width: 0; }
 .activity-detail-primary-stats { overflow: hidden; }
 .activity-detail .activity-stats-primary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .activity-detail .activity-stats-primary:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
@@ -229,13 +229,13 @@
 .activity-detail-identity { display: grid; grid-template-columns: calc(var(--space-5) * 2) minmax(0, 1fr); align-items: start; gap: var(--space-3); min-width: 0; }
 
 /* 분석 화면은 같은 지도 인스턴스 아래에 전체 고도와 센서 레인을 연결한다. */
-.activity-detail-hero[data-analysis="true"] { gap: var(--space-5); }
+.activity-detail-hero[data-analysis="true"] { gap: var(--space-4); }
 .activity-detail-hero[data-analysis="true"] .activity-detail-resizable-map { height: 15.625rem; }
 .activity-detail-hero[data-analysis="true"] .activity-detail-route-frame[data-map-expanded="true"] .activity-detail-resizable-map { height: max(16rem, min(70dvh, 46rem)); }
 .activity-detail-summary[hidden] { display: none; }
 .activity-detail-chart-workspace { min-width: 0; }
 
-.activity-mobile-records { display: grid; gap: var(--space-3); margin-block: var(--space-4); min-width: 0; }
+.activity-mobile-records { display: grid; gap: var(--space-3); margin-block: 0; min-width: 0; } /* 부모 간격 16 에 여백 16 이 더해져 32 였다 */
 
 /* Reading layout: bounded measure, paired comparable data, supporting detail on demand. */
 .activity-detail-analysis-content { width: 100%; max-width: 68rem; margin-inline: auto; }

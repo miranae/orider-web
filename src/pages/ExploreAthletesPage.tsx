@@ -196,9 +196,9 @@ export default function ExploreAthletesPage() {
   });
 
   const heading = <Text data-testid="E5-0" as="h1" variant="pageTitle" className="explore-page-title">{commonT("nav.people")}</Text>;
-  if (authLoading) return <div className="explore-challenges-surface space-y-6">{heading}</div>;
+  if (authLoading) return <div className="explore-challenges-surface space-y-4">{heading}</div>;
   if (!signedIn) {
-    return <div className="explore-challenges-surface space-y-6">
+    return <div className="explore-challenges-surface space-y-4">
       {heading}
       <div data-testid="E5.guest" className="explore-people-guest">
         <Text as="p" tone="secondary">{t("search.loginRequired")}</Text>
@@ -278,7 +278,7 @@ export default function ExploreAthletesPage() {
     </span>;
   };
 
-  return <div className="explore-challenges-surface space-y-6">
+  return <div className="explore-challenges-surface space-y-4">
     {heading}
     <div className="explore-people-search">
     <form data-testid="E5-1" role="search" aria-label={t("search.label")} className="explore-people-form" onSubmit={onSubmit}>

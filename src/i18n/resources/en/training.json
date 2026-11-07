@@ -1331,7 +1331,6 @@
     "basis": "The entire goal-period plan is compared with actual TSS recorded within that period up to now. Load attainment does not confirm goal achievement or workout completion.",
     "expired": "Goal date passed · 0 weeks remaining to the goal date",
     "remaining": "{{count}} weeks remaining to the goal date",
-    "calendar": "The calendar also shows stored plans outside the goal period.",
     "expiredBadge": "Goal date passed"
   }
 }

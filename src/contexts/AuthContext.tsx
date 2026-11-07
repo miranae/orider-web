@@ -1,4 +1,5 @@
 import { appCheckFailureRecovery } from "../services/appCheckFailureRecovery";
+import { clearPeriodRequestCache } from "../services/periodRequestCache";
 import {
   createContext,
   useCallback,
@@ -231,6 +232,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await signOut(auth);
+    // 기기에 저장한 기간 분석 응답은 로그아웃하면 지운다(공용 기기).
+    void clearPeriodRequestCache();
     setProfile(null);
     track("logout");
   }, []);

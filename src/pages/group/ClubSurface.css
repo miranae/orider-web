@@ -12,9 +12,10 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3) var(--space-4);
-  margin-bottom: var(--space-5);
+  /* 사이트 공통 블록 간격 16(코치·클럽·내 페이지가 같은 값) */
+  margin-bottom: var(--space-4);
 }
-.club-page-header { padding-bottom: var(--space-1); row-gap: var(--space-5); }
+.club-page-header { padding-bottom: var(--space-1); row-gap: var(--space-4); }
 /* HIG 큰 제목 아래 부제는 한 칸 띄운다 */
 .club-page-header h1 + p { margin-top: var(--space-2); }
 .club-page-header > div:first-child,
@@ -23,7 +24,7 @@
 .club-subnav-header h1 { overflow-wrap: anywhere; }
 .club-page-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .club-invite-card,
-.club-league-card { display: grid; gap: var(--space-3); margin-block: var(--space-5); }
+.club-league-card { display: grid; gap: var(--space-3); margin-block: var(--space-4); }
 .club-invite-form { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .club-invite-form input { min-width: 0; flex: 1 1 12rem; }
 .club-identity-main { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
@@ -76,17 +77,17 @@
 }
 
 /* 운영 화면은 편집과 멤버 관리의 순서를 분리한다. */
-.club-settings-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; gap: var(--space-5); }
+.club-settings-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; gap: var(--space-4); }
 .club-settings-main,
-.club-settings-aside { display: grid; gap: var(--space-5); min-width: 0; }
+.club-settings-aside { display: grid; gap: var(--space-4); min-width: 0; }
 .club-settings-label { display: block; font-size: var(--ft-body-medium-size); line-height: var(--ft-body-medium-line-height); color: var(--ink-1); margin-bottom: var(--space-1-5); }
 .club-settings-toggle-section + .club-settings-toggle-section { border-top: 1px solid var(--line-soft); padding-top: var(--space-4); margin-top: var(--space-4); }
 .club-settings-toggle-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-4); align-items: center; padding-block: var(--space-3); }
 .club-settings-toggle-row + .club-settings-toggle-row { border-top: 1px solid var(--line-soft); }
 .club-settings-toggle-row p { font-size: var(--ft-body-size); line-height: var(--ft-body-line-height); color: var(--ink-2); margin: 0; }
-.club-settings-save-bar { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; justify-content: space-between; padding-block: var(--space-4); margin-bottom: var(--space-5); border-bottom: 1px solid var(--line-soft); }
-.club-settings-administration { display: grid; gap: var(--space-4); margin-bottom: var(--space-5); }
-.club-settings-administration-grid { display: grid; gap: var(--space-5); }
+.club-settings-save-bar { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; justify-content: space-between; padding-block: var(--space-4); margin-bottom: var(--space-4); border-bottom: 1px solid var(--line-soft); }
+.club-settings-administration { display: grid; gap: var(--space-4); margin-bottom: var(--space-4); }
+.club-settings-administration-grid { display: grid; gap: var(--space-4); }
 .club-settings-danger > summary { cursor: pointer; font-size: var(--ft-title-size); font-weight: var(--ft-title-weight); color: var(--color-error); }
 @media (max-width: 56.25rem) { .club-settings-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 36rem) { .club-settings-save-bar > .ds-btn { width: 100%; } }
@@ -122,8 +123,8 @@
 .club-invite-load-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--bg-2); }
 
 .club-news-stats-error { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
-.club-news-layout { display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: var(--space-5); align-items: start; }
-.club-news-sidebar { display: grid; gap: var(--space-5); min-width: 0; }
+.club-news-layout { display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: var(--space-4); align-items: start; }
+.club-news-sidebar { display: grid; gap: var(--space-4); min-width: 0; }
 .club-news-layout--no-rides { grid-template-columns: minmax(0, 1fr); }
 .club-news-layout--no-rides .club-news-sidebar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media(max-width: 48rem) { .club-news-layout, .club-news-layout--no-rides .club-news-sidebar { grid-template-columns: minmax(0, 1fr); } }
@@ -158,3 +159,5 @@
 }
 
 .club-surface [role="tab"] { min-height: var(--dim-button-height); }
+/* 내 클럽 묶음: 제목·필터·목록·가입 신청 기록 사이와 아래 "클럽 찾기"까지 16. 신청 기록이 있으면 "클럽 찾기"가 붙어 있었다. */
+.club-my-section { display: grid; gap: var(--space-4); margin-bottom: var(--space-4); min-width: 0; }

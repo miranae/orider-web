@@ -11,6 +11,13 @@ function fixture(): PowerCurvePeriodsResponse {
   return { version: 1, discipline: "bike", unit: "W", asOf: 20000, inputDigest: "a".repeat(64), periods: [period, { ...period, powerDurationObservations: { ...observation, points: [{ ...observation.points[0]!, maxAveragePowerW: 50 }] } }] };
 }
 describe("fixed-duration period observations", () => {
+  it("keeps the duration chart and values but drops scope notes and data-status details when concise", () => {
+    const view = render(<MemoryRouter><PowerDurationPeriodsView concise response={fixture()} /></MemoryRouter>);
+    expect(screen.getByRole("img", { name: "densePeriod.chart" })).toBeInTheDocument();
+    expect(screen.getByText("densePeriod.difference -50")).toBeInTheDocument();
+    expect(screen.queryByText("densePeriod.scope")).not.toBeInTheDocument();
+    expect(view.container.querySelector("details")).toBeNull();
+  });
   it("uses the KST period and source day across the UTC year boundary", () => {
     const data = fixture(); data.periods = [data.periods[0]!];
     const period = data.periods[0]!;

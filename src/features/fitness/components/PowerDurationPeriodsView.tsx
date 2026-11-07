@@ -1,4 +1,5 @@
 import "./fitness-analysis-controls.css";
+import { useConciseExplanations } from "../conciseExplanations";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { PowerCurvePeriodsResponse, WeightNormalizedDurationPoint, WeightNormalizedDurationObservations } from "@shared/types/power-curve-periods";
@@ -8,8 +9,10 @@ import { LocalizedLink } from "../../../components/LocalizedLink";
 import "./power-duration-periods.css";
 
 /** 서버 관측 격자만 표시하며 기존 11개 곡선과 비교하지 않는다. */
-export function PowerDurationPeriodsView({ response, unit = "W", selectedDuration, onDurationChange }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg"; selectedDuration?: number; onDurationChange?: (duration: number) => void }) {
+/** [concise] 는 코치 분석용 — 제목·차트·지속시간별 값만 두고 범위 설명과 관측 범위·데이터 상태는 뺀다. */
+export function PowerDurationPeriodsView({ response, unit = "W", selectedDuration, onDurationChange, concise: conciseProp = false }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg"; selectedDuration?: number; onDurationChange?: (duration: number) => void; concise?: boolean }) {
   const { t } = useTranslation("fitness");
+  const concise = useConciseExplanations() || conciseProp;
   const id = useId();
   const [localDuration, setLocalDuration] = useState(300);
   const duration = selectedDuration ?? localDuration;
@@ -38,8 +41,8 @@ export function PowerDurationPeriodsView({ response, unit = "W", selectedDuratio
   const date = trainingCalendarDate;
   return <section className="fitness-analysis-controls dense-period-power" aria-label={t("densePeriod.title")}>
     <Text as="h4" variant="bodyMedium" weight={600}>{t("densePeriod.title")}</Text>
-    <Text as="p" variant="bodyMedium" tone="secondary">{t("densePeriod.scope")}</Text>
-    {normalized && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
+    {!concise && <Text as="p" variant="bodyMedium" tone="secondary">{t("densePeriod.scope")}</Text>}
+    {!concise && normalized && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightBasis")}</Text>}
     <ChartFrame variant="embedded">
       {points.length ? <><svg viewBox="0 0 360 180" className="dense-period-chart" role="img" aria-label={normalized ? `${t("densePeriod.chart")} · W/kg` : t("densePeriod.chart")}>
         {[0, 0.5, 1].map(value => <g key={value}><line x1={45} x2={340} y1={y(high * value)} y2={y(high * value)} stroke="var(--grid-soft)" /><text x={38} y={y(high * value) + 5} textAnchor="end" fill="var(--ink-2)">{normalized ? (high * value).toFixed(high >= 1 ? 1 : 3) : Math.round(high * value)}</text></g>)}
@@ -49,16 +52,16 @@ export function PowerDurationPeriodsView({ response, unit = "W", selectedDuratio
       </svg><label className="dense-period-duration" htmlFor={id}><Text variant="bodyMedium">{t("periodCurve.duration")}</Text><DropdownSelect id={id} label={t("periodCurve.duration")} value={String(selected)} onChange={next => setDuration(Number(next))} options={durations.map((seconds) => ({ value: String(seconds), label: durationLabel(seconds) }))} /></label></> : <Text as="p" variant="bodyMedium" tone="secondary">{t(normalized ? "periodCurve.weightEmpty" : "densePeriod.empty")}</Text>}
       <div className="dense-period-values">{response.periods.map((period, index) => {
         const value = observations[index], point = values[index];
-        return <div key={index} className="space-y-2"><Text as="h5" variant="bodyMedium" weight={600}><span className={`dense-period-dot${index ? " dense-period-dot--second" : ""}`} />{date(period.fromInclusive)} – {date(period.toExclusive - 1)}</Text><Text as="p" variant="bodyMedium">{point ? `${displayPower(point)} ${unit} · ${t("densePeriod.n", { count: point.observedActivityCount })}` : "—"}</Text><Text as="p" variant="bodyMedium" tone="secondary">{t(!value ? "densePeriod.unknown" : value.partial ? "densePeriod.partial" : "densePeriod.complete")}</Text>{point && <Text as="p" variant="bodyMedium" tone="secondary">{t(`periodCurve.source.${point.provenance}`)}</Text>}{point && normalized && "weightKg" in point && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightWinner", { watts: point.maxAveragePowerW, kg: point.weightKg })}</Text>}{point && <LocalizedLink className="dense-period-source" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}>{t("periodCurve.source", { date: date(point.startTime) })}</LocalizedLink>}</div>;
+        return <div key={index} className="space-y-2"><Text as="h5" variant="bodyMedium" weight={600}><span className={`dense-period-dot${index ? " dense-period-dot--second" : ""}`} />{date(period.fromInclusive)} – {date(period.toExclusive - 1)}</Text><Text as="p" variant="bodyMedium">{point ? `${displayPower(point)} ${unit} · ${t("densePeriod.n", { count: point.observedActivityCount })}` : "—"}</Text>{!concise && <Text as="p" variant="bodyMedium" tone="secondary">{t(!value ? "densePeriod.unknown" : value.partial ? "densePeriod.partial" : "densePeriod.complete")}</Text>}{!concise && point && <Text as="p" variant="bodyMedium" tone="secondary">{t(`periodCurve.source.${point.provenance}`)}</Text>}{point && normalized && "weightKg" in point && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightWinner", { watts: point.maxAveragePowerW, kg: point.weightKg })}</Text>}{point && <LocalizedLink className="dense-period-source" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}>{t("periodCurve.source", { date: date(point.startTime) })}</LocalizedLink>}</div>;
       })}</div>
       {values.length === 2 && values[0] && values[1] && <Text as="p" variant="bodyMedium">{t(normalized ? "periodCurve.weightDifference" : "densePeriod.difference", { watts: displayDifference })}</Text>}
     </ChartFrame>
-    <details className="dense-period-details" onToggle={event => setDetailsOpen(event.currentTarget.open)}><summary>{t("densePeriod.details")}</summary><div className="space-y-3"><Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.asOf", { date: new Date(response.asOf).toISOString().replace("T", " ").slice(0, 19) })}</Text>{observations.map((value, index) => value && <Text key={index} as="p" variant="bodyMedium" tone="secondary">{t("densePeriod.coverage", { period: index + 1, candidate: value.inputCandidateCount, ...value.counts })}{value.scanTruncated ? ` · ${t("densePeriod.truncated")}` : ""}{normalized && "weightCounts" in value ? ` · ${t("periodCurve.weightCoverage", { ...(value as WeightNormalizedDurationObservations).weightCounts })}` : ""}</Text>)}<Text as="p" variant="bodyMedium" tone="secondary">{t("densePeriod.note")}</Text>
+    {!concise && <details className="dense-period-details" onToggle={event => setDetailsOpen(event.currentTarget.open)}><summary>{t("densePeriod.details")}</summary><div className="space-y-3"><Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.asOf", { date: new Date(response.asOf).toISOString().replace("T", " ").slice(0, 19) })}</Text>{observations.map((value, index) => value && <Text key={index} as="p" variant="bodyMedium" tone="secondary">{t("densePeriod.coverage", { period: index + 1, candidate: value.inputCandidateCount, ...value.counts })}{value.scanTruncated ? ` · ${t("densePeriod.truncated")}` : ""}{normalized && "weightCounts" in value ? ` · ${t("periodCurve.weightCoverage", { ...(value as WeightNormalizedDurationObservations).weightCounts })}` : ""}</Text>)}<Text as="p" variant="bodyMedium" tone="secondary">{t("densePeriod.note")}</Text>
       {detailsOpen && response.periods.length > 1 && durations.length > 0 && <Text as="p" variant="bodyMedium" tone="secondary" className="dense-period-scroll-hint">{t("densePeriod.scrollHint")}</Text>}
       {detailsOpen && <div className="dense-period-table-scroll"><table className="dense-period-table"><thead><tr><th>{t("periodCurve.duration")}</th>{response.periods.map((_, index) => <th key={index}>{t("periodCurve.period", { n: index + 1 })}</th>)}</tr></thead><tbody>{durations.map(seconds => <tr key={seconds}><th scope="row">{durationLabel(seconds)}</th>{observations.map((value, index) => {
         const point = value?.points.find(item => item.durationSeconds === seconds);
         return <td key={index}>{point ? <>{displayPower(point)} {unit} · {t("densePeriod.n", { count: point.observedActivityCount })}{normalized && "weightKg" in point && <Text as="p" variant="bodyMedium">{t("periodCurve.weightWinner", { watts: point.maxAveragePowerW, kg: point.weightKg })}</Text>}<LocalizedLink className="dense-period-source" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}>{date(point.startTime)} KST</LocalizedLink></> : "—"}</td>;
       })}</tr>)}</tbody></table></div>}
-    </div></details>
+    </div></details>}
   </section>;
 }

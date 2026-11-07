@@ -12,7 +12,7 @@ export default function ChallengesPage() {
   const { t } = useTranslation("common");
   const { user } = useAuth();
   const { groups, loading, error, retry } = useMyGroups(user?.uid);
-  return <div className="explore-challenges-surface space-y-6">
+  return <div className="explore-challenges-surface space-y-4">
     <Text data-testid="E4-0" as="h1" variant="pageTitle" className="explore-page-title">{t("nav.challenges")}</Text>
     {!user ? <div data-testid="E4-1-3" className="space-y-4">
       <Text as="h2" variant="title">{t("challengeGuest.title")}</Text>

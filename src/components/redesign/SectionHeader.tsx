@@ -22,7 +22,8 @@ export default function SectionHeader({ title, sub, right }: SectionHeaderProps)
         <h3
           style={{
             margin: 0,
-            fontSize: 'var(--fs-lg)',
+            // 카드 안 제목 크기(17) — 20 은 제목 3단계(34·22·17) 밖이었다.
+            fontSize: 'var(--ft-subtitle-size, var(--fs-md))',
             fontWeight: 600,
             color: 'var(--ink-0)',
           }}

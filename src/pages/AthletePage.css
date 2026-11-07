@@ -2,7 +2,7 @@
 .athlete-identity > :nth-child(2) { flex: 1; min-width: 0; }
 .athlete-identity h1 { overflow-wrap: anywhere; }
 /* 이름 30 Bold (P2) */
-.athlete-identity__name { font-size: calc(var(--fs-2xl) + var(--space-0-5)); font-weight: 700; line-height: 1.2; color: var(--ink-0); }
+.athlete-identity__name { font-size: var(--ft-page-title-size, var(--fs-3xl)); /* 페이지 제목 크기(34) — 30 은 크기 체계 밖이었다 */ font-weight: 700; line-height: 1.2; color: var(--ink-0); }
 .athlete-identity__avatar { flex-shrink: 0; }
 .athlete-identity__photo { width: calc(var(--space-8) + var(--space-6)); height: calc(var(--space-8) + var(--space-6)); border-radius: 50%; object-fit: cover; }
 .athlete-friend-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
@@ -40,10 +40,10 @@
 .athlete-profile .athlete-identity { display: flex; flex-direction: column; flex-wrap: nowrap; gap: var(--space-3); margin-top: calc(var(--space-6) * -1.5); position: relative; }
 .athlete-profile .athlete-identity__photo { width: calc(var(--space-8) + var(--space-6)); height: calc(var(--space-8) + var(--space-6)); border: var(--space-1) solid var(--bg-1); }
 .athlete-profile-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--space-8); padding: var(--space-6); align-items: start; }
-.athlete-profile-sidebar { grid-column: 2; grid-row: 1; display: grid; gap: var(--space-6); min-width: 0; }
-.athlete-profile-main { grid-column: 1; grid-row: 1; min-width: 0; display: grid; gap: var(--space-5); }
+.athlete-profile-sidebar { grid-column: 2; grid-row: 1; display: grid; gap: var(--space-4); min-width: 0; }
+.athlete-profile-main { grid-column: 1; grid-row: 1; min-width: 0; display: grid; gap: var(--space-4); }
 .athlete-profile .athlete-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.athlete-recent-summary { padding-top: var(--space-5); }
+.athlete-recent-summary { padding-top: var(--space-4); }
 .athlete-recent-summary h2 { font-size: var(--fs-md); font-weight: 600; }
 .athlete-recent-summary-count { font-size: var(--fs-sm); margin-top: var(--space-2); color: var(--ink-2); }
 .athlete-recent-summary-count strong { font-size: var(--fs-xl); color: var(--ink-0); font-weight: 600; }
@@ -78,7 +78,7 @@
 .athlete-photo-strip img { width: 100%; height: 100%; object-fit: cover; }
 .athlete-photo-viewer > img { display: block; width: 100%; max-height: 60vh; object-fit: contain; }
 .athlete-photo-viewer-controls { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-4); }
-.athlete-profile-section { padding-bottom: var(--space-5); border-bottom: 1px solid var(--line-soft); }
+.athlete-profile-section { padding-bottom: var(--space-4); border-bottom: 1px solid var(--line-soft); }
 .athlete-profile-section h2, .athlete-section-heading h2 { font-size: var(--fs-md); font-weight: 600; margin-bottom: var(--space-3); }
 .athlete-section-heading { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .athlete-section-heading h2 { margin: 0 auto 0 0; }
@@ -116,14 +116,14 @@
 @media (max-width: 40rem) {
   .athlete-profile { background: transparent; }
   .athlete-profile .athlete-cover { border-radius: var(--r-md) var(--r-md) 0 0; }
-  .athlete-profile-heading { padding: 0; gap: var(--space-6); border-bottom: 0; }
+  .athlete-profile-heading { padding: 0; gap: var(--space-4); border-bottom: 0; }
   /* 카드 흰 바탕이 표지를 덮지 않게 겹침은 사진에만 건다 (72의 절반). */
   .athlete-profile .athlete-identity { margin-top: 0; padding: 0 var(--space-4) var(--space-4); background: var(--bg-1); border-radius: 0 0 var(--r-md) var(--r-md); }
   .athlete-profile .athlete-identity__avatar { position: relative; margin-top: calc((var(--space-8) + var(--space-6)) / -2); }
   .athlete-profile--no-cover .athlete-identity { margin-top: 0; }
   .athlete-recent-summary { padding-top: 0; }
   .athlete-recent-summary h2 { font-size: var(--fs-xl); font-weight: 700; color: var(--ink-0); }
-  .athlete-profile-layout { padding: var(--space-6) 0 0; gap: var(--space-6); }
+  .athlete-profile-layout { padding: var(--space-6) 0 0; gap: var(--space-4); }
   /* 홈 피드는 화면 폭 전체(모서리 0 + 8 회색 띠)지만, 프로필은 셸 거터 안의 카드 화면이라
      위 프로필 카드와 같은 모서리·간격의 카드로 둔다. */
   .athlete-profile .mobile-feed-card { border-bottom: 0; border-radius: var(--r-md); margin-bottom: var(--space-3); }

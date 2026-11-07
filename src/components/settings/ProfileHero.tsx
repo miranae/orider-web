@@ -30,7 +30,7 @@ export function ProfileHero({
     <Card padding="none" className="settings-profile-hero"
       style={{
         padding: "22px 24px",
-        marginBottom: 'var(--space-5)',
+        marginBottom: 'var(--space-4)',
         display: "grid",
         gridTemplateColumns: "auto minmax(0, 1fr)",
         gap: "var(--space-4)",

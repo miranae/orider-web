@@ -1,16 +1,19 @@
 import "./fitness-period-evidence.css";
+import { WINDOW_RELOAD_DELAY_MS } from "../../../services/periodRequestCache";
+import { useConciseExplanations } from "../conciseExplanations";
 import BikePeriodSnapshotPanel from "./BikePeriodSnapshotPanel";
 import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
+import type { PowerCurvePeriod } from "@shared/types/power-curve-periods";
 import PeriodLoadEvidence from "./PeriodLoadEvidence";
 import { usePeriodControls } from "../../../hooks/usePeriodControls";
 import { validTrainingPeriodControls, type TrainingPeriodControls } from "./periodControls";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useLocale } from "../../../contexts/LocaleContext";
 import { useTrainingAnalysisPeriods, type TrainingAnalysisPeriodsSelection } from "../../../hooks/useTrainingAnalysisPeriods";
 import { trainingAnalysisPeriodsAvailable } from "../../../services/trainingAnalysisPeriods";
-import { trainingCalendarDate, trainingCalendarPeriod, trainingComparisonPeriods, type TrainingComparisonPreset } from "../../../services/trainingComparisonCalendar";
+import { trainingCalendarDate, trainingCalendarPeriod, trainingComparisonPeriods, trainingWindowPeriods, type TrainingComparisonPreset } from "../../../services/trainingComparisonCalendar";
 import { getRuntimeConfig } from "../../../services/runtimeConfig";
 import RunPeriodComparisonPanel from "../../activity/detail/RunPeriodComparisonPanel";
 import TrainingPeriodZonesPanel from "../../activity/detail/TrainingPeriodZonesPanel";
@@ -20,14 +23,26 @@ import { formatElapsedBoundary } from "../../activity/detail/activityRangeSelect
 import { Button, Input, Stack, Text, ToggleControls, ToggleButton } from "../../../theme/components";
 
 type Sport = "bike" | "run" | "swim";
-export default function FitnessPeriodEvidence({ discipline, inline = false, timeseries = null }: { discipline: Sport; inline?: boolean; timeseries?: FitnessTimeseriesDoc | null }) {
-  const { user } = useAuth();
-  if ((getRuntimeConfig().appEnvironment !== "stage" && !((discipline === "bike" || discipline === "run") && trainingAnalysisPeriodsAvailable(discipline))) || !user || user.isAnonymous) return null;
-  return <PeriodEvidence key={`${user.uid}:${discipline}`} ownerUid={user.uid} discipline={discipline} inline={inline} timeseries={timeseries} />;
+/** 이 패널이 그려지는지 — 페이지가 공용 "불러오기" 버튼을 둘지 정할 때 쓴다. */
+export function fitnessPeriodEvidenceVisible(discipline: string, user: { isAnonymous: boolean } | null | undefined): boolean {
+  if (!user || user.isAnonymous || discipline === "tri") return false;
+  return getRuntimeConfig().appEnvironment === "stage" || ((discipline === "bike" || discipline === "run") && trainingAnalysisPeriodsAvailable(discipline));
 }
-function PeriodEvidence({ ownerUid, discipline, inline, timeseries }: { ownerUid: string; discipline: Sport; inline: boolean; timeseries: FitnessTimeseriesDoc | null }) {
+/**
+ * [windowDays] 를 주면(분석 상단 기간 선택) 기본 비교가 "최근 N일 ↔ 이전 N일" 이 되고, 한 번 불러온 뒤에는
+ * 위 기간이 바뀔 때 새 기간으로 다시 불러온다. 직접 지정은 그대로 고를 수 있다.
+ * [loadSignal] 을 주면 자체 불러오기 버튼을 숨기고, 값이 바뀔 때마다 지금 고른 기간으로 불러온다(페이지 공용 버튼).
+ * [periods] 를 주면(코치 분석 사이클) 자체 기간 선택을 숨기고, 위 파워 비교가 불러온 기간과 똑같이 불러온다.
+ */
+export default function FitnessPeriodEvidence({ discipline, inline = false, timeseries = null, windowDays, loadSignal, periods }: { discipline: Sport; inline?: boolean; timeseries?: FitnessTimeseriesDoc | null; windowDays?: number; loadSignal?: number; periods?: readonly PowerCurvePeriod[] | null }) {
+  const { user } = useAuth();
+  if (!fitnessPeriodEvidenceVisible(discipline, user)) return null;
+  return <PeriodEvidence key={`${user!.uid}:${discipline}`} ownerUid={user!.uid} discipline={discipline} inline={inline} timeseries={timeseries} windowDays={windowDays} loadSignal={loadSignal} syncedPeriods={periods} />;
+}
+function PeriodEvidence({ ownerUid, discipline, inline, timeseries, windowDays, loadSignal, syncedPeriods }: { ownerUid: string; discipline: Sport; inline: boolean; timeseries: FitnessTimeseriesDoc | null; windowDays?: number; loadSignal?: number; syncedPeriods?: readonly PowerCurvePeriod[] | null }) {
   const { t } = useTranslation("fitness");
   const { t: activityT } = useTranslation("activity");
+  const concise = useConciseExplanations();
   const { units } = useLocale();
   const today = trainingCalendarDate(Date.now());
   const [controls, setControls] = usePeriodControls<TrainingPeriodControls>(ownerUid, `training-${discipline}`, () => ({ preset: "fourWeeks", ranges: trainingComparisonPeriods("fourWeeks", Date.now()).map(period => ({
@@ -40,9 +55,23 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries }: { ownerUid
   const [invalid, setInvalid] = useState(false);
   const available = trainingAnalysisPeriodsAvailable(discipline);
   const result = useTrainingAnalysisPeriods(ownerUid, selection, available);
+  // 위 기간 선택을 따르는 비교(기본). 직접 지정을 고르면 끈다.
+  const [followWindow, setFollowWindow] = useState(windowDays != null);
+  const windowMode = windowDays != null && followWindow;
+  const syncMode = syncedPeriods !== undefined;
+  // 위 파워 비교가 기간을 불러올 때마다 같은 기간으로 불러온다.
+  useEffect(() => {
+    if (!syncMode || !syncedPeriods?.length || !available) return;
+    setInvalid(false);
+    setSelection(current => ({ requestId: (current?.requestId ?? 0) + 1, request: {
+      discipline, periods: [...syncedPeriods],
+      ...(discipline === "bike" ? { includeCyclingClimbObservations: true } : {}),
+      ...(discipline === "run" ? { includeExpandedRunDistances: true, includeRunningPaceZones: true, includeStageRunEffortPreferences: true } : {}),
+    } }));
+  }, [syncedPeriods, syncMode, available, discipline]);
   const submit = () => {
     setControls(value => value); // An explicit load wins over late session restoration.
-    const periods = preset ? trainingComparisonPeriods(preset, Date.now()) : ranges.map(range => trainingCalendarPeriod(range.from, range.through, Date.now()));
+    const periods = windowMode ? trainingWindowPeriods(windowDays!, Date.now()) : preset ? trainingComparisonPeriods(preset, Date.now()) : ranges.map(range => trainingCalendarPeriod(range.from, range.through, Date.now()));
     if (periods.some(period => !period || period.fromInclusive >= period.toExclusive)) { setInvalid(true); return; }
     setInvalid(false);
     setSelection(current => ({ requestId: (current?.requestId ?? 0) + 1, request: {
@@ -51,37 +80,56 @@ function PeriodEvidence({ ownerUid, discipline, inline, timeseries }: { ownerUid
       ...(discipline === "run" ? { includeExpandedRunDistances: true, includeRunningPaceZones: true, includeStageRunEffortPreferences: true } : {}),
     } }));
   };
+  // 한 번 불러온 뒤 위 기간이 바뀌면 새 기간으로 다시 불러온다(기간을 바꿔도 그대로이던 문제).
+  const submitRef = useRef(submit); submitRef.current = submit;
+  const loadedWindow = useRef<number | null>(null);
+  useEffect(() => {
+    if (syncMode || !windowMode || selection === null) return;
+    if (loadedWindow.current === null) { loadedWindow.current = windowDays!; return; }
+    if (loadedWindow.current === windowDays) return;
+    // 탭을 연달아 누르면 마지막 기간만 부른다(기간 분석 호출 한도 보호).
+    const timer = setTimeout(() => { loadedWindow.current = windowDays!; submitRef.current(); }, WINDOW_RELOAD_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [windowDays, windowMode, selection, syncMode]);
+  const lastSignal = useRef(loadSignal);
+  useEffect(() => {
+    if (syncMode || loadSignal === undefined || loadSignal === lastSignal.current) return;
+    lastSignal.current = loadSignal; if (available) submitRef.current();
+  }, [loadSignal, available, syncMode]);
   const Container = inline ? "section" : "details";
   return <Container data-testid="K5-5-2" className="fitness-period-evidence">
     {inline ? <Text as="h3" variant="title">{activityT("trainingPeriods.title")}</Text> : <summary className="cursor-pointer py-3">{activityT("trainingPeriods.title")}</summary>}
     <Stack gap="var(--space-4)">
-    <Text as="p" variant="caption" tone="secondary">{t("comparison.timezone")}</Text>
+    {loadSignal === undefined && <Text as="p" variant="caption" tone="secondary">{t("comparison.timezone")}</Text>}
+    {!syncMode && <>
     <ToggleControls variant="metric" aria-label={t("comparison.title")}>
-      {(["fourWeeks", "yearToDate"] as const).map(value => <ToggleButton key={value} selected={preset === value} onClick={() => { setPreset(value); setSelection(null); setInvalid(false); }}>{t(`comparison.${value}`)}</ToggleButton>)}
-      <ToggleButton selected={preset === null} onClick={() => { setPreset(null); setSelection(null); setInvalid(false); }}>{t("periodCurve.custom")}</ToggleButton>
+      {windowDays != null ? <ToggleButton selected={windowMode} onClick={() => { setFollowWindow(true); setSelection(null); setInvalid(false); }}>{t("comparison.window", { days: windowDays })}</ToggleButton>
+        : (["fourWeeks", "yearToDate"] as const).map(value => <ToggleButton key={value} selected={preset === value} onClick={() => { setPreset(value); setSelection(null); setInvalid(false); }}>{t(`comparison.${value}`)}</ToggleButton>)}
+      <ToggleButton selected={windowDays != null ? !windowMode : preset === null} onClick={() => { setFollowWindow(false); setPreset(null); setSelection(null); setInvalid(false); }}>{t("periodCurve.custom")}</ToggleButton>
     </ToggleControls>
-    {preset && <Text as="p" variant="caption">{t(`comparison.${preset}Note`)}</Text>}
-    {!preset && <div className="grid gap-3 sm:grid-cols-2">{ranges.map((range, index) => <fieldset key={index} disabled={result.state === "loading"}>
+    {windowMode ? loadSignal === undefined && <Text as="p" variant="caption">{t("comparison.windowNote", { days: windowDays })}</Text> : preset && <Text as="p" variant="caption">{t(`comparison.${preset}Note`)}</Text>}
+    {!windowMode && !preset && <div className="grid gap-3 sm:grid-cols-2">{ranges.map((range, index) => <fieldset key={index} disabled={result.state === "loading"}>
       <legend>{t("periodCurve.period", { n: index + 1 })}</legend>
       {(["from", "through"] as const).map(field => <label className="block" key={field}>{t(`periodCurve.${field}`)}<Input type="date" value={range[field]} max={today} onChange={event => { setRanges(values => values.map((value, position) => position === index ? { ...value, [field]: event.target.value } : value)); setSelection(null); setInvalid(false); }} /></label>)}
     </fieldset>)}</div>}
-    <div><Button disabled={!available || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button></div>
+    </>}
+    {loadSignal === undefined && !syncMode && <div><Button disabled={!available || result.state === "loading"} onClick={submit}>{t("periodCurve.load")}</Button></div>}
     {!available && <Text role="status">{t("periodCurve.preparing")}</Text>}
     {invalid && <Text role="alert">{t("periodCurve.invalid")}</Text>}
     {result.state === "loading" && <Text role="status">{t("periodEvidence.loading")}</Text>}
     {result.state === "error" && <Button onClick={result.retry}>{t("canonical.retry")}</Button>}
     {result.response && <Stack gap="var(--space-6)">
-      <Text as="p" variant="caption">{activityT("growth.canonicalPeriodBasis")}</Text>
+      {!concise && <Text as="p" variant="caption">{activityT("growth.canonicalPeriodBasis")}</Text>}
       <div className="grid gap-3 sm:grid-cols-2">{result.response.periods.map((period, index) => <section key={index} className="fitness-period-summary">
         <Text as="h4" variant="subtitle">{t("periodCurve.period", { n: index + 1 })}</Text>
         <Text as="p" variant="caption" tone="secondary">{trainingCalendarDate(period.fromInclusive)} – {trainingCalendarDate(period.toExclusive - 1)}</Text>
         <Text as="p" weight={600}>{period.totals.distanceM.totalValue == null ? "—" : formatDistance(period.totals.distanceM.totalValue, units)} · {period.totals.movingTimeSec.totalValue == null ? "—" : formatElapsedBoundary(period.totals.movingTimeSec.totalValue)} · {period.totals.elevationGainM.totalValue == null ? "—" : formatElev(period.totals.elevationGainM.totalValue, units)}</Text>
-        {period.coverage.truncated && <Text as="p" tone="secondary">{activityT("trainingPeriods.truncated")}</Text>}
+        {!concise && period.coverage.truncated && <Text as="p" tone="secondary">{activityT("trainingPeriods.truncated")}</Text>}
         {discipline === "bike" && <BikePeriodSnapshotPanel historyOnly={!period.coverage.truncated} ownerUid={ownerUid} period={period} />}
       </section>)}</div>
       <PeriodLoadEvidence ownerUid={ownerUid} discipline={discipline} periods={result.response.periods} timeseries={timeseries} />
       <RunPeriodComparisonPanel response={result.response} />
-      <TrainingPeriodZonesPanel response={result.response} ownerUid={ownerUid} />
+      <TrainingPeriodZonesPanel response={result.response} ownerUid={ownerUid} zonesOpen={loadSignal !== undefined || syncMode} />
       {discipline === "run" && <RunEffortStageManagementPanel ownerUid={ownerUid} appliedResponse={result.response} />}
     </Stack>}
     </Stack>

@@ -33,7 +33,7 @@ export default function ErrorState({
     >
       <div
         aria-hidden="true"
-        style={{ fontSize: compact ? "var(--fs-2xl)" : 32, marginBottom: "var(--space-3)", color: "var(--rose)" }}
+        style={{ fontSize: compact ? "var(--fs-2xl)" : "var(--fs-3xl)", marginBottom: "var(--space-3)", color: "var(--rose)" }}
       >
         !
       </div>

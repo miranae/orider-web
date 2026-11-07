@@ -20,6 +20,14 @@ export function trainingCalendarPeriod(from: string, through: string, now: numbe
     && Number.isFinite(end) && end >= start && end <= now && start < stop
     ? { fromInclusive: start, toExclusive: stop } : null;
 }
+/** 분석 상단 기간 선택(30·90·180·365일): 오늘을 제외한 완료된 N일과 바로 이전 N일. */
+export function trainingWindowPeriods(days: number, now: number): PowerCurvePeriod[] {
+  const today = midnight(trainingCalendarDate(now));
+  return [
+    { fromInclusive: today - days * DAY, toExclusive: today },
+    { fromInclusive: today - 2 * days * DAY, toExclusive: today - days * DAY },
+  ];
+}
 export function trainingComparisonPeriods(preset: TrainingComparisonPreset, now: number): PowerCurvePeriod[] {
   const today = midnight(trainingCalendarDate(now));
   if (preset === "fourWeeks") return [

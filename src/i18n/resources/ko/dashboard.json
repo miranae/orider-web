@@ -1,5 +1,4 @@
 {
-  "mobileFitness.activityFlow": "활동량과 주간 흐름",
   "header": {
     "greetingPrefix": "안녕하세요, ",
     "greetingSuffix": "님.",
@@ -776,12 +775,10 @@
   "charts.weeklyChart.weekTitle": "주별 활동 기록",
   "charts.weeklyChart.previousWeek": "이전 주",
   "charts.weeklyChart.nextWeek": "다음 주",
-  "mobileFitness.modelDetails": "추정 지표와 산출 근거",
   "mobileFitness.periodScope": "분석 조회 기간입니다. 이번 달 활동과 최근 28일 커브는 별도 기준입니다.",
   "mobileFitness.conditionLink": "현재 컨디션 확인",
   "mobileFitness.performance.missingMetrics": "추정 근거 부족: {{metrics}}",
   "mobileFitness.powerChanges": "파워 변화 · 두 기간 비교",
   "mobileFitness.analysisDestination": "수행 지표·기록 비교는 분석에서",
-  "mobileFitness.weeklyUnknown": "주별 비교에 필요한 일별 부하 근거가 부족해요.",
-  "mobileFitness.runRecordSources": "거리 기록·출처와 마일스톤"
+  "mobileFitness.weeklyUnknown": "주별 비교에 필요한 일별 부하 근거가 부족해요."
 }

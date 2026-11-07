@@ -1,4 +1,4 @@
-.activity-overview-social { display: grid; gap: var(--space-6); padding-block: var(--space-5); min-width: 0; }
+.activity-overview-social { display: grid; gap: var(--space-4); padding-block: var(--space-4); min-width: 0; }
 .activity-overview-story, .activity-overview-results { display: grid; align-content: start; gap: var(--space-4); min-width: 0; }
 .activity-overview-memo p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--fs-data-small); line-height: var(--space-5); }
 .activity-overview-memo--collapsed { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
