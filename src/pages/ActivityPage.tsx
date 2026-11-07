@@ -1493,7 +1493,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
       <input ref={photoInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
       {activeTab === "compare" && isActivityOwner && <ActivityGrowthPanel activity={activity} metrics={serverMetrics.metrics} currentMetricsStatus={serverMetrics.status} isOwner={isActivityOwner} comparisonOnly />}
 
-      {activeTab === "overview" && <div data-testid="D1-2" className="space-y-6">
+      {activeTab === "overview" && <div data-testid="D1-2" className="space-y-4">
 
       {/* ── 6. 좋아요 & 댓글 ── */}
       <section data-testid="D1-6">{publicAccess?.session.mutationError && <Text role="alert">{t("publicDetail.commentsFailed")}</Text>}<KudosCommentsCard
@@ -1611,7 +1611,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
       {sport === "swim" && streams && <SwimLeftCards streams={streams} />}
 
       {(sport === "run" || sport === "swim") && (
-      <div className="space-y-6">
+      <div className="space-y-4">
       {sport === "run" && (
         <RunRightCards
           avgSpeedKph={stripStats.avgSpeedKph.value}
@@ -1797,7 +1797,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         loadingStreams || showStreamSpinner ? <Card className="activity-detail-loading" role="status" aria-live="polite"><span className="activity-detail-spinner" aria-hidden="true" />{t("detail.loadingData")}</Card> : streamsSignInRequired ? <ActivityAnalysisSignInCard onSignIn={() => { void signIn(); }} /> : <StreamUnavailableCard title={t("page.segmentsUnavailableTitle")} message={streamUnavailableMessage} onRetry={() => { void retryStreams(); }} retryLabel={t("page.retry")} />
       )}
       {activeTab === "segments" && streams && (
-      <div data-testid="D1-4" className="space-y-6">
+      <div data-testid="D1-4" className="space-y-4">
 
       {/* 주요 성과 */}
       {topResults.length > 0 && (
