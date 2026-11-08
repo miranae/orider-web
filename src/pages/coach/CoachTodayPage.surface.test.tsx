@@ -79,11 +79,12 @@ describe("오늘 훈련 — 계획 · AI 코치 분석 요청 · 24/48시간 변
     expect(screen.queryByTestId("K2-2-4")).not.toBeInTheDocument();
   });
 
-  it("조회 실패면 계획 자리에 다시 확인만 두고 휴식 기준 변화를 보인다", () => {
+  it("조회 실패면 계획 자리에 안내 한 줄만 두고 다시 확인 버튼은 없다", () => {
     mocks.state = { ...mocks.state, unavailableReason: "error" };
     renderToday();
     expect(screen.getByTestId("K2-2")).toHaveAttribute("data-today-plan", "error");
-    expect(screen.getByRole("button", { name: "training:decision.refresh" })).toBeInTheDocument();
+    expect(screen.getByText("training:decision.fallback.unavailableBody")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "training:decision.refresh" })).not.toBeInTheDocument();
   });
 
   it("건강 신호로 운동 중단이면 경고를 계획 카드에 보인다", () => {

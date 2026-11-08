@@ -11,7 +11,7 @@ import { canShowRecommendation, primaryEffectiveSession } from "../../features/t
 import { CoachQuestionLauncher } from "../../features/coach/CoachQuestionLauncher";
 import { activityIdsCoveredByImpacts, activityDayLoad, deriveActivityImpacts, forecastFitnessChoice48Hours } from "../../features/fitness/activityImpact";
 import { isNegligibleActivitySummary } from "@shared/training/activityLoad";
-import { Alert, Button, Card, Text } from "../../theme/components";
+import { Alert, Card, Text } from "../../theme/components";
 import { useCoachFitnessModel } from "./CoachFitnessModelContext";
 import "../../features/trainingDecision/training-decision.css";
 
@@ -38,7 +38,6 @@ function TodayPlan({ state }: { state: TodayTrainingDecisionState }) {
   if (!decision && state.unavailableReason === "error") return <Card data-testid="K2-2" className="training-decision-card" data-today-plan="error">
     <Text as="span" variant="bodyMedium">{t("training:decision.eyebrow")}</Text>
     <Text as="p" variant="body" tone="secondary" style={{ margin: 0 }}>{t("training:decision.fallback.unavailableBody")}</Text>
-    <div><Button size="sm" variant="outline" onClick={() => state.refresh()}>{t("training:decision.refresh")}</Button></div>
   </Card>;
   const session = decision?.scheduledSessions.length ? primaryEffectiveSession(decision) : null;
   const extraCount = decision ? Math.max(0, decision.scheduledSessions.length - 1) : 0;
