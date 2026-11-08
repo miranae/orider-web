@@ -21,7 +21,7 @@ const GROUPS = [
   ] },
   { name: "함께 달리기", pages: [
     { file: "ch04-compare.html", title: "4. 비교·탐색 — 코스·세그먼트·챌린지·게시판", level: "intermediate", desc: "다음 코스 고르기, 구간 순위, 거리 도전, 글쓰기" },
-    { file: "ch05-group-event.html", title: "5. 클럽·친구·이벤트", level: "intermediate", desc: "클럽 가입·운영, 이번 주 순위, 친구 맺기, 대회" },
+    { file: "ch05-group-event.html", title: "5. 클럽·친구·이벤트", level: "intermediate", desc: "클럽 가입·운영, 이번 주 순위, 클럽 모임(실내·실외), 친구 맺기, 대회" },
   ] },
   { name: "코치와 훈련", pages: [
     { file: "ch06-advanced.html", title: "6. 컨디션·체력 — 코치 > 컨디션·분석", level: "advanced", desc: "CTL·ATL·TSB, 파워 커브, 가정값, 훈련 기준값" },
@@ -68,8 +68,8 @@ const FIGURES = {
   "ch05-group-event.html": [
     { at: "s5-1", img: "web-clubs.png", cap: "클럽 목록 위쪽 — 참여 중인 클럽 수, 오른쪽 위 클럽 찾기·클럽 만들기, 내 클럽 종목·검색." },
     { at: "s5-2", img: "web-club.png", cap: "클럽 안 — 위쪽 메뉴(소식·이벤트·공동 기록·함께한 이번 주·멤버·운영)와 소식 탭의 클럽 공지와 소식." },
-    { at: "s5-5", img: "web-events.png", cap: "탐색 > 이벤트 — 맨 위 진행 중·모집 중·내가 참가한 이벤트 수, 아래 목록·캘린더·지도 보기." },
-    { at: "s5-6", img: "web-friends.png", max: 700, cap: "친구 위쪽 — 내 친구코드와 복사 아이콘, 친구코드 입력 칸, 친구·요청·보낸 요청 탭(친구 목록은 잘라 냈습니다)." },
+    { at: "s5-6", img: "web-events.png", cap: "탐색 > 이벤트 — 맨 위 진행 중·모집 중·내가 참가한 이벤트 수, 아래 목록·캘린더·지도 보기." },
+    { at: "s5-7", img: "web-friends.png", max: 700, cap: "친구 위쪽 — 내 친구코드와 복사 아이콘, 친구코드 입력 칸, 친구·요청·보낸 요청 탭(친구 목록은 잘라 냈습니다)." },
   ],
   "ch06-advanced.html": [
     { at: "s6-1", img: "05-fitness-pmc.png", cap: "코치 > 컨디션 — 브리핑 결론과 장기체력 CTL·단기피로 ATL·회복상태 TSB. '낮은 근거' 표시와 남은 요건을 눈여겨보세요." },

@@ -2,10 +2,26 @@ import { mt } from "./meetingText";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../theme/components/Button";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
-import type { Meeting, State } from "./domain";
+import type { Meeting, MeetingVenue, State } from "./domain";
 import CoursePreparation from "./CoursePreparation";
 import CoursePreview, { CourseSummary } from "./CoursePreview";
 import { clearDraft, draftScope, readDraft, writeDraft } from "./meetingDrafts";
+
+/** 실내·실외 선택지. 설명은 앱에서 달라지는 점(목록 노출·출발 방식)을 알려준다. */
+export const MEETING_VENUE_OPTIONS: { value: MeetingVenue; label: string; hint: string }[] = [
+  {
+    value: "indoor",
+    label: "실내",
+    hint: "앱 실내 라이딩으로 함께 출발합니다(가상 코스·출발 대기)",
+  },
+  {
+    value: "outdoor",
+    label: "실외",
+    hint: "야외에서 모여 실외 라이딩으로 기록합니다",
+  },
+];
+export const meetingVenueLabel = (venue: MeetingVenue | undefined): string =>
+  venue === "indoor" ? mt("실내") : venue === "outdoor" ? mt("실외") : "";
 
 export default function MeetingForm({
   state,
@@ -82,6 +98,10 @@ export default function MeetingForm({
   const [saving, setSaving] = useState(false);
   const submit = async () => {
     if (savingRef.current) return;
+    if (!draft.venue) {
+      setSaveError(mt("실내 모임인지 실외 모임인지 선택해주세요."));
+      return;
+    }
     if (!existing && !dateConfirmed) {
       setSaveError(mt("개최 날짜와 시각을 확인해주세요."));
       return;
@@ -106,6 +126,11 @@ export default function MeetingForm({
   };
   const reviewRows = [
     { label: mt("모임 이름"), before: initial.title, after: draft.title },
+    {
+      label: mt("실내 / 실외"),
+      before: meetingVenueLabel(initial.venue),
+      after: meetingVenueLabel(draft.venue),
+    },
     {
       label: mt("일시"),
       before: `${initial.date} ${initial.time}`,
@@ -191,7 +216,8 @@ export default function MeetingForm({
         <div className="cp-stack">
           <p>{draft.description}</p>
           <p>
-            {draft.date} {draft.time} · {draft.place}
+            {meetingVenueLabel(draft.venue)} · {draft.date} {draft.time} ·{" "}
+            {draft.place}
           </p>
           <CourseSummary meeting={completeDraft()} />
           <CoursePreview meeting={completeDraft()} />
@@ -344,6 +370,30 @@ export default function MeetingForm({
             onChange={(e) => patch({ title: e.target.value })}
           />
         </Field>
+        <fieldset className="cp-venue-choice" aria-describedby="meeting-venue-hint">
+          <legend>{mt("실내 / 실외")}</legend>
+          <p id="meeting-venue-hint" className="cp-muted">
+            {existing && !initial.venue
+              ? mt("이 모임은 아직 실내·실외가 정해지지 않았어요. 저장하려면 선택해주세요.")
+              : mt("실내 모임만 앱 실내 라이딩의 신청한 모임에 나타납니다.")}
+          </p>
+          {MEETING_VENUE_OPTIONS.map((option) => (
+            <label key={option.value} className="cp-venue-option">
+              <input
+                type="radio"
+                name="meeting-venue"
+                value={option.value}
+                required
+                checked={draft.venue === option.value}
+                onChange={() => patch({ venue: option.value })}
+              />
+              <span>
+                <strong>{mt(option.label)}</strong>
+                <span className="cp-muted">{mt(option.hint)}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
         <div className="cp-form-grid">
           <Field label={mt("모임 종류")} htmlFor="meeting-kind">
             <Select

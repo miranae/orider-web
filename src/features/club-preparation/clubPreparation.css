@@ -128,6 +128,12 @@
 .cp-form-actions--top { position:sticky; top:0; border-bottom:1px solid var(--line-soft); }
 .cp-form-actions--bottom { position:sticky; bottom:0; border-top:1px solid var(--line-soft); }
 .cp-date-check { display:flex; align-items:flex-start; gap:var(--space-2); font-weight:600; }
+.cp-venue-choice { display:grid; gap:var(--space-2); margin:0; padding:0; border:0; }
+.cp-venue-choice>legend { margin-bottom:var(--space-1); font-weight:600; color:var(--ink-0); }
+.cp-venue-option { display:flex; align-items:flex-start; gap:var(--space-2); padding:var(--space-3); border:1px solid var(--line-soft); border-radius:var(--r-md); cursor:pointer; }
+.cp-venue-option:has(input:checked) { border-color:var(--lime); background:var(--bg-2); }
+.cp-venue-option>input { margin-top:var(--space-1); accent-color:var(--lime); }
+.cp-venue-option>span { display:grid; gap:var(--space-1); }
 .cp-draft-banner { display:flex; align-items:center; justify-content:space-between; gap:var(--space-3); margin-bottom:var(--space-5); }
 @media(max-width:60rem) { .cp-detail-layout--host>.cp-detail-main>.cp-hero,.cp-detail-layout--host>.cp-detail-main>.cp-my-prep,.cp-detail-layout--host>.cp-detail-main>.cp-course-preview-slot,.cp-detail-layout--host>.cp-detail-main>.cp-people,.cp-detail-layout--host>aside { grid-row:auto; } }
 @media(max-width:36rem) { .cp-form-actions>.cp-actions { width:100%; } .cp-form-actions .ds-btn { flex:1; } .cp-draft-banner { flex-wrap:wrap; } }
