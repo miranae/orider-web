@@ -103,7 +103,8 @@ export default function GroupDashboardPage() {
     setUpcomingLoading(true);
     (async () => {
       try {
-        const snap = await getVisibleEventPage({ groupId, publicOnly: !currentMemberRole, statuses: ["OPEN", "LIVE"], limit: 3 });
+        // 임베드(앱 클럽 상세)는 기본 Firebase 가 없다 — 화면의 서비스로 불러야 앱에서도 목록이 보인다.
+        const snap = await getVisibleEventPage({ groupId, publicOnly: !currentMemberRole, statuses: ["OPEN", "LIVE"], limit: 3 }, { auth, functions, ensureAppCheckReady });
         if (cancelled) return;
         setUpcomingIncomplete(Boolean(snap.nextCursor));
         const list: UpcomingEvent[] = await Promise.all(snap.docs.map(async (d) => {
@@ -150,7 +151,7 @@ export default function GroupDashboardPage() {
       } finally { if (!cancelled) setUpcomingLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [groupId, t, user?.uid, accessKey, upcomingAttempt, getClubMeetingSnapshot]);
+  }, [groupId, t, user?.uid, accessKey, upcomingAttempt, getClubMeetingSnapshot, auth, functions, ensureAppCheckReady]);
 
   if (!user && !authLoading) return <PublicClubPreview groupId={groupId} />;
 

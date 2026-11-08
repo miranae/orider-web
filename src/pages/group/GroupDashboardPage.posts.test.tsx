@@ -7,6 +7,8 @@ import { auth, ensureAppCheckReady } from "../../services/firebase";
 import { createGroupPost, updateGroupPost } from "../../hooks/useGroupPosts";
 import { setCollectionDocs, setDocData, setCallableImplementation, mockCallableInvocations } from "../../__tests__/mocks/firebase";
 import GroupDashboardPage from "./GroupDashboardPage";
+import { httpsCallable } from "firebase/functions";
+import { FirebaseServicesProvider, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useGroup, useGroupMemberRole } from "../../hooks/useGroup";
 
 const state = vi.hoisted(() => ({
@@ -114,6 +116,15 @@ describe("group post editing", () => {
     expect(await screen.findByText("아침 모임")).toBeInTheDocument();
     await screen.findByText("남의 대회");
     expect(screen.getAllByTestId("club-dashboard-edit").map(link=>link.getAttribute("href"))).toEqual(["/ko/club/group-1/meetings/my-meeting/edit","/ko/event/my-race/host/edit"]);
+  });
+  it("loads upcoming events through the screen services so the app embed is not left empty",async()=>{
+    const embedded = { auth: { currentUser: { uid: "owner" } }, functions: { embedded: true }, ensureAppCheckReady: vi.fn(async()=>undefined), firestore: {}, getAppCheckToken: vi.fn() } as unknown as FirebaseServices;
+    setCollectionDocs("events",[{id:"race",info:{name:"임베드 대회",groupId:"group-1",status:"OPEN",startTime:Date.now()+3600000}}]);
+    vi.mocked(httpsCallable).mockClear();
+    render(<FirebaseServicesProvider services={embedded}><Page /></FirebaseServicesProvider>);
+    expect(await screen.findByText("임베드 대회")).toBeInTheDocument();
+    expect(vi.mocked(httpsCallable)).toHaveBeenCalledWith(embedded.functions, "listVisibleEventEnvelopes");
+    expect(embedded.ensureAppCheckReady).toHaveBeenCalled();
   });
   it("clears a composer on account change and ignores old account completion",async()=>{
     let finish!:()=>void;vi.mocked(createGroupPost).mockImplementationOnce(()=>new Promise<void>(resolve=>{finish=resolve;}));
