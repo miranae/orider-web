@@ -1,4 +1,5 @@
 import { mt } from "./meetingText";
+import { logClientError } from "../../services/errorLogger";
 import { useEffect, useRef, useState } from "react";
 import { Button, Chip } from "../../theme/components";
 import { Field, Input, Textarea } from "../../theme/components/Input";
@@ -189,7 +190,8 @@ export default function CoursePreparation({
         return;
       }
       request({ ...toCoursePlan(full), courseHighlights: full.description });
-    } catch {
+    } catch (failure) {
+      logClientError("CoursePreparation.savedCourseImport", failure, { courseId: course.id });
       if (version === readVersion.current)
         setError(mt("코스 경로를 불러오지 못했어요. 다시 시도해주세요."));
     } finally {
