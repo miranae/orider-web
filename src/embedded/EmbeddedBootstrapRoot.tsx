@@ -535,7 +535,6 @@ function AuthorizedSurface({
                   key={`${surfaceMountKey}:${retryKey}`}
                   retryKey={retryKey}
                   active={subscriptionsActive}
-                  startMode={session.hostCapabilities.includes(RUN_START_SCHEDULED_CAPABILITY) ? { kind: "host", starter: runStartChannel } : { kind: "host-unsupported" }}
                   onReady={trainingReady}
                 />
               ) : displayedTrainingSurface === "plan" ? (

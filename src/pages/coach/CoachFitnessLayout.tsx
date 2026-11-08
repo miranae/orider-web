@@ -20,5 +20,6 @@ export default function CoachFitnessLayout() {
     next.set("sport", "bike");
     return <Navigate replace to={{ pathname: location.pathname, search: `?${next}`, hash: location.hash }} />;
   }
-  return <><Outlet context={model} /><CoachQuestionEntry model={model} page={today ? "today" : location.pathname.endsWith("/condition") ? "condition" : "analysis"} /></>;
+  // 오늘 훈련은 화면 안에 "AI 코치에게 분석 요청" 을 둔다 — 떠 있는 버튼을 겹쳐 두지 않는다.
+  return <><Outlet context={model} />{!today && <CoachQuestionEntry model={model} page={location.pathname.endsWith("/condition") ? "condition" : "analysis"} />}</>;
 }

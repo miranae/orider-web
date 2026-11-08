@@ -1,65 +1,118 @@
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
-import CoachTodayPage from "./CoachTodayPage";
+import CoachTodayPage, { todayPlannedLoad } from "./CoachTodayPage";
+
 const mocks = vi.hoisted(() => ({
   state: { decision: null, loading: false, unavailable: true, unavailableReason: "disabled", scheduledOnly: true, refresh: vi.fn() } as TodayTrainingDecisionState,
   sport: "bike", point: { ctl: 40, atl: 45, tsb: -5, date: "2026-10-14", dailyLoad: 0 } as Record<string, unknown> | null,
   canonical: true,
+  launcher: [] as Array<{ triggerLabel?: string; progressPlannerSelection: unknown }>,
 }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-vi.mock("../../services/runtimeConfig", () => ({ getRuntimeConfig: () => ({ riderWorkoutDeliveryEnabled: false }) }));
-vi.mock("../../components/LocalizedLink", () => ({ LocalizedLink: ({ to, children, ...props }: { to: string; children: React.ReactNode; "aria-label"?: string }) => <a href={to} {...props}>{children}</a> }));
+const t = (key: string, values?: Record<string, unknown>) => values ? `${key}:${JSON.stringify(values)}` : key;
+vi.mock("react-i18next", () => ({ useTranslation: () => ({ t }) }));
+vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner" }, signIn: vi.fn() }) }));
 vi.mock("../../components/redesign/DisciplineTabs", () => ({ default: () => <div>sport tabs</div> }));
-vi.mock("./CoachFitnessModelContext", () => ({ useCoachFitnessModel: () => ({ t: (key: string) => key,
+vi.mock("../../features/training/plan/PlanRecordNavigation", () => ({ default: () => <nav>plan record tabs</nav> }));
+vi.mock("./CoachFitnessModelContext", () => ({ useCoachFitnessModel: () => ({ t,
   user: { uid: "owner" }, discipline: mocks.sport, currentPoint: mocks.point, i18n: { language: "ko" },
   hasCanonicalTimeseries: mocks.canonical, fitnessData: [], disciplineActivities: [], loading: false, timeseriesLoaded: true, error: null,
 }) }));
-vi.mock("../../features/fitness/components/FitnessCoachBriefing", () => ({ default: (props: { choiceTitle: string; deliveryEnabled: boolean; forecast: unknown }) => <section data-testid="chooser" data-delivery={String(props.deliveryEnabled)} data-forecast={String(Boolean(props.forecast))}>{props.choiceTitle}</section> }));
+vi.mock("../../features/coach/CoachQuestionLauncher", () => ({ CoachQuestionLauncher: (props: { triggerLabel?: string; progressPlannerSelection: unknown }) => {
+  mocks.launcher.push(props);
+  return <button type="button">{props.triggerLabel}</button>;
+} }));
 vi.mock("../../features/trainingDecision/TodayTrainingDecisionCard", () => ({
   TodayTrainingDecisionSource: ({ children }: { children: (state: TodayTrainingDecisionState) => React.ReactNode }) => children(mocks.state),
-  default: () => <section data-testid="decision">decision</section>,
 }));
-vi.mock("../../features/training/run30/useRun30Program", () => ({ useRun30Program: () => ({ status: "ready", program: null }) }));
+
+function session(workout: string, targetTss: number | null) {
+  return { sessionId: "s1", current: { workout, durationMin: 60, targetTss, completed: false } };
+}
+function decisionWith(sessions: ReturnType<typeof session>[], health = "clear") {
+  return { scheduledSessions: sessions, effectiveSessions: sessions, representativeSessionId: "s1", healthGate: { state: health },
+    mode: "scheduled-only", recommendationSource: null, capabilities: {} } as never;
+}
+
 beforeEach(() => {
-  mocks.sport = "bike"; mocks.point = { ctl: 40, atl: 45, tsb: -5, date: "2026-10-14", dailyLoad: 0 }; mocks.canonical = true;
+  mocks.sport = "bike"; mocks.point = { ctl: 40, atl: 45, tsb: -5, date: "2026-10-14", dailyLoad: 0 }; mocks.canonical = true; mocks.launcher = [];
   mocks.state = { decision: null, loading: false, unavailable: true, unavailableReason: "disabled", scheduledOnly: true, refresh: vi.fn() };
 });
 afterEach(cleanup);
 function renderToday() { render(<MemoryRouter><CoachTodayPage /></MemoryRouter>); }
-describe("today read-only chooser versus guarded writes", () => {
-  it("shows chooser and forecast with decision disabled and hides writes", () => {
+
+describe("오늘 훈련 — 계획 · AI 코치 분석 요청 · 24/48시간 변화만", () => {
+  it("예정 운동이 없으면 없다는 한 줄과 휴식 기준 변화만 보인다", () => {
+    mocks.state = { ...mocks.state, unavailable: false, unavailableReason: null, decision: decisionWith([]) };
     renderToday();
-    expect(screen.getByTestId("chooser")).toHaveAttribute("data-forecast", "true");
-    expect(screen.getByTestId("chooser")).toHaveAttribute("data-delivery", "false");
-    expect(screen.queryByTestId("decision")).not.toBeInTheDocument();
-    expect(screen.getByText("today.decisionUnavailable")).toBeInTheDocument();
-    // 오늘 훈련은 회복 상태(TSB) 줄을 두지 않는다 — 컨디션 탭이 같은 값을 보여 준다.
-    expect(screen.queryByRole("link", { name: /coach.metric.tsb/ })).not.toBeInTheDocument();
+    const plan = screen.getByTestId("K2-2");
+    expect(plan).toHaveAttribute("data-today-plan", "none");
+    expect(within(plan).getByText("training:decision.noScheduled")).toBeInTheDocument();
+    expect(screen.getByText("today.forecastBasisRest")).toBeInTheDocument();
+    expect(screen.getAllByText(/today.forecastHours/).map(node => node.textContent)).toEqual([
+      'today.forecastHours:{"hours":24}', 'today.forecastHours:{"hours":48}']);
   });
-  it("keeps the chooser on lookup failure without an error card", () => {
-    mocks.state.unavailableReason = "error"; renderToday();
-    expect(screen.getByTestId("chooser")).toBeInTheDocument();
-    expect(screen.queryByTestId("decision")).not.toBeInTheDocument();
+
+  it("예정 운동이 있으면 그 운동과 그 TSS 로 계산한 변화를 보인다", () => {
+    mocks.state = { ...mocks.state, unavailable: false, unavailableReason: null, decision: decisionWith([session("z2", 60)]) };
+    renderToday();
+    expect(screen.getByTestId("K2-2")).toHaveAttribute("data-today-plan", "scheduled");
+    expect(screen.getByTestId("K2-2-1")).toBeInTheDocument();
+    expect(screen.getByText('today.forecastBasisPlanned:{"tss":60}')).toBeInTheDocument();
   });
-  it("keeps choice available without inventing a fitness forecast when no data exists", () => {
+
+  it("순서는 계획 → AI 코치에게 분석 요청 → 24/48시간 변화이고 다른 것은 없다", () => {
+    mocks.state = { ...mocks.state, unavailable: false, unavailableReason: null, decision: decisionWith([session("z2", 60)]) };
+    renderToday();
+    const plan = screen.getByTestId("K2-2");
+    const ask = screen.getByTestId("K2-5");
+    const forecast = screen.getByTestId("K2-1");
+    expect(plan.compareDocumentPosition(ask) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(ask.compareDocumentPosition(forecast) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(ask).getByRole("button", { name: "training:decision.askCoach" })).toBeInTheDocument();
+    // 권고 근거가 없으면 일반 질문으로 연다.
+    expect(mocks.launcher.at(-1)?.progressPlannerSelection).toBeNull();
+    // 간단 운동 고르기·운동 보내기·변경 적용은 없다.
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("K2-3")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("K2-2-4")).not.toBeInTheDocument();
+  });
+
+  it("조회 실패면 계획 자리에 안내 한 줄만 두고 다시 확인 버튼은 없다", () => {
+    mocks.state = { ...mocks.state, unavailableReason: "error" };
+    renderToday();
+    expect(screen.getByTestId("K2-2")).toHaveAttribute("data-today-plan", "error");
+    expect(screen.getByText("training:decision.fallback.unavailableBody")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "training:decision.refresh" })).not.toBeInTheDocument();
+  });
+
+  it("건강 신호로 운동 중단이면 경고를 계획 카드에 보인다", () => {
+    mocks.state = { ...mocks.state, unavailable: false, unavailableReason: null, decision: decisionWith([session("z2", 60)], "stop") };
+    renderToday();
+    expect(screen.getByTestId("K2-2-3")).toBeInTheDocument();
+  });
+
+  it("정본 부하가 없으면 변화를 지어내지 않는다", () => {
     mocks.point = null; mocks.canonical = false; renderToday();
-    expect(screen.getByTestId("chooser")).toHaveAttribute("data-forecast", "false");
-    expect(screen.getByTestId("chooser")).toHaveAttribute("data-delivery", "false");
+    expect(screen.queryByTestId("K2-1-2")).not.toBeInTheDocument();
+    expect(screen.getByText("today.forecastUnavailable")).toBeInTheDocument();
   });
-  it("puts the decision first with a scheduled plan and labels the separate lighter workout", () => {
-    mocks.state.decision = { scheduledSessions: [{}], healthGate: { state: "clear" } } as never;
+
+  it("예정 운동에 TSS 가 없으면 계산할 수 없다고 말한다", () => {
+    mocks.state = { ...mocks.state, unavailable: false, unavailableReason: null, decision: decisionWith([session("z2", null)]) };
     renderToday();
-    expect(screen.getByTestId("decision").compareDocumentPosition(screen.getByTestId("chooser")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByTestId("chooser")).toHaveTextContent("today.planAlternative");
+    expect(screen.queryByTestId("K2-1-2")).not.toBeInTheDocument();
+    expect(screen.getByText("today.forecastNoTss")).toBeInTheDocument();
   });
-  it("suppresses the choice on an authoritative health stop but keeps the warning card", () => {
-    mocks.state.decision = { scheduledSessions: [], healthGate: { state: "stop" } } as never;
-    renderToday(); expect(screen.queryByTestId("chooser")).not.toBeInTheDocument(); expect(screen.getByTestId("decision")).toBeInTheDocument();
-  });
-  it("shows the running program link even when today decision is disabled", () => {
-    mocks.sport = "run"; renderToday();
-    expect(screen.getByRole("link", { name: "today.runProgramLink" })).toHaveAttribute("href", "/coach/plan?sport=run");
+});
+
+describe("todayPlannedLoad", () => {
+  const base = { loading: false, unavailable: false, unavailableReason: null, scheduledOnly: false, refresh: vi.fn() };
+  it("예정 없음·휴식은 0, 예정 운동은 TSS, TSS 없음은 null", () => {
+    expect(todayPlannedLoad({ ...base, decision: null })).toEqual({ load: 0, planned: false });
+    expect(todayPlannedLoad({ ...base, decision: decisionWith([session("rest", 0)]) })).toEqual({ load: 0, planned: false });
+    expect(todayPlannedLoad({ ...base, decision: decisionWith([session("z2", 55)]) })).toEqual({ load: 55, planned: true });
+    expect(todayPlannedLoad({ ...base, decision: decisionWith([session("z2", null)]) })).toBeNull();
   });
 });
