@@ -41,7 +41,7 @@ describe('코스부터 준비하는 모집 작성',()=>{
     expect(screen.queryByRole('link',{name:/기존 세그먼트 상세/})).toBeNull();
   });
   it('GPX 출처·체크포인트·생성 구간을 미게시 초안과 미리보기에 보존한다',async()=>{
-    const state=createSeed();const initial={...duplicateMeeting(state.meetings[2]!,'gpx-draft'),hostId:'me'};
+    const state=createSeed();const initial={...duplicateMeeting(state.meetings[2]!,'gpx-draft'),hostId:'me',date:'2099-10-25'};
     const view=render(<MeetingForm state={state} initial={initial} onSave={vi.fn()} onClose={vi.fn()}/>);
     fireEvent.click(screen.getByRole('tab',{name:'GPX로 준비하기'}));upload();
     fireEvent.click(await screen.findByRole('button',{name:'확인하고 적용'}));

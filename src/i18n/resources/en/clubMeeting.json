@@ -238,5 +238,6 @@
   "선택 구간의 합계입니다. 연결 이동은 포함하지 않고, 겹치는 구간도 각각 더합니다.": "Selected segment totals exclude connecting travel and count overlapping segments separately.",
   "거리 정보가 없는 구간이 있어 거리 합계를 표시하지 않습니다.": "Distance total is unavailable because some segments have no distance.",
   "획득고도 정보가 없는 구간이 있어 획득고도 합계를 표시하지 않습니다.": "Ascent total is unavailable because some segments have no ascent data.",
-  "좌표가 없는 구간은 출발·도착 체크포인트를 만들지 않습니다.": "Segments without coordinates do not produce start or finish checkpoints."
+  "좌표가 없는 구간은 출발·도착 체크포인트를 만들지 않습니다.": "Segments without coordinates do not produce start or finish checkpoints.",
+  "집결 시각이 현재보다 30분 넘게 지났어요. 날짜와 집결 시각을 확인해주세요.": "The meeting time is more than 30 minutes in the past. Check the date and meeting time."
 }

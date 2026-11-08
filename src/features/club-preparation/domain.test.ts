@@ -118,11 +118,11 @@ describe('동호회 모임 준비', () => {
     expect(copy.parking).toBe(source.parking);
     expect(copy.courseStops).toEqual(source.courseStops);
     expect(copy.weather).toBe(''); expect(copy.courseReady).toBe(false); expect(copy.recruitment).toBe('open');
-    expect(() => saveMeeting(s, 'host', {...copy, date: '2026-10-17'})).toThrow('현재 시각 이후');
-    expect(() => saveMeeting(s, 'host', {...copy, date: 'bad-date'})).toThrow('현재 시각 이후');
+    expect(() => saveMeeting(s, 'host', {...copy, date: '2026-10-17'})).toThrow('30분 넘게 지났어요');
+    expect(() => saveMeeting(s, 'host', {...copy, date: 'bad-date'})).toThrow('30분 넘게 지났어요');
     const past = {...s, now: Date.parse('2026-10-26T09:00:00+09:00')};
     expect(() => saveMeeting(past, 'host', {...source, description: '지난 모임 메모'})).not.toThrow();
-    expect(() => saveMeeting(past, 'host', {...source, time: '07:00'})).toThrow('현재 시각 이후');
+    expect(() => saveMeeting(past, 'host', {...source, time: '07:00'})).toThrow('30분 넘게 지났어요');
   });
 
   it('모임을 만든 회원이 해당 모임의 주최자가 되고 다른 모임의 권한은 얻지 않는다', () => {

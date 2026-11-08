@@ -141,4 +141,71 @@ describe("실제 서버 저장을 기다리는 작성 초안", () => {
       "원래 모임",
     );
   });
+  describe("집결 시각 하한 (현재 − 30분)", () => {
+    const now = Date.parse("2030-10-25T10:30:00+09:00");
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(now);
+    });
+    afterEach(() => vi.useRealTimers());
+    const renderForm = (existing: boolean, onSave = vi.fn()) => {
+      render(
+        <MeetingForm
+          state={existing ? state : { ...state, meetings: [] }}
+          initial={{ ...initial, time: "12:00" }}
+          initialRevision={existing ? 4 : undefined}
+          draftNamespace={existing ? "limit-edit" : "limit-new"}
+          onSave={onSave}
+          onClose={vi.fn()}
+        />,
+      );
+      return onSave;
+    };
+    const setTime = (value: string) =>
+      fireEvent.change(screen.getByLabelText("집결 시각"), {
+        target: { value },
+      });
+    const preview = () =>
+      fireEvent.click(
+        screen.getAllByRole("button", { name: "모집글 미리보기" })[0]!,
+      );
+    it("새 모임은 30분 넘게 지난 시각으로 미리보기·게시할 수 없다", () => {
+      const save = renderForm(false);
+      setTime("09:59");
+      preview();
+      expect(screen.getByRole("alert").textContent).toContain(
+        "30분 넘게 지났어요",
+      );
+      expect(screen.queryByRole("button", { name: "모집 시작" })).toBeNull();
+      expect(save).not.toHaveBeenCalled();
+    });
+    it("정확히 30분 전은 새 모임으로 게시할 수 있다", async () => {
+      const save = renderForm(false);
+      setTime("10:00");
+      preview();
+      fireEvent.click(screen.getByRole("checkbox"));
+      fireEvent.click(screen.getByRole("button", { name: "모집 시작" }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    });
+    it("일정 변경도 같은 하한으로 막는다", () => {
+      const save = renderForm(true);
+      setTime("09:59");
+      preview();
+      expect(screen.getByRole("alert").textContent).toContain(
+        "30분 넘게 지났어요",
+      );
+      expect(
+        screen.queryByRole("button", { name: "변경 내용 저장" }),
+      ).toBeNull();
+      expect(save).not.toHaveBeenCalled();
+    });
+    it("미래 시각으로 바꾸는 일정 변경은 저장한다", async () => {
+      const save = renderForm(true);
+      setTime("18:00");
+      preview();
+      fireEvent.click(screen.getByRole("button", { name: "변경 내용 저장" }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      expect(save.mock.calls[0]![0].time).toBe("18:00");
+    });
+  });
 });
