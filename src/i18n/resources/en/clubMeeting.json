@@ -238,5 +238,7 @@
   "선택 구간의 합계입니다. 연결 이동은 포함하지 않고, 겹치는 구간도 각각 더합니다.": "Selected segment totals exclude connecting travel and count overlapping segments separately.",
   "거리 정보가 없는 구간이 있어 거리 합계를 표시하지 않습니다.": "Distance total is unavailable because some segments have no distance.",
   "획득고도 정보가 없는 구간이 있어 획득고도 합계를 표시하지 않습니다.": "Ascent total is unavailable because some segments have no ascent data.",
-  "좌표가 없는 구간은 출발·도착 체크포인트를 만들지 않습니다.": "Segments without coordinates do not produce start or finish checkpoints."
+  "좌표가 없는 구간은 출발·도착 체크포인트를 만들지 않습니다.": "Segments without coordinates do not produce start or finish checkpoints.",
+  "이 코스는 지금 가져올 수 없어요.": "This course can't be imported right now.",
+  "코스 경로를 불러오지 못했어요. 다시 시도해주세요.": "Could not load the course route. Please try again."
 }

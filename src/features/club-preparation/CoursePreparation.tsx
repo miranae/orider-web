@@ -5,6 +5,7 @@ import { Field, Input, Textarea } from "../../theme/components/Input";
 import type { CourseCheckpoint, Meeting } from "./domain";
 import {
   loadCourseCatalogPage,
+  loadSavedCourse,
   toCoursePlan,
   type SavedCourseChoice,
 } from "./courseCatalog";
@@ -48,6 +49,7 @@ export default function CoursePreparation({
   const [hasMoreCourses, setHasMoreCourses] = useState(false);
   const coursePending = useRef(false);
   const [loading, setLoading] = useState(false);
+  const [importingCourse, setImportingCourse] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState<ImportPlan | null>(null);
   const [preserveManual, setPreserveManual] = useState(true);
@@ -173,6 +175,30 @@ export default function CoursePreparation({
       setLoading(false);
     }
   };
+  // 목록에는 경로가 없다 — 고른 코스 하나의 경로를 받은 뒤 가져온다(#1545).
+  const importCourse = async (course: SavedCourseChoice) => {
+    const version = ++readVersion.current;
+    setError("");
+    setImportingCourse(course.id);
+    onBusyChange(true);
+    try {
+      const full = await loadSavedCourse(course.id);
+      if (version !== readVersion.current) return;
+      if (!full) {
+        setError(mt("이 코스는 지금 가져올 수 없어요."));
+        return;
+      }
+      request({ ...toCoursePlan(full), courseHighlights: full.description });
+    } catch {
+      if (version === readVersion.current)
+        setError(mt("코스 경로를 불러오지 못했어요. 다시 시도해주세요."));
+    } finally {
+      if (version === readVersion.current) {
+        setImportingCourse(null);
+        onBusyChange(false);
+      }
+    }
+  };
   const upload = async (file?: File) => {
     const version = ++readVersion.current;
     if (!file) return;
@@ -249,6 +275,7 @@ export default function CoursePreparation({
               readVersion.current++;
               onBusyChange(false);
               setLoading(false);
+              setImportingCourse(null);
               setPending(null);
               if (
                 value === "saved-course" &&
@@ -319,12 +346,9 @@ export default function CoursePreparation({
                     </div>
                     <Button
                       size="sm"
-                      onClick={() =>
-                        request({
-                          ...toCoursePlan(course),
-                          courseHighlights: course.description,
-                        })
-                      }
+                      loading={importingCourse === course.id}
+                      disabled={importingCourse !== null}
+                      onClick={() => void importCourse(course)}
                     >
                       {mt("이 코스 가져오기")}
                     </Button>
