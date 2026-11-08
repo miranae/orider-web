@@ -18,6 +18,7 @@ import {
 const mocks = vi.hoisted(() => {
   const state = {
     currentUser: { uid: "owner-1" } as { uid: string } | null,
+    persistentAuth: false,
     queryProviderMounts: vi.fn(),
     queryClientCreations: vi.fn(),
     surfaceHookMounts: vi.fn(),
@@ -81,6 +82,7 @@ vi.mock("./embeddedFirebase", () => ({
   ensureEmbeddedAppCheckReady: vi.fn().mockResolvedValue(undefined),
   getEmbeddedAppCheckToken: vi.fn().mockResolvedValue("embedded-app-check"),
   embeddedAccountReady: (uid: string) => mocks.account.owner === null || mocks.account.owner === uid,
+  embeddedAuthPersistsSession: () => mocks.persistentAuth === true,
   embeddedFirestoreOwnerUid: () => mocks.account.owner,
   getEmbeddedFirestore: () => mocks.account.firestore ?? mocks.firestore,
   isolateEmbeddedAccount: (uid: string | null) => mocks.account.isolate(uid),
@@ -374,6 +376,19 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     expect(screen.getByTestId("analysis-surface")).not.toBeVisible();
     act(() => bridge.emit(hostMessage("host.lifecycle", { state: "foreground" })));
     expect(await screen.findByTestId("analysis-surface")).toBeVisible();
+  });
+
+  it("advertises shared login only when the web keeps the session in the host account store", async () => {
+    mocks.persistentAuth = true;
+    try {
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge);
+      const ready = bridge.sent.find((message: { type: string }) => message.type === "bootstrap.ready") as
+        { payload: { capabilities: string[] } } | undefined;
+      expect(ready?.payload.capabilities).toContain("embedded-persistent-auth-v1");
+    } finally {
+      mocks.persistentAuth = false;
+    }
   });
 
   it("mounts no profile listener, React Query provider, or surface hook before sessionAccepted", async () => {
