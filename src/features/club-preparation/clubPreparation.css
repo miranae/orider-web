@@ -181,7 +181,7 @@
 .cp-product .cp-meeting-detail #meeting-notices { scroll-margin-top:var(--space-8); }
 .cp-product #meeting-people { scroll-margin-top:var(--space-8); }
 .cp-product .cp-meeting-detail>.ds-card p { font-size:var(--ft-body-size); }
-.cp-product>.cp-form-panel { width:100%; max-width:64rem; margin-inline:auto; padding:var(--space-7); }
+.cp-product>.cp-form-panel { --cp-form-panel-pad:var(--space-7); width:100%; max-width:64rem; margin-inline:auto; padding:var(--cp-form-panel-pad); }
 .cp-product .cp-form-panel>.cp-section-heading { padding-bottom:var(--space-5); border-bottom:1px solid var(--line-soft); }
 .cp-product .cp-form-panel>.cp-section-heading h2 { font-size:var(--fs-xl); }
 .cp-product .cp-form-panel form { gap:var(--space-5); }
@@ -209,7 +209,7 @@
   .cp-product .cp-meeting-hero .cp-course-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .cp-product .cp-meeting-hero .cp-course-summary>p { grid-column:1/-1; border-left:0; padding-left:0; }
   .cp-meeting-sidebar .cp-roster-grid { grid-template-columns:minmax(0,2fr) minmax(0,1fr); }
-  .cp-product>.cp-form-panel { padding:var(--space-5); }
+  .cp-product>.cp-form-panel { --cp-form-panel-pad:var(--space-5); }
 }
 @media(max-width:36rem) {
   .cp-product .cp-meeting-hero { padding:var(--space-5); }
@@ -219,7 +219,7 @@
   .cp-product-host-bar>h2,.cp-product-host-bar>p { grid-column:1; }
   .cp-product-host-bar>.cp-actions { gap:var(--space-2); }
   .cp-meeting-sidebar .cp-roster-grid { grid-template-columns:minmax(0,1fr); }
-  .cp-product>.cp-form-panel { padding:var(--space-4); }
+  .cp-product>.cp-form-panel { --cp-form-panel-pad:var(--space-4); }
   .cp-product .cp-form-step { padding:var(--space-4); }
   .cp-product .cp-form-panel details.cp-divider { padding:var(--space-4); }
   .cp-product .cp-form-actions { padding:var(--space-3); }
@@ -238,10 +238,25 @@
 .cp-product .cp-meeting-course .cp-course-preview { gap:var(--space-4); }
 @media(max-width:36rem) { .cp-product .cp-meeting-course>.ds-card { padding:var(--space-4); } }
 
-/* 앱 하단 탭이 표시되는 태블릿 폭에서도 작성 동작을 가리지 않는다. */
-@media(max-width:64rem) {
-  .cp-product .cp-form-actions--bottom { bottom:calc(var(--space-8) + var(--space-3) + env(safe-area-inset-bottom,0px)); }
+/* 모임 작성·미리보기 하단 막대: 버튼 두 개만 한 줄로 두고 보이는 화면 맨 아래에 붙인다.
+   sticky 라 본문 흐름에 제 자리를 차지해 스크롤 끝의 마지막 입력칸을 가리지 않는다.
+   좌우는 패널 안쪽 여백만큼 펴서 막대 옆으로 본문이 비쳐 보이지 않게 한다. */
+.cp-form-actions.cp-form-actions--bar { display:grid; grid-template-columns:repeat(2,minmax(0,max-content)); justify-content:end; align-items:center; gap:var(--space-2); }
+.cp-form-actions--bar>button { min-width:0; }
+.cp-form-actions__error { grid-column:1 / -1; margin:0; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; font-size:var(--ft-caption-size); color:var(--color-error); contain:inline-size; }
+.cp-product .cp-form-actions.cp-form-actions--bar { bottom:0; margin-inline:calc(var(--cp-form-panel-pad, 0px) * -1); padding:var(--space-3) var(--cp-form-panel-pad, var(--space-4)); border:0; border-top:var(--dim-divider-thickness) solid var(--line-soft); border-radius:0; box-shadow:0 calc(var(--space-1) * -1) var(--space-3) color-mix(in srgb, var(--ink-0) 6%, transparent); }
+/* 웹 lg 미만은 본문 스크롤 영역(site-main)이 하단 탭·안전 영역만큼 아래 여백을 이미 둬서 bottom:0 이
+   곧 탭 바로 위다(예전 bottom 오프셋은 그 위에 또 더해져 막대가 화면 중간에 떠 있었다).
+   하단 탭이 없는 lg 이상만 기기 안전 영역을 막대가 직접 비운다. */
+@media(min-width:64rem) {
+  .cp-product .cp-form-actions.cp-form-actions--bar { padding-bottom:max(var(--space-3), env(safe-area-inset-bottom,0px)); }
 }
+/* 좁은 폰: 두 버튼이 반씩 나눠 한 줄을 채우고, 글자가 줄바꿈되지 않게 좌우 여백만 줄인다. */
+@media(max-width:36rem) {
+  .cp-form-actions.cp-form-actions--bar { --dim-button-padding-horizontal:var(--space-3); grid-template-columns:repeat(2,minmax(0,1fr)); justify-content:stretch; }
+}
+/* 앱 임베드에는 웹 하단 탭이 없다 — 화면 맨 아래에 붙이고 앱이 알려준 아래 안전 영역만큼 띄운다. */
+.orider-embedded-root .cp-product .cp-form-actions.cp-form-actions--bar { bottom:0; padding-bottom:calc(var(--space-3) + var(--orider-host-safe-bottom, 0px)); }
 /* 모임에서는 클럽의 맥락을 짧게 유지하고 모집 내용을 먼저 읽는다. */
 .cp-product>.club-subnav { margin-bottom:0; }
 .cp-product>.club-subnav>nav { margin-bottom:var(--space-2); }

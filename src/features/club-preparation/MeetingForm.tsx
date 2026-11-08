@@ -43,7 +43,6 @@ export default function MeetingForm({
     (recovery.meeting ?? initial).courseStops?.join("\n") ?? "",
   );
   const [saveError, setSaveError] = useState(recovery.error ?? "");
-  const [saved, setSaved] = useState(false);
   const [preview, setPreview] = useState(false);
   const [dateConfirmed, setDateConfirmed] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -70,10 +69,8 @@ export default function MeetingForm({
         },
         baseRevision,
       );
-      setSaved(true);
       setSaveError("");
     } catch {
-      setSaved(false);
       setSaveError(
         mt(
           "초안을 저장하지 못했어요. 입력값과 브라우저 저장 공간을 확인해주세요.",
@@ -147,30 +144,31 @@ export default function MeetingForm({
       after: draft.description,
     },
   ].filter((row) => !existing || row.before !== row.after);
-  const actions = (location: string) => (
-    <div className={`cp-form-actions cp-form-actions--${location}`}>
-      <span className="cp-muted" role="status">
-        {saved
-          ? mt("초안 자동 저장됨 · 아직 게시되지 않았어요")
-          : mt("초안 저장 확인 중")}
-      </span>
-      <div className="cp-actions">
-        <Button variant="outline" disabled={saving} onClick={onClose}>
-          {mt("닫고 나중에 계속")}
-        </Button>
-        <Button
-          variant="primary"
-          disabled={reading || saving}
-          onClick={() => {
-            if (formRef.current?.reportValidity()) {
-              setSaveError("");
-              setPreview(true);
-            }
-          }}
-        >
-          {mt("모집글 미리보기")}
-        </Button>
-      </div>
+  // 작성 단계 하단 막대: 버튼 두 개만 한 줄로 화면 맨 아래에 붙인다. 초안 자동 저장 상태 문구는
+  // 막대를 두 줄로 키워 빼고, 저장 실패 같은 오류만 위쪽 경고(role=alert)와 같은 문장을 한 줄로
+  // 줄여 막대 위에 보여준다 — 긴 양식 끝에서 버튼을 누르려는 사람이 위 경고를 놓치지 않게.
+  const actions = () => (
+    <div className="cp-form-actions cp-form-actions--bottom cp-form-actions--bar">
+      {saveError && (
+        <p className="cp-form-actions__error" title={saveError}>
+          {saveError}
+        </p>
+      )}
+      <Button variant="outline" disabled={saving} onClick={onClose}>
+        {mt("닫고 나중에 계속")}
+      </Button>
+      <Button
+        variant="primary"
+        disabled={reading || saving}
+        onClick={() => {
+          if (formRef.current?.reportValidity()) {
+            setSaveError("");
+            setPreview(true);
+          }
+        }}
+      >
+        {mt("모집글 미리보기")}
+      </Button>
     </div>
   );
   const [reading, setReading] = useState(false);
@@ -259,7 +257,7 @@ export default function MeetingForm({
               {saveError}
             </p>
           )}
-          <div className="cp-form-actions cp-form-actions--bottom">
+          <div className="cp-form-actions cp-form-actions--bottom cp-form-actions--bar">
             <Button disabled={saving} onClick={() => setPreview(false)}>
               {mt("더 수정하기")}
             </Button>
@@ -635,7 +633,7 @@ export default function MeetingForm({
             />
           </Field>
         </details>
-        {actions("bottom")}
+        {actions()}
       </form>
     </section>
   );
