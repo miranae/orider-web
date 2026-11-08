@@ -15,6 +15,8 @@ const filled: Meeting = {
   title: "주말 남산 번개",
   date: "2030-10-25",
   place: "반포 한강공원",
+  // 실내·실외는 필수다(#1547) — 고르지 않으면 미리보기로 넘어가지 않는다.
+  venue: "outdoor",
   joins: [{ id: "main", place: "반포 한강공원", time: "08:00" }],
 };
 const state = (meetings: Meeting[]): State => ({
