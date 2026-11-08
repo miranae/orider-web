@@ -103,6 +103,18 @@ describe("group post editing", () => {
     expect(screen.getByRole("link",{name:"모임 보기"})).toHaveAttribute("href","/ko/club/group-1/meetings/meeting-real");
     expect(screen.queryByRole("link",{name:"참가 신청"})).not.toBeInTheDocument();
   });
+  it("offers editing from upcoming cards only to the meeting or race host",async()=>{
+    setCollectionDocs("events",[
+      {id:"my-meeting",info:{name:"모임",kind:"CLUB_MEETING",status:"OPEN",groupId:"group-1",startTime:Date.now()+3600000}},
+      {id:"my-race",info:{name:"내 대회",groupId:"group-1",status:"OPEN",creatorId:"owner",startTime:Date.now()+7200000}},
+      {id:"other-race",info:{name:"남의 대회",groupId:"group-1",status:"OPEN",creatorId:"someone",startTime:Date.now()+10800000}},
+    ]);
+    setCallableImplementation("getClubMeetingSnapshot",()=>({data:{eventId:"my-meeting",groupId:"group-1",isHost:true,meeting:{title:"아침 모임"}}}));
+    render(<Page />);
+    expect(await screen.findByText("아침 모임")).toBeInTheDocument();
+    await screen.findByText("남의 대회");
+    expect(screen.getAllByTestId("club-dashboard-edit").map(link=>link.getAttribute("href"))).toEqual(["/ko/club/group-1/meetings/my-meeting/edit","/ko/event/my-race/host/edit"]);
+  });
   it("clears a composer on account change and ignores old account completion",async()=>{
     let finish!:()=>void;vi.mocked(createGroupPost).mockImplementationOnce(()=>new Promise<void>(resolve=>{finish=resolve;}));
     const view=render(<Page/>);
