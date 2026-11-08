@@ -6,6 +6,8 @@ import { Card, Stack } from "../../theme/components";
 export interface ClubEvent {
   id: string; name: string; status: string; startTime: number;
   registered: number | null; myRsvp: boolean | null;
+  /** 주최자면 목록에서 바로 수정으로 간다. 수정 가능 여부는 서버가 다시 판정한다. */
+  isHost: boolean;
 }
 export function meetingEventStatus(item: ClubMeetingListItem) {
   return item.meeting.status === "cancelled" ? "CANCELLED" : item.rideStatus ?? "OPEN";
@@ -38,6 +40,7 @@ export function UnifiedClubEventList({groupId, meetings, events, status, loading
               </Link>
               <p>{t("events.kind.meeting")} · {t(`event:status.${meetingEventStatus(item).toLowerCase()}`)}</p>
               {meetingEventStatus(item) === "LIVE" && <strong role="status">{i18n.language.startsWith("en") ? "Riding now" : "지금 주행 중"}</strong>}
+              {item.isHost && !["CANCELLED", "FINISHED"].includes(meetingEventStatus(item)) && <Link data-testid="club-meeting-edit" to={`/club/${groupId}/meetings/${item.eventId}/edit`}>{i18n.language.startsWith("en") ? "Edit meeting" : "모임 수정"}</Link>}
               {!["CANCELLED", "FINISHED"].includes(meetingEventStatus(item)) && <Link to={`/club/${groupId}/meetings/${item.eventId}/live`}>{i18n.language.startsWith("en") ? "Watch virtual ride" : "가상주행 관전"}</Link>}
               <p>
                 {item.meeting.date} {item.meeting.time} · {item.meeting.place}
@@ -81,6 +84,11 @@ export function UnifiedClubEventList({groupId, meetings, events, status, loading
                         ? "dashboard.eventAction.manageRsvp"
                         : "dashboard.eventAction.rsvp",
                   )}
+                </Link>
+              )}
+              {event.isHost && event.status === "OPEN" && (
+                <Link data-testid="club-event-edit" to={`/event/${event.id}/host/edit`}>
+                  {t("event:action.editEvent")}
                 </Link>
               )}
               {event.status === "FINISHED" && (
