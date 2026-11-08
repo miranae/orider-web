@@ -1,6 +1,5 @@
 import { elevationProfileSchema, meetingSegmentsSchema, type MeetingSegment } from './segmentCatalog';
 import { z } from 'zod';
-import { isMeetingStartTooEarly } from './meetingSchedule';
 export const STORAGE_KEY = 'orider.club-preparation.v1';
 export const BASE_TIME = Date.parse('2026-10-18T09:00:00+09:00');
 export type Kind = { id: string; name: string; active: boolean };
@@ -95,7 +94,7 @@ export function saveMeeting(s: State, actor: string, m: Meeting): State {
   if (!m.title.trim() || !m.place.trim() || !m.date || !m.time || !Number.isInteger(m.capacity) || m.capacity < 1 || !Number.isFinite(m.fee) || m.fee < 0) throw new Error('제목, 일시, 장소와 올바른 정원·비용을 입력해주세요.');
   if (!s.kinds.some(k => k.id === m.kindId && (k.active || s.meetings.some(x => x.id === m.id && x.kindId === k.id)) )) throw new Error('사용 중인 모임 종류를 선택해주세요.');
   const departure = Date.parse(`${m.date}T${m.time}:00+09:00`);
-  if (!Number.isFinite(departure) || ((!current || current.date !== m.date || current.time !== m.time) && isMeetingStartTooEarly(m.date, m.time, s.now))) throw new Error('집결 시각이 현재보다 30분 넘게 지났어요. 날짜와 집결 시각을 확인해주세요.');
+  if (!Number.isFinite(departure) || ((!current || current.date !== m.date || current.time !== m.time) && departure <= s.now)) throw new Error('출발 일시를 현재 시각 이후로 설정해주세요.');
   if (current?.status === 'cancelled') throw new Error('취소된 모임은 복사해 새로 열어주세요.');
   if (current && current.registrations.length && current.fee !== m.fee) throw new Error('신청 이력 보호를 위해 접수 후 선납금은 변경할 수 없습니다.');
   if (current?.registrations.some(r => r.joinId && !m.joins.some(j => j.id === r.joinId))) throw new Error('선택한 회원이 있는 합류 지점은 삭제할 수 없습니다.');

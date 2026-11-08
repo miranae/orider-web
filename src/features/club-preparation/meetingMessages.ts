@@ -1,4 +1,4 @@
-import { MEETING_START_TOO_EARLY_REASON } from "./meetingSchedule";
+import { SERVER_START_NOT_FUTURE_MESSAGE } from "./meetingSchedule";
 /** 서버 상세/개인정보를 오류 문구로 노출하지 않는다. */
 export function meetingErrorMessage(error: unknown, english = false): string {
   const code =
@@ -9,14 +9,15 @@ export function meetingErrorMessage(error: unknown, english = false): string {
     return english
       ? "This course is too large. Choose fewer segments or a smaller GPX file. Your draft is preserved."
       : "코스 데이터가 너무 커요. 구간 수를 줄이거나 더 작은 GPX를 사용해주세요. 초안은 보관했습니다.";
-  const reason =
-    error && typeof error === "object" && "details" in error
-      ? (error.details as { reason?: unknown } | null | undefined)?.reason
-      : undefined;
-  if (reason === MEETING_START_TOO_EARLY_REASON)
+  // 서버는 과거 시각을 details 없이 invalid-argument + 고정 메시지로 거부한다.
+  if (
+    code.includes("invalid-argument") &&
+    error instanceof Error &&
+    error.message === SERVER_START_NOT_FUTURE_MESSAGE
+  )
     return english
-      ? "The meeting time is more than 30 minutes in the past. Check the date and meeting time. Your draft is preserved."
-      : "집결 시각이 현재보다 30분 넘게 지났어요. 날짜와 집결 시각을 확인해주세요. 초안은 보관했습니다.";
+      ? "The meeting time has already passed. Choose a future date and time. Your draft is preserved."
+      : "집결 시각이 이미 지났어요. 미래의 날짜와 시각을 선택해주세요. 초안은 보관했습니다.";
   if (code.includes("permission-denied") || code.includes("unauthenticated"))
     return english
       ? "Your club membership or sign-in could not be confirmed."

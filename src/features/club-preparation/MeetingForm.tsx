@@ -6,10 +6,10 @@ import type { Meeting, State } from "./domain";
 import CoursePreparation from "./CoursePreparation";
 import CoursePreview, { CourseSummary } from "./CoursePreview";
 import { clearDraft, draftScope, readDraft, writeDraft } from "./meetingDrafts";
-import { isMeetingStartTooEarly } from "./meetingSchedule";
+import { isMeetingStartNotFuture } from "./meetingSchedule";
 
-const START_TOO_EARLY_MESSAGE =
-  "집결 시각이 현재보다 30분 넘게 지났어요. 날짜와 집결 시각을 확인해주세요.";
+const START_NOT_FUTURE_MESSAGE =
+  "집결 시각이 이미 지났어요. 미래의 날짜와 시각을 선택해주세요.";
 
 export default function MeetingForm({
   state,
@@ -87,15 +87,15 @@ export default function MeetingForm({
   }, [draft, stopText, scope, recovery.error, baseRevision]);
   const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
-  /** 생성·일정 변경 모두 서버와 같은 하한(현재 − 30분)으로 막는다. */
-  const startTooEarly = () => {
-    if (!isMeetingStartTooEarly(draft.date, draft.time)) return false;
-    setSaveError(mt(START_TOO_EARLY_MESSAGE));
+  /** 생성·일정 변경 모두 서버와 같은 경계(현재 시각 이하 거부)로 막는다. */
+  const startNotFuture = () => {
+    if (!isMeetingStartNotFuture(draft.date, draft.time)) return false;
+    setSaveError(mt(START_NOT_FUTURE_MESSAGE));
     return true;
   };
   const submit = async () => {
     if (savingRef.current) return;
-    if (startTooEarly()) return;
+    if (startNotFuture()) return;
     if (!existing && !dateConfirmed) {
       setSaveError(mt("개최 날짜와 시각을 확인해주세요."));
       return;
@@ -173,7 +173,7 @@ export default function MeetingForm({
           variant="primary"
           disabled={reading || saving}
           onClick={() => {
-            if (formRef.current?.reportValidity() && !startTooEarly()) {
+            if (formRef.current?.reportValidity() && !startNotFuture()) {
               setSaveError("");
               setPreview(true);
             }
@@ -335,7 +335,7 @@ export default function MeetingForm({
         className="cp-stack"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!reading && !saving && !startTooEarly()) setPreview(true);
+          if (!reading && !saving && !startNotFuture()) setPreview(true);
         }}
       >
         <CoursePreparation
