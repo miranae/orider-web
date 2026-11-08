@@ -4,6 +4,14 @@ export function meetingErrorMessage(error: unknown, english = false): string {
     error && typeof error === "object" && "code" in error
       ? String(error.code)
       : "";
+  const reason =
+    error && typeof error === "object" && "details" in error
+      ? (error.details as { reason?: unknown } | null | undefined)?.reason
+      : undefined;
+  if (reason === "club-meeting/venue-required")
+    return english
+      ? "Choose whether this is an indoor or outdoor meeting. Your draft is preserved."
+      : "실내 모임인지 실외 모임인지 선택해주세요. 초안은 보관했습니다.";
   if (error instanceof Error && error.message === "club-meeting/payload-limit")
     return english
       ? "This course is too large. Choose fewer segments or a smaller GPX file. Your draft is preserved."

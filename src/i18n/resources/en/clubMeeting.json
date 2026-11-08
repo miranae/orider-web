@@ -240,5 +240,13 @@
   "획득고도 정보가 없는 구간이 있어 획득고도 합계를 표시하지 않습니다.": "Ascent total is unavailable because some segments have no ascent data.",
   "좌표가 없는 구간은 출발·도착 체크포인트를 만들지 않습니다.": "Segments without coordinates do not produce start or finish checkpoints.",
   "이 코스는 지금 가져올 수 없어요.": "This course can't be imported right now.",
-  "코스 경로를 불러오지 못했어요. 다시 시도해주세요.": "Could not load the course route. Please try again."
+  "코스 경로를 불러오지 못했어요. 다시 시도해주세요.": "Could not load the course route. Please try again.",
+  "실내": "Indoor",
+  "실외": "Outdoor",
+  "실내 / 실외": "Indoor / outdoor",
+  "앱 실내 라이딩으로 함께 출발합니다(가상 코스·출발 대기)": "Start together with indoor riding in the app (virtual course and departure waiting)",
+  "야외에서 모여 실외 라이딩으로 기록합니다": "Meet outdoors and record it as an outdoor ride",
+  "실내 모임만 앱 실내 라이딩의 신청한 모임에 나타납니다.": "Only indoor meetings appear under registered meetings in the app's indoor riding.",
+  "이 모임은 아직 실내·실외가 정해지지 않았어요. 저장하려면 선택해주세요.": "This meeting is not yet marked as indoor or outdoor. Choose one to save.",
+  "실내 모임인지 실외 모임인지 선택해주세요.": "Choose whether this is an indoor or outdoor meeting."
 }

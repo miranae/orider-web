@@ -39,6 +39,7 @@ export function clubMeetingAuthoring(meeting: ClubMeeting) {
   const {
     kindId,
     kindName,
+    venue,
     title,
     date,
     time,
@@ -65,6 +66,8 @@ export function clubMeetingAuthoring(meeting: ClubMeeting) {
     JSON.stringify({
       kindId,
       kindName,
+      // 실내/실외. 서버는 생성 때 필수(club-meeting/venue-required), 수정 때 빠지면 기존 값을 유지한다.
+      venue,
       title,
       date,
       time,
