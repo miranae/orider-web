@@ -4,6 +4,7 @@ import { decodePolyline } from '../../utils/polyline';
 import { cumulativeDistances } from '../courseEngine/geo';
 import type { CourseCheckpoint, CoursePoint, CourseTrack } from './domain';
 import type { CoursePlan } from './meetingCoursePlan';
+import type { CourseListCursor } from '../courses/courseListRest';
 
 export type SavedCourseChoice = {
   id: string;
@@ -57,19 +58,40 @@ export function parseSavedCourse(id: string, data: Record<string, unknown>): Sav
   return { id, name, description: typeof data.description === 'string' ? data.description.slice(0, 5000) : undefined, distanceKm, elevationGainM, checkpoints, track, segmentIds: Array.isArray(data.segmentIds) ? data.segmentIds.filter((value): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value)).slice(0, 50) : undefined };
 }
 
+/**
+ * 목록이 쓰는 필드만(#1545). 코스 문서의 trackPoints·elevationProfile·polyline 은 목록 20건에 수십 MB 라
+ * 받지 않는다 — 경로는 주최자가 고른 코스 하나만 `loadSavedCourse` 로 읽는다.
+ */
+export const COURSE_CATALOG_FIELDS = ['name', 'description', 'distance', 'elevationGain', 'waypoints', 'segmentIds', 'visibility', 'deletedAt', 'hidden'] as const;
+
 let readiness: Promise<void> | undefined;
-/** 기존 코스 목록과 같은 SDK 공개 읽기. 서버 rules를 그대로 적용하며 데이터를 쓰지 않는다. */
-export async function loadCourseCatalogPage(cursor: import("firebase/firestore").QueryDocumentSnapshot | null = null) {
+async function catalogServices() {
   const services = await import('../../services/firebase');
   readiness ??= (async () => { if (!services.getFirebaseApp()) await services.initFirebase(); })().catch(error => { readiness = undefined; throw error; });
   await readiness;
-  const { collection, getDocsFromServer, limit, query, where, startAfter } = await import('firebase/firestore');
-  const snapshot = await getDocsFromServer(query(collection(services.firestore, 'courses'), where('visibility', '==', 'public'), where('deletedAt', '==', null), ...(cursor ? [startAfter(cursor)] : []), limit(SEARCH_PAGE_SIZE)));
-  const items = snapshot.docs.flatMap(document => {
-    const course = parseSavedCourse(document.id, document.data());
+  return { firestore: services.firestore, auth: services.auth, getAppCheckToken: services.getAppCheckToken };
+}
+
+/** 기존 코스 목록과 같은 공개 읽기(공개·미삭제, 문서 이름 순). 서버 rules를 그대로 적용하며 데이터를 쓰지 않는다. */
+export async function loadCourseCatalogPage(cursor: CourseListCursor | null = null) {
+  const { runCourseListQuery } = await import('../courses/courseListRest');
+  const page = await runCourseListQuery(await catalogServices(), {
+    orderField: '__name__', direction: 'ASCENDING', limit: SEARCH_PAGE_SIZE, cursor,
+    fields: COURSE_CATALOG_FIELDS,
+    equals: [['visibility', { stringValue: 'public' }], ['deletedAt', { nullValue: null }]],
+  });
+  const items = page.docs.flatMap(document => {
+    const course = parseSavedCourse(document.id, document.data);
     return course ? [course] : [];
   });
-  return { items, cursor: snapshot.docs[snapshot.docs.length - 1] ?? null, hasMore: snapshot.docs.length === SEARCH_PAGE_SIZE };
+  return { items, cursor: page.cursor, hasMore: page.rawCount === SEARCH_PAGE_SIZE };
+}
+
+/** 고른 코스 하나의 경로까지 읽는다(상세와 같은 트랙 파일·캐시). 지금은 가져올 수 없는 코스면 null. */
+export async function loadSavedCourse(id: string): Promise<SavedCourseChoice | null> {
+  const { loadCourseSource } = await import('../courses/courseDetailAsset');
+  const data = await loadCourseSource(await catalogServices(), id);
+  return data ? parseSavedCourse(id, data) : null;
 }
 
 export async function loadCourseCatalog(): Promise<SavedCourseChoice[]> { return (await loadCourseCatalogPage()).items; }

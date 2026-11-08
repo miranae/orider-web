@@ -51,7 +51,8 @@ async function checkedPayload(response: Response, version: string): Promise<Docu
   if (Number(response.headers.get("content-length")) > MAX_BYTES) throw new Error("코스 트랙 크기 초과");
   const bytes = await response.arrayBuffer();
   if (bytes.byteLength > MAX_BYTES) throw new Error("코스 트랙 크기 초과");
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  // 응답 버퍼를 뷰로 감싸 넘긴다 — 테스트 환경(jsdom)에서는 응답 ArrayBuffer 가 다른 realm 이라 digest 가 거부한다.
+  const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
   const hash = Array.from(new Uint8Array(digest), (value) => value.toString(16).padStart(2, "0")).join("");
   if (hash !== version) throw new Error("코스 트랙 버전 불일치");
   const value = JSON.parse(new TextDecoder().decode(bytes)) as DocumentData;
@@ -64,7 +65,8 @@ async function cacheIO<T>(stage: string, fallback: T, operation: () => Promise<T
   try { return await operation(); }
   catch (error) { logClientError("CourseDetail.cacheIO", error, { stage }); return fallback; }
 }
-async function courseFetch(url: string, services: FirebaseServices, signal: AbortSignal, metadata = false): Promise<Response> {
+type CourseFetchServices = Pick<FirebaseServices, "auth" | "getAppCheckToken">;
+async function courseFetch(url: string, services: CourseFetchServices, signal: AbortSignal, metadata = false): Promise<Response> {
   const headers: Record<string, string> = {};
   const token = await services.auth.currentUser?.getIdToken();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -78,7 +80,7 @@ async function courseFetch(url: string, services: FirebaseServices, signal: Abor
   }
   return response;
 }
-async function trackPayload(url: string, version: string, services: FirebaseServices, signal: AbortSignal): Promise<DocumentData> {
+async function trackPayload(url: string, version: string, services: CourseFetchServices, signal: AbortSignal): Promise<DocumentData> {
   // 공개 파일만 저장한다. 호출자는 현재 메타데이터의 접근 권한을 먼저 확인한다.
   const cache = typeof caches === "undefined" ? null : await cacheIO("open", null as Cache | null, () => caches.open(CACHE_NAME));
   const existing = cache ? await cacheIO("read", undefined as Response | undefined, () => cache.match(url)) : undefined;
@@ -97,6 +99,34 @@ async function trackPayload(url: string, version: string, services: FirebaseServ
     for (const key of keys.slice(0, Math.max(0, keys.length - MAX_CACHE_ENTRIES))) await cacheIO("prune", false, () => cache.delete(key));
   }
   return value;
+}
+
+/**
+ * 코스 하나의 원본을 한 번 읽는다(구독 없음). 상세와 같은 경로 — 경량 메타데이터 + 불변 트랙 파일(브라우저 캐시),
+ * 트랙 파일이 없거나 읽지 못하면 그 문서 하나만 전체로 읽는다. 없는 코스는 null.
+ */
+export async function loadCourseSource(services: Pick<FirebaseServices, "auth" | "firestore" | "getAppCheckToken">,
+  id: string, signal: AbortSignal = new AbortController().signal): Promise<DocumentData | null> {
+  const full = async () => {
+    const snapshot = await getDoc(doc(services.firestore, "courses", id));
+    return snapshot.exists() ? { ...snapshot.data(), id } : null;
+  };
+  const response = await courseFetch(courseMetadataUrl(services.firestore, id), services, signal, true);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`코스 메타데이터 조회 실패 (${response.status})`);
+  const wire = await response.json() as { fields?: Record<string, Value> };
+  if (!wire.fields) return null;
+  const metadata = Object.fromEntries(Object.entries(wire.fields).map(([key, value]) => [key, decode(value)]));
+  const url = courseAssetUrl(services.firestore, id, metadata);
+  if (!url) return full();
+  try {
+    const track = await trackPayload(url, String(metadata.trackVersion), services, signal);
+    return { ...metadata, trackPoints: track.trackPoints, elevationProfile: track.elevationProfile, altitudeSemantics: track.altitudeSemantics, id };
+  } catch (error) {
+    if (signal.aborted) throw error;
+    logClientError("CourseSource.assetFallback", error, { courseId: id });
+    return full();
+  }
 }
 
 /** 작은 서버 변경 신호를 구독하고 메타데이터만 다시 읽는다. 기존 코스는 SDK 구독으로 호환한다. */
