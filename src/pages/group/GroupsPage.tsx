@@ -109,6 +109,8 @@ export default function GroupsPage() {
   const navigate = useNavigate();
 
   const myGroupIds = new Set((user ? myGroups : []).map((g) => g.id));
+  // 로그인했는데 내 클럽을 아직 한 번도 읽지 못한 상태(처음 읽는 중). 다시 읽는 중에는 아는 목록으로 거른다.
+  const myClubsUnknown = Boolean(user) && myLoading && loadedMyGroups.length === 0 && !myGroupsError;
   const myGroupIdList = useMemo(() => uid ? myGroups.map((g) => g.id) : [], [myGroups, uid]);
   const { byGroup: nextEventLabels, incompleteGroups = new Set<string>() } = useGroupNextEvents(myGroupIdList);
 
@@ -233,7 +235,8 @@ export default function GroupsPage() {
         <div>
           <ErrorState title={t("error.loadFailed")} onRetry={retryMyGroups} compact />
         </div>
-      ) : myLoading ? (
+      ) : myLoading && myGroups.length === 0 ? (
+        // 다시 읽는 동안에도 이미 아는 클럽(방금 가입한 클럽 포함)은 계속 보인다 — 자리표시는 처음 읽을 때만(#1558).
         <div>
           <LoadingSkeleton kind="list" count={3} />
         </div>
@@ -326,7 +329,8 @@ export default function GroupsPage() {
       {Boolean(publicGroupsError) && filteredPublicGroups.length > 0 && <div className="mb-4"><ErrorState title={t("error.loadFailed")} onRetry={retryPublicGroups} compact /></div>}
       {Boolean(publicGroupsError) && filteredPublicGroups.length === 0 ? (
         <ErrorState title={t("error.loadFailed")} onRetry={retryPublicGroups} compact />
-      ) : publicLoading ? (
+      ) : publicLoading || myClubsUnknown ? (
+        // 내 클럽을 아직 한 번도 읽지 못했으면 클럽 찾기를 보이지 않는다 — 가입한 클럽이 '가입 신청'과 함께 섞여 보였다(#1558).
         <LoadingSkeleton kind="list" count={3} />
       ) : filteredPublicGroups.length === 0 ? (
         <div data-testid="C0-2-4"><EmptyState

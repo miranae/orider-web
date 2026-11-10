@@ -340,8 +340,16 @@ describe("GroupsPage join results", () => {
     view.unmount();
     membershipState.pending = new Set();
     membershipState.loading = true;
+    const unknown = renderPage();
+    // 내 클럽을 처음 읽는 동안에는 클럽 찾기 카드를 보이지 않는다(가입한 클럽이 섞여 보이지 않게).
+    expect(screen.queryByRole("button", { name: "확인 중..." })).not.toBeInTheDocument();
+    expect(screen.queryByText("Manual Club")).not.toBeInTheDocument();
+    unknown.unmount();
+    myGroups.push({ id: "club-1", name: "Member club", discipline: "bike", memberCount: 1, visibility: "public" });
     renderPage();
     expect(screen.getByRole("button", { name: "확인 중..." })).toBeDisabled();
+    // 다시 읽는 동안에도 이미 아는 내 클럽은 자리표시로 가리지 않는다.
+    expect(screen.getByTestId("C0-1")).toHaveTextContent("Member club");
   });
 
   it("reports a failed public join as a visible toast", async () => {
