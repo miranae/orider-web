@@ -14,6 +14,7 @@ export interface MeetingDiscordView {
 }
 export type ClubMeeting = Meeting & { kindName?: string };
 export interface ClubMeetingSnapshot {
+  runtimeWindow?: { opensAtMs: number; closesAtMs: number } | null;
   eventId: string;
   groupId: string;
   rideStatus?: "OPEN" | "LIVE" | "FINISHED" | "CANCELLED";
