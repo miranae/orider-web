@@ -8,7 +8,9 @@ import {
 } from "../../services/clubMeetings";
 import { FirebaseServicesProvider, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { createClubMeetingsApi } from "../../services/clubMeetings";
+import { logClientError } from "../../services/errorLogger";
 import { newClubMeeting } from "./meetingCopy";
+vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
 vi.mock("../../services/clubMeetings", () => { const api = {
   getClubMeetingSnapshot: vi.fn(),
 }; return { ...api, createClubMeetingsApi: vi.fn(() => api) }; });
@@ -275,6 +277,59 @@ describe("자동 스냅샷 요청 비용", () => {
     await tick(60_000);
     expect(previous).toHaveBeenCalledTimes(1);
     expect(next).toHaveBeenCalledTimes(2);
+  });
+
+
+  it("현재 자동 실패는 개인정보 없이 제공자에 묶어 한 번 기록한다", async () => {
+    vi.useFakeTimers();
+    const services = { auth: {}, functions: {} } as FirebaseServices;
+    const error = Object.assign(new Error("private user/club/event payload"), {
+      code: "functions/permission-denied", details: { roster: "private roster" },
+    });
+    vi.mocked(getClubMeetingSnapshot).mockRejectedValue(error);
+    const { result } = renderHook(() => useClubMeeting("event", "user", "club"), {
+      wrapper: ({ children }) => <FirebaseServicesProvider services={services}>{children}</FirebaseServicesProvider>,
+    });
+    await tick(0);
+    expect(result.current.data).toBeNull();
+    expect(logClientError).toHaveBeenCalledTimes(1);
+    expect(logClientError).toHaveBeenCalledWith("ClubMeetingSnapshot.read", expect.any(Error),
+      { code: "permission-denied", terminal: true }, services);
+    const loggedError = vi.mocked(logClientError).mock.calls[0]![1] as Error;
+    expect(loggedError.message).toBe("모임 스냅샷 읽기 실패");
+    expect(loggedError).not.toBe(error);
+    await tick(180_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(1);
+    expect(logClientError).toHaveBeenCalledTimes(1);
+  });
+
+  it("이전 scope와 수동 새로고침으로 대체된 실패는 기록하지 않는다", async () => {
+    vi.useFakeTimers();
+    let rejectScope!: (error: unknown) => void;
+    let rejectSuperseded!: (error: unknown) => void;
+    vi.mocked(getClubMeetingSnapshot)
+      .mockImplementationOnce(() => new Promise((_, reject) => { rejectScope = reject; }))
+      .mockImplementationOnce(() => new Promise((_, reject) => { rejectSuperseded = reject; }))
+      .mockResolvedValue(snapshot(3));
+    const { result, rerender } = renderHook(({ uid }) => useClubMeeting("event", uid, "club"),
+      { initialProps: { uid: "first" } });
+    rerender({ uid: "second" });
+    await act(async () => { await result.current.reload(); });
+    await act(async () => {
+      rejectScope(new Error("previous scope"));
+      rejectSuperseded(new Error("superseded request"));
+    });
+    expect(result.current.data?.revision).toBe(3);
+    expect(logClientError).not.toHaveBeenCalled();
+  });
+
+  it("알 수 없는 오류 코드는 원문을 기록하지 않고 일반 오류로 기록한다", async () => {
+    setup();
+    await tick(0);
+    vi.mocked(getClubMeetingSnapshot).mockRejectedValue({ code: "private user payload", details: "private" });
+    await tick(60_000);
+    expect(logClientError).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(logClientError).mock.calls[0]![2]).toEqual({ code: "unknown", terminal: false });
   });
 
 });

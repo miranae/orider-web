@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type ClubMeetingSnapshot } from "../../services/clubMeetings";
+import { logClientError } from "../../services/errorLogger";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useClubMeetingsApi } from "./useClubMeetingsApi";
 
 const POLL_MS = 60_000;
@@ -11,6 +13,7 @@ export function useClubMeeting(
   groupId: string | undefined,
 ) {
   const { getClubMeetingSnapshot } = useClubMeetingsApi();
+  const services = useFirebaseServices();
   const scope = `${uid ?? ""}/${groupId ?? ""}/${eventId ?? ""}`;
   const current = useRef({ scope, generation: 0 });
   if (current.current.scope !== scope) {
@@ -52,6 +55,7 @@ export function useClubMeeting(
         void request(false).catch(() => {});
       }, POLL_MS);
     };
+    // 유효한 요청 실패는 여기서 기록하고 다시 던진다. 자동 호출부는 이미 기록된 거부만 흡수한다.
     const request = async (manual: boolean) => {
       if (!valid() || (!manual && (document.hidden || inFlight))) return;
       clearTimer();
@@ -76,6 +80,10 @@ export function useClubMeeting(
           denied = /(?:permission-denied|unauthenticated|not-found)/.test(code) ||
             (code === "functions/failed-precondition" && reason === "account-deleting");
           if (denied) data = null;
+          const diagnosticCode = /^(?:functions\/)?(?:cancelled|unknown|invalid-argument|deadline-exceeded|not-found|already-exists|permission-denied|resource-exhausted|failed-precondition|aborted|out-of-range|unimplemented|internal|unavailable|data-loss|unauthenticated)$/.test(code)
+            ? code.replace(/^functions\//, "") : "unknown";
+          logClientError("ClubMeetingSnapshot.read", new Error("모임 스냅샷 읽기 실패"),
+            { code: diagnosticCode, terminal: denied }, services);
           setState({ scope, data, loading: false, error });
         }
         throw error;
@@ -116,7 +124,7 @@ export function useClubMeeting(
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("focus", wake);
     };
-  }, [scope, uid, groupId, eventId, getClubMeetingSnapshot]);
+  }, [scope, uid, groupId, eventId, getClubMeetingSnapshot, services]);
   return {
     data: state.scope === scope ? state.data : null,
     loading: state.scope !== scope || state.loading,
