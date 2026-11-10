@@ -16,6 +16,8 @@ interface GroupCardProps {
   onJoin?: () => void;
   joining?: boolean;
   joinPending?: boolean;
+  /** 내 클럽 목록을 다시 읽는 중 — 이미 가입한 클럽일 수 있어 가입 버튼을 잠근다(#1558). */
+  joinChecking?: boolean;
   /** 추천/공개 그룹 카드용 매칭 이유 */
   why?: string;
   /** 다음 이벤트 라벨 (예: "4/20(토) 07:00 · 북한강") */
@@ -52,7 +54,7 @@ function badgeText(name: string): string {
   return trimmed.slice(0, 2);
 }
 
-export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, joining, joinPending, why, nextEvent, weekDistKm, newPosts }: GroupCardProps) {
+export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, joining, joinPending, joinChecking, why, nextEvent, weekDistKm, newPosts }: GroupCardProps) {
   const { user } = useAuth();
   const { role: ownRole } = useGroupMemberRole(showMyRole ? group.id : undefined, showMyRole ? user?.uid : undefined, showMyRole ? group.creatorId : undefined);
   const { t } = useTranslation("group");
@@ -137,9 +139,9 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
             <Button data-testid="C0-2-3"
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onJoin(); }}
-              disabled={joining || joinPending} variant="primary" size="sm"
+              disabled={joining || joinPending || joinChecking} variant={joinPending ? "secondary" : "primary"} size="sm"
             >
-              {joinPending ? t("card.joinPending") : joining ? t("card.joining") : t("card.join")}
+              {joinPending ? t("card.joinPending") : joining ? t("card.joining") : joinChecking ? t("card.joinChecking") : t("card.join")}
             </Button>
           </div>
         )}

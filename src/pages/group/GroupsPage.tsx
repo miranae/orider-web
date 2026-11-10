@@ -12,7 +12,8 @@ import { httpsCallable } from "firebase/functions";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
-import { useMyGroups, usePublicGroups } from "../../hooks/useGroup";
+import { useMyGroups, usePendingGroupRequestIds, usePublicGroups } from "../../hooks/useGroup";
+import { logClientError } from "../../services/errorLogger";
 import { usePublicClubDirectory } from "../../hooks/usePublicClubDirectory";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 import ClubLoginGate from "../../components/group/ClubLoginGate";
@@ -45,7 +46,16 @@ export default function GroupsPage() {
   const { showToast } = useToast();
   // 임베드(앱 클럽 탭)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
   const { auth, ensureAppCheckReady, functions } = useFirebaseServices();
-  const { groups: myGroups, loading: myLoading, error: myGroupsError, retry: retryMyGroups } = useMyGroups(user?.uid);
+  const { groups: loadedMyGroups, loading: myLoading, error: myGroupsError, retry: retryMyGroups } = useMyGroups(user?.uid);
+  // 이 화면에서 방금 가입한 클럽 — 서버 목록을 다시 읽기 전에도 곧바로 '내가 속한 클럽'으로 옮긴다(#1558).
+  const [joinedHere, setJoinedHere] = useState<Group[]>([]);
+  const [pendingHere, setPendingHere] = useState<Set<string>>(() => new Set());
+  useEffect(() => { setJoinedHere([]); setPendingHere(new Set()); }, [uid]);
+  const pendingRequestIds = usePendingGroupRequestIds(user?.uid);
+  const myGroups = useMemo(() => {
+    const loadedIds = new Set(loadedMyGroups.map((g) => g.id));
+    return [...loadedMyGroups, ...joinedHere.filter((g) => !loadedIds.has(g.id))];
+  }, [loadedMyGroups, joinedHere]);
   const [searchParams, setSearchParams] = useSearchParams();
   const [showCreate, setShowCreate] = useState(() => searchParams.get("new") === "1");
   useEffect(() => { if (searchParams.get("new") === "1") { setShowCreate(true); const next = new URLSearchParams(searchParams); next.delete("new"); setSearchParams(next, { replace: true }); } }, [searchParams, setSearchParams]);
@@ -161,23 +171,49 @@ export default function GroupsPage() {
     if (!uid || joiningPublic || auth.currentUser?.uid !== uid) return;
     const intent = joinIntent.current;
     const isCurrent = () => intent === joinIntent.current && auth.currentUser?.uid === uid;
+    const joined = (toastKey: "join.joinedToast" | "join.alreadyMemberToast") => {
+      // 가입 완료 — 알림을 띄우고 '내가 속한 클럽'으로 옮긴 뒤 서버 목록을 다시 읽는다(상세로 이동하지 않는다).
+      setJoinedHere((prev) => prev.some((g) => g.id === group.id) ? prev : [...prev, group]);
+      showToast(t(toastKey, { name: group.name }), "success");
+      retryMyGroups();
+    };
+    const pending = () => {
+      setPendingHere((prev) => new Set(prev).add(group.id));
+      setPendingNotice(t("join.pendingPublic", { name: group.name }));
+      showToast(t("join.pendingToast"));
+    };
     setJoiningPublic(group.id);
     setPendingNotice("");
     setError("");
     try {
+      // 초대 코드 가입·클럽 상세 가입과 같은 경로 — App Check 를 준비한 뒤 부른다.
+      await ensureAppCheckReady();
+      if (!isCurrent()) return;
       const joinFn = httpsCallable<{ groupId: string }, JoinGroupPublicResult>(functions, "joinGroupPublic");
       const result = await joinFn({ groupId: group.id });
       if (!isCurrent()) return;
       if (result.data.success !== true) throw new Error("Public group join failed");
-      if (result.data.status === "pending") {
-        setPendingNotice(t("join.pendingPublic", { name: group.name }));
-        showToast(t("join.pendingToast"));
+      if (result.data.status === "pending") { pending(); return; }
+      joined("join.joinedToast");
+    } catch (err: any) {
+      if (!isCurrent()) return;
+      // 서버가 이미 회원·이미 신청이라고 답하면 실패가 아니다 — 목록이 늦게 갱신돼 버튼이 남아 있던 경우다.
+      if (err?.code === "functions/already-exists") {
+        if (err?.message === "Join request already pending") pending();
+        else joined("join.alreadyMemberToast");
         return;
       }
-      navigate(`/club/${group.id}`);
-    } catch {
-      if (!isCurrent()) return;
-      setError(t("error.joinFailed"));
+      logClientError("GroupsPage.joinPublic", err, { groupId: group.id });
+      const attestation = appCheckFailureRecovery(err);
+      if (attestation) {
+        if (attestation.waitMs) setJoinRetryAt(Date.now() + attestation.waitMs);
+        showToast(attestation.waitMs
+          ? t("error.joinVerificationWait", { count: Math.ceil(attestation.waitMs / 60_000) })
+          : t("error.joinVerificationFailed"), "error");
+        return;
+      }
+      // 실패는 누른 카드 근처에서 보이도록 알림으로 띄운다(초대 코드 칸 아래 문구는 화면 밖이라 보이지 않았다).
+      showToast(t("error.joinFailed"), "error");
     } finally {
       if (isCurrent()) setJoiningPublic(null);
     }
@@ -309,6 +345,9 @@ export default function GroupsPage() {
               showJoinButton={!myGroupIds.has(g.id)}
               onJoin={!user || myGroupIds.has(g.id) ? undefined : () => handleJoinPublic(g as Group)}
               joining={joiningPublic === g.id}
+              joinPending={pendingHere.has(g.id) || pendingRequestIds.has(g.id)}
+              /* 내 클럽을 다시 읽는 동안에는 이미 가입한 클럽일 수 있어 가입 버튼을 잠근다(#1558). */
+              joinChecking={Boolean(user) && myLoading}
             />
           ))}
         </div>
