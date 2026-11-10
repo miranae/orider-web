@@ -49,7 +49,7 @@ function seed(activities: Activity[]) {
   setCollectionDocs("activities", activities as unknown as Array<Record<string,unknown>&{id:string}>);
   for (const a of activities) setDocData(`activity_metrics/${a.id}`,{tss:100});
 }
-beforeEach(()=>{sessionStorage.clear();clearTrainingSurfaceCache();mocks.timeseries=null;mocks.activityWindow=null;mocks.pdcSufficiency=null;mocks.canonicalOn=false;mocks.pendingFetch=null;vi.mocked(getDoc).mockClear();vi.spyOn(Date,"now").mockReturnValue(fixedNow);});
+beforeEach(()=>{sessionStorage.clear();clearTrainingSurfaceCache();mocks.timeseries=null;mocks.activityWindow=null;mocks.pdcSufficiency=null;mocks.canonicalOn=false;mocks.pendingFetch=null;vi.mocked(getDoc).mockClear();vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(fixedNow);vi.spyOn(Date,"now");});
 afterEach(()=>{cleanup();vi.restoreAllMocks();vi.useRealTimers();});
 
 
