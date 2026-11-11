@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import MenuPageSurface from "./MenuPageSurface";
 import { EmbeddedNavigationContext } from "../EmbeddedNavigationContext";
 vi.mock("../../pages/CommunityGuidelinesPage", () => ({ default: () => <p>가이드라인 정본</p> }));
-vi.mock("../../pages/CreatePostPage", () => ({ default: () => <p>피드백 작성{useLocation().search}</p> }));
+vi.mock("../../pages/CreatePostPage", () => ({ default: function MockFeedbackForm() { return <p>피드백 작성{useLocation().search}</p>; } }));
 vi.mock("../../pages/activity/ActivityEditPage", () => ({ default: () => <p>활동 수정</p> }));
 describe("앱 메뉴 임베드", () => {
   const show = (page: "about" | "community-guidelines" | "feedback" | "activity-edit") => {
