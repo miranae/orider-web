@@ -188,6 +188,18 @@ describe("실제 서버 저장을 기다리는 작성 초안", () => {
       fireEvent.click(screen.getByRole("button", { name: "모집 시작" }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     });
+    it("지난 기존 모임의 일정을 유지한 설명 수정은 저장할 수 있다", async () => {
+      const old = { ...initial, time: "08:00" };
+      const save = vi.fn().mockResolvedValue(undefined);
+      render(<MeetingForm state={{ ...state, meetings: [old] }} initial={old} initialRevision={4}
+        draftNamespace="past-metadata" onSave={save} onClose={vi.fn()} />);
+      fireEvent.change(screen.getByLabelText("모임 이름"), { target: { value: "설명 변경 모임" } });
+      preview();
+      fireEvent.click(screen.getByRole("button", { name: "변경 내용 저장" }));
+      await waitFor(() => expect(save).toHaveBeenCalledOnce());
+      expect(save.mock.calls[0][0]).toMatchObject({ title: "설명 변경 모임", time: "08:00" });
+    });
+
     it("일정 변경도 현재 시각 정각이면 막는다", () => {
       const save = renderForm(true);
       setTime("10:30");

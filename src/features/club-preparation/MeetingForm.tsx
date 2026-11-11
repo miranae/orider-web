@@ -102,6 +102,8 @@ export default function MeetingForm({
   const [saving, setSaving] = useState(false);
   /** 생성·일정 변경 모두 서버와 같은 경계(현재 시각 이하 거부)로 막는다. */
   const startNotFuture = () => {
+    const scheduleChanged = draft.date !== initial.date || draft.time !== initial.time;
+    if (existing && !scheduleChanged) return false;
     if (!isMeetingStartNotFuture(draft.date, draft.time)) return false;
     setSaveError(mt(START_NOT_FUTURE_MESSAGE));
     return true;
