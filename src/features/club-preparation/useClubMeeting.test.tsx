@@ -272,13 +272,121 @@ describe("변경 신호 기반 스냅샷 비용", () => {
     expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it("진행 중 완료 요약도 분 단위 polling 없이 신호로 갱신한다", async () => {
-    const {result} = setup({...snapshot(1), rideStatus: "FINISHED", completion: {state: "processing", summary: null}});
-    await tick(600_000);
+  it("실행 창이 끝난 최초 FINISHED processing도 polling 없이 완료 신호로 갱신한다", async () => {
+    const runtimeWindow = {opensAtMs: -86_400_000, closesAtMs: -1};
+    const {result} = setup({...snapshot(1), runtimeWindow, rideStatus: "FINISHED", completion: {state: "processing", summary: null}});
+    await tick(120_000);
     expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(1);
-    vi.mocked(getClubMeetingSnapshot).mockResolvedValue({...snapshot(2), snapshotSignalVersion: "2:0", rideStatus: "FINISHED", completion: {state: "ready", summary: null}});
+    vi.mocked(getClubMeetingSnapshot).mockResolvedValue({...snapshot(2), runtimeWindow, snapshotSignalVersion: "2:0", rideStatus: "FINISHED", completion: {state: "ready", summary: null}});
     signal(2); await tick();
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
     expect(result.current.data?.completion?.state).toBe("ready");
+    signal(3); await tick(600_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+  });
+
+  it("완료 복구 만료 타이머는 하나이며 5분 만료가 조회나 수동 재연장을 만들지 않는다", async () => {
+    const value = {...snapshot(1), runtimeWindow: {opensAtMs: -86_400_000, closesAtMs: -1},
+      rideStatus: "FINISHED" as const, completion: {state: "processing" as const, summary: null}};
+    const {result} = setup(value); await tick();
+    expect(vi.getTimerCount()).toBe(1);
+    await tick(299_999);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(1);
+    await tick(1);
+    expect(vi.getTimerCount()).toBe(0);
+    signal(2); await tick(600_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(1);
+    await act(async () => {await result.current.reload();});
+    signal(3); await tick(600_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("processing 조회 성공도 최초 복구 기한을 연장하지 않는다", async () => {
+    const value = {...snapshot(1), runtimeWindow: {opensAtMs: -86_400_000, closesAtMs: -1},
+      rideStatus: "FINISHED" as const, completion: {state: "processing" as const, summary: null}};
+    setup(value); await tick(240_000);
+    signal(2); await tick();
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+    await tick(60_000);
+    signal(3); await tick(600_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+  });
+
+  it("완료 처리 요청 실패의 재시도도 최초 5분 경계 뒤에는 시작하지 않는다", async () => {
+    const value = {...snapshot(1), runtimeWindow: {opensAtMs: -86_400_000, closesAtMs: -1},
+      rideStatus: "FINISHED" as const, completion: {state: "processing" as const, summary: null}};
+    const {result} = setup(value); await tick(299_000);
+    vi.mocked(getClubMeetingSnapshot).mockRejectedValue({code: "functions/unavailable"});
+    signal(2); await tick();
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+    expect(result.current.error).not.toBeNull();
+    await tick(600_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([-1, 60_000])("완료 복구 예외는 일반 모임의 닫힌/미래 창 %s를 열지 않는다", async boundary => {
+    setup({...snapshot(1), rideStatus: "OPEN", runtimeWindow: boundary < 0 ?
+      {opensAtMs: -100_000, closesAtMs: boundary} : {opensAtMs: boundary, closesAtMs: 120_000}});
+    await tick(); signal(2); await tick(1000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("이미 완료 복구를 사용한 scope는 ready 뒤 processing으로 돌아가도 창을 새로 열지 않는다", async () => {
+    const value = {...snapshot(1), runtimeWindow: {opensAtMs: -86_400_000, closesAtMs: -1},
+      rideStatus: "FINISHED" as const, completion: {state: "processing" as const, summary: null}};
+    const {result} = setup(value); await tick();
+    vi.mocked(getClubMeetingSnapshot).mockResolvedValue({...value, completion: {state: "ready", summary: null}});
+    await act(async () => {await result.current.reload();});
+    vi.mocked(getClubMeetingSnapshot).mockResolvedValue(value);
+    await act(async () => {await result.current.reload();});
+    signal(2); await tick(600_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(3);
+  });
+
+  it("처음 OPEN이던 화면도 FINISHED processing 전환 뒤 닫힌 창 밖의 완료 신호를 받는다", async () => {
+    const runtimeWindow = {opensAtMs: -86_400_000, closesAtMs: -1};
+    const {result} = setup({...snapshot(1), runtimeWindow, rideStatus: "OPEN"}); await tick();
+    const info = {kind: "CLUB_MEETING", groupId: "club", creatorId: "user", status: "OPEN"};
+    emit("events/event", {info});
+    vi.mocked(getClubMeetingSnapshot).mockResolvedValue({...snapshot(2), runtimeWindow,
+      rideStatus: "FINISHED", completion: {state: "processing", summary: null}});
+    emit("events/event", {info: {...info, status: "FINISHED"}}); await tick();
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+    expect(result.current.data?.completion?.state).toBe("processing");
+    await tick(120_000);
+    vi.mocked(getClubMeetingSnapshot).mockResolvedValue({...snapshot(3), runtimeWindow, snapshotSignalVersion: "3:0",
+      rideStatus: "FINISHED", completion: {state: "ready", summary: null}});
+    signal(3); await tick();
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(3);
+    expect(result.current.data?.completion?.state).toBe("ready");
+    signal(4); await tick(600_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(3);
+  });
+
+  it("완료 복구 중 권한 거부는 즉시 지우고 focus나 신호가 다시 열지 않는다", async () => {
+    const value = {...snapshot(1), runtimeWindow: {opensAtMs: -86_400_000, closesAtMs: -1},
+      rideStatus: "FINISHED" as const, completion: {state: "processing" as const, summary: null}};
+    const {result} = setup(value); await tick();
+    vi.mocked(getClubMeetingSnapshot).mockRejectedValueOnce({code: "functions/permission-denied"});
+    signal(2); await tick();
+    expect(result.current.data).toBeNull();
+    await visible(); await tick(600_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+  });
+
+  it("scope 전환은 이전 완료 복구 타이머를 폐기하고 새 일반 모임으로 넘기지 않는다", async () => {
+    vi.useFakeTimers(); vi.setSystemTime(0);
+    const runtimeWindow = {opensAtMs: -86_400_000, closesAtMs: -1};
+    vi.mocked(getClubMeetingSnapshot).mockResolvedValueOnce({...snapshot(1), runtimeWindow,
+      rideStatus: "FINISHED", completion: {state: "processing", summary: null}}).mockResolvedValue({...snapshot(2), runtimeWindow, rideStatus: "OPEN"});
+    const {result, rerender} = renderHook(({uid}) => useClubMeeting("event", uid, "club"), {initialProps: {uid: "first"}});
+    await tick(120_000);
+    rerender({uid: "second"}); await tick();
+    signal(2); await tick(600_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+    expect(result.current.data?.rideStatus).toBe("OPEN");
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("일시 실패만 세 번 재시도하고 원문 개인정보를 기록하지 않는다", async () => {

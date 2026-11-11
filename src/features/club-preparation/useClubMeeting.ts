@@ -6,6 +6,7 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useClubMeetingsApi } from "./useClubMeetingsApi";
 
 const RETRY_DELAYS = [1000, 5000, 15_000];
+const COMPLETION_RECOVERY_MS = 5 * 60_000;
 
 export function useClubMeeting(
   eventId: string | undefined,
@@ -36,6 +37,9 @@ export function useClubMeeting(
     let inFlight = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let wakeTimer: ReturnType<typeof setTimeout> | undefined;
+    let completionExpiry: ReturnType<typeof setTimeout> | undefined;
+    let completionRecoveryUntil: number | null = null;
+    let completionRecoveryStarted = false;
     let lastWakeAt = -Infinity;
     let data: ClubMeetingSnapshot | null = null;
     let denied = false;
@@ -56,8 +60,10 @@ export function useClubMeeting(
       return seconds! > readSeconds! || seconds === readSeconds && nanos! > readNanos!;
     };
     const hasNewerSignal = () => newerSignal(signalVersion, consumedSignalVersion);
+    const completionProcessing = () => data?.rideStatus === "FINISHED" && data.completion?.state === "processing";
+    const stopCompletionRecovery = () => { clearTimeout(completionExpiry); completionRecoveryUntil = null; };
     const automatic = () => !document.hidden && !denied && data?.runtimeWindow !== null &&
-      data?.rideStatus !== "CANCELLED" && (!data?.runtimeWindow ||
+      data?.rideStatus !== "CANCELLED" && (completionProcessing() && completionRecoveryUntil !== null && Date.now() < completionRecoveryUntil || !data?.runtimeWindow ||
         Date.now() >= data.runtimeWindow.opensAtMs && Date.now() < data.runtimeWindow.closesAtMs);
     const identity = current.current;
     const valid = () => !disposed && current.current === identity;
@@ -95,6 +101,17 @@ export function useClubMeeting(
         data = next;
         denied = false;
         failures = 0;
+        if (!completionRecoveryStarted && completionProcessing()) {
+          completionRecoveryStarted = true;
+          // scope 최초 processing 응답의 기한만 둔다. 만료 시 조회하지 않으며
+          // 성공 응답·수동 재조회·나중 processing 전환도 기한을 연장하지 않는다.
+          completionRecoveryUntil = Date.now() + COMPLETION_RECOVERY_MS;
+          completionExpiry = setTimeout(() => {
+            completionRecoveryUntil = null;
+            if (valid() && !automatic()) clearTimer();
+          }, COMPLETION_RECOVERY_MS);
+        }
+        if (!completionProcessing()) stopCompletionRecovery();
         // 성공한 현재 요청의 시작 신호까지만 소비한다. 응답에 버전이 없거나
         // 오래된 버전이 반복돼도 같은 신호를 무한 재조회하지 않는다.
         if (newerSignal(dispatchedSignalVersion, consumedSignalVersion)) consumedSignalVersion = dispatchedSignalVersion;
@@ -107,7 +124,7 @@ export function useClubMeeting(
           const reason = (error as { details?: { reason?: unknown } })?.details?.reason;
           denied = /(?:permission-denied|unauthenticated|not-found)/.test(code) ||
             (code === "functions/failed-precondition" && reason === "account-deleting");
-          if (denied) data = null;
+          if (denied) { data = null; stopCompletionRecovery(); }
           failures++;
           const diagnosticCode = /^(?:functions\/)?(?:cancelled|unknown|invalid-argument|deadline-exceeded|not-found|already-exists|permission-denied|resource-exhausted|failed-precondition|aborted|out-of-range|unimplemented|internal|unavailable|data-loss|unauthenticated)$/.test(code)
             ? code.replace(/^functions\//, "") : "unknown";
@@ -153,6 +170,7 @@ export function useClubMeeting(
         if (terminal) {
           denied = true;
           data = null;
+          stopCompletionRecovery();
           identity.generation++;
           inFlight = false;
           clearTimer();
@@ -246,6 +264,7 @@ export function useClubMeeting(
       clearTimer();
       clearTimeout(wakeTimer);
       clearTimeout(retrySignalTimer);
+      clearTimeout(completionExpiry);
       stops.forEach(stop => stop());
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("focus", wake);
