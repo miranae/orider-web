@@ -78,10 +78,11 @@ export function normalizeGroupRideAggregate(value: unknown): GroupRideAggregate 
   };
 }
 
-export function useGroupRideStats(groupId: string | undefined, accessKey?: string) {
+export function useGroupRideStats(groupId: string | undefined, accessKey?: string, requestedMemberIds: string[] = []) {
   const { auth, ensureAppCheckReady, functions } = useFirebaseServices();
   const { user } = useAuth();
   const uid = user?.uid;
+  const memberIdsKey = JSON.stringify(requestedMemberIds);
   const [rides, setRides] = useState<GroupRideSummary[]>([]);
   const [memberStats, setMemberStats] = useState<Record<string, MemberRideStat>>({});
   const [loading, setLoading] = useState(true);
@@ -156,8 +157,8 @@ export function useGroupRideStats(groupId: string | undefined, accessKey?: strin
       try {
         await ensureAppCheckReady();
         if (!isCurrent()) return;
-        const fn = httpsCallable<{ groupId: string; pageSize: number }, RideStatsResponse>(functions, "getGroupRideStats");
-        const { data } = await fn({ groupId, pageSize: 20 });
+        const fn = httpsCallable<{ groupId: string; pageSize: number; memberIds?: string[] }, RideStatsResponse>(functions, "getGroupRideStats");
+        const { data } = await fn({ groupId, pageSize: 20, ...(memberIdsKey !== "[]" ? { memberIds: JSON.parse(memberIdsKey) as string[] } : {}) });
         if (!isCurrent()) return;
         setRides(data.rides ?? []);
         setMemberStats(data.memberStats ?? {});
@@ -187,7 +188,7 @@ export function useGroupRideStats(groupId: string | undefined, accessKey?: strin
       cancelled = true;
       generation.current += 1;
     };
-  }, [auth, ensureAppCheckReady, functions, groupId, retryKey, uid, accessKey]);
+  }, [auth, ensureAppCheckReady, functions, groupId, retryKey, uid, accessKey, memberIdsKey]);
 
   return { rides, memberStats, aggregate, weeklyStats, memberWeekStats, loading, loadingMore, error, loadMoreError, retry, hasMore: nextCursor !== null, loadMore };
 }

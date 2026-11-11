@@ -77,7 +77,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showInvite, setShowInvite] = useState(false);
-  const { memberStats } = useGroupRideStats(groupId);
+  const [memberPage, setMemberPage] = useState(0);
   const [pending, setPending] = useState<PendingRequest[]>([]);
   const [pendingProfiles, setPendingProfiles] = useState<Map<string, PublicUserProfile>>(new Map());
   const [pendingError, setPendingError] = useState(false);
@@ -194,6 +194,11 @@ export default function GroupMembersPage({ management = false }: { management?: 
       return true;
     });
   }, [members, search, roleFilter, group?.creatorId]);
+
+  const visibleMembers = filteredMembers.slice(memberPage * 50, (memberPage + 1) * 50);
+  const visibleActiveIds = visibleMembers.filter(member => ["active", "approved"].includes(member.status)).map(member => member.id);
+  const { memberStats } = useGroupRideStats(groupId, undefined, visibleActiveIds);
+  useEffect(() => { setMemberPage(0); }, [groupId, search, roleFilter]);
 
   const selectableMemberIds = useMemo(
     () => filteredMembers.filter((m) => m.id !== user?.uid).map((m) => m.id),
@@ -513,6 +518,10 @@ export default function GroupMembersPage({ management = false }: { management?: 
             {canManage && <Button data-testid="C6-0-2" onClick={() => setTab("invite")} variant="primary" size="sm">{t("button.invite")}</Button>}
           </div>
 
+          {(memberPage > 0 || filteredMembers.length > 50) && <div className="flex gap-2">
+            <Button variant="secondary" size="sm" disabled={memberPage === 0} onClick={() => setMemberPage(page => page - 1)}>{t("members.previousPage")}</Button>
+            <Button variant="secondary" size="sm" disabled={(memberPage + 1) * 50 >= filteredMembers.length} onClick={() => setMemberPage(page => page + 1)}>{t("members.nextPage")}</Button>
+          </div>}
           {Boolean(membersError) && <ErrorState title={t("error.membersLoadFailed")} onRetry={retryMembers} compact />}
           {membersLoading ? (
             <LoadingSkeleton kind="list" count={5} />
@@ -548,7 +557,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
                 <div>{t("members.table.actions")}</div>
               </div>
 
-              {filteredMembers.map((m) => {
+              {visibleMembers.map((m) => {
                 const stats = memberStats[m.id];
                 const role = (m.role as string) ?? (group.creatorId === m.id ? "leader" : "member");
                 const joinedAt = normalizeStartTime(m.joinedAt);
