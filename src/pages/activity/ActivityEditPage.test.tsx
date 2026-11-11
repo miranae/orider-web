@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { mockUpdateDoc, setDocData } from "../../__tests__/mocks/firebase";
 import ActivityEditPage from "./ActivityEditPage";
+import { FirebaseServicesProvider, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 
 vi.mock("react-router-dom", async importOriginal => ({
   ...await importOriginal<typeof import("react-router-dom")>(),
@@ -14,17 +15,27 @@ vi.mock("react-router-dom", async importOriginal => ({
 }));
 
 const originalGear = { name: "Road bike", type: "bike", totalDistanceKm: 1234, maxDistanceKm: 5000, provider: { id: "provider-gear" } };
-function show(gear: unknown, locale = "ko") {
+function show(gear: unknown, locale = "ko", services?: FirebaseServices) {
   setDocData("activities/edit-gear", {
     userId: "test-uid", type: "Ride", name: "Morning Ride", description: "Morning Ride",
     visibility: "everyone", startTime: Date.UTC(2026, 9, 11, 0), gear, gearId: "canonical-provider-id",
   });
-  return renderWithProviders(<ActivityEditPage />, { authenticated: true, route: `/${locale}/activity/edit-gear/edit` });
+  return renderWithProviders(services ? <FirebaseServicesProvider services={services}><ActivityEditPage /></FirebaseServicesProvider> : <ActivityEditPage />, { authenticated: true, route: `/${locale}/activity/edit-gear/edit` });
 }
 
 beforeEach(() => { mockUpdateDoc.mockClear(); });
 
 describe("activity equipment editing", () => {
+  it("임베드 계정이 App Check 대기 중 바뀌면 저장하지 않는다", async () => {
+    const services = { scope: "embedded", auth: { app: { name: "editor" }, currentUser: { uid: "test-uid" } },
+      firestore: {}, functions: {}, ensureAppCheckReady: vi.fn(async () => { services.auth.currentUser = { uid: "other" };
+      }) } as unknown as FirebaseServices;
+    show(originalGear, "ko", services);
+    await screen.findByRole("textbox", { name: "사용한 자전거" });
+    fireEvent.click(screen.getByRole("button", { name: "변경사항 저장" }));
+    await waitFor(() => expect(services.ensureAppCheckReady).toHaveBeenCalledOnce());
+    expect(mockUpdateDoc).not.toHaveBeenCalled();
+  });
   it.each(["ko", "en"])("explains RPE without selecting or saving an exertion value in %s", async language => {
     i18n.addResourceBundle("en", "activity", enActivity, true, true);
     i18n.addResourceBundle("en", "termGlossary", enGlossary, true, true);

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useId } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useId, useMemo } from 'react';
 import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -9,8 +9,8 @@ import { useCreatePost } from '../features/board/useBoard';
 import { useAuth } from '../contexts/AuthContext';
 import { useDialog } from '../contexts/DialogContext';
 import { useToast } from '../contexts/ToastContext';
-import { storage } from '../services/firebase';
-import { ref, uploadBytes, deleteObject } from 'firebase/storage';
+import { useFirebaseServices } from '../contexts/FirebaseServicesContext';
+import { ref, uploadBytes, deleteObject, getStorage } from 'firebase/storage';
 import { LoadingSkeleton } from '../components/redesign';
 import { BoardFeedbackIcon } from "../features/board/BoardFeedbackIcon";
 import { Button, Card, Input } from "../theme/components";
@@ -109,6 +109,8 @@ export function parseUserTags(raw: string): string[] {
 
 const CreatePostPage: React.FC = () => {
   const navigate = useNavigate();
+  const { auth: sessionAuth } = useFirebaseServices();
+  const storage = useMemo(() => getStorage(sessionAuth.app), [sessionAuth.app]);
   const { t, i18n } = useTranslation("board");
   const { user, loading: authLoading } = useAuth();
   const dialog = useDialog();
