@@ -5,9 +5,10 @@ import { mockCallableInvocations, mockUpdateDoc, setCallableResult, setCollectio
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import GroupMembersPage from "./GroupMembersPage";
 
-const { mockConfirm, mockGetPublicUserProfiles, mockMembers, groupState } = vi.hoisted(() => ({
+const { mockConfirm, mockGetPublicUserProfiles, mockMembers, mockStatsRequests, groupState } = vi.hoisted(() => ({
   groupState: {loading:false},
   mockConfirm: vi.fn(),
+  mockStatsRequests: vi.fn(),
   mockGetPublicUserProfiles: vi.fn(),
   mockMembers: [] as Array<Record<string, unknown>>,
 }));
@@ -35,12 +36,13 @@ vi.mock("../../hooks/useGroup", () => ({
 }));
 
 vi.mock("../../hooks/useGroupRides", () => ({
-  useGroupRideStats: () => ({ memberStats: {} }),
+  useGroupRideStats: (...args: unknown[]) => { mockStatsRequests(...args); return { memberStats: {} }; },
 }));
 
 describe("GroupMembersPage", () => {
   beforeEach(() => {
     groupState.loading=false;
+    mockStatsRequests.mockClear();
     mockConfirm.mockReset();
     mockConfirm.mockResolvedValue(true);
     mockUpdateDoc.mockClear();
@@ -55,6 +57,19 @@ describe("GroupMembersPage", () => {
     ]);
   });
 
+  it("requests stats only for the rendered member page and advances only after user action", async () => {
+    for (let index = 0; index < 51; index++) mockMembers.push({ id: `paged-${index}`, status: "active", role: "member", profile: { nickname: `Paged Rider ${index}` } });
+    renderWithProviders(<Routes><Route path="/:lang/club/:groupId/members" element={<GroupMembersPage />} /></Routes>, { route: "/ko/club/group-1/members", authenticated: true });
+    await waitFor(() => expect(mockStatsRequests).toHaveBeenCalled());
+    expect(mockStatsRequests.mock.calls.every(call => (call[2] as string[]).length <= 50)).toBe(true);
+    expect(mockStatsRequests.mock.calls.at(-1)?.[2]).not.toContain("paged-50");
+    expect(within(screen.getByRole("region", { name: "멤버 관리" })).queryByText("Paged Rider 50", { exact: true })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "다음 멤버" }));
+    expect(within(screen.getByRole("region", { name: "멤버 관리" })).getByText("Paged Rider 50", { exact: true })).toBeInTheDocument();
+    expect(mockStatsRequests.mock.calls.at(-1)?.[2]).toEqual(["paged-50"]);
+    fireEvent.click(screen.getByRole("button", { name: "이전 멤버" }));
+    expect(within(screen.getByRole("region", { name: "멤버 관리" })).getByText("Paged Rider 0", { exact: true })).toBeInTheDocument();
+  });
   it("keeps a legacy creator in the leader role filter",async()=>{
     mockMembers.push({id:"test-uid",status:"active",profile:{nickname:"Legacy Owner"}},{id:"member",role:"member",status:"active",profile:{nickname:"Regular Member"}});
     renderWithProviders(<Routes><Route path="/:lang/club/:groupId/members" element={<GroupMembersPage />} /></Routes>,{route:"/ko/club/group-1/members",authenticated:true});

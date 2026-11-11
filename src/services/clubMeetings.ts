@@ -14,6 +14,9 @@ export interface MeetingDiscordView {
 }
 export type ClubMeeting = Meeting & { kindName?: string };
 export interface ClubMeetingSnapshot {
+  noticeNextCursor?: string | null;
+  noticePageCursor?: string | null;
+  snapshotSignalVersion?: string | null;
   runtimeWindow?: { opensAtMs: number; closesAtMs: number } | null;
   eventId: string;
   groupId: string;
@@ -164,9 +167,10 @@ const updateClubMeeting = (
     meeting: clubMeetingAuthoring(meeting),
     expectedRevision,
   });
-const getClubMeetingSnapshot = (eventId: string) =>
-  call<{ eventId: string }, ClubMeetingSnapshot>("getClubMeetingSnapshot", {
+const getClubMeetingSnapshot = (eventId: string, noticeCursor?: string) =>
+  call<{ eventId: string; noticeCursor?: string }, ClubMeetingSnapshot>("getClubMeetingSnapshot", {
     eventId,
+    ...(noticeCursor ? { noticeCursor } : {}),
   });
 const listClubMeetings = (groupId: string, cursor?: string) =>
   call<
