@@ -184,6 +184,7 @@ export default function ClubMeetingPage({
           en={en}
           error={snapshot.error}
           reload={snapshot.reload}
+          loadOlderNotices={snapshot.loadOlderNotices}
           onEdit={() =>
             navigate(`/club/${group.id}/meetings/${data.eventId}/edit`)
           }
@@ -249,6 +250,7 @@ function ServerMeetingDetail({
   en,
   error,
   reload,
+  loadOlderNotices,
   onEdit,
   onCopy,
 }: {
@@ -257,6 +259,7 @@ function ServerMeetingDetail({
   en: boolean;
   error: unknown;
   reload: () => Promise<void>;
+  loadOlderNotices: () => Promise<void>;
   onEdit: () => void;
   onCopy: () => void;
 }) {
@@ -278,14 +281,14 @@ function ServerMeetingDetail({
     outbound: current?.outbound ?? "",
     inbound: current?.inbound ?? "",
   });
-  const run = async (action: () => Promise<unknown>) => {
+  const run = async (action: () => Promise<unknown>, refresh = true) => {
     if (pendingRef.current) return;
     pendingRef.current = true;
     setPending(true);
     setFailure("");
     try {
       await action();
-      await reload();
+      if (refresh) await reload();
     } catch (reason) {
       setFailure(meetingErrorMessage(reason, en));
     } finally {
@@ -673,6 +676,7 @@ function ServerMeetingDetail({
       {data.isHost && live && (
         <HostPreparationChecklist
           meeting={meeting}
+          noticePageLimited={Boolean(data.noticeNextCursor || data.noticePageCursor)}
           members={data.members}
           unassignedCount={
             meeting.teams?.length
@@ -770,6 +774,9 @@ function ServerMeetingDetail({
       </Card>
       <Card id="meeting-notices">
         <h2>{text("공지와 변경", "Notices and changes")}</h2>
+        {(data.noticeNextCursor || data.noticePageCursor) && <p className="cp-muted">
+          {text("공지와 미확인 명단은 현재 표시된 공지 기준입니다.", "Notices and follow-ups reflect the notices on this page.")}
+        </p>}
         {meeting.notices.length === 0 && (
           <p>{text("아직 새 공지가 없어요.", "No notices yet.")}</p>
         )}
@@ -822,6 +829,12 @@ function ServerMeetingDetail({
             )}
           </article>
         ))}
+        {data.noticeNextCursor && <Button disabled={busy} onClick={() => void run(loadOlderNotices, false)}>
+          {text("이전 공지 보기", "Older notices")}
+        </Button>}
+        {data.noticePageCursor && <Button disabled={busy} onClick={() => void run(reload, false)}>
+          {text("최신 공지 보기", "Latest notices")}
+        </Button>}
       </Card>
       {data.isHost && live && (
         <Card>

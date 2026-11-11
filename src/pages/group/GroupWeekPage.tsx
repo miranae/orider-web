@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
-import { useGroup, useGroupMemberRole, useGroupMembers } from "../../hooks/useGroup";
+import { useGroup, useGroupMemberRole } from "../../hooks/useGroup";
+import { useGroupWeekRanking } from "../../hooks/useGroupWeekRanking";
 import { useGroupRideStats } from "../../hooks/useGroupRides";
 import { canManageGroup } from "../../features/group/groupPermissions";
 import GroupSubNav from "../../components/group/GroupSubNav";
@@ -28,18 +29,17 @@ export default function GroupWeekPage() {
   const { role, loading: roleLoading, error: roleError, retry: roleRetry } = useGroupMemberRole(groupId, user?.uid);
   const accessKey = `${user?.uid ?? ""}:${role ?? ""}`;
   const { group, loading: groupLoading, error: groupError, retry: groupRetry } = useGroup(groupId, accessKey);
-  const { members } = useGroupMembers(role ? groupId : undefined, undefined, accessKey);
-  const { weeklyStats, memberWeekStats, loading, error, retry } = useGroupRideStats(role ? groupId : undefined, accessKey);
+  const { weeklyStats, loading, error, retry } = useGroupRideStats(role ? groupId : undefined, accessKey);
   const [metric, setMetric] = useState<Metric>("distance");
+  const ranking = useGroupWeekRanking(role ? groupId : undefined, metric, accessKey);
   if (groupLoading || roleLoading) return <LoadingSkeleton kind="list" count={5} />;
   if (groupError || roleError) return <ErrorState title={t("error.loadFailed")} onRetry={groupError ? groupRetry : roleRetry} />;
   if (!group) return <EmptyState title={t("empty.groupNotFound")} />;
   if (!role) return <Navigate to=".." relative="path" replace />;
   const { monday, sunday } = groupWeekRange();
   const fmt = (value: number, key: Metric) => key === "distance" ? `${(value / 1000).toFixed(1)} km` : key === "elevation" ? `${Math.round(value)} m` : `${Math.floor(value / 3600000)}h ${Math.floor(value % 3600000 / 60000)}m`;
-  const entries = { ...Object.fromEntries(members.map(member => [member.id, { distance: 0, time: 0, elevation: 0 }])), ...(memberWeekStats ?? {}) };
-  const rows = Object.entries(entries).sort((a, b) => b[1][metric] - a[1][metric]);
-  const max = rows[0]?.[1][metric] ?? 0;
+  const rows = ranking.entries;
+  const max = rows[0]?.[metric] ?? 0;
   return <div className="space-y-4">
     <GroupSubNav group={group} isCreator={canManageGroup(group, user?.uid, role)} />
     {loading ? <LoadingSkeleton kind="list" count={5} /> : error ? <ErrorState title={t("week.loadFailed")} onRetry={retry} /> : <>
@@ -49,7 +49,9 @@ export default function GroupWeekPage() {
       {[[t("week.metricLabels.distance"), fmt(weeklyStats.totalDistance, "distance")], [t("week.activeMembers"), `${weeklyStats.activeMembers} / ${group.memberCount}`], [t("week.rideCount"), weeklyStats.rideCount], [t("week.metricLabels.time"), fmt(weeklyStats.totalTime, "time")], [t("week.metricLabels.elevation"), fmt(weeklyStats.totalElevation, "elevation")]].map(([label, value]) => <Card key={label}><p className="text-[length:var(--ft-body-medium-size)]">{label}</p><strong className="font-mono text-[length:var(--ft-title-size)]">{value}</strong></Card>)}
     </div> : <p role="status">{t("week.unavailable")}</p>}</section>
     <section data-testid="C5-2"><div className="flex flex-wrap gap-2">{(["distance", "time", "elevation"] as const).map(key => <Button data-testid="C5-2-1" key={key} size="sm" variant={key === metric ? "primary" : "secondary"} aria-pressed={key === metric} onClick={() => setMetric(key)}>{t(`week.metricLabels.${key}`)}</Button>)}</div>
-    {!weeklyStats || weeklyStats.activeMembers === 0 ? <div data-testid="C5-2-3"><EmptyState title={t("week.empty")} /></div> : rows.map(([uid, stats]) => <Card key={uid} className="space-y-2"><Link data-testid="C5-2-2" to={`/athlete/${uid}`}>{members.find(member => member.id === uid)?.profile?.nickname ?? t("week.memberFallback")}{uid === user?.uid ? ` ${t("dashboard.meIndicator")}` : ""}</Link><p className="font-mono text-[length:var(--ft-body-medium-size)]">{fmt(stats[metric], metric)}</p><progress value={stats[metric]} max={max || 1} aria-label={`${members.find(member => member.id === uid)?.profile?.nickname ?? t("week.memberFallback")} · ${t(`week.metricLabels.${metric}`)}`} className="club-week-progress" /></Card>)}
+    {!weeklyStats || weeklyStats.activeMembers === 0 ? <div data-testid="C5-2-3"><EmptyState title={t("week.empty")} /></div> : ranking.loading ? <LoadingSkeleton kind="list" count={5} /> : ranking.error ? <ErrorState title={t("week.loadFailed")} onRetry={ranking.retry} /> : rows.map(stats => <Card key={stats.userId} className="space-y-2"><Link data-testid="C5-2-2" to={`/athlete/${stats.userId}`}>{stats.nickname}{stats.userId === user?.uid ? ` ${t("dashboard.meIndicator")}` : ""}</Link><p className="font-mono text-[length:var(--ft-body-medium-size)]">{fmt(stats[metric], metric)}</p><progress value={stats[metric]} max={max || 1} aria-label={`${stats.nickname} · ${t(`week.metricLabels.${metric}`)}`} className="club-week-progress" /></Card>)}
+    {ranking.moreError && <ErrorState title={t("week.loadFailed")} onRetry={() => { void ranking.loadMore(); }} />}
+    {ranking.hasMore && <Button variant="secondary" disabled={ranking.loadingMore} onClick={() => { void ranking.loadMore(); }}>{t("week.loadMore")}</Button>}
     </section>
     </>}
   </div>;

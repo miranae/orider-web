@@ -15,6 +15,7 @@ const control = vi.hoisted(() => ({
   role: "member" as string | null,
   data: null as ClubMeetingSnapshot | null,
   reload: vi.fn(),
+  loadOlderNotices: vi.fn(),
   form: null as null | {
     initial: ReturnType<typeof newClubMeeting>;
     initialRevision?: number;
@@ -37,6 +38,7 @@ vi.mock("../../features/club-preparation/useClubMeeting", () => ({
     loading: false,
     error: null,
     reload: control.reload,
+    loadOlderNotices: control.loadOlderNotices,
   }),
 }));
 vi.mock("../../features/club-preparation/MeetingForm", () => ({
@@ -104,6 +106,18 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 describe("실제 인증 회원의 클럽 모임 동선", () => {
+  it("과거 공지 페이지 요청을 최신 페이지 재조회로 덮지 않는다", async () => {
+    control.data = {eventId: "event", groupId: "club", revision: 1, isHost: true,
+      noticeNextCursor: "n480", noticePageCursor: "n500", meeting: newClubMeeting(), members: []};
+    show("detail");
+    fireEvent.click(await screen.findByRole("button", {name: "이전 공지 보기"}));
+    await waitFor(() => expect(control.loadOlderNotices).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole("button", {name: "최신 공지 보기"})).not.toBeDisabled());
+    expect(control.reload).not.toHaveBeenCalled();
+    expect(screen.getByText(/공지 미확인 명단은 현재 표시된 공지 기준/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name: "최신 공지 보기"}));
+    await waitFor(() => expect(control.reload).toHaveBeenCalledTimes(1));
+  });
   it("일반 회원도 역할 선택 없이 생성하고 서버가 부여한 ID로 이동한다", async () => {
     show("new");
     await screen.findByRole("button", { name: "서버 저장" });

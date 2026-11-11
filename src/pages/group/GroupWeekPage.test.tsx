@@ -9,12 +9,16 @@ beforeEach(() => { state.groupError = null; state.roleError = null; state.statsE
 vi.mock("../../hooks/useGroup", () => ({
   useGroup: () => ({ group: { id: "club", name: "Club", creatorId: "owner", memberCount: 10 }, loading: false, error: state.groupError, retry: state.groupRetry }),
   useGroupMemberRole: () => ({ role: "member", loading: false, error: state.roleError, retry: state.roleRetry }),
-  useGroupMembers: () => ({ members: Array.from({ length: 10 }, (_, index) => ({ id: `member-${index}`, profile: { nickname: `Rider ${index}` } })) }),
+
 }));
 vi.mock("../../hooks/useGroupRides", () => ({ useGroupRideStats: () => ({
   weeklyStats: { totalDistance: 10000, totalTime: 3600000, totalElevation: 200, rideCount: 2, activeMembers: 10 },
-  memberWeekStats: Object.fromEntries(Array.from({ length: 10 }, (_, index) => [`member-${index}`, { distance: index * 1000, time: 60000, elevation: index, tss: 999 }])),
+
   loading: state.statsLoading, error: state.statsError, retry: state.statsRetry,
+}) }));
+vi.mock("../../hooks/useGroupWeekRanking", () => ({ useGroupWeekRanking: () => ({
+  entries: Array.from({ length: 10 }, (_, index) => ({ userId: `member-${index}`, nickname: `Rider ${index}`, distance: index * 1000, time: 60000, elevation: index, tss: 999 })),
+  loading: false, error: false, moreError: false, loadingMore: false, hasMore: false, loadMore: vi.fn(), retry: vi.fn(),
 }) }));
 describe("GroupWeekPage", () => {
   it.each(["group", "role", "stats"])("retries the failed %s query", (query) => {
