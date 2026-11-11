@@ -405,6 +405,16 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     expect(ready.payload.capabilities.includes("embedded-persistent-auth-v1")).toBe(verified);
   });
 
+  it("화면이 닫힌 뒤 끝난 저장 검사로 늦은 부트스트랩을 보내지 않는다", async () => {
+    let resolve!: (value: boolean) => void;
+    mocks.persistenceReadiness = new Promise((done) => { resolve = done; });
+    const bridge = createFakeBridge();
+    const view = renderBootstrap(bridge);
+    view.unmount();
+    await act(async () => resolve(true));
+    expect(bridge.sent.some((message: { type: string }) => message.type === "bootstrap.ready")).toBe(false);
+  });
+
   it("영속 저장 검사 실패를 기록하고 영속 기능 없이 부트스트랩한다", async () => {
     mocks.persistenceReadiness = Promise.reject(new Error("storage-denied"));
     const bridge = createFakeBridge();
