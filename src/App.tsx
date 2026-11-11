@@ -125,6 +125,10 @@ export function AppRoutes() {
         <Route path="embed/explore" element={<EmbeddedBootstrapRoot surfaceKind="explore" />} />
         <Route path="embed/event/:eventId/*" element={<EmbeddedBootstrapRoot surfaceKind="event-detail" />} />
         <Route path="embed/search" element={<EmbeddedBootstrapRoot surfaceKind="search" />} />
+        <Route path="embed/about" element={<EmbeddedBootstrapRoot surfaceKind="about" />} />
+        <Route path="embed/policies/community" element={<EmbeddedBootstrapRoot surfaceKind="community-guidelines" />} />
+        <Route path="embed/feedback" element={<EmbeddedBootstrapRoot surfaceKind="feedback" />} />
+        <Route path="embed/activity/:activityId/edit" element={<EmbeddedBootstrapRoot surfaceKind="activity-edit" />} />
         <Route element={<Layout />}>
           <Route index element={null} />
           <Route path="activity/:activityId" element={<ActivityPage />} />
@@ -393,7 +397,7 @@ function StandardApp() {
 }
 
 export function isEmbeddedRoutePath(pathname: string): boolean {
-  return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/(?:analysis|public)|fitness|plan|clubs|explore|search)\/?$/.test(pathname)
+  return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/(?:analysis|public|edit)|fitness|plan|clubs|explore|search|about|policies\/community|feedback)\/?$/.test(pathname)
     || /^\/[^/]+\/embed\/(?:clubs|courses|event)\/[^/]+(?:\/.*)?$/.test(pathname);
 }
 
