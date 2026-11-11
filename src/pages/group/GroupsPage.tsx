@@ -46,7 +46,7 @@ export default function GroupsPage() {
   const { showToast } = useToast();
   // 임베드(앱 클럽 탭)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
   const { auth, ensureAppCheckReady, functions } = useFirebaseServices();
-  const { groups: loadedMyGroups, loading: myLoading, error: myGroupsError, retry: retryMyGroups } = useMyGroups(user?.uid);
+  const { groups: loadedMyGroups, loading: myLoading, error: myGroupsError, incomplete: myGroupsIncomplete, retry: retryMyGroups } = useMyGroups(user?.uid);
   // 이 화면에서 방금 가입한 클럽 — 서버 목록을 다시 읽기 전에도 곧바로 '내가 속한 클럽'으로 옮긴다(#1558).
   const [joinedHere, setJoinedHere] = useState<Group[]>([]);
   const [pendingHere, setPendingHere] = useState<Set<string>>(() => new Set());
@@ -128,6 +128,9 @@ export default function GroupsPage() {
   const myGroupIds = new Set((user ? myGroups : []).map((g) => g.id));
   // 로그인했는데 내 클럽을 아직 한 번도 읽지 못한 상태(처음 읽는 중). 다시 읽는 중에는 아는 목록으로 거른다.
   const myClubsUnknown = Boolean(user) && myLoading && loadedMyGroups.length === 0 && !myGroupsError;
+  // 내 클럽 일부를 읽지 못했다 — 목록 밖 공개 클럽이 실제로는 가입 클럽일 수 있어 '미가입'으로 확정하지 않는다.
+  // 다시 읽기 버튼은 두지 않는다. 새로고침(앱은 화면을 아래로 당기기)하면 다시 확인한다.
+  const myClubsPartial = Boolean(user) && !myLoading && (myGroupsIncomplete || Boolean(myGroupsError));
   const myGroupIdList = useMemo(() => uid ? myGroups.map((g) => g.id) : [], [myGroups, uid]);
   const { byGroup: nextEventLabels, incompleteGroups = new Set<string>() } = useGroupNextEvents(myGroupIdList);
 
@@ -343,6 +346,7 @@ export default function GroupsPage() {
       )}
 
 
+      {myClubsPartial && filteredPublicGroups.length > 0 && <Text as="p" variant="bodySmall" tone="secondary" role="status" data-testid="C0-2-5" className="mb-4">{t("list.membershipUnconfirmed")}</Text>}
       {Boolean(publicGroupsError) && filteredPublicGroups.length > 0 && <div className="mb-4"><ErrorState title={t("error.loadFailed")} onRetry={retryPublicGroups} compact /></div>}
       {Boolean(publicGroupsError) && filteredPublicGroups.length === 0 ? (
         <ErrorState title={t("error.loadFailed")} onRetry={retryPublicGroups} compact />
@@ -369,6 +373,8 @@ export default function GroupsPage() {
               joinPending={pendingHere.has(g.id) || pendingRequestIds.has(g.id)}
               /* 내 클럽을 다시 읽는 동안에는 이미 가입한 클럽일 수 있어 가입 버튼을 잠근다(#1558). */
               joinChecking={Boolean(user) && myLoading}
+              /* 내 클럽 일부를 읽지 못했으면 가입 여부를 모른다 — 가입 버튼을 잠근다. */
+              joinUnconfirmed={myClubsPartial}
             />
           ))}
         </div>
