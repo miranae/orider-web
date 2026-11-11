@@ -309,19 +309,27 @@ describe("GroupsPage join results", () => {
     expect(ensureAppCheckReady).toHaveBeenCalled();
   }, 15_000);
 
-  it("가입이 서버 목록에 반영된 뒤 탈퇴하면 임시 항목으로 복원하지 않는다", async () => {
+  it.each([false, true])("가입이 서버 목록에 반영된 뒤 탈퇴하면 복원하지 않는다 서버 선반영 %s", async (ackBeforeReply) => {
     addManualPublicGroup();
-    setCallableResult("joinGroupPublic", { data: { success: true, status: "active" } });
+    let resolveJoin!: (value: unknown) => void;
+    setCallableImplementation("joinGroupPublic", () => new Promise((resolve) => { resolveJoin = resolve; }));
     const view = renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
+    await waitFor(() => expect(resolveJoin).toBeDefined());
+    if (ackBeforeReply) {
+      membershipState.snapshot = [...publicGroups];
+      view.rerender(pageRoutes());
+    }
+    await act(async () => { resolveJoin({ data: { success: true, status: "active" } }); });
     await waitFor(() => expect(screen.getByTestId("C0-1")).toHaveTextContent("Manual Club"));
-    // 아직 서버 확인 전인 빈 목록은 가입 직후 표시를 지우지 않는다.
-    membershipState.snapshot = [];
-    view.rerender(pageRoutes());
-    expect(screen.getByTestId("C0-1")).toHaveTextContent("Manual Club");
-    membershipState.snapshot = [...publicGroups];
-    view.rerender(pageRoutes());
-    await waitFor(() => expect(screen.getByTestId("C0-1")).toHaveTextContent("Manual Club"));
+    if (!ackBeforeReply) {
+      // 아직 서버 확인 전인 빈 목록은 가입 직후 표시를 지우지 않는다.
+      membershipState.snapshot = [];
+      view.rerender(pageRoutes());
+      expect(screen.getByTestId("C0-1")).toHaveTextContent("Manual Club");
+      membershipState.snapshot = [...publicGroups];
+      view.rerender(pageRoutes());
+    }
     membershipState.snapshot = [];
     view.rerender(pageRoutes());
     expect(await screen.findByRole("button", { name: "가입 신청" })).toBeEnabled();

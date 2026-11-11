@@ -53,13 +53,13 @@ export default function GroupsPage() {
   useEffect(() => { setJoinedHere([]); setPendingHere(new Set()); }, [uid]);
   // 서버가 가입을 확인하면 임시 항목을 넘겨준다. 이후 탈퇴로 서버 목록에서 빠져도 되살리지 않는다.
   useEffect(() => {
-    if (!loadedMyGroups.length) return;
+    if (!joinedHere.length || !loadedMyGroups.length) return;
     const confirmedIds = new Set(loadedMyGroups.map((group) => group.id));
     setJoinedHere((current) => {
       const pending = current.filter((group) => !confirmedIds.has(group.id));
       return pending.length === current.length ? current : pending;
     });
-  }, [loadedMyGroups]);
+  }, [loadedMyGroups, joinedHere]);
   const pendingRequestIds = usePendingGroupRequestIds(user?.uid);
   const myGroups = useMemo(() => {
     const loadedIds = new Set(loadedMyGroups.map((g) => g.id));
