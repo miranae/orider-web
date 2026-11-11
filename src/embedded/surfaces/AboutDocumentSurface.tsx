@@ -58,8 +58,8 @@ export default function AboutDocumentSurface(props: Pick<HubSurfaceProps, "onRea
       root.append(style, body);
       callbacks.current.onReady();
     })().catch(error => {
-      if (cancelled) return;
       logClientError("embedded.aboutDocument", error);
+      if (cancelled) return;
       callbacks.current.onError("surface_load_failed");
     });
     return () => { cancelled = true; root.removeEventListener("click", click); root.replaceChildren(); };
