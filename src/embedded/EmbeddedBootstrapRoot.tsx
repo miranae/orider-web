@@ -1138,21 +1138,33 @@ export default function EmbeddedBootstrapRoot({
       setAccountReleaseRequest((request) => request + 1);
       safeSend("surface.error", { code: "auth_uid_changed" }, requestId);
     });
-    safeSend("bootstrap.ready", {
-      contractVersion: CONTRACT_VERSION,
-      capabilities: [
-        RETAINED_SURFACE_SELECTION_CAPABILITY,
-        SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
-        RUN_START_SCHEDULED_CAPABILITY,
-        CLUB_DETAIL_EMBED_CAPABILITY,
-        COURSE_DETAIL_EMBED_CAPABILITY,
-        APP_MENU_EMBED_CAPABILITY,
-        ...(embeddedAuthPersistsSession() ? [EMBEDDED_PERSISTENT_AUTH_CAPABILITY] : []),
-        "host.lifecycle",
-        "host.themeChanged",
-      ],
+    let bootstrapDisposed = false;
+    const announceBootstrap = (persists: boolean) => {
+      if (bootstrapDisposed) return;
+      safeSend("bootstrap.ready", {
+        contractVersion: CONTRACT_VERSION,
+        capabilities: [
+          RETAINED_SURFACE_SELECTION_CAPABILITY,
+          SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
+          RUN_START_SCHEDULED_CAPABILITY,
+          CLUB_DETAIL_EMBED_CAPABILITY,
+          COURSE_DETAIL_EMBED_CAPABILITY,
+          APP_MENU_EMBED_CAPABILITY,
+          ...(persists ? [EMBEDDED_PERSISTENT_AUTH_CAPABILITY] : []),
+          "host.lifecycle",
+          "host.themeChanged",
+        ],
+      });
+    };
+    const persistence = embeddedAuthPersistsSession();
+    if (typeof persistence === "boolean") announceBootstrap(persistence);
+    else void persistence.then(announceBootstrap).catch((error) => {
+      // 화면이 닫혀도 완료된 저장 검사 실패는 기록한다. 전송 여부만 announceBootstrap이 판정한다.
+      logClientError("embedded.auth.persistence", error);
+      announceBootstrap(false);
     });
     return () => {
+      bootstrapDisposed = true;
       unsubscribe();
       unsubscribeAuth();
       runStartChannel.dispose();
