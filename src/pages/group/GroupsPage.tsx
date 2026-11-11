@@ -61,6 +61,14 @@ export default function GroupsPage() {
     });
   }, [loadedMyGroups, joinedHere]);
   const pendingRequestIds = usePendingGroupRequestIds(user?.uid);
+  useEffect(() => {
+    if (!pendingHere.size) return;
+    const confirmed = new Set([...pendingRequestIds, ...loadedMyGroups.map((group) => group.id)]);
+    setPendingHere((current) => {
+      const pending = new Set([...current].filter((id) => !confirmed.has(id)));
+      return pending.size === current.size ? current : pending;
+    });
+  }, [loadedMyGroups, pendingRequestIds, pendingHere]);
   const myGroups = useMemo(() => {
     const loadedIds = new Set(loadedMyGroups.map((g) => g.id));
     return [...loadedMyGroups, ...joinedHere.filter((g) => !loadedIds.has(g.id))];
