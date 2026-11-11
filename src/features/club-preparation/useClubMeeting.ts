@@ -41,19 +41,21 @@ export function useClubMeeting(
     let denied = false;
     let dirty = false;
     let signalVersion: string | null | undefined;
+    let consumedSignalVersion: string | null | undefined;
     let failures = 0;
     let signalFailures = 0;
     let subscription = 0;
     let signalFailed = false;
     let retrySignalTimer: ReturnType<typeof setTimeout> | undefined;
     let stops: (() => void)[] = [];
-    const hasNewerSignal = () => {
-      if (!signalVersion) return false;
-      if (!data?.snapshotSignalVersion) return true;
-      const [seconds, nanos] = signalVersion.split(":").map(Number);
-      const [readSeconds, readNanos] = data.snapshotSignalVersion.split(":").map(Number);
+    const newerSignal = (candidate: string | null | undefined, previous: string | null | undefined) => {
+      if (!candidate) return false;
+      if (!previous) return true;
+      const [seconds, nanos] = candidate.split(":").map(Number);
+      const [readSeconds, readNanos] = previous.split(":").map(Number);
       return seconds! > readSeconds! || seconds === readSeconds && nanos! > readNanos!;
     };
+    const hasNewerSignal = () => newerSignal(signalVersion, consumedSignalVersion);
     const automatic = () => !document.hidden && !denied && data?.runtimeWindow !== null &&
       data?.rideStatus !== "CANCELLED" && (!data?.runtimeWindow ||
         Date.now() >= data.runtimeWindow.opensAtMs && Date.now() < data.runtimeWindow.closesAtMs);
@@ -83,6 +85,7 @@ export function useClubMeeting(
       if (!valid() || (!manual && (document.hidden || inFlight || denied))) return;
       clearTimer();
       const generation = ++identity.generation;
+      const dispatchedSignalVersion = signalVersion;
       inFlight = true;
       dirty = false;
       try {
@@ -92,6 +95,10 @@ export function useClubMeeting(
         data = next;
         denied = false;
         failures = 0;
+        // 성공한 현재 요청의 시작 신호까지만 소비한다. 응답에 버전이 없거나
+        // 오래된 버전이 반복돼도 같은 신호를 무한 재조회하지 않는다.
+        if (newerSignal(dispatchedSignalVersion, consumedSignalVersion)) consumedSignalVersion = dispatchedSignalVersion;
+        if (newerSignal(next.snapshotSignalVersion, consumedSignalVersion)) consumedSignalVersion = next.snapshotSignalVersion;
         if (hasNewerSignal()) dirty = true;
         setState({ scope, data, loading: false, error: null });
       } catch (error) {

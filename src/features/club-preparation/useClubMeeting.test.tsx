@@ -138,6 +138,72 @@ describe("변경 신호 기반 스냅샷 비용", () => {
     expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
   });
 
+  it.each([undefined, null, "1:0"])("응답 신호 버전 %s가 없거나 뒤처져도 같은 신호의 성공 조회는 정착한다", async snapshotSignalVersion => {
+    const value = {...snapshot(1), snapshotSignalVersion};
+    setup(value); await tick();
+    // 결함이 있어도 테스트 자체가 무한 타이머를 돌지 않도록 초과 호출만 보류한다.
+    vi.mocked(getClubMeetingSnapshot).mockImplementation(() =>
+      vi.mocked(getClubMeetingSnapshot).mock.calls.length <= 3 ? Promise.resolve(value) : new Promise(() => {}));
+    signal(10); await tick(120_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+    signal(10); await tick(500 * 60_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+    signal(11); await tick(120_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([undefined, "1:0"])("진행 중 새 신호는 버전 %s 응답으로 확인하지 않고 정확히 한 번 후속 조회한다", async snapshotSignalVersion => {
+    const value = {...snapshot(1), snapshotSignalVersion};
+    setup(value); await tick();
+    let resolve!: (value: ClubMeetingSnapshot) => void;
+    vi.mocked(getClubMeetingSnapshot).mockImplementationOnce(() => new Promise(r => {resolve = r;}));
+    signal(2); await tick();
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+    signal(3); signal(4);
+    await tick(120_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+    vi.mocked(getClubMeetingSnapshot).mockImplementation(() =>
+      vi.mocked(getClubMeetingSnapshot).mock.calls.length <= 4 ? Promise.resolve(value) : new Promise(() => {}));
+    await act(async () => resolve(value));
+    await tick(120_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(3);
+    signal(4); await tick(500 * 60_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(3);
+  });
+
+  it("실패 중 도착한 신호도 재시도 성공 후 정착하며 같은 신호를 반복 조회하지 않는다", async () => {
+    const {result} = setup(); await tick();
+    let reject!: (reason: unknown) => void;
+    vi.mocked(getClubMeetingSnapshot).mockImplementationOnce(() => new Promise((_, no) => {reject = no;}));
+    signal(2); await tick();
+    signal(3);
+    await act(async () => reject({code: "functions/unavailable"}));
+    expect(result.current.error).not.toBeNull();
+    vi.mocked(getClubMeetingSnapshot).mockImplementation(() =>
+      vi.mocked(getClubMeetingSnapshot).mock.calls.length <= 4 ? Promise.resolve(snapshot(3)) : new Promise(() => {}));
+    await tick(1000);
+    expect(result.current.data?.revision).toBe(3);
+    expect(result.current.error).toBeNull();
+    signal(3); await tick(500 * 60_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(3);
+    expect(logClientError).toHaveBeenCalledTimes(1);
+  });
+
+  it("이전 scope의 높은 신호 확인값이 새 계정의 낮은 신호를 소비하지 않는다", async () => {
+    vi.useFakeTimers(); vi.setSystemTime(0);
+    vi.spyOn(document, "hidden", "get").mockReturnValue(false);
+    vi.mocked(getClubMeetingSnapshot).mockResolvedValueOnce({...snapshot(1), snapshotSignalVersion: "100:0"})
+      .mockResolvedValue(snapshot(2));
+    const {result, rerender} = renderHook(({uid}) => useClubMeeting("event", uid, "club"), {initialProps: {uid: "first"}});
+    await tick();
+    rerender({uid: "second"}); await tick();
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(2);
+    signal(2); await tick();
+    signal(2); await tick(500 * 60_000);
+    expect(getClubMeetingSnapshot).toHaveBeenCalledTimes(3);
+    expect(result.current.data?.revision).toBe(2);
+  });
+
   it("진행 중 도착한 신호 버전이 응답에 포함되면 중복 읽지 않는다", async () => {
     let resolve!: (value: ClubMeetingSnapshot) => void;
     const {result} = setup();
