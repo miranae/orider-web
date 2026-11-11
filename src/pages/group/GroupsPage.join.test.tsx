@@ -9,7 +9,7 @@ import { auth, ensureAppCheckReady } from "../../services/firebase";
 import GroupsPage from "./GroupsPage";
 
 const { publicGroups, myGroups, membershipState, usePublicGroupsMock } = vi.hoisted(() => ({
-  membershipState: { error: null as unknown, loading: false, pending: new Set<string>(), retry: vi.fn() },
+  membershipState: { snapshot: null as Array<Record<string, unknown>> | null, error: null as unknown, loading: false, pending: new Set<string>(), retry: vi.fn() },
   myGroups: [] as Array<Record<string, unknown>>,
   publicGroups: [] as Array<Record<string, unknown>>,
   usePublicGroupsMock: vi.fn(),
@@ -17,7 +17,7 @@ const { publicGroups, myGroups, membershipState, usePublicGroupsMock } = vi.hois
 
 vi.mock("../../hooks/useGroup", () => ({
   useGroupMemberRole: () => ({ role: null, loading: false }),
-  useMyGroups: () => ({ groups: myGroups, loading: membershipState.loading, error: membershipState.error, retry: membershipState.retry }),
+  useMyGroups: () => ({ groups: membershipState.snapshot ?? myGroups, loading: membershipState.loading, error: membershipState.error, retry: membershipState.retry }),
   usePendingGroupRequestIds: () => membershipState.pending,
   usePublicGroups: (options: unknown) => {
     usePublicGroupsMock(options);
@@ -29,14 +29,12 @@ vi.mock("../../hooks/useGroupNextEvents", () => ({
   useGroupNextEvents: () => ({ byGroup: new Map(), loading: false }),
 }));
 
-function renderPage(authenticated = true) {
-  return renderWithProviders(
-    <Routes>
+function pageRoutes() { return <Routes>
       <Route path="/ko/groups" element={<GroupsPage />} />
       <Route path="/ko/club/:groupId" element={<div>group destination</div>} />
-    </Routes>,
-    { route: "/ko/groups", authenticated },
-  );
+    </Routes>; }
+function renderPage(authenticated = true) {
+  return renderWithProviders(pageRoutes(), { route: "/ko/groups", authenticated });
 }
 
 describe("GroupsPage join results", () => {
@@ -46,6 +44,7 @@ describe("GroupsPage join results", () => {
     mockCallableInvocations.length = 0;
     Object.assign(auth, { currentUser: { uid: "test-uid" } });
     publicGroups.splice(0); myGroups.splice(0); membershipState.error = null;
+    membershipState.snapshot = null;
     membershipState.loading = false; membershipState.pending = new Set(); membershipState.retry = vi.fn();
     usePublicGroupsMock.mockClear();
   });
@@ -309,6 +308,33 @@ describe("GroupsPage join results", () => {
     expect(membershipState.retry).toHaveBeenCalled();
     expect(ensureAppCheckReady).toHaveBeenCalled();
   }, 15_000);
+
+  it.each([false, true])("가입이 서버 목록에 반영된 뒤 탈퇴하면 복원하지 않는다 서버 선반영 %s", async (ackBeforeReply) => {
+    addManualPublicGroup();
+    let resolveJoin!: (value: unknown) => void;
+    setCallableImplementation("joinGroupPublic", () => new Promise((resolve) => { resolveJoin = resolve; }));
+    const view = renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
+    await waitFor(() => expect(resolveJoin).toBeDefined());
+    if (ackBeforeReply) {
+      membershipState.snapshot = [...publicGroups];
+      view.rerender(pageRoutes());
+    }
+    await act(async () => { resolveJoin({ data: { success: true, status: "active" } }); });
+    await waitFor(() => expect(screen.getByTestId("C0-1")).toHaveTextContent("Manual Club"));
+    if (!ackBeforeReply) {
+      // 아직 서버 확인 전인 빈 목록은 가입 직후 표시를 지우지 않는다.
+      membershipState.snapshot = [];
+      view.rerender(pageRoutes());
+      expect(screen.getByTestId("C0-1")).toHaveTextContent("Manual Club");
+      membershipState.snapshot = [...publicGroups];
+      view.rerender(pageRoutes());
+    }
+    membershipState.snapshot = [];
+    view.rerender(pageRoutes());
+    expect(await screen.findByRole("button", { name: "가입 신청" })).toBeEnabled();
+    expect(screen.queryByTestId("C0-1")).not.toBeInTheDocument();
+  });
 
   it("treats an already-member answer as joined instead of a silent failure", async () => {
     addManualPublicGroup();

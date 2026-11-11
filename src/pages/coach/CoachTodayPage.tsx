@@ -19,7 +19,8 @@ type Sport = "bike" | "run" | "swim";
 
 /** 24·48시간 변화 계산에 넣을 오늘 부하. 예정이 없거나 휴식이면 0, 예정 운동에 TSS 가 없으면 null(계산 불가). */
 export function todayPlannedLoad(state: TodayTrainingDecisionState): { load: number; planned: boolean } | null {
-  const session = state.decision?.scheduledSessions.length ? primaryEffectiveSession(state.decision) : null;
+  if (state.loading || state.unavailable || !state.decision) return null;
+  const session = state.decision.scheduledSessions.length ? primaryEffectiveSession(state.decision) : null;
   if (!session || session.current.workout === "rest") return { load: 0, planned: false };
   return session.current.targetTss == null ? null : { load: session.current.targetTss, planned: true };
 }
@@ -35,7 +36,7 @@ function TodayPlan({ state }: { state: TodayTrainingDecisionState }) {
   if (state.loading) return <Card data-testid="K2-2" className="training-decision-card" aria-busy="true">
     <Text variant="body" tone="secondary">{t("training:decision.loading")}</Text></Card>;
   const decision = state.decision;
-  if (!decision && state.unavailableReason === "error") return <Card data-testid="K2-2" className="training-decision-card" data-today-plan="error">
+  if (!decision || state.unavailable) return <Card data-testid="K2-2" className="training-decision-card" data-today-plan={state.unavailableReason === "error" ? "error" : "unavailable"}>
     <Text as="span" variant="bodyMedium">{t("training:decision.eyebrow")}</Text>
     <Text as="p" variant="body" tone="secondary" style={{ margin: 0 }}>{t("training:decision.fallback.unavailableBody")}</Text>
   </Card>;
@@ -73,7 +74,7 @@ function TodayForecast({ state, awaitingAggregate }: { state: TodayTrainingDecis
   const planned = todayPlannedLoad(state);
   const note = !currentPoint || !hasCanonicalTimeseries ? t("today.forecastUnavailable")
     : awaitingAggregate ? t("today.forecastPending")
-    : planned == null ? t("today.forecastNoTss") : null;
+    : planned == null ? t(state.unavailable || !state.decision ? "today.forecastPlanUnavailable" : "today.forecastNoTss") : null;
   const points = note == null && currentPoint && planned ? forecastFitnessChoice48Hours(currentPoint, planned.load) : null;
   return <Card data-testid="K2-1" className="fitness-coach__choice-card">
     {points && planned && <Text as="p" variant="caption" tone="secondary" style={{ margin: "0 0 var(--space-3)" }}>
@@ -91,6 +92,9 @@ function TodayForecast({ state, awaitingAggregate }: { state: TodayTrainingDecis
 /**
  * 코치 "오늘 훈련" — 오늘의 계획(있음/없음) · AI 코치에게 분석 요청 · 24시간 후·48시간 후 변화만 보인다(2026-11-09 사용자 결정).
  * 변경 권고 적용·운동 보내기·간단 운동 고르기는 두지 않는다 — 계획 변경은 계획 탭, 운동 시작은 앱에서 한다.
+ * #1554의 명시적 화면 재배치다. 러닝 단계·구성·보류는 PlanView의 Run30ProgramView에 유지되고,
+ * PlanSurface는 협상된 scheduledRunStarter를 그 뷰에 전달해 앱 시작을 유지한다.
+ * PlanRecordNavigation은 sport=run을 계획 탭에 전달한다(각 화면의 run30·navigation 회귀 테스트).
  */
 export default function CoachTodayPage() {
   const model = useCoachFitnessModel();

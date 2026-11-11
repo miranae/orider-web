@@ -1129,6 +1129,7 @@
     "forecastHours": "{{hours}}시간 후 변화",
     "forecastBasisPlanned": "오늘 예정 운동({{tss}} TSS)을 하면",
     "forecastBasisRest": "오늘 예정 운동이 없어 쉬는 것으로 계산했어요",
+    "forecastPlanUnavailable": "오늘의 계획을 확인할 수 없어 24·48시간 예측을 표시하지 않습니다.",
     "forecastNoTss": "예정 운동에 TSS 가 없어 변화를 계산할 수 없어요.",
     "forecastPending": "최근 활동의 부하 반영이 끝나면 변화를 보여 드릴게요.",
     "deliveryUnavailable": "기기 전송은 건강 상태와 유효한 오늘 결정을 확인한 뒤 사용할 수 있습니다.",

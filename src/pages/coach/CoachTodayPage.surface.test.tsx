@@ -87,6 +87,16 @@ describe("오늘 훈련 — 계획 · AI 코치 분석 요청 · 24/48시간 변
     expect(screen.queryByRole("button", { name: "training:decision.refresh" })).not.toBeInTheDocument();
   });
 
+  it.each(["error", "disabled", null] as const)("계획을 확인하지 못하면 예정 없음이나 휴식 예측으로 바꾸지 않는다 %s", (reason) => {
+    mocks.state = { ...mocks.state, decision: null, unavailable: reason !== null, unavailableReason: reason };
+    renderToday();
+    expect(screen.getByText("training:decision.fallback.unavailableBody")).toBeInTheDocument();
+    expect(screen.queryByText("training:decision.noScheduled")).not.toBeInTheDocument();
+    expect(screen.queryByText("today.forecastBasisRest")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("K2-1-2")).not.toBeInTheDocument();
+    expect(screen.getByText("today.forecastPlanUnavailable")).toBeInTheDocument();
+  });
+
   it("건강 신호로 운동 중단이면 경고를 계획 카드에 보인다", () => {
     mocks.state = { ...mocks.state, unavailable: false, unavailableReason: null, decision: decisionWith([session("z2", 60)], "stop") };
     renderToday();
@@ -110,7 +120,8 @@ describe("오늘 훈련 — 계획 · AI 코치 분석 요청 · 24/48시간 변
 describe("todayPlannedLoad", () => {
   const base = { loading: false, unavailable: false, unavailableReason: null, scheduledOnly: false, refresh: vi.fn() };
   it("예정 없음·휴식은 0, 예정 운동은 TSS, TSS 없음은 null", () => {
-    expect(todayPlannedLoad({ ...base, decision: null })).toEqual({ load: 0, planned: false });
+    expect(todayPlannedLoad({ ...base, decision: null })).toBeNull();
+    expect(todayPlannedLoad({ ...base, decision: decisionWith([]) })).toEqual({ load: 0, planned: false });
     expect(todayPlannedLoad({ ...base, decision: decisionWith([session("rest", 0)]) })).toEqual({ load: 0, planned: false });
     expect(todayPlannedLoad({ ...base, decision: decisionWith([session("z2", 55)]) })).toEqual({ load: 55, planned: true });
     expect(todayPlannedLoad({ ...base, decision: decisionWith([session("z2", null)]) })).toBeNull();
