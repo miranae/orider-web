@@ -44,7 +44,7 @@ describe('구간 선택 시 코스 정보 자동 반영',()=>{
     fireEvent.click(screen.getByRole('button',{name:'첫 구간 추가'}));fireEvent.click(screen.getByRole('button',{name:'확인하고 적용'}));expect(result().distanceKm).toBe(3.2);expect(result().courseCheckpoints).toHaveLength(2);
   });
   it('자동 반영한 구간 수치와 지점을 초안 복구·모집글 미리보기에 보존한다',()=>{
-    localStorage.clear();const state=createSeed();const initial:Meeting={...state.meetings[2]!,id:'segment-draft',hostId:'me',courseSource:readSegmentCoursePlan([]).source,segments:[],courseCheckpoints:[],courseStops:[],distanceKm:undefined,elevationGainM:undefined};
+    localStorage.clear();const state=createSeed();const initial:Meeting={...state.meetings[2]!,id:'segment-draft',hostId:'me',date:'2099-10-25',courseSource:readSegmentCoursePlan([]).source,segments:[],courseCheckpoints:[],courseStops:[],distanceKm:undefined,elevationGainM:undefined};
     const view=render(<MeetingForm state={state} initial={initial} onSave={vi.fn()} onClose={vi.fn()}/>);
     fireEvent.click(screen.getByRole('button',{name:'첫 구간 추가'}));expect(latestDraft().meeting).toMatchObject({distanceKm:3.2,elevationGainM:0});expect(latestDraft().meeting?.courseCheckpoints).toHaveLength(2);
     view.unmount();render(<MeetingForm state={state} initial={initial} onSave={vi.fn()} onClose={vi.fn()}/>);

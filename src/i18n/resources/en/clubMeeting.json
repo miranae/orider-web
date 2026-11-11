@@ -246,5 +246,6 @@
   "야외에서 모여 실외 라이딩으로 기록합니다": "Meet outdoors and record it as an outdoor ride",
   "실내 모임만 앱 실내 라이딩의 신청한 모임에 나타납니다.": "Only indoor meetings appear under registered meetings in the app's indoor riding.",
   "이 모임은 아직 실내·실외가 정해지지 않았어요. 저장하려면 선택해주세요.": "This meeting is not yet marked as indoor or outdoor. Choose one to save.",
-  "실내 모임인지 실외 모임인지 선택해주세요.": "Choose whether this is an indoor or outdoor meeting."
+  "실내 모임인지 실외 모임인지 선택해주세요.": "Choose whether this is an indoor or outdoor meeting.",
+  "집결 시각이 이미 지났어요. 미래의 날짜와 시각을 선택해주세요.": "The meeting time has already passed. Choose a future date and time."
 }
