@@ -17,6 +17,14 @@ vi.mock("./firebase", () => ({
   ensureAppCheckReady: api.ready,
 }));
 describe("서버 모임 작성 계약", () => {
+  it("같은 권한 있는 스냅샷 API에 공지 커서만 선택적으로 전달한다", async () => {
+    api.call.mockResolvedValue({data: {noticeNextCursor: null}});
+    const meetingApi = createClubMeetingsApi();
+    await meetingApi.getClubMeetingSnapshot("meeting");
+    expect(api.call).toHaveBeenLastCalledWith({eventId: "meeting"});
+    await meetingApi.getClubMeetingSnapshot("meeting", "n480");
+    expect(api.call).toHaveBeenLastCalledWith({eventId: "meeting", noticeCursor: "n480"});
+  });
   it("소유자·신청·모집상태를 작성payload에서 제외하고 같은 요청 ID로 생성한다", async () => {
     api.call.mockResolvedValue({ data: { eventId: "server-created" } });
     const meeting = {

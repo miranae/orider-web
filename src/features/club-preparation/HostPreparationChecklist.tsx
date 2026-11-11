@@ -14,10 +14,11 @@ export function preparationFollowUps(meeting: Meeting) {
   return { unconfirmed, unsetTravel };
 }
 
-export default function HostPreparationChecklist({ meeting, members, unassignedCount }: {
+export default function HostPreparationChecklist({ meeting, members, unassignedCount, noticePageLimited }: {
   meeting: Meeting;
   members: Member[];
   unassignedCount?: number;
+  noticePageLimited?: boolean;
 }) {
   const { i18n } = useTranslation();
   const en = i18n.language.startsWith('en');
@@ -43,6 +44,7 @@ export default function HostPreparationChecklist({ meeting, members, unassignedC
     <Card className="cp-followups" id="meeting-followups">
       <div className="cp-section-heading"><h2>{text('준비할 일 한눈에', 'Preparation at a glance')}</h2></div>
       <p className="cp-muted">{text('현재 명단에서 챙길 인원을 모았어요. 회원이 신청·취소하거나 내용을 확인하면 갱신됩니다.', 'See who still needs attention. This updates as members register, cancel, or confirm notices.')}</p>
+      {noticePageLimited && <p className="cp-muted">{text('공지 미확인 명단은 현재 표시된 공지 기준입니다. 이전 공지도 확인해주세요.', 'Notice follow-ups cover this page. Check older notices as well.')}</p>}
       <div className="cp-followup-links">
         {unassignedCount !== undefined && <a href="#meeting-teams"><strong>{unassignedCount}</strong><span>{text('조 미배정', 'Unassigned')}</span></a>}
         <a href="#meeting-travel"><strong>{unsetTravel.length}</strong><span>{text('합류 지점 미정', 'Meeting point not selected')}</span></a>

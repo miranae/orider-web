@@ -34,6 +34,15 @@ const doc1 = {
 // mock 초기화는 각 테스트 안에서 한다 — beforeEach 가 mock 을 반환하면 vitest 가 그것을
 // teardown 콜백으로 보고 테스트 뒤에 호출한다.
 describe("fetchMaintenanceSnapshot", () => {
+  it("증분 입력 지문 버전도 서버의 정비 수치를 그대로 읽는다", async () => {
+    getDoc.mockReset();
+    getDoc.mockResolvedValue(snapshot({ ...doc1, algorithmVersion: "maintenance@2",
+      inputRevision: "sha256-xor-v2:abc|records=1|base=120.0" }));
+    const envelope = await fetchMaintenanceSnapshot("u1", "b1");
+    expect(envelope.algorithmVersion).toBe("maintenance@2");
+    expect(envelope.data?.odometerKm).toBe(doc1.data.odometerKm);
+    expect(envelope.data?.components).toEqual(doc1.data.components);
+  });
   it("읽기 실패는 failed 봉투다 — 던지지 않는다", async () => {
     getDoc.mockReset();
     getDoc.mockImplementation(() => { throw new Error("permission-denied"); });

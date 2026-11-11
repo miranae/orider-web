@@ -71,8 +71,11 @@ it("removes map geometry from the model while preserving only layout during reva
 
 it.each(["functions/permission-denied", "functions/not-found", "functions/unauthenticated"])("keeps a recent visible session interactive during focus, then removes access on %s", async code => {
  const click = vi.fn();
+ const focusRegistration = vi.spyOn(window, "addEventListener");
  render(<MemoryRouter><ActivityPublicAccess {...options}>{() => <button onClick={click}>React</button>}</ActivityPublicAccess></MemoryRouter>);
  const button = await screen.findByRole("button", { name: "React" });
+ // 준비 DOM은 passive effect보다 먼저 보일 수 있으므로 실제 재검증 구독을 기다린다.
+ await waitFor(() => expect(focusRegistration).toHaveBeenCalledWith("focus", expect.any(Function)));
  let reject!: (reason: unknown) => void;
  state.load.mockReturnValue(new Promise((_, no) => { reject = no; }));
  fireEvent.focus(window);
@@ -84,7 +87,9 @@ it.each(["functions/permission-denied", "functions/not-found", "functions/unauth
 });
 it("shields focus immediately when the last successful verification is old", async () => {
  const now = vi.spyOn(Date, "now").mockReturnValue(100_000);
+ const focusRegistration = vi.spyOn(window, "addEventListener");
  render(<Probe />); const body = await screen.findByText(/health_connect/);
+ await waitFor(() => expect(focusRegistration).toHaveBeenCalledWith("focus", expect.any(Function)));
  now.mockReturnValue(130_001);
  state.load.mockReturnValue(new Promise(() => {}));
  fireEvent.focus(window);
@@ -92,7 +97,9 @@ it("shields focus immediately when the last successful verification is old", asy
 });
 it("bounds visible focus retention by the remaining verification lifetime and never unmasks a hidden tab", async () => {
  const now = vi.spyOn(Date, "now").mockReturnValue(100_000);
+ const focusRegistration = vi.spyOn(window, "addEventListener");
  render(<Probe />); const body = await screen.findByText(/health_connect/);
+ await waitFor(() => expect(focusRegistration).toHaveBeenCalledWith("focus", expect.any(Function)));
  now.mockReturnValue(129_900); vi.useFakeTimers();
  try {
    state.load.mockReturnValue(new Promise(() => {}));
@@ -104,7 +111,9 @@ it("bounds visible focus retention by the remaining verification lifetime and ne
 });
 
 it("does not reveal the previous account from a pending focus response", async () => {
+ const focusRegistration = vi.spyOn(window, "addEventListener");
  const view = render(<Probe />); await screen.findByText(/health_connect/);
+ await waitFor(() => expect(focusRegistration).toHaveBeenCalledWith("focus", expect.any(Function)));
  let old!: (value: PublicActivityDetail) => void;
  state.load.mockReturnValueOnce(new Promise(yes => { old = yes; })).mockReturnValue(new Promise(() => {}));
  fireEvent.focus(window);
