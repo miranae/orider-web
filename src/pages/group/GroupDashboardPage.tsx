@@ -3,6 +3,7 @@ import { getVisibleEventPage } from "../../services/eventDiscovery";
 import "./ClubSurface.css";
 import { LockKeyhole, Users } from "lucide-react";
 import { isActiveEventRegistration } from "../../features/event/activeRegistration";
+import { isEventHost } from "../../features/event/eventHost";
 import Modal from "../../components/Modal";
 import InfoTip from "../../components/InfoTip";
 import { useEffect, useRef, useState } from "react";
@@ -39,6 +40,8 @@ interface UpcomingEvent {
   status: string;
   participantCount: number | null;
   myRsvp: boolean | null;
+  /** 주최자면 카드에서 바로 수정으로 간다. 수정 가능 여부는 수정 화면과 서버가 다시 판정한다. */
+  isHost: boolean;
 }
 
 export default function GroupDashboardPage() {
@@ -100,7 +103,8 @@ export default function GroupDashboardPage() {
     setUpcomingLoading(true);
     (async () => {
       try {
-        const snap = await getVisibleEventPage({ groupId, publicOnly: !currentMemberRole, statuses: ["OPEN", "LIVE"], limit: 3 });
+        // 임베드(앱 클럽 상세)는 기본 Firebase 가 없다 — 화면의 서비스로 불러야 앱에서도 목록이 보인다.
+        const snap = await getVisibleEventPage({ groupId, publicOnly: !currentMemberRole, statuses: ["OPEN", "LIVE"], limit: 3 }, { auth, functions, ensureAppCheckReady });
         if (cancelled) return;
         setUpcomingIncomplete(Boolean(snap.nextCursor));
         const list: UpcomingEvent[] = await Promise.all(snap.docs.map(async (d) => {
@@ -112,9 +116,14 @@ export default function GroupDashboardPage() {
             info.startTime?.seconds ? info.startTime.seconds * 1000 : 0;
           const meeting = info.kind === "CLUB_MEETING";
           let name = info.name ?? t("dashboard.fallbackEventName");
+          let isHost = !meeting && isEventHost(user?.uid, {
+            creatorId: typeof info.creatorId === "string" ? info.creatorId : null,
+            hostIds: Array.isArray(info.hostIds) ? info.hostIds : null,
+          });
           if (meeting) {
             const snapshot = await getClubMeetingSnapshot(d.id);
             name = snapshot.meeting.title;
+            isHost = snapshot.isHost === true;
           }
           let myRsvp: boolean | null = null;
           if (!meeting && user?.uid && currentMemberRole) {
@@ -132,6 +141,7 @@ export default function GroupDashboardPage() {
             status: info.status ?? "UNKNOWN",
             participantCount: typeof data.counters?.totalRegistered === "number" ? data.counters.totalRegistered : null,
             myRsvp,
+            isHost,
           };
         }));
         if (!cancelled) setUpcomingEvents(list);
@@ -141,7 +151,7 @@ export default function GroupDashboardPage() {
       } finally { if (!cancelled) setUpcomingLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [groupId, t, user?.uid, accessKey, upcomingAttempt, getClubMeetingSnapshot]);
+  }, [groupId, t, user?.uid, accessKey, upcomingAttempt, getClubMeetingSnapshot, auth, functions, ensureAppCheckReady]);
 
   if (!user && !authLoading) return <PublicClubPreview groupId={groupId} />;
 
@@ -464,6 +474,16 @@ export default function GroupDashboardPage() {
                   </div>
                 </Link>
                 <div className="flex items-center" style={{ gap: "var(--space-1)" }}>
+                  {e.isHost && (e.meeting || e.status === "OPEN") && (
+                    <Link
+                      data-testid="club-dashboard-edit"
+                      to={e.meeting ? `/club/${groupId}/meetings/${e.id}/edit` : `/event/${e.id}/host/edit`}
+                      className={buttonClass({ variant: "secondary", size: "sm" })}
+                      style={{ whiteSpace: "nowrap" }}
+                    >
+                      {e.meeting ? (i18n.language.startsWith("en") ? "Edit meeting" : "모임 수정") : t("event:action.editEvent")}
+                    </Link>
+                  )}
                   {e.status === "OPEN" && (
                     <Link
                       to={e.meeting ? `/club/${groupId}/meetings/${e.id}` : e.myRsvp === null || e.myRsvp ? `/event/${e.id}` : `/event/${e.id}/register`}

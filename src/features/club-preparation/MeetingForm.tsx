@@ -2,7 +2,7 @@ import { mt } from "./meetingText";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "../../theme/components/Button";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
-import type { Meeting, State } from "./domain";
+import type { Meeting, MeetingVenue, State } from "./domain";
 import CoursePreparation from "./CoursePreparation";
 import CoursePreview, { CourseSummary } from "./CoursePreview";
 import { clearDraft, draftScope, readDraft, writeDraft } from "./meetingDrafts";
@@ -10,6 +10,22 @@ import { isMeetingStartNotFuture } from "./meetingSchedule";
 
 const START_NOT_FUTURE_MESSAGE =
   "집결 시각이 이미 지났어요. 미래의 날짜와 시각을 선택해주세요.";
+
+/** 실내·실외 선택지. 설명은 앱에서 달라지는 점(목록 노출·출발 방식)을 알려준다. */
+export const MEETING_VENUE_OPTIONS: { value: MeetingVenue; label: string; hint: string }[] = [
+  {
+    value: "indoor",
+    label: "실내",
+    hint: "앱 실내 라이딩으로 함께 출발합니다(가상 코스·출발 대기)",
+  },
+  {
+    value: "outdoor",
+    label: "실외",
+    hint: "야외에서 모여 실외 라이딩으로 기록합니다",
+  },
+];
+export const meetingVenueLabel = (venue: MeetingVenue | undefined): string =>
+  venue === "indoor" ? mt("실내") : venue === "outdoor" ? mt("실외") : "";
 
 export default function MeetingForm({
   state,
@@ -47,7 +63,6 @@ export default function MeetingForm({
     (recovery.meeting ?? initial).courseStops?.join("\n") ?? "",
   );
   const [saveError, setSaveError] = useState(recovery.error ?? "");
-  const [saved, setSaved] = useState(false);
   const [preview, setPreview] = useState(false);
   const [dateConfirmed, setDateConfirmed] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -74,10 +89,8 @@ export default function MeetingForm({
         },
         baseRevision,
       );
-      setSaved(true);
       setSaveError("");
     } catch {
-      setSaved(false);
       setSaveError(
         mt(
           "초안을 저장하지 못했어요. 입력값과 브라우저 저장 공간을 확인해주세요.",
@@ -96,6 +109,10 @@ export default function MeetingForm({
   const submit = async () => {
     if (savingRef.current) return;
     if (startNotFuture()) return;
+    if (!draft.venue) {
+      setSaveError(mt("실내 모임인지 실외 모임인지 선택해주세요."));
+      return;
+    }
     if (!existing && !dateConfirmed) {
       setSaveError(mt("개최 날짜와 시각을 확인해주세요."));
       return;
@@ -120,6 +137,11 @@ export default function MeetingForm({
   };
   const reviewRows = [
     { label: mt("모임 이름"), before: initial.title, after: draft.title },
+    {
+      label: mt("실내 / 실외"),
+      before: meetingVenueLabel(initial.venue),
+      after: meetingVenueLabel(draft.venue),
+    },
     {
       label: mt("일시"),
       before: `${initial.date} ${initial.time}`,
@@ -158,30 +180,31 @@ export default function MeetingForm({
       after: draft.description,
     },
   ].filter((row) => !existing || row.before !== row.after);
-  const actions = (location: string) => (
-    <div className={`cp-form-actions cp-form-actions--${location}`}>
-      <span className="cp-muted" role="status">
-        {saved
-          ? mt("초안 자동 저장됨 · 아직 게시되지 않았어요")
-          : mt("초안 저장 확인 중")}
-      </span>
-      <div className="cp-actions">
-        <Button variant="outline" disabled={saving} onClick={onClose}>
-          {mt("닫고 나중에 계속")}
-        </Button>
-        <Button
-          variant="primary"
-          disabled={reading || saving}
-          onClick={() => {
-            if (formRef.current?.reportValidity() && !startNotFuture()) {
-              setSaveError("");
-              setPreview(true);
-            }
-          }}
-        >
-          {mt("모집글 미리보기")}
-        </Button>
-      </div>
+  // 작성 단계 하단 막대: 버튼 두 개만 한 줄로 화면 맨 아래에 붙인다. 초안 자동 저장 상태 문구는
+  // 막대를 두 줄로 키워 빼고, 저장 실패 같은 오류만 위쪽 경고(role=alert)와 같은 문장을 한 줄로
+  // 줄여 막대 위에 보여준다 — 긴 양식 끝에서 버튼을 누르려는 사람이 위 경고를 놓치지 않게.
+  const actions = () => (
+    <div className="cp-form-actions cp-form-actions--bottom cp-form-actions--bar">
+      {saveError && (
+        <p className="cp-form-actions__error" title={saveError}>
+          {saveError}
+        </p>
+      )}
+      <Button variant="outline" disabled={saving} onClick={onClose}>
+        {mt("닫고 나중에 계속")}
+      </Button>
+      <Button
+        variant="primary"
+        disabled={reading || saving}
+        onClick={() => {
+          if (formRef.current?.reportValidity() && !startNotFuture()) {
+            setSaveError("");
+            setPreview(true);
+          }
+        }}
+      >
+        {mt("모집글 미리보기")}
+      </Button>
     </div>
   );
   const [reading, setReading] = useState(false);
@@ -204,7 +227,8 @@ export default function MeetingForm({
         <div className="cp-stack">
           <p>{draft.description}</p>
           <p>
-            {draft.date} {draft.time} · {draft.place}
+            {meetingVenueLabel(draft.venue)} · {draft.date} {draft.time} ·{" "}
+            {draft.place}
           </p>
           <CourseSummary meeting={completeDraft()} />
           <CoursePreview meeting={completeDraft()} />
@@ -270,7 +294,7 @@ export default function MeetingForm({
               {saveError}
             </p>
           )}
-          <div className="cp-form-actions cp-form-actions--bottom">
+          <div className="cp-form-actions cp-form-actions--bottom cp-form-actions--bar">
             <Button disabled={saving} onClick={() => setPreview(false)}>
               {mt("더 수정하기")}
             </Button>
@@ -357,6 +381,30 @@ export default function MeetingForm({
             onChange={(e) => patch({ title: e.target.value })}
           />
         </Field>
+        <fieldset className="cp-venue-choice" aria-describedby="meeting-venue-hint">
+          <legend>{mt("실내 / 실외")}</legend>
+          <p id="meeting-venue-hint" className="cp-muted">
+            {existing && !initial.venue
+              ? mt("이 모임은 아직 실내·실외가 정해지지 않았어요. 저장하려면 선택해주세요.")
+              : mt("실내 모임만 앱 실내 라이딩의 신청한 모임에 나타납니다.")}
+          </p>
+          {MEETING_VENUE_OPTIONS.map((option) => (
+            <label key={option.value} className="cp-venue-option">
+              <input
+                type="radio"
+                name="meeting-venue"
+                value={option.value}
+                required
+                checked={draft.venue === option.value}
+                onChange={() => patch({ venue: option.value })}
+              />
+              <span>
+                <strong>{mt(option.label)}</strong>
+                <span className="cp-muted">{mt(option.hint)}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
         <div className="cp-form-grid">
           <Field label={mt("모임 종류")} htmlFor="meeting-kind">
             <Select
@@ -646,7 +694,7 @@ export default function MeetingForm({
             />
           </Field>
         </details>
-        {actions("bottom")}
+        {actions()}
       </form>
     </section>
   );

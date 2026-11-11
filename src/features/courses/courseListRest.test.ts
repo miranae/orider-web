@@ -82,6 +82,26 @@ describe("runQuery 요청 본문", () => {
   });
 });
 
+describe("필드·조건을 지정한 조회", () => {
+  it("문서 이름 순이면 정렬 한 줄, 지정 필드만 select, 일치 조건을 AND 로 묶는다", () => {
+    const { structuredQuery } = buildCourseListQueryBody({ orderField: "__name__", direction: "ASCENDING", limit: 20,
+      fields: ["name", "waypoints"], equals: [["visibility", { stringValue: "public" }], ["deletedAt", { nullValue: null }]] });
+    expect(structuredQuery.select).toEqual({ fields: [{ fieldPath: "name" }, { fieldPath: "waypoints" }] });
+    expect(structuredQuery.orderBy).toEqual([{ field: { fieldPath: "__name__" }, direction: "ASCENDING" }]);
+    expect(structuredQuery.where).toEqual({ compositeFilter: { op: "AND", filters: [
+      { fieldFilter: { field: { fieldPath: "visibility" }, op: "EQUAL", value: { stringValue: "public" } } },
+      { fieldFilter: { field: { fieldPath: "deletedAt" }, op: "EQUAL", value: { nullValue: null } } },
+    ] } });
+  });
+
+  it("문서 이름 순 커서는 마지막 문서 참조 하나다", async () => {
+    const name = "projects/proj/databases/(default)/documents/courses/z";
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify([{ document: { name, fields: { name: { stringValue: "z" } } } }]), { status: 200 }));
+    const page = await runCourseListQuery({ firestore: firestore() }, { orderField: "__name__", direction: "ASCENDING", limit: 20 }, fetchImpl);
+    expect(page.cursor).toEqual({ values: [{ referenceValue: name }] });
+  });
+});
+
 describe("runQuery 호출", () => {
   it("에뮬레이터 연결이면 그 호스트(http)로, 아니면 운영 엔드포인트로 보낸다", () => {
     expect(runQueryUrl(firestore({ host: "localhost:8080", ssl: false }))).toBe("http://localhost:8080/v1/projects/proj/databases/(default)/documents:runQuery");

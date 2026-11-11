@@ -278,7 +278,36 @@ export function useMyGroups(userId: string | undefined) {
     return () => { cancelled = true; };
   }, [firestore, userId, reloadKey]);
 
+  // 회원 색인(user_groups)이 바뀌면 다시 읽는다 — 화면을 연 뒤 다른 경로(초대 링크·앱·상세)로 가입·탈퇴해도
+  // '클럽 찾기'에 가입한 클럽이 남지 않게 한다(#1558). 첫 스냅샷은 위 조회와 같은 상태라 건너뛴다.
+  useEffect(() => {
+    if (!userId) return;
+    let first = true;
+    const unsubscribe = onSnapshot(collection(firestore, "user_groups", userId, "groups"), () => {
+      if (first) { first = false; return; }
+      setReloadKey((key) => key + 1);
+    }, (err) => { logClientError("useMyGroups.membershipIndex", err, { userId }); });
+    return unsubscribe;
+  }, [firestore, userId]);
+
   return { groups, loading, error, retry: () => setReloadKey((key) => key + 1) };
+}
+
+/** 내가 보낸 클럽 가입 요청 중 승인 대기인 클럽 ID(users/{uid}/group_requests, 실시간). '승인 대기' 표시에 쓴다(#1558). */
+export function usePendingGroupRequestIds(userId: string | undefined): Set<string> {
+  const { firestore } = useFirebaseServices();
+  const [ids, setIds] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    setIds(new Set());
+    if (!userId) return;
+    const unsubscribe = onSnapshot(
+      query(collection(firestore, "users", userId, "group_requests"), where("status", "==", "pending"), firestoreLimit(50)),
+      (snapshot) => setIds(new Set(snapshot.docs.map((d) => String(d.data().groupId ?? d.id)))),
+      (err) => { logClientError("usePendingGroupRequestIds", err, { userId }); },
+    );
+    return unsubscribe;
+  }, [firestore, userId]);
+  return ids;
 }
 
 // 공개 그룹 검색

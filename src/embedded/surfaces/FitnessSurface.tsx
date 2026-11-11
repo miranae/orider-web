@@ -10,17 +10,15 @@ import CoachAnalysisPage from "../../pages/coach/CoachAnalysisPage";
 // 오늘 탭의 "활동 기록·수행 확인" — 코치 임베드 안에서 연다(무거운 기록 화면이라 필요할 때만 불러온다).
 const TrainingLogPage = lazy(() => import("../../pages/TrainingLogPage"));
 import { CoachFitnessModelContext } from "../../pages/coach/CoachFitnessModelContext";
-import type { Run30StartMode } from "../../features/training/run30/run30Start";
 import { useFitnessModel } from "../../hooks/useFitnessModel";
 
 export interface FitnessSurfaceProps {
   onReady: (status?: "cached" | "fresh" | "error", contentComplete?: boolean) => void;
   retryKey: number;
   active?: boolean;
-  startMode?: Run30StartMode;
 }
 
-export default function FitnessSurface({ onReady, retryKey, active = true, startMode }: FitnessSurfaceProps) {
+export default function FitnessSurface({ onReady, retryKey, active = true }: FitnessSurfaceProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get("sport");
   const sport = requested === "run" || requested === "bike" || requested === "swim" && isSportUiEnabled(requested)
@@ -66,10 +64,11 @@ export default function FitnessSurface({ onReady, retryKey, active = true, start
     <main className="orider-embedded-surface" data-testid="embedded-fitness">
       {active && <CoachFitnessModelContext.Provider value={model}>
         {recordsPage ? <Suspense fallback={null}><TrainingLogPage /></Suspense>
-          : searchParams.get("page") === "today" ? <CoachTodayPage startMode={startMode} />
+          : searchParams.get("page") === "today" ? <CoachTodayPage />
           : searchParams.get("page") === "analysis" ? <CoachAnalysisPage />
           : <CoachConditionPage />}
-        <CoachQuestionEntry model={model} page={searchParams.get("page") === "today" || recordsPage ? "today" : searchParams.get("page") === "analysis" ? "analysis" : "condition"} />
+        {/* 오늘 훈련은 화면 안에 "AI 코치에게 분석 요청" 을 둔다 — 떠 있는 버튼을 겹쳐 두지 않는다. */}
+        {searchParams.get("page") !== "today" && <CoachQuestionEntry model={model} page={recordsPage ? "today" : searchParams.get("page") === "analysis" ? "analysis" : "condition"} />}
       </CoachFitnessModelContext.Provider>}
     </main>
   );

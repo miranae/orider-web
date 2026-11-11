@@ -1,6 +1,5 @@
 import { httpsCallable } from "firebase/functions";
 import { type DocumentData } from "firebase/firestore";
-import { ensureAppCheckReady, functions } from "./firebase";
 
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 
@@ -11,13 +10,16 @@ interface Page { rows: Array<{ id: string; data: DocumentData }>; nextCursor: st
 /** Discovery never falls back to a raw events query: that would bypass private-event filtering. */
 type DiscoveryServices = Pick<FirebaseServices, "auth" | "functions" | "ensureAppCheckReady">;
 
-export async function getVisibleEventPage(options: Options, services?: DiscoveryServices) {
-  const provider = services ?? { functions, ensureAppCheckReady };
-  const viewer = services?.auth.currentUser;
-  await provider.ensureAppCheckReady();
-  if (services && services.auth.currentUser !== viewer) throw new Error("account_changed");
-  const page = (await httpsCallable<Options, Page>(provider.functions, "listVisibleEventEnvelopes")(options)).data;
-  if (services && services.auth.currentUser !== viewer) throw new Error("account_changed");
+/**
+ * `services` 는 필수다 — 화면의 `useFirebaseServices()` 를 넘긴다. 앱 임베드는 기본 Firebase 를
+ * 초기화하지 않아, 기본 싱글턴으로 부르면 앱 안에서만 목록이 비거나 실패한다(#1485, 클럽 첫 화면).
+ */
+export async function getVisibleEventPage(options: Options, services: DiscoveryServices) {
+  const viewer = services.auth.currentUser;
+  await services.ensureAppCheckReady();
+  if (services.auth.currentUser !== viewer) throw new Error("account_changed");
+  const page = (await httpsCallable<Options, Page>(services.functions, "listVisibleEventEnvelopes")(options)).data;
+  if (services.auth.currentUser !== viewer) throw new Error("account_changed");
   if (!page.rows.length && page.nextCursor && page.nextCursor === options.cursor) throw new Error("Event discovery continuation made no progress");
   const docs: EventEnvelopeDoc[] = page.rows.map(row => ({ id: row.id, data: () => row.data }));
   return { docs, nextCursor: page.nextCursor, forEach: (callback: (doc: EventEnvelopeDoc) => void) => docs.forEach(callback) };

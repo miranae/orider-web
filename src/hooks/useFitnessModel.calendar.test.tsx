@@ -49,7 +49,7 @@ function seed(activities: Activity[]) {
   setCollectionDocs("activities", activities as unknown as Array<Record<string,unknown>&{id:string}>);
   for (const a of activities) setDocData(`activity_metrics/${a.id}`,{tss:100});
 }
-beforeEach(()=>{sessionStorage.clear();clearTrainingSurfaceCache();mocks.timeseries=null;mocks.activityWindow=null;mocks.pdcSufficiency=null;mocks.canonicalOn=false;mocks.pendingFetch=null;vi.mocked(getDoc).mockClear();vi.spyOn(Date,"now").mockReturnValue(fixedNow);});
+beforeEach(()=>{sessionStorage.clear();clearTrainingSurfaceCache();mocks.timeseries=null;mocks.activityWindow=null;mocks.pdcSufficiency=null;mocks.canonicalOn=false;mocks.pendingFetch=null;vi.mocked(getDoc).mockClear();vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(fixedNow);vi.spyOn(Date,"now");});
 afterEach(()=>{cleanup();vi.restoreAllMocks();vi.useRealTimers();});
 
 
@@ -176,6 +176,8 @@ describe("calendar load reaches actual fitness screens",()=>{
   enableCanonical(timeseries([point]));seed([]);
   const h=renderHook(()=>useFitnessModel("tri",options));await waitFor(()=>expect(h.result.current.canonicalFitness.values).not.toBeNull());
   expect(h.result.current.triFitnessTimeline).toEqual([]);
+  // 일별 부하 차트는 new Date() 기준 42일 창이다 — 실제 시계가 고정 데이터에서 멀어지면 빈 차트가 된다.
+  vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(fixedNow);
   const r=render(<MemoryRouter><TriFitnessView range={90} onRangeChange={vi.fn()} breakdown={h.result.current.triFitnessBreakdown} timeline={[]} combinedLoad={h.result.current.combinedLoad} loadFocus={null}/></MemoryRouter>);
   const chart=r.container.querySelector("[data-daily-point-count]")!;
   fireEvent.pointerEnter(chart.firstElementChild!.firstElementChild!);
@@ -186,6 +188,8 @@ describe("calendar load reaches actual fitness screens",()=>{
   const h=renderHook(()=>useFitnessModel("tri",options));await waitFor(()=>expect(h.result.current.derivedMetricsSettled).toBe(true));
   expect(h.result.current.triFitnessBreakdown.run.weeklyTSS).toBe(100);
   expect(h.result.current.triFitnessTimeline.length>0).toBe(!unknown);
+  // 일별 부하 차트는 new Date() 기준 42일 창이다 — 실제 시계가 고정 데이터에서 멀어지면 빈 차트가 된다.
+  vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(fixedNow);
   const r=render(<MemoryRouter><TriFitnessView range={90} onRangeChange={vi.fn()} breakdown={h.result.current.triFitnessBreakdown} timeline={h.result.current.triFitnessTimeline} combinedLoad={h.result.current.combinedLoad} loadFocus={null}/></MemoryRouter>);
   const chart=r.container.querySelector("[data-daily-point-count]");expect(chart).not.toBeNull();
   const bar=chart!.firstElementChild!.firstElementChild!;fireEvent.pointerEnter(bar);
@@ -196,6 +200,8 @@ describe("calendar load reaches actual fitness screens",()=>{
   seed([{...activity(null,"unknown"),type:"Run",serverDerivedLoad:undefined}]);
   const h=renderHook(()=>useFitnessModel("tri",options));await waitFor(()=>expect(h.result.current.derivedMetricsSettled).toBe(true));
   expect(h.result.current.triFitnessTimeline).toEqual([]);
+  // 일별 부하 차트는 new Date() 기준 42일 창이다 — 실제 시계가 고정 데이터에서 멀어지면 빈 차트가 된다.
+  vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(fixedNow);
   const r=render(<MemoryRouter><TriFitnessView range={90} onRangeChange={vi.fn()} breakdown={h.result.current.triFitnessBreakdown} timeline={[]} combinedLoad={null} loadFocus={null}/></MemoryRouter>);
   const chart=r.container.querySelector("[data-daily-point-count]")!;
   expect(screen.getByLabelText("부하 미확인 1건 · 확인된 값만 합산")).toBeInTheDocument();

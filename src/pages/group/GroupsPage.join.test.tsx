@@ -9,7 +9,7 @@ import { auth, ensureAppCheckReady } from "../../services/firebase";
 import GroupsPage from "./GroupsPage";
 
 const { publicGroups, myGroups, membershipState, usePublicGroupsMock } = vi.hoisted(() => ({
-  membershipState: { error: null as unknown },
+  membershipState: { error: null as unknown, loading: false, pending: new Set<string>(), retry: vi.fn() },
   myGroups: [] as Array<Record<string, unknown>>,
   publicGroups: [] as Array<Record<string, unknown>>,
   usePublicGroupsMock: vi.fn(),
@@ -17,7 +17,8 @@ const { publicGroups, myGroups, membershipState, usePublicGroupsMock } = vi.hois
 
 vi.mock("../../hooks/useGroup", () => ({
   useGroupMemberRole: () => ({ role: null, loading: false }),
-  useMyGroups: () => ({ groups: myGroups, loading: false, error: membershipState.error, retry: vi.fn() }),
+  useMyGroups: () => ({ groups: myGroups, loading: membershipState.loading, error: membershipState.error, retry: membershipState.retry }),
+  usePendingGroupRequestIds: () => membershipState.pending,
   usePublicGroups: (options: unknown) => {
     usePublicGroupsMock(options);
     return { groups: publicGroups, loading: false, error: null, retry: vi.fn() };
@@ -45,6 +46,7 @@ describe("GroupsPage join results", () => {
     mockCallableInvocations.length = 0;
     Object.assign(auth, { currentUser: { uid: "test-uid" } });
     publicGroups.splice(0); myGroups.splice(0); membershipState.error = null;
+    membershipState.loading = false; membershipState.pending = new Set(); membershipState.retry = vi.fn();
     usePublicGroupsMock.mockClear();
   });
 
@@ -299,7 +301,65 @@ describe("GroupsPage join results", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
 
-    expect(await screen.findByText("group destination")).toBeInTheDocument();
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    // 가입 완료 — 알림을 띄우고 '내가 속한 클럽'으로 옮긴다. 상세로 이동하지 않는다(#1558).
+    expect(await screen.findByText("Manual Club 클럽에 가입했어요.")).toBeInTheDocument();
+    expect(screen.getByTestId("C0-1")).toHaveTextContent("Manual Club");
+    expect(screen.queryByRole("button", { name: "가입 신청" })).not.toBeInTheDocument();
+    expect(screen.queryByText("group destination")).not.toBeInTheDocument();
+    expect(membershipState.retry).toHaveBeenCalled();
+    expect(ensureAppCheckReady).toHaveBeenCalled();
+  }, 15_000);
+
+  it("treats an already-member answer as joined instead of a silent failure", async () => {
+    addManualPublicGroup();
+    setCallableImplementation("joinGroupPublic", () => Promise.reject(Object.assign(new Error("Already a member"), { code: "functions/already-exists" })));
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
+
+    expect(await screen.findByText("이미 가입한 클럽이에요.")).toBeInTheDocument();
+    expect(screen.getByTestId("C0-1")).toHaveTextContent("Manual Club");
+    expect(screen.queryByText("가입에 실패했습니다.")).not.toBeInTheDocument();
+  }, 15_000);
+
+  it("shows waiting-for-approval on the card for pending and already-pending answers", async () => {
+    addManualPublicGroup();
+    setCallableImplementation("joinGroupPublic", () => Promise.reject(Object.assign(new Error("Join request already pending"), { code: "functions/already-exists" })));
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
+
+    expect(await screen.findByRole("button", { name: "승인 대기" })).toBeDisabled();
+  }, 15_000);
+
+  it("marks clubs with a pending request and locks join buttons while my clubs reload", () => {
+    addManualPublicGroup();
+    membershipState.pending = new Set(["group-1"]);
+    const view = renderPage();
+    expect(screen.getByRole("button", { name: "승인 대기" })).toBeDisabled();
+    view.unmount();
+    membershipState.pending = new Set();
+    membershipState.loading = true;
+    const unknown = renderPage();
+    // 내 클럽을 처음 읽는 동안에는 클럽 찾기 카드를 보이지 않는다(가입한 클럽이 섞여 보이지 않게).
+    expect(screen.queryByRole("button", { name: "확인 중..." })).not.toBeInTheDocument();
+    expect(screen.queryByText("Manual Club")).not.toBeInTheDocument();
+    unknown.unmount();
+    myGroups.push({ id: "club-1", name: "Member club", discipline: "bike", memberCount: 1, visibility: "public" });
+    renderPage();
+    expect(screen.getByRole("button", { name: "확인 중..." })).toBeDisabled();
+    // 다시 읽는 동안에도 이미 아는 내 클럽은 자리표시로 가리지 않는다.
+    expect(screen.getByTestId("C0-1")).toHaveTextContent("Member club");
+  });
+
+  it("reports a failed public join as a visible toast", async () => {
+    addManualPublicGroup();
+    setCallableImplementation("joinGroupPublic", () => Promise.reject(Object.assign(new Error("internal"), { code: "functions/internal" })));
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
+
+    expect(await screen.findByText("가입에 실패했습니다.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "가입 신청" })).toBeEnabled();
   }, 15_000);
 });

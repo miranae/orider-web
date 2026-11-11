@@ -59,6 +59,8 @@ export function embeddedHubDestination(currentPath: string, destination: string)
  * 웹이 운영 중일 때 앱이 먼저 배포돼도 상세가 404 로 열리지 않는다.
  */
 export const CLUB_DETAIL_EMBED_CAPABILITY = "club-detail-embed-v1";
+/** 웹이 계정 격리 저장소에 로그인을 남겨 같은 계정의 다른 탭이 로그인 코드 없이 열 수 있다는 표시. */
+export const EMBEDDED_PERSISTENT_AUTH_CAPABILITY = "embedded-persistent-auth-v1";
 
 /**
  * 이 웹이 코스 상세 임베드(`embed/courses/:courseId`)를 제공한다는 표시(`bootstrap.ready.capabilities`).

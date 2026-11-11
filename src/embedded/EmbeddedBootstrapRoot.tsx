@@ -7,7 +7,7 @@ import { ToastProvider } from "../contexts/ToastContext";
 import { EmbeddedNavigationContext } from "./EmbeddedNavigationContext";
 import { EmbeddedCoachNavigation } from "./EmbeddedCoachNavigation";
 import { embeddedCoachPage } from "./coachNavigation";
-import { CLUB_DETAIL_EMBED_CAPABILITY, COURSE_DETAIL_EMBED_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
+import { CLUB_DETAIL_EMBED_CAPABILITY, COURSE_DETAIL_EMBED_CAPABILITY, EMBEDDED_PERSISTENT_AUTH_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
 import { embeddedCommentId } from "./commentTarget";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -42,6 +42,7 @@ import {
 import { logClientError } from "../services/errorLogger";
 import {
   embeddedAccountReady,
+  embeddedAuthPersistsSession,
   embeddedFirestoreOwnerUid,
   ensureEmbeddedAppCheckReady,
   getEmbeddedAppCheckToken,
@@ -534,7 +535,6 @@ function AuthorizedSurface({
                   key={`${surfaceMountKey}:${retryKey}`}
                   retryKey={retryKey}
                   active={subscriptionsActive}
-                  startMode={session.hostCapabilities.includes(RUN_START_SCHEDULED_CAPABILITY) ? { kind: "host", starter: runStartChannel } : { kind: "host-unsupported" }}
                   onReady={trainingReady}
                 />
               ) : displayedTrainingSurface === "plan" ? (
@@ -1142,6 +1142,7 @@ export default function EmbeddedBootstrapRoot({
         RUN_START_SCHEDULED_CAPABILITY,
         CLUB_DETAIL_EMBED_CAPABILITY,
         COURSE_DETAIL_EMBED_CAPABILITY,
+        ...(embeddedAuthPersistsSession() ? [EMBEDDED_PERSISTENT_AUTH_CAPABILITY] : []),
         "host.lifecycle",
         "host.themeChanged",
       ],

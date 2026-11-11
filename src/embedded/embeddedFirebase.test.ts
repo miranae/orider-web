@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   functions: { kind: "functions" },
   appCheck: { kind: "app-check" },
   inMemoryPersistence: { kind: "memory-persistence" },
+  indexedDBLocalPersistence: { kind: "indexeddb-persistence" },
   memoryCache: { kind: "memory-cache" },
   lruGarbageCollector: { kind: "lru-gc" },
   initializeApp: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("firebase/app", () => ({ initializeApp: mocks.initializeApp }));
 vi.mock("firebase/auth", () => ({
   initializeAuth: mocks.initializeAuth,
   inMemoryPersistence: mocks.inMemoryPersistence,
+  indexedDBLocalPersistence: mocks.indexedDBLocalPersistence,
   connectAuthEmulator: mocks.connectAuthEmulator,
 }));
 vi.mock("firebase/firestore", () => ({
@@ -106,6 +108,20 @@ describe("embeddedFirebase", () => {
     const embeddedFirebase = await import("./embeddedFirebase");
     expect(() => embeddedFirebase.initEmbeddedFirebase()).toThrow("stage/firebase-identity-mismatch");
     expect(mocks.initializeApp).not.toHaveBeenCalled();
+  });
+
+  it("keeps the login in IndexedDB only inside an app-provided account store", async () => {
+    (window as Window & { __ORIDER_TRAINING_CACHE_SCOPE__?: string }).__ORIDER_TRAINING_CACHE_SCOPE__ =
+      "123e4567-e89b-12d3-a456-426614174000";
+    try {
+      const { embeddedFirebase } = await loadEmbeddedFirebase();
+      expect(mocks.initializeAuth).toHaveBeenCalledWith(mocks.app, {
+        persistence: [mocks.indexedDBLocalPersistence, mocks.inMemoryPersistence],
+      });
+      expect(embeddedFirebase.embeddedAuthPersistsSession()).toBe(true);
+    } finally {
+      delete (window as Window & { __ORIDER_TRAINING_CACHE_SCOPE__?: string }).__ORIDER_TRAINING_CACHE_SCOPE__;
+    }
   });
 
   it("creates a named app with memory-only Auth and Firestore", async () => {

@@ -25,6 +25,7 @@ const initial = {
   title: "원래 모임",
   date: "2030-10-25",
   place: "클럽 집결지",
+  venue: "outdoor" as const,
 };
 const state: State = {
   version: 1,
@@ -207,5 +208,63 @@ describe("실제 서버 저장을 기다리는 작성 초안", () => {
       await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
       expect(save.mock.calls[0]![0].time).toBe("10:31");
     });
+  });
+});
+describe("실내 / 실외 선택", () => {
+  const legacy = { ...initial, venue: undefined };
+  it("새 모임은 선택하기 전에는 미리보기로 넘어가지 않고 고른 값을 저장한다", async () => {
+    const save = vi.fn().mockResolvedValue(undefined);
+    const fresh = { ...newClubMeeting(), title: "새 모임", date: "2030-10-25", place: "집결지" };
+    render(
+      <MeetingForm
+        state={{ ...state, meetings: [] }}
+        initial={fresh}
+        draftNamespace="venue.new"
+        onSave={save}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getAllByRole("button", { name: "모집글 미리보기" })[0]!);
+    expect(screen.queryByRole("button", { name: "모집 시작" })).toBeNull();
+    fireEvent.click(screen.getByRole("radio", { name: /실내/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: "모집글 미리보기" })[0]!);
+    expect(screen.getByText(/실내 · 2030-10-25/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: "모집 시작" }));
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    expect(save.mock.calls[0]![0]).toMatchObject({ venue: "indoor" });
+  });
+  it("값이 없는 기존 모임을 수정하면 선택을 요구한다", () => {
+    render(
+      <MeetingForm
+        state={{ ...state, meetings: [legacy] }}
+        initial={legacy}
+        initialRevision={2}
+        draftNamespace="venue.legacy"
+        onSave={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/아직 실내·실외가 정해지지 않았어요/)).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: "모집글 미리보기" })[0]!);
+    expect(screen.queryByRole("button", { name: "변경 내용 저장" })).toBeNull();
+  });
+  it("기존 값이 있는 모임을 수정하면 그 값을 유지해 저장한다", async () => {
+    const save = vi.fn().mockResolvedValue(undefined);
+    render(
+      <MeetingForm
+        state={state}
+        initial={initial}
+        initialRevision={3}
+        draftNamespace="venue.keep"
+        onSave={save}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("radio", { name: /실외/ })).toBeChecked();
+    fireEvent.click(screen.getAllByRole("button", { name: "모집글 미리보기" })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "변경 내용 저장" }));
+    await waitFor(() => expect(save).toHaveBeenCalled());
+    expect(save.mock.calls[0]![0]).toMatchObject({ venue: "outdoor" });
   });
 });
