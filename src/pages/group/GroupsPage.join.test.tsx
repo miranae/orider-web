@@ -348,6 +348,21 @@ describe("GroupsPage join results", () => {
     expect(screen.queryByText("가입에 실패했습니다.")).not.toBeInTheDocument();
   }, 15_000);
 
+  it.each(["request", "membership"])("서버가 임시 대기를 확인한 뒤 거절 또는 탈퇴하면 재가입할 수 있다 %s", async (ack) => {
+    addManualPublicGroup();
+    setCallableResult("joinGroupPublic", { data: { success: true, status: "pending" } });
+    const view = renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
+    expect(await screen.findByRole("button", { name: "승인 대기" })).toBeDisabled();
+    if (ack === "request") membershipState.pending = new Set(["group-1"]);
+    else membershipState.snapshot = [...publicGroups];
+    view.rerender(pageRoutes());
+    membershipState.pending = new Set();
+    membershipState.snapshot = [];
+    view.rerender(pageRoutes());
+    expect(await screen.findByRole("button", { name: "가입 신청" })).toBeEnabled();
+  });
+
   it("shows waiting-for-approval on the card for pending and already-pending answers", async () => {
     addManualPublicGroup();
     setCallableImplementation("joinGroupPublic", () => Promise.reject(Object.assign(new Error("Join request already pending"), { code: "functions/already-exists" })));
