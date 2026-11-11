@@ -114,6 +114,10 @@ export interface CourseListQuery {
   /** 이름 접두 검색. 있으면 `name >= text && name <= text + `. */
   namePrefix?: string;
   cursor?: CourseListCursor | null;
+  /** 받을 필드. 없으면 코스 목록 화면 필드(COURSE_LIST_FIELDS). 트랙 원본은 넣지 않는다. */
+  fields?: readonly string[];
+  /** 추가 일치 조건(예: 공개·미삭제만). 기존 SDK 조회와 같은 조건을 그대로 옮길 때 쓴다. */
+  equals?: ReadonlyArray<readonly [string, RestValue]>;
 }
 
 type RestFilter =
@@ -128,17 +132,21 @@ function fieldFilter(fieldPath: string, op: string, value: RestValue): RestFilte
 export function buildCourseListQueryBody(query: CourseListQuery): { structuredQuery: Record<string, unknown> } {
   const filters: RestFilter[] = [];
   if (query.creatorId) filters.push(fieldFilter("creatorId", "EQUAL", { stringValue: query.creatorId }));
+  for (const [fieldPath, value] of query.equals ?? []) filters.push(fieldFilter(fieldPath, "EQUAL", value));
   if (query.namePrefix) {
     filters.push(fieldFilter("name", "GREATER_THAN_OR_EQUAL", { stringValue: query.namePrefix }));
     filters.push(fieldFilter("name", "LESS_THAN_OR_EQUAL", { stringValue: `${query.namePrefix}` }));
   }
   const structuredQuery: Record<string, unknown> = {
-    select: { fields: COURSE_LIST_FIELDS.map((fieldPath) => ({ fieldPath })) },
+    select: { fields: (query.fields ?? COURSE_LIST_FIELDS).map((fieldPath) => ({ fieldPath })) },
     from: [{ collectionId: "courses" }],
-    orderBy: [
-      { field: { fieldPath: query.orderField }, direction: query.direction },
-      { field: { fieldPath: "__name__" }, direction: query.direction },
-    ],
+    // 문서 이름 순이면 정렬 한 줄로 충분하다(같은 필드를 두 번 정렬하면 요청이 거부된다).
+    orderBy: query.orderField === "__name__"
+      ? [{ field: { fieldPath: "__name__" }, direction: query.direction }]
+      : [
+        { field: { fieldPath: query.orderField }, direction: query.direction },
+        { field: { fieldPath: "__name__" }, direction: query.direction },
+      ],
     limit: query.limit,
   };
   if (filters.length === 1) structuredQuery.where = filters[0];
@@ -238,8 +246,8 @@ export async function runCourseListQuery(
     data: decodeRestFields(document.fields),
   }));
   const last = documents[documents.length - 1];
-  const cursor = last
-    ? { values: [last.fields?.[query.orderField] ?? { nullValue: null }, { referenceValue: last.name }] }
-    : null;
+  const cursor = !last ? null
+    : query.orderField === "__name__" ? { values: [{ referenceValue: last.name }] }
+      : { values: [last.fields?.[query.orderField] ?? { nullValue: null }, { referenceValue: last.name }] };
   return { docs, rawCount: documents.length, cursor };
 }

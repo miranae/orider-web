@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CoursePreparation from './CoursePreparation';
+vi.mock('../../services/errorLogger',()=>({logClientError:vi.fn()}));
 vi.mock('./ClubCourseMap',()=>({default:()=> <div role="region" aria-label="코스 지도와 고도표"/>}));
 import CoursePreview from './CoursePreview';
 import MeetingForm from './MeetingForm';
@@ -10,8 +11,9 @@ import { createSeed, duplicateMeeting, type Meeting } from './domain';
 import { latestDraft } from './meetingDrafts';
 import { loadSegmentDetail, type SegmentChoice } from './segmentCatalog';
 vi.mock('./segmentCatalog',async importOriginal=>({...await importOriginal<typeof import('./segmentCatalog')>(),loadSegmentDetail:vi.fn(async choice=>choice)}));
-import { loadCourseCatalog, type SavedCourseChoice } from './courseCatalog';
-vi.mock('./courseCatalog',()=>({loadCourseCatalogPage:(...args: unknown[])=>vi.mocked(loadCourseCatalog)(...args as []).then(items=>({items,cursor:null,hasMore:false})),loadCourseCatalog:vi.fn(),toCoursePlan:(course:SavedCourseChoice)=>({source:{kind:'saved-course',id:course.id,name:course.name},distanceKm:course.distanceKm,elevationGainM:course.elevationGainM,checkpoints:course.checkpoints,track:course.track,segments:[]})}));
+import { logClientError } from '../../services/errorLogger';
+import { loadCourseCatalog, loadSavedCourse, type SavedCourseChoice } from './courseCatalog';
+vi.mock('./courseCatalog',()=>({loadSavedCourse:vi.fn((id:string)=>Promise.resolve(vi.mocked(loadCourseCatalog).getMockImplementation()?.()??[]).then(items=>items.find(item=>item.id===id)??null)),loadCourseCatalogPage:(...args: unknown[])=>vi.mocked(loadCourseCatalog)(...args as []).then(items=>({items,cursor:null,hasMore:false})),loadCourseCatalog:vi.fn(),toCoursePlan:(course:SavedCourseChoice)=>({source:{kind:'saved-course',id:course.id,name:course.name},distanceKm:course.distanceKm,elevationGainM:course.elevationGainM,checkpoints:course.checkpoints,track:course.track,segments:[]})}));
 const course:SavedCourseChoice={id:'saved-route',name:'기존 강변 코스',description:'강변을 따라 카페에서 쉬어요.',distanceKm:42,elevationGainM:320,checkpoints:[{name:'편의점 보급',source:'course',type:'보급',distanceKm:15,note:'물 채우기'}]};
 const gpx='<gpx><metadata><name>가을 GPX</name></metadata><wpt lat="37.005" lon="127.005"><name>중간 카페</name></wpt><trk><trkseg><trkpt lat="37" lon="127"><ele>0</ele></trkpt><trkpt lat="37.005" lon="127.005"><ele>100</ele></trkpt><trkpt lat="37.01" lon="127.01"><ele>200</ele></trkpt><trkpt lat="37.015" lon="127.015"><ele>50</ele></trkpt></trkseg></trk></gpx>';
 function Harness({initial}:{initial:Meeting}){const[meeting,setMeeting]=useState(initial);return <><CoursePreparation meeting={meeting} onChange={setMeeting} onBusyChange={vi.fn()}/><output aria-label="현재 전체 거리">{meeting.distanceKm??'미정'}</output><CoursePreview meeting={meeting}/></>;}
@@ -24,9 +26,9 @@ describe('코스부터 준비하는 모집 작성',()=>{
     render(<Harness initial={initial}/>);
     fireEvent.click(screen.getByRole('button',{name:'기존 코스 불러오기'}));
     fireEvent.click(await screen.findByRole('button',{name:'이 코스 가져오기'}));
-    expect(screen.getByRole('region',{name:'코스 변경 확인'}).textContent).toContain('기존 강변 코스');
+    expect((await screen.findByRole('region',{name:'코스 변경 확인'})).textContent).toContain('기존 강변 코스');
     fireEvent.click(screen.getByRole('button',{name:'변경 취소'}));expect(screen.getByLabelText('현재 전체 거리').textContent).toBe('86');
-    fireEvent.click(screen.getByRole('button',{name:'이 코스 가져오기'}));fireEvent.click(screen.getByRole('button',{name:'확인하고 적용'}));
+    fireEvent.click(screen.getByRole('button',{name:'이 코스 가져오기'}));fireEvent.click(await screen.findByRole('button',{name:'확인하고 적용'}));
     expect(screen.getByLabelText('현재 전체 거리').textContent).toBe('42');
     expect(screen.getByRole('region',{name:'코스 체크포인트'}).textContent).toContain('편의점 보급');
     expect(screen.getByRole('region',{name:'코스 체크포인트'}).textContent).toContain('직접 정한 만남');
@@ -41,7 +43,7 @@ describe('코스부터 준비하는 모집 작성',()=>{
     expect(screen.queryByRole('link',{name:/기존 세그먼트 상세/})).toBeNull();
   });
   it('GPX 출처·체크포인트·생성 구간을 미게시 초안과 미리보기에 보존한다',async()=>{
-    const state=createSeed();const initial={...duplicateMeeting(state.meetings[2]!,'gpx-draft'),hostId:'me'};
+    const state=createSeed();const initial={...duplicateMeeting(state.meetings[2]!,'gpx-draft'),hostId:'me',date:'2099-10-25'};
     const view=render(<MeetingForm state={state} initial={initial} onSave={vi.fn()} onClose={vi.fn()}/>);
     fireEvent.click(screen.getByRole('tab',{name:'GPX로 준비하기'}));upload();
     fireEvent.click(await screen.findByRole('button',{name:'확인하고 적용'}));
@@ -56,7 +58,7 @@ describe('코스부터 준비하는 모집 작성',()=>{
     vi.mocked(loadCourseCatalog).mockResolvedValue([{...course,checkpoints:Array.from({length:100},(_,index)=>({name:`가져올 지점 ${index}`,source:'course' as const,distanceKm:index}))}]);
     render(<Harness initial={{...createSeed().meetings[2]!,courseCheckpoints:[{name:'직접 정한 지점',source:'manual'}]}}/>);
     fireEvent.click(screen.getByRole('button',{name:'기존 코스 불러오기'}));fireEvent.click(await screen.findByRole('button',{name:'이 코스 가져오기'}));
-    fireEvent.click(screen.getByRole('button',{name:'확인하고 적용'}));
+    fireEvent.click(await screen.findByRole('button',{name:'확인하고 적용'}));
     expect(screen.getByRole('alert').textContent).toContain('100개');expect(screen.getByLabelText('현재 전체 거리').textContent).toBe('86');
     fireEvent.click(screen.getByRole('checkbox',{name:'직접 추가한 체크포인트 유지'}));fireEvent.click(screen.getByRole('button',{name:'확인하고 적용'}));
     expect(screen.getByLabelText('현재 전체 거리').textContent).toBe('42');
@@ -89,7 +91,7 @@ describe('코스부터 준비하는 모집 작성',()=>{
   it('코스 교체 전 경로와 주요 구간 삭제를 알리고 취소하면 기존 안내를 보존한다',async()=>{
     const initial={...createSeed().meetings[2]!,courseTrack:{fileName:'old.gpx',distanceKm:86,points:[{lat:37,lon:127},{lat:37.1,lon:127.1}]},segments:[{id:'old-public',name:'기존 구간',source:'public-catalog' as const,mode:'오픈' as const,instruction:'정상에서 만나요.'}]};
     render(<Harness initial={initial}/>);fireEvent.click(screen.getByRole('button',{name:'기존 코스 불러오기'}));fireEvent.click(await screen.findByRole('button',{name:'이 코스 가져오기'}));
-    const confirm=screen.getByRole('region',{name:'코스 변경 확인'});
+    const confirm=await screen.findByRole('region',{name:'코스 변경 확인'});
     expect(confirm.textContent).toContain('이전: 경로 있음 / 가져올 경로: 경로 없음');
     expect(confirm.textContent).toContain('기존 1개 → 가져올 구간 0개');
     expect(confirm.textContent).toContain('기존 구간별 진행 방식과 설명도 새 구간 안내로 교체');
@@ -122,11 +124,27 @@ describe('코스부터 준비하는 모집 작성',()=>{
     render(<Harness initial={createSeed().meetings[2]!}/>);
     fireEvent.click(screen.getByRole('button',{name:'기존 코스 불러오기'}));fireEvent.click(await screen.findByRole('button',{name:'이 코스 가져오기'}));
     expect(screen.getByLabelText('기존 코스 이름 검색')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button',{name:'변경 취소'}));expect(screen.getByRole('button',{name:'이 코스 가져오기'})).toBeTruthy();
-    fireEvent.click(screen.getByRole('button',{name:'이 코스 가져오기'}));fireEvent.click(screen.getByRole('button',{name:'확인하고 적용'}));
+    fireEvent.click(await screen.findByRole('button',{name:'변경 취소'}));expect(screen.getByRole('button',{name:'이 코스 가져오기'})).toBeTruthy();
+    fireEvent.click(screen.getByRole('button',{name:'이 코스 가져오기'}));fireEvent.click(await screen.findByRole('button',{name:'확인하고 적용'}));
     expect(screen.queryByLabelText('기존 코스 이름 검색')).toBeNull();expect(screen.queryByRole('button',{name:'이 코스 가져오기'})).toBeNull();
     fireEvent.click(screen.getByRole('button',{name:'다른 코스 찾기'}));
     expect(screen.getByRole('button',{name:'이 코스 가져오기'})).toBeTruthy();expect(loadCourseCatalog).toHaveBeenCalledTimes(1);
   });
 
+  it('목록에 없는 경로는 고른 코스에서만 받아 가져오고, 실패하면 알린다',async()=>{
+    vi.mocked(loadSavedCourse).mockResolvedValueOnce({...course,track:{fileName:'기존 강변 코스',distanceKm:42,segmentStarts:[0],points:[{lat:37,lon:127},{lat:37.1,lon:127.1}]}});
+    const initial={...createSeed().meetings[2]!,courseTrack:{fileName:'old.gpx',distanceKm:86,points:[{lat:37,lon:127},{lat:37.1,lon:127.1}]}};
+    render(<Harness initial={initial}/>);fireEvent.click(screen.getByRole('button',{name:'기존 코스 불러오기'}));fireEvent.click(await screen.findByRole('button',{name:'이 코스 가져오기'}));
+    expect((await screen.findByRole('region',{name:'코스 변경 확인'})).textContent).toContain('가져올 경로: 경로 있음');
+    expect(loadSavedCourse).toHaveBeenLastCalledWith('saved-route');
+    fireEvent.click(screen.getByRole('button',{name:'변경 취소'}));
+    vi.mocked(loadSavedCourse).mockRejectedValueOnce(new Error('network'));
+    fireEvent.click(screen.getByRole('button',{name:'이 코스 가져오기'}));
+    expect(await screen.findByText('코스 경로를 불러오지 못했어요. 다시 시도해주세요.')).toBeTruthy();
+    expect(logClientError).toHaveBeenCalledWith('CoursePreparation.savedCourseImport',expect.any(Error),{courseId:'saved-route'});
+    vi.mocked(loadSavedCourse).mockResolvedValueOnce(null);
+    fireEvent.click(screen.getByRole('button',{name:'이 코스 가져오기'}));
+    expect(await screen.findByText('이 코스는 지금 가져올 수 없어요.')).toBeTruthy();
+    expect(screen.queryByRole('region',{name:'코스 변경 확인'})).toBeNull();
+  });
 });

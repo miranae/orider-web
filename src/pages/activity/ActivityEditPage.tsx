@@ -5,7 +5,7 @@ import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { firestore } from "../../services/firebase";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -82,6 +82,8 @@ export default function ActivityEditPage() {
   const { t } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
   const { user, loading: authLoading } = useAuth();
+  const services = useFirebaseServices();
+  const { firestore } = services;
   const { showToast } = useToast();
   const dialog = useDialog();
 
@@ -166,7 +168,7 @@ export default function ActivityEditPage() {
     } finally {
       setLoading(false);
     }
-  }, [activityId, t]);
+  }, [activityId, firestore, t]);
 
   useEffect(() => {
     void loadActivity();
@@ -174,10 +176,20 @@ export default function ActivityEditPage() {
 
   const isOwner = !!data && !!user && user.uid === data.userId;
 
+  const prepareWrite = async () => {
+    if (services.scope !== "embedded") return () => true;
+    const owner = services.auth.currentUser;
+    if (!owner || owner.uid !== user?.uid || owner.uid !== data?.userId) throw new Error(t("edit.toastSaveFailed"));
+    await services.ensureAppCheckReady();
+    if (services.auth.currentUser !== owner) throw new Error(t("edit.toastSaveFailed"));
+    return () => services.auth.currentUser === owner;
+  };
+
   const handleSave = async () => {
     if (!activityId || !data || !isOwner || saving) return;
     setSaving(true);
     try {
+      const isCurrent = await prepareWrite();
       const newStartTime = combineToTs(startDate, startTimeOfDay, data.startTime);
       const originalGearName = typeof data.gear === "string" ? data.gear : typeof data.gear?.name === "string" ? data.gear.name : "";
       const gearUpdate = gear.trim() === originalGearName ? {} : typeof data.gear === "object" && data.gear !== null
@@ -193,6 +205,7 @@ export default function ActivityEditPage() {
         workoutType,
         startTime: newStartTime,
       });
+      if (!isCurrent()) return;
       showToast(t("edit.toastSaved"));
       navigate(`/activity/${activityId}`);
     } catch (err) {
@@ -208,7 +221,9 @@ export default function ActivityEditPage() {
     if (!(await dialog.confirm(t("edit.deleteConfirm"), { destructive: true }))) return;
     setSaving(true);
     try {
+      const isCurrent = await prepareWrite();
       await updateDoc(doc(firestore, "activities", activityId), { deletedAt: Date.now() });
+      if (!isCurrent()) return;
       showToast(t("edit.toastDeleted"));
       navigate("/athlete/me/activities");
     } catch (err) {

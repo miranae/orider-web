@@ -1,13 +1,14 @@
 import { usesLiveDarkAppearance } from "../theme/appearancePolicy";
 import { HOST_THEME_CHANGE_EVENT } from "../contexts/ThemeContext";
 import { RetainedSurfaceActivity } from "./RetainedSurfaceActivity";
+import { APP_MENU_EMBED_CAPABILITY, isMenuPage, isPublicMenuPage, type EmbeddedMenuPage } from "./menuPages";
 import { useNavigate, useLocation } from "react-router-dom";
 import { DialogProvider } from "../contexts/DialogContext";
 import { ToastProvider } from "../contexts/ToastContext";
 import { EmbeddedNavigationContext } from "./EmbeddedNavigationContext";
 import { EmbeddedCoachNavigation } from "./EmbeddedCoachNavigation";
 import { embeddedCoachPage } from "./coachNavigation";
-import { CLUB_DETAIL_EMBED_CAPABILITY, COURSE_DETAIL_EMBED_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
+import { CLUB_DETAIL_EMBED_CAPABILITY, COURSE_DETAIL_EMBED_CAPABILITY, EMBEDDED_PERSISTENT_AUTH_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
 import { embeddedCommentId } from "./commentTarget";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -42,6 +43,7 @@ import {
 import { logClientError } from "../services/errorLogger";
 import {
   embeddedAccountReady,
+  embeddedAuthPersistsSession,
   embeddedFirestoreOwnerUid,
   ensureEmbeddedAppCheckReady,
   getEmbeddedAppCheckToken,
@@ -80,6 +82,7 @@ const SearchSurface = lazy(() => import("./surfaces/SearchSurface"));
 const EventDetailSurface = lazy(() => import("./surfaces/EventDetailSurface"));
 const ClubDetailSurface = lazy(() => import("./surfaces/ClubDetailSurface"));
 const CourseDetailSurface = lazy(() => import("./surfaces/CourseDetailSurface"));
+const MenuPageSurface = lazy(() => import("./surfaces/MenuPageSurface"));
 
 const CONTRACT_VERSION = 1 as const;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/;
@@ -161,15 +164,15 @@ interface EmbeddedBootstrapRootProps {
   surfaceKind?: EmbeddedSurfaceKind;
 }
 
-export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "event-detail" | "fitness" | "plan" | EmbeddedHubSurfaceKind;
+export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "event-detail" | "fitness" | "plan" | EmbeddedHubSurfaceKind | EmbeddedMenuPage;
 /**
  * 앱 클럽·탐색 탭과 검색 화면, 클럽·코스 상세. 공개 목록·공개 클럽 미리보기·공개 코스라 로그인 인계
  * 없이(게스트) 열려도 보인다(웹 클럽 상세도 비로그인이면 PublicClubPreview 다).
  */
 export type EmbeddedHubSurfaceKind = "clubs" | "explore" | "search" | "club-detail" | "course-detail";
 
-function isActivitySurfaceKind(kind: EmbeddedSurfaceKind): kind is "activity-analysis" | "activity-public" {
-  return kind === "activity-analysis" || kind === "activity-public";
+function isActivitySurfaceKind(kind: EmbeddedSurfaceKind): kind is "activity-analysis" | "activity-public" | "activity-edit" {
+  return kind === "activity-analysis" || kind === "activity-public" || kind === "activity-edit";
 }
 
 export function isHubSurfaceKind(kind: EmbeddedSurfaceKind): kind is EmbeddedHubSurfaceKind {
@@ -178,7 +181,7 @@ export function isHubSurfaceKind(kind: EmbeddedSurfaceKind): kind is EmbeddedHub
 
 /** host.surfaceSelected·트레이닝 캐시를 쓰지 않는 단일 표면(활동·허브). */
 function isStandaloneSurfaceKind(kind: EmbeddedSurfaceKind): boolean {
-  return isActivitySurfaceKind(kind) || isHubSurfaceKind(kind) || kind === "event-detail";
+  return isActivitySurfaceKind(kind) || isHubSurfaceKind(kind) || kind === "event-detail" || isMenuPage(kind);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -506,7 +509,9 @@ function AuthorizedSurface({
                 <div className="orider-embedded-status__pulse" />
               </div>
             )}>
-              {surfaceKind === "clubs" ? (
+              {isMenuPage(surfaceKind) ? (
+                <MenuPageSurface page={surfaceKind} retryKey={retryKey} onReady={hubReady} onError={hubError} />
+              ) : surfaceKind === "clubs" ? (
                 <ClubsSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "explore" ? (
                 <ExploreSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
@@ -534,7 +539,6 @@ function AuthorizedSurface({
                   key={`${surfaceMountKey}:${retryKey}`}
                   retryKey={retryKey}
                   active={subscriptionsActive}
-                  startMode={session.hostCapabilities.includes(RUN_START_SCHEDULED_CAPABILITY) ? { kind: "host", starter: runStartChannel } : { kind: "host-unsupported" }}
                   onReady={trainingReady}
                 />
               ) : displayedTrainingSurface === "plan" ? (
@@ -798,7 +802,7 @@ export default function EmbeddedBootstrapRoot({
   useEffect(() => {
     const handleMessage = (message: HostBridgeEnvelope) => {
       if (message.type === "host.authorize") {
-        const authorization = parseAuthorizePayload(message.payload, isHubSurfaceKind(surfaceKind));
+        const authorization = parseAuthorizePayload(message.payload, isHubSurfaceKind(surfaceKind) || isPublicMenuPage(surfaceKind));
         if (!authorization) {
           safeSend("surface.error", { code: "invalid_host_payload" }, message.requestId);
           return;
@@ -823,7 +827,7 @@ export default function EmbeddedBootstrapRoot({
           authorizedUid.current = uid !== null && uid === authorization.expectedUid ? uid : null;
           // 허브 표면은 로그인 인계가 없거나 실패해도(웹 세션 없음) 공개 목록을 게스트로 연다.
           // 다른 계정으로 로그인된 상태(uid 불일치)는 지금처럼 거절한다.
-          guestAuthorized.current = isHubSurfaceKind(surfaceKind) && uid === null;
+          guestAuthorized.current = (isHubSurfaceKind(surfaceKind) || isPublicMenuPage(surfaceKind)) && uid === null;
           if (authorizedUid.current === null || controlServices.auth.currentUser?.isAnonymous === true) {
             clearTrainingSurfaceCache();
             // 이전 계정의 Firestore 문서도 다음 승인까지 메모리에 두지 않는다(표면은 위에서 내렸다).
@@ -1134,19 +1138,33 @@ export default function EmbeddedBootstrapRoot({
       setAccountReleaseRequest((request) => request + 1);
       safeSend("surface.error", { code: "auth_uid_changed" }, requestId);
     });
-    safeSend("bootstrap.ready", {
-      contractVersion: CONTRACT_VERSION,
-      capabilities: [
-        RETAINED_SURFACE_SELECTION_CAPABILITY,
-        SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
-        RUN_START_SCHEDULED_CAPABILITY,
-        CLUB_DETAIL_EMBED_CAPABILITY,
-        COURSE_DETAIL_EMBED_CAPABILITY,
-        "host.lifecycle",
-        "host.themeChanged",
-      ],
+    let bootstrapDisposed = false;
+    const announceBootstrap = (persists: boolean) => {
+      if (bootstrapDisposed) return;
+      safeSend("bootstrap.ready", {
+        contractVersion: CONTRACT_VERSION,
+        capabilities: [
+          RETAINED_SURFACE_SELECTION_CAPABILITY,
+          SURFACE_SELECTION_REQUEST_ID_CAPABILITY,
+          RUN_START_SCHEDULED_CAPABILITY,
+          CLUB_DETAIL_EMBED_CAPABILITY,
+          COURSE_DETAIL_EMBED_CAPABILITY,
+          APP_MENU_EMBED_CAPABILITY,
+          ...(persists ? [EMBEDDED_PERSISTENT_AUTH_CAPABILITY] : []),
+          "host.lifecycle",
+          "host.themeChanged",
+        ],
+      });
+    };
+    const persistence = embeddedAuthPersistsSession();
+    if (typeof persistence === "boolean") announceBootstrap(persistence);
+    else void persistence.then(announceBootstrap).catch((error) => {
+      // 화면이 닫혀도 완료된 저장 검사 실패는 기록한다. 전송 여부만 announceBootstrap이 판정한다.
+      logClientError("embedded.auth.persistence", error);
+      announceBootstrap(false);
     });
     return () => {
+      bootstrapDisposed = true;
       unsubscribe();
       unsubscribeAuth();
       runStartChannel.dispose();

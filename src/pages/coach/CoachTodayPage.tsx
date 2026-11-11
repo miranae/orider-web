@@ -1,107 +1,102 @@
 import PlanRecordNavigation from "../../features/training/plan/PlanRecordNavigation";
-import { useRun30Start, type Run30StartMode } from "../../features/training/run30/run30Start";
-import { getRuntimeConfig } from "../../services/runtimeConfig";
 import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
 import CoachSignInButton from "./CoachSignInButton";
-import { useTranslation } from "react-i18next";
-import { LocalizedLink as Link } from "../../components/LocalizedLink";
-import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
+import { useAuth } from "../../contexts/AuthContext";
+import { EmptyState, LoadingSkeleton } from "../../components/redesign";
 import DisciplineTabs from "../../components/redesign/DisciplineTabs";
-import FitnessCoachBriefing from "../../features/fitness/components/FitnessCoachBriefing";
-import TodayTrainingDecisionCard, { TodayTrainingDecisionSource } from "../../features/trainingDecision/TodayTrainingDecisionCard";
-import { activityIdsCoveredByImpacts, activityDayLoad, deriveActivityImpacts, forecastFitness48Hours } from "../../features/fitness/activityImpact";
+import { TodayTrainingDecisionSource } from "../../features/trainingDecision/TodayTrainingDecisionCard";
+import { TrainingDecisionSessionView } from "../../features/trainingDecision/TrainingDecisionSessionView";
+import { canShowRecommendation, primaryEffectiveSession } from "../../features/trainingDecision/decisionPresentation";
+import { CoachQuestionLauncher } from "../../features/coach/CoachQuestionLauncher";
+import { activityIdsCoveredByImpacts, activityDayLoad, deriveActivityImpacts } from "../../features/fitness/activityImpact";
 import { isNegligibleActivitySummary } from "@shared/training/activityLoad";
-import { useRun30Program, type Run30ProgramState } from "../../features/training/run30/useRun30Program";
-import { buildRun30ViewModel, run30DateLabel, run30StatusLabel, run30StatusTone, run30TodayHeadingKey } from "../../features/training/run30/run30Display";
-import { ORIDER_APP_STORE_URL, ORIDER_PLAY_STORE_URL } from "../../constants/appStoreLinks";
-import Run30WorkoutOutline from "../../features/training/run30/Run30WorkoutOutline";
-import { Button, Card, Chip, Text, buttonClass } from "../../theme/components";
+import { Alert, Card, Text } from "../../theme/components";
 import { useCoachFitnessModel } from "./CoachFitnessModelContext";
+import "../../features/trainingDecision/training-decision.css";
 
-const WEB_START_MODE: Run30StartMode = { kind: "web" };
-export function RunningToday({ state, allowStart = false, startMode = WEB_START_MODE }: {
-  state: Run30ProgramState; allowStart?: boolean; startMode?: Run30StartMode;
-}) {
-  const { t } = useTranslation("fitness");
-  const { t: trainingT, i18n } = useTranslation("training");
-  const start = useRun30Start(startMode);
-  if (state.status === "loading") return <LoadingSkeleton kind="chart" />;
-  if (state.status === "error") return <div className="coach-inline-error" role="alert"><Text>{trainingT("coachSurface.runProgramError")}</Text><Button variant="secondary" size="sm" onClick={state.retry}>{trainingT("coachSurface.retry")}</Button></div>;
-  if (!state.program) return <Link data-testid="K2-3-9" to="/coach/plan?sport=run">{t("today.runProgramLink")}</Link>;
-  const view = buildRun30ViewModel(state.program);
-  const actionable = view.todayKind === "start";
-  return <Card data-testid="K2-3-7" className="run30-running-today">
-    <Text as="h2" variant="title">{trainingT(run30TodayHeadingKey(view.todayKind))}</Text>
-    {!actionable && <Text as="p" variant="body">{trainingT(view.todayKind === "finished" ? "run30.today.finished" : view.todayKind === "rest" ? "run30.today.restHint" : view.todayKind === "decide" ? "run30.today.decideHold" : "run30.today.holdFallback")}</Text>}
-    {view.next && <>
-      <div className="run30-running-today__meta"><Text as="p" variant="body"><time dateTime={view.next.localDate}>{run30DateLabel(view.next.localDate, i18n.resolvedLanguage ?? i18n.language)}</time> · {trainingT("run30.stages.stage", { stage: view.next.stage })}</Text><Chip variant={run30StatusTone(view.next.status)}>{run30StatusLabel(view.next.status, trainingT)}</Chip></div>
-      <Text as="p" variant="bodyMedium" weight={600}>{view.next.workoutName || trainingT("run30.today.workoutFallback")}</Text>
-      <Run30WorkoutOutline session={view.next} />
-    </>}
-    {actionable && <Text as="p" variant="body">{!allowStart ? t("today.runReadOnly") : startMode.kind === "host-unsupported" ? trainingT("run30.start.hostUnsupported") : startMode.kind === "web" ? t("today.runAppOnly") : null}</Text>}
-    {actionable && allowStart && startMode.kind === "host" && view.next?.scheduledSessionId && <>
-      <Button loading={start.state.status === "pending"} disabled={start.state.status === "pending" || start.state.status === "accepted"}
-        onClick={() => void start.start(view.next?.scheduledSessionId)}>{trainingT("run30.start.button", { stage: view.next.stage })}</Button>
-      {start.state.status === "accepted" && <Text role="status">{trainingT("run30.start.accepted")}</Text>}
-      {start.state.status === "error" && <Text role="alert">{trainingT(`run30.start.errors.${start.state.reason}`)}</Text>}
-    </>}
-    <div className="run30-running-today__stores"><Text as="span" variant="bodySmall" tone="secondary">{trainingT("run30.outline.appStart")}</Text><a href={ORIDER_PLAY_STORE_URL}>Google Play</a><a href={ORIDER_APP_STORE_URL}>App Store</a></div>
-    <div className="run30-running-today__plan"><Link className={buttonClass({ variant: "secondary" })} data-testid="K2-3-9" to="/coach/plan?sport=run">{t(actionable && startMode.kind === "web" ? "today.runPlanSchedule" : "today.runProgramLink")}</Link></div>
+type Sport = "bike" | "run" | "swim";
+
+/** 오늘의 계획 — 예정 운동이 있으면 그 운동을, 없으면 없다는 한 줄만 보인다. */
+function TodayPlan({ state }: { state: TodayTrainingDecisionState }) {
+  const { t } = useCoachFitnessModel();
+  if (state.loading) return <Card data-testid="K2-2" className="training-decision-card" aria-busy="true">
+    <Text variant="body" tone="secondary">{t("training:decision.loading")}</Text></Card>;
+  const decision = state.decision;
+  if (!decision || state.unavailable) return <Card data-testid="K2-2" className="training-decision-card" data-today-plan={state.unavailableReason === "error" ? "error" : "unavailable"}>
+    <Text as="span" variant="bodyMedium">{t("training:decision.eyebrow")}</Text>
+    <Text as="p" variant="body" tone="secondary" style={{ margin: 0 }}>{t("training:decision.fallback.unavailableBody")}</Text>
+  </Card>;
+  const session = decision?.scheduledSessions.length ? primaryEffectiveSession(decision) : null;
+  const extraCount = decision ? Math.max(0, decision.scheduledSessions.length - 1) : 0;
+  return <Card data-testid="K2-2" className="training-decision-card" data-today-plan={session ? "scheduled" : "none"}>
+    <Text as="span" variant="bodyMedium">{t("training:decision.eyebrow")}</Text>
+    {decision?.healthGate.state === "stop" && <Alert data-testid="K2-2-3" variant="danger" title={t("training:decision.healthStop")} />}
+    {session ? <div data-testid="K2-2-1" className="training-decision-card__sessions">
+      <TrainingDecisionSessionView label={t("training:decision.effectiveScheduled")} session={session} tone="effective" />
+      {extraCount > 0 && <Text as="p" variant="caption" tone="secondary">{t("training:decision.extraSessions", { count: extraCount })}</Text>}
+    </div> : <Text as="p" variant="body" tone="secondary" style={{ margin: 0 }}>{t("training:decision.noScheduled")}</Text>}
   </Card>;
 }
 
-export function canUseTodayHelpers(state: TodayTrainingDecisionState, now: number, sport: "bike" | "run" | "swim"): boolean {
-  return !state.loading && !state.unavailable && state.decision != null
-    && state.decision.targetDiscipline === sport
-    && state.decision.healthGate.state === "clear"
-    && Number.isFinite(state.decision.scheduledProjectionValidUntil) && state.decision.scheduledProjectionValidUntil > now;
+/** AI 코치에게 분석 요청 — 오늘 권고가 있으면 그 처방을 근거로, 없으면 일반 질문으로 연다. */
+function TodayAskCoach({ state, sport }: { state: TodayTrainingDecisionState; sport: Sport }) {
+  const { t, user } = useCoachFitnessModel();
+  const { signIn } = useAuth();
+  const decision = state.decision;
+  const source = decision && decision.healthGate.state === "clear" && canShowRecommendation(decision)
+    && decision.capabilities.explain === "available" ? decision.recommendationSource : null;
+  return <div data-testid="K2-5" className="coach-today-ask">
+    <CoachQuestionLauncher user={user} discipline={sport} onSignIn={() => void signIn()} triggerBlock
+      triggerLabel={t("training:decision.askCoach")}
+      progressPlannerSelection={source ? { question: t("training:decision.coachQuestion"),
+        context: { prescriptionId: source.prescriptionId, sourceRequestId: source.sourceRequestId } } : null} />
+  </div>;
 }
 
-export default function CoachTodayPage({ startMode }: { startMode?: Run30StartMode } = {}) {
+/** 서버 정본 예측 계약이 제공되기 전에는 브라우저에서 CTL/ATL/TSB를 계산하지 않는다(P6).
+ * 대표 세션이나 임의의 휴식 부하로 하루 전체 계획을 대신하지 않는다.
+ */
+function TodayForecast({ state, awaitingAggregate }: { state: TodayTrainingDecisionState; awaitingAggregate: boolean }) {
+  const { t } = useCoachFitnessModel();
+  if (state.loading) return null;
+  const note = awaitingAggregate ? t("today.forecastPending")
+    : state.unavailable || !state.decision ? t("today.forecastPlanUnavailable")
+    : t("today.forecastUnavailable");
+  return <Card data-testid="K2-1" className="fitness-coach__choice-card">
+    <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{note}</Text>
+  </Card>;
+}
+
+/**
+ * 코치 "오늘 훈련" — 오늘의 계획(있음/없음) · AI 코치에게 분석 요청 · 24시간 후·48시간 후 변화만 보인다(2026-11-09 사용자 결정).
+ * 변경 권고 적용·운동 보내기·간단 운동 고르기는 두지 않는다 — 계획 변경은 계획 탭, 운동 시작은 앱에서 한다.
+ * #1554의 명시적 화면 재배치다. 러닝 단계·구성·보류는 PlanView의 Run30ProgramView에 유지되고,
+ * PlanSurface는 협상된 scheduledRunStarter를 그 뷰에 전달해 앱 시작을 유지한다.
+ * PlanRecordNavigation은 sport=run을 계획 탭에 전달한다(각 화면의 run30·navigation 회귀 테스트).
+ */
+export default function CoachTodayPage() {
   const model = useCoachFitnessModel();
-  const { t, user, discipline, currentPoint, i18n } = model;
-  const sport = discipline === "tri" ? "bike" : discipline;
-  const running = useRun30Program(sport === "run");
+  const { t, user, discipline } = model;
+  const sport: Sport = discipline === "tri" ? "bike" : discipline;
   const header = <header className="coach-page-header" data-testid="K2-0"><Text as="h1" data-testid="K2-0-1" variant="pageTitle">{t("today.header.title")}</Text><div data-testid="K2-0-2"><DisciplineTabs value={sport} disabledKeys={["swim"]} /></div></header>;
   if (!user) return <div className="site-shell">{header}<EmptyState title={t("today.guest")}  /><CoachSignInButton /></div>;
   const impacts = model.hasCanonicalTimeseries ? deriveActivityImpacts(model.fitnessData, model.disciplineActivities, { limit: 6, dateKeyBasis: model.fitnessDateKeyBasis }) : [];
   const covered = activityIdsCoveredByImpacts(model.disciplineActivities, impacts);
   const newest = model.disciplineActivities.filter(a => !isNegligibleActivitySummary(a.summary)).reduce<(typeof model.disciplineActivities)[number] | null>((latest, a) => !latest || a.startTime > latest.startTime ? a : latest, null);
   const pending = newest && !covered.has(newest.id) ? newest : null;
-  const dayLoad = pending && model.hasCanonicalTimeseries ? activityDayLoad(pending, model.fitnessData, model.fitnessDateKeyBasis) : null;
+  // 최근 활동의 하루 부하가 아직 정본에 반영되지 않았으면 변화를 계산하지 않는다(반영 전 값으로 오도하지 않는다).
+  const awaitingAggregate = pending != null
+    && (!model.hasCanonicalTimeseries || activityDayLoad(pending, model.fitnessData, model.fitnessDateKeyBasis) == null);
   const loading = model.loading || !model.timeseriesLoaded;
-  return <div className="site-shell fitness-reading" style={{ padding: "0 var(--space-4) var(--space-5)" }}>
+  return <div className="site-shell fitness-reading coach-today" style={{ padding: "0 var(--space-4) var(--space-5)" }}>
     {header}
     <PlanRecordNavigation />
-    <TodayTrainingDecisionSource user={user} discipline={sport}>{state => {
-      const hasScheduled = Boolean(state.decision?.scheduledSessions.length);
-      const healthBlocked = state.decision != null && state.decision.healthGate.state !== "clear";
-      const deliveryEnabled = getRuntimeConfig().riderWorkoutDeliveryEnabled === true && canUseTodayHelpers(state, Date.now(), sport);
-      const chooser = loading ? <LoadingSkeleton kind="chart" /> : model.error ? <ErrorState title={t("error.dataFailed")} description={model.error} onRetry={model.retryLoad} /> : !healthBlocked ? <>
-        {!currentPoint && <EmptyState title={t("empty.noActivities")} description={t("empty.hint")} />}
-        <FitnessCoachBriefing part="today" impacts={impacts} selectedActivityId={null} onSelectActivity={() => undefined}
-          forecast={currentPoint && model.hasCanonicalTimeseries ? forecastFitness48Hours(currentPoint, 35) : null}
-          current={currentPoint ?? { ctl: 0, atl: 0, tsb: 0 }} decisionSlot={null} locale={i18n.language}
-          canonicalAvailable={Boolean(currentPoint && model.hasCanonicalTimeseries)} pendingActivity={pending} pendingDayLoad={dayLoad}
-          discipline={sport} userId={user.uid} deliveryEnabled={deliveryEnabled}
-          choiceTitle={t(hasScheduled ? "today.planAlternative" : "today.simpleWorkout")} />
-      </> : null;
-      const decision = <TodayTrainingDecisionCard user={user} discipline={sport} surface="today" decisionState={state}
-        suppressExecution={sport === "run" && (running.status !== "ready" || Boolean(running.program?.next))} />;
-      // 서버가 오늘 세션 없이 응답하면(활성 목표 없음 plan=null 또는 오늘 세션 없음 scheduledSessions=[])
-      // "오늘의 계획" 아래 예정 없음을 알리고 간단 운동 선택을 이어 둔다. 조회 실패 카드·계획 이동 링크는 두지 않는다.
-      const noScheduledToday = state.decision != null && !hasScheduled && !healthBlocked;
-      return <>
-        {hasScheduled || healthBlocked ? decision : noScheduledToday ? <Card data-testid="K2-2" className="training-decision-card" data-today-plan="none">
-          <Text as="span" variant="bodyMedium">{t("training:decision.eyebrow")}</Text>
-          <Text as="p" variant="body" tone="secondary" style={{ margin: 0 }}>{t("training:decision.noScheduled")}</Text>
-        </Card> : state.loading ? decision : null}
-        {!healthBlocked && chooser}
-        {state.unavailableReason === "disabled" && <div className="coach-today-plan-handoff" style={{ marginBlock: "var(--space-4)" }}>
-          <Text as="p" variant="caption" tone="secondary">{t("today.decisionUnavailable")}</Text>
-        </div>}
-        {sport === "run" && <RunningToday state={running} startMode={startMode} allowStart={canUseTodayHelpers(state, Date.now(), sport)} />}
-      </>;
-    }}</TodayTrainingDecisionSource>
+    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+      <TodayTrainingDecisionSource user={user} discipline={sport}>{state => <>
+        <TodayPlan state={state} />
+        <TodayAskCoach state={state} sport={sport} />
+        {loading ? <LoadingSkeleton kind="chart" /> : <TodayForecast state={state} awaitingAggregate={awaitingAggregate} />}
+      </>}</TodayTrainingDecisionSource>
+    </div>
   </div>;
 }

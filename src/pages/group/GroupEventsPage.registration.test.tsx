@@ -35,6 +35,20 @@ describe("club event registration actions", () => {
     expect(await screen.findByRole("link",{name:"취소한 모임"})).toBeInTheDocument();
     expect(await screen.findByRole("link",{name:"대회 OPEN"})).toBeInTheDocument();
   });
+  it("offers host editing for open races and live meetings only to hosts",async()=>{
+    const meeting=(eventId:string,isHost:boolean,rideStatus:ClubMeetingListItem["rideStatus"],cancelled=false)=>({eventId,isHost,rideStatus,meeting:{title:eventId,date:"2026-11-05",time:"08:00",place:"집결지",status:cancelled?"cancelled":"open",capacity:10},participantCount:1,waitingCount:0}) as ClubMeetingListItem;
+    vi.mocked(listClubMeetings).mockResolvedValue({meetings:[meeting("내 모임",true,"OPEN"),meeting("남의 모임",false,"OPEN"),meeting("취소한 내 모임",true,"CANCELLED",true)],nextCursor:null});
+    setCollectionDocs("events",[
+      {id:"mine",info:{name:"내 대회",groupId:"club",status:"OPEN",creatorId:"test-uid",startTime:Date.now()+3600000}},
+      {id:"cohost",info:{name:"공동 주최 대회",groupId:"club",status:"OPEN",creatorId:"owner",hostIds:["test-uid"],startTime:Date.now()+7200000}},
+      {id:"other",info:{name:"남의 대회",groupId:"club",status:"OPEN",creatorId:"owner",startTime:Date.now()+10800000}},
+      {id:"done",info:{name:"끝난 내 대회",groupId:"club",status:"FINISHED",creatorId:"test-uid",startTime:Date.now()-3600000}},
+    ]);
+    showPage();
+    await screen.findByRole("link",{name:"내 대회"});
+    expect(screen.getAllByTestId("club-event-edit").map(link=>link.getAttribute("href"))).toEqual(["/ko/event/mine/host/edit","/ko/event/cohost/host/edit"]);
+    expect(screen.getAllByTestId("club-meeting-edit").map(link=>link.getAttribute("href"))).toEqual(["/ko/club/club/meetings/내 모임/edit"]);
+  });
   it("shows membership lookup failure and retries it instead of redirecting as a nonmember",()=>{
     roleState.error=new Error("membership unavailable");showPage();
     expect(screen.getByText("클럽 정보를 불러오지 못했습니다.")).toBeInTheDocument();

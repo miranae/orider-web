@@ -55,6 +55,11 @@ describe("서버 모임 작성 계약", () => {
     });
     expect(api.ready).toHaveBeenCalled();
   });
+  it("작성 payload 에 실내 실외 값을 싣는다", () => {
+    expect(clubMeetingAuthoring({ ...newClubMeeting(), venue: "indoor" })).toMatchObject({ venue: "indoor" });
+    expect(clubMeetingAuthoring({ ...newClubMeeting(), venue: "outdoor" })).toMatchObject({ venue: "outdoor" });
+    expect(clubMeetingAuthoring(newClubMeeting())).not.toHaveProperty("venue");
+  });
   it("서버 상한보다 큰 코스를 요청 전에 거절한다", () => {
     expect(() =>
       clubMeetingAuthoring({

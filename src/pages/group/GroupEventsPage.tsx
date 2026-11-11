@@ -4,6 +4,7 @@ import {
   type ClubMeetingListItem,
 } from "../../services/clubMeetings";
 import { isActiveEventRegistration } from "../../features/event/activeRegistration";
+import { isEventHost } from "../../features/event/eventHost";
 import { useEffect, useState, useRef } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -128,6 +129,11 @@ export default function GroupEventsPage() {
                   ? data.counters.totalRegistered
                   : null,
               myRsvp,
+              // 주최자(만든 사람·공동 주최자)에게만 목록에서 바로 수정 진입을 보여준다.
+              isHost: isEventHost(user?.uid, {
+                creatorId: typeof info.creatorId === "string" ? info.creatorId : null,
+                hostIds: Array.isArray(info.hostIds) ? info.hostIds : null,
+              }),
             };
           }),
         );

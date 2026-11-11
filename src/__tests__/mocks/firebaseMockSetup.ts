@@ -215,6 +215,7 @@ vi.mock("firebase/functions", () => ({
 
 // ─── firebase/storage ─────────────────────────────────────
 vi.mock("firebase/storage", () => ({
+  getStorage: vi.fn((app) => ({ app })),
   ref: vi.fn(),
   getDownloadURL: vi.fn().mockResolvedValue("https://mock-storage.example.com/file"),
   uploadBytes: vi.fn().mockResolvedValue({}),

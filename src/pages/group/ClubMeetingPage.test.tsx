@@ -174,6 +174,21 @@ describe("실제 인증 회원의 클럽 모임 동선", () => {
       screen.getByRole("button", { name: "모임 수정" }),
     ).toBeInTheDocument();
   });
+  it("모임 상세에 실내 실외 구분을 보여주고 실외 모임에는 실내 함께 타기 안내를 숨긴다", async () => {
+    const meeting = {
+      ...newClubMeeting(),
+      id: "event",
+      hostId: "test-uid",
+      title: "실외 모임",
+      venue: "outdoor" as const,
+      registrations: [registration],
+      courseTrack: { fileName: "a.gpx", distanceKm: 1, points: [{ lat: 37, lon: 127 }, { lat: 37.01, lon: 127.01 }] },
+    };
+    control.data = { eventId: "event", groupId: "club", revision: 1, isHost: true, meeting, members: [{ id: "test-uid", name: "실제 회원" }] };
+    show("detail");
+    expect(await screen.findByText("실외 모임", { selector: ".ds-chip, .ds-chip *" })).toBeInTheDocument();
+    expect(screen.queryByText("실내에서 함께 타기")).toBeNull();
+  });
   it("비회원에게 작성 동작을 제공하지 않는다", async () => {
     control.role = null;
     show("new");

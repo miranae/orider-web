@@ -5,7 +5,7 @@ import { listPublicClubs } from "../../services/publicClubs";
 import GroupsPage from "./GroupsPage";
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: null, signIn: vi.fn() }) }));
 vi.mock("../../contexts/ToastContext", () => ({ useToast: () => ({ showToast: vi.fn() }) }));
-vi.mock("../../hooks/useGroup", () => ({ useGroupMemberRole: () => ({ role: null }), useMyGroups: () => ({ groups: [], loading: false }), usePublicGroups: () => ({ groups: [], loading: false }) }));
+vi.mock("../../hooks/useGroup", () => ({ useGroupMemberRole: () => ({ role: null }), useMyGroups: () => ({ groups: [], loading: false }), usePendingGroupRequestIds: () => new Set<string>(), usePublicGroups: () => ({ groups: [], loading: false }) }));
 vi.mock("../../hooks/useGroupNextEvents", () => ({ useGroupNextEvents: () => ({ byGroup: new Map() }) }));
 vi.mock("../../services/publicClubs", async original => ({ ...await original<typeof import("../../services/publicClubs")>(), listPublicClubs: vi.fn() }));
 const fixture = { id: "public-club", name: "공개 클럽 fixture", description: "공개 소개", approval: "auto" as const, city: "용인" };

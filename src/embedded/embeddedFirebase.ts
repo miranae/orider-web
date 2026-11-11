@@ -1,6 +1,7 @@
 import { initializeApp, type FirebaseApp } from "firebase/app";
 import {
   connectAuthEmulator,
+  indexedDBLocalPersistence,
   inMemoryPersistence,
   initializeAuth,
   type Auth,
@@ -26,6 +27,8 @@ import {
 } from "firebase/app-check";
 import { assertIsolatedStageRuntime, getRuntimeConfig } from "../services/runtimeConfig";
 import { clearActivityDerivedDocumentCache } from "../features/fitness/activityDerivedDocumentCache";
+import { trainingSurfaceCacheScope } from "./trainingSurfaceCache";
+import { verifySelectedAuthPersistence } from "./authPersistence";
 
 const EMBEDDED_APP_NAME = "orider-embedded";
 const APP_CHECK_TOKEN_TIMEOUT_MS = 12_000;
@@ -41,6 +44,20 @@ let embeddedAppCheck: AppCheck | undefined;
 let appCheckPromise: Promise<void> | null = null;
 let appCheckRefreshPromise: Promise<void> | null = null;
 let emulatorRuntime = false;
+let persistentAuthRequested = false;
+let persistentAuth: boolean | undefined;
+let persistentAuthReadiness: Promise<boolean> | null = null;
+
+/** 앱이 준 계정 격리 저장소 안에 로그인을 남기는지 — 같은 계정의 다른 앱 탭이 로그인을 이어 쓴다. */
+export function embeddedAuthPersistsSession(): boolean | Promise<boolean> {
+  if (!persistentAuthRequested) return false;
+  if (persistentAuth !== undefined) return persistentAuth;
+  if (!persistentAuthReadiness) persistentAuthReadiness = verifySelectedAuthPersistence(embeddedAuth).then(
+    (verified) => { persistentAuth = verified; return verified; },
+    (error) => { persistentAuth = false; throw error; },
+  );
+  return persistentAuthReadiness;
+}
 // 현재 Firestore 인스턴스 캐시에 데이터가 들어갔을 수 있는 계정. null 이면 어떤 계정도 쓰지 않은 새 인스턴스다.
 let firestoreOwnerUid: string | null = null;
 let accountTransition: Promise<void> | null = null;
@@ -190,7 +207,13 @@ export function initEmbeddedFirebase(): EmbeddedFirebaseServices {
   }
 
   embeddedApp = initializeApp(config, EMBEDDED_APP_NAME);
-  embeddedAuth = initializeAuth(embeddedApp, { persistence: inMemoryPersistence });
+  // 앱이 계정 격리 저장소 표식(__ORIDER_TRAINING_CACHE_SCOPE__)을 줄 때만 로그인을 그 저장소에 남긴다.
+  // iOS 는 계정별 WebKit 저장소(계정 전환 시 폐기), Android 는 계정 전환 시 origin 저장소 삭제로 격리된다.
+  // 표식이 없거나(게스트·옛 앱) 에뮬레이터면 지금처럼 메모리 전용이다. 로그아웃은 host.logout → signOut 이 지운다.
+  persistentAuthRequested = !emulatorRuntime && trainingSurfaceCacheScope() !== null;
+  embeddedAuth = initializeAuth(embeddedApp, {
+    persistence: persistentAuthRequested ? [indexedDBLocalPersistence, inMemoryPersistence] : inMemoryPersistence,
+  });
   embeddedFirestore = createEmbeddedFirestore(embeddedApp);
   embeddedFunctions = getFunctions(
     embeddedApp,

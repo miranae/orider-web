@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CreatePostPage from './CreatePostPage';
+import { getStorage } from 'firebase/storage';
 
 const mocks = vi.hoisted(() => ({ mobile: false, loading: false, user: { uid: 'writer' } as { uid: string } | null, showToast: vi.fn(), alert: vi.fn(), navigate: vi.fn() }));
 vi.mock('../hooks/useLocalizedNavigate', () => ({ useLocalizedNavigate: () => mocks.navigate }));
@@ -12,6 +13,7 @@ vi.mock('../contexts/ToastContext', () => ({ useToast: () => ({ showToast: mocks
 vi.mock('../contexts/DialogContext', () => ({ useDialog: () => ({ alert: mocks.alert, prompt: vi.fn() }) }));
 vi.mock('../features/board/useBoard', () => ({ useCreatePost: () => ({ createPost: vi.fn(), submitting: false }) }));
 vi.mock('../services/firebase', () => ({ storage: {} }));
+vi.mock('../contexts/FirebaseServicesContext', () => ({ useFirebaseServices: () => ({ auth: { app: { name: "embedded-writer" } } }) }));
 vi.mock('../hooks/useUnsavedChangesGuard', () => ({ useUnsavedChangesGuard: () => ({ requestLeave: (leave: () => void) => leave(), guardDialog: null }) }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, options?: { rows?: number; cols?: number }) => options?.rows ? `${options.rows} × ${options.cols}` : key, i18n: { language: 'en' } }) }));
 
@@ -22,6 +24,10 @@ function renderPage(route = '/community/board/new') {
 }
 
 describe('board writing interactions', () => {
+  it('사진은 현재 주입된 앱 계정의 Storage를 사용한다', () => {
+    renderPage('/ko/embed/feedback?type=inquiry');
+    expect(getStorage).toHaveBeenCalledWith(expect.objectContaining({ name: "embedded-writer" }));
+  });
   afterEach(() => vi.restoreAllMocks());
   beforeEach(() => {
     mocks.mobile = false;

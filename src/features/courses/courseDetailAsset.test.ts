@@ -1,7 +1,7 @@
 import { webcrypto } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
-import { COURSE_DETAIL_FIELDS, courseAssetUrl, courseMetadataUrl, subscribeCourseDetail } from "./courseDetailAsset";
+import { COURSE_DETAIL_FIELDS, courseAssetUrl, courseMetadataUrl, loadCourseSource, subscribeCourseDetail } from "./courseDetailAsset";
 const sdk = vi.hoisted(() => ({ getDoc: vi.fn(), onSnapshot: vi.fn(), doc: vi.fn() }));
 vi.mock("firebase/firestore", () => sdk);
 const body = JSON.stringify({ schemaVersion: 1, trackPoints: [{ lat: 37, lon: 127 }, { lat: 38, lon: 128 }], elevationProfile: [{ d: 0, e: 1 }] });
@@ -114,5 +114,20 @@ describe("코스 상세 정적 트랙", () => {
     await vi.waitFor(() => expect(resolve).toBeDefined()); stop();
     resolve(new Response(JSON.stringify({ fields: {} }))); await Promise.resolve(); await Promise.resolve();
     expect(onData).not.toHaveBeenCalled();
+  });
+  it("한 번 읽기는 트랙 파일로 경로를 채우고, 파일이 없으면 그 문서 하나만 읽으며, 없는 코스는 null 이다", async () => {
+    const revision = await hash(body);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify(fields(revision)))).mockResolvedValueOnce(new Response(body)));
+    const fromAsset = await loadCourseSource(services(), "course");
+    expect(fromAsset).toMatchObject({ id: "course", name: "코스", trackPoints: [{ lat: 37, lon: 127 }, { lat: 38, lon: 128 }], elevationProfile: [{ d: 0, e: 1 }] });
+    expect(sdk.getDoc).not.toHaveBeenCalled();
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ fields: { name: { stringValue: "옛 코스" } } }))));
+    sdk.getDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ name: "옛 코스", trackPoints: [{ lat: 1, lon: 2 }] }) });
+    expect(await loadCourseSource(services(), "legacy")).toMatchObject({ id: "legacy", trackPoints: [{ lat: 1, lon: 2 }] });
+    expect(sdk.getDoc).toHaveBeenCalledTimes(1);
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(new Response("{}", { status: 404 })));
+    expect(await loadCourseSource(services(), "gone")).toBeNull();
   });
 });

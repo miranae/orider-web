@@ -4,11 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   app: { name: "orider-embedded" },
-  auth: { kind: "auth" },
+  auth: { kind: "auth", authStateReady: vi.fn(), _getPersistence: vi.fn() },
+  persistenceAvailable: vi.fn(),
   firestore: { kind: "firestore" },
   functions: { kind: "functions" },
   appCheck: { kind: "app-check" },
   inMemoryPersistence: { kind: "memory-persistence" },
+  indexedDBLocalPersistence: { kind: "indexeddb-persistence" },
   memoryCache: { kind: "memory-cache" },
   lruGarbageCollector: { kind: "lru-gc" },
   initializeApp: vi.fn(),
@@ -30,6 +32,7 @@ vi.mock("firebase/app", () => ({ initializeApp: mocks.initializeApp }));
 vi.mock("firebase/auth", () => ({
   initializeAuth: mocks.initializeAuth,
   inMemoryPersistence: mocks.inMemoryPersistence,
+  indexedDBLocalPersistence: mocks.indexedDBLocalPersistence,
   connectAuthEmulator: mocks.connectAuthEmulator,
 }));
 vi.mock("firebase/firestore", () => ({
@@ -78,6 +81,9 @@ describe("embeddedFirebase", () => {
     };
     mocks.initializeApp.mockReturnValue(mocks.app);
     mocks.initializeAuth.mockReturnValue(mocks.auth);
+    mocks.auth.authStateReady.mockResolvedValue(undefined);
+    mocks.auth._getPersistence.mockReturnValue({ type: "LOCAL", _isAvailable: mocks.persistenceAvailable });
+    mocks.persistenceAvailable.mockResolvedValue(true);
     mocks.memoryLocalCache.mockReturnValue(mocks.memoryCache);
     mocks.memoryLruGarbageCollector.mockReturnValue(mocks.lruGarbageCollector);
     mocks.initializeFirestore.mockReturnValue(mocks.firestore);
@@ -106,6 +112,30 @@ describe("embeddedFirebase", () => {
     const embeddedFirebase = await import("./embeddedFirebase");
     expect(() => embeddedFirebase.initEmbeddedFirebase()).toThrow("stage/firebase-identity-mismatch");
     expect(mocks.initializeApp).not.toHaveBeenCalled();
+  });
+
+  it("keeps the login in IndexedDB only inside an app-provided account store", async () => {
+    (window as Window & { __ORIDER_TRAINING_CACHE_SCOPE__?: string }).__ORIDER_TRAINING_CACHE_SCOPE__ =
+      "123e4567-e89b-12d3-a456-426614174000";
+    try {
+      const { embeddedFirebase } = await loadEmbeddedFirebase();
+      expect(mocks.initializeAuth).toHaveBeenCalledWith(mocks.app, {
+        persistence: [mocks.indexedDBLocalPersistence, mocks.inMemoryPersistence],
+      });
+      expect(await embeddedFirebase.embeddedAuthPersistsSession()).toBe(true);
+    } finally {
+      delete (window as Window & { __ORIDER_TRAINING_CACHE_SCOPE__?: string }).__ORIDER_TRAINING_CACHE_SCOPE__;
+    }
+  });
+
+  it("계정 저장소 표식이 있어도 실제 SDK가 메모리로 폴백하면 영속 인증을 광고하지 않는다", async () => {
+    (window as Window & { __ORIDER_TRAINING_CACHE_SCOPE__?: string }).__ORIDER_TRAINING_CACHE_SCOPE__ = "123e4567-e89b-12d3-a456-426614174000";
+    try {
+      mocks.auth._getPersistence.mockReturnValue({ type: "NONE", _isAvailable: mocks.persistenceAvailable });
+      const { embeddedFirebase } = await loadEmbeddedFirebase();
+      expect(await embeddedFirebase.embeddedAuthPersistsSession()).toBe(false);
+      expect(mocks.persistenceAvailable).not.toHaveBeenCalled();
+    } finally { delete (window as Window & { __ORIDER_TRAINING_CACHE_SCOPE__?: string }).__ORIDER_TRAINING_CACHE_SCOPE__; }
   });
 
   it("creates a named app with memory-only Auth and Firestore", async () => {

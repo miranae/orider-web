@@ -18,6 +18,8 @@ import {
 const mocks = vi.hoisted(() => {
   const state = {
     currentUser: { uid: "owner-1" } as { uid: string } | null,
+    persistentAuth: false,
+    persistenceReadiness: null as Promise<boolean> | null,
     queryProviderMounts: vi.fn(),
     queryClientCreations: vi.fn(),
     surfaceHookMounts: vi.fn(),
@@ -81,6 +83,7 @@ vi.mock("./embeddedFirebase", () => ({
   ensureEmbeddedAppCheckReady: vi.fn().mockResolvedValue(undefined),
   getEmbeddedAppCheckToken: vi.fn().mockResolvedValue("embedded-app-check"),
   embeddedAccountReady: (uid: string) => mocks.account.owner === null || mocks.account.owner === uid,
+  embeddedAuthPersistsSession: () => mocks.persistenceReadiness ?? mocks.persistentAuth === true,
   embeddedFirestoreOwnerUid: () => mocks.account.owner,
   getEmbeddedFirestore: () => mocks.account.firestore ?? mocks.firestore,
   isolateEmbeddedAccount: (uid: string | null) => mocks.account.isolate(uid),
@@ -248,6 +251,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     mocks.surfaceReadyCallbacks.plan = null;
     mocks.consumeHandoff.mockClear();
     mocks.logClientError.mockClear();
+    mocks.persistenceReadiness = null;
     mocks.planBackgroundRefreshKeys.length = 0;
     vi.mocked(onSnapshot).mockClear();
   });
@@ -376,6 +380,61 @@ describe("EmbeddedBootstrapRoot session gate", () => {
     expect(await screen.findByTestId("analysis-surface")).toBeVisible();
   });
 
+  it("advertises shared login only when the web keeps the session in the host account store", async () => {
+    mocks.persistentAuth = true;
+    try {
+      const bridge = createFakeBridge();
+      renderBootstrap(bridge);
+      const ready = bridge.sent.find((message: { type: string }) => message.type === "bootstrap.ready") as
+        { payload: { capabilities: string[] } } | undefined;
+      expect(ready?.payload.capabilities).toContain("embedded-persistent-auth-v1");
+    } finally {
+      mocks.persistentAuth = false;
+    }
+  });
+
+  it.each([false, true])("영속 저장 검사가 끝난 뒤에만 실제 결과를 부트스트랩에 보낸다 %s", async (verified) => {
+    let resolve!: (value: boolean) => void;
+    mocks.persistenceReadiness = new Promise((done) => { resolve = done; });
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge);
+    expect(bridge.sent.find((message: { type: string }) => message.type === "bootstrap.ready")).toBeUndefined();
+    await act(async () => resolve(verified));
+    await waitFor(() => expect(bridge.sent.some((message: { type: string }) => message.type === "bootstrap.ready")).toBe(true));
+    const ready = bridge.sent.find((message: { type: string }) => message.type === "bootstrap.ready") as { payload: { capabilities: string[] } };
+    expect(ready.payload.capabilities.includes("embedded-persistent-auth-v1")).toBe(verified);
+  });
+
+  it("화면이 닫힌 뒤 끝난 저장 검사로 늦은 부트스트랩을 보내지 않는다", async () => {
+    let resolve!: (value: boolean) => void;
+    mocks.persistenceReadiness = new Promise((done) => { resolve = done; });
+    const bridge = createFakeBridge();
+    const view = renderBootstrap(bridge);
+    view.unmount();
+    await act(async () => resolve(true));
+    expect(bridge.sent.some((message: { type: string }) => message.type === "bootstrap.ready")).toBe(false);
+  });
+
+  it("화면 종료 뒤의 검사 실패도 기록하되 부트스트랩을 보내지 않는다", async () => {
+    let reject!: (error: Error) => void;
+    mocks.persistenceReadiness = new Promise((_, failed) => { reject = failed; });
+    const bridge = createFakeBridge();
+    const view = renderBootstrap(bridge);
+    view.unmount();
+    await act(async () => reject(new Error("late-storage-failure")));
+    expect(mocks.logClientError).toHaveBeenCalledWith("embedded.auth.persistence", expect.any(Error));
+    expect(bridge.sent.some((message: { type: string }) => message.type === "bootstrap.ready")).toBe(false);
+  });
+
+  it("영속 저장 검사 실패를 기록하고 영속 기능 없이 부트스트랩한다", async () => {
+    mocks.persistenceReadiness = Promise.reject(new Error("storage-denied"));
+    const bridge = createFakeBridge();
+    renderBootstrap(bridge);
+    await waitFor(() => expect(mocks.logClientError).toHaveBeenCalledWith("embedded.auth.persistence", expect.any(Error)));
+    const ready = bridge.sent.find((message: { type: string }) => message.type === "bootstrap.ready") as { payload: { capabilities: string[] } };
+    expect(ready.payload.capabilities).not.toContain("embedded-persistent-auth-v1");
+  });
+
   it("mounts no profile listener, React Query provider, or surface hook before sessionAccepted", async () => {
     const bridge = createFakeBridge();
     renderBootstrap(bridge);
@@ -390,6 +449,7 @@ describe("EmbeddedBootstrapRoot session gate", () => {
           "run-start-scheduled-v1",
           "club-detail-embed-v1",
           "course-detail-embed-v1",
+          "app-menu-embed-v1",
           "host.lifecycle",
           "host.themeChanged",
         ],

@@ -350,6 +350,13 @@ function ServerMeetingDetail({
       <section className="cp-hero cp-meeting-hero">
         <div className="cp-actions">
           <Chip>{state.kinds[0]!.name}</Chip>
+          {meeting.venue && (
+            <Chip>
+              {meeting.venue === "indoor"
+                ? text("실내 모임", "Indoor meeting")
+                : text("실외 모임", "Outdoor meeting")}
+            </Chip>
+          )}
           <Chip>
             {completed ? text("모임 마무리 완료", "Meeting completed") : !live
               ? text("모임 취소", "Cancelled")
@@ -395,7 +402,7 @@ function ServerMeetingDetail({
           </span>
         </div>
         <CourseSummary meeting={meeting} />
-        {live && current?.status === "joined" && (meeting.courseTrack?.points.length ?? 0) >= 2 && (meeting.courseTrack?.segmentStarts?.length ?? 0) <= 1 && (
+        {live && meeting.venue !== "outdoor" && current?.status === "joined" && (meeting.courseTrack?.points.length ?? 0) >= 2 && (meeting.courseTrack?.segmentStarts?.length ?? 0) <= 1 && (
           <Card>
             <h2>{text("실내에서 함께 타기", "Ride together indoors")}</h2>
             <ol>

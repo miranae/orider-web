@@ -23,6 +23,7 @@ vi.mock("./embeddedFirebase", () => ({
   ensureEmbeddedAppCheckReady: vi.fn().mockResolvedValue(undefined),
   getEmbeddedAppCheckToken: vi.fn().mockResolvedValue("token"),
   embeddedAccountReady: () => true,
+  embeddedAuthPersistsSession: () => false,
   embeddedFirestoreOwnerUid: () => null,
   getEmbeddedFirestore: () => ({ instance: "embedded" }),
   isolateEmbeddedAccount: (uid: string | null) => mocks.isolate(uid),
@@ -44,6 +45,7 @@ function hubSurfaceMock(testId: string) {
 vi.mock("./surfaces/ClubsSurface", () => hubSurfaceMock("clubs-surface"));
 vi.mock("./surfaces/ExploreSurface", () => hubSurfaceMock("explore-surface"));
 vi.mock("./surfaces/SearchSurface", () => hubSurfaceMock("search-surface"));
+vi.mock("./surfaces/MenuPageSurface", () => hubSurfaceMock("menu-surface"));
 
 // 클럽 상세는 실제 ClubDetailSurface(하위 라우팅)를 쓰고 웹 클럽 화면만 가볍게 바꾼다.
 function clubPageMock(name: string) {
@@ -122,7 +124,7 @@ describe("app tab hub embeds", () => {
   });
 
   it("routes the hub embeds and club detail outside the standard web shell", () => {
-    for (const hub of ["clubs", "explore", "search"]) {
+    for (const hub of ["clubs", "explore", "search", "about", "policies/community", "feedback", "activity/owned/edit"]) {
       expect(isEmbeddedRoutePath(`/ko/embed/${hub}`)).toBe(true);
       expect(isEmbeddedRoutePath(`/en/embed/${hub}/`)).toBe(true);
     }
@@ -172,6 +174,23 @@ describe("app tab hub embeds", () => {
     expect(await screen.findByTestId("clubs-surface")).toBeInTheDocument();
     expect(mocks.isolate).toHaveBeenCalledWith(null);
     expect(bridge.sent.some(item => item.type === "surface.error")).toBe(false);
+  });
+
+  it.each(["about", "community-guidelines"] as const)("%s 안내는 로그인 인계 없이 열 수 있다", async kind => {
+    mocks.state.currentUser = null; simulateLogin(null);
+    const bridge = createFakeBridge(); renderHub(bridge, kind);
+    await authorize(bridge, { contractVersion: 1 });
+    act(() => bridge.emit(message("host.sessionAccepted", accepted)));
+    expect(await screen.findByTestId("menu-surface")).toBeInTheDocument();
+    expect(bridge.sent).toContainEqual({ type: "auth.state", payload: { uid: null }, requestId: "auth-1" });
+    expect(mocks.isolate).toHaveBeenCalledWith(null);
+  });
+  it("피드백 작성은 게스트 승인을 받지 않는다", () => {
+    mocks.state.currentUser = null; simulateLogin(null);
+    const bridge = createFakeBridge(); renderHub(bridge, "feedback");
+    act(() => bridge.emit(message("host.authorize", { contractVersion: 1 }, "guest")));
+    expect(bridge.sent).toContainEqual({ type: "surface.error", payload: { code: "invalid_host_payload" }, requestId: "guest" });
+    expect(screen.queryByTestId("menu-surface")).toBeNull();
   });
 
   it("falls back to a guest session when the handoff for the expected account produced no user", async () => {
