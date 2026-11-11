@@ -16,6 +16,11 @@ describe("실제 선택된 인증 저장소", () => {
   it("SDK 판정 API가 없는 판은 보수적으로 영속 인증을 끈다", async () => {
     expect(await verifySelectedAuthPersistence({ authStateReady: async () => {} } as unknown as Auth)).toBe(false);
   });
+  it("과거 SDK의 문자열 반환형을 검증된 영속 저장으로 오인하지 않는다", async () => {
+    const auth = { authStateReady: async () => {}, _getPersistence: () => "LOCAL" } as unknown as Auth;
+    expect(await verifySelectedAuthPersistence(auth)).toBe(false);
+  });
+
   it("저장 실패는 호출부에 전달해 진단하고 메모리 흐름으로 복구한다", async () => {
     await expect(verifySelectedAuthPersistence(fixture("LOCAL", vi.fn().mockRejectedValue(new Error("storage-denied")))))
       .rejects.toThrow("storage-denied");
@@ -27,8 +32,10 @@ describe("실제 선택된 인증 저장소", () => {
     try {
       const auth = initializeAuth(app, { persistence: inMemoryPersistence });
       await auth.authStateReady();
-      const adapter = auth as typeof auth & { _getPersistence: () => { type: string; _isAvailable: () => Promise<boolean> } };
+      const adapter = auth as typeof auth & { _getPersistence: () => { type: string; _isAvailable: () => Promise<boolean> }; _getPersistenceType: () => string };
       expect(typeof adapter._getPersistence).toBe("function");
+      expect(typeof adapter._getPersistence()).toBe("object");
+      expect(adapter._getPersistenceType()).toBe("NONE");
       expect(adapter._getPersistence().type).toBe("NONE");
       expect(typeof adapter._getPersistence()._isAvailable).toBe("function");
       expect(await verifySelectedAuthPersistence(auth)).toBe(false);

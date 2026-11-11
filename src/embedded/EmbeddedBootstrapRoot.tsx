@@ -1159,7 +1159,7 @@ export default function EmbeddedBootstrapRoot({
     const persistence = embeddedAuthPersistsSession();
     if (typeof persistence === "boolean") announceBootstrap(persistence);
     else void persistence.then(announceBootstrap).catch((error) => {
-      if (bootstrapDisposed) return;
+      // 화면이 닫혀도 완료된 저장 검사 실패는 기록한다. 전송 여부만 announceBootstrap이 판정한다.
       logClientError("embedded.auth.persistence", error);
       announceBootstrap(false);
     });
