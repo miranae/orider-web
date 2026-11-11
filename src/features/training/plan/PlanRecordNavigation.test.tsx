@@ -17,3 +17,8 @@ it.each([
   expect(screen.getByRole("link", { name: "훈련 계획" })).toHaveAttribute("href", `/ko/coach/plan?sport=${coach}&date=2026-09-03`);
   expect(screen.getByRole("link", { name: "활동 기록·수행 확인" })).toHaveAttribute("href", `/ko/athlete/me/activities?sport=${records}&date=2026-09-03`);
 });
+
+it("러닝 오늘 훈련에서 프로그램이 유지된 계획 탭으로 종목을 넘긴다", () => {
+  renderWithProviders(<PlanRecordNavigation />, { route: "/ko/coach/today?sport=run" });
+  expect(screen.getByRole("link", { name: "훈련 계획" })).toHaveAttribute("href", "/ko/coach/plan?sport=run");
+});
