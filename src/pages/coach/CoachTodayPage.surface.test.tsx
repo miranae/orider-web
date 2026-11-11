@@ -2,7 +2,7 @@ import { render, screen, cleanup, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
-import CoachTodayPage, { todayPlannedLoad } from "./CoachTodayPage";
+import CoachTodayPage from "./CoachTodayPage";
 
 const mocks = vi.hoisted(() => ({
   state: { decision: null, loading: false, unavailable: true, unavailableReason: "disabled", scheduledOnly: true, refresh: vi.fn() } as TodayTrainingDecisionState,
@@ -43,23 +43,32 @@ afterEach(cleanup);
 function renderToday() { render(<MemoryRouter><CoachTodayPage /></MemoryRouter>); }
 
 describe("오늘 훈련 — 계획 · AI 코치 분석 요청 · 24/48시간 변화만", () => {
-  it("예정 운동이 없으면 없다는 한 줄과 휴식 기준 변화만 보인다", () => {
+  it("예정 운동이 없더라도 서버 예측 없이 휴식 수치를 만들지 않는다", () => {
     mocks.state = { ...mocks.state, unavailable: false, unavailableReason: null, decision: decisionWith([]) };
     renderToday();
     const plan = screen.getByTestId("K2-2");
     expect(plan).toHaveAttribute("data-today-plan", "none");
     expect(within(plan).getByText("training:decision.noScheduled")).toBeInTheDocument();
-    expect(screen.getByText("today.forecastBasisRest")).toBeInTheDocument();
-    expect(screen.getAllByText(/today.forecastHours/).map(node => node.textContent)).toEqual([
-      'today.forecastHours:{"hours":24}', 'today.forecastHours:{"hours":48}']);
+    expect(screen.queryByTestId("K2-1-2")).not.toBeInTheDocument();
+    expect(screen.getByText("today.forecastUnavailable")).toBeInTheDocument();
   });
 
-  it("예정 운동이 있으면 그 운동과 그 TSS 로 계산한 변화를 보인다", () => {
+  it("예정 운동은 표시하되 서버 예측 없이 TSS로 지표를 계산하지 않는다", () => {
     mocks.state = { ...mocks.state, unavailable: false, unavailableReason: null, decision: decisionWith([session("z2", 60)]) };
     renderToday();
     expect(screen.getByTestId("K2-2")).toHaveAttribute("data-today-plan", "scheduled");
     expect(screen.getByTestId("K2-2-1")).toBeInTheDocument();
-    expect(screen.getByText('today.forecastBasisPlanned:{"tss":60}')).toBeInTheDocument();
+    expect(screen.queryByTestId("K2-1-2")).not.toBeInTheDocument();
+    expect(screen.getByText("today.forecastUnavailable")).toBeInTheDocument();
+  });
+
+  it("대표 휴식과 다른 운동·미확정 TSS가 섞여도 휴식 예측을 만들지 않는다", () => {
+    mocks.state = { ...mocks.state, unavailable: false, unavailableReason: null,
+      decision: decisionWith([session("rest", 0), { ...session("z2", 60), sessionId: "s2" }, { ...session("z2", null), sessionId: "s3" }]) };
+    renderToday();
+    expect(screen.queryByTestId("K2-1-2")).not.toBeInTheDocument();
+    expect(screen.queryByText("today.forecastBasisRest")).not.toBeInTheDocument();
+    expect(screen.getByText("today.forecastUnavailable")).toBeInTheDocument();
   });
 
   it("순서는 계획 → AI 코치에게 분석 요청 → 24/48시간 변화이고 다른 것은 없다", () => {
@@ -104,7 +113,8 @@ describe("오늘 훈련 — 계획 · AI 코치 분석 요청 · 24/48시간 변
   });
 
   it("정본 부하가 없으면 변화를 지어내지 않는다", () => {
-    mocks.point = null; mocks.canonical = false; renderToday();
+    mocks.point = null; mocks.canonical = false;
+    mocks.state = { ...mocks.state, unavailable: false, decision: decisionWith([]) }; renderToday();
     expect(screen.queryByTestId("K2-1-2")).not.toBeInTheDocument();
     expect(screen.getByText("today.forecastUnavailable")).toBeInTheDocument();
   });
@@ -113,17 +123,6 @@ describe("오늘 훈련 — 계획 · AI 코치 분석 요청 · 24/48시간 변
     mocks.state = { ...mocks.state, unavailable: false, unavailableReason: null, decision: decisionWith([session("z2", null)]) };
     renderToday();
     expect(screen.queryByTestId("K2-1-2")).not.toBeInTheDocument();
-    expect(screen.getByText("today.forecastNoTss")).toBeInTheDocument();
-  });
-});
-
-describe("todayPlannedLoad", () => {
-  const base = { loading: false, unavailable: false, unavailableReason: null, scheduledOnly: false, refresh: vi.fn() };
-  it("예정 없음·휴식은 0, 예정 운동은 TSS, TSS 없음은 null", () => {
-    expect(todayPlannedLoad({ ...base, decision: null })).toBeNull();
-    expect(todayPlannedLoad({ ...base, decision: decisionWith([]) })).toEqual({ load: 0, planned: false });
-    expect(todayPlannedLoad({ ...base, decision: decisionWith([session("rest", 0)]) })).toEqual({ load: 0, planned: false });
-    expect(todayPlannedLoad({ ...base, decision: decisionWith([session("z2", 55)]) })).toEqual({ load: 55, planned: true });
-    expect(todayPlannedLoad({ ...base, decision: decisionWith([session("z2", null)]) })).toBeNull();
+    expect(screen.getByText("today.forecastUnavailable")).toBeInTheDocument();
   });
 });
