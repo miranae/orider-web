@@ -42,7 +42,7 @@ describe("useGroupRideStats", () => {
     expect(result.current.loadMoreError).toBeNull();
     expect(result.current.rides.map(ride => ride.groupRideId)).toEqual(["first", "second"]);
     expect(mockCallableInvocations.filter(call => call.name === "getGroupRideStats").map(call => call.data)).toEqual([
-      { groupId: "pages", pageSize: 20 },
+      { groupId: "pages", pageSize: 20, targetedReadsVersion: 1 },
       { groupId: "pages", pageSize: 20, cursor, pageOnly: true },
       { groupId: "pages", pageSize: 20, cursor, pageOnly: true },
     ]);
@@ -65,7 +65,7 @@ describe("useGroupRideStats", () => {
     expect(httpsCallable).not.toHaveBeenCalled();
     await act(async () => { resolveReady(); });
     expect(mockCallableInvocations).toEqual([{ name: "getGroupRideStats", data: phase === "initial"
-      ? { groupId: "qa-group", pageSize: 20 }
+      ? { groupId: "qa-group", pageSize: 20, targetedReadsVersion: 1 }
       : { groupId: "qa-group", pageSize: 20, cursor, pageOnly: true } }]);
   });
 
@@ -118,7 +118,7 @@ describe("useGroupRideStats", () => {
     const { rerender } = renderHook(({ groupId }) => useGroupRideStats(groupId), { initialProps: { groupId: "old" } });
     rerender({ groupId: "new" });
     await act(async () => { resolveReady(); });
-    expect(mockCallableInvocations).toEqual([{ name: "getGroupRideStats", data: { groupId: "new", pageSize: 20 } }]);
+    expect(mockCallableInvocations).toEqual([{ name: "getGroupRideStats", data: { groupId: "new", pageSize: 20, targetedReadsVersion: 1 } }]);
   });
 
   it("reports an unavailable callable and clears the error on retry", async () => {
@@ -239,7 +239,7 @@ describe("useGroupRideStats", () => {
     const { result } = renderHook(() => useGroupRideStats("group-pages"));
     await waitFor(() => expect(result.current.hasMore).toBe(true));
     await act(async () => { await result.current.loadMore(); });
-    expect(calls).toEqual([{ groupId: "group-pages", pageSize: 20 },
+    expect(calls).toEqual([{ groupId: "group-pages", pageSize: 20, targetedReadsVersion: 1 },
       { groupId: "group-pages", pageSize: 20, cursor, pageOnly: true }]);
     expect(result.current.rides.map((ride) => ride.groupRideId)).toEqual(["new", "old"]);
     expect(result.current.aggregate?.lifetimeRideCount).toBe(2);

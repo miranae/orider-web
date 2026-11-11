@@ -157,8 +157,8 @@ export function useGroupRideStats(groupId: string | undefined, accessKey?: strin
       try {
         await ensureAppCheckReady();
         if (!isCurrent()) return;
-        const fn = httpsCallable<{ groupId: string; pageSize: number; memberIds?: string[] }, RideStatsResponse>(functions, "getGroupRideStats");
-        const { data } = await fn({ groupId, pageSize: 20, ...(memberIdsKey !== "[]" ? { memberIds: JSON.parse(memberIdsKey) as string[] } : {}) });
+        const fn = httpsCallable<{ groupId: string; pageSize: number; targetedReadsVersion: 1; memberIds?: string[] }, RideStatsResponse>(functions, "getGroupRideStats");
+        const { data } = await fn({ groupId, pageSize: 20, targetedReadsVersion: 1, ...(memberIdsKey !== "[]" ? { memberIds: JSON.parse(memberIdsKey) as string[] } : {}) });
         if (!isCurrent()) return;
         setRides(data.rides ?? []);
         setMemberStats(data.memberStats ?? {});
