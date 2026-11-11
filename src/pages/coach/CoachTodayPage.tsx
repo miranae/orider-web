@@ -4,31 +4,17 @@ import CoachSignInButton from "./CoachSignInButton";
 import { useAuth } from "../../contexts/AuthContext";
 import { EmptyState, LoadingSkeleton } from "../../components/redesign";
 import DisciplineTabs from "../../components/redesign/DisciplineTabs";
-import GlossaryText from "../../components/common/GlossaryText";
 import { TodayTrainingDecisionSource } from "../../features/trainingDecision/TodayTrainingDecisionCard";
 import { TrainingDecisionSessionView } from "../../features/trainingDecision/TrainingDecisionSessionView";
 import { canShowRecommendation, primaryEffectiveSession } from "../../features/trainingDecision/decisionPresentation";
 import { CoachQuestionLauncher } from "../../features/coach/CoachQuestionLauncher";
-import { activityIdsCoveredByImpacts, activityDayLoad, deriveActivityImpacts, forecastFitnessChoice48Hours } from "../../features/fitness/activityImpact";
+import { activityIdsCoveredByImpacts, activityDayLoad, deriveActivityImpacts } from "../../features/fitness/activityImpact";
 import { isNegligibleActivitySummary } from "@shared/training/activityLoad";
 import { Alert, Card, Text } from "../../theme/components";
 import { useCoachFitnessModel } from "./CoachFitnessModelContext";
 import "../../features/trainingDecision/training-decision.css";
 
 type Sport = "bike" | "run" | "swim";
-
-/** 24·48시간 변화 계산에 넣을 오늘 부하. 예정이 없거나 휴식이면 0, 예정 운동에 TSS 가 없으면 null(계산 불가). */
-export function todayPlannedLoad(state: TodayTrainingDecisionState): { load: number; planned: boolean } | null {
-  if (state.loading || state.unavailable || !state.decision) return null;
-  const session = state.decision.scheduledSessions.length ? primaryEffectiveSession(state.decision) : null;
-  if (!session || session.current.workout === "rest") return { load: 0, planned: false };
-  return session.current.targetTss == null ? null : { load: session.current.targetTss, planned: true };
-}
-
-function signed(value: number): string {
-  const rounded = value.toFixed(1);
-  return value > 0 ? `+${rounded}` : rounded;
-}
 
 /** 오늘의 계획 — 예정 운동이 있으면 그 운동을, 없으면 없다는 한 줄만 보인다. */
 function TodayPlan({ state }: { state: TodayTrainingDecisionState }) {
@@ -67,25 +53,17 @@ function TodayAskCoach({ state, sport }: { state: TodayTrainingDecisionState; sp
   </div>;
 }
 
-/** 24시간 후·48시간 후 변화 — 오늘 예정 운동(없으면 휴식)을 정본 CTL/ATL 모델에 넣은 예상. */
+/** 서버 정본 예측 계약이 제공되기 전에는 브라우저에서 CTL/ATL/TSB를 계산하지 않는다(P6).
+ * 대표 세션이나 임의의 휴식 부하로 하루 전체 계획을 대신하지 않는다.
+ */
 function TodayForecast({ state, awaitingAggregate }: { state: TodayTrainingDecisionState; awaitingAggregate: boolean }) {
-  const { t, currentPoint, hasCanonicalTimeseries } = useCoachFitnessModel();
+  const { t } = useCoachFitnessModel();
   if (state.loading) return null;
-  const planned = todayPlannedLoad(state);
-  const note = !currentPoint || !hasCanonicalTimeseries ? t("today.forecastUnavailable")
-    : awaitingAggregate ? t("today.forecastPending")
-    : planned == null ? t(state.unavailable || !state.decision ? "today.forecastPlanUnavailable" : "today.forecastNoTss") : null;
-  const points = note == null && currentPoint && planned ? forecastFitnessChoice48Hours(currentPoint, planned.load) : null;
+  const note = awaitingAggregate ? t("today.forecastPending")
+    : state.unavailable || !state.decision ? t("today.forecastPlanUnavailable")
+    : t("today.forecastUnavailable");
   return <Card data-testid="K2-1" className="fitness-coach__choice-card">
-    {points && planned && <Text as="p" variant="caption" tone="secondary" style={{ margin: "0 0 var(--space-3)" }}>
-      {planned.planned ? t("today.forecastBasisPlanned", { tss: planned.load }) : t("today.forecastBasisRest")}</Text>}
-    {points ? <div data-testid="K2-1-2" className="fitness-coach__forecast">
-      {points.map((point) => <div key={point.hoursAhead} data-hours={point.hoursAhead}>
-        <Text as="div" variant="caption">{t("today.forecastHours", { hours: point.hoursAhead })}</Text>
-        <Text as="div" variant="num" style={{ marginTop: "var(--space-1)", color: "var(--ink-1)" }}>
-          <GlossaryText>{`CTL ${point.ctl.toFixed(1)} · ATL ${point.atl.toFixed(1)} · TSB ${signed(point.tsb)}`}</GlossaryText></Text>
-      </div>)}
-    </div> : <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{note}</Text>}
+    <Text as="p" variant="caption" tone="secondary" style={{ margin: 0 }}>{note}</Text>
   </Card>;
 }
 
