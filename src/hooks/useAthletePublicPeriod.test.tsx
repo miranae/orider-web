@@ -56,7 +56,10 @@ it("does not extend the oldest authorization deadline through continuation or 42
   await act(async()=>{}); expect(result.current.status).toBe("partial");
   await act(async()=>vi.advanceTimersByTime(29000)); await act(()=>result.current.more());
   expect(result.current.status).toBe("error"); expect(result.current.items).toHaveLength(1);
-  await act(async()=>vi.advanceTimersByTime(1000)); expect(result.current.status).toBe("stale"); expect(result.current.items).toEqual([]);
+  // 승인 창이 끝나도 띄워 둔 목록은 그대로 두고, 다음 더 보기에서 처음부터 다시 받게 한다.
+  await act(async()=>vi.advanceTimersByTime(1000)); expect(result.current.items).toHaveLength(1);
+  await act(()=>result.current.more()); expect(result.current.status).toBe("stale"); expect(result.current.items).toEqual([]);
+  expect(mocks.load).toHaveBeenCalledTimes(2);
  } finally {vi.useRealTimers();}
 });
 it("can complete 201 records through eleven explicit bounded requests without an automatic loop", async () => {

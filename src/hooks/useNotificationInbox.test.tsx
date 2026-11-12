@@ -99,3 +99,28 @@ it("skips hidden polls and renews the generation once on visible plus focus", as
     expect(result.current.items[0]?.id).toBe("fresh");
   } finally { visibility.mockRestore(); vi.useRealTimers(); }
 });
+
+describe("notification signal subscription", () => {
+  type Listener = (snap: { exists: () => boolean; data: () => Record<string, unknown> }) => void;
+  const signal = (revision: number) => ({ exists: () => true, data: () => ({ revision }) });
+  it("does not poll while open and re-reads only when the signal revision changes", async () => {
+    const { onSnapshot } = await import("firebase/firestore");
+    let listener: Listener | undefined; let path = "";
+    vi.mocked(onSnapshot).mockImplementation(((ref: { path?: string }, next: Listener) => { path = String(ref?.path ?? ""); listener = next; return () => {}; }) as unknown as typeof onSnapshot);
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useNotificationInbox());
+      await act(async () => {});
+      expect(path).toContain("notification_signals/a");
+      act(() => listener?.(signal(6)));
+      await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
+      expect(state.list).toHaveBeenCalledTimes(1);
+      act(() => listener?.(signal(6)));
+      expect(state.list).toHaveBeenCalledTimes(1);
+      state.list.mockResolvedValue({ items: [{ id: "new" }], nextCursor: null });
+      await act(async () => listener?.(signal(7)));
+      expect(state.list).toHaveBeenCalledTimes(2);
+      expect(result.current.items[0]?.id).toBe("new");
+    } finally { vi.useRealTimers(); vi.mocked(onSnapshot).mockReset(); }
+  });
+});
