@@ -30,3 +30,19 @@ export async function loadActiveViewerCount(firestore: Firestore, eventId: strin
   const snapshot = await getCountFromServer(active);
   return snapshot.data().count;
 }
+
+export interface ViewerSummaryRecord {
+  activeCount?: unknown;
+  computedAt?: { toMillis?: () => number } | null;
+}
+
+/**
+ * 서버가 heartbeat 때 30초에 한 번 세어 쓰는 events/{id}/viewer_summary/current 를 읽는다.
+ * 요약이 없거나 활성 창(90초)보다 오래됐으면 지금 보는 사람이 없다고 본다.
+ */
+export function activeViewerCountFromSummary(record: ViewerSummaryRecord | null | undefined, now = Date.now()): number {
+  const computedAt = typeof record?.computedAt?.toMillis === "function" ? record.computedAt.toMillis() : null;
+  const count = record?.activeCount;
+  if (computedAt === null || now - computedAt > ACTIVE_VIEWER_WINDOW_MS) return 0;
+  return typeof count === "number" && Number.isFinite(count) && count >= 0 ? Math.floor(count) : 0;
+}
