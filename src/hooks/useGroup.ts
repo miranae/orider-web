@@ -1,8 +1,8 @@
 import { resolveMyGroupSummaries, isGroupReadPermissionDenied } from "../services/groupSummaries";
-import { SEARCH_PAGE_SIZE, usePagedSearch } from "./usePagedSearch";
+import { usePublicClubDirectory } from "./usePublicClubDirectory";
 import { useRef, useState, useEffect, useCallback } from "react";
 import {
-  doc, collection, query, onSnapshot, getDoc, getDocs, where, orderBy, startAfter, limit as firestoreLimit, type QueryDocumentSnapshot, type DocumentData,
+  doc, collection, query, onSnapshot, getDoc, getDocs, where, limit as firestoreLimit,
 } from "firebase/firestore";
 // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -350,21 +350,10 @@ export function usePendingGroupRequestIds(userId: string | undefined): Set<strin
 }
 
 // 공개 그룹 검색
-export function usePublicGroups(options: { searchText?: string; discipline?: "ALL" | "bike" | "run" | "swim" | "tri"; city?: string; maxCount?: number; enabled?: boolean } = {}) {
-  const { searchText = "", discipline = "ALL", city = "", maxCount = SEARCH_PAGE_SIZE, enabled = true } = options;
-  const { firestore } = useFirebaseServices();
-  const count = Math.min(maxCount, SEARCH_PAGE_SIZE);
-  const page = usePagedSearch(enabled ? JSON.stringify([searchText, discipline, city, count]) : null, async (cursor: QueryDocumentSnapshot<DocumentData> | null) => {
-    const trimmed = searchText.trim();
-    const snap = await getDocs(query(collection(firestore, "groups"),
-      where("visibility", "==", "public"), where("isActive", "==", true), where("toggles.showInDirectory", "==", true),
-      ...(discipline !== "ALL" ? [where("discipline", "==", discipline)] : []),
-      ...(city.trim() ? [where("city", "==", city.trim())] : []),
-      ...(trimmed ? [where("name", ">=", trimmed), where("name", "<=", `${trimmed}\uf8ff`), orderBy("name")] : []),
-      ...(cursor ? [startAfter(cursor)] : []), firestoreLimit(count),
-    ));
-    return { items: snap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Group), cursor: snap.docs[snap.docs.length - 1] ?? null, hasMore: snap.docs.length === count,
-      error: snap.metadata?.fromCache === true ? new Error("Public clubs could not be confirmed with the server") : null };
-  });
-  return { ...page, groups: page.items };
+/** Signed-in discovery shares the same sanitized HTTP directory as anonymous discovery.
+ * Legacy inviteCode roots cannot be read through a public Firestore list query.
+ */
+export function usePublicGroups(options: { searchText?: string; discipline?: "ALL" | "bike" | "run" | "swim" | "tri"; city?: string; enabled?: boolean } = {}) {
+  const { searchText = "", discipline = "ALL", city = "", enabled = true } = options;
+  return usePublicClubDirectory({ searchText, discipline, city }, enabled);
 }

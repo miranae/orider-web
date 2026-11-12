@@ -1,11 +1,14 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { getDocs, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
+import { getDocs, onSnapshot, query, where } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { listPublicClubs } from "../services/publicClubs";
 import type { PublicUserProfile } from "../services/publicProfiles";
 import { setCollectionDocs, setDocData, setCallableResult, setCallableImplementation } from "../__tests__/mocks/firebase";
 import { getPublicUserProfile } from "../services/publicProfiles";
 import * as errorLogger from "../services/errorLogger";
 import { useGroup, useGroupMemberRole, useGroupMembers, useMyGroups, usePublicGroups } from "./useGroup";
+
+vi.mock("../services/publicClubs", () => ({ listPublicClubs: vi.fn(async () => ({ items: [], cursor: null, hasMore: false })) }));
 
 vi.mock("../services/publicProfiles", () => ({
   getPublicUserProfile: vi.fn(),
@@ -284,9 +287,8 @@ describe("group list hooks", () => {
   beforeEach(() => {
     vi.mocked(getDocs).mockClear();
     vi.mocked(where).mockClear();
-    vi.mocked(limit).mockClear();
-    vi.mocked(orderBy).mockClear();
     vi.mocked(query).mockClear();
+    vi.mocked(listPublicClubs).mockReset().mockResolvedValue({ items: [], cursor: null, hasMore: false });
   });
 
   it("keeps my group load failures distinct from an empty group list", async () => {
@@ -487,7 +489,7 @@ describe("group list hooks", () => {
 
   it("keeps public group load failures distinct from no public groups", async () => {
     const err = new Error("permission denied");
-    vi.mocked(getDocs).mockRejectedValueOnce(err);
+    vi.mocked(listPublicClubs).mockRejectedValueOnce(err);
 
     const { result } = renderHook(() => usePublicGroups());
 
@@ -533,64 +535,43 @@ describe("group list hooks", () => {
     expect(result.current.error).toBeInstanceOf(Error);
   });
 
-  it("distinguishes cached-empty public results from a server-confirmed empty directory", async () => {
-    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [], metadata: { fromCache: true } } as never)
-      .mockResolvedValueOnce({ docs: [], metadata: { fromCache: false } } as never);
+  it("uses the public HTTP directory for signed-in discovery instead of protected root queries", async () => {
+    vi.mocked(listPublicClubs).mockResolvedValueOnce({ items: [{ id: "public", name: "Public club", description: "", approval: "auto" }], cursor: null, hasMore: false });
     const { result } = renderHook(() => usePublicGroups());
-    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
-    act(() => result.current.retry());
-    await waitFor(() => expect(result.current.error).toBeNull());
-    expect(result.current.groups).toEqual([]);
-    expect(getDocs).toHaveBeenCalledTimes(2);
-  });
-
-  it("retains known public results on an offline retry but clears them when filters change", async () => {
-    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [{ id: "public", data: () => ({ name: "Public club" }) }], metadata: { fromCache: false } } as never);
-    const { result, rerender } = renderHook(({ city }) => usePublicGroups({ city }), { initialProps: { city: "Seoul" } });
     await waitFor(() => expect(result.current.groups[0]?.id).toBe("public"));
-    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [], metadata: { fromCache: true } } as never)
-      .mockResolvedValueOnce({ docs: [], metadata: { fromCache: true } } as never);
-    act(() => result.current.retry());
-    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
-    expect(result.current.groups[0]?.id).toBe("public");
-    rerender({ city: "Busan" });
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.groups).toEqual([]);
-  });
-
-  it("does not query public groups while disabled for an unauthenticated page", () => {
-    const { result } = renderHook(() => usePublicGroups({ enabled: false }));
-
     expect(getDocs).not.toHaveBeenCalled();
+  });
+
+  it("hides stale public results when a visibility recheck fails", async () => {
+    vi.mocked(listPublicClubs).mockResolvedValueOnce({ items: [{ id: "public", name: "Public club", description: "", approval: "auto" }], cursor: null, hasMore: false });
+    const { result } = renderHook(() => usePublicGroups());
+    await waitFor(() => expect(result.current.groups[0]?.id).toBe("public"));
+    vi.mocked(listPublicClubs).mockRejectedValueOnce(new Error("directory unavailable"));
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.error).toBeTruthy());
     expect(result.current.groups).toEqual([]);
+  });
+
+  it("does not load disabled public discovery", () => {
+    const { result } = renderHook(() => usePublicGroups({ enabled: false }));
+    expect(listPublicClubs).not.toHaveBeenCalled();
+    expect(getDocs).not.toHaveBeenCalled();
     expect(result.current.loading).toBe(false);
-    expect(result.current.error).toBeNull();
   });
 
-  it("applies directory and city filters on the server before the limit to avoid false-empty pages", async () => {
-    renderHook(() => usePublicGroups({ searchText: "Han", discipline: "bike", city: "서울 · 잠실", maxCount: 30 }));
-
-    await waitFor(() => {
-      expect(getDocs).toHaveBeenCalled();
-    });
-
-    expect(where).toHaveBeenCalledWith("visibility", "==", "public");
-    expect(where).toHaveBeenCalledWith("isActive", "==", true);
-    expect(where).toHaveBeenCalledWith("toggles.showInDirectory", "==", true);
-    expect(where).toHaveBeenCalledWith("discipline", "==", "bike");
-    expect(where).toHaveBeenCalledWith("city", "==", "서울 · 잠실");
-    expect(where).toHaveBeenCalledWith("name", ">=", "Han");
-    expect(where).toHaveBeenCalledWith("name", "<=", "Han\uf8ff");
-    expect(orderBy).toHaveBeenCalledWith("name");
-    expect(limit).toHaveBeenCalledWith(20);
-    const directoryFilterOrder = vi.mocked(where).mock.invocationCallOrder.find((_, index) =>
-      vi.mocked(where).mock.calls[index]?.[0] === "toggles.showInDirectory");
-    const cityFilterOrder = vi.mocked(where).mock.invocationCallOrder.find((_, index) =>
-      vi.mocked(where).mock.calls[index]?.[0] === "city");
-    expect(directoryFilterOrder).toBeLessThan(vi.mocked(limit).mock.invocationCallOrder.at(-1)!);
-    expect(cityFilterOrder).toBeLessThan(vi.mocked(limit).mock.invocationCallOrder.at(-1)!);
-    expect(query).toHaveBeenCalled();
+  it("forwards search, sport and city and keeps the HTTP continuation cursor", async () => {
+    vi.mocked(listPublicClubs).mockResolvedValueOnce({ items: [{ id: "one", name: "One", description: "", approval: "auto" }], cursor: "next-http-page", hasMore: true })
+      .mockResolvedValueOnce({ items: [{ id: "two", name: "Two", description: "", approval: "manual" }], cursor: null, hasMore: false });
+    const filters = { searchText: "Han", discipline: "bike" as const, city: "서울 · 잠실" };
+    const { result } = renderHook(() => usePublicGroups(filters));
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+    expect(listPublicClubs).toHaveBeenCalledWith(filters, null);
+    await act(async () => { await result.current.loadMore(); });
+    await waitFor(() => expect(result.current.groups.map(g => g.id)).toEqual(["one", "two"]));
+    expect(listPublicClubs).toHaveBeenCalledWith(filters, "next-http-page");
+    expect(getDocs).not.toHaveBeenCalled();
   });
+
 });
 
 
