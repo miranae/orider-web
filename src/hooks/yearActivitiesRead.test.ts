@@ -1,14 +1,19 @@
+import { StrictMode } from "react";
+import { renderHook, waitFor } from "@testing-library/react";
+import { useYearActivities } from "./useYearActivities";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getDocs, query } from "firebase/firestore";
 import { createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
 import { computeYearRecap } from "../utils/yearRecap";
-import { localYearBounds, readRecapYears, readYearActivities, readLifetimeActivities } from "./yearActivitiesRead";
+import { localYearBounds, readRecapYears, readYearActivities, readLifetimeActivities, createYearReadSession } from "./yearActivitiesRead";
 import type { Activity } from "@shared/types";
+import { auth } from "../services/firebase";
 
 type Constraint = { type: string; args: unknown[] };
 let records: Activity[];
 let calls: Constraint[][];
 let returned: number;
+let emptyQueries: number;
 function field(row: Activity, path: string): unknown {
   if (path === "__name__") return row.id;
   return path.split(".").reduce<unknown>((value, key) => (value as Record<string, unknown>)?.[key], row);
@@ -22,6 +27,7 @@ beforeEach(() => {
   records = [];
   calls = [];
   returned = 0;
+  emptyQueries = 0;
   vi.mocked(query).mockImplementation(((ref: unknown, ...constraints: Constraint[]) => ({ ref, constraints })) as never);
   vi.mocked(getDocs).mockImplementation((async (q: { constraints: Constraint[] }) => {
     calls.push(q.constraints);
@@ -55,6 +61,7 @@ beforeEach(() => {
     const count = q.constraints.find((c) => c.type === "limit")!.args[0] as number;
     result = result.slice(0, count);
     returned += result.length;
+    emptyQueries += Number(result.length === 0);
     return { docs: result.map(doc) };
   }) as never);
 });
@@ -79,8 +86,8 @@ describe("bounded year reads", () => {
     records = [ride("first", new Date(2020, 6, 1).getTime()), ride("last", new Date(2025, 6, 1).getTime())];
     expect(await readRecapYears("owner", () => false)).toEqual([2025, 2024, 2023, 2022, 2021, 2020]);
     expect(calls).toHaveLength(2);
-    expect(returned).toBe(2);
-    expect(calls.every((c) => c.some((x) => x.type === "limit" && x.args[0] === 1))).toBe(true);
+    expect(returned).toBe(3);
+    expect(calls.map(c => c.find(x => x.type === "limit")!.args[0])).toEqual([1, 2]);
   });
 
   it("never presents an exact budget-sized page as complete without EOF verification", async () => {
@@ -145,11 +152,21 @@ describe("bounded year reads", () => {
       summary: createMockSummary({ distance: 1000, movingTimeMillis: 60000 }), endTime: start + index * 3600000 + 60000,
     }));
     records.push(ride("remote-winner", new Date(2026, 1, 1).getTime(), { source: "strava", stravaActivityId: 1 }));
-    const loaded = await readYearActivities("owner", 2025, () => false);
-    expect(loaded.map((a) => a.id)).toContain("remote-winner");
+    const session = createYearReadSession("owner");
+    await readRecapYears("owner", () => false, session);
+    const loaded = await readYearActivities("owner", 2025, () => false, undefined, session);
+    expect(loaded.map(a => a.id)).toContain("remote-winner");
     expect(loaded).toHaveLength(5001);
-    expect(returned).toBeLessThan(5020);
-    expect(calls.length).toBeLessThan(750);
+    expect(returned + emptyQueries).toBeLessThanOrEqual(records.length + 3);
+    expect(calls).toHaveLength(23);
+    expect(calls.flat().some(c => c.type === "where" && c.args[1] === "in")).toBe(false);
+    const cost = returned + emptyQueries;
+    const next = await readYearActivities("owner", 2026, () => false, undefined, session);
+    expect(computeYearRecap(next, 2026)).toEqual(computeYearRecap(records, 2026));
+    const back = await readYearActivities("owner", 2025, () => false, undefined, session);
+    expect(computeYearRecap(back, 2025)).toEqual(computeYearRecap(records, 2025));
+    expect(returned + emptyQueries).toBe(cost);
+
   });
 
   it("does not return a partial lifetime record set when its hard budget is reached", async () => {
@@ -157,4 +174,111 @@ describe("bounded year reads", () => {
     await expect(readLifetimeActivities("owner", () => false, { documents: 2, requests: 20, pageSize: 2 })).rejects.toThrow("budget-exceeded");
     expect(returned).toBe(2);
   });
+});
+
+it.each([0, 1, 2, 3])("documents fixed endpoint costs for %i records without identity probes", async count => {
+  records = Array.from({ length: count }, (_, index) => ride(`small-${index}`, new Date(2025, 5, index + 1).getTime()));
+  const session = createYearReadSession("owner");
+  await readRecapYears("owner", () => false, session);
+  const loaded = await readYearActivities("owner", 2025, () => false, undefined, session);
+  expect(computeYearRecap(loaded, 2025)).toEqual(computeYearRecap(records, 2025));
+  expect(returned + emptyQueries).toBeLessThanOrEqual(Math.max(1, count) + 2);
+  expect(calls.flat().some(c => c.type === "where" && c.args[1] === "in")).toBe(false);
+});
+
+it("does not turn remote identity endpoints into a convex scan through unrelated years", async () => {
+  const native = ride("native", new Date(2025, 5, 1).getTime(), { source: "orider", stravaTwinActivityId: 123 });
+  const remote = ride("remote", new Date(2028, 5, 1).getTime(), { source: "strava", stravaActivityId: 123 });
+  records = [native, ...Array.from({ length: 100 }, (_, index) => ride(`gap-${index}`, new Date(2026, 1, 1).getTime() + index * 86400000)), remote];
+  const session = createYearReadSession("owner");
+  await readRecapYears("owner", () => false, session);
+  const loaded = await readYearActivities("owner", 2025, () => false, undefined, session);
+  expect(computeYearRecap(loaded, 2025)).toEqual(computeYearRecap(records, 2025));
+  expect(loaded.filter(a => a.id.startsWith("gap-"))).toHaveLength(1); // calendar endpoint only
+  expect(returned + emptyQueries).toBeLessThan(20);
+});
+
+it("does not infer tied-timestamp coverage from a limited endpoint page", async () => {
+  const time = new Date(2025, 5, 1).getTime();
+  records = [ride("a", time), ride("b", time), ride("c", time), ride("d", time)];
+  const session = createYearReadSession("owner");
+  await readRecapYears("owner", () => false, session);
+  const loaded = await readYearActivities("owner", 2025, () => false, { documents: 20, requests: 20, pageSize: 2 }, session);
+  expect(loaded.map(a => a.id)).toEqual(["a", "b", "c", "d"]);
+});
+
+it("counts empty queries against the document read budget, rather than just the RPC budget", async () => {
+  records = [ride("one", new Date(2025, 5, 1).getTime())];
+  await expect(readYearActivities("owner", 2025, () => false, { documents: 4, requests: 100, pageSize: 20 })).rejects.toThrow("budget-exceeded");
+  expect(returned + emptyQueries).toBe(4);
+});
+
+it("resumes fetched pages on a retry without fetching those documents again", async () => {
+  records = Array.from({ length: 4 }, (_, index) => ride(`page-${index}`, new Date(2025, 4, index + 1).getTime()));
+  const session = createYearReadSession("owner");
+  await expect(readYearActivities("owner", 2025, () => false, { documents: 2, requests: 100, pageSize: 2 }, session)).rejects.toThrow("budget-exceeded");
+  expect(returned).toBe(2);
+  const resumed = await readYearActivities("owner", 2025, () => false, { documents: 30, requests: 100, pageSize: 2 }, session);
+  expect(resumed).toHaveLength(4);
+  const yearPages = calls.filter(cs => cs.some(c => c.type === "where" && c.args[0] === "startTime" && c.args[1] === ">=" && c.args[2] === localYearBounds(2025).start));
+  expect(yearPages[1]).toContainEqual({ type: "startAfter", args: [expect.objectContaining({ id: "page-1" })] });
+});
+
+it("does not use a changed raw cardinality as an inventory-completeness proof", async () => {
+  records = [ride("a", new Date(2025, 5, 1).getTime()), ride("z", new Date(2026, 5, 1).getTime())];
+  const session = createYearReadSession("owner");
+  await readRecapYears("owner", () => false, session);
+  records = [ride("a", new Date(2025, 5, 1).getTime(), { description: "edited" }), ride("unseen", new Date(2025, 6, 1).getTime())];
+  await expect(readYearActivities("owner", 2025, () => false, undefined, session)).rejects.toThrow("inventory-changed");
+  expect(session.valid).toBe(false);
+});
+
+it("does not cache a cancelled page or one completed after same-UID SDK replacement", async () => {
+  auth.currentUser = { uid: "owner" } as never;
+  const session = createYearReadSession("owner");
+  let resolve!: (value: unknown) => void;
+  vi.mocked(getDocs).mockImplementationOnce(() => new Promise(done => { resolve = done as never; }));
+  const request = readYearActivities("owner", 2025, () => false, undefined, session);
+  auth.currentUser = { uid: "owner" } as never;
+  resolve({ docs: [doc(ride("late", new Date(2025, 5, 1).getTime()))] });
+  await expect(request).rejects.toThrow("cancelled");
+  expect(session.docs.size).toBe(0);
+  expect(session.coverage).toEqual([]);
+});
+
+it("keeps the mounted-view snapshot across hidden edits and reads fresh data in a new view", async () => {
+  records = [ride("old", new Date(2025, 5, 1).getTime())];
+  const session = createYearReadSession("owner");
+  await readRecapYears("owner", () => false, session);
+  await readYearActivities("owner", 2025, () => false, undefined, session);
+  const count = calls.length;
+  records = [ride("replacement", new Date(2025, 5, 2).getTime())];
+  const oldView = await readYearActivities("owner", 2025, () => false, undefined, session);
+  expect(oldView.map(a => a.id)).toEqual(["old"]);
+  expect(calls).toHaveLength(count);
+  const fresh = createYearReadSession("owner");
+  await readRecapYears("owner", () => false, fresh);
+  expect((await readYearActivities("owner", 2025, () => false, undefined, fresh)).map(a => a.id)).toEqual(["replacement"]);
+});
+
+it("retains the actual long component and all records that physically overlap it", async () => {
+  const native = ride("native", new Date(2025, 5, 1).getTime(), { source: "orider", stravaTwinActivityId: 123 });
+  const remote = ride("remote", new Date(2028, 5, 1).getTime(), { source: "strava", stravaActivityId: 123 });
+  const crossing = ride("crossing", new Date(2026, 5, 1).getTime(), { source: "strava", endTime: remote.endTime });
+  records = [native, ...Array.from({ length: 80 }, (_, index) => ride(`gap-${index}`, new Date(2027, 0, 1).getTime() + index * 86400000)), crossing, remote];
+  const session = createYearReadSession("owner");
+  await readRecapYears("owner", () => false, session);
+  const loaded = await readYearActivities("owner", 2025, () => false, undefined, session);
+  expect(loaded.map(a => a.id)).toContain("crossing");
+  expect(loaded.filter(a => a.id.startsWith("gap-"))).toHaveLength(80); // 모두 실제 긴 활동과 겹치는 연결 성분
+  expect(computeYearRecap(loaded, 2025)).toEqual(computeYearRecap(records, 2025));
+});
+
+
+it("supports StrictMode effect replay without reviving a cancelled request", async () => {
+  records = [ride("strict", new Date(2025, 5, 1).getTime())];
+  const h = renderHook(() => useYearActivities("owner", 2025), { wrapper: StrictMode });
+  await waitFor(() => expect(h.result.current.loading).toBe(false));
+  expect(h.result.current.error).toBe(false);
+  expect(h.result.current.activities.map(a => a.id)).toEqual(["strict"]);
 });

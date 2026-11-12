@@ -2,9 +2,10 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useYearActivities } from "./useYearActivities";
 import { readRecapYears, readYearActivities } from "./yearActivitiesRead";
+import { auth } from "../services/firebase";
 import { createMockActivity } from "../__tests__/fixtures/mockData";
 
-vi.mock("./yearActivitiesRead", () => ({ readRecapYears: vi.fn(), readYearActivities: vi.fn() }));
+vi.mock("./yearActivitiesRead", async original => ({ ...(await original()), readRecapYears: vi.fn(), readYearActivities: vi.fn() }));
 vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 function deferred() {
   let resolve!: (value: ReturnType<typeof createMockActivity>[]) => void;
@@ -22,10 +23,10 @@ describe("selected annual activity loading", () => {
     const h = renderHook(({ year }: { year?: number }) => useYearActivities("owner", year), { initialProps: {} });
     await waitFor(() => expect(h.result.current.loading).toBe(false));
     expect(h.result.current.year).toBe(2026);
-    expect(readYearActivities).toHaveBeenCalledWith("owner", 2026, expect.any(Function));
+    expect(readYearActivities).toHaveBeenCalledWith("owner", 2026, expect.any(Function), undefined, expect.objectContaining({ uid: "owner" }));
     h.rerender({ year: 2024 });
     await waitFor(() => expect(h.result.current.loading).toBe(false));
-    expect(readYearActivities).toHaveBeenLastCalledWith("owner", 2024, expect.any(Function));
+    expect(readYearActivities).toHaveBeenLastCalledWith("owner", 2024, expect.any(Function), undefined, expect.objectContaining({ uid: "owner" }));
     expect(readRecapYears).toHaveBeenCalledTimes(1);
   });
 
@@ -34,6 +35,7 @@ describe("selected annual activity loading", () => {
     const old = deferred();
     vi.mocked(readYearActivities).mockReturnValueOnce(old.promise).mockResolvedValueOnce([createMockActivity({ id: "retry" })]);
     const h = renderHook(() => useYearActivities("owner", 2025));
+    await act(async () => {});
     const cancelled = vi.mocked(readYearActivities).mock.calls[0]![2];
     await act(async () => vi.advanceTimersByTimeAsync(12_000));
     expect(h.result.current.error).toBe(true);
@@ -51,6 +53,7 @@ describe("selected annual activity loading", () => {
     const old = deferred();
     vi.mocked(readYearActivities).mockReturnValueOnce(old.promise).mockResolvedValueOnce([createMockActivity({ id: "new-year" })]);
     const h = renderHook(({ year }) => useYearActivities("owner", year), { initialProps: { year: 2024 } });
+    await waitFor(() => expect(readYearActivities).toHaveBeenCalled());
     h.rerender({ year: 2025 });
     expect(h.result.current.activities).toEqual([]);
     await waitFor(() => expect(h.result.current.activities[0]?.id).toBe("new-year"));
@@ -78,9 +81,25 @@ describe("selected annual activity loading", () => {
     h.rerender({ uid: "new-owner" });
     expect(h.result.current.activities).toEqual([]);
     await waitFor(() => expect(h.result.current.loading).toBe(false));
-    expect(readYearActivities).toHaveBeenLastCalledWith("new-owner", 2026, expect.any(Function));
+    expect(readYearActivities).toHaveBeenLastCalledWith("new-owner", 2026, expect.any(Function), undefined, expect.objectContaining({ uid: "new-owner" }));
     h.rerender({ uid: undefined });
     expect(h.result.current.activities).toEqual([]);
     expect(h.result.current.loading).toBe(false);
   });
+});
+
+it("replaces all cache proof and masks data after same-UID SDK replacement", async () => {
+  auth.currentUser = { uid: "owner" } as never;
+  const h = renderHook(() => useYearActivities("owner", 2025));
+  await waitFor(() => expect(h.result.current.loading).toBe(false));
+  const oldSession = vi.mocked(readYearActivities).mock.calls[0]![4]!;
+  const next = deferred();
+  vi.mocked(readYearActivities).mockReturnValueOnce(next.promise);
+  auth.currentUser = { uid: "owner" } as never;
+  h.rerender();
+  expect(h.result.current.activities).toEqual([]);
+  expect(oldSession.valid).toBe(false);
+  await act(async () => { next.resolve([createMockActivity({ id: "new-session" })]); });
+  await waitFor(() => expect(h.result.current.activities[0]?.id).toBe("new-session"));
+  expect(readRecapYears).toHaveBeenCalledTimes(2);
 });
