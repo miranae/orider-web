@@ -297,7 +297,7 @@ export function useMyGroups(userId: string | undefined) {
       }
       if (cancelled) return;
       partialFailures.forEach(({ source, reason }) => {
-        logClientError("useMyGroups.partial", reason, { userId, source });
+        logClientError("useMyGroups.partial", reason, { userId, source }, services);
       });
       setIncomplete(partialFailures.length > 0 || cacheError !== null);
       setError(cacheError);
@@ -309,7 +309,7 @@ export function useMyGroups(userId: string | undefined) {
 
     void load().catch((err) => {
       if (cancelled) return;
-      logClientError("useMyGroups.load", err, { userId });
+      logClientError("useMyGroups.load", err, { userId }, services);
       setIncomplete(true);
       setError(err);
       setLoading(false);
@@ -322,12 +322,15 @@ export function useMyGroups(userId: string | undefined) {
   useEffect(() => {
     if (!userId) return;
     let first = true;
-    const unsubscribe = onSnapshot(collection(firestore, "user_groups", userId, "groups"), () => {
+    const unsubscribe = onSnapshot(collection(firestore, "user_groups", userId, "groups"), { includeMetadataChanges: true }, (snapshot) => {
+      // Embedded LRU can emit cached rows before the server is reachable. Even when
+      // the rows are identical, server confirmation must retry a cache-only load.
+      if (snapshot.metadata?.fromCache === true) { first = false; return; }
       if (first) { first = false; return; }
       setReloadKey((key) => key + 1);
-    }, (err) => { logClientError("useMyGroups.membershipIndex", err, { userId }); });
+    }, (err) => { logClientError("useMyGroups.membershipIndex", err, { userId }, services); });
     return unsubscribe;
-  }, [firestore, userId]);
+  }, [firestore, services, userId]);
 
   return { groups, loading, error, incomplete, retry: () => setReloadKey((key) => key + 1) };
 }

@@ -399,7 +399,7 @@ describe("group list hooks", () => {
     expect(result.current.groups.map((group) => group.id)).toEqual(["creator-group"]);
     expect(result.current.error).toBeNull();
     expect(result.current.incomplete).toBe(true);
-    expect(logSpy).toHaveBeenCalledWith("useMyGroups.partial", indexError, { userId: "user-1", source: "index" });
+    expect(logSpy).toHaveBeenCalledWith("useMyGroups.partial", indexError, { userId: "user-1", source: "index" }, expect.objectContaining({ functions: expect.anything() }));
     logSpy.mockRestore();
   });
 
@@ -448,6 +448,7 @@ describe("group list hooks", () => {
       "useMyGroups.partial",
       chunkError,
       { userId: "user-1", source: "discoveredChunk" },
+      expect.objectContaining({ functions: expect.anything() }),
     );
     logSpy.mockRestore();
   });
@@ -499,6 +500,26 @@ describe("group list hooks", () => {
 
     expect(result.current.groups).toEqual([]);
     expect(result.current.error).toBe(err);
+  });
+
+  it("reconfirms membership when an identical embedded cache snapshot reaches the server", async () => {
+    let notify!: (snapshot: unknown) => void;
+    vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
+      notify = args[2] as typeof notify;
+      notify({ metadata: { fromCache: true }, docs: [] });
+      return () => {};
+    });
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [], metadata: { fromCache: true } } as never)
+      .mockResolvedValueOnce({ docs: [], metadata: { fromCache: true } } as never);
+    const { result } = renderHook(() => useMyGroups("embedded-user"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.incomplete).toBe(true);
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [], metadata: { fromCache: false } } as never)
+      .mockResolvedValueOnce({ docs: [], metadata: { fromCache: false } } as never);
+    act(() => notify({ metadata: { fromCache: false }, docs: [] }));
+    await waitFor(() => expect(result.current.incomplete).toBe(false));
+    expect(result.current.error).toBeNull();
+    expect(getDocs).toHaveBeenCalledTimes(4);
   });
 
   it("does not confirm an empty membership list from an offline cache", async () => {
