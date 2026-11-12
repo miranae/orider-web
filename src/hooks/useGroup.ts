@@ -105,7 +105,10 @@ export function useGroupMemberRole(groupId: string | undefined, userId: string |
       // Permission callers omit this argument and retain the existing member fallback.
       const value = data?.role ?? (creatorId === userId ? "leader" : "member");
       const isActive = data && ["active", "approved"].includes(String(data.status ?? ""));
-      setRole(isActive && (value === "owner" || value === "leader" || value === "co-leader" || value === "member") ? value : null);
+      // 회원 판정은 서버 규칙과 같다 — active/approved 회원 문서면 역할 값과 관계없이 회원이다.
+      // 알 수 없는 역할은 운영 권한 없이 일반 회원으로 본다(방문자로 떨어뜨리지 않는다).
+      const knownRole = value === "owner" || value === "leader" || value === "co-leader" || value === "member";
+      setRole(isActive ? (knownRole ? value : "member") : null);
       setLoading(false);
     }, (err) => {
       if (cancelled) return;
@@ -173,6 +176,9 @@ export function useMyGroups(userId: string | undefined) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
+  // 일부 조회(색인·현재 클럽·생성자·클럽 묶음)가 실패해 목록에 빠진 가입 클럽이 있을 수 있다.
+  // 이때 목록 밖 클럽을 '미가입'으로 확정하지 않는다.
+  const [incomplete, setIncomplete] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const ownerRef = useRef(userId);
 
@@ -181,6 +187,7 @@ export function useMyGroups(userId: string | undefined) {
     if (!userId) {
       setGroups([]);
       setError(null);
+      setIncomplete(false);
       setLoading(false);
       return;
     }
@@ -262,6 +269,7 @@ export function useMyGroups(userId: string | undefined) {
       partialFailures.forEach(({ source, reason }) => {
         logClientError("useMyGroups.partial", reason, { userId, source });
       });
+      setIncomplete(partialFailures.length > 0 || cacheError !== null);
       setError(cacheError);
       setGroups(previous => cacheError
         ? [...new Map([...previous, ...groupsById.values()].map(group => [group.id, group])).values()]
@@ -272,6 +280,7 @@ export function useMyGroups(userId: string | undefined) {
     void load().catch((err) => {
       if (cancelled) return;
       logClientError("useMyGroups.load", err, { userId });
+      setIncomplete(true);
       setError(err);
       setLoading(false);
     });
@@ -290,7 +299,7 @@ export function useMyGroups(userId: string | undefined) {
     return unsubscribe;
   }, [firestore, userId]);
 
-  return { groups, loading, error, retry: () => setReloadKey((key) => key + 1) };
+  return { groups, loading, error, incomplete, retry: () => setReloadKey((key) => key + 1) };
 }
 
 /** 내가 보낸 클럽 가입 요청 중 승인 대기인 클럽 ID(users/{uid}/group_requests, 실시간). '승인 대기' 표시에 쓴다(#1558). */

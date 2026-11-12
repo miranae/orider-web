@@ -9,7 +9,7 @@ import { auth, ensureAppCheckReady } from "../../services/firebase";
 import GroupsPage from "./GroupsPage";
 
 const { publicGroups, myGroups, membershipState, usePublicGroupsMock } = vi.hoisted(() => ({
-  membershipState: { snapshot: null as Array<Record<string, unknown>> | null, error: null as unknown, loading: false, pending: new Set<string>(), retry: vi.fn() },
+  membershipState: { snapshot: null as Array<Record<string, unknown>> | null, error: null as unknown, incomplete: false, loading: false, pending: new Set<string>(), retry: vi.fn() },
   myGroups: [] as Array<Record<string, unknown>>,
   publicGroups: [] as Array<Record<string, unknown>>,
   usePublicGroupsMock: vi.fn(),
@@ -17,7 +17,7 @@ const { publicGroups, myGroups, membershipState, usePublicGroupsMock } = vi.hois
 
 vi.mock("../../hooks/useGroup", () => ({
   useGroupMemberRole: () => ({ role: null, loading: false }),
-  useMyGroups: () => ({ groups: membershipState.snapshot ?? myGroups, loading: membershipState.loading, error: membershipState.error, retry: membershipState.retry }),
+  useMyGroups: () => ({ groups: membershipState.snapshot ?? myGroups, loading: membershipState.loading, error: membershipState.error, incomplete: membershipState.incomplete, retry: membershipState.retry }),
   usePendingGroupRequestIds: () => membershipState.pending,
   usePublicGroups: (options: unknown) => {
     usePublicGroupsMock(options);
@@ -43,7 +43,7 @@ describe("GroupsPage join results", () => {
     vi.mocked(httpsCallable).mockClear();
     mockCallableInvocations.length = 0;
     Object.assign(auth, { currentUser: { uid: "test-uid" } });
-    publicGroups.splice(0); myGroups.splice(0); membershipState.error = null;
+    publicGroups.splice(0); myGroups.splice(0); membershipState.error = null; membershipState.incomplete = false;
     membershipState.snapshot = null;
     membershipState.loading = false; membershipState.pending = new Set(); membershipState.retry = vi.fn();
     usePublicGroupsMock.mockClear();
@@ -57,6 +57,26 @@ describe("GroupsPage join results", () => {
     expect(screen.queryByText("DO_NOT_RENDER_ERROR_OBJECT")).not.toBeInTheDocument();
     expect(screen.queryByTestId("C0.noClub")).not.toBeInTheDocument();
   });
+  it("locks public join buttons without a retry prompt when some of my clubs could not be read", () => {
+    // 일부 조회 실패 — 목록 밖 공개 클럽이 실제로는 가입(또는 리더) 클럽일 수 있다.
+    myGroups.push({ id: "club-1", name: "Member club", discipline: "bike", memberCount: 1, visibility: "public" });
+    publicGroups.push({ id: "led-club", name: "Led club", discipline: "bike", memberCount: 3, visibility: "public" });
+    membershipState.incomplete = true;
+    renderPage();
+    const join = screen.getByRole("button", { name: "가입 확인 필요" });
+    expect(join).toBeDisabled();
+    expect(screen.getByTestId("C0-2-5")).toHaveTextContent("새로고침하면 다시 확인해요");
+    expect(screen.queryByRole("button", { name: /다시/ })).not.toBeInTheDocument();
+    expect(membershipState.retry).not.toHaveBeenCalled();
+  });
+
+  it("keeps public join buttons enabled once my clubs are fully read", () => {
+    publicGroups.push({ id: "other-club", name: "Other club", discipline: "bike", memberCount: 3, visibility: "public" });
+    renderPage();
+    expect(screen.getByRole("button", { name: "가입 신청" })).toBeEnabled();
+    expect(screen.queryByTestId("C0-2-5")).not.toBeInTheDocument();
+  });
+
   it.each([false, true])("keeps request history inside my clubs and orders discovery first only without memberships (%s)", async hasClub => {
     if (hasClub) myGroups.push({ id: "club-1", name: "Member club", discipline: "bike", memberCount: 1, visibility: "public" });
     setCollectionDocs("users/test-uid/group_requests", [{ id: "request-1", groupId: "club-2", groupName: "Requested club", status: "pending", requestedAt: 123 }]);

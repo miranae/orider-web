@@ -146,7 +146,7 @@ describe("useGroupMemberRole", () => {
     act(() => setDocData("groups/display-creator/members/creator", { status, role: "member" }));
     expect(display.result.current.role).toBe("member");
   });
-  it.each([undefined, { status: "pending" }, { status: "removed" }, { status: "active", role: "unknown" }])("does not infer display leadership from unconfirmed membership %j", async data => {
+  it.each([undefined, { status: "pending" }, { status: "removed" }])("does not infer display leadership from unconfirmed membership %j", async data => {
     if (data) setDocData("groups/unconfirmed-creator/members/creator", data);
     const { result } = renderHook(() => useGroupMemberRole("unconfirmed-creator", "creator", "creator"));
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -172,10 +172,23 @@ describe("useGroupMemberRole", () => {
   it.each([
     { status: "active", role: "unknown" },
     { status: "approved", role: "" },
+    { status: "active", role: "staff" },
+  ])("keeps an active membership with an unknown role as a plain member %j", async membership => {
+    // 서버 규칙은 역할과 관계없이 active/approved 회원 문서를 회원으로 본다 — 방문자로 떨어뜨리지 않는다.
+    setDocData("groups/unknown-role/members/member", membership);
+    const display = renderHook(() => useGroupMemberRole("unknown-role", "member", "member"));
+    const permission = renderHook(() => useGroupMemberRole("unknown-role", "member"));
+    await waitFor(() => expect(display.result.current.loading).toBe(false));
+    await waitFor(() => expect(permission.result.current.loading).toBe(false));
+    expect(display.result.current.role).toBe("member");
+    expect(permission.result.current.role).toBe("member");
+  });
+
+  it.each([
     { status: "pending" },
     { status: "removed", role: "leader" },
     { role: "leader" },
-  ])("fails closed for an invalid or inactive membership %j", async membership => {
+  ])("fails closed for an inactive membership %j", async membership => {
     setDocData("groups/invalid/members/member", membership);
     const { result } = renderHook(() => useGroupMemberRole("invalid", "member"));
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -244,6 +257,7 @@ describe("group list hooks", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.groups.map((group) => group.id)).toEqual(["creator-group"]);
     expect(where).toHaveBeenCalledWith("creatorId", "==", "user-1");
+    expect(result.current.incomplete).toBe(false);
   });
 
   it("discovers the current group when the user_groups lookup index is missing", async () => {
@@ -297,6 +311,7 @@ describe("group list hooks", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.groups.map((group) => group.id)).toEqual(["creator-group"]);
     expect(result.current.error).toBeNull();
+    expect(result.current.incomplete).toBe(true);
     expect(logSpy).toHaveBeenCalledWith("useMyGroups.partial", indexError, { userId: "user-1", source: "index" });
     logSpy.mockRestore();
   });
@@ -318,6 +333,7 @@ describe("group list hooks", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.groups.map((group) => group.id)).toEqual(["indexed-group"]);
     expect(result.current.error).toBeNull();
+    expect(result.current.incomplete).toBe(true);
   });
 
   it("logs a failed group chunk while keeping groups from successful chunks", async () => {
@@ -340,6 +356,7 @@ describe("group list hooks", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.groups.map((group) => group.id)).toEqual(["group-1"]);
     expect(result.current.error).toBeNull();
+    expect(result.current.incomplete).toBe(true);
     expect(logSpy).toHaveBeenCalledWith(
       "useMyGroups.partial",
       chunkError,
