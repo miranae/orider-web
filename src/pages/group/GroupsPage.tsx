@@ -113,7 +113,6 @@ export default function GroupsPage() {
     searchText: searchQuery,
     discipline: disciplineFilter,
     city: cityFilter,
-    maxCount: 20,
   });
   const anonymousDirectory = usePublicClubDirectory({ searchText: searchQuery, discipline: disciplineFilter, city: cityFilter }, !user);
   const publicGroups = user ? signedPublicGroups : anonymousDirectory.groups;
