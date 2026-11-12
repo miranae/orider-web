@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { getDocs, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicUserProfile } from "../services/publicProfiles";
-import { setCollectionDocs, setDocData } from "../__tests__/mocks/firebase";
+import { setCollectionDocs, setDocData, setCallableResult, setCallableImplementation } from "../__tests__/mocks/firebase";
 import { getPublicUserProfile } from "../services/publicProfiles";
 import * as errorLogger from "../services/errorLogger";
 import { useGroup, useGroupMemberRole, useGroupMembers, useMyGroups, usePublicGroups } from "./useGroup";
@@ -113,6 +113,53 @@ describe("useGroup", () => {
 
     expect(result.current.group).toBeNull();
     expect(result.current.inactive).toBe(true);
+  });
+
+  it("resolves a legacy secret-protected club detail without exposing its root", async () => {
+    const denied = Object.assign(new Error("Missing or insufficient permissions."), { code: "permission-denied" });
+    setCallableResult("resolveMyGroupSummaries", { data: { groups: [{ id: "legacy-club", name: "Legacy club", isActive: true }] } });
+    vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
+      const onError = typeof args[1] === "function" ? args[2] : args[3];
+      if (typeof onError === "function") onError(denied as never);
+      return () => {};
+    });
+    const { result } = renderHook(() => useGroup("legacy-club"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.group?.name).toBe("Legacy club");
+    expect(result.current.error).toBeNull();
+  });
+
+  it("ignores a late legacy detail after navigation to another club", async () => {
+    const pending = deferred<{ data: { groups: Array<{ id: string; name: string }> } }>();
+    const callable = vi.fn(() => pending.promise);
+    setCallableImplementation("resolveMyGroupSummaries", callable);
+    const denied = Object.assign(new Error("denied"), { code: "permission-denied" });
+    vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
+      const onError = typeof args[1] === "function" ? args[2] : args[3];
+      if (typeof onError === "function") onError(denied as never);
+      return () => {};
+    });
+    const { result, rerender } = renderHook(({ id }) => useGroup(id), { initialProps: { id: "legacy-old" } });
+    await waitFor(() => expect(callable).toHaveBeenCalled());
+    setDocData("groups/new-club", { name: "New club", isActive: true });
+    rerender({ id: "new-club" });
+    await waitFor(() => expect(result.current.group?.id).toBe("new-club"));
+    await act(async () => { pending.resolve({ data: { groups: [{ id: "legacy-old", name: "Old club" }] } }); await pending.promise; });
+    expect(result.current.group?.id).toBe("new-club");
+  });
+
+  it("keeps a protected detail unavailable when the server does not confirm membership", async () => {
+    const denied = Object.assign(new Error("denied"), { code: "permission-denied" });
+    setCallableResult("resolveMyGroupSummaries", { data: { groups: [] } });
+    vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
+      const onError = typeof args[1] === "function" ? args[2] : args[3];
+      if (typeof onError === "function") onError(denied as never);
+      return () => {};
+    });
+    const { result } = renderHook(() => useGroup("not-my-club"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.group).toBeNull();
+    expect(result.current.error).toBe(denied);
   });
 
   it("clears the previous group when the requested identity is removed", async () => {
@@ -277,6 +324,30 @@ describe("group list hooks", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.groups.map((group) => group.id)).toEqual(["current-group"]);
     expect(where).toHaveBeenCalledWith("__name__", "in", ["current-group"]);
+  });
+
+  it("recovers a permission-denied indexed chunk through the canonical member projection", async () => {
+    const denied = Object.assign(new Error("Missing or insufficient permissions."), { code: "permission-denied" });
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [{ id: "legacy-club" }] } as never)
+      .mockResolvedValueOnce({ docs: [] } as never).mockRejectedValueOnce(denied);
+    setCallableResult("resolveMyGroupSummaries", { data: { groups: [{ id: "legacy-club", name: "My legacy club", isActive: true }] } });
+    const { result } = renderHook(() => useMyGroups("user-1"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.groups.map(group => group.id)).toEqual(["legacy-club"]);
+    expect(result.current.error).toBeNull();
+    expect(result.current.incomplete).toBe(false);
+  });
+
+  it("does not call a projection failure a confirmed empty membership list", async () => {
+    const denied = Object.assign(new Error("denied"), { code: "permission-denied" });
+    const unavailable = new Error("membership service unavailable");
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [{ id: "legacy-club" }] } as never)
+      .mockResolvedValueOnce({ docs: [] } as never).mockRejectedValueOnce(denied);
+    setCallableImplementation("resolveMyGroupSummaries", () => { throw unavailable; });
+    const { result } = renderHook(() => useMyGroups("user-1"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.incomplete).toBe(true);
+    expect(result.current.error).toBe(unavailable);
   });
 
   it("reports a current-group fetch failure when the creator fallback is empty", async () => {
