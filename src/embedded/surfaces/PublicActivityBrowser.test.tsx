@@ -113,3 +113,15 @@ describe("embedded public profile navigation", () => {
     expect(screen.getByRole("status")).toHaveTextContent("이 화면에서 지원하지 않는 이동입니다.");
   });
 });
+it("does not reload the athlete activity list while it stays open", async () => {
+  vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
+  try {
+    render(<PublicActivityBrowser {...props} />);
+    fireEvent.click(screen.getByRole("link", { name: "author" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText("Public Rider")).toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
+    expect(mocks.load).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Public Rider")).toBeInTheDocument();
+  } finally { vi.useRealTimers(); }
+});

@@ -32,3 +32,13 @@ it("preserves the existing signed-in add action", async () => {
   render(view()); await waitFor(() => expect(m.add).toHaveBeenCalledWith("ABC123", "invite_link"));
   expect(m.resolve).not.toHaveBeenCalled(); expect(m.navigate).toHaveBeenCalledWith("/athlete/me/friends", { replace: true });
 });
+it("does not re-request the preview while the invite page stays open", async () => {
+  vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
+  try {
+    render(view());
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText(/가상 초대자/)).toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
+    expect(m.resolve).toHaveBeenCalledTimes(1);
+  } finally { vi.useRealTimers(); }
+});

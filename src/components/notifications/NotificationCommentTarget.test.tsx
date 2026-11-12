@@ -13,8 +13,10 @@ it("focuses a new destination but preserves keyboard focus during access refresh
   await waitFor(() => expect(screen.getByText("멀리 있는 정확한 댓글").closest('[tabindex="-1"]')).toHaveFocus());
   const input = screen.getByRole("textbox", { name: "댓글 작성" });
   input.focus();
-  await act(async () => window.dispatchEvent(new Event("focus")));
+  // 접근 재확인(내용 변경 신호)으로 다시 그려도 키보드 포커스는 유지한다.
+  await act(async () => window.dispatchEvent(new CustomEvent("orider:activity-content-changed", { detail: { activityId: "ride" } })));
   await screen.findByText("멀리 있는 정확한 댓글");
+  expect(state.comment).toHaveBeenCalledTimes(2);
   expect(input).toHaveFocus();
   view.rerender(<><input aria-label="댓글 작성" /><NotificationCommentTarget activityId="ride" commentId="another" /></>);
   await screen.findByText("멀리 있는 정확한 댓글");
@@ -73,4 +75,20 @@ it("discards a pending response after exact SDK user replacement", async () => {
   act(() => simulateLogin({ uid: "viewer" }));
   await act(async () => resolve({ comment: { text: "stale target body" } }));
   expect(screen.queryByText("stale target body")).not.toBeInTheDocument();
+});
+it("does not poll the exact comment and re-checks on focus only after the verification ages", async () => {
+  const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+  vi.useFakeTimers({ toFake: ["setInterval", "setTimeout"] });
+  try {
+    render(<NotificationCommentTarget />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText("멀리 있는 정확한 댓글")).toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    expect(state.comment).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("멀리 있는 정확한 댓글")).toBeInTheDocument();
+    now.mockReturnValue(1_000_000 + 5 * 60_000);
+    await act(async () => { window.dispatchEvent(new Event("focus")); await vi.advanceTimersByTimeAsync(0); });
+    expect(state.comment).toHaveBeenCalledTimes(2);
+  } finally { vi.useRealTimers(); now.mockRestore(); }
 });
