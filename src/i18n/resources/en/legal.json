@@ -669,6 +669,7 @@
       "pending": "Deletion request received. Deletion is not complete yet.",
       "processing": "Your account and data are being deleted. You can check progress on this page.",
       "retrying": "Some deletion steps have not finished. The server is retrying; deletion is not complete.",
+      "manual_required": "Account deletion needs operator assistance and is not complete. Automatic retries have stopped. Contact the privacy team at the email above. Do not send passwords or authentication tokens.",
       "complete": "Cleanup of your active O-Rider account and first-party service data is complete. Provider processing and the log and backup retention described above remain separate."
     },
     "privacyLink": "View Privacy Policy",

@@ -248,8 +248,9 @@ export function useFitnessModel(
   const services = useFirebaseServices();
   const { firestore } = services;
   const discipline = resolveFitnessDiscipline(sportParam);
-  const { entries: ftpHistory } = useFtpHistory(user?.uid, subscriptionActive && discipline === "bike");
+  const ftpHistoryControls = useFtpHistory(user?.uid, subscriptionActive && discipline === "bike");
   const { showToast } = useToast();
+  const { entries: ftpHistory } = ftpHistoryControls;
   const [range, setRange] = useState<RangeOption | 42>(90);
   const normalizedRange = normalizeFitnessRange(discipline, range);
   const activityQueryRange = discipline === "tri" ? 365 : normalizedRange;
@@ -1099,12 +1100,13 @@ export function useFitnessModel(
       powerCurve,
       ftpProgression: deriveEstimatedFtpProgression(pdc?.history),
       ftpHistory,
+      ftpHistoryControls,
       thresholdDecision,
       discipline,
     };
   }, [
     canonicalFtpW, canonicalRiderView, combinedLoad, currentPoint, cyclingAbility, hasCanonicalTimeseries,
-    discipline, zoneActivities, fitnessClock, fitnessDateKeyBasis, ftpHistory, integratedLoadFocus, mayUsePersistedPdcFallback,
+    discipline, zoneActivities, fitnessClock, fitnessDateKeyBasis, ftpHistory, ftpHistoryControls, integratedLoadFocus, mayUsePersistedPdcFallback,
     metricsMap, mobileZoneDistribution, zoneEvidence, ownerRiderBlock, pdc, powerCurveProgressions, profile, projection,
     runEvidence, swimEvidence, t, thresholdDecision, userFitness, weeklyStats,
   ]);
@@ -1117,6 +1119,7 @@ export function useFitnessModel(
     profile,
     userFitness,
     ftpHistory,
+    ftpHistoryControls,
     canonicalFtpW,
     canonicalFitness,
     activities,

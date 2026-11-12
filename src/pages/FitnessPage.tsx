@@ -129,6 +129,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     user,
     profile,
     ftpHistory,
+    ftpHistoryControls,
     activities,
     disciplineActivities,
     metricsMap,
@@ -367,7 +368,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
   const loadFormBlock = findSufficiencyBlock(loadSufficiency, "load_history", "form");
   // Saved training thresholds remain reviewable even before any activity history exists.
   const emptyAnalysisFtpEntry = !embedded && part === "analysis" && discipline === "bike" ? <FtpDecisionSection title={t("condition.basis.title")} anchorEnabled compact={renderMobile} collapsible={!renderMobile}>
-    <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={model.zoneEvidence.hr.counts != null || model.zoneEvidence.power.counts != null} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={deriveEstimatedFtpProgression(pdc?.history)} ftpHistory={ftpHistory} t={t} />
+    <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={model.zoneEvidence.hr.counts != null || model.zoneEvidence.power.counts != null} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={deriveEstimatedFtpProgression(pdc?.history)} ftpHistory={ftpHistory} ftpHistoryControls={ftpHistoryControls} t={t} />
   </FtpDecisionSection> : null;
 
 
@@ -1045,7 +1046,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
       {/* 해석과 근거 묶음은 두지 않는다. 데이터 준비 상태만 남기고, FTP 판단은 제안 링크(#ftp-decision·decisionId)로 들어올 때만 연다. */}
       <SufficiencyGroup summaryOnly sets={analysisSets} testId="analysis-readiness-summary" />
       {discipline === "bike" && <FtpDecisionSection title={t("condition.basis.title")} anchorEnabled collapsible requestedOnly>
-        <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={!!zoneDistribution} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={ftpProgression} ftpHistory={ftpHistory} t={t} />
+        <BikeThresholdDecisionCard inlineEvidence stableDetails decision={thresholdDecision} hasZoneData={!!zoneDistribution} ftpDecision={bikeFtpDecision} ftpReceipt={bikeFtpReceipt} ftpDeviceReceipts={bikeFtpDeviceReceipts} decisionBusy={decisionBusy} onAcceptDecision={acceptFtpDecision} progressionPoints={ftpProgression} ftpHistory={ftpHistory} ftpHistoryControls={ftpHistoryControls} t={t} />
       </FtpDecisionSection>}
     </div>
   </div></ConciseExplanationsContext.Provider>;
@@ -1296,7 +1297,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
               decisionBusy={decisionBusy}
               onAcceptDecision={acceptFtpDecision}
               progressionPoints={ftpProgression}
-              ftpHistory={ftpHistory}
+              ftpHistory={ftpHistory} ftpHistoryControls={ftpHistoryControls}
               t={t}
             />
             {part === "condition" && pacingCard}

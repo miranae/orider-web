@@ -9,7 +9,7 @@ const deletionFunctions = getRuntimeConfig().appEnvironment === "stage"
 if (isEmulatorRuntime() && deletionFunctions !== functions) connectFunctionsEmulator(deletionFunctions, "localhost", 5001);
 
 export interface AccountDeletionStatus {
-  state: "pending" | "processing" | "retrying" | "complete";
+  state: "pending" | "processing" | "retrying" | "manual_required" | "complete";
   requestedAtMs: number;
   completedAtMs?: number;
   archiveCleanupPending?: true;
@@ -73,7 +73,7 @@ export async function getAccountDeletionStatus(receipt?: string): Promise<Accoun
     });
     const payload = await response.json() as { result?: AccountDeletionStatus; error?: unknown };
     const result = payload.result;
-    if (!response.ok || payload.error || !result || !["pending", "processing", "retrying", "complete"].includes(result.state)
+    if (!response.ok || payload.error || !result || !["pending", "processing", "retrying", "manual_required", "complete"].includes(result.state)
       || typeof result.requestedAtMs !== "number" || (result.state === "complete" && typeof result.completedAtMs !== "number")
       || (result.providerDeletionRequested !== undefined && result.providerDeletionRequested !== true)) {
       throw new Error("DELETION_STATUS_UNAVAILABLE");

@@ -5,7 +5,7 @@ import { onSnapshot } from "firebase/firestore";
 import { setCollectionDocs } from "../__tests__/mocks/firebase";
 import { clearTrainingSurfaceCache } from "../embedded/trainingSurfaceCache";
 import { useFitnessModel } from "./useFitnessModel";
-const mocks = vi.hoisted(() => ({user:{uid:"rider-a",isAnonymous:false},firestore:{}, functions:{}, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined), timeseries:null as FitnessTimeseriesDoc|null}));
+const mocks = vi.hoisted(() => ({user:{uid:"rider-a",isAnonymous:false},firestore:{}, auth:{currentUser:{uid:"rider-a"}}, functions:{}, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined), timeseries:null as FitnessTimeseriesDoc|null}));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user, profile: null }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks }));
 vi.mock("../contexts/ToastContext", () => ({ useToast: () => ({ showToast: vi.fn() }) }));
@@ -28,7 +28,7 @@ const path = "users/rider-a/ftpHistory";
 beforeEach(() => {
   clearTrainingSurfaceCache();
   vi.mocked(onSnapshot).mockClear();
-  setCollectionDocs(path, Array.from({ length: 501 }, (_, i) => ({ id: `ftp-${i}`, value: 250, source: "manual", changedAt: i + 1 })));
+  setCollectionDocs(path, Array.from({ length: 501 }, (_, i) => ({ id: `ftp-${i}`, value: 250, source: "manual", changedAt: Date.now() - i * 1000 })));
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const ftpCalls = () => vi.mocked(onSnapshot).mock.calls.filter(([ref]) => (ref as unknown as { path: string }).path === path);
@@ -42,8 +42,8 @@ describe("fitness FTP feature interest", () => {
     view.rerender({ sport: "bike", active: false }); expect(ftpCalls()).toHaveLength(0);
     view.rerender({ sport: "bike", active: true });
     await waitFor(() => expect(view.result.current.ftpHistory).toHaveLength(501));
-    expect(ftpCalls()).toHaveLength(1);
+    expect(ftpCalls()).toHaveLength(2);
     view.rerender({ sport: "run", active: true });
-    expect(ftpCalls()).toHaveLength(1);
+    expect(ftpCalls()).toHaveLength(2);
   });
 });

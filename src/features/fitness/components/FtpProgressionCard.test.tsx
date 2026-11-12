@@ -177,3 +177,38 @@ it("keeps the explicit FTP readout mounted and unchanged by hover/focus while re
   expect(readout).toHaveTextContent("245 W");
   expect(screen.getByRole("combobox", { name: "FTP 기록 선택" })).toHaveTextContent("245 W");
 });
+
+it("keeps older-history access visible even with no recent FTP and requires an explicit click", () => {
+  let loads = 0;
+  const controls = {
+    windowStart: Date.UTC(2026, 6, 16), loading: false, error: false, loadingOlder: false,
+    olderLoaded: false, hasMoreOlder: true, loadOlder: async () => { loads++; }, retry: () => undefined,
+  };
+  const view = renderWithProviders(<FtpProgressionCard points={[]} history={[]} breakthrough={null} historyControls={controls} />);
+  expect(screen.getByText(/최근 120일과 시작 전 FTP 기준값/)).toBeInTheDocument();
+  expect(loads).toBe(0);
+  fireEvent.click(screen.getByRole("button", { name: "이전 기록 50건 더 보기" }));
+  expect(loads).toBe(1);
+  view.rerender(<FtpProgressionCard points={[]} history={[]} breakthrough={null} historyControls={{ ...controls, olderLoaded: true, loadingOlder: true }} />);
+  expect(screen.getByText(/이전 기록은 요청할 때만 추가/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "FTP 이력을 불러오는 중…" })).toBeDisabled();
+});
+
+it("plots an ancient baseline at the recent window edge while preserving its real date and excluding older estimates", () => {
+  const controls = {
+    windowStart: Date.UTC(2026, 6, 16), loading: false, error: true, loadingOlder: false,
+    olderLoaded: false, hasMoreOlder: true, loadOlder: async () => undefined, retry: () => undefined,
+  };
+  renderWithProviders(<FtpProgressionCard
+    points={[{ period: "2020-01", ftpW: 100, source: "20m" }, { period: "2026-10", ftpW: 260, source: "20m" }]}
+    history={[{ id: "old", value: 240, source: "manual", changedAt: Date.UTC(2020, 0, 1) }]}
+    breakthrough={null} historyControls={controls} stableSelection
+  />);
+  expect(screen.getByRole("alert")).toHaveTextContent(/차트가 불완전할 수 있습니다/);
+  const plot = screen.getByRole("img");
+  expect(plot.querySelectorAll("circle")).toHaveLength(2);
+  expect(plot.querySelector("circle[fill='var(--violet)']")).toHaveAttribute("cx", "8");
+  expect(plot.querySelector("desc")).toHaveTextContent(/2020/);
+  expect(plot.querySelector("desc")).not.toHaveTextContent("100W");
+  expect(screen.getByRole("button", { name: "이력 다시 시도" })).toBeInTheDocument();
+});
