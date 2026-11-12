@@ -264,16 +264,20 @@ it("removes old geometry after a failed focus check and keeps it hidden until a 
   await waitFor(() => expect(mocks.load).toHaveBeenCalledTimes(3));
   expect(screen.queryByRole("img", { name: "라이딩 경로" })).not.toBeInTheDocument();
 });
-it("revalidates visible details every 30 seconds and revokes the whole detail on denial", async () => {
+it("does not poll a visible detail, and revokes the whole detail when a return check is denied", async () => {
   render(<PublicActivitySurface {...props} />);
   await screen.findByText("한강 라이딩");
   vi.useFakeTimers();
   try {
-    // Start a fresh interval under the fake clock.
-    cleanup(); mocks.load.mockResolvedValueOnce(fixture()).mockRejectedValueOnce({ code: "functions/permission-denied" });
+    // 가짜 시계 아래에서 새로 마운트해 주기 호출이 없는지 본다.
+    cleanup(); mocks.load.mockReset().mockResolvedValueOnce(fixture()).mockRejectedValueOnce({ code: "functions/permission-denied" });
     render(<PublicActivitySurface {...props} />);
     await act(async () => { await Promise.resolve(); });
-    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
+    expect(mocks.load).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("한강 라이딩")).toBeInTheDocument();
+    await act(async () => { fireEvent(document, new Event("visibilitychange")); await Promise.resolve(); });
+    expect(mocks.load).toHaveBeenCalledTimes(2);
     expect(screen.queryByText("한강 라이딩")).not.toBeInTheDocument();
   } finally { vi.useRealTimers(); }
 });
