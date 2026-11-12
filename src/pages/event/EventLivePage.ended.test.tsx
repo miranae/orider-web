@@ -7,6 +7,7 @@ const heartbeat = vi.hoisted(() => vi.fn(async () => ({})));
 const ensureAppCheckReady = vi.hoisted(() => vi.fn(async () => {}));
 const read = vi.hoisted(() => vi.fn());
 const subscribe = vi.hoisted(() => vi.fn());
+const countViewers = vi.hoisted(() => vi.fn(async () => 0));
 vi.mock("react-router-dom", () => ({
   useParams: () => ({ eventId: "event-1" }),
   useSearchParams: () => [new URLSearchParams()],
@@ -25,6 +26,7 @@ vi.mock("firebase/firestore", () => ({
   getDoc: read,
   onSnapshot: subscribe,
 }));
+vi.mock("../../features/event/viewerPresence", async original => ({ ...await original<typeof import("../../features/event/viewerPresence")>(), loadActiveViewerCount: countViewers }));
 vi.mock("../../components/event/EventMap", () => ({ default: () => null }));
 
 import EventLivePage from "./EventLivePage";
@@ -32,7 +34,7 @@ import EventLivePage from "./EventLivePage";
 describe("confirmed ended public live events", () => {
   beforeEach(() => {
     state.status = "FINISHED"; state.metadataError = false;
-    heartbeat.mockClear(); ensureAppCheckReady.mockClear(); subscribe.mockReset(); read.mockReset();
+    heartbeat.mockClear(); ensureAppCheckReady.mockClear(); subscribe.mockReset(); read.mockReset(); countViewers.mockClear();
     subscribe.mockImplementation(() => () => {});
     read.mockImplementation(async (path: string) => {
       if (path === "events/event-1") {
@@ -64,6 +66,7 @@ describe("confirmed ended public live events", () => {
     expect(screen.queryByText("dashboard.trackingEnded")).toBeNull();
     expect(read).toHaveBeenCalledTimes(1);
     expect(subscribe).not.toHaveBeenCalled();
+    expect(countViewers).not.toHaveBeenCalled();
     expect(heartbeat).not.toHaveBeenCalled();
   });
 
@@ -72,7 +75,9 @@ describe("confirmed ended public live events", () => {
     render(<EventLivePage />);
     expect(await screen.findByText("snapshot denied")).toBeInTheDocument();
     await waitFor(() => expect(heartbeat).toHaveBeenCalledWith(expect.objectContaining({ active: true })));
-    expect(subscribe).toHaveBeenCalledWith("events/event-1/viewers", expect.any(Function), expect.any(Function));
+    // 시청자 수는 컬렉션 구독이 아니라 count 집계로 센다(읽기 비용이 시청자 수의 제곱으로 늘던 구조 제거).
+    expect(countViewers).toHaveBeenCalledWith(expect.anything(), "event-1");
+    expect(subscribe).not.toHaveBeenCalledWith("events/event-1/viewers", expect.any(Function), expect.any(Function));
     expect(read).toHaveBeenCalledWith("events/event-1/snapshots/public_latest");
     expect(screen.queryByText("dashboard.trackingEnded")).toBeNull();
   });
@@ -82,6 +87,7 @@ describe("confirmed ended public live events", () => {
     read.mockImplementation(() => new Promise(done => { resolve = done; }));
     render(<EventLivePage />);
     expect(subscribe).not.toHaveBeenCalled();
+    expect(countViewers).not.toHaveBeenCalled();
     expect(heartbeat).not.toHaveBeenCalled();
     await act(async () => resolve({ exists: () => true, data: () => ({ info: { status: "FINISHED", name: "Delayed metadata" } }) }));
     expect(await screen.findByText("dashboard.trackingEnded")).toBeInTheDocument();

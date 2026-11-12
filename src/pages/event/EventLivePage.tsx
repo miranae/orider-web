@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useParams, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
-import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { ensureAppCheckReady, firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
@@ -17,7 +17,7 @@ import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card, Switch, Text, Input } from "../../theme/components";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
-import { countActiveViewers, createViewerSessionId } from "../../features/event/viewerPresence";
+import { createViewerSessionId, loadActiveViewerCount } from "../../features/event/viewerPresence";
 import { createViewerHeartbeatRunner } from "../../features/event/liveViewerRecovery";
 import { useAuth } from "../../contexts/AuthContext";
 import AppInstallLinks from "../../components/AppInstallLinks";
@@ -382,18 +382,18 @@ export default function EventLivePage() {
       },
     });
 
-    // getDocs 폴링은 매번 임시 listen target을 열고 닫는다. Firestore 11.x의
-    // 다중 탭 primary 전환과 겹치면 target이 중복 해제되어 AsyncQueue가 영구
-    // 실패할 수 있으므로, 화면 수명 동안 하나의 target을 유지한다.
-    const unsubscribeViewers = onSnapshot(
-      collection(firestore, `events/${eventId}/viewers`),
-      (viewers) => {
-        if (active && liveEventRef.current === eventId) setViewerCount(countActiveViewers(viewers.docs.map((viewer) => viewer.data())));
-      },
-      (err) => {
-        handleViewerError("EventLivePage.viewerPresence", err);
-      },
-    );
+    // 시청자 수는 count 집계로 센다. 컬렉션을 구독하면 시청자마다 다른 시청자의 30초 heartbeat 를
+    // 매번 읽어 읽기가 시청자 수의 제곱으로 늘었다. 집계는 listen target 을 열지 않으므로
+    // (getDocs 폴링의 다중 탭 target 중복 해제 문제와 무관) 보이는 동안 60초마다 한 번 센다.
+    const loadViewerCount = () => {
+      if (!active || liveEventRef.current !== eventId || document.hidden) return;
+      void loadActiveViewerCount(firestore, eventId).then((count) => {
+        if (active && liveEventRef.current === eventId) setViewerCount(count);
+      }).catch((err) => { handleViewerError("EventLivePage.viewerPresence", err); });
+    };
+    loadViewerCount();
+    const viewerCountTimer = window.setInterval(loadViewerCount, 60_000);
+    const unsubscribeViewers = () => window.clearInterval(viewerCountTimer);
 
     const handleUnhandledRejection = (unhandled: PromiseRejectionEvent) => {
       if (!classifyFirestoreFatalError(unhandled.reason)) return;
@@ -405,7 +405,7 @@ export default function EventLivePage() {
       handleViewerError("EventLivePage.firestoreWindowError", error);
     };
     const handleVisibilityChange = () => {
-      if (!document.hidden) void heartbeatRunner.pulse();
+      if (!document.hidden) { void heartbeatRunner.pulse(); loadViewerCount(); }
     };
 
     window.addEventListener("unhandledrejection", handleUnhandledRejection);

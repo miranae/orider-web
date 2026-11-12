@@ -21,7 +21,7 @@ import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
 import { decodePolyline } from "../../utils/polyline";
 import ParticipantTable from "../../components/event/ParticipantTable";
 import { localeTag } from "../../utils/localeDate";
-import { countActiveViewers } from "../../features/event/viewerPresence";
+import { loadActiveViewerCount } from "../../features/event/viewerPresence";
 
 type CourseWaypoint = {
   id: string;
@@ -338,8 +338,9 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
     let cancelled = false;
     const refresh = async () => {
       try {
-        const viewers = await getDocs(collection(db, `events/${eventId}/viewers`));
-        if (!cancelled) setViewerCount(countActiveViewers(viewers.docs.map((viewer) => viewer.data())));
+        if (document.hidden) return;
+        const count = await loadActiveViewerCount(db, eventId);
+        if (!cancelled) setViewerCount(count);
       } catch (err) {
         logClientError("EventDashboardPage.loadViewerCount", err, { eventId });
       }
