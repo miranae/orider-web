@@ -36,28 +36,38 @@ export function useNotificationInbox() {
     return promise;
   }, [client, uid]);
   useEffect(() => {
-    setState(null); void refresh();
+    setState(null);
+    let disposed = false, again = false;
+    // 신호를 받으면 한 번 읽는다. 이미 읽는 중이면 그 응답이 새 알림보다 앞설 수 있으므로
+    // 끝난 뒤 한 번 더 읽는다(합치기만 하면 진행 중 요청에 묻혀 새 알림을 놓친다).
+    const pull = () => {
+      if (disposed || document.visibilityState !== "visible") return;
+      if (pendingRefresh.current?.client === client && pendingRefresh.current.generation === generation.current) { again = true; return; }
+      void refresh().finally(() => { if (again && !disposed) { again = false; pull(); } });
+    };
     const visibility = () => {
-      if (document.visibilityState !== "visible") { generation.current += 1; setState(null); setLoading(false); }
+      if (document.visibilityState !== "visible") { generation.current += 1; again = false; setState(null); setLoading(false); }
       else void refresh();
     };
     document.addEventListener("visibilitychange", visibility);
-    // 첫 스냅샷은 위의 첫 조회와 같은 시점이라 건너뛰고, 이후 revision 변경에만 반응한다.
-    let seenRevision: unknown = undefined, first = true;
     let unsubscribe = () => {};
-    if (uid) {
+    if (!uid) void refresh();
+    else {
+      // 첫 조회도 첫 신호 스냅샷에서 시작한다 — 먼저 읽고 나중에 기준 revision 을 잡으면
+      // 그 사이에 생긴 알림을 놓친다. 구독이 실패하면 한 번 직접 읽는다.
+      let seenRevision: unknown = undefined, first = true;
+      const fallback = (error: unknown) => { logClientError("useNotificationInbox.signal", error, { uid }); if (first) { first = false; pull(); } };
       try {
         unsubscribe = onSnapshot(doc(services.firestore, "notification_signals", uid), snap => {
           const revision = snap.exists() ? snap.data()?.revision ?? null : null;
-          if (first) { first = false; seenRevision = revision; return; }
-          if (revision === seenRevision) return;
-          seenRevision = revision;
-          if (document.visibilityState === "visible") void refresh();
-        }, error => logClientError("useNotificationInbox.signal", error, { uid }));
-      } catch (error) { logClientError("useNotificationInbox.signal", error, { uid }); }
+          if (!first && revision === seenRevision) return;
+          first = false; seenRevision = revision;
+          pull();
+        }, fallback);
+      } catch (error) { fallback(error); }
     }
-    return () => { generation.current += 1; unsubscribe(); document.removeEventListener("visibilitychange", visibility); };
-  }, [refresh, services, uid]);
+    return () => { disposed = true; generation.current += 1; unsubscribe(); document.removeEventListener("visibilitychange", visibility); };
+  }, [refresh, services, uid, client]);
   const current = state?.uid === uid && state.client === client ? state : null;
   const more = async () => {
     if (!current?.cursor || loading || !uid) return;

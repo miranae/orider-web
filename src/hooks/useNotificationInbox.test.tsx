@@ -105,6 +105,7 @@ describe("notification signal subscription", () => {
   const signal = (revision: number) => ({ exists: () => true, data: () => ({ revision }) });
   it("does not poll while open and re-reads only when the signal revision changes", async () => {
     const { onSnapshot } = await import("firebase/firestore");
+    const original = vi.mocked(onSnapshot).getMockImplementation();
     let listener: Listener | undefined; let path = "";
     vi.mocked(onSnapshot).mockImplementation(((ref: { path?: string }, next: Listener) => { path = String(ref?.path ?? ""); listener = next; return () => {}; }) as unknown as typeof onSnapshot);
     vi.useFakeTimers();
@@ -121,6 +122,38 @@ describe("notification signal subscription", () => {
       await act(async () => listener?.(signal(7)));
       expect(state.list).toHaveBeenCalledTimes(2);
       expect(result.current.items[0]?.id).toBe("new");
-    } finally { vi.useRealTimers(); vi.mocked(onSnapshot).mockReset(); }
+    } finally { vi.useRealTimers(); vi.mocked(onSnapshot).mockImplementation(original!); }
+  });
+  it("starts the first read from the first signal snapshot so nothing between them is missed", async () => {
+    const { onSnapshot } = await import("firebase/firestore");
+    const original = vi.mocked(onSnapshot).getMockImplementation();
+    let listener: Listener | undefined;
+    vi.mocked(onSnapshot).mockImplementation(((_ref: unknown, next: Listener) => { listener = next; return () => {}; }) as unknown as typeof onSnapshot);
+    try {
+      renderHook(() => useNotificationInbox());
+      await act(async () => {});
+      expect(state.list).not.toHaveBeenCalled();
+      await act(async () => listener?.(signal(3)));
+      expect(state.list).toHaveBeenCalledTimes(1);
+    } finally { vi.mocked(onSnapshot).mockImplementation(original!); }
+  });
+  it("reads again after an in-flight read when a newer signal arrives meanwhile", async () => {
+    const { onSnapshot } = await import("firebase/firestore");
+    const original = vi.mocked(onSnapshot).getMockImplementation();
+    let listener: Listener | undefined;
+    vi.mocked(onSnapshot).mockImplementation(((_ref: unknown, next: Listener) => { listener = next; return () => {}; }) as unknown as typeof onSnapshot);
+    try {
+      let resolve!: (value: unknown) => void;
+      state.list.mockReturnValueOnce(new Promise(r => { resolve = r; }));
+      const { result } = renderHook(() => useNotificationInbox());
+      await act(async () => listener?.(signal(1)));
+      expect(state.list).toHaveBeenCalledTimes(1);
+      await act(async () => listener?.(signal(2)));
+      expect(state.list).toHaveBeenCalledTimes(1);
+      state.list.mockResolvedValue({ items: [{ id: "arrived-during-read" }], nextCursor: null });
+      await act(async () => resolve({ items: [], nextCursor: null }));
+      await waitFor(() => expect(state.list).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(result.current.items[0]?.id).toBe("arrived-during-read"));
+    } finally { vi.mocked(onSnapshot).mockImplementation(original!); }
   });
 });
