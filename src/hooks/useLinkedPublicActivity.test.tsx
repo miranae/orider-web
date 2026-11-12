@@ -29,3 +29,15 @@ it('removes prior project data and rejects mismatched DTO IDs',async()=>{
  fixture.services={auth:{currentUser:{uid:'a'}}};fixture.load.mockResolvedValue(detail('foreign'));rerender();
  expect(result.current).toBeNull();await act(async()=>{});expect(result.current).toBeNull();
 });
+it('does not poll the linked activity while the post stays open',async()=>{
+ fixture.load.mockResolvedValue(detail('ride'));
+ vi.useFakeTimers();
+ try{
+  const {result}=renderHook(()=>useLinkedPublicActivity('ride'));
+  await act(async()=>{await Promise.resolve();});
+  expect(result.current?.activity.id).toBe('ride');
+  await act(async()=>{await vi.advanceTimersByTimeAsync(10*60_000);});
+  expect(fixture.load).toHaveBeenCalledTimes(1);
+  expect(result.current?.activity.id).toBe('ride');
+ }finally{vi.useRealTimers();}
+});
