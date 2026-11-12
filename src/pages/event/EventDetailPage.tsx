@@ -17,7 +17,7 @@ import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { getStorage, ref, getDownloadURL } from "firebase/storage";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
-import { getEventPublicParticipants, publicParticipantTimestampMs } from "../../services/eventPublicParticipants";
+import { getEventPublicParticipantPreview, publicParticipantTimestampMs } from "../../services/eventPublicParticipants";
 import { logClientError } from "../../services/errorLogger";
 import { getPublicUserProfile } from "../../services/publicProfiles";
 import { useAuth } from "../../contexts/AuthContext";
@@ -130,7 +130,8 @@ export default function EventDetailPage() {
   const pendingSend = useRef<object | null>(null);
   const [showStartConfirm, setShowStartConfirm] = useState(false);
   const [recentParticipants, setRecentParticipants] = useState<RecentParticipant[]>([]);
-  const [recentParticipantsUnavailable, setRecentParticipantsUnavailable] = useState(false);
+  const [recentParticipantsStatus, setRecentParticipantsStatus] = useState<"loading" | "ready" | "pending" | "error" | "unavailable">("loading");
+  const [previewAttempt, setPreviewAttempt] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [followingEvent, setFollowingEvent] = useState(false);
   const [followPending, setFollowPending] = useState(false);
@@ -455,37 +456,39 @@ export default function EventDetailPage() {
     return () => { cancelled = true; };
   }, [event, eventId, user?.uid]);
 
-  // Fetch top 5 recent participants with denormalized nicknames
+  // 서버가 정렬한 5명만 읽고 늦은 응답은 현재 이벤트/SDK 세션에 적용하지 않는다.
   useEffect(() => {
-    if (!eventId || !event?.type) return;
-    let cancelled = false;
     setRecentParticipants([]);
-    setRecentParticipantsUnavailable(event.type === "GROUP_RIDE");
-    if (event.type === "GROUP_RIDE") return;
-    const owner = auth.currentUser?.uid;
-    (async () => {
-      try {
-        const { participants } = await getEventPublicParticipants(eventId, services);
-        const recent = participants.map((data): RecentParticipant => {
-          const joinedAt = publicParticipantTimestampMs(data.joinedAt) ?? 0;
-          return { uid: data.userId, nickname: data.displayName || t("detail.defaultNickname"),
-            category: data.category ?? null, joinedAt };
-        }).sort((a, b) => b.joinedAt - a.joinedAt).slice(0, 5);
-        if (cancelled || auth.currentUser?.uid !== owner) return;
-        const items = await Promise.all(recent.map(async (participant) => {
-          try {
-            const profile = await getPublicUserProfile(participant.uid, services.firestore);
-            return { ...participant, nickname: profile?.nickname ?? participant.nickname };
-          } catch { return participant; }
-        }));
-        if (!cancelled && auth.currentUser?.uid === owner) setRecentParticipants(items);
-      } catch (err) {
-        if (!cancelled && auth.currentUser?.uid === owner) setRecentParticipantsUnavailable(true);
-        logClientError("EventDetailPage.loadRecentParticipants", err, { eventId });
+    setRecentParticipantsStatus("loading");
+    if (!eventId || !event?.type || event.id !== eventId) return;
+    if (event.type === "GROUP_RIDE") { setRecentParticipantsStatus("unavailable"); return; }
+    let cancelled = false;
+    const owner = auth.currentUser;
+    const deadline = Date.now() + 12_000;
+    const context = participantContext.current;
+    const current = () => !cancelled && auth.currentUser === owner && participantContext.current === context;
+    void getEventPublicParticipantPreview(eventId, services).then(page => {
+      if (!current()) return;
+      const rows = page.participants.slice(0, 5);
+      setRecentParticipants(rows.map(data => ({ uid: data.userId,
+        nickname: data.displayName || t("detail.defaultNickname"), category: data.category ?? null,
+        joinedAt: publicParticipantTimestampMs(data.joinedAt)! })));
+      setRecentParticipantsStatus("ready");
+      // 등록 시점의 이름 대신 현재 공개 프로필을 보강한다. 실패·기한 초과는 DTO 이름을 유지한다.
+      for (const data of rows) {
+        if (!current() || Date.now() >= deadline) break;
+        void getPublicUserProfile(data.userId, services.firestore).then(profile => {
+          if (!current() || Date.now() >= deadline || !profile?.nickname) return;
+          setRecentParticipants(previous => previous.map(item => item.uid === data.userId ? { ...item, nickname: profile.nickname } : item));
+        }).catch(() => { /* 개별 프로필 실패는 이미 표시된 참가자 DTO로 대체한다. */ });
       }
-    })();
+    }).catch(error => {
+      if (!current()) return;
+      setRecentParticipantsStatus((error as { details?: { reason?: string } }).details?.reason === "event-participants-pending" ? "pending" : "error");
+      logClientError("EventDetailPage.loadRecentParticipants", error, { eventId });
+    });
     return () => { cancelled = true; };
-  }, [eventId, event?.type, user?.uid, t]);
+  }, [eventId, event?.id, event?.type, user, auth, services, t, previewAttempt]);
 
   const handleSendCourseToParticipants = async (course: Course) => {
     if (!user || !eventId || event?.id !== eventId || !isHost || pendingSend.current || auth.currentUser?.uid !== user.uid) return;
@@ -1181,8 +1184,11 @@ export default function EventDetailPage() {
                 {t("action.viewAll")}
               </Button>
             </div>
-            {recentParticipantsUnavailable ? (
-              <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("detail.participantsUnavailable")}</p>
+            {recentParticipantsStatus !== "ready" ? (
+              <div role={recentParticipantsStatus === "error" ? "alert" : "status"}>
+                <Text as="p" variant="caption">{t(recentParticipantsStatus === "loading" ? "detail.participantsLoading" : recentParticipantsStatus === "pending" ? "detail.participantsPending" : "detail.participantsUnavailable")}</Text>
+                {(recentParticipantsStatus === "pending" || recentParticipantsStatus === "error") && <Button size="sm" variant="ghost" onClick={() => setPreviewAttempt(value => value + 1)}>{t("common:button.retry")}</Button>}
+              </div>
             ) : recentParticipants.length === 0 ? (
               <p className="text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>{t("empty.noParticipants")}</p>
             ) : (

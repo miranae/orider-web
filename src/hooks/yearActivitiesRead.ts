@@ -3,6 +3,7 @@ import type { Activity } from "@shared/types";
 import { physicalRideMovingSeconds } from "@shared/training/physicalRideEvidence";
 import { isStatsCountable } from "@shared/training/activityStatsEligibility";
 import { disciplineOfType } from "@shared/sport/discipline";
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { auth, firestore } from "../services/firebase";
 import { isSamePhysicalRide, type PhysicalRideIdentity } from "../utils/samePhysicalRide";
 
@@ -14,8 +15,8 @@ export function localYearBounds(year: number) {
 }
 
 /** 이전 전체 snapshot과 같은 mount 수명. 전역/영구 캐시가 아니며 인증 교체 뒤 재사용하지 않는다. */
-export function createYearReadSession(uid: string) {
-  return { uid, owner: auth.currentUser, valid: true, docs: new Map<string, QueryDocumentSnapshot>(),
+export function createYearReadSession(uid: string, services: Pick<FirebaseServices, "auth" | "firestore"> = { auth, firestore }) {
+  return { uid, auth: services.auth, firestore: services.firestore, owner: services.auth.currentUser, valid: true, docs: new Map<string, QueryDocumentSnapshot>(),
     coverage: [] as Interval[], queries: new Map<string, PageState>(), years: null as number[] | null, duration: null as number | null, crossings: new Map<string, number>() };
 }
 export type YearReadSession = ReturnType<typeof createYearReadSession>;
@@ -52,7 +53,7 @@ function reader(uid: string, cancelled: () => boolean, budget = YEAR_READ_BUDGET
   let charged = 0;
   let requests = 0;
   const current = () => {
-    if (cancelled() || !session.valid || session.uid !== uid || session.owner !== auth.currentUser) throw new Error("year-read-cancelled");
+    if (cancelled() || !session.valid || session.uid !== uid || session.owner !== session.auth.currentUser) throw new Error("year-read-cancelled");
   };
   const read = async (constraints: QueryConstraint[], size: number) => {
     current();
@@ -60,7 +61,7 @@ function reader(uid: string, cancelled: () => boolean, budget = YEAR_READ_BUDGET
     if (requests >= budget.requests || remaining <= 0) throw new Error("year-read-budget-exceeded");
     const count = Math.min(size, remaining);
     requests++;
-    const snapshot = await getDocs(query(collection(firestore, "activities"),
+    const snapshot = await getDocs(query(collection(session.firestore, "activities"),
       where("userId", "==", uid), where("deletedAt", "==", null), ...constraints, limit(count)));
     current();
     charged += Math.max(1, snapshot.docs.length);
@@ -140,9 +141,9 @@ function intervalEnd(activity: Activity) {
   return Number.isFinite(activity.endTime) && activity.endTime! > activity.startTime
     ? activity.endTime! : activity.startTime + (physicalRideMovingSeconds(activity as unknown as Record<string, unknown>) ?? 0) * 1000;
 }
-function accepted(session: YearReadSession) {
+function accepted(session: YearReadSession, profile = false) {
   return [...session.docs.values()].map(doc => ({ ...doc.data(), id: doc.id }) as Activity & { invalidSummary?: unknown })
-    .filter(activity => activity.summary != null && !activity.deletedAt && !activity.invalidSummary && isStatsCountable(activity))
+    .filter(activity => !activity.deletedAt && !activity.invalidSummary && (profile || activity.summary != null && isStatsCountable(activity)))
     .sort((a, b) => a.startTime - b.startTime || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 export async function readYearActivities(uid: string, year: number, cancelled: () => boolean, budget = YEAR_READ_BUDGET, session = createYearReadSession(uid)): Promise<Activity[]> {
@@ -150,11 +151,11 @@ export async function readYearActivities(uid: string, year: number, cancelled: (
 }
 
 /** 선택 기간과 실제 연결된 구간만 읽으며 원격 identity 사이의 공백은 읽지 않는다. */
-export async function readActivityTimeWindow(uid: string, requested: Interval, cancelled: () => boolean, budget = YEAR_READ_BUDGET, session = createYearReadSession(uid)): Promise<Activity[]> {
+export async function readActivityTimeWindow(uid: string, requested: Interval, cancelled: () => boolean, budget = YEAR_READ_BUDGET, session = createYearReadSession(uid), profile = false): Promise<Activity[]> {
   if (!Number.isFinite(requested.start) || !Number.isFinite(requested.end) || requested.end <= requested.start) throw new Error("year-read-invalid-window");
   const read = reader(uid, cancelled, budget, session);
   await read.range(requested);
-  let items = accepted(session);
+  let items = accepted(session, profile);
   if (!items.some(activity => activity.startTime >= requested.start && activity.startTime < requested.end)) return items;
   if (!missing(session.coverage, { start: -Infinity, end: Infinity }).length) return items;
   if (session.duration === null) {
@@ -172,7 +173,7 @@ export async function readActivityTimeWindow(uid: string, requested: Interval, c
   const inspected = new Set<string>();
   for (;;) {
     read.current();
-    items = accepted(session);
+    items = accepted(session, profile);
     let changed = true;
     while (changed) {
       changed = false;
@@ -193,7 +194,7 @@ export async function readActivityTimeWindow(uid: string, requested: Interval, c
     const union = { coverage: [] as Interval[] } as YearReadSession;
     for (const interval of intervals) cover(union, interval);
     for (const interval of union.coverage) await read.range(interval);
-    if (!missing(session.coverage, { start: -Infinity, end: Infinity }).length) return accepted(session);
+    if (!missing(session.coverage, { start: -Infinity, end: Infinity }).length) return accepted(session, profile);
     const gaps = missing(session.coverage, { start: -Infinity, end: Infinity });
     const pendingKeys = new Map<string, (string | number)[]>();
     for (const member of members) {

@@ -583,6 +583,12 @@
   "dashboard.timeAgo.justNow": "방금",
   "dashboard.timeAgo.minutesAgo": "{{count}}분 전",
   "dashboard.timeAgo.hoursAgo": "{{count}}시간 전",
+  "resultsView.partialResults": "현재 {{count}}명 기준의 부분 결과입니다. 전체 로딩 후 순위가 표시됩니다.",
+  "resultsView.loadMore": "더 불러오기",
+  "resultsView.loadAll": "전체 불러오기",
+  "resultsView.pauseLoading": "로딩 일시정지",
+  "resultsView.restartLoading": "처음부터 다시 불러오기",
+  "resultsView.pageBudget": "이번 작업의 페이지 요청 한도(최대 200회, 10,000명)에 도달했습니다. 아직 전체 결과가 아닙니다. 계속 불러올 수 있습니다.",
   "resultsView.overall": "종합",
   "resultsView.loadError": "결과를 불러오지 못했습니다",
   "resultsView.unit.persons": "명",
@@ -788,5 +794,7 @@
   "capacity.limited": "인원 지정",
   "capacity.totalUnlimited": "전체 정원: 무제한",
   "capacity.editUnlimitedSummary": "RIDER {{filled}}명 · 정원 무제한 · {{date}} {{time}}",
-  "readTimeout": "정보를 불러오는 데 시간이 오래 걸립니다. 연결을 확인한 뒤 다시 시도해 주세요."
+  "readTimeout": "정보를 불러오는 데 시간이 오래 걸립니다. 연결을 확인한 뒤 다시 시도해 주세요.",
+  "detail.participantsLoading": "참가자를 불러오는 중입니다.",
+  "detail.participantsPending": "참가자 미리보기를 준비 중입니다. 잠시 후 다시 시도해 주세요."
 }

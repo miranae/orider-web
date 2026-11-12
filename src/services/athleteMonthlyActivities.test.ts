@@ -1,15 +1,22 @@
+import { installActivityQueryFake } from "../__tests__/fixtures/activityQueryFake";
+import { setCollectionDocs } from "../__tests__/mocks/firebase";
+import { createYearReadSession } from "../hooks/yearActivitiesRead";
+import { auth } from "./firebase";
+import { planMonthBounds } from "@shared/training/planDate";
 import { loadActivityDiscovery } from "./activityDiscovery";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 vi.mock("./activityDiscovery", () => ({ loadActivityDiscovery: vi.fn() }));
 import type { Activity } from "@shared/types";
-import { getDocs, query, where, startAfter } from "firebase/firestore";
-import { aggregateMonthlyActivities, loadAthleteChartActivities } from "./athleteMonthlyActivities";
+import { getDocs, collection } from "firebase/firestore";
+import { aggregateMonthlyActivities, loadAthleteChartActivities, athleteProfileYears } from "./athleteMonthlyActivities";
 import { createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
 
 // endTime 을 고정한다 — 기본값(현재 시각 - 1시간)이면 9월 활동이 지금까지 이어진 것으로 보여, 10월 이후에는
 // 10월 활동과 시간이 겹쳐 같은 실주행으로 묶였다(2026-10-01 부터 실패).
 const activity = (startTime: number) => createMockActivity({ startTime, endTime: startTime + 3600000, createdAt: new Date(2026, 8, 1).getTime(), summary: createMockSummary({ distance: 1000, ridingTimeMillis: 3600000, elevationGain: 10 }) });
-const page = (count: number, offset = 0) => ({ docs: Array.from({ length: count }, (_, i) => ({ id: `a-${offset + i}`, data: () => activity(new Date(2021, 0, 2).getTime()) })) });
+const ownerActivity = (id: string, startTime: number, extra: Record<string, unknown> = {}) => ({ ...activity(startTime), id, userId: "athlete", deletedAt: null, ...extra });
+
+beforeEach(() => { auth.currentUser = { uid: "athlete" } as never; });
 
 describe("athlete monthly activities", () => {
   it("uses ride dates, fills every missing month and retains more than twelve months", () => {
@@ -53,42 +60,56 @@ describe("athlete monthly activities", () => {
     await expect(loadAthleteChartActivities("athlete",false,()=>false,{} as FirebaseServices)).rejects.toThrow("changed");
   });
 
-  it("retains activities with absent or null summaries without changing measured totals", async () => {
-    const first = page(1);
-    const legacy = { ...activity(new Date(2021, 0, 2).getTime()), summary: undefined };
-    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [
-      ...first.docs,
-      { id: "missing-summary", data: () => legacy },
-      { id: "null-summary", data: () => ({ ...legacy, summary: null }) },
-    ] } as never);
-    const rows = await loadAthleteChartActivities("athlete", true, () => false);
-    expect(rows).toHaveLength(3);
-    expect(rows![1]?.summary).toBeUndefined();
-    expect(rows![2]?.summary).toBeNull();
-    expect(aggregateMonthlyActivities(rows!, new Date(2021, 0, 2))[0]).toMatchObject({
-      rides: 1, distance: 1, time: 1, elevation: 10,
-    });
+  it("retains summaryless profile inputs and uses only selected-year/recent windows with stable cursors and a mounted cache", async () => {
+    const fake = installActivityQueryFake();
+    const start = planMonthBounds(2024, 0).start, end = planMonthBounds(2025, 0).start;
+    const rows = [ownerActivity("old", Date.UTC(2020, 5, 1)), ownerActivity("a", start + 1000), ownerActivity("summaryless", start + 3600000, { summary: null }), ownerActivity("later", Date.UTC(2025, 5, 1)), ownerActivity("later2", Date.UTC(2025, 5, 2))];
+    setCollectionDocs("activities", rows);
+    const session = createYearReadSession("athlete");
+    const result = await loadAthleteChartActivities("athlete", true, () => false, undefined, 2024, session);
+    expect(result!.find(row => row.id === "summaryless")?.summary).toBeNull();
+    expect(fake.requests.some(q => q.some(c => c.type === "where" && c.args[0] === "startTime" && c.args[1] === ">=" && c.args[2] === start) && q.some(c => c.type === "where" && c.args[0] === "startTime" && c.args[1] === "<" && c.args[2] === end))).toBe(true);
+    expect(fake.requests.some(q => q.some(c => c.type === "where" && c.args[0] === "visibility"))).toBe(false);
+    const reads = fake.requests.length;
+    await loadAthleteChartActivities("athlete", true, () => false, undefined, 2024, session);
+    expect(fake.requests).toHaveLength(reads);
+    expect(athleteProfileYears(session, 2024)).toEqual(expect.arrayContaining([2020, 2021, 2022, 2023, 2024, 2025]));
   });
-
-  it("includes private activities only for the owner query", async () => {
-    vi.mocked(getDocs).mockResolvedValueOnce(page(1) as never);
-    vi.mocked(where).mockClear();
-    await loadAthleteChartActivities("athlete", true, () => false);
-    expect(vi.mocked(where).mock.calls.some(([field]) => field === "visibility")).toBe(false);
+  it("reads a healthy 5,000-activity selected year without a hidden history scan or per-member refetch", async () => {
+    const fake = installActivityQueryFake();
+    const start = planMonthBounds(2024, 0).start;
+    setCollectionDocs("activities", [ownerActivity("old", Date.UTC(2020, 0, 1)), ...Array.from({ length: 5000 }, (_, i) => ownerActivity(`a${String(i).padStart(5, "0")}`, start + i * 60000))]);
+    const result = await loadAthleteChartActivities("athlete", true, () => false, undefined, 2024, createYearReadSession("athlete"));
+    expect(result!.filter(row => row.startTime >= start && row.startTime < planMonthBounds(2025, 0).start)).toHaveLength(5000);
+    expect(fake.documents).toBeLessThan(5100);
+    expect(fake.requests.length).toBeLessThan(50);
+    expect(fake.requests.some(q => q.some(c => c.type === "startAfter"))).toBe(true);
   });
-
-  it("rejects a failed later page instead of returning partial totals", async () => {
-    vi.mocked(getDocs).mockResolvedValueOnce(page(200) as never).mockRejectedValueOnce(new Error("network"));
-    await expect(loadAthleteChartActivities("athlete", true, () => false)).rejects.toThrow("network");
+  it("uses the injected owner database/session and rejects a replaced SDK owner even with the same UID", async () => {
+    installActivityQueryFake();
+    setCollectionDocs("activities", [ownerActivity("one", Date.UTC(2024, 5, 1))]);
+    const services = { firestore: { isolated: true }, auth: { currentUser: { uid: "athlete" } } } as unknown as FirebaseServices;
+    auth.currentUser = { uid: "unrelated-global-owner" } as never;
+    const session = createYearReadSession("athlete", services);
+    const firstCall = vi.mocked(collection).mock.calls.length;
+    await expect(loadAthleteChartActivities("athlete", true, () => false, services, 2024, session)).resolves.toBeTruthy();
+    expect(vi.mocked(collection).mock.calls.slice(firstCall).filter(args => args[1] === "activities").every(args => args[0] === services.firestore)).toBe(true);
+    services.auth.currentUser = { uid: "athlete" } as never;
+    await expect(loadAthleteChartActivities("athlete", true, () => false, services, 2024, session)).rejects.toThrow("session-changed");
   });
-
-  it("discards an obsolete request and stops paging after cancellation", async () => {
-    let cancelled = false;
-    vi.mocked(getDocs).mockImplementationOnce(async () => { cancelled = true; return page(200) as never; });
-    vi.mocked(query).mockClear();
+  it("rejects read failures instead of publishing partial chart data", async () => {
+    installActivityQueryFake();
+    vi.mocked(getDocs).mockRejectedValueOnce(new Error("offline"));
+    await expect(loadAthleteChartActivities("athlete", true, () => false)).rejects.toThrow("offline");
+  });
+  it("discards an obsolete owner read and does not start the next window", async () => {
+    const fake = installActivityQueryFake(); let cancelled = false;
+    const original = vi.mocked(getDocs).getMockImplementation()!;
+    vi.mocked(getDocs).mockImplementationOnce((async q => { const result = await original(q); cancelled = true; return result; }) as never);
     expect(await loadAthleteChartActivities("athlete", true, () => cancelled)).toBeNull();
-    expect(query).toHaveBeenCalledTimes(1);
+    expect(fake.requests).toHaveLength(1);
   });
+
 });
 
 it("월별 모든 지표는 같은 실주행 대표를 사용한다", () => {

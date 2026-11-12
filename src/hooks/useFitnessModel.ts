@@ -247,9 +247,9 @@ export function useFitnessModel(
   const canonicalActive = canonicalFitness.rolloutState === "on";
   const services = useFirebaseServices();
   const { firestore } = services;
-  const { entries: ftpHistory } = useFtpHistory(user?.uid, subscriptionActive);
-  const { showToast } = useToast();
   const discipline = resolveFitnessDiscipline(sportParam);
+  const { entries: ftpHistory } = useFtpHistory(user?.uid, subscriptionActive && discipline === "bike");
+  const { showToast } = useToast();
   const [range, setRange] = useState<RangeOption | 42>(90);
   const normalizedRange = normalizeFitnessRange(discipline, range);
   const activityQueryRange = discipline === "tri" ? 365 : normalizedRange;

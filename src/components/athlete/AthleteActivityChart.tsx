@@ -6,17 +6,18 @@ import WeeklyChart from "../WeeklyChart";
 import { Button, Select, Text } from "../../theme/components";
 import { athleteProfilePeriods, type AthletePeriod } from "./athleteProfilePeriods";
 
-export default function AthleteActivityChart({ activities, loadActivities = activities, selected, onSelect, rangeLimit }: { activities: Activity[]; loadActivities?: Activity[]; selected: AthletePeriod | null; onSelect: (period: AthletePeriod | null) => void; rangeLimit?: { start: number; end: number } }) {
+export default function AthleteActivityChart({ activities, loadActivities = activities, selected, onSelect, rangeLimit, selectedYear, availableYears, onYearChange }: { activities: Activity[]; loadActivities?: Activity[]; selected: AthletePeriod | null; onSelect: (period: AthletePeriod | null) => void; rangeLimit?: { start: number; end: number }; selectedYear?: number; availableYears?: number[]; onYearChange?: (year: number) => void }) {
   const { t, i18n } = useTranslation("athlete");
-  const years = useMemo(() => rangeLimit ? Array.from({ length: planCalendarDate(rangeLimit.end - 1).getUTCFullYear() - planCalendarDate(rangeLimit.start).getUTCFullYear() + 1 }, (_, index) => planCalendarDate(rangeLimit.end - 1).getUTCFullYear() - index) : [...new Set([planCalendarDate(Date.now()).getUTCFullYear(), ...activities.filter(item => Number.isFinite(item.startTime) && item.startTime > 0).map(item => planCalendarDate(item.startTime).getUTCFullYear())])].sort((a, b) => b - a), [activities, rangeLimit]);
-  const [year, setYear] = useState(planCalendarDate(rangeLimit ? rangeLimit.end - 1 : Date.now()).getUTCFullYear());
+  const years = useMemo(() => availableYears ?? (rangeLimit ? Array.from({ length: planCalendarDate(rangeLimit.end - 1).getUTCFullYear() - planCalendarDate(rangeLimit.start).getUTCFullYear() + 1 }, (_, index) => planCalendarDate(rangeLimit.end - 1).getUTCFullYear() - index) : [...new Set([planCalendarDate(Date.now()).getUTCFullYear(), ...activities.filter(item => Number.isFinite(item.startTime) && item.startTime > 0).map(item => planCalendarDate(item.startTime).getUTCFullYear())])].sort((a, b) => b - a)), [activities, rangeLimit, availableYears]);
+  const [localYear, setYear] = useState(planCalendarDate(rangeLimit ? rangeLimit.end - 1 : Date.now()).getUTCFullYear());
+  const year = selectedYear ?? localYear;
   const [mode, setMode] = useState<"week" | "month">("month");
   const [attempt, setAttempt] = useState(0);
   const periods = useMemo(() => athleteProfilePeriods(activities, year, mode, loadActivities).filter(period => period.range.start <= Date.now() && (!rangeLimit || period.range.end > rangeLimit.start && period.range.start < rangeLimit.end)).map(period => rangeLimit ? { ...period, range: { ...period.range, start: Math.max(period.range.start, rangeLimit.start), end: Math.min(period.range.end, rangeLimit.end) } } : period), [activities, loadActivities, year, mode, rangeLimit]);
   const reset = () => { onSelect(null); setAttempt(value => value + 1); };
   return <section className="athlete-history-chart" aria-label={t("profile.history")}>
     <div className="athlete-section-heading"><h2>{t("profile.history")}</h2>
-      <Select aria-label={t("profile.year")} value={year} onChange={event => { setYear(Number(event.target.value)); reset(); }}>{years.map(value => <option key={value} value={value}>{value}</option>)}</Select>
+      <Select aria-label={t("profile.year")} value={year} onChange={event => { setYear(Number(event.target.value)); onYearChange?.(Number(event.target.value)); reset(); }}>{years.map(value => <option key={value} value={value}>{value}</option>)}</Select>
       <Button size="sm" variant={mode === "week" ? "secondary" : "ghost"} aria-pressed={mode === "week"} onClick={() => { setMode("week"); reset(); }}>{t("profile.week")}</Button>
       <Button size="sm" variant={mode === "month" ? "secondary" : "ghost"} aria-pressed={mode === "month"} onClick={() => { setMode("month"); reset(); }}>{t("profile.month")}</Button>
     </div>
