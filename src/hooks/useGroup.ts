@@ -1,7 +1,8 @@
-import { SEARCH_PAGE_SIZE, usePagedSearch } from "./usePagedSearch";
+import { resolveMyGroupSummaries, isGroupReadPermissionDenied } from "../services/groupSummaries";
+import { usePublicClubDirectory } from "./usePublicClubDirectory";
 import { useRef, useState, useEffect, useCallback } from "react";
 import {
-  doc, collection, query, onSnapshot, getDoc, getDocs, where, orderBy, startAfter, limit as firestoreLimit, type QueryDocumentSnapshot, type DocumentData,
+  doc, collection, query, onSnapshot, getDoc, getDocs, where, limit as firestoreLimit,
 } from "firebase/firestore";
 // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
@@ -16,7 +17,9 @@ export interface GroupMemberWithProfile extends GroupMember {
 
 // 그룹 메타데이터 실시간 구독
 export function useGroup(groupId: string | undefined, accessKey?: string) {
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
+  const viewerUid = services.auth.currentUser?.uid;
   const [group, setGroup] = useState<Group | null>(null);
   const [inactive, setInactive] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -36,7 +39,8 @@ export function useGroup(groupId: string | undefined, accessKey?: string) {
     setLoading(true);
     setError(null);
     setInactive(false);
-    return onSnapshot(doc(firestore, "groups", groupId), { includeMetadataChanges: true }, (snap) => {
+    let cancelled = false;
+    const unsubscribe = onSnapshot(doc(firestore, "groups", groupId), { includeMetadataChanges: true }, (snap) => {
       if (snap.metadata?.fromCache === true && !snap.exists()) {
         setError(new Error("Club document could not be confirmed with the server"));
         setGroup(null);
@@ -60,12 +64,31 @@ export function useGroup(groupId: string | undefined, accessKey?: string) {
       }
       setLoading(false);
     }, (err) => {
+      if (isGroupReadPermissionDenied(err)) {
+        void resolveMyGroupSummaries(services, [groupId]).then(groups => {
+          if (cancelled) return;
+          const resolved = groups.find(group => group.id === groupId);
+          const inactive = resolved?.isActive === false;
+          setGroup(inactive ? null : resolved ?? null);
+          setError(resolved ? null : err);
+          setInactive(inactive);
+          setLoading(false);
+        }).catch(error => {
+          // The resolver records failures even when the old surface has been closed.
+          if (cancelled) return;
+          setGroup(null); setError(error); setInactive(false); setLoading(false);
+        });
+        return;
+      }
+      logClientError("useGroup.snapshot", err, { groupId }, services);
+      if (cancelled) return;
       setError(err);
       setGroup(null);
       setInactive(false);
       setLoading(false);
     });
-  }, [firestore, groupId, accessKey, attempt]);
+    return () => { cancelled = true; unsubscribe(); };
+  }, [firestore, services, viewerUid, groupId, accessKey, attempt]);
 
   return { group, loading, error, inactive, retry };
 }
@@ -172,7 +195,8 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number, 
 
 // 내 그룹 목록: 빠른 조회 인덱스, 사용자 현재 그룹, creator 관계를 함께 조회한다.
 export function useMyGroups(userId: string | undefined) {
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
@@ -234,9 +258,15 @@ export function useMyGroups(userId: string | undefined) {
         if (validCurrentGroupId) groupIds.add(validCurrentGroupId);
         const discoveredGroupIds = [...groupIds];
         const chunkResults = await Promise.allSettled(
-          Array.from({ length: Math.ceil(discoveredGroupIds.length / 10) }, (_, chunkIndex) => {
+          Array.from({ length: Math.ceil(discoveredGroupIds.length / 10) }, async (_, chunkIndex) => {
             const chunk = discoveredGroupIds.slice(chunkIndex * 10, chunkIndex * 10 + 10);
-            return getDocs(query(collection(firestore, "groups"), where("__name__", "in", chunk)));
+            try {
+              return await getDocs(query(collection(firestore, "groups"), where("__name__", "in", chunk)));
+            } catch (error) {
+              if (!isGroupReadPermissionDenied(error)) throw error;
+              const groups = await resolveMyGroupSummaries(services, chunk);
+              return { docs: groups.map(({ id, ...data }) => ({ id, data: () => data })), metadata: { fromCache: false } };
+            }
           }),
         );
         if (cancelled) return;
@@ -285,7 +315,7 @@ export function useMyGroups(userId: string | undefined) {
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [firestore, userId, reloadKey]);
+  }, [firestore, services, userId, reloadKey]);
 
   // 회원 색인(user_groups)이 바뀌면 다시 읽는다 — 화면을 연 뒤 다른 경로(초대 링크·앱·상세)로 가입·탈퇴해도
   // '클럽 찾기'에 가입한 클럽이 남지 않게 한다(#1558). 첫 스냅샷은 위 조회와 같은 상태라 건너뛴다.
@@ -320,21 +350,10 @@ export function usePendingGroupRequestIds(userId: string | undefined): Set<strin
 }
 
 // 공개 그룹 검색
-export function usePublicGroups(options: { searchText?: string; discipline?: "ALL" | "bike" | "run" | "swim" | "tri"; city?: string; maxCount?: number; enabled?: boolean } = {}) {
-  const { searchText = "", discipline = "ALL", city = "", maxCount = SEARCH_PAGE_SIZE, enabled = true } = options;
-  const { firestore } = useFirebaseServices();
-  const count = Math.min(maxCount, SEARCH_PAGE_SIZE);
-  const page = usePagedSearch(enabled ? JSON.stringify([searchText, discipline, city, count]) : null, async (cursor: QueryDocumentSnapshot<DocumentData> | null) => {
-    const trimmed = searchText.trim();
-    const snap = await getDocs(query(collection(firestore, "groups"),
-      where("visibility", "==", "public"), where("isActive", "==", true), where("toggles.showInDirectory", "==", true),
-      ...(discipline !== "ALL" ? [where("discipline", "==", discipline)] : []),
-      ...(city.trim() ? [where("city", "==", city.trim())] : []),
-      ...(trimmed ? [where("name", ">=", trimmed), where("name", "<=", `${trimmed}\uf8ff`), orderBy("name")] : []),
-      ...(cursor ? [startAfter(cursor)] : []), firestoreLimit(count),
-    ));
-    return { items: snap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Group), cursor: snap.docs[snap.docs.length - 1] ?? null, hasMore: snap.docs.length === count,
-      error: snap.metadata?.fromCache === true ? new Error("Public clubs could not be confirmed with the server") : null };
-  });
-  return { ...page, groups: page.items };
+/** Signed-in discovery shares the same sanitized HTTP directory as anonymous discovery.
+ * Legacy inviteCode roots cannot be read through a public Firestore list query.
+ */
+export function usePublicGroups(options: { searchText?: string; discipline?: "ALL" | "bike" | "run" | "swim" | "tri"; city?: string; enabled?: boolean } = {}) {
+  const { searchText = "", discipline = "ALL", city = "", enabled = true } = options;
+  return usePublicClubDirectory({ searchText, discipline, city }, enabled);
 }
