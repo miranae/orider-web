@@ -68,9 +68,10 @@ export function useGroup(groupId: string | undefined, accessKey?: string) {
         void resolveMyGroupSummaries(services, [groupId]).then(groups => {
           if (cancelled) return;
           const resolved = groups.find(group => group.id === groupId);
-          setGroup(resolved ?? null);
+          const inactive = resolved?.isActive === false;
+          setGroup(inactive ? null : resolved ?? null);
           setError(resolved ? null : err);
-          setInactive(false);
+          setInactive(inactive);
           setLoading(false);
         }).catch(error => {
           // The resolver records failures even when the old surface has been closed.

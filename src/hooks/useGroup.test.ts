@@ -129,6 +129,20 @@ describe("useGroup", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("preserves inactive state even if a summary response contains an inactive club", async () => {
+    setCallableResult("resolveMyGroupSummaries", { data: { groups: [{ id: "inactive-summary", isActive: false }] } });
+    vi.mocked(onSnapshot).mockImplementationOnce((...args) => {
+      const onError = typeof args[1] === "function" ? args[2] : args[3];
+      if (typeof onError === "function") onError(Object.assign(new Error("denied"), { code: "permission-denied" }) as never);
+      return () => {};
+    });
+    const { result } = renderHook(() => useGroup("inactive-summary"));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.group).toBeNull();
+    expect(result.current.inactive).toBe(true);
+    expect(result.current.error).toBeNull();
+  });
+
   it("ignores a late legacy detail after navigation to another club", async () => {
     const pending = deferred<{ data: { groups: Array<{ id: string; name: string }> } }>();
     const callable = vi.fn(() => pending.promise);
