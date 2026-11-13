@@ -31,6 +31,8 @@ describe("embedded routes", () => {
     ["/en/embed/clubs/club-1/members", "club-detail"],
     ["/ko/embed/courses/course-1", "course-detail"],
     ["/en/embed/courses/course-1/", "course-detail"],
+    ["/ko/embed/segments/seg-1", "segment-detail"],
+    ["/en/embed/segments/seg-1/", "segment-detail"],
   ])("renders %s outside the general Layout", async (path, surfaceKind) => {
     render(
       <MemoryRouter initialEntries={[path]}>
@@ -53,6 +55,7 @@ describe("embedded routes", () => {
     "/ko/embed/fitness",
     "/en/embed/plan/",
     "/ko/embed/courses/course-1",
+    "/en/embed/segments/seg-1",
   ])("recognizes embedded path %s", (path) => {
     expect(isEmbeddedRoutePath(path)).toBe(true);
   });

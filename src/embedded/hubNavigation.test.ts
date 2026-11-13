@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   embeddedClubDetailDestination,
   embeddedCourseDetailDestination,
+  embeddedSegmentDetailDestination,
   embeddedExplorePage,
   embeddedHubDestination,
   embeddedInternalDestination,
@@ -113,6 +114,29 @@ describe("코스 상세 임베드 이동", () => {
     // 탐색 목록의 코스 링크는 계속 앱으로 간다 — 앱이 capability 를 보고 코스 상세 임베드로 연다.
     expect(embeddedInternalDestination("/ko/embed/explore", "/ko/course/course-1")).toBeNull();
     expect(embeddedCourseDetailDestination("/ko/course/course-1", "/ko/course/course-1")).toBeNull();
+  });
+});
+
+describe("세그먼트 상세 임베드 이동", () => {
+  it.each(["ko", "en"])("%s 같은 세그먼트 상세(탭 쿼리 포함)는 세그먼트 상세 임베드 안에서 연다", lang => {
+    const current = `/${lang}/embed/segments/seg-1`;
+    expect(embeddedSegmentDetailDestination(current, `/${lang}/segment/seg-1`)).toBe(`/${lang}/embed/segments/seg-1`);
+    expect(embeddedSegmentDetailDestination(current, "/segment/seg-1?tab=ranking#top")).toBe(`/${lang}/embed/segments/seg-1?tab=ranking#top`);
+    expect(embeddedSegmentDetailDestination(current, `/${lang}/embed/segments/seg-1/`)).toBe(`/${lang}/embed/segments/seg-1`);
+    expect(embeddedInternalDestination(current, "/segment/seg-1?tab=mine")).toBe(`/${lang}/embed/segments/seg-1?tab=mine`);
+  });
+
+  it("다른 세그먼트·하위 경로·상세 밖 경로·다른 origin 은 앱에 넘긴다", () => {
+    const current = "/ko/embed/segments/seg-1";
+    expect(embeddedSegmentDetailDestination(current, "/ko/segment/seg-2")).toBeNull();
+    expect(embeddedSegmentDetailDestination(current, "/ko/segment/seg-1/edit")).toBeNull();
+    expect(embeddedSegmentDetailDestination(current, "/ko/course/course-1")).toBeNull();
+    expect(embeddedSegmentDetailDestination(current, "https://other.invalid/ko/segment/seg-1")).toBeNull();
+    expect(embeddedInternalDestination(current, "/ko/athlete/user-1")).toBeNull();
+    // 탐색 목록·코스 상세의 세그먼트 링크는 계속 앱으로 간다 — 앱이 capability 를 보고 세그먼트 상세 임베드로 연다.
+    expect(embeddedInternalDestination("/ko/embed/explore", "/ko/segment/seg-1")).toBeNull();
+    expect(embeddedInternalDestination("/ko/embed/courses/course-1", "/ko/segment/seg-1")).toBeNull();
+    expect(embeddedSegmentDetailDestination("/ko/segment/seg-1", "/ko/segment/seg-1")).toBeNull();
   });
 });
 

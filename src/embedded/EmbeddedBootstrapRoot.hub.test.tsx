@@ -74,6 +74,17 @@ vi.mock("../pages/CoursePage", () => ({
   ),
 }));
 
+// 세그먼트 상세도 실제 SegmentDetailSurface 를 쓰고 웹 세그먼트 상세 화면만 가볍게 바꾼다.
+vi.mock("../pages/SegmentPage", () => ({
+  default: () => (
+    <div data-testid="segment-page">
+      <a href="/ko/segment/seg-1?tab=ranking">ranking tab</a>
+      <a href="/ko/segment/seg-2">other segment</a>
+      <a href="/ko/course/course-1">course</a>
+    </div>
+  ),
+}));
+
 import EmbeddedBootstrapRoot, { type EmbeddedSurfaceKind } from "./EmbeddedBootstrapRoot";
 import { isEmbeddedRoutePath } from "../App";
 
@@ -132,6 +143,8 @@ describe("app tab hub embeds", () => {
     expect(isEmbeddedRoutePath("/en/embed/clubs/club-1/meetings/m-1/edit")).toBe(true);
     expect(isEmbeddedRoutePath("/ko/embed/courses/course-1")).toBe(true);
     expect(isEmbeddedRoutePath("/ko/course/course-1")).toBe(false);
+    expect(isEmbeddedRoutePath("/ko/embed/segments/seg-1")).toBe(true);
+    expect(isEmbeddedRoutePath("/ko/segment/seg-1")).toBe(false);
     expect(isEmbeddedRoutePath("/ko/embed/explore/extra")).toBe(false);
     expect(isEmbeddedRoutePath("/ko/club/club-1")).toBe(false);
     expect(isEmbeddedRoutePath("/ko/clubs")).toBe(false);
@@ -151,6 +164,14 @@ describe("app tab hub embeds", () => {
     await waitFor(() => expect(bridge.sent.some(item => item.type === "bootstrap.ready")).toBe(true));
     const ready = bridge.sent.find(item => item.type === "bootstrap.ready");
     expect((ready?.payload as { capabilities: string[] }).capabilities).toContain("course-detail-embed-v1");
+  });
+
+  it("advertises the segment detail embed so the app maps /segment/{id} to it only on a web that has the route", async () => {
+    const bridge = createFakeBridge();
+    renderHub(bridge, "explore");
+    await waitFor(() => expect(bridge.sent.some(item => item.type === "bootstrap.ready")).toBe(true));
+    const ready = bridge.sent.find(item => item.type === "bootstrap.ready");
+    expect((ready?.payload as { capabilities: string[] }).capabilities).toContain("segment-detail-embed-v1");
   });
 
   it.each(["clubs", "explore", "search"] as const)("opens the signed-in %s surface with the existing handoff and reports readiness", async (kind) => {
@@ -284,6 +305,35 @@ describe("app tab hub embeds", () => {
     expect(bridge.sent).toContainEqual({ type: "navigation.openNative", payload: { path: "/ko/course/course-2" }, requestId: undefined });
     fireEvent.click(screen.getByRole("link", { name: "segment" }));
     expect(bridge.sent).toContainEqual({ type: "navigation.openNative", payload: { path: "/ko/segment/seg-1" }, requestId: undefined });
+  });
+
+  it("opens a public segment detail as a guest, keeps the same segment inside the embed and hands other links to the app", async () => {
+    mocks.state.currentUser = null;
+    simulateLogin(null);
+    const bridge = createFakeBridge();
+    render(
+      <MemoryRouter initialEntries={["/ko/embed/segments/seg-1"]}>
+        <Routes>
+          <Route path="/:lang/embed/segments/:segmentId/*" element={<EmbeddedBootstrapRoot bridgeFactory={() => bridge} surfaceKind="segment-detail" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await authorize(bridge, { contractVersion: 1 });
+    expect(bridge.sent).toContainEqual({ type: "auth.state", payload: { uid: null }, requestId: "auth-1" });
+    act(() => bridge.emit(message("host.sessionAccepted", accepted)));
+    expect(await screen.findByTestId("embedded-segment-detail")).toBeInTheDocument();
+    expect(await screen.findByTestId("segment-page")).toBeInTheDocument();
+    await waitFor(() => expect(bridge.sent).toContainEqual({ type: "surface.ready", payload: { surface: "segment-detail" }, requestId: undefined }));
+    expect(bridge.sent.some(item => item.type === "surface.error")).toBe(false);
+
+    fireEvent.click(screen.getByRole("link", { name: "ranking tab" }));
+    expect(await screen.findByTestId("segment-page")).toBeInTheDocument();
+    expect(bridge.sent.some(item => item.type === "navigation.openNative")).toBe(false);
+
+    fireEvent.click(screen.getByRole("link", { name: "other segment" }));
+    expect(bridge.sent).toContainEqual({ type: "navigation.openNative", payload: { path: "/ko/segment/seg-2" }, requestId: undefined });
+    fireEvent.click(screen.getByRole("link", { name: "course" }));
+    expect(bridge.sent).toContainEqual({ type: "navigation.openNative", payload: { path: "/ko/course/course-1" }, requestId: undefined });
   });
 
   it("opens the course detail for a signed-in app session too", async () => {

@@ -105,7 +105,7 @@ describe("ExplorePage", () => {
       resolveFetch({ ok: true, headers: { get: () => "application/json" }, json: async () => ({ v: 2, count: segments.length, segments }) } as Response);
     });
     if (result === "segments") {
-      expect(screen.getByRole("button", { name: SEG_CLIMB.name, exact: true })).toBeVisible();
+      expect(screen.getByRole("link", { name: SEG_CLIMB.name, exact: true })).toBeVisible();
     } else {
       expect(screen.getByText(/^세그먼트가 없습니다\./)).toBeVisible();
     }
@@ -113,7 +113,7 @@ describe("ExplorePage", () => {
     view.rerender(<RetainedSegments owner="another-user" />);
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     if (result === "segments") {
-      expect(screen.getByRole("button", { name: SEG_CLIMB.name, exact: true })).toBeVisible();
+      expect(screen.getByRole("link", { name: SEG_CLIMB.name, exact: true })).toBeVisible();
     } else {
       expect(screen.getByText(/^세그먼트가 없습니다\./)).toBeVisible();
     }
@@ -153,7 +153,7 @@ describe("ExplorePage", () => {
     expect(logClientError).toHaveBeenCalledTimes(1);
     fetchMock.mockResolvedValueOnce({ ok: true, headers: { get: () => "application/json" }, json: async () => ({ v: 2, count: 1, segments: [SEG_CLIMB] }) } as Response);
     fireEvent.click(retry);
-    expect(await screen.findByRole("button", { name: SEG_CLIMB.name, exact: true })).toBeVisible();
+    expect(await screen.findByRole("link", { name: SEG_CLIMB.name, exact: true })).toBeVisible();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
@@ -212,19 +212,48 @@ describe("ExplorePage", () => {
   // ExplorePage는 라우트가 정확히 /explore/segments (또는 /{lang}/explore/segments) 일 때만 렌더한다
   // (Layout 직접 렌더 최적화). 따라서 모든 테스트는 route:"/explore/segments" 로 마운트한다.
 
-  it("selects a segment through its keyboard title button and preserves explicit detail entry", async () => {
-    mockOverviewFetch([SEG_CLIMB]);
+  it("opens the segment detail from a single tap on a list card or its title link", async () => {
+    mockOverviewFetch([SEG_CLIMB, SEG_FLAT]);
     const user = userEvent.setup();
     const ExplorePage = await loadExplorePage();
-    renderWithProviders(<ExplorePage />, { route: "/explore/segments" });
-    const title = await screen.findByRole("button", { name: "남산 업힐", exact: true });
-    expect(title).toHaveAttribute("aria-pressed", "false");
+    function PathProbe() {
+      return <output data-testid="path">{useLocation().pathname}</output>;
+    }
+    renderWithProviders(<><PathProbe /><ExplorePage /></>, { route: "/explore/segments" });
+    // 제목은 키보드로도 갈 수 있는 실제 링크다.
+    const title = await screen.findByRole("link", { name: "남산 업힐", exact: true });
+    expect(title).toHaveAttribute("href", "/ko/segment/s1");
     title.focus();
     await user.keyboard("{Enter}");
-    expect(title).toHaveAttribute("aria-pressed", "true");
-    expect(await screen.findByRole("button", { name: "상세 보기" })).toBeInTheDocument();
-    await user.keyboard(" ");
-    expect(title).toHaveAttribute("aria-pressed", "false");
+    await waitFor(() => expect(screen.getByTestId("path").textContent).toBe("/ko/segment/s1"));
+  });
+
+  it("navigates on a card tap outside the title without a double click", async () => {
+    mockOverviewFetch([SEG_CLIMB]);
+    const ExplorePage = await loadExplorePage();
+    function PathProbe() {
+      return <output data-testid="path">{useLocation().pathname}</output>;
+    }
+    renderWithProviders(<><PathProbe /><ExplorePage /></>, { route: "/explore/segments" });
+    await screen.findByRole("link", { name: "남산 업힐", exact: true });
+    const card = screen.getAllByTestId("E2-2-2").find(element => element.tagName === "DIV")!;
+    fireEvent.click(card);
+    expect(screen.getByTestId("path").textContent).toBe("/ko/segment/s1");
+  });
+
+  it("hands a card tap in the app explore embed to the host instead of opening a browser page", async () => {
+    mockOverviewFetch([SEG_CLIMB]);
+    const ExplorePage = await loadExplorePage();
+    const { EmbeddedNavigationContext } = await import("../embedded/EmbeddedNavigationContext");
+    const hostNavigate = vi.fn();
+    renderWithProviders(
+      <EmbeddedNavigationContext.Provider value={hostNavigate}><ExplorePage embedded /></EmbeddedNavigationContext.Provider>,
+      { route: "/ko/embed/explore" },
+    );
+    await screen.findByRole("link", { name: "남산 업힐", exact: true });
+    fireEvent.click(screen.getAllByTestId("E2-2-2").find(element => element.tagName === "DIV")!);
+    // 앱은 `segment-detail-embed-v1` 을 보고 이 경로를 세그먼트 상세 임베드로 연다(코스와 같다).
+    expect(hostNavigate).toHaveBeenCalledWith("/ko/segment/s1");
   });
 
   it("visually distinguishes the selected sport and list mode", async () => {
