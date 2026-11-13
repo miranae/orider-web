@@ -162,6 +162,7 @@ vi.mock("firebase/firestore", () => {
     doc,
     collection,
     getDoc,
+    getDocFromServer: vi.fn((ref: { path: string }) => getDoc(ref)),
     getDocs,
     setDoc: mockSetDoc,
     deleteDoc: mockDeleteDoc,
