@@ -3,9 +3,10 @@ import { NativeActivityPhotoImage } from "../../../components/activity/NativeAct
 import { useNativeActivityPhoto } from "../../../hooks/useNativeActivityPhoto";
 import { isNativePhotoReference, isLegacyActivityPhotoUrl, type NativePhotoReference } from "../../../services/nativeActivityPhoto";
 import { ICON_SIZE } from '../../../theme/tokens/icon';
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MapPin, Trash2 } from "lucide-react";
+import ActivityFeedVideo from "../../../components/activity/ActivityFeedVideo";
+import { MapPin, Trash2, Play } from "lucide-react";
 import type { Activity } from "@shared/types";
 import Avatar from "../../../components/Avatar";
 import { LocalizedLink as Link } from "../../../components/LocalizedLink";
@@ -13,7 +14,7 @@ import { Button, IconButton, MediaViewer, Text } from "../../../theme/components
 import { segmentHistoryPath } from "../../segments/segmentHistoryNavigation";
 import "./activity-overview-social.css";
 
-export interface OverviewPhoto { id: string; url: string; nativePhoto?: NativePhotoReference; caption?: string | null; location?: [number, number] | null; uploadId?: string; ownerId?: string }
+export interface OverviewPhoto { id: string; url: string; nativePhoto?: NativePhotoReference; caption?: string | null; location?: [number, number] | null; uploadId?: string; ownerId?: string; kind?: "video"; videoUrl?: string; durationSeconds?: number }
 export interface OverviewAchievement { id: string; segmentId: string; name: string; badge: string; time: string; effortId?: number }
 interface Props {
   activityId: string; memo: string | null; memoMono?: boolean; memoGeneratedAt?: number; memoLoading?: boolean; memoError?: boolean; photosKnown?: boolean; memoTruncated?: boolean; photos: OverviewPhoto[]; totalPhotos: number;
@@ -33,7 +34,10 @@ export default function ActivityOverviewSocial(props: Props) {
   const memoRef = useRef<HTMLParagraphElement>(null);
   const [overflowing, setOverflowing] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
+  const selectionScope = JSON.stringify([activityId, props.viewerId]);
+  const [selection, setSelection] = useState<{ scope: string; id: string | null } | null>(null);
+  const selected = selection?.scope === selectionScope ? selection.id : null;
+  const setSelected = useCallback((id: string | null) => setSelection({ scope: selectionScope, id }), [selectionScope]);
   const safePhotos = useMemo(() => photos.filter(photo => isNativePhotoReference(photo.nativePhoto) || safeImage(photo.url)).sort((a, b) => {
     const selectedCover = (item: OverviewPhoto) => props.owner && item.ownerId === props.viewerId && !!props.coverPhotoId && item.nativePhoto?.photoId === props.coverPhotoId;
     return Number(selectedCover(b)) - Number(selectedCover(a));
@@ -42,6 +46,7 @@ export default function ActivityOverviewSocial(props: Props) {
   const photo = safePhotos[index];
   const nativePreview = useNativeActivityPhoto(photo?.nativePhoto);
   const previewUrl = photo?.nativePhoto ? nativePreview.url : photo?.url;
+  const playable = (item: OverviewPhoto) => item.kind === "video" && !!item.videoUrl && safeImage(item.videoUrl) && !item.nativePhoto;
   const total = Math.max(props.totalPhotos, safePhotos.length);
   useEffect(() => {
     if (expanded) return;
@@ -53,7 +58,7 @@ export default function ActivityOverviewSocial(props: Props) {
     const observer = new ResizeObserver(measure); observer.observe(paragraph);
     return () => observer.disconnect();
   }, [memo, expanded]);
-  useEffect(() => { setExpanded(false); setSelected(null); }, [activityId, props.viewerId]);
+  useEffect(() => { setExpanded(false); setSelected(null); }, [activityId, props.viewerId, setSelected]);
   const load = () => { if (props.canLoadPhotos && !props.loadingPhotos) props.onLoadPhotos(); };
   const results = (achievements.length > 0 && <div className="activity-overview-results">
       <section className="activity-overview-achievements" aria-label={t("page.topResults")}>
@@ -75,6 +80,7 @@ export default function ActivityOverviewSocial(props: Props) {
           aria-label={t("overviewSocial.openPhoto", { index: position + 1, count: total })}
           onClick={() => { setSelected(item.id); if (total > safePhotos.length) load(); }}>
           {item.nativePhoto ? <NativeActivityPhotoImage nativePhoto={item.nativePhoto} alt={item.caption ?? ""} loading="lazy" /> : <img src={item.url} alt={item.caption ?? ""} loading="lazy" />}
+          {playable(item) && <span className="activity-overview-video-play" aria-label={t("card.videoPlay")}><Play size={ICON_SIZE.lg} /></span>}
           {position === 4 && total > 5 && <span className="activity-overview-photo-more">+{total - 4}</span>}
         </button>)}
       </div>
@@ -93,7 +99,7 @@ export default function ActivityOverviewSocial(props: Props) {
     {!props.prioritizeResults && results}
     {photo?.nativePhoto && !previewUrl && <Text as="p" role="status">{t(nativePreview.error ? "publicDetail.photosFailed" : "detail.loadingData")}</Text>}
     {photo?.nativePhoto && nativePreview.error != null && <Button onClick={nativePreview.retry}>{t("page.retry")}</Button>}
-    <MediaViewer open={!!photo} item={photo && previewUrl ? { id: photo.id, url: previewUrl, alt: photo.caption ?? t("page.photoPreview"), caption: photo.caption } : undefined}
+    <MediaViewer media={photo && playable(photo) ? <div className="activity-overview-video-viewer"><ActivityFeedVideo key={`${activityId}:${props.viewerId ?? "guest"}:${photo.id}:${photo.videoUrl}`} media={{ ...photo, caption: photo.caption ?? null }} expanded startPlaying /></div> : undefined} open={!!photo} item={photo && previewUrl ? { id: photo.id, url: previewUrl, alt: photo.caption ?? t("page.photoPreview"), caption: photo.caption } : undefined}
       label={t("page.photos")} position={`${index + 1} / ${total}`} onClose={() => setSelected(null)}
       labels={{ previous: t("overviewSocial.previousPhoto"), next: t("overviewSocial.nextPhoto"), zoomIn: t("overviewSocial.zoomIn"), zoomOut: t("overviewSocial.zoomOut"), close: t("overviewSocial.closeViewer") }}
       onPrevious={index > 0 ? () => setSelected(safePhotos[index - 1]!.id) : safePhotos.length > 1 && safePhotos.length >= total && props.photosKnown !== false ? () => setSelected(safePhotos[safePhotos.length - 1]!.id) : undefined}

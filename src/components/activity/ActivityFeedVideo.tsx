@@ -10,8 +10,9 @@ import { ICON_SIZE } from "../../theme/tokens/icon";
 
 type Media = ActivityFeedContentProjection["photos"][number];
 
-export default function ActivityFeedVideo({ media, remainingCount = 0, expanded = false, expandedOutlet, onExpansionChange }: {
+export default function ActivityFeedVideo({ media, remainingCount = 0, expanded = false, expandedOutlet, onExpansionChange, startPlaying = false }: {
   media: Media;
+  startPlaying?: boolean;
   remainingCount?: number;
   expanded?: boolean;
   expandedOutlet?: HTMLElement | null;
@@ -24,9 +25,9 @@ export default function ActivityFeedVideo({ media, remainingCount = 0, expanded 
   const [narrow, setNarrow] = useState(false);
   const resumeTime = useRef(0);
   const resumePaused = useRef(false);
-  const playIntent = useRef(false);
+  const playIntent = useRef(startPlaying);
   const disposing = useRef(false);
-  const [requestedUrl, setRequestedUrl] = useState<string | null>(null);
+  const [requestedUrl, setRequestedUrl] = useState<string | null>(startPlaying ? media.videoUrl ?? null : null);
   const [attempt, setAttempt] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -178,7 +179,7 @@ export default function ActivityFeedVideo({ media, remainingCount = 0, expanded 
         updateRemaining();
       }}
       onError={event => { if (active && event.currentTarget === videoRef.current) { playIntent.current = false; setFailed(true); setLoading(false); setRequestedUrl(null); } }} />
-    {expanded && <span className="activity-feed-video-close"><IconButton variant="neutral" size="sm" aria-label={t("card.videoClose")} icon={<X size={ICON_SIZE.md} />} onClick={() => { playIntent.current = false; setRequestedUrl(null); onExpansionChange?.(null); }} /></span>}
+    {expanded && onExpansionChange && <span className="activity-feed-video-close"><IconButton variant="neutral" size="sm" aria-label={t("card.videoClose")} icon={<X size={ICON_SIZE.md} />} onClick={() => { playIntent.current = false; setRequestedUrl(null); onExpansionChange?.(null); }} /></span>}
     {seconds != null && <span className="activity-feed-video-time">{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}</span>}
     {failed && <span role="status" className="activity-feed-video-error">{t("card.videoUnavailable")}</span>}
     {!active && remainingCount > 0 && <span className="mobile-feed-photo-remaining">+{remainingCount}</span>}

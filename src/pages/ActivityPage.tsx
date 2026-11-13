@@ -45,6 +45,7 @@ import "./activity/activity-detail-page.css";
 import AnalysisTab, { AnalysisLapTable } from "../components/AnalysisTab";
 import ActivityAnalysisBody from "../features/activity/detail/ActivityAnalysisBody";
 import ActivityOverviewEvidence from "../features/activity/detail/ActivityOverviewEvidence";
+import { activityOverviewMedia } from "../features/activity/detail/activityOverviewMedia";
 import ActivityOverviewSocial, { type OverviewAchievement, type OverviewPhoto } from "../features/activity/detail/ActivityOverviewSocial";
 import { activityFeedSourceRevision, boundedFeedContent, resolveActivityMemo } from "../services/activityFeedContent";
 import ActivityOverviewSummary from "../features/activity/detail/ActivityOverviewSummary";
@@ -1143,8 +1144,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   );
 
   const overviewPhotoCandidates: OverviewPhoto[] = [
-    ...(isActivityOwner && activity.source === "orider" && uploadedPhotoState?.identity === uploadedPhotoIdentity ? [] : photos.length ? photos.filter(photo => photo.url).map(photo => ({ ...photo, url: photo.url!, id: `strava-${photo.id}` }))
-      : (publishedContent?.photos ?? []).map(photo => ({ ...photo, id: `strava-${photo.id}` }))),
+    ...(isActivityOwner && activity.source === "orider" && uploadedPhotoState?.identity === uploadedPhotoIdentity ? [] : activityOverviewMedia(photos, publishedContent?.photos)),
     ...uploadedPhotos.map(photo => ({ ...photo, id: `upload-${photo.id}`, uploadId: photo.id, ownerId: photo.userId })),
   ];
   // Owner uploads carry deletion/location controls; prefer them over the same published preview.

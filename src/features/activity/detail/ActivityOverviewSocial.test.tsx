@@ -128,3 +128,37 @@ it("orders the selected native cover first and falls back after its deletion", a
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "대표사진으로 선택" })).not.toBeInTheDocument();
 });
+
+it("plays a provider video in the detail viewer and releases it on photo navigation and access loss", async () => {
+  vi.spyOn(HTMLMediaElement.prototype, "canPlayType").mockReturnValue("probably");
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  const pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+  vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
+  const videoPhoto: OverviewPhoto = { ...photo(0), kind: "video", videoUrl: "https://video.example/master.m3u8", durationSeconds: 21 };
+  const view = renderWithProviders(<ActivityOverviewSocial {...base} photos={[videoPhoto, photo(1)]} totalPhotos={2} />);
+  expect(view.container.querySelector("video")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "사진 1 / 2 보기" }));
+  await waitFor(() => expect(screen.getByRole("dialog").querySelector("video")).toHaveAttribute("src", videoPhoto.videoUrl));
+  expect(play).toHaveBeenCalled();
+  expect(screen.queryByRole("button", { name: "확대" })).not.toBeInTheDocument();
+  const video = screen.getByRole("dialog").querySelector("video")!;
+  expect(video).toHaveAttribute("playsinline");
+  fireEvent.click(screen.getByRole("button", { name: "다음 사진" }));
+  expect(screen.getByRole("dialog").querySelector("video")).toBeNull();
+  expect(pause).toHaveBeenCalled();
+  expect(video).not.toHaveAttribute("src");
+  fireEvent.click(screen.getByRole("button", { name: "이전 사진" }));
+  await waitFor(() => expect(screen.getByRole("dialog").querySelector("video")).toHaveAttribute("src", videoPhoto.videoUrl));
+  view.rerender(<ActivityOverviewSocial {...base} photos={[]} totalPhotos={0} />);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  vi.restoreAllMocks();
+});
+
+it("never starts an unsafe provider video URL and retains its poster", () => {
+  const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+  renderWithProviders(<ActivityOverviewSocial {...base} photos={[{ ...photo(0), kind: "video", videoUrl: "javascript:alert(1)" }]} totalPhotos={1} />);
+  fireEvent.click(screen.getByRole("button", { name: "사진 1 / 1 보기" }));
+  expect(screen.getByRole("dialog").querySelector("video")).toBeNull();
+  expect(play).not.toHaveBeenCalled();
+  vi.restoreAllMocks();
+});

@@ -16,13 +16,14 @@ export interface MediaViewerProps {
   onPrevious?: () => void;
   onNext?: () => void;
   footer?: ReactNode;
+  media?: ReactNode;
 }
 
 /** Full-screen media presentation. Selection, loaded inventory and permission remain with the caller. */
 export function MediaViewer(props: MediaViewerProps) {
   return props.open && props.item ? createPortal(<MediaViewerPanel {...props} item={props.item} />, document.body) : null;
 }
-function MediaViewerPanel({ item, label, position, labels, onClose, onPrevious, onNext, footer }: MediaViewerProps & { item: NonNullable<MediaViewerProps['item']> }) {
+function MediaViewerPanel({ item, label, position, labels, onClose, onPrevious, onNext, footer, media }: MediaViewerProps & { item: NonNullable<MediaViewerProps['item']> }) {
   const panel = useTrainingDialog(onClose, false);
   const viewport = useRef<HTMLDivElement>(null);
   const image = useRef<HTMLImageElement>(null);
@@ -63,7 +64,7 @@ function MediaViewerPanel({ item, label, position, labels, onClose, onPrevious, 
   }, [item.id, clampPan]);
   useEffect(() => {
     const node = viewport.current;
-    if (!node) return;
+    if (!node || media) return;
     const wheel = (event: WheelEvent) => {
       // Preserve browser accessibility zoom and OS pinch gestures; do not also zoom the photo.
       if (event.ctrlKey || event.metaKey || !Number.isFinite(event.deltaY)) return;
@@ -80,7 +81,7 @@ function MediaViewerPanel({ item, label, position, labels, onClose, onPrevious, 
     };
     node.addEventListener('wheel', wheel, { passive: false });
     return () => node.removeEventListener('wheel', wheel);
-  }, [item.id, clampPan]);
+  }, [item.id, clampPan, media]);
   useEffect(() => {
     const cancel = () => { gesture.current = null; };
     window.addEventListener('blur', cancel); window.addEventListener('pointerup', cancel); window.addEventListener('pointercancel', cancel);
@@ -91,11 +92,11 @@ function MediaViewerPanel({ item, label, position, labels, onClose, onPrevious, 
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); (event.key === 'ArrowLeft' ? onPrevious : onNext)?.(); }
     }}>
     <div className="ds-media-viewer__toolbar">
-      <IconButton variant="ghost" icon={<ZoomIn size={ICON_SIZE.lg} />} aria-label={labels.zoomIn} disabled={current.zoom >= 4} onClick={() => zoomTo(current.zoom + 1)} />
-      <IconButton variant="ghost" icon={<ZoomOut size={ICON_SIZE.lg} />} aria-label={labels.zoomOut} disabled={current.zoom <= 1} onClick={() => zoomTo(current.zoom - 1)} />
+      {!media && <><IconButton variant="ghost" icon={<ZoomIn size={ICON_SIZE.lg} />} aria-label={labels.zoomIn} disabled={current.zoom >= 4} onClick={() => zoomTo(current.zoom + 1)} />
+      <IconButton variant="ghost" icon={<ZoomOut size={ICON_SIZE.lg} />} aria-label={labels.zoomOut} disabled={current.zoom <= 1} onClick={() => zoomTo(current.zoom - 1)} /></>}
       <IconButton variant="ghost" data-dialog-initial-focus icon={<X size={ICON_SIZE.lg} />} aria-label={labels.close} onClick={onClose} />
     </div>
-    <div className="ds-media-viewer__viewport" ref={viewport} data-zoomed={current.zoom > 1}
+    {media ? <div className="ds-media-viewer__viewport ds-media-viewer__viewport--media">{media}</div> : <div className="ds-media-viewer__viewport" ref={viewport} data-zoomed={current.zoom > 1}
       onPointerDown={event => {
         if (event.button !== 0) return;
         gesture.current = { id: item.id, pointerId: event.pointerId, x: event.clientX, y: event.clientY, panX: current.x, panY: current.y, zoom: current.zoom };
@@ -115,7 +116,7 @@ function MediaViewerPanel({ item, label, position, labels, onClose, onPrevious, 
       onPointerCancel={() => { gesture.current = null; }} onLostPointerCapture={() => { gesture.current = null; }}>
       <img key={item.id} ref={image} onLoad={event => { naturalSize.current = { id: item.id, width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight }; }} src={item.url} alt={item.alt} draggable={false}
         style={{ transform: `translate(${current.x}px, ${current.y}px) scale(${current.zoom})` }} />
-    </div>
+    </div>}
     <IconButton variant="ghost" className="ds-media-viewer__previous" icon={<ChevronLeft size={ICON_SIZE.xl} />} aria-label={labels.previous} disabled={!onPrevious} onClick={onPrevious} />
     <IconButton variant="ghost" className="ds-media-viewer__next" icon={<ChevronRight size={ICON_SIZE.xl} />} aria-label={labels.next} disabled={!onNext} onClick={onNext} />
     <div className="ds-media-viewer__footer"><span aria-live="polite">{position}</span>{item.caption && <p>{item.caption}</p>}{footer}</div>
