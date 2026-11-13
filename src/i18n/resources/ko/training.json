@@ -2,7 +2,6 @@
   "planRecords": {
     "dayTitle": "{{date}} 계획과 기록",
     "noActivity": "이 날짜에 현재 조회된 활동 기록이 없습니다. 미동기화·조회 범위를 확인한 뒤 수행 여부를 판단하세요.",
-    "today": "오늘 훈련",
     "title": "계획/기록",
     "plan": "훈련 계획",
     "records": "활동 기록·수행 확인",
@@ -924,7 +923,6 @@
     }
   },
   "decision": {
-    "changeInToday": "오늘 운동으로 →",
     "viewInPlan": "계획에서 보기 →",
     "eyebrow": "오늘의 계획",
     "loading": "오늘 계획을 확인하는 중…",

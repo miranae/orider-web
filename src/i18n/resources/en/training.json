@@ -2,7 +2,6 @@
   "planRecords": {
     "dayTitle": "{{date}} plan and activity",
     "noActivity": "No activity is currently loaded for this date. Check sync and the loaded range before judging execution.",
-    "today": "Today's training",
     "title": "Plan / records",
     "plan": "Training plan",
     "records": "Activities and execution",
@@ -924,7 +923,6 @@
     }
   },
   "decision": {
-    "changeInToday": "Go to today’s workout →",
     "viewInPlan": "View in plan →",
     "eyebrow": "Today's plan",
     "loading": "Checking today's plan…",

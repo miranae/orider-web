@@ -198,6 +198,7 @@ export function PlanView({ model, run30, startMode = WEB_START_MODE }: {
           dayLoads={props.dayLoads}
           loadState={props.loadState}
           nextAction={props.nextAction}
+          decisionSlot={props.decisionSlot}
           selectedDate={props.selectedDate}
           currentWeek={props.currentWeek}
           weekLabel={props.weekLabel}

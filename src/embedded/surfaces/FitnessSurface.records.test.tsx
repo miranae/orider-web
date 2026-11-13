@@ -11,7 +11,6 @@ vi.mock("../../hooks/useFitnessModel", () => ({
 vi.mock("../../pages/coach/CoachQuestionEntry", () => ({ CoachQuestionEntry: () => null }));
 vi.mock("../../pages/coach/CoachConditionPage", () => ({ default: () => <div>condition page</div> }));
 vi.mock("../../pages/coach/CoachAnalysisPage", () => ({ default: () => <div>analysis page</div> }));
-vi.mock("../../pages/coach/CoachTodayPage", () => ({ default: () => <div>today page</div> }));
 vi.mock("../../pages/TrainingLogPage", () => ({ default: () => <div>training log page</div> }));
 
 import FitnessSurface from "./FitnessSurface";
@@ -35,7 +34,6 @@ describe("coach records subpage in the embed", () => {
       <FitnessSurface onReady={vi.fn()} retryKey={0} /><Search />
     </MemoryRouter>);
     expect(await screen.findByText("training log page")).toBeInTheDocument();
-    expect(screen.queryByText("today page")).not.toBeInTheDocument();
     // 기록 화면의 "전체" 활동 필터를 코치 부하 종목(bike)으로 바꾸지 않는다.
     expect(screen.getByTestId("search")).toHaveTextContent("sport=all");
   });

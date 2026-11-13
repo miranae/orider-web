@@ -111,7 +111,7 @@ describe("FitnessCoachBriefing", () => {
     const action = screen.getByTestId("K1-1-3");
     expect(screen.getByTestId("K1-1-1").compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getAllByTestId("K1-1-3")).toHaveLength(1);
-    expect(screen.getByTestId("K1-1-3")).toHaveAttribute("href", "/ko/coach/today?sport=bike");
+    expect(screen.getByTestId("K1-1-3")).toHaveAttribute("href", "/ko/coach/plan?sport=bike");
   });
 
   it("leaves the all-page summary and today actions unchanged when a condition status is supplied", () => {
@@ -309,5 +309,5 @@ it('condition drops the calculation provenance line and sufficiency note', () =>
     metricsNoteSlot: <div><span>낮은 근거</span><a data-testid="briefing-test-action" href="/settings/connections">운동 기록 가져오기</a></div> });
   expect(screen.queryByText('2026-10-16 기준 · 저장된 일별 계산값')).not.toBeInTheDocument();
   expect(screen.queryByText('낮은 근거')).not.toBeInTheDocument();
-  expect(screen.getByTestId('K1-1-3')).toHaveAttribute('href', '/ko/coach/today?sport=bike');
+  expect(screen.getByTestId('K1-1-3')).toHaveAttribute('href', '/ko/coach/plan?sport=bike');
 });

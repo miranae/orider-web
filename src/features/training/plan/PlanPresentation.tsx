@@ -706,6 +706,7 @@ export default function PlanPresentation({
       dayLoads: calendarLoadsByDate,
       loadState: calendarLoads.state,
       nextAction: embedded ? undefined : nextAction ?? null,
+      decisionSlot,
       embedded,
       currentWeek: mobilePlanViewModel.currentWeek,
       weekLabel: mobilePlanViewModel.weekLabel,
@@ -729,7 +730,6 @@ export default function PlanPresentation({
       <>
         {scopeNotice}
         {calendarLoadNotice}
-        {decisionSlot && <div className="plan-decision-slot" style={{ padding: "var(--space-3) var(--space-4)" }}>{decisionSlot}</div>}
         {renderMobile ? renderMobile(mobileProps) : <MobilePlanContent {...mobileProps} />}
       </>
     );
@@ -737,6 +737,22 @@ export default function PlanPresentation({
 
   return (
     <div className={embedded ? "embedded-plan-presentation" : "site-shell"} style={{ paddingBottom: 'var(--space-8)' }}>
+
+      {/* 훈련 계획의 첫 항목은 오늘의 다음 운동이다(코치 "오늘 훈련" 탭 제거, 2026-11-13). */}
+      {!loading && nextAction && (
+        <Card padding="compact" style={{ marginBottom: 'var(--coach-block-gap, var(--space-3))', borderColor: 'var(--lime)', background: 'color-mix(in oklch, var(--lime) 5%, var(--bg-1))' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+            <Text as="div" variant="bodyMedium" style={{ color: 'var(--ink-1)' }}>{goalDate && kstDayKey(nextAction.day.date) > kstDayKey(goalDate.getTime()) ? t('scope.nextAfterGoal') : kstDayKey(nextAction.day.date) === todayKey ? t('mobile.todayNext') : t('mobile.weekNext')}</Text>
+            <strong style={{ color: 'var(--ink-0)', fontSize: 'var(--fs-md)' }}><GlossaryText>{nextActionLabel}</GlossaryText></strong>
+            <span style={{ color: 'var(--ink-2)', fontSize: 'var(--fs-sm)', fontFamily: 'var(--font-mono)' }}>
+              {new Date(nextAction.day.date).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric', timeZone: 'Asia/Seoul' })}
+              {(nextAction.day.adjustedDurationMin ?? nextAction.day.plannedDurationMin) > 0 && ` · ${nextAction.day.adjustedDurationMin ?? nextAction.day.plannedDurationMin} ${t('mobile.minutesUnit')}`}
+              {(nextAction.day.adjustedTSS ?? nextAction.day.plannedTSS) > 0 && <> · <GlossaryText>{`${nextAction.day.adjustedTSS ?? nextAction.day.plannedTSS} TSS`}</GlossaryText></>}
+            </span>
+            {onEditWorkout && !embedded && <Button type="button" size="sm" style={{ marginLeft: 'auto' }} onClick={() => onEditWorkout(nextAction.day, nextAction.weekId, nextAction.dayIndex)}>{t('page.workoutDetails')}</Button>}
+          </div>
+        </Card>
+      )}
 
       {scopeNotice}
       {/* ── Goal Header ─────────────────────────────────────────────── */}
@@ -906,21 +922,6 @@ export default function PlanPresentation({
       {/* ── Body ────────────────────────────────────────────────────── */}
       <div style={{ padding: '20px 0 0' }}>
         {decisionSlot && <div style={{ marginBottom: "var(--space-4)" }}>{decisionSlot}</div>}
-
-        {!loading && nextAction && (
-          <Card padding="compact" style={{ marginBottom: 'var(--coach-block-gap, var(--space-3))', borderColor: 'var(--lime)', background: 'color-mix(in oklch, var(--lime) 5%, var(--bg-1))' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-              <Text as="div" variant="bodyMedium" style={{ color: 'var(--ink-1)' }}>{goalDate && kstDayKey(nextAction.day.date) > kstDayKey(goalDate.getTime()) ? t('scope.nextAfterGoal') : kstDayKey(nextAction.day.date) === todayKey ? t('mobile.todayNext') : t('mobile.weekNext')}</Text>
-              <strong style={{ color: 'var(--ink-0)', fontSize: 'var(--fs-md)' }}><GlossaryText>{nextActionLabel}</GlossaryText></strong>
-              <span style={{ color: 'var(--ink-2)', fontSize: 'var(--fs-sm)', fontFamily: 'var(--font-mono)' }}>
-                {new Date(nextAction.day.date).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric', timeZone: 'Asia/Seoul' })}
-                {(nextAction.day.adjustedDurationMin ?? nextAction.day.plannedDurationMin) > 0 && ` · ${nextAction.day.adjustedDurationMin ?? nextAction.day.plannedDurationMin} ${t('mobile.minutesUnit')}`}
-                {(nextAction.day.adjustedTSS ?? nextAction.day.plannedTSS) > 0 && <> · <GlossaryText>{`${nextAction.day.adjustedTSS ?? nextAction.day.plannedTSS} TSS`}</GlossaryText></>}
-              </span>
-              {onEditWorkout && !embedded && <Button type="button" size="sm" style={{ marginLeft: 'auto' }} onClick={() => onEditWorkout(nextAction.day, nextAction.weekId, nextAction.dayIndex)}>{t('page.workoutDetails')}</Button>}
-            </div>
-          </Card>
-        )}
 
         <PlanAdjustmentNarrative goal={goal} weeks={weeks} t={t} />
 

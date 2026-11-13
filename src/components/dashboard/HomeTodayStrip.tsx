@@ -26,7 +26,7 @@ function HomeTodaySummary({ discipline }: { discipline: "bike" | "run" | "swim" 
   const session = state.decision && state.decision.scheduledProjectionValidUntil > Date.now() ? primaryEffectiveSession(state.decision) : null;
   return <Card data-testid="H2-2-1" data-home-slot="today" data-surface="home" className="flex flex-col gap-3" header={<Text as="h2" variant="subtitle">{t("todayStrip.today")}</Text>}>
     <Text as="p" variant="bodySmall" tone="secondary"><GlossaryText>{state.loading ? t("todayStrip.loading") : state.unavailable ? t("todayStrip.unavailable") : session ? `${tTraining(`decision.workout.${session.current.workout}`, { defaultValue: session.current.workout })} · ${tTraining("decision.duration", { value: session.current.durationMin })}` : t("todayStrip.noToday")}</GlossaryText></Text>
-    <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/today?sport=${discipline}`}>{t("todayStrip.choose")}</LocalizedLink>
+    <LocalizedLink className={buttonClass({ variant: "ghost", size: "sm" })} to={`/coach/plan?sport=${discipline}`}>{t("todayStrip.choose")}</LocalizedLink>
   </Card>;
 }
 /** 목표가 있을 때만 미래 예측을 읽는다. 현재 CTL 계산의 폴백으로 사용하지 않는다. */

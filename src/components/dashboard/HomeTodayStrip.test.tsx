@@ -42,7 +42,7 @@ describe("home today strip", () => {
     expect(screen.queryByText(/Event 4/)).toBeNull();
     expect(mocks.callable.mock.calls).toEqual([["listMyRegisteredEvents"]]);
     expect(mocks.snapshot.mock.calls.some(([path]) => path?.includes("projection"))).toBe(false);
-    expect(screen.getByRole("link", { name: "정하기 →" }).getAttribute("href")).toContain("/coach/today?sport=bike");
+    expect(screen.getByRole("link", { name: "정하기 →" }).getAttribute("href")).toContain("/coach/plan?sport=bike");
     expect(screen.getAllByRole("button").every(button => button.getAttribute("aria-label")?.includes("설명"))).toBe(true);
   });
   it("keeps desktop activity figures in the main summary and separates history, load and goal cards", () => {
@@ -91,7 +91,7 @@ describe("home today strip", () => {
     mocks.goal = { id: "g", title: "Should not show monthly goal", eventDate: Date.now() + 86400000 };
     render(<MemoryRouter><GlossaryProvider><HomeTodayStrip {...props} discipline="run" runningRecap={<p>Last week running recap</p>} /></GlossaryProvider></MemoryRouter>);
     expect(screen.getByRole("link", { name: "컨디션 보기 →" })).toHaveAttribute("href", "/ko/coach/condition?sport=run");
-    expect(screen.getByRole("link", { name: "정하기 →" })).toHaveAttribute("href", "/ko/coach/today?sport=run");
+    expect(screen.getByRole("link", { name: "정하기 →" })).toHaveAttribute("href", "/ko/coach/plan?sport=run");
     expect(screen.getByTestId("H2-3-4")).toHaveTextContent("Last week running recap");
     expect(screen.getByText("Should not show monthly goal")).toBeInTheDocument();
   });
@@ -128,7 +128,7 @@ describe("home today strip", () => {
     expect(condition).toHaveTextContent("CTL 90.0 · ATL 100.0 · TSB -10.0");
     const path = screen.getByRole("link", { name: "컨디션 보기 →" }).getAttribute("href")!;
     expect(path).toBe("/ko/coach/condition?sport=tri");
-    expect(screen.getByRole("link", { name: "정하기 →" })).toHaveAttribute("href", "/ko/coach/today?sport=bike");
+    expect(screen.getByRole("link", { name: "정하기 →" })).toHaveAttribute("href", "/ko/coach/plan?sport=bike");
   });
 
 
