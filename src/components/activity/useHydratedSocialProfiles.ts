@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { getPublicUserProfiles } from "../../services/publicProfiles";
+import { getPublicUserAvatarProfiles } from "../../services/publicProfiles";
 import { logClientError } from "../../services/errorLogger";
+import { useAuth } from "../../contexts/AuthContext";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { isPermissionDeniedError } from "../../utils/firebaseErrors";
 
 type SocialProfileItem = {
@@ -12,42 +14,48 @@ export function useHydratedSocialProfiles<T extends SocialProfileItem>(
   items: readonly T[],
   context: string,
 ): T[] {
-  const [profileImages, setProfileImages] = useState<Map<string, string>>(new Map());
+  const { user } = useAuth();
+  const services = useFirebaseServices();
+  const { firestore } = services;
+  const authScope = services.auth ?? services;
+  const viewer = user ?? null;
+  const [hydrated, setHydrated] = useState<{ database: typeof firestore; authScope: object; viewer: typeof viewer; images: Map<string, string> } | null>(null);
+  const profileImages = hydrated?.database === firestore && hydrated.authScope === authScope && hydrated.viewer === viewer ? hydrated.images : null;
 
   const missingUserIds = useMemo(
     () => Array.from(new Set(items.filter((item) => !item.profileImage).map((item) => item.userId))),
     [items],
   );
-  const missingUserIdKey = missingUserIds.join("|");
+  const missingUserIdKey = JSON.stringify(missingUserIds);
 
   useEffect(() => {
     let cancelled = false;
-    if (missingUserIdKey.length === 0) return;
-    const userIds = missingUserIdKey.split("|");
+    const userIds = JSON.parse(missingUserIdKey) as string[];
+    if (userIds.length === 0) return;
 
-    getPublicUserProfiles(userIds)
+    getPublicUserAvatarProfiles(userIds, firestore, authScope, viewer, services)
       .then((profiles) => {
         if (cancelled) return;
         const next = new Map<string, string>();
         profiles.forEach((profile, userId) => {
           if (profile.photoURL) next.set(userId, profile.photoURL);
         });
-        if (next.size > 0) setProfileImages(next);
+        setHydrated({ database: firestore, authScope, viewer, images: next });
       })
       .catch((err) => {
         if (isPermissionDeniedError(err)) return;
-        logClientError("useHydratedSocialProfiles", err, { context, userCount: missingUserIds.length });
+        logClientError("useHydratedSocialProfiles", err, { context, userCount: userIds.length }, services);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [context, missingUserIdKey]);
+  }, [context, missingUserIdKey, firestore, authScope, viewer, services]);
 
   return useMemo(
     () => items.map((item) => {
       if (item.profileImage) return item;
-      const profileImage = profileImages.get(item.userId);
+      const profileImage = profileImages?.get(item.userId);
       return profileImage ? { ...item, profileImage } : item;
     }),
     [items, profileImages],

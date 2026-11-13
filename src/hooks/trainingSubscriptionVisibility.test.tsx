@@ -8,14 +8,16 @@ import { useMilestones } from "./useMilestones";
 const mocks = vi.hoisted(() => ({
   user: { uid: "owner-a" } as { uid: string } | null,
   firestore: {},
+  auth: { currentUser: { uid: "owner-a" } },
   callbacks: [] as Array<{ path: string; next: (snapshot: unknown) => void; stop: ReturnType<typeof vi.fn> }>,
 }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
-vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => ({ firestore: mocks.firestore }) }));
+vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => ({ firestore: mocks.firestore, auth: mocks.auth }) }));
 vi.mock("firebase/firestore", () => ({
   doc: (_db: unknown, ...parts: string[]) => parts.join("/"),
   collection: (_db: unknown, ...parts: string[]) => parts.join("/"),
   orderBy: vi.fn(),
+  where: vi.fn(), documentId: vi.fn(), limit: vi.fn(), startAfter: vi.fn(), getDocs: vi.fn(),
   query: (path: string) => path,
   updateDoc: vi.fn(),
   onSnapshot: (path: string, next: (snapshot: unknown) => void) => {
@@ -43,14 +45,16 @@ describe("training subscription cache visibility", () => {
     const old = [...mocks.callbacks];
     act(() => {
       old[0]!.next(snapshot({ value: 250, source: "manual", changedAt: 1 }));
-      old[1]!.next(snapshot({ totalCTL: 50 }));
-      old[2]!.next(snapshot({ run: { best: 1 } }));
-      old[3]!.next(snapshot({ celebrated: false }));
+      old[1]!.next({ docs: [] });
+      old[2]!.next(snapshot({ totalCTL: 50 }));
+      old[3]!.next(snapshot({ run: { best: 1 } }));
+      old[4]!.next(snapshot({ celebrated: false }));
     });
     const cached = hook.result.current;
     hook.rerender({ active: false });
     expect(old.every(({ stop }) => stop.mock.calls.length === 1)).toBe(true);
-    expect(hook.result.current).toEqual(cached);
+    expect(hook.result.current.ftp.entries).toEqual(cached.ftp.entries);
+    expect(hook.result.current.fitness).toEqual(cached.fitness);
     act(() => old[0]!.next(snapshot({ value: 999, source: "manual", changedAt: 2 })));
     expect(hook.result.current.ftp.entries[0]?.value).toBe(250);
     hook.rerender({ active: true });
@@ -69,19 +73,20 @@ describe("training subscription cache visibility", () => {
     const old = [...mocks.callbacks];
     act(() => {
       old[0]!.next(snapshot({ value: 250, source: "manual", changedAt: 1 }));
-      old[1]!.next(snapshot({ totalCTL: 50 }));
-      old[2]!.next(snapshot({ run: { best: 1 } }));
-      old[3]!.next(snapshot({ celebrated: false }));
+      old[1]!.next({ docs: [] });
+      old[2]!.next(snapshot({ totalCTL: 50 }));
+      old[3]!.next(snapshot({ run: { best: 1 } }));
+      old[4]!.next(snapshot({ celebrated: false }));
     });
     hook.rerender({ active: false });
     mocks.user = uid ? { uid } : null;
     hook.rerender({ active: false });
-    act(() => old[1]!.next(snapshot({ totalCTL: 999 })));
+    act(() => old[2]!.next(snapshot({ totalCTL: 999 })));
     expect(hook.result.current.ftp.entries).toEqual([]);
     expect(hook.result.current.fitness.fitness).toBeNull();
     expect(hook.result.current.run.run).toBeUndefined();
     expect(hook.result.current.milestones.achieved.size).toBe(0);
-    expect(mocks.callbacks).toHaveLength(4);
+    expect(mocks.callbacks).toHaveLength(5);
   });
 });
 
@@ -89,7 +94,7 @@ describe("training subscription cache visibility", () => {
 it("숨은 A→B→A 전환 뒤 FTP를 다시 읽기 전에는 최초 로딩 상태를 사용한다", () => {
   const hook = renderHook(({ uid, active }) => useFtpHistory(uid, active),
     { initialProps: { uid: "owner-a", active: true } });
-  act(() => mocks.callbacks[0]!.next(snapshot({ value: 250, source: "manual", changedAt: 1 })));
+  act(() => { mocks.callbacks[0]!.next(snapshot({ value: 250, source: "manual", changedAt: 1 })); mocks.callbacks[1]!.next({ docs: [] }); });
   expect(hook.result.current.loading).toBe(false);
   hook.rerender({ uid: "owner-b", active: false });
   hook.rerender({ uid: "owner-a", active: true });

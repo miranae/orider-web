@@ -18,9 +18,10 @@ import { saveAs } from "file-saver";
 import { Download, Share2, Mountain, Clock, Route } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useYearActivities } from "../hooks/useYearActivities";
+import { useLifetimeRecapActivities } from "../hooks/useLifetimeRecapActivities";
+import LifetimeMilestonesGrid from "../components/fitness/LifetimeMilestonesGrid";
 import {
   computeYearRecap,
-  availableRecapYears,
   type Discipline,
 } from "../utils/yearRecap";
 import {
@@ -34,7 +35,6 @@ import {
 } from "../components/recap/recapShareCanvas";
 import { logClientError } from "../services/errorLogger";
 import { Card, Stat, Text, Button, Stack } from "../theme/components";
-import LifetimeMilestonesGrid from "../components/fitness/LifetimeMilestonesGrid";
 import { useMilestones } from "../hooks/useMilestones";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
@@ -53,8 +53,11 @@ function int(v: number): string {
 export default function YearRecapPage() {
   const { user, profile } = useAuth();
   const { t } = useTranslation("recap");
-  const { activities: allActivities, loading, error, retry } = useYearActivities(user?.uid);
   const [params, setParams] = useSearchParams();
+  const queryYear = Number(params.get("year"));
+  const selectedYear = params.has("year") && Number.isInteger(queryYear) && queryYear >= 2000 && queryYear <= new Date().getFullYear() ? queryYear : undefined;
+  const { activities: allActivities, year, years, loading, error, retry } = useYearActivities(user?.uid, selectedYear);
+  const lifetime = useLifetimeRecapActivities(user?.uid);
   const sport = params.get("sport");
   const discipline: SportDiscipline = sport && isSportUiEnabled(sport) && (sport === "run" || sport === "swim" || sport === "bike") ? sport : "tri";
   const activities = useMemo(() => discipline === "tri" ? allActivities : filterByDiscipline(allActivities, discipline), [allActivities, discipline]);
@@ -62,10 +65,6 @@ export default function YearRecapPage() {
   const [dismissedMilestones, setDismissedMilestones] = useState<Set<string>>(new Set());
   const [shareBusy, setShareBusy] = useState(false);
   const lastRatio = useRef<RecapShareRatio>("square");
-
-  const years = useMemo(() => availableRecapYears(activities), [activities]);
-  const queryYear = Number(params.get("year"));
-  const year = params.has("year") && Number.isInteger(queryYear) && queryYear >= 2000 && queryYear <= new Date().getFullYear() ? queryYear : years[0] ?? new Date().getFullYear();
 
   const recap = useMemo(() => computeYearRecap(activities, year), [activities, year]);
   // 마일스톤 달성 판정 주체는 `canonical` 플래그가 가른다 — 서버 누적 원장이 러닝 전용이라
@@ -136,8 +135,8 @@ export default function YearRecapPage() {
             {t("subtitle", { year })}
           </Text>
         </div>
-        {years.length > 1 && (
-          <DropdownSelect value={String(year)} onChange={(value) => { const next = new URLSearchParams(params); next.set("year", value); setParams(next); }} label={t("selectYear")} options={years.map((y) => ({value: String(y), label: String(y)}))} />
+        {new Set([year, ...years]).size > 1 && (
+          <DropdownSelect value={String(year)} onChange={(value) => { const next = new URLSearchParams(params); next.set("year", value); setParams(next); }} label={t("selectYear")} options={Array.from(new Set([year, ...years])).sort((a, b) => b - a).map((y) => ({value: String(y), label: String(y)}))} />
         )}
       </div>
 
@@ -232,8 +231,12 @@ export default function YearRecapPage() {
             </Stack>
           </Card>
 
-          {/* 킬로미터스톤 (이슈 #360) — 배지 판정 주체는 플래그, 누적 합계·최장 라이드는 화면 집계 */}
-          <details className="recap-disclosure"><summary>{t("section.lifetimeRecords")}</summary><LifetimeMilestonesGrid activities={activities} achieved={milestones} loading={milestonesLoading} scopeLabel={t(discipline === "tri" ? "scope.all" : `scope.${discipline}`)} /></details>
+          <details className="recap-disclosure" onToggle={(event) => { if (event.currentTarget.open && lifetime.status === "idle") lifetime.load(); }}>
+            <summary>{t("section.lifetimeRecords")}</summary>
+            {lifetime.status === "error" ? <ErrorState title={t("loadError")} onRetry={lifetime.load} />
+              : lifetime.status === "complete" ? <LifetimeMilestonesGrid activities={discipline === "tri" ? lifetime.activities : filterByDiscipline(lifetime.activities, discipline)} achieved={milestones} loading={milestonesLoading} scopeLabel={t(discipline === "tri" ? "scope.all" : `scope.${discipline}`)} />
+                : <Text tone="tertiary">{t("loading")}</Text>}
+          </details>
 
           {/* 월별 추이 */}
           <Card title={t("section.monthly")}>

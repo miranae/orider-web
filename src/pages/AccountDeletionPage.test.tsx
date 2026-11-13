@@ -160,4 +160,33 @@ describe("account deletion request", () => {
     expect(mocks.saveReceipt).not.toHaveBeenCalled();
     expect(screen.queryByText("accountDeletion.state.pending")).not.toBeInTheDocument();
   });
+  it.each([true, false])("shows operator assistance without polling or granting retry (signed in=%s)", async signedIn => {
+    vi.useFakeTimers();
+    if (!signedIn) {
+      mocks.user = null;
+      mocks.readReceipt.mockReturnValue({ owner: "u1", receipt: "saved-receipt" });
+    }
+    mocks.status.mockResolvedValue({ state: "manual_required", requestedAtMs: 1 });
+    await act(async () => { renderPage(); });
+    expect(screen.getByText("accountDeletion.state.manual_required")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "orider.app@gmail.com" })).toHaveAttribute("href", expect.stringContaining("mailto:"));
+    expect(screen.queryByText("accountDeletion.state.complete")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "accountDeletion.submit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "accountDeletion.retryStatus" })).not.toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+    expect(mocks.status).toHaveBeenCalledTimes(1);
+    expect(mocks.request).not.toHaveBeenCalled();
+  });
+  it("stops existing status polling when processing transitions to operator-required", async () => {
+    vi.useFakeTimers();
+    mocks.status.mockResolvedValueOnce({ state: "processing", requestedAtMs: 1 })
+      .mockResolvedValue({ state: "manual_required", requestedAtMs: 1 });
+    await act(async () => { renderPage(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(screen.getByText("accountDeletion.state.manual_required")).toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+    expect(mocks.status).toHaveBeenCalledTimes(2);
+    expect(mocks.request).not.toHaveBeenCalled();
+  });
+
 });

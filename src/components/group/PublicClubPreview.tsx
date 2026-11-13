@@ -1,3 +1,4 @@
+import { logClientError } from "../../services/errorLogger";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getPublicClubPage, PublicClubUnavailable, type PublicClub } from "../../services/publicClubs";
@@ -27,7 +28,10 @@ export default function PublicClubPreview({ groupId }: { groupId: string | undef
     void getPublicClubPage(groupId, controller.signal).then(value => { if (active) { shownGroup.current = groupId; setClub(value.club); setSchedule(value.schedule); } }).catch(reason => {
       if (!active) return;
       shownGroup.current = null; setClub(null); setSchedule(null);
-      if (!(reason instanceof PublicClubUnavailable)) setError(true);
+      if (!(reason instanceof PublicClubUnavailable)) {
+        logClientError("PublicClubPreview.load", reason, { groupId });
+        setError(true);
+      }
     }).finally(() => { if (active) setLoading(false); });
     const refresh = () => { if (document.visibilityState !== "hidden") setAttempt(value => value + 1); };
     window.addEventListener("focus", refresh); window.addEventListener("pageshow", refresh);

@@ -117,4 +117,15 @@ describe("account deletion callable contract", () => {
     expect(readAccountDeletionReceipt("other")).toBeNull();
     storage.mockRestore();
   });
+  it("accepts operator-required status for authenticated and signed-out receipt checks without claiming completion", async () => {
+    const status = { state: "manual_required", requestedAtMs: 1 };
+    mocks.call.mockResolvedValue({ data: status });
+    await expect(getAccountDeletionStatus()).resolves.toEqual(status);
+    mocks.auth.currentUser = null;
+    const receipt = "a".repeat(32) + "." + "b".repeat(64);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ result: status })));
+    await expect(getAccountDeletionStatus(receipt)).resolves.toEqual(status);
+    fetchMock.mockRestore();
+  });
+
 });

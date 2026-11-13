@@ -1,3 +1,8 @@
+import { createGearInspection, inspectGear as runGearInspection } from "../services/athleteGearInspection";
+import { planCalendarDate } from "@shared/training/planDate";
+import { createYearReadSession } from "../hooks/yearActivitiesRead";
+import { parseAthleteProfile, callAthleteProfile, loadAthleteProfilePreview, type AthleteProfileTotals, type AthletePreview, type AthleteHighlight, type AthletePreviewCursor } from "../services/athleteProfile";
+import type { AthletePhoto } from "../components/athlete/AthletePhotoGallery";
 import { useAthletePublicPeriod } from "../hooks/useAthletePublicPeriod";
 import AthletePublicPeriodExplorer from "../components/athlete/AthletePublicPeriodExplorer";
 import { loadActivityDiscovery } from "../services/activityDiscovery";
@@ -34,7 +39,7 @@ import AthleteRecentSummary from "../components/athlete/AthleteRecentSummary";
 import { activityFeedSourceRevision, boundedFeedContent } from "../services/activityFeedContent";
 import { isTrivialActivity } from "../utils/activityFilter";
 import { resolveDuration } from "../utils/activityTime";
-import { loadAthleteChartActivities } from "../services/athleteMonthlyActivities";
+import { loadAthleteChartActivities, athleteProfileYears } from "../services/athleteMonthlyActivities";
 import ActivitySubscriptionButton from "../components/profile/ActivitySubscriptionButton";
 import Avatar from "../components/Avatar";
 import AthleteActivityChart from "../components/athlete/AthleteActivityChart";
@@ -48,6 +53,15 @@ import { Button, Card, Chip, Text, Input, Select, buttonClass } from "../theme/c
 import SafeImage from "../components/SafeImage";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
 import { ICON_SIZE } from "../theme/tokens/icon";
+
+function uniquePhotos(photos: AthletePhoto[]) {
+  const seen = new Set<string>();
+  return photos.filter(photo => {
+    const key = athletePhotoIdentity(photo);
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+}
 
 function mostUrgentGear(activities: Activity[]): Activity["gear"] | null {
   const byName = new Map<string, NonNullable<Activity["gear"]>>();
@@ -135,7 +149,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const dialog = useDialog();
   const { t, i18n } = useTranslation("athlete");
   const [searchParams] = useSearchParams();
-  const isOwnProfile = currentUser?.uid === userId;
+  const isOwnProfile = currentUser?.uid === userId && services.auth.currentUser?.uid === userId;
   const { groups: ownGroups, loading: groupsLoading, error: groupsError, retry: retryGroups } = useMyGroups(isOwnProfile ? userId : undefined);
 
   const { data: firestoreProfile, loading: profileLoading } = useDocument<PublicUserProfile>("users_public", userId);
@@ -154,24 +168,172 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         }
       : null
   ), [currentProfile, isOwnProfile, userId]);
-  const profileForPage = useMemo(() => firestoreProfile ?? ownProfileFallback, [firestoreProfile, ownProfileFallback]);
+  const profileForPage = useMemo(() => (firestoreProfile?.id === userId ? firestoreProfile : null) ?? ownProfileFallback, [firestoreProfile, ownProfileFallback, userId]);
 
   const ACTIVITIES_PAGE_SIZE = 20;
   const [displayActivities, setDisplayActivities] = useState<Activity[]>([]);
+  const [activityAttempt, setActivityAttempt] = useState(0);
+  const [ownerActivityError, setOwnerActivityError] = useState(false);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreActivities, setHasMoreActivities] = useState(true);
   const [publicSearchCursor, setPublicSearchCursor] = useState<string | null>(null);
   const [publicSearchError, setPublicSearchError] = useState(false);
   const [publicActivityCursor, setPublicActivityCursor] = useState<string | null>(null);
-  const profileReadIdentity = useRef({ userId, viewer: services.auth.currentUser });
-  if (profileReadIdentity.current.userId !== userId || profileReadIdentity.current.viewer !== services.auth.currentUser) profileReadIdentity.current = { userId, viewer: services.auth.currentUser };
+  const profileReadIdentity = useRef({ userId, viewer: services.auth.currentUser, auth: services.auth, database: services.firestore, functions: services.functions });
+  if (profileReadIdentity.current.userId !== userId || profileReadIdentity.current.viewer !== services.auth.currentUser || profileReadIdentity.current.auth !== services.auth || profileReadIdentity.current.database !== services.firestore || profileReadIdentity.current.functions !== services.functions) profileReadIdentity.current = { userId, viewer: services.auth.currentUser, auth: services.auth, database: services.firestore, functions: services.functions };
+  const readIdentity = profileReadIdentity.current;
+  const [viewIdentity, setViewIdentity] = useState(readIdentity);
+  useEffect(() => { setViewIdentity(readIdentity); }, [readIdentity]);
   const [lastActivityDoc, setLastActivityDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [chartScope, setChartScope] = useState<{ identity: typeof readIdentity; year: number } | null>(null);
   const [ownChartActivities, setChartActivities] = useState<Activity[]>([]);
   const [ownChartLoading, setChartLoading] = useState(true);
   const [ownChartError, setChartError] = useState(false);
 
   const [chartAttempt, setChartAttempt] = useState(0);
+  const [chartYear, setChartYear] = useState(() => planCalendarDate(Date.now()).getUTCFullYear());
+  const chartSessionRef = useRef(createYearReadSession(userId ?? "", services));
+  if (chartSessionRef.current.uid !== (userId ?? "") || chartSessionRef.current.owner !== services.auth.currentUser || chartSessionRef.current.auth !== services.auth || chartSessionRef.current.firestore !== services.firestore || !chartSessionRef.current.valid) {
+    chartSessionRef.current.valid = false;
+    chartSessionRef.current = createYearReadSession(userId ?? "", services);
+  }
+  const chartSession = chartSessionRef.current;
+  useEffect(() => { chartSession.valid = true; return () => { chartSession.valid = false; }; }, [chartSession]);
+  const [profileTotals, setProfileTotals] = useState<{ identity: typeof readIdentity; value: AthleteProfileTotals; attempt: number } | null>(null);
+  const [totalsError, setTotalsError] = useState(false);
+  const [totalsAttempt, setTotalsAttempt] = useState(0);
+  const totalsRetry = useRef<{ identity: typeof readIdentity; epoch: string | undefined; attempt: number } | null>(null);
+  const liveTotals = parseAthleteProfile((currentProfile as unknown as { athleteProfile?: unknown } | null)?.athleteProfile, userId ?? "");
+  const ensuredTotals = profileTotals?.identity === readIdentity ? profileTotals.value : null;
+  const latestTotals = ensuredTotals && (!liveTotals || liveTotals.epoch === ensuredTotals.epoch)
+    ? liveTotals && liveTotals.revision >= ensuredTotals.revision ? liveTotals : ensuredTotals : null;
+  // 숫자 작업 실패는 같은 세대의 단순 합계 업데이트로 해제하지 않는다.
+  const ownerTotals = latestTotals && ensuredTotals?.state === "failed"
+    ? { ...latestTotals, state: "failed" as const, integrityFailed: ensuredTotals.integrityFailed } : latestTotals;
+  useEffect(() => {
+    let cancelled = false;
+    if (isOwnProfile && profileTotals?.identity === readIdentity && profileTotals.value.epoch === liveTotals?.epoch && profileTotals.attempt === totalsAttempt) return;
+    setProfileTotals(value => value?.identity === readIdentity && (!liveTotals || liveTotals.epoch === value.value.epoch) ? value : null);
+    setTotalsError(false);
+    if (!isOwnProfile || !userId) return;
+    const explicit = totalsRetry.current;
+    const retry = explicit?.identity === readIdentity && explicit.attempt === totalsAttempt && explicit.epoch === (ensuredTotals?.epoch ?? liveTotals?.epoch);
+    totalsRetry.current = null;
+    void callAthleteProfile<unknown>(services, userId, "ensureAthleteProfile", { retry }, () => !cancelled && profileReadIdentity.current === readIdentity)
+      .then(value => { if (cancelled) return; const root = parseAthleteProfile(value, userId); if (!root) throw new Error("athlete-profile-invalid-root"); setProfileTotals({ identity: readIdentity, value: root, attempt: totalsAttempt }); })
+      .catch(error => { if (!cancelled) { logClientError("AthletePage.ensureAthleteProfile", error, { userId }, services); setTotalsError(true); } });
+    return () => { cancelled = true; };
+  }, [userId, isOwnProfile, totalsAttempt, readIdentity, liveTotals?.epoch]);
+  const [ownerPhotos, setOwnerPhotos] = useState<AthletePhoto[]>([]);
+  const [ownerHighlights, setOwnerHighlights] = useState<AthleteHighlight[]>([]);
+  const [photoCursor, setPhotoCursor] = useState<AthletePreviewCursor | null>(null);
+  const [highlightCursor, setHighlightCursor] = useState<AthletePreviewCursor | null>(null);
+  type MediaKind = "photos" | "highlights";
+  const [mediaVisible, setMediaVisible] = useState({ photos: 6, highlights: 12 });
+  const [mediaOrders, setMediaOrders] = useState<Record<MediaKind, "recent" | "all">>({ photos: "recent", highlights: "recent" });
+  const [mediaComplete, setMediaComplete] = useState({ photos: false, highlights: false });
+  const [mediaLoading, setMediaLoading] = useState({ photos: false, highlights: false });
+  const [mediaPending, setMediaPending] = useState({ photos: 0, highlights: 0 });
+  type MediaPage = { input: AthletePreviewCursor | null; page: AthletePreview<AthletePhoto | AthleteHighlight> };
+  const [mediaErrors, setMediaErrors] = useState({ photos: false, highlights: false });
+  const mediaScopeRef = useRef({ identity: readIdentity, epoch: ownerTotals?.epoch, active: true, busy: new Set<MediaKind>(), pages: { photos: new Map<string, MediaPage>(), highlights: new Map<string, MediaPage>() } });
+  if (mediaScopeRef.current.identity !== readIdentity || mediaScopeRef.current.epoch !== ownerTotals?.epoch)
+    mediaScopeRef.current = { identity: readIdentity, epoch: ownerTotals?.epoch, active: true, busy: new Set<MediaKind>(), pages: { photos: new Map<string, MediaPage>(), highlights: new Map<string, MediaPage>() } };
+  const mediaScope = mediaScopeRef.current;
+  const [loadedMediaScope, setLoadedMediaScope] = useState<typeof mediaScope | null>(null);
+  const mediaCurrent = loadedMediaScope === mediaScope;
+  const lastMediaRequest = useRef<Partial<Record<MediaKind, { cursor: AthletePreviewCursor | null; all: boolean; replace: boolean }>>>({});
+  const fetchPreview = async (kind: MediaKind, cursor: AthletePreviewCursor | null, all: boolean, replace: boolean, revealFrom?: number) => {
+    if (!userId || !isOwnProfile || !ownerTotals?.epoch || !mediaScope.epoch || mediaScope.busy.has(kind)) return;
+    const scope = mediaScope;
+    const current = () => scope.active && mediaScopeRef.current === scope;
+    scope.busy.add(kind);
+    lastMediaRequest.current[kind] = { cursor, all, replace };
+    setMediaLoading(value => ({ ...value, [kind]: true }));
+    setMediaErrors(value => ({ ...value, [kind]: false }));
+    try {
+      const page = await loadAthleteProfilePreview<AthletePhoto | AthleteHighlight>(services, userId, kind, scope.epoch!, cursor, all, current);
+      if (!current()) return;
+      const inputKey = JSON.stringify(cursor);
+      const pages = scope.pages[kind];
+      if (!replace) {
+        const previous = pages.get(inputKey);
+        if (previous && JSON.stringify(previous.page.nextCursor) !== JSON.stringify(page.nextCursor)) throw new Error("athlete-preview-inventory-changed");
+        if (page.nextCursor && [...pages].some(([key, entry]) => key !== inputKey && JSON.stringify(entry.page.nextCursor) === JSON.stringify(page.nextCursor))) throw new Error("athlete-preview-cursor-repeated");
+      }
+      if (replace) {
+        const previousOrder = pages.values().next().value?.page.scope;
+        if (previousOrder !== page.scope) setMediaVisible(value => ({ ...value, [kind]: kind === "photos" ? 6 : 12 }));
+        pages.clear();
+      }
+      pages.set(inputKey, { input: cursor, page });
+      const snapshots = [...pages.values()];
+      const items = snapshots.flatMap(entry => entry.page.items);
+      const frontier = snapshots[snapshots.length - 1]!.page;
+      if (revealFrom !== undefined) setMediaVisible(value => ({ ...value, [kind]: Math.max(value[kind], revealFrom + (kind === "photos" ? 6 : 12)) }));
+      if (kind === "photos") { setOwnerPhotos(items as AthletePhoto[]); setPhotoCursor(frontier.nextCursor); }
+      else { setOwnerHighlights(items as AthleteHighlight[]); setHighlightCursor(frontier.nextCursor); }
+      setMediaOrders(value => ({ ...value, [kind]: page.scope }));
+      setMediaComplete(value => ({ ...value, [kind]: frontier.complete && snapshots.every(entry => entry.page.coverageComplete) }));
+      setMediaPending(value => ({ ...value, [kind]: snapshots.reduce((sum, entry) => sum + entry.page.pendingCount, 0) }));
+      setLoadedMediaScope(scope);
+    } catch (error) {
+      if (current()) { logClientError("AthletePage.preview", error, { kind }); setMediaErrors(value => ({ ...value, [kind]: true })); }
+    } finally {
+      scope.busy.delete(kind);
+      if (current()) setMediaLoading(value => ({ ...value, [kind]: false }));
+    }
+  };
+  const loadOlderPreview = (kind: MediaKind) => {
+    const count = kind === "photos" ? uniquePhotos(ownerPhotos).length : ownerHighlights.length;
+    if (mediaVisible[kind] < count) {
+      setMediaVisible(value => ({ ...value, [kind]: Math.min(count, value[kind] + (kind === "photos" ? 6 : 12)) }));
+      return;
+    }
+    const cursor = kind === "photos" ? photoCursor : highlightCursor;
+    if (cursor) void fetchPreview(kind, cursor, mediaOrders[kind] === "all", false, count);
+  };
+  const retryPreview = (kind: MediaKind) => {
+    const pending = [...mediaScope.pages[kind].values()].find(entry => !entry.page.coverageComplete);
+    const request = pending ? { cursor: pending.input, all: pending.page.scope === "all", replace: false } : lastMediaRequest.current[kind];
+    if (request) void fetchPreview(kind, request.cursor, request.all, request.replace);
+  };
+  const gearSessionRef = useRef(createGearInspection(userId ?? "", services));
+  if (gearSessionRef.current.uid !== (userId ?? "") || gearSessionRef.current.owner !== services.auth.currentUser || gearSessionRef.current.auth !== services.auth || gearSessionRef.current.database !== services.firestore || gearSessionRef.current.functions !== services.functions) {
+    gearSessionRef.current.valid = false;
+    gearSessionRef.current = createGearInspection(userId ?? "", services);
+  }
+  const gearSession = gearSessionRef.current;
+  useEffect(() => {
+    gearSession.valid = true;
+    setGearBusy(false); setGearError(false); setGearLimited(false);
+    return () => { gearSession.valid = false; gearSession.paused = true; };
+  }, [gearSession]);
+  const [gearBusy, setGearBusy] = useState(false);
+  const [gearError, setGearError] = useState(false);
+  const [gearLimited, setGearLimited] = useState(false);
+  const [, setGearVersion] = useState(0);
+  const inspectGear = async (all = false) => {
+    if (!isOwnProfile || gearBusy) return;
+    const session = gearSessionRef.current;
+    setGearBusy(true); setGearError(false); setGearLimited(false);
+    try { const result = await runGearInspection(session, services, () => gearSessionRef.current === session, all); if (gearSessionRef.current === session) setGearLimited(result.limited); }
+    catch (error) { if (gearSessionRef.current === session) { logClientError("AthletePage.inspectGear", error, { userId, all, loaded: session.loaded }, services); setGearError(true); } }
+    finally { if (gearSessionRef.current === session) { setGearBusy(false); setGearVersion(value => value + 1); } }
+  };
+
+  useEffect(() => {
+    mediaScope.active = true;
+    setOwnerPhotos([]); setOwnerHighlights([]); setPhotoCursor(null); setHighlightCursor(null);
+    setLoadedMediaScope(null); setMediaVisible({ photos: 6, highlights: 12 }); setMediaComplete({ photos: false, highlights: false }); setMediaPending({ photos: 0, highlights: 0 });
+    setMediaLoading({ photos: false, highlights: false }); setMediaErrors({ photos: false, highlights: false });
+    setMediaOrders({ photos: "recent", highlights: "recent" }); lastMediaRequest.current = {};
+    if (!isOwnProfile || !ownerTotals?.epoch) return;
+    void fetchPreview("photos", null, false, true);
+    void fetchPreview("highlights", null, false, true);
+    return () => { mediaScope.active = false; };
+  }, [isOwnProfile, mediaScope]);
 
   // My segments
   const [mySegments, setMySegments] = useState<{ id: string; name: string; distance: number; status: string; createdAt: number }[]>([]);
@@ -196,9 +358,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   // Friend state: 'none' | 'request_sent' | 'request_received' | 'friends'
   const [friendStatus, setFriendStatus] = useState<"none" | "request_sent" | "request_received" | "friends">("none");
+  const profileReadReady = isOwnProfile || !profileLoading;
+  const activityAccessAllowed = isOwnProfile || profileForPage?.profilePublic !== false || friendStatus === "friends";
   const publicGlobal = useAthletePublicPeriod(userId ?? "", "", "", !!userId && !isOwnProfile && !profileLoading && (profileForPage?.profilePublic !== false || friendStatus === "friends"), true);
-  const chartActivities = isOwnProfile ? ownChartActivities : publicGlobal.items;
-  const chartLoading = isOwnProfile ? ownChartLoading : publicGlobal.status === "loading";
+  const chartCurrent = chartScope?.identity === readIdentity && chartScope.year === chartYear;
+  const chartActivities = isOwnProfile ? chartCurrent ? ownChartActivities : [] : publicGlobal.items;
+  const chartLoading = isOwnProfile ? ownChartLoading || !chartCurrent && !ownChartError : publicGlobal.status === "loading";
   const chartError = isOwnProfile ? ownChartError : publicGlobal.status !== "complete";
   const chartLimited = !isOwnProfile && publicGlobal.status === "limit";
 
@@ -248,8 +413,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   useEffect(() => {
     if (!userId) return;
-    if (profileLoading && !ownProfileFallback) return;
-    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
+    if (!profileReadReady) return;
+    if (!activityAccessAllowed) {
       setActivitiesLoading(false);
       setDisplayActivities([]);
       setLastActivityDoc(null);
@@ -260,6 +425,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
     const load = async () => {
       setActivitiesLoading(true);
+      setOwnerActivityError(false);
       setDisplayActivities([]);
       setLastActivityDoc(null);
       setPublicActivityCursor(null);
@@ -284,7 +450,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           orderBy("startTime", "desc"),
           limit(ACTIVITIES_PAGE_SIZE),
         ];
-        const q = query(collection(firestore, "activities"), ...constraints);
+        const q = query(collection(services.firestore, "activities"), ...constraints);
         const snap = await getDocs(q);
         if (cancelled) return;
         setDisplayActivities(docsToActivities(snap.docs));
@@ -292,6 +458,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
       } catch (err) {
         logClientError("AthletePage.loadActivities", err, { userId, isOwnProfile });
+        if (!cancelled && isOwnProfile) setOwnerActivityError(true);
       } finally {
         if (!cancelled) setActivitiesLoading(false);
       }
@@ -299,23 +466,24 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
     load();
     return () => { cancelled = true; };
-  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus, services, currentUser]);
+  }, [userId, isOwnProfile, profileReadReady, activityAccessAllowed, readIdentity, activityAttempt]);
 
-  // 월간 누적은 접근 가능한 전체 활동을 모두 읽은 뒤에만 표시한다.
+  // 본인 차트는 선택한 연도와 최근 28일의 검증된 범위만 읽는다.
   useEffect(() => {
     let cancelled = false;
     setChartActivities([]);
     setChartError(false);
     setChartLoading(true);
-    if (!isOwnProfile || !userId || (profileLoading && !ownProfileFallback)) return;
-    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
+    if (!isOwnProfile || !userId) return;
+    if (!activityAccessAllowed) {
       setChartLoading(false);
       return;
     }
-    void loadAthleteChartActivities(userId, isOwnProfile, () => cancelled, services)
+    void loadAthleteChartActivities(userId, isOwnProfile, () => cancelled || !chartSession.valid || profileReadIdentity.current !== readIdentity, services, chartYear, chartSession)
       .then((items) => {
         if (cancelled || !items) return;
         setChartActivities(items);
+        setChartScope({ identity: readIdentity, year: chartYear });
       })
       .catch((err) => {
         if (cancelled) return;
@@ -324,7 +492,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       })
       .finally(() => { if (!cancelled) setChartLoading(false); });
     return () => { cancelled = true; };
-  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus, chartAttempt, services, currentUser]);
+  }, [userId, isOwnProfile, chartAttempt, chartYear, chartSession, readIdentity]);
 
   // 4. 서버 검색: keywords array-contains 쿼리
   const handleSearch = () => {
@@ -336,8 +504,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   // searchQuery 변경 시 서버 검색 실행
   useEffect(() => {
     if (!searchQuery || !userId) return;
-    if (profileLoading && !ownProfileFallback) return;
-    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
+    if (!profileReadReady) return;
+    if (!activityAccessAllowed) {
       setSearchResults([]);
       setSearchLoading(false);
       return;
@@ -368,14 +536,14 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     ];
 
     const read = isOwnProfile
-      ? getDocs(query(collection(firestore, "activities"), ...constraints)).then(snap => docsToActivities(snap.docs))
+      ? getDocs(query(collection(services.firestore, "activities"), ...constraints)).then(snap => docsToActivities(snap.docs))
       : loadActivityDiscovery(services, { scope: "athlete", targetUid: userId, keyword: token, limit: 20 }).then(page => { if (!cancelled) setPublicSearchCursor(page.nextCursor); return page.items; });
     read.then(items => { if (!cancelled) setSearchResults(items); }).catch(err => {
       logClientError("AthletePage.searchActivities", err, { userId }); if (!cancelled) { setSearchResults([]); setPublicSearchError(true); }
     }).finally(() => { if (!cancelled) setSearchLoading(false); });
 
     return () => { cancelled = true; };
-  }, [searchQuery, userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus, services, currentUser]);
+  }, [searchQuery, userId, isOwnProfile, profileReadReady, activityAccessAllowed, readIdentity]);
 
   const loadMorePublicSearch = async () => {
     if (!userId || !publicSearchCursor || searchLoading || isOwnProfile) return;
@@ -397,9 +565,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   const handleLoadMoreActivities = async () => {
     if (!userId || (!lastActivityDoc && !publicActivityCursor) || loadingMore) return;
-    if (profileLoading && !ownProfileFallback) return;
+    if (!profileReadReady) return;
     if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") return;
     setLoadingMore(true);
+    if (isOwnProfile) setOwnerActivityError(false);
     const identity = profileReadIdentity.current;
     try {
       if (!isOwnProfile) {
@@ -416,7 +585,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         limit(ACTIVITIES_PAGE_SIZE),
         startAfter(lastActivityDoc),
       ];
-      const q = query(collection(firestore, "activities"), ...constraints);
+      const q = query(collection(services.firestore, "activities"), ...constraints);
       const snap = await getDocs(q);
       if (profileReadIdentity.current !== identity) return;
       setDisplayActivities((prev) => [...prev, ...docsToActivities(snap.docs)]);
@@ -424,6 +593,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       setHasMoreActivities(snap.docs.length === ACTIVITIES_PAGE_SIZE);
     } catch (err) {
       logClientError("AthletePage.loadMoreActivities", err, { userId, isOwnProfile });
+      if (profileReadIdentity.current === identity && isOwnProfile) setOwnerActivityError(true);
       if (profileReadIdentity.current === identity && !isOwnProfile) { setDisplayActivities([]); setPublicActivityCursor(null); setHasMoreActivities(false); }
     } finally {
       if (profileReadIdentity.current === identity) setLoadingMore(false);
@@ -433,8 +603,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   // Fetch my segments
   useEffect(() => {
     if (!userId) return;
-    if (profileLoading && !ownProfileFallback) return;
-    if (profileForPage?.profilePublic === false && !isOwnProfile && friendStatus !== "friends") {
+    if (!profileReadReady) return;
+    if (!activityAccessAllowed) {
       setMySegments([]); setSegmentsMore(false); setSegmentCursor(null);
       return;
     }
@@ -446,7 +616,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       setMySegments(page.items.map(data => ({ id: data.id, name: String(data.name ?? ""), distance: Number(data.distance ?? 0), status: String(data.status ?? "active"), createdAt: Number(data.createdAt ?? 0) })));
     }).catch((err) => logClientError("AthletePage.bg", err, {}));
     return () => { active = false; };
-  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, profileForPage?.profilePublic, friendStatus, services, currentUser]);
+  }, [userId, profileReadReady, activityAccessAllowed, readIdentity]);
 
   // Check friend relationship
   useEffect(() => {
@@ -508,15 +678,17 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   // Fetch friend list + count
   useEffect(() => {
     if (!userId) return;
-    if (profileLoading && !ownProfileFallback) return;
     if (!isOwnProfile) {
       setFriendCount(0);
       setFriends([]);
       return;
     }
 
-    getDocs(collection(firestore, "friends", userId, "users"))
+    setFriendCount(0); setFriends([]);
+    const identity = readIdentity;
+    getDocs(collection(services.firestore, "friends", userId, "users"))
       .then((snap) => {
+        if (profileReadIdentity.current !== identity) return;
         setFriendCount(snap.size);
         setFriends(snap.docs.map((d) => {
           const data = d.data();
@@ -528,7 +700,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         }));
       })
       .catch((err) => logClientError("AthletePage.bg", err, {}));
-  }, [userId, isOwnProfile, profileLoading, ownProfileFallback, friendStatus]);
+  }, [userId, isOwnProfile, readIdentity]);
 
   const handleSendFriendRequest = async (): Promise<boolean> => {
     if (!currentUser || !userId || friendLoading) return false;
@@ -626,10 +798,16 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   const acceptedChartActivities = useMemo(() => acceptedStatsActivities(chartActivities.filter(activity => activity.userId === userId)), [chartActivities, userId]);
   const acceptedLoadActivities = useMemo(() => isOwnProfile ? acceptedTrainingActivities(chartActivities.filter(activity => activity.userId === userId)) : [], [chartActivities, userId, isOwnProfile]);
-  const stats = useMemo(() => aggregateActivityStats(acceptedChartActivities), [acceptedChartActivities]);
-  const statsReady = !chartLoading && !chartError;
+  const scopedStats = useMemo(() => aggregateActivityStats(acceptedChartActivities), [acceptedChartActivities]);
+  const stats = isOwnProfile && ownerTotals ? { count: ownerTotals.count, distance: ownerTotals.distance, time: ownerTotals.timeDisplayMillis, elevation: ownerTotals.elevation } : scopedStats;
+  const statsReady = isOwnProfile ? ownerTotals?.state === "ready" && !totalsError : !chartLoading && !chartError;
+  const ownerPhotoItems = useMemo(() => uniquePhotos(mediaCurrent ? ownerPhotos : []), [mediaCurrent, ownerPhotos]);
+  const ownerHighlightItems = mediaCurrent ? ownerHighlights : [];
+  const photosBuffered = isOwnProfile && ownerPhotoItems.length > mediaVisible.photos;
+  const highlightsBuffered = isOwnProfile && ownerHighlightItems.length > mediaVisible.highlights;
   const recentPhotos = useMemo(() => {
     const seen = new Set<string>();
+    if (isOwnProfile) return ownerPhotoItems.slice(0, mediaVisible.photos);
     return chartActivities.filter(activity => activity.userId === userId).sort((a, b) => b.startTime - a.startTime).flatMap(activity => {
       if (activity.feedContentV1?.sourceRevision !== activityFeedSourceRevision(activity)) return [];
       return (boundedFeedContent(activity.feedContentV1)?.photos ?? []).flatMap(photo => {
@@ -639,17 +817,17 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         return [{ ...photo, activityId: activity.id }];
       });
     }).slice(0, 6);
-  }, [chartActivities, userId]);
-  const highlights = useMemo(() => [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime).flatMap(activity => (activity.topAchievements ?? []).slice(0, 3).map(achievement => ({ ...achievement, activityId: activity.id }))).slice(0, 12), [acceptedChartActivities]);
+  }, [chartActivities, userId, isOwnProfile, ownerPhotoItems, mediaVisible.photos]);
+  const highlights = useMemo(() => isOwnProfile ? ownerHighlightItems.slice(0, mediaVisible.highlights) : [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime).flatMap(activity => (activity.topAchievements ?? []).slice(0, 3).map(achievement => ({ ...achievement, activityId: activity.id }))).slice(0, 12), [acceptedChartActivities, isOwnProfile, ownerHighlights, mediaCurrent, mediaVisible.highlights]);
 
   // 검색 활성 시: 서버 검색 결과 사용
   // 비활성 시: 페이지네이션된 displayActivities 사용
   const baseActivities = useMemo(() => {
-    if (!isSearchActive) return selectedPeriod || sport !== "all" || filterType !== "all" ? [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime) : activities;
+    if (!isSearchActive) return selectedPeriod || !isOwnProfile && (sport !== "all" || filterType !== "all") ? [...acceptedChartActivities].sort((a, b) => b.startTime - a.startTime) : activities;
     return searchResults.map((a) =>
       !a.profileImage && photoURL ? { ...a, profileImage: photoURL } : a,
     );
-  }, [isSearchActive, activities, searchResults, photoURL, selectedPeriod, acceptedChartActivities, sport, filterType]);
+  }, [isSearchActive, activities, searchResults, photoURL, selectedPeriod, acceptedChartActivities, sport, filterType, isOwnProfile]);
 
   const hasLocalFilter = !!selectedPeriod || sport !== "all" || filterType !== "all";
   const filteredActivities = baseActivities.filter((a) => {
@@ -662,7 +840,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     return filterType === "strava" ? isStrava : !isStrava;
   });
 
-  if (profileLoading && !ownProfileFallback) {
+  if (viewIdentity !== readIdentity || profileLoading && !ownProfileFallback) {
     return (
       <div data-testid="P0.loading" className="space-y-6">
         <Card className="h-32 animate-pulse" />
@@ -740,7 +918,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   return (
     <div className={`athlete-profile${recentPhotos.length ? "" : " athlete-profile--no-cover"}`} data-testid={isOwnProfile ? "P0.self" : "P0.other"}>
-      <AthletePhotoGallery photos={recentPhotos} cover />
+      <AthletePhotoGallery photos={recentPhotos.slice(0, 6)} cover />
       <div className="athlete-profile-heading">
       <section className="athlete-identity" data-testid="P0-0">
         <div className="athlete-identity__avatar">
@@ -758,7 +936,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             <Button data-testid="P0-0-3" leadingIcon={<Share2 size={ICON_SIZE.md} aria-hidden="true" />} variant="secondary" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}${location.pathname.replace(/athlete\/me$/, `athlete/${userId}`)}`).then(() => showToast(t("self.shared"))).catch(() => showToast(t("self.shareFailed"), "error")); }}>{t("self.share")}</Button>
           </div>}
           {isOwnProfile && (
-            <div data-testid="P0-6"><AthleteIdentityChips pdc={pdc} activities={chartActivities} /></div>
+            <div data-testid="P0-6"><AthleteIdentityChips pdc={pdc} activities={isOwnProfile ? gearSessionRef.current.complete ? [...gearSessionRef.current.gears.values()].map(gear => ({ gear }) as Activity) : [] : chartActivities} />{isOwnProfile && <><Text as="p" variant="caption">{t(gearSession.complete ? "profile.gearComplete" : "profile.gearIncomplete", { count: gearSession.loaded })}</Text>{!gearSession.complete && <><Button disabled={gearBusy} onClick={() => void inspectGear()}>{t("profile.inspectGear")}</Button><Button disabled={gearBusy} onClick={() => void inspectGear(true)}>{t("profile.inspectAllGear")}</Button>{gearBusy && <Button onClick={() => { gearSession.paused = true; }}>{t("profile.pauseInspection")}</Button>}</>}{gearLimited && <p role="status">{t("profile.inspectionLimit")}</p>}{gearError && <p role="alert">{t("profile.inspectionError")}</p>}</>}</div>
           )}
         </div>
         {!isMe && currentUser && (
@@ -805,15 +983,16 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         <div data-testid="P0-1" className="athlete-stats">
           {[
             { label: t(isOwnProfile ? "stats.activities" : "stats.publicActivities"), value: statsReady ? t("stats.activitiesValue", { count: stats.count }) : "—", Icon: ActivityIcon },
-            { label: t("stats.distance"), value: statsReady && acceptedChartActivities.every(a => Number.isFinite(a.summary?.distance)) ? <span>{Math.round(stats.distance / 1000).toLocaleString(i18n.language)} <small>km</small></span> : "—", Icon: Route },
-            { label: t("stats.time"), value: statsReady && acceptedChartActivities.every(a => Number.isFinite(resolveDuration(a.summary ?? {}).displayMs)) ? <><span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "hour", unitDisplay: "narrow"}).format(Math.floor(stats.time / 3600000))}</span>{" "}<span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "minute", unitDisplay: "narrow"}).format(Math.floor((stats.time % 3600000) / 60000))}</span></> : "—", Icon: Clock3 },
-            { label: t("stats.elevation"), value: statsReady && acceptedChartActivities.every(a => Number.isFinite(a.summary?.elevationGain)) ? <span>{Math.round(stats.elevation).toLocaleString(i18n.language)} <small>m</small></span> : "—", Icon: Mountain },
+            { label: t("stats.distance"), value: statsReady && (isOwnProfile ? ownerTotals?.unknownDistanceCount === 0 : acceptedChartActivities.every(a => Number.isFinite(a.summary?.distance))) ? <span>{Math.round(stats.distance / 1000).toLocaleString(i18n.language)} <small>km</small></span> : "—", Icon: Route },
+            { label: t("stats.time"), value: statsReady && (isOwnProfile ? ownerTotals?.unknownTimeCount === 0 : acceptedChartActivities.every(a => Number.isFinite(resolveDuration(a.summary ?? {}).displayMs))) ? <><span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "hour", unitDisplay: "narrow"}).format(Math.floor(stats.time / 3600000))}</span>{" "}<span>{new Intl.NumberFormat(i18n.language, {style: "unit", unit: "minute", unitDisplay: "narrow"}).format(Math.floor((stats.time % 3600000) / 60000))}</span></> : "—", Icon: Clock3 },
+            { label: t("stats.elevation"), value: statsReady && (isOwnProfile ? ownerTotals?.unknownElevationCount === 0 : acceptedChartActivities.every(a => Number.isFinite(a.summary?.elevationGain))) ? <span>{Math.round(stats.elevation).toLocaleString(i18n.language)} <small>m</small></span> : "—", Icon: Mountain },
           ].map(({label, value, Icon}) => <div key={label} className="athlete-stat"><span className="athlete-stat__label"><Icon size={ICON_SIZE.md} aria-hidden="true" />{label}</span><strong className="athlete-stat__value">{value}</strong></div>)}
         </div>
       {!isOwnProfile && <div className="athlete-query-status">
         {publicGlobal.status !== "complete" && <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : `publicGlobal.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>}
         {publicGlobal.status !== "loading" && <Button onClick={publicGlobal.status === "partial" || publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>{t(publicGlobal.status === "partial" ? "publicPeriod.globalMore" : publicGlobal.status === "error" ? "monthly.retry" : "publicPeriod.refresh")}</Button>}
       </div>}
+        {isOwnProfile && !statsReady && <p role="status">{t(totalsError || ownerTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Text as="span" variant="caption">{t(ownerTotals?.integrityFailed ? "profile.totalsRestartScope" : "profile.totalsContinueScope")}</Text><Button onClick={() => { totalsRetry.current = { identity: readIdentity, epoch: ownerTotals?.epoch, attempt: totalsAttempt + 1 }; setTotalsAttempt(totalsAttempt + 1); }}>{t(ownerTotals?.integrityFailed ? "profile.restartTotals" : "profile.continueTotals")}</Button></p>}
         <Text as="p" variant="caption" tone="secondary" className="mt-2">{t(isOwnProfile ? "stats.scopeOwn" : "stats.scopePublic")}</Text>
       </section>
           {isOwnProfile && <section><h2 className="athlete-sidebar-title">{t("profile.clubs")}</h2>{groupsLoading ? <p role="status">{t("activities.loading")}</p> : groupsError ? <div role="alert"><p>{t("profile.clubsError")}</p><Button variant="ghost" onClick={retryGroups}>{t("monthly.retry")}</Button></div> : <div className="athlete-clubs">{ownGroups.map(group => <Link key={group.id} to={`/club/${group.id}`}><span className="athlete-club-badge">{group.badge || group.name.slice(0, 3)}</span><span>{group.name}</span></Link>)}{!ownGroups.length && <Link to="/clubs">{t("profile.findClubs")}</Link>}</div>}</section>}
@@ -905,13 +1084,13 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           <nav aria-label={t("profile.sections")}>
             <TabNav appearance="segmented" tabs={(["overview", "activities", "photos", "achievements", "segments"] as const).map(id => ({ id, label: t(`profile.tabs.${id}`) }))} activeTab={profileTab} onChange={id => setProfileTab(id as typeof profileTab)} />
           </nav>
-          {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2><AthletePhotoGallery photos={recentPhotos} /></section>}
-          {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2><p className="athlete-section-note">{t("profile.highlightsScope")}</p>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t("profile.noHighlights")}</p>}</section>}
+          {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2>{isOwnProfile && recentPhotos.length === 0 ? <p>{t("profile.noMediaInPages")}</p> : <AthletePhotoGallery photos={recentPhotos} />}{isOwnProfile && <>{mediaLoading.photos && <p role="status">{t("profile.mediaLoading")}</p>}{mediaErrors.photos && <p role="alert">{t("profile.mediaError")}<Button onClick={() => retryPreview("photos")}>{t("monthly.retry")}</Button></p>}<Text as="p" variant="caption">{t(mediaOrders.photos === "all" ? mediaComplete.photos ? "profile.mediaAllComplete" : "profile.mediaAllScope" : "profile.mediaRecentScope")}</Text>{mediaCurrent && (photosBuffered || photoCursor) && <Button disabled={mediaLoading.photos} onClick={() => loadOlderPreview("photos")}>{t(photosBuffered ? "profile.moreCachedPhotos" : "profile.olderPhotoActivities")}</Button>}{(mediaOrders.photos !== "all" || mediaErrors.photos) && <Button disabled={mediaLoading.photos || !ownerTotals?.epoch} onClick={() => void fetchPreview("photos", null, true, true)}>{t("profile.inspectAllPhotos")}</Button>}</>}</section>}
+          {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2><p className="athlete-section-note">{t("profile.highlightsScope")}</p>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t(isOwnProfile ? "profile.noMediaInPages" : "profile.noHighlights")}</p>}{isOwnProfile && <>{mediaLoading.highlights && <p role="status">{t("profile.mediaLoading")}</p>}{mediaPending.highlights > 0 && <p role="status">{t("profile.mediaPending", { count: mediaPending.highlights })}<Button disabled={mediaLoading.highlights} onClick={() => retryPreview("highlights")}>{t("monthly.retry")}</Button></p>}{mediaErrors.highlights && <p role="alert">{t("profile.mediaError")}<Button onClick={() => retryPreview("highlights")}>{t("monthly.retry")}</Button></p>}<Text as="p" variant="caption">{t(mediaOrders.highlights === "all" ? mediaComplete.highlights ? "profile.mediaAllComplete" : "profile.mediaAllScope" : "profile.mediaRecentScope")}</Text>{mediaCurrent && (highlightsBuffered || highlightCursor) && <Button disabled={mediaLoading.highlights} onClick={() => loadOlderPreview("highlights")}>{t(highlightsBuffered ? "profile.moreCachedHighlights" : "profile.olderHighlightActivities")}</Button>}{(mediaOrders.highlights !== "all" || mediaErrors.highlights) && <Button disabled={mediaLoading.highlights || !ownerTotals?.epoch} onClick={() => void fetchPreview("highlights", null, true, true)}>{t("profile.inspectAllHighlights")}</Button>}</>}</section>}
           {segmentsMore && <button type="button" disabled={segmentsBusy} onClick={loadMoreSegments}>{t("common:button.more")}</button>}
           {profileTab === "segments" && <section className="athlete-profile-section"><h2>{t("segments.othersTitle")}</h2>{mySegments.length ? <ul className="athlete-highlights">{mySegments.map(segment => <li key={segment.id}><Link to={`/segment/${segment.id}`}>{segment.name} · {(segment.distance / 1000).toFixed(2)} km</Link></li>)}</ul> : <p>{t("profile.noSegments")}</p>}</section>}
           {(profileTab === "overview" || profileTab === "activities") && <>
           <div className="athlete-section-heading"><label htmlFor="athlete-sport">{t("profile.sport")}</label><Select id="athlete-sport" value={sport} onChange={event => setSport(event.target.value)}>{["all", "bike", "run", "swim"].filter(isSportUiEnabled).map(value => <option key={value} value={value}>{t(`profile.sports.${value}`)}</option>)}</Select></div>
-          {!isOwnProfile ? <AthletePublicPeriodExplorer key={userId} targetUid={userId!} /> : chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p>{t(chartLimited ? "publicDiscoveryLimit" : "monthly.error")}</p>{!chartLimited && <Button onClick={() => setChartAttempt(attempt => attempt + 1)}>{t("monthly.retry")}</Button>}</div> : <AthleteActivityChart loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
+          {!isOwnProfile ? <AthletePublicPeriodExplorer key={userId} targetUid={userId!} /> : chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p>{t(chartLimited ? "publicDiscoveryLimit" : "monthly.error")}</p>{!chartLimited && <Button onClick={() => setChartAttempt(attempt => attempt + 1)}>{t("monthly.retry")}</Button>}</div> : <AthleteActivityChart selectedYear={chartYear} availableYears={athleteProfileYears(chartSession, chartYear)} onYearChange={setChartYear} loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
 
       {isOwnProfile && <div data-testid="P0-3"><RouteTabNav revealActive tabs={[
         { to: "/athlete/me", label: t("self.overview"), end: true },
@@ -969,6 +1148,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             </div>}
           </div>
 
+          {isOwnProfile && ownerActivityError && <div role="alert"><Text as="p">{t("profile.activitiesReadError")}</Text><Button onClick={() => lastActivityDoc ? void handleLoadMoreActivities() : setActivityAttempt(value => value + 1)}>{t("monthly.retry")}</Button></div>}
+          {isOwnProfile && !isSearchActive && <Text as="p" variant="caption">{t(selectedPeriod ? "profile.periodFilterScope" : hasMoreActivities ? "profile.loadedFilterScope" : "profile.loadedFilterComplete", { count: activities.length })}</Text>}
           <div className="relative z-0 space-y-4">
             {(activitiesLoading || searchLoading) ? (
               <div className="space-y-4">
@@ -979,7 +1160,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             ) : filteredActivities.length === 0 ? (
               <Card padding="none" className="text-center py-12 rounded-[var(--r-xl)]">
                 <p className="text-[var(--ink-3)]">
-                  {isSearchActive ? t("activities.emptySearch") : t("activities.empty")}
+                  {isSearchActive ? t("activities.emptySearch") : isOwnProfile && !selectedPeriod && hasMoreActivities ? t("profile.noMatchesInLoaded") : t("activities.empty")}
                 </p>
                 {isSearchActive && (
                   <Button variant="ghost"
@@ -992,8 +1173,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </Card>
             ) : (
               <>
-                {(hasLocalFilter ? filteredActivities.slice(0, periodLimit) : filteredActivities).map((activity, index) => <CompactActivityCard key={activity.id} activity={activity} priority={index === 0} />)}
-                {!hasLocalFilter && !isSearchActive && hasMoreActivities && (
+                {(hasLocalFilter && (!isOwnProfile || selectedPeriod) ? filteredActivities.slice(0, periodLimit) : filteredActivities).map((activity, index) => <CompactActivityCard key={activity.id} activity={activity} priority={index === 0} />)}
+                {(!hasLocalFilter || isOwnProfile && !selectedPeriod) && !isSearchActive && hasMoreActivities && (
                   <Card variant="bare" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
                     <Button variant="ghost" block
                       onClick={handleLoadMoreActivities}
@@ -1004,7 +1185,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                         <span className="w-4 h-4 border-2 border-[var(--lime)] border-t-transparent rounded-full animate-spin" />
                         {t("activities.loading")}
                       </span>
-                    ) : stats.count > displayActivities.length ? (
+                    ) : !isOwnProfile && stats.count > displayActivities.length ? (
                       t("activities.loadMoreRemaining", { count: stats.count - displayActivities.length })
                     ) : (
                       t("activities.loadMore")
@@ -1017,8 +1198,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           </div>
           {!isOwnProfile && isSearchActive && publicSearchError && <Text role="alert">{t("monthly.error")}</Text>}
           {!isOwnProfile && isSearchActive && publicSearchCursor && <Button variant="ghost" disabled={searchLoading} onClick={() => void loadMorePublicSearch()}>{t("activities.loadMore")}</Button>}
-          {!isSearchActive && !hasLocalFilter && filteredActivities.length === 0 && hasMoreActivities && <Button variant="ghost" disabled={loadingMore} onClick={() => void handleLoadMoreActivities()}>{t("activities.loadMore")}</Button>}
-          {hasLocalFilter && filteredActivities.length > periodLimit && <Button variant="ghost" onClick={() => setPeriodLimit(count => count + 20)}>{t("activities.loadMore")}</Button>}
+          {!isSearchActive && (!hasLocalFilter || isOwnProfile && !selectedPeriod) && filteredActivities.length === 0 && hasMoreActivities && <Button variant="ghost" disabled={loadingMore} onClick={() => void handleLoadMoreActivities()}>{t("activities.loadMore")}</Button>}
+          {hasLocalFilter && (!isOwnProfile || selectedPeriod) && filteredActivities.length > periodLimit && <Button variant="ghost" onClick={() => setPeriodLimit(count => count + 20)}>{t("activities.loadMore")}</Button>}
           </>}
         </div>
       </div>

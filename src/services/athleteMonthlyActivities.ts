@@ -1,20 +1,21 @@
+import { createYearReadSession, readRecapYears, readActivityTimeWindow, type YearReadSession } from "../hooks/yearActivitiesRead";
+import { planMonthBounds, planDayStartMs } from "@shared/training/planDate";
 import { planCalendarDate } from "@shared/training/planDate";
 import { loadActivityDiscovery } from "./activityDiscovery";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { collection, getDocs, limit, query, startAfter, where, type DocumentData, type QueryDocumentSnapshot } from "firebase/firestore";
 import type { Activity } from "@shared/types";
 import type { WeeklyStat } from "../components/WeeklyChart";
-import { firestore } from "./firebase";
 import { resolveDuration } from "../utils/activityTime";
 import { acceptedTrainingActivities, acceptedStatsActivities, sumAcceptedActivityTss } from "../utils/estimateTSS";
 
-const PAGE_SIZE = 200;
 
 export async function loadAthleteChartActivities(
   userId: string,
   isOwnProfile: boolean,
   cancelled: () => boolean,
   services?: FirebaseServices,
+  year = planCalendarDate(Date.now()).getUTCFullYear(),
+  session: YearReadSession = createYearReadSession(userId, isOwnProfile ? services : undefined),
 ): Promise<Activity[] | null> {
   const activities: Activity[] = [];
   if (!isOwnProfile) {
@@ -35,25 +36,24 @@ export async function loadAthleteChartActivities(
     if (cancelled()) return null;
     throw new Error("public_activity_inventory_incomplete");
   }
-  let cursor: QueryDocumentSnapshot<DocumentData> | undefined;
-  while (!cancelled()) {
-    // 기본 문서 ID 정렬: startTime이 없는 레거시 문서도 누락하지 않는다.
-    const snap = await getDocs(query(collection(firestore, "activities"),
-      where("userId", "==", userId),
-      where("deletedAt", "==", null),
-      ...(!isOwnProfile ? [where("visibility", "==", "everyone")] : []),
-      ...(cursor ? [startAfter(cursor)] : []),
-      limit(PAGE_SIZE),
-    ));
-    if (cancelled()) return null;
-    for (const doc of snap.docs) {
-      const activity = { ...doc.data(), id: doc.id } as Activity;
-      activities.push(activity);
-    }
-    if (snap.docs.length < PAGE_SIZE) return activities;
-    cursor = snap.docs[snap.docs.length - 1];
-  }
-  return null;
+  try {
+    if (session.owner?.uid !== userId || session.owner !== session.auth.currentUser) throw new Error("athlete-owner-session-changed");
+    await readRecapYears(userId, cancelled, session);
+    const start = planMonthBounds(year, 0).start, end = planMonthBounds(year + 1, 0).start;
+    await readActivityTimeWindow(userId, { start, end }, cancelled, undefined, session, true);
+    const today = planDayStartMs(Date.now());
+    return readActivityTimeWindow(userId, { start: today - 27 * 86400000, end: today + 86400000 }, cancelled, undefined, session, true);
+  } catch (error) { if (cancelled()) return null; throw error; }
+}
+
+/** 달력 옵션은 이미 확인한 earliest/latest 원본으로 만들며 중간 빈 연도도 선택할 수 있다. */
+export function athleteProfileYears(session: YearReadSession, selectedYear: number) {
+  const currentYear = planCalendarDate(Date.now()).getUTCFullYear();
+  const years = [...session.docs.values()].map(row => row.data().startTime)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0)
+    .map(value => planCalendarDate(value).getUTCFullYear()).filter(year => year <= currentYear);
+  const first = Math.min(currentYear, selectedYear, ...years);
+  return Array.from({ length: currentYear - first + 1 }, (_, index) => currentYear - index);
 }
 
 export function aggregateMonthlyActivities(activities: Activity[], now = new Date(), alreadyAccepted = false): WeeklyStat[] {

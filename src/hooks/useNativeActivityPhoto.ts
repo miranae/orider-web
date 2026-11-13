@@ -1,3 +1,4 @@
+import { logClientError } from "../services/errorLogger";
 import { useEffect, useState } from "react";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -30,6 +31,8 @@ export function useNativeActivityPhoto(photo: NativePhotoReference | undefined, 
     let verifiedAt = 0, checking = false;
     const revoke = (error: unknown) => {
       if (!active) return;
+      const code = (error as { code?: string } | null)?.code;
+      if (code !== "not-found" && code !== "functions/not-found") logClientError("useNativeActivityPhoto.revalidate", error, { activityId, photoId }, services);
       if (url) URL.revokeObjectURL(url);
       url = null;
       setResult({ key, services, url: null, error });

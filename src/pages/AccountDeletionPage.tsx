@@ -53,7 +53,7 @@ export default function AccountDeletionPage() {
         setChecked(true);
         setJob(status);
         setError(null);
-        if (status && status.state !== "complete") timer = setTimeout(() => void check(), 5000);
+        if (status && status.state !== "complete" && status.state !== "manual_required") timer = setTimeout(() => void check(), 5000);
       } catch {
         if (active) setError("statusFailed");
       }

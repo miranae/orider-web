@@ -1,3 +1,4 @@
+import * as errorLogger from "../../services/errorLogger";
 import { FirebaseServicesProvider } from "../../contexts/FirebaseServicesContext";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
@@ -13,7 +14,7 @@ import enTermStrings from "../../i18n/resources/en/termGlossary.json";
 import { cancelEventRegistration } from "../../features/event/detail/cancelRegistration";
 import { auth, getAppCheckToken, ensureAppCheckReady } from "../../services/firebase";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { getEventPublicParticipants } from "../../services/eventPublicParticipants";
+import { getEventPublicParticipantPreview, getEventPublicParticipantsPage, publicParticipantTimestampMs } from "../../services/eventPublicParticipants";
 import EventDetailPage from "./EventDetailPage";
 import EventResultsPage from "./EventResultsPage";
 import EventParticipantsPage from "./EventParticipantsPage";
@@ -25,7 +26,7 @@ const { user, dialog } = vi.hoisted(() => ({
 const signIn = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const authState = { user: user as typeof user | null };
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: authState.user, loading: false, signIn }) }));
-vi.mock("../../services/eventPublicParticipants", async (original) => ({ ...(await original()), getEventPublicParticipants: vi.fn() }));
+vi.mock("../../services/eventPublicParticipants", async (original) => ({ ...(await original()), getEventPublicParticipantPreview: vi.fn(), getEventPublicParticipantsPage: vi.fn() }));
 vi.mock("../../contexts/DialogContext", () => ({ useDialog: () => dialog }));
 vi.mock("../../hooks/useGroup", () => ({ useGroup: () => ({ group: null, loading: false, error: null, inactive: false }) }));
 vi.mock("../../hooks/useGroupNextEvents", () => ({ useGroupNextEvents: () => ({ byGroup: {}, eventByGroup: {} }) }));
@@ -69,9 +70,13 @@ beforeEach(() => {
   mockDocData.set("events/ev", { info: { name: "Event", type: "OPEN_TRAINING", status: "OPEN", creatorId: "host", startTime: Date.now() + 86400000, maxParticipants: 10 }, counters: { totalRegistered: 3 } });
   mockDocData.set("events/ev/participants/actor", { userId: "actor", role: "RIDER", status: "REGISTERED" });
   mockCollectionData.set("events/ev/participants_public", [{ id: "actor", userId: "actor", displayName: "Public rider", status: "FINISHED", finishedAt: Date.now() + 90000000, category: "A", bibNumber: 2, realName: "PRIVATE NAME", avgPower: 9999 }]);
-  vi.mocked(getEventPublicParticipants).mockImplementation(async (eventId) => ({
-    participants: (mockCollectionData.get(`events/${eventId}/participants_public`) ?? []).map((data) => ({ ...data, userId: data.userId ?? data.id })) as never,
-    counters: { totalRegistered: 3, byCategory: {} },
+  const publicRows = (eventId: string) => (mockCollectionData.get(`events/${eventId}/participants_public`) ?? []).map(data => ({ ...data, userId: data.userId ?? data.id }));
+  vi.mocked(getEventPublicParticipantPreview).mockImplementation(async eventId => ({
+    participants: publicRows(eventId).sort((a,b) => (publicParticipantTimestampMs(b.joinedAt) ?? 0) - (publicParticipantTimestampMs(a.joinedAt) ?? 0)).slice(0,5) as never,
+    counters: { totalRegistered: 3, byCategory: {} }, countersStatus: "ready", counterRevision: "fixture", projectionVersion: 2, complete: true, nextCursor: null,
+  }));
+  vi.mocked(getEventPublicParticipantsPage).mockImplementation(async eventId => ({
+    participants: publicRows(eventId) as never, counters: null, countersStatus: "pending", counterRevision: null, projectionVersion: 2, complete: true, nextCursor: null,
   }));
   vi.mocked(getDoc).mockImplementation(realGetDoc);
   vi.mocked(getDocs).mockImplementation((q, ...args) => {
@@ -89,7 +94,8 @@ describe("event participant privacy boundaries", () => {
     show(<FirebaseServicesProvider services={services}><EventDetailPage /></FirebaseServicesProvider>);
     await screen.findAllByText("Event");
     expect(doc).toHaveBeenCalledWith(isolatedDatabase, "events", "ev");
-    await waitFor(() => expect(getEventPublicParticipants).toHaveBeenCalledWith("ev", services));
+    await waitFor(() => expect(getEventPublicParticipantPreview).toHaveBeenCalledWith("ev", services));
+    await waitFor(() => expect(doc).toHaveBeenCalledWith(isolatedDatabase, "users_public", "actor"));
   });
 
   it("uses the single linked course summary without a blank cover or invented category", async () => {
@@ -224,16 +230,70 @@ describe("event participant privacy boundaries", () => {
   });
 
   it.each(["route", "account"])("discards stale recent participants after %s changes", async (boundary) => {
-    let finish!: (value: Awaited<ReturnType<typeof getEventPublicParticipants>>) => void;
-    vi.mocked(getEventPublicParticipants).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    let finish!: (value: Awaited<ReturnType<typeof getEventPublicParticipantPreview>>) => void;
+    vi.mocked(getEventPublicParticipantPreview).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     show(<EventDetailPage />);
     await waitFor(() => expect(finish).toBeDefined());
     if (boundary === "route") act(() => navigateRoute("/ko/event/other"));
     else simulateLogin({ uid: "other-account" });
-    await act(async () => finish({ participants: [{ userId: "actor", displayName: "Stale recent" }], counters: { totalRegistered: 1, byCategory: {} } }));
+    await act(async () => finish({ participants: [{ userId: "stale-preview", displayName: "Stale recent" }], counters: null, countersStatus: "pending", counterRevision: null, projectionVersion: 2, complete: true, nextCursor: null }));
     expect(screen.queryByText("Stale recent")).toBeNull();
+    expect(vi.mocked(getDoc).mock.calls.some(([ref]) => ref.path === "users_public/stale-preview")).toBe(false);
   });
 
+  it("refreshes only the returned five participants from current public profiles and retains individual DTO fallbacks", async () => {
+    const logger = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+    mockCollectionData.set("events/ev/participants_public", Array.from({ length: 5001 }, (_, i) => ({
+      id: `participant-${i}`, displayName: `Old ${i}`, joinedAt: i,
+    })));
+    mockDocData.set("users_public/participant-5000", { nickname: "Fresh nickname" });
+    vi.mocked(getDoc).mockImplementation((ref, ...args) => ref.path === "users_public/participant-4999" ? Promise.reject(new Error("permission-denied")) : realGetDoc(ref, ...args));
+    show(<EventDetailPage />);
+    await screen.findByText("Fresh nickname");
+    expect(screen.queryByText("Old 5000")).toBeNull(); expect(screen.getByText("Old 4999")).toBeInTheDocument();
+    const reads = vi.mocked(getDoc).mock.calls.filter(([ref]) => /^users_public\/participant-/u.test(ref.path));
+    expect(reads).toHaveLength(5); expect(new Set(reads.map(([ref]) => ref.path)).size).toBe(5);
+    expect(reads.every(([ref]) => Number(ref.path.split("-").at(-1)) >= 4996)).toBe(true);
+    expect(getDocs).not.toHaveBeenCalled();
+    expect(logger).toHaveBeenCalledExactlyOnceWith("EventDetailPage.loadRecentParticipantProfile", expect.any(Error), { eventId: "ev", userId: "participant-4999" }, expect.objectContaining({ auth: expect.anything(), functions: expect.anything() }));
+    logger.mockRestore();
+  });
+  it.each(["route", "account", "deadline"])("ignores late public-profile enrichment after %s revocation", async boundary => {
+    let finish!: (value: Awaited<ReturnType<typeof getDoc>>) => void;
+    vi.mocked(getDoc).mockImplementation((ref, ...args) => ref.path === "users_public/actor" ? new Promise(resolve => { finish = resolve; }) : realGetDoc(ref, ...args));
+    show(<EventDetailPage />); await screen.findByText("Public rider"); await waitFor(() => expect(finish).toBeDefined());
+    const clock = boundary === "deadline" ? vi.spyOn(Date, "now").mockReturnValue(Date.now() + 13_000) : null;
+    if (boundary === "route") act(() => navigateRoute("/ko/event/other"));
+    if (boundary === "account") simulateLogin({ uid: "replacement" });
+    mockDocData.set("users_public/actor", { nickname: "Late profile" });
+    const snapshot = await realGetDoc({ path: "users_public/actor" } as Parameters<typeof getDoc>[0]);
+    await act(async () => finish(snapshot));
+    expect(screen.queryByText("Late profile")).toBeNull(); clock?.mockRestore();
+  });
+  it("does not start profile followups when the preview consumes the enrichment deadline", async () => {
+    let finish!: (value: Awaited<ReturnType<typeof getEventPublicParticipantPreview>>) => void;
+    vi.mocked(getEventPublicParticipantPreview).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    show(<EventDetailPage />); await waitFor(() => expect(finish).toBeDefined());
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 13_000);
+    try {
+      await act(async () => finish({ participants: [{ userId: "late-start", displayName: "DTO fallback" }], counters: null, countersStatus: "pending", counterRevision: null, projectionVersion: 2, complete: true, nextCursor: null }));
+      expect(screen.getByText("DTO fallback")).toBeInTheDocument();
+      expect(vi.mocked(getDoc).mock.calls.some(([ref]) => ref.path === "users_public/late-start")).toBe(false);
+    } finally { clock.mockRestore(); }
+  });
+  it("fences an old provider's profile response when the SDK user and event are unchanged", async () => {
+    let finish!: (value: Awaited<ReturnType<typeof getDoc>>) => void, profileRequests = 0;
+    vi.mocked(getDoc).mockImplementation((ref, ...args) => ref.path === "users_public/actor" && ++profileRequests === 1
+      ? new Promise(resolve => { finish = resolve; }) : realGetDoc(ref, ...args));
+    const services = { auth, firestore: { provider: "first" } as never, functions: {} as never, ensureAppCheckReady, getAppCheckToken };
+    const tree = (provider: typeof services) => <MemoryRouter initialEntries={["/ko/event/ev"]}><RouteControl /><Routes><Route path="/:lang/event/:eventId" element={<FirebaseServicesProvider services={provider}><EventDetailPage /></FirebaseServicesProvider>} /></Routes></MemoryRouter>;
+    const view = render(tree(services)); await waitFor(() => expect(finish).toBeDefined());
+    const next = { ...services, firestore: { provider: "second" } as never };
+    view.rerender(tree(next)); await waitFor(() => expect(doc).toHaveBeenCalledWith(next.firestore, "users_public", "actor"));
+    mockDocData.set("users_public/actor", { nickname: "Old provider name" });
+    const snapshot = await realGetDoc({ path: "users_public/actor" } as Parameters<typeof getDoc>[0]);
+    await act(async () => finish(snapshot)); expect(screen.queryByText("Old provider name")).toBeNull();
+  });
   it("preserves nanosecond ordering when recent joiners share the same second", async () => {
     mockCollectionData.set("events/ev/participants_public", Array.from({ length: 6 }, (_, i) => ({
       id: `recent-${i}`, displayName: `Precision ${i}`,
@@ -277,7 +337,7 @@ describe("event participant privacy boundaries", () => {
     simulateLogout();
     show(<EventResultsPage />);
     await screen.findAllByText("Public rider");
-    expect(getEventPublicParticipants).toHaveBeenCalledWith("ev", expect.objectContaining({ auth, firestore: expect.anything() }));
+    expect(getEventPublicParticipantsPage).toHaveBeenCalledWith("ev", null, expect.objectContaining({ auth, firestore: expect.anything() }), expect.any(Function));
     expect(getDocs).not.toHaveBeenCalled();
   });
 
@@ -312,21 +372,22 @@ describe("event participant privacy boundaries", () => {
   });
 
   it("never falls back to private participants after callable rejection", async () => {
-    vi.mocked(getEventPublicParticipants).mockRejectedValue(new Error("permission-denied"));
+    vi.mocked(getEventPublicParticipantsPage).mockRejectedValue(new Error("permission-denied"));
     show(<EventResultsPage />);
-    await screen.findByText("permission-denied");
+    await screen.findByRole("alert");
+    expect(screen.getByRole("alert")).toHaveTextContent(eventStrings["resultsView.loadError"]);
     expect(getDocs).not.toHaveBeenCalled();
     expect(screen.queryByText("Public rider")).toBeNull();
   });
 
   it.each(["route", "account"])("discards stale public roster after %s changes", async (boundary) => {
-    let finish!: (value: Awaited<ReturnType<typeof getEventPublicParticipants>>) => void;
-    vi.mocked(getEventPublicParticipants).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    let finish!: (value: Awaited<ReturnType<typeof getEventPublicParticipantsPage>>) => void;
+    vi.mocked(getEventPublicParticipantsPage).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
     show(<EventResultsPage />);
-    await waitFor(() => expect(getEventPublicParticipants).toHaveBeenCalled());
+    await waitFor(() => expect(getEventPublicParticipantsPage).toHaveBeenCalled());
     if (boundary === "route") act(() => navigateRoute("/ko/event/other"));
     else simulateLogin({ uid: "other-account" });
-    await act(async () => finish({ participants: [{ userId: "actor", displayName: "Stale rider" }], counters: { totalRegistered: 1, byCategory: {} } }));
+    await act(async () => finish({ participants: [{ userId: "actor", displayName: "Stale rider" }], counters: null, countersStatus: "pending", counterRevision: null, projectionVersion: 2, complete: true, nextCursor: null }));
     expect(screen.queryByText("Stale rider")).toBeNull();
   });
 
@@ -356,7 +417,7 @@ describe("event participant privacy boundaries", () => {
     expect(screen.queryByText("9999")).toBeNull();
     expect(vi.mocked(getDoc).mock.calls.every(([ref]) => !ref.path.startsWith("users/"))).toBe(true);
     expect(getDocs).not.toHaveBeenCalled();
-    expect(getEventPublicParticipants).toHaveBeenCalledWith("ev", expect.objectContaining({ auth, firestore: expect.anything() }));
+    expect(getEventPublicParticipantsPage).toHaveBeenCalledWith("ev", null, expect.objectContaining({ auth, firestore: expect.anything() }), expect.any(Function));
   });
 
   it("keeps six v2 unverified riders pending without a podium, duration, or completion share", async () => {
@@ -378,7 +439,7 @@ describe("event participant privacy boundaries", () => {
     expect(screen.queryByLabelText(eventStrings["shareCard.completion"])).toBeNull();
     expect(screen.queryByText("0:00:01")).toBeNull();
     expect(getDocs).not.toHaveBeenCalled();
-    expect(getEventPublicParticipants).toHaveBeenCalledWith("ev", expect.objectContaining({ auth, firestore: expect.anything() }));
+    expect(getEventPublicParticipantsPage).toHaveBeenCalledWith("ev", null, expect.objectContaining({ auth, firestore: expect.anything() }), expect.any(Function));
   });
 
   it("keeps six v2 RIDING riders pending if a finished event has not verified their rides", async () => {
@@ -677,7 +738,7 @@ describe("event participant privacy boundaries", () => {
     expect(screen.queryByText("Event")).toBeNull();
     expect(screen.getAllByText("Second event").length).toBeGreaterThan(0);
     expect(getDocs).not.toHaveBeenCalled();
-    expect(getEventPublicParticipants).toHaveBeenCalledWith("ev2", expect.objectContaining({ auth, firestore: expect.anything() }));
+    expect(getEventPublicParticipantsPage).toHaveBeenCalledWith("ev2", null, expect.objectContaining({ auth, firestore: expect.anything() }), expect.any(Function));
   });
 
 });
