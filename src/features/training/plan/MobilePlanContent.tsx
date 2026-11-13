@@ -78,6 +78,8 @@ export interface MobilePlanContentProps extends PlanCalendarLoads {
   selectedDate?: string;
   embedded?: boolean;
   chromeSlot?: ReactNode;
+  /** 오늘 운동 결정 카드 — 오늘의 다음 운동 바로 아래에 둔다. */
+  decisionSlot?: ReactNode;
   adaptationSlot?: ReactNode;
   actionsSlot?: ReactNode;
   footerSlot?: ReactNode;
@@ -108,6 +110,7 @@ export default function MobilePlanContent({
   nextAction,
   embedded = false,
   chromeSlot,
+  decisionSlot,
   adaptationSlot,
   actionsSlot,
   footerSlot,
@@ -184,6 +187,22 @@ export default function MobilePlanContent({
       {embedded && <h1 className="orider-embedded-page-title">{t("page.embeddedTitle")}</h1>}
       {chromeSlot}
 
+      {/* 훈련 계획의 첫 항목은 오늘의 다음 운동이다(코치 "오늘 훈련" 탭 제거, 2026-11-13). */}
+      {nextWorkout && (
+        <Card data-testid="K4-5m-2" padding="compact" className="mobile-plan-next">
+          <div className="mobile-plan-next-main">
+            <div className="mobile-plan-next-copy">
+              <Text as="span" variant="eyebrow" style={{ color: "var(--lime)" }}>{goalDate && kstDateString(nextWorkout.date) > kstDateString(goalDate.getTime()) ? t("scope.nextAfterGoal") : kstDateString(nextWorkout.date) === todayStr ? t("mobile.todayNext") : t("mobile.weekNext")}</Text>
+              <strong><GlossaryText>{nextWorkoutLabel}</GlossaryText></strong>
+              <span>{kstDateString(nextWorkout.date) !== todayStr && `${kstDateString(nextWorkout.date)} · `}{nextDuration > 0 && `${nextDuration} ${t("mobile.minutesUnit")}`}{effectivePlanTSS(nextWorkout) > 0 && <>{nextDuration > 0 && " · "}<GlossaryText>{`${effectivePlanTSS(nextWorkout)} TSS`}</GlossaryText></>}</span>
+            </div>
+            {onEditWorkout && <Button type="button" size="sm" onClick={() => { if (actionable) onEditWorkout(actionable.day, actionable.weekId, actionable.dayIndex); }}>{t("mobile.edit")}</Button>}
+          </div>
+        </Card>
+      )}
+
+      {decisionSlot && <div className="plan-decision-slot">{decisionSlot}</div>}
+
       {goalTitle && (
         <Card padding="compact" data-testid="K4-2" className="mobile-plan-goal">
           <Text as="div" variant="eyebrow" className="mobile-plan-section-label">{t("goal")}</Text>
@@ -214,19 +233,6 @@ export default function MobilePlanContent({
             <summary style={{ cursor: "pointer", fontWeight: 600 }}>{t("mobile.managePlan")}</summary>
             <div style={{ paddingTop: "var(--space-2)" }}>{actionsSlot}</div>
           </details>)}
-        </Card>
-      )}
-
-      {nextWorkout && (
-        <Card data-testid="K4-5m-2" padding="compact" className="mobile-plan-next">
-          <div className="mobile-plan-next-main">
-            <div className="mobile-plan-next-copy">
-              <Text as="span" variant="eyebrow" style={{ color: "var(--lime)" }}>{goalDate && kstDateString(nextWorkout.date) > kstDateString(goalDate.getTime()) ? t("scope.nextAfterGoal") : kstDateString(nextWorkout.date) === todayStr ? t("mobile.todayNext") : t("mobile.weekNext")}</Text>
-              <strong><GlossaryText>{nextWorkoutLabel}</GlossaryText></strong>
-              <span>{kstDateString(nextWorkout.date) !== todayStr && `${kstDateString(nextWorkout.date)} · `}{nextDuration > 0 && `${nextDuration} ${t("mobile.minutesUnit")}`}{effectivePlanTSS(nextWorkout) > 0 && <>{nextDuration > 0 && " · "}<GlossaryText>{`${effectivePlanTSS(nextWorkout)} TSS`}</GlossaryText></>}</span>
-            </div>
-            {onEditWorkout && <Button type="button" size="sm" onClick={() => { if (actionable) onEditWorkout(actionable.day, actionable.weekId, actionable.dayIndex); }}>{t("mobile.edit")}</Button>}
-          </div>
         </Card>
       )}
 

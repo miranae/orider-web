@@ -273,7 +273,7 @@ export default function FitnessCoachBriefing({ part = "all", impacts, selectedAc
             <Stat label={<GlossaryText>{t("coach.metric.tsb")}</GlossaryText>} value={signed(current.tsb)} />
           </div>
         </div>
-        {part === "condition" && <div className="fitness-coach__story-primary-action"><LocalizedLink className={buttonClass({ variant: "primary", block: true })} data-testid="K1-1-3" to={`/coach/today?sport=${discipline}`}>{t("today.header.title")} →</LocalizedLink></div>}
+        {part === "condition" && <div className="fitness-coach__story-primary-action"><LocalizedLink className={buttonClass({ variant: "primary", block: true })} data-testid="K1-1-3" to={`/coach/plan?sport=${discipline}`}>{t("today.header.title")} →</LocalizedLink></div>}
         {/* 컨디션은 기준일·계산 출처 줄을 두지 않는다. */}
         {currentBasis && part !== "condition" && <div className="fitness-coach__summary-meta">
           {currentDate ? <Text variant="caption" tone="secondary">{t("coach.currentAsOf", { date: new Date(`${currentDate}T00:00:00.000Z`).toLocaleDateString(locale, { month: "short", day: "numeric", timeZone: "UTC" }) })}</Text>

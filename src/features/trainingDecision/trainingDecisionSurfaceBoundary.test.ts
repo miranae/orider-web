@@ -58,7 +58,8 @@ describe("training decision surface boundary", () => {
     expect(plan).not.toHaveTextContent("계획 변경 검토");
     expect(plan).not.toHaveTextContent("Coach");
     expect(plan).not.toHaveTextContent("Execution");
-    expect(plan.querySelector("a")).toHaveAttribute("href", "/ko/coach/today?sport=bike");
+    // 계획 카드는 없앤 "오늘 훈련"으로 보내는 링크를 두지 않는다.
+    expect(plan.querySelector("a")).toBeNull();
     expect(plan.querySelector("button")).toBeNull();
 
     const today = renderSurface("today")!;
