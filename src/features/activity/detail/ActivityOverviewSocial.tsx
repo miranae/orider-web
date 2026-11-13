@@ -76,13 +76,19 @@ export default function ActivityOverviewSocial(props: Props) {
         {props.memoTruncated && <Text as="p" variant="caption" tone="secondary">{t("overviewSocial.memoPartial")}</Text>}
       </div> : <Text as="p" variant="bodyMedium" tone="tertiary" role={props.memoLoading ? "status" : undefined}>{t(props.memoLoading ? "detail.loadingData" : props.memoError ? "overviewSocial.memoUnavailable" : "overviewSocial.noMemo")}</Text>}
       <div className="activity-overview-photos" style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(5, safePhotos.length))}, minmax(0, 1fr))` }} aria-label={t("page.photos")}>
-        {safePhotos.slice(0, 5).map((item, position) => <button type="button" className="activity-overview-photo" key={item.id}
-          aria-label={t("overviewSocial.openPhoto", { index: position + 1, count: total })}
-          onClick={() => { setSelected(item.id); if (total > safePhotos.length) load(); }}>
-          {item.nativePhoto ? <NativeActivityPhotoImage nativePhoto={item.nativePhoto} alt={item.caption ?? ""} loading="lazy" /> : <img src={item.url} alt={item.caption ?? ""} loading="lazy" />}
-          {playable(item) && <span className="activity-overview-video-play" aria-label={t("card.videoPlay")}><Play size={ICON_SIZE.lg} /></span>}
-          {position === 4 && total > 5 && <span className="activity-overview-photo-more">+{total - 4}</span>}
-        </button>)}
+        {safePhotos.slice(0, 5).map((item, position) => <div className="activity-overview-photo" key={item.id}>
+          <button type="button" className="activity-overview-photo-open"
+            aria-label={t("overviewSocial.openPhoto", { index: position + 1, count: total })}
+            onClick={() => { setSelected(item.id); if (total > safePhotos.length) load(); }}>
+            {item.nativePhoto ? <NativeActivityPhotoImage nativePhoto={item.nativePhoto} alt={item.caption ?? ""} loading="lazy" /> : <img src={item.url} alt={item.caption ?? ""} loading="lazy" />}
+            {position === 4 && total > 5 && <span className="activity-overview-photo-more">+{total - 4}</span>}
+          </button>
+          {playable(item) && <>
+            {item.durationSeconds != null && <span className="activity-feed-video-time">{Math.floor(item.durationSeconds / 60)}:{String(Math.floor(item.durationSeconds % 60)).padStart(2, "0")}</span>}
+            <span className="activity-feed-video-play"><IconButton variant="neutral" size="sm" aria-label={t("card.videoPlay")} icon={<Play size={ICON_SIZE.md} />}
+              onClick={() => { setSelected(item.id); if (total > safePhotos.length) load(); }} /></span>
+          </>}
+        </div>)}
       </div>
       {!safePhotos.length && !props.photoError && (props.loadingPhotos || total > 0 || props.photosKnown === false) && <Text as="p" variant="bodySmall" tone="tertiary" role={props.loadingPhotos ? "status" : undefined}>{t(props.loadingPhotos ? "detail.loadingData" : total > 0 || props.photosKnown === false ? "overviewSocial.photosPending" : "overviewSocial.noPhotos")}</Text>}
       <div className="activity-overview-photo-actions">
