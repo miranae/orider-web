@@ -137,6 +137,27 @@ describe("notification signal subscription", () => {
       expect(state.list).toHaveBeenCalledTimes(1);
     } finally { vi.mocked(onSnapshot).mockImplementation(original!); }
   });
+  it("reads again when a newer signal arrives during a tab-return or explicit refresh", async () => {
+    const { onSnapshot } = await import("firebase/firestore");
+    const original = vi.mocked(onSnapshot).getMockImplementation();
+    let listener: Listener | undefined;
+    vi.mocked(onSnapshot).mockImplementation(((_ref: unknown, next: Listener) => { listener = next; return () => {}; }) as unknown as typeof onSnapshot);
+    try {
+      const { result } = renderHook(() => useNotificationInbox());
+      await act(async () => listener?.(signal(1)));
+      expect(state.list).toHaveBeenCalledTimes(1);
+      let resolve!: (value: unknown) => void;
+      state.list.mockReturnValueOnce(new Promise(r => { resolve = r; }));
+      act(() => { void result.current.refresh(); });
+      expect(state.list).toHaveBeenCalledTimes(2);
+      await act(async () => listener?.(signal(2)));
+      expect(state.list).toHaveBeenCalledTimes(2);
+      state.list.mockResolvedValue({ items: [{ id: "arrived-during-explicit-refresh" }], nextCursor: null });
+      await act(async () => resolve({ items: [], nextCursor: null }));
+      await waitFor(() => expect(state.list).toHaveBeenCalledTimes(3));
+      await waitFor(() => expect(result.current.items[0]?.id).toBe("arrived-during-explicit-refresh"));
+    } finally { vi.mocked(onSnapshot).mockImplementation(original!); }
+  });
   it("reads again after an in-flight read when a newer signal arrives meanwhile", async () => {
     const { onSnapshot } = await import("firebase/firestore");
     const original = vi.mocked(onSnapshot).getMockImplementation();

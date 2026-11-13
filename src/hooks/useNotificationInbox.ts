@@ -42,8 +42,18 @@ export function useNotificationInbox() {
     // 끝난 뒤 한 번 더 읽는다(합치기만 하면 진행 중 요청에 묻혀 새 알림을 놓친다).
     const pull = () => {
       if (disposed || document.visibilityState !== "visible") return;
-      if (pendingRefresh.current?.client === client && pendingRefresh.current.generation === generation.current) { again = true; return; }
-      void refresh().finally(() => { if (again && !disposed) { again = false; pull(); } });
+      const pending = pendingRefresh.current;
+      if (pending?.client === client && pending.generation === generation.current) {
+        // 진행 중인 조회가 pull 이 아니라 탭 복귀·직접 refresh() 로 시작됐어도, 그 응답은 새 알림보다
+        // 앞설 수 있으므로 끝난 뒤 한 번 더 읽는다(이 신호를 버리지 않는다).
+        if (!again) { again = true; void pending.promise.finally(drain); }
+        return;
+      }
+      void refresh().finally(drain);
+    };
+    const drain = () => {
+      if (!again || disposed) return;
+      again = false; pull();
     };
     const visibility = () => {
       if (document.visibilityState !== "visible") { generation.current += 1; again = false; setState(null); setLoading(false); }
