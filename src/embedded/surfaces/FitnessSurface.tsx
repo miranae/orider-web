@@ -5,7 +5,6 @@ import { useSearchParams } from "react-router-dom";
 
 import EmbeddedSurfaceState from "./EmbeddedSurfaceState";
 import CoachConditionPage from "../../pages/coach/CoachConditionPage";
-import CoachTodayPage from "../../pages/coach/CoachTodayPage";
 import CoachAnalysisPage from "../../pages/coach/CoachAnalysisPage";
 // 오늘 탭의 "활동 기록·수행 확인" — 코치 임베드 안에서 연다(무거운 기록 화면이라 필요할 때만 불러온다).
 const TrainingLogPage = lazy(() => import("../../pages/TrainingLogPage"));
@@ -22,7 +21,7 @@ export default function FitnessSurface({ onReady, retryKey, active = true }: Fit
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get("sport");
   const sport = requested === "run" || requested === "bike" || requested === "swim" && isSportUiEnabled(requested)
-    || requested === "tri" && !["today", "analysis"].includes(searchParams.get("page") ?? "") ? requested : "bike";
+    || requested === "tri" && searchParams.get("page") !== "analysis" ? requested : "bike";
   // 기록 화면의 종목은 활동 필터(전체·종목)라 코치 부하 종목으로 바꾸지 않는다.
   const recordsPage = searchParams.get("page") === "records";
   useEffect(() => {
@@ -64,11 +63,9 @@ export default function FitnessSurface({ onReady, retryKey, active = true }: Fit
     <main className="orider-embedded-surface" data-testid="embedded-fitness">
       {active && <CoachFitnessModelContext.Provider value={model}>
         {recordsPage ? <Suspense fallback={null}><TrainingLogPage /></Suspense>
-          : searchParams.get("page") === "today" ? <CoachTodayPage />
           : searchParams.get("page") === "analysis" ? <CoachAnalysisPage />
           : <CoachConditionPage />}
-        {/* 오늘 훈련은 화면 안에 "AI 코치에게 분석 요청" 을 둔다 — 떠 있는 버튼을 겹쳐 두지 않는다. */}
-        {searchParams.get("page") !== "today" && <CoachQuestionEntry model={model} page={recordsPage ? "today" : searchParams.get("page") === "analysis" ? "analysis" : "condition"} />}
+        <CoachQuestionEntry model={model} page={recordsPage ? "today" : searchParams.get("page") === "analysis" ? "analysis" : "condition"} />
       </CoachFitnessModelContext.Provider>}
     </main>
   );

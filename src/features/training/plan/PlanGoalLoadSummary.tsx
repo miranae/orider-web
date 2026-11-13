@@ -17,8 +17,7 @@ export default function PlanGoalLoadSummary({ scope, load, compactEntry }: { com
       <Stat label={t("loadComparison.actual")} value={number(summary.actualTss)} unit="TSS" />
       <Stat label={t("goalLoad.attainment")} value={number(summary.ratioPct)} unit="%" />
       <Stat label={t("loadComparison.difference")} value={number(summary.deltaTss, true)} unit="TSS" />
-    </div>
-    <Text as="p" variant="caption" tone="secondary">{t("goalLoad.basis")}</Text></>}
+    </div></>}
     <Text as="p" variant="caption" tone="secondary">{scope.expired ? t("goalLoad.expired") : scope.remainingWeeks != null ? t("goalLoad.remaining", { count: scope.remainingWeeks }) : t("goalLoad.invalid")}</Text>
     {scope.valid && load.state === "loading" && <Text as="p" variant="caption" role="status">{t("loadComparison.loading")}</Text>}
     {scope.valid && summary.unknownCount > 0 && <Text as="p" variant="caption" tone="warning">{t("loadComparison.unknownLoads", { count: summary.unknownCount })}</Text>}

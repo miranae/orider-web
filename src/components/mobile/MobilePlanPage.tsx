@@ -16,6 +16,7 @@ import type { PlanCalendarLoads } from "../../features/training/plan/PlanDayLoad
 
 export interface MobilePlanPageProps extends PlanCalendarLoads {
   nextAction?: PlanNextAction | null;
+  decisionSlot?: ReactNode;
   selectedDate?: string;
   currentWeek: PlanWeek | null;
   weekLabel: string;
@@ -51,6 +52,7 @@ export default function MobilePlanPage({
   loadState,
   selectedDate,
   nextAction,
+  decisionSlot,
   currentWeek,
   weekLabel,
   goalId,
@@ -90,6 +92,7 @@ export default function MobilePlanPage({
       dayLoads={dayLoads}
       loadState={loadState}
       selectedDate={selectedDate}
+      decisionSlot={decisionSlot}
       nextAction={nextAction}
       currentWeek={currentWeek}
       weekLabel={weekLabel}

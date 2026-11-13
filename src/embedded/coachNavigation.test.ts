@@ -20,8 +20,9 @@ describe("authorized coach navigation", () => {
       .toBe("/ko/embed/fitness?sport=all&page=records");
     expect(embeddedCoachPage("records")).toBe("records");
     expect(coachTabForPage("records")).toBe("plan");
-    expect(coachTabForPage("today")).toBe("plan");
-    expect(embeddedCoachPage("today")).toBe("today");
+    // "오늘 훈련"을 없앴다(2026-11-13) — 옛 page=today·/coach/today 는 훈련 계획을 연다.
+    expect(embeddedCoachPage("today")).toBe("plan");
+    expect(embeddedCoachDestination("/ko/embed/fitness", "/ko/coach/today?sport=run")).toBe("/ko/embed/fitness?sport=run&page=plan");
     expect(coachTabForPage("plan")).toBe("plan");
     expect(embeddedCoachPage("unknown")).toBeNull();
   });
