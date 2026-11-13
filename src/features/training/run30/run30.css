@@ -255,9 +255,11 @@
   margin-top: var(--space-2);
 }
 
+/* 좌우 거터는 앱 셸(.orider-embedded-root.site-shell--padded)이 준다(2026-11-03). 여기서 또 주면
+   러닝 카드만 계획 대비 기록·구분선보다 좌우 16씩 좁아진다 — 위아래 간격만 둔다. */
 .orider-embedded-surface--plan .run30,
 .orider-embedded-surface--plan > .run30-enroll {
-  margin: var(--space-2) var(--space-4);
+  margin: var(--space-2) 0;
 }
 
 /* Workout inspection: source duration and exact source steps, independent of start eligibility. */
