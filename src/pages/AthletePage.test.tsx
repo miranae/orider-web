@@ -1,3 +1,4 @@
+import * as errorLogger from "../services/errorLogger";
 import { installActivityQueryFake } from "../__tests__/fixtures/activityQueryFake";
 import { getDocs } from "firebase/firestore";
 import { auth } from "../services/firebase";
@@ -679,4 +680,22 @@ it("shows twelve of thirty-six cached highlights and keeps all of them reachable
   }
   expect(screen.getByRole("link", { name: /Buffered highlight 35/ })).toBeVisible();
   expect(screen.queryByRole("button", { name: "하이라이트 12개 더 보기" })).not.toBeInTheDocument();
+});
+
+
+it.each(["ensure", "gear"])("reports a failed %s operation through the injected services without hiding retry", async operation => {
+  const error = new Error("profile-read-offline");
+  const logger = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
+  if (operation === "ensure") setCallableImplementation("ensureAthleteProfile", () => { throw error; });
+  renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" } });
+  if (operation === "gear") {
+    const button = await screen.findByRole("button", { name: "장비 기록 50개 검사" });
+    vi.mocked(getDocs).mockRejectedValueOnce(error);
+    fireEvent.click(button);
+  }
+  await waitFor(() => expect(logger).toHaveBeenCalledWith(
+    operation === "ensure" ? "AthletePage.ensureAthleteProfile" : "AthletePage.inspectGear",
+    error, expect.objectContaining({ userId: "athlete-1" }),
+    expect.objectContaining({ auth: expect.anything(), functions: expect.anything() }),
+  ));
 });

@@ -222,7 +222,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     totalsRetry.current = null;
     void callAthleteProfile<unknown>(services, userId, "ensureAthleteProfile", { retry }, () => !cancelled && profileReadIdentity.current === readIdentity)
       .then(value => { if (cancelled) return; const root = parseAthleteProfile(value, userId); if (!root) throw new Error("athlete-profile-invalid-root"); setProfileTotals({ identity: readIdentity, value: root, attempt: totalsAttempt }); })
-      .catch(() => { if (!cancelled) setTotalsError(true); });
+      .catch(error => { if (!cancelled) { logClientError("AthletePage.ensureAthleteProfile", error, { userId }, services); setTotalsError(true); } });
     return () => { cancelled = true; };
   }, [userId, isOwnProfile, totalsAttempt, readIdentity, liveTotals?.epoch]);
   const [ownerPhotos, setOwnerPhotos] = useState<AthletePhoto[]>([]);
@@ -319,7 +319,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     const session = gearSessionRef.current;
     setGearBusy(true); setGearError(false); setGearLimited(false);
     try { const result = await runGearInspection(session, services, () => gearSessionRef.current === session, all); if (gearSessionRef.current === session) setGearLimited(result.limited); }
-    catch { if (gearSessionRef.current === session) setGearError(true); }
+    catch (error) { if (gearSessionRef.current === session) { logClientError("AthletePage.inspectGear", error, { userId, all, loaded: session.loaded }, services); setGearError(true); } }
     finally { if (gearSessionRef.current === session) { setGearBusy(false); setGearVersion(value => value + 1); } }
   };
 
