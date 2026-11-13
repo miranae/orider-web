@@ -34,6 +34,7 @@ vi.mock("firebase/functions", () => ({
 
 vi.mock("firebase/firestore", () => ({
   doc: vi.fn((...args: unknown[]) => ({ kind: "doc", args })),
+  getDocFromServer: vi.fn(async () => ({ exists: () => false, data: () => ({}) })),
   getDoc: vi.fn(async () => ({ exists: () => false, data: () => ({}) })),
   setDoc: vi.fn(async () => undefined),
   updateDoc: (...args: unknown[]) => mocks.updateDoc(...args),
