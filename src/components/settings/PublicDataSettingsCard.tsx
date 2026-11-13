@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { doc, getDocFromServer, setDoc } from "firebase/firestore";
 import { useAuth } from "../../contexts/AuthContext";
@@ -7,20 +8,21 @@ import { SettingsCard, InlineRow, Toggle } from "./_primitives";
 import { Button } from "../../theme/components";
 
 export const PUBLIC_DATA_FIELDS = [
-  { key: "heartRate", label: "심박", defaultPublic: true },
-  { key: "power", label: "파워", defaultPublic: true },
-  { key: "training", label: "훈련 지표 (TSS·IF)", defaultPublic: true },
-  { key: "cadence", label: "케이던스", defaultPublic: true },
-  { key: "calories", label: "칼로리", defaultPublic: true },
-  { key: "thresholds", label: "내 기준값 (FTP·최대 심박 설정·LTHR)", defaultPublic: false },
+  { key: "heartRate", labelKey: "publicData.heartRate", defaultPublic: true },
+  { key: "power", labelKey: "publicData.power", defaultPublic: true },
+  { key: "training", labelKey: "publicData.training", defaultPublic: true },
+  { key: "cadence", labelKey: "publicData.cadence", defaultPublic: true },
+  { key: "calories", labelKey: "publicData.calories", defaultPublic: true },
+  { key: "thresholds", labelKey: "publicData.thresholds", defaultPublic: false },
 ] as const;
 
 export function PublicDataSettingsCard() {
+  const { t } = useTranslation("settings");
   const { user } = useAuth();
   const uid = user && !user.isAnonymous ? user.uid : null;
   const [state, setState] = useState<{ owner: string | null; values: Record<string, boolean>; ready: boolean }>({ owner: null, values: {}, ready: false });
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<"loadFailed" | "saveFailed" | null>(null);
   const [reload, setReload] = useState(0);
   useEffect(() => {
     let current = true;
@@ -34,7 +36,7 @@ export function PublicDataSettingsCard() {
       }
     }).catch(reason => {
       logClientError("PublicDataSettings.load", reason);
-      if (current) setError("공개 데이터 설정을 불러오지 못했습니다.");
+      if (current) setError("loadFailed");
     });
     return () => { current = false; };
   }, [uid, reload]);
@@ -49,14 +51,14 @@ export function PublicDataSettingsCard() {
       setError(null);
     } catch (reason) {
       logClientError("PublicDataSettings.save", reason, { field: key });
-      setError("공개 데이터 설정을 저장하지 못했습니다.");
+      setError("saveFailed");
     } finally { setSaving(false); }
   }
-  return <SettingsCard title="공개 데이터">
-    <p>활동을 볼 수 있는 사람에게 공개할 항목입니다. 끄면 기존 활동에도 적용됩니다.</p>
-    {PUBLIC_DATA_FIELDS.map(field => <InlineRow key={field.key} label={field.label}>
-      <Toggle ariaLabel={field.label} on={state.values[field.key] ?? field.defaultPublic} disabled={!ready || saving} onChange={value => void save(field.key, value)} />
+  return <SettingsCard title={t("publicData.title")}>
+    <p>{t("publicData.description")}</p>
+    {PUBLIC_DATA_FIELDS.map(field => <InlineRow key={field.key} label={t(field.labelKey)}>
+      <Toggle ariaLabel={t(field.labelKey)} on={state.values[field.key] ?? field.defaultPublic} disabled={!ready || saving} onChange={value => void save(field.key, value)} />
     </InlineRow>)}
-    {error && <div role="alert">{error}<Button onClick={() => setReload(n => n + 1)}>다시 시도</Button></div>}
+    {error && <div role="alert">{t(`publicData.${error}`)}<Button onClick={() => setReload(n => n + 1)}>{t("publicData.retry")}</Button></div>}
   </SettingsCard>;
 }

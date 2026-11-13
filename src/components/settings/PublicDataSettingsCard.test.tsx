@@ -1,4 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import i18n from "i18next";
+import enSettings from "../../i18n/resources/en/settings.json";
 import { beforeEach, expect, it, vi } from "vitest";
 import { PublicDataSettingsCard } from "./PublicDataSettingsCard";
 const mocks = vi.hoisted(() => ({ read: vi.fn(), write: vi.fn(), user: { uid: "owner", isAnonymous: false } }));
@@ -25,4 +27,17 @@ it("저장이 실패하면 공개 범위가 바뀐 것처럼 표시하지 않는
   fireEvent.click(screen.getByRole("switch", { name: "심박" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("저장하지 못했습니다");
   expect(screen.getByRole("switch", { name: "심박" })).toBeChecked();
+});
+
+
+it("영어 화면에서 공개 항목과 오류와 재시도를 번역한다", async () => {
+  i18n.addResourceBundle("en", "settings", enSettings, true, true);
+  await i18n.changeLanguage("en");
+  try {
+    mocks.read.mockRejectedValue(Error("offline"));
+    render(<PublicDataSettingsCard />);
+    expect(screen.getByRole("switch", { name: "Heart rate" })).toBeDisabled();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load public data settings.");
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  } finally { await i18n.changeLanguage("ko"); }
 });

@@ -1129,5 +1129,18 @@
     "saving": "Saving…",
     "failed": "Could not load or save settings. Check the displayed values and try again.",
     "retry": "Reload settings"
+  },
+  "publicData": {
+    "title": "Public data",
+    "description": "Choose what people who can view your activities may see. Changes also apply to existing activities.",
+    "heartRate": "Heart rate",
+    "power": "Power",
+    "training": "Training metrics (TSS·IF)",
+    "cadence": "Cadence",
+    "calories": "Calories",
+    "thresholds": "My thresholds (FTP, maximum HR setting, LTHR)",
+    "loadFailed": "Could not load public data settings.",
+    "saveFailed": "Could not save public data settings.",
+    "retry": "Retry"
   }
 }
