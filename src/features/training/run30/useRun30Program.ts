@@ -129,7 +129,8 @@ export function useRun30Program(enabled: boolean, visible = true): Run30ProgramS
     if (!active || !visible) return;
     const cached = readPlanSnapshot(run30SnapshotKey(user.uid));
     if (!cached?.fresh) return;
-    const timer = setTimeout(() => setReloadKey(value => value + 1), Math.max(0, cached.freshUntil - Date.now()));
+    // 띄워 둔 동안은 날짜가 바뀔 때만 다시 읽는다(3분 주기 재조회 폐지).
+    const timer = setTimeout(() => setReloadKey(value => value + 1), Math.min(2_147_483_647, Math.max(0, cached.dayRollsAt - Date.now())));
     return () => clearTimeout(timer);
   }, [active, cacheHit, key, program, reloadKey, snapshotRevision, status, user?.uid, visible]);
 

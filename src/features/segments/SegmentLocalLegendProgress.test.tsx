@@ -69,3 +69,15 @@ it("expires a completed checkpoint and starts a fresh run instead of trapping re
   expect(mocks.load.mock.calls[1][2]).not.toHaveProperty("runId");
  }finally{vi.useRealTimers();}
 });
+it("keeps a completed result until the server expiry instead of clearing it after 30 seconds",async()=>{
+ vi.useFakeTimers();
+ try{
+  mocks.load.mockResolvedValueOnce({...complete,expiresAt:Date.now()+10*60_000});
+  renderWithProviders(<SegmentLocalLegendProgress segmentId="s"/>);
+  await act(async()=>{fireEvent.click(screen.getByRole("button",{name:"더 많은 기록 확인"}));});
+  await act(async()=>{vi.advanceTimersByTime(5*60_000);});
+  expect(screen.getByText(/라이더 A/)).toBeInTheDocument();
+  await act(async()=>{vi.advanceTimersByTime(5*60_000+1);});
+  expect(screen.queryByText(/라이더 A/)).not.toBeInTheDocument();
+ }finally{vi.useRealTimers();}
+});

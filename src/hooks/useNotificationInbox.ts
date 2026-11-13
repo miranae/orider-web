@@ -2,7 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Notification } from "@shared/types";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import { doc, onSnapshot } from "firebase/firestore";
 import { createWebNotificationClient } from "../services/webNotifications";
+import { logClientError } from "../services/errorLogger";
+/**
+ * 알림함은 주기 조회 없이 `notification_signals/{uid}`(내용 없는 revision 문서, 본인만 get) 를
+ * 구독하고, revision 이 바뀔 때만 getWebNotifications 로 ACL 적용된 목록을 다시 받는다.
+ * 앱(Android·iOS)과 같은 계약이다. 탭을 숨기면 목록을 지우고 돌아올 때 한 번 다시 읽는다.
+ */
 export function useNotificationInbox() {
   const { user } = useAuth(); const services = useFirebaseServices();
   const uid = user && !user.isAnonymous ? user.uid : null;
@@ -29,17 +36,38 @@ export function useNotificationInbox() {
     return promise;
   }, [client, uid]);
   useEffect(() => {
-    setState(null); void refresh();
-    const poll = () => { if (document.visibilityState === "visible") void refresh(); };
+    setState(null);
+    let disposed = false, again = false;
+    // 신호를 받으면 한 번 읽는다. 이미 읽는 중이면 그 응답이 새 알림보다 앞설 수 있으므로
+    // 끝난 뒤 한 번 더 읽는다(합치기만 하면 진행 중 요청에 묻혀 새 알림을 놓친다).
+    const pull = () => {
+      if (disposed || document.visibilityState !== "visible") return;
+      if (pendingRefresh.current?.client === client && pendingRefresh.current.generation === generation.current) { again = true; return; }
+      void refresh().finally(() => { if (again && !disposed) { again = false; pull(); } });
+    };
     const visibility = () => {
-      if (document.visibilityState !== "visible") { generation.current += 1; setState(null); setLoading(false); }
+      if (document.visibilityState !== "visible") { generation.current += 1; again = false; setState(null); setLoading(false); }
       else void refresh();
     };
-    const timer = window.setInterval(poll, 30000);
     document.addEventListener("visibilitychange", visibility);
-    window.addEventListener("focus", poll);
-    return () => { generation.current += 1; clearInterval(timer); window.removeEventListener("focus", poll); document.removeEventListener("visibilitychange", visibility); };
-  }, [refresh]);
+    let unsubscribe = () => {};
+    if (!uid) void refresh();
+    else {
+      // 첫 조회도 첫 신호 스냅샷에서 시작한다 — 먼저 읽고 나중에 기준 revision 을 잡으면
+      // 그 사이에 생긴 알림을 놓친다. 구독이 실패하면 한 번 직접 읽는다.
+      let seenRevision: unknown = undefined, first = true;
+      const fallback = (error: unknown) => { logClientError("useNotificationInbox.signal", error, { uid }); if (first) { first = false; pull(); } };
+      try {
+        unsubscribe = onSnapshot(doc(services.firestore, "notification_signals", uid), snap => {
+          const revision = snap.exists() ? snap.data()?.revision ?? null : null;
+          if (!first && revision === seenRevision) return;
+          first = false; seenRevision = revision;
+          pull();
+        }, fallback);
+      } catch (error) { fallback(error); }
+    }
+    return () => { disposed = true; generation.current += 1; unsubscribe(); document.removeEventListener("visibilitychange", visibility); };
+  }, [refresh, services, uid, client]);
   const current = state?.uid === uid && state.client === client ? state : null;
   const more = async () => {
     if (!current?.cursor || loading || !uid) return;

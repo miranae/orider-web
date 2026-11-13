@@ -72,7 +72,9 @@ describe("confirmed ended public live events", () => {
     render(<EventLivePage />);
     expect(await screen.findByText("snapshot denied")).toBeInTheDocument();
     await waitFor(() => expect(heartbeat).toHaveBeenCalledWith(expect.objectContaining({ active: true })));
-    expect(subscribe).toHaveBeenCalledWith("events/event-1/viewers", expect.any(Function), expect.any(Function));
+    // 시청자 수는 viewers 컬렉션이 아니라 서버 요약 문서 하나를 구독한다.
+    expect(subscribe).toHaveBeenCalledWith("events/event-1/viewer_summary/current", expect.any(Function), expect.any(Function));
+    expect(subscribe).not.toHaveBeenCalledWith("events/event-1/viewers", expect.any(Function), expect.any(Function));
     expect(read).toHaveBeenCalledWith("events/event-1/snapshots/public_latest");
     expect(screen.queryByText("dashboard.trackingEnded")).toBeNull();
   });

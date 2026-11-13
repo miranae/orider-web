@@ -135,6 +135,8 @@ export function useCanonicalRollout(subscriptionActive = true): CanonicalRollout
       // 겹친 호출은 하나로 접는다 — 포커스가 연달아 오는 창에서 callable 을 도배하지 않는다.
       // 접힌 쪽은 예약도 하지 않는다 — 날아가 있는 호출이 응답에서 다시 예약한다.
       if (inFlight) return;
+      // 숨긴 탭에서는 묻지도 예약하지도 않는다 — 탭이 다시 보이면 onVisibility 가 이어 간다.
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") { clearTimeout(timer); return; }
       inFlight = true;
       void loadCanonicalRolloutOnce(verdictUid, firebaseServices).then((result) => {
         inFlight = false;

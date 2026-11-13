@@ -34,6 +34,14 @@ describe("planSnapshotCache", () => {
     vi.mocked(Date.now).mockReturnValue(now + 24 * 60 * 60_000);
     expect(cache.readPlanSnapshot(key)).toBeNull();
   });
+  it("일반 계획의 자동 갱신 시각은 3분 만료가 아니라 저장일의 KST 자정이다", async () => {
+    const { cache, owner } = await modules();
+    owner.prepareTrainingSurfaceCacheOwner("u1");
+    const key = cache.planSnapshotKey("u1", "bike", "ko");
+    cache.writePlanSnapshot(key, plan);
+    // now = 2026-10-15 12:00 KST → 다음 KST 자정은 2026-10-15T15:00:00Z
+    expect(cache.readPlanSnapshot(key)?.dayRollsAt).toBe(Date.parse("2026-10-15T15:00:00Z"));
+  });
   it("재시작 후 host 승인 뒤에만 10분 넘은 last-good를 복원한다", async () => {
     const first = await modules();
     first.owner.prepareTrainingSurfaceCacheOwner("u1");

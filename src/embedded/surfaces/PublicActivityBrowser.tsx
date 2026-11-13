@@ -95,9 +95,10 @@ function PublicProfile({ userId, onActivity }: { userId: string; onActivity: (id
     const clear = () => { epoch.current++; setRows([]); setCursor(null); };
     const visibility = () => { clear(); if (!document.hidden) void loadRef.current(); };
     const off = onAuthStateChanged(services.auth, () => { if (services.auth.currentUser !== viewer) clear(); });
-    const timer = window.setInterval(() => { if (!document.hidden) { clear(); void loadRef.current(); } }, 30000);
+    // 주기 재조회 없음: 띄워 두면 30초마다 목록이 비워지고(더 보기·스크롤 초기화) 함수가 호출됐다.
+    // 권한 재확인은 화면 복귀(visibilitychange)·계정 변경 때만 한다.
     document.addEventListener("visibilitychange", visibility);
-    return () => { clear(); off(); window.clearInterval(timer); document.removeEventListener("visibilitychange", visibility); };
+    return () => { clear(); off(); document.removeEventListener("visibilitychange", visibility); };
   }, [services, viewer, userId]);
   const visible = valid ? rows : [];
   const author = visible[0];

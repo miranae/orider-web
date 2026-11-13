@@ -3,6 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ActivityPublicAccess } from "./ActivityPublicAccess";
 import type { PublicActivityDetail } from "../../../services/publicActivityDetail";
+import { PUBLIC_ACCESS_VERIFIED_TTL_MS } from "../../../hooks/usePublicActivitySession";
 const state = vi.hoisted(() => ({ user: { uid: "viewer" }, load: vi.fn() }));
 vi.mock("../../../contexts/AuthContext", () => ({ useAuth: () => ({ user: state.user }) }));
 vi.mock("../../../services/publicActivityDetail", () => ({ createPublicActivityClient: () => ({ load: state.load }), isPublicActivityAccessError: (error: {code?: string}) => ["functions/permission-denied", "functions/not-found"].includes(error.code ?? "") }));
@@ -90,7 +91,7 @@ it("shields focus immediately when the last successful verification is old", asy
  const focusRegistration = vi.spyOn(window, "addEventListener");
  render(<Probe />); const body = await screen.findByText(/health_connect/);
  await waitFor(() => expect(focusRegistration).toHaveBeenCalledWith("focus", expect.any(Function)));
- now.mockReturnValue(130_001);
+ now.mockReturnValue(100_000 + PUBLIC_ACCESS_VERIFIED_TTL_MS + 1);
  state.load.mockReturnValue(new Promise(() => {}));
  fireEvent.focus(window);
  expect(body).not.toBeVisible(); expect(body.closest("[inert]")).not.toBeNull();
@@ -100,7 +101,7 @@ it("bounds visible focus retention by the remaining verification lifetime and ne
  const focusRegistration = vi.spyOn(window, "addEventListener");
  render(<Probe />); const body = await screen.findByText(/health_connect/);
  await waitFor(() => expect(focusRegistration).toHaveBeenCalledWith("focus", expect.any(Function)));
- now.mockReturnValue(129_900); vi.useFakeTimers();
+ now.mockReturnValue(100_000 + PUBLIC_ACCESS_VERIFIED_TTL_MS - 100); vi.useFakeTimers();
  try {
    state.load.mockReturnValue(new Promise(() => {}));
    fireEvent.focus(window); expect(body).toBeVisible();
@@ -122,4 +123,18 @@ it("does not reveal the previous account from a pending focus response", async (
  await act(async () => old(detail));
  expect(screen.queryByText(/health_connect/)).not.toBeInTheDocument();
  expect(document.querySelector("[inert]")).toBeNull();
+});
+
+it("keeps an identical revalidation response from re-rendering the detail", async () => {
+ const focusRegistration = vi.spyOn(window, "addEventListener");
+ const seen: unknown[] = [];
+ render(<MemoryRouter><ActivityPublicAccess {...options}>{({ model }) => { seen.push(model.activity); return <output>{model.activity?.source}</output>; }}</ActivityPublicAccess></MemoryRouter>);
+ await screen.findByText("health_connect");
+ await waitFor(() => expect(focusRegistration).toHaveBeenCalledWith("focus", expect.any(Function)));
+ const before = seen.at(-1);
+ state.load.mockResolvedValue(structuredClone(detail));
+ fireEvent.focus(window);
+ await waitFor(() => expect(state.load).toHaveBeenCalledTimes(2));
+ await act(async () => {});
+ expect(seen.at(-1)).toBe(before);
 });

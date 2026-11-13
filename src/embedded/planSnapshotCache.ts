@@ -31,7 +31,22 @@ function validData(key: TrainingSurfaceCacheKey, data: unknown): boolean {
       && week.days.every(isRecord));
 }
 /** host 승인이 끝난 사용자/로그인 세대의 성공한 JSON DTO만 재사용한다. */
-export function readPlanSnapshot<T extends SnapshotData>(key: TrainingSurfaceCacheKey): (Snapshot<T> & { fresh: boolean; freshUntil: number }) | null {
+/** `from` 이후 처음으로 `timezone` 날짜가 바뀌는 시각(ms). */
+function nextDayStart(from: number, timezone: string): number {
+  const today = day(from, timezone);
+  let lower = from, upper = from + 26 * 60 * 60_000;
+  while (upper - lower > 1) {
+    const middle = Math.floor((lower + upper) / 2);
+    if (day(middle, timezone) === today) lower = middle; else upper = middle;
+  }
+  return upper;
+}
+/**
+ * `freshUntil`: 캐시를 다시 쓰지 않고 바로 재사용할 수 있는 끝(3분 또는 날짜 경계).
+ * `dayRollsAt`: 저장 시점의 계획 날짜가 끝나는 시각. 화면을 띄워 둔 채로 자동 재조회하는
+ * 유일한 시점이다 — 3분마다 다시 읽으면 띄워 두기만 해도 조회가 반복된다.
+ */
+export function readPlanSnapshot<T extends SnapshotData>(key: TrainingSurfaceCacheKey): (Snapshot<T> & { fresh: boolean; freshUntil: number; dayRollsAt: number }) | null {
   if (!trainingSurfaceCacheScope()) return null;
   const cached = getTrainingSurfaceCache<Snapshot<T>>(key);
   const now = Date.now();
@@ -50,7 +65,7 @@ export function readPlanSnapshot<T extends SnapshotData>(key: TrainingSurfaceCac
         else freshUntil = middle;
       }
     }
-    return { ...cached, freshUntil, fresh: cached.invalidated !== true && now - cached.savedAt < FRESH_MS
+    return { ...cached, freshUntil, dayRollsAt: nextDayStart(cached.savedAt, planTimezone), fresh: cached.invalidated !== true && now - cached.savedAt < FRESH_MS
       && cached.timezone === timezone && day(now, planTimezone) === day(cached.savedAt, planTimezone) };
   } catch { return null; }
 }

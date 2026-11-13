@@ -248,7 +248,8 @@ export function usePlanModel(sport?: string | null, active = true): PlanModel {
     if (!active || !user) return;
     const cached = readPlanSnapshot(planSnapshotKey(user.uid, discipline, locale));
     if (!cached?.fresh) return;
-    const timer = setTimeout(() => setReloadKey(key => key + 1), Math.max(0, cached.freshUntil - Date.now()));
+    // 띄워 둔 동안은 날짜가 바뀔 때만 다시 읽는다(3분 주기 재조회 폐지).
+    const timer = setTimeout(() => setReloadKey(key => key + 1), Math.min(2_147_483_647, Math.max(0, cached.dayRollsAt - Date.now())));
     return () => clearTimeout(timer);
   }, [active, discipline, freshLoaded, locale, modelKey, reloadKey, user, weeksState]);
 

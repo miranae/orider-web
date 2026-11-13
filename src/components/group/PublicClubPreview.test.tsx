@@ -31,6 +31,22 @@ describe("anonymous public club introduction", () => {
     expect(logClientError).not.toHaveBeenCalled();
     expect(screen.queryByText(club.name)).not.toBeInTheDocument(); expect(screen.queryByText("비공개 클럽입니다")).not.toBeInTheDocument();
   });
+  it("keeps the introduction on screen while a focus refresh is in flight", async () => {
+    page(); await screen.findByText(club.name);
+    let resolve!: (value: Awaited<ReturnType<typeof getPublicClubPage>>) => void;
+    vi.mocked(getPublicClubPage).mockReturnValueOnce(new Promise(r => { resolve = r; }));
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    expect(screen.getByText(club.name)).toBeInTheDocument();
+    await act(async () => resolve({ club, schedule: null } as Awaited<ReturnType<typeof getPublicClubPage>>));
+    expect(screen.getByText(club.name)).toBeInTheDocument();
+  });
+  it("removes the introduction when a focus refresh fails rather than keeping it stale", async () => {
+    page(); await screen.findByText(club.name);
+    vi.mocked(getPublicClubPage).mockRejectedValueOnce(new Error("offline"));
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    expect(await screen.findByText("공개 클럽을 불러오지 못했어요. 다시 시도해 주세요.")).toBeInTheDocument();
+    expect(screen.queryByText(club.name)).not.toBeInTheDocument();
+  });
   it("shows a retryable failure instead of unavailable or stale introduction", async () => {
     vi.mocked(getPublicClubPage).mockRejectedValueOnce(new Error("offline")); page();
     expect(await screen.findByText("공개 클럽을 불러오지 못했어요. 다시 시도해 주세요.")).toBeInTheDocument();
