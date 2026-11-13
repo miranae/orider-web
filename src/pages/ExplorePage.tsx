@@ -560,11 +560,6 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
     setListLimit(LIST_PAGE_SIZE);
   }, [category, searchQuery, mapBounds, listTab, discipline]);
 
-  const handleSelectSegment = useCallback((id: string) => {
-    setSelectedId((prev) => (prev === id ? null : id));
-    setHoveredId(id);
-  }, []);
-
   const handleSearch = () => setSearchQuery(inputValue.trim());
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSearch();
@@ -655,7 +650,11 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
     const features = map.queryRenderedFeatures(e.point, { layers: ["segment-lines-hit", "segment-points"] });
     if (features && features.length > 0) {
       const id = features[0]!.properties?.id;
-      if (id) scrollToCard(id);
+      // 지도 선택은 상단 선택 카드('상세 보기')를 연다. 목록 카드는 바로 상세로 간다.
+      if (id) {
+        setSelectedId(String(id));
+        scrollToCard(String(id));
+      }
     }
   }, [scrollToCard]);
 
@@ -1008,7 +1007,6 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
                       isHovered={hoveredId === segment.id}
                       isSelected={selectedId === segment.id}
                       onHover={setHoveredId}
-                      onSelect={handleSelectSegment}
                       onNavigate={navigate}
                       cardRefs={cardRefs}
                       isFullBleed={isMobile}
@@ -1036,12 +1034,12 @@ function ExploreSegmentsContent({ embedded }: { embedded: boolean }) {
   );
 }
 
-const MemoSegmentCard = memo(function SegmentCard({ segment, isHovered, isSelected, onHover, onSelect, onNavigate, cardRefs, isFullBleed }: {
+/** 목록 카드: 한 번 탭/클릭하면 세그먼트 상세로 간다. 지도 강조는 hover 로만 한다. */
+const MemoSegmentCard = memo(function SegmentCard({ segment, isHovered, isSelected, onHover, onNavigate, cardRefs, isFullBleed }: {
   segment: SegmentData;
   isHovered: boolean;
   isSelected: boolean;
   onHover: (id: string | null) => void;
-  onSelect: (id: string) => void;
   onNavigate: (path: string) => void;
   cardRefs: React.MutableRefObject<Map<string, HTMLDivElement>>;
   isFullBleed?: boolean;
@@ -1078,16 +1076,19 @@ const MemoSegmentCard = memo(function SegmentCard({ segment, isHovered, isSelect
         border: highlighted ? "1px solid var(--lime)" : "1px solid var(--line-soft)",
         borderLeft: highlighted ? "2px solid var(--lime)" : "2px solid transparent",
       }}
-      data-testid="E2-2-2" onClick={() => onSelect(segment.id)}
-      onDoubleClick={() => onNavigate(`/segment/${segment.id}`)}
+      data-testid="E2-2-2"
+      onClick={(event) => {
+        // 제목 링크는 스스로 이동한다(임베드는 링크 가로채기로 앱에 넘긴다). 카드 나머지 영역만 여기서 이동.
+        if (event.target instanceof Element && event.target.closest("a[href]")) return;
+        onNavigate(`/segment/${segment.id}`);
+      }}
       onMouseEnter={() => onHover(segment.id)}
       onMouseLeave={() => onHover(null)}
     >
       <div className="flex items-center gap-2">
         <SegmentClimbCategory category={segment.climbCategory} />
         <h3 className="font-semibold text-[length:var(--ft-body-size)] min-w-0 flex-1" style={{ color: "var(--ink-0)" }}>
-          <Button variant="ghost" block align="start" aria-pressed={isSelected}
-            onClick={event => { event.stopPropagation(); onSelect(segment.id); }}>{segment.name}</Button>
+          <LocalizedLink to={`/segment/${segment.id}`} className={buttonClass({ variant: "ghost", block: true, align: "start" })}>{segment.name}</LocalizedLink>
         </h3>
       </div>
       {regionLabel && (

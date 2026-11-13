@@ -69,6 +69,13 @@ export const EMBEDDED_PERSISTENT_AUTH_CAPABILITY = "embedded-persistent-auth-v1"
  */
 export const COURSE_DETAIL_EMBED_CAPABILITY = "course-detail-embed-v1";
 
+/**
+ * 이 웹이 세그먼트 상세 임베드(`embed/segments/:segmentId`)를 제공한다는 표시(`bootstrap.ready.capabilities`).
+ * 코스와 같다 — 탐색 목록·코스 상세는 계속 `/segment/{id}` 로 `navigation.openNative` 를 보내고, 앱은 이
+ * 값이 있을 때만 그 경로를 세그먼트 상세 임베드로 연다(없으면 종전처럼 앱 밖 브라우저).
+ */
+export const SEGMENT_DETAIL_EMBED_CAPABILITY = "segment-detail-embed-v1";
+
 /** 클럽 상세 임베드가 자기 안에서 그리는 하위 경로(App.tsx `club/:groupId/...` 와 같은 이름). */
 const CLUB_DETAIL_SECTION = /^(?:\/(?:rides(?:\/[^/]+)?|week|leaderboard|events|members|settings|meetings\/(?:new|[^/]+(?:\/(?:edit|live))?)))?\/?$/;
 
@@ -105,6 +112,23 @@ export function embeddedCourseDetailDestination(currentPath: string, destination
   return `/${current[1]}/embed/courses/${current[2]}${target.search}${target.hash}`;
 }
 
+/**
+ * 세그먼트 상세 임베드(`/{lang}/embed/segments/{segmentId}`) 안에서 **같은 세그먼트** 상세
+ * (`/segment/{id}`, 탭·드릴다운 쿼리 포함)로 가는 링크는 임베드 안에 둔다. 다른 세그먼트·하위 경로
+ * (`/segment/{id}/...`)·상세 밖 경로·다른 origin 은 null — `navigation.openNative` 로 앱에 넘긴다
+ * (다른 세그먼트는 앱이 새 상세로 push). 코스 상세 임베드와 같은 규칙이다.
+ */
+export function embeddedSegmentDetailDestination(currentPath: string, destination: string): string | null {
+  const current = /^\/(ko|en)\/embed\/segments\/([^/]+)\/?$/.exec(currentPath);
+  if (!current) return null;
+  const target = new URL(destination, "https://embedded.invalid");
+  if (target.origin !== "https://embedded.invalid") return null;
+  const path = target.pathname.replace(/^\/(ko|en)(?=\/)/, "");
+  const segment = /^\/(?:segment|embed\/segments)\/([^/]+)\/?$/.exec(path);
+  if (!segment || segment[1] !== current[2]) return null;
+  return `/${current[1]}/embed/segments/${current[2]}${target.search}${target.hash}`;
+}
+
 /** 같은 이벤트의 상세·등록·결과·관리 화면은 앱을 벗어나지 않는다. */
 export function embeddedEventDetailDestination(currentPath: string, destination: string): string | null {
   const current = /^\/(ko|en)\/embed\/event\/([A-Za-z0-9_-]{1,128})(?:\/.*)?$/.exec(currentPath);
@@ -129,6 +153,7 @@ export function embeddedInternalDestination(currentPath: string, destination: st
     ?? embeddedHubDestination(currentPath, destination)
     ?? embeddedClubDetailDestination(currentPath, destination)
     ?? embeddedCourseDetailDestination(currentPath, destination)
+    ?? embeddedSegmentDetailDestination(currentPath, destination)
     ?? embeddedEventDetailDestination(currentPath, destination);
 }
 

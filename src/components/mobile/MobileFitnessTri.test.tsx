@@ -51,7 +51,7 @@ describe("MobileFitnessPage tri", () => {
     expect(screen.getByText("서버 판정 처리 중")).toBeInTheDocument();
     expect(screen.queryByText("체력이 피로보다 높아요")).not.toBeInTheDocument();
     expect(screen.getByText("2026-07-14 · 현재 요약")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /오늘/ })).toHaveAttribute("href", "/ko/coach/today?sport=run");
+    expect(screen.getByRole("link", { name: /오늘/ })).toHaveAttribute("href", "/ko/coach/plan?sport=run");
   });
 
   it("retains the history instance and chosen range across exercise view changes", () => {

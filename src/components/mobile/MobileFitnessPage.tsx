@@ -1131,7 +1131,7 @@ export default function MobileFitnessPage({
             </div>}
             {currentBasis && <Text as="p" variant="caption" tone="secondary" style={{ marginTop: "var(--space-2)" }}>{currentBasis}</Text>}
             {loadSet && loadForm && <SufficiencyInline set={loadSet} block={loadForm} testId="K1-1-1-sufficiency-inline" />}
-            {part === "condition" && data.discipline !== "tri" && <LocalizedLink data-testid="K1-1-3" to={`/coach/today?sport=${data.discipline}`}>{t("fitness:today.header.title")} →</LocalizedLink>}
+            {part === "condition" && data.discipline !== "tri" && <LocalizedLink data-testid="K1-1-3" to={`/coach/plan?sport=${data.discipline}`}>{t("fitness:today.header.title")} →</LocalizedLink>}
             {data.discipline !== "tri" && todayDecisionState && !deferDisabledDecision && <TodayDecisionPreview state={todayDecisionState} signedIn={todayDecisionSignedIn} hasDetails={Boolean(coachSlot)} />}
           </SectionCard>}
           </section>}

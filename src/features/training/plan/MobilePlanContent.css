@@ -280,3 +280,6 @@
 
 /* 계획 조정 카드가 그릴 내용이 없으면(조정 없음) 감싼 상자의 위아래 패딩만 남아 다음 블록을 24 밀었다. */
 .plan-decision-slot:empty { display: none; }
+
+/* 오늘 운동 결정 카드 — 오늘의 다음 운동 아래, 다른 카드와 같은 좌우 여백. */
+.mobile-plan-content > .plan-decision-slot { min-width: 0; margin: var(--space-2) var(--space-4); }

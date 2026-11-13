@@ -84,7 +84,6 @@ const EventEditPage = lazyTimed("EventEditPage", () => import("./pages/event/Eve
 const EventParticipantsPage = lazyTimed("EventParticipantsPage", () => import("./pages/event/EventParticipantsPage"));
 const CoachFitnessLayout = lazyTimed("CoachFitnessLayout", () => import("./pages/coach/CoachFitnessLayout"));
 const CoachConditionPage = lazyTimed("CoachConditionPage", () => import("./pages/coach/CoachConditionPage"));
-const CoachTodayPage = lazyTimed("CoachTodayPage", () => import("./pages/coach/CoachTodayPage"));
 const CoachAnalysisPage = lazyTimed("CoachAnalysisPage", () => import("./pages/coach/CoachAnalysisPage"));
 const LabPage = lazyTimed("LabPage", () => import("./pages/LabPage"));
 const ClimbGoalSetupPage = lazyTimed("ClimbGoalSetupPage", () => import("./pages/ClimbGoalSetupPage"));
@@ -122,6 +121,8 @@ export function AppRoutes() {
         <Route path="embed/clubs/:groupId/*" element={<EmbeddedBootstrapRoot surfaceKind="club-detail" />} />
         {/* 코스 상세(#3235) — 탐색 목록에서 연 `/course/:id` 를 앱이 이 임베드로 바꿔 연다. */}
         <Route path="embed/courses/:courseId/*" element={<EmbeddedBootstrapRoot surfaceKind="course-detail" />} />
+        {/* 세그먼트 상세(#3358) — 탐색 목록·코스 상세에서 연 `/segment/:id` 를 앱이 이 임베드로 바꿔 연다. */}
+        <Route path="embed/segments/:segmentId/*" element={<EmbeddedBootstrapRoot surfaceKind="segment-detail" />} />
         <Route path="embed/explore" element={<EmbeddedBootstrapRoot surfaceKind="explore" />} />
         <Route path="embed/event/:eventId/*" element={<EmbeddedBootstrapRoot surfaceKind="event-detail" />} />
         <Route path="embed/search" element={<EmbeddedBootstrapRoot surfaceKind="search" />} />
@@ -136,10 +137,11 @@ export function AppRoutes() {
           {/* 코치 — 정적(condition·plan·goals·chat)이 옛 coach/:threadId 보다 먼저 매칭 */}
           <Route element={<CoachFitnessLayout />}>
             <Route path="coach/condition" element={<CoachConditionPage />} />
-            <Route path="coach/today" element={<CoachTodayPage />} />
             <Route path="coach/analysis" element={<CoachAnalysisPage />} />
           </Route>
           <Route path="coach/plan" element={<PlanPage />} />
+          {/* 코치 "오늘 훈련" 탭은 없앴다(2026-11-13) — 옛 주소·북마크는 훈련 계획으로 보낸다(종목·날짜 유지). */}
+          <Route path="coach/today" element={<CoachTodayRedirect />} />
           <Route path="coach/goals" element={<GoalSetupPage />} />
           <Route path="coach/chat" element={<CoachHistoryPage />} />
           <Route path="coach/chat/:threadId" element={<CoachHistoryPage />} />
@@ -398,9 +400,15 @@ function StandardApp() {
 
 export function isEmbeddedRoutePath(pathname: string): boolean {
   return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/(?:analysis|public|edit)|fitness|plan|clubs|explore|search|about|policies\/community|feedback)\/?$/.test(pathname)
-    || /^\/[^/]+\/embed\/(?:clubs|courses|event)\/[^/]+(?:\/.*)?$/.test(pathname);
+    || /^\/[^/]+\/embed\/(?:clubs|courses|segments|event)\/[^/]+(?:\/.*)?$/.test(pathname);
 }
 
+
+/** 코치 "오늘 훈련"을 없앤 뒤 옛 /coach/today 주소를 훈련 계획으로 보낸다(쿼리 유지). */
+function CoachTodayRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: "../coach/plan", search }} replace />;
+}
 export default function App() {
   const location = useLocation();
 

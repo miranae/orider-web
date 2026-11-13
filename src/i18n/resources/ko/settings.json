@@ -1129,5 +1129,18 @@
     "saving": "저장 중입니다.",
     "failed": "설정을 저장하거나 불러오지 못했습니다. 현재 표시된 설정을 확인하고 다시 시도해 주세요.",
     "retry": "다시 불러오기"
+  },
+  "publicData": {
+    "title": "공개 데이터",
+    "description": "활동을 볼 수 있는 사람에게 공개할 항목입니다. 끄면 기존 활동에도 적용됩니다.",
+    "heartRate": "심박",
+    "power": "파워",
+    "training": "훈련 지표 (TSS·IF)",
+    "cadence": "케이던스",
+    "calories": "칼로리",
+    "thresholds": "내 기준값 (FTP·최대 심박 설정·LTHR)",
+    "loadFailed": "공개 데이터 설정을 불러오지 못했습니다.",
+    "saveFailed": "공개 데이터 설정을 저장하지 못했습니다.",
+    "retry": "다시 시도"
   }
 }
