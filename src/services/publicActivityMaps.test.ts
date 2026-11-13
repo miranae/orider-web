@@ -62,12 +62,12 @@ it("times out hung App Check, prevents late dispatch, and lets a later retry suc
    const retry = loadPublicActivityMap(s, "a"); await vi.advanceTimersByTimeAsync(16); await expect(retry).resolves.toEqual(row("a"));
  } finally { vi.useRealTimers(); }
 });
-it("passes a stored square map image through and validates it like the wide image", async () => {
+it("passes a stored square map image through and drops only a malformed square value", async () => {
  const item = { ...row("a"), privacyEnabled: false, mapPreview: { encodedPolyline: null, imageUrl: null, squareImageUrl: "https://firebasestorage.googleapis.com/v0/b/test/o/sq.webp" } };
  m.call.mockResolvedValueOnce({ data: { items: [item] } });
  await expect(loadPublicActivityMap(services(), "a")).resolves.toEqual(item);
- for (const squareImageUrl of ["http://example.test/sq.webp", 7]) {
+ for (const squareImageUrl of ["http://example.test/sq.webp", 7, "not a url"]) {
   m.call.mockResolvedValueOnce({ data: { items: [{ ...item, mapPreview: { ...item.mapPreview, squareImageUrl } }] } });
-  await expect(loadPublicActivityMap(services(), "a")).rejects.toThrow("invalid_public_maps");
+  await expect(loadPublicActivityMap(services(), "a")).resolves.toEqual({ ...item, mapPreview: { ...item.mapPreview, squareImageUrl: null } });
  }
 });

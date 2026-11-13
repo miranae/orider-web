@@ -31,13 +31,20 @@ export function loadPublicActivityMap(services: FirebaseServices, activityId: st
         });
         if (!data || !Array.isArray(data.items) || data.items.length !== ids.length || new Set(data.items.map(item => item.activityId)).size !== ids.length || data.items.some(item => !ids.includes(item.activityId))) throw Error("invalid_public_maps");
         for (const item of data.items) {
-          if (!("unavailable" in item) && (typeof item.revision !== "string" || !item.revision || typeof item.privacyEnabled !== "boolean" || !item.mapPreview || ![item.mapPreview.encodedPolyline, item.mapPreview.imageUrl].every(value => value === null || typeof value === "string")
-            || (item.mapPreview.squareImageUrl != null && typeof item.mapPreview.squareImageUrl !== "string"))) throw Error("invalid_public_maps");
-          // 정사각 정본(squareImageUrl)은 구버전 서버에선 없을 수 있다. 있으면 wide 와 같은 URL 검증을 거친다.
-          for (const imageUrl of "unavailable" in item ? [] : [item.mapPreview.imageUrl, item.mapPreview.squareImageUrl]) {
-            if (!imageUrl) continue;
-            const url = new URL(imageUrl);
+          if (!("unavailable" in item) && (typeof item.revision !== "string" || !item.revision || typeof item.privacyEnabled !== "boolean" || !item.mapPreview || ![item.mapPreview.encodedPolyline, item.mapPreview.imageUrl].every(value => value === null || typeof value === "string"))) throw Error("invalid_public_maps");
+          if (!("unavailable" in item) && item.mapPreview.imageUrl) {
+            const url = new URL(item.mapPreview.imageUrl);
             if (url.protocol !== "https:" || url.username || url.password) throw Error("invalid_public_maps");
+          }
+          // 정사각 정본(squareImageUrl)은 부가 필드다. 구버전 서버엔 없고, 형식이 이상하면 이 값만 버린다 —
+          // 부가 필드 하나 때문에 같은 배치의 기존 지도까지 실패시키지 않는다(카드는 실시간 지도로 대체된다).
+          if (!("unavailable" in item) && item.mapPreview.squareImageUrl != null) {
+            let usable = false;
+            try {
+              const url = typeof item.mapPreview.squareImageUrl === "string" ? new URL(item.mapPreview.squareImageUrl) : null;
+              usable = !!url && url.protocol === "https:" && !url.username && !url.password;
+            } catch { usable = false; }
+            if (!usable) item.mapPreview = { ...item.mapPreview, squareImageUrl: null };
           }
           if (!("unavailable" in item) && (item.contentRevision !== undefined || item.contentSelectedRevision !== undefined)) {
             const head = item.contentRevision, selected = item.contentSelectedRevision;
