@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useAuth } from "../contexts/AuthContext";
 import { authorizeNativeActivityPhoto, loadNativeActivityPhoto, type NativePhotoReference } from "../services/nativeActivityPhoto";
+import { logClientError } from "../services/errorLogger";
 
 /** No persistent cache or bearer URLs. Clear image bytes on account change, unmount and backgrounding. */
 export function useNativeActivityPhoto(photo: NativePhotoReference | undefined, enabled = true) {
@@ -29,6 +30,8 @@ export function useNativeActivityPhoto(photo: NativePhotoReference | undefined, 
           if (active) recheck();
         }).catch(error => {
           if (!active) return;
+          const code = (error as { code?: string } | null)?.code;
+          if (code !== "not-found" && code !== "functions/not-found") logClientError("useNativeActivityPhoto.revalidate", error, { activityId, photoId }, services);
           if (url) URL.revokeObjectURL(url);
           url = null;
           setResult({ key, services, url: null, error });

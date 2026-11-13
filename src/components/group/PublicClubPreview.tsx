@@ -7,6 +7,7 @@ import { Card, Text } from "../../theme/components";
 import ClubLoginGate from "./ClubLoginGate";
 import MeetingSchedule from "../../features/group/MeetingSchedule";
 import type { ClubCafeSchedule } from "@shared/clubCafeSchedule";
+import { logClientError } from "../../services/errorLogger";
 export default function PublicClubPreview({ groupId }: { groupId: string | undefined }) {
   const { t, i18n } = useTranslation("group");
   const [club, setClub] = useState<PublicClub | null>(null);
@@ -20,7 +21,10 @@ export default function PublicClubPreview({ groupId }: { groupId: string | undef
     setClub(null); setSchedule(null); setError(false); setLoading(true);
     if (!groupId) { setLoading(false); return; }
     void getPublicClubPage(groupId, controller.signal).then(value => { if (active) { setClub(value.club); setSchedule(value.schedule); } }).catch(reason => {
-      if (active && !(reason instanceof PublicClubUnavailable)) setError(true);
+      if (active && !(reason instanceof PublicClubUnavailable)) {
+        logClientError("PublicClubPreview.load", reason, { groupId });
+        setError(true);
+      }
     }).finally(() => { if (active) setLoading(false); });
     const refresh = () => { if (document.visibilityState !== "hidden") setAttempt(value => value + 1); };
     window.addEventListener("focus", refresh); window.addEventListener("pageshow", refresh);

@@ -3,6 +3,7 @@ import { collection, doc, getDoc, getDocs, limit, query, where, orderBy, startAf
 import type { UserStats } from "@shared/types";
 import { firestore } from "./firebase";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
+import { logClientError } from "./errorLogger";
 
 export interface PublicUserProfile {
   id: string;
@@ -76,6 +77,7 @@ const avatarSessions = new WeakMap<Firestore, WeakMap<object, AvatarSession>>();
 /** 공유하는 것은 진행 중 조회와 아바타 부재뿐이다. 정상 프로필 결과는 전역 캐시하지 않는다. */
 export async function getPublicUserAvatarProfiles(
   userIds: readonly string[], database: Firestore, authScope: object, viewer: object | null,
+  services?: Parameters<typeof logClientError>[3],
 ): Promise<Map<string, PublicUserProfile>> {
   let scopes = avatarSessions.get(database);
   if (!scopes) { scopes = new WeakMap(); avatarSessions.set(database, scopes); }
@@ -98,7 +100,10 @@ export async function getPublicUserAvatarProfiles(
         return profile;
       }).catch(error => {
         // 권한/네트워크 실패는 부재의 증거가 아니므로 세션 부재 캐시에 남기지 않는다.
-        if (isPermissionDeniedError(error)) return null;
+        if (isPermissionDeniedError(error)) {
+          logClientError("getPublicUserAvatarProfiles", error, { userId }, services);
+          return null;
+        }
         throw error;
       });
       pending = request.finally(() => { if (current.pending.get(userId) === pending) current.pending.delete(userId); });

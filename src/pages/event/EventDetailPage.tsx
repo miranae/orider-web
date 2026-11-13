@@ -480,7 +480,9 @@ export default function EventDetailPage() {
         void getPublicUserProfile(data.userId, services.firestore).then(profile => {
           if (!current() || Date.now() >= deadline || !profile?.nickname) return;
           setRecentParticipants(previous => previous.map(item => item.uid === data.userId ? { ...item, nickname: profile.nickname } : item));
-        }).catch(() => { /* 개별 프로필 실패는 이미 표시된 참가자 DTO로 대체한다. */ });
+        }).catch(error => {
+          if (current()) logClientError("EventDetailPage.loadRecentParticipantProfile", error, { eventId, userId: data.userId }, services);
+        });
       }
     }).catch(error => {
       if (!current()) return;

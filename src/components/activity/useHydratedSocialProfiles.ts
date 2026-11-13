@@ -33,7 +33,7 @@ export function useHydratedSocialProfiles<T extends SocialProfileItem>(
     const userIds = JSON.parse(missingUserIdKey) as string[];
     if (userIds.length === 0) return;
 
-    getPublicUserAvatarProfiles(userIds, firestore, authScope, viewer)
+    getPublicUserAvatarProfiles(userIds, firestore, authScope, viewer, services)
       .then((profiles) => {
         if (cancelled) return;
         const next = new Map<string, string>();
@@ -44,13 +44,13 @@ export function useHydratedSocialProfiles<T extends SocialProfileItem>(
       })
       .catch((err) => {
         if (isPermissionDeniedError(err)) return;
-        logClientError("useHydratedSocialProfiles", err, { context, userCount: userIds.length });
+        logClientError("useHydratedSocialProfiles", err, { context, userCount: userIds.length }, services);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [context, missingUserIdKey, firestore, authScope, viewer]);
+  }, [context, missingUserIdKey, firestore, authScope, viewer, services]);
 
   return useMemo(
     () => items.map((item) => {

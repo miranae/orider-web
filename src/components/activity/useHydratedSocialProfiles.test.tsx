@@ -49,7 +49,7 @@ describe("useHydratedSocialProfiles", () => {
     render(<Probe />);
 
     await waitFor(() => {
-      expect(getPublicUserAvatarProfiles).toHaveBeenCalledWith(["user-1"], scope.services.firestore, scope.services.auth, scope.viewer);
+      expect(getPublicUserAvatarProfiles).toHaveBeenCalledWith(["user-1"], scope.services.firestore, scope.services.auth, scope.viewer, scope.services);
     });
     expect(screen.getByText("fallback")).toBeInTheDocument();
     expect(logClientError).not.toHaveBeenCalled();
@@ -62,7 +62,7 @@ describe("useHydratedSocialProfiles", () => {
     render(<Probe />);
 
     await waitFor(() => {
-      expect(logClientError).toHaveBeenCalledWith("useHydratedSocialProfiles", err, { context: "test", userCount: 1 });
+      expect(logClientError).toHaveBeenCalledExactlyOnceWith("useHydratedSocialProfiles", err, { context: "test", userCount: 1 }, scope.services);
     });
   });
   it("prefers a caller's fresh image and masks old owner/provider hydration immediately", async () => {
@@ -75,11 +75,11 @@ describe("useHydratedSocialProfiles", () => {
     vi.mocked(getPublicUserAvatarProfiles).mockResolvedValue(new Map());
     view.rerender(<Probe />);
     expect(screen.getByText("fallback")).toBeInTheDocument();
-    await waitFor(() => expect(getPublicUserAvatarProfiles).toHaveBeenLastCalledWith(["user-1"], scope.services.firestore, scope.services.auth, scope.viewer));
+    await waitFor(() => expect(getPublicUserAvatarProfiles).toHaveBeenLastCalledWith(["user-1"], scope.services.firestore, scope.services.auth, scope.viewer, scope.services));
     scope.services = { firestore: {}, auth: {} };
     view.rerender(<Probe />);
     expect(screen.getByText("fallback")).toBeInTheDocument();
-    await waitFor(() => expect(getPublicUserAvatarProfiles).toHaveBeenLastCalledWith(["user-1"], scope.services.firestore, scope.services.auth, scope.viewer));
+    await waitFor(() => expect(getPublicUserAvatarProfiles).toHaveBeenLastCalledWith(["user-1"], scope.services.firestore, scope.services.auth, scope.viewer, scope.services));
   });
 
   it("ignores an old session's delayed response after switching accounts", async () => {

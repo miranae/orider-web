@@ -1,3 +1,4 @@
+import * as errorLogger from "../../services/errorLogger";
 import { FirebaseServicesProvider } from "../../contexts/FirebaseServicesContext";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
@@ -241,6 +242,7 @@ describe("event participant privacy boundaries", () => {
   });
 
   it("refreshes only the returned five participants from current public profiles and retains individual DTO fallbacks", async () => {
+    const logger = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
     mockCollectionData.set("events/ev/participants_public", Array.from({ length: 5001 }, (_, i) => ({
       id: `participant-${i}`, displayName: `Old ${i}`, joinedAt: i,
     })));
@@ -253,6 +255,8 @@ describe("event participant privacy boundaries", () => {
     expect(reads).toHaveLength(5); expect(new Set(reads.map(([ref]) => ref.path)).size).toBe(5);
     expect(reads.every(([ref]) => Number(ref.path.split("-").at(-1)) >= 4996)).toBe(true);
     expect(getDocs).not.toHaveBeenCalled();
+    expect(logger).toHaveBeenCalledExactlyOnceWith("EventDetailPage.loadRecentParticipantProfile", expect.any(Error), { eventId: "ev", userId: "participant-4999" }, expect.objectContaining({ auth: expect.anything(), functions: expect.anything() }));
+    logger.mockRestore();
   });
   it.each(["route", "account", "deadline"])("ignores late public-profile enrichment after %s revocation", async boundary => {
     let finish!: (value: Awaited<ReturnType<typeof getDoc>>) => void;
