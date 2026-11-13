@@ -2,7 +2,7 @@ import { withActivityMapDeadline } from "./activityMapDeadline";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
-export interface PublicActivityMap { activityId: string; revision: string; mapPreview: { encodedPolyline: string | null; imageUrl: string | null }; privacyEnabled?: boolean; contentRevision?: number | null; contentSelectedRevision?: number | null }
+export interface PublicActivityMap { activityId: string; revision: string; mapPreview: { encodedPolyline: string | null; imageUrl: string | null; squareImageUrl?: string | null }; privacyEnabled?: boolean; contentRevision?: number | null; contentSelectedRevision?: number | null }
 type Pending = { resolve: (value: PublicActivityMap | null) => void; reject: (reason: unknown) => void };
 type Session = { viewer: FirebaseServices["auth"]["currentUser"]; requests: Map<string, Promise<PublicActivityMap | null>>; queue: Map<string, Pending[]>; scheduled: boolean };
 const sessions = new WeakMap<object, Session>(), connected = new WeakSet<object>();
@@ -31,9 +31,12 @@ export function loadPublicActivityMap(services: FirebaseServices, activityId: st
         });
         if (!data || !Array.isArray(data.items) || data.items.length !== ids.length || new Set(data.items.map(item => item.activityId)).size !== ids.length || data.items.some(item => !ids.includes(item.activityId))) throw Error("invalid_public_maps");
         for (const item of data.items) {
-          if (!("unavailable" in item) && (typeof item.revision !== "string" || !item.revision || typeof item.privacyEnabled !== "boolean" || !item.mapPreview || ![item.mapPreview.encodedPolyline, item.mapPreview.imageUrl].every(value => value === null || typeof value === "string"))) throw Error("invalid_public_maps");
-          if (!("unavailable" in item) && item.mapPreview.imageUrl) {
-            const url = new URL(item.mapPreview.imageUrl);
+          if (!("unavailable" in item) && (typeof item.revision !== "string" || !item.revision || typeof item.privacyEnabled !== "boolean" || !item.mapPreview || ![item.mapPreview.encodedPolyline, item.mapPreview.imageUrl].every(value => value === null || typeof value === "string")
+            || (item.mapPreview.squareImageUrl != null && typeof item.mapPreview.squareImageUrl !== "string"))) throw Error("invalid_public_maps");
+          // 정사각 정본(squareImageUrl)은 구버전 서버에선 없을 수 있다. 있으면 wide 와 같은 URL 검증을 거친다.
+          for (const imageUrl of "unavailable" in item ? [] : [item.mapPreview.imageUrl, item.mapPreview.squareImageUrl]) {
+            if (!imageUrl) continue;
+            const url = new URL(imageUrl);
             if (url.protocol !== "https:" || url.username || url.password) throw Error("invalid_public_maps");
           }
           if (!("unavailable" in item) && (item.contentRevision !== undefined || item.contentSelectedRevision !== undefined)) {
