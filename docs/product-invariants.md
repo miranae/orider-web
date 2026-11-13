@@ -10,9 +10,16 @@ This file lists product decisions that a single PR can silently break. The merge
 
 ## 개인정보·권한 (Privacy & authority)
 
-### P1. 공개 범위는 `visibility` 하나 **[검사]**
-활동 공개 범위는 `visibility` 하나로만 정합니다. 심박·파워만 따로 숨기는 지표 숨김(`hideHr`·`hidePower`)은 2026-10-13 폐지했습니다. 새 코드에서 이 필드를 읽거나 쓰지 않습니다.
-*Visibility is the only privacy control; per-metric hiding (`hideHr`/`hidePower`) was removed.*
+### P1. 활동 공개 범위와 공개 데이터 설정을 분리한다 **[검사]**
+활동을 볼 수 있는 사람은 `visibility`로 정합니다. 허용된 타인에게 보여줄 운동 데이터는 계정의 공개 데이터 설정으로 정하며, 설정이 공개 동의입니다(2026-11-13 사용자 결정, miranae/orider-g1-app#3348).
+
+- 심박·파워·훈련 지표(TSS·IF)·케이던스·칼로리는 기본 공개입니다.
+- 내 기준값(FTP·최대 심박 설정·LTHR)은 기본 비공개이며 명시적으로 켰을 때만 공개합니다. 운동에서 측정한 최대 심박·최대 파워와 개인 설정 기준값을 구분합니다.
+- 서버는 비소유자 상세·스트림·피드·탐색·개요 응답에서 숨긴 항목과 이를 포함한 생성 문장을 제거합니다. 소유자 본인 응답과 저장된 분석 원본·이력은 유지합니다. GPS 원좌표와 개인정보 처리 지도 경로선의 기존 경계는 유지합니다.
+- 웹·iOS·Android는 동일 항목·기본값·계정 저장 계약을 사용합니다. 화면 숨김만으로 대신하지 않습니다.
+- 폐지한 `hideHr`·`hidePower` 필드는 다시 읽거나 쓰지 않습니다. 새 계정 공개 데이터 계약을 사용합니다.
+
+*Visibility selects the audience. Account public-data settings select which fields authorized non-owners receive. Thresholds require explicit opt-in; owner responses and saved originals remain intact.*
 
 ### P2. 기본값: 프로필 공개, 활동 나만 보기
 프로필은 설정하지 않았으면 공개입니다. 활동은 기본 「나만 보기」입니다. 기본값을 바꾸는 변경(초기값, 미설정 해석, 폴백)은 원칙 변경입니다.
@@ -38,6 +45,8 @@ This file lists product decisions that a single PR can silently break. The merge
 
 ### P7. 분석 결과는 스냅샷이다
 AI 분석 등 저장된 분석 결과는 데이터나 분석기 판이 바뀌어도 가리거나 지우지 않습니다. 「다시 분석할 수 있음」 안내만 붙입니다. 다시 분석해도 이전 결과의 이력은 남깁니다.
+타인에게 반환하는 공개 응답은 P1의 최신 공개 데이터 설정을 적용하며 저장된 원본·이력은 변경하지 않습니다.
+
 *Stored analyses are snapshots: never hide or delete them when inputs change; offer re-analysis and keep history.*
 
 ### P8. 비공개 활동도 순위에는 반영한다
