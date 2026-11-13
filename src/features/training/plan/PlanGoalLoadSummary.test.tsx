@@ -16,6 +16,8 @@ it("uses canonical TSS without capping attainment or presenting prescription com
   expect(summary).toHaveTextContent("목표일 경과 · 목표일까지 남은 기간 0주");
   expect(summary).toHaveTextContent("추정 부하");
   expect(screen.queryByText("완료 TSS")).not.toBeInTheDocument();
+  // 사이클·러닝 공통 목표 카드에서 비교 기준 설명 문구는 노출하지 않는다.
+  expect(summary).not.toHaveTextContent("목표기간 전체 계획과");
 });
 
 it("explains unknown loads, supports retry and hides totals when the goal range is invalid", () => {
