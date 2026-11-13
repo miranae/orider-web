@@ -14,8 +14,7 @@ import { localeTag } from "../utils/localeDate";
 import TabNav from "../components/TabNav";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { collection, query, orderBy, where, getDocs, limit, addDoc, onSnapshot } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { firestore, storage } from "../services/firebase";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { logClientError } from "../services/errorLogger";
 import { useSegmentMetadata } from "../hooks/useSegmentMetadata";
 import { useAuth } from "../contexts/AuthContext";
@@ -231,7 +230,9 @@ function SegmentDetailContent() {
   const drilldownKey = JSON.stringify([segmentId, drilldown]);
   const { user, profile } = useAuth();
   const detailTab = requestedTab === "ranking" ? "ranking" : requestedTab === "mine" && user && !user.isAnonymous ? "mine" : "overview";
+  // 임베드(앱 세그먼트 상세)는 별도 named app 을 주입하므로 싱글턴 대신 주입된 인스턴스를 쓴다(#847).
   const gapServices = useFirebaseServices();
+  const firestore = gapServices.firestore;
   const { data: segment, loading: segLoading } = useSegmentMetadata<SegmentData>(segmentId);
 
   // Photo upload
@@ -273,7 +274,7 @@ function SegmentDetailContent() {
       setUserPhotos(items);
     });
     return unsub;
-  }, [segmentId]);
+  }, [segmentId, firestore]);
 
   // Photo upload handler
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -320,7 +321,7 @@ function SegmentDetailContent() {
 
       const photoId = crypto.randomUUID();
       const storagePath = `segment_photos/${user.uid}/${segmentId}/${photoId}.webp`;
-      const storageRef = ref(storage, storagePath);
+      const storageRef = ref(getStorage(firestore.app), storagePath);
       await uploadBytes(storageRef, blob, { contentType: "image/webp" });
       const url = await getDownloadURL(storageRef);
 
@@ -395,7 +396,7 @@ function SegmentDetailContent() {
       })
       .catch((err) => { logClientError("SegmentPage.usedByCourses", err, { segmentId }); });
     return () => { cancelled = true; };
-  }, [segmentId]);
+  }, [segmentId, firestore]);
 
   const myBestEffort = currentHistorySeed?.rows.reduce<EffortData | null>((best, row) => !best || row.elapsedTime < best.elapsedTime ? row : best, null) ?? null;
 
