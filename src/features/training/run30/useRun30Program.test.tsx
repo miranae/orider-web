@@ -62,31 +62,39 @@ describe("useRun30Program snapshot", () => {
     act(() => hook.result.current.retry());
     await waitFor(() => expect(mocks.api.getCurrentProgram).toHaveBeenCalledTimes(2));
   });
-  it("visible fresh 캐시는 자정 또는 3분 만료에 한번 갱신하며 숨으면 중단한다", async () => {
+  it("띄워 둔 fresh 캐시는 3분 만료로는 다시 조회하지 않고 날짜가 바뀔 때 한번 갱신하며 숨으면 중단한다", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     seed();
+    const rollsAt = readPlanSnapshot(run30SnapshotKey("u1"))!.dayRollsAt;
+    expect(rollsAt).toBeGreaterThan(now + 180_000);
     const hook = renderHook(({ visible }) => useRun30Program(true, visible), { initialProps: { visible: false } });
-    vi.mocked(Date.now).mockReturnValue(now + 180_000);
-    await act(async () => { await vi.advanceTimersByTimeAsync(180_000); });
+    vi.mocked(Date.now).mockReturnValue(rollsAt);
+    await act(async () => { await vi.advanceTimersByTimeAsync(rollsAt - now); });
     expect(mocks.api.getCurrentProgram).not.toHaveBeenCalled();
     hook.unmount();
     vi.mocked(Date.now).mockReturnValue(now);
     seed();
     const shown = renderHook(() => useRun30Program(true));
     vi.mocked(Date.now).mockReturnValue(now + 180_000);
-    await act(async () => { await vi.advanceTimersByTimeAsync(180_000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
+    expect(mocks.api.getCurrentProgram).not.toHaveBeenCalled();
+    vi.mocked(Date.now).mockReturnValue(rollsAt);
+    await act(async () => { await vi.advanceTimersByTimeAsync(rollsAt - now); });
     expect(mocks.api.getCurrentProgram).toHaveBeenCalledTimes(1);
     expect(shown.result.current.cacheHit).toBe(false);
   });
 
-  it("프로그램 부재 응답이 반복되어도 매 fresh 만료 timer를 다시 설정한다", async () => {
+  it("프로그램 부재 응답이 반복되어도 날짜가 바뀔 때마다 갱신 timer를 다시 설정한다", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     seed(null);
     mocks.api.getCurrentProgram.mockResolvedValue(null);
     renderHook(() => useRun30Program(true));
+    let at = now;
     for (let cycle = 1; cycle <= 3; cycle += 1) {
-      vi.mocked(Date.now).mockReturnValue(now + cycle * 180_000);
-      await act(async () => { await vi.advanceTimersByTimeAsync(180_000); });
+      const rollsAt = readPlanSnapshot(run30SnapshotKey("u1"))!.dayRollsAt;
+      vi.mocked(Date.now).mockReturnValue(rollsAt);
+      await act(async () => { await vi.advanceTimersByTimeAsync(rollsAt - at); });
+      at = rollsAt;
       expect(mocks.api.getCurrentProgram).toHaveBeenCalledTimes(cycle);
     }
   });

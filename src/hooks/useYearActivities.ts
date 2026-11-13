@@ -1,73 +1,73 @@
-import { useState, useEffect, useCallback } from "react";
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  getDocs,
-} from "firebase/firestore";
-import { firestore } from "../services/firebase";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { logClientError } from "../services/errorLogger";
 import type { Activity } from "@shared/types";
+import { auth } from "../services/firebase";
+import { createYearReadSession, readRecapYears, readYearActivities } from "./yearActivitiesRead";
 
-/**
- * 연말결산용 — 로그인 사용자 본인의 활동 전체를 한 번에 로드한다.
- *
- * 피드용 useActivities 는 10개 단위 무한스크롤이라 연(年) 집계에 부적합하므로,
- * 본인 활동만 createdAt 내림차순으로 일괄 조회한다(공개범위 무관, 삭제 제외).
- * 연 필터·집계는 소비처에서 computeYearRecap(순수함수)이 담당.
- */
-export function useYearActivities(uid: string | null | undefined) {
-  const [state, setState] = useState<{ uid: typeof uid; activities: Activity[]; loading: boolean; error: boolean }>({ uid, activities: [], loading: !!uid, error: false });
+/** 연도 목록은 계정별 point query 두 번, 활동은 선택한 로컬 연도만 조회한다. */
+export function useYearActivities(uid: string | null | undefined, selectedYear?: number) {
+  const sessionRef = useRef(createYearReadSession(uid ?? ""));
+  if (sessionRef.current.uid !== (uid ?? "") || sessionRef.current.owner !== auth.currentUser || !sessionRef.current.valid) {
+    sessionRef.current.valid = false;
+    sessionRef.current = createYearReadSession(uid ?? "");
+  }
+  const session = sessionRef.current;
+  useEffect(() => {
+    if (sessionRef.current === session && session.owner === auth.currentUser) session.valid = true;
+    return () => { session.valid = false; };
+  }, [session]);
+  const [calendar, setCalendar] = useState<{ session: typeof session; uid: typeof uid; years: number[]; loading: boolean; error: boolean }>({ session, uid, years: [], loading: !!uid, error: false });
+  const years = calendar.session === session && calendar.uid === uid ? calendar.years : [];
+  const year = selectedYear ?? years[0] ?? new Date().getFullYear();
+  const [state, setState] = useState<{ session: typeof session; uid: typeof uid; year: number; activities: Activity[]; loading: boolean; error: boolean }>({ session, uid, year, activities: [], loading: !!uid, error: false });
   const [retryGeneration, setRetryGeneration] = useState(0);
-  const retry = useCallback(() => setRetryGeneration((generation) => generation + 1), []);
+  const [calendarRetry, setCalendarRetry] = useState(0);
+  const retry = useCallback(() => {
+    if (calendar.session === session && calendar.uid === uid && calendar.error) setCalendarRetry((generation) => generation + 1);
+    setRetryGeneration((generation) => generation + 1);
+  }, [calendar.uid, calendar.session, calendar.error, uid, session]);
 
   useEffect(() => {
     if (!uid) {
-      setState({ uid, activities: [], loading: false, error: false });
+      setCalendar({ session, uid, years: [], loading: false, error: false });
       return;
     }
-
     let cancelled = false;
-    setState({ uid, activities: [], loading: true, error: false });
-    const timer = globalThis.setTimeout(() => {
+    setCalendar({ session, uid, years: [], loading: true, error: false });
+    const fail = (err: unknown) => {
+      if (cancelled) return;
       cancelled = true;
-      setState({ uid, activities: [], loading: false, error: true });
-      logClientError("useYearActivities.load", new Error("year-activities-read-timeout"), { uid });
-    }, 12_000);
-
-    const load = async () => {
-      try {
-        const col = collection(firestore, "activities");
-        const q = query(
-          col,
-          // 명시적 and()는 영구 캐시 복원 시 필터가 평탄화되어 조회 target이 달라진다.
-          where("userId", "==", uid),
-          where("deletedAt", "==", null),
-          orderBy("createdAt", "desc"),
-        );
-        const snap = await getDocs(q);
-        if (cancelled) return;
-        const items = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }) as Activity)
-          .filter((a) => a.summary != null);
-        setState({ uid, activities: items, loading: false, error: false });
-      } catch (err) {
-        if (cancelled) return;
-        logClientError("useYearActivities.load", err, { uid });
-        setState({ uid, activities: [], loading: false, error: true });
-      } finally {
-        globalThis.clearTimeout(timer);
-      }
+      setCalendar({ session, uid, years: [], loading: false, error: true });
+      logClientError("useYearActivities.calendar", err, { uid });
     };
+    const timer = globalThis.setTimeout(() => fail(new Error("year-calendar-read-timeout")), 12_000);
+    void readRecapYears(uid, () => cancelled, session).then((loaded) => {
+      if (!cancelled) setCalendar({ session, uid, years: loaded, loading: false, error: false });
+    }, fail).finally(() => globalThis.clearTimeout(timer));
+    return () => { cancelled = true; globalThis.clearTimeout(timer); };
+  }, [uid, calendarRetry, session]);
 
-    void load();
-    return () => {
+  const calendarReady = calendar.session === session && calendar.uid === uid && !calendar.loading && !calendar.error;
+  const ready = calendarReady;
+  useEffect(() => {
+    if (!uid || !ready) return;
+    let cancelled = false;
+    setState({ session, uid, year, activities: [], loading: true, error: false });
+    const fail = (err: unknown) => {
+      if (cancelled) return;
       cancelled = true;
-      globalThis.clearTimeout(timer);
+      setState({ session, uid, year, activities: [], loading: false, error: true });
+      logClientError("useYearActivities.load", err, { uid, year });
     };
-  }, [uid, retryGeneration]);
+    const timer = globalThis.setTimeout(() => fail(new Error("year-activities-read-timeout")), 12_000);
+    void readYearActivities(uid, year, () => cancelled, undefined, session).then((activities) => {
+      if (!cancelled) setState({ session, uid, year, activities, loading: false, error: false });
+    }, fail).finally(() => globalThis.clearTimeout(timer));
+    return () => { cancelled = true; globalThis.clearTimeout(timer); };
+  }, [uid, year, ready, retryGeneration, session]);
 
-  const visible = state.uid === uid ? state : { activities: [], loading: !!uid, error: false };
-  return { activities: visible.activities, loading: visible.loading, error: visible.error, retry };
+  const current = state.session === session && state.uid === uid && state.year === year;
+  const error = !!uid && ((calendar.session === session && calendar.uid === uid && calendar.error) || (current && state.error));
+  const loading = !!uid && !error && (!calendarReady || !current || state.loading);
+  return { year, years, activities: uid && current && !loading && !error ? state.activities : [], loading, error, retry };
 }

@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { useParams, useSearchParams } from "react-router-dom";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
-import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { ensureAppCheckReady, firestore, functions } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
@@ -17,7 +17,7 @@ import EventMap from "../../components/event/EventMap";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { Button, Card, Switch, Text, Input } from "../../theme/components";
 import { buildOriderSharePayload, shareOrCopy } from "../../features/share/oriderShareText";
-import { countActiveViewers, createViewerSessionId } from "../../features/event/viewerPresence";
+import { activeViewerCountFromSummary, createViewerSessionId } from "../../features/event/viewerPresence";
 import { createViewerHeartbeatRunner } from "../../features/event/liveViewerRecovery";
 import { useAuth } from "../../contexts/AuthContext";
 import AppInstallLinks from "../../components/AppInstallLinks";
@@ -385,10 +385,12 @@ export default function EventLivePage() {
     // getDocs 폴링은 매번 임시 listen target을 열고 닫는다. Firestore 11.x의
     // 다중 탭 primary 전환과 겹치면 target이 중복 해제되어 AsyncQueue가 영구
     // 실패할 수 있으므로, 화면 수명 동안 하나의 target을 유지한다.
+    // viewers 컬렉션을 구독하면 시청자마다 다른 시청자의 heartbeat 를 매번 읽어 읽기가 시청자 수의
+    // 제곱으로 늘었다. 서버가 30초에 한 번 세어 쓰는 요약 문서 하나만 구독한다.
     const unsubscribeViewers = onSnapshot(
-      collection(firestore, `events/${eventId}/viewers`),
-      (viewers) => {
-        if (active && liveEventRef.current === eventId) setViewerCount(countActiveViewers(viewers.docs.map((viewer) => viewer.data())));
+      doc(firestore, `events/${eventId}/viewer_summary/current`),
+      (summary) => {
+        if (active && liveEventRef.current === eventId) setViewerCount(activeViewerCountFromSummary(summary.exists() ? summary.data() : null));
       },
       (err) => {
         handleViewerError("EventLivePage.viewerPresence", err);

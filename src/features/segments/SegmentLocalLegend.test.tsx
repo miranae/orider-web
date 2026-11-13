@@ -32,3 +32,16 @@ it("keeps the provisional 500-record explanation collapsed and labels its scope"
  const summary=await screen.findByText("빠른 조회 · 최대 500개");
  expect(summary.closest("details")).not.toHaveAttribute("open");
 });
+it("keeps a displayed result while the page stays open", async () => {
+  mocks.load.mockResolvedValueOnce(result);
+  vi.useFakeTimers({ toFake: ["setTimeout", "setInterval"] });
+  try {
+    renderWithProviders(<SegmentLocalLegend segmentId="s" />, { authenticated: true });
+    fireEvent.click(screen.getByRole("button", { name: "완주 수 조회·새로고침" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText(/확인된 모집단의 최다 완주:/)).toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
+    expect(screen.getByText(/확인된 모집단의 최다 완주:/)).toBeInTheDocument();
+    expect(mocks.load).toHaveBeenCalledTimes(1);
+  } finally { vi.useRealTimers(); }
+});

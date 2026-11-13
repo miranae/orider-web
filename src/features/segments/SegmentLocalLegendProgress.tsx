@@ -19,7 +19,8 @@ export default function SegmentLocalLegendProgress({segmentId}:{segmentId:string
   const hide=()=>{if(document.visibilityState==="hidden")clear();};
   document.addEventListener("visibilitychange",hide);
   const focus=()=>{if(run?.result)clear();};window.addEventListener("focus",focus);
-  const timer=run?.result?setTimeout(()=>clear(),Math.min(30000,Math.max(0,run.expiresAt-Date.now()))):undefined;
+  // 결과는 서버가 준 만료 시각까지 유지한다(30초 상한은 띄워 둔 화면을 지워 없앴다).
+  const timer=run?.result?setTimeout(()=>clear(),Math.min(2_147_483_647,Math.max(0,run.expiresAt-Date.now()))):undefined;
   return()=>{document.removeEventListener("visibilitychange",hide);window.removeEventListener("focus",focus);if(timer)clearTimeout(timer);};
  },[run]);
  useEffect(()=>{

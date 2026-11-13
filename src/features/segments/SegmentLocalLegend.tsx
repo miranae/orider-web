@@ -21,7 +21,8 @@ export default function SegmentLocalLegend({ segmentId }: { segmentId: string })
   const [error, setError] = useState(false);
   const token = useRef(0);
   useEffect(() => { ++token.current; setResult(null); setLoading(false); setError(false); setOffered(null); return () => { ++token.current; }; }, [segmentId, user, sdk, services]);
-  useEffect(()=>{const clear=()=>{++token.current;setResult(null);setLoading(false);};const hidden=()=>{if(document.visibilityState==="hidden")clear();};window.addEventListener("focus",clear);document.addEventListener("visibilitychange",hidden);const timer=result?setTimeout(clear,30000):undefined;return()=>{window.removeEventListener("focus",clear);document.removeEventListener("visibilitychange",hidden);if(timer)clearTimeout(timer);};},[result]);
+  useEffect(()=>{const clear=()=>{++token.current;setResult(null);setLoading(false);};const hidden=()=>{if(document.visibilityState==="hidden")clear();};window.addEventListener("focus",clear);document.addEventListener("visibilitychange",hidden);return()=>{window.removeEventListener("focus",clear);document.removeEventListener("visibilitychange",hidden);};},[result]);
+  // 30초 뒤 결과를 지우던 타이머는 없앴다 — 띄워 두기만 해도 화면이 바뀌었다. 포커스·탭 숨김 때만 지운다.
   async function load() {
     if (!user || user.isAnonymous || loading) return;
     const origin=scope.current;

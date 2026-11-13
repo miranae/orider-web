@@ -54,15 +54,20 @@ it("keeps detailed criteria collapsed and gives anonymous riders a readable labe
 });
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
-it("removes visible entries during a 30 second recheck and clears them on a network failure", async () => {
+it("does not poll visible entries, re-checks on focus once the result ages, and clears them on a network failure", async () => {
+  const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
   renderWithProviders(<SegmentLeaderboard segmentId="s" />, { authenticated: true });
   fireEvent.click(screen.getByRole("button", { name: "처음부터 조회·새로고침" }));
   await screen.findByRole("link", { name: /라이더/ });
-  vi.useFakeTimers();
-  // 먼저 초점 재검사로 가짜 시계에서 새 표시 주기를 시작한다.
+  vi.useFakeTimers({ toFake: ["setTimeout", "setInterval"] });
+  await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
   await act(async () => { window.dispatchEvent(new Event("focus")); });
+  expect(mocks.load).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("link", { name: /라이더/ })).toBeInTheDocument();
   mocks.load.mockRejectedValueOnce(new Error("offline"));
-  await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+  now.mockReturnValue(1_000_000 + 5 * 60_000);
+  await act(async () => { window.dispatchEvent(new Event("focus")); await vi.advanceTimersByTimeAsync(0); });
+  expect(mocks.load).toHaveBeenCalledTimes(2);
   expect(screen.queryByRole("link", { name: /라이더/ })).not.toBeInTheDocument();
   expect(screen.getByRole("alert")).toBeInTheDocument();
 });
@@ -103,17 +108,17 @@ it("clears a displayed result when the same UID receives a new SDK session", asy
  expect(mocks.load).toHaveBeenCalledTimes(1);
 });
 
-it("rechecks a fast hidden-visible round trip even just after a successful focus check", async () => {
+it("rechecks a fast hidden-visible round trip even just after a recent result", async () => {
   let visibility: DocumentVisibilityState = "visible";
   vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
   renderWithProviders(<SegmentLeaderboard segmentId="s" />, { authenticated: true });
   fireEvent.click(screen.getByRole("button", { name: "처음부터 조회·새로고침" }));
   await screen.findByRole("link", { name: /라이더/ });
   await act(async () => window.dispatchEvent(new Event("focus")));
-  expect(mocks.load).toHaveBeenCalledTimes(2);
+  expect(mocks.load).toHaveBeenCalledTimes(1);
   await act(async () => { visibility = "hidden"; document.dispatchEvent(new Event("visibilitychange")); });
   expect(screen.queryByRole("link", { name: /라이더/ })).not.toBeInTheDocument();
   await act(async () => { visibility = "visible"; document.dispatchEvent(new Event("visibilitychange")); window.dispatchEvent(new Event("focus")); });
-  expect(mocks.load).toHaveBeenCalledTimes(3);
+  expect(mocks.load).toHaveBeenCalledTimes(2);
   expect(screen.getByRole("link", { name: /라이더/ })).toBeInTheDocument();
 });

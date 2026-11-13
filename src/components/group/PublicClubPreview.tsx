@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { logClientError } from "../../services/errorLogger";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { getPublicClubPage, PublicClubUnavailable, type PublicClub } from "../../services/publicClubs";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../redesign";
@@ -14,13 +15,23 @@ export default function PublicClubPreview({ groupId }: { groupId: string | undef
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  // 지금 보여 주는 소개가 어느 클럽 것인지. 같은 클럽의 포커스 재확인 동안에는 화면을 비우지 않는다
+  // (포커스마다 소개가 사라졌다 다시 나타나 깜빡였다). 철회·실패가 확인되면 그때 지운다.
+  const shownGroup = useRef<string | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    setClub(null); setSchedule(null); setError(false); setLoading(true);
+    const revalidating = !!groupId && shownGroup.current === groupId;
+    if (!revalidating) { shownGroup.current = null; setClub(null); setSchedule(null); setLoading(true); }
+    setError(false);
     if (!groupId) { setLoading(false); return; }
-    void getPublicClubPage(groupId, controller.signal).then(value => { if (active) { setClub(value.club); setSchedule(value.schedule); } }).catch(reason => {
-      if (active && !(reason instanceof PublicClubUnavailable)) setError(true);
+    void getPublicClubPage(groupId, controller.signal).then(value => { if (active) { shownGroup.current = groupId; setClub(value.club); setSchedule(value.schedule); } }).catch(reason => {
+      if (!active) return;
+      shownGroup.current = null; setClub(null); setSchedule(null);
+      if (!(reason instanceof PublicClubUnavailable)) {
+        logClientError("PublicClubPreview.load", reason, { groupId });
+        setError(true);
+      }
     }).finally(() => { if (active) setLoading(false); });
     const refresh = () => { if (document.visibilityState !== "hidden") setAttempt(value => value + 1); };
     window.addEventListener("focus", refresh); window.addEventListener("pageshow", refresh);

@@ -1,3 +1,4 @@
+import type { FtpHistoryControls } from "../../../hooks/useFtpHistory";
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { BikeThresholdDecision } from "@shared/training/bikeThresholdDecision";
@@ -22,6 +23,7 @@ export default function BikeThresholdDecisionCard({
   onAcceptDecision,
   progressionPoints = [],
   ftpHistory = [],
+  ftpHistoryControls,
   defaultEvidenceOpen = false,
   inlineEvidence = false,
   stableDetails = false,
@@ -36,6 +38,7 @@ export default function BikeThresholdDecisionCard({
   onAcceptDecision: () => void;
   progressionPoints?: EstimatedFtpPoint[];
   ftpHistory?: FtpHistoryEntry[];
+  ftpHistoryControls?: FtpHistoryControls;
   defaultEvidenceOpen?: boolean;
   inlineEvidence?: boolean;
   stableDetails?: boolean;
@@ -111,7 +114,7 @@ export default function BikeThresholdDecisionCard({
         ))}
         <FtpProgressionCard
           points={progressionPoints}
-          history={ftpHistory}
+          history={ftpHistory} historyControls={ftpHistoryControls}
           currentFtpW={decision.activeFtpW}
           breakthrough={null}
           embedded

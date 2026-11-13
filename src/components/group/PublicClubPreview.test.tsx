@@ -1,3 +1,4 @@
+import { logClientError } from "../../services/errorLogger";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,8 +7,9 @@ import PublicClubPreview from "./PublicClubPreview";
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: null, signIn: vi.fn() }) }));
 vi.mock("../../services/publicClubs", async original => ({ ...await original<typeof import("../../services/publicClubs")>(), getPublicClubPage: vi.fn() }));
 vi.mock("../../features/group/MeetingSchedule", () => ({ default: () => <div data-testid="public-cafe-schedule">schedule</div> }));
+vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
 const club = { id: "club", name: "공개 소개 fixture", description: "소개 문구", approval: "manual" as const, city: "용인", sports: ["bike" as const] };
-beforeEach(() => { vi.mocked(getPublicClubPage).mockReset().mockResolvedValue({ club, schedule: null }); });
+beforeEach(() => { vi.mocked(logClientError).mockClear(); vi.mocked(getPublicClubPage).mockReset().mockResolvedValue({ club, schedule: null }); });
 const page = () => render(<MemoryRouter><PublicClubPreview groupId="club" /></MemoryRouter>);
 describe("anonymous public club introduction", () => {
   it("shows the public cafe schedule on the LARA preview", async () => {
@@ -26,11 +28,29 @@ describe("anonymous public club introduction", () => {
     vi.mocked(getPublicClubPage).mockRejectedValueOnce(new PublicClubUnavailable());
     await act(async () => window.dispatchEvent(new Event("focus")));
     expect(await screen.findByText("현재 공개 소개를 제공하지 않는 클럽입니다")).toBeInTheDocument();
+    expect(logClientError).not.toHaveBeenCalled();
     expect(screen.queryByText(club.name)).not.toBeInTheDocument(); expect(screen.queryByText("비공개 클럽입니다")).not.toBeInTheDocument();
+  });
+  it("keeps the introduction on screen while a focus refresh is in flight", async () => {
+    page(); await screen.findByText(club.name);
+    let resolve!: (value: Awaited<ReturnType<typeof getPublicClubPage>>) => void;
+    vi.mocked(getPublicClubPage).mockReturnValueOnce(new Promise(r => { resolve = r; }));
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    expect(screen.getByText(club.name)).toBeInTheDocument();
+    await act(async () => resolve({ club, schedule: null } as Awaited<ReturnType<typeof getPublicClubPage>>));
+    expect(screen.getByText(club.name)).toBeInTheDocument();
+  });
+  it("removes the introduction when a focus refresh fails rather than keeping it stale", async () => {
+    page(); await screen.findByText(club.name);
+    vi.mocked(getPublicClubPage).mockRejectedValueOnce(new Error("offline"));
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    expect(await screen.findByText("공개 클럽을 불러오지 못했어요. 다시 시도해 주세요.")).toBeInTheDocument();
+    expect(screen.queryByText(club.name)).not.toBeInTheDocument();
   });
   it("shows a retryable failure instead of unavailable or stale introduction", async () => {
     vi.mocked(getPublicClubPage).mockRejectedValueOnce(new Error("offline")); page();
     expect(await screen.findByText("공개 클럽을 불러오지 못했어요. 다시 시도해 주세요.")).toBeInTheDocument();
+    expect(logClientError).toHaveBeenCalledExactlyOnceWith("PublicClubPreview.load", expect.any(Error), { groupId: "club" });
     fireEvent.click(screen.getByRole("button", { name: /다시/ }));
     await waitFor(() => expect(screen.getByText(club.name)).toBeInTheDocument());
   });

@@ -96,10 +96,10 @@ export default function FriendInvitePage() {
       });
     };
     refresh();
-    const timer = window.setInterval(refresh, 30_000);
+    // 주기 재조회 없음: 띄워 두면 30초마다 미리보기 함수가 호출됐다. 포커스·탭 복귀 때만 다시 읽는다.
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);
-    return () => { stopped = true; generation++; window.clearInterval(timer); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
+    return () => { stopped = true; generation++; window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", refresh); };
   }, [code, user, signedIn, services]);
 
   if (authLoading) {

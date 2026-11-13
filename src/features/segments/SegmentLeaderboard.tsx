@@ -12,6 +12,7 @@ import { formatElapsedMillis } from "../leaderboard/leaderboardFormat";
 import SegmentRankingReport from "./SegmentRankingReport";
 const visible = () => document.visibilityState !== "hidden";
 const date = (value: number) => new Date(value + 9 * 3600000).toISOString().slice(0, 10);
+const REVALIDATE_AFTER_MS = 5 * 60_000;
 export default function SegmentLeaderboard({ segmentId }: { segmentId: string }) {
   const { t } = useTranslation("segment");
   const { user } = useAuth();
@@ -30,6 +31,8 @@ export default function SegmentLeaderboard({ segmentId }: { segmentId: string })
   const selection = useRef<{ epoch: object; cursor?: string } | null>(null);
   const pending = useRef(false);
   const lastFocus = useRef(0);
+  // 마지막 성공 조회 시각. 창 포커스 재확인은 이보다 REVALIDATE_AFTER_MS 지났을 때만 한다.
+  const loadedAt = useRef(0);
   const reload = useRef<() => void>(() => {});
   const view = state?.key === key && state.token === epoch && visible() ? state : null;
   const fromMs = Date.parse(`${from}T00:00:00+09:00`);
@@ -52,7 +55,7 @@ export default function SegmentLeaderboard({ segmentId }: { segmentId: string })
     const fresh = () => current.current === token && services.auth.currentUser === sdk && !controller.signal.aborted && visible();
     try {
       const result = await loadSegmentLeaderboard(services, user.uid, { segmentId, fromMs, toMs, scope, ...(scope === "club" ? { clubId } : {}), ...(cursor ? { cursor } : {}) }, controller.signal);
-      if (fresh()) setState({ token, key, result, loading: false, error: false });
+      if (fresh()) { loadedAt.current = Date.now(); setState({ token, key, result, loading: false, error: false }); }
     } catch { if (fresh()) { selection.current = null; setState({ token, key, result: null, loading: false, error: true }); } }
     finally {
       if (request.current === attempt) request.current = null;
@@ -67,15 +70,17 @@ export default function SegmentLeaderboard({ segmentId }: { segmentId: string })
     void load(active.cursor);
   };
   useEffect(() => {
+    // 주기 재조회 없음(띄워 두면 30초마다 순위가 지워졌다 다시 그려지고 함수가 호출됐다).
+    // 탭 복귀는 즉시, 창 포커스는 마지막 조회가 오래됐을 때만 다시 확인한다.
     const recheck = () => { const now = Date.now(); if (now - lastFocus.current < 500 || request.current && !request.current.controller.signal.aborted) return; lastFocus.current = now; reload.current(); };
+    const focus = () => { if (Date.now() - loadedAt.current >= REVALIDATE_AFTER_MS) recheck(); };
     const visibility = () => {
       if (!visible()) { lastFocus.current = 0; setState(null); request.current?.controller.abort(); }
       else recheck();
     };
-    window.addEventListener("focus", recheck); document.addEventListener("visibilitychange", visibility);
-    const timer = state?.result ? setTimeout(() => reload.current(), 30000) : undefined;
-    return () => { window.removeEventListener("focus", recheck); document.removeEventListener("visibilitychange", visibility); clearTimeout(timer); };
-  }, [epoch, state?.result]);
+    window.addEventListener("focus", focus); document.addEventListener("visibilitychange", visibility);
+    return () => { window.removeEventListener("focus", focus); document.removeEventListener("visibilitychange", visibility); };
+  }, [epoch]);
   return <Card><Stack gap="var(--space-3)">
     <Text as="h2" variant="title">{t("nativeBoard.title")}</Text>
     <Text as="p">{t("nativeBoard.intro")}</Text>

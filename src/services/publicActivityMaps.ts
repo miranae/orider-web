@@ -2,7 +2,7 @@ import { withActivityMapDeadline } from "./activityMapDeadline";
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from "firebase/functions";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
-export interface PublicActivityMap { activityId: string; revision: string; mapPreview: { encodedPolyline: string | null; imageUrl: string | null }; privacyEnabled?: boolean; contentRevision?: number | null; contentSelectedRevision?: number | null }
+export interface PublicActivityMap { activityId: string; revision: string; mapPreview: { encodedPolyline: string | null; imageUrl: string | null; squareImageUrl?: string | null }; privacyEnabled?: boolean; contentRevision?: number | null; contentSelectedRevision?: number | null }
 type Pending = { resolve: (value: PublicActivityMap | null) => void; reject: (reason: unknown) => void };
 type Session = { viewer: FirebaseServices["auth"]["currentUser"]; requests: Map<string, Promise<PublicActivityMap | null>>; queue: Map<string, Pending[]>; scheduled: boolean };
 const sessions = new WeakMap<object, Session>(), connected = new WeakSet<object>();
@@ -35,6 +35,16 @@ export function loadPublicActivityMap(services: FirebaseServices, activityId: st
           if (!("unavailable" in item) && item.mapPreview.imageUrl) {
             const url = new URL(item.mapPreview.imageUrl);
             if (url.protocol !== "https:" || url.username || url.password) throw Error("invalid_public_maps");
+          }
+          // 정사각 정본(squareImageUrl)은 부가 필드다. 구버전 서버엔 없고, 형식이 이상하면 이 값만 버린다 —
+          // 부가 필드 하나 때문에 같은 배치의 기존 지도까지 실패시키지 않는다(카드는 실시간 지도로 대체된다).
+          if (!("unavailable" in item) && item.mapPreview.squareImageUrl != null) {
+            let usable = false;
+            try {
+              const url = typeof item.mapPreview.squareImageUrl === "string" ? new URL(item.mapPreview.squareImageUrl) : null;
+              usable = !!url && url.protocol === "https:" && !url.username && !url.password;
+            } catch { usable = false; }
+            if (!usable) item.mapPreview = { ...item.mapPreview, squareImageUrl: null };
           }
           if (!("unavailable" in item) && (item.contentRevision !== undefined || item.contentSelectedRevision !== undefined)) {
             const head = item.contentRevision, selected = item.contentSelectedRevision;

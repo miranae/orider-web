@@ -79,7 +79,10 @@ export function useAthletePublicPeriod(targetUid: string, from: string, to: stri
       clear(); session.current = { ...empty(), status: "stale" };
       setState({ generation: generation.current, result: session.current });
     };
-    const timer = window.setTimeout(invalidate, Math.max(0, state.result.authorizedUntil - Date.now()));
+    // 승인 창이 끝나도 보이는 목록은 지우지 않는다(띄워 두면 30초 뒤 목록이 사라졌다).
+    // 이어 받기 중인 요청만 무효화하고, 다음 조작(더 보기·탭 복귀)에서 read() 가 처음부터 다시 받는다.
+    const expire = () => { if (busy.current) invalidate(); };
+    const timer = window.setTimeout(expire, Math.max(0, state.result.authorizedUntil - Date.now()));
     window.addEventListener("orider:activity-content-changed", invalidate);
     return () => { window.clearTimeout(timer); window.removeEventListener("orider:activity-content-changed", invalidate); };
   }, [state, clear]);

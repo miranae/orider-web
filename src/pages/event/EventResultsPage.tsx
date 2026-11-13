@@ -8,14 +8,14 @@ import GlossaryText from "../../components/common/GlossaryText";
 import InfoTip from "../../components/InfoTip";
 import "../../features/event/detail/event-linked-pages.css";
 import EventDetailNavigation from "../../features/event/EventDetailNavigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
-import { doc, getDoc, collection, getDocs, type DocumentData } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, orderBy, documentId, startAfter, limit, type DocumentData } from "firebase/firestore";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
-import { getEventPublicParticipants, publicParticipantTimestampMs } from "../../services/eventPublicParticipants";
+import { getEventPublicParticipantsPage, publicParticipantTimestampMs } from "../../services/eventPublicParticipants";
 import { logClientError } from "../../services/errorLogger";
 import { isEventHost } from "../../features/event/eventHost";
 import { getPublicUserProfile } from "../../services/publicProfiles";
@@ -146,8 +146,15 @@ export default function EventResultsPage() {
   const { user, loading: authLoading } = useAuth();
   const dialog = useDialog();
 
+  const [resultScope, setResultScope] = useState<{ eventId: string; owner: typeof auth.currentUser } | null>(null);
   const [eventHead, setEventHead] = useState<EventHead | null>(null);
   const [results, setResults] = useState<ResultEntry[]>([]);
+  const [reload, setReload] = useState(0);
+  const pausePages = useRef<(() => void) | null>(null);
+  const [complete, setComplete] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const nextPage = useRef<((all: boolean) => Promise<void>) | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>("__overall__");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -177,7 +184,12 @@ export default function EventResultsPage() {
   useEffect(() => {
     if (!eventId || authLoading) return;
     let cancelled = false;
-    const owner = auth.currentUser?.uid;
+    const owner = auth.currentUser;
+    setResultScope({ eventId, owner });
+    nextPage.current = null;
+    setComplete(false);
+    setPageLoading(false);
+    setPageError(null);
     setResults([]);
     setEventHead(null);
     (async () => {
@@ -186,7 +198,7 @@ export default function EventResultsPage() {
       setPrivateResultsUnavailable(false);
       try {
         const eventDoc = await withReadDeadline(getDoc(doc(db, `events/${eventId}`)), t("readTimeout"));
-        if (cancelled || auth.currentUser?.uid !== owner) return;
+        if (cancelled || auth.currentUser !== owner) return;
         if (!eventDoc.exists()) {
           setLoadError(t("empty.noResults"));
           return;
@@ -215,7 +227,7 @@ export default function EventResultsPage() {
           }
         }
 
-        if (cancelled || auth.currentUser?.uid !== owner) return;
+        if (cancelled || auth.currentUser !== owner) return;
         setEventHead({
           name: info.name || t("title"),
           date: typeof startMs === "number" ? new Date(startMs).toLocaleDateString("ko-KR") : "",
@@ -229,81 +241,148 @@ export default function EventResultsPage() {
         // 공개 결과는 허용된 projection만 읽는다. 주최자/admin의 비공개 관리 경로는 유지한다.
         const admin = user ? (await withReadDeadline(user.getIdTokenResult(), t("readTimeout"))).claims.admin === true : false;
         const privateAccess = isEventHost(user?.uid, info) || admin;
-        if (cancelled || auth.currentUser?.uid !== owner || (privateAccess && owner !== user?.uid)) return;
+        if (cancelled || auth.currentUser !== owner || (privateAccess && owner?.uid !== user?.uid)) return;
         if (!privateAccess && info.type === "GROUP_RIDE") {
           setPrivateResultsUnavailable(true);
           return;
         }
-        const participantDocs = privateAccess
-          ? (await withReadDeadline(getDocs(collection(db, `events/${eventId}/participants`)), t("readTimeout"))).docs
-          : (await withReadDeadline(getEventPublicParticipants(eventId, services), t("readTimeout"))).participants.map((participant) => ({
-            id: participant.userId, data: () => ({ ...participant }),
-          }));
-        const userNameMap: Record<string, string> = {};
-        const profileErrors: unknown[] = [];
-        if (privateAccess) await Promise.all(participantDocs.map(async (pDoc) => {
+        const profileNames = new Map<string, string>();
+        let rows: { id: string; data: () => DocumentData }[] = [];
+        let cursor: string | null = null;
+        let done = false;
+        let busy = false;
+        const cursors = new Set<string>();
+        const rowIds = new Set<string>();
+        let revision: string | null = null;
+        let paused = false;
+        pausePages.current = () => { paused = true; };
+        const current = () => !cancelled && auth.currentUser === owner;
+        const loadPage = async (all: boolean) => {
+          if (busy || done || !current()) return;
+          busy = true;
+          paused = false;
+          setPageLoading(true);
+          setPageError(null);
           try {
-            userNameMap[pDoc.id] = (await withReadDeadline(getPublicUserProfile(pDoc.id, services.firestore), t("readTimeout")))?.nickname ?? "";
-          } catch (error) { profileErrors.push(error); userNameMap[pDoc.id] = ""; }
-        }));
-        if (cancelled || auth.currentUser?.uid !== owner || (privateAccess && owner !== user?.uid)) return;
+            // 전체 읽기는 사용자가 명시적으로 요청했을 때만, 요청당 유한한 예산으로 수행한다.
+            for (let request = 0; request < (all ? 200 : 1); request++) {
+              if (!current()) return;
+              let page: typeof rows;
+              let next: string | null;
+              let pageComplete: boolean;
+              let nextRevision = revision;
+              if (privateAccess) {
+                const snapshot = await withReadDeadline(getDocs(query(collection(db, `events/${eventId}/participants`), orderBy(documentId()), ...(cursor ? [startAfter(cursor)] : []), limit(50))), t("readTimeout"));
+                page = snapshot.docs;
+                pageComplete = page.length < 50;
+                next = pageComplete ? null : page[page.length - 1]!.id;
+              } else {
+                const response = await withReadDeadline(getEventPublicParticipantsPage(eventId, cursor, services, current), t("readTimeout"));
+                if (revision && response.counterRevision && revision !== response.counterRevision) throw new Error("event-page-revision-changed");
+                nextRevision = response.counterRevision ?? revision;
+                page = response.participants.map(participant => ({ id: participant.userId, data: () => ({ ...participant }) }));
+                pageComplete = response.complete;
+                next = response.nextCursor;
+              }
+              if (!current()) return;
+              if ((next && cursors.has(next)) || page.some(row => rowIds.has(row.id))) throw new Error("event-page-cursor-changed");
+              const userNameMap: Record<string, string> = {};
+              if (privateAccess) {
+                let position = 0;
+                await Promise.all(Array.from({ length: Math.min(4, page.length) }, async () => {
+                  while (position < page.length && current()) {
+                    const row = page[position++]!;
+                    if (!profileNames.has(row.id) && !row.data().realName) {
+                      try {
+                        const profile = await withReadDeadline(getPublicUserProfile(row.id, services.firestore), t("readTimeout"));
+                        if (!current()) return;
+                        profileNames.set(row.id, profile?.nickname ?? "");
+                      } catch (error) {
+                        logClientError("EventResultsPage.loadPublicProfiles", error, { eventId });
+                      }
+                    }
+                  }
+                }));
+                for (const [id, name] of profileNames) userNameMap[id] = name;
+              }
+              if (!current()) return;
+              const participantDocs = [...rows, ...page];
+              const eventStartMs = typeof startMs === "number" ? startMs : null;
+              const entries: ResultEntry[] = participantDocs.map((pDoc) => {
+                const data: DocumentData = pDoc.data();
+                const finishedAt = publicParticipantTimestampMs(data.finishedAt);
+                const finishTime =
+                  typeof finishedAt === "number" && eventStartMs != null ? finishedAt - eventStartMs : null;
+                const verifiedFinisher = isVerifiedEventFinisher(info.resultContractVersion, data.status || "REGISTERED", data.resultVerified, finishedAt, eventStartMs);
+                return {
+                  userId: pDoc.id,
+                  displayName: (privateAccess ? data.realName || userNameMap[pDoc.id] : data.displayName) || "—",
+                  bibNumber: privateAccess && typeof data.bib === "number" ? data.bib : data.bibNumber ?? null,
+                  category: data.category || "—",
+                  rank: 0,
+                  overallRank: 0,
+                  finishTime: verifiedFinisher ? finishTime : null,
+                  status: data.status || "REGISTERED",
+                  verifiedFinisher,
+                  avgSpeed: privateAccess && verifiedFinisher && typeof data.avgSpeed === "number" ? data.avgSpeed : null,
+                  avgPower: privateAccess && verifiedFinisher && typeof data.avgPower === "number" ? data.avgPower : null,
+                  np: privateAccess && verifiedFinisher && typeof data.np === "number" ? data.np : null,
+                  avgHr: privateAccess && verifiedFinisher && typeof data.avgHr === "number" ? data.avgHr : null,
+                  tss: privateAccess && verifiedFinisher && typeof data.tss === "number" ? data.tss : null,
+                  calories: privateAccess && verifiedFinisher && typeof data.calories === "number" ? data.calories : null,
+                };
+              });
 
-        if (profileErrors.length > 0) logClientError("EventResultsPage.loadPublicProfiles", profileErrors[0], { eventId, failureCount: profileErrors.length });
+              entries.sort((a, b) => {
+                if (a.verifiedFinisher && !b.verifiedFinisher) return -1;
+                if (!a.verifiedFinisher && b.verifiedFinisher) return 1;
+                if (a.finishTime == null) return 1;
+                if (b.finishTime == null) return -1;
+                return a.finishTime - b.finishTime;
+              });
 
-        const eventStartMs = typeof startMs === "number" ? startMs : null;
-        const entries: ResultEntry[] = participantDocs.map((pDoc) => {
-          const data: DocumentData = pDoc.data();
-          const finishedAt = publicParticipantTimestampMs(data.finishedAt);
-          const finishTime =
-            typeof finishedAt === "number" && eventStartMs != null ? finishedAt - eventStartMs : null;
-          const verifiedFinisher = isVerifiedEventFinisher(info.resultContractVersion, data.status || "REGISTERED", data.resultVerified, finishedAt, eventStartMs);
-          return {
-            userId: pDoc.id,
-            displayName: (privateAccess ? data.realName || userNameMap[pDoc.id] : data.displayName) || "—",
-            bibNumber: privateAccess && typeof data.bib === "number" ? data.bib : data.bibNumber ?? null,
-            category: data.category || "—",
-            rank: 0,
-            overallRank: 0,
-            finishTime: verifiedFinisher ? finishTime : null,
-            status: data.status || "REGISTERED",
-            verifiedFinisher,
-            avgSpeed: privateAccess && verifiedFinisher && typeof data.avgSpeed === "number" ? data.avgSpeed : null,
-            avgPower: privateAccess && verifiedFinisher && typeof data.avgPower === "number" ? data.avgPower : null,
-            np: privateAccess && verifiedFinisher && typeof data.np === "number" ? data.np : null,
-            avgHr: privateAccess && verifiedFinisher && typeof data.avgHr === "number" ? data.avgHr : null,
-            tss: privateAccess && verifiedFinisher && typeof data.tss === "number" ? data.tss : null,
-            calories: privateAccess && verifiedFinisher && typeof data.calories === "number" ? data.calories : null,
-          };
-        });
-
-        entries.sort((a, b) => {
-          if (a.verifiedFinisher && !b.verifiedFinisher) return -1;
-          if (!a.verifiedFinisher && b.verifiedFinisher) return 1;
-          if (a.finishTime == null) return 1;
-          if (b.finishTime == null) return -1;
-          return a.finishTime - b.finishTime;
-        });
-
-        let overallRank = 0;
-        const catRanks: Record<string, number> = {};
-        for (const entry of entries) {
-          if (entry.verifiedFinisher) {
-            overallRank++;
-            entry.overallRank = overallRank;
-            catRanks[entry.category] = (catRanks[entry.category] || 0) + 1;
-            entry.rank = catRanks[entry.category] ?? 0;
+              let overallRank = 0;
+              const catRanks: Record<string, number> = {};
+              for (const entry of entries) {
+                if (pageComplete && entry.verifiedFinisher) {
+                  overallRank++;
+                  entry.overallRank = overallRank;
+                  catRanks[entry.category] = (catRanks[entry.category] || 0) + 1;
+                  entry.rank = catRanks[entry.category] ?? 0;
+                }
+              }
+              revision = nextRevision;
+              for (const row of page) rowIds.add(row.id);
+              rows = participantDocs;
+              cursor = next;
+              if (next) cursors.add(next);
+              done = pageComplete;
+              setResults(entries);
+              setComplete(done);
+              if (done || paused) break;
+              if (all && request === 199) setPageError(t("resultsView.pageBudget"));
+            }
+          } catch (error) {
+            if (current()) {
+              logClientError("EventResultsPage.loadPage", error, { eventId });
+              setPageError(t("resultsView.loadError"));
+            }
+          } finally {
+            busy = false;
+            if (current()) setPageLoading(false);
           }
-        }
-        if (!cancelled && auth.currentUser?.uid === owner) setResults(entries);
+        };
+        nextPage.current = loadPage;
+        await loadPage(false);
       } catch (err) {
         logClientError("EventResultsPage.loadResults", err, { eventId });
-        if (!cancelled && auth.currentUser?.uid === owner) setLoadError(err instanceof Error ? err.message : t("resultsView.loadError"));
+        if (!cancelled && auth.currentUser === owner) setLoadError(err instanceof Error ? err.message : t("resultsView.loadError"));
       } finally {
-        if (!cancelled && auth.currentUser?.uid === owner) setLoading(false);
+        if (!cancelled && auth.currentUser === owner) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
-  }, [eventId, user, authLoading, t]);
+    return () => { cancelled = true; nextPage.current = null; pausePages.current = null; };
+  }, [eventId, user, authLoading, t, reload]);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -385,7 +464,7 @@ export default function EventResultsPage() {
   }, [finishHistogram, myResult]);
 
   const navigation = eventId ? <div className="site-shell"><EventDetailNavigation eventId={eventId} live={eventHead?.status === "LIVE"} results={eventHead?.status === "LIVE" || eventHead?.status === "FINISHED"} /></div> : null;
-  if (loading) {
+  if (loading || authLoading || resultScope?.eventId !== eventId || resultScope?.owner !== auth.currentUser) {
     return (
       <>{navigation}<div className="max-w-3xl mx-auto py-8">
         <LoadingSkeleton kind="chart" />
@@ -417,7 +496,7 @@ export default function EventResultsPage() {
     );
   }
 
-  const winnerTime = filtered.find((r) => r.verifiedFinisher)?.finishTime ?? null;
+  const winnerTime = complete ? filtered.find((r) => r.verifiedFinisher)?.finishTime ?? null : null;
   const statusLabel = eventStatusLabel(t, eventHead.status);
   const resultsUnavailable = eventHead.status !== "FINISHED";
   const activeGroupId = shouldShowResultsGroupCta(groupId, group?.id, groupLoading, groupInactive, !!groupError) ? groupId : undefined;
@@ -426,6 +505,7 @@ export default function EventResultsPage() {
     <GlossaryProvider scopeKey={`event-results:${eventId}`}>
     <div data-testid="D4-3" className="event-controls-surface event-results-surface">
       {navigation}
+      {!complete && <Text as="p" role="status">{t("resultsView.partialResults", { count: results.length })}</Text>}
       {/* 헤더 — aqua gradient */}
       <div
         style={{
@@ -633,7 +713,7 @@ export default function EventResultsPage() {
               <div className="flex items-center" style={{ gap: "var(--space-1-5)", marginLeft: "auto" }}>
                 <InfoTip title={t("termGlossary:terms.csv.label")} content={t("termGlossary:terms.csv.description")} label={t("termGlossary:terms.csv.label")}>CSV</InfoTip>
                 <Button
-                  type="button" variant="secondary" size="sm" aria-label={t("resultsView.csvExport")}
+                  type="button" variant="secondary" size="sm" aria-label={t("resultsView.csvExport")} disabled={!complete}
                   onClick={() => setCsvNotice(previous => ({
                     eventId,
                     sequence: previous && previous.eventId === eventId ? previous.sequence + 1 : 1,
@@ -649,6 +729,13 @@ export default function EventResultsPage() {
                 </Button>
               </div>
             </div>
+            {!complete && <div role="status">
+              <Text as="p">{t("resultsView.partialResults", { count: results.length })}</Text>
+              <Button disabled={pageLoading} onClick={() => void nextPage.current?.(false)}>{t("resultsView.loadMore")}</Button>
+              <Button disabled={pageLoading} onClick={() => void nextPage.current?.(true)}>{t("resultsView.loadAll")}</Button>
+            </div>}
+            {pageLoading && <Button onClick={() => pausePages.current?.()}>{t("resultsView.pauseLoading")}</Button>}
+            {pageError && <div role="alert"><Text as="p">{pageError}</Text><Button disabled={pageLoading} onClick={() => setReload(value => value + 1)}>{t("resultsView.restartLoading")}</Button></div>}
             {csvNotice !== null && csvNotice.eventId === eventId && (
               <Text key={csvNotice.sequence} as="p" variant="caption" role="status" style={{ padding: "var(--space-3) var(--space-5)" }}>
                 {t("resultsView.csvComingSoon")}
@@ -908,7 +995,9 @@ export default function EventResultsPage() {
               </div>
               {myResult.verifiedFinisher && <Text as="div" variant="caption" tone="tertiary">{t("resultsView.timeFormat")}</Text>}
               <div style={{ fontSize: "var(--ft-body-size)", color: "var(--ink-3)" }}>
-                {myResult.verifiedFinisher
+                {myResult.verifiedFinisher && !complete
+                  ? t("resultsView.partialResults", { count: results.length })
+                  : myResult.verifiedFinisher && complete
                   ? t("resultsView.myRankDetail", { rank1: myResult.overallRank, cat: myResult.category, rank2: myResult.rank })
                   : eventHead.resultContractVersion && eventHead.resultContractVersion >= 2 && ["FINISHED", "RIDING", "RACING"].includes(myResult.status)
                   ? t("resultsView.verificationPending")
@@ -955,7 +1044,7 @@ export default function EventResultsPage() {
                 >
                   <Link2 size={ICON_SIZE.sm} aria-hidden="true" />
                 </Button>
-                {myResult.verifiedFinisher && <Button type="button" variant="secondary" size="sm" aria-label={t("shareCard.completion")} onClick={async () => {
+                {complete && myResult.verifiedFinisher && <Button type="button" variant="secondary" size="sm" aria-label={t("shareCard.completion")} onClick={async () => {
                   try {
                     const file = await createEventShareImage({ eventName: eventHead.name, riderName: myResult.displayName, date: eventHead.date, kind: "finished", result: formatDuration(myResult.finishTime), rank: t("resultsView.myRankDetail", { rank1: myResult.overallRank, cat: myResult.category, rank2: myResult.rank }) });
                     const result = await shareEventImage(file, eventHead.name);

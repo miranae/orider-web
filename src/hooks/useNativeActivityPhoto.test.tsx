@@ -1,12 +1,15 @@
+import { logClientError } from "../services/errorLogger";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { useNativeActivityPhoto } from "./useNativeActivityPhoto";
+import { PHOTO_REVALIDATE_AFTER_MS, useNativeActivityPhoto } from "./useNativeActivityPhoto";
 const mocks = vi.hoisted(() => ({ uid: "owner", services: {}, load: vi.fn(), authorize: vi.fn(), create: vi.fn(), revoke: vi.fn() }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: mocks.uid } }) }));
 vi.mock("../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => mocks.services }));
 vi.mock("../services/nativeActivityPhoto", () => ({ loadNativeActivityPhoto: mocks.load, authorizeNativeActivityPhoto: mocks.authorize }));
+vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 const photo = { activityId: "ride", photoId: "photo" };
 beforeEach(() => {
+  vi.mocked(logClientError).mockClear();
   mocks.uid = "owner"; mocks.services = {}; mocks.authorize.mockReset().mockResolvedValue(undefined); mocks.load.mockReset().mockResolvedValue(new Blob(["image"]));
   mocks.create.mockReset().mockImplementation(() => `blob:local-${mocks.create.mock.calls.length}`); mocks.revoke.mockReset();
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: mocks.create, revokeObjectURL: mocks.revoke }));
@@ -46,17 +49,31 @@ it("clears bytes when backgrounded and rechecks authorization on return, preserv
   act(() => r.result.current.retry()); await waitFor(() => expect(r.result.current.url).toBe("blob:local-2"));
 });
 
-it("revokes displayed bytes when a periodic authorization check fails", async () => {
-  let recheck!: () => void;
-  const original = globalThis.setTimeout;
-  vi.spyOn(globalThis, "setTimeout").mockImplementation((callback, delay, ...args) => {
-    if (delay === 30000) { recheck = callback as () => void; return 123 as unknown as ReturnType<typeof setTimeout>; }
-    return original(callback, delay, ...args);
-  });
+it("does not poll authorization while the photo stays on screen", async () => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "setInterval"] });
+  try {
+    const r = renderHook(() => useNativeActivityPhoto(photo));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(r.result.current.url).toBe("blob:local-1");
+    await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
+    expect(mocks.authorize).not.toHaveBeenCalled();
+    expect(r.result.current.url).toBe("blob:local-1");
+  } finally { vi.useRealTimers(); }
+});
+it.each(["permission-denied", "unavailable", "functions/not-found"])("rechecks only on aged focus and records only real errors: %s", async code => {
+  const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
   const r = renderHook(() => useNativeActivityPhoto(photo));
   await waitFor(() => expect(r.result.current.url).toBe("blob:local-1"));
-  mocks.authorize.mockRejectedValueOnce(new Error("private"));
-  await act(async () => recheck());
-  expect(r.result.current.url).toBeNull(); expect(mocks.revoke).toHaveBeenCalledWith("blob:local-1");
+  await act(async () => { window.dispatchEvent(new Event("focus")); });
+  expect(mocks.authorize).not.toHaveBeenCalled();
+  now.mockReturnValue(1_000_000 + PHOTO_REVALIDATE_AFTER_MS);
+  const error = Object.assign(new Error("private"), { code });
+  mocks.authorize.mockRejectedValueOnce(error);
+  await act(async () => { window.dispatchEvent(new Event("focus")); });
+  expect(mocks.authorize).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(r.result.current.url).toBeNull());
+  expect(mocks.revoke).toHaveBeenCalledWith("blob:local-1");
   expect(mocks.load).toHaveBeenCalledTimes(1);
+  if (code === "functions/not-found") expect(logClientError).not.toHaveBeenCalled();
+  else expect(logClientError).toHaveBeenCalledExactlyOnceWith("useNativeActivityPhoto.revalidate", error, photo, mocks.services);
 });

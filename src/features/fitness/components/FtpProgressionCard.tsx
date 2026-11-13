@@ -1,3 +1,4 @@
+import type { FtpHistoryControls } from "../../../hooks/useFtpHistory";
 import { useState } from "react";
 import "./FtpProgressionCard.css";
 import { useTranslation } from "react-i18next";
@@ -9,6 +10,7 @@ import { Card, DropdownSelect, Text, buttonClass } from "../../../theme/componen
 export default function FtpProgressionCard({
   points,
   history = [],
+  historyControls,
   currentFtpW,
   breakthrough,
   embedded = false,
@@ -18,6 +20,7 @@ export default function FtpProgressionCard({
 }: {
   points: EstimatedFtpPoint[];
   history?: FtpHistoryEntry[];
+  historyControls?: FtpHistoryControls;
   currentFtpW?: number | null;
   breakthrough: FtpBreakthrough | null;
   embedded?: boolean;
@@ -27,11 +30,16 @@ export default function FtpProgressionCard({
 }) {
   const { t, i18n } = useTranslation("fitness");
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const windowStart = historyControls?.windowStart;
+  if (windowStart != null && !historyControls?.olderLoaded) {
+    points = points.filter(point => Date.parse(`${point.period}-01T00:00:00Z`) >= windowStart);
+  }
+  const plotTime = (timestamp: number) => windowStart != null && !historyControls?.olderLoaded ? Math.max(windowStart, timestamp) : timestamp;
   const hasEstimatedTrend = points.length >= 2;
   const sortedHistory = [...history].sort((a, b) => a.changedAt - b.changedAt);
   const hasHistory = sortedHistory.length > 0;
   const hasChart = hasEstimatedTrend || hasHistory;
-  if (!hasChart && !breakthrough) return null;
+  if (!hasChart && !breakthrough && !historyControls) return null;
 
   const w = 480;
   const h = 128;
@@ -44,12 +52,15 @@ export default function FtpProgressionCard({
   const lo = Math.floor((min - padding) / 10) * 10;
   const hi = Math.ceil((max + padding) / 10) * 10;
   const estimatedDates = points.map((point) => Date.parse(`${point.period}-01T00:00:00Z`));
-  const timeValues = [...estimatedDates, ...sortedHistory.map((entry) => entry.changedAt)];
+  const timeValues = [...estimatedDates, ...sortedHistory.map((entry) => plotTime(entry.changedAt))];
   const minTime = timeValues.length > 0 ? Math.min(...timeValues) : 0;
   const maxTime = timeValues.length > 0 ? Math.max(...timeValues) : minTime;
-  const sx = (timestamp: number) => minTime === maxTime
+  const sx = (actualTimestamp: number) => {
+    const timestamp = plotTime(actualTimestamp);
+    return minTime === maxTime
     ? w / 2
     : xPadding + Math.max(0, Math.min(1, (timestamp - minTime) / (maxTime - minTime))) * (w - xPadding * 2);
+  };
   const sy = (value: number) => h - ((value - lo) / Math.max(hi - lo, 1)) * h;
   const estimatedPath = points.map((point, index) => `${index ? "L" : "M"}${sx(estimatedDates[index]!).toFixed(1)} ${sy(point.ftpW).toFixed(1)}`).join(" ");
   const historyPath = sortedHistory.map((entry, index) => `${index ? "L" : "M"}${sx(entry.changedAt).toFixed(1)} ${sy(entry.value).toFixed(1)}`).join(" ");
@@ -96,6 +107,14 @@ export default function FtpProgressionCard({
           </div>
         )}
       </div>
+
+      {historyControls && <div style={{ marginTop: "var(--space-3)" }}>
+        <Text as="p" variant="caption" tone="secondary">{t(historyControls.olderLoaded ? "ftpProgression.loadedHistory" : "ftpProgression.recentWindow")}</Text>
+        {historyControls.loading && <Text as="p" variant="caption">{t("ftpProgression.loadingHistory")}</Text>}
+        {historyControls.error && <Text as="p" variant="caption" role="alert">{t("ftpProgression.historyError")}</Text>}
+        {historyControls.error && <button type="button" className={buttonClass({ variant: "secondary", size: "sm" })} onClick={historyControls.retry}>{t("ftpProgression.retryHistory")}</button>}
+        {historyControls.hasMoreOlder && <button type="button" className={buttonClass({ variant: "secondary", size: "sm" })} disabled={historyControls.loadingOlder} onClick={() => { void historyControls.loadOlder(); }}>{t(historyControls.loadingOlder ? "ftpProgression.loadingHistory" : "ftpProgression.loadOlder")}</button>}
+      </div>}
 
       {hasChart && (
         <div style={{ marginTop: "var(--space-4)" }}>

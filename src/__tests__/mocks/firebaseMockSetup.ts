@@ -171,6 +171,7 @@ vi.mock("firebase/firestore", () => {
     where: vi.fn((...args: unknown[]) => ({ type: "where", args })),
     or: vi.fn((...args: unknown[]) => ({ type: "or", args })),
     and: vi.fn((...args: unknown[]) => ({ type: "and", args })),
+    documentId: vi.fn(() => "__name__"),
     orderBy: vi.fn((...args: unknown[]) => ({ type: "orderBy", args })),
     limit: vi.fn((...args: unknown[]) => ({ type: "limit", args })),
     startAfter: vi.fn((...args: unknown[]) => ({ type: "startAfter", args })),

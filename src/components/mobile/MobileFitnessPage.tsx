@@ -1,3 +1,4 @@
+import type { FtpHistoryControls } from "../../hooks/useFtpHistory";
 import type { FitnessTimeseriesDoc } from "@shared/types/fitness-timeseries";
 import CriticalPaceCurve from "../charts/CriticalPaceCurve";
 import type { CurvePeriods, RunPacePoint } from "../../features/fitness/fitnessCurveDocuments";
@@ -131,6 +132,7 @@ export interface MobileFitnessData {
   powerCurve?: MobilePowerCurvePoint[];
   ftpProgression?: EstimatedFtpPoint[];
   ftpHistory?: FtpHistoryEntry[];
+  ftpHistoryControls?: FtpHistoryControls;
   thresholdDecision?: BikeThresholdDecision;
   // 디스플레이용 종목 키 (탭 라벨/색상 결정)
   discipline: "bike" | "run" | "swim" | "tri";
@@ -874,7 +876,7 @@ export default function MobileFitnessPage({
               pdc={data.pdcSummary}
               weightKg={data.weightKg}
               progression={data.ftpProgression}
-              ftpHistory={data.ftpHistory}
+              ftpHistory={data.ftpHistory} ftpHistoryControls={data.ftpHistoryControls}
               // 임베드 표면은 FTP 결정을 쓰기(수락)하지 않는다 — 결정을 넘기지 않으면
               // 패널이 렌더되지 않아 액션 자체가 노출되지 않는다.
               ftpDecision={ftpDecision}

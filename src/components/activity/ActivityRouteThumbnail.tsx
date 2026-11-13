@@ -23,6 +23,33 @@ export const MAP_THUMBNAIL_HEIGHT = 914;
 export const MAP_THUMBNAIL_VIEWPORT_WIDTH = 1280;
 export const MAP_THUMBNAIL_VIEWPORT_HEIGHT = 457;
 export const MAP_THUMBNAIL_PIXEL_RATIO = 2;
+export const MAP_THUMBNAIL_SQUARE_SIZE = 1200;
+export const MAP_THUMBNAIL_SQUARE_VIEWPORT_SIZE = 600;
+export type MapThumbnailVariant = "wide" | "square";
+export interface MapThumbnailDimensions {
+  width: number;
+  height: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  /** 정본 파일 이름의 렌더 버전 뒤 표식. wide 는 `route-v2-`, square 는 `route-v2-sq-`. */
+  fileInfix: string;
+}
+export const MAP_THUMBNAIL_DIMENSIONS: Record<MapThumbnailVariant, MapThumbnailDimensions> = {
+  wide: {
+    width: MAP_THUMBNAIL_WIDTH,
+    height: MAP_THUMBNAIL_HEIGHT,
+    viewportWidth: MAP_THUMBNAIL_VIEWPORT_WIDTH,
+    viewportHeight: MAP_THUMBNAIL_VIEWPORT_HEIGHT,
+    fileInfix: `${MAP_THUMBNAIL_RENDER_VERSION}-`,
+  },
+  square: {
+    width: MAP_THUMBNAIL_SQUARE_SIZE,
+    height: MAP_THUMBNAIL_SQUARE_SIZE,
+    viewportWidth: MAP_THUMBNAIL_SQUARE_VIEWPORT_SIZE,
+    viewportHeight: MAP_THUMBNAIL_SQUARE_VIEWPORT_SIZE,
+    fileInfix: `${MAP_THUMBNAIL_RENDER_VERSION}-sq-`,
+  },
+};
 const MAP_THUMBNAIL_MAX_BYTES = 1024 * 1024;
 const MAP_THUMBNAIL_CAPTURE_TIMEOUT_MS = 20_000;
 const MAP_THUMBNAIL_IMAGE_WAIT_MS = 8_000;
@@ -81,6 +108,8 @@ interface ActivityRouteThumbnailProps {
   userId: string;
   polyline: string;
   mapImageUrl?: string | null;
+  /** 정사각 정본 이미지(`activities/{id}.mapImageSquareUrl`). square 표시에서만 쓴다. */
+  squareImageUrl?: string | null;
   visibility: "everyone" | "friends" | "followers" | "private";
   contentRevision?: number | null;
   contentSelectedRevision?: number | null;
@@ -88,7 +117,7 @@ interface ActivityRouteThumbnailProps {
   layout?: "desktop" | "mobile";
   /** Disable the legacy mobile side bleed when media already owns its full card inset. */
   mobileFullBleed?: boolean;
-  /** Square display uses a live fitted route and never publishes a different canonical thumbnail. */
+  /** square 는 wide 와 다른 정사각 정본(`route-v2-sq-`)을 쓰고 발행한다. wide 정본 키는 절대 쓰지 않는다. */
   shape?: "wide" | "square";
   /** false 면 화면 밖이다. 데이터는 유지하고 Mapbox 지도만 내린다(WebGL 컨텍스트 반환). */
   onScreen?: boolean;
@@ -153,6 +182,7 @@ export default function ActivityRouteThumbnail(props: ActivityRouteThumbnailProp
   return <div ref={host}>
     {map?.mapPreview.encodedPolyline ? <CanonicalActivityRouteThumbnail {...props} onScreen={visible}
       key={map.revision} polyline={map.mapPreview.encodedPolyline} mapImageUrl={map.mapPreview.imageUrl}
+      squareImageUrl={map.mapPreview.squareImageUrl}
       contentRevision={map.contentRevision} contentSelectedRevision={map.contentSelectedRevision}
       allowCapture={map.privacyEnabled === false && map.contentRevision !== undefined && map.contentSelectedRevision !== undefined} />
       : resolvedWithoutRoute ? <Text as="div" variant="bodySmall" tone="secondary" role="status" style={{ padding: "var(--dim-item-gap)" }}>
@@ -168,6 +198,7 @@ export function CanonicalActivityRouteThumbnail({
   userId,
   polyline,
   mapImageUrl,
+  squareImageUrl,
   visibility,
   contentRevision,
   contentSelectedRevision,
@@ -185,9 +216,13 @@ export function CanonicalActivityRouteThumbnail({
   const captureRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const variant: MapThumbnailVariant = shape === "square" ? "square" : "wide";
+  const dimensions = MAP_THUMBNAIL_DIMENSIONS[variant];
+  // 표시 모양에 맞는 정본만 받는다. square 에 wide 이미지를, wide 에 square 이미지를 쓰지 않는다.
+  const storedImageUrl = variant === "square" ? squareImageUrl : mapImageUrl;
   const [loadedImageUrl, setLoadedImageUrl] = useState<string | null>(null);
   const [timedOutImageUrl, setTimedOutImageUrl] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(mapImageUrl ?? null);
+  const [imageUrl, setImageUrl] = useState<string | null>(storedImageUrl ?? null);
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const [captureSlot, setCaptureSlot] = useState<CaptureSlot | null>(null);
   const [derivedKey, setDerivedKey] = useState<CanonicalMapThumbnailKey | null>(null);
@@ -226,6 +261,7 @@ export function CanonicalActivityRouteThumbnail({
   const canonicalKey = derivedKey?.activityId === activityId
     && derivedKey.sourcePolyline === polyline
     && derivedKey.revisionIdentity === revisionIdentity
+    && derivedKey.variant === variant
     ? derivedKey
     : null;
   const canonicalFileName = canonicalKey?.fileName ?? "";
@@ -251,11 +287,11 @@ export function CanonicalActivityRouteThumbnail({
     return () => globalThis.clearTimeout(timeoutId);
   }, [visible, canonicalImageUrl, imageLoaded, timedOutImageUrl]);
 
-  useEffect(() => { setImageUrl(mapImageUrl ?? null); }, [mapImageUrl]);
+  useEffect(() => { setImageUrl(storedImageUrl ?? null); }, [storedImageUrl]);
   useEffect(() => {
     let cancelled = false;
     setDerivedKey(null);
-    void deriveCanonicalMapThumbnailKey(activityId, polyline, revisionState).then((key) => {
+    void deriveCanonicalMapThumbnailKey(activityId, polyline, revisionState, variant).then((key) => {
       if (!cancelled) {
         setDerivedKey(key);
         setResolvedKeyIdentity(keyIdentity);
@@ -267,7 +303,7 @@ export function CanonicalActivityRouteThumbnail({
       }
     });
     return () => { cancelled = true; };
-  }, [activityId, polyline, revisionIdentity, revisionState, keyIdentity]);
+  }, [activityId, polyline, revisionIdentity, revisionState, keyIdentity, variant]);
   useEffect(() => {
     mounted.current = true;
     return () => { mounted.current = false; };
@@ -279,7 +315,7 @@ export function CanonicalActivityRouteThumbnail({
   // 활동을 볼 수 있는 누구나 첫 썸네일을 발행한다(잘못된 이미지는 주인이 지운다).
   // 실제 접근 권한은 prepare/finalize callable이 최신 서버 상태로 최종 강제한다.
   const mayCapture = revisionState.kind !== "invalid" && (visibility === "everyone" || !!user);
-  const needsCapture = allowCapture && shape !== "square" && mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
+  const needsCapture = allowCapture && mayCapture && webpCaptureSupported !== false && !!canonicalKey && !canonicalImageUrl;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -331,7 +367,7 @@ export function CanonicalActivityRouteThumbnail({
     let phase: MapThumbnailPhase = "capture";
     try {
       if (!mapCanvas) throw new Error("map-thumbnail/canvas-not-found");
-      const snapshot = copyCanonicalMapThumbnailCanvas(mapCanvas);
+      const snapshot = copyCanonicalMapThumbnailCanvas(mapCanvas, dimensions);
 
       // WebGL 픽셀 복사가 끝나는 즉시 다음 카드가 캡처할 수 있게 슬롯을 넘긴다.
       releaseCaptureSlot(ownedSlot.token);
@@ -356,6 +392,7 @@ export function CanonicalActivityRouteThumbnail({
         activityId,
         canonicalFileName,
         expectedHeadRevision,
+        variant,
       );
       if (prepared.expectedFileName !== canonicalFileName) {
         throw new Error("map-thumbnail/stale-prepare");
@@ -373,6 +410,7 @@ export function CanonicalActivityRouteThumbnail({
         canonicalFileName,
         imageBase64,
         expectedHeadRevision,
+        variant,
       );
       if (activeCanonicalKey.current !== captureIdentity) return;
       if (!mounted.current) return;
@@ -387,12 +425,12 @@ export function CanonicalActivityRouteThumbnail({
         setCaptureSlot((current) => current === ownedSlot ? null : current);
       }
     }
-  }, [activityId, canonicalFileName, captureIdentity, captureSlot, needsCapture, revisionState]);
+  }, [activityId, canonicalFileName, captureIdentity, captureSlot, dimensions, needsCapture, revisionState, variant]);
 
   const isMobile = layout === "mobile";
   const frameClassName = `block relative group overflow-hidden w-full ${shape === "square" ? "aspect-square" : "aspect-[var(--feed-thumb-aspect)]"}`;
   const frameStyle = { background: "var(--bg-2)" };
-  const hoverDim = !isMobile && (
+  const hoverDim = !isMobile && shape !== "square" && (
     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
   );
 
@@ -418,9 +456,7 @@ export function CanonicalActivityRouteThumbnail({
       </Suspense>
     </div>
   ) : placeholder;
-  if (shape === "square") {
-    content = liveRoute;
-  } else if (canonicalImageUrl) {
+  if (canonicalImageUrl) {
     content = (
       <>
         {!imageLoaded && <div className="absolute inset-0">{timedOutImageUrl === canonicalImageUrl ? liveRoute : placeholder}</div>}
@@ -495,8 +531,8 @@ export function CanonicalActivityRouteThumbnail({
           position: "fixed",
           top: 0,
           left: 0,
-          width: MAP_THUMBNAIL_VIEWPORT_WIDTH,
-          height: MAP_THUMBNAIL_VIEWPORT_HEIGHT,
+          width: dimensions.viewportWidth,
+          height: dimensions.viewportHeight,
           opacity: 0,
           pointerEvents: "none",
           overflow: "hidden",
@@ -526,6 +562,7 @@ interface CanonicalMapThumbnailKey {
   sourceHash: string;
   fileName: string;
   revisionIdentity: string;
+  variant: MapThumbnailVariant;
 }
 
 export type ActivityMapThumbnailRevision =
@@ -574,6 +611,7 @@ async function deriveCanonicalMapThumbnailKey(
   activityId: string,
   sourcePolyline: string,
   revision: ActivityMapThumbnailRevision,
+  variant: MapThumbnailVariant,
 ): Promise<CanonicalMapThumbnailKey | null> {
   if (revision.kind === "invalid") return null;
   const sourceHash = await getPolylineHash(sourcePolyline);
@@ -585,8 +623,9 @@ async function deriveCanonicalMapThumbnailKey(
     activityId,
     sourcePolyline,
     sourceHash,
-    fileName: `${activityId}${revisionSuffix}.${MAP_THUMBNAIL_RENDER_VERSION}-${sourceHash.slice(0, 16)}.webp`,
+    fileName: `${activityId}${revisionSuffix}.${MAP_THUMBNAIL_DIMENSIONS[variant].fileInfix}${sourceHash.slice(0, 16)}.webp`,
     revisionIdentity,
+    variant,
   };
 }
 
@@ -644,24 +683,25 @@ interface CanonicalMapThumbnailCrop {
 export function getCanonicalMapThumbnailCrop(
   canvasWidth: number,
   canvasHeight: number,
+  dimensions: MapThumbnailDimensions = MAP_THUMBNAIL_DIMENSIONS.wide,
 ): CanonicalMapThumbnailCrop {
   if (
     !Number.isInteger(canvasWidth) ||
     !Number.isInteger(canvasHeight) ||
-    canvasWidth < MAP_THUMBNAIL_WIDTH ||
-    canvasHeight < MAP_THUMBNAIL_HEIGHT
+    canvasWidth < dimensions.width ||
+    canvasHeight < dimensions.height
   ) {
     throw new Error(`map-thumbnail/canvas-too-small:${canvasWidth}x${canvasHeight}`);
   }
 
   // 실제 캡처 DPR — 두 축 모두를 덮는 정수 배율. 요청한 2를 무시하는 기기는 3(iOS)으로 잡힌다.
   const capturedPixelRatio = Math.floor(Math.min(
-    canvasWidth / MAP_THUMBNAIL_VIEWPORT_WIDTH,
-    canvasHeight / MAP_THUMBNAIL_VIEWPORT_HEIGHT,
+    canvasWidth / dimensions.viewportWidth,
+    canvasHeight / dimensions.viewportHeight,
   ));
   const scale = capturedPixelRatio / MAP_THUMBNAIL_PIXEL_RATIO;
-  const sourceWidth = MAP_THUMBNAIL_WIDTH * scale;
-  const sourceHeight = MAP_THUMBNAIL_HEIGHT * scale;
+  const sourceWidth = dimensions.width * scale;
+  const sourceHeight = dimensions.height * scale;
   const extraWidth = canvasWidth - sourceWidth;
   const extraHeight = canvasHeight - sourceHeight;
   // 남는 폭은 1 logical px 반올림(= DPR device px)까지만. 그 이상이면 다른 뷰포트에서 찍힌 캔버스다.
@@ -677,11 +717,14 @@ export function getCanonicalMapThumbnailCrop(
   };
 }
 
-export function copyCanonicalMapThumbnailCanvas(mapCanvas: HTMLCanvasElement): HTMLCanvasElement {
-  const crop = getCanonicalMapThumbnailCrop(mapCanvas.width, mapCanvas.height);
+export function copyCanonicalMapThumbnailCanvas(
+  mapCanvas: HTMLCanvasElement,
+  dimensions: MapThumbnailDimensions = MAP_THUMBNAIL_DIMENSIONS.wide,
+): HTMLCanvasElement {
+  const crop = getCanonicalMapThumbnailCrop(mapCanvas.width, mapCanvas.height, dimensions);
   const output = document.createElement("canvas");
-  output.width = MAP_THUMBNAIL_WIDTH;
-  output.height = MAP_THUMBNAIL_HEIGHT;
+  output.width = dimensions.width;
+  output.height = dimensions.height;
   const context = output.getContext("2d");
   if (!context) throw new Error("map-thumbnail/canvas-context-unavailable");
 
@@ -696,8 +739,8 @@ export function copyCanonicalMapThumbnailCanvas(mapCanvas: HTMLCanvasElement): H
     crop.sourceHeight,
     0,
     0,
-    MAP_THUMBNAIL_WIDTH,
-    MAP_THUMBNAIL_HEIGHT,
+    dimensions.width,
+    dimensions.height,
   );
   return output;
 }
@@ -721,14 +764,17 @@ async function prepareActivityMapThumbnailUpload(
   activityId: string,
   expectedFileName: string,
   expectedHeadRevision?: number,
+  variant: MapThumbnailVariant = "wide",
 ): Promise<{ expectedFileName: string; expectedHeadRevision?: number }> {
   return invokeMapThumbnailCoordinator<
-    { activityId: string; expectedFileName: string; expectedHeadRevision?: number },
+    { activityId: string; expectedFileName: string; expectedHeadRevision?: number; variant?: "square" },
     { expectedFileName: string; expectedHeadRevision?: number }
   >(services, "prepareActivityMapThumbnailUpload", {
     activityId,
     expectedFileName,
     ...(expectedHeadRevision != null ? { expectedHeadRevision } : {}),
+    // wide 요청은 이전과 같은 payload 를 유지한다(variant 생략 = wide).
+    ...(variant === "square" ? { variant } : {}),
   });
 }
 
@@ -738,15 +784,17 @@ async function finalizeActivityMapThumbnailUpload(
   expectedFileName: string,
   imageBase64: string,
   expectedHeadRevision?: number,
+  variant: MapThumbnailVariant = "wide",
 ): Promise<{ mapImageUrl: string }> {
   const data = await invokeMapThumbnailCoordinator<
-    { activityId: string; expectedFileName: string; imageBase64: string; expectedHeadRevision?: number },
+    { activityId: string; expectedFileName: string; imageBase64: string; expectedHeadRevision?: number; variant?: "square" },
     { mapImageUrl: string }
   >(services, "finalizeActivityMapThumbnailUpload", {
     activityId,
     expectedFileName,
     imageBase64,
     ...(expectedHeadRevision != null ? { expectedHeadRevision } : {}),
+    ...(variant === "square" ? { variant } : {}),
   });
   if (!data.mapImageUrl) throw new Error("map-thumbnail/finalize-missing-url");
   return data;

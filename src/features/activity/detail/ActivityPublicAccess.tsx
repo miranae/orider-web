@@ -29,7 +29,7 @@ export function ActivityPublicAccess(props: PublicActivitySessionOptions & { chi
  return <ActivityPublicAccessSession key={key.current.generation} {...props} />;
 }
 // Preserve the last authorized layout while hiding all stale content. Collapsing
-// it during periodic ACL checks clamps the browser's scroll position.
+// it during ACL revalidation clamps the browser's scroll position.
 function RevalidationBoundary({ fresh, children, fallback }: { fresh: boolean; children: ReactNode; fallback: ReactNode }) {
  const content = useRef<HTMLDivElement>(null);
  const height = useRef(0);

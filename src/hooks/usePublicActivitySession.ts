@@ -8,6 +8,15 @@ export interface PublicActivitySessionOptions {
  detailMeasurement?: (outcome: JourneyOutcome) => void; onDetailRetry?: () => void;
  onReady: () => void; onError: (code: "activity_load_failed") => void;
 }
+/**
+ * 마지막 권한 확인이 이 시간 안이면, 보이는 탭의 포커스 재확인 동안 화면을 가리지 않는다.
+ * 주기적 재확인은 두지 않는다 — 띄워 둔 화면이 30초마다 가려졌다 다시 그려지고
+ * 탭 하나가 하루 수천 번 함수를 호출했다. 재확인은 탭 복귀·포커스 때만 한다.
+ */
+export const PUBLIC_ACCESS_VERIFIED_TTL_MS = 5 * 60_000;
+function sameJson(a: unknown, b: unknown): boolean {
+  try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+}
 function accessWasLost(error: unknown): boolean {
   const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
   return isPublicActivityAccessError(error) || code === "functions/unauthenticated"
@@ -89,9 +98,9 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
     const refresh = async (fromFocus = false) => {
       // Focusing an already visible WK document can be part of the tap itself.
       // Keep only this session's recently verified content until that read settles;
-      // backgrounding, periodic checks and an expired verification still mask at once.
+      // backgrounding and an expired verification still mask at once.
       const age = verifiedAt.current === null ? Infinity : Date.now() - verifiedAt.current;
-      const preserveVerified = fromFocus && visible() && age >= 0 && age < 30_000
+      const preserveVerified = fromFocus && visible() && age >= 0 && age < PUBLIC_ACCESS_VERIFIED_TTL_MS
         && acceptedSession.current === session && services.auth.currentUser === session.viewer;
       if (!preserveVerified) setMapFresh(false);
       if (!visible() || refreshing) return;
@@ -99,14 +108,21 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
       const request = ++sequence, ownerGeneration = generation.current;
       let timeout: ReturnType<typeof setTimeout> | undefined;
       try {
-        const fresh = await Promise.race([client.load(activityId), new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("public_map_refresh_timeout")), preserveVerified ? Math.min(10_000, 30_000 - age) : 10_000); })]);
+        const fresh = await Promise.race([client.load(activityId), new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("public_map_refresh_timeout")), preserveVerified ? Math.min(10_000, PUBLIC_ACCESS_VERIFIED_TTL_MS - age) : 10_000); })]);
         if (!alive || request !== sequence || ownerGeneration !== generation.current || !visible()) return;
-        setDetail(current => current ? { ...fresh, ...(inFlight.current ? {
-          viewerHasKudos: current.viewerHasKudos,
-          activity: { ...fresh.activity, kudosCount: current.activity.kudosCount, commentCount: current.activity.commentCount },
-        } : {}) } : current);
+        // 내용이 같으면 기존 객체를 유지해 분석 화면 전체가 다시 그려지지 않게 한다.
+        setDetail(current => {
+          if (!current) return current;
+          const next = { ...fresh, ...(inFlight.current ? {
+            viewerHasKudos: current.viewerHasKudos,
+            activity: { ...fresh.activity, kudosCount: current.activity.kudosCount, commentCount: current.activity.commentCount },
+          } : {}) };
+          return sameJson(current, next) ? current : next;
+        });
         verifiedAt.current = Date.now();
-        setVerifiedMap({ client, activityId, value: fresh.mapPreview }); setMapFresh(true);
+        setVerifiedMap(current => current?.client === client && current.activityId === activityId && sameJson(current.value, fresh.mapPreview)
+          ? current : { client, activityId, value: fresh.mapPreview });
+        setMapFresh(true);
       } catch (reason) {
         if (!alive || request !== sequence || ownerGeneration !== generation.current) return;
         if (accessWasLost(reason)) revokeAccess();
@@ -119,10 +135,9 @@ export function usePublicActivitySession({ activityId, retryKey, embedded = fals
       else void refresh();
     };
     const focus = () => { void refresh(true); };
-    const timer = window.setInterval(() => { void refresh(); }, 30_000);
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("focus", focus);
-    return () => { alive = false; sequence++; window.clearInterval(timer); document.removeEventListener("visibilitychange", visibility); window.removeEventListener("focus", focus); };
+    return () => { alive = false; sequence++; document.removeEventListener("visibilitychange", visibility); window.removeEventListener("focus", focus); };
   // Revalidation must not restart its cadence after its own DTO update.
   }, [activityId, client, loading, failed, revokeAccess, hasDetail, setDetail, services, session]);
 

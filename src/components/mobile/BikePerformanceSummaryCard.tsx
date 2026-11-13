@@ -1,3 +1,4 @@
+import type { FtpHistoryControls } from "../../hooks/useFtpHistory";
 import { estimateVo2max } from "../../features/fitness/estimateVo2max";
 import FitnessPdcProfile from "../../features/fitness/components/FitnessPdcProfile";
 import GlossaryText from "../common/GlossaryText";
@@ -34,6 +35,7 @@ interface BikePerformanceSummaryCardProps {
   weightKg?: number;
   progression?: EstimatedFtpPoint[];
   ftpHistory?: FtpHistoryEntry[];
+  ftpHistoryControls?: FtpHistoryControls;
   ftpDecision?: BikeThresholdDecisionV2 | null;
   ftpReceipt?: FtpMutationReceipt | null;
   ftpDeviceReceipts?: FtpDeviceReceipt[];
@@ -46,7 +48,7 @@ const RIDER_TYPE_KEYS = new Set([
 ]);
 
 
-export default function BikePerformanceSummaryCard({ part = "all", compact = false, stableDetails = false, decision, pdc, weightKg, progression = [], ftpHistory = [], ftpDecision = null, ftpReceipt = null, ftpDeviceReceipts = [], decisionBusy = false, onAcceptDecision = () => undefined }: BikePerformanceSummaryCardProps) {
+export default function BikePerformanceSummaryCard({ part = "all", compact = false, stableDetails = false, decision, pdc, weightKg, progression = [], ftpHistory = [], ftpHistoryControls, ftpDecision = null, ftpReceipt = null, ftpDeviceReceipts = [], decisionBusy = false, onAcceptDecision = () => undefined }: BikePerformanceSummaryCardProps) {
   const { t } = useTranslation("dashboard");
   const [evidenceOpen, setEvidenceOpen] = useState(false);
   const evidenceId = useId();
@@ -132,7 +134,7 @@ export default function BikePerformanceSummaryCard({ part = "all", compact = fal
         <Text as="p" variant="caption" tone="secondary">{t("fitness:thresholdDecision.modelOnly")}</Text>
       </div>}
       {part !== "analysis" && <>
-      <div className="mobile-fitness-performance__trend"><FtpProgressionCard points={progression} history={ftpHistory} currentFtpW={activeFtp} breakthrough={null} embedded compact stableSelection={stableDetails} showHistory={part === "condition" || stableDetails} /></div>
+      <div className="mobile-fitness-performance__trend"><FtpProgressionCard points={progression} history={ftpHistory} historyControls={ftpHistoryControls} currentFtpW={activeFtp} breakthrough={null} embedded compact stableSelection={stableDetails} showHistory={part === "condition" || stableDetails} /></div>
 
       <BikeFtpDecisionActionPanel
         decision={ftpDecision}

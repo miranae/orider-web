@@ -5,9 +5,10 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMockActivity, createMockSummary } from "../__tests__/fixtures/mockData";
-const mocks = vi.hoisted(() => ({ activities: [] as import("@shared/types").Activity[], error: false, retry: vi.fn(), draw: vi.fn((_recap: unknown, _labels: unknown, _ratio: unknown) => ({})), save: vi.fn() }));
+const mocks = vi.hoisted(() => ({ activities: [] as import("@shared/types").Activity[], error: false, retry: vi.fn(), lifetimeRead: vi.fn(async () => [] as import("@shared/types").Activity[]), draw: vi.fn((_recap: unknown, _labels: unknown, _ratio: unknown) => ({})), save: vi.fn() }));
+vi.mock("../hooks/yearActivitiesRead", () => ({ readLifetimeActivities: mocks.lifetimeRead }));
 vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner" }, profile: { nickname: "Owner" } }) }));
-vi.mock("../hooks/useYearActivities", () => ({ useYearActivities: () => ({ activities: mocks.activities, loading: false, error: mocks.error, retry: mocks.retry }) }));
+vi.mock("../hooks/useYearActivities", () => ({ useYearActivities: (_uid: string, selectedYear?: number) => ({ year: selectedYear ?? 2025, years: [2025, 2024], activities: mocks.activities, loading: false, error: mocks.error, retry: mocks.retry }) }));
 vi.mock("../hooks/useRunRecords", () => ({ useRunRecords: () => ({ run: undefined }) }));
 vi.mock("../hooks/useMilestones", () => ({ useMilestones: () => ({ achieved: new Map(), loading: false, markCelebrated: vi.fn() }) }));
 vi.mock("../components/fitness/LifetimeMilestonesGrid", () => ({ default: ({scopeLabel}: {scopeLabel: string}) => <p data-testid="lifetime-scope">{scopeLabel}</p> }));
@@ -28,7 +29,7 @@ async function sharedRecap() {
   await waitFor(() => expect(mocks.draw).toHaveBeenCalled());
   return mocks.draw.mock.calls[0]![0] as unknown as { totalDistanceMeters: number; totalCount: number; breakdown: Array<{ discipline: string }> };
 }
-beforeEach(() => { mocks.error = false; mocks.retry.mockClear(); });
+beforeEach(() => { mocks.error = false; mocks.retry.mockClear(); mocks.lifetimeRead.mockReset().mockResolvedValue([]); });
 
 describe("annual recap sport scope", () => {
   it.each(["", "&sport=tri"])("includes running and swimming in default/all totals and sharing %s", async query => {
@@ -48,16 +49,14 @@ describe("annual recap sport scope", () => {
   });
 });
 
-it("places annual context before expandable lifetime running records and labels lifetime distance scope", () => {
+it("keeps lifetime distances in a separate unopened disclosure", () => {
   show("&sport=run");
   const header = screen.getByRole("heading", {name: "연간 기록"});
   const running = screen.getByText("전체 기간 러닝 개인기록과 배지");
   expect(header.compareDocumentPosition(running) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(running.closest("details")).not.toHaveAttribute("open");
-  const lifetime = screen.getByText("전체 기간 거리 기록");
-  expect(lifetime.closest("details")).not.toHaveAttribute("open");
-  fireEvent.click(lifetime);
-  expect(screen.getByTestId("lifetime-scope")).toHaveTextContent("러닝·걷기·하이킹");
+  expect(screen.getByText("전체 기간 거리 기록").closest("details")).not.toHaveAttribute("open");
+  expect(screen.queryByTestId("lifetime-scope")).not.toBeInTheDocument();
 });
 
 it("renders English sport activity counts from the recap namespace without leaking a translation key", async () => {
@@ -79,4 +78,36 @@ it("shows a retryable read error instead of an empty year or share actions", () 
   expect(screen.queryByTestId("P2-4-2")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
   expect(mocks.retry).toHaveBeenCalledOnce();
+});
+
+it("selects another calendar year through the dropdown without changing the sport", () => {
+  show("&sport=run");
+  fireEvent.click(screen.getByRole("combobox"));
+  fireEvent.click(screen.getByRole("option", { name: "2024" }));
+  expect(screen.getByText("2024년 나의 활동")).toBeInTheDocument();
+  expect(within(screen.getByTestId("P2-0-1")).getByRole("tab", { name: /러닝/ })).toHaveAttribute("aria-selected", "true");
+});
+
+it("loads lifetime distances only on explicit disclosure opening and reuses them after changing year", async () => {
+  show("&sport=run");
+  expect(mocks.lifetimeRead).not.toHaveBeenCalled();
+  const details = screen.getByText("전체 기간 거리 기록").closest("details")!;
+  details.open = true;
+  fireEvent(details, new Event("toggle"));
+  await waitFor(() => expect(screen.getByTestId("lifetime-scope")).toHaveTextContent("러닝·걷기·하이킹"));
+  fireEvent.click(screen.getByRole("combobox"));
+  fireEvent.click(screen.getByRole("option", { name: "2024" }));
+  expect(mocks.lifetimeRead).toHaveBeenCalledTimes(1);
+});
+
+it("shows retry instead of lifetime achievements when the manual read is incomplete", async () => {
+  mocks.lifetimeRead.mockRejectedValueOnce(new Error("year-read-budget-exceeded"));
+  show();
+  const details = screen.getByText("전체 기간 거리 기록").closest("details")!;
+  details.open = true;
+  fireEvent(details, new Event("toggle"));
+  await waitFor(() => expect(within(details).getByRole("alert")).toBeInTheDocument());
+  expect(screen.queryByTestId("lifetime-scope")).not.toBeInTheDocument();
+  fireEvent.click(within(details).getByRole("button", { name: "다시 시도" }));
+  await waitFor(() => expect(screen.getByTestId("lifetime-scope")).toBeInTheDocument());
 });

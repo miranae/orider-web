@@ -193,6 +193,25 @@ describe("useCanonicalRollout 재조회 — kill switch 전달 경로", () => {
     expect(result.current.surfaces.milestones).toBe(false);
   });
 
+  it("숨긴 탭에서는 주기 갱신을 멈추고, 다시 보이면 이어 간다", async () => {
+    vi.useFakeTimers();
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    try {
+      setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: true } } });
+      renderHook(() => useCanonicalRollout(), { wrapper: withUser("u1") });
+      await settle();
+      expect(rolloutCalls()).toBe(1);
+      visibility.mockReturnValue("hidden");
+      await act(async () => { vi.advanceTimersByTime(CANONICAL_ROLLOUT_CACHE_TTL_MS * 10); });
+      await settle();
+      expect(rolloutCalls()).toBe(1);
+      visibility.mockReturnValue("visible");
+      await act(async () => { document.dispatchEvent(new Event("visibilitychange")); });
+      await settle();
+      expect(rolloutCalls()).toBe(2);
+    } finally { visibility.mockRestore(); }
+  });
+
   it("탭이 다시 보이면 그 자리에서 다시 묻는다", async () => {
     vi.useFakeTimers();
     setCallableResult("getCanonicalRollout", { data: { surfaces: { activityDetail: true } } });

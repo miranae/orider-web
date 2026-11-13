@@ -8,6 +8,7 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { createWebNotificationClient } from "../../services/webNotifications";
 import { Button, Section, Stack, Text } from "../../theme/components";
 
+const REVALIDATE_AFTER_MS = 5 * 60_000;
 /** Exact authorized destination, independent of the first page of activity comments. */
 export function NotificationCommentTarget({ activityId: explicitActivityId, commentId: explicitCommentId, embedded = false }: { activityId?: string; commentId?: string | null; embedded?: boolean } = {}) {
   const route = useParams<{ activityId: string }>(); const [params] = useSearchParams();
@@ -24,10 +25,12 @@ export function NotificationCommentTarget({ activityId: explicitActivityId, comm
   const [state, setState] = useState<{ client: typeof client; key: string; comment?: ActivityFeedComment | null; failed?: boolean; denied?: boolean } | null>(null);
   const [visible, setVisible] = useState(document.visibilityState === "visible");
   const [attempt, setAttempt] = useState(0); const heading = useRef<HTMLDivElement>(null);
+  // 마지막 성공 조회 시각. 포커스 재확인은 이보다 REVALIDATE_AFTER_MS 지났을 때만 한다.
+  const loadedAt = useRef(0);
   useEffect(() => {
     if (!validTarget || !activityId || !commentId || !uid || authLoading || !visible) return;
     let active = true; setState(null);
-    void client.comment(activityId, commentId).then(result => { if (active && services.auth.currentUser === viewer) setState({ client, key, comment: result.comment }); })
+    void client.comment(activityId, commentId).then(result => { if (active && services.auth.currentUser === viewer) { loadedAt.current = Date.now(); setState({ client, key, comment: result.comment }); } })
       .catch(error => { if (active && services.auth.currentUser === viewer) setState({ client, key, failed: true, denied: ["functions/permission-denied", "functions/not-found"].includes(error?.code) }); });
     return () => { active = false; };
   }, [activityId, commentId, uid, authLoading, client, key, attempt, visible, validTarget, services, viewer]);
@@ -37,15 +40,17 @@ export function NotificationCommentTarget({ activityId: explicitActivityId, comm
   useEffect(() => {
     if (commentId === null) return;
     const refresh = () => { if (document.visibilityState === "visible") { setState(null); setAttempt(value => value + 1); } };
+    // 주기 재조회 없음(띄워 두면 30초마다 댓글이 지워졌다 다시 그려지고 함수가 호출됐다).
+    // 창 포커스는 마지막 조회가 오래됐을 때만, 탭 복귀·안전/내용 변경은 즉시 다시 확인한다.
+    const focus = () => { if (Date.now() - loadedAt.current >= REVALIDATE_AFTER_MS) refresh(); };
     const visibility = () => { setState(null); setVisible(document.visibilityState === "visible"); if (document.visibilityState === "visible") refresh(); };
     const changed = (event: Event) => {
       const detail = (event as CustomEvent<{ activityId?: string }>).detail;
       if (!detail?.activityId || detail.activityId === activityId) refresh();
     };
-    const timer = window.setInterval(refresh, 30000);
-    window.addEventListener("focus", refresh); document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("focus", focus); document.addEventListener("visibilitychange", visibility);
     window.addEventListener("orider:activity-safety-changed", changed); window.addEventListener("orider:activity-content-changed", changed);
-    return () => { clearInterval(timer); window.removeEventListener("focus", refresh); document.removeEventListener("visibilitychange", visibility);
+    return () => { window.removeEventListener("focus", focus); document.removeEventListener("visibilitychange", visibility);
       window.removeEventListener("orider:activity-safety-changed", changed); window.removeEventListener("orider:activity-content-changed", changed); };
   }, [activityId, commentId]);
   const current = state?.key === key && state.client === client ? state : null;

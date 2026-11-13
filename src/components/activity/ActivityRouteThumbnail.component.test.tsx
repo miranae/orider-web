@@ -29,7 +29,14 @@ vi.mock("../RouteMap", async () => {
     }) {
       // 업로드 캡처 뷰포트만 pixelRatio 를 고정한다. 실시간 지도는 세션 스냅샷용으로만 onLoad 를 받는다.
       const preserveDrawingBuffer = pixelRatio != null;
+      const canvasRef = React.useRef<HTMLCanvasElement>(null);
       React.useEffect(() => {
+        // Mapbox 처럼 캡처 뷰포트(CSS px) × pixelRatio 크기의 backing canvas 를 만든다.
+        const canvas = canvasRef.current, viewport = canvas?.parentElement;
+        if (canvas && viewport && pixelRatio) {
+          canvas.width = parseFloat(viewport.style.width) * pixelRatio;
+          canvas.height = parseFloat(viewport.style.height) * pixelRatio;
+        }
         if (!preserveDrawingBuffer) {
           routeMapControl.liveMounts += 1;
           if (routeMapControl.liveCanvas) onLoad?.();
@@ -43,7 +50,7 @@ vi.mock("../RouteMap", async () => {
         onLoad?.();
       }, [onLoad, preserveDrawingBuffer]);
       return preserveDrawingBuffer
-        ? <canvas data-testid="capture-map" width={2560} height={914} />
+        ? <canvas ref={canvasRef} data-testid="capture-map" />
         : <div data-testid="route-map">{routeMapControl.liveCanvas && <canvas data-testid="live-canvas" />}</div>;
     },
   };
@@ -56,6 +63,12 @@ const baseProps = {
   mapImageUrl: null,
   visibility: "everyone" as const,
 };
+
+const wideFileName = "activity-123.r1.route-v2-fcfef7dfc9b21144.webp";
+const squareFileName = "activity-123.r1.route-v2-sq-fcfef7dfc9b21144.webp";
+function storageUrl(fileName: string) {
+  return `https://firebasestorage.googleapis.com/v0/b/test/o/${encodeURIComponent(`map_thumbnails/${baseProps.userId}/${fileName}`)}?alt=media`;
+}
 
 function thumbnailInvocations() {
   return mockCallableInvocations.filter(({ name }) => name.includes("ActivityMapThumbnailUpload"));
@@ -123,8 +136,81 @@ describe("ActivityRouteThumbnail revision capture contract", () => {
       { authenticated: true, user: { uid: baseProps.userId } },
     );
     await waitFor(() => expect(queryByTestId("route-map")).toBeInTheDocument());
-    expect(queryByTestId("capture-map")).not.toBeInTheDocument();
-    expect(thumbnailInvocations()).toEqual([]);
+    await waitFor(() => expect(thumbnailInvocations()).toHaveLength(2));
+    // square 는 자기 정본(route-v2-sq-)으로만 발행한다. wide 정본 이름·wide 요청 모양은 쓰지 않는다.
+    for (const call of thumbnailInvocations()) {
+      expect(call.data).toMatchObject({ expectedFileName: squareFileName, variant: "square" });
+      expect((call.data as { expectedFileName: string }).expectedFileName).not.toBe(wideFileName);
+    }
+  });
+
+  it("shows a stored square canonical image from the public map without a live map or capture", async () => {
+    installSuccessfulCoordinator();
+    const complete = vi.spyOn(HTMLImageElement.prototype, "complete", "get").mockReturnValue(true);
+    const width = vi.spyOn(HTMLImageElement.prototype, "naturalWidth", "get").mockReturnValue(1200);
+    liveMaps.maps[baseProps.activityId] = {
+      activityId: baseProps.activityId, revision: "live-3-1", privacyEnabled: false,
+      contentRevision: 3, contentSelectedRevision: 1,
+      mapPreview: { encodedPolyline: baseProps.polyline, imageUrl: null, squareImageUrl: storageUrl(squareFileName) },
+    };
+    try {
+      const { container, queryByTestId } = renderWithProviders(
+        <PublicActivityRouteThumbnail {...baseProps} layout="mobile" shape="square" />,
+        { authenticated: true, user: { uid: baseProps.userId } },
+      );
+      await waitFor(() => expect(container.querySelector(`img[src="${storageUrl(squareFileName)}"]`)).toHaveStyle({ opacity: "1" }));
+      expect(queryByTestId("route-map")).not.toBeInTheDocument();
+      expect(queryByTestId("capture-map")).not.toBeInTheDocument();
+      expect(thumbnailInvocations()).toEqual([]);
+    } finally {
+      complete.mockRestore();
+      width.mockRestore();
+    }
+  });
+
+  it("ignores a stored square image whose file name is not the square canonical name", async () => {
+    installSuccessfulCoordinator();
+    const { container, queryByTestId } = renderWithProviders(
+      <ActivityRouteThumbnail {...baseProps} layout="mobile" shape="square" squareImageUrl={storageUrl(wideFileName)}
+        mapImageUrl={storageUrl(wideFileName)} contentRevision={3} contentSelectedRevision={1} />,
+      { authenticated: true, user: { uid: baseProps.userId } },
+    );
+    await waitFor(() => expect(queryByTestId("route-map")).toBeInTheDocument());
+    expect(container.querySelector(`img[src="${storageUrl(wideFileName)}"]`)).not.toBeInTheDocument();
+    await waitFor(() => expect(thumbnailInvocations()).toHaveLength(2));
+    expect(thumbnailInvocations()[0]?.data).toMatchObject({ expectedFileName: squareFileName, variant: "square" });
+  });
+
+  it("captures a 1200x1200 square image and publishes it with the square variant", async () => {
+    const outputs: [number, number][] = [];
+    const toBlob = vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function (this: HTMLCanvasElement, callback: BlobCallback) {
+      outputs.push([this.width, this.height]);
+      callback(new Blob([""], { type: "image/webp" }));
+    });
+    installSuccessfulCoordinator();
+    setCallableImplementation("finalizeActivityMapThumbnailUpload", () => ({ data: { mapImageUrl: storageUrl(squareFileName) } }));
+    try {
+      const { container, getByTestId } = renderWithProviders(
+        <ActivityRouteThumbnail {...baseProps} layout="mobile" shape="square" contentRevision={3} contentSelectedRevision={1} />,
+        { authenticated: false },
+      );
+      await waitFor(() => expect(thumbnailInvocations()).toHaveLength(2));
+      const [prepare, finalize] = thumbnailInvocations();
+      expect(prepare).toEqual({
+        name: "prepareActivityMapThumbnailUpload",
+        data: { activityId: baseProps.activityId, expectedFileName: squareFileName, expectedHeadRevision: 3, variant: "square" },
+      });
+      expect(finalize).toEqual({
+        name: "finalizeActivityMapThumbnailUpload",
+        data: { activityId: baseProps.activityId, expectedFileName: squareFileName, imageBase64: "", expectedHeadRevision: 3, variant: "square" },
+      });
+      expect(outputs).toEqual([[1200, 1200]]);
+      // 발행이 끝나면 저장된 정사각 이미지로 바뀐다.
+      await waitFor(() => expect(container.querySelector(`img[src="${storageUrl(squareFileName)}"]`)).toBeInTheDocument());
+      expect(() => getByTestId("capture-map")).toThrow();
+    } finally {
+      toBlob.mockRestore();
+    }
   });
 
   it("shows a neutral skeleton for the priority card while the map is deferred", () => {
