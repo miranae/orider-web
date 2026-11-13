@@ -137,7 +137,8 @@ it("plays a provider video in the detail viewer and releases it on photo navigat
   const videoPhoto: OverviewPhoto = { ...photo(0), kind: "video", videoUrl: "https://video.example/master.m3u8", durationSeconds: 21 };
   const view = renderWithProviders(<ActivityOverviewSocial {...base} photos={[videoPhoto, photo(1)]} totalPhotos={2} />);
   expect(view.container.querySelector("video")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "사진 1 / 2 보기" }));
+  expect(screen.getByText("0:21")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "동영상 재생", exact: true }));
   await waitFor(() => expect(screen.getByRole("dialog").querySelector("video")).toHaveAttribute("src", videoPhoto.videoUrl));
   expect(play).toHaveBeenCalled();
   expect(screen.queryByRole("button", { name: "확대" })).not.toBeInTheDocument();
