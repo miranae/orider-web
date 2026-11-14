@@ -330,6 +330,7 @@
   "src/features/activity/detail/observedRunEffortLeaders.ts",
   "src/features/activity/detail/personalBenchmarkPresentation.ts",
   "src/features/activity/detail/photoGps.ts",
+  "src/features/activity/detail/providerPhotoVisibility.ts",
   "src/features/activity/detail/recordedLapRange.ts",
   "src/features/activity/detail/routeSimilarity.ts",
   "src/features/activity/detail/runActivityDetail.tsx",
