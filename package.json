@@ -19,7 +19,7 @@
     "gen:design-tokens": "node scripts/gen-design-tokens.mjs",
     "gen:manual": "node scripts/gen-manual.mjs",
     "lint": "eslint src",
-    "lint:budget": "node scripts/embed-reachable-files.mjs --check && eslint src --max-warnings 0",
+    "lint:budget": "node scripts/embed-reachable-files.mjs --check && eslint src shared --ignore-pattern 'shared/**/*.test.ts' --max-warnings 0",
     "lint:report": "eslint src --format=stylish || true",
     "preview": "vite preview",
     "quality:budget": "node scripts/gen-design-tokens.mjs --check && node scripts/check-design-system-ownership.mjs && node scripts/check-quality-budget.mjs",

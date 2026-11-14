@@ -11,8 +11,11 @@ export function useActivitySubscriptions(enabled: boolean) {
   const uid = ACTIVITY_SUBSCRIPTIONS_ENABLED && enabled && !authLoading && user && !user.isAnonymous ? user.uid : null;
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState<{ key: string; ids: string[]; error: boolean; unavailable?: boolean } | null>(null);
-  const identity = useRef({ uid, epoch: 0 });
-  if (identity.current.uid !== uid) identity.current = { uid, epoch: identity.current.epoch + 1 };
+  const viewer = services.auth.currentUser;
+  const identity = useRef({ uid, services, viewer, epoch: 0 });
+  if (identity.current.uid !== uid || identity.current.services !== services || identity.current.viewer !== viewer) {
+    identity.current = { uid, services, viewer, epoch: identity.current.epoch + 1 };
+  }
   const key = `${uid ?? "guest"}:${identity.current.epoch}:${generation}`;
   const retry = useCallback(() => setGeneration(value => value + 1), []);
   useEffect(() => {

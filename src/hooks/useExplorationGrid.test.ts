@@ -1,3 +1,5 @@
+import { createElement, type ReactNode } from "react";
+import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { auth } from "../services/firebase";
 import { simulateLogin as mockLogin, getCurrentUser } from "../__tests__/mocks/firebase";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -82,4 +84,24 @@ it("discards cached geometry when the same uid signs into a new session", async 
   await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(2));
   await waitFor(() => expect(result.current.loading).toBe(false));
   expect(result.current.result.tileCount).toBe(0);
+});
+
+it("invalidates cached geometry when Firestore changes while auth and uid stay the same", async () => {
+  clearExplorationGridSessionCache();
+  vi.mocked(getDocs).mockReset();
+  simulateLogin({ uid: "owner-1" });
+  const base = { auth, functions: {}, ensureAppCheckReady: vi.fn(), getAppCheckToken: vi.fn() };
+  let current = { ...base, firestore: { app: { name: "first" } } } as unknown as FirebaseServices;
+  const wrapper = ({ children }: { children: ReactNode }) => createElement(FirebaseServicesProvider, { services: current, children });
+  let finish!: (value: unknown) => void;
+  vi.mocked(getDocs).mockResolvedValueOnce(snapshot("37.5,127;37.51,127.01") as never)
+    .mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }) as never);
+  const view = renderHook(() => useExplorationGrid("owner-1", true), { wrapper });
+  await waitFor(() => expect(view.result.current.result.tileCount).toBeGreaterThan(0));
+  current = { ...base, firestore: { app: { name: "next" } } } as unknown as FirebaseServices;
+  view.rerender();
+  expect(view.result.current.result.tileCount).toBe(0);
+  await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(2));
+  await act(async () => finish({ docs: [] }));
+  expect(view.result.current.result.tileCount).toBe(0);
 });

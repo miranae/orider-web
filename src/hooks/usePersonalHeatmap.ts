@@ -5,14 +5,14 @@ import { logClientError } from "../services/errorLogger";
 import { fetchRecentActivityTracks } from "../services/activityTracks";
 import { aggregatePersonalHeatmapAsync, type PersonalHeatPoint } from "../features/explore/personalHeatmap";
 
-let sessionCache: { owner: User; uid: string; points: PersonalHeatPoint[] } | null = null;
+let sessionCache: { database: object; owner: User; uid: string; points: PersonalHeatPoint[] } | null = null;
 export function clearPersonalHeatmapSessionCache(): void { sessionCache = null; }
 
 export function usePersonalHeatmap(uid: string | null | undefined, enabled: boolean) {
   // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 auth(#847).
   const services = useFirebaseServices();
   const { auth } = services;
-  const [ownedPoints, setOwnedPoints] = useState<{ owner: User; uid: string; points: PersonalHeatPoint[] } | null>(null);
+  const [ownedPoints, setOwnedPoints] = useState<{ database: object; owner: User; uid: string; points: PersonalHeatPoint[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
@@ -27,7 +27,7 @@ export function usePersonalHeatmap(uid: string | null | undefined, enabled: bool
       }
       return;
     }
-    if (sessionCache?.uid === uid && sessionCache.owner === owner) {
+    if (sessionCache?.uid === uid && sessionCache.owner === owner && sessionCache.database === services.firestore) {
       setOwnedPoints(sessionCache);
       setLoading(false);
       return;
@@ -46,7 +46,7 @@ export function usePersonalHeatmap(uid: string | null | undefined, enabled: bool
       });
     }).then((next) => {
       if (cancelled || auth.currentUser !== owner || !next) return;
-      sessionCache = { owner, uid, points: next };
+      sessionCache = { database: services.firestore, owner, uid, points: next };
       setOwnedPoints(sessionCache);
     }).catch((err) => {
       if (cancelled || (err instanceof DOMException && err.name === "AbortError")) return;
@@ -57,5 +57,5 @@ export function usePersonalHeatmap(uid: string | null | undefined, enabled: bool
     return () => { cancelled = true; controller.abort(); };
   }, [auth, enabled, uid, owner, services]);
 
-  return { points: ownedPoints && ownedPoints.uid === uid && ownedPoints.owner === owner ? ownedPoints.points : [], loading, error };
+  return { points: ownedPoints && ownedPoints.uid === uid && ownedPoints.owner === owner && ownedPoints.database === services.firestore ? ownedPoints.points : [], loading, error };
 }

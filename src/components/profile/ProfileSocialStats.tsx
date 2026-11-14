@@ -1,4 +1,4 @@
-import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { useFirebaseServices, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -17,8 +17,9 @@ export default function ProfileSocialStats() {
   const { user, profile } = useAuth();
   const services = useFirebaseServices();
   const { t } = useTranslation("common");
+  const viewer = services.auth.currentUser;
   const uid = user && !user.isAnonymous ? user.uid : null;
-  const [counts, setCounts] = useState<{ uid: string; values: (number | null)[]; notDeployed: boolean } | null>(null);
+  const [counts, setCounts] = useState<{ uid: string; services: FirebaseServices; viewer: typeof viewer; values: (number | null)[]; notDeployed: boolean } | null>(null);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!uid) return;
@@ -26,23 +27,23 @@ export default function ProfileSocialStats() {
     const subscription = ACTIVITY_SUBSCRIPTIONS_ENABLED ? getActivitySubscriptionSummary(uid, uid, services) : Promise.resolve(null);
     void Promise.allSettled([subscription, readOwnFriendCount(uid, services)]).then(results => {
       if (!active) return;
-      results.forEach(result => { if (result.status === "rejected" && !isSubscriptionsNotDeployed(result.reason)) logClientError("profile.subscriptionCounts", result.reason, {}); });
+      results.forEach(result => { if (result.status === "rejected" && !isSubscriptionsNotDeployed(result.reason)) logClientError("profile.subscriptionCounts", result.reason, {}, services); });
       const subscriptionResult = results[0];
       const summary = subscriptionResult?.status === "fulfilled" ? subscriptionResult.value : null;
       const friendResult = results[1];
-      setCounts({ uid, values: [summary?.subscriptionCount ?? null, summary?.subscriberCount ?? null,
+      setCounts({ uid, services, viewer, values: [summary?.subscriptionCount ?? null, summary?.subscriberCount ?? null,
         friendResult?.status === "fulfilled" ? friendResult.value : null],
         notDeployed: subscriptionResult?.status === "rejected" && isSubscriptionsNotDeployed(subscriptionResult.reason) });
     });
     return () => { active = false; };
-  }, [uid, attempt, services]);
+  }, [uid, attempt, services, viewer]);
   useEffect(() => {
     const refresh = (event: Event) => { if ((event as CustomEvent<{ uid: string }>).detail?.uid === uid) setAttempt(value => value + 1); };
     window.addEventListener(ACTIVITY_SUBSCRIPTIONS_CHANGED_EVENT, refresh);
     return () => window.removeEventListener(ACTIVITY_SUBSCRIPTIONS_CHANGED_EVENT, refresh);
   }, [uid]);
   if (!uid) return null;
-  const current = counts?.uid === uid ? counts.values : null;
+  const current = counts?.uid === uid && counts.services === services && counts.viewer === viewer ? counts.values : null;
   return <div className="profile-social">
     <div className={`profile-social-stats${ACTIVITY_SUBSCRIPTIONS_ENABLED ? " profile-social-stats--subscriptions" : ""}`}>
       {ACTIVITY_SUBSCRIPTIONS_ENABLED && kinds.map((kind, index) => {

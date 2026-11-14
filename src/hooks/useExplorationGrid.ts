@@ -7,7 +7,7 @@ import { aggregateExplorationGridAsync, type ExplorationGridResult } from "../fe
 
 const EMPTY_RESULT: ExplorationGridResult = { tiles: [], tileCount: 0, maxSquare: 0 };
 
-let sessionCache: { owner: User; uid: string; result: ExplorationGridResult } | null = null;
+let sessionCache: { database: object; owner: User; uid: string; result: ExplorationGridResult } | null = null;
 export function clearExplorationGridSessionCache(): void { sessionCache = null; }
 
 /**
@@ -19,7 +19,7 @@ export function useExplorationGrid(uid: string | null | undefined, enabled: bool
   // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 auth(#847).
   const services = useFirebaseServices();
   const { auth } = services;
-  const [owned, setOwned] = useState<{ owner: User; uid: string; result: ExplorationGridResult } | null>(null);
+  const [owned, setOwned] = useState<{ database: object; owner: User; uid: string; result: ExplorationGridResult } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
@@ -34,7 +34,7 @@ export function useExplorationGrid(uid: string | null | undefined, enabled: bool
       }
       return;
     }
-    if (sessionCache?.uid === uid && sessionCache.owner === owner) {
+    if (sessionCache?.uid === uid && sessionCache.owner === owner && sessionCache.database === services.firestore) {
       setOwned(sessionCache);
       setLoading(false);
       return;
@@ -53,7 +53,7 @@ export function useExplorationGrid(uid: string | null | undefined, enabled: bool
       });
     }).then((next) => {
       if (cancelled || auth.currentUser !== owner || !next) return;
-      sessionCache = { owner, uid, result: next };
+      sessionCache = { database: services.firestore, owner, uid, result: next };
       setOwned(sessionCache);
     }).catch((err) => {
       if (cancelled || (err instanceof DOMException && err.name === "AbortError")) return;
@@ -64,5 +64,5 @@ export function useExplorationGrid(uid: string | null | undefined, enabled: bool
     return () => { cancelled = true; controller.abort(); };
   }, [auth, enabled, uid, owner, services]);
 
-  return { result: owned && owned.uid === uid && owned.owner === owner ? owned.result : EMPTY_RESULT, loading, error };
+  return { result: owned && owned.uid === uid && owned.owner === owner && owned.database === services.firestore ? owned.result : EMPTY_RESULT, loading, error };
 }
