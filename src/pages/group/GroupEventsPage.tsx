@@ -128,6 +128,7 @@ export default function GroupEventsPage() {
               name: String(info.name ?? ""),
               status: String(info.status ?? ""),
               startTime: normalizeStartTime(info.startTime),
+              endTime: info.endTime == null ? null : normalizeStartTime(info.endTime) || null,
               registered:
                 typeof data.counters?.totalRegistered === "number"
                   ? data.counters.totalRegistered

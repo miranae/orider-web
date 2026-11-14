@@ -6,6 +6,8 @@ import { Card, Stack, buttonClass } from "../../theme/components";
 import { clubEventWindow, compareClubEvents, type ClubEventWindow } from "./clubEventWindow";
 export interface ClubEvent {
   id: string; name: string; status: string; startTime: number;
+  /** 종료 시각(있으면) — 시작 후 3시간이 지나도 종료 전 OPEN 은 예정이다(서버 timeWindow 와 같은 규칙). */
+  endTime: number | null;
   registered: number | null; myRsvp: boolean | null;
   /** 주최자면 목록에서 바로 수정으로 간다. 수정 가능 여부는 서버가 다시 판정한다. */
   isHost: boolean;
@@ -24,9 +26,9 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
 }) {
   const {t, i18n} = useTranslation(["group", "event"]);
   const rows = [
-    ...meetings.map(item => ({kind:"meeting" as const, id:item.eventId, status:meetingEventStatus(item), at:meetingStartMs(item), item})),
-    ...events.map(event => ({kind:"event" as const, id:event.id, status:event.status, at:event.startTime, event})),
-  ].filter(row => clubEventWindow(row.status, row.at, nowMs) === timeWindow)
+    ...meetings.map(item => ({kind:"meeting" as const, id:item.eventId, status:meetingEventStatus(item), at:meetingStartMs(item), end:null, item})),
+    ...events.map(event => ({kind:"event" as const, id:event.id, status:event.status, at:event.startTime, end:event.endTime, event})),
+  ].filter(row => clubEventWindow(row.status, row.at, nowMs, row.end) === timeWindow)
     .sort((a,b) => compareClubEvents(timeWindow, a, b));
   return <section aria-label={t("events.listLabel")} data-testid={timeWindow === "past" ? "C3-2" : "C3-1"} >
     <Stack gap="var(--dim-section-gap)">

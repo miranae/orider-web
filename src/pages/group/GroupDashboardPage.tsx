@@ -38,6 +38,8 @@ interface UpcomingEvent {
   id: string;
   name: string;
   startTime: number;
+  /** 종료 시각(있으면) — 시작 후 3시간이 지나도 종료 전 OPEN 은 다가오는 이벤트다. */
+  endTime: number | null;
   status: string;
   participantCount: number | null;
   myRsvp: boolean | null;
@@ -145,6 +147,9 @@ export default function GroupDashboardPage() {
             id: d.id,
             name, meeting,
             startTime,
+            endTime: typeof info.endTime === "number" ? info.endTime :
+              info.endTime?._seconds ? info.endTime._seconds * 1000 :
+              info.endTime?.seconds ? info.endTime.seconds * 1000 : null,
             status: info.status ?? "UNKNOWN",
             participantCount: typeof data.counters?.totalRegistered === "number" ? data.counters.totalRegistered : null,
             myRsvp,
@@ -153,7 +158,7 @@ export default function GroupDashboardPage() {
         }));
         const now = Date.now();
         if (!cancelled) setUpcomingEvents(list
-          .filter(event => clubEventWindow(event.status, event.startTime, now) === "upcoming")
+          .filter(event => clubEventWindow(event.status, event.startTime, now, event.endTime) === "upcoming")
           .sort((a, b) => compareClubEvents("upcoming", { ...a, at: a.startTime }, { ...b, at: b.startTime })));
       } catch (err) {
         // 인덱스 없을 시 조용히 실패

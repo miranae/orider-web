@@ -39,6 +39,19 @@ describe("club event registration actions", () => {
     expect(upcoming()).toEqual(["대회 CANCELLED","취소한 모임","대회 FINISHED","끝난 모임","지난 모집 모임","대회 STALE"]);
     expect(screen.queryByRole("link",{name:"모집 모임"})).not.toBeInTheDocument();
   });
+  it("keeps a long OPEN race that started over 3 hours ago but has not ended in the upcoming tab",async()=>{
+    const hour=3600000;
+    setCollectionDocs("events",[
+      {id:"long",info:{name:"장거리 대회",groupId:"club",status:"OPEN",startTime:Date.now()-5*hour,endTime:Date.now()+2*hour}},
+      {id:"ended",info:{name:"끝난 장거리 대회",groupId:"club",status:"OPEN",startTime:Date.now()-5*hour,endTime:Date.now()-hour}},
+    ]);
+    showPage();
+    expect(await screen.findByRole("link",{name:"장거리 대회"})).toBeInTheDocument();
+    expect(screen.queryByRole("link",{name:"끝난 장거리 대회"})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:"지난 이벤트",exact:true}));
+    expect(await screen.findByRole("link",{name:"끝난 장거리 대회"})).toBeInTheDocument();
+    expect(screen.queryByRole("link",{name:"장거리 대회"})).not.toBeInTheDocument();
+  });
   it("offers host editing for open races and live meetings only to hosts",async()=>{
     const meeting=(eventId:string,isHost:boolean,rideStatus:ClubMeetingListItem["rideStatus"],cancelled=false)=>({eventId,isHost,rideStatus,meeting:{title:eventId,...kst(86400000),place:"집결지",status:cancelled?"cancelled":"open",capacity:10},participantCount:1,waitingCount:0}) as ClubMeetingListItem;
     vi.mocked(listClubMeetings).mockResolvedValue({meetings:[meeting("내 모임",true,"OPEN"),meeting("남의 모임",false,"OPEN"),meeting("취소한 내 모임",true,"CANCELLED",true)],nextCursor:null});
