@@ -161,7 +161,7 @@ export default function ActivityFeedVideo({ media, remainingCount = 0, expanded 
   };
   const seconds = remaining == null ? null : Math.max(0, Math.ceil(remaining));
   const player = <div ref={containerRef} className="activity-feed-video-player" aria-busy={loading} onClick={event => event.stopPropagation()}>
-    <video ref={videoRef} poster={media.url} playsInline muted={muted} preload="none" aria-hidden={!active || undefined} tabIndex={active ? 0 : -1} role={active ? "button" : undefined}
+    <video ref={videoRef} poster={media.url} playsInline loop muted={muted} preload="none" aria-hidden={!active || undefined} tabIndex={active ? 0 : -1} role={active ? "button" : undefined}
       aria-label={t(playing ? "card.videoPause" : "card.videoPlay")}
       onClick={toggle} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(); } }}
       onPlaying={event => { if (event.currentTarget !== videoRef.current) return; playIntent.current = true; setPlaying(true); setLoading(false); }} onPause={event => {
