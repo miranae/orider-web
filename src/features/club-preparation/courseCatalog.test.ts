@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { COURSE_CATALOG_FIELDS, loadCourseCatalogPage, loadSavedCourse, parseSavedCourse, toCoursePlan } from './courseCatalog';
+import { COURSE_CATALOG_FIELDS, loadCourseCatalogPage, loadSavedCourse, parseSavedCourse, searchCourseCatalog, toCoursePlan } from './courseCatalog';
 const mocks = vi.hoisted(() => ({ runCourseListQuery: vi.fn(), loadCourseSource: vi.fn() }));
 vi.mock('../../services/firebase', () => ({ getFirebaseApp: () => ({}), initFirebase: vi.fn(), firestore: {}, auth: {}, getAppCheckToken: vi.fn() }));
 vi.mock('../courses/courseListRest', () => ({ runCourseListQuery: mocks.runCourseListQuery }));
@@ -44,11 +44,30 @@ describe('기존 코스로 모임 준비', () => {
     expect(query.fields).toBe(COURSE_CATALOG_FIELDS);
     for (const heavy of ['trackPoints', 'elevationProfile', 'polyline']) expect(COURSE_CATALOG_FIELDS).not.toContain(heavy);
     // deletedAt == null 은 서버에 넘기지 않는다 — 운영 rules 가 403 으로 거부했다(2026-11-14). 지운 코스는 파싱이 거른다.
-    expect(query.equals).toEqual([['visibility', { stringValue: 'public' }]]);
+    // visibility == public 도 넘기지 않는다 — 운영 코스 대부분이 필드 없이(=공개) 저장돼 빠졌다(2026-11-15).
+    expect(query.equals).toBeUndefined();
     expect(page.items.map(item => item.id)).toEqual(['course-1']);
     expect(page.items[0]!.track).toBeUndefined();
     expect(page.items[0]!.checkpoints).toHaveLength(2);
     expect(page.hasMore).toBe(true);
+  });
+  it('공개 여부 필드가 없는 코스는 공개로 보고 목록에 넣는다', async () => {
+    const { trackPoints: _omit, visibility: _v, ...legacy } = source;
+    expect(parseSavedCourse('legacy', legacy)?.name).toBe('동강 가을길');
+    mocks.runCourseListQuery.mockResolvedValueOnce({ docs: [{ id: 'legacy', data: legacy }], rawCount: 1, cursor: null });
+    expect((await loadCourseCatalogPage()).items.map(item => item.id)).toEqual(['legacy']);
+  });
+  it('검색은 이름 앞부분으로 서버에서 찾고 비공개·지운 코스는 거른다', async () => {
+    const { trackPoints: _omit, ...listed } = source;
+    mocks.runCourseListQuery.mockResolvedValueOnce({ docs: [{ id: 'hit', data: listed }, { id: 'private', data: { ...listed, visibility: 'private' } }, { id: 'gone', data: { ...listed, deletedAt: 1 } }], rawCount: 3, cursor: null });
+    const found = await searchCourseCatalog('  동강 ');
+    const query = mocks.runCourseListQuery.mock.calls.at(-1)![1];
+    expect(query).toMatchObject({ orderField: 'name', namePrefix: '동강', fields: COURSE_CATALOG_FIELDS });
+    expect(query.equals).toBeUndefined();
+    expect(found.map(item => item.id)).toEqual(['hit']);
+    mocks.runCourseListQuery.mockClear();
+    expect(await searchCourseCatalog('   ')).toEqual([]);
+    expect(mocks.runCourseListQuery).not.toHaveBeenCalled();
   });
   it('가져오기는 고른 코스 하나의 원본으로 경로를 만들고, 없는 코스는 null 이다', async () => {
     mocks.loadCourseSource.mockResolvedValueOnce({ ...source, id: 'course-1' }).mockResolvedValueOnce(null);

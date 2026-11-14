@@ -21,9 +21,13 @@ const finite = (value: unknown): value is number => typeof value === 'number' &&
 const nonnegative = (value: unknown): value is number => finite(value) && value >= 0;
 const coordinate = (lat: unknown, lon: unknown): boolean => finite(lat) && finite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
 
-/** 공개 코스의 필요한 필드만 가져온다. 고저차로 누적 획고를 추정하지 않는다. */
+/**
+ * 공개 코스의 필요한 필드만 가져온다. 고저차로 누적 획고를 추정하지 않는다.
+ * `visibility` 가 없는 코스는 공개다 — 서버(course.ts)·상세(courseDetailAsset)와 같은 기준. 운영 코스 135개 중
+ * 118개가 이 필드 없이 저장돼 있어, `=== 'public'` 로 거르면 모임 화면에 17개만 보였다(2026-11-15).
+ */
 export function parseSavedCourse(id: string, data: Record<string, unknown>): SavedCourseChoice | null {
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || data.deletedAt != null || data.hidden === true || data.visibility !== 'public' || typeof data.name !== 'string' || !data.name.trim()) return null;
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(id) || data.deletedAt != null || data.hidden === true || (data.visibility ?? 'public') !== 'public' || typeof data.name !== 'string' || !data.name.trim()) return null;
   const name = data.name.trim().slice(0, 300);
   const distanceKm = nonnegative(data.distance) ? data.distance / 1000 : undefined;
   const elevationGainM = nonnegative(data.elevationGain) ? data.elevationGain : undefined;
@@ -76,7 +80,9 @@ async function catalogServices(injected?: FirebaseServices) {
 }
 
 /**
- * 기존 코스 목록과 같은 공개 읽기(공개, 문서 이름 순). 서버 rules를 그대로 적용하며 데이터를 쓰지 않는다.
+ * 기존 코스 목록과 같은 공개 읽기(문서 이름 순). 서버 rules를 그대로 적용하며 데이터를 쓰지 않는다.
+ *
+ * `visibility == public` 조건도 넘기지 않는다 — 필드가 없는(=공개) 코스를 빠뜨린다. 비공개·숨김은 파싱이 거른다.
  *
  * `deletedAt == null` 조건은 서버에 넘기지 않는다 — 운영 rules 가 그 조건이 붙은 목록 조회를 403 으로 거부해
  * "기존 코스 불러오기" 가 늘 실패했다(2026-11-14 운영 REST 재현: 조건 있음 403, 없음 200). 또 Firestore 의 null
@@ -87,13 +93,31 @@ export async function loadCourseCatalogPage(cursor: CourseListCursor | null = nu
   const page = await runCourseListQuery(await catalogServices(injected), {
     orderField: '__name__', direction: 'ASCENDING', limit: SEARCH_PAGE_SIZE, cursor,
     fields: COURSE_CATALOG_FIELDS,
-    equals: [['visibility', { stringValue: 'public' }]],
   });
   const items = page.docs.flatMap(document => {
     const course = parseSavedCourse(document.id, document.data);
     return course ? [course] : [];
   });
   return { items, cursor: page.cursor, hasMore: page.rawCount === SEARCH_PAGE_SIZE };
+}
+
+/**
+ * 이름 앞부분으로 서버에서 찾는다(코스 목록 화면 검색과 같은 name 범위 조회). 불러온 목록 안에서만 거르면
+ * 첫 20건 밖의 코스는 검색해도 나오지 않았다(2026-11-15 제보).
+ */
+export async function searchCourseCatalog(text: string, injected?: FirebaseServices): Promise<SavedCourseChoice[]> {
+  const prefix = text.trim();
+  if (!prefix) return [];
+  const { runCourseListQuery } = await import('../courses/courseListRest');
+  const page = await runCourseListQuery(await catalogServices(injected), {
+    orderField: 'name', direction: 'ASCENDING', limit: SEARCH_PAGE_SIZE, cursor: null,
+    fields: COURSE_CATALOG_FIELDS,
+    namePrefix: prefix,
+  });
+  return page.docs.flatMap(document => {
+    const course = parseSavedCourse(document.id, document.data);
+    return course ? [course] : [];
+  });
 }
 
 /** 고른 코스 하나의 경로까지 읽는다(상세와 같은 트랙 파일·캐시). 지금은 가져올 수 없는 코스면 null. */
