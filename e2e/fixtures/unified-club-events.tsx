@@ -19,8 +19,10 @@ const meetings = [
   {eventId:'cancelled',rideStatus:'CANCELLED',meeting:{title:'그룹 가상라이딩',date:'2026-11-05',time:'08:00',place:'실내 트레이너',status:'cancelled',capacity:10},participantCount:0,waitingCount:0},
   {eventId:'open',rideStatus:'OPEN',meeting:{title:'주말 아침 라이딩',date:'2026-11-07',time:'09:00',place:'한강 집결지',status:'open',capacity:10},participantCount:3,waitingCount:0},
 ] as ClubMeetingListItem[];
+/** 고정 시각 — 11-05 취소 모임·11-03 종료 대회는 지난 이벤트, 11-07 모집 모임은 예정이다(#1620). */
+const NOW=Date.parse('2026-11-06T00:00:00+09:00');
 function Fixture(){
-  const [status,setStatus]=useState('all');
-  return <main className="site-shell site-shell--padded"><Stack gap="var(--dim-section-gap)"><h1>클럽 이벤트</h1><div className="flex flex-wrap gap-2">{['all','OPEN','LIVE','FINISHED','CANCELLED'].map((value,index)=><Button key={value} size="sm" variant={value===status?'primary':'secondary'} aria-pressed={value===status} onClick={()=>setStatus(value)}>{['전체','모집 중','진행 중','종료','취소'][index]}</Button>)}</div><UnifiedClubEventList groupId="fixture" meetings={meetings} events={[{id:'race',name:'가을 클럽 대회',status:'FINISHED',startTime:Date.parse('2026-11-03T09:00:00+09:00'),registered:12,myRsvp:false}]} status={status} loading={false} error={false} hasMore={false} onRetry={()=>{}} /></Stack></main>;
+  const [timeWindow,setTimeWindow]=useState<'upcoming'|'past'>('upcoming');
+  return <main className="site-shell site-shell--padded"><Stack gap="var(--dim-section-gap)"><h1>클럽 이벤트</h1><div className="flex flex-wrap gap-2">{(['upcoming','past'] as const).map(value=><Button key={value} size="sm" variant={value===timeWindow?'primary':'secondary'} aria-pressed={value===timeWindow} onClick={()=>setTimeWindow(value)}>{group[`events.window.${value}`]}</Button>)}</div><UnifiedClubEventList groupId="fixture" meetings={meetings} events={[{id:'race',name:'가을 클럽 대회',status:'FINISHED',startTime:Date.parse('2026-11-03T09:00:00+09:00'),registered:12,myRsvp:false,isHost:false}]} timeWindow={timeWindow} nowMs={NOW} loading={false} error={false} hasMore={false} onRetry={()=>{}} /></Stack></main>;
 }
 createRoot(document.getElementById('root')!).render(<ThemeProvider><OriderThemeProvider><BrowserRouter><I18nextProvider i18n={i18next}><Fixture /></I18nextProvider></BrowserRouter></OriderThemeProvider></ThemeProvider>);
