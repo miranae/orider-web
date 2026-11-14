@@ -14,7 +14,7 @@ import { loadActivityDiscovery } from "../services/activityDiscovery";
 import RouteInventoryReturn from "../features/activity/detail/RouteInventoryReturn";
 import { announceActivityContentChange } from "../services/activityContentChanged";
 import { setProviderPhotosHidden, uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
-import { hiddenProviderPhotoIds, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos } from "../features/activity/detail/providerPhotoVisibility";
+import { effectiveHiddenProviderIds, hiddenProviderPhotoIds, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos, type ProviderHiddenOverride } from "../features/activity/detail/providerPhotoVisibility";
 import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
 import { canEditActivityMemo } from "../components/activity/activityMemoEditable";
 import { stravaRecordOf } from "@shared/analysis/stravaRecord";
@@ -231,7 +231,9 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const uploadedPhotos = uploadedPhotoState?.identity === uploadedPhotoIdentity ? uploadedPhotoState.photos : [];
   const [photoUploading, setPhotoUploading] = useState(false);
   // 서버 응답으로 받은 숨김 목록. 활동 문서 구독이 새 값을 가져올 때까지 화면에 바로 반영한다.
-  const [providerHiddenOverride, setProviderHiddenOverride] = useState<{ activityId: string; ids: string[] } | null>(null);
+  // base: 저장할 때 활동 문서가 갖고 있던 목록. 문서 목록이 그 뒤 바뀌면(이 저장 반영·다른 탭 변경 모두)
+  // 임시 값을 버리고 문서를 따른다. 활동·계정이 바뀌어도 쓰지 않는다.
+  const [providerHiddenOverride, setProviderHiddenOverride] = useState<ProviderHiddenOverride | null>(null);
   const [providerPhotoBusy, setProviderPhotoBusy] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
@@ -665,14 +667,20 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     await updateDoc(doc(firestore, "activity_photos", activityId, "photos", photo.id), { deletedAt: Date.now() });
     showToast(t("page.photoToast.deleted"));
   };
+  // 활동 문서의 숨김 목록이 저장 당시와 달라지면(반영 완료·다른 탭 변경) 임시 값을 지운다 — 이후는 문서만 따른다.
+  useEffect(() => {
+    if (!providerHiddenOverride || !activity) return;
+    if (JSON.stringify(hiddenProviderPhotoIds(activity as typeof activity & { hiddenProviderPhotosV1?: unknown })) !== providerHiddenOverride.base) setProviderHiddenOverride(null);
+  }, [activity, providerHiddenOverride]);
   // Strava 사진 숨기기·다시 보이기(주인). Strava 원본은 건드리지 않는다.
   const changeProviderPhotos = async (photoIds: string[], hidden: boolean) => {
     if (!activityId || !photoIds.length || providerPhotoBusy) return;
     const target = activityId;
     setProviderPhotoBusy(true);
     try {
+      const base = activity ? JSON.stringify(hiddenProviderPhotoIds(activity as typeof activity & { hiddenProviderPhotosV1?: unknown })) : "[]";
       const ids = await setProviderPhotosHidden(photoServices, target, photoIds, hidden);
-      setProviderHiddenOverride({ activityId: target, ids });
+      setProviderHiddenOverride({ activityId: target, uid: user?.uid, base, ids });
       showToast(t(hidden ? "page.photoToast.providerHidden" : "page.photoToast.providerRestored"));
     } catch (error) {
       logClientError("ActivityPage.providerPhotosHidden", error, { activityId: target, hidden, count: photoIds.length });
@@ -1162,9 +1170,9 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         </div>
   );
 
+  const documentHiddenIds = activity.source === "strava" ? hiddenProviderPhotoIds(activity as typeof activity & { hiddenProviderPhotosV1?: unknown }) : [];
   const hiddenProviderIds = activity.source === "strava"
-    ? providerHiddenOverride?.activityId === activity.id ? providerHiddenOverride.ids : hiddenProviderPhotoIds(activity as typeof activity & { hiddenProviderPhotosV1?: unknown })
-    : [];
+    ? effectiveHiddenProviderIds(documentHiddenIds, providerHiddenOverride, activity.id, user?.uid) : [];
   const overviewPhotoCandidates: OverviewPhoto[] = [
     ...(isActivityOwner && activity.source === "orider" && uploadedPhotoState?.identity === uploadedPhotoIdentity ? [] : withoutHiddenProviderPhotos(activityOverviewMedia(photos, publishedContent?.photos), hiddenProviderIds)),
     ...uploadedPhotos.map(photo => ({ ...photo, id: `upload-${photo.id}`, uploadId: photo.id, ownerId: photo.userId })),

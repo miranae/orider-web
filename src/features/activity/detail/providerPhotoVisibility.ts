@@ -41,3 +41,13 @@ export function stravaOverviewPhotoTotal(input: { overviewCount: number; streamP
     : Math.max(input.publishedTotal ?? 0, strava + input.uploadedCount);
   return Math.max(input.overviewCount, total);
 }
+
+export interface ProviderHiddenOverride { activityId: string; uid: string | undefined; base: string; ids: string[] }
+/**
+ * 저장 직후 서버 응답(override)을 쓸지, 활동 문서 목록을 쓸지 정한다. override 는 같은 활동·같은 계정이고
+ * 문서 목록이 저장 당시(base) 그대로일 때만 쓴다 — 문서가 바뀌면(이 저장 반영·다른 탭·기기 변경) 문서를 따른다.
+ */
+export function effectiveHiddenProviderIds(documentIds: string[], override: ProviderHiddenOverride | null, activityId: string, uid: string | undefined): string[] {
+  return override && override.activityId === activityId && override.uid === uid && override.base === JSON.stringify(documentIds)
+    ? override.ids : documentIds;
+}
