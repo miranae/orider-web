@@ -1,4 +1,5 @@
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 convenience exports 기본값. 임베드는 createTrainingDecisionClient(services)를 사용한다.
 import { auth, getAppCheckToken } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 import { CoachClientError } from "./coachClient";

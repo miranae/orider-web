@@ -31,6 +31,8 @@ const contracts = [
   'scripts/check-product-invariants.test.mjs',
   'scripts/sync-main-to-dev.test.mjs',
   'scripts/production-monitor.test.mjs',
+  'scripts/review-context.test.mjs',
+  'scripts/eslint-embedded-firebase.test.mjs',
 ];
 
 function runGate({ feature = false, fail = '' } = {}) {
@@ -46,7 +48,7 @@ const { spawnSync } = require('node:child_process');
 const name = require('node:path').basename(process.argv[1]);
 const args = process.argv.slice(2);
 // npm itself still runs normally; only the leaf tools are recorded/stubbed.
-if (name === 'node' && !args.includes('--test') && !args.some(arg => arg === 'scripts/check-canonical-contract.mjs' || arg === 'scripts/check-product-invariants.mjs')) {
+if (name === 'node' && !args.includes('--test') && !args.some(arg => arg === 'scripts/check-canonical-contract.mjs' || arg === 'scripts/check-product-invariants.mjs' || arg === 'scripts/embed-reachable-files.mjs')) {
   const result = spawnSync(process.execPath, args, { stdio: 'inherit', env: process.env });
   process.exit(result.status ?? 1);
 }
@@ -54,7 +56,7 @@ fs.appendFileSync(process.env.EVENTS_FILE, JSON.stringify({ name, args, nodeOpti
 const step = name === 'node' ? args.at(-1) : name;
 process.exit(process.env.FAIL_STEP === step ? 23 : 0);
 `;
-    for (const name of ['node', 'vitest', 'npx']) {
+    for (const name of ['node', 'vitest', 'npx', 'eslint']) {
       const path = join(bin, name);
       writeFileSync(path, stub);
       chmodSync(path, 0o755);
@@ -77,7 +79,7 @@ ${featureGate}` : 'set -euo pipefail\nnpm test';
 }
 
 function assertContracts(events) {
-  assert.deepEqual(events.filter(event => event.name === 'node').map(event => event.args.at(-1)), contracts);
+  assert.deepEqual(events.filter(event => event.name === 'node' && event.args[0] !== 'scripts/embed-reachable-files.mjs').map(event => event.args.at(-1)), contracts);
   assert.ok(events.filter(event => event.name === 'node').every(event => !event.args.includes('--changed') && !event.args.includes('--passWithNoTests')));
 }
 
@@ -92,7 +94,8 @@ test('default npm test still runs full Vitest followed by every contract check',
 test('feature gate forwards changed flags only to Vitest, then runs every contract and typecheck', () => {
   const result = runGate({ feature: true });
   assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(result.events[0], { name: 'vitest', args: ['run', '--changed', 'origin/dev', '--passWithNoTests'], nodeOptions: '--no-experimental-webstorage' });
+  assert.deepEqual(result.events[3], { name: 'vitest', args: ['run', '--changed', 'origin/dev', '--passWithNoTests'], nodeOptions: '--no-experimental-webstorage' });
+  assert.deepEqual(result.events[2].args, ['run', 'src/embedded/EmbeddedBootstrapRoot.athleteIsolation.test.tsx']);
   assertContracts(result.events);
   assert.deepEqual(result.events.at(-1).args, ['tsc', '-b', '--pretty', 'false']);
 });
@@ -100,12 +103,18 @@ test('feature gate forwards changed flags only to Vitest, then runs every contra
 test('Vitest failure stops feature merge before contracts or typecheck', () => {
   const result = runGate({ feature: true, fail: 'vitest' });
   assert.notEqual(result.status, 0);
-  assert.deepEqual(result.events.map(event => event.name), ['vitest']);
+  assert.deepEqual(result.events.map(event => event.name), ['node', 'eslint', 'vitest']);
 });
 
 test('the first failing contract stops remaining checks and feature typecheck', () => {
   const result = runGate({ feature: true, fail: contracts[1] });
   assert.notEqual(result.status, 0);
-  assert.deepEqual(result.events.map(event => event.name), ['vitest', 'node', 'node']);
-  assert.deepEqual(result.events.slice(1).map(event => event.args.at(-1)), contracts.slice(0, 2));
+  assert.deepEqual(result.events.map(event => event.name), ['node', 'eslint', 'vitest', 'vitest', 'node', 'node']);
+  assert.deepEqual(result.events.slice(4).map(event => event.args.at(-1)), contracts.slice(0, 2));
+});
+
+test('ESLint failure stops feature merge before Vitest, contracts or typecheck', () => {
+  const result = runGate({ feature: true, fail: 'eslint' });
+  assert.notEqual(result.status, 0);
+  assert.deepEqual(result.events.map(event => event.name), ['node', 'eslint']);
 });

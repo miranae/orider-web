@@ -14,52 +14,27 @@
  *   node scripts/embed-reachable-files.mjs --check   # 최신인지 대조만 (CI/게이트)
  */
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { dirname, join, normalize, relative } from "node:path";
+import { execFileSync } from "node:child_process";
+import { sourceImports, resolveSource } from "./review-context.mjs";
 
-const ROOTS = ["src/embedded/EmbeddedBootstrapRoot.tsx"];
 const OUT = "eslint-embed-scope.json";
-
-function resolve(fromFile, spec) {
-  if (!spec.startsWith(".")) return null;
-  const base = normalize(join(dirname(fromFile), spec));
-  for (const candidate of [`${base}.tsx`, `${base}.ts`, join(base, "index.tsx"), join(base, "index.ts")]) {
-    if (existsSync(candidate)) return candidate;
-  }
-  return null;
-}
-
-const seen = new Set();
-const stack = [...ROOTS];
-while (stack.length > 0) {
+const tracked = new Set(execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" }).split("\0").filter(Boolean));
+const seen = new Set(), stack = ["src/embedded/EmbeddedBootstrapRoot.tsx"];
+while (stack.length) {
   const file = stack.pop();
   if (seen.has(file) || !existsSync(file)) continue;
   seen.add(file);
-  const source = readFileSync(file, "utf8");
-  const specs = [
-    ...source.matchAll(/from\s+["']([^"']+)["']/g),
-    ...source.matchAll(/import\(["']([^"']+)["']\)/g),
-  ].map((m) => m[1]);
-  for (const spec of specs) {
-    const resolved = resolve(file, spec);
-    if (resolved) stack.push(resolved);
+  for (const edge of sourceImports(file, readFileSync(file, "utf8"))) {
+    const resolved = resolveSource(file, edge.specifier, tracked);
+    if (resolved && /\.[cm]?[jt]sx?$/.test(resolved)) stack.push(resolved);
   }
 }
-
-// 테스트 파일은 제외 — 싱글턴 mock 이 정상이다.
-const files = [...seen]
-  .map((f) => relative(process.cwd(), f))
-  .filter((f) => !/\.test\.tsx?$/.test(f))
-  .sort();
-
+const files = [...seen].filter(f => !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(f) && !f.includes("/__tests__/")).sort();
 const next = `${JSON.stringify(files, null, 2)}\n`;
 if (process.argv.includes("--check")) {
-  const current = existsSync(OUT) ? readFileSync(OUT, "utf8") : "";
-  if (current !== next) {
-    console.error(`[embed-reachable-files] ${OUT} 가 최신이 아니다 — node scripts/embed-reachable-files.mjs 로 갱신할 것`);
+  if ((existsSync(OUT) ? readFileSync(OUT, "utf8") : "") !== next) {
+    console.error(`[embed-reachable-files] ${OUT} is stale; run node scripts/embed-reachable-files.mjs`);
     process.exit(1);
   }
-  console.log(`[embed-reachable-files] 최신 (${files.length} 파일)`);
-} else {
-  writeFileSync(OUT, next);
-  console.log(`[embed-reachable-files] ${OUT} 갱신 — ${files.length} 파일`);
-}
+  console.log(`[embed-reachable-files] current (${files.length} files)`);
+} else { writeFileSync(OUT, next); console.log(`[embed-reachable-files] updated (${files.length} files)`); }

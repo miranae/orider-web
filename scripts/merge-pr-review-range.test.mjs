@@ -41,7 +41,7 @@ function runResolve(dir, { head, mode = "delta", since = "", prNum = "42" }) {
 set -uo pipefail
 die() { printf 'DIE:%s\\n' "$1"; exit 9; }
 log() { printf 'LOG:%s\\n' "$1"; }
-REVIEW_STATE_REF_PREFIX="refs/codex-review/pr-"
+REVIEW_STATE_REF_PREFIX="refs/codex-review-v2/pr-"
 BASE="dev"
 HEAD_OID="${head}"
 
@@ -73,7 +73,7 @@ test("직전 PASS head 가 HEAD 의 조상이면 그 이후만 본다", () => {
     const base = commit("base");
     const reviewed = commit("reviewed");
     const head = commit("head");
-    git("update-ref", "refs/codex-review/pr-42", reviewed);
+    git("update-ref", "refs/codex-review-v2/pr-42", reviewed);
     const { out } = runResolve(dir, { head });
     assert.match(out, new RegExp(`FROM=${reviewed}`));
     assert.match(out, /LABEL=delta\(/);
@@ -85,7 +85,7 @@ test("이미 PASS 한 head 를 다시 돌리면 전체로 본다 — 빈 diff �
   try {
     const base = commit("base");
     const head = commit("head");
-    git("update-ref", "refs/codex-review/pr-42", head);
+    git("update-ref", "refs/codex-review-v2/pr-42", head);
     const { out } = runResolve(dir, { head });
     assert.match(out, /FROM=origin\/dev/);
     assert.match(out, /LABEL=full\(/);
@@ -100,7 +100,7 @@ test("기록된 시작점이 조상이 아니면(force-push) 전체로 되돌린
     git("checkout", "-q", "-b", "other", base);
     const orphan = commit("orphan");
     git("checkout", "-q", "main");
-    git("update-ref", "refs/codex-review/pr-42", orphan);
+    git("update-ref", "refs/codex-review-v2/pr-42", orphan);
     const { out } = runResolve(dir, { head });
     assert.match(out, /FROM=origin\/dev/);
     assert.match(out, /LABEL=full\(/);
@@ -114,7 +114,7 @@ test("--review-full 은 기록을 무시하고 전체를 본다", () => {
     const base = commit("base");
     const reviewed = commit("reviewed");
     const head = commit("head");
-    git("update-ref", "refs/codex-review/pr-42", reviewed);
+    git("update-ref", "refs/codex-review-v2/pr-42", reviewed);
     const { out } = runResolve(dir, { head, mode: "full" });
     assert.match(out, /FROM=origin\/dev/);
     assert.match(out, /LABEL=full\(/);
@@ -127,7 +127,7 @@ test("--review-since 는 기록보다 우선하고, 해석 불가면 머지를 �
     const base = commit("base");
     const pinned = commit("pinned");
     const head = commit("head");
-    git("update-ref", "refs/codex-review/pr-42", base);
+    git("update-ref", "refs/codex-review-v2/pr-42", base);
     const ok = runResolve(dir, { head, since: pinned });
     assert.match(ok.out, new RegExp(`FROM=${pinned}`));
     assert.match(ok.out, /--review-since/);
@@ -147,4 +147,19 @@ test("리뷰 입력 상한 가드와 PASS 시에만 기록하는 계약이 스�
   assert.ok(blockIdx < passIdx, "BLOCK 분기가 PASS 분기보다 앞이어야 한다");
   assert.equal(mergeScript.slice(blockIdx, passIdx).includes("update-ref"), false,
     "BLOCK 경로에서 델타 시작점을 기록하면 안 된다");
+});
+
+
+test("legacy blockers-only PASS refs never narrow a current-policy review", () => {
+  const { dir, git, commit } = makeRepo();
+  try {
+    commit("base");
+    const reviewed = commit("old blockers-only pass");
+    const head = commit("new head");
+    git("update-ref", "refs/codex-review/pr-42", reviewed);
+    const { out } = runResolve(dir, { head });
+    assert.match(out, /FROM=origin\/dev/);
+    assert.match(out, /LABEL=full\(/);
+    assert.match(mergeScript, /REVIEW_STATE_REF_PREFIX="refs\/codex-review-v2\/pr-"/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

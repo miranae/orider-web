@@ -1,3 +1,4 @@
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 개인 API키/streams 기본값. 임베드 streams 조회는 getActivityStreamsWithAuth로 주입한다.
 import { auth, functions, ensureAppCheckReady, getAppCheckToken } from "./firebase";
 import { httpsCallable, type Functions } from "firebase/functions";
 import type { Auth } from "firebase/auth";

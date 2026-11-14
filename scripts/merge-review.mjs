@@ -4,6 +4,8 @@ import { accessSync, constants, copyFileSync, mkdirSync, readFileSync, realpathS
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { enforceReviewFloor } from "./review-policy.mjs";
+
 export class IsolationError extends Error {}
 const children = new Set();
 const killGroup = child => { if (child.pid) { try { process.kill(-child.pid, "SIGKILL"); } catch { /* 이미 종료됨 */ } } };
@@ -41,13 +43,42 @@ export function parseReview(text, provider = "codex") {
     || Object.keys(value).sort().join(",") !== "findings,verdict"
     || typeof value.findings !== "string" || !value.findings.trim()
     || !["PASS", "BLOCK"].includes(value.verdict)) return null;
-  return failed && value.verdict !== "BLOCK" ? null : value;
+  const normalized = enforceReviewFloor(value);
+  return failed && normalized.verdict !== "BLOCK" ? null : normalized;
 }
 
-export function reviewBinding(request, diff) {
-  return { version: 1, pr: request.pr, head: request.head, base: request.base,
+/** Every bounded input is reviewed; a BLOCK in any batch wins even when another is unavailable. */
+export async function reviewProviderBatches(inputs, provider, run, concurrency = 2) {
+  if (!Array.isArray(inputs) || !inputs.length || inputs.some(input => typeof input !== "string" || !input.trim())) throw new Error("Missing review batch input");
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 2) throw new Error("Invalid review concurrency");
+  const results = new Array(inputs.length);
+  let next = 0, isolationFailure = null, blockedEarly = false;
+  const worker = async () => {
+    while (!isolationFailure && !blockedEarly && next < inputs.length) {
+      const index = next++;
+      let result;
+      try { result = await run(inputs[index], index); }
+      catch (error) { if (error instanceof IsolationError) { isolationFailure = error; break; } result = { reason: "unavailable", code: null, stdout: "" }; }
+      const review = parseReview(result.stdout, provider);
+      const valid = review?.verdict === "BLOCK" || result.code === 0 && !["timeout", "output_limit", "unavailable"].includes(result.reason) && review;
+      if (valid && review.verdict === "BLOCK") blockedEarly = true;
+      results[index] = { index: index + 1, inputSha256: createHash("sha256").update(inputs[index]).digest("hex"), state: valid ? review.verdict : "unavailable", ...(valid ? { findings: review.findings } : { reason: result.reason ?? "invalid_response" }) };
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, inputs.length) }, worker));
+  if (isolationFailure) throw isolationFailure;
+  for (let index = 0; index < inputs.length; index++) if (!results[index]) results[index] = { index: index + 1, state: "skipped", reason: "earlier_block", inputSha256: createHash("sha256").update(inputs[index]).digest("hex") };
+  const blocked = results.some(result => result.state === "BLOCK");
+  if (!blocked && results.some(result => result.state !== "PASS")) return { code: 1, stdout: "", reason: "batch_unavailable", batches: results };
+  const findings = results.filter(result => !blocked || result.state === "BLOCK").map(result => `Batch ${result.index}/${inputs.length}\n${result.findings}`).join("\n");
+  return { code: blocked ? 1 : 0, stdout: JSON.stringify({ verdict: blocked ? "BLOCK" : "PASS", findings }), batches: results };
+}
+
+export function reviewBinding(request, diff, input = "") {
+  return { version: 2, pr: request.pr, head: request.head, base: request.base,
     baseRef: request.baseRef, reviewFrom: request.reviewFrom, scope: request.scope,
-    diffSha256: createHash("sha256").update(diff).digest("hex") };
+    diffSha256: createHash("sha256").update(diff).digest("hex"),
+    inputSha256: createHash("sha256").update(input).digest("hex") };
 }
 
 function writeEvidence(path, value) {
@@ -92,7 +123,7 @@ export function validateSelfReview(value, binding) {
     || typeof value.reviewedAt !== "string" || !Number.isFinite(Date.parse(value.reviewedAt))) {
     throw new Error("자체 리뷰의 PR/head/base/diff/범위 또는 실제 검토 기록이 일치하지 않습니다.");
   }
-  return { findings: value.findings, verdict: value.verdict };
+  return enforceReviewFloor({ findings: value.findings, verdict: value.verdict });
 }
 
 /** 유효한 BLOCK은 exit code와 무관하게 최종 판정이며 다음 제공자로 넘어가지 않는다. */
@@ -107,6 +138,9 @@ export async function reviewWithFallback({ binding, diff, input, evidenceDir, se
   if (previous?.state === "BLOCK" && sameBinding(previous.binding, binding)) return previous;
   const resume = selfReviewFile && previous?.state === "needs-self-review" && sameBinding(previous.binding, binding)
     && previous.attempts?.length === 2 && previous.attempts.every((attempt, index) => attempt.state === "unavailable" && attempt.provider === ["codex", "claude"][index]);
+  // Keep exact inputs for successful and blocked reviews too; names bind concurrent scopes to their own evidence.
+  writeEvidence(join(evidenceDir, `input-${binding.inputSha256}.txt`), input);
+  writeEvidence(join(evidenceDir, `diff-${binding.diffSha256}.patch`), diff);
   const attempts = resume ? previous.attempts : [];
   if (!resume) for (const provider of providers) {
     let result;
@@ -116,11 +150,11 @@ export async function reviewWithFallback({ binding, diff, input, evidenceDir, se
     }
     const review = parseReview(result.stdout, provider.name);
     if (review?.verdict === "BLOCK" || (result.code === 0 && !["timeout", "output_limit", "unavailable"].includes(result.reason) && review)) {
-      attempts.push({ provider: provider.name, state: review.verdict });
+      attempts.push({ provider: provider.name, state: review.verdict, ...(result.batches ? { batches: result.batches } : {}) });
       const report = { binding, state: review.verdict, provider: provider.name, attempts, ...review };
       return saveReport(reportPath, report);
     }
-    attempts.push({ provider: provider.name, state: "unavailable", reason: result.code === 0 ? "invalid_response" : result.reason ?? "execution_failure" });
+    attempts.push({ provider: provider.name, state: "unavailable", reason: result.code === 0 ? "invalid_response" : result.reason ?? "execution_failure", ...(result.batches ? { batches: result.batches } : {}) });
   }
   // 실패 증거와 정확한 입력을 보존한다. 자체 리뷰를 자동 PASS로 만들지 않는다.
   const pending = { binding, state: "needs-self-review", attempts };
@@ -236,7 +270,7 @@ export async function providerReview(name, request) {
   probeIsolation(request, bin, authFile, output, env, cwd);
   const rawTimeout = Number(process.env[`${name.toUpperCase()}_REVIEW_TIMEOUT_SEC`] ?? 900);
   const timeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0 ? Math.min(rawTimeout, 3600) * 1000 : 900_000;
-  const result = await runChild("/usr/bin/sandbox-exec", [...sandboxArgs(request, bin, authFile, output), bin, ...args], { cwd, env, input: readFileSync(request.input, "utf8"), timeoutMs });
+  const result = await runChild("/usr/bin/sandbox-exec", [...sandboxArgs(request, bin, authFile, output), bin, ...args], { cwd, env, input: request.inputText ?? readFileSync(request.input, "utf8"), timeoutMs });
   if (name === "codex" && readable(output)) result.stdout = readFileSync(output, "utf8");
   return result;
 }
@@ -244,9 +278,15 @@ export async function providerReview(name, request) {
 async function main() {
   const request = JSON.parse(readFileSync(process.argv[2], "utf8"));
   const diff = readFileSync(request.diff, "utf8"), input = readFileSync(request.input, "utf8");
-  const result = await reviewWithFallback({ binding: reviewBinding(request, diff), diff, input,
+  let inputs = [input];
+  if (input.startsWith('{"reviewBatches":')) {
+    const value = JSON.parse(input);
+    if (Object.keys(value).join() !== "reviewBatches" || !Array.isArray(value.reviewBatches) || !value.reviewBatches.length || value.reviewBatches.length > 24 || value.reviewBatches.some(text => typeof text !== "string" || !text.trim() || Buffer.byteLength(text) > 1040000)) throw new Error("Invalid review batches");
+    inputs = value.reviewBatches;
+  }
+  const result = await reviewWithFallback({ binding: reviewBinding(request, diff, input), diff, input,
     evidenceDir: request.evidenceDir, selfReviewFile: request.selfReviewFile,
-    providers: ["codex", "claude"].map(name => ({ name, run: () => providerReview(name, request) })) });
+    providers: ["codex", "claude"].map(name => ({ name, run: () => inputs.length === 1 ? providerReview(name, request) : reviewProviderBatches(inputs, name, (inputText, index) => providerReview(name, { ...request, inputText, runtime: join(request.runtime, `batch-${index + 1}`) })) })) });
   writeJson(request.output, result);
   if (result.state === "needs-self-review") {
     console.log(`Codex·Claude 리뷰 실행 불가 — 자체 리뷰 필요: ${result.template}\n동일 입력: ${join(request.evidenceDir, "input.txt")}\n검토 후 --self-review-file <JSON> 으로 재실행하세요.`);

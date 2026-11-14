@@ -35,9 +35,11 @@ it("hides existing analysis during current-permission revalidation and removes i
 
 afterEach(() => vi.restoreAllMocks());
 it("preserves the authorized layout but blocks stale content during refresh, then restores it", async () => {
+  const visibilityRegistration = vi.spyOn(document, "addEventListener");
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ height: 2400 } as DOMRect);
   render(<Probe />);
   const body = await screen.findByText(/health_connect/);
+  await waitFor(() => expect(visibilityRegistration).toHaveBeenCalledWith("visibilitychange", expect.any(Function)));
   let resolve!: (value: PublicActivityDetail) => void;
   state.load.mockReturnValue(new Promise(yes => { resolve = yes; }));
   act(() => document.dispatchEvent(new Event("visibilitychange")));

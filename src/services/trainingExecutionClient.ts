@@ -1,5 +1,6 @@
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { httpsCallable } from "firebase/functions";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 convenience exports 기본값. 임베드는 createTrainingExecutionClient(services)를 사용한다.
 import { functions } from "./firebase";
 import { parseSessionExecutionLink, parseSessionExecutionList, type SessionExecutionLink } from "./trainingExecutionContract";
 

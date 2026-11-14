@@ -1,3 +1,4 @@
+import FirebaseSessionBoundary from "../contexts/FirebaseSessionBoundary";
 import { loadSegmentMetadata } from "../services/segmentMetadata";
 import { useDefaultSport } from "../hooks/useDefaultSport";
 import { Banana, Flag, MapPinned, Mountain, Timer } from "lucide-react";
@@ -347,6 +348,10 @@ async function extractGpsFromFile(file: File): Promise<[number, number] | null> 
 // ── Component ───────────────────────────────────────────────────────
 
 export default function CoursePage() {
+  return <FirebaseSessionBoundary><CoursePageContent /></FirebaseSessionBoundary>;
+}
+
+function CoursePageContent() {
   const { t, i18n } = useTranslation("course");
   const detailLocation = useLocation();
   const [detailParams, setDetailParams] = useSearchParams();
@@ -357,7 +362,8 @@ export default function CoursePage() {
   const { courseId } = useParams<{ courseId: string }>();
   const { user, profile, profileLoading, loading: authLoading, signIn } = useAuth();
   // 코스 상세 임베드(#3235)는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
-  const { firestore, functions } = useFirebaseServices();
+  const firebaseServices = useFirebaseServices();
+  const { firestore, functions } = firebaseServices;
   const navigate = useNavigate();
   const { data: course, loading: courseLoading } = useDocument<CourseData>("courses", courseId, true);
   // 획득고도 정본(#887). 전환이 꺼져 있으면 envelope 은 null 이고 코스 문서 값이 그대로 남는다.
@@ -432,7 +438,7 @@ export default function CoursePage() {
     const ids = (course?.segmentIds ?? []).slice(0, 12);
     if (ids.length === 0) { setLinkedSegments([]); return; }
     let cancelled = false;
-    loadSegmentMetadata(ids)
+    loadSegmentMetadata(ids, firebaseServices)
       .then((snaps) => {
         if (cancelled) return;
         setLinkedSegments(snaps.map((s) => {
@@ -442,7 +448,7 @@ export default function CoursePage() {
       })
       .catch((err) => { logClientError("CoursePage.linkedSegments", err, { courseId }); });
     return () => { cancelled = true; };
-  }, [course?.segmentIds, courseId]);
+  }, [course?.segmentIds, courseId, firebaseServices]);
 
   const points = useMemo(
     () => (course?.polyline ? decodePolyline(course.polyline) : []),

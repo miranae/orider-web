@@ -1,3 +1,5 @@
+import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { mt } from "./meetingText";
 import { logClientError } from "../../services/errorLogger";
 import { useEffect, useRef, useState } from "react";
@@ -29,15 +31,17 @@ const metric = (value: number | undefined, unit: string) =>
   value === undefined
     ? mt("미정")
     : `${Number(value.toFixed(2)).toLocaleString()}${unit}`;
-export default function CoursePreparation({
-  meeting,
-  onChange,
-  onBusyChange,
-}: {
+interface CoursePreparationProps {
   meeting: Meeting;
   onChange: (meeting: Meeting) => void;
   onBusyChange: (busy: boolean) => void;
-}) {
+}
+export default function CoursePreparation(props: CoursePreparationProps) {
+  return <FirebaseSessionBoundary><CoursePreparationContent {...props} /></FirebaseSessionBoundary>;
+}
+
+function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePreparationProps) {
+  const firebaseServices = useFirebaseServices();
   const [mode, setMode] = useState<Mode>(
     meeting.courseSource?.kind ?? "saved-course",
   );
@@ -59,6 +63,9 @@ export default function CoursePreparation({
   const latest = useRef(meeting);
   latest.current = meeting;
   const readVersion = useRef(0);
+  const busyCallback = useRef(onBusyChange);
+  busyCallback.current = onBusyChange;
+  useEffect(() => () => { readVersion.current += 1; busyCallback.current(false); }, []);
   const confirmation = useRef<HTMLElement>(null);
   useEffect(() => {
     if (pending) {
@@ -165,7 +172,7 @@ export default function CoursePreparation({
     setLoading(true);
     setError("");
     try {
-      const page = await loadCourseCatalogPage(append ? courseCursor.current : null);
+      const page = await loadCourseCatalogPage(append ? courseCursor.current : null, firebaseServices);
       courseCursor.current = page.cursor;
       setHasMoreCourses(page.hasMore);
       setCourses(previous => append ? [...new Map([...(previous ?? []), ...page.items].map(item => [item.id, item])).values()] : page.items);
@@ -183,7 +190,7 @@ export default function CoursePreparation({
     setImportingCourse(course.id);
     onBusyChange(true);
     try {
-      const full = await loadSavedCourse(course.id);
+      const full = await loadSavedCourse(course.id, firebaseServices);
       if (version !== readVersion.current) return;
       if (!full) {
         setError(mt("이 코스는 지금 가져올 수 없어요."));
