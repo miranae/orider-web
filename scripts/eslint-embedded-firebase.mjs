@@ -29,7 +29,10 @@ export const embeddedFirebaseRule = {
         report(node, node.specifiers.filter(s => s.exportKind !== 'type').flatMap(s => GUARDED.has(s.local.name ?? s.local.value) ? [s.local.name ?? s.local.value] : []));
       },
       ExportAllDeclaration(node) { if (node.exportKind !== 'type' && isSingleton(node.source.value)) report(node, ['*']); },
-      ImportExpression(node) { if (isSingleton(node.source.value)) report(node, ['*']); },
+      ImportExpression(node) {
+        const source = node.source.type === 'TemplateLiteral' && node.source.expressions.length === 0 ? node.source.quasis[0].value.cooked : node.source.value;
+        if (isSingleton(source)) report(node, ['*']);
+      },
     };
   },
 };

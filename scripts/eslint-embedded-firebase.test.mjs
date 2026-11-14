@@ -13,7 +13,7 @@ test('all canonical Firebase import paths and export forms are blocked', () => {
     'import { auth } from "./firebase";', 'import { functions as backend } from "./firebase.js";',
     'import { firestore } from "@/services/firebase.ts";', 'import { auth } from "@shared/../src/services/firebase";', 'import * as firebase from "../services/firebase";',
     'export { auth as ordinaryAuth } from "./firebase";', 'export * from "./firebase";',
-    'const firebase = import("./firebase");',
+    'const firebase = import("./firebase");', 'const firebase = import(`./firebase`);',
   ]) { const messages = lint(code); assert.equal(messages.length, 1, code); assert.equal(messages[0].ruleId, 'embed/firebase', code); }
 });
 test('type-only and safe utility imports, and unrelated files named firebase are allowed', () => {

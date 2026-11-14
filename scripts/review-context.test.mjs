@@ -91,12 +91,12 @@ test('test-only changes expand the real subject through its surface and page, wi
   f.put('src/entry.ts', 'export { page } from "./surface";');
   f.put('src/surface.ts', 'export { page } from "./page";');
   f.put('src/page.ts', 'import { load } from "./services/data"; import { child } from "./child"; export const page = () => [load(), child];');
-  f.put('src/child.ts', 'export const child = 1;');
+  f.put('src/child.tsx', 'export const child = 1;');
   const base = f.commit();
   f.put('src/entry.test.ts', 'import { page } from "./entry"; page();');
   const result = buildReviewContext({ repo: f.repo, head: f.commit(), from: base });
   for (const path of ['src/surface.ts', 'src/page.ts', 'src/services/data.ts']) assert.ok(result.manifest.files.some(f => f.path === path), path);
-  assert.ok(result.manifest.unexpandedUiBoundaries.includes('src/child.ts'));
+  assert.ok(result.manifest.unexpandedUiBoundaries.includes('src/child.tsx'));
 });
 
 test('bounded batches cover every source and keep each caller/callee pair together', t => {
@@ -130,4 +130,22 @@ test('context-only normal web dependencies are distinguished from the actual emb
   assert.equal(result.manifest.files.find(f => f.path === 'src/caller.ts').embeddedReachable, false);
   assert.deepEqual(result.manifest.files.find(f => f.path === 'src/page.ts').runtimeDependencies, ['src/services/data.ts']);
   assert.ok(result.manifest.embeddedScopeSha256);
+});
+
+test('caller auth helpers and consumers behind re-export barrels are expanded', t => {
+  const f = fixture(t);
+  f.put('src/services/api.ts', 'export function load() { return 1; }');
+  f.put('src/barrel.ts', 'export { load as publicLoad } from "./services/api";');
+  f.put('src/consumer.tsx', 'import { publicLoad } from "./barrel"; import { session } from "./account/session"; export const useData = () => publicLoad(session());');
+  f.put('src/account/session.ts', 'import { owner } from "./owner"; export const session = () => owner;');
+  f.put('src/account/owner.ts', 'export const owner = "named-app";');
+  const base = f.commit();
+  f.put('src/services/api.ts', 'export function load(services) { return services; }');
+  const result = buildReviewContext({ repo: f.repo, head: f.commit(), from: base });
+  for (const path of ['src/barrel.ts', 'src/consumer.tsx', 'src/account/session.ts', 'src/account/owner.ts']) assert.ok(result.manifest.files.some(f => f.path === path), path);
+});
+
+
+test('constant-template dynamic imports remain execution dependencies', () => {
+  assert.deepEqual(sourceImports('src/a.ts', 'const load = () => import(`./service`);').map(edge => edge.specifier), ['./service']);
 });

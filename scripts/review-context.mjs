@@ -47,7 +47,7 @@ export function sourceImports(file, text) {
     }
   }
   const visit = node => {
-    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments[0] && ts.isStringLiteral(node.arguments[0])) add(node.arguments[0].text);
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword && node.arguments[0] && (ts.isStringLiteral(node.arguments[0]) || ts.isNoSubstitutionTemplateLiteral(node.arguments[0]))) add(node.arguments[0].text);
     ts.forEachChild(node, visit);
   };
   visit(source);
@@ -88,7 +88,7 @@ export function buildReviewContext({ repo, head, from, maxBytes = 800000, depth 
     if (!parsed.has(key)) parsed.set(key, sourceImports(file, value.text).map(edge => ({ ...edge, target: resolveSource(file, edge.specifier, files) })));
     return parsed.get(key);
   };
-  const selected = new Map(), visited = new Set(), boundaries = new Set(), units = [];
+  const selected = new Map(), visited = new Map(), boundaries = new Set(), units = [];
   const select = (file, reason) => {
     if (!files.has(file) || !runtime.test(file)) return;
     if (files.get(file).symlink) throw new Error(`Review source cannot be a symlink: ${file}`);
@@ -129,31 +129,46 @@ export function buildReviewContext({ repo, head, from, maxBytes = 800000, depth 
       queue.push({ file: edge.target, level: 0, reason: "test-subject" });
     }
   }
-  while (queue.length) {
+  const expandQueue = () => { while (queue.length) {
     const { file, level, reason } = queue.shift(), key = file;
-    if (visited.has(key)) continue; visited.add(key); select(file, reason);
+    select(file, reason);
+    if ((visited.get(key) ?? Infinity) <= level) continue; visited.set(key, level);
     units.push([file]);
     const edges = edgesOf(file);
     for (const edge of edges) {
       if (!edge.target || testFile.test(edge.target)) continue;
       units.push([file, edge.target]);
       // Follow service/auth/data logic transitively. UI dependencies are bounded and their boundary is reported.
-      const logic = /^(?:shared\/|src\/(?:services|hooks|contexts|utils)\/)/.test(edge.target);
+      const logic = !/\.[jt]sx$/.test(edge.target) || /^(?:shared\/|src\/(?:services|hooks|contexts|utils)\/)/.test(edge.target);
       if (level < depth || logic || edge.reexport) queue.push({ file: edge.target, level: level + 1, reason: "dependency" });
       else boundaries.add(edge.target);
     }
   }
-  const rootSet = new Set(behavioralRoots);
-  for (const [file, value] of files) {
-    if (value.symlink || testFile.test(file) || !runtime.test(file)) continue;
-    for (const edge of edgesOf(file)) {
-      if (!rootSet.has(edge.target)) continue;
-      const names = exportChanges.get(edge.target);
-      if (!names || !edge.names || edge.names.some(name => names.has(name))) {
-        select(file, "direct-caller"); units.push([file, edge.target]);
+  };
+  expandQueue();
+  const reverseTargets = new Map(behavioralRoots.map(file => [file, exportChanges.get(file)]));
+  const queuedCallers = new Set();
+  let addedBarrel = true;
+  while (addedBarrel) {
+    addedBarrel = false;
+    for (const [file, value] of files) {
+      if (value.symlink || testFile.test(file) || !runtime.test(file)) continue;
+      for (const edge of edgesOf(file)) {
+        if (!reverseTargets.has(edge.target)) continue;
+        const names = reverseTargets.get(edge.target);
+        if (names && edge.names && !edge.names.some(name => names.has(name))) continue;
+        select(file, edge.reexport ? "reexport-caller" : "direct-caller");
+        units.push([file, edge.target]);
+        if (!queuedCallers.has(file)) {
+          queuedCallers.add(file);
+          // Caller data/auth helpers expand transitively; unrelated UI routes stay explicit boundaries.
+          queue.push({ file, level: depth, reason: edge.reexport ? "reexport-caller" : "direct-caller" });
+        }
+        if (edge.reexport && !reverseTargets.has(file)) { reverseTargets.set(file, null); addedBarrel = true; }
       }
     }
   }
+  expandQueue();
   if ([...selected.keys()].some(file => file.startsWith("src/"))) {
     for (const file of ["src/main.tsx", "src/embedded/EmbeddedBootstrapRoot.tsx", "src/services/firebase.ts", "src/contexts/FirebaseServicesContext.tsx", "src/embedded/embeddedFirebase.ts", "src/__tests__/mocks/firebaseMockSetup.ts"]) select(file, "runtime-and-test-bootstrap");
   }
