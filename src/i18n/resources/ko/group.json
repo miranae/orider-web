@@ -118,7 +118,7 @@
   "dashboard.kind.corporate": "회사 동호회",
   "dashboard.created": "설립",
   "dashboard.events": "이벤트",
-  "dashboard.moreEvents": "이벤트 목록",
+  "dashboard.moreEvents": "모임 목록",
   "dashboard.moreMembers": "멤버 더보기",
   "dashboard.manage": "⚙ 관리",
   "dashboard.stats.weekDistance": "이번 주 총 거리",
@@ -142,7 +142,7 @@
   "dashboard.recentRides": "최근 클럽 라이드",
   "dashboard.moreRides": "더보기",
   "dashboard.memberPreview": "멤버",
-  "dashboard.upcomingEvents": "다가오는 이벤트",
+  "dashboard.upcomingEvents": "다가오는 모임",
   "dashboard.groupInfo": "클럽 정보",
   "dashboard.createdDate": "개설일",
   "dashboard.eventStatus.recruiting": "모집중",
@@ -423,7 +423,7 @@
   "invite.retry": "다시 시도",
   "invite.createdNotReady": "클럽은 생성되었습니다. 초대 코드는 멤버 화면에서 다시 불러올 수 있습니다.",
   "subNav.news": "소식",
-  "subNav.events": "이벤트",
+  "subNav.events": "모임",
   "subNav.week": "함께한 이번 주",
   "week.source": "함께한 공개 활동 기준",
   "week.empty": "이번 주 함께한 활동이 없어요",
@@ -620,5 +620,9 @@
   "events.kind.race": "대회",
   "events.empty.CANCELLED": "취소된 이벤트가 없어요",
   "dashboard.viewMeeting": "모임 보기",
-  "week.loadFailed": "주간 집계를 불러오지 못했어요"
+  "week.loadFailed": "주간 집계를 불러오지 못했어요",
+  "meetings.title": "모임",
+  "meetings.description": "클럽에서 함께할 모임과 대회를 확인하세요.",
+  "meetings.create": "모임 만들기",
+  "meetings.tools": "캘린더·대회 도구"
 }

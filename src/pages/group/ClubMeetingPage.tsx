@@ -162,10 +162,11 @@ export default function ClubMeetingPage({
       <GroupSubNav
         group={group}
         isCreator={canManageGroup(group, user.uid, role)}
+        compact={mode !== "detail"}
       />
       <div className="cp-product-header">
-        <Link to={`/club/${group.id}/events`}>
-          ← {text("클럽 모임", "Club meetings")}
+        <Link to={`/club/${group.id}`}>
+          ← {text("모임 목록", "Meetings")}
         </Link>
         {mode === "detail" && (
           <Button
@@ -217,7 +218,7 @@ export default function ClubMeetingPage({
           focusCourseReady={
             mode === "edit" && search.get("focus") === "course-ready"
           }
-          onClose={() => navigate(`/club/${group.id}/events`)}
+          onClose={() => navigate(`/club/${group.id}`)}
           onSave={async (meeting, baseRevision) => {
             try {
               if (mode === "edit" && data) {

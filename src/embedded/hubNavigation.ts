@@ -88,7 +88,7 @@ export function isEmbeddableAthleteId(userId: string | undefined): userId is str
 }
 
 /** 클럽 상세 임베드가 자기 안에서 그리는 하위 경로(App.tsx `club/:groupId/...` 와 같은 이름). */
-const CLUB_DETAIL_SECTION = /^(?:\/(?:rides(?:\/[^/]+)?|week|leaderboard|events|members|settings|meetings\/(?:new|[^/]+(?:\/(?:edit|live))?)))?\/?$/;
+const CLUB_DETAIL_SECTION = /^(?:\/(?:news|rides(?:\/[^/]+)?|week|leaderboard|events|members|settings|meetings\/(?:new|[^/]+(?:\/(?:edit|live))?)))?\/?$/;
 
 /**
  * 클럽 상세 임베드(`/{lang}/embed/clubs/{groupId}`) 안에서 **같은 클럽**의 상세·하위 화면으로

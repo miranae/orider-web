@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { setDocData, simulateLogin } from "../__tests__/mocks/firebase";
+import { setDocData, simulateLogin, simulateLogout } from "../__tests__/mocks/firebase";
 import type { EmbeddedBridge, HostBridgeEnvelope, WebMessageType } from "./bridge";
 
 const mocks = vi.hoisted(() => {
@@ -60,6 +60,7 @@ function clubPageMock(name: string) {
     ),
   };
 }
+vi.mock("../pages/group/ClubHomePage", () => clubPageMock("home"));
 vi.mock("../pages/group/GroupDashboardPage", () => clubPageMock("dashboard"));
 vi.mock("../pages/group/GroupMembersPage", () => clubPageMock("members"));
 vi.mock("../pages/group/GroupWeekPage", () => clubPageMock("week"));
@@ -199,7 +200,7 @@ describe("app tab hub embeds", () => {
 
   it("shows public hub content as a guest when the app has no signed-in web session", async () => {
     mocks.state.currentUser = null;
-    simulateLogin(null);
+    simulateLogout();
     const bridge = createFakeBridge();
     renderHub(bridge, "clubs");
     await authorize(bridge, { contractVersion: 1 });
@@ -211,7 +212,7 @@ describe("app tab hub embeds", () => {
   });
 
   it.each(["about", "community-guidelines"] as const)("%s 안내는 로그인 인계 없이 열 수 있다", async kind => {
-    mocks.state.currentUser = null; simulateLogin(null);
+    mocks.state.currentUser = null; simulateLogout();
     const bridge = createFakeBridge(); renderHub(bridge, kind);
     await authorize(bridge, { contractVersion: 1 });
     act(() => bridge.emit(message("host.sessionAccepted", accepted)));
@@ -220,7 +221,7 @@ describe("app tab hub embeds", () => {
     expect(mocks.isolate).toHaveBeenCalledWith(null);
   });
   it("피드백 작성은 게스트 승인을 받지 않는다", () => {
-    mocks.state.currentUser = null; simulateLogin(null);
+    mocks.state.currentUser = null; simulateLogout();
     const bridge = createFakeBridge(); renderHub(bridge, "feedback");
     act(() => bridge.emit(message("host.authorize", { contractVersion: 1 }, "guest")));
     expect(bridge.sent).toContainEqual({ type: "surface.error", payload: { code: "invalid_host_payload" }, requestId: "guest" });
@@ -264,7 +265,7 @@ describe("app tab hub embeds", () => {
 
   it("opens a public club detail as a guest and keeps the club's own sub pages inside the embed", async () => {
     mocks.state.currentUser = null;
-    simulateLogin(null);
+    simulateLogout();
     const bridge = createFakeBridge();
     render(
       <MemoryRouter initialEntries={["/ko/embed/clubs/club-1"]}>
@@ -275,13 +276,13 @@ describe("app tab hub embeds", () => {
     );
     await authorize(bridge, { contractVersion: 1 });
     act(() => bridge.emit(message("host.sessionAccepted", accepted)));
-    expect(await screen.findByTestId("club-page-dashboard")).toBeInTheDocument();
+    expect(await screen.findByTestId("club-page-home")).toBeInTheDocument();
     await waitFor(() => expect(bridge.sent).toContainEqual({ type: "surface.ready", payload: { surface: "club-detail" }, requestId: undefined }));
 
     fireEvent.click(screen.getByRole("link", { name: "members" }));
     expect(await screen.findByTestId("club-page-members")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("link", { name: "club home" }));
-    expect(await screen.findByTestId("club-page-dashboard")).toBeInTheDocument();
+    expect(await screen.findByTestId("club-page-home")).toBeInTheDocument();
     expect(bridge.sent.some(item => item.type === "navigation.openNative")).toBe(false);
 
     // 다른 클럽·상세 밖 경로는 앱이 정한다(다른 클럽은 앱이 새 상세로 push).
@@ -293,7 +294,7 @@ describe("app tab hub embeds", () => {
 
   it("opens a public course detail as a guest, keeps the same course inside the embed and hands other links to the app", async () => {
     mocks.state.currentUser = null;
-    simulateLogin(null);
+    simulateLogout();
     const bridge = createFakeBridge();
     render(
       <MemoryRouter initialEntries={["/ko/embed/courses/course-1"]}>
@@ -373,7 +374,7 @@ describe("app tab hub embeds", () => {
 
   it("opens a public segment detail as a guest, keeps the same segment inside the embed and hands other links to the app", async () => {
     mocks.state.currentUser = null;
-    simulateLogin(null);
+    simulateLogout();
     const bridge = createFakeBridge();
     render(
       <MemoryRouter initialEntries={["/ko/embed/segments/seg-1"]}>

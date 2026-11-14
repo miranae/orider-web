@@ -118,7 +118,7 @@
   "dashboard.kind.corporate": "Corporate Club",
   "dashboard.created": "Founded",
   "dashboard.events": "Events",
-  "dashboard.moreEvents": "Event List",
+  "dashboard.moreEvents": "Meetings",
   "dashboard.moreMembers": "More Members",
   "dashboard.manage": "⚙ Manage",
   "dashboard.stats.weekDistance": "Weekly Total Distance",
@@ -142,7 +142,7 @@
   "dashboard.recentRides": "Recent Club Rides",
   "dashboard.moreRides": "More",
   "dashboard.memberPreview": "Members",
-  "dashboard.upcomingEvents": "Upcoming Events",
+  "dashboard.upcomingEvents": "Upcoming Meetings",
   "dashboard.groupInfo": "Club Info",
   "dashboard.createdDate": "Created Date",
   "dashboard.eventStatus.recruiting": "Recruiting",
@@ -423,7 +423,7 @@
   "invite.retry": "Retry",
   "invite.createdNotReady": "The club was created. You can retry loading its invite code on the members page.",
   "subNav.news": "News",
-  "subNav.events": "Events",
+  "subNav.events": "Meetings",
   "subNav.week": "Together this week",
   "week.source": "Public rides together",
   "week.empty": "No rides together this week",
@@ -622,5 +622,9 @@
   "events.kind.race": "Race",
   "events.empty.CANCELLED": "No cancelled events",
   "dashboard.viewMeeting": "View meeting",
-  "week.loadFailed": "Could not load weekly statistics"
+  "week.loadFailed": "Could not load weekly statistics",
+  "meetings.title": "Meetings",
+  "meetings.description": "Find upcoming club meetings and races.",
+  "meetings.create": "Create a meeting",
+  "meetings.tools": "Calendar & race tools"
 }

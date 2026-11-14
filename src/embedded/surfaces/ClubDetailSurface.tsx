@@ -4,13 +4,14 @@ import { useTranslation } from "react-i18next";
 import { GlossaryProvider } from "../../components/common/GlossaryProvider";
 import HubSurfaceFrame, { type HubSurfaceProps } from "./HubSurfaceFrame";
 
+const ClubHomePage = lazy(() => import("../../pages/group/ClubHomePage"));
 const GroupDashboardPage = lazy(() => import("../../pages/group/GroupDashboardPage"));
 const GroupRidesPage = lazy(() => import("../../pages/group/GroupRidesPage"));
 const GroupRidePage = lazy(() => import("../../pages/group/GroupRidePage"));
 const GroupWeekPage = lazy(() => import("../../pages/group/GroupWeekPage"));
 const ClubMeetingLivePage = lazy(() => import("../../pages/group/ClubMeetingLivePage"));
 const ClubMeetingPage = lazy(() => import("../../pages/group/ClubMeetingPage"));
-const GroupEventsPage = lazy(() => import("../../pages/group/GroupEventsPage"));
+const PublicGroupEventsEntry = lazy(() => import("../../pages/group/PublicGroupEventsEntry"));
 const GroupMembersPage = lazy(() => import("../../pages/group/GroupMembersPage"));
 const GroupSettingsPage = lazy(() => import("../../pages/group/GroupSettingsPage"));
 
@@ -32,7 +33,8 @@ export default function ClubDetailSurface(props: HubSurfaceProps) {
     <HubSurfaceFrame {...props} title={t("nav.clubs")} testId="embedded-club-detail">
       <GlossaryProvider>
         <Routes>
-          <Route index element={<GroupDashboardPage />} />
+          <Route index element={<ClubHomePage />} />
+          <Route path="news" element={<GroupDashboardPage />} />
           <Route path="rides" element={<GroupRidesPage />} />
           <Route path="rides/:rideId" element={<GroupRidePage />} />
           <Route path="week" element={<GroupWeekPage />} />
@@ -41,7 +43,7 @@ export default function ClubDetailSurface(props: HubSurfaceProps) {
           <Route path="meetings/:meetingId/edit" element={<ClubMeetingPage mode="edit" />} />
           <Route path="meetings/:meetingId/live" element={<ClubMeetingLivePage />} />
           <Route path="meetings/:meetingId" element={<ClubMeetingPage />} />
-          <Route path="events" element={<GroupEventsPage />} />
+          <Route path="events" element={<PublicGroupEventsEntry />} />
           <Route path="members" element={<GroupMembersPage />} />
           <Route path="settings" element={<GroupSettingsPage />} />
           <Route path="*" element={<ClubDetailRedirect />} />

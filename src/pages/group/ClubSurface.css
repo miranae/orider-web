@@ -161,3 +161,9 @@
 .club-surface [role="tab"] { min-height: var(--dim-button-height); }
 /* 내 클럽 묶음: 제목·필터·목록·가입 신청 기록 사이와 아래 "클럽 찾기"까지 16. 신청 기록이 있으면 "클럽 찾기"가 붙어 있었다. */
 .club-my-section { display: grid; gap: var(--space-4); margin-bottom: var(--space-4); min-width: 0; }
+
+.club-meetings-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:var(--space-3); }
+.club-meetings-heading h2 { font-size:var(--ft-title-size); font-weight:var(--ft-title-weight); }
+.club-meetings-heading p { color:var(--ink-2); margin-top:var(--space-1); }
+.club-meeting-tools { margin-top:var(--space-3); color:var(--ink-2); }
+.club-meeting-tool-actions { display:flex; flex-wrap:wrap; gap:var(--space-2); margin-top:var(--space-2); }

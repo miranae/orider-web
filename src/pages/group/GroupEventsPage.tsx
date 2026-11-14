@@ -1,3 +1,4 @@
+import { useLocalizedPath } from "../../hooks/useLocalizedNavigate";
 import { useClubMeetingsApi } from "../../features/club-preparation/useClubMeetingsApi";
 import ClubCafeSchedulePanel from "../../features/group/ClubCafeSchedulePanel";
 import {
@@ -33,6 +34,7 @@ export default function GroupEventsPage() {
   const { listClubMeetings } = useClubMeetingsApi();
   const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
+  const clubHomePath = useLocalizedPath(`/club/${groupId ?? ""}`);
   const { user } = useAuth();
   const {
     role,
@@ -218,41 +220,24 @@ export default function GroupEventsPage() {
     );
   if (!group) return <EmptyState title={t("empty.groupNotFound")} />;
   const manager = canManageGroup(group, user?.uid, role);
-  if (!role) return <Navigate to=".." relative="path" replace />;
+  if (!role) return <Navigate to={clubHomePath} replace />;
   const calendarUrl = groupCalendarUrl(group);
 
   return (
     <div data-testid="C3" className="space-y-4">
       <header data-testid="C3-0">
-        <GroupSubNav group={group} isCreator={manager} />
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            className={buttonClass({ variant: "primary", size: "sm" })}
-            to={`/club/${group.id}/meetings/new`}
-          >
-            {i18n.language.startsWith("en")
-              ? "Create a meeting"
-              : "모임 만들기"}
-          </Link>
-          {calendarUrl && (
-            <a
-              data-testid="C3-0-1"
-              className={buttonClass({ variant: "secondary", size: "sm" })}
-              href={calendarUrl}
-            >
-              {t("events.subscribe")}
-            </a>
-          )}
-          {user?.uid === group.creatorId && (
-            <Link
-              data-testid="C3-0-2"
-              className={buttonClass({ variant: "primary", size: "sm" })}
-              to={`/event/create?groupId=${encodeURIComponent(group.id)}`}
-            >
-              {i18n.language.startsWith("en") ? "Create a race" : "대회 만들기"}
-            </Link>
-          )}
+        <GroupSubNav group={group} isCreator={manager} compact />
+        <div className="club-meetings-heading">
+          <div><h2>{t("meetings.title")}</h2><p>{t("meetings.description")}</p></div>
+          <Link className={buttonClass({ variant: "primary", size: "sm" })} to={`/club/${group.id}/meetings/new`}>{t("meetings.create")}</Link>
         </div>
+        {(calendarUrl || user?.uid === group.creatorId) && <details className="club-meeting-tools">
+          <summary>{t("meetings.tools")}</summary>
+          <div className="club-meeting-tool-actions">
+            {calendarUrl && <a data-testid="C3-0-1" className={buttonClass({ variant: "secondary", size: "sm" })} href={calendarUrl}>{t("events.subscribe")}</a>}
+            {user?.uid === group.creatorId && <Link data-testid="C3-0-2" className={buttonClass({ variant: "secondary", size: "sm" })} to={`/event/create?groupId=${encodeURIComponent(group.id)}`}>{i18n.language.startsWith("en") ? "Create a race" : "대회 만들기"}</Link>}
+          </div>
+        </details>}
       </header>
       <ClubCafeSchedulePanel groupId={group.id} language={i18n.language} />
       <div className="flex flex-wrap gap-2">

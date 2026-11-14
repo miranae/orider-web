@@ -34,6 +34,7 @@ import { firestore } from "./services/firebase";
 const ActivityPage = lazyTimed("ActivityPage", () => import("./pages/ActivityDetailRoute"));
 const ActivityEditPage = lazyTimed("ActivityEditPage", () => import("./pages/activity/ActivityEditPage"));
 const GroupsPage = lazyTimed("GroupsPage", () => import("./pages/group/GroupsPage"));
+const ClubHomePage = lazyTimed("ClubHomePage", () => import("./pages/group/ClubHomePage"));
 const GroupDashboardPage = lazyTimed("GroupDashboardPage", () => import("./pages/group/GroupDashboardPage"));
 const GroupRidesPage = lazyTimed("GroupRidesPage", () => import("./pages/group/GroupRidesPage"));
 const GroupRidePage = lazyTimed("GroupRidePage", () => import("./pages/group/GroupRidePage"));
@@ -42,7 +43,7 @@ const GroupInvitePage = lazyTimed("GroupInvitePage", () => import("./pages/group
 const GroupWeekPage = lazyTimed("GroupWeekPage", () => import("./pages/group/GroupWeekPage"));
 const ClubMeetingLivePage = lazyTimed("ClubMeetingLivePage", () => import("./pages/group/ClubMeetingLivePage"));
 const ClubMeetingPage = lazyTimed("ClubMeetingPage", () => import("./pages/group/ClubMeetingPage"));
-const GroupEventsPage = lazyTimed("GroupEventsPage", () => import("./pages/group/PublicGroupEventsEntry"));
+const PublicGroupEventsEntry = lazyTimed("PublicGroupEventsEntry", () => import("./pages/group/PublicGroupEventsEntry"));
 const GroupSettingsPage = lazyTimed("GroupSettingsPage", () => import("./pages/group/GroupSettingsPage"));
 const SegmentPage = lazyTimed("SegmentPage", () => import("./pages/SegmentPage"));
 const AthletePage = lazyTimed("AthletePage", () => import("./pages/AthletePage"));
@@ -173,7 +174,8 @@ export function AppRoutes() {
           <Route path="clubs" element={<GroupsPage />} />
           <Route path="club/join" element={<NotFoundPage />} />
           <Route path="club/join/:code" element={<GroupInvitePage />} />
-          <Route path="club/:groupId" element={<GroupDashboardPage />} />
+          <Route path="club/:groupId" element={<ClubHomePage />} />
+          <Route path="club/:groupId/news" element={<GroupDashboardPage />} />
           <Route path="club/:groupId/rides" element={<GroupRidesPage />} />
           <Route path="club/:groupId/rides/:rideId" element={<GroupRidePage />} />
           <Route path="club/:groupId/week" element={<GroupWeekPage />} />
@@ -181,7 +183,7 @@ export function AppRoutes() {
           <Route path="club/:groupId/meetings/:meetingId/edit" element={<ClubMeetingPage mode="edit" />} />
           <Route path="club/:groupId/meetings/:meetingId/live" element={<ClubMeetingLivePage />} />
           <Route path="club/:groupId/meetings/:meetingId" element={<ClubMeetingPage />} />
-          <Route path="club/:groupId/events" element={<GroupEventsPage />} />
+          <Route path="club/:groupId/events" element={<PublicGroupEventsEntry />} />
           <Route path="club/:groupId/leaderboard" element={<LegacyRedirect to="/club/:groupId/week" />} />
           <Route path="club/:groupId/members" element={<GroupMembersPage />} />
           <Route path="club/:groupId/settings" element={<GroupSettingsPage />} />
