@@ -5,7 +5,9 @@
 .athlete-identity__name { font-size: var(--ft-page-title-size, var(--fs-3xl)); /* 페이지 제목 크기(34) — 30 은 크기 체계 밖이었다 */ font-weight: 700; line-height: 1.2; color: var(--ink-0); }
 .athlete-identity__avatar { flex-shrink: 0; }
 .athlete-identity__photo { width: calc(var(--space-8) + var(--space-6)); height: calc(var(--space-8) + var(--space-6)); border-radius: 50%; object-fit: cover; }
-.athlete-friend-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.athlete-friend-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+/* 구독 버튼 감싸개를 풀어 구독·친구 버튼이 한 줄에서 같은 기준으로 놓이게 한다. */
+.athlete-friend-actions .profile-subscription-action { display: contents; }
 .athlete-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); }
 .athlete-stat { min-width: 0; }
 .athlete-stat__label { display: flex; align-items: center; gap: var(--space-2); color: var(--ink-2); font-size: var(--fs-xs); }

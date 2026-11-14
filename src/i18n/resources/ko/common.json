@@ -504,8 +504,6 @@
     "notDeployed": "구독 기능 준비 중",
     "forbidden": "구독할 수 없음",
     "unavailable": "구독 상태를 확인하지 못했습니다.",
-    "publicOnly": "공개 활동만 구독합니다. 친구 공개 범위는 바뀌지 않습니다.",
-    "publicLabel": "공개 활동",
     "management": "친구 및 관계 관리",
     "blocked": "차단",
     "unblock": "차단 해제",
