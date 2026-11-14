@@ -51,7 +51,8 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
   );
   const [courses, setCourses] = useState<SavedCourseChoice[] | null>(null);
   const [query, setQuery] = useState("");
-  const [searchHits, setSearchHits] = useState<SavedCourseChoice[]>([]);
+  // 결과는 그 결과를 낸 검색어와 함께 둔다 — 검색어가 바뀌면 이전 결과를 바로 버린다.
+  const [searchHits, setSearchHits] = useState<{ text: string; items: SavedCourseChoice[] }>({ text: "", items: [] });
   const [searching, setSearching] = useState(false);
   const courseCursor = useRef<Awaited<ReturnType<typeof loadCourseCatalogPage>>["cursor"]>(null);
   const [hasMoreCourses, setHasMoreCourses] = useState(false);
@@ -250,16 +251,16 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
   // 불러온 목록에 없는 코스도 찾도록 이름 앞부분을 서버에서 찾는다(2026-11-15 제보: 검색 결과 없음).
   const searchText = courses === null ? "" : query.trim();
   useEffect(() => {
-    if (!searchText) { setSearchHits([]); setSearching(false); return; }
+    if (!searchText) { setSearching(false); return; }
     let cancelled = false;
     setSearching(true);
     const timer = setTimeout(() => {
       searchCourseCatalog(searchText, firebaseServices)
-        .then((found) => { if (!cancelled) setSearchHits(found); })
+        .then((found) => { if (!cancelled) setSearchHits({ text: searchText, items: found }); })
         .catch((failure) => {
-          if (cancelled) return;
-          setSearchHits([]);
-          logClientError("CoursePreparation.savedCourseSearch", failure, { length: searchText.length }, firebaseServices);
+          // 화면 갱신만 취소한다 — 늦게 끝난 요청의 실패도 원인 추적을 위해 기록한다.
+          logClientError("CoursePreparation.savedCourseSearch", failure, { length: searchText.length, stale: cancelled }, firebaseServices);
+          if (!cancelled) setSearchHits({ text: searchText, items: [] });
         })
         .finally(() => { if (!cancelled) setSearching(false); });
     }, 300);
@@ -273,7 +274,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
     ) ?? [];
   const hits = [
     ...new Map(
-      [...localHits, ...(searchText ? searchHits : [])].map((course) => [course.id, course]),
+      [...localHits, ...(searchText && searchHits.text === searchText ? searchHits.items : [])].map((course) => [course.id, course]),
     ).values(),
   ].slice(0, 15);
   return (

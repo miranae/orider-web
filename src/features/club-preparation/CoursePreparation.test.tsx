@@ -63,6 +63,25 @@ describe('코스부터 준비하는 모집 작성',()=>{
     expect(screen.queryByText('기존 강변 코스')).toBeNull();
     expect(screen.queryByText('찾는 코스가 없어요. 다른 이름으로 찾아보세요.')).toBeNull();
   });
+  it('검색어를 바꾸면 이전 검색 결과를 바로 버리고, 늦게 실패한 이전 검색도 기록한다',async()=>{
+    const first:SavedCourseChoice={...course,id:'first',name:'남산 업힐',description:undefined};
+    let failLate!:(error:Error)=>void;
+    vi.mocked(searchCourseCatalog).mockResolvedValueOnce([first]).mockImplementationOnce(()=>new Promise((_,reject)=>{failLate=reject;})).mockResolvedValueOnce([]);
+    const initial={...createSeed().meetings[2]!,courseSource:undefined,courseHighlights:''};
+    render(<Harness initial={initial}/>);
+    fireEvent.click(screen.getByRole('tab',{name:'기존 코스 가져오기'}));
+    await screen.findByText('기존 강변 코스');
+    const input=screen.getByLabelText('기존 코스 이름 검색');
+    fireEvent.change(input,{target:{value:'남산'}});
+    expect(await screen.findByText('남산 업힐',{},{timeout:2000})).toBeTruthy();
+    fireEvent.change(input,{target:{value:'북악'}});
+    // 새 검색이 끝나기 전에도 '남산' 결과는 보이지 않는다.
+    expect(screen.queryByText('남산 업힐')).toBeNull();
+    await waitFor(()=>expect(vi.mocked(searchCourseCatalog)).toHaveBeenCalledTimes(2),{timeout:2000});
+    fireEvent.change(input,{target:{value:'북한산'}});
+    await act(async()=>{failLate(new Error('course-list/http-503'));});
+    expect(vi.mocked(logClientError)).toHaveBeenCalledWith('CoursePreparation.savedCourseSearch',expect.any(Error),{length:2,stale:true},expect.anything());
+  });
   it('유효한 GPX 파일에서 실제 모임용 구간을 생성하고 공식 상세 링크를 만들지 않는다',async()=>{
     const initial={...createSeed().meetings[2]!,distanceKm:undefined,elevationGainM:undefined,courseHighlights:'',courseStops:[],courseCheckpoints:[],segments:[]};
     render(<Harness initial={initial}/>);fireEvent.click(screen.getByRole('tab',{name:'GPX로 준비하기'}));upload();
