@@ -1,3 +1,4 @@
+import MeetingInviteRedirect from "./pages/group/MeetingInviteRedirect";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, Suspense } from "react";
 import { useTranslation } from "react-i18next";
@@ -110,6 +111,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/:lang" element={<LocaleRoot />}>
+        <Route path="m/:groupId/:meetingId" element={<MeetingInviteRedirect />} />
         <Route path="live/:eventId" element={<EventLivePage />} />
         <Route path="onboarding" element={<OnboardingPage />} />
         <Route path="embed/activity/:activityId/public" element={<EmbeddedBootstrapRoot surfaceKind="activity-public" />} />

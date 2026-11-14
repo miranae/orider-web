@@ -1,3 +1,4 @@
+import MeetingInviteShare from "../../features/club-preparation/MeetingInviteShare";
 import MeetingDiscord from "../../features/club-preparation/MeetingDiscord";
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, MapPin, Users } from "lucide-react";
@@ -401,6 +402,7 @@ function ServerMeetingDetail({
             )}
           </span>
         </div>
+        <MeetingInviteShare key={`${data.groupId}/${data.eventId}`} groupId={data.groupId} eventId={data.eventId} title={meeting.title} date={meeting.date} time={meeting.time} place={meeting.place} en={en} />
         <CourseSummary meeting={meeting} />
         {live && meeting.venue !== "outdoor" && current?.status === "joined" && (meeting.courseTrack?.points.length ?? 0) >= 2 && (meeting.courseTrack?.segmentStarts?.length ?? 0) <= 1 && (
           <Card>
