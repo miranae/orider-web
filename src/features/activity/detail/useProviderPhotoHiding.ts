@@ -23,17 +23,22 @@ export function useProviderPhotoHiding(input: {
   const callbacks = useRef(input); callbacks.current = input;
   useEffect(() => { setOverride(null); setBusy(false); }, [scope, services]);
   const documentKey = JSON.stringify(documentHiddenIds);
+  // 문서 숨김 목록이 바뀔 때마다 올라가는 번호. 요청 중에 한 번이라도 바뀌었으면(원래 값으로 돌아왔더라도)
+  // 그 응답은 이미 문서가 더 새로운 상태이므로 임시 값으로 쓰지 않는다.
+  const documentVersion = useRef({ key: documentKey, value: 0 });
+  if (documentVersion.current.key !== documentKey) documentVersion.current = { key: documentKey, value: documentVersion.current.value + 1 };
   useEffect(() => { if (override && override.base !== documentKey) setOverride(null); }, [override, documentKey]);
 
   const change = async (photoIds: string[], hidden: boolean) => {
     if (!activityId || !photoIds.length || busy) return;
     const target = activityId, requestUid = uid, requestGeneration = generation.current.value, base = documentKey;
+    const requestDocumentVersion = documentVersion.current.value;
     const current = () => generation.current.value === requestGeneration;
     setBusy(true);
     try {
       const ids = await setProviderPhotosHidden(services, target, photoIds, hidden);
       if (!current()) return;
-      setOverride({ activityId: target, uid: requestUid, base, ids });
+      if (documentVersion.current.value === requestDocumentVersion) setOverride({ activityId: target, uid: requestUid, base, ids });
       callbacks.current.onDone(hidden);
     } catch (error) {
       callbacks.current.onError(error, { activityId: target, hidden, count: photoIds.length });

@@ -48,4 +48,16 @@ describe("Strava 사진 숨김 상태", () => {
     expect(view.result.current.hiddenIds).toEqual([]);
     expect(view.result.current.busy).toBe(false);
   });
+  it("요청 중 문서가 바뀌었다 원래 값으로 돌아와도, 늦은 응답으로 최신 상태를 덮지 않는다", async () => {
+    let resolve!: (ids: string[]) => void;
+    hide.mockReturnValue(new Promise<string[]>(r => { resolve = r; }));
+    const view = setup({ activityId: "a", uid: "me", documentHiddenIds: [] });
+    let pending!: Promise<void>;
+    act(() => { pending = view.result.current.change(["1"], true); });
+    view.rerender({ activityId: "a", uid: "me", documentHiddenIds: ["1"] });
+    view.rerender({ activityId: "a", uid: "me", documentHiddenIds: [] });
+    await act(async () => { resolve(["1"]); await pending; });
+    expect(view.result.current.hiddenIds).toEqual([]);
+    expect(view.result.current.busy).toBe(false);
+  });
 });
