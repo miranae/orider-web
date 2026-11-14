@@ -6,7 +6,8 @@ import { ICON_SIZE } from '../../../theme/tokens/icon';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ActivityFeedVideo from "../../../components/activity/ActivityFeedVideo";
-import { MapPin, Trash2, Play } from "lucide-react";
+import { MapPin, Trash2, Play, EyeOff } from "lucide-react";
+import { providerPhotoIdOf } from "./providerPhotoVisibility";
 import type { Activity } from "@shared/types";
 import Avatar from "../../../components/Avatar";
 import { LocalizedLink as Link } from "../../../components/LocalizedLink";
@@ -24,6 +25,12 @@ interface Props {
   onSignIn?: () => void; onLoadPhotos: () => void; onUpload: () => void; onDelete: (id: string) => void; onLocate: (location: [number, number]) => void;
   onShowResults: () => void;
   prioritizeResults?: boolean;
+  /** 주인: Strava 에서 가져온 사진을 O-Rider 화면에서 숨긴다(Strava 원본은 그대로). */
+  onHideProviderPhoto?: (providerPhotoId: string) => void;
+  /** 주인: 숨긴 Strava 사진 수와 다시 보이기. */
+  hiddenProviderCount?: number;
+  onRestoreProviderPhotos?: () => void;
+  providerPhotoBusy?: boolean;
 }
 const safeImage = (url: string) => { try { const value = new URL(url); return value.protocol === "https:" && !isLegacyActivityPhotoUrl(url) && !value.username && !value.password; } catch { return false; } };
 
@@ -95,6 +102,7 @@ export default function ActivityOverviewSocial(props: Props) {
         {(total > safePhotos.length || props.photosKnown === false) && props.canLoadPhotos && <Button variant="ghost" size="sm" disabled={props.loadingPhotos} onClick={load}>{t(props.loadingPhotos ? "detail.loadingData" : "overviewSocial.loadPhotos")}</Button>}
         {(total > safePhotos.length || props.photosKnown === false) && !props.canLoadPhotos && props.onSignIn && <Button variant="ghost" size="sm" onClick={props.onSignIn}>{t("overviewSocial.signInPhotos")}</Button>}
         {props.owner && props.canUpload && <Button variant="ghost" size="sm" disabled={props.uploading} onClick={props.onUpload}>{t(props.uploading ? "page.uploading" : "page.addPhoto")}</Button>}
+        {props.owner && !!props.hiddenProviderCount && props.onRestoreProviderPhotos && <Button variant="ghost" size="sm" disabled={props.providerPhotoBusy} onClick={props.onRestoreProviderPhotos}>{t("overviewSocial.restoreProviderPhotos", { count: props.hiddenProviderCount })}</Button>}
       </div>
       {props.photoError && <div role="alert"><Text as="p" variant="bodySmall">{t("overviewSocial.photoError")}</Text>{props.canLoadPhotos && <Button variant="ghost" size="sm" onClick={load}>{t("page.retry")}</Button>}</div>}
       {companions.length > 0 && <div className="activity-overview-companions">
@@ -114,6 +122,8 @@ export default function ActivityOverviewSocial(props: Props) {
         <div className="activity-overview-viewer-controls">
           {photo?.location && <IconButton variant="ghost" icon={<MapPin size={ICON_SIZE.md} />} aria-label={t("page.photoMapFocus")} onClick={() => { props.onLocate(photo.location!); setSelected(null); }} />}
           {photo?.uploadId && photo.ownerId === props.viewerId && <IconButton variant="danger" icon={<Trash2 size={ICON_SIZE.md} />} aria-label={t("page.delete")} onClick={() => props.onDelete(photo.uploadId!)} />}
+          {props.owner && props.onHideProviderPhoto && photo && providerPhotoIdOf(photo) && <IconButton variant="ghost" icon={<EyeOff size={ICON_SIZE.md} />} disabled={props.providerPhotoBusy}
+            aria-label={t("overviewSocial.hideProviderPhoto")} title={t("overviewSocial.hideProviderPhoto")} onClick={() => { props.onHideProviderPhoto!(providerPhotoIdOf(photo)!); setSelected(null); }} />}
           {total > safePhotos.length && props.canLoadPhotos && <Button variant="ghost" size="sm" disabled={props.loadingPhotos} onClick={load}>{t(props.photoError ? "page.retry" : props.loadingPhotos ? "detail.loadingData" : "overviewSocial.loadPhotos")}</Button>}
         </div>
         {props.canChooseCover && props.owner && props.viewerId && photo?.nativePhoto && photo.ownerId === props.viewerId && <ActivityCoverPhotoControl

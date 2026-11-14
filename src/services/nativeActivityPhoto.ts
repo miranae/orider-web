@@ -98,3 +98,15 @@ export async function setNativeActivityCover(services: FirebaseServices, activit
   if (!id.test(activityId) || (photoId !== null && !id.test(photoId)) || !expectedCoverRevision) throw new Error("invalid_cover_request");
   return coverResult(await call<NativeActivityCover>(services, "setActivityCoverPhoto", { activityId, photoId, expectedCoverRevision }));
 }
+
+/**
+ * Strava 에서 가져온 사진을 O-Rider 화면(상세·피드)에서 숨기거나 다시 보인다. 주인만, Strava 원본은 그대로.
+ * 반환값은 서버가 저장한 현재 숨김 목록 전체다.
+ */
+export async function setProviderPhotosHidden(services: FirebaseServices, activityId: string, photoIds: string[], hidden: boolean): Promise<string[]> {
+  if (!services.auth.currentUser || services.auth.currentUser.isAnonymous) throw new Error("sign_in_required");
+  if (!id.test(activityId) || !photoIds.length || photoIds.length > 50 || !photoIds.every(photoId => id.test(photoId))) throw new Error("invalid_photo");
+  const result = await call<{ hiddenIds: unknown }>(services, "setActivityProviderPhotosHidden", { activityId, photoIds, hidden });
+  if (!Array.isArray(result.hiddenIds) || !result.hiddenIds.every(value => typeof value === "string")) throw new Error("invalid_hidden_response");
+  return result.hiddenIds as string[];
+}
