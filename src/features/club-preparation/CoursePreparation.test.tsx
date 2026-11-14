@@ -35,6 +35,20 @@ describe('코스부터 준비하는 모집 작성',()=>{
     expect(screen.getByRole('region',{name:'코스 체크포인트'}).textContent).toContain('직접 정한 만남');
     expect(screen.getByText('강변을 따라 카페에서 쉬어요.')).toBeTruthy();
   });
+  it('기존 코스 가져오기 탭을 누르면 바로 목록을 불러오고 실패는 원인을 기록한다',async()=>{
+    // 새 모임은 이 탭이 기본이라 누르면 화면이 그대로였다("반응 없음", 2026-11-14 제보) — 누르면 목록을 읽어야 한다.
+    const initial={...createSeed().meetings[2]!,courseSource:undefined,courseHighlights:''};
+    vi.mocked(loadCourseCatalogPage).mockRejectedValueOnce(new Error('course-list/http-403'));
+    const embedded={auth:{currentUser:{uid:'owner'}},firestore:{},functions:{},ensureAppCheckReady:vi.fn(),getAppCheckToken:vi.fn()} as unknown as FirebaseServices;
+    render(<FirebaseServicesProvider services={embedded}><Harness initial={initial}/></FirebaseServicesProvider>);
+    fireEvent.click(screen.getByRole('tab',{name:'기존 코스 가져오기'}));
+    expect(await screen.findByText('기존 코스를 불러오지 못했어요. 다시 시도해주세요.')).toBeTruthy();
+    // 임베드에 주입된 Firebase 서비스로 기록한다(4번째 인자) — 없으면 일반 Firebase 경로를 골라 서버 로그가 빠진다.
+    expect(vi.mocked(logClientError)).toHaveBeenCalledWith('CoursePreparation.savedCourseList',expect.any(Error),{append:false},embedded);
+    fireEvent.click(screen.getByRole('button',{name:'기존 코스 불러오기'}));
+    expect(await screen.findByText('기존 강변 코스')).toBeTruthy();
+    expect(loadCourseCatalogPage).toHaveBeenCalledTimes(2);
+  });
   it('유효한 GPX 파일에서 실제 모임용 구간을 생성하고 공식 상세 링크를 만들지 않는다',async()=>{
     const initial={...createSeed().meetings[2]!,distanceKm:undefined,elevationGainM:undefined,courseHighlights:'',courseStops:[],courseCheckpoints:[],segments:[]};
     render(<Harness initial={initial}/>);fireEvent.click(screen.getByRole('tab',{name:'GPX로 준비하기'}));upload();
@@ -142,7 +156,7 @@ describe('코스부터 준비하는 모집 작성',()=>{
     vi.mocked(loadSavedCourse).mockRejectedValueOnce(new Error('network'));
     fireEvent.click(screen.getByRole('button',{name:'이 코스 가져오기'}));
     expect(await screen.findByText('코스 경로를 불러오지 못했어요. 다시 시도해주세요.')).toBeTruthy();
-    expect(logClientError).toHaveBeenCalledWith('CoursePreparation.savedCourseImport',expect.any(Error),{courseId:'saved-route'});
+    expect(logClientError).toHaveBeenCalledWith('CoursePreparation.savedCourseImport',expect.any(Error),{courseId:'saved-route'},expect.anything());
     vi.mocked(loadSavedCourse).mockResolvedValueOnce(null);
     fireEvent.click(screen.getByRole('button',{name:'이 코스 가져오기'}));
     expect(await screen.findByText('이 코스는 지금 가져올 수 없어요.')).toBeTruthy();
