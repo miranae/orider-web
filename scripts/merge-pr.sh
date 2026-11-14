@@ -202,11 +202,6 @@ prepare_codex_review_workspace() {
     cleanup_review_workspace
     die "리뷰 입력이 상한을 넘습니다(${diff_bytes}바이트 > ${REVIEW_MAX_DIFF_BYTES}). 범위=${REVIEW_RANGE_LABEL}. --review-since <ref> 로 좁히거나 PR 을 나누세요."
   fi
-  local context_budget
-  context_budget=$((REVIEW_MAX_INPUT_BYTES - diff_bytes - 50000))
-  node scripts/review-context.mjs --repo "$REPO_ROOT" --head "$HEAD_OID" --from "$REVIEW_FROM_REV" \
-    --max-bytes "$context_budget" --out "$REVIEW_CONTEXT" \
-    || die "관련 의존성 문맥 생성 실패 — 문맥을 생략한 PASS는 허용하지 않습니다."
   {
     printf 'base=origin/%s\n' "$BASE"
     printf 'review_range=%s\n' "$REVIEW_RANGE_LABEL"
@@ -217,6 +212,14 @@ prepare_codex_review_workspace() {
       printf 'pr_changed_files=%s\n' "$(git diff --name-only "origin/$BASE...$HEAD_OID" | tr '\n' ' ')"
     fi
   } >"$REVIEW_METADATA"
+  local context_budget prompt_bytes metadata_bytes
+  prompt_bytes="$(printf '%s' "$REVIEW_PROMPT" | wc -c | tr -d ' ')"
+  metadata_bytes="$(wc -c <"$REVIEW_METADATA" | tr -d ' ')"
+  # Reserve the actual prompt/metadata size plus framing; do not waste a fixed 50 KB or truncate sources.
+  context_budget=$((REVIEW_MAX_INPUT_BYTES - diff_bytes - prompt_bytes - metadata_bytes - 1024))
+  node scripts/review-context.mjs --repo "$REPO_ROOT" --head "$HEAD_OID" --from "$REVIEW_FROM_REV" \
+    --max-bytes "$context_budget" --out "$REVIEW_CONTEXT" \
+    || die "관련 의존성 문맥 생성 실패 — 문맥을 생략한 PASS는 허용하지 않습니다."
   cat >"$REVIEW_SCHEMA" <<'JSON'
 {"type":"object","properties":{"findings":{"type":"string"},"verdict":{"type":"string","enum":["PASS","BLOCK"]}},"required":["findings","verdict"],"additionalProperties":false}
 JSON
