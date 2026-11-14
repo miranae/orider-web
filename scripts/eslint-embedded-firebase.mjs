@@ -13,6 +13,7 @@ export const embeddedFirebaseRule = {
       const spec = source.replace(/[?#].*$/, '').replace(/\.[cm]?[jt]sx?$/, '');
       const absolute = spec.startsWith('.') ? resolve(dirname(context.filename), spec)
         : spec.startsWith('@/') ? resolve(root, 'src', spec.slice(2))
+        : spec.startsWith('@shared/') ? resolve(root, 'shared', spec.slice(8))
         : spec.startsWith('/src/') ? resolve(root, spec.slice(1)) : null;
       return absolute !== null && relative(root, absolute).split(sep).join('/') === 'src/services/firebase';
     };

@@ -13,7 +13,7 @@ function reviewSection(review, { runReview, reviewMode, rangeLabel, scope }) {
   if (!runReview) return ["- AI 리뷰: **생략** (`--no-review`)"];
   if (reviewMode === "skip") return ["- AI 리뷰: 문서 전용 변경이라 생략"];
   if (!review) return ["- AI 리뷰: **결과 없음**"];
-  const attempts = (review.attempts ?? []).map(a => `${a.provider}=${a.state}${a.reason ? `(${a.reason})` : ""}`).join(", ");
+  const attempts = (review.attempts ?? []).map(a => `${a.provider}=${a.state}${a.reason ? `(${a.reason})` : ""}${a.batches ? ` [${a.batches.filter(batch => batch.state === "PASS").length}/${a.batches.length} batches PASS]` : ""}`).join(", ");
   const out = [
     `- AI 리뷰: **${review.state}** — 리뷰어 \`${review.provider}\`${review.provider === "self" && review.reviewer ? ` (${review.reviewer})` : ""}`,
     `  - 시도: ${attempts || "-"}`,

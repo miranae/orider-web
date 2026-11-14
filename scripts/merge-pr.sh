@@ -438,17 +438,17 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
     review_effort="low"
   fi
   prepare_codex_review_workspace
-  {
-    printf '%s\n\n' "$REVIEW_PROMPT"
-    printf '%s\n' '도구는 비활성화되어 있다. 아래 metadata·diff·관련 의존성 문맥을 모두 검토하라.'
-    printf '%s\n' '--- metadata ---'
-    cat "$REVIEW_METADATA"
-    printf '%s\n' '--- diff ---'
-    cat "$REVIEW_DIFF"
-    printf '\n%s\n' '--- related source context ---'
-    cat "$REVIEW_CONTEXT"
-  } >"$REVIEW_INPUT"
-  [[ "$(wc -c <"$REVIEW_INPUT" | tr -d ' ')" -le "$REVIEW_MAX_INPUT_BYTES" ]] || die "의존성을 포함한 리뷰 입력 상한 초과"
+  REVIEW_PROMPT_TEXT="$REVIEW_PROMPT" node --input-type=module - "$REVIEW_CONTEXT" "$REVIEW_METADATA" "$REVIEW_DIFF" "$REVIEW_INPUT" "$REVIEW_MAX_INPUT_BYTES" <<'NODE'
+import { readFileSync, writeFileSync } from 'node:fs';
+const [contextPath, metadataPath, diffPath, output, limit] = process.argv.slice(2);
+const { contexts } = JSON.parse(readFileSync(contextPath, 'utf8'));
+if (!Array.isArray(contexts) || !contexts.length || contexts.some(text => typeof text !== 'string')) throw new Error('Missing review contexts');
+const prefix = `${process.env.REVIEW_PROMPT_TEXT}\n\n도구는 비활성화되어 있다. 각 배치의 metadata·정확한 diff·관련 호출 경로를 검토하라. 모든 배치가 통과해야 PR이 통과한다.\n--- metadata ---\n${readFileSync(metadataPath, 'utf8')}--- diff ---\n${readFileSync(diffPath, 'utf8')}\n--- related source context ---\n`;
+const inputs = contexts.map(context => prefix + context);
+if (inputs.some(input => Buffer.byteLength(input) > Number(limit))) throw new Error('Review input exceeds transport budget');
+writeFileSync(output, inputs.length === 1 ? inputs[0] : JSON.stringify({ reviewBatches: inputs }), { mode: 0o600 });
+console.log(`  dependency_review_batches=${inputs.length}`);
+NODE
   chmod 600 "$REVIEW_INPUT"
   assert_trusted_review_input "$REVIEW_DIFF"
   assert_trusted_review_input "$REVIEW_METADATA"

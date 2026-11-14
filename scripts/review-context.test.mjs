@@ -40,7 +40,7 @@ test('aliases, explicit JS extensions, runtime barrels and literal dynamic impor
   assert.equal(resolveSource('src/a.ts', '@/services/firebase', files), 'src/services/firebase.ts');
   assert.equal(resolveSource('src/a.ts', '@shared/types', files), 'shared/types.ts');
   assert.deepEqual(sourceImports('src/a.ts', 'import type { A } from "./types"; export type { B } from "./types"; export { load } from "./service"; const x = import("./lazy");').map(e => e.specifier), ['./service', './lazy']);
-  assert.deepEqual(sourceImports('index.ts', 'export { a } from "./a"; export { b } from "./b";', ['a']).map(e => e.specifier), ['./a']);
+  assert.deepEqual(sourceImports('index.ts', 'export { a } from "./a"; export { b } from "./b";', ['a']).map(e => e.specifier), ['./a', './b']);
 });
 
 test('tracked source symlinks fail closed instead of reading external source', t => {
@@ -74,4 +74,48 @@ test('new files are explicitly located in the complete diff rather than duplicat
   assert.equal(result.manifest.files.find(f => f.path === 'src/services/data.ts').contentLocation, 'context');
   assert.match(result.text, /auth.currentUser/);
   assert.doesNotMatch(result.text, /--- source: src\/new.ts ---/);
+});
+
+test('activating an unchanged local helper includes its existing import dependencies', t => {
+  const f = fixture(t);
+  f.put('src/page.ts', 'import { load } from "./services/data"; function helper() { return load(); } export const page = () => null;');
+  const base = f.commit();
+  f.put('src/page.ts', 'import { load } from "./services/data"; function helper() { return load(); } export const page = () => helper();');
+  const result = buildReviewContext({ repo: f.repo, head: f.commit(), from: base });
+  assert.ok(result.manifest.files.some(f => f.path === 'src/services/data.ts'));
+  assert.ok(result.manifest.files.some(f => f.path === 'src/services/firebase.ts'));
+});
+
+test('test-only changes expand the real subject through its surface and page, with UI boundaries recorded', t => {
+  const f = fixture(t);
+  f.put('src/entry.ts', 'export { page } from "./surface";');
+  f.put('src/surface.ts', 'export { page } from "./page";');
+  f.put('src/page.ts', 'import { load } from "./services/data"; import { child } from "./child"; export const page = () => [load(), child];');
+  f.put('src/child.ts', 'export const child = 1;');
+  const base = f.commit();
+  f.put('src/entry.test.ts', 'import { page } from "./entry"; page();');
+  const result = buildReviewContext({ repo: f.repo, head: f.commit(), from: base });
+  for (const path of ['src/surface.ts', 'src/page.ts', 'src/services/data.ts']) assert.ok(result.manifest.files.some(f => f.path === path), path);
+  assert.ok(result.manifest.unexpandedUiBoundaries.includes('src/child.ts'));
+});
+
+test('bounded batches cover every source and keep each caller/callee pair together', t => {
+  const f = fixture(t);
+  for (let i = 0; i < 20; i++) f.put(`src/services/dep${i}.ts`, `export const value${i} = ${JSON.stringify('x'.repeat(700))};`);
+  const base = f.commit();
+  f.put('src/page.ts', Array.from({ length: 20 }, (_, i) => `import { value${i} } from "./services/dep${i}";`).join('\n') + '\nexport const page = [value0];');
+  const result = buildReviewContext({ repo: f.repo, head: f.commit(), from: base, maxBytes: 5500, batches: true });
+  assert.ok(result.contexts.length > 1);
+  const supplied = result.contexts.map(text => {
+    assert.ok(Buffer.byteLength(text) <= 5500);
+    return new Set(JSON.parse(text.split('\n')[1]).includedFiles);
+  });
+  for (let i = 0; i < 20; i++) assert.ok(supplied.some(files => files.has('src/page.ts') && files.has(`src/services/dep${i}.ts`)));
+  for (const record of result.manifest.files.filter(record => record.contentLocation === 'context')) assert.ok(supplied.some(files => files.has(record.path)), record.path);
+  assert.throws(() => buildReviewContext({ repo: f.repo, head: 'HEAD', from: base, maxBytes: 1000, batches: true }), /budget/);
+});
+
+
+test('inline type specifiers conservatively retain runtime module evaluation', () => {
+  assert.deepEqual(sourceImports('src/a.ts', 'import { type A } from "./runtime"; export { type B } from "./side-effect";').map(edge => edge.specifier), ['./runtime', './side-effect']);
 });

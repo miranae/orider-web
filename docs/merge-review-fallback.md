@@ -13,12 +13,10 @@ Codex·Claude·자체 리뷰 모두 findings의 BLOCKER/MAJOR 항목을 감지�
 `PASS`도 `BLOCK`으로 바꿉니다. 검토하지 못한 입력을 통과시키지 않습니다.
 
 리뷰 입력에는 정확한 diff와 함께 **커밋된 head의 관련 소스**를 제공합니다.
-새로 사용하거나 수정한 import의 의존성, 서비스·인증 로직의 전이 의존성,
-직접 호출부, 일반/임베드 초기화와 전역 테스트 mock을 포함합니다. 이름 있는
-barrel export는 사용하는 심벌을 따라갑니다. UI 전개는 기본 2단계이며 그 이후
+변경한 런타임 모듈의 모든 import(기존 local helper 포함), 서비스·인증 로직의 전이 의존성,
+직접 호출부, 일반/임베드 초기화와 전역 테스트 mock을 포함합니다. barrel의 런타임 재수출도 추적합니다(타입 전용 재수출은 제외). UI 전개는 기본 2단계이며 그 이후
 경계는 manifest에 표시합니다. 모든 코드를 검토했다는 뜻은 아닙니다.
-파일별 SHA-256과 전체 입력 SHA-256을 기록하고, 입력 상한을 넘으면 문맥을
-조용히 자르지 않고 중단합니다. tracked blob만 읽으며 작업트리의 `.env`,
+변경 테스트의 실제 실행 대상도 런타임 의존성을 확장합니다. 파일별 SHA-256과 전체 입력 SHA-256을 기록합니다. 단일 입력 상한을 넘으면 호출부와 의존성의 양쪽 소스를 함께 제공하는 배치로 나누며, 모든 소스와 각 import 연결이 적어도 한 배치에서 함께 검토되도록 검증합니다. 모든 배치가 PASS여야 통과합니다. 한 배치의 MAJOR/BLOCKER는 다른 배치의 PASS나 실행 실패로 덮을 수 없습니다. 각 CLI의 동시 요청은 최대 2개이며 BLOCK 후 새 배치를 시작하지 않습니다. 단일 연결·부트스트랩 자체가 상한을 넘거나 24개 배치/총 20 MB를 넘으면 PR 분할을 요구하며 소스를 조용히 자르지 않습니다. tracked blob만 읽으며 작업트리의 `.env`,
 외부 symlink, node_modules 소스는 모델에 제공하지 않습니다.
 
 feature→dev도 ESLint와 임베드 격리 회귀 테스트를 항상 실행한 뒤 변경 영향
@@ -40,8 +38,9 @@ without reviewing the diff is not a review.
 두 CLI가 모두 실패하면 다음 파일을 보존하고 머지를 중단합니다. 위치는 일반
 작업트리가 아닌 Git common directory의 `merge-reviews/pr-<PR>/<head>/`입니다.
 
-- `report.json`: 제공자별 실패 이유와 현재 상태
-- `input.txt`, `diff.patch`: 검토해야 할 정확한 입력
+- `report.json`: 제공자별 실패 이유와 현재 상태(배치별 판정 포함)
+- `input.txt`, `diff.patch`: 대체 리뷰가 필요한 정확한 입력(여러 배치는 JSON의 `reviewBatches` 배열)
+- `input-<SHA256>.txt`, `diff-<SHA256>.patch`: PASS/BLOCK을 포함한 모든 판정의 정확한 입력 보존본
 - `self-review.json`: 작성할 결과 양식
 
 양식의 `binding`은 그대로 유지하고, 실제 검토 후 아래 네 필드를 작성합니다.

@@ -11,7 +11,7 @@ const lint = (code, filename = `${process.cwd()}/src/services/example.ts`) => li
 test('all canonical Firebase import paths and export forms are blocked', () => {
   for (const code of [
     'import { auth } from "./firebase";', 'import { functions as backend } from "./firebase.js";',
-    'import { firestore } from "@/services/firebase.ts";', 'import * as firebase from "../services/firebase";',
+    'import { firestore } from "@/services/firebase.ts";', 'import { auth } from "@shared/../src/services/firebase";', 'import * as firebase from "../services/firebase";',
     'export { auth as ordinaryAuth } from "./firebase";', 'export * from "./firebase";',
     'const firebase = import("./firebase");',
   ]) { const messages = lint(code); assert.equal(messages.length, 1, code); assert.equal(messages[0].ruleId, 'embed/firebase', code); }

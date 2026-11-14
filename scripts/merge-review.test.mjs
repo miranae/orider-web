@@ -3,12 +3,12 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync, symlink
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { IsolationError, claudeJsonSchema, parseReview, reviewBinding, reviewWithFallback, runChild, validateSelfReview } from "./merge-review.mjs";
+import { IsolationError, reviewProviderBatches, claudeJsonSchema, parseReview, reviewBinding, reviewWithFallback, runChild, validateSelfReview } from "./merge-review.mjs";
 
 function fixture(t) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "merge-review-")));
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  const binding = reviewBinding({ pr: 42, head: "a".repeat(40), base: "b".repeat(40), baseRef: "dev", reviewFrom: "b".repeat(40), scope: "blockers-only" }, "real diff\n");
+  const binding = reviewBinding({ pr: 42, head: "a".repeat(40), base: "b".repeat(40), baseRef: "dev", reviewFrom: "b".repeat(40), scope: "major-and-blocker" }, "real diff\n", "review prompt and diff");
   return { root, binding, diff: "real diff\n", input: "review prompt and diff", evidenceDir: join(root, "evidence") };
 }
 const result = (verdict, code = 0) => ({ code, stdout: JSON.stringify({ verdict, findings: verdict === "BLOCK" ? "BLOCKER src/file.ts:1 broken" : "결함 없음" }) });
@@ -161,4 +161,50 @@ test("review evidence binds dependency context and prompt policy as well as the 
   assert.equal(first.diffSha256, next.diffSha256);
   assert.notEqual(first.inputSha256, next.inputSha256);
   assert.throws(() => validateSelfReview(report(first), next));
+});
+
+
+test("every batch must pass and concurrency stays bounded", async () => {
+  let active = 0, maximum = 0;
+  const seen = [];
+  const actual = await reviewProviderBatches(["a", "b", "c"], "codex", async (input, index) => {
+    active++; maximum = Math.max(maximum, active); seen.push([input, index]);
+    await new Promise(resolve => setTimeout(resolve, 5)); active--; return result("PASS");
+  });
+  assert.equal(parseReview(actual.stdout).verdict, "PASS");
+  assert.equal(actual.batches.length, 3); assert.equal(maximum, 2); assert.equal(seen.length, 3);
+});
+
+test("a batch MAJOR blocks the entire review even beside an unavailable batch, without Claude override", async t => {
+  const f = fixture(t); let claude = false;
+  const actual = await reviewWithFallback({ ...f, providers: [
+    { name: "codex", run: () => reviewProviderBatches(["a", "b", "c"], "codex", async (_input, index) => index === 0 ? unavailable() : index === 1 ? { code: 0, stdout: JSON.stringify({ verdict: "PASS", findings: "MAJOR src/helper.ts:1 missing scoped services" }) } : result("PASS")) },
+    { name: "claude", run: async () => { claude = true; return result("PASS"); } },
+  ] });
+  assert.equal(actual.state, "BLOCK"); assert.equal(claude, false);
+  assert.equal(actual.attempts[0].batches.length, 3);
+});
+
+test("an unavailable batch cannot turn partial PASS into a complete PASS", async t => {
+  const f = fixture(t);
+  const providers = ["codex", "claude"].map(name => ({ name, run: () => reviewProviderBatches(["a", "b"], name, async (_input, index) => index ? unavailable() : result("PASS")) }));
+  const actual = await reviewWithFallback({ ...f, providers });
+  assert.equal(actual.state, "needs-self-review");
+  assert.equal(actual.attempts.length, 2);
+});
+
+test("batch isolation failures are fatal and stop scheduling additional inputs", async () => {
+  let calls = 0;
+  await assert.rejects(reviewProviderBatches(["a", "b", "c", "d"], "codex", async () => {
+    calls++; throw new IsolationError("denied");
+  }), IsolationError);
+  assert.ok(calls <= 2);
+});
+
+
+test("successful review retains the exact versioned input for later audits", async t => {
+  const f = fixture(t);
+  const actual = await reviewWithFallback({ ...f, providers: [{ name: "codex", run: async () => result("PASS") }] });
+  assert.equal(actual.state, "PASS");
+  assert.equal(readFileSync(join(f.evidenceDir, `input-${f.binding.inputSha256}.txt`), "utf8"), f.input);
 });
