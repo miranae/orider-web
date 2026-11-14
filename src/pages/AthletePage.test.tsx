@@ -1,3 +1,5 @@
+import { httpsCallable } from "firebase/functions";
+import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/FirebaseServicesContext";
 import * as errorLogger from "../services/errorLogger";
 import { installActivityQueryFake } from "../__tests__/fixtures/activityQueryFake";
 import { getDocs } from "firebase/firestore";
@@ -665,4 +667,46 @@ it.each(["ensure"])("reports a failed %s operation through the injected services
     error, expect.objectContaining({ userId: "athlete-1" }),
     expect.objectContaining({ auth: expect.anything(), functions: expect.anything() }),
   ));
+});
+
+
+it("uses the injected app for the athlete's initial and continued segment pages", async () => {
+  const services = { auth: { currentUser: null }, firestore: {}, functions: { app: "embedded" },
+    ensureAppCheckReady: vi.fn().mockResolvedValue(undefined), getAppCheckToken: vi.fn().mockResolvedValue("embedded-token") } as unknown as FirebaseServices;
+  setDocData("users_public/athlete-1", { ...createMockProfile(), nickname: "Embedded athlete", profilePublic: true });
+  let page = 0;
+  setCallableImplementation("getPublicSegmentMetadata", () => ({ data: { items: [{ id: `segment-${page}`, name: "Embedded segment", distance: 1000 }], cursor: page++ === 0 ? "segment-next" : null, hasMore: page === 1 } }));
+  const priorCalls = vi.mocked(httpsCallable).mock.calls.length;
+  renderWithProviders(<FirebaseServicesProvider services={services}><AthletePage /></FirebaseServicesProvider>);
+  const factories = () => vi.mocked(httpsCallable).mock.calls.slice(priorCalls).filter(([, name]) => name === "getPublicSegmentMetadata");
+  await waitFor(() => expect(factories()).toHaveLength(1));
+  expect(factories()[0]![0]).toBe(services.functions);
+  fireEvent.click(await screen.findByRole("button", { name: /더 보기|더보기/ }));
+  await waitFor(() => expect(factories()).toHaveLength(2));
+  expect(factories()[1]![0]).toBe(services.functions);
+  expect(mockCallableInvocations.filter(call => call.name === "getPublicSegmentMetadata").at(-1)?.data).toMatchObject({ cursor: "segment-next" });
+});
+
+it("ignores an old segment continuation when the embedded app is replaced for the same athlete", async () => {
+  const services = () => ({ auth: { currentUser: null }, firestore: {}, functions: {}, ensureAppCheckReady: vi.fn().mockResolvedValue(undefined), getAppCheckToken: vi.fn().mockResolvedValue(null) }) as unknown as FirebaseServices;
+  const first = services(), next = services();
+  setDocData("users_public/athlete-1", { ...createMockProfile(), nickname: "Embedded athlete", profilePublic: true });
+  let resolveOld!: (value: unknown) => void;
+  let calls = 0;
+  setCallableImplementation("getPublicSegmentMetadata", () => {
+    calls++;
+    if (calls === 2) return new Promise(resolve => { resolveOld = resolve; });
+    return { data: { items: [{ id: `s-${calls}`, name: calls === 1 ? "Initial segment" : "Current app segment", distance: 1000 }], cursor: calls === 1 ? "next" : null, hasMore: calls === 1 } };
+  });
+  const view = renderWithProviders(<FirebaseServicesProvider services={first}><AthletePage /></FirebaseServicesProvider>);
+  fireEvent.click(await screen.findByRole("tab", { name: "만든 구간", exact: true }, { timeout: 1000 }));
+  await screen.findAllByText(/Initial segment/, {}, { timeout: 1000 });
+  fireEvent.click(screen.getByRole("button", { name: /더 보기|더보기/ }));
+  await waitFor(() => expect(calls).toBe(2), { timeout: 1000 });
+  view.rerender(<FirebaseServicesProvider services={next}><AthletePage /></FirebaseServicesProvider>);
+  await waitFor(() => expect(calls).toBeGreaterThanOrEqual(3), { timeout: 1000 });
+  fireEvent.click(screen.getByRole("tab", { name: "만든 구간", exact: true }));
+  expect((await screen.findAllByText(/Current app segment/, {}, { timeout: 1000 })).length).toBeGreaterThan(0);
+  await act(async () => resolveOld({ data: { items: [{ id: "late", name: "Old app late segment", distance: 1000 }], cursor: null, hasMore: false } }));
+  expect(screen.queryAllByText(/Old app late segment/)).toHaveLength(0);
 });
