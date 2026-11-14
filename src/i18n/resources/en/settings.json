@@ -1127,8 +1127,7 @@
     "emailHint": "Sent to your account email only when you opt in. Off by default and independent of push settings.",
     "loading": "Loading notification settings…",
     "saving": "Saving…",
-    "failed": "Could not load or save settings. Check the displayed values and try again.",
-    "retry": "Reload settings"
+    "failed": "Could not load or save settings. Check the displayed values and try again."
   },
   "publicData": {
     "title": "Public data",
@@ -1140,7 +1139,6 @@
     "calories": "Calories",
     "thresholds": "My thresholds (FTP, maximum HR setting, LTHR)",
     "loadFailed": "Could not load public data settings.",
-    "saveFailed": "Could not save public data settings.",
-    "retry": "Retry"
+    "saveFailed": "Could not save public data settings."
   }
 }

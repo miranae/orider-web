@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Activity } from "@shared/types";
 import WeeklyChart from "../WeeklyChart";
-import { Button, Select, Text } from "../../theme/components";
+import { Button, Select } from "../../theme/components";
 import { athleteProfilePeriods, type AthletePeriod } from "./athleteProfilePeriods";
 
 export default function AthleteActivityChart({ activities, loadActivities = activities, selected, onSelect, rangeLimit, selectedYear, availableYears, onYearChange }: { activities: Activity[]; loadActivities?: Activity[]; selected: AthletePeriod | null; onSelect: (period: AthletePeriod | null) => void; rangeLimit?: { start: number; end: number }; selectedYear?: number; availableYears?: number[]; onYearChange?: (year: number) => void }) {
@@ -21,7 +21,6 @@ export default function AthleteActivityChart({ activities, loadActivities = acti
       <Button size="sm" variant={mode === "week" ? "secondary" : "ghost"} aria-pressed={mode === "week"} onClick={() => { setMode("week"); reset(); }}>{t("profile.week")}</Button>
       <Button size="sm" variant={mode === "month" ? "secondary" : "ghost"} aria-pressed={mode === "month"} onClick={() => { setMode("month"); reset(); }}>{t("profile.month")}</Button>
     </div>
-    <Text as="p" variant="caption">{t("profile.calendarBasis")}</Text>
     {periods.length ? <WeeklyChart key={`${year}-${mode}-${attempt}`} data={periods.map(period => period.stat)} rich showAllPeriods periodUnit={mode} height={180} onPeriodSelect={key => onSelect(periods.find(period => period.stat.week === key)?.range ?? null)} /> : <p>{t("profile.noPeriodActivities")}</p>}
     {selected && <div className="athlete-period-selection" role="status"><span>{new Date(selected.start).toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" })} – {new Date(selected.end - 1).toLocaleDateString(i18n.language, { timeZone: "Asia/Seoul" })}</span><Button size="sm" variant="ghost" onClick={reset}>{t("profile.allRecent")}</Button></div>}
   </section>;

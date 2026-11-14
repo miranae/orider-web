@@ -405,7 +405,8 @@ it("keeps owner initial reads independent of lifetime history and never opens ge
   expect(activityQueries.documents).toBeLessThan(50);
   expect(activityQueries.requests.some(q => q.some(c => c.type === "limit" && c.args[0] === 50))).toBe(false);
   expect(mockCallableInvocations.filter(call => call.name === "getAthleteProfilePreview")).toHaveLength(2);
-  expect(screen.getByRole("button", { name: "장비 기록 전체 검사" })).toBeEnabled();
+  // 프로필에는 장비 기록 검사 버튼을 두지 않는다(활동 전체를 읽어야 하는 버튼이라 뺐다).
+  expect(screen.queryByRole("button", { name: "장비 기록 전체 검사" })).not.toBeInTheDocument();
 });
 it("keeps healthy photos independent of pending numeric totals and a failed highlight page, then appends explicit More", async () => {
   setCallableResult("ensureAthleteProfile", { data: totalsFixture({ state: "pending" }) });
@@ -424,9 +425,8 @@ it("keeps healthy photos independent of pending numeric totals and a failed high
   await screen.findAllByAltText("Photo 2");
   expect(screen.getAllByAltText("Photo 1").length).toBeGreaterThan(0);
   expect(photos).toBe(2); expect(highlights).toBe(1);
-  fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "다시 시도" }));
-  await waitFor(() => expect(highlights).toBe(2));
-  expect(photos).toBe(2);
+  // 실패한 하이라이트 칸에 "다시 시도" 버튼을 두지 않는다.
+  expect(within(screen.getByRole("alert")).queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
 });
 it("inspects sparse dated media and explicitly includes undated raw records without mixing cursors", async () => {
   setCallableImplementation("getAthleteProfilePreview", (request) => {
@@ -438,15 +438,8 @@ it("inspects sparse dated media and explicitly includes undated raw records with
   renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" } });
   await screen.findByRole("button", { name: "사진 활동 6개 더 검사" });
   expect(mockCallableInvocations.filter(call => call.name === "getAthleteProfilePreview")).toHaveLength(2);
-  fireEvent.click(screen.getByRole("button", { name: "전체 원본에서 사진 검사" }));
-  await waitFor(() => expect(mockCallableInvocations.filter(call => call.name === "getAthleteProfilePreview")).toHaveLength(3));
-  await waitFor(() => expect(screen.getByRole("button", { name: "사진 활동 6개 더 검사" })).toBeEnabled());
-  expect(screen.queryByText("전체 원본 활동 검사가 완료되었습니다.")).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "사진 활동 6개 더 검사" }));
-  await screen.findAllByAltText("Undated photo");
-  const calls = mockCallableInvocations.filter(call => call.name === "getAthleteProfilePreview");
-  expect(calls[2]!.data).toEqual({ kind: "photos", all: true });
-  expect(calls[3]!.data).toEqual({ kind: "photos", all: true, cursor: { epoch: "profile-epoch", order: "all", startTime: null, id: "legacy:한글.1" } });
+  // 전체 원본 검사 버튼은 프로필에 두지 않는다.
+  expect(screen.queryByRole("button", { name: "전체 원본에서 사진 검사" })).not.toBeInTheDocument();
 });
 it("updates pending numeric totals from the existing profile listener without repeating media or ensure calls", async () => {
   const pending = totalsFixture({ state: "pending" });
@@ -471,33 +464,9 @@ it("retains healthy highlights and retries an earlier pending page after raw EOF
   });
   renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" } });
   await waitFor(() => expect(mockCallableInvocations.filter(call => call.name === "getAthleteProfilePreview")).toHaveLength(2));
-  fireEvent.click(screen.getByRole("button", { name: "전체 원본에서 하이라이트 검사" }));
-  await screen.findByRole("link", { name: /Healthy early/ });
-  fireEvent.click(screen.getByRole("button", { name: "하이라이트 활동 12개 더 검사" }));
-  await screen.findByRole("link", { name: /Healthy late/ });
-  expect(screen.queryByText("전체 원본 활동 검사가 완료되었습니다.")).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
-  await screen.findByRole("link", { name: /Recovered pending/ });
-  expect(screen.getAllByRole("link", { name: /Healthy early/ })).toHaveLength(1);
-  expect(screen.getByRole("link", { name: /Healthy late/ })).toBeVisible();
-  expect(screen.getByText("전체 원본 활동 검사가 완료되었습니다.")).toBeVisible();
-  expect(screen.queryByRole("button", { name: "하이라이트 활동 12개 더 검사" })).not.toBeInTheDocument();
-});
-it("requires explicit complete gear inspection, chooses minimum remaining after per-name maxima, and caches through year changes", async () => {
-  setCollectionDocs("activities", Array.from({ length: 51 }, (_, index) => createMockActivity({ deletedAt: null, id: `gear-${String(index).padStart(3, "0")}`, userId: "athlete-1", startTime: Date.UTC(2020, 0, index + 1), endTime: Date.UTC(2020, 0, index + 1, 1), gear: { name: index === 50 ? "tire" : "chain", totalDistanceKm: index === 50 ? 99 : 1, maxDistanceKm: 100 } })));
-  renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" } });
-  const first = await screen.findByRole("button", { name: "장비 기록 50개 검사" });
-  expect(activityQueries.requests.filter(q => q.some(c => c.type === "limit" && c.args[0] === 50))).toHaveLength(0);
-  fireEvent.click(first);
-  await screen.findByText(/원본 활동 50개 검사 중/);
-  expect(within(screen.getByTestId("P0-6")).queryByText(/chain/)).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "장비 기록 50개 검사" }));
-  await screen.findByText("원본 활동 51개 검사 완료");
-  expect(within(screen.getByTestId("P0-6")).getByText(/tire/)).toHaveTextContent("1");
-  const years = await screen.findByLabelText("연도");
-  fireEvent.change(years, { target: { value: "2020" } });
-  await waitFor(() => expect(screen.getByLabelText("연도")).toHaveValue("2020"));
-  expect(activityQueries.requests.filter(q => q.some(c => c.type === "limit" && c.args[0] === 50))).toHaveLength(2);
+  // 전체 원본 검사·다시 시도 버튼은 프로필에 두지 않는다.
+  expect(screen.queryByRole("button", { name: "전체 원본에서 하이라이트 검사" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
 });
 it("discards a delayed previous same-UID SDK session photo response", async () => {
   let release!: (value: unknown) => void; let photos = 0;
@@ -587,10 +556,8 @@ it("offers an honest retry after a failed initial owner feed page without re-rea
   }) as never);
   renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" } });
   await screen.findByText("활동 목록을 불러오지 못했습니다. 전체 결과가 아니며 같은 위치에서 다시 시도할 수 있습니다.");
-  fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "다시 시도" }));
-  await screen.findByRole("link", { name: "Recovered owner page" });
-  expect(attempts).toBe(2);
-  expect(mockCallableInvocations.filter(call => call.name === "getAthleteProfilePreview")).toHaveLength(2);
+  // 웹 프로필에는 "다시 시도" 버튼을 두지 않는다(다시 불러오려면 화면을 새로 고친다).
+  expect(within(screen.getByRole("alert")).queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
 });
 it("does not reload loaded pages, friends or segments when numeric profile revisions advance", async () => {
   setCallableResult("ensureAthleteProfile", { data: totalsFixture({ state: "pending", count: 24 }) });
@@ -683,7 +650,7 @@ it("shows twelve of thirty-six cached highlights and keeps all of them reachable
 });
 
 
-it.each(["ensure", "gear"])("reports a failed %s operation through the injected services without hiding retry", async operation => {
+it.each(["ensure"])("reports a failed %s operation through the injected services without hiding retry", async operation => {
   const error = new Error("profile-read-offline");
   const logger = vi.spyOn(errorLogger, "logClientError").mockImplementation(() => undefined);
   if (operation === "ensure") setCallableImplementation("ensureAthleteProfile", () => { throw error; });

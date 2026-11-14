@@ -28,7 +28,8 @@ it("offers the KST year and forwards January's range at the UTC year boundary", 
     renderWithProviders(<AthleteActivityChart activities={[]} selected={{start: Date.parse("2025-12-31T15:00:00Z"), end: Date.parse("2026-01-01T15:00:00Z"), label: "day"}} onSelect={onSelect} />);
     expect(screen.getByRole("combobox")).toHaveValue("2026");
     expect(chart.mock.lastCall![0].data.map((row: WeeklyStat) => row.week)).toEqual(["2026.01"]);
-    expect(screen.getByText("한국 시간(KST) 기준")).toBeInTheDocument();
+    // 프로필은 설명 문구를 두지 않는다.
+    expect(screen.queryByText("한국 시간(KST) 기준")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("2026");
     expect(screen.getByRole("status")).not.toHaveTextContent("2025");
     fireEvent.click(screen.getByRole("button", {name: "Inspect period"}));

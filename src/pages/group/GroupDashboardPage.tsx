@@ -406,7 +406,7 @@ export default function GroupDashboardPage() {
                       finally { if (isCurrent()) setPostActionBusy(false); }
                     }}>{canManage || (post.kind === "post" && post.authorId === user?.uid) ? t("dashboard.posts.delete") : t("dashboard.posts.report")}</button>}
                     {currentMemberRole !== null && (canManage || (post.kind === "post" && post.authorId === user?.uid)) && (
-                      <button data-testid="C1-3-3" type="button" className={buttonClass({ variant: "ghost", size: "sm" })} disabled={savingPost} onClick={() => { setEditingPostId(post.id); setEditingContent(post.content); }}>
+                      <button data-testid="C1-3-3" type="button" className={`${buttonClass({ variant: "ghost", size: "sm" })} ms-2`} disabled={savingPost} onClick={() => { setEditingPostId(post.id); setEditingContent(post.content); }}>
                         {t("dashboard.posts.edit")}
                       </button>
                     )}

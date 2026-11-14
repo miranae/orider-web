@@ -23,7 +23,7 @@ export function PaneMedical() {
   const [medicalSaving, setMedicalSaving] = useState(false);
   const [emergencySaving, setEmergencySaving] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [loadAttempt] = useState(0);
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -76,7 +76,7 @@ export function PaneMedical() {
   }
   if (!user || user.isAnonymous) return null;
   return <>
-    {loadFailed && <div role="alert">{t("training.loadFailed")} <Button onClick={() => setLoadAttempt(value => value + 1)}>{t("common:button.retry")}</Button></div>}
+    {loadFailed && <div role="alert">{t("training.loadFailed")} </div>}
     <fieldset data-testid="S1-4-1" disabled={!loaded || medicalSaving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <SettingsCard
         title={t("training.cardMedical")}

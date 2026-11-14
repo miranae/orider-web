@@ -72,14 +72,13 @@ describe("separate threshold and private medical writes", () => {
     await waitFor(() => expect(mocks.updateDoc).toHaveBeenCalledWith("users/u1", { lthr: null }));
     expect(mocks.persist).not.toHaveBeenCalled();
   });
-  it("load failure prevents an empty medical overwrite and allows a fresh read", async () => {
+  it("load failure prevents an empty medical overwrite", async () => {
     mocks.getDoc.mockRejectedValueOnce(new Error("offline"));
     render(<PaneMedical />);
     await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
     screen.getAllByRole("button", { name: "training.btnSave" }).forEach(button => expect(button).toBeDisabled());
     expect(mocks.setDoc).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "common:button.retry" }));
-    await waitFor(() => expect(screen.getByLabelText(/training.fieldMedications/)).toHaveValue("old"));
+    expect(screen.queryByRole("button", { name: "common:button.retry" })).not.toBeInTheDocument();
   });
   it("blocks both medical saves until private data is loaded, preserving existing fields", async () => {
     let resolve!: (value: unknown) => void;

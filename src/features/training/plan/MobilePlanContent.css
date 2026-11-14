@@ -19,7 +19,7 @@
 }
 .mobile-plan-week-navigation,
 .mobile-plan-adaptation { padding-inline: var(--space-4); }
-.mobile-plan-week-header { padding: var(--space-1) var(--space-4); }
+.mobile-plan-week-header { padding: var(--space-2) var(--space-4); } /* "편집" 버튼이 아래 일정 줄에 4px 로 붙어 있었다 */
 
 /* 앱 임베드는 셸 거터가 없어 위 좌우 16 을 스스로 가진다. 웹 코치 화면은 셸 거터 안에 들어오므로
    좌우를 비워 카드·목록·헤더 막대가 모두 셸 정렬선(다른 카드와 같은 선)에 닿게 한다. */

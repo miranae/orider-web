@@ -219,7 +219,7 @@ export default function WeeklyChart({
         </div>
         <div className="grid grid-cols-3 gap-1 w-full">
           {(Object.keys(METRIC_META) as MetricKey[]).map((k) => (
-            <Button key={k} variant={metric === k ? "secondary" : "ghost"} aria-pressed={metric === k} className="min-w-0 px-2!" onClick={() => setMetric(k)}>{METRIC_META[k].label}</Button>
+            <Button key={k} size="sm" variant={metric === k ? "secondary" : "ghost"} aria-pressed={metric === k} className="min-w-0 px-2!" onClick={() => setMetric(k)}>{METRIC_META[k].label}</Button>
           ))}
         </div>
       </div>
