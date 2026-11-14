@@ -9,6 +9,7 @@ import type { CourseCheckpoint, Meeting } from "./domain";
 import {
   loadCourseCatalogPage,
   loadSavedCourse,
+  searchCourseCatalog,
   toCoursePlan,
   type SavedCourseChoice,
 } from "./courseCatalog";
@@ -50,6 +51,8 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
   );
   const [courses, setCourses] = useState<SavedCourseChoice[] | null>(null);
   const [query, setQuery] = useState("");
+  const [searchHits, setSearchHits] = useState<SavedCourseChoice[]>([]);
+  const [searching, setSearching] = useState(false);
   const courseCursor = useRef<Awaited<ReturnType<typeof loadCourseCatalogPage>>["cursor"]>(null);
   const [hasMoreCourses, setHasMoreCourses] = useState(false);
   const coursePending = useRef(false);
@@ -244,14 +247,35 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
       courseCheckpoints: points,
       courseStops: points.map((point) => point.name),
     });
-  const hits =
-    courses
-      ?.filter((course) =>
-        `${course.name} ${course.description ?? ""}`
-          .toLocaleLowerCase()
-          .includes(query.trim().toLocaleLowerCase()),
-      )
-      .slice(0, 15) ?? [];
+  // 불러온 목록에 없는 코스도 찾도록 이름 앞부분을 서버에서 찾는다(2026-11-15 제보: 검색 결과 없음).
+  const searchText = courses === null ? "" : query.trim();
+  useEffect(() => {
+    if (!searchText) { setSearchHits([]); setSearching(false); return; }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(() => {
+      searchCourseCatalog(searchText, firebaseServices)
+        .then((found) => { if (!cancelled) setSearchHits(found); })
+        .catch((failure) => {
+          if (cancelled) return;
+          setSearchHits([]);
+          logClientError("CoursePreparation.savedCourseSearch", failure, { length: searchText.length }, firebaseServices);
+        })
+        .finally(() => { if (!cancelled) setSearching(false); });
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchText, firebaseServices]);
+  const localHits =
+    courses?.filter((course) =>
+      `${course.name} ${course.description ?? ""}`
+        .toLocaleLowerCase()
+        .includes(query.trim().toLocaleLowerCase()),
+    ) ?? [];
+  const hits = [
+    ...new Map(
+      [...localHits, ...(searchText ? searchHits : [])].map((course) => [course.id, course]),
+    ).values(),
+  ].slice(0, 15);
   return (
     <section
       className="cp-course-preparation"
@@ -342,7 +366,7 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
                   placeholder={mt("함께 달릴 코스 이름")}
                 />
               </Field>
-              {hits.length === 0 && (
+              {hits.length === 0 && !searching && (
                 <p className="cp-muted">
                   {mt("찾는 코스가 없어요. 다른 이름으로 찾아보세요.")}
                 </p>
