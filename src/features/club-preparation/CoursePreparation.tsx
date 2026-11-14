@@ -176,7 +176,9 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
       courseCursor.current = page.cursor;
       setHasMoreCourses(page.hasMore);
       setCourses(previous => append ? [...new Map([...(previous ?? []), ...page.items].map(item => [item.id, item])).values()] : page.items);
-    } catch {
+    } catch (failure) {
+      // 원인을 남긴다 — 문구만 띄우면 권한 거부(403)인지 네트워크인지 알 수 없다(2026-11-14 운영 장애).
+      logClientError("CoursePreparation.savedCourseList", failure, { append });
       setError(mt("기존 코스를 불러오지 못했어요. 다시 시도해주세요."));
     } finally {
       coursePending.current = false;
@@ -289,8 +291,12 @@ function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePre
               if (
                 value === "saved-course" &&
                 meeting.courseSource?.kind !== "saved-course"
-              )
+              ) {
                 setBrowsingCourses(true);
+                // 이미 고른 탭을 다시 눌러도 반응이 있어야 한다 — 목록을 바로 불러온다(새 모임은 이 탭이 기본이라
+                // 눌러도 화면이 그대로여서 "반응 없음" 으로 보였다).
+                if (courses === null) void load();
+              }
               setMode(value);
               setError("");
             }}

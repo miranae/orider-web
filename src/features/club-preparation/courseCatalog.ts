@@ -75,13 +75,19 @@ async function catalogServices(injected?: FirebaseServices) {
   return { firestore: services.firestore, auth: services.auth, getAppCheckToken: services.getAppCheckToken };
 }
 
-/** 기존 코스 목록과 같은 공개 읽기(공개·미삭제, 문서 이름 순). 서버 rules를 그대로 적용하며 데이터를 쓰지 않는다. */
+/**
+ * 기존 코스 목록과 같은 공개 읽기(공개, 문서 이름 순). 서버 rules를 그대로 적용하며 데이터를 쓰지 않는다.
+ *
+ * `deletedAt == null` 조건은 서버에 넘기지 않는다 — 운영 rules 가 그 조건이 붙은 목록 조회를 403 으로 거부해
+ * "기존 코스 불러오기" 가 늘 실패했다(2026-11-14 운영 REST 재현: 조건 있음 403, 없음 200). 또 Firestore 의 null
+ * 일치는 필드가 **있고** null 인 문서만 골라 `deletedAt` 이 없는 코스를 빠뜨린다. 지운 코스는 `parseSavedCourse` 가 거른다.
+ */
 export async function loadCourseCatalogPage(cursor: CourseListCursor | null = null, injected?: FirebaseServices) {
   const { runCourseListQuery } = await import('../courses/courseListRest');
   const page = await runCourseListQuery(await catalogServices(injected), {
     orderField: '__name__', direction: 'ASCENDING', limit: SEARCH_PAGE_SIZE, cursor,
     fields: COURSE_CATALOG_FIELDS,
-    equals: [['visibility', { stringValue: 'public' }], ['deletedAt', { nullValue: null }]],
+    equals: [['visibility', { stringValue: 'public' }]],
   });
   const items = page.docs.flatMap(document => {
     const course = parseSavedCourse(document.id, document.data);
