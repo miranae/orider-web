@@ -123,6 +123,8 @@ export function AppRoutes() {
         <Route path="embed/courses/:courseId/*" element={<EmbeddedBootstrapRoot surfaceKind="course-detail" />} />
         {/* 세그먼트 상세(#3358) — 탐색 목록·코스 상세에서 연 `/segment/:id` 를 앱이 이 임베드로 바꿔 연다. */}
         <Route path="embed/segments/:segmentId/*" element={<EmbeddedBootstrapRoot surfaceKind="segment-detail" />} />
+        {/* 선수 프로필(#3353) — 앱 홈 최근 활동의 남의 작성자 아이콘·이름이 `/athlete/:id` 를 이 임베드로 연다. */}
+        <Route path="embed/athlete/:userId/*" element={<EmbeddedBootstrapRoot surfaceKind="athlete-profile" />} />
         <Route path="embed/explore" element={<EmbeddedBootstrapRoot surfaceKind="explore" />} />
         <Route path="embed/event/:eventId/*" element={<EmbeddedBootstrapRoot surfaceKind="event-detail" />} />
         <Route path="embed/search" element={<EmbeddedBootstrapRoot surfaceKind="search" />} />
@@ -400,7 +402,7 @@ function StandardApp() {
 
 export function isEmbeddedRoutePath(pathname: string): boolean {
   return /^\/[^/]+\/embed\/(?:activity\/[^/]+\/(?:analysis|public|edit)|fitness|plan|clubs|explore|search|about|policies\/community|feedback)\/?$/.test(pathname)
-    || /^\/[^/]+\/embed\/(?:clubs|courses|segments|event)\/[^/]+(?:\/.*)?$/.test(pathname);
+    || /^\/[^/]+\/embed\/(?:clubs|courses|segments|athlete|event)\/[^/]+(?:\/.*)?$/.test(pathname);
 }
 
 

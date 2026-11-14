@@ -76,6 +76,17 @@ export const COURSE_DETAIL_EMBED_CAPABILITY = "course-detail-embed-v1";
  */
 export const SEGMENT_DETAIL_EMBED_CAPABILITY = "segment-detail-embed-v1";
 
+/**
+ * 이 웹이 선수 프로필 임베드(`embed/athlete/:userId`)를 제공한다는 표시(`bootstrap.ready.capabilities`).
+ * 앱은 이 값이 있을 때만 남의 작성자 아이콘·이름에서 `/athlete/{uid}` 를 프로필 임베드로 연다.
+ */
+export const ATHLETE_PROFILE_EMBED_CAPABILITY = "athlete-profile-embed-v1";
+
+/** 선수 프로필 임베드가 받는 사용자 ID — `me` 같은 예약 이름·경로 문자·과도한 길이는 받지 않는다. */
+export function isEmbeddableAthleteId(userId: string | undefined): userId is string {
+  return !!userId && userId !== "me" && /^[A-Za-z0-9_-]{1,128}$/.test(userId);
+}
+
 /** 클럽 상세 임베드가 자기 안에서 그리는 하위 경로(App.tsx `club/:groupId/...` 와 같은 이름). */
 const CLUB_DETAIL_SECTION = /^(?:\/(?:rides(?:\/[^/]+)?|week|leaderboard|events|members|settings|meetings\/(?:new|[^/]+(?:\/(?:edit|live))?)))?\/?$/;
 
@@ -129,6 +140,22 @@ export function embeddedSegmentDetailDestination(currentPath: string, destinatio
   return `/${current[1]}/embed/segments/${current[2]}${target.search}${target.hash}`;
 }
 
+/**
+ * 선수 프로필 임베드(`/{lang}/embed/athlete/{userId}`) 안에서 **같은 선수** 프로필(`/athlete/{id}`, 쿼리·해시
+ * 포함)로 가는 링크는 임베드 안에 둔다. 다른 선수·하위 경로(`/athlete/{id}/...`)·프로필 밖 경로·다른 origin 은
+ * null — `navigation.openNative` 로 앱에 넘긴다(다른 선수는 앱이 새 프로필로 연다).
+ */
+export function embeddedAthleteProfileDestination(currentPath: string, destination: string): string | null {
+  const current = /^\/(ko|en)\/embed\/athlete\/([^/]+)\/?$/.exec(currentPath);
+  if (!current) return null;
+  const target = new URL(destination, "https://embedded.invalid");
+  if (target.origin !== "https://embedded.invalid") return null;
+  const path = target.pathname.replace(/^\/(ko|en)(?=\/)/, "");
+  const athlete = /^\/(?:athlete|embed\/athlete)\/([^/]+)\/?$/.exec(path);
+  if (!athlete || athlete[1] !== current[2]) return null;
+  return `/${current[1]}/embed/athlete/${current[2]}${target.search}${target.hash}`;
+}
+
 /** 같은 이벤트의 상세·등록·결과·관리 화면은 앱을 벗어나지 않는다. */
 export function embeddedEventDetailDestination(currentPath: string, destination: string): string | null {
   const current = /^\/(ko|en)\/embed\/event\/([A-Za-z0-9_-]{1,128})(?:\/.*)?$/.exec(currentPath);
@@ -154,6 +181,7 @@ export function embeddedInternalDestination(currentPath: string, destination: st
     ?? embeddedClubDetailDestination(currentPath, destination)
     ?? embeddedCourseDetailDestination(currentPath, destination)
     ?? embeddedSegmentDetailDestination(currentPath, destination)
+    ?? embeddedAthleteProfileDestination(currentPath, destination)
     ?? embeddedEventDetailDestination(currentPath, destination);
 }
 

@@ -4,6 +4,9 @@ import { physicalRideMovingSeconds } from "@shared/training/physicalRideEvidence
 import { isStatsCountable } from "@shared/training/activityStatsEligibility";
 import { disciplineOfType } from "@shared/sport/discipline";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
+// 일반 웹(연도 기록·평생 요약)의 기본값이다. 임베드 선수 프로필(AthletePage)은 항상 주입한 서비스로
+// createYearReadSession(uid, services) 를 만들어 넘기므로 이 기본값은 임베드에서 쓰이지 않는다.
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed
 import { auth, firestore } from "../services/firebase";
 import { isSamePhysicalRide, type PhysicalRideIdentity } from "../utils/samePhysicalRide";
 

@@ -24,7 +24,6 @@ import { useTranslation } from "react-i18next";
 
 import { useToast } from "../contexts/ToastContext";
 import { useDialog } from "../contexts/DialogContext";
-import { firestore, functions } from "../services/firebase";
 import { logClientError } from "../services/errorLogger";
 import { useDocument } from "../hooks/useFirestore";
 import { useMyGroups } from "../hooks/useGroup";
@@ -628,21 +627,21 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
     setRelationshipLoading(true);
     // 1. 이미 친구인지 확인
-    getDoc(doc(firestore, "friends", currentUser.uid, "users", userId))
+    getDoc(doc(services.firestore, "friends", currentUser.uid, "users", userId))
       .then((snap) => {
         if (snap.exists()) {
           setFriendStatus("friends");
           return;
         }
         // 2. 내가 요청을 보냈는지 확인
-        return getDoc(doc(firestore, "friend_requests", userId, "items", currentUser.uid))
+        return getDoc(doc(services.firestore, "friend_requests", userId, "items", currentUser.uid))
           .then((reqSnap) => {
             if (reqSnap.exists()) {
               setFriendStatus("request_sent");
               return;
             }
             // 3. 상대가 나에게 요청을 보냈는지 확인
-            return getDoc(doc(firestore, "friend_requests", currentUser.uid, "items", userId))
+            return getDoc(doc(services.firestore, "friend_requests", currentUser.uid, "items", userId))
               .then((recvSnap) => {
                 setFriendStatus(recvSnap.exists() ? "request_received" : "none");
               });
@@ -650,7 +649,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       })
       .catch((err) => logClientError("AthletePage.bg", err, {}))
       .finally(() => setRelationshipLoading(false));
-  }, [currentUser, userId]);
+  }, [currentUser, userId, services.firestore]);
 
   // Handle auto-friend request from invite link
   useEffect(() => {
@@ -739,7 +738,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     if (!currentUser || !userId || friendLoading) return;
     setFriendLoading(true);
     try {
-      const accept = httpsCallable(functions, "acceptFriendRequest");
+      const accept = httpsCallable(services.functions, "acceptFriendRequest");
       await accept({ requesterId: userId });
       setFriendStatus("friends");
       setFriendCount((c) => c + 1);
@@ -756,7 +755,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     setFriendLoading(true);
     try {
       const remove = httpsCallable<{ friendId: string }, { success?: boolean; friendId?: string }>(
-        functions,
+        services.functions,
         "removeFriend",
       );
       await remove({ friendId: removeId });
@@ -775,7 +774,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const handleDeleteSegment = async (segmentId: string, segName: string) => {
     if (!(await dialog.confirm(t("segments.deleteConfirm", { name: segName }), { destructive: true }))) return;
     try {
-      const fn = httpsCallable(functions, "deleteMySegment");
+      const fn = httpsCallable(services.functions, "deleteMySegment");
       await fn({ segmentId });
       setMySegments((prev) => prev.filter((s) => s.id !== segmentId));
       showToast(t("segments.deleteSuccess"));
@@ -941,7 +940,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         </div>
         {!isMe && currentUser && (
           <div data-testid="P0-0-4" className="athlete-friend-actions">
-            <ActivitySubscriptionButton targetUid={userId} />
+            <ActivitySubscriptionButton targetUid={userId} services={services} />
             {friendStatus === "none" && canSendFriendRequest && (
               <Button
                 onClick={handleSendFriendRequest}

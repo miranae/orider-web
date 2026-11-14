@@ -85,6 +85,17 @@ vi.mock("../pages/SegmentPage", () => ({
   ),
 }));
 
+// 선수 프로필도 실제 AthleteProfileSurface 를 쓰고 웹 선수 프로필 화면만 가볍게 바꾼다.
+vi.mock("../pages/AthletePage", () => ({
+  default: ({ meUserId }: { meUserId?: string }) => (
+    <div data-testid="athlete-page" data-me={meUserId ?? ""}>
+      <a href="/ko/athlete/rider-1?tab=activities">activities tab</a>
+      <a href="/ko/athlete/rider-2">other rider</a>
+      <a href="/ko/activity/act-1">activity</a>
+    </div>
+  ),
+}));
+
 import EmbeddedBootstrapRoot, { type EmbeddedSurfaceKind } from "./EmbeddedBootstrapRoot";
 import { isEmbeddedRoutePath } from "../App";
 
@@ -145,6 +156,8 @@ describe("app tab hub embeds", () => {
     expect(isEmbeddedRoutePath("/ko/course/course-1")).toBe(false);
     expect(isEmbeddedRoutePath("/ko/embed/segments/seg-1")).toBe(true);
     expect(isEmbeddedRoutePath("/ko/segment/seg-1")).toBe(false);
+    expect(isEmbeddedRoutePath("/ko/embed/athlete/rider-1")).toBe(true);
+    expect(isEmbeddedRoutePath("/ko/athlete/rider-1")).toBe(false);
     expect(isEmbeddedRoutePath("/ko/embed/explore/extra")).toBe(false);
     expect(isEmbeddedRoutePath("/ko/club/club-1")).toBe(false);
     expect(isEmbeddedRoutePath("/ko/clubs")).toBe(false);
@@ -305,6 +318,57 @@ describe("app tab hub embeds", () => {
     expect(bridge.sent).toContainEqual({ type: "navigation.openNative", payload: { path: "/ko/course/course-2" }, requestId: undefined });
     fireEvent.click(screen.getByRole("link", { name: "segment" }));
     expect(bridge.sent).toContainEqual({ type: "navigation.openNative", payload: { path: "/ko/segment/seg-1" }, requestId: undefined });
+  });
+
+  it("advertises the athlete profile embed so the app opens /athlete/{uid} in the app only on a web that has the route", async () => {
+    const bridge = createFakeBridge();
+    renderHub(bridge, "explore");
+    await waitFor(() => expect(bridge.sent.some(item => item.type === "bootstrap.ready")).toBe(true));
+    const ready = bridge.sent.find(item => item.type === "bootstrap.ready");
+    expect((ready?.payload as { capabilities: string[] }).capabilities).toContain("athlete-profile-embed-v1");
+  });
+
+  it("opens another rider's profile, keeps the same profile inside the embed and hands other links to the app", async () => {
+    const bridge = createFakeBridge();
+    render(
+      <MemoryRouter initialEntries={["/ko/embed/athlete/rider-1"]}>
+        <Routes>
+          <Route path="/:lang/embed/athlete/:userId/*" element={<EmbeddedBootstrapRoot bridgeFactory={() => bridge} surfaceKind="athlete-profile" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await authorize(bridge, { expectedUid: "owner-1", contractVersion: 1 });
+    act(() => bridge.emit(message("host.sessionAccepted", accepted)));
+    expect(await screen.findByTestId("embedded-athlete-profile")).toBeInTheDocument();
+    const page = await screen.findByTestId("athlete-page");
+    // 남의 프로필은 `me` 해석 없이 연다.
+    expect(page.getAttribute("data-me")).toBe("");
+    await waitFor(() => expect(bridge.sent).toContainEqual({ type: "surface.ready", payload: { surface: "athlete-profile" }, requestId: undefined }));
+    expect(bridge.sent.some(item => item.type === "surface.error")).toBe(false);
+
+    fireEvent.click(screen.getByRole("link", { name: "activities tab" }));
+    expect(await screen.findByTestId("athlete-page")).toBeInTheDocument();
+    expect(bridge.sent.some(item => item.type === "navigation.openNative")).toBe(false);
+
+    fireEvent.click(screen.getByRole("link", { name: "other rider" }));
+    expect(bridge.sent).toContainEqual({ type: "navigation.openNative", payload: { path: "/ko/athlete/rider-2" }, requestId: undefined });
+    fireEvent.click(screen.getByRole("link", { name: "activity" }));
+    expect(bridge.sent).toContainEqual({ type: "navigation.openNative", payload: { path: "/ko/activity/act-1" }, requestId: undefined });
+  });
+
+  it("does not open the reserved me path as an athlete profile", async () => {
+    const bridge = createFakeBridge();
+    render(
+      <MemoryRouter initialEntries={["/ko/embed/athlete/me"]}>
+        <Routes>
+          <Route path="/:lang/embed/athlete/:userId/*" element={<EmbeddedBootstrapRoot bridgeFactory={() => bridge} surfaceKind="athlete-profile" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await authorize(bridge, { expectedUid: "owner-1", contractVersion: 1 });
+    act(() => bridge.emit(message("host.sessionAccepted", accepted)));
+    expect(await screen.findByTestId("embedded-athlete-profile")).toBeInTheDocument();
+    expect(screen.queryByTestId("athlete-page")).toBeNull();
   });
 
   it("opens a public segment detail as a guest, keeps the same segment inside the embed and hands other links to the app", async () => {
