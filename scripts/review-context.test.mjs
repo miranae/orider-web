@@ -40,7 +40,7 @@ test('aliases, explicit JS extensions, runtime barrels and literal dynamic impor
   assert.equal(resolveSource('src/a.ts', '@/services/firebase', files), 'src/services/firebase.ts');
   assert.equal(resolveSource('src/a.ts', '@shared/types', files), 'shared/types.ts');
   assert.deepEqual(sourceImports('src/a.ts', 'import type { A } from "./types"; export type { B } from "./types"; export { load } from "./service"; const x = import("./lazy");').map(e => e.specifier), ['./service', './lazy']);
-  assert.deepEqual(sourceImports('index.ts', 'export { a } from "./a"; export { b } from "./b";', ['a']).map(e => e.specifier), ['./a', './b']);
+  assert.deepEqual(sourceImports('index.ts', 'export { a } from "./a"; export { b } from "./b";').map(e => e.specifier), ['./a', './b']);
 });
 
 test('tracked source symlinks fail closed instead of reading external source', t => {
@@ -185,4 +185,24 @@ test('bootstrap imports and nested Firebase mock support are expanded and paired
   const result = buildReviewContext({ repo: f.repo, head: f.commit(), from: base });
   for (const path of ['src/startup/auth.ts', 'src/__tests__/mocks/firebase.ts', 'src/__tests__/mocks/state.ts']) assert.ok(result.manifest.files.some(f => f.path === path), path);
   assert.equal(result.manifest.files.find(f => f.path === 'src/__tests__/mocks/firebase.ts').testSupport, true);
+});
+
+test('modified test bodies stay with their imports and mocked implementations in bounded batches', t => {
+  const f = fixture(t);
+  const mocks = [];
+  for (let i = 0; i < 12; i++) {
+    f.put(`src/services/mockTarget${i}.ts`, `export const target = ${JSON.stringify('x'.repeat(900))};`);
+    mocks.push(`vi.mock("./services/mockTarget${i}", () => ({ target: "hidden implementation" }));`);
+  }
+  const testBody = 'import { page } from "./page";\n' + mocks.join('\n') + '\npage();';
+  f.put('src/page.test.ts', testBody);
+  const base = f.commit();
+  f.put('src/page.test.ts', testBody + '\npage();');
+  const result = buildReviewContext({ repo: f.repo, head: f.commit(), from: base, maxBytes: 8500, batches: true });
+  assert.ok(result.contexts.length > 1);
+  const included = result.contexts.map(text => new Set(JSON.parse(text.split('\n')[1]).includedFiles));
+  for (const path of ['src/page.ts', ...Array.from({ length: 12 }, (_, i) => `src/services/mockTarget${i}.ts`)]) {
+    assert.ok(included.some(files => files.has('src/page.test.ts') && files.has(path)), path);
+  }
+  assert.equal(result.manifest.files.find(file => file.path === 'src/page.test.ts').testMockTargets.length, 12);
 });
