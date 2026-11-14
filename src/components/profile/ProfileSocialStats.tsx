@@ -1,3 +1,4 @@
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -14,6 +15,7 @@ const kinds: SubscriptionKind[] = ["subscriptions", "subscribers"];
 
 export default function ProfileSocialStats() {
   const { user, profile } = useAuth();
+  const services = useFirebaseServices();
   const { t } = useTranslation("common");
   const uid = user && !user.isAnonymous ? user.uid : null;
   const [counts, setCounts] = useState<{ uid: string; values: (number | null)[]; notDeployed: boolean } | null>(null);
@@ -21,8 +23,8 @@ export default function ProfileSocialStats() {
   useEffect(() => {
     if (!uid) return;
     let active = true;
-    const subscription = ACTIVITY_SUBSCRIPTIONS_ENABLED ? getActivitySubscriptionSummary(uid, uid) : Promise.resolve(null);
-    void Promise.allSettled([subscription, readOwnFriendCount(uid)]).then(results => {
+    const subscription = ACTIVITY_SUBSCRIPTIONS_ENABLED ? getActivitySubscriptionSummary(uid, uid, services) : Promise.resolve(null);
+    void Promise.allSettled([subscription, readOwnFriendCount(uid, services)]).then(results => {
       if (!active) return;
       results.forEach(result => { if (result.status === "rejected" && !isSubscriptionsNotDeployed(result.reason)) logClientError("profile.subscriptionCounts", result.reason, {}); });
       const subscriptionResult = results[0];
@@ -33,7 +35,7 @@ export default function ProfileSocialStats() {
         notDeployed: subscriptionResult?.status === "rejected" && isSubscriptionsNotDeployed(subscriptionResult.reason) });
     });
     return () => { active = false; };
-  }, [uid, attempt]);
+  }, [uid, attempt, services]);
   useEffect(() => {
     const refresh = (event: Event) => { if ((event as CustomEvent<{ uid: string }>).detail?.uid === uid) setAttempt(value => value + 1); };
     window.addEventListener(ACTIVITY_SUBSCRIPTIONS_CHANGED_EVENT, refresh);

@@ -78,7 +78,7 @@ describe("club ride metric presentation", () => {
     expect(mockCallableInvocations.filter(call => call.name === "stravaGetActivityStreams")).toHaveLength(0);
     await act(async () => { resolveProfiles(new Map([["missing", { nickname: "공개 이름" }]])); });
     expect(screen.getByRole("button", { name: "공개 이름 숨기기" })).toBeInTheDocument();
-    expect(publicProfiles).toHaveBeenCalledExactlyOnceWith(["missing"]);
+    expect(publicProfiles).toHaveBeenCalledExactlyOnceWith(["missing"], expect.anything());
     await act(async () => { resolveReady(); });
     expect(await screen.findByTestId("C2R-2")).toBeInTheDocument();
     expect(mockCallableInvocations.filter(call => call.name === "stravaGetActivityStreams")).toHaveLength(1);

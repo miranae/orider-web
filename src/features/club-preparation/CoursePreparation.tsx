@@ -1,3 +1,4 @@
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { mt } from "./meetingText";
 import { logClientError } from "../../services/errorLogger";
 import { useEffect, useRef, useState } from "react";
@@ -38,6 +39,7 @@ export default function CoursePreparation({
   onChange: (meeting: Meeting) => void;
   onBusyChange: (busy: boolean) => void;
 }) {
+  const firebaseServices = useFirebaseServices();
   const [mode, setMode] = useState<Mode>(
     meeting.courseSource?.kind ?? "saved-course",
   );
@@ -165,7 +167,7 @@ export default function CoursePreparation({
     setLoading(true);
     setError("");
     try {
-      const page = await loadCourseCatalogPage(append ? courseCursor.current : null);
+      const page = await loadCourseCatalogPage(append ? courseCursor.current : null, firebaseServices);
       courseCursor.current = page.cursor;
       setHasMoreCourses(page.hasMore);
       setCourses(previous => append ? [...new Map([...(previous ?? []), ...page.items].map(item => [item.id, item])).values()] : page.items);
@@ -183,7 +185,7 @@ export default function CoursePreparation({
     setImportingCourse(course.id);
     onBusyChange(true);
     try {
-      const full = await loadSavedCourse(course.id);
+      const full = await loadSavedCourse(course.id, firebaseServices);
       if (version !== readVersion.current) return;
       if (!full) {
         setError(mt("이 코스는 지금 가져올 수 없어요."));

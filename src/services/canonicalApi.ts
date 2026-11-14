@@ -17,6 +17,7 @@
  */
 import type { Auth } from "firebase/auth";
 
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 live singleton getter 기본값. 임베드 canonical hooks는 services를 주입한다.
 import { auth, ensureAppCheckReady, getAppCheckToken } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 import {

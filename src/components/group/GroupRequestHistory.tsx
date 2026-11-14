@@ -33,7 +33,7 @@ export default function GroupRequestHistory({ userId, groupId, sectionId }: { us
         return { id: doc.id, userId: String(data.userId ?? ""), groupId: String(data.groupId ?? groupId ?? ""), name: String(data.groupName ?? data.nickname ?? data.userId ?? ""), status: String(data.status ?? "pending"), requestedAt: normalizeStartTime(data.requestedAt), resolvedAt: normalizeStartTime(data.resolvedAt) };
       });
       setRows(nextRows);
-      if (groupId && nextRows.length) void getPublicUserProfiles(nextRows.map(row => row.userId)).then(profiles => {
+      if (groupId && nextRows.length) void getPublicUserProfiles(nextRows.map(row => row.userId), firestore).then(profiles => {
         if (intent.current !== scope || version !== nextVersion) return;
         setRows(nextRows.map(row => ({ ...row, name: profiles.get(row.userId)?.nickname || row.name })));
       }).catch(err => { logClientError("GroupRequestHistory.profiles", err); });

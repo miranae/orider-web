@@ -19,7 +19,7 @@
     "gen:design-tokens": "node scripts/gen-design-tokens.mjs",
     "gen:manual": "node scripts/gen-manual.mjs",
     "lint": "eslint src",
-    "lint:budget": "eslint src --max-warnings 0",
+    "lint:budget": "node scripts/embed-reachable-files.mjs --check && eslint src --max-warnings 0",
     "lint:report": "eslint src --format=stylish || true",
     "preview": "vite preview",
     "quality:budget": "node scripts/gen-design-tokens.mjs --check && node scripts/check-design-system-ownership.mjs && node scripts/check-quality-budget.mjs",
@@ -38,7 +38,7 @@
     "check:canonical-contract": "node scripts/check-canonical-contract.mjs",
     "test:merge-pr-review-range": "node --test scripts/merge-pr-review-range.test.mjs",
     "test:vitest": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
-    "test:contracts": "npm run test:production-hosting-evidence && npm run test:merge-gate-ci-reuse && npm run test:social-callable-contract && npm run test:runtime-config-writer && npm run test:canonical-deploy-env && npm run test:deploy-config && npm run test:dco && npm run test:merge-pr-review-range && npm run test:script-tests-wired && npm run test:quality-alert-count && npm run check:canonical-contract && npm run test:test-script-forwarding && npm run test:merge-check-policy && npm run test:merge-review && npm run test:merge-gate-report && npm run check:product-invariants && npm run test:product-invariants && npm run test:linear-backport && npm run test:production-monitor",
+    "test:contracts": "npm run test:production-hosting-evidence && npm run test:merge-gate-ci-reuse && npm run test:social-callable-contract && npm run test:runtime-config-writer && npm run test:canonical-deploy-env && npm run test:deploy-config && npm run test:dco && npm run test:merge-pr-review-range && npm run test:script-tests-wired && npm run test:quality-alert-count && npm run check:canonical-contract && npm run test:test-script-forwarding && npm run test:merge-check-policy && npm run test:merge-review && npm run test:merge-gate-report && npm run check:product-invariants && npm run test:product-invariants && npm run test:linear-backport && npm run test:production-monitor && npm run test:review-context && npm run test:eslint-embedded-firebase",
     "test:test-script-forwarding": "node --test scripts/test-script-forwarding.test.mjs",
     "test:merge-check-policy": "node --test scripts/merge-check-policy.test.mjs",
     "test:merge-review": "node --test scripts/merge-review.test.mjs",
@@ -46,7 +46,10 @@
     "check:product-invariants": "node scripts/check-product-invariants.mjs",
     "test:product-invariants": "node --test scripts/check-product-invariants.test.mjs",
     "test:linear-backport": "node --test scripts/sync-main-to-dev.test.mjs",
-    "test:production-monitor": "node --test scripts/production-monitor.test.mjs"
+    "test:production-monitor": "node --test scripts/production-monitor.test.mjs",
+    "test:review-context": "node --test scripts/review-context.test.mjs",
+    "test:eslint-embedded-firebase": "node --test scripts/eslint-embedded-firebase.test.mjs",
+    "test:embed-isolation": "npm run test:vitest -- src/embedded/EmbeddedBootstrapRoot.athleteIsolation.test.tsx"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.2.8",

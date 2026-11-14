@@ -136,7 +136,7 @@ describe('코스부터 준비하는 모집 작성',()=>{
     const initial={...createSeed().meetings[2]!,courseTrack:{fileName:'old.gpx',distanceKm:86,points:[{lat:37,lon:127},{lat:37.1,lon:127.1}]}};
     render(<Harness initial={initial}/>);fireEvent.click(screen.getByRole('button',{name:'기존 코스 불러오기'}));fireEvent.click(await screen.findByRole('button',{name:'이 코스 가져오기'}));
     expect((await screen.findByRole('region',{name:'코스 변경 확인'})).textContent).toContain('가져올 경로: 경로 있음');
-    expect(loadSavedCourse).toHaveBeenLastCalledWith('saved-route');
+    expect(loadSavedCourse).toHaveBeenLastCalledWith('saved-route', expect.objectContaining({auth: expect.anything(), firestore: expect.anything()}));
     fireEvent.click(screen.getByRole('button',{name:'변경 취소'}));
     vi.mocked(loadSavedCourse).mockRejectedValueOnce(new Error('network'));
     fireEvent.click(screen.getByRole('button',{name:'이 코스 가져오기'}));

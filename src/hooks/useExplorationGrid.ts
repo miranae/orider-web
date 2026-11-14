@@ -17,7 +17,8 @@ export function clearExplorationGridSessionCache(): void { sessionCache = null; 
  */
 export function useExplorationGrid(uid: string | null | undefined, enabled: boolean) {
   // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 auth(#847).
-  const { auth } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { auth } = services;
   const [owned, setOwned] = useState<{ owner: User; uid: string; result: ExplorationGridResult } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -44,7 +45,7 @@ export function useExplorationGrid(uid: string | null | undefined, enabled: bool
     setOwned(null);
     setLoading(true);
     setError(false);
-    void fetchRecentActivityTracks(uid).then((tracks) => {
+    void fetchRecentActivityTracks(uid, services).then((tracks) => {
       if (cancelled || auth.currentUser !== owner) return;
       return aggregateExplorationGridAsync(tracks, undefined, undefined, {
         signal: controller.signal,
@@ -61,7 +62,7 @@ export function useExplorationGrid(uid: string | null | undefined, enabled: bool
       if (!cancelled) { setOwned(null); setError(true); }
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; controller.abort(); };
-  }, [auth, enabled, uid, owner]);
+  }, [auth, enabled, uid, owner, services]);
 
   return { result: owned && owned.uid === uid && owned.owner === owner ? owned.result : EMPTY_RESULT, loading, error };
 }

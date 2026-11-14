@@ -1,4 +1,5 @@
 import { connectFunctionsEmulator, getFunctions, type Functions } from "firebase/functions";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 callable 기본값. 임베드는 getActivitySocialFunctions(services.functions)를 사용한다.
 import { functions } from "./firebase";
 import { getRuntimeConfig, isEmulatorRuntime } from "./runtimeConfig";
 

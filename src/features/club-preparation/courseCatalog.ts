@@ -1,3 +1,4 @@
+import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { SEARCH_PAGE_SIZE } from "../../constants/pagination";
 import { readStoredElevationProfile } from './segmentCatalog';
 import { decodePolyline } from '../../utils/polyline';
@@ -65,7 +66,9 @@ export function parseSavedCourse(id: string, data: Record<string, unknown>): Sav
 export const COURSE_CATALOG_FIELDS = ['name', 'description', 'distance', 'elevationGain', 'waypoints', 'segmentIds', 'visibility', 'deletedAt', 'hidden'] as const;
 
 let readiness: Promise<void> | undefined;
-async function catalogServices() {
+async function catalogServices(injected?: FirebaseServices) {
+  if (injected) return injected;
+  // eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 fallback만 초기화한다. 임베드 CoursePreparation은 services를 주입한다.
   const services = await import('../../services/firebase');
   readiness ??= (async () => { if (!services.getFirebaseApp()) await services.initFirebase(); })().catch(error => { readiness = undefined; throw error; });
   await readiness;
@@ -73,9 +76,9 @@ async function catalogServices() {
 }
 
 /** 기존 코스 목록과 같은 공개 읽기(공개·미삭제, 문서 이름 순). 서버 rules를 그대로 적용하며 데이터를 쓰지 않는다. */
-export async function loadCourseCatalogPage(cursor: CourseListCursor | null = null) {
+export async function loadCourseCatalogPage(cursor: CourseListCursor | null = null, injected?: FirebaseServices) {
   const { runCourseListQuery } = await import('../courses/courseListRest');
-  const page = await runCourseListQuery(await catalogServices(), {
+  const page = await runCourseListQuery(await catalogServices(injected), {
     orderField: '__name__', direction: 'ASCENDING', limit: SEARCH_PAGE_SIZE, cursor,
     fields: COURSE_CATALOG_FIELDS,
     equals: [['visibility', { stringValue: 'public' }], ['deletedAt', { nullValue: null }]],
@@ -88,9 +91,9 @@ export async function loadCourseCatalogPage(cursor: CourseListCursor | null = nu
 }
 
 /** 고른 코스 하나의 경로까지 읽는다(상세와 같은 트랙 파일·캐시). 지금은 가져올 수 없는 코스면 null. */
-export async function loadSavedCourse(id: string): Promise<SavedCourseChoice | null> {
+export async function loadSavedCourse(id: string, injected?: FirebaseServices): Promise<SavedCourseChoice | null> {
   const { loadCourseSource } = await import('../courses/courseDetailAsset');
-  const data = await loadCourseSource(await catalogServices(), id);
+  const data = await loadCourseSource(await catalogServices(injected), id);
   return data ? parseSavedCourse(id, data) : null;
 }
 

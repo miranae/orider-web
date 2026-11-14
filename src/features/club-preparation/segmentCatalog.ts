@@ -1,3 +1,4 @@
+import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { z } from "zod";
 import { decodePolyline } from "../../utils/polyline";
 import { fetchStaticJson } from "../../utils/staticJson";
@@ -185,18 +186,22 @@ let segmentReadiness: Promise<void> | undefined;
 /** Read the selected public segment through the existing SDK and security rules; never write. */
 export async function loadSegmentDetail(
   choice: SegmentChoice,
+  injected?: FirebaseServices,
 ): Promise<SegmentChoice | null> {
   segmentIdSchema.parse(choice.id);
-  const services = await import("../../services/firebase");
-  segmentReadiness ??= (async () => {
-    if (!services.getFirebaseApp()) await services.initFirebase();
-  })().catch((error) => {
-    segmentReadiness = undefined;
-    throw error;
-  });
-  await segmentReadiness;
+  if (!injected) {
+    // eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 fallback만 초기화한다. 임베드 MeetingSegmentPicker는 services를 주입한다.
+    const services = await import("../../services/firebase");
+    segmentReadiness ??= (async () => {
+      if (!services.getFirebaseApp()) await services.initFirebase();
+    })().catch((error) => {
+      segmentReadiness = undefined;
+      throw error;
+    });
+    await segmentReadiness;
+  }
   const { loadSegmentMetadata } = await import("../../services/segmentMetadata");
-  const [data] = await loadSegmentMetadata([choice.id]);
+  const [data] = await loadSegmentMetadata([choice.id], injected);
   return data ? enrichSegmentChoice(choice, data) : null;
 }
 export async function loadSegmentCatalog(): Promise<SegmentChoice[]> {

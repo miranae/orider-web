@@ -4,6 +4,8 @@ import { accessSync, constants, copyFileSync, mkdirSync, readFileSync, realpathS
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { enforceReviewFloor } from "./review-policy.mjs";
+
 export class IsolationError extends Error {}
 const children = new Set();
 const killGroup = child => { if (child.pid) { try { process.kill(-child.pid, "SIGKILL"); } catch { /* 이미 종료됨 */ } } };
@@ -41,13 +43,15 @@ export function parseReview(text, provider = "codex") {
     || Object.keys(value).sort().join(",") !== "findings,verdict"
     || typeof value.findings !== "string" || !value.findings.trim()
     || !["PASS", "BLOCK"].includes(value.verdict)) return null;
-  return failed && value.verdict !== "BLOCK" ? null : value;
+  const normalized = enforceReviewFloor(value);
+  return failed && normalized.verdict !== "BLOCK" ? null : normalized;
 }
 
-export function reviewBinding(request, diff) {
-  return { version: 1, pr: request.pr, head: request.head, base: request.base,
+export function reviewBinding(request, diff, input = "") {
+  return { version: 2, pr: request.pr, head: request.head, base: request.base,
     baseRef: request.baseRef, reviewFrom: request.reviewFrom, scope: request.scope,
-    diffSha256: createHash("sha256").update(diff).digest("hex") };
+    diffSha256: createHash("sha256").update(diff).digest("hex"),
+    inputSha256: createHash("sha256").update(input).digest("hex") };
 }
 
 function writeEvidence(path, value) {
@@ -92,7 +96,7 @@ export function validateSelfReview(value, binding) {
     || typeof value.reviewedAt !== "string" || !Number.isFinite(Date.parse(value.reviewedAt))) {
     throw new Error("자체 리뷰의 PR/head/base/diff/범위 또는 실제 검토 기록이 일치하지 않습니다.");
   }
-  return { findings: value.findings, verdict: value.verdict };
+  return enforceReviewFloor({ findings: value.findings, verdict: value.verdict });
 }
 
 /** 유효한 BLOCK은 exit code와 무관하게 최종 판정이며 다음 제공자로 넘어가지 않는다. */
@@ -244,7 +248,7 @@ export async function providerReview(name, request) {
 async function main() {
   const request = JSON.parse(readFileSync(process.argv[2], "utf8"));
   const diff = readFileSync(request.diff, "utf8"), input = readFileSync(request.input, "utf8");
-  const result = await reviewWithFallback({ binding: reviewBinding(request, diff), diff, input,
+  const result = await reviewWithFallback({ binding: reviewBinding(request, diff, input), diff, input,
     evidenceDir: request.evidenceDir, selfReviewFile: request.selfReviewFile,
     providers: ["codex", "claude"].map(name => ({ name, run: () => providerReview(name, request) })) });
   writeJson(request.output, result);

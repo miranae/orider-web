@@ -1,4 +1,5 @@
 import { httpsCallable } from "firebase/functions";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 GroupEventsPage 일정 API. 클럽 상세 임베드는 dashboard/members/week 경로만 연다.
 import { ensureAppCheckReady, functions } from "./firebase";
 import type { ClubCafeSchedule } from "@shared/clubCafeSchedule";
 export async function getClubCafeSchedule(groupId: string): Promise<ClubCafeSchedule | null> {

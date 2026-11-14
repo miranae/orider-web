@@ -148,8 +148,8 @@ int main(int argc, char **argv) {
   char *mode = read_all(auth);
   fclose(auth);
   if (strstr(mode, "scope_all")) {
-    if (strstr(prompt, "--blockers-only")) return 85;
-  } else if (!strstr(prompt, "--blockers-only")) return 85;
+    if (!strstr(prompt, "MINOR도 findings")) return 85;
+  } else if (!strstr(prompt, "MINOR는 생략")) return 85;
   if (strstr(mode, "exit42")) { fprintf(stderr, "mock Codex execution log\n"); return 42; }
   FILE *output = fopen(out, "w");
   if (!output) return 84;
@@ -224,7 +224,7 @@ grep -q 'CODEX_REVIEW_BOOTSTRAP_PROFILE_SHA256 필요' <<<"$missing_bootstrap_ou
 
 pass_output="$(MOCK_VERDICT=PASS run_gate)"
 grep -q "리뷰 PASS" <<<"$pass_output"
-grep -q "review_scope=blockers-only" <<<"$pass_output"
+grep -q "review_scope=major-and-blocker" <<<"$pass_output"
 expected_head="$($REAL_GIT rev-parse HEAD)"
 grep -qx "archive" "$MOCK_ARCHIVE_ARGS_FILE"
 grep -qx "$expected_head" "$MOCK_ARCHIVE_ARGS_FILE"

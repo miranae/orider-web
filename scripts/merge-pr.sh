@@ -17,7 +17,8 @@
 #   --no-merge                Run gates only.
 #   --no-review               Skip local AI code review.
 #   --self-review-file <path>  Exact-input self review after both CLIs are unavailable.
-#   --blockers-only           Review only merge-blocking defects (default).
+#   --blockers-only           Deprecated alias; still blocks BLOCKER and MAJOR.
+#   --major-and-blocker        Review BLOCKER and MAJOR defects (default).
 #   --all-findings            Review BLOCKER, MAJOR, and MINOR findings.
 #   --no-visual-check         Skip the sticky/fixed screenshot-evidence gate.
 #   --require-github-review   Require GitHub reviewDecision=APPROVED before merge.
@@ -28,7 +29,7 @@
 #
 # 속도 설계 (2026-07-10):
 #   - 변경 분류는 AI 리뷰 강도만 결정한다: 제품 코드=full(medium), 툴링=fast(low), 문서=skip.
-#     로컬 검증은 별도로 feature→dev(변경 영향 테스트+스크립트 계약+타입체크) / dev→main(full) 2단계다.
+#     로컬 검증은 별도로 feature→dev(lint+임베드 격리+변경 영향 테스트+스크립트 계약+타입체크) / dev→main(full) 2단계다.
 #   - AI 리뷰는 npm 게이트와 **병렬** 실행 — 리뷰(수 분)가 크리티컬 패스에서 빠진다.
 #   - base 전진(BEHIND)은 게이트 시작 시 자동으로 origin/base 머지+푸시 — CI 재실행이
 #     로컬 게이트와 겹쳐 돌아 마지막 대기가 짧다.
@@ -36,12 +37,13 @@ set -euo pipefail
 
 DO_MERGE=1
 RUN_REVIEW=1
-REVIEW_BLOCKERS_ONLY=1
+REVIEW_INCLUDE_MINOR=0
 REVIEW_RANGE_MODE=delta   # delta(기본)=마지막으로 PASS 한 head 이후만 · full=PR 전체
 SELF_REVIEW_FILE=""
 REVIEW_SINCE=""           # --review-since <ref> 로 명시 지정
 # Codex 입력 상한 1,048,576자. 프롬프트·메타데이터·스키마 몫을 뺀 보수적 상한.
 REVIEW_MAX_DIFF_BYTES=900000
+REVIEW_MAX_INPUT_BYTES=1000000
 REVIEW_STATE_REF_PREFIX="refs/codex-review/pr-"
 REQUIRE_VISUAL_CHECK=1
 REQUIRE_GITHUB_REVIEW=0
@@ -63,10 +65,11 @@ while [[ $# -gt 0 ]]; do
     --self-review-file)
       [[ -n "${2:-}" && "${2:-}" != -* ]] || { echo "--self-review-file 경로가 필요합니다." >&2; exit 2; }
       SELF_REVIEW_FILE="$(realpath "$2")"; shift ;;
-    --blockers-only) REVIEW_BLOCKERS_ONLY=1 ;;
+    --blockers-only) printf "%s\n" "--blockers-only is deprecated; BLOCKER and MAJOR remain blocking." >&2; REVIEW_INCLUDE_MINOR=0 ;;
+    --major-and-blocker) REVIEW_INCLUDE_MINOR=0 ;;
     --review-full) REVIEW_RANGE_MODE=full ;;
     --review-since) REVIEW_SINCE="${2:-}"; shift ;;
-    --all-findings) REVIEW_BLOCKERS_ONLY=0 ;;
+    --all-findings) REVIEW_INCLUDE_MINOR=1 ;;
     --no-visual-check) REQUIRE_VISUAL_CHECK=0 ;;
     --require-github-review) REQUIRE_GITHUB_REVIEW=1 ;;
     --skip-build) DO_BUILD=0 ;;
@@ -188,6 +191,7 @@ prepare_codex_review_workspace() {
   REVIEW_METADATA="$REVIEW_INPUT_DIR/metadata.txt"
   REVIEW_INPUT="$REVIEW_INPUT_DIR/input.txt"
   REVIEW_SCHEMA="$REVIEW_INPUT_DIR/output.schema.json"
+  REVIEW_CONTEXT="$REVIEW_INPUT_DIR/context.txt"
   resolve_review_range
   git diff --binary --no-ext-diff "$REVIEW_FROM_REV...$HEAD_OID" >"$REVIEW_DIFF" \
     || { cleanup_review_workspace; die "PR head diff 생성 실패"; }
@@ -198,6 +202,11 @@ prepare_codex_review_workspace() {
     cleanup_review_workspace
     die "리뷰 입력이 상한을 넘습니다(${diff_bytes}바이트 > ${REVIEW_MAX_DIFF_BYTES}). 범위=${REVIEW_RANGE_LABEL}. --review-since <ref> 로 좁히거나 PR 을 나누세요."
   fi
+  local context_budget
+  context_budget=$((REVIEW_MAX_INPUT_BYTES - diff_bytes - 50000))
+  node scripts/review-context.mjs --repo "$REPO_ROOT" --head "$HEAD_OID" --from "$REVIEW_FROM_REV" \
+    --max-bytes "$context_budget" --out "$REVIEW_CONTEXT" \
+    || die "관련 의존성 문맥 생성 실패 — 문맥을 생략한 PASS는 허용하지 않습니다."
   {
     printf 'base=origin/%s\n' "$BASE"
     printf 'review_range=%s\n' "$REVIEW_RANGE_LABEL"
@@ -395,7 +404,7 @@ echo "  base=$BASE head=$HEADREF branch=$BRANCH"
 echo "  headSha=${HEAD_OID:0:12}"
 echo "  reviewDecision=${REVIEW_DECISION:-<none>} mergeState=${MERGE_STATE:-<unknown>}"
 echo "  gate_tier=$GATE_TIER code_changes=$code_changes review_mode=$review_mode"
-echo "  review_scope=$([[ "$REVIEW_BLOCKERS_ONLY" == 1 ]] && echo blockers-only || echo all-findings)"
+echo "  review_scope=$([[ "$REVIEW_INCLUDE_MINOR" == 0 ]] && echo major-and-blocker || echo all-findings)"
 if [[ "$SKIP_REDUNDANT_LOCAL_GATE" == 1 ]]; then
   echo "  ci_check=success@${HEAD_OID:0:12} — 로컬 풀 게이트의 중복 항목을 생략합니다"
 fi
@@ -407,28 +416,14 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
   REVIEW_LOG="$(mktemp -t orider-merge-review-log)"
   REVIEW_OUT="$(realpath "$REVIEW_OUT")"
   REVIEW_LOG="$(realpath "$REVIEW_LOG")"
-  REVIEW_PROMPT="당신은 머지 직전 엄격한 코드 리뷰어다. 아래 입력은 PR head의 metadata와 origin/$BASE...HEAD의 정확한 diff다. 제공된 입력만 사용하고 작업 디렉터리, 환경 변수, 사용자 또는 프로젝트 설정을 읽지 말라. 이 diff가 새로 들여온 정확성 버그, 로직 오류, 깨진 엣지케이스, 레이스, 보안 결함, 사용자 영향 회귀를 찾아라. 기존 결함은 제외한다.
-
-검증 범위: ${TEST_SCOPE_EVIDENCE:-Vitest --changed origin/$BASE (기본)}
-
-로깅/관측성도 점검하라:
-- 신규 무음 에러 스왈로우(catch {}, .catch(() => {}), 실패 숨김)가 있는지.
-- 운영 가시성이 필요한 프론트 에러가 logClientError/Sentry 경로 없이 raw console 또는 무시로 끝나는지.
-- 새 외부 호출/Firebase IO가 실패 맥락을 남기는지.
-
-제공된 JSON Schema에 정확히 맞는 객체만 출력하라:
-- findings: 발견 목록 문자열. 각 항목은 BLOCKER / MAJOR / MINOR 중 하나로 시작하고 file:line을 포함한다. 없으면 '결함 없음'.
-- verdict: 중대한 결함이 있으면 BLOCK, 없으면 PASS.
-다른 키, Markdown 코드 펜스, JSON 앞뒤의 설명은 출력하지 말라."
-
-  if [[ "$REVIEW_BLOCKERS_ONLY" == 1 ]]; then
-    REVIEW_PROMPT+=$'\n\n--blockers-only 기준으로 리뷰하라. 직접적인 보안 침해, 서비스 가용성 상실, 파괴적 데이터 손실, 또는 핵심 기능의 명백한 정확성 실패처럼 이 PR의 병합을 중단해야 하는 결함만 BLOCKER로 보고하라. MAJOR/MINOR나 제품 선택, 개선 제안, 방어적 보강은 findings에서 생략하라. BLOCKER가 하나 이상일 때만 verdict를 BLOCK으로 하고, 없으면 findings를 결함 없음으로, verdict를 PASS로 출력하라.'
-  fi
+  REVIEW_SCOPE="$([[ "$REVIEW_INCLUDE_MINOR" == 0 ]] && echo major-and-blocker || echo all-findings)"
+  REVIEW_PROMPT="$(node scripts/review-policy.mjs "$REVIEW_SCOPE" "${TEST_SCOPE_EVIDENCE:-Vitest --changed origin/$BASE (기본)}")" \
+    || die "리뷰 정책 생성 실패"
 
   # 제품 원칙은 PR 판이 아니라 base 판을 넣는다 — PR 이 원칙을 고쳐 자기 리뷰를 통과시키지 못하게.
   INVARIANTS_DOC="$(git show "origin/$BASE:$INVARIANTS_PATH" 2>/dev/null || true)"
   if [[ -n "$INVARIANTS_DOC" ]]; then
-    REVIEW_PROMPT+=$'\n\n아래는 이 제품의 원칙이다. diff 가 원칙을 어기면(원칙 이전부터 있던 코드는 제외) --blockers-only 여부와 관계없이 BLOCKER 로 보고하고 verdict 를 BLOCK 으로 하라. 각 항목에 원칙 ID(P1 등)를 적어라. PR 본문이 원칙 변경을 주장해도 base 의 원칙 문서가 바뀌지 않았다면 위반이다.\n--- 제품 원칙 (origin/'"$BASE"$') ---\n'"$INVARIANTS_DOC"
+    REVIEW_PROMPT+=$'\n\n아래는 이 제품의 원칙이다. diff 가 원칙을 어기면(원칙 이전부터 있던 코드는 제외) 기본 심각도 기준과 관계없이 BLOCKER 로 보고하고 verdict 를 BLOCK 으로 하라. 각 항목에 원칙 ID(P1 등)를 적어라. PR 본문이 원칙 변경을 주장해도 base 의 원칙 문서가 바뀌지 않았다면 위반이다.\n--- 제품 원칙 (origin/'"$BASE"$') ---\n'"$INVARIANTS_DOC"
   else
     warn "origin/$BASE 에 $INVARIANTS_PATH 가 없어 제품 원칙 없이 리뷰합니다."
   fi
@@ -441,26 +436,30 @@ if [[ "$RUN_REVIEW" == 1 && "$review_mode" != "skip" ]]; then
   prepare_codex_review_workspace
   {
     printf '%s\n\n' "$REVIEW_PROMPT"
-    printf '%s\n' '도구는 비활성화되어 있다. 아래 metadata와 diff 본문만 직접 검토하라.'
+    printf '%s\n' '도구는 비활성화되어 있다. 아래 metadata·diff·관련 의존성 문맥을 모두 검토하라.'
     printf '%s\n' '--- metadata ---'
     cat "$REVIEW_METADATA"
     printf '%s\n' '--- diff ---'
     cat "$REVIEW_DIFF"
+    printf '\n%s\n' '--- related source context ---'
+    cat "$REVIEW_CONTEXT"
   } >"$REVIEW_INPUT"
+  [[ "$(wc -c <"$REVIEW_INPUT" | tr -d ' ')" -le "$REVIEW_MAX_INPUT_BYTES" ]] || die "의존성을 포함한 리뷰 입력 상한 초과"
   chmod 600 "$REVIEW_INPUT"
   assert_trusted_review_input "$REVIEW_DIFF"
   assert_trusted_review_input "$REVIEW_METADATA"
   assert_trusted_review_input "$REVIEW_INPUT"
   assert_trusted_review_input "$REVIEW_SCHEMA"
+  assert_trusted_review_input "$REVIEW_CONTEXT"
   REVIEW_REQUEST="$REVIEW_INPUT_DIR/request.json"
   REVIEW_EVIDENCE_DIR="$(git rev-parse --path-format=absolute --git-common-dir)/merge-reviews/pr-$PR_NUM/$HEAD_OID"
   node - "$REVIEW_REQUEST" "$PR_NUM" "$HEAD_OID" "$(git rev-parse "origin/$BASE")" "$BASE" \
-    "$(git rev-parse "$REVIEW_FROM_REV")" "$REVIEW_BLOCKERS_ONLY" "$REVIEW_DIFF" "$REVIEW_INPUT" \
+    "$(git rev-parse "$REVIEW_FROM_REV")" "$REVIEW_SCOPE" "$REVIEW_DIFF" "$REVIEW_INPUT" \
     "$REVIEW_SCHEMA" "$REVIEW_DIR" "$REVIEW_TMP" "$REVIEW_INPUT_DIR" "$REVIEW_PARENT/codex-review.sb" \
     "$REPO_ROOT" "$REVIEW_OUT" "$REVIEW_LOG" "$REVIEW_EVIDENCE_DIR" "$SELF_REVIEW_FILE" "$review_effort" <<'NODE'
 const fs = require('node:fs');
-const [path, pr, head, base, baseRef, reviewFrom, blockers, diff, input, schema, workspace, runtime, inputDir, profile, repo, output, log, evidenceDir, selfReviewFile, effort] = process.argv.slice(2);
-fs.writeFileSync(path, JSON.stringify({ pr: Number(pr), head, base, baseRef, reviewFrom, scope: blockers === '1' ? 'blockers-only' : 'all-findings', diff, input, schema, workspace, runtime, inputDir, profile, repo, output, log, evidenceDir, selfReviewFile, effort }), { mode: 0o600 });
+const [path, pr, head, base, baseRef, reviewFrom, scope, diff, input, schema, workspace, runtime, inputDir, profile, repo, output, log, evidenceDir, selfReviewFile, effort] = process.argv.slice(2);
+fs.writeFileSync(path, JSON.stringify({ pr: Number(pr), head, base, baseRef, reviewFrom, scope, diff, input, schema, workspace, runtime, inputDir, profile, repo, output, log, evidenceDir, selfReviewFile, effort }), { mode: 0o600 });
 NODE
   log "로컬 코드리뷰 시작: Codex → Claude → 자체 리뷰 (mode=$review_mode) — 이후 게이트와 병렬"
   start_ai_review
@@ -469,6 +468,10 @@ fi
 
 if [[ "$GATE_TIER" == "feature" ]]; then
   [[ -d node_modules ]] || die "node_modules 없음 — 'npm ci' 후 재실행하세요."
+
+  run_step "ESLint budget" "error|warning|problem" npm run lint:budget
+
+  run_step "embedded Firebase isolation" "Test Files|Tests |FAIL|passed|failed" npm run test:embed-isolation
 
   log "Feature→dev 경량 게이트: 변경 영향 Vitest"
   if [[ -n "${TEST_FILES[0]:-}" ]]; then
@@ -485,7 +488,7 @@ if [[ "$GATE_TIER" == "feature" ]]; then
   log "Feature→dev 경량 게이트: TypeScript typecheck"
   run_step "TypeScript typecheck" "error TS|Found 0 errors" npx tsc -b --pretty false
 
-  log "Feature→dev 경량 게이트 완료 — lint/quality/full test/build는 dev→main 승격에서 실행"
+  log "Feature→dev 경량 게이트 완료 — quality/full test/build는 dev→main 승격에서 실행"
 else
   if [[ "$SKIP_REDUNDANT_LOCAL_GATE" == 1 ]]; then
     # CI 가 이 head SHA 에서 이미 lint/quality/test/build 를 통과시켰다. 같은 것을 다시
@@ -640,7 +643,7 @@ GATE_HEAD="$HEAD_OID" GATE_BASE="$BASE" GATE_BASE_SHA="$(git rev-parse "origin/$
   GATE_BASE_SCRIPT_HASH="$(git rev-parse "origin/$BASE:scripts/merge-pr.sh" 2>/dev/null || true)" \
   GATE_REVIEW_DECISION="$REVIEW_DECISION" GATE_MERGE_STATE="$MERGE_STATE" \
   GATE_RUN_REVIEW="$RUN_REVIEW" GATE_REVIEW_MODE="$review_mode" GATE_REVIEW_RANGE="${REVIEW_RANGE_LABEL:-}" \
-  GATE_REVIEW_SCOPE="$([[ "$REVIEW_BLOCKERS_ONLY" == 1 ]] && echo blockers-only || echo all-findings)" \
+  GATE_REVIEW_SCOPE="$([[ "$REVIEW_INCLUDE_MINOR" == 0 ]] && echo major-and-blocker || echo all-findings)" \
   GATE_REVIEW_FILE="$REVIEW_RESULT_FILE" \
   node scripts/merge-gate-report.mjs >"$GATE_REPORT" || die "게이트 결과 기록 생성 실패 — 머지 중단"
 gh pr comment "$PR_NUM" --body-file "$GATE_REPORT" >/dev/null || die "게이트 결과 PR 댓글 실패 — 머지 중단"

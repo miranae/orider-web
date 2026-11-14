@@ -19,6 +19,7 @@ function reviewSection(review, { runReview, reviewMode, rangeLabel, scope }) {
     `  - 시도: ${attempts || "-"}`,
     `  - 범위: \`${rangeLabel || "-"}\` · ${scope} · mode=${reviewMode}`,
   ];
+  if (review.binding?.inputSha256) out.push(`  - 정책: BLOCKER/MAJOR 차단 · 의존성 포함 입력 SHA-256 \`${review.binding.inputSha256}\``);
   const findings = String(review.findings ?? "").trim();
   if (findings) {
     const shown = findings.length > FINDINGS_LIMIT ? `${findings.slice(0, FINDINGS_LIMIT)}\n…(${findings.length - FINDINGS_LIMIT}자 생략)` : findings;

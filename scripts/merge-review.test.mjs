@@ -82,7 +82,7 @@ test("both providers unavailable persist pending evidence, then exact self revie
 
 test("self review rejects changed PR/head/base/from/digest/scope and missing actual reviewer evidence", t => {
   const f = fixture(t);
-  for (const key of ["pr", "head", "base", "reviewFrom", "baseRef", "diffSha256", "scope"]) {
+  for (const key of ["pr", "head", "base", "reviewFrom", "baseRef", "diffSha256", "inputSha256", "scope"]) {
     assert.throws(() => validateSelfReview(report({ ...f.binding, [key]: "tampered" }), f.binding));
   }
   for (const change of [{ reviewer: "" }, { findings: "" }, { verdict: "PENDING" }, { reviewedAt: "" }, { extra: true }]) {
@@ -136,4 +136,29 @@ test("Claude schema drops only the draft 2020-12 declaration the CLI rejects", (
   const { $schema, ...rest } = JSON.parse(source);
   assert.ok($schema);
   assert.deepEqual(JSON.parse(claudeJsonSchema(source)), rest);
+});
+
+test("MAJOR findings override a contradictory PASS for Codex, Claude and self review", async t => {
+  for (const findings of ["MAJOR src/page.ts:1 undefined Firebase", "- **MAJOR** src/page.ts:1 pagination fails", "### [MAJOR] src/page.ts:1 broken", "1. BLOCKER src/page.ts:1 account leak"]) {
+    const response = { verdict: "PASS", findings };
+    assert.equal(parseReview(JSON.stringify(response)).verdict, "BLOCK");
+    assert.equal(parseReview(JSON.stringify({ structured_output: response }), "claude").verdict, "BLOCK");
+    const f = fixture(t);
+    assert.equal(validateSelfReview({ ...report(f.binding), ...response }, f.binding).verdict, "BLOCK");
+    let fallback = false;
+    const result = await reviewWithFallback({ ...f, providers: [
+      { name: "codex", run: async () => ({ code: 0, stdout: JSON.stringify(response) }) },
+      { name: "claude", run: async () => { fallback = true; return unavailable(); } },
+    ] });
+    assert.equal(result.state, "BLOCK"); assert.equal(fallback, false);
+  }
+});
+
+test("review evidence binds dependency context and prompt policy as well as the diff", t => {
+  const f = fixture(t), request = { pr: 42, head: "a", base: "b", scope: "major-and-blocker" };
+  const first = reviewBinding(request, "same diff", "policy and dependency source A");
+  const next = reviewBinding(request, "same diff", "policy and dependency source B");
+  assert.equal(first.diffSha256, next.diffSha256);
+  assert.notEqual(first.inputSha256, next.inputSha256);
+  assert.throws(() => validateSelfReview(report(first), next));
 });

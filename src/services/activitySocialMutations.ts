@@ -1,6 +1,7 @@
 import { announceActivityContentChange } from "./activityContentChanged";
 import { FirebaseError } from "firebase/app";
 import { httpsCallable } from "firebase/functions";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 convenience client 기본값. 임베드 소비자는 createActivitySocialMutationClient(invoke)로 별도 주입해야 한다.
 import { ensureAppCheckReady, functions } from "./firebase";
 
 export type ActivitySocialErrorKind =

@@ -122,7 +122,7 @@ export default function GroupMembersPage({ management = false }: { management?: 
         setPending(list);
         setPendingLoading(false);
 
-        void getPublicUserProfiles(list.map((item) => item.userId)).then((profiles) => {
+        void getPublicUserProfiles(list.map((item) => item.userId), firestore).then((profiles) => {
           if (!cancelled && epoch === snapshotEpoch) setPendingProfiles(profiles);
         }).catch((err) => {
           logClientError("GroupMembersPage.pendingProfiles", err, { groupId, userCount: list.length });

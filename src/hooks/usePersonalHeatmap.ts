@@ -10,7 +10,8 @@ export function clearPersonalHeatmapSessionCache(): void { sessionCache = null; 
 
 export function usePersonalHeatmap(uid: string | null | undefined, enabled: boolean) {
   // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 auth(#847).
-  const { auth } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { auth } = services;
   const [ownedPoints, setOwnedPoints] = useState<{ owner: User; uid: string; points: PersonalHeatPoint[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -37,7 +38,7 @@ export function usePersonalHeatmap(uid: string | null | undefined, enabled: bool
     setOwnedPoints(null);
     setLoading(true);
     setError(false);
-    void fetchRecentActivityTracks(uid).then((tracks) => {
+    void fetchRecentActivityTracks(uid, services).then((tracks) => {
       if (cancelled || auth.currentUser !== owner) return;
       return aggregatePersonalHeatmapAsync(tracks, undefined, undefined, {
         signal: controller.signal,
@@ -54,7 +55,7 @@ export function usePersonalHeatmap(uid: string | null | undefined, enabled: bool
       if (!cancelled) { setOwnedPoints(null); setError(true); }
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; controller.abort(); };
-  }, [auth, enabled, uid, owner]);
+  }, [auth, enabled, uid, owner, services]);
 
   return { points: ownedPoints && ownedPoints.uid === uid && ownedPoints.owner === owner ? ownedPoints.points : [], loading, error };
 }

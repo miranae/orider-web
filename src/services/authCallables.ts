@@ -1,4 +1,5 @@
 import { getFunctions, httpsCallable } from "firebase/functions";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 AuthProvider 로그인 전용. 임베드는 AuthContextProvider를 사용하고 로그인 callable을 실행하지 않는다.
 import { functions } from "./firebase";
 import { assertIsolatedStageRuntime, getRuntimeConfig } from "./runtimeConfig";
 

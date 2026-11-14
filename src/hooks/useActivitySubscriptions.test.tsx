@@ -13,7 +13,7 @@ it("waits for every relationship page and requests IDs without profile hydration
   await waitFor(() => expect(state.read).toHaveBeenCalledTimes(2));
   expect(result.current.ids).toEqual([]);
   expect(result.current.ready).toBe(false);
-  expect(state.read).toHaveBeenLastCalledWith("a", "subscriptions", "first", { hydrateProfiles: false });
+  expect(state.read).toHaveBeenLastCalledWith("a", "subscriptions", "first", expect.objectContaining({ hydrateProfiles: false, services: expect.anything() }));
   await act(async () => { finish({ items: [{ userId: "last" }], hasMore: false, cursor: "last" }); });
   expect(result.current.ids).toEqual(["first", "last"]);
   expect(result.current.ready).toBe(true);
