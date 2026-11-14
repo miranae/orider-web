@@ -1,7 +1,7 @@
 {
   "nativeMemo": {
-    "edit": "Write or edit ride description",
-    "label": "Ride description",
+    "edit": "Write or edit memo",
+    "label": "Memo",
     "reload": "Replace draft with latest description",
     "failed": "Could not load or save the description. Your draft is preserved.",
     "conflict": "The description changed elsewhere. Your draft is preserved. Load the latest description before editing again.",

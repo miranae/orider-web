@@ -101,6 +101,7 @@
   "src/components/activity/StravaSummaryPublishingLegacy.tsx",
   "src/components/activity/SwimDetailCards.tsx",
   "src/components/activity/VirtualPowerBadge.tsx",
+  "src/components/activity/activityMemoEditable.ts",
   "src/components/activity/useHydratedSocialProfiles.ts",
   "src/components/analysisChartCoordinates.ts",
   "src/components/athlete/AthleteActivityChart.tsx",

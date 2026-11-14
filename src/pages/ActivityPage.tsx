@@ -15,6 +15,7 @@ import RouteInventoryReturn from "../features/activity/detail/RouteInventoryRetu
 import { announceActivityContentChange } from "../services/activityContentChanged";
 import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
 import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
+import { canEditActivityMemo } from "../components/activity/activityMemoEditable";
 import { stravaRecordOf } from "@shared/analysis/stravaRecord";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
 import { useMobile } from "../hooks/useMobile";
@@ -1345,7 +1346,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         onDelete={id => { const photo = uploadedPhotos.find(item => item.id === id); if (photo) void handleDeletePhoto(photo); }}
         onLocate={location => { setFlyToPosition(null); setTimeout(() => setFlyToPosition(location), 10); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
         onShowResults={() => setActiveTab("segments")} />}
-      {activeTab === "overview" && isActivityOwner && activity.source === "orider" && getRuntimeConfig().publicActivityDetailEnabled === true &&
+      {activeTab === "overview" && isActivityOwner && canEditActivityMemo(activity.source) && getRuntimeConfig().publicActivityDetailEnabled === true &&
         <NativeActivityMemoEditor key={`${activity.id}:${user?.uid}`} activityId={activity.id}
           onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })} />}
       {isActivityOwner && activeTab === "overview" && <ActivityMapPrivacyControl activityId={activity.id}
