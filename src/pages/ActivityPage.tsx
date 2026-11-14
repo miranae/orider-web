@@ -14,6 +14,8 @@ import { loadActivityDiscovery } from "../services/activityDiscovery";
 import RouteInventoryReturn from "../features/activity/detail/RouteInventoryReturn";
 import { announceActivityContentChange } from "../services/activityContentChanged";
 import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
+import { hiddenProviderPhotoIds, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos, withoutHiddenStreamPhotos } from "../features/activity/detail/providerPhotoVisibility";
+import { useProviderPhotoHiding } from "../features/activity/detail/useProviderPhotoHiding";
 import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
 import { canEditActivityMemo } from "../components/activity/activityMemoEditable";
 import { stravaRecordOf } from "@shared/analysis/stravaRecord";
@@ -115,6 +117,9 @@ import { useActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
 import { ActivityFtpDecisionCard } from "../features/activity/detail/ActivityFtpDecisionCard";
 import { fitnessDateKeyFor } from "@shared/training/dateKey";
 import { ICON_SIZE } from "../theme/tokens/icon";
+
+/** 숨김 목록이 없을 때 매 렌더 같은 배열을 쓰도록 둔다(임시 값 비교가 참조로 흔들리지 않게). */
+const NO_HIDDEN_PROVIDER_IDS: string[] = [];
 
 export default function ActivityPage({ publicAccess, detailMeasurement, detailRetry }: { publicAccess?: PublicActivitySessionOptions; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void } = {}) {
   return publicAccess ? <ActivityPublicAccess {...publicAccess}>{access => <ActivityPageContent publicAccess={access} detailMeasurement={access.session.detailMeasurement} />}</ActivityPublicAccess> : <ActivityPageContent detailMeasurement={detailMeasurement} detailRetry={detailRetry} />;
@@ -229,6 +234,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const [uploadedPhotoState, setUploadedPhotoState] = useState<{ identity: string; photos: UploadedPhoto[] } | null>(null);
   const uploadedPhotos = uploadedPhotoState?.identity === uploadedPhotoIdentity ? uploadedPhotoState.photos : [];
   const [photoUploading, setPhotoUploading] = useState(false);
+  // 서버 응답으로 받은 숨김 목록. 활동 문서 구독이 새 값을 가져올 때까지 화면에 바로 반영한다.
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
   const activityNavigationRef = useRef<HTMLDivElement>(null);
@@ -661,6 +667,13 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     await updateDoc(doc(firestore, "activity_photos", activityId, "photos", photo.id), { deletedAt: Date.now() });
     showToast(t("page.photoToast.deleted"));
   };
+  // Strava 사진 숨기기·다시 보이기(주인). Strava 원본은 건드리지 않는다.
+  const providerPhotos = useProviderPhotoHiding({
+    activityId, uid: user?.uid, services: photoServices,
+    documentHiddenIds: activity?.source === "strava" ? hiddenProviderPhotoIds(activity as typeof activity & { hiddenProviderPhotosV1?: unknown }) : NO_HIDDEN_PROVIDER_IDS,
+    onDone: hidden => showToast(t(hidden ? "page.photoToast.providerHidden" : "page.photoToast.providerRestored")),
+    onError: (error, context) => { logClientError("ActivityPage.providerPhotosHidden", error, context); showToast(t("page.photoToast.providerHideFailed"), "error"); },
+  });
   const handleElevHover = useCallback((index: number | null) => setHoverIndex(index), []);
   const toggleOverlay = (key: string) => {
     setActiveOverlays((prev) => {
@@ -1144,8 +1157,14 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         </div>
   );
 
+  const hiddenProviderIds = activity.source === "strava" ? providerPhotos.hiddenIds : NO_HIDDEN_PROVIDER_IDS;
+  // 서버가 합친 피드 총수는 숨김 목록과 같은 트랜잭션에서 바뀐다 — 저장 직후 임시 목록을 쓰는 동안은
+  // 그 총수가 아직 옛 값이므로 쓰지 않는다.
+  const publishedTotalCurrent = !providerPhotos.overriding;
+  // 지도 마커·팝업도 숨긴 Strava 사진을 빼고 그린다.
+  const mapPhotos = withoutHiddenStreamPhotos(photos, hiddenProviderIds);
   const overviewPhotoCandidates: OverviewPhoto[] = [
-    ...(isActivityOwner && activity.source === "orider" && uploadedPhotoState?.identity === uploadedPhotoIdentity ? [] : activityOverviewMedia(photos, publishedContent?.photos)),
+    ...(isActivityOwner && activity.source === "orider" && uploadedPhotoState?.identity === uploadedPhotoIdentity ? [] : withoutHiddenProviderPhotos(activityOverviewMedia(photos, publishedContent?.photos), hiddenProviderIds)),
     ...uploadedPhotos.map(photo => ({ ...photo, id: `upload-${photo.id}`, uploadId: photo.id, ownerId: photo.userId })),
   ];
   // Owner uploads carry deletion/location controls; prefer them over the same published preview.
@@ -1338,7 +1357,12 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         photosKnown={!!streams || !!publishedContent || typeof activity.photoCount === "number"} memoTruncated={publishedContent?.memoTruncated} photos={overviewPhotos}
         totalPhotos={activity.source === "orider"
           ? Math.max(overviewPhotos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0)
-          : Math.max(photos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0) + uploadedPhotos.length}
+          : stravaOverviewPhotoTotal({ overviewCount: overviewPhotos.length, streamPhotoIds: photos.map(photo => String(photo.id)),
+            stravaPhotoCount: activity.photoCount, hiddenIds: hiddenProviderIds, uploadedCount: uploadedPhotoState?.identity === uploadedPhotoIdentity ? uploadedPhotos.length : null,
+            publishedTotal: publishedTotalCurrent ? publishedContent?.totalPhotoCount : undefined })}
+        onHideProviderPhoto={isActivityOwner && activity.source === "strava" ? id => { void providerPhotos.change([id], true); } : undefined}
+        hiddenProviderCount={isActivityOwner ? hiddenProviderIds.length : 0} providerPhotoBusy={providerPhotos.busy}
+        onRestoreProviderPhotos={isActivityOwner && hiddenProviderIds.length ? () => { void providerPhotos.change(hiddenProviderIds.slice(0, 50), false); } : undefined}
         companions={visibleCoRiders} achievements={overviewAchievements}
  coverPhotoId={activity.source === "orider" ? coverPhotoId : null} canChooseCover={activity.source === "orider"} owner={isActivityOwner} viewerId={user?.uid} uploading={photoUploading} canUpload={uploadedPhotos.length < MAX_PHOTOS}
         loadingPhotos={publicAccess ? publicPhotosBusy : loadingStreams || showStreamSpinner} photoError={publicAccess ? publicPhotosError : (activity.photoCount ?? 0) > overviewPhotos.length ? streamsError : null} canLoadPhotos={!streamsSignInRequired}
@@ -1386,7 +1410,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         hoveredSegment={activeTab === "analysis" && visualRange ? null : selectedMapSegment ?? hoveredSegment}
         selectedSegmentRange={selectedMapSegment}
         selectedRunRange={activeTab === "analysis" && visualRange ? visualRouteRange ?? undefined : rangeSelection.selection ? rangeSelection.routeRange : runSplitLocation?.routeRange ?? peakLocation?.routeRange}
-        photos={photos}
+        photos={mapPhotos}
         uploadedPhotos={uploadedPhotos}
         flyToPosition={flyToPosition}
         t={t}
