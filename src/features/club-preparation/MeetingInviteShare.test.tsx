@@ -1,8 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { logClientError } from "../../services/errorLogger";
 import MeetingInviteShare, { meetingInviteUrl } from "./MeetingInviteShare";
+vi.mock("../../services/errorLogger", () => ({ logClientError: vi.fn() }));
+vi.mock("../../contexts/FirebaseServicesContext", () => ({ useFirebaseServices: () => ({ scope: "embedded" }) }));
 const props = { groupId: "club", eventId: "event", title: "주말 라이딩", date: "2026-11-22", time: "09:00", place: "한강", en: false };
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
 describe("meeting invitations", () => {
   it("creates an encoded compact link without session information", () => {
     expect(meetingInviteUrl("https://orider.co.kr/", "a/b", "c?d", true)).toBe("https://orider.co.kr/en/m/a%2Fb/c%3Fd");
@@ -34,6 +37,22 @@ describe("meeting invitations", () => {
     render(<MeetingInviteShare {...props} />);
     fireEvent.click(screen.getByRole("button", { name: "초대 링크 복사" }));
     expect(await screen.findByText("아래 링크를 길게 누르거나 선택해 복사해주세요.")).toBeInTheDocument();
+    expect(logClientError).toHaveBeenCalledWith("MeetingInviteShare", expect.any(Error), expect.objectContaining({ action: "copy", eventId: "event" }), expect.objectContaining({ scope: "embedded" }));
     expect(screen.getByRole("link")).toHaveAttribute("href", `${window.location.origin}/ko/m/club/event`);
+  });
+  it("treats cancelled sharing as a normal action", async () => {
+    vi.stubGlobal("navigator", { share: vi.fn().mockRejectedValue(new DOMException("cancelled", "AbortError")) });
+    render(<MeetingInviteShare {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "공유" }));
+    await waitFor(() => expect(navigator.share).toHaveBeenCalled());
+    expect(logClientError).not.toHaveBeenCalled();
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+  });
+  it("logs a native share failure without claiming success", async () => {
+    vi.stubGlobal("navigator", { share: vi.fn().mockRejectedValue(new Error("denied")) });
+    render(<MeetingInviteShare {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "공유" }));
+    expect(await screen.findByText("공유하지 못했어요. 초대 링크 복사를 눌러주세요.")).toBeInTheDocument();
+    expect(logClientError).toHaveBeenCalledWith("MeetingInviteShare", expect.any(Error), expect.objectContaining({ action: "share" }), expect.anything());
   });
 });
