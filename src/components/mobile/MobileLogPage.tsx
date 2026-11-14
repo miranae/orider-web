@@ -238,7 +238,7 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
         style={{ height: 52, background: "var(--bg-1)", borderBottom: "1px solid var(--line-soft)", padding: "0 16px", gap: "var(--space-2)" }}>
         {/* 제목·월은 위 머리(운동 기록)와 아래 달력이 이미 보여 준다 — 가져오기 버튼만 오른쪽에 둔다. */}
         <div style={{ flex: 1 }} />
-        <Button data-testid="P1-0-2" variant="secondary" onClick={() => setImportOpen(true)} aria-label={t("mobileLog.importAria")} leadingIcon={<Upload size={ICON_SIZE.md} aria-hidden="true" />}>{t("mobileLog.importBtn")}</Button>
+        <Button data-testid="P1-0-2" size="sm" variant="secondary" onClick={() => setImportOpen(true)} aria-label={t("mobileLog.importAria")} leadingIcon={<Upload size={ICON_SIZE.md} aria-hidden="true" />}>{t("mobileLog.importBtn")}</Button>
       </div>
 
       {/* 종목 필터 — 웹 계획/기록은 같은 필터를 하위 탭 위 머리에 두므로 여기서는 숨긴다. */}

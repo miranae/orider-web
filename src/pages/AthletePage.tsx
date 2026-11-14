@@ -1,4 +1,3 @@
-import { createGearInspection, inspectGear as runGearInspection } from "../services/athleteGearInspection";
 import { planCalendarDate } from "@shared/training/planDate";
 import { createYearReadSession } from "../hooks/yearActivitiesRead";
 import { parseAthleteProfile, callAthleteProfile, loadAthleteProfilePreview, type AthleteProfileTotals, type AthletePreview, type AthleteHighlight, type AthletePreviewCursor } from "../services/athleteProfile";
@@ -149,7 +148,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const { t, i18n } = useTranslation("athlete");
   const [searchParams] = useSearchParams();
   const isOwnProfile = currentUser?.uid === userId && services.auth.currentUser?.uid === userId;
-  const { groups: ownGroups, loading: groupsLoading, error: groupsError, retry: retryGroups } = useMyGroups(isOwnProfile ? userId : undefined);
+  const { groups: ownGroups, loading: groupsLoading, error: groupsError } = useMyGroups(isOwnProfile ? userId : undefined);
 
   const { data: firestoreProfile, loading: profileLoading } = useDocument<PublicUserProfile>("users_public", userId);
   const { pdc } = usePdc(isOwnProfile ? userId : null);
@@ -171,7 +170,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   const ACTIVITIES_PAGE_SIZE = 20;
   const [displayActivities, setDisplayActivities] = useState<Activity[]>([]);
-  const [activityAttempt, setActivityAttempt] = useState(0);
+  const [activityAttempt] = useState(0);
   const [ownerActivityError, setOwnerActivityError] = useState(false);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -190,7 +189,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const [ownChartLoading, setChartLoading] = useState(true);
   const [ownChartError, setChartError] = useState(false);
 
-  const [chartAttempt, setChartAttempt] = useState(0);
+  const [chartAttempt] = useState(0);
   const [chartYear, setChartYear] = useState(() => planCalendarDate(Date.now()).getUTCFullYear());
   const chartSessionRef = useRef(createYearReadSession(userId ?? "", services));
   if (chartSessionRef.current.uid !== (userId ?? "") || chartSessionRef.current.owner !== services.auth.currentUser || chartSessionRef.current.auth !== services.auth || chartSessionRef.current.firestore !== services.firestore || !chartSessionRef.current.valid) {
@@ -231,7 +230,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   type MediaKind = "photos" | "highlights";
   const [mediaVisible, setMediaVisible] = useState({ photos: 6, highlights: 12 });
   const [mediaOrders, setMediaOrders] = useState<Record<MediaKind, "recent" | "all">>({ photos: "recent", highlights: "recent" });
-  const [mediaComplete, setMediaComplete] = useState({ photos: false, highlights: false });
+  const [, setMediaComplete] = useState({ photos: false, highlights: false });
   const [mediaLoading, setMediaLoading] = useState({ photos: false, highlights: false });
   const [mediaPending, setMediaPending] = useState({ photos: 0, highlights: 0 });
   type MediaPage = { input: AthletePreviewCursor | null; page: AthletePreview<AthletePhoto | AthleteHighlight> };
@@ -292,34 +291,6 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     }
     const cursor = kind === "photos" ? photoCursor : highlightCursor;
     if (cursor) void fetchPreview(kind, cursor, mediaOrders[kind] === "all", false, count);
-  };
-  const retryPreview = (kind: MediaKind) => {
-    const pending = [...mediaScope.pages[kind].values()].find(entry => !entry.page.coverageComplete);
-    const request = pending ? { cursor: pending.input, all: pending.page.scope === "all", replace: false } : lastMediaRequest.current[kind];
-    if (request) void fetchPreview(kind, request.cursor, request.all, request.replace);
-  };
-  const gearSessionRef = useRef(createGearInspection(userId ?? "", services));
-  if (gearSessionRef.current.uid !== (userId ?? "") || gearSessionRef.current.owner !== services.auth.currentUser || gearSessionRef.current.auth !== services.auth || gearSessionRef.current.database !== services.firestore || gearSessionRef.current.functions !== services.functions) {
-    gearSessionRef.current.valid = false;
-    gearSessionRef.current = createGearInspection(userId ?? "", services);
-  }
-  const gearSession = gearSessionRef.current;
-  useEffect(() => {
-    gearSession.valid = true;
-    setGearBusy(false); setGearError(false); setGearLimited(false);
-    return () => { gearSession.valid = false; gearSession.paused = true; };
-  }, [gearSession]);
-  const [gearBusy, setGearBusy] = useState(false);
-  const [gearError, setGearError] = useState(false);
-  const [gearLimited, setGearLimited] = useState(false);
-  const [, setGearVersion] = useState(0);
-  const inspectGear = async (all = false) => {
-    if (!isOwnProfile || gearBusy) return;
-    const session = gearSessionRef.current;
-    setGearBusy(true); setGearError(false); setGearLimited(false);
-    try { const result = await runGearInspection(session, services, () => gearSessionRef.current === session, all); if (gearSessionRef.current === session) setGearLimited(result.limited); }
-    catch (error) { if (gearSessionRef.current === session) { logClientError("AthletePage.inspectGear", error, { userId, all, loaded: session.loaded }, services); setGearError(true); } }
-    finally { if (gearSessionRef.current === session) { setGearBusy(false); setGearVersion(value => value + 1); } }
   };
 
   useEffect(() => {
@@ -888,7 +859,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           {currentUser && (
             <div className="mt-5 flex justify-center gap-2">
               {friendStatus === "none" && canSendFriendRequest && (
-                <Button
+                <Button size="sm"
                   onClick={handleSendFriendRequest}
                   disabled={friendLoading}
                   className={friendLoading ? 'cursor-wait' : undefined}
@@ -897,10 +868,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                 </Button>
               )}
               {friendStatus === "request_sent" && (
-                <Button variant="secondary" onClick={handleCancelRequest} disabled={friendLoading}>{friendLoading ? t("friend.cancelling") : t("friend.cancelRequest")}</Button>
+                <Button size="sm" variant="secondary" onClick={handleCancelRequest} disabled={friendLoading}>{friendLoading ? t("friend.cancelling") : t("friend.cancelRequest")}</Button>
               )}
               {friendStatus === "request_received" && (
-                <Button
+                <Button size="sm"
                   onClick={handleAcceptRequest}
                   disabled={friendLoading}
                   className={friendLoading ? 'cursor-wait' : undefined}
@@ -931,18 +902,18 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           {isOwnProfile && currentProfile?.stravaConnected && <Chip>Strava</Chip>}
           {profileForPage?.team && <Text as="p" variant="caption" tone="secondary">{profileForPage.team}</Text>}
           {isOwnProfile && <div className="flex flex-wrap gap-2 mt-3">
-            <Link data-testid="P0-0-2" className={buttonClass({variant: "secondary"})} to="/settings/account"><Pencil size={ICON_SIZE.md} aria-hidden="true" />{t("self.edit")}</Link>
-            <Button data-testid="P0-0-3" leadingIcon={<Share2 size={ICON_SIZE.md} aria-hidden="true" />} variant="secondary" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}${location.pathname.replace(/athlete\/me$/, `athlete/${userId}`)}`).then(() => showToast(t("self.shared"))).catch(() => showToast(t("self.shareFailed"), "error")); }}>{t("self.share")}</Button>
+            <Link data-testid="P0-0-2" className={buttonClass({ variant: "secondary", size: "sm" })} to="/settings/account"><Pencil size={ICON_SIZE.md} aria-hidden="true" />{t("self.edit")}</Link>
+            <Button data-testid="P0-0-3" size="sm" leadingIcon={<Share2 size={ICON_SIZE.md} aria-hidden="true" />} variant="secondary" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}${location.pathname.replace(/athlete\/me$/, `athlete/${userId}`)}`).then(() => showToast(t("self.shared"))).catch(() => showToast(t("self.shareFailed"), "error")); }}>{t("self.share")}</Button>
           </div>}
           {isOwnProfile && (
-            <div data-testid="P0-6"><AthleteIdentityChips pdc={pdc} activities={isOwnProfile ? gearSessionRef.current.complete ? [...gearSessionRef.current.gears.values()].map(gear => ({ gear }) as Activity) : [] : chartActivities} />{isOwnProfile && <><Text as="p" variant="caption">{t(gearSession.complete ? "profile.gearComplete" : "profile.gearIncomplete", { count: gearSession.loaded })}</Text>{!gearSession.complete && <><Button disabled={gearBusy} onClick={() => void inspectGear()}>{t("profile.inspectGear")}</Button><Button disabled={gearBusy} onClick={() => void inspectGear(true)}>{t("profile.inspectAllGear")}</Button>{gearBusy && <Button onClick={() => { gearSession.paused = true; }}>{t("profile.pauseInspection")}</Button>}</>}{gearLimited && <p role="status">{t("profile.inspectionLimit")}</p>}{gearError && <p role="alert">{t("profile.inspectionError")}</p>}</>}</div>
+            <div data-testid="P0-6"><AthleteIdentityChips pdc={pdc} activities={isOwnProfile ? [] : chartActivities} /></div>
           )}
         </div>
         {!isMe && currentUser && (
           <div data-testid="P0-0-4" className="athlete-friend-actions">
             <ActivitySubscriptionButton targetUid={userId} services={services} />
             {friendStatus === "none" && canSendFriendRequest && (
-              <Button
+              <Button size="sm"
                 onClick={handleSendFriendRequest}
                 disabled={friendLoading}
                 className={friendLoading ? 'cursor-wait' : undefined}
@@ -951,10 +922,10 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </Button>
             )}
             {friendStatus === "request_sent" && (
-              <Button variant="secondary" onClick={handleCancelRequest} disabled={friendLoading}>{friendLoading ? t("friend.cancelling") : t("friend.cancelRequest")}</Button>
+              <Button size="sm" variant="secondary" onClick={handleCancelRequest} disabled={friendLoading}>{friendLoading ? t("friend.cancelling") : t("friend.cancelRequest")}</Button>
             )}
             {friendStatus === "request_received" && (
-              <Button
+              <Button size="sm"
                 onClick={handleAcceptRequest}
                 disabled={friendLoading}
                 className={friendLoading ? 'cursor-wait' : undefined}
@@ -963,7 +934,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
               </Button>
             )}
             {friendStatus === "friends" && (
-              <Button variant="secondary" onClick={async () => {
+              <Button size="sm" variant="secondary" onClick={async () => {
                 if (!(await dialog.confirm(t("friend.confirmRemove", { nickname }), { destructive: true }))) return;
                 handleRemoveFriend();
               }} disabled={friendLoading}>{friendLoading ? t("friend.removing") : t("friend.removeAction")}</Button>
@@ -989,12 +960,12 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         </div>
       {!isOwnProfile && <div className="athlete-query-status">
         {publicGlobal.status !== "complete" && <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : `publicGlobal.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>}
-        {publicGlobal.status !== "loading" && <Button onClick={publicGlobal.status === "partial" || publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>{t(publicGlobal.status === "partial" ? "publicPeriod.globalMore" : publicGlobal.status === "error" ? "monthly.retry" : "publicPeriod.refresh")}</Button>}
+        {publicGlobal.status !== "loading" && <Button size="sm" onClick={publicGlobal.status === "partial" || publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>{t(publicGlobal.status === "partial" ? "publicPeriod.globalMore" : publicGlobal.status === "error" ? "monthly.retry" : "publicPeriod.refresh")}</Button>}
       </div>}
-        {isOwnProfile && !statsReady && <p role="status">{t(totalsError || ownerTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Text as="span" variant="caption">{t(ownerTotals?.integrityFailed ? "profile.totalsRestartScope" : "profile.totalsContinueScope")}</Text><Button onClick={() => { totalsRetry.current = { identity: readIdentity, epoch: ownerTotals?.epoch, attempt: totalsAttempt + 1 }; setTotalsAttempt(totalsAttempt + 1); }}>{t(ownerTotals?.integrityFailed ? "profile.restartTotals" : "profile.continueTotals")}</Button></p>}
+        {isOwnProfile && !statsReady && <p role="status">{t(totalsError || ownerTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Text as="span" variant="caption">{t(ownerTotals?.integrityFailed ? "profile.totalsRestartScope" : "profile.totalsContinueScope")}</Text><Button size="sm" onClick={() => { totalsRetry.current = { identity: readIdentity, epoch: ownerTotals?.epoch, attempt: totalsAttempt + 1 }; setTotalsAttempt(totalsAttempt + 1); }}>{t(ownerTotals?.integrityFailed ? "profile.restartTotals" : "profile.continueTotals")}</Button></p>}
         <Text as="p" variant="caption" tone="secondary" className="mt-2">{t(isOwnProfile ? "stats.scopeOwn" : "stats.scopePublic")}</Text>
       </section>
-          {isOwnProfile && <section><h2 className="athlete-sidebar-title">{t("profile.clubs")}</h2>{groupsLoading ? <p role="status">{t("activities.loading")}</p> : groupsError ? <div role="alert"><p>{t("profile.clubsError")}</p><Button variant="ghost" onClick={retryGroups}>{t("monthly.retry")}</Button></div> : <div className="athlete-clubs">{ownGroups.map(group => <Link key={group.id} to={`/club/${group.id}`}><span className="athlete-club-badge">{group.badge || group.name.slice(0, 3)}</span><span>{group.name}</span></Link>)}{!ownGroups.length && <Link to="/clubs">{t("profile.findClubs")}</Link>}</div>}</section>}
+          {isOwnProfile && <section><h2 className="athlete-sidebar-title">{t("profile.clubs")}</h2>{groupsLoading ? <p role="status">{t("activities.loading")}</p> : groupsError ? <div role="alert"><p>{t("profile.clubsError")}</p></div> : <div className="athlete-clubs">{ownGroups.map(group => <Link key={group.id} to={`/club/${group.id}`}><span className="athlete-club-badge">{group.badge || group.name.slice(0, 3)}</span><span>{group.name}</span></Link>)}{!ownGroups.length && <Link to="/clubs">{t("profile.findClubs")}</Link>}</div>}</section>}
           {/* Friends List */}
           {canViewFriends && <Card data-testid="P0-4" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--line-soft)] flex items-center justify-between">
@@ -1070,7 +1041,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                       {seg.status === "active" ? t("segments.status.active") : seg.status === "pending" ? t("segments.status.pending") : seg.status === "rejected" ? t("segments.status.rejected") : seg.status}
                     </span>
                     {isMe && (
-                      <Button variant="ghost" iconOnly onClick={() => handleDeleteSegment(seg.id, seg.name)} aria-label={t("segments.deleteTitle")}><Trash2 size={ICON_SIZE.md} aria-hidden="true" /></Button>
+                      <Button size="sm" variant="ghost" iconOnly onClick={() => handleDeleteSegment(seg.id, seg.name)} aria-label={t("segments.deleteTitle")}><Trash2 size={ICON_SIZE.md} aria-hidden="true" /></Button>
                     )}
                   </div>
                 ))}
@@ -1083,13 +1054,13 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           <nav aria-label={t("profile.sections")}>
             <TabNav appearance="segmented" tabs={(["overview", "activities", "photos", "achievements", "segments"] as const).map(id => ({ id, label: t(`profile.tabs.${id}`) }))} activeTab={profileTab} onChange={id => setProfileTab(id as typeof profileTab)} />
           </nav>
-          {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2>{isOwnProfile && recentPhotos.length === 0 ? <p>{t("profile.noMediaInPages")}</p> : <AthletePhotoGallery photos={recentPhotos} />}{isOwnProfile && <>{mediaLoading.photos && <p role="status">{t("profile.mediaLoading")}</p>}{mediaErrors.photos && <p role="alert">{t("profile.mediaError")}<Button onClick={() => retryPreview("photos")}>{t("monthly.retry")}</Button></p>}<Text as="p" variant="caption">{t(mediaOrders.photos === "all" ? mediaComplete.photos ? "profile.mediaAllComplete" : "profile.mediaAllScope" : "profile.mediaRecentScope")}</Text>{mediaCurrent && (photosBuffered || photoCursor) && <Button disabled={mediaLoading.photos} onClick={() => loadOlderPreview("photos")}>{t(photosBuffered ? "profile.moreCachedPhotos" : "profile.olderPhotoActivities")}</Button>}{(mediaOrders.photos !== "all" || mediaErrors.photos) && <Button disabled={mediaLoading.photos || !ownerTotals?.epoch} onClick={() => void fetchPreview("photos", null, true, true)}>{t("profile.inspectAllPhotos")}</Button>}</>}</section>}
-          {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2><p className="athlete-section-note">{t("profile.highlightsScope")}</p>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t(isOwnProfile ? "profile.noMediaInPages" : "profile.noHighlights")}</p>}{isOwnProfile && <>{mediaLoading.highlights && <p role="status">{t("profile.mediaLoading")}</p>}{mediaPending.highlights > 0 && <p role="status">{t("profile.mediaPending", { count: mediaPending.highlights })}<Button disabled={mediaLoading.highlights} onClick={() => retryPreview("highlights")}>{t("monthly.retry")}</Button></p>}{mediaErrors.highlights && <p role="alert">{t("profile.mediaError")}<Button onClick={() => retryPreview("highlights")}>{t("monthly.retry")}</Button></p>}<Text as="p" variant="caption">{t(mediaOrders.highlights === "all" ? mediaComplete.highlights ? "profile.mediaAllComplete" : "profile.mediaAllScope" : "profile.mediaRecentScope")}</Text>{mediaCurrent && (highlightsBuffered || highlightCursor) && <Button disabled={mediaLoading.highlights} onClick={() => loadOlderPreview("highlights")}>{t(highlightsBuffered ? "profile.moreCachedHighlights" : "profile.olderHighlightActivities")}</Button>}{(mediaOrders.highlights !== "all" || mediaErrors.highlights) && <Button disabled={mediaLoading.highlights || !ownerTotals?.epoch} onClick={() => void fetchPreview("highlights", null, true, true)}>{t("profile.inspectAllHighlights")}</Button>}</>}</section>}
+          {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2>{isOwnProfile && recentPhotos.length === 0 ? <p>{t("profile.noMediaInPages")}</p> : <AthletePhotoGallery photos={recentPhotos} />}{isOwnProfile && <>{mediaLoading.photos && <p role="status">{t("profile.mediaLoading")}</p>}{mediaErrors.photos && <p role="alert">{t("profile.mediaError")}</p>}{mediaCurrent && (photosBuffered || photoCursor) && <Button size="sm" disabled={mediaLoading.photos} onClick={() => loadOlderPreview("photos")}>{t(photosBuffered ? "profile.moreCachedPhotos" : "profile.olderPhotoActivities")}</Button>}</>}</section>}
+          {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t(isOwnProfile ? "profile.noMediaInPages" : "profile.noHighlights")}</p>}{isOwnProfile && <>{mediaLoading.highlights && <p role="status">{t("profile.mediaLoading")}</p>}{mediaPending.highlights > 0 && <p role="status">{t("profile.mediaPending", { count: mediaPending.highlights })}</p>}{mediaErrors.highlights && <p role="alert">{t("profile.mediaError")}</p>}{mediaCurrent && (highlightsBuffered || highlightCursor) && <Button size="sm" disabled={mediaLoading.highlights} onClick={() => loadOlderPreview("highlights")}>{t(highlightsBuffered ? "profile.moreCachedHighlights" : "profile.olderHighlightActivities")}</Button>}</>}</section>}
           {segmentsMore && <button type="button" disabled={segmentsBusy} onClick={loadMoreSegments}>{t("common:button.more")}</button>}
           {profileTab === "segments" && <section className="athlete-profile-section"><h2>{t("segments.othersTitle")}</h2>{mySegments.length ? <ul className="athlete-highlights">{mySegments.map(segment => <li key={segment.id}><Link to={`/segment/${segment.id}`}>{segment.name} · {(segment.distance / 1000).toFixed(2)} km</Link></li>)}</ul> : <p>{t("profile.noSegments")}</p>}</section>}
           {(profileTab === "overview" || profileTab === "activities") && <>
           <div className="athlete-section-heading"><label htmlFor="athlete-sport">{t("profile.sport")}</label><Select id="athlete-sport" value={sport} onChange={event => setSport(event.target.value)}>{["all", "bike", "run", "swim"].filter(isSportUiEnabled).map(value => <option key={value} value={value}>{t(`profile.sports.${value}`)}</option>)}</Select></div>
-          {!isOwnProfile ? <AthletePublicPeriodExplorer key={userId} targetUid={userId!} /> : chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p>{t(chartLimited ? "publicDiscoveryLimit" : "monthly.error")}</p>{!chartLimited && <Button onClick={() => setChartAttempt(attempt => attempt + 1)}>{t("monthly.retry")}</Button>}</div> : <AthleteActivityChart selectedYear={chartYear} availableYears={athleteProfileYears(chartSession, chartYear)} onYearChange={setChartYear} loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
+          {!isOwnProfile ? <AthletePublicPeriodExplorer key={userId} targetUid={userId!} /> : chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p>{t(chartLimited ? "publicDiscoveryLimit" : "monthly.error")}</p></div> : <AthleteActivityChart selectedYear={chartYear} availableYears={athleteProfileYears(chartSession, chartYear)} onYearChange={setChartYear} loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
 
       {isOwnProfile && <div data-testid="P0-3"><RouteTabNav revealActive tabs={[
         { to: "/athlete/me", label: t("self.overview"), end: true },
@@ -1097,7 +1068,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       ]} /></div>}
 
 
-          <div data-testid="P0-2-1" className="pb-4 border-b border-[var(--line-soft)] space-y-3">
+          <div data-testid="P0-2-1" className="pb-3 border-b border-[var(--line-soft)] space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-[length:var(--fs-xl)] font-bold text-[var(--ink-0)]">
                 {t("activities.title")}
@@ -1105,14 +1076,14 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   <span className="ml-2 text-[length:var(--fs-sm)] font-normal text-[var(--lime)]">{t("activities.searchResultCount", { count: filteredActivities.length })}</span>
                 )}
               </h2>
-              {isOwnProfile ? <Link className={buttonClass({variant: "ghost"})} to="/athlete/me/activities">{t("activities.viewAll")}<ArrowUpRight size={ICON_SIZE.md} aria-hidden="true" /></Link> : <div className="flex flex-wrap gap-1">
-                <Button variant={filterType === "all" ? "secondary" : "ghost"} aria-pressed={filterType === "all"} onClick={() => setFilterType("all")}>{t("activities.filter.all")}</Button>
-                <Button variant={filterType === "ride" ? "secondary" : "ghost"} aria-pressed={filterType === "ride"} onClick={() => setFilterType("ride")}>{t("activities.filter.ride")}</Button>
-                <Button variant={filterType === "strava" ? "secondary" : "ghost"} aria-pressed={filterType === "strava"} onClick={() => setFilterType("strava")}>{t("activities.filter.strava")}</Button>
+              {isOwnProfile ? <Link className={buttonClass({ variant: "ghost", size: "sm" })} to="/athlete/me/activities">{t("activities.viewAll")}<ArrowUpRight size={ICON_SIZE.md} aria-hidden="true" /></Link> : <div className="flex flex-wrap gap-1">
+                <Button size="sm" variant={filterType === "all" ? "secondary" : "ghost"} aria-pressed={filterType === "all"} onClick={() => setFilterType("all")}>{t("activities.filter.all")}</Button>
+                <Button size="sm" variant={filterType === "ride" ? "secondary" : "ghost"} aria-pressed={filterType === "ride"} onClick={() => setFilterType("ride")}>{t("activities.filter.ride")}</Button>
+                <Button size="sm" variant={filterType === "strava" ? "secondary" : "ghost"} aria-pressed={filterType === "strava"} onClick={() => setFilterType("strava")}>{t("activities.filter.strava")}</Button>
               </div>}
             </div>
 
-            {!isOwnProfile && !isSearchActive && (sport !== "all" || filterType !== "all") && publicGlobal.status !== "complete" && <div><Text as="p">{t("publicPeriod.filterPartial")}</Text>{publicGlobal.status === "partial" && <Button onClick={publicGlobal.more}>{t("publicPeriod.globalMore")}</Button>}</div>}
+            {!isOwnProfile && !isSearchActive && (sport !== "all" || filterType !== "all") && publicGlobal.status !== "complete" && <div><Text as="p">{t("publicPeriod.filterPartial")}</Text>{publicGlobal.status === "partial" && <Button size="sm" onClick={publicGlobal.more}>{t("publicPeriod.globalMore")}</Button>}</div>}
             {isSearchActive && <p className="athlete-section-note">{t("profile.searchScope")}</p>}
             {/* Search bar */}
             {!isOwnProfile && <div className="flex items-center gap-2">
@@ -1128,14 +1099,14 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   textAlign="end"
                 />
               </div>
-              <Button
+              <Button size="sm"
                 onClick={handleSearch}
                 disabled={!searchInput.trim()} variant="secondary"
               >
                 {t("activities.search")}
               </Button>
               {isSearchActive && (
-                <Button variant="ghost" iconOnly
+                <Button size="sm" variant="ghost" iconOnly
                   onClick={handleResetSearch}
                   aria-label={t("activities.resetSearch")}
                 >
@@ -1147,8 +1118,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             </div>}
           </div>
 
-          {isOwnProfile && ownerActivityError && <div role="alert"><Text as="p">{t("profile.activitiesReadError")}</Text><Button onClick={() => lastActivityDoc ? void handleLoadMoreActivities() : setActivityAttempt(value => value + 1)}>{t("monthly.retry")}</Button></div>}
-          {isOwnProfile && !isSearchActive && <Text as="p" variant="caption">{t(selectedPeriod ? "profile.periodFilterScope" : hasMoreActivities ? "profile.loadedFilterScope" : "profile.loadedFilterComplete", { count: activities.length })}</Text>}
+          {isOwnProfile && ownerActivityError && <div role="alert"><Text as="p">{t("profile.activitiesReadError")}</Text></div>}
+          
           <div className="relative z-0 space-y-4">
             {(activitiesLoading || searchLoading) ? (
               <div className="space-y-4">
@@ -1162,7 +1133,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                   {isSearchActive ? t("activities.emptySearch") : isOwnProfile && !selectedPeriod && hasMoreActivities ? t("profile.noMatchesInLoaded") : t("activities.empty")}
                 </p>
                 {isSearchActive && (
-                  <Button variant="ghost"
+                  <Button size="sm" variant="ghost"
                     onClick={handleResetSearch}
                     className="mt-2"
                   >
@@ -1175,7 +1146,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                 {(hasLocalFilter && (!isOwnProfile || selectedPeriod) ? filteredActivities.slice(0, periodLimit) : filteredActivities).map((activity, index) => <CompactActivityCard key={activity.id} activity={activity} priority={index === 0} />)}
                 {(!hasLocalFilter || isOwnProfile && !selectedPeriod) && !isSearchActive && hasMoreActivities && (
                   <Card variant="bare" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
-                    <Button variant="ghost" block
+                    <Button size="sm" variant="ghost" block
                       onClick={handleLoadMoreActivities}
                       disabled={loadingMore}
                     >
@@ -1196,9 +1167,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             )}
           </div>
           {!isOwnProfile && isSearchActive && publicSearchError && <Text role="alert">{t("monthly.error")}</Text>}
-          {!isOwnProfile && isSearchActive && publicSearchCursor && <Button variant="ghost" disabled={searchLoading} onClick={() => void loadMorePublicSearch()}>{t("activities.loadMore")}</Button>}
-          {!isSearchActive && (!hasLocalFilter || isOwnProfile && !selectedPeriod) && filteredActivities.length === 0 && hasMoreActivities && <Button variant="ghost" disabled={loadingMore} onClick={() => void handleLoadMoreActivities()}>{t("activities.loadMore")}</Button>}
-          {hasLocalFilter && (!isOwnProfile || selectedPeriod) && filteredActivities.length > periodLimit && <Button variant="ghost" onClick={() => setPeriodLimit(count => count + 20)}>{t("activities.loadMore")}</Button>}
+          {!isOwnProfile && isSearchActive && publicSearchCursor && <Button size="sm" variant="ghost" disabled={searchLoading} onClick={() => void loadMorePublicSearch()}>{t("activities.loadMore")}</Button>}
+          {!isSearchActive && (!hasLocalFilter || isOwnProfile && !selectedPeriod) && filteredActivities.length === 0 && hasMoreActivities && <Button size="sm" variant="ghost" disabled={loadingMore} onClick={() => void handleLoadMoreActivities()}>{t("activities.loadMore")}</Button>}
+          {hasLocalFilter && (!isOwnProfile || selectedPeriod) && filteredActivities.length > periodLimit && <Button size="sm" variant="ghost" onClick={() => setPeriodLimit(count => count + 20)}>{t("activities.loadMore")}</Button>}
           </>}
         </div>
       </div>

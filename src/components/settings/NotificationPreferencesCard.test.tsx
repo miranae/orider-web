@@ -28,9 +28,14 @@ it("drops old settings and late writes when the same UID receives a replacement 
   await act(async () => finish({ ...defaults, push: false })); expect(screen.getByRole("switch", { name: "일반 푸시 알림" })).toBeChecked();
 });
 
-it("clears settings on permission denial and lets a failed initial load retry", async () => {
+it("shows a failed initial load without a retry button", async () => {
   mock.get.mockRejectedValueOnce(new Error("offline")); render(<NotificationPreferencesCard />);
-  fireEvent.click(await screen.findByRole("button", { name: "다시 불러오기" }));
+  // 계정 화면에는 "다시 불러오기" 버튼을 두지 않는다.
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "다시 불러오기" })).not.toBeInTheDocument();
+});
+it("clears settings on permission denial", async () => {
+  render(<NotificationPreferencesCard />);
   const push = await screen.findByRole("switch", { name: "일반 푸시 알림" });
   mock.set.mockRejectedValueOnce({ code: "functions/permission-denied" }); fireEvent.click(push);
   await waitFor(() => expect(screen.queryByRole("switch")).not.toBeInTheDocument());

@@ -38,6 +38,6 @@ it("영어 화면에서 공개 항목과 오류와 재시도를 번역한다", a
     render(<PublicDataSettingsCard />);
     expect(screen.getByRole("switch", { name: "Heart rate" })).toBeDisabled();
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load public data settings.");
-    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
   } finally { await i18n.changeLanguage("ko"); }
 });
