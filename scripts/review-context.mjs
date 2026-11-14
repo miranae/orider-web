@@ -97,28 +97,12 @@ export function buildReviewContext({ repo, head, from, maxBytes = 800000, depth 
   const printer = ts.createPrinter({ removeComments: true });
   const semantics = (file, text) => printer.printFile(ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true));
   const roots = changed.filter(file => runtime.test(file) && !testFile.test(file) && files.has(file));
-  const exportChanges = new Map(), unchangedRoots = new Set();
-  const runtimeStatements = (file, text) => ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true).statements.filter(node => !ts.isImportDeclaration(node) && !ts.isInterfaceDeclaration(node) && !ts.isTypeAliasDeclaration(node));
-  const changedExports = (file, before, after) => {
-    const oldNodes = runtimeStatements(file, before), newNodes = runtimeStatements(file, after);
-    const oldText = new Map(oldNodes.map(node => [node.name?.text ?? printer.printNode(ts.EmitHint.Unspecified, node, node.getSourceFile()), printer.printNode(ts.EmitHint.Unspecified, node, node.getSourceFile())]));
-    const names = new Set();
-    for (const node of newNodes) {
-      const printed = printer.printNode(ts.EmitHint.Unspecified, node, node.getSourceFile());
-      if (oldText.get(node.name?.text ?? printed) === printed) continue;
-      const exported = node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword);
-      if (!exported || !node.name) return null; // A private helper or export assignment can affect every consumer.
-      names.add(node.modifiers.some(m => m.kind === ts.SyntaxKind.DefaultKeyword) ? "default" : node.name.text);
-    }
-    if (oldNodes.some(node => node.name && !newNodes.some(next => next.name?.text === node.name.text))) return null;
-    return names.size ? names : null;
-  };
+  const unchangedRoots = new Set();
   for (const file of roots) {
     if (files.get(file).symlink) throw new Error(`Review source cannot be a symlink: ${file}`);
     let old = "";
     try { old = git(["show", `${from}:${file}`]).toString(); } catch { /* new tracked file */ }
     if (old && semantics(file, old) === semantics(file, files.get(file).text)) { unchangedRoots.add(file); continue; }
-    exportChanges.set(file, old ? changedExports(file, old, files.get(file).text) : null);
   }
   const behavioralRoots = roots.filter(file => !unchangedRoots.has(file));
   const queue = behavioralRoots.map(file => ({ file, level: 0, reason: "changed" }));
@@ -146,7 +130,7 @@ export function buildReviewContext({ repo, head, from, maxBytes = 800000, depth 
   }
   };
   expandQueue();
-  const reverseTargets = new Map(behavioralRoots.map(file => [file, exportChanges.get(file)]));
+  const reverseTargets = new Set(behavioralRoots);
   const queuedCallers = new Set();
   let addedBarrel = true;
   while (addedBarrel) {
@@ -155,8 +139,6 @@ export function buildReviewContext({ repo, head, from, maxBytes = 800000, depth 
       if (value.symlink || testFile.test(file) || !runtime.test(file)) continue;
       for (const edge of edgesOf(file)) {
         if (!reverseTargets.has(edge.target)) continue;
-        const names = reverseTargets.get(edge.target);
-        if (names && edge.names && !edge.names.some(name => names.has(name))) continue;
         select(file, edge.reexport ? "reexport-caller" : "direct-caller");
         units.push([file, edge.target]);
         if (!queuedCallers.has(file)) {
@@ -164,7 +146,7 @@ export function buildReviewContext({ repo, head, from, maxBytes = 800000, depth 
           // Caller data/auth helpers expand transitively; unrelated UI routes stay explicit boundaries.
           queue.push({ file, level: depth, reason: edge.reexport ? "reexport-caller" : "direct-caller" });
         }
-        if (edge.reexport && !reverseTargets.has(file)) { reverseTargets.set(file, null); addedBarrel = true; }
+        if (edge.reexport && !reverseTargets.has(file)) { reverseTargets.add(file); addedBarrel = true; }
       }
     }
   }

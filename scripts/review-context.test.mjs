@@ -51,7 +51,7 @@ test('tracked source symlinks fail closed instead of reading external source', t
   assert.throws(() => buildReviewContext({ repo: f.repo, head, from: f.base }), /symlink/);
 });
 
-test('comment-only service edits do not pull unrelated callers, and changed exports select their actual callers', t => {
+test('comment-only edits are skipped but every runtime consumer of a changed module is retained', t => {
   const f = fixture(t);
   f.put('src/services/api.ts', 'export function changed() { return 1; }\nexport function stable() { return 1; }');
   f.put('src/relevant.ts', 'import { changed } from "./services/api"; console.log(changed());');
@@ -62,7 +62,7 @@ test('comment-only service edits do not pull unrelated callers, and changed expo
   const head = f.commit();
   const result = buildReviewContext({ repo: f.repo, head, from: base });
   assert.ok(result.manifest.files.some(f => f.path === 'src/relevant.ts'));
-  assert.ok(!result.manifest.files.some(f => f.path === 'src/unrelated.ts'));
+  assert.ok(result.manifest.files.some(f => f.path === 'src/unrelated.ts'));
 });
 
 test('new files are explicitly located in the complete diff rather than duplicated in context', t => {
@@ -148,4 +148,27 @@ test('caller auth helpers and consumers behind re-export barrels are expanded', 
 
 test('constant-template dynamic imports remain execution dependencies', () => {
   assert.deepEqual(sourceImports('src/a.ts', 'const load = () => import(`./service`);').map(edge => edge.specifier), ['./service']);
+});
+
+
+test('unchanged exports that delegate to changed functions retain their consumers', t => {
+  const f = fixture(t);
+  f.put('src/services/api.ts', 'export function changed() { return 1; } export function stable() { return changed(); }');
+  f.put('src/consumer.ts', 'import { stable } from "./services/api"; export const value = stable();');
+  const base = f.commit();
+  f.put('src/services/api.ts', 'export function changed() { return 2; } export function stable() { return changed(); }');
+  const result = buildReviewContext({ repo: f.repo, head: f.commit(), from: base });
+  assert.ok(result.manifest.files.some(f => f.path === 'src/consumer.ts'));
+});
+
+test('an import switch invalidates consumer filtering even when another export body is unchanged', t => {
+  const f = fixture(t);
+  f.put('src/old.ts', 'export const helper = () => 1;');
+  f.put('src/next.ts', 'export const helper = () => 2;');
+  f.put('src/services/api.ts', 'import { helper } from "../old"; export const changed = () => 1; export function stable() { return helper(); }');
+  f.put('src/consumer.ts', 'import { stable } from "./services/api"; export const value = stable();');
+  const base = f.commit();
+  f.put('src/services/api.ts', 'import { helper } from "../next"; export const changed = () => 2; export function stable() { return helper(); }');
+  const result = buildReviewContext({ repo: f.repo, head: f.commit(), from: base });
+  for (const path of ['src/consumer.ts', 'src/next.ts']) assert.ok(result.manifest.files.some(f => f.path === path));
 });
