@@ -3,8 +3,11 @@ import type { ClubMeetingListItem } from "../../services/clubMeetings";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { Card, Stack, buttonClass } from "../../theme/components";
+import { clubEventWindow, compareClubEvents, type ClubEventWindow } from "./clubEventWindow";
 export interface ClubEvent {
   id: string; name: string; status: string; startTime: number;
+  /** 종료 시각(있으면) — 시작 후 3시간이 지나도 종료 전 OPEN 은 예정이다(서버 timeWindow 와 같은 규칙). */
+  endTime: number | null;
   registered: number | null; myRsvp: boolean | null;
   /** 주최자면 목록에서 바로 수정으로 간다. 수정 가능 여부는 서버가 다시 판정한다. */
   isHost: boolean;
@@ -12,23 +15,27 @@ export interface ClubEvent {
 export function meetingEventStatus(item: ClubMeetingListItem) {
   return item.meeting.status === "cancelled" ? "CANCELLED" : item.rideStatus ?? "OPEN";
 }
-export function UnifiedClubEventList({groupId, meetings, events, status, loading, error, hasMore, onRetry}: {
-  groupId: string; meetings: ClubMeetingListItem[]; events: ClubEvent[]; status: string;
-  loading: boolean; error: boolean; hasMore: boolean; onRetry: () => void;
+/** 모임 시작 시각(KST 날짜·시각). 모르면 0 — 구간 판정은 숨기지 않는 쪽으로 본다. */
+export function meetingStartMs(item: ClubMeetingListItem): number {
+  return Date.parse(`${item.meeting.date}T${item.meeting.time}:00+09:00`) || 0;
+}
+/** @param timeWindow 다가오는(진행 중 먼저·가까운 순) / 지난(최근 순) 이벤트. 판정은 서버와 같은 `clubEventWindow`. */
+export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loading, error, hasMore, onRetry, nowMs = Date.now()}: {
+  groupId: string; meetings: ClubMeetingListItem[]; events: ClubEvent[]; timeWindow: ClubEventWindow;
+  loading: boolean; error: boolean; hasMore: boolean; onRetry: () => void; nowMs?: number;
 }) {
   const {t, i18n} = useTranslation(["group", "event"]);
   const rows = [
-    ...meetings.map(item => ({kind:"meeting" as const, id:item.eventId, status:meetingEventStatus(item),
-      at:Date.parse(`${item.meeting.date}T${item.meeting.time}:00+09:00`) || 0, item})),
-    ...events.map(event => ({kind:"event" as const, id:event.id, status:event.status, at:event.startTime, event})),
-  ].filter(row => status === "all" || row.status === status)
-    .sort((a,b) => (status === "FINISHED" || status === "CANCELLED" ? b.at-a.at : a.at-b.at) || a.id.localeCompare(b.id));
-  return <section aria-label={t("events.listLabel")} data-testid={status === "FINISHED" ? "C3-2" : "C3-1"} >
+    ...meetings.map(item => ({kind:"meeting" as const, id:item.eventId, status:meetingEventStatus(item), at:meetingStartMs(item), end:null, item})),
+    ...events.map(event => ({kind:"event" as const, id:event.id, status:event.status, at:event.startTime, end:event.endTime, event})),
+  ].filter(row => clubEventWindow(row.status, row.at, nowMs, row.end) === timeWindow)
+    .sort((a,b) => compareClubEvents(timeWindow, a, b));
+  return <section aria-label={t("events.listLabel")} data-testid={timeWindow === "past" ? "C3-2" : "C3-1"} >
     <Stack gap="var(--dim-section-gap)">
     {loading ? <LoadingSkeleton kind="list" count={3} /> : <>
       {error && <ErrorState title={t("error.loadFailed")} onRetry={onRetry} />}
       {!rows.length && !error && <div data-testid="C3-1-3"><EmptyState
-        title={hasMore ? t("event:discovery.emptyPage") : t(`events.empty.${status}`)}
+        title={hasMore ? t("event:discovery.emptyPage") : t(`events.empty.${timeWindow}`)}
         /></div>}
       {rows.map(row => {
         if (row.kind === "meeting") {

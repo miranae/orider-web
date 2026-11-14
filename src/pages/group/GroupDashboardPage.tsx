@@ -1,5 +1,6 @@
 import { useClubMeetingsApi } from "../../features/club-preparation/useClubMeetingsApi";
 import { getVisibleEventPage } from "../../services/eventDiscovery";
+import { clubEventQuery, clubEventWindow, compareClubEvents } from "../../features/group/clubEventWindow";
 import "./ClubSurface.css";
 import { LockKeyhole, Users } from "lucide-react";
 import { isActiveEventRegistration } from "../../features/event/activeRegistration";
@@ -37,6 +38,8 @@ interface UpcomingEvent {
   id: string;
   name: string;
   startTime: number;
+  /** 종료 시각(있으면) — 시작 후 3시간이 지나도 종료 전 OPEN 은 다가오는 이벤트다. */
+  endTime: number | null;
   status: string;
   participantCount: number | null;
   myRsvp: boolean | null;
@@ -104,7 +107,8 @@ export default function GroupDashboardPage() {
     (async () => {
       try {
         // 임베드(앱 클럽 상세)는 기본 Firebase 가 없다 — 화면의 서비스로 불러야 앱에서도 목록이 보인다.
-        const snap = await getVisibleEventPage({ groupId, publicOnly: !currentMemberRole, statuses: ["OPEN", "LIVE"], limit: 3 }, { auth, functions, ensureAppCheckReady });
+        // 다가오는 구간은 서버가 시작이 지난 OPEN 을 건너뛰고 3건을 채운다(#1620). 구간을 모르는 서버 응답도 같은 규칙으로 거른다.
+        const snap = await getVisibleEventPage({ groupId, publicOnly: !currentMemberRole, ...clubEventQuery("upcoming"), limit: 3 }, { auth, functions, ensureAppCheckReady });
         if (cancelled) return;
         setUpcomingIncomplete(Boolean(snap.nextCursor));
         const list: UpcomingEvent[] = await Promise.all(snap.docs.map(async (d) => {
@@ -121,9 +125,14 @@ export default function GroupDashboardPage() {
             hostIds: Array.isArray(info.hostIds) ? info.hostIds : null,
           });
           if (meeting) {
-            const snapshot = await getClubMeetingSnapshot(d.id);
-            name = snapshot.meeting.title;
-            isHost = snapshot.isHost === true;
+            // 모임 한 건을 못 읽어도 목록 전체를 실패시키지 않는다 — 이벤트 이름으로 보이고 원인을 남긴다.
+            try {
+              const snapshot = await getClubMeetingSnapshot(d.id);
+              name = snapshot.meeting.title;
+              isHost = snapshot.isHost === true;
+            } catch (err) {
+              logClientError("GroupDashboardPage.loadMeetingSnapshot", err, { groupId, eventId: d.id });
+            }
           }
           let myRsvp: boolean | null = null;
           if (!meeting && user?.uid && currentMemberRole) {
@@ -138,13 +147,19 @@ export default function GroupDashboardPage() {
             id: d.id,
             name, meeting,
             startTime,
+            endTime: typeof info.endTime === "number" ? info.endTime :
+              info.endTime?._seconds ? info.endTime._seconds * 1000 :
+              info.endTime?.seconds ? info.endTime.seconds * 1000 : null,
             status: info.status ?? "UNKNOWN",
             participantCount: typeof data.counters?.totalRegistered === "number" ? data.counters.totalRegistered : null,
             myRsvp,
             isHost,
           };
         }));
-        if (!cancelled) setUpcomingEvents(list);
+        const now = Date.now();
+        if (!cancelled) setUpcomingEvents(list
+          .filter(event => clubEventWindow(event.status, event.startTime, now, event.endTime) === "upcoming")
+          .sort((a, b) => compareClubEvents("upcoming", { ...a, at: a.startTime }, { ...b, at: b.startTime })));
       } catch (err) {
         // 인덱스 없을 시 조용히 실패
         if (!cancelled) { setUpcomingError(true); logClientError("GroupDashboardPage.loadUpcomingEvents", err, { groupId }); }

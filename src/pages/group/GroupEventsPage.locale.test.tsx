@@ -44,11 +44,10 @@ describe("club event lazy translations", () => {
     });
     expect(isolated.hasResourceBundle(language, "event")).toBe(false);
     renderWithProviders(<I18nextProvider i18n={isolated}><Suspense fallback="Loading translations"><Routes><Route path="/:lang/club/:groupId/events" element={<GroupEventsPage />} /></Routes></Suspense></I18nextProvider>, { route: `/${language}/club/club/events`, authenticated: true });
-    const resource = language === "ko" ? koEvent : enEvent;
-    expect(await screen.findByRole("button", { name: resource["status.open"] })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: resource["status.live"] })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: resource["status.finished"] })).toBeInTheDocument();
+    const group = language === "ko" ? koGroup : enGroup;
+    expect(await screen.findByRole("button", { name: group["events.window.upcoming"] })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: group["events.window.past"] })).toBeInTheDocument();
     expect(loads).toHaveBeenCalledWith("event");
-    expect(screen.queryByText("status.open")).not.toBeInTheDocument();
+    expect(screen.queryByText("events.window.upcoming")).not.toBeInTheDocument();
   });
 });

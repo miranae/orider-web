@@ -4,7 +4,8 @@ import { type DocumentData } from "firebase/firestore";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 
 export interface EventEnvelopeDoc { id: string; data(): DocumentData }
-interface Options { groupId?: string; publicOnly?: boolean; statuses?: string[]; limit?: number; cursor?: string; descending?: boolean }
+/** timeWindow: 클럽 조회의 다가오는·지난 구간(#1620). 서버가 시작 시각으로 거른다. */
+interface Options { groupId?: string; publicOnly?: boolean; statuses?: string[]; limit?: number; cursor?: string; descending?: boolean; timeWindow?: "upcoming" | "past" }
 interface Page { rows: Array<{ id: string; data: DocumentData }>; nextCursor: string | null }
 
 /** Discovery never falls back to a raw events query: that would bypass private-event filtering. */

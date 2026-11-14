@@ -495,6 +495,7 @@
   "src/features/group/PublicCafeSchedulePanel.tsx",
   "src/features/group/UnifiedClubEventList.tsx",
   "src/features/group/cafeCalendar.ts",
+  "src/features/group/clubEventWindow.ts",
   "src/features/group/groupCalendar.ts",
   "src/features/group/groupControlKeys.ts",
   "src/features/group/groupInviteAdmin.ts",
