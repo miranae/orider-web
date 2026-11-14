@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { effectiveHiddenProviderIds, hiddenProviderPhotoIds, providerPhotoIdOf, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos } from "./providerPhotoVisibility";
+import { effectiveHiddenProviderIds, hiddenProviderPhotoIds, providerPhotoIdOf, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos, withoutHiddenStreamPhotos } from "./providerPhotoVisibility";
 
 describe("Strava 사진 숨김", () => {
   it("주인이 찍힌 v1 값만 인정한다", () => {
@@ -31,5 +31,11 @@ describe("Strava 사진 숨김", () => {
     expect(effectiveHiddenProviderIds(["2"], override, "a", "me")).toEqual(["2"]);
     expect(effectiveHiddenProviderIds([], override, "b", "me")).toEqual([]);
     expect(effectiveHiddenProviderIds([], override, "a", "other")).toEqual([]);
+  });
+  it("저장 직후(서버 합계가 아직 옛 값)에는 합계를 하한으로 쓰지 않아 숨긴 사진 수가 바로 빠진다", () => {
+    expect(stravaOverviewPhotoTotal({ overviewCount: 0, streamPhotoIds: ["1"], stravaPhotoCount: 1, hiddenIds: ["1"], uploadedCount: 0, publishedTotal: undefined })).toBe(0);
+  });
+  it("지도용 스트림 사진에서도 숨긴 Strava 사진을 뺀다", () => {
+    expect(withoutHiddenStreamPhotos([{ id: 1 }, { id: "2" }, { id: 3 }], ["1", "3"])).toEqual([{ id: "2" }]);
   });
 });

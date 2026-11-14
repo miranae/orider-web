@@ -14,7 +14,7 @@ import { loadActivityDiscovery } from "../services/activityDiscovery";
 import RouteInventoryReturn from "../features/activity/detail/RouteInventoryReturn";
 import { announceActivityContentChange } from "../services/activityContentChanged";
 import { setProviderPhotosHidden, uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
-import { effectiveHiddenProviderIds, hiddenProviderPhotoIds, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos, type ProviderHiddenOverride } from "../features/activity/detail/providerPhotoVisibility";
+import { effectiveHiddenProviderIds, hiddenProviderPhotoIds, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos, withoutHiddenStreamPhotos, type ProviderHiddenOverride } from "../features/activity/detail/providerPhotoVisibility";
 import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
 import { canEditActivityMemo } from "../components/activity/activityMemoEditable";
 import { stravaRecordOf } from "@shared/analysis/stravaRecord";
@@ -1173,6 +1173,11 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const documentHiddenIds = activity.source === "strava" ? hiddenProviderPhotoIds(activity as typeof activity & { hiddenProviderPhotosV1?: unknown }) : [];
   const hiddenProviderIds = activity.source === "strava"
     ? effectiveHiddenProviderIds(documentHiddenIds, providerHiddenOverride, activity.id, user?.uid) : [];
+  // 서버가 합친 피드 총수는 숨김 목록과 같은 트랜잭션에서 바뀐다 — 저장 직후 임시 목록을 쓰는 동안은
+  // 그 총수가 아직 옛 값이므로 쓰지 않는다.
+  const publishedTotalCurrent = hiddenProviderIds === documentHiddenIds;
+  // 지도 마커·팝업도 숨긴 Strava 사진을 빼고 그린다.
+  const mapPhotos = withoutHiddenStreamPhotos(photos, hiddenProviderIds);
   const overviewPhotoCandidates: OverviewPhoto[] = [
     ...(isActivityOwner && activity.source === "orider" && uploadedPhotoState?.identity === uploadedPhotoIdentity ? [] : withoutHiddenProviderPhotos(activityOverviewMedia(photos, publishedContent?.photos), hiddenProviderIds)),
     ...uploadedPhotos.map(photo => ({ ...photo, id: `upload-${photo.id}`, uploadId: photo.id, ownerId: photo.userId })),
@@ -1369,7 +1374,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
           ? Math.max(overviewPhotos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0)
           : stravaOverviewPhotoTotal({ overviewCount: overviewPhotos.length, streamPhotoIds: photos.map(photo => String(photo.id)),
             stravaPhotoCount: activity.photoCount, hiddenIds: hiddenProviderIds, uploadedCount: uploadedPhotoState?.identity === uploadedPhotoIdentity ? uploadedPhotos.length : null,
-            publishedTotal: publishedContent?.totalPhotoCount })}
+            publishedTotal: publishedTotalCurrent ? publishedContent?.totalPhotoCount : undefined })}
         onHideProviderPhoto={isActivityOwner && activity.source === "strava" ? id => { void changeProviderPhotos([id], true); } : undefined}
         hiddenProviderCount={isActivityOwner ? hiddenProviderIds.length : 0} providerPhotoBusy={providerPhotoBusy}
         onRestoreProviderPhotos={isActivityOwner && hiddenProviderIds.length ? () => { void changeProviderPhotos(hiddenProviderIds.slice(0, 50), false); } : undefined}
@@ -1420,7 +1425,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         hoveredSegment={activeTab === "analysis" && visualRange ? null : selectedMapSegment ?? hoveredSegment}
         selectedSegmentRange={selectedMapSegment}
         selectedRunRange={activeTab === "analysis" && visualRange ? visualRouteRange ?? undefined : rangeSelection.selection ? rangeSelection.routeRange : runSplitLocation?.routeRange ?? peakLocation?.routeRange}
-        photos={photos}
+        photos={mapPhotos}
         uploadedPhotos={uploadedPhotos}
         flyToPosition={flyToPosition}
         t={t}

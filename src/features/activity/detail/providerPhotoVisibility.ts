@@ -51,3 +51,10 @@ export function effectiveHiddenProviderIds(documentIds: string[], override: Prov
   return override && override.activityId === activityId && override.uid === uid && override.base === JSON.stringify(documentIds)
     ? override.ids : documentIds;
 }
+
+/** 지도·스트림용 Strava 사진에서도 숨긴 사진을 뺀다(개요 갤러리와 같은 기준). */
+export function withoutHiddenStreamPhotos<T extends { id?: unknown }>(photos: T[], hidden: readonly string[]): T[] {
+  if (!hidden.length) return photos;
+  const set = new Set(hidden);
+  return photos.filter(photo => !set.has(String(photo.id)));
+}
