@@ -119,3 +119,15 @@ test('bounded batches cover every source and keep each caller/callee pair togeth
 test('inline type specifiers conservatively retain runtime module evaluation', () => {
   assert.deepEqual(sourceImports('src/a.ts', 'import { type A } from "./runtime"; export { type B } from "./side-effect";').map(edge => edge.specifier), ['./runtime', './side-effect']);
 });
+
+test('context-only normal web dependencies are distinguished from the actual embedded lint scope', t => {
+  const f = fixture(t);
+  f.put('eslint-embed-scope.json', JSON.stringify(['src/services/data.ts']));
+  const base = f.commit();
+  f.put('src/page.ts', 'import { load } from "./services/data"; export const page = load();');
+  const result = buildReviewContext({ repo: f.repo, head: f.commit(), from: base });
+  assert.equal(result.manifest.files.find(f => f.path === 'src/services/data.ts').embeddedReachable, true);
+  assert.equal(result.manifest.files.find(f => f.path === 'src/caller.ts').embeddedReachable, false);
+  assert.deepEqual(result.manifest.files.find(f => f.path === 'src/page.ts').runtimeDependencies, ['src/services/data.ts']);
+  assert.ok(result.manifest.embeddedScopeSha256);
+});
