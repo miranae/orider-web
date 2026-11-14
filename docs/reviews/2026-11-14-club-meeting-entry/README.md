@@ -35,6 +35,8 @@
 
 회원용 LARA 카페 일정 조회는 주입 서비스를 필수로 사용하도록 보완했고, App Check 및 응답 대기 중 같은 UID의 사용자 객체 교체를 거부하는 회귀 검사도 통과했다. 공개 소개·카페 일정 서비스 계약은 유지했다. 최신 dev의 코스 준비 상태 개선(#1628)도 충돌 해결 시 보존했다.
 
+전용 Vite 가짜 I/O가 필요한 테스트는 기본 `playwright.config.ts`의 수집에서 제외했다. Playwright CLI의 `--list --reporter=json`으로 기본 프로젝트에는 포함되지 않고 전용 설정에는 4개가 수집되는 것을 확인했다.
+
 ## 재현 증거
 
 - `npx playwright test --config e2e/club-meeting-entry.config.ts`: 모바일 390×844 / 데스크톱 1280×900, ko/en 4개 시나리오. 실제 ClubHomePage/GroupEventsPage/ClubMeetingPage/MeetingForm을 렌더하고 데이터 I/O만 가상 데이터로 제공한다. 카드 선택→기본 목록→유일 생성 버튼→실제 폼→닫기 복귀, CTA의 viewport 포함 및 가로 넘침을 검사한다.
