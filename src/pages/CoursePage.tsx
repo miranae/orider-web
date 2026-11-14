@@ -1,3 +1,4 @@
+import FirebaseSessionBoundary from "../contexts/FirebaseSessionBoundary";
 import { loadSegmentMetadata } from "../services/segmentMetadata";
 import { useDefaultSport } from "../hooks/useDefaultSport";
 import { Banana, Flag, MapPinned, Mountain, Timer } from "lucide-react";
@@ -347,6 +348,10 @@ async function extractGpsFromFile(file: File): Promise<[number, number] | null> 
 // ── Component ───────────────────────────────────────────────────────
 
 export default function CoursePage() {
+  return <FirebaseSessionBoundary><CoursePageContent /></FirebaseSessionBoundary>;
+}
+
+function CoursePageContent() {
   const { t, i18n } = useTranslation("course");
   const detailLocation = useLocation();
   const [detailParams, setDetailParams] = useSearchParams();

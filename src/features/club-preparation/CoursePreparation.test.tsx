@@ -1,6 +1,7 @@
+import { FirebaseServicesProvider, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 // @vitest-environment jsdom
 import { useState } from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CoursePreparation from './CoursePreparation';
 vi.mock('../../services/errorLogger',()=>({logClientError:vi.fn()}));
@@ -12,12 +13,12 @@ import { latestDraft } from './meetingDrafts';
 import { loadSegmentDetail, type SegmentChoice } from './segmentCatalog';
 vi.mock('./segmentCatalog',async importOriginal=>({...await importOriginal<typeof import('./segmentCatalog')>(),loadSegmentDetail:vi.fn(async choice=>choice)}));
 import { logClientError } from '../../services/errorLogger';
-import { loadCourseCatalog, loadSavedCourse, type SavedCourseChoice } from './courseCatalog';
-vi.mock('./courseCatalog',()=>({loadSavedCourse:vi.fn((id:string)=>Promise.resolve(vi.mocked(loadCourseCatalog).getMockImplementation()?.()??[]).then(items=>items.find(item=>item.id===id)??null)),loadCourseCatalogPage:(...args: unknown[])=>vi.mocked(loadCourseCatalog)(...args as []).then(items=>({items,cursor:null,hasMore:false})),loadCourseCatalog:vi.fn(),toCoursePlan:(course:SavedCourseChoice)=>({source:{kind:'saved-course',id:course.id,name:course.name},distanceKm:course.distanceKm,elevationGainM:course.elevationGainM,checkpoints:course.checkpoints,track:course.track,segments:[]})}));
+import { loadCourseCatalogPage, loadCourseCatalog, loadSavedCourse, type SavedCourseChoice } from './courseCatalog';
+vi.mock('./courseCatalog',()=>({loadSavedCourse:vi.fn((id:string)=>Promise.resolve(vi.mocked(loadCourseCatalog).getMockImplementation()?.()??[]).then(items=>items.find(item=>item.id===id)??null)),loadCourseCatalogPage:vi.fn((...args: unknown[])=>vi.mocked(loadCourseCatalog)(...args as []).then(items=>({items,cursor:null,hasMore:false}))),loadCourseCatalog:vi.fn(),toCoursePlan:(course:SavedCourseChoice)=>({source:{kind:'saved-course',id:course.id,name:course.name},distanceKm:course.distanceKm,elevationGainM:course.elevationGainM,checkpoints:course.checkpoints,track:course.track,segments:[]})}));
 const course:SavedCourseChoice={id:'saved-route',name:'기존 강변 코스',description:'강변을 따라 카페에서 쉬어요.',distanceKm:42,elevationGainM:320,checkpoints:[{name:'편의점 보급',source:'course',type:'보급',distanceKm:15,note:'물 채우기'}]};
 const gpx='<gpx><metadata><name>가을 GPX</name></metadata><wpt lat="37.005" lon="127.005"><name>중간 카페</name></wpt><trk><trkseg><trkpt lat="37" lon="127"><ele>0</ele></trkpt><trkpt lat="37.005" lon="127.005"><ele>100</ele></trkpt><trkpt lat="37.01" lon="127.01"><ele>200</ele></trkpt><trkpt lat="37.015" lon="127.015"><ele>50</ele></trkpt></trkseg></trk></gpx>';
 function Harness({initial}:{initial:Meeting}){const[meeting,setMeeting]=useState(initial);return <><CoursePreparation meeting={meeting} onChange={setMeeting} onBusyChange={vi.fn()}/><output aria-label="현재 전체 거리">{meeting.distanceKm??'미정'}</output><CoursePreview meeting={meeting}/></>;}
-beforeEach(()=>{localStorage.clear();vi.mocked(loadSegmentDetail).mockReset().mockImplementation(async choice=>choice);vi.mocked(loadCourseCatalog).mockResolvedValue([course]);});
+beforeEach(()=>{localStorage.clear();vi.mocked(loadCourseCatalogPage).mockReset().mockImplementation((...args)=>vi.mocked(loadCourseCatalog)(...args as []).then(items=>({items,cursor:null,hasMore:false})));vi.mocked(loadSegmentDetail).mockReset().mockImplementation(async choice=>choice);vi.mocked(loadCourseCatalog).mockResolvedValue([course]);});
 afterEach(()=>{cleanup();vi.clearAllMocks();vi.unstubAllGlobals();});
 const upload=()=>{const file=new File([gpx],'autumn.gpx',{type:'application/gpx+xml'});Object.defineProperty(file,'text',{value:async()=>gpx});fireEvent.change(screen.getByLabelText('코스 GPX 첨부'),{target:{files:[file]}});};
 describe('코스부터 준비하는 모집 작성',()=>{
@@ -147,4 +148,32 @@ describe('코스부터 준비하는 모집 작성',()=>{
     expect(await screen.findByText('이 코스는 지금 가져올 수 없어요.')).toBeTruthy();
     expect(screen.queryByRole('region',{name:'코스 변경 확인'})).toBeNull();
   });
+});
+
+it.each(["list", "detail"])("discards late old-app %s reads and starts the next app with a fresh cursor", async phase => {
+  const scoped = () => ({ auth: { currentUser: { uid: "same-owner" } }, firestore: {}, functions: {}, ensureAppCheckReady: vi.fn(), getAppCheckToken: vi.fn() }) as unknown as FirebaseServices;
+  const first = scoped(), next = scoped();
+  const initial = { ...createSeed().meetings[2]!, courseSource: undefined, distanceKm: undefined, elevationGainM: undefined, courseStops: [], courseCheckpoints: [], courseTrack: undefined, segments: [] };
+  const change = vi.fn(), busy = vi.fn();
+  const tree = (services: FirebaseServices) => <FirebaseServicesProvider services={services}><CoursePreparation meeting={initial} onChange={change} onBusyChange={busy} /></FirebaseServicesProvider>;
+  const oldCursor = { id: "old-app-cursor" } as unknown as NonNullable<Awaited<ReturnType<typeof loadCourseCatalogPage>>["cursor"]>;
+  let finishList!: (value: Awaited<ReturnType<typeof loadCourseCatalogPage>>) => void;
+  let finishDetail!: (value: SavedCourseChoice | null) => void;
+  vi.mocked(loadCourseCatalogPage).mockResolvedValueOnce({ items: [course], cursor: oldCursor, hasMore: true });
+  if (phase === "list") vi.mocked(loadCourseCatalogPage).mockImplementationOnce(() => new Promise(resolve => { finishList = resolve; }));
+  else vi.mocked(loadSavedCourse).mockImplementationOnce(() => new Promise(resolve => { finishDetail = resolve; }));
+  vi.mocked(loadCourseCatalogPage).mockResolvedValueOnce({ items: [{ ...course, id: "new-course", name: "New app course" }], cursor: null, hasMore: false });
+  const view = render(tree(first));
+  fireEvent.click(screen.getByRole("button", { name: "기존 코스 불러오기" }));
+  await screen.findByText(course.name);
+  if (phase === "list") fireEvent.click(screen.getByRole("button", { name: "더보기" }));
+  else fireEvent.click(screen.getByRole("button", { name: "이 코스 가져오기" }));
+  view.rerender(tree(next));
+  expect(screen.queryByText(course.name)).not.toBeInTheDocument();
+  await act(async () => { if (phase === "list") finishList({ items: [course], cursor: oldCursor, hasMore: false }); else finishDetail(course); });
+  expect(change).not.toHaveBeenCalled();
+  expect(screen.queryByText(course.name)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "기존 코스 불러오기" }));
+  await screen.findByText("New app course");
+  expect(loadCourseCatalogPage).toHaveBeenLastCalledWith(null, next);
 });

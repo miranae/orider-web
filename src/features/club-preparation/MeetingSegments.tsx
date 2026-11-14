@@ -1,3 +1,4 @@
+import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useTranslation } from "react-i18next";
 import { mt } from "./meetingText";
@@ -106,15 +107,16 @@ export function MeetingSegmentCards({
     </section>
   );
 }
-export default function MeetingSegmentPicker({
-  selected,
-  onChange,
-  onBusyChange,
-}: {
+interface MeetingSegmentPickerProps {
   selected: MeetingSegment[];
   onChange: (segments: MeetingSegment[]) => void;
   onBusyChange?: (busy: boolean) => void;
-}) {
+}
+export default function MeetingSegmentPicker(props: MeetingSegmentPickerProps) {
+  return <FirebaseSessionBoundary><MeetingSegmentPickerContent {...props} /></FirebaseSessionBoundary>;
+}
+
+function MeetingSegmentPickerContent({ selected, onChange, onBusyChange }: MeetingSegmentPickerProps) {
   const firebaseServices = useFirebaseServices();
   const [catalog, setCatalog] = useState<SegmentChoice[] | null>(null);
   const [query, setQuery] = useState("");

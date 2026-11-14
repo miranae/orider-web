@@ -1,3 +1,4 @@
+import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { mt } from "./meetingText";
 import { logClientError } from "../../services/errorLogger";
@@ -30,15 +31,16 @@ const metric = (value: number | undefined, unit: string) =>
   value === undefined
     ? mt("미정")
     : `${Number(value.toFixed(2)).toLocaleString()}${unit}`;
-export default function CoursePreparation({
-  meeting,
-  onChange,
-  onBusyChange,
-}: {
+interface CoursePreparationProps {
   meeting: Meeting;
   onChange: (meeting: Meeting) => void;
   onBusyChange: (busy: boolean) => void;
-}) {
+}
+export default function CoursePreparation(props: CoursePreparationProps) {
+  return <FirebaseSessionBoundary><CoursePreparationContent {...props} /></FirebaseSessionBoundary>;
+}
+
+function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePreparationProps) {
   const firebaseServices = useFirebaseServices();
   const [mode, setMode] = useState<Mode>(
     meeting.courseSource?.kind ?? "saved-course",
@@ -61,6 +63,9 @@ export default function CoursePreparation({
   const latest = useRef(meeting);
   latest.current = meeting;
   const readVersion = useRef(0);
+  const busyCallback = useRef(onBusyChange);
+  busyCallback.current = onBusyChange;
+  useEffect(() => () => { readVersion.current += 1; busyCallback.current(false); }, []);
   const confirmation = useRef<HTMLElement>(null);
   useEffect(() => {
     if (pending) {
