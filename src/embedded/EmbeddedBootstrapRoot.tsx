@@ -8,7 +8,7 @@ import { ToastProvider } from "../contexts/ToastContext";
 import { EmbeddedNavigationContext } from "./EmbeddedNavigationContext";
 import { EmbeddedCoachNavigation } from "./EmbeddedCoachNavigation";
 import { embeddedCoachPage } from "./coachNavigation";
-import { CLUB_DETAIL_EMBED_CAPABILITY, COURSE_DETAIL_EMBED_CAPABILITY, EMBEDDED_PERSISTENT_AUTH_CAPABILITY, SEGMENT_DETAIL_EMBED_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
+import { CLUB_DETAIL_EMBED_CAPABILITY, COURSE_DETAIL_EMBED_CAPABILITY, EMBEDDED_PERSISTENT_AUTH_CAPABILITY, SEGMENT_DETAIL_EMBED_CAPABILITY, ATHLETE_PROFILE_EMBED_CAPABILITY, embeddedInternalDestination } from "./hubNavigation";
 import { embeddedCommentId } from "./commentTarget";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -83,6 +83,7 @@ const EventDetailSurface = lazy(() => import("./surfaces/EventDetailSurface"));
 const ClubDetailSurface = lazy(() => import("./surfaces/ClubDetailSurface"));
 const CourseDetailSurface = lazy(() => import("./surfaces/CourseDetailSurface"));
 const SegmentDetailSurface = lazy(() => import("./surfaces/SegmentDetailSurface"));
+const AthleteProfileSurface = lazy(() => import("./surfaces/AthleteProfileSurface"));
 const MenuPageSurface = lazy(() => import("./surfaces/MenuPageSurface"));
 
 const CONTRACT_VERSION = 1 as const;
@@ -170,14 +171,14 @@ export type EmbeddedSurfaceKind = "activity-analysis" | "activity-public" | "eve
  * 앱 클럽·탐색 탭과 검색 화면, 클럽·코스·세그먼트 상세. 공개 목록·공개 클럽 미리보기·공개 코스·세그먼트라 로그인 인계
  * 없이(게스트) 열려도 보인다(웹 클럽 상세도 비로그인이면 PublicClubPreview 다).
  */
-export type EmbeddedHubSurfaceKind = "clubs" | "explore" | "search" | "club-detail" | "course-detail" | "segment-detail";
+export type EmbeddedHubSurfaceKind = "clubs" | "explore" | "search" | "club-detail" | "course-detail" | "segment-detail" | "athlete-profile";
 
 function isActivitySurfaceKind(kind: EmbeddedSurfaceKind): kind is "activity-analysis" | "activity-public" | "activity-edit" {
   return kind === "activity-analysis" || kind === "activity-public" || kind === "activity-edit";
 }
 
 export function isHubSurfaceKind(kind: EmbeddedSurfaceKind): kind is EmbeddedHubSurfaceKind {
-  return kind === "clubs" || kind === "explore" || kind === "search" || kind === "club-detail" || kind === "course-detail" || kind === "segment-detail";
+  return kind === "clubs" || kind === "explore" || kind === "search" || kind === "club-detail" || kind === "course-detail" || kind === "segment-detail" || kind === "athlete-profile";
 }
 
 /** host.surfaceSelected·트레이닝 캐시를 쓰지 않는 단일 표면(활동·허브). */
@@ -526,6 +527,8 @@ function AuthorizedSurface({
                 <CourseDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "segment-detail" ? (
                 <SegmentDetailSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
+              ) : surfaceKind === "athlete-profile" ? (
+                <AthleteProfileSurface retryKey={retryKey} onReady={hubReady} onError={hubError} />
               ) : surfaceKind === "activity-public" && activityId ? (
                 <PublicActivitySurface embedded activityId={activityId} commentId={embeddedTarget} retryKey={retryKey}
                   onReady={() => bridge.send("surface.ready", { activityId })}
@@ -1153,6 +1156,7 @@ export default function EmbeddedBootstrapRoot({
           CLUB_DETAIL_EMBED_CAPABILITY,
           COURSE_DETAIL_EMBED_CAPABILITY,
           SEGMENT_DETAIL_EMBED_CAPABILITY,
+          ATHLETE_PROFILE_EMBED_CAPABILITY,
           APP_MENU_EMBED_CAPABILITY,
           ...(persists ? [EMBEDDED_PERSISTENT_AUTH_CAPABILITY] : []),
           "host.lifecycle",

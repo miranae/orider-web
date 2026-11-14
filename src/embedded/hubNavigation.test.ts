@@ -3,6 +3,8 @@ import {
   embeddedClubDetailDestination,
   embeddedCourseDetailDestination,
   embeddedSegmentDetailDestination,
+  embeddedAthleteProfileDestination,
+  isEmbeddableAthleteId,
   embeddedExplorePage,
   embeddedHubDestination,
   embeddedInternalDestination,
@@ -155,5 +157,27 @@ describe("이벤트 상세 임베드 이동", () => {
     for (const path of ["/event/event-2", "/event/event-1/unknown", "https://other.invalid/event/event-1", "/club/club-1"]) {
       expect(embeddedInternalDestination(current, path)).toBeNull();
     }
+  });
+});
+
+describe("선수 프로필 임베드 이동", () => {
+  it("같은 선수 프로필(쿼리·해시)은 임베드 안에 둔다", () => {
+    expect(embeddedAthleteProfileDestination("/ko/embed/athlete/rider-1", "/ko/athlete/rider-1?tab=activities#top"))
+      .toBe("/ko/embed/athlete/rider-1?tab=activities#top");
+    expect(embeddedAthleteProfileDestination("/en/embed/athlete/rider-1/", "/athlete/rider-1")).toBe("/en/embed/athlete/rider-1");
+  });
+  it("다른 선수·하위 경로·프로필 밖·다른 origin 은 앱으로 넘긴다", () => {
+    expect(embeddedAthleteProfileDestination("/ko/embed/athlete/rider-1", "/ko/athlete/rider-2")).toBeNull();
+    expect(embeddedAthleteProfileDestination("/ko/embed/athlete/rider-1", "/ko/athlete/rider-1/friends")).toBeNull();
+    expect(embeddedAthleteProfileDestination("/ko/embed/athlete/rider-1", "/ko/activity/act-1")).toBeNull();
+    expect(embeddedAthleteProfileDestination("/ko/embed/athlete/rider-1", "https://other.invalid/athlete/rider-1")).toBeNull();
+    expect(embeddedAthleteProfileDestination("/ko/embed/segments/seg-1", "/ko/athlete/rider-1")).toBeNull();
+  });
+  it("예약 이름과 잘못된 ID 는 프로필 임베드로 열지 않는다", () => {
+    expect(isEmbeddableAthleteId("rider-1")).toBe(true);
+    expect(isEmbeddableAthleteId("me")).toBe(false);
+    expect(isEmbeddableAthleteId("a/b")).toBe(false);
+    expect(isEmbeddableAthleteId("")).toBe(false);
+    expect(isEmbeddableAthleteId(undefined)).toBe(false);
   });
 });
