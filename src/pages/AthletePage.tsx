@@ -1,4 +1,5 @@
 import { planCalendarDate } from "@shared/training/planDate";
+import SportFilterTabs from "../components/mobile/SportFilterTabs";
 import { createYearReadSession } from "../hooks/yearActivitiesRead";
 import { parseAthleteProfile, callAthleteProfile, loadAthleteProfilePreview, type AthleteProfileTotals, type AthletePreview, type AthleteHighlight, type AthletePreviewCursor } from "../services/athleteProfile";
 import type { AthletePhoto } from "../components/athlete/AthletePhotoGallery";
@@ -7,7 +8,6 @@ import AthletePublicPeriodExplorer from "../components/athlete/AthletePublicPeri
 import { loadActivityDiscovery } from "../services/activityDiscovery";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { loadSegmentMetadataPage } from "../services/segmentMetadata";
-import { isSportUiEnabled } from "../config/sportFeatures";
 import { acceptedStatsActivities, acceptedTrainingActivities } from "../utils/estimateTSS";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useLocation, useParams, useSearchParams } from "react-router-dom";
@@ -47,7 +47,7 @@ import type { Activity } from "@shared/types";
 import type { PublicUserProfile } from "../services/publicProfiles";
 import type { PdcDoc } from "@shared/types/pdc";
 import { usePdc } from "../hooks/usePdc";
-import { Button, Card, Chip, Text, Input, Select, buttonClass } from "../theme/components";
+import { Button, Card, Chip, Text, Input, buttonClass } from "../theme/components";
 import SafeImage from "../components/SafeImage";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
 import { ICON_SIZE } from "../theme/tokens/icon";
@@ -1052,14 +1052,15 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         </aside>
         <div data-testid="P0-2" className="athlete-profile-main">
           <nav aria-label={t("profile.sections")}>
-            <TabNav appearance="segmented" tabs={(["overview", "activities", "photos", "achievements", "segments"] as const).map(id => ({ id, label: t(`profile.tabs.${id}`) }))} activeTab={profileTab} onChange={id => setProfileTab(id as typeof profileTab)} />
+            <TabNav tabs={(["overview", "activities", "photos", "achievements", "segments"] as const).map(id => ({ id, label: t(`profile.tabs.${id}`) }))} activeTab={profileTab} onChange={id => setProfileTab(id as typeof profileTab)} />
           </nav>
           {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2>{isOwnProfile && recentPhotos.length === 0 ? <p>{t("profile.noMediaInPages")}</p> : <AthletePhotoGallery photos={recentPhotos} />}{isOwnProfile && <>{mediaLoading.photos && <p role="status">{t("profile.mediaLoading")}</p>}{mediaErrors.photos && <p role="alert">{t("profile.mediaError")}</p>}{mediaCurrent && (photosBuffered || photoCursor) && <Button size="sm" disabled={mediaLoading.photos} onClick={() => loadOlderPreview("photos")}>{t(photosBuffered ? "profile.moreCachedPhotos" : "profile.olderPhotoActivities")}</Button>}</>}</section>}
           {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t(isOwnProfile ? "profile.noMediaInPages" : "profile.noHighlights")}</p>}{isOwnProfile && <>{mediaLoading.highlights && <p role="status">{t("profile.mediaLoading")}</p>}{mediaPending.highlights > 0 && <p role="status">{t("profile.mediaPending", { count: mediaPending.highlights })}</p>}{mediaErrors.highlights && <p role="alert">{t("profile.mediaError")}</p>}{mediaCurrent && (highlightsBuffered || highlightCursor) && <Button size="sm" disabled={mediaLoading.highlights} onClick={() => loadOlderPreview("highlights")}>{t(highlightsBuffered ? "profile.moreCachedHighlights" : "profile.olderHighlightActivities")}</Button>}</>}</section>}
           {segmentsMore && <button type="button" disabled={segmentsBusy} onClick={loadMoreSegments}>{t("common:button.more")}</button>}
           {profileTab === "segments" && <section className="athlete-profile-section"><h2>{t("segments.othersTitle")}</h2>{mySegments.length ? <ul className="athlete-highlights">{mySegments.map(segment => <li key={segment.id}><Link to={`/segment/${segment.id}`}>{segment.name} · {(segment.distance / 1000).toFixed(2)} km</Link></li>)}</ul> : <p>{t("profile.noSegments")}</p>}</section>}
           {(profileTab === "overview" || profileTab === "activities") && <>
-          <div className="athlete-section-heading"><label htmlFor="athlete-sport">{t("profile.sport")}</label><Select id="athlete-sport" value={sport} onChange={event => setSport(event.target.value)}>{["all", "bike", "run", "swim"].filter(isSportUiEnabled).map(value => <option key={value} value={value}>{t(`profile.sports.${value}`)}</option>)}</Select></div>
+          {/* 종목 선택은 운동일지·코치와 같은 종목 탭으로 그린다(드롭다운 X). */}
+          <div className="athlete-section-heading"><SportFilterTabs value={sport} onChange={setSport} /></div>
           {!isOwnProfile ? <AthletePublicPeriodExplorer key={userId} targetUid={userId!} /> : chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p>{t(chartLimited ? "publicDiscoveryLimit" : "monthly.error")}</p></div> : <AthleteActivityChart selectedYear={chartYear} availableYears={athleteProfileYears(chartSession, chartYear)} onYearChange={setChartYear} loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
 
       {isOwnProfile && <div data-testid="P0-3"><RouteTabNav revealActive tabs={[

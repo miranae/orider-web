@@ -97,12 +97,12 @@ describe("AthletePage", () => {
     rows.push({ id: "older-run", ...createMockActivity({ deletedAt: null, id: "older-run", userId: "athlete-1", type: "Run", source: "strava", description: "Older run", startTime: new Date(2026, 7, 1).getTime(), endTime: new Date(2026, 7, 1, 2).getTime() }) });
     setCollectionDocs("activities", rows);
     renderWithProviders(<AthletePage />);
-    await screen.findByLabelText("종목");
+    await screen.findByLabelText("종목 선택");
     fireEvent.click(await screen.findByRole("button", { name: "통계 불러오기" }));
     await waitFor(() => expect(screen.queryByRole("button", {name: "통계 불러오기"})).not.toBeInTheDocument());
-    fireEvent.change(screen.getByLabelText("종목"), { target: { value: "run" } });
+    fireEvent.click(within(screen.getByLabelText("종목 선택")).getByText("러닝"));
     expect(await screen.findByRole("link", { name: "Older run" })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("종목"), { target: { value: "all" } });
+    fireEvent.click(within(screen.getByLabelText("종목 선택")).getByText("전체"));
     fireEvent.click(within(screen.getByTestId("P0-2-1")).getByRole("button", { name: "Strava" }));
     await waitFor(() => expect(screen.getAllByTestId("H1-2-1")).toHaveLength(1));
     expect(screen.getByRole("link", { name: "Older run" })).toBeInTheDocument();
@@ -543,7 +543,7 @@ it("keeps owner sport filters on loaded pages with explicit More even when an ol
     createMockActivity({ deletedAt: null, id: "old-filter-run", userId: "athlete-1", type: "Run", description: "Older loaded-page run", startTime: Date.UTC(2020, 0, 1), endTime: Date.UTC(2020, 0, 1, 1) }),
   ]);
   renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" }, route: "/ko/athlete/me/activities" });
-  fireEvent.change(await screen.findByLabelText("종목"), { target: { value: "run" } });
+  fireEvent.click(within(await screen.findByLabelText("종목 선택")).getByText("러닝"));
   expect(screen.queryByRole("link", { name: "Older loaded-page run" })).not.toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "더 보기", exact: true }));
   await screen.findByRole("link", { name: "Older loaded-page run" });
