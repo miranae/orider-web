@@ -1,3 +1,4 @@
+import { collection, doc } from "firebase/firestore";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
@@ -40,6 +41,7 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
   const emit = (type: HostBridgeEnvelope["type"], payload: unknown) => act(async () => {
     for (const listener of listeners) listener({ version: 1, type, payload });
   });
+  const docCalls = vi.mocked(doc).mock.calls.length, collectionCalls = vi.mocked(collection).mock.calls.length;
   render(<MemoryRouter initialEntries={["/ko/embed/athlete/rider-1"]}><Routes>
     <Route path="/:lang/embed/athlete/:userId/*" element={<EmbeddedBootstrapRoot bridgeFactory={() => bridge} surfaceKind="athlete-profile" />} />
   </Routes></MemoryRouter>);
@@ -57,5 +59,8 @@ it("opens the real athlete surface and paginates with only the isolated Firebase
   for (const [instance] of factories) expect(instance).toBe(isolated.functions);
   expect(auth).toBeUndefined(); expect(firestore).toBeUndefined(); expect(functions).toBeUndefined();
   expect(initFirebase).not.toHaveBeenCalled();
+  const reads = [...vi.mocked(doc).mock.calls.slice(docCalls), ...vi.mocked(collection).mock.calls.slice(collectionCalls)];
+  expect(reads.length).toBeGreaterThan(0);
+  for (const [instance] of reads) expect(instance).not.toBeUndefined();
   expect(send.mock.calls.some(([type]) => type === "surface.error")).toBe(false);
 });

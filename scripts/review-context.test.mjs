@@ -172,3 +172,17 @@ test('an import switch invalidates consumer filtering even when another export b
   const result = buildReviewContext({ repo: f.repo, head: f.commit(), from: base });
   for (const path of ['src/consumer.ts', 'src/next.ts']) assert.ok(result.manifest.files.some(f => f.path === path));
 });
+
+test('bootstrap imports and nested Firebase mock support are expanded and paired', t => {
+  const f = fixture(t);
+  f.put('src/main.tsx', 'import { start } from "./startup/auth"; start();');
+  f.put('src/startup/auth.ts', 'export const start = () => true;');
+  f.put('src/__tests__/mocks/firebaseMockSetup.ts', 'import { fake } from "./firebase"; export const setup = fake;');
+  f.put('src/__tests__/mocks/firebase.ts', 'export { fake } from "./state";');
+  f.put('src/__tests__/mocks/state.ts', 'export const fake = "ordinary Firebase always initialized";');
+  const base = f.commit();
+  f.put('src/page.ts', 'export const page = 2;');
+  const result = buildReviewContext({ repo: f.repo, head: f.commit(), from: base });
+  for (const path of ['src/startup/auth.ts', 'src/__tests__/mocks/firebase.ts', 'src/__tests__/mocks/state.ts']) assert.ok(result.manifest.files.some(f => f.path === path), path);
+  assert.equal(result.manifest.files.find(f => f.path === 'src/__tests__/mocks/firebase.ts').testSupport, true);
+});

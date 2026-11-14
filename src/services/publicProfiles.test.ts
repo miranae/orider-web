@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { getDoc } from "firebase/firestore";
+import { doc, getDoc, type Firestore } from "firebase/firestore";
 import { getPublicUserProfiles } from "./publicProfiles";
 
 describe("getPublicUserProfiles", () => {
@@ -28,4 +28,12 @@ describe("getPublicUserProfiles", () => {
 
     await expect(getPublicUserProfiles(["user-1"])).rejects.toBe(err);
   });
+});
+
+it("reads profile batches from the explicitly injected Firestore instance", async () => {
+  const database = { app: { name: "isolated" } } as unknown as Firestore;
+  vi.mocked(getDoc).mockReset().mockResolvedValueOnce({ exists: () => true, id: "named-rider", data: () => ({ nickname: "Named rider" }) } as Awaited<ReturnType<typeof getDoc>>);
+  const rows = await getPublicUserProfiles(["named-rider"], database);
+  expect(rows.get("named-rider")?.nickname).toBe("Named rider");
+  expect(doc).toHaveBeenLastCalledWith(database, "users_public", "named-rider");
 });

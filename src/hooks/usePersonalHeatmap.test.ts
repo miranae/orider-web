@@ -3,7 +3,7 @@ import { FirebaseServicesProvider, type FirebaseServices } from "../contexts/Fir
 import { auth } from "../services/firebase";
 import { simulateLogin as mockLogin, getCurrentUser } from "../__tests__/mocks/firebase";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { getDocs, orderBy, where } from "firebase/firestore";
+import { collection, getDocs, orderBy, where } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { clearPersonalHeatmapSessionCache, usePersonalHeatmap } from "./usePersonalHeatmap";
 
@@ -89,6 +89,7 @@ it("invalidates cached geometry when Firestore changes while auth and uid stay t
   view.rerender();
   expect(view.result.current.points.length).toBe(0);
   await waitFor(() => expect(getDocs).toHaveBeenCalledTimes(2));
+  expect(vi.mocked(collection).mock.calls.at(-1)?.[0]).toBe(current.firestore);
   await act(async () => finish({ docs: [] }));
   expect(view.result.current.points.length).toBe(0);
 });
