@@ -189,6 +189,11 @@ export default function ClubMeetingPage({
           onEdit={() =>
             navigate(`/club/${group.id}/meetings/${data.eventId}/edit`)
           }
+          onConfirmCourse={() =>
+            navigate(
+              `/club/${group.id}/meetings/${data.eventId}/edit?focus=course-ready`,
+            )
+          }
           onCopy={() =>
             navigate(
               `/club/${group.id}/meetings/new?copyFrom=${encodeURIComponent(data.eventId)}`,
@@ -209,6 +214,9 @@ export default function ClubMeetingPage({
           draftNamespace={`${encodeURIComponent(user.uid)}.${encodeURIComponent(group.id)}.${mode === "new" ? (sourceId ? `copy-${encodeURIComponent(sourceId)}` : "new") : "edit"}`}
           initialRevision={mode === "edit" ? data?.revision : undefined}
           english={en}
+          focusCourseReady={
+            mode === "edit" && search.get("focus") === "course-ready"
+          }
           onClose={() => navigate(`/club/${group.id}/events`)}
           onSave={async (meeting, baseRevision) => {
             try {
@@ -253,6 +261,7 @@ function ServerMeetingDetail({
   reload,
   loadOlderNotices,
   onEdit,
+  onConfirmCourse,
   onCopy,
 }: {
   data: ClubMeetingSnapshot;
@@ -262,6 +271,7 @@ function ServerMeetingDetail({
   reload: () => Promise<void>;
   loadOlderNotices: () => Promise<void>;
   onEdit: () => void;
+  onConfirmCourse: () => void;
   onCopy: () => void;
 }) {
   const { setClubMeetingRecruitment, cancelClubMeeting, clubMeetingAttendance, publishClubMeetingNotice, confirmClubMeetingNotice, saveClubMeetingTeams, finishClubMeeting } = useClubMeetingsApi();
@@ -599,6 +609,7 @@ function ServerMeetingDetail({
             meeting={meeting}
             descriptionMode="course-only"
             onEdit={data.isHost && live ? onEdit : undefined}
+            onConfirmCourse={data.isHost && live ? onConfirmCourse : undefined}
           />
         </div>
       </div>
