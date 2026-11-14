@@ -344,6 +344,7 @@
   "src/features/activity/detail/summaryStripStats.ts",
   "src/features/activity/detail/useActivityStreamsLoader.ts",
   "src/features/activity/detail/useAuthorizedActivityComments.ts",
+  "src/features/activity/detail/useProviderPhotoHiding.ts",
   "src/features/activity/detail/useRunSplitLocation.ts",
   "src/features/activity/share/ActivityShareButton.tsx",
   "src/features/activity/share/ActivityShareMapCapture.tsx",
