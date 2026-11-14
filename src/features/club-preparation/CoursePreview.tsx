@@ -1,5 +1,6 @@
 import { mt } from "./meetingText";
-import { Mountain, Route } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, Mountain, Route } from "lucide-react";
 import { Card, Button, Chip } from "../../theme/components";
 import type { Meeting } from "./domain";
 import ClubCourseMap from "./ClubCourseMap";
@@ -50,12 +51,16 @@ export function CourseSummary({ meeting }: { meeting: Meeting }) {
 export default function CoursePreview({
   meeting,
   onEdit,
+  onConfirmCourse,
   descriptionMode = "full",
 }: {
   meeting: Meeting;
   onEdit?: () => void;
+  /** 코스 확정 권한이 있을 때 「최종 코스 준비 중」 칩을 누르면 확정 칸으로 데려간다. */
+  onConfirmCourse?: () => void;
   descriptionMode?: "full" | "course-only";
 }) {
+  const [pendingNoteOpen, setPendingNoteOpen] = useState(false);
   const track = meeting.courseTrack;
   const checkpoints = [...(meeting.courseCheckpoints ?? [])].sort(
     (a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity),
@@ -67,10 +72,31 @@ export default function CoursePreview({
     <Card className="cp-course-preview" aria-label={mt("코스 소개와 코스맵")}>
       <div className="cp-section-heading">
         <h2>{mt("이런 길을 함께 달려요")}</h2>
-        <Chip variant={meeting.courseReady ? "success" : "warning"}>
-          {meeting.courseReady ? mt("코스 안내") : mt("최종 코스 준비 중")}
-        </Chip>
+        {meeting.courseReady ? (
+          <Chip variant="success">{mt("코스 안내")}</Chip>
+        ) : (
+          // 경고 칩은 눌러서 해결(주최자: 확정 칸으로 이동)하거나 확인(참가자: 안내 펼침)할 수 있어야 한다.
+          <Chip
+            variant="warning"
+            onClick={
+              onConfirmCourse ?? (() => setPendingNoteOpen((open) => !open))
+            }
+            aria-expanded={onConfirmCourse ? undefined : pendingNoteOpen}
+            aria-controls={onConfirmCourse ? undefined : "cp-course-pending-note"}
+            title={onConfirmCourse ? mt("코스 확정하러 가기") : undefined}
+          >
+            {mt("최종 코스 준비 중")}
+            {onConfirmCourse && <ChevronRight size={ICON_SIZE.sm} aria-hidden />}
+          </Chip>
+        )}
       </div>
+      {!meeting.courseReady && !onConfirmCourse && pendingNoteOpen && (
+        <p id="cp-course-pending-note" className="cp-muted" role="status">
+          {mt(
+            "주최자가 아직 최종 코스를 확정하지 않았어요. 확정되면 모임 안내로 알려드려요.",
+          )}
+        </p>
+      )}
       <p>
         {meeting.courseHighlights ||
           (descriptionMode === "full" ? meeting.description : "") ||
