@@ -1,3 +1,4 @@
+import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { Button, Text, Input } from "../../theme/components";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEffect, useId, useRef, useState } from "react";
@@ -24,7 +25,11 @@ interface SearchResult {
   profile: PublicUserProfile;
 }
 
-export default function InviteMemberModal({ open, onClose, groupId, inviteCode, inviteStatus, onRetry }: InviteMemberModalProps) {
+export default function InviteMemberModal(props: InviteMemberModalProps) {
+  return <FirebaseSessionBoundary><InviteMemberModalContent {...props} /></FirebaseSessionBoundary>;
+}
+
+function InviteMemberModalContent({ open, onClose, groupId, inviteCode, inviteStatus, onRetry }: InviteMemberModalProps) {
   const { auth, ensureAppCheckReady, functions, firestore } = useFirebaseServices();
   const { user } = useAuth();
   const uid = user?.uid;

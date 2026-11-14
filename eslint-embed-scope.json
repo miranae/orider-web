@@ -203,6 +203,7 @@
   "src/contexts/AuthContext.tsx",
   "src/contexts/DialogContext.tsx",
   "src/contexts/FirebaseServicesContext.tsx",
+  "src/contexts/FirebaseSessionBoundary.tsx",
   "src/contexts/LocaleContext.tsx",
   "src/contexts/RetainedPageContext.ts",
   "src/contexts/ThemeContext.tsx",

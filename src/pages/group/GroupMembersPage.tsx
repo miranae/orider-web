@@ -1,3 +1,4 @@
+import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { handleGroupChoiceKey } from "../../features/group/groupControlKeys";
 import GroupRequestHistory from "../../components/group/GroupRequestHistory";
 import { Inbox, Search, Users } from "lucide-react";
@@ -45,7 +46,11 @@ interface InvitationDoc {
   status: string;
 }
 
-export default function GroupMembersPage({ management = false }: { management?: boolean }) {
+export default function GroupMembersPage(props: { management?: boolean }) {
+  return <FirebaseSessionBoundary><GroupMembersContent {...props} /></FirebaseSessionBoundary>;
+}
+
+function GroupMembersContent({ management = false }: { management?: boolean }) {
   const { auth, ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const { t, i18n } = useTranslation("group");
   const { groupId } = useParams();

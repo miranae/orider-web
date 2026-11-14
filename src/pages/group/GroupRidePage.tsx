@@ -1,3 +1,4 @@
+import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { usePublicActivityMaps } from "../../hooks/usePublicActivityMaps";
 import { useGroupRideActivities } from "../../hooks/useGroupRideActivities";
 import { X, LocateFixed } from "lucide-react";
@@ -49,6 +50,10 @@ import { ICON_SIZE } from "../../theme/tokens/icon";
 
 
 export default function GroupRidePage() {
+  return <FirebaseSessionBoundary><GroupRideContent /></FirebaseSessionBoundary>;
+}
+
+function GroupRideContent() {
   const { auth, ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const mapboxToken = getMapboxToken();
   const [webglSupported] = useState(supportsWebGL);

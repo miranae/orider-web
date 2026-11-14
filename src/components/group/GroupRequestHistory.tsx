@@ -1,3 +1,4 @@
+import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { useEffect, useRef, useState } from "react";
 import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -10,7 +11,12 @@ import { normalizeStartTime } from "../../utils/event-time";
 import { logClientError } from "../../services/errorLogger";
 
 interface RequestRow { id: string; userId: string; groupId: string; name: string; status: string; requestedAt: number; resolvedAt: number }
-export default function GroupRequestHistory({ userId, groupId, sectionId }: { userId?: string; groupId?: string; sectionId?: string }) {
+type GroupRequestHistoryProps = { userId?: string; groupId?: string; sectionId?: string };
+export default function GroupRequestHistory(props: GroupRequestHistoryProps) {
+  return <FirebaseSessionBoundary><GroupRequestHistoryContent {...props} /></FirebaseSessionBoundary>;
+}
+
+function GroupRequestHistoryContent({ userId, groupId, sectionId }: GroupRequestHistoryProps) {
   const { t, i18n } = useTranslation("group");
   const dialog = useDialog();
   const { auth, ensureAppCheckReady, firestore, functions } = useFirebaseServices();
