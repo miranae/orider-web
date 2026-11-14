@@ -13,8 +13,9 @@ import ActivityMapPrivacyControl from "../components/activity/ActivityMapPrivacy
 import { loadActivityDiscovery } from "../services/activityDiscovery";
 import RouteInventoryReturn from "../features/activity/detail/RouteInventoryReturn";
 import { announceActivityContentChange } from "../services/activityContentChanged";
-import { setProviderPhotosHidden, uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
-import { effectiveHiddenProviderIds, hiddenProviderPhotoIds, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos, withoutHiddenStreamPhotos, type ProviderHiddenOverride } from "../features/activity/detail/providerPhotoVisibility";
+import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
+import { hiddenProviderPhotoIds, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos, withoutHiddenStreamPhotos } from "../features/activity/detail/providerPhotoVisibility";
+import { useProviderPhotoHiding } from "../features/activity/detail/useProviderPhotoHiding";
 import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
 import { canEditActivityMemo } from "../components/activity/activityMemoEditable";
 import { stravaRecordOf } from "@shared/analysis/stravaRecord";
@@ -116,6 +117,9 @@ import { useActivityAnalysisModel } from "../hooks/useActivityAnalysisModel";
 import { ActivityFtpDecisionCard } from "../features/activity/detail/ActivityFtpDecisionCard";
 import { fitnessDateKeyFor } from "@shared/training/dateKey";
 import { ICON_SIZE } from "../theme/tokens/icon";
+
+/** 숨김 목록이 없을 때 매 렌더 같은 배열을 쓰도록 둔다(임시 값 비교가 참조로 흔들리지 않게). */
+const NO_HIDDEN_PROVIDER_IDS: string[] = [];
 
 export default function ActivityPage({ publicAccess, detailMeasurement, detailRetry }: { publicAccess?: PublicActivitySessionOptions; detailMeasurement?: (outcome: JourneyOutcome) => void; detailRetry?: () => void } = {}) {
   return publicAccess ? <ActivityPublicAccess {...publicAccess}>{access => <ActivityPageContent publicAccess={access} detailMeasurement={access.session.detailMeasurement} />}</ActivityPublicAccess> : <ActivityPageContent detailMeasurement={detailMeasurement} detailRetry={detailRetry} />;
@@ -231,10 +235,6 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const uploadedPhotos = uploadedPhotoState?.identity === uploadedPhotoIdentity ? uploadedPhotoState.photos : [];
   const [photoUploading, setPhotoUploading] = useState(false);
   // 서버 응답으로 받은 숨김 목록. 활동 문서 구독이 새 값을 가져올 때까지 화면에 바로 반영한다.
-  // base: 저장할 때 활동 문서가 갖고 있던 목록. 문서 목록이 그 뒤 바뀌면(이 저장 반영·다른 탭 변경 모두)
-  // 임시 값을 버리고 문서를 따른다. 활동·계정이 바뀌어도 쓰지 않는다.
-  const [providerHiddenOverride, setProviderHiddenOverride] = useState<ProviderHiddenOverride | null>(null);
-  const [providerPhotoBusy, setProviderPhotoBusy] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [flyToPosition, setFlyToPosition] = useState<[number, number] | null>(null);
   const activityNavigationRef = useRef<HTMLDivElement>(null);
@@ -667,26 +667,13 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     await updateDoc(doc(firestore, "activity_photos", activityId, "photos", photo.id), { deletedAt: Date.now() });
     showToast(t("page.photoToast.deleted"));
   };
-  // 활동 문서의 숨김 목록이 저장 당시와 달라지면(반영 완료·다른 탭 변경) 임시 값을 지운다 — 이후는 문서만 따른다.
-  useEffect(() => {
-    if (!providerHiddenOverride || !activity) return;
-    if (JSON.stringify(hiddenProviderPhotoIds(activity as typeof activity & { hiddenProviderPhotosV1?: unknown })) !== providerHiddenOverride.base) setProviderHiddenOverride(null);
-  }, [activity, providerHiddenOverride]);
   // Strava 사진 숨기기·다시 보이기(주인). Strava 원본은 건드리지 않는다.
-  const changeProviderPhotos = async (photoIds: string[], hidden: boolean) => {
-    if (!activityId || !photoIds.length || providerPhotoBusy) return;
-    const target = activityId;
-    setProviderPhotoBusy(true);
-    try {
-      const base = activity ? JSON.stringify(hiddenProviderPhotoIds(activity as typeof activity & { hiddenProviderPhotosV1?: unknown })) : "[]";
-      const ids = await setProviderPhotosHidden(photoServices, target, photoIds, hidden);
-      setProviderHiddenOverride({ activityId: target, uid: user?.uid, base, ids });
-      showToast(t(hidden ? "page.photoToast.providerHidden" : "page.photoToast.providerRestored"));
-    } catch (error) {
-      logClientError("ActivityPage.providerPhotosHidden", error, { activityId: target, hidden, count: photoIds.length });
-      showToast(t("page.photoToast.providerHideFailed"), "error");
-    } finally { setProviderPhotoBusy(false); }
-  };
+  const providerPhotos = useProviderPhotoHiding({
+    activityId, uid: user?.uid, services: photoServices,
+    documentHiddenIds: activity?.source === "strava" ? hiddenProviderPhotoIds(activity as typeof activity & { hiddenProviderPhotosV1?: unknown }) : NO_HIDDEN_PROVIDER_IDS,
+    onDone: hidden => showToast(t(hidden ? "page.photoToast.providerHidden" : "page.photoToast.providerRestored")),
+    onError: (error, context) => { logClientError("ActivityPage.providerPhotosHidden", error, context); showToast(t("page.photoToast.providerHideFailed"), "error"); },
+  });
   const handleElevHover = useCallback((index: number | null) => setHoverIndex(index), []);
   const toggleOverlay = (key: string) => {
     setActiveOverlays((prev) => {
@@ -1170,12 +1157,10 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         </div>
   );
 
-  const documentHiddenIds = activity.source === "strava" ? hiddenProviderPhotoIds(activity as typeof activity & { hiddenProviderPhotosV1?: unknown }) : [];
-  const hiddenProviderIds = activity.source === "strava"
-    ? effectiveHiddenProviderIds(documentHiddenIds, providerHiddenOverride, activity.id, user?.uid) : [];
+  const hiddenProviderIds = activity.source === "strava" ? providerPhotos.hiddenIds : NO_HIDDEN_PROVIDER_IDS;
   // 서버가 합친 피드 총수는 숨김 목록과 같은 트랜잭션에서 바뀐다 — 저장 직후 임시 목록을 쓰는 동안은
   // 그 총수가 아직 옛 값이므로 쓰지 않는다.
-  const publishedTotalCurrent = hiddenProviderIds === documentHiddenIds;
+  const publishedTotalCurrent = !providerPhotos.overriding;
   // 지도 마커·팝업도 숨긴 Strava 사진을 빼고 그린다.
   const mapPhotos = withoutHiddenStreamPhotos(photos, hiddenProviderIds);
   const overviewPhotoCandidates: OverviewPhoto[] = [
@@ -1375,9 +1360,9 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
           : stravaOverviewPhotoTotal({ overviewCount: overviewPhotos.length, streamPhotoIds: photos.map(photo => String(photo.id)),
             stravaPhotoCount: activity.photoCount, hiddenIds: hiddenProviderIds, uploadedCount: uploadedPhotoState?.identity === uploadedPhotoIdentity ? uploadedPhotos.length : null,
             publishedTotal: publishedTotalCurrent ? publishedContent?.totalPhotoCount : undefined })}
-        onHideProviderPhoto={isActivityOwner && activity.source === "strava" ? id => { void changeProviderPhotos([id], true); } : undefined}
-        hiddenProviderCount={isActivityOwner ? hiddenProviderIds.length : 0} providerPhotoBusy={providerPhotoBusy}
-        onRestoreProviderPhotos={isActivityOwner && hiddenProviderIds.length ? () => { void changeProviderPhotos(hiddenProviderIds.slice(0, 50), false); } : undefined}
+        onHideProviderPhoto={isActivityOwner && activity.source === "strava" ? id => { void providerPhotos.change([id], true); } : undefined}
+        hiddenProviderCount={isActivityOwner ? hiddenProviderIds.length : 0} providerPhotoBusy={providerPhotos.busy}
+        onRestoreProviderPhotos={isActivityOwner && hiddenProviderIds.length ? () => { void providerPhotos.change(hiddenProviderIds.slice(0, 50), false); } : undefined}
         companions={visibleCoRiders} achievements={overviewAchievements}
  coverPhotoId={activity.source === "orider" ? coverPhotoId : null} canChooseCover={activity.source === "orider"} owner={isActivityOwner} viewerId={user?.uid} uploading={photoUploading} canUpload={uploadedPhotos.length < MAX_PHOTOS}
         loadingPhotos={publicAccess ? publicPhotosBusy : loadingStreams || showStreamSpinner} photoError={publicAccess ? publicPhotosError : (activity.photoCount ?? 0) > overviewPhotos.length ? streamsError : null} canLoadPhotos={!streamsSignInRequired}
