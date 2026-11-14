@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "../../theme/components/Button";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
 import type { Meeting, MeetingVenue, State } from "./domain";
+import { indoorCourseIssue } from "./domain";
 import CoursePreparation from "./CoursePreparation";
 import CoursePreview, { CourseSummary } from "./CoursePreview";
 import { clearDraft, draftScope, readDraft, writeDraft } from "./meetingDrafts";
@@ -113,6 +114,12 @@ export default function MeetingForm({
     if (startNotFuture()) return;
     if (!draft.venue) {
       setSaveError(mt("실내 모임인지 실외 모임인지 선택해주세요."));
+      return;
+    }
+    // 실내 모임은 이어진 코스 경로가 있어야 출발 시각에 시작할 수 있다 — 저장 전에 막는다(2026-11-14).
+    const indoorIssue = indoorCourseIssue(draft);
+    if (indoorIssue) {
+      setSaveError(mt(indoorIssue));
       return;
     }
     if (!existing && !dateConfirmed) {
