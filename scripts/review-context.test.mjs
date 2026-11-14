@@ -50,3 +50,28 @@ test('tracked source symlinks fail closed instead of reading external source', t
   const head = f.commit();
   assert.throws(() => buildReviewContext({ repo: f.repo, head, from: f.base }), /symlink/);
 });
+
+test('comment-only service edits do not pull unrelated callers, and changed exports select their actual callers', t => {
+  const f = fixture(t);
+  f.put('src/services/api.ts', 'export function changed() { return 1; }\nexport function stable() { return 1; }');
+  f.put('src/relevant.ts', 'import { changed } from "./services/api"; console.log(changed());');
+  f.put('src/unrelated.ts', 'import { stable } from "./services/api"; console.log(stable());');
+  const base = f.commit();
+  f.put('src/services/api.ts', 'export function changed() { return 2; }\nexport function stable() { return 1; }');
+  f.put('src/services/data.ts', '// documented ordinary-web fallback\nimport { auth } from "./firebase"; export const load = () => auth.currentUser;');
+  const head = f.commit();
+  const result = buildReviewContext({ repo: f.repo, head, from: base });
+  assert.ok(result.manifest.files.some(f => f.path === 'src/relevant.ts'));
+  assert.ok(!result.manifest.files.some(f => f.path === 'src/unrelated.ts'));
+});
+
+test('new files are explicitly located in the complete diff rather than duplicated in context', t => {
+  const f = fixture(t);
+  f.put('src/new.ts', 'import { load } from "./services/data"; export const next = load();');
+  const head = f.commit();
+  const result = buildReviewContext({ repo: f.repo, head, from: f.base });
+  assert.equal(result.manifest.files.find(f => f.path === 'src/new.ts').contentLocation, 'diff');
+  assert.equal(result.manifest.files.find(f => f.path === 'src/services/data.ts').contentLocation, 'context');
+  assert.match(result.text, /auth.currentUser/);
+  assert.doesNotMatch(result.text, /--- source: src\/new.ts ---/);
+});
