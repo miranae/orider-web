@@ -31,6 +31,8 @@
 
 남은 검증 한계: 실제 사용자 과업 성공률과 iPhone/Android 실기기 UX는 측정하지 않았다. 자동화 결과와 구분한다.
 
+브라우저 회귀 테스트 fixture/config/spec은 리뷰 입력 한도를 지키기 위해 동반 PR로 분리한다. 아래 브라우저 결과와 이미지는 분리 전 동일 구현을 실제 실행해 얻었으며, 동반 PR의 머지까지 완료해야 작업 완료로 판정한다.
+
 ## 재현 증거
 
 - `npx playwright test --config e2e/club-meeting-entry.config.ts`: 모바일 390×844 / 데스크톱 1280×900, ko/en 4개 시나리오. 실제 ClubHomePage/GroupEventsPage/ClubMeetingPage/MeetingForm을 렌더하고 데이터 I/O만 가상 데이터로 제공한다. 카드 선택→기본 목록→유일 생성 버튼→실제 폼→닫기 복귀, CTA의 viewport 포함 및 가로 넘침을 검사한다.
