@@ -358,6 +358,7 @@
   "src/features/club-preparation/HostPreparationChecklist.tsx",
   "src/features/club-preparation/MeetingDiscord.tsx",
   "src/features/club-preparation/MeetingForm.tsx",
+  "src/features/club-preparation/MeetingInviteShare.tsx",
   "src/features/club-preparation/MeetingPeople.tsx",
   "src/features/club-preparation/MeetingSegments.tsx",
   "src/features/club-preparation/MeetingTeams.tsx",
