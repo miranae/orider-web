@@ -5,7 +5,8 @@
     <h4>이 장에서 할 수 있는 것</h4>
     <ul>
       <li>Strava를 연결해 새 활동을 자동으로 받고, 과거 활동을 한 번에 가져옵니다.</li>
-      <li>Apple Health · Health Connect 같은 헬스 데이터 소스의 상태를 확인합니다.</li>
+      <li>활동을 Strava에 자동으로 올리고, Strava 활동 설명에 오라이더 요약을 자동으로 게시합니다.</li>
+      <li>Apple Health · Health Connect 같은 헬스 데이터 소스의 상태와 보존 기간을 확인합니다.</li>
       <li>연결을 끊거나, 가져온 기록이 제대로 들어왔는지 점검합니다.</li>
     </ul>
   </div>
@@ -14,19 +15,21 @@
   <div class="card">
     <h4>따라 하기</h4>
     <ol>
-      <li>오른쪽 위 톱니바퀴 &gt; 왼쪽 <strong>연결 앱</strong>을 엽니다.</li>
+      <li>오른쪽 위 아바타 &gt; <strong>설정</strong> &gt; 왼쪽 <strong>연결 앱</strong>을 엽니다. (휴대폰 화면은 아바타 &gt; 설정으로 들어간 뒤, 왼쪽 위 화살표로 설정 카테고리를 열고 연결 앱을 고릅니다.)</li>
       <li><strong>활동 앱 연결</strong> 카드의 Strava 줄에서 <strong>연결</strong>을 누릅니다.</li>
       <li>Strava 화면에서 오라이더의 접근을 승인합니다.</li>
       <li>오라이더로 돌아오면 Strava 줄에 <strong>연결 해제</strong> 버튼이 보이고, 카드 오른쪽 위 숫자가 "1개 연결됨"으로 바뀝니다.</li>
     </ol>
-    <div class="info">Garmin · Wahoo 같은 다른 활동 앱은 <strong>준비 중인 활동 앱</strong>을 펼치면 보이며, 아직 연결할 수 없습니다. 앱과 웹의 Strava 연결 상태는 서로 맞춰집니다.</div>
+    <div class="info">Garmin Connect · Wahoo SYSTM 같은 다른 활동 앱은 <strong>준비 중인 활동 앱</strong>을 펼치면 보이며, 아직 연결할 수 없습니다. 앱과 웹의 Strava 연결 상태는 서로 맞춰집니다.</div>
+    <h4>Strava 로그인과 활동 연결은 별개입니다</h4>
+    <p>로그인 창의 <strong>Strava로 계속하기</strong>나 설정 &gt; 계정 &gt; 로그인 연결의 Strava는 <strong>로그인용</strong>(공개 프로필 읽기 권한)입니다. 활동을 가져오려면 여기 연결 앱에서 따로 <strong>연결</strong>해야 합니다(<a href="ch10-settings.html#s10-login">10.1 로그인 연결</a>). Strava로 처음 가입하면 연결 앱 화면 위에 <strong>운동기록 가져오기</strong> 카드가 나타나며, <strong>운동 기록 연동하기</strong>로 활동 권한을 승인한 뒤 <strong>기록 가져오기</strong>로 이어집니다. <strong>나중에</strong>를 눌러 건너뛸 수도 있습니다.</p>
   </div>
 
   <h3 id="s9-2">9.2 과거 활동 가져오기</h3>
   <div class="card">
     <ol>
       <li>Strava를 연결하면 연결 앱 화면에 <strong>Strava 동기화 옵션</strong> 카드가 나타납니다.</li>
-      <li><strong>과거 활동 가져오기</strong> 줄의 <strong>가져오기</strong>를 누릅니다. (설정 &gt; 내 데이터의 <strong>과거 활동 가져오기</strong> 카드에서도 시작할 수 있습니다.)</li>
+      <li><strong>과거 활동 가져오기</strong> 줄의 <strong>가져오기</strong>를 누르면 설정 &gt; 내 데이터의 <strong>과거 활동 가져오기</strong> 카드로 갑니다. 거기서 다시 <strong>가져오기</strong>를 누릅니다(<a href="ch10-settings.html#s10-7">10.7</a>).</li>
       <li>진행 화면에서 가져온 활동 수와 진행 상황을 봅니다.</li>
       <li>한 번 끝나면 같은 버튼이 <strong>리포트 보기</strong>로 바뀌어 결과를 다시 볼 수 있습니다.</li>
     </ol>
@@ -36,14 +39,17 @@
   <h3 id="s9-3">9.3 자동 업로드</h3>
   <div class="card">
     <p><strong>Strava 동기화 옵션</strong> 카드의 <strong>자동 업로드</strong>를 켜면 활동이 끝날 때 Strava에 자동으로 올라갑니다. 저장 · 동기화 · 업로드는 서로 다른 단계이므로, 결과는 앱과 Strava에서 직접 확인하세요.</p>
+    <p>같은 카드의 <strong>Strava용 요약 자동 생성 및 게시</strong>를 켜면, 앞으로 시작하는 활동이 Strava에 연결될 때 오라이더가 Strava용 요약을 만들어 Strava 활동 설명에 게시합니다. 기존 설명은 그대로 두고 오라이더 요약만 추가·갱신하며, 상세 AI 분석은 실행하지 않습니다. 설정을 불러오지 못하면 <strong>자동 게시 설정 다시 불러오기</strong>를 누릅니다.</p>
+    <div class="info">휴대폰 앱이 Strava 업로드에 쓸 네트워크(모든 네트워크 · Wi-Fi만 · 오프라인)는 설정 &gt; 기기의 <strong>네트워크</strong> 카드에서 봅니다(<a href="ch10-settings.html#s10-2">10.2</a>).</div>
   </div>
 
   <h3 id="s9-4">9.4 연결 해제</h3>
   <div class="card">
     <ol>
-      <li>설정 &gt; 연결 앱 &gt; Strava 줄의 <strong>연결 해제</strong>를 누르고 확인합니다.</li>
+      <li>설정 &gt; 연결 앱 &gt; Strava 줄의 <strong>연결 해제</strong>를 누르고 확인합니다. 이때 Strava 활동 동기화와, 연결돼 있다면 Strava 로그인도 함께 해제됩니다.</li>
       <li>이미 가져온 활동은 그대로 남습니다. 이후 새 Strava 활동은 들어오지 않습니다.</li>
     </ol>
+    <div class="warn">Strava가 이 계정의 <strong>마지막 로그인 방법</strong>이면 해제되지 않습니다. 설정 &gt; 계정 &gt; 로그인 연결에서 Google · 네이버 · 카카오 · 디스코드 중 하나를 먼저 연결하세요(<a href="ch10-settings.html#s10-login">10.1</a>).</div>
     <div class="warn">Strava에서 가져온 활동까지 지우려면 설정 &gt; 내 데이터의 <strong>Strava 활동과 상세 기록 삭제</strong>를 씁니다. 되돌릴 수 없습니다(<a href="ch10-settings.html#s10-7">10.7</a>). Strava 쪽에 이미 올라간 데이터는 Strava에서 따로 지워야 합니다.</div>
   </div>
 
@@ -56,7 +62,9 @@
       <tr><td><strong>Apple Health</strong></td><td>iPhone 앱에서 권한을 줍니다.</td><td>활성 · 마지막 동기화 시각</td></tr>
       <tr><td><strong>Health Connect</strong></td><td>화면에 항목은 있지만, 지금 출시된 Android 앱에서는 아직 연결할 수 없습니다.</td><td>미연결</td></tr>
     </table>
-    <p>맨 아래 <strong>종목별 주 소스</strong>에서는 같은 운동이 두 소스에 있을 때 피드에 보여 줄 기본 소스를 종목마다 고릅니다. "자동"은 가장 먼저 연결된 소스를 씁니다.</p>
+    <p>상태 표시는 활성 · 재인증 필요 · 해제됨 · 오류 · 미연결 중 하나입니다.</p>
+    <p>활성 소스가 두 개 이상이면 <strong>종목별 주 소스</strong> 카드가 나타납니다. 같은 운동이 여러 소스에 있을 때 피드에 보여 줄 소스를 종목(사이클 · 러닝 · 수영 · 기타)마다 고릅니다. "자동"은 가장 먼저 연결된 소스를 씁니다.</p>
+    <p>맨 아래 <strong>데이터 보존</strong> 카드: 원본 헬스 데이터는 기본으로 365일 보관한 뒤 자동 삭제되고, 일별 집계는 계속 남습니다. <strong>원본 헬스 데이터 영구 보존</strong>을 켜면 원본도 기한 없이 남습니다. 다시 끄면 365일 규칙이 돌아오며, 이미 365일이 지난 원본은 다음 정리 때 지워집니다.</p>
   </div>
 
   <h3 id="s9-6">9.6 가져온 러닝 기록 점검하기</h3>
@@ -75,7 +83,10 @@
       <tr><th>이럴 때</th><th>확인할 것</th></tr>
       <tr><td>연결했는데 "0개 연결됨"으로 보여요</td><td>화면을 새로 고친 뒤 다시 확인하세요. 계속 그렇게 보이면 게시판 문의/신고로 알려 주세요(<a href="ch11-faq.html#s11-5">11.5</a>).</td></tr>
       <tr><td>새 Strava 활동이 안 들어와요</td><td>Strava 쪽 승인을 취소하지 않았는지, 활동이 Strava에 올라갔는지</td></tr>
-      <tr><td>같은 운동이 두 번 보여요</td><td>종목별 주 소스를 정하세요. 훈련 부하는 같은 운동을 한 번만 셉니다.</td></tr>
+      <tr><td>같은 운동이 두 번 보여요</td><td>종목별 주 소스를 정하세요(활성 소스가 두 개 이상일 때 보입니다). 훈련 부하는 같은 운동을 한 번만 셉니다.</td></tr>
+      <tr><td>Strava로 로그인했는데 활동이 안 들어와요</td><td>Strava 로그인과 활동 연결은 별개입니다. 설정 &gt; 연결 앱에서 Strava를 <strong>연결</strong>하세요(<a href="#s9-1">9.1</a>).</td></tr>
+      <tr><td>"이미 활동 연동에 사용 중인 Strava 계정입니다"가 떠요</td><td>그 Strava 계정은 다른 로그인 방법으로 만든 계정에서 이미 활동 연결에 쓰고 있습니다. 원래 로그인 방법으로 로그인한 뒤 설정 &gt; 계정 &gt; 로그인 연결에서 Strava를 연결하세요.</td></tr>
+      <tr><td>연결 해제가 안 돼요</td><td>Strava가 마지막 로그인 방법이면 해제할 수 없습니다. 다른 로그인 방법을 먼저 연결하세요(<a href="#s9-4">9.4</a>).</td></tr>
     </table>
   </div>
 </section>

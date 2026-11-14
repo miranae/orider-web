@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>7. 코치 — 오늘 운동·계획·목표·대화 - 오라이더 웹 설명서</title>
+<title>7. 코치 — 계획/기록·목표·대화 - 오라이더 웹 설명서</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="gitbook.css">
 </head>
@@ -27,7 +27,7 @@
       </div>
       <div class="gb-group"><div class="gb-group-title">코치와 훈련</div>
         <a class="gb-link" href="ch06-advanced.html">6. 컨디션·체력 — 코치 &gt; 컨디션·분석 <span class="lvl level-advanced">고급</span></a>
-        <a class="gb-link active" href="ch07-training.html">7. 코치 — 오늘 운동·계획·목표·대화 <span class="lvl level-intermediate">중급</span></a>
+        <a class="gb-link active" href="ch07-training.html">7. 코치 — 계획/기록·목표·대화 <span class="lvl level-intermediate">중급</span></a>
         <a class="gb-link" href="ch08-multisport.html">8. 종목별 읽기·멀티스포츠 <span class="lvl level-intermediate">중급</span></a>
       </div>
       <div class="gb-group"><div class="gb-group-title">연결·설정</div>
@@ -44,75 +44,76 @@
   <div class="gb-main">
     <header class="gb-topbar">
       <button class="gb-menu" id="menuBtn" aria-label="메뉴">☰</button>
-      <div class="gb-crumb"><b>코치와 훈련</b> · 7. 코치 — 오늘 운동·계획·목표·대화</div>
+      <div class="gb-crumb"><b>코치와 훈련</b> · 7. 코치 — 계획/기록·목표·대화</div>
       <a class="gb-applink" href="https://orider.co.kr" target="_blank" rel="noopener">오라이더 웹 열기 ↗</a>
     </header>
     <main class="gb-content">
       <section id="s7">
-        <h2>7. 코치 — 오늘 운동·계획·목표·대화</h2>
+        <h2>7. 코치 — 계획/기록·목표·대화</h2>
 
         <div class="purpose">
           <h4>이 장에서 할 수 있는 것</h4>
           <ul>
-            <li>코치 메뉴의 탭 6개가 각각 무엇을 하는지 압니다.</li>
-            <li>목표(대회·코스, 오르막, 러닝 대회, 30분 달리기)를 세우고, 자동으로 만들어진 주간 계획을 따라갑니다.</li>
-            <li>오늘 할 운동을 고르고, AI 코치에게 내 기록을 바탕으로 질문합니다.</li>
+            <li>코치 메뉴의 탭 5개가 각각 무엇을 하는지 압니다.</li>
+            <li>목표(대회·코스, 오르막, 러닝 대회, 30분 달리기)를 세우고, 자동으로 만들어진 훈련 계획을 따라갑니다.</li>
+            <li>훈련 계획 맨 위에서 오늘의 다음 운동을 확인하고, 계획 대비 실제 기록을 견주고, AI 코치에게 내 기록을 바탕으로 질문합니다.</li>
           </ul>
         </div>
 
-        <h3 id="s7-1">7.1 코치 탭 6개 한눈에 보기</h3>
+        <h3 id="s7-1">7.1 코치 탭 5개 한눈에 보기</h3>
         <div class="card">
           <table>
             <tr><th>탭</th><th>질문</th><th>설명서</th></tr>
             <tr><td><strong>컨디션</strong></td><td>"내 체력이 올라가고 있나? 오늘 쉬어야 하나?"</td><td><a href="ch06-advanced.html#s6-1">6.1</a></td></tr>
-            <tr><td><strong>오늘 운동</strong></td><td>"오늘 무엇을 할까?"</td><td><a href="#s7-2">7.2</a></td></tr>
-            <tr><td><strong>계획</strong></td><td>"목표일까지 이번 주에 무엇을 하나?"</td><td><a href="#s7-3">7.3</a></td></tr>
+            <tr><td><strong>계획/기록</strong></td><td>"오늘 무엇을 하고, 계획대로 하고 있나?" — 하위 탭 <strong>훈련 계획</strong> · <strong>활동 기록·수행 확인</strong></td><td><a href="#s7-2">7.2</a> · <a href="#s7-3">7.3</a></td></tr>
             <tr><td><strong>목표</strong></td><td>"무엇을 향해 훈련하나?"</td><td><a href="#s7-4">7.4</a></td></tr>
-            <tr><td><strong>분석</strong></td><td>"파워 커브·훈련 존은 어떤가?"</td><td><a href="ch06-advanced.html#s6-3">6.3</a></td></tr>
+            <tr><td><strong>분석</strong></td><td>"선택한 기간에 수행 능력과 훈련 구성이 어떻게 바뀌었나?"</td><td><a href="ch06-advanced.html#s6-3">6.3</a></td></tr>
             <tr><td><strong>대화</strong></td><td>"AI 코치와 나눈 질문과 답"</td><td><a href="#s7-6">7.6</a></td></tr>
           </table>
-          <div class="tip">코치 화면 오른쪽 아래에는 늘 <strong>코치에게 묻기</strong> 버튼이 떠 있습니다. 지금 보고 있는 화면에 대해 바로 물어볼 수 있습니다.</div>
+          <div class="info">예전 <strong>오늘 운동</strong>(오늘 훈련) 탭은 없어졌습니다. 오늘 할 운동은 계획/기록 &gt; 훈련 계획 맨 위에서 봅니다(<a href="#s7-2">7.2</a>). 옛 주소로 들어와도 훈련 계획이 열립니다.</div>
+          <div class="tip">코치 &gt; 컨디션과 코치 &gt; 분석 화면에는 <strong>코치에게 묻기</strong> 버튼이 있습니다(분석에서는 오른쪽 아래). 지금 보고 있는 화면에 대해 바로 물어볼 수 있습니다.</div>
         </div>
 
-        <h3 id="s7-2">7.2 오늘 운동 — 다음 48시간 고르기</h3>
-        <figure class="gb-fig"><img src="screenshots/web-today.png" width="1440" height="555" alt="코치 &gt; 오늘 운동 — 세 가지 중 하나를 고르면 24·48시간 뒤 CTL·ATL·TSB 예상이 바뀝니다. 계획 결정·실행 기능은 준비 중입니다." loading="lazy"><figcaption>코치 &gt; 오늘 운동 — 세 가지 중 하나를 고르면 24·48시간 뒤 CTL·ATL·TSB 예상이 바뀝니다. 계획 결정·실행 기능은 준비 중입니다.</figcaption></figure>
+        <h3 id="s7-2">7.2 오늘의 다음 운동 — 훈련 계획 맨 위</h3>
+        <figure class="gb-fig"><img src="screenshots/web-today.png" width="1440" height="555" alt="코치 &gt; 계획/기록 &gt; 훈련 계획 맨 위 — 오늘의 다음 운동 카드와 &#39;운동 상세&#39; 버튼." loading="lazy"><figcaption>코치 &gt; 계획/기록 &gt; 훈련 계획 맨 위 — 오늘의 다음 운동 카드와 &#39;운동 상세&#39; 버튼.</figcaption></figure>
 
         <div class="card">
           <h4>따라 하기</h4>
           <ol>
-            <li><strong>코치 &gt; 오늘 운동</strong>을 엽니다. 제목은 "오늘 무엇을 할까?", 오른쪽에 지금 회복상태 TSB가 보입니다.</li>
-            <li>종목 칩(사이클 · 러닝)을 고릅니다.</li>
-            <li><strong>오늘 고르기</strong>에서 세 가지 중 하나를 눌러 봅니다 — <strong>완전 휴식</strong>(추가 부하 없음) · <strong>회복 라이딩</strong>(예상 부하 20 TSS) · <strong>이지 지구력 라이딩</strong>(예상 부하 45 TSS).</li>
-            <li>아래 <strong>24시간 뒤 예상</strong> · <strong>48시간 뒤 예상</strong>의 CTL · ATL · TSB가 어떻게 바뀌는지 비교합니다.</li>
+            <li>코치 &gt; 컨디션의 <strong>오늘 무엇을 할까? →</strong>를 누르거나, <strong>코치 &gt; 계획/기록 &gt; 훈련 계획</strong>을 엽니다.</li>
+            <li>맨 위 카드에서 <strong>오늘의 다음 운동</strong>을 봅니다 — 운동 이름(예: Z2 지구력), 날짜, 시간(분), 예상 부하(TSS). 오늘 남은 운동이 없으면 제목이 <strong>다음 예정 운동</strong>, 목표일 이후의 운동이면 <strong>목표일 이후 저장된 운동</strong>으로 바뀝니다.</li>
+            <li><strong>운동 상세</strong>를 누르면 그날 운동의 상세와 관리 버튼이 열립니다(<a href="#s7-3">7.3</a>).</li>
+            <li>오늘 계획에 대한 조정 권고가 있으면 그 아래에 <strong>오늘의 계획</strong> 카드가 나옵니다. <strong>원래 계획</strong> · <strong>조정 권고</strong> · <strong>현재 실행안</strong>과 "권고 변화 N분 · N TSS", <strong>조정 근거</strong>(예: "최근 부하가 높은 상태예요")를 확인합니다.</li>
           </ol>
-          <div class="info">이 선택은 미리 견줘 보는 "간단 운동 비교"이며, 계획에 저장된 운동과 별개입니다. 화면 아래 안내처럼 <strong>계획 결정·실행 기능은 준비 중</strong>입니다. 실제 계획은 <strong>계획에서 보기</strong>로 코치 &gt; 계획에서 확인하세요.</div>
+          <div class="info">예전 오늘 운동 탭의 "오늘 고르기"(완전 휴식 · 회복 · 이지 지구력)와 24·48시간 뒤 예상 비교는 웹에서 빠졌습니다. 실제 운동 시작은 휴대폰 앱에서 합니다(<a href="/manual/">앱 설명서</a>).</div>
         </div>
 
-        <h3 id="s7-3">7.3 계획 — 주간 플랜 따라가기</h3>
-        <figure class="gb-fig"><img src="screenshots/08-training-plan.png" width="1440" height="947" alt="코치 &gt; 계획(주간 플랜) — 목표일이 하루 남은 예시라 띠 제목이 &#39;목표일 이후 저장된 운동&#39;으로, 지난 미완료 수가 크게 보입니다. 훈련 단계 막대와 TODAY·★ 목표일 칸을 찾아보세요." loading="lazy"><figcaption>코치 &gt; 계획(주간 플랜) — 목표일이 하루 남은 예시라 띠 제목이 &#39;목표일 이후 저장된 운동&#39;으로, 지난 미완료 수가 크게 보입니다. 훈련 단계 막대와 TODAY·★ 목표일 칸을 찾아보세요.</figcaption></figure>
+        <h3 id="s7-3">7.3 계획/기록 — 훈련 계획 따라가기</h3>
+        <figure class="gb-fig"><img src="screenshots/08-training-plan.png" width="1440" height="947" alt="코치 &gt; 계획/기록 &gt; 훈련 계획(주간 플랜) — 계획 대비 기록, 목표기간 훈련 부하, 훈련 단계 막대와 TODAY·목표일 칸, 칸마다 계획·실제 TSS." loading="lazy"><figcaption>코치 &gt; 계획/기록 &gt; 훈련 계획(주간 플랜) — 계획 대비 기록, 목표기간 훈련 부하, 훈련 단계 막대와 TODAY·목표일 칸, 칸마다 계획·실제 TSS.</figcaption></figure>
 
         <div class="card">
           <h4>따라 하기</h4>
           <ol>
-            <li><strong>코치 &gt; 계획</strong>을 엽니다. 제목은 <strong>주간 플랜</strong>입니다. 목표가 없으면 먼저 7.4에서 목표를 만드세요.</li>
-            <li>맨 위에서 현재 목표 이름, 목표일과 D-day, 진행률을 봅니다.</li>
-            <li><strong>훈련 단계</strong> 막대(빌드 · 피크 · 테이퍼)에서 지금 어느 단계인지 봅니다.</li>
-            <li>아래 <strong>이번 주</strong> 표에서 요일별 운동을 봅니다. 지난 주는 <strong>지난 6주 보기</strong>로 펼칩니다.</li>
+            <li><strong>코치 &gt; 계획/기록</strong>을 열고 하위 탭 <strong>훈련 계획</strong>을 고릅니다. 제목은 <strong>주간 플랜</strong>, 오른쪽 위 종목 탭은 사이클 · 러닝입니다. 목표가 없으면 먼저 7.4에서 목표를 만드세요.</li>
+            <li>위쪽 <strong>계획 대비 기록</strong>에서 기간별 계획 부하와 실제 부하를 견줍니다(아래 "계획 대비 기록 읽기").</li>
+            <li>맨 위 오늘의 다음 운동(7.2) 아래 목표 머리에서 <strong>목표기간 훈련 부하</strong>, 목표 이름과 <strong>진행 중</strong>(지났으면 <strong>목표일 경과</strong>) 표시, 목표일과 D-day, 거리·고도 또는 목표 시간을 봅니다.</li>
+            <li><strong>훈련 단계</strong> 막대(베이스 · 빌드 · 피크 · 테이퍼)에서 각 단계가 몇 주인지 봅니다. 같은 줄에 관리 버튼이 있습니다.</li>
+            <li>아래 달력에서 이번 주 요일별 운동을 봅니다. 지난 주는 <strong>지난 N주 보기</strong>로 펼칩니다.</li>
             <li>날짜 칸을 누르면 그날의 운동 상세와 관리 버튼이 나옵니다.</li>
           </ol>
           <h4>화면 읽는 법</h4>
           <table>
             <tr><th>표시</th><th>뜻</th></tr>
-            <tr><td>위쪽 안내 줄</td><td>"목표일까지 예정 N회 · 목표일 이후 저장된 운동 N회 · 지난 미완료 N회"처럼 저장된 계획 전체의 상태</td></tr>
-            <tr><td>오른쪽 숫자 카드</td><td>전체 계획 미완료(회), 완료 TSS / 전체 TSS, 남은 저장 계획 주수</td></tr>
-            <tr><td>예정 운동 띠</td><td>가장 가까운 예정 운동(예: Z2 지구력 · 90분 · 65 TSS)과 <strong>운동 상세</strong>. 띠 제목은 상황에 따라 "다음 운동" 또는 "목표일 이후 저장된 운동"으로 바뀝니다.</td></tr>
+            <tr><td>목표 머리 오른쪽 요약</td><td>목표기간의 계획 TSS · 실제 TSS · 차이, <strong>목표기간 부하 달성률</strong>, 목표일까지 남은 기간(주)</td></tr>
             <tr><td>칸 안의 "Z2 지구력 90분 65 TSS"</td><td>강도 존 · 시간 · 예상 훈련 부하. 존은 Z1 회복 · Z2 지구력 · Z3 템포 · Z4 역치 · Z5 VO2입니다.</td></tr>
+            <tr><td>칸 아래 "계획 N · 실제 N TSS"</td><td>그날 계획 부하와 실제 활동 부하. 지난 날은 달성률과 차이도 나옵니다. 앞으로의 날은 "예정"입니다.</td></tr>
+            <tr><td>"완료로 기록됨" · "부분 완료로 기록됨" · "건너뜀으로 기록됨" · "연기로 기록됨" · "계획 수행 미확정"</td><td>그날 계획에 저장된 실행 결과. <strong>활동 보기 →</strong>로 연결된 활동을 엽니다.</td></tr>
             <tr><td>휴식</td><td>쉬는 날</td></tr>
             <tr><td>TODAY</td><td>오늘</td></tr>
-            <tr><td>★ 목표일</td><td>대회·목표 날짜</td></tr>
-            <tr><td>칸 왼쪽 색 막대, 날짜 옆 빨간 "—"</td><td>강도 색, 그리고 지나갔는데 완료하지 않은 운동</td></tr>
+            <tr><td>목표일 (별 표시 칸)</td><td>대회·목표 날짜</td></tr>
+            <tr><td>칸 왼쪽 색 막대</td><td>강도 색</td></tr>
             <tr><td>"조정" 칩</td><td>최근 실행 결과에 맞춰 강도를 바꾼 날. 마우스를 올리면 "지난 주 부하가 부족해 다음 주 강도를 ○○%로 낮췄습니다" 같은 이유가 나옵니다.</td></tr>
-            <tr><td>맨 오른쪽 훈련부하 · TSS</td><td>그 주의 계획 부하 합계</td></tr>
+            <tr><td>맨 오른쪽 훈련부하 · TSS</td><td>그 주의 계획 부하와 주간 충족 여부</td></tr>
           </table>
           <h4>날짜 칸을 눌러 할 수 있는 것</h4>
           <ul>
@@ -120,8 +121,8 @@
             <li><strong>워크아웃 변경</strong>, <strong>이전 날과 교환</strong> · <strong>다음 날과 교환</strong></li>
             <li><strong>연결된 활동 보기</strong>, <strong>워크아웃 파일 가져오기</strong>(.zwo · .erg · .mrc, 최대 1MB)</li>
           </ul>
-          <div class="info">활동이 연결됐거나 실행 결과가 기록된 날은 완료·건너뛰기를 손으로 바꿀 수 없습니다. 러닝의 완료·건너뛰기는 활동 연결과 실행 결과로 관리됩니다.</div>
-          <h4>위쪽 관리 버튼</h4>
+          <div class="info">활동이 연결됐거나 실행 결과가 기록된 날은 완료·건너뛰기를 손으로 바꿀 수 없습니다. 러닝의 완료·건너뛰기는 활동 연결과 실행 결과로 관리됩니다. 30분 달리기 프로그램처럼 서버가 관리하는 계획은 직접 고칠 수 없습니다.</div>
+          <h4>관리 버튼</h4>
           <table>
             <tr><th>버튼</th><th>하는 일</th></tr>
             <tr><td><strong>캘린더 내보내기</strong></td><td>계획을 캘린더 파일로 내려받아 휴대폰·구글 캘린더 등에 넣습니다.</td></tr>
@@ -130,27 +131,36 @@
             <tr><td><strong>목표 포기</strong></td><td>지금 목표를 끝냅니다. 기록은 남습니다.</td></tr>
           </table>
           <div class="warn">최근 4주 실행률이 크게 떨어지거나 여러 주 연속 계획을 벗어나면 위쪽에 안내가 뜹니다. <strong>지금 재생성</strong>으로 남은 일정을 다시 짜거나 <strong>1주 동안 보지 않기</strong>로 미룹니다.</div>
+          <h4>계획 대비 기록 읽기</h4>
+          <ol>
+            <li><strong>비교 기간</strong>에서 <strong>일 · 주 · 월 · 기간</strong> 중 하나를 고르고, <strong>기준일</strong>(기간은 시작일·종료일)을 정합니다. <strong>이전 기간</strong> · <strong>다음 기간</strong>으로 옮겨 갑니다.</li>
+            <li><strong>계획 TSS</strong> · <strong>실제 TSS</strong> · <strong>차이</strong> · <strong>달성률</strong>을 봅니다. 달성률은 실제 TSS 합계 ÷ 계획 TSS 합계 × 100이며 100%를 넘을 수 있습니다.</li>
+            <li>날짜별 근거 버튼을 누르면 그날 칸으로 가서 계획과 기록을 견줍니다. 목표 머리 요약의 링크로 목표기간 전체를 비교할 수도 있습니다.</li>
+          </ol>
+          <div class="tip">기간 부하 달성률은 훈련 부하의 비교일 뿐, 개별 계획의 완료 판정이나 컨디션 평가가 아닙니다. 실제 부하에는 계획에 연결하지 않은 활동도 들어가며, 날짜는 한국 시간(KST) 기준입니다. TSS가 확인되지 않은 활동이 있으면 합계·달성률을 확정하지 않고 그렇다고 알려 줍니다.</div>
+          <h4>활동 기록·수행 확인</h4>
+          <p>하위 탭 <strong>활동 기록·수행 확인</strong>을 누르면 같은 종목·날짜로 운동일지가 열립니다(<a href="ch02-records.html#s2-3">2.3</a>). 계획 칸의 실행 결과와 실제 기록을 오가며 확인할 때 씁니다.</p>
         </div>
 
         <h3 id="s7-4">7.4 목표 — 세우기 · 바꾸기 · 포기하기</h3>
-        <figure class="gb-fig"><img src="screenshots/web-goals.png" width="1440" height="565" alt="코치 &gt; 목표 — 지금 목표 카드의 계획진행률·목표일 예상, 아래 &#39;다른 목표를 세우려면&#39;." loading="lazy"><figcaption>코치 &gt; 목표 — 지금 목표 카드의 계획진행률·목표일 예상, 아래 &#39;다른 목표를 세우려면&#39;.</figcaption></figure>
+        <figure class="gb-fig"><img src="screenshots/web-goals.png" width="1440" height="565" alt="코치 &gt; 목표 — 지금 목표 카드의 목표기간 훈련 부하·목표일 예상, 아래 &#39;다른 목표를 세우려면&#39;." loading="lazy"><figcaption>코치 &gt; 목표 — 지금 목표 카드의 목표기간 훈련 부하·목표일 예상, 아래 &#39;다른 목표를 세우려면&#39;.</figcaption></figure>
 
         <div class="card">
           <h4>지금 목표 보기</h4>
-          <p><strong>코치 &gt; 목표</strong>를 열면 지금 목표 카드에 목표 이름, 종류(완주 · 시간 목표 · 대회 목표 · 오르막 기록 · 러닝 프로그램), 목표일과 D-day, <strong>계획진행률</strong>, <strong>목표일 예상</strong>(그날의 CTL · TSB)이 보입니다. 카드 아래 <strong>계획 보기 →</strong> · <strong>목표 변경</strong> · <strong>목표 포기</strong>가 있습니다.</p>
+          <p><strong>코치 &gt; 목표</strong>를 열면 지금 목표 카드에 목표 이름, 종류(완주 · 시간 목표 · 대회 목표 · 오르막 기록 · 러닝 프로그램), <strong>목표기간 훈련 부하</strong>(계획 TSS · 실제 TSS · 차이 · 목표기간 부하 달성률 · 목표일까지 남은 기간), <strong>목표일 예상</strong>(그날의 CTL · TSB)이 보입니다. 카드 아래 <strong>계획 보기 →</strong> · <strong>목표 변경</strong> · <strong>목표 포기</strong>가 있습니다.</p>
 
           <h4>새 목표 세우기 — 따라 하기</h4>
           <ol>
-            <li>코치 &gt; 목표에서 종목 칩을 고릅니다. 수영은 아직 "준비 중"입니다.</li>
+            <li>코치 &gt; 목표에서 오른쪽 위 종목 탭(사이클 · 러닝)을 고릅니다.</li>
             <li><strong>다른 목표를 세우려면</strong>(목표가 없으면 <strong>새 목표 만들기</strong>)에서 종류를 고릅니다.
               <ul>
                 <li>사이클: <strong>대회·코스 완주</strong>, <strong>클라임 목표 만들기</strong>(오르막을 정한 시간·W/kg로 오르기)</li>
-                <li>러닝: <strong>러닝 대회</strong>, <strong>30분 달리기 프로그램</strong></li>
+                <li>러닝: <strong>러닝 대회</strong>, <strong>30분 달리기 프로그램</strong>(훈련 계획에서 등록)</li>
               </ul>
             </li>
             <li>안내에 따라 코스·대회, 목표일, 목표 유형(완주 · 목표 시간 등), <strong>주당 운동 횟수</strong>를 넣습니다.</li>
-            <li><strong>목표 설정 확인</strong> 화면에서 내용을 확인합니다. 아직 저장되지 않은 상태이며, 시작하기를 눌러야 서버가 목표와 운동 계획을 만듭니다.</li>
-            <li>만들어지면 코치 &gt; 계획에 빌드 → 피크 → 테이퍼 순서의 주간 계획이 생깁니다.</li>
+            <li><strong>목표 설정 확인</strong> 화면에서 내용을 확인합니다. 아직 저장되지 않은 상태이며, <strong>계획 시작하기 →</strong>(오르막은 <strong>클라임 훈련 시작</strong>)를 눌러야 서버가 목표와 운동 계획을 만듭니다.</li>
+            <li>만들어지면 코치 &gt; 계획/기록 &gt; 훈련 계획에 베이스 → 빌드 → 피크 → 테이퍼 순서의 주간 계획이 생깁니다.</li>
           </ol>
           <div class="warn">이미 목표가 있을 때 새 목표를 시작하면 지금 목표는 포기 처리됩니다. 화면에 "지금 목표(○○)는 새 목표 시작 시 포기 처리됩니다"가 나옵니다.</div>
 
@@ -167,20 +177,21 @@
           <div class="info">예: 10km를 60분에 달리는 목표의 평균 페이스는 6:00/km입니다. 처음 달리기를 시작한다면 기록보다 완주 목표와 지킬 수 있는 일정부터 정하세요. 실제 러닝 기록은 앱에서 합니다(<a href="/manual/">앱 설명서</a>).</div>
         </div>
 
-        <h3 id="s7-5">7.5 분석 — 깊은 차트</h3>
+        <h3 id="s7-5">7.5 분석 — 기간별 수행 능력 변화</h3>
         <div class="card">
-          <p><strong>코치 &gt; 분석</strong>은 옛 피트니스 화면의 깊은 차트를 모아 둔 곳입니다. 제목 아래 "90일 실적 + 39일 예측"처럼 실제 기록 기간과 앞으로의 예측 기간이 함께 적혀 있습니다. <strong>더 깊이 보기 — 일별 부하·파워 커브·훈련 존</strong>을 펼쳐 파워 커브, 일별 운동 부하, 훈련 존을 봅니다. 읽는 법은 <a href="ch06-advanced.html#s6-3">6.3 파워 커브</a>를 보세요.</p>
+          <p><strong>코치 &gt; 분석</strong>은 위쪽 기간 탭(30일 · 90일 · 180일 · 1년)으로 고른 기간과 그 이전 기간을 견주는 곳입니다. 제목 아래 "90일 실적 + 39일 예측"처럼 실제 기록 기간과 앞으로의 예측 기간이 함께 적혀 있습니다. 사이클은 <strong>기간 분석 불러오기</strong>를 누르면 <strong>수행 능력 변화</strong>(파워 커브)와 <strong>기간별 훈련 구성</strong>(존 분포)이 차례로 나옵니다. 러닝은 이 버튼 없이 거리별 기록·페이스가 바로 보입니다. 읽는 법은 <a href="ch06-advanced.html#s6-3">6.3 분석</a>과 <a href="ch06-advanced.html#s6-run">6.7 러닝</a>을 보세요.</p>
         </div>
 
         <h3 id="s7-6">7.6 대화 — AI 코치에게 묻기</h3>
         <div class="card">
           <h4>따라 하기</h4>
           <ol>
-            <li>코치 화면 오른쪽 아래 <strong>코치에게 묻기</strong>, 또는 코치 &gt; 대화의 <strong>AI 코치에게 물어보기</strong>를 누릅니다.</li>
+            <li>코치 &gt; 컨디션·분석의 <strong>코치에게 묻기</strong>, 또는 코치 &gt; 대화의 <strong>AI 코치에게 물어보기</strong>를 누릅니다.</li>
             <li>궁금한 것을 적어 보냅니다. 코치는 내 기록·컨디션·계획을 근거로 답합니다.</li>
-            <li>지난 질문과 답은 <strong>코치 &gt; 대화</strong>의 <strong>저장된 대화</strong>에서 다시 열고 이어서 물을 수 있습니다.</li>
+            <li>지난 질문과 답은 <strong>코치 &gt; 대화</strong>(제목 "대화 내역")의 <strong>저장된 대화</strong>에서 다시 열고, <strong>이 대화에서 이어 묻기</strong>로 이어서 물을 수 있습니다.</li>
+            <li>필요 없는 대화는 휴지통 아이콘으로 지우거나 <strong>전체 삭제</strong>를 누릅니다.</li>
           </ol>
-          <div class="info">AI 코치는 하루에 쓸 수 있는 횟수가 정해져 있으며, 화면에서 오늘의 사용 가능 횟수를 확인합니다. 질문과 답은 대화나 계정을 지울 때까지 내 계정에 저장됩니다. 답변에 필요한 개인 운동 데이터를 외부 AI 처리자에게 보내므로, 처음 쓸 때 설정 &gt; 계정의 <strong>AI 코치 데이터 처리</strong> 동의가 필요합니다.</div>
+          <div class="info">AI 코치는 하루에 쓸 수 있는 횟수가 정해져 있으며, 화면의 "오늘 N회 남음"으로 확인합니다. 질문과 답은 대화나 계정을 지울 때까지 내 계정에 저장됩니다. 답변에 필요한 개인 운동 데이터를 외부 AI 처리자에게 보내므로, 처음 쓸 때 설정 &gt; 계정의 <strong>AI 코치 데이터 처리</strong> 동의가 필요합니다.</div>
           <div class="tip">"대화 내역을 불러오지 못했습니다"가 나오면 인터넷 연결이나 광고 차단 같은 확장 프로그램을 확인한 뒤 <strong>다시 시도</strong>를 누르세요.</div>
         </div>
 
@@ -194,17 +205,17 @@
             <tr><td><strong>ATL</strong> (단기피로)</td><td>최근 약 1주의 부하. 강한 주에 빠르게 오르고 쉬면 빠르게 내려갑니다.</td></tr>
             <tr><td><strong>TSB</strong> (회복상태)</td><td>CTL − ATL. 대회 직전 테이퍼 기간에는 TSB를 양수로 끌어올리는 것이 보통입니다.</td></tr>
           </table>
-          <p>사이클·러닝 부하는 하나의 통합 체력(CTL)으로 합쳐지며, 코치 &gt; 컨디션의 통합 칩에서 종목별 몫을 나눠 볼 수 있습니다(<a href="ch08-multisport.html#s8-4">8.4</a>). 더 많은 용어는 <a href="glossary.html">용어집</a>을 보세요.</p>
+          <p>사이클·러닝 부하는 하나의 통합 체력(CTL)으로 합쳐지며, 코치 &gt; 컨디션의 통합 탭에서 종목별 몫을 나눠 볼 수 있습니다(<a href="ch08-multisport.html#s8-4">8.4</a>). 더 많은 용어는 <a href="glossary.html">용어집</a>을 보세요.</p>
         </div>
 
         <h3 id="s7-8">7.8 자주 막히는 점</h3>
         <div class="card">
           <table>
             <tr><th>이럴 때</th><th>확인할 것</th></tr>
-            <tr><td>계획 화면이 비어 있어요</td><td>목표가 있는지(코치 &gt; 목표), 선택한 종목 칩이 목표 종목과 같은지</td></tr>
-            <tr><td>운동했는데 계획이 "완료"로 안 바뀌어요</td><td>그 활동이 웹에 들어왔는지, 같은 날짜·종목인지. 운동일지의 계획 표시(✓ · △ · !)도 보세요.</td></tr>
+            <tr><td>계획 화면이 비어 있어요</td><td>목표가 있는지(코치 &gt; 목표), 선택한 종목 탭이 목표 종목과 같은지</td></tr>
+            <tr><td>운동했는데 계획이 "완료"로 안 바뀌어요</td><td>그 활동이 웹에 들어왔는지, 같은 날짜·종목인지. 운동일지의 계획 상자 끝 문구("완료로 기록됨", "수행 여부 미확인" 등, <a href="ch02-records.html#s2-3">2.3</a>)도 보세요.</td></tr>
             <tr><td>달성률이 낮게 나와요</td><td>운동을 안 했다는 뜻이 아닐 수 있습니다. 계획 TSS에 비해 실제 부하가 적었거나, 부하가 추정값일 수 있습니다.</td></tr>
-            <tr><td>오늘 운동에서 고른 것이 저장되지 않아요</td><td>오늘 고르기는 비교용이며, 계획 결정·실행 기능은 준비 중입니다.</td></tr>
+            <tr><td>오늘 운동 탭이 없어졌어요</td><td>오늘 할 운동은 코치 &gt; 계획/기록 &gt; 훈련 계획 맨 위 "오늘의 다음 운동"에서 봅니다(7.2).</td></tr>
           </table>
         </div>
       </section>

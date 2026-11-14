@@ -14,26 +14,26 @@ const SHOTS = "screenshots";
 
 // ── 사이드바 구성(단일 소스) ───────────────────────────────
 const GROUPS = [
-  { name: "시작하기", pages: [{ file: "ch01-start.html", title: "1. 시작하기", level: "beginner", desc: "로그인, 메뉴 5개와 버튼, 종목 칩, 처음 해 둘 설정" }] },
+  { name: "시작하기", pages: [{ file: "ch01-start.html", title: "1. 시작하기", level: "beginner", desc: "로그인 방법 5가지, 메뉴 5개와 ☰ 메뉴, 종목 칩, 처음 해 둘 설정" }] },
   { name: "기록 보기", pages: [
-    { file: "ch02-records.html", title: "2. 기록 보기 — 홈·운동일지·연간 기록", level: "beginner", desc: "최근 7일, 월 캘린더, 한 해 기록, 파일 올리기" },
-    { file: "ch03-analysis.html", title: "3. 활동 분석 — 사이클·러닝", level: "beginner", desc: "지도·지표 카드, 분석·구간 탭, 편집·공개 범위" },
+    { file: "ch02-records.html", title: "2. 기록 보기 — 홈·운동일지·연간 기록", level: "beginner", desc: "홈 피드·최근 7일, 활동 찾기, 월 캘린더, 한 해 기록, 파일 올리기" },
+    { file: "ch03-analysis.html", title: "3. 활동 분석 — 사이클·러닝", level: "beginner", desc: "개요(메모·사진·동영상·AI 분석), 분석·구간 탭, 활동 관리·공개 범위" },
   ] },
   { name: "함께 달리기", pages: [
-    { file: "ch04-compare.html", title: "4. 비교·탐색 — 코스·세그먼트·챌린지·게시판", level: "intermediate", desc: "다음 코스 고르기, 구간 순위, 거리 도전, 글쓰기" },
-    { file: "ch05-group-event.html", title: "5. 클럽·친구·이벤트", level: "intermediate", desc: "클럽 가입·운영, 이번 주 순위, 클럽 모임(실내·실외), 친구 맺기, 대회" },
+    { file: "ch04-compare.html", title: "4. 비교·탐색 — 코스·세그먼트·챌린지·게시판", level: "intermediate", desc: "다음 코스 고르기, 구간 순위, 거리 도전, 사람 찾기, 글쓰기" },
+    { file: "ch05-group-event.html", title: "5. 클럽·친구·이벤트", level: "intermediate", desc: "클럽 가입·운영, 이번 주 순위, 클럽 모임(실내·실외)·조편성·관전, 친구 맺기, 대회" },
   ] },
   { name: "코치와 훈련", pages: [
-    { file: "ch06-advanced.html", title: "6. 컨디션·체력 — 코치 > 컨디션·분석", level: "advanced", desc: "CTL·ATL·TSB, 파워 커브, 가정값, 훈련 기준값" },
-    { file: "ch07-training.html", title: "7. 코치 — 오늘 운동·계획·목표·대화", level: "intermediate", desc: "목표 세우기, 주간 플랜, 오늘 고르기, AI 코치" },
-    { file: "ch08-multisport.html", title: "8. 종목별 읽기·멀티스포츠", level: "intermediate", desc: "러닝 페이스·GAP·케이던스, 수영, 통합 부하" },
+    { file: "ch06-advanced.html", title: "6. 컨디션·체력 — 코치 > 컨디션·분석", level: "advanced", desc: "훈련 상태·CTL·ATL·TSB, 기간별 파워 커브, 가정값, 훈련 기준값" },
+    { file: "ch07-training.html", title: "7. 코치 — 계획/기록·목표·대화", level: "intermediate", desc: "목표 세우기, 훈련 계획·오늘의 다음 운동, 계획 대비 기록, AI 코치" },
+    { file: "ch08-multisport.html", title: "8. 종목별 읽기·멀티스포츠", level: "intermediate", desc: "러닝 페이스·GAP·케이던스, 수영(준비 중), 통합 부하" },
   ] },
   { name: "연결·설정", pages: [
-    { file: "ch09-strava.html", title: "9. Strava·연결 앱", level: "beginner", desc: "연결, 과거 활동 가져오기, 자동 업로드, 헬스 소스" },
-    { file: "ch10-settings.html", title: "10. 설정", level: "beginner", desc: "계정·공개 범위, 기기, API 키, 내보내기, 계정 삭제" },
+    { file: "ch09-strava.html", title: "9. Strava·연결 앱", level: "beginner", desc: "연결, 과거 활동 가져오기, 자동 업로드·요약 게시, 헬스 소스" },
+    { file: "ch10-settings.html", title: "10. 설정", level: "beginner", desc: "계정·공개 범위·로그인 연결, 기기, 운동 프로필, API 키, 내보내기, 계정 삭제" },
   ] },
   { name: "참고", pages: [
-    { file: "ch11-faq.html", title: "11. 자주 묻는 질문", level: "ref", desc: "기록이 안 보일 때, 숫자가 비었을 때, 메뉴 찾기" },
+    { file: "ch11-faq.html", title: "11. 자주 묻는 질문", level: "ref", desc: "기록이 안 보일 때, 숫자가 비었을 때, 메뉴 찾기, 공개 데이터" },
     { file: "glossary.html", title: "부록. 용어집", level: "ref", desc: "화면 용어와 표시(가정값·낮은 근거 등)의 뜻" },
   ] },
 ];
@@ -44,20 +44,20 @@ const GROUPS = [
 // 캡처: 2026-10-17~18 본인 계정 위임 로그인(운영), 1440 너비(×2) 화면을 장면 단위로 잘라 0.5배 저장.
 const FIGURES = {
   "ch01-start.html": [
-    { at: "s1-3", img: "01-dashboard.png", cap: "홈 화면 위쪽 — 메뉴 5개(홈·코치·클럽·탐색·게시판), 오른쪽 위 버튼, 종목 칩(사이클·러닝·수영 준비 중), 최근 7일 활동. 아래 최근 활동 피드는 그림에서 잘라 냈습니다." },
-    { at: "s1-3", img: "web-create-menu.png", max: 230, cap: "+ 만들기를 누르면 펼쳐지는 메뉴 — 코스·세그먼트·이벤트·클럽 만들기, 글쓰기, 활동 가져오기, 목표 만들기." },
-    { at: "s1-6", img: "web-mobile-home.png", max: 390, cap: "휴대폰 브라우저의 홈 — 메뉴가 화면 아래쪽 탭으로 바뀝니다. 맨 위 카드의 '통합'은 모든 종목 합계라는 뜻입니다(피드 부분은 잘라 내고 아래쪽 탭을 이어 붙였습니다)." },
+    { at: "s1-3", img: "01-dashboard.png", cap: "PC 홈 — 위쪽 메뉴 5개(홈·코치·클럽·탐색·게시판)와 오른쪽 위 알림·아바타·☰. 왼쪽은 종목 칩(사이클·러닝)과 최근 7일 활동, 가운데는 활동 피드, 오른쪽은 컨디션·오늘 운동·주간 이동거리 카드입니다." },
+    { at: "s1-3", img: "web-create-menu.png", max: 230, cap: "PC에서 ☰ 메뉴 판의 + 만들기를 누르면 펼쳐지는 목록 — 코스·세그먼트·이벤트·클럽 만들기, 글쓰기, 활동 가져오기, 목표 만들기." },
+    { at: "s1-6", img: "web-mobile-home.png", max: 390, cap: "휴대폰 브라우저의 홈 — 활동 피드만 보이고, 메뉴는 화면 아래쪽 탭으로 바뀝니다. 위쪽에는 알림·아바타·☰만 남습니다." },
   ],
   "ch02-records.html": [
-    { at: "s2-3", img: "04-log-calendar.png", cap: "운동일지(화면 제목: 운동 기록) — 점선 상자 '계획 N TSS'와 그 끝의 ✓·! 표시로 계획대로 했는지 봅니다." },
-    { at: "s2-5", img: "web-upload.png", cap: "+ 만들기 > 활동 가져오기로 여는 '활동 업로드' 창 — 파일 선택(FIT·GPX·TCX 10MB, ZIP 100MB), 활동 이름, 공개 범위(전체·친구·비공개), 업로드 버튼." },
-    { at: "s2-4", img: "web-records.png", max: 700, cap: "연간 기록 — 오른쪽 위 연도와 통합·사이클·러닝·수영 칩. '90일 일관성' 카드는 최근 90일 기준입니다." },
+    { at: "s2-3", img: "04-log-calendar.png", cap: "운동일지(화면 제목: 운동 기록, 코치 > 계획/기록 > 활동 기록·수행 확인) — 점선 상자 '계획 N TSS'와 그 끝의 문구(완료로 기록됨 등)로 계획대로 했는지 봅니다." },
+    { at: "s2-5", img: "web-upload.png", cap: "운동일지의 업로드(또는 PC ☰ > + 만들기 > 활동 가져오기)로 여는 '활동 업로드' 창 — 파일 선택(FIT·GPX·TCX 10MB, ZIP 100MB), 활동 이름, 공개 범위(전체·친구·팔로워·비공개), 업로드 버튼." },
+    { at: "s2-4", img: "web-records.png", max: 700, cap: "연간 기록 — 오른쪽 위 연도와 통합·사이클·러닝 칩. '90일 일관성' 카드는 최근 90일 기준입니다." },
   ],
   "ch03-analysis.html": [
-    { at: "s3-1", img: "02-activity-overview.png", cap: "사이클 활동 상세 — 맨 위 카드(성과 카드 이미지 저장, ▶ ⋯ 메뉴), 지도, 지표 카드. 지도 아래 '이 경로로 라이드'." },
-    { at: "s3-3", img: "03-activity-analysis.png", cap: "사이클 활동의 분석 탭 — 3시간 넘게 FTP 근처 강도(IF 1.00)로 탄 라이딩이라 훈련 부하 TSS가 301로 큽니다. 아래 파워 분석의 평균 파워 120W와 NP 183W 차이(VI 1.52)는 강약이 큰 라이딩이라는 뜻입니다." },
+    { at: "s3-1", img: "02-activity-overview.png", cap: "사이클 활동 상세의 개요 탭 — 맨 위 카드(오른쪽 끝 활동 관리 메뉴), 개요·분석·구간·비교 탭, 메모·사진, 지도와 핵심 기록." },
+    { at: "s3-3", img: "03-activity-analysis.png", cap: "사이클 활동의 분석 탭 — 맨 위 저장된 분석과 새 분석, '숫자로 읽는 활동' 바로가기, 훈련 요약(반영 훈련 부하·NP·IF), 그 아래 '경로와 센서 기록 살펴보기'와 주제별 분석이 이어집니다." },
     { at: "s3-8", img: "web-activity-edit.png", max: 660, cap: "활동 편집 화면 아래쪽 — 공개 설정(전체 공개·팔로워만·비공개), 세부(대회·레이스 활동, 체감 강도 RPE 1–10), 활동 삭제·취소·변경사항 저장." },
-    { at: "s3-run", img: "web-run-laps.png", cap: "러닝 활동의 구간 탭 — 이 기록은 랩 정보가 연결되지 않아 랩 분석 표가 비어 있고, 지나간 세그먼트도 없어 세그먼트 만들기·코스 등록 버튼이 보이는 예입니다." },
+    { at: "s3-run", img: "web-run-laps.png", cap: "러닝 활동의 구간 탭 — 페이스 프로필·랩별 페이스와 랩 분석 표, 아래에 세그먼트 만들기·코스 등록 버튼과 세그먼트 기록이 나옵니다." },
   ],
   "ch04-compare.html": [
     { at: "s4-1", img: "web-courses.png", cap: "탐색 > 코스 — 필터(노면·이동거리·획득고도·지역·내 주변·체감난도)와 지도, 오른쪽 코스 목록(거리당상승·Cat 등급)." },
@@ -72,14 +72,14 @@ const FIGURES = {
     { at: "s5-7", img: "web-friends.png", max: 700, cap: "친구 위쪽 — 내 친구코드와 복사 아이콘, 친구코드 입력 칸, 친구·요청·보낸 요청 탭(친구 목록은 잘라 냈습니다)." },
   ],
   "ch06-advanced.html": [
-    { at: "s6-1", img: "05-fitness-pmc.png", cap: "코치 > 컨디션 — 브리핑 결론과 장기체력 CTL·단기피로 ATL·회복상태 TSB. '낮은 근거' 표시와 남은 요건을 눈여겨보세요." },
-    { at: "s6-3", img: "web-coach-analysis.png", cap: "코치 > 분석 — 왼쪽 기간별 실측 파워 비교, 오른쪽 파워 커브(최근 28일 실선, 이전 28일 점선)와 '확인할 지속시간'별 최고 파워." },
-    { at: "s6-5", img: "web-condition-sections.png", cap: "코치 > 컨디션 아래쪽 — 최근 활동이 남긴 영향과 접힌 영역들. '전체 종목 훈련 기준 설정'과 'FTP·파워 판단 근거'를 눌러 펼칩니다." },
+    { at: "s6-1", img: "05-fitness-pmc.png", cap: "코치 > 컨디션 — 맨 위 훈련 상태(다섯 칸 막대)와 장기체력 CTL·단기피로 ATL·회복상태 TSB, 아래 컨디션 변화 차트." },
+    { at: "s6-3", img: "web-coach-analysis.png", cap: "코치 > 분석 — 위쪽 기간 탭과 '기간 분석 불러오기', 수행 능력 변화의 기간별 실측 파워 비교(최근 기간 실선, 이전 기간 점선)와 '확인할 지속시간'별 최고 파워." },
+    { at: "s6-5", img: "web-condition-sections.png", cap: "설정 > 운동 프로필 — 운동 임계치(FTP·최대 심박수·LTHR·임계 페이스), FTP 테스트, 심박 존과 저장 버튼." },
   ],
   "ch07-training.html": [
-    { at: "s7-2", img: "web-today.png", cap: "코치 > 오늘 운동 — 세 가지 중 하나를 고르면 24·48시간 뒤 CTL·ATL·TSB 예상이 바뀝니다. 계획 결정·실행 기능은 준비 중입니다." },
-    { at: "s7-3", img: "08-training-plan.png", cap: "코치 > 계획(주간 플랜) — 목표일이 하루 남은 예시라 띠 제목이 '목표일 이후 저장된 운동'으로, 지난 미완료 수가 크게 보입니다. 훈련 단계 막대와 TODAY·★ 목표일 칸을 찾아보세요." },
-    { at: "s7-4", img: "web-goals.png", cap: "코치 > 목표 — 지금 목표 카드의 계획진행률·목표일 예상, 아래 '다른 목표를 세우려면'." },
+    { at: "s7-2", img: "web-today.png", cap: "코치 > 계획/기록 > 훈련 계획 맨 위 — 오늘의 다음 운동 카드와 '운동 상세' 버튼." },
+    { at: "s7-3", img: "08-training-plan.png", cap: "코치 > 계획/기록 > 훈련 계획(주간 플랜) — 계획 대비 기록, 목표기간 훈련 부하, 훈련 단계 막대와 TODAY·목표일 칸, 칸마다 계획·실제 TSS." },
+    { at: "s7-4", img: "web-goals.png", cap: "코치 > 목표 — 지금 목표 카드의 목표기간 훈련 부하·목표일 예상, 아래 '다른 목표를 세우려면'." },
   ],
   "ch09-strava.html": [
     { at: "s9-1", img: "web-settings-connections.png", max: 820, cap: "설정 > 연결 앱의 활동 앱 연결 카드 — Strava 줄의 '연결' 버튼을 누릅니다." },
