@@ -43,7 +43,8 @@ SELF_REVIEW_FILE=""
 REVIEW_SINCE=""           # --review-since <ref> 로 명시 지정
 # Codex 입력 상한 1,048,576자. 프롬프트·메타데이터·스키마 몫을 뺀 보수적 상한.
 REVIEW_MAX_DIFF_BYTES=900000
-REVIEW_MAX_INPUT_BYTES=1000000
+# Stay below the 1 MiB transport ceiling, including the dependency context.
+REVIEW_MAX_INPUT_BYTES=1040000
 REVIEW_STATE_REF_PREFIX="refs/codex-review/pr-"
 REQUIRE_VISUAL_CHECK=1
 REQUIRE_GITHUB_REVIEW=0
