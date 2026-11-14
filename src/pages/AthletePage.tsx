@@ -960,7 +960,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         </div>
       {!isOwnProfile && <div className="athlete-query-status">
         {publicGlobal.status !== "complete" && <Text as="p" role="status">{t(chartLimited ? "publicDiscoveryLimit" : `publicGlobal.${publicGlobal.status}`, { count: publicGlobal.items.length })}</Text>}
-        {publicGlobal.status !== "loading" && <Button size="sm" onClick={publicGlobal.status === "partial" || publicGlobal.status === "error" ? publicGlobal.more : publicGlobal.refresh}>{t(publicGlobal.status === "partial" ? "publicPeriod.globalMore" : publicGlobal.status === "error" ? "monthly.retry" : "publicPeriod.refresh")}</Button>}
+        {publicGlobal.status === "partial" && <Button size="sm" onClick={publicGlobal.more}>{t("publicPeriod.globalMore")}</Button>}
       </div>}
         {isOwnProfile && !statsReady && <p role="status">{t(totalsError || ownerTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Text as="span" variant="caption">{t(ownerTotals?.integrityFailed ? "profile.totalsRestartScope" : "profile.totalsContinueScope")}</Text><Button size="sm" onClick={() => { totalsRetry.current = { identity: readIdentity, epoch: ownerTotals?.epoch, attempt: totalsAttempt + 1 }; setTotalsAttempt(totalsAttempt + 1); }}>{t(ownerTotals?.integrityFailed ? "profile.restartTotals" : "profile.continueTotals")}</Button></p>}
         <Text as="p" variant="caption" tone="secondary" className="mt-2">{t(isOwnProfile ? "stats.scopeOwn" : "stats.scopePublic")}</Text>

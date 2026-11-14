@@ -24,7 +24,6 @@
   "restart": "Please reload activities.",
   "stale": "Please reload activities.",
   "more": "Load more",
-  "refresh": "Refresh",
   "records": "Collected public activities",
   "activity": "View original activity"
 },
@@ -83,7 +82,6 @@
   "activities.loadMoreRemaining": "Load more ({{count}} remaining)",
   "monthly.loading": "Loading all monthly activities…",
   "monthly.error": "Unable to load monthly activities.",
-  "monthly.retry": "Retry",
   "self": {
     "edit": "Edit profile",
     "share": "Share",
