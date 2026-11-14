@@ -30,10 +30,11 @@ vi.mock("../services/appHandoff", () => ({ consumeAppHandoffCode: vi.fn().mockRe
 it("opens meetings, the real creation form, news and back without replacing the embedded session", async () => {
   simulateLogin({ uid: "owner-1" });
   isolated.auth.currentUser = { uid: "owner-1" };
-  setDocData("groups/club-1", { name: "One coherent club", creatorId: "another-host", memberCount: 3, description: "Club introduction", sports: ["bike"], visibility: "public" });
-  setDocData("groups/club-1/members/owner-1", { role: "member", status: "active" });
+  setDocData("groups/club-lara", { name: "One coherent club", creatorId: "another-host", memberCount: 3, description: "Club introduction", sports: ["bike"], visibility: "public" });
+  setDocData("groups/club-lara/members/owner-1", { role: "member", status: "active" });
   setCallableImplementation("listVisibleEventEnvelopes", () => ({ data: { rows: [], nextCursor: null } }));
   setCallableImplementation("listClubMeetings", () => ({ data: { meetings: [], nextCursor: null } }));
+  setCallableImplementation("getClubCafeSchedule", () => ({ data: { schedule: { source: "naver-cafe", cafeUrl: "https://cafe.naver.com/clublara", syncedAt: Date.now(), undatedCount: 0, truncated: false, entries: [{ id: "fixture-cafe", title: "Isolated cafe schedule", dates: ["2099-11-15"], boardId: 4, boardName: "번개", author: "Fixture author", commentCount: 0, url: "https://cafe.naver.com/clublara/123", closed: false, cancelled: false }] } } }));
   setCallableImplementation("listMyGroupSummaries", () => ({ data: { groups: [] } }));
   const listeners = new Set<(message: HostBridgeEnvelope) => void>();
   const send = vi.fn(), dispose = vi.fn();
@@ -43,7 +44,7 @@ it("opens meetings, the real creation form, news and back without replacing the 
     for (const listener of listeners) listener({ version: 1, type, payload });
   });
   function Back() { const navigate = useNavigate(); return <button onClick={() => navigate(-1)}>Browser back</button>; }
-  const view = render(<MemoryRouter initialEntries={["/ko/embed/clubs/club-1"]}><Back /><Routes>
+  const view = render(<MemoryRouter initialEntries={["/ko/embed/clubs/club-lara"]}><Back /><Routes>
     <Route path="/:lang/embed/clubs/:groupId/*" element={<EmbeddedBootstrapRoot bridgeFactory={factory} surfaceKind="club-detail" />} />
   </Routes></MemoryRouter>);
   await waitFor(() => expect(send.mock.calls.some(([type]) => type === "bootstrap.ready")).toBe(true));
@@ -51,12 +52,13 @@ it("opens meetings, the real creation form, news and back without replacing the 
   await waitFor(() => expect(send).toHaveBeenCalledWith("auth.state", { uid: "owner-1" }, undefined));
   await emit("host.sessionAccepted", { theme: { mode: "light" }, locale: "ko", safeInsets: { top: 0, bottom: 0 } });
   const create = await screen.findByRole("link", { name: "모임 만들기" });
+  await screen.findByText("Isolated cafe schedule");
   expect(screen.getAllByRole("link", { name: "모임 만들기" })).toHaveLength(1);
   expect(screen.getByRole("link", { name: "모임", exact: true })).toHaveAttribute("aria-current", "page");
   fireEvent.click(create);
   await screen.findByRole("heading", { name: "모임 준비하기" });
   expect(screen.queryByRole("link", { name: "모임 만들기" })).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "← 모임 목록" })).toHaveAttribute("href", "/ko/embed/clubs/club-1");
+  expect(screen.getByRole("link", { name: "← 모임 목록" })).toHaveAttribute("href", "/ko/embed/clubs/club-lara");
   await emit("host.themeChanged", { mode: "dark" });
   expect(document.documentElement.dataset.theme).toBe("dark");
   fireEvent.click(screen.getByRole("button", { name: "닫기", exact: true }));
@@ -70,7 +72,8 @@ it("opens meetings, the real creation form, news and back without replacing the 
   expect(factory).toHaveBeenCalledTimes(1);
   expect(isolated.auth.currentUser?.uid).toBe("owner-1");
   expect(send.mock.calls.some(([type]) => type === "navigation.openNative" || type === "navigation.openExternal")).toBe(false);
-  const factories = vi.mocked(httpsCallable).mock.calls.filter(([, name]) => ["listVisibleEventEnvelopes", "listClubMeetings"].includes(name));
+  const factories = vi.mocked(httpsCallable).mock.calls.filter(([, name]) => ["listVisibleEventEnvelopes", "listClubMeetings", "getClubCafeSchedule"].includes(name));
+  expect(factories.some(([, name]) => name === "getClubCafeSchedule")).toBe(true);
   expect(factories.length).toBeGreaterThan(0);
   for (const [instance] of factories) expect(instance).toBe(isolated.functions);
   expect(auth).toBeUndefined(); expect(firestore).toBeUndefined(); expect(functions).toBeUndefined();
