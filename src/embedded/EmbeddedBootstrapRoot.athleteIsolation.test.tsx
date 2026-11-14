@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
 import { auth, firestore, functions, initFirebase } from "../services/firebase";
-import { setDocData, setCallableImplementation, simulateLogin } from "../__tests__/mocks/firebase";
+import { setDocData, setCallableImplementation, simulateLogout } from "../__tests__/mocks/firebase";
 import { createMockProfile } from "../__tests__/fixtures/mockData";
 import type { EmbeddedBridge, HostBridgeEnvelope } from "./bridge";
 import EmbeddedBootstrapRoot from "./EmbeddedBootstrapRoot";
@@ -28,7 +28,7 @@ vi.mock("./embeddedFirebase", () => ({
 vi.mock("../services/appHandoff", () => ({ consumeAppHandoffCode: vi.fn().mockResolvedValue(undefined) }));
 
 it("opens the real athlete surface and paginates with only the isolated Firebase app", async () => {
-  simulateLogin(null);
+  simulateLogout();
   setDocData("users_public/rider-1", { ...createMockProfile(), nickname: "Isolated rider", profilePublic: true });
   let page = 0;
   setCallableImplementation("getPublicSegmentMetadata", () => ({ data: {
