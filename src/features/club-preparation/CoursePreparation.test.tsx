@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CoursePreparation from './CoursePreparation';
 vi.mock('../../services/errorLogger',()=>({logClientError:vi.fn()}));
@@ -12,8 +12,9 @@ import { latestDraft } from './meetingDrafts';
 import { loadSegmentDetail, type SegmentChoice } from './segmentCatalog';
 vi.mock('./segmentCatalog',async importOriginal=>({...await importOriginal<typeof import('./segmentCatalog')>(),loadSegmentDetail:vi.fn(async choice=>choice)}));
 import { logClientError } from '../../services/errorLogger';
-import { loadCourseCatalog, loadSavedCourse, type SavedCourseChoice } from './courseCatalog';
-vi.mock('./courseCatalog',()=>({loadSavedCourse:vi.fn((id:string)=>Promise.resolve(vi.mocked(loadCourseCatalog).getMockImplementation()?.()??[]).then(items=>items.find(item=>item.id===id)??null)),loadCourseCatalogPage:(...args: unknown[])=>vi.mocked(loadCourseCatalog)(...args as []).then(items=>({items,cursor:null,hasMore:false})),loadCourseCatalog:vi.fn(),toCoursePlan:(course:SavedCourseChoice)=>({source:{kind:'saved-course',id:course.id,name:course.name},distanceKm:course.distanceKm,elevationGainM:course.elevationGainM,checkpoints:course.checkpoints,track:course.track,segments:[]})}));
+import { loadCourseCatalog, loadSavedCourse, searchCourseCatalog, type SavedCourseChoice } from './courseCatalog';
+import { logClientError } from '../../services/errorLogger';
+vi.mock('./courseCatalog',()=>({loadSavedCourse:vi.fn((id:string)=>Promise.resolve(vi.mocked(loadCourseCatalog).getMockImplementation()?.()??[]).then(items=>items.find(item=>item.id===id)??null)),loadCourseCatalogPage:(...args: unknown[])=>vi.mocked(loadCourseCatalog)(...args as []).then(items=>({items,cursor:null,hasMore:false})),loadCourseCatalog:vi.fn(),searchCourseCatalog:vi.fn(async()=>[]),toCoursePlan:(course:SavedCourseChoice)=>({source:{kind:'saved-course',id:course.id,name:course.name},distanceKm:course.distanceKm,elevationGainM:course.elevationGainM,checkpoints:course.checkpoints,track:course.track,segments:[]})}));
 const course:SavedCourseChoice={id:'saved-route',name:'기존 강변 코스',description:'강변을 따라 카페에서 쉬어요.',distanceKm:42,elevationGainM:320,checkpoints:[{name:'편의점 보급',source:'course',type:'보급',distanceKm:15,note:'물 채우기'}]};
 const gpx='<gpx><metadata><name>가을 GPX</name></metadata><wpt lat="37.005" lon="127.005"><name>중간 카페</name></wpt><trk><trkseg><trkpt lat="37" lon="127"><ele>0</ele></trkpt><trkpt lat="37.005" lon="127.005"><ele>100</ele></trkpt><trkpt lat="37.01" lon="127.01"><ele>200</ele></trkpt><trkpt lat="37.015" lon="127.015"><ele>50</ele></trkpt></trkseg></trk></gpx>';
 function Harness({initial}:{initial:Meeting}){const[meeting,setMeeting]=useState(initial);return <><CoursePreparation meeting={meeting} onChange={setMeeting} onBusyChange={vi.fn()}/><output aria-label="현재 전체 거리">{meeting.distanceKm??'미정'}</output><CoursePreview meeting={meeting}/></>;}
@@ -33,6 +34,49 @@ describe('코스부터 준비하는 모집 작성',()=>{
     expect(screen.getByRole('region',{name:'코스 체크포인트'}).textContent).toContain('편의점 보급');
     expect(screen.getByRole('region',{name:'코스 체크포인트'}).textContent).toContain('직접 정한 만남');
     expect(screen.getByText('강변을 따라 카페에서 쉬어요.')).toBeTruthy();
+  });
+  it('기존 코스 가져오기 탭을 누르면 바로 목록을 불러오고 실패는 원인을 기록한다',async()=>{
+    // 새 모임은 이 탭이 기본이라 누르면 화면이 그대로였다("반응 없음", 2026-11-14 제보).
+    const initial={...createSeed().meetings[2]!,courseSource:undefined,courseHighlights:''};
+    vi.mocked(loadCourseCatalog).mockRejectedValueOnce(new Error('course-list/http-403'));
+    render(<Harness initial={initial}/>);
+    fireEvent.click(screen.getByRole('tab',{name:'기존 코스 가져오기'}));
+    expect(await screen.findByText('기존 코스를 불러오지 못했어요. 다시 시도해주세요.')).toBeTruthy();
+    expect(vi.mocked(logClientError)).toHaveBeenCalledWith('CoursePreparation.savedCourseList',expect.any(Error),{append:false});
+    fireEvent.click(screen.getByRole('button',{name:'기존 코스 불러오기'}));
+    expect(await screen.findByText('기존 강변 코스')).toBeTruthy();
+  });
+  it('불러온 목록에 없는 코스도 이름으로 서버에서 찾아 보여 준다',async()=>{
+    // 목록 첫 페이지 안에서만 거르면 그 밖의 코스는 검색해도 "찾는 코스가 없어요" 였다(2026-11-15 제보).
+    const far:SavedCourseChoice={...course,id:'far-route',name:'남산 업힐',description:undefined};
+    vi.mocked(searchCourseCatalog).mockResolvedValueOnce([far]);
+    const initial={...createSeed().meetings[2]!,courseSource:undefined,courseHighlights:''};
+    render(<Harness initial={initial}/>);
+    fireEvent.click(screen.getByRole('tab',{name:'기존 코스 가져오기'}));
+    await screen.findByText('기존 강변 코스');
+    fireEvent.change(screen.getByLabelText('기존 코스 이름 검색'),{target:{value:'남산'}});
+    expect(await screen.findByText('남산 업힐',{},{timeout:2000})).toBeTruthy();
+    expect(vi.mocked(searchCourseCatalog).mock.calls.at(-1)![0]).toBe('남산');
+    expect(screen.queryByText('기존 강변 코스')).toBeNull();
+    expect(screen.queryByText('찾는 코스가 없어요. 다른 이름으로 찾아보세요.')).toBeNull();
+  });
+  it('검색어를 바꾸면 이전 검색 결과를 바로 버리고, 늦게 실패한 이전 검색도 기록한다',async()=>{
+    const first:SavedCourseChoice={...course,id:'first',name:'남산 업힐',description:undefined};
+    let failLate!:(error:Error)=>void;
+    vi.mocked(searchCourseCatalog).mockResolvedValueOnce([first]).mockImplementationOnce(()=>new Promise((_,reject)=>{failLate=reject;})).mockResolvedValueOnce([]);
+    const initial={...createSeed().meetings[2]!,courseSource:undefined,courseHighlights:''};
+    render(<Harness initial={initial}/>);
+    fireEvent.click(screen.getByRole('tab',{name:'기존 코스 가져오기'}));
+    await screen.findByText('기존 강변 코스');
+    const input=screen.getByLabelText('기존 코스 이름 검색');
+    fireEvent.change(input,{target:{value:'남산'}});
+    expect(await screen.findByText('남산 업힐',{},{timeout:2000})).toBeTruthy();
+    fireEvent.change(input,{target:{value:'북악'}});
+    expect(screen.queryByText('남산 업힐')).toBeNull();
+    await waitFor(()=>expect(vi.mocked(searchCourseCatalog)).toHaveBeenCalledTimes(2),{timeout:2000});
+    fireEvent.change(input,{target:{value:'북한산'}});
+    await act(async()=>{failLate(new Error('course-list/http-503'));});
+    expect(vi.mocked(logClientError)).toHaveBeenCalledWith('CoursePreparation.savedCourseSearch',expect.any(Error),{length:2,stale:true});
   });
   it('유효한 GPX 파일에서 실제 모임용 구간을 생성하고 공식 상세 링크를 만들지 않는다',async()=>{
     const initial={...createSeed().meetings[2]!,distanceKm:undefined,elevationGainM:undefined,courseHighlights:'',courseStops:[],courseCheckpoints:[],segments:[]};
