@@ -24,7 +24,6 @@
   "restart": "다시 불러와 주세요.",
   "stale": "다시 불러와 주세요.",
   "more": "더 불러오기",
-  "refresh": "새로고침",
   "records": "현재 수집한 공개 활동",
   "activity": "원본 활동 보기"
 },
@@ -83,7 +82,6 @@
   "activities.loadMoreRemaining": "더 보기 ({{count}}개 남음)",
   "monthly.loading": "전체 월간 활동을 불러오는 중…",
   "monthly.error": "월간 활동을 불러오지 못했습니다.",
-  "monthly.retry": "다시 시도",
   "self": {
     "edit": "프로필 편집",
     "share": "공유",

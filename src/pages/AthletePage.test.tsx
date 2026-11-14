@@ -382,7 +382,7 @@ it('distinguishes bounded public inventory exhaustion from a retryable network f
  setDocData('users_public/athlete-1',{nickname:'Public test rider',profilePublic:true});
  const original=vi.mocked(loadActivityDiscovery).getMockImplementation()!;let pages=0;
  vi.mocked(loadActivityDiscovery).mockImplementation(async(services,request)=>request.order==='id_asc'?{items:[],nextCursor:'ad1.'+(++pages),exhausted:false,expiresAt:Date.now()+600000} as never:original(services,request));
- try{renderWithProviders(<AthletePage/>);for(let index=0;index<9;index++){fireEvent.click(await screen.findByRole('button',{name:'통계 불러오기'}));}await screen.findAllByText(/전체 통계를 불러올 수 없습니다/);expect(pages).toBe(10);expect(screen.queryByRole('button',{name:'다시 시도',exact:true})).not.toBeInTheDocument();}
+ try{renderWithProviders(<AthletePage/>);for(let index=0;index<9;index++){fireEvent.click(await screen.findByRole('button',{name:'통계 불러오기'}));}await screen.findAllByText(/전체 통계를 불러올 수 없습니다/);expect(pages).toBe(10);expect(screen.queryByRole('button',{name:'다시 시도',exact:true})).not.toBeInTheDocument();expect(screen.queryByRole('button',{name:'새로고침'})).not.toBeInTheDocument();}
  finally{vi.mocked(loadActivityDiscovery).mockImplementation(original);}
 });
 
