@@ -17,7 +17,9 @@ describe("Strava 사진 숨김", () => {
     expect(withoutHiddenProviderPhotos(photos, ["1"]).map(p => p.id)).toEqual(["strava-2", "upload-p"]);
   });
   it("총수는 숨긴 Strava 사진을 빼고 올린 사진을 더한다(중복 없이)", () => {
-    expect(stravaOverviewPhotoTotal({ overviewCount: 3, streamPhotoIds: ["1", "2", "3"], stravaPhotoCount: 4, hiddenIds: ["1"], uploadedCount: 2, publishedTotal: 6 })).toBe(5);
+    expect(stravaOverviewPhotoTotal({ overviewCount: 3, streamPhotoIds: ["1", "2", "3"], stravaPhotoCount: 4, hiddenIds: ["1"], uploadedCount: 2, publishedTotal: 5 })).toBe(5);
+    // 활동 문서에 Strava 사진 수가 없으면 서버 합계를 하한으로 쓴다
+    expect(stravaOverviewPhotoTotal({ overviewCount: 1, streamPhotoIds: [], stravaPhotoCount: undefined, hiddenIds: [], uploadedCount: 0, publishedTotal: 9 })).toBe(9);
     // 올린 사진 목록을 못 읽은 공개 열람은 서버 합계를 쓴다
     expect(stravaOverviewPhotoTotal({ overviewCount: 2, streamPhotoIds: [], stravaPhotoCount: 4, hiddenIds: [], uploadedCount: null, publishedTotal: 6 })).toBe(6);
   });

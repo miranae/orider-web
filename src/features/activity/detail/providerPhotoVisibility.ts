@@ -35,6 +35,9 @@ export function stravaOverviewPhotoTotal(input: { overviewCount: number; streamP
   const hidden = new Set(input.hiddenIds);
   const visibleStream = input.streamPhotoIds.filter(id => !hidden.has(id)).length;
   const strava = Math.max(visibleStream, Math.max(0, (input.stravaPhotoCount ?? 0) - hidden.size));
-  const total = input.uploadedCount == null ? input.publishedTotal ?? strava : strava + input.uploadedCount;
+  // 서버가 합친 피드 총수(올린 사진 + 숨기지 않은 Strava 사진)는 하한으로 쓴다 — 활동 문서의 Strava
+  // 사진 수가 비어 있어도 총수가 줄지 않고, 올린 사진을 두 번 더하지도 않는다.
+  const total = input.uploadedCount == null ? input.publishedTotal ?? strava
+    : Math.max(input.publishedTotal ?? 0, strava + input.uploadedCount);
   return Math.max(input.overviewCount, total);
 }
