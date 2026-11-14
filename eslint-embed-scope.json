@@ -694,6 +694,8 @@
   "src/pages/event/EventResultsPage.tsx",
   "src/pages/event/privateSnapshotPages.ts",
   "src/pages/fitness/TriFitnessView.tsx",
+  "src/pages/group/ClubEventsRedirect.tsx",
+  "src/pages/group/ClubHomePage.tsx",
   "src/pages/group/ClubMeetingLivePage.tsx",
   "src/pages/group/ClubMeetingPage.tsx",
   "src/pages/group/GroupDashboardPage.tsx",

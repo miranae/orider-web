@@ -29,7 +29,7 @@ export function UnifiedClubEventList({groupId, meetings, events, status, loading
       {error && <ErrorState title={t("error.loadFailed")} onRetry={onRetry} />}
       {!rows.length && !error && <div data-testid="C3-1-3"><EmptyState
         title={hasMore ? t("event:discovery.emptyPage") : t(`events.empty.${status}`)}
-        actions={[{label:t("dashboard.moreEvents"),href:"/explore/events"}]} /></div>}
+        /></div>}
       {rows.map(row => {
         if (row.kind === "meeting") {
           const item = row.item;

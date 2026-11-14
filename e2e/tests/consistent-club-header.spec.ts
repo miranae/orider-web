@@ -3,7 +3,7 @@ import {mkdir} from 'node:fs/promises';
 test('club identity stays the same while switching tabs',async({page},info)=>{
   await page.goto('/e2e/fixtures/consistent-club-header.html');
   await mkdir('docs/reviews/2026-11-04-consistent-club-header',{recursive:true});
-  for(const [key,tab] of [['home','소식'],['members','멤버'],['events','이벤트'],['settings','운영']]){
+  for(const [key,tab] of [['home','소식'],['members','멤버'],['events','모임'],['settings','운영']]){
     await page.getByRole('link',{name:tab,exact:true}).click();
     await expect(page.getByRole('link',{name:tab,exact:true})).toHaveAttribute('aria-current','page');
     await expect(page.getByRole('heading',{level:1})).toHaveText('테스트 클럽');

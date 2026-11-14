@@ -458,7 +458,7 @@ export default function GroupDashboardPage() {
         <Card data-testid="C1-4" padding="none" className="mb-4 p-4" style={{ borderRadius: "var(--r-lg)" }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="club-card-title" style={{ color: "var(--ink-1)" }}>{t("dashboard.upcomingEvents")}</h2>
-            <Link data-testid="C1-4-1" to={`/club/${groupId}/events`} className="text-[length:var(--ft-body-size)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreEvents")}</Link>
+            <Link data-testid="C1-4-1" to={`/club/${groupId}`} className="text-[length:var(--ft-body-size)]" style={{ color: "var(--lime)" }}>{t("dashboard.moreEvents")}</Link>
           </div>
           {upcomingIncomplete && !upcomingLoading && !upcomingError && <p role="status">{t("event:discovery.partial")}</p>}
           {upcomingLoading ? <LoadingSkeleton kind="list" count={2} /> : upcomingError ? <ErrorState title={t("error.eventsLoadFailed")} onRetry={()=>setUpcomingAttempt(value=>value+1)} compact /> : <ul role="list" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" style={{ listStyle: "none", margin: 0, padding: 0, gap: "var(--space-2)" }}>

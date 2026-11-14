@@ -162,10 +162,11 @@ export default function ClubMeetingPage({
       <GroupSubNav
         group={group}
         isCreator={canManageGroup(group, user.uid, role)}
+        compact={mode !== "detail"}
       />
       <div className="cp-product-header">
-        <Link to={`/club/${group.id}/events`}>
-          ← {text("클럽 모임", "Club meetings")}
+        <Link to={`/club/${group.id}`}>
+          ← {text("모임 목록", "Meetings")}
         </Link>
         {mode === "detail" && (
           <Button
@@ -209,7 +210,7 @@ export default function ClubMeetingPage({
           draftNamespace={`${encodeURIComponent(user.uid)}.${encodeURIComponent(group.id)}.${mode === "new" ? (sourceId ? `copy-${encodeURIComponent(sourceId)}` : "new") : "edit"}`}
           initialRevision={mode === "edit" ? data?.revision : undefined}
           english={en}
-          onClose={() => navigate(`/club/${group.id}/events`)}
+          onClose={() => navigate(`/club/${group.id}`)}
           onSave={async (meeting, baseRevision) => {
             try {
               if (mode === "edit" && data) {
