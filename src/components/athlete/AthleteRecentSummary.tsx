@@ -1,6 +1,5 @@
 import { planDayStartMs } from "@shared/training/planDate";
 import { seoulWeekday } from "../../utils/seoulWeek";
-import { Text } from "../../theme/components";
 import { isSportUiEnabled } from "../../config/sportFeatures";
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -38,7 +37,6 @@ export default function AthleteRecentSummary({ activities, loading, error }: { a
   const prefix = seoulWeekday(days[0]!.date.getTime());
   return <section className="athlete-recent-summary" aria-label={t("profile.last28Days")}>
     <h2>{t("profile.last28Days")}</h2>
-    <Text as="p" variant="caption">{t("profile.calendarBasis")}</Text>
     {loading || error ? <p role="status">{t(error ? "monthly.error" : "monthly.loading")}</p> : <>
       <p className="athlete-recent-summary-count"><strong>{items.length}</strong> {t("profile.activities")}</p>
       <div className="athlete-recent-visuals">

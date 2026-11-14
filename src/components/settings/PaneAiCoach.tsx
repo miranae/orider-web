@@ -91,7 +91,7 @@ export function PaneAiCoach() {
           {!valid && policy && error !== "load_failed" && <Button disabled={loading || saving} onClick={() => setSheetOpen(true)}>{t("coach.reviewConsent")}</Button>}
           {valid && <Button variant="danger" disabled={loading || saving || error === "load_failed"} onClick={() => void revoke()}>{t("coach.revoke")}</Button>}
         </div>
-        {error === "load_failed" && <div role="alert" className="settings-consent-error"><p>{t("coach.loadFailed")}</p><Button variant="secondary" onClick={() => void load()}>{t("common:button.retry")}</Button></div>}
+        {error === "load_failed" && <div role="alert" className="settings-consent-error"><p>{t("coach.loadFailed")}</p></div>}
       </SettingsCard>
       {policy && <CoachConsentSheet
         open={sheetOpen}

@@ -83,7 +83,7 @@ export default function SettingsPage({ tab }: { tab?: SectionId }) {
             {section === "gear" ? t("nav.equipmentLabel") : current && t(current.labelKey)}
           </Text>
         </header>
-        <main className="mobile-settings-detail" style={{ padding: "var(--space-4)" }}>
+        <main className="mobile-settings-detail" style={{ padding: "var(--space-4) 0" }}>
           <SettingsPanes section={section} discipline={discipline} />
         </main>
       </div>

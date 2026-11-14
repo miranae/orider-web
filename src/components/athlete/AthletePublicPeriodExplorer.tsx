@@ -32,7 +32,7 @@ export default function AthletePublicPeriodExplorer({ targetUid }: { targetUid: 
       <Button type="button" variant="ghost" onClick={() => choose(defaultFrom, defaultTo)}>{t("profile.last28Days")}</Button>
     </form>
     <div className="athlete-query-status">{query.status !== "complete" && <Text as="p" role="status">{!query.valid ? t("publicPeriod.invalid") : t(`publicPeriod.${query.status}`, { count: query.items.length })}</Text>}
-    {query.status !== "loading" && query.valid && <Button onClick={query.status === "partial" || query.status === "error" ? query.more : query.refresh}>{t(query.status === "partial" ? "publicPeriod.more" : query.status === "error" ? "monthly.retry" : "publicPeriod.refresh")}</Button>}</div>
+    {query.status === "partial" && query.valid && <Button size="sm" onClick={query.more}>{t("publicPeriod.more")}</Button>}</div>
     {query.status === "complete" && <>
       {from === defaultFrom && to === defaultTo && <AthleteRecentSummary activities={accepted} loading={false} error={false} />}
       <AthleteActivityChart key={`${from}|${to}`} rangeLimit={publicPeriodBounds(from, to)!} activities={accepted} loadActivities={[]} selected={selected} onSelect={setSelected} />

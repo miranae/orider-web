@@ -68,7 +68,8 @@
 
 .settings-main {
   padding: 32px 40px 60px;
-  max-width: 880px;
+  /* 880(내용 800)이라 넓은 화면에서 오른쪽이 비고 내용이 좁았다. */
+  max-width: 1200px;
   width: 100%;
 }
 .settings-content-header {

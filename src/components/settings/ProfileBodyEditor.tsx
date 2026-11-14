@@ -26,7 +26,7 @@ export function ProfileBodyEditor() {
   const [unit, setUnit] = useState<BodyUnit>(units === "imperial" ? "imperial" : "metric");
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  const [attempt] = useState(0);
   const [saving, setSaving] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const baseline = useRef({ weight: "", height: "", revision: null as string | null });
@@ -93,7 +93,7 @@ export function ProfileBodyEditor() {
   if (!user) return null;
   return <section id="body-info" aria-label={t("profile.bodyInfo")}>
     <SettingsCard title={t("profile.bodyInfo")}>
-      {failed && <div role="alert">{t("training.loadFailed")} <Button onClick={() => setAttempt(value => value + 1)}>{t("common:button.retry")}</Button></div>}
+      {failed && <div role="alert">{t("training.loadFailed")} </div>}
       <fieldset disabled={!loaded || saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         <ToggleControls variant="axis" aria-label={t("training.bodyUnit.metric")} >
           {(["metric", "imperial"] as const).map(value => <ToggleButton key={value} selected={unit === value} onClick={() => setUnit(value)}>{t(`training.bodyUnit.${value}`)}</ToggleButton>)}
@@ -104,7 +104,7 @@ export function ProfileBodyEditor() {
           </Field>
           <Field label={t(unit === "metric" ? "training.fieldWeight" : "training.fieldWeightLb")} hint={unit === "metric" ? t("training.fieldWeightHint") : t("training.fieldWeightLbHint")}>
             <Input id={`${fieldId}-weight`} aria-label={t(unit === "metric" ? "training.fieldWeight" : "training.fieldWeightLb")} value={formatBodyValue(weight, unit, "weight")} onChange={e => setWeight(parseBodyValue(e.target.value, unit, "weight"))} />
-            {!confirmed && Number(weight) === 70 && <Button variant="secondary" onClick={() => void save(true)}>{t("training.confirmWeight")}</Button>}
+            {!confirmed && Number(weight) === 70 && <Button variant="secondary" className="mt-2" onClick={() => void save(true)}>{t("training.confirmWeight")}</Button>}
           </Field>
         </FieldGrid>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>

@@ -27,15 +27,13 @@ const current = {
 };
 
 describe("PaneAiCoach", () => {
-  it("shows unknown consent on a load failure and retries the authoritative read", async () => {
-    const user = userEvent.setup();
-    mocks.get.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(current);
+  it("shows unknown consent on a load failure without a retry button", async () => {
+    mocks.get.mockRejectedValueOnce(new Error("offline"));
     renderWithProviders(<DialogProvider><PaneAiCoach /></DialogProvider>, { authenticated: true });
     expect(await screen.findByText("확인할 수 없음")).toBeInTheDocument();
     expect(screen.queryByText("동의 안 함")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /다시 시도/ }));
-    expect(await screen.findByText("동의함")).toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // 계정 화면에는 "다시 시도" 버튼을 두지 않는다.
+    expect(screen.queryByRole("button", { name: /다시 시도/ })).not.toBeInTheDocument();
   });
 
   it("shows the authoritative status and revokes before clearing the coach session", async () => {

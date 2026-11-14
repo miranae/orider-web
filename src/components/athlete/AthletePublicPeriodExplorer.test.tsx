@@ -20,6 +20,12 @@ it("shows a completed chart without duplicate links or completion explanations",
  expect(screen.getByText("completed-period-chart")).toBeInTheDocument();
  expect(screen.queryByRole("link")).not.toBeInTheDocument();
  expect(screen.getByLabelText("시작일")).toHaveValue("2026-01-01");
+ expect(screen.queryByRole("button",{name:"새로고침"})).not.toBeInTheDocument();
+});
+it.each(["error","stale","restart"])("relies on focus re-reads instead of a refresh or retry button when %s",status=>{
+ state.status=status;
+ renderWithProviders(<AthletePublicPeriodExplorer targetUid="owner"/>);
+ expect(screen.queryByRole("button",{name:/새로고침|다시 시도|더 불러오기/})).not.toBeInTheDocument();
 });
 
 it("synchronizes edited date fields after URL navigation and keeps original activity return dates",()=>{

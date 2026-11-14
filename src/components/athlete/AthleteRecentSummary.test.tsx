@@ -37,6 +37,7 @@ it("keeps the KST day label and tooltip when UTC is still the previous year", ()
     expect(today.getAttribute("aria-label")).toContain("2026");
     fireEvent.focus(today);
     expect(screen.getByRole("tooltip")).toHaveTextContent("2026");
-    expect(screen.getByText("한국 시간(KST) 기준")).toBeInTheDocument();
+    // 프로필은 설명 문구를 두지 않는다.
+    expect(screen.queryByText("한국 시간(KST) 기준")).not.toBeInTheDocument();
   } finally { vi.useRealTimers(); }
 });

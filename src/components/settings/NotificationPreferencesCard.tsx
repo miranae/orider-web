@@ -4,7 +4,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { createWebNotificationClient, type NotificationPreferences } from "../../services/webNotifications";
 import { SettingsCard, InlineRow, Toggle } from "./_primitives";
-import { Button, Text } from "../../theme/components";
+import { Text } from "../../theme/components";
 export function NotificationPreferencesCard() {
   const { t } = useTranslation("settings"); const { user } = useAuth(); const services = useFirebaseServices();
   const client = useMemo(() => createWebNotificationClient(services), [services, user]);
@@ -44,7 +44,7 @@ export function NotificationPreferencesCard() {
       </InlineRow>)}
       {busy && current && <Text role="status">{t("notificationPreferences.saving")}</Text>}
       {error && <Text role="alert">{t("notificationPreferences.failed")}</Text>}
-      {error && !current && <Button variant="secondary" disabled={busy} onClick={() => { void load(); }}>{t("notificationPreferences.retry")}</Button>}
+      
     </>}
   </SettingsCard>;
 }
