@@ -45,7 +45,8 @@ REVIEW_SINCE=""           # --review-since <ref> 로 명시 지정
 REVIEW_MAX_DIFF_BYTES=900000
 # Stay below the 1 MiB transport ceiling, including the dependency context.
 REVIEW_MAX_INPUT_BYTES=1040000
-REVIEW_STATE_REF_PREFIX="refs/codex-review/pr-"
+# Legacy blockers-only/diff-only PASS refs cannot establish a baseline for this policy.
+REVIEW_STATE_REF_PREFIX="refs/codex-review-v2/pr-"
 REQUIRE_VISUAL_CHECK=1
 REQUIRE_GITHUB_REVIEW=0
 DO_BUILD=1

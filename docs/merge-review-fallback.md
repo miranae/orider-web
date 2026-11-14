@@ -10,7 +10,7 @@ freshness checks still apply. No provider failure is converted into an automatic
 기본 기준은 **BLOCKER와 MAJOR 차단**입니다. `--blockers-only`는 호환 별칭이며
 MAJOR 차단을 해제하지 않습니다. `--all-findings`는 MINOR 보고만 추가합니다.
 Codex·Claude·자체 리뷰 모두 findings의 BLOCKER/MAJOR 항목을 감지하면 모순된
-`PASS`도 `BLOCK`으로 바꿉니다. 검토하지 못한 입력을 통과시키지 않습니다.
+`PASS`도 `BLOCK`으로 바꿉니다. 검토하지 못한 입력을 통과시키지 않습니다. 이전 BLOCKER 전용/diff 전용 PASS 기준점은 재사용하지 않으며, 새 정책의 증분 기준점은 `refs/codex-review-v2/pr-*`에만 기록합니다.
 
 리뷰 입력에는 정확한 diff와 함께 **커밋된 head의 관련 소스**를 제공합니다.
 변경한 런타임 모듈의 모든 import(기존 local helper 포함), 서비스·인증 로직의 전이 의존성,

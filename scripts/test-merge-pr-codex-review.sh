@@ -41,7 +41,7 @@ fi
 if [[ "${1:-}" == "fetch" ]]; then
   exit 0
 fi
-if [[ "${1:-}" == "update-ref" && "${2:-}" == refs/codex-review/* ]]; then
+if [[ "${1:-}" == "update-ref" && "${2:-}" == refs/codex-review*/* ]]; then
   exit 0
 fi
 if [[ "${1:-}" == "status" && "${2:-}" == "--porcelain" ]]; then
