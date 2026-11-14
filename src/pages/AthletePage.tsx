@@ -911,7 +911,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         </div>
         {!isMe && currentUser && (
           <div data-testid="P0-0-4" className="athlete-friend-actions">
-            <ActivitySubscriptionButton targetUid={userId} services={services} />
+            <ActivitySubscriptionButton targetUid={userId} services={services} size="sm" />
             {friendStatus === "none" && canSendFriendRequest && (
               <Button size="sm"
                 onClick={handleSendFriendRequest}

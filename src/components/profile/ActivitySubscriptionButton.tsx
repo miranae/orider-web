@@ -6,7 +6,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../../config/activitySubscriptions";
 import { getActivitySubscriptionSummary, setActivitySubscription, isSubscriptionsNotDeployed } from "../../services/activitySubscriptions";
 import { logClientError } from "../../services/errorLogger";
-import InfoTip from "../InfoTip";
 import { Button } from "../../theme/components";
 
 type Failure = "notDeployed" | "forbidden" | "unavailable";
@@ -16,7 +15,8 @@ function failureOf(error: unknown): Failure {
   return code.includes("permission-denied") || code.includes("not-found") ? "forbidden" : "unavailable";
 }
 
-export default function ActivitySubscriptionButton({ targetUid, services }: { targetUid: string | undefined; services?: FirebaseServices }) {
+/** @param size 옆에 놓이는 버튼과 같은 크기로 맞출 때 쓴다(선수 프로필의 친구 요청 버튼은 sm). */
+export default function ActivitySubscriptionButton({ targetUid, services, size = "md" }: { targetUid: string | undefined; services?: FirebaseServices; size?: "sm" | "md" }) {
   const { user: contextUser } = useAuth();
   const user = services ? services.auth.currentUser : contextUser;
   const { t } = useTranslation("common");
@@ -66,12 +66,11 @@ export default function ActivitySubscriptionButton({ targetUid, services }: { ta
     }
   };
   return <div className="profile-subscription-action">
-    <Button variant={current?.subscribed ? "secondary" : "primary"} disabled={!current || Boolean(current.failure) || current.pending}
+    <Button size={size} variant={current?.subscribed ? "secondary" : "primary"} disabled={!current || Boolean(current.failure) || current.pending}
       aria-pressed={current?.subscribed ?? false} onClick={() => { void change(); }}>
       {current?.failure ? t(`activitySubscriptions.${current.failure}`) : current?.pending ? t("activitySubscriptions.updating")
         : !current ? t("activitySubscriptions.checking") : t(current.subscribed ? "activitySubscriptions.unsubscribe" : "activitySubscriptions.subscribe")}
     </Button>
-    <InfoTip title={t("activitySubscriptions.subscribe")} content={t("activitySubscriptions.publicOnly")}>{t("activitySubscriptions.publicLabel")}</InfoTip>
     {current?.failure === "unavailable" && <Button variant="ghost" size="sm" onClick={() => { setState(null); setAttempt(value => value + 1); }}>{t("profileSocial.retry")}</Button>}
   </div>;
 }
