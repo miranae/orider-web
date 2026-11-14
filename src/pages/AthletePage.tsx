@@ -310,14 +310,14 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const [segmentCursor, setSegmentCursor] = useState<string | null>(null);
   const [segmentsMore, setSegmentsMore] = useState(false);
   const [segmentsBusy, setSegmentsBusy] = useState(false);
-  const segmentScope = useRef(userId);
-  segmentScope.current = userId;
+  const segmentScope = useRef(readIdentity);
+  segmentScope.current = readIdentity;
   const loadMoreSegments = async () => {
     if (!userId || !segmentCursor || segmentsBusy) return;
-    const scope = userId;
+    const scope = readIdentity;
     setSegmentsBusy(true);
     try {
-      const page = await loadSegmentMetadataPage({ mode: "creator", creatorUid: scope, cursor: segmentCursor });
+      const page = await loadSegmentMetadataPage({ mode: "creator", creatorUid: userId, cursor: segmentCursor }, services);
       if (segmentScope.current !== scope) return;
       setMySegments(previous => [...previous, ...page.items.map(data => ({ id: data.id, name: String(data.name ?? ""), distance: Number(data.distance ?? 0), status: String(data.status ?? "active"), createdAt: Number(data.createdAt ?? 0) }))]);
       setSegmentCursor(page.cursor); setSegmentsMore(page.hasMore);
@@ -580,13 +580,13 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     }
     let active = true;
     setMySegments([]); setSegmentsMore(false); setSegmentCursor(null); setSegmentsBusy(false);
-    loadSegmentMetadataPage({ mode: "creator", creatorUid: userId }).then((page) => {
+    loadSegmentMetadataPage({ mode: "creator", creatorUid: userId }, services).then((page) => {
       if (!active) return;
       setSegmentCursor(page.cursor); setSegmentsMore(page.hasMore);
       setMySegments(page.items.map(data => ({ id: data.id, name: String(data.name ?? ""), distance: Number(data.distance ?? 0), status: String(data.status ?? "active"), createdAt: Number(data.createdAt ?? 0) })));
     }).catch((err) => logClientError("AthletePage.bg", err, {}));
     return () => { active = false; };
-  }, [userId, profileReadReady, activityAccessAllowed, readIdentity]);
+  }, [userId, profileReadReady, activityAccessAllowed, readIdentity, services]);
 
   // Check friend relationship
   useEffect(() => {
