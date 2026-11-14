@@ -1,3 +1,4 @@
+import PublicClubPreview from "../../components/group/PublicClubPreview";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -15,5 +16,6 @@ export default function ClubHomePage() {
   const { role, loading, error, retry } = useGroupMemberRole(groupId, memberUid);
   if (authLoading || memberUid && loading) return <LoadingSkeleton kind="list" count={3} />;
   if (memberUid && error) return <ErrorState title={t("error.loadFailed")} onRetry={retry} />;
-  return memberUid && role ? <GroupEventsPage /> : <GroupDashboardPage />;
+  if (!memberUid) return <PublicClubPreview groupId={groupId} />;
+  return role ? <GroupEventsPage /> : <GroupDashboardPage />;
 }

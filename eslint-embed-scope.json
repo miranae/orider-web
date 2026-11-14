@@ -708,6 +708,7 @@
   "src/pages/group/GroupSettingsPage.tsx",
   "src/pages/group/GroupWeekPage.tsx",
   "src/pages/group/GroupsPage.tsx",
+  "src/pages/group/PublicGroupEventsEntry.tsx",
   "src/pages/group/groupRideClock.ts",
   "src/pages/group/groupRideMapRange.ts",
   "src/pages/group/groupRideRangeMetrics.ts",

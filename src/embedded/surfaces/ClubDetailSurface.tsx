@@ -11,7 +11,7 @@ const GroupRidePage = lazy(() => import("../../pages/group/GroupRidePage"));
 const GroupWeekPage = lazy(() => import("../../pages/group/GroupWeekPage"));
 const ClubMeetingLivePage = lazy(() => import("../../pages/group/ClubMeetingLivePage"));
 const ClubMeetingPage = lazy(() => import("../../pages/group/ClubMeetingPage"));
-const ClubEventsRedirect = lazy(() => import("../../pages/group/ClubEventsRedirect"));
+const PublicGroupEventsEntry = lazy(() => import("../../pages/group/PublicGroupEventsEntry"));
 const GroupMembersPage = lazy(() => import("../../pages/group/GroupMembersPage"));
 const GroupSettingsPage = lazy(() => import("../../pages/group/GroupSettingsPage"));
 
@@ -43,7 +43,7 @@ export default function ClubDetailSurface(props: HubSurfaceProps) {
           <Route path="meetings/:meetingId/edit" element={<ClubMeetingPage mode="edit" />} />
           <Route path="meetings/:meetingId/live" element={<ClubMeetingLivePage />} />
           <Route path="meetings/:meetingId" element={<ClubMeetingPage />} />
-          <Route path="events" element={<ClubEventsRedirect />} />
+          <Route path="events" element={<PublicGroupEventsEntry />} />
           <Route path="members" element={<GroupMembersPage />} />
           <Route path="settings" element={<GroupSettingsPage />} />
           <Route path="*" element={<ClubDetailRedirect />} />

@@ -43,7 +43,7 @@ const GroupInvitePage = lazyTimed("GroupInvitePage", () => import("./pages/group
 const GroupWeekPage = lazyTimed("GroupWeekPage", () => import("./pages/group/GroupWeekPage"));
 const ClubMeetingLivePage = lazyTimed("ClubMeetingLivePage", () => import("./pages/group/ClubMeetingLivePage"));
 const ClubMeetingPage = lazyTimed("ClubMeetingPage", () => import("./pages/group/ClubMeetingPage"));
-const ClubEventsRedirect = lazyTimed("ClubEventsRedirect", () => import("./pages/group/ClubEventsRedirect"));
+const PublicGroupEventsEntry = lazyTimed("PublicGroupEventsEntry", () => import("./pages/group/PublicGroupEventsEntry"));
 const GroupSettingsPage = lazyTimed("GroupSettingsPage", () => import("./pages/group/GroupSettingsPage"));
 const SegmentPage = lazyTimed("SegmentPage", () => import("./pages/SegmentPage"));
 const AthletePage = lazyTimed("AthletePage", () => import("./pages/AthletePage"));
@@ -183,7 +183,7 @@ export function AppRoutes() {
           <Route path="club/:groupId/meetings/:meetingId/edit" element={<ClubMeetingPage mode="edit" />} />
           <Route path="club/:groupId/meetings/:meetingId/live" element={<ClubMeetingLivePage />} />
           <Route path="club/:groupId/meetings/:meetingId" element={<ClubMeetingPage />} />
-          <Route path="club/:groupId/events" element={<ClubEventsRedirect />} />
+          <Route path="club/:groupId/events" element={<PublicGroupEventsEntry />} />
           <Route path="club/:groupId/leaderboard" element={<LegacyRedirect to="/club/:groupId/week" />} />
           <Route path="club/:groupId/members" element={<GroupMembersPage />} />
           <Route path="club/:groupId/settings" element={<GroupSettingsPage />} />
