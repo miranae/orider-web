@@ -869,8 +869,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   // 편집 상태는 페이지에 둔다: ActivityOverviewSocial 은 sourceRevision 으로 다시 마운트되므로 그 안에 두면 초안이 사라진다.
   const memoEditor = useNativeMemoEditor({ activityId: activity?.id ?? activityId ?? "", currentMemo: shownMemo, currentMemoAuthored: !shownMemoGenerated,
     onSaved: memo => { if (activity) setNativeMemoOverride({ activityId: activity.id, memo }); } });
-  // 공개 지도 보호: 연필은 지도 왼쪽 아래, 패널은 지도 아래. 상태는 페이지에 둬 두 자리가 함께 쓴다.
-  const mapPrivacy = useActivityMapPrivacy(activity?.id ?? activityId ?? "");
+  const mapPrivacy = useActivityMapPrivacy(activity?.id ?? activityId ?? ""); // 연필(지도 왼쪽 아래)·패널(지도 아래)이 함께 쓰는 상태
 
   const hasStreams = sampledData.length > 0;
   const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, publicAccess ? null : user?.uid, activityId, user?.isAnonymous === true);
@@ -1426,7 +1425,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         uploadedPhotos={uploadedPhotos}
         flyToPosition={flyToPosition}
         t={t}
-        mapOverlay={isActivityOwner && activeTab === "overview" ? <ActivityMapPrivacyTrigger control={mapPrivacy} className="ds-map-resize activity-map-privacy-corner" /> : undefined}
+        mapOverlay={isActivityOwner && activeTab === "overview" ? <ActivityMapPrivacyTrigger control={mapPrivacy} className="ds-map-resize ds-map-resize--bottom-left" /> : undefined}
         mapPanel={isActivityOwner && activeTab === "overview" ? <ActivityMapPrivacyPanel control={mapPrivacy}
           thumbnail={activity.thumbnailTrack ? { polyline: activity.thumbnailTrack, contentRevision: activity.contentRevision, contentSelectedRevision: activity.contentSelectedRevision } : undefined} /> : undefined}
       />}
