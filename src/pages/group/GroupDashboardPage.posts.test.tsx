@@ -133,6 +133,14 @@ describe("group post editing", () => {
     expect(await screen.findByText("아침 모임")).toBeInTheDocument();
     await screen.findByText("남의 대회");
     expect(screen.getAllByTestId("club-dashboard-edit").map(link=>link.getAttribute("href"))).toEqual(["/ko/club/group-1/meetings/my-meeting/edit","/ko/event/my-race/host/edit"]);
+    // 수정은 글자 버튼이 아니라 연필 아이콘 링크이고, 접근 이름은 기존 문구다.
+    for(const [name,href] of [["모임 수정","/ko/club/group-1/meetings/my-meeting/edit"],["이벤트 정보 수정","/ko/event/my-race/host/edit"]]){
+      const link=screen.getByRole("link",{name});
+      expect(link).toHaveAttribute("href",href);
+      expect(link).toHaveClass("ds-btn--icon-only");
+      expect(link).toHaveAttribute("title",name);
+      expect(link.textContent).toBe("");
+    }
   });
   it("loads upcoming events through the screen services so the app embed is not left empty",async()=>{
     const embedded = { auth: { currentUser: { uid: "owner" } }, functions: { embedded: true }, ensureAppCheckReady: vi.fn(async()=>undefined), firestore: {}, getAppCheckToken: vi.fn() } as unknown as FirebaseServices;

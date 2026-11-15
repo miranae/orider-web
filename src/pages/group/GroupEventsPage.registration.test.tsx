@@ -107,6 +107,13 @@ describe("club event registration actions", () => {
     expect(edit.textContent).toBe("");
     expect(edit.parentElement?.querySelector("a strong")?.textContent).toBe("내 모임");
     expect(screen.getAllByRole("link",{name:"가상주행 관전"})[0]).not.toHaveClass("ds-btn--icon-only");
+    // 대회 수정도 대회 제목 오른쪽 연필 아이콘 링크다.
+    for(const raceEdit of screen.getAllByRole("link",{name:"이벤트 정보 수정"})){
+      expect(raceEdit).toHaveClass("ds-btn--icon-only");
+      expect(raceEdit).toHaveAttribute("title","이벤트 정보 수정");
+      expect(raceEdit.textContent).toBe("");
+    }
+    expect(screen.getAllByTestId("club-event-edit")[0]!.parentElement?.querySelector("a")?.textContent).toBe("내 대회");
   });
   it("shows membership lookup failure and retries it instead of redirecting as a nonmember",()=>{
     roleState.error=new Error("membership unavailable");showPage();

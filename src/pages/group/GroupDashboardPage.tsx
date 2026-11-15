@@ -520,13 +520,15 @@ export default function GroupDashboardPage() {
                 </Link>
                 <div className="flex items-center" style={{ gap: "var(--space-1)" }}>
                   {e.isHost && (e.meeting || e.status === "OPEN") && (
+                    // 주최자 수정은 글자 버튼 대신 연필 아이콘 링크로 둔다. 접근 이름은 기존 문구 그대로.
                     <Link
                       data-testid="club-dashboard-edit"
                       to={e.meeting ? `/club/${groupId}/meetings/${e.id}/edit` : `/event/${e.id}/host/edit`}
-                      className={buttonClass({ variant: "secondary", size: "sm" })}
-                      style={{ whiteSpace: "nowrap" }}
+                      className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })}
+                      aria-label={e.meeting ? (i18n.language.startsWith("en") ? "Edit meeting" : "모임 수정") : t("event:action.editEvent")}
+                      title={e.meeting ? (i18n.language.startsWith("en") ? "Edit meeting" : "모임 수정") : t("event:action.editEvent")}
                     >
-                      {e.meeting ? (i18n.language.startsWith("en") ? "Edit meeting" : "모임 수정") : t("event:action.editEvent")}
+                      <span className="ds-btn__icon" aria-hidden><Pencil size={ICON_SIZE.sm} /></span>
                     </Link>
                   )}
                   {e.status === "OPEN" && (

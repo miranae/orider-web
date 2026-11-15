@@ -88,7 +88,21 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
               key={`event:${event.id}`}
             >
               <p>{t("events.kind.race")}</p>
-              <Link to={`/event/${event.id}`}>{event.name}</Link>
+              {/* 대회 수정도 모임과 같이 제목 오른쪽 연필 아이콘 링크로 둔다. */}
+              <div className="flex items-center justify-between" style={{ gap: "var(--space-2)" }}>
+                <Link to={`/event/${event.id}`}>{event.name}</Link>
+                {event.isHost && (row.shown === "OPEN" || row.shown === "PAST_DATE") && (
+                  <Link
+                    data-testid="club-event-edit"
+                    className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true, className: "shrink-0" })}
+                    aria-label={t("event:action.editEvent")}
+                    title={t("event:action.editEvent")}
+                    to={`/event/${event.id}/host/edit`}
+                  >
+                    <span className="ds-btn__icon" aria-hidden><Pencil size={ICON_SIZE.sm} /></span>
+                  </Link>
+                )}
+              </div>
               <p>
                 {event.startTime
                   ? new Date(event.startTime).toLocaleString(i18n.language)
@@ -115,11 +129,6 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
                           ? "dashboard.eventAction.manageRsvp"
                           : "dashboard.eventAction.rsvp",
                     )}
-                  </Link>
-                )}
-                {event.isHost && (row.shown === "OPEN" || row.shown === "PAST_DATE") && (
-                  <Link data-testid="club-event-edit" className={buttonClass({ variant: "primary", size: "sm" })} to={`/event/${event.id}/host/edit`}>
-                    {t("event:action.editEvent")}
                   </Link>
                 )}
               </div>
