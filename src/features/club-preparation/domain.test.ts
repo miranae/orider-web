@@ -81,6 +81,9 @@ describe('동호회 모임 준비', () => {
     // 이미 그 경로로 저장된 모임은 제목만 고쳐도 저장된다.
     const kept = { ...s, meetings: s.meetings.map((x, i) => i === 2 ? { ...x, venue: 'indoor' as const, courseSource: saved, courseTrack: sparse } : x) };
     expect(saveMeeting(kept, 'host', { ...kept.meetings[2], title: '제목만 수정' }).meetings[2].title).toBe('제목만 수정');
+    // 같은 경로를 둔 야외 모임을 실내로 바꾸면 새로 쓰는 것이므로 막는다.
+    const outdoor = { ...s, meetings: s.meetings.map((x, i) => i === 2 ? { ...x, venue: 'outdoor' as const, courseSource: saved, courseTrack: sparse } : x) };
+    expect(() => saveMeeting(outdoor, 'host', { ...outdoor.meetings[2], venue: 'indoor' })).toThrow('예전 방식으로 저장돼');
     // 촘촘한 기존 코스는 고를 수 있다.
     const dense = { ...sparse, points: Array.from({ length: 200 }, (_, i) => ({ lat: 37.5 + i * 0.00018, lon: 127 })) };
     expect(saveMeeting(s, 'host', { ...m, venue: 'indoor', courseSource: saved, courseTrack: dense }).meetings[2].venue).toBe('indoor');

@@ -93,12 +93,12 @@ export function duplicateMeeting(m: Meeting, id: string): Meeting { return { ...
  * 경로가 없거나 끊어진(구간이 둘 이상) 트랙이면 서버가 거부해 출발 시각에 시작하지 못한다(2026-11-14 COURSE_INVALID).
  * 문제가 없으면 null, 있으면 사용자에게 보일 문구(번역 키)를 돌려준다.
  */
-export function indoorCourseIssue(m: Pick<Meeting, 'venue' | 'courseTrack' | 'courseSource'>, previous?: Pick<Meeting, 'courseTrack'>): string | null {
+export function indoorCourseIssue(m: Pick<Meeting, 'venue' | 'courseTrack' | 'courseSource'>, previous?: Pick<Meeting, 'venue' | 'courseTrack'>): string | null {
   if (m.venue !== 'indoor') return null;
   if (!m.courseTrack || m.courseTrack.points.length < 2) return '실내 모임은 코스 경로가 필요해요. 기존 코스나 GPX로 코스를 준비해주세요.';
   if ((m.courseTrack.segmentStarts?.length ?? 0) > 1) return '실내 모임은 하나로 이어진 코스만 쓸 수 있어요. 끊어진 구간이 없는 코스나 GPX로 다시 준비해주세요.';
-  // 경로를 새로 고를 때만 본다 — 이미 저장된 모임의 제목·설명 수정은 막지 않는다.
-  const trackChanged = !previous || JSON.stringify(previous.courseTrack?.points.map(p => [p.lat, p.lon])) !== JSON.stringify(m.courseTrack.points.map(p => [p.lat, p.lon]));
+  // 경로를 새로 고르거나 실내로 바꿀 때만 본다 — 이미 저장된 실내 모임의 제목·설명 수정은 막지 않는다.
+  const trackChanged = !previous || previous.venue !== 'indoor' || JSON.stringify(previous.courseTrack?.points.map(p => [p.lat, p.lon])) !== JSON.stringify(m.courseTrack.points.map(p => [p.lat, p.lon]));
   if (trackChanged && m.courseSource?.kind === 'saved-course' && isLegacySparseCourseTrack(m.courseTrack.points)) return '이 기존 코스는 예전 방식으로 저장돼 경로가 성겨, 실내 주행에서 도로를 벗어난 직선으로 보여요. GPX를 올리거나 앱 실내 코스를 골라주세요.';
   return null;
 }
