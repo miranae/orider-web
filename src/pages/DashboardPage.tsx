@@ -9,7 +9,8 @@ import { LocalizedLink as Link } from "../components/LocalizedLink";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { type Discipline } from "../utils/disciplineFilter";
-import { SectionHeader } from "../components/redesign";
+import { Resolvable, SectionHeader } from "../components/redesign";
+import { FOCUS_TARGETS, thresholdSettingsHref } from "../services/focusTarget";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import RunEmptyState from "../components/dashboard/RunEmptyState";
 import WeeklyRecapCard from "../components/dashboard/WeeklyRecapCard";
@@ -418,7 +419,8 @@ function DashboardContent() {
       ? fitnessPresentation.sub
       : showFitnessNumbers
         ? t(kpiFitness!.tsb >= 5 ? "kpi.fitnessMaintain" : kpiFitness!.tsb <= -10 ? "kpi.fitnessRecovery" : "kpi.fitnessBuild")
-        : t("kpi.subInsufficient")}</Text>
+        // 「데이터 부족」(체력 기록 없음)을 누르면 활동 가져오기 창으로.
+        : <Resolvable resolve={{ to: "/athlete/me/activities?import=1" }}>{t("kpi.subInsufficient")}</Resolvable>}</Text>
     {fitnessPresentation.chip && <Chip>{fitnessPresentation.chip}</Chip>}
   </div>;
 
@@ -464,7 +466,10 @@ function DashboardContent() {
   </div> : null;
 
   const todayStrip = !isMobile && user && !user.isAnonymous ? <HomeTodayStrip discipline={discipline === "tri" ? "bike" : discipline} conditionDiscipline={discipline}
-    fitness={showFitnessNumbers ? kpiFitness : null} conditionSummary={conditionSummary} thresholdSummary={<Text as="p" variant="caption" tone="tertiary"><GlossaryText>{`${thresholdKpi.label} · ${thresholdKpi.value}${thresholdKpi.unit ? ` ${thresholdKpi.unit}` : ""}`}</GlossaryText></Text>} mobile={isMobile}
+    fitness={showFitnessNumbers ? kpiFitness : null} conditionSummary={conditionSummary} thresholdSummary={<Text as="p" variant="caption" tone="tertiary">{thresholdKpi.value === "—"
+      // 「FTP · —」/「역치 페이스 · —」를 누르면 그 기준값 입력칸으로.
+      ? <Resolvable resolve={{ to: discipline === "run" ? thresholdSettingsHref("run", FOCUS_TARGETS.thresholdPace) : thresholdSettingsHref("bike", FOCUS_TARGETS.ftp) }}>{`${thresholdKpi.label} · —`}</Resolvable>
+      : <GlossaryText>{`${thresholdKpi.label} · ${thresholdKpi.value}${thresholdKpi.unit ? ` ${thresholdKpi.unit}` : ""}`}</GlossaryText>}</Text>} mobile={isMobile}
     monthlyFlowPercent={runStats.monthlyFlowPercent}
     secondaryDetails={showOwnerRunningJourney && !hasNoRuns ? <CrossDisciplineLoadCard fitness={userFitness} discipline="run" /> : null}
     runningRecap={showRecap && runRecap && !hasNoRuns ? <WeeklyRecapCard recap={runRecap} /> : null}

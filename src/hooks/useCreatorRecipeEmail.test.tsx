@@ -32,3 +32,9 @@ it("preserves the specific confirmed email daily-limit message", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Send" }));
   await waitFor(() => expect(showToast).toHaveBeenCalledWith("EMAIL_QUOTA", "error"));
 });
+it("lets the 'contact support' activity-cap toast itself lead to the inquiry board", async () => {
+  setCallableImplementation("sendCreatorRecipeEmail", () => { throw Object.assign(new Error("PRIVATE_TOKEN"), { details: { reason: "recipe-activity-limit" } }); });
+  renderWithProviders(<Harness language="ko" />);
+  fireEvent.click(screen.getByRole("button", { name: "Send" }));
+  await waitFor(() => expect(showToast).toHaveBeenLastCalledWith(expect.stringContaining("지원팀에 문의"), "error", { resolve: { to: "/community/board?type=inquiry" } }));
+});

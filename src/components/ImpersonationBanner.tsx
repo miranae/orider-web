@@ -86,13 +86,16 @@ export default function ImpersonationBanner() {
   const issuedBy = state?.by ?? "확인 불가";
 
   async function onExit() {
+    const sessionUid = auth.currentUser?.uid;
     // 로그아웃이 성공해야 상태를 지운다 — 먼저 지우면 signOut 실패 시 위임 계정으로
     // 인증된 채 배너만 사라져, 관리자가 남의 계정임을 모르고 작업하게 된다.
     try {
       await signOut(auth);
     } catch (e) {
       logClientError("ImpersonationBanner.exit", e, { targetUid: state?.targetUid });
-      showToast("위임 세션 종료에 실패했습니다. 아직 위임 계정으로 로그인된 상태이니 다시 시도해 주세요.", "error");
+      // 알림 문구를 누르면 종료를 다시 시도한다 — 아직 같은 위임 세션일 때만(다른 계정이면 그 계정을 로그아웃시키지 않는다).
+      showToast("위임 세션 종료에 실패했습니다. 아직 위임 계정으로 로그인된 상태이니 다시 시도해 주세요.", "error",
+        { resolve: { onClick: () => { if (sessionUid && auth.currentUser?.uid === sessionUid) void onExit(); } } });
       return;
     }
     clearImpersonationState();

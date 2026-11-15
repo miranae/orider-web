@@ -710,3 +710,64 @@ it("ignores an old segment continuation when the embedded app is replaced for th
   await act(async () => resolveOld({ data: { items: [{ id: "late", name: "Old app late segment", distance: 1000 }], cursor: null, hasMore: false } }));
   expect(screen.queryAllByText(/Old app late segment/)).toHaveLength(0);
 });
+
+// 경고 문구 자체를 누르면 해소한다 — 「다시 시도」 같은 버튼을 새로 두지 않는다.
+it("re-reads the owner feed when the read-failure text itself is pressed, without re-reading media", async () => {
+  setCollectionDocs("activities", [createMockActivity({ deletedAt: null, id: "recovery", userId: "athlete-1", description: "Recovered owner page" })]);
+  const original = vi.mocked(getDocs).getMockImplementation()!;
+  let attempts = 0;
+  vi.mocked(getDocs).mockImplementation((async (q: { constraints?: Array<{type:string;args:unknown[]}> }) => {
+    if (q.constraints?.some(c => c.type === "limit" && c.args[0] === 20) && ++attempts === 1) throw new Error("offline");
+    return original(q as never);
+  }) as never);
+  renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" } });
+  const failure = await screen.findByRole("button", { name: "활동 목록을 불러오지 못했습니다. 전체 결과가 아니며 같은 위치에서 다시 시도할 수 있습니다." });
+  const previews = mockCallableInvocations.filter(call => call.name === "getAthleteProfilePreview").length;
+  fireEvent.click(failure);
+  expect((await screen.findAllByText("Recovered owner page")).length).toBeGreaterThan(0);
+  expect(attempts).toBe(2);
+  expect(screen.queryByText("활동 목록을 불러오지 못했습니다. 전체 결과가 아니며 같은 위치에서 다시 시도할 수 있습니다.")).not.toBeInTheDocument();
+  expect(mockCallableInvocations.filter(call => call.name === "getAthleteProfilePreview")).toHaveLength(previews);
+  vi.mocked(getDocs).mockImplementation(original);
+});
+it("re-sends only the failed media request when its failure text is pressed", async () => {
+  let highlights = 0;
+  setCallableImplementation("getAthleteProfilePreview", (request) => {
+    const input = request as { kind: string };
+    if (input.kind === "highlights" && ++highlights === 1) throw new Error("offline");
+    return { data: { items: [], scope: "recent", complete: true, nextCursor: null } };
+  });
+  renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" } });
+  fireEvent.click(await screen.findByRole("button", { name: "미디어 기록을 불러오지 못했습니다." }));
+  await waitFor(() => expect(highlights).toBe(2));
+  await waitFor(() => expect(screen.queryByText("미디어 기록을 불러오지 못했습니다.")).not.toBeInTheDocument());
+  expect(mockCallableInvocations.filter(call => call.name === "getAthleteProfilePreview" && (call.data as { kind?: string })?.kind === "photos")).toHaveLength(1);
+});
+it("sends the owner's empty activity text to the import window", async () => {
+  setCollectionDocs("activities", []);
+  renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" } });
+  const link = await screen.findByRole("link", { name: "아직 활동 내역이 없어요." });
+  expect(link.getAttribute("href")).toBe("/ko/athlete/me/activities?import=1");
+});
+it("re-reads my clubs when the clubs failure text is pressed", async () => {
+  const original = vi.mocked(getDocs).getMockImplementation()!;
+  let clubReads = 0;
+  vi.mocked(getDocs).mockImplementation((async (q: { path?: string }) => {
+    if (q.path === "user_groups/athlete-1/groups" && ++clubReads === 1) throw new Error("offline");
+    return original(q as never);
+  }) as never);
+  renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" } });
+  fireEvent.click(await screen.findByRole("button", { name: "클럽을 불러오지 못했습니다." }));
+  await waitFor(() => expect(clubReads).toBe(2));
+  await waitFor(() => expect(screen.queryByText("클럽을 불러오지 못했습니다.")).not.toBeInTheDocument());
+  vi.mocked(getDocs).mockImplementation(original);
+});
+it("retries the profile-link copy when its failure toast is pressed", async () => {
+  const writeText = vi.fn().mockRejectedValueOnce(new Error("denied")).mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+  renderWithProviders(<AthletePage />, { authenticated: true, user: { uid: "athlete-1" } });
+  fireEvent.click(await screen.findByTestId("P0-0-3"));
+  fireEvent.click(await screen.findByRole("button", { name: "주소 복사에 실패했어요" }));
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(2));
+  expect(writeText.mock.calls[1]![0]).toBe(writeText.mock.calls[0]![0]);
+});

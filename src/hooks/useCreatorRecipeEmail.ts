@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { httpsCallable } from "firebase/functions";
 import { creatorRecipeErrorDetails, creatorRecipeErrorFeedback } from "../utils/creatorRecipeErrors";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import type { ToastOptions } from "../contexts/ToastContext";
 
 export interface CreatorEmailQuota {
   limit: number;
@@ -32,7 +33,7 @@ interface UseCreatorRecipeEmailParams {
   user: unknown;
   language: string;
   actions: CreatorEmailActions;
-  showToast: (message: string, type?: "success" | "error" | "info") => void;
+  showToast: (message: string, type?: "success" | "error" | "info", options?: ToastOptions) => void;
   signIn: () => Promise<void>;
 }
 
@@ -114,7 +115,9 @@ export function useCreatorRecipeEmail({
       const message = details.reason === "cooldown" ? actions.emailCooldown
         : details.reason === "daily-limit" ? actions.emailQuotaExceeded
           : knownFailure?.message ?? actions.emailFailed;
-      showToast(message, "error");
+      // 「지원팀에 문의해 주세요」 알림을 누르면 문의 게시판으로.
+      if (knownFailure?.resolveTo) showToast(message, "error", { resolve: { to: knownFailure.resolveTo } });
+      else showToast(message, "error");
     } finally {
       setEmailSendingId(null);
     }

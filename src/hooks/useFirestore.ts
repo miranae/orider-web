@@ -1,4 +1,5 @@
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
+import { logClientError } from "../services/errorLogger";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
@@ -46,6 +47,9 @@ export function useDocument<T = DocumentData>(
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  // 읽기 실패 문구를 누르면 다시 구독한다. 다시 읽은 실패는 기록한다(첫 실패는 예전처럼 호출부 몫).
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => { setError(null); setLoading(true); setAttempt(value => value + 1); }, []);
   // 임베드는 별도 Firebase app 을 쓴다 — 싱글턴 대신 주입된 인스턴스(#847).
   const { firestore } = services;
 
@@ -77,16 +81,17 @@ export function useDocument<T = DocumentData>(
         setLoading(false);
       },
       (err) => {
+        if (attempt > 0) logClientError("useDocument.retry", err, { collectionPath, docId, attempt }, services);
         setError(err);
         setLoading(false);
       }
     );
 
     return unsubscribe;
-  }, [firestore, collectionPath, docId, services, courseTrackAssets]);
+  }, [firestore, collectionPath, docId, services, courseTrackAssets, attempt]);
 
 
-  return { data, loading, error };
+  return { data, loading, error, retry };
 }
 
 /**
@@ -101,7 +106,10 @@ export function useCollection<T = DocumentData>(
   const [error, setError] = useState<Error | null>(null);
   const constraintsKey = serializeQueryConstraints(constraints);
   const stableConstraints = useMemo(() => constraints, [constraintsKey]);
-  const { firestore } = useFirebaseServices();
+  const services = useFirebaseServices();
+  const { firestore } = services;
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => { setError(null); setLoading(true); setAttempt(value => value + 1); }, []);
 
   useEffect(() => {
     const q = query(collection(firestore, collectionPath), ...stableConstraints);
@@ -115,6 +123,7 @@ export function useCollection<T = DocumentData>(
         setLoading(false);
       },
       (err) => {
+        if (attempt > 0) logClientError("useCollection.retry", err, { collectionPath, attempt }, services);
         setError(err);
         setLoading(false);
       }
@@ -122,9 +131,9 @@ export function useCollection<T = DocumentData>(
 
     return unsubscribe;
      
-  }, [firestore, collectionPath, stableConstraints]);
+  }, [firestore, collectionPath, stableConstraints, attempt]);
 
-  return { data, loading, error };
+  return { data, loading, error, retry };
 }
 
 export { where, orderBy, limit, collection, doc, getDoc };

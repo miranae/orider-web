@@ -10,7 +10,7 @@ import RunRecordsBoard from "../components/fitness/RunRecordsBoard";
 import MilestonesGrid from "../components/fitness/MilestonesGrid";
 import MilestoneCelebration from "../components/fitness/MilestoneCelebration";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
-import { ErrorState } from "../components/redesign";
+import { ErrorState, Resolvable } from "../components/redesign";
 import { useRunRecords } from "../hooks/useRunRecords";
 import { filterByDiscipline, type Discipline as SportDiscipline } from "../utils/disciplineFilter";
 import { useTranslation } from "react-i18next";
@@ -157,7 +157,8 @@ export default function YearRecapPage() {
             </Text>
             <Text weight={600}>{t("empty.title", { year })}</Text>
             <Text tone="tertiary" variant="bodySmall">
-              {t("empty.desc")}
+              {/* 「…활동을 기록하면 연간 기록이 채워집니다」를 누르면 활동 가져오기 창으로. */}
+              <Resolvable resolve={{ to: "/athlete/me/activities?import=1" }}>{t("empty.desc")}</Resolvable>
             </Text>
           </Stack>
         </Card>
