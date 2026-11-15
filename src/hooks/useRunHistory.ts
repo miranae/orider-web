@@ -10,7 +10,7 @@
  * 연결 직후(=aha moment)에 틀린 값을 말하게 된다. 기존 인덱스(deletedAt, userId, startTime DESC)를
  * 재사용하므로 새 복합 인덱스는 필요 없다. 종목 필터만 클라이언트에서 적용한다.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { logClientError, debugLog } from "../services/errorLogger";
@@ -30,10 +30,12 @@ export interface RunHistory {
 /**
  * @param enabled 러닝 탭이 아닐 때는 쿼리하지 않는다 — 자전거 사용자에게 불필요한 읽기 비용.
  */
-export function useRunHistory(weeks: number, enabled = true): RunHistory {
+export function useRunHistory(weeks: number, enabled = true): RunHistory & { reload: () => void } {
   const { firestore } = useFirebaseServices();
   const { user } = useAuth();
   const [state, setState] = useState<RunHistory & { ownerUid: string | null }>({ runs: [], loading: true, available: false, ownerUid: null });
+  // 다시 불러오기 세대 — 바뀌면 다시 조회한다. 앞선 조회의 늦은 응답은 cancelled 로 버린다.
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,7 +73,7 @@ export function useRunHistory(weeks: number, enabled = true): RunHistory {
         const available = snap.size < QUERY_LIMIT && snap.metadata?.fromCache === false && snap.metadata.hasPendingWrites === false;
         if (!cancelled) setState({ runs: available ? runs : [], loading: false, available, ownerUid: user.uid });
       } catch (err) {
-        logClientError("useRunHistory.load", err, { weeks });
+        logClientError("useRunHistory.load", err, { weeks, attempt });
         if (!cancelled) setState({ runs: [], loading: false, available: false, ownerUid: user.uid });
       }
     };
@@ -80,8 +82,12 @@ export function useRunHistory(weeks: number, enabled = true): RunHistory {
     return () => {
       cancelled = true;
     };
-  }, [user, weeks, enabled]);
+  }, [user, weeks, enabled, attempt]);
 
-  return !user || !enabled ? { runs: [], loading: false, available: false }
+  const current: RunHistory = !user || !enabled ? { runs: [], loading: false, available: false }
     : state.ownerUid === user.uid ? state : { runs: [], loading: true, available: false };
+  const busy = current.loading;
+  // 조회 중에는 거듭 눌러도 새로 조회하지 않는다.
+  const reload = useCallback(() => { if (!busy) setAttempt((n) => n + 1); }, [busy]);
+  return { ...current, reload };
 }

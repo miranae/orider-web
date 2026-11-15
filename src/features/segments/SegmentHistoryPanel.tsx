@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { SegmentHistoryAttempt } from "@shared/types/segment-history";
 import { Button, DropdownSelect, Stat, Text } from "../../theme/components";
 import { LocalizedLink } from "../../components/LocalizedLink";
+import { Resolvable } from "../../components/redesign/states/Resolvable";
 import { useMySegmentHistory } from "../../hooks/useMySegmentHistory";
 import { localeTag } from "../../utils/localeDate";
 import "./segmentHistory.css";
@@ -11,9 +12,9 @@ import SegmentDistanceTimeGapPanel from "./SegmentDistanceTimeGapPanel";
 import { segmentGapAvailable } from "../../services/segmentDistanceTimeGap";
 import { formatElapsedBoundary } from "../activity/detail/activityRangeSelection";
 export interface SegmentHistorySeed { id: string; activityId: string; elapsedTime: number; startDate?: number; source?: string; averageSpeed?: number; averageWatts?: number | null }
-interface Props { cachedGapEntry?: boolean; sourceIdentity?: string; onGapMarker?: (position: [number, number] | null) => void; initialSelection?: { activityId: string; effortId: string } | null; segmentId: string; seeds: SegmentHistorySeed[]; seedLoading: boolean; seedError: boolean; callableEnabled?: boolean }
+interface Props { cachedGapEntry?: boolean; sourceIdentity?: string; onGapMarker?: (position: [number, number] | null) => void; initialSelection?: { activityId: string; effortId: string } | null; segmentId: string; seeds: SegmentHistorySeed[]; seedLoading: boolean; seedError: boolean; callableEnabled?: boolean; onSeedRetry?: () => void }
 const elapsed = (ms: number) => `${Math.floor(ms / 60000)}:${Math.floor(ms / 1000 % 60).toString().padStart(2, "0")}`;
-export default function SegmentHistoryPanel({ initialSelection, segmentId, seeds, seedLoading, seedError, callableEnabled = false, cachedGapEntry = false, sourceIdentity = "", onGapMarker }: Props) {
+export default function SegmentHistoryPanel({ initialSelection, segmentId, seeds, seedLoading, seedError, onSeedRetry, callableEnabled = false, cachedGapEntry = false, sourceIdentity = "", onGapMarker }: Props) {
   const gapSelectId = useId();
   const { t } = useTranslation("segment");
   const [selection, setSelection] = useState<{ activityId: string; effortId: string; nonce: number } | null>(() => initialSelection ? { ...initialSelection, nonce: 1 } : null);
@@ -59,7 +60,7 @@ export default function SegmentHistoryPanel({ initialSelection, segmentId, seeds
     {!callableEnabled ? <Text as="p" variant="bodySmall" tone="tertiary">{t("history.preparing")}</Text> : !selection && !response ? <Text as="p" variant="bodySmall" tone="tertiary">{t("history.selectHint")}</Text> : null}
     {!response && <>
       <Text as="p" variant="caption" tone="tertiary">{t("history.seedLimit")}</Text>
-      {seedLoading ? <Text as="p" role="status">{t("history.loading")}</Text> : seedError ? <Text as="p" role="alert">{t("history.error")}</Text> : !seeds.length ? <Text as="p">{t("empty.noMyRecord")}</Text> : seeds.map(row => <div className="segment-history-row segment-history-seed" key={row.id}>
+      {seedLoading ? <Text as="p" role="status">{t("history.loading")}</Text> : seedError ? <Text as="p" role="alert"><Resolvable resolve={onSeedRetry ? { onClick: onSeedRetry } : undefined}>{t("history.error")}</Resolvable></Text> : !seeds.length ? <Text as="p">{t("empty.noMyRecord")}</Text> : seeds.map(row => <div className="segment-history-row segment-history-seed" key={row.id}>
         <div><Text as="div" variant="bodySmall">{date(row.startDate)}</Text><Text as="div" variant="caption" tone="tertiary">{typeof row.source === "string" && row.source ? row.source : t("history.unknownSource")}</Text><LocalizedLink to={`/activity/${row.activityId}`}>{t("activity.view")}</LocalizedLink></div>
         <div className="segment-history-values">
           <Text as="div" variant="body" tone="secondary">{t("history.elapsedFormat")}</Text>

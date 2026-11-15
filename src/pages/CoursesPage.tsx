@@ -12,7 +12,7 @@ import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import { getMapboxToken } from "../utils/mapbox";
 import { ChevronDown } from "lucide-react";
-import { ErrorState, LoadingSkeleton } from "../components/redesign";
+import { ErrorState, LoadingSkeleton, Resolvable } from "../components/redesign";
 import { Button, buttonClass, Chip, Text, Input } from "../theme/components";
 import { ICON_SIZE } from "../theme/tokens/icon";
 import { CourseList } from "../features/courses/CourseList";
@@ -102,6 +102,8 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
   const [mapBounds, setMapBounds] = useState<LngLatBounds | null>(null);
   const [mapFailed, setMapFailed] = useState(false);
   const [locationError, setLocationError] = useState("");
+  // 위치 확인이 시간 초과·일시 실패면 실패 문구를 눌러 같은 반경으로 다시 요청한다(권한 거부는 브라우저에서만 풀 수 있어 그대로 둔다).
+  const [locationRetryKm, setLocationRetryKm] = useState<number | null>(null);
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const searchPolylineCache = useRef<Map<string, LatLngTuple[]>>(new Map());
@@ -163,6 +165,21 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
     elevationMinM > 0 || elevationMaxM < ELEVATION_FILTER_MAX_M,
     regionFilter !== "", myLoc != null && radiusKm != null,
   ].filter(Boolean).length;
+  const requestNearby = (km: number) => {
+    setLocating(true);
+    setLocationError("");
+    setLocationRetryKm(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setRadiusKm(km); setLocating(false); },
+      (err) => {
+        logClientError("CoursesPage.geolocation", err, {});
+        setLocationError(t("error.locationFailed"));
+        setLocationRetryKm(err.code === 1 /* PERMISSION_DENIED */ ? null : km);
+        setLocating(false);
+      },
+      { timeout: 8000, maximumAge: 300000 },
+    );
+  };
   const resetFilters = () => {
     setSurfaceFilter(""); setDifficultyFilter(null);
     const next = new URLSearchParams(searchParams);
@@ -455,17 +472,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
                     if (locating) return; // 위치 확인 중 — 권한 창 응답 전 중복 요청 방지
                     if (active) { setRadiusKm(null); return; }
                     if (myLoc) { setRadiusKm(km); return; }
-                    setLocating(true);
-                    setLocationError("");
-                    navigator.geolocation.getCurrentPosition(
-                      (pos) => { setMyLoc({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setRadiusKm(km); setLocating(false); },
-                      (err) => {
-                        logClientError("CoursesPage.geolocation", err, {});
-                        setLocationError(t("error.locationFailed"));
-                        setLocating(false);
-                      },
-                      { timeout: 8000, maximumAge: 300000 },
-                    );
+                    requestNearby(km);
                   }} selectable selected={active}>
                   {t("filter.radiusKm", { km })}
                 </Chip>
@@ -489,7 +496,7 @@ export default function CoursesPage({ embedded = false }: { embedded?: boolean }
         </div>
         {locationError && (
           <div className="text-[length:var(--fs-xs)]" role="status" style={{ color: "var(--rose)" }}>
-            {locationError}
+            <Resolvable resolve={locationRetryKm != null ? { onClick: () => { if (!locating) requestNearby(locationRetryKm); } } : undefined}>{locationError}</Resolvable>
           </div>
         )}
         {!mapUnavailable && (

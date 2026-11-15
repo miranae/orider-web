@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useBikeProfileLayout } from "./useBikeProfileLayout";
+import { logClientError } from "../services/errorLogger";
 
 type Subscription = { path: string; next: (snap: unknown) => void; error: (e: unknown) => void };
 
@@ -148,5 +149,27 @@ describe("useBikeProfileLayout 대상 전환", () => {
 
     await waitFor(() => expect(result.current.revision).toBe(3));
     expect(result.current.canSave).toBe(true);
+  });
+
+  /** 경고·알림 → 해결: 읽기 실패 문구를 누르면 다시 구독한다. 실패는 기록하고, 조회 중 거듭 누름은 무시한다. */
+  it("읽기 실패 뒤 reload 는 다시 구독하고 성공하면 저장을 연다", async () => {
+    const { result } = renderHook(() => useBikeProfileLayout("uid-a", "road", [page]));
+    await act(async () => {
+      mocks.subscriptions[0]!.error(new Error("offline"));
+    });
+    await waitFor(() => expect(result.current.source).toBe("unavailable"));
+    expect(logClientError).toHaveBeenCalledWith("useBikeProfileLayout.subscribe", expect.any(Error), expect.objectContaining({ profileId: "road" }));
+
+    act(() => result.current.reload());
+    expect(result.current.loading).toBe(true);
+    // 조회 중 거듭 누름은 새 구독을 열지 않는다.
+    act(() => result.current.reload());
+    await waitFor(() => expect(mocks.subscriptions).toHaveLength(2));
+
+    act(() => mocks.subscriptions[1]!.next(remoteSnap("road", 7)));
+    await waitFor(() => expect(result.current.source).toBe("canonical"));
+    expect(result.current.revision).toBe(7);
+    expect(result.current.canSave).toBe(true);
+    expect(mocks.subscriptions).toHaveLength(2);
   });
 });

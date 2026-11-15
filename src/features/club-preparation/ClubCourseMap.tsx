@@ -2,6 +2,7 @@ import { mt } from "./meetingText";
 import { useMemo, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import RouteMap from "../../components/RouteMap";
+import { Resolvable } from "../../components/redesign/states/Resolvable";
 import { Button } from "../../theme/components";
 import ElevationChart, {
   ELEVATION_PLOT_AXIS_WIDTH,
@@ -21,7 +22,14 @@ import {
   profileCheckpoint,
   profileMapPosition,
 } from "./clubCourseVisual";
-export default function ClubCourseMap({ meeting }: { meeting: Meeting }) {
+export default function ClubCourseMap({
+  meeting,
+  onPrepareCourse,
+}: {
+  meeting: Meeting;
+  /** 코스를 준비할 수 있는 사람(주최자)에게만 — 「주행 경로를 준비해주세요」를 누르면 코스 준비 칸으로 간다. */
+  onPrepareCourse?: () => void;
+}) {
   const { t } = useTranslation("course");
   const parts = useMemo(
     () => clubVisualParts(meeting),
@@ -81,12 +89,17 @@ export default function ClubCourseMap({ meeting }: { meeting: Meeting }) {
   if (!active)
     return (
       <div className="cp-course-map-empty">
-        <strong>{mt("주행 경로를 준비해주세요")}</strong>
-        <p>
-          {mt(
-            "코스나 GPX를 가져오거나 좌표가 있는 세그먼트를 선택하면 지도와 고도표를 확인할 수 있어요.",
-          )}
-        </p>
+        <Resolvable
+          resolve={onPrepareCourse ? { onClick: onPrepareCourse } : undefined}
+          style={{ display: "block" }}
+        >
+          <strong style={{ display: "block" }}>{mt("주행 경로를 준비해주세요")}</strong>
+          <span style={{ display: "block" }}>
+            {mt(
+              "코스나 GPX를 가져오거나 좌표가 있는 세그먼트를 선택하면 지도와 고도표를 확인할 수 있어요.",
+            )}
+          </span>
+        </Resolvable>
       </div>
     );
   const markers = checkpoints.flatMap((checkpoint, index) => {

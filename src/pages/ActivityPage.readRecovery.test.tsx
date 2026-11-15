@@ -46,3 +46,24 @@ vi.mock("react-router-dom", async importOriginal => ({ ...await importOriginal<t
       expect(mockCallableInvocations.filter(call => /requestActivityReanalysis|refreshActivity/.test(call.name))).toHaveLength(0);
     } finally { vi.mocked(getDoc).mockImplementation(original); Object.assign(auth, { currentUser: undefined }); }
   });
+
+it("로그인하지 않은 사람의 「권한이 없습니다」 문구를 누르면 로그인 창을 연다 — 로그인한 사람에겐 글자 그대로", async () => {
+  resetRuntimeConfigForTests({ publicActivityDetailEnabled: false });
+  const original = vi.mocked(getDoc).getMockImplementation()!;
+  vi.mocked(getDoc).mockImplementation((...args) => {
+    if ((args[0] as { path?: string }).path === "activities/test-activity") return Promise.reject({ code: "permission-denied" });
+    return original(...args);
+  });
+  try {
+    const view = renderWithProviders(<ActivityPage />);
+    const message = await screen.findByRole("button", { name: /권한이 없습니다/ });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(message);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    view.unmount();
+
+    renderWithProviders(<ActivityPage />, { authenticated: true });
+    expect(await screen.findByText(/권한이 없습니다/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /권한이 없습니다/ })).not.toBeInTheDocument();
+  } finally { vi.mocked(getDoc).mockImplementation(original); }
+});

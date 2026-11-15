@@ -1,5 +1,6 @@
 import { OwnerDetailReadFallback } from "../features/activity/detail/OwnerDetailReadFallback";
 import { useSavedActivityAnalysisSelection } from "../hooks/useSavedActivityAnalysisSelection";
+import { useSignInResolve } from "../hooks/useSignInResolve";
 import { ActivityReanalysisControl } from "../features/activity/detail/ActivityReanalysisControl";
 import type { JourneyOutcome } from "../services/journeyMeasurement";
 import { useJourneyReadiness, ownerAnalysisOutcome } from "../hooks/useJourneyReadiness";
@@ -133,6 +134,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const { activityId: routeActivityId } = useParams<{ activityId: string }>();
   const activityId = publicAccess?.model.activity?.id ?? routeActivityId;
   const { user, profile, loading: authLoading, signIn } = useAuth();
+  const signInResolve = useSignInResolve();
   const { units, locale } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
@@ -906,6 +908,8 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         <ErrorState
           title={isPermissionError ? tCommon("error.permission") : tCommon("error.title")}
           description={isPermissionError ? t("card.noActivity") : tCommon("error.description")}
+          // 권한 거부는 로그인하지 않은 사람만 해소할 수 있다(로그인). 로그인한 사람에겐 글자 그대로.
+          resolve={isPermissionError && (!user || user.isAnonymous) ? signInResolve : undefined}
           onRetry={() => { restartAnalysisMeasurement(); if (detailRetry) detailRetry(); else retryActivity(); }}
         />
       </div>

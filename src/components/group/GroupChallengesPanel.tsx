@@ -1,6 +1,6 @@
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { localeTag } from "../../utils/localeDate";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Group } from "@shared/types";
 import { useToast } from "../../contexts/ToastContext";
@@ -14,7 +14,8 @@ import {
 } from "../../hooks/useGroupChallenges";
 import { logClientError } from "../../services/errorLogger";
 import { Button, Card, Chip, DropdownSelect, Input, Text } from "../../theme/components";
-import { ErrorState, LoadingSkeleton } from "../redesign";
+import { ErrorState, LoadingSkeleton, Resolvable } from "../redesign";
+import { revealFocusTarget } from "../../services/focusTarget";
 
 export default function GroupChallengesPanel({ userId, groups }: { userId: string; groups: Group[] }) {
   const { t } = useTranslation("group");
@@ -23,6 +24,8 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
   const { challenges, loading, error, retry } = useGroupChallenges();
   const [groupId, setGroupId] = useState("");
   const [name, setName] = useState("");
+  // 운영진이면 「열린 클럽 리그가 없습니다」를 누르면 접힌 만들기 칸을 펼쳐 이름 입력에 초점을 둔다.
+  const createNameRef = useRef<HTMLLabelElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const { functions } = useFirebaseServices();
@@ -80,7 +83,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
             <details className="challenge-create-details">
               <summary>{t("challenges.create")}</summary>
               <div className="challenge-create-fields">
-            <label className="text-[length:var(--ft-body-size)] flex-1" style={{ color: "var(--ink-2)", minWidth: 180 }}>
+            <label ref={createNameRef} className="text-[length:var(--ft-body-size)] flex-1" style={{ color: "var(--ink-2)", minWidth: 180 }}>
               <span className="block mb-1">{t("challenges.name")}</span>
               <Input value={name} onChange={(event) => setName(event.target.value.slice(0, 80))} maxLength={80} placeholder={t("challenges.namePlaceholder", { month: new Date().toLocaleDateString(localeTag(), { month: "long", timeZone: "Asia/Seoul" }) })} />
             </label>
@@ -95,7 +98,7 @@ export default function GroupChallengesPanel({ userId, groups }: { userId: strin
 
       {error && <ErrorState title={t("challenges.loadFailed")} onRetry={retry} compact />}
       {error && challenges.length === 0 ? null : loading ? <LoadingSkeleton kind="list" count={2} /> : challenges.length === 0 ? (
-        <Card padding="compact"><Text data-testid="E4-2-4" as="p" variant="body" tone="tertiary">{t("challenges.empty")}</Text></Card>
+        <Card padding="compact"><Text data-testid="E4-2-4" as="p" variant="body" tone="tertiary"><Resolvable resolve={managedGroups.length > 0 ? { onClick: () => { if (createNameRef.current) revealFocusTarget(createNameRef.current); } } : undefined}>{t("challenges.empty")}</Resolvable></Text></Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: "var(--space-3)" }}>
           {challenges.map((challenge) => {
