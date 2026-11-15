@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { logClientError } from "../../services/errorLogger";
 import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -46,7 +47,7 @@ export function ProfileBodyEditor() {
       setWeight(weight); setHeight(height);
       setConfirmed(Boolean(data.weightRevision) || Number(data.weightKg) !== 70);
       setLoaded(true);
-    }).catch(() => { if (!cancelled) setFailed(true); });
+    }).catch(error => { logClientError("ProfileBodyEditor.load", error, { attempt }); if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
   }, [user?.uid, attempt]);
 

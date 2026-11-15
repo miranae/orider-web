@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { logClientError } from "../../services/errorLogger";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
@@ -17,7 +18,7 @@ export function NotificationPreferencesCard() {
   const load = async () => {
     setBusy(true); setError(false);
     try { const value = await client.getPreferences(); if (active.current === client) setState({ client, value }); }
-    catch { if (active.current === client) { setState(null); setError(true); } }
+    catch (reason) { logClientError("NotificationPreferences.load", reason); if (active.current === client) { setState(null); setError(true); } }
     finally { if (active.current === client) setBusy(false); }
   };
   useEffect(() => {

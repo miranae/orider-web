@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { logClientError } from "../../services/errorLogger";
 import { useTranslation } from "react-i18next";
 import { SettingsCard, InlineRow } from "./_primitives";
 import { Resolvable } from "../redesign/states/Resolvable";
@@ -32,7 +33,7 @@ export function PaneAiCoach() {
     setLoading(true);
     setError(null);
     try { setPolicy(await getCoachConsentPolicy()); }
-    catch { setError("load_failed"); }
+    catch (reason) { logClientError("PaneAiCoach.loadPolicy", reason); setError("load_failed"); }
     finally { setLoading(false); }
   }, []);
 

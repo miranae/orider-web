@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { logClientError } from "../services/errorLogger";
 import {
   type AppSettings,
   type NavigationPreferences,
@@ -119,6 +120,7 @@ export function useAllDeviceSettings(uid: string | null) {
         setLoading(false);
       },
       (e) => {
+        logClientError("useAllDeviceSettings.subscribe", e, { attempt });
         setError(e);
         setLoading(false);
       },
