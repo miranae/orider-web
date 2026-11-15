@@ -95,15 +95,7 @@ import { resolveSummaryStripStats } from "../features/activity/detail/summaryStr
 import { useRunActivityDetail, RunActivityIntro } from "../features/activity/detail/runActivityDetail";
 import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
 import { ActivityProcessingState, DeletedActivityState, ActivityAnalysisSignInCard, StreamUnavailableCard } from "../features/activity/detail/ActivityDetailStates";
-import {
-  buildChartOverlays,
-  buildSampledData,
-  buildSummaryStats,
-  getChartHighlightRange,
-  getSegmentEfforts,
-  getStreamPhotos,
-  selectChartOverlay,
-} from "../features/activity/detail/activityDetailDerived";
+import { buildChartOverlays, buildSampledData, buildSummaryStats, getChartHighlightRange, getSegmentEfforts, getStreamPhotos, selectChartOverlay } from "../features/activity/detail/activityDetailDerived";
 import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
