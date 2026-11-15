@@ -85,6 +85,23 @@ describe("course preparation climb predictions", () => {
     expect(unhide).toHaveAttribute("title", "숨김 해제");
     expect(unhide).toHaveClass("ds-btn--icon-only");
   });
+  it("lays out actions as send-to-app first, one icon row in a fixed order, then view count sharing a row with management icons", async () => {
+    authState.uid = "admin"; simulateLogin({ uid: "admin" });
+    setDocData("courses/course-climb", { ...mockDocData.get("courses/course-climb"), creatorId: "admin" });
+    render(<DialogProvider><MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter></DialogProvider>);
+    await screen.findByText("Climbing course");
+    const actions = screen.getByTestId("course-actions");
+    const names = within(actions).getAllByRole("button").map((button) => button.getAttribute("aria-label") ?? button.textContent);
+    expect(names).toEqual(["앱으로 보내기", "좋아요 0", "시뮬레이터", "GPX", "공유", "신고", "삭제", "숨기기"]);
+    // 주 동작은 칸 전체 폭, 보조 아이콘은 한 줄 묶음
+    expect(screen.getByRole("button", { name: /앱으로 보내기/ })).toHaveClass("ds-btn--block");
+    const icons = screen.getByTestId("course-action-icons");
+    for (const name of ["좋아요 0", "시뮬레이터", "GPX", "공유", "신고"]) expect(icons).toContainElement(screen.getByRole("button", { name }));
+    // 관리 아이콘은 혼자 한 줄을 차지하지 않고 조회수와 같은 줄에 있다
+    const footer = screen.getByTestId("course-action-footer");
+    expect(footer).toContainElement(screen.getByTestId("course-view-count"));
+    for (const name of ["삭제", "숨기기"]) expect(footer).toContainElement(screen.getByRole("button", { name }));
+  });
   it("keeps report choices above the dialog and changes a reason without submitting", async () => {
     render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
     await screen.findByText("Climbing course");

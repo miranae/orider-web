@@ -227,7 +227,7 @@ describe("PaneAccount nickname save", () => {
     expect(everyone).toBeDisabled(); expect(mocks.showToast).not.toHaveBeenCalledWith("privacy.visibilityChanged");
   });
 
-  it("사진 변경·삭제는 아바타 위 아이콘, 코드 복사는 친구 코드 옆 아이콘이고 따로 떨어진 버튼 줄은 없다", async () => {
+  it("사진 변경은 아바타 모서리 배지 하나, 삭제는 아바타를 가리지 않게 옆에 두고, 코드 복사는 친구 코드 옆 아이콘이며 따로 떨어진 버튼 줄은 없다", async () => {
     mocks.profile = { nickname: "Old Name", photoURL: "https://example.test/me.webp" };
     // 다른 읽기와 섞여도 친구 코드가 들어오도록 이 테스트 동안만 모든 사용자 문서 읽기가 코드를 돌려준다
     vi.mocked(getDoc).mockResolvedValue({ exists: () => true, data: () => ({ friendCode: "ABC123" }) } as never);
@@ -239,8 +239,14 @@ describe("PaneAccount nickname save", () => {
       expect(button).toHaveClass("ds-btn--icon-only");
       expect(button).toHaveAttribute("title", name);
       expect(button.textContent).toBe("");
-      expect(avatar).toContainElement(button);
     }
+    // 아바타 위에는 카메라 배지 하나만 걸친다 — 삭제 아이콘은 사진을 가리지 않도록 아바타 바깥 옆자리
+    const change = screen.getByRole("button", { name: "profile.photoChange" });
+    const remove = screen.getByRole("button", { name: "profile.photoDelete" });
+    expect(avatar?.querySelector(".settings-profile-avatar__badge")).toContainElement(change);
+    expect(avatar?.querySelectorAll("button")).toHaveLength(1);
+    expect(avatar).not.toContainElement(remove);
+    expect(container.querySelector(".settings-profile-avatar-group")).toContainElement(remove);
     expect(copy).toHaveClass("ds-btn--icon-only");
     expect(copy).toHaveAttribute("title", "profile.copyCode");
     expect(copy.textContent).toBe("");
