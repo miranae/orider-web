@@ -41,3 +41,11 @@ it("keeps the KST day label and tooltip when UTC is still the previous year", ()
     expect(screen.queryByText("한국 시간(KST) 기준")).not.toBeInTheDocument();
   } finally { vi.useRealTimers(); }
 });
+
+it("re-reads the chart when the failure text itself is pressed, without adding a retry button", () => {
+  const onRetry = vi.fn();
+  renderWithProviders(<AthleteRecentSummary activities={[]} loading={false} error onRetry={onRetry} />);
+  expect(screen.getAllByRole("button")).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "월간 활동을 불러오지 못했습니다." }));
+  expect(onRetry).toHaveBeenCalledTimes(1);
+});

@@ -19,6 +19,7 @@ import { planDayKey, planCalendarDate } from "@shared/training/planDate";
 import { acceptedPhysicalActivities, estimateActivityTss, sumAcceptedActivityTss } from "../../utils/estimateTSS";
 import "./MobileLogPage.css";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import { Resolvable } from "../redesign/states/Resolvable";
 
 // DAY_NAMES — i18n via t("mobileLog.dayNames")
 
@@ -410,7 +411,9 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
             {visibleRecentActs.map(activityRow)}
           </section>
           {pagination(matchingActs.length, page, pageCount)}
-          {matchingActs.length === 0 && <div className="mobile-log__empty"><Text as="p" variant="bodySmall" role="status">{t(query ? "mobileLog.noMatching" : "mobileLog.emptyActivity")}</Text>{query && <Button variant="ghost" onClick={() => setSearch("")}>{t("mobileLog.clearSearch")}</Button>}</div>}
+          {matchingActs.length === 0 && <div className="mobile-log__empty"><Text as="p" variant="bodySmall" role="status">{query ? t("mobileLog.noMatching")
+            // 「아직 활동 기록이 없어요」 → 같은 화면의 활동 가져오기 창.
+            : <Resolvable resolve={{ onClick: () => setImportOpen(true) }}>{t("mobileLog.emptyActivity")}</Resolvable>}</Text>{query && <Button variant="ghost" onClick={() => setSearch("")}>{t("mobileLog.clearSearch")}</Button>}</div>}
         </>
       )}
 
@@ -465,7 +468,8 @@ export default function MobileLogPage({ showSportFilter = true, recentSummarySlo
                 );
               })}
           {pagination(dayDetailActs.length, dayPage, dayPages, true)}
-          {!dayDetailActs.length && <Text as="p" variant="bodySmall" tone="secondary">{t("training:planRecords.noActivity")}</Text>}
+          {/* 「이 날짜에 조회된 활동 기록이 없습니다. 미동기화…」 → 활동 가져오기 창. */}
+          {!dayDetailActs.length && <Text as="p" variant="bodySmall" tone="secondary"><Resolvable resolve={{ onClick: () => setImportOpen(true) }}>{t("training:planRecords.noActivity")}</Resolvable></Text>}
         </>}
       </CoachDetailSection>}
     </div>

@@ -6,6 +6,7 @@ import { logClientError } from "../../services/errorLogger";
 import { LocalizedLink as Link } from "../LocalizedLink";
 import Avatar from "../Avatar";
 import { Button, Card, Text } from "../../theme/components";
+import { Resolvable } from "../redesign/states/Resolvable";
 
 export type RelationshipView = SubscriptionKind | "blocked";
 export default function RelationshipManagementList({ uid, view }: { uid: string; view: RelationshipView }) {
@@ -60,7 +61,8 @@ export default function RelationshipManagementList({ uid, view }: { uid: string;
     {loading && <Text as="p" variant="bodySmall" role="status">{t("label.loadingHint")}</Text>}
     {failure ? <div className="profile-social-error"><Text as="p" variant="bodySmall">{t(failure === "notDeployed" ? "activitySubscriptions.managementNotReady" : "activitySubscriptions.unavailable")}</Text>
       {failure !== "notDeployed" && <Button variant="secondary" onClick={() => setAttempt(value => value + 1)}>{t("profileSocial.retry")}</Button>}</div>
-      : !loading && !page.items.length && <Text as="p" variant="bodySmall" tone="secondary">{t("profileSocial.empty")}</Text>}
+      // 내가 구독한 사람이 없다는 문구를 누르면 사람 찾기로.
+      : !loading && !page.items.length && <Text as="p" variant="bodySmall" tone="secondary"><Resolvable resolve={view === "subscriptions" ? { to: "/explore/athletes" } : undefined}>{t("profileSocial.empty")}</Resolvable></Text>}
     {actionFailed && <Text as="p" variant="bodySmall" role="alert">{t("activitySubscriptions.actionFailed")}</Text>}
     {!failure && page.hasMore && <Button variant="secondary" disabled={loading} onClick={() => setCursor(page.cursor)}>{t("profileSocial.more")}</Button>}
   </Card>;

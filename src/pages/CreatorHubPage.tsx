@@ -6,7 +6,8 @@ import GlossaryProvider from "../components/common/GlossaryProvider";
 import GlossaryText from "../components/common/GlossaryText";
 import "./ExploreReview.css";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { creatorRecipeErrorFeedback } from "../utils/creatorRecipeErrors";
+import { creatorRecipeErrorFeedback, creatorRecipeErrorResolveTo } from "../utils/creatorRecipeErrors";
+import { Resolvable } from "../components/redesign/states/Resolvable";
 import { useTranslation } from "react-i18next";
 import { useParams, useSearchParams } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
@@ -556,7 +557,8 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
   const diaryOwner = useRef(user?.uid);
   diaryOwner.current = user?.uid;
   useEffect(() => { setDiary(null); setDiaryError(null); setDiaryPolicy(null); }, [user?.uid]);
-  const [diaryError, setDiaryError] = useState<string | null>(null);
+  // resolveTo: 문구를 누르면 갈 해결 화면(활동 없음 → 활동 가져오기, 처리 한도 → 문의 게시판).
+  const [diaryError, setDiaryError] = useState<{ message: string; resolveTo?: string } | null>(null);
   const {
     emailFailedItemIds,
     emailQuota,
@@ -744,8 +746,10 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
       if (diaryOwner.current === owner) setDiaryPolicy(policy.data);
     } catch (error) {
       const message = diaryFailureMessage(error, i18n.language, copy.credit.failed);
-      setDiaryError(message);
-      showToast(message, "error");
+      const resolveTo = creatorRecipeErrorResolveTo(error);
+      setDiaryError({ message, resolveTo });
+      if (resolveTo) showToast(message, "error", { resolve: { to: resolveTo } });
+      else showToast(message, "error");
     } finally { setPolicyLoading(false); }
   };
   const generateConsentedDiary = async () => {
@@ -770,8 +774,10 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
       showToast(result.data.source === "cache" ? copy.credit.cache : copy.actions.previewOpened);
     } catch (error) {
       const message = diaryFailureMessage(error, i18n.language, copy.credit.failed);
-      setDiaryError(message);
-      showToast(message, "error");
+      const resolveTo = creatorRecipeErrorResolveTo(error);
+      setDiaryError({ message, resolveTo });
+      if (resolveTo) showToast(message, "error", { resolve: { to: resolveTo } });
+      else showToast(message, "error");
     } finally {
       setGenerating(false);
     }
@@ -1264,7 +1270,7 @@ export default function CreatorHubPage({ section: sectionOverride }: { /** 앱 �
                     ? copy.credit.cache
                     : copy.credit.quotaUnknown}
               </div>
-              {diaryError && <div className="mt-2 text-[length:var(--ft-body-size)]" style={{ color: "var(--rose)" }}>{diaryError}</div>}
+              {diaryError && <div className="mt-2 text-[length:var(--ft-body-size)]" style={{ color: "var(--rose)" }}><Resolvable resolve={diaryError.resolveTo ? { to: diaryError.resolveTo } : undefined}>{diaryError.message}</Resolvable></div>}
               <div className="mt-3">
                 <Button size="sm" variant="primary" onClick={handleGenerateDiary} loading={generating || policyLoading}>
                   <Sparkles size={ICON_SIZE.sm} />

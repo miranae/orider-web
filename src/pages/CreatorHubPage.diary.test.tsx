@@ -71,3 +71,17 @@ it("explains a capped activity query during AI generation without inventing an A
   expect(message).not.toHaveTextContent("크레딧");
   expect(message).not.toHaveTextContent("PRIVATE_TOKEN");
 });
+
+// 실패 문구(화면 안 문구·알림) 자체를 누르면 해결 화면으로 — 버튼을 새로 두지 않는다.
+it.each([
+  ["no-activities", /활동을 기록하거나 가져온 뒤/, "/ko/athlete/me/activities?import=1"],
+  ["recipe-activity-limit", /지원팀에 문의해 주세요/, "/ko/community/board?type=inquiry"],
+] as const)("links the %s diary failure text to where it is resolved", async (reason, text, href) => {
+  setCallableImplementation("generateAiDiary", () => { throw Object.assign(new Error("PRIVATE"), { details: { reason } }); });
+  renderWithProviders(<Routes><Route path="/ko/creator/:section" element={<CreatorHubPage />} /></Routes>, { authenticated: true, route: "/ko/creator/share" });
+  fireEvent.click(screen.getByTestId("E6-1-3"));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: "동의하고 생성" }));
+  const links = await screen.findAllByRole("link", { name: text });
+  for (const link of links) expect(link.getAttribute("href")).toBe(href);
+});

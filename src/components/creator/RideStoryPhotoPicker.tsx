@@ -2,7 +2,7 @@ import { uploadNativeActivityPhoto, type NativePhotoReference } from "../../serv
 import { NativeActivityPhotoImage } from "../activity/NativeActivityPhotoImage";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import "./RideStoryPhotoPicker.css";
-import { type ChangeEvent, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { collection, getDocs, limit as firestoreLimit, orderBy, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
@@ -16,6 +16,8 @@ import Modal from "../Modal";
 import { getSportLabelKey } from "../../utils/sportType";
 import { decodeTrack } from "../../utils/polyline";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import { Resolvable } from "../redesign/states/Resolvable";
+import { logClientError } from "../../services/errorLogger";
 
 interface RideStoryPhotoOption {
   id: string;
@@ -181,6 +183,8 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
   const [selection, setSelection] = useState<RideStorySelection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadingActivityId, setUploadingActivityId] = useState<string | null>(null);
+  // 「사진 목록을 불러오지 못했습니다」를 누르면 다시 읽는다(읽는 동안은 문구가 내려가 거듭 누를 수 없다).
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => {
     if (!open || !userId) return;
@@ -196,14 +200,16 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
         const preferred = nextOptions.find((activity) => activity.photos.length > 0) ?? nextOptions[0] ?? null;
         setSelection(preferred ? { activityId: preferred.id, photoId: preferred.photos[0]?.id ?? null } : null);
       })
-      .catch(() => {
+      .catch((failure) => {
+        // 늦은 응답이어도 실패 기록은 남기고 화면 반영만 막는다.
+        logClientError("RideStoryPhotoPicker.loadOptions", failure, { loadAttempt });
         if (!active) return;
         setError(copy.loadFailed);
         showToast(copy.loadFailed, "error");
       })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [copy.loadFailed, open, showToast, userId, i18n.language, t, photoServices.firestore]);
+  }, [copy.loadFailed, open, showToast, userId, i18n.language, t, photoServices.firestore, loadAttempt]);
 
   if (!open) return null;
 
@@ -273,9 +279,10 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
           {loading ? (
             <PickerMessage>{copy.loading}</PickerMessage>
           ) : error ? (
-            <PickerMessage>{error}</PickerMessage>
+            <PickerMessage><Resolvable resolve={{ onClick: () => setLoadAttempt(value => value + 1) }}>{error}</Resolvable></PickerMessage>
           ) : options.length === 0 ? (
-            <PickerMessage>{copy.noOptions}</PickerMessage>
+            // 「최근 90일 안에 포스터로 만들 자전거 활동이 없습니다」 → 활동 가져오기 창.
+            <PickerMessage><Resolvable resolve={{ to: "/athlete/me/activities?import=1" }}>{copy.noOptions}</Resolvable></PickerMessage>
           ) : (
             <div className="space-y-4">
               {options.map((activity) => (
@@ -315,7 +322,7 @@ export function RideStoryPhotoPicker({ open, userId, onClose, onSent, onFailed, 
   );
 }
 
-function PickerMessage({ children }: { children: string }) {
+function PickerMessage({ children }: { children: ReactNode }) {
   return (
     <div className="rounded-[var(--r-md)] border p-4 text-[length:var(--ft-body-size)]" style={{ background: "var(--bg-2)", borderColor: "var(--line-soft)", color: "var(--ink-2)" }}>
       {children}

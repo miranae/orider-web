@@ -111,3 +111,12 @@ it("shows retry instead of lifetime achievements when the manual read is incompl
   fireEvent.click(within(details).getByRole("button", { name: "다시 시도" }));
   await waitFor(() => expect(screen.getByTestId("lifetime-scope")).toBeInTheDocument());
 });
+
+// 빈 해의 안내 문구 자체를 누르면 활동 가져오기 창으로 — 버튼을 새로 두지 않는다.
+it("links the empty-year guidance to the activity import window", () => {
+  mocks.activities = [];
+  render(<MemoryRouter initialEntries={["/ko/athlete/me/records?year=2025"]}><YearRecapPage /></MemoryRouter>);
+  const empty = screen.getByTestId("P2.emptyYear");
+  expect(within(empty).getByRole("link", { name: "활동을 기록하면 연간 기록이 채워집니다." })).toHaveAttribute("href", "/ko/athlete/me/activities?import=1");
+  expect(within(empty).queryByRole("button")).toBeNull();
+});
