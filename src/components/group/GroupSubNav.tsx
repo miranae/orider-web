@@ -1,6 +1,8 @@
 import { embeddedInternalDestination } from "../../embedded/hubNavigation";
 import "../../pages/group/ClubSurface.css";
-import { Button, Text } from "../../theme/components";
+import { Share2 } from "lucide-react";
+import { IconButton, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { useToast } from "../../contexts/ToastContext";
 import { logClientError } from "../../services/errorLogger";
 import { useLocation, useParams } from "react-router-dom";
@@ -55,7 +57,9 @@ export default function GroupSubNav({ group, isCreator, compact = false }: Group
             {t("dashboard.memberCount", { count: group.memberCount })}
           </Text>
         </div>
-      <Button variant="secondary" size="sm" data-testid="C1-0-4" type="button" onClick={async () => { try { await navigator.clipboard.writeText(`${window.location.origin}/${lang ?? "ko"}${base}`); showToast(t("invite.copied")); } catch (error) { logClientError("GroupSubNav.share", error, { groupId }); showToast(t("dashboard.posts.actionFailed"), "error"); } }}>{t("button.share")}</Button>
+      {/* 공유는 머리글 오른쪽의 작은 아이콘으로 — 큰 글자 버튼이 클럽 이름 옆 자리를 차지하지 않게 */}
+      <IconButton variant="secondary" data-testid="C1-0-4" aria-label={t("button.share")} title={t("button.share")} icon={<Share2 size={ICON_SIZE.md} />}
+        onClick={async () => { try { await navigator.clipboard.writeText(`${window.location.origin}/${lang ?? "ko"}${base}`); showToast(t("invite.copied")); } catch (error) { logClientError("GroupSubNav.share", error, { groupId }); showToast(t("dashboard.posts.actionFailed"), "error"); } }} />
       </div>
       <RouteTabNav tabs={tabs.map(tab => ({ ...tab, specId: "C1-0-2", to: destination(`${tab.to}${sharedSearch}`), activePaths: tab.activePaths?.map(destination) }))} />
 

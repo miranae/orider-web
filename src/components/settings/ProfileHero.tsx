@@ -11,8 +11,10 @@ interface ProfileHeroProps {
   friendCode?: string | null;
   stravaConnected?: boolean;
   onEditNickname?: () => void;
-  /** 아바타 오른쪽 아래에 겹쳐 놓는 아이콘 버튼(사진 변경·삭제) */
-  avatarActions?: ReactNode;
+  /** 아바타 오른쪽 아래 모서리에 작은 원형 배지로 걸치는 아이콘 버튼 하나(사진 변경) */
+  avatarBadge?: ReactNode;
+  /** 아바타를 가리지 않도록 아바타 옆에 두는 아이콘 버튼(사진 삭제) */
+  avatarAside?: ReactNode;
   /** 친구 코드 바로 옆에 붙는 아이콘 버튼(코드 복사) */
   friendCodeAction?: ReactNode;
 }
@@ -24,7 +26,8 @@ export function ProfileHero({
   friendCode,
   stravaConnected,
   onEditNickname,
-  avatarActions,
+  avatarBadge,
+  avatarAside,
   friendCodeAction,
 }: ProfileHeroProps) {
   const { t } = useTranslation("settings");
@@ -41,6 +44,7 @@ export function ProfileHero({
         alignItems: "center",
       }}
     >
+      <div className="settings-profile-avatar-group">
       <div className="settings-profile-avatar">
         {photoURL ? (
           <img
@@ -72,7 +76,9 @@ export function ProfileHero({
             {initial}
           </div>
         )}
-        {avatarActions && <div className="settings-profile-avatar__actions">{avatarActions}</div>}
+        {avatarBadge && <div className="settings-profile-avatar__badge">{avatarBadge}</div>}
+      </div>
+      {avatarAside}
       </div>
 
       <div style={{ minWidth: 0 }}>

@@ -208,7 +208,7 @@ it("puts the owner add-photo action inside the photo grid as an icon tile", () =
   expect(screen.getByRole("button", { name: "사진 추가" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "사진 추가" })).toHaveAttribute("aria-busy", "true");
   view.rerender(<ActivityOverviewSocial {...base} photos={[]} totalPhotos={0} owner canUpload viewerId="owner" />);
-  expect(screen.getByRole("button", { name: "사진 추가" }).closest(".activity-overview-photos")).toHaveStyle({ gridTemplateColumns: "repeat(1, minmax(0, 1fr))" });
+  expect(screen.getByRole("button", { name: "사진 추가" }).closest(".activity-overview-photos")).toHaveStyle({ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" });
   view.rerender(<ActivityOverviewSocial {...base} owner canUpload={false} viewerId="owner" />);
   expect(screen.queryByRole("button", { name: "사진 추가" })).not.toBeInTheDocument();
   view.rerender(<ActivityOverviewSocial {...base} canUpload viewerId="viewer" />);

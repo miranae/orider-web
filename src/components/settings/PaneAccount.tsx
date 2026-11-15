@@ -286,24 +286,24 @@ export function PaneAccount() {
             title={t("profile.copyCode")}
           />
         }
-        avatarActions={
+        avatarAside={profile?.photoURL ? (
+          <IconButton
+            variant="ghost"
+            size="compact"
+            className="settings-profile-avatar__action"
+            icon={<Trash2 size={ICON_SIZE.xs} />}
+            onClick={handleRemovePhoto}
+            aria-label={t("profile.photoDelete")}
+            title={t("profile.photoDelete")}
+            style={{ color: "var(--rose)" }}
+          />
+        ) : undefined}
+        avatarBadge={
           <>
-            {profile?.photoURL && (
-              <IconButton
-                variant="ghost"
-                size="compact"
-                className="settings-profile-avatar__action"
-                icon={<Trash2 size={ICON_SIZE.xs} />}
-                onClick={handleRemovePhoto}
-                aria-label={t("profile.photoDelete")}
-                title={t("profile.photoDelete")}
-                style={{ color: "var(--rose)" }}
-              />
-            )}
             <IconButton
               variant="ghost"
               size="compact"
-              className="settings-profile-avatar__action"
+              className="settings-profile-avatar__action settings-profile-avatar__camera"
               icon={<Camera size={ICON_SIZE.xs} />}
               onClick={() => fileInputRef.current?.click()}
               loading={photoUploading}
