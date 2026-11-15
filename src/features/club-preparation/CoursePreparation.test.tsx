@@ -90,6 +90,23 @@ describe('코스부터 준비하는 모집 작성',()=>{
     expect(screen.getByRole('region',{name:'코스 체크포인트'}).textContent).toContain('중간 카페');
     expect(screen.queryByRole('link',{name:/기존 세그먼트 상세/})).toBeNull();
   });
+  it('앱 내장 실내 코스를 고르면 번들 GPX 경로와 내장 코스 출처를 적용한다',async()=>{
+    // 실내 모임 코스로 앱 내장 코스(새만금 등)를 고를 수 없어 출발이 보류됐다(orider-g1-web#3677).
+    const initial={...createSeed().meetings[2]!,courseSource:undefined,distanceKm:undefined,elevationGainM:undefined,courseHighlights:'',courseStops:[],courseCheckpoints:[],segments:[],courseTrack:undefined};
+    let applied:Meeting|undefined;
+    function Capture(){const[meeting,setMeeting]=useState<Meeting>(initial);applied=meeting;return <CoursePreparation meeting={meeting} onChange={setMeeting} onBusyChange={vi.fn()}/>;}
+    render(<Capture/>);
+    fireEvent.click(screen.getByRole('tab',{name:'앱 실내 코스'}));
+    expect(screen.getAllByRole('button',{name:'이 코스 가져오기'})).toHaveLength(10);
+    const row=screen.getByText('새만금 방조제').closest('li')!;
+    fireEvent.click(row.querySelector('button')!);
+    await waitFor(()=>expect(applied?.courseSource).toEqual({kind:'builtin',id:'builtin_saemangeum',name:'새만금 방조제'}));
+    expect(applied!.courseTrack!.points.length).toBeGreaterThanOrEqual(2);
+    expect(applied!.courseTrack!.points.length).toBeLessThanOrEqual(2000);
+    expect(applied!.courseTrack!.segmentStarts?.length ?? 0).toBeLessThanOrEqual(1);
+    expect(applied!.distanceKm).toBeGreaterThan(25);
+    expect(screen.getByRole('status').textContent).toContain('앱 실내 코스');
+  });
   it('GPX 출처·체크포인트·생성 구간을 미게시 초안과 미리보기에 보존한다',async()=>{
     const state=createSeed();const initial={...duplicateMeeting(state.meetings[2]!,'gpx-draft'),hostId:'me',date:'2099-10-25'};
     const view=render(<MeetingForm state={state} initial={initial} onSave={vi.fn()} onClose={vi.fn()}/>);
