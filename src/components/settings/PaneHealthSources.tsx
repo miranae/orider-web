@@ -13,12 +13,12 @@ import type {
   HealthSport,
   ProviderId,
 } from "@shared/types";
-import { DropdownSelect, Card, Chip, Button } from "../../theme/components";
-import { useStrava } from "../../hooks/useStrava";
-import { logClientError } from "../../services/errorLogger";
-import AppInstallLinks from "../AppInstallLinks";
+import { DropdownSelect, Card, Chip } from "../../theme/components";
 import { Toggle } from "./_primitives";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import { useStrava } from "../../hooks/useStrava";
+import { logClientError } from "../../services/errorLogger";
+import { Resolvable, type Resolve } from "../redesign/states/Resolvable";
 
 /**
  * Stage 1 PR F — 헬스 소스 연결 + 주 소스 선택 + 보존 정책 UI.
@@ -71,20 +71,25 @@ function ProviderCard({
   const meta = PROVIDER_META[providerId];
   const status: ConnectionStatus | "not_connected" = conn?.status ?? "not_connected";
   const { connectStrava } = useStrava();
-  const { showToast } = useToast();
-  // 재인증 필요·해제됨·오류는 다시 연결해야 풀린다 — 보여 주고 끝내지 않고 연결 경로로 잇는다.
-  const needsReconnect = status === "reauth_required" || status === "revoked" || status === "error";
+  // 재인증 필요·해제됨·오류 칩을 누르면 Strava 연결 카드(PaneConnections)와 같은 경로로 OAuth 를 다시 시작한다.
+  // Apple Health·Health Connect 는 웹에서 풀 길이 없어(앱 권한) 칩을 그대로 둔다.
+  const reconnect: Resolve | undefined = meta.webConnectable ? {
+    onClick: () => {
+      try { connectStrava("/settings/connections"); }
+      catch (error) { logClientError("PaneHealthSources.reconnectStrava", error, { providerId }); }
+    },
+  } : undefined;
 
   function statusBadge(s: ConnectionStatus | "not_connected") {
     switch (s) {
       case "active":
         return <Chip>{t("healthSources.statusActive")}</Chip>;
       case "reauth_required":
-        return <Chip>{t("healthSources.statusReauthRequired")}</Chip>;
+        return <Chip><Resolvable resolve={reconnect}>{t("healthSources.statusReauthRequired")}</Resolvable></Chip>;
       case "revoked":
-        return <Chip>{t("healthSources.statusRevoked")}</Chip>;
+        return <Chip><Resolvable resolve={reconnect}>{t("healthSources.statusRevoked")}</Resolvable></Chip>;
       case "error":
-        return <Chip>{t("healthSources.statusError")}</Chip>;
+        return <Chip><Resolvable resolve={reconnect}>{t("healthSources.statusError")}</Resolvable></Chip>;
       case "not_connected":
       default:
         return <Chip>{t("healthSources.statusNotConnected")}</Chip>;
@@ -119,26 +124,6 @@ function ProviderCard({
         >
           <Smartphone size={ICON_SIZE.sm} />
           {t("healthSources.appPermissionRequired")}
-        </div>
-      )}
-      {needsReconnect && meta.webConnectable && (
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <Button variant="secondary" size="sm" onClick={() => {
-            // Strava 연결 카드(PaneConnections)와 같은 경로로 OAuth 를 다시 시작하고 이 화면으로 돌아온다.
-            try { connectStrava("/settings/connections"); }
-            catch (error) {
-              logClientError("PaneHealthSources.reconnectStrava", error, { providerId });
-              showToast(t("healthSources.reconnectFailed"), "error");
-            }
-          }}>
-            {t("healthSources.reconnect")}
-          </Button>
-        </div>
-      )}
-      {needsReconnect && !meta.webConnectable && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>
-          <span>{t("healthSources.reconnectInApp")}</span>
-          <AppInstallLinks compact appStoreLabel="App Store" playStoreLabel="Google Play" />
         </div>
       )}
       {conn?.scopes && conn.scopes.length > 0 && status === "active" && (

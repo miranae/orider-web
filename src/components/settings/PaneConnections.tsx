@@ -152,10 +152,8 @@ export function PaneConnections() {
     } catch (error) {
       const reason = (error as { details?: { reason?: string } }).details?.reason;
       if (reason === "last-login-method") {
-        // 다른 로그인 방법을 먼저 연결해야 풀린다 — 로그인 방법 카드의 연결 버튼으로 바로 데려간다.
-        showToast(t("strava.disconnectLastLogin"), "error", {
-          action: { label: t("strava.openSocialLinks"), to: withFocus("/settings/account", FOCUS_TARGETS.socialLinks) },
-        });
+        // 다른 로그인 방법을 먼저 연결해야 풀린다 — 알림 문구를 누르면 로그인 방법 카드의 연결 버튼으로 간다.
+        showToast(t("strava.disconnectLastLogin"), "error", { resolve: { to: withFocus("/settings/account", FOCUS_TARGETS.socialLinks) } });
       } else {
         showToast(t("strava.disconnectFailed"), "error");
       }

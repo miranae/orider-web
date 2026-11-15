@@ -128,22 +128,21 @@ describe("course preparation climb predictions", () => {
     expect(within(preparation).getByRole("button", { name: language === "ko" ? /파워 지속곡선/ : /power-duration curve/ })).toBeInTheDocument();
   });
 
-  it("turns a no-device send failure into an error toast that opens device settings", async () => {
+  it("opens device settings from the no-device send failure message itself", async () => {
     setCallableImplementation("sendCourseToApp", () => Promise.reject({ code: "functions/failed-precondition", message: "연결된 앱 기기가 없습니다. 모바일 앱에 로그인해 주세요." }));
     render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><ToastProvider><CoursePage /></ToastProvider></MemoryRouter>);
     await screen.findByText("Climbing course");
     fireEvent.click(screen.getByRole("button", { name: /앱으로 보내기/ }));
-    expect(await screen.findByText(/휴대폰 O-Rider 앱에 로그인하고 알림을 허용했는지/)).toBeInTheDocument();
-    expect(screen.queryByText(/연결된 앱 기기가 없습니다/)).toBeNull();
-    expect(screen.getByRole("link", { name: "기기 설정" })).toHaveAttribute("href", "/ko/settings/device");
+    expect(await screen.findByRole("link", { name: "연결된 앱 기기가 없습니다. 모바일 앱에 로그인해 주세요." })).toHaveAttribute("href", "/ko/settings/device");
+    expect(screen.queryByRole("link", { name: "기기 설정" })).toBeNull();
   });
-  it("offers to send again after an unexpected send failure", async () => {
+  it("sends again from an unexpected send failure message itself", async () => {
     let calls = 0;
     setCallableImplementation("sendCourseToApp", () => { calls += 1; return Promise.reject({ code: "functions/unavailable" }); });
     render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><ToastProvider><CoursePage /></ToastProvider></MemoryRouter>);
     await screen.findByText("Climbing course");
     fireEvent.click(screen.getByRole("button", { name: /앱으로 보내기/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "다시 보내기" }));
+    fireEvent.click(await screen.findByRole("button", { name: "전송에 실패했습니다" }));
     await waitFor(() => expect(calls).toBe(2));
   });
 

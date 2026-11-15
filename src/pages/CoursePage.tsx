@@ -566,7 +566,7 @@ function CoursePageContent() {
     setTimeout(() => setToast(null), 3000);
   };
   const dialog = useDialog();
-  // 해결 행동이 달린 알림은 전역 알림으로 띄운다(이 화면의 자체 알림은 글만 보여 준다).
+  // 누르면 해결로 가는 알림은 전역 알림으로 띄운다(이 화면의 자체 알림은 누를 수 없다).
   const { showToast: showActionToast } = useToast();
 
   useEffect(() => {
@@ -798,12 +798,13 @@ function CoursePageContent() {
     } catch (err) {
       logClientError("CoursePage.sendCourseToApp", err, { courseId });
       const code = callableCode(err);
-      // failed-precondition = 서버가 판정한 사용자 행동 필요 사유(기기 없음/알림 권한).
-      // 서버 원문은 한국어 전용이라 쉬운 안내로 바꾸고, 기기 설정 화면으로 바로 잇는다.
-      if (code === "functions/failed-precondition" || code === "failed-precondition") {
-        showActionToast(t("link.sendNoDevice"), "error", { action: { label: t("link.openDeviceSettings"), to: "/settings/device" } });
+      // failed-precondition = 서버가 판정한 사용자 행동 필요 사유(기기 없음/알림 권한) — 그대로 표시하고,
+      // 알림 문구를 누르면 기기 설정으로 간다. 그 밖의 실패는 문구를 누르면 다시 보낸다.
+      const serverMessage = (err as { message?: string } | null)?.message;
+      if ((code === "functions/failed-precondition" || code === "failed-precondition") && serverMessage) {
+        showActionToast(serverMessage, "error", { resolve: { to: "/settings/device" } });
       } else {
-        showActionToast(t("link.sendFailed"), "error", { action: { label: t("link.retrySend"), onClick: () => { void handleSendToApp(); } } });
+        showActionToast(t("link.sendFailed"), "error", { resolve: { onClick: () => { void handleSendToApp(); } } });
       }
     }
   };

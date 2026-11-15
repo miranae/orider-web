@@ -14,24 +14,25 @@ import { stravaSignupGuidancePath } from "../utils/stravaSignup";
 import { socialAuthReturnTo } from "../utils/socialAuthReturnTo";
 import { FOCUS_TARGETS, withFocus } from "../services/focusTarget";
 import { isSignInCancelled } from "../utils/signInCancelled";
+import { Resolvable } from "../components/redesign/states/Resolvable";
 
 type Step = "working" | "error" | "confirm-link";
 
 const SOCIAL_LINKS_PATH = withFocus("/settings/account", FOCUS_TARGETS.socialLinks);
 const INQUIRY_PATH = "/community/board?type=inquiry";
 
-/** 실패 원인별로 해결할 수 있는 곳 — 화면 이동 경로가 있으면 그 경로, 없으면 다시 시도. */
-export function socialAuthErrorResolution(errorKey: string): { labelKey: string; to: string } | "retry" | null {
+/** 실패 문구를 누르면 갈 곳 — 화면 이동 경로가 있으면 그 경로, 없으면 다시 시도. */
+export function socialAuthErrorResolution(errorKey: string): { to: string } | "retry" | null {
   switch (errorKey) {
     case "socialCallback.error.existingStravaAccount":
     case "socialCallback.error.providerInUse":
       // 소셜 로그인 연결·해제는 설정 > 계정의 로그인 방법 카드(S1-4-1)에서 한다.
-      return { labelKey: "socialCallback.resolve.openAccount", to: SOCIAL_LINKS_PATH };
+      return { to: SOCIAL_LINKS_PATH };
     case "socialCallback.error.stravaSyncReauth":
-      return { labelKey: "socialCallback.resolve.reconnectStrava", to: "/settings/connections" };
+      return { to: "/settings/connections" };
     case "socialCallback.error.accountRecovery":
     case "socialCallback.error.accountDataConflict":
-      return { labelKey: "socialCallback.resolve.contactSupport", to: INQUIRY_PATH };
+      return { to: INQUIRY_PATH };
     case "socialCallback.error.expired":
     case "socialCallback.error.denied":
     case "socialCallback.error.cancelled":
@@ -138,10 +139,8 @@ export default function SocialAuthCallbackPage() {
           showToast(t("socialCallback.linked"), "success");
         }
         if (result.stravaSyncReauthRequired) {
-          // 원래 화면으로 돌아가도 알림에서 바로 Strava 연결 화면으로 갈 수 있게 한다.
-          showToast(t("socialCallback.stravaSyncReauth"), "info", {
-            action: { label: t("socialCallback.resolve.reconnectStrava"), to: "/settings/connections" },
-          });
+          // 원래 화면으로 돌아가도 알림 문구를 누르면 Strava 연결 화면으로 간다.
+          showToast(t("socialCallback.stravaSyncReauth"), "info", { resolve: { to: "/settings/connections" } });
         }
         const returnTo = socialAuthReturnTo(result.returnTo);
         const target = result.mode === "login" && result.provider === "strava" && result.isNewUser
@@ -183,12 +182,11 @@ export default function SocialAuthCallbackPage() {
         ) : (
           <>
             <h2 className="text-[length:var(--fs-lg)] font-bold text-[var(--ink-0)]">{t("socialCallback.errorTitle")}</h2>
-            <p role="alert" className="text-[var(--ink-2)]">{t(errorKey)}</p>
-            {resolution === "retry" ? (
-              <Button data-testid="A2-C-2" variant="primary" onClick={() => { void retry(); }}>{t("socialCallback.resolve.retry")}</Button>
-            ) : resolution && (
-              <Button data-testid="A2-C-2" variant="primary" onClick={() => navigate(resolution.to, { replace: true })}>{t(resolution.labelKey)}</Button>
-            )}
+            {/* 실패 문구 자체를 누르면 원인을 푸는 곳으로 간다(새 버튼 없이). */}
+            <p role="alert" className="text-[var(--ink-2)]">
+              <Resolvable resolve={resolution === "retry" ? { onClick: () => { void retry(); } }
+                : resolution ? { onClick: () => navigate(resolution.to, { replace: true }) } : undefined}>{t(errorKey)}</Resolvable>
+            </p>
             <Button data-testid="A2-C-1" variant="secondary" onClick={() => navigate("/", { replace: true })}>{t("goHome")}</Button>
           </>
         )}

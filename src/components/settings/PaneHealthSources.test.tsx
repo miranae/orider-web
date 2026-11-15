@@ -67,15 +67,19 @@ describe("PaneHealthSources stored preferences", () => {
     mocks.connections = { strava: { status, scopes: [] }, apple_health: null, health_connect: null };
     const user = userEvent.setup();
     renderWithProviders(<PaneHealthSources />, { authenticated: true });
-    await user.click(within(screen.getByTestId("health-provider-strava")).getByRole("button", { name: "다시 연결" }));
+    const card = within(screen.getByTestId("health-provider-strava"));
+    // 칩 문구 자체가 유일한 누를 곳이다 — 새 버튼을 만들지 않는다.
+    const buttons = card.getAllByRole("button");
+    expect(buttons).toHaveLength(1);
+    await user.click(buttons[0]!);
     expect(mocks.connectStrava).toHaveBeenCalledWith("/settings/connections");
   });
-  it("explains that Apple Health reconnects only in the app and links app installs", () => {
+  it("leaves app-only providers untouched because the web cannot reconnect them", () => {
     mocks.connections = { strava: null, apple_health: { status: "reauth_required", scopes: [] }, health_connect: null };
     renderWithProviders(<PaneHealthSources />, { authenticated: true });
     const card = within(screen.getByTestId("health-provider-apple_health"));
-    expect(card.getByText(/O-Rider 앱에서만 다시 켤 수 있어요/)).toBeInTheDocument();
-    expect(card.getByRole("link", { name: "App Store" })).toHaveAttribute("target", "_blank");
-    expect(card.queryByRole("button", { name: "다시 연결" })).toBeNull();
+    expect(card.getByText("재인증 필요")).toBeInTheDocument();
+    expect(card.queryByRole("button")).toBeNull();
+    expect(card.queryByRole("link")).toBeNull();
   });
 });

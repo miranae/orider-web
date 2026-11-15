@@ -139,10 +139,8 @@ export function SocialLinksCard() {
       logClientError("SocialLinksCard.unlink", err, { provider });
       const error = err as { code?: string; details?: { reason?: string } };
       if (error.details?.reason === "strava-sync-active") {
-        // 활동 동기화를 먼저 끊어야 풀린다 — 설정 > 연결된 앱의 Strava 카드로 잇는다.
-        showToast(t("pane.account.stravaSyncActive"), "error", {
-          action: { label: t("pane.account.stravaSyncSettings"), to: "/settings/connections" },
-        });
+        // 활동 동기화를 먼저 끊어야 풀린다 — 알림 문구를 누르면 설정 > 연결된 앱의 Strava 카드로 간다.
+        showToast(t("pane.account.stravaSyncActive"), "error", { resolve: { to: "/settings/connections" } });
         return;
       }
       showToast(t(error.code === "functions/failed-precondition" ? "pane.account.socialUnlinkLast" : "pane.account.socialUnlinkFailed"), "error");

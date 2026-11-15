@@ -91,7 +91,7 @@ describe("SocialLinksCard", () => {
     fireEvent.click(await within(row).findByRole("button", { name: "pane.account.socialUnlinkBtn" }));
     await waitFor(() => expect(mocks.confirm).toHaveBeenCalledWith("pane.account.stravaUnlinkConfirm", { destructive: true }));
     await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.stravaSyncActive", "error",
-      { action: { label: "pane.account.stravaSyncSettings", to: "/settings/connections" } }));
+      { resolve: { to: "/settings/connections" } }));
     expect(mocks.showToast).not.toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error");
   });
 

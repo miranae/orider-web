@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../../__tests__/utils/renderWithProviders";
 import RiderWorkoutDeliveryPanel from "./RiderWorkoutDeliveryPanel";
@@ -40,35 +40,41 @@ describe("RiderWorkoutDeliveryPanel", () => {
     renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="endurance" targetTss={45} explicitWorkoutLabel />);
     expect(screen.getByRole("link", { name: /기기가 없어요/ })).toHaveAttribute("href", "/ko/settings/device");
   });
-  it("links no-device users to device settings outside today too", () => {
+  it("opens device settings from the no-device message itself without adding a link off today", () => {
     mocks.controller = { ...mocks.controller, devices: [] };
     renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="endurance" targetTss={45} />);
-    expect(screen.getByRole("link", { name: /기기가 없어요/ })).toHaveAttribute("href", "/ko/settings/device");
+    expect(screen.getByRole("link", { name: /활성 기기가 없습니다/ })).toHaveAttribute("href", "/ko/settings/device");
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+    expect(screen.queryByRole("button")).toBeNull();
   });
-  it("offers sign-in when signed out", () => {
+  it("signs in from the signed-out message itself", () => {
     renderWithProviders(<RiderWorkoutDeliveryPanel uid={null} workoutType="endurance" targetTss={45} />);
-    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+    fireEvent.click(screen.getByRole("button", { name: "기기로 운동을 보내려면 로그인이 필요합니다." }));
     expect(mocks.login).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByRole("button")).toHaveLength(1);
   });
-  it("retries the device lookup after it fails", () => {
+  it("retries the device lookup from the failure message itself", () => {
     mocks.controller = { ...mocks.controller, devicesError: new Error("offline") };
     renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="endurance" targetTss={45} />);
-    fireEvent.click(screen.getByRole("button", { name: "기기 다시 확인" }));
+    fireEvent.click(screen.getByRole("button", { name: /기기 등록 상태를 확인하지 못했습니다/ }));
     expect(mocks.retryDevices).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByRole("button")).toHaveLength(1);
   });
   it.each([
-    ["ftp_required", "FTP 설정 열기", "/ko/settings/training?sport=bike&focus=ftp"],
-    ["device_reconnect", "기기 설정 열기", "/ko/settings/device"],
-  ])("links the %s failure to the screen that resolves it", (kind, name, href) => {
+    ["ftp_required", /유효한 FTP가 필요합니다/, "/ko/settings/training?sport=bike&focus=ftp"],
+    ["device_reconnect", /기기 연결이 만료되었거나/, "/ko/settings/device"],
+  ])("opens the resolving screen from the %s failure message itself", (kind, name, href) => {
     mocks.controller = { ...mocks.controller, submitState: "error", submitError: new Error(kind), submitErrorKind: kind, canSafelyReplay: false };
     renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="endurance" targetTss={45} />);
-    expect(screen.getByRole("link", { name })).toHaveAttribute("href", href);
-    expect(screen.getByRole("button", { name: "문제 해결 후 새 요청 준비" })).toBeInTheDocument();
+    const alert = screen.getByRole("alert");
+    expect(within(alert).getByRole("link", { name })).toHaveAttribute("href", href);
+    // 새 버튼 없이 기존 새 요청 준비 버튼 하나만 남는다.
+    expect(within(alert).getAllByRole("button").map((b) => b.textContent)).toEqual(["문제 해결 후 새 요청 준비"]);
   });
-  it("offers sign-in for an expired session failure", () => {
+  it("signs in from the expired-session failure message itself", () => {
     mocks.controller = { ...mocks.controller, submitState: "error", submitError: new Error("auth"), submitErrorKind: "auth", canSafelyReplay: false };
     renderWithProviders(<RiderWorkoutDeliveryPanel uid="uid-1" workoutType="endurance" targetTss={45} />);
-    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+    fireEvent.click(screen.getByRole("button", { name: /로그인 세션이 만료되었습니다/ }));
     expect(mocks.login).toHaveBeenCalledTimes(1);
   });
   it("calls pending queued rather than sent and renders only the authoritative bundle", () => {
