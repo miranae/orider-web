@@ -16,6 +16,7 @@ import { announceActivityContentChange } from "../services/activityContentChange
 import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
 import { hiddenProviderPhotoIds, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos, withoutHiddenStreamPhotos } from "../features/activity/detail/providerPhotoVisibility";
 import { useProviderPhotoHiding } from "../features/activity/detail/useProviderPhotoHiding";
+import { useFreshHiddenProviderIds } from "../features/activity/detail/useFreshHiddenProviderIds";
 import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
 import { canEditActivityMemo } from "../components/activity/activityMemoEditable";
 import { stravaRecordOf } from "@shared/analysis/stravaRecord";
@@ -668,9 +669,14 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
     showToast(t("page.photoToast.deleted"));
   };
   // Strava 사진 숨기기·다시 보이기(주인). Strava 원본은 건드리지 않는다.
+  // 문서는 한 번만 읽으므로, 주인이 다른 탭에서 바꾼 숨김 목록은 탭이 다시 보일 때 새로 읽는다.
+  const documentHiddenProviderIds = useFreshHiddenProviderIds({
+    firestore, activityId, enabled: activity?.source === "strava" && !!user?.uid && activity.userId === user.uid,
+    documentHiddenIds: activity?.source === "strava" ? hiddenProviderPhotoIds(activity as typeof activity & { hiddenProviderPhotosV1?: unknown }) : NO_HIDDEN_PROVIDER_IDS,
+  });
   const providerPhotos = useProviderPhotoHiding({
     activityId, uid: user?.uid, services: photoServices,
-    documentHiddenIds: activity?.source === "strava" ? hiddenProviderPhotoIds(activity as typeof activity & { hiddenProviderPhotosV1?: unknown }) : NO_HIDDEN_PROVIDER_IDS,
+    documentHiddenIds: documentHiddenProviderIds,
     onDone: hidden => showToast(t(hidden ? "page.photoToast.providerHidden" : "page.photoToast.providerRestored")),
     onError: (error, context) => { logClientError("ActivityPage.providerPhotosHidden", error, context); showToast(t("page.photoToast.providerHideFailed"), "error"); },
   });
