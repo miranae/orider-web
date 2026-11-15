@@ -182,6 +182,18 @@ describe("PaneEquipment 데이터 페이지", () => {
     expect(screen.getByTestId("layout-editor").dataset.readonly).toBe("false");
   });
 
+  it("충돌 해소가 실패하면 안내와 잠금을 그대로 두어 다시 누를 수 있다", async () => {
+    mocks.save.mockResolvedValue({ status: "conflict", remoteRevision: 9, remotePayload: "{remote}" });
+    mocks.resolveConflict.mockResolvedValue({ status: "localSaveFailed", cause: new Error("idb") });
+    renderPane("/settings/equipment?profileId=road&panel=data-pages");
+    await userEvent.click(await screen.findByRole("button", { name: "mock-save" }));
+    const panel = await screen.findByTestId("bike-data-pages-conflict");
+    await userEvent.click(within(panel).getByRole("button"));
+    await waitFor(() => expect(mocks.resolveConflict).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId("bike-data-pages-conflict")).toBeInTheDocument();
+    expect(screen.getByTestId("layout-editor").dataset.readonly).toBe("true");
+  });
+
   it("돌아가기는 목록으로 되돌린다", async () => {
     renderPane("/settings/equipment?profileId=road&panel=data-pages");
 

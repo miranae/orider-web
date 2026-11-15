@@ -183,13 +183,21 @@ export function useBikeProfileLayout(
       if (!ownerKey || !profileId) {
         return { status: "localSaveFailed", cause: new Error("로그인 필요") };
       }
-      // 충돌 응답보다 구독으로 더 새 revision 을 이미 받았으면 그 구성으로 맞춘다(낡은 구성으로 되돌리지 않게).
-      const seen = latestRemote.current;
-      const target = seen && seen.revision > conflict.remoteRevision ? { remoteRevision: seen.revision, remotePayload: seen.payload } : conflict;
-      const remote = parseCanonicalLayout(target.remotePayload, "CYCLING");
-      if (!remote.ok || remote.layout.profileId !== profileId) {
+      const conflictLayout = parseCanonicalLayout(conflict.remotePayload, "CYCLING");
+      if (!conflictLayout.ok || conflictLayout.layout.profileId !== profileId) {
         return { status: "invalidPayload", reasons: ["conflict remotePayload 를 읽지 못함"] };
       }
+      // 충돌 응답과 구독으로 본 가장 새 원격 구성 중 새 쪽(읽을 수 있는 것만)으로 맞춘다 — 낡은 구성으로 되돌리지 않게.
+      // 잠금을 기다리거나 outbox 를 정리하는 동안에도 새 revision 이 올 수 있어, head 를 쓰기 직전에 다시 고른다.
+      const pickNewest = () => {
+        const seen = latestRemote.current;
+        if (seen && seen.revision > conflict.remoteRevision) {
+          const parsed = parseCanonicalLayout(seen.payload, "CYCLING");
+          if (parsed.ok && parsed.layout.profileId === profileId) return { remoteRevision: seen.revision, remotePayload: seen.payload, layout: parsed.layout };
+        }
+        return { remoteRevision: conflict.remoteRevision, remotePayload: conflict.remotePayload, layout: conflictLayout.layout };
+      };
+      let target = pickNewest();
       const deps = browserSaveDeps();
       const generation = ++resolveGeneration.current;
       const requestTarget = `${ownerKey}|${profileId}`;
@@ -199,6 +207,7 @@ export function useBikeProfileLayout(
         await withOwnerLock(ownerKey, async () => {
           const intents = (await listIntents(ownerKey)).filter((i) => i.profileId === profileId);
           for (const intent of intents) await removeIntent(intent.mutationId);
+          target = pickNewest();
           await putHead({
             key: headKey(ownerKey, profileId),
             ownerKey,
@@ -231,7 +240,7 @@ export function useBikeProfileLayout(
       // 해소 중 구독으로 더 새 revision 이 들어왔으면 그대로 둔다.
       setState((prev) => prev.profileId === profileId && prev.revision > target.remoteRevision ? prev : {
         profileId,
-        record: remote.layout,
+        record: target.layout,
         revision: target.remoteRevision,
         source: "canonical",
         loading: false,

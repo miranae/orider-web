@@ -754,9 +754,9 @@ function BikeDataPagesPanel({
     setResolving(true);
     try {
       const result = await resolveConflict(conflict);
-      setConflict(null);
-      // 최신 구성 불러오기는 편집기가 바뀌는 것으로 끝난다 — 실패만 알린다.
-      if (result.status !== "synced") reportResult(result);
+      // 해소된 때만 안내·잠금을 걷는다 — 실패하면 미해결 intent 가 남아 있으니 문구를 다시 누를 수 있게 둔다.
+      if (result.status === "synced") setConflict(null);
+      else reportResult(result);
     } finally {
       setResolving(false);
     }

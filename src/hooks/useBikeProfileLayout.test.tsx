@@ -239,4 +239,20 @@ describe("useBikeProfileLayout 충돌 해소", () => {
     expect(mocks.putHead).toHaveBeenCalledWith(expect.objectContaining({ profileId: "road", revision: 8 }));
     expect(result.current.revision).toBe(8);
   });
+
+  it("해소 중(잠금 안에서 outbox 정리 중) 새 revision 이 오면 head 에 그 revision 을 쓴다", async () => {
+    let finishRemove: () => void = () => {};
+    mocks.removeIntent.mockReset().mockImplementation(() => new Promise<void>(resolve => { finishRemove = resolve; }));
+    const { result } = renderHook(() => useBikeProfileLayout("uid-a", "road", [page]));
+    act(() => mocks.subscriptions[0]!.next(remoteSnap("road", 5)));
+    await waitFor(() => expect(result.current.revision).toBe(5));
+    let pending!: Promise<unknown>;
+    act(() => { pending = result.current.resolveConflict({ remoteRevision: 7, remotePayload }); });
+    await waitFor(() => expect(mocks.removeIntent).toHaveBeenCalled());
+    act(() => mocks.subscriptions[0]!.next(remoteSnap("road", 8)));
+    await waitFor(() => expect(result.current.revision).toBe(8));
+    await act(async () => { finishRemove(); await pending; });
+    expect(mocks.putHead).toHaveBeenCalledWith(expect.objectContaining({ profileId: "road", revision: 8 }));
+    expect(mocks.putHead).not.toHaveBeenCalledWith(expect.objectContaining({ revision: 7 }));
+  });
 });
