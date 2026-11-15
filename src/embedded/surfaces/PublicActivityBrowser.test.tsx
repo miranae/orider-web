@@ -22,6 +22,8 @@ describe("embedded public profile navigation", () => {
     view.rerender(<Activity mode="hidden"><PublicActivityBrowser {...props} /></Activity>);
     view.rerender(<Activity mode="visible"><PublicActivityBrowser {...props} /></Activity>);
     expect(await screen.findByText("detail:public-ride")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "돌아가기" })).toHaveClass("ds-btn--icon-only");
+    expect(screen.getByRole("button", { name: "돌아가기" })).toHaveAttribute("title", "돌아가기");
     fireEvent.click(screen.getByRole("button", { name: "돌아가기" }));
     await screen.findByText("Public Rider");
   });

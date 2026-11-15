@@ -33,6 +33,11 @@ it("clears a visible route and aborts acceptance when SDK identity changes", asy
  mock.load.mockResolvedValue(ready); render(<NativeOwnerRoutePreview activity={activity} t={t} />); fireEvent.click(screen.getByRole("button")); await screen.findByTestId("preview-map");
  act(() => mock.authListener?.({uid:"other",isAnonymous:false})); await waitFor(() => expect(screen.queryByTestId("preview-map")).toBeNull());
 });
+it("offers the route as a small icon-labelled ghost button, not a full-width row", () => {
+ render(<NativeOwnerRoutePreview activity={activity} t={t} />);
+ const button = screen.getByRole("button", { name: "page.ownerRoutePreview.load" });
+ expect(button).toHaveClass("ds-btn--ghost", "ds-btn--sm"); expect(button).not.toHaveClass("ds-btn--block"); expect(button.querySelector(".ds-btn__icon svg")).not.toBeNull();
+});
 it("never offers another owner's route", () => { render(<NativeOwnerRoutePreview activity={{...activity,userId:"other"}} t={t} />); expect(screen.queryByRole("button")).toBeNull(); expect(mock.load).not.toHaveBeenCalled(); });
 
 it("does not retain points when the SDK project changes", async () => {

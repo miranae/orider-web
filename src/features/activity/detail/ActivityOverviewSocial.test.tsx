@@ -4,7 +4,8 @@ import type { Activity } from "@shared/types";
 import ActivityOverviewSocial, { type OverviewPhoto } from "./ActivityOverviewSocial";
 
 const nativeLoad = vi.hoisted(() => vi.fn());
-vi.mock("../../../services/nativeActivityPhoto", async importOriginal => ({ ...await importOriginal<typeof import("../../../services/nativeActivityPhoto")>(), loadNativeActivityPhoto: nativeLoad }));
+const coverLoad = vi.hoisted(() => vi.fn());
+vi.mock("../../../services/nativeActivityPhoto", async importOriginal => ({ ...await importOriginal<typeof import("../../../services/nativeActivityPhoto")>(), loadNativeActivityPhoto: nativeLoad, loadNativeActivityCover: coverLoad }));
 
 const photo = (index: number): OverviewPhoto => ({ id: `strava-${index}`, url: `https://images.example/${index}.jpg`, caption: `Photo ${index}` });
 const base = { activityId: "strava_1", memo: "작성자가 남긴 실제 메모", photos: Array.from({ length: 5 }, (_, index) => photo(index)), totalPhotos: 9,
@@ -179,4 +180,37 @@ it("주인은 Strava 사진을 숨기고, 숨긴 사진을 다시 보이게 할 
   fireEvent.keyDown(document, { key: "Escape" });
   fireEvent.click(screen.getByRole("button", { name: "숨긴 Strava 사진 2장 다시 보이기" }));
   expect(onRestore).toHaveBeenCalledTimes(1);
+});
+
+it("places the owner's cover star in the same viewer icon row as locate/delete", async () => {
+  nativeLoad.mockResolvedValue(new Blob(["photo"], { type: "image/webp" }));
+  coverLoad.mockResolvedValue({ photoId: null, coverRevision: "r0" });
+  const item = { id: "upload-p1", url: "", caption: "native 1", nativePhoto: { activityId: "ride", photoId: "p1" }, ownerId: "owner", uploadId: "p1" };
+  renderWithProviders(<ActivityOverviewSocial {...base} activityId="ride" photos={[item]} totalPhotos={1} owner viewerId="owner" canChooseCover coverPhotoId={null} />);
+  fireEvent.click(screen.getByRole("button", { name: "사진 1 / 1 보기" }));
+  const star = await screen.findByRole("button", { name: "대표사진으로 선택" });
+  expect(star).toHaveClass("ds-btn--icon-only");
+  expect(star.parentElement).toHaveClass("activity-overview-viewer-controls");
+  expect(star.parentElement).toContainElement(screen.getByRole("button", { name: "삭제" }));
+});
+it("puts the owner add-photo action inside the photo grid as an icon tile", () => {
+  const view = renderWithProviders(<ActivityOverviewSocial {...base} owner canUpload viewerId="owner" />);
+  const tile = screen.getByRole("button", { name: "사진 추가" });
+  expect(tile).toHaveClass("ds-btn--icon-only");
+  expect(tile).toHaveAttribute("title", "사진 추가");
+  expect(tile.closest(".activity-overview-photos")).toHaveAttribute("aria-label", "사진");
+  expect(tile.closest(".activity-overview-photos")).toHaveStyle({ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" });
+  expect(screen.getAllByRole("button", { name: /^사진 \d+ \/ 9 보기$/ })).toHaveLength(4);
+  expect(screen.getByText("+6")).toBeInTheDocument();
+  fireEvent.click(tile);
+  expect(base.onUpload).toHaveBeenCalledTimes(1);
+  view.rerender(<ActivityOverviewSocial {...base} owner canUpload uploading viewerId="owner" />);
+  expect(screen.getByRole("button", { name: "사진 추가" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "사진 추가" })).toHaveAttribute("aria-busy", "true");
+  view.rerender(<ActivityOverviewSocial {...base} photos={[]} totalPhotos={0} owner canUpload viewerId="owner" />);
+  expect(screen.getByRole("button", { name: "사진 추가" }).closest(".activity-overview-photos")).toHaveStyle({ gridTemplateColumns: "repeat(1, minmax(0, 1fr))" });
+  view.rerender(<ActivityOverviewSocial {...base} owner canUpload={false} viewerId="owner" />);
+  expect(screen.queryByRole("button", { name: "사진 추가" })).not.toBeInTheDocument();
+  view.rerender(<ActivityOverviewSocial {...base} canUpload viewerId="viewer" />);
+  expect(screen.queryByRole("button", { name: "사진 추가" })).not.toBeInTheDocument();
 });

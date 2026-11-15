@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import EventMap, { type LocationData } from "../../components/event/EventMap";
 import { LocalizedLink as Link } from "../../components/LocalizedLink";
-import { Button, Card, Input } from "../../theme/components";
+import { LocateFixed } from "lucide-react";
+import { Button, Card, IconButton, Input } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { liveRiders, staleRider } from "./presentation";
 import { spectatorPeople, spectatorStatus } from "./people";
 import { emptySpectatorPreferences, type SpectatorPreferences } from "./preferences";
@@ -36,7 +38,10 @@ export default function MeetingSpectatorView({snapshot, now, receivedAt, en, pre
     <p className="club-live-muted">{text("마지막 응답", "Last response")} · {new Date(receivedAt).toLocaleTimeString(en ? "en-US" : "ko-KR")} · {text("위치 수신", "Positions")} {riders.length} {snapshot.participants && <> · {text("참석 명단", "Attendees")} {people.length}</>}</p>
     {snapshot.status === "CANCELLED" ? <Card><h2>{text("모임이 취소됐어요", "This meeting was cancelled")}</h2><Link to={`/club/${snapshot.groupId}/meetings/${snapshot.eventId}`}>{text("모임 상세 확인", "View meeting details")}</Link></Card> : finished ? <Card><h2>{text("모임이 마무리됐어요", "This meeting has ended")}</h2><p>{text("개인 기록 업로드와 결과 확인에는 시간이 걸릴 수 있어요.", "Record uploads and results may take a moment.")}</p>
       <Link to={`/club/${snapshot.groupId}/meetings/${snapshot.eventId}#meeting-results`}>{text("모임 결과 확인", "View meeting results")}</Link>{" · "}<Link to={`/club/${snapshot.groupId}/rides`}>{text("그룹 주행 기록", "Group ride recordings")}</Link></Card> : <div className="club-live-workspace">
-      <div className="club-live-stage">{snapshot.course && <Card><div className="club-live-heading"><div><h2>{snapshot.course.name}</h2><p>{(snapshot.course.distanceM / 1000).toFixed(1)} km</p></div><Button variant="secondary" onClick={() => { update({mapMode: "course"}); setMapRevision(v => v + 1); }}>{text("코스 전체 보기", "Show entire course")}</Button></div>
+      <div className="club-live-stage">{snapshot.course && <Card><div className="club-live-heading"><div><div className="club-live-title-action"><h2>{snapshot.course.name}</h2>
+          {/* 코스 전체 보기는 글자 버튼 대신 코스 이름 옆 작은 맞춤 아이콘으로 둔다(코스맵의 전체 경로 보기와 같은 모양). */}
+          <IconButton size="sm" variant="ghost" aria-label={text("코스 전체 보기", "Show entire course")} title={text("코스 전체 보기", "Show entire course")} icon={<LocateFixed size={ICON_SIZE.sm} />} onClick={() => { update({mapMode: "course"}); setMapRevision(v => v + 1); }} /></div>
+          <p>{(snapshot.course.distanceM / 1000).toFixed(1)} km</p></div></div>
         <div className="club-live-map"><EventMap key={`${snapshot.course.courseId}/${mapRevision}`} locations={locations} selectedUid={prefs.mapMode === "rider" && reference && !staleRider(reference, now) ? selected : null} onSelectParticipant={uid => { if (uid) setSelected(uid); }} courseLatlngs={courseLatlngs} preserveSelectionOnPopupClose followSelected /></div>
       </Card>}
       <Card aria-label={text("보고 있는 선수", "Selected rider")}>

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '../../theme/components/Card';
-import { Button } from '../../theme/components/Button';
+import { IconButton } from '../../theme/components/IconButton';
+import { Copy } from 'lucide-react';
+import { ICON_SIZE } from '../../theme/tokens/icon';
 import type { Meeting, Member } from './domain';
 import './hostPreparationChecklist.css';
 
@@ -51,10 +53,18 @@ export default function HostPreparationChecklist({ meeting, members, unassignedC
         <a href="#meeting-notices"><strong>{unconfirmed.length}</strong><span>{text('공지 미확인', 'Unconfirmed notices')}</span></a>
       </div>
       {unsetTravel.length > 0 && <p>{text('합류 확인 필요', 'Check meeting points')}: {unsetTravel.map(name).join(', ')}</p>}
-      {unconfirmed.length > 0 && <>
+      {/* 미확인 명단 복사는 해당 줄 옆 작은 복사 아이콘으로 둔다. */}
+      {unconfirmed.length > 0 && <div className="cp-heading-with-edit">
         <p>{text('공지 확인 필요', 'Check notices')}: {unconfirmed.map(name).join(', ')}</p>
-        <Button size="sm" onClick={() => void copy()}>{text('공지 미확인 명단 복사', 'Copy notice follow-up list')}</Button>
-      </>}
+        <IconButton
+          size="sm"
+          variant="ghost"
+          aria-label={text('공지 미확인 명단 복사', 'Copy notice follow-up list')}
+          title={text('공지 미확인 명단 복사', 'Copy notice follow-up list')}
+          icon={<Copy size={ICON_SIZE.sm} />}
+          onClick={() => void copy()}
+        />
+      </div>}
       <p className="cp-muted">{text('공지는 모임 화면에서 확인합니다. 명단 복사는 메시지를 발송하지 않습니다.', 'Notices are available on this meeting page. Copying the list does not send a message.')}</p>
       <span role="status">{copyState === 'copied' && lastCopiedText === reminderText ? text('명단을 복사했어요.', 'List copied.') : copyState === 'failed' ? text('복사할 수 없어 아래에 명단을 열었어요. 직접 선택해 복사해주세요.', 'Copy is unavailable. Select and copy the text below.') : ''}</span>
       {copyState === 'failed' && <textarea readOnly aria-label={text('복사용 공지 미확인 명단', 'Notice follow-up text to copy')} value={reminderText} />}
