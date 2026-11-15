@@ -44,6 +44,26 @@ describe("SocialLinksCard", () => {
     expect(mocks.start).toHaveBeenCalledWith("kakao", "link", "/settings/account");
   });
 
+  it("reloads linked state when the load failure message is tapped", async () => {
+    mocks.list.mockReset().mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce([{ provider: "naver", linkedAt: 1 }]);
+    render(<SocialLinksCard />, { wrapper: MemoryRouter });
+    fireEvent.click(await screen.findByRole("button", { name: "pane.account.socialLoadFailed" }));
+    expect(await screen.findByText("pane.account.socialLinked")).toBeInTheDocument();
+    expect(mocks.list).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("ignores repeated taps on the failure message while a reload is in flight", async () => {
+    let resolveRetry: (value: unknown) => void = () => {};
+    mocks.list.mockReset().mockRejectedValueOnce(new Error("offline")).mockImplementationOnce(() => new Promise(resolve => { resolveRetry = resolve; }));
+    render(<SocialLinksCard />, { wrapper: MemoryRouter });
+    const message = await screen.findByRole("button", { name: "pane.account.socialLoadFailed" });
+    fireEvent.click(message); fireEvent.click(message); fireEvent.click(message);
+    expect(mocks.list).toHaveBeenCalledTimes(2);
+    resolveRetry([{ provider: "naver", linkedAt: 1 }]);
+    expect(await screen.findByText("pane.account.socialLinked")).toBeInTheDocument();
+  });
+
   it("links Discord to the signed-in account", async () => {
     render(<SocialLinksCard />, { wrapper: MemoryRouter });
     const button = within(screen.getByTestId("S1-4-1-discord")).getByRole("button", { name: "pane.account.socialLinkBtn" });

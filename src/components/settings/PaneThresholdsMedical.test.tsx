@@ -80,6 +80,24 @@ describe("separate threshold and private medical writes", () => {
     expect(mocks.setDoc).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "common:button.retry" })).not.toBeInTheDocument();
   });
+  it("tapping the medical load failure message reads again", async () => {
+    mocks.getDoc.mockRejectedValueOnce(new Error("offline"));
+    render(<PaneMedical />);
+    const message = await screen.findByRole("button", { name: "training.medicalLoadFailed" });
+    const reads = mocks.getDoc.mock.calls.length;
+    fireEvent.click(message);
+    await waitFor(() => expect(screen.getByLabelText(/training.fieldMedications/)).toHaveValue("old"));
+    expect(mocks.getDoc.mock.calls.length).toBeGreaterThan(reads);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it("tapping the body info load failure message unlocks the fields", async () => {
+    mocks.getDoc.mockRejectedValueOnce(new Error("offline"));
+    render(<ProfileBodyEditor />);
+    fireEvent.click(await screen.findByRole("button", { name: "profile.bodyInfoLoadFailed" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "training.btnSave" })).toBeEnabled());
+    expect(mocks.getDoc).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
   it("blocks both medical saves until private data is loaded, preserving existing fields", async () => {
     let resolve!: (value: unknown) => void;
     mocks.getDoc.mockReturnValue(new Promise(value => { resolve = value; }));

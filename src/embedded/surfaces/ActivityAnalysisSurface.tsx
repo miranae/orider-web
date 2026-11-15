@@ -18,6 +18,7 @@ import { ActivityReanalysisControl } from "../../features/activity/detail/Activi
 import AiRideAnalysisCard from "../../components/activity/AiRideAnalysisCard";
 import { useSavedActivityAnalysisSelection } from "../../hooks/useSavedActivityAnalysisSelection";
 import { useActivityAnalysisModel } from "../../hooks/useActivityAnalysisModel";
+import { Resolvable } from "../../components/redesign/states/Resolvable";
 
 export interface ActivityAnalysisSurfaceProps {
   activityId: string;
@@ -167,7 +168,16 @@ export default function ActivityAnalysisSurface({
         : model.loadingStreams || model.showStreamSpinner ? <div className="orider-embedded-status" role="status">Loading analysis</div>
           : model.overview.loading ? <div className="orider-embedded-status" role="status">{tCommon("embeddedStatus.loading")}</div>
             : model.overview.response?.status === "available" ? null
-              : <div className="orider-embedded-status" role="alert">{tCommon("embeddedStatus.unavailable")}</div>}
+              : <div className="orider-embedded-status" role="alert">
+                {/* 개요 조회 오류만 연결 실패다. 그 외에는 보여 줄 분석 데이터가 없는 것 — 문구를 누르면 다시 읽는다. */}
+                <Resolvable resolve={model.overview.error || !model.streams ? { onClick: () => {
+                  if (model.overview.error) model.overview.retry();
+                  if (!model.streams) {
+                    if (model.streamsError) void model.retryStreams();
+                    else model.requestStreams();
+                  }
+                } } : undefined}>{tCommon(model.overview.error ? "embeddedStatus.unavailable" : "embeddedStatus.analysisMissing")}</Resolvable>
+              </div>}
       {model.activity?.id === activityId && (model.sport === "ride" || model.sport === "run") && <AiRideAnalysisCard
         activityId={activityId} enabled sport={model.sport} isActivityOwner={model.isActivityOwner}
         summaryPreview={model.activity?.aiSummaryPreview} summaryPreviewEn={model.activity?.aiSummaryPreview_en} />}

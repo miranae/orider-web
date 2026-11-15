@@ -11,6 +11,7 @@ import { Button } from "../../theme/components";
 import { LocalizedLink } from "../LocalizedLink";
 import { GoogleLogo, KakaoLogo, NaverLogo } from "../auth/SignInDialog";
 import { InlineRow, SettingsCard } from "./_primitives";
+import { Resolvable } from "../redesign/states/Resolvable";
 import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 
 const LOGO: Partial<Record<SocialProvider, () => React.ReactElement>> = { naver: NaverLogo, kakao: KakaoLogo, discord: DiscordLogo };
@@ -36,19 +37,31 @@ export function SocialLinksCard() {
   // unlink 뒤 reload 도 같은 User 객체를 바꾸므로 해제 결과도 따로 둔다.
   const [googleUnlinkedUid, setGoogleUnlinkedUid] = useState<string | null>(null);
 
+  // 조회 세대 — 연결·해제 뒤의 조회나 다시 불러오기가 새로 시작되면 앞선 조회의 늦은 응답은 버린다
+  // (해제한 수단이 늦은 응답으로 다시 '연결됨'이 되지 않게).
+  const loadGeneration = useRef(0);
+  const retrying = useRef(false);
   const load = useCallback(async () => {
     if (!ownerUid) return;
+    const generation = ++loadGeneration.current;
+    const current = () => ownerRef.current === ownerUid && loadGeneration.current === generation;
     try {
       const links = await listSocialLinks();
-      if (ownerRef.current !== ownerUid) return;
+      if (!current()) return;
       setLinked({ uid: ownerUid, providers: new Set(links.map((l) => l.provider)) });
       setLoadFailed(false);
     } catch (err) {
-      if (ownerRef.current !== ownerUid) return;
       logClientError("SocialLinksCard.list", err);
+      if (!current()) return;
       setLoadFailed(true);
     }
   }, [ownerUid]);
+  // 실패 문구를 눌러 다시 불러오는 중에는 거듭 눌러도 새로 조회하지 않는다.
+  const retryLoad = async () => {
+    if (retrying.current) return;
+    retrying.current = true;
+    try { await load(); } finally { retrying.current = false; }
+  };
 
   useEffect(() => {
     setLinked(null);
@@ -158,7 +171,7 @@ export function SocialLinksCard() {
 
   return (
     <SettingsCard data-testid="S1-4-1" title={t("pane.account.cardSocial")} dense>
-      {loadFailed && <p role="alert" style={{ color: "var(--rose)", margin: 0 }}>{t("pane.account.socialLoadFailed")}</p>}
+      {loadFailed && <p role="alert" style={{ color: "var(--rose)", margin: 0 }}><Resolvable resolve={{ onClick: () => void retryLoad() }}>{t("pane.account.socialLoadFailed")}</Resolvable></p>}
       {(() => {
         return (
           <InlineRow data-testid="S1-4-1-google"

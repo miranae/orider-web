@@ -36,6 +36,16 @@ describe("PaneAiCoach", () => {
     expect(screen.queryByRole("button", { name: /다시 시도/ })).not.toBeInTheDocument();
   });
 
+  it("tapping the load failure message re-reads the authoritative status", async () => {
+    const user = userEvent.setup();
+    mocks.get.mockReset().mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(current);
+    renderWithProviders(<DialogProvider><PaneAiCoach /></DialogProvider>, { authenticated: true });
+    await user.click(await screen.findByRole("button", { name: "AI 코치 동의 상태를 불러오지 못했습니다." }));
+    expect(await screen.findByText("동의함")).toBeInTheDocument();
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("shows the authoritative status and revokes before clearing the coach session", async () => {
     const user = userEvent.setup();
     mocks.get.mockResolvedValue(current);

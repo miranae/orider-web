@@ -7,6 +7,7 @@ import { logClientError } from "../../services/errorLogger";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { SettingsCard, FieldGrid, Field, fieldInputStyle } from "./_primitives";
+import { Resolvable } from "../redesign/states/Resolvable";
 import { Button, Text, Input, Textarea, DropdownSelect } from "../../theme/components";
 
 const BLOOD_TYPES: BloodType[] = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-", "UNKNOWN"];
@@ -23,7 +24,7 @@ export function PaneMedical() {
   const [medicalSaving, setMedicalSaving] = useState(false);
   const [emergencySaving, setEmergencySaving] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [loadAttempt] = useState(0);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -76,7 +77,7 @@ export function PaneMedical() {
   }
   if (!user || user.isAnonymous) return null;
   return <>
-    {loadFailed && <div role="alert">{t("training.loadFailed")} </div>}
+    {loadFailed && <div role="alert"><Resolvable resolve={{ onClick: () => setLoadAttempt(value => value + 1) }}>{t("training.medicalLoadFailed")}</Resolvable></div>}
     <fieldset data-testid="S1-4-1" disabled={!loaded || medicalSaving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
       <SettingsCard
         title={t("training.cardMedical")}

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { logClientError } from "../../services/errorLogger";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { createWebNotificationClient, type NotificationPreferences } from "../../services/webNotifications";
 import { SettingsCard, InlineRow, Toggle } from "./_primitives";
+import { Resolvable } from "../redesign/states/Resolvable";
 import { Text } from "../../theme/components";
 export function NotificationPreferencesCard() {
   const { t } = useTranslation("settings"); const { user } = useAuth(); const services = useFirebaseServices();
@@ -16,7 +18,7 @@ export function NotificationPreferencesCard() {
   const load = async () => {
     setBusy(true); setError(false);
     try { const value = await client.getPreferences(); if (active.current === client) setState({ client, value }); }
-    catch { if (active.current === client) { setState(null); setError(true); } }
+    catch (reason) { logClientError("NotificationPreferences.load", reason); if (active.current === client) { setState(null); setError(true); } }
     finally { if (active.current === client) setBusy(false); }
   };
   useEffect(() => {
@@ -43,7 +45,8 @@ export function NotificationPreferencesCard() {
         <Toggle ariaLabel={t(`notificationPreferences.${key}`)} on={current[key]} disabled={busy || (key === "kudos" || key === "comment") && !current.push} onChange={value => { void save(key, value); }} />
       </InlineRow>)}
       {busy && current && <Text role="status">{t("notificationPreferences.saving")}</Text>}
-      {error && <Text role="alert">{t("notificationPreferences.failed")}</Text>}
+      {/* 토글이 사라진 경우(불러오기 실패·권한 거부)엔 문구를 누르면 다시 불러온다. */}
+      {error && <Text role="alert">{current ? t("notificationPreferences.failed") : <Resolvable resolve={{ onClick: () => { if (!busy) void load(); } }}>{t("notificationPreferences.loadFailed")}</Resolvable>}</Text>}
       
     </>}
   </SettingsCard>;

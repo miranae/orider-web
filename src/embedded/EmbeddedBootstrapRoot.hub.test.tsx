@@ -370,6 +370,9 @@ describe("app tab hub embeds", () => {
     act(() => bridge.emit(message("host.sessionAccepted", accepted)));
     expect(await screen.findByTestId("embedded-athlete-profile")).toBeInTheDocument();
     expect(screen.queryByTestId("athlete-page")).toBeNull();
+    // 연결 문제로 오해하지 않게 「프로필을 찾을 수 없어요」로 바로잡는다(해결 경로가 없어 누를 수 없음).
+    expect(screen.getByRole("alert")).toHaveTextContent("프로필을 찾을 수 없어요.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("연결 상태를 확인");
   });
 
   it("opens a public segment detail as a guest, keeps the same segment inside the embed and hands other links to the app", async () => {

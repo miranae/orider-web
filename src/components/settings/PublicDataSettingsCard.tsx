@@ -5,6 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { firestore } from "../../services/firebase";
 import { logClientError } from "../../services/errorLogger";
 import { SettingsCard, InlineRow, Toggle } from "./_primitives";
+import { Resolvable } from "../redesign/states/Resolvable";
 
 export const PUBLIC_DATA_FIELDS = [
   { key: "heartRate", labelKey: "publicData.heartRate", defaultPublic: true },
@@ -22,7 +23,7 @@ export function PublicDataSettingsCard() {
   const [state, setState] = useState<{ owner: string | null; values: Record<string, boolean>; ready: boolean }>({ owner: null, values: {}, ready: false });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<"loadFailed" | "saveFailed" | null>(null);
-  const [reload] = useState(0);
+  const [reload, setReload] = useState(0);
   useEffect(() => {
     let current = true;
     setState({ owner: uid, values: {}, ready: false });
@@ -58,6 +59,6 @@ export function PublicDataSettingsCard() {
     {PUBLIC_DATA_FIELDS.map(field => <InlineRow key={field.key} label={t(field.labelKey)}>
       <Toggle ariaLabel={t(field.labelKey)} on={state.values[field.key] ?? field.defaultPublic} disabled={!ready || saving} onChange={value => void save(field.key, value)} />
     </InlineRow>)}
-    {error && <div role="alert">{t(`publicData.${error}`)}</div>}
+    {error && <div role="alert"><Resolvable resolve={error === "loadFailed" ? { onClick: () => setReload(value => value + 1) } : undefined}>{t(`publicData.${error}`)}</Resolvable></div>}
   </SettingsCard>;
 }
