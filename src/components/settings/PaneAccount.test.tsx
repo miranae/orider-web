@@ -122,7 +122,11 @@ describe("PaneAccount nickname save", () => {
     const summary = screen.getByText("pane.account.medicalSummary");
     expect(summary.closest("details")).not.toHaveAttribute("open");
     expect(screen.getByTestId("coach-consent").compareDocumentPosition(screen.getByText("pane.account.cardManagement")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByRole("link", { name: "pane.account.manageData" })).toHaveAttribute("href", "/ko/settings/data");
+    const data = screen.getByRole("link", { name: "pane.account.manageData" });
+    expect(data).toHaveAttribute("href", "/ko/settings/data");
+    expect(data).toHaveAttribute("title", "pane.account.manageData");
+    expect(data).toHaveClass("ds-btn--icon-only");
+    expect(data).not.toHaveClass("ds-btn--secondary");
     expect(screen.getByRole("button", { name: "pane.account.deleteBtnLabel" })).toBeInTheDocument();
   });
 

@@ -280,10 +280,8 @@
 .settings-future-connections > summary { min-height: var(--dim-button-height); align-content: center; cursor: pointer; }
 .settings-service-copy { min-width: 0; }
 .settings-service-description { overflow-wrap: anywhere; }
-.settings-ai-history.ds-btn { display: grid; grid-template-columns: auto minmax(0, 1fr); height: auto; min-height: var(--dim-button-height); min-width: 0; max-width: 100%; padding: var(--space-2) var(--space-3); line-height: 1.4; white-space: normal; overflow-wrap: anywhere; text-align: center; }
 @media (max-width: 600px) {
   .settings-service-card { --settings-service-columns: auto minmax(0, 1fr); }
   .settings-service-copy { display: contents; }
   .settings-service-description, .settings-service-card > :last-child { grid-column: 1 / -1; }
-  .settings-ai-history { width: 100%; }
 }

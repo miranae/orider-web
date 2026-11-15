@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { SettingsCard, InlineRow } from "./_primitives";
 import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 import { Resolvable } from "../redesign/states/Resolvable";
-import { History } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { Button, buttonClass } from "../../theme/components";
 import { LocalizedLink } from "../LocalizedLink";
 import { useDialog } from "../../contexts/DialogContext";
@@ -106,7 +106,8 @@ export function PaneAiCoach() {
         </InlineRow>
         {policy && <InlineRow label={t("coach.policyVersion")}><code>{policy.policyVersion}</code></InlineRow>}
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
-          <LocalizedLink to="/coach/chat" className={`${buttonClass({ variant: "secondary" })} settings-ai-history`}><History size={ICON_SIZE.md} aria-hidden /><span>{t("coach.manageHistory")}</span></LocalizedLink>
+          {/* 이동만 하는 동작이라 큰 버튼 대신 화살표 아이콘 링크로 둔다 */}
+          <LocalizedLink to="/coach/chat" className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={t("coach.manageHistory")} title={t("coach.manageHistory")}><span className="ds-btn__icon" aria-hidden><ChevronRight size={ICON_SIZE.xs} /></span></LocalizedLink>
           {!valid && policy && error !== "load_failed" && <Button {...focusTargetProps(FOCUS_TARGETS.aiCoachConsent)} disabled={loading || saving} onClick={() => setSheetOpen(true)}>{t("coach.reviewConsent")}</Button>}
           {valid && <Button variant="danger" disabled={loading || saving || error === "load_failed"} onClick={() => void revoke()}>{t("coach.revoke")}</Button>}
         </div>

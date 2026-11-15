@@ -2,7 +2,7 @@ import { PublicDataSettingsCard } from "./PublicDataSettingsCard";
 import { NotificationPreferencesCard } from "./NotificationPreferencesCard";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Camera, Copy, Eye, Globe, Trash2, User } from "lucide-react";
+import { Camera, ChevronRight, Copy, Eye, Globe, Trash2, User } from "lucide-react";
 import { httpsCallable } from "firebase/functions";
 import {
   doc,
@@ -436,8 +436,8 @@ export function PaneAccount() {
           label={t("pane.account.dataLabel")}
           hint={t("pane.account.dataHint")}
         >
-          <LocalizedLink to="/settings/data" className={buttonClass({ variant: "secondary" })}>
-            {t("pane.account.manageData")}
+          <LocalizedLink to="/settings/data" className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })} aria-label={t("pane.account.manageData")} title={t("pane.account.manageData")}>
+            <span className="ds-btn__icon" aria-hidden><ChevronRight size={ICON_SIZE.xs} /></span>
           </LocalizedLink>
         </InlineRow>
         <InlineRow
