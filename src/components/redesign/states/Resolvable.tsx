@@ -16,22 +16,34 @@ export interface Resolve {
 export const RESOLVABLE_CLASS =
   "appearance-none bg-transparent border-0 p-0 m-0 [font:inherit] [color:inherit] text-left cursor-pointer underline-offset-2 decoration-dotted hover:underline focus-visible:underline focus-visible:outline-none";
 
-export function Resolvable({ resolve, children, className, style, onResolved }: {
+interface ResolvableProps {
   resolve?: Resolve;
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
   /** 누른 뒤 감싼 쪽이 할 일(알림 닫기 등). */
   onResolved?: () => void;
-}) {
-  const inRouter = useInRouterContext();
-  const cls = className ? `${RESOLVABLE_CLASS} ${className}` : RESOLVABLE_CLASS;
-  if (resolve?.to && inRouter) {
-    return <LocalizedLink to={resolve.to} className={cls} style={style} onClick={() => { resolve.onClick?.(); onResolved?.(); }}>{children}</LocalizedLink>;
-  }
+}
+
+export function Resolvable(props: ResolvableProps) {
+  const { resolve, children, className, style, onResolved } = props;
+  // 라우터 훅은 경로가 있을 때만 쓴다 — 해결 경로 없는 상태 상자는 라우터 없이(또는 라우터를 일부만 흉내 낸 테스트에서도) 그려져야 한다.
+  if (resolve?.to) return <ResolvableRoute {...props} to={resolve.to} />;
   if (resolve?.onClick) {
-    return <button type="button" className={cls} style={style} onClick={() => { resolve.onClick?.(); onResolved?.(); }}>{children}</button>;
+    return <button type="button" className={resolvableClass(className)} style={style} onClick={() => { resolve.onClick?.(); onResolved?.(); }}>{children}</button>;
   }
-  // 해결 경로가 없거나(라우터 밖에서 경로만 받은 경우 포함) 정하지 않은 경고는 그대로 보인다.
+  return <span className={className} style={style}>{children}</span>;
+}
+
+function resolvableClass(className?: string) {
+  return className ? `${RESOLVABLE_CLASS} ${className}` : RESOLVABLE_CLASS;
+}
+
+function ResolvableRoute({ to, resolve, children, className, style, onResolved }: ResolvableProps & { to: string }) {
+  const inRouter = useInRouterContext();
+  const handle = () => { resolve?.onClick?.(); onResolved?.(); };
+  if (inRouter) return <LocalizedLink to={to} className={resolvableClass(className)} style={style} onClick={handle}>{children}</LocalizedLink>;
+  // 라우터 밖(임베드 부트스트랩 등)에서 경로만 받았으면 onClick 이 있을 때만 누를 수 있다.
+  if (resolve?.onClick) return <button type="button" className={resolvableClass(className)} style={style} onClick={handle}>{children}</button>;
   return <span className={className} style={style}>{children}</span>;
 }

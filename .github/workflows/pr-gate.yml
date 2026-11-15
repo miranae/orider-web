@@ -35,9 +35,13 @@ jobs:
             exit 1
           fi
 
+          # 이 워크플로는 base=main PR 에서만 돈다(on.pull_request.branches). dev 대상
+          # sync/promotion-* 이력 동기화 PR 은 여기 오지 않고 merge-pr.sh 의 --assert-ancestry 가 검증한다.
           if [ "$HEAD_REPO" = "$BASE_REPO" ]; then
             if [ "$BASE_REF" = "main" ] && [ "$HEAD_REF" = "dev" ]; then
               echo "dev → main promotion branch accepted"
+            elif [ "$BASE_REF" = "main" ] && [[ "$HEAD_REF" =~ ^promote/snapshot-[0-9]{8}t[0-9]{6}z-[0-9a-f]{8}$ ]]; then
+              echo "dev snapshot → main promotion branch accepted"
             else
               branch_re='^(feat|fix|hotfix|docs|test|refactor|ci|chore|security|style|perf|build)/[a-z0-9][a-z0-9-]*$'
               if ! [[ "$HEAD_REF" =~ $branch_re ]]; then
@@ -49,11 +53,11 @@ jobs:
             echo "Fork PR branch names are accepted: $HEAD_REPO:$HEAD_REF"
           fi
 
-      # 뷰포트 점유 요소 시각 증빙 — hotfix→main 등 dev 승격이 아닌 main PR에서
+      # 뷰포트 점유 요소 시각 증빙 — hotfix→main 등 dev 승격(dev·promote/snapshot-*)이 아닌 main PR에서
       # sticky/fixed 추가 시 스크린샷 요구 (#374 스티키 배너 장애 재발 방지).
       # feature→dev PR은 로컬 merge-pr.sh의 동일 게이트가 담당한다.
       - name: Require screenshot for new sticky/fixed elements
-        if: github.event.pull_request.head.ref != 'dev' || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+        if: (github.event.pull_request.head.ref != 'dev' && !startsWith(github.event.pull_request.head.ref, 'promote/snapshot-')) || github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
         shell: bash
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
