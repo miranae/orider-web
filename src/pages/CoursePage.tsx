@@ -1,7 +1,7 @@
 import FirebaseSessionBoundary from "../contexts/FirebaseSessionBoundary";
 import { loadSegmentMetadata } from "../services/segmentMetadata";
 import { useDefaultSport } from "../hooks/useDefaultSport";
-import { Banana, Flag, MapPinned, Mountain, Timer } from "lucide-react";
+import { Banana, Flag, MapPinned, Mountain, Pencil, Timer } from "lucide-react";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useParams, useSearchParams, useLocation } from "react-router-dom";
@@ -55,7 +55,7 @@ import { decodePolyline } from "../utils/polyline";
 import { EmptyState, LoadingSkeleton, Resolvable } from "../components/redesign";
 import { useSignInResolve } from "../hooks/useSignInResolve";
 import { revealFocusTarget } from "../services/focusTarget";
-import { Button, Card, Chip, Text, buttonClass, Input, Textarea, DropdownSelect } from "../theme/components";
+import { Button, Card, Chip, IconButton, Text, buttonClass, Input, Textarea, DropdownSelect } from "../theme/components";
 import { courseTagLabel, primaryCourseTags } from "../features/courses/courseTags";
 import { CourseRidePlanSection } from "../features/courses/CourseRidePlanSection";
 import { canonicalDisplayShowsValue } from "@shared/types/canonicalDisplay";
@@ -1058,7 +1058,14 @@ function CoursePageContent() {
         <div className="course-hero-overlay" aria-hidden="true" />
         <div className="course-hero-content">
           <span className="course-kind-slot">{t("kind.course")}</span>
-          <h1 data-testid="D2-0" className="course-hero-title">{course.name}</h1>
+          {/* 코스 편집은 제목 옆 연필 아이콘으로 — 통계 줄의 큰 버튼 대신 편집 대상 곁에 둔다. */}
+          <div className="flex items-start" style={{ gap: "var(--space-1)" }}>
+            <h1 data-testid="D2-0" className="course-hero-title flex-1 min-w-0">{course.name}</h1>
+            {isOwner && !editing && (
+              <IconButton variant="ghost" size="sm" aria-label={t("button.edit")} title={t("button.edit")}
+                icon={<Pencil size={ICON_SIZE.sm} />} onClick={startEditing} />
+            )}
+          </div>
           <div className="course-hero-chips">
             {officialCourse && <Chip variant="accent">{t("badge.official")}</Chip>}
             {isAdmin && course.hidden === true && <Chip variant="accent"><Resolvable resolve={{ onClick: () => { if (unhideButtonRef.current) revealFocusTarget(unhideButtonRef.current); } }}>{t("admin.hiddenBadge")}</Resolvable></Chip>}
@@ -1486,7 +1493,6 @@ function CoursePageContent() {
           {/* Owner actions */}
           {isOwner && (
             <div className="ml-auto flex items-center" style={{ gap: "var(--space-2)" }}>
-              {!editing && <Button onClick={startEditing} variant="secondary" size="sm">{t("button.edit")}</Button>}
               <Button
                 onClick={handleDelete}
                 disabled={deleting} variant="secondary" size="sm" className="disabled:opacity-50"

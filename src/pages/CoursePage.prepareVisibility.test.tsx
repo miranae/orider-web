@@ -93,6 +93,19 @@ describe("course preparation climb predictions", () => {
       expect(document.body.style.overflow).not.toBe("hidden");
     });
   });
+  it("opens owner editing from the pencil next to the course title", async () => {
+    setDocData("courses/course-climb", { ...mockDocData.get("courses/course-climb"), creatorId: "owner" });
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
+    await screen.findByText("Climbing course");
+    const pencil = screen.getByRole("button", { name: "편집" });
+    // 연필은 제목과 같은 줄에 있고, 통계 줄에는 삭제만 남는다.
+    expect(pencil.parentElement).toContainElement(screen.getByTestId("D2-0"));
+    expect(screen.getAllByRole("button", { name: "편집" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "삭제" })).toBeInTheDocument();
+    fireEvent.click(pencil);
+    expect(screen.getByLabelText("코스 이름")).toHaveValue("Climbing course");
+    expect(screen.queryByRole("button", { name: "편집" })).toBeNull();
+  });
   it("associates owner edit labels with the existing form controls", async () => {
     setDocData("courses/course-climb", { ...mockDocData.get("courses/course-climb"), creatorId: "owner" });
     render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
