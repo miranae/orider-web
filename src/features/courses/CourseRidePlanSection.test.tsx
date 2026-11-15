@@ -1,9 +1,13 @@
-import { render, screen } from "@testing-library/react";
+import { render as rtlRender, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CoachClientError, getCoachRidePlanAiContext, loadCoachRidePlan } from "../../services/coachClient";
 import { resetRuntimeConfigForTests } from "../../services/runtimeConfig";
 import { CourseRidePlanSection, formatRidePlanDuration } from "./CourseRidePlanSection";
+import { MemoryRouter } from "react-router-dom";
+
+// 경고의 해결 링크(LocalizedLink)가 라우터 안에서 그려진다.
+const render: typeof rtlRender = ((ui: Parameters<typeof rtlRender>[0], options?: Parameters<typeof rtlRender>[1]) => rtlRender(ui, { wrapper: MemoryRouter, ...options })) as typeof rtlRender;
 
 const mocks = vi.hoisted(() => ({ launcher: vi.fn(() => null), log: vi.fn() }));
 vi.mock("../../services/coachClient", async (importOriginal) => ({
@@ -160,6 +164,16 @@ describe("CourseRidePlanSection", () => {
     renderSection();
     expect(await screen.findByText(new RegExp(message, "u"))).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /힘든 구간/u })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["missing_pdc", /측정 파워 기반 PDC가 필요합니다/u, "/settings/connections"],
+    ["missing_weight", /체중 snapshot이 없습니다/u, "/settings/account?focus=weight"],
+  ] as const)("makes the %s notice itself open the screen that fills it, without adding buttons", async (status, message, href) => {
+    load.mockResolvedValue({ ...plan, status, estimate: null, segments: [] });
+    renderSection();
+    expect(await screen.findByRole("link", { name: message })).toHaveAttribute("href", expect.stringContaining(href));
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("maps stale token and missing elevation to bounded recovery states", async () => {

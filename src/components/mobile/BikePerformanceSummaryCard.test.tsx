@@ -134,3 +134,14 @@ it("summarizes missing mobile estimates once while retaining valid zero and part
   expect(view.container.querySelector('[data-performance-metric="cp"]')).toHaveTextContent("0");
   expect(screen.getByText(/추정 근거 부족:/)).not.toHaveTextContent("CP");
 });
+
+// 경고 문구 자체를 누르면 해결 칸으로 간다 — 새 버튼·문구는 생기지 않는다.
+it("turns the missing FTP and missing weight notices themselves into links to their fields", () => {
+  const view = renderWithProviders(<BikePerformanceSummaryCard />);
+  expect(screen.getByRole("link", { name: "프로필 FTP를 먼저 설정하세요" })).toHaveAttribute("href", expect.stringContaining("/settings/training?sport=bike&focus=ftp"));
+  expect(screen.getAllByRole("link")).toHaveLength(1);
+  view.rerender(<BikePerformanceSummaryCard decision={completeDecision} />);
+  expect(screen.getByRole("link", { name: "체중 입력 시 W/kg 표시" })).toHaveAttribute("href", expect.stringContaining("/settings/account?focus=weight"));
+  view.rerender(<BikePerformanceSummaryCard decision={completeDecision} weightKg={70} />);
+  expect(screen.queryByRole("link")).not.toBeInTheDocument();
+});

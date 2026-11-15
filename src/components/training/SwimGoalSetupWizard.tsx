@@ -303,7 +303,7 @@ export default function SwimGoalSetupWizard({ Stepper }: SwimGoalSetupWizardProp
 
           {/* Feasibility 패널 */}
           <div data-testid="K3-3-5" style={{ padding: 'var(--space-5)', background: 'var(--bg-2)', borderRadius: "var(--r-lg)", border: '1px solid var(--line-soft)', borderLeft: `3px solid ${feasColor}`, alignSelf: 'start' }}>
-            <GoalInputNotice assumed={inputs.cssSource === "assumed"} />
+            <GoalInputNotice discipline="swim" assumed={inputs.cssSource === "assumed"} />
             <div style={{ fontSize: "var(--fs-xs)", color: 'var(--ink-2)', fontWeight: 500, marginBottom: 'var(--space-3)' }}>
               {t('swimWizard.feasibilityLabel')}
             </div>

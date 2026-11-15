@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import enCoach from "../../i18n/resources/en/coach.json";
 import type { CoachAnswerBlock, CoachAnswerDocument, CoachDisplayValue, CoachEvidenceRecord, CoachUnit, CoachV2Response } from "../../services/coachV2Contract";
-import { CoachAnswerDocumentView, supportedAnswerBlockKinds } from "./CoachAnswerDocument";
+import { MemoryRouter } from "react-router-dom";
+import { CoachAnswerDocumentView, dataGapHref, supportedAnswerBlockKinds } from "./CoachAnswerDocument";
 
 function fixture() {
   const evidence: CoachEvidenceRecord[] = [];
@@ -577,4 +578,30 @@ it('labels narrative comparison values without requiring labels in the payload',
   expect(values.children[0]).toHaveTextContent('현재43 점');
   expect(values.children[1]).toHaveTextContent('이전 비교값35 점');
   expect(values.children[2]).toHaveTextContent('변화+8 점');
+});
+
+// 빠진 지표 → 채울 화면: 기준값 파생 지표는 종목 기준값 칸, 기록 지표는 연결 화면, 그 밖은 링크 없음.
+describe("data_gap resolution links", () => {
+  it("maps each missing metric to the input that fills it", () => {
+    expect(dataGapHref("tss", "bike")).toBe("/settings/training?sport=bike&focus=ftp");
+    expect(dataGapHref("ctl", "run")).toBe("/settings/training?sport=run&focus=threshold-pace");
+    expect(dataGapHref("zone_time", "swim")).toBe("/settings/training?sport=swim&focus=css");
+    expect(dataGapHref("tss")).toBeNull();
+    expect(dataGapHref("activity_count", "bike")).toBe("/settings/connections");
+    expect(dataGapHref("heart_rate")).toBe("/settings/connections");
+    expect(dataGapHref("readiness", "bike")).toBeNull();
+    expect(dataGapHref("plan_completion", "bike")).toBeNull();
+  });
+
+  it("makes each resolvable metric name a link and leaves unknown metrics plain", async () => {
+    await i18n.changeLanguage("ko");
+    const { response, document, base } = fixture();
+    document.blocks = [{ ...base("gap"), kind: "data_gap", reasonCodes: ["missing_metric"], missingMetricIds: ["tss", "activity_count", "readiness"] }];
+    render(<MemoryRouter><CoachAnswerDocumentView response={response} locale="ko-KR" onAction={vi.fn()} discipline="run" /></MemoryRouter>);
+    const links = screen.getAllByRole("link");
+    expect(links.map((link) => link.textContent)).toEqual(["훈련 부하 (TSS)", "활동 횟수"]);
+    expect(links[0]).toHaveAttribute("href", expect.stringContaining("/settings/training?sport=run&focus=threshold-pace"));
+    expect(links[1]).toHaveAttribute("href", expect.stringContaining("/settings/connections"));
+    expect(screen.getByText("회복 준비도").closest("a")).toBeNull();
+  });
 });

@@ -199,3 +199,17 @@ it("keeps fitness scope available behind an initially closed explanation", () =>
   fireEvent.click(screen.getByText("체력 지표의 범위와 계산 기준"));
   expect(explanation).toBeVisible();
 });
+
+// 「임계값 설정하기」는 활동 종목의 기준값 칸으로 간다. 남에게는 링크 없이 사유만.
+it.each([
+  ["bike", "/settings/training?sport=bike&focus=ftp"],
+  ["run", "/settings/training?sport=run&focus=threshold-pace"],
+  ["swim", "/settings/training?sport=swim&focus=css"],
+] as const)("links a missing %s threshold to that sport's threshold field", (discipline, href) => {
+  const presentation = { ...rich, thresholdBasis: "none", session: { ...rich.session, discipline } } as ActivityOverviewPresentation;
+  const view = renderWithProviders(<ActivityAnalysisBody {...props(presentation)} />);
+  expect(screen.getByTestId("analysis-threshold-cta")).toHaveAttribute("href", expect.stringContaining(href));
+  view.rerender(<ActivityAnalysisBody {...props(presentation)} isOwner={false} />);
+  expect(screen.queryByTestId("analysis-threshold-cta")).not.toBeInTheDocument();
+  expect(screen.getByText(/이 라이더의 임계값이 없어/)).toBeInTheDocument();
+});

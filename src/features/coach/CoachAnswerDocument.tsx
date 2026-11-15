@@ -1,6 +1,9 @@
 import { Fragment, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Card, Chip, Text } from "../../theme/components";
+import { Resolvable } from "../../components/redesign";
+import { FOCUS_TARGETS, thresholdSettingsHref } from "../../services/focusTarget";
+import type { CoachDiscipline } from "../../services/coachClient";
 import type {
   CoachAnswerActionCode, CoachAnswerBlock, CoachAnswerDocument, CoachDisplayValue, CoachEntityRef,
   CoachLoadAssessment, CoachMetricId, CoachResponseFormat, CoachV2Response,
@@ -33,6 +36,20 @@ function Display({ item, locale, className, showPositiveSign = false }: { item: 
   return <span className={className} data-evidence-id={item.evidenceId} style={typeof item.value === "number" && item.unit ? { whiteSpace: "nowrap" } : undefined}>
     {value}{item.unit ? <small className="coach-answer__unit"> {t(`answer.unit.${item.unit}`)}</small> : null}
   </span>;
+}
+
+/** 기준값(FTP·역치 페이스·CSS)이 있어야 계산되는 지표 — 비어 있으면 종목의 기준값 칸으로 보낸다. */
+const THRESHOLD_DERIVED_METRICS = new Set<CoachMetricId>(["tss", "ctl", "atl", "form", "zone_time"]);
+/** 활동 기록에서 바로 나오는 지표 — 비어 있으면 기록을 들여올 연결 화면으로 보낸다. */
+const ACTIVITY_METRICS = new Set<CoachMetricId>(["activity_count", "duration", "distance", "average_power", "heart_rate",
+  "cadence", "pace", "elevation", "calories"]);
+const THRESHOLD_KEY_BY_DISCIPLINE = { bike: FOCUS_TARGETS.ftp, run: FOCUS_TARGETS.thresholdPace, swim: FOCUS_TARGETS.css } as const;
+
+/** 빠진 지표를 채울 화면. 알 수 없거나 화면에서 채울 수 없는 지표(준비도·계획 완료)는 링크를 두지 않는다. */
+export function dataGapHref(metricId: CoachMetricId, discipline?: CoachDiscipline): string | null {
+  if (THRESHOLD_DERIVED_METRICS.has(metricId)) return discipline ? thresholdSettingsHref(discipline, THRESHOLD_KEY_BY_DISCIPLINE[discipline]) : null;
+  if (ACTIVITY_METRICS.has(metricId)) return "/settings/connections";
+  return null;
 }
 
 function MetricLabel({ metricId }: { metricId: CoachMetricId }) {
@@ -386,8 +403,9 @@ function LoadAnalysisView({ group, responseFormat, showLocalFormatFallback, loca
   </section>;
 }
 
-function SupportedBlock({ block, responseFormat, showLocalFormatFallback, locale, onAction }: {
+function SupportedBlock({ block, responseFormat, showLocalFormatFallback, locale, onAction, discipline }: {
   block: Exclude<CoachAnswerBlock, { kind: "unsupported_block" } | { kind: "prescription" }>;
+  discipline?: CoachDiscipline;
   responseFormat: CoachResponseFormat;
   showLocalFormatFallback: boolean;
   locale: string;
@@ -445,7 +463,11 @@ function SupportedBlock({ block, responseFormat, showLocalFormatFallback, locale
       {block.replacements.length > 0 && <details><summary>{t("answer.plan.replacements", { count: block.replacements.length })}</summary><ul>{block.replacements.map((item) => <li key={`${item.planned.entityId}-${item.actual.entityId}`}><Entity entity={item.planned} locale={locale} /> → <Entity entity={item.actual} locale={locale} /></li>)}</ul></details>}</div>;
   } else if (block.kind === "data_gap") {
     body = <div className="coach-answer__notice" role="status"><Text as="h3" variant="subtitle">{t("answer.gap.title")}</Text><p>{t("answer.gap.body")}</p>
-      {block.missingMetricIds.length > 0 && <ul>{block.missingMetricIds.map((metric) => <li key={metric}><MetricLabel metricId={metric} /></li>)}</ul>}</div>;
+      {block.missingMetricIds.length > 0 && <ul>{block.missingMetricIds.map((metric) => {
+        const href = dataGapHref(metric, discipline);
+        // 빠진 지표 이름을 누르면 그 지표를 채우는 곳으로 간다(링크 안에 용어 버튼을 겹치지 않는다).
+        return <li key={metric}>{href ? <Resolvable resolve={{ to: href }}>{t(`answer.metric.${metric}`)}</Resolvable> : <MetricLabel metricId={metric} />}</li>;
+      })}</ul>}</div>;
   } else {
     body = <Button data-testid="K6-2-4" variant="outline" onClick={() => onAction(block.actionCode, block.entity)}>{t(`answer.action.${block.actionCode}`)}</Button>;
   }
@@ -494,8 +516,10 @@ function GroundedMarkdown({ markdown }: { markdown: string }) {
 }
 
 export function CoachAnswerDocumentView({ response, responseFormat = "auto", locale, onAction, onReanalyze = () => undefined,
-  onPlannerQuestion, historical = false, manualCheckIn = false, onManualCheckIn }: {
+  onPlannerQuestion, historical = false, manualCheckIn = false, onManualCheckIn, discipline }: {
   response: CoachV2Response | CoachP2Response;
+  /** 질문한 종목 — 빠진 기준값을 채울 칸을 고른다. 없으면 기준값 링크를 두지 않는다. */
+  discipline?: CoachDiscipline;
   responseFormat?: CoachResponseFormat;
   locale: string;
   onAction: (code: CoachAnswerActionCode, entity?: CoachEntityRef) => void;
@@ -539,7 +563,7 @@ export function CoachAnswerDocumentView({ response, responseFormat = "auto", loc
             ? <CoachPrescription key={`${response.requestId}:${block.blockId}`} initial={block.prescription} parentRequestId={response.requestId}
               locale={locale} onReanalyze={onReanalyze} onQuestionSelect={historical ? undefined : onPlannerQuestion}
               readOnly={historical} manualCheckIn={manualCheckIn} onManualCheckIn={historical ? undefined : onManualCheckIn} />
-          : <SupportedBlock key={block.blockId} block={block} responseFormat={responseFormat}
+          : <SupportedBlock key={block.blockId} block={block} responseFormat={responseFormat} discipline={discipline}
             showLocalFormatFallback={responseFormat === "chart" && chartable} locale={locale} onAction={onAction} />;
       })}
       <footer className="coach-answer__metadata"><span>{t("answer.freshness", { at: formatDate(document.freshness.asOf, locale, document.freshness.timezone) })}</span>
