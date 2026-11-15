@@ -63,6 +63,34 @@ describe("탭 복귀 때 Strava 사진 숨김 목록 새로 읽기", () => {
     await act(async () => { resolve(stored(["1"])); });
     expect(view.result.current).toEqual([]);
   });
+  it("다른 활동에 갔다 돌아오면 이전에 새로 읽은 값을 되살리지 않는다", async () => {
+    getDoc.mockResolvedValue(stored(["1"]));
+    const view = setup({ activityId: "a", enabled: true, documentHiddenIds: [] });
+    await showTab();
+    await waitFor(() => expect(view.result.current).toEqual(["1"]));
+    view.rerender({ activityId: "b", enabled: true, documentHiddenIds: [] });
+    view.rerender({ activityId: "a", enabled: true, documentHiddenIds: [] });
+    expect(view.result.current).toEqual([]);
+  });
+  it("Firestore 가 바뀌면 이전 Firestore 에서 읽은 값을 쓰지 않는다", async () => {
+    getDoc.mockResolvedValue(stored(["1"]));
+    const view = renderHook((props: { firestore: Firestore }) => useFreshHiddenProviderIds({ ...props, activityId: "a", enabled: true, documentHiddenIds: [] }), { initialProps: { firestore } });
+    await showTab();
+    await waitFor(() => expect(view.result.current).toEqual(["1"]));
+    view.rerender({ firestore: {} as Firestore });
+    expect(view.result.current).toEqual([]);
+  });
+  it("조회가 겹치면 늦게 도착한 이전 조회 응답이 최신 값을 덮지 않는다", async () => {
+    const resolvers: Array<(value: unknown) => void> = [];
+    getDoc.mockImplementation(() => new Promise(r => { resolvers.push(r); }));
+    const view = setup({ activityId: "a", enabled: true, documentHiddenIds: [] });
+    await showTab();
+    await showTab();
+    await act(async () => { resolvers[1](stored(["2"])); });
+    await waitFor(() => expect(view.result.current).toEqual(["2"]));
+    await act(async () => { resolvers[0](stored(["1"])); });
+    expect(view.result.current).toEqual(["2"]);
+  });
   it("같은 목록이면 문서 배열을 그대로 돌려준다", async () => {
     const documentIds = ["1"];
     getDoc.mockResolvedValue(stored(["1"]));
