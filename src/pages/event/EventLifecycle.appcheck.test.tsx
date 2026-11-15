@@ -2,9 +2,10 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import type { User } from "firebase/auth";
 import { Route, Routes } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
+import { getDoc, onSnapshot } from "firebase/firestore";
 import { auth, getAppCheckToken } from "../../services/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
-import { mockCallableInvocations, setCallableResult, setDocData, simulateLogin as mockLogin, getCurrentUser } from "../../__tests__/mocks/firebase";
+import { mockCallableInvocations, setCallableImplementation, setCallableResult, setDocData, simulateLogin as mockLogin, getCurrentUser } from "../../__tests__/mocks/firebase";
 import EventDetailPage from "./EventDetailPage";
 import EventDashboardPage from "./EventDashboardPage";
 import koEventStrings from "../../i18n/resources/ko/event.json";
@@ -36,7 +37,8 @@ function event(status: "OPEN" | "LIVE") {
 async function startButton() {
   event("OPEN");
   const view = renderWithProviders(<Routes><Route path="/ko/event/:eventId" element={<EventDetailPage />} />
-    <Route path="/ko/event/:eventId/dashboard" element={<div>Dashboard destination</div>} /></Routes>,
+    <Route path="/ko/event/:eventId/dashboard" element={<div>Dashboard destination</div>} />
+    <Route path="/ko/event/:eventId/host" element={<div>Host destination</div>} /></Routes>,
     { route: "/ko/event/qa-lifecycle", authenticated: true });
   auth.currentUser = getCurrentUser() as unknown as User;
   const opens = await screen.findAllByRole("button", { name: /이벤트 시작/ });
@@ -73,6 +75,64 @@ describe("event lifecycle cold App Check admission", () => {
     await act(async () => { token.resolve("cold-token"); });
     await waitFor(() => expect(calls("startEvent")).toHaveLength(1));
     expect(calls("startEvent")[0].data).toEqual({ eventId: "qa-lifecycle" });
+  });
+
+  it("takes an already-started failure to the host screen when its message is tapped", async () => {
+    setCallableImplementation("startEvent", () => { throw Object.assign(new Error("started"), { code: "functions/failed-precondition" }); });
+    const { confirm } = await startButton();
+    fireEvent.click(confirm);
+    const message = await screen.findByText(koEventStrings["detail.error.alreadyStarted"]);
+    fireEvent.click(message);
+    expect(await screen.findByText("Host destination")).toBeInTheDocument();
+  });
+
+  it("reopens the start confirmation when a generic start failure message is tapped", async () => {
+    setCallableImplementation("startEvent", () => { throw Object.assign(new Error("boom"), { code: "functions/internal" }); });
+    const { confirm } = await startButton();
+    fireEvent.click(confirm);
+    const message = await screen.findByText(koEventStrings["detail.error.startFailed"]);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    fireEvent.click(message);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(calls("startEvent")).toHaveLength(1);
+  });
+
+  it("re-reads my registration when the 'not confirmed yet' message is tapped after a failed read", async () => {
+    const read = vi.mocked(getDoc).getMockImplementation()!;
+    let failing = true;
+    vi.mocked(getDoc).mockImplementation(async (...args) => {
+      if (failing && (args[0] as unknown as { path: string }).path === "events/qa-lifecycle/participants/test-uid") throw new Error("offline");
+      return read(...args);
+    });
+    try {
+      event("OPEN");
+      renderWithProviders(<Routes><Route path="/ko/event/:eventId" element={<EventDetailPage />} /></Routes>,
+        { route: "/ko/event/qa-lifecycle", authenticated: true });
+      auth.currentUser = getCurrentUser() as unknown as User;
+      const unknown = await screen.findByText(koEventStrings["detail.registrationStateUnknown"]);
+      await waitFor(() => expect(unknown.closest("button")).not.toBeNull());
+      failing = false;
+      fireEvent.click(unknown);
+      await waitFor(() => expect(screen.queryByText(koEventStrings["detail.registrationStateUnknown"])).not.toBeInTheDocument());
+    } finally { vi.mocked(getDoc).mockImplementation(read); }
+  });
+
+  it("re-subscribes the live snapshot when its failure message is tapped", async () => {
+    const original = vi.mocked(onSnapshot).getMockImplementation()!;
+    let failing = true;
+    vi.mocked(onSnapshot).mockImplementation(((...args: Parameters<typeof original>) => {
+      if (!failing || (args[0] as { path?: string }).path !== "events/qa-lifecycle/snapshots/latest") return original(...args);
+      (args[2] as (err: Error) => void)(Object.assign(new Error("denied"), { code: "permission-denied" }));
+      return () => {};
+    }) as never);
+    try {
+      await finishButton();
+      const failure = await screen.findByText(new RegExp(koEventStrings["dashboard.errorLoadSnapshot"]));
+      expect(failure.closest("button")).not.toBeNull();
+      failing = false;
+      fireEvent.click(failure);
+      await waitFor(() => expect(screen.queryByText(new RegExp(koEventStrings["dashboard.errorLoadSnapshot"]))).not.toBeInTheDocument());
+    } finally { vi.mocked(onSnapshot).mockImplementation(original); }
   });
 
   it("keeps Start blocked if account changes away and back while the token waits", async () => {

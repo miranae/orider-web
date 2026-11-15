@@ -18,6 +18,16 @@ describe("usePersonalHeatmap", () => {
     vi.mocked(orderBy).mockClear();
   });
 
+  it("re-reads after a failure when retry is called (the error message is tappable)", async () => {
+    vi.mocked(getDocs).mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(snapshot("37.5,127;37.51,127.01") as never);
+    const { result } = renderHook(() => usePersonalHeatmap("owner-1", true));
+    await waitFor(() => expect(result.current.error).toBe(true));
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.points.length).toBeGreaterThan(0));
+    expect(result.current.error).toBe(false);
+    expect(getDocs).toHaveBeenCalledTimes(2);
+  });
+
   it("queries only the owner activity-time range", async () => {
     vi.mocked(getDocs).mockResolvedValueOnce(snapshot("37.5,127;37.51,127.01") as never);
     renderHook(() => usePersonalHeatmap("owner-1", true));

@@ -55,3 +55,13 @@ it("explains zero filtered results and offers a filter reset instead of blaming 
   fireEvent.click(screen.getByRole("button", { name: "조건 초기화" }));
   expect(reset).toHaveBeenCalledOnce();
 });
+
+describe("course list empty message", () => {
+  it("leads to course creation when no course exists at all, without adding a button", () => {
+    renderWithProviders(<CourseList courses={[]} allCourseCount={0} selectedCourse={null}
+      selectedId={null} hoveredId={null} searchQuery="" cardRefs={{ current: new Map() }} mapUnavailable={false}
+      onHoverCourse={vi.fn()} onSelectCourse={vi.fn()} onOpenCourse={vi.fn()} />);
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    expect(screen.getByRole("link", { name: "등록된 코스가 없습니다." })).toHaveAttribute("href", "/ko/course/create");
+  });
+});

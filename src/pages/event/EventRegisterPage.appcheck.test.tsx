@@ -3,7 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import { httpsCallable } from "firebase/functions";
 import { getAppCheckToken } from "../../services/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
-import { mockCallableInvocations, setCallableResult, setDocData, simulateLogin } from "../../__tests__/mocks/firebase";
+import { mockCallableInvocations, setCallableImplementation, setCallableResult, setDocData, simulateLogin } from "../../__tests__/mocks/firebase";
 import EventRegisterPage from "./EventRegisterPage";
 
 function deferred<T>() {
@@ -19,7 +19,8 @@ async function readyForm() {
   setDocData("events/qa-new-event", { info: { name: "New private registration", status: "OPEN", type: "TOUR",
     feeType: "FREE", categories: [], startTime: new Date("2026-10-16T12:00:00+09:00").getTime(),
     closeAt: "2026-10-16T00:00:00+09:00" } });
-  const view = renderWithProviders(<Routes><Route path="/ko/event/:eventId/register" element={<EventRegisterPage />} /></Routes>,
+  const view = renderWithProviders(<Routes><Route path="/ko/event/:eventId/register" element={<EventRegisterPage />} />
+    <Route path="/ko/event/:eventId" element={<div>Event detail destination</div>} /></Routes>,
     { route: "/ko/event/qa-new-event/register", authenticated: true });
   fireEvent.change(await screen.findByPlaceholderText("홍길동"), { target: { value: "QA Rider" } });
   fireEvent.click(screen.getByRole("button", { name: "생년월일 선택" }));
@@ -68,6 +69,15 @@ describe.each([
     expect(constructedRegistrations()).toHaveLength(1);
     expect(registrations()[0].data).toMatchObject({ eventId: "qa-new-event", profile: { name: "QA Rider" } });
     expect(await screen.findByText("QA-NEW-001")).toBeInTheDocument();
+  });
+
+  it("takes an already-registered failure to the event page when its message is tapped", async () => {
+    setCallableImplementation("joinOrCreateEvent", () => { throw Object.assign(new Error("exists"), { code: "functions/already-exists" }); });
+    await readyForm();
+    fireEvent.click(screen.getByRole("button", { name: /참가 신청/ }));
+    const message = await screen.findByText("이미 참가 신청한 이벤트입니다.");
+    fireEvent.click(message);
+    expect(await screen.findByText("Event detail destination")).toBeInTheDocument();
   });
 
   it("sends nothing on token failure and allows one new normal attempt", async () => {

@@ -48,3 +48,13 @@ it("keeps full type labels and the existing selection callback in the responsive
   fireEvent.click(timeTrial);
   expect(change).toHaveBeenCalledExactlyOnceWith("TT");
 });
+
+it("lets the participant-notice chip lead to the notice banner without adding a button", () => {
+  const onWarn = vi.fn();
+  const { rerender } = render(<Field label="Date" warn onWarn={onWarn}><Input id="event-date" /></Field>);
+  expect(screen.getAllByRole("button")).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "참가자 공지 필요" }));
+  expect(onWarn).toHaveBeenCalledOnce();
+  rerender(<Field label="Date" warn><Input id="event-date" /></Field>);
+  expect(screen.queryAllByRole("button")).toHaveLength(0);
+});

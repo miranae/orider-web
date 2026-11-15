@@ -194,6 +194,11 @@ export default function ClubMeetingPage({
               `/club/${group.id}/meetings/${data.eventId}/edit?focus=course-ready`,
             )
           }
+          onPrepareCourse={() =>
+            navigate(
+              `/club/${group.id}/meetings/${data.eventId}/edit?focus=course`,
+            )
+          }
         />
       ) : (
         <MeetingForm
@@ -207,6 +212,9 @@ export default function ClubMeetingPage({
           english={en}
           focusCourseReady={
             mode === "edit" && search.get("focus") === "course-ready"
+          }
+          focusCoursePreparation={
+            mode === "edit" && search.get("focus") === "course"
           }
           onClose={() => navigate(`/club/${group.id}`)}
           onSave={async (meeting, baseRevision) => {
@@ -253,6 +261,7 @@ function ServerMeetingDetail({
   loadOlderNotices,
   onEdit,
   onConfirmCourse,
+  onPrepareCourse,
 }: {
   data: ClubMeetingSnapshot;
   uid: string;
@@ -262,6 +271,7 @@ function ServerMeetingDetail({
   loadOlderNotices: () => Promise<void>;
   onEdit: () => void;
   onConfirmCourse: () => void;
+  onPrepareCourse: () => void;
 }) {
   const { setClubMeetingRecruitment, cancelClubMeeting, clubMeetingAttendance, publishClubMeetingNotice, confirmClubMeetingNotice, saveClubMeetingTeams, finishClubMeeting } = useClubMeetingsApi();
   const text = (ko: string, english: string) => (en ? english : ko);
@@ -599,6 +609,7 @@ function ServerMeetingDetail({
             descriptionMode="course-only"
             onEdit={data.isHost && live ? onEdit : undefined}
             onConfirmCourse={data.isHost && live ? onConfirmCourse : undefined}
+            onPrepareCourse={data.isHost && live ? onPrepareCourse : undefined}
           />
         </div>
       </div>

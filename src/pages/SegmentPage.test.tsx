@@ -104,6 +104,22 @@ describe("SegmentPage", () => {
     expect(screen.queryByText(koSegment["nativeBoard.title"])).not.toBeInTheDocument();
   });
 
+  it("shows a load failure (not 'not found') and re-reads when the failure message is tapped", async () => {
+    setDocData("segments/seg-1", { name: "Recovered segment", distance: 1000, averageGrade: 0, maximumGrade: 0, elevationHigh: 1, elevationLow: 0 });
+    let calls = 0;
+    setCallableImplementation("getPublicSegmentMetadata", (request) => {
+      calls += 1;
+      if (calls === 1) throw new Error("unavailable");
+      return { data: { items: (request as { ids: string[] }).ids.map(id => ({ id, ...mockDocData.get(`segments/${id}`) })), cursor: null, hasMore: false } };
+    });
+    renderWithProviders(<SegmentPage />);
+    const failure = await screen.findByText("문제가 발생했어요");
+    expect(screen.queryByText(koSegment["error.notFound"])).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    fireEvent.click(failure);
+    expect(await screen.findByText("Recovered segment")).toBeInTheDocument();
+  });
+
   it("renders segment details when data is loaded", async () => {
     setDocData("segments/seg-1", {
       id: "seg-1",

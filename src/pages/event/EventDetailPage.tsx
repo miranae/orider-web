@@ -25,7 +25,8 @@ import { isSignInCancelled } from "../../utils/signInCancelled";
 import { useDialog } from "../../contexts/DialogContext";
 import { Course } from "@shared/types";
 import RouteMap, { type WaypointMarker } from "../../components/RouteMap";
-import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton, Resolvable } from "../../components/redesign";
+import { useToast } from "../../contexts/ToastContext";
 import { localeTag } from "../../utils/localeDate";
 import { isActiveEventRegistration } from "../../features/event/activeRegistration";
 import { isRegistrationTimeOpen, normalizeStartTime } from "../../utils/event-time";
@@ -110,6 +111,9 @@ export default function EventDetailPage() {
   const [loadError, setLoadError] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const [isParticipant, setIsParticipant] = useState<boolean | null>(null);
+  // 「참가 등록 상태를 아직 확인하지 못했습니다」는 읽기에 실패했을 때만 누를 수 있고, 누르면 다시 읽는다.
+  const [participantReadFailed, setParticipantReadFailed] = useState(false);
+  const [participantAttempt, setParticipantAttempt] = useState(0);
   const [isHost, setIsHost] = useState(false);
   const [participantRole, setParticipantRole] = useState<{ uid: string; eventId: string; role: string | null } | null>(null);
   const [canCancelRegistration, setCanCancelRegistration] = useState(false);
@@ -140,6 +144,8 @@ export default function EventDetailPage() {
   const { group, loading: groupLoading, error: groupError, inactive: groupInactive } = useGroup(groupId);
   const { byGroup: nextEventLabels, eventByGroup: nextEvents, incompleteGroups = new Set<string>() } = useGroupNextEvents(groupId ? [groupId] : [], eventId, true);
 
+  // 누르면 해결로 가는 알림은 전역 알림으로 띄운다(이 화면의 자체 알림은 누를 수 없다).
+  const { showToast: showActionToast } = useToast();
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
@@ -219,17 +225,22 @@ export default function EventDetailPage() {
       if (!currentStart()) return;
       logClientError("EventDetailPage.startEvent", err, { eventId });
       const fbErr = err as { code?: string };
-      const msg = fbErr?.code === "functions/failed-precondition"
-        ? t("detail.error.alreadyStarted")
-        : t("detail.error.startFailed");
-      showToast(msg);
+      // 시작 실패 알림 문구를 누르면 해소하는 곳으로 — 이미 시작됐으면 운영 화면, 그 밖엔 시작 확인을 다시 연다.
+      // 알림은 전역이라 계정·이벤트를 바꾼 뒤에도 남으므로, 다시 열기는 같은 계정·같은 이벤트일 때만 한다.
+      const sameContext = () => startMounted.current && participantContext.current.eventId === context.eventId
+        && participantContext.current.uid === context.uid && auth.currentUser?.uid === context.uid;
+      if (fbErr?.code === "functions/failed-precondition") {
+        showActionToast(t("detail.error.alreadyStarted"), "error", { resolve: { to: `/event/${context.eventId}/host` } });
+      } else {
+        showActionToast(t("detail.error.startFailed"), "error", { resolve: { onClick: () => { if (sameContext()) setShowStartConfirm(true); } } });
+      }
     } finally {
       if (pendingStart.current === context) {
         pendingStart.current = null;
         if (startMounted.current && startGeneration.current === context.generation) setStarting(false);
       }
     }
-  }, [eventId, event, navigate, showToast, starting, t, user, participantRole]);
+  }, [eventId, event, navigate, showActionToast, starting, t, user, participantRole]);
 
   const handleCancelRegistration = useCallback(async () => {
     if (!eventId || !user || cancelBusy.current || !canCancelRegistration) return;
@@ -379,6 +390,7 @@ export default function EventDetailPage() {
   useEffect(() => {
     let cancelled = false;
     setIsParticipant(user ? null : false);
+    setParticipantReadFailed(false);
     setCanCancelRegistration(false);
     setParticipantRole(null);
     if (!eventId || !user) return;
@@ -390,9 +402,10 @@ export default function EventDetailPage() {
       setCanCancelRegistration(snapshot.exists() && own?.status === "REGISTERED" && own?.role === "RIDER");
     }).catch((err) => {
       logClientError("EventDetailPage.loadOwnParticipant", err, { eventId });
+      if (!cancelled) setParticipantReadFailed(true);
     });
     return () => { cancelled = true; };
-  }, [eventId, user]);
+  }, [eventId, user, participantAttempt]);
 
   // Fetch GPX and parse course data
   const fetchCourse = useCallback(async (url: string, idx: number) => {
@@ -749,7 +762,7 @@ export default function EventDetailPage() {
                 <Button type="button" variant="secondary" size="sm" onClick={handleAddToCalendar}>
                   <CalendarDays size={ICON_SIZE.sm} aria-hidden="true" /> {t("detail.button.addToCalendar")}
                 </Button>
-                {user && isParticipant == null && <Text variant="unit">{t("detail.registrationStateUnknown")}</Text>}
+                {user && isParticipant == null && <Text variant="unit"><Resolvable resolve={participantReadFailed ? { onClick: () => setParticipantAttempt((n) => n + 1) } : undefined}>{t("detail.registrationStateUnknown")}</Resolvable></Text>}
                 {event.status === "OPEN" && isParticipant === false && isRegistrationTimeOpen(event.startTime, event.closeAt) && (
                   <><Button type="button" variant="secondary" size="sm" disabled={followPending || followLoading} onClick={async () => {
                     if (!eventId) return;

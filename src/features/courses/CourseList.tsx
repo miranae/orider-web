@@ -7,6 +7,7 @@ import { Button, Card, Chip, Text, buttonClass } from "../../theme/components";
 import type { CourseData } from "./courseSnapshot";
 import { courseTagLabel, primaryCourseTags } from "./courseTags";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import { Resolvable } from "../../components/redesign/states/Resolvable";
 
 export function climbCatLabel(cat: number): string {
   if (cat === 5) return "HC";
@@ -198,7 +199,8 @@ export function CourseList({
             : searchQuery
             ? t("empty.noResults")
             : allCourseCount === 0
-              ? t("empty.noCourses")
+              // 등록된 코스가 하나도 없으면 문구를 누르면 코스 만들기로 간다.
+              ? <Resolvable resolve={{ to: "/course/create" }}>{t("empty.noCourses")}</Resolvable>
               : t("empty.noCoursesInArea")}
           {filtersActive && onResetFilters && <Button type="button" variant="secondary" size="sm" className="mt-3" onClick={onResetFilters}>{t("filter.reset")}</Button>}
         </div>

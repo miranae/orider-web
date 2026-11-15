@@ -19,7 +19,7 @@ import { getPublicUserProfiles, type PublicUserProfile } from "../../services/pu
 import GroupSubNav from "../../components/group/GroupSubNav";
 import Avatar from "../../components/Avatar";
 import InviteMemberModal from "../../components/group/InviteMemberModal";
-import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton, Resolvable } from "../../components/redesign";
 import { Button, Card, Chip, Text, DropdownSelect, Input } from "../../theme/components";
 import { buildGroupInviteUrl } from "../../features/group/groupInviteLink";
 import { useGroupInviteCode } from "../../hooks/useGroupInviteCode";
@@ -87,6 +87,8 @@ function GroupMembersContent({ management = false }: { management?: boolean }) {
   const [pendingProfiles, setPendingProfiles] = useState<Map<string, PublicUserProfile>>(new Map());
   const [pendingError, setPendingError] = useState(false);
   const [pendingLoading, setPendingLoading] = useState(false);
+  // 가입 요청 불러오기 실패 문구를 누르면 다시 구독한다.
+  const [pendingAttempt, setPendingAttempt] = useState(0);
   const [invitationsError, setInvitationsError] = useState(false);
   const [invitationsAttempt, setInvitationsAttempt] = useState(0);
   const [invitations, setInvitations] = useState<InvitationDoc[]>([]);
@@ -143,7 +145,7 @@ function GroupMembersContent({ management = false }: { management?: boolean }) {
       cancelled = true;
       unsubscribe();
     };
-  }, [groupId, isOwner]);
+  }, [groupId, isOwner, pendingAttempt]);
 
   // Invitation reads use the same active manager predicate as the deployed rules.
   useEffect(() => {
@@ -490,7 +492,7 @@ function GroupMembersContent({ management = false }: { management?: boolean }) {
         ))}
       </div>
 
-      {pendingError && <p role="alert">{t("error.loadFailed")}</p>}
+      {pendingError && <p role="alert"><Resolvable resolve={{ onClick: () => setPendingAttempt((n) => n + 1) }}>{t("error.loadFailed")}</Resolvable></p>}
       {/* MEMBERS TAB */}
       {tab === "members" && (
         <section role="tabpanel" id={`club-${groupId}-panel-members`} aria-labelledby={`club-${groupId}-tab-members`}>

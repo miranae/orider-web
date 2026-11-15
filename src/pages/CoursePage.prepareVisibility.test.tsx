@@ -105,6 +105,20 @@ describe("course preparation climb predictions", () => {
     expect(screen.getByRole("button", { name: "저장" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "취소" })).toBeInTheDocument();
   });
+  it("puts focus back on the name field once the name-length alert is confirmed", async () => {
+    setDocData("courses/course-climb", { ...mockDocData.get("courses/course-climb"), creatorId: "owner" });
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
+    await screen.findByText("Climbing course");
+    fireEvent.click(screen.getByRole("tab", { name: "편집" }));
+    const name = screen.getByLabelText("코스 이름");
+    fireEvent.change(name, { target: { value: "A" } });
+    // 편집을 열 때의 자동 초점(50ms)이 지난 뒤 저장 버튼에 초점이 있는 상태에서 시작한다.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 80)); });
+    screen.getByRole("button", { name: "저장" }).focus();
+    expect(document.activeElement).not.toBe(name);
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(document.activeElement).toBe(name));
+  });
   it("shows climb-time estimates in a visible preparation subtree, retaining overview badges", async () => {
     render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
     await screen.findByText("Climbing course");
