@@ -4,11 +4,13 @@ import { useRiderWorkoutDelivery } from "./useRiderWorkoutDelivery";
 
 const mocks = vi.hoisted(() => ({
   create: vi.fn(), classify: vi.fn(() => "uncertain_network"),
+  logClientError: vi.fn(),
   deviceSubscriptions: [] as Array<(devices: unknown[]) => void>,
   deviceErrorSubscriptions: [] as Array<(error: Error) => void>,
   pointerSubscriptions: [] as Array<(pointer: unknown) => void>,
   deliverySubscriptions: [] as Array<(delivery: unknown) => void>,
 }));
+vi.mock("../../services/errorLogger", () => ({ logClientError: mocks.logClientError }));
 vi.mock("../../services/riderWorkoutDeliveryClient", () => ({
   createRiderWorkoutDelivery: mocks.create, classifyRiderWorkoutDeliveryError: mocks.classify,
   subscribeRiderWorkoutDevices: vi.fn((_uid, next, onError) => { mocks.deviceSubscriptions.push(next); mocks.deviceErrorSubscriptions.push(onError); return vi.fn(); }),
@@ -57,6 +59,17 @@ describe("useRiderWorkoutDelivery", () => {
     expect(result.current.devicesLoading).toBe(true);
     act(() => mocks.deviceSubscriptions[1]?.([device("recent")]));
     expect(result.current.devices).toHaveLength(1);
+  });
+
+  it("logs every failed device lookup, including the one after a retry", async () => {
+    mocks.logClientError.mockClear();
+    const { result } = renderHook(() => useRiderWorkoutDelivery("uid-1", "recovery"));
+    act(() => mocks.deviceErrorSubscriptions[0]?.(new Error("offline")));
+    act(() => result.current.retryDevices());
+    await waitFor(() => expect(mocks.deviceErrorSubscriptions).toHaveLength(2));
+    act(() => mocks.deviceErrorSubscriptions[1]?.(new Error("permission-denied")));
+    expect(mocks.logClientError).toHaveBeenCalledTimes(2);
+    expect(mocks.logClientError).toHaveBeenLastCalledWith("useRiderWorkoutDelivery.devices", expect.any(Error), { attempt: 1 });
   });
 
   it("restores the latest pointer and blocks replacement while G1 is executing it", async () => {

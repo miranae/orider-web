@@ -10,8 +10,17 @@ vi.mock("../features/courses/courseDetailAsset", async () => {
   return { subscribeCourseDetail: (services: { firestore: Parameters<typeof doc>[0] }, id: string, onData: (value: unknown) => void, onError: (error: Error) => void) =>
     onSnapshot(doc(services.firestore, "courses", id), (snapshot) => onData(snapshot.exists() ? { id, ...snapshot.data() } : null), onError) };
 });
-vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner" }, profile: { weightKg: 70, ftp: 250 }, loading: false, profileLoading: false, signIn: vi.fn() }) }));
-import { setDocData, mockDocData, setCallableImplementation } from "../__tests__/mocks/firebase";
+// 계정 전환 테스트용 — 렌더마다 새 객체를 주면 user 를 의존하는 효과가 매번 다시 돈다. uid 별로 같은 값을 준다.
+const authState = vi.hoisted(() => {
+  const values = new Map<string, unknown>();
+  const signIn = () => {};
+  return { uid: "owner", value(uid: string) {
+    if (!values.has(uid)) values.set(uid, { user: { uid }, profile: { weightKg: 70, ftp: 250 }, loading: false, profileLoading: false, signIn });
+    return values.get(uid);
+  } };
+});
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => authState.value(authState.uid) }));
+import { setDocData, mockDocData, setCallableImplementation, simulateLogin } from "../__tests__/mocks/firebase";
 vi.mock("react-router-dom", async (importOriginal) => ({ ...(await importOriginal<typeof import("react-router-dom")>()), useParams: () => ({ courseId: "course-climb", lang: "ko" }) }));
 vi.mock("../hooks/useGear", () => ({ useGear: () => ({ items: [], loading: false }) }));
 vi.mock("../hooks/usePdc", () => ({ usePdc: () => ({ pdc: null, status: "ready" }) }));
@@ -25,7 +34,7 @@ import i18n from "i18next";
 import enCourse from "../i18n/resources/en/course.json";
 import enGlossary from "../i18n/resources/en/termGlossary.json";
 describe("course preparation climb predictions", () => {
-  beforeEach(() => { void i18n.changeLanguage("ko"); });
+  beforeEach(() => { void i18n.changeLanguage("ko"); authState.uid = "owner"; simulateLogin({ uid: "owner" }); });
   beforeEach(() => setDocData("courses/course-climb", {
     name: "Climbing course", description: "", creatorId: "other", creatorNickname: "Creator", source: "orider",
     polyline: "", distance: 10000, elevationGain: 400, averageGrade: 4, maximumGrade: 8,
@@ -144,6 +153,34 @@ describe("course preparation climb predictions", () => {
     fireEvent.click(screen.getByRole("button", { name: /앱으로 보내기/ }));
     fireEvent.click(await screen.findByRole("button", { name: "전송에 실패했습니다" }));
     await waitFor(() => expect(calls).toBe(2));
+  });
+  it("does not resend from a failure message after the account changed", async () => {
+    let calls = 0;
+    setCallableImplementation("sendCourseToApp", () => { calls += 1; return Promise.reject({ code: "functions/unavailable" }); });
+    const tree = () => <MemoryRouter initialEntries={["/ko/course/course-climb"]}><ToastProvider><CoursePage /></ToastProvider></MemoryRouter>;
+    const { rerender } = render(tree());
+    await screen.findByText("Climbing course");
+    fireEvent.click(screen.getByRole("button", { name: /앱으로 보내기/ }));
+    const message = await screen.findByRole("button", { name: "전송에 실패했습니다" });
+    authState.uid = "someone-else";
+    simulateLogin({ uid: "someone-else" });
+    rerender(tree());
+    fireEvent.click(message);
+    await act(async () => { await Promise.resolve(); });
+    expect(calls).toBe(1);
+  });
+  it("drops a late send failure that arrives after the account changed", async () => {
+    let reject: (error: unknown) => void = () => {};
+    setCallableImplementation("sendCourseToApp", () => new Promise((_resolve, fail) => { reject = fail; }));
+    const tree = () => <MemoryRouter initialEntries={["/ko/course/course-climb"]}><ToastProvider><CoursePage /></ToastProvider></MemoryRouter>;
+    const { rerender } = render(tree());
+    await screen.findByText("Climbing course");
+    fireEvent.click(screen.getByRole("button", { name: /앱으로 보내기/ }));
+    authState.uid = "someone-else";
+    simulateLogin({ uid: "someone-else" });
+    rerender(tree());
+    await act(async () => { reject({ code: "functions/unavailable" }); await Promise.resolve(); });
+    expect(screen.queryByText("전송에 실패했습니다")).toBeNull();
   });
 
 });

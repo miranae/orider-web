@@ -791,12 +791,17 @@ function CoursePageContent() {
       showToast(t("error.loginRequired"));
       return;
     }
+    // 실패 알림은 전역이라 계정을 바꾼 뒤(화면이 다시 마운트돼도) 남는다. callable 은 그 순간의 Firebase 인증으로
+    // 나가므로, 같은 인증 주체일 때만 알림·재전송을 허용한다 — 컴포넌트 상태가 아니라 실제 인증을 본다.
+    const requestUid = user.uid;
+    const sameAccount = () => firebaseServices.auth.currentUser?.uid === requestUid;
     try {
       const fn = httpsCallable(functions, "sendCourseToApp");
       await fn({ courseId });
       showToast(t("link.sentToApp"));
     } catch (err) {
       logClientError("CoursePage.sendCourseToApp", err, { courseId });
+      if (!sameAccount()) return;
       const code = callableCode(err);
       // failed-precondition = 서버가 판정한 사용자 행동 필요 사유(기기 없음/알림 권한) — 그대로 표시하고,
       // 알림 문구를 누르면 기기 설정으로 간다. 그 밖의 실패는 문구를 누르면 다시 보낸다.
@@ -804,7 +809,7 @@ function CoursePageContent() {
       if ((code === "functions/failed-precondition" || code === "failed-precondition") && serverMessage) {
         showActionToast(serverMessage, "error", { resolve: { to: "/settings/device" } });
       } else {
-        showActionToast(t("link.sendFailed"), "error", { resolve: { onClick: () => { void handleSendToApp(); } } });
+        showActionToast(t("link.sendFailed"), "error", { resolve: { onClick: () => { if (sameAccount()) void handleSendToApp(); } } });
       }
     }
   };

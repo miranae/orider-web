@@ -1,4 +1,5 @@
 import * as defaultClient from "../../services/riderWorkoutDeliveryClient";
+import { logClientError } from "../../services/errorLogger";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { classifyRiderWorkoutDeliveryError, createRiderWorkoutDeliveryClient, type RiderWorkoutDeliveryErrorKind } from "../../services/riderWorkoutDeliveryClient";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
@@ -49,6 +50,7 @@ export function useRiderWorkoutDelivery(uid: string | null, workoutType: RiderWo
       setDevicesLoading(false); setDevicesError(null);
     }, (error) => {
       if (deviceScopeRef.current !== operation) return;
+      logClientError("useRiderWorkoutDelivery.devices", error, { attempt: devicesAttempt });
       setDevicesError(error); setDevicesLoading(false);
     });
   }, [uid, devicesAttempt]);
