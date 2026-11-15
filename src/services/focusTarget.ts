@@ -20,6 +20,8 @@ export const FOCUS_TARGETS = {
   height: "height",
   /** 설정 > 계정의 AI 코치 이용 동의 검토 버튼. */
   aiCoachConsent: "ai-coach-consent",
+  /** 설정 > 계정의 로그인 방법 카드(S1-4-1) — 아직 연결하지 않은 첫 로그인 방법의 연결 버튼. */
+  socialLinks: "social-links",
 } as const;
 
 export type FocusTargetKey = (typeof FOCUS_TARGETS)[keyof typeof FOCUS_TARGETS];
