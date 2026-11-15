@@ -1,9 +1,9 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_APP_SETTINGS } from "@shared/types/deviceSettings";
-import type { Resolve } from "../redesign/states/Resolvable";
+import { Resolvable, type Resolve } from "../redesign/states/Resolvable";
 
 const mocks = vi.hoisted(() => ({
   user: { uid: "uid-a" } as { uid: string } | null,
@@ -36,6 +36,17 @@ vi.mock("../../hooks/useDeviceSettings", () => ({
 
 import { PaneDevice } from "./PaneDevice";
 
+function SearchProbe() {
+  return <span data-testid="search">{useLocation().search}</span>;
+}
+
+/** 다른 화면에 떠 있는 알림 — 누르면 기기 설정이 새로 열린다. */
+function Elsewhere({ to }: { to: string }) {
+  const { pathname } = useLocation();
+  if (pathname.endsWith("/settings/device")) return <><PaneDevice /><SearchProbe /></>;
+  return <Resolvable resolve={{ to }}>반영 실패</Resolvable>;
+}
+
 function renderPane() {
   return render(<MemoryRouter><PaneDevice /></MemoryRouter>);
 }
@@ -52,51 +63,59 @@ describe("PaneDevice 경고·알림 → 해결", () => {
     });
   });
 
-  it("다른 기기 반영 실패 알림을 누르면 실패한 기기를 골라 기기 설정에 둔다", async () => {
-    renderPane();
-    const rider = screen.getByTestId("S6-2-1");
-    fireEvent.click(within(rider).getByRole("button", { name: /편집|edit/i }));
-    fireEvent.click(within(rider).getByRole("button", { name: "저장" }));
-
-    await waitFor(() => expect(mocks.toastCalls.some(([, type]) => type === "error")).toBe(true));
-    const [, , options] = mocks.toastCalls.find(([, type]) => type === "error")!;
-    expect(options?.resolve?.to).toBe("/settings/device");
-    // 처음 기기(폰 A)가 선택돼 있다가, 알림을 누르면 실패한 기기(폰 B)로 바뀐다.
-    expect(within(screen.getByTestId("S6-0-1")).getByText("폰 A")).toBeTruthy();
-    act(() => options!.resolve!.onClick!());
-    await waitFor(() => expect(within(screen.getByTestId("S6-0-1")).getByText("폰 B")).toBeTruthy());
-  });
-
-  it("A 편집 중 알림을 누르면 B 로 바뀌고 편집이 풀린다 — A 초안이 B 에 저장되지 않는다", async () => {
-    renderPane();
-    const rider = screen.getByTestId("S6-2-1");
-    fireEvent.click(within(rider).getByRole("button", { name: /편집|edit/i }));
-    fireEvent.click(within(rider).getByRole("button", { name: "저장" }));
-    await waitFor(() => expect(mocks.toastCalls.some(([, type]) => type === "error")).toBe(true));
-    const [, , options] = mocks.toastCalls.find(([, type]) => type === "error")!;
-
-    // 기기 A 에서 다시 편집을 시작한 상태.
-    fireEvent.click(within(screen.getByTestId("S6-2-1")).getByRole("button", { name: /편집|edit/i }));
-    expect(within(screen.getByTestId("S6-2-1")).getByRole("button", { name: "저장" })).toBeTruthy();
-
-    act(() => options!.resolve!.onClick!());
-    await waitFor(() => expect(within(screen.getByTestId("S6-0-1")).getByText("폰 B")).toBeTruthy());
-    const riderAfter = screen.getByTestId("S6-2-1");
-    expect(within(riderAfter).queryByRole("button", { name: "저장" })).toBeNull();
-    expect(within(riderAfter).getByRole("button", { name: /편집|edit/i })).toBeTruthy();
-  });
-
-  it("계정이 바뀐 뒤 누른 알림은 선택을 바꾸지 않는다", async () => {
+  async function failedToastTarget() {
     const view = renderPane();
     const rider = screen.getByTestId("S6-2-1");
     fireEvent.click(within(rider).getByRole("button", { name: /편집|edit/i }));
     fireEvent.click(within(rider).getByRole("button", { name: "저장" }));
     await waitFor(() => expect(mocks.toastCalls.some(([, type]) => type === "error")).toBe(true));
     const [, , options] = mocks.toastCalls.find(([, type]) => type === "error")!;
+    view.unmount();
+    return options!.resolve!;
+  }
 
-    mocks.user = { uid: "uid-b" };
-    view.rerender(<MemoryRouter><PaneDevice /></MemoryRouter>);
-    act(() => options!.resolve!.onClick!());
+  it("반영 실패 알림은 실패한 기기를 주소로 가리킨다", async () => {
+    const resolve = await failedToastTarget();
+    expect(resolve).toEqual({ to: "/settings/device?device=d2" });
+  });
+
+  it("다른 화면에서 알림을 누르면 새로 열린 기기 설정이 실패한 기기를 고르고 주소에서 지운다", async () => {
+    const { to } = await failedToastTarget();
+    render(
+      <MemoryRouter initialEntries={["/home"]}>
+        <Routes><Route path="*" element={<Elsewhere to={to!} />} /></Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("link", { name: "반영 실패" }));
+    await waitFor(() => expect(within(screen.getByTestId("S6-0-1")).getByText("폰 B")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("search").textContent).toBe(""));
+  });
+
+  it("같은 화면에서 A 편집 중 알림을 누르면 B 로 바뀌고 편집이 풀린다 — A 초안이 B 에 저장되지 않는다", async () => {
+    const { to } = await failedToastTarget();
+    render(
+      <MemoryRouter initialEntries={["/settings/device"]}>
+        <Routes><Route path="*" element={<><PaneDevice /><Resolvable resolve={{ to }}>반영 실패</Resolvable><SearchProbe /></>} /></Routes>
+      </MemoryRouter>,
+    );
+    fireEvent.click(within(screen.getByTestId("S6-2-1")).getByRole("button", { name: /편집|edit/i }));
+    expect(within(screen.getByTestId("S6-2-1")).getByRole("button", { name: "저장" })).toBeTruthy();
+    expect(within(screen.getByTestId("S6-0-1")).getByText("폰 A")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("link", { name: "반영 실패" }));
+    await waitFor(() => expect(within(screen.getByTestId("S6-0-1")).getByText("폰 B")).toBeTruthy());
+    const riderAfter = screen.getByTestId("S6-2-1");
+    expect(within(riderAfter).queryByRole("button", { name: "저장" })).toBeNull();
+    expect(within(riderAfter).getByRole("button", { name: /편집|edit/i })).toBeTruthy();
+  });
+
+  it("현재 계정 목록에 없는 기기 ID 는 무시하고 주소에서 지운다", async () => {
+    render(
+      <MemoryRouter initialEntries={["/settings/device?device=other-account-device"]}>
+        <Routes><Route path="*" element={<><PaneDevice /><SearchProbe /></>} /></Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByTestId("search").textContent).toBe(""));
     expect(within(screen.getByTestId("S6-0-1")).getByText("폰 A")).toBeTruthy();
   });
 
