@@ -852,7 +852,9 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const photos = useMemo(() => getStreamPhotos(streams), [streams]);
   const author = useActivityAuthor(publicAccess ? { userId: "", nickname: activity?.nickname, profileImage: activity?.profileImage } : activity ?? { userId: "" });
   const sourceRevision = activity ? activityFeedSourceRevision(activity) : null;
-  const publishedContent = activity?.feedContentV1?.sourceRevision === sourceRevision ? boundedFeedContent(activity.feedContentV1) : null;
+  // 숨기기·다시 보이기 뒤 새로 읽은 문서의 피드 본문이 있으면 그것을 쓴다(복원한 사진이 옛 본문에는 없다).
+  const latestFeedContent = boundedFeedContent(providerPhotos.feedContentV1 !== undefined ? providerPhotos.feedContentV1 : activity?.feedContentV1);
+  const publishedContent = latestFeedContent?.sourceRevision === sourceRevision ? latestFeedContent : null;
   const resolvedMemo = activity ? resolveActivityMemo(activity, stravaSummaryLang) : null;
   const freshDefaultMemo = overview.response?.status === "available" && overview.response.activityId === activity?.id
     ? overview.response.defaultMemo ?? null : null;

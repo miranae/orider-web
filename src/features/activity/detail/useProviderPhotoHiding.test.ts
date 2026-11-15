@@ -27,7 +27,7 @@ const showTab = async () => { visibility = "visible"; await act(async () => { do
 
 describe("탭 복귀 때 숨김 목록 새로 읽기(다른 탭 변경 반영)", () => {
   beforeEach(() => {
-    getDoc.mockReset(); visibility = "visible";
+    getDoc.mockReset(); getDoc.mockResolvedValue({ data: () => undefined }); visibility = "visible";
     vi.spyOn(document, "visibilityState", "get").mockImplementation(() => visibility);
   });
   afterEach(() => vi.restoreAllMocks());
@@ -104,9 +104,21 @@ describe("탭 복귀 때 숨김 목록 새로 읽기(다른 탭 변경 반영)",
     await waitFor(() => expect(getDoc).toHaveBeenCalledTimes(1));
     expect(view.result.current.hiddenIds).toEqual(["1"]);
   });
+  it("저장 뒤 활동 문서를 다시 읽어 새 피드 본문을 내준다(복원한 사진이 옛 본문에는 없다)", async () => {
+    hide.mockResolvedValue([]);
+    const feed = { version: 1, photos: [{ id: "1" }] };
+    getDoc.mockResolvedValue({ data: () => ({ userId: "me", hiddenProviderPhotosV1: { version: 1, userId: "me", ids: [] }, feedContentV1: feed }) });
+    const view = live({ activityId: "a", uid: "me", documentHiddenIds: ["1"] });
+    expect(view.result.current.feedContentV1).toBeUndefined();
+    await act(() => view.result.current.change(["1"], false));
+    await waitFor(() => expect(view.result.current.feedContentV1).toBe(feed));
+    expect(view.result.current.hiddenIds).toEqual([]);
+    // 새로 읽은 문서의 본문을 쓰므로 사진 총수도 현재 값이다
+    expect(view.result.current.overriding).toBe(false);
+  });
   it("저장 요청보다 먼저 시작한 조회의 늦은 응답은 저장 결과를 덮지 않는다", async () => {
     let resolveRead!: (value: unknown) => void;
-    getDoc.mockReturnValue(new Promise(r => { resolveRead = r; }));
+    getDoc.mockReturnValueOnce(new Promise(r => { resolveRead = r; })).mockResolvedValue(stored(["1"]));
     hide.mockResolvedValue(["1"]);
     const view = live({ activityId: "a", uid: "me", documentHiddenIds: [] });
     await showTab();

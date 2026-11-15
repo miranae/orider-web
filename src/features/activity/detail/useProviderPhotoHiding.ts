@@ -35,7 +35,9 @@ export function useProviderPhotoHiding(input: {
   if (documentStamp.current.generation !== generation || documentStamp.current.key !== documentKey) {
     documentStamp.current = { generation, key: documentKey, sequence: ++sequence.current };
   }
-  const [latest, setLatest] = useState<{ generation: number; sequence: number; ids: string[] } | null>(null);
+  // fromDocument: 활동 문서를 새로 읽은 값이면 그 문서의 피드 본문(feedContentV1)도 함께 둔다.
+  type Latest = { generation: number; sequence: number; ids: string[]; fromDocument: boolean; feedContentV1?: unknown };
+  const [latest, setLatest] = useState<Latest | null>(null);
   const [busy, setBusy] = useState<{ generation: number } | null>(null);
   const callbacks = useRef(input); callbacks.current = input;
   // 저장 중에 시작한 조회는 저장 전 목록을 읽을 수 있고, 순번이 더 커서 저장 결과를 버리게 만든다.
@@ -45,24 +47,26 @@ export function useProviderPhotoHiding(input: {
   const refreshNow = useRef<(() => void) | null>(null);
 
   /** 시작 순번이 지금까지 쓴 어떤 값보다 나중일 때만 결과를 쓴다. */
-  const apply = (requestGeneration: number, requestSequence: number, ids: string[]) => {
-    if (scope.current.generation !== requestGeneration || documentStamp.current.sequence > requestSequence) return;
-    setLatest(previous => previous && previous.generation === requestGeneration && previous.sequence > requestSequence
-      ? previous : { generation: requestGeneration, sequence: requestSequence, ids });
+  const apply = (next: Latest) => {
+    if (scope.current.generation !== next.generation || documentStamp.current.sequence > next.sequence) return;
+    setLatest(previous => previous && previous.generation === next.generation && previous.sequence > next.sequence ? previous : next);
   };
 
   useEffect(() => {
     if (!refreshEnabled || !firestore || !activityId || typeof document === "undefined") return;
+    const read = () => {
+      const requestGeneration = generation, requestSequence = ++sequence.current;
+      getDoc(doc(firestore, "activities", activityId)).then(snapshot => {
+        const data = snapshot.data() as { userId?: string; hiddenProviderPhotosV1?: unknown; feedContentV1?: unknown } | undefined;
+        if (data) apply({ generation: requestGeneration, sequence: requestSequence, ids: hiddenProviderPhotoIds(data), fromDocument: true, feedContentV1: data.feedContentV1 });
+      }).catch(error => logClientError("useProviderPhotoHiding.refresh", error, { activityId }));
+    };
     const refresh = () => {
       if (document.visibilityState !== "visible") return;
       if (saving.current === generation) { refreshAfterSave.current = true; return; }
-      const requestGeneration = generation, requestSequence = ++sequence.current;
-      getDoc(doc(firestore, "activities", activityId)).then(snapshot => {
-        const data = snapshot.data();
-        if (data) apply(requestGeneration, requestSequence, hiddenProviderPhotoIds(data as { userId?: string; hiddenProviderPhotosV1?: unknown }));
-      }).catch(error => logClientError("useProviderPhotoHiding.refresh", error, { activityId }));
+      read();
     };
-    refreshNow.current = refresh;
+    refreshNow.current = read;
     document.addEventListener("visibilitychange", refresh);
     return () => {
       document.removeEventListener("visibilitychange", refresh);
@@ -79,7 +83,10 @@ export function useProviderPhotoHiding(input: {
     try {
       const ids = await setProviderPhotosHidden(services, target, photoIds, hidden);
       if (scope.current.generation !== requestGeneration) return;
-      apply(requestGeneration, requestSequence, ids);
+      apply({ generation: requestGeneration, sequence: requestSequence, ids, fromDocument: false });
+      // 서버는 숨김과 함께 피드 본문을 다시 만든다. 화면의 활동 문서는 옛 본문이라 복원한 사진이
+      // 거기 없으면 나타나지 않으므로, 저장 뒤 문서를 다시 읽어 새 본문을 받는다.
+      refreshAfterSave.current = true;
       callbacks.current.onDone(hidden);
     } catch (error) {
       callbacks.current.onError(error, { activityId: target, hidden, count: photoIds.length });
@@ -93,5 +100,11 @@ export function useProviderPhotoHiding(input: {
   };
   const current = latest && latest.generation === generation && latest.sequence > documentStamp.current.sequence ? latest : null;
   const hiddenIds = current && JSON.stringify(current.ids) !== documentKey ? current.ids : documentHiddenIds;
-  return { hiddenIds, overriding: hiddenIds !== documentHiddenIds, busy: isBusy, change };
+  return {
+    hiddenIds, busy: isBusy, change,
+    /** 새로 읽은 활동 문서의 피드 본문. 화면의 활동 문서보다 새로우면 이것을 쓴다(없으면 undefined). */
+    feedContentV1: current?.fromDocument ? current.feedContentV1 : undefined,
+    /** 숨김 목록이 화면의 피드 본문보다 앞선 값(저장 응답)이라 본문의 사진 총수가 아직 옛 값이다. */
+    overriding: !!current && !current.fromDocument && hiddenIds !== documentHiddenIds,
+  };
 }
