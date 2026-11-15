@@ -87,9 +87,13 @@ export function PaneAccount() {
     });
   }, [user]);
 
+  // 잠김 다시 확인 요청의 세대 — 계정이 바뀌거나 화면을 떠나면 앞선 응답을 버린다.
+  const recheckGeneration = useRef(0);
   useEffect(() => {
     setVisibilityAvailability("ready");
     setExistingActivityCount(null);
+    recheckGeneration.current += 1;
+    return () => { recheckGeneration.current += 1; };
   }, [user?.uid]);
 
   if (!user) return null;
@@ -222,17 +226,22 @@ export function PaneAccount() {
   // (같은 auth 진입점으로 함께 배포)로 보고 잠금을 푼다. 기본값 저장을 다시 보내지는 않는다.
   async function handleRecheckVisibility() {
     if (!user || visibilityAvailability !== "error") return;
+    const generation = ++recheckGeneration.current;
+    const requestUid = user.uid;
+    // 응답을 반영해도 되는지: 같은 세대(계정 전환·이탈 없음)이고 실제 인증 주체도 그대로일 때만.
+    const current = () => recheckGeneration.current === generation && auth.currentUser?.uid === requestUid;
     setVisibilityAvailability("checking");
     try {
       const preview = httpsCallable<{ visibility: Visibility; dryRun: true }, { count: number }>(functions, "applyVisibilityToExistingActivities");
       const result = await preview({ visibility: currentVisibility, dryRun: true });
       const count = result.data.count;
       if (!Number.isSafeInteger(count) || count < 0) throw new Error("Invalid visibility preview");
+      if (!current()) return;
       setExistingActivityCount(count);
       setVisibilityAvailability("ready");
     } catch (error) {
       logClientError("PaneAccount.recheckVisibility", error, {});
-      setVisibilityAvailability("error");
+      if (current()) setVisibilityAvailability("error");
     }
   }
 

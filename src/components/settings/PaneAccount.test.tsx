@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { PaneAccount } from "./PaneAccount";
@@ -235,6 +235,28 @@ describe("PaneAccount nickname save", () => {
     expect(mocks.callable.mock.calls.filter(([name]) => name === "updateDefaultVisibility")).toHaveLength(defaultWrites);
     expect(mocks.callable).not.toHaveBeenCalledWith("applyVisibilityToExistingActivities", { visibility: "private" });
     expect(screen.queryByText("privacy.defaultSafetyUnavailable")).not.toBeInTheDocument();
+  });
+
+  it("drops a late re-check response after the account changed", async () => {
+    let resolvePreview: (value: unknown) => void = () => {};
+    let locked = false;
+    mocks.callable.mockImplementation(async (name, input) => {
+      if (name === "applyVisibilityToExistingActivities" && locked && (input as { dryRun?: boolean }).dryRun) return new Promise(resolve => { resolvePreview = resolve; });
+      return { data: name === "applyVisibilityToExistingActivities" ? { count: 2 } : { updated: 2 } };
+    });
+    const view = render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    const everyone = screen.getByRole("button", { name: /privacy.visOptEveryone/ });
+    await waitFor(() => expect(everyone).not.toBeDisabled()); fireEvent.click(everyone);
+    await waitFor(() => expect(everyone).toBeDisabled());
+    locked = true;
+    fireEvent.click(screen.getByRole("button", { name: "privacy.defaultSafetyUnavailable" }));
+    // 응답 전에 B 계정으로 바뀐다.
+    mocks.user = { uid: "u2" }; mocks.currentUser = { uid: "u2" };
+    view.rerender(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    await act(async () => { resolvePreview({ data: { count: 99 } }); await Promise.resolve(); });
+    // B 계정의 기존 활동 수는 아직 모른다 — A 의 늦은 미리보기 결과(99)가 B 의 수로 들어가면 안 된다.
+    expect(screen.getByText("privacy.existingCountOnDemand")).toBeInTheDocument();
+    mocks.user = { uid: "u1" }; mocks.currentUser = { uid: "u1" };
   });
 
   it("keeps the lock when the re-check from the lock message also fails", async () => {
