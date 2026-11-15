@@ -8,7 +8,7 @@ import { useProviderPhotoHiding } from "./useProviderPhotoHiding";
 const hide = vi.hoisted(() => vi.fn());
 vi.mock("../../../services/nativeActivityPhoto", () => ({ setProviderPhotosHidden: hide }));
 const getDoc = vi.hoisted(() => vi.fn());
-vi.mock("firebase/firestore", () => ({ doc: (_db: unknown, ...path: string[]) => path.join("/"), getDoc }));
+vi.mock("firebase/firestore", () => ({ doc: (_db: unknown, ...path: string[]) => path.join("/"), getDocFromServer: getDoc }));
 vi.mock("../../../services/errorLogger", () => ({ logClientError: vi.fn() }));
 
 const services = {} as FirebaseServices;
@@ -124,6 +124,15 @@ describe("탭 복귀 때 숨김 목록 새로 읽기(다른 탭 변경 반영)",
     await waitFor(() => expect(view.result.current.feedContentV1).toBe(feed));
     view.rerender({ firestore, refreshEnabled: true, activityId: "a", uid: "me", documentHiddenIds: ["1"], documentFeedRevision: "r3" } as LiveProps);
     expect(view.result.current.feedContentV1).toBeUndefined();
+  });
+  it("저장 뒤 서버에서 다시 읽지 못하면(오프라인) 저장 응답을 그대로 쓴다", async () => {
+    hide.mockResolvedValue(["1"]);
+    getDoc.mockRejectedValue(new Error("unavailable"));
+    const view = live({ activityId: "a", uid: "me", documentHiddenIds: [] });
+    await act(() => view.result.current.change(["1"], true));
+    await waitFor(() => expect(getDoc).toHaveBeenCalled());
+    expect(view.result.current.hiddenIds).toEqual(["1"]);
+    expect(view.result.current.overriding).toBe(true);
   });
   it("저장 요청보다 먼저 시작한 조회의 늦은 응답은 저장 결과를 덮지 않는다", async () => {
     let resolveRead!: (value: unknown) => void;

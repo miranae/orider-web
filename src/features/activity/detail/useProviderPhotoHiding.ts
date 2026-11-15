@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { doc, getDoc, type Firestore } from "firebase/firestore";
+import { doc, getDocFromServer, type Firestore } from "firebase/firestore";
 import type { FirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../../services/errorLogger";
 import { setProviderPhotosHidden } from "../../../services/nativeActivityPhoto";
@@ -59,7 +59,8 @@ export function useProviderPhotoHiding(input: {
     if (!refreshEnabled || !firestore || !activityId || typeof document === "undefined") return;
     const read = () => {
       const requestGeneration = generation, requestSequence = ++sequence.current;
-      getDoc(doc(firestore, "activities", activityId)).then(snapshot => {
+      // 캐시의 옛 문서가 방금 받은 저장 응답을 덮지 않도록 서버에서 확인한 문서만 쓴다(오프라인이면 실패로 기록).
+      getDocFromServer(doc(firestore, "activities", activityId)).then(snapshot => {
         const data = snapshot.data() as { userId?: string; hiddenProviderPhotosV1?: unknown; feedContentV1?: unknown } | undefined;
         if (data) apply({ generation: requestGeneration, sequence: requestSequence, ids: hiddenProviderPhotoIds(data), fromDocument: true, feedContentV1: data.feedContentV1 });
       }).catch(error => logClientError("useProviderPhotoHiding.refresh", error, { activityId }));
