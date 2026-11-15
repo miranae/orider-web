@@ -85,10 +85,9 @@ describe("MobilePlanContent product hierarchy", () => {
     expect(screen.getByText("D−25")).toBeInTheDocument();
     expect(screen.queryByRole("progressbar", { name: "진행률" })).not.toBeInTheDocument();
     expect(screen.getByText("목표기간 부하 비교")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "계획 관리 →" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "계획 관리 →" }));
-    expect(screen.getByRole("button", { name: "ICS" })).toBeInTheDocument();
-    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    // 관리 동작 슬롯은 별도 "계획 관리" 줄·시트 없이 목표 카드 머리에 바로 놓인다.
+    expect(screen.queryByRole("button", { name: "계획 관리 →" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("K4-2").querySelector(".mobile-plan-goal-top")).toContainElement(screen.getByRole("button", { name: "ICS" }));
     const expand = screen.getByRole("button", { name: "원문 보기" });
     fireEvent.click(expand);
     expect(screen.getByRole("tooltip")).toHaveTextContent("2026_비앙키그란폰도춘천");

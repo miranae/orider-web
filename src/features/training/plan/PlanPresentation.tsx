@@ -3,12 +3,12 @@ import { isPendingPlanWorkout, presentPlanDayRecord } from "./planRecordPresenta
 import { goalCountdown } from "../../../utils/goalCountdown";
 import PlanGoalLoadSummary from "./PlanGoalLoadSummary";
 import { goalLoadScope, summarizeStoredPlan } from "./planScope";
-import { Eye, MoreHorizontal, RefreshCw, Target } from "lucide-react";
+import { Eye, RefreshCw, Target } from "lucide-react";
 import GlossaryText from "../../../components/common/GlossaryText";
 import InfoTip from "../../../components/InfoTip";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { planDayKey as kstDayKey, planDayStartMs, planCalendarDate } from "@shared/training/planDate";
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { Goal, PlanWeek, PlanDay } from "@shared/types/goal";
 import { evaluateRecoveryDownshift } from "@shared/training/recoveryDownshift";
@@ -19,9 +19,10 @@ import AdjustedChip from "../../../components/training/AdjustedChip";
 import RecoveryDownshiftMarker from "../../../components/training/RecoveryDownshiftMarker";
 import { RevalidatingIndicator } from "../../../components/training/RevalidatingIndicator";
 import { EmptyState, ErrorState, Resolvable } from "../../../components/redesign";
-import { Button, Card, IconButton, Text } from "../../../theme/components";
+import { Button, Card, Text } from "../../../theme/components";
 import { PlanAdjustmentNarrative } from "../../trainingHub/TrainingHubOpportunityPanel";
 import MobilePlanContent, { type MobilePlanContentProps } from "./MobilePlanContent";
+import PlanActionsMenu from "./PlanActionsMenu";
 import {
   buildDayNames,
   buildWorkoutMeta,
@@ -404,51 +405,6 @@ function SkeletonGrid() {
   );
 }
 
-// ── Plan Actions Menu ─────────────────────────────────────────────────
-
-interface PlanActionItem {
-  id: string;
-  label: string;
-  icon?: ReactNode;
-  danger?: boolean;
-  onSelect: () => void | Promise<void>;
-}
-
-/** 계획 카드 머리의 ⋯ 버튼 — 펼침 패널(버튼 + aria-expanded/aria-controls)로 관리 동작을 모은다. 닫히면 자리를 차지하지 않는다. */
-function PlanActionsMenu({ label, items }: { label: string; items: PlanActionItem[] }) {
-  const [open, setOpen] = useState(false);
-  const panelId = useId();
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [open]);
-
-  if (items.length === 0) return null;
-  return (
-    <div ref={rootRef} className="plan-actions-menu" data-testid="K4-3-6"
-      onKeyDown={(event) => { if (event.key === 'Escape' && open) { setOpen(false); triggerRef.current?.focus(); } }}>
-      <IconButton ref={triggerRef} size="sm" icon={<MoreHorizontal size={ICON_SIZE.md} />} aria-label={label} title={label}
-        aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((value) => !value)} />
-      <div id={panelId} className="plan-actions-menu__panel" hidden={!open}>
-        {items.map((item) => (
-          <Button key={item.id} variant="ghost" size="sm" data-testid={item.id} leadingIcon={item.icon}
-            className={item.danger ? 'plan-actions-menu__item plan-actions-menu__item--danger' : 'plan-actions-menu__item'}
-            onClick={() => { setOpen(false); void item.onSelect(); }}>
-            {item.label}
-          </Button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Phase Bar ─────────────────────────────────────────────────────────
 
 interface PhaseBarProps {
@@ -526,7 +482,7 @@ export function PhaseBar({ weeks, goal, onIcsExport, onGoalReset, onReroll, onAb
       </div>
       {/* 목표·계획 관리 동작은 줄 전체 버튼 대신 ⋯ 하나로 접는다(2026-11-15 사용자 지적). */}
       {(onIcsExport || onReroll || onGoalReset || onAbandon) && (
-        <PlanActionsMenu label={t('mobile.managePlan')} items={[
+        <PlanActionsMenu testId="K4-3-6" label={t('mobile.managePlan')} items={[
           ...(goal && onIcsExport ? [{ id: 'K4-3-2', label: t('buttons.ics'), onSelect: onIcsExport }] : []),
           ...(onReroll ? [{ id: 'K4-3-3', label: t('buttons.reroll'), icon: <RefreshCw size={ICON_SIZE.sm} aria-hidden="true" />, onSelect: onReroll }] : []),
           ...(onGoalReset ? [{ id: 'K4-3-4', label: t('buttons.goalReset'), icon: <Target size={ICON_SIZE.sm} aria-hidden="true" />, onSelect: onGoalReset }] : []),
