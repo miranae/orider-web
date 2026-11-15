@@ -7,16 +7,20 @@ import i18n from "i18next";
 import enSettings from "../../i18n/resources/en/settings.json";
 
 vi.mock("../../contexts/ToastContext", () => ({ useToast: () => ({ showToast: vi.fn() }) }));
-vi.mock("../../contexts/DialogContext", () => ({ useDialog: () => ({ confirm: vi.fn() }) }));
+const confirm = vi.hoisted(() => vi.fn());
+vi.mock("../../contexts/DialogContext", () => ({ useDialog: () => ({ confirm }) }));
 const listKeys = vi.hoisted(() => vi.fn());
+const revokeKey = vi.hoisted(() => vi.fn());
 vi.mock("../../services/personalDataApi", () => ({
   listPersonalApiKeys: listKeys,
   createPersonalApiKey: vi.fn(),
-  revokePersonalApiKey: vi.fn(),
+  revokePersonalApiKey: revokeKey,
 }));
 
 beforeEach(async () => {
   listKeys.mockReset().mockResolvedValue([]);
+  confirm.mockReset();
+  revokeKey.mockReset().mockResolvedValue(undefined);
   i18n.addResourceBundle("en", "settings", enSettings, true, true);
   await i18n.changeLanguage("ko");
 });
@@ -76,5 +80,38 @@ describe("PaneDeveloper key list refresh", () => {
     await screen.findByText(/아직 생성된 API 키가 없어요/);
     await userEvent.click(refresh);
     await waitFor(() => expect(listKeys).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe("PaneDeveloper icon actions", () => {
+  it("키 폐기는 글자 없는 휴지통 아이콘 버튼이고 확인을 거친다", async () => {
+    listKeys.mockResolvedValue([
+      { id: "k1", name: "My key", prefix: "orid_ab", scopes: ["profile:read"], createdAt: 1, lastUsedAt: 0 },
+    ]);
+    render(<MemoryRouter><PaneDeveloper /></MemoryRouter>);
+    const revoke = await screen.findByRole("button", { name: "폐기" });
+    expect(revoke).toHaveClass("ds-btn--icon-only");
+    expect(revoke).toHaveAttribute("title", "폐기");
+    expect(revoke.textContent).toBe("");
+
+    confirm.mockResolvedValueOnce(false);
+    await userEvent.click(revoke);
+    expect(confirm).toHaveBeenCalledWith("'My key' 키를 폐기할까요? 되돌릴 수 없습니다.", { destructive: true });
+    expect(revokeKey).not.toHaveBeenCalled();
+
+    confirm.mockResolvedValueOnce(true);
+    await userEvent.click(revoke);
+    await waitFor(() => expect(revokeKey).toHaveBeenCalledWith("k1"));
+  });
+
+  it("바로 실행해보기 복사는 코드 블록 오른쪽 위에 겹친 작은 아이콘 버튼이다", async () => {
+    render(<MemoryRouter><PaneDeveloper /></MemoryRouter>);
+    await screen.findByText(/아직 생성된 API 키가 없어요/);
+    const copy = screen.getByRole("button", { name: "복사" });
+    expect(copy).toHaveClass("ds-btn--icon-only", "ds-btn--compact", "settings-dev-example__copy");
+    expect(copy).toHaveAttribute("title", "복사");
+    expect(copy.textContent).toBe("");
+    const container = copy.closest(".settings-dev-example");
+    expect(container?.querySelector("code")).toHaveTextContent(/curl/);
   });
 });

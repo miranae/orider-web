@@ -285,3 +285,11 @@
   .settings-service-copy { display: contents; }
   .settings-service-description, .settings-service-card > :last-child { grid-column: 1 / -1; }
 }
+
+/* 개발자 — 바로 실행해보기: 복사 아이콘을 코드 블록 오른쪽 위에 겹친다. 오른쪽 여백은 아이콘 자리. */
+.settings-dev-example { position: relative; }
+.settings-dev-example__code {
+  display: block;
+  padding: var(--space-2) calc(var(--space-7) + var(--space-3)) var(--space-2) var(--space-3);
+}
+.settings-dev-example__copy { position: absolute; top: var(--space-1); right: var(--space-1); }

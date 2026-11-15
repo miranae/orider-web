@@ -8,7 +8,7 @@ import { LocalizedLink } from "../LocalizedLink";
 import { useLayoutAuthority } from "../../hooks/useLayoutAuthority";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Pencil, RefreshCw, Smartphone, Trash2, Users, Smartphone as PhoneIcon } from "lucide-react";
+import { ChevronRight, Pencil, RefreshCw, Smartphone, Trash2, Users, Smartphone as PhoneIcon } from "lucide-react";
 
 import {
   deleteDevice,
@@ -188,12 +188,13 @@ function EditableCard({
             </Button>
           </div>
         ) : (
-          <Button variant="ghost" size="md"
+          <IconButton
+            variant="ghost"
+            icon={<Pencil size={ICON_SIZE.xs} />}
             onClick={onEdit}
             aria-label={t("device.editAriaLabel")}
-          >
-            <Pencil size={ICON_SIZE.xs} /> {t("device.edit")}
-          </Button>
+            title={t("device.editAriaLabel")}
+          />
         )
       }
       dense
@@ -1360,10 +1361,12 @@ function LegacyLayoutCard({
       <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
         <LocalizedLink
           to="/settings/device?panel=data-pages"
-          className={buttonClass({ variant: "secondary", size: "md" })}
+          className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })}
           data-testid="legacy-layout-open-equipment"
+          aria-label={t("device.legacyLayoutOpenEquipment")}
+          title={t("device.legacyLayoutOpenEquipment")}
         >
-          {t("device.legacyLayoutOpenEquipment")}
+          <span className="ds-btn__icon" aria-hidden><ChevronRight size={ICON_SIZE.xs} /></span>
         </LocalizedLink>
         {!importing && (
           <Button
