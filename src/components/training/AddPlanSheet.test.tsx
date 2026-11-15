@@ -5,9 +5,9 @@ import { GlossaryProvider } from "../common/GlossaryProvider";
 import AddPlanSheet from './AddPlanSheet';
 import { RetainedPageContext } from "../../contexts/RetainedPageContext";
 
-const mocks = vi.hoisted(() => ({ transaction: vi.fn(), update: vi.fn(), alert: vi.fn(), date: 1000000 }));
+const mocks = vi.hoisted(() => ({ transaction: vi.fn(), update: vi.fn(), alert: vi.fn(), confirm: vi.fn(), date: 1000000 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-vi.mock('../../contexts/DialogContext', () => ({ useDialog: () => ({ alert: mocks.alert }) }));
+vi.mock('../../contexts/DialogContext', () => ({ useDialog: () => ({ alert: mocks.alert, confirm: mocks.confirm }) }));
 vi.mock('firebase/firestore', () => ({ doc: vi.fn(() => ({ id: 'week' })), runTransaction: mocks.transaction }));
 const day: PlanDay = { date: 1000000, dayOfWeek: 0, workout: 'rest', plannedTSS: 0, plannedDurationMin: 0, completed: false, skipped: false };
 function show() { return render(<AddPlanSheet goalId="g" weekId="w" days={[day]} initialDayIndex={0} onClose={vi.fn()} onUpdate={vi.fn()} />); }
@@ -21,7 +21,7 @@ it("hides a retained add-plan sheet and releases its body lock when inactive", (
   expect(document.body.style.position).toBe(previous);
 });
 beforeEach(() => {
-  mocks.date = day.date; mocks.transaction.mockReset(); mocks.update.mockReset(); mocks.alert.mockReset();
+  mocks.date = day.date; mocks.transaction.mockReset(); mocks.update.mockReset(); mocks.alert.mockReset(); mocks.confirm.mockReset();
   mocks.transaction.mockImplementation(async (_db, callback) => callback({
     get: async () => ({ exists: () => true, data: () => ({ days: [{ ...day, date: mocks.date }] }) }), update: mocks.update,
   }));
@@ -54,12 +54,19 @@ describe('운동 추가 선택과 적용', () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
     view.unmount(); expect(trigger).toHaveFocus(); trigger.remove();
   });
-  it('휴식도 별도 적용이 필요하고 서버 날짜가 달라졌으면 쓰지 않는다', async () => {
-    show(); mocks.date += 86400000;
+  it('휴식도 별도 적용이 필요하고 서버 날짜가 달라졌으면 쓰지 않고, 원인 문구를 누르면 다시 불러온다', async () => {
+    const onUpdate = vi.fn();
+    render(<AddPlanSheet goalId="g" weekId="w" days={[day]} initialDayIndex={0} onClose={vi.fn()} onUpdate={onUpdate} />);
+    mocks.date += 86400000;
     fireEvent.click(screen.getByRole('button', { name: 'discipline.rest' }));
     fireEvent.click(screen.getByRole('button', { name: 'add.applyRest' }));
-    await waitFor(() => expect(mocks.alert).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.alert).toHaveBeenCalledOnce());
     expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.confirm).not.toHaveBeenCalled();
+    const message = render(<>{mocks.alert.mock.calls[0]![0]}</>);
+    expect(onUpdate).not.toHaveBeenCalled();
+    fireEvent.click(within(message.container).getByRole('button', { name: 'edit.staleDay' }));
+    expect(onUpdate).toHaveBeenCalledOnce();
   });
   it('성공한 휴식 적용만 0 부하로 저장한다', async () => {
     show();

@@ -694,6 +694,8 @@
     "dataPagesSaved": "Data pages saved.",
     "dataPagesSyncing": "Saved. Syncing to the server.",
     "dataPagesConflict": "Another device saved first. Choose which layout to keep.",
+    "dataPagesConflictLoadLatest": "Load latest layout",
+    "dataPagesConflictKeepMine": "Overwrite with my layout",
     "dataPagesTargetDeleted": "The bike you were saving to was deleted.",
     "dataPagesFailed": "Couldn't save. Please try again.",
     "dataPagesUnavailable": "Couldn't load the saved layout right now. Saving is paused so the existing layout isn't overwritten.",

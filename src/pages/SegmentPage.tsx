@@ -17,6 +17,8 @@ import { collection, query, orderBy, where, getDocs, limit, addDoc, onSnapshot }
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { logClientError } from "../services/errorLogger";
 import { useSegmentMetadata } from "../hooks/useSegmentMetadata";
+import { segmentStatusResolve } from "../components/segment/segmentStatusResolve";
+import { Resolvable } from "../components/redesign";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { decodePolyline } from "../utils/polyline";
@@ -461,10 +463,14 @@ function SegmentDetailContent() {
             const badgeLabel = segment.status && (segment.status === "pending" || segment.status === "rejected" || segment.status === "hidden")
               ? t(`status.${segment.status}`)
               : null;
+            // 만든 사람이 상태 칩을 누르면 해소하는 곳(반려 → 다시 만들기, 숨김·대기 → 문의)으로 간다.
+            const isCreator = !!user && !!segment.createdByUid && segment.createdByUid === user.uid;
             return badgeStyle && badgeLabel && (
-              <span className="text-[length:var(--ft-body-size)] font-semibold rounded-[var(--r-sm)]" style={{ ...badgeStyle, padding: "var(--space-1) var(--space-2)" }}>
-                {badgeLabel}
-              </span>
+              <Resolvable resolve={segmentStatusResolve(segment.status, isCreator)}>
+                <span className="text-[length:var(--ft-body-size)] font-semibold rounded-[var(--r-sm)]" style={{ ...badgeStyle, padding: "var(--space-1) var(--space-2)" }}>
+                  {badgeLabel}
+                </span>
+              </Resolvable>
             );
           })()}
         </div>

@@ -51,6 +51,8 @@ import { Button, Card, Chip, Text, Input, buttonClass } from "../theme/component
 import SafeImage from "../components/SafeImage";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
 import { ICON_SIZE } from "../theme/tokens/icon";
+import { segmentStatusResolve } from "../components/segment/segmentStatusResolve";
+import { Resolvable } from "../components/redesign";
 
 function uniquePhotos(photos: AthletePhoto[]) {
   const seen = new Set<string>();
@@ -1032,6 +1034,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                       <p className="text-[length:var(--fs-sm)] font-medium text-[var(--ink-0)] truncate">{seg.name}</p>
                       <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{(seg.distance / 1000).toFixed(2)} km</p>
                     </Link>
+                    {/* 본인 세그먼트의 상태 칩을 누르면 해소하는 곳(반려 → 다시 만들기, 숨김·대기 → 문의)으로 간다. */}
+                    <Resolvable className="shrink-0" resolve={segmentStatusResolve(seg.status, isMe)}>
                     <span className={`ml-2 px-2 py-0.5 text-[length:var(--fs-xs)] font-semibold rounded-[var(--r-sm)] shrink-0 ${
                       seg.status === "active" ? "bg-[var(--lime)]/10 text-[var(--lime)]" :
                       seg.status === "pending" ? "bg-[var(--amber)]/10 text-[var(--amber)]" :
@@ -1040,6 +1044,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                     }`}>
                       {seg.status === "active" ? t("segments.status.active") : seg.status === "pending" ? t("segments.status.pending") : seg.status === "rejected" ? t("segments.status.rejected") : seg.status}
                     </span>
+                    </Resolvable>
                     {isMe && (
                       <Button size="sm" variant="ghost" iconOnly onClick={() => handleDeleteSegment(seg.id, seg.name)} aria-label={t("segments.deleteTitle")}><Trash2 size={ICON_SIZE.md} aria-hidden="true" /></Button>
                     )}

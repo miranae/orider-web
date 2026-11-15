@@ -18,6 +18,8 @@ export const FOCUS_TARGETS = {
   ftpTest: "ftp-test",
   weight: "weight",
   height: "height",
+  /** 설정 > 계정의 AI 코치 이용 동의 검토 버튼. */
+  aiCoachConsent: "ai-coach-consent",
 } as const;
 
 export type FocusTargetKey = (typeof FOCUS_TARGETS)[keyof typeof FOCUS_TARGETS];

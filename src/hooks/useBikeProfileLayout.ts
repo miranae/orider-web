@@ -4,10 +4,10 @@ import { doc, onSnapshot } from "firebase/firestore";
 import type { DataPageConfig, LayoutConfig } from "@shared/types/deviceSettings";
 
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
-import { parseCanonicalLayout } from "../features/bikeProfileLayout/canonical";
+import { parseCanonicalLayout, payloadHash } from "../features/bikeProfileLayout/canonical";
 import type { CanonicalLayout } from "../features/bikeProfileLayout/canonical";
-import { browserSaveDeps } from "../features/bikeProfileLayout/client";
-import { readHead } from "../features/bikeProfileLayout/outbox";
+import { browserSaveDeps, withOwnerLock } from "../features/bikeProfileLayout/client";
+import { headKey, listIntents, putHead, readHead, removeIntent } from "../features/bikeProfileLayout/outbox";
 import { defaultCanonicalLayout, toCanonical, toRenderable } from "../features/bikeProfileLayout/renderable";
 import { saveBikeProfileLayout } from "../features/bikeProfileLayout/saveLayout";
 import type { SaveLayoutResult } from "../features/bikeProfileLayout/saveLayout";
@@ -36,6 +36,16 @@ export type BikeProfileLayoutState = {
   /** 임시 표시본 위에서는 저장을 막는다 — 보존해야 할 원문을 정상 데이터로 덮어쓴다. */
   canSave: boolean;
   save: (pages: LayoutConfig[]) => Promise<SaveLayoutResult>;
+  /**
+   * 저장 충돌(다른 기기가 먼저 저장) 해소 — 사용자가 고른 쪽을 남긴다 (#1943 §6.1).
+   * - `"remote"`: 이 자전거의 미전송 편집을 버리고 다른 기기가 저장한 최신 구성을 불러온다.
+   * - `"mine"`: 최신 구성 위에 내 구성을 다시 저장한다(서버 CAS 는 최신 revision 기준).
+   */
+  resolveConflict: (
+    choice: "remote" | "mine",
+    conflict: { remoteRevision: number; remotePayload: string },
+    minePages: LayoutConfig[],
+  ) => Promise<SaveLayoutResult>;
 };
 
 /**
@@ -161,6 +171,88 @@ export function useBikeProfileLayout(
     [ownerKey, profileId, record, revision, state.profileId, state.loading],
   );
 
+  const resolveConflict = useCallback(
+    async (
+      choice: "remote" | "mine",
+      conflict: { remoteRevision: number; remotePayload: string },
+      minePages: LayoutConfig[],
+    ): Promise<SaveLayoutResult> => {
+      if (!ownerKey || !profileId) {
+        return { status: "localSaveFailed", cause: new Error("로그인 필요") };
+      }
+      const remote = parseCanonicalLayout(conflict.remotePayload, "CYCLING");
+      if (!remote.ok || remote.layout.profileId !== profileId) {
+        return { status: "invalidPayload", reasons: ["conflict remotePayload 를 읽지 못함"] };
+      }
+      const deps = browserSaveDeps();
+      try {
+        // 저장·drain 과 같은 owner 잠금 안에서 차단 intent 를 걷고 head 를 원격으로 맞춘다 —
+        // 잠금 밖에서 하면 진행 중인 drain 이 지운 intent 를 다시 보내거나 head 를 되돌린다.
+        await withOwnerLock(ownerKey, async () => {
+          const intents = (await listIntents(ownerKey)).filter((i) => i.profileId === profileId);
+          for (const intent of intents) await removeIntent(intent.mutationId);
+          await putHead({
+            key: headKey(ownerKey, profileId),
+            ownerKey,
+            profileId,
+            revision: conflict.remoteRevision,
+            canonicalPayload: conflict.remotePayload,
+            payloadHash: await payloadHash(conflict.remotePayload),
+            updatedAtMs: Date.now(),
+            lastMutationId: `conflict-resolved:${conflict.remoteRevision}`,
+          });
+          deps.log("info", "충돌 해소 — 미전송 intent 정리, head 를 원격으로", {
+            ownerKey,
+            profileId,
+            choice,
+            removed: intents.length,
+            remoteRevision: conflict.remoteRevision,
+          });
+        });
+      } catch (cause) {
+        deps.log("error", "충돌 해소 실패 — 로컬 outbox 를 정리하지 못함", {
+          ownerKey,
+          profileId,
+          choice,
+          cause: String(cause),
+        });
+        return { status: "localSaveFailed", cause };
+      }
+      const showRemote = () =>
+        setState({
+          profileId,
+          record: remote.layout,
+          revision: conflict.remoteRevision,
+          source: "canonical",
+          loading: false,
+        });
+      if (choice === "remote") {
+        showRemote();
+        return { status: "synced", revision: conflict.remoteRevision };
+      }
+      // 원격 레코드에서 sport·unknownKeys 를 이어받아 내 구성을 최신 revision 위에 저장한다.
+      const mine = toCanonical(minePages, remote.layout);
+      const result = await saveBikeProfileLayout(
+        { ownerKey, profileId, layout: mine, expectedRevision: conflict.remoteRevision },
+        deps,
+      );
+      if (result.status === "synced" || result.status === "savedPendingSync") {
+        // 로컬 head 는 이미 내 구성이다 — 원격 스냅샷을 기다리는 동안 편집기가 원격 구성으로 깜빡이지 않게.
+        setState({
+          profileId,
+          record: mine,
+          revision: conflict.remoteRevision + 1,
+          source: "canonical",
+          loading: false,
+        });
+      } else {
+        showRemote();
+      }
+      return result;
+    },
+    [ownerKey, profileId],
+  );
+
   return {
     config,
     source,
@@ -174,5 +266,6 @@ export function useBikeProfileLayout(
       !loading &&
       state.profileId === profileId,
     save,
+    resolveConflict,
   };
 }

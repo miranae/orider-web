@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   subscriptions: [] as Subscription[],
   saveLayout: vi.fn(),
   localHead: null as unknown,
+  intents: [] as Array<{ mutationId: string; profileId: string }>,
+  removeIntent: vi.fn(),
+  putHead: vi.fn(),
 }));
 
 vi.mock("firebase/firestore", () => ({
@@ -29,8 +32,15 @@ vi.mock("../services/firebase", () => ({
 vi.mock("../services/errorLogger", () => ({ logClientError: vi.fn() }));
 vi.mock("../features/bikeProfileLayout/outbox", () => ({
   readHead: vi.fn(async () => mocks.localHead),
+  headKey: (owner: string, profile: string) => `${owner}|${profile}`,
+  listIntents: vi.fn(async () => mocks.intents),
+  removeIntent: (...args: unknown[]) => mocks.removeIntent(...args),
+  putHead: (...args: unknown[]) => mocks.putHead(...args),
 }));
-vi.mock("../features/bikeProfileLayout/client", () => ({ browserSaveDeps: () => ({}) }));
+vi.mock("../features/bikeProfileLayout/client", () => ({
+  browserSaveDeps: () => ({ log: vi.fn() }),
+  withOwnerLock: (_owner: string, operation: () => Promise<unknown>) => operation(),
+}));
 vi.mock("../features/bikeProfileLayout/saveLayout", () => ({
   saveBikeProfileLayout: (...args: unknown[]) => mocks.saveLayout(...args),
 }));
@@ -148,5 +158,58 @@ describe("useBikeProfileLayout 대상 전환", () => {
 
     await waitFor(() => expect(result.current.revision).toBe(3));
     expect(result.current.canSave).toBe(true);
+  });
+});
+
+/** 저장 충돌 해소 (#1943 §6.1) — 차단 intent 를 걷어야 그 자전거의 저장이 다시 열린다. */
+describe("useBikeProfileLayout 충돌 해소", () => {
+  const remotePayload = JSON.stringify({
+    schemaVersion: 1, profileId: "road", sport: "CYCLING", pages: [{ columns: 4, rows: 4, fields: [] }],
+  });
+  beforeEach(() => {
+    mocks.subscriptions.length = 0;
+    mocks.saveLayout.mockReset().mockResolvedValue({ status: "synced", revision: 8 });
+    mocks.localHead = null;
+    mocks.intents = [
+      { mutationId: "m-road", profileId: "road" },
+      { mutationId: "m-other", profileId: "gravel" },
+    ];
+    mocks.removeIntent.mockReset().mockResolvedValue(undefined);
+    mocks.putHead.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("최신 구성 불러오기는 이 자전거의 미전송 intent 만 지우고 head·화면을 원격 구성으로 맞춘다", async () => {
+    const { result } = renderHook(() => useBikeProfileLayout("uid-a", "road", [page]));
+    act(() => mocks.subscriptions[0]!.next(remoteSnap("road", 5)));
+    await waitFor(() => expect(result.current.revision).toBe(5));
+
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.resolveConflict("remote", { remoteRevision: 7, remotePayload }, [page]);
+    });
+
+    expect(outcome).toEqual({ status: "synced", revision: 7 });
+    expect(mocks.removeIntent.mock.calls).toEqual([["m-road"]]);
+    expect(mocks.putHead).toHaveBeenCalledWith(expect.objectContaining({
+      profileId: "road", revision: 7, canonicalPayload: remotePayload,
+    }));
+    expect(mocks.saveLayout).not.toHaveBeenCalled();
+    expect(result.current.revision).toBe(7);
+    expect(result.current.source).toBe("canonical");
+  });
+
+  it("내 구성으로 덮어쓰기는 원격 revision 을 기대값으로 내 구성을 저장한다", async () => {
+    const { result } = renderHook(() => useBikeProfileLayout("uid-a", "road", [page]));
+    act(() => mocks.subscriptions[0]!.next(remoteSnap("road", 5)));
+    await waitFor(() => expect(result.current.revision).toBe(5));
+
+    await act(async () => {
+      await result.current.resolveConflict("mine", { remoteRevision: 7, remotePayload }, [page]);
+    });
+
+    expect(mocks.removeIntent).toHaveBeenCalledWith("m-road");
+    expect(mocks.saveLayout).toHaveBeenCalledOnce();
+    expect(mocks.saveLayout.mock.calls[0]![0]).toMatchObject({ profileId: "road", expectedRevision: 7 });
+    expect(result.current.revision).toBe(8);
   });
 });

@@ -4,6 +4,8 @@ import type { User } from "firebase/auth";
 import { useTodayTrainingDecision } from "../../hooks/useTodayTrainingDecision";
 import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
 import { Alert, Button, Card, Chip, Text } from "../../theme/components";
+import { Resolvable, type Resolve } from "../../components/redesign";
+import { FOCUS_TARGETS, withFocus } from "../../services/focusTarget";
 import {
   canShowRecommendation, decisionAction, primaryEffectiveSession, primaryRecommendedAdjustment,
   primaryRecommendedSession, primaryScheduledSession, presentedRecommendedAdjustments,
@@ -15,6 +17,22 @@ import { TrainingExecutionPanel } from "./TrainingExecutionPanel";
 import "./training-decision.css";
 
 export type TrainingDecisionSurface = "fitness" | "today" | "plan";
+
+/** 폴백 사유 문구를 누르면 해소하는 곳 — 목표 화면·AI 코치 동의 칸, 일시적 데이터 문제면 다시 불러오기. */
+function fallbackResolve(reasonCode: string, discipline: "bike" | "run" | "swim", refresh: () => void): Resolve | undefined {
+  switch (reasonCode) {
+    case "no_active_goal":
+    case "ambiguous_active_goal":
+      return { to: `/coach/goals?sport=${discipline}` };
+    case "consent_required":
+      return { to: withFocus("/settings/account", FOCUS_TARGETS.aiCoachConsent) };
+    case "canonical_load_unavailable":
+    case "dependency_unavailable":
+      return { onClick: refresh };
+    default:
+      return undefined;
+  }
+}
 
 function ProposalPanel({ decision, recommendationVisible, refresh }: {
   decision: NonNullable<ReturnType<typeof useTodayTrainingDecision>["decision"]>;
@@ -163,11 +181,14 @@ function TodayTrainingDecisionCardContent({ user, discipline, surface = "fitness
       <div><Text as="h2" variant="title">{t(`decision.status.${statusKey}`)}</Text></div>
     </header>
     {decision.healthGate.state === "stop" && <Alert data-testid={surface === "today" ? "K2-2-3" : undefined} variant="danger" title={t("decision.healthStop")} />}
-    {!scheduled && <Text as="p" variant="body" tone="secondary">{t("decision.noScheduled")}</Text>}
+    {/* 예정이 없다는 문구를 누르면 계획으로 간다(계획 화면 안에서는 그대로). */}
+    {!scheduled && <Text as="p" variant="body" tone="secondary">
+      <Resolvable resolve={surface !== "plan" ? { to: `/coach/plan?sport=${discipline}` } : undefined}>{t("decision.noScheduled")}</Resolvable></Text>}
     {/* 계약이 내려주는 폴백 사유를 그대로 노출 — "왜 권고가 없는지"를 사용자가 알 수 있어야 한다. */}
     {decision.fallback.active && decision.fallback.reasonCode
       && <Text as="p" variant="caption" tone="secondary" data-fallback-reason={decision.fallback.reasonCode}>
-        {t(`decision.fallback.reason.${decision.fallback.reasonCode}`)}</Text>}
+        <Resolvable resolve={fallbackResolve(decision.fallback.reasonCode, discipline, refresh)}>
+          {t(`decision.fallback.reason.${decision.fallback.reasonCode}`)}</Resolvable></Text>}
     <div data-testid={surface === "today" ? "K2-2-1" : "K4-4-1"} className="training-decision-card__sessions">
       {/* 같은 내용이면 원래 계획 자리에 한 장만 — 조정 권고와의 비교 순서는 유지 */}
       {effectiveMatchesScheduled ? <TrainingDecisionSessionView label={t("decision.effectiveScheduled")} session={effective} tone="effective" />

@@ -28,8 +28,37 @@ import {
 } from "./teamAssignment";
 import { meetingErrorMessage } from "./meetingMessages";
 import "./meetingTeams.css";
+import { revealFocusTarget } from "../../services/focusTarget";
+import { Resolvable } from "../../components/redesign";
 import { useTeamPointerDrag } from "./useTeamPointerDrag";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+
+type TeamFixTarget = { teamId: string; field: "name" | "capacity" };
+
+/**
+ * 조 검증 오류를 고칠 조와 칸. validateMeetingTeams 는 조 순서대로 검사해 처음 걸린 조의 오류를
+ * 돌려주므로, 같은 종류의 오류가 처음 나는 조가 곧 그 조다. 이동 실패는 목적 조를 그대로 쓴다.
+ */
+function issueTeam(
+  issue: TeamIssue,
+  teams: MeetingTeam[],
+  targetTeamId?: string,
+): TeamFixTarget | null {
+  const teamId =
+    issue === "name"
+      ? teams.find((team) => !team.name.trim() || team.name.trim().length > 100)?.id
+      : issue === "capacity"
+        ? teams.find(
+            (team) =>
+              team.capacity !== undefined &&
+              (!Number.isInteger(team.capacity) || team.capacity < 1 || team.capacity > 200),
+          )?.id
+        : issue === "overflow"
+          ? (targetTeamId ??
+            teams.find((team) => team.memberIds.length > (team.capacity ?? 200))?.id)
+          : undefined;
+  return teamId ? { teamId, field: issue === "name" ? "name" : "capacity" } : null;
+}
 
 export default function MeetingTeams({
   meeting,
@@ -65,6 +94,12 @@ export default function MeetingTeams({
   const [baseRevision, setBaseRevision] = useState(revision);
   const [baseline, setBaseline] = useState("");
   const [error, setError] = useState("");
+  // 조 이름·정원 오류 → 그 조의 접힌 「조 설정」 칸. 문구가 바뀌면 연결도 끊는다.
+  const [errorFix, setErrorFix] = useState<{
+    teamId: string;
+    field: "name" | "capacity";
+    message: string;
+  } | null>(null);
   const [feedback, setFeedback] = useState("");
   const [copyFallback, setCopyFallback] = useState(false);
   const [reviewRequired, setReviewRequired] = useState(false);
@@ -149,6 +184,29 @@ export default function MeetingTeams({
         "Choose a leader from members assigned to that group.",
       ),
     })[issue];
+  /** 검증 오류를 보여주고, 고칠 조를 알 수 있으면 문구를 그 조 설정 칸에 잇는다. */
+  const failTeams = (issue: TeamIssue, teams: MeetingTeam[], targetTeamId?: string) => {
+    const message = issueText(issue);
+    setError(message);
+    const target = issueTeam(issue, teams, targetTeamId);
+    setErrorFix(target ? { ...target, message } : null);
+  };
+  const fixTeam =
+    errorFix && errorFix.message === error && draft.some((team) => team.id === errorFix.teamId)
+      ? errorFix
+      : null;
+  // 조 오류 문구 자체를 누르면 그 조의 접힌 조 설정을 펼치고 칸에 초점을 둔다.
+  const openTeamSettings = (target: TeamFixTarget | null) =>
+    target
+      ? {
+          onClick: () => {
+            const input = document.getElementById(`team-${target.field}-${target.teamId}`);
+            if (input) revealFocusTarget(input);
+          },
+        }
+      : undefined;
+  const liveIssue = editing ? validateMeetingTeams(draft, meeting.registrations) : null;
+  const liveIssueTeam = liveIssue ? issueTeam(liveIssue, draft) : null;
   const change = (next: MeetingTeam[]) => {
     setDraft(next);
     setUndo(null);
@@ -170,7 +228,7 @@ export default function MeetingTeams({
         ),
       );
     } catch (failure) {
-      setError(issueText((failure as Error).message as TeamIssue));
+      failTeams((failure as Error).message as TeamIssue, draft, teamId);
     }
   };
   const drag = useTeamPointerDrag({
@@ -212,7 +270,7 @@ export default function MeetingTeams({
           ),
         );
       } catch (failure) {
-        setError(issueText((failure as Error).message as TeamIssue));
+        failTeams((failure as Error).message as TeamIssue, draft, teamId);
       }
     },
   });
@@ -268,7 +326,7 @@ export default function MeetingTeams({
     if (guard.current || stale) return;
     const issue = validateMeetingTeams(draft, meeting.registrations);
     if (issue) {
-      setError(issueText(issue));
+      failTeams(issue, draft);
       return;
     }
     guard.current = true;
@@ -723,7 +781,7 @@ export default function MeetingTeams({
                     ),
                   );
                 } catch (failure) {
-                  setError(issueText((failure as Error).message as TeamIssue));
+                  failTeams((failure as Error).message as TeamIssue, draft);
                 }
               }}
             >
@@ -779,7 +837,7 @@ export default function MeetingTeams({
                     ),
                   );
                 } catch (failure) {
-                  setError(issueText((failure as Error).message as TeamIssue));
+                  failTeams((failure as Error).message as TeamIssue, draft);
                 }
               }}
             >
@@ -1008,9 +1066,7 @@ export default function MeetingTeams({
                           ),
                         );
                       } catch (failure) {
-                        setError(
-                          issueText((failure as Error).message as TeamIssue),
-                        );
+                        failTeams((failure as Error).message as TeamIssue, draft);
                       }
                     }}
                   >
@@ -1028,7 +1084,7 @@ export default function MeetingTeams({
             )}
             {error && (
               <p className="cp-error" role="alert">
-                {error}
+                <Resolvable resolve={openTeamSettings(fixTeam)}>{error}</Resolvable>
               </p>
             )}
           </section>
@@ -1205,9 +1261,9 @@ export default function MeetingTeams({
             >
               {text("편집 취소", "Cancel edits")}
             </Button>
-            {validateMeetingTeams(draft, meeting.registrations) && (
+            {liveIssue && (
               <p className="cp-muted">
-                {issueText(validateMeetingTeams(draft, meeting.registrations)!)}
+                <Resolvable resolve={openTeamSettings(liveIssueTeam)}>{issueText(liveIssue)}</Resolvable>
               </p>
             )}
           </div>
