@@ -365,6 +365,7 @@
   "src/features/club-preparation/MeetingPeople.tsx",
   "src/features/club-preparation/MeetingSegments.tsx",
   "src/features/club-preparation/MeetingTeams.tsx",
+  "src/features/club-preparation/builtinCourseCatalog.ts",
   "src/features/club-preparation/checkpointPresentation.ts",
   "src/features/club-preparation/clubCourseVisual.ts",
   "src/features/club-preparation/courseCatalog.ts",
