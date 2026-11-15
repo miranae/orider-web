@@ -1,7 +1,7 @@
 import MeetingInviteShare from "../../features/club-preparation/MeetingInviteShare";
 import MeetingDiscord from "../../features/club-preparation/MeetingDiscord";
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, MapPin, Users } from "lucide-react";
+import { CalendarDays, MapPin, Pencil, RefreshCw, Users } from "lucide-react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -13,7 +13,7 @@ import {
   ErrorState,
   LoadingSkeleton,
 } from "../../components/redesign";
-import { Button, Card, Chip, buttonClass } from "../../theme/components";
+import { Button, Card, Chip, IconButton, buttonClass } from "../../theme/components";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
 import GroupSubNav from "../../components/group/GroupSubNav";
 import { canManageGroup } from "../../features/group/groupPermissions";
@@ -76,6 +76,7 @@ export default function ClubMeetingPage({
       mounted.current = false;
     };
   }, []);
+  const [refreshing, setRefreshing] = useState(false);
   const snapshot = useClubMeeting(
     sourceId,
     role ? user?.uid : undefined,
@@ -168,13 +169,22 @@ export default function ClubMeetingPage({
           ← {text("모임 목록", "Meetings")}
         </Link>
         {mode === "detail" && (
-          <Button
+          // 새로고침은 화면 상단 작은 아이콘으로 두고, 다시 읽는 동안 스피너를 보여준다.
+          <IconButton
             size="sm"
-            variant="outline"
-            onClick={() => void snapshot.reload().catch(() => {})}
-          >
-            {text("새로고침", "Refresh")}
-          </Button>
+            variant="ghost"
+            loading={refreshing}
+            aria-label={text("새로고침", "Refresh")}
+            title={text("새로고침", "Refresh")}
+            icon={<RefreshCw size={ICON_SIZE.sm} />}
+            onClick={() => {
+              setRefreshing(true);
+              void snapshot
+                .reload()
+                .catch(() => {})
+                .finally(() => setRefreshing(false));
+            }}
+          />
         )}
       </div>
       {mode === "detail" && data ? (
@@ -377,7 +387,21 @@ function ServerMeetingDetail({
                   : text("모집 중", "Registration open")}
           </Chip>
         </div>
-        <h1>{meeting.title}</h1>
+        <div className="cp-hero-title">
+          <h1>{meeting.title}</h1>
+          {/* 주최자 수정은 큰 행 버튼 대신 제목 옆 연필 아이콘으로 둔다. */}
+          {data.isHost && (
+            <IconButton
+              size="sm"
+              variant="ghost"
+              disabled={busy || !live}
+              aria-label={text("모임 수정", "Edit meeting")}
+              title={text("모임 수정", "Edit meeting")}
+              icon={<Pencil size={ICON_SIZE.sm} />}
+              onClick={onEdit}
+            />
+          )}
+        </div>
         {longIntroduction ? (
           <div className="cp-hero-introduction">
             <p>
@@ -429,14 +453,6 @@ function ServerMeetingDetail({
             className="cp-hero-tools"
             aria-label={text("모임 운영", "Manage meeting")}
           >
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy || !live}
-              onClick={onEdit}
-            >
-              {text("모임 수정", "Edit meeting")}
-            </Button>
             <a href="#meeting-people">
               {text("명단 바로가기", "Jump to roster")}
             </a>

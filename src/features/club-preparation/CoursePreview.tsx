@@ -1,7 +1,7 @@
 import { mt } from "./meetingText";
 import { useState } from "react";
-import { ChevronRight, Mountain, Route } from "lucide-react";
-import { Card, Button, Chip } from "../../theme/components";
+import { ChevronRight, Mountain, Pencil, Route } from "lucide-react";
+import { Card, Chip, IconButton } from "../../theme/components";
 import type { Meeting } from "./domain";
 import ClubCourseMap from "./ClubCourseMap";
 import "./coursePreview.css";
@@ -74,7 +74,20 @@ export default function CoursePreview({
   return (
     <Card className="cp-course-preview" aria-label={mt("코스 소개와 코스맵")}>
       <div className="cp-section-heading">
-        <h2>{mt("이런 길을 함께 달려요")}</h2>
+        <div className="cp-heading-with-edit">
+          <h2>{mt("이런 길을 함께 달려요")}</h2>
+          {/* 코스 수정은 카드 하단 행 버튼 대신 제목 옆 연필 아이콘으로 둔다. */}
+          {onEdit && (
+            <IconButton
+              size="sm"
+              variant="ghost"
+              aria-label={mt("코스 소개·GPX 수정")}
+              title={mt("코스 소개·GPX 수정")}
+              icon={<Pencil size={ICON_SIZE.sm} />}
+              onClick={onEdit}
+            />
+          )}
+        </div>
         {meeting.courseReady ? (
           <Chip variant="success">{mt("코스 안내")}</Chip>
         ) : (
@@ -167,11 +180,6 @@ export default function CoursePreview({
         )}
       </p>
       <MeetingSegmentCards segments={meeting.segments} onEdit={onEdit} />
-      {onEdit && (
-        <Button size="sm" variant="outline" onClick={onEdit}>
-          {mt("코스 소개·GPX 수정")}
-        </Button>
-      )}
     </Card>
   );
 }

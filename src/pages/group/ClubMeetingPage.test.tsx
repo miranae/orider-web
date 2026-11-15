@@ -171,9 +171,26 @@ describe("실제 인증 회원의 클럽 모임 동선", () => {
     await waitFor(() =>
       expect(clubMeetingAttendance).toHaveBeenCalledWith("event", "cancel"),
     );
-    expect(
-      screen.getByRole("button", { name: "모임 수정" }),
-    ).toBeInTheDocument();
+    // 모임 수정은 운영 바로가기 줄이 아니라 제목 옆 연필 아이콘이다.
+    const edit = screen.getByRole("button", { name: "모임 수정" });
+    expect(edit.className).toContain("ds-btn--icon-only");
+    expect(edit.closest(".cp-hero-title")?.querySelector("h1")?.textContent).toBe("실제 모임");
+    expect(edit.closest(".cp-hero-tools")).toBeNull();
+    expect(screen.getByRole("link", { name: "명단 바로가기" }).closest(".cp-hero-tools")).not.toBeNull();
+  });
+  it("새로고침은 아이콘 버튼이고 다시 읽는 동안 로딩 상태를 보여준다", async () => {
+    let finish: () => void = () => {};
+    control.reload.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
+    control.data = { eventId: "event", groupId: "club", revision: 1, isHost: false,
+      meeting: { ...newClubMeeting(), id: "event", title: "실제 모임" }, members: [] };
+    show("detail");
+    const refresh = await screen.findByRole("button", { name: "새로고침" });
+    expect(refresh.className).toContain("ds-btn--icon-only");
+    fireEvent.click(refresh);
+    expect(control.reload).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(refresh).toHaveAttribute("aria-busy", "true"));
+    finish();
+    await waitFor(() => expect(refresh).not.toHaveAttribute("aria-busy"));
   });
   it("모임 상세에 실내 실외 구분을 보여주고 실외 모임에는 실내 함께 타기 안내를 숨긴다", async () => {
     const meeting = {

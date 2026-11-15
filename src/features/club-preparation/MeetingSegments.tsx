@@ -3,7 +3,9 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useTranslation } from "react-i18next";
 import { mt } from "./meetingText";
 import { useEffect, useRef, useState } from "react";
-import { Button, Chip } from "../../theme/components";
+import { Button, Chip, IconButton } from "../../theme/components";
+import { Pencil } from "lucide-react";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
 import {
   loadSegmentCatalog,
@@ -52,12 +54,18 @@ export function MeetingSegmentCards({
   const { i18n } = useTranslation();
   return (
     <section className="cp-segments" aria-label={mt("주요 구간")}>
-      <div className="cp-section-heading">
+      <div className="cp-heading-with-edit">
         <h3>{mt("주요 구간")}</h3>
+        {/* 구간 수정도 코스 수정과 같이 제목 옆 연필 아이콘으로 둔다. */}
         {onEdit && (
-          <Button size="sm" variant="ghost" onClick={onEdit}>
-            {mt("구간 선택·수정")}
-          </Button>
+          <IconButton
+            size="sm"
+            variant="ghost"
+            aria-label={mt("구간 선택·수정")}
+            title={mt("구간 선택·수정")}
+            icon={<Pencil size={ICON_SIZE.sm} />}
+            onClick={onEdit}
+          />
         )}
       </div>
       <p className="cp-muted">
