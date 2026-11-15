@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
-import { loadNativeActivityCover, setNativeActivityCover, authorizeNativeActivityPhoto, isLegacyActivityPhotoUrl, loadNativeActivityPhoto, uploadNativeActivityPhoto } from "./nativeActivityPhoto";
+import { loadNativeActivityCover, setNativeActivityCover, authorizeNativeActivityPhoto, isLegacyActivityPhotoUrl, loadNativeActivityPhoto, setProviderPhotosHidden, uploadNativeActivityPhoto } from "./nativeActivityPhoto";
 const mocks = vi.hoisted(() => ({ call: vi.fn(), getFunctions: vi.fn(() => ({})), callable: vi.fn(), ready: vi.fn() }));
 vi.mock("firebase/functions", () => ({ getFunctions: mocks.getFunctions, httpsCallable: (...args: unknown[]) => { mocks.callable(...args); return mocks.call; }, connectFunctionsEmulator: vi.fn() }));
 vi.mock("./runtimeConfig", () => ({ getRuntimeConfig: () => ({ appEnvironment: "production" }), isEmulatorRuntime: () => false }));
@@ -92,4 +92,19 @@ it("isolates service, photo and replacement-account scopes including same uid", 
   expect(mocks.call).toHaveBeenCalledTimes(4);
   settle({ data: { base64: "aW1hZ2U=", contentType: "image/png" } });
   await rejected;
+});
+it("announces an activity content change only after hiding or restoring Strava photos succeeds", async () => {
+  const changed = vi.fn();
+  window.addEventListener("orider:activity-content-changed", changed);
+  try {
+    mocks.call.mockResolvedValue({ data: { hiddenIds: ["p1"] } });
+    await expect(setProviderPhotosHidden(services(), "ride", ["p1"], true)).resolves.toEqual(["p1"]);
+    expect(changed).toHaveBeenCalledTimes(1);
+    expect((changed.mock.calls[0][0] as CustomEvent).detail).toEqual({ activityId: "ride" });
+    mocks.call.mockRejectedValue(new Error("denied"));
+    await expect(setProviderPhotosHidden(services(), "ride", ["p1"], false)).rejects.toThrow("denied");
+    mocks.call.mockResolvedValue({ data: { hiddenIds: [1] } });
+    await expect(setProviderPhotosHidden(services(), "ride", ["p1"], false)).rejects.toThrow("invalid_hidden_response");
+    expect(changed).toHaveBeenCalledTimes(1);
+  } finally { window.removeEventListener("orider:activity-content-changed", changed); }
 });
