@@ -72,7 +72,47 @@ export function assertPromotionAncestry(repo, base, head, production, branch) {
   return {method:'merge', production, base, head};
 }
 
+/**
+ * A snapshot promotion squashes a fixed dev commit into main. When main's tree is exactly that
+ * snapshot and dev still contains the snapshot, the production content is already in dev; only the
+ * ancestry link is missing. Build the tree-identical (dev, main) merge that assertPromotionAncestry
+ * accepts, without touching any worktree or protected branch.
+ */
+export function prepareSnapshotAncestry(repo, production, snapshot) {
+  if (![production, snapshot].every(value => /^[a-f0-9]{40}$/.test(value))) throw new Error('Exact snapshot SHAs required');
+  const git = (...args) => command(repo, 'git', args).stdout.trim();
+  if (git('rev-parse', 'origin/main') !== production) throw new Error('Protected main advanced');
+  if (git('rev-parse', `${production}^{tree}`) !== git('rev-parse', `${snapshot}^{tree}`)) throw new Error('Production tree differs from the promoted snapshot');
+  const base = git('rev-parse', 'origin/dev');
+  if (command(repo, 'git', ['merge-base', '--is-ancestor', snapshot, base], undefined, true).status !== 0) throw new Error('Promoted snapshot is not in current dev');
+  if (command(repo, 'git', ['merge-base', '--is-ancestor', production, base], undefined, true).status === 0) return { state: 'already-linked', base };
+  const name = git('config', 'user.name'), email = git('config', 'user.email');
+  if (!name || !email) throw new Error('git user.name/user.email required for the signed-off sync commit');
+  const message = `chore: synchronize production promotion ancestry into dev\n\nProduction-Commit: ${production}\nSigned-off-by: ${name} <${email}>\n`;
+  const head = command(repo, 'git', ['commit-tree', `${base}^{tree}`, '-p', base, '-p', production], message).stdout.trim();
+  const branch = `sync/promotion-${production.slice(0, 12)}`;
+  assertPromotionAncestry(repo, base, head, production, branch);
+  return { state: 'prepared', base, head, branch };
+}
+
+function openSnapshotAncestry(production, snapshot) {
+  const repo = command(process.cwd(), 'git', ['rev-parse', '--show-toplevel']).stdout.trim();
+  command(repo, 'git', ['fetch', 'origin', '+refs/heads/main:refs/remotes/origin/main', '+refs/heads/dev:refs/remotes/origin/dev', '--quiet']);
+  const prepared = prepareSnapshotAncestry(repo, production, snapshot);
+  if (prepared.state === 'already-linked') { console.log('Production main is already an ancestor of dev; no sync PR needed.'); return; }
+  command(repo, 'git', ['push', 'origin', `${prepared.head}:refs/heads/${prepared.branch}`]);
+  const body = `스냅샷 승격의 main 결과 ${production} 를 dev 이력에 연결합니다. 트리는 현재 dev(${prepared.base.slice(0, 12)})와 같고 부모는 정확히 (dev, main) 입니다. 내용 변경은 없습니다.\n\n다음 승격 PR이 충돌(DIRTY)하지 않도록 scripts/merge-pr.sh 로 병합하세요.`;
+  const url = command(repo, 'gh', ['pr', 'create', '--base', 'dev', '--head', prepared.branch, '--title', 'chore: sync production promotion ancestry into dev', '--body', body]).stdout.trim();
+  console.log(`Ancestry sync PR created: ${url}`);
+  console.error(`Release synchronization PENDING: merge ${url} with scripts/merge-pr.sh.`);
+  process.exitCode = 3;
+}
+
 function main() {
+  if (process.argv[2] === '--snapshot-ancestry') {
+    if (process.argv.length !== 5) throw new Error('Expected production and snapshot SHAs');
+    openSnapshotAncestry(process.argv[3], process.argv[4]); return;
+  }
   if (process.argv[2] === '--assert-ancestry') {
     if (process.argv.length !== 7) throw new Error('Expected base/head/main/branch ancestry arguments');
     const repo = command(process.cwd(),'git',['rev-parse','--show-toplevel']).stdout.trim();

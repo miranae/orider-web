@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { command, prepareBackport, cleanup, validateExistingBackport, assertPromotionAncestry } from './sync-main-to-dev.mjs';
+import { command, prepareBackport, cleanup, validateExistingBackport, assertPromotionAncestry, prepareSnapshotAncestry } from './sync-main-to-dev.mjs';
 
 function fixture(t) {
   const repo = mkdtempSync(join(tmpdir(), 'backport-test-'));
@@ -91,4 +91,53 @@ test('ancestry synchronization preserves both protected parents without changing
   assert.throws(()=>assertPromotionAncestry(repo,base,git('rev-parse','HEAD'),source,branch),/preserve the dev tree/);
   git('update-ref','refs/remotes/origin/main',base);
   assert.throws(()=>assertPromotionAncestry(repo,base,head,source,branch),/advanced/);
+});
+
+function snapshotFixture(t) {
+  const repo = mkdtempSync(join(tmpdir(), 'snapshot-ancestry-'));
+  t.after(() => rmSync(repo, { recursive: true, force: true }));
+  const git = (...a) => command(repo, 'git', a).stdout.trim();
+  git('init', '-b', 'main'); git('config', 'user.name', 'QA'); git('config', 'user.email', 'qa@example.invalid');
+  writeFileSync(join(repo, 'app.txt'), 'v1\n'); git('add', '.'); git('commit', '-m', 'base');
+  const oldMain = git('rev-parse', 'HEAD');
+  git('checkout', '-b', 'dev'); writeFileSync(join(repo, 'app.txt'), 'v2\n'); git('commit', '-am', 'feature');
+  const snapshot = git('rev-parse', 'HEAD');
+  // Squash promotion: main gets the snapshot tree on its own single-parent history.
+  const production = command(repo, 'git', ['commit-tree', `${snapshot}^{tree}`, '-p', oldMain], 'promote snapshot\n').stdout.trim();
+  git('update-ref', 'refs/remotes/origin/main', production);
+  writeFileSync(join(repo, 'later.txt'), 'merged after the snapshot\n'); git('add', '.'); git('commit', '-m', 'later dev work');
+  git('update-ref', 'refs/remotes/origin/dev', 'HEAD');
+  return { repo, git, snapshot, production, dev: git('rev-parse', 'HEAD') };
+}
+
+test('snapshot promotion ancestry keeps later dev work and links exact main', t => {
+  const { repo, git, snapshot, production, dev } = snapshotFixture(t);
+  const p = prepareSnapshotAncestry(repo, production, snapshot);
+  assert.equal(p.state, 'prepared');
+  assert.equal(p.branch, `sync/promotion-${production.slice(0, 12)}`);
+  assert.deepEqual(git('rev-list', '--parents', '-n', '1', p.head).split(' ').slice(1), [dev, production]);
+  assert.equal(git('rev-parse', `${p.head}^{tree}`), git('rev-parse', `${dev}^{tree}`));
+  assert.match(git('show', '-s', '--format=%B', p.head), /Signed-off-by: QA <qa@example.invalid>/);
+  assert.equal(git('rev-parse', 'origin/dev'), dev);
+});
+
+test('snapshot ancestry refuses a main tree that is not the promoted snapshot', t => {
+  const { repo, git, production, dev } = snapshotFixture(t);
+  assert.throws(() => prepareSnapshotAncestry(repo, production, dev), /tree differs/);
+  git('update-ref', 'refs/remotes/origin/main', dev);
+  assert.throws(() => prepareSnapshotAncestry(repo, production, dev), /main advanced/);
+});
+
+test('snapshot ancestry refuses a snapshot that dev no longer contains', t => {
+  const { repo, git, snapshot, production } = snapshotFixture(t);
+  git('checkout', '-b', 'rewritten', `${snapshot}^`); writeFileSync(join(repo, 'other.txt'), 'x\n'); git('add', '.'); git('commit', '-m', 'other');
+  git('update-ref', 'refs/remotes/origin/dev', 'HEAD');
+  assert.throws(() => prepareSnapshotAncestry(repo, production, snapshot), /not in current dev/);
+});
+
+test('snapshot ancestry is idempotent once main is linked', t => {
+  const { repo, git, snapshot, production } = snapshotFixture(t);
+  const p = prepareSnapshotAncestry(repo, production, snapshot);
+  git('update-ref', 'refs/remotes/origin/dev', p.head);
+  assert.equal(prepareSnapshotAncestry(repo, production, snapshot).state, 'already-linked');
 });
