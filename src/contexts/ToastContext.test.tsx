@@ -72,20 +72,22 @@ describe("ToastContext", () => {
   });
 });
 
-describe("ToastContext 해결 행동", () => {
+describe("ToastContext 누르면 해결", () => {
   afterEach(() => { vi.useRealTimers(); });
 
-  function ActionConsumer({ to, onClick }: { to?: string; onClick?: () => void }) {
+  function ResolveConsumer({ to, onClick }: { to?: string; onClick?: () => void }) {
     const { showToast } = useToast();
-    return <button onClick={() => showToast("기기 설정이 필요해요", "error", { action: { label: "기기 설정", to, onClick } })}>열기</button>;
+    return <button onClick={() => showToast("기기 설정이 필요해요", "error", { resolve: { to, onClick } })}>열기</button>;
   }
 
-  it("라우터 안에서는 행동이 해결 화면 링크가 되고, 누르면 알림이 닫힌다", async () => {
+  it("알림 문구 자체가 해결 화면 링크가 되고, 누르면 알림이 닫힌다 — 버튼을 덧붙이지 않는다", async () => {
     const { MemoryRouter } = await import("react-router-dom");
-    render(<MemoryRouter><ToastProvider><ActionConsumer to="/settings/device" /></ToastProvider></MemoryRouter>);
+    render(<MemoryRouter><ToastProvider><ResolveConsumer to="/settings/device" /></ToastProvider></MemoryRouter>);
     fireEvent.click(screen.getByText("열기"));
-    const link = screen.getByRole("link", { name: "기기 설정" });
+    const link = screen.getByRole("link", { name: "기기 설정이 필요해요" });
     expect(link.getAttribute("href")).toContain("/settings/device");
+    // 닫기(×) 말고 새 버튼이 생기지 않는다.
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent)).toEqual(["열기", "닫기"]);
     vi.useFakeTimers();
     fireEvent.click(link);
     act(() => { vi.advanceTimersByTime(250); });
@@ -94,26 +96,25 @@ describe("ToastContext 해결 행동", () => {
 
   it("언어 라우트 밖에 있어도 현재 주소의 언어(/en)를 지킨다", async () => {
     const { MemoryRouter } = await import("react-router-dom");
-    render(<MemoryRouter initialEntries={["/en/activity/a1"]}><ToastProvider><ActionConsumer to="/settings/device" /></ToastProvider></MemoryRouter>);
+    render(<MemoryRouter initialEntries={["/en/activity/a1"]}><ToastProvider><ResolveConsumer to="/settings/device" /></ToastProvider></MemoryRouter>);
     fireEvent.click(screen.getByText("열기"));
-    expect(screen.getByRole("link", { name: "기기 설정" }).getAttribute("href")).toBe("/en/settings/device");
+    expect(screen.getByRole("link", { name: "기기 설정이 필요해요" }).getAttribute("href")).toBe("/en/settings/device");
   });
 
-  it("onClick 행동은 버튼으로 실행되고 행동 있는 알림은 10초까지 남는다", () => {
+  it("onClick 해결은 문구를 눌러 실행되고 누를 수 있는 알림은 10초까지 남는다", () => {
     vi.useFakeTimers();
     const retry = vi.fn();
-    render(<ToastProvider><ActionConsumer onClick={retry} /></ToastProvider>);
+    render(<ToastProvider><ResolveConsumer onClick={retry} /></ToastProvider>);
     act(() => { fireEvent.click(screen.getByText("열기")); });
     act(() => { vi.advanceTimersByTime(9000); });
-    expect(screen.getByText("기기 설정이 필요해요")).toBeInTheDocument();
-    act(() => { fireEvent.click(screen.getByRole("button", { name: "기기 설정" })); });
+    act(() => { fireEvent.click(screen.getByRole("button", { name: "기기 설정이 필요해요" })); });
     expect(retry).toHaveBeenCalledTimes(1);
   });
 
-  it("라우터 밖에서 경로만 받은 행동은 그리지 않는다", () => {
-    render(<ToastProvider><ActionConsumer to="/settings/device" /></ToastProvider>);
+  it("라우터 밖에서 경로만 받은 알림은 글자로만 보인다", () => {
+    render(<ToastProvider><ResolveConsumer to="/settings/device" /></ToastProvider>);
     fireEvent.click(screen.getByText("열기"));
-    expect(screen.getByText("기기 설정이 필요해요")).toBeInTheDocument();
-    expect(screen.queryByText("기기 설정")).toBeNull();
+    expect(screen.getByText("기기 설정이 필요해요").tagName).toBe("SPAN");
+    expect(screen.queryByRole("link")).toBeNull();
   });
 });

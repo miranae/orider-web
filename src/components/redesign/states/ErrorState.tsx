@@ -1,15 +1,15 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Card } from "../../../theme/components";
-import { StateActions, type EmptyStateAction } from "./EmptyState";
+import { Resolvable, type Resolve } from "./Resolvable";
 
 interface ErrorStateProps {
   title?: string;
   description?: ReactNode;
   onRetry?: () => void;
   retryLabel?: string;
-  /** 다시 시도로 풀리지 않는 오류의 해결 화면 링크(설정·연결 등). 다시 시도 버튼 아래에 놓인다. */
-  actions?: EmptyStateAction[];
+  /** 오류 문구(제목·설명)를 누르면 해소하는 곳으로 — 해결 화면 경로나 다시 불러오기. 버튼을 덧붙이지 않는다. */
+  resolve?: Resolve;
   compact?: boolean;
 }
 
@@ -18,7 +18,7 @@ export default function ErrorState({
   description,
   onRetry,
   retryLabel,
-  actions,
+  resolve,
   compact,
 }: ErrorStateProps) {
   const { t } = useTranslation("common");
@@ -41,8 +41,10 @@ export default function ErrorState({
       >
         !
       </div>
-      <div
+      <Resolvable resolve={resolve} style={{ display: "block", width: "100%", textAlign: "center" }}>
+      <span
         style={{
+          display: "block",
           fontSize: compact ? "var(--fs-md)" : "var(--fs-lg)",
           fontWeight: 600,
           color: "var(--ink-0)",
@@ -50,10 +52,11 @@ export default function ErrorState({
         }}
       >
         {resolvedTitle}
-      </div>
+      </span>
       {resolvedDescription && (
-        <div style={{ fontSize: "var(--fs-base)", color: "var(--ink-3)", lineHeight: 1.5 }}>{resolvedDescription}</div>
+        <span style={{ display: "block", fontSize: "var(--fs-base)", color: "var(--ink-3)", lineHeight: 1.5 }}>{resolvedDescription}</span>
       )}
+      </Resolvable>
       {onRetry && (
         <div style={{ marginTop: "var(--space-4)" }}>
           <Button type="button" variant="ghost" size="sm" onClick={onRetry}>
@@ -61,7 +64,6 @@ export default function ErrorState({
           </Button>
         </div>
       )}
-      <StateActions actions={actions} />
     </Card>
   );
 }
