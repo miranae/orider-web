@@ -98,7 +98,9 @@ export default function GroupRidesPage() {
       {loading && rides.length === 0 ? (
         <LoadingSkeleton kind="list" count={5} />
       ) : filteredRides.length === 0 && !hasMore ? (
-        <EmptyState icon={<SportIcon sport="bike" size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />} title={t("empty.noRides")} compact />
+        <EmptyState icon={<SportIcon sport="bike" size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />} title={t("empty.noRides")} compact
+          // 참가 인원 필터 때문에 비었으면 문구를 누르면 필터를 푼다.
+          resolve={minActivities > 0 ? { onClick: () => setMinActivities(0) } : undefined} />
       ) : (
         <div data-testid="C2-1" className="space-y-3">
           {filteredRides.map((r) => (

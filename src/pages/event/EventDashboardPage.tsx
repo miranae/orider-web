@@ -77,7 +77,7 @@ function parseGpxString(xml: string, idPrefix: string): { latlngs: Array<[number
   }
 }
 
-import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate } from "../../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton, PermissionGate, Resolvable } from "../../components/redesign";
 import { Button, Chip, Text } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
@@ -274,6 +274,8 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  // 「스냅샷 로딩 실패」 문구를 누르면 라이브 스냅샷을 다시 구독한다.
+  const [snapshotAttempt, setSnapshotAttempt] = useState(0);
   const [authEpoch, setAuthEpoch] = useState(0);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("ALL");
@@ -592,7 +594,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
       }
     );
     return () => { active = false; revision++; unsub(); };
-  }, [authEpoch, eventId, eventStatus, trackingEnded, t, user?.uid]);
+  }, [authEpoch, eventId, eventStatus, trackingEnded, t, user?.uid, snapshotAttempt]);
 
   const handleFinishEvent = useCallback(async () => {
     if (!permissions.canStartFinish || !eventId || !user || finishing || pendingFinish.current || auth.currentUser?.uid !== user.uid) return;
@@ -792,7 +794,7 @@ function PrivateEventDashboard({ permissions, onStart, operatorBusy }: { permiss
 
       {snapshotError && (
         <div role="alert" style={{ padding: "var(--space-2) var(--space-4)", color: "var(--rose)" }}>
-          {t("dashboard.errorLoadSnapshot")}: {snapshotError}
+          <Resolvable resolve={{ onClick: () => setSnapshotAttempt((n) => n + 1) }}>{t("dashboard.errorLoadSnapshot")}: {snapshotError}</Resolvable>
         </div>
       )}
 

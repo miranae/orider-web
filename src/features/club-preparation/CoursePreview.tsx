@@ -52,10 +52,13 @@ export default function CoursePreview({
   meeting,
   onEdit,
   onConfirmCourse,
+  onPrepareCourse,
   descriptionMode = "full",
 }: {
   meeting: Meeting;
   onEdit?: () => void;
+  /** 주행 경로가 없을 때 코스를 준비할 수 있는 사람이면 지도 자리 안내를 누르면 코스 준비 칸으로 데려간다. */
+  onPrepareCourse?: () => void;
   /** 코스 확정 권한이 있을 때 「최종 코스 준비 중」 칩을 누르면 확정 칸으로 데려간다. */
   onConfirmCourse?: () => void;
   descriptionMode?: "full" | "course-only";
@@ -102,7 +105,7 @@ export default function CoursePreview({
           (descriptionMode === "full" ? meeting.description : "") ||
           mt("함께 달릴 코스의 특징과 보급 장소를 준비하고 있어요.")}
       </p>
-      <ClubCourseMap meeting={meeting} />
+      <ClubCourseMap meeting={meeting} onPrepareCourse={onPrepareCourse} />
       {meeting.courseSource && (
         <p className="cp-muted">
           {mt("코스 출처 ·")}

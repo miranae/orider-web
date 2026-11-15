@@ -87,7 +87,9 @@ export function ProfileBodyEditor() {
         await updateDoc(doc(firestore, "users", user.uid), { heightCm: height === "" ? null : Number(height) });
         baseline.current.height = height;
       }
-      showToast(errors.length ? t("training.syncPartialFail", { errors: errors.join(" / ") }) : t("training.saved"));
+      // 동기화 일부 실패는 알림 문구를 누르면 기기 설정 화면(기기·자전거 프로필)으로 간다.
+      if (errors.length) showToast(t("training.syncPartialFail", { errors: errors.join(" / ") }), "error", { resolve: { to: "/settings/device" } });
+      else showToast(t("training.saved"));
     } catch (e) {
       showToast(`${t("training.saveFailed")}: ${String(e)}`);
     } finally { setSaving(false); }

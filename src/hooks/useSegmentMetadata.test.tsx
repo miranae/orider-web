@@ -38,3 +38,14 @@ it("invalidates already loaded metadata when the app changes without changing id
   current = services(); view.rerender();
   expect(view.result.current).toMatchObject({ data: null, loading: true });
 });
+
+it("retries a failed read and only shows the newest attempt", async () => {
+  const current = services();
+  const wrapper = ({ children }: { children: ReactNode }) => <FirebaseServicesProvider services={current}>{children}</FirebaseServicesProvider>;
+  vi.mocked(loadSegmentMetadata).mockReset().mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce([{ id: "segment", name: "Loaded" }]);
+  const view = renderHook(() => useSegmentMetadata<{ name: string }>("segment"), { wrapper });
+  await waitFor(() => expect(view.result.current.error).toBeTruthy());
+  act(() => view.result.current.retry());
+  expect(view.result.current).toMatchObject({ data: null, loading: true, error: null });
+  await waitFor(() => expect(view.result.current.data?.name).toBe("Loaded"));
+});

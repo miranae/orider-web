@@ -7,6 +7,7 @@
 import { useTranslation } from "react-i18next";
 import { Card, Text } from "../../theme/components";
 import type { ShoeStatus } from "../../utils/shoeStatus";
+import { Resolvable } from "../redesign/states/Resolvable";
 
 export interface ShoeReplacementBadgeProps {
   status: ShoeStatus | null;
@@ -21,7 +22,8 @@ export default function ShoeReplacementBadge({ status }: ShoeReplacementBadgePro
       <span aria-hidden="true" style={{ fontSize: "var(--fs-lg)" }}>👟</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <Text as="div" variant="bodySmall" tone="primary" weight={500}>
-          {t("shoeBadge.title", { name: status.name })}
+          {/* 문구를 누르면 장비(신발) 화면으로 간다. */}
+          <Resolvable resolve={{ to: "/athlete/me/gear" }}>{t("shoeBadge.title", { name: status.name })}</Resolvable>
         </Text>
         <Text as="div" variant="caption" tone="tertiary" mono>
           {t("shoeBadge.detail", { total: status.totalDistanceKm, remaining: status.remainingKm })}

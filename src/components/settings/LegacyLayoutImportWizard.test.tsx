@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   canSave: true,
   targetConfig: null as DataPageConfig | null,
   toasts: [] as string[],
+  source: "canonical" as string,
+  reload: vi.fn(),
 }));
 
 vi.mock("../../hooks/useBikeProfiles", () => ({
@@ -18,11 +20,12 @@ vi.mock("../../hooks/useBikeProfiles", () => ({
 vi.mock("../../hooks/useBikeProfileLayout", () => ({
   useBikeProfileLayout: () => ({
     config: mocks.targetConfig,
-    source: "canonical",
+    source: mocks.source,
     revision: 1,
     loading: false,
     canSave: mocks.canSave,
     save: mocks.save,
+    reload: mocks.reload,
   }),
 }));
 vi.mock("../../contexts/ToastContext", () => ({
@@ -63,6 +66,8 @@ describe("LegacyLayoutImportWizard", () => {
     mocks.canSave = true;
     mocks.targetConfig = { pages: [{ columns: 4, rows: 4, fields: [] }] };
     mocks.toasts.length = 0;
+    mocks.source = "canonical";
+    mocks.reload.mockReset();
   });
 
   it("확인 전에는 아무것도 쓰지 않는다", async () => {
@@ -123,5 +128,31 @@ describe("LegacyLayoutImportWizard", () => {
     renderWizard();
 
     expect(screen.getByTestId("legacy-import-no-bikes")).toBeTruthy();
+  });
+
+  /** 경고·알림 → 해결: 대상 구성을 읽지 못한 문구를 누르면 다시 불러온다(새 버튼 없음). */
+  it("대상 구성을 읽지 못했다는 문구를 누르면 다시 불러온다", async () => {
+    mocks.canSave = false;
+    mocks.source = "unavailable";
+    renderWizard();
+    await userEvent.click(screen.getByTestId("legacy-import-target").querySelector("button")!);
+    await userEvent.click(screen.getByRole("option", { name: "로드" }));
+
+    const blocked = screen.getByTestId("legacy-import-blocked");
+    const message = within(blocked).getByRole("button");
+    expect(blocked.querySelectorAll("button")).toHaveLength(1);
+    await userEvent.click(message);
+    expect(mocks.reload).toHaveBeenCalledTimes(1);
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
+  it("격리된 구성(다시 읽어도 해소되지 않음)이면 문구를 누를 수 없다", async () => {
+    mocks.canSave = false;
+    mocks.source = "quarantined";
+    renderWizard();
+    await userEvent.click(screen.getByTestId("legacy-import-target").querySelector("button")!);
+    await userEvent.click(screen.getByRole("option", { name: "로드" }));
+
+    expect(within(screen.getByTestId("legacy-import-blocked")).queryByRole("button")).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import type { User } from "firebase/auth";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { logClientError } from "../services/errorLogger";
 import { fetchRecentActivityTracks } from "../services/activityTracks";
 import { aggregateExplorationGridAsync, type ExplorationGridResult } from "../features/explore/explorationGrid";
@@ -22,6 +22,9 @@ export function useExplorationGrid(uid: string | null | undefined, enabled: bool
   const [owned, setOwned] = useState<{ database: object; owner: User; uid: string; result: ExplorationGridResult } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  // 실패 문구를 누르면 다시 읽는다 — 이전 요청은 effect 정리로 취소돼 늦은 응답이 반영되지 않는다.
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   const owner = auth.currentUser;
   useEffect(() => {
@@ -56,13 +59,13 @@ export function useExplorationGrid(uid: string | null | undefined, enabled: bool
       sessionCache = { database: services.firestore, owner, uid, result: next };
       setOwned(sessionCache);
     }).catch((err) => {
-      if (cancelled || (err instanceof DOMException && err.name === "AbortError")) return;
+      if (err instanceof DOMException && err.name === "AbortError") return;
       // Never attach route geometry or coordinates to logs.
       logClientError("useExplorationGrid.load", err);
       if (!cancelled) { setOwned(null); setError(true); }
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; controller.abort(); };
-  }, [auth, enabled, uid, owner, services]);
+  }, [auth, enabled, uid, owner, services, attempt]);
 
-  return { result: owned && owned.uid === uid && owned.owner === owner && owned.database === services.firestore ? owned.result : EMPTY_RESULT, loading, error };
+  return { result: owned && owned.uid === uid && owned.owner === owner && owned.database === services.firestore ? owned.result : EMPTY_RESULT, loading, error, retry };
 }

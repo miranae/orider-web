@@ -33,4 +33,12 @@ describe('모임 코스 지도와 고도표',()=>{
     const view=render(<ClubCourseMap meeting={createSeed().meetings[2]!}/>);expect(screen.getByText('주행 경로를 준비해주세요')).toBeTruthy();
     view.rerender(<ClubCourseMap meeting={{...createSeed().meetings[2]!,courseTrack:{fileName:'no-elevation',distanceKm:1,elevationGainM:400,points:[{lat:37,lon:127},{lat:37.01,lon:127}]}}}/>);expect(screen.getByText(/확인된 고도 데이터가 없어요/)).toBeTruthy();expect(screen.queryByRole('button',{name:'고도 위치 가리키기'})).toBeNull();
   });
+  it('주최자는 「주행 경로를 준비해주세요」를 누르면 코스 준비로 가고, 참가자에겐 글자만 보인다',()=>{
+    const onPrepareCourse=vi.fn();
+    const view=render(<ClubCourseMap meeting={createSeed().meetings[2]!} onPrepareCourse={onPrepareCourse}/>);
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    fireEvent.click(screen.getByText('주행 경로를 준비해주세요'));expect(onPrepareCourse).toHaveBeenCalledOnce();
+    view.rerender(<ClubCourseMap meeting={createSeed().meetings[2]!}/>);
+    expect(screen.getByText('주행 경로를 준비해주세요').closest('button')).toBeNull();expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
 });

@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { onSnapshot } from "firebase/firestore";
 import { mockCallableInvocations, mockUpdateDoc, setCallableResult, setCollectionDocs, simulateLogin } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import GroupMembersPage from "./GroupMembersPage";
@@ -140,6 +141,32 @@ describe("GroupMembersPage", () => {
     expect(await screen.findByText("Pending Rider")).toBeInTheDocument();
     expect(screen.getByText(/함께 타고 싶어요/)).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText("프로필 비공개 사용자")).not.toBeInTheDocument());
+  });
+
+  it("re-subscribes to join requests when the failed-load message itself is tapped", async () => {
+    const original = vi.mocked(onSnapshot).getMockImplementation()!;
+    let failing = true;
+    vi.mocked(onSnapshot).mockImplementation(((...args: Parameters<typeof original>) => {
+      const ref = args[0] as { path?: string };
+      if (!failing || ref.path !== "groups/group-1/pending") return original(...args);
+      (args[2] as (err: Error) => void)(new Error("unavailable"));
+      return () => {};
+    }) as never);
+    try {
+      renderWithProviders(
+        <Routes>
+          <Route path="/ko/group/:groupId/members" element={<GroupMembersPage management />} />
+        </Routes>,
+        { route: "/ko/group/group-1/members", authenticated: true },
+      );
+      const alert = await screen.findByText("클럽 정보를 불러오지 못했습니다.");
+      expect(alert.closest("button")).not.toBeNull();
+      expect(screen.getByRole("tab", { name: "대기중 0" })).toBeInTheDocument();
+      failing = false;
+      fireEvent.click(alert);
+      expect(await screen.findByRole("tab", { name: "대기중 1" })).toBeInTheDocument();
+      expect(screen.queryByText("클럽 정보를 불러오지 못했습니다.")).not.toBeInTheDocument();
+    } finally { vi.mocked(onSnapshot).mockImplementation(original); }
   });
 
   it("updates the badge when a pending request arrives after the page loads", async () => {
