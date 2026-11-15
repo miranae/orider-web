@@ -81,7 +81,7 @@ export default function ActivityEditPage() {
   const navigate = useNavigate();
   const { t } = useTranslation("activity");
   const { t: tCommon } = useTranslation("common");
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
   const services = useFirebaseServices();
   const { firestore } = services;
   const { showToast } = useToast();
@@ -244,7 +244,7 @@ export default function ActivityEditPage() {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("edit.loginRequired")} description={t("edit.loginRequiredDesc")} />
+        <PermissionGate title={t("edit.loginRequired")} description={t("edit.loginRequiredDesc")} onAction={() => { void signIn(); }} />
       </div>
     );
   }

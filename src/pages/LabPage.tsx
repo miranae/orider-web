@@ -105,7 +105,7 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
   const fieldPrefix = useId();
   const { t } = useTranslation("lab");
   const { t: courseT } = useTranslation("course");
-  const { user, profile } = useAuth();
+  const { user, profile, signIn } = useAuth();
   const uid = user?.uid ?? null;
   const [searchParams] = useSearchParams();
   // 코스 상세 임베드(#3235)에서도 그려진다 — 싱글턴 대신 주입된 인스턴스(#847).
@@ -287,6 +287,9 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "var(--space-4)" }}>
         <Alert variant="info" title={t("loginRequired.title")}>
           {t("loginRequired.body")}
+          <div style={{ marginTop: "var(--space-3)" }}>
+            <Button type="button" variant="primary" size="sm" onClick={() => { void signIn(); }}>{t("common:button.login")}</Button>
+          </div>
         </Alert>
       </div>
     );

@@ -6,7 +6,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useGroupMemberRole } from "../../hooks/useGroup";
 import type { ReactNode } from "react";
 import type { Group, GroupKind } from "@shared/types";
-import { Button, Card, Chip, Text } from "../../theme/components";
+import { Button, Card, Chip, Text, buttonClass } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface GroupCardProps {
@@ -20,6 +20,8 @@ interface GroupCardProps {
   joinChecking?: boolean;
   /** 내 클럽 일부를 읽지 못해 가입 여부를 확정할 수 없다 — 가입 버튼을 잠근다. */
   joinUnconfirmed?: boolean;
+  /** 승인 대기 중일 때 내 가입 신청 기록의 그 행(신청 취소)으로 데려간다. */
+  onShowPendingRequest?: () => void;
   /** 추천/공개 그룹 카드용 매칭 이유 */
   why?: string;
   /** 다음 이벤트 라벨 (예: "4/20(토) 07:00 · 북한강") */
@@ -56,7 +58,7 @@ function badgeText(name: string): string {
   return trimmed.slice(0, 2);
 }
 
-export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, joining, joinPending, joinChecking, joinUnconfirmed, why, nextEvent, weekDistKm, newPosts }: GroupCardProps) {
+export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, joining, joinPending, joinChecking, joinUnconfirmed, onShowPendingRequest, why, nextEvent, weekDistKm, newPosts }: GroupCardProps) {
   const { user } = useAuth();
   const { role: ownRole } = useGroupMemberRole(showMyRole ? group.id : undefined, showMyRole ? user?.uid : undefined, showMyRole ? group.creatorId : undefined);
   const { t } = useTranslation("group");
@@ -138,6 +140,21 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
 
         {showJoinButton && onJoin && (
           <div style={{ marginTop: "var(--space-2)" }}>
+            {joinPending && onShowPendingRequest ? (
+              // 승인 대기: 막힌 버튼 대신 내 가입 신청 기록의 그 행(신청 취소)으로 데려간다.
+              <Button data-testid="C0-2-3" type="button" variant="secondary" size="sm"
+                aria-label={t("card.joinPendingShow")}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShowPendingRequest(); }}
+              >
+                {t("card.joinPending")}
+              </Button>
+            ) : joinUnconfirmed && !joinPending && !joining && !joinChecking ? (
+              // 가입 여부 미확인: 목록을 다시 읽어도 같은 이유로 실패하므로(#1574) 잠근 채 두지 않고
+              // 클럽 화면으로 보낸다 — 거기서 이 클럽 하나의 회원 여부를 읽어 회원이면 클럽, 아니면 가입 버튼을 보인다.
+              <Link data-testid="C0-2-3" to={`/club/${group.id}`} className={buttonClass({ variant: "secondary", size: "sm" })}>
+                {t("card.joinUnconfirmedOpen")}
+              </Link>
+            ) : (
             <Button data-testid="C0-2-3"
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onJoin(); }}
@@ -145,6 +162,7 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
             >
               {joinPending ? t("card.joinPending") : joining ? t("card.joining") : joinChecking ? t("card.joinChecking") : joinUnconfirmed ? t("card.joinUnconfirmed") : t("card.join")}
             </Button>
+            )}
           </div>
         )}
       </div>

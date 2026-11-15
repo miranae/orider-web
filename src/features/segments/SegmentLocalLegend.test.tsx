@@ -45,3 +45,10 @@ it("keeps a displayed result while the page stays open", async () => {
     expect(mocks.load).toHaveBeenCalledTimes(1);
   } finally { vi.useRealTimers(); }
 });
+
+it("로그인 전에는 안내와 함께 로그인 창을 여는 버튼을 준다", async () => {
+  renderWithProviders(<SegmentLocalLegend segmentId="s" />);
+  fireEvent.click(await screen.findByTestId("segment-legend-login"));
+  expect(await screen.findByRole("dialog", { name: "로그인" })).toBeInTheDocument();
+  expect(mocks.load).not.toHaveBeenCalled();
+});

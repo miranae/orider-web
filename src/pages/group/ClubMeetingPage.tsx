@@ -136,6 +136,9 @@ export default function ClubMeetingPage({
           "이 모임의 주최자만 수정할 수 있어요.",
           "Only this meeting’s host can edit it.",
         )}
+        actions={[
+          { label: text("모임 보기", "View meeting"), variant: "primary", href: `/club/${groupId}/meetings/${meetingId}` },
+        ]}
       />
     );
   const kinds = [

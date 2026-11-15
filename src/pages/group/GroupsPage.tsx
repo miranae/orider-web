@@ -13,7 +13,8 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useMyGroups, usePendingGroupRequestIds, usePublicGroups } from "../../hooks/useGroup";
-import { logClientError } from "../../services/errorLogger";
+import { debugLog, logClientError } from "../../services/errorLogger";
+import { FOCUS_TARGET_ATTR, FOCUS_TARGETS, clubRequestFocusKey, focusTargetProps, revealFocusTarget } from "../../services/focusTarget";
 import { usePublicClubDirectory } from "../../hooks/usePublicClubDirectory";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 import ClubLoginGate from "../../components/group/ClubLoginGate";
@@ -130,6 +131,13 @@ export default function GroupsPage() {
   // 내 클럽 일부를 읽지 못했다 — 목록 밖 공개 클럽이 실제로는 가입 클럽일 수 있어 '미가입'으로 확정하지 않는다.
   // 다시 읽기 버튼은 두지 않는다. 새로고침(앱은 화면을 아래로 당기기)하면 다시 확인한다.
   const myClubsPartial = Boolean(user) && !myLoading && (myGroupsIncomplete || Boolean(myGroupsError));
+  // 「승인 대기」 → 같은 화면 가입 신청 기록의 그 행(신청 취소 버튼)을 펼쳐 초점을 둔다.
+  // 임베드 화면에도 쓰이므로 주소(?focus=)를 바꾸지 않고 바로 찾는다.
+  const showPendingRequest = (groupId: string) => {
+    const target = document.querySelector<HTMLElement>(`[${FOCUS_TARGET_ATTR}="${clubRequestFocusKey(groupId)}"]`);
+    const focused = target ? revealFocusTarget(target) : false;
+    debugLog("club-pending-request", { groupId, found: Boolean(target), focused });
+  };
   const myGroupIdList = useMemo(() => uid ? myGroups.map((g) => g.id) : [], [myGroups, uid]);
   const { byGroup: nextEventLabels, incompleteGroups = new Set<string>() } = useGroupNextEvents(myGroupIdList);
 
@@ -374,6 +382,7 @@ export default function GroupsPage() {
               joinChecking={Boolean(user) && myLoading}
               /* 내 클럽 일부를 읽지 못했으면 가입 여부를 모른다 — 가입 버튼을 잠근다. */
               joinUnconfirmed={myClubsPartial}
+              onShowPendingRequest={() => showPendingRequest(g.id)}
             />
           ))}
         </div>
@@ -387,7 +396,7 @@ export default function GroupsPage() {
         <Text as="p" variant="body" tone="secondary">{t("find.inviteHint")}</Text>
         <label htmlFor="club-invite-code" className="club-invite-label">{t("find.inviteLabel")}</label>
         <div className="club-invite-form">
-        <Input id="club-invite-code" data-testid="C0-3-1"
+        <Input id="club-invite-code" data-testid="C0-3-1" {...focusTargetProps(FOCUS_TARGETS.clubInviteCode)}
           type="text"
           value={inviteCode}
           onChange={(e) => setInviteCode(e.target.value.toUpperCase())}

@@ -16,9 +16,9 @@ const listeners = vi.hoisted(() => ({
 const translate = vi.hoisted(() => (key: string) => key);
 const firebaseAuth = vi.hoisted(() => ({ currentUser: { uid: "host-1" } as { uid: string } | null }));
 
-vi.mock("react-router-dom", () => ({ useParams: () => ({ eventId: "event-1" }) }));
+vi.mock("react-router-dom", async importOriginal => ({ ...await importOriginal<typeof import("react-router-dom")>(), useParams: () => ({ eventId: "event-1" }) }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: translate }) }));
-vi.mock("../../hooks/useLocalizedNavigate", () => ({ useLocalizedNavigate: () => vi.fn() }));
+vi.mock("../../hooks/useLocalizedNavigate", () => ({ useLocalizedNavigate: () => vi.fn(), useLocalizedPath: (path: string) => `/ko${path}` }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "host-1" }, loading: false }) }));
 vi.mock("../../contexts/DialogContext", () => ({ useDialog: () => ({ confirm: vi.fn(), alert: vi.fn() }) }));
 vi.mock("../../services/firebase", () => ({ auth: firebaseAuth, firestore: {}, functions: {}, getAppCheckToken: vi.fn(), ensureAppCheckReady: vi.fn() }));
@@ -52,6 +52,7 @@ vi.mock("../../components/RouteMap", () => ({ default: () => null }));
 vi.mock("../../components/event/ParticipantTable", () => ({ default: ({ locations }: { locations: Array<{ displayName: string }> }) => <div>{locations.map(location => location.displayName).join(", ")}</div> }));
 vi.mock("./privateSnapshotPages", () => ({ loadPrivateSnapshotWithRetry: () => new Promise(resolve => { listeners.pageResolve = resolve; }) }));
 
+import { MemoryRouter } from "react-router-dom";
 import EventDashboardPage from "./EventDashboardPage";
 
 describe("EventDashboardPage read failures", () => {
@@ -164,14 +165,18 @@ describe("EventDashboardPage read failures", () => {
     listeners.creatorId = "creator-elsewhere"; listeners.role = "STAFF";
     render(<EventDashboardPage />);
     expect(await screen.findByTestId("O1-role-only")).toBeInTheDocument();
+    expect(screen.getByText("host.dataPermissionDeniedDesc")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "action.sendNotice" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /button.finish/ })).not.toBeInTheDocument();
     expect(listeners.privateSubscriptions).toBe(0);
   });
   it("an unrelated RIDER cannot enter or read private map data", async () => {
     listeners.creatorId = "creator-elsewhere"; listeners.role = "RIDER";
-    render(<EventDashboardPage />);
+    render(<MemoryRouter initialEntries={["/ko/event/event-1/host"]}><EventDashboardPage /></MemoryRouter>);
     expect(await screen.findByText("host.permissionDenied")).toBeInTheDocument();
+    // 권한이 없는 이유(누가 운영할 수 있는지·누구에게 요청할지)와 이벤트로 돌아가는 길을 함께 보인다.
+    expect(screen.getByText("host.permissionDeniedDesc")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "host.backToEvent" })).toHaveAttribute("href", "/ko/event/event-1");
     expect(listeners.privateSubscriptions).toBe(0);
     expect(screen.queryByRole("button", { name: /button.finish/ })).not.toBeInTheDocument();
   });

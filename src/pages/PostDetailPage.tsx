@@ -53,7 +53,7 @@ const PostDetailPage: React.FC = () => {
   const boardReturnTo = resolveBoardReturnTo(location.state);
   const { t, i18n } = useTranslation("board");
   const [commentText, setCommentText] = useState('');
-  const { user } = useAuth();
+  const { user, signIn } = useAuth();
   const firebaseServices = useFirebaseServices();
   const { showToast } = useToast();
   const dialog = useDialog();
@@ -74,11 +74,14 @@ const PostDetailPage: React.FC = () => {
 
   useBoardPostView(postId, location.key, post);
 
+  // 로그인이 필요한 동작을 막았을 때 토스트에서 바로 로그인할 수 있게 한다.
+  const loginToastOptions = { action: { label: t("common:button.login"), onClick: () => { void signIn(); } } };
+
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim()) return;
     if (!user) {
-      showToast(t("error.loginRequired"), "info");
+      showToast(t("error.loginRequired"), "info", loginToastOptions);
       return;
     }
     try {
@@ -102,7 +105,7 @@ const PostDetailPage: React.FC = () => {
 
   const handleLikeToggle = async () => {
     if (!user) {
-      showToast(t("error.loginRequired"), "info");
+      showToast(t("error.loginRequired"), "info", loginToastOptions);
       return;
     }
     try {
@@ -126,7 +129,7 @@ const PostDetailPage: React.FC = () => {
 
   const openReport = (target: ReportTarget) => {
     if (!user) {
-      showToast(t("report.loginRequired"), "info");
+      showToast(t("report.loginRequired"), "info", loginToastOptions);
       return;
     }
     setReportTarget(target);

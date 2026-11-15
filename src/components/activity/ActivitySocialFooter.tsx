@@ -30,7 +30,7 @@ import { ICON_SIZE } from "../../theme/tokens/icon";
 export default function ActivitySocialFooter({ activity, presentation = "default", commentsPreview = [] }: { activity: Activity; presentation?: "default" | "feed"; commentsPreview?: readonly CommentItem[] }) {
   const { t } = useTranslation("activity");
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, signIn } = useAuth();
   const { showToast } = useToast();
 
   const services = useFirebaseServices();
@@ -251,6 +251,12 @@ export default function ActivitySocialFooter({ activity, presentation = "default
               {t("card.commentSubmit")}
             </button>}
           </div>
+          {/* 로그인 전엔 입력칸이 잠겨 있으니 바로 로그인할 수 있게 한다(KudosCommentsCard 와 같은 흐름). */}
+          {!user && <div className="mt-2">
+            <Button data-testid="activity-social-comment-login" type="button" variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); void signIn(); }}>
+              {t("common:button.login")}
+            </Button>
+          </div>}
         </div>
       )}
     </div>

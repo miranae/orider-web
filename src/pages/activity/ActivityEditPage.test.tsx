@@ -25,6 +25,14 @@ function show(gear: unknown, locale = "ko", services?: FirebaseServices) {
 
 beforeEach(() => { mockUpdateDoc.mockClear(); });
 
+describe("activity edit login gate", () => {
+  it("로그인 전 관문에서 로그인 버튼이 로그인 창을 연다", async () => {
+    renderWithProviders(<ActivityEditPage />, { route: "/ko/activity/edit-gear/edit" });
+    fireEvent.click(await screen.findByRole("button", { name: "로그인" }));
+    expect(await screen.findByRole("dialog", { name: "로그인" })).toBeInTheDocument();
+  });
+});
+
 describe("activity equipment editing", () => {
   it("임베드 계정이 App Check 대기 중 바뀌면 저장하지 않는다", async () => {
     const services = { scope: "embedded", auth: { app: { name: "editor" }, currentUser: { uid: "test-uid" } },

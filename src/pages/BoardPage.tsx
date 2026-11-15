@@ -170,7 +170,7 @@ const BoardPage: React.FC = () => {
     updateFilters({}, next);
   };
   const handleSearch = () => updateFilters({ q: searchQuery.trim() || undefined });
-  const { user } = useAuth();
+  const { user, signIn } = useAuth();
   const dialog = useDialog();
   const { showToast } = useToast();
   const { deletePost, deleting } = useDeletePost();
@@ -433,6 +433,7 @@ const BoardPage: React.FC = () => {
             icon="🔒"
             title={t("error.loginRequired")}
             description={t("inquiry.loginDesc")}
+            actions={[{ label: t("common:button.login"), variant: "primary", onClick: () => { void signIn(); } }]}
           />
         ) : listLoading ? (
           <LoadingSkeleton kind="list" count={5} />

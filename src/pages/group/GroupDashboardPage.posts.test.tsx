@@ -188,6 +188,13 @@ describe("group post editing", () => {
     expect(screen.queryByText("Private introduction")).not.toBeInTheDocument();
     expect(screen.queryByText("Private rules")).not.toBeInTheDocument();
   });
+  it("비공개 클럽 안내는 초대 코드 입력칸과 클럽 목록으로 이어진다", () => {
+    state.role = null; state.visibility = "private";
+    render(<Page />);
+    const gate = screen.getByTestId("C1.private");
+    expect(within(gate).getByRole("link", { name: "초대 코드 입력하기" }).getAttribute("href")).toMatch(/\/clubs\?focus=club-invite-code$/);
+    expect(within(gate).getByRole("link", { name: "클럽 목록으로" }).getAttribute("href")).toMatch(/\/clubs$/);
+  });
   it("restores an approval-pending state from the request mirror on page entry", async () => {
     state.role = null;
     setCollectionDocs("users/owner/group_requests", [{ id: "request", groupId: "group-1", status: "pending" }]);

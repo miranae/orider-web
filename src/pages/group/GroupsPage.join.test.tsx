@@ -37,6 +37,16 @@ function renderPage(authenticated = true) {
   return renderWithProviders(pageRoutes(), { route: "/ko/groups", authenticated });
 }
 
+/** 승인 대기 카드는 다시 가입 신청을 보내지 않고, 눌러도 내 가입 신청 기록으로만 데려간다. */
+async function expectPendingNotJoinable() {
+  const pending = await screen.findByRole("button", { name: "승인 대기 — 내 가입 신청 보기" });
+  const joinCalls = () => mockCallableInvocations.filter((call) => call.name === "joinGroupPublic").length;
+  const before = joinCalls();
+  fireEvent.click(pending);
+  expect(joinCalls()).toBe(before);
+  expect(screen.queryByRole("button", { name: "가입 신청" })).not.toBeInTheDocument();
+}
+
 describe("GroupsPage join results", () => {
   beforeEach(() => {
     vi.mocked(ensureAppCheckReady).mockReset().mockResolvedValue(undefined);
@@ -63,8 +73,19 @@ describe("GroupsPage join results", () => {
     publicGroups.push({ id: "led-club", name: "Led club", discipline: "bike", memberCount: 3, visibility: "public" });
     membershipState.incomplete = true;
     renderPage();
-    const join = screen.getByRole("button", { name: "가입 확인 필요" });
-    expect(join).toBeDisabled();
+    // 가입 신청은 막고, 이 클럽 하나의 회원 여부를 읽는 클럽 화면으로 보낸다.
+    expect(screen.queryByRole("button", { name: "가입 신청" })).not.toBeInTheDocument();
+    const open = screen.getByRole("link", { name: "클럽에서 가입 여부 확인" });
+    expect(open).toHaveAttribute("href", "/ko/club/led-club");
+    fireEvent.click(open);
+    expect(screen.getByText("group destination")).toBeInTheDocument();
+    expect(mockCallableInvocations.filter((call) => call.name === "joinGroupPublic")).toHaveLength(0);
+  });
+  it("explains unconfirmed membership with the same notice", () => {
+    myGroups.push({ id: "club-1", name: "Member club", discipline: "bike", memberCount: 1, visibility: "public" });
+    publicGroups.push({ id: "led-club", name: "Led club", discipline: "bike", memberCount: 3, visibility: "public" });
+    membershipState.incomplete = true;
+    renderPage();
     expect(screen.getByTestId("C0-2-5")).toHaveTextContent("새로고침하면 다시 확인해요");
     expect(screen.queryByRole("button", { name: /다시/ })).not.toBeInTheDocument();
     expect(membershipState.retry).not.toHaveBeenCalled();
@@ -89,6 +110,26 @@ describe("GroupsPage join results", () => {
     expect((hasClub ? ownRegion : finder).compareDocumentPosition(hasClub ? finder : ownRegion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(finder.compareDocumentPosition(challenge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByTestId("C0.noClub") !== null).toBe(!hasClub);
+  });
+  it("초대 코드 입력칸은 비공개 클럽 안내의 ?focus=club-invite-code 대상이다", () => {
+    renderPage();
+    expect(screen.getByTestId("C0-3-1")).toHaveAttribute("data-focus-target", "club-invite-code");
+  });
+  it("「승인 대기」를 누르면 내 가입 신청 기록의 그 클럽 행을 펼쳐 신청 취소 버튼에 초점을 둔다", async () => {
+    myGroups.push({ id: "club-1", name: "Member club", discipline: "bike", memberCount: 1, visibility: "public" });
+    publicGroups.push({ id: "Pending-Club", name: "Pending club", discipline: "bike", memberCount: 3, visibility: "public" });
+    membershipState.pending = new Set(["Pending-Club"]);
+    setCollectionDocs("users/test-uid/group_requests", [
+      { id: "request-0", groupId: "Other-Club", groupName: "Other club", status: "pending", requestedAt: 456 },
+      { id: "request-1", groupId: "Pending-Club", groupName: "Pending club", status: "pending", requestedAt: 123 },
+    ]);
+    renderPage();
+    const history = await screen.findByTestId("C0-1-3");
+    expect(history.querySelector("details")).not.toHaveAttribute("open");
+    fireEvent.click(screen.getByRole("button", { name: "승인 대기 — 내 가입 신청 보기" }));
+    expect(history.querySelector("details")).toHaveAttribute("open");
+    const cancels = screen.getAllByTestId("C0-1-3-cancel");
+    expect(document.activeElement).toBe(cancels[1]);
   });
   it.each(["success", "reject", "unmount", "account"] as const)("gates code-input joining: %s", async (outcome) => {
     let resolveReady!: () => void;
@@ -373,7 +414,7 @@ describe("GroupsPage join results", () => {
     setCallableResult("joinGroupPublic", { data: { success: true, status: "pending" } });
     const view = renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
-    expect(await screen.findByRole("button", { name: "승인 대기" })).toBeDisabled();
+    await expectPendingNotJoinable();
     if (ack === "request") membershipState.pending = new Set(["group-1"]);
     else membershipState.snapshot = [...publicGroups];
     view.rerender(pageRoutes());
@@ -390,14 +431,14 @@ describe("GroupsPage join results", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "가입 신청" }));
 
-    expect(await screen.findByRole("button", { name: "승인 대기" })).toBeDisabled();
+    await expectPendingNotJoinable();
   }, 15_000);
 
-  it("marks clubs with a pending request and locks join buttons while my clubs reload", () => {
+  it("marks clubs with a pending request and locks join buttons while my clubs reload", async () => {
     addManualPublicGroup();
     membershipState.pending = new Set(["group-1"]);
     const view = renderPage();
-    expect(screen.getByRole("button", { name: "승인 대기" })).toBeDisabled();
+    await expectPendingNotJoinable();
     view.unmount();
     membershipState.pending = new Set();
     membershipState.loading = true;

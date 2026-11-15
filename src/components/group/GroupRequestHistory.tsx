@@ -9,6 +9,7 @@ import { getPublicUserProfiles } from "../../services/publicProfiles";
 import { Button, Card } from "../../theme/components";
 import { normalizeStartTime } from "../../utils/event-time";
 import { logClientError } from "../../services/errorLogger";
+import { clubRequestFocusKey, focusTargetProps } from "../../services/focusTarget";
 
 interface RequestRow { id: string; userId: string; groupId: string; name: string; status: string; requestedAt: number; resolvedAt: number }
 type GroupRequestHistoryProps = { userId?: string; groupId?: string; sectionId?: string };
@@ -47,7 +48,7 @@ function GroupRequestHistoryContent({ userId, groupId, sectionId }: GroupRequest
     return () => { intent.current += 1; unsubscribe(); };
   }, [userId, groupId, firestore]);
   if (!rows.length && !error) return null;
-  const history = <Card data-testid={groupId ? "C7-1-2" : "C0-1-3"} className="space-y-3"><details><summary>{t("requests.history")}</summary>{error ? <p role="alert">{t("error.loadFailed")}</p> : rows.map(row => <div key={row.id} className="space-y-2"><div className="flex items-center justify-between gap-3"><span>{row.name} · {t(`requests.${row.status}`)} · {row.requestedAt ? new Date(row.requestedAt).toLocaleString(i18n.language) : "–"}{row.resolvedAt ? ` → ${new Date(row.resolvedAt).toLocaleString(i18n.language)}` : ""}</span>{!groupId && row.status === "pending" && <Button data-testid="C0-1-3-cancel" size="sm" disabled={busy !== null} onClick={async () => {
+  const history = <Card data-testid={groupId ? "C7-1-2" : "C0-1-3"} className="space-y-3"><details><summary>{t("requests.history")}</summary>{error ? <p role="alert">{t("error.loadFailed")}</p> : rows.map(row => <div key={row.id} className="space-y-2"><div className="flex items-center justify-between gap-3"><span>{row.name} · {t(`requests.${row.status}`)} · {row.requestedAt ? new Date(row.requestedAt).toLocaleString(i18n.language) : "–"}{row.resolvedAt ? ` → ${new Date(row.resolvedAt).toLocaleString(i18n.language)}` : ""}</span>{!groupId && row.status === "pending" && <Button data-testid="C0-1-3-cancel" {...focusTargetProps(clubRequestFocusKey(row.groupId))} size="sm" disabled={busy !== null} onClick={async () => {
     if (!userId || busy || auth.currentUser?.uid !== userId) return;
     const scope = intent.current;
     if (!(await dialog.confirm(t("requests.cancelConfirm"), { destructive: true }))) return;

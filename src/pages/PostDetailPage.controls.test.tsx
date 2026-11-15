@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
@@ -59,4 +59,15 @@ it("renders GFM content through the real Markdown renderer without executing uns
   expect(within(screen.getByRole("table")).getByRole("cell", { name: "20:00" })).toBeInTheDocument();
   expect(screen.getByText("Old note").tagName).toBe("DEL");
   expect(screen.getByText("Unsafe")).not.toHaveAttribute("href", expect.stringContaining("javascript:"));
+});
+
+it("로그인 전 좋아요를 누르면 토스트의 로그인 버튼으로 로그인 창을 연다", async () => {
+  renderWithProviders(<Routes><Route path="/ko/community/board/:postId" element={<PostDetailPage />} /></Routes>, { route: "/ko/community/board/post" });
+  const reactions = within(screen.getByTestId("M2-P-1").querySelector(".board-post-reactions")!);
+  fireEvent.click(reactions.getByRole("button", { name: /좋아요 3/ }));
+  // 토스트(닫기 버튼이 있는 줄) 안의 로그인 버튼 — 본문 댓글 칸의 로그인 버튼과 구분한다.
+  const toast = (await screen.findByRole("button", { name: "닫기" })).parentElement!;
+  fireEvent.click(within(toast).getByRole("button", { name: "로그인" }));
+  expect(await screen.findByRole("dialog", { name: "로그인" })).toBeInTheDocument();
+  expect(mutations.like).not.toHaveBeenCalled();
 });

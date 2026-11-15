@@ -772,6 +772,7 @@
   "src/services/eventPublicParticipants.ts",
   "src/services/feedNavigationDepth.ts",
   "src/services/firebase.ts",
+  "src/services/focusTarget.ts",
   "src/services/groupSummaries.ts",
   "src/services/handoffRedeem.ts",
   "src/services/hubReturn.ts",

@@ -203,6 +203,12 @@ describe("클럽 모임 마무리와 개인 결과", () => {
   function fixture(isHost: boolean, completed = false) {
     control.data = {eventId:"event",groupId:"club",revision:7,isHost,rideStatus:completed?"FINISHED":"OPEN",meeting:{...newClubMeeting(),id:"event",hostId:isHost?"test-uid":"host",registrations:[registration]},members:[{id:"test-uid",name:"테스트 회원"}],...(completed?{completion:{state:"ready" as const,summary:{totalParticipants:6,finishedCount:5,pendingCount:1,dnfCount:0},own:{status:"FINISHED",verified:true,durationMs:125000}}}:{})};
   }
+  it("주최자가 아닌 회원이 수정 화면에 오면 모임 보기로 돌아갈 수 있다", async () => {
+    fixture(false);
+    show("edit");
+    expect(await screen.findByText("이 모임의 주최자만 수정할 수 있어요.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "모임 보기" })).toHaveAttribute("href", "/ko/club/club/meetings/event");
+  });
   it("주최자의 확인 뒤만 최신 revision으로 마무리하며 중복 클릭을 막는다", async () => {
     fixture(true);let release!:()=>void;
     vi.mocked(finishClubMeeting).mockImplementationOnce(()=>new Promise(resolve=>{release=()=>resolve({success:true});}));

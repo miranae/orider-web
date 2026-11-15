@@ -30,7 +30,7 @@ export default function CourseEditPage() {
   const { t } = useTranslation("course");
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signIn } = useAuth();
   const { showToast } = useToast();
   const dialog = useDialog();
 
@@ -149,7 +149,7 @@ export default function CourseEditPage() {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("error.loginRequired")} description={t("edit.ownerOnly")} />
+        <PermissionGate title={t("error.loginRequired")} description={t("edit.ownerOnly")} onAction={() => { void signIn(); }} />
       </div>
     );
   }
