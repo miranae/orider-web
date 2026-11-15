@@ -2,7 +2,7 @@ import { activityIndependentRoute } from "./activityIndependentRoute";
 import { importedObservations } from "./importedActivityObservations";
 import NativeOwnerRoutePreview from "./NativeOwnerRoutePreview";
 import { observedRouteAvailable } from "../../../services/activityRouteEvidence";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import type { TFunction } from "i18next";
 import type { Activity, ActivityStreams } from "@shared/types";
 import RouteMap from "../../../components/RouteMap";
@@ -34,6 +34,10 @@ type ActivityMediaPanelProps = {
   uploadedPhotos: UploadedPhoto[];
   flyToPosition: [number, number] | null;
   t: TFunction<"activity">;
+  /** 지도 위에 얹는 주인 전용 버튼(왼쪽 아래 모서리). */
+  mapOverlay?: ReactNode;
+  /** 지도 바로 아래에 펼치는 주인 전용 패널(닫혀 있으면 null). */
+  mapPanel?: ReactNode;
 };
 
 export function ActivityMediaPanel({
@@ -52,6 +56,8 @@ export function ActivityMediaPanel({
   uploadedPhotos,
   flyToPosition,
   t,
+  mapOverlay,
+  mapPanel,
 }: ActivityMediaPanelProps) {
   const [mapExpanded, setMapExpanded] = useState(false);
   const mapId = useId();
@@ -89,7 +95,9 @@ export function ActivityMediaPanel({
           <MapResizeControls expanded={mapExpanded} controlsId={mapId}
             expandLabel={t("page.mapView.expand")} collapseLabel={t("page.mapView.collapse")}
             onToggle={() => setMapExpanded(expanded => !expanded)} />
+          {mapOverlay}
         </div>
+        {mapPanel}
         {!hasTrack && routeLookup && <Card><Stack gap="var(--space-3)">
           <Text as="p" role="status" tone="secondary">{t(`page.routeLookup.${routeLookup.state}`)}</Text>
           <Button variant="outline" loading={routeLookup.state === "loading"} disabled={routeLookup.state === "loading"} onClick={routeLookup.onLoad}>

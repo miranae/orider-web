@@ -283,3 +283,5 @@
 
 .activity-power-basis { display: grid; gap: var(--space-2); align-content: end; }
 .activity-analysis-zone > .activity-overview-zones { align-content: start; }
+/* 공개 지도 보호 연필 — 지도 크기 조절 버튼(왼쪽 위·오른쪽 아래)과 같은 모서리 모양, 빈 왼쪽 아래에 */
+.ds-btn.ds-map-resize.activity-map-privacy-corner { top: auto; bottom: 0; left: 0; border-radius: 0 var(--r-lg) 0 var(--r-lg); background: linear-gradient(225deg, transparent, var(--bg-1)); }
