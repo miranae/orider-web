@@ -18,10 +18,12 @@ import { hiddenProviderPhotoIds } from "./providerPhotoVisibility";
  */
 export function useProviderPhotoHiding(input: {
   activityId: string | undefined; uid: string | undefined; services: FirebaseServices; documentHiddenIds: string[];
+  /** 화면의 활동 문서 피드 본문 리비전. 바뀌면 문서가 새로 온 것으로 보고 문서를 따른다. */
+  documentFeedRevision?: string | null;
   firestore?: Firestore; refreshEnabled?: boolean;
   onDone: (hidden: boolean) => void; onError: (error: unknown, context: { activityId: string; hidden: boolean; count: number }) => void;
 }) {
-  const { activityId, uid, services, documentHiddenIds, firestore, refreshEnabled = false } = input;
+  const { activityId, uid, services, documentHiddenIds, documentFeedRevision = null, firestore, refreshEnabled = false } = input;
   const scopeKey = `${activityId ?? ""}|${uid ?? ""}`;
   const scope = useRef({ scopeKey, services, firestore, generation: 0 });
   if (scope.current.scopeKey !== scopeKey || scope.current.services !== services || scope.current.firestore !== firestore) {
@@ -31,9 +33,10 @@ export function useProviderPhotoHiding(input: {
   // 갱신 시작 순번. 문서 목록 변경도 한 번의 갱신으로 센다.
   const sequence = useRef(0);
   const documentKey = JSON.stringify(documentHiddenIds);
-  const documentStamp = useRef({ generation, key: documentKey, sequence: 0 });
-  if (documentStamp.current.generation !== generation || documentStamp.current.key !== documentKey) {
-    documentStamp.current = { generation, key: documentKey, sequence: ++sequence.current };
+  const documentStampKey = JSON.stringify([documentKey, documentFeedRevision]);
+  const documentStamp = useRef({ generation, key: documentStampKey, sequence: 0 });
+  if (documentStamp.current.generation !== generation || documentStamp.current.key !== documentStampKey) {
+    documentStamp.current = { generation, key: documentStampKey, sequence: ++sequence.current };
   }
   // fromDocument: 활동 문서를 새로 읽은 값이면 그 문서의 피드 본문(feedContentV1)도 함께 둔다.
   type Latest = { generation: number; sequence: number; ids: string[]; fromDocument: boolean; feedContentV1?: unknown };

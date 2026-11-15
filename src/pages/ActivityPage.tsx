@@ -671,6 +671,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   // 문서는 한 번만 읽으므로, 주인이 다른 탭에서 바꾼 숨김 목록은 탭이 다시 보일 때 새로 읽는다(refreshEnabled).
   const providerPhotos = useProviderPhotoHiding({
     activityId, uid: user?.uid, services: photoServices, firestore,
+    documentFeedRevision: (activity?.feedContentV1 as { revision?: string } | undefined)?.revision ?? null,
     refreshEnabled: activity?.source === "strava" && !!user?.uid && activity.userId === user.uid,
     documentHiddenIds: activity?.source === "strava" ? hiddenProviderPhotoIds(activity as typeof activity & { hiddenProviderPhotosV1?: unknown }) : NO_HIDDEN_PROVIDER_IDS,
     onDone: hidden => showToast(t(hidden ? "page.photoToast.providerHidden" : "page.photoToast.providerRestored")),
@@ -853,8 +854,11 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const author = useActivityAuthor(publicAccess ? { userId: "", nickname: activity?.nickname, profileImage: activity?.profileImage } : activity ?? { userId: "" });
   const sourceRevision = activity ? activityFeedSourceRevision(activity) : null;
   // 숨기기·다시 보이기 뒤 새로 읽은 문서의 피드 본문이 있으면 그것을 쓴다(복원한 사진이 옛 본문에는 없다).
-  const latestFeedContent = boundedFeedContent(providerPhotos.feedContentV1 !== undefined ? providerPhotos.feedContentV1 : activity?.feedContentV1);
-  const publishedContent = latestFeedContent?.sourceRevision === sourceRevision ? latestFeedContent : null;
+  // 현재 활동 리비전과 맞는 본문만 쓴다. 새로 읽은 본문이 맞지 않으면 화면 문서의 본문으로 돌아간다.
+  const refreshedFeedContent = boundedFeedContent(providerPhotos.feedContentV1);
+  const documentFeedContent = boundedFeedContent(activity?.feedContentV1);
+  const publishedContent = refreshedFeedContent?.sourceRevision === sourceRevision ? refreshedFeedContent
+    : documentFeedContent?.sourceRevision === sourceRevision ? documentFeedContent : null;
   const resolvedMemo = activity ? resolveActivityMemo(activity, stravaSummaryLang) : null;
   const freshDefaultMemo = overview.response?.status === "available" && overview.response.activityId === activity?.id
     ? overview.response.defaultMemo ?? null : null;

@@ -18,7 +18,7 @@ const setup = (initial: Props) => renderHook((props: Props) => useProviderPhotoH
 beforeEach(() => hide.mockReset());
 
 const firestore = {} as Firestore;
-type LiveProps = Props & { firestore?: Firestore; refreshEnabled?: boolean };
+type LiveProps = Props & { firestore?: Firestore; refreshEnabled?: boolean; documentFeedRevision?: string | null };
 const live = (initial: Props, extra: { firestore?: Firestore; refreshEnabled?: boolean } = {}) => renderHook((props: LiveProps) =>
   useProviderPhotoHiding({ ...props, services, onDone: vi.fn(), onError: vi.fn() }), { initialProps: { firestore, refreshEnabled: true, ...extra, ...initial } as LiveProps });
 const stored = (ids: string[]) => ({ data: () => ({ userId: "me", hiddenProviderPhotosV1: { version: 1, userId: "me", ids } }) });
@@ -115,6 +115,15 @@ describe("탭 복귀 때 숨김 목록 새로 읽기(다른 탭 변경 반영)",
     expect(view.result.current.hiddenIds).toEqual([]);
     // 새로 읽은 문서의 본문을 쓰므로 사진 총수도 현재 값이다
     expect(view.result.current.overriding).toBe(false);
+  });
+  it("새로 읽은 본문 뒤 화면 문서의 피드 본문 리비전이 바뀌면 문서를 따른다(숨김 목록이 같아도)", async () => {
+    const feed = { version: 1, revision: "r2" };
+    getDoc.mockResolvedValue({ data: () => ({ userId: "me", hiddenProviderPhotosV1: { version: 1, userId: "me", ids: ["1"] }, feedContentV1: feed }) });
+    const view = live({ activityId: "a", uid: "me", documentHiddenIds: ["1"] });
+    await showTab();
+    await waitFor(() => expect(view.result.current.feedContentV1).toBe(feed));
+    view.rerender({ firestore, refreshEnabled: true, activityId: "a", uid: "me", documentHiddenIds: ["1"], documentFeedRevision: "r3" } as LiveProps);
+    expect(view.result.current.feedContentV1).toBeUndefined();
   });
   it("저장 요청보다 먼저 시작한 조회의 늦은 응답은 저장 결과를 덮지 않는다", async () => {
     let resolveRead!: (value: unknown) => void;
