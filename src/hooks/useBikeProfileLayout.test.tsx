@@ -197,4 +197,21 @@ describe("useBikeProfileLayout 충돌 해소", () => {
     expect(result.current.revision).toBe(7);
     expect(result.current.source).toBe("canonical");
   });
+
+  it("해소 중 계정이 바뀌면 늦게 끝난 해소 결과로 새 계정 화면을 덮지 않는다", async () => {
+    let finishHead: () => void = () => {};
+    mocks.putHead.mockReset().mockImplementation(() => new Promise<void>(resolve => { finishHead = resolve; }));
+    const { result, rerender } = renderHook(({ uid }) => useBikeProfileLayout(uid, "road", [page]), { initialProps: { uid: "uid-a" } });
+    act(() => mocks.subscriptions[0]!.next(remoteSnap("road", 5)));
+    await waitFor(() => expect(result.current.revision).toBe(5));
+
+    let pending!: Promise<unknown>;
+    act(() => { pending = result.current.resolveConflict({ remoteRevision: 7, remotePayload }); });
+    rerender({ uid: "uid-b" });
+    act(() => mocks.subscriptions[mocks.subscriptions.length - 1]!.next(remoteSnap("road", 3)));
+    await waitFor(() => expect(result.current.revision).toBe(3));
+
+    await act(async () => { finishHead(); await pending; });
+    expect(result.current.revision).toBe(3);
+  });
 });

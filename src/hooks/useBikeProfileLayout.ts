@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 
 import type { DataPageConfig, LayoutConfig } from "@shared/types/deviceSettings";
@@ -79,6 +79,12 @@ export function useBikeProfileLayout(
 
   const { record, revision, source } = state;
   const loading = state.loading;
+  // 지금 화면이 보고 있는 대상(계정·자전거)과 충돌 해소 작업 세대 — 해소 중 계정이나 자전거가 바뀌면
+  // 늦게 끝난 해소 결과가 새 대상의 상태를 덮지 않게 한다.
+  const targetKey = ownerKey && profileId ? `${ownerKey}|${profileId}` : null;
+  const currentTarget = useRef(targetKey);
+  currentTarget.current = targetKey;
+  const resolveGeneration = useRef(0);
 
   useEffect(() => {
     if (!uid || !profileId || !ownerKey) {
@@ -176,6 +182,8 @@ export function useBikeProfileLayout(
         return { status: "invalidPayload", reasons: ["conflict remotePayload 를 읽지 못함"] };
       }
       const deps = browserSaveDeps();
+      const generation = ++resolveGeneration.current;
+      const requestTarget = `${ownerKey}|${profileId}`;
       try {
         // 저장·drain 과 같은 owner 잠금 안에서 차단 intent 를 걷고 head 를 원격으로 맞춘다 —
         // 잠금 밖에서 하면 진행 중인 drain 이 지운 intent 를 다시 보내거나 head 를 되돌린다.
@@ -206,6 +214,10 @@ export function useBikeProfileLayout(
           cause: String(cause),
         });
         return { status: "localSaveFailed", cause };
+      }
+      if (currentTarget.current !== requestTarget || resolveGeneration.current !== generation) {
+        deps.log("info", "충돌 해소 완료 — 대상이 바뀌어 화면 반영은 건너뜀", { ownerKey, profileId });
+        return { status: "synced", revision: conflict.remoteRevision };
       }
       setState({
         profileId,
