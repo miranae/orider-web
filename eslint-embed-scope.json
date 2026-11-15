@@ -175,6 +175,7 @@
   "src/components/redesign/states/ErrorState.tsx",
   "src/components/redesign/states/LoadingSkeleton.tsx",
   "src/components/redesign/states/PermissionGate.tsx",
+  "src/components/redesign/states/Resolvable.tsx",
   "src/components/redesign/states/index.ts",
   "src/components/social/LikersAvatarStack.tsx",
   "src/components/training/AdaptationBanner.tsx",
