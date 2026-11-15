@@ -7,21 +7,23 @@ import { PaneHealthSources } from "./PaneHealthSources";
 
 const mocks = vi.hoisted(() => ({
   prefs: {} as HealthPreferences,
-  save: vi.fn(), retain: vi.fn(),
+  save: vi.fn(), retain: vi.fn(), connectStrava: vi.fn(),
+  connections: null as Record<string, unknown> | null,
 }));
+vi.mock("../../hooks/useStrava", () => ({ useStrava: () => ({ connectStrava: mocks.connectStrava }) }));
 vi.mock("../../hooks/useHealthPreferences", () => ({ useHealthPreferences: () => ({
   prefs: mocks.prefs, loading: false, setPrimarySource: mocks.save, setRetainForever: mocks.retain,
 }) }));
 vi.mock("../../hooks/useHealthConnections", () => ({ useHealthConnections: () => ({
   loading: false,
-  connections: {
+  connections: mocks.connections ?? {
     strava: { status: "active", scopes: Array.from({ length: 12 }, (_, i) => `scope-${i}`), lastSyncAt: Date.now() - 120_000 },
     apple_health: { status: "active", scopes: [] }, health_connect: null,
   },
 }) }));
 
 describe("PaneHealthSources stored preferences", () => {
-  beforeEach(() => { mocks.prefs = {} as HealthPreferences; mocks.save.mockReset().mockResolvedValue(undefined); mocks.retain.mockReset(); });
+  beforeEach(() => { mocks.connections = null; mocks.connectStrava.mockReset(); mocks.prefs = {} as HealthPreferences; mocks.save.mockReset().mockResolvedValue(undefined); mocks.retain.mockReset(); });
   it("renders legacy preference documents with no primarySource map as automatic without writes", () => {
     renderWithProviders(<PaneHealthSources />, { authenticated: true });
     const selectors = screen.getAllByRole("combobox");
@@ -60,5 +62,24 @@ describe("PaneHealthSources stored preferences", () => {
     await user.click(screen.getByRole("option", { name: "Apple Health" }));
     expect(mocks.save).toHaveBeenCalledExactlyOnceWith("bike", "apple_health");
     expect(mocks.retain).not.toHaveBeenCalled();
+  });
+  it.each(["reauth_required", "revoked", "error"])("restarts the Strava connection from a %s chip", async (status) => {
+    mocks.connections = { strava: { status, scopes: [] }, apple_health: null, health_connect: null };
+    const user = userEvent.setup();
+    renderWithProviders(<PaneHealthSources />, { authenticated: true });
+    const card = within(screen.getByTestId("health-provider-strava"));
+    // 칩 문구 자체가 유일한 누를 곳이다 — 새 버튼을 만들지 않는다.
+    const buttons = card.getAllByRole("button");
+    expect(buttons).toHaveLength(1);
+    await user.click(buttons[0]!);
+    expect(mocks.connectStrava).toHaveBeenCalledWith("/settings/connections");
+  });
+  it("leaves app-only providers untouched because the web cannot reconnect them", () => {
+    mocks.connections = { strava: null, apple_health: { status: "reauth_required", scopes: [] }, health_connect: null };
+    renderWithProviders(<PaneHealthSources />, { authenticated: true });
+    const card = within(screen.getByTestId("health-provider-apple_health"));
+    expect(card.getByText("재인증 필요")).toBeInTheDocument();
+    expect(card.queryByRole("button")).toBeNull();
+    expect(card.queryByRole("link")).toBeNull();
   });
 });
