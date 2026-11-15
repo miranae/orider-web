@@ -1466,14 +1466,9 @@ function CoursePageContent() {
             {/* Share */}
             <IconButton onClick={handleShare} variant="secondary" aria-label={t("button.share")} title={t("button.share")}
               icon={<Share2 size={ICON_SIZE.md} />} />
-
-            {user && (
-              <IconButton onClick={() => setReportOpen(true)} variant="secondary" aria-label={t("report.button")} title={t("report.button")}
-                icon={<Flag size={ICON_SIZE.md} />} />
-            )}
           </div>
 
-          {/* 조회수(작은 글씨) + 관리 아이콘(작성자 삭제·관리자 숨기기)을 같은 줄 양끝에 */}
+          {/* 조회수(작은 글씨) + 신고·관리 아이콘(작성자 삭제·관리자 숨기기)을 같은 줄 양끝에. 좁은 칸에서 신고가 혼자 줄바꿈되지 않게 여기 둔다. */}
           <div data-testid="course-action-footer" style={COURSE_ACTION_FOOTER_STYLE}>
             <span data-testid="course-view-count" className="text-[length:var(--fs-xs)] flex items-center" style={{ color: "var(--ink-4)", gap: "var(--space-1)" }}>
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1483,8 +1478,12 @@ function CoursePageContent() {
               {course.viewCount}
             </span>
 
-            {(isOwner || isAdmin) && (
+            {(user || isOwner || isAdmin) && (
               <div data-testid="course-action-manage" className="flex items-center" style={{ gap: "var(--space-2)" }}>
+                {user && (
+                  <IconButton onClick={() => setReportOpen(true)} variant="ghost" size="sm" aria-label={t("report.button")} title={t("report.button")}
+                    icon={<Flag size={ICON_SIZE.sm} />} />
+                )}
                 {isOwner && (
                   <IconButton onClick={handleDelete} loading={deleting} variant="danger" size="sm"
                     aria-label={t("button.delete")} title={t("button.delete")} icon={<Trash2 size={ICON_SIZE.sm} />} />

@@ -96,11 +96,12 @@ describe("course preparation climb predictions", () => {
     // 주 동작은 칸 전체 폭, 보조 아이콘은 한 줄 묶음
     expect(screen.getByRole("button", { name: /앱으로 보내기/ })).toHaveClass("ds-btn--block");
     const icons = screen.getByTestId("course-action-icons");
-    for (const name of ["좋아요 0", "시뮬레이터", "GPX", "공유", "신고"]) expect(icons).toContainElement(screen.getByRole("button", { name }));
-    // 관리 아이콘은 혼자 한 줄을 차지하지 않고 조회수와 같은 줄에 있다
+    for (const name of ["좋아요 0", "시뮬레이터", "GPX", "공유"]) expect(icons).toContainElement(screen.getByRole("button", { name }));
+    // 신고·관리 아이콘은 혼자 한 줄을 차지하지 않고 조회수와 같은 줄에 있다(좁은 칸에서 신고만 줄바꿈되던 문제)
     const footer = screen.getByTestId("course-action-footer");
     expect(footer).toContainElement(screen.getByTestId("course-view-count"));
-    for (const name of ["삭제", "숨기기"]) expect(footer).toContainElement(screen.getByRole("button", { name }));
+    for (const name of ["신고", "삭제", "숨기기"]) expect(footer).toContainElement(screen.getByRole("button", { name }));
+    expect(icons).not.toContainElement(screen.getByRole("button", { name: "신고" }));
   });
   it("keeps report choices above the dialog and changes a reason without submitting", async () => {
     render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
