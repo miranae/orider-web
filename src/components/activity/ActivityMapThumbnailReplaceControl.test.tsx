@@ -69,3 +69,11 @@ it("gives up when the capture map never loads", async () => {
     expect(replaces()).toHaveLength(before);
   } finally { vi.useRealTimers(); }
 });
+
+it("offers the rebuild as a small icon beside the explanation, not a full-row button", () => {
+  renderControl();
+  const button = screen.getByRole("button", { name: "지도 썸네일 다시 만들기" });
+  expect(button).toHaveClass("ds-btn--icon-only");
+  expect(button).toHaveAttribute("title", "지도 썸네일 다시 만들기");
+  expect(button.textContent?.trim()).toBe("");
+});

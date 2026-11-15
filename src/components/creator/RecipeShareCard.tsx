@@ -1,8 +1,8 @@
 import "./RecipeShareCard.css";
 import { useEffect, useRef, useState } from "react";
-import { Clipboard, Download, MessageSquareText } from "lucide-react";
+import { Clipboard, Download, MessageSquareText, Pencil } from "lucide-react";
 import { LocalizedLink } from "../LocalizedLink";
-import { Button, Input, Textarea, buttonClass } from "../../theme/components";
+import { Button, IconButton, Input, Textarea, buttonClass } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 export interface RecipePublicCard {
@@ -111,7 +111,8 @@ export function RecipeShareCard({ card, language, ready, onError }: {
   return <div className="recipe-share-card space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-2 text-[length:var(--fs-xs)]" style={{ color: "var(--ink-3)" }}>
       <span>{ready ? (ko ? "공유용 하이라이트 · 원문 일기 제외" : "Public highlight · private diary excluded") : (ko ? "디자인 예시 · 내 활동이 아닙니다" : "Design example · not your activity")}</span>
-      {ready && <Button size="md" variant="ghost" onClick={() => setEditing(!editing)}>{ko ? "문구 편집" : "Edit copy"}</Button>}
+      {ready && <IconButton size="md" variant="ghost" icon={<Pencil size={ICON_SIZE.md} />} aria-pressed={editing} onClick={() => setEditing(!editing)}
+        aria-label={ko ? "문구 편집" : "Edit copy"} title={ko ? "문구 편집" : "Edit copy"} />}
     </div>
     <svg ref={preview} xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 720 ${artworkHeight}`} role="img" aria-label={title} className="mx-auto w-full max-w-md rounded-[var(--r-lg)]" fontFamily="sans-serif">
       <title>{title}</title><desc>{body}</desc>

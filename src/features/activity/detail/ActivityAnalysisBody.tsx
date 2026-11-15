@@ -9,7 +9,9 @@ import GlossaryText from "../../../components/common/GlossaryText";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { activityThresholdHref } from "./activityThresholdHref";
 import FuelSplitBar from "../../../components/FuelSplitBar";
-import { Button, Chip, Disclosure, Section, Stack, Stat, Text } from "../../../theme/components";
+import { Chip, Disclosure, IconButton, Section, Stack, Stat, Text } from "../../../theme/components";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
+import { RefreshCw } from "lucide-react";
 import { criticalDistribution, PowerZoneReadings } from "./PowerZoneReadings";
 import { FitnessShift, ZoneTimeBar, IntensityGauge, OverviewPowerCurve, PercentMeter, formatSpan, powerDurationSeconds } from "./ActivityOverviewCharts";
 
@@ -123,7 +125,7 @@ export default function ActivityAnalysisBody(props: Props) {
       {raw.status}
       {overview.enabled && !p && isOwner && <div role={overview.loading ? "status" : undefined} className="activity-analysis-source-state">
         {note(t(overview.loading ? "overviewEvidence.loading" : overview.error ? "overviewEvidence.error" : overview.response?.status === "unavailable" ? `overviewEvidence.unavailable.${overview.response.reason}` : "overviewEvidence.missing"))}
-        {!overview.loading && !(overview.response?.status === "unavailable" && overview.response.reason === "rollout_disabled") && <Button size="sm" variant="outline" onClick={overview.retry}>{label("retry")}</Button>}
+        {!overview.loading && !(overview.response?.status === "unavailable" && overview.response.reason === "rollout_disabled") && <IconButton variant="ghost" size="sm" icon={<RefreshCw size={ICON_SIZE.sm} />} aria-label={label("retry")} title={label("retry")} onClick={overview.retry} />}
       </div>}
       <Topic id="training" title={t("detail.analysisTopics.training")} visible={!!p && (p.session.load != null || p.session.normalizedPowerW != null || p.session.intensityFactor != null || !!fitness || !!p.coachSentence || !!p.personal?.length || p.thresholdBasis === "none") || readable(raw.load) || props.storedLoad != null}>
         {p && !props.summaryOutside && <Stack gap="var(--space-3)">

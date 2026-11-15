@@ -49,3 +49,10 @@ it("offers the thumbnail rebuild only when a published thumbnail and its route e
  expect(rebuild()).not.toBeInTheDocument();
  await open(); expect(rebuild()).toBeInTheDocument();
 });
+it("takes no space until the pencil is pressed", async () => {
+ render(<ActivityMapPrivacyControl activityId="a" />);
+ expect(screen.getByRole("button", { name: "공개 지도 보호 설정" })).toHaveAttribute("aria-expanded", "false");
+ expect(screen.queryByLabelText("시작 지점 보호 반경 (m)")).toBeNull();
+ expect(document.querySelector(".ds-card")).toBeNull();
+ await open(); expect(document.querySelector(".ds-card")).not.toBeNull();
+});
