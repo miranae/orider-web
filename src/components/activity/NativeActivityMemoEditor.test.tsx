@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-import NativeActivityMemoEditor from "./NativeActivityMemoEditor";
+import NativeActivityMemoEditor, { NativeActivityMemoEditorView, useNativeMemoEditor } from "./NativeActivityMemoEditor";
 const sha = (text: string) => createHash("sha256").update(text).digest("hex");
 const mocks = vi.hoisted(() => ({ load: vi.fn(), setNativeMemo: vi.fn() }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner" } }) }));
@@ -24,7 +24,7 @@ describe("native memo editing", () => {
   it("starts the draft from the shown generated memo when no authored memo exists on the server", async () => {
     mocks.load.mockResolvedValue({ activity: { id: "ride", userId: "owner" }, nativeMemoRevision: sha(""), content: { memo: "옛 판 메모" } });
     mocks.setNativeMemo.mockResolvedValue({ memoRevision: "revision2", status: "updated" });
-    render(<NativeActivityMemoEditor activityId="ride" currentMemo={"▰ 라이딩 종합\n이동 00:04:07"} onSaved={vi.fn()}><p>보이는 메모</p></NativeActivityMemoEditor>);
+    render(<NativeActivityMemoEditor activityId="ride" currentMemoAuthored={false} currentMemo={"▰ 라이딩 종합\n이동 00:04:07"} onSaved={vi.fn()}><p>보이는 메모</p></NativeActivityMemoEditor>);
     expect(screen.getByText("보이는 메모")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "메모 작성·수정" }));
     expect(await screen.findByRole("textbox")).toHaveValue("▰ 라이딩 종합\n이동 00:04:07");
@@ -43,6 +43,12 @@ describe("native memo editing", () => {
     render(<NativeActivityMemoEditor activityId="ride" currentMemo="내 메모" onSaved={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "메모 작성·수정" }));
     expect(await screen.findByRole("textbox")).toHaveValue("내 메모");
+  });
+  it("does not resurrect an authored memo deleted on another device", async () => {
+    mocks.load.mockResolvedValue({ activity: { id: "ride", userId: "owner" }, nativeMemoRevision: sha(""), content: { memo: "지운 메모 A" } });
+    render(<NativeActivityMemoEditor activityId="ride" currentMemo="지운 메모 A" onSaved={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "메모 작성·수정" }));
+    expect(await screen.findByRole("textbox")).toHaveValue("");
   });
   it("preserves an edited draft on conflict and requires a fresh revision", async () => {
     mocks.setNativeMemo.mockRejectedValue({ code: "functions/aborted" });
@@ -103,4 +109,17 @@ it("does not restore focus into an editor removed by the parent after save", asy
   await user.tab();
   await user.keyboard("{Enter}");
   await waitFor(() => expect(screen.getByRole("button", { name: "다음 활동" })).toHaveFocus());
+});
+
+it("keeps an unsaved draft when the view is remounted by a content refresh", async () => {
+  function Page({ revision }: { revision: string }) {
+    const editor = useNativeMemoEditor({ activityId: "ride", currentMemo: "기존 본문", onSaved: vi.fn() });
+    return <div key={revision}><NativeActivityMemoEditorView editor={editor}><p>기존 본문</p></NativeActivityMemoEditorView></div>;
+  }
+  mocks.load.mockResolvedValue({ activity: { id: "ride", userId: "owner" }, nativeMemoRevision: sha("기존 본문"), content: { memo: "기존 본문" } });
+  const view = render(<Page revision="r1" />);
+  fireEvent.click(screen.getByRole("button", { name: "메모 작성·수정" }));
+  fireEvent.change(await screen.findByRole("textbox"), { target: { value: "쓰던 초안" } });
+  view.rerender(<Page revision="r2" />);
+  expect(screen.getByRole("textbox")).toHaveValue("쓰던 초안");
 });

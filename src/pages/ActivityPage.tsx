@@ -16,7 +16,7 @@ import { announceActivityContentChange } from "../services/activityContentChange
 import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
 import { hiddenProviderPhotoIds, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos, withoutHiddenStreamPhotos } from "../features/activity/detail/providerPhotoVisibility";
 import { useProviderPhotoHiding } from "../features/activity/detail/useProviderPhotoHiding";
-import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
+import { NativeActivityMemoEditorView, useNativeMemoEditor } from "../components/activity/NativeActivityMemoEditor";
 import { canEditActivityMemo } from "../components/activity/activityMemoEditable";
 import { stravaRecordOf } from "@shared/analysis/stravaRecord";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
@@ -869,6 +869,12 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   // 화면에 보이는 메모 = 연필 편집 초안의 시작값(보이는 것과 다른 메모를 고치지 않게).
   const shownMemo = activity && nativeMemoOverride?.activityId === activity.id ? nativeMemoOverride.memo : overviewMemo;
   const canEditMemo = !!activity && isActivityOwner && canEditActivityMemo(activity.source) && getRuntimeConfig().publicActivityDetailEnabled === true;
+  // 자동 요약이 보일 때만 false — 작성 메모가 없다는 근거로 쓴다(그 외는 보수적으로 작성 메모 취급).
+  const shownMemoGenerated = !!activity && nativeMemoOverride?.activityId !== activity.id && shownMemo != null
+    && ((resolvedMemo?.authored === false && shownMemo === resolvedMemo.memo) || shownMemo === freshDefaultMemo);
+  // 편집 상태는 페이지에 둔다: ActivityOverviewSocial 은 sourceRevision 으로 다시 마운트되므로 그 안에 두면 초안이 사라진다.
+  const memoEditor = useNativeMemoEditor({ activityId: activity?.id ?? activityId ?? "", currentMemo: shownMemo, currentMemoAuthored: !shownMemoGenerated,
+    onSaved: memo => { if (activity) setNativeMemoOverride({ activityId: activity.id, memo }); } });
 
   const hasStreams = sampledData.length > 0;
   const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, publicAccess ? null : user?.uid, activityId, user?.isAnonymous === true);
@@ -1365,8 +1371,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
       </section>}
       {activeTab === "overview" && <ActivityOverviewSocial key={`${activity.id}:${user?.uid ?? "guest"}:${sourceRevision}`} activityId={activity.id} prioritizeResults={mobileReading}
         memo={shownMemo}
-        renderMemo={canEditMemo ? view => <NativeActivityMemoEditor key={`${activity.id}:${user?.uid}`} activityId={activity.id} currentMemo={shownMemo}
-          onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })}>{view}</NativeActivityMemoEditor> : undefined} memoGeneratedAt={nativeMemoOverride?.activityId !== activity.id && !providerRecord && resolvedMemo?.authored === false ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={nativeMemoOverride?.activityId !== activity.id && resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
+        renderMemo={canEditMemo ? view => <NativeActivityMemoEditorView editor={memoEditor}>{view}</NativeActivityMemoEditorView> : undefined} memoGeneratedAt={nativeMemoOverride?.activityId !== activity.id && !providerRecord && resolvedMemo?.authored === false ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={nativeMemoOverride?.activityId !== activity.id && resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
         photosKnown={!!streams || !!publishedContent || typeof activity.photoCount === "number"} memoTruncated={publishedContent?.memoTruncated} photos={overviewPhotos}
         totalPhotos={activity.source === "orider"
           ? Math.max(overviewPhotos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0)
