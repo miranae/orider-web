@@ -9,6 +9,8 @@ export interface ClubEvent {
   /** 종료 시각(있으면) — 시작 후 3시간이 지나도 종료 전 OPEN 은 예정이다(서버 timeWindow 와 같은 규칙). */
   endTime: number | null;
   registered: number | null; myRsvp: boolean | null;
+  /** 서버가 시간 경과로 닫은 이벤트(info.autoFinishReason) — 결과가 없으니 '자동 종료'로 보인다. */
+  autoFinished: boolean;
   /** 주최자면 목록에서 바로 수정으로 간다. 수정 가능 여부는 서버가 다시 판정한다. */
   isHost: boolean;
 }
@@ -27,11 +29,11 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
   const {t, i18n} = useTranslation(["group", "event"]);
   const rows = [
     ...meetings.map(item => ({kind:"meeting" as const, id:item.eventId, status:meetingEventStatus(item), at:meetingStartMs(item), end:null, item})),
-    ...events.map(event => ({kind:"event" as const, id:event.id, status:event.status, at:event.startTime, end:event.endTime, event})),
+    ...events.map(event => ({kind:"event" as const, id:event.id, status:event.status, at:event.startTime, end:event.endTime, autoFinished:event.autoFinished, event})),
   ].filter(row => clubEventWindow(row.status, row.at, nowMs, row.end) === timeWindow)
     .sort((a,b) => compareClubEvents(timeWindow, a, b))
     // 시작이 지났는데 OPEN 으로 남은 것은 '자동 종료' — 정렬·구간은 저장 상태로, 보이는 상태와 동작은 이것으로.
-    .map(row => ({...row, shown: clubEventDisplayStatus(row.status, row.at, nowMs, row.end)}));
+    .map(row => ({...row, shown: row.kind === "event" && row.autoFinished && row.status === "FINISHED" ? "AUTO_FINISHED" : clubEventDisplayStatus(row.status, row.at, nowMs, row.end)}));
   const statusLabel = (status: string) => t(status === "AUTO_FINISHED" ? "event:status.autoFinished" : `event:status.${status.toLowerCase()}`);
   return <section aria-label={t("events.listLabel")} data-testid={timeWindow === "past" ? "C3-2" : "C3-1"} >
     <Stack gap="var(--dim-section-gap)">
@@ -106,7 +108,7 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
                   </Link>
                 )}
               </div>
-              {event.status === "FINISHED" && (
+              {row.shown === "FINISHED" && (
                 <Link to={`/event/${event.id}/results`}>
                   {t("events.results")}
                 </Link>
