@@ -3,7 +3,9 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useClubMeetingsApi } from "./useClubMeetingsApi";
 import type { MeetingDiscordView } from "../../services/clubMeetings";
-import { Button, Card, buttonClass } from "../../theme/components";
+import { PhoneOff } from "lucide-react";
+import { Button, Card, IconButton, buttonClass } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { DiscordLogo } from "../../components/auth/DiscordLogo";
 import { LocalizedLink } from "../../components/LocalizedLink";
 import { logClientError } from "../../services/errorLogger";
@@ -84,7 +86,11 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
   const canOpen = data?.available && data.isHost && data.linked && !ended && !["ready", "closing"].includes(data.state);
   if (data && !data.available && !error) return null;
   return <Card className="space-y-3">
-    <h2>{text("디스코드 음성 모임", "Discord voice room")}</h2>
+    {/* 주최자의 음성 채널 닫기는 카드 제목 옆 작은 통화 종료 아이콘으로 두고, 확정 단계는 그대로 거친다. */}
+    <div className="cp-heading-with-edit">
+      <h2>{text("디스코드 음성 모임", "Discord voice room")}</h2>
+      {!ended && data?.isHost && ["ready", "preparing", "closing"].includes(data.state) && <IconButton size="sm" variant="ghost" aria-label={text("음성 채널 닫기", "Close voice room")} title={text("음성 채널 닫기", "Close voice room")} icon={<PhoneOff size={ICON_SIZE.sm} />} disabled={pending} onClick={() => setConfirmClose(true)} />}
+    </div>
     <p>{ended ? text("모임이 끝나 음성 채널을 정리합니다.", "The meeting has ended. Its voice channel is being removed.")
       : text("참석자와 관전자가 함께 사용하는 공개 음성 채널입니다. 모임 종료·취소 후 자동으로 삭제됩니다.", "A public voice room for riders and spectators. It is removed automatically when the meeting ends or is cancelled.")}</p>
     {error && <p role="alert">{text("음성 채널 상태를 확인하지 못했어요. 다시 확인해주세요.", "Could not confirm the voice room. Please retry.")} <Button variant="ghost" size="sm" onClick={() => { setSignalRetry(value => value + 1); void reload(); }} disabled={pending}>{text("다시 확인", "Retry")}</Button></p>}
@@ -97,7 +103,6 @@ export default function MeetingDiscord({ eventId, groupId, uid, ended = false, e
       {safeServer && data.state !== "ready" && <p><a href={safeServer} target="_blank" rel="noopener noreferrer">{text("오라이더 디스코드 서버 참가", "Join the ORider Discord server")}</a></p>}
       {canOpen && <Button variant="discord" leadingIcon={<DiscordLogo />} loading={pending} onClick={() => void mutate(false)}>{text(data.state === "preparing" ? "채널 준비 다시 시도" : "음성 채널 열기", data.state === "preparing" ? "Retry room setup" : "Open voice room")}</Button>}
       <p>{text("처음 사용하실 때는 계정을 연결하고 오라이더 디스코드 서버에 참가해주세요. 주최자는 디스코드에서 참가자를 우클릭해 음성 연결을 끊을 수 있습니다.", "For first use, link your account and join the ORider Discord server. The organizer can right-click a participant in Discord to disconnect them from voice.")}</p>
-      {["ready", "preparing", "closing"].includes(data.state) && <Button variant="outline" size="sm" disabled={pending} onClick={() => setConfirmClose(true)}>{text("음성 채널 닫기", "Close voice room")}</Button>}
       {confirmClose && <div role="group" aria-label={text("음성 채널 닫기 확인", "Confirm closing the voice room")}>
         <p>{text("음성 채널을 닫으면 연결 중인 사람들의 통화도 끝납니다.", "Closing the room also ends the call for everyone connected.")}</p>
         <Button variant="danger" loading={pending} onClick={() => void mutate(true)}>{text("채널 닫기 확정", "Confirm close")}</Button>

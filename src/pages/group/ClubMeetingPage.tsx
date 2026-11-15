@@ -673,12 +673,50 @@ function ServerMeetingDetail({
           <h2>{text("모임 운영", "Manage meeting")}</h2>
           <div className="cp-actions">
             {live && <Button disabled={busy} onClick={() => setConfirmingFinish(true)}>{text("모임 마무리", "Finish meeting")}</Button>}
+            {/* 모임 전체 취소는 공지 카드에서 떼어 운영 카드 끝의 작은 위험 동작으로 둔다(파괴적 동작이라 글자 버튼 유지, 확정 단계 그대로). */}
+            {live && <Button variant="danger" size="sm" disabled={busy} onClick={() => setCancelling(true)}>{text("모임 전체 취소", "Cancel the meeting")}</Button>}
           </div>
           {live && confirmingFinish && <div role="group" aria-label={text("모임 마무리 확인", "Confirm meeting completion")}>
             <p>{text("모임을 마무리하면 신규 참가와 위치·심박 공유가 끝납니다. 각자의 기록은 삭제되지 않으며 업로드가 남은 기록은 확인 대기로 표시됩니다.", "Finishing closes new participation and location/heart-rate sharing. Individual recordings are preserved; outstanding uploads remain pending.")}</p>
             <Button loading={busy} onClick={() => void run(() => finishClubMeeting(data.eventId, data.revision))}>{text("마무리 확정", "Confirm finish")}</Button>
             <Button disabled={busy} onClick={() => setConfirmingFinish(false)}>{text("돌아가기", "Go back")}</Button>
           </div>}
+          {live && cancelling && (
+            <div className="cp-notice">
+              <p>
+                {text(
+                  "참석자와 대기자 모두에게 취소 안내가 남습니다.",
+                  "A cancellation notice will be recorded for participants and the waitlist.",
+                )}
+              </p>
+              <Field
+                label={text("취소 사유", "Cancellation reason")}
+                htmlFor="cancel-reason"
+              >
+                <Textarea
+                  id="cancel-reason"
+                  maxLength={3000}
+                  value={cancelReason}
+                  onChange={(event) => setCancelReason(event.target.value)}
+                />
+              </Field>
+              <Button
+                variant="danger"
+                disabled={busy || !cancelReason.trim()}
+                onClick={() =>
+                  void run(async () => {
+                    await cancelClubMeeting(data.eventId, cancelReason);
+                    setCancelling(false);
+                  })
+                }
+              >
+                {text("전체 취소 확정", "Confirm cancellation")}
+              </Button>
+              <Button disabled={pending} onClick={() => setCancelling(false)}>
+                {text("돌아가기", "Go back")}
+              </Button>
+            </div>
+          )}
           {live && (
             <Field
               label={text("모집 상태", "Registration")}
@@ -942,49 +980,6 @@ function ServerMeetingDetail({
               {text("공지 등록", "Publish notice")}
             </Button>
           </details>
-          <Button
-            variant="danger"
-            disabled={busy}
-            onClick={() => setCancelling(true)}
-          >
-            {text("모임 전체 취소", "Cancel the meeting")}
-          </Button>
-          {cancelling && (
-            <div className="cp-notice">
-              <p>
-                {text(
-                  "참석자와 대기자 모두에게 취소 안내가 남습니다.",
-                  "A cancellation notice will be recorded for participants and the waitlist.",
-                )}
-              </p>
-              <Field
-                label={text("취소 사유", "Cancellation reason")}
-                htmlFor="cancel-reason"
-              >
-                <Textarea
-                  id="cancel-reason"
-                  maxLength={3000}
-                  value={cancelReason}
-                  onChange={(event) => setCancelReason(event.target.value)}
-                />
-              </Field>
-              <Button
-                variant="danger"
-                disabled={busy || !cancelReason.trim()}
-                onClick={() =>
-                  void run(async () => {
-                    await cancelClubMeeting(data.eventId, cancelReason);
-                    setCancelling(false);
-                  })
-                }
-              >
-                {text("전체 취소 확정", "Confirm cancellation")}
-              </Button>
-              <Button disabled={pending} onClick={() => setCancelling(false)}>
-                {text("돌아가기", "Go back")}
-              </Button>
-            </div>
-          )}
         </Card>
       )}
     </div>

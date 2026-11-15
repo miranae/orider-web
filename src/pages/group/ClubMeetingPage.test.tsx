@@ -5,6 +5,7 @@ import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import ClubMeetingPage from "./ClubMeetingPage";
 import { newClubMeeting } from "../../features/club-preparation/meetingCopy";
 import {
+  cancelClubMeeting,
   clubMeetingAttendance,
   finishClubMeeting,
   createClubMeeting,
@@ -262,6 +263,29 @@ describe("클럽 모임 마무리와 개인 결과", () => {
     const confirm=screen.getByRole("button",{name:"마무리 확정"});fireEvent.click(confirm);fireEvent.click(confirm);
     expect(finishClubMeeting).toHaveBeenCalledTimes(1);expect(finishClubMeeting).toHaveBeenCalledWith("event",7);release();
     await waitFor(()=>expect(control.reload).toHaveBeenCalled());
+  });
+  it("모임 전체 취소는 운영 카드의 작은 글자 버튼이고 사유 입력과 확정 뒤에만 취소한다", async () => {
+    fixture(true);show("detail");
+    const trigger=await screen.findByRole("button",{name:"모임 전체 취소"});
+    // 공지 카드가 아니라 「모임 운영」 카드 안의 작은 위험 동작이며, 파괴적 동작이라 글자를 유지한다.
+    const hostCard=trigger.closest("#meeting-host-tools");
+    expect(hostCard?.querySelector("h2")?.textContent).toBe("모임 운영");
+    expect(trigger).toHaveClass("ds-btn--danger","ds-btn--sm");
+    expect(trigger).not.toHaveClass("ds-btn--icon-only");
+    expect(trigger.textContent).toBe("모임 전체 취소");
+    fireEvent.click(trigger);
+    expect(cancelClubMeeting).not.toHaveBeenCalled();
+    const confirm=screen.getByRole("button",{name:"전체 취소 확정"});
+    expect(hostCard).toContainElement(confirm);
+    expect(confirm).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("취소 사유"),{target:{value:"우천"}});
+    fireEvent.click(confirm);
+    await waitFor(()=>expect(cancelClubMeeting).toHaveBeenCalledWith("event","우천"));
+  });
+  it("참가자에게는 모임 전체 취소를 제공하지 않는다", async () => {
+    fixture(false);show("detail");
+    await screen.findByRole("button",{name:"참석 취소"});
+    expect(screen.queryByRole("button",{name:"모임 전체 취소"})).not.toBeInTheDocument();
   });
   it("참가자에게 마무리 조작을 제공하지 않고 자기 결과와 대기 수를 구분한다", async () => {
     fixture(false,true);show("detail");
