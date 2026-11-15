@@ -3,7 +3,7 @@ import NextEventContinuation from "../../components/group/NextEventContinuation"
 import { isSportUiEnabled } from "../../config/sportFeatures";
 import "./ClubSurface.css";
 import { Users } from "lucide-react";
-import GroupRequestHistory from "../../components/group/GroupRequestHistory";
+import GroupRequestHistory, { type PendingRequestFocus } from "../../components/group/GroupRequestHistory";
 import { useSearchParams } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,8 +13,8 @@ import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
 import { useMyGroups, usePendingGroupRequestIds, usePublicGroups } from "../../hooks/useGroup";
-import { debugLog, logClientError } from "../../services/errorLogger";
-import { FOCUS_TARGET_ATTR, FOCUS_TARGETS, clubRequestFocusKey, focusTargetProps, revealFocusTarget } from "../../services/focusTarget";
+import { logClientError } from "../../services/errorLogger";
+import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 import { usePublicClubDirectory } from "../../hooks/usePublicClubDirectory";
 import { useGroupNextEvents } from "../../hooks/useGroupNextEvents";
 import ClubLoginGate from "../../components/group/ClubLoginGate";
@@ -131,13 +131,10 @@ export default function GroupsPage() {
   // 내 클럽 일부를 읽지 못했다 — 목록 밖 공개 클럽이 실제로는 가입 클럽일 수 있어 '미가입'으로 확정하지 않는다.
   // 다시 읽기 버튼은 두지 않는다. 새로고침(앱은 화면을 아래로 당기기)하면 다시 확인한다.
   const myClubsPartial = Boolean(user) && !myLoading && (myGroupsIncomplete || Boolean(myGroupsError));
-  // 「승인 대기」 → 같은 화면 가입 신청 기록의 그 행(신청 취소 버튼)을 펼쳐 초점을 둔다.
-  // 임베드 화면에도 쓰이므로 주소(?focus=)를 바꾸지 않고 바로 찾는다.
-  const showPendingRequest = (groupId: string) => {
-    const target = document.querySelector<HTMLElement>(`[${FOCUS_TARGET_ATTR}="${clubRequestFocusKey(groupId)}"]`);
-    const focused = target ? revealFocusTarget(target) : false;
-    debugLog("club-pending-request", { groupId, found: Boolean(target), focused });
-  };
+  // 「승인 대기」 → 같은 화면 가입 신청 기록의 그 행(신청 취소 버튼)을 펼쳐 초점을 둔다. 최신 10개 밖의 신청이면
+  // 기록이 그 한 건을 읽어 붙인 뒤 초점을 둔다. 임베드 화면에도 쓰이므로 주소(?focus=)를 바꾸지 않는다.
+  const [pendingFocus, setPendingFocus] = useState<PendingRequestFocus | null>(null);
+  const showPendingRequest = (groupId: string) => setPendingFocus({ groupId, nonce: Date.now() });
   const myGroupIdList = useMemo(() => uid ? myGroups.map((g) => g.id) : [], [myGroups, uid]);
   const { byGroup: nextEventLabels, incompleteGroups = new Set<string>() } = useGroupNextEvents(myGroupIdList);
 
@@ -284,7 +281,7 @@ export default function GroupsPage() {
         </div>
       )}
 
-      <GroupRequestHistory userId={user?.uid} />
+      <GroupRequestHistory userId={user?.uid} focusRequest={pendingFocus} />
     </section>;
 
   return (

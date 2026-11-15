@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockCallableInvocations, setCallableImplementation, setCallableResult, setCollectionDocs, simulateLogin } from "../../__tests__/mocks/firebase";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { httpsCallable } from "firebase/functions";
+import { getDocs } from "firebase/firestore";
 import { auth, ensureAppCheckReady } from "../../services/firebase";
 import GroupsPage from "./GroupsPage";
 
@@ -130,6 +131,20 @@ describe("GroupsPage join results", () => {
     expect(history.querySelector("details")).toHaveAttribute("open");
     const cancels = screen.getAllByTestId("C0-1-3-cancel");
     expect(document.activeElement).toBe(cancels[1]);
+  });
+  it("최신 기록 10개 밖의 승인 대기 신청도 그 한 건을 읽어 붙인 뒤 신청 취소에 초점을 둔다", async () => {
+    myGroups.push({ id: "club-1", name: "Member club", discipline: "bike", memberCount: 1, visibility: "public" });
+    publicGroups.push({ id: "Old-Pending", name: "Old pending club", discipline: "bike", memberCount: 3, visibility: "public" });
+    membershipState.pending = new Set(["Old-Pending"]);
+    // 최신 10개(실시간 기록)에는 대상이 없다.
+    setCollectionDocs("users/test-uid/group_requests", Array.from({ length: 10 }, (_, i) => ({ id: `recent-${i}`, groupId: `Club-${i}`, groupName: `Club ${i}`, status: "approved", requestedAt: 1000 + i })));
+    vi.mocked(getDocs).mockResolvedValueOnce({ docs: [{ id: "old-request", data: () => ({ groupId: "Old-Pending", groupName: "Old pending club", status: "pending", requestedAt: 1 }) }] } as never);
+    renderPage();
+    await screen.findByTestId("C0-1-3");
+    fireEvent.click(screen.getByRole("button", { name: "승인 대기" }));
+    const cancel = await screen.findByTestId("C0-1-3-cancel");
+    await waitFor(() => expect(document.activeElement).toBe(cancel));
+    expect(screen.getByTestId("C0-1-3").querySelector("details")).toHaveAttribute("open");
   });
   it.each(["success", "reject", "unmount", "account"] as const)("gates code-input joining: %s", async (outcome) => {
     let resolveReady!: () => void;

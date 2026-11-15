@@ -1,6 +1,6 @@
 import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { useEffect, useRef, useState } from "react";
-import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
+import { collection, getDocs, limit, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { useTranslation } from "react-i18next";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
@@ -9,19 +9,25 @@ import { getPublicUserProfiles } from "../../services/publicProfiles";
 import { Button, Card } from "../../theme/components";
 import { normalizeStartTime } from "../../utils/event-time";
 import { logClientError } from "../../services/errorLogger";
-import { clubRequestFocusKey, focusTargetProps } from "../../services/focusTarget";
+import { FOCUS_TARGET_ATTR, clubRequestFocusKey, focusTargetProps, revealFocusTarget } from "../../services/focusTarget";
+import { debugLog } from "../../services/errorLogger";
 
 interface RequestRow { id: string; userId: string; groupId: string; name: string; status: string; requestedAt: number; resolvedAt: number }
-type GroupRequestHistoryProps = { userId?: string; groupId?: string; sectionId?: string };
+/** 「승인 대기」를 눌렀을 때 보여 줄 신청 — nonce 가 바뀔 때마다 한 번 찾아 초점을 둔다. */
+export type PendingRequestFocus = { groupId: string; nonce: number };
+type GroupRequestHistoryProps = { userId?: string; groupId?: string; sectionId?: string; focusRequest?: PendingRequestFocus | null };
 export default function GroupRequestHistory(props: GroupRequestHistoryProps) {
   return <FirebaseSessionBoundary><GroupRequestHistoryContent {...props} /></FirebaseSessionBoundary>;
 }
 
-function GroupRequestHistoryContent({ userId, groupId, sectionId }: GroupRequestHistoryProps) {
+function GroupRequestHistoryContent({ userId, groupId, sectionId, focusRequest }: GroupRequestHistoryProps) {
   const { t, i18n } = useTranslation("group");
   const dialog = useDialog();
   const { auth, ensureAppCheckReady, firestore, functions } = useFirebaseServices();
-  const [rows, setRows] = useState<RequestRow[]>([]);
+  const [latestRows, setRows] = useState<RequestRow[]>([]);
+  // 최신 10개 밖의 승인 대기 신청 — 「승인 대기」를 눌렀을 때만 그 한 건을 따로 읽어 붙인다.
+  const [extraRows, setExtraRows] = useState<RequestRow[]>([]);
+  const rows = [...latestRows, ...extraRows.filter(extra => !latestRows.some(row => row.id === extra.id))];
   const [error, setError] = useState(false);
   const [actionErrors, setActionErrors] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -29,7 +35,7 @@ function GroupRequestHistoryContent({ userId, groupId, sectionId }: GroupRequest
   useEffect(() => {
     const scope = ++intent.current;
     let version = 0;
-    setRows([]); setError(false); setBusy(null); setActionErrors({});
+    setRows([]); setExtraRows([]); setError(false); setBusy(null); setActionErrors({});
     if (!userId && !groupId) return;
     const ref = groupId ? collection(firestore, "groups", groupId, "joinRequests") : collection(firestore, "users", userId!, "group_requests");
     const unsubscribe = onSnapshot(query(ref, orderBy("requestedAt", "desc"), limit(10)), snapshot => {
@@ -47,6 +53,33 @@ function GroupRequestHistoryContent({ userId, groupId, sectionId }: GroupRequest
     }, err => { if (intent.current === scope) { setError(true); setRows([]); } logClientError("GroupRequestHistory.read", err); });
     return () => { intent.current += 1; unsubscribe(); };
   }, [userId, groupId, firestore]);
+  // 「승인 대기」 → 그 신청의 「신청 취소」에 초점. 최신 10개 밖이면 그 한 건만 읽어 붙인 뒤 초점을 둔다.
+  const handledFocus = useRef<number | null>(null);
+  useEffect(() => {
+    if (!focusRequest || groupId || !userId || handledFocus.current === focusRequest.nonce) return;
+    const key = clubRequestFocusKey(focusRequest.groupId);
+    const target = document.querySelector<HTMLElement>(`[${FOCUS_TARGET_ATTR}="${key}"]`);
+    if (target) {
+      handledFocus.current = focusRequest.nonce;
+      debugLog("club-pending-request", { groupId: focusRequest.groupId, source: "history", focused: revealFocusTarget(target) });
+      return;
+    }
+    if (rows.some(row => row.groupId === focusRequest.groupId && row.status === "pending")) return; // 그려지면 다시 시도
+    handledFocus.current = focusRequest.nonce;
+    const scope = intent.current;
+    const ref = collection(firestore, "users", userId, "group_requests");
+    void getDocs(query(ref, where("groupId", "==", focusRequest.groupId), where("status", "==", "pending"), limit(1))).then(snapshot => {
+      if (intent.current !== scope) return;
+      const extra = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return { id: doc.id, userId: String(data.userId ?? ""), groupId: String(data.groupId ?? ""), name: String(data.groupName ?? data.userId ?? ""), status: "pending", requestedAt: normalizeStartTime(data.requestedAt), resolvedAt: 0 };
+      });
+      debugLog("club-pending-request", { groupId: focusRequest.groupId, source: "lookup", found: extra.length });
+      if (!extra.length) return;
+      setExtraRows(prev => [...prev.filter(row => row.id !== extra[0]!.id), extra[0]!]);
+      handledFocus.current = null; // 붙인 행이 그려진 뒤 위 분기에서 초점을 둔다
+    }).catch(err => { logClientError("GroupRequestHistory.pendingLookup", err, { groupId: focusRequest.groupId }); });
+  });
   if (!rows.length && !error) return null;
   const history = <Card data-testid={groupId ? "C7-1-2" : "C0-1-3"} className="space-y-3"><details><summary>{t("requests.history")}</summary>{error ? <p role="alert">{t("error.loadFailed")}</p> : rows.map(row => <div key={row.id} className="space-y-2"><div className="flex items-center justify-between gap-3"><span>{row.name} · {t(`requests.${row.status}`)} · {row.requestedAt ? new Date(row.requestedAt).toLocaleString(i18n.language) : "–"}{row.resolvedAt ? ` → ${new Date(row.resolvedAt).toLocaleString(i18n.language)}` : ""}</span>{!groupId && row.status === "pending" && <Button data-testid="C0-1-3-cancel" {...focusTargetProps(clubRequestFocusKey(row.groupId))} size="sm" disabled={busy !== null} onClick={async () => {
     if (!userId || busy || auth.currentUser?.uid !== userId) return;
