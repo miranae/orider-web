@@ -1,7 +1,10 @@
-import { coachRoute } from "../../utils/coachRoute";
+import { FOCUS_TARGETS, thresholdSettingsHref } from "../../services/focusTarget";
 import type { Goal } from "@shared/types/goal";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink } from "../LocalizedLink";
+
+/** 종목별로 가정값을 대신할 기준값 칸. */
+const INTENSITY_FOCUS = { bike: FOCUS_TARGETS.ftp, run: FOCUS_TARGETS.thresholdPace, swim: FOCUS_TARGETS.css } as const;
 
 /** 가정값 수치와 같은 위치에 칩과 입력 행동 하나를 함께 둔다. */
 export function GoalInputNotice({ assumed, estimated = false, baseline = false, discipline = "bike" }: {
@@ -13,7 +16,7 @@ export function GoalInputNotice({ assumed, estimated = false, baseline = false, 
     <span>{t(baseline ? "assumptions.baseline" : assumed ? "assumptions.chip" : "assumptions.estimated")}</span>
     {baseline && assumed && <> · <span>{t("assumptions.chip")}</span></>}
     {assumed && <> · <span>{t("assumptions.basis")}</span></>}
-    {(assumed || estimated || baseline) && <> · <LocalizedLink to={coachRoute("/coach/condition#thresholds", discipline)}>{t("assumptions.confirm")}</LocalizedLink></>}
+    {(assumed || estimated || baseline) && <> · <LocalizedLink to={thresholdSettingsHref(discipline, INTENSITY_FOCUS[discipline])}>{t("assumptions.confirm")}</LocalizedLink></>}
   </div>;
 }
 

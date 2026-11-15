@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSignInResolve } from "../hooks/useSignInResolve";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../hooks/useLocalizedNavigate";
@@ -171,6 +172,7 @@ const BoardPage: React.FC = () => {
   };
   const handleSearch = () => updateFilters({ q: searchQuery.trim() || undefined });
   const { user } = useAuth();
+  const signInResolve = useSignInResolve();
   const dialog = useDialog();
   const { showToast } = useToast();
   const { deletePost, deleting } = useDeletePost();
@@ -433,6 +435,7 @@ const BoardPage: React.FC = () => {
             icon="🔒"
             title={t("error.loginRequired")}
             description={t("inquiry.loginDesc")}
+            resolve={signInResolve}
           />
         ) : listLoading ? (
           <LoadingSkeleton kind="list" count={5} />

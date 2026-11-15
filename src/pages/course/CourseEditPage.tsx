@@ -1,5 +1,6 @@
 import "../../features/courses/course-review.css";
-import { useCallback, useEffect, useState } from "react";
+import { useSignInResolve } from "../../hooks/useSignInResolve";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
@@ -31,6 +32,7 @@ export default function CourseEditPage() {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const signInResolve = useSignInResolve();
   const { showToast } = useToast();
   const dialog = useDialog();
 
@@ -52,12 +54,18 @@ export default function CourseEditPage() {
   const [surface, setSurface] = useState<Surface>("");
   const [difficulty, setDifficulty] = useState<number | null>(null);
 
+  // 로그인 안내를 눌러 같은 화면에서 로그인하면(또는 계정이 바뀌면) 다시 읽는다 — 로그인 전 권한 거부가 남지 않게.
+  // 앞선 조회의 늦은 응답은 버린다.
+  const loadSeqRef = useRef(0);
+  const viewerUid = user?.uid ?? null;
   const loadCourse = useCallback(async () => {
     if (!courseId) return;
     setLoading(true);
+    const seq = ++loadSeqRef.current;
     setLoadError(null);
     try {
       const snap = await getDoc(doc(firestore, "courses", courseId));
+      if (seq !== loadSeqRef.current) return;
       if (!snap.exists()) {
         setData(null);
         return;
@@ -79,12 +87,14 @@ export default function CourseEditPage() {
       setSurface(parsed.surface);
       setDifficulty(parsed.difficulty);
     } catch (err) {
+      // 기록은 늦은 응답이어도 남기고, 화면 반영만 최신 조회로 제한한다.
       logClientError("CourseEditPage.loadCourse", err, { courseId });
+      if (seq !== loadSeqRef.current) return;
       setLoadError(err instanceof Error ? err.message : t("error.loadFailed"));
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
-  }, [courseId, t]);
+  }, [courseId, t, viewerUid]);
 
   useEffect(() => {
     void loadCourse();
@@ -149,7 +159,7 @@ export default function CourseEditPage() {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("error.loginRequired")} description={t("edit.ownerOnly")} />
+        <PermissionGate title={t("error.loginRequired")} description={t("edit.ownerOnly")} resolve={signInResolve} />
       </div>
     );
   }

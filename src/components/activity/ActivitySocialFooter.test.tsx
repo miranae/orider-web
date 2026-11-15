@@ -7,13 +7,16 @@ const mocks = vi.hoisted(() => ({
   setKudos: vi.fn(),
   postComment: vi.fn(),
   showToast: vi.fn(),
+  signIn: vi.fn(),
+  signedIn: true,
 }));
 
 vi.mock("../../contexts/AuthContext", () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
   useAuth: () => ({
-    user: { uid: "viewer", displayName: "Viewer", photoURL: null },
-    profile: { nickname: "Viewer", photoURL: null },
+    user: mocks.signedIn ? { uid: "viewer", displayName: "Viewer", photoURL: null } : null,
+    profile: mocks.signedIn ? { nickname: "Viewer", photoURL: null } : null,
+    signIn: mocks.signIn,
   }),
 }));
 vi.mock("../../contexts/ToastContext", () => ({
@@ -40,7 +43,19 @@ const activity = {
 } as unknown as Activity;
 
 describe("ActivitySocialFooter callable mutations", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); mocks.signedIn = true; });
+
+  it("로그인 전 「로그인 후 댓글을 남길 수 있어요」 칸을 누르면 로그인 창을 연다", () => {
+    mocks.signedIn = false;
+    renderWithProviders(<ActivitySocialFooter activity={activity} />);
+    fireEvent.click(screen.getByRole("button", { name: "댓글" }));
+    const input = screen.getByPlaceholderText("로그인 후 댓글을 남길 수 있어요");
+    expect(input).toHaveAttribute("readonly");
+    fireEvent.click(input);
+    expect(screen.queryByRole("button", { name: "로그인" })).not.toBeInTheDocument();
+    expect(mocks.signIn).toHaveBeenCalledTimes(1);
+    expect(mocks.postComment).not.toHaveBeenCalled();
+  });
 
   it("refreshes exact viewer membership on return and sends removal instead of another add", async () => {
     mocks.setKudos.mockResolvedValue({ enabled: false });

@@ -423,3 +423,29 @@ it("closes the zone tooltip with Escape while keeping focus on the segment", () 
   fireEvent.keyDown(first!, { key: "Escape" });
   expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 });
+
+// 「임계값 없음」 칩 문구와 기존 「임계값 설정하기」는 주인에게 활동 종목의 기준값 칸 링크다.
+describe("missing threshold resolution", () => {
+  const routed = (ui: ReactElement) => rtlRender(ui, { wrapper: ({ children }) => <MemoryRouter><Themed>{children}</Themed></MemoryRouter> });
+  const missing = (discipline: "bike" | "run" | "swim" | "other"): ActivityOverviewPresentation => ({
+    session: { discipline, distanceKm: 10 }, thresholdBasis: "none",
+    availability: { personal: "available", records: "evaluated", power: "unavailable", heartRate: "available" },
+  } as ActivityOverviewPresentation);
+
+  it.each([
+    ["bike", "/settings/training?sport=bike&focus=ftp"],
+    ["run", "/settings/training?sport=run&focus=threshold-pace"],
+    ["swim", "/settings/training?sport=swim&focus=css"],
+    ["other", "/settings/training?sport=bike&focus=max-hr"],
+  ] as const)("sends the owner of a %s activity to its threshold field", (discipline, href) => {
+    routed(<ActivityOverviewSummaryContent presentation={missing(discipline)} isOwner />);
+    expect(screen.getByRole("link", { name: "임계값 없음" })).toHaveAttribute("href", expect.stringContaining(href));
+    expect(screen.getByTestId("overview-threshold-cta")).toHaveAttribute("href", expect.stringContaining(href));
+  });
+
+  it("keeps the chip plain for another viewer — there is nothing they can fix", () => {
+    routed(<ActivityOverviewSummaryContent presentation={missing("bike")} isOwner={false} />);
+    expect(screen.getByText("임계값 없음").closest("a")).toBeNull();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+  });
+});

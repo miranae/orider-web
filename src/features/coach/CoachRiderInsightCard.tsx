@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { User } from "firebase/auth";
 import { Gauge, MessageCircle } from "lucide-react";
 import { Button, Card, Chip, Text } from "../../theme/components";
+import { Resolvable } from "../../components/redesign";
+import { bodyInfoHref } from "../../services/focusTarget";
 import { useCoachRiderInsight } from "../../hooks/useCoachRiderInsight";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { RIDER_DURATIONS, type CoachRiderQuestionCode, type RiderDuration } from "../../services/coachRiderInsightContract";
@@ -54,13 +56,15 @@ export function CoachRiderInsightCard({ user, discipline, onQuestionSelect }: Pr
   const trusted = insight.status === "ok" && insight.profile !== null;
   const statusLabel = t(`coach:rider.status.${insight.status}`);
   const rows = insight.ability?.byDuration ?? [];
+  // 본인 코치 카드 — 「체중 필요」 칩·문구를 누르면 체중 입력칸으로 간다.
+  const weightFix = insight.status === "missing_weight" ? { to: bodyInfoHref() } : undefined;
   return <Card data-testid="K6-S-9" className="coach-rider-card" role="region" aria-labelledby={titleId}>
     <header className="coach-rider-card__header">
       <div className="coach-rider-card__heading"><Gauge aria-hidden /><div>
         <Text id={titleId} as="h2" variant="subtitle">{t("coach:rider.title")}</Text>
         <Text as="p" variant="caption" tone="secondary">{t("coach:rider.subtitle")}</Text>
       </div></div>
-      <Chip variant={trusted ? "success" : insight.status === "low_confidence" ? "warning" : "default"}>{statusLabel}</Chip>
+      <Chip variant={trusted ? "success" : insight.status === "low_confidence" ? "warning" : "default"}><Resolvable resolve={weightFix}>{statusLabel}</Resolvable></Chip>
     </header>
     <Text className="sr-only" as="p" role="status" aria-live="polite">
       {t("coach:rider.accessibleStatus", { status: statusLabel, count: insight.activityCount })}
@@ -96,7 +100,7 @@ export function CoachRiderInsightCard({ user, discipline, onQuestionSelect }: Pr
         </div>
       </div>}
     </> : <div className="coach-rider-card__safe">
-      <Text as="p" variant="bodySmall" tone="secondary">{t(`coach:rider.safe.${insight.status}`, { count: insight.activityCount })}</Text>
+      <Text as="p" variant="bodySmall" tone="secondary"><Resolvable resolve={weightFix}>{t(`coach:rider.safe.${insight.status}`, { count: insight.activityCount })}</Resolvable></Text>
     </div>}
 
     <div className="coach-rider-card__meta">
