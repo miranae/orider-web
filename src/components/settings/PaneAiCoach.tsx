@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SettingsCard, InlineRow } from "./_primitives";
+import { Resolvable } from "../redesign/states/Resolvable";
 import { History } from "lucide-react";
 import { Button, buttonClass } from "../../theme/components";
 import { LocalizedLink } from "../LocalizedLink";
@@ -91,7 +92,7 @@ export function PaneAiCoach() {
           {!valid && policy && error !== "load_failed" && <Button disabled={loading || saving} onClick={() => setSheetOpen(true)}>{t("coach.reviewConsent")}</Button>}
           {valid && <Button variant="danger" disabled={loading || saving || error === "load_failed"} onClick={() => void revoke()}>{t("coach.revoke")}</Button>}
         </div>
-        {error === "load_failed" && <div role="alert" className="settings-consent-error"><p>{t("coach.loadFailed")}</p></div>}
+        {error === "load_failed" && <div role="alert" className="settings-consent-error"><p><Resolvable resolve={{ onClick: () => void load() }}>{t("coach.loadFailed")}</Resolvable></p></div>}
       </SettingsCard>
       {policy && <CoachConsentSheet
         open={sheetOpen}

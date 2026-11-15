@@ -11,6 +11,7 @@ import { Button } from "../../theme/components";
 import { LocalizedLink } from "../LocalizedLink";
 import { GoogleLogo, KakaoLogo, NaverLogo } from "../auth/SignInDialog";
 import { InlineRow, SettingsCard } from "./_primitives";
+import { Resolvable } from "../redesign/states/Resolvable";
 
 const LOGO: Partial<Record<SocialProvider, () => React.ReactElement>> = { naver: NaverLogo, kakao: KakaoLogo, discord: DiscordLogo };
 const GOOGLE_CANCELLED = new Set(["auth/popup-closed-by-user", "auth/cancelled-popup-request", "auth/user-cancelled"]);
@@ -147,7 +148,7 @@ export function SocialLinksCard() {
 
   return (
     <SettingsCard data-testid="S1-4-1" title={t("pane.account.cardSocial")} dense>
-      {loadFailed && <p role="alert" style={{ color: "var(--rose)", margin: 0 }}>{t("pane.account.socialLoadFailed")}</p>}
+      {loadFailed && <p role="alert" style={{ color: "var(--rose)", margin: 0 }}><Resolvable resolve={{ onClick: () => void load() }}>{t("pane.account.socialLoadFailed")}</Resolvable></p>}
       {(() => {
         const googleLinked = googleUnlinkedUid !== ownerUid && (hasGoogleLogin(user) || googleLinkedUid === ownerUid);
         return (

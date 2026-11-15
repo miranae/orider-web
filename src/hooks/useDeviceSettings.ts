@@ -101,6 +101,8 @@ export function useAllDeviceSettings(uid: string | null) {
   const [records, setRecords] = useState<DeviceSettingsRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  // onSnapshot 은 오류가 나면 구독이 끝나므로, 다시 불러오기는 구독을 새로 연다.
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!uid) {
@@ -122,9 +124,12 @@ export function useAllDeviceSettings(uid: string | null) {
       },
     );
     return () => unsub();
-  }, [uid]);
+  }, [uid, attempt]);
 
-  const reload = useCallback(() => Promise.resolve(), []);
+  const reload = useCallback(() => {
+    setAttempt((value) => value + 1);
+    return Promise.resolve();
+  }, []);
 
   /**
    * 특정 기기에 patch 적용. read-modify-write + optimistic local merge로

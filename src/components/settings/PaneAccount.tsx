@@ -33,6 +33,7 @@ import { LocalizedLink } from "../LocalizedLink";
 import { PaneAiCoach } from "./PaneAiCoach";
 import { SocialLinksCard } from "./SocialLinksCard";
 import { Button, Textarea, buttonClass } from "../../theme/components";
+import { Resolvable } from "../redesign/states/Resolvable";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 type VisOpt = { value: Visibility; labelKey: string; icon: typeof User };
@@ -59,7 +60,7 @@ export function PaneAccount() {
   );
   const [visibilitySaving, setVisibilitySaving] = useState(false);
   const [bulkVisibilitySaving, setBulkVisibilitySaving] = useState(false);
-  const [visibilityAvailability, setVisibilityAvailability] = useState<"ready" | "error">("ready");
+  const [visibilityAvailability, setVisibilityAvailability] = useState<"ready" | "error" | "checking">("ready");
   const [existingActivityCount, setExistingActivityCount] = useState<number | null>(null);
   const [nicknameSaving, setNicknameSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -217,6 +218,24 @@ export function PaneAccount() {
     }
   }
 
+  // 잠김 안내 문구를 누르면 다시 확인: 기존 활동 미리보기(dryRun, 읽기 전용)가 정상 응답하면 공개 범위 분리 서버
+  // (같은 auth 진입점으로 함께 배포)로 보고 잠금을 푼다. 기본값 저장을 다시 보내지는 않는다.
+  async function handleRecheckVisibility() {
+    if (!user || visibilityAvailability !== "error") return;
+    setVisibilityAvailability("checking");
+    try {
+      const preview = httpsCallable<{ visibility: Visibility; dryRun: true }, { count: number }>(functions, "applyVisibilityToExistingActivities");
+      const result = await preview({ visibility: currentVisibility, dryRun: true });
+      const count = result.data.count;
+      if (!Number.isSafeInteger(count) || count < 0) throw new Error("Invalid visibility preview");
+      setExistingActivityCount(count);
+      setVisibilityAvailability("ready");
+    } catch (error) {
+      logClientError("PaneAccount.recheckVisibility", error, {});
+      setVisibilityAvailability("error");
+    }
+  }
+
   async function handleApplyExistingVisibility() {
     if (!user || visibilityAvailability !== "ready" || visibilitySaving || bulkVisibilitySaving) return;
     setBulkVisibilitySaving(true);
@@ -367,7 +386,7 @@ export function PaneAccount() {
           })}
         </div>
         {visibilityAvailability !== "ready" && <div role="status">
-          {t("privacy.defaultSafetyUnavailable")}
+          <Resolvable resolve={{ onClick: () => void handleRecheckVisibility() }}>{t("privacy.defaultSafetyUnavailable")}</Resolvable>
         </div>}
         <InlineRow label={t("privacy.existingTitle")} hint={existingActivityCount === null ? t("privacy.existingCountOnDemand") : t("privacy.existingCount", { count: existingActivityCount })}>
           <Button data-testid="S1-2-1b" variant="secondary" onClick={() => void handleApplyExistingVisibility()}

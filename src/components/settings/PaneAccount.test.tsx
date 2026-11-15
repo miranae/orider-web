@@ -222,4 +222,31 @@ describe("PaneAccount nickname save", () => {
     expect(everyone).toBeDisabled(); expect(mocks.showToast).not.toHaveBeenCalledWith("privacy.visibilityChanged");
   });
 
+  it("tapping the lock message re-checks with a read-only preview and unlocks without re-sending the default write", async () => {
+    mocks.callable.mockImplementation(async name => ({ data: name === "applyVisibilityToExistingActivities" ? { count: 2 } : { updated: 2 } }));
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    const everyone = screen.getByRole("button", { name: /privacy.visOptEveryone/ });
+    await waitFor(() => expect(everyone).not.toBeDisabled()); fireEvent.click(everyone);
+    await waitFor(() => expect(everyone).toBeDisabled());
+    const defaultWrites = mocks.callable.mock.calls.filter(([name]) => name === "updateDefaultVisibility").length;
+    fireEvent.click(screen.getByRole("button", { name: "privacy.defaultSafetyUnavailable" }));
+    await waitFor(() => expect(everyone).not.toBeDisabled());
+    expect(mocks.callable).toHaveBeenCalledWith("applyVisibilityToExistingActivities", { visibility: "private", dryRun: true });
+    expect(mocks.callable.mock.calls.filter(([name]) => name === "updateDefaultVisibility")).toHaveLength(defaultWrites);
+    expect(mocks.callable).not.toHaveBeenCalledWith("applyVisibilityToExistingActivities", { visibility: "private" });
+    expect(screen.queryByText("privacy.defaultSafetyUnavailable")).not.toBeInTheDocument();
+  });
+
+  it("keeps the lock when the re-check from the lock message also fails", async () => {
+    mocks.callable.mockImplementation(async name => { if (name === "applyVisibilityToExistingActivities") throw new Error("not-found"); return { data: { updated: 2 } }; });
+    render(<MemoryRouter><PaneAccount /></MemoryRouter>);
+    const everyone = screen.getByRole("button", { name: /privacy.visOptEveryone/ });
+    await waitFor(() => expect(everyone).not.toBeDisabled()); fireEvent.click(everyone);
+    await waitFor(() => expect(everyone).toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "privacy.defaultSafetyUnavailable" }));
+    await waitFor(() => expect(mocks.logClientError).toHaveBeenCalledWith("PaneAccount.recheckVisibility", expect.anything(), {}));
+    expect(everyone).toBeDisabled();
+    expect(screen.getByRole("button", { name: "privacy.defaultSafetyUnavailable" })).toBeInTheDocument();
+  });
+
 });

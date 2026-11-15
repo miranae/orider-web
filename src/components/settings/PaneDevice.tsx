@@ -39,6 +39,7 @@ import {
   Toggle,
   monoInputStyle,
 } from "./_primitives";
+import { Resolvable } from "../redesign/states/Resolvable";
 import { LayoutEditorCard } from "./LayoutEditorCard";
 import { Button, Card, DropdownSelect, buttonClass } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
@@ -747,7 +748,7 @@ export function PaneDevice() {
     return (
       <SettingsCard data-testid="S6.error" title={t("device.mobileSync")} danger>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--rose)" }}>
-          {t("device.loadFailed", { message: error.message })}
+          <Resolvable resolve={{ onClick: () => void reload() }}>{t("device.loadFailed", { message: error.message })}</Resolvable>
         </div>
       </SettingsCard>
     );
