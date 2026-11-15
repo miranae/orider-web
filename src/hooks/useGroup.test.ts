@@ -546,6 +546,50 @@ describe("group list hooks", () => {
     }
   });
 
+  it("reports a membership lookup failure instead of an empty joined list when nothing is confirmed", async () => {
+    const original = vi.mocked(getDoc).getMockImplementation()!;
+    const failure = new Error("membership read failed");
+    vi.mocked(getDoc).mockImplementation(async (ref: never) => {
+      if ((ref as { path: string }).path.includes("/members/")) throw failure;
+      return original(ref);
+    });
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: [{ id: "only" }] } as never)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockResolvedValueOnce({ docs: [{ id: "only", data: () => ({ name: "only", isActive: true }) }] } as never);
+
+    try {
+      const { result } = renderHook(() => useMyGroups("user-1"));
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(result.current.groups).toEqual([]);
+      expect(result.current.error).toBe(failure);
+      expect(result.current.incomplete).toBe(true);
+    } finally {
+      vi.mocked(getDoc).mockImplementation(original);
+    }
+  });
+
+  it("does not revive a club confirmed as left when a cached source merges the previous list", async () => {
+    activeMember("stay", "user-1");
+    activeMember("left", "user-1");
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: [{ id: "stay" }, { id: "left" }] } as never)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockResolvedValueOnce({ docs: ["stay", "left"].map(id => ({ id, data: () => ({ name: id, isActive: true }) })) } as never);
+    const { result } = renderHook(() => useMyGroups("user-1"));
+    await waitFor(() => expect(result.current.groups.map(group => group.id).sort()).toEqual(["left", "stay"]));
+
+    // 탈퇴 뒤 재조회: 색인은 캐시 응답이지만 정본 회원 문서는 서버에서 비회원으로 확인된다.
+    setDocData("groups/left/members/user-1", { status: "left", role: "member" });
+    vi.mocked(getDocs)
+      .mockResolvedValueOnce({ docs: [{ id: "stay" }, { id: "left" }], metadata: { fromCache: true } } as never)
+      .mockResolvedValueOnce({ docs: [] } as never)
+      .mockResolvedValueOnce({ docs: ["stay", "left"].map(id => ({ id, data: () => ({ name: id, isActive: true }) })) } as never);
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(Error));
+    expect(result.current.groups.map(group => group.id)).toEqual(["stay"]);
+  });
+
   it("keeps public group load failures distinct from no public groups", async () => {
     const err = new Error("permission denied");
     vi.mocked(listPublicClubs).mockRejectedValueOnce(err);

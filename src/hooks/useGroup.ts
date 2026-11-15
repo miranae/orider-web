@@ -301,15 +301,25 @@ export function useMyGroups(userId: string | undefined) {
         }
       }));
       if (cancelled) return;
+      // 서버가 비회원으로 확인한 클럽 — 캐시 병합에서도 이전 목록으로 되살리지 않는다.
+      const confirmedNonMembers = new Set<string>();
+      let membershipError: unknown = null;
       membershipResults.forEach(({ groupId, result }) => {
         if (result.status === "rejected") {
           groupsById.delete(groupId);
+          membershipError ??= result.reason;
           partialFailures.push({ source: "membership", reason: result.reason });
           return;
         }
-        if (result.value.metadata?.fromCache === true) cacheError ??= new Error("Club list could not be confirmed with the server");
-        if (!isActiveMembershipStatus(result.value.exists() ? result.value.data()?.status : null)) groupsById.delete(groupId);
+        const fromCache = result.value.metadata?.fromCache === true;
+        if (fromCache) cacheError ??= new Error("Club list could not be confirmed with the server");
+        if (!isActiveMembershipStatus(result.value.exists() ? result.value.data()?.status : null)) {
+          groupsById.delete(groupId);
+          if (!fromCache) confirmedNonMembers.add(groupId);
+        }
       });
+      // 확정된 클럽이 하나도 없는데 회원 조회가 실패했다면 '가입 클럽 없음'이 아니라 조회 오류다.
+      if (groupsById.size === 0 && membershipError) throw membershipError;
 
       if (cacheError && groupsById.size === 0) throw cacheError;
       if (!discoveredGroupsLoaded && groupsById.size === 0) {
@@ -328,7 +338,8 @@ export function useMyGroups(userId: string | undefined) {
       setIncomplete(partialFailures.length > 0 || cacheError !== null);
       setError(cacheError);
       setGroups(previous => cacheError
-        ? [...new Map([...previous, ...groupsById.values()].map(group => [group.id, group])).values()]
+        ? [...new Map([...previous.filter(group => !confirmedNonMembers.has(group.id)), ...groupsById.values()]
+          .map(group => [group.id, group])).values()]
         : [...groupsById.values()]);
       setLoading(false);
     };
