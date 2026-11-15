@@ -149,7 +149,7 @@ export default function CourseEditPage() {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("error.loginRequired")} description={t("edit.ownerOnly")} onAction={() => { void signIn(); }} />
+        <PermissionGate title={t("error.loginRequired")} description={t("edit.ownerOnly")} resolve={{ onClick: () => { void signIn(); } }} />
       </div>
     );
   }

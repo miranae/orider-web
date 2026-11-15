@@ -20,7 +20,7 @@ interface GroupCardProps {
   joinChecking?: boolean;
   /** 내 클럽 일부를 읽지 못해 가입 여부를 확정할 수 없다 — 가입 버튼을 잠근다. */
   joinUnconfirmed?: boolean;
-  /** 승인 대기 중일 때 내 가입 신청 기록의 그 행(신청 취소)으로 데려간다. */
+  /** 「승인 대기」를 누르면 내 가입 신청 기록의 그 행(신청 취소)으로 데려간다. */
   onShowPendingRequest?: () => void;
   /** 추천/공개 그룹 카드용 매칭 이유 */
   why?: string;
@@ -140,25 +140,18 @@ export default function GroupCard({ group, showJoinButton, showMyRole, onJoin, j
 
         {showJoinButton && onJoin && (
           <div style={{ marginTop: "var(--space-2)" }}>
-            {joinPending && onShowPendingRequest ? (
-              // 승인 대기: 막힌 버튼 대신 내 가입 신청 기록의 그 행(신청 취소)으로 데려간다.
-              <Button data-testid="C0-2-3" type="button" variant="secondary" size="sm"
-                aria-label={t("card.joinPendingShow")}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onShowPendingRequest(); }}
-              >
-                {t("card.joinPending")}
-              </Button>
-            ) : joinUnconfirmed && !joinPending && !joining && !joinChecking ? (
-              // 가입 여부 미확인: 목록을 다시 읽어도 같은 이유로 실패하므로(#1574) 잠근 채 두지 않고
-              // 클럽 화면으로 보낸다 — 거기서 이 클럽 하나의 회원 여부를 읽어 회원이면 클럽, 아니면 가입 버튼을 보인다.
-              <Link data-testid="C0-2-3" to={`/club/${group.id}`} className={buttonClass({ variant: "secondary", size: "sm" })}>
-                {t("card.joinUnconfirmedOpen")}
+            {joinUnconfirmed && !joinPending && !joining && !joinChecking ? (
+              // 「가입 확인 필요」를 누르면 클럽 화면으로 — 거기서 이 클럽 하나의 회원 여부를 읽는다.
+              // 목록 다시 읽기는 같은 이유로 또 실패하므로 두지 않는다(#1574).
+              <Link data-testid="C0-2-3" to={`/club/${group.id}`} className={buttonClass({ variant: "primary", size: "sm" })}>
+                {t("card.joinUnconfirmed")}
               </Link>
             ) : (
             <Button data-testid="C0-2-3"
               type="button"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onJoin(); }}
-              disabled={joining || joinPending || joinChecking || joinUnconfirmed} variant={joinPending ? "secondary" : "primary"} size="sm"
+              // 「승인 대기」를 누르면 다시 신청하지 않고 내 가입 신청 기록의 그 행으로 데려간다.
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (joinPending) onShowPendingRequest?.(); else onJoin(); }}
+              disabled={joining || (joinPending && !onShowPendingRequest) || joinChecking || joinUnconfirmed} variant={joinPending ? "secondary" : "primary"} size="sm"
             >
               {joinPending ? t("card.joinPending") : joining ? t("card.joining") : joinChecking ? t("card.joinChecking") : joinUnconfirmed ? t("card.joinUnconfirmed") : t("card.join")}
             </Button>

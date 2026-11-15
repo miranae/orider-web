@@ -286,8 +286,8 @@ function StandardApp() {
   // 앱→웹 로그인 인계가 실패(만료/재사용/타임아웃)했으면 마운트 직후 1회 안내 —
   // 앱에서 넘어온 사용자가 이유 없이 비로그인 화면을 보는 무음 실패 방지(리뷰 MINOR).
   useEffect(() => {
-    // 인계가 실패해도 웹에서 바로 로그인할 수 있게 토스트에 로그인 행동을 단다.
-    if (didHandoffFail()) showToast(tAuth("appHandoffFailed"), "error", { action: { label: tAuth("common:button.login"), onClick: () => { void signIn(); } } });
+    // 알림 문구를 누르면 웹에서 바로 로그인한다.
+    if (didHandoffFail()) showToast(tAuth("appHandoffFailed"), "error", { resolve: { onClick: () => { void signIn(); } } });
   }, [showToast, tAuth, signIn]);
 
   // 위임 로그인이 중단됐으면 마운트 직후 1회 안내 — 관리자가 전환된 줄 알고

@@ -244,7 +244,7 @@ export default function ActivityEditPage() {
   if (!user) {
     return (
       <div className="max-w-xl mx-auto py-16">
-        <PermissionGate title={t("edit.loginRequired")} description={t("edit.loginRequiredDesc")} onAction={() => { void signIn(); }} />
+        <PermissionGate title={t("edit.loginRequired")} description={t("edit.loginRequiredDesc")} resolve={{ onClick: () => { void signIn(); } }} />
       </div>
     );
   }

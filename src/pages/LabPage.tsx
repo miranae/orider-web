@@ -30,6 +30,7 @@ import {
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { isVisibleCourseDocData } from "../features/courses/courseVisibility";
 import { useAuth } from "../contexts/AuthContext";
+import { Resolvable } from "../components/redesign";
 import { useGear } from "../hooks/useGear";
 import { usePdc } from "../hooks/usePdc";
 import {
@@ -286,10 +287,7 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
     return (
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "var(--space-4)" }}>
         <Alert variant="info" title={t("loginRequired.title")}>
-          {t("loginRequired.body")}
-          <div style={{ marginTop: "var(--space-3)" }}>
-            <Button type="button" variant="primary" size="sm" onClick={() => { void signIn(); }}>{t("common:button.login")}</Button>
-          </div>
+          <Resolvable resolve={{ onClick: () => { void signIn(); } }}>{t("loginRequired.body")}</Resolvable>
         </Alert>
       </div>
     );

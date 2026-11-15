@@ -234,7 +234,10 @@ export default function ActivitySocialFooter({ activity, presentation = "default
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && (!feed || e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); handleSubmitComment(); } }}
-              disabled={!user || commentSubmitting}
+              // 로그인 전엔 「로그인 후 댓글을 남길 수 있어요」 입력칸 자체를 누르면 로그인 창을 연다.
+              readOnly={!user}
+              onClick={!user ? (e: React.MouseEvent) => { e.stopPropagation(); void signIn(); } : undefined}
+              disabled={commentSubmitting}
               placeholder={user ? t("card.commentPlaceholder") : t("card.commentLoginRequired")}
               className={feed ? "activity-social-comment-input" : "flex-1 px-3 py-1.5 rounded-[var(--r-md)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)]"}
               style={feed ? undefined : { background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}
@@ -251,12 +254,6 @@ export default function ActivitySocialFooter({ activity, presentation = "default
               {t("card.commentSubmit")}
             </button>}
           </div>
-          {/* 로그인 전엔 입력칸이 잠겨 있으니 바로 로그인할 수 있게 한다(KudosCommentsCard 와 같은 흐름). */}
-          {!user && <div className="mt-2">
-            <Button data-testid="activity-social-comment-login" type="button" variant="secondary" size="sm" onClick={(e) => { e.stopPropagation(); void signIn(); }}>
-              {t("common:button.login")}
-            </Button>
-          </div>}
         </div>
       )}
     </div>

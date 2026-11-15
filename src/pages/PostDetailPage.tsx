@@ -74,8 +74,8 @@ const PostDetailPage: React.FC = () => {
 
   useBoardPostView(postId, location.key, post);
 
-  // 로그인이 필요한 동작을 막았을 때 토스트에서 바로 로그인할 수 있게 한다.
-  const loginToastOptions = { action: { label: t("common:button.login"), onClick: () => { void signIn(); } } };
+  // 로그인이 필요한 동작을 막은 알림 문구를 누르면 바로 로그인 창을 연다.
+  const loginToastOptions = { resolve: { onClick: () => { void signIn(); } } };
 
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

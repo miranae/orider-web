@@ -17,12 +17,11 @@ vi.mock("./contexts/ToastContext", async importOriginal => ({
 import App from "./App";
 
 describe("app handoff failure toast", () => {
-  it("앱 로그인 인계 실패 토스트의 로그인 행동이 로그인 창을 연다", async () => {
+  it("앱 로그인 인계 실패 알림 문구를 누르면 로그인 창을 연다", async () => {
     render(<MemoryRouter initialEntries={["/ko/about"]}><App /></MemoryRouter>);
-    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith(expect.any(String), "error", expect.objectContaining({ action: expect.any(Object) })));
-    const call = mocks.showToast.mock.calls.find(([, type, options]) => type === "error" && options?.action)!;
-    expect(call[2].action.label).toBe("로그인");
-    call[2].action.onClick();
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith(expect.any(String), "error", expect.objectContaining({ resolve: expect.any(Object) })));
+    const call = mocks.showToast.mock.calls.find(([, type, options]) => type === "error" && options?.resolve)!;
+    call[2].resolve.onClick();
     expect(mocks.signIn).toHaveBeenCalledTimes(1);
   });
 });

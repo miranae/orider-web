@@ -14,9 +14,10 @@ vi.mock('../features/board/useBoard', () => ({
 vi.mock('../contexts/AuthContext', () => ({ useAuth: () => ({ user: null, signIn: auth.signIn }) }));
 
 describe('board login gate', () => {
-  it.each(['/ko/community/board?view=mine', '/ko/community/board?type=inquiry&view=my'])('로그인이 필요한 내 글 목록(%s)은 로그인 버튼으로 로그인 창을 연다', route => {
+  it.each(['/ko/community/board?view=mine', '/ko/community/board?type=inquiry&view=my'])('로그인이 필요한 내 글 목록(%s)은 안내 문구를 누르면 로그인 창을 연다', route => {
     render(<MemoryRouter initialEntries={[route]}><BoardPage /></MemoryRouter>);
-    fireEvent.click(screen.getByRole('button', { name: '로그인' }));
+    expect(screen.queryByRole('button', { name: '로그인' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('로그인이 필요합니다.'));
     expect(auth.signIn).toHaveBeenCalledTimes(1);
     auth.signIn.mockClear();
   });

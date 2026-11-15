@@ -39,7 +39,7 @@ function renderPage(authenticated = true) {
 
 /** 승인 대기 카드는 다시 가입 신청을 보내지 않고, 눌러도 내 가입 신청 기록으로만 데려간다. */
 async function expectPendingNotJoinable() {
-  const pending = await screen.findByRole("button", { name: "승인 대기 — 내 가입 신청 보기" });
+  const pending = await screen.findByRole("button", { name: "승인 대기" });
   const joinCalls = () => mockCallableInvocations.filter((call) => call.name === "joinGroupPublic").length;
   const before = joinCalls();
   fireEvent.click(pending);
@@ -75,7 +75,7 @@ describe("GroupsPage join results", () => {
     renderPage();
     // 가입 신청은 막고, 이 클럽 하나의 회원 여부를 읽는 클럽 화면으로 보낸다.
     expect(screen.queryByRole("button", { name: "가입 신청" })).not.toBeInTheDocument();
-    const open = screen.getByRole("link", { name: "클럽에서 가입 여부 확인" });
+    const open = screen.getByRole("link", { name: "가입 확인 필요" });
     expect(open).toHaveAttribute("href", "/ko/club/led-club");
     fireEvent.click(open);
     expect(screen.getByText("group destination")).toBeInTheDocument();
@@ -115,7 +115,7 @@ describe("GroupsPage join results", () => {
     renderPage();
     expect(screen.getByTestId("C0-3-1")).toHaveAttribute("data-focus-target", "club-invite-code");
   });
-  it("「승인 대기」를 누르면 내 가입 신청 기록의 그 클럽 행을 펼쳐 신청 취소 버튼에 초점을 둔다", async () => {
+  it("「승인 대기」 문구를 누르면 내 가입 신청 기록의 그 클럽 행을 펼쳐 신청 취소 버튼에 초점을 둔다", async () => {
     myGroups.push({ id: "club-1", name: "Member club", discipline: "bike", memberCount: 1, visibility: "public" });
     publicGroups.push({ id: "Pending-Club", name: "Pending club", discipline: "bike", memberCount: 3, visibility: "public" });
     membershipState.pending = new Set(["Pending-Club"]);
@@ -126,7 +126,7 @@ describe("GroupsPage join results", () => {
     renderPage();
     const history = await screen.findByTestId("C0-1-3");
     expect(history.querySelector("details")).not.toHaveAttribute("open");
-    fireEvent.click(screen.getByRole("button", { name: "승인 대기 — 내 가입 신청 보기" }));
+    fireEvent.click(screen.getByRole("button", { name: "승인 대기" }));
     expect(history.querySelector("details")).toHaveAttribute("open");
     const cancels = screen.getAllByTestId("C0-1-3-cancel");
     expect(document.activeElement).toBe(cancels[1]);

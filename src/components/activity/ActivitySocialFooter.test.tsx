@@ -45,12 +45,14 @@ const activity = {
 describe("ActivitySocialFooter callable mutations", () => {
   beforeEach(() => { vi.clearAllMocks(); mocks.signedIn = true; });
 
-  it("로그인 전에 댓글 칸을 펼치면 로그인 버튼으로 바로 로그인 창을 연다", () => {
+  it("로그인 전 「로그인 후 댓글을 남길 수 있어요」 칸을 누르면 로그인 창을 연다", () => {
     mocks.signedIn = false;
     renderWithProviders(<ActivitySocialFooter activity={activity} />);
     fireEvent.click(screen.getByRole("button", { name: "댓글" }));
-    expect(screen.getByPlaceholderText("로그인 후 댓글을 남길 수 있어요")).toBeDisabled();
-    fireEvent.click(screen.getByTestId("activity-social-comment-login"));
+    const input = screen.getByPlaceholderText("로그인 후 댓글을 남길 수 있어요");
+    expect(input).toHaveAttribute("readonly");
+    fireEvent.click(input);
+    expect(screen.queryByRole("button", { name: "로그인" })).not.toBeInTheDocument();
     expect(mocks.signIn).toHaveBeenCalledTimes(1);
     expect(mocks.postComment).not.toHaveBeenCalled();
   });

@@ -2,6 +2,7 @@ import SegmentLocalLegendProgress from "./SegmentLocalLegendProgress";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
+import { Resolvable } from "../../components/redesign";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { loadSegmentLocalLegend } from "../../services/segmentLocalLegend";
 import type { SegmentLocalLegend as Legend } from "@shared/types/segment-local-legend";
@@ -36,7 +37,7 @@ export default function SegmentLocalLegend({ segmentId }: { segmentId: string })
     <Text as="h2" variant="title">{t("safeLegend.title")}</Text>
     <Text>{t("safeLegend.intro")}</Text>
     <details><summary>{t("nativeBoard.criteria")}</summary><Text as="p">{t("safeLegend.criteria")}</Text></details>
-    {user && !user.isAnonymous ? <Button disabled={loading} loading={loading} onClick={() => void load()}>{t("safeLegend.load")}</Button> : <><Text>{t("empty.loginRequired")}</Text><Button data-testid="segment-legend-login" onClick={() => { void signIn(); }}>{t("common:button.login")}</Button></>}
+    {user && !user.isAnonymous ? <Button disabled={loading} loading={loading} onClick={() => void load()}>{t("safeLegend.load")}</Button> : <Text><Resolvable resolve={{ onClick: () => { void signIn(); } }}>{t("empty.loginRequired")}</Resolvable></Text>}
     {error && <Text role="alert">{t("safeLegend.error")}</Text>}
     {result && <details open={result.coverage!=="partial"}><summary>{t("safeLegend.quickScope")}</summary>
       <Text role="status">{t(result.coverage === "partial" ? "safeLegend.partial" : "safeLegend.complete", { count: result.scannedCount, total: result.totalEfforts, riders: result.riderCount })}</Text>

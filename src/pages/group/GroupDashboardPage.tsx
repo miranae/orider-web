@@ -30,7 +30,7 @@ import PublicCafeSchedulePanel from "../../features/group/PublicCafeSchedulePane
 import GroupSubNav from "../../components/group/GroupSubNav";
 import RideCard from "../../components/group/RideCard";
 import Avatar from "../../components/Avatar";
-import { EmptyState, ErrorState, LoadingSkeleton, type EmptyStateAction } from "../../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
 import { DropdownSelect, Button, Card, Chip, Text, buttonClass, Textarea } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
@@ -171,11 +171,8 @@ export default function GroupDashboardPage() {
 
   if (!user && !authLoading) return <PublicClubPreview groupId={groupId} />;
 
-  // 비공개 클럽(로그인한 비회원): 초대 코드 입력칸으로 바로 데려가고, 클럽 목록도 연다.
-  const privateClubActions: EmptyStateAction[] = [
-    { label: t("empty.enterInviteCode"), variant: "primary", href: withFocus("/clubs", FOCUS_TARGETS.clubInviteCode) },
-    { label: t("empty.goToList"), href: "/clubs" },
-  ];
+  // 「비공개 클럽입니다」를 누르면 클럽 찾기의 초대 코드 입력칸으로 데려간다.
+  const privateClubResolve = { to: withFocus("/clubs", FOCUS_TARGETS.clubInviteCode) };
 
   if (roleError && !roleLoading) {
     return <ErrorState title={t("error.loadFailed")} onRetry={retryRole} />;
@@ -207,7 +204,8 @@ export default function GroupDashboardPage() {
             icon={<LockKeyhole size={ICON_SIZE.lg} style={{ marginInline: "auto" }} />}
             title={t("empty.groupAccessDenied")}
             description={t("empty.groupAccessDeniedDesc")}
-            actions={privateClubActions}
+            resolve={privateClubResolve}
+            actions={[{ label: t("empty.goToList"), variant: "primary", href: "/clubs" }]}
           />
         </div>
       );
@@ -233,7 +231,7 @@ export default function GroupDashboardPage() {
   }
 
   const canManage = canManageGroup(group, user?.uid, currentMemberRole);
-  if (!currentMemberRole && group.visibility !== "public") return <div data-testid="C1.private"><EmptyState title={t("empty.groupAccessDenied")} description={t("empty.groupAccessDeniedDesc")} actions={privateClubActions} /></div>;
+  if (!currentMemberRole && group.visibility !== "public") return <div data-testid="C1.private"><EmptyState title={t("empty.groupAccessDenied")} description={t("empty.groupAccessDeniedDesc")} resolve={privateClubResolve} /></div>;
   if (!currentMemberRole) return <div data-testid="C1.preview" className="club-surface space-y-4">
     <Text as="h1" variant="pageTitle" data-testid="C1-0-1">{group.name}</Text><p data-testid="C1-2-1">{group.description}</p>{group.rules && <Card data-testid="C1-2"><h2>{t("dashboard.rules.title")}</h2><p data-testid="C1-2-2" className="whitespace-pre-wrap">{group.rules}</p></Card>}
     <p>{t("dashboard.previewHint")}</p>

@@ -165,7 +165,6 @@ describe("EventDashboardPage read failures", () => {
     listeners.creatorId = "creator-elsewhere"; listeners.role = "STAFF";
     render(<EventDashboardPage />);
     expect(await screen.findByTestId("O1-role-only")).toBeInTheDocument();
-    expect(screen.getByText("host.dataPermissionDeniedDesc")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "action.sendNotice" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /button.finish/ })).not.toBeInTheDocument();
     expect(listeners.privateSubscriptions).toBe(0);
@@ -174,9 +173,9 @@ describe("EventDashboardPage read failures", () => {
     listeners.creatorId = "creator-elsewhere"; listeners.role = "RIDER";
     render(<MemoryRouter initialEntries={["/ko/event/event-1/host"]}><EventDashboardPage /></MemoryRouter>);
     expect(await screen.findByText("host.permissionDenied")).toBeInTheDocument();
-    // 권한이 없는 이유(누가 운영할 수 있는지·누구에게 요청할지)와 이벤트로 돌아가는 길을 함께 보인다.
-    expect(screen.getByText("host.permissionDeniedDesc")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "host.backToEvent" })).toHaveAttribute("href", "/ko/event/event-1");
+    // 권한 없음 문구 자체를 누르면 이벤트로 돌아간다 — 설명·버튼은 덧붙이지 않는다.
+    expect(screen.getByRole("link", { name: "host.permissionDenied" })).toHaveAttribute("href", "/ko/event/event-1");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(listeners.privateSubscriptions).toBe(0);
     expect(screen.queryByRole("button", { name: /button.finish/ })).not.toBeInTheDocument();
   });

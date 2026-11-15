@@ -433,7 +433,7 @@ const BoardPage: React.FC = () => {
             icon="🔒"
             title={t("error.loginRequired")}
             description={t("inquiry.loginDesc")}
-            actions={[{ label: t("common:button.login"), variant: "primary", onClick: () => { void signIn(); } }]}
+            resolve={{ onClick: () => { void signIn(); } }}
           />
         ) : listLoading ? (
           <LoadingSkeleton kind="list" count={5} />
