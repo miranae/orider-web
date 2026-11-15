@@ -57,6 +57,15 @@ describe("PlanPresentation responsive layout", () => {
     expect(screen.getByTestId("K4-5-4")).toHaveAttribute("aria-expanded", "true");
   });
 
+  it("reloads the plan when the still-generating notice is tapped", () => {
+    vi.spyOn(window, "matchMedia").mockImplementation(query => ({ matches: false, media: query, onchange: null,
+      addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
+    const retryLoad = vi.fn();
+    renderWithProviders(<PlanPresentation model={{ ...model, retryLoad } as unknown as PlanModel} mobileWeekOffset={0} onMobileWeekOffsetChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "운동 계획이 아직 생성 중입니다. 잠시 후 새로고침하세요." }));
+    expect(retryLoad).toHaveBeenCalledOnce();
+  });
+
   it("uses the weekly list at tablet widths where the nine-column calendar cannot fit", () => {
     vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
       matches: query === "(max-width: 1023px)",

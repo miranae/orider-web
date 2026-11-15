@@ -113,6 +113,8 @@ describe("PowerCurvePeriodsPanel", () => {
       weightCounts: { includedActivityCount: 0, missingWeightActivityCount: 2, invalidWeightActivityCount: 0, incompatibleWeightActivityCount: 0 }, points: [] };
     render(<MemoryRouter><PowerCurvePeriodsView response={data} unit="W/kg" /></MemoryRouter>);
     expect(screen.getByText("periodCurve.weightEmpty")).toBeInTheDocument();
+    // 체중 기준 기록이 없다는 문구를 누르면 체중 칸으로 간다.
+    expect(screen.getByRole("link", { name: "periodCurve.weightEmpty" })).toHaveAttribute("href", expect.stringContaining("/settings/account?focus=weight"));
     expect(screen.queryByText("periodCurve.empty")).not.toBeInTheDocument();
     expect(screen.getByText("periodCurve.weightCoverage 0 2 0 0")).toBeInTheDocument();
     expect(period.points).toHaveLength(2);

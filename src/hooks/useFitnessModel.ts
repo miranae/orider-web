@@ -473,6 +473,7 @@ export function useFitnessModel(
           setFreshLoaded(true);
           if (cacheEnabled) setTrainingSurfaceCache(nextCacheKey, { activities: items });
         } catch (snapshotError) {
+          logClientError("FitnessPage.activitiesSnapshot", snapshotError, { range: activityQueryRange });
           if (cached === null && !retaining) {
             setError(snapshotError instanceof Error ? snapshotError.message : t("error.loadFailed"));
           }

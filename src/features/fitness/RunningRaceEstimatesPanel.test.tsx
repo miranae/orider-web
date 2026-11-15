@@ -45,3 +45,25 @@ it("keeps nonowners and non-Stage capability hidden and stored-account outcomes 
   mocks.hook.mockReturnValue({ ...state(), available: false }); view.rerender(<RunningRaceEstimatesPanel ownerUid="owner" />); expect(screen.queryByText("대회 기록 참고 예측")).not.toBeInTheDocument();
   mocks.hook.mockReturnValue({ ...state(), error: true, savingUnknown: true, storedAccountUnverified: true, pendingSave: true }); view.rerender(<RunningRaceEstimatesPanel ownerUid="owner" />); expect(screen.getByText(/결과는 저장되었지만/)).toBeInTheDocument(); expect(screen.getByRole("button", { name: "참고 시간 계산", hidden: true })).toBeDisabled();
 });
+it("tapping the validation notice opens the folded direct input and focuses the first field to fix", () => {
+  renderPanel(<RunningRaceEstimatesPanel ownerUid="owner" />);
+  fireEvent.click(screen.getByRole("button", { name: "참고 시간 계산", hidden: true }));
+  const directInput = screen.getByLabelText("대회 날짜 (한국 시간)").closest("details")!;
+  expect(directInput.open).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: /실제 기록·날짜·최대 노력 확인을 입력해 주세요/, hidden: true }));
+  expect(directInput.open).toBe(true);
+  expect(document.activeElement).toBe(screen.getByLabelText("대회 날짜 (한국 시간)"));
+  // 날짜를 넣으면 다음으로 고칠 칸은 실제 기록이다.
+  chooseDate(screen.getByLabelText("대회 날짜 (한국 시간)"), "2026-10-01");
+  fireEvent.click(screen.getByRole("button", { name: "참고 시간 계산", hidden: true }));
+  fireEvent.click(screen.getByRole("button", { name: /실제 기록·날짜·최대 노력 확인을 입력해 주세요/, hidden: true }));
+  expect(document.activeElement).toBe(screen.getByLabelText("실제 기록 (시:분:초)"));
+});
+it("tapping the no-source notice opens the direct input", () => {
+  mocks.hook.mockReturnValue({ ...state(), sources: { from: Date.parse("2026-09-01"), to: Date.parse("2026-10-01"), partial: false, unsupported: false, choices: [] } });
+  renderPanel(<RunningRaceEstimatesPanel ownerUid="owner" />);
+  const directInput = screen.getByLabelText("대회 날짜 (한국 시간)").closest("details")!;
+  fireEvent.click(screen.getByRole("button", { name: /확인한 범위에 사용할 거리 기록이 없습니다/, hidden: true }));
+  expect(directInput.open).toBe(true);
+  expect(document.activeElement).toBe(screen.getByLabelText("대회 날짜 (한국 시간)"));
+});

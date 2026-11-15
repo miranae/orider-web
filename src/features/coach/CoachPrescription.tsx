@@ -3,6 +3,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Chip, Text } from "../../theme/components";
+import { Resolvable } from "../../components/redesign";
 import {
   isCoachClientError, } from "../../services/coachClient";
 import { logClientError } from "../../services/errorLogger";
@@ -406,11 +407,12 @@ function CoachPrescriptionSession({ initial, parentRequestId, locale, onReanalyz
     let active = true;
     setCapabilities(null); setCapabilityFailed(false);
     void getCoachProgressPlannerCapabilities().then((value) => { if (active) setCapabilities(value); })
-      .catch((error) => { if (active) {
+      .catch((error) => {
+        // 다시 불러오기로 밀려난 늦은 실패도 기록은 남기고, 화면 반영만 최신 요청으로 한정한다.
         logProgressError("capabilities", error, { operation: "load", prescriptionId: initial.prescriptionId,
-          sourceRequestId: parentRequestId });
-        setCapabilityFailed(true);
-      } });
+          sourceRequestId: parentRequestId, stale: !active });
+        if (active) setCapabilityFailed(true);
+      });
     return () => { active = false; };
   }, [readOnly, capabilityRetry]);
 
@@ -436,7 +438,9 @@ function CoachPrescriptionSession({ initial, parentRequestId, locale, onReanalyz
     <PrescriptionDetails prescription={prescription} locale={locale} sourceRequestId={sourceRequestId}
       capabilities={capabilities} progressPlannerEnabled={!readOnly && locallyEnabled} onReanalyze={onReanalyze}
       onQuestionSelect={readOnly ? undefined : onQuestionSelect} />
-    {!readOnly && locallyEnabled && capabilityFailed && <Alert variant="warning" title={t("progress.states.unavailable")} />}
+    {/* 계획 기능 상태를 못 읽었다는 문구를 누르면 다시 불러온다(불러오는 동안은 문구가 사라져 거듭 누를 수 없다). */}
+    {!readOnly && locallyEnabled && capabilityFailed && <Alert variant="warning"
+      title={<Resolvable resolve={{ onClick: () => setCapabilityRetry(value => value + 1) }}>{t("progress.states.unavailable")}</Resolvable>} />}
   </>;
   if (prescription.status === "safety_blocked") return <section className="coach-prescription coach-prescription--safety" role="alert">
     <Text as="h3" variant="subtitle">{t("prescription.safety.title")}</Text><p>{t("prescription.safety.body")}</p>

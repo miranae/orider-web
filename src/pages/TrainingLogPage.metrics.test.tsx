@@ -459,3 +459,13 @@ it("keeps month date links on the calendar when the selected date has a plan, wh
   open("date=2026-10-01&day=2026-10-01&detail=record-day");
   expect(await screen.findByRole("dialog", { name: "2026-10-01 계획과 기록" })).toBeVisible();
 });
+
+describe("경고 문구를 누르면 해결 화면으로", () => {
+  it("활성 계획이 없다는 문구는 그 종목 목표 만들기로, 부하 미확인 문구는 기준값 칸으로 간다", async () => {
+    vi.spyOn(planOverlay, "usePlanRecordOverlay").mockReturnValue({ state: "ready", plans: new Map(), retry: vi.fn() } as unknown as ReturnType<typeof planOverlay.usePlanRecordOverlay>);
+    render(<MemoryRouter initialEntries={["/?sport=bike"]}><TrainingLogPage /></MemoryRouter>);
+    expect(await screen.findByRole("link", { name: /선택한 종목의 활성 계획이 없습니다/ })).toHaveAttribute("href", expect.stringContaining("/coach/goals?sport=bike&new=1"));
+    const partial = await screen.findAllByRole("link", { name: /부하 미확인 \d+건/ });
+    partial.forEach(link => expect(link).toHaveAttribute("href", expect.stringContaining("/settings/training?sport=bike&focus=ftp")));
+  });
+});

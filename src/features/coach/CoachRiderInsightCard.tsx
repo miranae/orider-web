@@ -5,6 +5,7 @@ import { Gauge, MessageCircle } from "lucide-react";
 import { Button, Card, Chip, Text } from "../../theme/components";
 import { Resolvable } from "../../components/redesign";
 import { bodyInfoHref } from "../../services/focusTarget";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useCoachRiderInsight } from "../../hooks/useCoachRiderInsight";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { RIDER_DURATIONS, type CoachRiderQuestionCode, type RiderDuration } from "../../services/coachRiderInsightContract";
@@ -43,6 +44,7 @@ export function CoachRiderInsightCard({ user, discipline, onQuestionSelect }: Pr
   const { t, i18n } = useTranslation(["coach", "fitness"]);
   const titleId = useId();
   const enabled = isCoachRiderInsightFeatureEnabled() && discipline === "bike";
+  const webResolve = useFirebaseServices().scope !== "embedded";
   const { insight, loading, unavailable } = useCoachRiderInsight(user.uid, enabled);
   if (!enabled) return null;
   if (loading) return <Card data-testid="K6-S-9" className="coach-rider-card" role="status" aria-live="polite">
@@ -56,15 +58,17 @@ export function CoachRiderInsightCard({ user, discipline, onQuestionSelect }: Pr
   const trusted = insight.status === "ok" && insight.profile !== null;
   const statusLabel = t(`coach:rider.status.${insight.status}`);
   const rows = insight.ability?.byDuration ?? [];
-  // 본인 코치 카드 — 「체중 필요」 칩·문구를 누르면 체중 입력칸으로 간다.
-  const weightFix = insight.status === "missing_weight" ? { to: bodyInfoHref() } : undefined;
+  // 본인 코치 카드 — 「체중 필요」 칩·문구를 누르면 체중 입력칸으로, 「PDC 없음」「활동 부족」은 파워 기록을 들여오는 연결 화면으로 간다.
+  // 연결 화면은 웹에만 있다 — 앱 임베드에서는 그쪽으로 보내지 않는다.
+  const statusFix = insight.status === "missing_weight" ? { to: bodyInfoHref() }
+    : webResolve && (insight.status === "missing" || insight.status === "insufficient_activity") ? { to: "/settings/connections" } : undefined;
   return <Card data-testid="K6-S-9" className="coach-rider-card" role="region" aria-labelledby={titleId}>
     <header className="coach-rider-card__header">
       <div className="coach-rider-card__heading"><Gauge aria-hidden /><div>
         <Text id={titleId} as="h2" variant="subtitle">{t("coach:rider.title")}</Text>
         <Text as="p" variant="caption" tone="secondary">{t("coach:rider.subtitle")}</Text>
       </div></div>
-      <Chip variant={trusted ? "success" : insight.status === "low_confidence" ? "warning" : "default"}><Resolvable resolve={weightFix}>{statusLabel}</Resolvable></Chip>
+      <Chip variant={trusted ? "success" : insight.status === "low_confidence" ? "warning" : "default"}><Resolvable resolve={statusFix}>{statusLabel}</Resolvable></Chip>
     </header>
     <Text className="sr-only" as="p" role="status" aria-live="polite">
       {t("coach:rider.accessibleStatus", { status: statusLabel, count: insight.activityCount })}
@@ -100,7 +104,7 @@ export function CoachRiderInsightCard({ user, discipline, onQuestionSelect }: Pr
         </div>
       </div>}
     </> : <div className="coach-rider-card__safe">
-      <Text as="p" variant="bodySmall" tone="secondary"><Resolvable resolve={weightFix}>{t(`coach:rider.safe.${insight.status}`, { count: insight.activityCount })}</Resolvable></Text>
+      <Text as="p" variant="bodySmall" tone="secondary"><Resolvable resolve={statusFix}>{t(`coach:rider.safe.${insight.status}`, { count: insight.activityCount })}</Resolvable></Text>
     </div>}
 
     <div className="coach-rider-card__meta">

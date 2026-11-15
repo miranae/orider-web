@@ -8,6 +8,9 @@ import { Button, Card, Field, Input, Stat, Text, ToggleButton, ToggleControls } 
 import { usePlanPeriodComparison } from "./usePlanPeriodComparison";
 import { getPlanLoadRangeBounds, type PlanLoadRange } from "./planLoadComparison";
 import "./PlanLoadComparisonPanel.css";
+import { Resolvable } from "../../../components/redesign";
+import { loadThresholdHref } from "../../../services/focusTarget";
+import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 
 type Period = "day" | "week" | "month" | "range";
 const DAY_MS = 86_400_000;
@@ -42,6 +45,8 @@ export interface PlanLoadComparisonProps {
 /** Compare prescribed load with all accepted activity load, independently of workout completion links. */
 export default function PlanLoadComparison({ uid, discipline, weeks, selectedDate, ftp, enabled = true }: PlanLoadComparisonProps) {
   const { t, i18n } = useTranslation("training");
+  // 부하 미확인 문구를 누르면 종목의 부하 기준값 칸으로 간다 — 설정 화면은 웹에만 있다.
+  const webResolve = useFirebaseServices().scope !== "embedded";
   const id = useId();
   const today = planDayKey(Date.now());
   const initialDate = selectedDate && validDate(selectedDate) ? selectedDate : today;
@@ -112,7 +117,7 @@ export default function PlanLoadComparison({ uid, discipline, weeks, selectedDat
         <div className="plan-load-comparison__notes">
           {result.parentWeeksPending && <div className="plan-load-comparison__notice"><Text as="p" variant="bodySmall" role="status">{t("loadComparison.parentWeekPending")}</Text><Button variant="secondary" onClick={result.retryParentWeeks}>{t("loadComparison.retry")}</Button></div>}
           {result.state === "incomplete" && <div className="plan-load-comparison__notice"><Text as="p" variant="bodySmall" tone="warning" role="status">{t("loadComparison.incomplete")}</Text><Button variant="secondary" onClick={result.retry}>{t("loadComparison.retry")}</Button></div>}
-          {result.state === "ready" && summary && summary.unknownCount > 0 && <Text as="p" variant="bodySmall" tone="warning" role="status">{t("loadComparison.unknownLoads", { count: summary.unknownCount })}</Text>}
+          {result.state === "ready" && summary && summary.unknownCount > 0 && <Text as="p" variant="bodySmall" tone="warning" role="status"><Resolvable resolve={webResolve ? { to: loadThresholdHref(discipline) } : undefined}>{t("loadComparison.unknownLoads", { count: summary.unknownCount })}</Resolvable></Text>}
           {summary?.estimated && <Text as="p" variant="caption" tone="tertiary">{t("loadComparison.estimated")}</Text>}
           {ready && result.days.length === 1 && dayLink(result.days[0]!.date)}
         </div>

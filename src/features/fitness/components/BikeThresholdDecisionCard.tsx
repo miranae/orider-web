@@ -127,7 +127,8 @@ export default function BikeThresholdDecisionCard({
         <div style={{ marginTop: "var(--space-4)", display: "grid", gap: "var(--space-2)" }}>
           <Text as="div" variant="caption">{t("thresholdDecision.actionsTitle")}</Text>
           {decision.activeFtpW == null && <ActionLink specId="K1-6-4" to="/coach/condition?sport=bike#thresholds" label={t("thresholdDecision.action.setFtp")} />}
-          {missingPdc && <ActionLink specId="K1-6-5" to="/athlete/me/activities" label={t("thresholdDecision.action.addPowerRide")} />}
+          {/* 파워 기록은 활동 목록이 아니라 연결 화면에서 들여온다. */}
+          {missingPdc && <ActionLink specId="K1-6-5" to="/settings/connections" label={t("thresholdDecision.action.addPowerRide")} />}
           {!hasZoneData && <ActionLink specId="K1-6-5" to="/athlete/me/activities" label={t("thresholdDecision.action.addZoneData")} />}
         </div>
       )}

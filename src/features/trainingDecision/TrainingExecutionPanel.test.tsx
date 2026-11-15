@@ -332,6 +332,29 @@ describe("TrainingExecutionPanel", () => {
     expect(screen.getByText("현재 revision이 확인된 같은 종목 활동이 없습니다.")).toBeInTheDocument();
   });
 
+  it("empty picker notice opens the connections screen", async () => {
+    mocks.list.mockResolvedValue([{ ...baseExecution, status: "started", startedAt: 2 }]);
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "활동 직접 연결" }));
+    expect(screen.getByRole("link", { name: "현재 revision이 확인된 같은 종목 활동이 없습니다." }))
+      .toHaveAttribute("href", expect.stringContaining("/settings/connections"));
+  });
+
+  it("tapping the save failure notice reloads today's decision instead of adding a button", async () => {
+    mocks.reserve.mockRejectedValue(new Error("offline"));
+    const changed = vi.fn();
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    render(<TrainingExecutionPanel decision={decision} sessions={decision.effectiveSessions} onChanged={changed} />);
+    fireEvent.click(await screen.findByRole("button", { name: "운동 시작" }));
+    const notice = await screen.findByRole("button", { name: "실행 상태를 저장하지 못했습니다." });
+    const buttons = screen.getAllByRole("button").length;
+    fireEvent.click(notice);
+    expect(changed).toHaveBeenCalledOnce();
+    expect(screen.queryByText("실행 상태를 저장하지 못했습니다.")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(buttons - 1);
+  });
+
   it.each([true, false])("blocks linking cached activities while feed is loading=%s or failed", async (loading) => {
     mocks.list.mockResolvedValue([{ ...baseExecution, status: "started", startedAt: 2 }]);
     mocks.activities = { activities: [{ id: "activity_123", type: "Ride", startTime: 1_787_000_000_000, activityRevision: "ar_current" }], loading, error: !loading };

@@ -12,6 +12,9 @@ import { useTranslation } from "react-i18next";
 import type { PowerCurvePeriod, PowerCurvePeriodsResponse, PeriodPowerPoint, WeightNormalizedPowerPoint } from "@shared/types/power-curve-periods";
 import { Button, ToggleControls, ToggleButton, ChartFrame, DropdownSelect, Stat, Text } from "../../../theme";
 import { LocalizedLink } from "../../../components/LocalizedLink";
+import { Resolvable } from "../../../components/redesign/states/Resolvable";
+import { bodyInfoHref } from "../../../services/focusTarget";
+import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { useAuth } from "../../../contexts/AuthContext";
 import { usePowerCurvePeriods, type PowerCurvePeriodsSelection } from "../../../hooks/usePowerCurvePeriods";
 import { trainingCalendarDate, trainingCalendarPeriod, trainingComparisonPeriods, trainingWindowPeriods, type TrainingComparisonPreset } from "../../../services/trainingComparisonCalendar";
@@ -27,6 +30,7 @@ import { ICON_SIZE } from "../../../theme/tokens/icon";
 export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, onDurationChange, concise: conciseProp = false }: { response: PowerCurvePeriodsResponse; unit?: "W" | "W/kg"; selectedDuration?: number; onDurationChange?: (duration: number) => void; concise?: boolean }) {
   const { t } = useTranslation("fitness");
   const concise = useConciseExplanations() || conciseProp;
+  const webResolve = useFirebaseServices().scope !== "embedded";
   const id = useId();
   const durationLabel = makeDurationLabel(t);
   const [localDuration, setLocalDuration] = useState(300);
@@ -68,7 +72,7 @@ export function PowerCurvePeriodsView({ response, unit = "W", selectedDuration, 
           const point = period.points.find(item => item.durationSeconds === selected);
           return <div key={index} className="space-y-2"><Stat compact label={rangeLabels[index]} value={point ? normalized && power(point) > 0 && power(point) < 0.01 ? "<0.01" : power(point).toFixed(normalized ? 2 : 1) : "—"} unit={point ? unit : undefined} />{point && <><LocalizedLink className="period-curve-source" to={`/activity/${encodeURIComponent(point.sourceActivityId)}`}>{t("periodCurve.source", { date: trainingCalendarDate(point.startTime) })}</LocalizedLink>{!concise && <Text as="p" variant="bodyMedium" tone="tertiary">{t(`periodCurve.source.${point.source}`)}</Text>}{normalized && "weightKg" in point && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightWinner", { watts: point.watts, kg: point.weightKg })}</Text>}</>}</div>;
         })}</div>
-      </> : <Text as="p" variant="bodyMedium" tone="secondary">{t(normalized ? "periodCurve.weightEmpty" : "periodCurve.empty")}</Text>}
+      </> : <Text as="p" variant="bodyMedium" tone="secondary">{/* 체중 기준 기록이 없다는 문구를 누르면 체중 칸으로 간다. */}<Resolvable resolve={normalized && webResolve ? { to: bodyInfoHref() } : undefined}>{t(normalized ? "periodCurve.weightEmpty" : "periodCurve.empty")}</Resolvable></Text>}
     </ChartFrame>
     {!concise && <>
     {periods.map((period, index) => normalized && !period.weightNormalized ? <Text key={index} as="p" variant="bodyMedium" tone="secondary">{rangeLabels[index]} · {t("periodCurve.weightUnsupported")}</Text> : <div key={index} className="space-y-2"><Text as="h4" variant="bodyMedium" weight={600}>{rangeLabels[index]}</Text><Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.included", { count: period.coverage.includedActivityCount })}{period.status === "partial" ? ` · ${t("periodCurve.partial")}` : ""}</Text>{period.status === "partial" && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.partialNote")}</Text>}{normalized && period.weightNormalized && <Text as="p" variant="bodyMedium" tone="secondary">{t("periodCurve.weightCoverage", { ...period.weightNormalized.weightCounts })}</Text>}</div>)}

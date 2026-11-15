@@ -3,6 +3,7 @@ import { qualifiedRunRecords } from "../runAnalysisReadiness";
 import type { RunEvidence } from "../multisportPerformance";
 import { LocalizedLink } from "../../../components/LocalizedLink";
 import { buttonClass, Card, Text } from "../../../theme/components";
+import { Resolvable } from "../../../components/redesign/states/Resolvable";
 
 function duration(seconds: number) {
   const value = Math.round(seconds);
@@ -18,7 +19,8 @@ export default function RunRecordsSummary({ evidence, readiness = false, sourceB
   if (sourceBoard && !readiness && qualified.length === 0) return <div data-testid="K5-4" className="run-records-board__all-link"><LocalizedLink data-testid="K5-4-2" to="/athlete/me/records?sport=run">{t("runRecords.viewAll")}</LocalizedLink></div>;
   return <Card data-testid="K5-4">
     <Text as="h2" variant="title">{t(readiness ? "runReadiness.title" : "runRecords.title")}</Text>
-    {readiness && <Text as="p" variant="body" tone="secondary">{t("runReadiness.body")}</Text>}
+    {/* 기록이 부족하다는 문구를 누르면 기록을 들여오는 연결 화면으로 간다(훈련 기준은 아래 버튼). */}
+    {readiness && <Text as="p" variant="body" tone="secondary"><Resolvable resolve={{ to: "/settings/connections" }}>{t("runReadiness.body")}</Resolvable></Text>}
     {!readiness && qualified.length === 0 && <Text as="p" variant="bodySmall" tone="secondary">{t(evidence.unverifiedRecords?.length ? "runRecords.unverified" : "runRecords.none")}</Text>}
     {qualified.length > 0 && (["5km", "10km"] as const).map(distance => {
       const best = qualified.filter(record => record.distance === distance).sort((a, b) => a.seconds - b.seconds)[0];

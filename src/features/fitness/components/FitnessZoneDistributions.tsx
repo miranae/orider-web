@@ -2,6 +2,8 @@ import type { ActivityMetrics } from "@shared/types/activity-metrics";
 import { useTranslation } from "react-i18next";
 import { Card, ChartHeader, Progress, Text } from "../../../theme";
 import "./FitnessZoneDistributions.css";
+import { Resolvable, type Resolve } from "../../../components/redesign/states/Resolvable";
+import { FOCUS_TARGETS, thresholdSettingsHref } from "../../../services/focusTarget";
 
 export interface FitnessZoneSeries {
   counts: number[] | null;
@@ -17,17 +19,21 @@ export interface FitnessZoneEvidence {
   power: FitnessZoneSeries;
 }
 
-export function FitnessZoneDistributions({ evidence, compact = false }: { evidence: FitnessZoneEvidence; compact?: boolean }) {
+export function FitnessZoneDistributions({ evidence, compact = false, discipline }: { evidence: FitnessZoneEvidence; compact?: boolean;
+  /** 본인 화면의 종목 — 존 기록이 없다는 문구를 눌러 존 기준 칸(심박 LTHR·파워 FTP)으로 간다. 없으면 글자 그대로. */
+  discipline?: "bike" | "run" | "swim" }) {
   const { t, i18n } = useTranslation("fitness");
   const date = (time: number) => new Date(time).toLocaleDateString(i18n.language);
   return <div className="fitness-zone-evidence">
     {(["hr", "power"] as const).map(kind => {
       const series = evidence[kind];
       const boundaries = kind === "hr" ? evidence.hr.boundaries : null;
+      const unknownFix: Resolve | undefined = !discipline ? undefined
+        : { to: kind === "hr" ? thresholdSettingsHref(discipline, FOCUS_TARGETS.lthr) : thresholdSettingsHref("bike", FOCUS_TARGETS.ftp) };
       const names = kind === "hr" ? ["hrZone.recovery", "hrZone.endurance", "hrZone.tempo", "hrZone.threshold", "hrZone.vo2max"]
         : ["zone.recovery", "zone.endurance", "zone.tempo", "zone.threshold", "zone.vo2max", "zone.anaerobic", "zone.neuromuscular"];
       if (compact && !series.counts?.length) return <Text as="p" key={kind} variant="bodySmall" tone="secondary">
-        {t(`zoneEvidence.${kind}`)} · {t("zoneEvidence.unknown")} {t("zoneEvidence.records", { count: series.recordCount, missing: series.missingCount })} · {t("zoneEvidence.period", { days: evidence.windowDays, start: date(evidence.startTime), end: date(evidence.endTime) })}
+        {t(`zoneEvidence.${kind}`)} · <Resolvable resolve={unknownFix}>{t("zoneEvidence.unknown")}</Resolvable> {t("zoneEvidence.records", { count: series.recordCount, missing: series.missingCount })} · {t("zoneEvidence.period", { days: evidence.windowDays, start: date(evidence.startTime), end: date(evidence.endTime) })}
       </Text>;
       return <Card key={kind} className="fitness-zone-evidence__card">
         <ChartHeader size="compact" title={<h3>{t(`zoneEvidence.${kind}`)}</h3>} />
@@ -45,7 +51,7 @@ export function FitnessZoneDistributions({ evidence, compact = false }: { eviden
               <span className="fitness-zone-evidence__duration">{t("zoneEvidence.duration", { seconds: seconds.toLocaleString(i18n.language), percent: percent == null ? "—" : percent.toLocaleString(i18n.language, { maximumFractionDigits: 1 }) })}</span>
             </li>;
           })}
-        </ol> : <Text as="p" variant="body">{t("zoneEvidence.unknown")}</Text>}
+        </ol> : <Text as="p" variant="body"><Resolvable resolve={unknownFix}>{t("zoneEvidence.unknown")}</Resolvable></Text>}
         <Text as="p" variant="body" tone="secondary" className="fitness-zone-evidence__basis">{t("zoneEvidence.recordBasis")}</Text>
       </Card>;
     })}

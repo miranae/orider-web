@@ -18,7 +18,7 @@ import { sumEffectivePlanTSS } from "../../../utils/planTss";
 import AdjustedChip from "../../../components/training/AdjustedChip";
 import RecoveryDownshiftMarker from "../../../components/training/RecoveryDownshiftMarker";
 import { RevalidatingIndicator } from "../../../components/training/RevalidatingIndicator";
-import { EmptyState, ErrorState } from "../../../components/redesign";
+import { EmptyState, ErrorState, Resolvable } from "../../../components/redesign";
 import { Button, Card, Text } from "../../../theme/components";
 import { PlanAdjustmentNarrative } from "../../trainingHub/TrainingHubOpportunityPanel";
 import MobilePlanContent, { type MobilePlanContentProps } from "./MobilePlanContent";
@@ -598,7 +598,7 @@ export default function PlanPresentation({
     enabled: false });
   const goalParams = new URLSearchParams(comparisonLocation.search);
   goalParams.set("loadPeriod", "range"); goalParams.set("loadStart", goalScope.range.start); goalParams.set("loadEnd", goalScope.range.end);
-  const goalLoadSummary = !embedded ? <PlanGoalLoadSummary scope={goalScope} load={goalLoads} compactEntry={goalScope.valid ? <LocalizedLink to={{ pathname: comparisonLocation.pathname, search: goalParams.toString(), hash: "#plan-load-comparison" }} state={comparisonLocation.state}>{t("loadComparison.compareGoal")}</LocalizedLink> : <Text>{t("goalLoad.invalid")}</Text>} /> : undefined;
+  const goalLoadSummary = !embedded ? <PlanGoalLoadSummary scope={goalScope} load={goalLoads} discipline={discipline} compactEntry={goalScope.valid ? <LocalizedLink to={{ pathname: comparisonLocation.pathname, search: goalParams.toString(), hash: "#plan-load-comparison" }} state={comparisonLocation.state}>{t("loadComparison.compareGoal")}</LocalizedLink> : <Text>{t("goalLoad.invalid")}</Text>} /> : undefined;
   const todayKey = kstDayKey(Date.now());
   const pendingWorkout = (day: PlanDay) => embedded
     ? !day.completed && !day.skipped && day.workout !== 'rest' && day.workout !== 'goal'
@@ -991,7 +991,8 @@ export default function PlanPresentation({
                   fontSize: "var(--fs-sm)",
                 }}
               >
-                {t('page.planEmptyBody')}
+                {/* 아직 생성 중이라는 문구를 누르면 계획을 다시 불러온다. */}
+                <Resolvable resolve={loading ? undefined : { onClick: retryLoad }}>{t('page.planEmptyBody')}</Resolvable>
               </div>
             ) : (
               visibleWeeks.map((wk, wi) => {

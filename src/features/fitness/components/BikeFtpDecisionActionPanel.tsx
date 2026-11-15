@@ -7,6 +7,8 @@ import type {
 } from "@shared/types/threshold";
 import { Button, Chip, Text } from "../../../theme/components";
 import { Resolvable } from "../../../components/redesign/states/Resolvable";
+import { FOCUS_TARGETS, thresholdSettingsHref } from "../../../services/focusTarget";
+import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 
 interface Props {
   decision: BikeThresholdDecisionV2 | null;
@@ -24,6 +26,8 @@ export default function BikeFtpDecisionActionPanel({
   onAccept,
 }: Props) {
   const { t } = useTranslation("fitness");
+  // FTP 테스트 칸은 웹 설정에만 있다 — 앱 임베드에서는 글자 그대로.
+  const webResolve = useFirebaseServices().scope !== "embedded";
   if (!decision) return null;
   const actionable = decision.status === "actionable";
   const expired = decision.status === "actionable" && Date.now() >= decision.expiresAt;
@@ -64,7 +68,8 @@ export default function BikeFtpDecisionActionPanel({
       )}
       {(expired || decision.status === "blocked" || decision.status === "expired") && (
         <Text as="p" variant="caption" tone="secondary" style={{ margin: "var(--space-3) 0 0" }}>
-          {t(expired ? "ftpDecision.expired" : unavailableKey)}
+          {/* 만료·차단 문구를 누르면 직접 측정해 FTP 를 정하는 FTP 테스트 칸으로 간다. */}
+          <Resolvable resolve={webResolve ? { to: thresholdSettingsHref("bike", FOCUS_TARGETS.ftpTest) } : undefined}>{t(expired ? "ftpDecision.expired" : unavailableKey)}</Resolvable>
         </Text>
       )}
       {(decision.status === "accepted" || receipt) && (

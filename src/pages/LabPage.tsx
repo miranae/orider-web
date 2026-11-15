@@ -103,6 +103,9 @@ function parseDuration(str: string): number {
   return NaN;
 }
 
+/** PR 예측에 필요한 PDC(CP/W') 가 없다는 문구를 누르면 파워 기록을 들여오는 연결 화면으로 간다. */
+const PR_MISSING_FIX = { to: "/settings/connections" };
+
 export default function LabPage({ presetCourseId, embedded = false }: { presetCourseId?: string; embedded?: boolean } = {}) {
   const fieldPrefix = useId();
   const { t } = useTranslation("lab");
@@ -475,7 +478,7 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
 
             {mode === "pr" && (!embedded || cp > 0) && (
               <Text as="p" tone="secondary">
-                {embedded ? <GlossaryText>{cp > 0 ? t("mode.prReady", { cp: Math.round(cp), wPrime: Math.round(wPrime) }) : t("mode.prMissing")}</GlossaryText> : cp > 0 ? t("mode.prReady", { cp: Math.round(cp), wPrime: Math.round(wPrime) }) : t("mode.prMissing")}
+                {embedded ? <GlossaryText>{cp > 0 ? t("mode.prReady", { cp: Math.round(cp), wPrime: Math.round(wPrime) }) : t("mode.prMissing")}</GlossaryText> : cp > 0 ? t("mode.prReady", { cp: Math.round(cp), wPrime: Math.round(wPrime) }) : <Resolvable resolve={PR_MISSING_FIX}>{t("mode.prMissing")}</Resolvable>}
               </Text>
             )}
           </Stack>
@@ -486,7 +489,7 @@ export default function LabPage({ presetCourseId, embedded = false }: { presetCo
           <Card className={embedded ? "course-simulation-result" : undefined} title={embedded ? courseT("prepare.result") : t("result.title")}>
             {embedded && <Text as="p" variant="body" style={{ marginBottom: "var(--space-3)" }}>{courseT("prepare.assumptions", { rider: riderMass, bike: bikeMass })}{!defaultBike ? ` · ${courseT("prepare.defaultEquipment")}` : ""}</Text>}
             {result.kind === "pr-missing" ? (
-              <Alert variant="info">{embedded ? <><GlossaryText>{t("mode.prMissing")}</GlossaryText><Link to="/coach/condition?sport=bike#thresholds" className="block mt-2 underline">{courseT("prepare.trainingSettings")}</Link></> : t("mode.prMissing")}</Alert>
+              <Alert variant="info">{embedded ? <><GlossaryText>{t("mode.prMissing")}</GlossaryText><Link to="/coach/condition?sport=bike#thresholds" className="block mt-2 underline">{courseT("prepare.trainingSettings")}</Link></> : <Resolvable resolve={PR_MISSING_FIX}>{t("mode.prMissing")}</Resolvable>}</Alert>
             ) : (
               <div className={embedded ? "course-simulation-grid" : undefined}
                 style={{

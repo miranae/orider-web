@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { SwimPacePoint } from "../../features/fitness/fitnessCurveDocuments";
 import ChartEmptyState from "./ChartEmptyState";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 
 interface CSSCurveProps {
   color?: string;
@@ -17,10 +18,12 @@ const refMarkers = [
 
 export default function CSSCurve({ color = "var(--aqua)", css, recentPoints = [], prevPoints = [] }: CSSCurveProps) {
   const { t } = useTranslation("dashboard");
+  // 빈 곡선 문구를 누르면 기록을 들여오는 연결 화면으로 간다(웹에서만).
+  const emptyFix = useFirebaseServices().scope !== "embedded" ? { to: "/settings/connections" } : undefined;
   const current = recentPoints.map(({ distanceM, paceSecPer100m }) => ({ dist: distanceM, pace: paceSecPer100m }));
   const previous = prevPoints.map(({ distanceM, paceSecPer100m }) => ({ dist: distanceM, pace: paceSecPer100m }));
   if (current.length === 0 && previous.length === 0) {
-    return <ChartEmptyState title={t("charts.fitness.noData")} description="" />;
+    return <ChartEmptyState title={t("charts.fitness.noData")} description="" resolve={emptyFix} />;
   }
   const cssValue = css != null && Number.isFinite(css) && css > 0 ? css : null;
 
