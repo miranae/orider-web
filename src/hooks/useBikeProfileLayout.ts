@@ -86,7 +86,7 @@ export function useBikeProfileLayout(
   currentTarget.current = targetKey;
   const resolveGeneration = useRef(0);
   // 이 대상에서 구독으로 본 가장 최근 원격 구성 — 충돌 응답 뒤 더 새 revision 이 왔으면 그걸로 맞춘다.
-  const latestRemote = useRef<{ revision: number; payload: string } | null>(null);
+  const latestRemote = useRef<{ target: string; revision: number; payload: string } | null>(null);
 
   useEffect(() => {
     if (!uid || !profileId || !ownerKey) {
@@ -123,7 +123,7 @@ export function useBikeProfileLayout(
           const data = snap.data();
           const remoteRevision = (data?.revision as number | undefined) ?? 0;
           const remotePayload = (data?.payload as string | undefined) ?? null;
-          if (!cancelled && remotePayload) latestRemote.current = { revision: remoteRevision, payload: remotePayload };
+          if (!cancelled && remotePayload) latestRemote.current = { target: `${ownerKey}|${profileId}`, revision: remoteRevision, payload: remotePayload };
           if (local && local.revision >= remoteRevision) {
             apply(local.canonicalPayload, local.revision);
             return;
@@ -183,6 +183,7 @@ export function useBikeProfileLayout(
       if (!ownerKey || !profileId) {
         return { status: "localSaveFailed", cause: new Error("로그인 필요") };
       }
+      const requestTarget = `${ownerKey}|${profileId}`;
       const conflictLayout = parseCanonicalLayout(conflict.remotePayload, "CYCLING");
       if (!conflictLayout.ok || conflictLayout.layout.profileId !== profileId) {
         return { status: "invalidPayload", reasons: ["conflict remotePayload 를 읽지 못함"] };
@@ -191,7 +192,8 @@ export function useBikeProfileLayout(
       // 잠금을 기다리거나 outbox 를 정리하는 동안에도 새 revision 이 올 수 있어, head 를 쓰기 직전에 다시 고른다.
       const pickNewest = () => {
         const seen = latestRemote.current;
-        if (seen && seen.revision > conflict.remoteRevision) {
+        // 다른 계정·자전거에서 받은 구성은 쓰지 않는다 — 이 해소는 요청 당시 대상의 head 에 쓴다.
+        if (seen && seen.target === requestTarget && seen.revision > conflict.remoteRevision) {
           const parsed = parseCanonicalLayout(seen.payload, "CYCLING");
           if (parsed.ok && parsed.layout.profileId === profileId) return { remoteRevision: seen.revision, remotePayload: seen.payload, layout: parsed.layout };
         }
@@ -200,7 +202,6 @@ export function useBikeProfileLayout(
       let target = pickNewest();
       const deps = browserSaveDeps();
       const generation = ++resolveGeneration.current;
-      const requestTarget = `${ownerKey}|${profileId}`;
       try {
         // 저장·drain 과 같은 owner 잠금 안에서 차단 intent 를 걷고 head 를 원격으로 맞춘다 —
         // 잠금 밖에서 하면 진행 중인 drain 이 지운 intent 를 다시 보내거나 head 를 되돌린다.

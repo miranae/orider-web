@@ -255,4 +255,22 @@ describe("useBikeProfileLayout 충돌 해소", () => {
     expect(mocks.putHead).toHaveBeenCalledWith(expect.objectContaining({ profileId: "road", revision: 8 }));
     expect(mocks.putHead).not.toHaveBeenCalledWith(expect.objectContaining({ revision: 7 }));
   });
+
+  it("해소 중 다른 계정으로 바뀌어 그 계정의 더 새 구성을 받아도, 이전 계정 head 에는 이전 계정 구성을 쓴다", async () => {
+    let finishRemove: () => void = () => {};
+    mocks.removeIntent.mockReset().mockImplementation(() => new Promise<void>(resolve => { finishRemove = resolve; }));
+    const { result, rerender } = renderHook(({ uid }) => useBikeProfileLayout(uid, "road", [page]), { initialProps: { uid: "uid-a" } });
+    act(() => mocks.subscriptions[0]!.next(remoteSnap("road", 5)));
+    await waitFor(() => expect(result.current.revision).toBe(5));
+    let pending!: Promise<unknown>;
+    act(() => { pending = result.current.resolveConflict({ remoteRevision: 7, remotePayload }); });
+    await waitFor(() => expect(mocks.removeIntent).toHaveBeenCalled());
+    rerender({ uid: "uid-b" });
+    act(() => mocks.subscriptions[mocks.subscriptions.length - 1]!.next(remoteSnap("road", 12)));
+    await waitFor(() => expect(result.current.revision).toBe(12));
+    await act(async () => { finishRemove(); await pending; });
+    expect(mocks.putHead).toHaveBeenCalledWith(expect.objectContaining({ ownerKey: "uid:uid-a", revision: 7, canonicalPayload: remotePayload }));
+    expect(mocks.putHead).not.toHaveBeenCalledWith(expect.objectContaining({ ownerKey: "uid:uid-a", revision: 12 }));
+    expect(result.current.revision).toBe(12);
+  });
 });
