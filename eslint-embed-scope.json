@@ -529,6 +529,7 @@
   "src/features/sufficiency/sufficiencyAnalytics.ts",
   "src/features/training/climbGoal.ts",
   "src/features/training/plan/MobilePlanContent.tsx",
+  "src/features/training/plan/PlanActionsMenu.tsx",
   "src/features/training/plan/PlanComparisonReturn.tsx",
   "src/features/training/plan/PlanDayLoadComparison.tsx",
   "src/features/training/plan/PlanGoalLoadSummary.tsx",

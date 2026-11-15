@@ -2,7 +2,9 @@ import "./fitness-analysis-controls.css";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { LocalizedLink } from "../../../components/LocalizedLink";
-import { DropdownSelect, Button, Chip, Text } from "../../../theme/components";
+import { DropdownSelect, Button, Chip, IconButton, Text } from "../../../theme/components";
+import { RefreshCw } from "lucide-react";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 import type { RiderWorkoutType } from "../../../services/riderWorkoutDeliveryContract";
 import { useRiderWorkoutDelivery } from "../useRiderWorkoutDelivery";
 import { getRuntimeConfig } from "../../../services/runtimeConfig";
@@ -99,16 +101,18 @@ function EnabledRiderWorkoutDeliveryPanel({ uid, workoutType, targetTss, onBusyC
       )}
       {controller.submitError && (
         <div className="fitness-coach__delivery-error" role="alert">
-          <Text as="p" variant="caption" tone="warning">
-            <Resolvable resolve={controller.submitErrorKind ? errorResolve[controller.submitErrorKind] : undefined}>{t(`coach.delivery.error.${controller.submitErrorKind ?? "unknown"}`)}</Resolvable>
-          </Text>
-          {controller.canSafelyReplay && (
-            <Button variant="outline" block disabled={busy} onClick={() => void controller.submit()}>
-              {t("coach.delivery.retry")}
-            </Button>
-          )}
+          {/* 같은 요청 다시 확인은 오류 문구 옆 아이콘 — 전체 폭 버튼으로 늘리지 않는다. */}
+          <div className="fitness-coach__delivery-error-message">
+            <Text as="p" variant="caption" tone="warning">
+              <Resolvable resolve={controller.submitErrorKind ? errorResolve[controller.submitErrorKind] : undefined}>{t(`coach.delivery.error.${controller.submitErrorKind ?? "unknown"}`)}</Resolvable>
+            </Text>
+            {controller.canSafelyReplay && (
+              <IconButton size="sm" variant="outline" icon={<RefreshCw size={ICON_SIZE.sm} />} disabled={busy}
+                aria-label={t("coach.delivery.retry")} title={t("coach.delivery.retry")} onClick={() => void controller.submit()} />
+            )}
+          </div>
           {!controller.canSafelyReplay && controller.submitErrorKind && (
-            <Button variant="outline" block disabled={busy} data-testid={explicitWorkoutLabel ? "K2-3-5" : undefined} onClick={controller.prepareNewRequest}>
+            <Button variant="outline" size="sm" className="fitness-coach__delivery-error-action" disabled={busy} data-testid={explicitWorkoutLabel ? "K2-3-5" : undefined} onClick={controller.prepareNewRequest}>
               {t(controller.submitErrorKind === "cooldown" ? "coach.delivery.prepareAfterCooldown" : "coach.delivery.prepareNew")}
             </Button>
           )}

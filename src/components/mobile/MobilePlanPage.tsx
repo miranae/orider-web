@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import type { AdaptationFlag, PlanDay, PlanWeek } from "@shared/types/goal";
 import MobilePlanContent, { type PlanNextAction } from "../../features/training/plan/MobilePlanContent";
+import PlanActionsMenu from "../../features/training/plan/PlanActionsMenu";
 import { useLocalizedNavigate as useNavigate } from "../../hooks/useLocalizedNavigate";
 import { AddPlanSheet } from "../training";
 import AdaptationBanner from "../training/AdaptationBanner";
@@ -123,26 +124,12 @@ export default function MobilePlanPage({
         </div>
       ) : undefined}
       actionsSlot={(
-        <div data-testid="K4-3m" style={{ display: "flex", gap: "var(--space-2)", overflowX: "auto", paddingBottom: 2 }}>
-          {[
-            [t("buttons.ics"), onIcsExport],
-            [t("buttons.reroll"), onReroll],
-            [t("buttons.goalReset"), onGoalReset],
-            [t("buttons.abandonGoal"), onAbandon],
-          ].map(([label, action], index) => action ? (
-            <Button
-              data-testid={["K4-3-2", "K4-3-3", "K4-3-4", "K4-3-5"][index]}
-              key={String(label)}
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => { void (action as () => void | Promise<void>)(); }}
-              style={{ whiteSpace: "nowrap" }}
-            >
-              {index === 1 && <RefreshCw size={ICON_SIZE.md} aria-hidden="true" />}{index === 2 && <Target size={ICON_SIZE.md} aria-hidden="true" />}{String(label)}
-            </Button>
-          ) : null)}
-        </div>
+        <PlanActionsMenu testId="K4-3m" label={t("mobile.managePlan")} items={[
+          ...(onIcsExport ? [{ id: "K4-3-2", label: t("buttons.ics"), onSelect: onIcsExport }] : []),
+          ...(onReroll ? [{ id: "K4-3-3", label: t("buttons.reroll"), icon: <RefreshCw size={ICON_SIZE.sm} aria-hidden="true" />, onSelect: onReroll }] : []),
+          ...(onGoalReset ? [{ id: "K4-3-4", label: t("buttons.goalReset"), icon: <Target size={ICON_SIZE.sm} aria-hidden="true" />, onSelect: onGoalReset }] : []),
+          ...(onAbandon ? [{ id: "K4-3-5", label: t("buttons.abandonGoal"), danger: true, onSelect: onAbandon }] : []),
+        ]} />
       )}
       footerSlot={addSheetOwner === currentSheetOwner && currentWeek && goalId ? (
         <AddPlanSheet

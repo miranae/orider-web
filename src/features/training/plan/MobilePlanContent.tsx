@@ -1,8 +1,7 @@
 import { isPendingPlanWorkout, presentPlanDayRecord } from "./planRecordPresentation";
-import CoachDetailSection from "../../fitness/components/CoachDetailSection";
 import { goalCountdown } from "../../../utils/goalCountdown";
 import { isSportUiEnabled } from "../../../config/sportFeatures";
-import { ChevronLeft, ChevronRight, Moon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Moon, Pencil } from "lucide-react";
 import InfoTip from "../../../components/InfoTip";
 import GlossaryText from "../../../components/common/GlossaryText";
 import SportIcon from "../../../components/common/SportIcon";
@@ -196,7 +195,7 @@ export default function MobilePlanContent({
               <strong><GlossaryText>{nextWorkoutLabel}</GlossaryText></strong>
               <span>{kstDateString(nextWorkout.date) !== todayStr && `${kstDateString(nextWorkout.date)} · `}{nextDuration > 0 && `${nextDuration} ${t("mobile.minutesUnit")}`}{effectivePlanTSS(nextWorkout) > 0 && <>{nextDuration > 0 && " · "}<GlossaryText>{`${effectivePlanTSS(nextWorkout)} TSS`}</GlossaryText></>}</span>
             </div>
-            {onEditWorkout && <Button type="button" size="sm" onClick={() => { if (actionable) onEditWorkout(actionable.day, actionable.weekId, actionable.dayIndex); }}>{t("mobile.edit")}</Button>}
+            {onEditWorkout && <IconButton size="sm" icon={<Pencil size={ICON_SIZE.sm} />} aria-label={t("mobile.edit")} title={t("mobile.edit")} onClick={() => { if (actionable) onEditWorkout(actionable.day, actionable.weekId, actionable.dayIndex); }} />}
           </div>
         </Card>
       )}
@@ -205,7 +204,11 @@ export default function MobilePlanContent({
 
       {goalTitle && (
         <Card padding="compact" data-testid="K4-2" className="mobile-plan-goal">
-          <Text as="div" variant="eyebrow" className="mobile-plan-section-label">{t("goal")}</Text>
+          {/* 계획 관리 동작은 목표 카드 머리 오른쪽 ⋯ 하나로 둔다 — 별도 "계획 관리" 줄·시트를 두지 않는다. */}
+          <div className="mobile-plan-goal-top">
+            <Text as="div" variant="eyebrow" className="mobile-plan-section-label">{t("goal")}</Text>
+            {actionsSlot}
+          </div>
           <div className="mobile-plan-goal-heading">
             <div style={{ flex: 1, minWidth: 0 }}>
               <h2 data-testid="K4-2-1" title={embedded ? goalTitle : undefined} aria-label={goalTitle} className={`mobile-plan-goal-title${embedded && goalExpanded ? " is-expanded" : ""}`}>{embedded && goalExpanded ? goalTitle : formattedGoal?.name}</h2>
@@ -229,10 +232,6 @@ export default function MobilePlanContent({
             {weeksLeft != null && <span><small>{t("metrics.weeksLeft")}</small><strong>{weeksLeft} {t("metrics.weeksUnit")}</strong></span>}
           </div>
           </> : goalLoadSummary}
-          {actionsSlot && (!embedded ? <CoachDetailSection id="plan-management" title={t("mobile.managePlan")}>{actionsSlot}</CoachDetailSection> : <details style={{ marginTop: "var(--space-2)", borderTop: "1px solid var(--line-soft)", paddingTop: "var(--space-1)", fontSize: "var(--fs-xs)", color: "var(--ink-2)" }}>
-            <summary style={{ cursor: "pointer", fontWeight: 600 }}>{t("mobile.managePlan")}</summary>
-            <div style={{ paddingTop: "var(--space-2)" }}>{actionsSlot}</div>
-          </details>)}
         </Card>
       )}
 
@@ -292,7 +291,7 @@ export default function MobilePlanContent({
       <div className="mobile-plan-week-header flex items-center justify-between">
         <Text variant="eyebrow" className="mobile-plan-section-label">{t('mobile.weeklyPlan')}</Text>
         {onEditWorkout && editTargetIdx >= 0 && (
-          <Button type="button" variant="ghost" size="sm" onClick={() => openEditFor(editTargetIdx)}>{t('mobile.edit')}</Button>
+          <IconButton size="sm" icon={<Pencil size={ICON_SIZE.sm} />} aria-label={t('mobile.edit')} title={t('mobile.edit')} onClick={() => openEditFor(editTargetIdx)} />
         )}
       </div>
       {embedded && todayIdx > 0 && (
