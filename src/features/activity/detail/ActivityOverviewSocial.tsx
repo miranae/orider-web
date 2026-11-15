@@ -3,7 +3,7 @@ import { NativeActivityPhotoImage } from "../../../components/activity/NativeAct
 import { useNativeActivityPhoto } from "../../../hooks/useNativeActivityPhoto";
 import { isNativePhotoReference, isLegacyActivityPhotoUrl, type NativePhotoReference } from "../../../services/nativeActivityPhoto";
 import { ICON_SIZE } from '../../../theme/tokens/icon';
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import ActivityFeedVideo from "../../../components/activity/ActivityFeedVideo";
 import { MapPin, Trash2, Play, EyeOff } from "lucide-react";
@@ -31,6 +31,8 @@ interface Props {
   hiddenProviderCount?: number;
   onRestoreProviderPhotos?: () => void;
   providerPhotoBusy?: boolean;
+  /** 주인: 메모 보기를 연필 편집기로 감싼다(제목 편집과 같은 자리 편집). */
+  renderMemo?: (view: ReactNode) => ReactNode;
 }
 const safeImage = (url: string) => { try { const value = new URL(url); return value.protocol === "https:" && !isLegacyActivityPhotoUrl(url) && !value.username && !value.password; } catch { return false; } };
 
@@ -76,12 +78,12 @@ export default function ActivityOverviewSocial(props: Props) {
   return <section className="activity-overview-social" data-has-results={achievements.length > 0} aria-label={t("overviewSocial.title")}>
     {props.prioritizeResults && results}
     <div className="activity-overview-story">
-      {memo?.trim() ? <div className="activity-overview-memo">
+      {(props.renderMemo ?? (view => view))(memo?.trim() ? <div className="activity-overview-memo">
         <Text as="p" variant="body" ref={memoRef} mono={props.memoMono} className={expanded ? undefined : "activity-overview-memo--collapsed"}>{memo}</Text>
         {props.memoGeneratedAt != null && <Text as="p" variant="caption" tone="secondary">{t("overviewSocial.memoSnapshot", { date: new Date(props.memoGeneratedAt).toLocaleString() })}</Text>}
         {overflowing && <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? "card.memoLess" : "card.memoMore")}</Button>}
         {props.memoTruncated && <Text as="p" variant="caption" tone="secondary">{t("overviewSocial.memoPartial")}</Text>}
-      </div> : <Text as="p" variant="bodyMedium" tone="tertiary" role={props.memoLoading ? "status" : undefined}>{t(props.memoLoading ? "detail.loadingData" : props.memoError ? "overviewSocial.memoUnavailable" : "overviewSocial.noMemo")}</Text>}
+      </div> : <Text as="p" variant="bodyMedium" tone="tertiary" role={props.memoLoading ? "status" : undefined}>{t(props.memoLoading ? "detail.loadingData" : props.memoError ? "overviewSocial.memoUnavailable" : "overviewSocial.noMemo")}</Text>)}
       <div className="activity-overview-photos" style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(5, safePhotos.length))}, minmax(0, 1fr))` }} aria-label={t("page.photos")}>
         {safePhotos.slice(0, 5).map((item, position) => <div className="activity-overview-photo" key={item.id}>
           <button type="button" className="activity-overview-photo-open"

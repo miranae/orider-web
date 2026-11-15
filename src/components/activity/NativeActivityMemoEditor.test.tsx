@@ -19,6 +19,16 @@ describe("native memo editing", () => {
     await waitFor(() => expect(saved).toHaveBeenCalledWith("새 본문"));
     expect(mocks.setNativeMemo).toHaveBeenCalledWith("ride", "새 본문", "revision1");
   });
+  it("starts the draft from the memo shown on screen, not a different stored memo", async () => {
+    mocks.setNativeMemo.mockResolvedValue({ memoRevision: "revision2", status: "updated" });
+    render(<NativeActivityMemoEditor activityId="ride" currentMemo={"▰ 라이딩 종합\n이동 00:04:07"} onSaved={vi.fn()}><p>보이는 메모</p></NativeActivityMemoEditor>);
+    expect(screen.getByText("보이는 메모")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "메모 작성·수정" }));
+    expect(await screen.findByRole("textbox")).toHaveValue("▰ 라이딩 종합\n이동 00:04:07");
+    expect(screen.queryByText("보이는 메모")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(mocks.setNativeMemo).toHaveBeenCalledWith("ride", "▰ 라이딩 종합\n이동 00:04:07", "revision1"));
+  });
   it("preserves an edited draft on conflict and requires a fresh revision", async () => {
     mocks.setNativeMemo.mockRejectedValue({ code: "functions/aborted" });
     render(<NativeActivityMemoEditor activityId="ride" onSaved={vi.fn()} />);

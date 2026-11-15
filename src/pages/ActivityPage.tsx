@@ -866,6 +866,9 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const overviewMemo = providerRecord && !resolvedMemo?.authored
     ? freshDefaultMemo ?? resolvedMemo?.memo ?? publishedContent?.memo ?? null
     : resolvedMemo?.memo ?? freshDefaultMemo ?? publishedContent?.memo ?? null;
+  // 화면에 보이는 메모 = 연필 편집 초안의 시작값(보이는 것과 다른 메모를 고치지 않게).
+  const shownMemo = activity && nativeMemoOverride?.activityId === activity.id ? nativeMemoOverride.memo : overviewMemo;
+  const canEditMemo = !!activity && isActivityOwner && canEditActivityMemo(activity.source) && getRuntimeConfig().publicActivityDetailEnabled === true;
 
   const hasStreams = sampledData.length > 0;
   const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, publicAccess ? null : user?.uid, activityId, user?.isAnonymous === true);
@@ -1361,7 +1364,9 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         <Text as="h2" variant="subtitle">{t("detail.keyRecords")}</Text>{summarySection}
       </section>}
       {activeTab === "overview" && <ActivityOverviewSocial key={`${activity.id}:${user?.uid ?? "guest"}:${sourceRevision}`} activityId={activity.id} prioritizeResults={mobileReading}
-        memo={nativeMemoOverride?.activityId === activity.id ? nativeMemoOverride.memo : overviewMemo} memoGeneratedAt={nativeMemoOverride?.activityId !== activity.id && !providerRecord && resolvedMemo?.authored === false ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={nativeMemoOverride?.activityId !== activity.id && resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
+        memo={shownMemo}
+        renderMemo={canEditMemo ? view => <NativeActivityMemoEditor key={`${activity.id}:${user?.uid}`} activityId={activity.id} currentMemo={shownMemo}
+          onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })}>{view}</NativeActivityMemoEditor> : undefined} memoGeneratedAt={nativeMemoOverride?.activityId !== activity.id && !providerRecord && resolvedMemo?.authored === false ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={nativeMemoOverride?.activityId !== activity.id && resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
         photosKnown={!!streams || !!publishedContent || typeof activity.photoCount === "number"} memoTruncated={publishedContent?.memoTruncated} photos={overviewPhotos}
         totalPhotos={activity.source === "orider"
           ? Math.max(overviewPhotos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0)
@@ -1378,9 +1383,6 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         onDelete={id => { const photo = uploadedPhotos.find(item => item.id === id); if (photo) void handleDeletePhoto(photo); }}
         onLocate={location => { setFlyToPosition(null); setTimeout(() => setFlyToPosition(location), 10); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
         onShowResults={() => setActiveTab("segments")} />}
-      {activeTab === "overview" && isActivityOwner && canEditActivityMemo(activity.source) && getRuntimeConfig().publicActivityDetailEnabled === true &&
-        <NativeActivityMemoEditor key={`${activity.id}:${user?.uid}`} activityId={activity.id}
-          onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })} />}
       {isActivityOwner && activeTab === "overview" && <ActivityMapPrivacyControl activityId={activity.id}
         thumbnail={activity.thumbnailTrack ? { polyline: activity.thumbnailTrack, contentRevision: activity.contentRevision, contentSelectedRevision: activity.contentSelectedRevision } : undefined} />}
       {activeTab === "analysis" && <ActivityReanalysisControl canReanalyze={isActivityOwner || (!!publicAccess && !!user && !user.isAnonymous && user.uid === activity.userId)} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
