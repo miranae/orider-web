@@ -75,3 +75,8 @@ it.each(["guest", "self"])("does not mutate the injected %s profile", mode => {
   expect(setActivitySubscription).not.toHaveBeenCalled();
   if (mode === "guest") expect(screen.getByText("팔로우하려면 앱에서 로그인해 주세요.")).toBeInTheDocument();
 });
+it("선수 프로필에서는 친구 요청과 같은 작은 버튼으로 두고 공개 활동 라벨을 붙이지 않는다", async () => {
+  renderWithProviders(<ActivitySubscriptionButton targetUid="target" size="sm" />, { authenticated: true });
+  expect(await screen.findByRole("button", { name: "구독" })).toHaveClass("ds-btn--sm");
+  expect(screen.queryByText("공개 활동")).not.toBeInTheDocument();
+});

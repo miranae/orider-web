@@ -1,5 +1,6 @@
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { ensureAppCheckReady } from "./firebase";
-import { getCountFromServer, getDocs, limit, startAfter } from "firebase/firestore";
+import { collection, getCountFromServer, getDocs, limit, startAfter } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { activitySubscriptionsBackendReady } from "../config/activitySubscriptions";
 import { simulateLogin, simulateLogout } from "../__tests__/mocks/firebase";
@@ -127,4 +128,12 @@ it("uses only the injected SDK account and rejects its same-UID replacement befo
     expect(services.ensureAppCheckReady).toHaveBeenCalledOnce();
     expect(listener).not.toHaveBeenCalled();
   } finally { window.removeEventListener(ACTIVITY_SUBSCRIPTIONS_CHANGED_EVENT, listener); }
+});
+
+it("uses the injected owner and database while the ordinary app is signed out", async () => {
+  simulateLogout();
+  const services = { auth: { currentUser: { uid: "isolated-owner" } }, firestore: {}, functions: {}, ensureAppCheckReady: vi.fn(), getAppCheckToken: vi.fn() } as unknown as FirebaseServices;
+  vi.mocked(getCountFromServer).mockResolvedValueOnce({ data: () => ({ count: 7 }) } as never);
+  expect(await readOwnFriendCount("isolated-owner", services)).toBe(7);
+  expect(vi.mocked(collection).mock.calls.at(-1)?.[0]).toBe(services.firestore);
 });

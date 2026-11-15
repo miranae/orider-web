@@ -188,6 +188,17 @@ describe("실제 서버 저장을 기다리는 작성 초안", () => {
       fireEvent.click(screen.getByRole("button", { name: "모집 시작" }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     });
+    it("실내 모임은 코스 경로가 없으면 저장하지 않고 이유를 보인다", async () => {
+      // 경로 없는 실내 모임은 출발 시각에 서버가 코스를 거부해 시작하지 못했다(2026-11-14).
+      const indoor = { ...initial, time: "08:00", venue: "indoor" as const, courseTrack: undefined };
+      const save = vi.fn().mockResolvedValue(undefined);
+      render(<MeetingForm state={{ ...state, meetings: [indoor] }} initial={indoor} initialRevision={4}
+        draftNamespace="indoor-no-course" onSave={save} onClose={vi.fn()} />);
+      preview();
+      fireEvent.click(screen.getByRole("button", { name: "변경 내용 저장" }));
+      expect(await screen.findByText("실내 모임은 코스 경로가 필요해요. 기존 코스나 GPX로 코스를 준비해주세요.")).toBeTruthy();
+      expect(save).not.toHaveBeenCalled();
+    });
     it("지난 기존 모임의 일정을 유지한 설명 수정은 저장할 수 있다", async () => {
       const old = { ...initial, time: "08:00" };
       const save = vi.fn().mockResolvedValue(undefined);
@@ -226,7 +237,9 @@ describe("실내 / 실외 선택", () => {
   const legacy = { ...initial, venue: undefined };
   it("새 모임은 선택하기 전에는 미리보기로 넘어가지 않고 고른 값을 저장한다", async () => {
     const save = vi.fn().mockResolvedValue(undefined);
-    const fresh = { ...newClubMeeting(), title: "새 모임", date: "2030-10-25", place: "집결지" };
+    // 실내 모임은 이어진 코스 경로가 있어야 저장된다 — 경로를 준비한 모임으로 본다.
+    const fresh = { ...newClubMeeting(), title: "새 모임", date: "2030-10-25", place: "집결지",
+      courseTrack: { fileName: "코스", points: [{ lat: 37.5, lon: 127 }, { lat: 37.51, lon: 127.01 }], segmentStarts: [0], distanceKm: 1.4, elevationGainM: 0 } };
     render(
       <MeetingForm
         state={{ ...state, meetings: [] }}

@@ -1,3 +1,4 @@
+import { useLocalizedPath } from "../../hooks/useLocalizedNavigate";
 import { useClubMeetingsApi } from "../../features/club-preparation/useClubMeetingsApi";
 import ClubCafeSchedulePanel from "../../features/group/ClubCafeSchedulePanel";
 import {
@@ -24,6 +25,7 @@ import {
   LoadingSkeleton,
 } from "../../components/redesign";
 import { UnifiedClubEventList, type ClubEvent } from "../../features/group/UnifiedClubEventList";
+import { clubEventQuery, type ClubEventWindow } from "../../features/group/clubEventWindow";
 import { Button, buttonClass } from "../../theme/components";
 import { logClientError } from "../../services/errorLogger";
 
@@ -33,6 +35,7 @@ export default function GroupEventsPage() {
   const { listClubMeetings } = useClubMeetingsApi();
   const { t, i18n } = useTranslation(["group", "event"]);
   const { groupId } = useParams();
+  const clubHomePath = useLocalizedPath(`/club/${groupId ?? ""}`);
   const { user } = useAuth();
   const {
     role,
@@ -62,8 +65,9 @@ export default function GroupEventsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
-  const [status, setStatus] = useState("all");
-  const eventScope = JSON.stringify([groupId, accessKey, status]);
+  // 기본은 다가오는 이벤트(진행 중 먼저·가까운 순). 지난 이벤트는 탭으로 따로 본다(#1620).
+  const [eventWindow, setEventWindow] = useState<ClubEventWindow>("upcoming");
+  const eventScope = JSON.stringify([groupId, accessKey, eventWindow]);
   const [eventPage, setEventPage] = useState<{ scope: string; cursor?: string }>({ scope: "" });
   const eventCursor = eventPage.scope === eventScope ? eventPage.cursor : undefined;
   const [eventNextCursor, setEventNextCursor] = useState<string | null>(null);
@@ -78,7 +82,7 @@ export default function GroupEventsPage() {
       return;
     }
     (async () => {
-      const page = await getVisibleEventPage({ groupId, publicOnly: !role, statuses: status === "all" ? ["OPEN", "LIVE", "FINISHED", "CANCELLED"] : [status], descending: status === "FINISHED" || status === "CANCELLED", limit: 20, ...(eventCursor ? { cursor: eventCursor } : {}) }, services);
+      const page = await getVisibleEventPage({ groupId, publicOnly: !role, ...clubEventQuery(eventWindow), limit: 20, ...(eventCursor ? { cursor: eventCursor } : {}) }, services);
       if (!cancelled) setEventNextCursor(page.nextCursor);
       return page.docs.filter(item => {
         const info = item.data().info ?? {};
@@ -124,6 +128,7 @@ export default function GroupEventsPage() {
               name: String(info.name ?? ""),
               status: String(info.status ?? ""),
               startTime: normalizeStartTime(info.startTime),
+              endTime: info.endTime == null ? null : normalizeStartTime(info.endTime) || null,
               registered:
                 typeof data.counters?.totalRegistered === "number"
                   ? data.counters.totalRegistered
@@ -152,7 +157,7 @@ export default function GroupEventsPage() {
     return () => {
       cancelled = true;
     };
-  }, [groupId, accessKey, role, retry, status, eventCursor, services, eventScope]);
+  }, [groupId, accessKey, role, retry, eventWindow, eventCursor, services, eventScope]);
   useEffect(() => {
     let cancelled = false;
     setMeetings([]);
@@ -218,59 +223,40 @@ export default function GroupEventsPage() {
     );
   if (!group) return <EmptyState title={t("empty.groupNotFound")} />;
   const manager = canManageGroup(group, user?.uid, role);
-  if (!role) return <Navigate to=".." relative="path" replace />;
+  if (!role) return <Navigate to={clubHomePath} replace />;
   const calendarUrl = groupCalendarUrl(group);
 
   return (
     <div data-testid="C3" className="space-y-4">
       <header data-testid="C3-0">
-        <GroupSubNav group={group} isCreator={manager} />
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            className={buttonClass({ variant: "primary", size: "sm" })}
-            to={`/club/${group.id}/meetings/new`}
-          >
-            {i18n.language.startsWith("en")
-              ? "Create a meeting"
-              : "모임 만들기"}
-          </Link>
-          {calendarUrl && (
-            <a
-              data-testid="C3-0-1"
-              className={buttonClass({ variant: "secondary", size: "sm" })}
-              href={calendarUrl}
-            >
-              {t("events.subscribe")}
-            </a>
-          )}
-          {user?.uid === group.creatorId && (
-            <Link
-              data-testid="C3-0-2"
-              className={buttonClass({ variant: "primary", size: "sm" })}
-              to={`/event/create?groupId=${encodeURIComponent(group.id)}`}
-            >
-              {i18n.language.startsWith("en") ? "Create a race" : "대회 만들기"}
-            </Link>
-          )}
+        <GroupSubNav group={group} isCreator={manager} compact />
+        <div className="club-meetings-heading">
+          <div><h2>{t("meetings.title")}</h2><p>{t("meetings.description")}</p></div>
+          <Link className={buttonClass({ variant: "primary", size: "sm" })} to={`/club/${group.id}/meetings/new`}>{t("meetings.create")}</Link>
         </div>
+        {(calendarUrl || user?.uid === group.creatorId) && <details className="club-meeting-tools">
+          <summary>{t("meetings.tools")}</summary>
+          <div className="club-meeting-tool-actions">
+            {calendarUrl && <a data-testid="C3-0-1" className={buttonClass({ variant: "secondary", size: "sm" })} href={calendarUrl}>{t("events.subscribe")}</a>}
+            {user?.uid === group.creatorId && <Link data-testid="C3-0-2" className={buttonClass({ variant: "secondary", size: "sm" })} to={`/event/create?groupId=${encodeURIComponent(group.id)}`}>{i18n.language.startsWith("en") ? "Create a race" : "대회 만들기"}</Link>}
+          </div>
+        </details>}
       </header>
       <ClubCafeSchedulePanel groupId={group.id} language={i18n.language} />
       <div className="flex flex-wrap gap-2">
-        {["all", "OPEN", "LIVE", "FINISHED", "CANCELLED"].map((value) => (
+        {(["upcoming", "past"] as const).map((value) => (
           <Button
             key={value}
             size="sm"
-            variant={value === status ? "primary" : "secondary"}
-            aria-pressed={value === status}
-            onClick={() => setStatus(value)}
+            variant={value === eventWindow ? "primary" : "secondary"}
+            aria-pressed={value === eventWindow}
+            onClick={() => setEventWindow(value)}
           >
-            {value === "all"
-              ? t("filter.all")
-              : t(`event:status.${value.toLowerCase()}`)}
+            {t(`events.window.${value}`)}
           </Button>
         ))}
       </div>
-      <UnifiedClubEventList groupId={group.id} meetings={visibleMeetings} events={loadedEventScope === eventScope ? events : []} status={status}
+      <UnifiedClubEventList groupId={group.id} meetings={visibleMeetings} events={loadedEventScope === eventScope ? events : []} timeWindow={eventWindow}
         loading={loading || meetingLoading} error={error || meetingError}
         hasMore={!!(eventNextCursor || eventCursor || nextCursor)} onRetry={() => { setEventPage({ scope: eventScope }); setRetry(value => value + 1); }} />
       {loadedMeetingScope === meetingScope && nextCursor && !meetingError && (

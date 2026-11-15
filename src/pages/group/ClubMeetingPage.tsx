@@ -1,3 +1,4 @@
+import MeetingInviteShare from "../../features/club-preparation/MeetingInviteShare";
 import MeetingDiscord from "../../features/club-preparation/MeetingDiscord";
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, MapPin, Users } from "lucide-react";
@@ -161,10 +162,11 @@ export default function ClubMeetingPage({
       <GroupSubNav
         group={group}
         isCreator={canManageGroup(group, user.uid, role)}
+        compact={mode !== "detail"}
       />
       <div className="cp-product-header">
-        <Link to={`/club/${group.id}/events`}>
-          ← {text("클럽 모임", "Club meetings")}
+        <Link to={`/club/${group.id}`}>
+          ← {text("모임 목록", "Meetings")}
         </Link>
         {mode === "detail" && (
           <Button
@@ -188,6 +190,11 @@ export default function ClubMeetingPage({
           onEdit={() =>
             navigate(`/club/${group.id}/meetings/${data.eventId}/edit`)
           }
+          onConfirmCourse={() =>
+            navigate(
+              `/club/${group.id}/meetings/${data.eventId}/edit?focus=course-ready`,
+            )
+          }
           onCopy={() =>
             navigate(
               `/club/${group.id}/meetings/new?copyFrom=${encodeURIComponent(data.eventId)}`,
@@ -208,7 +215,10 @@ export default function ClubMeetingPage({
           draftNamespace={`${encodeURIComponent(user.uid)}.${encodeURIComponent(group.id)}.${mode === "new" ? (sourceId ? `copy-${encodeURIComponent(sourceId)}` : "new") : "edit"}`}
           initialRevision={mode === "edit" ? data?.revision : undefined}
           english={en}
-          onClose={() => navigate(`/club/${group.id}/events`)}
+          focusCourseReady={
+            mode === "edit" && search.get("focus") === "course-ready"
+          }
+          onClose={() => navigate(`/club/${group.id}`)}
           onSave={async (meeting, baseRevision) => {
             try {
               if (mode === "edit" && data) {
@@ -252,6 +262,7 @@ function ServerMeetingDetail({
   reload,
   loadOlderNotices,
   onEdit,
+  onConfirmCourse,
   onCopy,
 }: {
   data: ClubMeetingSnapshot;
@@ -261,6 +272,7 @@ function ServerMeetingDetail({
   reload: () => Promise<void>;
   loadOlderNotices: () => Promise<void>;
   onEdit: () => void;
+  onConfirmCourse: () => void;
   onCopy: () => void;
 }) {
   const { setClubMeetingRecruitment, cancelClubMeeting, clubMeetingAttendance, publishClubMeetingNotice, confirmClubMeetingNotice, saveClubMeetingTeams, finishClubMeeting } = useClubMeetingsApi();
@@ -401,6 +413,7 @@ function ServerMeetingDetail({
             )}
           </span>
         </div>
+        <MeetingInviteShare key={`${data.groupId}/${data.eventId}`} groupId={data.groupId} eventId={data.eventId} title={meeting.title} date={meeting.date} time={meeting.time} place={meeting.place} en={en} />
         <CourseSummary meeting={meeting} />
         {live && meeting.venue !== "outdoor" && current?.status === "joined" && (meeting.courseTrack?.points.length ?? 0) >= 2 && (meeting.courseTrack?.segmentStarts?.length ?? 0) <= 1 && (
           <Card>
@@ -597,6 +610,7 @@ function ServerMeetingDetail({
             meeting={meeting}
             descriptionMode="course-only"
             onEdit={data.isHost && live ? onEdit : undefined}
+            onConfirmCourse={data.isHost && live ? onConfirmCourse : undefined}
           />
         </div>
       </div>

@@ -43,8 +43,8 @@ describe('기존 코스로 모임 준비', () => {
     const query = mocks.runCourseListQuery.mock.calls[0]![1];
     expect(query.fields).toBe(COURSE_CATALOG_FIELDS);
     for (const heavy of ['trackPoints', 'elevationProfile', 'polyline']) expect(COURSE_CATALOG_FIELDS).not.toContain(heavy);
-    // 서버 조건을 넘기지 않는다 — deletedAt == null 은 운영 rules 가 403 으로 거부했고(2026-11-14),
-    // visibility == public 은 필드 없이(=공개) 저장된 운영 코스 대부분을 빠뜨렸다(2026-11-15). 파싱이 거른다.
+    // deletedAt == null 은 서버에 넘기지 않는다 — 운영 rules 가 403 으로 거부했다(2026-11-14). 지운 코스는 파싱이 거른다.
+    // visibility == public 도 넘기지 않는다 — 운영 코스 대부분이 필드 없이(=공개) 저장돼 빠졌다(2026-11-15).
     expect(query.equals).toBeUndefined();
     expect(page.items.map(item => item.id)).toEqual(['course-1']);
     expect(page.items[0]!.track).toBeUndefined();

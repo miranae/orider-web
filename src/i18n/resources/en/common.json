@@ -504,8 +504,6 @@
     "notDeployed": "Subscriptions coming soon",
     "forbidden": "Subscription unavailable",
     "unavailable": "Could not check subscription status.",
-    "publicOnly": "Only public activities. Friends-only access stays unchanged.",
-    "publicLabel": "Public activities",
     "management": "Friends and relationships",
     "blocked": "Blocked",
     "unblock": "Unblock",

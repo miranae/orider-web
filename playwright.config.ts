@@ -2,9 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e/tests',
-  // Synthetic GroupWeekPage hooks are wired only by its dedicated Vite config.
-  // Run this suite explicitly with e2e/club-week-resilience.config.ts.
-  testIgnore: ['**/club-week-resilience.spec.ts'],
+  // Synthetic hooks are wired only by each suite's dedicated Vite config.
+  // Run these through e2e/club-week-resilience.config.ts or e2e/club-meeting-entry.config.ts.
+  testIgnore: ['**/club-week-resilience.spec.ts', '**/club-meeting-entry.spec.ts'],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

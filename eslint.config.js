@@ -16,6 +16,7 @@ import tseslint from 'typescript-eslint';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
+import { embeddedFirebaseRule } from './scripts/eslint-embedded-firebase.mjs';
 
 // ---- 차단 패턴 ----
 
@@ -60,33 +61,7 @@ const designSystem = {
      * 싱글턴이 초기화돼 있어 리뷰도 단위테스트도 통과한다. 그래서 정적으로 막는다.
      * 대신 `useFirebaseServices()` 를 쓴다.
      */
-    'no-firebase-singleton-in-embed': {
-      meta: {
-        type: 'problem',
-        docs: { description: '임베드 경로에서 Firebase 싱글턴 대신 useFirebaseServices() 사용' },
-        schema: [],
-        messages: {
-          singleton: "임베드 트리에서는 '{{names}}' 싱글턴을 쓸 수 없다 — 임베드는 별도 named app 을 쓰므로 undefined 다. useFirebaseServices() 로 받을 것 (#847).",
-        },
-      },
-      create(context) {
-        const GUARDED = new Set(['firestore', 'auth', 'functions', 'storage']);
-        return {
-          ImportDeclaration(node) {
-            const source = String(node.source.value ?? '');
-            if (!/(^|\/)services\/firebase$/.test(source)) return;
-            // **import 선언 전체**를 보고한다 — specifier 로 보고하면 여러 줄 import 에서
-            // eslint-disable-next-line 이 첫 줄만 덮어 예외를 달 수 없다.
-            const names = node.specifiers
-              .filter((spec) => spec.type === 'ImportSpecifier' && GUARDED.has(spec.imported?.name))
-              .map((spec) => spec.imported.name);
-            if (names.length > 0) {
-              context.report({ node, messageId: 'singleton', data: { names: names.join(', ') } });
-            }
-          },
-        };
-      },
-    },
+    'no-firebase-singleton-in-embed': embeddedFirebaseRule,
     /**
      * className 문자열에서 토큰 우회 패턴 차단.
      *

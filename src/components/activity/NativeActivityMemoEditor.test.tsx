@@ -13,7 +13,7 @@ describe("native memo editing", () => {
     mocks.setNativeMemo.mockResolvedValue({ memoRevision: "revision2", status: "updated" });
     const saved = vi.fn();
     render(<NativeActivityMemoEditor activityId="ride" onSaved={saved} />);
-    fireEvent.click(screen.getByRole("button", { name: "라이딩 본문 작성·수정" }));
+    fireEvent.click(screen.getByRole("button", { name: "메모 작성·수정" }));
     fireEvent.change(await screen.findByRole("textbox"), { target: { value: "새 본문" } });
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
     await waitFor(() => expect(saved).toHaveBeenCalledWith("새 본문"));
@@ -22,21 +22,21 @@ describe("native memo editing", () => {
   it("preserves an edited draft on conflict and requires a fresh revision", async () => {
     mocks.setNativeMemo.mockRejectedValue({ code: "functions/aborted" });
     render(<NativeActivityMemoEditor activityId="ride" onSaved={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "라이딩 본문 작성·수정" }));
+    fireEvent.click(screen.getByRole("button", { name: "메모 작성·수정" }));
     fireEvent.change(await screen.findByRole("textbox"), { target: { value: "내 초안" } });
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
     await screen.findByRole("alert");
     expect(screen.getByRole("textbox")).toHaveValue("내 초안");
     expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
     mocks.load.mockResolvedValue({ activity: { userId: "owner" }, nativeMemoRevision: "revision3", content: { memo: "다른 변경" } });
-    fireEvent.click(screen.getByRole("button", { name: "최신 본문으로 작성 내용 교체" }));
+    fireEvent.click(screen.getByRole("button", { name: "최신 메모로 작성 내용 교체" }));
     await waitFor(() => expect(screen.getByRole("textbox")).toHaveValue("다른 변경"));
     expect(screen.getByRole("button", { name: "저장" })).not.toBeDisabled();
   });
   it("does not offer a write for a non-owner response", async () => {
     mocks.load.mockResolvedValue({ activity: { userId: "someone" }, nativeMemoRevision: "revision1", content: { memo: "hidden" } });
     render(<NativeActivityMemoEditor activityId="ride" onSaved={vi.fn()} />);
-    fireEvent.click(screen.getByRole("button", { name: "라이딩 본문 작성·수정" }));
+    fireEvent.click(screen.getByRole("button", { name: "메모 작성·수정" }));
     await screen.findByRole("alert");
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(mocks.setNativeMemo).not.toHaveBeenCalled();
@@ -54,12 +54,12 @@ it("moves keyboard focus into the loaded memo and restores it after cancel and s
   await user.tab();
   expect(screen.getByRole("button", { name: "취소" })).toHaveFocus();
   await user.keyboard("{Enter}");
-  expect(screen.getByRole("button", { name: "라이딩 본문 작성·수정" })).toHaveFocus();
+  expect(screen.getByRole("button", { name: "메모 작성·수정" })).toHaveFocus();
   await user.keyboard("{Enter}");
   await waitFor(() => expect(screen.getByRole("textbox")).toHaveFocus());
   await user.tab();
   await user.keyboard("{Enter}");
-  await waitFor(() => expect(screen.getByRole("button", { name: "라이딩 본문 작성·수정" })).toHaveFocus());
+  await waitFor(() => expect(screen.getByRole("button", { name: "메모 작성·수정" })).toHaveFocus());
 });
 
 it("does not restore focus into an editor removed by the parent after save", async () => {

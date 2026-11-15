@@ -12,6 +12,7 @@
 import { httpsCallable } from "firebase/functions";
 
 import { CANONICAL_SCHEMA_VERSION } from "@shared/types/canonical";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 decision 기본값. 임베드 소비자는 services를 주입한다.
 import { auth, ensureAppCheckReady, functions } from "./firebase";
 import { debugLog, logClientError } from "./errorLogger";
 import {

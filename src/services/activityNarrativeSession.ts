@@ -1,4 +1,5 @@
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 세션 기본값. 임베드는 captureActivityNarrativeSession(injected)를 사용한다.
 import { auth, functions, ensureAppCheckReady, getAppCheckToken } from "./firebase";
 
 const identities = new WeakMap<object, number>();

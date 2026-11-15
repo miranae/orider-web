@@ -2,6 +2,7 @@ import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { captureError } from "./sentry";
 import { getRuntimeConfig } from "./runtimeConfig";
 import { httpsCallable, type HttpsCallable } from "firebase/functions";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 오류 로깅 기본값. 임베드 데이터 요청 오류는 services를 주입할 수 있다.
 import { ensureAppCheckReady, functions } from "./firebase";
 
 /**

@@ -1,6 +1,7 @@
 import { SEARCH_PAGE_SIZE } from "../constants/pagination";
 import { collection, doc, getDoc, getDocs, limit, query, where, orderBy, startAfter, type QueryDocumentSnapshot, type DocumentData, type Firestore } from "firebase/firestore";
 import type { UserStats } from "@shared/types";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 프로필 조회 기본값. 임베드 avatar/profile 조회는 database와 authScope를 주입한다.
 import { firestore } from "./firebase";
 import { isPermissionDeniedError } from "../utils/firebaseErrors";
 import { logClientError } from "./errorLogger";
@@ -51,9 +52,9 @@ export async function getPublicUserProfile(userId: string, database = firestore)
   return snap.exists() ? toPublicUserProfile(snap.id, snap.data()) : null;
 }
 
-export async function getPublicUserProfiles(userIds: readonly string[]): Promise<Map<string, PublicUserProfile>> {
+export async function getPublicUserProfiles(userIds: readonly string[], database = firestore): Promise<Map<string, PublicUserProfile>> {
   const pairs = await Promise.allSettled(
-    Array.from(new Set(userIds)).map(async (userId) => [userId, await getPublicUserProfile(userId)] as const),
+    Array.from(new Set(userIds)).map(async (userId) => [userId, await getPublicUserProfile(userId, database)] as const),
   );
   return new Map(pairs.flatMap((result) => {
     if (result.status === "fulfilled") {
@@ -115,11 +116,11 @@ export async function getPublicUserAvatarProfiles(
   return new Map(pairs.flatMap(([uid, profile]) => profile?.photoURL ? [[uid, profile] as const] : []));
 }
 
-export async function searchPublicUserProfilesPage(searchText: string, cursor: QueryDocumentSnapshot<DocumentData> | null = null, maxResults = SEARCH_PAGE_SIZE, match: "prefix" | "exact" = "prefix") {
+export async function searchPublicUserProfilesPage(searchText: string, cursor: QueryDocumentSnapshot<DocumentData> | null = null, maxResults = SEARCH_PAGE_SIZE, match: "prefix" | "exact" = "prefix", database = firestore) {
   const text = searchText.trim();
   if (!text) return { items: [], cursor: null, hasMore: false };
   const snap = await getDocs(query(
-    collection(firestore, "users_public"),
+    collection(database, "users_public"),
     ...(match === "exact" ? [where("nickname", "==", text)] : [
       where("nickname", ">=", text),
       where("nickname", "<=", `${text}\uf8ff`),

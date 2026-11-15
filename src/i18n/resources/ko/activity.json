@@ -1,11 +1,11 @@
 {
   "nativeMemo": {
-    "edit": "라이딩 본문 작성·수정",
-    "label": "라이딩 본문",
-    "reload": "최신 본문으로 작성 내용 교체",
-    "failed": "본문을 저장하거나 불러오지 못했습니다. 작성 내용은 유지됩니다.",
-    "conflict": "다른 곳에서 본문이 변경되었습니다. 작성 내용은 유지됩니다. 최신 본문을 불러온 뒤 다시 수정해 주세요.",
-    "saved": "본문을 저장했습니다. 피드 반영에는 잠시 걸릴 수 있습니다."
+    "edit": "메모 작성·수정",
+    "label": "메모",
+    "reload": "최신 메모로 작성 내용 교체",
+    "failed": "메모를 저장하거나 불러오지 못했습니다. 작성 내용은 유지됩니다.",
+    "conflict": "다른 곳에서 메모가 변경되었습니다. 작성 내용은 유지됩니다. 최신 메모를 불러온 뒤 다시 수정해 주세요.",
+    "saved": "메모를 저장했습니다. 피드 반영에는 잠시 걸릴 수 있습니다."
   },
   "publicDetail": {
     "mapImageFailed": "경로 지도를 불러오지 못했습니다.",
@@ -852,6 +852,9 @@
     "addPhoto": "사진 추가",
     "uploading": "업로드 중…",
     "photoToast": {
+      "providerHidden": "Strava 사진을 숨겼어요. Strava 원본은 그대로예요.",
+      "providerRestored": "숨긴 Strava 사진을 다시 보이게 했어요.",
+      "providerHideFailed": "Strava 사진 표시를 바꾸지 못했어요. 다시 시도해 주세요.",
       "imageOnly": "이미지 파일만 업로드할 수 있습니다",
       "maxLimit": "사진은 최대 {{count}}장까지 업로드할 수 있습니다",
       "tooLarge": "사진 크기가 5MB를 초과합니다",
@@ -2854,6 +2857,8 @@
     "canonicalAverage": "분석 평균"
   },
   "overviewSocial": {
+    "hideProviderPhoto": "이 Strava 사진 숨기기 (Strava 원본은 그대로)",
+    "restoreProviderPhotos": "숨긴 Strava 사진 {{count}}장 다시 보이기",
     "title": "활동 이야기",
     "zoomIn": "확대",
     "zoomOut": "축소",

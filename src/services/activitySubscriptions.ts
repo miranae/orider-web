@@ -1,6 +1,7 @@
 import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
 import { collection, getCountFromServer, getDocs, limit, orderBy, query, startAfter } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 관계 관리 API 기본값. 임베드에서 쓰는 요약/구독 API는 services 인자를 받는다.
 import { auth, firestore, ensureAppCheckReady } from "./firebase";
 import { getActivitySocialFunctions } from "./activitySocialFunctions";
 import { getPublicUserProfiles, type PublicUserProfile } from "./publicProfiles";
@@ -20,28 +21,31 @@ function assertReady(): void {
 export function isSubscriptionsNotDeployed(error: unknown): boolean {
   return Boolean(error && typeof error === "object" && "code" in error && error.code === "subscriptions/not-deployed");
 }
-export async function readOwnFriendCount(uid: string): Promise<number> {
-  const expectedUser = assertOwner(uid);
-  const snapshot = await getCountFromServer(collection(firestore, "friends", uid, "users"));
-  assertOwner(uid, expectedUser);
+export async function readOwnFriendCount(uid: string, services?: FirebaseServices): Promise<number> {
+  const currentAuth = services?.auth ?? auth;
+  const expectedUser = assertOwner(uid, currentAuth.currentUser, currentAuth);
+  const snapshot = await getCountFromServer(collection(services?.firestore ?? firestore, "friends", uid, "users"));
+  assertOwner(uid, expectedUser, currentAuth);
   return snapshot.data().count;
 }
-export async function readOwnSubscriptionPage(uid: string, kind: SubscriptionKind, cursor: string | null = null, options: { hydrateProfiles?: boolean } = {}) {
+export async function readOwnSubscriptionPage(uid: string, kind: SubscriptionKind, cursor: string | null = null, options: { hydrateProfiles?: boolean; services?: FirebaseServices } = {}) {
   return readOwnRelationshipPage(uid, kind, cursor, options);
 }
-export async function readOwnBlockedPage(uid: string, cursor: string | null = null) {
-  return readOwnRelationshipPage(uid, "blocked", cursor, {});
+export async function readOwnBlockedPage(uid: string, cursor: string | null = null, services?: FirebaseServices) {
+  return readOwnRelationshipPage(uid, "blocked", cursor, { services });
 }
-async function readOwnRelationshipPage(uid: string, kind: SubscriptionKind | "blocked", cursor: string | null, options: { hydrateProfiles?: boolean }) {
-  const expectedUser = assertOwner(uid); assertReady();
-  const source = kind === "blocked" ? collection(firestore, "users", uid, "blocks") : collection(firestore, kind, uid, "users");
+async function readOwnRelationshipPage(uid: string, kind: SubscriptionKind | "blocked", cursor: string | null, options: { hydrateProfiles?: boolean; services?: FirebaseServices }) {
+  const currentAuth = options.services?.auth ?? auth;
+  const database = options.services?.firestore ?? firestore;
+  const expectedUser = assertOwner(uid, currentAuth.currentUser, currentAuth); assertReady();
+  const source = kind === "blocked" ? collection(database, "users", uid, "blocks") : collection(database, kind, uid, "users");
   const snapshot = await getDocs(query(source, orderBy("__name__"),
     ...(cursor ? [startAfter(cursor)] : []), limit(21)));
-  assertOwner(uid, expectedUser);
+  assertOwner(uid, expectedUser, currentAuth);
   if (snapshot.metadata?.fromCache) throw new Error("activity-subscriptions-server-confirmation-required");
   const page = snapshot.docs.slice(0, 20);
-  const profiles = options.hydrateProfiles === false ? new Map<string, PublicUserProfile>() : await getPublicUserProfiles(page.map(row => row.id));
-  assertOwner(uid, expectedUser);
+  const profiles = options.hydrateProfiles === false ? new Map<string, PublicUserProfile>() : await getPublicUserProfiles(page.map(row => row.id), database);
+  assertOwner(uid, expectedUser, currentAuth);
   return {
     items: page.map(row => {
       const profile = profiles.get(row.id);

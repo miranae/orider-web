@@ -8,6 +8,8 @@
  * (최대 2회) 일어나지만, 결과 캐시 덕에 토글을 반복해도 재조회하지 않는다.
  */
 import { collection, getDocs, limit, orderBy, query, where } from "firebase/firestore";
+import type { FirebaseServices } from "../contexts/FirebaseServicesContext";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 기본값. 탐색 임베드의 두 소비 훅은 services를 주입한다.
 import { auth, firestore } from "./firebase";
 
 export const RECENT_ACTIVITY_TRACKS_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
@@ -17,15 +19,16 @@ export interface RecentActivityTrack {
   thumbnailTrack?: string;
 }
 
-export async function fetchRecentActivityTracks(uid: string): Promise<RecentActivityTrack[]> {
-  const owner = auth.currentUser;
+export async function fetchRecentActivityTracks(uid: string, injected?: Pick<FirebaseServices, "auth" | "firestore">): Promise<RecentActivityTrack[]> {
+  const services = injected ?? { auth, firestore };
+  const owner = services.auth.currentUser;
   const assertOwner = () => {
-    if (!owner || owner.uid !== uid || owner.isAnonymous || auth.currentUser !== owner) throw new Error("activity-tracks-owner-required");
+    if (!owner || owner.uid !== uid || owner.isAnonymous || services.auth.currentUser !== owner) throw new Error("activity-tracks-owner-required");
   };
   assertOwner();
   const cutoff = Date.now() - RECENT_ACTIVITY_TRACKS_WINDOW_MS;
   const snapshot = await getDocs(query(
-    collection(firestore, "activities"),
+    collection(services.firestore, "activities"),
     where("userId", "==", uid),
     where("deletedAt", "==", null),
     where("startTime", ">=", cutoff),

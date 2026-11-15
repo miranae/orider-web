@@ -29,6 +29,7 @@ import { httpsCallable } from "firebase/functions";
 import type { Auth } from "firebase/auth";
 import type { Functions } from "firebase/functions";
 
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 rollout 기본값. 임베드 호출은 CanonicalRolloutFirebaseServices를 주입한다.
 import { auth, ensureAppCheckReady, functions } from "./firebase";
 import { debugLog, logClientError } from "./errorLogger";
 import { getRuntimeConfig } from "./runtimeConfig";

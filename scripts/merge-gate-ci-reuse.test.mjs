@@ -16,7 +16,7 @@ test("feature gate forwards changed flags only to Vitest while the full test cha
   assert.equal(packageScripts["test:contracts"], ["test:production-hosting-evidence", "test:merge-gate-ci-reuse",
     "test:social-callable-contract", "test:runtime-config-writer", "test:canonical-deploy-env", "test:deploy-config",
     "test:dco", "test:merge-pr-review-range", "test:script-tests-wired", "test:quality-alert-count",
-    "check:canonical-contract", "test:test-script-forwarding", "test:merge-check-policy", "test:merge-review", "test:merge-gate-report", "check:product-invariants", "test:product-invariants", "test:linear-backport", "test:production-monitor"].map(name => `npm run ${name}`).join(" && "));
+    "check:canonical-contract", "test:test-script-forwarding", "test:merge-check-policy", "test:merge-review", "test:merge-gate-report", "check:product-invariants", "test:product-invariants", "test:linear-backport", "test:production-monitor", "test:review-context", "test:eslint-embedded-firebase"].map(name => `npm run ${name}`).join(" && "));
   const targeted = [...script.matchAll(/run_step "targeted Vitest"[^\n]*\\\n\s*([^\n]+)/gu)].map(match => match[1]).find(command => command.includes("--changed"));
   assert.ok(targeted, "the feature gate must have a targeted test command");
   assert.match(targeted, /^npm run test:vitest -- --changed "origin\/\$BASE" --passWithNoTests$/u);
@@ -184,7 +184,7 @@ const mergeScript = readFileSync(new URL("./merge-pr.sh", import.meta.url), "utf
 test("wrapper는 정확한 PR head의 범위를 검증하며 기본/full 게이트를 유지한다", () => {
   assert.match(mergeScript, /--head "\$HEAD_OID" --tier "\$GATE_TIER"/);
   assert.match(mergeScript, /test_scope=\$TEST_SCOPE_EVIDENCE/);
-  assert.match(mergeScript, /검증 범위: \$\{TEST_SCOPE_EVIDENCE/);
+  assert.match(mergeScript, /node scripts\/review-policy\.mjs "\$REVIEW_SCOPE" "\$\{TEST_SCOPE_EVIDENCE/);
   assert.match(mergeScript, /"npm test".*npm test/u);
   execFileSync("bash", ["-n", "scripts/merge-pr.sh"]);
 });

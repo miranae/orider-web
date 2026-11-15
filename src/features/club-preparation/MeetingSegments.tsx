@@ -1,3 +1,5 @@
+import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useTranslation } from "react-i18next";
 import { mt } from "./meetingText";
 import { useEffect, useRef, useState } from "react";
@@ -105,15 +107,17 @@ export function MeetingSegmentCards({
     </section>
   );
 }
-export default function MeetingSegmentPicker({
-  selected,
-  onChange,
-  onBusyChange,
-}: {
+interface MeetingSegmentPickerProps {
   selected: MeetingSegment[];
   onChange: (segments: MeetingSegment[]) => void;
   onBusyChange?: (busy: boolean) => void;
-}) {
+}
+export default function MeetingSegmentPicker(props: MeetingSegmentPickerProps) {
+  return <FirebaseSessionBoundary><MeetingSegmentPickerContent {...props} /></FirebaseSessionBoundary>;
+}
+
+function MeetingSegmentPickerContent({ selected, onChange, onBusyChange }: MeetingSegmentPickerProps) {
+  const firebaseServices = useFirebaseServices();
   const [catalog, setCatalog] = useState<SegmentChoice[] | null>(null);
   const [query, setQuery] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -158,7 +162,7 @@ export default function MeetingSegmentPicker({
     let enriched: SegmentChoice | null = choice;
     let warning = "";
     try {
-      enriched = await loadSegmentDetail(choice);
+      enriched = await loadSegmentDetail(choice, firebaseServices);
     } catch {
       warning = mt(
         "상세 정보를 불러오지 못해 공개 목록의 거리와 경로를 가져왔어요. 획고는 확인 후 입력해주세요.",
@@ -196,7 +200,7 @@ export default function MeetingSegmentPicker({
       let enriched: SegmentChoice | null = catalogChoice ?? segment;
       let warning = "";
       try {
-        enriched = await loadSegmentDetail(enriched);
+        enriched = await loadSegmentDetail(enriched, firebaseServices);
       } catch {
         warning = mt(
           "상세 정보를 불러오지 못해 공개 목록의 거리와 경로만 갱신했어요. 획고는 확인 후 입력해주세요.",

@@ -1,3 +1,4 @@
+import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { Button, Text, Input } from "../../theme/components";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEffect, useId, useRef, useState } from "react";
@@ -24,8 +25,12 @@ interface SearchResult {
   profile: PublicUserProfile;
 }
 
-export default function InviteMemberModal({ open, onClose, groupId, inviteCode, inviteStatus, onRetry }: InviteMemberModalProps) {
-  const { auth, ensureAppCheckReady, functions } = useFirebaseServices();
+export default function InviteMemberModal(props: InviteMemberModalProps) {
+  return <FirebaseSessionBoundary><InviteMemberModalContent {...props} /></FirebaseSessionBoundary>;
+}
+
+function InviteMemberModalContent({ open, onClose, groupId, inviteCode, inviteStatus, onRetry }: InviteMemberModalProps) {
+  const { auth, ensureAppCheckReady, functions, firestore } = useFirebaseServices();
   const { user } = useAuth();
   const uid = user?.uid;
   const searchId = useId();
@@ -71,7 +76,7 @@ export default function InviteMemberModal({ open, onClose, groupId, inviteCode, 
     setSearching(true);
     setSearched(false);
     try {
-      const page = await searchPublicUserProfilesPage(searchQuery, append ? cursor.current : null);
+      const page = await searchPublicUserProfilesPage(searchQuery, append ? cursor.current : null, undefined, undefined, firestore);
       if (currentContext !== context.current || request !== searchRequest.current || auth.currentUser?.uid !== uid) return;
       setSearched(true);
       cursor.current = page.cursor;

@@ -19,6 +19,7 @@
  */
 import { signInWithCustomToken, signOut, type Auth } from "firebase/auth";
 import { type Functions } from "firebase/functions";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 handoff 기본값. EmbeddedBootstrapRoot는 AppHandoffFirebaseServices를 명시적으로 전달한다.
 import { auth, ensureAppCheckReady, functions } from "./firebase";
 import { debugLog, logClientError } from "./errorLogger";
 import { redeemHandoffCode } from "./handoffRedeem";

@@ -1,3 +1,4 @@
+import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
 import { usePublicActivityMaps } from "../../hooks/usePublicActivityMaps";
 import { useGroupRideActivities } from "../../hooks/useGroupRideActivities";
 import { X, LocateFixed } from "lucide-react";
@@ -49,6 +50,10 @@ import { ICON_SIZE } from "../../theme/tokens/icon";
 
 
 export default function GroupRidePage() {
+  return <FirebaseSessionBoundary><GroupRideContent /></FirebaseSessionBoundary>;
+}
+
+function GroupRideContent() {
   const { auth, ensureAppCheckReady, firestore, functions } = useFirebaseServices();
   const mapboxToken = getMapboxToken();
   const [webglSupported] = useState(supportsWebGL);
@@ -125,7 +130,7 @@ const { maps: currentPublicMaps } = usePublicActivityMaps(activities.filter(acti
     let cancelled = false;
     setRiderNames(new globalThis.Map());
     const missingIds = [...new Set(loadedActivities.filter(activity => !activity.nickname?.trim()).map(activity => activity.userId))];
-    if (missingIds.length > 0) void getPublicUserProfiles(missingIds).then(profiles => {
+    if (missingIds.length > 0) void getPublicUserProfiles(missingIds, firestore).then(profiles => {
       if (!cancelled) setRiderNames(new globalThis.Map([...profiles].map(([id, profile]) => [id, profile.nickname])));
     }).catch(error => {
       if (!cancelled) logClientError("GroupRidePage.publicProfiles", error, { count: missingIds.length });

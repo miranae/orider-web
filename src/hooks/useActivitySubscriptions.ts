@@ -1,3 +1,4 @@
+import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { useCallback, useEffect, useState, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { ACTIVITY_SUBSCRIPTIONS_ENABLED } from "../config/activitySubscriptions";
@@ -6,11 +7,15 @@ import { ACTIVITY_SUBSCRIPTIONS_CHANGED_EVENT, isSubscriptionsNotDeployed, readO
 /** 모든 관계 페이지가 준비된 뒤에만 구독 피드 후보를 읽는다. */
 export function useActivitySubscriptions(enabled: boolean) {
   const { user, loading: authLoading } = useAuth();
+  const services = useFirebaseServices();
   const uid = ACTIVITY_SUBSCRIPTIONS_ENABLED && enabled && !authLoading && user && !user.isAnonymous ? user.uid : null;
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState<{ key: string; ids: string[]; error: boolean; unavailable?: boolean } | null>(null);
-  const identity = useRef({ uid, epoch: 0 });
-  if (identity.current.uid !== uid) identity.current = { uid, epoch: identity.current.epoch + 1 };
+  const viewer = services.auth.currentUser;
+  const identity = useRef({ uid, services, viewer, epoch: 0 });
+  if (identity.current.uid !== uid || identity.current.services !== services || identity.current.viewer !== viewer) {
+    identity.current = { uid, services, viewer, epoch: identity.current.epoch + 1 };
+  }
   const key = `${uid ?? "guest"}:${identity.current.epoch}:${generation}`;
   const retry = useCallback(() => setGeneration(value => value + 1), []);
   useEffect(() => {
@@ -29,7 +34,7 @@ export function useActivitySubscriptions(enabled: boolean) {
       let cursor: string | null = null;
       const seenCursors = new Set<string>();
       do {
-        const page = await readOwnSubscriptionPage(uid, "subscriptions", cursor, { hydrateProfiles: false });
+        const page = await readOwnSubscriptionPage(uid, "subscriptions", cursor, { hydrateProfiles: false, services });
         if (!active) return;
         page.items.forEach(item => { if (item.userId !== uid) ids.add(item.userId); });
         if (!page.hasMore) break;
@@ -40,7 +45,7 @@ export function useActivitySubscriptions(enabled: boolean) {
       if (active) setState({ key, ids: [...ids].sort(), error: false });
     })().catch(error => { if (active) setState({ key, ids: [], error: true, unavailable: isSubscriptionsNotDeployed(error) }); });
     return () => { active = false; };
-  }, [uid, key]);
+  }, [uid, key, services]);
   const current = uid && state?.key === key ? state : null;
   return { ids: current?.ids ?? [], ready: !!current && !current.error, loading: !!uid && !current, error: current?.error === true, unavailable: current?.unavailable === true, key, retry };
 }

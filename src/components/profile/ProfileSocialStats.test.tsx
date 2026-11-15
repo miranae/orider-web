@@ -1,3 +1,5 @@
+import { auth } from "../../services/firebase";
+import { FirebaseServicesProvider, type FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { act, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { simulateLogin } from "../../__tests__/mocks/firebase";
@@ -66,4 +68,15 @@ it("shows the canonical owner activity count", async () => {
 it("does not replace a missing activity count with zero", async () => {
   renderWithProviders(<ProfileSocialStats />, { authenticated: true, profile: { stats: undefined } });
   expect(await screen.findByRole("link", { name: /활동.*—/ })).toBeInTheDocument();
+});
+
+it("hides the previous app's counts immediately while a same-uid replacement is loading", async () => {
+  const scoped = () => ({ auth, firestore: {}, functions: {}, ensureAppCheckReady: vi.fn(), getAppCheckToken: vi.fn() }) as unknown as FirebaseServices;
+  const view = renderWithProviders(<FirebaseServicesProvider services={scoped()}><ProfileSocialStats /></FirebaseServicesProvider>, { authenticated: true });
+  await screen.findByRole("link", { name: "구독자 2" });
+  vi.mocked(getActivitySubscriptionSummary).mockImplementation(() => new Promise(() => {}));
+  vi.mocked(readOwnFriendCount).mockImplementation(() => new Promise(() => {}));
+  view.rerender(<FirebaseServicesProvider services={scoped()}><ProfileSocialStats /></FirebaseServicesProvider>);
+  expect(screen.queryByRole("link", { name: "구독자 2" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "친구 5" })).not.toBeInTheDocument();
 });

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "../../theme/components/Button";
 import { Field, Input, Select, Textarea } from "../../theme/components/Input";
 import type { Meeting, MeetingVenue, State } from "./domain";
+import { indoorCourseIssue } from "./domain";
 import CoursePreparation from "./CoursePreparation";
 import CoursePreview, { CourseSummary } from "./CoursePreview";
 import { clearDraft, draftScope, readDraft, writeDraft } from "./meetingDrafts";
@@ -35,6 +36,7 @@ export default function MeetingForm({
   draftNamespace,
   initialRevision,
   english = false,
+  focusCourseReady = false,
 }: {
   state: State;
   initial: Meeting;
@@ -43,6 +45,8 @@ export default function MeetingForm({
   draftNamespace?: string;
   initialRevision?: number;
   english?: boolean;
+  /** 「최종 코스 준비 중」 칩에서 들어왔을 때 접힌 코스 섹션을 펼치고 확정 칸에 초점을 둔다. */
+  focusCourseReady?: boolean;
 }) {
   const existing = state.meetings.some((meeting) => meeting.id === initial.id);
   const scope = draftNamespace
@@ -66,6 +70,22 @@ export default function MeetingForm({
   const [preview, setPreview] = useState(false);
   const [dateConfirmed, setDateConfirmed] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const courseSectionRef = useRef<HTMLDetailsElement>(null);
+  const courseReadyRef = useRef<HTMLSelectElement>(null);
+  const [courseFocusRequest, setCourseFocusRequest] = useState(
+    focusCourseReady ? 1 : 0,
+  );
+  useEffect(() => {
+    if (!courseFocusRequest || preview) return;
+    const section = courseSectionRef.current;
+    if (section) section.open = true;
+    courseReadyRef.current?.scrollIntoView?.({ block: "center" });
+    courseReadyRef.current?.focus({ preventScroll: true });
+  }, [courseFocusRequest, preview]);
+  const requestCourseReadyFocus = () => {
+    setPreview(false);
+    setCourseFocusRequest((n) => n + 1);
+  };
   const completeDraft = (): Meeting => ({
     ...draft,
     courseInfoVersion: 1,
@@ -113,6 +133,12 @@ export default function MeetingForm({
     if (startNotFuture()) return;
     if (!draft.venue) {
       setSaveError(mt("실내 모임인지 실외 모임인지 선택해주세요."));
+      return;
+    }
+    // 실내 모임은 이어진 코스 경로가 있어야 출발 시각에 시작할 수 있다 — 저장 전에 막는다(2026-11-14).
+    const indoorIssue = indoorCourseIssue(draft);
+    if (indoorIssue) {
+      setSaveError(mt(indoorIssue));
       return;
     }
     if (!existing && !dateConfirmed) {
@@ -233,7 +259,10 @@ export default function MeetingForm({
             {draft.place}
           </p>
           <CourseSummary meeting={completeDraft()} />
-          <CoursePreview meeting={completeDraft()} />
+          <CoursePreview
+            meeting={completeDraft()}
+            onConfirmCourse={saving ? undefined : requestCourseReadyFocus}
+          />
           {!existing && (
             <label className="cp-date-check">
               <input
@@ -504,7 +533,7 @@ export default function MeetingForm({
           />
         </Field>
         </section>
-        <details className="cp-divider">
+        <details className="cp-divider" ref={courseSectionRef}>
           <summary>{mt("코스 소개·수동 보정")}</summary>
           <div className="cp-stack">
             <div className="cp-form-grid">
@@ -582,6 +611,7 @@ export default function MeetingForm({
             </Field>
             <Field label={mt("코스 준비")} htmlFor="meeting-course">
               <Select
+                ref={courseReadyRef}
                 id="meeting-course"
                 value={String(draft.courseReady)}
                 onChange={(e) =>

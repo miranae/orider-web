@@ -29,6 +29,11 @@ mkdir -p "$TEST_TMP/bin" "$CODEX_HOME"
 printf '{}\n' >"$CODEX_HOME/auth.json"
 cat >"$TEST_TMP/bin/git" <<'MOCK'
 #!/usr/bin/env bash
+if [[ "${1:-}" == "-C" ]]; then shift 2; fi
+if [[ "${1:-}" == "diff" && " $* " == *" --binary "* ]]; then
+  printf 'diff --git a/scripts/fixture.mjs b/scripts/fixture.mjs\n+export const value = 1;\n'
+  exit 0
+fi
 if [[ "${1:-}" == "rev-parse" && "${2:-}" == "--path-format=absolute" && "${3:-}" == "--git-common-dir" ]]; then
   printf "%s/git-common\n" "$TEST_TMP"
   exit 0
@@ -36,7 +41,7 @@ fi
 if [[ "${1:-}" == "fetch" ]]; then
   exit 0
 fi
-if [[ "${1:-}" == "update-ref" && "${2:-}" == refs/codex-review/* ]]; then
+if [[ "${1:-}" == "update-ref" && "${2:-}" == refs/codex-review*/* ]]; then
   exit 0
 fi
 if [[ "${1:-}" == "status" && "${2:-}" == "--porcelain" ]]; then
@@ -135,7 +140,7 @@ int main(int argc, char **argv) {
   snprintf(path, sizeof(path), "%s/input/diff.patch", input_dir);
   if (access(path, R_OK) != 0) return 69;
   char *prompt = read_all(stdin);
-  if (!strstr(prompt, "origin/main...HEAD") || !strstr(prompt, "--- diff ---")) return 79;
+  if (!strstr(prompt, "origin/main...") || !strstr(prompt, "--- diff ---")) return 79;
   char *instructions_end = strstr(prompt, "\n--- metadata ---\n");
   if (!instructions_end) return 79;
   /* 리뷰 범위는 지시문에서만 검사한다. diff 안의 플래그 문자열은 무관하다. */
@@ -148,8 +153,8 @@ int main(int argc, char **argv) {
   char *mode = read_all(auth);
   fclose(auth);
   if (strstr(mode, "scope_all")) {
-    if (strstr(prompt, "--blockers-only")) return 85;
-  } else if (!strstr(prompt, "--blockers-only")) return 85;
+    if (!strstr(prompt, "MINOR도 findings")) return 85;
+  } else if (!strstr(prompt, "MINOR는 생략")) return 85;
   if (strstr(mode, "exit42")) { fprintf(stderr, "mock Codex execution log\n"); return 42; }
   FILE *output = fopen(out, "w");
   if (!output) return 84;
@@ -224,7 +229,7 @@ grep -q 'CODEX_REVIEW_BOOTSTRAP_PROFILE_SHA256 필요' <<<"$missing_bootstrap_ou
 
 pass_output="$(MOCK_VERDICT=PASS run_gate)"
 grep -q "리뷰 PASS" <<<"$pass_output"
-grep -q "review_scope=blockers-only" <<<"$pass_output"
+grep -q "review_scope=major-and-blocker" <<<"$pass_output"
 expected_head="$($REAL_GIT rev-parse HEAD)"
 grep -qx "archive" "$MOCK_ARCHIVE_ARGS_FILE"
 grep -qx "$expected_head" "$MOCK_ARCHIVE_ARGS_FILE"

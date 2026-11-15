@@ -87,6 +87,17 @@ export function transition(source: State, a: Action): State {
   return state;
 }
 export function duplicateMeeting(m: Meeting, id: string): Meeting { return { ...structuredClone(m), id, hostId: undefined, title: `${m.title} (복사)`, status: 'open', registrations: [], notices: [], recruitment: 'open', weather: '', courseReady: false }; }
+/**
+ * 실내 모임 코스 조건 — 앱이 출발 때 이 경로 하나로 가상 코스를 만든다(서버 `meetingVirtualCourse`).
+ * 경로가 없거나 끊어진(구간이 둘 이상) 트랙이면 서버가 거부해 출발 시각에 시작하지 못한다(2026-11-14 COURSE_INVALID).
+ * 문제가 없으면 null, 있으면 사용자에게 보일 문구(번역 키)를 돌려준다.
+ */
+export function indoorCourseIssue(m: Pick<Meeting, 'venue' | 'courseTrack'>): string | null {
+  if (m.venue !== 'indoor') return null;
+  if (!m.courseTrack || m.courseTrack.points.length < 2) return '실내 모임은 코스 경로가 필요해요. 기존 코스나 GPX로 코스를 준비해주세요.';
+  if ((m.courseTrack.segmentStarts?.length ?? 0) > 1) return '실내 모임은 하나로 이어진 코스만 쓸 수 있어요. 끊어진 구간이 없는 코스나 GPX로 다시 준비해주세요.';
+  return null;
+}
 export function saveMeeting(s: State, actor: string, m: Meeting): State {
   if (!s.members.some(member => member.id === actor)) throw new Error('등록된 회원만 모임을 만들 수 있습니다.');
   const current = s.meetings.find(x => x.id === m.id);
@@ -104,6 +115,10 @@ export function saveMeeting(s: State, actor: string, m: Meeting): State {
   if (m.joins.some(j => !j.place.trim() || !j.time)) throw new Error('합류 장소와 시간을 입력해주세요.');
   if ([m.distanceKm, m.elevationGainM].some(value => value !== undefined && (!Number.isFinite(value) || value < 0))) throw new Error('거리와 획득고도는 0 이상의 숫자로 입력해주세요.');
   if (m.courseTrack !== undefined) m = {...m, courseTrack: courseTrackSchema.parse(m.courseTrack)};
+  // 실내 모임은 앱이 출발 때 이 경로 하나로 가상 코스를 만든다 — 경로가 없거나 끊어져 있으면 서버가 거부해 출발 시각에
+  // 시작하지 못한다(2026-11-14 실내 모임 COURSE_INVALID). 저장할 때 막아 출발 전에 고치게 한다.
+  const indoorIssue = indoorCourseIssue(m);
+  if (indoorIssue) throw new Error(indoorIssue);
   if (m.courseSource) courseSourceSchema.parse(m.courseSource);
   if (m.courseCheckpoints) z.array(courseCheckpointSchema).max(100).parse(m.courseCheckpoints);
   if (m.segments) { const parsed = meetingSegmentsSchema.parse(m.segments); if (new Set(parsed.map(segment => segment.id)).size !== parsed.length) throw new Error('같은 구간을 중복해서 선택할 수 없습니다.'); m = { ...m, segments: parsed }; }

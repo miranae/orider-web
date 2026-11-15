@@ -1,3 +1,5 @@
+import FirebaseSessionBoundary from "../../contexts/FirebaseSessionBoundary";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { mt } from "./meetingText";
 import { logClientError } from "../../services/errorLogger";
 import { useEffect, useRef, useState } from "react";
@@ -30,15 +32,17 @@ const metric = (value: number | undefined, unit: string) =>
   value === undefined
     ? mt("미정")
     : `${Number(value.toFixed(2)).toLocaleString()}${unit}`;
-export default function CoursePreparation({
-  meeting,
-  onChange,
-  onBusyChange,
-}: {
+interface CoursePreparationProps {
   meeting: Meeting;
   onChange: (meeting: Meeting) => void;
   onBusyChange: (busy: boolean) => void;
-}) {
+}
+export default function CoursePreparation(props: CoursePreparationProps) {
+  return <FirebaseSessionBoundary><CoursePreparationContent {...props} /></FirebaseSessionBoundary>;
+}
+
+function CoursePreparationContent({ meeting, onChange, onBusyChange }: CoursePreparationProps) {
+  const firebaseServices = useFirebaseServices();
   const [mode, setMode] = useState<Mode>(
     meeting.courseSource?.kind ?? "saved-course",
   );
@@ -63,6 +67,9 @@ export default function CoursePreparation({
   const latest = useRef(meeting);
   latest.current = meeting;
   const readVersion = useRef(0);
+  const busyCallback = useRef(onBusyChange);
+  busyCallback.current = onBusyChange;
+  useEffect(() => () => { readVersion.current += 1; busyCallback.current(false); }, []);
   const confirmation = useRef<HTMLElement>(null);
   useEffect(() => {
     if (pending) {
@@ -169,13 +176,14 @@ export default function CoursePreparation({
     setLoading(true);
     setError("");
     try {
-      const page = await loadCourseCatalogPage(append ? courseCursor.current : null);
+      const page = await loadCourseCatalogPage(append ? courseCursor.current : null, firebaseServices);
       courseCursor.current = page.cursor;
       setHasMoreCourses(page.hasMore);
       setCourses(previous => append ? [...new Map([...(previous ?? []), ...page.items].map(item => [item.id, item])).values()] : page.items);
     } catch (failure) {
       // 원인을 남긴다 — 문구만 띄우면 권한 거부(403)인지 네트워크인지 알 수 없다(2026-11-14 운영 장애).
-      logClientError("CoursePreparation.savedCourseList", failure, { append });
+      // 임베드는 일반 Firebase 를 초기화하지 않으므로 주입된 서비스로 기록해야 서버 error_logs 에 남는다.
+      logClientError("CoursePreparation.savedCourseList", failure, { append }, firebaseServices);
       setError(mt("기존 코스를 불러오지 못했어요. 다시 시도해주세요."));
     } finally {
       coursePending.current = false;
@@ -189,7 +197,7 @@ export default function CoursePreparation({
     setImportingCourse(course.id);
     onBusyChange(true);
     try {
-      const full = await loadSavedCourse(course.id);
+      const full = await loadSavedCourse(course.id, firebaseServices);
       if (version !== readVersion.current) return;
       if (!full) {
         setError(mt("이 코스는 지금 가져올 수 없어요."));
@@ -197,7 +205,7 @@ export default function CoursePreparation({
       }
       request({ ...toCoursePlan(full), courseHighlights: full.description });
     } catch (failure) {
-      logClientError("CoursePreparation.savedCourseImport", failure, { courseId: course.id });
+      logClientError("CoursePreparation.savedCourseImport", failure, { courseId: course.id }, firebaseServices);
       if (version === readVersion.current)
         setError(mt("코스 경로를 불러오지 못했어요. 다시 시도해주세요."));
     } finally {
@@ -247,17 +255,17 @@ export default function CoursePreparation({
     let cancelled = false;
     setSearching(true);
     const timer = setTimeout(() => {
-      searchCourseCatalog(searchText)
+      searchCourseCatalog(searchText, firebaseServices)
         .then((found) => { if (!cancelled) setSearchHits({ text: searchText, items: found }); })
         .catch((failure) => {
           // 화면 갱신만 취소한다 — 늦게 끝난 요청의 실패도 원인 추적을 위해 기록한다.
-          logClientError("CoursePreparation.savedCourseSearch", failure, { length: searchText.length, stale: cancelled });
+          logClientError("CoursePreparation.savedCourseSearch", failure, { length: searchText.length, stale: cancelled }, firebaseServices);
           if (!cancelled) setSearchHits({ text: searchText, items: [] });
         })
         .finally(() => { if (!cancelled) setSearching(false); });
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [searchText]);
+  }, [searchText, firebaseServices]);
   const localHits =
     courses?.filter((course) =>
       `${course.name} ${course.description ?? ""}`

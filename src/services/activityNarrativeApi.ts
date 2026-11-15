@@ -1,5 +1,6 @@
 import { httpsCallable } from "firebase/functions";
 import { onAuthStateChanged } from "firebase/auth";
+// eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 auth 준비 기본값. 임베드는 ActivityNarrativeServices를 전달한다.
 import { auth } from "./firebase";
 import { getRuntimeConfig } from "./runtimeConfig";
 import { logClientError } from "./errorLogger";

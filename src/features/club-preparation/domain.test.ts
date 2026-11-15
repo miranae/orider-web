@@ -59,6 +59,16 @@ describe('동호회 모임 준비', () => {
     expect(() => saveMeeting(s, 'host', { ...s.meetings[0], fee: 1 })).toThrow();
     s = saveMeeting(s, 'host', copied); expect(s.meetings[0].registrations[0].memberId).toBe('host');
   });
+  it('실내 모임은 하나로 이어진 코스 경로가 있어야 저장된다', () => {
+    // 경로가 없거나 끊어진 실내 모임은 출발 시각에 서버가 코스를 거부해 시작하지 못했다(2026-11-14).
+    const s = createSeed(); const m = s.meetings[2];
+    const track = { fileName: '코스', points: [{ lat: 37.5, lon: 127 }, { lat: 37.51, lon: 127.01 }, { lat: 37.52, lon: 127.02 }], distanceKm: 2.5, elevationGainM: 0 };
+    expect(() => saveMeeting(s, 'host', { ...m, venue: 'indoor', courseTrack: undefined })).toThrow('실내 모임은 코스 경로가 필요해요');
+    expect(() => saveMeeting(s, 'host', { ...m, venue: 'indoor', courseTrack: { ...track, segmentStarts: [0, 2] } })).toThrow('하나로 이어진 코스');
+    expect(saveMeeting(s, 'host', { ...m, venue: 'indoor', courseTrack: { ...track, segmentStarts: [0] } }).meetings[2].venue).toBe('indoor');
+    // 야외 모임은 지금처럼 경로 없이도 저장된다.
+    expect(saveMeeting(s, 'host', { ...m, venue: 'outdoor', courseTrack: undefined }).meetings[2].venue).toBe('outdoor');
+  });
   it('설정 변경은 현재 대상자에게 변경 공지를 남기고 합류·권한을 검증한다', () => {
     let s = createSeed(); const m = s.meetings[2];
     expect(() => saveMeeting(s, 'me', m)).toThrow();

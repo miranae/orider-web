@@ -1,3 +1,4 @@
+import { embeddedInternalDestination } from "../../embedded/hubNavigation";
 import "../../pages/group/ClubSurface.css";
 import { Button, Text } from "../../theme/components";
 import { useToast } from "../../contexts/ToastContext";
@@ -11,13 +12,15 @@ import type { Group } from "@shared/types";
 interface GroupSubNavProps {
   group: Group;
   isCreator: boolean;
+  compact?: boolean;
 }
 
-export default function GroupSubNav({ group, isCreator }: GroupSubNavProps) {
+export default function GroupSubNav({ group, isCreator, compact = false }: GroupSubNavProps) {
   const { showToast } = useToast();
   const { t } = useTranslation("group");
   const { groupId, lang } = useParams();
-  const { search } = useLocation();
+  const { search, pathname } = useLocation();
+  const destination = (to: string) => embeddedInternalDestination(pathname, to) ?? to;
   const sharedParams = new URLSearchParams(search);
   sharedParams.delete("section");
   sharedParams.delete("copyFrom");
@@ -25,8 +28,8 @@ export default function GroupSubNav({ group, isCreator }: GroupSubNavProps) {
   const base = `/club/${groupId}`;
 
   const tabs = [
-    { to: base, label: t("subNav.news"), end: true },
-    { to: `${base}/events`, label: t("subNav.events"), activePaths: [`${base}/meetings`] },
+    { to: base, label: t("subNav.events"), end: true, activePaths: [`${base}/events`, `${base}/meetings`] },
+    { to: `${base}/news`, label: t("subNav.news") },
     ...((group.sports ?? [group.discipline ?? "bike"]).includes("bike") ? [{ to: `${base}/rides`, label: t("subNav.rides") }] : []),
     { to: `${base}/week`, label: t("subNav.week") },
     { to: `${base}/members`, label: t("members") },
@@ -41,12 +44,11 @@ export default function GroupSubNav({ group, isCreator }: GroupSubNavProps) {
         style={{ gap: "var(--space-3)", color: "var(--ink-3)" }}
       >
         <Link to="/clubs" style={{ color: "var(--ink-2)" }}>{t("subNav.groupList")}</Link>
-        <Link to="/explore/events" style={{ color: "var(--ink-2)" }}>{t("subNav.eventList")}</Link>
       </nav>
       <div className="club-subnav-header">
         <div>
           <Text as="h1" variant="pageTitle" data-testid="C1-0-1">{group.name}</Text>
-          {group.description && (
+          {!compact && group.description && (
             <Text as="p" variant="body" tone="secondary" className="mt-1">{group.description}</Text>
           )}
           <Text as="p" variant="body" tone="secondary" className="mt-1">
@@ -55,7 +57,7 @@ export default function GroupSubNav({ group, isCreator }: GroupSubNavProps) {
         </div>
       <Button variant="secondary" size="sm" data-testid="C1-0-4" type="button" onClick={async () => { try { await navigator.clipboard.writeText(`${window.location.origin}/${lang ?? "ko"}${base}`); showToast(t("invite.copied")); } catch (error) { logClientError("GroupSubNav.share", error, { groupId }); showToast(t("dashboard.posts.actionFailed"), "error"); } }}>{t("button.share")}</Button>
       </div>
-      <RouteTabNav tabs={tabs.map(tab => ({ ...tab, specId: "C1-0-2", to: `${tab.to}${sharedSearch}` }))} />
+      <RouteTabNav tabs={tabs.map(tab => ({ ...tab, specId: "C1-0-2", to: destination(`${tab.to}${sharedSearch}`), activePaths: tab.activePaths?.map(destination) }))} />
 
     </div>
   );

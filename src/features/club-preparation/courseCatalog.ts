@@ -1,3 +1,4 @@
+import type { FirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { SEARCH_PAGE_SIZE } from "../../constants/pagination";
 import { readStoredElevationProfile } from './segmentCatalog';
 import { decodePolyline } from '../../utils/polyline';
@@ -69,7 +70,9 @@ export function parseSavedCourse(id: string, data: Record<string, unknown>): Sav
 export const COURSE_CATALOG_FIELDS = ['name', 'description', 'distance', 'elevationGain', 'waypoints', 'segmentIds', 'visibility', 'deletedAt', 'hidden'] as const;
 
 let readiness: Promise<void> | undefined;
-async function catalogServices() {
+async function catalogServices(injected?: FirebaseServices) {
+  if (injected) return injected;
+  // eslint-disable-next-line design-system/no-firebase-singleton-in-embed -- 일반 웹 fallback만 초기화한다. 임베드 CoursePreparation은 services를 주입한다.
   const services = await import('../../services/firebase');
   readiness ??= (async () => { if (!services.getFirebaseApp()) await services.initFirebase(); })().catch(error => { readiness = undefined; throw error; });
   await readiness;
@@ -79,12 +82,15 @@ async function catalogServices() {
 /**
  * 기존 코스 목록과 같은 공개 읽기(문서 이름 순). 서버 rules를 그대로 적용하며 데이터를 쓰지 않는다.
  *
- * 서버 조건을 넘기지 않는다. `deletedAt == null` 은 운영 rules 가 403 으로 거부했고(2026-11-14 운영 REST 재현),
- * `visibility == public` 은 필드가 없는(=공개) 코스를 빠뜨린다. 지운·숨김·비공개 코스는 `parseSavedCourse` 가 거른다.
+ * `visibility == public` 조건도 넘기지 않는다 — 필드가 없는(=공개) 코스를 빠뜨린다. 비공개·숨김은 파싱이 거른다.
+ *
+ * `deletedAt == null` 조건은 서버에 넘기지 않는다 — 운영 rules 가 그 조건이 붙은 목록 조회를 403 으로 거부해
+ * "기존 코스 불러오기" 가 늘 실패했다(2026-11-14 운영 REST 재현: 조건 있음 403, 없음 200). 또 Firestore 의 null
+ * 일치는 필드가 **있고** null 인 문서만 골라 `deletedAt` 이 없는 코스를 빠뜨린다. 지운 코스는 `parseSavedCourse` 가 거른다.
  */
-export async function loadCourseCatalogPage(cursor: CourseListCursor | null = null) {
+export async function loadCourseCatalogPage(cursor: CourseListCursor | null = null, injected?: FirebaseServices) {
   const { runCourseListQuery } = await import('../courses/courseListRest');
-  const page = await runCourseListQuery(await catalogServices(), {
+  const page = await runCourseListQuery(await catalogServices(injected), {
     orderField: '__name__', direction: 'ASCENDING', limit: SEARCH_PAGE_SIZE, cursor,
     fields: COURSE_CATALOG_FIELDS,
   });
@@ -99,11 +105,11 @@ export async function loadCourseCatalogPage(cursor: CourseListCursor | null = nu
  * 이름 앞부분으로 서버에서 찾는다(코스 목록 화면 검색과 같은 name 범위 조회). 불러온 목록 안에서만 거르면
  * 첫 20건 밖의 코스는 검색해도 나오지 않았다(2026-11-15 제보).
  */
-export async function searchCourseCatalog(text: string): Promise<SavedCourseChoice[]> {
+export async function searchCourseCatalog(text: string, injected?: FirebaseServices): Promise<SavedCourseChoice[]> {
   const prefix = text.trim();
   if (!prefix) return [];
   const { runCourseListQuery } = await import('../courses/courseListRest');
-  const page = await runCourseListQuery(await catalogServices(), {
+  const page = await runCourseListQuery(await catalogServices(injected), {
     orderField: 'name', direction: 'ASCENDING', limit: SEARCH_PAGE_SIZE, cursor: null,
     fields: COURSE_CATALOG_FIELDS,
     namePrefix: prefix,
@@ -115,9 +121,9 @@ export async function searchCourseCatalog(text: string): Promise<SavedCourseChoi
 }
 
 /** 고른 코스 하나의 경로까지 읽는다(상세와 같은 트랙 파일·캐시). 지금은 가져올 수 없는 코스면 null. */
-export async function loadSavedCourse(id: string): Promise<SavedCourseChoice | null> {
+export async function loadSavedCourse(id: string, injected?: FirebaseServices): Promise<SavedCourseChoice | null> {
   const { loadCourseSource } = await import('../courses/courseDetailAsset');
-  const data = await loadCourseSource(await catalogServices(), id);
+  const data = await loadCourseSource(await catalogServices(injected), id);
   return data ? parseSavedCourse(id, data) : null;
 }
 
