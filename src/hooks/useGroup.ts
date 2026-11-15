@@ -193,7 +193,12 @@ export function useGroupMembers(groupId: string | undefined, maxCount?: number, 
   return { members, loading, error, retry: () => setAttempt(value => value + 1) };
 }
 
-// 내 그룹 목록: 빠른 조회 인덱스, 사용자 현재 그룹, creator 관계를 함께 조회한다.
+/** 가입 회원으로 보는 회원 문서 상태 — 역할 문자열과 무관하게 이 상태면 회원이다. */
+function isActiveMembershipStatus(status: unknown): boolean {
+  return ["active", "approved"].includes(String(status ?? ""));
+}
+
+// 내 그룹 목록: 빠른 조회 인덱스, 사용자 현재 그룹, creator 관계로 후보를 찾고 정본 회원 문서로 확정한다.
 export function useMyGroups(userId: string | undefined) {
   const services = useFirebaseServices();
   const { firestore } = services;
@@ -285,6 +290,40 @@ export function useMyGroups(userId: string | undefined) {
         });
       }
 
+      // 세 출처는 후보 발견에만 쓴다 — 가입 목록은 현재 정본 회원 문서가 active/approved 인 클럽만(#1589).
+      // 탈퇴·강퇴 뒤 남은 색인·현재 클럽 포인터나, 리더를 넘기고 나간 생성자는 여기서 빠진다.
+      // 회원 조회 실패는 비회원 확정이 아니다 — 목록에서는 빼되 incomplete 로 남겨 가입 버튼을 다시 열지 않는다.
+      const membershipResults = await Promise.all([...groupsById.keys()].map(async (groupId) => {
+        try {
+          return { groupId, result: { status: "fulfilled" as const, value: await getDoc(doc(firestore, "groups", groupId, "members", userId)) } };
+        } catch (reason) {
+          return { groupId, result: { status: "rejected" as const, reason } };
+        }
+      }));
+      if (cancelled) return;
+      // 서버가 비회원으로 확인한 클럽 — 캐시 병합에서도 이전 목록으로 되살리지 않는다.
+      const confirmedNonMembers = new Set<string>();
+      let membershipError: unknown = null;
+      membershipResults.forEach(({ groupId, result }) => {
+        if (result.status === "rejected") {
+          groupsById.delete(groupId);
+          membershipError ??= result.reason;
+          partialFailures.push({ source: "membership", reason: result.reason });
+          return;
+        }
+        const fromCache = result.value.metadata?.fromCache === true;
+        if (fromCache) cacheError ??= new Error("Club list could not be confirmed with the server");
+        if (!isActiveMembershipStatus(result.value.exists() ? result.value.data()?.status : null)) {
+          groupsById.delete(groupId);
+          if (!fromCache) confirmedNonMembers.add(groupId);
+        }
+      });
+      // 서버가 비회원으로 확인한 클럽은 아래에서 오류로 끝나더라도(캐시·조회 실패) 기존 목록에서 먼저 뺀다 —
+      // 마지막 클럽에서 탈퇴하면 목록이 비어 오류 경로로 가고, 그때 이전 목록이 그대로 남았다.
+      if (confirmedNonMembers.size > 0) setGroups(previous => previous.filter(group => !confirmedNonMembers.has(group.id)));
+      // 확정된 클럽이 하나도 없는데 회원 조회가 실패했다면 '가입 클럽 없음'이 아니라 조회 오류다.
+      if (groupsById.size === 0 && membershipError) throw membershipError;
+
       if (cacheError && groupsById.size === 0) throw cacheError;
       if (!discoveredGroupsLoaded && groupsById.size === 0) {
         throw discoveryError ?? (indexResult.status === "rejected"
@@ -302,7 +341,8 @@ export function useMyGroups(userId: string | undefined) {
       setIncomplete(partialFailures.length > 0 || cacheError !== null);
       setError(cacheError);
       setGroups(previous => cacheError
-        ? [...new Map([...previous, ...groupsById.values()].map(group => [group.id, group])).values()]
+        ? [...new Map([...previous.filter(group => !confirmedNonMembers.has(group.id)), ...groupsById.values()]
+          .map(group => [group.id, group])).values()]
         : [...groupsById.values()]);
       setLoading(false);
     };
