@@ -5,14 +5,14 @@ import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import GroupRidesPage from "./GroupRidesPage";
 
 const state = vi.hoisted(() => ({ groupError: null as Error | null, roleError: null as Error | null,
-  pageError: null as "failed" | null, groupRetry: vi.fn(), roleRetry: vi.fn(), loadMore: vi.fn() }));
-beforeEach(() => { state.groupError = null; state.roleError = null; state.pageError = null; vi.clearAllMocks(); });
+  pageError: null as "failed" | null, rides: null as null | { groupRideId: string; participantCount: number }[], groupRetry: vi.fn(), roleRetry: vi.fn(), loadMore: vi.fn() }));
+beforeEach(() => { state.groupError = null; state.roleError = null; state.pageError = null; state.rides = null; vi.clearAllMocks(); });
 vi.mock("../../hooks/useGroup", () => ({
   useGroup: () => ({ group: { id: "club", creatorId: "someone-else" }, loading: false, error: state.groupError, retry: state.groupRetry }),
   useGroupMemberRole: () => ({ role: "co-leader", loading: false, error: state.roleError, retry: state.roleRetry }),
 }));
 vi.mock("../../hooks/useGroupRides", () => ({ useGroupRideStats: () => ({
-  rides: [{ groupRideId: "small", participantCount: 2 }, { groupRideId: "large", participantCount: 5 }],
+  rides: state.rides ?? [{ groupRideId: "small", participantCount: 2 }, { groupRideId: "large", participantCount: 5 }],
   loading: false, loadingMore: false, error: null, loadMoreError: state.pageError, hasMore: !!state.pageError, loadMore: state.loadMore,
 }) }));
 vi.mock("../../components/group/GroupSubNav", () => ({ default: ({ isCreator }: { isCreator: boolean }) => <div>{isCreator ? "management visible" : "management hidden"}</div> }));
@@ -45,5 +45,21 @@ describe("GroupRidesPage activity-record filters", () => {
     expect(screen.getByRole("button", { name: "5개+" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByText("small")).not.toBeInTheDocument();
     expect(screen.getByText("large")).toBeInTheDocument();
+  });
+  it("clears the activity-count filter when its empty message is tapped, without adding a button", () => {
+    state.rides = [{ groupRideId: "small", participantCount: 2 }];
+    renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides" element={<GroupRidesPage />} /></Routes>, { route: "/ko/club/club/rides", authenticated: true });
+    fireEvent.click(screen.getByRole("button", { name: "5개+" }));
+    expect(screen.queryByText("small")).not.toBeInTheDocument();
+    const buttonsBefore = screen.getAllByRole("button").length;
+    fireEvent.click(screen.getByText("클럽 라이드가 없습니다"));
+    expect(screen.getByText("small")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "전체" })).toHaveAttribute("aria-pressed", "true");
+    expect(buttonsBefore).toBe(4); // 필터 3개 + 빈 문구 1개 — 새 버튼은 없다.
+  });
+  it("keeps the empty message as plain text when no filter is active", () => {
+    state.rides = [];
+    renderWithProviders(<Routes><Route path="/:lang/club/:groupId/rides" element={<GroupRidesPage />} /></Routes>, { route: "/ko/club/club/rides", authenticated: true });
+    expect(screen.getByText("클럽 라이드가 없습니다").closest("button")).toBeNull();
   });
 });

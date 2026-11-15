@@ -82,3 +82,14 @@ describe("모임 저장 검증 오류 문구를 누르면 고칠 칸으로 간�
     expect(screen.queryByRole("button", { name: /초안을 저장하지 못했어요/ })).toBeNull();
   });
 });
+
+describe("「주행 경로를 준비해주세요」에서 들어오면 코스 준비 칸에 초점을 둔다", () => {
+  it("focusCoursePreparation 이면 선택된 준비 방식 탭에 초점을 둔다", () => {
+    render(<MeetingForm state={state([base])} initial={base} draftNamespace="user.club" onSave={vi.fn()} onClose={vi.fn()} focusCoursePreparation />);
+    expect(document.activeElement).toBe(screen.getByRole("tab", { name: "GPX로 준비하기" }));
+  });
+  it("지정하지 않으면 초점을 옮기지 않는다", () => {
+    render(<MeetingForm state={state([base])} initial={base} draftNamespace="user.club" onSave={vi.fn()} onClose={vi.fn()} />);
+    expect(document.activeElement).not.toBe(screen.getByRole("tab", { name: "GPX로 준비하기" }));
+  });
+});

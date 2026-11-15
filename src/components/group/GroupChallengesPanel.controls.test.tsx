@@ -6,11 +6,11 @@ import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import GroupChallengesPanel from "./GroupChallengesPanel";
 import type { Group } from "@shared/types";
 
-const mocks = vi.hoisted(() => ({ join: vi.fn(), groups: [{ id: "club", name: "A long English cycling club name kept intact" }] }));
+const mocks = vi.hoisted(() => ({ join: vi.fn(), groups: [{ id: "club", name: "A long English cycling club name kept intact" }], empty: false }));
 vi.mock("../../hooks/useGroupChallenges", async original => ({
   ...await original<typeof import("../../hooks/useGroupChallenges")>(),
   useManagedGroups: () => mocks.groups,
-  useGroupChallenges: () => ({ challenges: [{ id: "league", name: "Monthly league", monthKey: "2026-10", participantGroupIds: [], standings: [] }], loading: false, error: null }),
+  useGroupChallenges: () => ({ challenges: mocks.empty ? [] : [{ id: "league", name: "Monthly league", monthKey: "2026-10", participantGroupIds: [], standings: [] }], loading: false, error: null }),
   joinGroupChallenge: mocks.join,
 }));
 
@@ -35,4 +35,18 @@ it("keeps Join and Joining in the same standard DS size and preserves the select
     await waitFor(() => expect(screen.getByRole("button", { name: "Join", exact: true })).toBeEnabled());
     expect(select).toHaveTextContent(mocks.groups[0].name);
   } finally { await i18n.changeLanguage("ko"); }
+});
+
+it("opens the collapsed create form and focuses the name when a manager taps the empty-league message", () => {
+  mocks.empty = true;
+  try {
+    renderWithProviders(<GroupChallengesPanel userId="test-uid" groups={mocks.groups as Group[]} />, { authenticated: true });
+    const details = document.querySelector("details.challenge-create-details") as HTMLDetailsElement;
+    expect(details.open).toBe(false);
+    const buttonsBefore = screen.getAllByRole("button").length;
+    fireEvent.click(screen.getByText("이번 달에 열린 클럽 리그가 없습니다."));
+    expect(details.open).toBe(true);
+    expect(document.activeElement).toBe(details.querySelector("input"));
+    expect(screen.getAllByRole("button").length).toBe(buttonsBefore);
+  } finally { mocks.empty = false; }
 });

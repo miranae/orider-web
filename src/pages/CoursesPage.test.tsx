@@ -151,6 +151,21 @@ describe("CoursesPage mobile layout", () => {
     expect(screen.getByTestId("E1-1-1")).toHaveValue("draft");
   });
 
+  it("retries location with the same radius when a timeout message is tapped, but not after permission denial", async () => {
+    const getCurrentPosition = vi.fn();
+    Object.defineProperty(navigator, "geolocation", { configurable: true, value: { getCurrentPosition } });
+    getCurrentPosition.mockImplementationOnce((_ok: unknown, fail: (err: { code: number }) => void) => fail({ code: 3 }));
+    renderWithProviders(<CoursesPage />, { route: "/explore/courses" });
+    fireEvent.click(screen.getAllByText("20km")[0]!);
+    const failure = await screen.findByText(/현재 위치를 가져오지 못했습니다/);
+    expect(failure.closest("button")).not.toBeNull();
+    getCurrentPosition.mockImplementationOnce((_ok: unknown, fail: (err: { code: number }) => void) => fail({ code: 1 }));
+    fireEvent.click(failure);
+    expect(getCurrentPosition).toHaveBeenCalledTimes(2);
+    const denied = await screen.findByText(/현재 위치를 가져오지 못했습니다/);
+    expect(denied.closest("button")).toBeNull();
+  });
+
   it("keeps the map hidden by default and shows it from the mobile toggle", async () => {
     renderWithProviders(<CoursesPage />, { route: "/explore/courses" });
 

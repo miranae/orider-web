@@ -424,7 +424,8 @@ export default function EventRegisterPage() {
         const categoryStep = steps.findIndex((s) => s.key === "category");
         if (categoryStep >= 0) setStepIdx(categoryStep);
       }
-      showToast(msg, "error");
+      // 「이미 참가 신청한 이벤트입니다」를 누르면 이벤트 화면(신청 상태·취소)으로 간다.
+      showToast(msg, "error", fbErr?.code === "functions/already-exists" ? { resolve: { to: `/event/${eventId}` } } : undefined);
     } finally {
       if (pendingRegistration.current === context) {
         pendingRegistration.current = null;

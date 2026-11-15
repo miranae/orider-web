@@ -15,7 +15,7 @@ import { logClientError } from "../services/errorLogger";
 import { useAuth } from "../contexts/AuthContext";
 import RouteMap from "../components/RouteMap";
 import ElevationChart from "../components/ElevationChart";
-import { EmptyState } from "../components/redesign";
+import { EmptyState, Resolvable } from "../components/redesign";
 import { Alert, Button, Card, Field, Input, buttonClass, Textarea, Switch } from "../theme/components";
 import { useUnsavedChangesGuard } from "../hooks/useUnsavedChangesGuard";
 import RouteBuilderMap from "../components/course/RouteBuilderMap";
@@ -168,6 +168,9 @@ export default function CreateCoursePage() {
   const [streams, setStreams] = useState<StreamData | null>(null);
   const [loadingStreams, setLoadingStreams] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
+  // 불러오기 실패(GPS 없음이 아님)일 때만 오류 문구를 눌러 다시 불러온다. 늦은 응답은 최신 요청만 반영한다.
+  const [streamRetryable, setStreamRetryable] = useState(false);
+  const streamLoadGenRef = useRef(0);
 
   // Range selection (section mode)
   const [rangeStart, setRangeStart] = useState(0);
@@ -194,12 +197,16 @@ export default function CreateCoursePage() {
 
   // ── Load activity streams ──
   const loadActivityStreams = useCallback(async (aid: string) => {
+    const gen = ++streamLoadGenRef.current;
+    const isCurrent = () => gen === streamLoadGenRef.current;
     setLoadingStreams(true);
     setStreams(null);
     setStreamError(null);
+    setStreamRetryable(false);
 
     try {
       const actDoc = await getDoc(doc(firestore, "activities", aid));
+      if (!isCurrent()) return;
       if (actDoc.exists()) {
         const d = actDoc.data();
         setSelectedActivity({
@@ -226,6 +233,7 @@ export default function CreateCoursePage() {
         data = result.data as StreamData;
       }
 
+      if (!isCurrent()) return;
       if (!data?.latlng || data.latlng.length === 0) {
         setStreamError(t("error.noStreamData"));
         return;
@@ -236,12 +244,17 @@ export default function CreateCoursePage() {
       setRangeEnd(data.latlng.length - 1);
     } catch (err: unknown) {
       logClientError("CreateCoursePage.loadStreams", err, { activityId: aid });
+      if (!isCurrent()) return;
       const fbErr = err as { code?: string; message?: string };
       setStreamError(t("error.streamLoadFailed", { message: fbErr.message ?? String(err) }));
+      setStreamRetryable(true);
     } finally {
-      setLoadingStreams(false);
+      if (isCurrent()) setLoadingStreams(false);
     }
   }, [t, tActivity]);
+
+  // 계정이 바뀌면 이전 계정으로 나간 불러오기 결과를 버린다.
+  useEffect(() => { streamLoadGenRef.current += 1; }, [user?.uid]);
 
   useEffect(() => {
     if (!user || !activityId || mode === "gpx" || mode === "builder") return;
@@ -681,7 +694,7 @@ export default function CreateCoursePage() {
           {/* Error */}
           {!loadingStreams && streamError && (
             <div className="space-y-4">
-              <Alert variant="danger">{streamError}</Alert>
+              <Alert variant="danger"><Resolvable resolve={streamRetryable && activityId ? { onClick: () => { void loadActivityStreams(activityId); } } : undefined}>{streamError}</Resolvable></Alert>
               <button
                 onClick={leavePage}
                 className={buttonClass({ variant: "ghost", className: "px-4 py-2 text-[length:var(--fs-sm)] text-[var(--ink-2)] hover:text-[var(--ink-0)] transition-colors" })}
@@ -694,7 +707,8 @@ export default function CreateCoursePage() {
           {/* No activity selected */}
           {!loadingStreams && !streamError && !activityId && (
             <div className="text-center py-16">
-              <p className="text-[var(--ink-2)]">{t("empty.noActivity")}</p>
+              {/* 문구를 누르면 내 활동 목록으로 — 거기서 활동을 골라 코스를 만든다. */}
+              <p className="text-[var(--ink-2)]"><Resolvable resolve={{ to: "/athlete/me/activities" }}>{t("empty.noActivity")}</Resolvable></p>
               <button onClick={leavePage} className={buttonClass({ variant: "ghost", className: "mt-4 px-4 py-2 text-[length:var(--fs-sm)] text-[var(--lime)] hover:underline" })}>
                 &larr; {t("button.goBack")}
               </button>

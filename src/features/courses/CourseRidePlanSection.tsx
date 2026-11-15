@@ -84,11 +84,12 @@ export function CourseRidePlanSection({ courseId, isOwner, user, onSignIn }: Pro
       if (!active || planGenerationRef.current !== generation) return;
       setPlan(value); setState("ready");
     }).catch((error) => {
-      if (!active || planGenerationRef.current !== generation) return;
+      // 늦은 응답의 실패도 기록은 남기고, 화면 반영만 최신 요청으로 막는다.
       logClientError("CourseRidePlanSection.load", error, {
         phase: "plan",
         code: isCoachClientError(error) ? error.code : "unknown",
       });
+      if (!active || planGenerationRef.current !== generation) return;
       setState(boundedState(error));
     });
     return () => {
@@ -213,7 +214,8 @@ function RidePlanContent({ state, plan, aiEnabled, questionState, onRetry, onQue
           onClick={() => onQuestionSelect(code, question)}>{question}</Button>;
       })}
       {questionState !== "idle" && <Text as="p" role="status" variant="caption" tone={questionState === "error" ? "warning" : "secondary"}>
-        {t(`ridePlan.questions.${questionState}`)}
+        {/* 「최신 계획을 다시 불러와 주세요」 — 문구를 누르면 계획을 다시 불러온다. */}
+        <Resolvable resolve={questionState === "error" ? { onClick: onRetry } : undefined}>{t(`ridePlan.questions.${questionState}`)}</Resolvable>
       </Text>}
       <Text as="p" variant="caption" tone="tertiary">{t("ridePlan.questions.note")}</Text>
     </div>}

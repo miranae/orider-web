@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { cloneElement, isValidElement, useId, type CSSProperties, type ReactNode } from "react";
 
 import { Card, Chip, Input, Textarea, DropdownSelect } from "../../../theme/components";
+import { Resolvable } from "../../../components/redesign/states/Resolvable";
 
 export const fieldStyle: CSSProperties = {
   width: "100%",
@@ -16,6 +17,7 @@ export function Field({
   sub,
   hint,
   warn,
+  onWarn,
   children,
 }: {
   label: string;
@@ -23,6 +25,8 @@ export function Field({
   sub?: string;
   hint?: string;
   warn?: boolean;
+  /** 「참가자 공지 필요」 칩을 누르면 할 일(공지 안내로 이동 등). */
+  onWarn?: () => void;
   children: ReactNode;
 }) {
   const { t } = useTranslation("event");
@@ -45,7 +49,7 @@ export function Field({
               borderColor: "color-mix(in oklch, var(--amber) 40%, transparent)",
             }}
           >
-            {t("warn.participantNotice")}
+            <Resolvable resolve={onWarn ? { onClick: onWarn } : undefined}>{t("warn.participantNotice")}</Resolvable>
           </Chip>
         )}
         {sub && <span style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginLeft: "auto" }}>{sub}</span>}

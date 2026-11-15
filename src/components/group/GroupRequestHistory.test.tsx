@@ -1,6 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { limit } from "firebase/firestore";
+import { limit, onSnapshot } from "firebase/firestore";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../__tests__/utils/renderWithProviders";
 import { mockCallableInvocations, setCallableImplementation, setCollectionDocs } from "../../__tests__/mocks/firebase";
@@ -40,5 +40,24 @@ describe("GroupRequestHistory", () => {
     setCollectionDocs("groups/club/joinRequests", [{ id: "request", userId: "rider", status: "approved", requestedAt: 1 }]);
     renderWithProviders(<GroupRequestHistory groupId="club" />, { authenticated: true });
     expect(await screen.findByText(/Rider nickname/)).toBeInTheDocument();
+  });
+  it("re-subscribes when the failed-load message itself is tapped, without adding a button", async () => {
+    setCollectionDocs("users/test-uid/group_requests", [{ id: "request", groupId: "club", groupName: "My club", status: "approved", requestedAt: 1 }]);
+    const original = vi.mocked(onSnapshot).getMockImplementation()!;
+    let failing = true;
+    vi.mocked(onSnapshot).mockImplementation(((...args: Parameters<typeof original>) => {
+      if (!failing) return original(...args);
+      (args[2] as (err: Error) => void)(new Error("unavailable"));
+      return () => {};
+    }) as never);
+    try {
+      renderWithProviders(<GroupRequestHistory userId="test-uid" />, { authenticated: true });
+      await userEvent.click(await screen.findByText("가입 요청 이력"));
+      const alert = screen.getByRole("alert");
+      expect(screen.getAllByRole("button")).toHaveLength(1);
+      failing = false;
+      await userEvent.click(alert.querySelector("button")!);
+      expect(await screen.findByText(/My club/)).toBeInTheDocument();
+    } finally { vi.mocked(onSnapshot).mockImplementation(original); }
   });
 });
