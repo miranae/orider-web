@@ -7,13 +7,17 @@ const mocks = vi.hoisted(() => ({
   setKudos: vi.fn(),
   postComment: vi.fn(),
   showToast: vi.fn(),
+  signIn: vi.fn(),
+  signedIn: true,
+  errorKey: "socialErrors.access",
 }));
 
 vi.mock("../../contexts/AuthContext", () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
   useAuth: () => ({
-    user: { uid: "viewer", displayName: "Viewer", photoURL: null },
-    profile: { nickname: "Viewer", photoURL: null },
+    user: mocks.signedIn ? { uid: "viewer", displayName: "Viewer", photoURL: null } : null,
+    profile: mocks.signedIn ? { nickname: "Viewer", photoURL: null } : null,
+    signIn: mocks.signIn,
   }),
 }));
 vi.mock("../../contexts/ToastContext", () => ({
@@ -27,7 +31,7 @@ vi.mock("../../hooks/useLocalizedNavigate", () => ({
 vi.mock("./useHydratedSocialProfiles", () => ({ useHydratedSocialProfiles: (value: unknown) => value }));
 vi.mock("../../services/activitySocialMutations", () => ({
   activitySocialMutations: { setKudos: mocks.setKudos, postComment: mocks.postComment },
-  activitySocialErrorMessageKey: () => "socialErrors.access",
+  activitySocialErrorMessageKey: () => mocks.errorKey,
 }));
 
 const activity = {
@@ -40,7 +44,43 @@ const activity = {
 } as unknown as Activity;
 
 describe("ActivitySocialFooter callable mutations", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); mocks.signedIn = true; mocks.errorKey = "socialErrors.access"; });
+
+  it("로그인 만료 알림 문구를 누르면 로그인 창을 연다 — 고칠 수 없는 실패 알림은 글자 그대로", async () => {
+    mocks.errorKey = "socialErrors.auth";
+    mocks.setKudos.mockRejectedValueOnce(new Error("expired"));
+    renderWithProviders(<ActivitySocialFooter activity={activity} />);
+    fireEvent.click(screen.getByRole("button", { name: "좋아요" }));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("로그인이 만료되었습니다. 다시 로그인해 주세요.", "error", { resolve: expect.any(Object) }));
+    const [, , options] = mocks.showToast.mock.calls.at(-1)!;
+    options.resolve.onClick();
+    expect(mocks.signIn).toHaveBeenCalledTimes(1);
+
+    mocks.errorKey = "socialErrors.access";
+    mocks.setKudos.mockRejectedValueOnce(new Error("blocked"));
+    fireEvent.click(screen.getByRole("button", { name: "좋아요" }));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenLastCalledWith(expect.any(String), "error"));
+  });
+
+  it("앱 보안 확인 실패 알림 문구는 누르면 새로고침한다", async () => {
+    mocks.errorKey = "socialErrors.app_check";
+    mocks.setKudos.mockRejectedValueOnce(new Error("app check"));
+    renderWithProviders(<ActivitySocialFooter activity={activity} />);
+    fireEvent.click(screen.getByRole("button", { name: "좋아요" }));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith(expect.stringContaining("새로고침"), "error", { resolve: { onClick: expect.any(Function) } }));
+  });
+
+  it("로그인 전 「로그인 후 댓글을 남길 수 있어요」 칸을 누르면 로그인 창을 연다", () => {
+    mocks.signedIn = false;
+    renderWithProviders(<ActivitySocialFooter activity={activity} />);
+    fireEvent.click(screen.getByRole("button", { name: "댓글" }));
+    const input = screen.getByPlaceholderText("로그인 후 댓글을 남길 수 있어요");
+    expect(input).toHaveAttribute("readonly");
+    fireEvent.click(input);
+    expect(screen.queryByRole("button", { name: "로그인" })).not.toBeInTheDocument();
+    expect(mocks.signIn).toHaveBeenCalledTimes(1);
+    expect(mocks.postComment).not.toHaveBeenCalled();
+  });
 
   it("refreshes exact viewer membership on return and sends removal instead of another add", async () => {
     mocks.setKudos.mockResolvedValue({ enabled: false });

@@ -122,3 +122,11 @@ it("rechecks a fast hidden-visible round trip even just after a recent result", 
   expect(mocks.load).toHaveBeenCalledTimes(2);
   expect(screen.getByRole("link", { name: /라이더/ })).toBeInTheDocument();
 });
+
+it("로그인 전 안내 문구를 누르면 로그인 창을 열고, 새 버튼은 만들지 않는다", async () => {
+  renderWithProviders(<SegmentLeaderboard segmentId="s" />);
+  fireEvent.click(await screen.findByText("로그인하면 내 기록을 확인할 수 있습니다"));
+  expect(screen.queryByRole("button", { name: "로그인" })).not.toBeInTheDocument();
+  expect(await screen.findByRole("dialog", { name: "로그인" })).toBeInTheDocument();
+  expect(mocks.load).not.toHaveBeenCalled();
+});

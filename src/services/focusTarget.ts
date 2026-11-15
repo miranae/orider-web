@@ -18,6 +18,13 @@ export const FOCUS_TARGETS = {
   ftpTest: "ftp-test",
   weight: "weight",
   height: "height",
+  /** 설정 > 계정의 AI 코치 이용 동의 검토 버튼. */
+  aiCoachConsent: "ai-coach-consent",
+  clubInviteCode: "club-invite-code",
+  /** 설정 > 계정의 로그인 방법 카드(S1-4-1) — 아직 연결하지 않은 첫 로그인 방법의 연결 버튼. */
+  socialLinks: "social-links",
+  /** 설정 > 기기의 가상 파워 카드(S6-4-1) 켜기 스위치. */
+  virtualPower: "virtual-power",
 } as const;
 
 export type FocusTargetKey = (typeof FOCUS_TARGETS)[keyof typeof FOCUS_TARGETS];
@@ -43,9 +50,23 @@ export function thresholdSettingsHref(sport: ThresholdSport, key: FocusTargetKey
   return withFocus(`/settings/training?sport=${sport}`, key);
 }
 
+/** 종목의 부하(TSS) 계산 기준값 칸 — 사이클 FTP, 러닝 역치 페이스, 수영 CSS. 부하 미확인 경고가 쓴다. */
+export function loadThresholdHref(sport: "bike" | "run" | "swim"): string {
+  const key = sport === "bike" ? FOCUS_TARGETS.ftp : sport === "run" ? FOCUS_TARGETS.thresholdPace : FOCUS_TARGETS.css;
+  return thresholdSettingsHref(sport, key);
+}
+
 /** 체중·키 입력칸으로 가는 링크. */
 export function bodyInfoHref(key: typeof FOCUS_TARGETS.weight | typeof FOCUS_TARGETS.height = FOCUS_TARGETS.weight): string {
   return withFocus("/settings/account", key);
+}
+
+/**
+ * 내 가입 신청 기록에서 그 클럽 행을 가리키는 키. 클럽 id 는 대소문자가 섞여 키 규칙(소문자·숫자·하이픈)에
+ * 맞지 않으므로 바이트를 16진수로 바꿔 쓴다.
+ */
+export function clubRequestFocusKey(groupId: string): string {
+  return `club-request-${Array.from(new TextEncoder().encode(groupId), (b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
 const FOCUSABLE = "input, select, textarea, button, a[href], [tabindex]:not([tabindex='-1'])";

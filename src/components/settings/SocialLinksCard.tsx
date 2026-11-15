@@ -11,6 +11,8 @@ import { Button } from "../../theme/components";
 import { LocalizedLink } from "../LocalizedLink";
 import { GoogleLogo, KakaoLogo, NaverLogo } from "../auth/SignInDialog";
 import { InlineRow, SettingsCard } from "./_primitives";
+import { Resolvable } from "../redesign/states/Resolvable";
+import { FOCUS_TARGETS, focusTargetProps, withFocus } from "../../services/focusTarget";
 
 const LOGO: Partial<Record<SocialProvider, () => React.ReactElement>> = { naver: NaverLogo, kakao: KakaoLogo, discord: DiscordLogo };
 const GOOGLE_CANCELLED = new Set(["auth/popup-closed-by-user", "auth/cancelled-popup-request", "auth/user-cancelled"]);
@@ -19,6 +21,9 @@ const GOOGLE_CANCELLED = new Set(["auth/popup-closed-by-user", "auth/cancelled-p
  * 네이버·카카오·Strava 계정 연결 (S1-4-1). 서비스마다 회원번호가 달라 같은 사람인지 자동으로 알 수 없으므로,
  * 로그인한 상태에서 사용자가 직접 연결해야 다음부터 그 서비스로 같은 계정에 로그인된다.
  */
+/** 「마지막 로그인 수단」 알림 문구를 누르면 아직 연결하지 않은 다른 로그인 수단의 연결 버튼으로 간다. */
+const LINK_ANOTHER_LOGIN = { resolve: { to: withFocus("/settings/account", FOCUS_TARGETS.socialLinks) } };
+
 export function SocialLinksCard() {
   const { t } = useTranslation("settings");
   const { user } = useAuth();
@@ -35,19 +40,31 @@ export function SocialLinksCard() {
   // unlink 뒤 reload 도 같은 User 객체를 바꾸므로 해제 결과도 따로 둔다.
   const [googleUnlinkedUid, setGoogleUnlinkedUid] = useState<string | null>(null);
 
+  // 조회 세대 — 연결·해제 뒤의 조회나 다시 불러오기가 새로 시작되면 앞선 조회의 늦은 응답은 버린다
+  // (해제한 수단이 늦은 응답으로 다시 '연결됨'이 되지 않게).
+  const loadGeneration = useRef(0);
+  const retrying = useRef(false);
   const load = useCallback(async () => {
     if (!ownerUid) return;
+    const generation = ++loadGeneration.current;
+    const current = () => ownerRef.current === ownerUid && loadGeneration.current === generation;
     try {
       const links = await listSocialLinks();
-      if (ownerRef.current !== ownerUid) return;
+      if (!current()) return;
       setLinked({ uid: ownerUid, providers: new Set(links.map((l) => l.provider)) });
       setLoadFailed(false);
     } catch (err) {
-      if (ownerRef.current !== ownerUid) return;
       logClientError("SocialLinksCard.list", err);
+      if (!current()) return;
       setLoadFailed(true);
     }
   }, [ownerUid]);
+  // 실패 문구를 눌러 다시 불러오는 중에는 거듭 눌러도 새로 조회하지 않는다.
+  const retryLoad = async () => {
+    if (retrying.current) return;
+    retrying.current = true;
+    try { await load(); } finally { retrying.current = false; }
+  };
 
   useEffect(() => {
     setLinked(null);
@@ -99,7 +116,8 @@ export function SocialLinksCard() {
     if (!user) return;
     const linkedCount = linked?.uid === ownerUid ? linked.providers.size : null;
     if (!canUnlinkGoogle(user, linkedCount)) {
-      showToast(t(linkedCount === null ? "pane.account.socialUnlinkFailed" : "pane.account.socialUnlinkLast"), "error");
+      if (linkedCount === null) showToast(t("pane.account.socialUnlinkFailed"), "error");
+      else showToast(t("pane.account.socialUnlinkLast"), "error", LINK_ANOTHER_LOGIN);
       return;
     }
     if (!(await dialog.confirm(t("pane.account.socialUnlinkConfirm", { provider: t("pane.account.social.google") }), { destructive: true }))) return;
@@ -119,7 +137,8 @@ export function SocialLinksCard() {
       logClientError("SocialLinksCard.googleUnlink", err, { code: error.code ?? null, accountChanged });
       if (accountChanged) return;
       const reason = (err as { details?: { reason?: string } }).details?.reason;
-      showToast(t(reason === "last-login-method" ? "pane.account.socialUnlinkLast" : "pane.account.socialUnlinkFailed"), "error");
+      if (reason === "last-login-method") showToast(t("pane.account.socialUnlinkLast"), "error", LINK_ANOTHER_LOGIN);
+      else showToast(t("pane.account.socialUnlinkFailed"), "error");
     } finally {
       if (ownerRef.current === ownerUid) setPending(null);
     }
@@ -137,19 +156,29 @@ export function SocialLinksCard() {
       if (ownerRef.current !== ownerUid) return;
       logClientError("SocialLinksCard.unlink", err, { provider });
       const error = err as { code?: string; details?: { reason?: string } };
-      const key = error.details?.reason === "strava-sync-active" ? "pane.account.stravaSyncActive"
-        : error.code === "functions/failed-precondition" ? "pane.account.socialUnlinkLast" : "pane.account.socialUnlinkFailed";
-      showToast(t(key), "error");
+      if (error.details?.reason === "strava-sync-active") {
+        // 활동 동기화를 먼저 끊어야 풀린다 — 알림 문구를 누르면 설정 > 연결된 앱의 Strava 카드로 간다.
+        showToast(t("pane.account.stravaSyncActive"), "error", { resolve: { to: "/settings/connections" } });
+        return;
+      }
+      if (error.code === "functions/failed-precondition") showToast(t("pane.account.socialUnlinkLast"), "error", LINK_ANOTHER_LOGIN);
+      else showToast(t("pane.account.socialUnlinkFailed"), "error");
     } finally {
       if (ownerRef.current === ownerUid) setPending(null);
     }
   };
 
+  const googleLinked = googleUnlinkedUid !== ownerUid && (hasGoogleLogin(user) || googleLinkedUid === ownerUid);
+  // ?focus=social-links 로 들어오면 아직 연결하지 않은 첫 로그인 방법의 연결 버튼에 초점을 둔다.
+  // Strava 는 "마지막 로그인 방법" 안내에서 오므로 대상에서 뺀다. 목록을 불러온 뒤에 정한다.
+  const focusProvider: SocialProvider | "google" | null = !googleLinked ? "google"
+    : linked && linked.uid === ownerUid ? SOCIAL_PROVIDERS.find((provider) => provider !== "strava" && !linked.providers.has(provider)) ?? null : null;
+  const focusProps = (provider: SocialProvider | "google") => provider === focusProvider ? focusTargetProps(FOCUS_TARGETS.socialLinks) : {};
+
   return (
     <SettingsCard data-testid="S1-4-1" title={t("pane.account.cardSocial")} dense>
-      {loadFailed && <p role="alert" style={{ color: "var(--rose)", margin: 0 }}>{t("pane.account.socialLoadFailed")}</p>}
+      {loadFailed && <p role="alert" style={{ color: "var(--rose)", margin: 0 }}><Resolvable resolve={{ onClick: () => void retryLoad() }}>{t("pane.account.socialLoadFailed")}</Resolvable></p>}
       {(() => {
-        const googleLinked = googleUnlinkedUid !== ownerUid && (hasGoogleLogin(user) || googleLinkedUid === ownerUid);
         return (
           <InlineRow data-testid="S1-4-1-google"
             label={<span className="inline-flex items-center gap-2"><GoogleLogo />{t("pane.account.social.google")}</span>}
@@ -159,7 +188,7 @@ export function SocialLinksCard() {
                 {t("pane.account.socialUnlinkBtn")}
               </Button>
             ) : (
-              <Button variant="secondary" loading={pending === "google"} disabled={pending !== null} onClick={() => { void handleGoogleLink(); }}>
+              <Button {...focusProps("google")} variant="secondary" loading={pending === "google"} disabled={pending !== null} onClick={() => { void handleGoogleLink(); }}>
                 {t("pane.account.socialLinkBtn")}
               </Button>
             )}
@@ -178,7 +207,7 @@ export function SocialLinksCard() {
                 {t("pane.account.socialUnlinkBtn")}
               </Button>
             ) : (
-              <Button variant="secondary" loading={pending === provider} disabled={pending !== null || linked?.uid !== ownerUid} onClick={() => { void handleLink(provider); }}>
+              <Button {...focusProps(provider)} variant="secondary" loading={pending === provider} disabled={pending !== null || linked?.uid !== ownerUid} onClick={() => { void handleLink(provider); }}>
                 {t("pane.account.socialLinkBtn")}
               </Button>
             )}

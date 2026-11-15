@@ -1,5 +1,6 @@
 import { OwnerDetailReadFallback } from "../features/activity/detail/OwnerDetailReadFallback";
 import { useSavedActivityAnalysisSelection } from "../hooks/useSavedActivityAnalysisSelection";
+import { useSignInResolve } from "../hooks/useSignInResolve";
 import { ActivityReanalysisControl } from "../features/activity/detail/ActivityReanalysisControl";
 import type { JourneyOutcome } from "../services/journeyMeasurement";
 import { useJourneyReadiness, ownerAnalysisOutcome } from "../hooks/useJourneyReadiness";
@@ -16,7 +17,7 @@ import { announceActivityContentChange } from "../services/activityContentChange
 import { uploadNativeActivityPhoto } from "../services/nativeActivityPhoto";
 import { hiddenProviderPhotoIds, stravaOverviewPhotoTotal, withoutHiddenProviderPhotos, withoutHiddenStreamPhotos } from "../features/activity/detail/providerPhotoVisibility";
 import { useProviderPhotoHiding } from "../features/activity/detail/useProviderPhotoHiding";
-import NativeActivityMemoEditor from "../components/activity/NativeActivityMemoEditor";
+import { NativeActivityMemoEditorView, useNativeMemoEditor } from "../components/activity/NativeActivityMemoEditor";
 import { canEditActivityMemo } from "../components/activity/activityMemoEditable";
 import { stravaRecordOf } from "@shared/analysis/stravaRecord";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
@@ -94,15 +95,7 @@ import { resolveSummaryStripStats } from "../features/activity/detail/summaryStr
 import { useRunActivityDetail, RunActivityIntro } from "../features/activity/detail/runActivityDetail";
 import { ActivityMediaPanel } from "../features/activity/detail/ActivityMediaPanel";
 import { ActivityProcessingState, DeletedActivityState, ActivityAnalysisSignInCard, StreamUnavailableCard } from "../features/activity/detail/ActivityDetailStates";
-import {
-  buildChartOverlays,
-  buildSampledData,
-  buildSummaryStats,
-  getChartHighlightRange,
-  getSegmentEfforts,
-  getStreamPhotos,
-  selectChartOverlay,
-} from "../features/activity/detail/activityDetailDerived";
+import { buildChartOverlays, buildSampledData, buildSummaryStats, getChartHighlightRange, getSegmentEfforts, getStreamPhotos, selectChartOverlay } from "../features/activity/detail/activityDetailDerived";
 import { extractGpsFromFile } from "../features/activity/detail/photoGps";
 import { resizeImageToWebp } from "../features/activity/detail/imageResize";
 import { useActivityUnitFormatters, useFormatFullDate, useTimeAgo, type UploadedPhoto } from "../features/activity/detail/activityDisplay";
@@ -133,6 +126,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const { activityId: routeActivityId } = useParams<{ activityId: string }>();
   const activityId = publicAccess?.model.activity?.id ?? routeActivityId;
   const { user, profile, loading: authLoading, signIn } = useAuth();
+  const signInResolve = useSignInResolve();
   const { units, locale } = useLocale();
   const { distVal, distUnit, speedVal, speedUnit, elevVal, elevUnit } = useActivityUnitFormatters(units);
   const { showToast } = useToast();
@@ -866,6 +860,15 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   const overviewMemo = providerRecord && !resolvedMemo?.authored
     ? freshDefaultMemo ?? resolvedMemo?.memo ?? publishedContent?.memo ?? null
     : resolvedMemo?.memo ?? freshDefaultMemo ?? publishedContent?.memo ?? null;
+  // 화면에 보이는 메모 = 연필 편집 초안의 시작값(보이는 것과 다른 메모를 고치지 않게).
+  const shownMemo = activity && nativeMemoOverride?.activityId === activity.id ? nativeMemoOverride.memo : overviewMemo;
+  const canEditMemo = !!activity && isActivityOwner && canEditActivityMemo(activity.source) && getRuntimeConfig().publicActivityDetailEnabled === true;
+  // 자동 요약이 보일 때만 false — 작성 메모가 없다는 근거로 쓴다(그 외는 보수적으로 작성 메모 취급).
+  const shownMemoGenerated = !!activity && nativeMemoOverride?.activityId !== activity.id && shownMemo != null
+    && ((resolvedMemo?.authored === false && shownMemo === resolvedMemo.memo) || shownMemo === freshDefaultMemo);
+  // 편집 상태는 페이지에 둔다: ActivityOverviewSocial 은 sourceRevision 으로 다시 마운트되므로 그 안에 두면 초안이 사라진다.
+  const memoEditor = useNativeMemoEditor({ activityId: activity?.id ?? activityId ?? "", currentMemo: shownMemo, currentMemoAuthored: !shownMemoGenerated,
+    onSaved: memo => { if (activity) setNativeMemoOverride({ activityId: activity.id, memo }); } });
 
   const hasStreams = sampledData.length > 0;
   const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, publicAccess ? null : user?.uid, activityId, user?.isAnonymous === true);
@@ -906,6 +909,8 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         <ErrorState
           title={isPermissionError ? tCommon("error.permission") : tCommon("error.title")}
           description={isPermissionError ? t("card.noActivity") : tCommon("error.description")}
+          // 권한 거부는 로그인하지 않은 사람만 해소할 수 있다(로그인). 로그인한 사람에겐 글자 그대로.
+          resolve={isPermissionError && (!user || user.isAnonymous) ? signInResolve : undefined}
           onRetry={() => { restartAnalysisMeasurement(); if (detailRetry) detailRetry(); else retryActivity(); }}
         />
       </div>
@@ -1361,7 +1366,8 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         <Text as="h2" variant="subtitle">{t("detail.keyRecords")}</Text>{summarySection}
       </section>}
       {activeTab === "overview" && <ActivityOverviewSocial key={`${activity.id}:${user?.uid ?? "guest"}:${sourceRevision}`} activityId={activity.id} prioritizeResults={mobileReading}
-        memo={nativeMemoOverride?.activityId === activity.id ? nativeMemoOverride.memo : overviewMemo} memoGeneratedAt={nativeMemoOverride?.activityId !== activity.id && !providerRecord && resolvedMemo?.authored === false ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={nativeMemoOverride?.activityId !== activity.id && resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
+        memo={shownMemo}
+        renderMemo={canEditMemo ? view => <NativeActivityMemoEditorView editor={memoEditor}>{view}</NativeActivityMemoEditorView> : undefined} memoGeneratedAt={nativeMemoOverride?.activityId !== activity.id && !providerRecord && resolvedMemo?.authored === false ? activity.defaultSummaryV1?.generatedAt : undefined} memoMono={nativeMemoOverride?.activityId !== activity.id && resolvedMemo?.authored === false} memoLoading={!overviewMemo && overview.loading} memoError={!overviewMemo && overview.error}
         photosKnown={!!streams || !!publishedContent || typeof activity.photoCount === "number"} memoTruncated={publishedContent?.memoTruncated} photos={overviewPhotos}
         totalPhotos={activity.source === "orider"
           ? Math.max(overviewPhotos.length, publishedContent?.totalPhotoCount ?? activity.photoCount ?? 0)
@@ -1378,9 +1384,6 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         onDelete={id => { const photo = uploadedPhotos.find(item => item.id === id); if (photo) void handleDeletePhoto(photo); }}
         onLocate={location => { setFlyToPosition(null); setTimeout(() => setFlyToPosition(location), 10); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
         onShowResults={() => setActiveTab("segments")} />}
-      {activeTab === "overview" && isActivityOwner && canEditActivityMemo(activity.source) && getRuntimeConfig().publicActivityDetailEnabled === true &&
-        <NativeActivityMemoEditor key={`${activity.id}:${user?.uid}`} activityId={activity.id}
-          onSaved={memo => setNativeMemoOverride({ activityId: activity.id, memo })} />}
       {isActivityOwner && activeTab === "overview" && <ActivityMapPrivacyControl activityId={activity.id}
         thumbnail={activity.thumbnailTrack ? { polyline: activity.thumbnailTrack, contentRevision: activity.contentRevision, contentSelectedRevision: activity.contentSelectedRevision } : undefined} />}
       {activeTab === "analysis" && <ActivityReanalysisControl canReanalyze={isActivityOwner || (!!publicAccess && !!user && !user.isAnonymous && user.uid === activity.userId)} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}

@@ -2,11 +2,13 @@ import GlossaryProvider from "../../../components/common/GlossaryProvider";
 import GlossaryText from "../../../components/common/GlossaryText";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
 import type { ActivityOverviewPresentation } from "@shared/types/activity-overview";
 import type { useActivityOverview } from "../../../hooks/useActivityOverview";
 import { Button, Card, Chip, IconButton, Stack, Stat, Text, buttonClass } from "../../../theme/components";
 import InfoTip from "../../../components/InfoTip";
+import { LocalizedLink } from "../../../components/LocalizedLink";
+import { Resolvable } from "../../../components/redesign";
+import { activityThresholdHref } from "./activityThresholdHref";
 import FuelSplitBar from "../../../components/FuelSplitBar";
 import { DeltaBar, FitnessShift, IntensityGauge, MixedValue, OverviewPowerCurve, PercentMeter, ZoneTimeBar, formatSpan, powerComparisonBasis } from "./ActivityOverviewCharts";
 
@@ -71,6 +73,8 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
   // "성격 확인 중" 은 곧 계산될 것처럼 읽힌다. 임계값이 없으면 설정 전까지 영원히
   // 채워지지 않으므로 그 상태를 그대로 말한다.
   const thresholdMissing = p.thresholdBasis === "none";
+  // 주인에게는 이 활동 종목의 기준값 칸으로 바로 데려간다.
+  const thresholdHref = activityThresholdHref(p.session.discipline);
   const duration = (value: number) => formatSpan(value, { hour: copy("hour"), minute: copy("minute"), second: copy("second") });
   const powerVisible = p.session.discipline === "bike";
   const powerEstimated = p.session.discipline === "bike" && p.availability?.power === "estimated";
@@ -148,9 +152,9 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
       {!personal.length && (thresholdMissing
         ? <Stack gap="var(--dim-item-gap)">
             {note(p.session.discipline === "run" && isOwner ? copy("runThresholdMissing") : voice("thresholdMissing"))}
-            {isOwner && <Link to="/coach/condition?sport=bike#thresholds" className={buttonClass({ size: "sm", variant: "outline" })}>
+            {isOwner && <LocalizedLink data-testid="overview-threshold-cta" to={thresholdHref} className={buttonClass({ size: "sm", variant: "outline" })}>
               {copy("thresholdMissingCta")}
-            </Link>}
+            </LocalizedLink>}
           </Stack>
         : note(personalEmpty))}
       {!!highlights.length && <Stack gap="var(--space-3)">{highlights.map((row) => <DeltaBar key={row.duration} value={row.deltaPct!}
@@ -201,8 +205,9 @@ export function ActivityOverviewSummaryContent({ presentation: p, isOwner = true
     <Stack gap="var(--dim-item-gap)">
       {/* 성격이 곧 라벨이다 — 별도 은유 층을 두지 않는다. 서버가 확정한 값만 그린다(화면에서 재분류하지 않는다). */}
       <Stack direction="row" wrap><Chip variant={p.session.character ? "accent" : "default"}>
+        {/* 「임계값 없음」은 주인이 누르면 이 종목의 기준값 칸으로 간다. 남에게는 해결 경로가 없어 글자 그대로. */}
         {p.session.character ? label(`characters.${p.session.character}`)
-          : thresholdMissing ? copy("thresholdMissingChip") : copy("characterPending")}
+          : thresholdMissing ? <Resolvable resolve={isOwner ? { to: thresholdHref } : undefined}>{copy("thresholdMissingChip")}</Resolvable> : copy("characterPending")}
         {p.aboveUsualVolume ? ` · ${copy("aboveUsualVolume")}` : ""}
       </Chip></Stack>
       {/* 판정 문장은 근거가 있을 때만 온다. 없으면 줄을 비운다 — 칩과 헤더가 이미 사실을 보여준다. */}

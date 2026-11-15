@@ -197,3 +197,27 @@ it.each(["permission-denied", "account_changed"])("does not select a photo when 
   expect(nativePhotos.upload).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("button",{name:/업로드 실패 확인 사진 1/})).toBeNull();
 });
+
+// 경고 문구 자체를 누르면 해소한다 — 버튼을 새로 덧붙이지 않는다.
+it("sends the no-eligible-rides text to the activity import window", async () => {
+  setCollectionDocs("activities", []);
+  renderWithProviders(<RideStoryPhotoPicker open userId="test-uid" onClose={vi.fn()} onSent={vi.fn()} onFailed={vi.fn()} />, { authenticated: true });
+  const link = await screen.findByRole("link", { name: "최근 90일 안에 포스터로 만들 자전거 활동이 없습니다." });
+  expect(link.getAttribute("href")).toBe("/ko/athlete/me/activities?import=1");
+});
+
+it("re-reads the photo list when its failure text is pressed and logs the failure", async () => {
+  const { getDocs } = await import("firebase/firestore");
+  const errorLogger = await import("../../services/errorLogger");
+  const logged = vi.spyOn(errorLogger, "logClientError");
+  setCollectionDocs("activities", [{ id: "retry-ride", userId: "test-uid", name: "다시 읽은 라이딩", type: "Ride", startTime: Date.now() - 86_400_000, summary: {} }]);
+  setCollectionDocs("activity_photos/retry-ride/photos", []);
+  vi.mocked(getDocs).mockRejectedValueOnce(new Error("offline"));
+  renderWithProviders(<RideStoryPhotoPicker open userId="test-uid" onClose={vi.fn()} onSent={vi.fn()} onFailed={vi.fn()} />, { authenticated: true });
+  const failure = (await screen.findAllByText("사진 목록을 불러오지 못했습니다")).map(node => node.closest("button")).find(Boolean)!;
+  expect(logged).toHaveBeenCalledWith("RideStoryPhotoPicker.loadOptions", expect.any(Error), expect.anything());
+  expect(screen.queryByRole("button", { name: "다시 시도" })).toBeNull();
+  fireEvent.click(failure);
+  expect(await screen.findByText("다시 읽은 라이딩")).toBeInTheDocument();
+  logged.mockRestore();
+});

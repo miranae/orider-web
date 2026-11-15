@@ -1,15 +1,15 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Card } from "../../../theme/components";
-import { StateActions, type EmptyStateAction } from "./EmptyState";
+import { Resolvable, type Resolve } from "./Resolvable";
 
 interface PermissionGateProps {
   title?: string;
   description?: ReactNode;
   actionLabel?: string;
   onAction?: () => void;
-  /** 권한이 없을 때 다음 단계(상세로 돌아가기·요청할 곳)로 가는 행동. */
-  actions?: EmptyStateAction[];
+  /** 안내 문구를 누르면 갈 곳(권한 없는 화면이면 상세로 돌아가기 등). 버튼·설명을 덧붙이지 않는다. */
+  resolve?: Resolve;
   compact?: boolean;
 }
 
@@ -18,7 +18,7 @@ export default function PermissionGate({
   description,
   actionLabel,
   onAction,
-  actions,
+  resolve,
   compact,
 }: PermissionGateProps) {
   const { t } = useTranslation("common");
@@ -34,12 +34,14 @@ export default function PermissionGate({
       <div aria-hidden="true" style={{ fontSize: compact ? "var(--fs-2xl)" : "var(--fs-3xl)", marginBottom: "var(--space-3)", color: "var(--ink-3)" }}>
         🔒
       </div>
-      <div style={{ fontSize: compact ? "var(--fs-md)" : "var(--fs-lg)", fontWeight: 600, color: "var(--ink-0)", marginBottom: resolvedDescription ? "var(--space-2)" : 0 }}>
+      <Resolvable resolve={resolve} style={{ display: "block", width: "100%", textAlign: "center" }}>
+      <span style={{ display: "block", fontSize: compact ? "var(--fs-md)" : "var(--fs-lg)", fontWeight: 600, color: "var(--ink-0)", marginBottom: resolvedDescription ? "var(--space-2)" : 0 }}>
         {resolvedTitle}
-      </div>
+      </span>
       {resolvedDescription && (
-        <div style={{ fontSize: "var(--fs-base)", color: "var(--ink-3)", lineHeight: 1.5 }}>{resolvedDescription}</div>
+        <span style={{ display: "block", fontSize: "var(--fs-base)", color: "var(--ink-3)", lineHeight: 1.5 }}>{resolvedDescription}</span>
       )}
+      </Resolvable>
       {onAction && (
         <div style={{ marginTop: "var(--space-4)" }}>
           <Button type="button" variant="primary" size="sm" onClick={onAction}>
@@ -47,7 +49,6 @@ export default function PermissionGate({
           </Button>
         </div>
       )}
-      <StateActions actions={actions} />
     </Card>
   );
 }

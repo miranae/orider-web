@@ -8,6 +8,8 @@ import CoursePreparation from "./CoursePreparation";
 import CoursePreview, { CourseSummary } from "./CoursePreview";
 import { clearDraft, draftScope, readDraft, writeDraft } from "./meetingDrafts";
 import { isMeetingStartNotFuture } from "./meetingSchedule";
+import { revealFocusTarget } from "../../services/focusTarget";
+import { Resolvable } from "../../components/redesign";
 
 const START_NOT_FUTURE_MESSAGE =
   "집결 시각이 이미 지났어요. 미래의 날짜와 시각을 선택해주세요.";
@@ -25,6 +27,9 @@ export const MEETING_VENUE_OPTIONS: { value: MeetingVenue; label: string; hint: 
     hint: "야외에서 모여 실외 라이딩으로 기록합니다",
   },
 ];
+/** 저장 검증 오류를 고칠 칸. 오류 문구를 누르면 작성 단계로 돌아가 이 칸에 초점을 둔다. */
+type FixTarget = "course" | "venue" | "date";
+
 export const meetingVenueLabel = (venue: MeetingVenue | undefined): string =>
   venue === "indoor" ? mt("실내") : venue === "outdoor" ? mt("실외") : "";
 
@@ -37,6 +42,7 @@ export default function MeetingForm({
   initialRevision,
   english = false,
   focusCourseReady = false,
+  focusCoursePreparation = false,
 }: {
   state: State;
   initial: Meeting;
@@ -47,6 +53,8 @@ export default function MeetingForm({
   english?: boolean;
   /** 「최종 코스 준비 중」 칩에서 들어왔을 때 접힌 코스 섹션을 펼치고 확정 칸에 초점을 둔다. */
   focusCourseReady?: boolean;
+  /** 「주행 경로를 준비해주세요」에서 들어왔을 때 코스 준비 칸(가져오기 방식)에 초점을 둔다. */
+  focusCoursePreparation?: boolean;
 }) {
   const existing = state.meetings.some((meeting) => meeting.id === initial.id);
   const scope = draftNamespace
@@ -86,6 +94,37 @@ export default function MeetingForm({
     setPreview(false);
     setCourseFocusRequest((n) => n + 1);
   };
+  // 저장 검증 오류 → 고칠 칸. 문구가 바뀌면(다른 오류·초안 저장 실패 등) 버튼은 사라진다.
+  const [saveFix, setSaveFix] = useState<{ target: FixTarget; message: string } | null>(null);
+  const [fixRequest, setFixRequest] = useState<{ target: FixTarget; n: number } | null>(
+    focusCoursePreparation ? { target: "course", n: 1 } : null,
+  );
+  const failWithFix = (message: string, target: FixTarget) => {
+    setSaveError(message);
+    setSaveFix({ target, message });
+  };
+  const fixTarget = saveFix && saveFix.message === saveError ? saveFix.target : null;
+  useEffect(() => {
+    if (!fixRequest || preview) return;
+    const form = formRef.current;
+    if (!form) return;
+    const target =
+      fixRequest.target === "course"
+        ? (form.querySelector<HTMLElement>(
+            ".cp-course-preparation [role='tab'][aria-selected='true']",
+          ) ?? form.querySelector<HTMLElement>(".cp-course-preparation"))
+        : fixRequest.target === "venue"
+          ? (form.querySelector<HTMLElement>("input[name='meeting-venue']:checked") ??
+            form.querySelector<HTMLElement>("input[name='meeting-venue']"))
+          : form.querySelector<HTMLElement>("#meeting-date");
+    if (target) revealFocusTarget(target);
+  }, [fixRequest, preview]);
+  const goFix = (target: FixTarget) => {
+    setPreview(false);
+    setFixRequest((current) => ({ target, n: (current?.n ?? 0) + 1 }));
+  };
+  // 오류 문구 자체를 누르면 고칠 칸으로 간다 — 버튼을 따로 두지 않는다.
+  const fixResolve = () => (fixTarget && !saving ? { onClick: () => goFix(fixTarget) } : undefined);
   const completeDraft = (): Meeting => ({
     ...draft,
     courseInfoVersion: 1,
@@ -125,24 +164,24 @@ export default function MeetingForm({
     const scheduleChanged = draft.date !== initial.date || draft.time !== initial.time;
     if (existing && !scheduleChanged) return false;
     if (!isMeetingStartNotFuture(draft.date, draft.time)) return false;
-    setSaveError(mt(START_NOT_FUTURE_MESSAGE));
+    failWithFix(mt(START_NOT_FUTURE_MESSAGE), "date");
     return true;
   };
   const submit = async () => {
     if (savingRef.current) return;
     if (startNotFuture()) return;
     if (!draft.venue) {
-      setSaveError(mt("실내 모임인지 실외 모임인지 선택해주세요."));
+      failWithFix(mt("실내 모임인지 실외 모임인지 선택해주세요."), "venue");
       return;
     }
     // 실내 모임은 이어진 코스 경로가 있어야 출발 시각에 시작할 수 있다 — 저장 전에 막는다(2026-11-14).
     const indoorIssue = indoorCourseIssue(draft, state.meetings.find((meeting) => meeting.id === initial.id));
     if (indoorIssue) {
-      setSaveError(mt(indoorIssue));
+      failWithFix(mt(indoorIssue), "course");
       return;
     }
     if (!existing && !dateConfirmed) {
-      setSaveError(mt("개최 날짜와 시각을 확인해주세요."));
+      failWithFix(mt("개최 날짜와 시각을 확인해주세요."), "date");
       return;
     }
     savingRef.current = true;
@@ -215,7 +254,7 @@ export default function MeetingForm({
     <div className="cp-form-actions cp-form-actions--bottom cp-form-actions--bar">
       {saveError && (
         <p className="cp-form-actions__error" title={saveError}>
-          {saveError}
+          <Resolvable resolve={fixResolve()}>{saveError}</Resolvable>
         </p>
       )}
       <Button variant="outline" disabled={saving} onClick={onClose}>
@@ -262,6 +301,7 @@ export default function MeetingForm({
           <CoursePreview
             meeting={completeDraft()}
             onConfirmCourse={saving ? undefined : requestCourseReadyFocus}
+            onPrepareCourse={saving ? undefined : () => goFix("course")}
           />
           {!existing && (
             <label className="cp-date-check">
@@ -321,9 +361,9 @@ export default function MeetingForm({
             )}
           </section>
           {saveError && (
-            <p className="cp-error" role="alert">
-              {saveError}
-            </p>
+            <div className="cp-error" role="alert">
+              <Resolvable resolve={fixResolve()}>{saveError}</Resolvable>
+            </div>
           )}
           <div className="cp-form-actions cp-form-actions--bottom cp-form-actions--bar">
             <Button disabled={saving} onClick={() => setPreview(false)}>
@@ -371,7 +411,7 @@ export default function MeetingForm({
       )}
       {saveError && (
         <div className="cp-error" role="alert">
-          {saveError}
+          <Resolvable resolve={fixResolve()}>{saveError}</Resolvable>
           {recovery.error && (
             <Button
               size="sm"

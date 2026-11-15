@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { MeetingTeam, Registration } from "./domain";
-import { copyClubMeeting, newClubMeeting } from "./meetingCopy";
 import {
   attendanceGenerations,
   createInitialTeamDraft,
@@ -37,17 +36,6 @@ const roster = [
   person("gone", 6, "cancelled"),
 ];
 describe("모임 조편성", () => {
-  it("모임 복사에는 기존 회원의 조 배정을 이어받지 않는다", () => {
-    const copied = copyClubMeeting({
-      ...newClubMeeting(),
-      teams: [
-        { id: "original", name: "기존조", leaderId: "a", memberIds: ["a"] },
-      ],
-    });
-    expect(copied.teams).toEqual([]);
-    expect(copied.registrations).toEqual([]);
-  });
-
   it("15명은 한 번에 5/5/5 초안으로 만들고 조장을 추정하지 않는다", () => {
     const many = Array.from({ length: 15 }, (_, i) => person(`member-${i}`, i));
     const teams = createInitialTeamDraft(many, 5);

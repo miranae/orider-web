@@ -310,6 +310,10 @@ export default function EventEditPage() {
     );
   }, [initialData, data]);
 
+  // 「참가자 공지 필요」 칩을 누르면 저장 때 보낼 공지 안내로 데려간다.
+  const noticeBannerRef = useRef<HTMLDivElement>(null);
+  const showNoticeBanner = () => noticeBannerRef.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+
   const totalFilled = capacityCounts.total;
   const totalSlots = useMemo(
     () => eventCategoryCapacity(data?.categories ?? []),
@@ -618,6 +622,7 @@ export default function EventEditPage() {
 
           {notifyDirty && (
             <div
+              ref={noticeBannerRef}
               style={{
                 marginTop: 'var(--space-5)',
                 padding: 'var(--space-3)',
@@ -734,14 +739,14 @@ export default function EventEditPage() {
             </Field>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
-              <Field label={t("field.date")} required warn={data.date !== initialData.date}>
+              <Field label={t("field.date")} required warn={data.date !== initialData.date} onWarn={showNoticeBanner}>
                 <DateField portal icon={<CalendarDays size={ICON_SIZE.sm} aria-hidden="true" />}
                   value={data.date}
                   onChange={(v) => patch({ date: v })}
                   placeholder={t("field.date")}
                 />
               </Field>
-              <Field label={t("field.startTime")} required warn={data.startTime !== initialData.startTime}>
+              <Field label={t("field.startTime")} required warn={data.startTime !== initialData.startTime} onWarn={showNoticeBanner}>
                 <TimeField portal icon={<Clock3 size={ICON_SIZE.sm} aria-hidden="true" />}
                   value={data.startTime}
                   onChange={(v) => patch({ startTime: v })}
@@ -750,7 +755,7 @@ export default function EventEditPage() {
               </Field>
             </div>
 
-            <Field label={t("field.meetLocation")} required warn={data.meetLocation !== initialData.meetLocation}>
+            <Field label={t("field.meetLocation")} required warn={data.meetLocation !== initialData.meetLocation} onWarn={showNoticeBanner}>
               <Input
                 type="text"
                 value={data.meetLocation}
@@ -760,7 +765,7 @@ export default function EventEditPage() {
             </Field>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
-              <Field label={t("field.meetTime")} warn={data.meetTime !== initialData.meetTime}>
+              <Field label={t("field.meetTime")} warn={data.meetTime !== initialData.meetTime} onWarn={showNoticeBanner}>
                 <TimeField portal icon={<Clock3 size={ICON_SIZE.sm} aria-hidden="true" />}
                   value={data.meetTime}
                   onChange={(v) => patch({ meetTime: v })}

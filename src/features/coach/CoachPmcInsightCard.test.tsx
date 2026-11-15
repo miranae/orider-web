@@ -4,6 +4,7 @@ import type { User } from "firebase/auth";
 import parity from "./__fixtures__/pmc-fitness-parity.json";
 import { parseCoachPmcInsight } from "../../services/coachPmcInsightContract";
 import { CoachPmcInsightCard } from "./CoachPmcInsightCard";
+import { MemoryRouter } from "react-router-dom";
 
 const mocks = vi.hoisted(() => ({
   enabled: true,
@@ -77,7 +78,7 @@ describe("CoachPmcInsightCard", () => {
 
   it.each(["stale", "missing"] as const)("disables every question for %s data", (status) => {
     mocks.state = { insight: insight(status), loading: false, unavailable: false };
-    render(<CoachPmcInsightCard user={user} discipline="bike" onQuestionSelect={vi.fn()} />);
+    render(<MemoryRouter><CoachPmcInsightCard user={user} discipline="bike" onQuestionSelect={vi.fn()} /></MemoryRouter>);
     expect(screen.getAllByRole("button")).toHaveLength(2);
     screen.getAllByRole("button").forEach((button) => expect(button).toBeDisabled());
   });
@@ -88,5 +89,22 @@ describe("CoachPmcInsightCard", () => {
     expect(screen.getByText("existing-fitness")).toBeInTheDocument();
     expect(screen.getByText(/기존 피트니스 화면은 그대로 이용/)).toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+});
+
+describe("CoachPmcInsightCard — 데이터 부족 문구", () => {
+  const routed = (ui: React.ReactElement) => render(<MemoryRouter>{ui}</MemoryRouter>);
+  it("「데이터 부족」 칩·문구를 누르면 연결 화면으로 간다", () => {
+    mocks.enabled = true; mocks.state = { insight: insight("missing"), loading: false, unavailable: false };
+    routed(<CoachPmcInsightCard user={user} discipline="bike" onQuestionSelect={vi.fn()} />);
+    const links = screen.getAllByRole("link");
+    expect(links.map((link) => link.textContent)).toEqual(["데이터 부족", "필요한 데이터가 없어 확정적인 해석과 질문 연결을 제공하지 않습니다."]);
+    links.forEach((link) => expect(link).toHaveAttribute("href", expect.stringContaining("/settings/connections")));
+  });
+
+  it("갱신 필요(서버 재계산 대기)는 글자 그대로 둔다", () => {
+    mocks.enabled = true; mocks.state = { insight: insight("stale"), loading: false, unavailable: false };
+    routed(<CoachPmcInsightCard user={user} discipline="bike" onQuestionSelect={vi.fn()} />);
+    expect(screen.queryByRole("link")).toBeNull();
   });
 });

@@ -28,7 +28,8 @@ import { getDiscipline } from "../utils/disciplineFilter";
 import { acceptedPhysicalActivities, estimateActivityTss, sumAcceptedActivityTss } from "../utils/estimateTSS";
 import { planDayKey, planCalendarDate, planMonthBounds } from "@shared/training/planDate";
 import { buttonClass, Button, Card, Text } from "../theme/components";
-import { ErrorState } from "../components/redesign";
+import { ErrorState, Resolvable } from "../components/redesign";
+import { loadThresholdHref } from "../services/focusTarget";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
 import { ICON_SIZE } from "../theme/tokens/icon";
 
@@ -495,6 +496,8 @@ export default function TrainingLogPage() {
     setImportParams(next, { replace: true });
   }, [requestedSport, sportFilter, importParams, setImportParams]);
   const planOverlay = usePlanRecordOverlay(user?.uid, sportFilter);
+  // 부하 미확인 문구를 누르면 그 종목의 부하 기준값 칸(FTP·역치 페이스·CSS)으로 간다. 전체 보기면 훈련 설정으로.
+  const loadFix = { to: sportFilter === "all" ? "/settings/training" : loadThresholdHref(sportFilter) };
   const planByMonth = planOverlay.plans;
   const setSportFilter = (sport: string) => {
     const next = new URLSearchParams(importParams);
@@ -672,7 +675,7 @@ export default function TrainingLogPage() {
     <PlanRecordNavigation date={recordDate} />
     {/* 계획이 있으면 안내 문구 없이 기록을 바로 보인다. 오류·확인 중·계획 없음만 알린다. */}
     {(planOverlay.state !== "ready" || !planOverlay.plans.size) && <div style={{ marginBottom: "var(--space-3)" }}>
-      <Text as="p" variant="caption" tone="secondary" role={planOverlay.state === "error" ? "alert" : planOverlay.state === "loading" ? "status" : undefined}>{t(planOverlay.state === "error" ? "planRecords.error" : planOverlay.state === "loading" ? "planRecords.loading" : "planRecords.empty")}</Text>
+      <Text as="p" variant="caption" tone="secondary" role={planOverlay.state === "error" ? "alert" : planOverlay.state === "loading" ? "status" : undefined}><Resolvable resolve={planOverlay.state === "ready" ? { to: sportFilter === "all" ? "/coach/goals" : `/coach/goals?sport=${sportFilter}&new=1` } : undefined}>{t(planOverlay.state === "error" ? "planRecords.error" : planOverlay.state === "loading" ? "planRecords.loading" : "planRecords.empty")}</Resolvable></Text>
       {planOverlay.state === "error" && <Button variant="secondary" size="sm" onClick={planOverlay.retry}>{tCommon("button.retry")}</Button>}
     </div>}
   </>;
@@ -736,7 +739,7 @@ export default function TrainingLogPage() {
             { label: t("page.logTotalTime"), value: formatDuration(kpi.time), unit: null, color: "var(--ink-0)" },
             { label: t("page.logTotalElevation"), value: `${kpi.elev}`, unit: "m", color: "var(--amber)" },
             // 추정치가 섞였으면 밝힌다 — 서버 사전계산값과 구분되지 않으면 안 된다 (#2237).
-            { label: t("page.logTotalTSS"), value: kpi.tss == null ? "–" : `${kpi.tss}`, unit: kpi.tssUnknownCount > 0 ? t("log.loadPartial", { count: kpi.tssUnknownCount }) : kpi.tssEstimated ? t("page.tssEstimatedIncluded") : null, color: "var(--rose)" },
+            { label: t("page.logTotalTSS"), value: kpi.tss == null ? "–" : `${kpi.tss}`, unit: kpi.tssUnknownCount > 0 ? <Resolvable resolve={loadFix}>{t("log.loadPartial", { count: kpi.tssUnknownCount })}</Resolvable> : kpi.tssEstimated ? t("page.tssEstimatedIncluded") : null, color: "var(--rose)" },
             { label: t("page.logActivityCount"), value: `${kpi.count}`, unit: t("page.logActivityUnit"), color: "var(--lime)" },
           ].map(({ label, value, unit, color }) => (
             <div key={label} className="training-log-metric">
@@ -901,7 +904,7 @@ export default function TrainingLogPage() {
                     }}>
                       <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)", marginBottom: "var(--space-0-5)" }}><GlossaryText>TSS</GlossaryText></div>
                       <div>{weekLoad.value == null ? "–" : weekLoad.value}{weekLoad.estimated ? t("page.tssEstimated") : ""}</div>
-                      {weekLoad.unknownCount > 0 && <Text variant="caption">{t("log.loadPartial", { count: weekLoad.unknownCount })}</Text>}
+                      {weekLoad.unknownCount > 0 && <Text variant="caption"><Resolvable resolve={loadFix}>{t("log.loadPartial", { count: weekLoad.unknownCount })}</Resolvable></Text>}
                     </div>
                   </div>
                   );

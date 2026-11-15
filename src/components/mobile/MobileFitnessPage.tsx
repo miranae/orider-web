@@ -45,6 +45,10 @@ import TabNav from "../TabNav";
 import { getDisciplineColor } from "../../utils/disciplineFilter";
 import type { Discipline } from "../../utils/disciplineFilter";
 import { Button, Chip, Text, ToggleControls, ToggleButton } from "../../theme/components";
+import { Resolvable, type Resolve } from "../redesign";
+import { useSignInResolve } from "../../hooks/useSignInResolve";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
+import { FOCUS_TARGETS, thresholdSettingsHref } from "../../services/focusTarget";
 import type { SufficiencySet } from "@shared/types/sufficiency";
 import { SufficiencyCard, SufficiencyInline, SufficiencyGroup, isSufficiencyGrouped, findSufficiencyBlock, needsSufficiencyCard } from "../../features/sufficiency/SufficiencyBlock";
 import type { ConsistencyStreakSummary } from "../../utils/consistencyStreak";
@@ -61,6 +65,11 @@ import { PMC_FUTURE_OPACITY, PMC_LINE_PALETTE } from "../../features/fitness/cha
 import type { TodayTrainingDecisionState } from "../../hooks/useTodayTrainingDecision";
 import { canShowRecommendation, decisionAction, primaryEffectiveSession, primaryRecommendedAdjustment, primaryRecommendedSession, primaryScheduledSession } from "../../features/trainingDecision/decisionPresentation";
 import "./MobileFitnessPage.css";
+
+/** 연결·계획 화면으로 가는 해결 경로 — 웹 화면이라 앱 임베드에서는 주지 않는다(문구는 글자 그대로). */
+function useWebResolve(to: string): Resolve | undefined {
+  return useFirebaseServices().scope !== "embedded" ? { to } : undefined;
+}
 
 export type ZoneSource = "power" | "hr" | "none";
 
@@ -176,11 +185,13 @@ function PmcMiniChart({ history, projection, today, ctlColor, ctlLabel, ariaLabe
 }) {
   const [tapIdx, setTapIdx] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const connectionsFix = useWebResolve("/settings/connections");
 
   if (history.length < 2) {
     return (
       <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-4)", fontSize: "var(--fs-xs)" }}>
-        {t("mobileFitness.pmcNoData")}
+        {/* 기록이 모자라다는 문구를 누르면 운동 기록을 들여오는 연결 화면으로 간다. */}
+        <Resolvable resolve={connectionsFix}>{t("mobileFitness.pmcNoData")}</Resolvable>
       </div>
     );
   }
@@ -407,11 +418,12 @@ function WeeklyTssBars({
   color: string;
   t: (key: string, options?: Record<string, unknown>) => string;
 }) {
+  const connectionsFix = useWebResolve("/settings/connections");
   const knownValues = values.filter((value): value is number => value !== null);
   const max = Math.max(1, ...knownValues);
   const labels = values.map((_, i, arr) => t("fitness:weekly.window", { start: (arr.length - 1 - i) * 7, end: (arr.length - i) * 7 - 1 }));
   if (!values.length) return null;
-  if (compact && !knownValues.length) return <Text as="p" variant="bodySmall" tone="secondary">{t("mobileFitness.weeklyUnknown")}</Text>;
+  if (compact && !knownValues.length) return <Text as="p" variant="bodySmall" tone="secondary"><Resolvable resolve={connectionsFix}>{t("mobileFitness.weeklyUnknown")}</Resolvable></Text>;
   return <ol className="mobile-weekly-load" aria-label={t("fitness:weekly.title")}>
     {values.map((value, index) => <li key={index}>
       <Text as="div" variant="bodyMedium" mono>{value === null ? "–" : Math.round(value)}</Text>
@@ -523,6 +535,8 @@ function TodayDecisionPreview({ state, signedIn, hasDetails }: {
   hasDetails: boolean;
 }) {
   const { t } = useTranslation("training");
+  const signInResolve = useSignInResolve();
+  const web = useFirebaseServices().scope !== "embedded";
   const decision = state?.decision;
   const healthStop = decision?.healthGate.state === "stop";
   const scheduled = decision ? primaryScheduledSession(decision) : null;
@@ -545,11 +559,15 @@ function TodayDecisionPreview({ state, signedIn, hasDetails }: {
                 : stateKey === "applied" ? t("decision.status.applied")
                   : stateKey === "recommendation-pending" ? t("decision.status.recommendationPending")
                     : t("decision.status.scheduledOnly");
+  // 상태 문구를 누르면 해소하는 곳 — 로그인, 다시 불러오기, 예정이 없으면 계획 화면.
+  const titleResolve: Resolve | undefined = stateKey === "signed-out" ? signInResolve
+    : stateKey === "unavailable" && state ? { onClick: state.refresh }
+      : stateKey === "no-scheduled" && decision && web ? { to: `/coach/plan?sport=${decision.targetDiscipline}` } : undefined;
   const session = stateKey === "scheduled" || stateKey === "applied" || stateKey === "recommendation-pending" ? effective : null;
   const canOpenDetails = hasDetails && Boolean(decision);
 
   return <div data-mobile-fitness-decision={stateKey} aria-live="polite" style={{ marginTop: "var(--space-1)" }}>
-    <Text as="div" variant="subtitle">{title}</Text>
+    <Text as="div" variant="subtitle"><Resolvable resolve={titleResolve}>{title}</Resolvable></Text>
     {stateKey === "health-stop" && <Text as="p" variant="caption" tone="warning" style={{ margin: "var(--space-1) 0 0" }}>{t("decision.healthStop")}</Text>}
     {session && <Text as="div" variant="bodySmall" style={{ marginTop: "var(--space-1)" }}>
       {t("decision.effective")}: {t(`decision.workout.${session.current.workout}`)} · {t("decision.duration", { value: session.current.durationMin })}
@@ -786,6 +804,8 @@ export default function MobileFitnessPage({
     && !todayDecisionState.loading && !todayDecisionState.decision;
 
   const isBike = data.discipline === "bike";
+  // 본인 체력 화면의 존 기록 없음 문구가 갈 기준값 칸의 종목(앱 임베드는 링크 없이 글자 그대로).
+  const zoneDiscipline = embedded || data.discipline === "tri" ? undefined : data.discipline;
   const loadSet = data.loadSufficiency;
   const loadTrend = findSufficiencyBlock(loadSet, "load_history", "trend");
   const loadForm = findSufficiencyBlock(loadSet, "load_history", "form");
@@ -845,7 +865,7 @@ export default function MobileFitnessPage({
           {isBike && powerCurvePeriodsOwnerUid && <MobilePowerCurvePeriods windowDays={periodWindowDays} nativeActivities={nativePowerActivities} inline={part === "condition" && embedded || part === "analysis" && !embedded} key={powerCurvePeriodsOwnerUid} ownerUid={powerCurvePeriodsOwnerUid} enabled={powerCurvePeriodsEnabled} />}
 
           {/* 두 종목 부하 근거를 파워 우선 선택으로 숨기지 않는다. */}
-          {sectionState.derived === "ready" && (part === "condition" || part === "analysis" && !embedded) && data.zoneEvidence && <FitnessZoneDistributions compact={part === "analysis" && !embedded} evidence={data.zoneEvidence} />}
+          {sectionState.derived === "ready" && (part === "condition" || part === "analysis" && !embedded) && data.zoneEvidence && <FitnessZoneDistributions compact={part === "analysis" && !embedded} evidence={data.zoneEvidence} discipline={zoneDiscipline} />}
 
   </>);
 
@@ -854,7 +874,7 @@ export default function MobileFitnessPage({
   const runCurveContent = ((part === "condition" || mobileAnalysis) && data.discipline === "run" && sectionState.derived === "ready" && <SectionCard specId="K5-2-3" title={t("fitness:criticalPace.title")}>
             {runPaceCurve && (runPaceCurve.recent28.length > 0 || runPaceCurve.prev28.length > 0)
               ? <CriticalPaceCurve stableSelection={!embedded} recentPoints={runPaceCurve.recent28} prevPoints={runPaceCurve.prev28} />
-              : <Text as="p" variant="bodySmall" tone="secondary">{t("fitness:criticalPace.unavailable")}</Text>}
+              : <Text as="p" variant="bodySmall" tone="secondary"><Resolvable resolve={embedded ? undefined : { to: "/settings/connections" }}>{t("fitness:criticalPace.unavailable")}</Resolvable></Text>}
           </SectionCard>);
   const modelContent = (<>
           {part === "analysis" && embedded && isBike && <BikePerformanceSummaryCard compact={!embedded} part="analysis" decision={data.thresholdDecision} pdc={data.pdcSummary} weightKg={data.weightKg} />}
@@ -904,7 +924,10 @@ export default function MobileFitnessPage({
   const thresholdMissingCard = (<>
           {sectionState.derived === "ready" && !runReadiness && !data.threshold && (data.discipline === "run" || data.discipline === "swim") && (
             <SectionCard>
-              <Text variant="body">{t(data.discipline === "run" ? "mobileFitness.thresholdMissingRun" : "mobileFitness.thresholdMissingSwim")}</Text>
+              {/* 내 체력 화면 — 기준값 없음 문구를 누르면 비어 있는 칸으로 간다. */}
+              <Text variant="body"><Resolvable resolve={{ to: data.discipline === "run" ? thresholdSettingsHref("run", FOCUS_TARGETS.thresholdPace) : thresholdSettingsHref("swim", FOCUS_TARGETS.css) }}>
+                {t(data.discipline === "run" ? "mobileFitness.thresholdMissingRun" : "mobileFitness.thresholdMissingSwim")}
+              </Resolvable></Text>
             </SectionCard>
           )}
   </>);
@@ -952,14 +975,18 @@ export default function MobileFitnessPage({
   const hrZonesMissingCard = (<>
           {sectionState.derived === "ready" && !runReadiness && !showZones && (data.discipline === "run" || data.discipline === "swim") && (
             <SectionCard>
-              <Text variant="body"><GlossaryText>{t("mobileFitness.hrZonesMissing")}</GlossaryText></Text>
+              {/* 심박존이 없다는 문구를 누르면 그 종목의 LTHR 칸으로 간다(앱 임베드는 용어 설명 그대로). */}
+              <Text variant="body">{embedded ? <GlossaryText>{t("mobileFitness.hrZonesMissing")}</GlossaryText>
+                : <Resolvable resolve={{ to: thresholdSettingsHref(data.discipline === "swim" ? "swim" : "run", FOCUS_TARGETS.lthr) }}>{t("mobileFitness.hrZonesMissing")}</Resolvable>}</Text>
             </SectionCard>
           )}
   </>);
   const analysisInsufficientNote = (<>
           {sectionState.derived === "ready" && isBike && !showZones && !data.threshold && !(mobileAnalysis && data.powerCurve && (mobileCurveBlock ? !needsSufficiencyCard(data.activityWindowSufficiency!, mobileCurveBlock) && data.powerCurve.length > 0 : data.powerCurve.length >= 2)) && (
             <div style={{ padding: "var(--space-8) var(--space-4)", textAlign: "center", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
-              <GlossaryText>{t("mobileFitness.analysisInsufficient")}</GlossaryText>
+              {/* FTP 가 없어 분석할 수 없다는 문구를 누르면 FTP 칸으로 간다(앱 임베드는 용어 설명 그대로). */}
+              {embedded ? <GlossaryText>{t("mobileFitness.analysisInsufficient")}</GlossaryText>
+                : <Resolvable resolve={{ to: thresholdSettingsHref("bike", FOCUS_TARGETS.ftp) }}>{t("mobileFitness.analysisInsufficient")}</Resolvable>}
             </div>
           )}
   </>);
@@ -1027,7 +1054,7 @@ export default function MobileFitnessPage({
           </AnalysisGroup>
           <AnalysisGroup id="analysis-periods" title={t("fitness:analysis.groups.composition")}>
             {data.discipline !== "tri" && <FitnessPeriodEvidence discipline={data.discipline} inline timeseries={periodTimeseries} windowDays={periodWindowDays} loadSignal={periodLoadSignal} periods={isBike && powerCurvePeriodsOwnerUid && powerCurvePeriodsEnabled ? analysisPeriods : undefined} />}
-            {!periodZonesFromServer && sectionState.derived === "ready" && data.zoneEvidence && <FitnessZoneDistributions compact evidence={data.zoneEvidence} />}
+            {!periodZonesFromServer && sectionState.derived === "ready" && data.zoneEvidence && <FitnessZoneDistributions compact evidence={data.zoneEvidence} discipline={zoneDiscipline} />}
             {!periodZonesFromServer && legacyZonesCard}
             {zoneDefsCard}
             {hrZonesMissingCard}

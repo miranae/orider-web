@@ -51,6 +51,8 @@ import { Button, Card, Chip, Text, Input, buttonClass } from "../theme/component
 import SafeImage from "../components/SafeImage";
 import { hasDefinitiveRiderProfile } from "@shared/training/pdcRiderGate";
 import { ICON_SIZE } from "../theme/tokens/icon";
+import { segmentStatusResolve } from "../components/segment/segmentStatusResolve";
+import { Resolvable } from "../components/redesign";
 
 function uniquePhotos(photos: AthletePhoto[]) {
   const seen = new Set<string>();
@@ -148,7 +150,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const { t, i18n } = useTranslation("athlete");
   const [searchParams] = useSearchParams();
   const isOwnProfile = currentUser?.uid === userId && services.auth.currentUser?.uid === userId;
-  const { groups: ownGroups, loading: groupsLoading, error: groupsError } = useMyGroups(isOwnProfile ? userId : undefined);
+  const { groups: ownGroups, loading: groupsLoading, error: groupsError, retry: retryGroups } = useMyGroups(isOwnProfile ? userId : undefined);
 
   const { data: firestoreProfile, loading: profileLoading } = useDocument<PublicUserProfile>("users_public", userId);
   const { pdc } = usePdc(isOwnProfile ? userId : null);
@@ -170,7 +172,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
 
   const ACTIVITIES_PAGE_SIZE = 20;
   const [displayActivities, setDisplayActivities] = useState<Activity[]>([]);
-  const [activityAttempt] = useState(0);
+  const [activityAttempt, setActivityAttempt] = useState(0);
   const [ownerActivityError, setOwnerActivityError] = useState(false);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -189,7 +191,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
   const [ownChartLoading, setChartLoading] = useState(true);
   const [ownChartError, setChartError] = useState(false);
 
-  const [chartAttempt] = useState(0);
+  const [chartAttempt, setChartAttempt] = useState(0);
   const [chartYear, setChartYear] = useState(() => planCalendarDate(Date.now()).getUTCFullYear());
   const chartSessionRef = useRef(createYearReadSession(userId ?? "", services));
   if (chartSessionRef.current.uid !== (userId ?? "") || chartSessionRef.current.owner !== services.auth.currentUser || chartSessionRef.current.auth !== services.auth || chartSessionRef.current.firestore !== services.firestore || !chartSessionRef.current.valid) {
@@ -282,6 +284,11 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
       scope.busy.delete(kind);
       if (current()) setMediaLoading(value => ({ ...value, [kind]: false }));
     }
+  };
+  // 「미디어 기록을 불러오지 못했습니다」를 누르면 실패한 그 요청을 다시 보낸다(진행 중이면 fetchPreview 가 무시).
+  const retryPreview = (kind: MediaKind) => {
+    const request = lastMediaRequest.current[kind];
+    if (request) void fetchPreview(kind, request.cursor, request.all, request.replace);
   };
   const loadOlderPreview = (kind: MediaKind) => {
     const count = kind === "photos" ? uniquePhotos(ownerPhotos).length : ownerHighlights.length;
@@ -464,6 +471,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     return () => { cancelled = true; };
   }, [userId, isOwnProfile, chartAttempt, chartYear, chartSession, readIdentity]);
 
+  const retryChart = () => setChartAttempt(value => value + 1);
+
   // 4. 서버 검색: keywords array-contains 쿼리
   const handleSearch = () => {
     const kw = searchInput.trim();
@@ -568,6 +577,13 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
     } finally {
       if (profileReadIdentity.current === identity) setLoadingMore(false);
     }
+  };
+
+  // 실패 문구를 누르면 다시 읽는다. 첫 쪽이 실패했으면 처음부터, 더 보기가 실패했으면 그 위치에서 이어 읽는다.
+  // 다시 읽는 동안 두 경로 모두 오류 표시를 먼저 내려 거듭 누를 수 없다.
+  const retryActivities = () => {
+    if (lastActivityDoc || publicActivityCursor) void handleLoadMoreActivities();
+    else setActivityAttempt(value => value + 1);
   };
 
   // Fetch my segments
@@ -943,7 +959,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         )}
       </section>
 
-      {isOwnProfile && !chartLimited && <AthleteRecentSummary activities={acceptedChartActivities} loading={chartLoading} error={chartError} />}
+      {isOwnProfile && !chartLimited && <AthleteRecentSummary activities={acceptedChartActivities} loading={chartLoading} error={chartError} onRetry={retryChart} />}
 
       </div>
       <div className="athlete-profile-layout">
@@ -965,7 +981,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
         {isOwnProfile && !statsReady && <p role="status">{t(totalsError || ownerTotals?.state === "failed" ? "profile.totalsFailed" : "profile.totalsPending")}<Text as="span" variant="caption">{t(ownerTotals?.integrityFailed ? "profile.totalsRestartScope" : "profile.totalsContinueScope")}</Text><Button size="sm" onClick={() => { totalsRetry.current = { identity: readIdentity, epoch: ownerTotals?.epoch, attempt: totalsAttempt + 1 }; setTotalsAttempt(totalsAttempt + 1); }}>{t(ownerTotals?.integrityFailed ? "profile.restartTotals" : "profile.continueTotals")}</Button></p>}
         <Text as="p" variant="caption" tone="secondary" className="mt-2">{t(isOwnProfile ? "stats.scopeOwn" : "stats.scopePublic")}</Text>
       </section>
-          {isOwnProfile && <section><h2 className="athlete-sidebar-title">{t("profile.clubs")}</h2>{groupsLoading ? <p role="status">{t("activities.loading")}</p> : groupsError ? <div role="alert"><p>{t("profile.clubsError")}</p></div> : <div className="athlete-clubs">{ownGroups.map(group => <Link key={group.id} to={`/club/${group.id}`}><span className="athlete-club-badge">{group.badge || group.name.slice(0, 3)}</span><span>{group.name}</span></Link>)}{!ownGroups.length && <Link to="/clubs">{t("profile.findClubs")}</Link>}</div>}</section>}
+          {isOwnProfile && <section><h2 className="athlete-sidebar-title">{t("profile.clubs")}</h2>{groupsLoading ? <p role="status">{t("activities.loading")}</p> : groupsError ? <div role="alert"><p><Resolvable resolve={{ onClick: retryGroups }}>{t("profile.clubsError")}</Resolvable></p></div> : <div className="athlete-clubs">{ownGroups.map(group => <Link key={group.id} to={`/club/${group.id}`}><span className="athlete-club-badge">{group.badge || group.name.slice(0, 3)}</span><span>{group.name}</span></Link>)}{!ownGroups.length && <Link to="/clubs">{t("profile.findClubs")}</Link>}</div>}</section>}
           {/* Friends List */}
           {canViewFriends && <Card data-testid="P0-4" padding="none" className="rounded-[var(--r-lg)] overflow-hidden">
             <div className="px-4 py-3 border-b border-[var(--line-soft)] flex items-center justify-between">
@@ -1032,6 +1048,8 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                       <p className="text-[length:var(--fs-sm)] font-medium text-[var(--ink-0)] truncate">{seg.name}</p>
                       <p className="text-[length:var(--fs-xs)] text-[var(--ink-3)]">{(seg.distance / 1000).toFixed(2)} km</p>
                     </Link>
+                    {/* 본인 세그먼트의 상태 칩을 누르면 해소하는 곳(반려 → 다시 만들기, 숨김·대기 → 문의)으로 간다. */}
+                    <Resolvable className="shrink-0" resolve={segmentStatusResolve(seg.status, isMe)}>
                     <span className={`ml-2 px-2 py-0.5 text-[length:var(--fs-xs)] font-semibold rounded-[var(--r-sm)] shrink-0 ${
                       seg.status === "active" ? "bg-[var(--lime)]/10 text-[var(--lime)]" :
                       seg.status === "pending" ? "bg-[var(--amber)]/10 text-[var(--amber)]" :
@@ -1040,6 +1058,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
                     }`}>
                       {seg.status === "active" ? t("segments.status.active") : seg.status === "pending" ? t("segments.status.pending") : seg.status === "rejected" ? t("segments.status.rejected") : seg.status}
                     </span>
+                    </Resolvable>
                     {isMe && (
                       <Button size="sm" variant="ghost" iconOnly onClick={() => handleDeleteSegment(seg.id, seg.name)} aria-label={t("segments.deleteTitle")}><Trash2 size={ICON_SIZE.md} aria-hidden="true" /></Button>
                     )}
@@ -1054,14 +1073,14 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
           <nav aria-label={t("profile.sections")}>
             <TabNav tabs={(["overview", "activities", "photos", "achievements", "segments"] as const).map(id => ({ id, label: t(`profile.tabs.${id}`) }))} activeTab={profileTab} onChange={id => setProfileTab(id as typeof profileTab)} />
           </nav>
-          {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2>{isOwnProfile && recentPhotos.length === 0 ? <p>{t("profile.noMediaInPages")}</p> : <AthletePhotoGallery photos={recentPhotos} />}{isOwnProfile && <>{mediaLoading.photos && <p role="status">{t("profile.mediaLoading")}</p>}{mediaErrors.photos && <p role="alert">{t("profile.mediaError")}</p>}{mediaCurrent && (photosBuffered || photoCursor) && <Button size="sm" disabled={mediaLoading.photos} onClick={() => loadOlderPreview("photos")}>{t(photosBuffered ? "profile.moreCachedPhotos" : "profile.olderPhotoActivities")}</Button>}</>}</section>}
-          {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t(isOwnProfile ? "profile.noMediaInPages" : "profile.noHighlights")}</p>}{isOwnProfile && <>{mediaLoading.highlights && <p role="status">{t("profile.mediaLoading")}</p>}{mediaPending.highlights > 0 && <p role="status">{t("profile.mediaPending", { count: mediaPending.highlights })}</p>}{mediaErrors.highlights && <p role="alert">{t("profile.mediaError")}</p>}{mediaCurrent && (highlightsBuffered || highlightCursor) && <Button size="sm" disabled={mediaLoading.highlights} onClick={() => loadOlderPreview("highlights")}>{t(highlightsBuffered ? "profile.moreCachedHighlights" : "profile.olderHighlightActivities")}</Button>}</>}</section>}
+          {(profileTab === "overview" || profileTab === "photos") && <section className="athlete-profile-section"><h2>{t("profile.recentPhotos")}</h2>{isOwnProfile && recentPhotos.length === 0 ? <p>{t("profile.noMediaInPages")}</p> : <AthletePhotoGallery photos={recentPhotos} />}{isOwnProfile && <>{mediaLoading.photos && <p role="status">{t("profile.mediaLoading")}</p>}{mediaErrors.photos && <p role="alert"><Resolvable resolve={{ onClick: () => retryPreview("photos") }}>{t("profile.mediaError")}</Resolvable></p>}{mediaCurrent && (photosBuffered || photoCursor) && <Button size="sm" disabled={mediaLoading.photos} onClick={() => loadOlderPreview("photos")}>{t(photosBuffered ? "profile.moreCachedPhotos" : "profile.olderPhotoActivities")}</Button>}</>}</section>}
+          {(profileTab === "overview" || profileTab === "achievements") && <section className="athlete-profile-section"><h2>{t("profile.highlights")}</h2>{highlights.length ? <ul className="athlete-highlights">{highlights.map((item, index) => <li key={`${item.activityId}-${item.segmentId}-${index}`}><Link to={`/activity/${item.activityId}?tab=segments`}>{item.segmentName} <strong>{item.type}</strong> <span>({item.time})</span></Link></li>)}</ul> : <p>{t(isOwnProfile ? "profile.noMediaInPages" : "profile.noHighlights")}</p>}{isOwnProfile && <>{mediaLoading.highlights && <p role="status">{t("profile.mediaLoading")}</p>}{mediaPending.highlights > 0 && <p role="status">{t("profile.mediaPending", { count: mediaPending.highlights })}</p>}{mediaErrors.highlights && <p role="alert"><Resolvable resolve={{ onClick: () => retryPreview("highlights") }}>{t("profile.mediaError")}</Resolvable></p>}{mediaCurrent && (highlightsBuffered || highlightCursor) && <Button size="sm" disabled={mediaLoading.highlights} onClick={() => loadOlderPreview("highlights")}>{t(highlightsBuffered ? "profile.moreCachedHighlights" : "profile.olderHighlightActivities")}</Button>}</>}</section>}
           {segmentsMore && <button type="button" disabled={segmentsBusy} onClick={loadMoreSegments}>{t("common:button.more")}</button>}
           {profileTab === "segments" && <section className="athlete-profile-section"><h2>{t("segments.othersTitle")}</h2>{mySegments.length ? <ul className="athlete-highlights">{mySegments.map(segment => <li key={segment.id}><Link to={`/segment/${segment.id}`}>{segment.name} · {(segment.distance / 1000).toFixed(2)} km</Link></li>)}</ul> : <p>{t("profile.noSegments")}</p>}</section>}
           {(profileTab === "overview" || profileTab === "activities") && <>
           {/* 종목 선택은 운동일지·코치와 같은 종목 탭으로 그린다(드롭다운 X). */}
           <div className="athlete-section-heading"><SportFilterTabs value={sport} onChange={setSport} /></div>
-          {!isOwnProfile ? <AthletePublicPeriodExplorer key={userId} targetUid={userId!} /> : chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p>{t(chartLimited ? "publicDiscoveryLimit" : "monthly.error")}</p></div> : <AthleteActivityChart selectedYear={chartYear} availableYears={athleteProfileYears(chartSession, chartYear)} onYearChange={setChartYear} loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
+          {!isOwnProfile ? <AthletePublicPeriodExplorer key={userId} targetUid={userId!} /> : chartLoading ? <p role="status">{t("monthly.loading")}</p> : chartError ? <div role="alert"><p><Resolvable resolve={chartLimited ? undefined : { onClick: retryChart }}>{t(chartLimited ? "publicDiscoveryLimit" : "monthly.error")}</Resolvable></p></div> : <AthleteActivityChart selectedYear={chartYear} availableYears={athleteProfileYears(chartSession, chartYear)} onYearChange={setChartYear} loadActivities={sport === "all" ? acceptedLoadActivities : acceptedLoadActivities.filter(activity => getDiscipline(activity.type) === sport)} activities={sport === "all" ? acceptedChartActivities : acceptedChartActivities.filter(activity => getDiscipline(activity.type) === sport)} selected={selectedPeriod} onSelect={setSelectedPeriod} />}
 
       {isOwnProfile && <div data-testid="P0-3"><RouteTabNav revealActive tabs={[
         { to: "/athlete/me", label: t("self.overview"), end: true },
@@ -1119,7 +1138,7 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             </div>}
           </div>
 
-          {isOwnProfile && ownerActivityError && <div role="alert"><Text as="p">{t("profile.activitiesReadError")}</Text></div>}
+          {isOwnProfile && ownerActivityError && <div role="alert"><Text as="p"><Resolvable resolve={{ onClick: retryActivities }}>{t("profile.activitiesReadError")}</Resolvable></Text></div>}
           
           <div className="relative z-0 space-y-4">
             {(activitiesLoading || searchLoading) ? (
@@ -1131,7 +1150,9 @@ export default function AthletePage({ meUserId }: { meUserId?: string } = {}) {
             ) : filteredActivities.length === 0 ? (
               <Card padding="none" className="text-center py-12 rounded-[var(--r-xl)]">
                 <p className="text-[var(--ink-3)]">
-                  {isSearchActive ? t("activities.emptySearch") : isOwnProfile && !selectedPeriod && hasMoreActivities ? t("profile.noMatchesInLoaded") : t("activities.empty")}
+                  {isSearchActive ? t("activities.emptySearch") : isOwnProfile && !selectedPeriod && hasMoreActivities ? t("profile.noMatchesInLoaded")
+                    // 내 프로필의 「아직 활동 내역이 없어요」 → 활동 가져오기 창.
+                    : <Resolvable resolve={isOwnProfile && !selectedPeriod ? { to: "/athlete/me/activities?import=1" } : undefined}>{t("activities.empty")}</Resolvable>}
                 </p>
                 {isSearchActive && (
                   <Button size="sm" variant="ghost"

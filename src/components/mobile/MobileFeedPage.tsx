@@ -40,6 +40,7 @@ import { formatDistance, formatElev, formatPace, formatSpeed } from "../../utils
 import { isImplausibleActivityHeartRate } from "../../utils/activitySanity";
 import "./MobileFeedPage.css";
 import { ICON_SIZE } from "../../theme/tokens/icon";
+import { Resolvable } from "../redesign/states/Resolvable";
 
 const MOBILE_FEED_RENDER_STEP = 20;
 const MOBILE_FEED_RENDER_INITIAL = 20;
@@ -433,6 +434,12 @@ export default function MobileFeedPage({
     renderKey, user, authLoading || (searchActive ? activitySearch!.loading : loading) ? null
       : (searchActive ? activitySearch!.error : error) ? "error" : filteredActivities.length ? "success" : "empty");
   const hasHiddenLocalItems = filteredActivities.length > renderedActivities.length;
+  // 경고 문구를 누르면 해소하는 곳으로 — 지금 주소의 다른 조건은 두고 해당 조건만 바꾼 주소로 간다.
+  const feedHref = (changes: Record<string, string>) => {
+    const params = new URLSearchParams(location.search);
+    for (const [key, value] of Object.entries(changes)) params.set(key, value);
+    return `${location.pathname}?${params}`;
+  };
   const supportingCards = (
     <>
       {showYearRecapBanner && (
@@ -448,7 +455,8 @@ export default function MobileFeedPage({
     </>
   );
 
-  if (unavailableMessage) return <div role="status" style={{ padding: "var(--space-6)" }}><Text as="p" variant="bodySmall" tone="secondary">{unavailableMessage}</Text></div>;
+  // 구독 범위를 아직 쓸 수 없다는 문구를 누르면 전체 범위로 바꾼다.
+  if (unavailableMessage) return <div role="status" style={{ padding: "var(--space-6)" }}><Text as="p" variant="bodySmall" tone="secondary"><Resolvable resolve={{ to: feedHref({ scope: "all" }) }}>{unavailableMessage}</Resolvable></Text></div>;
   return (
     <div className="dashboard-home" data-testid="H1-2" style={{ overscrollBehavior: "contain" }}>
       <Text as="h1" className="sr-only">{t("mobileFeed.homeTitle")}</Text>
@@ -483,7 +491,10 @@ export default function MobileFeedPage({
         <div style={{ padding: "var(--space-8) var(--space-6)", textAlign: "center" }}>
           <div aria-hidden="true" style={{ fontSize: "var(--fs-4xl)", marginBottom: 'var(--space-3)' }}>{sportFilter === "all" ? getDisciplineIcon(null) : <SportIcon sport={sportFilter} size={ICON_SIZE.xl} style={{ margin: "0 auto" }} />}</div>
           <div style={{ fontSize: "var(--fs-sm)", fontWeight: 600, color: "var(--ink-0)", marginBottom: 'var(--space-2)' }}>{(searchActive && activitySearch!.hasMoreServerResults || moreCandidates) ? t("feed.search.morePossibleTitle") : searchActive ? t("feed.search.emptyTitle") : showNoMatches ? t("feed.noMatches.title") : t("mobileFeed.emptyTitle")}</div>
-          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)" }}>{(searchActive && activitySearch!.hasMoreServerResults || moreCandidates) ? t("feed.search.morePossibleDescription") : searchActive ? t("feed.search.emptyDescription") : showNoMatches ? t("feed.noMatches.description") : t("mobileFeed.emptyDesc")}</div>
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-2)" }}>{(searchActive && activitySearch!.hasMoreServerResults || moreCandidates) ? t("feed.search.morePossibleDescription") : searchActive ? t("feed.search.emptyDescription")
+            // 「필터나 기간을 바꿔…」 → 종목·기간을 전체로, 「Strava를 연동하거나…」 → 연결 화면.
+            : showNoMatches ? <Resolvable resolve={feedFiltersActive ? { to: feedHref({ sport: "all", date: "all" }) } : undefined}>{t("feed.noMatches.description")}</Resolvable>
+            : <Resolvable resolve={signedIn ? { to: "/settings/connections" } : undefined}>{t("mobileFeed.emptyDesc")}</Resolvable>}</div>
           {signedIn && !searchActive && !hasMore && activities.length === 0 && !showNoMatches && <div className="flex gap-3 mt-3"><a href={ORIDER_PLAY_STORE_URL}>Google Play</a><a href={ORIDER_APP_STORE_URL}>App Store</a><Link to="/athlete/me/activities?import=1">{t("todayStrip.importHistory")}</Link></div>}
 
         </div>

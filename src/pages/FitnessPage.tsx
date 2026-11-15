@@ -43,7 +43,8 @@ import TrainingStatusCard from "../components/fitness/TrainingStatusCard";
 import GuestValuePreview from "../components/guest/GuestValuePreview";
 import MobileFitnessPage from "../components/mobile/MobileFitnessPage";
 import { LocalizedLink as Link } from "../components/LocalizedLink";
-import { EmptyState, ErrorState, LoadingSkeleton } from "../components/redesign";
+import { EmptyState, ErrorState, LoadingSkeleton, Resolvable } from "../components/redesign";
+import { trainingStatusResolve } from "../components/fitness/TrainingStatusCard";
 import DetailsSection from "../components/redesign/DetailsSection";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import { RevalidatingIndicator } from "../components/training/RevalidatingIndicator";
@@ -251,12 +252,14 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
     ? (((currentPoint?.ctl ?? 0) - rampStartPoint.ctl) / RAMP_WINDOW_DAYS) * 7
     : null;
 
+  // 훈련 상태 실패 문구를 눌러 다시 불러온다. 불러오는 중에는 거듭 눌러도 새 요청을 내지 않는다.
+  const retryTrainingDecision = () => { if (!trainingDecision.loading) trainingDecision.refresh(); };
   const currentStatusSlot = discipline !== "tri" && currentPoint ? getRuntimeConfig().trainingDecisionCanonicalEnabled && !trainingDecision.envelope
-    ? <Text as="p" variant="bodySmall" tone="secondary">{t(trainingDecision.paused ? "trainingStatus.state.paused" : trainingDecision.display === "error" ? "trainingStatus.state.error" : trainingDecision.display === "empty" ? "trainingStatus.state.empty" : "trainingStatus.state.loading")}</Text>
+    ? <Text as="p" variant="bodySmall" tone="secondary"><Resolvable resolve={trainingDecision.paused ? undefined : trainingStatusResolve(trainingDecision.display, retryTrainingDecision, !embedded)}>{t(trainingDecision.paused ? "trainingStatus.state.paused" : trainingDecision.display === "error" ? "trainingStatus.state.error" : trainingDecision.display === "empty" ? "trainingStatus.state.empty" : "trainingStatus.state.loading")}</Resolvable></Text>
     : <TrainingStatusCard embedded presentation={part === "condition" ? "story" : "compact"}
     tsb={currentPoint.tsb} ctl={currentPoint.ctl} atl={currentPoint.atl} ctlRampPerWeek={ctlRampPerWeek}
     sport={discipline} decision={trainingDecision.envelope} decisionDisplay={trainingDecision.display}
-    decisionPaused={trainingDecision.paused} /> : null;
+    decisionPaused={trainingDecision.paused} onRetry={retryTrainingDecision} /> : null;
   const futureGoal = activeGoal && fitnessTodayKey(activeGoal.eventDate, model.fitnessDateKeyBasis) >= fitnessTodayKey(Date.now(), model.fitnessDateKeyBasis) ? activeGoal : null;
   const goalSummary = <>
           {/* 목표 요약 스트립 */}
@@ -389,7 +392,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
         {part === "all" && discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
           <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
         </div>}
-        <ErrorState title={t("error.dataFailed")} description={error} />
+        <ErrorState title={t("error.dataFailed")} description={error} resolve={{ onClick: model.retryLoad }} />
       </div>
     );
   }
@@ -646,7 +649,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           {part === "all" && discipline !== "tri" && <div style={{ marginBottom: "var(--space-5)" }}>
             <TodayTrainingDecisionCard user={user} discipline={discipline} surface="fitness" />
           </div>}
-          <ErrorState title={t("error.dataFailed")} description={error} />
+          <ErrorState title={t("error.dataFailed")} description={error} resolve={{ onClick: model.retryLoad }} />
         </div>
       </div>
     );
@@ -974,7 +977,7 @@ function FitnessViewContent({ embedded = false, part = "all", model, thresholdsS
           {part === "condition" && periodPowerCard}
 </>;
 
-  const zoneDistributionCard = part === "condition" || !embedded && part === "analysis" ? <FitnessZoneDistributions evidence={model.zoneEvidence} compact={!embedded && part === "analysis"} /> : <>
+  const zoneDistributionCard = part === "condition" || !embedded && part === "analysis" ? <FitnessZoneDistributions evidence={model.zoneEvidence} compact={!embedded && part === "analysis"} discipline={embedded || discipline === "tri" ? undefined : discipline} /> : <>
         {/* 존 분포 — 단독 풀폭 (오늘의 권장은 상단 hero 로 이동) */}
         {!runReadiness && <div data-testid="K5-3" style={{ marginTop: 'var(--space-5)' }}>
           <Card padding="none" style={{ padding: 'var(--space-5)' }}>

@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Alert, Button, Card, Text } from "../../../theme/components";
 import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../../services/errorLogger";
+import { Resolvable } from "../../../components/redesign";
 
 const ACTION_CODES = [
   "CHECK_TIRE_PRESSURE",
@@ -275,7 +276,8 @@ export function EquipmentSignalCard({
           <Text as="h3" variant="title" id={`equipment-signal-title-${projection.signalId}`}>
             {t(`${guidanceKey}.title`)}
           </Text>
-          <Text as="p" tone="secondary" className="mt-2">{t(`${guidanceKey}.body`)}</Text>
+          {/* 센서 점검 안내는 기기·센서 설정으로 — 나머지(타이어·브레이크·구동계)는 웹에서 고칠 곳이 없어 글자 그대로. */}
+          <Text as="p" tone="secondary" className="mt-2"><Resolvable resolve={projection.actionCode === "CHECK_SENSOR" ? { to: "/settings/device" } : undefined}>{t(`${guidanceKey}.body`)}</Resolvable></Text>
         </div>
         <Button
           className="shrink-0"

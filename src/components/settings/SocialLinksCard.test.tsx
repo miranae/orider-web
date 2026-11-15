@@ -24,6 +24,9 @@ vi.mock("../../services/socialAuth", () => ({
 }));
 import { SocialLinksCard } from "./SocialLinksCard";
 
+/** 「마지막 로그인 수단」 알림 문구를 누르면 다른 로그인 수단의 연결 버튼으로 간다. */
+const LAST_LOGIN_RESOLVE = { resolve: { to: "/settings/account?focus=social-links" } };
+
 describe("SocialLinksCard", () => {
   beforeEach(() => {
     mocks.user = { uid: "u1", isAnonymous: false, providerData: [] };
@@ -44,6 +47,26 @@ describe("SocialLinksCard", () => {
     expect(mocks.start).toHaveBeenCalledWith("kakao", "link", "/settings/account");
   });
 
+  it("reloads linked state when the load failure message is tapped", async () => {
+    mocks.list.mockReset().mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce([{ provider: "naver", linkedAt: 1 }]);
+    render(<SocialLinksCard />, { wrapper: MemoryRouter });
+    fireEvent.click(await screen.findByRole("button", { name: "pane.account.socialLoadFailed" }));
+    expect(await screen.findByText("pane.account.socialLinked")).toBeInTheDocument();
+    expect(mocks.list).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("ignores repeated taps on the failure message while a reload is in flight", async () => {
+    let resolveRetry: (value: unknown) => void = () => {};
+    mocks.list.mockReset().mockRejectedValueOnce(new Error("offline")).mockImplementationOnce(() => new Promise(resolve => { resolveRetry = resolve; }));
+    render(<SocialLinksCard />, { wrapper: MemoryRouter });
+    const message = await screen.findByRole("button", { name: "pane.account.socialLoadFailed" });
+    fireEvent.click(message); fireEvent.click(message); fireEvent.click(message);
+    expect(mocks.list).toHaveBeenCalledTimes(2);
+    resolveRetry([{ provider: "naver", linkedAt: 1 }]);
+    expect(await screen.findByText("pane.account.socialLinked")).toBeInTheDocument();
+  });
+
   it("links Discord to the signed-in account", async () => {
     render(<SocialLinksCard />, { wrapper: MemoryRouter });
     const button = within(screen.getByTestId("S1-4-1-discord")).getByRole("button", { name: "pane.account.socialLinkBtn" });
@@ -56,7 +79,7 @@ describe("SocialLinksCard", () => {
     mocks.unlink.mockRejectedValue({ code: "functions/failed-precondition" });
     render(<SocialLinksCard />, { wrapper: MemoryRouter });
     fireEvent.click(await screen.findByRole("button", { name: "pane.account.socialUnlinkBtn" }));
-    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error"));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error", LAST_LOGIN_RESOLVE));
   });
 
   it("discards old-account results after the signed-in owner changes", async () => {
@@ -90,8 +113,22 @@ describe("SocialLinksCard", () => {
     const row = screen.getByTestId("S1-4-1-strava");
     fireEvent.click(await within(row).findByRole("button", { name: "pane.account.socialUnlinkBtn" }));
     await waitFor(() => expect(mocks.confirm).toHaveBeenCalledWith("pane.account.stravaUnlinkConfirm", { destructive: true }));
-    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.stravaSyncActive", "error"));
-    expect(mocks.showToast).not.toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error");
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.stravaSyncActive", "error",
+      { resolve: { to: "/settings/connections" } }));
+    expect(mocks.showToast.mock.calls.some(([message]) => message === "pane.account.socialUnlinkLast")).toBe(false);
+  });
+
+  it("marks the first unlinked sign-in method as the social-links focus target", async () => {
+    mocks.user = { uid: "u1", isAnonymous: false, providerData: [{ providerId: "google.com" }] };
+    render(<SocialLinksCard />, { wrapper: MemoryRouter });
+    const kakao = within(screen.getByTestId("S1-4-1-kakao")).getByRole("button", { name: "pane.account.socialLinkBtn" });
+    await waitFor(() => expect(kakao).toHaveAttribute("data-focus-target", "social-links"));
+    expect(document.querySelectorAll('[data-focus-target="social-links"]')).toHaveLength(1);
+  });
+
+  it("focuses the Google connect button first when Google is not linked", () => {
+    render(<SocialLinksCard />, { wrapper: MemoryRouter });
+    expect(within(screen.getByTestId("S1-4-1-google")).getByRole("button")).toHaveAttribute("data-focus-target", "social-links");
   });
 
   it("renders nothing for anonymous users and does not call the server", () => {
@@ -129,7 +166,7 @@ describe("SocialLinksCard", () => {
     await waitFor(() => expect(mocks.list).toHaveBeenCalled());
     await waitFor(() => expect(within(screen.getByTestId("S1-4-1-naver")).getByRole("button", { name: "pane.account.socialLinkBtn" })).toBeInTheDocument());
     fireEvent.click(within(screen.getByTestId("S1-4-1-google")).getByRole("button", { name: "pane.account.socialUnlinkBtn" }));
-    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error"));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error", LAST_LOGIN_RESOLVE));
     expect(mocks.confirm).not.toHaveBeenCalled();
     expect(mocks.unlinkGoogle).not.toHaveBeenCalled();
   });
@@ -140,7 +177,7 @@ describe("SocialLinksCard", () => {
     render(<SocialLinksCard />, { wrapper: MemoryRouter });
     await waitFor(() => expect(within(screen.getByTestId("S1-4-1-naver")).getByRole("button", { name: "pane.account.socialUnlinkBtn" })).toBeInTheDocument());
     fireEvent.click(within(screen.getByTestId("S1-4-1-google")).getByRole("button", { name: "pane.account.socialUnlinkBtn" }));
-    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error"));
+    await waitFor(() => expect(mocks.showToast).toHaveBeenCalledWith("pane.account.socialUnlinkLast", "error", LAST_LOGIN_RESOLVE));
   });
 
   it("logs and reports a failed Google unlink", async () => {

@@ -28,7 +28,6 @@ import CoursePreview, {
 import { useClubMeeting } from "../../features/club-preparation/useClubMeeting";
 import {
   clearMeetingRequestId,
-  copyClubMeeting,
   meetingRequestId,
   newClubMeeting,
 } from "../../features/club-preparation/meetingCopy";
@@ -66,8 +65,7 @@ export default function ClubMeetingPage({
     error: groupError,
     retry: retryGroup,
   } = useGroup(groupId, `${user?.uid ?? ""}:${role ?? ""}`);
-  const sourceId =
-    mode === "new" ? (search.get("copyFrom") ?? undefined) : meetingId;
+  const sourceId = mode === "new" ? undefined : meetingId;
   const authoringScope = `${user?.uid ?? ""}/${groupId ?? ""}/${mode}/${sourceId ?? ""}`;
   const currentAuthoringScope = useRef(authoringScope);
   currentAuthoringScope.current = authoringScope;
@@ -136,6 +134,7 @@ export default function ClubMeetingPage({
           "이 모임의 주최자만 수정할 수 있어요.",
           "Only this meeting’s host can edit it.",
         )}
+        resolve={{ to: `/club/${groupId}/meetings/${meetingId}` }}
       />
     );
   const kinds = [
@@ -195,9 +194,9 @@ export default function ClubMeetingPage({
               `/club/${group.id}/meetings/${data.eventId}/edit?focus=course-ready`,
             )
           }
-          onCopy={() =>
+          onPrepareCourse={() =>
             navigate(
-              `/club/${group.id}/meetings/new?copyFrom=${encodeURIComponent(data.eventId)}`,
+              `/club/${group.id}/meetings/${data.eventId}/edit?focus=course`,
             )
           }
         />
@@ -206,17 +205,16 @@ export default function ClubMeetingPage({
           key={`${user.uid}/${group.id}/${mode}/${sourceId ?? "new"}`}
           state={state}
           initial={
-            mode === "edit" && data
-              ? data.meeting
-              : mode === "new" && data
-                ? copyClubMeeting(data.meeting)
-                : newClubMeeting()
+            mode === "edit" && data ? data.meeting : newClubMeeting()
           }
-          draftNamespace={`${encodeURIComponent(user.uid)}.${encodeURIComponent(group.id)}.${mode === "new" ? (sourceId ? `copy-${encodeURIComponent(sourceId)}` : "new") : "edit"}`}
+          draftNamespace={`${encodeURIComponent(user.uid)}.${encodeURIComponent(group.id)}.${mode === "new" ? "new" : "edit"}`}
           initialRevision={mode === "edit" ? data?.revision : undefined}
           english={en}
           focusCourseReady={
             mode === "edit" && search.get("focus") === "course-ready"
+          }
+          focusCoursePreparation={
+            mode === "edit" && search.get("focus") === "course"
           }
           onClose={() => navigate(`/club/${group.id}`)}
           onSave={async (meeting, baseRevision) => {
@@ -263,7 +261,7 @@ function ServerMeetingDetail({
   loadOlderNotices,
   onEdit,
   onConfirmCourse,
-  onCopy,
+  onPrepareCourse,
 }: {
   data: ClubMeetingSnapshot;
   uid: string;
@@ -273,7 +271,7 @@ function ServerMeetingDetail({
   loadOlderNotices: () => Promise<void>;
   onEdit: () => void;
   onConfirmCourse: () => void;
-  onCopy: () => void;
+  onPrepareCourse: () => void;
 }) {
   const { setClubMeetingRecruitment, cancelClubMeeting, clubMeetingAttendance, publishClubMeetingNotice, confirmClubMeetingNotice, saveClubMeetingTeams, finishClubMeeting } = useClubMeetingsApi();
   const text = (ko: string, english: string) => (en ? english : ko);
@@ -611,6 +609,7 @@ function ServerMeetingDetail({
             descriptionMode="course-only"
             onEdit={data.isHost && live ? onEdit : undefined}
             onConfirmCourse={data.isHost && live ? onConfirmCourse : undefined}
+            onPrepareCourse={data.isHost && live ? onPrepareCourse : undefined}
           />
         </div>
       </div>
@@ -647,9 +646,6 @@ function ServerMeetingDetail({
           <h2>{text("모임 운영", "Manage meeting")}</h2>
           <div className="cp-actions">
             {live && <Button disabled={busy} onClick={() => setConfirmingFinish(true)}>{text("모임 마무리", "Finish meeting")}</Button>}
-            <Button disabled={busy} onClick={onCopy}>
-              {text("복사해 새 모임", "Copy to a new meeting")}
-            </Button>
           </div>
           {live && confirmingFinish && <div role="group" aria-label={text("모임 마무리 확인", "Confirm meeting completion")}>
             <p>{text("모임을 마무리하면 신규 참가와 위치·심박 공유가 끝납니다. 각자의 기록은 삭제되지 않으며 업로드가 남은 기록은 확인 대기로 표시됩니다.", "Finishing closes new participation and location/heart-rate sharing. Individual recordings are preserved; outstanding uploads remain pending.")}</p>
@@ -944,14 +940,6 @@ function ServerMeetingDetail({
             </div>
           )}
         </Card>
-      )}
-      {!data.isHost && (
-        <Link
-          className={buttonClass({ variant: "outline" })}
-          to={`/club/${data.groupId}/meetings/new?copyFrom=${encodeURIComponent(data.eventId)}`}
-        >
-          {text("복사해 새 모임", "Copy to a new meeting")}
-        </Link>
       )}
     </div>
   );

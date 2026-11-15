@@ -6,6 +6,7 @@ import { LocalizedLink } from "../../components/LocalizedLink";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, DropdownSelect, Button, Text } from "../../theme/components";
+import { Resolvable } from "../../components/redesign";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { createTrainingExecutionClient } from "../../services/trainingExecutionClient";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
@@ -251,7 +252,9 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
         <label><Text as="span" variant="caption" tone="secondary">{t("decision.execution.activityPicker")}</Text>
           <DropdownSelect disabled={busy || activitiesLoading || activitiesError} label={t("decision.execution.activityPicker")} value={String(selectedActivityId)} onChange={next => setSelectedActivityId(next)} options={[{ value: String(""), label: activitiesLoading ? t("decision.execution.activityLoading") : t("decision.execution.activitySelect") }, ...activityChoices.map((activity) => ({ value: String(activity.id), label: `${new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(activity.startTime))}${` · ${t(`discipline.${getDiscipline(activity.type)}`)}`}` }))]} />
         </label>
-        {!activitiesLoading && !activitiesError && activityChoices.length === 0 && <Text as="p" variant="caption" tone="secondary">{t("decision.execution.noActivities")}</Text>}
+        {!activitiesLoading && !activitiesError && activityChoices.length === 0 && <Text as="p" variant="caption" tone="secondary">
+          {/* 연결할 활동이 없다는 문구를 누르면 활동을 들여오는 연결 화면으로 간다(웹에서만). */}
+          <Resolvable resolve={services.scope !== "embedded" ? { to: "/settings/connections" } : undefined}>{t("decision.execution.noActivities")}</Resolvable></Text>}
         <Button size="sm" disabled={busy || activitiesLoading || activitiesError || !selectedActivity} data-testid="K2-3-11" onClick={() => void link()}>{t("decision.execution.link")}</Button>
       </div>}
       {decision.capabilities.execution.outcome === "available" && execution.outcomeStatus === "pending"
@@ -265,7 +268,8 @@ function ExecutionSession({ decision, session, initialExecution, onChanged }: { 
           <Button size="sm" variant="ghost" disabled={!postponedTo} data-testid="K2-4-3" onClick={() => void outcome("postponed")}>{t("decision.execution.postpone")}</Button></>}
       </div>}
     </>}
-    {error && <Alert variant="warning" title={t("decision.execution.error")} />}
+    {/* 저장 실패 문구를 누르면 오늘 결정을 다시 불러와 현재 실행 상태로 맞춘다(문구는 누르면 사라진다). */}
+    {error && <Alert variant="warning" title={<Resolvable resolve={{ onClick: () => { if (busy) return; setError(false); onChanged(); } }}>{t("decision.execution.error")}</Resolvable>} />}
   </article>;
 }
 

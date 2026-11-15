@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderWithProviders } from "../__tests__/utils/renderWithProviders";
+import { simulateLogout } from "../__tests__/mocks/firebase";
 import PlanPage from "./PlanPage";
 
 const mocks = vi.hoisted(() => ({
@@ -132,6 +133,14 @@ it("reports a saved-plan refresh failure separately and retries the full load", 
   act(() => (mocks.editorProps?.onUpdate as () => void)());
   await waitFor(() => expect(retry).toHaveBeenCalledOnce());
   expect(refresh).toHaveBeenCalledOnce();
-  expect(mocks.toast).toHaveBeenCalledWith(expect.stringMatching(/저장.*불러오/), "error");
+  expect(mocks.toast).toHaveBeenCalledWith(expect.stringMatching(/저장.*불러오/), "error", { resolve: { onClick: expect.any(Function) } });
   expect(screen.queryByTestId("workout-editor")).not.toBeInTheDocument();
+  // 알림 문구를 누르면 같은 계정일 때만 계획을 다시 불러온다.
+  const resolve = (mocks.toast.mock.calls.at(-1)?.[2] as { resolve: { onClick: () => void } }).resolve;
+  resolve.onClick();
+  expect(retry).toHaveBeenCalledTimes(2);
+  // 계정이 바뀐 뒤 남은 알림을 눌러도 다른 계정의 계획을 다시 불러오지 않는다.
+  act(() => simulateLogout());
+  resolve.onClick();
+  expect(retry).toHaveBeenCalledTimes(2);
 });

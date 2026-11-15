@@ -5,9 +5,14 @@ import { LocalizedLink } from "../LocalizedLink";
 import { formatPace } from "../../utils/units";
 import { formatElapsedBoundary } from "../../features/activity/detail/activityRangeSelection";
 import { validRunningPaceZoneAnalysis } from "../../services/trainingAnalysisPeriods";
+import { FOCUS_TARGETS, thresholdSettingsHref } from "../../services/focusTarget";
+import { Resolvable } from "../redesign";
 
 type PaceGroup = PeriodRunningPaceZones["groups"][number];
-/** 읽은 계산 스냅샷만 표시한다. 현재 프로필이나 raw stream으로 존을 만들지 않는다. */
+/**
+ * 읽은 계산 스냅샷만 표시한다. 현재 프로필이나 raw stream으로 존을 만들지 않는다.
+ * 호출부(RunAnalysisPanel·TrainingPeriodZonesPanel)가 주인에게만 그리므로 「역치 없음」은 역치 페이스 칸으로 잇는다.
+ */
 export default function RunningPaceZonesPanel({ analysis }: { analysis: RunningPaceZoneAnalysis | PaceGroup }) {
   const { t, i18n } = useTranslation("activity");
   const single = "calculatedAt" in analysis;
@@ -34,7 +39,7 @@ export default function RunningPaceZonesPanel({ analysis }: { analysis: RunningP
         <div className="flex flex-wrap items-center justify-between gap-2"><Text variant="bodyMedium">Z{index + 1} · {range(index)}</Text><Text variant="bodyMedium" mono>{formatElapsedBoundary(seconds)} · {seconds > 0 && seconds / analysis.eligibleGapSeconds * 100 < 0.1 ? "<0.1" : (seconds / analysis.eligibleGapSeconds * 100).toFixed(1)}%</Text></div>
         <div className="rounded-[var(--r-sm)] overflow-hidden bg-[var(--bg-2)]" aria-hidden="true"><div style={{ width: `${seconds / analysis.eligibleGapSeconds * 100}%`, height: "var(--space-2)", background: index === 5 ? "var(--violet)" : `var(--zone-${index + 1})` }} /></div>
       </div>)}</div>
-    </> : <Text as="p" variant="bodyMedium" tone="secondary">{t(`runningPaceZones.reason.${analysis.reason}`)}</Text>}
+    </> : <Text as="p" variant="bodyMedium" tone="secondary"><Resolvable resolve={analysis.reason === "threshold_missing" ? { to: thresholdSettingsHref("run", FOCUS_TARGETS.thresholdPace) } : undefined}>{t(`runningPaceZones.reason.${analysis.reason}`)}</Resolvable></Text>}
     <details className="space-y-2">
       <summary className="cursor-pointer py-2 inline-flex items-center" style={{ minHeight: "calc(var(--dim-button-height) + var(--space-1))" }}><Text variant="bodyMedium" weight={600}>{t("runningPaceZones.evidence")}</Text></summary>
       <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.intervalScope")}</Text>

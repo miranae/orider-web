@@ -32,4 +32,18 @@ describe("maintenance snapshot owner/profile binding", () => {
     view.rerender({ uid: "u2", bike: "b3" });
     expect(view.result.current.envelope).toBeNull();
   });
+  it("reload re-reads after a failure and ignores taps while reading", async () => {
+    mocks.enabled = true;
+    mocks.fetch.mockResolvedValueOnce({ ...envelope(0), status: "failed", data: null });
+    let resolveRetry!: (value: MaintenanceEnvelope) => void;
+    mocks.fetch.mockImplementationOnce(() => new Promise<MaintenanceEnvelope>(resolve => { resolveRetry = resolve; }));
+    const view = renderHook(() => useMaintenanceSnapshot("u1", "b1"));
+    await waitFor(() => expect(view.result.current.display).toBe("error"));
+    act(() => view.result.current.reload());
+    expect(view.result.current.envelope).toBeNull();
+    act(() => view.result.current.reload());
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
+    await act(async () => { resolveRetry(envelope(300)); });
+    expect(view.result.current.envelope?.data?.odometerKm).toBe(300);
+  });
 });

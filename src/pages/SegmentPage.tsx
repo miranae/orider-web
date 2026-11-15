@@ -17,6 +17,9 @@ import { collection, query, orderBy, where, getDocs, limit, addDoc, onSnapshot }
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { logClientError } from "../services/errorLogger";
 import { useSegmentMetadata } from "../hooks/useSegmentMetadata";
+import { segmentStatusResolve } from "../components/segment/segmentStatusResolve";
+import { ErrorState, Resolvable } from "../components/redesign";
+import { useToast } from "../contexts/ToastContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
 import { decodePolyline } from "../utils/polyline";
@@ -233,7 +236,9 @@ function SegmentDetailContent() {
   // 임베드(앱 세그먼트 상세)는 별도 named app 을 주입하므로 싱글턴 대신 주입된 인스턴스를 쓴다(#847).
   const gapServices = useFirebaseServices();
   const firestore = gapServices.firestore;
-  const { data: segment, loading: segLoading } = useSegmentMetadata<SegmentData>(segmentId);
+  const { data: segment, loading: segLoading, error: segError, retry: retrySegment } = useSegmentMetadata<SegmentData>(segmentId);
+  // 누르면 해결로 가는 알림은 전역 알림으로 띄운다(이 화면의 자체 알림은 누를 수 없다).
+  const { showToast: showActionToast } = useToast();
 
   // Photo upload
   const [uploading, setUploading] = useState(false);
@@ -289,7 +294,8 @@ function SegmentDetailContent() {
     try {
       const gps = await extractGpsFromFile(file);
       if (!gps) {
-        showToast(t("error.noGps"));
+        // 문구를 누르면 사진 선택 창을 다시 연다.
+        showActionToast(t("error.noGps"), "error", { resolve: { onClick: () => photoInputRef.current?.click() } });
         setUploading(false);
         return;
       }
@@ -351,7 +357,9 @@ function SegmentDetailContent() {
   const [historyVisibility, setHistoryVisibility] = useState<{ key: string; open: boolean } | null>(null);
   const showAllEfforts = historyVisibility?.key === drilldownKey ? historyVisibility.open : drilldown !== null;
   const historySeedKey = user && segmentId ? JSON.stringify([user.uid, segmentId]) : null;
-  const historySeedEpoch = useMemo(() => ({}), [historySeedKey, user, showAllEfforts]);
+  // 내 기록 읽기 실패 문구를 누르면 새 세대로 다시 읽는다 — 이전 세대의 늦은 응답은 반영되지 않는다.
+  const [historySeedAttempt, setHistorySeedAttempt] = useState(0);
+  const historySeedEpoch = useMemo(() => ({}), [historySeedKey, user, showAllEfforts, historySeedAttempt]);
   useEffect(() => {
     if (!segmentId || !user || user.isAnonymous || !showAllEfforts || !historySeedKey) return;
     let active = true;
@@ -424,6 +432,9 @@ function SegmentDetailContent() {
     );
   }
 
+  // 불러오기 실패를 「찾을 수 없음」으로 보이지 않는다 — 오류 문구를 누르면 다시 불러온다.
+  if (!segment && segError) return <ErrorState resolve={{ onClick: retrySegment }} />;
+
   if (!segment) {
     return (
       <div className="text-center" style={{ color: "var(--ink-3)", paddingBlock: "var(--space-8)" }}>
@@ -461,10 +472,14 @@ function SegmentDetailContent() {
             const badgeLabel = segment.status && (segment.status === "pending" || segment.status === "rejected" || segment.status === "hidden")
               ? t(`status.${segment.status}`)
               : null;
+            // 만든 사람이 상태 칩을 누르면 해소하는 곳(반려 → 다시 만들기, 숨김·대기 → 문의)으로 간다.
+            const isCreator = !!user && !!segment.createdByUid && segment.createdByUid === user.uid;
             return badgeStyle && badgeLabel && (
-              <span className="text-[length:var(--ft-body-size)] font-semibold rounded-[var(--r-sm)]" style={{ ...badgeStyle, padding: "var(--space-1) var(--space-2)" }}>
-                {badgeLabel}
-              </span>
+              <Resolvable resolve={segmentStatusResolve(segment.status, isCreator)}>
+                <span className="text-[length:var(--ft-body-size)] font-semibold rounded-[var(--r-sm)]" style={{ ...badgeStyle, padding: "var(--space-1) var(--space-2)" }}>
+                  {badgeLabel}
+                </span>
+              </Resolvable>
             );
           })()}
         </div>
@@ -692,7 +707,7 @@ function SegmentDetailContent() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          {showAllEfforts && segmentId && <SegmentHistoryPanel cachedGapEntry={cachedGapEntry} sourceIdentity={JSON.stringify([segment])} onGapMarker={onGapMarker} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} key={`${historySeedKey}:${drilldownKey}`} initialSelection={drilldown} segmentId={segmentId} seeds={currentHistorySeed?.rows ?? []} seedLoading={!currentHistorySeed} seedError={currentHistorySeed?.error ?? false} />}
+          {showAllEfforts && segmentId && <SegmentHistoryPanel cachedGapEntry={cachedGapEntry} sourceIdentity={JSON.stringify([segment])} onGapMarker={onGapMarker} callableEnabled={getRuntimeConfig().activityAnalysisExpansionEnabled === true} key={`${historySeedKey}:${drilldownKey}`} initialSelection={drilldown} segmentId={segmentId} seeds={currentHistorySeed?.rows ?? []} seedLoading={!currentHistorySeed} seedError={currentHistorySeed?.error ?? false} onSeedRetry={() => setHistorySeedAttempt((n) => n + 1)} />}
         </Card>
       )}
     </div>

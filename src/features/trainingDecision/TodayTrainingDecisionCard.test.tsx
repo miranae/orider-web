@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -162,6 +162,20 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.getByText("이번 주 기록이 아직 없어요")).toBeInTheDocument();
   });
 
+  it("tapping a low-confidence reason opens its fix: missing records → connections, unreadable load → reload", () => {
+    const base = trainingDecisionEnvelope();
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
+      prescription: { ...base.data.prescription, confidence: "low",
+        missingSignals: ["current_week_activities_missing", "load_data_unavailable"] },
+    }));
+    const refresh = vi.fn();
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: false, unavailable: false, refresh });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" surface="fitness" /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: "이번 주 기록이 아직 없어요" })).toHaveAttribute("href", expect.stringContaining("/settings/connections"));
+    fireEvent.click(screen.getByRole("button", { name: "부하 데이터를 불러오지 못했어요" }));
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
   it("hides signals that have no user copy instead of printing raw codes", () => {
     const base = trainingDecisionEnvelope();
     const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({
@@ -220,8 +234,45 @@ describe("TodayTrainingDecisionCard", () => {
     expect(screen.getByText("오늘 예정된 계획")).toBeInTheDocument();
     expect(screen.queryByText("조정 권고")).not.toBeInTheDocument();
     expect(mocks.coach).not.toHaveBeenCalled();
-    expect(screen.getByText("필요한 데이터를 일시적으로 불러오지 못했어요"))
+    expect(screen.getByText("필요한 데이터를 일시적으로 불러오지 못했어요").closest("[data-fallback-reason]"))
       .toHaveAttribute("data-fallback-reason", "dependency_unavailable");
+  });
+
+  it.each([
+    ["no_active_goal", "진행 중인 목표가 없어 계획을 만들지 못했어요", "/coach/goals?sport=run"],
+    ["ambiguous_active_goal", "진행 중인 목표가 여러 개라 기준을 정하지 못했어요", "/coach/goals?sport=run"],
+    ["consent_required", "AI 코치 이용 동의가 필요해요", "/settings/account?focus=ai-coach-consent"],
+  ] as const)("makes the %s fallback reason itself a link to the screen that resolves it", (reasonCode, label, href) => {
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({ recommendationSource: null,
+      recommendedAdjustments: [], loadAdjustment: null, mode: "scheduled-only", recommendationValidUntil: null,
+      sourceRefs: { factsId: null, prescriptionId: null, snapshotRevision: null, planRevision: "plan_123", rulesVersion: null, proposalId: null, receiptAuditId: null },
+      fallback: { active: true, reasonCode } }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: true, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="run" /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: label }).getAttribute("href")).toContain(href);
+    // 사유 옆에 새 버튼을 두지 않는다.
+    expect(screen.queryByRole("button", { name: /확인하기/ })).toBeNull();
+  });
+
+  it.each(["canonical_load_unavailable", "dependency_unavailable"] as const)("reloads when the %s fallback reason is tapped", async (reasonCode) => {
+    const refresh = vi.fn();
+    const decision = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope({ recommendationSource: null,
+      recommendedAdjustments: [], loadAdjustment: null, mode: "scheduled-only", recommendationValidUntil: null,
+      sourceRefs: { factsId: null, prescriptionId: null, snapshotRevision: null, planRevision: "plan_123", rulesVersion: null, proposalId: null, receiptAuditId: null },
+      fallback: { active: true, reasonCode } }));
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: true, unavailable: false, refresh });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="bike" /></MemoryRouter>);
+    expect(screen.queryByRole("button", { name: "새로 확인" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /불러오지 못했어요|확인하지 못했어요/ }));
+    expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("makes the no-scheduled-workout notice itself a link to the plan", () => {
+    const base = parseTodayTrainingDecisionProjection(trainingDecisionEnvelope());
+    const decision = { ...base, scheduledSessions: [] };
+    mocks.hook.mockReturnValue({ decision, loading: false, scheduledOnly: true, unavailable: false, refresh: vi.fn() });
+    render(<MemoryRouter><TodayTrainingDecisionCard user={user} discipline="swim" /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: "오늘 예정된 워크아웃이 없어요." }).getAttribute("href")).toContain("/coach/plan?sport=swim");
   });
 
   it("keeps a Fitness card with a retry when the decision API is unavailable", async () => {

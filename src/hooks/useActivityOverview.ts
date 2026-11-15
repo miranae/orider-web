@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { logClientError } from "../services/errorLogger";
 import { useTranslation } from "react-i18next";
 import type { ActivityOverviewResponse } from "@shared/types/activity-overview";
 import { useAuth } from "../contexts/AuthContext";
@@ -31,7 +32,10 @@ export function useActivityOverview(activityId: string | undefined, ready: boole
     setState(null);
     void loadActivityOverview(services, uid, activityId, lang, revision, attempt > 0)
       .then((response) => { if (active) setState({ key, services, response }); })
-      .catch(() => { if (active) setState({ key, services, error: true }); });
+      .catch((error) => {
+        logClientError("useActivityOverview.load", error, { activityId, attempt });
+        if (active) setState({ key, services, error: true });
+      });
     return () => { active = false; };
   }, [key, uid, activityId, lang, revision, services, attempt]);
   const current = state?.key === key && state?.services === services ? state : null;

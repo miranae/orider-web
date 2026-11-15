@@ -61,6 +61,17 @@ describe("separate threshold and private medical writes", () => {
     fireEvent.click(screen.getByRole("button", { name: "training.btnSave" }));
     expect(mocks.persist).toHaveBeenCalledTimes(1); expect(mocks.updateDoc).not.toHaveBeenCalled();
   });
+  /** 경고·알림 → 해결: 기기 반영 일부 실패 알림을 누르면 기기 설정 화면으로 간다. */
+  it("FTP save with device sync failures makes the partial-failure toast open device settings", async () => {
+    mocks.persist.mockResolvedValueOnce({ failures: [{ deviceId: "d1", deviceName: "Phone" }] });
+    render(<PaneThresholds />);
+    const input = screen.getByLabelText(/FTP.*training.fieldFtpHint/);
+    await waitFor(() => expect(input).toHaveValue("250"));
+    fireEvent.change(input, { target: { value: "260" } });
+    fireEvent.click(screen.getByRole("button", { name: "training.btnSave" }));
+    await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith("training.syncPartialFail", "error", { resolve: { to: "/settings/device" } }));
+    expect(mocks.toast).not.toHaveBeenCalledWith("training.saved");
+  });
   it("an explicit clear writes only that field and profile snapshots preserve a draft", async () => {
     const { rerender } = render(<PaneThresholds />);
     const input = screen.getByLabelText(/LTHR/);
@@ -79,6 +90,24 @@ describe("separate threshold and private medical writes", () => {
     screen.getAllByRole("button", { name: "training.btnSave" }).forEach(button => expect(button).toBeDisabled());
     expect(mocks.setDoc).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "common:button.retry" })).not.toBeInTheDocument();
+  });
+  it("tapping the medical load failure message reads again", async () => {
+    mocks.getDoc.mockRejectedValueOnce(new Error("offline"));
+    render(<PaneMedical />);
+    const message = await screen.findByRole("button", { name: "training.medicalLoadFailed" });
+    const reads = mocks.getDoc.mock.calls.length;
+    fireEvent.click(message);
+    await waitFor(() => expect(screen.getByLabelText(/training.fieldMedications/)).toHaveValue("old"));
+    expect(mocks.getDoc.mock.calls.length).toBeGreaterThan(reads);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+  it("tapping the body info load failure message unlocks the fields", async () => {
+    mocks.getDoc.mockRejectedValueOnce(new Error("offline"));
+    render(<ProfileBodyEditor />);
+    fireEvent.click(await screen.findByRole("button", { name: "profile.bodyInfoLoadFailed" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "training.btnSave" })).toBeEnabled());
+    expect(mocks.getDoc).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
   it("blocks both medical saves until private data is loaded, preserving existing fields", async () => {
     let resolve!: (value: unknown) => void;
@@ -246,7 +275,7 @@ it("reports a device sync partial failure after body profile commit", async () =
   await waitFor(() => expect(screen.getByLabelText("training.fieldWeight")).toHaveValue("70"));
   fireEvent.change(screen.getByLabelText("training.fieldWeight"), { target: { value: "72" } });
   fireEvent.click(screen.getByRole("button", { name: "training.btnSave" }));
-  await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith("training.syncPartialFail"));
+  await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith("training.syncPartialFail", "error", { resolve: { to: "/settings/device" } }));
   expect(mocks.metricCommand).toHaveBeenCalledTimes(1);
   expect(mocks.syncDevices).toHaveBeenCalledWith("u1", { weightKg: 72 });
   expect(mocks.toast).not.toHaveBeenCalledWith("training.saved");

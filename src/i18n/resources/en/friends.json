@@ -53,7 +53,7 @@
   "onboarding.shareTitle": "ORider friend invite",
   "onboarding.shareText": "Let's train together on ORider.",
   "onboarding.copied": "Invite link copied",
-  "onboarding.shareFailed": "Couldn't share the invite link",
+  "onboarding.shareFailed": "Couldn't share or copy",
   "tab.sent": "Sent requests ({{count}})",
   "readFailed": "Could not load friend information. Please retry.",
   "sentEmpty": "No sent friend requests",

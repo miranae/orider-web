@@ -36,6 +36,23 @@ describe("PaneAiCoach", () => {
     expect(screen.queryByRole("button", { name: /다시 시도/ })).not.toBeInTheDocument();
   });
 
+  it("marks the consent button as the ai-coach-consent focus target for the decision card link", async () => {
+    mocks.get.mockResolvedValue({ ...current, consent: { ...current.consent, consented: false, active: false, state: "missing" } });
+    renderWithProviders(<DialogProvider><PaneAiCoach /></DialogProvider>, { authenticated: true });
+    const button = await screen.findByRole("button", { name: "안내 확인 및 동의" });
+    expect(button).toHaveAttribute("data-focus-target", "ai-coach-consent");
+  });
+
+  it("tapping the load failure message re-reads the authoritative status", async () => {
+    const user = userEvent.setup();
+    mocks.get.mockReset().mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(current);
+    renderWithProviders(<DialogProvider><PaneAiCoach /></DialogProvider>, { authenticated: true });
+    await user.click(await screen.findByRole("button", { name: "AI 코치 동의 상태를 불러오지 못했습니다." }));
+    expect(await screen.findByText("동의함")).toBeInTheDocument();
+    expect(mocks.get).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("shows the authoritative status and revokes before clearing the coach session", async () => {
     const user = userEvent.setup();
     mocks.get.mockResolvedValue(current);

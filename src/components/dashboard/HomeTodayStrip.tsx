@@ -11,6 +11,7 @@ import { useTodayTrainingDecision } from "../../hooks/useTodayTrainingDecision";
 import { primaryEffectiveSession } from "../../features/trainingDecision/decisionPresentation";
 import { getRuntimeConfig } from "../../services/runtimeConfig";
 import { LocalizedLink } from "../LocalizedLink";
+import { Resolvable } from "../redesign/states/Resolvable";
 import { Card, Chip, Text, buttonClass } from "../../theme/components";
 import { logClientError } from "../../services/errorLogger";
 import InfoTip from "../InfoTip";
@@ -98,7 +99,9 @@ export default function HomeTodayStrip({ discipline, conditionDiscipline = disci
     </div>}>
       <div className="flex flex-col gap-1">
         {conditionSummary}
-        {(fitness || !conditionSummary) && <Text as="p" variant="bodySmall" mono><GlossaryText>{fitness && fitness.ctl > 0 ? `CTL ${fitness.ctl.toFixed(1)} · ATL ${fitness.atl.toFixed(1)} · TSB ${fitness.tsb.toFixed(1)}` : t("sidebar.fitness.insufficient")}</GlossaryText></Text>}
+        {(fitness || !conditionSummary) && <Text as="p" variant="bodySmall" mono>{fitness && fitness.ctl > 0 ? <GlossaryText>{`CTL ${fitness.ctl.toFixed(1)} · ATL ${fitness.atl.toFixed(1)} · TSB ${fitness.tsb.toFixed(1)}`}</GlossaryText>
+          // 「데이터 부족」을 누르면 운동 기록을 들여오는 연결 화면으로 간다.
+          : <Resolvable resolve={{ to: "/settings/connections" }}>{t("sidebar.fitness.insufficient")}</Resolvable>}</Text>}
         {!mobile && thresholdSummary}
       </div>
     </Card>

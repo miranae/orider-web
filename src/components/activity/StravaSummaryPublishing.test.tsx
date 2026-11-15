@@ -51,6 +51,33 @@ describe("Strava summary publishing", () => {
     expect(mocks.prepare).not.toHaveBeenCalled();
   });
 
+  it("기존 게시: 「게시할 활동 연결…준비되지 않았습니다」 문구를 누르면 접힌 대상 링크 칸을 펼쳐 초점을 둔다", async () => {
+    resetRuntimeConfigForTests();
+    mocks.publish.mockResolvedValueOnce({ data: { status: "unavailable" } });
+    render(<StravaSummaryPublishing activityId="own-ride" lang="ko" />);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "stravaSummary.legacy.publish" })); });
+    const message = await screen.findByRole("button", { name: "stravaSummary.unavailable" });
+    const input = screen.getByLabelText("stravaSummary.targetLabel");
+    expect(input.closest("details")).not.toHaveAttribute("open");
+    fireEvent.click(message);
+    expect(input.closest("details")).toHaveAttribute("open");
+    expect(input).toHaveFocus();
+    expect(mocks.publish).toHaveBeenCalledOnce();
+  });
+
+  it("기존 게시: 요청 실패 문구를 누르면 같은 게시를 다시 보내고 실패를 기록한다", async () => {
+    resetRuntimeConfigForTests();
+    mocks.publish.mockRejectedValueOnce(new Error("network"));
+    render(<StravaSummaryPublishing activityId="own-ride" lang="ko" />);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "stravaSummary.legacy.publish" })); });
+    const message = await screen.findByRole("button", { name: "stravaSummary.publishError" });
+    expect(mocks.log).toHaveBeenCalledWith("StravaSummaryPublishingLegacy.publish", expect.any(Error), { activityId: "own-ride", withTarget: false });
+    await act(async () => { fireEvent.click(message); });
+    await waitFor(() => expect(mocks.publish).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("stravaSummary.published")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "stravaSummary.published" })).not.toBeInTheDocument();
+  });
+
   it("preserves queued legacy status polling without invoking the preview API", async () => {
     vi.useFakeTimers();
     resetRuntimeConfigForTests({ stravaSummaryPreviewEnabled: false });

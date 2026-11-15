@@ -1,6 +1,7 @@
 import type { ReactNode, MouseEvent } from "react";
 import { LocalizedLink as Link } from "../../LocalizedLink";
 import { Card, buttonClass } from "../../../theme/components";
+import { Resolvable, type Resolve } from "./Resolvable";
 export interface EmptyStateAction {
   label: string;
   variant?: "primary" | "secondary";
@@ -13,10 +14,12 @@ interface EmptyStateProps {
   title: string;
   description?: ReactNode;
   actions?: EmptyStateAction[];
+  /** 빈 상태 문구를 누르면 채우는 곳으로(가져오기·연결 등). 새 행동은 actions 대신 이걸로 — 버튼을 늘리지 않는다. */
+  resolve?: Resolve;
   compact?: boolean;
 }
 
-export default function EmptyState({ icon, title, description, actions, compact }: EmptyStateProps) {
+export default function EmptyState({ icon, title, description, actions, resolve, compact }: EmptyStateProps) {
   const pad = compact ? "var(--space-6)" : "var(--space-8)";
   return (
     <Card padding="none"
@@ -31,8 +34,10 @@ export default function EmptyState({ icon, title, description, actions, compact 
           {icon}
         </div>
       )}
-      <div
+      <Resolvable resolve={resolve} style={{ display: "block", width: "100%", textAlign: "center" }}>
+      <span
         style={{
+          display: "block",
           fontSize: compact ? "var(--fs-md)" : "var(--fs-lg)",
           fontWeight: 600,
           color: "var(--ink-0)",
@@ -40,17 +45,18 @@ export default function EmptyState({ icon, title, description, actions, compact 
         }}
       >
         {title}
-      </div>
+      </span>
       {description && (
-        <div style={{ fontSize: "var(--fs-base)", color: "var(--ink-3)", lineHeight: 1.5 }}>{description}</div>
+        <span style={{ display: "block", fontSize: "var(--fs-base)", color: "var(--ink-3)", lineHeight: 1.5 }}>{description}</span>
       )}
+      </Resolvable>
       <StateActions actions={actions} />
     </Card>
   );
 }
 
-/** 상태 상자(빈 화면·오류·권한) 아래 행동 줄 — 해결 화면 링크나 제자리 동작. ErrorState 도 같은 줄을 쓴다. */
-export function StateActions({ actions }: { actions?: EmptyStateAction[] }) {
+/** 빈 상태 아래 기존 행동 줄. */
+function StateActions({ actions }: { actions?: EmptyStateAction[] }) {
   if (!actions || actions.length === 0) return null;
   return (
     <div

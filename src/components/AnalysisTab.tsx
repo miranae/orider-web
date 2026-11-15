@@ -23,6 +23,8 @@ import RunAnalysisPanel from "./activity/RunAnalysisPanel";
 import ServerMetricsBanner from "./activity/ServerMetricsBanner";
 import { buildCyclingDynamicsCards, type CyclingDynamicsCardDescriptor } from "../features/activity/detail/cyclingDynamicsPresentation";
 import { LocalizedLink as Link } from "./LocalizedLink";
+import { FOCUS_TARGETS, thresholdSettingsHref, withFocus } from "../services/focusTarget";
+import { Resolvable } from "./redesign";
 import { buildClimbSegmentProposalPath } from "../features/segmentCreation/climbPromotion";
 import {
   POLARIZATION_DESCRIPTION,
@@ -373,6 +375,8 @@ export default function AnalysisTab({
   const hasPower = sm != null && (sm.np != null || sm.avgPower != null);
   const hasHr = sm != null && sm.avgHr != null;
   const hrContextMissing = hasHr && !hasMaxHr;
+  // 스트림이 없으면 주인만 연동(Strava·FIT 가져오기) 화면으로 — 남의 활동은 글자 그대로.
+  const noStreamsResolve = isOwner ? { to: "/settings/connections" } : undefined;
   const hrZonesEmptyDescription = t(hrContextMissing ? "overviewEvidence.hrContextMissing" : "analysis.empty.hrZonesDesc");
   const np = sm?.np ?? null;
   const ifactor = sm?.if ?? null;
@@ -606,10 +610,10 @@ export default function AnalysisTab({
     return (
       <div className="rounded-[var(--r-lg)] border border-dashed px-4 py-8 text-center" style={{ background: 'var(--bg-1)', borderColor: 'var(--line-soft)' }}>
         <div className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}>
-          {t("analysis.empty.noStreamsTitle")}
+          <Resolvable resolve={noStreamsResolve}>{t("analysis.empty.noStreamsTitle")}</Resolvable>
         </div>
         <div className="mx-auto mt-1 max-w-[420px] text-[length:var(--fs-xs)] leading-relaxed" style={{ color: 'var(--ink-3)' }}>
-          {t("analysis.noData")}
+          <Resolvable resolve={noStreamsResolve}>{t("analysis.noData")}</Resolvable>
         </div>
       </div>
     );
@@ -642,12 +646,13 @@ export default function AnalysisTab({
       {/* FTP/maxHR 기본값 경고 */}
       {hasPower && !hasFtp && (
         <div className="rounded-[var(--r-lg)] px-4 py-2.5 text-[length:var(--fs-xs)]" style={{ background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', color: 'var(--amber)' }}>
-          {t("overviewEvidence.ftpMissing")}
+          {/* 주인이 누르면 FTP 칸으로 — 저장하면 과거 분석에도 다시 반영된다. 남에게는 해결 경로가 없어 글자 그대로. */}
+          <Resolvable resolve={isOwner ? { to: thresholdSettingsHref("bike", FOCUS_TARGETS.ftp) } : undefined}>{t("overviewEvidence.ftpMissing")}</Resolvable>
         </div>
       )}
       {hrContextMissing && (
         <div className="rounded-[var(--r-lg)] px-4 py-2.5 text-[length:var(--fs-xs)]" style={{ background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', color: 'var(--amber)' }}>
-          {t("overviewEvidence.hrContextMissing")}
+          <Resolvable resolve={isOwner ? { to: thresholdSettingsHref(sport === "run" || sport === "swim" ? sport : "bike", FOCUS_TARGETS.maxHr) } : undefined}>{t("overviewEvidence.hrContextMissing")}</Resolvable>
         </div>
       )}
 
@@ -674,7 +679,7 @@ export default function AnalysisTab({
         <div>
           <div className="flex items-center gap-2 mb-3">
             <h3 className="text-[length:var(--fs-sm)] font-semibold" style={{ color: 'var(--ink-1)' }}>{t("analysis.section.power")}</h3>
-            {isVirtualPower && <VirtualPowerBadge params={virtualPowerParams} />}
+            {isVirtualPower && <VirtualPowerBadge params={virtualPowerParams} resolve={isOwner ? { to: withFocus("/settings/device", FOCUS_TARGETS.virtualPower) } : undefined} />}
           </div>
           <div className="activity-analysis-metric-grid grid grid-cols-2 md:grid-cols-4 gap-3">
             {!(integratedPresentation && (sport === "ride" || sport === "run") && summary?.averagePower != null) && <MetricCard hideUnavailable={!!integratedPresentation || !!renderSections} color="lime" label={t("analysis.metric.avgPower")} value={powerStats.avg != null ? Math.round(powerStats.avg).toString() : null} unit="W" tooltip={t("analysis.glossary.avgPower")} />}

@@ -6,6 +6,9 @@ import type {
   FtpMutationReceipt,
 } from "@shared/types/threshold";
 import { Button, Chip, Text } from "../../../theme/components";
+import { Resolvable } from "../../../components/redesign/states/Resolvable";
+import { FOCUS_TARGETS, thresholdSettingsHref } from "../../../services/focusTarget";
+import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 
 interface Props {
   decision: BikeThresholdDecisionV2 | null;
@@ -23,6 +26,8 @@ export default function BikeFtpDecisionActionPanel({
   onAccept,
 }: Props) {
   const { t } = useTranslation("fitness");
+  // FTP 테스트 칸은 웹 설정에만 있다 — 앱 임베드에서는 글자 그대로.
+  const webResolve = useFirebaseServices().scope !== "embedded";
   if (!decision) return null;
   const actionable = decision.status === "actionable";
   const expired = decision.status === "actionable" && Date.now() >= decision.expiresAt;
@@ -63,7 +68,8 @@ export default function BikeFtpDecisionActionPanel({
       )}
       {(expired || decision.status === "blocked" || decision.status === "expired") && (
         <Text as="p" variant="caption" tone="secondary" style={{ margin: "var(--space-3) 0 0" }}>
-          {t(expired ? "ftpDecision.expired" : unavailableKey)}
+          {/* 만료·차단 문구를 누르면 직접 측정해 FTP 를 정하는 FTP 테스트 칸으로 간다. */}
+          <Resolvable resolve={webResolve ? { to: thresholdSettingsHref("bike", FOCUS_TARGETS.ftpTest) } : undefined}>{t(expired ? "ftpDecision.expired" : unavailableKey)}</Resolvable>
         </Text>
       )}
       {(decision.status === "accepted" || receipt) && (
@@ -91,13 +97,16 @@ function ReceiptPanel({ receipt, deviceReceipts }: { receipt: FtpMutationReceipt
     <div data-ftp-receipt style={{ marginTop: "var(--space-4)", paddingTop: "var(--space-3)", borderTop: "1px solid var(--line-soft)" }}>
       <Text as="div" variant="eyebrow">{t("ftpDecision.receipt.title")}</Text>
       <Text as="p" variant="caption" tone="secondary" style={{ margin: "var(--space-1) 0 0" }}>
-        {receipt
-          ? t(`ftpDecision.receipt.status.${receipt.status}`, {
+        {receipt ? (
+          // 기기 동기화 실패·일부 실패 문구를 누르면 기기별 FTP·마지막 동기화를 보는 기기 설정으로 간다.
+          <Resolvable resolve={receipt.status === "failed" || receipt.status === "partial" ? { to: "/settings/device" } : undefined}>
+            {t(`ftpDecision.receipt.status.${receipt.status}`, {
               applied: receipt.appliedCount,
               targeted: receipt.targetedDeviceCount,
               pending: receipt.pendingCount,
-            })
-          : t("ftpDecision.receipt.waiting")}
+            })}
+          </Resolvable>
+        ) : t("ftpDecision.receipt.waiting")}
       </Text>
       {deviceReceipts.length > 0 && (
         <div style={{ display: "grid", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>

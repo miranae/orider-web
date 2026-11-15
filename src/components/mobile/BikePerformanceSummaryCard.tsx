@@ -9,6 +9,8 @@ import type { EstimatedFtpPoint } from "@shared/training/ftpProgression";
 import type { FtpHistoryEntry } from "@shared/training/ftpHistory";
 import type { BikeThresholdDecisionV2, FtpDeviceReceipt, FtpMutationReceipt } from "@shared/types/threshold";
 import { Button, Chip, Section, Stat, Text } from "../../theme/components";
+import { Resolvable } from "../redesign";
+import { FOCUS_TARGETS, bodyInfoHref, thresholdSettingsHref } from "../../services/focusTarget";
 import FtpProgressionCard from "../../features/fitness/components/FtpProgressionCard";
 import BikeFtpDecisionActionPanel from "../../features/fitness/components/BikeFtpDecisionActionPanel";
 import AbilityScoreScale from "../fitness/AbilityScoreScale";
@@ -57,6 +59,7 @@ export default function BikePerformanceSummaryCard({ part = "all", compact = fal
   const wkgSummary = activeFtp == null
     ? t("mobileFitness.performance.ftpMissing")
     : wkg != null ? `${wkg.toFixed(2)} W/kg` : t("mobileFitness.performance.weightMissing");
+  const wkgFix = activeFtp == null ? { to: thresholdSettingsHref("bike", FOCUS_TARGETS.ftp) } : wkg == null ? { to: bodyInfoHref() } : undefined;
   const ftpEvidence = activeFtp == null
     ? t("mobileFitness.performance.ftpMissingEvidence")
     : wkg != null ? t("mobileFitness.snapshot.ftpSource") : t("mobileFitness.snapshot.ftpWeightMissing");
@@ -95,7 +98,8 @@ export default function BikePerformanceSummaryCard({ part = "all", compact = fal
         {activeFtp != null && <Text as="span" variant="unit">W</Text>}
       </div>
       <div className="mobile-fitness-performance__profile">
-        <Text as="span" variant="mono"><GlossaryText>{wkgSummary}</GlossaryText></Text>
+        {/* 내 체력 화면 전용 — FTP·체중 없음 문구를 누르면 그 입력칸으로 간다(링크 안에 용어 버튼을 겹치지 않는다). */}
+        <Text as="span" variant="mono">{wkgFix ? <Resolvable resolve={wkgFix}>{wkgSummary}</Resolvable> : <GlossaryText>{wkgSummary}</GlossaryText>}</Text>
         <Text as="span" variant="caption" tone="tertiary"><GlossaryText>{t("mobileFitness.performance.canonical")}</GlossaryText></Text>
       </div>
 

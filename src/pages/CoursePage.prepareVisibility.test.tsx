@@ -10,8 +10,17 @@ vi.mock("../features/courses/courseDetailAsset", async () => {
   return { subscribeCourseDetail: (services: { firestore: Parameters<typeof doc>[0] }, id: string, onData: (value: unknown) => void, onError: (error: Error) => void) =>
     onSnapshot(doc(services.firestore, "courses", id), (snapshot) => onData(snapshot.exists() ? { id, ...snapshot.data() } : null), onError) };
 });
-vi.mock("../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "owner" }, profile: { weightKg: 70, ftp: 250 }, loading: false, profileLoading: false, signIn: vi.fn() }) }));
-import { setDocData, mockDocData, setCallableImplementation } from "../__tests__/mocks/firebase";
+// 계정 전환 테스트용 — 렌더마다 새 객체를 주면 user 를 의존하는 효과가 매번 다시 돈다. uid 별로 같은 값을 준다.
+const authState = vi.hoisted(() => {
+  const values = new Map<string, unknown>();
+  const signIn = () => {};
+  return { uid: "owner", value(uid: string) {
+    if (!values.has(uid)) values.set(uid, { user: { uid }, profile: { weightKg: 70, ftp: 250 }, loading: false, profileLoading: false, signIn });
+    return values.get(uid);
+  } };
+});
+vi.mock("../contexts/AuthContext", () => ({ useAuth: () => authState.value(authState.uid) }));
+import { setDocData, mockDocData, setCallableImplementation, simulateLogin } from "../__tests__/mocks/firebase";
 vi.mock("react-router-dom", async (importOriginal) => ({ ...(await importOriginal<typeof import("react-router-dom")>()), useParams: () => ({ courseId: "course-climb", lang: "ko" }) }));
 vi.mock("../hooks/useGear", () => ({ useGear: () => ({ items: [], loading: false }) }));
 vi.mock("../hooks/usePdc", () => ({ usePdc: () => ({ pdc: null, status: "ready" }) }));
@@ -20,11 +29,12 @@ vi.mock("./LabPage", () => ({ default: () => <div>Preparation calculator</div> }
 vi.mock("../features/courses/CourseRidePlanSection", () => ({ CourseRidePlanSection: () => null }));
 vi.mock("@shared/sim/climbPrediction", () => ({ predictClimb: () => ({ totalSec: 744, sustainablePowerW: 280, wattsPerKg: 4.12, source: "pdc" }), formatClimbDuration: () => "12:24" }));
 import CoursePage from "./CoursePage";
+import { ToastProvider } from "../contexts/ToastContext";
 import i18n from "i18next";
 import enCourse from "../i18n/resources/en/course.json";
 import enGlossary from "../i18n/resources/en/termGlossary.json";
 describe("course preparation climb predictions", () => {
-  beforeEach(() => { void i18n.changeLanguage("ko"); });
+  beforeEach(() => { void i18n.changeLanguage("ko"); authState.uid = "owner"; simulateLogin({ uid: "owner" }); });
   beforeEach(() => setDocData("courses/course-climb", {
     name: "Climbing course", description: "", creatorId: "other", creatorNickname: "Creator", source: "orider",
     polyline: "", distance: 10000, elevationGain: 400, averageGrade: 4, maximumGrade: 8,
@@ -95,6 +105,20 @@ describe("course preparation climb predictions", () => {
     expect(screen.getByRole("button", { name: "저장" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "취소" })).toBeInTheDocument();
   });
+  it("puts focus back on the name field once the name-length alert is confirmed", async () => {
+    setDocData("courses/course-climb", { ...mockDocData.get("courses/course-climb"), creatorId: "owner" });
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
+    await screen.findByText("Climbing course");
+    fireEvent.click(screen.getByRole("tab", { name: "편집" }));
+    const name = screen.getByLabelText("코스 이름");
+    fireEvent.change(name, { target: { value: "A" } });
+    // 편집을 열 때의 자동 초점(50ms)이 지난 뒤 저장 버튼에 초점이 있는 상태에서 시작한다.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 80)); });
+    screen.getByRole("button", { name: "저장" }).focus();
+    expect(document.activeElement).not.toBe(name);
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(document.activeElement).toBe(name));
+  });
   it("shows climb-time estimates in a visible preparation subtree, retaining overview badges", async () => {
     render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
     await screen.findByText("Climbing course");
@@ -125,6 +149,52 @@ describe("course preparation climb predictions", () => {
     expect(screen.getAllByRole("tooltip").some(tip => tip.textContent?.includes(language === "ko" ? "기능적 역치 파워" : "Functional threshold power"))).toBe(true);
     expect(preparation.querySelector("button button")).toBeNull();
     expect(within(preparation).getByRole("button", { name: language === "ko" ? /파워 지속곡선/ : /power-duration curve/ })).toBeInTheDocument();
+  });
+
+  it("opens device settings from the no-device send failure message itself", async () => {
+    setCallableImplementation("sendCourseToApp", () => Promise.reject({ code: "functions/failed-precondition", message: "연결된 앱 기기가 없습니다. 모바일 앱에 로그인해 주세요." }));
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><ToastProvider><CoursePage /></ToastProvider></MemoryRouter>);
+    await screen.findByText("Climbing course");
+    fireEvent.click(screen.getByRole("button", { name: /앱으로 보내기/ }));
+    expect(await screen.findByRole("link", { name: "연결된 앱 기기가 없습니다. 모바일 앱에 로그인해 주세요." })).toHaveAttribute("href", "/ko/settings/device");
+    expect(screen.queryByRole("link", { name: "기기 설정" })).toBeNull();
+  });
+  it("sends again from an unexpected send failure message itself", async () => {
+    let calls = 0;
+    setCallableImplementation("sendCourseToApp", () => { calls += 1; return Promise.reject({ code: "functions/unavailable" }); });
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><ToastProvider><CoursePage /></ToastProvider></MemoryRouter>);
+    await screen.findByText("Climbing course");
+    fireEvent.click(screen.getByRole("button", { name: /앱으로 보내기/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "전송에 실패했습니다" }));
+    await waitFor(() => expect(calls).toBe(2));
+  });
+  it("does not resend from a failure message after the account changed", async () => {
+    let calls = 0;
+    setCallableImplementation("sendCourseToApp", () => { calls += 1; return Promise.reject({ code: "functions/unavailable" }); });
+    const tree = () => <MemoryRouter initialEntries={["/ko/course/course-climb"]}><ToastProvider><CoursePage /></ToastProvider></MemoryRouter>;
+    const { rerender } = render(tree());
+    await screen.findByText("Climbing course");
+    fireEvent.click(screen.getByRole("button", { name: /앱으로 보내기/ }));
+    const message = await screen.findByRole("button", { name: "전송에 실패했습니다" });
+    authState.uid = "someone-else";
+    simulateLogin({ uid: "someone-else" });
+    rerender(tree());
+    fireEvent.click(message);
+    await act(async () => { await Promise.resolve(); });
+    expect(calls).toBe(1);
+  });
+  it("drops a late send failure that arrives after the account changed", async () => {
+    let reject: (error: unknown) => void = () => {};
+    setCallableImplementation("sendCourseToApp", () => new Promise((_resolve, fail) => { reject = fail; }));
+    const tree = () => <MemoryRouter initialEntries={["/ko/course/course-climb"]}><ToastProvider><CoursePage /></ToastProvider></MemoryRouter>;
+    const { rerender } = render(tree());
+    await screen.findByText("Climbing course");
+    fireEvent.click(screen.getByRole("button", { name: /앱으로 보내기/ }));
+    authState.uid = "someone-else";
+    simulateLogin({ uid: "someone-else" });
+    rerender(tree());
+    await act(async () => { reject({ code: "functions/unavailable" }); await Promise.resolve(); });
+    expect(screen.queryByText("전송에 실패했습니다")).toBeNull();
   });
 
 });

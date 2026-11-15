@@ -6,6 +6,7 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { useDialog } from "../../contexts/DialogContext";
+import { alertPlanSaveFailure, StalePlanError } from "./stalePlan";
 import type { PlanDay, PlanWeek, WorkoutKind } from "@shared/types/goal";
 import { parseWorkoutFile, toIntervalBlocks, estimateWorkoutLoad } from "@shared/training/workoutImport";
 import { usesEffectiveExecutionPrescription } from "@shared/training/effectiveExecutionPrescription";
@@ -176,7 +177,7 @@ export default function WorkoutEditModal({
     if (!snap.exists()) throw new Error(t('edit.weekDataMissing'));
     const data = { id: snap.id, ...snap.data() } as PlanWeek;
     if (!Number.isInteger(dayIndex) || dayIndex < 0 || data.days?.[dayIndex]?.date !== day.date) {
-      throw new Error(t('edit.staleDay'));
+      throw new StalePlanError(t('edit.staleDay'));
     }
     return { ref, data };
   }
@@ -193,7 +194,7 @@ export default function WorkoutEditModal({
       onClose();
     } catch (err) {
       logClientError("WorkoutEditModal.run", err, { goalId, weekId, dayIndex });
-      void dialog.alert(t('edit.saveFailedAlert'), { variant: "danger" });
+      alertPlanSaveFailure(err, dialog, t, t('edit.saveFailedAlert'), onUpdate);
     } finally {
       setLoading(false);
     }
@@ -317,7 +318,7 @@ export default function WorkoutEditModal({
       onClose();
     } catch (err) {
       logClientError("WorkoutEditModal.handleSwapNext", err, { goalId, weekId, dayIndex });
-      void dialog.alert(t('edit.swapFailedAlert'), { variant: "danger" });
+      alertPlanSaveFailure(err, dialog, t, t('edit.swapFailedAlert'), onUpdate);
     } finally {
       setLoading(false);
     }
@@ -364,7 +365,7 @@ export default function WorkoutEditModal({
       onClose();
     } catch (err) {
       logClientError("WorkoutEditModal.handleSwapPrev", err, { goalId, weekId, dayIndex });
-      void dialog.alert(t('edit.swapFailedAlert'), { variant: "danger" });
+      alertPlanSaveFailure(err, dialog, t, t('edit.swapFailedAlert'), onUpdate);
     } finally {
       setLoading(false);
     }

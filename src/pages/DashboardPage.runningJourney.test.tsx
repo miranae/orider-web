@@ -230,3 +230,18 @@ it.each(["7d", "year"])("preserves the menu URL search and %s date filter in the
   await waitFor(() => expect(feed).toHaveAttribute("data-query", "target"));
   expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
 });
+
+// 「역치 페이스 · —」 문구 자체를 누르면 그 입력칸으로 간다 — 버튼을 새로 두지 않는다.
+it("links the missing threshold summary to the threshold field it names", async () => {
+  state.mobile = false;
+  show("/ko?sport=run");
+  const link = await screen.findByRole("link", { name: "역치 페이스 · —" });
+  expect(link.getAttribute("href")).toBe("/ko/settings/training?sport=run&focus=threshold-pace");
+});
+it("links the insufficient-fitness caption to the activity import window", async () => {
+  state.mobile = false;
+  show("/ko?sport=bike");
+  const links = await screen.findAllByRole("link", { name: "데이터 부족" });
+  expect(links.some(link => link.getAttribute("href") === "/ko/athlete/me/activities?import=1")).toBe(true);
+  expect(await screen.findByRole("link", { name: "FTP · —" })).toHaveAttribute("href", "/ko/settings/training?sport=bike&focus=ftp");
+});

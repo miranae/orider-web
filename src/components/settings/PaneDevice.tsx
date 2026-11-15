@@ -1,5 +1,6 @@
 import GlossaryText from "../common/GlossaryText";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import "./device-gear.css";
 import { LegacyLayoutImportWizard } from "./LegacyLayoutImportWizard";
 import type { DataPageConfig } from "@shared/types/deviceSettings";
@@ -39,6 +40,8 @@ import {
   Toggle,
   monoInputStyle,
 } from "./_primitives";
+import { Resolvable } from "../redesign/states/Resolvable";
+import { useSignInResolve } from "../../hooks/useSignInResolve";
 import { LayoutEditorCard } from "./LayoutEditorCard";
 import { Button, Card, DropdownSelect, buttonClass } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
@@ -584,6 +587,7 @@ export function PaneDevice() {
   const { showToast } = useToast();
   const dialog = useDialog();
   const uid = user?.uid ?? null;
+  const signInResolve = useSignInResolve();
   const { records, loading, error, reload, update, broadcastUserScoped } =
     useAllDeviceSettings(uid);
 
@@ -612,6 +616,29 @@ export function PaneDevice() {
   const [dsDraft, setDsDraft] = useState<DisplaySoundDraft | null>(null);
   const [bgDraft, setBgDraft] = useState<BatteryGpsDraft | null>(null);
   const [netDraft, setNetDraft] = useState<NetworkDraft | null>(null);
+
+  // 반영 실패 알림은 `?device=<id>` 로 실패한 기기를 가리킨다(다른 화면에서 눌러도 새로 열린 화면이 그 기기를 고른다).
+  // 현재 계정의 기기 목록에 있을 때만 고르고 — 다른 계정의 알림이면 무시 — 기기 선택기처럼 편집 중이던 카드·초안을 버린다.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedDeviceId = searchParams.get("device");
+  useEffect(() => {
+    if (!requestedDeviceId || loading) return;
+    if (records.some((r) => r.deviceId === requestedDeviceId)) {
+      setEditingCard(null);
+      setRiderDraft(null);
+      setAutoDraft(null);
+      setAlertDraft(null);
+      setDsDraft(null);
+      setBgDraft(null);
+      setNetDraft(null);
+      setSelectedDeviceId(requestedDeviceId);
+    }
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("device");
+      return next;
+    }, { replace: true });
+  }, [requestedDeviceId, loading, records, setSearchParams]);
 
   useEffect(() => {
     if (!record) return;
@@ -729,7 +756,7 @@ export function PaneDevice() {
     return (
       <SettingsCard data-testid="S6.guest" title={t("device.mobileSync")}>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>
-          {t("device.loginRequired")}
+          <Resolvable resolve={signInResolve}>{t("device.loginRequired")}</Resolvable>
         </div>
       </SettingsCard>
     );
@@ -747,7 +774,7 @@ export function PaneDevice() {
     return (
       <SettingsCard data-testid="S6.error" title={t("device.mobileSync")} danger>
         <div style={{ fontSize: "var(--fs-sm)", color: "var(--rose)" }}>
-          {t("device.loadFailed", { message: error.message })}
+          <Resolvable resolve={{ onClick: () => void reload() }}>{t("device.loadFailed", { message: error.message })}</Resolvable>
         </div>
       </SettingsCard>
     );
@@ -802,7 +829,12 @@ export function PaneDevice() {
           const parts: string[] = [t("device.broadcastApplied_other", { count: totalApplied })];
           if (validationFailed > 0) parts.push(t("device.broadcastValidationFailed", { count: validationFailed }));
           if (networkFailed > 0) parts.push(t("device.broadcastNetworkFailed", { count: networkFailed }));
-          showToast(parts.join(" · "));
+          // 알림 문구를 누르면 처음 실패한 기기를 골라 그 기기 설정을 바로 고칠 수 있게 한다.
+          // 주소로 넘긴다 — 화면을 떠난 뒤 눌러도 새로 열린 기기 설정이 그 기기를 고른다(위 ?device= 처리).
+          const failedDeviceId = result.failures[0]!.deviceId;
+          showToast(parts.join(" · "), "error", {
+            resolve: { to: `/settings/device?device=${encodeURIComponent(failedDeviceId)}` },
+          });
         } else if (totalApplied > 1) {
           showToast(t("device.broadcastApplied_other", { count: totalApplied }));
         } else {

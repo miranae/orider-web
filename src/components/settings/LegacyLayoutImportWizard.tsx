@@ -7,6 +7,7 @@ import { useBikeProfileLayout } from "../../hooks/useBikeProfileLayout";
 import { useBikeProfiles } from "../../hooks/useBikeProfiles";
 import { useToast } from "../../contexts/ToastContext";
 import { Button, DropdownSelect, Text } from "../../theme/components";
+import { Resolvable } from "../redesign/states/Resolvable";
 
 type DeviceOption = { deviceId: string; label: string; config: DataPageConfig };
 
@@ -40,7 +41,7 @@ export function LegacyLayoutImportWizard({
   const target = profiles.find((p) => p.id === targetProfileId) ?? null;
 
   // 대상 자전거의 **현재** 구성을 함께 보여 준다 — 교체될 쪽을 모르면 확인은 형식일 뿐이다.
-  const { config: targetConfig, canSave, save } = useBikeProfileLayout(
+  const { config: targetConfig, canSave, save, source: targetSource, loading: targetLoading, reload: reloadTarget } = useBikeProfileLayout(
     uid,
     targetProfileId,
     source?.config.pages ?? [],
@@ -144,7 +145,8 @@ export function LegacyLayoutImportWizard({
       {/* 대상 레코드를 읽지 못한 상태에서는 가져오지 않는다 — 원문을 덮어쓴다. */}
       {target && !canSave && (
         <div style={{ fontSize: "var(--fs-xs)", color: "var(--ink-3)" }} data-testid="legacy-import-blocked">
-          {t("device.legacyImportBlocked")}
+          {/* 대상 구성을 읽지 못한 경우엔 문구를 누르면 다시 불러온다. */}
+          <Resolvable resolve={!targetLoading && targetSource === "unavailable" ? { onClick: reloadTarget } : undefined}>{t("device.legacyImportBlocked")}</Resolvable>
         </div>
       )}
     </div>

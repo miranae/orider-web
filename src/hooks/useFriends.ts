@@ -57,6 +57,8 @@ export function useFriends() {
   const [friends, setFriends] = useState<FriendRelation[]>([]);
   const [sentRequests, setSentRequests] = useState<{ targetId: string; nickname: string; profileImage: string | null; createdAt: number }[]>([]);
   const [readError, setReadError] = useState<unknown>(null);
+  // 「친구 정보를 읽지 못했어요」를 누르면 세 구독을 다시 연다(세 번째 구독이 오류 표시를 먼저 내린다).
+  const [readAttempt, setReadAttempt] = useState(0);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [friendCodeState, setFriendCodeState] = useState<{ uid: string; code: string | null } | null>(null);
   const [friendCodeLoadingUid, setFriendCodeLoadingUid] = useState<string | null>(null);
@@ -90,9 +92,9 @@ export function useFriends() {
         );
         setLoading(false);
       },
-      (error) => { setReadError(error); setLoading(false); },
+      (error) => { setReadError(error); setLoading(false); logClientError("useFriends.friends", error, { readAttempt }); },
     );
-  }, [user, firestore, functions]);
+  }, [user, firestore, functions, readAttempt]);
 
   // Real-time friend requests subscription
   useEffect(() => {
@@ -115,9 +117,9 @@ export function useFriends() {
           }),
         );
       },
-      (error) => { setReadError(error); },
+      (error) => { setReadError(error); logClientError("useFriends.requests", error, { readAttempt }); },
     );
-  }, [user, firestore, functions]);
+  }, [user, firestore, functions, readAttempt]);
 
   useEffect(() => {
     setSentRequests([]); setReadError(null);
@@ -128,7 +130,7 @@ export function useFriends() {
         return { targetId: doc.id, nickname: data.targetNickname ?? "", profileImage: data.targetPhotoURL ?? null, createdAt: toMillis(data.createdAt) };
       }));
     }, error => { setSentRequests([]); setReadError(error); logClientError("useFriends.sentRequests", error); });
-  }, [user?.uid, firestore, functions]);
+  }, [user?.uid, firestore, functions, readAttempt]);
 
   const cancelRequest = useCallback(async (targetId: string) => {
     if (!user) return;
@@ -223,11 +225,14 @@ export function useFriends() {
     }
   }, [user, profile, actionLoading, firestore, functions]);
 
+  const retryRead = useCallback(() => setReadAttempt(value => value + 1), []);
+
   return {
     friends,
     requests,
     sentRequests,
     readError,
+    retryRead,
     cancelRequest,
     friendCode,
     friendCodeLoading,

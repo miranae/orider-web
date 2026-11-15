@@ -1,10 +1,14 @@
 import { qualifiedRunRecords } from "../../features/fitness/runAnalysisReadiness";
 import GlossaryText from "../common/GlossaryText";
 import { useTranslation } from "react-i18next";
+import type { ReactNode } from "react";
 import type { CyclingAbilityResult, RunEvidence, SwimEvidence } from "../../features/fitness/multisportPerformance";
 import type { Discipline } from "../../utils/disciplineFilter";
 import { buttonClass, Text } from "../../theme/components";
 import CyclingAbilityCard from "../fitness/CyclingAbilityCard";
+import { Resolvable } from "../redesign/states/Resolvable";
+import { FOCUS_TARGETS, thresholdSettingsHref } from "../../services/focusTarget";
+import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 
 function formatDuration(seconds: number) {
   const roundedSeconds = Math.round(seconds);
@@ -36,6 +40,8 @@ export default function SportPerformanceCard({
   swim: SwimEvidence;
 }) {
   const { t, i18n } = useTranslation("dashboard");
+  // 기준값 칸은 웹 설정에만 있다 — 앱 임베드에서는 용어 설명이 붙은 글자 그대로 둔다.
+  const web = useFirebaseServices().scope !== "embedded";
   const qualifiedRecords = qualifiedRunRecords(run);
   const unverifiedGroups: Array<{ activityId: string | null; records: NonNullable<RunEvidence["unverifiedRecords"]> }> = [];
   const groupsByActivity = new Map<string, (typeof unverifiedGroups)[number]>();
@@ -64,7 +70,9 @@ export default function SportPerformanceCard({
             <EvidenceRow label={t(`fitness:runRecords.dist.${record.distance}`)} value={`${formatDuration(record.seconds)} · ${record.date}`} />
             <a href={`/${i18n.language.startsWith("ko") ? "ko" : "en"}/activity/${encodeURIComponent(record.activityId)}`} className={buttonClass({ variant: "ghost" })} style={{ minHeight: "var(--space-8)", fontSize: "var(--fs-md)" }}>{t("fitness:runRecords.viewActivity")}</a>
           </div>)}
-          {run.thresholdPaceSec == null && qualifiedRecords.length === 0 && <Text as="p" variant="bodyMedium" tone="secondary" style={{ marginTop: "var(--space-3)" }}><GlossaryText>{t("mobileFitness.sport.run.noQualifiedEvidence")}</GlossaryText></Text>}
+          {run.thresholdPaceSec == null && qualifiedRecords.length === 0 && <Text as="p" variant="bodyMedium" tone="secondary" style={{ marginTop: "var(--space-3)" }}>{/* 확인 전 기록도 없으면 역치 페이스 칸으로 — 기준값이 있으면 이 카드가 근거를 보인다. */}{web && !run.unverifiedRecords?.length
+            ? <Resolvable resolve={{ to: thresholdSettingsHref("run", FOCUS_TARGETS.thresholdPace) }}>{t("mobileFitness.sport.run.noQualifiedEvidence")}</Resolvable>
+            : <GlossaryText>{t("mobileFitness.sport.run.noQualifiedEvidence")}</GlossaryText>}</Text>}
           {!!run.unverifiedRecords?.length && <details style={{ marginTop: "var(--space-3)" }}>
             <summary style={{ minHeight: "var(--space-8)", cursor: "pointer", fontSize: "var(--fs-md)", fontWeight: 600, padding: "var(--space-3) 0" }}>{t("mobileFitness.sport.run.unverifiedTitle", { count: run.unverifiedRecords.length, activityCount: groupsByActivity.size })}</summary>
             <Text as="p" variant="bodyMedium" tone="secondary"><GlossaryText>{t("mobileFitness.sport.run.unverifiedBasis")}</GlossaryText></Text>
@@ -84,14 +92,14 @@ export default function SportPerformanceCard({
           {swim.cssSecPer100m != null && <EvidenceRow label="CSS" value={`${formatPace(swim.cssSecPer100m)}/100m`} />}
           {swim.swolfAvg != null && <EvidenceRow label="SWOLF" value={swim.swolfAvg.toFixed(1)} />}
           {swim.distancePerStrokeM != null && <EvidenceRow label={t("mobileFitness.sport.swim.distancePerStroke")} value={`${swim.distancePerStrokeM.toFixed(2)} m`} />}
-          {swim.cssSecPer100m == null && swim.swolfAvg == null && swim.distancePerStrokeM == null && <EmptyEvidence text={t("mobileFitness.sport.insufficient")} />}
+          {swim.cssSecPer100m == null && swim.swolfAvg == null && swim.distancePerStrokeM == null && <EmptyEvidence text={<Resolvable resolve={web ? { to: thresholdSettingsHref("swim", FOCUS_TARGETS.css) } : undefined}>{t("mobileFitness.sport.insufficient")}</Resolvable>} />}
         </>
       )}
     </section>
   );
 }
 
-function EmptyEvidence({ text }: { text: string }) {
+function EmptyEvidence({ text }: { text: ReactNode }) {
   return <div style={{ marginTop: "var(--space-3)", fontSize: "var(--fs-sm)", color: "var(--ink-3)" }}>{text}</div>;
 }
 

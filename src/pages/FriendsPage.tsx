@@ -19,12 +19,13 @@ import { buildFriendInviteUrl, shareFriendInvite } from "../utils/friendInviteSh
 import i18n from "../i18n";
 import { sanitizeInternalReturnPath } from "../utils/internalReturnPath";
 import { ICON_SIZE } from "../theme/tokens/icon";
+import { Resolvable } from "../components/redesign/states/Resolvable";
 
 export default function FriendsPage() {
   const { user } = useAuth();
   const { t } = useTranslation("friends");
   const { t: commonT } = useTranslation("common");
-  const { friends, requests, sentRequests = [], readError, cancelRequest, friendCode, friendCodeLoading, loading, actionLoading, addByCode, acceptRequest, declineRequest, removeFriend } = useFriends();
+  const { friends, requests, sentRequests = [], readError, retryRead, cancelRequest, friendCode, friendCodeLoading, loading, actionLoading, addByCode, acceptRequest, declineRequest, removeFriend } = useFriends();
   const { showToast } = useToast();
   const dialog = useDialog();
   const navigate = useNavigate();
@@ -45,6 +46,10 @@ export default function FriendsPage() {
     const result = await shareFriendInvite({ title: t("onboarding.shareTitle"), text: t("onboarding.shareText"), url });
     if (result === "copied") showToast(t("onboarding.copied"));
     else if (result === "error") showToast(t("onboarding.shareFailed"), "error");
+  };
+  const copyFriendCode = (code: string) => {
+    void navigator.clipboard.writeText(code).then(() => showToast(t("copied")))
+      .catch(() => showToast(t("onboarding.shareFailed"), "error"));
   };
 
   if (!user) {
@@ -163,7 +168,7 @@ export default function FriendsPage() {
             <Text variant="mono" className="font-semibold text-[var(--aqua)] bg-[var(--aqua)]/10 px-3 py-1 rounded-[var(--r-lg)] text-[length:var(--fs-lg)]">
               {friendCode}
             </Text>
-            <Button variant="ghost" iconOnly aria-label={t("copyTooltip")} onClick={() => { void navigator.clipboard.writeText(friendCode).then(() => showToast(t("copied"))).catch(() => showToast(t("onboarding.shareFailed"), "error")); }}><Copy size={ICON_SIZE.md} aria-hidden="true" /></Button>
+            <Button variant="ghost" iconOnly aria-label={t("copyTooltip")} onClick={() => copyFriendCode(friendCode)}><Copy size={ICON_SIZE.md} aria-hidden="true" /></Button>
           </div>
         )}
         <div className="flex gap-2">
@@ -204,7 +209,7 @@ export default function FriendsPage() {
         {(["friends", "requests", "sent"] as const).map((target) => <Button key={target} role="tab" aria-selected={tab === target} variant={tab === target ? "secondary" : "ghost"} onClick={() => setTab(target)}>{t(`tab.${target}`, {count: target === "friends" ? friends.length : target === "requests" ? requests.length : sentRequests.length})}</Button>)}
       </div>
 
-      {readError != null && <p role="alert" data-testid="P3.error">{t("readFailed")}</p>}
+      {readError != null && <p role="alert" data-testid="P3.error"><Resolvable resolve={{ onClick: retryRead }}>{t("readFailed")}</Resolvable></p>}
       {tab === "sent" && <Card data-testid="P3-5">{sentRequests.length === 0 ? <p>{t("sentEmpty")}</p> : sentRequests.map(request => <div key={request.targetId} data-testid="P3-5-1" className="friends-sent"><Link to={`/athlete/${request.targetId}`} className="flex items-center gap-2"><Avatar name={request.nickname || t("defaultNickname")} imageUrl={request.profileImage} size="md" /><span>{request.nickname || t("defaultNickname")}<Text as="time" variant="caption" tone="secondary">{request.createdAt > 0 ? new Date(request.createdAt).toLocaleString() : "—"}</Text></span></Link><Button disabled={pendingRequests.has(`cancel:${request.targetId}`)} onClick={async () => {
         const key = `cancel:${request.targetId}`;
         if (pendingRequests.has(key)) return;

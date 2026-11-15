@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSignInResolve } from "../../hooks/useSignInResolve";
 import { useTranslation } from "react-i18next";
 import { Heart, MessageCircle } from "lucide-react";
 import { Button, Textarea } from "../../theme/components";
@@ -31,9 +32,19 @@ export default function ActivitySocialFooter({ activity, presentation = "default
   const { t } = useTranslation("activity");
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  const signInResolve = useSignInResolve();
   const { showToast } = useToast();
 
   const services = useFirebaseServices();
+  // 실패 알림 문구 자체가 해결이다: 로그인 만료 → 로그인, 앱 보안 확인 실패 → 새로고침(앱 임베드는 웹 새로고침을 주지 않는다).
+  const showSocialError = (err: unknown) => {
+    const key = activitySocialErrorMessageKey(err);
+    const resolve = key === "socialErrors.auth" ? signInResolve
+      : key === "socialErrors.app_check" && services.scope !== "embedded" ? { onClick: () => window.location.reload() }
+        : undefined;
+    if (resolve) showToast(t(key), "error", { resolve });
+    else showToast(t(key), "error");
+  };
   const sdkUser = services.auth.currentUser;
   const initialRecent = activity.recentKudos ?? [];
   const canonicalLiked = activity.viewerHasKudos ?? (!!user && initialRecent.some((k) => k.userId === user.uid));
@@ -112,7 +123,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
         activityId: activity.id,
         action: wasLiked ? "off" : "on",
       });
-      showToast(t(activitySocialErrorMessageKey(err)), "error");
+      showSocialError(err);
     } finally { if (current()) { pendingKudos.current = false; setKudosBusy(false); } }
   };
 
@@ -145,7 +156,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
     } catch (err) {
       setLocalComments((c) => Math.max(0, c - 1)); // 롤백
       logClientError("ActivitySocialFooter.commentSubmit", err, { activityId: activity.id });
-      showToast(t(activitySocialErrorMessageKey(err)), "error");
+      showSocialError(err);
     } finally {
       setCommentSubmitting(false);
     }
@@ -234,7 +245,11 @@ export default function ActivitySocialFooter({ activity, presentation = "default
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && (!feed || e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); handleSubmitComment(); } }}
-              disabled={!user || commentSubmitting}
+              // 로그인 전엔 「로그인 후 댓글을 남길 수 있어요」 입력칸 자체를 누르면 로그인 창을 연다.
+              // 앱 임베드처럼 로그인 경로가 없으면 예전처럼 잠가 둔다.
+              readOnly={!user && signInResolve !== undefined}
+              onClick={!user && signInResolve ? (e: React.MouseEvent) => { e.stopPropagation(); signInResolve.onClick?.(); } : undefined}
+              disabled={(!user && signInResolve === undefined) || commentSubmitting}
               placeholder={user ? t("card.commentPlaceholder") : t("card.commentLoginRequired")}
               className={feed ? "activity-social-comment-input" : "flex-1 px-3 py-1.5 rounded-[var(--r-md)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)]"}
               style={feed ? undefined : { background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}

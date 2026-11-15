@@ -4,3 +4,5 @@ export { default as LoadingSkeleton } from "./LoadingSkeleton";
 export type { SkeletonKind } from "./LoadingSkeleton";
 export { default as ErrorState } from "./ErrorState";
 export { default as PermissionGate } from "./PermissionGate";
+export { Resolvable } from "./Resolvable";
+export type { Resolve } from "./Resolvable";

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render as rtlRender, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { OriderThemeProvider } from "../theme";
@@ -54,6 +54,10 @@ function renderRun() {
 import AnalysisTab from "./AnalysisTab";
 import MetabolismCard from "./MetabolismCard";
 import RunAnalysisPanel from "./activity/RunAnalysisPanel";
+import { MemoryRouter } from "react-router-dom";
+
+// 경고의 해결 링크(LocalizedLink)가 라우터 안에서 그려진다.
+const render: typeof rtlRender = ((ui: Parameters<typeof rtlRender>[0], options?: Parameters<typeof rtlRender>[1]) => rtlRender(ui, { wrapper: MemoryRouter, ...options })) as typeof rtlRender;
 
 describe("러닝 분석 게이트", () => {
   it("인증 대기 러닝 분석은 데이터 결측을 단정하지 않고 로그인 후 실제 상태로 전환한다", () => {
@@ -462,6 +466,46 @@ it.each([true, false])("explains missing activity-time HR reference in empty zon
   rerender(<AnalysisTab {...props} isOwner />);
   expect(screen.queryByText("overviewEvidence.hrContextMissing")).not.toBeInTheDocument();
   expect(within(screen.getByRole("region", { name: "analysis.zones.hr" })).getByText("analysis.empty.hrZonesDesc")).toBeInTheDocument();
+});
+
+// 심박 기준 정본이 없다는 경고 문구를 주인이 누르면 최대심박 칸으로. 남에게는 글자 그대로, 덧붙는 문장 없음.
+it("makes the missing heart-rate reference notice open the max-HR field only for the owner", () => {
+  state.metrics = gpsOnlyRunMetrics();
+  Object.assign(state.metrics.metrics!, { discipline: "bike", avgHr: 150, runMetrics: null, splits: [] });
+  const props = { sport: "ride" as const, streams: { time: [], distance: [] } as unknown as ActivityStreams };
+  const { rerender } = render(<AnalysisTab {...props} isOwner />);
+  const notice = screen.getAllByText("overviewEvidence.hrContextMissing").find((node) => node.closest("a"))!.closest("a");
+  expect(notice).toHaveAttribute("href", expect.stringContaining("/settings/training?sport=bike&focus=max-hr"));
+  rerender(<AnalysisTab {...props} isOwner={false} />);
+  expect(screen.getAllByText("overviewEvidence.hrContextMissing").every((node) => !node.closest("a"))).toBe(true);
+});
+
+// 분석 스트림 없음 빈 상태 문구를 주인이 누르면 연동(가져오기) 화면으로. 남에게는 글자 그대로, 새 버튼 없음.
+it("makes the no-stream empty state open connections only for the owner", () => {
+  state.metrics = gpsOnlyRunMetrics();
+  Object.assign(state.metrics.metrics!, { discipline: "bike", runMetrics: null, splits: [] });
+  const props = { sport: "ride" as const, streams: { time: [], distance: [] } as unknown as ActivityStreams };
+  const { rerender } = render(<AnalysisTab {...props} isOwner />);
+  for (const key of ["analysis.empty.noStreamsTitle", "analysis.noData"]) {
+    expect(screen.getByRole("link", { name: key })).toHaveAttribute("href", expect.stringContaining("/settings/connections"));
+  }
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  rerender(<AnalysisTab {...props} isOwner={false} />);
+  expect(screen.getByText("analysis.empty.noStreamsTitle")).toBeInTheDocument();
+  expect(screen.queryByRole("link")).not.toBeInTheDocument();
+});
+
+// 가상 파워 칩을 주인이 누르면 기기 설정의 가상 파워 칸으로. 남에게는 칩 그대로.
+it("makes the virtual-power chip open the device virtual-power field only for the owner", () => {
+  state.metrics = gpsOnlyRunMetrics();
+  Object.assign(state.metrics.metrics!, { discipline: "bike", avgPower: 200, np: 220, runMetrics: null, splits: [] });
+  const props = { sport: "ride" as const, isVirtualPower: true, streams: { time: [], distance: [] } as unknown as ActivityStreams };
+  const themed = (owner: boolean) => <ThemeProvider><OriderThemeProvider><AnalysisTab {...props} isOwner={owner} /></OriderThemeProvider></ThemeProvider>;
+  const { rerender } = render(themed(true));
+  expect(screen.getByRole("link", { name: "vp.badge" })).toHaveAttribute("href", expect.stringContaining("/settings/device?focus=virtual-power"));
+  rerender(themed(false));
+  expect(screen.getByText("vp.badge")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "vp.badge" })).not.toBeInTheDocument();
 });
 
 it("keeps a stale saved running curve and record in the real analysis panel", () => {

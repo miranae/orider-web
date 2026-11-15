@@ -1,4 +1,5 @@
 import { useFirebaseServices } from "../contexts/FirebaseServicesContext";
+import { useSignInResolve } from "../hooks/useSignInResolve";
 import React, { useState } from 'react';
 import { EyeOff, FileText, Trash2, MapPin, Heart, MessageCircle, Flag, Ban } from 'lucide-react';
 import { useLocation, useParams } from "react-router-dom";
@@ -19,7 +20,7 @@ import { setBoardAuthorBlocked, useBoardBlocks } from '../features/board/useBoar
 import { BoardImage, isBoardStorageImage } from '../features/board/BoardImage';
 import { useLinkedPublicActivity } from '../hooks/useLinkedPublicActivity';
 import { LocalizedLink as Link } from '../components/LocalizedLink';
-import { EmptyState, LoadingSkeleton } from '../components/redesign';
+import { EmptyState, LoadingSkeleton, Resolvable } from '../components/redesign';
 import SafeImage from '../components/SafeImage';
 import type { BoardPost, BoardComment } from '@shared/types';
 import { Button, Card, Chip } from "../theme/components";
@@ -54,15 +55,16 @@ const PostDetailPage: React.FC = () => {
   const { t, i18n } = useTranslation("board");
   const [commentText, setCommentText] = useState('');
   const { user } = useAuth();
+  const signInResolve = useSignInResolve();
   const firebaseServices = useFirebaseServices();
   const { showToast } = useToast();
   const dialog = useDialog();
   const { deletePost, deleting: postDeleting } = useDeletePost();
   const { report, submitting: reportSubmitting } = useReportBoardContent();
   const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
-  const { data: post, loading: postLoading, error: postError } = useDocument<BoardPost>('board_posts', postId);
+  const { data: post, loading: postLoading, error: postError, retry: retryPost } = useDocument<BoardPost>('board_posts', postId);
   const linkedActivity = useLinkedPublicActivity(post?.activityId || undefined);
-  const { data: comments, loading: commentsLoading, error: commentsError } = useCollection<BoardComment>(
+  const { data: comments, loading: commentsLoading, error: commentsError, retry: retryComments } = useCollection<BoardComment>(
     `board_posts/${postId}/comments`,
     [where('deletedAt', '==', null), orderBy('createdAt', 'asc')]
   );
@@ -74,11 +76,14 @@ const PostDetailPage: React.FC = () => {
 
   useBoardPostView(postId, location.key, post);
 
+  // 로그인이 필요한 동작을 막은 알림 문구를 누르면 바로 로그인 창을 연다.
+  const loginToastOptions = { resolve: signInResolve };
+
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentText.trim()) return;
     if (!user) {
-      showToast(t("error.loginRequired"), "info");
+      showToast(t("error.loginRequired"), "info", loginToastOptions);
       return;
     }
     try {
@@ -102,7 +107,7 @@ const PostDetailPage: React.FC = () => {
 
   const handleLikeToggle = async () => {
     if (!user) {
-      showToast(t("error.loginRequired"), "info");
+      showToast(t("error.loginRequired"), "info", loginToastOptions);
       return;
     }
     try {
@@ -126,7 +131,7 @@ const PostDetailPage: React.FC = () => {
 
   const openReport = (target: ReportTarget) => {
     if (!user) {
-      showToast(t("report.loginRequired"), "info");
+      showToast(t("report.loginRequired"), "info", loginToastOptions);
       return;
     }
     setReportTarget(target);
@@ -183,6 +188,8 @@ const PostDetailPage: React.FC = () => {
         <EmptyState
           icon={<FileText size={ICON_SIZE.xl} className="mx-auto" aria-hidden="true" />}
           title={t(postError ? 'error.loadFailed' : 'label.postNotFound')}
+          // 「불러오지 못했습니다」를 누르면 글을 다시 읽는다(없는 글은 그대로).
+          resolve={postError && retryPost ? { onClick: retryPost } : undefined}
           actions={[{ label: t('label.backToBoard'), variant: "primary", onClick: () => navigate(boardReturnTo) }]}
         />
       </div>
@@ -410,7 +417,7 @@ const PostDetailPage: React.FC = () => {
 
         <div className="space-y-3" aria-busy={commentsLoading}>
           {commentsLoading ? <LoadingSkeleton kind="card" /> : commentsError ? (
-            <p role="alert" className="board-comment-empty">{t('error.loadFailed')}</p>
+            <p role="alert" className="board-comment-empty"><Resolvable resolve={retryComments ? { onClick: retryComments } : undefined}>{t('error.loadFailed')}</Resolvable></p>
           ) : visibleComments.length === 0 ? (
             <div className="board-comment-empty">
               <p>{t('comment.emptyTitle')}</p>

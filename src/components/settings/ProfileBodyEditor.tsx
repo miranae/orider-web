@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { logClientError } from "../../services/errorLogger";
 import { FOCUS_TARGETS, focusTargetProps } from "../../services/focusTarget";
 import { useTranslation } from "react-i18next";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -12,6 +13,7 @@ import { firestore, functions } from "../../services/firebase";
 import { syncRiderMetricsToDevices, syncRiderWeightToBikeProfiles } from "../../services/syncRiderMetrics";
 import { Button, Input, ToggleControls, ToggleButton } from "../../theme/components";
 import { SettingsCard, Field, FieldGrid } from "./_primitives";
+import { Resolvable } from "../redesign/states/Resolvable";
 import { formatBodyValue, parseBodyValue, type BodyUnit } from "./bodyMeasurements";
 
 export function ProfileBodyEditor() {
@@ -27,7 +29,7 @@ export function ProfileBodyEditor() {
   const [unit, setUnit] = useState<BodyUnit>(units === "imperial" ? "imperial" : "metric");
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [attempt] = useState(0);
+  const [attempt, setAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const baseline = useRef({ weight: "", height: "", revision: null as string | null });
@@ -45,7 +47,7 @@ export function ProfileBodyEditor() {
       setWeight(weight); setHeight(height);
       setConfirmed(Boolean(data.weightRevision) || Number(data.weightKg) !== 70);
       setLoaded(true);
-    }).catch(() => { if (!cancelled) setFailed(true); });
+    }).catch(error => { logClientError("ProfileBodyEditor.load", error, { attempt }); if (!cancelled) setFailed(true); });
     return () => { cancelled = true; };
   }, [user?.uid, attempt]);
 
@@ -85,7 +87,9 @@ export function ProfileBodyEditor() {
         await updateDoc(doc(firestore, "users", user.uid), { heightCm: height === "" ? null : Number(height) });
         baseline.current.height = height;
       }
-      showToast(errors.length ? t("training.syncPartialFail", { errors: errors.join(" / ") }) : t("training.saved"));
+      // 동기화 일부 실패는 알림 문구를 누르면 기기 설정 화면(기기·자전거 프로필)으로 간다.
+      if (errors.length) showToast(t("training.syncPartialFail", { errors: errors.join(" / ") }), "error", { resolve: { to: "/settings/device" } });
+      else showToast(t("training.saved"));
     } catch (e) {
       showToast(`${t("training.saveFailed")}: ${String(e)}`);
     } finally { setSaving(false); }
@@ -94,7 +98,7 @@ export function ProfileBodyEditor() {
   if (!user) return null;
   return <section id="body-info" aria-label={t("profile.bodyInfo")}>
     <SettingsCard title={t("profile.bodyInfo")}>
-      {failed && <div role="alert">{t("training.loadFailed")} </div>}
+      {failed && <div role="alert"><Resolvable resolve={{ onClick: () => setAttempt(value => value + 1) }}>{t("profile.bodyInfoLoadFailed")}</Resolvable></div>}
       <fieldset disabled={!loaded || saving} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         <ToggleControls variant="axis" aria-label={t("training.bodyUnit.metric")} >
           {(["metric", "imperial"] as const).map(value => <ToggleButton key={value} selected={unit === value} onClick={() => setUnit(value)}>{t(`training.bodyUnit.${value}`)}</ToggleButton>)}

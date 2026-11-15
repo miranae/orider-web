@@ -50,6 +50,16 @@ describe("course preparation calculator", () => {
     expect(screen.queryByText("추정치이며 실제 기록을 보장하지 않습니다.")).toBeNull();
     expect(screen.getByText("베타 — 정확도 미보장")).toBeInTheDocument();
   });
+  it("PDC 없음 문구를 누르면 파워 기록을 들여오는 연결 화면으로 간다(새 버튼 없음)", async () => {
+    render(<MemoryRouter initialEntries={["/ko/lab?courseId=other"]}><LabPage /></MemoryRouter>);
+    await waitFor(() => expect(screen.getAllByRole("combobox")[0]).toHaveValue("other"));
+    const before = screen.getAllByRole("button").length;
+    fireEvent.click(screen.getByRole("button", { name: "PR 예측" }));
+    const links = await screen.findAllByRole("link", { name: /PDC\(CP\/W'\) 데이터가 없어 PR을 예측할 수 없습니다/ });
+    links.forEach(link => expect(link).toHaveAttribute("href", expect.stringContaining("/settings/connections")));
+    expect(screen.getAllByRole("button")).toHaveLength(before);
+  });
+
   it("preserves the standalone lab query and editable selector", async () => {
     render(<MemoryRouter initialEntries={["/ko/lab?courseId=other"]}><LabPage /></MemoryRouter>);
     await waitFor(() => expect(screen.getAllByRole("combobox")[0]).toHaveValue("other"));

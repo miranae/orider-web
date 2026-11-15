@@ -41,3 +41,23 @@ it("영어 화면에서 공개 항목과 오류와 재시도를 번역한다", a
     expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
   } finally { await i18n.changeLanguage("ko"); }
 });
+
+it("불러오기 실패 문구를 누르면 서버에서 다시 읽고 조작을 연다 — 새 버튼은 만들지 않는다", async () => {
+  mocks.read.mockRejectedValueOnce(Error("offline")).mockResolvedValueOnce({ data: () => ({ power: false }) });
+  render(<PublicDataSettingsCard />);
+  const message = await screen.findByRole("button", { name: "공개 데이터 설정을 불러오지 못했습니다." });
+  expect(screen.getAllByRole("button")).toHaveLength(1);
+  fireEvent.click(message);
+  await waitFor(() => expect(screen.getByRole("switch", { name: "파워" })).toBeEnabled());
+  expect(mocks.read).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole("switch", { name: "파워" })).not.toBeChecked();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+it("저장 실패 문구는 누를 수 없다(다시 읽어도 해소되지 않는다)", async () => {
+  mocks.write.mockRejectedValue(Error("offline"));
+  render(<PublicDataSettingsCard />);
+  await waitFor(() => expect(screen.getByRole("switch", { name: "심박" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("switch", { name: "심박" }));
+  await screen.findByRole("alert");
+  expect(screen.queryByRole("button")).not.toBeInTheDocument();
+});
