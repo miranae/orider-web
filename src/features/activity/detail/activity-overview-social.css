@@ -8,6 +8,7 @@
 .activity-overview-photo-open { display: block; width: 100%; height: 100%; border: 0; padding: 0; background: none; cursor: pointer; }
 .activity-overview-photo img { width: 100%; height: 100%; object-fit: cover; }
 .activity-overview-photo-open:focus-visible { outline: 2px solid var(--accent); outline-offset: var(--space-0-5); }
+.activity-overview-photo-add { display: grid; place-items: center; cursor: default; border: 1px dashed var(--line); }
 .activity-overview-photo-more { position: absolute; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--ink-0) 60%, transparent); color: var(--bg-1); font-size: var(--fs-xl); font-weight: 600; }
 .activity-overview-photo-actions, .activity-overview-viewer-controls, .activity-overview-section-heading { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .activity-overview-photo-actions:empty { display: none; }

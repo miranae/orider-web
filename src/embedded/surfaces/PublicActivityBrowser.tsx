@@ -5,7 +5,9 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useTranslation } from "react-i18next";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { loadActivityDiscovery, type DiscoveryActivity } from "../../services/activityDiscovery";
-import { Button, Section, Stack, Text } from "../../theme/components";
+import { ArrowLeft } from "lucide-react";
+import { Button, IconButton, Section, Stack, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import Avatar from "../../components/Avatar";
 import PublicActivitySurface from "./PublicActivitySurface";
 import { Resolvable } from "../../components/redesign/states/Resolvable";
@@ -53,7 +55,8 @@ export default function PublicActivityBrowser(props: Props) {
   };
   return <div data-embedded-public-browser onClickCapture={navigate}>
     <Stack gap="var(--dim-section-gap)">
-      {!!destination && <Button variant="secondary" onClick={() => { setHistory(items => items.slice(0, -1)); setUnsupported(false); }}>{t("embeddedProfile.back")}</Button>}
+      {!!destination && <IconButton variant="secondary" icon={<ArrowLeft size={ICON_SIZE.md} />} aria-label={t("embeddedProfile.back")} title={t("embeddedProfile.back")}
+        onClick={() => { setHistory(items => items.slice(0, -1)); setUnsupported(false); }} />}
       {unsupported && <Text role="status">{t("embeddedProfile.unsupported")}</Text>}
       {!destination && props.commentId !== undefined && props.commentId !== null && <NotificationCommentTarget activityId={props.activityId} commentId={props.commentId} embedded />}
       {destination?.kind === "profile" ? <PublicProfile key={`${destination.id}:${generation}`} userId={destination.id}

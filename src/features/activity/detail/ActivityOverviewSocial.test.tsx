@@ -193,3 +193,24 @@ it("places the owner's cover star in the same viewer icon row as locate/delete",
   expect(star.parentElement).toHaveClass("activity-overview-viewer-controls");
   expect(star.parentElement).toContainElement(screen.getByRole("button", { name: "삭제" }));
 });
+it("puts the owner add-photo action inside the photo grid as an icon tile", () => {
+  const view = renderWithProviders(<ActivityOverviewSocial {...base} owner canUpload viewerId="owner" />);
+  const tile = screen.getByRole("button", { name: "사진 추가" });
+  expect(tile).toHaveClass("ds-btn--icon-only");
+  expect(tile).toHaveAttribute("title", "사진 추가");
+  expect(tile.closest(".activity-overview-photos")).toHaveAttribute("aria-label", "사진");
+  expect(tile.closest(".activity-overview-photos")).toHaveStyle({ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" });
+  expect(screen.getAllByRole("button", { name: /^사진 \d+ \/ 9 보기$/ })).toHaveLength(4);
+  expect(screen.getByText("+6")).toBeInTheDocument();
+  fireEvent.click(tile);
+  expect(base.onUpload).toHaveBeenCalledTimes(1);
+  view.rerender(<ActivityOverviewSocial {...base} owner canUpload uploading viewerId="owner" />);
+  expect(screen.getByRole("button", { name: "사진 추가" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "사진 추가" })).toHaveAttribute("aria-busy", "true");
+  view.rerender(<ActivityOverviewSocial {...base} photos={[]} totalPhotos={0} owner canUpload viewerId="owner" />);
+  expect(screen.getByRole("button", { name: "사진 추가" }).closest(".activity-overview-photos")).toHaveStyle({ gridTemplateColumns: "repeat(1, minmax(0, 1fr))" });
+  view.rerender(<ActivityOverviewSocial {...base} owner canUpload={false} viewerId="owner" />);
+  expect(screen.queryByRole("button", { name: "사진 추가" })).not.toBeInTheDocument();
+  view.rerender(<ActivityOverviewSocial {...base} canUpload viewerId="viewer" />);
+  expect(screen.queryByRole("button", { name: "사진 추가" })).not.toBeInTheDocument();
+});

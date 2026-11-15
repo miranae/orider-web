@@ -6,7 +6,7 @@ import { ICON_SIZE } from '../../../theme/tokens/icon';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import ActivityFeedVideo from "../../../components/activity/ActivityFeedVideo";
-import { MapPin, Trash2, Play, EyeOff } from "lucide-react";
+import { MapPin, Trash2, Play, EyeOff, Plus } from "lucide-react";
 import { providerPhotoIdOf } from "./providerPhotoVisibility";
 import type { Activity } from "@shared/types";
 import Avatar from "../../../components/Avatar";
@@ -58,6 +58,10 @@ export default function ActivityOverviewSocial(props: Props) {
   const previewUrl = photo?.nativePhoto ? nativePreview.url : photo?.url;
   const playable = (item: OverviewPhoto) => item.kind === "video" && !!item.videoUrl && safeImage(item.videoUrl) && !item.nativePhoto;
   const total = Math.max(props.totalPhotos, safePhotos.length);
+  // 주인 업로드 타일이 사진 칸 하나를 차지한다: 미리보기는 4장까지, 남은 수는 넷째 칸에 표시.
+  const addTile = props.owner && props.canUpload;
+  const previewLimit = addTile ? 4 : 5;
+  const previews = safePhotos.slice(0, previewLimit);
   useEffect(() => {
     if (expanded) return;
     const paragraph = memoParagraph;
@@ -85,13 +89,13 @@ export default function ActivityOverviewSocial(props: Props) {
         {overflowing && <Button variant="ghost" size="sm" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? "card.memoLess" : "card.memoMore")}</Button>}
         {props.memoTruncated && <Text as="p" variant="caption" tone="secondary">{t("overviewSocial.memoPartial")}</Text>}
       </div> : <Text as="p" variant="bodyMedium" tone="tertiary" role={props.memoLoading ? "status" : undefined}>{t(props.memoLoading ? "detail.loadingData" : props.memoError ? "overviewSocial.memoUnavailable" : "overviewSocial.noMemo")}</Text>)}
-      <div className="activity-overview-photos" style={{ gridTemplateColumns: `repeat(${Math.max(1, Math.min(5, safePhotos.length))}, minmax(0, 1fr))` }} aria-label={t("page.photos")}>
-        {safePhotos.slice(0, 5).map((item, position) => <div className="activity-overview-photo" key={item.id}>
+      <div className="activity-overview-photos" style={{ gridTemplateColumns: `repeat(${Math.max(1, previews.length + Number(addTile))}, minmax(0, 1fr))` }} aria-label={t("page.photos")}>
+        {previews.map((item, position) => <div className="activity-overview-photo" key={item.id}>
           <button type="button" className="activity-overview-photo-open"
             aria-label={t("overviewSocial.openPhoto", { index: position + 1, count: total })}
             onClick={() => { setSelected(item.id); if (total > safePhotos.length) load(); }}>
             {item.nativePhoto ? <NativeActivityPhotoImage nativePhoto={item.nativePhoto} alt={item.caption ?? ""} loading="lazy" /> : <img src={item.url} alt={item.caption ?? ""} loading="lazy" />}
-            {position === 4 && total > 5 && <span className="activity-overview-photo-more">+{total - 4}</span>}
+            {position === previewLimit - 1 && total > previewLimit && <span className="activity-overview-photo-more">+{total - previewLimit + 1}</span>}
           </button>
           {playable(item) && <>
             {item.durationSeconds != null && <span className="activity-feed-video-time">{Math.floor(item.durationSeconds / 60)}:{String(Math.floor(item.durationSeconds % 60)).padStart(2, "0")}</span>}
@@ -99,12 +103,15 @@ export default function ActivityOverviewSocial(props: Props) {
               onClick={() => { setSelected(item.id); if (total > safePhotos.length) load(); }} /></span>
           </>}
         </div>)}
+        {addTile && <div className="activity-overview-photo activity-overview-photo-add">
+          <IconButton variant="ghost" icon={<Plus size={ICON_SIZE.lg} />} loading={props.uploading} onClick={props.onUpload}
+            aria-label={t("page.addPhoto")} title={t("page.addPhoto")} />
+        </div>}
       </div>
       {!safePhotos.length && !props.photoError && (props.loadingPhotos || total > 0 || props.photosKnown === false) && <Text as="p" variant="bodySmall" tone="tertiary" role={props.loadingPhotos ? "status" : undefined}>{t(props.loadingPhotos ? "detail.loadingData" : total > 0 || props.photosKnown === false ? "overviewSocial.photosPending" : "overviewSocial.noPhotos")}</Text>}
       <div className="activity-overview-photo-actions">
         {(total > safePhotos.length || props.photosKnown === false) && props.canLoadPhotos && <Button variant="ghost" size="sm" disabled={props.loadingPhotos} onClick={load}>{t(props.loadingPhotos ? "detail.loadingData" : "overviewSocial.loadPhotos")}</Button>}
         {(total > safePhotos.length || props.photosKnown === false) && !props.canLoadPhotos && props.onSignIn && <Button variant="ghost" size="sm" onClick={props.onSignIn}>{t("overviewSocial.signInPhotos")}</Button>}
-        {props.owner && props.canUpload && <Button variant="ghost" size="sm" disabled={props.uploading} onClick={props.onUpload}>{t(props.uploading ? "page.uploading" : "page.addPhoto")}</Button>}
         {props.owner && !!props.hiddenProviderCount && props.onRestoreProviderPhotos && <Button variant="ghost" size="sm" disabled={props.providerPhotoBusy} onClick={props.onRestoreProviderPhotos}>{t("overviewSocial.restoreProviderPhotos", { count: props.hiddenProviderCount })}</Button>}
       </div>
       {props.photoError && <div role="alert"><Text as="p" variant="bodySmall">{t("overviewSocial.photoError")}</Text>{props.canLoadPhotos && <Button variant="ghost" size="sm" onClick={load}>{t("page.retry")}</Button>}</div>}
