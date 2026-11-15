@@ -708,7 +708,11 @@
       "more": "이전 분석 더 보기"
     },
     "analystVersion": "분석가 {{version}}",
-    "reanalyzeWithNewAnalystBtn": "새 분석가로 다시 분석"
+    "reanalyzeWithNewAnalystBtn": "새 분석가로 다시 분석",
+    "reanalysisReason": {
+      "inputsChanged": "분석한 뒤 활동 자료가 바뀌었습니다.",
+      "analystUpdated": "새 분석가가 준비되었습니다."
+    }
   },
   "card": {
     "noActivity": "활동을 찾을 수 없습니다.",

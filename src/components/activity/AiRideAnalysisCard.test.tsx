@@ -490,6 +490,24 @@ it("does not resurrect a legacy preview when the shared cache reader denies acce
       expect(narrativeApiMocks.generate).not.toHaveBeenCalled();
     });
 
+    // 다시 분석은 헤더의 아이콘 버튼이고, 사유는 버튼 문구 대신 헤더 아래 작은 안내로 둔다.
+    it.each([
+      { name: "analyst_updated", extra: { reanalysisAvailable: "analyst_updated" as const }, label: "새 분석가로 다시 분석", reason: "새 분석가가 준비되었습니다." },
+      { name: "inputs_changed", extra: { reanalysisAvailable: "inputs_changed" as const }, label: "변경사항 반영해 다시 분석", reason: "분석한 뒤 활동 자료가 바뀌었습니다." },
+      { name: "null", extra: { reanalysisAvailable: null }, label: "다시 분석", reason: null },
+    ])("owner reanalyze is an icon-only header button for $name", async ({ name, extra, label, reason }) => {
+      narrativeApiMocks.peek.mockResolvedValue(snapshot(extra));
+      renderWithProviders(<AiRideAnalysisCard activityId={`snapshot-icon-${name}`} enabled isActivityOwner />, { authenticated: true });
+      expect(await screen.findByText("스냅샷 구간 코칭")).toBeInTheDocument();
+      const button = screen.getByRole("button", { name: label, exact: true });
+      expect(button).toHaveClass("ds-btn--icon-only"); expect(button).toHaveAttribute("title", label); expect(button).toHaveTextContent("");
+      expect(button.parentElement).toContainElement(screen.getByRole("heading", { level: 2 }));
+      for (const text of ["새 분석가가 준비되었습니다.", "분석한 뒤 활동 자료가 바뀌었습니다."]) {
+        if (text === reason) expect(screen.getByText(text)).toBeInTheDocument();
+        else expect(screen.queryByText(text)).not.toBeInTheDocument();
+      }
+    });
+
     it.each(states)("non-owner sees only time and analyst version for $name", async ({ name, extra }) => {
       narrativeApiMocks.peek.mockResolvedValue(snapshot(extra));
       const { container } = renderWithProviders(<AiRideAnalysisCard activityId={`snapshot-viewer-${name}`} enabled />, { authenticated: true });
@@ -498,6 +516,7 @@ it("does not resurrect a legacy preview when the shared cache reader denies acce
       for (const text of allBadges) expect(screen.queryByText(text)).not.toBeInTheDocument();
       for (const label of allButtons) expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
       expect(screen.queryByText("재분석 필요")).not.toBeInTheDocument();
+      for (const text of ["새 분석가가 준비되었습니다.", "분석한 뒤 활동 자료가 바뀌었습니다."]) expect(screen.queryByText(text)).not.toBeInTheDocument();
     });
 
     it("owner reanalyzes with the new analyst through the forceRefresh path", async () => {

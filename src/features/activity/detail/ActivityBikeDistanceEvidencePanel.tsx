@@ -4,7 +4,9 @@ import type { Activity } from "@shared/types";
 import { BIKE_DISTANCE_TARGETS, type BikeDistanceKey } from "@shared/activity-bike-distance-evidence";
 import { useActivityBikeDistanceEvidence } from "../../../hooks/useActivityBikeDistanceEvidence";
 import { useLocale } from "../../../contexts/LocaleContext";
-import { Button, Select, Text } from "../../../theme";
+import { RefreshCw } from "lucide-react";
+import { Button, IconButton, Select, Text } from "../../../theme";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 import { formatElapsedBoundary } from "./activityRangeSelection";
 import type { MetricsLike } from "./metricsPresentation";
 import "./activity-bike-distance-evidence.css";
@@ -20,9 +22,13 @@ export default function ActivityBikeDistanceEvidencePanel({ activity, metrics }:
   const fact = evidence?.facts.find(value => value.distance === distance);
   const date = new Intl.DateTimeFormat(i18n.language, { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(activity.startTime);
   return <section className="manual-bike-evidence" aria-label={t("manualBikeEvidence.title")}>
-    <Text as="h3" variant="subtitle">{t("manualBikeEvidence.title")}</Text>
+    {/* 첫 확인은 작은 글자 버튼, 이후 다시 확인은 제목 줄의 아이콘 버튼으로 둔다. */}
+    <div className="manual-bike-evidence-head">
+      <Text as="h3" variant="subtitle">{t("manualBikeEvidence.title")}</Text>
+      {query.state !== "idle" && <IconButton size="sm" variant="ghost" loading={query.state === "loading"} aria-label={t("manualBikeEvidence.refresh")} title={t("manualBikeEvidence.refresh")} icon={<RefreshCw size={ICON_SIZE.sm} />} onClick={() => void query.inspect()} />}
+    </div>
     <Text as="p" variant="bodyMedium" tone="secondary">{t("manualBikeEvidence.scope")}</Text>
-    <Button size="sm" variant="outline" loading={query.state === "loading"} disabled={query.state === "loading"} onClick={() => void query.inspect()}>{t(query.state === "idle" ? "manualBikeEvidence.inspect" : "manualBikeEvidence.refresh")}</Button>
+    {query.state === "idle" && <Button size="sm" variant="outline" className="manual-bike-evidence-start" onClick={() => void query.inspect()}>{t("manualBikeEvidence.inspect")}</Button>}
     {query.state !== "idle" && query.state !== "available" && <Text as="p" variant="bodyMedium" tone="secondary">{t(`manualBikeEvidence.states.${query.state}`)}</Text>}
     {query.response?.state === "unavailable" && <Text as="p" variant="bodyMedium" tone="secondary">{t(`manualBikeEvidence.reasons.${query.response.reason}`)}</Text>}
     {evidence && <>

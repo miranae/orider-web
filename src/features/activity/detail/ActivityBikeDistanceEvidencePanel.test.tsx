@@ -86,3 +86,17 @@ it.each(["strava", "apple_health", "health_connect", null])("displays declared s
   expect(screen.getByText(new RegExp(ko.manualBikeEvidence.declaredSources[source ?? "unknown"]))).toBeInTheDocument();
   expect(mocks.inspect).not.toHaveBeenCalled();
 });
+// 첫 확인은 작은 글자 버튼, 이후 다시 확인은 제목 줄의 아이콘 버튼이다.
+it("keeps the first inspect compact and turns re-check into a heading icon button", () => {
+  const view = renderWithProviders(<ActivityBikeDistanceEvidencePanel activity={activity} metrics={null} />);
+  const first = screen.getByRole("button", { name: "거리 원본 확인" });
+  expect(first).toHaveClass("ds-btn--sm", "manual-bike-evidence-start"); expect(first).not.toHaveClass("ds-btn--block", "ds-btn--icon-only");
+  expect(screen.queryByRole("button", { name: "거리 원본 다시 확인" })).not.toBeInTheDocument();
+  mocks.state = "available"; mocks.response = manualBikeDistanceFixture();
+  view.rerender(<ActivityBikeDistanceEvidencePanel activity={activity} metrics={null} />);
+  const refresh = screen.getByRole("button", { name: "거리 원본 다시 확인" });
+  expect(refresh).toHaveClass("ds-btn--icon-only"); expect(refresh).toHaveAttribute("title", "거리 원본 다시 확인"); expect(refresh).toHaveTextContent("");
+  expect(refresh.parentElement).toContainElement(screen.getByRole("heading", { name: ko.manualBikeEvidence.title }));
+  expect(screen.queryByRole("button", { name: "거리 원본 확인" })).not.toBeInTheDocument();
+  fireEvent.click(refresh); expect(mocks.inspect).toHaveBeenCalledOnce();
+});
