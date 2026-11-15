@@ -32,9 +32,9 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
     ...events.map(event => ({kind:"event" as const, id:event.id, status:event.status, at:event.startTime, end:event.endTime, autoFinished:event.autoFinished, event})),
   ].filter(row => clubEventWindow(row.status, row.at, nowMs, row.end) === timeWindow)
     .sort((a,b) => compareClubEvents(timeWindow, a, b))
-    // 시작이 지났는데 OPEN 으로 남은 것은 '자동 종료' — 정렬·구간은 저장 상태로, 보이는 상태와 동작은 이것으로.
+    // 시작이 지났는데 OPEN 으로 남은 것은 '일정 지남', 서버가 시간 경과로 닫은 것은 '자동 종료'. 정렬·구간은 저장 상태로.
     .map(row => ({...row, shown: row.kind === "event" && row.autoFinished && row.status === "FINISHED" ? "AUTO_FINISHED" : clubEventDisplayStatus(row.status, row.at, nowMs, row.end)}));
-  const statusLabel = (status: string) => t(status === "AUTO_FINISHED" ? "event:status.autoFinished" : `event:status.${status.toLowerCase()}`);
+  const statusLabel = (status: string) => t(status === "AUTO_FINISHED" ? "event:status.autoFinished" : status === "PAST_DATE" ? "event:status.pastDate" : `event:status.${status.toLowerCase()}`);
   return <section aria-label={t("events.listLabel")} data-testid={timeWindow === "past" ? "C3-2" : "C3-1"} >
     <Stack gap="var(--dim-section-gap)">
     {loading ? <LoadingSkeleton kind="list" count={3} /> : <>
@@ -53,7 +53,7 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
               <p>{t("events.kind.meeting")} · {statusLabel(row.shown)}</p>
               {meetingEventStatus(item) === "LIVE" && <strong role="status">{i18n.language.startsWith("en") ? "Riding now" : "지금 주행 중"}</strong>}
               {/* 동작은 버튼 모양으로 한 줄에 띄워 둔다 — 글자 링크를 붙여 두면 "모임 수정가상주행 관전" 처럼 읽혀 버튼을 못 찾는다. */}
-              {!["CANCELLED", "FINISHED", "AUTO_FINISHED"].includes(row.shown) && <div className="flex flex-wrap" style={{ gap: "var(--space-2)" }}>
+              {!["CANCELLED", "FINISHED"].includes(row.shown) && <div className="flex flex-wrap" style={{ gap: "var(--space-2)" }}>
                 {item.isHost && <Link data-testid="club-meeting-edit" className={buttonClass({ variant: "primary", size: "sm" })} to={`/club/${groupId}/meetings/${item.eventId}/edit`}>{i18n.language.startsWith("en") ? "Edit meeting" : "모임 수정"}</Link>}
                 <Link className={buttonClass({ variant: "secondary", size: "sm" })} to={`/club/${groupId}/meetings/${item.eventId}/live`}>{i18n.language.startsWith("en") ? "Watch virtual ride" : "가상주행 관전"}</Link>
               </div>}
@@ -69,7 +69,7 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
         const event = row.event;
         return (
             <Card
-              data-testid={row.shown === "FINISHED" || row.shown === "AUTO_FINISHED" ? "C3-2-1" : "C3-1-1"}
+              data-testid={["FINISHED", "AUTO_FINISHED", "PAST_DATE"].includes(row.shown) ? "C3-2-1" : "C3-1-1"}
               key={`event:${event.id}`}
             >
               <p>{t("events.kind.race")}</p>
@@ -102,7 +102,7 @@ export function UnifiedClubEventList({groupId, meetings, events, timeWindow, loa
                     )}
                   </Link>
                 )}
-                {event.isHost && row.shown === "OPEN" && (
+                {event.isHost && (row.shown === "OPEN" || row.shown === "PAST_DATE") && (
                   <Link data-testid="club-event-edit" className={buttonClass({ variant: "primary", size: "sm" })} to={`/event/${event.id}/host/edit`}>
                     {t("event:action.editEvent")}
                   </Link>

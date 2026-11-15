@@ -39,7 +39,7 @@ describe("club event registration actions", () => {
     expect(upcoming()).toEqual(["대회 CANCELLED","취소한 모임","대회 FINISHED","끝난 모임","지난 모집 모임","대회 STALE"]);
     expect(screen.queryByRole("link",{name:"모집 모임"})).not.toBeInTheDocument();
   });
-  it("shows stale OPEN races and meetings as auto-ended without join, edit or watch actions",async()=>{
+  it("shows stale OPEN races and meetings as date-passed without a join action but keeps host fixes",async()=>{
     const day=86400000;
     vi.mocked(listClubMeetings).mockResolvedValue({meetings:[{eventId:"지난 모집 모임",isHost:true,rideStatus:"OPEN",meeting:{title:"지난 모집 모임",...kst(-3*day),place:"집결지",status:"open",capacity:10},participantCount:2,waitingCount:0} as ClubMeetingListItem],nextCursor:null});
     setCollectionDocs("events",[{id:"stale",info:{name:"지난 모집 대회",groupId:"club",status:"OPEN",creatorId:"test-uid",startTime:Date.now()-4*day}}]);
@@ -48,13 +48,14 @@ describe("club event registration actions", () => {
     const race=(await screen.findByRole("link",{name:"지난 모집 대회"})).closest("[data-testid]") as HTMLElement;
     const meetingCard=screen.getByRole("link",{name:"지난 모집 모임"}).parentElement as HTMLElement;
     expect(race).toHaveAttribute("data-testid","C3-2-1");
-    expect(race).toHaveTextContent("자동 종료");
+    expect(race).toHaveTextContent("일정 지남");
     expect(race).not.toHaveTextContent("모집 중");
-    expect(meetingCard).toHaveTextContent("모임 · 자동 종료");
+    expect(race).not.toHaveTextContent("자동 종료");
+    expect(meetingCard).toHaveTextContent("모임 · 일정 지남");
     expect(screen.queryByTestId("C3-1-2")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("club-event-edit")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("club-meeting-edit")).not.toBeInTheDocument();
-    expect(screen.queryByRole("link",{name:"가상주행 관전"})).not.toBeInTheDocument();
+    // 서버가 닫기 전(시작 24시간)에는 주최자가 일정을 고치거나 늦게 출발할 수 있다.
+    expect(screen.getByTestId("club-event-edit")).toBeInTheDocument();
+    expect(screen.getByTestId("club-meeting-edit")).toBeInTheDocument();
     expect(screen.queryByRole("link",{name:/결과/})).not.toBeInTheDocument();
   });
   it("shows races the server closed for never starting as auto-ended without a results link",async()=>{
