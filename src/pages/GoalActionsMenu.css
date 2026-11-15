@@ -1,0 +1,6 @@
+/* 목표 카드 ⋯ 관리 메뉴 — 닫히면 hidden 이라 자리를 차지하지 않는다. */
+.goal-actions-menu { position: relative; flex-shrink: 0; }
+.goal-actions-menu__panel { position: absolute; inset-inline-end: 0; top: calc(100% + var(--space-1)); z-index: 20; display: grid; gap: var(--space-0-5); min-inline-size: 12rem; padding: var(--space-1); border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg-1); box-shadow: var(--shadow-lg); }
+.goal-actions-menu__panel[hidden] { display: none; }
+.goal-actions-menu__item { justify-content: flex-start; white-space: nowrap; }
+.goal-actions-menu__item--danger { color: var(--rose); }

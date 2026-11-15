@@ -825,7 +825,11 @@ describe("ActivityPage", () => {
     await waitFor(() => expect(stats).not.toHaveTextContent("평균 파워"));
     expect(screen.queryByRole("button", { name: "가상 파워" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "분석" }));
-    fireEvent.click(await screen.findByRole("button", { name: "재계산 미리보기" }));
+    const recalc = await screen.findByRole("button", { name: "재계산 미리보기" });
+    // 가상 파워 보정 제목 옆 아이콘 버튼(글자 버튼 아님)
+    expect(recalc).toHaveClass("ds-btn--icon-only");
+    expect(recalc).toHaveTextContent("");
+    fireEvent.click(recalc);
     await waitFor(() => expect(mockVirtualPowerStream).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByText("파워 분석")).toBeInTheDocument());
     // 현재 파워 후보가 있으면 서버의 과거 NP/TSS를 섞지 않고 센서 선택을 통과한 평균만 쓴다.

@@ -4,7 +4,9 @@ import { useTranslation } from "react-i18next";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { useStrava } from "../../hooks/useStrava";
 import { logClientError } from "../../services/errorLogger";
-import { Button, Card, Text } from "../../theme/components";
+import { RefreshCw } from "lucide-react";
+import { Button, Card, IconButton, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import type { NarrativeLang } from "../../hooks/useActivityNarrative";
 import { isLocalStravaSummaryPreview, requestStravaSummaryPreview, type StravaSummaryPreview, type StravaSummaryPublishResult } from "../../services/stravaSummaryPreview";
 import "./StravaSummaryPublishing.css";
@@ -203,7 +205,9 @@ function StravaSummaryPublishingPreview({ activityId, lang }: { activityId: stri
   const targetId = preview ? parseStravaSummaryTarget(String(preview.stravaActivityId)) : remoteId;
   return <Card className="activity-strava-publishing">
     <section aria-label={t("stravaSummary.title")} className="activity-strava-publishing-content">
-      <div><Text as="h3" variant="body" weight={600}>{t("stravaSummary.title")}</Text>
+      <div><div className="activity-strava-publishing-heading"><Text as="h3" variant="body" weight={600}>{t("stravaSummary.title")}</Text>
+        {/* 미리보기 다시 확인은 제목 옆 아이콘 버튼으로 둔다. */}
+        {!preview && !loadingPreview && <IconButton size="sm" variant="ghost" disabled={busy} aria-label={t("stravaSummary.retryPreview")} title={t("stravaSummary.retryPreview")} icon={<RefreshCw size={ICON_SIZE.sm} />} onClick={() => { void loadPreview(requestedTarget); }} />}</div>
         <Text as="p" variant="bodySmall" tone="secondary">{t("stravaSummary.disclosure")}</Text></div>
       {loadingPreview && <p role="status">{t(preparing ? "stravaSummary.preparing" : "stravaSummary.loadingPreview")}</p>}
       {preview && <div className="activity-strava-publishing-target">
@@ -218,7 +222,9 @@ function StravaSummaryPublishingPreview({ activityId, lang }: { activityId: stri
           <div className="activity-strava-publishing-footer">{previewOverflow && <Text as="p" variant="bodySmall" tone="secondary" className="activity-strava-publishing-scroll-hint"><span aria-hidden="true">↓ </span>{t("stravaSummary.scrollPreview")}</Text>}</div>
         </div>}
         <div className="activity-strava-publishing-controls">
-          <Text as="h4" variant="bodyMedium" weight={600}>{t("stravaSummary.statusTitle")}</Text>
+          {/* 게시 상태 다시 확인은 게시 상태 제목 옆 아이콘 버튼으로 둔다. */}
+          <div className="activity-strava-publishing-heading"><Text as="h4" variant="bodyMedium" weight={600}>{t("stravaSummary.statusTitle")}</Text>
+            {remoteId && <IconButton size="sm" variant="ghost" loading={checkingStatus} disabled={busy || loadingPreview} aria-label={t("stravaSummary.refreshStatus")} title={t("stravaSummary.refreshStatus")} icon={<RefreshCw size={ICON_SIZE.sm} />} onClick={() => { void refreshStatus(); }} />}</div>
           <div className="activity-strava-publishing-control-body">
             {feedbacks.map(feedback => <div key={feedback} className="activity-strava-publishing-result" data-status={feedback}
             role={["publishError", "publishUnconfirmed", "invalidTarget", "previewError", "previewChanged", "statusError"].includes(feedback) ? "alert" : "status"}>
@@ -232,9 +238,7 @@ function StravaSummaryPublishingPreview({ activityId, lang }: { activityId: stri
           <div className="activity-strava-publishing-actions">
             {preview && <Button variant="secondary" loading={busy} aria-busy={busy} disabled={localPreviewOnly || checkingStatus || uncertain || loadingPreview || result?.status === "queued"} onClick={() => { void publish(); }}>{t(busy ? "stravaSummary.working" : "stravaSummary.publish")}</Button>}
             {message === "summaryNotReady" && <Button variant="secondary" disabled={localPreviewOnly || checkingStatus || uncertain || busy || loadingPreview || result?.status === "queued"} onClick={() => { void loadPreview(requestedTarget, true); }}>{t("stravaSummary.prepare")}</Button>}
-            {!preview && !loadingPreview && <Button variant="outline" disabled={busy} onClick={() => { void loadPreview(requestedTarget); }}>{t("stravaSummary.retryPreview")}</Button>}
             {result?.status === "reauthorization-required" && <Button variant="outline" disabled={busy} onClick={() => connectStrava(window.location.pathname, { writeActivities: true })}>{t("stravaSummary.reconnect")}</Button>}
-            {remoteId && <Button variant="ghost" loading={checkingStatus} disabled={busy || loadingPreview} onClick={() => { void refreshStatus(); }}>{t("stravaSummary.refreshStatus")}</Button>}
           </div>
           </div>
           <div className="activity-strava-publishing-footer">{localPreviewOnly && <Text as="p" variant="bodySmall" tone="secondary" role="note">{t("stravaSummary.localPreviewOnly")}</Text>}</div>

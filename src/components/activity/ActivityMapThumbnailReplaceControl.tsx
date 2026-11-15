@@ -4,7 +4,9 @@ import { httpsCallable } from "firebase/functions";
 import { useFirebaseServices } from "../../contexts/FirebaseServicesContext";
 import { logClientError } from "../../services/errorLogger";
 import { lazyWithRetry as lazy } from "../../utils/lazyWithRetry";
-import { Button, Stack, Text } from "../../theme/components";
+import { RefreshCw } from "lucide-react";
+import { IconButton, Stack, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import {
   MAP_THUMBNAIL_PIXEL_RATIO,
   MAP_THUMBNAIL_VIEWPORT_HEIGHT,
@@ -86,8 +88,12 @@ export default function ActivityMapThumbnailReplaceControl({ activityId, polylin
   }
 
   return <Stack gap="var(--space-2)">
-    <Text variant="bodySmall">{t("mapThumbnail.explanation")}</Text>
-    <Button variant="outline" loading={capturing} disabled={capturing || revision.kind === "invalid"} onClick={start}>{t("mapThumbnail.replace")}</Button>
+    {/* 설명 옆 새로고침 아이콘 — 한 줄을 통째로 차지하던 큰 버튼을 줄였다. */}
+    <Stack direction="row" align="center" gap="var(--space-2)">
+      <Text variant="bodySmall" style={{ flex: 1, minWidth: 0 }}>{t("mapThumbnail.explanation")}</Text>
+      <IconButton variant="ghost" size="sm" loading={capturing} disabled={capturing || revision.kind === "invalid"} onClick={start}
+        aria-label={t("mapThumbnail.replace")} title={t("mapThumbnail.replace")} icon={<RefreshCw size={ICON_SIZE.sm} />} />
+    </Stack>
     {result && <Text role="status">{t(`mapThumbnail.${result.kind}`)}</Text>}
     {result?.kind === "done" && <img src={result.mapImageUrl} alt={t("mapThumbnail.preview")} className="w-full rounded-[var(--r-md)]" />}
     {capturing && <div ref={captureRef} aria-hidden="true" data-testid="map-thumbnail-replace-capture" style={{

@@ -6,7 +6,9 @@ import { usePeriodControls } from '../../../hooks/usePeriodControls';
 import { useActivityMatchedRouteInventory } from '../../../hooks/useActivityMatchedRouteInventory';
 import { getDiscipline } from '../../../utils/disciplineFilter';
 import { LocalizedLink } from '../../../components/LocalizedLink';
-import { Button, Input, Select, Text } from '../../../theme';
+import { RefreshCw } from 'lucide-react';
+import { Button, IconButton, Input, Select, Text } from '../../../theme';
+import { ICON_SIZE } from '../../../theme/tokens/icon';
 import './activity-matched-route-group.css';
 interface Controls { open: boolean; observed: boolean; year: string }
 export function validRouteInventoryControls(value: unknown): Controls | null {
@@ -33,8 +35,12 @@ export default function ActivityRouteInventoryPanel({activity,observedMetricsIde
    <label htmlFor={`${id}-year`}>{t('routeInventory.year')}<Input id={`${id}-year`} type="number" min={1970} max={new Date(Date.now()+32400000).getUTCFullYear()} placeholder={t('routeInventory.allYears')} value={controls.year} onChange={e=>setControls(v=>({...v,year:e.target.value}))}/></label>
    {activity.source==='orider'&&<label htmlFor={`${id}-mode`}>{t('routeGroup.mode')}<Select id={`${id}-mode`} value={controls.observed?'observed_native':'complete'} onChange={e=>setControls(v=>({...v,observed:e.target.value==='observed_native'}))}><option value="observed_native">{t('routeGroup.observedTitle')}</option><option value="complete">{t('routeGroup.completeMode')}</option></Select></label>}
    {!valid&&<Text role="alert">{t('routeInventory.invalidYear')}</Text>}
-   <Button variant="outline" loading={query.status==='loading'} disabled={!valid||query.status==='loading'} onClick={()=>void query.start()}>{t(query.status==='idle'?'routeInventory.find':'routeGroup.refresh')}</Button>
-   {query.status!=='idle'&&<Text role="status" aria-live="polite">{t(query.status==='complete'?'routeInventory.finished':`routeGroup.states.${query.status}`)}</Text>}
+   {/* 첫 탐색은 작은 글자 버튼, 이후 다시 확인은 상태 줄의 아이콘 버튼으로 둔다. */}
+   {query.status==='idle'?<Button size="sm" variant="outline" className="matched-route-group-start" disabled={!valid} onClick={()=>void query.start()}>{t('routeInventory.find')}</Button>
+    :<div className="matched-route-group-status">
+     <Text role="status" aria-live="polite">{t(query.status==='complete'?'routeInventory.finished':`routeGroup.states.${query.status}`)}</Text>
+     <IconButton size="sm" variant="ghost" loading={query.status==='loading'} disabled={!valid} aria-label={t('routeGroup.refresh')} title={t('routeGroup.refresh')} icon={<RefreshCw size={ICON_SIZE.sm}/>} onClick={()=>void query.start()}/>
+    </div>}
    {last?.ownerHistoryReadiness && <div>
     <Text as="p" weight={600}>{t(`routeInventory.history.${last.ownerHistoryReadiness.state}`)}</Text>
     <Text as="p">{t('routeInventory.history.counts',{scanned:last.ownerHistoryReadiness.scanned,indexed:last.ownerHistoryReadiness.indexed,missing:last.ownerHistoryReadiness.missing})}</Text>

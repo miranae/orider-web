@@ -60,3 +60,23 @@ it("explains history failure and retries only the list while preserving the sele
  await screen.findByText("버전 1 · —");expect(screen.queryByRole("alert")).not.toBeInTheDocument();
  expect(m.history).toHaveBeenCalledTimes(2);expect(m.load).not.toHaveBeenCalled();expect(m.request).not.toHaveBeenCalled();expect(select).not.toHaveBeenCalled();
 });
+
+it("collapses to one icon button in the analysis header and opens the panel only on demand", async () => {
+ render(<ActivityReanalysisControl activityId="a" collapsible onSelect={vi.fn()}/>);
+ const trigger=screen.getByRole("button",{name:"저장된 분석과 새 분석"});
+ expect(trigger).toHaveClass("ds-btn--icon-only");expect(trigger).toHaveAttribute("aria-expanded","false");
+ // 닫혀 있으면 안내·동작이 DOM 에 없다(자리 없음)
+ expect(screen.queryByText("분석 상태 확인")).not.toBeInTheDocument();expect(screen.queryByRole("region",{name:"저장된 분석과 새 분석"})).not.toBeInTheDocument();
+ expect(trigger.querySelector(".ds-btn__indicator")).toBeNull();
+ fireEvent.click(trigger);expect(trigger).toHaveAttribute("aria-expanded","true");
+ expect(screen.getByRole("region",{name:"저장된 분석과 새 분석"})).toHaveAttribute("id",trigger.getAttribute("aria-controls")!);
+ fireEvent.click(screen.getByText("분석 상태 확인"));fireEvent.click(await screen.findByText("새 버전으로 다시 분석"));await waitFor(()=>expect(m.request).toHaveBeenCalledTimes(1));
+ fireEvent.click(trigger);expect(screen.queryByText("분석 상태 확인")).not.toBeInTheDocument();
+});
+it("keeps the collapsible panel open with an indicator while a saved analysis is shown", () => {
+ render(<ActivityReanalysisControl activityId="a" collapsible selectedRevision={hash} onSelect={vi.fn()}/>);
+ const trigger=screen.getByRole("button",{name:"저장된 분석과 새 분석"});
+ expect(trigger).toHaveAttribute("aria-expanded","true");expect(trigger.querySelector(".ds-btn__indicator")).not.toBeNull();
+ expect(screen.getByText("현재 분석으로 돌아가기")).toBeInTheDocument();
+ fireEvent.click(trigger);expect(screen.queryByText("현재 분석으로 돌아가기")).not.toBeInTheDocument();expect(trigger.querySelector(".ds-btn__indicator")).not.toBeNull();
+});

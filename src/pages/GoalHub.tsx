@@ -23,7 +23,10 @@ import { LocalizedLink } from "../components/LocalizedLink";
 import DisciplineTabs from "../components/redesign/DisciplineTabs";
 import CoachSignInButton from "./coach/CoachSignInButton";
 import ClimbGoalSetupPage from "./ClimbGoalSetupPage";
-import { Button, buttonClass, Card, Text } from "../theme/components";
+import { Button, buttonClass, Card, IconButton, Text } from "../theme/components";
+import { ICON_SIZE } from "../theme/tokens/icon";
+import { Pencil } from "lucide-react";
+import GoalActionsMenu from "./GoalActionsMenu";
 
 export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
   const { t, i18n } = useTranslation("training");
@@ -81,7 +84,14 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
       {goal && <Card data-testid="K3-1">
         {model.cacheHit && model.freshLoaded === false && <Text as="p">{t("embeddedStatus.cached", { ns: "common" })}</Text>}
         <GoalSourceNotice goal={goal} discipline={discipline} />
-        <div data-testid="K3-1-1"><Text as="h2" variant="title" style={{ overflowWrap: "anywhere" }}>{mobile ? title.name : rawTitle}</Text>
+        {/* 목표 변경은 제목 옆 연필 아이콘, 드문 목표 포기는 ⋯ 메뉴(확인 대화 유지)로 둔다. */}
+        <div data-testid="K3-1-1"><div className="flex items-start gap-2">
+          <Text as="h2" variant="title" className="min-w-0 flex-1" style={{ overflowWrap: "anywhere" }}>{mobile ? title.name : rawTitle}</Text>
+          <IconButton data-testid="K3-1-4" size="sm" variant="ghost" disabled={!goalReady} aria-label={t("goalHub.change")} title={t("goalHub.change")}
+            icon={<Pencil size={ICON_SIZE.md} />} onClick={() => types.current?.scrollIntoView?.({ behavior: "smooth" })} />
+          {!goal.runProgram && <GoalActionsMenu label={t("goalHub.moreActions")} disabled={!goalReady}
+            items={[{ id: "K3-1-5", label: t("buttons.abandonGoal"), danger: true, onSelect: abandon }]} />}
+        </div>
           {mobile && title.meta && <><Text as="p" variant="bodySmall" tone="secondary">{title.meta}</Text><InfoTip activation="click" title={t("goalHub.originalTitle")} label={t("goalHub.originalTitle")} content={rawTitle}>{t("goalHub.originalTitle")}</InfoTip></>}<Text>{t(`goalHub.goalType.${goal.runProgram ? "program" : goal.goalType === "climb" ? "climb" : goal.eventType === "completion" ? "completion" : goal.eventType === "time" ? "time" : "race"}`)} · {displayDate?.toLocaleDateString(i18n.resolvedLanguage ?? i18n.language, { timeZone: "Asia/Seoul" })} · {goalCountdown(targetMs)}</Text><Text>{goal.targetDurationMin ? t("goalHub.minutes", { value: goal.targetDurationMin }) : null}{goal.target?.climbDurationMin ? <GlossaryText>{`${t("goalHub.minutes", { value: goal.target.climbDurationMin })} · ${goal.target.targetWkg ?? "—"} W/kg`}</GlossaryText> : null}</Text></div>
         <div data-testid="K3-1-2" style={{ marginBlock: "var(--goal-load-margin, var(--space-4))" }}>
           {goalReady && model.goalMatchesDiscipline ? <PlanGoalLoadSummary scope={scope} load={load} /> : <Text>—</Text>}
@@ -89,8 +99,6 @@ export default function GoalHub({ wizard }: { wizard: React.ReactNode }) {
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "var(--space-3)" }}>
         <LocalizedLink data-testid="K3-1-3" className={buttonClass({ variant: "primary" })} to={`/coach/plan?sport=${discipline}`}>{t("goalHub.plan")}</LocalizedLink>
-        <Button data-testid="K3-1-4" disabled={!goalReady} onClick={() => types.current?.scrollIntoView?.({ behavior: "smooth" })}>{t("goalHub.change")}</Button>
-        {!goal.runProgram && <Button data-testid="K3-1-5" variant="ghost" disabled={!goalReady} onClick={() => void abandon()}>{t("buttons.abandonGoal")}</Button>}
         </div>
         {error && <Text role="alert">{t("errors.abandonError")}</Text>}
       </Card>}

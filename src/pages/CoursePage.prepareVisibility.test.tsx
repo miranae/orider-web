@@ -15,7 +15,7 @@ const authState = vi.hoisted(() => {
   const values = new Map<string, unknown>();
   const signIn = () => {};
   return { uid: "owner", value(uid: string) {
-    if (!values.has(uid)) values.set(uid, { user: { uid }, profile: { weightKg: 70, ftp: 250 }, loading: false, profileLoading: false, signIn });
+    if (!values.has(uid)) values.set(uid, { user: { uid }, profile: { weightKg: 70, ftp: 250, isAdmin: uid === "admin" }, loading: false, profileLoading: false, signIn });
     return values.get(uid);
   } };
 });
@@ -30,6 +30,7 @@ vi.mock("../features/courses/CourseRidePlanSection", () => ({ CourseRidePlanSect
 vi.mock("@shared/sim/climbPrediction", () => ({ predictClimb: () => ({ totalSec: 744, sustainablePowerW: 280, wattsPerKg: 4.12, source: "pdc" }), formatClimbDuration: () => "12:24" }));
 import CoursePage from "./CoursePage";
 import { ToastProvider } from "../contexts/ToastContext";
+import { DialogProvider } from "../contexts/DialogContext";
 import i18n from "i18next";
 import enCourse from "../i18n/resources/en/course.json";
 import enGlossary from "../i18n/resources/en/termGlossary.json";
@@ -46,6 +47,43 @@ describe("course preparation climb predictions", () => {
     await screen.findByText("Climbing course");
     expect(screen.getByRole("button", { name: "좋아요 0" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.getAllByRole("button", { name: "공유" })).toHaveLength(1);
+  });
+  it("renders simulator, GPX, share and report as icon-only actions while like and send-to-app keep text", async () => {
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
+    await screen.findByText("Climbing course");
+    for (const name of ["시뮬레이터", "GPX", "공유", "신고"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button).toHaveClass("ds-btn--icon-only");
+      expect(button).toHaveAttribute("title", name);
+      expect(button).toHaveTextContent("");
+    }
+    expect(screen.getByRole("button", { name: "좋아요 0" })).not.toHaveClass("ds-btn--icon-only");
+    expect(screen.getByRole("button", { name: /앱으로 보내기/ })).not.toHaveClass("ds-btn--icon-only");
+  });
+  it("renders owner delete and admin hide/unhide as icon-only actions, delete still asking first", async () => {
+    authState.uid = "admin"; simulateLogin({ uid: "admin" });
+    let deletes = 0;
+    setCallableImplementation("deleteMyCourse", () => { deletes += 1; return { data: {} }; });
+    setDocData("courses/course-climb", { ...mockDocData.get("courses/course-climb"), creatorId: "admin" });
+    const view = render(<DialogProvider><MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter></DialogProvider>);
+    await screen.findByText("Climbing course");
+    for (const name of ["삭제", "숨기기"]) {
+      const button = screen.getByRole("button", { name });
+      expect(button).toHaveClass("ds-btn--icon-only");
+      expect(button).toHaveAttribute("title", name);
+      expect(button).toHaveTextContent("");
+    }
+    fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+    expect(await screen.findByText("정말 이 코스를 삭제하시겠습니까?")).toBeInTheDocument();
+    expect(deletes).toBe(0);
+    view.unmount();
+    setDocData("courses/course-climb", { ...mockDocData.get("courses/course-climb"), hidden: true });
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
+    await screen.findByText("Climbing course");
+    const unhide = screen.getByTestId("O2-1");
+    expect(unhide).toHaveAccessibleName("숨김 해제");
+    expect(unhide).toHaveAttribute("title", "숨김 해제");
+    expect(unhide).toHaveClass("ds-btn--icon-only");
   });
   it("keeps report choices above the dialog and changes a reason without submitting", async () => {
     render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
@@ -92,6 +130,19 @@ describe("course preparation climb predictions", () => {
       expect(document.body.style.position).not.toBe("fixed");
       expect(document.body.style.overflow).not.toBe("hidden");
     });
+  });
+  it("opens owner editing from the pencil next to the course title", async () => {
+    setDocData("courses/course-climb", { ...mockDocData.get("courses/course-climb"), creatorId: "owner" });
+    render(<MemoryRouter initialEntries={["/ko/course/course-climb"]}><CoursePage /></MemoryRouter>);
+    await screen.findByText("Climbing course");
+    const pencil = screen.getByRole("button", { name: "편집" });
+    // 연필은 제목과 같은 줄에 있고, 통계 줄에는 삭제만 남는다.
+    expect(pencil.parentElement).toContainElement(screen.getByTestId("D2-0"));
+    expect(screen.getAllByRole("button", { name: "편집" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "삭제" })).toBeInTheDocument();
+    fireEvent.click(pencil);
+    expect(screen.getByLabelText("코스 이름")).toHaveValue("Climbing course");
+    expect(screen.queryByRole("button", { name: "편집" })).toBeNull();
   });
   it("associates owner edit labels with the existing form controls", async () => {
     setDocData("courses/course-climb", { ...mockDocData.get("courses/course-climb"), creatorId: "owner" });

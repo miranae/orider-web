@@ -176,7 +176,8 @@ it("keeps public loading diagnostics private and offers recovery for transient o
   input.overview.loading = false;
   input.overview.response = { status: "unavailable", activityId: "fixture", reason: "metrics_unavailable" };
   rerender(<ActivityAnalysisBody {...input} isOwner analysisProps={null} />);
-  expect(screen.getByRole("button", { name: "평가 근거 다시 불러오기" })).toBeInTheDocument();
+  // 안내 문장 옆 아이콘 버튼
+  expect(screen.getByRole("button", { name: "평가 근거 다시 불러오기" })).toHaveClass("ds-btn--icon-only");
   input.overview.response = { status: "unavailable", activityId: "fixture", reason: "rollout_disabled" };
   rerender(<ActivityAnalysisBody {...input} isOwner analysisProps={null} />);
   expect(screen.queryByRole("button", { name: "평가 근거 다시 불러오기" })).not.toBeInTheDocument();

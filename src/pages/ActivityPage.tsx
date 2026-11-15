@@ -10,7 +10,7 @@ import { useAuthorizedActivityComments } from "../features/activity/detail/useAu
 import { ActivityPublicAccess, type ActivityPublicAccessState } from "../features/activity/detail/ActivityPublicAccess";
 import type { PublicActivitySessionOptions } from "../hooks/usePublicActivitySession";
 import { createActivityMapPrivacyClient } from "../services/activityMapPrivacy";
-import ActivityMapPrivacyControl from "../components/activity/ActivityMapPrivacyControl";
+import { ActivityMapPrivacyPanel, ActivityMapPrivacyTrigger, useActivityMapPrivacy } from "../components/activity/ActivityMapPrivacyControl";
 import { loadActivityDiscovery } from "../services/activityDiscovery";
 import RouteInventoryReturn from "../features/activity/detail/RouteInventoryReturn";
 import { announceActivityContentChange } from "../services/activityContentChanged";
@@ -22,7 +22,7 @@ import { canEditActivityMemo } from "../components/activity/activityMemoEditable
 import { stravaRecordOf } from "@shared/analysis/stravaRecord";
 import { useActivityAuthor } from "../hooks/useActivityAuthor";
 import { useMobile } from "../hooks/useMobile";
-import { ChevronDown, Menu, Trophy } from "lucide-react";
+import { ChevronDown, Menu, RefreshCw, Trophy } from "lucide-react";
 import SportIcon from "../components/common/SportIcon";
 import { getRuntimeConfig } from "../services/runtimeConfig";
 import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from "react";
@@ -869,6 +869,7 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
   // 편집 상태는 페이지에 둔다: ActivityOverviewSocial 은 sourceRevision 으로 다시 마운트되므로 그 안에 두면 초안이 사라진다.
   const memoEditor = useNativeMemoEditor({ activityId: activity?.id ?? activityId ?? "", currentMemo: shownMemo, currentMemoAuthored: !shownMemoGenerated,
     onSaved: memo => { if (activity) setNativeMemoOverride({ activityId: activity.id, memo }); } });
+  const mapPrivacy = useActivityMapPrivacy(activity?.id ?? activityId ?? ""); // 연필(지도 왼쪽 아래)·패널(지도 아래)이 함께 쓰는 상태
 
   const hasStreams = sampledData.length > 0;
   const runDetail = useRunActivityDetail(activity, profile, serverMetrics.metrics, publicAccess ? null : user?.uid, activityId, user?.isAnonymous === true);
@@ -1384,11 +1385,10 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         onDelete={id => { const photo = uploadedPhotos.find(item => item.id === id); if (photo) void handleDeletePhoto(photo); }}
         onLocate={location => { setFlyToPosition(null); setTimeout(() => setFlyToPosition(location), 10); document.getElementById("activity-route-map")?.scrollIntoView({ behavior: "smooth" }); }}
         onShowResults={() => setActiveTab("segments")} />}
-      {isActivityOwner && activeTab === "overview" && <ActivityMapPrivacyControl activityId={activity.id}
-        thumbnail={activity.thumbnailTrack ? { polyline: activity.thumbnailTrack, contentRevision: activity.contentRevision, contentSelectedRevision: activity.contentSelectedRevision } : undefined} />}
-      {activeTab === "analysis" && <ActivityReanalysisControl canReanalyze={isActivityOwner || (!!publicAccess && !!user && !user.isAnonymous && user.uid === activity.userId)} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} />}
       {activeTab === "analysis" && <header className="activity-analysis-intro">
         <div><Text as="h2" variant="title">{t("detail.analysis.title")}</Text><Text as="p" variant="bodySmall" tone="secondary">{t("analysisReading.intro")}</Text></div>
+        {/* 저장된 분석·새 분석 — 제목 줄 오른쪽 아이콘, 누르면 제목 바로 아래 패널 */}
+        <ActivityReanalysisControl canReanalyze={isActivityOwner || (!!publicAccess && !!user && !user.isAnonymous && user.uid === activity.userId)} onAccessRevoked={publicAccess?.model.onAccessRevoked} activityId={activity.id} selectedRevision={selectedAnalysis?.revisionId} onSelect={selectSavedAnalysis} collapsible />
         <nav aria-label={t("analysisReading.navigation")} className="activity-analysis-navigation">
           <a href="#activity-tab-panel">{t("detail.analysisTopics.training")}</a>
           {sport === "ride" && overview.response?.status === "available" && <>
@@ -1425,6 +1425,9 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         uploadedPhotos={uploadedPhotos}
         flyToPosition={flyToPosition}
         t={t}
+        mapOverlay={isActivityOwner && activeTab === "overview" ? placement => <ActivityMapPrivacyTrigger control={mapPrivacy} className={placement === "overlay" ? "ds-map-resize ds-map-resize--bottom-left" : undefined} /> : undefined}
+        mapPanel={isActivityOwner && activeTab === "overview" ? <ActivityMapPrivacyPanel control={mapPrivacy}
+          thumbnail={activity.thumbnailTrack ? { polyline: activity.thumbnailTrack, contentRevision: activity.contentRevision, contentSelectedRevision: activity.contentSelectedRevision } : undefined} /> : undefined}
       />}
       </div>
 
@@ -1615,11 +1618,10 @@ function ActivityPageContent({ publicAccess, detailMeasurement, detailRetry }: {
         onLocate={selectedAnalysis ? undefined : locatePeak} locating={loadingStreams && selectedPeak != null}
         locationUnavailable={!!streams && selectedPeak != null && !peakLocation} /> }        </>}
         powerControls={isActivityOwner && (canRecalculateVirtualPowerPreview || activePowerOverride) ? <div className="activity-analysis-power-controls">
+          {/* 제목 옆 작은 재계산 아이콘, 되돌리기는 미리보기가 적용됐을 때만 */}
           <Text as="h3" variant="bodyMedium" weight={600}>{t("page.vp.heading")}</Text>
-          <div className="flex flex-wrap gap-2">
-            {canRecalculateVirtualPowerPreview && <Button variant="outline" size="sm" onClick={recalculateVirtualPowerPreview}>{t("page.vp.recalcBtn")}</Button>}
-            {activePowerOverride && <Button variant="ghost" size="sm" onClick={revertVirtualPowerPreview}>{t("page.vp.revertBtn")}</Button>}
-          </div>
+          {canRecalculateVirtualPowerPreview && <IconButton variant="ghost" size="sm" icon={<RefreshCw size={ICON_SIZE.sm} />} aria-label={t("page.vp.recalcBtn")} title={t("page.vp.recalcBtn")} onClick={recalculateVirtualPowerPreview} />}
+          {activePowerOverride && <Button variant="ghost" size="sm" onClick={revertVirtualPowerPreview}>{t("page.vp.revertBtn")}</Button>}
         </div> : null}
         sensorFallback={<>
       {activeTab === "analysis" && summarySensorMetrics.length > 0 && (isActivityOwner || overview.response?.status !== "available") && !hasAnalysisStreams && (

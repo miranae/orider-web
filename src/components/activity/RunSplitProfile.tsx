@@ -3,7 +3,9 @@ import { useTranslation } from "react-i18next";
 import type { SplitRow } from "@shared/types/activity-metrics";
 import { useLocale } from "../../contexts/LocaleContext";
 import { formatElev, formatPace } from "../../utils/units";
-import { Card, Text } from "../../theme/components";
+import { MapPin } from "lucide-react";
+import { Card, IconButton, Text } from "../../theme/components";
+import { ICON_SIZE } from "../../theme/tokens/icon";
 import { MetricExplainerTrigger } from "../common/MetricExplainer";
 
 /** 서버 km 스플릿을 탐색한다. 막대는 관측된 페이스 범위 안에서 상대 비교하며 기록 페이스를 다시 계산하지 않는다. */
@@ -51,7 +53,11 @@ export default function RunSplitProfile({ splits, splitTimeStatus, distanceKm, s
       <Text as="p" variant="caption" tone="tertiary">{t("analysis.run.profileGuide")}</Text>
     </div>
     <Card padding="compact" className="min-w-0" data-testid="selected-run-split" aria-live="polite" aria-atomic="true">
-      <Text as="h4" variant="bodyMedium" weight={600}>{t("analysis.run.selectedSplit", { km: selected.km })}{isPartial(selected) ? ` · ${t("analysis.run.partialSplit")}` : ""}</Text>
+      {/* 지도·고도 보기는 구간 카드 제목 줄의 아이콘 버튼으로 둔다. */}
+      <div className="flex items-center justify-between gap-2">
+        <Text as="h4" variant="bodyMedium" weight={600}>{t("analysis.run.selectedSplit", { km: selected.km })}{isPartial(selected) ? ` · ${t("analysis.run.partialSplit")}` : ""}</Text>
+        {canViewSplitLocation && onViewSplitLocation && <IconButton size="sm" variant="ghost" onClick={onViewSplitLocation} aria-label={t("analysis.run.viewSplitLocation")} title={t("analysis.run.viewSplitLocation")} icon={<MapPin size={ICON_SIZE.sm} />} />}
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2" style={{ marginTop: "var(--space-2)" }}>
         <MetricExplainerTrigger metric="pace" context={context} sport="run"><Text as="div" variant="caption">{t("stat.avgPace")}</Text><Text variant="dataSmall">{pace(selected.paceSec)}</Text></MetricExplainerTrigger>
         {selected.gapSec != null && Number.isFinite(selected.gapSec) && selected.gapSec > 0 && <MetricExplainerTrigger metric="gap" context={context} sport="run"><Text as="div" variant="caption">{t("runCards.gapPace")}</Text><Text variant="dataSmall">{pace(selected.gapSec)}</Text></MetricExplainerTrigger>}
@@ -59,7 +65,6 @@ export default function RunSplitProfile({ splits, splitTimeStatus, distanceKm, s
         {!suppressCadence && selected.avgCadence != null && formatCadence(selected.avgCadence) !== "—" && <MetricExplainerTrigger metric="cadence" context={{ thresholdPaceSecPerKm: null }} sport="run"><Text as="div" variant="caption">{cadenceLabel}</Text><Text variant="dataSmall">{formatCadence(selected.avgCadence)}</Text></MetricExplainerTrigger>}
         {selected.elevGain != null && Number.isFinite(selected.elevGain) && <div><Text as="div" variant="caption">{t("analysis.metric.elevGain")}</Text><Text variant="dataSmall">{formatElev(selected.elevGain, units)}</Text></div>}
       </div>
-      {canViewSplitLocation && onViewSplitLocation && <button type="button" onClick={onViewSplitLocation} className="w-full rounded-[var(--r-sm)] border border-[var(--line-soft)] text-[length:var(--fs-sm)] font-semibold" style={{ minHeight: 44, marginTop: "var(--space-2)", color: "var(--accent-dark)" }}>{t("analysis.run.viewSplitLocation")}</button>}
     </Card>
     <Card padding="compact" className="min-w-0">
       <div role="group" aria-label={t("analysis.run.profileLabel")} className="space-y-1" style={{ maxHeight: "calc(var(--space-8) * 6)", overflowY: "auto", overflowX: "hidden" }}>

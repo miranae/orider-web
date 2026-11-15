@@ -2,7 +2,7 @@ import { useClubMeetingsApi } from "../../features/club-preparation/useClubMeeti
 import { getVisibleEventPage } from "../../services/eventDiscovery";
 import { clubEventQuery, clubEventWindow, compareClubEvents } from "../../features/group/clubEventWindow";
 import "./ClubSurface.css";
-import { LockKeyhole, Users } from "lucide-react";
+import { Flag, LockKeyhole, Pencil, Trash2, Users } from "lucide-react";
 import { isActiveEventRegistration } from "../../features/event/activeRegistration";
 import { isEventHost } from "../../features/event/eventHost";
 import Modal from "../../components/Modal";
@@ -31,7 +31,7 @@ import GroupSubNav from "../../components/group/GroupSubNav";
 import RideCard from "../../components/group/RideCard";
 import Avatar from "../../components/Avatar";
 import { EmptyState, ErrorState, LoadingSkeleton } from "../../components/redesign";
-import { DropdownSelect, Button, Card, Chip, Text, buttonClass, Textarea } from "../../theme/components";
+import { DropdownSelect, Button, Card, Chip, IconButton, Text, buttonClass, Textarea } from "../../theme/components";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 interface UpcomingEvent {
@@ -377,12 +377,61 @@ export default function GroupDashboardPage() {
           <p className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-3)" }}>{t("dashboard.posts.empty")}</p>
         ) : (
           <ul className="space-y-2" style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {posts.map((post) => (
+            {posts.map((post) => {
+              // 관리자이거나 내 일반 글이면 삭제, 아니면 신고. 수정 권한도 같다.
+              const canDeletePost = canManage || (post.kind === "post" && post.authorId === user?.uid);
+              return (
               <li key={post.id} style={{ padding: "10px 12px", border: "1px solid var(--line-soft)", borderRadius: "var(--r-md)" }}>
                 <div className="flex items-center mb-1" style={{ gap: "var(--space-2)" }}>
                   {post.kind === "announcement" && <Chip style={{ color: "var(--amber)", fontSize: "var(--ft-body-size)" }}>{t("dashboard.posts.announcement")}</Chip>}
                   <span className="text-[length:var(--ft-body-size)] font-semibold" style={{ color: "var(--ink-1)" }}>{post.authorName || t("dashboard.posts.memberFallback")}</span>
                   {post.createdAt > 0 && <span className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-4)" }}>{new Date(post.createdAt).toLocaleDateString(i18n.language)}</span>}
+                  {/* 수정·삭제·신고는 글 아래 글자 버튼 대신 머리줄 오른쪽 작은 아이콘으로 둔다. 권한 판정은 그대로. */}
+                  {editingPostId !== post.id && currentMemberRole !== null && (
+                    <span className="flex items-center ms-auto" style={{ gap: "var(--space-1)" }}>
+                      {canDeletePost && (
+                        <IconButton
+                          data-testid="C1-3-3"
+                          size="sm"
+                          variant="ghost"
+                          disabled={savingPost}
+                          aria-label={t("dashboard.posts.edit")}
+                          title={t("dashboard.posts.edit")}
+                          icon={<Pencil size={ICON_SIZE.sm} />}
+                          onClick={() => { setEditingPostId(post.id); setEditingContent(post.content); }}
+                        />
+                      )}
+                      {(canManage || post.kind === "post" || post.authorId !== user?.uid) && (
+                        <IconButton
+                          data-testid="C1-3-4"
+                          size="sm"
+                          variant="ghost"
+                          disabled={postActionBusy}
+                          aria-label={canDeletePost ? t("dashboard.posts.delete") : t("dashboard.posts.report")}
+                          title={canDeletePost ? t("dashboard.posts.delete") : t("dashboard.posts.report")}
+                          icon={canDeletePost ? <Trash2 size={ICON_SIZE.sm} /> : <Flag size={ICON_SIZE.sm} />}
+                          onClick={async () => {
+                          if (!user || postActionBusy) return;
+                          const uid = user.uid; const intent = editIntent.current;
+                          const isCurrent = () => editIntent.current === intent && auth.currentUser?.uid === uid;
+                          const deleting = canDeletePost;
+                          if (deleting && !(await dialog.confirm(t("dashboard.posts.deleteConfirm"), { destructive: true }))) return;
+                          if (!deleting) { setReportingPostId(post.id); return; }
+                          if (!isCurrent()) return;
+                          setPostActionBusy(true);
+                          try {
+                            await ensureAppCheckReady();
+                            if (!isCurrent()) return;
+                            await httpsCallable(functions, "deleteGroupPost")({ groupId, postId: post.id });
+                            if (!isCurrent()) return;
+                            if (!deleting) showToast(t("dashboard.posts.reported"));
+                          } catch (error) { if (!isCurrent()) return; logClientError("GroupDashboardPage.postAction", error, { groupId, postId: post.id }); showToast(t("dashboard.posts.actionFailed"), "error"); }
+                          finally { if (isCurrent()) setPostActionBusy(false); }
+                          }}
+                        />
+                      )}
+                    </span>
+                  )}
                 </div>
                 {editingPostId === post.id ? (
                   <div className="space-y-2">
@@ -405,35 +454,11 @@ export default function GroupDashboardPage() {
                     </div>
                   </div>
                 ) : (
-                  <>
-                    <p className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{post.content}</p>
-                    {currentMemberRole !== null && (canManage || post.kind === "post" || post.authorId !== user?.uid) && <button data-testid="C1-3-4" type="button" disabled={postActionBusy} className={buttonClass({ variant: "ghost", size: "sm" })} onClick={async () => {
-                      if (!user || postActionBusy) return;
-                      const uid = user.uid; const intent = editIntent.current;
-                      const isCurrent = () => editIntent.current === intent && auth.currentUser?.uid === uid;
-                      const deleting = canManage || (post.kind === "post" && post.authorId === user?.uid);
-                      if (deleting && !(await dialog.confirm(t("dashboard.posts.deleteConfirm"), { destructive: true }))) return;
-                      if (!deleting) { setReportingPostId(post.id); return; }
-                      if (!isCurrent()) return;
-                      setPostActionBusy(true);
-                      try {
-                        await ensureAppCheckReady();
-                        if (!isCurrent()) return;
-                        await httpsCallable(functions, "deleteGroupPost")({ groupId, postId: post.id });
-                        if (!isCurrent()) return;
-                        if (!deleting) showToast(t("dashboard.posts.reported"));
-                      } catch (error) { if (!isCurrent()) return; logClientError("GroupDashboardPage.postAction", error, { groupId, postId: post.id }); showToast(t("dashboard.posts.actionFailed"), "error"); }
-                      finally { if (isCurrent()) setPostActionBusy(false); }
-                    }}>{canManage || (post.kind === "post" && post.authorId === user?.uid) ? t("dashboard.posts.delete") : t("dashboard.posts.report")}</button>}
-                    {currentMemberRole !== null && (canManage || (post.kind === "post" && post.authorId === user?.uid)) && (
-                      <button data-testid="C1-3-3" type="button" className={`${buttonClass({ variant: "ghost", size: "sm" })} ms-2`} disabled={savingPost} onClick={() => { setEditingPostId(post.id); setEditingContent(post.content); }}>
-                        {t("dashboard.posts.edit")}
-                      </button>
-                    )}
-                  </>
+                  <p className="text-[length:var(--ft-body-size)]" style={{ color: "var(--ink-2)", margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{post.content}</p>
                 )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </Card>
@@ -495,13 +520,15 @@ export default function GroupDashboardPage() {
                 </Link>
                 <div className="flex items-center" style={{ gap: "var(--space-1)" }}>
                   {e.isHost && (e.meeting || e.status === "OPEN") && (
+                    // 주최자 수정은 글자 버튼 대신 연필 아이콘 링크로 둔다. 접근 이름은 기존 문구 그대로.
                     <Link
                       data-testid="club-dashboard-edit"
                       to={e.meeting ? `/club/${groupId}/meetings/${e.id}/edit` : `/event/${e.id}/host/edit`}
-                      className={buttonClass({ variant: "secondary", size: "sm" })}
-                      style={{ whiteSpace: "nowrap" }}
+                      className={buttonClass({ variant: "ghost", size: "sm", iconOnly: true })}
+                      aria-label={e.meeting ? (i18n.language.startsWith("en") ? "Edit meeting" : "모임 수정") : t("event:action.editEvent")}
+                      title={e.meeting ? (i18n.language.startsWith("en") ? "Edit meeting" : "모임 수정") : t("event:action.editEvent")}
                     >
-                      {e.meeting ? (i18n.language.startsWith("en") ? "Edit meeting" : "모임 수정") : t("event:action.editEvent")}
+                      <span className="ds-btn__icon" aria-hidden><Pencil size={ICON_SIZE.sm} /></span>
                     </Link>
                   )}
                   {e.status === "OPEN" && (

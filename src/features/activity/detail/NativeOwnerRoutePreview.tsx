@@ -6,7 +6,9 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useFirebaseServices } from "../../../contexts/FirebaseServicesContext";
 import { loadActivityRouteEvidence } from "../../../services/activityRouteEvidence";
 import RouteMap from "../../../components/RouteMap";
+import { Route } from "lucide-react";
 import { Button, Text } from "../../../theme";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 
 export function boundedRoutePreview(points: ReadonlyArray<{ lat: number; lon: number }>): [number, number][] {
   const count = Math.min(200, points.length);
@@ -54,7 +56,8 @@ function Preview({ activityId, uid, t }: { activityId: string; uid: string; t: T
   }
   if (state === "denied") return null;
   return <section data-native-owner-route-preview className="mt-3">
-    {state !== "ready" && state !== "empty" && <Button size="sm" variant="outline" loading={state === "loading"} disabled={state === "loading"} onClick={() => void load()}>{t(state === "error" ? "page.ownerRoutePreview.retry" : "page.ownerRoutePreview.load")}</Button>}
+    {/* 안내 문장 아래 작은 글자 버튼(아이콘 포함) — 한 줄 전체 버튼 대신 */}
+    {state !== "ready" && state !== "empty" && <Button size="sm" variant="ghost" leadingIcon={<Route size={ICON_SIZE.sm} />} loading={state === "loading"} disabled={state === "loading"} onClick={() => void load()}>{t(state === "error" ? "page.ownerRoutePreview.retry" : "page.ownerRoutePreview.load")}</Button>}
     {state === "ready" && <><Text as="p" variant="bodyMedium" tone="secondary">{t("page.ownerRoutePreview.scope")}</Text><div style={{ height: 280, width: "100%" }}><RouteMap latlng={points} height="h-full" showRouteEndpoints interactive /></div></>}
     {(state === "empty" || state === "error") && <Text as="p" variant="bodyMedium" tone="secondary">{t(`page.ownerRoutePreview.${state}`)}</Text>}
   </section>;

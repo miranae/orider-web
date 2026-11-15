@@ -3,7 +3,9 @@ import type { ActivityRangeAnalysisResponse } from "@shared/types/activity-range
 import type { HrZoneBoundaries } from "@shared/training/hrZoneTable";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Input, Stack, Stat, Text, ToggleButton, ToggleControls } from "../../../theme";
+import { RefreshCw } from "lucide-react";
+import { Button, IconButton, Input, Stack, Stat, Text, ToggleButton, ToggleControls } from "../../../theme";
+import { ICON_SIZE } from "../../../theme/tokens/icon";
 import { useLocale } from "../../../contexts/LocaleContext";
 import { useActivityRangeAnalysis } from "../../../hooks/useActivityRangeAnalysis";
 import type { ActivityRangeSelectionModel } from "../../../hooks/useActivityRangeSelection";
@@ -151,8 +153,9 @@ export function ActivityRangeAnalysisReading({ selection, sport, analysis, previ
     <Text as="h3" variant="subtitle">{t("rangeAnalysis.title")}</Text>
     {analysis.state === "available" && metrics && <Text as="p" variant="bodyMedium" tone="secondary">{t(previewActive ? "rangeAnalysis.canonicalPreviewBasis" : "rangeAnalysis.canonicalBasis")}</Text>}
     {(selection.locationUnavailable || selection.clippedBoundary) && <Text as="p" variant="bodyMedium" tone="secondary">{t(selection.locationUnavailable ? "rangeAnalysis.locationUnavailable" : "rangeAnalysis.clippedLocation")}</Text>}
-    {!metrics ? <div role="status" className="space-y-3"><Text as="p" variant="bodyMedium" tone="secondary">{t(analysis.reason === "api_unavailable" ? "rangeAnalysis.apiUnavailable" : `rangeAnalysis.${analysis.state}`)}</Text>
-      {analysis.reason === "source_reload_required" && onReloadSource && <Button variant="secondary" size="sm" onClick={onReloadSource}>{t("rangeAnalysis.reloadSource")}</Button>}
+    {/* 활동 원본 새로고침은 상태 문구 옆 아이콘 버튼으로 둔다. */}
+    {!metrics ? <div role="status" className="space-y-3"><div className="flex items-center gap-2"><Text as="p" variant="bodyMedium" tone="secondary">{t(analysis.reason === "api_unavailable" ? "rangeAnalysis.apiUnavailable" : `rangeAnalysis.${analysis.state}`)}</Text>
+      {analysis.reason === "source_reload_required" && onReloadSource && <IconButton size="sm" variant="ghost" aria-label={t("rangeAnalysis.reloadSource")} title={t("rangeAnalysis.reloadSource")} icon={<RefreshCw size={ICON_SIZE.sm} />} onClick={onReloadSource} />}</div>
       {analysis.reason === "request_failed" && <Button variant="secondary" size="sm" onClick={analysis.retry}>{t("page.retry")}</Button>}</div>
       : <>
         <div className="activity-range-stats">
