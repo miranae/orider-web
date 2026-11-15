@@ -248,7 +248,8 @@ function PaceDecayChart({ laps }: { laps?: ActivityStreams["laps"] }) {
   );
 }
 
-// ── CSS 갱신 안내 카드 ────────────────────────────────────────────────────────
+// ── 세션 기준 CSS 추정 카드 ──────────────────────────────────────────────────
+// 갱신 조건을 판정하는 데이터가 없다 — 세션 평균 페이스로 본 추정값만 보여 주고 단정하지 않는다.
 
 function CssUpdateCard({ summary }: { summary: ActivitySummary }) {
   const { t } = useTranslation("activity");

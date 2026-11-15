@@ -3,6 +3,8 @@ import type { User } from "firebase/auth";
 import { Sparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button, Card, Text } from "../../theme/components";
+import { Resolvable } from "../../components/redesign";
+import { bodyInfoHref } from "../../services/focusTarget";
 import { getCoachRidePlanAiContext, isCoachClientError, loadCoachRidePlan } from "../../services/coachClient";
 import { logClientError } from "../../services/errorLogger";
 import { isCoachRidePlanRespondToken,
@@ -174,7 +176,10 @@ function RidePlanContent({ state, plan, aiEnabled, questionState, onRetry, onQue
   }
   if (plan.status !== "ok" || !plan.estimate) {
     return <div className="course-ride-plan__notice" role="status">
-      <Text as="p" variant="bodySmall">{t(`ridePlan.state.${plan.status === "missing_pdc" ? "missingPdc" : "missingWeight"}`)}</Text>
+      {/* 주인 전용 카드 — 빠진 입력 문구를 누르면 그 입력을 채우는 화면으로 간다. */}
+      <Text as="p" variant="bodySmall"><Resolvable resolve={{ to: plan.status === "missing_pdc" ? "/settings/connections" : bodyInfoHref() }}>
+        {t(`ridePlan.state.${plan.status === "missing_pdc" ? "missingPdc" : "missingWeight"}`)}
+      </Resolvable></Text>
     </div>;
   }
   return <>

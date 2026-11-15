@@ -23,6 +23,8 @@ import RunAnalysisPanel from "./activity/RunAnalysisPanel";
 import ServerMetricsBanner from "./activity/ServerMetricsBanner";
 import { buildCyclingDynamicsCards, type CyclingDynamicsCardDescriptor } from "../features/activity/detail/cyclingDynamicsPresentation";
 import { LocalizedLink as Link } from "./LocalizedLink";
+import { FOCUS_TARGETS, thresholdSettingsHref } from "../services/focusTarget";
+import { Resolvable } from "./redesign";
 import { buildClimbSegmentProposalPath } from "../features/segmentCreation/climbPromotion";
 import {
   POLARIZATION_DESCRIPTION,
@@ -642,12 +644,13 @@ export default function AnalysisTab({
       {/* FTP/maxHR 기본값 경고 */}
       {hasPower && !hasFtp && (
         <div className="rounded-[var(--r-lg)] px-4 py-2.5 text-[length:var(--fs-xs)]" style={{ background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', color: 'var(--amber)' }}>
-          {t("overviewEvidence.ftpMissing")}
+          {/* 주인이 누르면 FTP 칸으로 — 저장하면 과거 분석에도 다시 반영된다. 남에게는 해결 경로가 없어 글자 그대로. */}
+          <Resolvable resolve={isOwner ? { to: thresholdSettingsHref("bike", FOCUS_TARGETS.ftp) } : undefined}>{t("overviewEvidence.ftpMissing")}</Resolvable>
         </div>
       )}
       {hrContextMissing && (
         <div className="rounded-[var(--r-lg)] px-4 py-2.5 text-[length:var(--fs-xs)]" style={{ background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', color: 'var(--amber)' }}>
-          {t("overviewEvidence.hrContextMissing")}
+          <Resolvable resolve={isOwner ? { to: thresholdSettingsHref(sport === "run" || sport === "swim" ? sport : "bike", FOCUS_TARGETS.maxHr) } : undefined}>{t("overviewEvidence.hrContextMissing")}</Resolvable>
         </div>
       )}
 

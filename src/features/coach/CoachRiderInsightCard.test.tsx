@@ -1,9 +1,13 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { User } from "firebase/auth";
 import parity from "./__fixtures__/rider-insight-parity.json";
 import { parseCoachRiderInsight } from "../../services/coachRiderInsightContract";
 import { CoachRiderInsightCard } from "./CoachRiderInsightCard";
+import { MemoryRouter } from "react-router-dom";
+
+// 경고의 해결 링크(LocalizedLink)가 라우터 안에서 그려진다.
+const render: typeof rtlRender = ((ui: Parameters<typeof rtlRender>[0], options?: Parameters<typeof rtlRender>[1]) => rtlRender(ui, { wrapper: MemoryRouter, ...options })) as typeof rtlRender;
 const mocks = vi.hoisted(() => ({
   enabled: true,
   state: { insight: null as ReturnType<typeof parseCoachRiderInsight> | null, loading: false, unavailable: false },
@@ -56,5 +60,19 @@ describe("CoachRiderInsightCard", () => {
     render(<div><span>existing-fitness-pdc</span><CoachRiderInsightCard user={user} discipline="bike" onQuestionSelect={vi.fn()} /></div>);
     expect(screen.getByText("existing-fitness-pdc")).toBeInTheDocument();
     expect(screen.getByText(/기존 피트니스 PDC 결과는 그대로/)).toBeInTheDocument();
+  });
+
+  it("makes the 「체중 필요」 chip and its sentence open the weight field", () => {
+    mocks.state = { insight: insight("missing_weight"), loading: false, unavailable: false };
+    render(<CoachRiderInsightCard user={user} discipline="bike" onQuestionSelect={vi.fn()} />);
+    const links = screen.getAllByRole("link");
+    expect(links.map((link) => link.textContent)).toEqual(["체중 필요", "W/kg 계산에 필요한 체중이 없어 라이더 유형을 확정하지 않습니다."]);
+    links.forEach((link) => expect(link).toHaveAttribute("href", expect.stringContaining("/settings/account?focus=weight")));
+  });
+
+  it("leaves other states as plain text", () => {
+    mocks.state = { insight: insight("low_confidence"), loading: false, unavailable: false };
+    render(<CoachRiderInsightCard user={user} discipline="bike" onQuestionSelect={vi.fn()} />);
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });

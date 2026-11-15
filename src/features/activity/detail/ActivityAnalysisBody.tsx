@@ -6,7 +6,8 @@ import AnalysisTab, { type ActivityAnalysisSections } from "../../../components/
 import type { useActivityOverview } from "../../../hooks/useActivityOverview";
 import GlossaryProvider from "../../../components/common/GlossaryProvider";
 import GlossaryText from "../../../components/common/GlossaryText";
-import { Link } from "react-router-dom";
+import { LocalizedLink } from "../../../components/LocalizedLink";
+import { activityThresholdHref } from "./activityThresholdHref";
 import FuelSplitBar from "../../../components/FuelSplitBar";
 import { Button, Chip, Disclosure, Section, Stack, Stat, Text } from "../../../theme/components";
 import { criticalDistribution, PowerZoneReadings } from "./PowerZoneReadings";
@@ -146,7 +147,7 @@ export default function ActivityAnalysisBody(props: Props) {
         {fitness && (post ? <FitnessShift prior={fitness} post={post} rowLabel={key => <GlossaryText>{fitnessName(key)}</GlossaryText>} metricName={fitnessName}
           priorCaption={`${copy("beforeLegend")} · ${form(fitness)} · ${fitness.asOf}`} postCaption={`${label("after")} · ${form(post)} · ${post.asOf}`} />
           : <>{facts((["ctl", "atl", "tsb"] as const).map(key => [fitnessName(key), num(fitness[key])]))}{note(`${form(fitness)} · ${fitness.asOf}`)}</>)}
-        {p?.thresholdBasis === "none" && <div className="activity-analysis-comparison">{note(copy(isOwner ? "thresholdMissing" : "thresholdMissingOther"))}{isOwner && <Link to="/coach/condition?sport=bike#thresholds">{copy("thresholdMissingCta")}</Link>}</div>}
+        {p?.thresholdBasis === "none" && <div className="activity-analysis-comparison">{note(copy(isOwner ? "thresholdMissing" : "thresholdMissingOther"))}{isOwner && <LocalizedLink data-testid="analysis-threshold-cta" to={activityThresholdHref(p.session.discipline)}>{copy("thresholdMissingCta")}</LocalizedLink>}</div>}
         {p && !p.personal?.length && p.availability?.personal && p.availability.personal !== "available" && note(label(`personalStates.${p.availability.personal}`))}
         {personal(["sessionLoad", ...(p?.personal ?? []).filter(row => !["sessionLoad", "highIntensityExposure", "cadenceVariability", "paceVariability", "muscularLoad"].includes(row.axis)).map(row => row.axis)])}
         {currentFtp != null && note(`${t("detail.analysisTopics.ftpBasis")} ${num(currentFtp, " W")}`)}
