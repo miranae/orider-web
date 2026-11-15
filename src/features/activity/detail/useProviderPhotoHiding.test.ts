@@ -90,6 +90,20 @@ describe("탭 복귀 때 숨김 목록 새로 읽기(다른 탭 변경 반영)",
     await act(async () => { resolvers[0](stored(["1"])); });
     expect(view.result.current.hiddenIds).toEqual(["2"]);
   });
+  it("저장 중 탭에 복귀하면 조회를 미뤘다가 저장이 끝난 뒤 조회해, 저장 결과를 버리지 않는다", async () => {
+    let resolveSave!: (ids: string[]) => void;
+    hide.mockReturnValue(new Promise<string[]>(r => { resolveSave = r; }));
+    getDoc.mockResolvedValue(stored(["1"]));
+    const view = live({ activityId: "a", uid: "me", documentHiddenIds: [] });
+    let pending!: Promise<void>;
+    act(() => { pending = view.result.current.change(["1"], true); });
+    await showTab();
+    expect(getDoc).not.toHaveBeenCalled();
+    await act(async () => { resolveSave(["1"]); await pending; });
+    expect(view.result.current.hiddenIds).toEqual(["1"]);
+    await waitFor(() => expect(getDoc).toHaveBeenCalledTimes(1));
+    expect(view.result.current.hiddenIds).toEqual(["1"]);
+  });
   it("저장 요청보다 먼저 시작한 조회의 늦은 응답은 저장 결과를 덮지 않는다", async () => {
     let resolveRead!: (value: unknown) => void;
     getDoc.mockReturnValue(new Promise(r => { resolveRead = r; }));

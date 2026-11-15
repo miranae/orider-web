@@ -38,6 +38,11 @@ export function useProviderPhotoHiding(input: {
   const [latest, setLatest] = useState<{ generation: number; sequence: number; ids: string[] } | null>(null);
   const [busy, setBusy] = useState<{ generation: number } | null>(null);
   const callbacks = useRef(input); callbacks.current = input;
+  // 저장 중에 시작한 조회는 저장 전 목록을 읽을 수 있고, 순번이 더 커서 저장 결과를 버리게 만든다.
+  // 그래서 저장 중 탭 복귀는 기록만 해 두고 저장이 끝난 뒤 한 번 조회한다.
+  const saving = useRef<number | null>(null);
+  const refreshAfterSave = useRef(false);
+  const refreshNow = useRef<(() => void) | null>(null);
 
   /** 시작 순번이 지금까지 쓴 어떤 값보다 나중일 때만 결과를 쓴다. */
   const apply = (requestGeneration: number, requestSequence: number, ids: string[]) => {
@@ -50,14 +55,19 @@ export function useProviderPhotoHiding(input: {
     if (!refreshEnabled || !firestore || !activityId || typeof document === "undefined") return;
     const refresh = () => {
       if (document.visibilityState !== "visible") return;
+      if (saving.current === generation) { refreshAfterSave.current = true; return; }
       const requestGeneration = generation, requestSequence = ++sequence.current;
       getDoc(doc(firestore, "activities", activityId)).then(snapshot => {
         const data = snapshot.data();
         if (data) apply(requestGeneration, requestSequence, hiddenProviderPhotoIds(data as { userId?: string; hiddenProviderPhotosV1?: unknown }));
       }).catch(error => logClientError("useProviderPhotoHiding.refresh", error, { activityId }));
     };
+    refreshNow.current = refresh;
     document.addEventListener("visibilitychange", refresh);
-    return () => document.removeEventListener("visibilitychange", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      if (refreshNow.current === refresh) refreshNow.current = null;
+    };
   }, [refreshEnabled, firestore, activityId, generation]);
 
   const isBusy = busy?.generation === generation;
@@ -65,6 +75,7 @@ export function useProviderPhotoHiding(input: {
     if (!activityId || !photoIds.length || isBusy) return;
     const target = activityId, requestGeneration = generation, requestSequence = ++sequence.current;
     setBusy({ generation: requestGeneration });
+    saving.current = requestGeneration; refreshAfterSave.current = false;
     try {
       const ids = await setProviderPhotosHidden(services, target, photoIds, hidden);
       if (scope.current.generation !== requestGeneration) return;
@@ -74,6 +85,10 @@ export function useProviderPhotoHiding(input: {
       callbacks.current.onError(error, { activityId: target, hidden, count: photoIds.length });
     } finally {
       setBusy(previous => previous?.generation === requestGeneration ? null : previous);
+      if (saving.current === requestGeneration) {
+        saving.current = null;
+        if (refreshAfterSave.current) { refreshAfterSave.current = false; refreshNow.current?.(); }
+      }
     }
   };
   const current = latest && latest.generation === generation && latest.sequence > documentStamp.current.sequence ? latest : null;
