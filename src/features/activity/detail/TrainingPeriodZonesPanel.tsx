@@ -11,6 +11,8 @@ import type { TrainingAnalysisPeriodsResponse, PeriodHrZoneGroup, PeriodPowerZon
 import BikeObservedPeriodRecordsPanel from "../../fitness/components/BikeObservedPeriodRecordsPanel";
 import { Button, Text } from "../../../theme";
 import { formatElapsedBoundary } from "./activityRangeSelection";
+import { Resolvable } from "../../../components/redesign";
+import { FOCUS_TARGETS, thresholdSettingsHref } from "../../../services/focusTarget";
 
 function ZoneGroup({ group }: { group: PeriodHrZoneGroup | PeriodPowerZoneGroup }) {
   const { t } = useTranslation("activity");
@@ -52,7 +54,7 @@ function ManualRunningPaceZones({ response, ownerUid }: { response: TrainingAnal
         {"candidateActivityCount" in pace && <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.coverage", { ...pace })}</Text>}
         <details className="space-y-2"><summary className="cursor-pointer list-item font-semibold min-h-[calc(var(--dim-button-height)+var(--space-1))]">{t("runningPaceZones.periodEvidence")}</summary>
             <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.exactBounds", { from: exactTime(period.fromInclusive), to: exactTime(period.toExclusive) })}</Text>
-            {"candidateActivityCount" in pace && <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.unavailableCounts", { ...pace })}</Text>}
+            {"candidateActivityCount" in pace && <Text as="p" variant="bodyMedium" tone="secondary"><Resolvable resolve={pace.thresholdMissingActivityCount > 0 ? { to: thresholdSettingsHref("run", FOCUS_TARGETS.thresholdPace) } : undefined}>{t("runningPaceZones.unavailableCounts", { ...pace })}</Resolvable></Text>}
             <Text as="p" variant="bodyMedium" tone="secondary">{t("runningPaceZones.savedCountsNote")}</Text>
           </details>
         {"candidateActivityCount" in pace ? <>

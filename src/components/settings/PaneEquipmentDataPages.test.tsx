@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -52,6 +52,7 @@ vi.mock("./LayoutEditorCard", () => ({
 }));
 
 import { PaneEquipment } from "./PaneEquipment";
+import { revealFocusTarget } from "../../services/focusTarget";
 
 function profile(id: string, name: string) {
   return {
@@ -102,6 +103,14 @@ describe("PaneEquipment 데이터 페이지", () => {
     expect(screen.queryByTestId("bike-data-pages-road")).toBeNull();
     expect(screen.queryByRole("spinbutton")).toBeNull();
     expect(screen.getAllByRole("link").some((link) => link.getAttribute("href")?.includes("/settings/device"))).toBe(true);
+  });
+
+  it("활동의 가상 파워 칩이 가리키는 칸(virtual-power)은 기기 화면의 가상 파워 스위치다", () => {
+    renderPane("/settings/device?focus=virtual-power");
+    const targets = document.querySelectorAll<HTMLElement>('[data-focus-target="virtual-power"]');
+    expect(targets).toHaveLength(1);
+    expect(revealFocusTarget(targets[0]!)).toBe(true);
+    expect(within(targets[0]!).getByRole("switch")).toHaveFocus();
   });
 
   it("기기 자전거에는 이름 편집과 삭제를 숨기고 프로필 장비에 보존한다", () => {

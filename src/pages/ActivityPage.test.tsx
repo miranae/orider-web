@@ -1174,6 +1174,27 @@ describe("ActivityPage", () => {
     expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toHaveLength(0);
   });
 
+  it("「다시 시도해 주세요」 실패 문구를 누르면 버튼과 같은 흐름을 다시 돈다 — 새 버튼은 없다", async () => {
+    const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
+    setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
+    vi.mocked(getDocs).mockRejectedValueOnce(new Error("index unavailable"));
+    setCallableResult("createCourseFromActivity", { data: { courseId: "course-after-retry" } });
+    setCallableResult("sendCourseToApp", { data: {} });
+
+    await act(async () => { renderWithProviders(<ActivityPage />, { authenticated: true, route: "/ko/activity/test-activity?tab=segments" }); });
+    fireEvent.click(await screen.findByRole("button", { name: "이 경로로 라이드" }));
+    const alert = await screen.findByRole("alert");
+    const message = within(alert).getByRole("button", { name: /기존 코스를 확인하지 못했습니다/ });
+    expect(within(alert).getAllByRole("button")).toHaveLength(1);
+    fireEvent.click(message);
+
+    expect(await findSentButton()).toBeDisabled();
+    expect(screen.queryByText(/기존 코스를 확인하지 못했습니다/)).not.toBeInTheDocument();
+    expect(mockCallableInvocations.filter(({ name }) => name === "sendCourseToApp")).toEqual([
+      { name: "sendCourseToApp", data: { courseId: "course-after-retry" } },
+    ]);
+  });
+
   it("keeps an ambiguous pending intent across remounts and performs lookup only", async () => {
     const activity = createMockActivity({ id: "test-activity", thumbnailTrack: "encoded-route" });
     setDocData("activities/test-activity", activity as unknown as Record<string, unknown>);
