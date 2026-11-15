@@ -221,4 +221,14 @@ describe("PaneEquipment 데이터 페이지", () => {
     renderPane();
     expect(screen.queryByRole("link", { name: /kg/ })).toBeNull();
   });
+  it("기기 자전거의 활성으로 전환은 글자 없는 별 아이콘 버튼이다", () => {
+    renderPane("/settings/device?profileId=gravel");
+    const buttons = screen.getAllByRole("button", { name: "활성으로" });
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]).toHaveClass("ds-btn--icon-only");
+    expect(buttons[0]).toHaveAttribute("title", "활성으로");
+    expect(buttons[0]).toHaveAttribute("aria-pressed", "false");
+    expect(buttons[0]!.textContent).toBe("");
+  });
+
 });

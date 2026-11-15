@@ -72,6 +72,7 @@
     "photoUploading": "업로드 중…",
     "photoChange": "사진 변경",
     "photoDelete": "사진 삭제",
+    "photoDeleteConfirm": "프로필 사진을 삭제할까요?",
     "friendCodeLabel": "친구 코드",
     "stravaConnected": "Strava 연결됨",
     "noName": "이름 없음",

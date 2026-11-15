@@ -154,6 +154,11 @@ describe("separate threshold and private medical writes", () => {
  it("confirms the unchanged 70kg through the revision command without an automatic write on open", async () => {
    render(<ProfileBodyEditor />);
    await waitFor(() => expect(screen.getByRole("button", { name: "training.confirmWeight" })).toBeEnabled());
+   const confirmWeight = screen.getByRole("button", { name: "training.confirmWeight" });
+   expect(confirmWeight).toHaveClass("ds-btn--icon-only");
+   expect(confirmWeight).toHaveAttribute("title", "training.confirmWeight");
+   expect(confirmWeight.textContent).toBe("");
+   expect(confirmWeight.parentElement).toContainElement(screen.getByLabelText("training.fieldWeight"));
    expect(mocks.metricCommand).not.toHaveBeenCalled();
    fireEvent.click(screen.getByRole("button", { name: "training.confirmWeight" }));
    await waitFor(() => expect(mocks.metricCommand).toHaveBeenCalledWith({ mutationId: expect.any(String), patch: { weightKg: 70 },
@@ -172,6 +177,11 @@ it.each([
   render(<PaneThresholds />);
   await waitFor(() => expect(screen.getByRole("button", { name: "training.confirmThreshold" })).toBeEnabled());
   expect(screen.getByLabelText(label)).toBeInTheDocument();
+  const confirmThreshold = screen.getByRole("button", { name: "training.confirmThreshold" });
+  expect(confirmThreshold).toHaveClass("ds-btn--icon-only");
+  expect(confirmThreshold).toHaveAttribute("title", "training.confirmThreshold");
+  expect(confirmThreshold.textContent).toBe("");
+  expect(confirmThreshold.parentElement).toContainElement(screen.getByLabelText(label));
   expect(mocks.persist).not.toHaveBeenCalled();
   expect(mocks.metricCommand).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "training.confirmThreshold" }));
@@ -204,6 +214,10 @@ describe("compact body reference beside FTP settings", () => {
     expect(screen.getByTestId("K1-5-3")).toContainElement(reference);
     expect(reference.querySelector("input")).toBeNull();
     expect(screen.getByRole("link", { name: "training.editBody" })).toHaveAttribute("href", "/settings/account#body-info");
+    // 신체 정보 수정은 글자 없는 연필 아이콘 링크
+    expect(screen.getByRole("link", { name: "training.editBody" })).toHaveClass("ds-btn--icon-only");
+    expect(screen.getByRole("link", { name: "training.editBody" })).toHaveAttribute("title", "training.editBody");
+    expect(screen.getByRole("link", { name: "training.editBody" }).textContent).toBe("");
     expect(mocks.persist).not.toHaveBeenCalled();
     expect(mocks.metricCommand).not.toHaveBeenCalled();
     expect(mocks.updateDoc).not.toHaveBeenCalled();
