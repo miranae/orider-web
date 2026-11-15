@@ -185,7 +185,7 @@ describe("useBikeProfileLayout 충돌 해소", () => {
 
     let outcome: unknown;
     await act(async () => {
-      outcome = await result.current.resolveConflict("remote", { remoteRevision: 7, remotePayload }, [page]);
+      outcome = await result.current.resolveConflict({ remoteRevision: 7, remotePayload });
     });
 
     expect(outcome).toEqual({ status: "synced", revision: 7 });
@@ -196,20 +196,5 @@ describe("useBikeProfileLayout 충돌 해소", () => {
     expect(mocks.saveLayout).not.toHaveBeenCalled();
     expect(result.current.revision).toBe(7);
     expect(result.current.source).toBe("canonical");
-  });
-
-  it("내 구성으로 덮어쓰기는 원격 revision 을 기대값으로 내 구성을 저장한다", async () => {
-    const { result } = renderHook(() => useBikeProfileLayout("uid-a", "road", [page]));
-    act(() => mocks.subscriptions[0]!.next(remoteSnap("road", 5)));
-    await waitFor(() => expect(result.current.revision).toBe(5));
-
-    await act(async () => {
-      await result.current.resolveConflict("mine", { remoteRevision: 7, remotePayload }, [page]);
-    });
-
-    expect(mocks.removeIntent).toHaveBeenCalledWith("m-road");
-    expect(mocks.saveLayout).toHaveBeenCalledOnce();
-    expect(mocks.saveLayout.mock.calls[0]![0]).toMatchObject({ profileId: "road", expectedRevision: 7 });
-    expect(result.current.revision).toBe(8);
   });
 });

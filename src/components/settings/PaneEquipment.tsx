@@ -5,7 +5,7 @@ import { LayoutEditorCard } from "./LayoutEditorCard";
 import { useBikeProfileLayout } from "../../hooks/useBikeProfileLayout";
 import { DEFAULT_DATA_PAGE_CONFIG } from "@shared/types/deviceSettings";
 import { useSearchParams } from "react-router-dom";
-import type { DataPageConfig, LayoutConfig } from "@shared/types/deviceSettings";
+import type { DataPageConfig } from "@shared/types/deviceSettings";
 import { useTranslation } from "react-i18next";
 import { Bike as BikeIcon, Check, Pencil, Trash2, X } from "lucide-react";
 
@@ -33,6 +33,7 @@ import { GearShoeStatus } from "./GearShoeStatus";
 import { GearKitSection } from "./GearKitSection";
 import { LocalizedLink } from "../LocalizedLink";
 import { Alert, Button, DropdownSelect, Text } from "../../theme/components";
+import { Resolvable } from "../redesign";
 import { ICON_SIZE } from "../../theme/tokens/icon";
 
 const CDA_PRESETS = [
@@ -718,15 +719,11 @@ function BikeDataPagesPanel({
     profile.id,
     DEFAULT_DATA_PAGE_CONFIG.pages,
   );
-  // 충돌 해소 대기 — 다른 기기의 최신 구성과 내가 저장하려던 구성을 함께 들고 사용자 선택을 기다린다.
-  const [conflict, setConflict] = useState<{
-    remoteRevision: number;
-    remotePayload: string;
-    minePages: LayoutConfig[];
-  } | null>(null);
+  // 충돌 해소 대기 — 다른 기기가 먼저 저장한 최신 구성. 충돌 문구를 누르면 그 구성을 불러온다(내 편집은 버린다).
+  const [conflict, setConflict] = useState<{ remoteRevision: number; remotePayload: string } | null>(null);
   const [resolving, setResolving] = useState(false);
 
-  function reportResult(result: Awaited<ReturnType<typeof save>>, minePages: LayoutConfig[]) {
+  function reportResult(result: Awaited<ReturnType<typeof save>>) {
     // 결과마다 사용자가 할 일이 다르다 — "저장 실패" 하나로 뭉치면 다시 눌러야 하는지,
     // 다른 기기 편집을 받아야 하는지, 대상이 사라졌는지 구분할 수 없다(§6.1).
     switch (result.status) {
@@ -737,8 +734,8 @@ function BikeDataPagesPanel({
         showToast(t("equipment.dataPagesSyncing"));
         break;
       case "conflict":
-        // 기존 충돌 문구는 고를 수 있는 패널에 그대로 남긴다(토스트로 사라지면 고를 수 없다).
-        setConflict({ remoteRevision: result.remoteRevision, remotePayload: result.remotePayload, minePages });
+        // 충돌 문구는 사라지는 토스트 대신 편집기 위에 남긴다 — 누르기 전까지 이 자전거 저장이 막혀 있다.
+        setConflict({ remoteRevision: result.remoteRevision, remotePayload: result.remotePayload });
         break;
       case "targetDeleted":
         showToast(t("equipment.dataPagesTargetDeleted"));
@@ -749,17 +746,17 @@ function BikeDataPagesPanel({
   }
 
   async function handleSave(next: DataPageConfig) {
-    reportResult(await save(next.pages), next.pages);
+    reportResult(await save(next.pages));
   }
 
-  async function handleResolve(choice: "remote" | "mine") {
+  async function loadLatest() {
     if (!conflict || resolving) return;
     setResolving(true);
     try {
-      const result = await resolveConflict(choice, conflict, conflict.minePages);
+      const result = await resolveConflict(conflict);
       setConflict(null);
-      // 최신 구성 불러오기는 편집기가 바뀌는 것으로 끝난다 — 따로 알리지 않는다.
-      if (choice === "mine" || result.status !== "synced") reportResult(result, conflict.minePages);
+      // 최신 구성 불러오기는 편집기가 바뀌는 것으로 끝난다 — 실패만 알린다.
+      if (result.status !== "synced") reportResult(result);
     } finally {
       setResolving(false);
     }
@@ -788,16 +785,12 @@ function BikeDataPagesPanel({
         </div>
       )}
       {conflict && (
-        <Alert variant="warning" title={t("equipment.dataPagesConflict")} data-testid="bike-data-pages-conflict" style={{ marginBottom: "var(--space-3)" }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
-            <Button size="sm" variant="primary" disabled={resolving} onClick={() => void handleResolve("remote")}>
-              {t("equipment.dataPagesConflictLoadLatest")}
-            </Button>
-            <Button size="sm" variant="outline" disabled={resolving} onClick={() => void handleResolve("mine")}>
-              {t("equipment.dataPagesConflictKeepMine")}
-            </Button>
-          </div>
-        </Alert>
+        <Alert
+          variant="warning"
+          title={<Resolvable resolve={resolving ? undefined : { onClick: () => void loadLatest() }}>{t("equipment.dataPagesConflict")}</Resolvable>}
+          data-testid="bike-data-pages-conflict"
+          style={{ marginBottom: "var(--space-3)" }}
+        />
       )}
       {config && (
         <LayoutEditorCard config={config} onSave={handleSave} readOnly={!canSave || !!conflict || resolving} />

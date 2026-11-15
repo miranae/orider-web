@@ -160,39 +160,26 @@ describe("PaneEquipment 데이터 페이지", () => {
     expect(screen.getByTestId("bike-data-pages-status").textContent).toBeTruthy();
   });
 
-  /** 「무엇을 남길지 정해 주세요」에는 실제로 고를 수 있는 버튼이 있어야 한다. */
-  it("저장 충돌이면 최신 구성 불러오기와 내 구성으로 덮어쓰기를 고를 수 있다", async () => {
-    const conflict = { status: "conflict", remoteRevision: 9, remotePayload: "{remote}" };
-    mocks.save.mockResolvedValue(conflict);
+  /** 충돌 문구 자체를 누르면 다른 기기가 저장한 최신 구성을 불러온다 — 따로 고르는 버튼은 없다. */
+  it("저장 충돌 문구를 누르면 최신 구성을 불러오고 편집기 잠금을 푼다", async () => {
+    mocks.save.mockResolvedValue({ status: "conflict", remoteRevision: 9, remotePayload: "{remote}" });
     mocks.resolveConflict.mockResolvedValue({ status: "synced", revision: 9 });
     renderPane("/settings/equipment?profileId=road&panel=data-pages");
 
     await userEvent.click(await screen.findByRole("button", { name: "mock-save" }));
     const panel = await screen.findByTestId("bike-data-pages-conflict");
-    // 고르기 전에는 편집기를 잠가 다른 기기 구성 위에 새 저장이 쌓이지 않게 한다.
+    // 누르기 전에는 편집기를 잠가 다른 기기 구성 위에 새 저장이 쌓이지 않게 한다.
     expect(screen.getByTestId("layout-editor").dataset.readonly).toBe("true");
-    await userEvent.click(within(panel).getByRole("button", { name: "최신 구성 불러오기" }));
+    const buttons = within(panel).getAllByRole("button");
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]).toHaveTextContent("다른 기기에서 먼저 저장했어요.");
+    await userEvent.click(buttons[0]!);
 
     await waitFor(() => expect(mocks.resolveConflict).toHaveBeenCalledWith(
-      "remote",
       expect.objectContaining({ remoteRevision: 9, remotePayload: "{remote}" }),
-      [{ columns: 2, rows: 2, fields: [] }],
     ));
     await waitFor(() => expect(screen.queryByTestId("bike-data-pages-conflict")).toBeNull());
     expect(screen.getByTestId("layout-editor").dataset.readonly).toBe("false");
-  });
-
-  it("내 구성으로 덮어쓰기는 내가 저장하려던 구성으로 해소한다", async () => {
-    mocks.save.mockResolvedValue({ status: "conflict", remoteRevision: 4, remotePayload: "{remote}" });
-    mocks.resolveConflict.mockResolvedValue({ status: "synced", revision: 5 });
-    renderPane("/settings/equipment?profileId=road&panel=data-pages");
-
-    await userEvent.click(await screen.findByRole("button", { name: "mock-save" }));
-    await userEvent.click(within(await screen.findByTestId("bike-data-pages-conflict")).getByRole("button", { name: "내 구성으로 덮어쓰기" }));
-
-    await waitFor(() => expect(mocks.resolveConflict).toHaveBeenCalledWith(
-      "mine", expect.objectContaining({ remoteRevision: 4 }), [{ columns: 2, rows: 2, fields: [] }],
-    ));
   });
 
   it("돌아가기는 목록으로 되돌린다", async () => {
