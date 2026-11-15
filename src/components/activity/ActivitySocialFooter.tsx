@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSignInResolve } from "../../hooks/useSignInResolve";
 import { useTranslation } from "react-i18next";
 import { Heart, MessageCircle } from "lucide-react";
 import { Button, Textarea } from "../../theme/components";
@@ -31,6 +32,7 @@ export default function ActivitySocialFooter({ activity, presentation = "default
   const { t } = useTranslation("activity");
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  const signInResolve = useSignInResolve();
   const { showToast } = useToast();
 
   const services = useFirebaseServices();
@@ -234,7 +236,11 @@ export default function ActivitySocialFooter({ activity, presentation = "default
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && (!feed || e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); handleSubmitComment(); } }}
-              disabled={!user || commentSubmitting}
+              // 로그인 전엔 「로그인 후 댓글을 남길 수 있어요」 입력칸 자체를 누르면 로그인 창을 연다.
+              // 앱 임베드처럼 로그인 경로가 없으면 예전처럼 잠가 둔다.
+              readOnly={!user && signInResolve !== undefined}
+              onClick={!user && signInResolve ? (e: React.MouseEvent) => { e.stopPropagation(); signInResolve.onClick?.(); } : undefined}
+              disabled={(!user && signInResolve === undefined) || commentSubmitting}
               placeholder={user ? t("card.commentPlaceholder") : t("card.commentLoginRequired")}
               className={feed ? "activity-social-comment-input" : "flex-1 px-3 py-1.5 rounded-[var(--r-md)] text-[length:var(--fs-sm)] focus:outline-none focus:ring-2 focus:ring-[var(--lime)]"}
               style={feed ? undefined : { background: "var(--bg-2)", border: "1px solid var(--line)", color: "var(--ink-1)" }}

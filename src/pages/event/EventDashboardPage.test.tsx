@@ -16,9 +16,9 @@ const listeners = vi.hoisted(() => ({
 const translate = vi.hoisted(() => (key: string) => key);
 const firebaseAuth = vi.hoisted(() => ({ currentUser: { uid: "host-1" } as { uid: string } | null }));
 
-vi.mock("react-router-dom", () => ({ useParams: () => ({ eventId: "event-1" }) }));
+vi.mock("react-router-dom", async importOriginal => ({ ...await importOriginal<typeof import("react-router-dom")>(), useParams: () => ({ eventId: "event-1" }) }));
 vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: translate }) }));
-vi.mock("../../hooks/useLocalizedNavigate", () => ({ useLocalizedNavigate: () => vi.fn() }));
+vi.mock("../../hooks/useLocalizedNavigate", () => ({ useLocalizedNavigate: () => vi.fn(), useLocalizedPath: (path: string) => `/ko${path}` }));
 vi.mock("../../contexts/AuthContext", () => ({ useAuth: () => ({ user: { uid: "host-1" }, loading: false }) }));
 vi.mock("../../contexts/DialogContext", () => ({ useDialog: () => ({ confirm: vi.fn(), alert: vi.fn() }) }));
 vi.mock("../../services/firebase", () => ({ auth: firebaseAuth, firestore: {}, functions: {}, getAppCheckToken: vi.fn(), ensureAppCheckReady: vi.fn() }));
@@ -52,6 +52,7 @@ vi.mock("../../components/RouteMap", () => ({ default: () => null }));
 vi.mock("../../components/event/ParticipantTable", () => ({ default: ({ locations }: { locations: Array<{ displayName: string }> }) => <div>{locations.map(location => location.displayName).join(", ")}</div> }));
 vi.mock("./privateSnapshotPages", () => ({ loadPrivateSnapshotWithRetry: () => new Promise(resolve => { listeners.pageResolve = resolve; }) }));
 
+import { MemoryRouter } from "react-router-dom";
 import EventDashboardPage from "./EventDashboardPage";
 
 describe("EventDashboardPage read failures", () => {
@@ -170,8 +171,11 @@ describe("EventDashboardPage read failures", () => {
   });
   it("an unrelated RIDER cannot enter or read private map data", async () => {
     listeners.creatorId = "creator-elsewhere"; listeners.role = "RIDER";
-    render(<EventDashboardPage />);
+    render(<MemoryRouter initialEntries={["/ko/event/event-1/host"]}><EventDashboardPage /></MemoryRouter>);
     expect(await screen.findByText("host.permissionDenied")).toBeInTheDocument();
+    // 권한 없음 문구 자체를 누르면 이벤트로 돌아간다 — 설명·버튼은 덧붙이지 않는다.
+    expect(screen.getByRole("link", { name: "host.permissionDenied" })).toHaveAttribute("href", "/ko/event/event-1");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(listeners.privateSubscriptions).toBe(0);
     expect(screen.queryByRole("button", { name: /button.finish/ })).not.toBeInTheDocument();
   });

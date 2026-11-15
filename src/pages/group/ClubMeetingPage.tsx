@@ -136,6 +136,7 @@ export default function ClubMeetingPage({
           "이 모임의 주최자만 수정할 수 있어요.",
           "Only this meeting’s host can edit it.",
         )}
+        resolve={{ to: `/club/${groupId}/meetings/${meetingId}` }}
       />
     );
   const kinds = [
