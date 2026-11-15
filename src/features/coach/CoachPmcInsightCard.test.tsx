@@ -78,7 +78,7 @@ describe("CoachPmcInsightCard", () => {
 
   it.each(["stale", "missing"] as const)("disables every question for %s data", (status) => {
     mocks.state = { insight: insight(status), loading: false, unavailable: false };
-    render(<CoachPmcInsightCard user={user} discipline="bike" onQuestionSelect={vi.fn()} />);
+    render(<MemoryRouter><CoachPmcInsightCard user={user} discipline="bike" onQuestionSelect={vi.fn()} /></MemoryRouter>);
     expect(screen.getAllByRole("button")).toHaveLength(2);
     screen.getAllByRole("button").forEach((button) => expect(button).toBeDisabled());
   });

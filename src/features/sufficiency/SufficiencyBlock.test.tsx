@@ -258,6 +258,8 @@ describe("경고 문구를 누르면 해결 칸으로", () => {
     const block = sufficiencyBlock({ state: "low_evidence", nextAction: { code: "confirm_weight" },
       source: { basis: "measured", assumedInputs: ["weightKg"] } });
     renderUi(<SufficiencyInline set={sufficiencySet([block])} block={block} testId="A" />);
+    // focus=weight 링크 3개: 「가정값」 칩, 가정값 설명, 못 채운 요건 행(sufficiency.req.weight.not_met — REQUIREMENT_TARGETS.weight).
+    // 행동 줄(ActionLine)의 confirm_weight 는 기존 계약대로 #body-info 라 이 필터에 들지 않는다.
     const assumed = screen.getAllByRole("link").filter(link => link.getAttribute("href")?.includes("focus=weight"));
     expect(assumed.map(link => link.textContent)).toEqual(["가정값", "체중을 기본값으로 계산했어요", "체중을 직접 입력하거나 확인해 주세요"]);
   });
